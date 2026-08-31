@@ -30,13 +30,29 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files (public template is intentionally committed)
 .env*
+!.env.example
 
 # vercel
 .vercel
 
 /dist/
+/dist-beget/
 /.wrangler/
 /outputs/
 /work/
+
+# Beget runtime data and secrets
+/server/config.php
+/server/var/
+/deploy-private/
+
+# Android signing material
+*.jks
+*.keystore
+
+# Generated install packages (release notes remain versioned)
+/releases/*.apk
+/releases/*.aab
+!/releases/README.md

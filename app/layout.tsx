@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import "./globals.css";
 
@@ -17,8 +17,21 @@ export async function generateMetadata(): Promise<Metadata> {
     description:
       "Современный эллинистический альманах: 360 дней порядка, Апейрон и планирование в ритме стихий.",
     applicationName: "GENESIS",
+    manifest: "/manifest.webmanifest",
     category: "productivity",
     keywords: ["календарь", "планировщик", "эллинизм", "лунный календарь", "GENESIS"],
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: "black-translucent",
+      title: "GENESIS",
+    },
+    icons: {
+      icon: [
+        { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+        { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+      ],
+      apple: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
+    },
     openGraph: {
       title: "GENESIS — сакральный календарь",
       description: "360 дней порядка, Апейрон и лунный ритм.",
@@ -34,6 +47,13 @@ export async function generateMetadata(): Promise<Metadata> {
     },
   };
 }
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#07171b",
+};
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (

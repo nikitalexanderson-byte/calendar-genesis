@@ -1,0 +1,19 @@
+Options -Indexes
+
+RewriteEngine On
+RewriteRule ^api(?:/|$) - [L]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . index.html [L]
+
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+</IfModule>
+
+<FilesMatch "\.(?:js|css|png|ico|webp|svg|woff2)$">
+  <IfModule mod_headers.c>
+    Header set Cache-Control "public, max-age=604800, immutable"
+  </IfModule>
+</FilesMatch>

@@ -36,6 +36,7 @@ export type MoonInfo = {
   day: number;
   icon: string;
   epithet: string;
+  direction: "Восходящая луна" | "Нисходящая луна";
   phase: string;
   event: string;
   illumination: number;
@@ -226,11 +227,16 @@ export function getMoon(date: Date): MoonInfo {
     "Последняя четверть",
     "Старый серп",
   ];
-  const epithet = age < 10 ? "Артемида" : age < 20 ? "Селена" : "Геката";
-  const event = age < 1.5 || age > MOON_CYCLE - 1.5
-    ? "Новая луна"
-    : age >= 13.5 && age <= 16.2
-      ? "Полная луна"
+  const halfCycle = MOON_CYCLE / 2;
+  const isNewMoon = age < 1.5 || age > MOON_CYCLE - 1.5;
+  const isFullMoon = Math.abs(age - halfCycle) <= 1.5;
+  const isWaxing = age < halfCycle;
+  const epithet = isNewMoon ? "Геката" : isWaxing ? "Артемида" : "Геката";
+  const direction = isWaxing && !isNewMoon ? "Восходящая луна" : "Нисходящая луна";
+  const event = isNewMoon
+    ? "Торжество Гекаты · новолуние"
+    : isFullMoon
+      ? "Торжество Артемиды · полнолуние"
       : "";
 
   return {
@@ -238,6 +244,7 @@ export function getMoon(date: Date): MoonInfo {
     day: Math.floor(age) + 1,
     icon: icons[phaseIndex],
     epithet,
+    direction,
     phase: phaseNames[phaseIndex],
     event,
     illumination: Math.round(((1 - Math.cos(2 * Math.PI * fraction)) / 2) * 100),
