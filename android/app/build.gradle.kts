@@ -5,7 +5,7 @@ plugins {
 }
 
 val genesisUrl = providers.gradleProperty("genesisUrl")
-    .orElse("https://genesis.example.com/")
+    .orElse("https://genesiscalendar.ru/")
     .get()
 val genesisUri = URI(genesisUrl)
 require(genesisUri.scheme == "https" && !genesisUri.host.isNullOrBlank()) {

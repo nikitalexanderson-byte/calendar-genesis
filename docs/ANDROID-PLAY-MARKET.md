@@ -16,17 +16,17 @@ Android-проект находится в `android/`:
 
 ```powershell
 cd android
-.\gradlew.bat :app:assembleDebug -PgenesisUrl=https://genesis.example.com/
-.\gradlew.bat :app:bundleRelease -PgenesisUrl=https://genesis.example.com/
+.\gradlew.bat :app:assembleDebug -PgenesisUrl=https://genesiscalendar.ru/
+.\gradlew.bat :app:bundleRelease -PgenesisUrl=https://genesiscalendar.ru/
 ```
 
 ## Что требуется перед публичным релизом
 
-1. Постоянный HTTPS-поддомен Beget. IP-адрес для Google OAuth не подходит.
-2. OAuth-клиент типа Web application с callback `https://<domain>/api/auth/google/callback` и включённым Google Calendar API.
+1. Постоянный HTTPS-домен `genesiscalendar.ru` на Beget.
+2. OAuth-клиент типа Web application с callback `https://genesiscalendar.ru/api/auth/google/callback` и включённым Google Calendar API.
 3. Политика конфиденциальности, адрес поддержки и заполненный OAuth consent screen.
 4. Upload key вне репозитория и включённый Play App Signing.
-5. SHA-256 сертификата в `android/assetlinks.json.template`, опубликованный как `https://<domain>/.well-known/assetlinks.json`.
+5. SHA-256 сертификата в `android/assetlinks.json.template`, опубликованный как `https://genesiscalendar.ru/.well-known/assetlinks.json`.
 6. Проверка APK на устройстве, затем `.aab` во внутреннем тестировании Play Console.
 
 Пока Digital Asset Links не опубликован, APK безопасно откроет сайт как Custom Tab. После подтверждения связи домена и сертификата интерфейс станет полноэкранным TWA-приложением.

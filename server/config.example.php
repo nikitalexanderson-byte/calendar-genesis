@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 return [
-    'app_url' => 'https://genesis.example.com',
+    'app_url' => 'https://genesiscalendar.ru',
     'google_client_id' => '',
     'google_client_secret' => '',
     'crypto_key' => '',

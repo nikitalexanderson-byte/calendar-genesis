@@ -26,7 +26,7 @@ Google OAuth для веб-приложений требует точного HT
 Необходимые значения `server/config.php`:
 
 ```php
-'app_url' => 'https://genesis.example.com',
+'app_url' => 'https://genesiscalendar.ru',
 'google_client_id' => '...',
 'google_client_secret' => '...',
 'cookie_secure' => true,
@@ -35,7 +35,7 @@ Google OAuth для веб-приложений требует точного HT
 Разрешённый redirect URI:
 
 ```text
-https://genesis.example.com/api/auth/google/callback
+https://genesiscalendar.ru/api/auth/google/callback
 ```
 
 ## Синхронизация

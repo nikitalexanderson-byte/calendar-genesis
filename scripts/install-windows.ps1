@@ -1,5 +1,5 @@
 param(
-  [string]$Url = "https://genesis-sacred-calendar.nikitalexanderson.chatgpt.site/"
+  [string]$Url = "https://genesiscalendar.ru/"
 )
 
 $desktopValue = (Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders").Desktop
