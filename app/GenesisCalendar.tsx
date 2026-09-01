@@ -70,8 +70,8 @@ const USER_STORAGE_PREFIX = "genesis-calendar-v2:";
 const LAST_USER_KEY = "genesis-last-user-v2";
 
 const NAVIGATION: Array<{ id: ViewName; label: string; symbol: string }> = [
-  { id: "projects", label: "Проекты", symbol: "◇" },
   { id: "today", label: "Сегодня", symbol: "☉" },
+  { id: "projects", label: "Проекты", symbol: "◇" },
   { id: "calendar", label: "Месяц", symbol: "◫" },
   { id: "year", label: "Круг года", symbol: "◎" },
   { id: "stoicheion", label: "Стойхейон", symbol: "ϟ" },
@@ -283,6 +283,7 @@ export function GenesisCalendar() {
   const [editingProjectTags, setEditingProjectTags] = useState("");
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [editingTaskTags, setEditingTaskTags] = useState("");
+  const [planManagerOpen, setPlanManagerOpen] = useState(false);
   const [openDayTaskPopover, setOpenDayTaskPopover] = useState("");
   const tasksRef = useRef<Task[]>([]);
   const projectsRef = useRef<GenesisProject[]>([]);
@@ -321,6 +322,7 @@ export function GenesisCalendar() {
   const navigateTo = (nextView: ViewName, replace = false) => {
     setOpenDayTaskPopover("");
     setAccountMenuOpen(false);
+    setPlanManagerOpen(false);
     setView(nextView);
     const nextUrl = new URL(window.location.href);
     nextUrl.hash = nextView;
@@ -351,6 +353,7 @@ export function GenesisCalendar() {
       setOpenDayTaskPopover("");
       setAccountMenuOpen(false);
       setAccountOpen(false);
+      setPlanManagerOpen(false);
       setView(viewFromHash());
       window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "auto" }));
     };
@@ -1406,7 +1409,7 @@ export function GenesisCalendar() {
               <h2>{formatGregorian(selectedDate, true)}</h2>
               <div><strong>{dayTasks.filter((task) => !task.done).length}</strong><span>осталось</span></div>
               <div><strong>{dayTasks.filter((task) => task.done).length}</strong><span>завершено</span></div>
-              <button type="button" className="primary-button" onClick={() => navigateTo("calendar")}>Открыть план →</button>
+              <button type="button" className="primary-button" onClick={() => setPlanManagerOpen(true)}>Открыть план</button>
             </section>
           </aside>
         </div>
@@ -1853,6 +1856,53 @@ export function GenesisCalendar() {
           </button>
         ))}
       </nav>
+      {planManagerOpen ? (
+        <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setPlanManagerOpen(false); }}>
+          <section className="editor-modal plan-manager-modal" role="dialog" aria-modal="true" aria-labelledby="plan-manager-title">
+            <button type="button" className="modal-close" onClick={() => setPlanManagerOpen(false)} aria-label="Закрыть">×</button>
+            <span className="eyebrow">План на день</span>
+            <h2 id="plan-manager-title">{formatGregorian(selectedDate, true)}</h2>
+            <label className="plan-date-picker">
+              <span>Выбрать день</span>
+              <input type="date" value={selectedDateValue} onChange={(event) => {
+                const date = new Date(`${event.target.value}T12:00:00`);
+                if (Number.isNaN(date.getTime())) return;
+                const sacred = getSacredDate(date);
+                setSacredYear(sacred.sacredYear);
+                setMonthIndex(sacred.monthIndex);
+                setSelectedDay(sacred.day);
+              }} />
+            </label>
+            <div className="plan-manager-grid">
+              <section>
+                <header><strong>Дела и задачи</strong><span>{dayTasks.length}</span></header>
+                <div className="plan-manager-list">
+                  {dayTasks.length ? dayTasks.map((task) => (
+                    <article key={task.id} className={task.done ? "done" : ""}>
+                      <button type="button" className="task-check" onClick={() => toggleTask(task.id)}>{task.done ? "✓" : ""}</button>
+                      <button type="button" onClick={() => { setPlanManagerOpen(false); openTaskEditor(task); }}><strong>{task.title}</strong><small>{task.time || "В течение дня"}{task.project ? ` · ${task.project}` : ""}</small></button>
+                    </article>
+                  )) : <p>На этот день задач пока нет.</p>}
+                </div>
+              </section>
+              <section>
+                <header><strong>Проекты и планы</strong><span>{projects.length}</span></header>
+                <div className="plan-manager-list">
+                  {flattenProjects(projects).map(({ project, depth }) => (
+                    <button type="button" key={project.id} style={{ "--project-depth": depth } as CSSProperties} onClick={() => { setPlanManagerOpen(false); openProjectEditor(project); }}>
+                      <strong>{project.title}</strong><small>{project.description || "Открыть и отредактировать проект"}</small>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            </div>
+            <div className="editor-actions">
+              <button type="button" className="text-button" onClick={() => setPlanManagerOpen(false)}>Закрыть</button>
+              <button type="button" className="primary-button" onClick={() => { setPlanManagerOpen(false); navigateTo("projects"); }}>Все проекты и новые задачи</button>
+            </div>
+          </section>
+        </div>
+      ) : null}
       {editingTask ? (
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditingTask(null); }}>
           <form className="editor-modal" role="dialog" aria-modal="true" aria-labelledby="task-editor-title" onSubmit={saveTaskEdit}>

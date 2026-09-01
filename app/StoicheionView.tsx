@@ -605,9 +605,9 @@ export function StoicheionView() {
               </div>
             ) : (
               <div className="stoicheion-nine-preview" aria-hidden="true">
-                <span className="stoicheion-compass-rose"><b>С</b><b>В</b><b>Ю</b><b>З</b></span>
+                <span className="stoicheion-compass-rose" />
                 <div>
-                  {PREVIEW_POSITIONS.map((position) => <i key={position.id}>{position.shortDirection}</i>)}
+                  {PREVIEW_POSITIONS.map((position) => <i key={position.id}>{position.id === "center" ? "" : position.shortDirection}</i>)}
                 </div>
               </div>
             )}
