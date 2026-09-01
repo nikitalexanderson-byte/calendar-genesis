@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent,
 } from "react";
 import { createPortal } from "react-dom";
@@ -23,7 +24,26 @@ type StoredDailyDraw = {
   dayKey: string;
   letterId: string;
   seed: number;
+  reversed: boolean;
 };
+
+type MotionMode = "daily" | "spread";
+
+type MotionTracker = {
+  mode: MotionMode;
+  seed: number;
+  travel: number;
+  lastX: number | null;
+  lastY: number | null;
+  replaceCurrent: boolean;
+};
+
+type SelectedReading = {
+  letter: StoicheionLetter;
+  reversed: boolean | null;
+};
+
+const MOTION_TRAVEL_REQUIRED = 280;
 
 type SpreadPosition = {
   id: string;
@@ -128,6 +148,22 @@ export function buildStoicheionSpread<T>(cards: readonly T[], seed: number, size
   return pool.slice(0, Math.min(size, pool.length));
 }
 
+export function isStoicheionCardReversed(seed: number, position = 0) {
+  const orientationSeed = (seed ^ Math.imul(position + 1, 0x27d4eb2d)) >>> 0;
+  return seededRandom(orientationSeed)() < 0.5;
+}
+
+export function buildStoicheionSpreadReading<T>(cards: readonly T[], seed: number, size = 9) {
+  return buildStoicheionSpread(cards, seed, size).map((letter, index) => ({
+    letter,
+    reversed: isStoicheionCardReversed(seed, index + 1),
+  }));
+}
+
+function orientationLabel(reversed: boolean) {
+  return reversed ? "Перевёрнутое положение" : "Парадное положение";
+}
+
 export function pythmenFromTotal(total: number) {
   return total === 0 ? 0 : 1 + ((total - 1) % 9);
 }
@@ -172,9 +208,11 @@ function splitContentBlock(block: string) {
 
 function LetterDetails({
   letter,
+  reversed,
   onClose,
 }: {
   letter: StoicheionLetter;
+  reversed: boolean | null;
   onClose: () => void;
 }) {
   useEffect(() => {
@@ -208,6 +246,11 @@ function LetterDetails({
             <span className="eyebrow">{String(letter.order).padStart(2, "0")} · значение {letter.value} · Пифмен {letter.pythmen}</span>
             <h2 id={`letter-${letter.id}-title`}>{letter.name}</h2>
             <p>{letter.tagline}</p>
+            {reversed !== null ? (
+              <mark className={`stoicheion-dialog-orientation${reversed ? " is-reversed" : ""}`}>
+                {orientationLabel(reversed)}
+              </mark>
+            ) : null}
             {letter.source === "editorial-placeholder" ? <mark>Временное дополнение: описание отсутствовало в исходном файле</mark> : null}
           </div>
         </header>
@@ -230,10 +273,13 @@ function LetterDetails({
 
 export function StoicheionView() {
   const entropy = useRef(INITIAL_ENTROPY);
+  const motionTracker = useRef<MotionTracker | null>(null);
+  const motionField = useRef<HTMLButtonElement | null>(null);
   const [pointer, setPointer] = useState({ x: 50, y: 24 });
   const [dailyDraw, setDailyDraw] = useState<StoredDailyDraw | null>(null);
-  const [spreadVisible, setSpreadVisible] = useState(false);
-  const [selectedLetter, setSelectedLetter] = useState<StoicheionLetter | null>(null);
+  const [spreadSeed, setSpreadSeed] = useState<number | null>(null);
+  const [motion, setMotion] = useState<{ mode: MotionMode; progress: number } | null>(null);
+  const [selectedReading, setSelectedReading] = useState<SelectedReading | null>(null);
   const [storageReady, setStorageReady] = useState(false);
   const today = useMemo(() => new Date(), []);
   const dayKey = useMemo(() => localDayKey(today), [today]);
@@ -241,6 +287,18 @@ export function StoicheionView() {
     () => new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(today),
     [today],
   );
+  const motionActive = motion !== null;
+
+  useEffect(() => {
+    if (!motionActive) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const focusFrame = window.requestAnimationFrame(() => motionField.current?.focus());
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [motionActive]);
 
   useEffect(() => {
     let active = true;
@@ -256,7 +314,15 @@ export function StoicheionView() {
             && typeof parsed.seed === "number"
             && STOICHEION_LETTERS.some((letter) => letter.id === parsed.letterId)
           ) {
-            setDailyDraw({ dayKey, letterId: parsed.letterId, seed: parsed.seed >>> 0 });
+            const seed = parsed.seed >>> 0;
+            setDailyDraw({
+              dayKey,
+              letterId: parsed.letterId,
+              seed,
+              reversed: typeof parsed.reversed === "boolean"
+                ? parsed.reversed
+                : isStoicheionCardReversed(seed),
+            });
           }
         }
       } catch {
@@ -271,10 +337,12 @@ export function StoicheionView() {
   const dailyLetter = dailyDraw
     ? STOICHEION_LETTERS.find((letter) => letter.id === dailyDraw.letterId) ?? null
     : null;
-  const spreadLetters = useMemo(
-    () => dailyDraw ? buildStoicheionSpread(STOICHEION_LETTERS, dailyDraw.seed) : [],
-    [dailyDraw],
+  const spreadCards = useMemo(
+    () => spreadSeed === null ? [] : buildStoicheionSpreadReading(STOICHEION_LETTERS, spreadSeed),
+    [spreadSeed],
   );
+  const spreadLetters = spreadCards.map((card) => card.letter);
+  const spreadVisible = spreadSeed !== null;
   const spreadTotal = spreadLetters.reduce((sum, letter) => sum + letter.value, 0);
   const spreadPythmen = pythmenFromTotal(spreadTotal);
   const spreadTrace = pythmenTrace(spreadTotal);
@@ -287,34 +355,122 @@ export function StoicheionView() {
     setPointer({ x, y });
   };
 
-  const drawDailyLetter = (replaceCurrent = false) => {
-    const browserEntropy = new Uint32Array(1);
-    if (typeof crypto !== "undefined" && crypto.getRandomValues) {
-      crypto.getRandomValues(browserEntropy);
-    } else {
-      browserEntropy[0] = Date.now() >>> 0;
-    }
-    let seed = mixStoicheionEntropy(
-      entropy.current ^ browserEntropy[0],
-      pointer.x,
-      pointer.y,
-      performance.now(),
-    );
+  const saveDailyDraw = (seedValue: number, replaceCurrent: boolean) => {
+    let seed = seedValue;
     let letter = selectStoicheionCard(STOICHEION_LETTERS, seed);
     if (replaceCurrent && letter?.id === dailyDraw?.letterId) {
       seed = (seed + 1) >>> 0;
       letter = selectStoicheionCard(STOICHEION_LETTERS, seed);
     }
     if (!letter) return;
-    const draw = { dayKey, letterId: letter.id, seed };
+    const draw = {
+      dayKey,
+      letterId: letter.id,
+      seed,
+      reversed: isStoicheionCardReversed(seed),
+    };
     setDailyDraw(draw);
-    setSpreadVisible(false);
-    setSelectedLetter(null);
+    setSpreadSeed(null);
+    setSelectedReading(null);
     try {
       localStorage.setItem(`${DAILY_DRAW_STORAGE_PREFIX}${dayKey}`, JSON.stringify(draw));
     } catch {
       // The draw remains available for the current session if storage is blocked.
     }
+  };
+
+  const beginMotion = (mode: MotionMode, replaceCurrent = false) => {
+    const baseSeed = mode === "spread"
+      ? (dailyDraw?.seed ?? entropy.current)
+      : entropy.current ^ (replaceCurrent ? (dailyDraw?.seed ?? 0) : 0);
+    const seed = mixStoicheionEntropy(baseSeed, pointer.x, pointer.y, performance.now());
+    motionTracker.current = {
+      mode,
+      seed,
+      travel: 0,
+      lastX: null,
+      lastY: null,
+      replaceCurrent,
+    };
+    setMotion({ mode, progress: 0 });
+  };
+
+  const finishMotion = (tracker: MotionTracker) => {
+    motionTracker.current = null;
+    setMotion(null);
+    entropy.current = tracker.seed;
+    if (tracker.mode === "daily") {
+      saveDailyDraw(tracker.seed, tracker.replaceCurrent);
+      return;
+    }
+    const seed = mixStoicheionEntropy(
+      tracker.seed ^ (dailyDraw?.seed ?? INITIAL_ENTROPY),
+      pointer.x,
+      pointer.y,
+      tracker.travel,
+    );
+    setSpreadSeed(seed);
+  };
+
+  const addMotion = (x: number, y: number, time: number, distance: number) => {
+    const tracker = motionTracker.current;
+    if (!tracker) return;
+    tracker.seed = mixStoicheionEntropy(tracker.seed, x, y, time);
+    tracker.travel += Math.min(Math.max(distance, 0), 70);
+    const progress = Math.min(100, Math.round((tracker.travel / MOTION_TRAVEL_REQUIRED) * 100));
+    setMotion({ mode: tracker.mode, progress });
+    if (tracker.travel >= MOTION_TRAVEL_REQUIRED) finishMotion(tracker);
+  };
+
+  const moveThroughField = (event: PointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const tracker = motionTracker.current;
+    if (!tracker) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const x = Math.min(100, Math.max(0, ((event.clientX - bounds.left) / bounds.width) * 100));
+    const y = Math.min(100, Math.max(0, ((event.clientY - bounds.top) / bounds.height) * 100));
+    const distance = tracker.lastX === null || tracker.lastY === null
+      ? 0
+      : Math.hypot(event.clientX - tracker.lastX, event.clientY - tracker.lastY);
+    tracker.lastX = event.clientX;
+    tracker.lastY = event.clientY;
+    setPointer({ x, y });
+    addMotion(x, y, event.timeStamp, distance);
+  };
+
+  const startTouchMotion = (event: PointerEvent<HTMLButtonElement>) => {
+    const tracker = motionTracker.current;
+    if (!tracker) return;
+    tracker.lastX = event.clientX;
+    tracker.lastY = event.clientY;
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // Pointer capture is an enhancement; movement still works without it.
+    }
+  };
+
+  const moveWithKeyboard = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
+    if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].includes(event.key)) return;
+    event.preventDefault();
+    const offsets: Record<string, [number, number]> = {
+      ArrowUp: [0, -11],
+      ArrowDown: [0, 11],
+      ArrowLeft: [-11, 0],
+      ArrowRight: [11, 0],
+      " ": [7, 7],
+    };
+    const [dx, dy] = offsets[event.key];
+    const x = Math.min(100, Math.max(0, pointer.x + dx));
+    const y = Math.min(100, Math.max(0, pointer.y + dy));
+    setPointer({ x, y });
+    addMotion(x, y, event.timeStamp, 48);
+  };
+
+  const cancelMotion = () => {
+    motionTracker.current = null;
+    setMotion(null);
   };
 
   return (
@@ -355,29 +511,34 @@ export function StoicheionView() {
             <button
               type="button"
               className="stoicheion-card-back"
-              onClick={() => drawDailyLetter()}
+              onClick={() => beginMotion("daily")}
               disabled={!storageReady}
-              aria-label="Открыть случайную букву дня"
+              aria-label="Начать выбор случайной буквы дня движением"
             >
               <span aria-hidden="true"><i>24</i></span>
-              <strong>{storageReady ? "Открыть букву" : "Подготовка…"}</strong>
-              <small>первый выбор создаст зерно расклада</small>
+              <strong>{storageReady ? "Начать выбор" : "Подготовка…"}</strong>
+              <small>затем поводите мышью или пальцем</small>
             </button>
           ) : (
             <div className="stoicheion-daily-result" aria-live="polite">
-              <button type="button" className="stoicheion-revealed-card" onClick={() => setSelectedLetter(dailyLetter)}>
-                <span>{dailyLetter.symbol}</span>
+              <button
+                type="button"
+                className={`stoicheion-revealed-card${dailyDraw?.reversed ? " is-reversed" : ""}`}
+                onClick={() => setSelectedReading({ letter: dailyLetter, reversed: dailyDraw?.reversed ?? false })}
+              >
+                <span className="stoicheion-card-glyph">{dailyLetter.symbol}</span>
                 <small>{dailyLetter.lowercase}</small>
                 <strong>{dailyLetter.name}</strong>
                 <i>Число {dailyLetter.value} · Пифмен {dailyLetter.pythmen}</i>
+                <b className="stoicheion-card-orientation">{orientationLabel(dailyDraw?.reversed ?? false)}</b>
               </button>
               <div>
                 <span className="eyebrow">Ваш знак на сегодня</span>
                 <h3>{dailyLetter.tagline}</h3>
                 <p>Выбор сохранён. Нажмите на букву, чтобы прочитать полное описание, или продолжите к раскладу девяти ликов.</p>
                 <div className="stoicheion-result-actions">
-                  <button type="button" className="stoicheion-text-button" onClick={() => setSelectedLetter(dailyLetter)}>Прочитать о букве</button>
-                  <button type="button" className="stoicheion-redraw-button" onClick={() => drawDailyLetter(true)}>
+                  <button type="button" className="stoicheion-text-button" onClick={() => setSelectedReading({ letter: dailyLetter, reversed: dailyDraw?.reversed ?? false })}>Прочитать о букве</button>
+                  <button type="button" className="stoicheion-redraw-button" onClick={() => beginMotion("daily", true)}>
                     <span aria-hidden="true">↻</span>
                     Бросить ещё раз
                   </button>
@@ -396,9 +557,9 @@ export function StoicheionView() {
                 <p>Магический квадрат 3×3 соотносит девять букв со сторонами света и архетипами человеческого бытия. Расклад выводится из зерна, записанного при выборе карты дня.</p>
               </div>
               {!spreadVisible ? (
-                <button type="button" className="stoicheion-spread-button" onClick={() => setSpreadVisible(true)}>
+                <button type="button" className="stoicheion-spread-button" onClick={() => beginMotion("spread")}>
                   <span aria-hidden="true">⊹</span>
-                  Открыть девять ликов
+                  Начать расклад
                 </button>
               ) : null}
             </header>
@@ -407,18 +568,20 @@ export function StoicheionView() {
               <div className="stoicheion-spread-reading" aria-live="polite">
                 <div className="stoicheion-spread-grid" aria-label="Расклад из девяти букв">
                   {SPREAD_POSITIONS.map((position, index) => {
-                    const letter = spreadLetters[index];
+                    const card = spreadCards[index];
+                    const letter = card.letter;
                     return (
                       <button
                         type="button"
-                        className={`stoicheion-sector sector-${position.id}`}
+                        className={`stoicheion-sector sector-${position.id}${card.reversed ? " is-reversed" : ""}`}
                         key={position.id}
-                        onClick={() => setSelectedLetter(letter)}
-                        aria-label={`${position.direction}: ${letter.name}, ${position.meaning}`}
+                        onClick={() => setSelectedReading({ letter, reversed: card.reversed })}
+                        aria-label={`${position.direction}: ${letter.name}, ${orientationLabel(card.reversed)}. ${position.meaning}`}
                       >
                         <span className="stoicheion-direction"><i>{position.shortDirection}</i>{position.direction}</span>
-                        <strong>{letter.symbol}</strong>
+                        <strong className="stoicheion-sector-glyph">{letter.symbol}</strong>
                         <small>{letter.name} · {letter.value}</small>
+                        <em>{orientationLabel(card.reversed)}</em>
                         <p>{position.meaning}</p>
                       </button>
                     );
@@ -458,7 +621,7 @@ export function StoicheionView() {
                 type="button"
                 key={letter.id}
                 className={letter.source === "editorial-placeholder" ? "is-placeholder" : ""}
-                onClick={() => setSelectedLetter(letter)}
+                onClick={() => setSelectedReading({ letter, reversed: null })}
               >
                 <i>{String(letter.order).padStart(2, "0")}</i>
                 <strong>{letter.symbol}</strong>
@@ -476,7 +639,54 @@ export function StoicheionView() {
         </footer>
       </div>
 
-      {selectedLetter ? <LetterDetails letter={selectedLetter} onClose={() => setSelectedLetter(null)} /> : null}
+      {motion && typeof document !== "undefined" ? createPortal(
+        <div
+          className="stoicheion-motion-veil"
+          role="dialog"
+          aria-modal="true"
+          aria-label={motion.mode === "daily" ? "Поле выбора карты дня" : "Поле выбора девяти карт"}
+          style={{
+            "--motion-progress": motion.progress,
+            "--motion-x": `${pointer.x}%`,
+            "--motion-y": `${pointer.y}%`,
+          } as CSSProperties}
+        >
+          <button
+            ref={motionField}
+            type="button"
+            className="stoicheion-motion-capture"
+            aria-label="Собирать случайность движением мыши, пальца или клавишами со стрелками"
+            onPointerDown={startTouchMotion}
+            onPointerMove={moveThroughField}
+            onKeyDown={moveWithKeyboard}
+          />
+          <button type="button" className="stoicheion-motion-cancel" onClick={cancelMotion} aria-label="Отменить выбор">×</button>
+          <div className="stoicheion-motion-stars" aria-hidden="true">
+            {STOICHEION_LETTERS.slice(0, 12).map((letter, index) => (
+              <i key={letter.id} style={{ "--motion-index": index } as CSSProperties}>{letter.symbol}</i>
+            ))}
+          </div>
+          <div className="stoicheion-motion-copy">
+            <span className="eyebrow">Поле случайности · движение создаёт зерно</span>
+            <h2>{motion.mode === "daily" ? "Проведите рукой над знаками" : "Соберите девять ликов движением"}</h2>
+            <p>Водите мышью по экрану или проведите пальцем несколько раз. Карта{motion.mode === "spread" ? "ы" : ""} проявится только после того, как поле соберёт достаточно движения.</p>
+            <div className="stoicheion-motion-meter" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={motion.progress}>
+              <strong>{motion.progress}%</strong>
+              <small>движение</small>
+            </div>
+            <b>{motion.progress < 35 ? "Пробуждение поля" : motion.progress < 75 ? "Знаки смешиваются" : "Образ почти проявился"}</b>
+          </div>
+        </div>,
+        document.body,
+      ) : null}
+
+      {selectedReading ? (
+        <LetterDetails
+          letter={selectedReading.letter}
+          reversed={selectedReading.reversed}
+          onClose={() => setSelectedReading(null)}
+        />
+      ) : null}
     </section>
   );
 }

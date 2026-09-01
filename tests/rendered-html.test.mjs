@@ -81,7 +81,13 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(stoicheion, /Космический круг и девять ликов силы/);
   assert.match(stoicheion, /stoicheion-spread-grid/);
   assert.match(stoicheion, /Бросить ещё раз/);
-  assert.match(stoicheion, /drawDailyLetter\(true\)/);
+  assert.match(stoicheion, /beginMotion\("daily", true\)/);
+  assert.match(stoicheion, /MOTION_TRAVEL_REQUIRED/);
+  assert.match(stoicheion, /moveThroughField/);
+  assert.match(stoicheion, /isStoicheionCardReversed/);
+  assert.match(stoicheion, /buildStoicheionSpreadReading/);
+  assert.match(stoicheion, /Перевёрнутое положение/);
+  assert.match(stoicheion, /Водите мышью по экрану или проведите пальцем/);
   assert.doesNotMatch(stoicheion, />ΣΤ</);
   assert.doesNotMatch(calendar, /Открыть →/);
   assert.match(styles, /\.calendar-month-art/);
