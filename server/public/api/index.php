@@ -78,6 +78,7 @@ try {
         $syncWarning = null;
         try {
             $tasks = genesisListGoogleTasks($user);
+            $syncWarning = genesisGoogleTasksSyncWarning();
             $user = genesisFindUser($userId) ?? $user;
         } catch (Throwable $googleError) {
             $syncWarning = $googleError->getMessage();
@@ -97,7 +98,12 @@ try {
         if ($user === null) {
             genesisJson(['error' => 'AUTH_REQUIRED'], 401);
         }
-        genesisJson(['tasks' => genesisListGoogleTasks($user), 'syncedAt' => genesisNow()]);
+        $tasks = genesisListGoogleTasks($user);
+        genesisJson([
+            'tasks' => $tasks,
+            'syncedAt' => genesisNow(),
+            'syncWarning' => genesisGoogleTasksSyncWarning(),
+        ]);
     }
 
     if ($method === 'GET' && $path === 'auth/google/start') {
@@ -200,7 +206,7 @@ try {
             genesisJson(['task' => genesisSyncTaskToGoogle($userId, $id, genesisReadJson())]);
         }
         if ($method === 'DELETE') {
-            genesisDeleteGoogleTaskEvent($userId, $id);
+            genesisDeleteGoogleTaskEvent($userId, $id, genesisReadJson());
             genesisJson(['ok' => true]);
         }
     }

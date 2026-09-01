@@ -38,14 +38,16 @@ test("server-renders the GENESIS application shell", async () => {
 });
 
 test("keeps the requested calendar and privacy features wired", async () => {
-  const [calendarData, calendar, stoicheion, stoicheionData, welcome, styles, api, repository] = await Promise.all([
+  const [calendarData, calendar, cloudSync, stoicheion, stoicheionData, welcome, styles, api, google, repository] = await Promise.all([
     readFile(new URL("../app/calendar-data.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/cloud-sync.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/StoicheionView.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/stoicheion-data.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/WelcomeScreen.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../server/public/api/index.php", import.meta.url), "utf8"),
+    readFile(new URL("../server/src/google.php", import.meta.url), "utf8"),
     readFile(new URL("../server/src/repository.php", import.meta.url), "utf8"),
   ]);
 
@@ -68,6 +70,13 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /Стойхейон/);
   assert.match(calendar, /calendar-day-task-count/);
   assert.match(calendar, /calendar-task-popover/);
+  assert.match(calendar, /Редактирование задачи/);
+  assert.match(calendar, /Редактирование проекта/);
+  assert.match(calendar, /Поиск по тегам/);
+  assert.match(calendar, /selectedDateIsPast/);
+  assert.match(calendar, /label: "Месяц"/);
+  assert.match(calendar, /Ближайшие дни/);
+  assert.match(calendar, /window\.history\.pushState/);
   assert.match(calendar, /mini-day-task-count/);
   assert.match(calendar, /data-nav-id=\{item\.id\}/);
   assert.match(stoicheionData, /STOICHEION_SOURCE_COUNT = 23/);
@@ -87,8 +96,12 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(stoicheion, /isStoicheionCardReversed/);
   assert.match(stoicheion, /buildStoicheionSpreadReading/);
   assert.match(stoicheion, /Перевёрнутое положение/);
+  assert.match(stoicheion, /PREVIEW_POSITIONS/);
+  assert.match(stoicheion, /stoicheion-compass-rose/);
   assert.match(stoicheion, /Водите мышью по экрану или проведите пальцем/);
   assert.doesNotMatch(stoicheion, />ΣΤ</);
+  assert.doesNotMatch(stoicheion, /STOICHEION_SOURCE_COUNT/);
+  assert.doesNotMatch(stoicheion, /STOICHEION_TOTAL_COUNT/);
   assert.doesNotMatch(calendar, /Открыть →/);
   assert.match(styles, /\.calendar-month-art/);
   assert.match(styles, /\.year-month::before/);
@@ -112,6 +125,10 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.doesNotMatch(api, /admin-access/);
   assert.match(repository, /nikitalexanderson@gmail\.com/);
   assert.match(repository, /genesisRequireAdmin/);
+  assert.match(google, /https:\/\/www\.googleapis\.com\/auth\/tasks/);
+  assert.match(google, /genesisSyncNativeGoogleTask/);
+  assert.match(google, /genesisGoogleTasksApi\(\s*'PATCH'/);
+  assert.match(cloudSync, /googleTaskListId/);
 
   await access(new URL("../public/month-frieze-v1.webp", import.meta.url));
   await access(new URL("../public/month-frieze-v2.png", import.meta.url));

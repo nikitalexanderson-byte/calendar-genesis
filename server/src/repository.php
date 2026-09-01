@@ -30,12 +30,14 @@ function genesisEnsureWorkspaceKey(array $user): array
 
 function genesisUserForClient(array $user): array
 {
+    $grantedScopes = preg_split('/\s+/', trim((string)($user['granted_scopes'] ?? ''))) ?: [];
     return [
         'uid' => (string)$user['id'],
         'displayName' => (string)$user['display_name'],
         'email' => (string)$user['email'],
         'photoURL' => $user['avatar_url'] ?: null,
         'calendarConnected' => !empty($user['google_calendar_id']) && !empty($user['refresh_token_enc']),
+        'googleTasksImportReady' => in_array('https://www.googleapis.com/auth/tasks', $grantedScopes, true),
         'passwordEnabled' => !empty($user['password_hash']),
         'isAdmin' => mb_strtolower((string)$user['email']) === genesisAdminEmail(),
     ];

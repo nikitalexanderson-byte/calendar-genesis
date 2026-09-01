@@ -12,8 +12,6 @@ import {
 import { createPortal } from "react-dom";
 import {
   STOICHEION_LETTERS,
-  STOICHEION_SOURCE_COUNT,
-  STOICHEION_TOTAL_COUNT,
   type StoicheionLetter,
 } from "./stoicheion-data";
 
@@ -107,6 +105,18 @@ const SPREAD_POSITIONS: readonly SpreadPosition[] = [
     shortDirection: "ЮВ",
     meaning: "Мир дикой природы и проявления Эго. Инстинкты, первичные импульсы и необузданная сила.",
   },
+] as const;
+
+const PREVIEW_POSITIONS = [
+  SPREAD_POSITIONS[1],
+  SPREAD_POSITIONS[2],
+  SPREAD_POSITIONS[5],
+  SPREAD_POSITIONS[0],
+  SPREAD_POSITIONS[4],
+  SPREAD_POSITIONS[8],
+  SPREAD_POSITIONS[3],
+  SPREAD_POSITIONS[6],
+  SPREAD_POSITIONS[7],
 ] as const;
 
 function localDayKey(date: Date) {
@@ -251,7 +261,6 @@ function LetterDetails({
                 {orientationLabel(reversed)}
               </mark>
             ) : null}
-            {letter.source === "editorial-placeholder" ? <mark>Временное дополнение: описание отсутствовало в исходном файле</mark> : null}
           </div>
         </header>
         <div className="stoicheion-letter-copy">
@@ -493,11 +502,6 @@ export function StoicheionView() {
             <h1 id="stoicheion-title">Стойхейон</h1>
             <p>Двадцать четыре буквенных образа, карта дня и «Космический круг» — расклад девяти ликов силы.</p>
           </div>
-          <dl className="stoicheion-counts" aria-label="Состав каталога">
-            <div><dt>{STOICHEION_TOTAL_COUNT}</dt><dd>основные буквы</dd></div>
-            <div><dt>{STOICHEION_SOURCE_COUNT}</dt><dd>описания из файла</dd></div>
-            <div><dt>1</dt><dd>временное дополнение</dd></div>
-          </dl>
         </header>
 
         <section className={`stoicheion-day-section${dailyLetter ? " has-draw" : ""}`} aria-labelledby="stoicheion-day-title">
@@ -601,7 +605,10 @@ export function StoicheionView() {
               </div>
             ) : (
               <div className="stoicheion-nine-preview" aria-hidden="true">
-                {SPREAD_POSITIONS.map((position) => <i key={position.id}>{position.shortDirection}</i>)}
+                <span className="stoicheion-compass-rose"><b>С</b><b>В</b><b>Ю</b><b>З</b></span>
+                <div>
+                  {PREVIEW_POSITIONS.map((position) => <i key={position.id}>{position.shortDirection}</i>)}
+                </div>
               </div>
             )}
           </section>
@@ -635,7 +642,6 @@ export function StoicheionView() {
         <footer className="stoicheion-footer">
           <span>Случайность собирается локально</span>
           <span>Карта дня хранится только на устройстве</span>
-          <span>24 буквы · сумма числовых значений 3999</span>
         </footer>
       </div>
 

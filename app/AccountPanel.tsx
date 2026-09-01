@@ -7,9 +7,10 @@ import { deleteGenesisAccount } from "./cloud-sync";
 type AccountPanelProps = {
   user: GenesisUser;
   onClose: () => void;
+  onReconnectGoogle: () => void;
 };
 
-export function AccountPanel({ user, onClose }: AccountPanelProps) {
+export function AccountPanel({ user, onClose, onReconnectGoogle }: AccountPanelProps) {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -37,6 +38,16 @@ export function AccountPanel({ user, onClose }: AccountPanelProps) {
           <article><span>Структура проектов</span><strong>Зашифрована</strong><small>AES-GCM до отправки на сервер.</small></article>
           <article><span>Офлайн-копия</span><strong>На устройстве</strong><small>Доступна без сети после входа на этом устройстве.</small></article>
         </div>
+
+        {!user.googleTasksImportReady ? (
+          <section className="account-sync-upgrade" aria-label="Синхронизация Google Tasks">
+            <div>
+              <strong>Подключите задачи Google Calendar</strong>
+              <small>Нужно один раз обновить разрешение Google, чтобы существующие задачи появились в GENESIS и редактировались в обе стороны.</small>
+            </div>
+            <button type="button" onClick={onReconnectGoogle}>Обновить доступ</button>
+          </section>
+        ) : null}
 
         <section className="account-oauth-note" aria-label="Безопасность входа">
           <h3>Безопасный вход</h3>

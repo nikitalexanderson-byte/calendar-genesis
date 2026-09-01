@@ -27,6 +27,9 @@ export type GenesisTask = {
   recurrenceInterval: number;
   syncToGoogle: boolean;
   googleEventId: string | null;
+  googleTaskId: string | null;
+  googleTaskListId: string | null;
+  googleReadOnly: boolean;
   updatedAt: number;
 };
 
@@ -36,6 +39,7 @@ export type GenesisUser = {
   email: string | null;
   photoURL: string | null;
   calendarConnected: boolean;
+  googleTasksImportReady: boolean;
   passwordEnabled: boolean;
   isAdmin: boolean;
 };
@@ -213,6 +217,9 @@ function normalizeTask(task: Partial<GenesisTask> & Pick<GenesisTask, "id" | "ti
     recurrenceInterval: 1,
     syncToGoogle: true,
     googleEventId: null,
+    googleTaskId: null,
+    googleTaskListId: null,
+    googleReadOnly: false,
     updatedAt: Date.now(),
     ...task,
   };
@@ -307,7 +314,7 @@ export function observeGenesisUser(
 
 export function signInWithGoogle() {
   if (!API_BASE) throw new Error("Сервер GENESIS ещё не подключён");
-  const returnTo = `${window.location.pathname}${window.location.search}`;
+  const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`;
   window.location.assign(`${API_BASE}/auth/google/start?return_to=${encodeURIComponent(returnTo)}`);
   return Promise.resolve();
 }
@@ -328,15 +335,15 @@ export async function deleteGenesisAccount() {
 
 export function observeCloudTasks(
   _uid: string,
-  listener: (tasks: GenesisTask[], fromCache: boolean) => void,
+  listener: (tasks: GenesisTask[], fromCache: boolean, warning: string | null) => void,
   onError: (error: Error) => void,
 ) {
   let active = true;
   const poll = async () => {
     try {
       await flushPendingMutations();
-      const result = await api<{ tasks: GenesisTask[] }>("/sync/tasks");
-      if (active) listener(result.tasks.map((task) => normalizeTask(task)), !navigator.onLine);
+      const result = await api<{ tasks: GenesisTask[]; syncWarning?: string | null }>("/sync/tasks");
+      if (active) listener(result.tasks.map((task) => normalizeTask(task)), !navigator.onLine, result.syncWarning ?? null);
     } catch (error) {
       if (active) onError(error instanceof Error ? error : new Error("Ошибка синхронизации"));
     }
@@ -363,6 +370,7 @@ export async function mergeLocalWorkspace(
   }
   const remoteById = new Map(remote.tasks.map((task) => [task.id, task]));
   for (const task of local.tasks) {
+    if (task.googleTaskId) continue;
     const remoteTask = remoteById.get(task.id);
     if (!remoteTask || task.updatedAt > remoteTask.updatedAt) {
       await saveCloudTask(_uid, task);
@@ -379,11 +387,15 @@ export async function saveCloudTask(_uid: string, task: GenesisTask) {
   return normalizeTask(result.task);
 }
 
-export async function removeCloudTask(_uid: string, taskId: string) {
-  const path = `/tasks/${encodeURIComponent(taskId)}`;
-  queueMutation({ key: `task:${taskId}`, path, method: "DELETE" });
-  await api<{ ok: boolean }>(path, { method: "DELETE" });
-  clearMutation(`task:${taskId}`);
+export async function removeCloudTask(_uid: string, task: GenesisTask) {
+  const path = `/tasks/${encodeURIComponent(task.id)}`;
+  const body = JSON.stringify({
+    googleTaskId: task.googleTaskId,
+    googleTaskListId: task.googleTaskListId,
+  });
+  queueMutation({ key: `task:${task.id}`, path, method: "DELETE", body });
+  await api<{ ok: boolean }>(path, { method: "DELETE", body });
+  clearMutation(`task:${task.id}`);
 }
 
 export function metricsFor(tasks: GenesisTask[], projects: GenesisProject[]): GenesisMetrics {
@@ -392,7 +404,7 @@ export function metricsFor(tasks: GenesisTask[], projects: GenesisProject[]): Ge
     taskCount: tasks.length,
     openTaskCount: tasks.filter((task) => !task.done).length,
     completedTaskCount: tasks.filter((task) => task.done).length,
-    googleSyncedCount: tasks.filter((task) => Boolean(task.googleEventId)).length,
+    googleSyncedCount: tasks.filter((task) => Boolean(task.googleEventId || task.googleTaskId)).length,
   };
 }
 

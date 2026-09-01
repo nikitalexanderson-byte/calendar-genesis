@@ -70,12 +70,20 @@ const USER_STORAGE_PREFIX = "genesis-calendar-v2:";
 const LAST_USER_KEY = "genesis-last-user-v2";
 
 const NAVIGATION: Array<{ id: ViewName; label: string; symbol: string }> = [
-  { id: "today", label: "Сегодня", symbol: "☉" },
-  { id: "calendar", label: "Календарь", symbol: "◫" },
   { id: "projects", label: "Проекты", symbol: "◇" },
+  { id: "today", label: "Сегодня", symbol: "☉" },
+  { id: "calendar", label: "Месяц", symbol: "◫" },
   { id: "year", label: "Круг года", symbol: "◎" },
   { id: "stoicheion", label: "Стойхейон", symbol: "ϟ" },
 ];
+
+const VIEW_NAMES = new Set<ViewName>(["today", "calendar", "projects", "year", "stoicheion", "admin"]);
+
+function viewFromHash(): ViewName {
+  if (typeof window === "undefined") return "today";
+  const candidate = window.location.hash.replace(/^#\/?/, "").split(/[?&]/, 1)[0] as ViewName;
+  return VIEW_NAMES.has(candidate) ? candidate : "today";
+}
 
 function readStoredState(key: string): StoredState {
   try {
@@ -111,6 +119,9 @@ function readStoredState(key: string): StoredState {
           recurrenceInterval: legacy.recurrenceInterval ?? 1,
           syncToGoogle: true,
           googleEventId: legacy.googleEventId ?? null,
+          googleTaskId: legacy.googleTaskId ?? null,
+          googleTaskListId: legacy.googleTaskListId ?? null,
+          googleReadOnly: legacy.googleReadOnly ?? false,
           updatedAt: typeof legacy.updatedAt === "number" ? legacy.updatedAt : timestamp(),
         };
       }),
@@ -174,6 +185,17 @@ function flattenProjects(
     ]);
 }
 
+function projectIsDescendant(projects: GenesisProject[], candidateId: string, ancestorId: string) {
+  let current = projects.find((project) => project.id === candidateId);
+  const visited = new Set<string>();
+  while (current?.parentId && !visited.has(current.id)) {
+    if (current.parentId === ancestorId) return true;
+    visited.add(current.id);
+    current = projects.find((project) => project.id === current?.parentId);
+  }
+  return false;
+}
+
 function escapeIcs(value: string) {
   return value
     .replace(/\\/g, "\\\\")
@@ -235,6 +257,7 @@ export function GenesisCalendar() {
   const [authResolved, setAuthResolved] = useState(!isGoogleSyncConfigured);
   const [cloudUser, setCloudUser] = useState<GenesisUser | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [legalPage] = useState<ReturnType<typeof currentLegalPage>>(() => currentLegalPage());
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("loading");
   const [syncError, setSyncError] = useState("");
@@ -247,6 +270,7 @@ export function GenesisCalendar() {
   const [taskRecurrenceInterval, setTaskRecurrenceInterval] = useState("1");
   const [taskDependsOn, setTaskDependsOn] = useState<string[]>([]);
   const [newProjectTitle, setNewProjectTitle] = useState("");
+  const [newProjectDescription, setNewProjectDescription] = useState("");
   const [newProjectParent, setNewProjectParent] = useState("");
   const [newProjectCategory, setNewProjectCategory] = useState(DEFAULT_CATEGORIES[0].id);
   const [newProjectTags, setNewProjectTags] = useState("");
@@ -254,10 +278,16 @@ export function GenesisCalendar() {
   const [editingCategoryId, setEditingCategoryId] = useState("");
   const [editingCategoryTitle, setEditingCategoryTitle] = useState("");
   const [editingCategoryColor, setEditingCategoryColor] = useState("#2d6c68");
+  const [tagSearch, setTagSearch] = useState("");
+  const [editingProject, setEditingProject] = useState<GenesisProject | null>(null);
+  const [editingProjectTags, setEditingProjectTags] = useState("");
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [editingTaskTags, setEditingTaskTags] = useState("");
   const [openDayTaskPopover, setOpenDayTaskPopover] = useState("");
   const tasksRef = useRef<Task[]>([]);
   const projectsRef = useRef<GenesisProject[]>([]);
   const categoriesRef = useRef<GenesisCategory[]>(DEFAULT_CATEGORIES);
+  const accountMenuRef = useRef<HTMLDivElement | null>(null);
   const { canInstall, install, isStandalone } = usePwaInstall();
 
   const todayInfo = useMemo(() => getSacredDate(today), [today]);
@@ -265,6 +295,9 @@ export function GenesisCalendar() {
     () => getGregorianDate(sacredYear, monthIndex, selectedDay),
     [sacredYear, monthIndex, selectedDay],
   );
+  const todayDateValue = inputDate(today);
+  const selectedDateValue = inputDate(selectedDate);
+  const selectedDateIsPast = selectedDateValue < todayDateValue;
   const selectedMonth = MONTHS[monthIndex];
   const selectedSacredDay = getSacredDay(monthIndex, selectedDay);
   const selectedMoon = getMoon(selectedDate);
@@ -284,6 +317,65 @@ export function GenesisCalendar() {
     todayInfo.monthIndex,
     todayInfo.day,
   );
+
+  const navigateTo = (nextView: ViewName, replace = false) => {
+    setOpenDayTaskPopover("");
+    setAccountMenuOpen(false);
+    setView(nextView);
+    const nextUrl = new URL(window.location.href);
+    nextUrl.hash = nextView;
+    const state = { ...(window.history.state ?? {}), genesisView: nextView };
+    if (replace || view === nextView) {
+      window.history.replaceState(state, "", `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`);
+    } else {
+      window.history.pushState(state, "", `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`);
+    }
+    window.requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: "auto" });
+      document.querySelector<HTMLElement>(".app-stage")?.scrollTo({ top: 0, behavior: "auto" });
+      document.querySelector<HTMLElement>(".workspace")?.scrollTo({ top: 0, behavior: "auto" });
+    });
+  };
+
+  useEffect(() => {
+    const initialView = viewFromHash();
+    const initialFrame = window.requestAnimationFrame(() => setView(initialView));
+    const initialUrl = new URL(window.location.href);
+    initialUrl.hash = initialView;
+    window.history.replaceState(
+      { ...(window.history.state ?? {}), genesisView: initialView },
+      "",
+      `${initialUrl.pathname}${initialUrl.search}${initialUrl.hash}`,
+    );
+    const handlePopState = () => {
+      setOpenDayTaskPopover("");
+      setAccountMenuOpen(false);
+      setAccountOpen(false);
+      setView(viewFromHash());
+      window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "auto" }));
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.cancelAnimationFrame(initialFrame);
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!accountMenuOpen) return;
+    const closeOutside = (event: globalThis.PointerEvent) => {
+      if (!accountMenuRef.current?.contains(event.target as Node)) setAccountMenuOpen(false);
+    };
+    const closeWithEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setAccountMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    window.addEventListener("keydown", closeWithEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOutside);
+      window.removeEventListener("keydown", closeWithEscape);
+    };
+  }, [accountMenuOpen]);
 
   useEffect(() => {
     const initialState = isGoogleSyncConfigured
@@ -372,11 +464,12 @@ export function GenesisCalendar() {
           setSyncStatus(workspace.syncWarning ? "offline" : "synced");
           stopTasks = observeCloudTasks(
             user.uid,
-            (cloudTasks, fromCache) => {
+            (cloudTasks, fromCache, warning) => {
               if (!active) return;
               tasksRef.current = cloudTasks;
               setTasks(cloudTasks);
-              setSyncStatus(fromCache ? "offline" : "synced");
+              setSyncError(warning ?? "");
+              setSyncStatus(warning ? "error" : fromCache ? "offline" : "synced");
             },
             (error) => {
               if (!active) return;
@@ -450,6 +543,7 @@ export function GenesisCalendar() {
   };
 
   const handleGoogleSignOut = async () => {
+    setAccountMenuOpen(false);
     try {
       await signOutFromGoogle();
     } catch (error) {
@@ -470,8 +564,15 @@ export function GenesisCalendar() {
     setSacredYear(todayInfo.sacredYear);
     setMonthIndex(todayInfo.monthIndex);
     setSelectedDay(todayInfo.day);
-    setOpenDayTaskPopover("");
-    setView("today");
+    navigateTo("today");
+  };
+
+  const activateNavigation = (nextView: ViewName) => {
+    if (nextView === "today") {
+      selectToday();
+      return;
+    }
+    navigateTo(nextView);
   };
 
   const selectMonth = (nextIndex: number) => {
@@ -493,6 +594,11 @@ export function GenesisCalendar() {
     event.preventDefault();
     const title = taskTitle.trim();
     if (!title) return;
+    if (selectedDateIsPast) {
+      setSyncError("Новые задачи нельзя добавлять задним числом. Выберите сегодняшний или будущий день.");
+      setSyncStatus("error");
+      return;
+    }
 
     const project = taskProject.trim();
     const tags = taskTags
@@ -523,6 +629,9 @@ export function GenesisCalendar() {
       recurrenceInterval: Math.max(1, Number(taskRecurrenceInterval) || 1),
       syncToGoogle: true,
       googleEventId: null,
+      googleTaskId: null,
+      googleTaskListId: null,
+      googleReadOnly: false,
       updatedAt: timestamp(),
     };
 
@@ -533,6 +642,46 @@ export function GenesisCalendar() {
     setTaskTime("");
     setTaskTags("");
     setTaskDependsOn([]);
+  };
+
+  const openTaskEditor = (task: Task) => {
+    setEditingTask({ ...task, tags: [...task.tags], dependsOnIds: [...task.dependsOnIds] });
+    setEditingTaskTags(task.tags.join(", "));
+  };
+
+  const saveTaskEdit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!editingTask) return;
+    const original = tasks.find((task) => task.id === editingTask.id);
+    const title = editingTask.title.trim();
+    if (!original || !title) return;
+    if (editingTask.dueDate < todayDateValue && editingTask.dueDate !== original.dueDate) {
+      setSyncError("Нельзя переносить задачу на дату в прошлом.");
+      setSyncStatus("error");
+      return;
+    }
+    const dueDate = new Date(`${editingTask.dueDate}T12:00:00`);
+    if (Number.isNaN(dueDate.getTime())) return;
+    const sacred = getSacredDate(dueDate);
+    const selectedProject = editingTask.googleTaskId
+      ? null
+      : projects.find((project) => project.id === editingTask.projectId);
+    const nextTask: Task = {
+      ...editingTask,
+      title,
+      description: editingTask.description.trim(),
+      sacredYear: sacred.sacredYear,
+      monthIndex: sacred.monthIndex,
+      day: sacred.day,
+      project: editingTask.googleTaskId ? editingTask.project : (selectedProject?.title ?? ""),
+      projectId: editingTask.googleTaskId ? editingTask.projectId : (selectedProject?.id ?? null),
+      categoryId: editingTask.googleTaskId ? editingTask.categoryId : (selectedProject?.categoryId ?? null),
+      tags: editingTaskTags.split(",").map((tag) => tag.trim().replace(/^#/, "")).filter(Boolean).slice(0, 10),
+      updatedAt: timestamp(),
+    };
+    setTasks((current) => current.map((task) => task.id === nextTask.id ? nextTask : task));
+    saveTask(nextTask);
+    setEditingTask(null);
   };
 
   const toggleTask = (id: string) => {
@@ -589,10 +738,11 @@ export function GenesisCalendar() {
   };
 
   const deleteTask = (id: string) => {
+    const taskToDelete = tasks.find((task) => task.id === id);
     setTasks((current) => current.filter((task) => task.id !== id));
-    if (cloudUser) {
+    if (cloudUser && taskToDelete) {
       setSyncStatus("syncing");
-      void removeCloudTask(cloudUser.uid, id)
+      void removeCloudTask(cloudUser.uid, taskToDelete)
         .then(() => setSyncStatus("synced"))
         .catch((error: Error) => {
           setSyncError(error.message);
@@ -626,7 +776,7 @@ export function GenesisCalendar() {
       parentId: newProjectParent || null,
       categoryId: newProjectCategory || null,
       title,
-      description: "",
+      description: newProjectDescription.trim(),
       tags,
       status: "active",
       position: projects.length,
@@ -635,7 +785,41 @@ export function GenesisCalendar() {
     setProjects(nextProjects);
     persistStructure(nextProjects, categories);
     setNewProjectTitle("");
+    setNewProjectDescription("");
     setNewProjectTags("");
+  };
+
+  const openProjectEditor = (project: GenesisProject) => {
+    setEditingProject({ ...project, tags: [...project.tags] });
+    setEditingProjectTags(project.tags.join(", "));
+  };
+
+  const saveProjectEdit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!editingProject) return;
+    const currentProject = projects.find((project) => project.id === editingProject.id);
+    const title = editingProject.title.trim();
+    if (!currentProject || !title) return;
+    const parentId = editingProject.parentId === editingProject.id ? null : editingProject.parentId;
+    const nextProject: GenesisProject = {
+      ...editingProject,
+      title,
+      description: editingProject.description.trim(),
+      parentId,
+      tags: editingProjectTags.split(",").map((tag) => tag.trim().replace(/^#/, "")).filter(Boolean).slice(0, 10),
+    };
+    const nextProjects = projects.map((project) => project.id === nextProject.id ? nextProject : project);
+    const renamedTasks = currentProject.title === title ? [] : tasks
+      .filter((task) => task.projectId === nextProject.id)
+      .map((task) => ({ ...task, project: title, updatedAt: timestamp() }));
+    if (renamedTasks.length) {
+      const renamedById = new Map(renamedTasks.map((task) => [task.id, task]));
+      setTasks((current) => current.map((task) => renamedById.get(task.id) ?? task));
+      renamedTasks.forEach(saveTask);
+    }
+    setProjects(nextProjects);
+    persistStructure(nextProjects, categories);
+    setEditingProject(null);
   };
 
   const addCategory = (event: FormEvent<HTMLFormElement>) => {
@@ -778,7 +962,7 @@ export function GenesisCalendar() {
   };
 
   const openSelectedInCalendar = () => {
-    setView("calendar");
+    navigateTo("calendar");
   };
 
   const renderToday = () => {
@@ -871,9 +1055,9 @@ export function GenesisCalendar() {
           <div className="section-heading strip-heading">
             <div>
               <span className="eyebrow">Навигация</span>
-              <h2 id="five-days-title">Пять дней вокруг сегодня</h2>
+              <h2 id="five-days-title">Ближайшие дни</h2>
             </div>
-            <button type="button" className="text-button" onClick={() => setView("calendar")}>Весь месяц →</button>
+            <button type="button" className="text-button" onClick={() => navigateTo("calendar")}>Весь месяц →</button>
           </div>
           <div className="strip-days">
             {nearbyDays.map(({ date, sacred, active }) => {
@@ -888,7 +1072,7 @@ export function GenesisCalendar() {
                     setSacredYear(sacred.sacredYear);
                     setMonthIndex(sacred.monthIndex);
                     setSelectedDay(sacred.day);
-                    setView("calendar");
+                    navigateTo("calendar");
                   }}
                   aria-label={`${formatGregorian(date, true)} — ${nearbyDay.name}`}
                 >
@@ -1010,8 +1194,13 @@ export function GenesisCalendar() {
                             <ul>
                               {cellTasks.slice(0, 6).map((task) => (
                                 <li className={task.done ? "done" : ""} key={task.id}>
-                                  <time>{task.time || "Весь день"}</time>
-                                  <span>{task.title}</span>
+                                  <button type="button" onClick={() => {
+                                    setOpenDayTaskPopover("");
+                                    openTaskEditor(task);
+                                  }}>
+                                    <time>{task.time || "Весь день"}</time>
+                                    <span>{task.title}</span>
+                                  </button>
                                 </li>
                               ))}
                             </ul>
@@ -1047,8 +1236,26 @@ export function GenesisCalendar() {
   };
 
   const renderProjects = () => {
-    const projectRows = flattenProjects(projects);
-    const inboxTasks = tasks.filter((task) => !task.projectId && !task.project);
+    const search = tagSearch.trim().replace(/^#/, "").toLocaleLowerCase("ru-RU");
+    const taskMatchesTag = (task: Task) => !search || task.tags.some((tag) => tag.toLocaleLowerCase("ru-RU").includes(search));
+    const matchingProjectIds = new Set(projects.filter((project) => (
+      !search || project.tags.some((tag) => tag.toLocaleLowerCase("ru-RU").includes(search)) ||
+      tasks.some((task) => task.projectId === project.id && taskMatchesTag(task))
+    )).map((project) => project.id));
+    if (search) {
+      let changed = true;
+      while (changed) {
+        changed = false;
+        projects.forEach((project) => {
+          if (matchingProjectIds.has(project.id) && project.parentId && !matchingProjectIds.has(project.parentId)) {
+            matchingProjectIds.add(project.parentId);
+            changed = true;
+          }
+        });
+      }
+    }
+    const projectRows = flattenProjects(projects).filter(({ project }) => !search || matchingProjectIds.has(project.id));
+    const inboxTasks = tasks.filter((task) => !task.projectId && !task.project && taskMatchesTag(task));
     const activeTasks = tasks.filter((task) => !task.done);
     const completedTasks = tasks.filter((task) => task.done);
 
@@ -1066,6 +1273,12 @@ export function GenesisCalendar() {
             <span><strong>{completedTasks.length}</strong> завершено</span>
           </div>
         </header>
+
+        <label className="tag-search">
+          <span aria-hidden="true">⌕</span>
+          <input value={tagSearch} onChange={(event) => setTagSearch(event.target.value)} placeholder="Поиск по тегам — например, #работа" />
+          {tagSearch ? <button type="button" onClick={() => setTagSearch("")} aria-label="Очистить поиск">×</button> : null}
+        </label>
 
         <section className="category-strip" aria-label="Категории жизни">
           {categories.map((category) => {
@@ -1129,18 +1342,20 @@ export function GenesisCalendar() {
                       <div>
                         <strong>{project.title}</strong>
                         <small>{category?.name ?? "Без категории"} · {finished}/{projectTasks.length} действий</small>
+                        {project.description ? <p>{project.description}</p> : null}
                         {project.tags.length ? <em>{project.tags.map((tag) => `#${tag}`).join("  ")}</em> : null}
                       </div>
                     </button>
+                    <button type="button" className="project-edit" onClick={() => openProjectEditor(project)} aria-label={`Редактировать проект «${project.title}»`}>✎</button>
                     <button type="button" className="project-delete" onClick={() => deleteProject(project.id)} aria-label={`Удалить проект «${project.title}»`}>×</button>
                     <i className="project-progress" style={{ "--project-progress": `${projectTasks.length ? Math.round((finished / projectTasks.length) * 100) : 0}%` } as CSSProperties} />
                   </article>
                 );
               }) : (
                 <div className="task-empty compact-empty">
-                  <span aria-hidden="true">◇</span>
-                  <strong>Создайте первый проект</strong>
-                  <p>Большая цель становится управляемой, когда у неё есть структура.</p>
+                  <span aria-hidden="true">{search ? "⌕" : "◇"}</span>
+                  <strong>{search ? "По этому тегу ничего не найдено" : "Создайте первый проект"}</strong>
+                  <p>{search ? "Попробуйте другой тег или очистите строку поиска." : "Большая цель становится управляемой, когда у неё есть структура."}</p>
                 </div>
               )}
             </div>
@@ -1149,6 +1364,10 @@ export function GenesisCalendar() {
               <label>
                 <span>Новый проект или подпроект</span>
                 <input value={newProjectTitle} onChange={(event) => setNewProjectTitle(event.target.value)} placeholder="Название результата" />
+              </label>
+              <label>
+                <span>Описание проекта</span>
+                <textarea value={newProjectDescription} onChange={(event) => setNewProjectDescription(event.target.value)} placeholder="Цель, ожидаемый результат и важные детали" rows={3} />
               </label>
               <div className="project-form-grid">
                 <label>
@@ -1180,14 +1399,14 @@ export function GenesisCalendar() {
               <h2>Хаос-бокс</h2>
               <p>Неразобранные действия, которым ещё не назначен проект.</p>
               <strong>{inboxTasks.length}</strong>
-              {inboxTasks.slice(0, 5).map((task) => <button type="button" key={task.id} onClick={() => setTaskTitle(task.title)}>{task.title}</button>)}
+              {inboxTasks.slice(0, 5).map((task) => <button type="button" key={task.id} onClick={() => openTaskEditor(task)}>{task.title}</button>)}
             </section>
             <section className="daily-plan-card">
               <span className="eyebrow">План на день</span>
               <h2>{formatGregorian(selectedDate, true)}</h2>
               <div><strong>{dayTasks.filter((task) => !task.done).length}</strong><span>осталось</span></div>
               <div><strong>{dayTasks.filter((task) => task.done).length}</strong><span>завершено</span></div>
-              <button type="button" className="primary-button" onClick={() => setView("calendar")}>Открыть план →</button>
+              <button type="button" className="primary-button" onClick={() => navigateTo("calendar")}>Открыть план →</button>
             </section>
           </aside>
         </div>
@@ -1217,7 +1436,7 @@ export function GenesisCalendar() {
             onClick={() => {
               setMonthIndex(event.monthIndex);
               setSelectedDay(event.day);
-              setView("calendar");
+              navigateTo("calendar");
             }}
           >
             <span className="solar-glyph" aria-hidden="true"><i>{event.symbol}</i></span>
@@ -1242,7 +1461,7 @@ export function GenesisCalendar() {
           const openDay = (day: number) => {
             setMonthIndex(month.index);
             setSelectedDay(day);
-            setView("calendar");
+            navigateTo("calendar");
           };
           return (
             <article
@@ -1390,10 +1609,7 @@ export function GenesisCalendar() {
               type="button"
               key={item.id}
               className={view === item.id ? "active" : ""}
-              onClick={() => {
-                setOpenDayTaskPopover("");
-                setView(item.id);
-              }}
+              onClick={() => activateNavigation(item.id)}
               aria-current={view === item.id ? "page" : undefined}
             >
               <span aria-hidden="true">{item.symbol}</span>
@@ -1410,8 +1626,7 @@ export function GenesisCalendar() {
               onClick={() => {
                 setMonthIndex(month.index);
                 setSelectedDay(1);
-                setOpenDayTaskPopover("");
-                setView("calendar");
+                navigateTo("calendar");
               }}
               title={month.name}
               aria-label={month.name}
@@ -1445,8 +1660,15 @@ export function GenesisCalendar() {
               </button>
             ) : null}
             {cloudUser ? (
-              <div className="account-chip">
-                <button type="button" className="account-open" onClick={() => setAccountOpen(true)} aria-label="Открыть личный кабинет">
+              <div className="account-chip" ref={accountMenuRef}>
+                <button
+                  type="button"
+                  className="account-open"
+                  onClick={() => setAccountMenuOpen((current) => !current)}
+                  aria-label="Открыть меню аккаунта"
+                  aria-haspopup="menu"
+                  aria-expanded={accountMenuOpen}
+                >
                   <span
                     className="account-avatar"
                     style={cloudUser.photoURL ? { backgroundImage: `url(${cloudUser.photoURL})` } : undefined}
@@ -1459,7 +1681,21 @@ export function GenesisCalendar() {
                     <small>{cloudUser.calendarConnected ? "Google Calendar подключён" : "личный кабинет"}</small>
                   </span>
                 </button>
-                <button type="button" onClick={() => void handleGoogleSignOut()} aria-label="Выйти из Google-аккаунта">×</button>
+                {accountMenuOpen ? (
+                  <div className="account-menu" role="menu">
+                    <button type="button" role="menuitem" onClick={() => {
+                      setAccountMenuOpen(false);
+                      setAccountOpen(true);
+                    }}>
+                      <span aria-hidden="true">○</span>
+                      Личная страница
+                    </button>
+                    <button type="button" role="menuitem" className="account-menu-signout" onClick={() => void handleGoogleSignOut()}>
+                      <span aria-hidden="true">↗</span>
+                      Выйти из аккаунта
+                    </button>
+                  </div>
+                ) : null}
               </div>
             ) : (
               <button
@@ -1479,7 +1715,7 @@ export function GenesisCalendar() {
           </div>
         </header>
 
-        <div className={`workspace${view === "admin" || view === "stoicheion" ? " workspace-full" : ""}`} id="main-content">
+        <div className={`workspace${view === "admin" || view === "stoicheion" ? " workspace-full" : ""}${view === "today" ? " today-workspace" : ""}`} id="main-content">
           <div className="content-column">
             {view === "today" ? renderToday() : null}
             {view === "calendar" ? renderCalendar() : null}
@@ -1511,12 +1747,12 @@ export function GenesisCalendar() {
                   <button type="button" className="task-check" onClick={() => toggleTask(task.id)} aria-label={task.done ? `Вернуть задачу «${task.title}»` : `Завершить задачу «${task.title}»`}>
                     {task.done ? "✓" : ""}
                   </button>
-                  <div>
+                  <button type="button" className="task-open" onClick={() => openTaskEditor(task)}>
                     <span className="task-meta">{task.time || "В течение дня"}{task.project ? ` · ${task.project}` : ""}{task.recurrence !== "none" ? " · ↻" : ""}{task.reminderMinutes !== null ? ` · ⏰ ${task.reminderMinutes} мин` : ""}</span>
                     <strong>{task.title}</strong>
                     {task.tags.length ? <span className="task-tags">{task.tags.map((tag) => <i key={tag}>#{tag}</i>)}</span> : null}
                     {task.dependsOnIds.length ? <span className="task-dependency">↳ после: {task.dependsOnIds.map((dependencyId) => tasks.find((item) => item.id === dependencyId)?.title).filter(Boolean).join(", ") || `${task.dependsOnIds.length} связанных задач`}</span> : null}
-                  </div>
+                  </button>
                   <button type="button" className="task-delete" onClick={() => deleteTask(task.id)} aria-label={`Удалить задачу «${task.title}»`}>×</button>
                 </article>
               )) : (
@@ -1529,6 +1765,9 @@ export function GenesisCalendar() {
             </div>
 
             <form className="task-form" onSubmit={addTask}>
+              {selectedDateIsPast ? (
+                <p className="past-date-notice" role="status">На прошедшую дату можно просматривать и редактировать задачи, но добавлять новые нельзя.</p>
+              ) : null}
               <label>
                 <span>Новая задача</span>
                 <input value={taskTitle} onChange={(event) => setTaskTitle(event.target.value)} placeholder="Что важно совершить?" />
@@ -1593,7 +1832,7 @@ export function GenesisCalendar() {
                 <span aria-hidden="true">✓</span>
                 <span>Задача будет сохранена локально и синхронизирована с Google Calendar</span>
               </div>
-              <button type="submit" className="add-task-button" disabled={!taskTitle.trim()}>
+              <button type="submit" className="add-task-button" disabled={!taskTitle.trim() || selectedDateIsPast}>
                 <span aria-hidden="true">＋</span> Добавить задачу
               </button>
             </form>
@@ -1609,16 +1848,114 @@ export function GenesisCalendar() {
 
       <nav className="mobile-nav" aria-label="Мобильная навигация">
         {navigation.map((item) => (
-          <button type="button" key={item.id} data-nav-id={item.id} className={view === item.id ? "active" : ""} onClick={() => {
-            setOpenDayTaskPopover("");
-            setView(item.id);
-          }}>
+          <button type="button" key={item.id} data-nav-id={item.id} className={view === item.id ? "active" : ""} onClick={() => activateNavigation(item.id)}>
             <span aria-hidden="true">{item.symbol}</span>{item.label}
           </button>
         ))}
       </nav>
+      {editingTask ? (
+        <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditingTask(null); }}>
+          <form className="editor-modal" role="dialog" aria-modal="true" aria-labelledby="task-editor-title" onSubmit={saveTaskEdit}>
+            <button type="button" className="modal-close" onClick={() => setEditingTask(null)} aria-label="Закрыть">×</button>
+            <span className="eyebrow">Редактирование задачи</span>
+            <h2 id="task-editor-title">Задача и её контекст</h2>
+            {editingTask.googleTaskId ? <p className="editor-source-note">Задача синхронизирована с Google Tasks. Изменения появятся и в Google Calendar.</p> : null}
+            <label>
+              <span>Название</span>
+              <input value={editingTask.title} onChange={(event) => setEditingTask((current) => current ? { ...current, title: event.target.value } : current)} required />
+            </label>
+            <label>
+              <span>Описание</span>
+              <textarea rows={4} value={editingTask.description} onChange={(event) => setEditingTask((current) => current ? { ...current, description: event.target.value } : current)} placeholder="Подробности, результат и заметки" />
+            </label>
+            <div className="editor-grid">
+              <label>
+                <span>Дата</span>
+                <input type="date" min={editingTask.dueDate < todayDateValue ? editingTask.dueDate : todayDateValue} value={editingTask.dueDate} onChange={(event) => setEditingTask((current) => current ? { ...current, dueDate: event.target.value } : current)} required />
+              </label>
+              <label>
+                <span>Время</span>
+                <input type="time" value={editingTask.time} onChange={(event) => setEditingTask((current) => current ? { ...current, time: event.target.value } : current)} disabled={Boolean(editingTask.googleTaskId)} />
+              </label>
+              <label>
+                <span>Проект</span>
+                <select value={editingTask.projectId ?? ""} onChange={(event) => setEditingTask((current) => current ? { ...current, projectId: event.target.value || null } : current)} disabled={Boolean(editingTask.googleTaskId)}>
+                  <option value="">Без проекта</option>
+                  {flattenProjects(projects).map(({ project, depth }) => <option key={project.id} value={project.id}>{"— ".repeat(depth)}{project.title}</option>)}
+                </select>
+              </label>
+              <label>
+                <span>Напоминание</span>
+                <select value={editingTask.reminderMinutes ?? ""} onChange={(event) => setEditingTask((current) => current ? { ...current, reminderMinutes: event.target.value ? Number(event.target.value) : null } : current)} disabled={Boolean(editingTask.googleTaskId)}>
+                  <option value="">Без напоминания</option>
+                  <option value="10">За 10 минут</option>
+                  <option value="30">За 30 минут</option>
+                  <option value="60">За 1 час</option>
+                  <option value="1440">За 1 день</option>
+                </select>
+              </label>
+            </div>
+            <label>
+              <span>Теги через запятую</span>
+              <input value={editingTaskTags} onChange={(event) => setEditingTaskTags(event.target.value)} placeholder="работа, дом, ритуал" disabled={Boolean(editingTask.googleTaskId)} />
+            </label>
+            <div className="editor-actions">
+              <button type="button" className="text-button" onClick={() => setEditingTask(null)}>Отмена</button>
+              <button type="submit" className="primary-button" disabled={!editingTask.title.trim()}>Сохранить задачу</button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+      {editingProject ? (
+        <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditingProject(null); }}>
+          <form className="editor-modal" role="dialog" aria-modal="true" aria-labelledby="project-editor-title" onSubmit={saveProjectEdit}>
+            <button type="button" className="modal-close" onClick={() => setEditingProject(null)} aria-label="Закрыть">×</button>
+            <span className="eyebrow">Редактирование проекта</span>
+            <h2 id="project-editor-title">Название и описание</h2>
+            <label>
+              <span>Название проекта</span>
+              <input value={editingProject.title} onChange={(event) => setEditingProject((current) => current ? { ...current, title: event.target.value } : current)} required />
+            </label>
+            <label>
+              <span>Описание проекта</span>
+              <textarea rows={5} value={editingProject.description} onChange={(event) => setEditingProject((current) => current ? { ...current, description: event.target.value } : current)} placeholder="Цель, критерий завершения и важные детали" />
+            </label>
+            <div className="editor-grid">
+              <label>
+                <span>Категория</span>
+                <select value={editingProject.categoryId ?? ""} onChange={(event) => setEditingProject((current) => current ? { ...current, categoryId: event.target.value || null } : current)}>
+                  <option value="">Без категории</option>
+                  {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+                </select>
+              </label>
+              <label>
+                <span>Родительский проект</span>
+                <select value={editingProject.parentId ?? ""} onChange={(event) => setEditingProject((current) => current ? { ...current, parentId: event.target.value || null } : current)}>
+                  <option value="">Нет — верхний уровень</option>
+                  {flattenProjects(projects).filter(({ project }) => project.id !== editingProject.id && !projectIsDescendant(projects, project.id, editingProject.id)).map(({ project, depth }) => <option key={project.id} value={project.id}>{"— ".repeat(depth)}{project.title}</option>)}
+                </select>
+              </label>
+            </div>
+            <label>
+              <span>Теги через запятую</span>
+              <input value={editingProjectTags} onChange={(event) => setEditingProjectTags(event.target.value)} placeholder="стратегия, развитие, дом" />
+            </label>
+            <div className="editor-actions">
+              <button type="button" className="text-button" onClick={() => setEditingProject(null)}>Отмена</button>
+              <button type="submit" className="primary-button" disabled={!editingProject.title.trim()}>Сохранить проект</button>
+            </div>
+          </form>
+        </div>
+      ) : null}
       {accountOpen && cloudUser ? (
-        <AccountPanel user={cloudUser} onClose={() => setAccountOpen(false)} />
+        <AccountPanel
+          user={cloudUser}
+          onClose={() => setAccountOpen(false)}
+          onReconnectGoogle={() => {
+            setAccountOpen(false);
+            void handleGoogleSignIn();
+          }}
+        />
       ) : null}
     </main>
   );
