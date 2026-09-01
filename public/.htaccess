@@ -1,4 +1,5 @@
 Options -Indexes
+AddDefaultCharset UTF-8
 
 RewriteEngine On
 RewriteRule ^api(?:/|$) - [L]
@@ -8,8 +9,11 @@ RewriteRule . index.html [L]
 
 <IfModule mod_headers.c>
   Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "DENY"
   Header always set Referrer-Policy "strict-origin-when-cross-origin"
   Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+  Header always set Content-Security-Policy "default-src 'self'; base-uri 'self'; form-action 'self' https://accounts.google.com; frame-ancestors 'none'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.googleusercontent.com; connect-src 'self'; font-src 'self' data:; manifest-src 'self'; worker-src 'self'"
 </IfModule>
 
 <FilesMatch "\.(?:js|css|png|ico|webp|svg|woff2)$">

@@ -1,6 +1,7 @@
-const CACHE = "genesis-shell-v4";
+const CACHE = "genesis-shell-v11";
 const SCOPE = self.registration.scope;
-const CORE = ["./", "./manifest.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./genesis-hero.png"]
+const MONTH_ART = Array.from({ length: 13 }, (_, index) => `./month-art-v3/month-${String(index + 1).padStart(2, "0")}.webp`);
+const CORE = ["./", "./manifest.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./genesis-hero.png", ...MONTH_ART]
   .map((path) => new URL(path, SCOPE).href);
 
 self.addEventListener("install", (event) => {

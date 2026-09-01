@@ -11,11 +11,11 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     metadataBase: new URL(origin),
     title: {
-      default: "GENESIS — сакральный календарь",
+      default: "GENESIS",
       template: "%s · GENESIS",
     },
     description:
-      "Современный эллинистический альманах: 360 дней порядка, Апейрон и планирование в ритме стихий.",
+      "GENESIS — календарь задач и менеджер проектов с планом дня, напоминаниями и синхронизацией Google Calendar.",
     applicationName: "GENESIS",
     manifest: "/manifest.webmanifest",
     category: "productivity",
@@ -33,16 +33,16 @@ export async function generateMetadata(): Promise<Metadata> {
       apple: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
     },
     openGraph: {
-      title: "GENESIS — сакральный календарь",
-      description: "360 дней порядка, Апейрон и лунный ритм.",
+      title: "GENESIS",
+      description: "Календарь задач и менеджер проектов с синхронизацией Google Calendar.",
       type: "website",
       url: origin,
       images: [{ url: `${origin}/og.png`, width: 1732, height: 899, alt: "GENESIS — сакральный календарь" }],
     },
     twitter: {
       card: "summary_large_image",
-      title: "GENESIS — сакральный календарь",
-      description: "360 дней порядка, Апейрон и лунный ритм.",
+      title: "GENESIS",
+      description: "Календарь задач и менеджер проектов с синхронизацией Google Calendar.",
       images: [`${origin}/og.png`],
     },
   };

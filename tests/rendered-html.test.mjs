@@ -1,11 +1,6 @@
 import assert from "node:assert/strict";
-import { access, readFile, readdir } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import test from "node:test";
-
-const developmentPreviewMeta =
-  /<meta(?=[^>]*\bname=["']codex-preview["'])(?=[^>]*\bcontent=["']development["'])[^>]*>/i;
-const templateRoot = new URL("../", import.meta.url);
-const previewRoot = new URL("../app/_sites-preview/", import.meta.url);
 
 async function render() {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
@@ -28,64 +23,92 @@ async function render() {
   );
 }
 
-test("server-renders the starter loading skeleton", async () => {
+test("server-renders the GENESIS application shell", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, developmentPreviewMeta);
-  assert.match(html, /<title>Your site is taking shape<\/title>/i);
-  assert.match(html, /Building your site/);
-  assert.match(html, /Your site is taking shape/);
-  assert.match(
-    html,
-    /Your first version will appear here automatically when it’s ready\./,
-  );
-  assert.doesNotMatch(html, /Codex/);
-  assert.match(html, /react-loading-skeleton/);
-  assert.match(html, /role="status"/);
+  assert.match(html, /GENESIS/);
+  assert.match(html, /К основному содержанию/);
+  assert.match(html, /Круг года/);
+  assert.match(html, /--month-accent:/);
+  assert.doesNotMatch(html, /Your site is taking shape|Building your site/);
+  assert.doesNotMatch(html, /href=["']\/admin-access/);
 });
 
-test("keeps the loading skeleton scoped and disposable", async () => {
-  const [preview, css, page, layout, packageJson, files] = await Promise.all([
-    readFile(new URL("SkeletonPreview.tsx", previewRoot), "utf8"),
-    readFile(new URL("preview.css", previewRoot), "utf8"),
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../package.json", import.meta.url), "utf8"),
-    readdir(previewRoot),
+test("keeps the requested calendar and privacy features wired", async () => {
+  const [calendarData, calendar, stoicheion, stoicheionData, welcome, styles, api, repository] = await Promise.all([
+    readFile(new URL("../app/calendar-data.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/StoicheionView.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/stoicheion-data.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/WelcomeScreen.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../server/public/api/index.php", import.meta.url), "utf8"),
+    readFile(new URL("../server/src/repository.php", import.meta.url), "utf8"),
   ]);
 
-  assert.deepEqual(files.sort(), ["SkeletonPreview.tsx", "preview.css"]);
-  assert.match(preview, /from "react-loading-skeleton"/);
-  assert.match(preview, /baseColor="#eceae7"/);
-  assert.match(preview, /highlightColor="#f9f8f6"/);
-  assert.match(preview, /duration=\{2\.8\}/);
-  assert.match(preview, /sites-skeleton-search-placeholder/);
-  assert.match(packageJson, /"react-loading-skeleton": "3\.5\.0"/);
+  assert.match(calendarData, /getSolarEvents/);
+  assert.match(calendarData, /summer-solstice/);
+  assert.match(calendar, /solar-year-strip/);
+  assert.match(calendar, /deleteCategory/);
+  assert.match(calendar, /saveCategoryEdit/);
+  assert.match(welcome, /Ваши задачи — только в Google и на вашем устройстве/);
+  assert.doesNotMatch(welcome, /Артемида · полнолуние|Геката · новолуние/);
+  assert.doesNotMatch(welcome, /admin-access/);
+  assert.match(calendar, /month-art-v3\/month-/);
+  assert.match(calendar, /calendar-month-art/);
+  assert.match(calendar, /mini-pyata/);
+  assert.match(calendar, /Math\.ceil\(availableDays \/ 5\)/);
+  assert.match(calendar, /чётная/);
+  assert.match(calendar, /\["I", "II", "III", "IIII", "V"\]/);
+  assert.match(calendar, /onPointerMove/);
+  assert.match(calendar, /StoicheionView/);
+  assert.match(calendar, /Стойхейон/);
+  assert.match(calendar, /calendar-day-task-count/);
+  assert.match(calendar, /calendar-task-popover/);
+  assert.match(calendar, /mini-day-task-count/);
+  assert.match(calendar, /data-nav-id=\{item\.id\}/);
+  assert.match(stoicheionData, /STOICHEION_SOURCE_COUNT = 23/);
+  assert.match(stoicheionData, /STOICHEION_TOTAL_COUNT = 24/);
+  assert.match(stoicheionData, /id: "alpha"/);
+  assert.match(stoicheionData, /id: "chi"/);
+  assert.match(stoicheionData, /id: "omega"/);
+  assert.match(stoicheionData, /source: "editorial-placeholder"/);
+  assert.match(stoicheion, /buildStoicheionSpread/);
+  assert.match(stoicheion, /pythmenFromTotal/);
+  assert.match(stoicheion, /Космический круг и девять ликов силы/);
+  assert.match(stoicheion, /stoicheion-spread-grid/);
+  assert.match(stoicheion, /Бросить ещё раз/);
+  assert.match(stoicheion, /drawDailyLetter\(true\)/);
+  assert.doesNotMatch(stoicheion, />ΣΤ</);
+  assert.doesNotMatch(calendar, /Открыть →/);
+  assert.match(styles, /\.calendar-month-art/);
+  assert.match(styles, /\.year-month::before/);
+  assert.match(styles, /\.year-open-button/);
+  assert.match(styles, /\.mini-pyata-days/);
+  assert.match(styles, /\.stoicheion-view/);
+  assert.match(styles, /\.month-rail button:last-child/);
+  assert.doesNotMatch(styles, /\.mobile-nav button\[data-nav-id="admin"\]\s*\{/);
+  assert.match(styles, /grid-auto-flow: column/);
+  assert.match(styles, /mask-image: linear-gradient\(to right/);
+  assert.match(styles, /grid-template-columns: repeat\(5, minmax\(0, 1fr\)\)/);
+  assert.match(styles, /@keyframes shieldPulse/);
+  assert.match(styles, /\.proof-private i::before/);
+  assert.match(styles, /overflow-x: hidden/);
+  assert.match(calendar, /ux-install-icon/);
+  assert.match(calendar, /ux-calendar-icon/);
+  assert.doesNotMatch(calendar, />↓</);
+  assert.doesNotMatch(calendar, />↥</);
+  assert.doesNotMatch(styles, /background-size: 100% 100%, 1300% 100%/);
+  assert.doesNotMatch(styles, /repeat\(5, minmax\(78px, 1fr\)\)/);
+  assert.doesNotMatch(api, /admin-access/);
+  assert.match(repository, /nikitalexanderson@gmail\.com/);
+  assert.match(repository, /genesisRequireAdmin/);
 
-  const shellIndex = preview.indexOf('className="sites-skeleton-shell"');
-  const statusIndex = preview.indexOf('className="sites-skeleton-status"');
-  assert.ok(shellIndex >= 0 && statusIndex > shellIndex);
-  assert.match(css, /position:\s*fixed/);
-  assert.match(css, /inset:\s*0/);
-  assert.match(css, /opacity:\s*0\.52/);
-  assert.match(css, /prefers-reduced-motion:\s*reduce/);
-  assert.doesNotMatch(css, /#020617|canvas|pets|progress/i);
-  assert.doesNotMatch(
-    preview,
-    /loading-spinner|status-mark|status-progress|canvas|cookie|random/i,
-  );
-
-  assert.match(page, /export const metadata:\s*Metadata/);
-  assert.match(page, /"codex-preview": "development"/);
-  assert.match(page, /<SkeletonPreview \/>/);
-  assert.match(layout, /title:\s*"Starter Project"/);
-  assert.doesNotMatch(layout, /codex-preview|_sites-preview|themeColor|\bViewport\b/);
-  assert.doesNotMatch(css, /(^|\s)(html|body)\s*\{/m);
-
-  await assert.rejects(
-    access(new URL("public/_sites-preview", templateRoot)),
-  );
+  await access(new URL("../public/month-frieze-v1.webp", import.meta.url));
+  await access(new URL("../public/month-frieze-v2.png", import.meta.url));
+  await access(new URL("../public/month-art-v3/month-01.webp", import.meta.url));
+  await access(new URL("../public/month-art-v3/month-13.webp", import.meta.url));
 });

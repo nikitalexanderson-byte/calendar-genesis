@@ -17,19 +17,24 @@ import {
   isGoogleSyncConfigured,
   loadGenesisWorkspace,
   mergeLocalWorkspace,
+  metricsFor,
   observeCloudTasks,
   observeGenesisUser,
   removeCloudTask,
-  saveCategory,
   saveCloudTask,
-  saveProject,
+  saveMetrics,
+  saveWorkspaceStructure,
   signInWithGoogle,
   signOutFromGoogle,
 } from "./cloud-sync";
+import { AccountPanel } from "./AccountPanel";
+import { AdminPanel } from "./AdminPanel";
+import { currentLegalPage, LegalPage } from "./LegalPage";
+import { StoicheionView } from "./StoicheionView";
+import { WelcomeScreen } from "./WelcomeScreen";
 import {
   MONTHS,
   PYATA_MEANINGS,
-  SOLAR_EVENTS,
   dateKey,
   formatGregorian,
   getDayElement,
@@ -38,10 +43,12 @@ import {
   getPythagorean,
   getSacredDate,
   getSacredDay,
+  getSolarEvent,
+  getSolarEvents,
 } from "./calendar-data";
 import { usePwaInstall } from "./use-pwa-install";
 
-type ViewName = "today" | "calendar" | "projects" | "year";
+type ViewName = "today" | "calendar" | "projects" | "year" | "stoicheion" | "admin";
 
 type StoredState = {
   tasks: Task[];
@@ -58,14 +65,71 @@ type SyncStatus =
   | "offline"
   | "error";
 
-const STORAGE_KEY = "genesis-calendar-v1";
+const LEGACY_STORAGE_KEY = "genesis-calendar-v1";
+const USER_STORAGE_PREFIX = "genesis-calendar-v2:";
+const LAST_USER_KEY = "genesis-last-user-v2";
 
 const NAVIGATION: Array<{ id: ViewName; label: string; symbol: string }> = [
   { id: "today", label: "Сегодня", symbol: "☉" },
   { id: "calendar", label: "Календарь", symbol: "◫" },
   { id: "projects", label: "Проекты", symbol: "◇" },
   { id: "year", label: "Круг года", symbol: "◎" },
+  { id: "stoicheion", label: "Стойхейон", symbol: "ϟ" },
 ];
+
+function readStoredState(key: string): StoredState {
+  try {
+    const saved = localStorage.getItem(key);
+    if (!saved) return { tasks: [], projects: [], categories: DEFAULT_CATEGORIES };
+    const parsed = JSON.parse(saved) as Partial<StoredState>;
+    const storedTasks = Array.isArray(parsed.tasks) ? parsed.tasks : [];
+    const storedProjects = Array.isArray(parsed.projects) ? parsed.projects : [];
+    return {
+      tasks: storedTasks.map((task) => {
+        const legacy = task as Partial<Task>;
+        const legacyYear = legacy.sacredYear ?? new Date().getFullYear();
+        const legacyMonth = legacy.monthIndex ?? 0;
+        const legacyDay = legacy.day ?? 1;
+        return {
+          id: legacy.id ?? uid(),
+          sacredYear: legacyYear,
+          monthIndex: legacyMonth,
+          day: legacyDay,
+          dueDate: legacy.dueDate || inputDate(getGregorianDate(legacyYear, legacyMonth, legacyDay)),
+          title: legacy.title ?? "Без названия",
+          description: legacy.description ?? "",
+          time: legacy.time ?? "",
+          project: legacy.project ?? "",
+          projectId: legacy.projectId ?? null,
+          categoryId: legacy.categoryId ?? null,
+          tags: legacy.tags ?? [],
+          dependsOnIds: legacy.dependsOnIds ?? [],
+          done: legacy.done ?? false,
+          completedAt: legacy.completedAt ?? (legacy.done ? new Date().toISOString() : null),
+          reminderMinutes: legacy.reminderMinutes ?? null,
+          recurrence: legacy.recurrence ?? "none",
+          recurrenceInterval: legacy.recurrenceInterval ?? 1,
+          syncToGoogle: true,
+          googleEventId: legacy.googleEventId ?? null,
+          updatedAt: typeof legacy.updatedAt === "number" ? legacy.updatedAt : timestamp(),
+        };
+      }),
+      projects: storedProjects.map((project, index) => typeof project === "string" ? {
+        id: `legacy-${index}`,
+        parentId: null,
+        categoryId: null,
+        title: project,
+        description: "",
+        tags: [],
+        status: "active" as const,
+        position: index,
+      } : project),
+      categories: Array.isArray(parsed.categories) ? parsed.categories : DEFAULT_CATEGORIES,
+    };
+  } catch {
+    return { tasks: [], projects: [], categories: DEFAULT_CATEGORIES };
+  }
+}
 
 const DEFAULT_CATEGORIES: GenesisCategory[] = [
   { id: "personal", name: "Личное", color: "#a5543f", position: 0 },
@@ -168,7 +232,10 @@ export function GenesisCalendar() {
   const [projects, setProjects] = useState<GenesisProject[]>([]);
   const [categories, setCategories] = useState<GenesisCategory[]>(DEFAULT_CATEGORIES);
   const [hydrated, setHydrated] = useState(false);
+  const [authResolved, setAuthResolved] = useState(!isGoogleSyncConfigured);
   const [cloudUser, setCloudUser] = useState<GenesisUser | null>(null);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [legalPage] = useState<ReturnType<typeof currentLegalPage>>(() => currentLegalPage());
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("loading");
   const [syncError, setSyncError] = useState("");
   const [taskTitle, setTaskTitle] = useState("");
@@ -178,13 +245,16 @@ export function GenesisCalendar() {
   const [taskReminder, setTaskReminder] = useState("30");
   const [taskRecurrence, setTaskRecurrence] = useState<RecurrenceKind>("none");
   const [taskRecurrenceInterval, setTaskRecurrenceInterval] = useState("1");
-  const [taskDependsOn, setTaskDependsOn] = useState("");
-  const [taskSyncToGoogle, setTaskSyncToGoogle] = useState(true);
+  const [taskDependsOn, setTaskDependsOn] = useState<string[]>([]);
   const [newProjectTitle, setNewProjectTitle] = useState("");
   const [newProjectParent, setNewProjectParent] = useState("");
   const [newProjectCategory, setNewProjectCategory] = useState(DEFAULT_CATEGORIES[0].id);
   const [newProjectTags, setNewProjectTags] = useState("");
   const [newCategoryTitle, setNewCategoryTitle] = useState("");
+  const [editingCategoryId, setEditingCategoryId] = useState("");
+  const [editingCategoryTitle, setEditingCategoryTitle] = useState("");
+  const [editingCategoryColor, setEditingCategoryColor] = useState("#2d6c68");
+  const [openDayTaskPopover, setOpenDayTaskPopover] = useState("");
   const tasksRef = useRef<Task[]>([]);
   const projectsRef = useRef<GenesisProject[]>([]);
   const categoriesRef = useRef<GenesisCategory[]>(DEFAULT_CATEGORIES);
@@ -201,6 +271,8 @@ export function GenesisCalendar() {
   const selectedElement = getDayElement(monthIndex, selectedDay);
   const selectedPythagorean = getPythagorean(monthIndex, selectedDay);
   const selectedKey = taskDateKey(sacredYear, monthIndex, selectedDay);
+  const selectedSolarEvent = getSolarEvent(sacredYear, monthIndex, selectedDay);
+  const solarEvents = useMemo(() => getSolarEvents(sacredYear), [sacredYear]);
   const dayTasks = tasks
     .filter(
       (task) =>
@@ -214,105 +286,90 @@ export function GenesisCalendar() {
   );
 
   useEffect(() => {
-    let nextTasks: Task[] = [];
-    let nextProjects: GenesisProject[] = [];
-    let nextCategories: GenesisCategory[] = DEFAULT_CATEGORIES;
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved) as Partial<StoredState>;
-        nextTasks = Array.isArray(parsed.tasks)
-          ? parsed.tasks.map((task) => ({
-              description: "",
-              dueDate: task.dueDate || inputDate(getGregorianDate(task.sacredYear, task.monthIndex, task.day)),
-              projectId: null,
-              categoryId: null,
-              dependsOnIds: [],
-              completedAt: task.done ? new Date().toISOString() : null,
-              reminderMinutes: null,
-              recurrence: "none" as RecurrenceKind,
-              recurrenceInterval: 1,
-              syncToGoogle: true,
-              googleEventId: null,
-              ...task,
-              updatedAt:
-                typeof task.updatedAt === "number" ? task.updatedAt : timestamp(),
-            }))
-          : [];
-        nextProjects = Array.isArray(parsed.projects)
-          ? parsed.projects.map((project, index) =>
-              typeof project === "string"
-                ? {
-                    id: `legacy-${index}`,
-                    parentId: null,
-                    categoryId: null,
-                    title: project,
-                    description: "",
-                    tags: [],
-                    status: "active" as const,
-                    position: index,
-                  }
-                : project,
-            )
-          : [];
-        nextCategories = Array.isArray(parsed.categories) && parsed.categories.length
-          ? parsed.categories
-          : DEFAULT_CATEGORIES;
-      }
-    } catch {
-      // A damaged local snapshot should never prevent the calendar from opening.
-    }
+    const initialState = isGoogleSyncConfigured
+      ? { tasks: [], projects: [], categories: DEFAULT_CATEGORIES }
+      : readStoredState(LEGACY_STORAGE_KEY);
 
     const timer = window.setTimeout(() => {
-      tasksRef.current = nextTasks;
-      projectsRef.current = nextProjects;
-      categoriesRef.current = nextCategories;
-      setTasks(nextTasks);
-      setProjects(nextProjects);
-      setCategories(nextCategories);
+      tasksRef.current = initialState.tasks;
+      projectsRef.current = initialState.projects;
+      categoriesRef.current = initialState.categories;
+      setTasks(initialState.tasks);
+      setProjects(initialState.projects);
+      setCategories(initialState.categories);
+      setNewProjectCategory(initialState.categories[0]?.id ?? "");
       setHydrated(true);
-      setSyncStatus(isGoogleSyncConfigured ? "local" : "setup");
+      setSyncStatus(isGoogleSyncConfigured ? "loading" : "setup");
     }, 0);
 
     return () => window.clearTimeout(timer);
   }, []);
 
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || (isGoogleSyncConfigured && !cloudUser)) return;
     tasksRef.current = tasks;
     projectsRef.current = projects;
     categoriesRef.current = categories;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ tasks, projects, categories }));
-  }, [hydrated, tasks, projects, categories]);
+    const key = cloudUser ? `${USER_STORAGE_PREFIX}${cloudUser.uid}` : LEGACY_STORAGE_KEY;
+    localStorage.setItem(key, JSON.stringify({ tasks, projects, categories }));
+  }, [hydrated, cloudUser, tasks, projects, categories]);
 
   useEffect(() => {
     if (!hydrated || !isGoogleSyncConfigured) return;
 
     let active = true;
     let stopTasks: (() => void) | undefined;
+    let loadedUserId = "";
     const stopUser = observeGenesisUser((user) => {
-      stopTasks?.();
-      stopTasks = undefined;
+      setAuthResolved(true);
       setCloudUser(user);
       setSyncError("");
 
       if (!user) {
+        stopTasks?.();
+        stopTasks = undefined;
+        loadedUserId = "";
         setSyncStatus("local");
         return;
       }
+      localStorage.setItem(LAST_USER_KEY, JSON.stringify(user));
+      if (loadedUserId === user.uid) return;
+      stopTasks?.();
+      stopTasks = undefined;
+      loadedUserId = user.uid;
+
+      const userKey = `${USER_STORAGE_PREFIX}${user.uid}`;
+      const local = readStoredState(localStorage.getItem(userKey) ? userKey : LEGACY_STORAGE_KEY);
+      tasksRef.current = local.tasks;
+      projectsRef.current = local.projects;
+      categoriesRef.current = local.categories;
+      setTasks(local.tasks);
+      setProjects(local.projects);
+      setCategories(local.categories);
+      setNewProjectCategory(local.categories[0]?.id ?? "");
 
       setSyncStatus("syncing");
       void mergeLocalWorkspace(user.uid, {
-        tasks: tasksRef.current,
-        projects: projectsRef.current,
-        categories: categoriesRef.current,
+        tasks: local.tasks,
+        projects: local.projects,
+        categories: local.categories,
       })
         .then(async () => {
           if (!active) return;
           const workspace = await loadGenesisWorkspace();
           if (!active) return;
-          setProjects(workspace.projects);
-          setCategories(workspace.categories.length ? workspace.categories : DEFAULT_CATEGORIES);
+          const nextProjects = workspace.hasRemoteStructure ? workspace.projects : local.projects;
+          const nextCategories = workspace.hasRemoteStructure ? workspace.categories : local.categories;
+          const nextTasks = workspace.syncWarning ? local.tasks : workspace.tasks;
+          tasksRef.current = nextTasks;
+          projectsRef.current = nextProjects;
+          categoriesRef.current = nextCategories;
+          setTasks(nextTasks);
+          setProjects(nextProjects);
+          setCategories(nextCategories);
+          setNewProjectCategory(nextCategories[0]?.id ?? "");
+          setSyncError(workspace.syncWarning ?? "");
+          setSyncStatus(workspace.syncWarning ? "offline" : "synced");
           stopTasks = observeCloudTasks(
             user.uid,
             (cloudTasks, fromCache) => {
@@ -331,8 +388,33 @@ export function GenesisCalendar() {
         .catch((error: Error) => {
           if (!active) return;
           setSyncError(error.message);
-          setSyncStatus("error");
+          setSyncStatus(navigator.onLine ? "error" : "offline");
         });
+    }, (error) => {
+      if (!active) return;
+      setSyncError(error.message);
+      try {
+        const cached = JSON.parse(localStorage.getItem(LAST_USER_KEY) || "null") as GenesisUser | null;
+        if (cached?.uid) {
+          const local = readStoredState(`${USER_STORAGE_PREFIX}${cached.uid}`);
+          tasksRef.current = local.tasks;
+          projectsRef.current = local.projects;
+          categoriesRef.current = local.categories;
+          setTasks(local.tasks);
+          setProjects(local.projects);
+          setCategories(local.categories);
+          setNewProjectCategory(local.categories[0]?.id ?? "");
+          setCloudUser(cached);
+          setAuthResolved(true);
+          setSyncStatus("offline");
+          return;
+        }
+        setAuthResolved(true);
+        setSyncStatus("error");
+      } catch {
+        setAuthResolved(true);
+        setSyncStatus("error");
+      }
     });
 
     return () => {
@@ -345,10 +427,15 @@ export function GenesisCalendar() {
   const saveTask = (task: Task) => {
     if (!cloudUser) return;
     setSyncStatus("syncing");
-    void saveCloudTask(cloudUser.uid, task).catch((error: Error) => {
-      setSyncError(error.message);
-      setSyncStatus("error");
-    });
+    void saveCloudTask(cloudUser.uid, task)
+      .then((saved) => {
+        setTasks((current) => current.map((item) => item.id === saved.id ? { ...item, ...saved } : item));
+        setSyncStatus("synced");
+      })
+      .catch((error: Error) => {
+        setSyncError(error.message);
+        setSyncStatus(navigator.onLine ? "error" : "offline");
+      });
   };
 
   const handleGoogleSignIn = async () => {
@@ -371,10 +458,19 @@ export function GenesisCalendar() {
     }
   };
 
+  useEffect(() => {
+    if (!hydrated || !cloudUser || !navigator.onLine) return;
+    const timer = window.setTimeout(() => {
+      void saveMetrics(metricsFor(tasks, projects)).catch(() => undefined);
+    }, 1500);
+    return () => window.clearTimeout(timer);
+  }, [hydrated, cloudUser, tasks, projects]);
+
   const selectToday = () => {
     setSacredYear(todayInfo.sacredYear);
     setMonthIndex(todayInfo.monthIndex);
     setSelectedDay(todayInfo.day);
+    setOpenDayTaskPopover("");
     setView("today");
   };
 
@@ -382,10 +478,12 @@ export function GenesisCalendar() {
     const normalized = (nextIndex + 13) % 13;
     setMonthIndex(normalized);
     setSelectedDay(1);
+    setOpenDayTaskPopover("");
   };
 
   const changeSacredYear = (nextYear: number) => {
     setSacredYear(nextYear);
+    setOpenDayTaskPopover("");
     if (monthIndex === 12) {
       setSelectedDay((day) => Math.min(day, apeironLength(nextYear)));
     }
@@ -417,13 +515,13 @@ export function GenesisCalendar() {
       projectId: selectedProject?.id ?? null,
       categoryId: selectedProject?.categoryId ?? null,
       tags,
-      dependsOnIds: taskDependsOn ? [taskDependsOn] : [],
+      dependsOnIds: taskDependsOn,
       done: false,
       completedAt: null,
       reminderMinutes: taskReminder ? Number(taskReminder) : null,
       recurrence: taskRecurrence,
       recurrenceInterval: Math.max(1, Number(taskRecurrenceInterval) || 1),
-      syncToGoogle: taskSyncToGoogle,
+      syncToGoogle: true,
       googleEventId: null,
       updatedAt: timestamp(),
     };
@@ -434,19 +532,25 @@ export function GenesisCalendar() {
     setTaskTitle("");
     setTaskTime("");
     setTaskTags("");
-    setTaskDependsOn("");
+    setTaskDependsOn([]);
   };
 
   const toggleTask = (id: string) => {
     const currentTask = tasks.find((task) => task.id === id);
     if (!currentTask) return;
+    const unfinishedDependencies = currentTask.dependsOnIds.filter((dependencyId) => tasks.some((task) => task.id === dependencyId && !task.done));
+    if (!currentTask.done && unfinishedDependencies.length) {
+      setSyncError(`Сначала завершите связанные задачи: ${unfinishedDependencies.length}`);
+      setSyncStatus("error");
+      return;
+    }
     const nextTask = {
       ...currentTask,
       done: !currentTask.done,
       completedAt: currentTask.done ? null : new Date().toISOString(),
       updatedAt: timestamp(),
     };
-    const nextDate = !currentTask.done && !cloudUser
+    const nextDate = !currentTask.done
       ? nextOccurrenceDate(currentTask.dueDate, currentTask.recurrence, currentTask.recurrenceInterval)
       : null;
     const nextDateValue = nextDate ? inputDate(nextDate) : "";
@@ -481,27 +585,30 @@ export function GenesisCalendar() {
       ],
     );
     saveTask(nextTask);
+    if (nextOccurrence) saveTask(nextOccurrence);
   };
 
   const deleteTask = (id: string) => {
     setTasks((current) => current.filter((task) => task.id !== id));
     if (cloudUser) {
       setSyncStatus("syncing");
-      void removeCloudTask(cloudUser.uid, id).catch((error: Error) => {
-        setSyncError(error.message);
-        setSyncStatus("error");
-      });
+      void removeCloudTask(cloudUser.uid, id)
+        .then(() => setSyncStatus("synced"))
+        .catch((error: Error) => {
+          setSyncError(error.message);
+          setSyncStatus(navigator.onLine ? "error" : "offline");
+        });
     }
   };
 
-  const persistProject = (project: GenesisProject) => {
+  const persistStructure = (nextProjects: GenesisProject[], nextCategories: GenesisCategory[]) => {
     if (!cloudUser) return;
     setSyncStatus("syncing");
-    void saveProject(project)
+    void saveWorkspaceStructure(nextProjects, nextCategories, metricsFor(tasks, nextProjects))
       .then(() => setSyncStatus("synced"))
       .catch((error: Error) => {
         setSyncError(error.message);
-        setSyncStatus("error");
+        setSyncStatus(navigator.onLine ? "error" : "offline");
       });
   };
 
@@ -524,8 +631,9 @@ export function GenesisCalendar() {
       status: "active",
       position: projects.length,
     };
-    setProjects((current) => [...current, project]);
-    persistProject(project);
+    const nextProjects = [...projects, project];
+    setProjects(nextProjects);
+    persistStructure(nextProjects, categories);
     setNewProjectTitle("");
     setNewProjectTags("");
   };
@@ -541,14 +649,50 @@ export function GenesisCalendar() {
       color: palette[categories.length % palette.length],
       position: categories.length,
     };
-    setCategories((current) => [...current, category]);
-    if (cloudUser) {
-      void saveCategory(category).catch((error: Error) => {
-        setSyncError(error.message);
-        setSyncStatus("error");
-      });
-    }
+    const nextCategories = [...categories, category];
+    setCategories(nextCategories);
+    persistStructure(projects, nextCategories);
     setNewCategoryTitle("");
+  };
+
+  const beginCategoryEdit = (category: GenesisCategory) => {
+    setEditingCategoryId(category.id);
+    setEditingCategoryTitle(category.name);
+    setEditingCategoryColor(category.color);
+  };
+
+  const saveCategoryEdit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const name = editingCategoryTitle.trim();
+    if (!editingCategoryId || !name) return;
+    const nextCategories = categories.map((category) => category.id === editingCategoryId
+      ? { ...category, name, color: editingCategoryColor }
+      : category);
+    setCategories(nextCategories);
+    persistStructure(projects, nextCategories);
+    setEditingCategoryId("");
+  };
+
+  const deleteCategory = (id: string) => {
+    const category = categories.find((item) => item.id === id);
+    if (!category || !window.confirm(`Удалить категорию «${category.name}»? Проекты и задачи останутся, но будут перенесены в раздел «Без категории».`)) return;
+    const nextCategories = categories.filter((item) => item.id !== id);
+    const nextProjects = projects.map((project) => project.categoryId === id ? { ...project, categoryId: null } : project);
+    const changedTasks = tasks.filter((task) => task.categoryId === id).map((task) => ({
+      ...task,
+      categoryId: null,
+      updatedAt: timestamp(),
+    }));
+    if (changedTasks.length) {
+      const changedById = new Map(changedTasks.map((task) => [task.id, task]));
+      setTasks((current) => current.map((task) => changedById.get(task.id) ?? task));
+      changedTasks.forEach(saveTask);
+    }
+    setCategories(nextCategories);
+    setProjects(nextProjects);
+    setNewProjectCategory((current) => current === id ? (nextCategories[0]?.id ?? "") : current);
+    if (editingCategoryId === id) setEditingCategoryId("");
+    persistStructure(nextProjects, nextCategories);
   };
 
   const toggleProject = (id: string) => {
@@ -558,8 +702,40 @@ export function GenesisCalendar() {
       ...current,
       status: current.status === "completed" ? "active" : "completed",
     };
-    setProjects((items) => items.map((project) => (project.id === id ? next : project)));
-    persistProject(next);
+    const nextProjects = projects.map((project) => (project.id === id ? next : project));
+    setProjects(nextProjects);
+    persistStructure(nextProjects, categories);
+  };
+
+  const deleteProject = (id: string) => {
+    const project = projects.find((item) => item.id === id);
+    if (!project || !window.confirm(`Удалить проект «${project.title}» и все его подпроекты? Задачи останутся, но перейдут в раздел без проекта.`)) return;
+    const removed = new Set<string>([id]);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      projects.forEach((item) => {
+        if (item.parentId && removed.has(item.parentId) && !removed.has(item.id)) {
+          removed.add(item.id);
+          changed = true;
+        }
+      });
+    }
+    const nextProjects = projects.filter((item) => !removed.has(item.id));
+    const changedTasks = tasks.filter((task) => task.projectId && removed.has(task.projectId)).map((task) => ({
+      ...task,
+      project: "",
+      projectId: null,
+      categoryId: null,
+      updatedAt: timestamp(),
+    }));
+    if (changedTasks.length) {
+      const changedById = new Map(changedTasks.map((task) => [task.id, task]));
+      setTasks((current) => current.map((task) => changedById.get(task.id) ?? task));
+      changedTasks.forEach(saveTask);
+    }
+    setProjects(nextProjects);
+    persistStructure(nextProjects, categories);
   };
 
   const exportCalendar = () => {
@@ -613,7 +789,7 @@ export function GenesisCalendar() {
     const moon = getMoon(gregorian);
     const element = getDayElement(info.monthIndex, info.day);
     const pythagorean = getPythagorean(info.monthIndex, info.day);
-    const solarEvent = SOLAR_EVENTS[dateKey(info.monthIndex, info.day)];
+    const solarEvent = getSolarEvent(info.sacredYear, info.monthIndex, info.day);
     const nearbyDays = Array.from({ length: 5 }, (_, index) => {
       const offset = index - 2;
       const date = new Date(gregorian);
@@ -628,7 +804,7 @@ export function GenesisCalendar() {
           <div className="hero-copy">
             <div className="eyebrow-row">
               <span className="eyebrow">{month.season} · {month.roman} месяц</span>
-              {solarEvent ? <span className="event-badge">✦ {solarEvent}</span> : null}
+              {solarEvent ? <span className="event-badge solar-event-badge"><b aria-hidden="true">{solarEvent.symbol}</b> {solarEvent.name}</span> : null}
             </div>
             <p className="hero-month">{month.name}</p>
             <h1 id="today-title">{day.name}</h1>
@@ -736,8 +912,15 @@ export function GenesisCalendar() {
     );
 
     return (
-      <div className="calendar-view">
-        <header className="calendar-header" style={{ "--month-accent": selectedMonth.color } as CSSProperties}>
+      <div
+        className="calendar-view"
+        style={{
+          "--month-accent": selectedMonth.color,
+          "--month-art": `url("${APP_BASE}/month-art-v3/month-${String(monthIndex + 1).padStart(2, "0")}.webp")`,
+        } as CSSProperties}
+      >
+        <header className="calendar-header">
+          <span className="calendar-month-art" aria-hidden="true" />
           <div>
             <span className="eyebrow">{selectedMonth.season} · {selectedMonth.roman} месяц</span>
             <h1>{selectedMonth.name}</h1>
@@ -762,31 +945,80 @@ export function GenesisCalendar() {
                   <small>{monthIndex === 12 ? "Чистый эфир" : PYATA_MEANINGS[rowIndex]}</small>
                 </div>
                 <div className="pyata-days">
-                  {row.map((dayNumber) => {
+                  {row.map((dayNumber, dayColumn) => {
                     const gregorian = getGregorianDate(sacredYear, monthIndex, dayNumber);
                     const moon = getMoon(gregorian);
                     const sacredDay = getSacredDay(monthIndex, dayNumber);
                     const key = taskDateKey(sacredYear, monthIndex, dayNumber);
-                    const taskCount = tasks.filter(
-                      (task) => taskDateKey(task.sacredYear, task.monthIndex, task.day) === key,
-                    ).length;
+                    const cellTasks = tasks
+                      .filter((task) => taskDateKey(task.sacredYear, task.monthIndex, task.day) === key)
+                      .sort((a, b) => a.time.localeCompare(b.time));
+                    const taskCount = cellTasks.length;
                     const isToday = key === todayKey;
                     const isSelected = dayNumber === selectedDay;
+                    const solarEvent = getSolarEvent(sacredYear, monthIndex, dayNumber);
+                    const popoverOpen = openDayTaskPopover === key;
+                    const popoverAlignment = dayColumn < 2 ? "align-left" : dayColumn > 2 ? "align-right" : "align-center";
                     return (
-                      <button
-                        type="button"
+                      <article
                         key={dayNumber}
-                        className={`calendar-day${isSelected ? " selected" : ""}${isToday ? " today" : ""}`}
-                        onClick={() => setSelectedDay(dayNumber)}
-                        aria-pressed={isSelected}
-                        aria-label={`${formatGregorian(gregorian, true)} — ${sacredDay.name}`}
+                        className={`calendar-day${isSelected ? " selected" : ""}${isToday ? " today" : ""}${solarEvent ? " solar-day" : ""}${taskCount ? " has-tasks" : ""}${popoverOpen ? " popover-open" : ""}`}
                       >
+                        <button
+                          type="button"
+                          className="calendar-day-open"
+                          onClick={() => {
+                            setSelectedDay(dayNumber);
+                            setOpenDayTaskPopover("");
+                          }}
+                          aria-pressed={isSelected}
+                          aria-label={`${formatGregorian(gregorian, true)} — ${sacredDay.name}${solarEvent ? ` — ${solarEvent.name}` : ""}${taskCount ? ` — ${taskCount} задач` : ""}`}
+                        />
                         <span className="calendar-gregorian">{new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "short" }).format(gregorian)}</span>
                         <strong>{romanDay(monthIndex, dayNumber)}</strong>
+                        {solarEvent ? <span className="calendar-solar-mark" title={solarEvent.name}><b aria-hidden="true">{solarEvent.symbol}</b><em>{solarEvent.shortName}</em></span> : null}
                         <span className="calendar-moon" title={`${moon.epithet}: ${moon.phase}`}>{moon.icon} {moon.day}</span>
                         <small>{sacredDay.name.split("(")[0].trim()}</small>
-                        {taskCount ? <i aria-label={`${taskCount} задач`}>{taskCount}</i> : null}
-                      </button>
+                        {taskCount ? (
+                          <div className="calendar-day-task-preview" aria-hidden="true">
+                            {cellTasks.slice(0, 2).map((task) => (
+                              <span className={task.done ? "done" : ""} key={task.id}>{task.time || "Весь день"} · {task.title}</span>
+                            ))}
+                          </div>
+                        ) : null}
+                        {taskCount ? (
+                          <button
+                            type="button"
+                            className="calendar-day-task-count"
+                            onClick={() => {
+                              setSelectedDay(dayNumber);
+                              setOpenDayTaskPopover((current) => current === key ? "" : key);
+                            }}
+                            aria-label={`Показать задачи: ${taskCount}`}
+                            aria-expanded={popoverOpen}
+                            aria-haspopup="dialog"
+                          >
+                            {taskCount}
+                          </button>
+                        ) : null}
+                        {popoverOpen ? (
+                          <div className={`calendar-task-popover ${popoverAlignment}`} role="dialog" aria-label={`Задачи на ${formatGregorian(gregorian, true)}`}>
+                            <header>
+                              <strong>Задачи · {taskCount}</strong>
+                              <button type="button" onClick={() => setOpenDayTaskPopover("")} aria-label="Закрыть список задач">×</button>
+                            </header>
+                            <ul>
+                              {cellTasks.slice(0, 6).map((task) => (
+                                <li className={task.done ? "done" : ""} key={task.id}>
+                                  <time>{task.time || "Весь день"}</time>
+                                  <span>{task.title}</span>
+                                </li>
+                              ))}
+                            </ul>
+                            {taskCount > 6 ? <small>Ещё {taskCount - 6}</small> : null}
+                          </div>
+                        ) : null}
+                      </article>
                     );
                   })}
                 </div>
@@ -795,14 +1027,16 @@ export function GenesisCalendar() {
           })}
         </section>
 
-        <section className="selected-day-card" aria-labelledby="selected-day-title">
-          <div className="selected-day-symbol" aria-hidden="true">{selectedElement.symbol}</div>
+        <section className={`selected-day-card${selectedSolarEvent ? " solar-selected-day" : ""}`} aria-labelledby="selected-day-title">
+          <div className="selected-day-symbol" aria-hidden="true">{selectedSolarEvent?.symbol ?? selectedElement.symbol}</div>
           <div className="selected-day-copy">
             <span className="eyebrow">{formatGregorian(selectedDate, true)} · {selectedMoon.epithet}</span>
             <h2 id="selected-day-title">{selectedSacredDay.name}</h2>
             <p>{selectedSacredDay.description}</p>
+            {selectedSolarEvent ? <strong className="selected-solar-event">{selectedSolarEvent.name} · День Солнца</strong> : null}
           </div>
           <dl className="selected-day-facts">
+            {selectedSolarEvent ? <div className="solar-fact"><dt>Солнечная точка</dt><dd>{selectedSolarEvent.name}</dd></div> : null}
             <div><dt>Стихия</dt><dd>{selectedElement.name}</dd></div>
             <div><dt>Пята</dt><dd>{selectedSacredDay.pyataTitle || "Апейрон"}</dd></div>
             <div><dt>Число</dt><dd>{selectedPythagorean?.name || "Безграничное"}</dd></div>
@@ -836,11 +1070,27 @@ export function GenesisCalendar() {
         <section className="category-strip" aria-label="Категории жизни">
           {categories.map((category) => {
             const projectCount = projects.filter((project) => project.categoryId === category.id).length;
+            const isEditing = editingCategoryId === category.id;
             return (
-              <article key={category.id} style={{ "--category-color": category.color } as CSSProperties}>
-                <i aria-hidden="true" />
-                <strong>{category.name}</strong>
-                <span>{projectCount} проектов</span>
+              <article className={isEditing ? "editing" : ""} key={category.id} style={{ "--category-color": category.color } as CSSProperties}>
+                {isEditing ? (
+                  <form className="category-edit-form" onSubmit={saveCategoryEdit}>
+                    <input type="color" value={editingCategoryColor} onChange={(event) => setEditingCategoryColor(event.target.value)} aria-label="Цвет категории" />
+                    <input value={editingCategoryTitle} onChange={(event) => setEditingCategoryTitle(event.target.value)} aria-label="Название категории" />
+                    <button type="submit" aria-label="Сохранить категорию">✓</button>
+                    <button type="button" onClick={() => setEditingCategoryId("")} aria-label="Отменить редактирование">×</button>
+                  </form>
+                ) : (
+                  <>
+                    <i aria-hidden="true" />
+                    <strong>{category.name}</strong>
+                    <span>{projectCount} проектов</span>
+                    <div className="category-actions">
+                      <button type="button" onClick={() => beginCategoryEdit(category)} aria-label={`Редактировать категорию «${category.name}»`}>✎</button>
+                      <button type="button" onClick={() => deleteCategory(category.id)} aria-label={`Удалить категорию «${category.name}»`}>×</button>
+                    </div>
+                  </>
+                )}
               </article>
             );
           })}
@@ -882,6 +1132,7 @@ export function GenesisCalendar() {
                         {project.tags.length ? <em>{project.tags.map((tag) => `#${tag}`).join("  ")}</em> : null}
                       </div>
                     </button>
+                    <button type="button" className="project-delete" onClick={() => deleteProject(project.id)} aria-label={`Удалить проект «${project.title}»`}>×</button>
                     <i className="project-progress" style={{ "--project-progress": `${projectTasks.length ? Math.round((finished / projectTasks.length) * 100) : 0}%` } as CSSProperties} />
                   </article>
                 );
@@ -903,6 +1154,7 @@ export function GenesisCalendar() {
                 <label>
                   <span>Категория</span>
                   <select value={newProjectCategory} onChange={(event) => setNewProjectCategory(event.target.value)}>
+                    <option value="">Без категории</option>
                     {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
                   </select>
                 </label>
@@ -910,7 +1162,7 @@ export function GenesisCalendar() {
                   <span>Родительский проект</span>
                   <select value={newProjectParent} onChange={(event) => setNewProjectParent(event.target.value)}>
                     <option value="">Нет — верхний уровень</option>
-                    {projectRows.filter(({ depth }) => depth < 3).map(({ project, depth }) => <option key={project.id} value={project.id}>{"— ".repeat(depth)}{project.title}</option>)}
+                    {projectRows.map(({ project, depth }) => <option key={project.id} value={project.id}>{"— ".repeat(depth)}{project.title}</option>)}
                   </select>
                 </label>
               </div>
@@ -957,43 +1209,116 @@ export function GenesisCalendar() {
           <button type="button" onClick={() => changeSacredYear(sacredYear + 1)} aria-label="Следующий год">→</button>
         </div>
       </header>
+      <section className="solar-year-strip" aria-label="Солнцестояния и равноденствия года">
+        {solarEvents.map((event) => (
+          <button
+            type="button"
+            key={event.id}
+            onClick={() => {
+              setMonthIndex(event.monthIndex);
+              setSelectedDay(event.day);
+              setView("calendar");
+            }}
+          >
+            <span className="solar-glyph" aria-hidden="true"><i>{event.symbol}</i></span>
+            <span><small>{event.kind === "equinox" ? "Равноденствие" : "Солнцестояние"}</small><strong>{formatGregorian(event.date, true)}</strong></span>
+          </button>
+        ))}
+      </section>
       <section className="year-grid" aria-label="Все месяцы года">
         {MONTHS.map((month) => {
           const availableDays = month.index === 12 ? apeironLength(sacredYear) : 30;
+          const pyatas = Array.from(
+            { length: Math.ceil(availableDays / 5) },
+            (_, pyataIndex) => Array.from(
+              { length: Math.min(5, availableDays - pyataIndex * 5) },
+              (__, dayIndex) => pyataIndex * 5 + dayIndex + 1,
+            ),
+          );
           const monthTaskCount = tasks.filter(
             (task) => task.sacredYear === sacredYear && task.monthIndex === month.index,
           ).length;
           const isCurrent = sacredYear === todayInfo.sacredYear && month.index === todayInfo.monthIndex;
+          const openDay = (day: number) => {
+            setMonthIndex(month.index);
+            setSelectedDay(day);
+            setView("calendar");
+          };
           return (
-            <button
-              type="button"
+            <article
               className={`year-month${month.index === 12 ? " apeiron" : ""}${isCurrent ? " current" : ""}`}
               key={month.name}
-              onClick={() => {
-                setMonthIndex(month.index);
-                setSelectedDay(isCurrent ? todayInfo.day : 1);
-                setView("calendar");
-              }}
-              style={{ "--month-accent": month.color } as CSSProperties}
+              aria-labelledby={`year-month-${month.index}`}
+              style={{
+                "--month-accent": month.color,
+                "--month-art": `url("${APP_BASE}/month-art-v3/month-${String(month.index + 1).padStart(2, "0")}.webp")`,
+              } as CSSProperties}
             >
               <span className="year-month-top"><i>{month.roman}</i><b>{month.symbol}</b></span>
-              <strong>{month.name}</strong>
+              <strong id={`year-month-${month.index}`}>{month.name}</strong>
               <small>{month.title}</small>
-              <span className="mini-days" aria-hidden="true">
-                {Array.from({ length: availableDays }, (_, index) => {
-                  const key = taskDateKey(sacredYear, month.index, index + 1);
-                  const hasTask = tasks.some(
-                    (task) => taskDateKey(task.sacredYear, task.monthIndex, task.day) === key,
-                  );
-                  const todayDot = key === todayKey;
-                  return <i key={index} className={`${hasTask ? "has-task" : ""}${todayDot ? " today" : ""}`} />;
-                })}
-              </span>
-              <span className="year-month-footer">
-                <em>{month.season}</em>
-                {monthTaskCount ? <i>{monthTaskCount} задач</i> : <i>Открыть →</i>}
-              </span>
-            </button>
+              <div className="mini-pyatas">
+                {pyatas.map((days, pyataIndex) => (
+                  <div
+                    className={`mini-pyata ${(pyataIndex + 1) % 2 === 0 ? "even" : "odd"}`}
+                    key={`${month.index}-${pyataIndex}`}
+                  >
+                    <span className="mini-pyata-label">
+                      <b>{pyataIndex + 1}</b>
+                      <small>{(pyataIndex + 1) % 2 === 0 ? "чётная" : "нечётная"}</small>
+                    </span>
+                    <span className="mini-pyata-days">
+                      {days.map((dayNumber) => {
+                        const key = taskDateKey(sacredYear, month.index, dayNumber);
+                        const taskCount = tasks.filter(
+                          (task) => taskDateKey(task.sacredYear, task.monthIndex, task.day) === key,
+                        ).length;
+                        const hasTask = taskCount > 0;
+                        const todayDot = key === todayKey;
+                        const solarDot = Boolean(getSolarEvent(sacredYear, month.index, dayNumber));
+                        const sacredDay = getSacredDay(month.index, dayNumber);
+                        return (
+                          <button
+                            type="button"
+                            className={`mini-day${hasTask ? " has-task" : ""}${todayDot ? " today" : ""}${solarDot ? " solar" : ""}`}
+                            key={dayNumber}
+                            onClick={() => openDay(dayNumber)}
+                            aria-label={`${month.name}, день ${dayNumber}: ${sacredDay.name}${taskCount ? `, задач: ${taskCount}` : ""}`}
+                            title={`${sacredDay.name} · открыть день`}
+                          >
+                            <span className="mini-day-number">{(["I", "II", "III", "IIII", "V"] as const)[(dayNumber - 1) % 5]}</span>
+                            {taskCount ? <span className="mini-day-task-count" aria-hidden="true">{taskCount}</span> : null}
+                          </button>
+                        );
+                      })}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <footer className="year-month-footer">
+                <span className="year-month-meta">
+                  <em>{month.season}</em>
+                  {monthTaskCount ? <i>{monthTaskCount} задач</i> : null}
+                </span>
+                <button
+                  type="button"
+                  className="year-open-button"
+                  onClick={() => openDay(isCurrent ? todayInfo.day : 1)}
+                  onPointerMove={(event) => {
+                    const bounds = event.currentTarget.getBoundingClientRect();
+                    event.currentTarget.style.setProperty("--pointer-x", `${event.clientX - bounds.left}px`);
+                    event.currentTarget.style.setProperty("--pointer-y", `${event.clientY - bounds.top}px`);
+                  }}
+                  onPointerLeave={(event) => {
+                    event.currentTarget.style.removeProperty("--pointer-x");
+                    event.currentTarget.style.removeProperty("--pointer-y");
+                  }}
+                >
+                  <span>Открыть месяц</span>
+                  <i aria-hidden="true" />
+                </button>
+              </footer>
+            </article>
           );
         })}
       </section>
@@ -1015,6 +1340,34 @@ export function GenesisCalendar() {
                 ? "Google-синхронизация готовится"
                 : "Сохранено на устройстве";
 
+  const navigation = cloudUser?.isAdmin
+    ? [...NAVIGATION, { id: "admin" as const, label: "Админ", symbol: "Σ" }]
+    : NAVIGATION;
+
+  if (legalPage) {
+    return <LegalPage page={legalPage} />;
+  }
+
+  if (isGoogleSyncConfigured && !authResolved) {
+    return (
+      <main className="auth-loading" role="status" aria-live="polite">
+        <span className="auth-sun"><i /></span>
+        <strong>GENESIS</strong>
+        <p>Открываем личное пространство…</p>
+      </main>
+    );
+  }
+
+  if (isGoogleSyncConfigured && !cloudUser) {
+    return (
+      <WelcomeScreen
+        busy={syncStatus === "syncing"}
+        error={syncError}
+        onGoogle={() => void handleGoogleSignIn()}
+      />
+    );
+  }
+
   return (
     <main
       className="genesis-app"
@@ -1032,12 +1385,15 @@ export function GenesisCalendar() {
           <small>ἡμερολόγιον</small>
         </button>
         <nav className="main-nav">
-          {NAVIGATION.map((item) => (
+          {navigation.map((item) => (
             <button
               type="button"
               key={item.id}
               className={view === item.id ? "active" : ""}
-              onClick={() => setView(item.id)}
+              onClick={() => {
+                setOpenDayTaskPopover("");
+                setView(item.id);
+              }}
               aria-current={view === item.id ? "page" : undefined}
             >
               <span aria-hidden="true">{item.symbol}</span>
@@ -1054,12 +1410,15 @@ export function GenesisCalendar() {
               onClick={() => {
                 setMonthIndex(month.index);
                 setSelectedDay(1);
+                setOpenDayTaskPopover("");
                 setView("calendar");
               }}
               title={month.name}
               aria-label={month.name}
+              style={{ "--month-accent": month.color } as CSSProperties}
             >
               {month.symbol}
+              {month.index === 12 ? <small>{month.name}</small> : null}
             </button>
           ))}
         </div>
@@ -1081,23 +1440,25 @@ export function GenesisCalendar() {
           </div>
           <div className="topbar-actions">
             {!isStandalone && canInstall ? (
-              <button type="button" className="install-button" onClick={() => void install()}>
-                <span aria-hidden="true">↓</span> Установить
+              <button type="button" className="icon-button ux-action-button" data-tooltip="Установить приложение" title="Установить GENESIS" aria-label="Установить GENESIS" onClick={() => void install()}>
+                <span className="ux-install-icon" aria-hidden="true" />
               </button>
             ) : null}
             {cloudUser ? (
               <div className="account-chip">
-                <span
-                  className="account-avatar"
-                  style={cloudUser.photoURL ? { backgroundImage: `url(${cloudUser.photoURL})` } : undefined}
-                  aria-hidden="true"
-                >
-                  {cloudUser.photoURL ? "" : "G"}
-                </span>
-                <div>
-                  <strong>{cloudUser.displayName || "Google"}</strong>
-                  <small>{cloudUser.calendarConnected ? "Google Calendar подключён" : "личный кабинет"}</small>
-                </div>
+                <button type="button" className="account-open" onClick={() => setAccountOpen(true)} aria-label="Открыть личный кабинет">
+                  <span
+                    className="account-avatar"
+                    style={cloudUser.photoURL ? { backgroundImage: `url(${cloudUser.photoURL})` } : undefined}
+                    aria-hidden="true"
+                  >
+                    {cloudUser.photoURL ? "" : "G"}
+                  </span>
+                  <span>
+                    <strong>{cloudUser.displayName || "Google"}</strong>
+                    <small>{cloudUser.calendarConnected ? "Google Calendar подключён" : "личный кабинет"}</small>
+                  </span>
+                </button>
                 <button type="button" onClick={() => void handleGoogleSignOut()} aria-label="Выйти из Google-аккаунта">×</button>
               </div>
             ) : (
@@ -1112,19 +1473,23 @@ export function GenesisCalendar() {
               </button>
             )}
             <button type="button" className="ghost-button" onClick={selectToday}>К сегодняшнему дню</button>
-            <button type="button" className="icon-button" onClick={exportCalendar} disabled={!tasks.length} title="Экспортировать задачи в .ics" aria-label="Экспортировать задачи в календарь">↥</button>
+            <button type="button" className="icon-button ux-action-button" data-tooltip={tasks.length ? "Экспортировать календарь .ics" : "Добавьте задачу для экспорта"} title={tasks.length ? "Экспортировать календарь .ics" : "Добавьте задачу для экспорта"} onClick={exportCalendar} disabled={!tasks.length} aria-label="Экспортировать задачи в календарь .ics">
+              <span className="ux-calendar-icon" aria-hidden="true" />
+            </button>
           </div>
         </header>
 
-        <div className="workspace" id="main-content">
+        <div className={`workspace${view === "admin" || view === "stoicheion" ? " workspace-full" : ""}`} id="main-content">
           <div className="content-column">
             {view === "today" ? renderToday() : null}
             {view === "calendar" ? renderCalendar() : null}
             {view === "projects" ? renderProjects() : null}
             {view === "year" ? renderYear() : null}
+            {view === "stoicheion" ? <StoicheionView /> : null}
+            {view === "admin" && cloudUser?.isAdmin ? <AdminPanel /> : null}
           </div>
 
-          <aside className="planner-panel" aria-labelledby="planner-title">
+          {view !== "admin" && view !== "stoicheion" ? <aside className="planner-panel" aria-labelledby="planner-title">
             <div className="planner-date">
               <span className="eyebrow">План дня</span>
               <button type="button" onClick={openSelectedInCalendar}>
@@ -1150,7 +1515,7 @@ export function GenesisCalendar() {
                     <span className="task-meta">{task.time || "В течение дня"}{task.project ? ` · ${task.project}` : ""}{task.recurrence !== "none" ? " · ↻" : ""}{task.reminderMinutes !== null ? ` · ⏰ ${task.reminderMinutes} мин` : ""}</span>
                     <strong>{task.title}</strong>
                     {task.tags.length ? <span className="task-tags">{task.tags.map((tag) => <i key={tag}>#{tag}</i>)}</span> : null}
-                    {task.dependsOnIds.length ? <span className="task-dependency">↳ зависит от {task.dependsOnIds.length} задачи</span> : null}
+                    {task.dependsOnIds.length ? <span className="task-dependency">↳ после: {task.dependsOnIds.map((dependencyId) => tasks.find((item) => item.id === dependencyId)?.title).filter(Boolean).join(", ") || `${task.dependsOnIds.length} связанных задач`}</span> : null}
                   </div>
                   <button type="button" className="task-delete" onClick={() => deleteTask(task.id)} aria-label={`Удалить задачу «${task.title}»`}>×</button>
                 </article>
@@ -1213,9 +1578,8 @@ export function GenesisCalendar() {
                   {tasks.length ? (
                     <label>
                       <span>Зависит от</span>
-                      <select value={taskDependsOn} onChange={(event) => setTaskDependsOn(event.target.value)}>
-                        <option value="">Нет связи</option>
-                        {tasks.filter((task) => !task.done).slice(0, 50).map((task) => <option key={task.id} value={task.id}>{task.title}</option>)}
+                      <select multiple value={taskDependsOn} onChange={(event) => setTaskDependsOn(Array.from(event.target.selectedOptions, (option) => option.value))}>
+                        {tasks.filter((task) => !task.done).slice(0, 100).map((task) => <option key={task.id} value={task.id}>{task.project ? `${task.project} · ` : ""}{task.title}</option>)}
                       </select>
                     </label>
                   ) : null}
@@ -1225,29 +1589,37 @@ export function GenesisCalendar() {
                 <span>Теги</span>
                 <input value={taskTags} onChange={(event) => setTaskTags(event.target.value)} placeholder="ритуал, работа, дом" />
               </label>
-              <label className="sync-checkbox">
-                <input type="checkbox" checked={taskSyncToGoogle} onChange={(event) => setTaskSyncToGoogle(event.target.checked)} />
-                <span>Создать событие и напоминание в Google Calendar</span>
-              </label>
+              <div className="sync-checkbox sync-always-on">
+                <span aria-hidden="true">✓</span>
+                <span>Задача будет сохранена локально и синхронизирована с Google Calendar</span>
+              </div>
               <button type="submit" className="add-task-button" disabled={!taskTitle.trim()}>
                 <span aria-hidden="true">＋</span> Добавить задачу
               </button>
             </form>
             <div className="planner-foot">
               <span title={syncError || undefined}><i className={`sync-dot sync-${syncStatus}`} /> {syncLabel}</span>
-              <button type="button" onClick={exportCalendar} disabled={!tasks.length}>.ics экспорт</button>
+              <button type="button" className="planner-export-button ux-action-button" data-tooltip={tasks.length ? "Экспортировать календарь .ics" : "Добавьте задачу для экспорта"} title={tasks.length ? "Экспортировать календарь .ics" : "Добавьте задачу для экспорта"} onClick={exportCalendar} disabled={!tasks.length} aria-label="Экспортировать задачи в календарь .ics">
+                <span className="ux-calendar-icon" aria-hidden="true" />
+              </button>
             </div>
-          </aside>
+          </aside> : null}
         </div>
       </section>
 
       <nav className="mobile-nav" aria-label="Мобильная навигация">
-        {NAVIGATION.map((item) => (
-          <button type="button" key={item.id} className={view === item.id ? "active" : ""} onClick={() => setView(item.id)}>
+        {navigation.map((item) => (
+          <button type="button" key={item.id} data-nav-id={item.id} className={view === item.id ? "active" : ""} onClick={() => {
+            setOpenDayTaskPopover("");
+            setView(item.id);
+          }}>
             <span aria-hidden="true">{item.symbol}</span>{item.label}
           </button>
         ))}
       </nav>
+      {accountOpen && cloudUser ? (
+        <AccountPanel user={cloudUser} onClose={() => setAccountOpen(false)} />
+      ) : null}
     </main>
   );
 }

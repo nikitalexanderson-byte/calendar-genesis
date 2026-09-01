@@ -74,11 +74,33 @@ function genesisDb(): PDO
     $db->exec('PRAGMA journal_mode = WAL');
     $db->exec('PRAGMA busy_timeout = 5000');
 
-    $migration = file_get_contents(genesisRoot() . '/migrations/001_init.sql');
-    if ($migration === false) {
-        throw new RuntimeException('Database migration is missing.');
+    $db->exec('CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT PRIMARY KEY, applied_at TEXT NOT NULL)');
+    $migrationFiles = glob(genesisRoot() . '/migrations/*.sql') ?: [];
+    sort($migrationFiles, SORT_STRING);
+    $alreadyApplied = $db->prepare('SELECT 1 FROM schema_migrations WHERE name = :name LIMIT 1');
+    $markApplied = $db->prepare('INSERT INTO schema_migrations (name, applied_at) VALUES (:name, :applied_at)');
+    foreach ($migrationFiles as $migrationFile) {
+        $name = basename($migrationFile);
+        $alreadyApplied->execute(['name' => $name]);
+        if ($alreadyApplied->fetchColumn() !== false) {
+            continue;
+        }
+        $migration = file_get_contents($migrationFile);
+        if ($migration === false) {
+            throw new RuntimeException('Database migration is unreadable: ' . $name);
+        }
+        $db->beginTransaction();
+        try {
+            $db->exec($migration);
+            $markApplied->execute(['name' => $name, 'applied_at' => genesisNow()]);
+            $db->commit();
+        } catch (Throwable $error) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            throw $error;
+        }
     }
-    $db->exec($migration);
     return $db;
 }
 

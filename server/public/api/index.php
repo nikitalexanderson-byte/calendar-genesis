@@ -25,8 +25,10 @@ require $serverRoot . '/src/repository.php';
 require $serverRoot . '/src/google.php';
 
 header('X-Content-Type-Options: nosniff');
-header('X-Frame-Options: SAMEORIGIN');
-header('Referrer-Policy: strict-origin-when-cross-origin');
+header('X-Frame-Options: DENY');
+header('Referrer-Policy: no-referrer');
+header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
+header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
 
 $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
 $path = trim((string)($_GET['path'] ?? $_SERVER['PATH_INFO'] ?? ''), '/');
@@ -37,14 +39,28 @@ if ($method === 'OPTIONS') {
     exit;
 }
 
+function genesisFinishSession(): never
+{
+    $_SESSION = [];
+    if (ini_get('session.use_cookies')) {
+        $params = session_get_cookie_params();
+        setcookie(session_name(), '', time() - 42000, $params['path'], $params['domain'] ?? '', (bool)$params['secure'], (bool)$params['httponly']);
+    }
+    session_destroy();
+    genesisJson(['ok' => true]);
+}
+
 try {
     if ($method === 'GET' && $path === 'health') {
-        genesisJson(['ok' => true, 'service' => 'GENESIS', 'time' => genesisNow()]);
+        genesisJson(['ok' => true, 'service' => 'GENESIS', 'privacyModel' => 2, 'time' => genesisNow()]);
     }
 
     if ($method === 'GET' && $path === 'session') {
         $userId = genesisCurrentUserId();
         $user = $userId ? genesisFindUser($userId) : null;
+        if ($userId && $user === null) {
+            unset($_SESSION['user_id']);
+        }
         genesisJson([
             'user' => $user ? genesisUserForClient($user) : null,
             'csrf' => (string)$_SESSION['csrf'],
@@ -58,13 +74,30 @@ try {
             unset($_SESSION['user_id']);
             genesisJson(['error' => 'AUTH_REQUIRED'], 401);
         }
+        $tasks = [];
+        $syncWarning = null;
+        try {
+            $tasks = genesisListGoogleTasks($user);
+            $user = genesisFindUser($userId) ?? $user;
+        } catch (Throwable $googleError) {
+            $syncWarning = $googleError->getMessage();
+        }
         genesisJson([
             'user' => genesisUserForClient($user),
             'csrf' => (string)$_SESSION['csrf'],
-            'tasks' => genesisTasksForUser($userId),
-            'projects' => genesisProjectsForUser($userId),
-            'categories' => genesisCategoriesForUser($userId),
+            'tasks' => $tasks,
+            'workspace' => genesisWorkspaceForClient($user),
+            'syncWarning' => $syncWarning,
         ]);
+    }
+
+    if ($method === 'GET' && $path === 'sync/tasks') {
+        $userId = genesisRequireUserId();
+        $user = genesisFindUser($userId);
+        if ($user === null) {
+            genesisJson(['error' => 'AUTH_REQUIRED'], 401);
+        }
+        genesisJson(['tasks' => genesisListGoogleTasks($user), 'syncedAt' => genesisNow()]);
     }
 
     if ($method === 'GET' && $path === 'auth/google/start') {
@@ -88,8 +121,7 @@ try {
         if ($state === '' || $code === '' || empty($_SESSION['oauth_state']) || !hash_equals((string)$_SESSION['oauth_state'], $state)) {
             throw new RuntimeException('Google authorization state is invalid.');
         }
-        $verifier = (string)($_SESSION['oauth_verifier'] ?? '');
-        $tokens = genesisExchangeGoogleCode($code, $verifier);
+        $tokens = genesisExchangeGoogleCode($code, (string)($_SESSION['oauth_verifier'] ?? ''));
         if (empty($tokens['access_token'])) {
             throw new RuntimeException('Google did not return an access token.');
         }
@@ -111,104 +143,66 @@ try {
         exit;
     }
 
-    if ($method === 'POST' && $path === 'auth/logout') {
-        genesisRequireCsrf();
-        $_SESSION = [];
-        if (ini_get('session.use_cookies')) {
-            $params = session_get_cookie_params();
-            setcookie(session_name(), '', time() - 42000, $params['path'], $params['domain'] ?? '', (bool)$params['secure'], (bool)$params['httponly']);
-        }
-        session_destroy();
-        genesisJson(['ok' => true]);
+    if ($method === 'POST' && $path === 'auth/password/login') {
+        genesisJson(['error' => 'Вход по паролю отключён. Используйте безопасную авторизацию Google OAuth.'], 410);
     }
 
-    if ($method === 'POST' && $path === 'tasks/import') {
+    if ($method === 'POST' && $path === 'auth/password/set') {
+        genesisJson(['error' => 'Пароли GENESIS отключены. Авторизация выполняется только через Google OAuth.'], 410);
+    }
+
+    if ($method === 'POST' && $path === 'auth/logout') {
+        genesisRequireCsrf();
+        genesisFinishSession();
+    }
+
+    if ($method === 'PUT' && $path === 'workspace') {
         $userId = genesisRequireUserId();
         genesisRequireCsrf();
         $payload = genesisReadJson();
-        $tasks = is_array($payload['tasks'] ?? null) ? array_slice($payload['tasks'], 0, 5000) : [];
-        foreach ($tasks as $task) {
-            if (!is_array($task) || empty($task['id'])) {
-                continue;
-            }
-            $id = mb_substr((string)$task['id'], 0, 100);
-            genesisSaveTask($userId, $id, $task);
-            try {
-                genesisSyncTaskToGoogle($userId, $id);
-            } catch (Throwable $syncError) {
-                // Local data import remains authoritative even if Google is temporarily unavailable.
-            }
-        }
+        $saved = genesisSaveWorkspaceEnvelope($userId, $payload);
+        genesisSaveMetrics($userId, $payload);
+        genesisJson(['ok' => true, 'workspace' => $saved]);
+    }
+
+    if ($method === 'POST' && $path === 'metrics') {
+        $userId = genesisRequireUserId();
+        genesisRequireCsrf();
+        genesisSaveMetrics($userId, genesisReadJson());
         genesisJson(['ok' => true]);
     }
 
-    if ($method === 'POST' && $path === 'workspace/import') {
+    if ($method === 'GET' && $path === 'admin/stats') {
+        $userId = genesisRequireUserId();
+        $user = genesisFindUser($userId);
+        if ($user === null) {
+            genesisJson(['error' => 'AUTH_REQUIRED'], 401);
+        }
+        genesisRequireAdmin($user);
+        genesisJson(genesisAdminStats());
+    }
+
+    if ($method === 'DELETE' && $path === 'account') {
         $userId = genesisRequireUserId();
         genesisRequireCsrf();
-        genesisJson(['ok' => true, 'imported' => genesisImportWorkspace($userId, genesisReadJson())]);
+        genesisDeleteAccount($userId);
+        genesisFinishSession();
     }
 
     if (count($segments) === 2 && $segments[0] === 'tasks') {
         $userId = genesisRequireUserId();
         genesisRequireCsrf();
         $id = mb_substr((string)$segments[1], 0, 100);
+        if ($id === '') {
+            throw new InvalidArgumentException('Task identifier is required.');
+        }
         if ($method === 'PUT') {
-            $db = genesisDb();
-            $beforeStatement = $db->prepare('SELECT * FROM tasks WHERE id = :id AND user_id = :user_id');
-            $beforeStatement->execute(['id' => $id, 'user_id' => $userId]);
-            $before = $beforeStatement->fetch();
-            $task = genesisSaveTask($userId, $id, genesisReadJson());
-            $afterStatement = $db->prepare('SELECT * FROM tasks WHERE id = :id AND user_id = :user_id');
-            $afterStatement->execute(['id' => $id, 'user_id' => $userId]);
-            $after = $afterStatement->fetch();
-            try {
-                genesisSyncTaskToGoogle($userId, $id);
-            } catch (Throwable $syncError) {
-                $task['syncWarning'] = $syncError->getMessage();
-            }
-            if (is_array($after) && empty($before['done']) && !empty($after['done']) && $after['recurrence'] !== 'none') {
-                $next = genesisSpawnNextOccurrence($userId, $after);
-                if (is_array($next)) {
-                    try {
-                        genesisSyncTaskToGoogle($userId, (string)$next['id']);
-                    } catch (Throwable $syncError) {
-                        // The next occurrence remains queued in GENESIS.
-                    }
-                }
-            }
-            genesisJson(['task' => $task]);
+            genesisJson(['task' => genesisSyncTaskToGoogle($userId, $id, genesisReadJson())]);
         }
         if ($method === 'DELETE') {
-            $task = genesisDeleteTask($userId, $id);
-            if ($task) {
-                try {
-                    genesisDeleteGoogleTaskEvent($userId, $task);
-                } catch (Throwable $syncError) {
-                    // Deletion in GENESIS must not be blocked by a temporary Google error.
-                }
-            }
+            genesisDeleteGoogleTaskEvent($userId, $id);
             genesisJson(['ok' => true]);
         }
-    }
-
-    if (count($segments) === 2 && $segments[0] === 'projects') {
-        $userId = genesisRequireUserId();
-        genesisRequireCsrf();
-        $id = mb_substr((string)$segments[1], 0, 100);
-        if ($method === 'PUT') {
-            genesisJson(['project' => genesisSaveProject($userId, $id, genesisReadJson())]);
-        }
-        if ($method === 'DELETE') {
-            genesisDb()->prepare('DELETE FROM projects WHERE id = :id AND user_id = :user_id')->execute(['id' => $id, 'user_id' => $userId]);
-            genesisJson(['ok' => true]);
-        }
-    }
-
-    if (count($segments) === 2 && $segments[0] === 'categories' && $method === 'PUT') {
-        $userId = genesisRequireUserId();
-        genesisRequireCsrf();
-        $id = mb_substr((string)$segments[1], 0, 100);
-        genesisJson(['category' => genesisSaveCategory($userId, $id, genesisReadJson())]);
     }
 
     genesisJson(['error' => 'NOT_FOUND'], 404);

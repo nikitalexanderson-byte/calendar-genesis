@@ -47,7 +47,7 @@ function genesisCurl(string $url, array $options = []): array
         CURLOPT_TIMEOUT => 30,
         CURLOPT_FOLLOWLOCATION => false,
         CURLOPT_HEADER => true,
-        CURLOPT_USERAGENT => 'GENESIS-Calendar/1.0',
+        CURLOPT_USERAGENT => 'GENESIS-Calendar/2.0',
     ] + $options);
     $raw = curl_exec($handle);
     if ($raw === false) {
@@ -147,7 +147,7 @@ function genesisEnsureGoogleCalendar(array $user): array
     }
     $calendar = genesisGoogleApi('POST', '/calendars', $user, [
         'summary' => 'GENESIS',
-        'description' => 'Задачи и напоминания сакрального календаря GENESIS',
+        'description' => 'Задачи и напоминания приложения GENESIS. Содержание хранится в Google Calendar, а не в базе GENESIS.',
         'timeZone' => (string)(genesisConfig()['timezone'] ?? 'Europe/Moscow'),
     ]);
     if (empty($calendar['id'])) {
@@ -162,175 +162,239 @@ function genesisEnsureGoogleCalendar(array $user): array
     return $user;
 }
 
-function genesisGoogleEventPayload(array $task): array
+function genesisStringList(mixed $value, int $limit = 50): array
+{
+    if (!is_array($value)) {
+        return [];
+    }
+    $result = [];
+    foreach ($value as $item) {
+        $clean = mb_substr(trim((string)$item), 0, 100);
+        if ($clean !== '' && !in_array($clean, $result, true)) {
+            $result[] = $clean;
+        }
+        if (count($result) >= $limit) {
+            break;
+        }
+    }
+    return $result;
+}
+
+function genesisTaskPayloadForGoogle(string $taskId, array $task): array
 {
     $timezoneName = (string)(genesisConfig()['timezone'] ?? 'Europe/Moscow');
     $timezone = new DateTimeZone($timezoneName);
-    $summary = (!empty($task['done']) ? '✓ ' : '') . (string)$task['title'];
-    $description = trim(implode("\n", array_filter([
-        (string)($task['description'] ?? ''),
-        !empty($task['project_label']) ? 'Проект: ' . $task['project_label'] : '',
-        !empty($task['tags_json']) ? implode(' ', array_map(static fn(string $tag): string => '#' . $tag, genesisDecodeList($task['tags_json']))) : '',
+    $title = mb_substr(trim((string)($task['title'] ?? '')), 0, 500);
+    if ($title === '') {
+        throw new InvalidArgumentException('Название задачи обязательно.');
+    }
+    $dueDate = (string)($task['dueDate'] ?? '');
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dueDate)) {
+        throw new InvalidArgumentException('Дата задачи указана неверно.');
+    }
+    $timeValue = preg_match('/^\d{2}:\d{2}$/', (string)($task['time'] ?? '')) ? (string)$task['time'] : '';
+    $done = !empty($task['done']);
+    $tags = genesisStringList($task['tags'] ?? [], 10);
+    $dependsOn = genesisStringList($task['dependsOnIds'] ?? [], 30);
+    $recurrence = in_array($task['recurrence'] ?? '', ['none', 'daily', 'weekdays', 'weekly', 'monthly', 'yearly'], true) ? (string)$task['recurrence'] : 'none';
+    $project = mb_substr(trim((string)($task['project'] ?? '')), 0, 300);
+    $description = mb_substr(trim((string)($task['description'] ?? '')), 0, 5000);
+    $metadataDescription = trim(implode("\n", array_filter([
+        $project !== '' ? 'Проект: ' . $project : '',
+        $tags ? implode(' ', array_map(static fn(string $tag): string => '#' . $tag, $tags)) : '',
         'Создано в GENESIS',
     ])));
+    $visibleDescription = trim($description . ($metadataDescription !== '' ? "\n\n— GENESIS —\n" . $metadataDescription : ''));
+    $private = [
+        'genesisTaskId' => $taskId,
+        'genesisDone' => $done ? '1' : '0',
+        'genesisCompletedAt' => mb_substr((string)($task['completedAt'] ?? ''), 0, 40),
+        'genesisProjectId' => mb_substr((string)($task['projectId'] ?? ''), 0, 100),
+        'genesisProject' => $project,
+        'genesisCategoryId' => mb_substr((string)($task['categoryId'] ?? ''), 0, 100),
+        'genesisTags' => genesisBase64Url(json_encode($tags, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)),
+        'genesisDependsOn' => genesisBase64Url(json_encode($dependsOn, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)),
+        'genesisRecurrence' => $recurrence,
+        'genesisInterval' => (string)genesisClampInt($task['recurrenceInterval'] ?? 1, 1, 99, 1),
+        'genesisUpdatedAt' => (string)genesisClampInt($task['updatedAt'] ?? (int)(microtime(true) * 1000), 0, PHP_INT_MAX, (int)(microtime(true) * 1000)),
+    ];
     $event = [
-        'summary' => $summary,
-        'description' => $description,
-        'extendedProperties' => [
-            'private' => ['genesisTaskId' => (string)$task['id']],
-        ],
-        'reminders' => $task['reminder_minutes'] !== null
-            ? ['useDefault' => false, 'overrides' => [['method' => 'popup', 'minutes' => (int)$task['reminder_minutes']]]]
+        'summary' => ($done ? '✓ ' : '') . $title,
+        'description' => $visibleDescription,
+        'extendedProperties' => ['private' => $private],
+        'reminders' => isset($task['reminderMinutes']) && $task['reminderMinutes'] !== null
+            ? ['useDefault' => false, 'overrides' => [['method' => 'popup', 'minutes' => genesisClampInt($task['reminderMinutes'], 0, 40320, 30)]]]
             : ['useDefault' => true],
     ];
-    if (!empty($task['time_value'])) {
-        $start = new DateTimeImmutable((string)$task['due_date'] . ' ' . (string)$task['time_value'], $timezone);
+    if ($timeValue !== '') {
+        $start = new DateTimeImmutable($dueDate . ' ' . $timeValue, $timezone);
         $event['start'] = ['dateTime' => $start->format(DATE_RFC3339), 'timeZone' => $timezoneName];
         $event['end'] = ['dateTime' => $start->modify('+1 hour')->format(DATE_RFC3339), 'timeZone' => $timezoneName];
     } else {
-        $date = new DateTimeImmutable((string)$task['due_date'] . ' 12:00:00', $timezone);
+        $date = new DateTimeImmutable($dueDate . ' 12:00:00', $timezone);
         $event['start'] = ['date' => $date->format('Y-m-d')];
         $event['end'] = ['date' => $date->modify('+1 day')->format('Y-m-d')];
     }
     return $event;
 }
 
-function genesisSyncTaskToGoogle(string $userId, string $taskId): void
+function genesisDecodeBase64Json(string $value): array
 {
-    $db = genesisDb();
-    $taskStatement = $db->prepare('SELECT * FROM tasks WHERE id = :id AND user_id = :user_id');
-    $taskStatement->execute(['id' => $taskId, 'user_id' => $userId]);
-    $task = $taskStatement->fetch();
-    if (!is_array($task) || empty($task['sync_to_google'])) {
-        return;
-    }
-    $user = genesisFindUser($userId);
-    if ($user === null || empty($user['refresh_token_enc'])) {
-        return;
-    }
-    $user = genesisEnsureGoogleCalendar($user);
-    $calendarId = rawurlencode((string)$user['google_calendar_id']);
-    $event = genesisGoogleEventPayload($task);
-    if (!empty($task['google_event_id'])) {
-        genesisGoogleApi('PUT', '/calendars/' . $calendarId . '/events/' . rawurlencode((string)$task['google_event_id']), $user, $event);
-        return;
-    }
-    $created = genesisGoogleApi('POST', '/calendars/' . $calendarId . '/events', $user, $event);
-    if (!empty($created['id'])) {
-        $db->prepare('UPDATE tasks SET google_event_id = :event_id, updated_at = :updated_at WHERE id = :id AND user_id = :user_id')->execute([
-            'event_id' => (string)$created['id'],
-            'updated_at' => genesisNow(),
-            'id' => $taskId,
-            'user_id' => $userId,
-        ]);
-    }
+    $padding = (4 - strlen($value) % 4) % 4;
+    $decoded = base64_decode(strtr($value . str_repeat('=', $padding), '-_', '+/'), true);
+    $json = is_string($decoded) ? json_decode($decoded, true) : null;
+    return is_array($json) ? array_values(array_filter($json, 'is_string')) : [];
 }
 
-function genesisDeleteGoogleTaskEvent(string $userId, array $task): void
+function genesisGoogleEventForClient(array $event): ?array
 {
-    if (empty($task['google_event_id'])) {
-        return;
+    $private = $event['extendedProperties']['private'] ?? [];
+    $taskId = is_array($private) ? trim((string)($private['genesisTaskId'] ?? '')) : '';
+    if ($taskId === '' || ($event['status'] ?? '') === 'cancelled') {
+        return null;
     }
+    $summary = (string)($event['summary'] ?? 'Без названия');
+    $done = ($private['genesisDone'] ?? '') === '1' || str_starts_with($summary, '✓ ');
+    $title = $done && str_starts_with($summary, '✓ ') ? mb_substr($summary, 2) : $summary;
+    $timezone = new DateTimeZone((string)(genesisConfig()['timezone'] ?? 'Europe/Moscow'));
+    $dateTime = $event['start']['dateTime'] ?? null;
+    $date = $event['start']['date'] ?? null;
+    $dueDate = date('Y-m-d');
+    $time = '';
+    if (is_string($dateTime) && $dateTime !== '') {
+        $start = (new DateTimeImmutable($dateTime))->setTimezone($timezone);
+        $dueDate = $start->format('Y-m-d');
+        $time = $start->format('H:i');
+    } elseif (is_string($date) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+        $dueDate = $date;
+    }
+    $sacred = genesisSacredFromDate($dueDate);
+    $rawDescription = (string)($event['description'] ?? '');
+    $description = trim(explode("\n\n— GENESIS —\n", $rawDescription, 2)[0]);
+    $reminder = null;
+    if (($event['reminders']['useDefault'] ?? true) === false) {
+        $first = $event['reminders']['overrides'][0]['minutes'] ?? null;
+        $reminder = is_numeric($first) ? (int)$first : null;
+    }
+    return [
+        'id' => $taskId,
+        'sacredYear' => $sacred['sacredYear'],
+        'monthIndex' => $sacred['monthIndex'],
+        'day' => $sacred['day'],
+        'dueDate' => $dueDate,
+        'title' => mb_substr($title, 0, 500),
+        'description' => $description,
+        'time' => $time,
+        'project' => (string)($private['genesisProject'] ?? ''),
+        'projectId' => ($private['genesisProjectId'] ?? '') !== '' ? (string)$private['genesisProjectId'] : null,
+        'categoryId' => ($private['genesisCategoryId'] ?? '') !== '' ? (string)$private['genesisCategoryId'] : null,
+        'tags' => genesisDecodeBase64Json((string)($private['genesisTags'] ?? '')),
+        'dependsOnIds' => genesisDecodeBase64Json((string)($private['genesisDependsOn'] ?? '')),
+        'done' => $done,
+        'completedAt' => ($private['genesisCompletedAt'] ?? '') !== '' ? (string)$private['genesisCompletedAt'] : null,
+        'reminderMinutes' => $reminder,
+        'recurrence' => (string)($private['genesisRecurrence'] ?? 'none'),
+        'recurrenceInterval' => genesisClampInt($private['genesisInterval'] ?? 1, 1, 99, 1),
+        'syncToGoogle' => true,
+        'googleEventId' => (string)($event['id'] ?? ''),
+        'updatedAt' => genesisClampInt($private['genesisUpdatedAt'] ?? (strtotime((string)($event['updated'] ?? 'now')) * 1000), 0, PHP_INT_MAX, (int)(microtime(true) * 1000)),
+    ];
+}
+
+function genesisFindGoogleEvent(array $user, string $taskId): ?array
+{
+    $user = genesisEnsureGoogleCalendar($user);
+    $query = http_build_query([
+        'privateExtendedProperty' => 'genesisTaskId=' . $taskId,
+        'showDeleted' => 'false',
+        'maxResults' => 2,
+    ], '', '&', PHP_QUERY_RFC3986);
+    $result = genesisGoogleApi('GET', '/calendars/' . rawurlencode((string)$user['google_calendar_id']) . '/events?' . $query, $user);
+    foreach ($result['items'] ?? [] as $event) {
+        if (is_array($event) && ($event['extendedProperties']['private']['genesisTaskId'] ?? null) === $taskId) {
+            return $event;
+        }
+    }
+    return null;
+}
+
+function genesisSyncTaskToGoogle(string $userId, string $taskId, array $task): array
+{
+    $user = genesisFindUser($userId);
+    if ($user === null || empty($user['refresh_token_enc'])) {
+        throw new RuntimeException('Google Calendar не подключён.');
+    }
+    $user = genesisEnsureGoogleCalendar($user);
+    $eventPayload = genesisTaskPayloadForGoogle($taskId, $task);
+    $eventId = trim((string)($task['googleEventId'] ?? ''));
+    if ($eventId === '') {
+        $existing = genesisFindGoogleEvent($user, $taskId);
+        $eventId = is_array($existing) ? (string)($existing['id'] ?? '') : '';
+    }
+    $calendarPath = '/calendars/' . rawurlencode((string)$user['google_calendar_id']) . '/events';
+    $event = $eventId !== ''
+        ? genesisGoogleApi('PUT', $calendarPath . '/' . rawurlencode($eventId), $user, $eventPayload)
+        : genesisGoogleApi('POST', $calendarPath, $user, $eventPayload);
+    $clientTask = genesisGoogleEventForClient($event);
+    if ($clientTask === null) {
+        throw new RuntimeException('Google Calendar did not return the saved task.');
+    }
+    genesisTouchUser($userId);
+    return $clientTask;
+}
+
+function genesisDeleteGoogleTaskEvent(string $userId, string $taskId): void
+{
     $user = genesisFindUser($userId);
     if ($user === null || empty($user['google_calendar_id']) || empty($user['refresh_token_enc'])) {
         return;
     }
+    $event = genesisFindGoogleEvent($user, $taskId);
+    if (!is_array($event) || empty($event['id'])) {
+        return;
+    }
     try {
-        genesisGoogleApi('DELETE', '/calendars/' . rawurlencode((string)$user['google_calendar_id']) . '/events/' . rawurlencode((string)$task['google_event_id']), $user);
+        genesisGoogleApi('DELETE', '/calendars/' . rawurlencode((string)$user['google_calendar_id']) . '/events/' . rawurlencode((string)$event['id']), $user);
     } catch (RuntimeException $error) {
         if (!str_contains($error->getMessage(), '(404)') && !str_contains($error->getMessage(), '(410)')) {
             throw $error;
         }
     }
+    genesisTouchUser($userId);
 }
 
-function genesisPullGoogleChanges(array $user): void
+function genesisListGoogleTasks(array $user): array
 {
-    if (empty($user['google_calendar_id']) || empty($user['refresh_token_enc'])) {
-        return;
+    if (empty($user['refresh_token_enc'])) {
+        return [];
     }
-    $updatedMin = $user['last_calendar_sync_at'] ?: gmdate('c', time() - 86400 * 30);
-    $path = '/calendars/' . rawurlencode((string)$user['google_calendar_id']) . '/events?' . http_build_query([
-        'singleEvents' => 'true',
-        'showDeleted' => 'true',
-        'updatedMin' => $updatedMin,
-        'maxResults' => 250,
-    ], '', '&', PHP_QUERY_RFC3986);
-    $result = genesisGoogleApi('GET', $path, $user);
-    $db = genesisDb();
-    foreach ($result['items'] ?? [] as $event) {
-        if (!is_array($event)) {
-            continue;
+    $user = genesisEnsureGoogleCalendar($user);
+    $tasks = [];
+    $pageToken = null;
+    do {
+        $query = [
+            'singleEvents' => 'true',
+            'showDeleted' => 'false',
+            'maxResults' => 2500,
+        ];
+        if (is_string($pageToken) && $pageToken !== '') {
+            $query['pageToken'] = $pageToken;
         }
-        $taskId = $event['extendedProperties']['private']['genesisTaskId'] ?? null;
-        if (!is_string($taskId) || $taskId === '') {
-            continue;
-        }
-        if (($event['status'] ?? '') === 'cancelled') {
-            $db->prepare('UPDATE tasks SET sync_to_google = 0, google_event_id = NULL, updated_at = :updated_at WHERE id = :id AND user_id = :user_id')->execute(['updated_at' => genesisNow(), 'id' => $taskId, 'user_id' => (string)$user['id']]);
-            continue;
-        }
-        $taskStatement = $db->prepare('SELECT * FROM tasks WHERE id = :id AND user_id = :user_id LIMIT 1');
-        $taskStatement->execute(['id' => $taskId, 'user_id' => (string)$user['id']]);
-        $existingTask = $taskStatement->fetch();
-        if (!is_array($existingTask)) {
-            continue;
-        }
-        $summary = (string)($event['summary'] ?? '');
-        $done = str_starts_with($summary, '✓ ');
-        $title = $done ? mb_substr($summary, 2) : $summary;
-        $timezone = new DateTimeZone((string)(genesisConfig()['timezone'] ?? 'Europe/Moscow'));
-        $dateTimeValue = $event['start']['dateTime'] ?? null;
-        $dateValue = $event['start']['date'] ?? null;
-        $dueDate = (string)$existingTask['due_date'];
-        $timeValue = (string)$existingTask['time_value'];
-        if (is_string($dateTimeValue) && $dateTimeValue !== '') {
-            $start = (new DateTimeImmutable($dateTimeValue))->setTimezone($timezone);
-            $dueDate = $start->format('Y-m-d');
-            $timeValue = $start->format('H:i');
-        } elseif (is_string($dateValue) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateValue)) {
-            $dueDate = $dateValue;
-            $timeValue = '';
-        }
-        $sacred = genesisSacredFromDate($dueDate);
-        $reminderMinutes = $existingTask['reminder_minutes'];
-        if (($event['reminders']['useDefault'] ?? true) === false) {
-            foreach ($event['reminders']['overrides'] ?? [] as $reminder) {
-                if (is_array($reminder) && isset($reminder['minutes'])) {
-                    $reminderMinutes = genesisClampInt($reminder['minutes'], 0, 40320, 30);
-                    break;
-                }
+        $result = genesisGoogleApi('GET', '/calendars/' . rawurlencode((string)$user['google_calendar_id']) . '/events?' . http_build_query($query, '', '&', PHP_QUERY_RFC3986), $user);
+        foreach ($result['items'] ?? [] as $event) {
+            if (!is_array($event)) {
+                continue;
+            }
+            $task = genesisGoogleEventForClient($event);
+            if ($task !== null) {
+                $tasks[] = $task;
             }
         }
-        $db->prepare('UPDATE tasks SET title = :title, due_date = :due_date, time_value = :time_value, sacred_year = :sacred_year, month_index = :month_index, sacred_day = :sacred_day, reminder_minutes = :reminder_minutes, done = :done, completed_at = :completed_at, updated_at = :updated_at WHERE id = :id AND user_id = :user_id')->execute([
-            'title' => mb_substr($title, 0, 500),
-            'due_date' => $dueDate,
-            'time_value' => $timeValue,
-            'sacred_year' => $sacred['sacredYear'],
-            'month_index' => $sacred['monthIndex'],
-            'sacred_day' => $sacred['day'],
-            'reminder_minutes' => $reminderMinutes,
-            'done' => $done ? 1 : 0,
-            'completed_at' => $done ? genesisNow() : null,
-            'updated_at' => genesisNow(),
-            'id' => $taskId,
-            'user_id' => (string)$user['id'],
-        ]);
-        if (empty($existingTask['done']) && $done && (string)$existingTask['recurrence'] !== 'none') {
-            $updatedStatement = $db->prepare('SELECT * FROM tasks WHERE id = :id AND user_id = :user_id');
-            $updatedStatement->execute(['id' => $taskId, 'user_id' => (string)$user['id']]);
-            $updatedTask = $updatedStatement->fetch();
-            if (is_array($updatedTask)) {
-                $next = genesisSpawnNextOccurrence((string)$user['id'], $updatedTask);
-                if (is_array($next)) {
-                    genesisSyncTaskToGoogle((string)$user['id'], (string)$next['id']);
-                }
-            }
-        }
-    }
-    genesisDb()->prepare('UPDATE users SET last_calendar_sync_at = :synced_at, updated_at = :updated_at WHERE id = :id')->execute([
-        'synced_at' => gmdate('c', time() - 60),
-        'updated_at' => genesisNow(),
+        $pageToken = $result['nextPageToken'] ?? null;
+    } while (is_string($pageToken) && $pageToken !== '' && count($tasks) < 10_000);
+    genesisDb()->prepare('UPDATE users SET last_calendar_sync_at = :synced_at, last_seen_at = :synced_at WHERE id = :id')->execute([
+        'synced_at' => genesisNow(),
         'id' => (string)$user['id'],
     ]);
+    return $tasks;
 }

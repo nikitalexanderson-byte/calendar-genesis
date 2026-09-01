@@ -10,4 +10,5 @@ return [
     'session_path' => __DIR__ . '/var/sessions',
     'cookie_secure' => true,
     'timezone' => 'Europe/Moscow',
+    'admin_email' => 'nikitalexanderson@gmail.com',
 ];

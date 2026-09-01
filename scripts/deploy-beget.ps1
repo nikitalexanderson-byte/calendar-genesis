@@ -64,7 +64,7 @@ New-Item -ItemType Directory -Force -Path $packageRoot, (Join-Path $localBackup 
 
 & tar.exe -czf $publicArchive -C $distRoot .
 if ($LASTEXITCODE -ne 0) { throw "Could not package the public build." }
-& tar.exe -czf $serverArchive --exclude='./config.php' --exclude='./var' -C $serverRoot .
+& tar.exe -czf $serverArchive --exclude='./config.php' --exclude='./config.example.php' --exclude='./var' -C $serverRoot .
 if ($LASTEXITCODE -ne 0) { throw "Could not package the server." }
 
 & $ssh -o BatchMode=yes $HostAlias "test -f '$RemoteRoot/server/config.php'"
@@ -87,6 +87,10 @@ test -d '$RemoteRoot/public_html'
 mkdir -p '$remoteBackup/public_html'
 cp -a '$RemoteRoot/public_html/.' '$remoteBackup/public_html/'
 if test -d '$RemoteRoot/server'; then cp -a '$RemoteRoot/server' '$remoteBackup/server'; fi
+mkdir -p '$remoteBackup/retired-configs'
+if test -f '$RemoteRoot/server/config.example.php'; then mv -- '$RemoteRoot/server/config.example.php' '$remoteBackup/retired-configs/config.example.php'; fi
+if test -f '$RemoteRoot/server/config.php.bak-20260831-102855'; then mv -- '$RemoteRoot/server/config.php.bak-20260831-102855' '$remoteBackup/retired-configs/config.php.bak-20260831-102855'; fi
+if test -f '$RemoteRoot/server/config.php.bak-20260831-144308'; then mv -- '$RemoteRoot/server/config.php.bak-20260831-144308' '$remoteBackup/retired-configs/config.php.bak-20260831-144308'; fi
 find '$RemoteRoot/public_html' -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
 tar -xzf '$remotePublicArchive' -C '$RemoteRoot/public_html'
 mkdir -p '$RemoteRoot/server'

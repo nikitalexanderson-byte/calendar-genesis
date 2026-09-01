@@ -19,7 +19,19 @@ export type SacredMonth = {
   season: string;
   color: string;
   symbol: string;
+  artPosition: string;
   days: SacredDay[];
+};
+
+export type SolarEvent = {
+  id: "spring-equinox" | "summer-solstice" | "autumn-equinox" | "winter-solstice";
+  name: string;
+  shortName: string;
+  kind: "equinox" | "solstice";
+  symbol: string;
+  date: Date;
+  monthIndex: number;
+  day: number;
 };
 
 export type SacredDateInfo = {
@@ -68,19 +80,19 @@ export const PYATA_MEANINGS = [
 ] as const;
 
 const MONTH_STYLE = [
-  ["Весна", "#9fad78", "Α"],
-  ["Весна", "#b6a86f", "Β"],
-  ["Весна", "#7caa9e", "Γ"],
-  ["Лето", "#d1a653", "Δ"],
-  ["Лето", "#b96b4c", "Ε"],
-  ["Лето", "#c69155", "Ζ"],
-  ["Осень", "#9b5b52", "Η"],
-  ["Осень", "#6d7284", "Θ"],
-  ["Осень", "#7f765e", "Ι"],
-  ["Зима", "#78969b", "Κ"],
-  ["Зима", "#64828c", "Λ"],
-  ["Зима", "#77758c", "Μ"],
-  ["Вне времени", "#9a8264", "Ω"],
+  ["Весна", "#6f9b68", "Α", "0%"],
+  ["Весна", "#98a85d", "Β", "8.333%"],
+  ["Весна", "#2f8f8a", "Γ", "16.666%"],
+  ["Лето", "#dfa33d", "Δ", "25%"],
+  ["Лето", "#c55235", "Ε", "33.333%"],
+  ["Лето", "#b98535", "Ζ", "41.666%"],
+  ["Осень", "#8f3f49", "Η", "50%"],
+  ["Осень", "#6d5b8e", "Θ", "58.333%"],
+  ["Осень", "#a34b33", "Ι", "66.666%"],
+  ["Зима", "#4d7f91", "Κ", "75%"],
+  ["Зима", "#718bb4", "Λ", "83.333%"],
+  ["Зима", "#343f73", "Μ", "91.666%"],
+  ["Вне времени", "#1f4a49", "Ω", "100%"],
 ] as const;
 
 function parseCalendar(text: string): SacredMonth[] {
@@ -119,6 +131,7 @@ function parseCalendar(text: string): SacredMonth[] {
         season: style[0],
         color: style[1],
         symbol: style[2],
+        artPosition: style[3],
         days: [],
       };
       months.push(current);
@@ -267,9 +280,36 @@ export function dateKey(monthIndex: number, day: number) {
   return `${monthIndex}-${day}`;
 }
 
-export const SOLAR_EVENTS: Record<string, string> = {
-  "0-1": "Весеннее равноденствие",
-  "3-4": "Летнее солнцестояние",
-  "6-8": "Осеннее равноденствие",
-  "9-8": "Зимнее солнцестояние",
-};
+const SOLAR_DEFINITIONS = [
+  { id: "spring-equinox", name: "Весеннее равноденствие", shortName: "Равноденствие", kind: "equinox", symbol: "☼", coefficient: [2451623.80984, 365242.37404, 0.05169, -0.00411, -0.00057] },
+  { id: "summer-solstice", name: "Летнее солнцестояние", shortName: "Солнцестояние", kind: "solstice", symbol: "✺", coefficient: [2451716.56767, 365241.62603, 0.00325, 0.00888, -0.00030] },
+  { id: "autumn-equinox", name: "Осеннее равноденствие", shortName: "Равноденствие", kind: "equinox", symbol: "☉", coefficient: [2451810.21715, 365242.01767, -0.11575, 0.00337, 0.00078] },
+  { id: "winter-solstice", name: "Зимнее солнцестояние", shortName: "Солнцестояние", kind: "solstice", symbol: "✹", coefficient: [2451900.05952, 365242.74049, -0.06223, -0.00823, 0.00032] },
+] as const;
+
+function solarDate(year: number, coefficient: readonly number[]) {
+  const t = (year - 2000) / 1000;
+  const julianDay = coefficient.reduce((sum, value, power) => sum + value * (t ** power), 0);
+  return new Date((julianDay - 2440587.5) * DAY_MS);
+}
+
+export function getSolarEvents(sacredYear: number): SolarEvent[] {
+  return SOLAR_DEFINITIONS.map((definition) => {
+    const date = solarDate(sacredYear, definition.coefficient);
+    const sacred = getSacredDate(date);
+    return {
+      id: definition.id,
+      name: definition.name,
+      shortName: definition.shortName,
+      kind: definition.kind,
+      symbol: definition.symbol,
+      date,
+      monthIndex: sacred.monthIndex,
+      day: sacred.day,
+    };
+  });
+}
+
+export function getSolarEvent(sacredYear: number, monthIndex: number, day: number) {
+  return getSolarEvents(sacredYear).find((event) => event.monthIndex === monthIndex && event.day === day) ?? null;
+}
