@@ -79,12 +79,13 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /window\.history\.pushState/);
   assert.match(calendar, /mini-day-task-count/);
   assert.match(calendar, /data-nav-id=\{item\.id\}/);
-  assert.match(stoicheionData, /STOICHEION_SOURCE_COUNT = 23/);
+  assert.match(stoicheionData, /STOICHEION_SOURCE_COUNT = 24/);
   assert.match(stoicheionData, /STOICHEION_TOTAL_COUNT = 24/);
   assert.match(stoicheionData, /id: "alpha"/);
   assert.match(stoicheionData, /id: "chi"/);
   assert.match(stoicheionData, /id: "omega"/);
-  assert.match(stoicheionData, /source: "editorial-placeholder"/);
+  assert.match(stoicheionData, /Метафизика перекрестка миров и Огненной Души/);
+  assert.doesNotMatch(stoicheionData, /source: "editorial-placeholder"/);
   assert.match(stoicheion, /buildStoicheionSpread/);
   assert.match(stoicheion, /pythmenFromTotal/);
   assert.match(stoicheion, /Космический круг и девять ликов силы/);
