@@ -85,8 +85,8 @@ $deploy = @"
 set -e
 test -d '$RemoteRoot/public_html'
 mkdir -p '$remoteBackup/public_html'
-cp -a '$RemoteRoot/public_html/.' '$remoteBackup/public_html/'
-if test -d '$RemoteRoot/server'; then cp -a '$RemoteRoot/server' '$remoteBackup/server'; fi
+cp -R '$RemoteRoot/public_html/.' '$remoteBackup/public_html/'
+if test -d '$RemoteRoot/server'; then cp -R '$RemoteRoot/server' '$remoteBackup/server'; fi
 mkdir -p '$remoteBackup/retired-configs'
 if test -f '$RemoteRoot/server/config.example.php'; then mv -- '$RemoteRoot/server/config.example.php' '$remoteBackup/retired-configs/config.example.php'; fi
 if test -f '$RemoteRoot/server/config.php.bak-20260831-102855'; then mv -- '$RemoteRoot/server/config.php.bak-20260831-102855' '$remoteBackup/retired-configs/config.php.bak-20260831-102855'; fi
@@ -96,7 +96,7 @@ tar -xzf '$remotePublicArchive' -C '$RemoteRoot/public_html'
 mkdir -p '$RemoteRoot/server'
 tar -xzf '$remoteServerArchive' -C '$RemoteRoot/server'
 mkdir -p '$RemoteRoot/public_html/api'
-cp -a '$RemoteRoot/server/public/api/.' '$RemoteRoot/public_html/api/'
+cp -R '$RemoteRoot/server/public/api/.' '$RemoteRoot/public_html/api/'
 find '$RemoteRoot/public_html' -type d -exec chmod 755 {} +
 find '$RemoteRoot/public_html' -type f -exec chmod 644 {} +
 chmod 600 '$RemoteRoot/server/config.php'
