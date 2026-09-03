@@ -1928,7 +1928,12 @@ export function GenesisCalendar() {
                     <span>Интервал</span>
                     <input type="number" min="1" max="99" value={taskRecurrenceInterval} onChange={(event) => setTaskRecurrenceInterval(event.target.value)} />
                   </label>
-                ) : <span />}
+                ) : (
+                  <label>
+                    <span>Теги</span>
+                    <input value={taskTags} onChange={(event) => setTaskTags(event.target.value)} placeholder="ритуал, работа, дом" />
+                  </label>
+                )}
               </div>
               {tasks.length ? (
                 <label className="task-form-row-full">
@@ -1936,10 +1941,12 @@ export function GenesisCalendar() {
                   <DependencyPicker tasks={tasks} value={taskDependsOn} onChange={setTaskDependsOn} />
                 </label>
               ) : null}
-              <label>
-                <span>Теги</span>
-                <input value={taskTags} onChange={(event) => setTaskTags(event.target.value)} placeholder="ритуал, работа, дом" />
-              </label>
+              {taskRecurrence !== "none" ? (
+                <label>
+                  <span>Теги</span>
+                  <input value={taskTags} onChange={(event) => setTaskTags(event.target.value)} placeholder="ритуал, работа, дом" />
+                </label>
+              ) : null}
               <div className="sync-checkbox sync-always-on">
                 <span aria-hidden="true">✓</span>
                 <span>Задача будет сохранена локально и синхронизирована с Google Calendar</span>
