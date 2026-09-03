@@ -140,6 +140,18 @@ function genesisNow(): string
     return gmdate('Y-m-d\TH:i:s\Z');
 }
 
+function genesisLogError(string $message, ?Throwable $error = null): void
+{
+    $logLine = sprintf(
+        "[%s] %s%s\n",
+        gmdate('Y-m-d\TH:i:s\Z'),
+        $message,
+        $error !== null ? sprintf(" in %s:%d\n%s", $error->getFile(), $error->getLine(), $error->getTraceAsString()) : '',
+    );
+    $logPath = dirname((string)genesisConfig()['db_path']) . '/app-error.log';
+    @file_put_contents($logPath, $logLine, FILE_APPEND | LOCK_EX);
+}
+
 function genesisClientTimeZone(): DateTimeZone
 {
     $fallback = (string)(genesisConfig()['timezone'] ?? 'Europe/Moscow');
