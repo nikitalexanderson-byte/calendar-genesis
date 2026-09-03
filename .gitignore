@@ -48,6 +48,7 @@ yarn-error.log*
 /server/var/
 /deploy-private/
 /sshp.txt
+/backups/
 
 # Android signing material
 *.jks
