@@ -233,16 +233,7 @@ try {
 } catch (JsonException | InvalidArgumentException $error) {
     genesisJson(['error' => $error->getMessage()], 400);
 } catch (Throwable $error) {
-    $logLine = sprintf(
-        "[%s] %s in %s:%d\n%s\n",
-        gmdate('Y-m-d\TH:i:s\Z'),
-        $error->getMessage(),
-        $error->getFile(),
-        $error->getLine(),
-        $error->getTraceAsString(),
-    );
     error_log('[GENESIS] ' . $error->getMessage());
-    $logPath = dirname((string)genesisConfig()['db_path']) . '/app-error.log';
-    @file_put_contents($logPath, $logLine, FILE_APPEND | LOCK_EX);
+    genesisLogError($error->getMessage(), $error);
     genesisJson(['error' => 'Server error. Please try again.'], 500);
 }

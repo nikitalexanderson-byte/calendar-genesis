@@ -240,6 +240,7 @@ function genesisTaskPayloadForGoogle(string $taskId, array $task): array
         'genesisDependsOn' => genesisBase64Url(json_encode($dependsOn, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)),
         'genesisRecurrence' => $recurrence,
         'genesisInterval' => (string)genesisClampInt($task['recurrenceInterval'] ?? 1, 1, 99, 1),
+        'genesisPriority' => (string)genesisClampInt($task['priority'] ?? 5, 1, 10, 5),
         'genesisUpdatedAt' => (string)genesisClampInt($task['updatedAt'] ?? (int)(microtime(true) * 1000), 0, PHP_INT_MAX, (int)(microtime(true) * 1000)),
     ];
     $event = [
@@ -314,6 +315,7 @@ function genesisGoogleEventForClient(array $event): ?array
         'categoryId' => ($private['genesisCategoryId'] ?? '') !== '' ? (string)$private['genesisCategoryId'] : null,
         'tags' => genesisDecodeBase64Json((string)($private['genesisTags'] ?? '')),
         'dependsOnIds' => genesisDecodeBase64Json((string)($private['genesisDependsOn'] ?? '')),
+        'priority' => genesisClampInt($private['genesisPriority'] ?? 5, 1, 10, 5),
         'done' => $done,
         'completedAt' => ($private['genesisCompletedAt'] ?? '') !== '' ? (string)$private['genesisCompletedAt'] : null,
         'reminderMinutes' => $reminder,
@@ -603,6 +605,7 @@ function genesisListGoogleTasks(array $user): array
         } catch (Throwable $tasksError) {
             $GLOBALS['GENESIS_GOOGLE_TASKS_WARNING'] = 'Импорт Google Tasks временно недоступен: ' . $tasksError->getMessage();
             error_log('[GENESIS Google Tasks] ' . $tasksError->getMessage());
+            genesisLogError('[GoogleTasks] ' . $tasksError->getMessage(), $tasksError);
         }
     }
     usort($tasks, static fn(array $left, array $right): int => [

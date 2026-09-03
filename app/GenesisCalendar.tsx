@@ -31,6 +31,7 @@ import { AccountPanel } from "./AccountPanel";
 import { AdminPanel } from "./AdminPanel";
 import { currentLegalPage, LegalPage } from "./LegalPage";
 import { StoicheionView } from "./StoicheionView";
+import { TimeClockPicker } from "./TimeClockPicker";
 import { WelcomeScreen } from "./WelcomeScreen";
 import {
   MONTHS,
@@ -112,6 +113,7 @@ function readStoredState(key: string): StoredState {
           categoryId: legacy.categoryId ?? null,
           tags: legacy.tags ?? [],
           dependsOnIds: legacy.dependsOnIds ?? [],
+          priority: legacy.priority ?? 5,
           done: legacy.done ?? false,
           completedAt: legacy.completedAt ?? (legacy.done ? new Date().toISOString() : null),
           reminderMinutes: legacy.reminderMinutes ?? null,
@@ -149,33 +151,54 @@ const DEFAULT_CATEGORIES: GenesisCategory[] = [
 ];
 
 const APP_BASE = (process.env.NEXT_PUBLIC_GENESIS_BASE_PATH?.trim() || "").replace(/\/$/, "");
-const HOURS_24 = Array.from({ length: 24 }, (_, index) => String(index).padStart(2, "0"));
-const MINUTES_60 = Array.from({ length: 60 }, (_, index) => String(index).padStart(2, "0"));
 
-function Time24Select({ id, value, onChange, disabled = false }: { id: string; value: string; onChange: (value: string) => void; disabled?: boolean }) {
-  const [hour = "", minute = "00"] = value ? value.split(":") : ["", "00"];
+function DependencyPicker({ tasks, excludeId, value, onChange, disabled = false }: {
+  tasks: Task[];
+  excludeId?: string;
+  value: string[];
+  onChange: (ids: string[]) => void;
+  disabled?: boolean;
+}) {
+  const groups = useMemo(() => {
+    const map = new Map<string, Task[]>();
+    tasks
+      .filter((task) => !task.done && task.id !== excludeId)
+      .forEach((task) => {
+        const key = task.project.trim() || "Без проекта";
+        if (!map.has(key)) map.set(key, []);
+        map.get(key)!.push(task);
+      });
+    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
+  }, [tasks, excludeId]);
+
+  const toggle = (taskId: string) => {
+    if (disabled) return;
+    onChange(value.includes(taskId) ? value.filter((id) => id !== taskId) : [...value, taskId]);
+  };
+
+  if (!groups.length) {
+    return <p className="dependency-picker-empty">Нет доступных задач</p>;
+  }
+
   return (
-    <span className="time-24-select">
-      <select
-        id={id}
-        aria-label="Часы в 24-часовом формате"
-        value={hour}
-        disabled={disabled}
-        onChange={(event) => onChange(event.target.value ? `${event.target.value}:${minute}` : "")}
-      >
-        <option value="">—</option>
-        {HOURS_24.map((item) => <option value={item} key={item}>{item}</option>)}
-      </select>
-      <i aria-hidden="true">:</i>
-      <select
-        aria-label="Минуты"
-        value={minute}
-        disabled={disabled || !hour}
-        onChange={(event) => onChange(hour ? `${hour}:${event.target.value}` : "")}
-      >
-        {MINUTES_60.map((item) => <option value={item} key={item}>{item}</option>)}
-      </select>
-    </span>
+    <div className="dependency-picker" role="group" aria-label="Зависит от">
+      {groups.map(([project, items]) => (
+        <div className="dependency-picker-group" key={project}>
+          <span className="dependency-picker-group-title">{project}</span>
+          {items.map((task) => (
+            <label key={task.id} className="dependency-picker-item">
+              <input
+                type="checkbox"
+                checked={value.includes(task.id)}
+                disabled={disabled}
+                onChange={() => toggle(task.id)}
+              />
+              <span>{task.title}</span>
+            </label>
+          ))}
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -304,6 +327,7 @@ export function GenesisCalendar() {
   const [taskRecurrence, setTaskRecurrence] = useState<RecurrenceKind>("none");
   const [taskRecurrenceInterval, setTaskRecurrenceInterval] = useState("1");
   const [taskDependsOn, setTaskDependsOn] = useState<string[]>([]);
+  const [taskPriority, setTaskPriority] = useState("5");
   const [newProjectTitle, setNewProjectTitle] = useState("");
   const [newProjectDescription, setNewProjectDescription] = useState("");
   const [newProjectParent, setNewProjectParent] = useState("");
@@ -667,6 +691,7 @@ export function GenesisCalendar() {
       categoryId: selectedProject?.categoryId ?? null,
       tags,
       dependsOnIds: taskDependsOn,
+      priority: Math.min(10, Math.max(1, Number(taskPriority) || 5)),
       done: false,
       completedAt: null,
       reminderMinutes: taskReminder ? Number(taskReminder) : null,
@@ -687,6 +712,7 @@ export function GenesisCalendar() {
     setTaskTime("");
     setTaskTags("");
     setTaskDependsOn([]);
+    setTaskPriority("5");
   };
 
   const openTaskEditor = (task: Task) => {
@@ -1693,24 +1719,27 @@ export function GenesisCalendar() {
           ))}
         </nav>
         <div className="month-rail" aria-label="Месяцы">
-          {MONTHS.map((month) => (
-            <button
-              type="button"
-              key={month.name}
-              className={monthIndex === month.index ? "active" : ""}
-              onClick={() => {
-                setMonthIndex(month.index);
-                setSelectedDay(1);
-                navigateTo("calendar");
-              }}
-              title={month.name}
-              aria-label={month.name}
-              style={{ "--month-accent": month.color } as CSSProperties}
-            >
-              {month.symbol}
-              {month.index === 12 ? <small>{month.name}</small> : null}
-            </button>
-          ))}
+          <span className="month-rail-title">Месяцы года</span>
+          <div className="month-rail-grid">
+            {MONTHS.map((month) => (
+              <button
+                type="button"
+                key={month.name}
+                className={monthIndex === month.index ? "active" : ""}
+                onClick={() => {
+                  setMonthIndex(month.index);
+                  setSelectedDay(1);
+                  navigateTo("calendar");
+                }}
+                title={month.name}
+                aria-label={month.name}
+                style={{ "--month-accent": month.color } as CSSProperties}
+              >
+                <i aria-hidden="true">{month.symbol}</i>
+                <small>{month.name}</small>
+              </button>
+            ))}
+          </div>
         </div>
         <div className={`sidebar-foot sync-${syncStatus}`}>
           <span className="sync-dot" aria-hidden="true" />
@@ -1823,7 +1852,7 @@ export function GenesisCalendar() {
                     {task.done ? "✓" : ""}
                   </button>
                   <button type="button" className="task-open" onClick={() => openTaskEditor(task)}>
-                    <span className="task-meta">{task.time || "В течение дня"}{task.project ? ` · ${task.project}` : ""}{task.recurrence !== "none" ? " · ↻" : ""}{task.reminderMinutes !== null ? ` · ⏰ ${task.reminderMinutes} мин` : ""}</span>
+                    <span className="task-meta">{task.time || "В течение дня"}{task.project ? ` · ${task.project}` : ""}{task.priority !== 5 ? ` · ⚑${task.priority}` : ""}{task.recurrence !== "none" ? " · ↻" : ""}{task.reminderMinutes !== null ? ` · ⏰ ${task.reminderMinutes} мин` : ""}</span>
                     <strong>{task.title}</strong>
                     {task.tags.length ? <span className="task-tags">{task.tags.map((tag) => <i key={tag}>#{tag}</i>)}</span> : null}
                     {task.dependsOnIds.length ? <span className="task-dependency">↳ после: {task.dependsOnIds.map((dependencyId) => tasks.find((item) => item.id === dependencyId)?.title).filter(Boolean).join(", ") || `${task.dependsOnIds.length} связанных задач`}</span> : null}
@@ -1850,7 +1879,7 @@ export function GenesisCalendar() {
               <div className="task-form-row">
                 <label htmlFor="new-task-time-hour">
                   <span>Время</span>
-                  <Time24Select id="new-task-time-hour" value={taskTime} onChange={setTaskTime} />
+                  <TimeClockPicker id="new-task-time-hour" value={taskTime} onChange={setTaskTime} />
                 </label>
                 <label>
                   <span>Проект</span>
@@ -1885,23 +1914,27 @@ export function GenesisCalendar() {
                   </select>
                 </label>
               </div>
-              {taskRecurrence !== "none" || tasks.length ? (
-                <div className="task-form-row">
-                  {taskRecurrence !== "none" ? (
-                    <label>
-                      <span>Интервал</span>
-                      <input type="number" min="1" max="99" value={taskRecurrenceInterval} onChange={(event) => setTaskRecurrenceInterval(event.target.value)} />
-                    </label>
-                  ) : <span />}
-                  {tasks.length ? (
-                    <label>
-                      <span>Зависит от</span>
-                      <select multiple value={taskDependsOn} onChange={(event) => setTaskDependsOn(Array.from(event.target.selectedOptions, (option) => option.value))}>
-                        {tasks.filter((task) => !task.done).slice(0, 100).map((task) => <option key={task.id} value={task.id}>{task.project ? `${task.project} · ` : ""}{task.title}</option>)}
-                      </select>
-                    </label>
-                  ) : null}
-                </div>
+              <div className="task-form-row">
+                <label>
+                  <span>Приоритет</span>
+                  <select value={taskPriority} onChange={(event) => setTaskPriority(event.target.value)}>
+                    {Array.from({ length: 10 }, (_, index) => index + 1).map((level) => (
+                      <option key={level} value={level}>{level}</option>
+                    ))}
+                  </select>
+                </label>
+                {taskRecurrence !== "none" ? (
+                  <label>
+                    <span>Интервал</span>
+                    <input type="number" min="1" max="99" value={taskRecurrenceInterval} onChange={(event) => setTaskRecurrenceInterval(event.target.value)} />
+                  </label>
+                ) : <span />}
+              </div>
+              {tasks.length ? (
+                <label className="task-form-row-full">
+                  <span>Зависит от</span>
+                  <DependencyPicker tasks={tasks} value={taskDependsOn} onChange={setTaskDependsOn} />
+                </label>
               ) : null}
               <label>
                 <span>Теги</span>
@@ -2001,7 +2034,7 @@ export function GenesisCalendar() {
               </label>
               <label htmlFor="edit-task-time-hour">
                 <span>Время</span>
-                <Time24Select
+                <TimeClockPicker
                   id="edit-task-time-hour"
                   value={editingTask.time}
                   disabled={Boolean(editingTask.googleTaskId)}
@@ -2025,11 +2058,31 @@ export function GenesisCalendar() {
                   <option value="1440">За 1 день</option>
                 </select>
               </label>
+              <label>
+                <span>Приоритет</span>
+                <select value={editingTask.priority} onChange={(event) => setEditingTask((current) => current ? { ...current, priority: Number(event.target.value) } : current)} disabled={Boolean(editingTask.googleTaskId)}>
+                  {Array.from({ length: 10 }, (_, index) => index + 1).map((level) => (
+                    <option key={level} value={level}>{level}</option>
+                  ))}
+                </select>
+              </label>
             </div>
             <label>
               <span>Теги через запятую</span>
               <input value={editingTaskTags} onChange={(event) => setEditingTaskTags(event.target.value)} placeholder="работа, дом, ритуал" disabled={Boolean(editingTask.googleTaskId)} />
             </label>
+            {tasks.length ? (
+              <label className="task-form-row-full">
+                <span>Зависит от</span>
+                <DependencyPicker
+                  tasks={tasks}
+                  excludeId={editingTask.id}
+                  value={editingTask.dependsOnIds}
+                  onChange={(ids) => setEditingTask((current) => current ? { ...current, dependsOnIds: ids } : current)}
+                  disabled={Boolean(editingTask.googleTaskId)}
+                />
+              </label>
+            ) : null}
             <div className="editor-actions">
               <button type="button" className="text-button" onClick={() => setEditingTask(null)}>Отмена</button>
               <button type="submit" className="primary-button" disabled={!editingTask.title.trim()}>Сохранить задачу</button>

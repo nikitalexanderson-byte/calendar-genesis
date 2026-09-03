@@ -20,6 +20,7 @@ export type GenesisTask = {
   categoryId: string | null;
   tags: string[];
   dependsOnIds: string[];
+  priority: number;
   done: boolean;
   completedAt: string | null;
   reminderMinutes: number | null;
@@ -232,6 +233,7 @@ function normalizeTask(task: Partial<GenesisTask> & Pick<GenesisTask, "id" | "ti
     categoryId: null,
     tags: [],
     dependsOnIds: [],
+    priority: 5,
     done: false,
     completedAt: null,
     reminderMinutes: null,
