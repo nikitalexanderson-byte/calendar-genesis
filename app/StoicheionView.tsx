@@ -43,7 +43,7 @@ type SelectedReading = {
   reversed: boolean | null;
 };
 
-const MOTION_TRAVEL_REQUIRED = 1120;
+const MOTION_TRAVEL_REQUIRED = 4480;
 
 type SpreadPosition = {
   id: string;
