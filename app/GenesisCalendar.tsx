@@ -149,6 +149,35 @@ const DEFAULT_CATEGORIES: GenesisCategory[] = [
 ];
 
 const APP_BASE = (process.env.NEXT_PUBLIC_GENESIS_BASE_PATH?.trim() || "").replace(/\/$/, "");
+const HOURS_24 = Array.from({ length: 24 }, (_, index) => String(index).padStart(2, "0"));
+const MINUTES_60 = Array.from({ length: 60 }, (_, index) => String(index).padStart(2, "0"));
+
+function Time24Select({ id, value, onChange, disabled = false }: { id: string; value: string; onChange: (value: string) => void; disabled?: boolean }) {
+  const [hour = "", minute = "00"] = value ? value.split(":") : ["", "00"];
+  return (
+    <span className="time-24-select">
+      <select
+        id={id}
+        aria-label="Часы в 24-часовом формате"
+        value={hour}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value ? `${event.target.value}:${minute}` : "")}
+      >
+        <option value="">—</option>
+        {HOURS_24.map((item) => <option value={item} key={item}>{item}</option>)}
+      </select>
+      <i aria-hidden="true">:</i>
+      <select
+        aria-label="Минуты"
+        value={minute}
+        disabled={disabled || !hour}
+        onChange={(event) => onChange(hour ? `${hour}:${event.target.value}` : "")}
+      >
+        {MINUTES_60.map((item) => <option value={item} key={item}>{item}</option>)}
+      </select>
+    </span>
+  );
+}
 
 function apeironLength(sacredYear: number) {
   return (
@@ -241,6 +270,12 @@ function nextOccurrenceDate(dueDate: string, recurrence: RecurrenceKind, interva
 
 function romanDay(monthIndex: number, day: number) {
   return monthIndex === 12 ? String(day) : ["I", "II", "III", "IIII", "V"][(day - 1) % 5];
+}
+
+function monthArtUrl(monthIndex: number) {
+  return monthIndex === 3
+    ? `${APP_BASE}/month-art-v3/month-04-aigle.png`
+    : `${APP_BASE}/month-art-v3/month-${String(monthIndex + 1).padStart(2, "0")}.webp`;
 }
 
 export function GenesisCalendar() {
@@ -455,7 +490,14 @@ export function GenesisCalendar() {
           if (!active) return;
           const nextProjects = workspace.hasRemoteStructure ? workspace.projects : local.projects;
           const nextCategories = workspace.hasRemoteStructure ? workspace.categories : local.categories;
-          const nextTasks = workspace.syncWarning ? local.tasks : workspace.tasks;
+          const nextTasksById = new Map(workspace.tasks.map((task) => [task.id, task]));
+          local.tasks.forEach((task) => {
+            const remoteTask = nextTasksById.get(task.id);
+            if (!remoteTask || (!task.googleTaskId && task.updatedAt > remoteTask.updatedAt)) {
+              nextTasksById.set(task.id, task);
+            }
+          });
+          const nextTasks = Array.from(nextTasksById.values());
           tasksRef.current = nextTasks;
           projectsRef.current = nextProjects;
           categoriesRef.current = nextCategories;
@@ -1103,7 +1145,7 @@ export function GenesisCalendar() {
         className="calendar-view"
         style={{
           "--month-accent": selectedMonth.color,
-          "--month-art": `url("${APP_BASE}/month-art-v3/month-${String(monthIndex + 1).padStart(2, "0")}.webp")`,
+          "--month-art": `url("${monthArtUrl(monthIndex)}")`,
         } as CSSProperties}
       >
         <header className="calendar-header">
@@ -1239,13 +1281,21 @@ export function GenesisCalendar() {
   };
 
   const renderProjects = () => {
-    const search = tagSearch.trim().replace(/^#/, "").toLocaleLowerCase("ru-RU");
-    const taskMatchesTag = (task: Task) => !search || task.tags.some((tag) => tag.toLocaleLowerCase("ru-RU").includes(search));
-    const matchingProjectIds = new Set(projects.filter((project) => (
-      !search || project.tags.some((tag) => tag.toLocaleLowerCase("ru-RU").includes(search)) ||
-      tasks.some((task) => task.projectId === project.id && taskMatchesTag(task))
-    )).map((project) => project.id));
-    if (search) {
+    const searchTerms = tagSearch
+      .toLocaleLowerCase("ru-RU")
+      .split(/[\s,;#]+/)
+      .map((term) => term.trim())
+      .filter(Boolean);
+    const tagsMatch = (tags: string[]) => !searchTerms.length || searchTerms.every((term) => (
+      tags.some((tag) => tag.toLocaleLowerCase("ru-RU").includes(term))
+    ));
+    const matchingTaggedProjects = projects.filter((project) => searchTerms.length > 0 && tagsMatch(project.tags));
+    const matchingTaggedTasks = tasks.filter((task) => searchTerms.length > 0 && tagsMatch(task.tags));
+    const matchingProjectIds = new Set([
+      ...matchingTaggedProjects.map((project) => project.id),
+      ...matchingTaggedTasks.map((task) => task.projectId).filter((id): id is string => Boolean(id)),
+    ]);
+    if (searchTerms.length) {
       let changed = true;
       while (changed) {
         changed = false;
@@ -1257,8 +1307,8 @@ export function GenesisCalendar() {
         });
       }
     }
-    const projectRows = flattenProjects(projects).filter(({ project }) => !search || matchingProjectIds.has(project.id));
-    const inboxTasks = tasks.filter((task) => !task.projectId && !task.project && taskMatchesTag(task));
+    const projectRows = flattenProjects(projects).filter(({ project }) => !searchTerms.length || matchingProjectIds.has(project.id));
+    const inboxTasks = tasks.filter((task) => !task.projectId && !task.project && (!searchTerms.length || tagsMatch(task.tags)));
     const activeTasks = tasks.filter((task) => !task.done);
     const completedTasks = tasks.filter((task) => task.done);
 
@@ -1282,6 +1332,28 @@ export function GenesisCalendar() {
           <input value={tagSearch} onChange={(event) => setTagSearch(event.target.value)} placeholder="Поиск по тегам — например, #работа" />
           {tagSearch ? <button type="button" onClick={() => setTagSearch("")} aria-label="Очистить поиск">×</button> : null}
         </label>
+
+        {searchTerms.length ? (
+          <section className="tag-search-results" aria-live="polite" aria-label="Результаты поиска по тегам">
+            <header>
+              <strong>Найдено по тегам</strong>
+              <span>{matchingTaggedProjects.length} проектов · {matchingTaggedTasks.length} задач</span>
+            </header>
+            <div>
+              {matchingTaggedProjects.map((project) => (
+                <button type="button" key={`project-${project.id}`} onClick={() => openProjectEditor(project)}>
+                  <span>Проект</span><strong>{project.title}</strong><small>{project.tags.map((tag) => `#${tag}`).join(" ")}</small>
+                </button>
+              ))}
+              {matchingTaggedTasks.map((task) => (
+                <button type="button" key={`task-${task.id}`} onClick={() => openTaskEditor(task)}>
+                  <span>Задача</span><strong>{task.title}</strong><small>{task.tags.map((tag) => `#${tag}`).join(" ")}</small>
+                </button>
+              ))}
+              {!matchingTaggedProjects.length && !matchingTaggedTasks.length ? <p>Проектов и задач с такими тегами нет.</p> : null}
+            </div>
+          </section>
+        ) : null}
 
         <section className="category-strip" aria-label="Категории жизни">
           {categories.map((category) => {
@@ -1356,9 +1428,9 @@ export function GenesisCalendar() {
                 );
               }) : (
                 <div className="task-empty compact-empty">
-                  <span aria-hidden="true">{search ? "⌕" : "◇"}</span>
-                  <strong>{search ? "По этому тегу ничего не найдено" : "Создайте первый проект"}</strong>
-                  <p>{search ? "Попробуйте другой тег или очистите строку поиска." : "Большая цель становится управляемой, когда у неё есть структура."}</p>
+                  <span aria-hidden="true">{searchTerms.length ? "⌕" : "◇"}</span>
+                  <strong>{searchTerms.length ? "По этим тегам ничего не найдено" : "Создайте первый проект"}</strong>
+                  <p>{searchTerms.length ? "Попробуйте другой тег или очистите строку поиска." : "Большая цель становится управляемой, когда у неё есть структура."}</p>
                 </div>
               )}
             </div>
@@ -1473,7 +1545,7 @@ export function GenesisCalendar() {
               aria-labelledby={`year-month-${month.index}`}
               style={{
                 "--month-accent": month.color,
-                "--month-art": `url("${APP_BASE}/month-art-v3/month-${String(month.index + 1).padStart(2, "0")}.webp")`,
+                "--month-art": `url("${monthArtUrl(month.index)}")`,
               } as CSSProperties}
             >
               <span className="year-month-top"><i>{month.roman}</i><b>{month.symbol}</b></span>
@@ -1776,14 +1848,18 @@ export function GenesisCalendar() {
                 <input value={taskTitle} onChange={(event) => setTaskTitle(event.target.value)} placeholder="Что важно совершить?" />
               </label>
               <div className="task-form-row">
-                <label>
+                <label htmlFor="new-task-time-hour">
                   <span>Время</span>
-                  <input type="time" value={taskTime} onChange={(event) => setTaskTime(event.target.value)} />
+                  <Time24Select id="new-task-time-hour" value={taskTime} onChange={setTaskTime} />
                 </label>
                 <label>
                   <span>Проект</span>
-                  <input list="project-list" value={taskProject} onChange={(event) => setTaskProject(event.target.value)} placeholder="Без проекта" />
-                  <datalist id="project-list">{projects.filter((project) => project.status === "active").map((project) => <option value={project.title} key={project.id} />)}</datalist>
+                  <select value={taskProject} onChange={(event) => setTaskProject(event.target.value)}>
+                    <option value="">Без проекта</option>
+                    {flattenProjects(projects).filter(({ project }) => project.status === "active").map(({ project, depth }) => (
+                      <option value={project.title} key={project.id}>{"— ".repeat(depth)}{project.title}</option>
+                    ))}
+                  </select>
                 </label>
               </div>
               <div className="task-form-row">
@@ -1923,9 +1999,14 @@ export function GenesisCalendar() {
                 <span>Дата</span>
                 <input type="date" min={editingTask.dueDate < todayDateValue ? editingTask.dueDate : todayDateValue} value={editingTask.dueDate} onChange={(event) => setEditingTask((current) => current ? { ...current, dueDate: event.target.value } : current)} required />
               </label>
-              <label>
+              <label htmlFor="edit-task-time-hour">
                 <span>Время</span>
-                <input type="time" value={editingTask.time} onChange={(event) => setEditingTask((current) => current ? { ...current, time: event.target.value } : current)} disabled={Boolean(editingTask.googleTaskId)} />
+                <Time24Select
+                  id="edit-task-time-hour"
+                  value={editingTask.time}
+                  disabled={Boolean(editingTask.googleTaskId)}
+                  onChange={(value) => setEditingTask((current) => current ? { ...current, time: value } : current)}
+                />
               </label>
               <label>
                 <span>Проект</span>

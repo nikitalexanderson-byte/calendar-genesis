@@ -195,6 +195,22 @@ try {
         genesisFinishSession();
     }
 
+    if ($method === 'GET' && $path === 'stoicheion/draws') {
+        genesisJson(genesisStoicheionDraws(genesisRequireUserId()));
+    }
+
+    if ($method === 'POST' && $path === 'stoicheion/draws') {
+        $userId = genesisRequireUserId();
+        genesisRequireCsrf();
+        $payload = genesisReadJson();
+        $kind = trim((string)($payload['kind'] ?? ''));
+        $seed = filter_var($payload['seed'] ?? null, FILTER_VALIDATE_INT);
+        if ($seed === false) {
+            throw new InvalidArgumentException('Зерно расклада указано неверно.');
+        }
+        genesisJson(['draw' => genesisSaveStoicheionDraw($userId, $kind, (int)$seed)]);
+    }
+
     if (count($segments) === 2 && $segments[0] === 'tasks') {
         $userId = genesisRequireUserId();
         genesisRequireCsrf();
@@ -212,6 +228,8 @@ try {
     }
 
     genesisJson(['error' => 'NOT_FOUND'], 404);
+} catch (DomainException $error) {
+    genesisJson(['error' => $error->getMessage()], 409);
 } catch (JsonException | InvalidArgumentException $error) {
     genesisJson(['error' => $error->getMessage()], 400);
 } catch (Throwable $error) {

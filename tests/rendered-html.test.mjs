@@ -90,9 +90,12 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(stoicheion, /pythmenFromTotal/);
   assert.match(stoicheion, /Космический круг и девять ликов силы/);
   assert.match(stoicheion, /stoicheion-spread-grid/);
-  assert.match(stoicheion, /Бросить ещё раз/);
-  assert.match(stoicheion, /beginMotion\("daily", true\)/);
-  assert.match(stoicheion, /MOTION_TRAVEL_REQUIRED/);
+  assert.match(stoicheion, /Перебросить/);
+  assert.match(stoicheion, /beginMotion\("daily", true, event\.timeStamp\)/);
+  assert.match(stoicheion, /MOTION_TRAVEL_REQUIRED = 1120/);
+  assert.match(stoicheion, /loadStoicheionDraws/);
+  assert.match(stoicheion, /spreadCanReroll/);
+  assert.match(stoicheion, /трёхминутное окно/i);
   assert.match(stoicheion, /moveThroughField/);
   assert.match(stoicheion, /isStoicheionCardReversed/);
   assert.match(stoicheion, /buildStoicheionSpreadReading/);
@@ -129,10 +132,17 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(google, /https:\/\/www\.googleapis\.com\/auth\/tasks/);
   assert.match(google, /genesisSyncNativeGoogleTask/);
   assert.match(google, /genesisGoogleTasksApi\(\s*'PATCH'/);
+  assert.match(google, /genesisClientTimeZone/);
   assert.match(cloudSync, /googleTaskListId/);
+  assert.match(cloudSync, /X-Genesis-Time-Zone/);
+  assert.match(repository, /genesisSaveStoicheionDraw/);
+  assert.match(calendar, /Time24Select/);
+  assert.doesNotMatch(calendar, /<datalist/);
 
   await access(new URL("../public/month-frieze-v1.webp", import.meta.url));
   await access(new URL("../public/month-frieze-v2.png", import.meta.url));
   await access(new URL("../public/month-art-v3/month-01.webp", import.meta.url));
   await access(new URL("../public/month-art-v3/month-13.webp", import.meta.url));
+  await access(new URL("../public/month-art-v3/month-04-aigle.png", import.meta.url));
+  await access(new URL("../server/migrations/004_stoicheion_draws.sql", import.meta.url));
 });

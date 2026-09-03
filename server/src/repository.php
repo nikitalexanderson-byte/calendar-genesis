@@ -272,6 +272,94 @@ function genesisAdminStats(): array
     ];
 }
 
+function genesisStoicheionDrawForClient(array $row): array
+{
+    $firstAt = strtotime((string)$row['first_draw_at']);
+    $deadline = ($firstAt !== false ? $firstAt : time()) + 180;
+    $attempts = (int)$row['attempt_count'];
+    $remaining = max(0, $deadline - time());
+    return [
+        'kind' => (string)$row['draw_kind'],
+        'dayKey' => (string)$row['day_key'],
+        'seed' => (int)$row['seed_value'],
+        'attempts' => $attempts,
+        'firstDrawAt' => (string)$row['first_draw_at'],
+        'rerollDeadline' => gmdate('Y-m-d\TH:i:s\Z', $deadline),
+        'remainingSeconds' => $remaining,
+        'canReroll' => $attempts === 1 && $remaining > 0,
+    ];
+}
+
+function genesisStoicheionDraws(string $userId): array
+{
+    $dayKey = genesisClientDayKey();
+    $statement = genesisDb()->prepare('SELECT * FROM stoicheion_draws WHERE user_id = :user_id AND day_key = :day_key');
+    $statement->execute(['user_id' => $userId, 'day_key' => $dayKey]);
+    $draws = [];
+    foreach ($statement->fetchAll() as $row) {
+        $draw = genesisStoicheionDrawForClient($row);
+        $draws[(string)$row['draw_kind']] = $draw;
+    }
+    return ['dayKey' => $dayKey, 'draws' => $draws];
+}
+
+function genesisSaveStoicheionDraw(string $userId, string $kind, int $seed): array
+{
+    if (!in_array($kind, ['daily', 'spread'], true)) {
+        throw new InvalidArgumentException('Неизвестный вид расклада.');
+    }
+    if ($seed < 0 || $seed > 4294967295) {
+        throw new InvalidArgumentException('Зерно расклада указано неверно.');
+    }
+    $db = genesisDb();
+    $dayKey = genesisClientDayKey();
+    $now = genesisNow();
+    $db->exec('BEGIN IMMEDIATE');
+    try {
+        $statement = $db->prepare('SELECT * FROM stoicheion_draws WHERE user_id = :user_id AND day_key = :day_key AND draw_kind = :draw_kind LIMIT 1');
+        $statement->execute(['user_id' => $userId, 'day_key' => $dayKey, 'draw_kind' => $kind]);
+        $existing = $statement->fetch();
+        if (!is_array($existing)) {
+            $db->prepare('INSERT INTO stoicheion_draws (user_id, day_key, draw_kind, seed_value, attempt_count, first_draw_at, updated_at) VALUES (:user_id, :day_key, :draw_kind, :seed_value, 1, :first_draw_at, :updated_at)')->execute([
+                'user_id' => $userId,
+                'day_key' => $dayKey,
+                'draw_kind' => $kind,
+                'seed_value' => $seed,
+                'first_draw_at' => $now,
+                'updated_at' => $now,
+            ]);
+        } else {
+            $firstAt = strtotime((string)$existing['first_draw_at']);
+            $withinWindow = $firstAt !== false && time() < $firstAt + 180;
+            if ((int)$existing['attempt_count'] !== 1 || !$withinWindow) {
+                throw new DomainException((int)$existing['attempt_count'] >= 2
+                    ? 'Переброс на сегодня уже использован.'
+                    : 'Трёхминутное окно для переброса завершилось.');
+            }
+            $db->prepare('UPDATE stoicheion_draws SET seed_value = :seed_value, attempt_count = 2, updated_at = :updated_at WHERE user_id = :user_id AND day_key = :day_key AND draw_kind = :draw_kind')->execute([
+                'seed_value' => $seed,
+                'updated_at' => $now,
+                'user_id' => $userId,
+                'day_key' => $dayKey,
+                'draw_kind' => $kind,
+            ]);
+        }
+        $statement->execute(['user_id' => $userId, 'day_key' => $dayKey, 'draw_kind' => $kind]);
+        $saved = $statement->fetch();
+        $db->commit();
+        if (!is_array($saved)) {
+            throw new RuntimeException('Расклад не удалось сохранить.');
+        }
+        genesisTouchUser($userId);
+        return genesisStoicheionDrawForClient($saved);
+    } catch (Throwable $error) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        throw $error;
+    }
+}
+
 function genesisDeleteAccount(string $userId): void
 {
     genesisDb()->prepare('DELETE FROM users WHERE id = :id')->execute(['id' => $userId]);

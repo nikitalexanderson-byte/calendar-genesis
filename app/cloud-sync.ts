@@ -102,6 +102,19 @@ export type AdminStats = {
   totals: { users: number; projects: number; tasks: number; completedTasks: number };
 };
 
+export type StoicheionDrawKind = "daily" | "spread";
+
+export type StoicheionDrawRecord = {
+  kind: StoicheionDrawKind;
+  dayKey: string;
+  seed: number;
+  attempts: 1 | 2;
+  firstDrawAt: string;
+  rerollDeadline: string;
+  remainingSeconds: number;
+  canReroll: boolean;
+};
+
 type WorkspaceEnvelope = {
   ciphertext: string;
   iv: string;
@@ -123,6 +136,14 @@ const PENDING_KEY = "genesis-pending-mutations-v2";
 const LAST_USER_CACHE = "genesis-last-user-v2";
 
 export const isGoogleSyncConfigured = Boolean(API_BASE);
+
+function deviceTimeZone() {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  } catch {
+    return "UTC";
+  }
+}
 
 let csrfToken = "";
 let workspaceKey = "";
@@ -173,6 +194,7 @@ async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
+      "X-Genesis-Time-Zone": deviceTimeZone(),
       ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}),
       ...init.headers,
     },
@@ -427,4 +449,15 @@ export async function saveMetrics(metrics: GenesisMetrics) {
 
 export async function loadAdminStats() {
   return api<AdminStats>("/admin/stats");
+}
+
+export async function loadStoicheionDraws() {
+  return api<{ dayKey: string; draws: Partial<Record<StoicheionDrawKind, StoicheionDrawRecord>> }>("/stoicheion/draws");
+}
+
+export async function saveStoicheionDraw(kind: StoicheionDrawKind, seed: number) {
+  return api<{ draw: StoicheionDrawRecord }>("/stoicheion/draws", {
+    method: "POST",
+    body: JSON.stringify({ kind, seed: seed >>> 0 }),
+  });
 }

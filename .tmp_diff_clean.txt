@@ -1,0 +1,1023 @@
+diff --git a/app/GenesisCalendar.tsx b/app/GenesisCalendar.tsx
+index 96b2130..d5c964c 100644
+--- a/app/GenesisCalendar.tsx
++++ b/app/GenesisCalendar.tsx
+@@ -149,6 +149,35 @@ const DEFAULT_CATEGORIES: GenesisCategory[] = [
+ ];
+ 
+ const APP_BASE = (process.env.NEXT_PUBLIC_GENESIS_BASE_PATH?.trim() || "").replace(/\/$/, "");
++const HOURS_24 = Array.from({ length: 24 }, (_, index) => String(index).padStart(2, "0"));
++const MINUTES_60 = Array.from({ length: 60 }, (_, index) => String(index).padStart(2, "0"));
++
++function Time24Select({ id, value, onChange, disabled = false }: { id: string; value: string; onChange: (value: string) => void; disabled?: boolean }) {
++  const [hour = "", minute = "00"] = value ? value.split(":") : ["", "00"];
++  return (
++    <span className="time-24-select">
++      <select
++        id={id}
++        aria-label="Часы в 24-часовом формате"
++        value={hour}
++        disabled={disabled}
++        onChange={(event) => onChange(event.target.value ? `${event.target.value}:${minute}` : "")}
++      >
++        <option value="">—</option>
++        {HOURS_24.map((item) => <option value={item} key={item}>{item}</option>)}
++      </select>
++      <i aria-hidden="true">:</i>
++      <select
++        aria-label="Минуты"
++        value={minute}
++        disabled={disabled || !hour}
++        onChange={(event) => onChange(hour ? `${hour}:${event.target.value}` : "")}
++      >
++        {MINUTES_60.map((item) => <option value={item} key={item}>{item}</option>)}
++      </select>
++    </span>
++  );
++}
+ 
+ function apeironLength(sacredYear: number) {
+   return (
+@@ -243,6 +272,12 @@ function romanDay(monthIndex: number, day: number) {
+   return monthIndex === 12 ? String(day) : ["I", "II", "III", "IIII", "V"][(day - 1) % 5];
+ }
+ 
++function monthArtUrl(monthIndex: number) {
++  return monthIndex === 3
++    ? `${APP_BASE}/month-art-v3/month-04-aigle.png`
++    : `${APP_BASE}/month-art-v3/month-${String(monthIndex + 1).padStart(2, "0")}.webp`;
++}
++
+ export function GenesisCalendar() {
+   const initial = useMemo(() => getSacredDate(new Date()), []);
+   const [today] = useState(() => new Date());
+@@ -455,7 +490,14 @@ export function GenesisCalendar() {
+           if (!active) return;
+           const nextProjects = workspace.hasRemoteStructure ? workspace.projects : local.projects;
+           const nextCategories = workspace.hasRemoteStructure ? workspace.categories : local.categories;
+-          const nextTasks = workspace.syncWarning ? local.tasks : workspace.tasks;
++          const nextTasksById = new Map(workspace.tasks.map((task) => [task.id, task]));
++          local.tasks.forEach((task) => {
++            const remoteTask = nextTasksById.get(task.id);
++            if (!remoteTask || (!task.googleTaskId && task.updatedAt > remoteTask.updatedAt)) {
++              nextTasksById.set(task.id, task);
++            }
++          });
++          const nextTasks = Array.from(nextTasksById.values());
+           tasksRef.current = nextTasks;
+           projectsRef.current = nextProjects;
+           categoriesRef.current = nextCategories;
+@@ -1103,7 +1145,7 @@ export function GenesisCalendar() {
+         className="calendar-view"
+         style={{
+           "--month-accent": selectedMonth.color,
+-          "--month-art": `url("${APP_BASE}/month-art-v3/month-${String(monthIndex + 1).padStart(2, "0")}.webp")`,
++          "--month-art": `url("${monthArtUrl(monthIndex)}")`,
+         } as CSSProperties}
+       >
+         <header className="calendar-header">
+@@ -1239,13 +1281,21 @@ export function GenesisCalendar() {
+   };
+ 
+   const renderProjects = () => {
+-    const search = tagSearch.trim().replace(/^#/, "").toLocaleLowerCase("ru-RU");
+-    const taskMatchesTag = (task: Task) => !search || task.tags.some((tag) => tag.toLocaleLowerCase("ru-RU").includes(search));
+-    const matchingProjectIds = new Set(projects.filter((project) => (
+-      !search || project.tags.some((tag) => tag.toLocaleLowerCase("ru-RU").includes(search)) ||
+-      tasks.some((task) => task.projectId === project.id && taskMatchesTag(task))
+-    )).map((project) => project.id));
+-    if (search) {
++    const searchTerms = tagSearch
++      .toLocaleLowerCase("ru-RU")
++      .split(/[\s,;#]+/)
++      .map((term) => term.trim())
++      .filter(Boolean);
++    const tagsMatch = (tags: string[]) => !searchTerms.length || searchTerms.every((term) => (
++      tags.some((tag) => tag.toLocaleLowerCase("ru-RU").includes(term))
++    ));
++    const matchingTaggedProjects = projects.filter((project) => searchTerms.length > 0 && tagsMatch(project.tags));
++    const matchingTaggedTasks = tasks.filter((task) => searchTerms.length > 0 && tagsMatch(task.tags));
++    const matchingProjectIds = new Set([
++      ...matchingTaggedProjects.map((project) => project.id),
++      ...matchingTaggedTasks.map((task) => task.projectId).filter((id): id is string => Boolean(id)),
++    ]);
++    if (searchTerms.length) {
+       let changed = true;
+       while (changed) {
+         changed = false;
+@@ -1257,8 +1307,8 @@ export function GenesisCalendar() {
+         });
+       }
+     }
+-    const projectRows = flattenProjects(projects).filter(({ project }) => !search || matchingProjectIds.has(project.id));
+-    const inboxTasks = tasks.filter((task) => !task.projectId && !task.project && taskMatchesTag(task));
++    const projectRows = flattenProjects(projects).filter(({ project }) => !searchTerms.length || matchingProjectIds.has(project.id));
++    const inboxTasks = tasks.filter((task) => !task.projectId && !task.project && (!searchTerms.length || tagsMatch(task.tags)));
+     const activeTasks = tasks.filter((task) => !task.done);
+     const completedTasks = tasks.filter((task) => task.done);
+ 
+@@ -1283,6 +1333,28 @@ export function GenesisCalendar() {
+           {tagSearch ? <button type="button" onClick={() => setTagSearch("")} aria-label="Очистить поиск">×</button> : null}
+         </label>
+ 
++        {searchTerms.length ? (
++          <section className="tag-search-results" aria-live="polite" aria-label="Результаты поиска по тегам">
++            <header>
++              <strong>Найдено по тегам</strong>
++              <span>{matchingTaggedProjects.length} проектов · {matchingTaggedTasks.length} задач</span>
++            </header>
++            <div>
++              {matchingTaggedProjects.map((project) => (
++                <button type="button" key={`project-${project.id}`} onClick={() => openProjectEditor(project)}>
++                  <span>Проект</span><strong>{project.title}</strong><small>{project.tags.map((tag) => `#${tag}`).join(" ")}</small>
++                </button>
++              ))}
++              {matchingTaggedTasks.map((task) => (
++                <button type="button" key={`task-${task.id}`} onClick={() => openTaskEditor(task)}>
++                  <span>Задача</span><strong>{task.title}</strong><small>{task.tags.map((tag) => `#${tag}`).join(" ")}</small>
++                </button>
++              ))}
++              {!matchingTaggedProjects.length && !matchingTaggedTasks.length ? <p>Проектов и задач с такими тегами нет.</p> : null}
++            </div>
++          </section>
++        ) : null}
++
+         <section className="category-strip" aria-label="Категории жизни">
+           {categories.map((category) => {
+             const projectCount = projects.filter((project) => project.categoryId === category.id).length;
+@@ -1356,9 +1428,9 @@ export function GenesisCalendar() {
+                 );
+               }) : (
+                 <div className="task-empty compact-empty">
+-                  <span aria-hidden="true">{search ? "⌕" : "◇"}</span>
+-                  <strong>{search ? "По этому тегу ничего не найдено" : "Создайте первый проект"}</strong>
+-                  <p>{search ? "Попробуйте другой тег или очистите строку поиска." : "Большая цель становится управляемой, когда у неё есть структура."}</p>
++                  <span aria-hidden="true">{searchTerms.length ? "⌕" : "◇"}</span>
++                  <strong>{searchTerms.length ? "По этим тегам ничего не найдено" : "Создайте первый проект"}</strong>
++                  <p>{searchTerms.length ? "Попробуйте другой тег или очистите строку поиска." : "Большая цель становится управляемой, когда у неё есть структура."}</p>
+                 </div>
+               )}
+             </div>
+@@ -1473,7 +1545,7 @@ export function GenesisCalendar() {
+               aria-labelledby={`year-month-${month.index}`}
+               style={{
+                 "--month-accent": month.color,
+-                "--month-art": `url("${APP_BASE}/month-art-v3/month-${String(month.index + 1).padStart(2, "0")}.webp")`,
++                "--month-art": `url("${monthArtUrl(month.index)}")`,
+               } as CSSProperties}
+             >
+               <span className="year-month-top"><i>{month.roman}</i><b>{month.symbol}</b></span>
+@@ -1776,14 +1848,18 @@ export function GenesisCalendar() {
+                 <input value={taskTitle} onChange={(event) => setTaskTitle(event.target.value)} placeholder="Что важно совершить?" />
+               </label>
+               <div className="task-form-row">
+-                <label>
++                <label htmlFor="new-task-time-hour">
+                   <span>Время</span>
+-                  <input type="time" value={taskTime} onChange={(event) => setTaskTime(event.target.value)} />
++                  <Time24Select id="new-task-time-hour" value={taskTime} onChange={setTaskTime} />
+                 </label>
+                 <label>
+                   <span>Проект</span>
+-                  <input list="project-list" value={taskProject} onChange={(event) => setTaskProject(event.target.value)} placeholder="Без проекта" />
+-                  <datalist id="project-list">{projects.filter((project) => project.status === "active").map((project) => <option value={project.title} key={project.id} />)}</datalist>
++                  <select value={taskProject} onChange={(event) => setTaskProject(event.target.value)}>
++                    <option value="">Без проекта</option>
++                    {flattenProjects(projects).filter(({ project }) => project.status === "active").map(({ project, depth }) => (
++                      <option value={project.title} key={project.id}>{"— ".repeat(depth)}{project.title}</option>
++                    ))}
++                  </select>
+                 </label>
+               </div>
+               <div className="task-form-row">
+@@ -1923,9 +1999,14 @@ export function GenesisCalendar() {
+                 <span>Дата</span>
+                 <input type="date" min={editingTask.dueDate < todayDateValue ? editingTask.dueDate : todayDateValue} value={editingTask.dueDate} onChange={(event) => setEditingTask((current) => current ? { ...current, dueDate: event.target.value } : current)} required />
+               </label>
+-              <label>
++              <label htmlFor="edit-task-time-hour">
+                 <span>Время</span>
+-                <input type="time" value={editingTask.time} onChange={(event) => setEditingTask((current) => current ? { ...current, time: event.target.value } : current)} disabled={Boolean(editingTask.googleTaskId)} />
++                <Time24Select
++                  id="edit-task-time-hour"
++                  value={editingTask.time}
++                  disabled={Boolean(editingTask.googleTaskId)}
++                  onChange={(value) => setEditingTask((current) => current ? { ...current, time: value } : current)}
++                />
+               </label>
+               <label>
+                 <span>Проект</span>
+diff --git a/app/StoicheionView.tsx b/app/StoicheionView.tsx
+index b834ea2..c0c4601 100644
+--- a/app/StoicheionView.tsx
++++ b/app/StoicheionView.tsx
+@@ -14,16 +14,18 @@ import {
+   STOICHEION_LETTERS,
+   type StoicheionLetter,
+ } from "./stoicheion-data";
+-
+-const DAILY_DRAW_STORAGE_PREFIX = "genesis-stoicheion-day-v1:";
++import {
++  isGoogleSyncConfigured,
++  loadStoicheionDraws,
++  saveStoicheionDraw,
++  type StoicheionDrawKind,
++  type StoicheionDrawRecord,
++} from "./cloud-sync";
++
++const LOCAL_DRAW_STORAGE_PREFIX = "genesis-stoicheion-draws-v2:";
+ const INITIAL_ENTROPY = 0x9e3779b9;
+ 
+-type StoredDailyDraw = {
+-  dayKey: string;
+-  letterId: string;
+-  seed: number;
+-  reversed: boolean;
+-};
++type ClientDrawRecord = StoicheionDrawRecord & { localDeadline: number };
+ 
+ type MotionMode = "daily" | "spread";
+ 
+@@ -41,7 +43,7 @@ type SelectedReading = {
+   reversed: boolean | null;
+ };
+ 
+-const MOTION_TRAVEL_REQUIRED = 280;
++const MOTION_TRAVEL_REQUIRED = 1120;
+ 
+ type SpreadPosition = {
+   id: string;
+@@ -124,6 +126,60 @@ function localDayKey(date: Date) {
+   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+ }
+ 
++function toClientDraw(record: StoicheionDrawRecord): ClientDrawRecord {
++  return {
++    ...record,
++    seed: record.seed >>> 0,
++    localDeadline: Date.now() + Math.max(0, record.remainingSeconds) * 1000,
++  };
++}
++
++function formatCountdown(seconds: number) {
++  const safe = Math.max(0, seconds);
++  return `${String(Math.floor(safe / 60)).padStart(2, "0")}:${String(safe % 60).padStart(2, "0")}`;
++}
++
++function readLocalDraws(dayKey: string): Partial<Record<StoicheionDrawKind, StoicheionDrawRecord>> {
++  try {
++    const parsed = JSON.parse(localStorage.getItem(`${LOCAL_DRAW_STORAGE_PREFIX}${dayKey}`) || "{}") as Partial<Record<StoicheionDrawKind, StoicheionDrawRecord>>;
++    const result: Partial<Record<StoicheionDrawKind, StoicheionDrawRecord>> = {};
++    (["daily", "spread"] as const).forEach((kind) => {
++      const draw = parsed[kind];
++      if (!draw || draw.dayKey !== dayKey || draw.kind !== kind || ![1, 2].includes(draw.attempts)) return;
++      const remainingSeconds = draw.attempts === 1
++        ? Math.max(0, Math.ceil((Date.parse(draw.rerollDeadline) - Date.now()) / 1000))
++        : 0;
++      result[kind] = { ...draw, seed: draw.seed >>> 0, remainingSeconds, canReroll: draw.attempts === 1 && remainingSeconds > 0 };
++    });
++    return result;
++  } catch {
++    return {};
++  }
++}
++
++function saveLocalDraw(kind: StoicheionDrawKind, seed: number, dayKey: string): StoicheionDrawRecord {
++  const current = readLocalDraws(dayKey);
++  const existing = current[kind];
++  if (existing && (!existing.canReroll || existing.attempts >= 2)) {
++    throw new Error(existing.attempts >= 2 ? "Переброс на сегодня уже использован." : "Трёхминутное окно для переброса завершилось.");
++  }
++  const now = new Date();
++  const firstDrawAt = existing?.firstDrawAt ?? now.toISOString();
++  const deadline = existing?.rerollDeadline ?? new Date(now.getTime() + 180_000).toISOString();
++  const record: StoicheionDrawRecord = {
++    kind,
++    dayKey,
++    seed: seed >>> 0,
++    attempts: existing ? 2 : 1,
++    firstDrawAt,
++    rerollDeadline: deadline,
++    remainingSeconds: existing ? 0 : 180,
++    canReroll: !existing,
++  };
++  localStorage.setItem(`${LOCAL_DRAW_STORAGE_PREFIX}${dayKey}`, JSON.stringify({ ...current, [kind]: record }));
++  return record;
++}
++
+ export function mixStoicheionEntropy(seed: number, x: number, y: number, time: number) {
+   let value = seed ^ Math.imul(Math.round(x * 100), 0x45d9f3b);
+   value ^= Math.imul(Math.round(y * 100), 0x119de1f3);
+@@ -285,11 +341,14 @@ export function StoicheionView() {
+   const motionTracker = useRef<MotionTracker | null>(null);
+   const motionField = useRef<HTMLButtonElement | null>(null);
+   const [pointer, setPointer] = useState({ x: 50, y: 24 });
+-  const [dailyDraw, setDailyDraw] = useState<StoredDailyDraw | null>(null);
+-  const [spreadSeed, setSpreadSeed] = useState<number | null>(null);
++  const [dailyDraw, setDailyDraw] = useState<ClientDrawRecord | null>(null);
++  const [spreadDraw, setSpreadDraw] = useState<ClientDrawRecord | null>(null);
+   const [motion, setMotion] = useState<{ mode: MotionMode; progress: number } | null>(null);
+   const [selectedReading, setSelectedReading] = useState<SelectedReading | null>(null);
+-  const [storageReady, setStorageReady] = useState(false);
++  const [drawsReady, setDrawsReady] = useState(false);
++  const [savingKind, setSavingKind] = useState<MotionMode | null>(null);
++  const [drawError, setDrawError] = useState("");
++  const [clock, setClock] = useState(() => Date.now());
+   const today = useMemo(() => new Date(), []);
+   const dayKey = useMemo(() => localDayKey(today), [today]);
+   const dateLabel = useMemo(
+@@ -311,41 +370,35 @@ export function StoicheionView() {
+ 
+   useEffect(() => {
+     let active = true;
+-    queueMicrotask(() => {
+-      if (!active) return;
++    const load = async () => {
+       try {
+-        const saved = localStorage.getItem(`${DAILY_DRAW_STORAGE_PREFIX}${dayKey}`);
+-        if (saved) {
+-          const parsed = JSON.parse(saved) as Partial<StoredDailyDraw>;
+-          if (
+-            parsed.dayKey === dayKey
+-            && typeof parsed.letterId === "string"
+-            && typeof parsed.seed === "number"
+-            && STOICHEION_LETTERS.some((letter) => letter.id === parsed.letterId)
+-          ) {
+-            const seed = parsed.seed >>> 0;
+-            setDailyDraw({
+-              dayKey,
+-              letterId: parsed.letterId,
+-              seed,
+-              reversed: typeof parsed.reversed === "boolean"
+-                ? parsed.reversed
+-                : isStoicheionCardReversed(seed),
+-            });
+-          }
+-        }
+-      } catch {
+-        // A blocked or malformed local store should never stop a private, local draw.
++        const result = isGoogleSyncConfigured
++          ? await loadStoicheionDraws()
++          : { dayKey, draws: readLocalDraws(dayKey) };
++        if (!active) return;
++        setDailyDraw(result.draws.daily ? toClientDraw(result.draws.daily) : null);
++        setSpreadDraw(result.draws.spread ? toClientDraw(result.draws.spread) : null);
++        setDrawError("");
++      } catch (error) {
++        if (!active) return;
++        setDrawError(error instanceof Error ? error.message : "Не удалось загрузить расклады.");
+       } finally {
+-        setStorageReady(true);
++        if (active) setDrawsReady(true);
+       }
+-    });
++    };
++    void load();
+     return () => { active = false; };
+   }, [dayKey]);
+ 
+-  const dailyLetter = dailyDraw
+-    ? STOICHEION_LETTERS.find((letter) => letter.id === dailyDraw.letterId) ?? null
+-    : null;
++  useEffect(() => {
++    if (![dailyDraw, spreadDraw].some((draw) => draw?.attempts === 1 && draw.localDeadline > Date.now())) return;
++    const timer = window.setInterval(() => setClock(Date.now()), 1000);
++    return () => window.clearInterval(timer);
++  }, [dailyDraw, spreadDraw]);
++
++  const dailyLetter = dailyDraw ? selectStoicheionCard(STOICHEION_LETTERS, dailyDraw.seed) : null;
++  const dailyReversed = dailyDraw ? isStoicheionCardReversed(dailyDraw.seed) : false;
++  const spreadSeed = spreadDraw?.seed ?? null;
+   const spreadCards = useMemo(
+     () => spreadSeed === null ? [] : buildStoicheionSpreadReading(STOICHEION_LETTERS, spreadSeed),
+     [spreadSeed],
+@@ -355,6 +408,10 @@ export function StoicheionView() {
+   const spreadTotal = spreadLetters.reduce((sum, letter) => sum + letter.value, 0);
+   const spreadPythmen = pythmenFromTotal(spreadTotal);
+   const spreadTrace = pythmenTrace(spreadTotal);
++  const dailyRemaining = dailyDraw?.attempts === 1 ? Math.max(0, Math.ceil((dailyDraw.localDeadline - clock) / 1000)) : 0;
++  const spreadRemaining = spreadDraw?.attempts === 1 ? Math.max(0, Math.ceil((spreadDraw.localDeadline - clock) / 1000)) : 0;
++  const dailyCanReroll = Boolean(dailyDraw?.attempts === 1 && dailyRemaining > 0);
++  const spreadCanReroll = Boolean(spreadDraw?.attempts === 1 && spreadRemaining > 0);
+ 
+   const gatherEntropy = (event: PointerEvent<HTMLElement>) => {
+     const bounds = event.currentTarget.getBoundingClientRect();
+@@ -364,35 +421,43 @@ export function StoicheionView() {
+     setPointer({ x, y });
+   };
+ 
+-  const saveDailyDraw = (seedValue: number, replaceCurrent: boolean) => {
+-    let seed = seedValue;
+-    let letter = selectStoicheionCard(STOICHEION_LETTERS, seed);
+-    if (replaceCurrent && letter?.id === dailyDraw?.letterId) {
++  const persistDraw = async (kind: StoicheionDrawKind, seedValue: number, replaceCurrent: boolean) => {
++    let seed = seedValue >>> 0;
++    if (kind === "daily" && replaceCurrent && selectStoicheionCard(STOICHEION_LETTERS, seed)?.id === dailyLetter?.id) {
+       seed = (seed + 1) >>> 0;
+-      letter = selectStoicheionCard(STOICHEION_LETTERS, seed);
+     }
+-    if (!letter) return;
+-    const draw = {
+-      dayKey,
+-      letterId: letter.id,
+-      seed,
+-      reversed: isStoicheionCardReversed(seed),
+-    };
+-    setDailyDraw(draw);
+-    setSpreadSeed(null);
+-    setSelectedReading(null);
++    if (kind === "spread" && replaceCurrent && seed === spreadDraw?.seed) {
++      seed = (seed + 1) >>> 0;
++    }
++    setSavingKind(kind);
++    setDrawError("");
+     try {
+-      localStorage.setItem(`${DAILY_DRAW_STORAGE_PREFIX}${dayKey}`, JSON.stringify(draw));
+-    } catch {
+-      // The draw remains available for the current session if storage is blocked.
++      const record = isGoogleSyncConfigured
++        ? (await saveStoicheionDraw(kind, seed)).draw
++        : saveLocalDraw(kind, seed, dayKey);
++      const clientRecord = toClientDraw(record);
++      if (kind === "daily") {
++        setDailyDraw(clientRecord);
++      } else {
++        setSpreadDraw(clientRecord);
++      }
++      setSelectedReading(null);
++      setClock((current) => current + 1);
++    } catch (error) {
++      setDrawError(error instanceof Error ? error.message : "Не удалось сохранить расклад.");
++    } finally {
++      setSavingKind(null);
+     }
+   };
+ 
+-  const beginMotion = (mode: MotionMode, replaceCurrent = false) => {
++  const beginMotion = (mode: MotionMode, replaceCurrent = false, eventTime = 0) => {
++    const existing = mode === "daily" ? dailyDraw : spreadDraw;
++    const canReroll = mode === "daily" ? dailyCanReroll : spreadCanReroll;
++    if ((!replaceCurrent && existing) || (replaceCurrent && (!existing || !canReroll)) || savingKind) return;
+     const baseSeed = mode === "spread"
+-      ? (dailyDraw?.seed ?? entropy.current)
++      ? (dailyDraw?.seed ?? entropy.current) ^ Math.imul(dailyLetter?.value ?? 1, 0x45d9f3b)
+       : entropy.current ^ (replaceCurrent ? (dailyDraw?.seed ?? 0) : 0);
+-    const seed = mixStoicheionEntropy(baseSeed, pointer.x, pointer.y, performance.now());
++    const seed = mixStoicheionEntropy(baseSeed, pointer.x, pointer.y, eventTime);
+     motionTracker.current = {
+       mode,
+       seed,
+@@ -409,16 +474,16 @@ export function StoicheionView() {
+     setMotion(null);
+     entropy.current = tracker.seed;
+     if (tracker.mode === "daily") {
+-      saveDailyDraw(tracker.seed, tracker.replaceCurrent);
++      void persistDraw("daily", tracker.seed, tracker.replaceCurrent);
+       return;
+     }
+     const seed = mixStoicheionEntropy(
+-      tracker.seed ^ (dailyDraw?.seed ?? INITIAL_ENTROPY),
++      tracker.seed ^ (dailyDraw?.seed ?? INITIAL_ENTROPY) ^ Math.imul(dailyLetter?.value ?? 1, 0x119de1f3),
+       pointer.x,
+       pointer.y,
+       tracker.travel,
+     );
+-    setSpreadSeed(seed);
++    void persistDraw("spread", seed, tracker.replaceCurrent);
+   };
+ 
+   const addMotion = (x: number, y: number, time: number, distance: number) => {
+@@ -511,41 +576,47 @@ export function StoicheionView() {
+             <p>Пока изображения карт готовятся, выбор открывает одну букву. Случайность собирается на устройстве и фиксируется на текущий день.</p>
+           </div>
+ 
++          {drawError ? <p className="stoicheion-draw-error" role="alert">{drawError}</p> : null}
++
+           {!dailyLetter ? (
+             <button
+               type="button"
+               className="stoicheion-card-back"
+-              onClick={() => beginMotion("daily")}
+-              disabled={!storageReady}
++              onClick={(event) => beginMotion("daily", false, event.timeStamp)}
++              disabled={!drawsReady || savingKind !== null}
+               aria-label="Начать выбор случайной буквы дня движением"
+             >
+               <span aria-hidden="true"><i>24</i></span>
+-              <strong>{storageReady ? "Начать выбор" : "Подготовка…"}</strong>
++              <strong>{drawsReady ? "Начать выбор" : "Подготовка…"}</strong>
+               <small>затем поводите мышью или пальцем</small>
+             </button>
+           ) : (
+             <div className="stoicheion-daily-result" aria-live="polite">
+               <button
+                 type="button"
+-                className={`stoicheion-revealed-card${dailyDraw?.reversed ? " is-reversed" : ""}`}
+-                onClick={() => setSelectedReading({ letter: dailyLetter, reversed: dailyDraw?.reversed ?? false })}
++                className={`stoicheion-revealed-card${dailyReversed ? " is-reversed" : ""}`}
++                onClick={() => setSelectedReading({ letter: dailyLetter, reversed: dailyReversed })}
+               >
+                 <span className="stoicheion-card-glyph">{dailyLetter.symbol}</span>
+                 <small>{dailyLetter.lowercase}</small>
+                 <strong>{dailyLetter.name}</strong>
+                 <i>Число {dailyLetter.value} · Пифмен {dailyLetter.pythmen}</i>
+-                <b className="stoicheion-card-orientation">{orientationLabel(dailyDraw?.reversed ?? false)}</b>
++                <b className="stoicheion-card-orientation">{orientationLabel(dailyReversed)}</b>
+               </button>
+               <div>
+                 <span className="eyebrow">Ваш знак на сегодня</span>
+                 <h3>{dailyLetter.tagline}</h3>
+                 <p>Выбор сохранён. Нажмите на букву, чтобы прочитать полное описание, или продолжите к раскладу девяти ликов.</p>
+                 <div className="stoicheion-result-actions">
+-                  <button type="button" className="stoicheion-text-button" onClick={() => setSelectedReading({ letter: dailyLetter, reversed: dailyDraw?.reversed ?? false })}>Прочитать о букве</button>
+-                  <button type="button" className="stoicheion-redraw-button" onClick={() => beginMotion("daily", true)}>
+-                    <span aria-hidden="true">↻</span>
+-                    Бросить ещё раз
+-                  </button>
++                  <button type="button" className="stoicheion-text-button" onClick={() => setSelectedReading({ letter: dailyLetter, reversed: dailyReversed })}>Прочитать о букве</button>
++                  {dailyCanReroll ? (
++                    <button type="button" className="stoicheion-redraw-button" disabled={savingKind !== null} onClick={(event) => beginMotion("daily", true, event.timeStamp)}>
++                      <span aria-hidden="true">↻</span>
++                      Перебросить · {formatCountdown(dailyRemaining)}
++                    </button>
++                  ) : (
++                    <span className="stoicheion-limit-note">{dailyDraw?.attempts === 2 ? "Переброс на сегодня использован" : "Карта дня закреплена до завтра"}</span>
++                  )}
+                 </div>
+               </div>
+             </div>
+@@ -558,10 +629,10 @@ export function StoicheionView() {
+               <div>
+                 <span className="eyebrow">Прорицание по девяти картам</span>
+                 <h2 id="stoicheion-nine-title">Космический круг и девять ликов силы</h2>
+-                <p>Магический квадрат 3×3 соотносит девять букв со сторонами света и архетипами человеческого бытия. Расклад выводится из зерна, записанного при выборе карты дня.</p>
++                <p>Магический квадрат 3×3 соотносит девять букв со сторонами света и архетипами человеческого бытия. Расклад выводится из числового значения карты, записанного при выборе карты дня + вашего волевого воздействия.</p>
+               </div>
+               {!spreadVisible ? (
+-                <button type="button" className="stoicheion-spread-button" onClick={() => beginMotion("spread")}>
++                <button type="button" className="stoicheion-spread-button" disabled={savingKind !== null} onClick={(event) => beginMotion("spread", false, event.timeStamp)}>
+                   <span aria-hidden="true">⊹</span>
+                   Начать расклад
+                 </button>
+@@ -601,6 +672,16 @@ export function StoicheionView() {
+                     <strong>{spreadPythmen}</strong>
+                   </div>
+                   <p>Сумма числовых значений девяти букв последовательно складывается до числового корня от 1 до 9.</p>
++                  <div className="stoicheion-spread-actions">
++                    {spreadCanReroll ? (
++                      <button type="button" className="stoicheion-redraw-button" disabled={savingKind !== null} onClick={(event) => beginMotion("spread", true, event.timeStamp)}>
++                        <span aria-hidden="true">↻</span>
++                        Перебросить расклад · {formatCountdown(spreadRemaining)}
++                      </button>
++                    ) : (
++                      <span className="stoicheion-limit-note">{spreadDraw?.attempts === 2 ? "Переброс расклада на сегодня использован" : "Расклад закреплён до завтра"}</span>
++                    )}
++                  </div>
+                 </aside>
+               </div>
+             ) : (
+@@ -627,7 +708,6 @@ export function StoicheionView() {
+               <button
+                 type="button"
+                 key={letter.id}
+-                className={letter.source === "editorial-placeholder" ? "is-placeholder" : ""}
+                 onClick={() => setSelectedReading({ letter, reversed: null })}
+               >
+                 <i>{String(letter.order).padStart(2, "0")}</i>
+@@ -641,7 +721,7 @@ export function StoicheionView() {
+ 
+         <footer className="stoicheion-footer">
+           <span>Случайность собирается локально</span>
+-          <span>Карта дня хранится только на устройстве</span>
++          <span>Дневные попытки закрепляются за вашей учётной записью</span>
+         </footer>
+       </div>
+ 
+diff --git a/app/cloud-sync.ts b/app/cloud-sync.ts
+index 27ebe36..afcf556 100644
+--- a/app/cloud-sync.ts
++++ b/app/cloud-sync.ts
+@@ -102,6 +102,19 @@ export type AdminStats = {
+   totals: { users: number; projects: number; tasks: number; completedTasks: number };
+ };
+ 
++export type StoicheionDrawKind = "daily" | "spread";
++
++export type StoicheionDrawRecord = {
++  kind: StoicheionDrawKind;
++  dayKey: string;
++  seed: number;
++  attempts: 1 | 2;
++  firstDrawAt: string;
++  rerollDeadline: string;
++  remainingSeconds: number;
++  canReroll: boolean;
++};
++
+ type WorkspaceEnvelope = {
+   ciphertext: string;
+   iv: string;
+@@ -124,6 +137,14 @@ const LAST_USER_CACHE = "genesis-last-user-v2";
+ 
+ export const isGoogleSyncConfigured = Boolean(API_BASE);
+ 
++function deviceTimeZone() {
++  try {
++    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
++  } catch {
++    return "UTC";
++  }
++}
++
+ let csrfToken = "";
+ let workspaceKey = "";
+ let workspaceVersion = Date.now();
+@@ -173,6 +194,7 @@ async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+     credentials: "include",
+     headers: {
+       "Content-Type": "application/json",
++      "X-Genesis-Time-Zone": deviceTimeZone(),
+       ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}),
+       ...init.headers,
+     },
+@@ -428,3 +450,14 @@ export async function saveMetrics(metrics: GenesisMetrics) {
+ export async function loadAdminStats() {
+   return api<AdminStats>("/admin/stats");
+ }
++
++export async function loadStoicheionDraws() {
++  return api<{ dayKey: string; draws: Partial<Record<StoicheionDrawKind, StoicheionDrawRecord>> }>("/stoicheion/draws");
++}
++
++export async function saveStoicheionDraw(kind: StoicheionDrawKind, seed: number) {
++  return api<{ draw: StoicheionDrawRecord }>("/stoicheion/draws", {
++    method: "POST",
++    body: JSON.stringify({ kind, seed: seed >>> 0 }),
++  });
++}
+diff --git a/app/globals.css b/app/globals.css
+index 56c226d..e84000b 100644
+--- a/app/globals.css
++++ b/app/globals.css
+@@ -4128,6 +4128,10 @@ button:disabled {
+ .stoicheion-redraw-button span { color: #e2c884; font: 400 16px/1 Georgia, serif; }
+ .stoicheion-redraw-button:hover,
+ .stoicheion-redraw-button:focus-visible { color: #fff5db; border-color: rgba(226, 200, 132, .52); outline: none; transform: translateY(-2px); }
++.stoicheion-redraw-button:disabled,
++.stoicheion-spread-button:disabled { cursor: wait; opacity: .62; transform: none; }
++.stoicheion-limit-note { color: #718b86; font-size: 7px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
++.stoicheion-draw-error { grid-column: 1 / -1; margin: 0; padding: 11px 13px; color: #efc2b3; font-size: 9px; line-height: 1.5; background: rgba(177, 83, 61, .12); border: 1px solid rgba(218, 140, 120, .24); border-radius: 9px; }
+ 
+ .stoicheion-nine-section { padding: clamp(28px, 5vw, 58px); }
+ .stoicheion-nine-section > header,
+@@ -4293,6 +4297,7 @@ button:disabled {
+ .stoicheion-root-line { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-top: 20px; padding-top: 18px; border-top: 1px solid rgba(216, 189, 128, .19); }
+ .stoicheion-root-line span { color: #aab9b4; font: 400 13px/1.5 Georgia, serif; }
+ .stoicheion-root-line strong { display: grid; flex: 0 0 70px; aspect-ratio: 1; place-items: center; color: #07191c; font: 400 39px/1 Georgia, serif; background: #dfc47f; border-radius: 50%; box-shadow: 0 0 0 8px rgba(223, 196, 127, .07); }
++.stoicheion-spread-actions { display: flex; margin-top: 22px; }
+ 
+ .stoicheion-alphabet-section { padding: clamp(28px, 5vw, 58px); }
+ .stoicheion-alphabet-section > header > div { flex: 0 0 auto; }
+@@ -4580,7 +4585,8 @@ button:disabled {
+ /* Project, task and day-flow refinements */
+ .workspace.today-workspace {
+   display: flex;
+-  max-width: 1228px;
++  width: 100%;
++  max-width: none;
+   flex-direction: column;
+   gap: 16px;
+   margin: 0 auto;
+@@ -4604,7 +4610,11 @@ button:disabled {
+   box-shadow: 0 18px 46px rgba(12, 31, 32, .08);
+ }
+ .today-workspace .task-list { max-height: 420px; }
+-.today-workspace .today-lower-grid { order: 3; }
++.today-workspace .hero-card,
++.today-workspace .today-lower-grid,
++.today-workspace .five-day-strip { width: 100%; max-width: none; }
++.today-workspace .today-lower-grid { order: 3; grid-template-columns: minmax(0, 1.45fr) minmax(340px, 1fr); align-items: stretch; }
++.today-workspace .moon-panel { width: 100%; min-width: 0; height: 100%; }
+ .today-workspace .five-day-strip { order: 4; }
+ 
+ .tag-search {
+@@ -4622,6 +4632,16 @@ button:disabled {
+ .tag-search input { width: 100%; padding: 0; background: transparent; border: 0; outline: 0; }
+ .tag-search button { padding: 2px 6px; color: var(--ink-soft); background: transparent; border: 0; cursor: pointer; }
+ 
++.tag-search-results { margin: -6px 0 18px; padding: 14px; background: rgba(37, 91, 89, .055); border: 1px solid rgba(37, 91, 89, .14); border-radius: 14px; }
++.tag-search-results header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
++.tag-search-results header strong { font: 500 17px/1.2 Georgia, "Times New Roman", serif; }
++.tag-search-results header span { color: var(--ink-soft); font-size: 8px; }
++.tag-search-results > div { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 7px; }
++.tag-search-results button { display: grid; gap: 3px; padding: 10px 11px; color: var(--ink); text-align: left; background: rgba(255, 253, 248, .78); border: 1px solid var(--line); border-radius: 10px; cursor: pointer; }
++.tag-search-results button > span { color: var(--teal); font-size: 7px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
++.tag-search-results button > small { color: var(--ink-soft); font-size: 8px; }
++.tag-search-results p { margin: 0; color: var(--ink-soft); font-size: 10px; }
++
+ .project-row { grid-template-columns: 26px minmax(0, 1fr) 22px 22px; }
+ .project-open p { margin: 4px 0 0; overflow: hidden; color: #637572; font-size: 8px; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+ .project-edit,
+@@ -4671,6 +4691,10 @@ button:disabled {
+ .editor-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px; }
+ .editor-source-note { margin: 0; padding: 10px 12px; color: var(--teal); font-size: 9px; line-height: 1.5; background: rgba(37, 91, 89, .07); border-radius: 8px; }
+ 
++.time-24-select { display: grid; width: 100%; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 5px; }
++.time-24-select select { width: 100%; min-width: 0; }
++.time-24-select > i { color: var(--ink-soft); font-style: normal; font-weight: 800; }
++
+ .account-sync-upgrade { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-top: 18px; padding: 16px 18px; background: rgba(178, 138, 74, .09); border: 1px solid rgba(178, 138, 74, .25); border-radius: 10px; }
+ .account-sync-upgrade div { display: grid; gap: 4px; }
+ .account-sync-upgrade small { color: var(--ink-soft); font-size: 9px; line-height: 1.45; }
+@@ -4716,4 +4740,6 @@ button:disabled {
+   .selected-day-facts dd { min-width: 0; text-align: right; overflow-wrap: anywhere; }
+   .plan-manager-grid { grid-template-columns: 1fr; }
+   .plan-manager-list { max-height: 260px; }
++  .today-workspace .today-lower-grid { grid-template-columns: minmax(0, 1fr); }
++  .tag-search-results header { align-items: flex-start; flex-direction: column; }
+ }
+diff --git a/references/days.txt b/references/days.txt
+index 1e5e2b7..58fa795 100644
+--- a/references/days.txt
++++ b/references/days.txt
+@@ -1,9 +1,9 @@
+ Также добавь информацию в каждый день. Из оглавления где ты видишь типа "Пята 1: Инициация" добавь это как еще одно дополнительное описание во вкладку "сегодня".
+ Также пусть каждый день из этого списка будет отмечен в "сегодня" в описании по типу "Арейос Ридзоматос (Арейос Укореняющий)" - это название дня и следом ниже его описание как в этом списке после дефиса,
+ пусть оно будет ниже - Закладка фундамента воли и пробуждение внутренних сил, подобных корням мира в Теогонии Гесиода. И по аналогии для других.
+-Также указывай там где месяц указан в "сегодня" название его, пиши внизу по типу - сверху "АРЕЙОС" и снизу его "МЕСЯЦ ВОИНСТВЕННОГО РАЗУМА", а еще ниже описание "Этот месяц посвящен энергии прорыва, отделению формы от хаоса и инициации воли". и так по аналогии для каждого. Вот список всех месяцев и дней:
++Также указывай там где месяц указан в "сегодня" название его, пиши внизу по типу - сверху "АРЕЙОС" и снизу его "МЕСЯЦ ВОИНСТВЕННОЙ ВОЛИ", а еще ниже описание "Этот месяц посвящен энергии прорыва, отделению формы от хаоса и инициации воли". и так по аналогии для каждого. Вот список всех месяцев и дней:
+ 
+-МЕСЯЦ I: АРЕЙОС (МЕСЯЦ ВОИНСТВЕННОГО РАЗУМА)
++МЕСЯЦ I: АРЕЙОС (МЕСЯЦ ВОИНСТВЕННОЙ ВОЛИ)
+ Этот месяц посвящен энергии прорыва, отделению формы от хаоса и инициации воли.
+ 
+ Пята 1: Инициация (20.03 – 24.03)
+@@ -141,8 +141,8 @@
+ 
+ 
+ 
+-МЕСЯЦ IV: АЙГЛЕ (МЕСЯЦ СИЯНИЯ)
+-Этот месяц посвящен энергии солнца, логики, пророчества и высшего порядка (Космоса), который устанавливает Аполлон.
++МЕСЯЦ IV: АЙГЛЕ (МЕСЯЦ ЛУННОГО СИЯНИЯ)
++Этот месяц посвящен энергии луны, глубоким вдохновениям и музам, которые приходят после триумфа Дня во время Летнего Солнцестояния, чтобы очертить конец весны и начало лета.
+ 
+ Пята 1: Зенит Истины (18.06 – 22.06)
+ 18.06. Айгле Хтония (Айгле Земное) — Утверждение солнечного порядка в физическом мире и плотность света, пронизывающего материю.
+@@ -188,8 +188,8 @@
+ 
+ Никита, продолжаем. Мы вступаем в самый суровый и жаркий месяц лета — Каума. Это время Пылающей Кузни Гефеста. Если предыдущий месяц Айгле был про созерцание и чистую истину, то Каума — это время трансформации материи через тяжелый труд, пот и закалку духа.
+ 
+-МЕСЯЦ V: КАУМА (МЕСЯЦ ЗНОЯ)
+-Этот месяц посвящен энергии созидательного разрушения, ремеслу, выносливости и переплавке своего Я в горниле обстоятельств.
++МЕСЯЦ V: КАУМА (МЕСЯЦ СОЛНЕЧНОГО ЗНОЯ И ТРИУМФА ПОРЯДКА)
++Этот месяц посвящен укорененному царству Дня: постоянной солнечной силе, направленной к утверждению порядка, зрелой власти и созидательному труду. Его энергии собраны в единый вектор — не дикий весенний порыв, а устойчивый зной, укрепляющий форму и приводящий ее к триумфу.
+ 
+ Пята 1: Основание Наковальни (18.07 – 22.07)
+ 18.07. Каума Хтония (Каума Земное) — Утверждение фундамента воли на твердой почве и подготовка материала для будущих свершений.
+@@ -464,7 +464,7 @@
+ 
+ 
+ МЕСЯЦ XI: ЛАЙЛАПС (МЕСЯЦ ЛЕДЯНОГО ВИХРЯ)
+-Этот месяц посвящен энергии испытания, столкновения с внешним давлением, сокрушения старых форм и обретения несокрушимого внутреннего стержня.
++Этот месяц посвящен энергии испытания, столкновения с внешним давлением, сокрушения старых форм и обретения несокрушимого внутреннего стержня. Это стайный и племенной месяц — время сплочения, общего круга и силы, рождающейся из верности своим.
+ 
+ Пята 1: Первый Порыв (13.01 – 17.01)
+ 13.01. Лайлапс Хтониос (Лайлапс Земной) — Столкновение идеального порядка с грубой силой реальности; день проверки фундамента на устойчивость.
+@@ -566,4 +566,3 @@
+ 17.03. Апейрон Тартарос (Безграничная Бездна) — Осознание фундаментальных глубин бытия, на которых держится мир.
+ 18.03. Апейрон Эрос (Безграничное Влечение) — Пробуждение великой силы притяжения, заставляющей Хаос складываться в Порядок.
+ 19.03. Апейрон Фанес (Безграничное Сияние) — Появление Перворожденного света; момент за секунду до начала новой Весны.
+-
+diff --git a/server/public/api/index.php b/server/public/api/index.php
+index f717634..9be1c69 100644
+--- a/server/public/api/index.php
++++ b/server/public/api/index.php
+@@ -195,6 +195,22 @@ try {
+         genesisFinishSession();
+     }
+ 
++    if ($method === 'GET' && $path === 'stoicheion/draws') {
++        genesisJson(genesisStoicheionDraws(genesisRequireUserId()));
++    }
++
++    if ($method === 'POST' && $path === 'stoicheion/draws') {
++        $userId = genesisRequireUserId();
++        genesisRequireCsrf();
++        $payload = genesisReadJson();
++        $kind = trim((string)($payload['kind'] ?? ''));
++        $seed = filter_var($payload['seed'] ?? null, FILTER_VALIDATE_INT);
++        if ($seed === false) {
++            throw new InvalidArgumentException('Зерно расклада указано неверно.');
++        }
++        genesisJson(['draw' => genesisSaveStoicheionDraw($userId, $kind, (int)$seed)]);
++    }
++
+     if (count($segments) === 2 && $segments[0] === 'tasks') {
+         $userId = genesisRequireUserId();
+         genesisRequireCsrf();
+@@ -212,6 +228,8 @@ try {
+     }
+ 
+     genesisJson(['error' => 'NOT_FOUND'], 404);
++} catch (DomainException $error) {
++    genesisJson(['error' => $error->getMessage()], 409);
+ } catch (JsonException | InvalidArgumentException $error) {
+     genesisJson(['error' => $error->getMessage()], 400);
+ } catch (Throwable $error) {
+diff --git a/server/src/bootstrap.php b/server/src/bootstrap.php
+index 8319aed..df27e48 100644
+--- a/server/src/bootstrap.php
++++ b/server/src/bootstrap.php
+@@ -140,6 +140,22 @@ function genesisNow(): string
+     return gmdate('Y-m-d\TH:i:s\Z');
+ }
+ 
++function genesisClientTimeZone(): DateTimeZone
++{
++    $fallback = (string)(genesisConfig()['timezone'] ?? 'Europe/Moscow');
++    $requested = trim((string)($_SERVER['HTTP_X_GENESIS_TIME_ZONE'] ?? ''));
++    try {
++        return new DateTimeZone($requested !== '' ? $requested : $fallback);
++    } catch (Throwable) {
++        return new DateTimeZone($fallback);
++    }
++}
++
++function genesisClientDayKey(): string
++{
++    return (new DateTimeImmutable('now', genesisClientTimeZone()))->format('Y-m-d');
++}
++
+ function genesisCurrentUserId(): ?string
+ {
+     return isset($_SESSION['user_id']) ? (string)$_SESSION['user_id'] : null;
+diff --git a/server/src/google.php b/server/src/google.php
+index 78fffaf..72c8663 100644
+--- a/server/src/google.php
++++ b/server/src/google.php
+@@ -172,7 +172,7 @@ function genesisEnsureGoogleCalendar(array $user): array
+     $calendar = genesisGoogleApi('POST', '/calendars', $user, [
+         'summary' => 'GENESIS',
+         'description' => 'Задачи и напоминания приложения GENESIS. Содержание хранится в Google Calendar, а не в базе GENESIS.',
+-        'timeZone' => (string)(genesisConfig()['timezone'] ?? 'Europe/Moscow'),
++        'timeZone' => genesisClientTimeZone()->getName(),
+     ]);
+     if (empty($calendar['id'])) {
+         throw new RuntimeException('Google Calendar could not be created.');
+@@ -206,8 +206,8 @@ function genesisStringList(mixed $value, int $limit = 50): array
+ 
+ function genesisTaskPayloadForGoogle(string $taskId, array $task): array
+ {
+-    $timezoneName = (string)(genesisConfig()['timezone'] ?? 'Europe/Moscow');
+-    $timezone = new DateTimeZone($timezoneName);
++    $timezone = genesisClientTimeZone();
++    $timezoneName = $timezone->getName();
+     $title = mb_substr(trim((string)($task['title'] ?? '')), 0, 500);
+     if ($title === '') {
+         throw new InvalidArgumentException('Название задачи обязательно.');
+@@ -280,7 +280,7 @@ function genesisGoogleEventForClient(array $event): ?array
+     $summary = (string)($event['summary'] ?? 'Без названия');
+     $done = ($private['genesisDone'] ?? '') === '1' || str_starts_with($summary, '✓ ');
+     $title = $done && str_starts_with($summary, '✓ ') ? mb_substr($summary, 2) : $summary;
+-    $timezone = new DateTimeZone((string)(genesisConfig()['timezone'] ?? 'Europe/Moscow'));
++    $timezone = genesisClientTimeZone();
+     $dateTime = $event['start']['dateTime'] ?? null;
+     $date = $event['start']['date'] ?? null;
+     $dueDate = date('Y-m-d');
+diff --git a/server/src/repository.php b/server/src/repository.php
+index 1b9e391..30e7ee0 100644
+--- a/server/src/repository.php
++++ b/server/src/repository.php
+@@ -272,6 +272,94 @@ function genesisAdminStats(): array
+     ];
+ }
+ 
++function genesisStoicheionDrawForClient(array $row): array
++{
++    $firstAt = strtotime((string)$row['first_draw_at']);
++    $deadline = ($firstAt !== false ? $firstAt : time()) + 180;
++    $attempts = (int)$row['attempt_count'];
++    $remaining = max(0, $deadline - time());
++    return [
++        'kind' => (string)$row['draw_kind'],
++        'dayKey' => (string)$row['day_key'],
++        'seed' => (int)$row['seed_value'],
++        'attempts' => $attempts,
++        'firstDrawAt' => (string)$row['first_draw_at'],
++        'rerollDeadline' => gmdate('Y-m-d\TH:i:s\Z', $deadline),
++        'remainingSeconds' => $remaining,
++        'canReroll' => $attempts === 1 && $remaining > 0,
++    ];
++}
++
++function genesisStoicheionDraws(string $userId): array
++{
++    $dayKey = genesisClientDayKey();
++    $statement = genesisDb()->prepare('SELECT * FROM stoicheion_draws WHERE user_id = :user_id AND day_key = :day_key');
++    $statement->execute(['user_id' => $userId, 'day_key' => $dayKey]);
++    $draws = [];
++    foreach ($statement->fetchAll() as $row) {
++        $draw = genesisStoicheionDrawForClient($row);
++        $draws[(string)$row['draw_kind']] = $draw;
++    }
++    return ['dayKey' => $dayKey, 'draws' => $draws];
++}
++
++function genesisSaveStoicheionDraw(string $userId, string $kind, int $seed): array
++{
++    if (!in_array($kind, ['daily', 'spread'], true)) {
++        throw new InvalidArgumentException('Неизвестный вид расклада.');
++    }
++    if ($seed < 0 || $seed > 4294967295) {
++        throw new InvalidArgumentException('Зерно расклада указано неверно.');
++    }
++    $db = genesisDb();
++    $dayKey = genesisClientDayKey();
++    $now = genesisNow();
++    $db->exec('BEGIN IMMEDIATE');
++    try {
++        $statement = $db->prepare('SELECT * FROM stoicheion_draws WHERE user_id = :user_id AND day_key = :day_key AND draw_kind = :draw_kind LIMIT 1');
++        $statement->execute(['user_id' => $userId, 'day_key' => $dayKey, 'draw_kind' => $kind]);
++        $existing = $statement->fetch();
++        if (!is_array($existing)) {
++            $db->prepare('INSERT INTO stoicheion_draws (user_id, day_key, draw_kind, seed_value, attempt_count, first_draw_at, updated_at) VALUES (:user_id, :day_key, :draw_kind, :seed_value, 1, :first_draw_at, :updated_at)')->execute([
++                'user_id' => $userId,
++                'day_key' => $dayKey,
++                'draw_kind' => $kind,
++                'seed_value' => $seed,
++                'first_draw_at' => $now,
++                'updated_at' => $now,
++            ]);
++        } else {
++            $firstAt = strtotime((string)$existing['first_draw_at']);
++            $withinWindow = $firstAt !== false && time() < $firstAt + 180;
++            if ((int)$existing['attempt_count'] !== 1 || !$withinWindow) {
++                throw new DomainException((int)$existing['attempt_count'] >= 2
++                    ? 'Переброс на сегодня уже использован.'
++                    : 'Трёхминутное окно для переброса завершилось.');
++            }
++            $db->prepare('UPDATE stoicheion_draws SET seed_value = :seed_value, attempt_count = 2, updated_at = :updated_at WHERE user_id = :user_id AND day_key = :day_key AND draw_kind = :draw_kind')->execute([
++                'seed_value' => $seed,
++                'updated_at' => $now,
++                'user_id' => $userId,
++                'day_key' => $dayKey,
++                'draw_kind' => $kind,
++            ]);
++        }
++        $statement->execute(['user_id' => $userId, 'day_key' => $dayKey, 'draw_kind' => $kind]);
++        $saved = $statement->fetch();
++        $db->commit();
++        if (!is_array($saved)) {
++            throw new RuntimeException('Расклад не удалось сохранить.');
++        }
++        genesisTouchUser($userId);
++        return genesisStoicheionDrawForClient($saved);
++    } catch (Throwable $error) {
++        if ($db->inTransaction()) {
++            $db->rollBack();
++        }
++        throw $error;
++    }
++}
++
+ function genesisDeleteAccount(string $userId): void
+ {
+     genesisDb()->prepare('DELETE FROM users WHERE id = :id')->execute(['id' => $userId]);
+diff --git a/tests/rendered-html.test.mjs b/tests/rendered-html.test.mjs
+index 74164dc..9546a67 100644
+--- a/tests/rendered-html.test.mjs
++++ b/tests/rendered-html.test.mjs
+@@ -90,9 +90,12 @@ test("keeps the requested calendar and privacy features wired", async () => {
+   assert.match(stoicheion, /pythmenFromTotal/);
+   assert.match(stoicheion, /Космический круг и девять ликов силы/);
+   assert.match(stoicheion, /stoicheion-spread-grid/);
+-  assert.match(stoicheion, /Бросить ещё раз/);
+-  assert.match(stoicheion, /beginMotion\("daily", true\)/);
+-  assert.match(stoicheion, /MOTION_TRAVEL_REQUIRED/);
++  assert.match(stoicheion, /Перебросить/);
++  assert.match(stoicheion, /beginMotion\("daily", true, event\.timeStamp\)/);
++  assert.match(stoicheion, /MOTION_TRAVEL_REQUIRED = 1120/);
++  assert.match(stoicheion, /loadStoicheionDraws/);
++  assert.match(stoicheion, /spreadCanReroll/);
++  assert.match(stoicheion, /трёхминутное окно/i);
+   assert.match(stoicheion, /moveThroughField/);
+   assert.match(stoicheion, /isStoicheionCardReversed/);
+   assert.match(stoicheion, /buildStoicheionSpreadReading/);
+@@ -129,10 +132,17 @@ test("keeps the requested calendar and privacy features wired", async () => {
+   assert.match(google, /https:\/\/www\.googleapis\.com\/auth\/tasks/);
+   assert.match(google, /genesisSyncNativeGoogleTask/);
+   assert.match(google, /genesisGoogleTasksApi\(\s*'PATCH'/);
++  assert.match(google, /genesisClientTimeZone/);
+   assert.match(cloudSync, /googleTaskListId/);
++  assert.match(cloudSync, /X-Genesis-Time-Zone/);
++  assert.match(repository, /genesisSaveStoicheionDraw/);
++  assert.match(calendar, /Time24Select/);
++  assert.doesNotMatch(calendar, /<datalist/);
+ 
+   await access(new URL("../public/month-frieze-v1.webp", import.meta.url));
+   await access(new URL("../public/month-frieze-v2.png", import.meta.url));
+   await access(new URL("../public/month-art-v3/month-01.webp", import.meta.url));
+   await access(new URL("../public/month-art-v3/month-13.webp", import.meta.url));
++  await access(new URL("../public/month-art-v3/month-04-aigle.png", import.meta.url));
++  await access(new URL("../server/migrations/004_stoicheion_draws.sql", import.meta.url));
+ });

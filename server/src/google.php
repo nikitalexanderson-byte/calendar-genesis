@@ -172,7 +172,7 @@ function genesisEnsureGoogleCalendar(array $user): array
     $calendar = genesisGoogleApi('POST', '/calendars', $user, [
         'summary' => 'GENESIS',
         'description' => 'Задачи и напоминания приложения GENESIS. Содержание хранится в Google Calendar, а не в базе GENESIS.',
-        'timeZone' => (string)(genesisConfig()['timezone'] ?? 'Europe/Moscow'),
+        'timeZone' => genesisClientTimeZone()->getName(),
     ]);
     if (empty($calendar['id'])) {
         throw new RuntimeException('Google Calendar could not be created.');
@@ -206,8 +206,8 @@ function genesisStringList(mixed $value, int $limit = 50): array
 
 function genesisTaskPayloadForGoogle(string $taskId, array $task): array
 {
-    $timezoneName = (string)(genesisConfig()['timezone'] ?? 'Europe/Moscow');
-    $timezone = new DateTimeZone($timezoneName);
+    $timezone = genesisClientTimeZone();
+    $timezoneName = $timezone->getName();
     $title = mb_substr(trim((string)($task['title'] ?? '')), 0, 500);
     if ($title === '') {
         throw new InvalidArgumentException('Название задачи обязательно.');
@@ -280,7 +280,7 @@ function genesisGoogleEventForClient(array $event): ?array
     $summary = (string)($event['summary'] ?? 'Без названия');
     $done = ($private['genesisDone'] ?? '') === '1' || str_starts_with($summary, '✓ ');
     $title = $done && str_starts_with($summary, '✓ ') ? mb_substr($summary, 2) : $summary;
-    $timezone = new DateTimeZone((string)(genesisConfig()['timezone'] ?? 'Europe/Moscow'));
+    $timezone = genesisClientTimeZone();
     $dateTime = $event['start']['dateTime'] ?? null;
     $date = $event['start']['date'] ?? null;
     $dueDate = date('Y-m-d');

@@ -47,6 +47,7 @@ yarn-error.log*
 /server/config.php
 /server/var/
 /deploy-private/
+/sshp.txt
 
 # Android signing material
 *.jks

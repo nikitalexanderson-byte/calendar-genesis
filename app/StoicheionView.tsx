@@ -14,16 +14,18 @@ import {
   STOICHEION_LETTERS,
   type StoicheionLetter,
 } from "./stoicheion-data";
+import {
+  isGoogleSyncConfigured,
+  loadStoicheionDraws,
+  saveStoicheionDraw,
+  type StoicheionDrawKind,
+  type StoicheionDrawRecord,
+} from "./cloud-sync";
 
-const DAILY_DRAW_STORAGE_PREFIX = "genesis-stoicheion-day-v1:";
+const LOCAL_DRAW_STORAGE_PREFIX = "genesis-stoicheion-draws-v2:";
 const INITIAL_ENTROPY = 0x9e3779b9;
 
-type StoredDailyDraw = {
-  dayKey: string;
-  letterId: string;
-  seed: number;
-  reversed: boolean;
-};
+type ClientDrawRecord = StoicheionDrawRecord & { localDeadline: number };
 
 type MotionMode = "daily" | "spread";
 
@@ -41,7 +43,7 @@ type SelectedReading = {
   reversed: boolean | null;
 };
 
-const MOTION_TRAVEL_REQUIRED = 280;
+const MOTION_TRAVEL_REQUIRED = 1120;
 
 type SpreadPosition = {
   id: string;
@@ -122,6 +124,60 @@ const PREVIEW_POSITIONS = [
 function localDayKey(date: Date) {
   const pad = (value: number) => String(value).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function toClientDraw(record: StoicheionDrawRecord): ClientDrawRecord {
+  return {
+    ...record,
+    seed: record.seed >>> 0,
+    localDeadline: Date.now() + Math.max(0, record.remainingSeconds) * 1000,
+  };
+}
+
+function formatCountdown(seconds: number) {
+  const safe = Math.max(0, seconds);
+  return `${String(Math.floor(safe / 60)).padStart(2, "0")}:${String(safe % 60).padStart(2, "0")}`;
+}
+
+function readLocalDraws(dayKey: string): Partial<Record<StoicheionDrawKind, StoicheionDrawRecord>> {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(`${LOCAL_DRAW_STORAGE_PREFIX}${dayKey}`) || "{}") as Partial<Record<StoicheionDrawKind, StoicheionDrawRecord>>;
+    const result: Partial<Record<StoicheionDrawKind, StoicheionDrawRecord>> = {};
+    (["daily", "spread"] as const).forEach((kind) => {
+      const draw = parsed[kind];
+      if (!draw || draw.dayKey !== dayKey || draw.kind !== kind || ![1, 2].includes(draw.attempts)) return;
+      const remainingSeconds = draw.attempts === 1
+        ? Math.max(0, Math.ceil((Date.parse(draw.rerollDeadline) - Date.now()) / 1000))
+        : 0;
+      result[kind] = { ...draw, seed: draw.seed >>> 0, remainingSeconds, canReroll: draw.attempts === 1 && remainingSeconds > 0 };
+    });
+    return result;
+  } catch {
+    return {};
+  }
+}
+
+function saveLocalDraw(kind: StoicheionDrawKind, seed: number, dayKey: string): StoicheionDrawRecord {
+  const current = readLocalDraws(dayKey);
+  const existing = current[kind];
+  if (existing && (!existing.canReroll || existing.attempts >= 2)) {
+    throw new Error(existing.attempts >= 2 ? "Переброс на сегодня уже использован." : "Трёхминутное окно для переброса завершилось.");
+  }
+  const now = new Date();
+  const firstDrawAt = existing?.firstDrawAt ?? now.toISOString();
+  const deadline = existing?.rerollDeadline ?? new Date(now.getTime() + 180_000).toISOString();
+  const record: StoicheionDrawRecord = {
+    kind,
+    dayKey,
+    seed: seed >>> 0,
+    attempts: existing ? 2 : 1,
+    firstDrawAt,
+    rerollDeadline: deadline,
+    remainingSeconds: existing ? 0 : 180,
+    canReroll: !existing,
+  };
+  localStorage.setItem(`${LOCAL_DRAW_STORAGE_PREFIX}${dayKey}`, JSON.stringify({ ...current, [kind]: record }));
+  return record;
 }
 
 export function mixStoicheionEntropy(seed: number, x: number, y: number, time: number) {
@@ -285,11 +341,14 @@ export function StoicheionView() {
   const motionTracker = useRef<MotionTracker | null>(null);
   const motionField = useRef<HTMLButtonElement | null>(null);
   const [pointer, setPointer] = useState({ x: 50, y: 24 });
-  const [dailyDraw, setDailyDraw] = useState<StoredDailyDraw | null>(null);
-  const [spreadSeed, setSpreadSeed] = useState<number | null>(null);
+  const [dailyDraw, setDailyDraw] = useState<ClientDrawRecord | null>(null);
+  const [spreadDraw, setSpreadDraw] = useState<ClientDrawRecord | null>(null);
   const [motion, setMotion] = useState<{ mode: MotionMode; progress: number } | null>(null);
   const [selectedReading, setSelectedReading] = useState<SelectedReading | null>(null);
-  const [storageReady, setStorageReady] = useState(false);
+  const [drawsReady, setDrawsReady] = useState(false);
+  const [savingKind, setSavingKind] = useState<MotionMode | null>(null);
+  const [drawError, setDrawError] = useState("");
+  const [clock, setClock] = useState(() => Date.now());
   const today = useMemo(() => new Date(), []);
   const dayKey = useMemo(() => localDayKey(today), [today]);
   const dateLabel = useMemo(
@@ -311,41 +370,35 @@ export function StoicheionView() {
 
   useEffect(() => {
     let active = true;
-    queueMicrotask(() => {
-      if (!active) return;
+    const load = async () => {
       try {
-        const saved = localStorage.getItem(`${DAILY_DRAW_STORAGE_PREFIX}${dayKey}`);
-        if (saved) {
-          const parsed = JSON.parse(saved) as Partial<StoredDailyDraw>;
-          if (
-            parsed.dayKey === dayKey
-            && typeof parsed.letterId === "string"
-            && typeof parsed.seed === "number"
-            && STOICHEION_LETTERS.some((letter) => letter.id === parsed.letterId)
-          ) {
-            const seed = parsed.seed >>> 0;
-            setDailyDraw({
-              dayKey,
-              letterId: parsed.letterId,
-              seed,
-              reversed: typeof parsed.reversed === "boolean"
-                ? parsed.reversed
-                : isStoicheionCardReversed(seed),
-            });
-          }
-        }
-      } catch {
-        // A blocked or malformed local store should never stop a private, local draw.
+        const result = isGoogleSyncConfigured
+          ? await loadStoicheionDraws()
+          : { dayKey, draws: readLocalDraws(dayKey) };
+        if (!active) return;
+        setDailyDraw(result.draws.daily ? toClientDraw(result.draws.daily) : null);
+        setSpreadDraw(result.draws.spread ? toClientDraw(result.draws.spread) : null);
+        setDrawError("");
+      } catch (error) {
+        if (!active) return;
+        setDrawError(error instanceof Error ? error.message : "Не удалось загрузить расклады.");
       } finally {
-        setStorageReady(true);
+        if (active) setDrawsReady(true);
       }
-    });
+    };
+    void load();
     return () => { active = false; };
   }, [dayKey]);
 
-  const dailyLetter = dailyDraw
-    ? STOICHEION_LETTERS.find((letter) => letter.id === dailyDraw.letterId) ?? null
-    : null;
+  useEffect(() => {
+    if (![dailyDraw, spreadDraw].some((draw) => draw?.attempts === 1 && draw.localDeadline > Date.now())) return;
+    const timer = window.setInterval(() => setClock(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [dailyDraw, spreadDraw]);
+
+  const dailyLetter = dailyDraw ? selectStoicheionCard(STOICHEION_LETTERS, dailyDraw.seed) : null;
+  const dailyReversed = dailyDraw ? isStoicheionCardReversed(dailyDraw.seed) : false;
+  const spreadSeed = spreadDraw?.seed ?? null;
   const spreadCards = useMemo(
     () => spreadSeed === null ? [] : buildStoicheionSpreadReading(STOICHEION_LETTERS, spreadSeed),
     [spreadSeed],
@@ -355,6 +408,10 @@ export function StoicheionView() {
   const spreadTotal = spreadLetters.reduce((sum, letter) => sum + letter.value, 0);
   const spreadPythmen = pythmenFromTotal(spreadTotal);
   const spreadTrace = pythmenTrace(spreadTotal);
+  const dailyRemaining = dailyDraw?.attempts === 1 ? Math.max(0, Math.ceil((dailyDraw.localDeadline - clock) / 1000)) : 0;
+  const spreadRemaining = spreadDraw?.attempts === 1 ? Math.max(0, Math.ceil((spreadDraw.localDeadline - clock) / 1000)) : 0;
+  const dailyCanReroll = Boolean(dailyDraw?.attempts === 1 && dailyRemaining > 0);
+  const spreadCanReroll = Boolean(spreadDraw?.attempts === 1 && spreadRemaining > 0);
 
   const gatherEntropy = (event: PointerEvent<HTMLElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect();
@@ -364,35 +421,43 @@ export function StoicheionView() {
     setPointer({ x, y });
   };
 
-  const saveDailyDraw = (seedValue: number, replaceCurrent: boolean) => {
-    let seed = seedValue;
-    let letter = selectStoicheionCard(STOICHEION_LETTERS, seed);
-    if (replaceCurrent && letter?.id === dailyDraw?.letterId) {
+  const persistDraw = async (kind: StoicheionDrawKind, seedValue: number, replaceCurrent: boolean) => {
+    let seed = seedValue >>> 0;
+    if (kind === "daily" && replaceCurrent && selectStoicheionCard(STOICHEION_LETTERS, seed)?.id === dailyLetter?.id) {
       seed = (seed + 1) >>> 0;
-      letter = selectStoicheionCard(STOICHEION_LETTERS, seed);
     }
-    if (!letter) return;
-    const draw = {
-      dayKey,
-      letterId: letter.id,
-      seed,
-      reversed: isStoicheionCardReversed(seed),
-    };
-    setDailyDraw(draw);
-    setSpreadSeed(null);
-    setSelectedReading(null);
+    if (kind === "spread" && replaceCurrent && seed === spreadDraw?.seed) {
+      seed = (seed + 1) >>> 0;
+    }
+    setSavingKind(kind);
+    setDrawError("");
     try {
-      localStorage.setItem(`${DAILY_DRAW_STORAGE_PREFIX}${dayKey}`, JSON.stringify(draw));
-    } catch {
-      // The draw remains available for the current session if storage is blocked.
+      const record = isGoogleSyncConfigured
+        ? (await saveStoicheionDraw(kind, seed)).draw
+        : saveLocalDraw(kind, seed, dayKey);
+      const clientRecord = toClientDraw(record);
+      if (kind === "daily") {
+        setDailyDraw(clientRecord);
+      } else {
+        setSpreadDraw(clientRecord);
+      }
+      setSelectedReading(null);
+      setClock((current) => current + 1);
+    } catch (error) {
+      setDrawError(error instanceof Error ? error.message : "Не удалось сохранить расклад.");
+    } finally {
+      setSavingKind(null);
     }
   };
 
-  const beginMotion = (mode: MotionMode, replaceCurrent = false) => {
+  const beginMotion = (mode: MotionMode, replaceCurrent = false, eventTime = 0) => {
+    const existing = mode === "daily" ? dailyDraw : spreadDraw;
+    const canReroll = mode === "daily" ? dailyCanReroll : spreadCanReroll;
+    if ((!replaceCurrent && existing) || (replaceCurrent && (!existing || !canReroll)) || savingKind) return;
     const baseSeed = mode === "spread"
-      ? (dailyDraw?.seed ?? entropy.current)
+      ? (dailyDraw?.seed ?? entropy.current) ^ Math.imul(dailyLetter?.value ?? 1, 0x45d9f3b)
       : entropy.current ^ (replaceCurrent ? (dailyDraw?.seed ?? 0) : 0);
-    const seed = mixStoicheionEntropy(baseSeed, pointer.x, pointer.y, performance.now());
+    const seed = mixStoicheionEntropy(baseSeed, pointer.x, pointer.y, eventTime);
     motionTracker.current = {
       mode,
       seed,
@@ -409,16 +474,16 @@ export function StoicheionView() {
     setMotion(null);
     entropy.current = tracker.seed;
     if (tracker.mode === "daily") {
-      saveDailyDraw(tracker.seed, tracker.replaceCurrent);
+      void persistDraw("daily", tracker.seed, tracker.replaceCurrent);
       return;
     }
     const seed = mixStoicheionEntropy(
-      tracker.seed ^ (dailyDraw?.seed ?? INITIAL_ENTROPY),
+      tracker.seed ^ (dailyDraw?.seed ?? INITIAL_ENTROPY) ^ Math.imul(dailyLetter?.value ?? 1, 0x119de1f3),
       pointer.x,
       pointer.y,
       tracker.travel,
     );
-    setSpreadSeed(seed);
+    void persistDraw("spread", seed, tracker.replaceCurrent);
   };
 
   const addMotion = (x: number, y: number, time: number, distance: number) => {
@@ -511,41 +576,47 @@ export function StoicheionView() {
             <p>Пока изображения карт готовятся, выбор открывает одну букву. Случайность собирается на устройстве и фиксируется на текущий день.</p>
           </div>
 
+          {drawError ? <p className="stoicheion-draw-error" role="alert">{drawError}</p> : null}
+
           {!dailyLetter ? (
             <button
               type="button"
               className="stoicheion-card-back"
-              onClick={() => beginMotion("daily")}
-              disabled={!storageReady}
+              onClick={(event) => beginMotion("daily", false, event.timeStamp)}
+              disabled={!drawsReady || savingKind !== null}
               aria-label="Начать выбор случайной буквы дня движением"
             >
               <span aria-hidden="true"><i>24</i></span>
-              <strong>{storageReady ? "Начать выбор" : "Подготовка…"}</strong>
+              <strong>{drawsReady ? "Начать выбор" : "Подготовка…"}</strong>
               <small>затем поводите мышью или пальцем</small>
             </button>
           ) : (
             <div className="stoicheion-daily-result" aria-live="polite">
               <button
                 type="button"
-                className={`stoicheion-revealed-card${dailyDraw?.reversed ? " is-reversed" : ""}`}
-                onClick={() => setSelectedReading({ letter: dailyLetter, reversed: dailyDraw?.reversed ?? false })}
+                className={`stoicheion-revealed-card${dailyReversed ? " is-reversed" : ""}`}
+                onClick={() => setSelectedReading({ letter: dailyLetter, reversed: dailyReversed })}
               >
                 <span className="stoicheion-card-glyph">{dailyLetter.symbol}</span>
                 <small>{dailyLetter.lowercase}</small>
                 <strong>{dailyLetter.name}</strong>
                 <i>Число {dailyLetter.value} · Пифмен {dailyLetter.pythmen}</i>
-                <b className="stoicheion-card-orientation">{orientationLabel(dailyDraw?.reversed ?? false)}</b>
+                <b className="stoicheion-card-orientation">{orientationLabel(dailyReversed)}</b>
               </button>
               <div>
                 <span className="eyebrow">Ваш знак на сегодня</span>
                 <h3>{dailyLetter.tagline}</h3>
                 <p>Выбор сохранён. Нажмите на букву, чтобы прочитать полное описание, или продолжите к раскладу девяти ликов.</p>
                 <div className="stoicheion-result-actions">
-                  <button type="button" className="stoicheion-text-button" onClick={() => setSelectedReading({ letter: dailyLetter, reversed: dailyDraw?.reversed ?? false })}>Прочитать о букве</button>
-                  <button type="button" className="stoicheion-redraw-button" onClick={() => beginMotion("daily", true)}>
-                    <span aria-hidden="true">↻</span>
-                    Бросить ещё раз
-                  </button>
+                  <button type="button" className="stoicheion-text-button" onClick={() => setSelectedReading({ letter: dailyLetter, reversed: dailyReversed })}>Прочитать о букве</button>
+                  {dailyCanReroll ? (
+                    <button type="button" className="stoicheion-redraw-button" disabled={savingKind !== null} onClick={(event) => beginMotion("daily", true, event.timeStamp)}>
+                      <span aria-hidden="true">↻</span>
+                      Перебросить · {formatCountdown(dailyRemaining)}
+                    </button>
+                  ) : (
+                    <span className="stoicheion-limit-note">{dailyDraw?.attempts === 2 ? "Переброс на сегодня использован" : "Карта дня закреплена до завтра"}</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -558,10 +629,10 @@ export function StoicheionView() {
               <div>
                 <span className="eyebrow">Прорицание по девяти картам</span>
                 <h2 id="stoicheion-nine-title">Космический круг и девять ликов силы</h2>
-                <p>Магический квадрат 3×3 соотносит девять букв со сторонами света и архетипами человеческого бытия. Расклад выводится из зерна, записанного при выборе карты дня.</p>
+                <p>Магический квадрат 3×3 соотносит девять букв со сторонами света и архетипами человеческого бытия. Расклад выводится из числового значения карты, записанного при выборе карты дня + вашего волевого воздействия.</p>
               </div>
               {!spreadVisible ? (
-                <button type="button" className="stoicheion-spread-button" onClick={() => beginMotion("spread")}>
+                <button type="button" className="stoicheion-spread-button" disabled={savingKind !== null} onClick={(event) => beginMotion("spread", false, event.timeStamp)}>
                   <span aria-hidden="true">⊹</span>
                   Начать расклад
                 </button>
@@ -601,6 +672,16 @@ export function StoicheionView() {
                     <strong>{spreadPythmen}</strong>
                   </div>
                   <p>Сумма числовых значений девяти букв последовательно складывается до числового корня от 1 до 9.</p>
+                  <div className="stoicheion-spread-actions">
+                    {spreadCanReroll ? (
+                      <button type="button" className="stoicheion-redraw-button" disabled={savingKind !== null} onClick={(event) => beginMotion("spread", true, event.timeStamp)}>
+                        <span aria-hidden="true">↻</span>
+                        Перебросить расклад · {formatCountdown(spreadRemaining)}
+                      </button>
+                    ) : (
+                      <span className="stoicheion-limit-note">{spreadDraw?.attempts === 2 ? "Переброс расклада на сегодня использован" : "Расклад закреплён до завтра"}</span>
+                    )}
+                  </div>
                 </aside>
               </div>
             ) : (
@@ -627,7 +708,6 @@ export function StoicheionView() {
               <button
                 type="button"
                 key={letter.id}
-                className={letter.source === "editorial-placeholder" ? "is-placeholder" : ""}
                 onClick={() => setSelectedReading({ letter, reversed: null })}
               >
                 <i>{String(letter.order).padStart(2, "0")}</i>
@@ -641,7 +721,7 @@ export function StoicheionView() {
 
         <footer className="stoicheion-footer">
           <span>Случайность собирается локально</span>
-          <span>Карта дня хранится только на устройстве</span>
+          <span>Дневные попытки закрепляются за вашей учётной записью</span>
         </footer>
       </div>
 

@@ -140,6 +140,22 @@ function genesisNow(): string
     return gmdate('Y-m-d\TH:i:s\Z');
 }
 
+function genesisClientTimeZone(): DateTimeZone
+{
+    $fallback = (string)(genesisConfig()['timezone'] ?? 'Europe/Moscow');
+    $requested = trim((string)($_SERVER['HTTP_X_GENESIS_TIME_ZONE'] ?? ''));
+    try {
+        return new DateTimeZone($requested !== '' ? $requested : $fallback);
+    } catch (Throwable) {
+        return new DateTimeZone($fallback);
+    }
+}
+
+function genesisClientDayKey(): string
+{
+    return (new DateTimeImmutable('now', genesisClientTimeZone()))->format('Y-m-d');
+}
+
 function genesisCurrentUserId(): ?string
 {
     return isset($_SESSION['user_id']) ? (string)$_SESSION['user_id'] : null;
