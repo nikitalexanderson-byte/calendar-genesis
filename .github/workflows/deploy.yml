@@ -1,0 +1,63 @@
+name: Deploy to Beget
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.13"
+
+      - name: Enable pnpm
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build client for Beget
+        run: pnpm build:beget
+
+      - name: Deploy client (public_html)
+        uses: easingthemes/ssh-deploy@v5
+        with:
+          SSH_PRIVATE_KEY: ${{ secrets.BEGET_SSH_KEY }}
+          REMOTE_HOST: haiirodw.beget.tech
+          REMOTE_USER: haiirodw
+          REMOTE_PORT: 22
+          SOURCE: "dist-beget/public_html/"
+          TARGET: "/home/h/haiirodw/genesis-calendar/public_html/"
+          ARGS: "-rlztvO --delete"
+
+      - name: Deploy server code (excluding secrets and runtime data)
+        uses: easingthemes/ssh-deploy@v5
+        with:
+          SSH_PRIVATE_KEY: ${{ secrets.BEGET_SSH_KEY }}
+          REMOTE_HOST: haiirodw.beget.tech
+          REMOTE_USER: haiirodw
+          REMOTE_PORT: 22
+          SOURCE: "server/"
+          TARGET: "/home/h/haiirodw/genesis-calendar/server/"
+          ARGS: "-rlztvO --delete"
+          EXCLUDE: "config.php, config.example.php, var/, .git/"
+
+      - name: Health check
+        run: |
+          sleep 5
+          curl -fsS https://genesiscalendar.ru/api/health
+
+# Примечания:
+# - server/config.php и server/var/ (SQLite, сессии) никогда не перезаписываются —
+#   исключены явно, плюс на сервере они и так вне git (.gitignore).
+# - Миграции из server/migrations/ сюда сознательно не запускаются автоматически.
+#   Если появилась новая миграция — прогоняем её руками по SSH, чтобы не тронуть
+#   боевую SQLite-базу без присмотра.
+# - server/cron/sync.php по-прежнему дергается планировщиком Beget (cp.beget.com),
+#   этот workflow его не трогает.
