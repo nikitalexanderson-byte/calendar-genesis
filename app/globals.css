@@ -4747,18 +4747,24 @@ button:disabled {
 .time-clock-picker-trigger { width: 100%; height: 36px; padding: 0 11px; color: var(--ink); font-size: 12px; font-weight: 700; text-align: left; background: rgba(255, 253, 248, .9); border: 1px solid var(--line); border-radius: 9px; cursor: pointer; }
 .time-clock-picker-trigger:disabled { color: var(--ink-soft); cursor: not-allowed; opacity: .6; }
 .time-clock-picker-backdrop { z-index: 700; }
-.time-clock-picker-panel { position: relative; display: grid; gap: 10px; width: min(300px, 92vw); padding: 24px 20px 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); }
-.time-clock-picker-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-.time-clock-picker-tabs button { padding: 7px 0; color: var(--ink-soft); font-size: 9px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; background: rgba(33, 56, 56, .05); border: 1px solid transparent; border-radius: 8px; cursor: pointer; }
-.time-clock-picker-tabs button.active { color: #fff; background: var(--teal); }
+.time-clock-picker-panel { position: relative; display: grid; gap: 10px; width: min(320px, 92vw); padding: 24px 20px 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); }
+.time-clock-picker-legend { display: flex; align-items: center; justify-content: center; gap: 16px; }
+.time-clock-legend-item { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-soft); font-size: 9px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+.time-clock-legend-item i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; }
+.time-clock-legend-item.hour i { background: var(--teal); }
+.time-clock-legend-item.minute i { background: var(--gold); }
 .time-clock-face { width: 100%; height: auto; touch-action: none; user-select: none; }
 .time-clock-dial { fill: rgba(255, 253, 248, .82); stroke: var(--line); stroke-width: 1.5; }
+.time-clock-dial-inner { fill: rgba(178, 138, 74, .06); stroke: rgba(178, 138, 74, .28); stroke-width: 1.2; }
 .time-clock-readout { fill: var(--ink); font: 700 22px/1 Georgia, serif; }
 .time-clock-readout-label { fill: var(--ink-soft); font: 700 6.5px/1 Arial, sans-serif; letter-spacing: .06em; text-transform: uppercase; }
 .time-clock-ring { cursor: pointer; }
-.time-clock-tick { fill: rgba(37, 91, 89, .12); stroke: none; transition: fill 120ms ease; }
-.time-clock-tick.active { fill: var(--teal); }
-.time-clock-tick-label { fill: var(--ink-soft); font: 700 8px/1 Arial, sans-serif; pointer-events: none; }
+.time-clock-tick { stroke: none; transition: fill 120ms ease, r 120ms ease; }
+.time-clock-tick.hour { fill: rgba(37, 91, 89, .14); }
+.time-clock-tick.hour.active { fill: var(--teal); }
+.time-clock-tick.minute { fill: rgba(178, 138, 74, .18); }
+.time-clock-tick.minute.active { fill: var(--gold); }
+.time-clock-tick-label { fill: var(--ink-soft); font: 700 7.5px/1 Arial, sans-serif; pointer-events: none; }
 .time-clock-tick-label.active { fill: #fff; }
 .time-clock-picker-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 

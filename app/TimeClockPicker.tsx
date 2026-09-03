@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from "react";
 
-const CENTER = 100;
-const HOUR_RADIUS = 82;
-const MINUTE_RADIUS = 50;
+const CENTER = 122;
+const HOUR_RADIUS = 96;
+const MINUTE_RADIUS = 54;
 
 function angleFromPoint(clientX: number, clientY: number, rect: DOMRect) {
   const x = clientX - (rect.left + rect.width / 2);
@@ -28,7 +28,6 @@ export function TimeClockPicker({ id, value, onChange, disabled = false }: {
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const [ring, setRing] = useState<"hour" | "minute">("hour");
   const faceRef = useRef<SVGSVGElement | null>(null);
   const draggingRef = useRef<"hour" | "minute" | null>(null);
 
@@ -62,7 +61,6 @@ export function TimeClockPicker({ id, value, onChange, disabled = false }: {
     if (disabled) return;
     event.preventDefault();
     draggingRef.current = kind;
-    setRing(kind);
     applyFromAngle(kind, event.clientX, event.clientY);
     (event.target as Element).setPointerCapture?.(event.pointerId);
   };
@@ -73,7 +71,6 @@ export function TimeClockPicker({ id, value, onChange, disabled = false }: {
   };
 
   const handlePointerUp = () => {
-    if (draggingRef.current === "hour") setRing("minute");
     draggingRef.current = null;
   };
 
@@ -92,7 +89,7 @@ export function TimeClockPicker({ id, value, onChange, disabled = false }: {
         disabled={disabled}
         aria-haspopup="dialog"
         aria-expanded={open}
-        onClick={() => { setRing("hour"); setOpen(true); }}
+        onClick={() => setOpen(true)}
       >
         {displayValue}
       </button>
@@ -100,59 +97,55 @@ export function TimeClockPicker({ id, value, onChange, disabled = false }: {
         <div className="modal-backdrop time-clock-picker-backdrop" role="presentation" onMouseDown={handleBackdropMouseDown}>
           <div className="time-clock-picker-panel" role="dialog" aria-modal="true" aria-label="Выбор времени">
             <button type="button" className="modal-close" onClick={() => setOpen(false)} aria-label="Закрыть">×</button>
-            <div className="time-clock-picker-tabs">
-              <button type="button" className={ring === "hour" ? "active" : ""} onClick={() => setRing("hour")}>Часы</button>
-              <button type="button" className={ring === "minute" ? "active" : ""} onClick={() => setRing("minute")}>Минуты</button>
+            <div className="time-clock-picker-legend">
+              <span className="time-clock-legend-item hour"><i aria-hidden="true" /> Часы</span>
+              <span className="time-clock-legend-item minute"><i aria-hidden="true" /> Минуты</span>
             </div>
             <svg
               ref={faceRef}
               className="time-clock-face"
-              viewBox="0 0 200 200"
+              viewBox={`0 0 ${CENTER * 2} ${CENTER * 2}`}
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
               onPointerLeave={handlePointerUp}
             >
-              <circle cx={CENTER} cy={CENTER} r={92} className="time-clock-dial" />
+              <circle cx={CENTER} cy={CENTER} r={HOUR_RADIUS + 12} className="time-clock-dial" />
+              <circle cx={CENTER} cy={CENTER} r={MINUTE_RADIUS + 12} className="time-clock-dial-inner" />
               <text x={CENTER} y={CENTER - 6} textAnchor="middle" className="time-clock-readout">
                 {hourValue || "--"}:{minuteValue || "00"}
               </text>
               <text x={CENTER} y={CENTER + 14} textAnchor="middle" className="time-clock-readout-label">
-                {ring === "hour" ? "выберите час" : "выберите минуту"}
+                нажмите или потяните
               </text>
-              {ring === "hour" ? (
-                <g onPointerDown={handlePointerDown("hour")} className="time-clock-ring">
-                  {Array.from({ length: 24 }, (_, index) => {
-                    const point = pointOnCircle(HOUR_RADIUS, index, 24);
-                    const active = hour === index;
-                    return (
-                      <g key={index}>
-                        <circle cx={point.x} cy={point.y} r={active ? 12 : 8} className={active ? "time-clock-tick active" : "time-clock-tick"} />
-                        {index % 2 === 0 ? (
-                          <text x={point.x} y={point.y + 3.5} textAnchor="middle" className={active ? "time-clock-tick-label active" : "time-clock-tick-label"}>
-                            {index}
-                          </text>
-                        ) : null}
-                      </g>
-                    );
-                  })}
-                </g>
-              ) : (
-                <g onPointerDown={handlePointerDown("minute")} className="time-clock-ring">
-                  {Array.from({ length: 12 }, (_, index) => {
-                    const minuteMark = index * 5;
-                    const point = pointOnCircle(MINUTE_RADIUS, index, 12);
-                    const active = minute >= minuteMark && minute < minuteMark + 5 && (minuteMark !== 55 || minute >= 55);
-                    return (
-                      <g key={index}>
-                        <circle cx={point.x} cy={point.y} r={active ? 12 : 8} className={active ? "time-clock-tick active" : "time-clock-tick"} />
-                        <text x={point.x} y={point.y + 3.5} textAnchor="middle" className={active ? "time-clock-tick-label active" : "time-clock-tick-label"}>
-                          {String(minuteMark).padStart(2, "0")}
-                        </text>
-                      </g>
-                    );
-                  })}
-                </g>
-              )}
+              <g onPointerDown={handlePointerDown("hour")} className="time-clock-ring">
+                {Array.from({ length: 24 }, (_, index) => {
+                  const point = pointOnCircle(HOUR_RADIUS, index, 24);
+                  const active = hour === index;
+                  return (
+                    <g key={index}>
+                      <circle cx={point.x} cy={point.y} r={active ? 12 : 9} className={active ? "time-clock-tick hour active" : "time-clock-tick hour"} />
+                      <text x={point.x} y={point.y + 3.2} textAnchor="middle" className={active ? "time-clock-tick-label active" : "time-clock-tick-label"}>
+                        {index}
+                      </text>
+                    </g>
+                  );
+                })}
+              </g>
+              <g onPointerDown={handlePointerDown("minute")} className="time-clock-ring">
+                {Array.from({ length: 12 }, (_, index) => {
+                  const minuteMark = index * 5;
+                  const point = pointOnCircle(MINUTE_RADIUS, index, 12);
+                  const active = minute >= minuteMark && minute < minuteMark + 5 && (minuteMark !== 55 || minute >= 55);
+                  return (
+                    <g key={index}>
+                      <circle cx={point.x} cy={point.y} r={active ? 11 : 8} className={active ? "time-clock-tick minute active" : "time-clock-tick minute"} />
+                      <text x={point.x} y={point.y + 3} textAnchor="middle" className={active ? "time-clock-tick-label active" : "time-clock-tick-label"}>
+                        {String(minuteMark).padStart(2, "0")}
+                      </text>
+                    </g>
+                  );
+                })}
+              </g>
             </svg>
             <div className="time-clock-picker-actions">
               <button type="button" className="text-button" onClick={() => { onChange(""); setOpen(false); }}>Очистить</button>
