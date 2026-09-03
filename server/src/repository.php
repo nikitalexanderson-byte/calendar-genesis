@@ -346,16 +346,14 @@ function genesisSaveStoicheionDraw(string $userId, string $kind, int $seed): arr
         }
         $statement->execute(['user_id' => $userId, 'day_key' => $dayKey, 'draw_kind' => $kind]);
         $saved = $statement->fetch();
-        $db->commit();
         if (!is_array($saved)) {
             throw new RuntimeException('Расклад не удалось сохранить.');
         }
+        $db->exec('COMMIT');
         genesisTouchUser($userId);
         return genesisStoicheionDrawForClient($saved);
     } catch (Throwable $error) {
-        if ($db->inTransaction()) {
-            $db->rollBack();
-        }
+        $db->exec('ROLLBACK');
         throw $error;
     }
 }
