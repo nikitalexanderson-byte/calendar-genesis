@@ -76,11 +76,14 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /Поиск проектов по тегам/);
   assert.match(calendar, /newTaskDueDate/);
   assert.match(calendar, /renderTaskCreateForm\("all-tasks"\)/);
+  assert.match(calendar, /renderTaskCreateForm\("today"\)/);
   assert.doesNotMatch(calendar, /renderTaskCreateForm\("planner"\)/);
   assert.doesNotMatch(calendar, /<aside className="planner-panel"/);
-  assert.match(calendar, /id: "projects", label: "Проекты"[\s\S]*id: "all-tasks", label: "Задачи"/);
+  assert.match(calendar, /id: "all-tasks", label: "Задачи"[\s\S]*id: "projects", label: "Проекты"/);
   assert.match(calendar, /Несортированное/);
   assert.match(calendar, /data-project-drop-id=\{project\.id\}/);
+  assert.match(calendar, /data-project-drop-id=\{TASK_INBOX_PROJECT_ID\}/);
+  assert.match(calendar, /Задача «\$\{item\.title\}» возвращена в хаос-бокс/);
   assert.match(calendar, /projectDragProps/);
   assert.match(calendar, /beginProjectTouchDrag/);
   assert.match(calendar, /project-assigned-items/);
@@ -98,6 +101,14 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.doesNotMatch(calendar, /disabled=\{isPast\}/);
   assert.match(calendar, /task-list-manager/);
   assert.match(calendar, /linkTaskListToProject/);
+  assert.match(calendar, /Список задач — это группа смежных задач/);
+  assert.match(calendar, /renderTaskListCreateForm\("all-tasks"\)/);
+  assert.match(calendar, /renderTaskListCreateForm\("today"\)/);
+  assert.match(calendar, /DeviceClock/);
+  assert.match(calendar, /Сегодня \{isNewMoonDay \? "новолуние" : "полнолуние"\}/);
+  assert.match(calendar, /SOLAR_EVENT_COPY/);
+  assert.match(calendar, /Академия Генезис/);
+  assert.match(calendar, /t\.me\/genesisbasilea/);
   assert.match(calendar, /<em>\{weekday\}<\/em>/);
   assert.match(calendar, /label: "Месяц"/);
   assert.match(calendar, /Ближайшие дни/);
@@ -138,6 +149,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(styles, /\.mini-pyata-days/);
   assert.match(styles, /grid-auto-rows: max-content/);
   assert.match(styles, /\.project-row\.drop-target/);
+  assert.match(styles, /\.project-tree-workspace/);
+  assert.match(styles, /\.inbox-card\.drop-target/);
   assert.match(styles, /\.project-drag-preview/);
   assert.match(styles, /\.stoicheion-view/);
   assert.match(styles, /\.month-rail button:last-child/);
@@ -148,6 +161,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(styles, /@keyframes shieldPulse/);
   assert.match(styles, /\.proof-private i::before/);
   assert.match(styles, /overflow-x: hidden/);
+  assert.match(styles, /overscroll-behavior-x: none/);
   assert.match(calendar, /ux-install-icon/);
   assert.match(calendar, /ux-calendar-icon/);
   assert.doesNotMatch(calendar, />↓</);
