@@ -1779,6 +1779,7 @@ button:disabled {
 .solar-year-strip button:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(152, 111, 32, 0.12); }
 .solar-year-strip button > span:last-child { display: grid; min-width: 0; gap: 3px; }
 .solar-year-strip small { font-size: 6px; font-weight: 900; letter-spacing: 0.1em; text-transform: uppercase; }
+.solar-year-strip em { color: #92722f; font-size: 8px; font-style: normal; font-weight: 700; text-transform: capitalize; }
 .solar-year-strip strong { overflow: hidden; font: 500 11px/1.2 Georgia, serif; text-overflow: ellipsis; white-space: nowrap; }
 .solar-glyph { display: grid; width: 34px; height: 34px; flex: 0 0 34px; place-items: center; border: 1px solid rgba(190, 139, 43, 0.38); border-radius: 50%; }
 .solar-glyph i { font: 400 18px/1 Georgia, serif; animation: solarPulse 3.8s ease-in-out infinite; }
@@ -2623,6 +2624,20 @@ button:disabled {
   border-radius: 10px;
 }
 
+.task-form textarea {
+  width: 100%;
+  min-width: 0;
+  padding: 9px 11px;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 10px;
+  line-height: 1.45;
+  resize: vertical;
+  background: rgba(255, 253, 248, 0.72);
+  border: 1px solid rgba(33, 56, 56, 0.12);
+  border-radius: 10px;
+}
+
 .task-form input::placeholder,
 .project-form input::placeholder,
 .quick-category-form input::placeholder {
@@ -3004,6 +3019,7 @@ button:disabled {
   gap: 12px;
 }
 
+.task-list-manager,
 .inbox-card,
 .daily-plan-card {
   padding: 20px;
@@ -3012,12 +3028,87 @@ button:disabled {
   border-radius: 18px;
 }
 
+.task-list-manager h2,
 .inbox-card h2,
 .daily-plan-card h2 {
   margin: 7px 0 6px;
   font-family: Georgia, "Times New Roman", serif;
   font-size: 22px;
   font-weight: 500;
+}
+
+.task-list-manager > p {
+  margin: 0 0 12px;
+  color: #778986;
+  font-size: 8px;
+  line-height: 1.55;
+}
+
+.task-list-manager-items {
+  display: grid;
+  gap: 7px;
+}
+
+.task-list-manager-items > p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 8px;
+  line-height: 1.5;
+}
+
+.task-list-manager-items article {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(120px, 1.2fr);
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+}
+
+.task-list-manager-items article > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.task-list-manager-items strong {
+  overflow: hidden;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-list-manager-items small {
+  color: var(--ink-soft);
+  font-size: 7px;
+}
+
+.task-list-manager select,
+.task-list-manager form input,
+.task-list-manager form select {
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  padding: 0 9px;
+  color: var(--ink);
+  font-size: 8px;
+  background: rgba(255, 253, 248, 0.84);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+
+.task-list-manager > form {
+  display: grid;
+  gap: 7px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.task-list-manager > .primary-button,
+.task-list-manager > form .primary-button {
+  width: 100%;
+  justify-content: center;
 }
 
 .inbox-card p {
@@ -3501,6 +3592,22 @@ button:disabled {
 
   .solar-year-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .solar-year-strip button {
+    align-items: flex-start;
+    padding: 11px 10px;
+  }
+
+  .solar-year-strip button > span:last-child {
+    gap: 4px;
+  }
+
+  .solar-year-strip em,
+  .solar-year-strip strong {
+    display: block;
+    overflow: visible;
+    white-space: normal;
   }
 
   .planner-panel {
@@ -4895,6 +5002,48 @@ button:disabled {
   font-weight: 400;
 }
 
+.all-tasks-create {
+  overflow: hidden;
+  background: rgba(255, 253, 248, 0.72);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+
+.all-tasks-create summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 13px 16px;
+  color: var(--teal);
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+  list-style: none;
+}
+
+.all-tasks-create summary::-webkit-details-marker {
+  display: none;
+}
+
+.all-tasks-create[open] summary {
+  border-bottom: 1px solid var(--line);
+}
+
+.all-tasks-create > .task-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+  padding: 16px;
+  border-top: 0;
+}
+
+.all-tasks-create > .task-form > label,
+.all-tasks-create > .task-form > .task-form-field,
+.all-tasks-create > .task-form > .sync-checkbox,
+.all-tasks-create > .task-form > .past-date-notice,
+.all-tasks-create > .task-form > .add-task-button {
+  grid-column: 1 / -1;
+}
+
 .all-tasks-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -5085,6 +5234,11 @@ button:disabled {
   .all-tasks-toolbar {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .all-tasks-create > .task-form {
+    grid-template-columns: 1fr;
+    padding: 14px;
   }
 
   .all-tasks-toolbar .tag-search {

@@ -59,7 +59,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(welcome, /Ваши задачи — только в Google и на вашем устройстве/);
   assert.doesNotMatch(welcome, /Артемида · полнолуние|Геката · новолуние/);
   assert.doesNotMatch(welcome, /admin-access/);
-  assert.match(calendar, /month-art-v3\/month-/);
+  assert.match(calendar, /month-art-v4\/month-/);
   assert.match(calendar, /calendar-month-art/);
   assert.match(calendar, /mini-pyata/);
   assert.match(calendar, /Math\.ceil\(availableDays \/ 5\)/);
@@ -73,7 +73,16 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /Редактирование задачи/);
   assert.match(calendar, /Редактирование проекта/);
   assert.match(calendar, /Поиск по тегам/);
-  assert.match(calendar, /selectedDateIsPast/);
+  assert.match(calendar, /newTaskDueDate/);
+  assert.match(calendar, /renderTaskCreateForm\("all-tasks"\)/);
+  assert.match(calendar, /Дополнительная информация/);
+  assert.match(calendar, /<span>Срок<\/span>/);
+  assert.match(calendar, /Создано в GENESIS/);
+  assert.match(calendar, /Создано в Google Calendar/);
+  assert.doesNotMatch(calendar, /disabled=\{isPast\}/);
+  assert.match(calendar, /task-list-manager/);
+  assert.match(calendar, /linkTaskListToProject/);
+  assert.match(calendar, /<em>\{weekday\}<\/em>/);
   assert.match(calendar, /label: "Месяц"/);
   assert.match(calendar, /Ближайшие дни/);
   assert.match(calendar, /window\.history\.pushState/);
@@ -131,9 +140,16 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(repository, /genesisRequireAdmin/);
   assert.match(google, /https:\/\/www\.googleapis\.com\/auth\/tasks/);
   assert.match(google, /genesisSyncNativeGoogleTask/);
+  assert.match(google, /genesisCreateGoogleTaskList/);
+  assert.match(google, /genesisSource/);
+  assert.match(google, /'google-calendar'/);
+  assert.match(google, /— GENESIS —/);
   assert.match(google, /genesisGoogleTasksApi\(\s*'PATCH'/);
   assert.match(google, /genesisClientTimeZone/);
   assert.match(cloudSync, /googleTaskListId/);
+  assert.match(cloudSync, /taskListLinks/);
+  assert.match(cloudSync, /googleEventId: task\.googleEventId/);
+  assert.match(api, /\$path === 'task-lists'/);
   assert.match(cloudSync, /X-Genesis-Time-Zone/);
   assert.match(repository, /genesisSaveStoicheionDraw/);
   assert.match(calendar, /TimeClockPicker/);
@@ -141,8 +157,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
 
   await access(new URL("../public/month-frieze-v1.webp", import.meta.url));
   await access(new URL("../public/month-frieze-v2.png", import.meta.url));
-  await access(new URL("../public/month-art-v3/month-01.webp", import.meta.url));
-  await access(new URL("../public/month-art-v3/month-13.webp", import.meta.url));
-  await access(new URL("../public/month-art-v3/month-04-aigle.png", import.meta.url));
+  await Promise.all(Array.from({ length: 13 }, (_, index) =>
+    access(new URL(`../public/month-art-v4/month-${String(index + 1).padStart(2, "0")}.webp`, import.meta.url)),
+  ));
   await access(new URL("../server/migrations/004_stoicheion_draws.sql", import.meta.url));
 });

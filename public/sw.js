@@ -1,6 +1,6 @@
-const CACHE = "genesis-shell-v11";
+const CACHE = "genesis-shell-v12";
 const SCOPE = self.registration.scope;
-const MONTH_ART = Array.from({ length: 13 }, (_, index) => `./month-art-v3/month-${String(index + 1).padStart(2, "0")}.webp`);
+const MONTH_ART = Array.from({ length: 13 }, (_, index) => `./month-art-v4/month-${String(index + 1).padStart(2, "0")}.webp`);
 const CORE = ["./", "./manifest.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./genesis-hero.png", ...MONTH_ART]
   .map((path) => new URL(path, SCOPE).href);
 

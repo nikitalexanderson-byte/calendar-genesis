@@ -204,6 +204,21 @@ function genesisStringList(mixed $value, int $limit = 50): array
     return $result;
 }
 
+function genesisTaskOrigin(mixed $value, string $fallback = 'genesis'): string
+{
+    $origin = trim((string)$value);
+    return in_array($origin, ['genesis', 'google-calendar', 'google-tasks'], true) ? $origin : $fallback;
+}
+
+function genesisTaskOriginLabel(string $origin): string
+{
+    return match ($origin) {
+        'google-calendar' => 'Создано в Google Calendar',
+        'google-tasks' => 'Создано в Google Tasks',
+        default => 'Создано в GENESIS',
+    };
+}
+
 function genesisTaskPayloadForGoogle(string $taskId, array $task): array
 {
     $timezone = genesisClientTimeZone();
@@ -220,13 +235,17 @@ function genesisTaskPayloadForGoogle(string $taskId, array $task): array
     $done = !empty($task['done']);
     $tags = genesisStringList($task['tags'] ?? [], 10);
     $dependsOn = genesisStringList($task['dependsOnIds'] ?? [], 30);
+    $priority = genesisClampInt($task['priority'] ?? 5, 1, 10, 5);
     $recurrence = in_array($task['recurrence'] ?? '', ['none', 'daily', 'weekdays', 'weekly', 'monthly', 'yearly'], true) ? (string)$task['recurrence'] : 'none';
     $project = mb_substr(trim((string)($task['project'] ?? '')), 0, 300);
     $description = mb_substr(trim((string)($task['description'] ?? '')), 0, 5000);
+    $createdIn = genesisTaskOrigin($task['createdIn'] ?? null);
     $metadataDescription = trim(implode("\n", array_filter([
+        genesisTaskOriginLabel($createdIn),
         $project !== '' ? 'Проект: ' . $project : '',
-        $tags ? implode(' ', array_map(static fn(string $tag): string => '#' . $tag, $tags)) : '',
-        'Создано в GENESIS',
+        $tags ? 'Теги: ' . implode(' ', array_map(static fn(string $tag): string => '#' . $tag, $tags)) : '',
+        'Приоритет: ' . $priority,
+        $dependsOn ? 'Связанных задач: ' . count($dependsOn) : '',
     ])));
     $visibleDescription = trim($description . ($metadataDescription !== '' ? "\n\n— GENESIS —\n" . $metadataDescription : ''));
     $private = [
@@ -240,7 +259,8 @@ function genesisTaskPayloadForGoogle(string $taskId, array $task): array
         'genesisDependsOn' => genesisBase64Url(json_encode($dependsOn, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)),
         'genesisRecurrence' => $recurrence,
         'genesisInterval' => (string)genesisClampInt($task['recurrenceInterval'] ?? 1, 1, 99, 1),
-        'genesisPriority' => (string)genesisClampInt($task['priority'] ?? 5, 1, 10, 5),
+        'genesisPriority' => (string)$priority,
+        'genesisSource' => $createdIn,
         'genesisUpdatedAt' => (string)genesisClampInt($task['updatedAt'] ?? (int)(microtime(true) * 1000), 0, PHP_INT_MAX, (int)(microtime(true) * 1000)),
     ];
     $event = [
@@ -271,13 +291,67 @@ function genesisDecodeBase64Json(string $value): array
     return is_array($json) ? array_values(array_filter($json, 'is_string')) : [];
 }
 
+function genesisDecodeTaskNotes(string $notes): array
+{
+    $parts = explode("\n\n— GENESIS —\n", $notes, 2);
+    $metadata = [];
+    if (isset($parts[1]) && preg_match('/^GENESIS-DATA:([A-Za-z0-9_-]+)$/m', $parts[1], $match)) {
+        $value = $match[1];
+        $padding = (4 - strlen($value) % 4) % 4;
+        $decoded = base64_decode(strtr($value . str_repeat('=', $padding), '-_', '+/'), true);
+        $parsed = is_string($decoded) ? json_decode($decoded, true) : null;
+        $metadata = is_array($parsed) ? $parsed : [];
+    }
+    return [
+        'description' => mb_substr(trim($parts[0]), 0, 5000),
+        'metadata' => $metadata,
+    ];
+}
+
+function genesisTaskNotesForGoogle(string $taskId, array $task): string
+{
+    $description = mb_substr(trim((string)($task['description'] ?? '')), 0, 5000);
+    $project = mb_substr(trim((string)($task['project'] ?? '')), 0, 300);
+    $tags = genesisStringList($task['tags'] ?? [], 10);
+    $createdIn = genesisTaskOrigin($task['createdIn'] ?? null);
+    $data = [
+        'taskId' => mb_substr($taskId, 0, 100),
+        'createdIn' => $createdIn,
+        'project' => $project,
+        'projectId' => mb_substr((string)($task['projectId'] ?? ''), 0, 100),
+        'categoryId' => mb_substr((string)($task['categoryId'] ?? ''), 0, 100),
+        'tags' => $tags,
+        'dependsOnIds' => genesisStringList($task['dependsOnIds'] ?? [], 30),
+        'priority' => genesisClampInt($task['priority'] ?? 5, 1, 10, 5),
+    ];
+    $metadataLines = array_filter([
+        genesisTaskOriginLabel($createdIn),
+        $project !== '' ? 'Проект: ' . $project : '',
+        $tags ? 'Теги: ' . implode(' ', array_map(static fn(string $tag): string => '#' . $tag, $tags)) : '',
+        'Приоритет: ' . $data['priority'],
+        'GENESIS-DATA:' . genesisBase64Url(json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)),
+    ]);
+    return mb_substr(trim($description . "\n\n— GENESIS —\n" . implode("\n", $metadataLines)), 0, 8192);
+}
+
 function genesisGoogleEventForClient(array $event): ?array
 {
     $private = $event['extendedProperties']['private'] ?? [];
-    $taskId = is_array($private) ? trim((string)($private['genesisTaskId'] ?? '')) : '';
-    if ($taskId === '' || ($event['status'] ?? '') === 'cancelled') {
+    if (($event['status'] ?? '') === 'cancelled') {
         return null;
     }
+    $eventId = trim((string)($event['id'] ?? ''));
+    if ($eventId === '') {
+        return null;
+    }
+    $managedTaskId = is_array($private) ? trim((string)($private['genesisTaskId'] ?? '')) : '';
+    $taskId = $managedTaskId !== ''
+        ? $managedTaskId
+        : 'google-event-' . substr(hash('sha256', $eventId), 0, 36);
+    $createdIn = genesisTaskOrigin(
+        is_array($private) ? ($private['genesisSource'] ?? null) : null,
+        $managedTaskId !== '' ? 'genesis' : 'google-calendar',
+    );
     $summary = (string)($event['summary'] ?? 'Без названия');
     $done = ($private['genesisDone'] ?? '') === '1' || str_starts_with($summary, '✓ ');
     $title = $done && str_starts_with($summary, '✓ ') ? mb_substr($summary, 2) : $summary;
@@ -322,7 +396,12 @@ function genesisGoogleEventForClient(array $event): ?array
         'recurrence' => (string)($private['genesisRecurrence'] ?? 'none'),
         'recurrenceInterval' => genesisClampInt($private['genesisInterval'] ?? 1, 1, 99, 1),
         'syncToGoogle' => true,
-        'googleEventId' => (string)($event['id'] ?? ''),
+        'createdIn' => $createdIn,
+        'googleEventId' => $eventId,
+        'googleTaskId' => null,
+        'googleTaskListId' => null,
+        'googleTaskListTitle' => '',
+        'googleReadOnly' => false,
         'updatedAt' => genesisClampInt($private['genesisUpdatedAt'] ?? (strtotime((string)($event['updated'] ?? 'now')) * 1000), 0, PHP_INT_MAX, (int)(microtime(true) * 1000)),
     ];
 }
@@ -332,45 +411,55 @@ function genesisGoogleNativeTaskForClient(array $task, string $taskListId, strin
     if (!empty($task['deleted'])) {
         return null;
     }
-    $taskId = trim((string)($task['id'] ?? ''));
+    $googleTaskId = trim((string)($task['id'] ?? ''));
     $due = (string)($task['due'] ?? '');
-    if ($taskId === '' || !preg_match('/^(\d{4}-\d{2}-\d{2})T/', $due, $dueMatch)) {
+    if ($googleTaskId === '' || !preg_match('/^(\d{4}-\d{2}-\d{2})T/', $due, $dueMatch)) {
         return null;
     }
+    $notes = genesisDecodeTaskNotes((string)($task['notes'] ?? ''));
+    $metadata = $notes['metadata'];
+    $managedTaskId = trim((string)($metadata['taskId'] ?? ''));
+    $taskId = $managedTaskId !== ''
+        ? $managedTaskId
+        : 'google-task-' . substr(hash('sha256', $taskListId . "\0" . $googleTaskId), 0, 36);
+    $createdIn = genesisTaskOrigin($metadata['createdIn'] ?? null, $managedTaskId !== '' ? 'genesis' : 'google-tasks');
     $dueDate = $dueMatch[1];
     $sacred = genesisSacredFromDate($dueDate);
     $done = ($task['status'] ?? '') === 'completed';
     $updatedAt = strtotime((string)($task['updated'] ?? ''));
     $completedAt = trim((string)($task['completed'] ?? ''));
     return [
-        'id' => 'google-task-' . substr(hash('sha256', $taskListId . "\0" . $taskId), 0, 36),
+        'id' => $taskId,
         'sacredYear' => $sacred['sacredYear'],
         'monthIndex' => $sacred['monthIndex'],
         'day' => $sacred['day'],
         'dueDate' => $dueDate,
         'title' => mb_substr(trim((string)($task['title'] ?? '')) ?: 'Без названия', 0, 500),
-        'description' => mb_substr(trim((string)($task['notes'] ?? '')), 0, 5000),
+        'description' => $notes['description'],
         'time' => '',
-        'project' => mb_substr($taskListTitle, 0, 300),
-        'projectId' => null,
-        'categoryId' => null,
-        'tags' => [],
-        'dependsOnIds' => [],
+        'project' => mb_substr(trim((string)($metadata['project'] ?? '')), 0, 300),
+        'projectId' => ($metadata['projectId'] ?? '') !== '' ? mb_substr((string)$metadata['projectId'], 0, 100) : null,
+        'categoryId' => ($metadata['categoryId'] ?? '') !== '' ? mb_substr((string)$metadata['categoryId'], 0, 100) : null,
+        'tags' => genesisStringList($metadata['tags'] ?? [], 10),
+        'dependsOnIds' => genesisStringList($metadata['dependsOnIds'] ?? [], 30),
+        'priority' => genesisClampInt($metadata['priority'] ?? 5, 1, 10, 5),
         'done' => $done,
         'completedAt' => $completedAt !== '' ? $completedAt : null,
         'reminderMinutes' => null,
         'recurrence' => 'none',
         'recurrenceInterval' => 1,
-        'syncToGoogle' => false,
+        'syncToGoogle' => true,
+        'createdIn' => $createdIn,
         'googleEventId' => null,
-        'googleTaskId' => $taskId,
+        'googleTaskId' => $googleTaskId,
         'googleTaskListId' => $taskListId,
+        'googleTaskListTitle' => mb_substr($taskListTitle, 0, 300),
         'googleReadOnly' => false,
         'updatedAt' => $updatedAt !== false ? $updatedAt * 1000 : (int)(microtime(true) * 1000),
     ];
 }
 
-function genesisListGoogleNativeTasks(array $user): array
+function genesisListGoogleTaskLists(array $user): array
 {
     if (!genesisGoogleScopeGranted($user, GENESIS_GOOGLE_TASKS_SCOPE)) {
         return [];
@@ -385,7 +474,11 @@ function genesisListGoogleNativeTasks(array $user): array
         $result = genesisGoogleTasksApi('GET', '/users/@me/lists?' . http_build_query($query, '', '&', PHP_QUERY_RFC3986), $user);
         foreach ($result['items'] ?? [] as $taskList) {
             if (is_array($taskList) && !empty($taskList['id'])) {
-                $taskLists[] = $taskList;
+                $taskLists[] = [
+                    'id' => (string)$taskList['id'],
+                    'title' => mb_substr(trim((string)($taskList['title'] ?? 'Google Tasks')) ?: 'Google Tasks', 0, 300),
+                    'updatedAt' => !empty($taskList['updated']) ? (string)$taskList['updated'] : null,
+                ];
             }
             if (count($taskLists) >= 100) {
                 break 2;
@@ -393,6 +486,21 @@ function genesisListGoogleNativeTasks(array $user): array
         }
         $pageToken = $result['nextPageToken'] ?? null;
     } while (is_string($pageToken) && $pageToken !== '');
+
+    return $taskLists;
+}
+
+function genesisGoogleTaskListsForClient(): array
+{
+    $taskLists = $GLOBALS['GENESIS_GOOGLE_TASK_LISTS'] ?? [];
+    return is_array($taskLists) ? $taskLists : [];
+}
+
+function genesisListGoogleNativeTasks(array $user, array $taskLists): array
+{
+    if (!genesisGoogleScopeGranted($user, GENESIS_GOOGLE_TASKS_SCOPE)) {
+        return [];
+    }
 
     $tasks = [];
     foreach ($taskLists as $taskList) {
@@ -452,7 +560,7 @@ function genesisFindGoogleEvent(array $user, string $taskId): ?array
     return null;
 }
 
-function genesisGoogleNativeTaskPayload(array $task): array
+function genesisGoogleNativeTaskPayload(string $taskId, array $task): array
 {
     $title = mb_substr(trim((string)($task['title'] ?? '')), 0, 500);
     if ($title === '') {
@@ -465,7 +573,7 @@ function genesisGoogleNativeTaskPayload(array $task): array
     $done = !empty($task['done']);
     $payload = [
         'title' => $title,
-        'notes' => mb_substr(trim((string)($task['description'] ?? '')), 0, 8192),
+        'notes' => genesisTaskNotesForGoogle($taskId, $task),
         'status' => $done ? 'completed' : 'needsAction',
         'due' => $dueDate . 'T00:00:00.000Z',
     ];
@@ -479,7 +587,7 @@ function genesisGoogleNativeTaskPayload(array $task): array
 function genesisSyncNativeGoogleTask(array $user, string $userId, array $task): array
 {
     if (!genesisGoogleScopeGranted($user, GENESIS_GOOGLE_TASKS_SCOPE)) {
-        throw new RuntimeException('Обновите доступ Google, чтобы редактировать задачи из Google Calendar.');
+        throw new RuntimeException('Обновите доступ Google, чтобы синхронизировать списки Google Tasks.');
     }
     $taskId = trim((string)($task['googleTaskId'] ?? ''));
     $taskListId = trim((string)($task['googleTaskListId'] ?? ''));
@@ -490,9 +598,9 @@ function genesisSyncNativeGoogleTask(array $user, string $userId, array $task): 
         'PATCH',
         '/lists/' . rawurlencode($taskListId) . '/tasks/' . rawurlencode($taskId),
         $user,
-        genesisGoogleNativeTaskPayload($task),
+        genesisGoogleNativeTaskPayload((string)($task['id'] ?? ''), $task),
     );
-    $listTitle = trim((string)($task['project'] ?? 'Google Tasks')) ?: 'Google Tasks';
+    $listTitle = trim((string)($task['googleTaskListTitle'] ?? 'Google Tasks')) ?: 'Google Tasks';
     $clientTask = genesisGoogleNativeTaskForClient($saved, $taskListId, $listTitle);
     if ($clientTask === null) {
         throw new RuntimeException('Google Tasks did not return the saved task.');
@@ -501,14 +609,62 @@ function genesisSyncNativeGoogleTask(array $user, string $userId, array $task): 
     return $clientTask;
 }
 
+function genesisCreateNativeGoogleTask(array $user, string $userId, string $taskId, array $task): array
+{
+    if (!genesisGoogleScopeGranted($user, GENESIS_GOOGLE_TASKS_SCOPE)) {
+        throw new RuntimeException('Обновите доступ Google, чтобы синхронизировать списки Google Tasks.');
+    }
+    $taskListId = trim((string)($task['googleTaskListId'] ?? ''));
+    if ($taskListId === '') {
+        throw new InvalidArgumentException('Выберите список Google Tasks.');
+    }
+    $saved = genesisGoogleTasksApi(
+        'POST',
+        '/lists/' . rawurlencode($taskListId) . '/tasks',
+        $user,
+        genesisGoogleNativeTaskPayload($taskId, $task),
+    );
+    $listTitle = trim((string)($task['googleTaskListTitle'] ?? 'Google Tasks')) ?: 'Google Tasks';
+    $clientTask = genesisGoogleNativeTaskForClient($saved, $taskListId, $listTitle);
+    if ($clientTask === null) {
+        throw new RuntimeException('Google Tasks did not return the created task.');
+    }
+    genesisTouchUser($userId);
+    return $clientTask;
+}
+
+function genesisCreateGoogleTaskList(string $userId, string $title): array
+{
+    $cleanTitle = mb_substr(trim($title), 0, 300);
+    if ($cleanTitle === '') {
+        throw new InvalidArgumentException('Название списка обязательно.');
+    }
+    $user = genesisFindUser($userId);
+    if ($user === null || empty($user['refresh_token_enc']) || !genesisGoogleScopeGranted($user, GENESIS_GOOGLE_TASKS_SCOPE)) {
+        throw new RuntimeException('Обновите доступ Google, чтобы создавать списки Google Tasks.');
+    }
+    $saved = genesisGoogleTasksApi('POST', '/users/@me/lists', $user, ['title' => $cleanTitle]);
+    if (empty($saved['id'])) {
+        throw new RuntimeException('Google Tasks did not return the created list.');
+    }
+    genesisTouchUser($userId);
+    return [
+        'id' => (string)$saved['id'],
+        'title' => mb_substr(trim((string)($saved['title'] ?? $cleanTitle)), 0, 300),
+        'updatedAt' => !empty($saved['updated']) ? (string)$saved['updated'] : null,
+    ];
+}
+
 function genesisSyncTaskToGoogle(string $userId, string $taskId, array $task): array
 {
     $user = genesisFindUser($userId);
     if ($user === null || empty($user['refresh_token_enc'])) {
         throw new RuntimeException('Google Calendar не подключён.');
     }
-    if (!empty($task['googleTaskId']) && !empty($task['googleTaskListId'])) {
-        return genesisSyncNativeGoogleTask($user, $userId, $task);
+    if (!empty($task['googleTaskListId'])) {
+        return !empty($task['googleTaskId'])
+            ? genesisSyncNativeGoogleTask($user, $userId, $task)
+            : genesisCreateNativeGoogleTask($user, $userId, $taskId, $task);
     }
     $user = genesisEnsureGoogleCalendar($user);
     $eventPayload = genesisTaskPayloadForGoogle($taskId, $task);
@@ -555,12 +711,16 @@ function genesisDeleteGoogleTaskEvent(string $userId, string $taskId, array $tas
     if (empty($user['google_calendar_id'])) {
         return;
     }
-    $event = genesisFindGoogleEvent($user, $taskId);
-    if (!is_array($event) || empty($event['id'])) {
+    $eventId = trim((string)($task['googleEventId'] ?? ''));
+    if ($eventId === '') {
+        $event = genesisFindGoogleEvent($user, $taskId);
+        $eventId = is_array($event) ? trim((string)($event['id'] ?? '')) : '';
+    }
+    if ($eventId === '') {
         return;
     }
     try {
-        genesisGoogleApi('DELETE', '/calendars/' . rawurlencode((string)$user['google_calendar_id']) . '/events/' . rawurlencode((string)$event['id']), $user);
+        genesisGoogleApi('DELETE', '/calendars/' . rawurlencode((string)$user['google_calendar_id']) . '/events/' . rawurlencode($eventId), $user);
     } catch (RuntimeException $error) {
         if (!str_contains($error->getMessage(), '(404)') && !str_contains($error->getMessage(), '(410)')) {
             throw $error;
@@ -572,6 +732,7 @@ function genesisDeleteGoogleTaskEvent(string $userId, string $taskId, array $tas
 function genesisListGoogleTasks(array $user): array
 {
     $GLOBALS['GENESIS_GOOGLE_TASKS_WARNING'] = null;
+    $GLOBALS['GENESIS_GOOGLE_TASK_LISTS'] = [];
     if (empty($user['refresh_token_enc'])) {
         return [];
     }
@@ -601,7 +762,9 @@ function genesisListGoogleTasks(array $user): array
     } while (is_string($pageToken) && $pageToken !== '' && count($tasks) < 10_000);
     if (genesisGoogleScopeGranted($user, GENESIS_GOOGLE_TASKS_SCOPE)) {
         try {
-            $tasks = array_merge($tasks, genesisListGoogleNativeTasks($user));
+            $taskLists = genesisListGoogleTaskLists($user);
+            $GLOBALS['GENESIS_GOOGLE_TASK_LISTS'] = $taskLists;
+            $tasks = array_merge($tasks, genesisListGoogleNativeTasks($user, $taskLists));
         } catch (Throwable $tasksError) {
             $GLOBALS['GENESIS_GOOGLE_TASKS_WARNING'] = 'Импорт Google Tasks временно недоступен: ' . $tasksError->getMessage();
             error_log('[GENESIS Google Tasks] ' . $tasksError->getMessage());

@@ -6,6 +6,19 @@ export type RecurrenceKind =
   | "monthly"
   | "yearly";
 
+export type TaskOrigin = "genesis" | "google-calendar" | "google-tasks";
+
+export type GoogleTaskList = {
+  id: string;
+  title: string;
+  updatedAt: string | null;
+};
+
+export type TaskListProjectLink = {
+  taskListId: string;
+  projectId: string | null;
+};
+
 export type GenesisTask = {
   id: string;
   sacredYear: number;
@@ -27,9 +40,11 @@ export type GenesisTask = {
   recurrence: RecurrenceKind;
   recurrenceInterval: number;
   syncToGoogle: boolean;
+  createdIn: TaskOrigin;
   googleEventId: string | null;
   googleTaskId: string | null;
   googleTaskListId: string | null;
+  googleTaskListTitle: string;
   googleReadOnly: boolean;
   updatedAt: number;
 };
@@ -69,6 +84,8 @@ export type GenesisWorkspace = {
   tasks: GenesisTask[];
   projects: GenesisProject[];
   categories: GenesisCategory[];
+  taskLists: GoogleTaskList[];
+  taskListLinks: TaskListProjectLink[];
   hasRemoteStructure: boolean;
   syncWarning: string | null;
 };
@@ -127,6 +144,7 @@ type BootstrapPayload = {
   user: GenesisUser;
   csrf: string;
   tasks: GenesisTask[];
+  taskLists: GoogleTaskList[];
   workspace: { key: string; envelope: WorkspaceEnvelope | null };
   syncWarning: string | null;
 };
@@ -221,6 +239,11 @@ async function flushPendingMutations() {
 }
 
 function normalizeTask(task: Partial<GenesisTask> & Pick<GenesisTask, "id" | "title">): GenesisTask {
+  const createdIn: TaskOrigin = ["genesis", "google-calendar", "google-tasks"].includes(task.createdIn ?? "")
+    ? task.createdIn as TaskOrigin
+    : task.googleTaskId
+      ? "google-tasks"
+      : "genesis";
   return {
     sacredYear: 0,
     monthIndex: 0,
@@ -246,6 +269,8 @@ function normalizeTask(task: Partial<GenesisTask> & Pick<GenesisTask, "id" | "ti
     googleReadOnly: false,
     updatedAt: Date.now(),
     ...task,
+    createdIn,
+    googleTaskListTitle: typeof task.googleTaskListTitle === "string" ? task.googleTaskListTitle : "",
   };
 }
 
@@ -265,26 +290,35 @@ async function importWorkspaceKey() {
   return crypto.subtle.importKey("raw", base64ToBytes(workspaceKey), "AES-GCM", false, ["encrypt", "decrypt"]);
 }
 
-async function decryptWorkspace(envelope: WorkspaceEnvelope | null): Promise<Pick<GenesisWorkspace, "projects" | "categories">> {
-  if (!envelope) return { projects: [], categories: [] };
+async function decryptWorkspace(envelope: WorkspaceEnvelope | null): Promise<Pick<GenesisWorkspace, "projects" | "categories" | "taskListLinks">> {
+  if (!envelope) return { projects: [], categories: [], taskListLinks: [] };
   const key = await importWorkspaceKey();
   const plain = await crypto.subtle.decrypt(
     { name: "AES-GCM", iv: base64ToBytes(envelope.iv) },
     key,
     base64ToBytes(envelope.ciphertext),
   );
-  const decoded = JSON.parse(new TextDecoder().decode(plain)) as { projects?: GenesisProject[]; categories?: GenesisCategory[] };
+  const decoded = JSON.parse(new TextDecoder().decode(plain)) as {
+    projects?: GenesisProject[];
+    categories?: GenesisCategory[];
+    taskListLinks?: TaskListProjectLink[];
+  };
   workspaceVersion = Math.max(workspaceVersion, envelope.version + 1);
   return {
     projects: Array.isArray(decoded.projects) ? decoded.projects : [],
     categories: Array.isArray(decoded.categories) ? decoded.categories : [],
+    taskListLinks: Array.isArray(decoded.taskListLinks) ? decoded.taskListLinks : [],
   };
 }
 
-async function encryptWorkspace(projects: GenesisProject[], categories: GenesisCategory[]) {
+async function encryptWorkspace(
+  projects: GenesisProject[],
+  categories: GenesisCategory[],
+  taskListLinks: TaskListProjectLink[],
+) {
   const key = await importWorkspaceKey();
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const plaintext = new TextEncoder().encode(JSON.stringify({ projects, categories }));
+  const plaintext = new TextEncoder().encode(JSON.stringify({ projects, categories, taskListLinks }));
   const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, plaintext);
   workspaceVersion = Math.max(workspaceVersion + 1, Date.now());
   return {
@@ -305,6 +339,8 @@ export async function loadGenesisWorkspace(): Promise<GenesisWorkspace> {
     tasks: payload.tasks.map((task) => normalizeTask(task)),
     projects: structure.projects,
     categories: structure.categories,
+    taskLists: Array.isArray(payload.taskLists) ? payload.taskLists : [],
+    taskListLinks: structure.taskListLinks,
     hasRemoteStructure: payload.workspace.envelope !== null,
     syncWarning: payload.syncWarning,
   };
@@ -359,15 +395,20 @@ export async function deleteGenesisAccount() {
 
 export function observeCloudTasks(
   _uid: string,
-  listener: (tasks: GenesisTask[], fromCache: boolean, warning: string | null) => void,
+  listener: (tasks: GenesisTask[], taskLists: GoogleTaskList[], fromCache: boolean, warning: string | null) => void,
   onError: (error: Error) => void,
 ) {
   let active = true;
   const poll = async () => {
     try {
       await flushPendingMutations();
-      const result = await api<{ tasks: GenesisTask[]; syncWarning?: string | null }>("/sync/tasks");
-      if (active) listener(result.tasks.map((task) => normalizeTask(task)), !navigator.onLine, result.syncWarning ?? null);
+      const result = await api<{ tasks: GenesisTask[]; taskLists?: GoogleTaskList[]; syncWarning?: string | null }>("/sync/tasks");
+      if (active) listener(
+        result.tasks.map((task) => normalizeTask(task)),
+        Array.isArray(result.taskLists) ? result.taskLists : [],
+        !navigator.onLine,
+        result.syncWarning ?? null,
+      );
     } catch (error) {
       if (active) onError(error instanceof Error ? error : new Error("Ошибка синхронизации"));
     }
@@ -386,11 +427,11 @@ export function observeCloudTasks(
 
 export async function mergeLocalWorkspace(
   _uid: string,
-  local: Pick<GenesisWorkspace, "tasks" | "projects" | "categories">,
+  local: Pick<GenesisWorkspace, "tasks" | "projects" | "categories" | "taskListLinks">,
 ) {
   const remote = await loadGenesisWorkspace();
-  if (!remote.hasRemoteStructure && (local.projects.length || local.categories.length)) {
-    await saveWorkspaceStructure(local.projects, local.categories, metricsFor(local.tasks, local.projects));
+  if (!remote.hasRemoteStructure && (local.projects.length || local.categories.length || local.taskListLinks.length)) {
+    await saveWorkspaceStructure(local.projects, local.categories, local.taskListLinks, metricsFor(local.tasks, local.projects));
   }
   const remoteById = new Map(remote.tasks.map((task) => [task.id, task]));
   for (const task of local.tasks) {
@@ -414,6 +455,7 @@ export async function saveCloudTask(_uid: string, task: GenesisTask) {
 export async function removeCloudTask(_uid: string, task: GenesisTask) {
   const path = `/tasks/${encodeURIComponent(task.id)}`;
   const body = JSON.stringify({
+    googleEventId: task.googleEventId,
     googleTaskId: task.googleTaskId,
     googleTaskListId: task.googleTaskListId,
   });
@@ -435,14 +477,22 @@ export function metricsFor(tasks: GenesisTask[], projects: GenesisProject[]): Ge
 export async function saveWorkspaceStructure(
   projects: GenesisProject[],
   categories: GenesisCategory[],
+  taskListLinks: TaskListProjectLink[],
   metrics: GenesisMetrics,
 ) {
-  const envelope = await encryptWorkspace(projects, categories);
+  const envelope = await encryptWorkspace(projects, categories, taskListLinks);
   const body = JSON.stringify({ ...envelope, metrics });
   queueMutation({ key: "workspace", path: "/workspace", method: "PUT", body });
   const result = await api<{ ok: boolean }>("/workspace", { method: "PUT", body });
   clearMutation("workspace");
   return result;
+}
+
+export async function createGoogleTaskList(title: string) {
+  return api<{ taskList: GoogleTaskList }>("/task-lists", {
+    method: "POST",
+    body: JSON.stringify({ title }),
+  });
 }
 
 export async function saveMetrics(metrics: GenesisMetrics) {

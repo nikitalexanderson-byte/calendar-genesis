@@ -87,6 +87,7 @@ try {
             'user' => genesisUserForClient($user),
             'csrf' => (string)$_SESSION['csrf'],
             'tasks' => $tasks,
+            'taskLists' => genesisGoogleTaskListsForClient(),
             'workspace' => genesisWorkspaceForClient($user),
             'syncWarning' => $syncWarning,
         ]);
@@ -101,6 +102,7 @@ try {
         $tasks = genesisListGoogleTasks($user);
         genesisJson([
             'tasks' => $tasks,
+            'taskLists' => genesisGoogleTaskListsForClient(),
             'syncedAt' => genesisNow(),
             'syncWarning' => genesisGoogleTasksSyncWarning(),
         ]);
@@ -176,6 +178,13 @@ try {
         genesisRequireCsrf();
         genesisSaveMetrics($userId, genesisReadJson());
         genesisJson(['ok' => true]);
+    }
+
+    if ($method === 'POST' && $path === 'task-lists') {
+        $userId = genesisRequireUserId();
+        genesisRequireCsrf();
+        $payload = genesisReadJson();
+        genesisJson(['taskList' => genesisCreateGoogleTaskList($userId, (string)($payload['title'] ?? ''))]);
     }
 
     if ($method === 'GET' && $path === 'admin/stats') {
