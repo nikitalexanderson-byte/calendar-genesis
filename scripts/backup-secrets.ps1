@@ -18,27 +18,25 @@ foreach ($binary in @($ssh, $scp)) {
   }
 }
 
-# Backs up what git deliberately does not track: server/config.php (secrets)
-# and server/var/ (SQLite database + sessions). Read-only against the live
-# site — packs a temp archive on the server, downloads it, then deletes the
-# remote temp copy so nothing accumulates there.
+# Creates a consistent SQLite snapshot on the server and downloads only the
+# server-only state that Git deliberately does not track. Sessions are omitted.
+$remoteCommand = @"
+'/usr/local/php/cgi/8.3/bin/php' '$RemoteRoot/ops/backup-runtime.php' --server-root='$RemoteRoot/server' --backup-root='$RemoteRoot/backups' --retain=20
+"@.Trim()
 
-$stamp = Get-Date -Format "yyyyMMdd-HHmmss"
-$remoteArchive = "$RemoteRoot/../codex-tools/genesis-secrets-$stamp.tar.gz"
-$localDir = Join-Path $LocalBackupRoot $stamp
-$localArchive = Join-Path $localDir "genesis-secrets.tar.gz"
+$remoteOutput = & $ssh -o BatchMode=yes $HostAlias $remoteCommand
+if ($LASTEXITCODE -ne 0) { throw "Remote runtime backup failed." }
 
-& $ssh -o BatchMode=yes $HostAlias "tar -czf '$remoteArchive' -C '$RemoteRoot/server' config.php var"
-if ($LASTEXITCODE -ne 0) { throw "Remote archive failed." }
-
-New-Item -ItemType Directory -Force -Path $localDir | Out-Null
-& $scp -q "${HostAlias}:$remoteArchive" $localArchive
-if ($LASTEXITCODE -ne 0) {
-  & $ssh -o BatchMode=yes $HostAlias "rm -f '$remoteArchive'"
-  throw "Download failed."
+$backupLine = $remoteOutput | Where-Object { $_ -match '^BACKUP_PATH=' } | Select-Object -Last 1
+if (-not $backupLine) { throw "The remote backup path was not returned." }
+$remoteBackup = $backupLine.Substring('BACKUP_PATH='.Length).Trim()
+if ($remoteBackup -notmatch '^/home/h/[a-zA-Z0-9_-]+/genesis-calendar/backups/runtime-[0-9TZ-]+$') {
+  throw "Unsafe remote backup path: $remoteBackup"
 }
 
-& $ssh -o BatchMode=yes $HostAlias "rm -f '$remoteArchive'"
-if ($LASTEXITCODE -ne 0) { throw "Could not remove the remote temp archive." }
+New-Item -ItemType Directory -Force -Path $LocalBackupRoot | Out-Null
+& $scp -q -r "${HostAlias}:$remoteBackup" $LocalBackupRoot
+if ($LASTEXITCODE -ne 0) { throw "Download failed." }
 
-Write-Output "Backup saved to $localArchive"
+$localBackup = Join-Path $LocalBackupRoot (Split-Path -Leaf $remoteBackup)
+Write-Output "Backup saved to $localBackup"

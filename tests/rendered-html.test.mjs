@@ -92,7 +92,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(stoicheion, /stoicheion-spread-grid/);
   assert.match(stoicheion, /Перебросить/);
   assert.match(stoicheion, /beginMotion\("daily", true, event\.timeStamp\)/);
-  assert.match(stoicheion, /MOTION_TRAVEL_REQUIRED = 1120/);
+  assert.match(stoicheion, /MOTION_TRAVEL_REQUIRED = 4480/);
   assert.match(stoicheion, /loadStoicheionDraws/);
   assert.match(stoicheion, /spreadCanReroll/);
   assert.match(stoicheion, /трёхминутное окно/i);
@@ -136,7 +136,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(cloudSync, /googleTaskListId/);
   assert.match(cloudSync, /X-Genesis-Time-Zone/);
   assert.match(repository, /genesisSaveStoicheionDraw/);
-  assert.match(calendar, /Time24Select/);
+  assert.match(calendar, /TimeClockPicker/);
   assert.doesNotMatch(calendar, /<datalist/);
 
   await access(new URL("../public/month-frieze-v1.webp", import.meta.url));
