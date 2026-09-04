@@ -3,6 +3,8 @@
 import {
   type CSSProperties,
   type FormEvent,
+  type PointerEvent,
+  type TouchEvent,
   useEffect,
   useMemo,
   useRef,
@@ -73,6 +75,12 @@ type SyncStatus =
   | "offline"
   | "error";
 
+type ProjectDragItem = {
+  kind: "task" | "task-list";
+  id: string;
+  title: string;
+};
+
 const LEGACY_STORAGE_KEY = "genesis-calendar-v1";
 const USER_STORAGE_PREFIX = "genesis-calendar-v2:";
 const LAST_USER_KEY = "genesis-last-user-v2";
@@ -80,9 +88,9 @@ const LAST_USER_KEY = "genesis-last-user-v2";
 const NAVIGATION: Array<{ id: ViewName; label: string; symbol: string }> = [
   { id: "today", label: "Сегодня", symbol: "☉" },
   { id: "projects", label: "Проекты", symbol: "◇" },
+  { id: "all-tasks", label: "Задачи", symbol: "☰" },
   { id: "calendar", label: "Месяц", symbol: "◫" },
   { id: "year", label: "Круг года", symbol: "◎" },
-  { id: "all-tasks", label: "Все задачи", symbol: "☰" },
   { id: "stoicheion", label: "Стойхейон", symbol: "ϟ" },
 ];
 
@@ -393,13 +401,36 @@ export function GenesisCalendar() {
   const [editingProjectTags, setEditingProjectTags] = useState("");
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [editingTaskTags, setEditingTaskTags] = useState("");
-  const [planManagerOpen, setPlanManagerOpen] = useState(false);
+  const [projectDragItem, setProjectDragItem] = useState<ProjectDragItem | null>(null);
+  const [projectDropTargetId, setProjectDropTargetId] = useState("");
+  const [projectTouchPoint, setProjectTouchPoint] = useState<{ x: number; y: number } | null>(null);
+  const [projectMoveAnnouncement, setProjectMoveAnnouncement] = useState("");
   const [openDayTaskPopover, setOpenDayTaskPopover] = useState("");
   const tasksRef = useRef<Task[]>([]);
   const projectsRef = useRef<GenesisProject[]>([]);
   const categoriesRef = useRef<GenesisCategory[]>(DEFAULT_CATEGORIES);
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
+  const projectTouchDragRef = useRef<{
+    item: ProjectDragItem;
+    startX: number;
+    startY: number;
+    active: boolean;
+    timer: number;
+  } | null>(null);
+  const projectPointerDragRef = useRef<{
+    item: ProjectDragItem;
+    pointerId: number;
+    startX: number;
+    startY: number;
+    active: boolean;
+  } | null>(null);
+  const suppressProjectItemClickRef = useRef(false);
   const { canInstall, install, isStandalone } = usePwaInstall();
+
+  useEffect(() => () => {
+    const drag = projectTouchDragRef.current;
+    if (drag) window.clearTimeout(drag.timer);
+  }, []);
 
   const todayInfo = useMemo(() => getSacredDate(today), [today]);
   const selectedDate = useMemo(
@@ -415,15 +446,8 @@ export function GenesisCalendar() {
   const selectedMoon = getMoon(selectedDate);
   const selectedElement = getDayElement(monthIndex, selectedDay);
   const selectedPythagorean = getPythagorean(monthIndex, selectedDay);
-  const selectedKey = taskDateKey(sacredYear, monthIndex, selectedDay);
   const selectedSolarEvent = getSolarEvent(sacredYear, monthIndex, selectedDay);
   const solarEvents = useMemo(() => getSolarEvents(sacredYear), [sacredYear]);
-  const dayTasks = tasks
-    .filter(
-      (task) =>
-        taskDateKey(task.sacredYear, task.monthIndex, task.day) === selectedKey,
-    )
-    .sort((a, b) => a.time.localeCompare(b.time));
   const todayKey = taskDateKey(
     todayInfo.sacredYear,
     todayInfo.monthIndex,
@@ -442,7 +466,6 @@ export function GenesisCalendar() {
   const navigateTo = (nextView: ViewName, replace = false) => {
     setOpenDayTaskPopover("");
     setAccountMenuOpen(false);
-    setPlanManagerOpen(false);
     setView(nextView);
     const nextUrl = new URL(window.location.href);
     nextUrl.hash = nextView;
@@ -473,7 +496,6 @@ export function GenesisCalendar() {
       setOpenDayTaskPopover("");
       setAccountMenuOpen(false);
       setAccountOpen(false);
-      setPlanManagerOpen(false);
       setView(viewFromHash());
       window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "auto" }));
     };
@@ -958,6 +980,152 @@ export function GenesisCalendar() {
     persistStructure(projects, categories, nextLinks);
   };
 
+  const projectDropTargetAt = (clientX: number, clientY: number) => {
+    const element = document.elementFromPoint(clientX, clientY)?.closest<HTMLElement>("[data-project-drop-id]");
+    return element?.dataset.projectDropId ?? "";
+  };
+
+  const resetProjectDrag = () => {
+    setProjectDragItem(null);
+    setProjectTouchPoint(null);
+    setProjectDropTargetId("");
+  };
+
+  const moveProjectItemToProject = (item: ProjectDragItem, projectId: string) => {
+    const project = projects.find((candidate) => candidate.id === projectId);
+    if (!project) return;
+
+    if (item.kind === "task") {
+      const task = tasks.find((candidate) => candidate.id === item.id);
+      if (!task || resolvedTaskProjectId(task) === project.id) return;
+      const nextTask: Task = {
+        ...task,
+        project: project.title,
+        projectId: project.id,
+        categoryId: project.categoryId,
+        updatedAt: timestamp(),
+      };
+      setTasks((current) => current.map((candidate) => candidate.id === nextTask.id ? nextTask : candidate));
+      saveTask(nextTask);
+      setProjectMoveAnnouncement(`Задача «${item.title}» перемещена в проект «${project.title}».`);
+      return;
+    }
+
+    const currentProjectId = taskListLinks.find((link) => link.taskListId === item.id)?.projectId ?? null;
+    if (currentProjectId === project.id) return;
+    linkTaskListToProject(item.id, project.id);
+    setProjectMoveAnnouncement(`Список «${item.title}» перемещён в проект «${project.title}».`);
+  };
+
+  const beginProjectPointerDrag = (event: PointerEvent<HTMLElement>, item: ProjectDragItem) => {
+    if (event.pointerType !== "mouse" || event.button !== 0) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    projectPointerDragRef.current = {
+      item,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      active: false,
+    };
+  };
+
+  const moveProjectPointerDrag = (event: PointerEvent<HTMLElement>) => {
+    const drag = projectPointerDragRef.current;
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    if (!drag.active && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) > 4) {
+      drag.active = true;
+      setProjectDragItem(drag.item);
+    }
+    if (!drag.active) return;
+    event.preventDefault();
+    setProjectTouchPoint({ x: event.clientX, y: event.clientY });
+    setProjectDropTargetId(projectDropTargetAt(event.clientX, event.clientY));
+  };
+
+  const finishProjectPointerDrag = (event: PointerEvent<HTMLElement>, cancelled = false) => {
+    const drag = projectPointerDragRef.current;
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    projectPointerDragRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    if (!drag.active) return;
+    event.preventDefault();
+    const projectId = cancelled ? "" : projectDropTargetAt(event.clientX, event.clientY);
+    if (projectId) moveProjectItemToProject(drag.item, projectId);
+    suppressProjectItemClickRef.current = true;
+    window.setTimeout(() => {
+      suppressProjectItemClickRef.current = false;
+    }, 350);
+    resetProjectDrag();
+  };
+
+  const beginProjectTouchDrag = (event: TouchEvent<HTMLElement>, item: ProjectDragItem) => {
+    if (event.touches.length !== 1) return;
+    const touch = event.touches[0];
+    const previous = projectTouchDragRef.current;
+    if (previous) window.clearTimeout(previous.timer);
+    const drag = {
+      item,
+      startX: touch.clientX,
+      startY: touch.clientY,
+      active: false,
+      timer: 0,
+    };
+    drag.timer = window.setTimeout(() => {
+      if (projectTouchDragRef.current !== drag) return;
+      drag.active = true;
+      setProjectDragItem(item);
+      setProjectTouchPoint({ x: drag.startX, y: drag.startY });
+      setProjectDropTargetId(projectDropTargetAt(drag.startX, drag.startY));
+    }, 420);
+    projectTouchDragRef.current = drag;
+  };
+
+  const moveProjectTouchDrag = (event: TouchEvent<HTMLElement>) => {
+    const drag = projectTouchDragRef.current;
+    const touch = event.touches[0];
+    if (!drag || !touch) return;
+    if (!drag.active) {
+      if (Math.hypot(touch.clientX - drag.startX, touch.clientY - drag.startY) > 10) {
+        window.clearTimeout(drag.timer);
+        projectTouchDragRef.current = null;
+      }
+      return;
+    }
+    event.preventDefault();
+    if (touch.clientY < 96) window.scrollBy({ top: -18, behavior: "auto" });
+    if (touch.clientY > window.innerHeight - 84) window.scrollBy({ top: 18, behavior: "auto" });
+    setProjectTouchPoint({ x: touch.clientX, y: touch.clientY });
+    setProjectDropTargetId(projectDropTargetAt(touch.clientX, touch.clientY));
+  };
+
+  const finishProjectTouchDrag = (event: TouchEvent<HTMLElement>, cancelled = false) => {
+    const drag = projectTouchDragRef.current;
+    if (!drag) return;
+    window.clearTimeout(drag.timer);
+    projectTouchDragRef.current = null;
+    if (!drag.active) return;
+    event.preventDefault();
+    const touch = event.changedTouches[0];
+    const projectId = cancelled || !touch ? "" : projectDropTargetAt(touch.clientX, touch.clientY);
+    if (projectId) moveProjectItemToProject(drag.item, projectId);
+    suppressProjectItemClickRef.current = true;
+    window.setTimeout(() => {
+      suppressProjectItemClickRef.current = false;
+    }, 350);
+    resetProjectDrag();
+  };
+
+  const projectDragProps = (item: ProjectDragItem) => ({
+    onPointerDown: (event: PointerEvent<HTMLElement>) => beginProjectPointerDrag(event, item),
+    onPointerMove: moveProjectPointerDrag,
+    onPointerUp: (event: PointerEvent<HTMLElement>) => finishProjectPointerDrag(event),
+    onPointerCancel: (event: PointerEvent<HTMLElement>) => finishProjectPointerDrag(event, true),
+    onTouchStart: (event: TouchEvent<HTMLElement>) => beginProjectTouchDrag(event, item),
+    onTouchMove: moveProjectTouchDrag,
+    onTouchEnd: (event: TouchEvent<HTMLElement>) => finishProjectTouchDrag(event),
+    onTouchCancel: (event: TouchEvent<HTMLElement>) => finishProjectTouchDrag(event, true),
+  });
+
   const addProject = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const title = newProjectTitle.trim();
@@ -1177,7 +1345,7 @@ export function GenesisCalendar() {
     navigateTo("calendar");
   };
 
-  const renderTaskCreateForm = (context: "planner" | "all-tasks") => {
+  const renderTaskCreateForm = (context: "all-tasks") => {
     const selectedTaskList = taskLists.find((taskList) => taskList.id === taskTaskListId);
     const dueDateIsPast = newTaskDueDate < todayDateValue;
     const rangeIsInvalid = newTaskEndDate < newTaskDueDate;
@@ -1590,11 +1758,7 @@ export function GenesisCalendar() {
       tags.some((tag) => tag.toLocaleLowerCase("ru-RU").includes(term))
     ));
     const matchingTaggedProjects = projects.filter((project) => searchTerms.length > 0 && tagsMatch(project.tags));
-    const matchingTaggedTasks = tasks.filter((task) => searchTerms.length > 0 && tagsMatch(task.tags));
-    const matchingProjectIds = new Set([
-      ...matchingTaggedProjects.map((project) => project.id),
-      ...matchingTaggedTasks.map((task) => resolvedTaskProjectId(task)).filter((id): id is string => Boolean(id)),
-    ]);
+    const matchingProjectIds = new Set(matchingTaggedProjects.map((project) => project.id));
     if (searchTerms.length) {
       let changed = true;
       while (changed) {
@@ -1608,9 +1772,10 @@ export function GenesisCalendar() {
       }
     }
     const projectRows = flattenProjects(projects).filter(({ project }) => !searchTerms.length || matchingProjectIds.has(project.id));
-    const inboxTasks = tasks.filter((task) => !resolvedTaskProjectId(task) && !task.project && (!searchTerms.length || tagsMatch(task.tags)));
-    const activeTasks = tasks.filter((task) => !task.done);
-    const completedTasks = tasks.filter((task) => task.done);
+    const inboxTasks = tasks.filter((task) => !resolvedTaskProjectId(task) && !task.project);
+    const activeProjects = projects.filter((project) => project.status === "active").length;
+    const rootProjects = projects.filter((project) => !project.parentId).length;
+    const completedProjects = projects.filter((project) => project.status === "completed").length;
 
     return (
       <div className="projects-view">
@@ -1620,24 +1785,24 @@ export function GenesisCalendar() {
             <h1>Проекты и направления</h1>
             <p>Разделяйте большие замыслы на подпроекты и конкретные действия. Связи, повторения и сроки остаются видимыми в плане дня.</p>
           </div>
-          <div className="projects-summary" aria-label="Сводка задач">
-            <span><strong>{projects.filter((project) => project.status === "active").length}</strong> проектов</span>
-            <span><strong>{activeTasks.length}</strong> действий</span>
-            <span><strong>{completedTasks.length}</strong> завершено</span>
+          <div className="projects-summary" aria-label="Сводка проектов">
+            <span><strong>{activeProjects}</strong> активных</span>
+            <span><strong>{rootProjects}</strong> основных</span>
+            <span><strong>{completedProjects}</strong> завершено</span>
           </div>
         </header>
 
         <label className="tag-search">
           <span aria-hidden="true">⌕</span>
-          <input value={tagSearch} onChange={(event) => setTagSearch(event.target.value)} placeholder="Поиск по тегам — например, #работа" />
+          <input value={tagSearch} onChange={(event) => setTagSearch(event.target.value)} placeholder="Поиск проектов по тегам — например, #работа" />
           {tagSearch ? <button type="button" onClick={() => setTagSearch("")} aria-label="Очистить поиск">×</button> : null}
         </label>
 
         {searchTerms.length ? (
-          <section className="tag-search-results" aria-live="polite" aria-label="Результаты поиска по тегам">
+          <section className="tag-search-results" aria-live="polite" aria-label="Результаты поиска проектов по тегам">
             <header>
-              <strong>Найдено по тегам</strong>
-              <span>{matchingTaggedProjects.length} проектов · {matchingTaggedTasks.length} задач</span>
+              <strong>Проекты по тегам</strong>
+              <span>{matchingTaggedProjects.length} проектов</span>
             </header>
             <div>
               {matchingTaggedProjects.map((project) => (
@@ -1645,12 +1810,7 @@ export function GenesisCalendar() {
                   <span>Проект</span><strong>{project.title}</strong><small>{project.tags.map((tag) => `#${tag}`).join(" ")}</small>
                 </button>
               ))}
-              {matchingTaggedTasks.map((task) => (
-                <button type="button" key={`task-${task.id}`} onClick={() => openTaskEditor(task)}>
-                  <span>Задача</span><strong>{task.title}</strong><small>{task.tags.map((tag) => `#${tag}`).join(" ")}</small>
-                </button>
-              ))}
-              {!matchingTaggedProjects.length && !matchingTaggedTasks.length ? <p>Проектов и задач с такими тегами нет.</p> : null}
+              {!matchingTaggedProjects.length ? <p>Проектов с такими тегами нет.</p> : null}
             </div>
           </section>
         ) : null}
@@ -1708,8 +1868,9 @@ export function GenesisCalendar() {
                 const finished = projectTasks.filter((task) => task.done).length;
                 return (
                   <article
-                    className={`project-row${project.status === "completed" ? " completed" : ""}`}
+                    className={`project-row${project.status === "completed" ? " completed" : ""}${projectDropTargetId === project.id ? " drop-target" : ""}`}
                     key={project.id}
+                    data-project-drop-id={project.id}
                     style={{ "--project-depth": depth, "--project-color": category?.color ?? "#8d7750" } as CSSProperties}
                   >
                     <button type="button" className="project-status" onClick={() => toggleProject(project.id)} aria-label={project.status === "completed" ? `Вернуть проект «${project.title}»` : `Завершить проект «${project.title}»`}>
@@ -1726,6 +1887,44 @@ export function GenesisCalendar() {
                     </button>
                     <button type="button" className="project-edit" onClick={() => openProjectEditor(project)} aria-label={`Редактировать проект «${project.title}»`}>✎</button>
                     <button type="button" className="project-delete" onClick={() => deleteProject(project.id)} aria-label={`Удалить проект «${project.title}»`}>×</button>
+                    <div className="project-drop-field">
+                      <div className="project-drop-heading">
+                        <span>Пространство проекта</span>
+                        <small>{projectDragItem ? "Отпустите здесь" : "Перетащите сюда задачу или список"}</small>
+                      </div>
+                      <div className="project-assigned-items">
+                        {projectTaskLists.map((taskList) => {
+                          const item: ProjectDragItem = { kind: "task-list", id: taskList.id, title: taskList.title };
+                          const taskCount = tasks.filter((task) => task.googleTaskListId === taskList.id).length;
+                          return (
+                            <div className="project-assigned-list" key={taskList.id}>
+                              <button type="button" className="project-drag-handle project-draggable-item" aria-label={`Перетащить список «${taskList.title}»`} {...projectDragProps(item)}>⋮⋮</button>
+                              <span><strong>{taskList.title}</strong><small>Список · {taskCount} задач</small></span>
+                            </div>
+                          );
+                        })}
+                        {projectTasks.map((task) => {
+                          const item: ProjectDragItem = { kind: "task", id: task.id, title: task.title };
+                          return (
+                            <button
+                              type="button"
+                              className={`project-assigned-task project-draggable-item${task.done ? " done" : ""}`}
+                              key={task.id}
+                              onClick={() => {
+                                if (!suppressProjectItemClickRef.current) openTaskEditor(task);
+                              }}
+                              {...projectDragProps(item)}
+                            >
+                              <span className="project-drag-handle" aria-hidden="true">⋮⋮</span>
+                              <span><strong>{task.title}</strong><small>{taskRangeLabel(task)}</small></span>
+                            </button>
+                          );
+                        })}
+                        {!projectTaskLists.length && !projectTasks.length ? (
+                          <p>Пока пусто — перенесите сюда элемент из «Несортированного» или «Списков задач».</p>
+                        ) : null}
+                      </div>
+                    </div>
                     <i className="project-progress" style={{ "--project-progress": `${projectTasks.length ? Math.round((finished / projectTasks.length) * 100) : 0}%` } as CSSProperties} />
                   </article>
                 );
@@ -1780,8 +1979,10 @@ export function GenesisCalendar() {
                 {taskLists.map((taskList) => {
                   const projectId = taskListLinks.find((link) => link.taskListId === taskList.id)?.projectId ?? "";
                   const taskCount = tasks.filter((task) => task.googleTaskListId === taskList.id).length;
+                  const item: ProjectDragItem = { kind: "task-list", id: taskList.id, title: taskList.title };
                   return (
                     <article key={taskList.id}>
+                      <button type="button" className="project-drag-handle project-draggable-item" aria-label={`Перетащить список «${taskList.title}»`} {...projectDragProps(item)}>⋮⋮</button>
                       <div><strong>{taskList.title}</strong><small>{taskCount} задач</small></div>
                       <label>
                         <span className="sr-only">Проект для списка «{taskList.title}»</span>
@@ -1813,21 +2014,37 @@ export function GenesisCalendar() {
               )}
             </section>
             <section className="inbox-card">
-              <span className="eyebrow">Входящие</span>
+              <span className="eyebrow">Несортированное</span>
               <h2>Хаос-бокс</h2>
-              <p>Неразобранные действия, которым ещё не назначен проект.</p>
+              <p>Зажмите задачу пальцем или перетащите мышью в пространство нужного проекта.</p>
               <strong>{inboxTasks.length}</strong>
-              {inboxTasks.slice(0, 5).map((task) => <button type="button" key={task.id} onClick={() => openTaskEditor(task)}>{task.title}</button>)}
-            </section>
-            <section className="daily-plan-card">
-              <span className="eyebrow">План на день</span>
-              <h2>{formatGregorian(selectedDate, true)}</h2>
-              <div><strong>{dayTasks.filter((task) => !task.done).length}</strong><span>осталось</span></div>
-              <div><strong>{dayTasks.filter((task) => task.done).length}</strong><span>завершено</span></div>
-              <button type="button" className="primary-button" onClick={() => setPlanManagerOpen(true)}>Открыть план</button>
+              <div className="inbox-card-items">
+                {inboxTasks.map((task) => {
+                  const item: ProjectDragItem = { kind: "task", id: task.id, title: task.title };
+                  return (
+                    <article className={task.done ? "done" : ""} key={task.id}>
+                      <button type="button" className="project-drag-handle project-draggable-item" aria-label={`Перетащить задачу «${task.title}»`} {...projectDragProps(item)}>⋮⋮</button>
+                      <button type="button" onClick={() => {
+                        if (!suppressProjectItemClickRef.current) openTaskEditor(task);
+                      }}>
+                        <strong>{task.title}</strong>
+                        <small>{taskRangeLabel(task)}</small>
+                      </button>
+                    </article>
+                  );
+                })}
+                {!inboxTasks.length ? <p>Все задачи уже распределены по проектам.</p> : null}
+              </div>
             </section>
           </aside>
         </div>
+        <p className="sr-only" aria-live="polite">{projectMoveAnnouncement}</p>
+        {projectTouchPoint && projectDragItem ? (
+          <div className="project-drag-preview" style={{ left: projectTouchPoint.x, top: projectTouchPoint.y }}>
+            <span>{projectDragItem.kind === "task" ? "Задача" : "Список"}</span>
+            <strong>{projectDragItem.title}</strong>
+          </div>
+        ) : null}
       </div>
     );
   };
@@ -1858,7 +2075,7 @@ export function GenesisCalendar() {
         <header className="all-tasks-header">
           <div>
             <span className="eyebrow">Полный обзор</span>
-            <h1>Все задачи</h1>
+            <h1>Задачи</h1>
             <p>Каждая задача из GENESIS, Google Calendar и Google Tasks в одном списке — со сроками, проектами, тегами, приоритетом и связями.</p>
           </div>
           <div className="all-tasks-summary" aria-label="Сводка задач">
@@ -1868,7 +2085,7 @@ export function GenesisCalendar() {
           </div>
         </header>
 
-        <details className="all-tasks-create">
+        <details className="all-tasks-create" open>
           <summary><span aria-hidden="true">＋</span> Добавить задачу</summary>
           {renderTaskCreateForm("all-tasks")}
         </details>
@@ -1876,7 +2093,7 @@ export function GenesisCalendar() {
         <div className="all-tasks-toolbar">
           <label className="tag-search">
             <span aria-hidden="true">⌕</span>
-            <input value={allTasksSearch} onChange={(event) => setAllTasksSearch(event.target.value)} placeholder="Поиск по названию, проекту или тегу" />
+            <input value={allTasksSearch} onChange={(event) => setAllTasksSearch(event.target.value)} placeholder="Поиск задач по названию, проекту или тегу" />
             {allTasksSearch ? <button type="button" onClick={() => setAllTasksSearch("")} aria-label="Очистить поиск">×</button> : null}
           </label>
           <div className="all-tasks-status-filter" role="group" aria-label="Фильтр по статусу">
@@ -2252,7 +2469,7 @@ export function GenesisCalendar() {
           </div>
         </header>
 
-        <div className={`workspace${view === "admin" || view === "stoicheion" || view === "all-tasks" ? " workspace-full" : ""}${view === "today" ? " today-workspace" : ""}`} id="main-content">
+        <div className={`workspace workspace-full${view === "today" ? " today-workspace" : ""}`} id="main-content">
           <div className="content-column">
             {view === "today" ? renderToday() : null}
             {view === "calendar" ? renderCalendar() : null}
@@ -2262,54 +2479,6 @@ export function GenesisCalendar() {
             {view === "stoicheion" ? <StoicheionView /> : null}
             {view === "admin" && cloudUser?.isAdmin ? <AdminPanel /> : null}
           </div>
-
-          {view !== "admin" && view !== "stoicheion" && view !== "all-tasks" ? <aside className="planner-panel" aria-labelledby="planner-title">
-            <div className="planner-date">
-              <span className="eyebrow">План дня</span>
-              <button type="button" onClick={openSelectedInCalendar}>
-                <strong>{selectedDay}</strong>
-                <span>{selectedMonth.name}<br />{new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long" }).format(selectedDate)}</span>
-              </button>
-            </div>
-            <div className="planner-heading">
-              <div>
-                <h2 id="planner-title">Задачи</h2>
-                <p>{dayTasks.length ? `${dayTasks.filter((task) => !task.done).length} осталось` : "День свободен"}</p>
-              </div>
-              <span>{dayTasks.length}</span>
-            </div>
-
-            <div className="task-list" aria-live="polite">
-              {dayTasks.length ? dayTasks.map((task) => (
-                <article className={`task-item${task.done ? " done" : ""}`} key={task.id}>
-                  <button type="button" className="task-check" onClick={() => toggleTask(task.id)} aria-label={task.done ? `Вернуть задачу «${task.title}»` : `Завершить задачу «${task.title}»`}>
-                    {task.done ? "✓" : ""}
-                  </button>
-                  <button type="button" className="task-open" onClick={() => openTaskEditor(task)}>
-                    <span className="task-meta">{task.time || "В течение дня"}{resolvedTaskProjectTitle(task) ? ` · ${resolvedTaskProjectTitle(task)}` : ""}{task.priority !== 5 ? ` · ⚑${task.priority}` : ""}{task.recurrence !== "none" ? " · ↻" : ""}{task.reminderMinutes !== null ? ` · ⏰ ${task.reminderMinutes} мин` : ""}</span>
-                    <strong>{task.title}</strong>
-                    {task.tags.length ? <span className="task-tags">{task.tags.map((tag) => <i key={tag}>#{tag}</i>)}</span> : null}
-                    {task.dependsOnIds.length ? <span className="task-dependency">↳ после: {task.dependsOnIds.map((dependencyId) => tasks.find((item) => item.id === dependencyId)?.title).filter(Boolean).join(", ") || `${task.dependsOnIds.length} связанных задач`}</span> : null}
-                  </button>
-                  <button type="button" className="task-delete" onClick={() => deleteTask(task.id)} aria-label={`Удалить задачу «${task.title}»`}>×</button>
-                </article>
-              )) : (
-                <div className="task-empty">
-                  <span aria-hidden="true">◇</span>
-                  <strong>Пространство свободно</strong>
-                  <p>Добавьте действие, которое поддержит смысл выбранного дня.</p>
-                </div>
-              )}
-            </div>
-
-            {renderTaskCreateForm("planner")}
-            <div className="planner-foot">
-              <span title={syncError || undefined}><i className={`sync-dot sync-${syncStatus}`} /> {syncLabel}</span>
-              <button type="button" className="planner-export-button ux-action-button" data-tooltip={tasks.length ? "Экспортировать календарь .ics" : "Добавьте задачу для экспорта"} title={tasks.length ? "Экспортировать календарь .ics" : "Добавьте задачу для экспорта"} onClick={exportCalendar} disabled={!tasks.length} aria-label="Экспортировать задачи в календарь .ics">
-                <span className="ux-calendar-icon" aria-hidden="true" />
-              </button>
-            </div>
-          </aside> : null}
         </div>
       </section>
 
@@ -2320,53 +2489,6 @@ export function GenesisCalendar() {
           </button>
         ))}
       </nav>
-      {planManagerOpen ? (
-        <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setPlanManagerOpen(false); }}>
-          <section className="editor-modal plan-manager-modal" role="dialog" aria-modal="true" aria-labelledby="plan-manager-title">
-            <button type="button" className="modal-close" onClick={() => setPlanManagerOpen(false)} aria-label="Закрыть">×</button>
-            <span className="eyebrow">План на день</span>
-            <h2 id="plan-manager-title">{formatGregorian(selectedDate, true)}</h2>
-            <label className="plan-date-picker">
-              <span>Выбрать день</span>
-              <input type="date" value={selectedDateValue} onChange={(event) => {
-                const date = new Date(`${event.target.value}T12:00:00`);
-                if (Number.isNaN(date.getTime())) return;
-                const sacred = getSacredDate(date);
-                setSacredYear(sacred.sacredYear);
-                setMonthIndex(sacred.monthIndex);
-                setSelectedDay(sacred.day);
-              }} />
-            </label>
-            <div className="plan-manager-grid">
-              <section>
-                <header><strong>Дела и задачи</strong><span>{dayTasks.length}</span></header>
-                <div className="plan-manager-list">
-                  {dayTasks.length ? dayTasks.map((task) => (
-                    <article key={task.id} className={task.done ? "done" : ""}>
-                      <button type="button" className="task-check" onClick={() => toggleTask(task.id)}>{task.done ? "✓" : ""}</button>
-                      <button type="button" onClick={() => { setPlanManagerOpen(false); openTaskEditor(task); }}><strong>{task.title}</strong><small>{task.time || "В течение дня"}{resolvedTaskProjectTitle(task) ? ` · ${resolvedTaskProjectTitle(task)}` : ""}</small></button>
-                    </article>
-                  )) : <p>На этот день задач пока нет.</p>}
-                </div>
-              </section>
-              <section>
-                <header><strong>Проекты и планы</strong><span>{projects.length}</span></header>
-                <div className="plan-manager-list">
-                  {flattenProjects(projects).map(({ project, depth }) => (
-                    <button type="button" key={project.id} style={{ "--project-depth": depth } as CSSProperties} onClick={() => { setPlanManagerOpen(false); openProjectEditor(project); }}>
-                      <strong>{project.title}</strong><small>{project.description || "Открыть и отредактировать проект"}</small>
-                    </button>
-                  ))}
-                </div>
-              </section>
-            </div>
-            <div className="editor-actions">
-              <button type="button" className="text-button" onClick={() => setPlanManagerOpen(false)}>Закрыть</button>
-              <button type="button" className="primary-button" onClick={() => { setPlanManagerOpen(false); navigateTo("projects"); }}>Все проекты и новые задачи</button>
-            </div>
-          </section>
-        </div>
-      ) : null}
       {editingTask ? (
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditingTask(null); }}>
           <form className="editor-modal" role="dialog" aria-modal="true" aria-labelledby="task-editor-title" onSubmit={saveTaskEdit}>
