@@ -36,6 +36,7 @@ import { AdminPanel } from "./AdminPanel";
 import { currentLegalPage, LegalPage } from "./LegalPage";
 import { StoicheionView } from "./StoicheionView";
 import { TimeClockPicker } from "./TimeClockPicker";
+import { MoonPhaseIcon } from "./MoonPhaseIcon";
 import { WelcomeScreen } from "./WelcomeScreen";
 import {
   MONTHS,
@@ -106,12 +107,14 @@ function readStoredState(key: string): StoredState {
         const legacyYear = legacy.sacredYear ?? new Date().getFullYear();
         const legacyMonth = legacy.monthIndex ?? 0;
         const legacyDay = legacy.day ?? 1;
+        const dueDate = legacy.dueDate || inputDate(getGregorianDate(legacyYear, legacyMonth, legacyDay));
         return {
           id: legacy.id ?? uid(),
           sacredYear: legacyYear,
           monthIndex: legacyMonth,
           day: legacyDay,
-          dueDate: legacy.dueDate || inputDate(getGregorianDate(legacyYear, legacyMonth, legacyDay)),
+          dueDate,
+          endDate: legacy.endDate || dueDate,
           title: legacy.title ?? "Без названия",
           description: legacy.description ?? "",
           time: legacy.time ?? "",
@@ -306,6 +309,25 @@ function nextOccurrenceDate(dueDate: string, recurrence: RecurrenceKind, interva
   return next;
 }
 
+function shiftRangeEndDate(startDate: string, endDate: string, nextStartDate: string) {
+  const start = new Date(`${startDate}T12:00:00`);
+  const end = new Date(`${endDate || startDate}T12:00:00`);
+  const nextEnd = new Date(`${nextStartDate}T12:00:00`);
+  if ([start, end, nextEnd].some((date) => Number.isNaN(date.getTime()))) return nextStartDate;
+  const durationDays = Math.max(0, Math.round((end.getTime() - start.getTime()) / 86_400_000));
+  nextEnd.setDate(nextEnd.getDate() + durationDays);
+  return inputDate(nextEnd);
+}
+
+function taskRangeLabel(task: Task) {
+  const start = formatGregorian(new Date(`${task.dueDate}T12:00:00`), true);
+  const endDate = task.endDate || task.dueDate;
+  const end = endDate === task.dueDate
+    ? ""
+    : ` — ${formatGregorian(new Date(`${endDate}T12:00:00`), true)}`;
+  return `${start}${end}${task.time ? ` · ${task.time}` : ""}`;
+}
+
 function romanDay(monthIndex: number, day: number) {
   return monthIndex === 12 ? String(day) : ["I", "II", "III", "IIII", "V"][(day - 1) % 5];
 }
@@ -343,6 +365,7 @@ export function GenesisCalendar() {
   const [taskTitle, setTaskTitle] = useState("");
   const [taskDescription, setTaskDescription] = useState("");
   const [taskDueDate, setTaskDueDate] = useState("");
+  const [taskEndDate, setTaskEndDate] = useState("");
   const [taskTime, setTaskTime] = useState("");
   const [taskProject, setTaskProject] = useState("");
   const [taskTaskListId, setTaskTaskListId] = useState("");
@@ -386,6 +409,7 @@ export function GenesisCalendar() {
   const todayDateValue = inputDate(today);
   const selectedDateValue = inputDate(selectedDate);
   const newTaskDueDate = taskDueDate || (view === "all-tasks" ? todayDateValue : selectedDateValue);
+  const newTaskEndDate = taskEndDate || newTaskDueDate;
   const selectedMonth = MONTHS[monthIndex];
   const selectedSacredDay = getSacredDay(monthIndex, selectedDay);
   const selectedMoon = getMoon(selectedDate);
@@ -716,6 +740,11 @@ export function GenesisCalendar() {
       setSyncStatus("error");
       return;
     }
+    if (newTaskEndDate < newTaskDueDate) {
+      setSyncError("Срок выполнения не может быть раньше даты начала.");
+      setSyncStatus("error");
+      return;
+    }
 
     const dueDate = new Date(`${newTaskDueDate}T12:00:00`);
     if (Number.isNaN(dueDate.getTime())) return;
@@ -735,6 +764,7 @@ export function GenesisCalendar() {
       monthIndex: sacred.monthIndex,
       day: sacred.day,
       dueDate: newTaskDueDate,
+      endDate: newTaskEndDate,
       title,
       description: taskDescription.trim(),
       time: taskTime,
@@ -765,6 +795,7 @@ export function GenesisCalendar() {
     setTaskTitle("");
     setTaskDescription("");
     setTaskDueDate("");
+    setTaskEndDate("");
     setTaskTime("");
     setTaskTags("");
     setTaskDependsOn([]);
@@ -784,6 +815,11 @@ export function GenesisCalendar() {
     if (!original || !title) return;
     if (editingTask.dueDate < todayDateValue && editingTask.dueDate !== original.dueDate) {
       setSyncError("Нельзя переносить задачу на дату в прошлом.");
+      setSyncStatus("error");
+      return;
+    }
+    if ((editingTask.endDate || editingTask.dueDate) < editingTask.dueDate) {
+      setSyncError("Срок выполнения не может быть раньше даты начала.");
       setSyncStatus("error");
       return;
     }
@@ -845,6 +881,7 @@ export function GenesisCalendar() {
             monthIndex: sacred.monthIndex,
             day: sacred.day,
             dueDate: nextDateValue,
+            endDate: shiftRangeEndDate(currentTask.dueDate, currentTask.endDate, nextDateValue),
             done: false,
             completedAt: null,
             googleEventId: null,
@@ -1090,19 +1127,29 @@ export function GenesisCalendar() {
   const exportCalendar = () => {
     if (!tasks.length) return;
     const events = tasks.map((task) => {
-      const date = getGregorianDate(task.sacredYear, task.monthIndex, task.day);
-      const start = icsDate(date, task.time || "09:00");
-      const endDate = new Date(date);
-      const [hours = 9, minutes = 0] = (task.time || "09:00")
-        .split(":")
-        .map(Number);
-      endDate.setHours(hours + 1, minutes, 0, 0);
-      const end = icsDate(endDate, `${String(endDate.getHours()).padStart(2, "0")}:${String(endDate.getMinutes()).padStart(2, "0")}`);
+      const startDate = new Date(`${task.dueDate}T12:00:00`);
+      const rangeEndDate = new Date(`${task.endDate || task.dueDate}T12:00:00`);
+      const timed = Boolean(task.time);
+      const start = timed
+        ? `DTSTART:${icsDate(startDate, task.time)}`
+        : `DTSTART;VALUE=DATE:${task.dueDate.replaceAll("-", "")}`;
+      let end: string;
+      if (timed) {
+        const [hours = 0, minutes = 0] = task.time.split(":").map(Number);
+        startDate.setHours(hours, minutes, 0, 0);
+        rangeEndDate.setHours(hours, minutes, 0, 0);
+        if (rangeEndDate <= startDate) rangeEndDate.setHours(rangeEndDate.getHours() + 1);
+        const endTime = `${String(rangeEndDate.getHours()).padStart(2, "0")}:${String(rangeEndDate.getMinutes()).padStart(2, "0")}`;
+        end = `DTEND:${icsDate(rangeEndDate, endTime)}`;
+      } else {
+        rangeEndDate.setDate(rangeEndDate.getDate() + 1);
+        end = `DTEND;VALUE=DATE:${inputDate(rangeEndDate).replaceAll("-", "")}`;
+      }
       return [
         "BEGIN:VEVENT",
         `UID:${task.id}@genesis-calendar`,
-        `DTSTART:${start}`,
-        `DTEND:${end}`,
+        start,
+        end,
         `SUMMARY:${escapeIcs(task.title)}`,
         `DESCRIPTION:${escapeIcs([resolvedTaskProjectTitle(task), ...task.tags.map((tag) => `#${tag}`)].filter(Boolean).join(" · "))}`,
         "END:VEVENT",
@@ -1133,6 +1180,7 @@ export function GenesisCalendar() {
   const renderTaskCreateForm = (context: "planner" | "all-tasks") => {
     const selectedTaskList = taskLists.find((taskList) => taskList.id === taskTaskListId);
     const dueDateIsPast = newTaskDueDate < todayDateValue;
+    const rangeIsInvalid = newTaskEndDate < newTaskDueDate;
     return (
       <form className="task-form" onSubmit={addTask} aria-label="Создание задачи">
         {dueDateIsPast ? (
@@ -1148,9 +1196,19 @@ export function GenesisCalendar() {
         </label>
         <div className="task-form-row">
           <label>
-            <span>Срок</span>
-            <input type="date" min={todayDateValue} value={newTaskDueDate} onChange={(event) => setTaskDueDate(event.target.value)} required />
+            <span>Начало</span>
+            <input type="date" min={todayDateValue} value={newTaskDueDate} onChange={(event) => {
+              const nextDate = event.target.value;
+              setTaskDueDate(nextDate);
+              setTaskEndDate((current) => !current || current < nextDate ? nextDate : current);
+            }} required />
           </label>
+          <label>
+            <span>Срок выполнения</span>
+            <input type="date" min={newTaskDueDate} value={newTaskEndDate} onChange={(event) => setTaskEndDate(event.target.value)} required />
+          </label>
+        </div>
+        <div className="task-form-row">
           <label htmlFor={`${context}-new-task-time-hour`}>
             <span>Время</span>
             <TimeClockPicker id={`${context}-new-task-time-hour`} value={taskTime} disabled={Boolean(taskTaskListId)} onChange={setTaskTime} />
@@ -1242,10 +1300,10 @@ export function GenesisCalendar() {
         <div className="sync-checkbox sync-always-on">
           <span aria-hidden="true">✓</span>
           <span>{selectedTaskList
-            ? `Задача будет синхронизирована со списком «${selectedTaskList.title}» в Google Tasks`
+            ? `Срок завершения попадёт в список «${selectedTaskList.title}» Google Tasks, начало сохранится в данных GENESIS`
             : "Задача будет сохранена локально и синхронизирована с Google Calendar"}</span>
         </div>
-        <button type="submit" className="add-task-button" disabled={!taskTitle.trim() || !newTaskDueDate || dueDateIsPast}>
+        <button type="submit" className="add-task-button" disabled={!taskTitle.trim() || !newTaskDueDate || !newTaskEndDate || dueDateIsPast || rangeIsInvalid}>
           <span aria-hidden="true">＋</span> Добавить задачу
         </button>
       </form>
@@ -1326,7 +1384,7 @@ export function GenesisCalendar() {
 
           <section className="moon-panel" aria-labelledby="moon-title">
             <div className="moon-visual" aria-hidden="true">
-              <span>{moon.icon}</span>
+              <MoonPhaseIcon phaseStep={moon.phaseStep} size={50} />
               <i style={{ "--moon-light": `${moon.illumination}%` } as CSSProperties} />
             </div>
             <div className="moon-copy">
@@ -1448,7 +1506,7 @@ export function GenesisCalendar() {
                         <span className="calendar-gregorian">{new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "short" }).format(gregorian)}</span>
                         <strong>{romanDay(monthIndex, dayNumber)}</strong>
                         {solarEvent ? <span className="calendar-solar-mark" title={solarEvent.name}><b aria-hidden="true">{solarEvent.symbol}</b><em>{solarEvent.shortName}</em></span> : null}
-                        <span className="calendar-moon" title={`${moon.epithet}: ${moon.phase}`}>{moon.icon} {moon.day}</span>
+                        <span className="calendar-moon" title={`${moon.epithet}: ${moon.phase}`}><MoonPhaseIcon phaseStep={moon.phaseStep} size={16} /> {moon.day}</span>
                         <small>{sacredDay.name.split("(")[0].trim()}</small>
                         {taskCount ? (
                           <div className="calendar-day-task-preview" aria-hidden="true">
@@ -1833,7 +1891,7 @@ export function GenesisCalendar() {
           {sortedTasks.length ? sortedTasks.map((task) => {
             const project = resolvedTaskProject(task);
             const category = categories.find((item) => item.id === (task.categoryId ?? project?.categoryId));
-            const isOverdue = !task.done && task.dueDate < todayDateValue;
+            const isOverdue = !task.done && (task.endDate || task.dueDate) < todayDateValue;
             const source = taskOriginMeta(task.createdIn);
             const dependencyNames = task.dependsOnIds
               .map((dependencyId) => tasks.find((item) => item.id === dependencyId)?.title)
@@ -1849,7 +1907,7 @@ export function GenesisCalendar() {
                     <span className="all-task-priority" title="Приоритет">⚑{task.priority}</span>
                   </div>
                   <div className="all-task-meta">
-                    <span>{formatGregorian(new Date(`${task.dueDate}T12:00:00`), true)}{task.time ? ` · ${task.time}` : ""}</span>
+                    <span>{taskRangeLabel(task)}</span>
                     <span>{resolvedTaskProjectTitle(task) || "Без проекта"}</span>
                     {task.googleTaskListTitle ? <span>Список: {task.googleTaskListTitle}</span> : null}
                     {category ? <span className="all-task-category" style={{ "--project-color": category.color } as CSSProperties}>{category.name}</span> : null}
@@ -2329,8 +2387,16 @@ export function GenesisCalendar() {
             </label>
             <div className="editor-grid">
               <label>
-                <span>Дата</span>
-                <input type="date" min={editingTask.dueDate < todayDateValue ? editingTask.dueDate : todayDateValue} value={editingTask.dueDate} onChange={(event) => setEditingTask((current) => current ? { ...current, dueDate: event.target.value } : current)} required />
+                <span>Начало</span>
+                <input type="date" min={editingTask.dueDate < todayDateValue ? editingTask.dueDate : todayDateValue} value={editingTask.dueDate} onChange={(event) => setEditingTask((current) => current ? {
+                  ...current,
+                  dueDate: event.target.value,
+                  endDate: current.endDate < event.target.value ? event.target.value : current.endDate,
+                } : current)} required />
+              </label>
+              <label>
+                <span>Срок выполнения</span>
+                <input type="date" min={editingTask.dueDate} value={editingTask.endDate || editingTask.dueDate} onChange={(event) => setEditingTask((current) => current ? { ...current, endDate: event.target.value } : current)} required />
               </label>
               <label htmlFor="edit-task-time-hour">
                 <span>Время</span>

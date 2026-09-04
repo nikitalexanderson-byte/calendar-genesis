@@ -46,7 +46,7 @@ export type SacredDateInfo = {
 export type MoonInfo = {
   age: number;
   day: number;
-  icon: string;
+  phaseStep: number;
   epithet: string;
   direction: "Восходящая луна" | "Нисходящая луна";
   phase: string;
@@ -229,7 +229,6 @@ export function getMoon(date: Date): MoonInfo {
   const age = ((elapsed % MOON_CYCLE) + MOON_CYCLE) % MOON_CYCLE;
   const fraction = age / MOON_CYCLE;
   const phaseIndex = Math.round(fraction * 8) % 8;
-  const icons = ["●", "◔", "◑", "◕", "○", "◕", "◑", "◔"];
   const phaseNames = [
     "Новолуние",
     "Молодой серп",
@@ -255,7 +254,7 @@ export function getMoon(date: Date): MoonInfo {
   return {
     age,
     day: Math.floor(age) + 1,
-    icon: icons[phaseIndex],
+    phaseStep: Math.round(fraction * 30) % 30,
     epithet,
     direction,
     phase: phaseNames[phaseIndex],

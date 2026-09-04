@@ -231,6 +231,10 @@ function genesisTaskPayloadForGoogle(string $taskId, array $task): array
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dueDate)) {
         throw new InvalidArgumentException('Дата задачи указана неверно.');
     }
+    $endDate = (string)($task['endDate'] ?? $dueDate);
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $endDate) || $endDate < $dueDate) {
+        throw new InvalidArgumentException('Срок выполнения задачи указан неверно.');
+    }
     $timeValue = preg_match('/^\d{2}:\d{2}$/', (string)($task['time'] ?? '')) ? (string)$task['time'] : '';
     $done = !empty($task['done']);
     $tags = genesisStringList($task['tags'] ?? [], 10);
@@ -242,6 +246,7 @@ function genesisTaskPayloadForGoogle(string $taskId, array $task): array
     $createdIn = genesisTaskOrigin($task['createdIn'] ?? null);
     $metadataDescription = trim(implode("\n", array_filter([
         genesisTaskOriginLabel($createdIn),
+        'Срок: ' . $dueDate . ($endDate !== $dueDate ? ' — ' . $endDate : ''),
         $project !== '' ? 'Проект: ' . $project : '',
         $tags ? 'Теги: ' . implode(' ', array_map(static fn(string $tag): string => '#' . $tag, $tags)) : '',
         'Приоритет: ' . $priority,
@@ -261,6 +266,7 @@ function genesisTaskPayloadForGoogle(string $taskId, array $task): array
         'genesisInterval' => (string)genesisClampInt($task['recurrenceInterval'] ?? 1, 1, 99, 1),
         'genesisPriority' => (string)$priority,
         'genesisSource' => $createdIn,
+        'genesisEndDate' => $endDate,
         'genesisUpdatedAt' => (string)genesisClampInt($task['updatedAt'] ?? (int)(microtime(true) * 1000), 0, PHP_INT_MAX, (int)(microtime(true) * 1000)),
     ];
     $event = [
@@ -273,12 +279,17 @@ function genesisTaskPayloadForGoogle(string $taskId, array $task): array
     ];
     if ($timeValue !== '') {
         $start = new DateTimeImmutable($dueDate . ' ' . $timeValue, $timezone);
+        $end = new DateTimeImmutable($endDate . ' ' . $timeValue, $timezone);
+        if ($end <= $start) {
+            $end = $start->modify('+1 hour');
+        }
         $event['start'] = ['dateTime' => $start->format(DATE_RFC3339), 'timeZone' => $timezoneName];
-        $event['end'] = ['dateTime' => $start->modify('+1 hour')->format(DATE_RFC3339), 'timeZone' => $timezoneName];
+        $event['end'] = ['dateTime' => $end->format(DATE_RFC3339), 'timeZone' => $timezoneName];
     } else {
         $date = new DateTimeImmutable($dueDate . ' 12:00:00', $timezone);
+        $rangeEnd = new DateTimeImmutable($endDate . ' 12:00:00', $timezone);
         $event['start'] = ['date' => $date->format('Y-m-d')];
-        $event['end'] = ['date' => $date->modify('+1 day')->format('Y-m-d')];
+        $event['end'] = ['date' => $rangeEnd->modify('+1 day')->format('Y-m-d')];
     }
     return $event;
 }
@@ -314,6 +325,8 @@ function genesisTaskNotesForGoogle(string $taskId, array $task): string
     $project = mb_substr(trim((string)($task['project'] ?? '')), 0, 300);
     $tags = genesisStringList($task['tags'] ?? [], 10);
     $createdIn = genesisTaskOrigin($task['createdIn'] ?? null);
+    $startDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($task['dueDate'] ?? '')) ? (string)$task['dueDate'] : '';
+    $endDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($task['endDate'] ?? '')) ? (string)$task['endDate'] : $startDate;
     $data = [
         'taskId' => mb_substr($taskId, 0, 100),
         'createdIn' => $createdIn,
@@ -323,9 +336,13 @@ function genesisTaskNotesForGoogle(string $taskId, array $task): string
         'tags' => $tags,
         'dependsOnIds' => genesisStringList($task['dependsOnIds'] ?? [], 30),
         'priority' => genesisClampInt($task['priority'] ?? 5, 1, 10, 5),
+        'startDate' => $startDate,
+        'endDate' => $endDate,
+        'time' => preg_match('/^\d{2}:\d{2}$/', (string)($task['time'] ?? '')) ? (string)$task['time'] : '',
     ];
     $metadataLines = array_filter([
         genesisTaskOriginLabel($createdIn),
+        $startDate !== '' ? 'Срок: ' . $startDate . ($endDate !== $startDate ? ' — ' . $endDate : '') : '',
         $project !== '' ? 'Проект: ' . $project : '',
         $tags ? 'Теги: ' . implode(' ', array_map(static fn(string $tag): string => '#' . $tag, $tags)) : '',
         'Приоритет: ' . $data['priority'],
@@ -358,15 +375,29 @@ function genesisGoogleEventForClient(array $event): ?array
     $timezone = genesisClientTimeZone();
     $dateTime = $event['start']['dateTime'] ?? null;
     $date = $event['start']['date'] ?? null;
+    $endDateTime = $event['end']['dateTime'] ?? null;
+    $exclusiveEndDate = $event['end']['date'] ?? null;
     $dueDate = date('Y-m-d');
+    $endDate = $dueDate;
     $time = '';
     if (is_string($dateTime) && $dateTime !== '') {
         $start = (new DateTimeImmutable($dateTime))->setTimezone($timezone);
         $dueDate = $start->format('Y-m-d');
         $time = $start->format('H:i');
+        if (is_string($endDateTime) && $endDateTime !== '') {
+            $endDate = (new DateTimeImmutable($endDateTime))->setTimezone($timezone)->format('Y-m-d');
+        } else {
+            $endDate = $dueDate;
+        }
     } elseif (is_string($date) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
         $dueDate = $date;
+        if (is_string($exclusiveEndDate) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $exclusiveEndDate)) {
+            $endDate = (new DateTimeImmutable($exclusiveEndDate . ' 12:00:00', $timezone))->modify('-1 day')->format('Y-m-d');
+        } else {
+            $endDate = $dueDate;
+        }
     }
+    if ($endDate < $dueDate) $endDate = $dueDate;
     $sacred = genesisSacredFromDate($dueDate);
     $rawDescription = (string)($event['description'] ?? '');
     $description = trim(explode("\n\n— GENESIS —\n", $rawDescription, 2)[0]);
@@ -381,6 +412,7 @@ function genesisGoogleEventForClient(array $event): ?array
         'monthIndex' => $sacred['monthIndex'],
         'day' => $sacred['day'],
         'dueDate' => $dueDate,
+        'endDate' => $endDate,
         'title' => mb_substr($title, 0, 500),
         'description' => $description,
         'time' => $time,
@@ -423,7 +455,12 @@ function genesisGoogleNativeTaskForClient(array $task, string $taskListId, strin
         ? $managedTaskId
         : 'google-task-' . substr(hash('sha256', $taskListId . "\0" . $googleTaskId), 0, 36);
     $createdIn = genesisTaskOrigin($metadata['createdIn'] ?? null, $managedTaskId !== '' ? 'genesis' : 'google-tasks');
-    $dueDate = $dueMatch[1];
+    $endDate = $dueMatch[1];
+    $metadataStartDate = (string)($metadata['startDate'] ?? '');
+    $dueDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', $metadataStartDate) && $metadataStartDate <= $endDate
+        ? $metadataStartDate
+        : $endDate;
+    $time = preg_match('/^\d{2}:\d{2}$/', (string)($metadata['time'] ?? '')) ? (string)$metadata['time'] : '';
     $sacred = genesisSacredFromDate($dueDate);
     $done = ($task['status'] ?? '') === 'completed';
     $updatedAt = strtotime((string)($task['updated'] ?? ''));
@@ -434,9 +471,10 @@ function genesisGoogleNativeTaskForClient(array $task, string $taskListId, strin
         'monthIndex' => $sacred['monthIndex'],
         'day' => $sacred['day'],
         'dueDate' => $dueDate,
+        'endDate' => $endDate,
         'title' => mb_substr(trim((string)($task['title'] ?? '')) ?: 'Без названия', 0, 500),
         'description' => $notes['description'],
-        'time' => '',
+        'time' => $time,
         'project' => mb_substr(trim((string)($metadata['project'] ?? '')), 0, 300),
         'projectId' => ($metadata['projectId'] ?? '') !== '' ? mb_substr((string)$metadata['projectId'], 0, 100) : null,
         'categoryId' => ($metadata['categoryId'] ?? '') !== '' ? mb_substr((string)$metadata['categoryId'], 0, 100) : null,
@@ -570,12 +608,16 @@ function genesisGoogleNativeTaskPayload(string $taskId, array $task): array
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dueDate)) {
         throw new InvalidArgumentException('Дата задачи указана неверно.');
     }
+    $endDate = (string)($task['endDate'] ?? $dueDate);
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $endDate) || $endDate < $dueDate) {
+        throw new InvalidArgumentException('Срок выполнения задачи указан неверно.');
+    }
     $done = !empty($task['done']);
     $payload = [
         'title' => $title,
         'notes' => genesisTaskNotesForGoogle($taskId, $task),
         'status' => $done ? 'completed' : 'needsAction',
-        'due' => $dueDate . 'T00:00:00.000Z',
+        'due' => $endDate . 'T00:00:00.000Z',
     ];
     if ($done) {
         $completed = trim((string)($task['completedAt'] ?? ''));
