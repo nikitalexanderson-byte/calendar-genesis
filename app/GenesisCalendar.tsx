@@ -49,7 +49,7 @@ import {
 } from "./calendar-data";
 import { usePwaInstall } from "./use-pwa-install";
 
-type ViewName = "today" | "calendar" | "projects" | "year" | "stoicheion" | "admin";
+type ViewName = "today" | "calendar" | "projects" | "year" | "all-tasks" | "stoicheion" | "admin";
 
 type StoredState = {
   tasks: Task[];
@@ -75,10 +75,11 @@ const NAVIGATION: Array<{ id: ViewName; label: string; symbol: string }> = [
   { id: "projects", label: "Проекты", symbol: "◇" },
   { id: "calendar", label: "Месяц", symbol: "◫" },
   { id: "year", label: "Круг года", symbol: "◎" },
+  { id: "all-tasks", label: "Все задачи", symbol: "☰" },
   { id: "stoicheion", label: "Стойхейон", symbol: "ϟ" },
 ];
 
-const VIEW_NAMES = new Set<ViewName>(["today", "calendar", "projects", "year", "stoicheion", "admin"]);
+const VIEW_NAMES = new Set<ViewName>(["today", "calendar", "projects", "year", "all-tasks", "stoicheion", "admin"]);
 
 function viewFromHash(): ViewName {
   if (typeof window === "undefined") return "today";
@@ -338,6 +339,8 @@ export function GenesisCalendar() {
   const [editingCategoryTitle, setEditingCategoryTitle] = useState("");
   const [editingCategoryColor, setEditingCategoryColor] = useState("#2d6c68");
   const [tagSearch, setTagSearch] = useState("");
+  const [allTasksSearch, setAllTasksSearch] = useState("");
+  const [allTasksStatusFilter, setAllTasksStatusFilter] = useState<"all" | "active" | "done">("all");
   const [editingProject, setEditingProject] = useState<GenesisProject | null>(null);
   const [editingProjectTags, setEditingProjectTags] = useState("");
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -1515,6 +1518,107 @@ export function GenesisCalendar() {
     );
   };
 
+  const renderAllTasks = () => {
+    const searchTerms = allTasksSearch
+      .toLocaleLowerCase("ru-RU")
+      .split(/[\s,;#]+/)
+      .map((term) => term.trim())
+      .filter(Boolean);
+    const taskMatches = (task: Task) => {
+      if (allTasksStatusFilter === "active" && task.done) return false;
+      if (allTasksStatusFilter === "done" && !task.done) return false;
+      if (!searchTerms.length) return true;
+      const haystack = [task.title, task.project, ...task.tags].join(" ").toLocaleLowerCase("ru-RU");
+      return searchTerms.every((term) => haystack.includes(term));
+    };
+    const sortedTasks = [...tasks]
+      .sort((a, b) => `${a.dueDate}T${a.time || "00:00"}`.localeCompare(`${b.dueDate}T${b.time || "00:00"}`))
+      .filter(taskMatches);
+    const activeCount = tasks.filter((task) => !task.done).length;
+    const doneCount = tasks.filter((task) => task.done).length;
+
+    return (
+      <div className="all-tasks-view">
+        <header className="all-tasks-header">
+          <div>
+            <span className="eyebrow">Полный обзор</span>
+            <h1>Все задачи</h1>
+            <p>Каждая задача из GENESIS и Google Calendar в одном списке — с проектами, тегами, приоритетом и связями.</p>
+          </div>
+          <div className="all-tasks-summary" aria-label="Сводка задач">
+            <span><strong>{tasks.length}</strong> всего</span>
+            <span><strong>{activeCount}</strong> активных</span>
+            <span><strong>{doneCount}</strong> завершено</span>
+          </div>
+        </header>
+
+        <div className="all-tasks-toolbar">
+          <label className="tag-search">
+            <span aria-hidden="true">⌕</span>
+            <input value={allTasksSearch} onChange={(event) => setAllTasksSearch(event.target.value)} placeholder="Поиск по названию, проекту или тегу" />
+            {allTasksSearch ? <button type="button" onClick={() => setAllTasksSearch("")} aria-label="Очистить поиск">×</button> : null}
+          </label>
+          <div className="all-tasks-status-filter" role="group" aria-label="Фильтр по статусу">
+            <button type="button" className={allTasksStatusFilter === "all" ? "active" : ""} onClick={() => setAllTasksStatusFilter("all")}>Все</button>
+            <button type="button" className={allTasksStatusFilter === "active" ? "active" : ""} onClick={() => setAllTasksStatusFilter("active")}>Активные</button>
+            <button type="button" className={allTasksStatusFilter === "done" ? "active" : ""} onClick={() => setAllTasksStatusFilter("done")}>Завершённые</button>
+          </div>
+          <span className="all-tasks-sync" title={syncError || undefined}><i className={`sync-dot sync-${syncStatus}`} /> {syncLabel}</span>
+        </div>
+
+        <div className="all-tasks-list" aria-live="polite">
+          {sortedTasks.length ? sortedTasks.map((task) => {
+            const category = categories.find((item) => item.id === task.categoryId);
+            const isPast = task.dueDate < todayDateValue;
+            const source = task.googleTaskId ? "Google Tasks" : task.googleEventId ? "Google Calendar" : "Только GENESIS";
+            const sourceClass = task.googleTaskId ? "tasks" : task.googleEventId ? "calendar" : "local";
+            const dependencyNames = task.dependsOnIds
+              .map((dependencyId) => tasks.find((item) => item.id === dependencyId)?.title)
+              .filter((title): title is string => Boolean(title));
+            return (
+              <article className={`all-task-row${task.done ? " done" : ""}${isPast ? " past" : ""}`} key={task.id}>
+                <button type="button" className="task-check" onClick={() => toggleTask(task.id)} aria-label={task.done ? `Вернуть задачу «${task.title}»` : `Завершить задачу «${task.title}»`}>
+                  {task.done ? "✓" : ""}
+                </button>
+                <div className="all-task-body">
+                  <div className="all-task-title-row">
+                    <strong>{task.title}</strong>
+                    <span className="all-task-priority" title="Приоритет">⚑{task.priority}</span>
+                  </div>
+                  <div className="all-task-meta">
+                    <span>{formatGregorian(new Date(`${task.dueDate}T12:00:00`), true)}{task.time ? ` · ${task.time}` : ""}</span>
+                    <span>{task.project || "Без проекта"}</span>
+                    {category ? <span className="all-task-category" style={{ "--project-color": category.color } as CSSProperties}>{category.name}</span> : null}
+                    <span className={`all-task-source source-${sourceClass}`}>{source}</span>
+                  </div>
+                  {task.tags.length ? <div className="task-tags">{task.tags.map((tag) => <i key={tag}>#{tag}</i>)}</div> : null}
+                  {dependencyNames.length ? <div className="task-dependency">↳ после: {dependencyNames.join(", ")}</div> : null}
+                </div>
+                <div className="all-task-actions">
+                  <button
+                    type="button"
+                    className="icon-button"
+                    onClick={() => openTaskEditor(task)}
+                    disabled={isPast}
+                    title={isPast ? "Прошедшие задачи нельзя редактировать" : "Редактировать задачу"}
+                    aria-label={`Редактировать задачу «${task.title}»`}
+                  >✎</button>
+                  <button type="button" className="task-delete" onClick={() => deleteTask(task.id)} aria-label={`Удалить задачу «${task.title}»`}>×</button>
+                </div>
+              </article>
+            );
+          }) : (
+            <div className="task-empty">
+              <span aria-hidden="true">☰</span>
+              <strong>{searchTerms.length || allTasksStatusFilter !== "all" ? "Ничего не найдено" : "Задач пока нет"}</strong>
+              <p>{searchTerms.length || allTasksStatusFilter !== "all" ? "Попробуйте другой запрос или фильтр." : "Добавьте задачу в плане дня, и она появится здесь."}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const renderYear = () => (
     <div className="year-view">
       <header className="year-header">
@@ -1819,17 +1923,18 @@ export function GenesisCalendar() {
           </div>
         </header>
 
-        <div className={`workspace${view === "admin" || view === "stoicheion" ? " workspace-full" : ""}${view === "today" ? " today-workspace" : ""}`} id="main-content">
+        <div className={`workspace${view === "admin" || view === "stoicheion" || view === "all-tasks" ? " workspace-full" : ""}${view === "today" ? " today-workspace" : ""}`} id="main-content">
           <div className="content-column">
             {view === "today" ? renderToday() : null}
             {view === "calendar" ? renderCalendar() : null}
             {view === "projects" ? renderProjects() : null}
             {view === "year" ? renderYear() : null}
+            {view === "all-tasks" ? renderAllTasks() : null}
             {view === "stoicheion" ? <StoicheionView /> : null}
             {view === "admin" && cloudUser?.isAdmin ? <AdminPanel /> : null}
           </div>
 
-          {view !== "admin" && view !== "stoicheion" ? <aside className="planner-panel" aria-labelledby="planner-title">
+          {view !== "admin" && view !== "stoicheion" && view !== "all-tasks" ? <aside className="planner-panel" aria-labelledby="planner-title">
             <div className="planner-date">
               <span className="eyebrow">План дня</span>
               <button type="button" onClick={openSelectedInCalendar}>
