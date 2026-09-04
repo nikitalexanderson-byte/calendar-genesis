@@ -2592,12 +2592,14 @@ button:disabled {
   border-top: 1px solid var(--line);
 }
 
-.task-form label {
+.task-form label,
+.task-form-field {
   display: grid;
   gap: 4px;
 }
 
-.task-form label > span {
+.task-form label > span,
+.task-form-field > span {
   color: #7f8d8a;
   font-size: 7px;
   font-weight: 800;

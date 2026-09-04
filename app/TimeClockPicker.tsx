@@ -57,9 +57,11 @@ export function TimeClockPicker({ id, value, onChange, disabled = false }: {
     }
   };
 
-  const handlePointerDown = (kind: "hour" | "minute") => (event: ReactPointerEvent<SVGGElement>) => {
+  const handlePointerDown = (event: ReactPointerEvent<SVGGElement>) => {
     if (disabled) return;
     event.preventDefault();
+    const kind = event.currentTarget.dataset.clockRing;
+    if (kind !== "hour" && kind !== "minute") return;
     draggingRef.current = kind;
     applyFromAngle(kind, event.clientX, event.clientY);
     (event.target as Element).setPointerCapture?.(event.pointerId);
@@ -117,7 +119,7 @@ export function TimeClockPicker({ id, value, onChange, disabled = false }: {
               <text x={CENTER} y={CENTER + 14} textAnchor="middle" className="time-clock-readout-label">
                 нажмите или потяните
               </text>
-              <g onPointerDown={handlePointerDown("hour")} className="time-clock-ring">
+              <g data-clock-ring="hour" onPointerDown={handlePointerDown} className="time-clock-ring">
                 {Array.from({ length: 24 }, (_, index) => {
                   const point = pointOnCircle(HOUR_RADIUS, index, 24);
                   const active = hour === index;
@@ -131,7 +133,7 @@ export function TimeClockPicker({ id, value, onChange, disabled = false }: {
                   );
                 })}
               </g>
-              <g onPointerDown={handlePointerDown("minute")} className="time-clock-ring">
+              <g data-clock-ring="minute" onPointerDown={handlePointerDown} className="time-clock-ring">
                 {Array.from({ length: 12 }, (_, index) => {
                   const minuteMark = index * 5;
                   const point = pointOnCircle(MINUTE_RADIUS, index, 12);

@@ -2041,10 +2041,10 @@ export function GenesisCalendar() {
                 )}
               </div>
               {tasks.length ? (
-                <label className="task-form-row-full">
+                <div className="task-form-field task-form-row-full">
                   <span>Зависит от</span>
                   <DependencyPicker tasks={tasks} value={taskDependsOn} onChange={setTaskDependsOn} />
-                </label>
+                </div>
               ) : null}
               {taskRecurrence !== "none" ? (
                 <label>
@@ -2184,7 +2184,7 @@ export function GenesisCalendar() {
               <input value={editingTaskTags} onChange={(event) => setEditingTaskTags(event.target.value)} placeholder="работа, дом, ритуал" disabled={Boolean(editingTask.googleTaskId)} />
             </label>
             {tasks.length ? (
-              <label className="task-form-row-full">
+              <div className="task-form-field task-form-row-full">
                 <span>Зависит от</span>
                 <DependencyPicker
                   tasks={tasks}
@@ -2193,7 +2193,7 @@ export function GenesisCalendar() {
                   onChange={(ids) => setEditingTask((current) => current ? { ...current, dependsOnIds: ids } : current)}
                   disabled={Boolean(editingTask.googleTaskId)}
                 />
-              </label>
+              </div>
             ) : null}
             <div className="editor-actions">
               <button type="button" className="text-button" onClick={() => setEditingTask(null)}>Отмена</button>

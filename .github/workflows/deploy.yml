@@ -4,39 +4,81 @@ on:
   push:
     branches: [master]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: genesis-production
+  cancel-in-progress: false
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
-          version: "9"
+          version: "11.19.0"
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "22.13"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Lint
+        run: pnpm lint
+
+      - name: Test
+        run: pnpm test
+
       - name: Build client for Beget
         run: pnpm build:beget
 
-      - name: Deploy client (public_html)
+      # PHP-роутер должен физически лежать в public_html/api. Добавляем его в
+      # единый public artifact, чтобы rsync --delete не создавал окно с 404.
+      - name: Assemble public artifact and deployment metadata
+        env:
+          DEPLOY_COMMIT: ${{ github.sha }}
+          DEPLOY_RUN_ID: ${{ github.run_id }}
+        run: |
+          mkdir -p dist-beget/public_html/api
+          cp -a server/public/api/. dist-beget/public_html/api/
+          DEPLOYED_AT="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          printf '{"commit":"%s","runId":"%s","deployedAt":"%s"}\n' \
+            "$DEPLOY_COMMIT" "$DEPLOY_RUN_ID" "$DEPLOYED_AT" \
+            > dist-beget/public_html/deploy-meta.json
+
+      - name: Install backup helper and back up runtime state
         uses: easingthemes/ssh-deploy@v6
         with:
           SSH_PRIVATE_KEY: ${{ secrets.BEGET_SSH_KEY }}
           REMOTE_HOST: haiirodw.beget.tech
           REMOTE_USER: haiirodw
           REMOTE_PORT: 22
-          SOURCE: "dist-beget/public_html/"
-          TARGET: "/home/h/haiirodw/genesis-calendar/public_html/"
+          SOURCE: "ops/"
+          TARGET: "/home/h/haiirodw/genesis-calendar/ops/"
           ARGS: "-rlztvO --delete"
+          SCRIPT_AFTER: |
+            set -eu
+            ROOT=/home/h/haiirodw/genesis-calendar
+            PHP=/usr/local/php/cgi/8.3/bin/php
+            test -d "$ROOT/public_html"
+            test -d "$ROOT/server"
+            "$PHP" -l "$ROOT/ops/backup-runtime.php" >/dev/null
+            "$PHP" "$ROOT/ops/backup-runtime.php" \
+              --server-root="$ROOT/server" \
+              --backup-root="$ROOT/backups" \
+              --retain=20
+          SCRIPT_AFTER_REQUIRED: true
 
       - name: Deploy server code (excluding secrets and runtime data)
         uses: easingthemes/ssh-deploy@v6
@@ -50,27 +92,41 @@ jobs:
           ARGS: "-rlztvO --delete"
           EXCLUDE: "config.php, config.example.php, var/, .git/"
 
-      - name: Link API into public_html
+      - name: Deploy public artifact (client and API router)
         uses: easingthemes/ssh-deploy@v6
         with:
           SSH_PRIVATE_KEY: ${{ secrets.BEGET_SSH_KEY }}
           REMOTE_HOST: haiirodw.beget.tech
           REMOTE_USER: haiirodw
           REMOTE_PORT: 22
-          SOURCE: "server/public/api/"
-          TARGET: "/home/h/haiirodw/genesis-calendar/public_html/api/"
+          SOURCE: "dist-beget/public_html/"
+          TARGET: "/home/h/haiirodw/genesis-calendar/public_html/"
           ARGS: "-rlztvO --delete"
 
-      - name: Health check
+      - name: Verify production health and deployed commit
+        env:
+          EXPECTED_COMMIT: ${{ github.sha }}
         run: |
-          sleep 5
-          curl -fsS https://genesiscalendar.ru/api/health
+          for attempt in 1 2 3 4 5 6; do
+            if HEALTH="$(curl -fsS "https://genesiscalendar.ru/api/health?run=${GITHUB_RUN_ID}")" && \
+               META="$(curl -fsS "https://genesiscalendar.ru/deploy-meta.json?run=${GITHUB_RUN_ID}")"; then
+              break
+            fi
+            if [ "$attempt" -eq 6 ]; then
+              exit 1
+            fi
+            sleep 5
+          done
+          printf '%s' "$HEALTH" | jq -e '.ok == true' >/dev/null
+          ACTUAL_COMMIT="$(printf '%s' "$META" | jq -er '.commit')"
+          test "$ACTUAL_COMMIT" = "$EXPECTED_COMMIT"
+          printf 'Production commit: %s\n' "$ACTUAL_COMMIT"
 
 # Примечания:
 # - server/config.php и server/var/ (SQLite, сессии) никогда не перезаписываются —
 #   исключены явно, плюс на сервере они и так вне git (.gitignore).
-# - Миграции из server/migrations/ сюда сознательно не запускаются автоматически.
-#   Если появилась новая миграция — прогоняем её руками по SSH, чтобы не тронуть
-#   боевую SQLite-базу без присмотра.
+# - Перед выкладкой создаётся согласованная runtime-копия config.php + SQLite;
+#   отслеживаемый код отдельно не копируется, потому что его история хранится в Git.
+# - Миграции из server/migrations/ применяются приложением при первом обращении к БД.
 # - server/cron/sync.php по-прежнему дергается планировщиком Beget (cp.beget.com),
 #   этот workflow его не трогает.
