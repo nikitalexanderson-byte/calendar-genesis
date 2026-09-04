@@ -73,9 +73,18 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /calendar-task-popover/);
   assert.match(calendar, /Редактирование задачи/);
   assert.match(calendar, /Редактирование проекта/);
-  assert.match(calendar, /Поиск по тегам/);
+  assert.match(calendar, /Поиск проектов по тегам/);
   assert.match(calendar, /newTaskDueDate/);
   assert.match(calendar, /renderTaskCreateForm\("all-tasks"\)/);
+  assert.doesNotMatch(calendar, /renderTaskCreateForm\("planner"\)/);
+  assert.doesNotMatch(calendar, /<aside className="planner-panel"/);
+  assert.match(calendar, /id: "projects", label: "Проекты"[\s\S]*id: "all-tasks", label: "Задачи"/);
+  assert.match(calendar, /Несортированное/);
+  assert.match(calendar, /data-project-drop-id=\{project\.id\}/);
+  assert.match(calendar, /projectDragProps/);
+  assert.match(calendar, /beginProjectTouchDrag/);
+  assert.match(calendar, /project-assigned-items/);
+  assert.doesNotMatch(calendar, /matchingTaggedTasks/);
   assert.match(calendar, /Дополнительная информация/);
   assert.match(calendar, /<span>Срок выполнения<\/span>/);
   assert.match(calendar, /newTaskEndDate/);
@@ -128,6 +137,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(styles, /\.year-open-button/);
   assert.match(styles, /\.mini-pyata-days/);
   assert.match(styles, /grid-auto-rows: max-content/);
+  assert.match(styles, /\.project-row\.drop-target/);
+  assert.match(styles, /\.project-drag-preview/);
   assert.match(styles, /\.stoicheion-view/);
   assert.match(styles, /\.month-rail button:last-child/);
   assert.doesNotMatch(styles, /\.mobile-nav button\[data-nav-id="admin"\]\s*\{/);
