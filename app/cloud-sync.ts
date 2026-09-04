@@ -25,6 +25,7 @@ export type GenesisTask = {
   monthIndex: number;
   day: number;
   dueDate: string;
+  endDate: string;
   title: string;
   description: string;
   time: string;
@@ -244,11 +245,13 @@ function normalizeTask(task: Partial<GenesisTask> & Pick<GenesisTask, "id" | "ti
     : task.googleTaskId
       ? "google-tasks"
       : "genesis";
+  const dueDate = typeof task.dueDate === "string" ? task.dueDate : "";
   return {
     sacredYear: 0,
     monthIndex: 0,
     day: 1,
-    dueDate: "",
+    dueDate,
+    endDate: typeof task.endDate === "string" && task.endDate ? task.endDate : dueDate,
     description: "",
     time: "",
     project: "",

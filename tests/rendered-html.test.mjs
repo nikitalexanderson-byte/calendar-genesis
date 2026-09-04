@@ -38,10 +38,11 @@ test("server-renders the GENESIS application shell", async () => {
 });
 
 test("keeps the requested calendar and privacy features wired", async () => {
-  const [calendarData, calendar, cloudSync, stoicheion, stoicheionData, welcome, styles, api, google, repository] = await Promise.all([
+  const [calendarData, calendar, cloudSync, moonPhase, stoicheion, stoicheionData, welcome, styles, api, google, repository] = await Promise.all([
     readFile(new URL("../app/calendar-data.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/cloud-sync.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/MoonPhaseIcon.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/StoicheionView.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/stoicheion-data.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/WelcomeScreen.tsx", import.meta.url), "utf8"),
@@ -76,7 +77,13 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /newTaskDueDate/);
   assert.match(calendar, /renderTaskCreateForm\("all-tasks"\)/);
   assert.match(calendar, /Дополнительная информация/);
-  assert.match(calendar, /<span>Срок<\/span>/);
+  assert.match(calendar, /<span>Срок выполнения<\/span>/);
+  assert.match(calendar, /newTaskEndDate/);
+  assert.match(calendar, /taskRangeLabel/);
+  assert.match(cloudSync, /endDate: string/);
+  assert.match(moonPhase, /MOON_PHASE_STEPS = 30/);
+  assert.match(moonPhase, /moon-phase-light/);
+  assert.match(calendar, /MoonPhaseIcon/);
   assert.match(calendar, /Создано в GENESIS/);
   assert.match(calendar, /Создано в Google Calendar/);
   assert.doesNotMatch(calendar, /disabled=\{isPast\}/);
@@ -120,6 +127,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(styles, /\.year-month::before/);
   assert.match(styles, /\.year-open-button/);
   assert.match(styles, /\.mini-pyata-days/);
+  assert.match(styles, /grid-auto-rows: max-content/);
   assert.match(styles, /\.stoicheion-view/);
   assert.match(styles, /\.month-rail button:last-child/);
   assert.doesNotMatch(styles, /\.mobile-nav button\[data-nav-id="admin"\]\s*\{/);
@@ -146,6 +154,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(google, /— GENESIS —/);
   assert.match(google, /genesisGoogleTasksApi\(\s*'PATCH'/);
   assert.match(google, /genesisClientTimeZone/);
+  assert.match(google, /genesisEndDate/);
+  assert.match(google, /'due' => \$endDate/);
   assert.match(cloudSync, /googleTaskListId/);
   assert.match(cloudSync, /taskListLinks/);
   assert.match(cloudSync, /googleEventId: task\.googleEventId/);

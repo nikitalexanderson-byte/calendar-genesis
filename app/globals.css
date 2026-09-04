@@ -995,10 +995,18 @@ button:disabled {
   box-shadow: 0 0 42px rgba(216, 189, 128, 0.12);
 }
 
-.moon-visual span {
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 42px;
-  line-height: 1;
+.moon-phase-icon {
+  display: block;
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+.moon-phase-shadow { fill: #071012; }
+.moon-phase-light { fill: #f4ead0; }
+.moon-phase-rim { fill: none; stroke: currentColor; stroke-width: 2; }
+
+.moon-visual .moon-phase-icon {
+  filter: drop-shadow(0 0 8px rgba(238, 220, 172, 0.2));
 }
 
 .moon-visual i {
@@ -1407,6 +1415,9 @@ button:disabled {
   color: #7e8d8a;
   font-family: Georgia, "Times New Roman", serif;
   font-size: 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
 }
 
 .calendar-day.selected .calendar-moon {
@@ -2853,6 +2864,7 @@ button:disabled {
   grid-template-columns: minmax(0, 1fr) 260px;
   gap: 14px;
   align-items: start;
+  align-content: start;
 }
 
 .project-tree-panel {
@@ -3017,6 +3029,8 @@ button:disabled {
 .project-side-stack {
   display: grid;
   gap: 12px;
+  align-content: start;
+  grid-auto-rows: max-content;
 }
 
 .task-list-manager,
