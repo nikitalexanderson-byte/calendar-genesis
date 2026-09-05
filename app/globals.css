@@ -6280,3 +6280,159 @@ button.project-drag-handle:active { cursor: grabbing; }
   .projects-header.year-header .year-switcher button { color: #eee6d8; background: rgba(255, 255, 255, .06); border-color: rgba(255, 255, 255, .14); }
   .projects-header.year-header .year-switcher strong { min-width: 68px; color: #e2c886; font-size: 24px; text-align: center; }
 }
+
+/* Day details now open above the calendar instead of below it. */
+.day-details-backdrop {
+  z-index: 650;
+  animation: dayDetailsBackdropIn 160ms ease-out both;
+}
+
+.day-details-modal {
+  position: relative;
+  width: min(920px, 100%);
+  max-height: calc(100dvh - 40px);
+  margin: 0;
+  padding: clamp(28px, 4vw, 42px);
+  overflow-y: auto;
+  background: var(--surface);
+  border-color: rgba(178, 138, 74, .4);
+  border-radius: 7px 32px 7px 32px;
+  box-shadow: 0 40px 100px rgba(0, 0, 0, .38);
+  animation: dayDetailsModalIn 190ms ease-out both;
+}
+
+.day-details-modal .modal-close {
+  z-index: 2;
+  color: var(--ink);
+  background: rgba(255, 253, 248, .88);
+}
+
+@keyframes dayDetailsBackdropIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes dayDetailsModalIn {
+  from { opacity: 0; transform: translateY(12px) scale(.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (max-width: 760px) {
+  .projects-header.year-header {
+    margin-bottom: 18px;
+  }
+
+  .project-draggable-item {
+    touch-action: none;
+  }
+
+  .project-assigned-items {
+    gap: 8px;
+  }
+
+  .inbox-card > p,
+  .project-assigned-items > p {
+    font-size: 10px;
+    line-height: 1.55;
+  }
+
+  .project-drop-heading > span {
+    font-size: 10px;
+  }
+
+  .project-drop-heading > small {
+    font-size: 9.5px;
+    line-height: 1.45;
+  }
+
+  .project-assigned-list,
+  .project-assigned-task,
+  .inbox-card-items > article {
+    min-height: 52px;
+    grid-template-columns: 18px minmax(0, 1fr);
+    gap: 10px;
+    padding: 11px 10px;
+    background: rgba(255, 253, 248, .76);
+    border: 1px solid rgba(33, 56, 56, .11);
+    border-radius: 11px;
+    box-shadow: 0 5px 14px rgba(23, 46, 44, .045);
+  }
+
+  .project-assigned-list,
+  .inbox-card-items > article.inbox-list-item {
+    background: rgba(59, 110, 165, .09);
+    border-color: rgba(59, 110, 165, .16);
+  }
+
+  .project-drag-handle {
+    display: grid;
+    width: 18px;
+    min-height: 30px;
+    place-items: center;
+    font-size: 15px;
+  }
+
+  .project-assigned-list strong,
+  .project-assigned-task strong,
+  .project-assigned-task-open strong,
+  .inbox-card-items button strong,
+  .inbox-card-items > article > span:last-child strong {
+    font-size: 13px;
+    line-height: 1.3;
+    text-overflow: clip;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .project-assigned-list small,
+  .project-assigned-task small,
+  .project-assigned-task-open small,
+  .inbox-card-items button small,
+  .inbox-card-items > article > span:last-child small {
+    font-size: 10px;
+    line-height: 1.45;
+    text-overflow: clip;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .day-details-backdrop {
+    align-items: center;
+    padding: 12px;
+  }
+
+  .day-details-modal {
+    width: 100%;
+    max-height: calc(100dvh - 24px);
+    grid-template-columns: 58px minmax(0, 1fr);
+    gap: 16px;
+    padding: 28px 18px 22px;
+    border-radius: 6px 24px 6px 24px;
+  }
+
+  .day-details-modal .selected-day-symbol {
+    width: 58px;
+    height: 58px;
+    font-size: 29px;
+  }
+
+  .day-details-modal .selected-day-copy {
+    padding-right: 22px;
+  }
+
+  .day-details-modal .selected-day-facts {
+    grid-column: 1 / -1;
+  }
+
+  .day-details-modal .modal-close {
+    top: 12px;
+    right: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .day-details-backdrop,
+  .day-details-modal {
+    animation: none;
+  }
+}

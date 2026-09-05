@@ -86,6 +86,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /Задача «\$\{item\.title\}» возвращена в хаос-бокс/);
   assert.match(calendar, /projectDragProps/);
   assert.match(calendar, /beginProjectTouchDrag/);
+  assert.match(calendar, /className="inbox-list-item project-draggable-item"[\s\S]*projectDragProps\(item\)/);
+  assert.match(calendar, /className=\{`project-assigned-task project-draggable-item/);
   assert.match(calendar, /project-assigned-items/);
   assert.doesNotMatch(calendar, /matchingTaggedTasks/);
   assert.match(calendar, /Дополнительная информация/);
@@ -118,7 +120,10 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /Солнечный круг, услышанный через Луну/);
   assert.match(calendar, /<em>\{weekday\}<\/em>/);
   assert.match(calendar, /label: "Месяц"/);
-  assert.match(calendar, /Ближайшие дни/);
+  assert.doesNotMatch(calendar, /Ближайшие дни/);
+  assert.match(calendar, /dayDetailsOpen/);
+  assert.match(calendar, /day-details-modal/);
+  assert.match(calendar, /onPointerDown=\{\(event\) => \{ if \(event\.target === event\.currentTarget\) setDayDetailsOpen\(false\)/);
   assert.match(calendar, /window\.history\.pushState/);
   assert.match(calendar, /mini-day-task-count/);
   assert.match(calendar, /data-nav-id=\{item\.id\}/);
@@ -159,6 +164,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(styles, /\.project-tree-workspace/);
   assert.match(styles, /\.inbox-card\.drop-target/);
   assert.match(styles, /\.project-drag-preview/);
+  assert.match(styles, /\.project-draggable-item\s*\{[\s\S]*touch-action: none/);
+  assert.match(styles, /\.day-details-modal/);
   assert.match(styles, /\.stoicheion-view/);
   assert.match(styles, /\.month-rail button:last-child/);
   assert.doesNotMatch(styles, /\.mobile-nav button\[data-nav-id="admin"\]\s*\{/);
