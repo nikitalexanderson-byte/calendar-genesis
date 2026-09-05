@@ -81,6 +81,14 @@ type ProjectDragItem = {
   title: string;
 };
 
+type ProjectTouchDrag = {
+  item: ProjectDragItem;
+  startX: number;
+  startY: number;
+  active: boolean;
+  timer: number;
+};
+
 type TaskListDraft = {
   id: string;
   title: string;
@@ -413,6 +421,7 @@ export function GenesisCalendar() {
   const [sacredYear, setSacredYear] = useState(initial.sacredYear);
   const [monthIndex, setMonthIndex] = useState(initial.monthIndex);
   const [selectedDay, setSelectedDay] = useState(initial.day);
+  const [dayDetailsOpen, setDayDetailsOpen] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<GenesisProject[]>([]);
   const [categories, setCategories] = useState<GenesisCategory[]>(DEFAULT_CATEGORIES);
@@ -473,13 +482,7 @@ export function GenesisCalendar() {
   const projectsRef = useRef<GenesisProject[]>([]);
   const categoriesRef = useRef<GenesisCategory[]>(DEFAULT_CATEGORIES);
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
-  const projectTouchDragRef = useRef<{
-    item: ProjectDragItem;
-    startX: number;
-    startY: number;
-    active: boolean;
-    timer: number;
-  } | null>(null);
+  const projectTouchDragRef = useRef<ProjectTouchDrag | null>(null);
   const projectPointerDragRef = useRef<{
     item: ProjectDragItem;
     pointerId: number;
@@ -599,6 +602,20 @@ export function GenesisCalendar() {
       window.removeEventListener("keydown", closeWithEscape);
     };
   }, [accountMenuOpen]);
+
+  useEffect(() => {
+    if (!dayDetailsOpen) return;
+    const closeWithEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setDayDetailsOpen(false);
+    };
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", closeWithEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeWithEscape);
+    };
+  }, [dayDetailsOpen]);
 
   useEffect(() => {
     const initialState = isGoogleSyncConfigured
@@ -1300,10 +1317,10 @@ export function GenesisCalendar() {
       if (projectTouchDragRef.current !== drag) return;
       drag.active = true;
       document.documentElement.classList.add("project-drag-active");
-      setProjectDragItem(item);
+      setProjectDragItem(drag.item);
       setProjectTouchPoint({ x: drag.startX, y: drag.startY });
       setProjectDropTargetId(projectDropTargetAt(drag.startX, drag.startY));
-    }, 420);
+    }, 180);
     projectTouchDragRef.current = drag;
   };
 
@@ -1311,13 +1328,13 @@ export function GenesisCalendar() {
     const drag = projectTouchDragRef.current;
     const touch = event.touches[0];
     if (!drag || !touch) return;
-    if (!drag.active) {
-      if (Math.hypot(touch.clientX - drag.startX, touch.clientY - drag.startY) > 10) {
-        window.clearTimeout(drag.timer);
-        projectTouchDragRef.current = null;
-      }
-      return;
+    if (!drag.active && Math.hypot(touch.clientX - drag.startX, touch.clientY - drag.startY) > 6) {
+      window.clearTimeout(drag.timer);
+      drag.active = true;
+      document.documentElement.classList.add("project-drag-active");
+      setProjectDragItem(drag.item);
     }
+    if (!drag.active) return;
     event.preventDefault();
     if (touch.clientY < 88) window.scrollBy({ top: -16, behavior: "auto" });
     if (touch.clientY > window.innerHeight - 88) window.scrollBy({ top: 16, behavior: "auto" });
@@ -1569,6 +1586,7 @@ export function GenesisCalendar() {
   };
 
   const openSelectedInCalendar = () => {
+    setDayDetailsOpen(true);
     navigateTo("calendar");
   };
 
@@ -1872,13 +1890,6 @@ export function GenesisCalendar() {
     const solarEvent = getSolarEvent(info.sacredYear, info.monthIndex, info.day);
     const solarCopy = solarEvent ? SOLAR_EVENT_COPY[solarEvent.id] : null;
     const isNewMoonDay = moon.event.toLocaleLowerCase("ru-RU").includes("новолуние");
-    const nearbyDays = Array.from({ length: 5 }, (_, index) => {
-      const offset = index - 2;
-      const date = new Date(gregorian);
-      date.setDate(date.getDate() + offset);
-      const sacred = getSacredDate(date);
-      return { date, sacred, active: offset === 0 };
-    });
 
     return (
       <div className="today-view">
@@ -1993,39 +2004,6 @@ export function GenesisCalendar() {
           </section>
         </div>
 
-        <section className="five-day-strip" aria-labelledby="five-days-title">
-          <div className="section-heading strip-heading">
-            <div>
-              <span className="eyebrow">Навигация</span>
-              <h2 id="five-days-title">Ближайшие дни</h2>
-            </div>
-            <button type="button" className="text-button" onClick={() => navigateTo("calendar")}>Весь месяц →</button>
-          </div>
-          <div className="strip-days">
-            {nearbyDays.map(({ date, sacred, active }) => {
-              const nearbyMonth = MONTHS[sacred.monthIndex];
-              const nearbyDay = getSacredDay(sacred.monthIndex, sacred.day);
-              return (
-                <button
-                  type="button"
-                  key={date.toISOString()}
-                  className={`strip-day${active ? " active" : ""}`}
-                  onClick={() => {
-                    setSacredYear(sacred.sacredYear);
-                    setMonthIndex(sacred.monthIndex);
-                    setSelectedDay(sacred.day);
-                    navigateTo("calendar");
-                  }}
-                  aria-label={`${formatGregorian(date, true)} — ${nearbyDay.name}`}
-                >
-                  <span>{new Intl.DateTimeFormat("ru-RU", { weekday: "short" }).format(date)}</span>
-                  <strong>{romanDay(sacred.monthIndex, sacred.day)}</strong>
-                  <small>{nearbyMonth.name}</small>
-                </button>
-              );
-            })}
-          </div>
-        </section>
       </div>
     );
   };
@@ -2096,6 +2074,7 @@ export function GenesisCalendar() {
                           onClick={() => {
                             setSelectedDay(dayNumber);
                             setOpenDayTaskPopover("");
+                            setDayDetailsOpen(true);
                           }}
                           aria-pressed={isSelected}
                           aria-label={`${formatGregorian(gregorian, true)} — ${sacredDay.name}${solarEvent ? ` — ${solarEvent.name}` : ""}${taskCount ? ` — ${taskCount} задач` : ""}`}
@@ -2158,21 +2137,6 @@ export function GenesisCalendar() {
           })}
         </section>
 
-        <section className={`selected-day-card${selectedSolarEvent ? " solar-selected-day" : ""}`} aria-labelledby="selected-day-title">
-          <div className="selected-day-symbol" aria-hidden="true">{selectedSolarEvent?.symbol ?? selectedElement.symbol}</div>
-          <div className="selected-day-copy">
-            <span className="eyebrow">{formatGregorian(selectedDate, true)} · {selectedMoon.epithet}</span>
-            <h2 id="selected-day-title">{selectedSacredDay.name}</h2>
-            <p>{selectedSacredDay.description}</p>
-            {selectedSolarEvent ? <strong className="selected-solar-event">{selectedSolarEvent.name} · День Солнца</strong> : null}
-          </div>
-          <dl className="selected-day-facts">
-            {selectedSolarEvent ? <div className="solar-fact"><dt>Солнечная точка</dt><dd>{selectedSolarEvent.name}</dd></div> : null}
-            <div><dt>Стихия</dt><dd>{selectedElement.name}</dd></div>
-            <div><dt>Пята</dt><dd>{selectedSacredDay.pyataTitle || "Апейрон"}</dd></div>
-            <div><dt>Число</dt><dd>{selectedPythagorean?.name || "Безграничное"}</dd></div>
-          </dl>
-        </section>
       </div>
     );
   };
@@ -2263,15 +2227,15 @@ export function GenesisCalendar() {
               >
                 <span className="eyebrow">Несортированное · зона возврата</span>
                 <h2 id="project-inbox-title">Хаос-бокс</h2>
-                <p>{projectDragItem ? "Отпустите здесь, чтобы убрать элемент из проекта." : "Зажмите задачу или список пальцем и тяните вниз в нужный проект. Сюда же можно вернуть любой элемент."}</p>
+                <p>{projectDragItem ? "Отпустите здесь, чтобы убрать элемент из проекта." : "Возьмите пальцем любую плашку задачи или списка и перенесите в нужный проект. Обратно в хаос-бокс она переносится так же."}</p>
                 <strong>{inboxTasks.length + inboxTaskLists.length}</strong>
                 <div className="inbox-card-items">
                   {inboxTaskLists.map((taskList) => {
                     const item: ProjectDragItem = { kind: "task-list", id: taskList.id, title: taskList.title };
                     const taskCount = tasks.filter((task) => task.googleTaskListId === taskList.id).length;
                     return (
-                      <article className="inbox-list-item" key={taskList.id}>
-                        <button type="button" className="project-drag-handle project-draggable-item" aria-label={`Перетащить список «${taskList.title}»`} {...projectDragProps(item)}>⋮⋮</button>
+                      <article className="inbox-list-item project-draggable-item" key={taskList.id} aria-label={`Перетащить список «${taskList.title}»`} {...projectDragProps(item)}>
+                        <span className="project-drag-handle" aria-hidden="true">⋮⋮</span>
                         <span><strong>{taskList.title}</strong><small>Список · {taskCount} задач</small></span>
                       </article>
                     );
@@ -2279,8 +2243,8 @@ export function GenesisCalendar() {
                   {inboxTasks.map((task) => {
                     const item: ProjectDragItem = { kind: "task", id: task.id, title: task.title };
                     return (
-                      <article className={task.done ? "done" : ""} key={task.id}>
-                        <button type="button" className="project-drag-handle project-draggable-item" aria-label={`Перетащить задачу «${task.title}»`} {...projectDragProps(item)}>⋮⋮</button>
+                      <article className={`project-draggable-item${task.done ? " done" : ""}`} key={task.id} aria-label={`Перетащить задачу «${task.title}»`} {...projectDragProps(item)}>
+                        <span className="project-drag-handle" aria-hidden="true">⋮⋮</span>
                         <button type="button" onClick={() => {
                           if (!suppressProjectItemClickRef.current) openTaskEditor(task);
                         }}>
@@ -2327,15 +2291,15 @@ export function GenesisCalendar() {
                     <div className="project-drop-field">
                       <div className="project-drop-heading">
                         <span>Пространство проекта</span>
-                        <small>{projectDragItem ? "Отпустите здесь" : "Перетащите сюда задачу или список"}</small>
+                        <small>{projectDragItem ? "Отпустите здесь" : "Перетаскивайте за всю плашку"}</small>
                       </div>
                       <div className="project-assigned-items">
                         {projectTaskLists.map((taskList) => {
                           const item: ProjectDragItem = { kind: "task-list", id: taskList.id, title: taskList.title };
                           const taskCount = tasks.filter((task) => task.googleTaskListId === taskList.id).length;
                           return (
-                            <div className="project-assigned-list" key={taskList.id}>
-                              <button type="button" className="project-drag-handle project-draggable-item" aria-label={`Перетащить список «${taskList.title}»`} {...projectDragProps(item)}>⋮⋮</button>
+                            <div className="project-assigned-list project-draggable-item" key={taskList.id} aria-label={`Перетащить список «${taskList.title}»`} {...projectDragProps(item)}>
+                              <span className="project-drag-handle" aria-hidden="true">⋮⋮</span>
                               <span><strong>{taskList.title}</strong><small>Список · {taskCount} задач</small></span>
                             </div>
                           );
@@ -2344,10 +2308,12 @@ export function GenesisCalendar() {
                           const item: ProjectDragItem = { kind: "task", id: task.id, title: task.title };
                           return (
                             <article
-                              className={`project-assigned-task${task.done ? " done" : ""}`}
+                              className={`project-assigned-task project-draggable-item${task.done ? " done" : ""}`}
                               key={task.id}
+                              aria-label={`Перетащить задачу «${task.title}»`}
+                              {...projectDragProps(item)}
                             >
-                              <button type="button" className="project-drag-handle project-draggable-item" aria-label={`Перетащить задачу «${task.title}»`} {...projectDragProps(item)}>⋮⋮</button>
+                              <span className="project-drag-handle" aria-hidden="true">⋮⋮</span>
                               <button type="button" className="project-assigned-task-open" onClick={() => {
                                 if (!suppressProjectItemClickRef.current) openTaskEditor(task);
                               }}><strong>{task.title}</strong><small>{taskRangeLabel(task)}</small></button>
@@ -2590,6 +2556,7 @@ export function GenesisCalendar() {
               onClick={() => {
                 setMonthIndex(event.monthIndex);
                 setSelectedDay(event.day);
+                setDayDetailsOpen(true);
                 navigateTo("calendar");
               }}
             >
@@ -2620,6 +2587,7 @@ export function GenesisCalendar() {
           const openDay = (day: number) => {
             setMonthIndex(month.index);
             setSelectedDay(day);
+            setDayDetailsOpen(true);
             navigateTo("calendar");
           };
           return (
@@ -2920,6 +2888,26 @@ export function GenesisCalendar() {
           </button>
         ))}
       </nav>
+      {dayDetailsOpen ? (
+        <div className="modal-backdrop day-details-backdrop" role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) setDayDetailsOpen(false); }}>
+          <section className={`selected-day-card day-details-modal${selectedSolarEvent ? " solar-selected-day" : ""}`} role="dialog" aria-modal="true" aria-labelledby="selected-day-title" aria-describedby="selected-day-description">
+            <button type="button" className="modal-close" onClick={() => setDayDetailsOpen(false)} aria-label="Закрыть сведения о дне">×</button>
+            <div className="selected-day-symbol" aria-hidden="true">{selectedSolarEvent?.symbol ?? selectedElement.symbol}</div>
+            <div className="selected-day-copy">
+              <span className="eyebrow">{formatGregorian(selectedDate, true)} · {selectedMoon.epithet}</span>
+              <h2 id="selected-day-title">{selectedSacredDay.name}</h2>
+              <p id="selected-day-description">{selectedSacredDay.description}</p>
+              {selectedSolarEvent ? <strong className="selected-solar-event">{selectedSolarEvent.name} · День Солнца</strong> : null}
+            </div>
+            <dl className="selected-day-facts">
+              {selectedSolarEvent ? <div className="solar-fact"><dt>Солнечная точка</dt><dd>{selectedSolarEvent.name}</dd></div> : null}
+              <div><dt>Стихия</dt><dd>{selectedElement.name}</dd></div>
+              <div><dt>Пята</dt><dd>{selectedSacredDay.pyataTitle || "Апейрон"}</dd></div>
+              <div><dt>Число</dt><dd>{selectedPythagorean?.name || "Безграничное"}</dd></div>
+            </dl>
+          </section>
+        </div>
+      ) : null}
       {editingTask ? (
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditingTask(null); }}>
           <form className="editor-modal" role="dialog" aria-modal="true" aria-labelledby="task-editor-title" onSubmit={saveTaskEdit}>
