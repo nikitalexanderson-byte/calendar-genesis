@@ -5,8 +5,8 @@
   --ink-soft: #526263;
   --night: #07171b;
   --night-2: #0d2629;
-  --paper: #eee9dc;
-  --paper-deep: #e3dccb;
+  --paper: #e1d9c8;
+  --paper-deep: #d5cab4;
   --surface: #f8f5ed;
   --white: #fffdf8;
   --line: rgba(33, 56, 56, 0.13);
@@ -6484,7 +6484,7 @@ button.project-drag-handle:active { cursor: grabbing; }
   margin-top: 16px;
 }
 
-.calendar-solar-control button {
+.calendar-solar-control > div {
   display: inline-flex;
   min-height: 38px;
   align-items: center;
@@ -6496,15 +6496,9 @@ button.project-drag-handle:active { cursor: grabbing; }
   background: rgba(255, 255, 255, .06);
   border: 1px solid rgba(216, 189, 128, .22);
   border-radius: 999px;
-  cursor: pointer;
 }
 
-.calendar-solar-control button:disabled {
-  cursor: wait;
-  opacity: .7;
-}
-
-.calendar-solar-control.status-ready button {
+.calendar-solar-control.status-ready > div {
   color: #dce9e4;
   border-color: rgba(143, 186, 170, .28);
 }
@@ -6580,7 +6574,7 @@ button.project-drag-handle:active { cursor: grabbing; }
     margin-top: 13px;
   }
 
-  .calendar-solar-control button {
+  .calendar-solar-control > div {
     width: 100%;
     justify-content: center;
     text-align: center;
@@ -6604,7 +6598,7 @@ button.project-drag-handle:active { cursor: grabbing; }
 
   .calendar-moon {
     right: 7px;
-    bottom: 8px;
+    bottom: 30px;
   }
 
   .day-details-actions .primary-button {

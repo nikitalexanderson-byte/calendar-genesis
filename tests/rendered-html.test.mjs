@@ -136,8 +136,13 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /task-form-section task-form-destination/);
   assert.match(calendar, /task-form-section task-form-settings/);
   assert.match(calendar, /calendar-sun-times/);
-  assert.match(calendar, /requestDeviceLocation/);
+  assert.doesNotMatch(calendar, /navigator\.geolocation/);
+  assert.doesNotMatch(calendar, /requestDeviceLocation/);
+  assert.match(calendar, /getApproximateNetworkLocation/);
+  assert.match(calendar, /Определяем регион через интернет без запроса геопозиции/);
   assert.match(solarTimes, /getSunriseSunset/);
+  assert.match(solarTimes, /https:\/\/get\.geojs\.io\/v1\/ip\/geo\.json/);
+  assert.match(solarTimes, /getApproximateNetworkLocation/);
   assert.match(solarTimes, /SUNRISE_ALTITUDE/);
   assert.match(solarTimes, /formatDeviceSolarTime/);
   assert.match(stoicheionData, /STOICHEION_SOURCE_COUNT = 24/);
@@ -182,6 +187,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(styles, /\.today-create-options:has\(> details\[open\]\)/);
   assert.match(styles, /\.task-form-section/);
   assert.match(styles, /\.calendar-sun-times/);
+  assert.match(styles, /--paper: #e1d9c8/);
+  assert.match(styles, /\.calendar-solar-control > div/);
   assert.match(styles, /\.stoicheion-view/);
   assert.match(styles, /\.month-rail button:last-child/);
   assert.doesNotMatch(styles, /\.mobile-nav button\[data-nav-id="admin"\]\s*\{/);
