@@ -5,7 +5,6 @@ import {
   type FormEvent,
   type PointerEvent,
   type TouchEvent,
-  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -58,6 +57,7 @@ import {
 import {
   type DeviceLocation,
   formatDeviceSolarTime,
+  getApproximateNetworkLocation,
   getSunriseSunset,
 } from "./solar-times";
 import { usePwaInstall } from "./use-pwa-install";
@@ -102,7 +102,7 @@ type TaskListDraft = {
 };
 
 type DayDetailsOrigin = "calendar" | "year";
-type SolarLocationStatus = "idle" | "loading" | "ready" | "unavailable";
+type SolarLocationStatus = "loading" | "ready" | "unavailable";
 
 const LEGACY_STORAGE_KEY = "genesis-calendar-v1";
 const USER_STORAGE_PREFIX = "genesis-calendar-v2:";
@@ -433,7 +433,7 @@ export function GenesisCalendar() {
   const [dayDetailsOpen, setDayDetailsOpen] = useState(false);
   const [dayDetailsOrigin, setDayDetailsOrigin] = useState<DayDetailsOrigin>("calendar");
   const [deviceLocation, setDeviceLocation] = useState<DeviceLocation | null>(null);
-  const [solarLocationStatus, setSolarLocationStatus] = useState<SolarLocationStatus>("idle");
+  const [solarLocationStatus, setSolarLocationStatus] = useState<SolarLocationStatus>("loading");
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<GenesisProject[]>([]);
   const [categories, setCategories] = useState<GenesisCategory[]>(DEFAULT_CATEGORIES);
@@ -505,23 +505,38 @@ export function GenesisCalendar() {
   const suppressProjectItemClickRef = useRef(false);
   const { canInstall, install, isStandalone } = usePwaInstall();
 
-  const requestDeviceLocation = useCallback(() => {
-    if (!navigator.geolocation) {
-      setSolarLocationStatus("unavailable");
-      return;
-    }
-    setSolarLocationStatus("loading");
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) => {
-        setDeviceLocation({ latitude: coords.latitude, longitude: coords.longitude });
+  const deviceTimeZone = useMemo(
+    () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+    [],
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let retryTimer = 0;
+
+    const synchronizeSolarLocation = async (attempt: number) => {
+      try {
+        const location = await getApproximateNetworkLocation(controller.signal);
+        setDeviceLocation(location);
         setSolarLocationStatus("ready");
-      },
-      () => {
+      } catch {
+        if (controller.signal.aborted) return;
+        if (attempt < 2) {
+          retryTimer = window.setTimeout(() => {
+            void synchronizeSolarLocation(attempt + 1);
+          }, 1_500 * (attempt + 1));
+          return;
+        }
         setDeviceLocation(null);
         setSolarLocationStatus("unavailable");
-      },
-      { enableHighAccuracy: false, maximumAge: 3_600_000, timeout: 10_000 },
-    );
+      }
+    };
+
+    void synchronizeSolarLocation(0);
+    return () => {
+      controller.abort();
+      window.clearTimeout(retryTimer);
+    };
   }, []);
 
   useEffect(() => () => {
@@ -2051,20 +2066,20 @@ export function GenesisCalendar() {
             <h1>{selectedMonth.name}</h1>
             <p className="calendar-title">{selectedMonth.title}</p>
             <p>{selectedMonth.description}</p>
-            <div className={`calendar-solar-control status-${solarLocationStatus}`}>
-              <button type="button" onClick={requestDeviceLocation} disabled={solarLocationStatus === "loading"}>
+            <div className={`calendar-solar-control status-${solarLocationStatus}`} aria-live="polite">
+              <div>
                 <span aria-hidden="true">☀</span>
-                <span>{solarLocationStatus === "ready"
+                <strong>{solarLocationStatus === "ready"
                   ? "Рассвет и закат · время устройства"
                   : solarLocationStatus === "loading"
-                  ? "Определяем геопозицию…"
-                  : solarLocationStatus === "unavailable"
-                  ? "Повторить определение рассвета и заката"
-                  : "Показать время рассвета и заката"}</span>
-              </button>
+                  ? "Синхронизируем рассвет и закат…"
+                  : "Рассвет и закат временно недоступны"}</strong>
+              </div>
               <small>{solarLocationStatus === "ready"
-                ? "Координаты используются только для локального расчёта"
-                : "Нужно разрешение на геопозицию; данные никуда не отправляются"}</small>
+                ? `Местоположение приблизительно определено по сети · ${deviceTimeZone}`
+                : solarLocationStatus === "loading"
+                ? "Определяем регион через интернет без запроса геопозиции"
+                : "Не удалось связаться с сервисом определения региона"}</small>
             </div>
           </div>
           <div className="month-switcher" aria-label="Переключение месяцев">
@@ -2103,8 +2118,8 @@ export function GenesisCalendar() {
                       : solarLocationStatus === "ready"
                       ? "нет"
                       : "—:—";
-                    const sunrise = sunriseSunset ? formatDeviceSolarTime(sunriseSunset.sunrise) : solarTimePlaceholder;
-                    const sunset = sunriseSunset ? formatDeviceSolarTime(sunriseSunset.sunset) : solarTimePlaceholder;
+                    const sunrise = sunriseSunset ? formatDeviceSolarTime(sunriseSunset.sunrise, deviceTimeZone) : solarTimePlaceholder;
+                    const sunset = sunriseSunset ? formatDeviceSolarTime(sunriseSunset.sunset, deviceTimeZone) : solarTimePlaceholder;
                     const popoverOpen = openDayTaskPopover === key;
                     const popoverAlignment = dayColumn < 2 ? "align-left" : dayColumn > 2 ? "align-right" : "align-center";
                     return (
@@ -2135,7 +2150,9 @@ export function GenesisCalendar() {
                             ? "Рассвет и закат по времени устройства"
                             : solarLocationStatus === "ready"
                             ? "В этот день солнце не пересекает линию горизонта"
-                            : "Разрешите геопозицию для расчёта рассвета и заката"}
+                            : solarLocationStatus === "loading"
+                            ? "Синхронизируем время рассвета и заката через интернет"
+                            : "Время рассвета и заката временно недоступно"}
                         >
                           <span><i aria-hidden="true">↗</i>{sunrise}</span>
                           <span><i aria-hidden="true">↘</i>{sunset}</span>

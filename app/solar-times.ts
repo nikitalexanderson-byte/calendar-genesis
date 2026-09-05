@@ -4,6 +4,7 @@ const JULIAN_2000 = 2_451_545;
 const SOLAR_TRANSIT_OFFSET = 0.0009;
 const OBLIQUITY = 23.4397 * Math.PI / 180;
 const SUNRISE_ALTITUDE = -0.833 * Math.PI / 180;
+const NETWORK_LOCATION_ENDPOINT = "https://get.geojs.io/v1/ip/geo.json";
 
 export type DeviceLocation = {
   latitude: number;
@@ -14,6 +15,36 @@ export type SunriseSunset = {
   sunrise: Date;
   sunset: Date;
 };
+
+type NetworkLocationResponse = {
+  latitude?: string | number;
+  longitude?: string | number;
+};
+
+export async function getApproximateNetworkLocation(signal?: AbortSignal): Promise<DeviceLocation> {
+  const response = await fetch(NETWORK_LOCATION_ENDPOINT, {
+    cache: "no-store",
+    headers: { Accept: "application/json" },
+    signal,
+  });
+  if (!response.ok) throw new Error(`Network location request failed: ${response.status}`);
+
+  const data = await response.json() as NetworkLocationResponse;
+  const latitude = Number(data.latitude);
+  const longitude = Number(data.longitude);
+  if (
+    !Number.isFinite(latitude)
+    || !Number.isFinite(longitude)
+    || latitude < -90
+    || latitude > 90
+    || longitude < -180
+    || longitude > 180
+  ) {
+    throw new Error("Network location response is invalid");
+  }
+
+  return { latitude, longitude };
+}
 
 function toJulian(date: Date) {
   return date.valueOf() / DAY_MS - 0.5 + JULIAN_UNIX_EPOCH;
@@ -71,9 +102,10 @@ export function getSunriseSunset(date: Date, location: DeviceLocation): SunriseS
   };
 }
 
-export function formatDeviceSolarTime(date: Date) {
+export function formatDeviceSolarTime(date: Date, timeZone?: string) {
   return new Intl.DateTimeFormat("ru-RU", {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone,
   }).format(date);
 }
