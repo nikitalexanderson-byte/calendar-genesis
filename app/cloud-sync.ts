@@ -1,3 +1,5 @@
+import type { RecurrenceMode, RecurrencePattern } from "./task-recurrence";
+
 export type RecurrenceKind =
   | "none"
   | "daily"
@@ -40,6 +42,10 @@ export type GenesisTask = {
   reminderMinutes: number | null;
   recurrence: RecurrenceKind;
   recurrenceInterval: number;
+  recurrenceMode: RecurrenceMode;
+  recurrencePattern: RecurrencePattern;
+  recurrenceDays: number[];
+  recurrenceSeriesId: string | null;
   syncToGoogle: boolean;
   createdIn: TaskOrigin;
   googleEventId: string | null;
@@ -246,6 +252,15 @@ function normalizeTask(task: Partial<GenesisTask> & Pick<GenesisTask, "id" | "ti
       ? "google-tasks"
       : "genesis";
   const dueDate = typeof task.dueDate === "string" ? task.dueDate : "";
+  const recurrenceMode: RecurrenceMode = ["none", "genesis", "classic", "lunar"].includes(task.recurrenceMode ?? "")
+    ? task.recurrenceMode as RecurrenceMode
+    : task.recurrence && task.recurrence !== "none" ? "classic" : "none";
+  const recurrencePattern: RecurrencePattern = ["none", "pyata-days", "month-days", "weekdays", "lunar-days"].includes(task.recurrencePattern ?? "")
+    ? task.recurrencePattern as RecurrencePattern
+    : recurrenceMode === "classic" ? "weekdays" : recurrenceMode === "lunar" ? "lunar-days" : recurrenceMode === "genesis" ? "pyata-days" : "none";
+  const recurrenceDays = Array.isArray(task.recurrenceDays)
+    ? Array.from(new Set(task.recurrenceDays.map(Number).filter((day) => Number.isInteger(day) && day >= 1 && day <= 30))).sort((left, right) => left - right)
+    : [];
   return {
     sacredYear: 0,
     monthIndex: 0,
@@ -265,6 +280,10 @@ function normalizeTask(task: Partial<GenesisTask> & Pick<GenesisTask, "id" | "ti
     reminderMinutes: null,
     recurrence: "none",
     recurrenceInterval: 1,
+    recurrenceMode: "none",
+    recurrencePattern: "none",
+    recurrenceDays: [],
+    recurrenceSeriesId: null,
     syncToGoogle: true,
     googleEventId: null,
     googleTaskId: null,
@@ -273,6 +292,10 @@ function normalizeTask(task: Partial<GenesisTask> & Pick<GenesisTask, "id" | "ti
     updatedAt: Date.now(),
     ...task,
     createdIn,
+    recurrenceMode,
+    recurrencePattern,
+    recurrenceDays,
+    recurrenceSeriesId: typeof task.recurrenceSeriesId === "string" && task.recurrenceSeriesId ? task.recurrenceSeriesId : null,
     googleTaskListTitle: typeof task.googleTaskListTitle === "string" ? task.googleTaskListTitle : "",
   };
 }

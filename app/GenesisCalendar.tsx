@@ -39,6 +39,7 @@ import { currentLegalPage, LegalPage } from "./LegalPage";
 import { StoicheionView } from "./StoicheionView";
 import { TimeClockPicker } from "./TimeClockPicker";
 import { MoonPhaseIcon } from "./MoonPhaseIcon";
+import { RecurrenceBuilder } from "./RecurrenceBuilder";
 import { WelcomeScreen } from "./WelcomeScreen";
 import {
   MONTHS,
@@ -62,6 +63,14 @@ import {
   getSunriseSunset,
 } from "./solar-times";
 import { usePwaInstall } from "./use-pwa-install";
+import {
+  buildRecurrenceDates,
+  DEFAULT_RECURRENCE_CONFIG,
+  normalizeRecurrenceConfig,
+  type RecurrenceConfig,
+  type RecurrenceMode,
+  type RecurrencePattern,
+} from "./task-recurrence";
 
 type ViewName = "today" | "calendar" | "projects" | "year" | "all-tasks" | "stoicheion" | "admin";
 
@@ -163,6 +172,12 @@ function readStoredState(key: string): StoredState {
         const legacyMonth = legacy.monthIndex ?? 0;
         const legacyDay = legacy.day ?? 1;
         const dueDate = legacy.dueDate || inputDate(getGregorianDate(legacyYear, legacyMonth, legacyDay));
+        const recurrenceMode: RecurrenceMode = ["none", "genesis", "classic", "lunar"].includes(legacy.recurrenceMode ?? "")
+          ? legacy.recurrenceMode as RecurrenceMode
+          : legacy.recurrence && legacy.recurrence !== "none" ? "classic" : "none";
+        const recurrencePattern: RecurrencePattern = ["none", "pyata-days", "month-days", "weekdays", "lunar-days"].includes(legacy.recurrencePattern ?? "")
+          ? legacy.recurrencePattern as RecurrencePattern
+          : recurrenceMode === "classic" ? "weekdays" : recurrenceMode === "lunar" ? "lunar-days" : recurrenceMode === "genesis" ? "pyata-days" : "none";
         return {
           id: legacy.id ?? uid(),
           sacredYear: legacyYear,
@@ -184,7 +199,11 @@ function readStoredState(key: string): StoredState {
           reminderMinutes: legacy.reminderMinutes ?? null,
           recurrence: legacy.recurrence ?? "none",
           recurrenceInterval: legacy.recurrenceInterval ?? 1,
-          syncToGoogle: true,
+          recurrenceMode,
+          recurrencePattern,
+          recurrenceDays: Array.isArray(legacy.recurrenceDays) ? legacy.recurrenceDays.map(Number).filter((day) => Number.isInteger(day) && day >= 1 && day <= 30) : [],
+          recurrenceSeriesId: typeof legacy.recurrenceSeriesId === "string" && legacy.recurrenceSeriesId ? legacy.recurrenceSeriesId : null,
+          syncToGoogle: legacy.syncToGoogle ?? true,
           createdIn: legacy.createdIn ?? (legacy.googleTaskId
             ? "google-tasks"
             : legacy.id?.startsWith("google-event-")
@@ -374,6 +393,46 @@ function shiftRangeEndDate(startDate: string, endDate: string, nextStartDate: st
   return inputDate(nextEnd);
 }
 
+function buildTaskSeries(task: Task, rawConfig: RecurrenceConfig) {
+  const config = normalizeRecurrenceConfig(rawConfig);
+  if (!config.enabled) {
+    return [{
+      ...task,
+      recurrence: "none" as const,
+      recurrenceInterval: 1,
+      recurrenceMode: "none" as const,
+      recurrencePattern: "none" as const,
+      recurrenceDays: [],
+      recurrenceSeriesId: null,
+    }];
+  }
+
+  const dates = buildRecurrenceDates(task.dueDate, config);
+  const seriesId = `series-${uid()}`;
+  return dates.map((dueDate, index): Task => {
+    const date = new Date(`${dueDate}T12:00:00`);
+    const sacred = getSacredDate(date);
+    return {
+      ...task,
+      id: index === 0 ? task.id : uid(),
+      sacredYear: sacred.sacredYear,
+      monthIndex: sacred.monthIndex,
+      day: sacred.day,
+      dueDate,
+      endDate: shiftRangeEndDate(task.dueDate, task.endDate, dueDate),
+      recurrence: "none",
+      recurrenceInterval: config.interval,
+      recurrenceMode: config.mode,
+      recurrencePattern: config.pattern,
+      recurrenceDays: [...config.days],
+      recurrenceSeriesId: seriesId,
+      googleEventId: null,
+      googleTaskId: null,
+      updatedAt: timestamp() + index,
+    };
+  });
+}
+
 function taskRangeLabel(task: Task) {
   const start = formatGregorian(new Date(`${task.dueDate}T12:00:00`), true);
   const endDate = task.endDate || task.dueDate;
@@ -459,8 +518,7 @@ export function GenesisCalendar() {
   const [taskNewListTitle, setTaskNewListTitle] = useState("");
   const [taskTags, setTaskTags] = useState("");
   const [taskReminder, setTaskReminder] = useState("30");
-  const [taskRecurrence, setTaskRecurrence] = useState<RecurrenceKind>("none");
-  const [taskRecurrenceInterval, setTaskRecurrenceInterval] = useState("1");
+  const [taskRecurrenceConfig, setTaskRecurrenceConfig] = useState<RecurrenceConfig>(DEFAULT_RECURRENCE_CONFIG);
   const [taskDependsOn, setTaskDependsOn] = useState<string[]>([]);
   const [taskPriority, setTaskPriority] = useState("5");
   const [newProjectTitle, setNewProjectTitle] = useState("");
@@ -831,6 +889,25 @@ export function GenesisCalendar() {
       });
   };
 
+  const saveTaskSeries = (series: Task[]) => {
+    if (!cloudUser || !series.length) return;
+    setSyncStatus("syncing");
+    void (async () => {
+      const savedTasks: Task[] = [];
+      const batchSize = 8;
+      for (let index = 0; index < series.length; index += batchSize) {
+        const batch = series.slice(index, index + batchSize);
+        savedTasks.push(...await Promise.all(batch.map((task) => saveCloudTask(cloudUser.uid, task))));
+      }
+      const savedById = new Map(savedTasks.map((task) => [task.id, task]));
+      setTasks((current) => current.map((task) => savedById.has(task.id) ? { ...task, ...savedById.get(task.id)! } : task));
+      setSyncStatus("synced");
+    })().catch((error: Error) => {
+      setSyncError(error.message);
+      setSyncStatus(navigator.onLine ? "error" : "offline");
+    });
+  };
+
   const handleGoogleSignIn = async () => {
     setSyncError("");
     setSyncStatus("syncing");
@@ -915,6 +992,10 @@ export function GenesisCalendar() {
       reminderMinutes: null,
       recurrence: "none",
       recurrenceInterval: 1,
+      recurrenceMode: "none",
+      recurrencePattern: "none",
+      recurrenceDays: [],
+      recurrenceSeriesId: null,
       syncToGoogle: true,
       createdIn: "genesis",
       googleEventId: null,
@@ -1008,8 +1089,12 @@ export function GenesisCalendar() {
       done: false,
       completedAt: null,
       reminderMinutes: taskReminder ? Number(taskReminder) : null,
-      recurrence: taskRecurrence,
-      recurrenceInterval: Math.max(1, Number(taskRecurrenceInterval) || 1),
+      recurrence: "none",
+      recurrenceInterval: taskRecurrenceConfig.enabled ? taskRecurrenceConfig.interval : 1,
+      recurrenceMode: taskRecurrenceConfig.enabled ? taskRecurrenceConfig.mode : "none",
+      recurrencePattern: taskRecurrenceConfig.enabled ? taskRecurrenceConfig.pattern : "none",
+      recurrenceDays: taskRecurrenceConfig.enabled ? [...taskRecurrenceConfig.days] : [],
+      recurrenceSeriesId: null,
       syncToGoogle: true,
       createdIn: "genesis",
       googleEventId: null,
@@ -1020,8 +1105,10 @@ export function GenesisCalendar() {
       updatedAt: timestamp(),
     };
 
-    setTasks((current) => [...current, task]);
-    saveTask(task);
+    const taskSeries = buildTaskSeries(task, taskRecurrenceConfig);
+    setTasks((current) => [...current, ...taskSeries]);
+    if (taskSeries.length === 1) saveTask(taskSeries[0]);
+    else saveTaskSeries(taskSeries);
 
     setTaskTitle("");
     setTaskDescription("");
@@ -1031,6 +1118,7 @@ export function GenesisCalendar() {
     setTaskTags("");
     setTaskDependsOn([]);
     setTaskPriority("5");
+    setTaskRecurrenceConfig(DEFAULT_RECURRENCE_CONFIG);
   };
 
   const openTaskEditor = (task: Task) => {
@@ -1117,6 +1205,10 @@ export function GenesisCalendar() {
       reminderMinutes: null,
       recurrence: "none",
       recurrenceInterval: 1,
+      recurrenceMode: "none",
+      recurrencePattern: "none",
+      recurrenceDays: [],
+      recurrenceSeriesId: null,
       googleTaskListId: taskList.id,
       googleTaskListTitle: taskList.title,
       updatedAt: timestamp(),
@@ -1833,8 +1925,7 @@ export function GenesisCalendar() {
               if (nextTaskListId) {
                 setTaskTime("");
                 setTaskReminder("");
-                setTaskRecurrence("none");
-                setTaskRecurrenceInterval("1");
+                setTaskRecurrenceConfig(DEFAULT_RECURRENCE_CONFIG);
               }
             }}>
               <option value="">Google Calendar</option>
@@ -1849,18 +1940,13 @@ export function GenesisCalendar() {
             <input value={taskNewListTitle} onChange={(event) => setTaskNewListTitle(event.target.value)} placeholder="Например, подготовка события" required />
           </label>
         ) : null}
+        <RecurrenceBuilder
+          value={taskRecurrenceConfig}
+          onChange={setTaskRecurrenceConfig}
+          startDate={newTaskDueDate}
+          disabled={Boolean(taskTaskListId)}
+        />
         <div className="task-form-section task-form-settings" aria-label="Настройки задачи">
-          <label>
-            <span>Повторение</span>
-            <select value={taskRecurrence} onChange={(event) => setTaskRecurrence(event.target.value as RecurrenceKind)} disabled={Boolean(taskTaskListId)}>
-              <option value="none">Не повторять</option>
-              <option value="daily">Каждый день</option>
-              <option value="weekdays">По будням</option>
-              <option value="weekly">Каждую неделю</option>
-              <option value="monthly">Каждый месяц</option>
-              <option value="yearly">Каждый год</option>
-            </select>
-          </label>
           <label>
             <span>Напомнить</span>
             <select value={taskReminder} onChange={(event) => setTaskReminder(event.target.value)} disabled={Boolean(taskTaskListId)}>
@@ -1879,12 +1965,6 @@ export function GenesisCalendar() {
               ))}
             </select>
           </label>
-          {taskRecurrence !== "none" && !taskTaskListId ? (
-            <label>
-              <span>Интервал</span>
-              <input type="number" min="1" max="99" value={taskRecurrenceInterval} onChange={(event) => setTaskRecurrenceInterval(event.target.value)} />
-            </label>
-          ) : null}
           <label>
             <span>Теги</span>
             <input value={taskTags} onChange={(event) => setTaskTags(event.target.value)} placeholder="ритуал, работа, дом" />
@@ -1902,6 +1982,8 @@ export function GenesisCalendar() {
             ? `Сначала будет создан список «${taskNewListTitle.trim() || "без названия"}», затем задача появится внутри него`
             : selectedTaskList
             ? `Срок завершения попадёт в список «${selectedTaskList.title}» Google Tasks, начало сохранится в данных GENESIS`
+            : taskRecurrenceConfig.enabled
+            ? `${taskRecurrenceConfig.mode === "classic" ? "Классическая недельная серия" : taskRecurrenceConfig.mode === "lunar" ? "Лунная серия" : "Серия GENESIS"} будет рассчитана до конца сакрального года и синхронизирована с Google Calendar`
             : "Задача будет синхронизирована с Google Calendar в часовом поясе этого устройства"}</span>
         </div>
         <button type="submit" className="add-task-button" disabled={!taskTitle.trim() || !newTaskDueDate || !newTaskEndDate || dueDateIsPast || rangeIsInvalid || (createsTaskList && !taskNewListTitle.trim())}>
@@ -3083,6 +3165,10 @@ export function GenesisCalendar() {
                     reminderMinutes: nextListId ? null : current.reminderMinutes,
                     recurrence: nextListId ? "none" : current.recurrence,
                     recurrenceInterval: nextListId ? 1 : current.recurrenceInterval,
+                    recurrenceMode: nextListId ? "none" : current.recurrenceMode,
+                    recurrencePattern: nextListId ? "none" : current.recurrencePattern,
+                    recurrenceDays: nextListId ? [] : current.recurrenceDays,
+                    recurrenceSeriesId: nextListId ? null : current.recurrenceSeriesId,
                   } : current);
                 }}>
                   <option value="">Google Calendar</option>
