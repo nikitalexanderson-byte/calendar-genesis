@@ -38,11 +38,12 @@ test("server-renders the GENESIS application shell", async () => {
 });
 
 test("keeps the requested calendar and privacy features wired", async () => {
-  const [calendarData, calendar, cloudSync, moonPhase, stoicheion, stoicheionData, welcome, styles, api, google, repository] = await Promise.all([
+  const [calendarData, calendar, cloudSync, moonPhase, solarTimes, stoicheion, stoicheionData, welcome, styles, api, google, repository] = await Promise.all([
     readFile(new URL("../app/calendar-data.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/cloud-sync.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/MoonPhaseIcon.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/solar-times.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/StoicheionView.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/stoicheion-data.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/WelcomeScreen.tsx", import.meta.url), "utf8"),
@@ -117,16 +118,28 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /Академия Генезис/);
   assert.match(calendar, /t\.me\/genesisbasilea/);
   assert.match(calendar, /donate\.stream\/genesiscalendar/);
-  assert.match(calendar, /Солнечный круг, услышанный через Луну/);
+  assert.match(calendar, /Солнечно-лунный календарь/);
+  assert.doesNotMatch(calendar, /Солнечный круг, услышанный через Луну/);
   assert.match(calendar, /<em>\{weekday\}<\/em>/);
   assert.match(calendar, /label: "Месяц"/);
   assert.doesNotMatch(calendar, /Ближайшие дни/);
   assert.match(calendar, /dayDetailsOpen/);
+  assert.match(calendar, /setDayDetailsOrigin\("year"\);\s*setDayDetailsOpen\(true\);\s*};/);
+  assert.match(calendar, /Открыть месяц «\{selectedMonth\.name\}»/);
+  assert.match(calendar, /const openMonth = \(\) => \{[\s\S]*setDayDetailsOpen\(false\);[\s\S]*navigateTo\("calendar"\);/);
   assert.match(calendar, /day-details-modal/);
   assert.match(calendar, /onPointerDown=\{\(event\) => \{ if \(event\.target === event\.currentTarget\) setDayDetailsOpen\(false\)/);
   assert.match(calendar, /window\.history\.pushState/);
   assert.match(calendar, /mini-day-task-count/);
   assert.match(calendar, /data-nav-id=\{item\.id\}/);
+  assert.match(calendar, /task-form-section task-form-schedule/);
+  assert.match(calendar, /task-form-section task-form-destination/);
+  assert.match(calendar, /task-form-section task-form-settings/);
+  assert.match(calendar, /calendar-sun-times/);
+  assert.match(calendar, /requestDeviceLocation/);
+  assert.match(solarTimes, /getSunriseSunset/);
+  assert.match(solarTimes, /SUNRISE_ALTITUDE/);
+  assert.match(solarTimes, /formatDeviceSolarTime/);
   assert.match(stoicheionData, /STOICHEION_SOURCE_COUNT = 24/);
   assert.match(stoicheionData, /STOICHEION_TOTAL_COUNT = 24/);
   assert.match(stoicheionData, /id: "alpha"/);
@@ -166,6 +179,9 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(styles, /\.project-drag-preview/);
   assert.match(styles, /\.project-draggable-item\s*\{[\s\S]*touch-action: none/);
   assert.match(styles, /\.day-details-modal/);
+  assert.match(styles, /\.today-create-options:has\(> details\[open\]\)/);
+  assert.match(styles, /\.task-form-section/);
+  assert.match(styles, /\.calendar-sun-times/);
   assert.match(styles, /\.stoicheion-view/);
   assert.match(styles, /\.month-rail button:last-child/);
   assert.doesNotMatch(styles, /\.mobile-nav button\[data-nav-id="admin"\]\s*\{/);

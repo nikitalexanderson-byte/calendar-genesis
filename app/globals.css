@@ -6436,3 +6436,179 @@ button.project-drag-handle:active { cursor: grabbing; }
     animation: none;
   }
 }
+
+/* Adaptive task forms, year spacing and device-local solar times. */
+.projects-header.year-header {
+  margin-bottom: 18px;
+}
+
+.today-create-panel {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+
+.today-create-options {
+  width: 100%;
+}
+
+.today-create-options:has(> details[open]) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.all-tasks-create > .task-form {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.task-form-section {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+  gap: 12px;
+  padding: 12px;
+  background: rgba(229, 222, 207, .2);
+  border: 1px solid rgba(33, 56, 56, .08);
+  border-radius: 12px;
+}
+
+.task-form-destination {
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+}
+
+.all-tasks-create > .task-form > .task-form-section {
+  grid-column: 1 / -1;
+}
+
+.calendar-solar-control {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  margin-top: 16px;
+}
+
+.calendar-solar-control button {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  color: #ead7a6;
+  font-size: 9px;
+  font-weight: 800;
+  background: rgba(255, 255, 255, .06);
+  border: 1px solid rgba(216, 189, 128, .22);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.calendar-solar-control button:disabled {
+  cursor: wait;
+  opacity: .7;
+}
+
+.calendar-solar-control.status-ready button {
+  color: #dce9e4;
+  border-color: rgba(143, 186, 170, .28);
+}
+
+.calendar-solar-control small {
+  color: #9eb0ac;
+  font-size: 7px;
+  line-height: 1.4;
+}
+
+.calendar-day {
+  padding-bottom: 41px;
+}
+
+.calendar-sun-times {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  display: grid;
+  gap: 1px;
+  color: #7b8986;
+  font-size: 7.5px;
+  font-weight: 800;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+
+.calendar-sun-times > span {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.calendar-sun-times i {
+  color: #b5852e;
+  font-size: 8px;
+  font-style: normal;
+}
+
+.calendar-day.selected .calendar-sun-times,
+.calendar-day.solar-day.selected .calendar-sun-times {
+  color: #d4dfdc;
+}
+
+.calendar-day.selected .calendar-sun-times i,
+.calendar-day.solar-day.selected .calendar-sun-times i {
+  color: #f1d58d;
+}
+
+.day-details-actions {
+  display: flex;
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+  padding-top: 4px;
+  border-top: 1px solid var(--line);
+}
+
+@media (max-width: 1060px) {
+  .today-create-options {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .task-form-section,
+  .task-form-destination {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 10px;
+  }
+
+  .calendar-solar-control {
+    margin-top: 13px;
+  }
+
+  .calendar-solar-control button {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .calendar-solar-control small {
+    max-width: 290px;
+    font-size: 8px;
+  }
+
+  .calendar-day {
+    min-height: 136px;
+    padding-bottom: 39px;
+  }
+
+  .calendar-sun-times {
+    bottom: 8px;
+    left: 7px;
+    font-size: 7px;
+  }
+
+  .calendar-moon {
+    right: 7px;
+    bottom: 8px;
+  }
+
+  .day-details-actions .primary-button {
+    width: 100%;
+    justify-content: center;
+  }
+}

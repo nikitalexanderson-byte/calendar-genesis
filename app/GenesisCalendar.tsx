@@ -5,6 +5,7 @@ import {
   type FormEvent,
   type PointerEvent,
   type TouchEvent,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -54,6 +55,11 @@ import {
   getSolarEvent,
   getSolarEvents,
 } from "./calendar-data";
+import {
+  type DeviceLocation,
+  formatDeviceSolarTime,
+  getSunriseSunset,
+} from "./solar-times";
 import { usePwaInstall } from "./use-pwa-install";
 
 type ViewName = "today" | "calendar" | "projects" | "year" | "all-tasks" | "stoicheion" | "admin";
@@ -94,6 +100,9 @@ type TaskListDraft = {
   title: string;
   dueDate: string;
 };
+
+type DayDetailsOrigin = "calendar" | "year";
+type SolarLocationStatus = "idle" | "loading" | "ready" | "unavailable";
 
 const LEGACY_STORAGE_KEY = "genesis-calendar-v1";
 const USER_STORAGE_PREFIX = "genesis-calendar-v2:";
@@ -422,6 +431,9 @@ export function GenesisCalendar() {
   const [monthIndex, setMonthIndex] = useState(initial.monthIndex);
   const [selectedDay, setSelectedDay] = useState(initial.day);
   const [dayDetailsOpen, setDayDetailsOpen] = useState(false);
+  const [dayDetailsOrigin, setDayDetailsOrigin] = useState<DayDetailsOrigin>("calendar");
+  const [deviceLocation, setDeviceLocation] = useState<DeviceLocation | null>(null);
+  const [solarLocationStatus, setSolarLocationStatus] = useState<SolarLocationStatus>("idle");
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<GenesisProject[]>([]);
   const [categories, setCategories] = useState<GenesisCategory[]>(DEFAULT_CATEGORIES);
@@ -492,6 +504,25 @@ export function GenesisCalendar() {
   } | null>(null);
   const suppressProjectItemClickRef = useRef(false);
   const { canInstall, install, isStandalone } = usePwaInstall();
+
+  const requestDeviceLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      setSolarLocationStatus("unavailable");
+      return;
+    }
+    setSolarLocationStatus("loading");
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        setDeviceLocation({ latitude: coords.latitude, longitude: coords.longitude });
+        setSolarLocationStatus("ready");
+      },
+      () => {
+        setDeviceLocation(null);
+        setSolarLocationStatus("unavailable");
+      },
+      { enableHighAccuracy: false, maximumAge: 3_600_000, timeout: 10_000 },
+    );
+  }, []);
 
   useEffect(() => () => {
     const drag = projectTouchDragRef.current;
@@ -1586,6 +1617,7 @@ export function GenesisCalendar() {
   };
 
   const openSelectedInCalendar = () => {
+    setDayDetailsOrigin("calendar");
     setDayDetailsOpen(true);
     navigateTo("calendar");
   };
@@ -1753,7 +1785,7 @@ export function GenesisCalendar() {
           <span>Дополнительная информация</span>
           <textarea rows={3} value={taskDescription} onChange={(event) => setTaskDescription(event.target.value)} placeholder="Подробности, ожидаемый результат и заметки" />
         </label>
-        <div className="task-form-row">
+        <div className="task-form-section task-form-schedule" aria-label="Сроки задачи">
           <label>
             <span>Начало</span>
             <input type="date" min={todayDateValue} value={newTaskDueDate} onChange={(event) => {
@@ -1766,14 +1798,12 @@ export function GenesisCalendar() {
             <span>Срок выполнения</span>
             <input type="date" min={newTaskDueDate} value={newTaskEndDate} onChange={(event) => setTaskEndDate(event.target.value)} required />
           </label>
-        </div>
-        <div className="task-form-row">
           <label htmlFor={`${context}-new-task-time-hour`}>
             <span>Время</span>
             <TimeClockPicker id={`${context}-new-task-time-hour`} value={taskTime} disabled={Boolean(taskTaskListId)} onChange={setTaskTime} />
           </label>
         </div>
-        <div className="task-form-row">
+        <div className="task-form-section task-form-destination" aria-label="Контекст задачи">
           <label>
             <span>Проект или подпроект</span>
             <select value={taskProject} onChange={(event) => setTaskProject(event.target.value)}>
@@ -1808,7 +1838,7 @@ export function GenesisCalendar() {
             <input value={taskNewListTitle} onChange={(event) => setTaskNewListTitle(event.target.value)} placeholder="Например, подготовка события" required />
           </label>
         ) : null}
-        <div className="task-form-row">
+        <div className="task-form-section task-form-settings" aria-label="Настройки задачи">
           <label>
             <span>Повторение</span>
             <select value={taskRecurrence} onChange={(event) => setTaskRecurrence(event.target.value as RecurrenceKind)} disabled={Boolean(taskTaskListId)}>
@@ -1830,8 +1860,6 @@ export function GenesisCalendar() {
               <option value="1440">За 1 день</option>
             </select>
           </label>
-        </div>
-        <div className="task-form-row">
           <label>
             <span>Приоритет</span>
             <select value={taskPriority} onChange={(event) => setTaskPriority(event.target.value)}>
@@ -1845,24 +1873,17 @@ export function GenesisCalendar() {
               <span>Интервал</span>
               <input type="number" min="1" max="99" value={taskRecurrenceInterval} onChange={(event) => setTaskRecurrenceInterval(event.target.value)} />
             </label>
-          ) : (
-            <label>
-              <span>Теги</span>
-              <input value={taskTags} onChange={(event) => setTaskTags(event.target.value)} placeholder="ритуал, работа, дом" />
-            </label>
-          )}
+          ) : null}
+          <label>
+            <span>Теги</span>
+            <input value={taskTags} onChange={(event) => setTaskTags(event.target.value)} placeholder="ритуал, работа, дом" />
+          </label>
         </div>
         {tasks.length ? (
           <div className="task-form-field task-form-row-full">
             <span>Зависит от</span>
             <DependencyPicker tasks={tasks} value={taskDependsOn} onChange={setTaskDependsOn} />
           </div>
-        ) : null}
-        {taskRecurrence !== "none" && !taskTaskListId ? (
-          <label>
-            <span>Теги</span>
-            <input value={taskTags} onChange={(event) => setTaskTags(event.target.value)} placeholder="ритуал, работа, дом" />
-          </label>
         ) : null}
         <div className="sync-checkbox sync-always-on">
           <span aria-hidden="true">✓</span>
@@ -2030,6 +2051,21 @@ export function GenesisCalendar() {
             <h1>{selectedMonth.name}</h1>
             <p className="calendar-title">{selectedMonth.title}</p>
             <p>{selectedMonth.description}</p>
+            <div className={`calendar-solar-control status-${solarLocationStatus}`}>
+              <button type="button" onClick={requestDeviceLocation} disabled={solarLocationStatus === "loading"}>
+                <span aria-hidden="true">☀</span>
+                <span>{solarLocationStatus === "ready"
+                  ? "Рассвет и закат · время устройства"
+                  : solarLocationStatus === "loading"
+                  ? "Определяем геопозицию…"
+                  : solarLocationStatus === "unavailable"
+                  ? "Повторить определение рассвета и заката"
+                  : "Показать время рассвета и заката"}</span>
+              </button>
+              <small>{solarLocationStatus === "ready"
+                ? "Координаты используются только для локального расчёта"
+                : "Нужно разрешение на геопозицию; данные никуда не отправляются"}</small>
+            </div>
           </div>
           <div className="month-switcher" aria-label="Переключение месяцев">
             <button type="button" onClick={() => selectMonth(monthIndex - 1)} aria-label="Предыдущий месяц">←</button>
@@ -2061,6 +2097,14 @@ export function GenesisCalendar() {
                     const isToday = key === todayKey;
                     const isSelected = dayNumber === selectedDay;
                     const solarEvent = getSolarEvent(sacredYear, monthIndex, dayNumber);
+                    const sunriseSunset = deviceLocation ? getSunriseSunset(gregorian, deviceLocation) : null;
+                    const solarTimePlaceholder = solarLocationStatus === "loading"
+                      ? "…"
+                      : solarLocationStatus === "ready"
+                      ? "нет"
+                      : "—:—";
+                    const sunrise = sunriseSunset ? formatDeviceSolarTime(sunriseSunset.sunrise) : solarTimePlaceholder;
+                    const sunset = sunriseSunset ? formatDeviceSolarTime(sunriseSunset.sunset) : solarTimePlaceholder;
                     const popoverOpen = openDayTaskPopover === key;
                     const popoverAlignment = dayColumn < 2 ? "align-left" : dayColumn > 2 ? "align-right" : "align-center";
                     return (
@@ -2074,6 +2118,7 @@ export function GenesisCalendar() {
                           onClick={() => {
                             setSelectedDay(dayNumber);
                             setOpenDayTaskPopover("");
+                            setDayDetailsOrigin("calendar");
                             setDayDetailsOpen(true);
                           }}
                           aria-pressed={isSelected}
@@ -2083,6 +2128,18 @@ export function GenesisCalendar() {
                         <strong>{romanDay(monthIndex, dayNumber)}</strong>
                         {solarEvent ? <span className="calendar-solar-mark" title={solarEvent.name}><b aria-hidden="true">{solarEvent.symbol}</b><em>{solarEvent.shortName}</em></span> : null}
                         <span className="calendar-moon" title={`${moon.epithet}: ${moon.phase}`}><MoonPhaseIcon phaseStep={moon.phaseStep} size={16} /> {moon.day}</span>
+                        <span
+                          className="calendar-sun-times"
+                          aria-label={`Рассвет ${sunrise}, закат ${sunset}`}
+                          title={sunriseSunset
+                            ? "Рассвет и закат по времени устройства"
+                            : solarLocationStatus === "ready"
+                            ? "В этот день солнце не пересекает линию горизонта"
+                            : "Разрешите геопозицию для расчёта рассвета и заката"}
+                        >
+                          <span><i aria-hidden="true">↗</i>{sunrise}</span>
+                          <span><i aria-hidden="true">↘</i>{sunset}</span>
+                        </span>
                         <small>{sacredDay.name.split("(")[0].trim()}</small>
                         {taskCount ? (
                           <div className="calendar-day-task-preview" aria-hidden="true">
@@ -2556,8 +2613,8 @@ export function GenesisCalendar() {
               onClick={() => {
                 setMonthIndex(event.monthIndex);
                 setSelectedDay(event.day);
+                setDayDetailsOrigin("year");
                 setDayDetailsOpen(true);
-                navigateTo("calendar");
               }}
             >
               <span className="solar-glyph" aria-hidden="true"><i>{event.symbol}</i></span>
@@ -2587,7 +2644,14 @@ export function GenesisCalendar() {
           const openDay = (day: number) => {
             setMonthIndex(month.index);
             setSelectedDay(day);
+            setDayDetailsOrigin("year");
             setDayDetailsOpen(true);
+          };
+          const openMonth = () => {
+            setMonthIndex(month.index);
+            setSelectedDay(isCurrent ? todayInfo.day : 1);
+            setDayDetailsOrigin("calendar");
+            setDayDetailsOpen(false);
             navigateTo("calendar");
           };
           return (
@@ -2649,7 +2713,7 @@ export function GenesisCalendar() {
                 <button
                   type="button"
                   className="year-open-button"
-                  onClick={() => openDay(isCurrent ? todayInfo.day : 1)}
+                  onClick={openMonth}
                   onPointerMove={(event) => {
                     const bounds = event.currentTarget.getBoundingClientRect();
                     event.currentTarget.style.setProperty("--pointer-x", `${event.clientX - bounds.left}px`);
@@ -2669,7 +2733,7 @@ export function GenesisCalendar() {
         })}
         <article className="year-description-card" aria-labelledby="year-description-title">
           <span className="eyebrow">Ритм GENESIS</span>
-          <h2 id="year-description-title">Солнечный круг, услышанный через Луну</h2>
+          <h2 id="year-description-title">Солнечно-лунный календарь</h2>
           <p>Год GENESIS начинается в день весеннего равноденствия и раскрывается через двенадцать месяцев. Каждый месяц несёт собственный образ, цвет, стихию и смысл — не просто отрезок времени, а отдельную ступень годового пути.</p>
           <p>В каждом месяце ровно 30 дней. Вместо привычных недель время собрано в шесть пят: коротких пятидневных ритмов, где нечётные и чётные пяты сменяют друг друга. Так солнечная мера года соединяется с живым лунным дыханием.</p>
           <dl>
@@ -2905,6 +2969,17 @@ export function GenesisCalendar() {
               <div><dt>Пята</dt><dd>{selectedSacredDay.pyataTitle || "Апейрон"}</dd></div>
               <div><dt>Число</dt><dd>{selectedPythagorean?.name || "Безграничное"}</dd></div>
             </dl>
+            {dayDetailsOrigin === "year" ? (
+              <div className="day-details-actions">
+                <button type="button" className="primary-button" onClick={() => {
+                  setDayDetailsOrigin("calendar");
+                  setDayDetailsOpen(false);
+                  navigateTo("calendar");
+                }}>
+                  Открыть месяц «{selectedMonth.name}» <span aria-hidden="true">→</span>
+                </button>
+              </div>
+            ) : null}
           </section>
         </div>
       ) : null}
