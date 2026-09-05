@@ -1,7 +1,15 @@
-import { getGregorianDate, getMoon, getSacredDate } from "./calendar-data";
+import { getMoon, getSacredDate } from "./calendar-data";
 
 export type RecurrenceMode = "none" | "genesis" | "classic" | "lunar";
-export type RecurrencePattern = "none" | "pyata-days" | "month-days" | "weekdays" | "lunar-days";
+export type RecurrencePattern =
+  | "none"
+  | "daily"
+  | "weekdays"
+  | "monthly"
+  | "yearly"
+  | "pyata-days"
+  | "month-days"
+  | "lunar-days";
 
 export type RecurrenceConfig = {
   enabled: boolean;
@@ -9,7 +17,19 @@ export type RecurrenceConfig = {
   pattern: Exclude<RecurrencePattern, "none">;
   days: number[];
   interval: number;
+  rangeStart: string;
+  rangeEnd: string;
+  months: number[];
+  pyatas: number[];
 };
+
+export type LunarMonthOption = {
+  value: number;
+  startDate: string;
+  endDate: string;
+};
+
+export const MAX_RECURRENCE_OCCURRENCES = 500;
 
 export const DEFAULT_RECURRENCE_CONFIG: RecurrenceConfig = {
   enabled: false,
@@ -17,25 +37,32 @@ export const DEFAULT_RECURRENCE_CONFIG: RecurrenceConfig = {
   pattern: "pyata-days",
   days: [1],
   interval: 1,
+  rangeStart: "",
+  rangeEnd: "",
+  months: [],
+  pyatas: [],
 };
 
 export const RECURRENCE_MODE_COPY = {
   genesis: {
-    title: "Календарь GENESIS",
-    shortTitle: "GENESIS",
-    description: "Пяты и сакральные дни внутри 30-дневных месяцев.",
+    title: "Сакральный календарь",
+    shortTitle: "Сакральный календарь",
+    description: "Сакральные месяцы, пяты и дни 360-дневного круга.",
   },
   classic: {
-    title: "Классическая неделя",
-    shortTitle: "Неделя",
-    description: "Дни недели по григорианскому календарю с синхронизацией в Google Calendar.",
+    title: "Профанский календарь",
+    shortTitle: "Профанский календарь",
+    description: "Обычные дни, недели, месяцы и годы с синхронизацией в Google.",
   },
   lunar: {
     title: "Лунный календарь",
-    shortTitle: "Луна",
-    description: "Выбранные лунные дни каждого лунного месяца.",
+    shortTitle: "Лунный календарь",
+    description: "Конкретные лунные месяцы и выбранные лунные дни.",
   },
 } as const;
+
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const DAY_MS = 86_400_000;
 
 function inputDate(date: Date) {
   const pad = (value: number) => String(value).padStart(2, "0");
@@ -43,17 +70,15 @@ function inputDate(date: Date) {
 }
 
 function parseInputDate(value: string) {
+  if (!ISO_DATE_PATTERN.test(value)) return null;
   const date = new Date(`${value}T12:00:00`);
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function apeironLength(sacredYear: number) {
-  return (
-    Math.round(
-      (Date.UTC(sacredYear + 1, 2, 20) - Date.UTC(sacredYear, 2, 20)) /
-        86_400_000,
-    ) - 360
-  );
+function shiftDate(date: Date, days: number) {
+  const shifted = new Date(date);
+  shifted.setDate(shifted.getDate() + days);
+  return shifted;
 }
 
 function calendarDayNumber(date: Date) {
@@ -61,13 +86,22 @@ function calendarDayNumber(date: Date) {
 }
 
 function utcDayNumber(date: Date) {
-  return Math.round(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86_400_000);
+  return Math.round(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / DAY_MS);
 }
 
 function mondayOf(date: Date) {
-  const monday = new Date(date);
-  monday.setDate(monday.getDate() - (calendarDayNumber(monday) - 1));
-  return monday;
+  return shiftDate(date, -(calendarDayNumber(date) - 1));
+}
+
+function monthDistance(from: Date, to: Date) {
+  return (to.getFullYear() - from.getFullYear()) * 12 + to.getMonth() - from.getMonth();
+}
+
+function normalizeIntegerList(values: number[], minimum: number, maximum: number) {
+  return Array.from(new Set((Array.isArray(values) ? values : [])
+    .map((value) => Math.round(Number(value)))
+    .filter((value) => value >= minimum && value <= maximum)))
+    .sort((left, right) => left - right);
 }
 
 function recurrenceDayLimit(config: RecurrenceConfig) {
@@ -76,24 +110,66 @@ function recurrenceDayLimit(config: RecurrenceConfig) {
   return 30;
 }
 
+function expectedPattern(config: RecurrenceConfig): RecurrenceConfig["pattern"] {
+  if (config.mode === "classic") {
+    return ["daily", "weekdays", "monthly", "yearly"].includes(config.pattern)
+      ? config.pattern
+      : "weekdays";
+  }
+  if (config.mode === "lunar") return "lunar-days";
+  return config.pattern === "month-days" ? "month-days" : "pyata-days";
+}
+
+export function recurrenceDefaultEndDate(startDate: string) {
+  const start = parseInputDate(startDate) ?? new Date();
+  const end = new Date(start);
+  end.setFullYear(end.getFullYear() + 1);
+  end.setDate(end.getDate() - 1);
+  return inputDate(end);
+}
+
+export function recurrenceMaximumEndDate(startDate: string) {
+  const start = parseInputDate(startDate) ?? new Date();
+  const end = new Date(start);
+  end.setFullYear(end.getFullYear() + 5);
+  end.setDate(end.getDate() - 1);
+  return inputDate(end);
+}
+
 export function normalizeRecurrenceConfig(config: RecurrenceConfig): RecurrenceConfig {
-  const expectedPattern = config.mode === "classic"
-    ? "weekdays"
-    : config.mode === "lunar"
-      ? "lunar-days"
-      : config.pattern === "month-days" ? "month-days" : "pyata-days";
-  const limit = recurrenceDayLimit({ ...config, pattern: expectedPattern });
-  const days = Array.from(new Set(config.days
-    .map((day) => Math.round(Number(day)))
-    .filter((day) => day >= 1 && day <= limit)))
-    .sort((left, right) => left - right);
+  const pattern = expectedPattern(config);
+  const limit = recurrenceDayLimit({ ...config, pattern });
+  const days = normalizeIntegerList(config.days, 1, limit);
   return {
     enabled: Boolean(config.enabled),
     mode: config.mode,
-    pattern: expectedPattern,
+    pattern,
     days: days.length ? days : [1],
-    interval: Math.min(12, Math.max(1, Math.round(Number(config.interval)) || 1)),
+    interval: Math.min(99, Math.max(1, Math.round(Number(config.interval)) || 1)),
+    rangeStart: parseInputDate(config.rangeStart) ? config.rangeStart : "",
+    rangeEnd: parseInputDate(config.rangeEnd) ? config.rangeEnd : "",
+    months: normalizeIntegerList(config.months, 1, 72),
+    pyatas: normalizeIntegerList(config.pyatas, 1, 6),
   };
+}
+
+function resolvedRecurrenceRange(startDate: string, config: RecurrenceConfig) {
+  const taskStart = parseInputDate(startDate);
+  if (!taskStart) return null;
+  const requestedStart = parseInputDate(config.rangeStart);
+  const start = requestedStart && requestedStart > taskStart ? requestedStart : taskStart;
+  const maximumEnd = parseInputDate(recurrenceMaximumEndDate(inputDate(start)))!;
+  const requestedEnd = parseInputDate(config.rangeEnd) ?? parseInputDate(recurrenceDefaultEndDate(inputDate(start)))!;
+  const end = requestedEnd < start ? start : requestedEnd > maximumEnd ? maximumEnd : requestedEnd;
+  return { start, end };
+}
+
+export function resolveRecurrenceConfig(startDate: string, rawConfig: RecurrenceConfig) {
+  const config = normalizeRecurrenceConfig(rawConfig);
+  const range = resolvedRecurrenceRange(startDate, config);
+  return range
+    ? { ...config, rangeStart: inputDate(range.start), rangeEnd: inputDate(range.end) }
+    : config;
 }
 
 export function suggestedRecurrenceDays(
@@ -108,42 +184,82 @@ export function suggestedRecurrenceDays(
   return [pattern === "month-days" ? Math.min(30, sacred.day) : ((sacred.day - 1) % 5) + 1];
 }
 
-export function buildRecurrenceDates(startDate: string, rawConfig: RecurrenceConfig) {
+export function lunarMonthOptions(startDate: string, endDate: string): LunarMonthOption[] {
   const start = parseInputDate(startDate);
-  if (!start) return [];
-  const config = normalizeRecurrenceConfig(rawConfig);
+  const end = parseInputDate(endDate);
+  if (!start || !end || end < start) return [];
+
+  const options: LunarMonthOption[] = [];
+  let value = 1;
+  let monthStart = new Date(start);
+  let previousDay = getMoon(start).day;
+
+  for (let cursor = shiftDate(start, 1); cursor <= end; cursor = shiftDate(cursor, 1)) {
+    const lunarDay = getMoon(cursor).day;
+    if (lunarDay < previousDay) {
+      options.push({
+        value,
+        startDate: inputDate(monthStart),
+        endDate: inputDate(shiftDate(cursor, -1)),
+      });
+      value += 1;
+      monthStart = new Date(cursor);
+    }
+    previousDay = lunarDay;
+  }
+
+  options.push({ value, startDate: inputDate(monthStart), endDate: inputDate(end) });
+  return options;
+}
+
+export function buildRecurrenceDates(startDate: string, rawConfig: RecurrenceConfig) {
+  const config = resolveRecurrenceConfig(startDate, rawConfig);
+  const range = resolvedRecurrenceRange(startDate, config);
+  if (!range) return [];
   if (!config.enabled) return [startDate];
 
-  const startSacred = getSacredDate(start);
-  const end = getGregorianDate(startSacred.sacredYear, 12, apeironLength(startSacred.sacredYear));
   const selectedDays = new Set(config.days);
+  const selectedMonths = new Set(config.months);
+  const selectedPyatas = new Set(config.pyatas);
   const dates: string[] = [];
-  const firstWeekMonday = mondayOf(start);
-  let lunarCycle = 0;
-  let previousLunarDay = getMoon(start).day;
+  const firstWeekMonday = mondayOf(range.start);
+  const templateDate = parseInputDate(startDate) ?? range.start;
+  let lunarMonth = 1;
+  let previousLunarDay = getMoon(range.start).day;
 
-  for (const cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
+  for (let cursor = new Date(range.start); cursor <= range.end; cursor = shiftDate(cursor, 1)) {
     let matches = false;
 
     if (config.mode === "classic") {
-      const weekIndex = Math.floor((utcDayNumber(mondayOf(cursor)) - utcDayNumber(firstWeekMonday)) / 7);
-      matches = weekIndex % config.interval === 0 && selectedDays.has(calendarDayNumber(cursor));
+      if (config.pattern === "daily") {
+        const dayOffset = utcDayNumber(cursor) - utcDayNumber(range.start);
+        matches = dayOffset % config.interval === 0;
+      } else if (config.pattern === "weekdays") {
+        const weekIndex = Math.floor((utcDayNumber(mondayOf(cursor)) - utcDayNumber(firstWeekMonday)) / 7);
+        matches = weekIndex % config.interval === 0 && selectedDays.has(calendarDayNumber(cursor));
+      } else if (config.pattern === "monthly") {
+        const monthsFromStart = monthDistance(range.start, cursor);
+        matches = monthsFromStart % config.interval === 0 && cursor.getDate() === templateDate.getDate();
+      } else {
+        const yearsFromStart = cursor.getFullYear() - range.start.getFullYear();
+        matches = yearsFromStart % config.interval === 0
+          && cursor.getMonth() === templateDate.getMonth()
+          && cursor.getDate() === templateDate.getDate();
+      }
     } else if (config.mode === "lunar") {
       const lunarDay = getMoon(cursor).day;
-      if (lunarDay < previousLunarDay) lunarCycle += 1;
+      if (cursor > range.start && lunarDay < previousLunarDay) lunarMonth += 1;
       previousLunarDay = lunarDay;
-      matches = lunarCycle % config.interval === 0 && selectedDays.has(lunarDay);
+      matches = (selectedMonths.size === 0 || selectedMonths.has(lunarMonth)) && selectedDays.has(lunarDay);
     } else {
       const sacred = getSacredDate(cursor);
-      if (sacred.monthIndex < 12) {
+      if (sacred.monthIndex < 12 && (selectedMonths.size === 0 || selectedMonths.has(sacred.monthIndex + 1))) {
         if (config.pattern === "pyata-days") {
-          const startCycle = startSacred.monthIndex * 6 + Math.floor((startSacred.day - 1) / 5);
-          const cycle = sacred.monthIndex * 6 + Math.floor((sacred.day - 1) / 5);
-          matches = (cycle - startCycle) % config.interval === 0
+          const pyata = Math.floor((sacred.day - 1) / 5) + 1;
+          matches = (selectedPyatas.size === 0 || selectedPyatas.has(pyata))
             && selectedDays.has(((sacred.day - 1) % 5) + 1);
         } else {
-          matches = (sacred.monthIndex - startSacred.monthIndex) % config.interval === 0
-            && selectedDays.has(sacred.day);
+          matches = selectedDays.has(sacred.day);
         }
       }
     }
@@ -151,24 +267,38 @@ export function buildRecurrenceDates(startDate: string, rawConfig: RecurrenceCon
     if (matches) dates.push(inputDate(cursor));
   }
 
-  return dates.length ? dates : [startDate];
+  return dates;
 }
 
 export function recurrenceConfigFromTask(task: {
+  recurrence?: string;
   recurrenceMode?: RecurrenceMode;
   recurrencePattern?: RecurrencePattern;
   recurrenceDays?: number[];
   recurrenceInterval?: number;
+  recurrenceStartDate?: string | null;
+  recurrenceEndDate?: string | null;
+  recurrenceMonths?: number[];
+  recurrencePyatas?: number[];
 }): RecurrenceConfig {
   const mode = ["genesis", "classic", "lunar"].includes(task.recurrenceMode ?? "")
     ? task.recurrenceMode as RecurrenceConfig["mode"]
-    : "genesis";
-  const defaultPattern = mode === "classic" ? "weekdays" : mode === "lunar" ? "lunar-days" : "pyata-days";
+    : task.recurrence && task.recurrence !== "none" ? "classic" : "genesis";
+  const legacyClassicPattern = task.recurrence === "daily"
+    ? "daily"
+    : task.recurrence === "monthly"
+      ? "monthly"
+      : task.recurrence === "yearly" ? "yearly" : "weekdays";
+  const defaultPattern = mode === "classic" ? legacyClassicPattern : mode === "lunar" ? "lunar-days" : "pyata-days";
   return normalizeRecurrenceConfig({
-    enabled: task.recurrenceMode !== undefined && task.recurrenceMode !== "none",
+    enabled: (task.recurrenceMode !== undefined && task.recurrenceMode !== "none") || Boolean(task.recurrence && task.recurrence !== "none"),
     mode,
     pattern: task.recurrencePattern && task.recurrencePattern !== "none" ? task.recurrencePattern : defaultPattern,
     days: Array.isArray(task.recurrenceDays) ? task.recurrenceDays : [1],
     interval: task.recurrenceInterval ?? 1,
+    rangeStart: task.recurrenceStartDate ?? "",
+    rangeEnd: task.recurrenceEndDate ?? "",
+    months: Array.isArray(task.recurrenceMonths) ? task.recurrenceMonths : [],
+    pyatas: Array.isArray(task.recurrencePyatas) ? task.recurrencePyatas : [],
   });
 }

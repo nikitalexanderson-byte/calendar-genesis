@@ -7105,7 +7105,7 @@ button.project-drag-handle:active { cursor: grabbing; }
 
 .recurrence-mode-toggle button {
   display: flex;
-  min-height: 44px;
+  min-height: 58px;
   align-items: center;
   justify-content: center;
   gap: 7px;
@@ -7123,7 +7123,8 @@ button.project-drag-handle:active { cursor: grabbing; }
 }
 
 .recurrence-mode-toggle button > strong {
-  font-size: 10px;
+  font-size: 11px;
+  line-height: 1.25;
 }
 
 .recurrence-mode-toggle button.active {
@@ -7164,6 +7165,93 @@ button.project-drag-handle:active { cursor: grabbing; }
   box-shadow: 0 3px 9px rgba(24, 42, 41, .08);
 }
 
+.recurrence-pattern-toggle.wrap {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.recurrence-range {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 11px;
+  background: rgba(255, 253, 248, .55);
+  border: 1px solid rgba(33, 56, 56, .11);
+  border-radius: 10px;
+}
+
+.recurrence-range legend {
+  padding: 0 5px;
+  color: #506762;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+.recurrence-range label {
+  display: grid;
+  gap: 5px;
+}
+
+.recurrence-range label > span,
+.recurrence-interval > span {
+  color: #60736f;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.recurrence-range input {
+  width: 100%;
+  min-width: 0;
+  height: 38px;
+  padding: 7px 9px;
+  color: var(--ink);
+  background: #fffdf8;
+  border: 1px solid rgba(33, 56, 56, .16);
+  border-radius: 8px;
+}
+
+.recurrence-range > small {
+  grid-column: 1 / -1;
+  color: #71817e;
+  font-size: 10px;
+}
+
+.recurrence-pattern-explainer {
+  margin: 0;
+  padding: 10px 12px;
+  color: #566d68;
+  font-size: 11px;
+  line-height: 1.45;
+  background: rgba(255, 253, 248, .55);
+  border-radius: 9px;
+}
+
+.recurrence-interval {
+  display: grid;
+  grid-template-columns: auto 62px auto;
+  align-items: center;
+  justify-content: start;
+  gap: 8px;
+  padding: 9px 11px;
+  background: rgba(255, 253, 248, .55);
+  border: 1px solid rgba(33, 56, 56, .1);
+  border-radius: 9px;
+}
+
+.recurrence-interval input {
+  width: 62px;
+  height: 34px;
+  padding: 5px;
+  color: var(--ink);
+  text-align: center;
+  background: #fffdf8;
+  border: 1px solid rgba(33, 56, 56, .16);
+  border-radius: 7px;
+}
+
 .recurrence-day-field {
   display: grid;
   gap: 7px;
@@ -7177,6 +7265,66 @@ button.project-drag-handle:active { cursor: grabbing; }
   text-transform: uppercase;
 }
 
+.recurrence-field-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.recurrence-field-heading > span {
+  color: #5f7470;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.recurrence-field-heading > button {
+  padding: 3px 0;
+  color: var(--teal);
+  font-size: 10px;
+  font-weight: 800;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.recurrence-field-heading > button:disabled {
+  color: #7c8b88;
+  cursor: default;
+}
+
+.recurrence-selection-hint {
+  color: #71817e;
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.recurrence-preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.recurrence-preset-row button {
+  min-height: 30px;
+  padding: 5px 10px;
+  color: #60736f;
+  font-size: 10px;
+  font-weight: 800;
+  background: rgba(255, 253, 248, .62);
+  border: 1px solid rgba(33, 56, 56, .12);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.recurrence-preset-row button.active {
+  color: #fff;
+  background: var(--teal);
+  border-color: var(--teal);
+}
+
 .recurrence-day-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(42px, 1fr));
@@ -7185,6 +7333,60 @@ button.project-drag-handle:active { cursor: grabbing; }
 
 .recurrence-day-grid.dense {
   grid-template-columns: repeat(10, minmax(30px, 1fr));
+}
+
+.recurrence-day-grid.pyatas {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.recurrence-month-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.recurrence-month-grid button {
+  display: grid;
+  min-width: 0;
+  min-height: 47px;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  color: #536864;
+  text-align: left;
+  background: rgba(255, 253, 248, .7);
+  border: 1px solid rgba(33, 56, 56, .12);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.recurrence-month-grid button > strong {
+  color: var(--terracotta);
+  font: 600 13px/1 Georgia, "Times New Roman", serif;
+}
+
+.recurrence-month-grid button > span {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+}
+
+.recurrence-month-grid button.selected {
+  color: #fff;
+  background: var(--teal);
+  border-color: var(--teal);
+}
+
+.recurrence-month-grid button.selected > strong {
+  color: #e3c77d;
+}
+
+.recurrence-month-grid.lunar button > span {
+  white-space: nowrap;
 }
 
 .recurrence-day-grid button {
@@ -7271,6 +7473,40 @@ button.project-drag-handle:active { cursor: grabbing; }
   border-radius: 7px;
 }
 
+.recurrence-summary {
+  display: flex;
+  min-width: 0;
+  min-height: 50px;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 9px 11px;
+  background: rgba(255, 253, 248, .66);
+  border: 1px solid rgba(33, 56, 56, .1);
+  border-radius: 9px;
+}
+
+.recurrence-summary > strong {
+  flex: 0 0 auto;
+  color: var(--terracotta);
+  font: 500 25px/1 Georgia, "Times New Roman", serif;
+}
+
+.recurrence-summary > span {
+  color: #60736f;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.recurrence-summary.warning {
+  background: rgba(164, 71, 50, .08);
+  border-color: rgba(164, 71, 50, .28);
+}
+
+.recurrence-summary.warning > span {
+  color: #8a4334;
+}
+
 @media (max-width: 760px) {
   .recurrence-builder {
     padding: 12px;
@@ -7304,6 +7540,18 @@ button.project-drag-handle:active { cursor: grabbing; }
     font-size: 11px;
   }
 
+  .recurrence-pattern-toggle.wrap {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .recurrence-range {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .recurrence-range > small {
+    grid-column: auto;
+  }
+
   .recurrence-day-field > span {
     font-size: 10px;
   }
@@ -7316,12 +7564,21 @@ button.project-drag-handle:active { cursor: grabbing; }
   .recurrence-switch-row > div > small,
   .recurrence-footer > label > span,
   .recurrence-footer > p > span,
+  .recurrence-summary > span,
   .recurrence-sync-note {
     font-size: 11px;
   }
 
   .recurrence-day-grid.dense {
     grid-template-columns: repeat(5, minmax(34px, 1fr));
+  }
+
+  .recurrence-day-grid.pyatas {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .recurrence-month-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .recurrence-footer {
