@@ -71,7 +71,13 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /StoicheionView/);
   assert.match(calendar, /Стойхейон/);
   assert.match(calendar, /calendar-day-task-count/);
-  assert.match(calendar, /calendar-task-popover/);
+  assert.doesNotMatch(calendar, /calendar-day-task-preview/);
+  assert.doesNotMatch(calendar, /calendar-task-popover/);
+  assert.match(calendar, /selectedDayTasks/);
+  assert.match(calendar, /day-details-tasks/);
+  assert.match(calendar, /day-details-celestial/);
+  assert.match(calendar, /Луна и Солнце/);
+  assert.match(calendar, /Фаза Луны, рассвет и закат/);
   assert.match(calendar, /Редактирование задачи/);
   assert.match(calendar, /Редактирование проекта/);
   assert.match(calendar, /Поиск проектов по тегам/);
@@ -131,6 +137,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /onPointerDown=\{\(event\) => \{ if \(event\.target === event\.currentTarget\) setDayDetailsOpen\(false\)/);
   assert.match(calendar, /window\.history\.pushState/);
   assert.match(calendar, /mini-day-task-count/);
+  assert.match(styles, /Hierarchy uses four clear contrast levels/);
+  assert.match(styles, /\.project-tree-panel > \.section-heading h2/);
   assert.match(calendar, /data-nav-id=\{item\.id\}/);
   assert.match(calendar, /task-form-section task-form-schedule/);
   assert.match(calendar, /task-form-section task-form-destination/);
