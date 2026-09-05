@@ -242,12 +242,24 @@ function genesisTaskPayloadForGoogle(string $taskId, array $task): array
     $priority = genesisClampInt($task['priority'] ?? 5, 1, 10, 5);
     $recurrence = in_array($task['recurrence'] ?? '', ['none', 'daily', 'weekdays', 'weekly', 'monthly', 'yearly'], true) ? (string)$task['recurrence'] : 'none';
     $recurrenceMode = in_array($task['recurrenceMode'] ?? '', ['none', 'genesis', 'classic', 'lunar'], true) ? (string)$task['recurrenceMode'] : 'none';
-    $recurrencePattern = in_array($task['recurrencePattern'] ?? '', ['none', 'pyata-days', 'month-days', 'weekdays', 'lunar-days'], true) ? (string)$task['recurrencePattern'] : 'none';
+    $recurrencePattern = in_array($task['recurrencePattern'] ?? '', ['none', 'daily', 'weekdays', 'monthly', 'yearly', 'pyata-days', 'month-days', 'lunar-days'], true) ? (string)$task['recurrencePattern'] : 'none';
     $recurrenceDays = array_values(array_unique(array_filter(
         array_map('intval', genesisStringList($task['recurrenceDays'] ?? [], 30)),
         static fn(int $day): bool => $day >= 1 && $day <= 30,
     )));
     sort($recurrenceDays);
+    $recurrenceStartDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($task['recurrenceStartDate'] ?? '')) ? (string)$task['recurrenceStartDate'] : '';
+    $recurrenceEndDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($task['recurrenceEndDate'] ?? '')) ? (string)$task['recurrenceEndDate'] : '';
+    $recurrenceMonths = array_values(array_unique(array_filter(
+        array_map('intval', genesisStringList($task['recurrenceMonths'] ?? [], 72)),
+        static fn(int $month): bool => $month >= 1 && $month <= 72,
+    )));
+    sort($recurrenceMonths);
+    $recurrencePyatas = array_values(array_unique(array_filter(
+        array_map('intval', genesisStringList($task['recurrencePyatas'] ?? [], 6)),
+        static fn(int $pyata): bool => $pyata >= 1 && $pyata <= 6,
+    )));
+    sort($recurrencePyatas);
     $recurrenceSeriesId = mb_substr(trim((string)($task['recurrenceSeriesId'] ?? '')), 0, 100);
     $project = mb_substr(trim((string)($task['project'] ?? '')), 0, 300);
     $description = mb_substr(trim((string)($task['description'] ?? '')), 0, 5000);
@@ -275,6 +287,10 @@ function genesisTaskPayloadForGoogle(string $taskId, array $task): array
         'genesisCycleMode' => $recurrenceMode,
         'genesisCyclePattern' => $recurrencePattern,
         'genesisCycleDays' => genesisBase64Url(json_encode($recurrenceDays, JSON_THROW_ON_ERROR)),
+        'genesisCycleStart' => $recurrenceStartDate,
+        'genesisCycleEnd' => $recurrenceEndDate,
+        'genesisCycleMonths' => genesisBase64Url(json_encode($recurrenceMonths, JSON_THROW_ON_ERROR)),
+        'genesisCyclePyatas' => genesisBase64Url(json_encode($recurrencePyatas, JSON_THROW_ON_ERROR)),
         'genesisSeriesId' => $recurrenceSeriesId,
         'genesisPriority' => (string)$priority,
         'genesisSource' => $createdIn,
@@ -367,6 +383,15 @@ function genesisTaskNotesForGoogle(string $taskId, array $task): string
         'startDate' => $startDate,
         'endDate' => $endDate,
         'time' => preg_match('/^\d{2}:\d{2}$/', (string)($task['time'] ?? '')) ? (string)$task['time'] : '',
+        'recurrenceInterval' => genesisClampInt($task['recurrenceInterval'] ?? 1, 1, 99, 1),
+        'recurrenceMode' => in_array($task['recurrenceMode'] ?? '', ['none', 'genesis', 'classic', 'lunar'], true) ? (string)$task['recurrenceMode'] : 'none',
+        'recurrencePattern' => in_array($task['recurrencePattern'] ?? '', ['none', 'daily', 'weekdays', 'monthly', 'yearly', 'pyata-days', 'month-days', 'lunar-days'], true) ? (string)$task['recurrencePattern'] : 'none',
+        'recurrenceDays' => array_map('intval', genesisStringList($task['recurrenceDays'] ?? [], 30)),
+        'recurrenceStartDate' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($task['recurrenceStartDate'] ?? '')) ? (string)$task['recurrenceStartDate'] : '',
+        'recurrenceEndDate' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($task['recurrenceEndDate'] ?? '')) ? (string)$task['recurrenceEndDate'] : '',
+        'recurrenceMonths' => array_map('intval', genesisStringList($task['recurrenceMonths'] ?? [], 72)),
+        'recurrencePyatas' => array_map('intval', genesisStringList($task['recurrencePyatas'] ?? [], 6)),
+        'recurrenceSeriesId' => mb_substr(trim((string)($task['recurrenceSeriesId'] ?? '')), 0, 100),
     ];
     $metadataLines = array_filter([
         genesisTaskOriginLabel($createdIn),
@@ -456,8 +481,12 @@ function genesisGoogleEventForClient(array $event): ?array
         'recurrence' => (string)($private['genesisRecurrence'] ?? 'none'),
         'recurrenceInterval' => genesisClampInt($private['genesisInterval'] ?? 1, 1, 99, 1),
         'recurrenceMode' => in_array($private['genesisCycleMode'] ?? '', ['none', 'genesis', 'classic', 'lunar'], true) ? (string)$private['genesisCycleMode'] : 'none',
-        'recurrencePattern' => in_array($private['genesisCyclePattern'] ?? '', ['none', 'pyata-days', 'month-days', 'weekdays', 'lunar-days'], true) ? (string)$private['genesisCyclePattern'] : 'none',
+        'recurrencePattern' => in_array($private['genesisCyclePattern'] ?? '', ['none', 'daily', 'weekdays', 'monthly', 'yearly', 'pyata-days', 'month-days', 'lunar-days'], true) ? (string)$private['genesisCyclePattern'] : 'none',
         'recurrenceDays' => genesisDecodeBase64IntJson((string)($private['genesisCycleDays'] ?? '')),
+        'recurrenceStartDate' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($private['genesisCycleStart'] ?? '')) ? (string)$private['genesisCycleStart'] : null,
+        'recurrenceEndDate' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($private['genesisCycleEnd'] ?? '')) ? (string)$private['genesisCycleEnd'] : null,
+        'recurrenceMonths' => genesisDecodeBase64IntJson((string)($private['genesisCycleMonths'] ?? ''), 1, 72),
+        'recurrencePyatas' => genesisDecodeBase64IntJson((string)($private['genesisCyclePyatas'] ?? ''), 1, 6),
         'recurrenceSeriesId' => ($private['genesisSeriesId'] ?? '') !== '' ? (string)$private['genesisSeriesId'] : null,
         'syncToGoogle' => true,
         'createdIn' => $createdIn,
@@ -517,11 +546,15 @@ function genesisGoogleNativeTaskForClient(array $task, string $taskListId, strin
         'completedAt' => $completedAt !== '' ? $completedAt : null,
         'reminderMinutes' => null,
         'recurrence' => 'none',
-        'recurrenceInterval' => 1,
-        'recurrenceMode' => 'none',
-        'recurrencePattern' => 'none',
-        'recurrenceDays' => [],
-        'recurrenceSeriesId' => null,
+        'recurrenceInterval' => genesisClampInt($metadata['recurrenceInterval'] ?? 1, 1, 99, 1),
+        'recurrenceMode' => in_array($metadata['recurrenceMode'] ?? '', ['none', 'genesis', 'classic', 'lunar'], true) ? (string)$metadata['recurrenceMode'] : 'none',
+        'recurrencePattern' => in_array($metadata['recurrencePattern'] ?? '', ['none', 'daily', 'weekdays', 'monthly', 'yearly', 'pyata-days', 'month-days', 'lunar-days'], true) ? (string)$metadata['recurrencePattern'] : 'none',
+        'recurrenceDays' => array_values(array_filter(array_map('intval', is_array($metadata['recurrenceDays'] ?? null) ? $metadata['recurrenceDays'] : []), static fn(int $day): bool => $day >= 1 && $day <= 30)),
+        'recurrenceStartDate' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($metadata['recurrenceStartDate'] ?? '')) ? (string)$metadata['recurrenceStartDate'] : null,
+        'recurrenceEndDate' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($metadata['recurrenceEndDate'] ?? '')) ? (string)$metadata['recurrenceEndDate'] : null,
+        'recurrenceMonths' => array_values(array_filter(array_map('intval', is_array($metadata['recurrenceMonths'] ?? null) ? $metadata['recurrenceMonths'] : []), static fn(int $month): bool => $month >= 1 && $month <= 72)),
+        'recurrencePyatas' => array_values(array_filter(array_map('intval', is_array($metadata['recurrencePyatas'] ?? null) ? $metadata['recurrencePyatas'] : []), static fn(int $pyata): bool => $pyata >= 1 && $pyata <= 6)),
+        'recurrenceSeriesId' => ($metadata['recurrenceSeriesId'] ?? '') !== '' ? mb_substr((string)$metadata['recurrenceSeriesId'], 0, 100) : null,
         'syncToGoogle' => true,
         'createdIn' => $createdIn,
         'googleEventId' => null,

@@ -45,6 +45,10 @@ export type GenesisTask = {
   recurrenceMode: RecurrenceMode;
   recurrencePattern: RecurrencePattern;
   recurrenceDays: number[];
+  recurrenceStartDate: string | null;
+  recurrenceEndDate: string | null;
+  recurrenceMonths: number[];
+  recurrencePyatas: number[];
   recurrenceSeriesId: string | null;
   syncToGoogle: boolean;
   createdIn: TaskOrigin;
@@ -255,12 +259,26 @@ function normalizeTask(task: Partial<GenesisTask> & Pick<GenesisTask, "id" | "ti
   const recurrenceMode: RecurrenceMode = ["none", "genesis", "classic", "lunar"].includes(task.recurrenceMode ?? "")
     ? task.recurrenceMode as RecurrenceMode
     : task.recurrence && task.recurrence !== "none" ? "classic" : "none";
-  const recurrencePattern: RecurrencePattern = ["none", "pyata-days", "month-days", "weekdays", "lunar-days"].includes(task.recurrencePattern ?? "")
+  const recurrencePattern: RecurrencePattern = ["none", "daily", "weekdays", "monthly", "yearly", "pyata-days", "month-days", "lunar-days"].includes(task.recurrencePattern ?? "")
     ? task.recurrencePattern as RecurrencePattern
-    : recurrenceMode === "classic" ? "weekdays" : recurrenceMode === "lunar" ? "lunar-days" : recurrenceMode === "genesis" ? "pyata-days" : "none";
+    : recurrenceMode === "classic"
+      ? task.recurrence === "daily" || task.recurrence === "monthly" || task.recurrence === "yearly" ? task.recurrence : "weekdays"
+      : recurrenceMode === "lunar" ? "lunar-days" : recurrenceMode === "genesis" ? "pyata-days" : "none";
   const recurrenceDays = Array.isArray(task.recurrenceDays)
     ? Array.from(new Set(task.recurrenceDays.map(Number).filter((day) => Number.isInteger(day) && day >= 1 && day <= 30))).sort((left, right) => left - right)
     : [];
+  const recurrenceMonths = Array.isArray(task.recurrenceMonths)
+    ? Array.from(new Set(task.recurrenceMonths.map(Number).filter((month) => Number.isInteger(month) && month >= 1 && month <= 72))).sort((left, right) => left - right)
+    : [];
+  const recurrencePyatas = Array.isArray(task.recurrencePyatas)
+    ? Array.from(new Set(task.recurrencePyatas.map(Number).filter((pyata) => Number.isInteger(pyata) && pyata >= 1 && pyata <= 6))).sort((left, right) => left - right)
+    : [];
+  const recurrenceStartDate = typeof task.recurrenceStartDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(task.recurrenceStartDate)
+    ? task.recurrenceStartDate
+    : null;
+  const recurrenceEndDate = typeof task.recurrenceEndDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(task.recurrenceEndDate)
+    ? task.recurrenceEndDate
+    : null;
   return {
     sacredYear: 0,
     monthIndex: 0,
@@ -280,10 +298,6 @@ function normalizeTask(task: Partial<GenesisTask> & Pick<GenesisTask, "id" | "ti
     reminderMinutes: null,
     recurrence: "none",
     recurrenceInterval: 1,
-    recurrenceMode: "none",
-    recurrencePattern: "none",
-    recurrenceDays: [],
-    recurrenceSeriesId: null,
     syncToGoogle: true,
     googleEventId: null,
     googleTaskId: null,
@@ -295,6 +309,10 @@ function normalizeTask(task: Partial<GenesisTask> & Pick<GenesisTask, "id" | "ti
     recurrenceMode,
     recurrencePattern,
     recurrenceDays,
+    recurrenceStartDate,
+    recurrenceEndDate,
+    recurrenceMonths,
+    recurrencePyatas,
     recurrenceSeriesId: typeof task.recurrenceSeriesId === "string" && task.recurrenceSeriesId ? task.recurrenceSeriesId : null,
     googleTaskListTitle: typeof task.googleTaskListTitle === "string" ? task.googleTaskListTitle : "",
   };
