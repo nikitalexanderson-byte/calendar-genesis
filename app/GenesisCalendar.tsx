@@ -491,7 +491,6 @@ export function GenesisCalendar() {
   const [projectDropTargetId, setProjectDropTargetId] = useState("");
   const [projectTouchPoint, setProjectTouchPoint] = useState<{ x: number; y: number } | null>(null);
   const [projectMoveAnnouncement, setProjectMoveAnnouncement] = useState("");
-  const [openDayTaskPopover, setOpenDayTaskPopover] = useState("");
   const tasksRef = useRef<Task[]>([]);
   const projectsRef = useRef<GenesisProject[]>([]);
   const categoriesRef = useRef<GenesisCategory[]>(DEFAULT_CATEGORIES);
@@ -560,6 +559,17 @@ export function GenesisCalendar() {
   const selectedElement = getDayElement(monthIndex, selectedDay);
   const selectedPythagorean = getPythagorean(monthIndex, selectedDay);
   const selectedSolarEvent = getSolarEvent(sacredYear, monthIndex, selectedDay);
+  const selectedDayKey = taskDateKey(sacredYear, monthIndex, selectedDay);
+  const selectedDayTasks = tasks
+    .filter((task) => taskDateKey(task.sacredYear, task.monthIndex, task.day) === selectedDayKey)
+    .sort((a, b) => a.time.localeCompare(b.time));
+  const selectedSunriseSunset = deviceLocation ? getSunriseSunset(selectedDate, deviceLocation) : null;
+  const selectedSunrise = selectedSunriseSunset
+    ? formatDeviceSolarTime(selectedSunriseSunset.sunrise, deviceTimeZone)
+    : solarLocationStatus === "ready" ? "нет" : "…";
+  const selectedSunset = selectedSunriseSunset
+    ? formatDeviceSolarTime(selectedSunriseSunset.sunset, deviceTimeZone)
+    : solarLocationStatus === "ready" ? "нет" : "…";
   const solarEvents = useMemo(() => getSolarEvents(sacredYear), [sacredYear]);
   const todayKey = taskDateKey(
     todayInfo.sacredYear,
@@ -579,7 +589,6 @@ export function GenesisCalendar() {
   const resolvedTaskProjectTitle = (task: Task) => resolvedTaskProject(task)?.title ?? task.project;
 
   const navigateTo = (nextView: ViewName, replace = false) => {
-    setOpenDayTaskPopover("");
     setAccountMenuOpen(false);
     setView(nextView);
     const nextUrl = new URL(window.location.href);
@@ -608,7 +617,6 @@ export function GenesisCalendar() {
       `${initialUrl.pathname}${initialUrl.search}${initialUrl.hash}`,
     );
     const handlePopState = () => {
-      setOpenDayTaskPopover("");
       setAccountMenuOpen(false);
       setAccountOpen(false);
       setView(viewFromHash());
@@ -2088,15 +2096,14 @@ export function GenesisCalendar() {
                   <small>{monthIndex === 12 ? "Чистый эфир" : PYATA_MEANINGS[rowIndex]}</small>
                 </div>
                 <div className="pyata-days">
-                  {row.map((dayNumber, dayColumn) => {
+                  {row.map((dayNumber) => {
                     const gregorian = getGregorianDate(sacredYear, monthIndex, dayNumber);
                     const moon = getMoon(gregorian);
                     const sacredDay = getSacredDay(monthIndex, dayNumber);
                     const key = taskDateKey(sacredYear, monthIndex, dayNumber);
-                    const cellTasks = tasks
-                      .filter((task) => taskDateKey(task.sacredYear, task.monthIndex, task.day) === key)
-                      .sort((a, b) => a.time.localeCompare(b.time));
-                    const taskCount = cellTasks.length;
+                    const taskCount = tasks.filter(
+                      (task) => taskDateKey(task.sacredYear, task.monthIndex, task.day) === key,
+                    ).length;
                     const isToday = key === todayKey;
                     const isSelected = dayNumber === selectedDay;
                     const solarEvent = getSolarEvent(sacredYear, monthIndex, dayNumber);
@@ -2104,19 +2111,16 @@ export function GenesisCalendar() {
                     const solarTimePlaceholder = solarLocationStatus === "ready" ? "нет" : "…";
                     const sunrise = sunriseSunset ? formatDeviceSolarTime(sunriseSunset.sunrise, deviceTimeZone) : solarTimePlaceholder;
                     const sunset = sunriseSunset ? formatDeviceSolarTime(sunriseSunset.sunset, deviceTimeZone) : solarTimePlaceholder;
-                    const popoverOpen = openDayTaskPopover === key;
-                    const popoverAlignment = dayColumn < 2 ? "align-left" : dayColumn > 2 ? "align-right" : "align-center";
                     return (
                       <article
                         key={dayNumber}
-                        className={`calendar-day${isSelected ? " selected" : ""}${isToday ? " today" : ""}${solarEvent ? " solar-day" : ""}${taskCount ? " has-tasks" : ""}${popoverOpen ? " popover-open" : ""}`}
+                        className={`calendar-day${isSelected ? " selected" : ""}${isToday ? " today" : ""}${solarEvent ? " solar-day" : ""}${taskCount ? " has-tasks" : ""}`}
                       >
                         <button
                           type="button"
                           className="calendar-day-open"
                           onClick={() => {
                             setSelectedDay(dayNumber);
-                            setOpenDayTaskPopover("");
                             setDayDetailsOrigin("calendar");
                             setDayDetailsOpen(true);
                           }}
@@ -2141,48 +2145,19 @@ export function GenesisCalendar() {
                         </span>
                         <small>{sacredDay.name.split("(")[0].trim()}</small>
                         {taskCount ? (
-                          <div className="calendar-day-task-preview" aria-hidden="true">
-                            {cellTasks.slice(0, 2).map((task) => (
-                              <span className={task.done ? "done" : ""} key={task.id}>{task.time || "Весь день"} · {task.title}</span>
-                            ))}
-                          </div>
-                        ) : null}
-                        {taskCount ? (
                           <button
                             type="button"
                             className="calendar-day-task-count"
                             onClick={() => {
                               setSelectedDay(dayNumber);
-                              setOpenDayTaskPopover((current) => current === key ? "" : key);
+                              setDayDetailsOrigin("calendar");
+                              setDayDetailsOpen(true);
                             }}
-                            aria-label={`Показать задачи: ${taskCount}`}
-                            aria-expanded={popoverOpen}
+                            aria-label={`Открыть день и показать задачи: ${taskCount}`}
                             aria-haspopup="dialog"
                           >
                             {taskCount}
                           </button>
-                        ) : null}
-                        {popoverOpen ? (
-                          <div className={`calendar-task-popover ${popoverAlignment}`} role="dialog" aria-label={`Задачи на ${formatGregorian(gregorian, true)}`}>
-                            <header>
-                              <strong>Задачи · {taskCount}</strong>
-                              <button type="button" onClick={() => setOpenDayTaskPopover("")} aria-label="Закрыть список задач">×</button>
-                            </header>
-                            <ul>
-                              {cellTasks.slice(0, 6).map((task) => (
-                                <li className={task.done ? "done" : ""} key={task.id}>
-                                  <button type="button" onClick={() => {
-                                    setOpenDayTaskPopover("");
-                                    openTaskEditor(task);
-                                  }}>
-                                    <time>{task.time || "Весь день"}</time>
-                                    <span>{task.title}</span>
-                                  </button>
-                                </li>
-                              ))}
-                            </ul>
-                            {taskCount > 6 ? <small>Ещё {taskCount - 6}</small> : null}
-                          </div>
                         ) : null}
                       </article>
                     );
@@ -2968,6 +2943,73 @@ export function GenesisCalendar() {
               <div><dt>Пята</dt><dd>{selectedSacredDay.pyataTitle || "Апейрон"}</dd></div>
               <div><dt>Число</dt><dd>{selectedPythagorean?.name || "Безграничное"}</dd></div>
             </dl>
+            {selectedDayTasks.length ? (
+              <section className="day-details-tasks" aria-labelledby="day-details-tasks-title">
+                <header>
+                  <span className="eyebrow">План дня</span>
+                  <h3 id="day-details-tasks-title">Задачи · {selectedDayTasks.length}</h3>
+                </header>
+                <div className="day-details-task-list">
+                  {selectedDayTasks.map((task) => {
+                    const projectTitle = resolvedTaskProjectTitle(task);
+                    return (
+                      <article className={task.done ? "done" : ""} key={task.id}>
+                        <button
+                          type="button"
+                          className="task-check"
+                          onClick={() => toggleTask(task.id)}
+                          aria-label={task.done ? `Вернуть задачу «${task.title}»` : `Завершить задачу «${task.title}»`}
+                        >
+                          {task.done ? "✓" : ""}
+                        </button>
+                        <button type="button" className="day-details-task-open" onClick={() => {
+                          setDayDetailsOpen(false);
+                          openTaskEditor(task);
+                        }}>
+                          <span><time>{task.time || "Весь день"}</time>{task.priority ? <em>Приоритет {task.priority}</em> : null}</span>
+                          <strong>{task.title}</strong>
+                          {task.description || projectTitle || task.googleTaskListTitle ? (
+                            <small>{task.description || projectTitle || task.googleTaskListTitle}</small>
+                          ) : null}
+                        </button>
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
+            ) : null}
+            <details className="day-details-celestial">
+              <summary>
+                <span><i aria-hidden="true">☾</i> Луна и Солнце</span>
+                <small>Фаза Луны, рассвет и закат</small>
+              </summary>
+              <div className="day-details-celestial-grid">
+                <article className="day-details-moon">
+                  <MoonPhaseIcon phaseStep={selectedMoon.phaseStep} size={44} />
+                  <div>
+                    <span className="eyebrow">Луна · {selectedMoon.day} день</span>
+                    <strong>{selectedMoon.epithet}</strong>
+                    <p>{selectedMoon.phase} · освещённость {selectedMoon.illumination}%</p>
+                    <small>{selectedMoon.direction}{selectedMoon.event ? ` · ${selectedMoon.event}` : ""}</small>
+                  </div>
+                </article>
+                <article className="day-details-sun">
+                  <span aria-hidden="true">☀</span>
+                  <div>
+                    <span className="eyebrow">Солнце · время устройства</span>
+                    <dl>
+                      <div><dt>Рассвет</dt><dd>{selectedSunrise}</dd></div>
+                      <div><dt>Закат</dt><dd>{selectedSunset}</dd></div>
+                    </dl>
+                    <small>{selectedSunriseSunset
+                      ? `${deviceTimeZone} · автоматический расчёт для региона устройства`
+                      : solarLocationStatus === "ready"
+                      ? "В этот день солнце не пересекает линию горизонта"
+                      : "Синхронизируем данные о Солнце…"}</small>
+                  </div>
+                </article>
+              </div>
+            </details>
             {dayDetailsOrigin === "year" ? (
               <div className="day-details-actions">
                 <button type="button" className="primary-button" onClick={() => {
