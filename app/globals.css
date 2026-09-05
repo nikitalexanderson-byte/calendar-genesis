@@ -6980,3 +6980,351 @@ button.project-drag-handle:active { cursor: grabbing; }
     padding: 9px;
   }
 }
+
+/* Recurrence is composed as a cycle, not chosen from a compact select. */
+.recurrence-builder {
+  display: grid;
+  min-width: 0;
+  grid-column: 1 / -1;
+  gap: 12px;
+  padding: 14px;
+  background: #eee7da;
+  border: 1px solid rgba(33, 56, 56, .13);
+  border-radius: 13px;
+}
+
+.recurrence-builder.enabled {
+  background:
+    radial-gradient(circle at 96% 0%, rgba(178, 138, 74, .11), transparent 28%),
+    #e7dfd0;
+  border-color: rgba(37, 91, 89, .25);
+}
+
+.recurrence-builder.disabled {
+  opacity: .67;
+}
+
+.recurrence-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.recurrence-switch-row > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.recurrence-switch-row > div > strong {
+  color: var(--ink);
+  font: 500 17px/1.2 Georgia, "Times New Roman", serif;
+}
+
+.recurrence-switch-row > div > small {
+  color: #60736f;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.recurrence-switch {
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-columns: 42px auto;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.recurrence-switch input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+}
+
+.recurrence-switch > span {
+  position: relative;
+  width: 42px;
+  height: 24px;
+  background: #a9b2ae;
+  border: 1px solid rgba(33, 56, 56, .16);
+  border-radius: 999px;
+  box-shadow: inset 0 2px 5px rgba(20, 42, 40, .12);
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.recurrence-switch > span::after {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  background: #fffdf8;
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(20, 42, 40, .24);
+  content: "";
+  transition: transform 160ms ease;
+}
+
+.recurrence-switch input:checked + span {
+  background: var(--teal);
+  border-color: var(--teal);
+}
+
+.recurrence-switch input:checked + span::after {
+  transform: translateX(18px);
+}
+
+.recurrence-switch input:focus-visible + span {
+  outline: 3px solid rgba(37, 91, 89, .19);
+  outline-offset: 2px;
+}
+
+.recurrence-switch b {
+  color: #61736f;
+  font-size: 10px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.recurrence-builder-body {
+  display: grid;
+  gap: 11px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(33, 56, 56, .11);
+}
+
+.recurrence-mode-toggle {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.recurrence-mode-toggle button {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 10px;
+  color: #536a66;
+  background: rgba(255, 253, 248, .64);
+  border: 1px solid rgba(33, 56, 56, .12);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.recurrence-mode-toggle button > span {
+  color: var(--gold);
+  font-size: 16px;
+}
+
+.recurrence-mode-toggle button > strong {
+  font-size: 10px;
+}
+
+.recurrence-mode-toggle button.active {
+  color: #f4eee3;
+  background: var(--teal);
+  border-color: var(--teal);
+  box-shadow: 0 7px 17px rgba(20, 62, 62, .16);
+}
+
+.recurrence-mode-toggle button.active > span {
+  color: #e3c77d;
+}
+
+.recurrence-pattern-toggle {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  background: rgba(33, 56, 56, .07);
+  border-radius: 10px;
+}
+
+.recurrence-pattern-toggle button {
+  min-height: 34px;
+  flex: 1;
+  padding: 7px 10px;
+  color: #60736f;
+  font-size: 10px;
+  font-weight: 800;
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.recurrence-pattern-toggle button.active {
+  color: var(--teal);
+  background: #fffdf8;
+  box-shadow: 0 3px 9px rgba(24, 42, 41, .08);
+}
+
+.recurrence-day-field {
+  display: grid;
+  gap: 7px;
+}
+
+.recurrence-day-field > span {
+  color: #5f7470;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.recurrence-day-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(42px, 1fr));
+  gap: 5px;
+}
+
+.recurrence-day-grid.dense {
+  grid-template-columns: repeat(10, minmax(30px, 1fr));
+}
+
+.recurrence-day-grid button {
+  min-height: 34px;
+  padding: 5px;
+  color: #536864;
+  font: 700 11px/1 Georgia, "Times New Roman", serif;
+  background: rgba(255, 253, 248, .7);
+  border: 1px solid rgba(33, 56, 56, .12);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 120ms ease, color 120ms ease, background 120ms ease;
+}
+
+.recurrence-day-grid button:hover {
+  transform: translateY(-1px);
+}
+
+.recurrence-day-grid button.selected {
+  color: #fff;
+  background: var(--terracotta);
+  border-color: var(--terracotta);
+  box-shadow: 0 4px 10px rgba(133, 63, 46, .17);
+}
+
+.recurrence-footer {
+  display: grid;
+  grid-template-columns: minmax(190px, .55fr) minmax(0, 1fr);
+  align-items: stretch;
+  gap: 8px;
+}
+
+.recurrence-footer > label,
+.recurrence-footer > p {
+  display: flex;
+  min-width: 0;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 10px;
+  background: rgba(255, 253, 248, .66);
+  border: 1px solid rgba(33, 56, 56, .1);
+  border-radius: 9px;
+}
+
+.recurrence-footer > label > span {
+  color: #60736f;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.recurrence-footer input {
+  width: 48px;
+  height: 30px;
+  padding: 0 5px;
+  color: var(--ink);
+  font-size: 11px;
+  text-align: center;
+  background: #fffdf8;
+  border: 1px solid rgba(33, 56, 56, .16);
+  border-radius: 7px;
+}
+
+.recurrence-footer > p > strong {
+  flex: 0 0 auto;
+  color: var(--terracotta);
+  font: 500 25px/1 Georgia, "Times New Roman", serif;
+}
+
+.recurrence-footer > p > span {
+  color: #60736f;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.recurrence-sync-note {
+  padding: 9px 11px;
+  color: #546c67;
+  font-size: 10px;
+  line-height: 1.5;
+  background: rgba(37, 91, 89, .07);
+  border-left: 3px solid var(--teal);
+  border-radius: 7px;
+}
+
+@media (max-width: 760px) {
+  .recurrence-builder {
+    padding: 12px;
+  }
+
+  .recurrence-switch-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .recurrence-switch {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .recurrence-mode-toggle {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .recurrence-mode-toggle button {
+    min-height: 50px;
+    justify-content: flex-start;
+  }
+
+  .recurrence-mode-toggle button > strong {
+    font-size: 12px;
+  }
+
+  .recurrence-pattern-toggle button {
+    min-height: 42px;
+    font-size: 11px;
+  }
+
+  .recurrence-day-field > span {
+    font-size: 10px;
+  }
+
+  .recurrence-day-grid button {
+    min-height: 40px;
+    font-size: 12px;
+  }
+
+  .recurrence-switch-row > div > small,
+  .recurrence-footer > label > span,
+  .recurrence-footer > p > span,
+  .recurrence-sync-note {
+    font-size: 11px;
+  }
+
+  .recurrence-day-grid.dense {
+    grid-template-columns: repeat(5, minmax(34px, 1fr));
+  }
+
+  .recurrence-footer {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

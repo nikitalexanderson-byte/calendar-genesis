@@ -38,10 +38,12 @@ test("server-renders the GENESIS application shell", async () => {
 });
 
 test("keeps the requested calendar and privacy features wired", async () => {
-  const [calendarData, calendar, cloudSync, moonPhase, solarTimes, stoicheion, stoicheionData, welcome, styles, api, google, repository] = await Promise.all([
+  const [calendarData, calendar, cloudSync, recurrenceBuilder, taskRecurrence, moonPhase, solarTimes, stoicheion, stoicheionData, welcome, styles, api, google, repository] = await Promise.all([
     readFile(new URL("../app/calendar-data.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/cloud-sync.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/RecurrenceBuilder.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/task-recurrence.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/MoonPhaseIcon.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/solar-times.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/StoicheionView.tsx", import.meta.url), "utf8"),
@@ -143,6 +145,24 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /task-form-section task-form-schedule/);
   assert.match(calendar, /task-form-section task-form-destination/);
   assert.match(calendar, /task-form-section task-form-settings/);
+  assert.match(calendar, /<RecurrenceBuilder/);
+  assert.match(calendar, /buildTaskSeries/);
+  assert.match(calendar, /saveTaskSeries/);
+  assert.doesNotMatch(calendar, /setTaskRecurrence\(/);
+  assert.doesNotMatch(calendar, /<option value="daily">Каждый день<\/option>/);
+  assert.match(recurrenceBuilder, /type="checkbox"/);
+  assert.match(recurrenceBuilder, /Дни каждой пяты/);
+  assert.match(recurrenceBuilder, /Дни месяца/);
+  assert.match(recurrenceBuilder, /Дни лунного месяца/);
+  assert.match(recurrenceBuilder, /aria-pressed=\{selected\}/);
+  assert.match(taskRecurrence, /buildRecurrenceDates/);
+  assert.match(taskRecurrence, /Календарь GENESIS/);
+  assert.match(taskRecurrence, /Классическая неделя/);
+  assert.match(taskRecurrence, /Лунный календарь/);
+  assert.match(taskRecurrence, /getSacredDate/);
+  assert.match(taskRecurrence, /getMoon/);
+  assert.match(taskRecurrence, /cursor <= end/);
+  assert.match(taskRecurrence, /selectedDays\.has/);
   assert.match(calendar, /calendar-sun-times/);
   assert.doesNotMatch(calendar, /navigator\.geolocation/);
   assert.doesNotMatch(calendar, /requestDeviceLocation/);
@@ -201,6 +221,9 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(styles, /\.day-details-modal/);
   assert.match(styles, /\.today-create-options:has\(> details\[open\]\)/);
   assert.match(styles, /\.task-form-section/);
+  assert.match(styles, /\.recurrence-builder/);
+  assert.match(styles, /\.recurrence-mode-toggle/);
+  assert.match(styles, /\.recurrence-day-grid\.dense/);
   assert.match(styles, /\.calendar-sun-times/);
   assert.match(styles, /--paper: #e1d9c8/);
   assert.match(styles, /\.calendar-solar-control > div/);
@@ -232,8 +255,16 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(google, /genesisGoogleTasksApi\(\s*'PATCH'/);
   assert.match(google, /genesisClientTimeZone/);
   assert.match(google, /genesisEndDate/);
+  assert.match(google, /genesisCycleMode/);
+  assert.match(google, /genesisCyclePattern/);
+  assert.match(google, /genesisCycleDays/);
+  assert.match(google, /genesisSeriesId/);
   assert.match(google, /'due' => \$endDate/);
   assert.match(cloudSync, /googleTaskListId/);
+  assert.match(cloudSync, /recurrenceMode: RecurrenceMode/);
+  assert.match(cloudSync, /recurrencePattern: RecurrencePattern/);
+  assert.match(cloudSync, /recurrenceDays: number\[\]/);
+  assert.match(cloudSync, /recurrenceSeriesId: string \| null/);
   assert.match(cloudSync, /taskListLinks/);
   assert.match(cloudSync, /googleEventId: task\.googleEventId/);
   assert.match(api, /\$path === 'task-lists'/);

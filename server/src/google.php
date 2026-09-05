@@ -241,6 +241,14 @@ function genesisTaskPayloadForGoogle(string $taskId, array $task): array
     $dependsOn = genesisStringList($task['dependsOnIds'] ?? [], 30);
     $priority = genesisClampInt($task['priority'] ?? 5, 1, 10, 5);
     $recurrence = in_array($task['recurrence'] ?? '', ['none', 'daily', 'weekdays', 'weekly', 'monthly', 'yearly'], true) ? (string)$task['recurrence'] : 'none';
+    $recurrenceMode = in_array($task['recurrenceMode'] ?? '', ['none', 'genesis', 'classic', 'lunar'], true) ? (string)$task['recurrenceMode'] : 'none';
+    $recurrencePattern = in_array($task['recurrencePattern'] ?? '', ['none', 'pyata-days', 'month-days', 'weekdays', 'lunar-days'], true) ? (string)$task['recurrencePattern'] : 'none';
+    $recurrenceDays = array_values(array_unique(array_filter(
+        array_map('intval', genesisStringList($task['recurrenceDays'] ?? [], 30)),
+        static fn(int $day): bool => $day >= 1 && $day <= 30,
+    )));
+    sort($recurrenceDays);
+    $recurrenceSeriesId = mb_substr(trim((string)($task['recurrenceSeriesId'] ?? '')), 0, 100);
     $project = mb_substr(trim((string)($task['project'] ?? '')), 0, 300);
     $description = mb_substr(trim((string)($task['description'] ?? '')), 0, 5000);
     $createdIn = genesisTaskOrigin($task['createdIn'] ?? null);
@@ -264,6 +272,10 @@ function genesisTaskPayloadForGoogle(string $taskId, array $task): array
         'genesisDependsOn' => genesisBase64Url(json_encode($dependsOn, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)),
         'genesisRecurrence' => $recurrence,
         'genesisInterval' => (string)genesisClampInt($task['recurrenceInterval'] ?? 1, 1, 99, 1),
+        'genesisCycleMode' => $recurrenceMode,
+        'genesisCyclePattern' => $recurrencePattern,
+        'genesisCycleDays' => genesisBase64Url(json_encode($recurrenceDays, JSON_THROW_ON_ERROR)),
+        'genesisSeriesId' => $recurrenceSeriesId,
         'genesisPriority' => (string)$priority,
         'genesisSource' => $createdIn,
         'genesisEndDate' => $endDate,
@@ -300,6 +312,22 @@ function genesisDecodeBase64Json(string $value): array
     $decoded = base64_decode(strtr($value . str_repeat('=', $padding), '-_', '+/'), true);
     $json = is_string($decoded) ? json_decode($decoded, true) : null;
     return is_array($json) ? array_values(array_filter($json, 'is_string')) : [];
+}
+
+function genesisDecodeBase64IntJson(string $value, int $minimum = 1, int $maximum = 30): array
+{
+    $padding = (4 - strlen($value) % 4) % 4;
+    $decoded = base64_decode(strtr($value . str_repeat('=', $padding), '-_', '+/'), true);
+    $json = is_string($decoded) ? json_decode($decoded, true) : null;
+    if (!is_array($json)) {
+        return [];
+    }
+    $items = array_values(array_unique(array_filter(
+        array_map('intval', $json),
+        static fn(int $item): bool => $item >= $minimum && $item <= $maximum,
+    )));
+    sort($items);
+    return $items;
 }
 
 function genesisDecodeTaskNotes(string $notes): array
@@ -427,6 +455,10 @@ function genesisGoogleEventForClient(array $event): ?array
         'reminderMinutes' => $reminder,
         'recurrence' => (string)($private['genesisRecurrence'] ?? 'none'),
         'recurrenceInterval' => genesisClampInt($private['genesisInterval'] ?? 1, 1, 99, 1),
+        'recurrenceMode' => in_array($private['genesisCycleMode'] ?? '', ['none', 'genesis', 'classic', 'lunar'], true) ? (string)$private['genesisCycleMode'] : 'none',
+        'recurrencePattern' => in_array($private['genesisCyclePattern'] ?? '', ['none', 'pyata-days', 'month-days', 'weekdays', 'lunar-days'], true) ? (string)$private['genesisCyclePattern'] : 'none',
+        'recurrenceDays' => genesisDecodeBase64IntJson((string)($private['genesisCycleDays'] ?? '')),
+        'recurrenceSeriesId' => ($private['genesisSeriesId'] ?? '') !== '' ? (string)$private['genesisSeriesId'] : null,
         'syncToGoogle' => true,
         'createdIn' => $createdIn,
         'googleEventId' => $eventId,
@@ -486,6 +518,10 @@ function genesisGoogleNativeTaskForClient(array $task, string $taskListId, strin
         'reminderMinutes' => null,
         'recurrence' => 'none',
         'recurrenceInterval' => 1,
+        'recurrenceMode' => 'none',
+        'recurrencePattern' => 'none',
+        'recurrenceDays' => [],
+        'recurrenceSeriesId' => null,
         'syncToGoogle' => true,
         'createdIn' => $createdIn,
         'googleEventId' => null,
