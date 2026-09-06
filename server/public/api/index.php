@@ -204,6 +204,13 @@ try {
         genesisFinishSession();
     }
 
+    if ($method === 'PUT' && $path === 'account/preferences') {
+        $userId = genesisRequireUserId();
+        genesisRequireCsrf();
+        $user = genesisUpdateAccountPreferences($userId, genesisReadJson());
+        genesisJson(['user' => genesisUserForClient($user)]);
+    }
+
     if ($method === 'GET' && $path === 'stoicheion/draws') {
         genesisJson(genesisStoicheionDraws(genesisRequireUserId()));
     }

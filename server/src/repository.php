@@ -39,6 +39,7 @@ function genesisUserForClient(array $user): array
         'calendarConnected' => !empty($user['google_calendar_id']) && !empty($user['refresh_token_enc']),
         'googleTasksImportReady' => in_array('https://www.googleapis.com/auth/tasks', $grantedScopes, true),
         'passwordEnabled' => !empty($user['password_hash']),
+        'stoicheionDivinationDisabled' => !empty($user['stoicheion_divination_disabled']),
         'isAdmin' => mb_strtolower((string)$user['email']) === genesisAdminEmail(),
     ];
 }
@@ -305,6 +306,13 @@ function genesisStoicheionDraws(string $userId): array
 
 function genesisSaveStoicheionDraw(string $userId, string $kind, int $seed): array
 {
+    $user = genesisFindUser($userId);
+    if ($user === null) {
+        throw new DomainException('Пользователь не найден.');
+    }
+    if (!empty($user['stoicheion_divination_disabled'])) {
+        throw new DomainException('Гадания по картам отключены в личном кабинете.');
+    }
     if (!in_array($kind, ['daily', 'spread'], true)) {
         throw new InvalidArgumentException('Неизвестный вид расклада.');
     }
@@ -356,6 +364,23 @@ function genesisSaveStoicheionDraw(string $userId, string $kind, int $seed): arr
         $db->exec('ROLLBACK');
         throw $error;
     }
+}
+
+function genesisUpdateAccountPreferences(string $userId, array $payload): array
+{
+    if (!array_key_exists('stoicheionDivinationDisabled', $payload) || !is_bool($payload['stoicheionDivinationDisabled'])) {
+        throw new InvalidArgumentException('Настройка гаданий указана неверно.');
+    }
+    genesisDb()->prepare('UPDATE users SET stoicheion_divination_disabled = :disabled, updated_at = :updated_at WHERE id = :id')->execute([
+        'disabled' => $payload['stoicheionDivinationDisabled'] ? 1 : 0,
+        'updated_at' => genesisNow(),
+        'id' => $userId,
+    ]);
+    $user = genesisFindUser($userId);
+    if ($user === null) {
+        throw new RuntimeException('Настройки аккаунта не удалось сохранить.');
+    }
+    return $user;
 }
 
 function genesisDeleteAccount(string $userId): void

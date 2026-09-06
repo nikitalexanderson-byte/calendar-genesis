@@ -387,7 +387,11 @@ function LetterDetails({
   );
 }
 
-export function StoicheionView() {
+type StoicheionViewProps = {
+  divinationDisabled?: boolean;
+};
+
+export function StoicheionView({ divinationDisabled = false }: StoicheionViewProps) {
   const entropy = useRef(INITIAL_ENTROPY);
   const motionTracker = useRef<MotionTracker | null>(null);
   const motionField = useRef<HTMLButtonElement | null>(null);
@@ -420,6 +424,7 @@ export function StoicheionView() {
   }, [motionActive]);
 
   useEffect(() => {
+    if (divinationDisabled) return;
     let active = true;
     const load = async () => {
       try {
@@ -439,7 +444,7 @@ export function StoicheionView() {
     };
     void load();
     return () => { active = false; };
-  }, [dayKey]);
+  }, [dayKey, divinationDisabled]);
 
   useEffect(() => {
     if (![dailyDraw, spreadDraw].some((draw) => draw?.attempts === 1 && draw.localDeadline > Date.now())) return;
@@ -502,6 +507,7 @@ export function StoicheionView() {
   };
 
   const beginMotion = (mode: MotionMode, replaceCurrent = false, eventTime = 0) => {
+    if (divinationDisabled) return;
     const existing = mode === "daily" ? dailyDraw : spreadDraw;
     const canReroll = mode === "daily" ? dailyCanReroll : spreadCanReroll;
     if ((!replaceCurrent && existing) || (replaceCurrent && (!existing || !canReroll)) || savingKind) return;
@@ -616,10 +622,23 @@ export function StoicheionView() {
           <div>
             <span className="eyebrow">Гно · Метэр · Басилея</span>
             <h1 id="stoicheion-title">Стойхейон</h1>
-            <p>Двадцать четыре буквенных образа, карта дня и «Космический круг» — расклад девяти ликов силы.</p>
+            <p>{divinationDisabled
+              ? "Двадцать четыре буквенных образа и их метафизические значения."
+              : "Двадцать четыре буквенных образа, карта дня и «Космический круг» — расклад девяти ликов силы."}</p>
           </div>
         </header>
 
+        {divinationDisabled ? (
+          <section className="stoicheion-divination-disabled" aria-labelledby="stoicheion-divination-disabled-title">
+            <span aria-hidden="true">⊘</span>
+            <div>
+              <span className="eyebrow">Настройка личного кабинета</span>
+              <h2 id="stoicheion-divination-disabled-title">Гадания по картам выключены</h2>
+              <p>Вы запретили себе гадания в личном кабинете. Карта дня и расклад девяти карт скрыты, но все буквенные карты и их значения остаются доступны ниже.</p>
+            </div>
+          </section>
+        ) : (
+          <>
         <section className={`stoicheion-day-section${dailyLetter ? " has-draw" : ""}`} aria-labelledby="stoicheion-day-title">
           <div className="stoicheion-section-intro">
             <span className="eyebrow">Первое взаимодействие · {dateLabel}</span>
@@ -743,6 +762,8 @@ export function StoicheionView() {
             )}
           </section>
         ) : null}
+          </>
+        )}
 
         <section className="stoicheion-alphabet-section" aria-labelledby="stoicheion-alphabet-title">
           <header>
@@ -767,8 +788,14 @@ export function StoicheionView() {
         </section>
 
         <footer className="stoicheion-footer">
-          <span>Случайность собирается локально</span>
-          <span>Дневные попытки закрепляются за вашей учётной записью</span>
+          {divinationDisabled ? (
+            <span>Гадания отключены настройкой вашей учётной записи</span>
+          ) : (
+            <>
+              <span>Случайность собирается локально</span>
+              <span>Дневные попытки закрепляются за вашей учётной записью</span>
+            </>
+          )}
         </footer>
       </div>
 
