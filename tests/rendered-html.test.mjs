@@ -328,6 +328,9 @@ test("ships the complete illustrated Stoicheion deck with exact Greek typography
   assert.match(view, /\/stoicheion-cards\/frame\.svg/);
   assert.match(view, /StoicheionCardFace/);
   assert.doesNotMatch(view, /Пока изображения карт готовятся/);
-  assert.match(frame, /pattern id="meander-h"/);
-  assert.match(frame, /pattern id="meander-v"/);
+  assert.match(frame, /pattern id="linked-key-h"/);
+  assert.match(frame, /pattern id="linked-key-v-left"/);
+  assert.match(frame, /M58 48H34V58M454 48H478V58/);
+  assert.doesNotMatch(frame, /meander-|M60 76|M256 62/);
+  assert.doesNotMatch(view, /<i lang="el">\{art\.invocation\}<\/i>/);
 });

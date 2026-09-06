@@ -320,7 +320,6 @@ function StoicheionCardFace({
       <span className="stoicheion-card-caption">
         <strong>{art.body}</strong>
         <small lang="el">{art.bodyGreek}</small>
-        <i lang="el">{art.invocation}</i>
       </span>
     </span>
   );
