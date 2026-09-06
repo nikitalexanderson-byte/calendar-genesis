@@ -68,6 +68,7 @@ export type GenesisUser = {
   calendarConnected: boolean;
   googleTasksImportReady: boolean;
   passwordEnabled: boolean;
+  stoicheionDivinationDisabled: boolean;
   isAdmin: boolean;
 };
 
@@ -435,6 +436,13 @@ export async function deleteGenesisAccount() {
   workspaceKey = "";
   localStorage.removeItem(LAST_USER_CACHE);
   window.location.assign("/");
+}
+
+export async function updateAccountPreferences(stoicheionDivinationDisabled: boolean) {
+  return api<{ user: GenesisUser }>("/account/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ stoicheionDivinationDisabled }),
+  });
 }
 
 export function observeCloudTasks(

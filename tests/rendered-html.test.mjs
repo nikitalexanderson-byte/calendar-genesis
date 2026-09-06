@@ -38,9 +38,10 @@ test("server-renders the GENESIS application shell", async () => {
 });
 
 test("keeps the requested calendar and privacy features wired", async () => {
-  const [calendarData, calendar, cloudSync, recurrenceBuilder, taskRecurrence, moonPhase, solarTimes, stoicheion, stoicheionData, welcome, styles, api, google, repository] = await Promise.all([
+  const [calendarData, calendar, accountPanel, cloudSync, recurrenceBuilder, taskRecurrence, moonPhase, solarTimes, stoicheion, stoicheionData, welcome, styles, api, google, repository] = await Promise.all([
     readFile(new URL("../app/calendar-data.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/AccountPanel.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/cloud-sync.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/RecurrenceBuilder.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/task-recurrence.ts", import.meta.url), "utf8"),
@@ -292,6 +293,15 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(api, /\$path === 'task-lists'/);
   assert.match(cloudSync, /X-Genesis-Time-Zone/);
   assert.match(repository, /genesisSaveStoicheionDraw/);
+  assert.match(accountPanel, /role="switch"/);
+  assert.match(accountPanel, /Запретить себе гадания/);
+  assert.match(cloudSync, /updateAccountPreferences/);
+  assert.match(calendar, /divinationDisabled=\{Boolean\(cloudUser\?\.stoicheionDivinationDisabled\)\}/);
+  assert.match(stoicheion, /Гадания по картам выключены/);
+  assert.match(stoicheion, /все буквенные карты и их значения остаются доступны/);
+  assert.match(api, /\$method === 'PUT' && \$path === 'account\/preferences'/);
+  assert.match(repository, /stoicheion_divination_disabled/);
+  assert.match(repository, /Гадания по картам отключены в личном кабинете/);
   assert.match(calendar, /TimeClockPicker/);
   assert.doesNotMatch(calendar, /<datalist/);
 
@@ -301,6 +311,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
     access(new URL(`../public/month-art-v4/month-${String(index + 1).padStart(2, "0")}.webp`, import.meta.url)),
   ));
   await access(new URL("../server/migrations/004_stoicheion_draws.sql", import.meta.url));
+  await access(new URL("../server/migrations/005_stoicheion_divination_preference.sql", import.meta.url));
 });
 
 test("ships the complete illustrated Stoicheion deck with exact Greek typography", async () => {

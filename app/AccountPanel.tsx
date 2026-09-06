@@ -2,17 +2,35 @@
 
 import { useState } from "react";
 import type { GenesisUser } from "./cloud-sync";
-import { deleteGenesisAccount } from "./cloud-sync";
+import { deleteGenesisAccount, updateAccountPreferences } from "./cloud-sync";
 
 type AccountPanelProps = {
   user: GenesisUser;
   onClose: () => void;
   onReconnectGoogle: () => void;
+  onUserChange: (user: GenesisUser) => void;
 };
 
-export function AccountPanel({ user, onClose, onReconnectGoogle }: AccountPanelProps) {
+export function AccountPanel({ user, onClose, onReconnectGoogle, onUserChange }: AccountPanelProps) {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [preferenceBusy, setPreferenceBusy] = useState(false);
+
+  const changeDivinationPreference = async (disabled: boolean) => {
+    setPreferenceBusy(true);
+    setMessage("");
+    try {
+      const result = await updateAccountPreferences(disabled);
+      onUserChange(result.user);
+      setMessage(disabled
+        ? "Гадания отключены. В Стойхейоне остались только карты и их значения."
+        : "Гадания снова доступны в Стойхейоне.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Не удалось сохранить настройку гаданий.");
+    } finally {
+      setPreferenceBusy(false);
+    }
+  };
 
   const removeAccount = async () => {
     if (!window.confirm("Удалить аккаунт GENESIS, зашифрованную структуру и статистику? События в вашем Google Calendar останутся у вас.")) return;
@@ -48,6 +66,31 @@ export function AccountPanel({ user, onClose, onReconnectGoogle }: AccountPanelP
             <button type="button" onClick={onReconnectGoogle}>Обновить доступ</button>
           </section>
         ) : null}
+
+        <section className="account-preferences" aria-labelledby="account-preferences-title">
+          <div>
+            <span className="eyebrow">Самоограничение</span>
+            <h3 id="account-preferences-title">Гадания в Стойхейоне</h3>
+          </div>
+          <label className="account-switch-row">
+            <span>
+              <strong>Запретить себе гадания</strong>
+              <small>Скрывает карту дня и расклад девяти карт на всех устройствах. Каталог 24 буквенных карт и их значения останутся доступны.</small>
+            </span>
+            <input
+              type="checkbox"
+              role="switch"
+              checked={Boolean(user.stoicheionDivinationDisabled)}
+              disabled={preferenceBusy}
+              onChange={(event) => void changeDivinationPreference(event.target.checked)}
+              aria-label="Запретить себе гадания по картам"
+            />
+            <i aria-hidden="true" />
+          </label>
+          <p className="account-preference-status" aria-live="polite">
+            {user.stoicheionDivinationDisabled ? "Гадания выключены" : "Гадания доступны"}
+          </p>
+        </section>
 
         <section className="account-oauth-note" aria-label="Безопасность входа">
           <h3>Безопасный вход</h3>

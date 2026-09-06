@@ -3032,7 +3032,12 @@ export function GenesisCalendar() {
             {view === "projects" ? renderProjects() : null}
             {view === "year" ? renderYear() : null}
             {view === "all-tasks" ? renderAllTasks() : null}
-            {view === "stoicheion" ? <StoicheionView /> : null}
+            {view === "stoicheion" ? (
+              <StoicheionView
+                key={cloudUser?.stoicheionDivinationDisabled ? "divination-disabled" : "divination-enabled"}
+                divinationDisabled={Boolean(cloudUser?.stoicheionDivinationDisabled)}
+              />
+            ) : null}
             {view === "admin" && cloudUser?.isAdmin ? <AdminPanel /> : null}
             <footer className="genesis-page-footer" aria-label="Ссылки проекта">
               <a href="https://t.me/genesisbasilea" target="_blank" rel="noreferrer">
@@ -3315,6 +3320,10 @@ export function GenesisCalendar() {
           onReconnectGoogle={() => {
             setAccountOpen(false);
             void handleGoogleSignIn();
+          }}
+          onUserChange={(user) => {
+            setCloudUser(user);
+            localStorage.setItem(LAST_USER_KEY, JSON.stringify(user));
           }}
         />
       ) : null}
