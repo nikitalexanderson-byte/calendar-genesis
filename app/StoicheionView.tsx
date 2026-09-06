@@ -24,6 +24,7 @@ import {
 } from "./cloud-sync";
 
 const LOCAL_DRAW_STORAGE_PREFIX = "genesis-stoicheion-draws-v2:";
+const STOICHEION_CARD_ART_VERSION = "20260906-anatomy-glow";
 const INITIAL_ENTROPY = 0x9e3779b9;
 
 type ClientDrawRecord = StoicheionDrawRecord & { localDeadline: number };
@@ -300,7 +301,7 @@ function StoicheionCardFace({
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         className="stoicheion-card-artwork"
-        src={`/stoicheion-cards/${letter.id}.webp`}
+        src={`/stoicheion-cards/${letter.id}.webp?v=${STOICHEION_CARD_ART_VERSION}`}
         alt=""
         draggable={false}
         loading={variant === "daily" || variant === "dialog" ? "eager" : "lazy"}
