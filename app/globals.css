@@ -5552,6 +5552,7 @@ html.project-drag-active body {
 
 .stoicheion-card-caption strong { font: 600 5.7cqw/1 Georgia, "Times New Roman", serif; letter-spacing: .035em; text-transform: uppercase; }
 .stoicheion-card-caption small { color: var(--stoicheion-card-accent); font: 400 5cqw/1 Georgia, "Times New Roman", serif; }
+.stoicheion-card-caption i { flex-basis: 100%; margin-top: 2cqw; color: #c7bca4; font: 500 3.35cqw/1.1 Georgia, "Times New Roman", serif; font-style: normal; letter-spacing: .075em; }
 
 .stoicheion-card-visual.is-reversed .stoicheion-card-artwork { filter: saturate(.84) brightness(.82); transform: rotate(180deg) scale(1.012); }
 .stoicheion-card-visual.is-reversed { box-shadow: inset 0 0 0 2px rgba(3, 13, 15, .9), 0 18px 38px rgba(0, 0, 0, .36), 0 0 34px rgba(191, 102, 82, .13); }
