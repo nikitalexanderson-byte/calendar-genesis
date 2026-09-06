@@ -311,12 +311,12 @@ test("ships the complete illustrated Stoicheion deck with exact Greek typography
   ];
 
   await Promise.all(ids.map((id) => access(new URL(`../public/stoicheion-cards/${id}.webp`, import.meta.url))));
-  await access(new URL("../public/stoicheion-cards/frame.svg", import.meta.url));
+  await access(new URL("../public/stoicheion-cards/frame-linked-key.svg", import.meta.url));
 
   const [view, cardArt, frame] = await Promise.all([
     readFile(new URL("../app/StoicheionView.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/stoicheion-card-art.ts", import.meta.url), "utf8"),
-    readFile(new URL("../public/stoicheion-cards/frame.svg", import.meta.url), "utf8"),
+    readFile(new URL("../public/stoicheion-cards/frame-linked-key.svg", import.meta.url), "utf8"),
   ]);
   const authoredCardArt = cardArt.split("const FALLBACK_ART")[0];
   const invocations = [...authoredCardArt.matchAll(/invocation: "([^"]+)"/g)].map((match) => match[1]);
@@ -325,7 +325,8 @@ test("ships the complete illustrated Stoicheion deck with exact Greek typography
   invocations.forEach((invocation) => assert.match(invocation, /^[\p{Script=Greek}\p{Mark}]+$/u));
   ids.forEach((id) => assert.match(cardArt, new RegExp(`\\b${id}: \\{`)));
   assert.match(view, /\/stoicheion-cards\/\$\{letter\.id\}\.webp/);
-  assert.match(view, /\/stoicheion-cards\/frame\.svg/);
+  assert.match(view, /\/stoicheion-cards\/frame-linked-key\.svg/);
+  assert.doesNotMatch(view, /\/stoicheion-cards\/frame\.svg/);
   assert.match(view, /StoicheionCardFace/);
   assert.doesNotMatch(view, /Пока изображения карт готовятся/);
   assert.match(frame, /pattern id="linked-key-h"/);
