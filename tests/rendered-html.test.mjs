@@ -311,12 +311,12 @@ test("ships the complete illustrated Stoicheion deck with exact Greek typography
   ];
 
   await Promise.all(ids.map((id) => access(new URL(`../public/stoicheion-cards/${id}.webp`, import.meta.url))));
-  await access(new URL("../public/stoicheion-cards/frame-linked-key.svg", import.meta.url));
+  await access(new URL("../public/stoicheion-cards/frame-greek-key.svg", import.meta.url));
 
   const [view, cardArt, frame] = await Promise.all([
     readFile(new URL("../app/StoicheionView.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/stoicheion-card-art.ts", import.meta.url), "utf8"),
-    readFile(new URL("../public/stoicheion-cards/frame-linked-key.svg", import.meta.url), "utf8"),
+    readFile(new URL("../public/stoicheion-cards/frame-greek-key.svg", import.meta.url), "utf8"),
   ]);
   const authoredCardArt = cardArt.split("const FALLBACK_ART")[0];
   const invocations = [...authoredCardArt.matchAll(/invocation: "([^"]+)"/g)].map((match) => match[1]);
@@ -325,13 +325,14 @@ test("ships the complete illustrated Stoicheion deck with exact Greek typography
   invocations.forEach((invocation) => assert.match(invocation, /^[\p{Script=Greek}\p{Mark}]+$/u));
   ids.forEach((id) => assert.match(cardArt, new RegExp(`\\b${id}: \\{`)));
   assert.match(view, /\/stoicheion-cards\/\$\{letter\.id\}\.webp/);
-  assert.match(view, /\/stoicheion-cards\/frame-linked-key\.svg/);
-  assert.doesNotMatch(view, /\/stoicheion-cards\/frame\.svg/);
+  assert.match(view, /\/stoicheion-cards\/frame-greek-key\.svg/);
+  assert.doesNotMatch(view, /\/stoicheion-cards\/frame(?:-linked-key)?\.svg/);
   assert.match(view, /StoicheionCardFace/);
   assert.doesNotMatch(view, /Пока изображения карт готовятся/);
-  assert.match(frame, /pattern id="linked-key-h"/);
-  assert.match(frame, /pattern id="linked-key-v-left"/);
-  assert.match(frame, /M58 48H34V58M454 48H478V58/);
-  assert.doesNotMatch(frame, /meander-|M60 76|M256 62/);
+  assert.match(frame, /pattern id="greek-key-top"/);
+  assert.match(frame, /pattern id="greek-key-left"/);
+  assert.match(frame, /M0 0V35H40 M10 0V15H30V35 M40 5H20V25H0/);
+  assert.match(frame, /<rect x="32" y="32" width="20" height="20"\/>/);
+  assert.doesNotMatch(frame, /linked-key|meander-|M60 76|M256 62/);
   assert.match(view, /<i lang="el">\{art\.invocation\}<\/i>/);
 });
