@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 768" fill="none">
+  <defs>
+    <linearGradient id="gold" x1="34" y1="20" x2="478" y2="748" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f0d999"/>
+      <stop offset="0.48" stop-color="#ad8240"/>
+      <stop offset="1" stop-color="#e3c783"/>
+    </linearGradient>
+    <pattern id="meander-h" width="48" height="24" patternUnits="userSpaceOnUse">
+      <path d="M0 20h18V5h25v11H29v-5H12v13" stroke="#dec47f" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"/>
+    </pattern>
+    <pattern id="meander-v" width="24" height="48" patternUnits="userSpaceOnUse">
+      <path d="M20 0v18H5v25h11V29h-5V12h13" stroke="#dec47f" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"/>
+    </pattern>
+  </defs>
+  <rect x="7" y="7" width="498" height="754" rx="24" stroke="#031114" stroke-opacity=".94" stroke-width="14"/>
+  <rect x="8" y="8" width="496" height="752" rx="23" stroke="url(#gold)" stroke-width="3"/>
+  <rect x="18" y="18" width="476" height="732" rx="17" stroke="#e0c682" stroke-opacity=".72" stroke-width="1.5"/>
+  <rect x="24" y="24" width="464" height="720" rx="13" stroke="#06191c" stroke-opacity=".9" stroke-width="8"/>
+  <rect x="28" y="28" width="456" height="26" fill="#06191c" fill-opacity=".72"/>
+  <rect x="28" y="714" width="456" height="26" fill="#06191c" fill-opacity=".72"/>
+  <rect x="28" y="28" width="456" height="26" fill="url(#meander-h)" opacity=".72"/>
+  <rect x="28" y="714" width="456" height="26" fill="url(#meander-h)" opacity=".72"/>
+  <rect x="28" y="54" width="26" height="660" fill="#06191c" fill-opacity=".68"/>
+  <rect x="458" y="54" width="26" height="660" fill="#06191c" fill-opacity=".68"/>
+  <rect x="28" y="54" width="26" height="660" fill="url(#meander-v)" opacity=".7"/>
+  <rect x="458" y="54" width="26" height="660" fill="url(#meander-v)" opacity=".7"/>
+  <g stroke="url(#gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity=".9">
+    <path d="M60 76c17-16 30-13 33 0-13-5-21 2-23 16 13-9 25-4 25 9-13-5-24 1-35 14"/>
+    <path d="M452 76c-17-16-30-13-33 0 13-5 21 2 23 16-13-9-25-4-25 9 13-5 24 1 35 14"/>
+    <path d="M60 692c17 16 30 13 33 0-13 5-21-2-23-16 13 9 25 4 25-9-13 5-24-1-35-14"/>
+    <path d="M452 692c-17 16-30 13-33 0 13 5 21-2 23-16-13 9-25 4-25-9 13 5 24-1 35-14"/>
+    <path d="M256 62c-7 11-16 17-25 19 12 2 20 8 25 19 5-11 13-17 25-19-9-2-18-8-25-19Z"/>
+    <path d="M256 706c-7-11-16-17-25-19 12-2 20-8 25-19 5 11 13 17 25 19-9 2-18 8-25 19Z"/>
+  </g>
+</svg>
