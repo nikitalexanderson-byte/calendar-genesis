@@ -308,7 +308,7 @@ function StoicheionCardFace({
       <span className="stoicheion-card-artwork-shade" aria-hidden="true" />
       {/* The shared SVG is a decorative overlay, not content that benefits from image optimization. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img className="stoicheion-card-frame" src="/stoicheion-cards/frame-linked-key.svg" alt="" draggable={false} aria-hidden="true" />
+      <img className="stoicheion-card-frame" src="/stoicheion-cards/frame-greek-key.svg" alt="" draggable={false} aria-hidden="true" />
       <span className="stoicheion-card-title">
         <small>{String(letter.order).padStart(2, "0")}</small>
         <strong>{letter.name}</strong>
