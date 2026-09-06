@@ -14,6 +14,7 @@ import {
   STOICHEION_LETTERS,
   type StoicheionLetter,
 } from "./stoicheion-data";
+import { getStoicheionCardArt } from "./stoicheion-card-art";
 import {
   isGoogleSyncConfigured,
   loadStoicheionDraws,
@@ -272,6 +273,59 @@ function splitContentBlock(block: string) {
   return { heading: "", body: block };
 }
 
+type StoicheionCardVariant = "alphabet" | "daily" | "dialog" | "spread";
+
+function StoicheionCardFace({
+  letter,
+  reversed = false,
+  variant,
+}: {
+  letter: StoicheionLetter;
+  reversed?: boolean;
+  variant: StoicheionCardVariant;
+}) {
+  const art = getStoicheionCardArt(letter);
+
+  return (
+    <span
+      className={`stoicheion-card-visual stoicheion-card-visual-${variant}${reversed ? " is-reversed" : ""}`}
+      role="img"
+      aria-label={`Карта ${letter.name}: ${letter.symbol}, ${art.body}, ${art.bodyGreek}`}
+      style={{
+        "--stoicheion-card-accent": art.accent,
+        "--stoicheion-card-accent-rgb": art.accentRgb,
+      } as CSSProperties}
+    >
+      {/* Static pre-compressed deck art must remain a predictable public-file URL in both build targets. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        className="stoicheion-card-artwork"
+        src={`/stoicheion-cards/${letter.id}.webp`}
+        alt=""
+        draggable={false}
+        loading={variant === "daily" || variant === "dialog" ? "eager" : "lazy"}
+      />
+      <span className="stoicheion-card-artwork-shade" aria-hidden="true" />
+      {/* The shared SVG is a decorative overlay, not content that benefits from image optimization. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img className="stoicheion-card-frame" src="/stoicheion-cards/frame.svg" alt="" draggable={false} aria-hidden="true" />
+      <span className="stoicheion-card-title">
+        <small>{String(letter.order).padStart(2, "0")}</small>
+        <strong>{letter.name}</strong>
+      </span>
+      <span className="stoicheion-card-sigil" lang="el">
+        <strong>{letter.symbol}</strong>
+        <small>{letter.lowercase}</small>
+      </span>
+      <span className="stoicheion-card-caption">
+        <strong>{art.body}</strong>
+        <small lang="el">{art.bodyGreek}</small>
+        <i lang="el">{art.invocation}</i>
+      </span>
+    </span>
+  );
+}
+
 function LetterDetails({
   letter,
   reversed,
@@ -304,10 +358,7 @@ function LetterDetails({
       <article>
         <button type="button" className="stoicheion-dialog-close" onClick={onClose} aria-label="Закрыть описание буквы">×</button>
         <header>
-          <div className="stoicheion-dialog-symbol" aria-hidden="true">
-            <strong>{letter.symbol}</strong>
-            <span>{letter.lowercase}</span>
-          </div>
+          <StoicheionCardFace letter={letter} reversed={Boolean(reversed)} variant="dialog" />
           <div>
             <span className="eyebrow">{String(letter.order).padStart(2, "0")} · значение {letter.value} · Пифмен {letter.pythmen}</span>
             <h2 id={`letter-${letter.id}-title`}>{letter.name}</h2>
@@ -573,7 +624,7 @@ export function StoicheionView() {
           <div className="stoicheion-section-intro">
             <span className="eyebrow">Первое взаимодействие · {dateLabel}</span>
             <h2 id="stoicheion-day-title">Карта дня</h2>
-            <p>Пока изображения карт готовятся, выбор открывает одну букву. Случайность собирается на устройстве и фиксируется на текущий день.</p>
+            <p>Выбор открывает одну из 24 авторских карт. Случайность собирается на устройстве и фиксируется на текущий день.</p>
           </div>
 
           {drawError ? <p className="stoicheion-draw-error" role="alert">{drawError}</p> : null}
@@ -596,11 +647,9 @@ export function StoicheionView() {
                 type="button"
                 className={`stoicheion-revealed-card${dailyReversed ? " is-reversed" : ""}`}
                 onClick={() => setSelectedReading({ letter: dailyLetter, reversed: dailyReversed })}
+                aria-label={`${dailyLetter.name}, ${orientationLabel(dailyReversed)}. Открыть полное описание`}
               >
-                <span className="stoicheion-card-glyph">{dailyLetter.symbol}</span>
-                <small>{dailyLetter.lowercase}</small>
-                <strong>{dailyLetter.name}</strong>
-                <i>Число {dailyLetter.value} · Пифмен {dailyLetter.pythmen}</i>
+                <StoicheionCardFace letter={dailyLetter} reversed={dailyReversed} variant="daily" />
                 <b className="stoicheion-card-orientation">{orientationLabel(dailyReversed)}</b>
               </button>
               <div>
@@ -654,8 +703,8 @@ export function StoicheionView() {
                         aria-label={`${position.direction}: ${letter.name}, ${orientationLabel(card.reversed)}. ${position.meaning}`}
                       >
                         <span className="stoicheion-direction"><i>{position.shortDirection}</i>{position.direction}</span>
-                        <strong className="stoicheion-sector-glyph">{letter.symbol}</strong>
-                        <small>{letter.name} · {letter.value}</small>
+                        <StoicheionCardFace letter={letter} reversed={card.reversed} variant="spread" />
+                        <small>{letter.name} · число {letter.value}</small>
                         <em>{orientationLabel(card.reversed)}</em>
                         <p>{position.meaning}</p>
                       </button>
@@ -709,11 +758,9 @@ export function StoicheionView() {
                 type="button"
                 key={letter.id}
                 onClick={() => setSelectedReading({ letter, reversed: null })}
+                aria-label={`Открыть карту ${letter.name}, ${letter.symbol}`}
               >
-                <i>{String(letter.order).padStart(2, "0")}</i>
-                <strong>{letter.symbol}</strong>
-                <span>{letter.name}</span>
-                <small>{letter.value} · π {letter.pythmen}</small>
+                <StoicheionCardFace letter={letter} variant="alphabet" />
               </button>
             ))}
           </div>
