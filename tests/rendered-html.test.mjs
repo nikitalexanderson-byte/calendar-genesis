@@ -347,3 +347,68 @@ test("ships the complete illustrated Stoicheion deck with exact Greek typography
   assert.doesNotMatch(frame, /linked-key|meander-|M60 76|M256 62/);
   assert.match(view, /<i lang="el">\{art\.invocation\}<\/i>/);
 });
+
+test("keeps Google OAuth consent, account binding, and token handling hardened", async () => {
+  const [calendar, welcome, accountPanel, cloudSync, legal, api, bootstrap, google, repository, viteConfig, htaccess] = await Promise.all([
+    readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/WelcomeScreen.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/AccountPanel.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/cloud-sync.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/LegalPage.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../server/public/api/index.php", import.meta.url), "utf8"),
+    readFile(new URL("../server/src/bootstrap.php", import.meta.url), "utf8"),
+    readFile(new URL("../server/src/google.php", import.meta.url), "utf8"),
+    readFile(new URL("../server/src/repository.php", import.meta.url), "utf8"),
+    readFile(new URL("../vite.beget.config.ts", import.meta.url), "utf8"),
+    readFile(new URL("../public/.htaccess", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(welcome, /google-signin-light-pill\.svg/);
+  assert.match(calendar, /google-signin-light-square\.svg/);
+  assert.match(cloudSync, /purpose=login/);
+  assert.match(cloudSync, /purpose=services/);
+  assert.match(cloudSync, /consumeGoogleAuthError/);
+  assert.match(google, /GENESIS_GOOGLE_IDENTITY_SCOPES/);
+  assert.match(google, /GENESIS_GOOGLE_SERVICE_SCOPES/);
+  assert.match(google, /calendar\.app\.created/);
+  assert.match(google, /https:\/\/www\.googleapis\.com\/auth\/tasks/);
+  assert.match(google, /code_challenge_method/);
+  assert.match(google, /genesisRevokeGoogleToken/);
+  assert.match(google, /oauth2\.googleapis\.com\/revoke/);
+  assert.match(api, /issued_at/);
+  assert.match(api, /time\(\) - 600/);
+  assert.match(api, /hash_equals/);
+  assert.match(api, /unset\(\$_SESSION\['oauth_request'\]\)/);
+  assert.match(api, /genesisSafeReturnTo/);
+  assert.match(api, /account_mismatch/);
+  assert.match(api, /missing_permissions/);
+  assert.match(bootstrap, /session\.use_strict_mode/);
+  assert.match(bootstrap, /session\.use_only_cookies/);
+  assert.match(bootstrap, /display_errors/);
+  assert.doesNotMatch(bootstrap, /getTraceAsString/);
+  assert.match(repository, /email_verified/);
+  assert.match(repository, /WHERE google_sub = :sub LIMIT 1/);
+  assert.doesNotMatch(repository, /WHERE google_sub = :google_sub OR email = :email/);
+  assert.match(repository, /genesisRevokeGoogleToken\(\$user\)/);
+  assert.match(repository, /function genesisDisconnectGoogleServices/);
+  assert.match(api, /account\/google-services\/disconnect/);
+  assert.match(cloudSync, /disconnectGoogleServices/);
+  assert.match(cloudSync, /if \(!remote\.user\.calendarConnected\) return/);
+  assert.match(calendar, /if \(workspace\.user\.calendarConnected\)/);
+  assert.match(calendar, /if \(!cloudUser\?\.calendarConnected\) return/);
+  assert.match(accountPanel, /Отключить Calendar и Tasks/);
+  assert.match(legal, /Google Tasks/);
+  assert.match(legal, /Limited Use/);
+  assert.match(legal, /developers\.google\.com\/terms\/api-services-user-data-policy/);
+  assert.match(viteConfig, /sourcemap: false/);
+  assert.match(htaccess, /connect-src 'self' https:\/\/get\.geojs\.io https:\/\/geocoding-api\.open-meteo\.com/);
+  assert.match(legal, /GeoJS/);
+  assert.match(legal, /Open-Meteo/);
+
+  await access(new URL("../public/google-signin-light-pill.svg", import.meta.url));
+  await access(new URL("../public/google-signin-light-square.svg", import.meta.url));
+  await access(new URL("../public/.well-known/security.txt", import.meta.url));
+  await access(new URL("../public/robots.txt", import.meta.url));
+  await access(new URL("../public/sitemap.xml", import.meta.url));
+  await access(new URL("../docs/GOOGLE-OAUTH-PUBLISHING.md", import.meta.url));
+});

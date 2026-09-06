@@ -1,6 +1,9 @@
 <?php
 declare(strict_types=1);
 
+ini_set('display_errors', '0');
+ini_set('display_startup_errors', '0');
+
 function genesisRoot(): string
 {
     return dirname(__DIR__);
@@ -43,6 +46,10 @@ function genesisStartSession(): void
     genesisEnsureDirectory($sessionPath);
     session_save_path($sessionPath);
     session_name('GENESISSESSID');
+    ini_set('session.use_strict_mode', '1');
+    ini_set('session.use_only_cookies', '1');
+    ini_set('session.use_trans_sid', '0');
+    ini_set('session.gc_maxlifetime', (string)(60 * 60 * 24 * 30));
     session_set_cookie_params([
         'lifetime' => 60 * 60 * 24 * 30,
         'path' => '/',
@@ -142,11 +149,13 @@ function genesisNow(): string
 
 function genesisLogError(string $message, ?Throwable $error = null): void
 {
+    $cleanMessage = preg_replace('/[\x00-\x1F\x7F]+/u', ' ', $message) ?: 'Application error';
+    $cleanMessage = mb_substr(trim($cleanMessage), 0, 1000);
     $logLine = sprintf(
         "[%s] %s%s\n",
         gmdate('Y-m-d\TH:i:s\Z'),
-        $message,
-        $error !== null ? sprintf(" in %s:%d\n%s", $error->getFile(), $error->getLine(), $error->getTraceAsString()) : '',
+        $cleanMessage,
+        $error !== null ? sprintf(' [%s] %s:%d', get_class($error), basename($error->getFile()), $error->getLine()) : '',
     );
     $logPath = dirname((string)genesisConfig()['db_path']) . '/app-error.log';
     @file_put_contents($logPath, $logLine, FILE_APPEND | LOCK_EX);

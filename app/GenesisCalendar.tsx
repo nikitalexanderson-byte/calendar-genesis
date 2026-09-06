@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @next/next/no-img-element -- Google requires the official, unmodified sign-in asset. */
 
 import {
   type CSSProperties,
@@ -19,6 +20,8 @@ import {
   type RecurrenceKind,
   type TaskListProjectLink,
   type TaskOrigin,
+  connectGoogleServices,
+  consumeGoogleAuthError,
   createGoogleTaskList,
   isGoogleSyncConfigured,
   loadGenesisWorkspace,
@@ -523,6 +526,7 @@ export function GenesisCalendar() {
   const [legalPage] = useState<ReturnType<typeof currentLegalPage>>(() => currentLegalPage());
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("loading");
   const [syncError, setSyncError] = useState("");
+  const [authError, setAuthError] = useState("");
   const [taskTitle, setTaskTitle] = useState("");
   const [taskDescription, setTaskDescription] = useState("");
   const [taskDueDate, setTaskDueDate] = useState("");
@@ -578,6 +582,11 @@ export function GenesisCalendar() {
   } | null>(null);
   const suppressProjectItemClickRef = useRef(false);
   const { canInstall, install, isStandalone } = usePwaInstall();
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setAuthError(consumeGoogleAuthError()), 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const deviceTimeZone = useMemo(
     () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
@@ -831,23 +840,25 @@ export function GenesisCalendar() {
           setTaskListLinks(nextTaskListLinks);
           setNewProjectCategory(nextCategories[0]?.id ?? "");
           setSyncError(workspace.syncWarning ?? "");
-          setSyncStatus(workspace.syncWarning ? "offline" : "synced");
-          stopTasks = observeCloudTasks(
-            user.uid,
-            (cloudTasks, cloudTaskLists, fromCache, warning) => {
-              if (!active) return;
-              tasksRef.current = cloudTasks;
-              setTasks(cloudTasks);
-              setTaskLists(cloudTaskLists);
-              setSyncError(warning ?? "");
-              setSyncStatus(warning ? "error" : fromCache ? "offline" : "synced");
-            },
-            (error) => {
-              if (!active) return;
-              setSyncError(error.message);
-              setSyncStatus("error");
-            },
-          );
+          setSyncStatus(workspace.user.calendarConnected ? (workspace.syncWarning ? "offline" : "synced") : "local");
+          if (workspace.user.calendarConnected) {
+            stopTasks = observeCloudTasks(
+              user.uid,
+              (cloudTasks, cloudTaskLists, fromCache, warning) => {
+                if (!active) return;
+                tasksRef.current = cloudTasks;
+                setTasks(cloudTasks);
+                setTaskLists(cloudTaskLists);
+                setSyncError(warning ?? "");
+                setSyncStatus(warning ? "error" : fromCache ? "offline" : "synced");
+              },
+              (error) => {
+                if (!active) return;
+                setSyncError(error.message);
+                setSyncStatus("error");
+              },
+            );
+          }
         })
         .catch((error: Error) => {
           if (!active) return;
@@ -891,7 +902,7 @@ export function GenesisCalendar() {
   }, [hydrated]);
 
   const saveTask = (task: Task) => {
-    if (!cloudUser) return;
+    if (!cloudUser?.calendarConnected) return;
     setSyncStatus("syncing");
     void saveCloudTask(cloudUser.uid, task)
       .then((saved) => {
@@ -905,7 +916,7 @@ export function GenesisCalendar() {
   };
 
   const saveTaskSeries = (series: Task[]) => {
-    if (!cloudUser || !series.length) return;
+    if (!cloudUser?.calendarConnected || !series.length) return;
     setSyncStatus("syncing");
     void (async () => {
       const savedTasks: Task[] = [];
@@ -924,12 +935,25 @@ export function GenesisCalendar() {
   };
 
   const handleGoogleSignIn = async () => {
+    setAuthError("");
     setSyncError("");
     setSyncStatus("syncing");
     try {
       await signInWithGoogle();
     } catch (error) {
       setSyncError(error instanceof Error ? error.message : "Не удалось войти");
+      setSyncStatus("error");
+    }
+  };
+
+  const handleGoogleConnect = async () => {
+    setAuthError("");
+    setSyncError("");
+    setSyncStatus("syncing");
+    try {
+      await connectGoogleServices();
+    } catch (error) {
+      setSyncError(error instanceof Error ? error.message : "Не удалось подключить Google Calendar и Tasks");
       setSyncStatus("error");
     }
   };
@@ -1166,7 +1190,7 @@ export function GenesisCalendar() {
     setTasks((current) => current.map((task) => task.id === nextTask.id ? nextTask : task));
     const destinationChanged = original.googleTaskListId !== nextTask.googleTaskListId;
     const hasRemoteSource = Boolean(original.googleTaskId || original.googleEventId);
-    if (!cloudUser || !destinationChanged || !hasRemoteSource) {
+    if (!cloudUser?.calendarConnected || !destinationChanged || !hasRemoteSource) {
       saveTask(nextTask);
       return;
     }
@@ -1314,7 +1338,7 @@ export function GenesisCalendar() {
   const deleteTask = (id: string) => {
     const taskToDelete = tasks.find((task) => task.id === id);
     setTasks((current) => current.filter((task) => task.id !== id));
-    if (cloudUser && taskToDelete) {
+    if (cloudUser?.calendarConnected && taskToDelete) {
       setSyncStatus("syncing");
       void removeCloudTask(cloudUser.uid, taskToDelete)
         .then(() => setSyncStatus("synced"))
@@ -1905,7 +1929,7 @@ export function GenesisCalendar() {
           </form>
         </>
       ) : (
-        <button type="button" className="primary-button" onClick={() => void handleGoogleSignIn()}>Подключить Google Tasks</button>
+        <button type="button" className="primary-button" onClick={() => void handleGoogleConnect()}>Подключить Google Tasks</button>
       )}
     </div>
   );
@@ -2888,7 +2912,7 @@ export function GenesisCalendar() {
     return (
       <WelcomeScreen
         busy={syncStatus === "syncing"}
-        error={syncError}
+        error={authError || syncError}
         onGoogle={() => void handleGoogleSignIn()}
       />
     );
@@ -3013,9 +3037,10 @@ export function GenesisCalendar() {
                 className="google-button"
                 onClick={() => void handleGoogleSignIn()}
                 disabled={!isGoogleSyncConfigured || syncStatus === "syncing"}
-                title={!isGoogleSyncConfigured ? "Сервер GENESIS подключается" : "Войти и синхронизировать задачи"}
+                title={!isGoogleSyncConfigured ? "Сервер GENESIS подключается" : "Войти через Google"}
+                aria-label="Войти через Google"
               >
-                <span aria-hidden="true">G</span> Войти через Google
+                <img src={`${APP_BASE}/google-signin-light-square.svg`} alt="" aria-hidden="true" />
               </button>
             )}
             <button type="button" className="ghost-button" onClick={selectToday}>К сегодняшнему дню</button>
@@ -3027,6 +3052,23 @@ export function GenesisCalendar() {
 
         <div className={`workspace workspace-full${view === "today" ? " today-workspace" : ""}`} id="main-content">
           <div className="content-column">
+            {authError ? <p className="oauth-callback-error" role="alert">{authError}</p> : null}
+            {cloudUser && (!cloudUser.calendarConnected || !cloudUser.googleTasksImportReady) ? (
+              <section className="google-connect-banner" aria-labelledby="google-connect-title">
+                <div>
+                  <span className="eyebrow">Необязательная синхронизация</span>
+                  <h2 id="google-connect-title">Подключите Google Calendar и Google Tasks</h2>
+                  <p>
+                    Вход уже выполнен. Разрешения на календарь и списки задач запрашиваются отдельно и только после вашего нажатия.
+                    GENESIS создаёт собственный календарь, а доступ к Google Tasks нужен для показа и двустороннего изменения выбранных вами списков и задач.
+                  </p>
+                  <p><a href="/privacy">Как GENESIS использует и защищает данные Google</a></p>
+                </div>
+                <button type="button" className="primary-button" onClick={() => void handleGoogleConnect()} disabled={syncStatus === "syncing"}>
+                  {syncStatus === "syncing" ? "Подключаем…" : "Подключить синхронизацию"}
+                </button>
+              </section>
+            ) : null}
             {view === "today" ? renderToday() : null}
             {view === "calendar" ? renderCalendar() : null}
             {view === "projects" ? renderProjects() : null}
@@ -3319,7 +3361,7 @@ export function GenesisCalendar() {
           onClose={() => setAccountOpen(false)}
           onReconnectGoogle={() => {
             setAccountOpen(false);
-            void handleGoogleSignIn();
+            void handleGoogleConnect();
           }}
           onUserChange={(user) => {
             setCloudUser(user);

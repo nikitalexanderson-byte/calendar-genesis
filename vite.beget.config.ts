@@ -20,7 +20,7 @@ export default defineConfig({
   build: {
     outDir: path.join(projectRoot, "dist-beget", "public_html"),
     emptyOutDir: true,
-    sourcemap: true,
+    sourcemap: false,
     target: "es2020",
   },
 });

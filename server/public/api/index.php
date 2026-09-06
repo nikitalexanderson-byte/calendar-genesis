@@ -50,6 +50,36 @@ function genesisFinishSession(): never
     genesisJson(['ok' => true]);
 }
 
+function genesisSafeReturnTo(string $value): string
+{
+    $returnTo = trim($value);
+    if (
+        $returnTo === ''
+        || !str_starts_with($returnTo, '/')
+        || str_starts_with($returnTo, '//')
+        || str_contains($returnTo, '\\')
+        || preg_match('/[\x00-\x1F\x7F]/', $returnTo)
+    ) {
+        return '/';
+    }
+    return mb_substr($returnTo, 0, 2000);
+}
+
+function genesisOAuthRedirect(string $returnTo, ?string $error = null): never
+{
+    $safeReturnTo = genesisSafeReturnTo($returnTo);
+    if ($error !== null && $error !== '') {
+        $fragmentPosition = strpos($safeReturnTo, '#');
+        $fragment = $fragmentPosition === false ? '' : substr($safeReturnTo, $fragmentPosition);
+        $base = $fragmentPosition === false ? $safeReturnTo : substr($safeReturnTo, 0, $fragmentPosition);
+        $separator = str_contains($base, '?') ? '&' : '?';
+        $safeReturnTo = $base . $separator . 'auth_error=' . rawurlencode($error) . $fragment;
+    }
+    header('Cache-Control: no-store');
+    header('Location: ' . rtrim((string)genesisConfig()['app_url'], '/') . $safeReturnTo, true, 302);
+    exit;
+}
+
 try {
     if ($method === 'GET' && $path === 'health') {
         genesisJson(['ok' => true, 'service' => 'GENESIS', 'privacyModel' => 2, 'time' => genesisNow()]);
@@ -109,46 +139,105 @@ try {
     }
 
     if ($method === 'GET' && $path === 'auth/google/start') {
-        $returnTo = (string)($_GET['return_to'] ?? '/');
-        if (!str_starts_with($returnTo, '/') || str_starts_with($returnTo, '//')) {
-            $returnTo = '/';
+        $purpose = (string)($_GET['purpose'] ?? 'login') === 'services' ? 'services' : 'login';
+        $returnTo = genesisSafeReturnTo((string)($_GET['return_to'] ?? '/'));
+        $loginHint = null;
+        $requestUserId = null;
+        if ($purpose === 'services') {
+            $requestUserId = genesisRequireUserId();
+            $requestUser = genesisFindUser($requestUserId);
+            if ($requestUser === null) {
+                unset($_SESSION['user_id']);
+                genesisOAuthRedirect($returnTo, 'session_expired');
+            }
+            $loginHint = (string)$requestUser['email'];
         }
         $state = genesisBase64Url(random_bytes(32));
         $verifier = genesisBase64Url(random_bytes(64));
-        $_SESSION['oauth_state'] = $state;
-        $_SESSION['oauth_verifier'] = $verifier;
-        $_SESSION['oauth_return_to'] = $returnTo;
+        $_SESSION['oauth_request'] = [
+            'state' => $state,
+            'verifier' => $verifier,
+            'return_to' => $returnTo,
+            'purpose' => $purpose,
+            'user_id' => $requestUserId,
+            'issued_at' => time(),
+        ];
         header('Cache-Control: no-store');
-        header('Location: ' . genesisGoogleAuthUrl($state, genesisBase64Url(hash('sha256', $verifier, true))), true, 302);
+        header('Location: ' . genesisGoogleAuthUrl(
+            $state,
+            genesisBase64Url(hash('sha256', $verifier, true)),
+            $purpose,
+            $loginHint,
+        ), true, 302);
         exit;
     }
 
     if ($method === 'GET' && $path === 'auth/google/callback') {
+        $request = $_SESSION['oauth_request'] ?? null;
         $state = (string)($_GET['state'] ?? '');
+        $requestState = is_array($request) ? (string)($request['state'] ?? '') : '';
+        $issuedAt = is_array($request) ? (int)($request['issued_at'] ?? 0) : 0;
+        if ($state === '' || $requestState === '' || !hash_equals($requestState, $state) || $issuedAt < time() - 600) {
+            unset($_SESSION['oauth_request']);
+            genesisOAuthRedirect('/', 'invalid_state');
+        }
+        unset($_SESSION['oauth_request']);
+
+        $returnTo = genesisSafeReturnTo((string)($request['return_to'] ?? '/'));
+        $googleError = trim((string)($_GET['error'] ?? ''));
+        if ($googleError !== '') {
+            genesisOAuthRedirect($returnTo, $googleError === 'access_denied' ? 'access_denied' : 'oauth_failed');
+        }
         $code = (string)($_GET['code'] ?? '');
-        if ($state === '' || $code === '' || empty($_SESSION['oauth_state']) || !hash_equals((string)$_SESSION['oauth_state'], $state)) {
-            throw new RuntimeException('Google authorization state is invalid.');
+        if ($code === '') {
+            genesisOAuthRedirect($returnTo, 'oauth_failed');
         }
-        $tokens = genesisExchangeGoogleCode($code, (string)($_SESSION['oauth_verifier'] ?? ''));
-        if (empty($tokens['access_token'])) {
-            throw new RuntimeException('Google did not return an access token.');
-        }
-        $profile = genesisGoogleUserInfo((string)$tokens['access_token']);
-        if (empty($profile['sub']) || empty($profile['email'])) {
-            throw new RuntimeException('Google profile is incomplete.');
-        }
-        $user = genesisUpsertGoogleUser($profile, $tokens);
-        $_SESSION['user_id'] = (string)$user['id'];
-        session_regenerate_id(true);
+
         try {
-            genesisEnsureGoogleCalendar($user);
-        } catch (Throwable $calendarError) {
-            $_SESSION['calendar_error'] = $calendarError->getMessage();
+            $tokens = genesisExchangeGoogleCode($code, (string)($request['verifier'] ?? ''));
+            if (empty($tokens['access_token'])) {
+                throw new RuntimeException('Google did not return an access token.');
+            }
+            $profile = genesisGoogleUserInfo((string)$tokens['access_token']);
+            if (empty($profile['sub']) || empty($profile['email'])) {
+                throw new RuntimeException('Google profile is incomplete.');
+            }
+
+            $purpose = (string)($request['purpose'] ?? 'login');
+            if ($purpose === 'services') {
+                $requestUserId = (string)($request['user_id'] ?? '');
+                $currentUserId = genesisCurrentUserId();
+                $currentUser = $currentUserId ? genesisFindUser($currentUserId) : null;
+                if ($requestUserId === '' || $currentUserId !== $requestUserId || $currentUser === null) {
+                    genesisOAuthRedirect($returnTo, 'session_expired');
+                }
+                if (!hash_equals((string)$currentUser['google_sub'], (string)$profile['sub'])) {
+                    genesisOAuthRedirect($returnTo, 'account_mismatch');
+                }
+                if (!genesisGoogleTokenHasScopes($tokens, GENESIS_GOOGLE_SERVICE_SCOPES)) {
+                    genesisOAuthRedirect($returnTo, 'missing_permissions');
+                }
+                if (empty($tokens['refresh_token']) && empty($currentUser['refresh_token_enc'])) {
+                    throw new RuntimeException('Google did not return a refresh token for offline synchronization.');
+                }
+                $user = genesisUpsertGoogleUser($profile, $tokens, true);
+                $_SESSION['user_id'] = (string)$user['id'];
+                session_regenerate_id(true);
+                try {
+                    genesisEnsureGoogleCalendar($user);
+                } catch (Throwable $calendarError) {
+                    $_SESSION['calendar_error'] = $calendarError->getMessage();
+                }
+            } else {
+                $user = genesisUpsertGoogleUser($profile, $tokens, false);
+                $_SESSION['user_id'] = (string)$user['id'];
+                session_regenerate_id(true);
+            }
+        } catch (Throwable $oauthError) {
+            genesisLogError('Google OAuth callback failed.', $oauthError);
+            genesisOAuthRedirect($returnTo, 'oauth_failed');
         }
-        $returnTo = (string)($_SESSION['oauth_return_to'] ?? '/');
-        unset($_SESSION['oauth_state'], $_SESSION['oauth_verifier'], $_SESSION['oauth_return_to']);
-        header('Location: ' . rtrim((string)genesisConfig()['app_url'], '/') . $returnTo, true, 302);
-        exit;
+        genesisOAuthRedirect($returnTo);
     }
 
     if ($method === 'POST' && $path === 'auth/password/login') {
@@ -204,6 +293,13 @@ try {
         genesisFinishSession();
     }
 
+    if ($method === 'POST' && $path === 'account/google-services/disconnect') {
+        $userId = genesisRequireUserId();
+        genesisRequireCsrf();
+        $user = genesisDisconnectGoogleServices($userId);
+        genesisJson(['user' => genesisUserForClient($user)]);
+    }
+
     if ($method === 'PUT' && $path === 'account/preferences') {
         $userId = genesisRequireUserId();
         genesisRequireCsrf();
@@ -249,7 +345,6 @@ try {
 } catch (JsonException | InvalidArgumentException $error) {
     genesisJson(['error' => $error->getMessage()], 400);
 } catch (Throwable $error) {
-    error_log('[GENESIS] ' . $error->getMessage());
     genesisLogError($error->getMessage(), $error);
     genesisJson(['error' => 'Server error. Please try again.'], 500);
 }

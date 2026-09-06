@@ -420,8 +420,33 @@ export function observeGenesisUser(
 export function signInWithGoogle() {
   if (!API_BASE) throw new Error("Сервер GENESIS ещё не подключён");
   const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-  window.location.assign(`${API_BASE}/auth/google/start?return_to=${encodeURIComponent(returnTo)}`);
+  window.location.assign(`${API_BASE}/auth/google/start?purpose=login&return_to=${encodeURIComponent(returnTo)}`);
   return Promise.resolve();
+}
+
+export function connectGoogleServices() {
+  if (!API_BASE) throw new Error("Сервер GENESIS ещё не подключён");
+  const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  window.location.assign(`${API_BASE}/auth/google/start?purpose=services&return_to=${encodeURIComponent(returnTo)}`);
+  return Promise.resolve();
+}
+
+export function consumeGoogleAuthError() {
+  if (typeof window === "undefined") return "";
+  const url = new URL(window.location.href);
+  const code = url.searchParams.get("auth_error");
+  if (!code) return "";
+  url.searchParams.delete("auth_error");
+  window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+  const messages: Record<string, string> = {
+    access_denied: "Вы отменили вход или подключение сервисов Google. Доступ к данным не был предоставлен.",
+    invalid_state: "Защитная проверка входа истекла. Пожалуйста, начните вход заново.",
+    session_expired: "Сессия GENESIS истекла. Войдите ещё раз и повторите подключение.",
+    account_mismatch: "Для подключения выберите тот же аккаунт Google, с которым вы вошли в GENESIS.",
+    missing_permissions: "Google не предоставил необходимые разрешения Calendar и Tasks. Подключение не завершено.",
+    oauth_failed: "Google не завершил авторизацию. Попробуйте ещё раз или обратитесь в поддержку.",
+  };
+  return messages[code] ?? messages.oauth_failed;
 }
 
 export async function signOutFromGoogle() {
@@ -436,6 +461,13 @@ export async function deleteGenesisAccount() {
   workspaceKey = "";
   localStorage.removeItem(LAST_USER_CACHE);
   window.location.assign("/");
+}
+
+export function disconnectGoogleServices() {
+  return api<{ user: GenesisUser }>("/account/google-services/disconnect", {
+    method: "POST",
+    body: "{}",
+  });
 }
 
 export async function updateAccountPreferences(stoicheionDivinationDisabled: boolean) {
@@ -485,6 +517,7 @@ export async function mergeLocalWorkspace(
   if (!remote.hasRemoteStructure && (local.projects.length || local.categories.length || local.taskListLinks.length)) {
     await saveWorkspaceStructure(local.projects, local.categories, local.taskListLinks, metricsFor(local.tasks, local.projects));
   }
+  if (!remote.user.calendarConnected) return;
   const remoteById = new Map(remote.tasks.map((task) => [task.id, task]));
   for (const task of local.tasks) {
     if (task.googleTaskId) continue;

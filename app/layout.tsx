@@ -15,7 +15,7 @@ export async function generateMetadata(): Promise<Metadata> {
       template: "%s · GENESIS",
     },
     description:
-      "GENESIS — календарь задач и менеджер проектов с планом дня, напоминаниями и синхронизацией Google Calendar.",
+      "GENESIS — календарь задач и менеджер проектов с планом дня, напоминаниями и необязательной синхронизацией Google Calendar и Google Tasks.",
     applicationName: "GENESIS",
     manifest: "/manifest.webmanifest",
     category: "productivity",
@@ -34,7 +34,7 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     openGraph: {
       title: "GENESIS",
-      description: "Календарь задач и менеджер проектов с синхронизацией Google Calendar.",
+      description: "Календарь задач и менеджер проектов с синхронизацией Google Calendar и Google Tasks.",
       type: "website",
       url: origin,
       images: [{ url: `${origin}/og.png`, width: 1732, height: 899, alt: "GENESIS — сакральный календарь" }],
@@ -42,7 +42,7 @@ export async function generateMetadata(): Promise<Metadata> {
     twitter: {
       card: "summary_large_image",
       title: "GENESIS",
-      description: "Календарь задач и менеджер проектов с синхронизацией Google Calendar.",
+      description: "Календарь задач и менеджер проектов с синхронизацией Google Calendar и Google Tasks.",
       images: [`${origin}/og.png`],
     },
   };

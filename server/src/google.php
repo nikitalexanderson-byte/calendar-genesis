@@ -1,6 +1,17 @@
 <?php
 declare(strict_types=1);
 
+const GENESIS_GOOGLE_IDENTITY_SCOPES = [
+    'openid',
+    'email',
+    'profile',
+];
+
+const GENESIS_GOOGLE_SERVICE_SCOPES = [
+    'https://www.googleapis.com/auth/calendar.app.created',
+    'https://www.googleapis.com/auth/tasks',
+];
+
 const GENESIS_GOOGLE_SCOPES = [
     'openid',
     'email',
@@ -21,24 +32,32 @@ function genesisGoogleRedirectUri(): string
     return rtrim((string)genesisConfig()['app_url'], '/') . '/api/auth/google/callback';
 }
 
-function genesisGoogleAuthUrl(string $state, string $challenge): string
+function genesisGoogleAuthUrl(string $state, string $challenge, string $purpose = 'login', ?string $loginHint = null): string
 {
     $config = genesisConfig();
     if (empty($config['google_client_id'])) {
         throw new RuntimeException('Google OAuth client is not configured.');
     }
-    return 'https://accounts.google.com/o/oauth2/v2/auth?' . http_build_query([
+    if (!in_array($purpose, ['login', 'services'], true)) {
+        throw new InvalidArgumentException('Google OAuth purpose is invalid.');
+    }
+    $connectServices = $purpose === 'services';
+    $parameters = [
         'client_id' => (string)$config['google_client_id'],
         'redirect_uri' => genesisGoogleRedirectUri(),
         'response_type' => 'code',
-        'scope' => implode(' ', GENESIS_GOOGLE_SCOPES),
-        'access_type' => 'offline',
+        'scope' => implode(' ', $connectServices ? GENESIS_GOOGLE_SCOPES : GENESIS_GOOGLE_IDENTITY_SCOPES),
+        'access_type' => $connectServices ? 'offline' : 'online',
         'include_granted_scopes' => 'true',
-        'prompt' => 'consent select_account',
+        'prompt' => $connectServices ? 'consent' : 'select_account',
         'state' => $state,
         'code_challenge' => $challenge,
         'code_challenge_method' => 'S256',
-    ], '', '&', PHP_QUERY_RFC3986);
+    ];
+    if ($connectServices && is_string($loginHint) && $loginHint !== '') {
+        $parameters['login_hint'] = $loginHint;
+    }
+    return 'https://accounts.google.com/o/oauth2/v2/auth?' . http_build_query($parameters, '', '&', PHP_QUERY_RFC3986);
 }
 
 function genesisCurl(string $url, array $options = []): array
@@ -99,6 +118,49 @@ function genesisGoogleUserInfo(string $accessToken): array
     return genesisCurl('https://openidconnect.googleapis.com/v1/userinfo', [
         CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $accessToken],
     ]);
+}
+
+function genesisGoogleTokenHasScopes(array $tokens, array $requiredScopes): bool
+{
+    $grantedScopes = preg_split('/\s+/', trim((string)($tokens['scope'] ?? ''))) ?: [];
+    foreach ($requiredScopes as $requiredScope) {
+        if (!in_array($requiredScope, $grantedScopes, true)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function genesisRevokeGoogleToken(array $user): void
+{
+    $token = genesisDecrypt($user['refresh_token_enc'] ?? null)
+        ?: genesisDecrypt($user['access_token_enc'] ?? null);
+    if (!is_string($token) || $token === '') {
+        return;
+    }
+
+    $handle = curl_init('https://oauth2.googleapis.com/revoke');
+    curl_setopt_array($handle, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_TIMEOUT => 20,
+        CURLOPT_FOLLOWLOCATION => false,
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => http_build_query(['token' => $token], '', '&', PHP_QUERY_RFC3986),
+        CURLOPT_HTTPHEADER => ['Content-Type: application/x-www-form-urlencoded'],
+        CURLOPT_USERAGENT => 'GENESIS-Calendar/2.0',
+    ]);
+    $result = curl_exec($handle);
+    if ($result === false) {
+        $message = curl_error($handle);
+        curl_close($handle);
+        throw new RuntimeException('Google token revocation failed: ' . $message);
+    }
+    $status = (int)curl_getinfo($handle, CURLINFO_RESPONSE_CODE);
+    curl_close($handle);
+    if (!in_array($status, [200, 400], true)) {
+        throw new RuntimeException('Google token revocation failed (' . $status . ').');
+    }
 }
 
 function genesisGoogleAccessToken(array $user): string
@@ -877,8 +939,7 @@ function genesisListGoogleTasks(array $user): array
             $GLOBALS['GENESIS_GOOGLE_TASK_LISTS'] = $taskLists;
             $tasks = array_merge($tasks, genesisListGoogleNativeTasks($user, $taskLists));
         } catch (Throwable $tasksError) {
-            $GLOBALS['GENESIS_GOOGLE_TASKS_WARNING'] = 'Импорт Google Tasks временно недоступен: ' . $tasksError->getMessage();
-            error_log('[GENESIS Google Tasks] ' . $tasksError->getMessage());
+            $GLOBALS['GENESIS_GOOGLE_TASKS_WARNING'] = 'Импорт Google Tasks временно недоступен. Повторите попытку позже.';
             genesisLogError('[GoogleTasks] ' . $tasksError->getMessage(), $tasksError);
         }
     }

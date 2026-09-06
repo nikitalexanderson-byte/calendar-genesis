@@ -1,11 +1,14 @@
 "use client";
 /* eslint-disable @next/next/no-html-link-for-pages */
+/* eslint-disable @next/next/no-img-element -- Google requires the official, unmodified sign-in asset. */
 
 type WelcomeScreenProps = {
   busy: boolean;
   error: string;
   onGoogle: () => void;
 };
+
+const APP_BASE = (process.env.NEXT_PUBLIC_GENESIS_BASE_PATH?.trim() || "").replace(/\/$/, "");
 
 export function WelcomeScreen({ busy, error, onGoogle }: WelcomeScreenProps) {
   return (
@@ -34,11 +37,12 @@ export function WelcomeScreen({ busy, error, onGoogle }: WelcomeScreenProps) {
             связывать действия и отмечать выполненное на компьютере или телефоне.
           </p>
           <section className="google-data-purpose" aria-labelledby="google-purpose-title">
-            <h2 id="google-purpose-title">Зачем GENESIS нужен доступ к Google Calendar</h2>
+            <h2 id="google-purpose-title">Как GENESIS использует Google Calendar и Google Tasks</h2>
             <p>
-              После вашего разрешения приложение создаёт отдельный календарь GENESIS и
-              использует доступ, чтобы показывать, создавать, изменять и удалять только
-              ваши задачи-события, напоминания и повторения. Остальные календари не изменяются.
+              Сначала Google передаёт только подтверждённый адрес, имя и изображение профиля для безопасного входа.
+              Уже после входа вы сами решаете, подключать ли синхронизацию: GENESIS создаёт отдельный календарь GENESIS,
+              а доступ к Google Tasks использует для показа и двустороннего изменения ваших списков и задач.
+              Разрешения не применяются для рекламы, профилирования или обучения моделей.
             </p>
           </section>
           <div className="welcome-proof" aria-label="Особенности защиты данных">
@@ -61,11 +65,10 @@ export function WelcomeScreen({ busy, error, onGoogle }: WelcomeScreenProps) {
           <span className="auth-sun" aria-hidden="true"><i /></span>
           <p className="welcome-kicker">ЛИЧНОЕ ПРОСТРАНСТВО</p>
           <h2 id="welcome-auth-title">Войти в GENESIS</h2>
-          <p>Для входа вы будете перенаправлены на официальную страницу Google. GENESIS запросит разрешение на работу с календарными событиями только для описанных выше функций.</p>
+          <p>Для входа вы будете перенаправлены на официальную страницу Google. На этапе входа GENESIS получает только основные данные профиля. Доступ к Calendar и Tasks запрашивается отдельно, в понятном контексте и только по вашему действию.</p>
 
-          <button className="google-login-primary" type="button" onClick={onGoogle} disabled={busy}>
-            <span aria-hidden="true">G</span>
-            {busy ? "Подключаем…" : "Продолжить с Google"}
+          <button className="google-login-primary" type="button" onClick={onGoogle} disabled={busy} aria-label="Войти через Google">
+            <img src={`${APP_BASE}/google-signin-light-pill.svg`} alt="" aria-hidden="true" />
           </button>
 
           <div className="auth-trust-note" role="note">

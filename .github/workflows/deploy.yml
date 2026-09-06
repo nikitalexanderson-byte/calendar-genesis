@@ -37,6 +37,9 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Check PHP syntax
+        run: find server -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+
       - name: Test
         run: pnpm test
 

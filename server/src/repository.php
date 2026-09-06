@@ -8,9 +8,10 @@ function genesisAdminEmail(): string
     return mb_strtolower(trim((string)(genesisConfig()['admin_email'] ?? GENESIS_ADMIN_EMAIL)));
 }
 
-function genesisIsGmail(string $email): bool
+function genesisIsValidEmail(string $email): bool
 {
-    return (bool)preg_match('/^[^@\s]+@gmail\.com$/i', trim($email));
+    $clean = trim($email);
+    return mb_strlen($clean) <= 254 && filter_var($clean, FILTER_VALIDATE_EMAIL) !== false;
 }
 
 function genesisEnsureWorkspaceKey(array $user): array
@@ -76,27 +77,39 @@ function genesisTouchUser(string $userId, bool $login = false): void
     ]);
 }
 
-function genesisUpsertGoogleUser(array $profile, array $tokens): array
+function genesisUpsertGoogleUser(array $profile, array $tokens, bool $persistGoogleTokens = true): array
 {
     $email = mb_strtolower(trim((string)($profile['email'] ?? '')));
-    if (!genesisIsGmail($email)) {
-        throw new InvalidArgumentException('GENESIS доступен только для адресов Gmail.');
+    $emailVerified = filter_var($profile['email_verified'] ?? false, FILTER_VALIDATE_BOOLEAN);
+    if (!genesisIsValidEmail($email) || $emailVerified !== true) {
+        throw new InvalidArgumentException('Google не подтвердил адрес электронной почты этого аккаунта.');
     }
 
     $db = genesisDb();
-    $statement = $db->prepare('SELECT * FROM users WHERE google_sub = :sub OR email = :email COLLATE NOCASE LIMIT 1');
-    $statement->execute(['sub' => (string)$profile['sub'], 'email' => $email]);
+    $statement = $db->prepare('SELECT * FROM users WHERE google_sub = :sub LIMIT 1');
+    $statement->execute(['sub' => (string)$profile['sub']]);
     $existing = $statement->fetch();
+    if (!is_array($existing)) {
+        $emailOwner = genesisFindUserByEmail($email);
+        if ($emailOwner !== null) {
+            throw new DomainException('Этот адрес уже связан с другой учётной записью Google. Обратитесь в поддержку GENESIS.');
+        }
+    }
     $now = genesisNow();
     $id = is_array($existing) ? (string)$existing['id'] : genesisUuid();
-    $refresh = isset($tokens['refresh_token']) && is_string($tokens['refresh_token'])
+    $refresh = $persistGoogleTokens && isset($tokens['refresh_token']) && is_string($tokens['refresh_token'])
         ? genesisEncrypt($tokens['refresh_token'])
         : ($existing['refresh_token_enc'] ?? null);
-    $access = isset($tokens['access_token']) && is_string($tokens['access_token'])
+    $access = $persistGoogleTokens && isset($tokens['access_token']) && is_string($tokens['access_token'])
         ? genesisEncrypt($tokens['access_token'])
         : ($existing['access_token_enc'] ?? null);
     $workspaceKey = $existing['workspace_key_enc'] ?? genesisEncrypt(base64_encode(random_bytes(32)));
-    $expiresAt = time() + genesisClampInt($tokens['expires_in'] ?? 3600, 60, 86400, 3600) - 60;
+    $expiresAt = $persistGoogleTokens && isset($tokens['access_token'])
+        ? time() + genesisClampInt($tokens['expires_in'] ?? 3600, 60, 86400, 3600) - 60
+        : ($existing['token_expires_at'] ?? null);
+    $grantedScopes = $persistGoogleTokens
+        ? (string)($tokens['scope'] ?? ($existing['granted_scopes'] ?? ''))
+        : (string)($existing['granted_scopes'] ?? '');
 
     $values = [
         'id' => $id,
@@ -107,7 +120,7 @@ function genesisUpsertGoogleUser(array $profile, array $tokens): array
         'access_token_enc' => $access,
         'refresh_token_enc' => $refresh,
         'token_expires_at' => $expiresAt,
-        'granted_scopes' => (string)($tokens['scope'] ?? ($existing['granted_scopes'] ?? '')),
+        'granted_scopes' => $grantedScopes,
         'workspace_key_enc' => $workspaceKey,
         'last_login_at' => $now,
         'last_seen_at' => $now,
@@ -147,7 +160,7 @@ function genesisSetPassword(string $userId, string $password, ?string $currentPa
     if ($user === null) {
         throw new RuntimeException('Пользователь не найден.');
     }
-    if (!genesisIsGmail((string)$user['email']) || empty($user['refresh_token_enc'])) {
+    if (!genesisIsValidEmail((string)$user['email']) || empty($user['refresh_token_enc'])) {
         throw new RuntimeException('Сначала подключите Google Calendar через Gmail.');
     }
     if (mb_strlen($password) < 10 || mb_strlen($password) > 200) {
@@ -166,7 +179,7 @@ function genesisSetPassword(string $userId, string $password, ?string $currentPa
 
 function genesisVerifyPasswordLogin(string $email, string $password): ?array
 {
-    if (!genesisIsGmail($email)) {
+    if (!genesisIsValidEmail($email)) {
         return null;
     }
     $user = genesisFindUserByEmail($email);
@@ -385,7 +398,33 @@ function genesisUpdateAccountPreferences(string $userId, array $payload): array
 
 function genesisDeleteAccount(string $userId): void
 {
+    $user = genesisFindUser($userId);
+    if ($user !== null) {
+        try {
+            genesisRevokeGoogleToken($user);
+        } catch (Throwable $error) {
+            genesisLogError('Google token revocation failed during account deletion.', $error);
+        }
+    }
     genesisDb()->prepare('DELETE FROM users WHERE id = :id')->execute(['id' => $userId]);
+}
+
+function genesisDisconnectGoogleServices(string $userId): array
+{
+    $user = genesisFindUser($userId);
+    if ($user === null) {
+        throw new RuntimeException('Пользователь не найден.');
+    }
+    genesisRevokeGoogleToken($user);
+    genesisDb()->prepare("UPDATE users SET access_token_enc = NULL, refresh_token_enc = NULL, token_expires_at = NULL, granted_scopes = '', updated_at = :updated_at WHERE id = :id")->execute([
+        'updated_at' => genesisNow(),
+        'id' => $userId,
+    ]);
+    $updated = genesisFindUser($userId);
+    if ($updated === null) {
+        throw new RuntimeException('Не удалось отключить Google Calendar и Tasks.');
+    }
+    return $updated;
 }
 
 function genesisSacredFromDate(string $date): array

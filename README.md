@@ -15,8 +15,9 @@ GENESIS — устанавливаемый календарь и менедже�
 - закрытая приветственная страница: календарь доступен только после входа;
 - безопасный вход только через официальный Google OAuth; приложение не запрашивает пароль Google;
 - PHP 8.3 API, SQLite и строгая изоляция аккаунтов;
-- Google OAuth 2.0 с PKCE и отдельный календарь `GENESIS` в Google Calendar;
-- задачи и заметки не сохраняются в SQLite: они живут локально и в Google Calendar;
+- Google OAuth 2.0 с `state` и PKCE: вход запрашивает только профиль, а Calendar и Tasks подключаются отдельным согласием;
+- отдельный календарь `GENESIS` и двусторонняя синхронизация Google Tasks;
+- задачи и заметки не сохраняются в SQLite: они живут локально, в Google Calendar или Google Tasks;
 - структура проектов шифруется AES-GCM в клиенте до загрузки на сервер;
 - двусторонняя синхронизация названия, даты, времени, статуса, связей и напоминаний;
 - административная статистика без содержимого задач и проектов;
@@ -47,14 +48,15 @@ pnpm build:beget
 - `GET /api/health` — состояние сервиса;
 - `GET /api/session` — текущий пользователь и CSRF;
 - `GET /api/bootstrap` — Google-события и зашифрованный контейнер структуры;
-- `GET /api/auth/google/start` — начало Google OAuth;
+- `GET /api/auth/google/start?purpose=login|services` — вход Google или отдельное подключение Calendar и Tasks;
+- `POST /api/account/google-services/disconnect` — отзыв Google-разрешения и удаление токенов без удаления профиля;
 - прежние маршруты парольного входа отключены и отвечают HTTP 410;
 - `GET /api/sync/tasks` — чтение задач напрямую из Google Calendar;
 - `PUT|DELETE /api/tasks/{id}` — запись или удаление Google-события без сохранения задачи в БД;
 - `PUT /api/workspace` — зашифрованная структура проектов и подпроектов;
 - `GET /api/admin/stats` — агрегаты для администратора;
-- `DELETE /api/account` — удаление серверного аккаунта и данных.
+- `DELETE /api/account` — отзыв OAuth-разрешения и удаление серверного аккаунта и данных.
 
 Публичные страницы: `/privacy`, `/terms`, `/support`, `/delete-account`.
 
-Подробности: [развёртывание Beget](docs/BEGET-DEPLOYMENT.md) и [Android / Play Market](docs/ANDROID-PLAY-MARKET.md).
+Подробности: [развёртывание Beget](docs/BEGET-DEPLOYMENT.md), [публикация Google OAuth](docs/GOOGLE-OAUTH-PUBLISHING.md) и [Android / Play Market](docs/ANDROID-PLAY-MARKET.md).

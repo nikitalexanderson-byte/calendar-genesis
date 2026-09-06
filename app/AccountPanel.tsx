@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { GenesisUser } from "./cloud-sync";
-import { deleteGenesisAccount, updateAccountPreferences } from "./cloud-sync";
+import { deleteGenesisAccount, disconnectGoogleServices, updateAccountPreferences } from "./cloud-sync";
 
 type AccountPanelProps = {
   user: GenesisUser;
@@ -33,12 +33,27 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onUserChange }:
   };
 
   const removeAccount = async () => {
-    if (!window.confirm("Удалить аккаунт GENESIS, зашифрованную структуру и статистику? События в вашем Google Calendar останутся у вас.")) return;
+    if (!window.confirm("Удалить аккаунт GENESIS и данные с сервера? Разрешения Google будут отозваны. События и списки задач останутся в вашем Google-аккаунте.")) return;
     setBusy(true);
     try {
       await deleteGenesisAccount();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Не удалось удалить аккаунт.");
+      setBusy(false);
+    }
+  };
+
+  const disconnectServices = async () => {
+    if (!window.confirm("Отключить Google Calendar и Google Tasks? GENESIS отзовёт разрешения Google. Ваши события, списки и задачи останутся в Google.")) return;
+    setBusy(true);
+    setMessage("");
+    try {
+      const result = await disconnectGoogleServices();
+      onUserChange(result.user);
+      window.location.reload();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Не удалось отключить Google Calendar и Tasks.");
+    } finally {
       setBusy(false);
     }
   };
@@ -52,7 +67,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onUserChange }:
         <p className="account-email">{user.email}</p>
 
         <div className="account-security-grid">
-          <article><span>Google Calendar</span><strong>{user.calendarConnected ? "Подключён" : "Нужно подключить"}</strong><small>Задачи и напоминания хранятся в календаре GENESIS.</small></article>
+          <article><span>Google-сервисы</span><strong>{user.calendarConnected && user.googleTasksImportReady ? "Подключены" : "По желанию"}</strong><small>Calendar и Tasks подключаются отдельным согласием после входа.</small></article>
           <article><span>Структура проектов</span><strong>Зашифрована</strong><small>AES-GCM до отправки на сервер.</small></article>
           <article><span>Офлайн-копия</span><strong>На устройстве</strong><small>Доступна без сети после входа на этом устройстве.</small></article>
         </div>
@@ -60,10 +75,10 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onUserChange }:
         {!user.googleTasksImportReady ? (
           <section className="account-sync-upgrade" aria-label="Синхронизация Google Tasks">
             <div>
-              <strong>Подключите задачи Google Calendar</strong>
-              <small>Нужно один раз обновить разрешение Google, чтобы существующие задачи появились в GENESIS и редактировались в обе стороны.</small>
+              <strong>Подключите Google Calendar и Google Tasks</strong>
+              <small>После вашего подтверждения GENESIS создаст отдельный календарь и сможет показывать и изменять списки Google Tasks. Доступ нужен только для функций синхронизации.</small>
             </div>
-            <button type="button" onClick={onReconnectGoogle}>Обновить доступ</button>
+            <button type="button" onClick={onReconnectGoogle}>Подключить</button>
           </section>
         ) : null}
 
@@ -94,13 +109,18 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onUserChange }:
 
         <section className="account-oauth-note" aria-label="Безопасность входа">
           <h3>Безопасный вход</h3>
-          <p>Авторизация выполняется только через официальный OAuth Google. GENESIS не получает, не запрашивает и не хранит пароль от вашего аккаунта Google.</p>
+          <p>Авторизация выполняется только через официальный OAuth Google. GENESIS не получает, не запрашивает и не хранит пароль. Токены доступа шифруются на сервере, а при удалении аккаунта разрешение отзывается у Google.</p>
+          <p><a href="/privacy">Подробнее об использовании данных Google</a></p>
+          <button type="button" className="text-button" onClick={onReconnectGoogle}>Обновить разрешения Calendar и Tasks</button>
+          {user.calendarConnected || user.googleTasksImportReady ? (
+            <button type="button" className="text-button" onClick={() => void disconnectServices()} disabled={busy}>Отключить Calendar и Tasks</button>
+          ) : null}
         </section>
 
         {message ? <p className="account-message" role="status">{message}</p> : null}
 
         <div className="account-danger">
-          <div><strong>Удаление аккаунта</strong><small>Удалит профиль, зашифрованную структуру и статистику с сервера GENESIS.</small></div>
+          <div><strong>Удаление аккаунта</strong><small>Удалит профиль и данные с сервера GENESIS, а также отзовёт выданные приложению разрешения Google.</small></div>
           <button type="button" onClick={() => void removeAccount()} disabled={busy}>Удалить</button>
         </div>
       </section>
