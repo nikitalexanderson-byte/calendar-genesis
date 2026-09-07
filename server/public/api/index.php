@@ -276,6 +276,23 @@ try {
         genesisJson(['taskList' => genesisCreateGoogleTaskList($userId, (string)($payload['title'] ?? ''))]);
     }
 
+    if (count($segments) === 2 && $segments[0] === 'task-lists') {
+        $userId = genesisRequireUserId();
+        genesisRequireCsrf();
+        $id = mb_substr(trim((string)$segments[1]), 0, 500);
+        if ($id === '') {
+            throw new InvalidArgumentException('Идентификатор списка обязателен.');
+        }
+        if ($method === 'PATCH') {
+            $payload = genesisReadJson();
+            genesisJson(['taskList' => genesisUpdateGoogleTaskList($userId, $id, (string)($payload['title'] ?? ''))]);
+        }
+        if ($method === 'DELETE') {
+            genesisDeleteGoogleTaskList($userId, $id);
+            genesisJson(['ok' => true]);
+        }
+    }
+
     if ($method === 'GET' && $path === 'admin/stats') {
         $userId = genesisRequireUserId();
         $user = genesisFindUser($userId);

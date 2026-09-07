@@ -117,6 +117,10 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /CREATE_NEW_TASK_LIST_ID/);
   assert.match(calendar, /moveTaskToTaskList/);
   assert.match(calendar, /linkTaskListToProject/);
+  assert.match(calendar, /saveTaskListEdit/);
+  assert.match(calendar, /deleteTaskList/);
+  assert.match(calendar, /Редактирование списка задач/);
+  assert.match(calendar, /Удалить список «\$\{taskList\.title\}»/);
   assert.match(calendar, /Список задач — это группа смежных задач/);
   assert.match(calendar, /renderTaskListCreateForm\("all-tasks"\)/);
   assert.match(calendar, /renderTaskListCreateForm\("today"\)/);
@@ -264,6 +268,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(google, /https:\/\/www\.googleapis\.com\/auth\/tasks/);
   assert.match(google, /genesisSyncNativeGoogleTask/);
   assert.match(google, /genesisCreateGoogleTaskList/);
+  assert.match(google, /genesisUpdateGoogleTaskList/);
+  assert.match(google, /genesisDeleteGoogleTaskList/);
   assert.match(google, /genesisSource/);
   assert.match(google, /'google-calendar'/);
   assert.match(google, /— GENESIS —/);
@@ -291,6 +297,9 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(cloudSync, /taskListLinks/);
   assert.match(cloudSync, /googleEventId: task\.googleEventId/);
   assert.match(api, /\$path === 'task-lists'/);
+  assert.match(api, /\$segments\[0\] === 'task-lists'/);
+  assert.match(cloudSync, /updateGoogleTaskList/);
+  assert.match(cloudSync, /removeGoogleTaskList/);
   assert.match(cloudSync, /X-Genesis-Time-Zone/);
   assert.match(repository, /genesisSaveStoicheionDraw/);
   assert.match(accountPanel, /role="switch"/);

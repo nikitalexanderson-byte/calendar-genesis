@@ -3927,6 +3927,36 @@ html.project-drag-active body {
   gap: 12px;
 }
 
+.task-list-column-heading > span:first-child {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.task-list-column-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 4px;
+}
+
+.task-list-column-actions button {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  place-items: center;
+  color: var(--teal);
+  font-size: 15px;
+  background: rgba(255, 255, 255, .64);
+  border: 1px solid rgba(37, 91, 89, .15);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.task-list-column-actions button:hover { color: white; background: var(--teal); }
+.task-list-column-actions button.danger { color: var(--terracotta); }
+.task-list-column-actions button.danger:hover { color: white; background: var(--terracotta); }
+
 .task-list-column > header strong {
   font: 500 17px/1.2 Georgia, "Times New Roman", serif;
   overflow-wrap: anywhere;
@@ -6014,6 +6044,7 @@ button.project-drag-handle:active { cursor: grabbing; }
   box-shadow: 0 40px 100px rgba(0, 0, 0, .35);
 }
 .editor-modal h2 { margin: 0 0 6px; font: 400 clamp(27px, 4vw, 38px)/1.08 Georgia, serif; }
+.task-list-editor { width: min(520px, 100%); }
 .editor-modal > label,
 .editor-grid label { display: grid; gap: 6px; color: var(--ink-soft); font-size: 8px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
 .editor-modal input,

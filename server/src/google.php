@@ -828,6 +828,61 @@ function genesisCreateGoogleTaskList(string $userId, string $title): array
     ];
 }
 
+function genesisUpdateGoogleTaskList(string $userId, string $taskListId, string $title): array
+{
+    $cleanTaskListId = trim($taskListId);
+    $cleanTitle = mb_substr(trim($title), 0, 300);
+    if ($cleanTaskListId === '') {
+        throw new InvalidArgumentException('Идентификатор списка обязателен.');
+    }
+    if ($cleanTitle === '') {
+        throw new InvalidArgumentException('Название списка обязательно.');
+    }
+    $user = genesisFindUser($userId);
+    if ($user === null || empty($user['refresh_token_enc']) || !genesisGoogleScopeGranted($user, GENESIS_GOOGLE_TASKS_SCOPE)) {
+        throw new RuntimeException('Обновите доступ Google, чтобы переименовывать списки Google Tasks.');
+    }
+    $saved = genesisGoogleTasksApi(
+        'PATCH',
+        '/users/@me/lists/' . rawurlencode($cleanTaskListId),
+        $user,
+        ['title' => $cleanTitle],
+    );
+    if (empty($saved['id'])) {
+        throw new RuntimeException('Google Tasks did not return the updated list.');
+    }
+    genesisTouchUser($userId);
+    return [
+        'id' => (string)$saved['id'],
+        'title' => mb_substr(trim((string)($saved['title'] ?? $cleanTitle)), 0, 300),
+        'updatedAt' => !empty($saved['updated']) ? (string)$saved['updated'] : null,
+    ];
+}
+
+function genesisDeleteGoogleTaskList(string $userId, string $taskListId): void
+{
+    $cleanTaskListId = trim($taskListId);
+    if ($cleanTaskListId === '') {
+        throw new InvalidArgumentException('Идентификатор списка обязателен.');
+    }
+    $user = genesisFindUser($userId);
+    if ($user === null || empty($user['refresh_token_enc']) || !genesisGoogleScopeGranted($user, GENESIS_GOOGLE_TASKS_SCOPE)) {
+        throw new RuntimeException('Обновите доступ Google, чтобы удалять списки Google Tasks.');
+    }
+    try {
+        genesisGoogleTasksApi(
+            'DELETE',
+            '/users/@me/lists/' . rawurlencode($cleanTaskListId),
+            $user,
+        );
+    } catch (RuntimeException $error) {
+        if (!str_contains($error->getMessage(), '(404)') && !str_contains($error->getMessage(), '(410)')) {
+            throw $error;
+        }
+    }
+    genesisTouchUser($userId);
+}
+
 function genesisSyncTaskToGoogle(string $userId, string $taskId, array $task): array
 {
     $user = genesisFindUser($userId);
