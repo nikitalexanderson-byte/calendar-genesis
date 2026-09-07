@@ -23,6 +23,7 @@ import {
   connectGoogleServices,
   consumeGoogleAuthError,
   createGoogleTaskList,
+  removeGoogleTaskList,
   isGoogleSyncConfigured,
   loadGenesisWorkspace,
   mergeLocalWorkspace,
@@ -35,6 +36,7 @@ import {
   saveWorkspaceStructure,
   signInWithGoogle,
   signOutFromGoogle,
+  updateGoogleTaskList,
 } from "./cloud-sync";
 import { AccountPanel } from "./AccountPanel";
 import { AdminPanel } from "./AdminPanel";
@@ -564,6 +566,7 @@ export function GenesisCalendar() {
   const [editingProjectTags, setEditingProjectTags] = useState("");
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [editingTaskTags, setEditingTaskTags] = useState("");
+  const [editingTaskList, setEditingTaskList] = useState<GoogleTaskList | null>(null);
   const [projectDragItem, setProjectDragItem] = useState<ProjectDragItem | null>(null);
   const [projectDropTargetId, setProjectDropTargetId] = useState("");
   const [projectTouchPoint, setProjectTouchPoint] = useState<{ x: number; y: number } | null>(null);
@@ -1401,6 +1404,58 @@ export function GenesisCalendar() {
     setTaskListBatchTitles((current) => ({ ...current, [taskList.id]: "" }));
   };
 
+  const saveTaskListEdit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!editingTaskList) return;
+    const title = editingTaskList.title.trim();
+    if (!title) return;
+    setSyncStatus("syncing");
+    try {
+      const { taskList } = await updateGoogleTaskList(editingTaskList.id, title);
+      setTaskLists((current) => current.map((item) => item.id === taskList.id ? taskList : item));
+      setTasks((current) => current.map((task) => task.googleTaskListId === taskList.id
+        ? { ...task, googleTaskListTitle: taskList.title }
+        : task));
+      setEditingTaskList(null);
+      setSyncStatus("synced");
+    } catch (error) {
+      setSyncError(error instanceof Error ? error.message : "Не удалось переименовать список Google Tasks");
+      setSyncStatus(navigator.onLine ? "error" : "offline");
+    }
+  };
+
+  const deleteTaskList = async (taskList: GoogleTaskList) => {
+    const listTaskCount = tasks.filter((task) => task.googleTaskListId === taskList.id).length;
+    const taskCountLabel = listTaskCount === 1 ? "1 задачей" : `${listTaskCount} задачами`;
+    if (!window.confirm(`Удалить список «${taskList.title}» вместе с ${taskCountLabel}? Он будет удалён из Google Tasks. Это действие нельзя отменить.`)) return;
+    setSyncStatus("syncing");
+    try {
+      await removeGoogleTaskList(taskList.id);
+      const nextTasks = tasks.filter((task) => task.googleTaskListId !== taskList.id);
+      const nextLinks = taskListLinks.filter((link) => link.taskListId !== taskList.id);
+      setTasks(nextTasks);
+      setTaskLists((current) => current.filter((item) => item.id !== taskList.id));
+      setTaskListLinks(nextLinks);
+      setTaskTaskListId((current) => current === taskList.id ? "" : current);
+      setTaskListBatchTitles((current) => {
+        const next = { ...current };
+        delete next[taskList.id];
+        return next;
+      });
+      setTaskListBatchDates((current) => {
+        const next = { ...current };
+        delete next[taskList.id];
+        return next;
+      });
+      if (editingTask?.googleTaskListId === taskList.id) setEditingTask(null);
+      if (editingTaskList?.id === taskList.id) setEditingTaskList(null);
+      persistStructure(projects, categories, nextLinks);
+    } catch (error) {
+      setSyncError(error instanceof Error ? error.message : "Не удалось удалить список Google Tasks");
+      setSyncStatus(navigator.onLine ? "error" : "offline");
+    }
+  };
+
   const updateNewTaskListDraft = (id: string, patch: Partial<Omit<TaskListDraft, "id">>) => {
     setNewTaskListDrafts((current) => current.map((draft) => draft.id === id ? { ...draft, ...patch } : draft));
   };
@@ -1828,7 +1883,13 @@ export function GenesisCalendar() {
                       }}
                     >
                       <header>
-                        <div><strong>{taskList.title}</strong><small>{listTasks.length} задач</small></div>
+                        <div className="task-list-column-heading">
+                          <span><strong>{taskList.title}</strong><small>{listTasks.length} задач</small></span>
+                          <span className="task-list-column-actions">
+                            <button type="button" onClick={() => setEditingTaskList(taskList)} aria-label={`Редактировать список «${taskList.title}»`}>✎</button>
+                            <button type="button" className="danger" onClick={() => void deleteTaskList(taskList)} aria-label={`Удалить список «${taskList.title}»`}>×</button>
+                          </span>
+                        </div>
                         <label>
                           <span>Проект списка</span>
                           <select value={projectId} onChange={(event) => linkTaskListToProject(taskList.id, event.target.value)}>
@@ -3310,6 +3371,23 @@ export function GenesisCalendar() {
             <div className="editor-actions">
               <button type="button" className="text-button" onClick={() => setEditingTask(null)}>Отмена</button>
               <button type="submit" className="primary-button" disabled={!editingTask.title.trim()}>Сохранить задачу</button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+      {editingTaskList ? (
+        <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditingTaskList(null); }}>
+          <form className="editor-modal task-list-editor" role="dialog" aria-modal="true" aria-labelledby="task-list-editor-title" onSubmit={saveTaskListEdit}>
+            <button type="button" className="modal-close" onClick={() => setEditingTaskList(null)} aria-label="Закрыть">×</button>
+            <span className="eyebrow">Редактирование списка задач</span>
+            <h2 id="task-list-editor-title">Название списка</h2>
+            <label>
+              <span>Название списка</span>
+              <input value={editingTaskList.title} onChange={(event) => setEditingTaskList((current) => current ? { ...current, title: event.target.value } : current)} required />
+            </label>
+            <div className="editor-actions">
+              <button type="button" className="text-button" onClick={() => setEditingTaskList(null)}>Отмена</button>
+              <button type="submit" className="primary-button" disabled={!editingTaskList.title.trim()}>Сохранить список</button>
             </div>
           </form>
         </div>

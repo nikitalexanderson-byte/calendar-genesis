@@ -580,6 +580,20 @@ export async function createGoogleTaskList(title: string) {
   });
 }
 
+export async function updateGoogleTaskList(taskListId: string, title: string) {
+  return api<{ taskList: GoogleTaskList }>(`/task-lists/${encodeURIComponent(taskListId)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ title }),
+  });
+}
+
+export async function removeGoogleTaskList(taskListId: string) {
+  return api<{ ok: boolean }>(`/task-lists/${encodeURIComponent(taskListId)}`, {
+    method: "DELETE",
+    body: "{}",
+  });
+}
+
 export async function saveMetrics(metrics: GenesisMetrics) {
   return api<{ ok: boolean }>("/metrics", { method: "POST", body: JSON.stringify({ metrics }) });
 }
