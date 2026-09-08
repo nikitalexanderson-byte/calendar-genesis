@@ -38,9 +38,10 @@ test("server-renders the GENESIS application shell", async () => {
 });
 
 test("keeps the requested calendar and privacy features wired", async () => {
-  const [calendarData, calendar, accountPanel, cloudSync, recurrenceBuilder, taskRecurrence, moonPhase, solarTimes, stoicheion, stoicheionData, welcome, styles, api, google, repository] = await Promise.all([
+  const [calendarData, calendar, calendarDatePicker, accountPanel, cloudSync, recurrenceBuilder, taskRecurrence, moonPhase, solarTimes, stoicheion, stoicheionData, welcome, styles, api, google, repository, multiAccountMigration] = await Promise.all([
     readFile(new URL("../app/calendar-data.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/CalendarDatePicker.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/AccountPanel.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/cloud-sync.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/RecurrenceBuilder.tsx", import.meta.url), "utf8"),
@@ -54,10 +55,28 @@ test("keeps the requested calendar and privacy features wired", async () => {
     readFile(new URL("../server/public/api/index.php", import.meta.url), "utf8"),
     readFile(new URL("../server/src/google.php", import.meta.url), "utf8"),
     readFile(new URL("../server/src/repository.php", import.meta.url), "utf8"),
+    readFile(new URL("../server/migrations/006_calendar_multi_account.sql", import.meta.url), "utf8"),
   ]);
 
   assert.match(calendarData, /getSolarEvents/);
   assert.match(calendarData, /summer-solstice/);
+  assert.match(calendarData, /calendarDateNote/);
+  assert.match(calendarData, /formatCalendarDate/);
+  assert.match(calendarDatePicker, /Сакральный календарь/);
+  assert.match(calendarDatePicker, /Лунный календарь/);
+  assert.match(calendarDatePicker, /Пята \{day\.pyata/);
+  assert.match(accountPanel, /calendar-mode-segment/);
+  assert.match(accountPanel, /Несколько Google-аккаунтов/);
+  assert.match(accountPanel, /По выбору при создании/);
+  assert.match(calendar, /task-description-viewer/);
+  assert.match(calendar, /task-sync-account-picker/);
+  assert.match(calendar, /renderTaskCalendarByMode/);
+  assert.match(cloudSync, /connectAdditionalGoogleAccount/);
+  assert.match(api, /purpose === 'link'/);
+  assert.match(google, /genesisListAllGoogleTasks/);
+  assert.match(google, /genesisResolveTaskTargetAccounts/);
+  assert.match(repository, /GENESIS_ADMIN_EMAIL = 'nikitalexanderson@gmail.com'/);
+  assert.match(multiAccountMigration, /CREATE TABLE IF NOT EXISTS linked_google_accounts/);
   assert.match(calendar, /solar-year-strip/);
   assert.match(calendar, /deleteCategory/);
   assert.match(calendar, /saveCategoryEdit/);

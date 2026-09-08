@@ -107,7 +107,7 @@ try {
         $tasks = [];
         $syncWarning = null;
         try {
-            $tasks = genesisListGoogleTasks($user);
+            $tasks = genesisListAllGoogleTasks($user);
             $syncWarning = genesisGoogleTasksSyncWarning();
             $user = genesisFindUser($userId) ?? $user;
         } catch (Throwable $googleError) {
@@ -129,7 +129,7 @@ try {
         if ($user === null) {
             genesisJson(['error' => 'AUTH_REQUIRED'], 401);
         }
-        $tasks = genesisListGoogleTasks($user);
+        $tasks = genesisListAllGoogleTasks($user);
         genesisJson([
             'tasks' => $tasks,
             'taskLists' => genesisGoogleTaskListsForClient(),
@@ -139,18 +139,23 @@ try {
     }
 
     if ($method === 'GET' && $path === 'auth/google/start') {
-        $purpose = (string)($_GET['purpose'] ?? 'login') === 'services' ? 'services' : 'login';
+        $requestedPurpose = (string)($_GET['purpose'] ?? 'login');
+        $purpose = in_array($requestedPurpose, ['services', 'link'], true) ? $requestedPurpose : 'login';
         $returnTo = genesisSafeReturnTo((string)($_GET['return_to'] ?? '/'));
         $loginHint = null;
         $requestUserId = null;
-        if ($purpose === 'services') {
+        if (in_array($purpose, ['services', 'link'], true)) {
             $requestUserId = genesisRequireUserId();
             $requestUser = genesisFindUser($requestUserId);
             if ($requestUser === null) {
                 unset($_SESSION['user_id']);
                 genesisOAuthRedirect($returnTo, 'session_expired');
             }
-            $loginHint = (string)$requestUser['email'];
+            if ($purpose === 'link') {
+                genesisRequireAdmin($requestUser);
+            } else {
+                $loginHint = (string)$requestUser['email'];
+            }
         }
         $state = genesisBase64Url(random_bytes(32));
         $verifier = genesisBase64Url(random_bytes(64));
@@ -204,29 +209,35 @@ try {
             }
 
             $purpose = (string)($request['purpose'] ?? 'login');
-            if ($purpose === 'services') {
+            if (in_array($purpose, ['services', 'link'], true)) {
                 $requestUserId = (string)($request['user_id'] ?? '');
                 $currentUserId = genesisCurrentUserId();
                 $currentUser = $currentUserId ? genesisFindUser($currentUserId) : null;
                 if ($requestUserId === '' || $currentUserId !== $requestUserId || $currentUser === null) {
                     genesisOAuthRedirect($returnTo, 'session_expired');
                 }
-                if (!hash_equals((string)$currentUser['google_sub'], (string)$profile['sub'])) {
+                if ($purpose === 'services' && !hash_equals((string)$currentUser['google_sub'], (string)$profile['sub'])) {
                     genesisOAuthRedirect($returnTo, 'account_mismatch');
                 }
                 if (!genesisGoogleTokenHasScopes($tokens, GENESIS_GOOGLE_SERVICE_SCOPES)) {
                     genesisOAuthRedirect($returnTo, 'missing_permissions');
                 }
-                if (empty($tokens['refresh_token']) && empty($currentUser['refresh_token_enc'])) {
+                if ($purpose === 'services' && empty($tokens['refresh_token']) && empty($currentUser['refresh_token_enc'])) {
                     throw new RuntimeException('Google did not return a refresh token for offline synchronization.');
                 }
-                $user = genesisUpsertGoogleUser($profile, $tokens, true);
-                $_SESSION['user_id'] = (string)$user['id'];
-                session_regenerate_id(true);
-                try {
-                    genesisEnsureGoogleCalendar($user);
-                } catch (Throwable $calendarError) {
-                    $_SESSION['calendar_error'] = $calendarError->getMessage();
+                if ($purpose === 'link') {
+                    genesisLinkGoogleAccount($requestUserId, $profile, $tokens);
+                    $_SESSION['user_id'] = $requestUserId;
+                    session_regenerate_id(true);
+                } else {
+                    $user = genesisUpsertGoogleUser($profile, $tokens, true);
+                    $_SESSION['user_id'] = (string)$user['id'];
+                    session_regenerate_id(true);
+                    try {
+                        genesisEnsureGoogleCalendar($user);
+                    } catch (Throwable $calendarError) {
+                        $_SESSION['calendar_error'] = $calendarError->getMessage();
+                    }
                 }
             } else {
                 $user = genesisUpsertGoogleUser($profile, $tokens, false);
@@ -273,7 +284,7 @@ try {
         $userId = genesisRequireUserId();
         genesisRequireCsrf();
         $payload = genesisReadJson();
-        genesisJson(['taskList' => genesisCreateGoogleTaskList($userId, (string)($payload['title'] ?? ''))]);
+        genesisJson(['taskList' => genesisCreateGoogleTaskList($userId, (string)($payload['title'] ?? ''), isset($payload['accountId']) ? (string)$payload['accountId'] : null)]);
     }
 
     if (count($segments) === 2 && $segments[0] === 'task-lists') {
@@ -285,10 +296,11 @@ try {
         }
         if ($method === 'PATCH') {
             $payload = genesisReadJson();
-            genesisJson(['taskList' => genesisUpdateGoogleTaskList($userId, $id, (string)($payload['title'] ?? ''))]);
+            genesisJson(['taskList' => genesisUpdateGoogleTaskList($userId, $id, (string)($payload['title'] ?? ''), isset($payload['accountId']) ? (string)$payload['accountId'] : null)]);
         }
         if ($method === 'DELETE') {
-            genesisDeleteGoogleTaskList($userId, $id);
+            $payload = genesisReadJson();
+            genesisDeleteGoogleTaskList($userId, $id, isset($payload['accountId']) ? (string)$payload['accountId'] : null);
             genesisJson(['ok' => true]);
         }
     }
@@ -314,6 +326,15 @@ try {
         $userId = genesisRequireUserId();
         genesisRequireCsrf();
         $user = genesisDisconnectGoogleServices($userId);
+        genesisJson(['user' => genesisUserForClient($user)]);
+    }
+
+    if ($method === 'DELETE' && count($segments) === 3 && $segments[0] === 'account' && $segments[1] === 'google-accounts') {
+        $userId = genesisRequireUserId();
+        genesisRequireCsrf();
+        genesisRemoveLinkedGoogleAccount($userId, mb_substr(trim((string)$segments[2]), 0, 100));
+        $user = genesisFindUser($userId);
+        if ($user === null) genesisJson(['error' => 'AUTH_REQUIRED'], 401);
         genesisJson(['user' => genesisUserForClient($user)]);
     }
 

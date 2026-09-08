@@ -1,4 +1,5 @@
 import type { RecurrenceMode, RecurrencePattern } from "./task-recurrence";
+import type { CalendarMode } from "./calendar-data";
 
 export type RecurrenceKind =
   | "none"
@@ -15,6 +16,31 @@ export type GoogleTaskList = {
   title: string;
   updatedAt: string | null;
   isDefault?: boolean;
+  accountId?: string;
+  accountEmail?: string;
+};
+
+export type GoogleAccount = {
+  id: string;
+  email: string;
+  displayName: string;
+  photoURL: string | null;
+  isPrimary: boolean;
+  calendarConnected: boolean;
+  googleTasksImportReady: boolean;
+};
+
+export type SyncRouting = {
+  mode: "fixed" | "choose" | "category";
+  defaultAccountIds: string[];
+  categoryAccountIds: Record<string, string[]>;
+};
+
+export type GoogleTaskLink = {
+  eventId: string | null;
+  taskId: string | null;
+  taskListId: string | null;
+  taskListTitle: string;
 };
 
 export type TaskListProjectLink = {
@@ -51,7 +77,13 @@ export type GenesisTask = {
   recurrenceMonths: number[];
   recurrencePyatas: number[];
   recurrenceSeriesId: string | null;
+  calendarMode: CalendarMode;
+  calendarNote: string;
   syncToGoogle: boolean;
+  syncAccountIds: string[];
+  googleLinks: Record<string, GoogleTaskLink>;
+  googleAccountId: string | null;
+  googleAccountEmail: string;
   createdIn: TaskOrigin;
   googleEventId: string | null;
   googleTaskId: string | null;
@@ -71,6 +103,10 @@ export type GenesisUser = {
   passwordEnabled: boolean;
   stoicheionDivinationDisabled: boolean;
   isAdmin: boolean;
+  calendarMode: CalendarMode;
+  multiAccountEnabled: boolean;
+  googleAccounts: GoogleAccount[];
+  syncRouting: SyncRouting;
 };
 
 export type GenesisCategory = {
@@ -316,6 +352,12 @@ function normalizeTask(task: Partial<GenesisTask> & Pick<GenesisTask, "id" | "ti
     recurrenceMonths,
     recurrencePyatas,
     recurrenceSeriesId: typeof task.recurrenceSeriesId === "string" && task.recurrenceSeriesId ? task.recurrenceSeriesId : null,
+    calendarMode: ["profane", "sacred", "lunar"].includes(task.calendarMode ?? "") ? task.calendarMode as CalendarMode : "profane",
+    calendarNote: typeof task.calendarNote === "string" ? task.calendarNote : "",
+    syncAccountIds: Array.isArray(task.syncAccountIds) ? task.syncAccountIds.filter((id): id is string => typeof id === "string" && Boolean(id)) : [],
+    googleLinks: task.googleLinks && typeof task.googleLinks === "object" ? task.googleLinks : {},
+    googleAccountId: typeof task.googleAccountId === "string" && task.googleAccountId ? task.googleAccountId : null,
+    googleAccountEmail: typeof task.googleAccountEmail === "string" ? task.googleAccountEmail : "",
     googleTaskListTitle: typeof task.googleTaskListTitle === "string" ? task.googleTaskListTitle : "",
   };
 }
@@ -432,6 +474,13 @@ export function connectGoogleServices() {
   return Promise.resolve();
 }
 
+export function connectAdditionalGoogleAccount() {
+  if (!API_BASE) throw new Error("Сервер GENESIS ещё не подключён");
+  const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  window.location.assign(`${API_BASE}/auth/google/start?purpose=link&return_to=${encodeURIComponent(returnTo)}`);
+  return Promise.resolve();
+}
+
 export function consumeGoogleAuthError() {
   if (typeof window === "undefined") return "";
   const url = new URL(window.location.href);
@@ -471,10 +520,21 @@ export function disconnectGoogleServices() {
   });
 }
 
-export async function updateAccountPreferences(stoicheionDivinationDisabled: boolean) {
+export async function updateAccountPreferences(preferences: Partial<{
+  stoicheionDivinationDisabled: boolean;
+  calendarMode: CalendarMode;
+  syncRouting: SyncRouting;
+}>) {
   return api<{ user: GenesisUser }>("/account/preferences", {
     method: "PUT",
-    body: JSON.stringify({ stoicheionDivinationDisabled }),
+    body: JSON.stringify(preferences),
+  });
+}
+
+export function removeAdditionalGoogleAccount(accountId: string) {
+  return api<{ user: GenesisUser }>(`/account/google-accounts/${encodeURIComponent(accountId)}`, {
+    method: "DELETE",
+    body: "{}",
   });
 }
 
@@ -544,6 +604,7 @@ export async function removeCloudTask(_uid: string, task: GenesisTask) {
     googleEventId: task.googleEventId,
     googleTaskId: task.googleTaskId,
     googleTaskListId: task.googleTaskListId,
+    googleLinks: task.googleLinks,
   });
   queueMutation({ key: `task:${task.id}`, path, method: "DELETE", body });
   await api<{ ok: boolean }>(path, { method: "DELETE", body });
@@ -574,24 +635,24 @@ export async function saveWorkspaceStructure(
   return result;
 }
 
-export async function createGoogleTaskList(title: string) {
+export async function createGoogleTaskList(title: string, accountId?: string) {
   return api<{ taskList: GoogleTaskList }>("/task-lists", {
     method: "POST",
-    body: JSON.stringify({ title }),
+    body: JSON.stringify({ title, accountId }),
   });
 }
 
-export async function updateGoogleTaskList(taskListId: string, title: string) {
+export async function updateGoogleTaskList(taskListId: string, title: string, accountId?: string) {
   return api<{ taskList: GoogleTaskList }>(`/task-lists/${encodeURIComponent(taskListId)}`, {
     method: "PATCH",
-    body: JSON.stringify({ title }),
+    body: JSON.stringify({ title, accountId }),
   });
 }
 
-export async function removeGoogleTaskList(taskListId: string) {
+export async function removeGoogleTaskList(taskListId: string, accountId?: string) {
   return api<{ ok: boolean }>(`/task-lists/${encodeURIComponent(taskListId)}`, {
     method: "DELETE",
-    body: "{}",
+    body: JSON.stringify({ accountId }),
   });
 }
 

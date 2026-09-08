@@ -1,26 +1,41 @@
 "use client";
+/* eslint-disable @next/next/no-img-element -- Google profile pictures are remote OAuth assets. */
 
 import { useState } from "react";
-import type { GenesisUser } from "./cloud-sync";
-import { deleteGenesisAccount, disconnectGoogleServices, updateAccountPreferences } from "./cloud-sync";
+import type { CalendarMode } from "./calendar-data";
+import type { GenesisCategory, GenesisUser, SyncRouting } from "./cloud-sync";
+import { deleteGenesisAccount, disconnectGoogleServices, removeAdditionalGoogleAccount, updateAccountPreferences } from "./cloud-sync";
 
 type AccountPanelProps = {
   user: GenesisUser;
   onClose: () => void;
   onReconnectGoogle: () => void;
+  onConnectAdditionalGoogle: () => void;
   onUserChange: (user: GenesisUser) => void;
+  categories: GenesisCategory[];
 };
 
-export function AccountPanel({ user, onClose, onReconnectGoogle, onUserChange }: AccountPanelProps) {
+const CALENDAR_MODES: Array<{ id: CalendarMode; label: string; hint: string }> = [
+  { id: "profane", label: "Профанский", hint: "Обычные даты и недели" },
+  { id: "sacred", label: "Сакральный", hint: "Месяцы, пяты и дни GENESIS" },
+  { id: "lunar", label: "Лунный", hint: "Лунные месяцы и дни" },
+];
+
+export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditionalGoogle, onUserChange, categories }: AccountPanelProps) {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [preferenceBusy, setPreferenceBusy] = useState(false);
+  const [routing, setRouting] = useState<SyncRouting>(() => user.syncRouting ?? {
+    mode: "fixed",
+    defaultAccountIds: [user.uid],
+    categoryAccountIds: {},
+  });
 
   const changeDivinationPreference = async (disabled: boolean) => {
     setPreferenceBusy(true);
     setMessage("");
     try {
-      const result = await updateAccountPreferences(disabled);
+      const result = await updateAccountPreferences({ stoicheionDivinationDisabled: disabled });
       onUserChange(result.user);
       setMessage(disabled
         ? "Гадания отключены. В Стойхейоне остались только карты и их значения."
@@ -29,6 +44,55 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onUserChange }:
       setMessage(error instanceof Error ? error.message : "Не удалось сохранить настройку гаданий.");
     } finally {
       setPreferenceBusy(false);
+    }
+  };
+
+  const changeCalendarMode = async (calendarMode: CalendarMode) => {
+    setPreferenceBusy(true);
+    setMessage("");
+    try {
+      const result = await updateAccountPreferences({ calendarMode });
+      onUserChange(result.user);
+      setMessage(`Календарь задач переключён: ${CALENDAR_MODES.find((item) => item.id === calendarMode)?.label.toLocaleLowerCase("ru-RU")}.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Не удалось переключить календарь.");
+    } finally {
+      setPreferenceBusy(false);
+    }
+  };
+
+  const saveRouting = async () => {
+    setPreferenceBusy(true);
+    setMessage("");
+    try {
+      const result = await updateAccountPreferences({ syncRouting: routing });
+      onUserChange(result.user);
+      setRouting(result.user.syncRouting);
+      setMessage("Маршрутизация задач по Google-аккаунтам сохранена.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Не удалось сохранить маршрутизацию.");
+    } finally {
+      setPreferenceBusy(false);
+    }
+  };
+
+  const removeAdditionalAccount = async (accountId: string) => {
+    if (!window.confirm("Отключить дополнительный Google-аккаунт от пространства GENESIS? Уже созданные события и задачи останутся в Google.")) return;
+    setBusy(true);
+    setMessage("");
+    try {
+      const result = await removeAdditionalGoogleAccount(accountId);
+      onUserChange(result.user);
+      setRouting((current) => ({
+        ...current,
+        defaultAccountIds: current.defaultAccountIds.filter((id) => id !== accountId),
+        categoryAccountIds: Object.fromEntries(Object.entries(current.categoryAccountIds).map(([categoryId, ids]) => [categoryId, ids.filter((id) => id !== accountId)])),
+      }));
+      setMessage("Дополнительный Google-аккаунт отключён.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Не удалось отключить дополнительный аккаунт.");
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -79,6 +143,109 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onUserChange }:
               <small>После вашего подтверждения GENESIS создаст отдельный календарь и сможет показывать и изменять списки Google Tasks. Доступ нужен только для функций синхронизации.</small>
             </div>
             <button type="button" onClick={onReconnectGoogle}>Подключить</button>
+          </section>
+        ) : null}
+
+        <section className="account-preferences calendar-mode-preference" aria-labelledby="calendar-mode-title">
+          <div>
+            <span className="eyebrow">Календарь задач</span>
+            <h3 id="calendar-mode-title">Система дат</h3>
+            <p>Выбранная система определяет вид календаря, выбор начала и срока, а также подписи дат во всех списках задач.</p>
+          </div>
+          <div className="calendar-mode-segment" role="radiogroup" aria-label="Система дат">
+            {CALENDAR_MODES.map((mode) => (
+              <button
+                type="button"
+                role="radio"
+                aria-checked={(user.calendarMode ?? "sacred") === mode.id}
+                className={(user.calendarMode ?? "sacred") === mode.id ? "active" : ""}
+                disabled={preferenceBusy}
+                onClick={() => void changeCalendarMode(mode.id)}
+                key={mode.id}
+              >
+                <strong>{mode.label}</strong>
+                <small>{mode.hint}</small>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {user.multiAccountEnabled ? (
+          <section className="account-preferences multi-account-preference" aria-labelledby="multi-account-title">
+            <div className="multi-account-heading">
+              <div>
+                <span className="eyebrow">Закрытая функция администратора</span>
+                <h3 id="multi-account-title">Несколько Google-аккаунтов</h3>
+                <p>Основной аккаунт владеет пространством GENESIS. Вход через любой подключённый дополнительный аккаунт открывает это же пространство.</p>
+              </div>
+              <button type="button" className="primary-button" onClick={onConnectAdditionalGoogle}>＋ Подключить аккаунт</button>
+            </div>
+            <div className="google-account-list">
+              {(user.googleAccounts ?? []).map((account, index) => (
+                <article key={account.id}>
+                  {account.photoURL ? <img src={account.photoURL} alt="" referrerPolicy="no-referrer" /> : <span className="account-avatar-fallback" aria-hidden="true">{account.email.slice(0, 1).toUpperCase()}</span>}
+                  <div><strong>{account.displayName || account.email}</strong><small>{account.email}</small></div>
+                  <em>{account.isPrimary ? "Основной" : `Дополнительный ${index}`}</em>
+                  {!account.isPrimary ? <button type="button" className="text-button" disabled={busy} onClick={() => void removeAdditionalAccount(account.id)}>Отключить</button> : null}
+                </article>
+              ))}
+            </div>
+
+            {(user.googleAccounts ?? []).length > 1 ? (
+              <div className="sync-routing-editor">
+                <fieldset className="sync-routing-modes">
+                  <legend>Как выбирать аккаунты для новых задач</legend>
+                  <label><input type="radio" checked={routing.mode === "fixed"} onChange={() => setRouting((current) => ({ ...current, mode: "fixed" }))} /> Заранее выбранные</label>
+                  <label><input type="radio" checked={routing.mode === "choose"} onChange={() => setRouting((current) => ({ ...current, mode: "choose" }))} /> По выбору при создании</label>
+                  <label><input type="radio" checked={routing.mode === "category"} onChange={() => setRouting((current) => ({ ...current, mode: "category" }))} /> По категории проекта</label>
+                </fieldset>
+
+                <fieldset className="sync-account-checks">
+                  <legend>{routing.mode === "fixed" ? "Синхронизировать новые задачи" : "Аккаунты по умолчанию"}</legend>
+                  {(user.googleAccounts ?? []).map((account) => (
+                    <label key={account.id}>
+                      <input
+                        type="checkbox"
+                        checked={routing.defaultAccountIds.includes(account.id)}
+                        onChange={(event) => setRouting((current) => ({
+                          ...current,
+                          defaultAccountIds: event.target.checked
+                            ? Array.from(new Set([...current.defaultAccountIds, account.id]))
+                            : current.defaultAccountIds.filter((id) => id !== account.id),
+                        }))}
+                      />
+                      <span>{account.email}{account.isPrimary ? " · основной" : ""}</span>
+                    </label>
+                  ))}
+                </fieldset>
+
+                {routing.mode === "category" ? (
+                  <div className="category-routing-grid">
+                    <strong>Категории и аккаунты</strong>
+                    {categories.map((category) => (
+                      <fieldset key={category.id}>
+                        <legend><i style={{ backgroundColor: category.color }} />{category.name}</legend>
+                        {(user.googleAccounts ?? []).map((account) => {
+                          const selected = routing.categoryAccountIds[category.id] ?? [];
+                          return (
+                            <label key={account.id}><input type="checkbox" checked={selected.includes(account.id)} onChange={(event) => setRouting((current) => ({
+                              ...current,
+                              categoryAccountIds: {
+                                ...current.categoryAccountIds,
+                                [category.id]: event.target.checked
+                                  ? Array.from(new Set([...(current.categoryAccountIds[category.id] ?? []), account.id]))
+                                  : (current.categoryAccountIds[category.id] ?? []).filter((id) => id !== account.id),
+                              },
+                            }))} />{account.email}</label>
+                          );
+                        })}
+                      </fieldset>
+                    ))}
+                  </div>
+                ) : null}
+                <button type="button" className="primary-button" disabled={preferenceBusy || routing.defaultAccountIds.length === 0} onClick={() => void saveRouting()}>Сохранить маршрутизацию</button>
+              </div>
+            ) : null}
           </section>
         ) : null}
 

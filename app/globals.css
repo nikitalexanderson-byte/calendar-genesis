@@ -3649,6 +3649,107 @@ button:disabled {
   }
 }
 
+/* Global task calendar modes */
+.calendar-mode-preference > div:first-child > p,
+.multi-account-heading p { margin: 0 0 14px; color: var(--ink-soft); font-size: 11px; line-height: 1.55; }
+.calendar-mode-segment { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 4px; background: rgba(255,255,255,.5); border: 1px solid rgba(29,45,43,.14); border-radius: 14px; }
+.calendar-mode-segment button { display: grid; gap: 4px; min-height: 64px; padding: 10px; color: var(--ink-soft); background: transparent; border: 0; border-radius: 10px; text-align: left; cursor: pointer; }
+.calendar-mode-segment button strong { font-size: 12px; }
+.calendar-mode-segment button small { font-size: 8px; line-height: 1.35; }
+.calendar-mode-segment button.active { color: #fff; background: linear-gradient(135deg, #1d514d, #2e7770); box-shadow: 0 7px 18px rgba(22,75,70,.2); }
+
+.calendar-date-trigger { display: grid; gap: 4px; width: 100%; min-height: 44px; padding: 9px 12px; color: var(--ink); background: rgba(255,255,255,.8); border: 1px solid rgba(29,45,43,.18); border-radius: 8px; text-align: left; cursor: pointer; }
+.calendar-date-trigger > span { font-size: 11px; font-weight: 800; line-height: 1.35; }
+.calendar-date-trigger > small { color: var(--ink-soft); font-size: 8px; }
+.calendar-date-trigger::after { content: "▾"; align-self: center; grid-column: 2; grid-row: 1 / 3; color: var(--gold); }
+.calendar-picker-backdrop { z-index: 140; }
+.calendar-picker { position: relative; width: min(920px, calc(100vw - 30px)); max-height: min(860px, calc(100vh - 30px)); overflow: auto; padding: 30px; background: #f6f1e6; border: 1px solid rgba(178,138,74,.4); border-radius: 18px; box-shadow: 0 30px 90px rgba(18,39,36,.34); }
+.calendar-picker h2 { margin: 7px 42px 20px 0; font: 400 31px/1.1 Georgia, serif; }
+.calendar-picker-controls { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; gap: 10px; margin-bottom: 14px; }
+.calendar-picker-controls button { min-height: 40px; border: 1px solid rgba(29,45,43,.18); border-radius: 10px; background: rgba(255,255,255,.62); cursor: pointer; }
+.calendar-picker-controls strong { text-align: center; text-transform: capitalize; }
+.calendar-picker-months { display: grid; grid-template-columns: repeat(13, minmax(35px, 1fr)); gap: 5px; margin-bottom: 16px; }
+.calendar-picker-months button { min-height: 36px; border: 1px solid rgba(29,45,43,.14); border-radius: 8px; background: rgba(255,255,255,.55); font: 700 10px/1 Georgia, serif; cursor: pointer; }
+.calendar-picker-months button.active { color: #fff; background: var(--teal); }
+.calendar-picker-heading { display: flex; align-items: baseline; gap: 10px; margin: 10px 0; }
+.calendar-picker-heading strong { font: 400 23px/1.1 Georgia, serif; text-transform: uppercase; }
+.calendar-picker-heading span { color: var(--ink-soft); font-size: 10px; }
+.sacred-picker-days { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; }
+.sacred-picker-days button { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; min-height: 75px; padding: 9px; border: 1px solid rgba(29,45,43,.14); border-radius: 9px; background: rgba(255,255,255,.62); text-align: left; cursor: pointer; }
+.sacred-picker-days button > small { grid-column: 1 / 3; color: #896128; font-size: 7px; font-weight: 800; text-transform: uppercase; }
+.sacred-picker-days button > strong { font: 400 22px/1 Georgia, serif; }
+.sacred-picker-days button > span { align-self: center; overflow: hidden; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.sacred-picker-days button.selected, .lunar-picker-days button.selected { border-color: var(--gold); outline: 2px solid rgba(178,138,74,.2); }
+.sacred-picker-days button:disabled, .lunar-picker-days button:disabled { opacity: .32; cursor: not-allowed; }
+.calendar-picker-note { color: var(--ink-soft); font-size: 10px; }
+.lunar-picker-days { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+.lunar-picker-days button { display: grid; justify-items: center; gap: 5px; min-height: 105px; padding: 10px 6px; border: 1px solid rgba(29,45,43,.14); border-radius: 10px; background: linear-gradient(180deg, rgba(255,255,255,.68), rgba(225,230,219,.55)); cursor: pointer; }
+.lunar-picker-days button strong { font: 400 23px/1 Georgia, serif; }
+.lunar-picker-days button span { min-height: 22px; font-size: 8px; line-height: 1.3; text-align: center; }
+.lunar-picker-days button small { color: var(--ink-soft); font-size: 8px; }
+
+.multi-account-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.google-account-list { display: grid; gap: 8px; }
+.google-account-list article { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 10px; background: rgba(255,255,255,.55); border: 1px solid rgba(29,45,43,.12); border-radius: 10px; }
+.google-account-list img, .account-avatar-fallback { width: 38px; height: 38px; border-radius: 50%; }
+.account-avatar-fallback { display: grid; place-items: center; color: #fff; background: var(--teal); font-weight: 800; }
+.google-account-list article > div { display: grid; gap: 3px; min-width: 0; }
+.google-account-list article small { overflow: hidden; color: var(--ink-soft); font-size: 9px; text-overflow: ellipsis; }
+.google-account-list article em { padding: 4px 7px; color: #896128; background: rgba(178,138,74,.12); border-radius: 999px; font-size: 8px; font-style: normal; font-weight: 800; }
+.sync-routing-editor { display: grid; gap: 14px; margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(29,45,43,.14); }
+.sync-routing-modes, .sync-account-checks { display: grid; gap: 8px; margin: 0; padding: 12px; border: 1px solid rgba(29,45,43,.14); border-radius: 10px; }
+.sync-routing-modes legend, .sync-account-checks legend { padding: 0 6px; font-size: 10px; font-weight: 800; }
+.sync-routing-modes label, .sync-account-checks label, .category-routing-grid label, .task-sync-account-picker label { display: flex; align-items: center; gap: 8px; color: var(--ink); font-size: 10px; }
+.category-routing-grid { display: grid; gap: 9px; }
+.category-routing-grid > fieldset { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin: 0; padding: 10px; border: 1px solid rgba(29,45,43,.12); border-radius: 9px; }
+.category-routing-grid legend { padding: 0 6px; font-size: 10px; font-weight: 800; }
+.category-routing-grid legend i { display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; }
+.task-sync-account-picker { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; padding: 13px; border: 1px solid rgba(178,138,74,.28); border-radius: 10px; }
+.task-sync-account-picker legend { padding: 0 6px; font-size: 9px; font-weight: 800; text-transform: uppercase; }
+.task-sync-account-picker > small { grid-column: 1 / -1; color: var(--ink-soft); font-size: 8px; }
+
+.task-description-viewer { margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(29,45,43,.1); }
+.task-description-viewer summary { width: max-content; color: var(--teal); font-size: 9px; font-weight: 800; cursor: pointer; }
+.task-description-viewer p { margin: 8px 0 0; max-width: 76ch; color: var(--ink); font-size: 11px; line-height: 1.55; white-space: pre-wrap; }
+.task-description-viewer p.muted { color: var(--ink-soft); }
+.task-description-viewer pre { margin: 8px 0 0; padding: 10px; color: var(--ink-soft); background: rgba(29,81,77,.06); border-radius: 8px; font: 500 9px/1.6 inherit; white-space: pre-wrap; }
+
+.task-calendar-mode-view { display: grid; gap: 18px; }
+.task-calendar-mode-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 26px; background: linear-gradient(135deg, rgba(255,255,255,.76), rgba(221,229,216,.66)); border: 1px solid rgba(29,45,43,.14); border-radius: 16px; }
+.task-calendar-mode-header h1 { margin: 5px 0 7px; font: 400 38px/1.05 Georgia, serif; text-transform: capitalize; }
+.task-calendar-mode-header p { margin: 0; color: var(--ink-soft); font-size: 11px; }
+.profane-weekdays { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; padding: 0 8px; color: var(--ink-soft); font-size: 8px; font-weight: 800; text-align: center; text-transform: uppercase; }
+.task-calendar-mode-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
+.task-calendar-mode-grid.lunar { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.task-calendar-mode-grid > article { position: relative; min-height: 145px; padding: 8px; background: rgba(255,255,255,.66); border: 1px solid rgba(29,45,43,.13); border-radius: 11px; }
+.task-calendar-mode-grid > article.today { border-color: var(--gold); box-shadow: inset 0 0 0 1px rgba(178,138,74,.28); }
+.task-calendar-mode-grid > article.selected { background: rgba(37,91,89,.09); }
+.task-calendar-day-open { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 3px 7px; width: 100%; color: var(--ink); background: transparent; border: 0; text-align: left; cursor: pointer; }
+.task-calendar-day-open strong { font: 400 25px/1 Georgia, serif; }
+.task-calendar-day-open small { grid-column: 1 / 3; overflow: hidden; color: var(--ink-soft); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.task-calendar-day-tasks { display: grid; gap: 4px; margin-top: 9px; }
+.task-calendar-day-tasks button { overflow: hidden; padding: 5px 6px; color: #fff; background: var(--teal); border: 0; border-radius: 5px; font-size: 8px; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.task-calendar-day-tasks span { color: var(--ink-soft); font-size: 8px; font-weight: 800; }
+
+@media (max-width: 760px) {
+  .calendar-mode-segment { grid-template-columns: 1fr; }
+  .calendar-mode-segment button { min-height: 52px; }
+  .calendar-picker { width: calc(100vw - 18px); padding: 22px 13px; }
+  .calendar-picker-months { grid-template-columns: repeat(7, minmax(34px, 1fr)); }
+  .sacred-picker-days { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lunar-picker-days { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .multi-account-heading { flex-direction: column; }
+  .google-account-list article { grid-template-columns: 34px minmax(0, 1fr) auto; }
+  .google-account-list article > .text-button { grid-column: 2 / 4; justify-self: start; }
+  .category-routing-grid > fieldset, .task-sync-account-picker { grid-template-columns: 1fr; }
+  .task-sync-account-picker > small { grid-column: auto; }
+  .task-calendar-mode-header { flex-direction: column; padding: 18px; }
+  .task-calendar-mode-header h1 { font-size: 30px; }
+  .task-calendar-mode-grid, .task-calendar-mode-grid.lunar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .profane-weekdays { display: none; }
+  .task-calendar-mode-grid > .empty-day { display: none; }
+}
+
 /* Device-safe layout, quick planning and project drag workspace */
 .device-clock {
   display: grid;

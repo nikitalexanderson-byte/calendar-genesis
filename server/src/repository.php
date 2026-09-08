@@ -29,19 +29,151 @@ function genesisEnsureWorkspaceKey(array $user): array
     return $user;
 }
 
+function genesisLinkedGoogleAccountAsUser(array $account): array
+{
+    $account['_linked_account'] = true;
+    $account['_owner_user_id'] = (string)$account['owner_user_id'];
+    return $account;
+}
+
+function genesisLinkedGoogleAccounts(string $ownerUserId): array
+{
+    $statement = genesisDb()->prepare('SELECT * FROM linked_google_accounts WHERE owner_user_id = :owner_user_id ORDER BY position, created_at');
+    $statement->execute(['owner_user_id' => $ownerUserId]);
+    return array_map('genesisLinkedGoogleAccountAsUser', $statement->fetchAll());
+}
+
+function genesisFindLinkedGoogleAccount(string $accountId): ?array
+{
+    $statement = genesisDb()->prepare('SELECT * FROM linked_google_accounts WHERE id = :id LIMIT 1');
+    $statement->execute(['id' => $accountId]);
+    $account = $statement->fetch();
+    return is_array($account) ? genesisLinkedGoogleAccountAsUser($account) : null;
+}
+
+function genesisFindLinkedGoogleAccountBySub(string $googleSub): ?array
+{
+    $statement = genesisDb()->prepare('SELECT * FROM linked_google_accounts WHERE google_sub = :google_sub LIMIT 1');
+    $statement->execute(['google_sub' => $googleSub]);
+    $account = $statement->fetch();
+    return is_array($account) ? genesisLinkedGoogleAccountAsUser($account) : null;
+}
+
+function genesisGoogleAccountsForUser(array $owner): array
+{
+    return array_merge([$owner], genesisLinkedGoogleAccounts((string)$owner['id']));
+}
+
+function genesisGoogleAccountForUser(string $ownerUserId, string $accountId): ?array
+{
+    $owner = genesisFindUser($ownerUserId);
+    if ($owner === null) {
+        return null;
+    }
+    if (hash_equals((string)$owner['id'], $accountId)) {
+        return $owner;
+    }
+    $account = genesisFindLinkedGoogleAccount($accountId);
+    return $account !== null && hash_equals((string)$account['owner_user_id'], $ownerUserId) ? $account : null;
+}
+
+function genesisMultiAccountEnabled(array $owner): bool
+{
+    return mb_strtolower((string)$owner['email']) === genesisAdminEmail();
+}
+
+function genesisAccountForClient(array $account, bool $primary): array
+{
+    $grantedScopes = preg_split('/\s+/', trim((string)($account['granted_scopes'] ?? ''))) ?: [];
+    return [
+        'id' => (string)$account['id'],
+        'email' => (string)$account['email'],
+        'displayName' => (string)$account['display_name'],
+        'photoURL' => $account['avatar_url'] ?: null,
+        'isPrimary' => $primary,
+        'calendarConnected' => !empty($account['google_calendar_id']) && !empty($account['refresh_token_enc']),
+        'googleTasksImportReady' => in_array('https://www.googleapis.com/auth/tasks', $grantedScopes, true),
+    ];
+}
+
+function genesisDecodeStringListJson(mixed $value): array
+{
+    $decoded = is_string($value) ? json_decode($value, true) : $value;
+    if (!is_array($decoded)) {
+        return [];
+    }
+    return array_values(array_unique(array_filter(array_map(
+        static fn(mixed $item): string => mb_substr(trim((string)$item), 0, 100),
+        $decoded,
+    ))));
+}
+
+function genesisCategorySyncMap(mixed $value): array
+{
+    $decoded = is_string($value) ? json_decode($value, true) : $value;
+    if (!is_array($decoded)) {
+        return [];
+    }
+    $result = [];
+    foreach ($decoded as $categoryId => $accountIds) {
+        $cleanCategoryId = mb_substr(trim((string)$categoryId), 0, 100);
+        if ($cleanCategoryId !== '') {
+            $result[$cleanCategoryId] = genesisDecodeStringListJson($accountIds);
+        }
+    }
+    return $result;
+}
+
 function genesisUserForClient(array $user): array
 {
-    $grantedScopes = preg_split('/\s+/', trim((string)($user['granted_scopes'] ?? ''))) ?: [];
+    $multiAccountEnabled = genesisMultiAccountEnabled($user);
+    $accounts = [genesisAccountForClient($user, true)];
+    if ($multiAccountEnabled) {
+        foreach (genesisLinkedGoogleAccounts((string)$user['id']) as $account) {
+            $accounts[] = genesisAccountForClient($account, false);
+        }
+    }
+    $calendarMode = in_array($user['calendar_mode'] ?? '', ['profane', 'sacred', 'lunar'], true)
+        ? (string)$user['calendar_mode']
+        : 'sacred';
+    $syncRoutingMode = in_array($user['sync_routing_mode'] ?? '', ['fixed', 'choose', 'category'], true)
+        ? (string)$user['sync_routing_mode']
+        : 'fixed';
+    $validAccountIds = array_map(static fn(array $account): string => (string)$account['id'], $accounts);
+    $defaultAccountIds = array_values(array_filter(
+        genesisDecodeStringListJson($user['sync_target_account_ids'] ?? '[]'),
+        static fn(string $id): bool => in_array($id, $validAccountIds, true),
+    ));
+    if ($defaultAccountIds === []) {
+        $defaultAccountIds = [(string)$user['id']];
+    }
+    $categoryAccountIds = genesisCategorySyncMap($user['category_sync_map'] ?? '{}');
+    foreach ($categoryAccountIds as $categoryId => $accountIds) {
+        $categoryAccountIds[$categoryId] = array_values(array_filter(
+            $accountIds,
+            static fn(string $id): bool => in_array($id, $validAccountIds, true),
+        ));
+    }
+    $anyCalendarConnected = count(array_filter($accounts, static fn(array $account): bool => !empty($account['calendarConnected']))) > 0;
+    $anyTasksConnected = count(array_filter($accounts, static fn(array $account): bool => !empty($account['googleTasksImportReady']))) > 0;
     return [
         'uid' => (string)$user['id'],
         'displayName' => (string)$user['display_name'],
         'email' => (string)$user['email'],
         'photoURL' => $user['avatar_url'] ?: null,
-        'calendarConnected' => !empty($user['google_calendar_id']) && !empty($user['refresh_token_enc']),
-        'googleTasksImportReady' => in_array('https://www.googleapis.com/auth/tasks', $grantedScopes, true),
+        'calendarConnected' => $anyCalendarConnected,
+        'googleTasksImportReady' => $anyTasksConnected,
         'passwordEnabled' => !empty($user['password_hash']),
         'stoicheionDivinationDisabled' => !empty($user['stoicheion_divination_disabled']),
         'isAdmin' => mb_strtolower((string)$user['email']) === genesisAdminEmail(),
+        'calendarMode' => $calendarMode,
+        'multiAccountEnabled' => $multiAccountEnabled,
+        'googleAccounts' => $accounts,
+        'syncRouting' => [
+            'mode' => $syncRoutingMode,
+            'defaultAccountIds' => $defaultAccountIds,
+            'categoryAccountIds' => $categoryAccountIds,
+        ],
     ];
 }
 
@@ -86,6 +218,22 @@ function genesisUpsertGoogleUser(array $profile, array $tokens, bool $persistGoo
     }
 
     $db = genesisDb();
+    $linkedAccount = genesisFindLinkedGoogleAccountBySub((string)($profile['sub'] ?? ''));
+    if ($linkedAccount !== null && !$persistGoogleTokens) {
+        $db->prepare('UPDATE linked_google_accounts SET email = :email, display_name = :display_name, avatar_url = :avatar_url, updated_at = :updated_at WHERE id = :id')->execute([
+            'email' => $email,
+            'display_name' => mb_substr((string)($profile['name'] ?? $email), 0, 160),
+            'avatar_url' => isset($profile['picture']) ? mb_substr((string)$profile['picture'], 0, 1000) : null,
+            'updated_at' => genesisNow(),
+            'id' => (string)$linkedAccount['id'],
+        ]);
+        $owner = genesisFindUser((string)$linkedAccount['owner_user_id']);
+        if ($owner === null) {
+            throw new RuntimeException('Связанное пространство GENESIS не найдено.');
+        }
+        genesisTouchUser((string)$owner['id'], true);
+        return genesisEnsureWorkspaceKey($owner);
+    }
     $statement = $db->prepare('SELECT * FROM users WHERE google_sub = :sub LIMIT 1');
     $statement->execute(['sub' => (string)$profile['sub']]);
     $existing = $statement->fetch();
@@ -152,6 +300,69 @@ function genesisUpsertGoogleUser(array $profile, array $tokens, bool $persistGoo
         throw new RuntimeException('User profile could not be saved.');
     }
     return genesisEnsureWorkspaceKey($user);
+}
+
+function genesisLinkGoogleAccount(string $ownerUserId, array $profile, array $tokens): array
+{
+    $owner = genesisFindUser($ownerUserId);
+    if ($owner === null) {
+        throw new RuntimeException('Пользователь не найден.');
+    }
+    if (!genesisMultiAccountEnabled($owner)) {
+        throw new DomainException('Подключение нескольких аккаунтов пока доступно только администратору GENESIS.');
+    }
+    $sub = trim((string)($profile['sub'] ?? ''));
+    $email = mb_strtolower(trim((string)($profile['email'] ?? '')));
+    if ($sub === '' || !genesisIsValidEmail($email)) {
+        throw new InvalidArgumentException('Google-профиль дополнительного аккаунта неполон.');
+    }
+    if (hash_equals((string)$owner['google_sub'], $sub)) {
+        throw new DomainException('Этот Google-аккаунт уже является основным.');
+    }
+    if (!genesisGoogleTokenHasScopes($tokens, GENESIS_GOOGLE_SERVICE_SCOPES)) {
+        throw new DomainException('Google не предоставил доступ к Calendar и Tasks.');
+    }
+    $existing = genesisFindLinkedGoogleAccountBySub($sub);
+    if ($existing !== null && !hash_equals((string)$existing['owner_user_id'], $ownerUserId)) {
+        throw new DomainException('Этот Google-аккаунт уже связан с другим пространством GENESIS.');
+    }
+    $standalone = genesisDb()->prepare('SELECT id FROM users WHERE google_sub = :sub AND id <> :owner LIMIT 1');
+    $standalone->execute(['sub' => $sub, 'owner' => $ownerUserId]);
+    if ($standalone->fetchColumn() !== false) {
+        throw new DomainException('У этого Google-аккаунта уже есть отдельное пространство GENESIS. Объединение существующих пространств требует отдельного переноса данных.');
+    }
+    $refresh = !empty($tokens['refresh_token'])
+        ? genesisEncrypt((string)$tokens['refresh_token'])
+        : ($existing['refresh_token_enc'] ?? null);
+    if (empty($refresh)) {
+        throw new RuntimeException('Google не вернул токен для фоновой синхронизации. Повторите подключение и подтвердите доступ.');
+    }
+    $id = $existing['id'] ?? genesisUuid();
+    $now = genesisNow();
+    $positionStatement = genesisDb()->prepare('SELECT COALESCE(MAX(position), 0) + 1 FROM linked_google_accounts WHERE owner_user_id = :owner_user_id');
+    $positionStatement->execute(['owner_user_id' => $ownerUserId]);
+    $nextPosition = (int)$positionStatement->fetchColumn();
+    genesisDb()->prepare('INSERT INTO linked_google_accounts (id, owner_user_id, google_sub, email, display_name, avatar_url, access_token_enc, refresh_token_enc, token_expires_at, granted_scopes, google_calendar_id, position, created_at, updated_at) VALUES (:id, :owner_user_id, :google_sub, :email, :display_name, :avatar_url, :access_token_enc, :refresh_token_enc, :token_expires_at, :granted_scopes, :google_calendar_id, :position, :created_at, :updated_at) ON CONFLICT(id) DO UPDATE SET email = excluded.email, display_name = excluded.display_name, avatar_url = excluded.avatar_url, access_token_enc = excluded.access_token_enc, refresh_token_enc = excluded.refresh_token_enc, token_expires_at = excluded.token_expires_at, granted_scopes = excluded.granted_scopes, updated_at = excluded.updated_at')->execute([
+        'id' => (string)$id,
+        'owner_user_id' => $ownerUserId,
+        'google_sub' => $sub,
+        'email' => $email,
+        'display_name' => mb_substr((string)($profile['name'] ?? $email), 0, 160),
+        'avatar_url' => isset($profile['picture']) ? mb_substr((string)$profile['picture'], 0, 1000) : null,
+        'access_token_enc' => genesisEncrypt((string)$tokens['access_token']),
+        'refresh_token_enc' => $refresh,
+        'token_expires_at' => time() + genesisClampInt($tokens['expires_in'] ?? 3600, 60, 86400, 3600) - 60,
+        'granted_scopes' => (string)($tokens['scope'] ?? ''),
+        'google_calendar_id' => $existing['google_calendar_id'] ?? null,
+        'position' => $existing['position'] ?? $nextPosition,
+        'created_at' => $existing['created_at'] ?? $now,
+        'updated_at' => $now,
+    ]);
+    $account = genesisFindLinkedGoogleAccount((string)$id);
+    if ($account === null) {
+        throw new RuntimeException('Дополнительный аккаунт не удалось сохранить.');
+    }
+    return genesisEnsureGoogleCalendar($account);
 }
 
 function genesisSetPassword(string $userId, string $password, ?string $currentPassword = null): void
@@ -381,25 +592,80 @@ function genesisSaveStoicheionDraw(string $userId, string $kind, int $seed): arr
 
 function genesisUpdateAccountPreferences(string $userId, array $payload): array
 {
-    if (!array_key_exists('stoicheionDivinationDisabled', $payload) || !is_bool($payload['stoicheionDivinationDisabled'])) {
-        throw new InvalidArgumentException('Настройка гаданий указана неверно.');
-    }
-    genesisDb()->prepare('UPDATE users SET stoicheion_divination_disabled = :disabled, updated_at = :updated_at WHERE id = :id')->execute([
-        'disabled' => $payload['stoicheionDivinationDisabled'] ? 1 : 0,
-        'updated_at' => genesisNow(),
-        'id' => $userId,
-    ]);
     $user = genesisFindUser($userId);
     if ($user === null) {
-        throw new RuntimeException('Настройки аккаунта не удалось сохранить.');
+        throw new RuntimeException('Пользователь не найден.');
     }
-    return $user;
+    $updates = [];
+    $values = ['updated_at' => genesisNow(), 'id' => $userId];
+    if (array_key_exists('stoicheionDivinationDisabled', $payload)) {
+        if (!is_bool($payload['stoicheionDivinationDisabled'])) {
+            throw new InvalidArgumentException('Настройка гаданий указана неверно.');
+        }
+        $updates[] = 'stoicheion_divination_disabled = :divination_disabled';
+        $values['divination_disabled'] = $payload['stoicheionDivinationDisabled'] ? 1 : 0;
+    }
+    if (array_key_exists('calendarMode', $payload)) {
+        $calendarMode = trim((string)$payload['calendarMode']);
+        if (!in_array($calendarMode, ['profane', 'sacred', 'lunar'], true)) {
+            throw new InvalidArgumentException('Неизвестный режим календаря.');
+        }
+        $updates[] = 'calendar_mode = :calendar_mode';
+        $values['calendar_mode'] = $calendarMode;
+    }
+    $hasSyncPreference = array_key_exists('syncRouting', $payload);
+    if ($hasSyncPreference) {
+        if (!genesisMultiAccountEnabled($user) || !is_array($payload['syncRouting'])) {
+            throw new DomainException('Маршрутизация по аккаунтам недоступна.');
+        }
+        $routing = $payload['syncRouting'];
+        $mode = trim((string)($routing['mode'] ?? ''));
+        if (!in_array($mode, ['fixed', 'choose', 'category'], true)) {
+            throw new InvalidArgumentException('Неизвестный режим синхронизации.');
+        }
+        $validAccountIds = array_map(static fn(array $account): string => (string)$account['id'], genesisGoogleAccountsForUser($user));
+        $targets = array_values(array_filter(
+            genesisDecodeStringListJson($routing['defaultAccountIds'] ?? []),
+            static fn(string $id): bool => in_array($id, $validAccountIds, true),
+        ));
+        if ($targets === []) {
+            $targets = [(string)$user['id']];
+        }
+        $categoryMap = genesisCategorySyncMap($routing['categoryAccountIds'] ?? []);
+        foreach ($categoryMap as $categoryId => $accountIds) {
+            $categoryMap[$categoryId] = array_values(array_filter(
+                $accountIds,
+                static fn(string $id): bool => in_array($id, $validAccountIds, true),
+            ));
+        }
+        $updates[] = 'sync_routing_mode = :sync_routing_mode';
+        $updates[] = 'sync_target_account_ids = :sync_target_account_ids';
+        $updates[] = 'category_sync_map = :category_sync_map';
+        $values['sync_routing_mode'] = $mode;
+        $values['sync_target_account_ids'] = json_encode($targets, JSON_THROW_ON_ERROR);
+        $values['category_sync_map'] = json_encode($categoryMap, JSON_THROW_ON_ERROR);
+    }
+    if ($updates === []) {
+        throw new InvalidArgumentException('Нет настроек для сохранения.');
+    }
+    $updates[] = 'updated_at = :updated_at';
+    genesisDb()->prepare('UPDATE users SET ' . implode(', ', $updates) . ' WHERE id = :id')->execute($values);
+    $updated = genesisFindUser($userId);
+    if ($updated === null) throw new RuntimeException('Настройки аккаунта не удалось сохранить.');
+    return $updated;
 }
 
 function genesisDeleteAccount(string $userId): void
 {
     $user = genesisFindUser($userId);
     if ($user !== null) {
+        foreach (genesisLinkedGoogleAccounts($userId) as $account) {
+            try {
+                genesisRevokeGoogleToken($account);
+            } catch (Throwable $error) {
+                genesisLogError('Linked Google token revocation failed during account deletion.', $error);
+            }
+        }
         try {
             genesisRevokeGoogleToken($user);
         } catch (Throwable $error) {
@@ -407,6 +673,27 @@ function genesisDeleteAccount(string $userId): void
         }
     }
     genesisDb()->prepare('DELETE FROM users WHERE id = :id')->execute(['id' => $userId]);
+}
+
+function genesisRemoveLinkedGoogleAccount(string $ownerUserId, string $accountId): void
+{
+    $owner = genesisFindUser($ownerUserId);
+    if ($owner === null || !genesisMultiAccountEnabled($owner)) {
+        throw new DomainException('Дополнительные аккаунты недоступны.');
+    }
+    $account = genesisGoogleAccountForUser($ownerUserId, $accountId);
+    if ($account === null || empty($account['_linked_account'])) {
+        throw new InvalidArgumentException('Дополнительный аккаунт не найден.');
+    }
+    try {
+        genesisRevokeGoogleToken($account);
+    } catch (Throwable $error) {
+        genesisLogError('Linked Google token revocation failed.', $error);
+    }
+    genesisDb()->prepare('DELETE FROM linked_google_accounts WHERE id = :id AND owner_user_id = :owner_user_id')->execute([
+        'id' => $accountId,
+        'owner_user_id' => $ownerUserId,
+    ]);
 }
 
 function genesisDisconnectGoogleServices(string $userId): array
