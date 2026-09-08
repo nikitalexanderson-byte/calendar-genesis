@@ -14,6 +14,7 @@ export type GoogleTaskList = {
   id: string;
   title: string;
   updatedAt: string | null;
+  isDefault?: boolean;
 };
 
 export type TaskListProjectLink = {

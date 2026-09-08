@@ -119,6 +119,9 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /linkTaskListToProject/);
   assert.match(calendar, /saveTaskListEdit/);
   assert.match(calendar, /deleteTaskList/);
+  assert.match(calendar, /taskListsForWorkspace/);
+  assert.match(calendar, /Основной список Google · удалить нельзя/);
+  assert.match(calendar, /Пока он пуст и не привязан к проекту, GENESIS скрывает его автоматически/);
   assert.match(calendar, /Редактирование списка задач/);
   assert.match(calendar, /Удалить список «\$\{taskList\.title\}»/);
   assert.match(calendar, /Список задач — это группа смежных задач/);
@@ -268,6 +271,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(google, /https:\/\/www\.googleapis\.com\/auth\/tasks/);
   assert.match(google, /genesisSyncNativeGoogleTask/);
   assert.match(google, /genesisCreateGoogleTaskList/);
+  assert.match(google, /genesisDefaultGoogleTaskListId/);
+  assert.match(google, /'isDefault' =>/);
   assert.match(google, /genesisUpdateGoogleTaskList/);
   assert.match(google, /genesisDeleteGoogleTaskList/);
   assert.match(google, /genesisSource/);

@@ -3957,6 +3957,16 @@ html.project-drag-active body {
 .task-list-column-actions button.danger { color: var(--terracotta); }
 .task-list-column-actions button.danger:hover { color: white; background: var(--terracotta); }
 
+.task-list-default-badge {
+  justify-self: start;
+  padding: 4px 7px;
+  color: var(--ink-soft);
+  font-size: 8px;
+  line-height: 1.2;
+  background: rgba(37, 91, 89, .07);
+  border-radius: 999px;
+}
+
 .task-list-column > header strong {
   font: 500 17px/1.2 Georgia, "Times New Roman", serif;
   overflow-wrap: anywhere;

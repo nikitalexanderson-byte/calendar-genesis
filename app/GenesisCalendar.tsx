@@ -664,6 +664,11 @@ export function GenesisCalendar() {
   const linkedProjectId = (taskListId: string | null) => (
     taskListId ? taskListLinks.find((link) => link.taskListId === taskListId)?.projectId ?? null : null
   );
+  const taskListsForWorkspace = taskLists.filter((taskList) => (
+    !taskList.isDefault
+    || tasks.some((task) => task.googleTaskListId === taskList.id)
+    || Boolean(linkedProjectId(taskList.id))
+  ));
   const resolvedTaskProjectId = (task: Task) => (
     task.projectId === TASK_INBOX_PROJECT_ID ? null : task.projectId ?? linkedProjectId(task.googleTaskListId)
   );
@@ -1412,7 +1417,9 @@ export function GenesisCalendar() {
     setSyncStatus("syncing");
     try {
       const { taskList } = await updateGoogleTaskList(editingTaskList.id, title);
-      setTaskLists((current) => current.map((item) => item.id === taskList.id ? taskList : item));
+      setTaskLists((current) => current.map((item) => item.id === taskList.id
+        ? { ...taskList, isDefault: item.isDefault || taskList.isDefault }
+        : item));
       setTasks((current) => current.map((task) => task.googleTaskListId === taskList.id
         ? { ...task, googleTaskListTitle: taskList.title }
         : task));
@@ -1425,6 +1432,10 @@ export function GenesisCalendar() {
   };
 
   const deleteTaskList = async (taskList: GoogleTaskList) => {
+    if (taskList.isDefault) {
+      setSyncError("Основной список Google Tasks нельзя удалить. Пока он пуст и не привязан к проекту, GENESIS скрывает его автоматически.");
+      return;
+    }
     const listTaskCount = tasks.filter((task) => task.googleTaskListId === taskList.id).length;
     const taskCountLabel = listTaskCount === 1 ? "1 задачей" : `${listTaskCount} задачами`;
     if (!window.confirm(`Удалить список «${taskList.title}» вместе с ${taskCountLabel}? Он будет удалён из Google Tasks. Это действие нельзя отменить.`)) return;
@@ -1849,7 +1860,7 @@ export function GenesisCalendar() {
       <p>{TASK_LIST_EXPLANATION}</p>
       {cloudUser?.googleTasksImportReady ? (
         <>
-          {taskLists.length ? (
+          {taskListsForWorkspace.length ? (
             <section className="task-list-workspace" aria-label="Существующие списки задач">
               <header>
                 <div>
@@ -1859,7 +1870,7 @@ export function GenesisCalendar() {
                 <small>Перетаскивайте задачи между колонками или выбирайте список в меню задачи.</small>
               </header>
               <div className="task-list-board">
-                {taskLists.map((taskList) => {
+                {taskListsForWorkspace.map((taskList) => {
                   const projectId = taskListLinks.find((link) => link.taskListId === taskList.id)?.projectId ?? "";
                   const listTasks = tasks.filter((task) => task.googleTaskListId === taskList.id);
                   return (
@@ -1887,9 +1898,12 @@ export function GenesisCalendar() {
                           <span><strong>{taskList.title}</strong><small>{listTasks.length} задач</small></span>
                           <span className="task-list-column-actions">
                             <button type="button" onClick={() => setEditingTaskList(taskList)} aria-label={`Редактировать список «${taskList.title}»`}>✎</button>
-                            <button type="button" className="danger" onClick={() => void deleteTaskList(taskList)} aria-label={`Удалить список «${taskList.title}»`}>×</button>
+                            {!taskList.isDefault ? (
+                              <button type="button" className="danger" onClick={() => void deleteTaskList(taskList)} aria-label={`Удалить список «${taskList.title}»`}>×</button>
+                            ) : null}
                           </span>
                         </div>
+                        {taskList.isDefault ? <span className="task-list-default-badge">Основной список Google · удалить нельзя</span> : null}
                         <label>
                           <span>Проект списка</span>
                           <select value={projectId} onChange={(event) => linkTaskListToProject(taskList.id, event.target.value)}>
@@ -2411,7 +2425,7 @@ export function GenesisCalendar() {
     }
     const projectRows = flattenProjects(projects).filter(({ project }) => !searchTerms.length || matchingProjectIds.has(project.id));
     const inboxTasks = tasks.filter((task) => !resolvedTaskProjectId(task) && !task.project);
-    const inboxTaskLists = taskLists.filter((taskList) => !linkedProjectId(taskList.id));
+    const inboxTaskLists = taskListsForWorkspace.filter((taskList) => !linkedProjectId(taskList.id));
     const activeProjects = projects.filter((project) => project.status === "active").length;
     const rootProjects = projects.filter((project) => !project.parentId).length;
     const completedProjects = projects.filter((project) => project.status === "completed").length;
