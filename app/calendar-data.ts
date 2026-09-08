@@ -54,6 +54,8 @@ export type MoonInfo = {
   illumination: number;
 };
 
+export type CalendarMode = "profane" | "sacred" | "lunar";
+
 export const ELEMENTS = [
   { name: "Земля", meaning: "Опора · Тело", symbol: "🜃" },
   { name: "Вода", meaning: "Эмоции · Поток", symbol: "🜄" },
@@ -177,9 +179,9 @@ function parseCalendar(text: string): SacredMonth[] {
 
 export const MONTHS = parseCalendar(source);
 
-const DAY_MS = 86_400_000;
-const MOON_CYCLE = 29.53058867;
-const MOON_EPOCH = Date.UTC(2024, 0, 11, 11, 57);
+export const DAY_MS = 86_400_000;
+export const MOON_CYCLE = 29.53058867;
+export const MOON_EPOCH = Date.UTC(2024, 0, 11, 11, 57);
 
 function utcDay(date: Date) {
   return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
@@ -261,6 +263,65 @@ export function getMoon(date: Date): MoonInfo {
     event,
     illumination: Math.round(((1 - Math.cos(2 * Math.PI * fraction)) / 2) * 100),
   };
+}
+
+export function lunarMonthIndex(date: Date) {
+  return Math.floor((date.getTime() - MOON_EPOCH) / (MOON_CYCLE * DAY_MS));
+}
+
+export function getLunarMonthDates(index: number) {
+  const approximateStart = new Date(MOON_EPOCH + index * MOON_CYCLE * DAY_MS);
+  const cursor = new Date(approximateStart.getFullYear(), approximateStart.getMonth(), approximateStart.getDate() - 2, 12);
+  const dates: Date[] = [];
+  for (let offset = 0; offset < 35; offset += 1) {
+    const date = new Date(cursor);
+    date.setDate(cursor.getDate() + offset);
+    if (lunarMonthIndex(date) === index) dates.push(date);
+  }
+  return dates;
+}
+
+export function formatSacredDate(date: Date, long = false) {
+  const sacred = getSacredDate(date);
+  const month = MONTHS[sacred.monthIndex];
+  const day = getSacredDay(sacred.monthIndex, sacred.day);
+  if (!long) return `${sacred.day} · ${month.name}`;
+  return `${day.name} · ${sacred.day} день · Пята ${day.pyata || "Ω"} · ${month.name} ${sacred.sacredYear}`;
+}
+
+export function formatLunarDate(date: Date, long = false) {
+  const moon = getMoon(date);
+  return long
+    ? `${moon.day} лунный день · ${moon.phase} · ${moon.epithet}`
+    : `${moon.day} лунный день · ${moon.phase}`;
+}
+
+export function formatCalendarDate(date: Date, mode: CalendarMode, long = false) {
+  if (mode === "sacred") return formatSacredDate(date, long);
+  if (mode === "lunar") return formatLunarDate(date, long);
+  return formatGregorian(date, long);
+}
+
+export function calendarDateNote(date: Date, mode: CalendarMode) {
+  if (mode === "sacred") {
+    const sacred = getSacredDate(date);
+    const month = MONTHS[sacred.monthIndex];
+    const day = getSacredDay(sacred.monthIndex, sacred.day);
+    return [
+      `День: ${day.name} (${sacred.day})`,
+      `Пята: ${day.pyata || "Ω"}${day.pyataTitle ? ` — ${day.pyataTitle}` : ""}`,
+      `Месяц: ${month.name} — ${month.title}`,
+    ].join("\n");
+  }
+  if (mode === "lunar") {
+    const moon = getMoon(date);
+    return [
+      `Лунный день: ${moon.day}`,
+      `Фаза: ${moon.phase}`,
+      `Луна: ${moon.epithet} · ${moon.direction}`,
+    ].join("\n");
+  }
+  return `Профанская дата: ${formatGregorian(date, true)}`;
 }
 
 export function getSacredDay(monthIndex: number, day: number) {

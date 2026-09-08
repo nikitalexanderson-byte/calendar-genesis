@@ -38,10 +38,10 @@ function genesisGoogleAuthUrl(string $state, string $challenge, string $purpose 
     if (empty($config['google_client_id'])) {
         throw new RuntimeException('Google OAuth client is not configured.');
     }
-    if (!in_array($purpose, ['login', 'services'], true)) {
+    if (!in_array($purpose, ['login', 'services', 'link'], true)) {
         throw new InvalidArgumentException('Google OAuth purpose is invalid.');
     }
-    $connectServices = $purpose === 'services';
+    $connectServices = in_array($purpose, ['services', 'link'], true);
     $parameters = [
         'client_id' => (string)$config['google_client_id'],
         'redirect_uri' => genesisGoogleRedirectUri(),
@@ -49,12 +49,12 @@ function genesisGoogleAuthUrl(string $state, string $challenge, string $purpose 
         'scope' => implode(' ', $connectServices ? GENESIS_GOOGLE_SCOPES : GENESIS_GOOGLE_IDENTITY_SCOPES),
         'access_type' => $connectServices ? 'offline' : 'online',
         'include_granted_scopes' => 'true',
-        'prompt' => $connectServices ? 'consent' : 'select_account',
+        'prompt' => $purpose === 'link' ? 'consent select_account' : ($connectServices ? 'consent' : 'select_account'),
         'state' => $state,
         'code_challenge' => $challenge,
         'code_challenge_method' => 'S256',
     ];
-    if ($connectServices && is_string($loginHint) && $loginHint !== '') {
+    if ($purpose === 'services' && is_string($loginHint) && $loginHint !== '') {
         $parameters['login_hint'] = $loginHint;
     }
     return 'https://accounts.google.com/o/oauth2/v2/auth?' . http_build_query($parameters, '', '&', PHP_QUERY_RFC3986);
@@ -181,7 +181,8 @@ function genesisGoogleAccessToken(array $user): string
         'grant_type' => 'refresh_token',
     ]);
     $access = (string)$tokens['access_token'];
-    genesisDb()->prepare('UPDATE users SET access_token_enc = :access, token_expires_at = :expires_at, updated_at = :updated_at WHERE id = :id')->execute([
+    $table = !empty($user['_linked_account']) ? 'linked_google_accounts' : 'users';
+    genesisDb()->prepare("UPDATE {$table} SET access_token_enc = :access, token_expires_at = :expires_at, updated_at = :updated_at WHERE id = :id")->execute([
         'access' => genesisEncrypt($access),
         'expires_at' => time() + genesisClampInt($tokens['expires_in'] ?? 3600, 60, 86400, 3600) - 60,
         'updated_at' => genesisNow(),
@@ -239,7 +240,8 @@ function genesisEnsureGoogleCalendar(array $user): array
     if (empty($calendar['id'])) {
         throw new RuntimeException('Google Calendar could not be created.');
     }
-    genesisDb()->prepare('UPDATE users SET google_calendar_id = :calendar_id, updated_at = :updated_at WHERE id = :id')->execute([
+    $table = !empty($user['_linked_account']) ? 'linked_google_accounts' : 'users';
+    genesisDb()->prepare("UPDATE {$table} SET google_calendar_id = :calendar_id, updated_at = :updated_at WHERE id = :id")->execute([
         'calendar_id' => (string)$calendar['id'],
         'updated_at' => genesisNow(),
         'id' => (string)$user['id'],
@@ -325,6 +327,8 @@ function genesisTaskPayloadForGoogle(string $taskId, array $task): array
     $recurrenceSeriesId = mb_substr(trim((string)($task['recurrenceSeriesId'] ?? '')), 0, 100);
     $project = mb_substr(trim((string)($task['project'] ?? '')), 0, 300);
     $description = mb_substr(trim((string)($task['description'] ?? '')), 0, 5000);
+    $calendarMode = in_array($task['calendarMode'] ?? '', ['profane', 'sacred', 'lunar'], true) ? (string)$task['calendarMode'] : 'profane';
+    $calendarNote = mb_substr(trim((string)($task['calendarNote'] ?? '')), 0, 1200);
     $createdIn = genesisTaskOrigin($task['createdIn'] ?? null);
     $metadataDescription = trim(implode("\n", array_filter([
         genesisTaskOriginLabel($createdIn),
@@ -333,6 +337,7 @@ function genesisTaskPayloadForGoogle(string $taskId, array $task): array
         $tags ? 'Теги: ' . implode(' ', array_map(static fn(string $tag): string => '#' . $tag, $tags)) : '',
         'Приоритет: ' . $priority,
         $dependsOn ? 'Связанных задач: ' . count($dependsOn) : '',
+        $calendarNote !== '' ? "Календарная дата:\n" . $calendarNote : '',
     ])));
     $visibleDescription = trim($description . ($metadataDescription !== '' ? "\n\n— GENESIS —\n" . $metadataDescription : ''));
     $private = [
@@ -358,6 +363,8 @@ function genesisTaskPayloadForGoogle(string $taskId, array $task): array
         'genesisSource' => $createdIn,
         'genesisEndDate' => $endDate,
         'genesisUpdatedAt' => (string)genesisClampInt($task['updatedAt'] ?? (int)(microtime(true) * 1000), 0, PHP_INT_MAX, (int)(microtime(true) * 1000)),
+        'genesisCalendarMode' => $calendarMode,
+        'genesisCalendarNote' => genesisBase64Url($calendarNote),
     ];
     $event = [
         'summary' => ($done ? '✓ ' : '') . $title,
@@ -386,16 +393,21 @@ function genesisTaskPayloadForGoogle(string $taskId, array $task): array
 
 function genesisDecodeBase64Json(string $value): array
 {
-    $padding = (4 - strlen($value) % 4) % 4;
-    $decoded = base64_decode(strtr($value . str_repeat('=', $padding), '-_', '+/'), true);
+    $decoded = genesisDecodeBase64String($value);
     $json = is_string($decoded) ? json_decode($decoded, true) : null;
     return is_array($json) ? array_values(array_filter($json, 'is_string')) : [];
 }
 
-function genesisDecodeBase64IntJson(string $value, int $minimum = 1, int $maximum = 30): array
+function genesisDecodeBase64String(string $value): string
 {
     $padding = (4 - strlen($value) % 4) % 4;
     $decoded = base64_decode(strtr($value . str_repeat('=', $padding), '-_', '+/'), true);
+    return is_string($decoded) ? $decoded : '';
+}
+
+function genesisDecodeBase64IntJson(string $value, int $minimum = 1, int $maximum = 30): array
+{
+    $decoded = genesisDecodeBase64String($value);
     $json = is_string($decoded) ? json_decode($decoded, true) : null;
     if (!is_array($json)) {
         return [];
@@ -454,6 +466,8 @@ function genesisTaskNotesForGoogle(string $taskId, array $task): string
         'recurrenceMonths' => array_map('intval', genesisStringList($task['recurrenceMonths'] ?? [], 72)),
         'recurrencePyatas' => array_map('intval', genesisStringList($task['recurrencePyatas'] ?? [], 6)),
         'recurrenceSeriesId' => mb_substr(trim((string)($task['recurrenceSeriesId'] ?? '')), 0, 100),
+        'calendarMode' => in_array($task['calendarMode'] ?? '', ['profane', 'sacred', 'lunar'], true) ? (string)$task['calendarMode'] : 'profane',
+        'calendarNote' => mb_substr(trim((string)($task['calendarNote'] ?? '')), 0, 1200),
     ];
     $metadataLines = array_filter([
         genesisTaskOriginLabel($createdIn),
@@ -461,6 +475,7 @@ function genesisTaskNotesForGoogle(string $taskId, array $task): string
         $project !== '' ? 'Проект: ' . $project : '',
         $tags ? 'Теги: ' . implode(' ', array_map(static fn(string $tag): string => '#' . $tag, $tags)) : '',
         'Приоритет: ' . $data['priority'],
+        $data['calendarNote'] !== '' ? "Календарная дата:\n" . $data['calendarNote'] : '',
         'GENESIS-DATA:' . genesisBase64Url(json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)),
     ]);
     return mb_substr(trim($description . "\n\n— GENESIS —\n" . implode("\n", $metadataLines)), 0, 8192);
@@ -550,6 +565,8 @@ function genesisGoogleEventForClient(array $event): ?array
         'recurrenceMonths' => genesisDecodeBase64IntJson((string)($private['genesisCycleMonths'] ?? ''), 1, 72),
         'recurrencePyatas' => genesisDecodeBase64IntJson((string)($private['genesisCyclePyatas'] ?? ''), 1, 6),
         'recurrenceSeriesId' => ($private['genesisSeriesId'] ?? '') !== '' ? (string)$private['genesisSeriesId'] : null,
+        'calendarMode' => in_array($private['genesisCalendarMode'] ?? '', ['profane', 'sacred', 'lunar'], true) ? (string)$private['genesisCalendarMode'] : 'profane',
+        'calendarNote' => mb_substr(genesisDecodeBase64String((string)($private['genesisCalendarNote'] ?? '')), 0, 1200),
         'syncToGoogle' => true,
         'createdIn' => $createdIn,
         'googleEventId' => $eventId,
@@ -617,6 +634,8 @@ function genesisGoogleNativeTaskForClient(array $task, string $taskListId, strin
         'recurrenceMonths' => array_values(array_filter(array_map('intval', is_array($metadata['recurrenceMonths'] ?? null) ? $metadata['recurrenceMonths'] : []), static fn(int $month): bool => $month >= 1 && $month <= 72)),
         'recurrencePyatas' => array_values(array_filter(array_map('intval', is_array($metadata['recurrencePyatas'] ?? null) ? $metadata['recurrencePyatas'] : []), static fn(int $pyata): bool => $pyata >= 1 && $pyata <= 6)),
         'recurrenceSeriesId' => ($metadata['recurrenceSeriesId'] ?? '') !== '' ? mb_substr((string)$metadata['recurrenceSeriesId'], 0, 100) : null,
+        'calendarMode' => in_array($metadata['calendarMode'] ?? '', ['profane', 'sacred', 'lunar'], true) ? (string)$metadata['calendarMode'] : 'profane',
+        'calendarNote' => mb_substr(trim((string)($metadata['calendarNote'] ?? '')), 0, 1200),
         'syncToGoogle' => true,
         'createdIn' => $createdIn,
         'googleEventId' => null,
@@ -724,6 +743,87 @@ function genesisGoogleTasksSyncWarning(): ?string
     return is_string($warning) && $warning !== '' ? $warning : null;
 }
 
+function genesisDecorateTaskForGoogleAccount(array $task, array $account): array
+{
+    $accountId = (string)$account['id'];
+    if (($task['createdIn'] ?? 'genesis') !== 'genesis') {
+        $task['id'] = 'account-' . substr(hash('sha256', $accountId), 0, 10) . '-' . (string)$task['id'];
+    }
+    $task['syncAccountIds'] = [$accountId];
+    $task['googleAccountId'] = $accountId;
+    $task['googleAccountEmail'] = (string)$account['email'];
+    $task['googleLinks'] = [
+        $accountId => [
+            'eventId' => $task['googleEventId'] ?? null,
+            'taskId' => $task['googleTaskId'] ?? null,
+            'taskListId' => $task['googleTaskListId'] ?? null,
+            'taskListTitle' => $task['googleTaskListTitle'] ?? '',
+        ],
+    ];
+    return $task;
+}
+
+function genesisDecorateTaskListForGoogleAccount(array $taskList, array $account): array
+{
+    $taskList['accountId'] = (string)$account['id'];
+    $taskList['accountEmail'] = (string)$account['email'];
+    return $taskList;
+}
+
+function genesisListAllGoogleTasks(array $owner): array
+{
+    $allTasks = [];
+    $allTaskLists = [];
+    $warnings = [];
+    foreach (genesisGoogleAccountsForUser($owner) as $account) {
+        if (empty($account['refresh_token_enc'])) continue;
+        try {
+            $accountTasks = genesisListGoogleTasks($account);
+            foreach ($accountTasks as $task) {
+                $decorated = genesisDecorateTaskForGoogleAccount($task, $account);
+                $id = (string)$decorated['id'];
+                if (!isset($allTasks[$id])) {
+                    $allTasks[$id] = $decorated;
+                    continue;
+                }
+                $existing = $allTasks[$id];
+                $existing['syncAccountIds'] = array_values(array_unique(array_merge($existing['syncAccountIds'] ?? [], [$account['id']])));
+                $existing['googleLinks'] = array_merge($existing['googleLinks'] ?? [], $decorated['googleLinks'] ?? []);
+                if ((int)($decorated['updatedAt'] ?? 0) > (int)($existing['updatedAt'] ?? 0)) {
+                    $links = $existing['googleLinks'];
+                    $accountIds = $existing['syncAccountIds'];
+                    $existing = $decorated;
+                    $existing['googleLinks'] = $links;
+                    $existing['syncAccountIds'] = $accountIds;
+                }
+                $allTasks[$id] = $existing;
+            }
+            foreach (genesisGoogleTaskListsForClient() as $taskList) {
+                $allTaskLists[] = genesisDecorateTaskListForGoogleAccount($taskList, $account);
+            }
+            $warning = genesisGoogleTasksSyncWarning();
+            if ($warning) $warnings[] = (string)$account['email'] . ': ' . $warning;
+        } catch (Throwable $error) {
+            $warnings[] = (string)$account['email'] . ': синхронизация временно недоступна.';
+            genesisLogError('[GoogleAccountSync] ' . $error->getMessage(), $error);
+        }
+    }
+    $tasks = array_values($allTasks);
+    usort($tasks, static fn(array $left, array $right): int => [
+        (string)($left['dueDate'] ?? ''),
+        (string)($left['time'] ?? ''),
+        (string)($left['title'] ?? ''),
+    ] <=> [
+        (string)($right['dueDate'] ?? ''),
+        (string)($right['time'] ?? ''),
+        (string)($right['title'] ?? ''),
+    ]);
+    $GLOBALS['GENESIS_GOOGLE_TASK_LISTS'] = $allTaskLists;
+    $GLOBALS['GENESIS_GOOGLE_TASKS_WARNING'] = $warnings ? implode(' ', $warnings) : null;
+    genesisTouchUser((string)$owner['id']);
+    return $tasks;
+}
+
 function genesisFindGoogleEvent(array $user, string $taskId): ?array
 {
     $user = genesisEnsureGoogleCalendar($user);
@@ -818,13 +918,23 @@ function genesisCreateNativeGoogleTask(array $user, string $userId, string $task
     return $clientTask;
 }
 
-function genesisCreateGoogleTaskList(string $userId, string $title): array
+function genesisTaskListAccount(string $userId, ?string $accountId): array
+{
+    $owner = genesisFindUser($userId);
+    if ($owner === null) throw new RuntimeException('Пользователь не найден.');
+    $requestedId = trim((string)$accountId);
+    $account = $requestedId !== '' ? genesisGoogleAccountForUser($userId, $requestedId) : $owner;
+    if ($account === null) throw new InvalidArgumentException('Google-аккаунт для списка не найден.');
+    return $account;
+}
+
+function genesisCreateGoogleTaskList(string $userId, string $title, ?string $accountId = null): array
 {
     $cleanTitle = mb_substr(trim($title), 0, 300);
     if ($cleanTitle === '') {
         throw new InvalidArgumentException('Название списка обязательно.');
     }
-    $user = genesisFindUser($userId);
+    $user = genesisTaskListAccount($userId, $accountId);
     if ($user === null || empty($user['refresh_token_enc']) || !genesisGoogleScopeGranted($user, GENESIS_GOOGLE_TASKS_SCOPE)) {
         throw new RuntimeException('Обновите доступ Google, чтобы создавать списки Google Tasks.');
     }
@@ -833,15 +943,15 @@ function genesisCreateGoogleTaskList(string $userId, string $title): array
         throw new RuntimeException('Google Tasks did not return the created list.');
     }
     genesisTouchUser($userId);
-    return [
+    return genesisDecorateTaskListForGoogleAccount([
         'id' => (string)$saved['id'],
         'title' => mb_substr(trim((string)($saved['title'] ?? $cleanTitle)), 0, 300),
         'updatedAt' => !empty($saved['updated']) ? (string)$saved['updated'] : null,
         'isDefault' => false,
-    ];
+    ], $user);
 }
 
-function genesisUpdateGoogleTaskList(string $userId, string $taskListId, string $title): array
+function genesisUpdateGoogleTaskList(string $userId, string $taskListId, string $title, ?string $accountId = null): array
 {
     $cleanTaskListId = trim($taskListId);
     $cleanTitle = mb_substr(trim($title), 0, 300);
@@ -851,7 +961,7 @@ function genesisUpdateGoogleTaskList(string $userId, string $taskListId, string 
     if ($cleanTitle === '') {
         throw new InvalidArgumentException('Название списка обязательно.');
     }
-    $user = genesisFindUser($userId);
+    $user = genesisTaskListAccount($userId, $accountId);
     if ($user === null || empty($user['refresh_token_enc']) || !genesisGoogleScopeGranted($user, GENESIS_GOOGLE_TASKS_SCOPE)) {
         throw new RuntimeException('Обновите доступ Google, чтобы переименовывать списки Google Tasks.');
     }
@@ -866,21 +976,21 @@ function genesisUpdateGoogleTaskList(string $userId, string $taskListId, string 
     }
     $defaultTaskListId = genesisDefaultGoogleTaskListId($user);
     genesisTouchUser($userId);
-    return [
+    return genesisDecorateTaskListForGoogleAccount([
         'id' => (string)$saved['id'],
         'title' => mb_substr(trim((string)($saved['title'] ?? $cleanTitle)), 0, 300),
         'updatedAt' => !empty($saved['updated']) ? (string)$saved['updated'] : null,
         'isDefault' => $defaultTaskListId !== '' && hash_equals($defaultTaskListId, (string)$saved['id']),
-    ];
+    ], $user);
 }
 
-function genesisDeleteGoogleTaskList(string $userId, string $taskListId): void
+function genesisDeleteGoogleTaskList(string $userId, string $taskListId, ?string $accountId = null): void
 {
     $cleanTaskListId = trim($taskListId);
     if ($cleanTaskListId === '') {
         throw new InvalidArgumentException('Идентификатор списка обязателен.');
     }
-    $user = genesisFindUser($userId);
+    $user = genesisTaskListAccount($userId, $accountId);
     if ($user === null || empty($user['refresh_token_enc']) || !genesisGoogleScopeGranted($user, GENESIS_GOOGLE_TASKS_SCOPE)) {
         throw new RuntimeException('Обновите доступ Google, чтобы удалять списки Google Tasks.');
     }
@@ -902,16 +1012,50 @@ function genesisDeleteGoogleTaskList(string $userId, string $taskListId): void
     genesisTouchUser($userId);
 }
 
-function genesisSyncTaskToGoogle(string $userId, string $taskId, array $task): array
+function genesisResolveTaskTargetAccounts(array $owner, array $task): array
 {
-    $user = genesisFindUser($userId);
-    if ($user === null || empty($user['refresh_token_enc'])) {
+    $accounts = genesisGoogleAccountsForUser($owner);
+    $byId = [];
+    foreach ($accounts as $account) $byId[(string)$account['id']] = $account;
+
+    $requestedIds = genesisDecodeStringListJson($task['syncAccountIds'] ?? []);
+    $taskAccountId = trim((string)($task['googleAccountId'] ?? ''));
+    if (!empty($task['googleTaskListId']) && $taskAccountId !== '') {
+        $requestedIds = [$taskAccountId];
+    }
+    if ($requestedIds === []) {
+        $mode = in_array($owner['sync_routing_mode'] ?? '', ['fixed', 'choose', 'category'], true)
+            ? (string)$owner['sync_routing_mode']
+            : 'fixed';
+        if ($mode === 'category') {
+            $categoryMap = genesisCategorySyncMap($owner['category_sync_map'] ?? '{}');
+            $categoryId = trim((string)($task['categoryId'] ?? ''));
+            $requestedIds = $categoryId !== '' ? ($categoryMap[$categoryId] ?? []) : [];
+        }
+        if ($requestedIds === []) {
+            $requestedIds = genesisDecodeStringListJson($owner['sync_target_account_ids'] ?? '[]');
+        }
+    }
+    if ($requestedIds === []) $requestedIds = [(string)$owner['id']];
+    $resolved = [];
+    foreach (array_values(array_unique($requestedIds)) as $accountId) {
+        if (isset($byId[$accountId]) && !empty($byId[$accountId]['refresh_token_enc'])) {
+            $resolved[] = $byId[$accountId];
+        }
+    }
+    if ($resolved === [] && !empty($owner['refresh_token_enc'])) $resolved[] = $owner;
+    return $resolved;
+}
+
+function genesisSyncTaskToGoogleAccount(array $user, string $ownerUserId, string $taskId, array $task): array
+{
+    if (empty($user['refresh_token_enc'])) {
         throw new RuntimeException('Google Calendar не подключён.');
     }
     if (!empty($task['googleTaskListId'])) {
         return !empty($task['googleTaskId'])
-            ? genesisSyncNativeGoogleTask($user, $userId, $task)
-            : genesisCreateNativeGoogleTask($user, $userId, $taskId, $task);
+            ? genesisSyncNativeGoogleTask($user, $ownerUserId, $task)
+            : genesisCreateNativeGoogleTask($user, $ownerUserId, $taskId, $task);
     }
     $user = genesisEnsureGoogleCalendar($user);
     $eventPayload = genesisTaskPayloadForGoogle($taskId, $task);
@@ -928,16 +1072,67 @@ function genesisSyncTaskToGoogle(string $userId, string $taskId, array $task): a
     if ($clientTask === null) {
         throw new RuntimeException('Google Calendar did not return the saved task.');
     }
-    genesisTouchUser($userId);
+    genesisTouchUser($ownerUserId);
     return $clientTask;
 }
 
-function genesisDeleteGoogleTaskEvent(string $userId, string $taskId, array $task = []): void
+function genesisSyncTaskToGoogle(string $userId, string $taskId, array $task): array
 {
-    $user = genesisFindUser($userId);
-    if ($user === null || empty($user['refresh_token_enc'])) {
-        return;
+    $owner = genesisFindUser($userId);
+    if ($owner === null) throw new RuntimeException('Пользователь не найден.');
+    $targets = genesisResolveTaskTargetAccounts($owner, $task);
+    if ($targets === []) throw new RuntimeException('Подключённый Google-аккаунт для синхронизации не найден.');
+    $links = is_array($task['googleLinks'] ?? null) ? $task['googleLinks'] : [];
+    $savedTask = $task;
+    $savedAccountIds = [];
+    foreach ($targets as $account) {
+        $accountId = (string)$account['id'];
+        $existingLink = is_array($links[$accountId] ?? null) ? $links[$accountId] : [];
+        $accountTask = array_merge($task, [
+            'googleEventId' => $existingLink['eventId'] ?? ($accountId === (string)$owner['id'] ? ($task['googleEventId'] ?? null) : null),
+            'googleTaskId' => $existingLink['taskId'] ?? ($accountId === (string)$owner['id'] ? ($task['googleTaskId'] ?? null) : null),
+            'googleTaskListId' => $existingLink['taskListId'] ?? ($task['googleTaskListId'] ?? null),
+            'googleTaskListTitle' => $existingLink['taskListTitle'] ?? ($task['googleTaskListTitle'] ?? ''),
+        ]);
+        $saved = genesisSyncTaskToGoogleAccount($account, $userId, $taskId, $accountTask);
+        $links[$accountId] = [
+            'eventId' => $saved['googleEventId'] ?? null,
+            'taskId' => $saved['googleTaskId'] ?? null,
+            'taskListId' => $saved['googleTaskListId'] ?? null,
+            'taskListTitle' => $saved['googleTaskListTitle'] ?? '',
+        ];
+        $savedAccountIds[] = $accountId;
+        $savedTask = array_merge($savedTask, $saved);
     }
+    foreach (array_keys($links) as $accountId) {
+        if (in_array((string)$accountId, $savedAccountIds, true)) continue;
+        $oldAccount = genesisGoogleAccountForUser($userId, (string)$accountId);
+        $oldLink = is_array($links[$accountId] ?? null) ? $links[$accountId] : [];
+        if ($oldAccount !== null && $oldLink !== []) {
+            genesisDeleteGoogleTaskFromAccount($oldAccount, $userId, $taskId, [
+                'googleEventId' => $oldLink['eventId'] ?? null,
+                'googleTaskId' => $oldLink['taskId'] ?? null,
+                'googleTaskListId' => $oldLink['taskListId'] ?? null,
+            ]);
+        }
+        unset($links[$accountId]);
+    }
+    $savedTask['syncAccountIds'] = $savedAccountIds;
+    $savedTask['googleLinks'] = $links;
+    $savedTask['googleAccountId'] = count($savedAccountIds) === 1 ? $savedAccountIds[0] : null;
+    $savedTask['googleAccountEmail'] = count($targets) === 1 ? (string)$targets[0]['email'] : '';
+    $compatibilityId = in_array((string)$owner['id'], $savedAccountIds, true) ? (string)$owner['id'] : $savedAccountIds[0];
+    $compatibilityLink = $links[$compatibilityId] ?? [];
+    $savedTask['googleEventId'] = $compatibilityLink['eventId'] ?? null;
+    $savedTask['googleTaskId'] = $compatibilityLink['taskId'] ?? null;
+    $savedTask['googleTaskListId'] = $compatibilityLink['taskListId'] ?? null;
+    $savedTask['googleTaskListTitle'] = $compatibilityLink['taskListTitle'] ?? '';
+    return $savedTask;
+}
+
+function genesisDeleteGoogleTaskFromAccount(array $user, string $ownerUserId, string $taskId, array $task): void
+{
+    if (empty($user['refresh_token_enc'])) return;
     $googleTaskId = trim((string)($task['googleTaskId'] ?? ''));
     $googleTaskListId = trim((string)($task['googleTaskListId'] ?? ''));
     if ($googleTaskId !== '' && $googleTaskListId !== '') {
@@ -948,11 +1143,9 @@ function genesisDeleteGoogleTaskEvent(string $userId, string $taskId, array $tas
                 $user,
             );
         } catch (RuntimeException $error) {
-            if (!str_contains($error->getMessage(), '(404)') && !str_contains($error->getMessage(), '(410)')) {
-                throw $error;
-            }
+            if (!str_contains($error->getMessage(), '(404)') && !str_contains($error->getMessage(), '(410)')) throw $error;
         }
-        genesisTouchUser($userId);
+        genesisTouchUser($ownerUserId);
         return;
     }
     if (empty($user['google_calendar_id'])) {
@@ -973,7 +1166,28 @@ function genesisDeleteGoogleTaskEvent(string $userId, string $taskId, array $tas
             throw $error;
         }
     }
-    genesisTouchUser($userId);
+    genesisTouchUser($ownerUserId);
+}
+
+function genesisDeleteGoogleTaskEvent(string $userId, string $taskId, array $task = []): void
+{
+    $owner = genesisFindUser($userId);
+    if ($owner === null) return;
+    $links = is_array($task['googleLinks'] ?? null) ? $task['googleLinks'] : [];
+    if ($links === []) {
+        genesisDeleteGoogleTaskFromAccount($owner, $userId, $taskId, $task);
+        return;
+    }
+    foreach ($links as $accountId => $link) {
+        if (!is_array($link)) continue;
+        $account = genesisGoogleAccountForUser($userId, (string)$accountId);
+        if ($account === null) continue;
+        genesisDeleteGoogleTaskFromAccount($account, $userId, $taskId, [
+            'googleEventId' => $link['eventId'] ?? null,
+            'googleTaskId' => $link['taskId'] ?? null,
+            'googleTaskListId' => $link['taskListId'] ?? null,
+        ]);
+    }
 }
 
 function genesisListGoogleTasks(array $user): array

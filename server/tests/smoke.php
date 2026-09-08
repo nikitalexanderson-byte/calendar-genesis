@@ -28,6 +28,9 @@ try {
 
     $user = genesisFindUser($userId);
     expect(is_array($user), 'Test user was not created.');
+    $user = genesisUpdateAccountPreferences($userId, ['calendarMode' => 'lunar']);
+    expect(($user['calendar_mode'] ?? '') === 'lunar', 'Calendar preference was not stored.');
+    expect((genesisUserForClient($user)['calendarMode'] ?? '') === 'lunar', 'Calendar preference was not exposed to the client.');
     $workspace = genesisWorkspaceForClient($user);
     expect(is_string($workspace['key']) && strlen(base64_decode($workspace['key'], true)) === 32, 'Workspace key is invalid.');
 

@@ -20,6 +20,7 @@ import {
   type RecurrenceKind,
   type TaskListProjectLink,
   type TaskOrigin,
+  connectAdditionalGoogleAccount,
   connectGoogleServices,
   consumeGoogleAuthError,
   createGoogleTaskList,
@@ -43,22 +44,28 @@ import { AdminPanel } from "./AdminPanel";
 import { currentLegalPage, LegalPage } from "./LegalPage";
 import { StoicheionView } from "./StoicheionView";
 import { TimeClockPicker } from "./TimeClockPicker";
+import { CalendarDatePicker } from "./CalendarDatePicker";
 import { MoonPhaseIcon } from "./MoonPhaseIcon";
 import { RecurrenceBuilder } from "./RecurrenceBuilder";
 import { WelcomeScreen } from "./WelcomeScreen";
 import {
   MONTHS,
   PYATA_MEANINGS,
+  type CalendarMode,
+  calendarDateNote,
   dateKey,
   formatGregorian,
+  formatCalendarDate,
   getDayElement,
   getGregorianDate,
+  getLunarMonthDates,
   getMoon,
   getPythagorean,
   getSacredDate,
   getSacredDay,
   getSolarEvent,
   getSolarEvents,
+  lunarMonthIndex,
 } from "./calendar-data";
 import {
   type AutomaticSolarLocation,
@@ -215,7 +222,13 @@ function readStoredState(key: string): StoredState {
           recurrenceMonths: Array.isArray(legacy.recurrenceMonths) ? legacy.recurrenceMonths.map(Number).filter((month) => Number.isInteger(month) && month >= 1 && month <= 72) : [],
           recurrencePyatas: Array.isArray(legacy.recurrencePyatas) ? legacy.recurrencePyatas.map(Number).filter((pyata) => Number.isInteger(pyata) && pyata >= 1 && pyata <= 6) : [],
           recurrenceSeriesId: typeof legacy.recurrenceSeriesId === "string" && legacy.recurrenceSeriesId ? legacy.recurrenceSeriesId : null,
+          calendarMode: ["profane", "sacred", "lunar"].includes(legacy.calendarMode ?? "") ? legacy.calendarMode as CalendarMode : "profane",
+          calendarNote: legacy.calendarNote ?? "",
           syncToGoogle: legacy.syncToGoogle ?? true,
+          syncAccountIds: Array.isArray(legacy.syncAccountIds) ? legacy.syncAccountIds : [],
+          googleLinks: legacy.googleLinks ?? {},
+          googleAccountId: legacy.googleAccountId ?? null,
+          googleAccountEmail: legacy.googleAccountEmail ?? "",
           createdIn: legacy.createdIn ?? (legacy.googleTaskId
             ? "google-tasks"
             : legacy.id?.startsWith("google-event-")
@@ -446,19 +459,21 @@ function buildTaskSeries(task: Task, rawConfig: RecurrenceConfig) {
       recurrenceMonths: [...config.months],
       recurrencePyatas: [...config.pyatas],
       recurrenceSeriesId: seriesId,
+      calendarNote: calendarDateNote(date, task.calendarMode),
       googleEventId: null,
       googleTaskId: null,
+      googleLinks: {},
       updatedAt: timestamp() + index,
     };
   });
 }
 
-function taskRangeLabel(task: Task) {
-  const start = formatGregorian(new Date(`${task.dueDate}T12:00:00`), true);
+function taskRangeLabel(task: Task, mode: CalendarMode = "sacred") {
+  const start = formatCalendarDate(new Date(`${task.dueDate}T12:00:00`), mode, true);
   const endDate = task.endDate || task.dueDate;
   const end = endDate === task.dueDate
     ? ""
-    : ` — ${formatGregorian(new Date(`${endDate}T12:00:00`), true)}`;
+    : ` — ${formatCalendarDate(new Date(`${endDate}T12:00:00`), mode, true)}`;
   return `${start}${end}${task.time ? ` · ${task.time}` : ""}`;
 }
 
@@ -537,11 +552,13 @@ export function GenesisCalendar() {
   const [taskProject, setTaskProject] = useState("");
   const [taskTaskListId, setTaskTaskListId] = useState("");
   const [taskNewListTitle, setTaskNewListTitle] = useState("");
+  const [taskNewListAccountId, setTaskNewListAccountId] = useState("");
   const [taskTags, setTaskTags] = useState("");
   const [taskReminder, setTaskReminder] = useState("30");
   const [taskRecurrenceConfig, setTaskRecurrenceConfig] = useState<RecurrenceConfig>(DEFAULT_RECURRENCE_CONFIG);
   const [taskDependsOn, setTaskDependsOn] = useState<string[]>([]);
   const [taskPriority, setTaskPriority] = useState("5");
+  const [taskSyncAccountIds, setTaskSyncAccountIds] = useState<string[] | null>(null);
   const [newProjectTitle, setNewProjectTitle] = useState("");
   const [newProjectDescription, setNewProjectDescription] = useState("");
   const [newProjectParent, setNewProjectParent] = useState("");
@@ -550,6 +567,7 @@ export function GenesisCalendar() {
   const [newCategoryTitle, setNewCategoryTitle] = useState("");
   const [newTaskListTitle, setNewTaskListTitle] = useState("");
   const [newTaskListProject, setNewTaskListProject] = useState("");
+  const [newTaskListAccountId, setNewTaskListAccountId] = useState("");
   const [newTaskListDrafts, setNewTaskListDrafts] = useState<TaskListDraft[]>([
     { id: "initial-task-list-draft", title: "", dueDate: "" },
   ]);
@@ -630,6 +648,20 @@ export function GenesisCalendar() {
   }, []);
 
   const todayInfo = useMemo(() => getSacredDate(today), [today]);
+  const activeCalendarMode: CalendarMode = cloudUser?.calendarMode ?? "sacred";
+  const googleAccounts = cloudUser?.googleAccounts ?? [];
+  const defaultSyncAccountIds = cloudUser?.syncRouting?.defaultAccountIds?.length
+    ? cloudUser.syncRouting.defaultAccountIds
+    : cloudUser ? [cloudUser.uid] : [];
+  const effectiveTaskSyncAccountIds = taskSyncAccountIds ?? defaultSyncAccountIds;
+  const syncAccountIdsForTask = (categoryId: string | null, taskList?: GoogleTaskList) => {
+    if (taskList?.accountId) return [taskList.accountId];
+    if (cloudUser?.syncRouting?.mode === "category" && categoryId) {
+      const mapped = cloudUser.syncRouting.categoryAccountIds[categoryId] ?? [];
+      if (mapped.length) return mapped;
+    }
+    return cloudUser?.syncRouting?.mode === "choose" ? effectiveTaskSyncAccountIds : defaultSyncAccountIds;
+  };
   const selectedDate = useMemo(
     () => getGregorianDate(sacredYear, monthIndex, selectedDay),
     [sacredYear, monthIndex, selectedDay],
@@ -854,8 +886,11 @@ export function GenesisCalendar() {
               user.uid,
               (cloudTasks, cloudTaskLists, fromCache, warning) => {
                 if (!active) return;
-                tasksRef.current = cloudTasks;
-                setTasks(cloudTasks);
+                const visibleTasks = warning
+                  ? Array.from(new Map([...tasksRef.current, ...cloudTasks].map((task) => [task.id, task])).values())
+                  : cloudTasks;
+                tasksRef.current = visibleTasks;
+                setTasks(visibleTasks);
                 setTaskLists(cloudTaskLists);
                 setSyncError(warning ?? "");
                 setSyncStatus(warning ? "error" : fromCache ? "offline" : "synced");
@@ -1047,7 +1082,13 @@ export function GenesisCalendar() {
       recurrenceMonths: [],
       recurrencePyatas: [],
       recurrenceSeriesId: null,
+      calendarMode: activeCalendarMode,
+      calendarNote: calendarDateNote(dueDate, activeCalendarMode),
       syncToGoogle: true,
+      syncAccountIds: taskList.accountId ? [taskList.accountId] : defaultSyncAccountIds,
+      googleLinks: {},
+      googleAccountId: taskList.accountId ?? null,
+      googleAccountEmail: taskList.accountEmail ?? "",
       createdIn: "genesis",
       googleEventId: null,
       googleTaskId: null,
@@ -1116,7 +1157,7 @@ export function GenesisCalendar() {
       }
       setSyncStatus("syncing");
       try {
-        const result = await createGoogleTaskList(listTitle);
+        const result = await createGoogleTaskList(listTitle, taskNewListAccountId || effectiveTaskSyncAccountIds[0] || defaultSyncAccountIds[0]);
         selectedTaskList = result.taskList;
         setTaskLists((current) => [...current.filter((item) => item.id !== result.taskList.id), result.taskList]);
         const nextLinks = [
@@ -1127,6 +1168,7 @@ export function GenesisCalendar() {
         persistStructure(projects, categories, nextLinks);
         setTaskTaskListId(result.taskList.id);
         setTaskNewListTitle("");
+        setTaskNewListAccountId("");
       } catch (error) {
         setSyncError(error instanceof Error ? error.message : "Не удалось создать список Google Tasks");
         setSyncStatus(navigator.onLine ? "error" : "offline");
@@ -1163,7 +1205,13 @@ export function GenesisCalendar() {
       recurrenceMonths: taskRecurrenceConfig.enabled ? [...taskRecurrenceConfig.months] : [],
       recurrencePyatas: taskRecurrenceConfig.enabled ? [...taskRecurrenceConfig.pyatas] : [],
       recurrenceSeriesId: null,
+      calendarMode: activeCalendarMode,
+      calendarNote: calendarDateNote(dueDate, activeCalendarMode),
       syncToGoogle: true,
+      syncAccountIds: syncAccountIdsForTask(selectedProject?.categoryId ?? null, selectedTaskList),
+      googleLinks: {},
+      googleAccountId: selectedTaskList?.accountId ?? null,
+      googleAccountEmail: selectedTaskList?.accountEmail ?? "",
       createdIn: "genesis",
       googleEventId: null,
       googleTaskId: null,
@@ -1186,6 +1234,7 @@ export function GenesisCalendar() {
     setTaskTags("");
     setTaskDependsOn([]);
     setTaskPriority("5");
+    setTaskSyncAccountIds(null);
     setTaskRecurrenceConfig(DEFAULT_RECURRENCE_CONFIG);
   };
 
@@ -1197,7 +1246,7 @@ export function GenesisCalendar() {
   const persistTaskChange = (original: Task, nextTask: Task) => {
     setTasks((current) => current.map((task) => task.id === nextTask.id ? nextTask : task));
     const destinationChanged = original.googleTaskListId !== nextTask.googleTaskListId;
-    const hasRemoteSource = Boolean(original.googleTaskId || original.googleEventId);
+    const hasRemoteSource = Boolean(original.googleTaskId || original.googleEventId || Object.keys(original.googleLinks ?? {}).length);
     if (!cloudUser?.calendarConnected || !destinationChanged || !hasRemoteSource) {
       saveTask(nextTask);
       return;
@@ -1207,6 +1256,7 @@ export function GenesisCalendar() {
       ...nextTask,
       googleEventId: null,
       googleTaskId: null,
+      googleLinks: {},
       updatedAt: timestamp(),
     };
     setSyncStatus("syncing");
@@ -1254,9 +1304,14 @@ export function GenesisCalendar() {
       project: selectedProject?.title ?? "",
       projectId: keepInInbox ? TASK_INBOX_PROJECT_ID : selectedProject?.id ?? null,
       categoryId: selectedProject?.categoryId ?? null,
+      calendarMode: activeCalendarMode,
+      calendarNote: calendarDateNote(dueDate, activeCalendarMode),
       tags: editingTaskTags.split(",").map((tag) => tag.trim().replace(/^#/, "")).filter(Boolean).slice(0, 10),
       googleTaskListId: selectedTaskList?.id ?? null,
       googleTaskListTitle: selectedTaskList?.title ?? "",
+      googleAccountId: selectedTaskList?.accountId ?? editingTask.googleAccountId,
+      googleAccountEmail: selectedTaskList?.accountEmail ?? editingTask.googleAccountEmail,
+      syncAccountIds: selectedTaskList?.accountId ? [selectedTaskList.accountId] : editingTask.syncAccountIds,
       updatedAt: timestamp(),
     };
     persistTaskChange(original, nextTask);
@@ -1283,6 +1338,9 @@ export function GenesisCalendar() {
       recurrenceSeriesId: null,
       googleTaskListId: taskList.id,
       googleTaskListTitle: taskList.title,
+      googleAccountId: taskList.accountId ?? null,
+      googleAccountEmail: taskList.accountEmail ?? "",
+      syncAccountIds: taskList.accountId ? [taskList.accountId] : task.syncAccountIds,
       updatedAt: timestamp(),
     };
     persistTaskChange(task, nextTask);
@@ -1326,9 +1384,12 @@ export function GenesisCalendar() {
             day: sacred.day,
             dueDate: nextDateValue,
             endDate: shiftRangeEndDate(currentTask.dueDate, currentTask.endDate, nextDateValue),
+            calendarNote: calendarDateNote(nextDate, currentTask.calendarMode),
             done: false,
             completedAt: null,
             googleEventId: null,
+            googleTaskId: null,
+            googleLinks: {},
             updatedAt: timestamp(),
           };
         })()
@@ -1378,7 +1439,7 @@ export function GenesisCalendar() {
     if (!title || !cloudUser) return;
     setSyncStatus("syncing");
     try {
-      const { taskList } = await createGoogleTaskList(title);
+      const { taskList } = await createGoogleTaskList(title, newTaskListAccountId || defaultSyncAccountIds[0]);
       setTaskLists((current) => [...current.filter((item) => item.id !== taskList.id), taskList]);
       const nextLinks = [
         ...taskListLinks.filter((link) => link.taskListId !== taskList.id),
@@ -1394,6 +1455,7 @@ export function GenesisCalendar() {
         draftedTasks.forEach(saveTask);
       }
       setNewTaskListTitle("");
+      setNewTaskListAccountId("");
       setNewTaskListDrafts([{ id: uid(), title: "", dueDate: "" }]);
     } catch (error) {
       setSyncError(error instanceof Error ? error.message : "Не удалось создать список Google Tasks");
@@ -1416,7 +1478,7 @@ export function GenesisCalendar() {
     if (!title) return;
     setSyncStatus("syncing");
     try {
-      const { taskList } = await updateGoogleTaskList(editingTaskList.id, title);
+      const { taskList } = await updateGoogleTaskList(editingTaskList.id, title, editingTaskList.accountId);
       setTaskLists((current) => current.map((item) => item.id === taskList.id
         ? { ...taskList, isDefault: item.isDefault || taskList.isDefault }
         : item));
@@ -1441,7 +1503,7 @@ export function GenesisCalendar() {
     if (!window.confirm(`Удалить список «${taskList.title}» вместе с ${taskCountLabel}? Он будет удалён из Google Tasks. Это действие нельзя отменить.`)) return;
     setSyncStatus("syncing");
     try {
-      await removeGoogleTaskList(taskList.id);
+      await removeGoogleTaskList(taskList.id, taskList.accountId);
       const nextTasks = tasks.filter((task) => task.googleTaskListId !== taskList.id);
       const nextLinks = taskListLinks.filter((link) => link.taskListId !== taskList.id);
       setTasks(nextTasks);
@@ -1895,7 +1957,7 @@ export function GenesisCalendar() {
                     >
                       <header>
                         <div className="task-list-column-heading">
-                          <span><strong>{taskList.title}</strong><small>{listTasks.length} задач</small></span>
+                          <span><strong>{taskList.title}</strong><small>{listTasks.length} задач{taskList.accountEmail ? ` · ${taskList.accountEmail}` : ""}</small></span>
                           <span className="task-list-column-actions">
                             <button type="button" onClick={() => setEditingTaskList(taskList)} aria-label={`Редактировать список «${taskList.title}»`}>✎</button>
                             {!taskList.isDefault ? (
@@ -1934,7 +1996,7 @@ export function GenesisCalendar() {
                             <button type="button" className="task-check" onClick={() => toggleTask(task.id)} aria-label={task.done ? `Вернуть задачу «${task.title}»` : `Завершить задачу «${task.title}»`}>{task.done ? "✓" : ""}</button>
                             <button type="button" className="task-list-item-open" onClick={() => openTaskEditor(task)}>
                               <strong>{task.title}</strong>
-                              <small>{taskRangeLabel(task)}</small>
+                              <small>{taskRangeLabel(task, activeCalendarMode)}</small>
                             </button>
                             <label className="task-list-move-select">
                               <span className="sr-only">Переместить задачу «{task.title}»</span>
@@ -1957,12 +2019,12 @@ export function GenesisCalendar() {
                           placeholder={"Каждая задача с новой строки\nНапример: собрать материалы"}
                         />
                         <div>
-                          <input
-                            type="date"
+                          <CalendarDatePicker
+                            mode={activeCalendarMode}
                             min={todayDateValue}
                             value={taskListBatchDates[taskList.id] || todayDateValue}
-                            onChange={(event) => setTaskListBatchDates((current) => ({ ...current, [taskList.id]: event.target.value }))}
-                            aria-label={`Срок новых задач в списке «${taskList.title}»`}
+                            onChange={(nextDate) => setTaskListBatchDates((current) => ({ ...current, [taskList.id]: nextDate }))}
+                            ariaLabel={`Срок новых задач в списке «${taskList.title}»`}
                           />
                           <button type="submit" className="primary-button" disabled={!taskListBatchTitles[taskList.id]?.trim()}>Добавить все</button>
                         </div>
@@ -1981,6 +2043,14 @@ export function GenesisCalendar() {
               onChange={(event) => setNewTaskListTitle(event.target.value)}
               placeholder="Например, подготовка запуска"
             />
+            {googleAccounts.length > 1 ? (
+              <label htmlFor={`${context}-new-task-list-account`}>Google-аккаунт</label>
+            ) : null}
+            {googleAccounts.length > 1 ? (
+              <select id={`${context}-new-task-list-account`} value={newTaskListAccountId || defaultSyncAccountIds[0] || ""} onChange={(event) => setNewTaskListAccountId(event.target.value)}>
+                {googleAccounts.map((account) => <option value={account.id} key={account.id}>{account.email}{account.isPrimary ? " · основной" : ""}</option>)}
+              </select>
+            ) : null}
             <label htmlFor={`${context}-new-task-list-project`}>Проект или подпроект</label>
             <select id={`${context}-new-task-list-project`} value={newTaskListProject} onChange={(event) => setNewTaskListProject(event.target.value)}>
               <option value="">Без проекта — в хаос-бокс</option>
@@ -1994,7 +2064,7 @@ export function GenesisCalendar() {
               {newTaskListDrafts.map((draft, index) => (
                 <div className="task-list-draft-row" key={draft.id}>
                   <input value={draft.title} onChange={(event) => updateNewTaskListDraft(draft.id, { title: event.target.value })} placeholder={`Задача ${index + 1}`} aria-label={`Название задачи ${index + 1}`} />
-                  <input type="date" min={todayDateValue} value={draft.dueDate || todayDateValue} onChange={(event) => updateNewTaskListDraft(draft.id, { dueDate: event.target.value })} aria-label={`Срок задачи ${index + 1}`} />
+                  <CalendarDatePicker mode={activeCalendarMode} min={todayDateValue} value={draft.dueDate || todayDateValue} onChange={(nextDate) => updateNewTaskListDraft(draft.id, { dueDate: nextDate })} ariaLabel={`Срок задачи ${index + 1}`} />
                   <button type="button" onClick={() => setNewTaskListDrafts((current) => current.length === 1 ? [{ ...current[0], title: "", dueDate: "" }] : current.filter((item) => item.id !== draft.id))} aria-label={`Удалить задачу ${index + 1}`}>×</button>
                 </div>
               ))}
@@ -2018,6 +2088,7 @@ export function GenesisCalendar() {
       ? buildRecurrenceDates(newTaskDueDate, taskRecurrenceConfig).length
       : 1;
     const recurrenceIsInvalid = recurrenceOccurrenceCount === 0 || recurrenceOccurrenceCount > MAX_RECURRENCE_OCCURRENCES;
+    const syncAccountsInvalid = Boolean(cloudUser?.multiAccountEnabled && cloudUser.syncRouting.mode === "choose" && !selectedTaskList && !createsTaskList && effectiveTaskSyncAccountIds.length === 0);
     return (
       <form className="task-form" onSubmit={addTask} aria-label="Создание задачи">
         {dueDateIsPast ? (
@@ -2032,17 +2103,16 @@ export function GenesisCalendar() {
           <textarea rows={3} value={taskDescription} onChange={(event) => setTaskDescription(event.target.value)} placeholder="Подробности, ожидаемый результат и заметки" />
         </label>
         <div className="task-form-section task-form-schedule" aria-label="Сроки задачи">
-          <label>
+          <label htmlFor={`${context}-task-start-date`}>
             <span>Начало</span>
-            <input type="date" min={todayDateValue} value={newTaskDueDate} onChange={(event) => {
-              const nextDate = event.target.value;
+            <CalendarDatePicker id={`${context}-task-start-date`} mode={activeCalendarMode} min={todayDateValue} value={newTaskDueDate} onChange={(nextDate) => {
               setTaskDueDate(nextDate);
               setTaskEndDate((current) => !current || current < nextDate ? nextDate : current);
             }} required />
           </label>
-          <label>
+          <label htmlFor={`${context}-task-end-date`}>
             <span>Срок выполнения</span>
-            <input type="date" min={newTaskDueDate} value={newTaskEndDate} onChange={(event) => setTaskEndDate(event.target.value)} required />
+            <CalendarDatePicker id={`${context}-task-end-date`} mode={activeCalendarMode} min={newTaskDueDate} value={newTaskEndDate} onChange={setTaskEndDate} required />
           </label>
           <label htmlFor={`${context}-new-task-time-hour`}>
             <span>Время</span>
@@ -2071,22 +2141,33 @@ export function GenesisCalendar() {
               }
             }}>
               <option value="">Google Calendar</option>
-              {taskLists.map((taskList) => <option value={taskList.id} key={taskList.id}>Google Tasks · {taskList.title}</option>)}
+              {taskLists.map((taskList) => <option value={taskList.id} key={`${taskList.accountId ?? "primary"}-${taskList.id}`}>Google Tasks · {taskList.title}{taskList.accountEmail ? ` · ${taskList.accountEmail}` : ""}</option>)}
               <option value={CREATE_NEW_TASK_LIST_ID}>＋ Начать новый список задач</option>
             </select>
           </label>
         </div>
         {createsTaskList ? (
-          <label className="task-form-new-list">
-            <span>Название нового списка</span>
-            <input value={taskNewListTitle} onChange={(event) => setTaskNewListTitle(event.target.value)} placeholder="Например, подготовка события" required />
-          </label>
+          <div className="task-form-new-list">
+            <label>
+              <span>Название нового списка</span>
+              <input value={taskNewListTitle} onChange={(event) => setTaskNewListTitle(event.target.value)} placeholder="Например, подготовка события" required />
+            </label>
+            {googleAccounts.length > 1 ? (
+              <label>
+                <span>Google-аккаунт списка</span>
+                <select value={taskNewListAccountId || effectiveTaskSyncAccountIds[0] || defaultSyncAccountIds[0] || ""} onChange={(event) => setTaskNewListAccountId(event.target.value)}>
+                  {googleAccounts.map((account) => <option value={account.id} key={account.id}>{account.email}{account.isPrimary ? " · основной" : ""}</option>)}
+                </select>
+              </label>
+            ) : null}
+          </div>
         ) : null}
         <RecurrenceBuilder
           value={taskRecurrenceConfig}
           onChange={setTaskRecurrenceConfig}
           startDate={newTaskDueDate}
           destination={taskTaskListId ? "tasks" : "calendar"}
+          calendarMode={activeCalendarMode}
         />
         <div className="task-form-section task-form-settings" aria-label="Настройки задачи">
           <label>
@@ -2118,6 +2199,27 @@ export function GenesisCalendar() {
             <DependencyPicker tasks={tasks} value={taskDependsOn} onChange={setTaskDependsOn} />
           </div>
         ) : null}
+        {cloudUser?.multiAccountEnabled && cloudUser.syncRouting.mode === "choose" && !selectedTaskList && !createsTaskList && googleAccounts.length > 1 ? (
+          <fieldset className="task-sync-account-picker">
+            <legend>Синхронизировать эту задачу</legend>
+            {googleAccounts.map((account) => (
+              <label key={account.id}>
+                <input
+                  type="checkbox"
+                  checked={effectiveTaskSyncAccountIds.includes(account.id)}
+                  onChange={(event) => setTaskSyncAccountIds((current) => {
+                    const base = current ?? defaultSyncAccountIds;
+                    return event.target.checked
+                      ? Array.from(new Set([...base, account.id]))
+                      : base.filter((id) => id !== account.id);
+                  })}
+                />
+                <span>{account.email}{account.isPrimary ? " · основной" : ""}</span>
+              </label>
+            ))}
+            <small>Можно выбрать один или несколько аккаунтов.</small>
+          </fieldset>
+        ) : null}
         <div className="sync-checkbox sync-always-on">
           <span aria-hidden="true">✓</span>
           <span>{createsTaskList
@@ -2132,7 +2234,7 @@ export function GenesisCalendar() {
             ? `${taskRecurrenceConfig.mode === "classic" ? "Профанская" : taskRecurrenceConfig.mode === "lunar" ? "Лунная" : "Сакральная"} серия из ${recurrenceOccurrenceCount} задач будет синхронизирована с Google Calendar`
             : "Задача будет синхронизирована с Google Calendar в часовом поясе этого устройства"}</span>
         </div>
-        <button type="submit" className="add-task-button" disabled={!taskTitle.trim() || !newTaskDueDate || !newTaskEndDate || dueDateIsPast || rangeIsInvalid || recurrenceIsInvalid || (createsTaskList && !taskNewListTitle.trim())}>
+        <button type="submit" className="add-task-button" disabled={!taskTitle.trim() || !newTaskDueDate || !newTaskEndDate || dueDateIsPast || rangeIsInvalid || recurrenceIsInvalid || syncAccountsInvalid || (createsTaskList && !taskNewListTitle.trim())}>
           <span aria-hidden="true">＋</span> Добавить задачу
         </button>
       </form>
@@ -2268,7 +2370,83 @@ export function GenesisCalendar() {
     );
   };
 
+  const openGregorianCalendarDay = (date: Date) => {
+    const sacred = getSacredDate(date);
+    setSacredYear(sacred.sacredYear);
+    setMonthIndex(sacred.monthIndex);
+    setSelectedDay(sacred.day);
+    setDayDetailsOrigin("calendar");
+    setDayDetailsOpen(true);
+  };
+
+  const renderTaskCalendarByMode = () => {
+    const isLunar = activeCalendarMode === "lunar";
+    const lunarIndex = lunarMonthIndex(selectedDate);
+    const gregorianMonthStart = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1, 12);
+    const gregorianDates = Array.from(
+      { length: new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0).getDate() },
+      (_, index) => new Date(selectedDate.getFullYear(), selectedDate.getMonth(), index + 1, 12),
+    );
+    const dates = isLunar ? getLunarMonthDates(lunarIndex) : gregorianDates;
+    const leadingSlots = isLunar ? 0 : (gregorianMonthStart.getDay() + 6) % 7;
+    const titleDate = dates[Math.floor(dates.length / 2)] ?? selectedDate;
+    const title = isLunar
+      ? `Лунный месяц · ${new Intl.DateTimeFormat("ru-RU", { month: "long", year: "numeric" }).format(titleDate)}`
+      : new Intl.DateTimeFormat("ru-RU", { month: "long", year: "numeric" }).format(gregorianMonthStart);
+    const changePeriod = (direction: -1 | 1) => {
+      const nextDates = isLunar
+        ? getLunarMonthDates(lunarIndex + direction)
+        : [new Date(selectedDate.getFullYear(), selectedDate.getMonth() + direction, 1, 12)];
+      const next = nextDates[Math.floor(nextDates.length / 2)] ?? nextDates[0];
+      const sacred = getSacredDate(next);
+      setSacredYear(sacred.sacredYear);
+      setMonthIndex(sacred.monthIndex);
+      setSelectedDay(sacred.day);
+    };
+    return (
+      <div className={`task-calendar-mode-view mode-${activeCalendarMode}`}>
+        <header className="task-calendar-mode-header">
+          <div>
+            <span className="eyebrow">{isLunar ? "Лунный календарь задач" : "Профанский календарь задач"}</span>
+            <h1>{title}</h1>
+            <p>{isLunar ? "Задачи расположены по лунным дням без деления на привычные недели." : "Задачи расположены по обычным календарным датам и неделям."}</p>
+          </div>
+          <div className="month-switcher" aria-label="Переключение периода">
+            <button type="button" onClick={() => changePeriod(-1)} aria-label="Предыдущий период">←</button>
+            <span aria-hidden="true">{isLunar ? <MoonPhaseIcon phaseStep={0} size={20} /> : "◫"}</span>
+            <button type="button" onClick={() => changePeriod(1)} aria-label="Следующий период">→</button>
+          </div>
+        </header>
+        {!isLunar ? <div className="profane-weekdays" aria-hidden="true">{["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].map((day) => <span key={day}>{day}</span>)}</div> : null}
+        <section className={`task-calendar-mode-grid${isLunar ? " lunar" : ""}`} aria-label={title}>
+          {Array.from({ length: leadingSlots }, (_, index) => <span className="empty-day" key={`empty-${index}`} />)}
+          {dates.map((date) => {
+            const dateValue = inputDate(date);
+            const dayTasks = tasks.filter((task) => task.dueDate <= dateValue && (task.endDate || task.dueDate) >= dateValue);
+            const moon = getMoon(date);
+            return (
+              <article className={`${dateValue === todayDateValue ? "today " : ""}${dateValue === selectedDateValue ? "selected" : ""}`} key={dateValue}>
+                <button type="button" className="task-calendar-day-open" onClick={() => openGregorianCalendarDay(date)} aria-label={`${formatCalendarDate(date, activeCalendarMode, true)}${dayTasks.length ? `, задач: ${dayTasks.length}` : ""}`}>
+                  {isLunar ? <MoonPhaseIcon phaseStep={moon.phaseStep} size={21} /> : null}
+                  <strong>{isLunar ? moon.day : date.getDate()}</strong>
+                  <small>{isLunar ? moon.phase : formatCalendarDate(date, "sacred")}</small>
+                </button>
+                {dayTasks.length ? (
+                  <div className="task-calendar-day-tasks">
+                    {dayTasks.slice(0, 3).map((task) => <button type="button" onClick={() => openTaskEditor(task)} key={task.id}>{task.title}</button>)}
+                    {dayTasks.length > 3 ? <span>＋{dayTasks.length - 3}</span> : null}
+                  </div>
+                ) : null}
+              </article>
+            );
+          })}
+        </section>
+      </div>
+    );
+  };
+
   const renderCalendar = () => {
+    if (activeCalendarMode !== "sacred") return renderTaskCalendarByMode();
     const dayCount = monthIndex === 12 ? apeironLength(sacredYear) : 30;
     const days = Array.from({ length: dayCount }, (_, index) => index + 1);
     const rows = Array.from({ length: Math.ceil(dayCount / 5) }, (_, row) =>
@@ -2508,7 +2686,7 @@ export function GenesisCalendar() {
                           if (!suppressProjectItemClickRef.current) openTaskEditor(task);
                         }}>
                           <strong>{task.title}</strong>
-                          <small>{taskRangeLabel(task)}</small>
+                          <small>{taskRangeLabel(task, activeCalendarMode)}</small>
                         </button>
                       </article>
                     );
@@ -2575,7 +2753,7 @@ export function GenesisCalendar() {
                               <span className="project-drag-handle" aria-hidden="true">⋮⋮</span>
                               <button type="button" className="project-assigned-task-open" onClick={() => {
                                 if (!suppressProjectItemClickRef.current) openTaskEditor(task);
-                              }}><strong>{task.title}</strong><small>{taskRangeLabel(task)}</small></button>
+                              }}><strong>{task.title}</strong><small>{taskRangeLabel(task, activeCalendarMode)}</small></button>
                             </article>
                           );
                         })}
@@ -2686,7 +2864,7 @@ export function GenesisCalendar() {
       if (allTasksStatusFilter === "active" && task.done) return false;
       if (allTasksStatusFilter === "done" && !task.done) return false;
       if (!searchTerms.length) return true;
-      const haystack = [task.title, resolvedTaskProjectTitle(task), task.googleTaskListTitle, ...task.tags]
+      const haystack = [task.title, task.description, task.calendarNote, resolvedTaskProjectTitle(task), task.googleTaskListTitle, ...task.tags]
         .join(" ")
         .toLocaleLowerCase("ru-RU");
       return searchTerms.every((term) => haystack.includes(term));
@@ -2726,7 +2904,7 @@ export function GenesisCalendar() {
         <div className="all-tasks-toolbar">
           <label className="tag-search">
             <span aria-hidden="true">⌕</span>
-            <input value={allTasksSearch} onChange={(event) => setAllTasksSearch(event.target.value)} placeholder="Поиск задач по названию, проекту или тегу" />
+            <input value={allTasksSearch} onChange={(event) => setAllTasksSearch(event.target.value)} placeholder="Поиск по названию, описанию, проекту или тегу" />
             {allTasksSearch ? <button type="button" onClick={() => setAllTasksSearch("")} aria-label="Очистить поиск">×</button> : null}
           </label>
           <div className="all-tasks-status-filter" role="group" aria-label="Фильтр по статусу">
@@ -2757,14 +2935,22 @@ export function GenesisCalendar() {
                     <span className="all-task-priority" title="Приоритет">⚑{task.priority}</span>
                   </div>
                   <div className="all-task-meta">
-                    <span>{taskRangeLabel(task)}</span>
+                    <span>{taskRangeLabel(task, activeCalendarMode)}</span>
                     <span>{resolvedTaskProjectTitle(task) || "Без проекта"}</span>
                     {task.googleTaskListTitle ? <span>Список: {task.googleTaskListTitle}</span> : null}
+                    {task.syncAccountIds.length > 1 ? <span>Google-аккаунты: {task.syncAccountIds.length}</span> : task.googleAccountEmail ? <span>{task.googleAccountEmail}</span> : null}
                     {category ? <span className="all-task-category" style={{ "--project-color": category.color } as CSSProperties}>{category.name}</span> : null}
                     <span className={`all-task-source source-${source.className}`}>{source.label}</span>
                   </div>
                   {task.tags.length ? <div className="task-tags">{task.tags.map((tag) => <i key={tag}>#{tag}</i>)}</div> : null}
                   {dependencyNames.length ? <div className="task-dependency">↳ после: {dependencyNames.join(", ")}</div> : null}
+                  {task.description || task.calendarNote ? (
+                    <details className="task-description-viewer">
+                      <summary>Описание задачи</summary>
+                      {task.description ? <p>{task.description}</p> : <p className="muted">Описание не добавлено.</p>}
+                      {task.calendarNote ? <pre>{task.calendarNote}</pre> : null}
+                    </details>
+                  ) : null}
                 </div>
                 <div className="all-task-actions">
                   <button
@@ -3294,17 +3480,17 @@ export function GenesisCalendar() {
               <textarea rows={4} value={editingTask.description} onChange={(event) => setEditingTask((current) => current ? { ...current, description: event.target.value } : current)} placeholder="Подробности, результат и заметки" />
             </label>
             <div className="editor-grid">
-              <label>
+              <label htmlFor="edit-task-start-date">
                 <span>Начало</span>
-                <input type="date" min={editingTask.dueDate < todayDateValue ? editingTask.dueDate : todayDateValue} value={editingTask.dueDate} onChange={(event) => setEditingTask((current) => current ? {
+                <CalendarDatePicker id="edit-task-start-date" mode={activeCalendarMode} min={editingTask.dueDate < todayDateValue ? editingTask.dueDate : todayDateValue} value={editingTask.dueDate} onChange={(nextDate) => setEditingTask((current) => current ? {
                   ...current,
-                  dueDate: event.target.value,
-                  endDate: current.endDate < event.target.value ? event.target.value : current.endDate,
+                  dueDate: nextDate,
+                  endDate: current.endDate < nextDate ? nextDate : current.endDate,
                 } : current)} required />
               </label>
-              <label>
+              <label htmlFor="edit-task-end-date">
                 <span>Срок выполнения</span>
-                <input type="date" min={editingTask.dueDate} value={editingTask.endDate || editingTask.dueDate} onChange={(event) => setEditingTask((current) => current ? { ...current, endDate: event.target.value } : current)} required />
+                <CalendarDatePicker id="edit-task-end-date" mode={activeCalendarMode} min={editingTask.dueDate} value={editingTask.endDate || editingTask.dueDate} onChange={(nextDate) => setEditingTask((current) => current ? { ...current, endDate: nextDate } : current)} required />
               </label>
               <label htmlFor="edit-task-time-hour">
                 <span>Время</span>
@@ -3327,9 +3513,14 @@ export function GenesisCalendar() {
                 <span>Календарь или список задач</span>
                 <select value={editingTask.googleTaskListId ?? ""} onChange={(event) => {
                   const nextListId = event.target.value;
+                  const destination = taskLists.find((taskList) => taskList.id === nextListId);
                   setEditingTask((current) => current ? {
                     ...current,
                     googleTaskListId: nextListId || null,
+                    googleTaskListTitle: destination?.title ?? "",
+                    googleAccountId: destination?.accountId ?? null,
+                    googleAccountEmail: destination?.accountEmail ?? "",
+                    syncAccountIds: destination?.accountId ? [destination.accountId] : current.syncAccountIds,
                     time: nextListId ? "" : current.time,
                     reminderMinutes: nextListId ? null : current.reminderMinutes,
                     recurrence: nextListId ? "none" : current.recurrence,
@@ -3345,7 +3536,7 @@ export function GenesisCalendar() {
                   } : current);
                 }}>
                   <option value="">Google Calendar</option>
-                  {taskLists.map((taskList) => <option value={taskList.id} key={taskList.id}>Список · {taskList.title}</option>)}
+                  {taskLists.map((taskList) => <option value={taskList.id} key={`${taskList.accountId ?? "primary"}-${taskList.id}`}>Список · {taskList.title}{taskList.accountEmail ? ` · ${taskList.accountEmail}` : ""}</option>)}
                 </select>
               </label>
               <label>
@@ -3455,6 +3646,11 @@ export function GenesisCalendar() {
             setAccountOpen(false);
             void handleGoogleConnect();
           }}
+          onConnectAdditionalGoogle={() => {
+            setAccountOpen(false);
+            void connectAdditionalGoogleAccount();
+          }}
+          categories={categories}
           onUserChange={(user) => {
             setCloudUser(user);
             localStorage.setItem(LAST_USER_KEY, JSON.stringify(user));

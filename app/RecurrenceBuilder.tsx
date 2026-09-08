@@ -11,6 +11,8 @@ import {
   suggestedRecurrenceDays,
   type RecurrenceConfig,
 } from "./task-recurrence";
+import type { CalendarMode } from "./calendar-data";
+import { CalendarDatePicker } from "./CalendarDatePicker";
 
 const PYATA_DAY_LABELS = ["I", "II", "III", "IIII", "V"];
 const PYATA_LABELS = ["I пята", "II пята", "III пята", "IIII пята", "V пята", "VI пята"];
@@ -56,11 +58,13 @@ export function RecurrenceBuilder({
   onChange,
   startDate,
   destination = "calendar",
+  calendarMode = "profane",
 }: {
   value: RecurrenceConfig;
   onChange: (value: RecurrenceConfig) => void;
   startDate: string;
   destination?: "calendar" | "tasks";
+  calendarMode?: CalendarMode;
 }) {
   const rangeStart = value.rangeStart && value.rangeStart >= startDate ? value.rangeStart : startDate;
   const maximumEnd = recurrenceMaximumEndDate(rangeStart);
@@ -152,20 +156,19 @@ export function RecurrenceBuilder({
 
           <fieldset className="recurrence-range">
             <legend>Период повторения</legend>
-            <label>
+            <label htmlFor="recurrence-range-start">
               <span>С какого</span>
-              <input type="date" min={startDate} value={rangeStart} onChange={(event) => {
-                const nextStart = event.target.value;
+              <CalendarDatePicker id="recurrence-range-start" mode={calendarMode} min={startDate} value={rangeStart} onChange={(nextStart) => {
                 const nextEnd = rangeEnd < nextStart ? recurrenceDefaultEndDate(nextStart) : rangeEnd;
                 onChange({ ...value, rangeStart: nextStart, rangeEnd: nextEnd, months: value.mode === "lunar" ? [] : value.months });
               }} />
             </label>
-            <label>
+            <label htmlFor="recurrence-range-end">
               <span>По какое</span>
-              <input type="date" min={rangeStart} max={maximumEnd} value={rangeEnd} onChange={(event) => onChange({
+              <CalendarDatePicker id="recurrence-range-end" mode={calendarMode} min={rangeStart} max={maximumEnd} value={rangeEnd} onChange={(nextEnd) => onChange({
                 ...value,
                 rangeStart,
-                rangeEnd: event.target.value,
+                rangeEnd: nextEnd,
                 months: value.mode === "lunar" ? [] : value.months,
               })} />
             </label>
