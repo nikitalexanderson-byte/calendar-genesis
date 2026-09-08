@@ -628,12 +628,23 @@ function genesisGoogleNativeTaskForClient(array $task, string $taskListId, strin
     ];
 }
 
+function genesisDefaultGoogleTaskListId(array $user): string
+{
+    try {
+        $taskList = genesisGoogleTasksApi('GET', '/users/@me/lists/@default', $user);
+        return trim((string)($taskList['id'] ?? ''));
+    } catch (RuntimeException) {
+        return '';
+    }
+}
+
 function genesisListGoogleTaskLists(array $user): array
 {
     if (!genesisGoogleScopeGranted($user, GENESIS_GOOGLE_TASKS_SCOPE)) {
         return [];
     }
     $taskLists = [];
+    $defaultTaskListId = genesisDefaultGoogleTaskListId($user);
     $pageToken = null;
     do {
         $query = ['maxResults' => 100];
@@ -647,6 +658,7 @@ function genesisListGoogleTaskLists(array $user): array
                     'id' => (string)$taskList['id'],
                     'title' => mb_substr(trim((string)($taskList['title'] ?? 'Google Tasks')) ?: 'Google Tasks', 0, 300),
                     'updatedAt' => !empty($taskList['updated']) ? (string)$taskList['updated'] : null,
+                    'isDefault' => $defaultTaskListId !== '' && hash_equals($defaultTaskListId, (string)$taskList['id']),
                 ];
             }
             if (count($taskLists) >= 100) {
@@ -825,6 +837,7 @@ function genesisCreateGoogleTaskList(string $userId, string $title): array
         'id' => (string)$saved['id'],
         'title' => mb_substr(trim((string)($saved['title'] ?? $cleanTitle)), 0, 300),
         'updatedAt' => !empty($saved['updated']) ? (string)$saved['updated'] : null,
+        'isDefault' => false,
     ];
 }
 
@@ -851,11 +864,13 @@ function genesisUpdateGoogleTaskList(string $userId, string $taskListId, string 
     if (empty($saved['id'])) {
         throw new RuntimeException('Google Tasks did not return the updated list.');
     }
+    $defaultTaskListId = genesisDefaultGoogleTaskListId($user);
     genesisTouchUser($userId);
     return [
         'id' => (string)$saved['id'],
         'title' => mb_substr(trim((string)($saved['title'] ?? $cleanTitle)), 0, 300),
         'updatedAt' => !empty($saved['updated']) ? (string)$saved['updated'] : null,
+        'isDefault' => $defaultTaskListId !== '' && hash_equals($defaultTaskListId, (string)$saved['id']),
     ];
 }
 
@@ -868,6 +883,10 @@ function genesisDeleteGoogleTaskList(string $userId, string $taskListId): void
     $user = genesisFindUser($userId);
     if ($user === null || empty($user['refresh_token_enc']) || !genesisGoogleScopeGranted($user, GENESIS_GOOGLE_TASKS_SCOPE)) {
         throw new RuntimeException('Обновите доступ Google, чтобы удалять списки Google Tasks.');
+    }
+    $defaultTaskListId = genesisDefaultGoogleTaskListId($user);
+    if ($defaultTaskListId !== '' && hash_equals($defaultTaskListId, $cleanTaskListId)) {
+        throw new DomainException('Основной список Google Tasks нельзя удалить. Пустой основной список автоматически скрывается в GENESIS.');
     }
     try {
         genesisGoogleTasksApi(
