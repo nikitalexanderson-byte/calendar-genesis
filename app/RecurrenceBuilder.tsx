@@ -3,6 +3,7 @@
 import { MONTHS } from "./calendar-data";
 import {
   buildRecurrenceDates,
+  alignRecurrenceConfigWithCalendar,
   lunarMonthOptions,
   MAX_RECURRENCE_OCCURRENCES,
   RECURRENCE_MODE_COPY,
@@ -54,7 +55,7 @@ function shortDate(value: string, includeYear = false) {
 }
 
 export function RecurrenceBuilder({
-  value,
+  value: rawValue,
   onChange,
   startDate,
   destination = "calendar",
@@ -66,6 +67,7 @@ export function RecurrenceBuilder({
   destination?: "calendar" | "tasks";
   calendarMode?: CalendarMode;
 }) {
+  const value = alignRecurrenceConfigWithCalendar(rawValue, calendarMode, startDate);
   const rangeStart = value.rangeStart && value.rangeStart >= startDate ? value.rangeStart : startDate;
   const maximumEnd = recurrenceMaximumEndDate(rangeStart);
   const rangeEnd = value.rangeEnd && value.rangeEnd >= rangeStart
@@ -77,21 +79,6 @@ export function RecurrenceBuilder({
   const selectedPyatas = effectiveSelection(value.pyatas, ALL_PYATAS);
   const occurrenceCount = value.enabled ? buildRecurrenceDates(startDate, { ...value, rangeStart, rangeEnd }).length : 1;
   const tooManyOccurrences = occurrenceCount > MAX_RECURRENCE_OCCURRENCES;
-
-  const setMode = (mode: RecurrenceConfig["mode"]) => {
-    const pattern = mode === "classic" ? "weekdays" : mode === "lunar" ? "lunar-days" : "pyata-days";
-    onChange({
-      ...value,
-      mode,
-      pattern,
-      days: suggestedRecurrenceDays(mode, pattern, rangeStart),
-      interval: 1,
-      rangeStart,
-      rangeEnd,
-      months: [],
-      pyatas: [],
-    });
-  };
 
   const setPattern = (pattern: RecurrenceConfig["pattern"]) => {
     onChange({
@@ -145,13 +132,12 @@ export function RecurrenceBuilder({
 
       {value.enabled ? (
         <div className="recurrence-builder-body">
-          <div className="recurrence-mode-toggle" role="group" aria-label="Система повторения">
-            {(Object.keys(RECURRENCE_MODE_COPY) as Array<RecurrenceConfig["mode"]>).map((mode) => (
-              <button type="button" key={mode} className={value.mode === mode ? "active" : ""} aria-pressed={value.mode === mode} onClick={() => setMode(mode)}>
-                <span>{mode === "genesis" ? "✦" : mode === "classic" ? "□" : "☾"}</span>
-                <strong>{RECURRENCE_MODE_COPY[mode].shortTitle}</strong>
-              </button>
-            ))}
+          <div className="recurrence-inherited-mode" aria-label={`Система повторения: ${RECURRENCE_MODE_COPY[value.mode].shortTitle}`}>
+            <span aria-hidden="true">{value.mode === "genesis" ? "✦" : value.mode === "classic" ? "□" : "☾"}</span>
+            <div>
+              <small>Из личного кабинета</small>
+              <strong>{RECURRENCE_MODE_COPY[value.mode].shortTitle}</strong>
+            </div>
           </div>
 
           <fieldset className="recurrence-range">

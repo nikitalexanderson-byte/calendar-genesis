@@ -1409,11 +1409,19 @@ button:disabled {
 }
 
 .calendar-gregorian {
+  display: flex;
+  align-items: center;
+  gap: 5px;
   color: #84918f;
   font-size: 7px;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.calendar-gregorian b {
+  color: #536764;
+  font: inherit;
 }
 
 .calendar-day.selected .calendar-gregorian {
@@ -3714,23 +3722,6 @@ button:disabled {
 .task-description-viewer p.muted { color: var(--ink-soft); }
 .task-description-viewer pre { margin: 8px 0 0; padding: 10px; color: var(--ink-soft); background: rgba(29,81,77,.06); border-radius: 8px; font: 500 9px/1.6 inherit; white-space: pre-wrap; }
 
-.task-calendar-mode-view { display: grid; gap: 18px; }
-.task-calendar-mode-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 26px; background: linear-gradient(135deg, rgba(255,255,255,.76), rgba(221,229,216,.66)); border: 1px solid rgba(29,45,43,.14); border-radius: 16px; }
-.task-calendar-mode-header h1 { margin: 5px 0 7px; font: 400 38px/1.05 Georgia, serif; text-transform: capitalize; }
-.task-calendar-mode-header p { margin: 0; color: var(--ink-soft); font-size: 11px; }
-.profane-weekdays { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; padding: 0 8px; color: var(--ink-soft); font-size: 8px; font-weight: 800; text-align: center; text-transform: uppercase; }
-.task-calendar-mode-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
-.task-calendar-mode-grid.lunar { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-.task-calendar-mode-grid > article { position: relative; min-height: 145px; padding: 8px; background: rgba(255,255,255,.66); border: 1px solid rgba(29,45,43,.13); border-radius: 11px; }
-.task-calendar-mode-grid > article.today { border-color: var(--gold); box-shadow: inset 0 0 0 1px rgba(178,138,74,.28); }
-.task-calendar-mode-grid > article.selected { background: rgba(37,91,89,.09); }
-.task-calendar-day-open { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 3px 7px; width: 100%; color: var(--ink); background: transparent; border: 0; text-align: left; cursor: pointer; }
-.task-calendar-day-open strong { font: 400 25px/1 Georgia, serif; }
-.task-calendar-day-open small { grid-column: 1 / 3; overflow: hidden; color: var(--ink-soft); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
-.task-calendar-day-tasks { display: grid; gap: 4px; margin-top: 9px; }
-.task-calendar-day-tasks button { overflow: hidden; padding: 5px 6px; color: #fff; background: var(--teal); border: 0; border-radius: 5px; font-size: 8px; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
-.task-calendar-day-tasks span { color: var(--ink-soft); font-size: 8px; font-weight: 800; }
-
 @media (max-width: 760px) {
   .calendar-mode-segment { grid-template-columns: 1fr; }
   .calendar-mode-segment button { min-height: 52px; }
@@ -3743,11 +3734,6 @@ button:disabled {
   .google-account-list article > .text-button { grid-column: 2 / 4; justify-self: start; }
   .category-routing-grid > fieldset, .task-sync-account-picker { grid-template-columns: 1fr; }
   .task-sync-account-picker > small { grid-column: auto; }
-  .task-calendar-mode-header { flex-direction: column; padding: 18px; }
-  .task-calendar-mode-header h1 { font-size: 30px; }
-  .task-calendar-mode-grid, .task-calendar-mode-grid.lunar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .profane-weekdays { display: none; }
-  .task-calendar-mode-grid > .empty-day { display: none; }
 }
 
 /* Device-safe layout, quick planning and project drag workspace */
@@ -6914,6 +6900,36 @@ button.project-drag-handle:active { cursor: grabbing; }
   color: #f1d58d;
 }
 
+.month-calendar .calendar-day.saturday {
+  color: #f3eee5;
+  background: linear-gradient(145deg, #111817, #293230);
+  border-color: #0b1110;
+  box-shadow: inset 0 1px rgba(255, 255, 255, .04), 0 8px 20px rgba(8, 14, 13, .16);
+}
+
+.month-calendar .calendar-day.saturday:hover {
+  background: linear-gradient(145deg, #17201f, #303b38);
+  border-color: #060908;
+}
+
+.month-calendar .calendar-day.saturday.selected {
+  border-color: color-mix(in srgb, var(--month-accent) 78%, #fff);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--month-accent) 52%, transparent), 0 8px 20px rgba(8, 14, 13, .2);
+}
+
+.month-calendar .calendar-day.saturday .calendar-gregorian,
+.month-calendar .calendar-day.saturday .calendar-gregorian b,
+.month-calendar .calendar-day.saturday > small,
+.month-calendar .calendar-day.saturday .calendar-moon,
+.month-calendar .calendar-day.saturday .calendar-sun-times {
+  color: #c9d2cf;
+}
+
+.month-calendar .calendar-day.saturday .calendar-sun-times i,
+.month-calendar .calendar-day.saturday .calendar-solar-mark {
+  color: #e2c477;
+}
+
 .day-details-actions {
   display: flex;
   grid-column: 1 / -1;
@@ -7346,7 +7362,7 @@ button.project-drag-handle:active { cursor: grabbing; }
   }
 }
 
-/* Recurrence is composed as a cycle, not chosen from a compact select. */
+/* Recurrence inherits its calendar system and lets the user shape only that system's cycle. */
 .recurrence-builder {
   display: grid;
   min-width: 0;
@@ -7462,45 +7478,47 @@ button.project-drag-handle:active { cursor: grabbing; }
   border-top: 1px solid rgba(33, 56, 56, .11);
 }
 
-.recurrence-mode-toggle {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 7px;
-}
-
-.recurrence-mode-toggle button {
+.recurrence-inherited-mode {
   display: flex;
-  min-height: 58px;
+  min-height: 54px;
   align-items: center;
-  justify-content: center;
-  gap: 7px;
-  padding: 9px 10px;
+  gap: 11px;
+  padding: 10px 12px;
   color: #536a66;
   background: rgba(255, 253, 248, .64);
   border: 1px solid rgba(33, 56, 56, .12);
   border-radius: 10px;
-  cursor: pointer;
 }
 
-.recurrence-mode-toggle button > span {
+.recurrence-inherited-mode > span {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  place-items: center;
   color: var(--gold);
-  font-size: 16px;
+  background: rgba(178, 138, 74, .1);
+  border-radius: 50%;
+  font-size: 17px;
 }
 
-.recurrence-mode-toggle button > strong {
+.recurrence-inherited-mode > div {
+  display: grid;
+  gap: 2px;
+}
+
+.recurrence-inherited-mode small {
+  color: #7a8885;
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+
+.recurrence-inherited-mode strong {
+  color: var(--teal);
   font-size: 11px;
   line-height: 1.25;
-}
-
-.recurrence-mode-toggle button.active {
-  color: #f4eee3;
-  background: var(--teal);
-  border-color: var(--teal);
-  box-shadow: 0 7px 17px rgba(20, 62, 62, .16);
-}
-
-.recurrence-mode-toggle button.active > span {
-  color: #e3c77d;
 }
 
 .recurrence-pattern-toggle {
@@ -7885,19 +7903,6 @@ button.project-drag-handle:active { cursor: grabbing; }
   .recurrence-switch {
     width: 100%;
     justify-content: space-between;
-  }
-
-  .recurrence-mode-toggle {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .recurrence-mode-toggle button {
-    min-height: 50px;
-    justify-content: flex-start;
-  }
-
-  .recurrence-mode-toggle button > strong {
-    font-size: 12px;
   }
 
   .recurrence-pattern-toggle button {

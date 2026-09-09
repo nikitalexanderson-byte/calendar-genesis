@@ -1,4 +1,4 @@
-import { getMoon, getSacredDate } from "./calendar-data";
+import { getMoon, getSacredDate, type CalendarMode } from "./calendar-data";
 
 export type RecurrenceMode = "none" | "genesis" | "classic" | "lunar";
 export type RecurrencePattern =
@@ -60,6 +60,27 @@ export const RECURRENCE_MODE_COPY = {
     description: "Конкретные лунные месяцы и выбранные лунные дни.",
   },
 } as const;
+
+export function recurrenceModeForCalendar(calendarMode: CalendarMode): RecurrenceConfig["mode"] {
+  if (calendarMode === "profane") return "classic";
+  if (calendarMode === "lunar") return "lunar";
+  return "genesis";
+}
+
+export function alignRecurrenceConfigWithCalendar(config: RecurrenceConfig, calendarMode: CalendarMode, startDate: string): RecurrenceConfig {
+  const mode = recurrenceModeForCalendar(calendarMode);
+  if (config.mode === mode) return config;
+  const pattern: RecurrenceConfig["pattern"] = mode === "classic" ? "weekdays" : mode === "lunar" ? "lunar-days" : "pyata-days";
+  return {
+    ...config,
+    mode,
+    pattern,
+    days: suggestedRecurrenceDays(mode, pattern, startDate),
+    interval: 1,
+    months: [],
+    pyatas: [],
+  };
+}
 
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const DAY_MS = 86_400_000;
