@@ -1424,6 +1424,10 @@ button:disabled {
   font: inherit;
 }
 
+.calendar-weekday-short {
+  display: none;
+}
+
 .calendar-day.selected .calendar-gregorian {
   color: #bcd0cc;
 }
@@ -6901,33 +6905,25 @@ button.project-drag-handle:active { cursor: grabbing; }
 }
 
 .month-calendar .calendar-day.saturday {
-  color: #f3eee5;
-  background: linear-gradient(145deg, #111817, #293230);
-  border-color: #0b1110;
-  box-shadow: inset 0 1px rgba(255, 255, 255, .04), 0 8px 20px rgba(8, 14, 13, .16);
+  border-color: rgba(29, 48, 45, .18);
 }
 
-.month-calendar .calendar-day.saturday:hover {
-  background: linear-gradient(145deg, #17201f, #303b38);
-  border-color: #060908;
+.month-calendar .calendar-day.saturday:not(.selected) {
+  box-shadow: inset 0 0 0 999px rgba(22, 37, 35, .055);
 }
 
-.month-calendar .calendar-day.saturday.selected {
-  border-color: color-mix(in srgb, var(--month-accent) 78%, #fff);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--month-accent) 52%, transparent), 0 8px 20px rgba(8, 14, 13, .2);
+.month-calendar .calendar-day.saturday:not(.selected):hover {
+  border-color: rgba(29, 48, 45, .3);
+  box-shadow: inset 0 0 0 999px rgba(22, 37, 35, .07), 0 14px 28px rgba(32, 50, 47, .08);
 }
 
-.month-calendar .calendar-day.saturday .calendar-gregorian,
-.month-calendar .calendar-day.saturday .calendar-gregorian b,
-.month-calendar .calendar-day.saturday > small,
-.month-calendar .calendar-day.saturday .calendar-moon,
-.month-calendar .calendar-day.saturday .calendar-sun-times {
-  color: #c9d2cf;
+.month-calendar .calendar-day.saturday .calendar-weekday {
+  color: #111716;
+  font-weight: 950;
 }
 
-.month-calendar .calendar-day.saturday .calendar-sun-times i,
-.month-calendar .calendar-day.saturday .calendar-solar-mark {
-  color: #e2c477;
+.month-calendar .calendar-day.saturday.selected .calendar-weekday {
+  color: #f4eee3;
 }
 
 .day-details-actions {
@@ -6969,6 +6965,14 @@ button.project-drag-handle:active { cursor: grabbing; }
   .calendar-day {
     min-height: 136px;
     padding-bottom: 39px;
+  }
+
+  .calendar-weekday-full {
+    display: none;
+  }
+
+  .calendar-weekday-short {
+    display: inline;
   }
 
   .calendar-sun-times {

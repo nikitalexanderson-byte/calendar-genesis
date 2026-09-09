@@ -302,26 +302,38 @@ export function formatCalendarDate(date: Date, mode: CalendarMode, long = false)
   return formatGregorian(date, long);
 }
 
+export function normalizeCalendarDateNote(note: string, mode: CalendarMode) {
+  const normalized = note.trim();
+  if (!normalized || mode === "profane" || /^Профан(?:ская|ическая) дата:/iu.test(normalized)) return "";
+
+  const heading = mode === "sacred"
+    ? "Дата по сакральному календарю"
+    : "Дата по лунному календарю";
+  return normalized.startsWith(`${heading}:`)
+    ? normalized
+    : `${heading}:\n${normalized}`;
+}
+
 export function calendarDateNote(date: Date, mode: CalendarMode) {
   if (mode === "sacred") {
     const sacred = getSacredDate(date);
     const month = MONTHS[sacred.monthIndex];
     const day = getSacredDay(sacred.monthIndex, sacred.day);
-    return [
+    return normalizeCalendarDateNote([
       `День: ${day.name} (${sacred.day})`,
       `Пята: ${day.pyata || "Ω"}${day.pyataTitle ? ` — ${day.pyataTitle}` : ""}`,
       `Месяц: ${month.name} — ${month.title}`,
-    ].join("\n");
+    ].join("\n"), mode);
   }
   if (mode === "lunar") {
     const moon = getMoon(date);
-    return [
+    return normalizeCalendarDateNote([
       `Лунный день: ${moon.day}`,
       `Фаза: ${moon.phase}`,
       `Луна: ${moon.epithet} · ${moon.direction}`,
-    ].join("\n");
+    ].join("\n"), mode);
   }
-  return `Профанская дата: ${formatGregorian(date, true)}`;
+  return "";
 }
 
 export function getSacredDay(monthIndex: number, day: number) {
