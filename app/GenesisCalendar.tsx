@@ -58,14 +58,12 @@ import {
   formatCalendarDate,
   getDayElement,
   getGregorianDate,
-  getLunarMonthDates,
   getMoon,
   getPythagorean,
   getSacredDate,
   getSacredDay,
   getSolarEvent,
   getSolarEvents,
-  lunarMonthIndex,
 } from "./calendar-data";
 import {
   type AutomaticSolarLocation,
@@ -77,6 +75,7 @@ import {
 import { usePwaInstall } from "./use-pwa-install";
 import {
   buildRecurrenceDates,
+  alignRecurrenceConfigWithCalendar,
   DEFAULT_RECURRENCE_CONFIG,
   MAX_RECURRENCE_OCCURRENCES,
   resolveRecurrenceConfig,
@@ -2370,83 +2369,7 @@ export function GenesisCalendar() {
     );
   };
 
-  const openGregorianCalendarDay = (date: Date) => {
-    const sacred = getSacredDate(date);
-    setSacredYear(sacred.sacredYear);
-    setMonthIndex(sacred.monthIndex);
-    setSelectedDay(sacred.day);
-    setDayDetailsOrigin("calendar");
-    setDayDetailsOpen(true);
-  };
-
-  const renderTaskCalendarByMode = () => {
-    const isLunar = activeCalendarMode === "lunar";
-    const lunarIndex = lunarMonthIndex(selectedDate);
-    const gregorianMonthStart = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1, 12);
-    const gregorianDates = Array.from(
-      { length: new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0).getDate() },
-      (_, index) => new Date(selectedDate.getFullYear(), selectedDate.getMonth(), index + 1, 12),
-    );
-    const dates = isLunar ? getLunarMonthDates(lunarIndex) : gregorianDates;
-    const leadingSlots = isLunar ? 0 : (gregorianMonthStart.getDay() + 6) % 7;
-    const titleDate = dates[Math.floor(dates.length / 2)] ?? selectedDate;
-    const title = isLunar
-      ? `Лунный месяц · ${new Intl.DateTimeFormat("ru-RU", { month: "long", year: "numeric" }).format(titleDate)}`
-      : new Intl.DateTimeFormat("ru-RU", { month: "long", year: "numeric" }).format(gregorianMonthStart);
-    const changePeriod = (direction: -1 | 1) => {
-      const nextDates = isLunar
-        ? getLunarMonthDates(lunarIndex + direction)
-        : [new Date(selectedDate.getFullYear(), selectedDate.getMonth() + direction, 1, 12)];
-      const next = nextDates[Math.floor(nextDates.length / 2)] ?? nextDates[0];
-      const sacred = getSacredDate(next);
-      setSacredYear(sacred.sacredYear);
-      setMonthIndex(sacred.monthIndex);
-      setSelectedDay(sacred.day);
-    };
-    return (
-      <div className={`task-calendar-mode-view mode-${activeCalendarMode}`}>
-        <header className="task-calendar-mode-header">
-          <div>
-            <span className="eyebrow">{isLunar ? "Лунный календарь задач" : "Профанский календарь задач"}</span>
-            <h1>{title}</h1>
-            <p>{isLunar ? "Задачи расположены по лунным дням без деления на привычные недели." : "Задачи расположены по обычным календарным датам и неделям."}</p>
-          </div>
-          <div className="month-switcher" aria-label="Переключение периода">
-            <button type="button" onClick={() => changePeriod(-1)} aria-label="Предыдущий период">←</button>
-            <span aria-hidden="true">{isLunar ? <MoonPhaseIcon phaseStep={0} size={20} /> : "◫"}</span>
-            <button type="button" onClick={() => changePeriod(1)} aria-label="Следующий период">→</button>
-          </div>
-        </header>
-        {!isLunar ? <div className="profane-weekdays" aria-hidden="true">{["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].map((day) => <span key={day}>{day}</span>)}</div> : null}
-        <section className={`task-calendar-mode-grid${isLunar ? " lunar" : ""}`} aria-label={title}>
-          {Array.from({ length: leadingSlots }, (_, index) => <span className="empty-day" key={`empty-${index}`} />)}
-          {dates.map((date) => {
-            const dateValue = inputDate(date);
-            const dayTasks = tasks.filter((task) => task.dueDate <= dateValue && (task.endDate || task.dueDate) >= dateValue);
-            const moon = getMoon(date);
-            return (
-              <article className={`${dateValue === todayDateValue ? "today " : ""}${dateValue === selectedDateValue ? "selected" : ""}`} key={dateValue}>
-                <button type="button" className="task-calendar-day-open" onClick={() => openGregorianCalendarDay(date)} aria-label={`${formatCalendarDate(date, activeCalendarMode, true)}${dayTasks.length ? `, задач: ${dayTasks.length}` : ""}`}>
-                  {isLunar ? <MoonPhaseIcon phaseStep={moon.phaseStep} size={21} /> : null}
-                  <strong>{isLunar ? moon.day : date.getDate()}</strong>
-                  <small>{isLunar ? moon.phase : formatCalendarDate(date, "sacred")}</small>
-                </button>
-                {dayTasks.length ? (
-                  <div className="task-calendar-day-tasks">
-                    {dayTasks.slice(0, 3).map((task) => <button type="button" onClick={() => openTaskEditor(task)} key={task.id}>{task.title}</button>)}
-                    {dayTasks.length > 3 ? <span>＋{dayTasks.length - 3}</span> : null}
-                  </div>
-                ) : null}
-              </article>
-            );
-          })}
-        </section>
-      </div>
-    );
-  };
-
   const renderCalendar = () => {
-    if (activeCalendarMode !== "sacred") return renderTaskCalendarByMode();
     const dayCount = monthIndex === 12 ? apeironLength(sacredYear) : 30;
     const days = Array.from({ length: dayCount }, (_, index) => index + 1);
     const rows = Array.from({ length: Math.ceil(dayCount / 5) }, (_, row) =>
@@ -2512,6 +2435,9 @@ export function GenesisCalendar() {
                     ).length;
                     const isToday = key === todayKey;
                     const isSelected = dayNumber === selectedDay;
+                    const isSaturday = gregorian.getDay() === 6;
+                    const profaneWeekday = new Intl.DateTimeFormat("ru-RU", { weekday: "short" }).format(gregorian).replace(".", "");
+                    const profaneDate = new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "short" }).format(gregorian);
                     const solarEvent = getSolarEvent(sacredYear, monthIndex, dayNumber);
                     const sunriseSunset = deviceLocation ? getSunriseSunset(gregorian, deviceLocation) : null;
                     const solarTimePlaceholder = solarLocationStatus === "ready" ? "нет" : "…";
@@ -2520,7 +2446,7 @@ export function GenesisCalendar() {
                     return (
                       <article
                         key={dayNumber}
-                        className={`calendar-day${isSelected ? " selected" : ""}${isToday ? " today" : ""}${solarEvent ? " solar-day" : ""}${taskCount ? " has-tasks" : ""}`}
+                        className={`calendar-day${isSelected ? " selected" : ""}${isToday ? " today" : ""}${isSaturday ? " saturday" : ""}${solarEvent ? " solar-day" : ""}${taskCount ? " has-tasks" : ""}`}
                       >
                         <button
                           type="button"
@@ -2533,7 +2459,7 @@ export function GenesisCalendar() {
                           aria-pressed={isSelected}
                           aria-label={`${formatGregorian(gregorian, true)} — ${sacredDay.name}${solarEvent ? ` — ${solarEvent.name}` : ""}${taskCount ? ` — ${taskCount} задач` : ""}`}
                         />
-                        <span className="calendar-gregorian">{new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "short" }).format(gregorian)}</span>
+                        <span className="calendar-gregorian"><b>{profaneWeekday}</b><span>{profaneDate}</span></span>
                         <strong>{romanDay(monthIndex, dayNumber)}</strong>
                         {solarEvent ? <span className="calendar-solar-mark" title={solarEvent.name}><b aria-hidden="true">{solarEvent.symbol}</b><em>{solarEvent.shortName}</em></span> : null}
                         <span className="calendar-moon" title={`${moon.epithet}: ${moon.phase}`}><MoonPhaseIcon phaseStep={moon.phaseStep} size={16} /> {moon.day}</span>
@@ -3653,6 +3579,7 @@ export function GenesisCalendar() {
           categories={categories}
           onUserChange={(user) => {
             setCloudUser(user);
+            setTaskRecurrenceConfig((current) => alignRecurrenceConfigWithCalendar(current, user.calendarMode, newTaskDueDate));
             localStorage.setItem(LAST_USER_KEY, JSON.stringify(user));
           }}
         />

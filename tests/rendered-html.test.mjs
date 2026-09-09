@@ -70,7 +70,11 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(accountPanel, /По выбору при создании/);
   assert.match(calendar, /task-description-viewer/);
   assert.match(calendar, /task-sync-account-picker/);
-  assert.match(calendar, /renderTaskCalendarByMode/);
+  assert.doesNotMatch(calendar, /renderTaskCalendarByMode/);
+  assert.doesNotMatch(calendar, /activeCalendarMode !== "sacred"/);
+  assert.match(calendar, /const isSaturday = gregorian\.getDay\(\) === 6/);
+  assert.match(calendar, /const profaneWeekday = new Intl\.DateTimeFormat/);
+  assert.match(calendar, /isSaturday \? " saturday"/);
   assert.match(cloudSync, /connectAdditionalGoogleAccount/);
   assert.match(api, /purpose === 'link'/);
   assert.match(google, /genesisListAllGoogleTasks/);
@@ -189,7 +193,13 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(recurrenceBuilder, /Выходные/);
   assert.match(recurrenceBuilder, /Google Tasks/);
   assert.match(recurrenceBuilder, /aria-pressed=\{selected\}/);
+  assert.match(recurrenceBuilder, /recurrence-inherited-mode/);
+  assert.doesNotMatch(recurrenceBuilder, /recurrence-mode-toggle/);
+  assert.doesNotMatch(recurrenceBuilder, /const setMode/);
   assert.match(taskRecurrence, /buildRecurrenceDates/);
+  assert.match(taskRecurrence, /alignRecurrenceConfigWithCalendar/);
+  assert.match(taskRecurrence, /calendarMode === "profane"\) return "classic"/);
+  assert.match(taskRecurrence, /calendarMode === "lunar"\) return "lunar"/);
   assert.match(taskRecurrence, /Сакральный календарь/);
   assert.match(taskRecurrence, /Профанский календарь/);
   assert.match(taskRecurrence, /Лунный календарь/);
@@ -259,7 +269,9 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(styles, /\.today-create-options:has\(> details\[open\]\)/);
   assert.match(styles, /\.task-form-section/);
   assert.match(styles, /\.recurrence-builder/);
-  assert.match(styles, /\.recurrence-mode-toggle/);
+  assert.match(styles, /\.recurrence-inherited-mode/);
+  assert.doesNotMatch(styles, /\.recurrence-mode-toggle/);
+  assert.match(styles, /\.month-calendar \.calendar-day\.saturday/);
   assert.match(styles, /\.recurrence-day-grid\.dense/);
   assert.match(styles, /\.recurrence-range/);
   assert.match(styles, /\.recurrence-month-grid/);
