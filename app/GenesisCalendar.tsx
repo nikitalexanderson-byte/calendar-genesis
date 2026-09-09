@@ -3023,7 +3023,7 @@ export function GenesisCalendar() {
                             title={`${sacredDay.name} · открыть день`}
                           >
                             <span className="mini-day-number">{(["I", "II", "III", "IIII", "V"] as const)[(dayNumber - 1) % 5]}</span>
-                            {taskCount ? <span className="mini-day-task-count" aria-hidden="true">{taskCount}</span> : null}
+                            {taskCount ? <span className="mini-day-task-dot" aria-hidden="true" /> : null}
                           </button>
                         );
                       })}

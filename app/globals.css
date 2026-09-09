@@ -2038,28 +2038,23 @@ button:disabled {
   z-index: 1;
 }
 
-.mini-day-task-count {
+.mini-day-task-dot {
   position: absolute;
   z-index: 2;
-  top: -4px;
-  right: -4px;
-  display: grid;
-  min-width: 14px;
-  height: 14px;
-  padding: 0 3px;
-  place-items: center;
-  color: #fff;
-  font: 800 6.5px/1 Inter, sans-serif;
+  top: -3px;
+  right: -3px;
+  width: 7px;
+  height: 7px;
   background: var(--terracotta);
-  border: 1px solid rgba(255, 255, 255, 0.74);
-  border-radius: 999px;
-  box-shadow: 0 3px 8px rgba(86, 38, 28, 0.24);
+  border: 1.5px solid #fffdf8;
+  border-radius: 50%;
+  box-shadow: 0 2px 5px rgba(86, 38, 28, 0.3);
   transition: transform 180ms ease;
 }
 
-.mini-day:hover .mini-day-task-count,
-.mini-day:focus-visible .mini-day-task-count {
-  transform: scale(0.92);
+.mini-day:hover .mini-day-task-dot,
+.mini-day:focus-visible .mini-day-task-dot {
+  transform: scale(1.12);
 }
 
 .mini-day:hover,
@@ -2071,17 +2066,6 @@ button:disabled {
   outline: none;
   transform: translateY(-2px) scale(1.09);
   box-shadow: 0 7px 16px color-mix(in srgb, var(--month-accent) 30%, transparent);
-}
-
-.mini-day.has-task {
-  color: #fff;
-  background: var(--terracotta);
-}
-
-.mini-day.today {
-  color: #3d2f13;
-  background: var(--gold-light);
-  box-shadow: 0 0 0 2px rgba(178, 138, 74, 0.22);
 }
 
 .mini-day.solar {
@@ -2105,6 +2089,13 @@ button:disabled {
 .year-month.apeiron .mini-day:focus-visible {
   color: #07171b;
   background: #d8bd80;
+}
+
+.year-grid .mini-day.today {
+  color: #fffaf2;
+  background: color-mix(in srgb, var(--month-accent) 38%, #243a38);
+  border-color: #8f3026;
+  box-shadow: inset 0 0 0 999px rgba(20, 31, 29, .16), 0 0 0 2px rgba(181, 65, 47, .88), 0 5px 13px rgba(101, 43, 32, .22);
 }
 
 .year-month-footer {
