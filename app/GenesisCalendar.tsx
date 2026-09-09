@@ -3011,11 +3011,12 @@ export function GenesisCalendar() {
                         const hasTask = taskCount > 0;
                         const todayDot = key === todayKey;
                         const solarDot = Boolean(getSolarEvent(sacredYear, month.index, dayNumber));
+                        const isYearSaturday = getGregorianDate(sacredYear, month.index, dayNumber).getDay() === 6;
                         const sacredDay = getSacredDay(month.index, dayNumber);
                         return (
                           <button
                             type="button"
-                            className={`mini-day${hasTask ? " has-task" : ""}${todayDot ? " today" : ""}${solarDot ? " solar" : ""}`}
+                            className={`mini-day${hasTask ? " has-task" : ""}${todayDot ? " today" : ""}${solarDot ? " solar" : ""}${isYearSaturday ? " saturday" : ""}`}
                             key={dayNumber}
                             onClick={() => openDay(dayNumber)}
                             aria-label={`${month.name}, день ${dayNumber}: ${sacredDay.name}${taskCount ? `, задач: ${taskCount}` : ""}`}
