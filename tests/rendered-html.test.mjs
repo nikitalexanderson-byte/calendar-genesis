@@ -178,6 +178,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /onPointerDown=\{\(event\) => \{ if \(event\.target === event\.currentTarget\) setDayDetailsOpen\(false\)/);
   assert.match(calendar, /window\.history\.pushState/);
   assert.match(calendar, /mini-day-task-count/);
+  assert.match(calendar, /const isYearSaturday = getGregorianDate\([\s\S]*\.getDay\(\) === 6/);
+  assert.match(calendar, /isYearSaturday \? " saturday"/);
   assert.match(styles, /Hierarchy uses four clear contrast levels/);
   assert.match(styles, /\.project-tree-panel > \.section-heading h2/);
   assert.match(calendar, /data-nav-id=\{item\.id\}/);
@@ -280,6 +282,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(styles, /\.recurrence-inherited-mode/);
   assert.doesNotMatch(styles, /\.recurrence-mode-toggle/);
   assert.match(styles, /\.month-calendar \.calendar-day\.saturday/);
+  assert.match(styles, /\.year-grid \.mini-day\.saturday\s*\{[\s\S]*rgba\(22, 37, 35, \.09\)/);
   assert.match(styles, /\.month-calendar \.calendar-day\.saturday \.calendar-weekday\s*\{[\s\S]*font-weight: 950/);
   assert.match(styles, /@media \(max-width: 760px\)[\s\S]*\.calendar-weekday-full\s*\{[\s\S]*display: none/);
   assert.match(styles, /@media \(max-width: 760px\)[\s\S]*\.calendar-weekday-short\s*\{[\s\S]*display: inline/);

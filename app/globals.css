@@ -2028,6 +2028,11 @@ button:disabled {
   transition: color 180ms ease, background 180ms ease, border-color 180ms ease, transform 180ms cubic-bezier(.2, .8, .2, 1), box-shadow 180ms ease;
 }
 
+.year-grid .mini-day.saturday {
+  border-color: color-mix(in srgb, var(--month-accent) 30%, rgba(22, 37, 35, .38));
+  box-shadow: inset 0 0 0 999px rgba(22, 37, 35, .09);
+}
+
 .mini-day-number {
   position: relative;
   z-index: 1;
@@ -6909,12 +6914,12 @@ button.project-drag-handle:active { cursor: grabbing; }
 }
 
 .month-calendar .calendar-day.saturday:not(.selected) {
-  box-shadow: inset 0 0 0 999px rgba(22, 37, 35, .055);
+  box-shadow: inset 0 0 0 999px rgba(22, 37, 35, .085);
 }
 
 .month-calendar .calendar-day.saturday:not(.selected):hover {
   border-color: rgba(29, 48, 45, .3);
-  box-shadow: inset 0 0 0 999px rgba(22, 37, 35, .07), 0 14px 28px rgba(32, 50, 47, .08);
+  box-shadow: inset 0 0 0 999px rgba(22, 37, 35, .105), 0 14px 28px rgba(32, 50, 47, .08);
 }
 
 .month-calendar .calendar-day.saturday .calendar-weekday {
