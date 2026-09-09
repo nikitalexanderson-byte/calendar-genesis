@@ -64,6 +64,7 @@ import {
   getSacredDay,
   getSolarEvent,
   getSolarEvents,
+  normalizeCalendarDateNote,
 } from "./calendar-data";
 import {
   type AutomaticSolarLocation,
@@ -192,6 +193,9 @@ function readStoredState(key: string): StoredState {
           : recurrenceMode === "classic"
             ? legacy.recurrence === "daily" || legacy.recurrence === "monthly" || legacy.recurrence === "yearly" ? legacy.recurrence : "weekdays"
             : recurrenceMode === "lunar" ? "lunar-days" : recurrenceMode === "genesis" ? "pyata-days" : "none";
+        const calendarMode: CalendarMode = ["profane", "sacred", "lunar"].includes(legacy.calendarMode ?? "")
+          ? legacy.calendarMode as CalendarMode
+          : "profane";
         return {
           id: legacy.id ?? uid(),
           sacredYear: legacyYear,
@@ -221,8 +225,8 @@ function readStoredState(key: string): StoredState {
           recurrenceMonths: Array.isArray(legacy.recurrenceMonths) ? legacy.recurrenceMonths.map(Number).filter((month) => Number.isInteger(month) && month >= 1 && month <= 72) : [],
           recurrencePyatas: Array.isArray(legacy.recurrencePyatas) ? legacy.recurrencePyatas.map(Number).filter((pyata) => Number.isInteger(pyata) && pyata >= 1 && pyata <= 6) : [],
           recurrenceSeriesId: typeof legacy.recurrenceSeriesId === "string" && legacy.recurrenceSeriesId ? legacy.recurrenceSeriesId : null,
-          calendarMode: ["profane", "sacred", "lunar"].includes(legacy.calendarMode ?? "") ? legacy.calendarMode as CalendarMode : "profane",
-          calendarNote: legacy.calendarNote ?? "",
+          calendarMode,
+          calendarNote: normalizeCalendarDateNote(legacy.calendarNote ?? "", calendarMode),
           syncToGoogle: legacy.syncToGoogle ?? true,
           syncAccountIds: Array.isArray(legacy.syncAccountIds) ? legacy.syncAccountIds : [],
           googleLinks: legacy.googleLinks ?? {},
@@ -2436,7 +2440,8 @@ export function GenesisCalendar() {
                     const isToday = key === todayKey;
                     const isSelected = dayNumber === selectedDay;
                     const isSaturday = gregorian.getDay() === 6;
-                    const profaneWeekday = new Intl.DateTimeFormat("ru-RU", { weekday: "short" }).format(gregorian).replace(".", "");
+                    const profaneWeekday = new Intl.DateTimeFormat("ru-RU", { weekday: "long" }).format(gregorian);
+                    const profaneWeekdayShort = new Intl.DateTimeFormat("ru-RU", { weekday: "short" }).format(gregorian).replace(/\.$/, "");
                     const profaneDate = new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "short" }).format(gregorian);
                     const solarEvent = getSolarEvent(sacredYear, monthIndex, dayNumber);
                     const sunriseSunset = deviceLocation ? getSunriseSunset(gregorian, deviceLocation) : null;
@@ -2459,7 +2464,13 @@ export function GenesisCalendar() {
                           aria-pressed={isSelected}
                           aria-label={`${formatGregorian(gregorian, true)} — ${sacredDay.name}${solarEvent ? ` — ${solarEvent.name}` : ""}${taskCount ? ` — ${taskCount} задач` : ""}`}
                         />
-                        <span className="calendar-gregorian"><b>{profaneWeekday}</b><span>{profaneDate}</span></span>
+                        <span className="calendar-gregorian">
+                          <b className="calendar-weekday">
+                            <span className="calendar-weekday-full">{profaneWeekday}</span>
+                            <span className="calendar-weekday-short">{profaneWeekdayShort}</span>
+                          </b>
+                          <span>{profaneDate}</span>
+                        </span>
                         <strong>{romanDay(monthIndex, dayNumber)}</strong>
                         {solarEvent ? <span className="calendar-solar-mark" title={solarEvent.name}><b aria-hidden="true">{solarEvent.symbol}</b><em>{solarEvent.shortName}</em></span> : null}
                         <span className="calendar-moon" title={`${moon.epithet}: ${moon.phase}`}><MoonPhaseIcon phaseStep={moon.phaseStep} size={16} /> {moon.day}</span>

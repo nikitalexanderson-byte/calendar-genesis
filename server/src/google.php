@@ -329,6 +329,9 @@ function genesisTaskPayloadForGoogle(string $taskId, array $task): array
     $description = mb_substr(trim((string)($task['description'] ?? '')), 0, 5000);
     $calendarMode = in_array($task['calendarMode'] ?? '', ['profane', 'sacred', 'lunar'], true) ? (string)$task['calendarMode'] : 'profane';
     $calendarNote = mb_substr(trim((string)($task['calendarNote'] ?? '')), 0, 1200);
+    if ($calendarMode === 'profane') {
+        $calendarNote = '';
+    }
     $createdIn = genesisTaskOrigin($task['createdIn'] ?? null);
     $metadataDescription = trim(implode("\n", array_filter([
         genesisTaskOriginLabel($createdIn),
@@ -337,7 +340,7 @@ function genesisTaskPayloadForGoogle(string $taskId, array $task): array
         $tags ? 'Теги: ' . implode(' ', array_map(static fn(string $tag): string => '#' . $tag, $tags)) : '',
         'Приоритет: ' . $priority,
         $dependsOn ? 'Связанных задач: ' . count($dependsOn) : '',
-        $calendarNote !== '' ? "Календарная дата:\n" . $calendarNote : '',
+        $calendarNote,
     ])));
     $visibleDescription = trim($description . ($metadataDescription !== '' ? "\n\n— GENESIS —\n" . $metadataDescription : ''));
     $private = [
@@ -469,13 +472,16 @@ function genesisTaskNotesForGoogle(string $taskId, array $task): string
         'calendarMode' => in_array($task['calendarMode'] ?? '', ['profane', 'sacred', 'lunar'], true) ? (string)$task['calendarMode'] : 'profane',
         'calendarNote' => mb_substr(trim((string)($task['calendarNote'] ?? '')), 0, 1200),
     ];
+    if ($data['calendarMode'] === 'profane') {
+        $data['calendarNote'] = '';
+    }
     $metadataLines = array_filter([
         genesisTaskOriginLabel($createdIn),
         $startDate !== '' ? 'Срок: ' . $startDate . ($endDate !== $startDate ? ' — ' . $endDate : '') : '',
         $project !== '' ? 'Проект: ' . $project : '',
         $tags ? 'Теги: ' . implode(' ', array_map(static fn(string $tag): string => '#' . $tag, $tags)) : '',
         'Приоритет: ' . $data['priority'],
-        $data['calendarNote'] !== '' ? "Календарная дата:\n" . $data['calendarNote'] : '',
+        $data['calendarNote'],
         'GENESIS-DATA:' . genesisBase64Url(json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)),
     ]);
     return mb_substr(trim($description . "\n\n— GENESIS —\n" . implode("\n", $metadataLines)), 0, 8192);

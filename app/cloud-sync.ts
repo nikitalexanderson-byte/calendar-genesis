@@ -1,5 +1,5 @@
 import type { RecurrenceMode, RecurrencePattern } from "./task-recurrence";
-import type { CalendarMode } from "./calendar-data";
+import { normalizeCalendarDateNote, type CalendarMode } from "./calendar-data";
 
 export type RecurrenceKind =
   | "none"
@@ -317,6 +317,9 @@ function normalizeTask(task: Partial<GenesisTask> & Pick<GenesisTask, "id" | "ti
   const recurrenceEndDate = typeof task.recurrenceEndDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(task.recurrenceEndDate)
     ? task.recurrenceEndDate
     : null;
+  const calendarMode: CalendarMode = ["profane", "sacred", "lunar"].includes(task.calendarMode ?? "")
+    ? task.calendarMode as CalendarMode
+    : "profane";
   return {
     sacredYear: 0,
     monthIndex: 0,
@@ -352,8 +355,8 @@ function normalizeTask(task: Partial<GenesisTask> & Pick<GenesisTask, "id" | "ti
     recurrenceMonths,
     recurrencePyatas,
     recurrenceSeriesId: typeof task.recurrenceSeriesId === "string" && task.recurrenceSeriesId ? task.recurrenceSeriesId : null,
-    calendarMode: ["profane", "sacred", "lunar"].includes(task.calendarMode ?? "") ? task.calendarMode as CalendarMode : "profane",
-    calendarNote: typeof task.calendarNote === "string" ? task.calendarNote : "",
+    calendarMode,
+    calendarNote: normalizeCalendarDateNote(typeof task.calendarNote === "string" ? task.calendarNote : "", calendarMode),
     syncAccountIds: Array.isArray(task.syncAccountIds) ? task.syncAccountIds.filter((id): id is string => typeof id === "string" && Boolean(id)) : [],
     googleLinks: task.googleLinks && typeof task.googleLinks === "object" ? task.googleLinks : {},
     googleAccountId: typeof task.googleAccountId === "string" && task.googleAccountId ? task.googleAccountId : null,
