@@ -38,7 +38,7 @@ test("server-renders the GENESIS application shell", async () => {
 });
 
 test("keeps the requested calendar and privacy features wired", async () => {
-  const [calendarData, calendar, calendarDatePicker, accountPanel, cloudSync, recurrenceBuilder, taskRecurrence, moonPhase, solarTimes, stoicheion, stoicheionData, welcome, styles, api, google, repository, multiAccountMigration, i18n, languageMigration, englishManifest] = await Promise.all([
+  const [calendarData, calendar, calendarDatePicker, accountPanel, cloudSync, recurrenceBuilder, taskRecurrence, moonPhase, solarTimes, stoicheion, stoicheionData, welcome, styles, api, google, repository, multiAccountMigration, i18n, languageMigration, englishManifest, geminiAssistant, geminiServer, publicHtaccess, serverConfigExample] = await Promise.all([
     readFile(new URL("../app/calendar-data.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/CalendarDatePicker.tsx", import.meta.url), "utf8"),
@@ -59,6 +59,10 @@ test("keeps the requested calendar and privacy features wired", async () => {
     readFile(new URL("../app/i18n.ts", import.meta.url), "utf8"),
     readFile(new URL("../server/migrations/007_user_language.sql", import.meta.url), "utf8"),
     readFile(new URL("../public/manifest.en.webmanifest", import.meta.url), "utf8"),
+    readFile(new URL("../app/GeminiAssistant.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../server/src/gemini.php", import.meta.url), "utf8"),
+    readFile(new URL("../public/.htaccess", import.meta.url), "utf8"),
+    readFile(new URL("../server/config.example.php", import.meta.url), "utf8"),
   ]);
 
   assert.match(calendarData, /getSolarEvents/);
@@ -84,6 +88,28 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(i18n, /useDocumentLanguage/);
   assert.match(i18n, /MutationObserver/);
   assert.match(englishManifest, /"lang": "en-US"/);
+  assert.match(calendar, /GeminiAssistant/);
+  assert.match(calendar, /applyGeminiPlan/);
+  assert.match(calendar, /gemini-open-button/);
+  assert.match(geminiAssistant, /navigator\.mediaDevices\.getUserMedia/);
+  assert.match(geminiAssistant, /MAX_RECORDING_MS = 60_000/);
+  assert.match(geminiAssistant, /MAX_AUDIO_BYTES = 4 \* 1024 \* 1024/);
+  assert.match(geminiAssistant, /Перед сохранением Gemini покажет полный план/);
+  assert.match(geminiAssistant, /GENESIS их не сохраняет/);
+  assert.match(cloudSync, /requestGeminiPlan/);
+  assert.match(api, /assistant\/plan/);
+  assert.match(api, /genesisRequireUserId\(\)/);
+  assert.match(api, /genesisRequireCsrf\(\)/);
+  assert.match(api, /microphone=\(self\)/);
+  assert.match(publicHtaccess, /microphone=\(self\)/);
+  assert.match(geminiServer, /generativelanguage\.googleapis\.com\/v1beta\/interactions/);
+  assert.match(geminiServer, /'store' => false/);
+  assert.match(geminiServer, /'mime_type' => 'application\/json'/);
+  assert.match(geminiServer, /GENESIS_GEMINI_MAX_AUDIO_BYTES = 4 \* 1024 \* 1024/);
+  assert.match(geminiServer, /genesisGeminiRateLimit/);
+  assert.match(geminiServer, /x-goog-api-key/);
+  assert.doesNotMatch(calendar + cloudSync + geminiAssistant, /gemini_api_key|GEMINI_API_KEY/);
+  assert.match(serverConfigExample, /'gemini_api_key' => ''/);
   assert.match(calendar, /task-description-viewer/);
   assert.match(calendar, /task-sync-account-picker/);
   assert.doesNotMatch(calendar, /renderTaskCalendarByMode/);

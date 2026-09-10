@@ -141,6 +141,52 @@ export type GenesisWorkspace = {
   syncWarning: string | null;
 };
 
+export type GeminiPlanProject = {
+  title: string;
+  description: string;
+  parentProject: string;
+  category: string;
+  tags: string[];
+};
+
+export type GeminiPlanTaskList = {
+  title: string;
+  project: string;
+  accountEmail: string;
+};
+
+export type GeminiPlanTask = {
+  title: string;
+  description: string;
+  startDate: string;
+  dueDate: string;
+  time: string;
+  project: string;
+  taskList: string;
+  tags: string[];
+  priority: number;
+  reminderMinutes: number;
+};
+
+export type GeminiPlan = {
+  request: string;
+  summary: string;
+  projects: GeminiPlanProject[];
+  taskLists: GeminiPlanTaskList[];
+  tasks: GeminiPlanTask[];
+};
+
+export type GeminiAssistantContext = {
+  language: Language;
+  calendarMode: CalendarMode;
+  today: string;
+  timeZone: string;
+  categories: Array<{ name: string }>;
+  projects: Array<{ title: string; parent: string; category: string }>;
+  taskLists: Array<{ title: string; accountEmail: string }>;
+  accounts: Array<{ email: string }>;
+};
+
 export type GenesisMetrics = {
   projectCount: number;
   taskCount: number;
@@ -679,4 +725,19 @@ export async function saveStoicheionDraw(kind: StoicheionDrawKind, seed: number)
     method: "POST",
     body: JSON.stringify({ kind, seed: seed >>> 0 }),
   });
+}
+
+export async function requestGeminiPlan(payload: {
+  command: string;
+  audio: { data: string; mimeType: string } | null;
+  context: GeminiAssistantContext;
+}) {
+  return api<{ model: string; plan: GeminiPlan }>("/assistant/plan", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function loadGeminiStatus() {
+  return api<{ available: boolean; model: string }>("/assistant/status");
 }

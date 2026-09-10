@@ -23,11 +23,12 @@ if ($serverRoot === '') {
 require $serverRoot . '/src/bootstrap.php';
 require $serverRoot . '/src/repository.php';
 require $serverRoot . '/src/google.php';
+require $serverRoot . '/src/gemini.php';
 
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: no-referrer');
-header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
+header('Permissions-Policy: camera=(), microphone=(self), geolocation=()');
 header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
 
 $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
@@ -121,6 +122,24 @@ try {
             'workspace' => genesisWorkspaceForClient($user),
             'syncWarning' => $syncWarning,
         ]);
+    }
+
+    if ($method === 'GET' && $path === 'assistant/status') {
+        genesisRequireUserId();
+        genesisJson([
+            'available' => genesisGeminiAvailable(),
+            'model' => genesisGeminiModel(),
+        ]);
+    }
+
+    if ($method === 'POST' && $path === 'assistant/plan') {
+        $userId = genesisRequireUserId();
+        genesisRequireCsrf();
+        $user = genesisFindUser($userId);
+        if ($user === null) {
+            genesisJson(['error' => 'AUTH_REQUIRED'], 401);
+        }
+        genesisJson(genesisCreateGeminiPlan(genesisReadJson()));
     }
 
     if ($method === 'GET' && $path === 'sync/tasks') {
