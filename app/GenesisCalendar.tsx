@@ -3453,7 +3453,7 @@ export function GenesisCalendar() {
                 <span className="ux-install-icon" aria-hidden="true" />
               </button>
             ) : null}
-            {geminiAvailable || !isGoogleSyncConfigured ? (
+            {geminiAvailable ? (
               <button type="button" className="gemini-open-button" onClick={() => setGeminiOpen(true)} title="Открыть голосового помощника Gemini" aria-label="Открыть голосового помощника Gemini">
                 <span aria-hidden="true">✦</span>
               </button>
@@ -3866,7 +3866,7 @@ export function GenesisCalendar() {
           }}
         />
       ) : null}
-      {geminiOpen && (geminiAvailable || !isGoogleSyncConfigured) ? (
+      {geminiOpen && geminiAvailable ? (
         <GeminiAssistant
           language={language}
           context={{

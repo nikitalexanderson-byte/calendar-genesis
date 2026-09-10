@@ -26,6 +26,15 @@ function genesisGeminiApiKey(): string
     return trim((string)(genesisConfig()['gemini_api_key'] ?? ''));
 }
 
+function genesisGeminiEnabled(): bool
+{
+    $environmentValue = getenv('GEMINI_ENABLED');
+    $configuredValue = is_string($environmentValue)
+        ? $environmentValue
+        : (genesisConfig()['gemini_enabled'] ?? false);
+    return filter_var($configuredValue, FILTER_VALIDATE_BOOLEAN) === true;
+}
+
 function genesisGeminiModel(): string
 {
     $configured = trim((string)(genesisConfig()['gemini_model'] ?? GENESIS_GEMINI_DEFAULT_MODEL));
@@ -79,7 +88,7 @@ function genesisGeminiRequest(array $request): array
 
 function genesisGeminiAvailable(): bool
 {
-    return genesisGeminiApiKey() !== '';
+    return genesisGeminiEnabled() && genesisGeminiApiKey() !== '';
 }
 
 function genesisGeminiRateLimit(): void

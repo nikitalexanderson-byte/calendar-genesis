@@ -117,6 +117,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(geminiServer, /genesisGeminiRateLimit/);
   assert.match(geminiServer, /x-goog-api-key/);
   assert.doesNotMatch(calendar + cloudSync + geminiAssistant, /gemini_api_key|GEMINI_API_KEY/);
+  assert.match(geminiServer, /genesisGeminiEnabled\(\) && genesisGeminiApiKey\(\) !== ''/);
+  assert.match(serverConfigExample, /'gemini_enabled' => false/);
   assert.match(serverConfigExample, /'gemini_api_key' => ''/);
   assert.match(serverConfigExample, /'gemini_api_endpoint'/);
   assert.match(calendar, /task-description-viewer/);

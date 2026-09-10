@@ -5,6 +5,9 @@ return [
     'app_url' => 'https://genesiscalendar.ru',
     'google_client_id' => '',
     'google_client_secret' => '',
+    // Keep the assistant disabled unless the server can reach Gemini from a
+    // supported region (or through an explicitly configured relay).
+    'gemini_enabled' => false,
     'gemini_api_key' => '',
     'gemini_model' => 'gemini-3.8-flash',
     // Optional HTTPS relay with the same request/response contract. Useful when
