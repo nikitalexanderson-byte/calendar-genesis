@@ -2,15 +2,19 @@
 /* eslint-disable @next/next/no-html-link-for-pages */
 /* eslint-disable @next/next/no-img-element -- Google requires the official, unmodified sign-in asset. */
 
+import type { Language } from "./i18n";
+
 type WelcomeScreenProps = {
   busy: boolean;
   error: string;
+  language: Language;
+  onLanguageChange: (language: Language) => void;
   onGoogle: () => void;
 };
 
 const APP_BASE = (process.env.NEXT_PUBLIC_GENESIS_BASE_PATH?.trim() || "").replace(/\/$/, "");
 
-export function WelcomeScreen({ busy, error, onGoogle }: WelcomeScreenProps) {
+export function WelcomeScreen({ busy, error, language, onLanguageChange, onGoogle }: WelcomeScreenProps) {
   return (
     <main className="welcome-shell">
       <div className="welcome-orbit orbit-one" aria-hidden="true" />
@@ -66,6 +70,18 @@ export function WelcomeScreen({ busy, error, onGoogle }: WelcomeScreenProps) {
           <p className="welcome-kicker">ЛИЧНОЕ ПРОСТРАНСТВО</p>
           <h2 id="welcome-auth-title">Войти в GENESIS</h2>
           <p>Для входа вы будете перенаправлены на официальную страницу Google. На этапе входа GENESIS получает только основные данные профиля. Доступ к Calendar и Tasks запрашивается отдельно, в понятном контексте и только по вашему действию.</p>
+
+          <div className="welcome-language-picker">
+            <span>Выберите язык</span>
+            <div className="language-choice" role="radiogroup" aria-label="Язык регистрации и интерфейса">
+              <button type="button" role="radio" aria-checked={language === "ru"} className={language === "ru" ? "active" : ""} onClick={() => onLanguageChange("ru")}>
+                <span className="language-flag" aria-hidden="true">🇷🇺</span><strong>Русский</strong>
+              </button>
+              <button type="button" role="radio" aria-checked={language === "en"} className={language === "en" ? "active" : ""} onClick={() => onLanguageChange("en")}>
+                <span className="language-flag" aria-hidden="true">🇺🇸</span><strong>English</strong>
+              </button>
+            </div>
+          </div>
 
           <button className="google-login-primary" type="button" onClick={onGoogle} disabled={busy} aria-label="Войти через Google">
             <img src={`${APP_BASE}/google-signin-light-pill.svg`} alt="" aria-hidden="true" />

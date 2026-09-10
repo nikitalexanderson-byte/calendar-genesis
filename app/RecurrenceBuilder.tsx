@@ -14,6 +14,7 @@ import {
 } from "./task-recurrence";
 import type { CalendarMode } from "./calendar-data";
 import { CalendarDatePicker } from "./CalendarDatePicker";
+import { runtimeLocale } from "./i18n";
 
 const PYATA_DAY_LABELS = ["I", "II", "III", "IIII", "V"];
 const PYATA_LABELS = ["I пята", "II пята", "III пята", "IIII пята", "V пята", "VI пята"];
@@ -51,7 +52,7 @@ function toggleSelection(selected: number[], item: number, all: number[]) {
 
 function shortDate(value: string, includeYear = false) {
   const date = new Date(`${value}T12:00:00`);
-  return new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "short", year: includeYear ? "numeric" : undefined }).format(date);
+  return new Intl.DateTimeFormat(runtimeLocale(), { day: "numeric", month: "short", year: includeYear ? "numeric" : undefined }).format(date);
 }
 
 export function RecurrenceBuilder({

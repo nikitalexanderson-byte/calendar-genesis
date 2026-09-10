@@ -37,6 +37,7 @@ import {
   saveWorkspaceStructure,
   signInWithGoogle,
   signOutFromGoogle,
+  updateAccountPreferences,
   updateGoogleTaskList,
 } from "./cloud-sync";
 import { AccountPanel } from "./AccountPanel";
@@ -74,6 +75,16 @@ import {
   getSunriseSunset,
 } from "./solar-times";
 import { usePwaInstall } from "./use-pwa-install";
+import {
+  LANGUAGE_LOGIN_PENDING_KEY,
+  browserLanguage,
+  normalizeLanguage,
+  runtimeLocale,
+  storeLanguage,
+  translateText,
+  type Language,
+  useDocumentLanguage,
+} from "./i18n";
 import {
   buildRecurrenceDates,
   alignRecurrenceConfigWithCalendar,
@@ -313,7 +324,7 @@ function DependencyPicker({ tasks, excludeId, value, onChange, disabled = false 
                 disabled={disabled}
                 onChange={() => toggle(task.id)}
               />
-              <span>{task.title}</span>
+              <span data-no-translate>{task.title}</span>
             </label>
           ))}
         </div>
@@ -514,8 +525,8 @@ function DeviceClock() {
   }, []);
 
   return (
-    <time className="device-clock" dateTime={clock?.now.toISOString()} aria-label={clock ? `Время устройства: ${clock.now.toLocaleTimeString("ru-RU")}` : "Время устройства синхронизируется"}>
-      <strong>{clock ? new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(clock.now) : "--:--:--"}</strong>
+    <time className="device-clock" dateTime={clock?.now.toISOString()} aria-label={clock ? `Время устройства: ${clock.now.toLocaleTimeString(runtimeLocale())}` : "Время устройства синхронизируется"}>
+      <strong>{clock ? new Intl.DateTimeFormat(runtimeLocale(), { hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(clock.now) : "--:--:--"}</strong>
       <small>{clock ? `время устройства · ${clock.timezone}` : "синхронизация времени"}</small>
     </time>
   );
@@ -523,6 +534,7 @@ function DeviceClock() {
 
 export function GenesisCalendar() {
   const initial = useMemo(() => getSacredDate(new Date()), []);
+  const [language, setLanguage] = useState<Language>(browserLanguage);
   const [today, setToday] = useState(() => new Date());
   const [view, setView] = useState<ViewName>("today");
   const [sacredYear, setSacredYear] = useState(initial.sacredYear);
@@ -606,6 +618,7 @@ export function GenesisCalendar() {
   } | null>(null);
   const suppressProjectItemClickRef = useRef(false);
   const { canInstall, install, isStandalone } = usePwaInstall();
+  useDocumentLanguage(language);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setAuthError(consumeGoogleAuthError()), 0);
@@ -823,17 +836,40 @@ export function GenesisCalendar() {
     let loadedUserId = "";
     const stopUser = observeGenesisUser((user) => {
       setAuthResolved(true);
-      setCloudUser(user);
       setSyncError("");
 
       if (!user) {
+        setCloudUser(null);
         stopTasks?.();
         stopTasks = undefined;
         loadedUserId = "";
         setSyncStatus("local");
         return;
       }
-      localStorage.setItem(LAST_USER_KEY, JSON.stringify(user));
+      const serverLanguage = normalizeLanguage(user.language);
+      const pendingLanguageValue = localStorage.getItem(LANGUAGE_LOGIN_PENDING_KEY);
+      const pendingLanguage = pendingLanguageValue === "ru" || pendingLanguageValue === "en" ? pendingLanguageValue : null;
+      const effectiveLanguage = pendingLanguage ?? serverLanguage;
+      const effectiveUser = { ...user, language: effectiveLanguage };
+      setLanguage(effectiveLanguage);
+      storeLanguage(effectiveLanguage);
+      setCloudUser(effectiveUser);
+      localStorage.setItem(LAST_USER_KEY, JSON.stringify(effectiveUser));
+      if (pendingLanguage) {
+        localStorage.removeItem(LANGUAGE_LOGIN_PENDING_KEY);
+        if (pendingLanguage !== serverLanguage) {
+          void updateAccountPreferences({ language: pendingLanguage })
+            .then((result) => {
+              if (!active) return;
+              setCloudUser(result.user);
+              localStorage.setItem(LAST_USER_KEY, JSON.stringify(result.user));
+            })
+            .catch((error: Error) => {
+              if (!active) return;
+              setSyncError(error.message);
+            });
+        }
+      }
       if (loadedUserId === user.uid) return;
       stopTasks?.();
       stopTasks = undefined;
@@ -917,6 +953,7 @@ export function GenesisCalendar() {
       try {
         const cached = JSON.parse(localStorage.getItem(LAST_USER_KEY) || "null") as GenesisUser | null;
         if (cached?.uid) {
+          const cachedLanguage = normalizeLanguage(cached.language);
           const local = readStoredState(`${USER_STORAGE_PREFIX}${cached.uid}`);
           tasksRef.current = local.tasks;
           projectsRef.current = local.projects;
@@ -927,7 +964,9 @@ export function GenesisCalendar() {
           setTaskLists(local.taskLists);
           setTaskListLinks(local.taskListLinks);
           setNewProjectCategory(local.categories[0]?.id ?? "");
-          setCloudUser(cached);
+          setLanguage(cachedLanguage);
+          storeLanguage(cachedLanguage);
+          setCloudUser({ ...cached, language: cachedLanguage });
           setAuthResolved(true);
           setSyncStatus("offline");
           return;
@@ -984,12 +1023,19 @@ export function GenesisCalendar() {
     setAuthError("");
     setSyncError("");
     setSyncStatus("syncing");
+    storeLanguage(language);
+    localStorage.setItem(LANGUAGE_LOGIN_PENDING_KEY, language);
     try {
       await signInWithGoogle();
     } catch (error) {
       setSyncError(error instanceof Error ? error.message : "Не удалось войти");
       setSyncStatus("error");
     }
+  };
+
+  const selectLanguage = (nextLanguage: Language) => {
+    setLanguage(nextLanguage);
+    storeLanguage(nextLanguage);
   };
 
   const handleGoogleConnect = async () => {
@@ -1503,7 +1549,7 @@ export function GenesisCalendar() {
     }
     const listTaskCount = tasks.filter((task) => task.googleTaskListId === taskList.id).length;
     const taskCountLabel = listTaskCount === 1 ? "1 задачей" : `${listTaskCount} задачами`;
-    if (!window.confirm(`Удалить список «${taskList.title}» вместе с ${taskCountLabel}? Он будет удалён из Google Tasks. Это действие нельзя отменить.`)) return;
+    if (!window.confirm(translateText(`Удалить список «${taskList.title}» вместе с ${taskCountLabel}? Он будет удалён из Google Tasks. Это действие нельзя отменить.`, undefined, true))) return;
     setSyncStatus("syncing");
     try {
       await removeGoogleTaskList(taskList.id, taskList.accountId);
@@ -1796,7 +1842,7 @@ export function GenesisCalendar() {
 
   const deleteCategory = (id: string) => {
     const category = categories.find((item) => item.id === id);
-    if (!category || !window.confirm(`Удалить категорию «${category.name}»? Проекты и задачи останутся, но будут перенесены в раздел «Без категории».`)) return;
+    if (!category || !window.confirm(translateText(`Удалить категорию «${category.name}»? Проекты и задачи останутся, но будут перенесены в раздел «Без категории».`, undefined, true))) return;
     const nextCategories = categories.filter((item) => item.id !== id);
     const nextProjects = projects.map((project) => project.categoryId === id ? { ...project, categoryId: null } : project);
     const changedTasks = tasks.filter((task) => task.categoryId === id).map((task) => ({
@@ -1830,7 +1876,7 @@ export function GenesisCalendar() {
 
   const deleteProject = (id: string) => {
     const project = projects.find((item) => item.id === id);
-    if (!project || !window.confirm(`Удалить проект «${project.title}» и все его подпроекты? Задачи останутся, но перейдут в раздел без проекта.`)) return;
+    if (!project || !window.confirm(translateText(`Удалить проект «${project.title}» и все его подпроекты? Задачи останутся, но перейдут в раздел без проекта.`, undefined, true))) return;
     const removed = new Set<string>([id]);
     let changed = true;
     while (changed) {
@@ -1960,7 +2006,7 @@ export function GenesisCalendar() {
                     >
                       <header>
                         <div className="task-list-column-heading">
-                          <span><strong>{taskList.title}</strong><small>{listTasks.length} задач{taskList.accountEmail ? ` · ${taskList.accountEmail}` : ""}</small></span>
+                          <span><strong data-no-translate>{taskList.title}</strong><small>{listTasks.length} задач{taskList.accountEmail ? ` · ${taskList.accountEmail}` : ""}</small></span>
                           <span className="task-list-column-actions">
                             <button type="button" onClick={() => setEditingTaskList(taskList)} aria-label={`Редактировать список «${taskList.title}»`}>✎</button>
                             {!taskList.isDefault ? (
@@ -1998,7 +2044,7 @@ export function GenesisCalendar() {
                             >⋮⋮</button>
                             <button type="button" className="task-check" onClick={() => toggleTask(task.id)} aria-label={task.done ? `Вернуть задачу «${task.title}»` : `Завершить задачу «${task.title}»`}>{task.done ? "✓" : ""}</button>
                             <button type="button" className="task-list-item-open" onClick={() => openTaskEditor(task)}>
-                              <strong>{task.title}</strong>
+                              <strong data-no-translate>{task.title}</strong>
                               <small>{taskRangeLabel(task, activeCalendarMode)}</small>
                             </button>
                             <label className="task-list-move-select">
@@ -2254,7 +2300,7 @@ export function GenesisCalendar() {
     const pythagorean = getPythagorean(info.monthIndex, info.day);
     const solarEvent = getSolarEvent(info.sacredYear, info.monthIndex, info.day);
     const solarCopy = solarEvent ? SOLAR_EVENT_COPY[solarEvent.id] : null;
-    const isNewMoonDay = moon.event.toLocaleLowerCase("ru-RU").includes("новолуние");
+    const isNewMoonDay = moon.event.toLocaleLowerCase().includes("новолуние");
 
     return (
       <div className="today-view">
@@ -2315,7 +2361,7 @@ export function GenesisCalendar() {
                 <span className="solar-notice-symbol" aria-hidden="true">{solarEvent.symbol}</span>
                 <div>
                   <span className="eyebrow">Солнечная точка года</span>
-                  <h2>Сегодня {solarEvent.name.toLocaleLowerCase("ru-RU")}</h2>
+                  <h2>Сегодня {translateText(solarEvent.name).toLocaleLowerCase(runtimeLocale())}</h2>
                   <p><strong>Сила дня.</strong> {solarCopy.force}</p>
                   <p><strong>Древняя Греция.</strong> {solarCopy.greekPractice}</p>
                 </div>
@@ -2440,9 +2486,9 @@ export function GenesisCalendar() {
                     const isToday = key === todayKey;
                     const isSelected = dayNumber === selectedDay;
                     const isSaturday = gregorian.getDay() === 6;
-                    const profaneWeekday = new Intl.DateTimeFormat("ru-RU", { weekday: "long" }).format(gregorian);
-                    const profaneWeekdayShort = new Intl.DateTimeFormat("ru-RU", { weekday: "short" }).format(gregorian).replace(/\.$/, "");
-                    const profaneDate = new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "short" }).format(gregorian);
+                    const profaneWeekday = new Intl.DateTimeFormat(runtimeLocale(), { weekday: "long" }).format(gregorian);
+                    const profaneWeekdayShort = new Intl.DateTimeFormat(runtimeLocale(), { weekday: "short" }).format(gregorian).replace(/\.$/, "");
+                    const profaneDate = new Intl.DateTimeFormat(runtimeLocale(), { day: "2-digit", month: "short" }).format(gregorian);
                     const solarEvent = getSolarEvent(sacredYear, monthIndex, dayNumber);
                     const sunriseSunset = deviceLocation ? getSunriseSunset(gregorian, deviceLocation) : null;
                     const solarTimePlaceholder = solarLocationStatus === "ready" ? "нет" : "…";
@@ -2517,12 +2563,12 @@ export function GenesisCalendar() {
 
   const renderProjects = () => {
     const searchTerms = tagSearch
-      .toLocaleLowerCase("ru-RU")
+      .toLocaleLowerCase(runtimeLocale())
       .split(/[\s,;#]+/)
       .map((term) => term.trim())
       .filter(Boolean);
     const tagsMatch = (tags: string[]) => !searchTerms.length || searchTerms.every((term) => (
-      tags.some((tag) => tag.toLocaleLowerCase("ru-RU").includes(term))
+      tags.some((tag) => tag.toLocaleLowerCase(runtimeLocale()).includes(term))
     ));
     const matchingTaggedProjects = projects.filter((project) => searchTerms.length > 0 && tagsMatch(project.tags));
     const matchingProjectIds = new Set(matchingTaggedProjects.map((project) => project.id));
@@ -2575,7 +2621,7 @@ export function GenesisCalendar() {
             <div>
               {matchingTaggedProjects.map((project) => (
                 <button type="button" key={`project-${project.id}`} onClick={() => openProjectEditor(project)}>
-                  <span>Проект</span><strong>{project.title}</strong><small>{project.tags.map((tag) => `#${tag}`).join(" ")}</small>
+                  <span>Проект</span><strong data-no-translate>{project.title}</strong><small data-no-translate>{project.tags.map((tag) => `#${tag}`).join(" ")}</small>
                 </button>
               ))}
               {!matchingTaggedProjects.length ? <p>Проектов с такими тегами нет.</p> : null}
@@ -2610,7 +2656,7 @@ export function GenesisCalendar() {
                     return (
                       <article className="inbox-list-item project-draggable-item" key={taskList.id} aria-label={`Перетащить список «${taskList.title}»`} {...projectDragProps(item)}>
                         <span className="project-drag-handle" aria-hidden="true">⋮⋮</span>
-                        <span><strong>{taskList.title}</strong><small>Список · {taskCount} задач</small></span>
+                        <span><strong data-no-translate>{taskList.title}</strong><small>Список · {taskCount} задач</small></span>
                       </article>
                     );
                   })}
@@ -2622,7 +2668,7 @@ export function GenesisCalendar() {
                         <button type="button" onClick={() => {
                           if (!suppressProjectItemClickRef.current) openTaskEditor(task);
                         }}>
-                          <strong>{task.title}</strong>
+                          <strong data-no-translate>{task.title}</strong>
                           <small>{taskRangeLabel(task, activeCalendarMode)}</small>
                         </button>
                       </article>
@@ -2654,9 +2700,9 @@ export function GenesisCalendar() {
                     <button type="button" className="project-open" onClick={() => setTaskProject(project.id)}>
                       <span>{depth ? "↳" : "◇"}</span>
                       <div>
-                        <strong>{project.title}</strong>
+                        <strong data-no-translate>{project.title}</strong>
                         <small>{category?.name ?? "Без категории"} · {finished}/{projectTasks.length} действий{projectTaskLists.length ? ` · ${projectTaskLists.length} списков Google Tasks` : ""}</small>
-                        {project.description ? <p>{project.description}</p> : null}
+                        {project.description ? <p data-no-translate>{project.description}</p> : null}
                         {project.tags.length ? <em>{project.tags.map((tag) => `#${tag}`).join("  ")}</em> : null}
                       </div>
                     </button>
@@ -2674,7 +2720,7 @@ export function GenesisCalendar() {
                           return (
                             <div className="project-assigned-list project-draggable-item" key={taskList.id} aria-label={`Перетащить список «${taskList.title}»`} {...projectDragProps(item)}>
                               <span className="project-drag-handle" aria-hidden="true">⋮⋮</span>
-                              <span><strong>{taskList.title}</strong><small>Список · {taskCount} задач</small></span>
+                              <span><strong data-no-translate>{taskList.title}</strong><small>Список · {taskCount} задач</small></span>
                             </div>
                           );
                         })}
@@ -2690,7 +2736,7 @@ export function GenesisCalendar() {
                               <span className="project-drag-handle" aria-hidden="true">⋮⋮</span>
                               <button type="button" className="project-assigned-task-open" onClick={() => {
                                 if (!suppressProjectItemClickRef.current) openTaskEditor(task);
-                              }}><strong>{task.title}</strong><small>{taskRangeLabel(task, activeCalendarMode)}</small></button>
+                              }}><strong data-no-translate>{task.title}</strong><small>{taskRangeLabel(task, activeCalendarMode)}</small></button>
                             </article>
                           );
                         })}
@@ -2764,7 +2810,7 @@ export function GenesisCalendar() {
                 ) : (
                   <>
                     <i aria-hidden="true" />
-                    <strong>{category.name}</strong>
+                    <strong data-no-translate>{category.name}</strong>
                     <span>{projectCount} проектов</span>
                     <div className="category-actions">
                       <button type="button" onClick={() => beginCategoryEdit(category)} aria-label={`Редактировать категорию «${category.name}»`}>✎</button>
@@ -2793,7 +2839,7 @@ export function GenesisCalendar() {
 
   const renderAllTasks = () => {
     const searchTerms = allTasksSearch
-      .toLocaleLowerCase("ru-RU")
+      .toLocaleLowerCase(runtimeLocale())
       .split(/[\s,;#]+/)
       .map((term) => term.trim())
       .filter(Boolean);
@@ -2803,7 +2849,7 @@ export function GenesisCalendar() {
       if (!searchTerms.length) return true;
       const haystack = [task.title, task.description, task.calendarNote, resolvedTaskProjectTitle(task), task.googleTaskListTitle, ...task.tags]
         .join(" ")
-        .toLocaleLowerCase("ru-RU");
+        .toLocaleLowerCase(runtimeLocale());
       return searchTerms.every((term) => haystack.includes(term));
     };
     const sortedTasks = [...tasks]
@@ -2868,7 +2914,7 @@ export function GenesisCalendar() {
                 </button>
                 <div className="all-task-body">
                   <div className="all-task-title-row">
-                    <strong>{task.title}</strong>
+                    <strong data-no-translate>{task.title}</strong>
                     <span className="all-task-priority" title="Приоритет">⚑{task.priority}</span>
                   </div>
                   <div className="all-task-meta">
@@ -2876,7 +2922,7 @@ export function GenesisCalendar() {
                     <span>{resolvedTaskProjectTitle(task) || "Без проекта"}</span>
                     {task.googleTaskListTitle ? <span>Список: {task.googleTaskListTitle}</span> : null}
                     {task.syncAccountIds.length > 1 ? <span>Google-аккаунты: {task.syncAccountIds.length}</span> : task.googleAccountEmail ? <span>{task.googleAccountEmail}</span> : null}
-                    {category ? <span className="all-task-category" style={{ "--project-color": category.color } as CSSProperties}>{category.name}</span> : null}
+                    {category ? <span className="all-task-category" data-no-translate style={{ "--project-color": category.color } as CSSProperties}>{category.name}</span> : null}
                     <span className={`all-task-source source-${source.className}`}>{source.label}</span>
                   </div>
                   {task.tags.length ? <div className="task-tags">{task.tags.map((tag) => <i key={tag}>#{tag}</i>)}</div> : null}
@@ -2884,7 +2930,7 @@ export function GenesisCalendar() {
                   {task.description || task.calendarNote ? (
                     <details className="task-description-viewer">
                       <summary>Описание задачи</summary>
-                      {task.description ? <p>{task.description}</p> : <p className="muted">Описание не добавлено.</p>}
+                      {task.description ? <p data-no-translate>{task.description}</p> : <p className="muted">Описание не добавлено.</p>}
                       {task.calendarNote ? <pre>{task.calendarNote}</pre> : null}
                     </details>
                   ) : null}
@@ -2929,8 +2975,8 @@ export function GenesisCalendar() {
       </header>
       <section className="solar-year-strip" aria-label="Солнцестояния и равноденствия года">
         {solarEvents.map((event) => {
-          const weekday = new Intl.DateTimeFormat("ru-RU", { weekday: "long" }).format(event.date);
-          const date = new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(event.date);
+          const weekday = new Intl.DateTimeFormat(runtimeLocale(), { weekday: "long" }).format(event.date);
+          const date = new Intl.DateTimeFormat(runtimeLocale(), { day: "numeric", month: "long", year: "numeric" }).format(event.date);
           return (
             <button
               type="button"
@@ -3112,6 +3158,8 @@ export function GenesisCalendar() {
       <WelcomeScreen
         busy={syncStatus === "syncing"}
         error={authError || syncError}
+        language={language}
+        onLanguageChange={selectLanguage}
         onGoogle={() => void handleGoogleSignIn()}
       />
     );
@@ -3342,9 +3390,9 @@ export function GenesisCalendar() {
                           openTaskEditor(task);
                         }}>
                           <span><time>{task.time || "Весь день"}</time>{task.priority ? <em>Приоритет {task.priority}</em> : null}</span>
-                          <strong>{task.title}</strong>
+                          <strong data-no-translate>{task.title}</strong>
                           {task.description || projectTitle || task.googleTaskListTitle ? (
-                            <small>{task.description || projectTitle || task.googleTaskListTitle}</small>
+                            <small data-no-translate>{task.description || projectTitle || task.googleTaskListTitle}</small>
                           ) : null}
                         </button>
                       </article>
@@ -3588,8 +3636,12 @@ export function GenesisCalendar() {
             setAccountOpen(false);
             void connectAdditionalGoogleAccount();
           }}
+          onLanguageChange={selectLanguage}
           categories={categories}
           onUserChange={(user) => {
+            const nextLanguage = normalizeLanguage(user.language);
+            setLanguage(nextLanguage);
+            storeLanguage(nextLanguage);
             setCloudUser(user);
             setTaskRecurrenceConfig((current) => alignRecurrenceConfigWithCalendar(current, user.calendarMode, newTaskDueDate));
             localStorage.setItem(LAST_USER_KEY, JSON.stringify(user));

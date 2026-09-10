@@ -1,3 +1,5 @@
+import { getRuntimeLanguage, runtimeLocale } from "./i18n";
+
 const DAY_MS = 86_400_000;
 const JULIAN_UNIX_EPOCH = 2_440_588;
 const JULIAN_2000 = 2_451_545;
@@ -110,7 +112,7 @@ async function getTimezoneNetworkLocation(timeZone: string, signal?: AbortSignal
   url.searchParams.set("name", city);
   url.searchParams.set("count", "10");
   url.searchParams.set("format", "json");
-  url.searchParams.set("language", "ru");
+  url.searchParams.set("language", getRuntimeLanguage());
   const data = await requestJson(url.toString(), signal) as TimezoneLocationResponse;
   const result = data.results?.find((location) => location.timezone === timeZone) ?? data.results?.[0];
   if (!result) throw new Error("Timezone location was not found");
@@ -235,7 +237,7 @@ export function getSunriseSunset(date: Date, location: DeviceLocation): SunriseS
 }
 
 export function formatDeviceSolarTime(date: Date, timeZone?: string) {
-  return new Intl.DateTimeFormat("ru-RU", {
+  return new Intl.DateTimeFormat(runtimeLocale(), {
     hour: "2-digit",
     minute: "2-digit",
     timeZone,

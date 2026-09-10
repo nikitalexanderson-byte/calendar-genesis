@@ -136,6 +136,9 @@ function genesisUserForClient(array $user): array
     $calendarMode = in_array($user['calendar_mode'] ?? '', ['profane', 'sacred', 'lunar'], true)
         ? (string)$user['calendar_mode']
         : 'sacred';
+    $language = in_array($user['language'] ?? '', ['ru', 'en'], true)
+        ? (string)$user['language']
+        : 'ru';
     $syncRoutingMode = in_array($user['sync_routing_mode'] ?? '', ['fixed', 'choose', 'category'], true)
         ? (string)$user['sync_routing_mode']
         : 'fixed';
@@ -167,6 +170,7 @@ function genesisUserForClient(array $user): array
         'stoicheionDivinationDisabled' => !empty($user['stoicheion_divination_disabled']),
         'isAdmin' => mb_strtolower((string)$user['email']) === genesisAdminEmail(),
         'calendarMode' => $calendarMode,
+        'language' => $language,
         'multiAccountEnabled' => $multiAccountEnabled,
         'googleAccounts' => $accounts,
         'syncRouting' => [
@@ -612,6 +616,14 @@ function genesisUpdateAccountPreferences(string $userId, array $payload): array
         }
         $updates[] = 'calendar_mode = :calendar_mode';
         $values['calendar_mode'] = $calendarMode;
+    }
+    if (array_key_exists('language', $payload)) {
+        $language = trim((string)$payload['language']);
+        if (!in_array($language, ['ru', 'en'], true)) {
+            throw new InvalidArgumentException('Неизвестный язык интерфейса.');
+        }
+        $updates[] = 'language = :language';
+        $values['language'] = $language;
     }
     $hasSyncPreference = array_key_exists('syncRouting', $payload);
     if ($hasSyncPreference) {

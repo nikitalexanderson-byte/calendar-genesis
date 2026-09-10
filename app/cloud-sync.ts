@@ -1,5 +1,6 @@
 import type { RecurrenceMode, RecurrencePattern } from "./task-recurrence";
 import { normalizeCalendarDateNote, type CalendarMode } from "./calendar-data";
+import type { Language } from "./i18n";
 
 export type RecurrenceKind =
   | "none"
@@ -104,6 +105,7 @@ export type GenesisUser = {
   stoicheionDivinationDisabled: boolean;
   isAdmin: boolean;
   calendarMode: CalendarMode;
+  language: Language;
   multiAccountEnabled: boolean;
   googleAccounts: GoogleAccount[];
   syncRouting: SyncRouting;
@@ -526,6 +528,7 @@ export function disconnectGoogleServices() {
 export async function updateAccountPreferences(preferences: Partial<{
   stoicheionDivinationDisabled: boolean;
   calendarMode: CalendarMode;
+  language: Language;
   syncRouting: SyncRouting;
 }>) {
   return api<{ user: GenesisUser }>("/account/preferences", {

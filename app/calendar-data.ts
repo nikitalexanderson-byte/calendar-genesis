@@ -1,4 +1,5 @@
 import source from "../references/days.txt?raw";
+import { runtimeLocale, translateText } from "./i18n";
 
 export type SacredDay = {
   id: string;
@@ -218,7 +219,7 @@ export function getGregorianDate(sacredYear: number, monthIndex: number, day: nu
 }
 
 export function formatGregorian(date: Date, long = false) {
-  return new Intl.DateTimeFormat("ru-RU", {
+  return new Intl.DateTimeFormat(runtimeLocale(), {
     day: "numeric",
     month: long ? "long" : "short",
     year: long ? "numeric" : undefined,
@@ -285,15 +286,15 @@ export function formatSacredDate(date: Date, long = false) {
   const sacred = getSacredDate(date);
   const month = MONTHS[sacred.monthIndex];
   const day = getSacredDay(sacred.monthIndex, sacred.day);
-  if (!long) return `${sacred.day} · ${month.name}`;
-  return `${day.name} · ${sacred.day} день · Пята ${day.pyata || "Ω"} · ${month.name} ${sacred.sacredYear}`;
+  if (!long) return `${sacred.day} · ${translateText(month.name)}`;
+  return translateText(`${day.name} · ${sacred.day} день · Пята ${day.pyata || "Ω"} · ${month.name} ${sacred.sacredYear}`, undefined, true);
 }
 
 export function formatLunarDate(date: Date, long = false) {
   const moon = getMoon(date);
-  return long
+  return translateText(long
     ? `${moon.day} лунный день · ${moon.phase} · ${moon.epithet}`
-    : `${moon.day} лунный день · ${moon.phase}`;
+    : `${moon.day} лунный день · ${moon.phase}`, undefined, true);
 }
 
 export function formatCalendarDate(date: Date, mode: CalendarMode, long = false) {
@@ -306,12 +307,16 @@ export function normalizeCalendarDateNote(note: string, mode: CalendarMode) {
   const normalized = note.trim();
   if (!normalized || mode === "profane" || /^Профан(?:ская|ическая) дата:/iu.test(normalized)) return "";
 
-  const heading = mode === "sacred"
+  const heading = translateText(mode === "sacred"
     ? "Дата по сакральному календарю"
-    : "Дата по лунному календарю";
-  return normalized.startsWith(`${heading}:`)
-    ? normalized
-    : `${heading}:\n${normalized}`;
+    : "Дата по лунному календарю");
+  const localized = translateText(normalized, undefined, true);
+  const acceptedHeadings = mode === "sacred"
+    ? ["Дата по сакральному календарю", "Sacred calendar date"]
+    : ["Дата по лунному календарю", "Lunar calendar date"];
+  return acceptedHeadings.some((value) => localized.startsWith(`${value}:`))
+    ? localized
+    : `${heading}:\n${localized}`;
 }
 
 export function calendarDateNote(date: Date, mode: CalendarMode) {
