@@ -5,6 +5,8 @@ return [
     'app_url' => 'https://genesiscalendar.ru',
     'google_client_id' => '',
     'google_client_secret' => '',
+    'gemini_api_key' => '',
+    'gemini_model' => 'gemini-3.8-flash',
     'crypto_key' => '',
     'db_path' => __DIR__ . '/var/genesis.sqlite',
     'session_path' => __DIR__ . '/var/sessions',

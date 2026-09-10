@@ -12,6 +12,7 @@ import {
   useState,
 } from "react";
 import {
+  type GeminiPlan,
   type GoogleTaskList,
   type GenesisCategory,
   type GenesisProject,
@@ -26,6 +27,7 @@ import {
   createGoogleTaskList,
   removeGoogleTaskList,
   isGoogleSyncConfigured,
+  loadGeminiStatus,
   loadGenesisWorkspace,
   mergeLocalWorkspace,
   metricsFor,
@@ -42,6 +44,7 @@ import {
 } from "./cloud-sync";
 import { AccountPanel } from "./AccountPanel";
 import { AdminPanel } from "./AdminPanel";
+import { GeminiAssistant } from "./GeminiAssistant";
 import { currentLegalPage, LegalPage } from "./LegalPage";
 import { StoicheionView } from "./StoicheionView";
 import { TimeClockPicker } from "./TimeClockPicker";
@@ -555,6 +558,8 @@ export function GenesisCalendar() {
   const [cloudUser, setCloudUser] = useState<GenesisUser | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [geminiOpen, setGeminiOpen] = useState(false);
+  const [geminiAvailable, setGeminiAvailable] = useState(false);
   const [legalPage] = useState<ReturnType<typeof currentLegalPage>>(() => currentLegalPage());
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("loading");
   const [syncError, setSyncError] = useState("");
@@ -1067,6 +1072,21 @@ export function GenesisCalendar() {
     }, 1500);
     return () => window.clearTimeout(timer);
   }, [hydrated, cloudUser, tasks, projects]);
+
+  useEffect(() => {
+    if (!cloudUser || !isGoogleSyncConfigured) return;
+    let active = true;
+    void loadGeminiStatus()
+      .then((status) => {
+        if (active) setGeminiAvailable(status.available);
+      })
+      .catch(() => {
+        if (active) setGeminiAvailable(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [cloudUser]);
 
   const selectToday = () => {
     setSacredYear(todayInfo.sacredYear);
@@ -1770,6 +1790,199 @@ export function GenesisCalendar() {
     setNewProjectTitle("");
     setNewProjectDescription("");
     setNewProjectTags("");
+  };
+
+  const applyGeminiPlan = async (plan: GeminiPlan): Promise<string> => {
+    const nameKey = (value: string) => value.trim().toLocaleLowerCase(runtimeLocale());
+    const isValidDate = (value: string) => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+      const parsed = new Date(`${value}T12:00:00`);
+      return !Number.isNaN(parsed.getTime()) && inputDate(parsed) === value;
+    };
+
+    const preparedTasks = plan.tasks.map((task) => {
+      const startDate = task.startDate || todayDateValue;
+      const dueDate = task.dueDate || startDate;
+      if (!isValidDate(startDate) || !isValidDate(dueDate)) {
+        throw new Error(language === "en" ? `Gemini returned an invalid date for “${task.title}”.` : `Gemini указал некорректную дату для задачи «${task.title}».`);
+      }
+      if (startDate < todayDateValue) {
+        throw new Error(language === "en" ? `The start date for “${task.title}” is in the past.` : `Дата начала задачи «${task.title}» находится в прошлом.`);
+      }
+      if (dueDate < startDate) {
+        throw new Error(language === "en" ? `The deadline for “${task.title}” is before its start date.` : `Срок задачи «${task.title}» раньше даты начала.`);
+      }
+      return { ...task, startDate, dueDate };
+    });
+
+    const categoryByName = new Map(categories.map((category) => [nameKey(category.name), category]));
+    const existingProjectByName = new Map(projects.map((project) => [nameKey(project.title), project]));
+    const newProjectPlanByName = new Map(plan.projects.map((project) => [nameKey(project.title), project]));
+    for (const projectPlan of plan.projects) {
+      if (projectPlan.category && !categoryByName.has(nameKey(projectPlan.category))) {
+        throw new Error(language === "en" ? `Category “${projectPlan.category}” was not found.` : `Категория «${projectPlan.category}» не найдена.`);
+      }
+      if (projectPlan.parentProject
+        && !existingProjectByName.has(nameKey(projectPlan.parentProject))
+        && !newProjectPlanByName.has(nameKey(projectPlan.parentProject))) {
+        throw new Error(language === "en" ? `Parent project “${projectPlan.parentProject}” was not found.` : `Родительский проект «${projectPlan.parentProject}» не найден.`);
+      }
+    }
+    for (const projectPlan of plan.projects) {
+      const path = new Set<string>();
+      let cursor = nameKey(projectPlan.title);
+      while (cursor && newProjectPlanByName.has(cursor)) {
+        if (path.has(cursor)) {
+          throw new Error(language === "en" ? "Gemini proposed a circular project hierarchy." : "Gemini предложил циклическую иерархию проектов.");
+        }
+        path.add(cursor);
+        cursor = nameKey(newProjectPlanByName.get(cursor)?.parentProject ?? "");
+      }
+    }
+    const provisionalProjects: GenesisProject[] = [];
+    for (const projectPlan of plan.projects) {
+      const key = nameKey(projectPlan.title);
+      if (!key || existingProjectByName.has(key) || provisionalProjects.some((project) => nameKey(project.title) === key)) continue;
+      provisionalProjects.push({
+        id: uid(),
+        parentId: null,
+        categoryId: categoryByName.get(nameKey(projectPlan.category))?.id ?? null,
+        title: projectPlan.title.trim(),
+        description: projectPlan.description.trim(),
+        tags: projectPlan.tags.map((tag) => tag.trim().replace(/^#/, "")).filter(Boolean).slice(0, 10),
+        status: "active",
+        position: projects.length + provisionalProjects.length,
+      });
+    }
+    const allProjectByName = new Map([...projects, ...provisionalProjects].map((project) => [nameKey(project.title), project]));
+    const createdProjects = provisionalProjects.map((project) => {
+      const source = newProjectPlanByName.get(nameKey(project.title));
+      const parent = source?.parentProject ? allProjectByName.get(nameKey(source.parentProject)) : null;
+      return { ...project, parentId: parent && parent.id !== project.id ? parent.id : null };
+    });
+    const nextProjects = [...projects, ...createdProjects];
+    const projectByName = new Map(nextProjects.map((project) => [nameKey(project.title), project]));
+
+    for (const task of preparedTasks) {
+      if (task.project && !projectByName.has(nameKey(task.project))) {
+        throw new Error(language === "en" ? `Project “${task.project}” was not found.` : `Проект «${task.project}» не найден.`);
+      }
+    }
+
+    const plannedListByName = new Map(plan.taskLists.map((taskList) => [nameKey(taskList.title), taskList]));
+    const knownListNames = new Set([...taskLists.map((taskList) => nameKey(taskList.title)), ...plannedListByName.keys()]);
+    for (const task of preparedTasks) {
+      if (task.taskList && !knownListNames.has(nameKey(task.taskList))) {
+        throw new Error(language === "en" ? `Google Tasks list “${task.taskList}” was not found.` : `Список Google Tasks «${task.taskList}» не найден.`);
+      }
+    }
+    for (const taskList of plan.taskLists) {
+      if (taskList.project && !projectByName.has(nameKey(taskList.project))) {
+        throw new Error(language === "en" ? `Project “${taskList.project}” was not found.` : `Проект «${taskList.project}» не найден.`);
+      }
+      if (taskList.accountEmail && !googleAccounts.some((account) => nameKey(account.email) === nameKey(taskList.accountEmail))) {
+        throw new Error(language === "en" ? `Google account “${taskList.accountEmail}” is not connected.` : `Google-аккаунт «${taskList.accountEmail}» не подключён.`);
+      }
+    }
+    const needsNewTaskLists = plan.taskLists.some((planned) => !taskLists.some((existing) => nameKey(existing.title) === nameKey(planned.title)));
+    if (needsNewTaskLists && !cloudUser?.calendarConnected) {
+      throw new Error(language === "en" ? "Connect Google Calendar and Tasks before creating a task list." : "Подключите Google Calendar и Tasks перед созданием списка задач.");
+    }
+
+    setSyncStatus("syncing");
+    let nextTaskLists = [...taskLists];
+    let nextTaskListLinks = [...taskListLinks];
+    let createdTaskListCount = 0;
+    for (const taskListPlan of plan.taskLists) {
+      let taskList = nextTaskLists.find((item) => nameKey(item.title) === nameKey(taskListPlan.title));
+      if (!taskList) {
+        const accountId = googleAccounts.find((account) => nameKey(account.email) === nameKey(taskListPlan.accountEmail))?.id
+          || defaultSyncAccountIds[0];
+        const result = await createGoogleTaskList(taskListPlan.title.trim(), accountId);
+        taskList = result.taskList;
+        nextTaskLists = [...nextTaskLists.filter((item) => item.id !== taskList?.id), taskList];
+        createdTaskListCount += 1;
+      }
+      const currentProjectId = nextTaskListLinks.find((link) => link.taskListId === taskList.id)?.projectId ?? null;
+      const projectId = taskListPlan.project ? projectByName.get(nameKey(taskListPlan.project))?.id ?? null : currentProjectId;
+      nextTaskListLinks = [
+        ...nextTaskListLinks.filter((link) => link.taskListId !== taskList.id),
+        { taskListId: taskList.id, projectId },
+      ];
+    }
+
+    const taskListByName = new Map(nextTaskLists.map((taskList) => [nameKey(taskList.title), taskList]));
+    const createdTasks: Task[] = preparedTasks.map((taskPlan) => {
+      const start = new Date(`${taskPlan.startDate}T12:00:00`);
+      const sacred = getSacredDate(start);
+      const project = taskPlan.project ? projectByName.get(nameKey(taskPlan.project)) ?? null : null;
+      const taskList = taskPlan.taskList ? taskListByName.get(nameKey(taskPlan.taskList)) : undefined;
+      return {
+        id: uid(),
+        sacredYear: sacred.sacredYear,
+        monthIndex: sacred.monthIndex,
+        day: sacred.day,
+        dueDate: taskPlan.startDate,
+        endDate: taskPlan.dueDate,
+        title: taskPlan.title.trim(),
+        description: taskPlan.description.trim(),
+        time: /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(taskPlan.time) ? taskPlan.time : "",
+        project: project?.title ?? "",
+        projectId: project?.id ?? null,
+        categoryId: project?.categoryId ?? null,
+        tags: taskPlan.tags.map((tag) => tag.trim().replace(/^#/, "")).filter(Boolean).slice(0, 6),
+        dependsOnIds: [],
+        priority: Math.min(10, Math.max(1, Number(taskPlan.priority) || 5)),
+        done: false,
+        completedAt: null,
+        reminderMinutes: taskPlan.reminderMinutes > 0 ? Math.min(43200, taskPlan.reminderMinutes) : null,
+        recurrence: "none",
+        recurrenceInterval: 1,
+        recurrenceMode: "none",
+        recurrencePattern: "none",
+        recurrenceDays: [],
+        recurrenceStartDate: null,
+        recurrenceEndDate: null,
+        recurrenceMonths: [],
+        recurrencePyatas: [],
+        recurrenceSeriesId: null,
+        calendarMode: activeCalendarMode,
+        calendarNote: calendarDateNote(start, activeCalendarMode),
+        syncToGoogle: true,
+        syncAccountIds: syncAccountIdsForTask(project?.categoryId ?? null, taskList),
+        googleLinks: {},
+        googleAccountId: taskList?.accountId ?? null,
+        googleAccountEmail: taskList?.accountEmail ?? "",
+        createdIn: "genesis",
+        googleEventId: null,
+        googleTaskId: null,
+        googleTaskListId: taskList?.id ?? null,
+        googleTaskListTitle: taskList?.title ?? "",
+        googleReadOnly: false,
+        updatedAt: timestamp(),
+      };
+    });
+
+    setProjects(nextProjects);
+    setTaskLists(nextTaskLists);
+    setTaskListLinks(nextTaskListLinks);
+    if (createdTasks.length) {
+      setTasks((current) => [...current, ...createdTasks]);
+      if (createdTasks.length === 1) saveTask(createdTasks[0]);
+      else saveTaskSeries(createdTasks);
+    }
+    if (createdProjects.length || plan.taskLists.length) {
+      persistStructure(nextProjects, categories, nextTaskListLinks);
+    } else if (!createdTasks.length) {
+      setSyncStatus("synced");
+    }
+
+    if (createdTasks.length) navigateTo("all-tasks");
+    else if (createdProjects.length || plan.taskLists.length) navigateTo("projects");
+
+    return language === "en"
+      ? `Created: ${createdProjects.length} projects, ${createdTaskListCount} task lists, ${createdTasks.length} tasks.`
+      : `Создано: проектов — ${createdProjects.length}, списков — ${createdTaskListCount}, задач — ${createdTasks.length}.`;
   };
 
   const openProjectEditor = (project: GenesisProject) => {
@@ -3240,6 +3453,11 @@ export function GenesisCalendar() {
                 <span className="ux-install-icon" aria-hidden="true" />
               </button>
             ) : null}
+            {geminiAvailable || !isGoogleSyncConfigured ? (
+              <button type="button" className="gemini-open-button" onClick={() => setGeminiOpen(true)} title="Открыть голосового помощника Gemini" aria-label="Открыть голосового помощника Gemini">
+                <span aria-hidden="true">✦</span>
+              </button>
+            ) : null}
             {cloudUser ? (
               <div className="account-chip" ref={accountMenuRef}>
                 <button
@@ -3646,6 +3864,30 @@ export function GenesisCalendar() {
             setTaskRecurrenceConfig((current) => alignRecurrenceConfigWithCalendar(current, user.calendarMode, newTaskDueDate));
             localStorage.setItem(LAST_USER_KEY, JSON.stringify(user));
           }}
+        />
+      ) : null}
+      {geminiOpen && (geminiAvailable || !isGoogleSyncConfigured) ? (
+        <GeminiAssistant
+          language={language}
+          context={{
+            language,
+            calendarMode: activeCalendarMode,
+            today: todayDateValue,
+            timeZone: deviceTimeZone,
+            categories: categories.map((category) => ({ name: category.name })),
+            projects: projects.map((project) => ({
+              title: project.title,
+              parent: projects.find((candidate) => candidate.id === project.parentId)?.title ?? "",
+              category: categories.find((category) => category.id === project.categoryId)?.name ?? "",
+            })),
+            taskLists: taskLists.map((taskList) => ({
+              title: taskList.title,
+              accountEmail: taskList.accountEmail ?? "",
+            })),
+            accounts: googleAccounts.map((account) => ({ email: account.email })),
+          }}
+          onApply={applyGeminiPlan}
+          onClose={() => setGeminiOpen(false)}
         />
       ) : null}
     </main>
