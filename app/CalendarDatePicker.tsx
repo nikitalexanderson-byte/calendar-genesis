@@ -9,6 +9,7 @@ import {
   getGregorianDate,
   getLunarMonthDates,
   getMoon,
+  getSacredDay,
   getSacredDate,
   lunarMonthIndex,
 } from "./calendar-data";
@@ -72,7 +73,9 @@ export function CalendarDatePicker({ id, value, mode, min, max, required, ariaLa
     setOpen(true);
   };
   const month = MONTHS[sacredMonth];
-  const sacredDays = month.days.filter((day) => sacredMonth !== 12 || inputDate(getGregorianDate(sacredYear, sacredMonth, day.day)) < inputDate(getGregorianDate(sacredYear + 1, 0, 1)));
+  const sacredDays = month.days
+    .map((day) => getSacredDay(sacredMonth, day.day))
+    .filter((day) => sacredMonth !== 12 || inputDate(getGregorianDate(sacredYear, sacredMonth, day.day)) < inputDate(getGregorianDate(sacredYear + 1, 0, 1)));
   const lunarDates = getLunarMonthDates(lunarMonth);
   const lunarTitleDate = lunarDates[Math.floor(lunarDates.length / 2)] ?? selectedDate;
 

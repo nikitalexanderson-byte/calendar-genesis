@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 const GENESIS_GEMINI_DEFAULT_MODEL = 'gemini-3.8-flash';
+const GENESIS_GEMINI_DEFAULT_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/interactions';
 const GENESIS_GEMINI_MAX_AUDIO_BYTES = 4 * 1024 * 1024;
 const GENESIS_GEMINI_AUDIO_MIME_TYPES = [
     'audio/aac',
@@ -31,6 +32,49 @@ function genesisGeminiModel(): string
     return preg_match('/^[a-z0-9][a-z0-9._-]{2,80}$/', $configured) === 1
         ? $configured
         : GENESIS_GEMINI_DEFAULT_MODEL;
+}
+
+function genesisGeminiEndpoint(): string
+{
+    $configured = trim((string)(genesisConfig()['gemini_api_endpoint'] ?? ''));
+    if ($configured === '') {
+        return GENESIS_GEMINI_DEFAULT_ENDPOINT;
+    }
+    $parts = parse_url($configured);
+    return is_array($parts)
+        && ($parts['scheme'] ?? '') === 'https'
+        && is_string($parts['host'] ?? null)
+        && trim((string)$parts['host']) !== ''
+            ? $configured
+            : GENESIS_GEMINI_DEFAULT_ENDPOINT;
+}
+
+function genesisGeminiRequest(array $request): array
+{
+    try {
+        return genesisCurl(genesisGeminiEndpoint(), [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => json_encode($request, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json',
+                'Accept: application/json',
+                'x-goog-api-key: ' . genesisGeminiApiKey(),
+            ],
+            CURLOPT_TIMEOUT => 90,
+        ]);
+    } catch (RuntimeException $error) {
+        $message = mb_strtolower($error->getMessage());
+        if (str_contains($message, 'not available in your current location')
+            || str_contains($message, 'user location is not supported')) {
+            genesisJson(['error' => 'GEMINI_REGION_UNAVAILABLE'], 503);
+        }
+        if (str_contains($message, 'api key not valid')
+            || str_contains($message, 'api_key_invalid')
+            || str_contains($message, 'permission denied')) {
+            genesisJson(['error' => 'GEMINI_KEY_INVALID'], 503);
+        }
+        throw $error;
+    }
 }
 
 function genesisGeminiAvailable(): bool
@@ -357,16 +401,7 @@ PROMPT;
         ],
     ];
 
-    $response = genesisCurl('https://generativelanguage.googleapis.com/v1beta/interactions', [
-        CURLOPT_POST => true,
-        CURLOPT_POSTFIELDS => json_encode($request, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
-        CURLOPT_HTTPHEADER => [
-            'Content-Type: application/json',
-            'Accept: application/json',
-            'x-goog-api-key: ' . genesisGeminiApiKey(),
-        ],
-        CURLOPT_TIMEOUT => 90,
-    ]);
+    $response = genesisGeminiRequest($request);
 
     $plan = json_decode(genesisGeminiOutputText($response), true, 512, JSON_THROW_ON_ERROR);
     if (!is_array($plan)) {

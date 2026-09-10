@@ -1,6 +1,8 @@
 // Generated from гнометэр.docx by scripts/import-stoicheion-docx.py.
 // The source contains 24 authored entries from the supplied letter descriptions.
 
+import englishLetters from "./stoicheion.en.json";
+
 export type StoicheionLetter = {
   id: string;
   order: number;
@@ -307,3 +309,15 @@ export const STOICHEION_LETTERS = [
     source: "author-document",
   },
 ] as const satisfies readonly StoicheionLetter[];
+
+type EnglishStoicheionLetter = Pick<StoicheionLetter, "name" | "tagline" | "content">;
+
+const ENGLISH_STOICHEION_LETTERS = englishLetters as Record<string, EnglishStoicheionLetter>;
+
+export function getStoicheionLetters(english: boolean): readonly StoicheionLetter[] {
+  if (!english) return STOICHEION_LETTERS;
+  return STOICHEION_LETTERS.map((letter) => ({
+    ...letter,
+    ...(ENGLISH_STOICHEION_LETTERS[letter.id] ?? {}),
+  }));
+}
