@@ -8090,3 +8090,60 @@ button.project-drag-handle:active { cursor: grabbing; }
   .gemini-plan-actions { display: grid; grid-template-columns: 1fr; }
   .gemini-plan-actions button { width: 100%; }
 }
+
+/* Current month day stays light and legible while retaining a clear red outline. */
+.month-calendar .calendar-day.today,
+.month-calendar .calendar-day.today:hover {
+  z-index: 3;
+  color: #142b29;
+  background: var(--white);
+  border-color: #a54133;
+  transform: translateY(-2px);
+  box-shadow: inset 0 0 0 2px rgba(165, 65, 51, .88), 0 14px 28px rgba(32, 50, 47, .11);
+}
+
+.month-calendar .calendar-day.today .calendar-gregorian {
+  color: #435a56;
+}
+
+.month-calendar .calendar-day.today .calendar-weekday {
+  color: #102a27;
+  font-weight: 950;
+}
+
+.month-calendar .calendar-day.today > strong {
+  color: #102a27;
+}
+
+.month-calendar .calendar-day.today > small,
+.month-calendar .calendar-day.today .calendar-moon,
+.month-calendar .calendar-day.today .calendar-sun-times {
+  color: #3d5551;
+}
+
+.month-calendar .calendar-day.today .calendar-sun-times i {
+  color: #95651d;
+}
+
+@media (min-width: 761px) {
+  .hero-card > .device-clock {
+    position: absolute;
+    z-index: 2;
+    top: 124px;
+    right: 40px;
+    margin: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .hero-card > .device-clock {
+    position: absolute;
+    z-index: 2;
+    inset: auto 25px 24px;
+    width: auto;
+  }
+
+  .hero-card .hero-copy {
+    padding-bottom: 104px;
+  }
+}

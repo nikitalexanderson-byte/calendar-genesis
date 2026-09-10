@@ -2531,13 +2531,13 @@ export function GenesisCalendar() {
                 Открыть день <span aria-hidden="true">↗</span>
               </button>
               <span className="hero-date">{formatGregorian(gregorian, true)}</span>
-              <DeviceClock />
             </div>
           </div>
           <div className="hero-number" aria-hidden="true">
             <span>{romanDay(info.monthIndex, info.day)}</span>
             <small>{info.monthIndex === 12 ? "вне времени" : `${day.pyata} пята`}</small>
           </div>
+          <DeviceClock />
         </section>
 
         <section className="today-create-panel" aria-labelledby="today-create-title">
