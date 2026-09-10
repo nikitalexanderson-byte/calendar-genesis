@@ -234,7 +234,9 @@ function genesisEnsureGoogleCalendar(array $user): array
     }
     $calendar = genesisGoogleApi('POST', '/calendars', $user, [
         'summary' => 'GENESIS',
-        'description' => 'Задачи и напоминания приложения GENESIS. Содержание хранится в Google Calendar, а не в базе GENESIS.',
+        'description' => genesisGoogleLanguage($user) === 'en'
+            ? 'Tasks and reminders from GENESIS. Content is stored in Google Calendar, not in the GENESIS database.'
+            : 'Задачи и напоминания приложения GENESIS. Содержание хранится в Google Calendar, а не в базе GENESIS.',
         'timeZone' => genesisClientTimeZone()->getName(),
     ]);
     if (empty($calendar['id'])) {
@@ -274,8 +276,20 @@ function genesisTaskOrigin(mixed $value, string $fallback = 'genesis'): string
     return in_array($origin, ['genesis', 'google-calendar', 'google-tasks'], true) ? $origin : $fallback;
 }
 
-function genesisTaskOriginLabel(string $origin): string
+function genesisGoogleLanguage(array $source): string
 {
+    return ($source['_language'] ?? $source['language'] ?? 'ru') === 'en' ? 'en' : 'ru';
+}
+
+function genesisTaskOriginLabel(string $origin, string $language = 'ru'): string
+{
+    if ($language === 'en') {
+        return match ($origin) {
+            'google-calendar' => 'Created in Google Calendar',
+            'google-tasks' => 'Created in Google Tasks',
+            default => 'Created in GENESIS',
+        };
+    }
     return match ($origin) {
         'google-calendar' => 'Создано в Google Calendar',
         'google-tasks' => 'Создано в Google Tasks',
@@ -285,6 +299,8 @@ function genesisTaskOriginLabel(string $origin): string
 
 function genesisTaskPayloadForGoogle(string $taskId, array $task): array
 {
+    $language = genesisGoogleLanguage($task);
+    $english = $language === 'en';
     $timezone = genesisClientTimeZone();
     $timezoneName = $timezone->getName();
     $title = mb_substr(trim((string)($task['title'] ?? '')), 0, 500);
@@ -334,12 +350,12 @@ function genesisTaskPayloadForGoogle(string $taskId, array $task): array
     }
     $createdIn = genesisTaskOrigin($task['createdIn'] ?? null);
     $metadataDescription = trim(implode("\n", array_filter([
-        genesisTaskOriginLabel($createdIn),
-        'Срок: ' . $dueDate . ($endDate !== $dueDate ? ' — ' . $endDate : ''),
-        $project !== '' ? 'Проект: ' . $project : '',
-        $tags ? 'Теги: ' . implode(' ', array_map(static fn(string $tag): string => '#' . $tag, $tags)) : '',
-        'Приоритет: ' . $priority,
-        $dependsOn ? 'Связанных задач: ' . count($dependsOn) : '',
+        genesisTaskOriginLabel($createdIn, $language),
+        ($english ? 'Due: ' : 'Срок: ') . $dueDate . ($endDate !== $dueDate ? ' — ' . $endDate : ''),
+        $project !== '' ? ($english ? 'Project: ' : 'Проект: ') . $project : '',
+        $tags ? ($english ? 'Tags: ' : 'Теги: ') . implode(' ', array_map(static fn(string $tag): string => '#' . $tag, $tags)) : '',
+        ($english ? 'Priority: ' : 'Приоритет: ') . $priority,
+        $dependsOn ? ($english ? 'Linked tasks: ' : 'Связанных задач: ') . count($dependsOn) : '',
         $calendarNote,
     ])));
     $visibleDescription = trim($description . ($metadataDescription !== '' ? "\n\n— GENESIS —\n" . $metadataDescription : ''));
@@ -442,6 +458,8 @@ function genesisDecodeTaskNotes(string $notes): array
 
 function genesisTaskNotesForGoogle(string $taskId, array $task): string
 {
+    $language = genesisGoogleLanguage($task);
+    $english = $language === 'en';
     $description = mb_substr(trim((string)($task['description'] ?? '')), 0, 5000);
     $project = mb_substr(trim((string)($task['project'] ?? '')), 0, 300);
     $tags = genesisStringList($task['tags'] ?? [], 10);
@@ -476,11 +494,11 @@ function genesisTaskNotesForGoogle(string $taskId, array $task): string
         $data['calendarNote'] = '';
     }
     $metadataLines = array_filter([
-        genesisTaskOriginLabel($createdIn),
-        $startDate !== '' ? 'Срок: ' . $startDate . ($endDate !== $startDate ? ' — ' . $endDate : '') : '',
-        $project !== '' ? 'Проект: ' . $project : '',
-        $tags ? 'Теги: ' . implode(' ', array_map(static fn(string $tag): string => '#' . $tag, $tags)) : '',
-        'Приоритет: ' . $data['priority'],
+        genesisTaskOriginLabel($createdIn, $language),
+        $startDate !== '' ? ($english ? 'Due: ' : 'Срок: ') . $startDate . ($endDate !== $startDate ? ' — ' . $endDate : '') : '',
+        $project !== '' ? ($english ? 'Project: ' : 'Проект: ') . $project : '',
+        $tags ? ($english ? 'Tags: ' : 'Теги: ') . implode(' ', array_map(static fn(string $tag): string => '#' . $tag, $tags)) : '',
+        ($english ? 'Priority: ' : 'Приоритет: ') . $data['priority'],
         $data['calendarNote'],
         'GENESIS-DATA:' . genesisBase64Url(json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)),
     ]);
@@ -1092,9 +1110,11 @@ function genesisSyncTaskToGoogle(string $userId, string $taskId, array $task): a
     $savedTask = $task;
     $savedAccountIds = [];
     foreach ($targets as $account) {
+        $account['_language'] = genesisGoogleLanguage($owner);
         $accountId = (string)$account['id'];
         $existingLink = is_array($links[$accountId] ?? null) ? $links[$accountId] : [];
         $accountTask = array_merge($task, [
+            '_language' => genesisGoogleLanguage($owner),
             'googleEventId' => $existingLink['eventId'] ?? ($accountId === (string)$owner['id'] ? ($task['googleEventId'] ?? null) : null),
             'googleTaskId' => $existingLink['taskId'] ?? ($accountId === (string)$owner['id'] ? ($task['googleTaskId'] ?? null) : null),
             'googleTaskListId' => $existingLink['taskListId'] ?? ($task['googleTaskListId'] ?? null),

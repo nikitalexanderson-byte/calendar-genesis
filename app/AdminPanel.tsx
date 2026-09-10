@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { type AdminStats, loadAdminStats } from "./cloud-sync";
+import { runtimeLocale } from "./i18n";
 
 export function AdminPanel() {
   const [stats, setStats] = useState<AdminStats | null>(null);
@@ -31,7 +32,7 @@ export function AdminPanel() {
           <tbody>{stats.users.map((user) => (
             <tr key={user.email}>
               <td><strong>{user.email}</strong><small>{user.displayName}</small></td>
-              <td>{user.lastSeenAt ? new Intl.DateTimeFormat("ru-RU", { dateStyle: "medium", timeStyle: "short" }).format(new Date(user.lastSeenAt)) : "—"}</td>
+              <td>{user.lastSeenAt ? new Intl.DateTimeFormat(runtimeLocale(), { dateStyle: "medium", timeStyle: "short" }).format(new Date(user.lastSeenAt)) : "—"}</td>
               <td>{user.loginCount}</td>
               <td>{user.projectCount}</td>
               <td>{user.taskCount}<small>{user.openTaskCount} открыто</small></td>

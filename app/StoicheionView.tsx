@@ -22,6 +22,7 @@ import {
   type StoicheionDrawKind,
   type StoicheionDrawRecord,
 } from "./cloud-sync";
+import { runtimeLocale } from "./i18n";
 
 const LOCAL_DRAW_STORAGE_PREFIX = "genesis-stoicheion-draws-v2:";
 const STOICHEION_CARD_ART_VERSION = "20260906-anatomy-glow";
@@ -393,6 +394,7 @@ type StoicheionViewProps = {
 };
 
 export function StoicheionView({ divinationDisabled = false }: StoicheionViewProps) {
+  const locale = runtimeLocale();
   const entropy = useRef(INITIAL_ENTROPY);
   const motionTracker = useRef<MotionTracker | null>(null);
   const motionField = useRef<HTMLButtonElement | null>(null);
@@ -408,8 +410,8 @@ export function StoicheionView({ divinationDisabled = false }: StoicheionViewPro
   const today = useMemo(() => new Date(), []);
   const dayKey = useMemo(() => localDayKey(today), [today]);
   const dateLabel = useMemo(
-    () => new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(today),
-    [today],
+    () => new Intl.DateTimeFormat(locale, { day: "numeric", month: "long", year: "numeric" }).format(today),
+    [locale, today],
   );
   const motionActive = motion !== null;
 

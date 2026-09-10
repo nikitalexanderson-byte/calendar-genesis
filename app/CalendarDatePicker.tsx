@@ -13,6 +13,7 @@ import {
   lunarMonthIndex,
 } from "./calendar-data";
 import { MoonPhaseIcon } from "./MoonPhaseIcon";
+import { runtimeLocale } from "./i18n";
 
 type CalendarDatePickerProps = {
   id?: string;
@@ -114,7 +115,7 @@ export function CalendarDatePicker({ id, value, mode, min, max, required, ariaLa
               <>
                 <div className="calendar-picker-controls">
                   <button type="button" onClick={() => setLunarMonth((current) => current - 1)} aria-label="Предыдущий лунный месяц">←</button>
-                  <strong>{new Intl.DateTimeFormat("ru-RU", { month: "long", year: "numeric" }).format(lunarTitleDate)}</strong>
+                  <strong>{new Intl.DateTimeFormat(runtimeLocale(), { month: "long", year: "numeric" }).format(lunarTitleDate)}</strong>
                   <button type="button" onClick={() => setLunarMonth((current) => current + 1)} aria-label="Следующий лунный месяц">→</button>
                 </div>
                 <p className="calendar-picker-note">Лунный месяц начинается новолунием; привычные недели здесь не используются.</p>

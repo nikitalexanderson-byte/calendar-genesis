@@ -5,12 +5,14 @@ import { useState } from "react";
 import type { CalendarMode } from "./calendar-data";
 import type { GenesisCategory, GenesisUser, SyncRouting } from "./cloud-sync";
 import { deleteGenesisAccount, disconnectGoogleServices, removeAdditionalGoogleAccount, updateAccountPreferences } from "./cloud-sync";
+import { runtimeLocale, translateText, type Language } from "./i18n";
 
 type AccountPanelProps = {
   user: GenesisUser;
   onClose: () => void;
   onReconnectGoogle: () => void;
   onConnectAdditionalGoogle: () => void;
+  onLanguageChange: (language: Language) => void;
   onUserChange: (user: GenesisUser) => void;
   categories: GenesisCategory[];
 };
@@ -21,7 +23,7 @@ const CALENDAR_MODES: Array<{ id: CalendarMode; label: string; hint: string }> =
   { id: "lunar", label: "Лунный", hint: "Лунные месяцы и дни" },
 ];
 
-export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditionalGoogle, onUserChange, categories }: AccountPanelProps) {
+export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditionalGoogle, onLanguageChange, onUserChange, categories }: AccountPanelProps) {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [preferenceBusy, setPreferenceBusy] = useState(false);
@@ -53,9 +55,25 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
     try {
       const result = await updateAccountPreferences({ calendarMode });
       onUserChange(result.user);
-      setMessage(`Календарь задач переключён: ${CALENDAR_MODES.find((item) => item.id === calendarMode)?.label.toLocaleLowerCase("ru-RU")}.`);
+      setMessage(`Календарь задач переключён: ${CALENDAR_MODES.find((item) => item.id === calendarMode)?.label.toLocaleLowerCase(runtimeLocale())}.`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Не удалось переключить календарь.");
+    } finally {
+      setPreferenceBusy(false);
+    }
+  };
+
+  const changeLanguage = async (language: Language) => {
+    if (user.language === language) return;
+    setPreferenceBusy(true);
+    setMessage("");
+    try {
+      const result = await updateAccountPreferences({ language });
+      onUserChange(result.user);
+      onLanguageChange(language);
+      setMessage(language === "en" ? "Language changed to English." : "Язык переключён на русский.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Не удалось переключить язык.");
     } finally {
       setPreferenceBusy(false);
     }
@@ -77,7 +95,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
   };
 
   const removeAdditionalAccount = async (accountId: string) => {
-    if (!window.confirm("Отключить дополнительный Google-аккаунт от пространства GENESIS? Уже созданные события и задачи останутся в Google.")) return;
+    if (!window.confirm(translateText("Отключить дополнительный Google-аккаунт от пространства GENESIS? Уже созданные события и задачи останутся в Google.", undefined, true))) return;
     setBusy(true);
     setMessage("");
     try {
@@ -97,7 +115,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
   };
 
   const removeAccount = async () => {
-    if (!window.confirm("Удалить аккаунт GENESIS и данные с сервера? Разрешения Google будут отозваны. События и списки задач останутся в вашем Google-аккаунте.")) return;
+    if (!window.confirm(translateText("Удалить аккаунт GENESIS и данные с сервера? Разрешения Google будут отозваны. События и списки задач останутся в вашем Google-аккаунте.", undefined, true))) return;
     setBusy(true);
     try {
       await deleteGenesisAccount();
@@ -108,7 +126,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
   };
 
   const disconnectServices = async () => {
-    if (!window.confirm("Отключить Google Calendar и Google Tasks? GENESIS отзовёт разрешения Google. Ваши события, списки и задачи останутся в Google.")) return;
+    if (!window.confirm(translateText("Отключить Google Calendar и Google Tasks? GENESIS отзовёт разрешения Google. Ваши события, списки и задачи останутся в Google.", undefined, true))) return;
     setBusy(true);
     setMessage("");
     try {
@@ -145,6 +163,22 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
             <button type="button" onClick={onReconnectGoogle}>Подключить</button>
           </section>
         ) : null}
+
+        <section className="account-preferences language-preference" aria-labelledby="language-title">
+          <div>
+            <span className="eyebrow">Язык</span>
+            <h3 id="language-title">Интерфейс и справочные тексты</h3>
+            <p>Выбор сохраняется в аккаунте и применяется на всех ваших устройствах.</p>
+          </div>
+          <div className="language-choice" role="radiogroup" aria-label="Язык интерфейса">
+            <button type="button" role="radio" aria-checked={user.language !== "en"} className={user.language !== "en" ? "active" : ""} disabled={preferenceBusy} onClick={() => void changeLanguage("ru")}>
+              <span className="language-flag" aria-hidden="true">🇷🇺</span><strong>Русский</strong>
+            </button>
+            <button type="button" role="radio" aria-checked={user.language === "en"} className={user.language === "en" ? "active" : ""} disabled={preferenceBusy} onClick={() => void changeLanguage("en")}>
+              <span className="language-flag" aria-hidden="true">🇺🇸</span><strong>English</strong>
+            </button>
+          </div>
+        </section>
 
         <section className="account-preferences calendar-mode-preference" aria-labelledby="calendar-mode-title">
           <div>
@@ -224,7 +258,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
                     <strong>Категории и аккаунты</strong>
                     {categories.map((category) => (
                       <fieldset key={category.id}>
-                        <legend><i style={{ backgroundColor: category.color }} />{category.name}</legend>
+                        <legend><i style={{ backgroundColor: category.color }} /><span data-no-translate>{category.name}</span></legend>
                         {(user.googleAccounts ?? []).map((account) => {
                           const selected = routing.categoryAccountIds[category.id] ?? [];
                           return (

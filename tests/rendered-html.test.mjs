@@ -38,7 +38,7 @@ test("server-renders the GENESIS application shell", async () => {
 });
 
 test("keeps the requested calendar and privacy features wired", async () => {
-  const [calendarData, calendar, calendarDatePicker, accountPanel, cloudSync, recurrenceBuilder, taskRecurrence, moonPhase, solarTimes, stoicheion, stoicheionData, welcome, styles, api, google, repository, multiAccountMigration] = await Promise.all([
+  const [calendarData, calendar, calendarDatePicker, accountPanel, cloudSync, recurrenceBuilder, taskRecurrence, moonPhase, solarTimes, stoicheion, stoicheionData, welcome, styles, api, google, repository, multiAccountMigration, i18n, languageMigration, englishManifest] = await Promise.all([
     readFile(new URL("../app/calendar-data.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/CalendarDatePicker.tsx", import.meta.url), "utf8"),
@@ -56,6 +56,9 @@ test("keeps the requested calendar and privacy features wired", async () => {
     readFile(new URL("../server/src/google.php", import.meta.url), "utf8"),
     readFile(new URL("../server/src/repository.php", import.meta.url), "utf8"),
     readFile(new URL("../server/migrations/006_calendar_multi_account.sql", import.meta.url), "utf8"),
+    readFile(new URL("../app/i18n.ts", import.meta.url), "utf8"),
+    readFile(new URL("../server/migrations/007_user_language.sql", import.meta.url), "utf8"),
+    readFile(new URL("../public/manifest.en.webmanifest", import.meta.url), "utf8"),
   ]);
 
   assert.match(calendarData, /getSolarEvents/);
@@ -71,6 +74,16 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(accountPanel, /calendar-mode-segment/);
   assert.match(accountPanel, /Несколько Google-аккаунтов/);
   assert.match(accountPanel, /По выбору при создании/);
+  assert.match(accountPanel, /language-preference/);
+  assert.match(accountPanel, /🇷🇺/);
+  assert.match(accountPanel, /🇺🇸/);
+  assert.match(welcome, /welcome-language-picker/);
+  assert.match(cloudSync, /language: Language/);
+  assert.match(repository, /'language' => \$language/);
+  assert.match(languageMigration, /ADD COLUMN language/);
+  assert.match(i18n, /useDocumentLanguage/);
+  assert.match(i18n, /MutationObserver/);
+  assert.match(englishManifest, /"lang": "en-US"/);
   assert.match(calendar, /task-description-viewer/);
   assert.match(calendar, /task-sync-account-picker/);
   assert.doesNotMatch(calendar, /renderTaskCalendarByMode/);
@@ -81,6 +94,9 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /calendar-weekday-full/);
   assert.match(calendar, /calendar-weekday-short/);
   assert.match(calendar, /isSaturday \? " saturday"/);
+  assert.match(styles, /\.year-grid \.mini-day\.today/);
+  assert.match(styles, /background: var\(--month-accent\)/);
+  assert.doesNotMatch(styles, /inset 0 0 0 999px rgba\(20, 31, 29/);
   assert.match(cloudSync, /connectAdditionalGoogleAccount/);
   assert.match(api, /purpose === 'link'/);
   assert.match(google, /genesisListAllGoogleTasks/);
@@ -286,7 +302,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(styles, /\.year-grid \.mini-day\.saturday\s*\{[\s\S]*rgba\(22, 37, 35, \.09\)/);
   assert.match(styles, /\.mini-day-task-dot\s*\{[\s\S]*width: 7px;[\s\S]*height: 7px;[\s\S]*background: var\(--terracotta\)/);
   assert.doesNotMatch(styles, /\.mini-day\.has-task\s*\{[\s\S]{0,160}background: var\(--terracotta\)/);
-  assert.match(styles, /\.year-grid \.mini-day\.today\s*\{[\s\S]*border-color: #8f3026;[\s\S]*rgba\(181, 65, 47, \.88\)/);
+  assert.match(styles, /\.year-grid \.mini-day\.today\s*\{[\s\S]*border-color: #8f3026;[\s\S]*rgba\(181, 65, 47, \.9\)/);
   assert.match(styles, /\.month-calendar \.calendar-day\.saturday \.calendar-weekday\s*\{[\s\S]*font-weight: 950/);
   assert.match(styles, /@media \(max-width: 760px\)[\s\S]*\.calendar-weekday-full\s*\{[\s\S]*display: none/);
   assert.match(styles, /@media \(max-width: 760px\)[\s\S]*\.calendar-weekday-short\s*\{[\s\S]*display: inline/);
@@ -376,6 +392,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   ));
   await access(new URL("../server/migrations/004_stoicheion_draws.sql", import.meta.url));
   await access(new URL("../server/migrations/005_stoicheion_divination_preference.sql", import.meta.url));
+  await access(new URL("../server/migrations/007_user_language.sql", import.meta.url));
 });
 
 test("ships the complete illustrated Stoicheion deck with exact Greek typography", async () => {
