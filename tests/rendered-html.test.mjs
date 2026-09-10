@@ -202,6 +202,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /renderTaskListCreateForm\("today"\)/);
   assert.doesNotMatch(calendar, /renderTaskListCreateForm\("projects"\)/);
   assert.match(calendar, /DeviceClock/);
+  assert.match(calendar, /<div className="hero-number" aria-hidden="true">[\s\S]*?<\/div>\s*<DeviceClock \/>/);
   assert.match(calendar, /Сегодня \{isNewMoonDay \? "новолуние" : "полнолуние"\}/);
   assert.match(calendar, /SOLAR_EVENT_COPY/);
   assert.match(calendar, /Академия Генезис/);
@@ -330,6 +331,9 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.doesNotMatch(styles, /\.mini-day\.has-task\s*\{[\s\S]{0,160}background: var\(--terracotta\)/);
   assert.match(styles, /\.year-grid \.mini-day\.today\s*\{[\s\S]*border-color: #8f3026;[\s\S]*rgba\(181, 65, 47, \.9\)/);
   assert.match(styles, /\.month-calendar \.calendar-day\.saturday \.calendar-weekday\s*\{[\s\S]*font-weight: 950/);
+  assert.match(styles, /\.month-calendar \.calendar-day\.today,[\s\S]*background: var\(--white\);[\s\S]*border-color: #a54133;[\s\S]*rgba\(165, 65, 51, \.88\)/);
+  assert.match(styles, /\.month-calendar \.calendar-day\.today \.calendar-weekday\s*\{[\s\S]*color: #102a27;[\s\S]*font-weight: 950/);
+  assert.match(styles, /@media \(min-width: 761px\)[\s\S]*\.hero-card > \.device-clock\s*\{[\s\S]*top: 124px;[\s\S]*right: 40px;/);
   assert.match(styles, /@media \(max-width: 760px\)[\s\S]*\.calendar-weekday-full\s*\{[\s\S]*display: none/);
   assert.match(styles, /@media \(max-width: 760px\)[\s\S]*\.calendar-weekday-short\s*\{[\s\S]*display: inline/);
   assert.doesNotMatch(styles, /\.calendar-day\.saturday\s*\{[\s\S]{0,180}#111817/);
