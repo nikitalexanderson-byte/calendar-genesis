@@ -11,7 +11,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import {
-  STOICHEION_LETTERS,
+  getStoicheionLetters,
   type StoicheionLetter,
 } from "./stoicheion-data";
 import { getStoicheionCardArt } from "./stoicheion-card-art";
@@ -254,7 +254,7 @@ function contentBlocks(content: string) {
 }
 
 function splitContentBlock(block: string) {
-  const headingPattern = /^(Космогонический профиль|Космологический профиль|Магическая настройка[^\n:]*|Числовая суть[^\n:]*|Парадное положение|Перевернутое положение|Практика[^\n:]*|Примечание к источнику|Буквенный и числовой профиль|Временная трактовка)/;
+  const headingPattern = /^(Космогонический профиль|Космологический профиль|Магическая настройка[^\n:]*|Числовая суть[^\n:]*|Парадное положение|Перевернутое положение|Практика[^\n:]*|Примечание к источнику|Буквенный и числовой профиль|Временная трактовка|Cosmogonic profile|Cosmological profile|Magical (?:tuning|attunement)[^\n:]*|Numerical (?:essence|profile)[^\n:]*|Upright position|Reversed position|Practice[^\n:]*|Body Practice[^\n:]*|Source note|Letter and numerical profile|Temporal interpretation)/i;
   const match = block.match(headingPattern);
   if (!match) return { heading: "", body: block };
 
@@ -395,6 +395,7 @@ type StoicheionViewProps = {
 
 export function StoicheionView({ divinationDisabled = false }: StoicheionViewProps) {
   const locale = runtimeLocale();
+  const letters = useMemo(() => getStoicheionLetters(locale === "en-US"), [locale]);
   const entropy = useRef(INITIAL_ENTROPY);
   const motionTracker = useRef<MotionTracker | null>(null);
   const motionField = useRef<HTMLButtonElement | null>(null);
@@ -455,12 +456,12 @@ export function StoicheionView({ divinationDisabled = false }: StoicheionViewPro
     return () => window.clearInterval(timer);
   }, [dailyDraw, spreadDraw]);
 
-  const dailyLetter = dailyDraw ? selectStoicheionCard(STOICHEION_LETTERS, dailyDraw.seed) : null;
+  const dailyLetter = dailyDraw ? selectStoicheionCard(letters, dailyDraw.seed) : null;
   const dailyReversed = dailyDraw ? isStoicheionCardReversed(dailyDraw.seed) : false;
   const spreadSeed = spreadDraw?.seed ?? null;
   const spreadCards = useMemo(
-    () => spreadSeed === null ? [] : buildStoicheionSpreadReading(STOICHEION_LETTERS, spreadSeed),
-    [spreadSeed],
+    () => spreadSeed === null ? [] : buildStoicheionSpreadReading(letters, spreadSeed),
+    [letters, spreadSeed],
   );
   const spreadLetters = spreadCards.map((card) => card.letter);
   const spreadVisible = spreadSeed !== null;
@@ -482,7 +483,7 @@ export function StoicheionView({ divinationDisabled = false }: StoicheionViewPro
 
   const persistDraw = async (kind: StoicheionDrawKind, seedValue: number, replaceCurrent: boolean) => {
     let seed = seedValue >>> 0;
-    if (kind === "daily" && replaceCurrent && selectStoicheionCard(STOICHEION_LETTERS, seed)?.id === dailyLetter?.id) {
+    if (kind === "daily" && replaceCurrent && selectStoicheionCard(letters, seed)?.id === dailyLetter?.id) {
       seed = (seed + 1) >>> 0;
     }
     if (kind === "spread" && replaceCurrent && seed === spreadDraw?.seed) {
@@ -615,7 +616,7 @@ export function StoicheionView({ divinationDisabled = false }: StoicheionViewPro
       style={{ "--stoicheion-x": `${pointer.x}%`, "--stoicheion-y": `${pointer.y}%` } as CSSProperties}
     >
       <div className="stoicheion-orbit" aria-hidden="true">
-        {STOICHEION_LETTERS.map((letter, index) => (
+        {letters.map((letter, index) => (
           <i key={letter.id} style={{ "--letter-index": index } as CSSProperties}>{letter.symbol}</i>
         ))}
       </div>
@@ -777,7 +778,7 @@ export function StoicheionView({ divinationDisabled = false }: StoicheionViewPro
             <p>Нажмите на любой знак, чтобы открыть метафизический профиль, прямое и перевёрнутое положения, практику и числовое значение.</p>
           </header>
           <div className="stoicheion-alphabet-grid">
-            {STOICHEION_LETTERS.map((letter) => (
+            {letters.map((letter) => (
               <button
                 type="button"
                 key={letter.id}
@@ -825,7 +826,7 @@ export function StoicheionView({ divinationDisabled = false }: StoicheionViewPro
           />
           <button type="button" className="stoicheion-motion-cancel" onClick={cancelMotion} aria-label="Отменить выбор">×</button>
           <div className="stoicheion-motion-stars" aria-hidden="true">
-            {STOICHEION_LETTERS.slice(0, 12).map((letter, index) => (
+            {letters.slice(0, 12).map((letter, index) => (
               <i key={letter.id} style={{ "--motion-index": index } as CSSProperties}>{letter.symbol}</i>
             ))}
           </div>
@@ -845,7 +846,7 @@ export function StoicheionView({ divinationDisabled = false }: StoicheionViewPro
 
       {selectedReading ? (
         <LetterDetails
-          letter={selectedReading.letter}
+          letter={letters.find((letter) => letter.id === selectedReading.letter.id) ?? selectedReading.letter}
           reversed={selectedReading.reversed}
           onClose={() => setSelectedReading(null)}
         />

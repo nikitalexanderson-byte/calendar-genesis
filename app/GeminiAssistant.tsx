@@ -57,6 +57,16 @@ function assistantError(error: unknown, language: Language) {
       ? "Too many requests. Please try again in a few minutes."
       : "Слишком много запросов. Повторите через несколько минут.";
   }
+  if (message === "GEMINI_REGION_UNAVAILABLE") {
+    return language === "en"
+      ? "Gemini does not accept requests from the current GENESIS server region. Configure a supported HTTPS Gemini endpoint on the server."
+      : "Gemini не принимает запросы из региона сервера GENESIS. Настройте на сервере поддерживаемый HTTPS-endpoint Gemini.";
+  }
+  if (message === "GEMINI_KEY_INVALID") {
+    return language === "en"
+      ? "The Gemini API key is invalid or does not have access to the selected model."
+      : "Ключ Gemini недействителен или не имеет доступа к выбранной модели.";
+  }
   return message || (language === "en" ? "Gemini could not prepare the plan." : "Gemini не смог подготовить план.");
 }
 

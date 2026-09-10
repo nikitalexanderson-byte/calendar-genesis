@@ -82,6 +82,9 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(accountPanel, /🇷🇺/);
   assert.match(accountPanel, /🇺🇸/);
   assert.match(welcome, /welcome-language-picker/);
+  assert.match(welcome, /Task and project/);
+  assert.match(welcome, /How GENESIS uses Google Calendar and Google Tasks/);
+  assert.match(welcome, /Secure Google sign-in/);
   assert.match(cloudSync, /language: Language/);
   assert.match(repository, /'language' => \$language/);
   assert.match(languageMigration, /ADD COLUMN language/);
@@ -103,6 +106,11 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(api, /microphone=\(self\)/);
   assert.match(publicHtaccess, /microphone=\(self\)/);
   assert.match(geminiServer, /generativelanguage\.googleapis\.com\/v1beta\/interactions/);
+  assert.match(geminiServer, /GENESIS_GEMINI_DEFAULT_ENDPOINT/);
+  assert.match(geminiServer, /genesisGeminiEndpoint/);
+  assert.match(geminiServer, /GEMINI_REGION_UNAVAILABLE/);
+  assert.match(geminiServer, /GEMINI_KEY_INVALID/);
+  assert.match(geminiAssistant, /GEMINI_REGION_UNAVAILABLE/);
   assert.match(geminiServer, /'store' => false/);
   assert.match(geminiServer, /'mime_type' => 'application\/json'/);
   assert.match(geminiServer, /GENESIS_GEMINI_MAX_AUDIO_BYTES = 4 \* 1024 \* 1024/);
@@ -110,6 +118,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(geminiServer, /x-goog-api-key/);
   assert.doesNotMatch(calendar + cloudSync + geminiAssistant, /gemini_api_key|GEMINI_API_KEY/);
   assert.match(serverConfigExample, /'gemini_api_key' => ''/);
+  assert.match(serverConfigExample, /'gemini_api_endpoint'/);
   assert.match(calendar, /task-description-viewer/);
   assert.match(calendar, /task-sync-account-picker/);
   assert.doesNotMatch(calendar, /renderTaskCalendarByMode/);
@@ -423,6 +432,37 @@ test("keeps the requested calendar and privacy features wired", async () => {
   await access(new URL("../server/migrations/004_stoicheion_draws.sql", import.meta.url));
   await access(new URL("../server/migrations/005_stoicheion_divination_preference.sql", import.meta.url));
   await access(new URL("../server/migrations/007_user_language.sql", import.meta.url));
+});
+
+test("ships complete English sacred-day and Stoicheion datasets", async () => {
+  const [dayTranslationsRaw, stoicheionTranslationsRaw, calendarData, calendarDatePicker, stoicheionData, stoicheionView] = await Promise.all([
+    readFile(new URL("../app/calendar-days.en.json", import.meta.url), "utf8"),
+    readFile(new URL("../app/stoicheion.en.json", import.meta.url), "utf8"),
+    readFile(new URL("../app/calendar-data.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/CalendarDatePicker.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/stoicheion-data.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/StoicheionView.tsx", import.meta.url), "utf8"),
+  ]);
+  const dayTranslations = JSON.parse(dayTranslationsRaw);
+  const stoicheionTranslations = JSON.parse(stoicheionTranslationsRaw);
+  const greekNames = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta", "Theta", "Iota", "Kappa", "Lambda", "Mu", "Nu", "Xi", "Omicron", "Pi", "Rho", "Sigma", "Tau", "Upsilon", "Phi", "Chi", "Psi", "Omega"];
+
+  assert.equal(dayTranslations.length, 366);
+  assert.equal(dayTranslations[150].name, "Karpos Khtonios (Karpos Earthly)");
+  assert.ok(dayTranslations.every((day) => day.name && day.description));
+  assert.doesNotMatch(dayTranslationsRaw, /[А-Яа-яЁё]/);
+  assert.deepEqual(Object.values(stoicheionTranslations).map((letter) => letter.name), greekNames);
+  assert.doesNotMatch(stoicheionTranslationsRaw, /[А-Яа-яЁё]/);
+  assert.match(stoicheionTranslations.alpha.content, /AKRAMMAKHAMARI/);
+  assert.match(stoicheionTranslations.gamma.content, /GENIOMOUTIG/);
+  assert.match(stoicheionTranslations.chi.content, /KHENNEOFEOCH/);
+  assert.match(stoicheionTranslations.psi.content, /ΨΥΧΟΜΠΟΙΑΨ/);
+  assert.match(stoicheionTranslations.omega.content, /ΩΡΙΩΝ/);
+  assert.match(calendarData, /calendar-days\.en\.json/);
+  assert.match(calendarDatePicker, /getSacredDay\(sacredMonth, day\.day\)/);
+  assert.match(stoicheionData, /getStoicheionLetters/);
+  assert.match(stoicheionView, /getStoicheionLetters\(locale === "en-US"\)/);
+  assert.match(stoicheionView, /Upright position/);
 });
 
 test("ships the complete illustrated Stoicheion deck with exact Greek typography", async () => {

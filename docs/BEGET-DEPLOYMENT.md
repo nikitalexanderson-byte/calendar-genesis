@@ -37,9 +37,12 @@ Google OAuth для веб-приложений требует точного HT
 ```php
 'gemini_api_key' => '...', // auth key из Google AI Studio, ограниченный Gemini API
 'gemini_model' => 'gemini-3.8-flash',
+'gemini_api_endpoint' => 'https://generativelanguage.googleapis.com/v1beta/interactions',
 ```
 
 Ключ Gemini нельзя добавлять в Git или клиентские переменные Vite. Пока ключ отсутствует, production API сообщает, что помощник недоступен, и клиент не показывает его кнопку. Голосовая запись ограничена одной минутой и 4 МБ, передаётся через авторизованный same-origin API только после явного действия пользователя и не сохраняется GENESIS. Любые созданные Gemini действия сначала отображаются как черновик и требуют отдельного подтверждения.
+
+Gemini Developer API проверяет регион исходящего серверного запроса. Если Beget получает ответ `GEMINI_REGION_UNAVAILABLE`, одного API-ключа недостаточно: `gemini_api_endpoint` нужно направить на принадлежащий владельцу HTTPS-relay в поддерживаемом Google регионе с тем же контрактом Interactions API. Ключ остаётся только в `server/config.php` и передаётся relay по HTTPS; публичный клиент его не получает.
 
 Разрешённый redirect URI:
 

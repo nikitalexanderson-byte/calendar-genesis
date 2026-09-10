@@ -1,4 +1,5 @@
 import source from "../references/days.txt?raw";
+import englishDays from "./calendar-days.en.json";
 import { runtimeLocale, translateText } from "./i18n";
 
 export type SacredDay = {
@@ -180,6 +181,8 @@ function parseCalendar(text: string): SacredMonth[] {
 
 export const MONTHS = parseCalendar(source);
 
+const ENGLISH_DAYS = englishDays as readonly Pick<SacredDay, "name" | "description">[];
+
 export const DAY_MS = 86_400_000;
 export const MOON_CYCLE = 29.53058867;
 export const MOON_EPOCH = Date.UTC(2024, 0, 11, 11, 57);
@@ -342,7 +345,11 @@ export function calendarDateNote(date: Date, mode: CalendarMode) {
 }
 
 export function getSacredDay(monthIndex: number, day: number) {
-  return MONTHS[monthIndex]?.days[day - 1] ?? MONTHS[12].days[0];
+  const sacredDay = MONTHS[monthIndex]?.days[day - 1] ?? MONTHS[12].days[0];
+  if (runtimeLocale() !== "en-US") return sacredDay;
+  const index = monthIndex < 12 ? (monthIndex * 30) + day - 1 : 360 + day - 1;
+  const englishDay = ENGLISH_DAYS[index];
+  return englishDay ? { ...sacredDay, ...englishDay } : sacredDay;
 }
 
 export function getDayElement(monthIndex: number, day: number) {
