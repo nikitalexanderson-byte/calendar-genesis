@@ -184,6 +184,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /projectDragProps/);
   assert.match(calendar, /beginProjectTouchDrag/);
   assert.match(calendar, /className="inbox-list-item project-draggable-item"[\s\S]*projectDragProps\(item\)/);
+  assert.match(calendar, /className="inbox-task-delete"/);
+  assert.match(calendar, /className="inbox-task-delete"[\s\S]*deleteTask\(task\.id\)[\s\S]*Удалить задачу/);
   assert.match(calendar, /className=\{`project-assigned-task project-draggable-item/);
   assert.match(calendar, /project-assigned-items/);
   assert.doesNotMatch(calendar, /matchingTaggedTasks/);
@@ -333,6 +335,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(styles, /\.inbox-card\.drop-target/);
   assert.match(styles, /\.project-drag-preview/);
   assert.match(styles, /\.project-draggable-item\s*\{[\s\S]*touch-action: none/);
+  assert.match(styles, /\.inbox-card-items > article\.inbox-task-item/);
+  assert.match(styles, /\.inbox-card-items \.inbox-task-delete/);
   assert.match(styles, /\.day-details-modal/);
   assert.match(styles, /\.today-create-options:has\(> details\[open\]\)/);
   assert.match(styles, /\.task-form-section/);
