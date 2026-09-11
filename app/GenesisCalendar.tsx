@@ -2947,7 +2947,7 @@ export function GenesisCalendar() {
                   {inboxTasks.map((task) => {
                     const item: ProjectDragItem = { kind: "task", id: task.id, title: task.title };
                     return (
-                      <article className={`project-draggable-item${task.done ? " done" : ""}`} key={task.id} aria-label={`Перетащить задачу «${task.title}»`} {...projectDragProps(item)}>
+                      <article className={`inbox-task-item project-draggable-item${task.done ? " done" : ""}`} key={task.id} aria-label={`Перетащить задачу «${task.title}»`} {...projectDragProps(item)}>
                         <span className="project-drag-handle" aria-hidden="true">⋮⋮</span>
                         <button type="button" onClick={() => {
                           if (!suppressProjectItemClickRef.current) openTaskEditor(task);
@@ -2955,6 +2955,17 @@ export function GenesisCalendar() {
                           <strong data-no-translate>{task.title}</strong>
                           <small>{taskRangeLabel(task, activeCalendarMode)}</small>
                         </button>
+                        <button
+                          type="button"
+                          className="inbox-task-delete"
+                          onPointerDown={(event) => event.stopPropagation()}
+                          onTouchStart={(event) => event.stopPropagation()}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            deleteTask(task.id);
+                          }}
+                          aria-label={`Удалить задачу «${task.title}»`}
+                        >×</button>
                       </article>
                     );
                   })}
