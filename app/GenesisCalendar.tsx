@@ -545,6 +545,7 @@ export function GenesisCalendar() {
   const [selectedDay, setSelectedDay] = useState(initial.day);
   const [dayDetailsOpen, setDayDetailsOpen] = useState(false);
   const [dayDetailsOrigin, setDayDetailsOrigin] = useState<DayDetailsOrigin>("calendar");
+  const [openDayTaskPopover, setOpenDayTaskPopover] = useState("");
   const [deviceLocation, setDeviceLocation] = useState<DeviceLocation | null>(null);
   const [solarLocationSource, setSolarLocationSource] = useState<AutomaticSolarLocation["source"] | null>(null);
   const [solarLocationStatus, setSolarLocationStatus] = useState<SolarLocationStatus>("loading");
@@ -732,6 +733,7 @@ export function GenesisCalendar() {
   const resolvedTaskProjectTitle = (task: Task) => resolvedTaskProject(task)?.title ?? task.project;
 
   const navigateTo = (nextView: ViewName, replace = false) => {
+    setOpenDayTaskPopover("");
     setAccountMenuOpen(false);
     setView(nextView);
     const nextUrl = new URL(window.location.href);
@@ -801,6 +803,24 @@ export function GenesisCalendar() {
       window.removeEventListener("keydown", closeWithEscape);
     };
   }, [dayDetailsOpen]);
+
+  useEffect(() => {
+    if (!openDayTaskPopover) return;
+    const closeOutside = (event: PointerEvent) => {
+      if (!(event.target instanceof Element) || !event.target.closest(".calendar-day-task-control")) {
+        setOpenDayTaskPopover("");
+      }
+    };
+    const closeWithEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpenDayTaskPopover("");
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    window.addEventListener("keydown", closeWithEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOutside);
+      window.removeEventListener("keydown", closeWithEscape);
+    };
+  }, [openDayTaskPopover]);
 
   useEffect(() => {
     const initialState = isGoogleSyncConfigured
@@ -2688,14 +2708,15 @@ export function GenesisCalendar() {
                   <small>{monthIndex === 12 ? "Чистый эфир" : PYATA_MEANINGS[rowIndex]}</small>
                 </div>
                 <div className="pyata-days">
-                  {row.map((dayNumber) => {
+                  {row.map((dayNumber, dayColumn) => {
                     const gregorian = getGregorianDate(sacredYear, monthIndex, dayNumber);
                     const moon = getMoon(gregorian);
                     const sacredDay = getSacredDay(monthIndex, dayNumber);
                     const key = taskDateKey(sacredYear, monthIndex, dayNumber);
-                    const taskCount = tasks.filter(
-                      (task) => taskDateKey(task.sacredYear, task.monthIndex, task.day) === key,
-                    ).length;
+                    const cellTasks = tasks
+                      .filter((task) => taskDateKey(task.sacredYear, task.monthIndex, task.day) === key)
+                      .sort((a, b) => a.time.localeCompare(b.time));
+                    const taskCount = cellTasks.length;
                     const isToday = key === todayKey;
                     const isSelected = dayNumber === selectedDay;
                     const isSaturday = gregorian.getDay() === 6;
@@ -2707,15 +2728,18 @@ export function GenesisCalendar() {
                     const solarTimePlaceholder = solarLocationStatus === "ready" ? "нет" : "…";
                     const sunrise = sunriseSunset ? formatDeviceSolarTime(sunriseSunset.sunrise, deviceTimeZone) : solarTimePlaceholder;
                     const sunset = sunriseSunset ? formatDeviceSolarTime(sunriseSunset.sunset, deviceTimeZone) : solarTimePlaceholder;
+                    const popoverOpen = openDayTaskPopover === key;
+                    const popoverAlignment = dayColumn < 2 ? "align-left" : dayColumn > 2 ? "align-right" : "align-center";
                     return (
                       <article
                         key={dayNumber}
-                        className={`calendar-day${isSelected ? " selected" : ""}${isToday ? " today" : ""}${isSaturday ? " saturday" : ""}${solarEvent ? " solar-day" : ""}${taskCount ? " has-tasks" : ""}`}
+                        className={`calendar-day${isSelected ? " selected" : ""}${isToday ? " today" : ""}${isSaturday ? " saturday" : ""}${solarEvent ? " solar-day" : ""}${taskCount ? " has-tasks" : ""}${popoverOpen ? " popover-open" : ""}`}
                       >
                         <button
                           type="button"
                           className="calendar-day-open"
                           onClick={() => {
+                            setOpenDayTaskPopover("");
                             setSelectedDay(dayNumber);
                             setDayDetailsOrigin("calendar");
                             setDayDetailsOpen(true);
@@ -2747,19 +2771,66 @@ export function GenesisCalendar() {
                         </span>
                         <small>{sacredDay.name.split("(")[0].trim()}</small>
                         {taskCount ? (
-                          <button
-                            type="button"
-                            className="calendar-day-task-count"
-                            onClick={() => {
-                              setSelectedDay(dayNumber);
-                              setDayDetailsOrigin("calendar");
-                              setDayDetailsOpen(true);
+                          <div
+                            className="calendar-day-task-control"
+                            onPointerEnter={(event) => {
+                              if (event.pointerType === "mouse") setOpenDayTaskPopover(key);
                             }}
-                            aria-label={`Открыть день и показать задачи: ${taskCount}`}
-                            aria-haspopup="dialog"
+                            onPointerLeave={(event) => {
+                              if (event.pointerType === "mouse") {
+                                setOpenDayTaskPopover((current) => current === key ? "" : current);
+                              }
+                            }}
+                            onFocus={() => setOpenDayTaskPopover(key)}
+                            onBlur={(event) => {
+                              const nextTarget = event.relatedTarget;
+                              if (!(nextTarget instanceof Node) || !event.currentTarget.contains(nextTarget)) {
+                                setOpenDayTaskPopover((current) => current === key ? "" : current);
+                              }
+                            }}
                           >
-                            {taskCount}
-                          </button>
+                            <button
+                              type="button"
+                              className="calendar-day-task-count"
+                              onClick={() => {
+                                setSelectedDay(dayNumber);
+                                setOpenDayTaskPopover(key);
+                              }}
+                              aria-label={`Показать задачи на ${formatGregorian(gregorian, true)}: ${taskCount}`}
+                              aria-expanded={popoverOpen}
+                              aria-controls={`calendar-task-popover-${monthIndex}-${dayNumber}`}
+                              aria-haspopup="dialog"
+                            >
+                              {taskCount}
+                            </button>
+                            {popoverOpen ? (
+                              <div
+                                className={`calendar-task-popover ${popoverAlignment}`}
+                                id={`calendar-task-popover-${monthIndex}-${dayNumber}`}
+                                role="dialog"
+                                aria-label={`Задачи на ${formatGregorian(gregorian, true)}`}
+                              >
+                                <header>
+                                  <strong>Задачи · {taskCount}</strong>
+                                  <button type="button" onClick={() => setOpenDayTaskPopover("")} aria-label="Закрыть список задач">×</button>
+                                </header>
+                                <ul>
+                                  {cellTasks.slice(0, 6).map((task) => (
+                                    <li className={task.done ? "done" : ""} key={task.id}>
+                                      <button type="button" onClick={() => {
+                                        setOpenDayTaskPopover("");
+                                        openTaskEditor(task);
+                                      }}>
+                                        <time>{task.time || "Весь день"}</time>
+                                        <span data-no-translate>{task.title}</span>
+                                      </button>
+                                    </li>
+                                  ))}
+                                </ul>
+                                {taskCount > 6 ? <small>Ещё {taskCount - 6}</small> : null}
+                              </div>
+                            ) : null}
+                          </div>
                         ) : null}
                       </article>
                     );
@@ -3282,7 +3353,7 @@ export function GenesisCalendar() {
                             title={`${sacredDay.name} · открыть день`}
                           >
                             <span className="mini-day-number">{(["I", "II", "III", "IIII", "V"] as const)[(dayNumber - 1) % 5]}</span>
-                            {taskCount ? <span className="mini-day-task-dot" aria-hidden="true" /> : null}
+                            {taskCount ? <span className="mini-day-task-count" aria-hidden="true">{taskCount}</span> : null}
                           </button>
                         );
                       })}
