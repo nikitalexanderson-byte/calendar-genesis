@@ -159,7 +159,10 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /Стойхейон/);
   assert.match(calendar, /calendar-day-task-count/);
   assert.doesNotMatch(calendar, /calendar-day-task-preview/);
-  assert.doesNotMatch(calendar, /calendar-task-popover/);
+  assert.match(calendar, /calendar-day-task-control/);
+  assert.match(calendar, /calendar-task-popover/);
+  assert.match(calendar, /event\.pointerType === "mouse"/);
+  assert.match(calendar, /aria-expanded=\{popoverOpen\}/);
   assert.match(calendar, /selectedDayTasks/);
   assert.match(calendar, /day-details-tasks/);
   assert.match(calendar, /day-details-celestial/);
@@ -231,8 +234,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /day-details-modal/);
   assert.match(calendar, /onPointerDown=\{\(event\) => \{ if \(event\.target === event\.currentTarget\) setDayDetailsOpen\(false\)/);
   assert.match(calendar, /window\.history\.pushState/);
-  assert.match(calendar, /mini-day-task-dot/);
-  assert.doesNotMatch(calendar, /mini-day-task-count/);
+  assert.match(calendar, /mini-day-task-count/);
+  assert.doesNotMatch(calendar, /mini-day-task-dot/);
   assert.match(calendar, /const isYearSaturday = getGregorianDate\([\s\S]*\.getDay\(\) === 6/);
   assert.match(calendar, /isYearSaturday \? " saturday"/);
   assert.match(styles, /Hierarchy uses four clear contrast levels/);
@@ -338,10 +341,11 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.doesNotMatch(styles, /\.recurrence-mode-toggle/);
   assert.match(styles, /\.month-calendar \.calendar-day\.saturday/);
   assert.match(styles, /\.year-grid \.mini-day\.saturday\s*\{[\s\S]*rgba\(22, 37, 35, \.09\)/);
-  assert.match(styles, /\.mini-day-task-dot\s*\{[\s\S]*width: 7px;[\s\S]*height: 7px;[\s\S]*background: var\(--terracotta\)/);
+  assert.match(styles, /\.mini-day-task-count\s*\{[\s\S]*width: 16px;[\s\S]*height: 16px;[\s\S]*background: var\(--terracotta\)/);
   assert.doesNotMatch(styles, /\.mini-day\.has-task\s*\{[\s\S]{0,160}background: var\(--terracotta\)/);
   assert.match(styles, /\.year-grid \.mini-day\.today\s*\{[\s\S]*border-color: #8f3026;[\s\S]*rgba\(181, 65, 47, \.9\)/);
   assert.match(styles, /\.month-calendar \.calendar-day\.saturday \.calendar-weekday\s*\{[\s\S]*font-weight: 950/);
+  assert.match(styles, /\.month-calendar \.calendar-day\.selected \.calendar-weekday\s*\{[\s\S]*color: #fffaf0;[\s\S]*font-weight: 950/);
   assert.match(styles, /\.month-calendar \.calendar-day\.today,[\s\S]*background: var\(--white\);[\s\S]*border-color: #a54133;[\s\S]*rgba\(165, 65, 51, \.88\)/);
   assert.match(styles, /\.month-calendar \.calendar-day\.today \.calendar-weekday\s*\{[\s\S]*color: #102a27;[\s\S]*font-weight: 950/);
   assert.match(styles, /@media \(min-width: 761px\)[\s\S]*\.hero-card > \.device-clock\s*\{[\s\S]*top: 124px;[\s\S]*right: 40px;/);
