@@ -75,6 +75,9 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendarDatePicker, /Сакральный календарь/);
   assert.match(calendarDatePicker, /Лунный календарь/);
   assert.match(calendarDatePicker, /Пята \{day\.pyata/);
+  assert.match(calendarDatePicker, /formatCompactGregorian\(date\)/);
+  assert.match(calendarDatePicker, /<time dateTime=\{dateValue\}>/);
+  assert.match(styles, /\.sacred-picker-days button > time/);
   assert.match(accountPanel, /calendar-mode-segment/);
   assert.match(accountPanel, /Несколько Google-аккаунтов/);
   assert.match(accountPanel, /По выбору при создании/);
