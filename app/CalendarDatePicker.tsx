@@ -41,6 +41,20 @@ function allowed(value: string, min?: string, max?: string) {
   return (!min || value >= min) && (!max || value <= max);
 }
 
+function formatCompactGregorian(date: Date) {
+  const locale = runtimeLocale();
+  const dateLabel = new Intl.DateTimeFormat(locale, {
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+  }).format(date);
+  const weekdayLabel = new Intl.DateTimeFormat(locale, { weekday: "short" })
+    .format(date)
+    .replace(/\.$/u, "");
+  const capitalizedWeekday = weekdayLabel.charAt(0).toLocaleUpperCase(locale) + weekdayLabel.slice(1);
+  return `${dateLabel} ${capitalizedWeekday}`;
+}
+
 export function CalendarDatePicker({ id, value, mode, min, max, required, ariaLabel, onChange }: CalendarDatePickerProps) {
   const [open, setOpen] = useState(false);
   const selectedDate = useMemo(() => parseDate(value), [value]);
@@ -109,6 +123,7 @@ export function CalendarDatePicker({ id, value, mode, min, max, required, ariaLa
                     return (
                       <button type="button" disabled={!allowed(dateValue, min, max)} className={dateValue === value ? "selected" : ""} onClick={() => choose(date)} key={day.id}>
                         <small>Пята {day.pyata || "Ω"}</small><strong>{day.day}</strong><span>{day.name.split("(")[0].trim()}</span>
+                        <time dateTime={dateValue}>{formatCompactGregorian(date)}</time>
                       </button>
                     );
                   })}

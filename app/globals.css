@@ -3737,6 +3737,7 @@ button:disabled {
 .sacred-picker-days button > small { grid-column: 1 / 3; color: #896128; font-size: 7px; font-weight: 800; text-transform: uppercase; }
 .sacred-picker-days button > strong { font: 400 22px/1 Georgia, serif; }
 .sacred-picker-days button > span { align-self: center; overflow: hidden; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.sacred-picker-days button > time { grid-column: 1 / 3; color: var(--ink-soft); font-size: 8px; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
 .sacred-picker-days button.selected, .lunar-picker-days button.selected { border-color: var(--gold); outline: 2px solid rgba(178,138,74,.2); }
 .sacred-picker-days button:disabled, .lunar-picker-days button:disabled { opacity: .32; cursor: not-allowed; }
 .calendar-picker-note { color: var(--ink-soft); font-size: 10px; }
