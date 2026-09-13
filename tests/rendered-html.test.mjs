@@ -39,42 +39,52 @@ test("server-renders the GENESIS application shell", async () => {
 });
 
 test("ships a compact verified Android test application only to Android phones", async () => {
-  const [installHook, calendar, welcome, styles, androidBuild, androidManifest, assetLinks, htaccess, serviceWorker] = await Promise.all([
+  const [installHook, calendar, welcome, styles, androidBuild, androidManifest, androidLauncher, androidBaseStyles, androidApi27Styles, assetLinks, htaccess, serviceWorker] = await Promise.all([
     readFile(new URL("../app/use-pwa-install.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/WelcomeScreen.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../android/app/build.gradle.kts", import.meta.url), "utf8"),
     readFile(new URL("../android/app/src/main/AndroidManifest.xml", import.meta.url), "utf8"),
+    readFile(new URL("../android/app/src/main/java/ru/genesis/calendar/ResilientLauncherActivity.java", import.meta.url), "utf8"),
+    readFile(new URL("../android/app/src/main/res/values/styles.xml", import.meta.url), "utf8"),
+    readFile(new URL("../android/app/src/main/res/values-v27/styles.xml", import.meta.url), "utf8"),
     readFile(new URL("../public/.well-known/assetlinks.json", import.meta.url), "utf8"),
     readFile(new URL("../public/.htaccess", import.meta.url), "utf8"),
     readFile(new URL("../public/sw.js", import.meta.url), "utf8"),
   ]);
   const association = JSON.parse(assetLinks)[0];
-  const apk = await stat(new URL("../public/downloads/GENESIS-Android-1.2.0.apk", import.meta.url));
+  const apk = await stat(new URL("../public/downloads/GENESIS-Android-1.2.1.apk", import.meta.url));
 
   assert.match(installHook, /\/android\/i/);
   assert.match(installHook, /\/mobile\/i/);
   assert.match(installHook, /window\.location\.hostname[\s\S]*device[\s\S]*android-phone/);
   assert.match(installHook, /isAndroidPhone && !isStandalone/);
-  assert.match(installHook, /downloads\/GENESIS-Android-1\.2\.0\.apk/);
+  assert.match(installHook, /downloads\/GENESIS-Android-1\.2\.1\.apk/);
   assert.match(calendar, /androidApkUrl=\{androidApkUrl\}/);
   assert.match(calendar, /Скачать приложение для телефона/);
   assert.match(welcome, /android-download-button/);
   assert.match(welcome, /Скачать приложение для телефона/);
   assert.match(styles, /\.android-download-button/);
-  assert.match(androidBuild, /versionCode = 3/);
-  assert.match(androidBuild, /versionName = "1\.2\.0"/);
+  assert.match(androidBuild, /versionCode = 4/);
+  assert.match(androidBuild, /versionName = "1\.2\.1"/);
   assert.match(androidBuild, /isMinifyEnabled = true/);
   assert.match(androidBuild, /signingConfigs\.getByName\("debug"\)/);
   assert.match(androidManifest, /android\.permission\.INTERNET/);
-  assert.match(androidManifest, /trusted\.LauncherActivity/);
+  assert.match(androidManifest, /\.ResilientLauncherActivity/);
+  assert.match(androidManifest, /android:value="webview"/);
+  assert.match(androidManifest, /trusted\.WebViewFallbackActivity/);
+  assert.match(androidLauncher, /extends LauncherActivity/);
+  assert.match(androidLauncher, /WebViewFallbackActivity\.createLaunchIntent/);
+  assert.match(androidLauncher, /catch \(RuntimeException launchError\)/);
+  assert.doesNotMatch(androidBaseStyles, /windowLightNavigationBar/);
+  assert.match(androidApi27Styles, /windowLightNavigationBar/);
   assert.deepEqual(association.relation, ["delegate_permission/common.handle_all_urls"]);
   assert.equal(association.target.package_name, "ru.genesis.calendar");
   assert.match(association.target.sha256_cert_fingerprints[0], /^(?:[0-9A-F]{2}:){31}[0-9A-F]{2}$/);
   assert.match(htaccess, /application\/vnd\.android\.package-archive/);
   assert.match(htaccess, /ForceType application\/vnd\.android\.package-archive/);
-  assert.match(htaccess, /Content-Disposition "attachment; filename=GENESIS-Android-1\.2\.0\.apk"/);
+  assert.match(htaccess, /Content-Disposition "attachment; filename=GENESIS-Android-1\.2\.1\.apk"/);
   assert.match(htaccess, /Cache-Control "public, max-age=300, must-revalidate"/);
   assert.match(serviceWorker, /url\.pathname\.includes\("\/downloads\/"\)/);
   assert.ok(apk.size > 100_000, "APK should contain the complete Android application");
@@ -115,6 +125,20 @@ test("turns Russian and English voice commands into local task plans", () => {
   const several = createLocalVoicePlan("купить молоко сегодня; забрать посылку послезавтра в 20:00", context);
   assert.equal(several.tasks.length, 2);
   assert.equal(several.tasks[1].startDate, "2026-09-13");
+
+  const naturalProjectPlacement = createLocalVoicePlan(
+    "задачу сверить смету завтра разместить в проекте Работа",
+    context,
+  );
+  assert.equal(naturalProjectPlacement.tasks[0].title, "сверить смету");
+  assert.equal(naturalProjectPlacement.tasks[0].project, "Работа");
+
+  const projectFirst = createLocalVoicePlan(
+    "для проекта под названием Работа добавь задачу подготовить презентацию 15 сентября",
+    context,
+  );
+  assert.equal(projectFirst.tasks[0].title, "подготовить презентацию");
+  assert.equal(projectFirst.tasks[0].project, "Работа");
 });
 
 test("keeps the requested calendar and privacy features wired", async () => {
@@ -180,10 +204,27 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /LocalVoiceAssistant/);
   assert.match(calendar, /applyAssistantPlan/);
   assert.match(calendar, /voice-open-button/);
+  assert.match(calendar, /voice-microphone-icon/);
+  assert.match(calendar, /voice-microphone-capsule/);
+  assert.match(calendar, /voice-microphone-capture/);
+  assert.match(calendar, /voiceLaunchAnimating/);
+  assert.doesNotMatch(calendar, /<span aria-hidden="true">●<\/span>/);
+  assert.match(styles, /@keyframes voiceButtonBreathe/);
+  assert.match(styles, /@keyframes voiceSignalPulse/);
+  assert.match(styles, /@keyframes voiceMicHover/);
+  assert.match(styles, /@keyframes voiceButtonActivate/);
+  assert.match(styles, /\.voice-open-button\.is-activating/);
+  assert.match(styles, /prefers-reduced-motion: reduce[\s\S]*\.voice-microphone-icon/);
   assert.match(calendar, /gemini-open-button/);
   assert.match(localVoiceAssistant, /SpeechRecognition/);
   assert.match(localVoiceAssistant, /processLocally/);
   assert.match(localVoiceAssistant, /GENESIS не отправляет и не хранит аудиозапись/);
+  assert.match(localVoiceAssistant, /requestGeminiPlan/);
+  assert.match(localVoiceAssistant, /neuralAvailable/);
+  assert.match(localVoiceAssistant, /План подготовлен локально на устройстве/);
+  assert.match(localVoiceAssistant, /нейросеть Gemini/);
+  assert.match(localVoiceAssistant, /voice-microphone-icon/);
+  assert.doesNotMatch(localVoiceAssistant, /className="gemini-mark voice-mark" aria-hidden="true">●/);
   assert.match(localVoicePlan, /createLocalVoicePlan/);
   assert.match(geminiAssistant, /navigator\.mediaDevices\.getUserMedia/);
   assert.match(geminiAssistant, /MAX_RECORDING_MS = 60_000/);
@@ -207,6 +248,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(geminiServer, /'mime_type' => 'application\/json'/);
   assert.match(geminiServer, /GENESIS_GEMINI_MAX_AUDIO_BYTES = 4 \* 1024 \* 1024/);
   assert.match(geminiServer, /genesisGeminiRateLimit/);
+  assert.match(geminiServer, /noisy automatic speech transcript/);
+  assert.match(geminiServer, /set that task's project field/);
   assert.match(geminiServer, /x-goog-api-key/);
   assert.doesNotMatch(calendar + cloudSync + geminiAssistant, /gemini_api_key|GEMINI_API_KEY/);
   assert.match(geminiServer, /genesisGeminiEnabled\(\) && genesisGeminiApiKey\(\) !== ''/);
@@ -653,6 +696,8 @@ test("keeps Google OAuth consent, account binding, and token handling hardened",
   assert.match(legal, /Google Tasks/);
   assert.match(legal, /Limited Use/);
   assert.match(legal, /developers\.google\.com\/terms\/api-services-user-data-policy/);
+  assert.match(legal, /Голосовые команды и Gemini/);
+  assert.match(legal, /Для бесплатного тарифа Google указывает/);
   assert.match(viteConfig, /sourcemap: false/);
   assert.match(htaccess, /connect-src 'self' https:\/\/get\.geojs\.io https:\/\/geocoding-api\.open-meteo\.com/);
   assert.match(legal, /GeoJS/);

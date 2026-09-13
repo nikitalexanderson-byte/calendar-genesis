@@ -429,32 +429,185 @@ button:disabled {
 }
 
 .voice-open-button {
-  color: #fff8e7;
-  background: linear-gradient(145deg, #2d6c68, #4d8b78);
-}
-
-.voice-open-button span {
   position: relative;
-  width: 13px;
-  height: 18px;
-  background: #fff8e7;
-  border: 2px solid #fff8e7;
-  border-radius: 8px;
+  isolation: isolate;
+  overflow: visible;
+  color: #f8df9f;
+  background:
+    radial-gradient(circle at 35% 24%, rgba(255, 255, 255, .2), transparent 31%),
+    linear-gradient(145deg, #143b3a 5%, #28736b 58%, #b18143 135%);
+  border-color: rgba(225, 194, 124, .74);
+  box-shadow:
+    0 8px 22px rgba(20, 63, 60, .28),
+    inset 0 1px 0 rgba(255, 255, 255, .25),
+    inset 0 -4px 10px rgba(3, 23, 25, .2);
+  animation: voiceButtonBreathe 3.6s ease-in-out infinite;
 }
 
-.voice-open-button span::after {
+.voice-open-button::before,
+.voice-open-button::after {
   position: absolute;
-  right: -5px;
-  bottom: -6px;
-  left: -5px;
-  height: 8px;
-  border: 2px solid #fff8e7;
-  border-top: 0;
-  border-radius: 0 0 10px 10px;
+  pointer-events: none;
   content: "";
+  border-radius: 50%;
 }
 
-.voice-mark { background: linear-gradient(145deg, #2d6c68, #4d8b78); }
+.voice-open-button::before {
+  z-index: -1;
+  inset: -5px;
+  border: 1px solid rgba(209, 176, 101, .4);
+  animation: voiceSignalPulse 2.8s ease-out infinite;
+}
+
+.voice-open-button::after {
+  z-index: 0;
+  inset: 3px;
+  background: conic-gradient(from 90deg, transparent 0 46%, rgba(255, 226, 158, .82) 52%, transparent 59% 100%);
+  -webkit-mask: radial-gradient(circle, transparent 61%, #000 65%);
+  mask: radial-gradient(circle, transparent 61%, #000 65%);
+  opacity: .62;
+  animation: voiceHaloRotate 5.2s linear infinite;
+}
+
+.voice-microphone-icon {
+  position: relative;
+  z-index: 2;
+  width: 25px;
+  height: 25px;
+  overflow: visible;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .28));
+  transform-origin: 50% 55%;
+  animation: voiceMicFloat 2.9s ease-in-out infinite;
+}
+
+.voice-microphone-capsule {
+  fill: rgba(250, 232, 189, .12);
+  stroke: currentColor;
+  stroke-width: 1.55;
+}
+
+.voice-microphone-grille {
+  stroke: #fff9eb;
+  stroke-linecap: round;
+  stroke-width: 1;
+  opacity: .78;
+}
+
+.voice-microphone-capture,
+.voice-microphone-stand {
+  stroke: #fff6dd;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.65;
+}
+
+.voice-microphone-spark {
+  fill: #ffe4a2;
+  filter: drop-shadow(0 0 3px rgba(255, 218, 133, .9));
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: voiceSpark 1.8s ease-in-out infinite;
+}
+
+.voice-open-button:hover,
+.voice-open-button:focus-visible {
+  color: #fff0c8;
+  background:
+    radial-gradient(circle at 35% 24%, rgba(255, 255, 255, .3), transparent 32%),
+    linear-gradient(145deg, #174c49 4%, #31897d 58%, #cc9852 135%);
+  border-color: #e4c37b;
+  box-shadow:
+    0 11px 28px rgba(25, 83, 76, .38),
+    0 0 0 4px rgba(204, 162, 82, .12),
+    inset 0 1px 0 rgba(255, 255, 255, .33);
+  transform: translateY(-2px) scale(1.08);
+}
+
+.voice-open-button:hover::before,
+.voice-open-button:focus-visible::before {
+  border-color: rgba(232, 198, 122, .72);
+  animation-duration: 1.15s;
+}
+
+.voice-open-button:hover::after,
+.voice-open-button:focus-visible::after {
+  opacity: .95;
+  animation-duration: 1.25s;
+}
+
+.voice-open-button:hover .voice-microphone-icon,
+.voice-open-button:focus-visible .voice-microphone-icon {
+  animation: voiceMicHover .72s ease-in-out infinite alternate;
+}
+
+.voice-open-button:active {
+  transform: translateY(1px) scale(.94);
+}
+
+.voice-open-button.is-activating {
+  pointer-events: none;
+  animation: voiceButtonActivate 260ms cubic-bezier(.2, .8, .25, 1) both;
+}
+
+.voice-open-button.is-activating::before {
+  animation: voiceClickRipple 260ms ease-out both;
+}
+
+.voice-open-button.is-activating::after {
+  animation: voiceHaloBurst 260ms ease-out both;
+}
+
+.voice-open-button.is-activating .voice-microphone-icon {
+  animation: voiceMicClick 260ms cubic-bezier(.2, .9, .25, 1) both;
+}
+
+@keyframes voiceButtonBreathe {
+  0%, 100% { box-shadow: 0 8px 22px rgba(20, 63, 60, .25), inset 0 1px 0 rgba(255, 255, 255, .22), inset 0 -4px 10px rgba(3, 23, 25, .2); }
+  50% { box-shadow: 0 10px 27px rgba(31, 105, 95, .36), 0 0 0 3px rgba(202, 161, 80, .08), inset 0 1px 0 rgba(255, 255, 255, .3), inset 0 -4px 10px rgba(3, 23, 25, .16); }
+}
+
+@keyframes voiceSignalPulse {
+  0% { opacity: 0; transform: scale(.82); }
+  34% { opacity: .62; }
+  100% { opacity: 0; transform: scale(1.32); }
+}
+
+@keyframes voiceHaloRotate { to { transform: rotate(360deg); } }
+@keyframes voiceMicFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.25px); } }
+@keyframes voiceSpark { 0%, 100% { opacity: .5; transform: scale(.72); } 50% { opacity: 1; transform: scale(1.18); } }
+@keyframes voiceMicHover { from { transform: translateY(-1px) rotate(-2deg) scale(1.03); } to { transform: translateY(1px) rotate(2deg) scale(1.09); } }
+@keyframes voiceButtonActivate { 0% { transform: scale(1); } 42% { transform: scale(.86); } 100% { transform: scale(1.12); } }
+@keyframes voiceClickRipple { 0% { opacity: .8; transform: scale(.88); } 100% { opacity: 0; transform: scale(1.72); } }
+@keyframes voiceHaloBurst { 0% { opacity: .55; transform: rotate(0) scale(.9); } 100% { opacity: 1; transform: rotate(210deg) scale(1.12); } }
+@keyframes voiceMicClick { 0% { transform: scale(1); } 45% { transform: scale(.78) translateY(1px); } 100% { transform: scale(1.14) translateY(-1px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .voice-open-button,
+  .voice-open-button::before,
+  .voice-open-button::after,
+  .voice-microphone-icon,
+  .voice-microphone-spark { animation: none !important; }
+}
+
+.voice-mark {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: radial-gradient(circle at 32% 22%, #5ba695 0, #2d6c68 44%, #123b3b 100%);
+}
+
+.voice-mark::before {
+  position: absolute;
+  z-index: -1;
+  width: 36px;
+  height: 36px;
+  content: "";
+  border: 1px solid rgba(255, 226, 158, .44);
+  border-radius: 50%;
+  animation: voiceSignalPulse 2.35s ease-out infinite;
+}
+
+.voice-mark .voice-microphone-icon { width: 28px; height: 28px; }
 
 .account-avatar {
   display: grid;

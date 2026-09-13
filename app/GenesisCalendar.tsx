@@ -561,6 +561,7 @@ export function GenesisCalendar() {
   const [accountOpen, setAccountOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [voiceAssistantOpen, setVoiceAssistantOpen] = useState(false);
+  const [voiceLaunchAnimating, setVoiceLaunchAnimating] = useState(false);
   const [geminiOpen, setGeminiOpen] = useState(false);
   const [geminiAvailable, setGeminiAvailable] = useState(false);
   const [legalPage] = useState<ReturnType<typeof currentLegalPage>>(() => currentLegalPage());
@@ -632,6 +633,24 @@ export function GenesisCalendar() {
     const timer = window.setTimeout(() => setAuthError(consumeGoogleAuthError()), 0);
     return () => window.clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    if (!voiceLaunchAnimating) return;
+    const timer = window.setTimeout(() => {
+      setVoiceLaunchAnimating(false);
+      setVoiceAssistantOpen(true);
+    }, 260);
+    return () => window.clearTimeout(timer);
+  }, [voiceLaunchAnimating]);
+
+  const openVoiceAssistant = () => {
+    if (voiceLaunchAnimating) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setVoiceAssistantOpen(true);
+      return;
+    }
+    setVoiceLaunchAnimating(true);
+  };
 
   const deviceTimeZone = useMemo(
     () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
@@ -3543,8 +3562,14 @@ export function GenesisCalendar() {
                 <span className="ux-install-icon" aria-hidden="true" />
               </button>
             ) : null}
-            <button type="button" className="voice-open-button" onClick={() => setVoiceAssistantOpen(true)} title="Открыть бесплатного голосового помощника GENESIS Voice" aria-label="Открыть бесплатного голосового помощника GENESIS Voice">
-              <span aria-hidden="true">●</span>
+            <button type="button" className={`voice-open-button${voiceLaunchAnimating ? " is-activating" : ""}`} onClick={openVoiceAssistant} title="Открыть бесплатного голосового помощника GENESIS Voice" aria-label="Открыть бесплатного голосового помощника GENESIS Voice" aria-busy={voiceLaunchAnimating}>
+              <svg className="voice-microphone-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+                <rect className="voice-microphone-capsule" x="8.7" y="2.8" width="6.6" height="11.2" rx="3.3" />
+                <path className="voice-microphone-grille" d="M10.55 6.2h2.9M10.55 8.45h2.9" />
+                <path className="voice-microphone-capture" d="M5.9 10.4v.9a6.1 6.1 0 0 0 12.2 0v-.9" />
+                <path className="voice-microphone-stand" d="M12 17.4v3.35M8.9 20.75h6.2" />
+                <circle className="voice-microphone-spark" cx="18.7" cy="5.2" r="1.15" />
+              </svg>
             </button>
             {geminiAvailable ? (
               <button type="button" className="gemini-open-button" onClick={() => setGeminiOpen(true)} title="Открыть голосового помощника Gemini" aria-label="Открыть голосового помощника Gemini">
@@ -3962,6 +3987,7 @@ export function GenesisCalendar() {
       {voiceAssistantOpen ? (
         <LocalVoiceAssistant
           language={language}
+          neuralAvailable={geminiAvailable}
           context={{
             language,
             calendarMode: activeCalendarMode,
