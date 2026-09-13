@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { GeminiAssistantContext, GeminiPlan } from "./cloud-sync";
+import {
+  requestGeminiPlan,
+  type GeminiAssistantContext,
+  type GeminiPlan,
+} from "./cloud-sync";
 import type { Language } from "./i18n";
 import { createLocalVoicePlan } from "./local-voice-plan";
 
@@ -42,6 +46,7 @@ type SpeechRecognizerConstructor = {
 type LocalVoiceAssistantProps = {
   language: Language;
   context: GeminiAssistantContext;
+  neuralAvailable: boolean;
   onApply: (plan: GeminiPlan) => Promise<string>;
   onClose: () => void;
 };
@@ -70,13 +75,15 @@ function speechErrorMessage(error: string, language: Language) {
   return language === "en" ? "Speech recognition could not start. You can type the command instead." : "Не удалось запустить распознавание речи. Команду можно написать вручную.";
 }
 
-export function LocalVoiceAssistant({ language, context, onApply, onClose }: LocalVoiceAssistantProps) {
+export function LocalVoiceAssistant({ language, context, neuralAvailable, onApply, onClose }: LocalVoiceAssistantProps) {
   const [command, setCommand] = useState("");
   const [interim, setInterim] = useState("");
   const [starting, setStarting] = useState(false);
   const [listening, setListening] = useState(false);
   const [busy, setBusy] = useState(false);
   const [plan, setPlan] = useState<GeminiPlan | null>(null);
+  const [planEngine, setPlanEngine] = useState<"neural" | "local">("local");
+  const [model, setModel] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [recognitionMode, setRecognitionMode] = useState<"device" | "browser" | "text">("text");
@@ -172,13 +179,36 @@ export function LocalVoiceAssistant({ language, context, onApply, onClose }: Loc
 
   const stopListening = () => recognizerRef.current?.stop();
 
-  const preparePlan = () => {
+  const preparePlan = async () => {
+    if (!command.trim()) return;
+    setBusy(true);
     setError("");
     setMessage("");
     try {
+      if (neuralAvailable) {
+        try {
+          const result = await requestGeminiPlan({
+            command: command.trim(),
+            audio: null,
+            context,
+          });
+          setPlan(result.plan);
+          setPlanEngine("neural");
+          setModel(result.model);
+          return;
+        } catch {
+          setMessage(language === "en"
+            ? "The neural parser is temporarily unavailable. The preview was prepared on this device."
+            : "Нейросетевой разбор временно недоступен. План подготовлен локально на устройстве.");
+        }
+      }
       setPlan(createLocalVoicePlan(command, context));
+      setPlanEngine("local");
+      setModel("");
     } catch (planError) {
       setError(planError instanceof Error ? planError.message : (language === "en" ? "Could not understand the command." : "Не удалось разобрать команду."));
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -202,7 +232,9 @@ export function LocalVoiceAssistant({ language, context, onApply, onClose }: Loc
     eyebrow: "GENESIS Voice · free assistant",
     title: "Create tasks by voice",
     close: "Close voice assistant",
-    intro: "Dictate a task, date and time. The command is parsed in this app without an AI API key. Separate several tasks with a semicolon.",
+    intro: neuralAvailable
+      ? "Dictate naturally: Gemini understands dates, projects, task lists, priorities and several tasks in one request."
+      : "Dictate a task, date and time. Separate several tasks with a semicolon.",
     listen: "Dictate a task",
     stop: "Stop listening",
     listening: "Listening… Speak naturally",
@@ -210,8 +242,11 @@ export function LocalVoiceAssistant({ language, context, onApply, onClose }: Loc
     idle: "Voice recognition runs on your device when available",
     textLabel: "Command",
     placeholder: "For example: create a task call Alex tomorrow at 18:30 #calls",
-    privacy: "GENESIS does not send or store an audio recording. Speech-to-text is handled by your device or browser; task parsing happens locally in the app.",
+    privacy: neuralAvailable
+      ? "GENESIS does not send or store an audio recording. The recognized text, available project/list names and linked account addresses are sent to Google Gemini to prepare the preview; the local parser is used if it is unavailable."
+      : "GENESIS does not send or store an audio recording. Speech-to-text and task parsing happen on your device or in the browser.",
     prepare: "Prepare preview",
+    preparing: neuralAvailable ? "Analyzing with Gemini…" : "Preparing preview…",
     preview: "Check before creating",
     understood: "Recognized:",
     tasks: "Tasks",
@@ -221,11 +256,15 @@ export function LocalVoiceAssistant({ language, context, onApply, onClose }: Loc
     local: "on device",
     browser: "browser speech",
     text: "text mode",
+    neural: "Gemini neural parser",
+    localPlan: "local parser",
   } : {
     eyebrow: "GENESIS Voice · бесплатный помощник",
     title: "Создание задач голосом",
     close: "Закрыть голосовой помощник",
-    intro: "Продиктуйте задачу, дату и время. Команда разбирается в приложении без ключа AI API. Несколько задач разделяйте точкой с запятой.",
+    intro: neuralAvailable
+      ? "Говорите естественно: Gemini понимает даты, проекты, списки задач, приоритеты и несколько задач в одной команде."
+      : "Продиктуйте задачу, дату и время. Несколько задач разделяйте точкой с запятой.",
     listen: "Продиктовать задачу",
     stop: "Остановить",
     listening: "Слушаю… Говорите естественно",
@@ -233,8 +272,11 @@ export function LocalVoiceAssistant({ language, context, onApply, onClose }: Loc
     idle: "По возможности речь распознаётся прямо на устройстве",
     textLabel: "Команда",
     placeholder: "Например: создай задачу позвонить врачу завтра в 18:30 #звонки",
-    privacy: "GENESIS не отправляет и не хранит аудиозапись. Речь преобразует в текст устройство или браузер; сама команда разбирается локально в приложении.",
+    privacy: neuralAvailable
+      ? "GENESIS не отправляет и не хранит аудиозапись. Для подготовки плана распознанный текст, названия доступных проектов/списков и адреса связанных аккаунтов передаются Google Gemini; при недоступности используется локальный разбор."
+      : "GENESIS не отправляет и не хранит аудиозапись. Речь преобразуется в текст и разбирается на устройстве или в браузере.",
     prepare: "Подготовить план",
+    preparing: neuralAvailable ? "Разбираю с Gemini…" : "Подготавливаю план…",
     preview: "Проверка перед созданием",
     understood: "Распознано:",
     tasks: "Задачи",
@@ -244,6 +286,8 @@ export function LocalVoiceAssistant({ language, context, onApply, onClose }: Loc
     local: "на устройстве",
     browser: "голосовой сервис браузера",
     text: "текстовый режим",
+    neural: "нейросеть Gemini",
+    localPlan: "локальный разбор",
   };
 
   return (
@@ -252,7 +296,15 @@ export function LocalVoiceAssistant({ language, context, onApply, onClose }: Loc
     }}>
       <section className="gemini-assistant local-voice-assistant" role="dialog" aria-modal="true" aria-labelledby="local-voice-assistant-title">
         <header>
-          <div className="gemini-mark voice-mark" aria-hidden="true">●</div>
+          <div className="gemini-mark voice-mark" aria-hidden="true">
+            <svg className="voice-microphone-icon" viewBox="0 0 24 24" fill="none" focusable="false">
+              <rect className="voice-microphone-capsule" x="8.7" y="2.8" width="6.6" height="11.2" rx="3.3" />
+              <path className="voice-microphone-grille" d="M10.55 6.2h2.9M10.55 8.45h2.9" />
+              <path className="voice-microphone-capture" d="M5.9 10.4v.9a6.1 6.1 0 0 0 12.2 0v-.9" />
+              <path className="voice-microphone-stand" d="M12 17.4v3.35M8.9 20.75h6.2" />
+              <circle className="voice-microphone-spark" cx="18.7" cy="5.2" r="1.15" />
+            </svg>
+          </div>
           <div>
             <span className="eyebrow">{labels.eyebrow}</span>
             <h2 id="local-voice-assistant-title">{labels.title}</h2>
@@ -292,8 +344,8 @@ export function LocalVoiceAssistant({ language, context, onApply, onClose }: Loc
         {message ? <p className="form-success" role="status">{message}</p> : null}
 
         {!plan ? (
-          <button type="button" className="gemini-primary" onClick={preparePlan} disabled={busy || starting || listening || !command.trim()}>
-            {labels.prepare}
+          <button type="button" className="gemini-primary" onClick={() => void preparePlan()} disabled={busy || starting || listening || !command.trim()}>
+            {busy ? labels.preparing : labels.prepare}
           </button>
         ) : (
           <div className="gemini-plan">
@@ -302,7 +354,7 @@ export function LocalVoiceAssistant({ language, context, onApply, onClose }: Loc
                 <span className="eyebrow">{labels.preview}</span>
                 <h3 data-no-translate>{plan.summary}</h3>
               </div>
-              <small>{labels[recognitionMode === "device" ? "local" : recognitionMode]}</small>
+              <small data-no-translate>{planEngine === "neural" ? `${labels.neural}${model ? ` · ${model}` : ""}` : labels.localPlan}</small>
             </div>
             <p className="gemini-understood"><strong>{labels.understood}</strong> <span data-no-translate>{plan.request}</span></p>
             <section>

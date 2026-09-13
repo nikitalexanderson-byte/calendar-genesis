@@ -202,6 +202,7 @@ function cleanTitle(source: string) {
     .replace(/^(?:please\s+)?(?:create|add|schedule|plan|make)(?:\s+me)?(?:\s+(?:a\s+)?(?:task|reminder))?\s*[:—–,-]?\s*/i, "")
     .replace(/^(?:please\s+)?remind\s+me(?:\s+to)?\s*/i, "")
     .replace(/^(?:задачу|напоминание|task|reminder)\s*[:—–,-]?\s*/i, "")
+    .replace(/\s+(?:размести(?:ть)?|помести(?:ть)?|привяжи|добавь|добавить|перенеси(?:ть)?|assign|put|place|move)\s*$/i, "")
     .replace(/\s+(?:пожалуйста|please)$/i, "")
     .replace(/^[«"“\s]+|[»"”\s.,!?]+$/g, "")
     .trim();
@@ -212,7 +213,11 @@ function parseTask(command: string, context: GeminiAssistantContext): GeminiPlan
   const tags = Array.from(remaining.matchAll(/#([\p{L}\p{N}_-]+)/gu), (match) => match[1]).slice(0, 6);
   remaining = normalizeSpaces(remaining.replace(/#[\p{L}\p{N}_-]+/gu, " "));
 
-  const project = extractKnownName(remaining, /(?:в\s+)?проект(?:е)?|(?:in\s+)?project/i, context.projects.map((item) => item.title));
+  const project = extractKnownName(
+    remaining,
+    /(?:(?:в|во|для|к|ко|по)\s+)?проект(?:е|а|у)?(?:\s+(?:под\s+названием|с\s+названием))?|(?:(?:in|into|for|to)\s+)?project(?:\s+(?:named|called))?/i,
+    context.projects.map((item) => item.title),
+  );
   remaining = project.text;
   const taskList = extractKnownName(remaining, /(?:в\s+)?списк(?:е|ок)|(?:in\s+)?(?:task\s+)?list/i, context.taskLists.map((item) => item.title));
   remaining = taskList.text;

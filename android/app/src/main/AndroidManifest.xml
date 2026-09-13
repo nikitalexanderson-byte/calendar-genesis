@@ -13,7 +13,7 @@
         android:usesCleartextTraffic="false">
 
         <activity
-            android:name="com.google.androidbrowserhelper.trusted.LauncherActivity"
+            android:name=".ResilientLauncherActivity"
             android:exported="true"
             android:launchMode="singleTask"
             android:theme="@style/Theme.Genesis.Launcher">
@@ -29,7 +29,7 @@
                 android:resource="@color/genesis_night" />
             <meta-data
                 android:name="android.support.customtabs.trusted.FALLBACK_STRATEGY"
-                android:value="customtabs" />
+                android:value="webview" />
 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -43,5 +43,11 @@
                 <data android:scheme="https" android:host="${genesisHost}" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name="com.google.androidbrowserhelper.trusted.WebViewFallbackActivity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+            android:exported="false"
+            android:theme="@style/Theme.Genesis.Launcher" />
     </application>
 </manifest>

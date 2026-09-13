@@ -42,7 +42,7 @@ export function WelcomeScreen({ androidApkUrl, busy, error, language, onLanguage
     secureSignIn: "Secure Google sign-in",
     passwordNote: "GENESIS never asks for your Google password. Authentication takes place only on the secure accounts.google.com page.",
     downloadApp: "Download the phone app",
-    downloadAppNote: "Android · APK · test version 1.2.0",
+    downloadAppNote: "Android · APK · test version 1.2.1",
     agreement: <>By continuing, you accept the <a href="/terms">Terms of Service</a> and acknowledge the <a href="/privacy">Privacy Policy</a>.</>,
     deleteAccount: "Delete account",
   } : {
@@ -71,7 +71,7 @@ export function WelcomeScreen({ androidApkUrl, busy, error, language, onLanguage
     secureSignIn: "Безопасный вход через Google",
     passwordNote: "GENESIS никогда не запрашивает пароль от Google. Авторизация выполняется только на защищённой странице accounts.google.com.",
     downloadApp: "Скачать приложение для телефона",
-    downloadAppNote: "Android · APK · тестовая версия 1.2.0",
+    downloadAppNote: "Android · APK · тестовая версия 1.2.1",
     agreement: <>Продолжая, вы принимаете <a href="/terms">пользовательское соглашение</a> и подтверждаете ознакомление с <a href="/privacy">политикой конфиденциальности</a>.</>,
     deleteAccount: "Удаление аккаунта",
   };
