@@ -73,6 +73,9 @@ test("ships a compact verified Android test application only to Android phones",
   assert.equal(association.target.package_name, "ru.genesis.calendar");
   assert.match(association.target.sha256_cert_fingerprints[0], /^(?:[0-9A-F]{2}:){31}[0-9A-F]{2}$/);
   assert.match(htaccess, /application\/vnd\.android\.package-archive/);
+  assert.match(htaccess, /ForceType application\/vnd\.android\.package-archive/);
+  assert.match(htaccess, /Content-Disposition "attachment; filename=GENESIS-Android\.apk"/);
+  assert.match(htaccess, /Cache-Control "public, max-age=300, must-revalidate"/);
   assert.match(serviceWorker, /url\.pathname\.includes\("\/downloads\/"\)/);
   assert.ok(apk.size > 100_000, "APK should contain the complete Android application");
   assert.ok(apk.size < 10_000_000, `APK should stay below 10 MB, got ${apk.size} bytes`);
