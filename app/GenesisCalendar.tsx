@@ -45,6 +45,7 @@ import {
 import { AccountPanel } from "./AccountPanel";
 import { AdminPanel } from "./AdminPanel";
 import { GeminiAssistant } from "./GeminiAssistant";
+import { LocalVoiceAssistant } from "./LocalVoiceAssistant";
 import { currentLegalPage, LegalPage } from "./LegalPage";
 import { StoicheionView } from "./StoicheionView";
 import { TimeClockPicker } from "./TimeClockPicker";
@@ -559,6 +560,7 @@ export function GenesisCalendar() {
   const [cloudUser, setCloudUser] = useState<GenesisUser | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [voiceAssistantOpen, setVoiceAssistantOpen] = useState(false);
   const [geminiOpen, setGeminiOpen] = useState(false);
   const [geminiAvailable, setGeminiAvailable] = useState(false);
   const [legalPage] = useState<ReturnType<typeof currentLegalPage>>(() => currentLegalPage());
@@ -1812,7 +1814,7 @@ export function GenesisCalendar() {
     setNewProjectTags("");
   };
 
-  const applyGeminiPlan = async (plan: GeminiPlan): Promise<string> => {
+  const applyAssistantPlan = async (plan: GeminiPlan): Promise<string> => {
     const nameKey = (value: string) => value.trim().toLocaleLowerCase(runtimeLocale());
     const isValidDate = (value: string) => {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -1824,7 +1826,7 @@ export function GenesisCalendar() {
       const startDate = task.startDate || todayDateValue;
       const dueDate = task.dueDate || startDate;
       if (!isValidDate(startDate) || !isValidDate(dueDate)) {
-        throw new Error(language === "en" ? `Gemini returned an invalid date for “${task.title}”.` : `Gemini указал некорректную дату для задачи «${task.title}».`);
+        throw new Error(language === "en" ? `The assistant returned an invalid date for “${task.title}”.` : `Помощник указал некорректную дату для задачи «${task.title}».`);
       }
       if (startDate < todayDateValue) {
         throw new Error(language === "en" ? `The start date for “${task.title}” is in the past.` : `Дата начала задачи «${task.title}» находится в прошлом.`);
@@ -1853,7 +1855,7 @@ export function GenesisCalendar() {
       let cursor = nameKey(projectPlan.title);
       while (cursor && newProjectPlanByName.has(cursor)) {
         if (path.has(cursor)) {
-          throw new Error(language === "en" ? "Gemini proposed a circular project hierarchy." : "Gemini предложил циклическую иерархию проектов.");
+          throw new Error(language === "en" ? "The assistant proposed a circular project hierarchy." : "Помощник предложил циклическую иерархию проектов.");
         }
         path.add(cursor);
         cursor = nameKey(newProjectPlanByName.get(cursor)?.parentProject ?? "");
@@ -3535,6 +3537,9 @@ export function GenesisCalendar() {
                 <span className="ux-install-icon" aria-hidden="true" />
               </button>
             ) : null}
+            <button type="button" className="voice-open-button" onClick={() => setVoiceAssistantOpen(true)} title="Открыть бесплатного голосового помощника GENESIS Voice" aria-label="Открыть бесплатного голосового помощника GENESIS Voice">
+              <span aria-hidden="true">●</span>
+            </button>
             {geminiAvailable ? (
               <button type="button" className="gemini-open-button" onClick={() => setGeminiOpen(true)} title="Открыть голосового помощника Gemini" aria-label="Открыть голосового помощника Gemini">
                 <span aria-hidden="true">✦</span>
@@ -3948,6 +3953,30 @@ export function GenesisCalendar() {
           }}
         />
       ) : null}
+      {voiceAssistantOpen ? (
+        <LocalVoiceAssistant
+          language={language}
+          context={{
+            language,
+            calendarMode: activeCalendarMode,
+            today: todayDateValue,
+            timeZone: deviceTimeZone,
+            categories: categories.map((category) => ({ name: category.name })),
+            projects: projects.map((project) => ({
+              title: project.title,
+              parent: projects.find((candidate) => candidate.id === project.parentId)?.title ?? "",
+              category: categories.find((category) => category.id === project.categoryId)?.name ?? "",
+            })),
+            taskLists: taskLists.map((taskList) => ({
+              title: taskList.title,
+              accountEmail: taskList.accountEmail ?? "",
+            })),
+            accounts: googleAccounts.map((account) => ({ email: account.email })),
+          }}
+          onApply={applyAssistantPlan}
+          onClose={() => setVoiceAssistantOpen(false)}
+        />
+      ) : null}
       {geminiOpen && geminiAvailable ? (
         <GeminiAssistant
           language={language}
@@ -3968,7 +3997,7 @@ export function GenesisCalendar() {
             })),
             accounts: googleAccounts.map((account) => ({ email: account.email })),
           }}
-          onApply={applyGeminiPlan}
+          onApply={applyAssistantPlan}
           onClose={() => setGeminiOpen(false)}
         />
       ) : null}

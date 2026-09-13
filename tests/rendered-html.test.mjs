@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { access, readFile } from "node:fs/promises";
 import test from "node:test";
+import { createLocalVoicePlan } from "../app/local-voice-plan.ts";
 
 async function render() {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
@@ -37,8 +38,44 @@ test("server-renders the GENESIS application shell", async () => {
   assert.doesNotMatch(html, /href=["']\/admin-access/);
 });
 
+test("turns Russian and English voice commands into local task plans", () => {
+  const context = {
+    language: "ru",
+    calendarMode: "sacred",
+    today: "2026-09-11",
+    timeZone: "Europe/Moscow",
+    categories: [],
+    projects: [{ title: "Работа", parent: "", category: "" }],
+    taskLists: [{ title: "Входящие", accountEmail: "" }],
+    accounts: [],
+  };
+  const russian = createLocalVoicePlan("создай задачу отправить отчёт 15 сентября в 9 утра в проекте Работа приоритет 8 #офис", context);
+  assert.deepEqual(russian.tasks[0], {
+    title: "отправить отчёт",
+    description: "",
+    startDate: "2026-09-15",
+    dueDate: "2026-09-15",
+    time: "09:00",
+    project: "Работа",
+    taskList: "",
+    tags: ["офис"],
+    priority: 8,
+    reminderMinutes: 0,
+  });
+
+  const english = createLocalVoicePlan("create a task call Alex tomorrow at 6:30 pm #calls", { ...context, language: "en" });
+  assert.equal(english.tasks[0].title, "call Alex");
+  assert.equal(english.tasks[0].startDate, "2026-09-12");
+  assert.equal(english.tasks[0].time, "18:30");
+  assert.deepEqual(english.tasks[0].tags, ["calls"]);
+
+  const several = createLocalVoicePlan("купить молоко сегодня; забрать посылку послезавтра в 20:00", context);
+  assert.equal(several.tasks.length, 2);
+  assert.equal(several.tasks[1].startDate, "2026-09-13");
+});
+
 test("keeps the requested calendar and privacy features wired", async () => {
-  const [calendarData, calendar, calendarDatePicker, accountPanel, cloudSync, recurrenceBuilder, taskRecurrence, moonPhase, solarTimes, stoicheion, stoicheionData, welcome, styles, api, google, repository, multiAccountMigration, i18n, languageMigration, englishManifest, geminiAssistant, geminiServer, publicHtaccess, serverConfigExample] = await Promise.all([
+  const [calendarData, calendar, calendarDatePicker, accountPanel, cloudSync, recurrenceBuilder, taskRecurrence, moonPhase, solarTimes, stoicheion, stoicheionData, welcome, styles, api, google, repository, multiAccountMigration, i18n, languageMigration, englishManifest, geminiAssistant, localVoiceAssistant, localVoicePlan, geminiServer, publicHtaccess, serverConfigExample] = await Promise.all([
     readFile(new URL("../app/calendar-data.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/CalendarDatePicker.tsx", import.meta.url), "utf8"),
@@ -60,6 +97,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
     readFile(new URL("../server/migrations/007_user_language.sql", import.meta.url), "utf8"),
     readFile(new URL("../public/manifest.en.webmanifest", import.meta.url), "utf8"),
     readFile(new URL("../app/GeminiAssistant.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/LocalVoiceAssistant.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/local-voice-plan.ts", import.meta.url), "utf8"),
     readFile(new URL("../server/src/gemini.php", import.meta.url), "utf8"),
     readFile(new URL("../public/.htaccess", import.meta.url), "utf8"),
     readFile(new URL("../server/config.example.php", import.meta.url), "utf8"),
@@ -95,8 +134,14 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(i18n, /MutationObserver/);
   assert.match(englishManifest, /"lang": "en-US"/);
   assert.match(calendar, /GeminiAssistant/);
-  assert.match(calendar, /applyGeminiPlan/);
+  assert.match(calendar, /LocalVoiceAssistant/);
+  assert.match(calendar, /applyAssistantPlan/);
+  assert.match(calendar, /voice-open-button/);
   assert.match(calendar, /gemini-open-button/);
+  assert.match(localVoiceAssistant, /SpeechRecognition/);
+  assert.match(localVoiceAssistant, /processLocally/);
+  assert.match(localVoiceAssistant, /GENESIS не отправляет и не хранит аудиозапись/);
+  assert.match(localVoicePlan, /createLocalVoicePlan/);
   assert.match(geminiAssistant, /navigator\.mediaDevices\.getUserMedia/);
   assert.match(geminiAssistant, /MAX_RECORDING_MS = 60_000/);
   assert.match(geminiAssistant, /MAX_AUDIO_BYTES = 4 \* 1024 \* 1024/);
@@ -108,6 +153,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(api, /genesisRequireCsrf\(\)/);
   assert.match(api, /microphone=\(self\)/);
   assert.match(publicHtaccess, /microphone=\(self\)/);
+  assert.match(publicHtaccess, /on-device-speech-recognition=\(self\)/);
   assert.match(geminiServer, /generativelanguage\.googleapis\.com\/v1beta\/interactions/);
   assert.match(geminiServer, /GENESIS_GEMINI_DEFAULT_ENDPOINT/);
   assert.match(geminiServer, /genesisGeminiEndpoint/);

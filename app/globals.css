@@ -404,7 +404,8 @@ button:disabled {
 .google-button img { display: block; width: 40px; height: 40px; }
 .google-button:disabled { cursor: wait; opacity: .58; }
 
-.gemini-open-button {
+.gemini-open-button,
+.voice-open-button {
   display: inline-grid;
   width: 40px;
   height: 40px;
@@ -420,10 +421,40 @@ button:disabled {
 }
 
 .gemini-open-button:hover,
-.gemini-open-button:focus-visible {
+.gemini-open-button:focus-visible,
+.voice-open-button:hover,
+.voice-open-button:focus-visible {
   transform: translateY(-1px) scale(1.04);
   box-shadow: 0 10px 24px rgba(30, 68, 66, .3);
 }
+
+.voice-open-button {
+  color: #fff8e7;
+  background: linear-gradient(145deg, #2d6c68, #4d8b78);
+}
+
+.voice-open-button span {
+  position: relative;
+  width: 13px;
+  height: 18px;
+  background: #fff8e7;
+  border: 2px solid #fff8e7;
+  border-radius: 8px;
+}
+
+.voice-open-button span::after {
+  position: absolute;
+  right: -5px;
+  bottom: -6px;
+  left: -5px;
+  height: 8px;
+  border: 2px solid #fff8e7;
+  border-top: 0;
+  border-radius: 0 0 10px 10px;
+  content: "";
+}
+
+.voice-mark { background: linear-gradient(145deg, #2d6c68, #4d8b78); }
 
 .account-avatar {
   display: grid;
