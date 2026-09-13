@@ -2,15 +2,15 @@
 
 This module wraps the HTTPS PWA as a Trusted Web Activity. The browser and Android app therefore share the same Google session, server account, tasks, projects and reminders.
 
-## Debug build
+## Direct test build
 
-Use Android Studio's bundled JDK and the production Beget URL:
+Use Android Studio's bundled JDK, the production Beget URL and the same persistent test keystore for every update:
 
 ```powershell
-.\gradlew.bat :app:assembleDebug -PgenesisUrl=https://genesiscalendar.ru/
+.\gradlew.bat :app:assembleRelease -PgenesisUrl=https://genesiscalendar.ru/
 ```
 
-The APK is created in `app/build/outputs/apk/debug/`. Until Digital Asset Links are published, Android opens the site as a secure Custom Tab; after verification it becomes a full-screen Trusted Web Activity.
+The APK is created in `app/build/outputs/apk/release/`. The current direct-download build is signed by the workstation's persistent Android test key, is not debuggable, and is minified. The matching public certificate fingerprint is published in `public/.well-known/assetlinks.json`, so Android can verify the domain and open GENESIS as a full-screen Trusted Web Activity. The private key must never be committed and must be retained to issue installable updates for this test package.
 
 ## Play Market release
 

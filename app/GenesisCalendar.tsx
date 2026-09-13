@@ -625,7 +625,7 @@ export function GenesisCalendar() {
     active: boolean;
   } | null>(null);
   const suppressProjectItemClickRef = useRef(false);
-  const { canInstall, install, isStandalone } = usePwaInstall();
+  const { androidApkUrl, canInstall, install, isStandalone } = usePwaInstall();
   useDocumentLanguage(language);
 
   useEffect(() => {
@@ -3453,6 +3453,7 @@ export function GenesisCalendar() {
   if (isGoogleSyncConfigured && !cloudUser) {
     return (
       <WelcomeScreen
+        androidApkUrl={androidApkUrl}
         busy={syncStatus === "syncing"}
         error={authError || syncError}
         language={language}
@@ -3532,7 +3533,12 @@ export function GenesisCalendar() {
             <strong>{MONTHS[todayInfo.monthIndex].name} · {romanDay(todayInfo.monthIndex, todayInfo.day)}</strong>
           </div>
           <div className="topbar-actions">
-            {!isStandalone && canInstall ? (
+            {androidApkUrl ? (
+              <a className="icon-button ux-action-button android-apk-icon-button" href={androidApkUrl} download data-tooltip="Скачать приложение для телефона" title="Скачать GENESIS для Android (APK)" aria-label="Скачать приложение GENESIS для телефона">
+                <span className="ux-android-icon" aria-hidden="true" />
+              </a>
+            ) : null}
+            {!androidApkUrl && !isStandalone && canInstall ? (
               <button type="button" className="icon-button ux-action-button" data-tooltip="Установить приложение" title="Установить GENESIS" aria-label="Установить GENESIS" onClick={() => void install()}>
                 <span className="ux-install-icon" aria-hidden="true" />
               </button>
