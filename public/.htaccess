@@ -1,5 +1,6 @@
 Options -Indexes
 AddDefaultCharset UTF-8
+AddType application/vnd.android.package-archive .apk
 
 RewriteEngine On
 RewriteRule ^api(?:/|$) - [L]

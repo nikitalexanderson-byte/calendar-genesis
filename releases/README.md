@@ -1,5 +1,5 @@
 # GENESIS preview packages
 
-`GENESIS-preview-debug.apk` is a test build for direct Android installation. It currently opens the private GENESIS preview over HTTPS. It is intentionally unsigned with a production upload key and is not a Google Play release.
+`public/downloads/GENESIS-Android.apk` is the current direct-install Android test release. It opens `https://genesiscalendar.ru/` as a lightweight Trusted Web Activity, so the application always uses the same current client, Google session, tasks, projects, reminders and offline service worker as the website.
 
-The final Play build will be generated as an Android App Bundle after the permanent Beget HTTPS domain, Google OAuth client, Digital Asset Links file and user-owned upload key are configured.
+The APK is minified and not debuggable, but it is signed only with the persistent workstation test certificate. Keep that private certificate outside Git so future test versions can update the installed app. A final Play build must use the separately protected owner-controlled upload key and its own matching Digital Asset Links fingerprint.

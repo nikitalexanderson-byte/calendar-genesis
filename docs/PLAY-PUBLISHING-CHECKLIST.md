@@ -9,7 +9,7 @@
 - публичные URL `/privacy`, `/terms`, `/support`, `/delete-account`;
 - самостоятельное удаление аккаунта в приложении;
 - политика с описанием локального, Google и зашифрованного серверного хранения;
-- `versionCode 2`, `versionName 1.1.0`.
+- `versionCode 3`, `versionName 1.2.0`.
 
 ## Перед загрузкой AAB
 

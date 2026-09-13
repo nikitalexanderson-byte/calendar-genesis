@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { access, readFile } from "node:fs/promises";
+import { access, readFile, stat } from "node:fs/promises";
 import test from "node:test";
 import { createLocalVoicePlan } from "../app/local-voice-plan.ts";
 
@@ -36,6 +36,46 @@ test("server-renders the GENESIS application shell", async () => {
   assert.match(html, /--month-accent:/);
   assert.doesNotMatch(html, /Your site is taking shape|Building your site/);
   assert.doesNotMatch(html, /href=["']\/admin-access/);
+});
+
+test("ships a compact verified Android test application only to Android phones", async () => {
+  const [installHook, calendar, welcome, styles, androidBuild, androidManifest, assetLinks, htaccess, serviceWorker] = await Promise.all([
+    readFile(new URL("../app/use-pwa-install.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/WelcomeScreen.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../android/app/build.gradle.kts", import.meta.url), "utf8"),
+    readFile(new URL("../android/app/src/main/AndroidManifest.xml", import.meta.url), "utf8"),
+    readFile(new URL("../public/.well-known/assetlinks.json", import.meta.url), "utf8"),
+    readFile(new URL("../public/.htaccess", import.meta.url), "utf8"),
+    readFile(new URL("../public/sw.js", import.meta.url), "utf8"),
+  ]);
+  const association = JSON.parse(assetLinks)[0];
+  const apk = await stat(new URL("../public/downloads/GENESIS-Android.apk", import.meta.url));
+
+  assert.match(installHook, /\/android\/i/);
+  assert.match(installHook, /\/mobile\/i/);
+  assert.match(installHook, /window\.location\.hostname[\s\S]*device[\s\S]*android-phone/);
+  assert.match(installHook, /isAndroidPhone && !isStandalone/);
+  assert.match(installHook, /downloads\/GENESIS-Android\.apk/);
+  assert.match(calendar, /androidApkUrl=\{androidApkUrl\}/);
+  assert.match(calendar, /Скачать приложение для телефона/);
+  assert.match(welcome, /android-download-button/);
+  assert.match(welcome, /Скачать приложение для телефона/);
+  assert.match(styles, /\.android-download-button/);
+  assert.match(androidBuild, /versionCode = 3/);
+  assert.match(androidBuild, /versionName = "1\.2\.0"/);
+  assert.match(androidBuild, /isMinifyEnabled = true/);
+  assert.match(androidBuild, /signingConfigs\.getByName\("debug"\)/);
+  assert.match(androidManifest, /android\.permission\.INTERNET/);
+  assert.match(androidManifest, /trusted\.LauncherActivity/);
+  assert.deepEqual(association.relation, ["delegate_permission/common.handle_all_urls"]);
+  assert.equal(association.target.package_name, "ru.genesis.calendar");
+  assert.match(association.target.sha256_cert_fingerprints[0], /^(?:[0-9A-F]{2}:){31}[0-9A-F]{2}$/);
+  assert.match(htaccess, /application\/vnd\.android\.package-archive/);
+  assert.match(serviceWorker, /url\.pathname\.includes\("\/downloads\/"\)/);
+  assert.ok(apk.size > 100_000, "APK should contain the complete Android application");
+  assert.ok(apk.size < 10_000_000, `APK should stay below 10 MB, got ${apk.size} bytes`);
 });
 
 test("turns Russian and English voice commands into local task plans", () => {

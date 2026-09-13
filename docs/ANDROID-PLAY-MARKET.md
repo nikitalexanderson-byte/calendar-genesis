@@ -16,7 +16,7 @@ Android-проект находится в `android/`:
 
 ```powershell
 cd android
-.\gradlew.bat :app:assembleDebug -PgenesisUrl=https://genesiscalendar.ru/
+.\gradlew.bat :app:assembleRelease -PgenesisUrl=https://genesiscalendar.ru/
 .\gradlew.bat :app:bundleRelease -PgenesisUrl=https://genesiscalendar.ru/
 ```
 
@@ -29,4 +29,4 @@ cd android
 5. SHA-256 сертификата в `android/assetlinks.json.template`, опубликованный как `https://genesiscalendar.ru/.well-known/assetlinks.json`.
 6. Проверка APK на устройстве, затем `.aab` во внутреннем тестировании Play Console.
 
-Пока Digital Asset Links не опубликован, APK безопасно откроет сайт как Custom Tab. После подтверждения связи домена и сертификата интерфейс станет полноэкранным TWA-приложением.
+Для текущего прямого тестового APK его публичный отпечаток уже хранится в `public/.well-known/assetlinks.json`, поэтому после production-деплоя интерфейс открывается как полноэкранное TWA-приложение. Перед Play-релизом этот отпечаток нужно заменить на SHA-256 отдельного защищённого upload/release-сертификата в одном деплое с новой сборкой.

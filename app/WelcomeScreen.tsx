@@ -5,6 +5,7 @@
 import type { Language } from "./i18n";
 
 type WelcomeScreenProps = {
+  androidApkUrl: string | null;
   busy: boolean;
   error: string;
   language: Language;
@@ -14,7 +15,7 @@ type WelcomeScreenProps = {
 
 const APP_BASE = (process.env.NEXT_PUBLIC_GENESIS_BASE_PATH?.trim() || "").replace(/\/$/, "");
 
-export function WelcomeScreen({ busy, error, language, onLanguageChange, onGoogle }: WelcomeScreenProps) {
+export function WelcomeScreen({ androidApkUrl, busy, error, language, onLanguageChange, onGoogle }: WelcomeScreenProps) {
   const copy = language === "en" ? {
     home: "GENESIS — home",
     tagline: "calendar of clear action",
@@ -40,6 +41,8 @@ export function WelcomeScreen({ busy, error, language, onLanguageChange, onGoogl
     googleLabel: "Sign in with Google",
     secureSignIn: "Secure Google sign-in",
     passwordNote: "GENESIS never asks for your Google password. Authentication takes place only on the secure accounts.google.com page.",
+    downloadApp: "Download the phone app",
+    downloadAppNote: "Android · APK · test version 1.2.0",
     agreement: <>By continuing, you accept the <a href="/terms">Terms of Service</a> and acknowledge the <a href="/privacy">Privacy Policy</a>.</>,
     deleteAccount: "Delete account",
   } : {
@@ -67,6 +70,8 @@ export function WelcomeScreen({ busy, error, language, onLanguageChange, onGoogl
     googleLabel: "Войти через Google",
     secureSignIn: "Безопасный вход через Google",
     passwordNote: "GENESIS никогда не запрашивает пароль от Google. Авторизация выполняется только на защищённой странице accounts.google.com.",
+    downloadApp: "Скачать приложение для телефона",
+    downloadAppNote: "Android · APK · тестовая версия 1.2.0",
     agreement: <>Продолжая, вы принимаете <a href="/terms">пользовательское соглашение</a> и подтверждаете ознакомление с <a href="/privacy">политикой конфиденциальности</a>.</>,
     deleteAccount: "Удаление аккаунта",
   };
@@ -133,6 +138,13 @@ export function WelcomeScreen({ busy, error, language, onLanguageChange, onGoogl
           <button className="google-login-primary" type="button" onClick={onGoogle} disabled={busy} aria-label={copy.googleLabel}>
             <img src={`${APP_BASE}/google-signin-light-pill.svg`} alt="" aria-hidden="true" />
           </button>
+
+          {androidApkUrl ? (
+            <a className="android-download-button" href={androidApkUrl} download>
+              <span className="android-download-mark" aria-hidden="true"><i /></span>
+              <span><strong>{copy.downloadApp}</strong><small>{copy.downloadAppNote}</small></span>
+            </a>
+          ) : null}
 
           <div className="auth-trust-note" role="note">
             <strong>{copy.secureSignIn}</strong>

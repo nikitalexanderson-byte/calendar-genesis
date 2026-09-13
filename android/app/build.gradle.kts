@@ -24,8 +24,8 @@ android {
         applicationId = "ru.genesis.calendar"
         minSdk = 23
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 3
+        versionName = "1.2.0"
 
         manifestPlaceholders["genesisHost"] = genesisUri.host
         resValue("string", "launch_url", genesisUrl)
@@ -34,6 +34,9 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = true
+            // Direct test builds use the workstation's persistent Android debug key.
+            // Replace this with a private upload key before any Play Market release.
+            signingConfig = signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",

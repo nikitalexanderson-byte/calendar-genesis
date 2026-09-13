@@ -4839,6 +4839,49 @@ html[data-language="en"] .inbox-card.drop-target::after {
 
 .google-login-primary img { display: block; width: 180px; height: 40px; }
 .google-login-primary:disabled { cursor: wait; opacity: .58; }
+.android-download-button {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  align-items: center;
+  gap: 11px;
+  margin-top: 16px;
+  padding: 10px 14px;
+  color: #f9f2e3;
+  background: linear-gradient(135deg, #173d3a, #2d6c68);
+  border: 1px solid rgba(45,108,104,.38);
+  border-radius: 8px;
+  box-shadow: 0 9px 24px rgba(20,59,56,.18);
+  text-decoration: none;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+.android-download-button:hover,
+.android-download-button:focus-visible { transform: translateY(-1px); box-shadow: 0 12px 28px rgba(20,59,56,.26); }
+.android-download-button > span:last-child { display: grid; min-width: 0; gap: 3px; }
+.android-download-button strong { font: 500 13px/1.2 Georgia, "Times New Roman", serif; }
+.android-download-button small { color: #bfcfca; font-size: 7px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+.android-download-mark {
+  position: relative;
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 1px solid rgba(231,205,147,.44);
+  border-radius: 50%;
+}
+.android-download-mark i,
+.ux-android-icon {
+  position: relative;
+  display: block;
+  width: 14px;
+  height: 19px;
+  border: 2px solid currentColor;
+  border-radius: 3px;
+}
+.android-download-mark i::before,
+.ux-android-icon::before { position: absolute; right: 3px; bottom: 2px; left: 3px; height: 2px; content: ""; background: currentColor; border-radius: 2px; }
+.android-download-mark i::after,
+.ux-android-icon::after { position: absolute; top: 2px; left: 4px; width: 4px; height: 7px; content: ""; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); }
+.android-apk-icon-button { color: var(--teal); text-decoration: none; }
 .auth-trust-note { display: grid; gap: 5px; margin-top: 17px; padding: 13px 14px; color: #526966; background: rgba(37,91,89,.06); border: 1px solid rgba(37,91,89,.14); border-radius: 3px; }
 .auth-trust-note strong { color: #254f4d; font-size: 9px; letter-spacing: .06em; text-transform: uppercase; }
 .auth-trust-note span { font-size: 9px; line-height: 1.55; }
