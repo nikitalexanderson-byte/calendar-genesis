@@ -26,7 +26,7 @@ RewriteRule . index.html [L]
 <FilesMatch "\.apk$">
   ForceType application/vnd.android.package-archive
   <IfModule mod_headers.c>
-    Header set Content-Disposition "attachment; filename=GENESIS-Android.apk"
+    Header set Content-Disposition "attachment; filename=GENESIS-Android-1.2.0.apk"
     Header set Cache-Control "public, max-age=300, must-revalidate"
   </IfModule>
 </FilesMatch>

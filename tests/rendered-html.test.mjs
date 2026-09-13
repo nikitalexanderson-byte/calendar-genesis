@@ -51,13 +51,13 @@ test("ships a compact verified Android test application only to Android phones",
     readFile(new URL("../public/sw.js", import.meta.url), "utf8"),
   ]);
   const association = JSON.parse(assetLinks)[0];
-  const apk = await stat(new URL("../public/downloads/GENESIS-Android.apk", import.meta.url));
+  const apk = await stat(new URL("../public/downloads/GENESIS-Android-1.2.0.apk", import.meta.url));
 
   assert.match(installHook, /\/android\/i/);
   assert.match(installHook, /\/mobile\/i/);
   assert.match(installHook, /window\.location\.hostname[\s\S]*device[\s\S]*android-phone/);
   assert.match(installHook, /isAndroidPhone && !isStandalone/);
-  assert.match(installHook, /downloads\/GENESIS-Android\.apk/);
+  assert.match(installHook, /downloads\/GENESIS-Android-1\.2\.0\.apk/);
   assert.match(calendar, /androidApkUrl=\{androidApkUrl\}/);
   assert.match(calendar, /Скачать приложение для телефона/);
   assert.match(welcome, /android-download-button/);
@@ -74,7 +74,7 @@ test("ships a compact verified Android test application only to Android phones",
   assert.match(association.target.sha256_cert_fingerprints[0], /^(?:[0-9A-F]{2}:){31}[0-9A-F]{2}$/);
   assert.match(htaccess, /application\/vnd\.android\.package-archive/);
   assert.match(htaccess, /ForceType application\/vnd\.android\.package-archive/);
-  assert.match(htaccess, /Content-Disposition "attachment; filename=GENESIS-Android\.apk"/);
+  assert.match(htaccess, /Content-Disposition "attachment; filename=GENESIS-Android-1\.2\.0\.apk"/);
   assert.match(htaccess, /Cache-Control "public, max-age=300, must-revalidate"/);
   assert.match(serviceWorker, /url\.pathname\.includes\("\/downloads\/"\)/);
   assert.ok(apk.size > 100_000, "APK should contain the complete Android application");
