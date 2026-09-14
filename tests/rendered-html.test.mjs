@@ -184,6 +184,9 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendarData, /if \(!normalized \|\| mode === "profane"/);
   assert.match(calendarData, /return "";/);
   assert.match(calendarData, /formatCalendarDate/);
+  assert.match(calendarData, /getLunarYearForDate/);
+  assert.match(calendarData, /firstLunarMonthAfterSpringEquinox/);
+  assert.match(calendarData, /lunarMonthIndex\(springEquinox\) \+ 1/);
   assert.match(calendarDatePicker, /Сакральный календарь/);
   assert.match(calendarDatePicker, /Лунный календарь/);
   assert.match(calendarDatePicker, /Пята \{day\.pyata/);
@@ -191,6 +194,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendarDatePicker, /<time dateTime=\{dateValue\}>/);
   assert.match(styles, /\.sacred-picker-days button > time/);
   assert.match(accountPanel, /calendar-mode-segment/);
+  assert.match(accountPanel, /Основной календарь/);
+  assert.match(accountPanel, /Полное отображение и система дат/);
   assert.match(accountPanel, /Несколько Google-аккаунтов/);
   assert.match(accountPanel, /По выбору при создании/);
   assert.match(accountPanel, /language-preference/);
@@ -265,7 +270,13 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /task-description-viewer/);
   assert.match(calendar, /task-sync-account-picker/);
   assert.doesNotMatch(calendar, /renderTaskCalendarByMode/);
-  assert.doesNotMatch(calendar, /activeCalendarMode !== "sacred"/);
+  assert.match(calendar, /renderAlternativeCalendar/);
+  assert.match(calendar, /renderAlternativeYear/);
+  assert.match(calendar, /activeCalendarMode === "profane"/);
+  assert.match(calendar, /activeCalendarMode === "lunar"/);
+  assert.match(calendar, /Календарный год \$\{profaneYear\}/);
+  assert.match(calendar, /первое новолуние после весеннего равноденствия/);
+  assert.match(calendar, /calendarRailItems/);
   assert.match(calendar, /const isSaturday = gregorian\.getDay\(\) === 6/);
   assert.match(calendar, /weekday: "long"/);
   assert.match(calendar, /weekday: "short"/);
@@ -372,7 +383,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.doesNotMatch(calendar, /Ближайшие дни/);
   assert.match(calendar, /dayDetailsOpen/);
   assert.match(calendar, /setDayDetailsOrigin\("year"\);\s*setDayDetailsOpen\(true\);\s*};/);
-  assert.match(calendar, /Открыть месяц «\{selectedMonth\.name\}»/);
+  assert.match(calendar, /Открыть месяц «\{selectedDisplayMonthName\}»/);
   assert.match(calendar, /const openMonth = \(\) => \{[\s\S]*setDayDetailsOpen\(false\);[\s\S]*navigateTo\("calendar"\);/);
   assert.match(calendar, /day-details-modal/);
   assert.match(calendar, /onPointerDown=\{\(event\) => \{ if \(event\.target === event\.currentTarget\) setDayDetailsOpen\(false\)/);
@@ -506,7 +517,9 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(styles, /--paper: #e1d9c8/);
   assert.match(styles, /\.calendar-solar-control > div/);
   assert.match(styles, /\.stoicheion-view/);
-  assert.match(styles, /\.month-rail button:last-child/);
+  assert.match(styles, /\.month-rail\.mode-sacred button:last-child/);
+  assert.match(styles, /\.calendar-mode-calendar\.mode-lunar \.calendar-mode-days/);
+  assert.match(styles, /\.civil-mini-calendar\.mode-lunar/);
   assert.doesNotMatch(styles, /\.mobile-nav button\[data-nav-id="admin"\]\s*\{/);
   assert.match(styles, /grid-auto-flow: column/);
   assert.match(styles, /mask-image: linear-gradient\(to right/);

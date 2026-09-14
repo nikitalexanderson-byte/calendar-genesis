@@ -18,9 +18,9 @@ type AccountPanelProps = {
 };
 
 const CALENDAR_MODES: Array<{ id: CalendarMode; label: string; hint: string }> = [
-  { id: "profane", label: "Профанский", hint: "Обычные даты и недели" },
   { id: "sacred", label: "Сакральный", hint: "Месяцы, пяты и дни GENESIS" },
   { id: "lunar", label: "Лунный", hint: "Лунные месяцы и дни" },
+  { id: "profane", label: "Профанский", hint: "Обычные даты, недели и 12 месяцев" },
 ];
 
 export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditionalGoogle, onLanguageChange, onUserChange, categories }: AccountPanelProps) {
@@ -55,7 +55,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
     try {
       const result = await updateAccountPreferences({ calendarMode });
       onUserChange(result.user);
-      setMessage(`Календарь задач переключён: ${CALENDAR_MODES.find((item) => item.id === calendarMode)?.label.toLocaleLowerCase(runtimeLocale())}.`);
+      setMessage(`Основной календарь переключён: ${CALENDAR_MODES.find((item) => item.id === calendarMode)?.label.toLocaleLowerCase(runtimeLocale())}.`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Не удалось переключить календарь.");
     } finally {
@@ -182,9 +182,9 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
 
         <section className="account-preferences calendar-mode-preference" aria-labelledby="calendar-mode-title">
           <div>
-            <span className="eyebrow">Календарь задач</span>
-            <h3 id="calendar-mode-title">Система дат</h3>
-            <p>Выбранная система определяет вид календаря, выбор начала и срока, а также подписи дат во всех списках задач.</p>
+            <span className="eyebrow">Основной календарь</span>
+            <h3 id="calendar-mode-title">Полное отображение и система дат</h3>
+            <p>Выбор полностью переключает разделы «Месяц» и «Круг года», постановку задач, повторения и подписи дат. Сакральный календарь используется по умолчанию.</p>
           </div>
           <div className="calendar-mode-segment" role="radiogroup" aria-label="Система дат">
             {CALENDAR_MODES.map((mode) => (

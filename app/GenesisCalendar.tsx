@@ -63,12 +63,17 @@ import {
   formatCalendarDate,
   getDayElement,
   getGregorianDate,
+  getLunarMonthDates,
+  getLunarMonthStart,
+  getLunarYear,
+  getLunarYearForDate,
   getMoon,
   getPythagorean,
   getSacredDate,
   getSacredDay,
   getSolarEvent,
   getSolarEvents,
+  lunarMonthIndex,
   normalizeCalendarDateNote,
 } from "./calendar-data";
 import {
@@ -139,6 +144,16 @@ type TaskListDraft = {
   dueDate: string;
 };
 
+type AlternativeYearMonth = {
+  id: string;
+  title: string;
+  subtitle: string;
+  ordinal: string;
+  symbol: string;
+  dates: Date[];
+  accentMonth: (typeof MONTHS)[number];
+};
+
 type DayDetailsOrigin = "calendar" | "year";
 type SolarLocationStatus = "loading" | "ready";
 
@@ -154,6 +169,14 @@ const NAVIGATION: Array<{ id: ViewName; label: string; symbol: string }> = [
   { id: "year", label: "Круг года", symbol: "◎" },
   { id: "stoicheion", label: "Стойхейон", symbol: "ϟ" },
 ];
+
+const CALENDAR_MODE_META: Record<CalendarMode, { label: string; symbol: string }> = {
+  sacred: { label: "Сакральный календарь", symbol: "✦" },
+  lunar: { label: "Лунный календарь", symbol: "☾" },
+  profane: { label: "Профанский календарь", symbol: "□" },
+};
+
+const ROMAN_MONTHS = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII"] as const;
 
 const TASK_INBOX_PROJECT_ID = "__genesis_inbox__";
 const CREATE_NEW_TASK_LIST_ID = "__create_new_task_list__";
@@ -400,6 +423,29 @@ function icsDate(date: Date, time: string) {
 function inputDate(date: Date) {
   const pad = (value: number) => String(value).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function profaneMonthDates(date: Date) {
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const count = new Date(year, month + 1, 0).getDate();
+  return Array.from({ length: count }, (_, index) => new Date(year, month, index + 1, 12));
+}
+
+function profaneMonthName(date: Date, short = false) {
+  return new Intl.DateTimeFormat(runtimeLocale(), { month: short ? "short" : "long" })
+    .format(date)
+    .replace(/\.$/u, "");
+}
+
+function formatDateRange(start: Date, end: Date) {
+  const formatter = new Intl.DateTimeFormat(runtimeLocale(), { day: "numeric", month: "short", year: "numeric" });
+  return `${formatter.format(start)} — ${formatter.format(end)}`;
+}
+
+function datesTaskCount(tasks: Task[], dates: Date[]) {
+  const keys = new Set(dates.map(inputDate));
+  return tasks.filter((task) => keys.has(task.dueDate)).length;
 }
 
 function nextOccurrenceDate(dueDate: string, recurrence: RecurrenceKind, interval: number) {
@@ -709,6 +755,9 @@ export function GenesisCalendar() {
     () => getGregorianDate(sacredYear, monthIndex, selectedDay),
     [sacredYear, monthIndex, selectedDay],
   );
+  const selectedLunarYear = useMemo(() => getLunarYearForDate(selectedDate), [selectedDate]);
+  const selectedLunarMonthIndex = lunarMonthIndex(selectedDate);
+  const selectedLunarMonthOrdinal = selectedLunarMonthIndex - selectedLunarYear.startMonthIndex + 1;
   const todayDateValue = inputDate(today);
   const selectedDateValue = inputDate(selectedDate);
   const newTaskDueDate = taskDueDate || (view === "today" || view === "all-tasks" ? todayDateValue : selectedDateValue);
@@ -719,6 +768,11 @@ export function GenesisCalendar() {
   const selectedElement = getDayElement(monthIndex, selectedDay);
   const selectedPythagorean = getPythagorean(monthIndex, selectedDay);
   const selectedSolarEvent = getSolarEvent(sacredYear, monthIndex, selectedDay);
+  const selectedDisplayMonthName = activeCalendarMode === "sacred"
+    ? selectedMonth.name
+    : activeCalendarMode === "profane"
+      ? profaneMonthName(selectedDate)
+      : `${ROMAN_MONTHS[selectedLunarMonthOrdinal - 1] ?? selectedLunarMonthOrdinal} лунный месяц`;
   const selectedDayKey = taskDateKey(sacredYear, monthIndex, selectedDay);
   const selectedDayTasks = tasks
     .filter((task) => taskDateKey(task.sacredYear, task.monthIndex, task.day) === selectedDayKey)
@@ -752,6 +806,20 @@ export function GenesisCalendar() {
     return projects.find((project) => project.id === projectId) ?? null;
   };
   const resolvedTaskProjectTitle = (task: Task) => resolvedTaskProject(task)?.title ?? task.project;
+
+  const selectCalendarDate = (date: Date) => {
+    const sacred = getSacredDate(date);
+    setSacredYear(sacred.sacredYear);
+    setMonthIndex(sacred.monthIndex);
+    setSelectedDay(sacred.day);
+    setOpenDayTaskPopover("");
+  };
+
+  const openCalendarDate = (date: Date, origin: DayDetailsOrigin) => {
+    selectCalendarDate(date);
+    setDayDetailsOrigin(origin);
+    setDayDetailsOpen(true);
+  };
 
   const navigateTo = (nextView: ViewName, replace = false) => {
     setOpenDayTaskPopover("");
@@ -1145,7 +1213,16 @@ export function GenesisCalendar() {
   };
 
   const selectMonth = (nextIndex: number) => {
-    const normalized = (nextIndex + 13) % 13;
+    let nextYear = sacredYear;
+    let normalized = nextIndex;
+    if (normalized < 0) {
+      nextYear -= 1;
+      normalized = 12;
+    } else if (normalized > 12) {
+      nextYear += 1;
+      normalized = 0;
+    }
+    setSacredYear(nextYear);
     setMonthIndex(normalized);
     setSelectedDay(1);
     setOpenDayTaskPopover("");
@@ -2673,7 +2750,125 @@ export function GenesisCalendar() {
     );
   };
 
-  const renderCalendar = () => {
+  const renderModeCalendarDay = (date: Date, mode: Exclude<CalendarMode, "sacred">, layoutIndex: number) => {
+    const dateValue = inputDate(date);
+    const sacred = getSacredDate(date);
+    const sacredDay = getSacredDay(sacred.monthIndex, sacred.day);
+    const moon = getMoon(date);
+    const solarEvent = getSolarEvent(sacred.sacredYear, sacred.monthIndex, sacred.day);
+    const cellTasks = tasks
+      .filter((task) => task.dueDate === dateValue)
+      .sort((a, b) => a.time.localeCompare(b.time));
+    const taskCount = cellTasks.length;
+    const isToday = dateValue === todayDateValue;
+    const isSelected = dateValue === selectedDateValue;
+    const isSaturday = date.getDay() === 6;
+    const sunriseSunset = deviceLocation ? getSunriseSunset(date, deviceLocation) : null;
+    const solarTimePlaceholder = solarLocationStatus === "ready" ? "нет" : "…";
+    const sunrise = sunriseSunset ? formatDeviceSolarTime(sunriseSunset.sunrise, deviceTimeZone) : solarTimePlaceholder;
+    const sunset = sunriseSunset ? formatDeviceSolarTime(sunriseSunset.sunset, deviceTimeZone) : solarTimePlaceholder;
+    const popoverOpen = openDayTaskPopover === dateValue;
+    const columnCount = mode === "profane" ? 7 : 6;
+    const column = layoutIndex % columnCount;
+    const popoverAlignment = column < 2 ? "align-left" : column >= columnCount - 2 ? "align-right" : "align-center";
+    const weekday = new Intl.DateTimeFormat(runtimeLocale(), { weekday: "short" }).format(date).replace(/\.$/u, "");
+    const profaneDate = new Intl.DateTimeFormat(runtimeLocale(), { day: "numeric", month: "short" }).format(date);
+
+    return (
+      <article
+        className={`calendar-day calendar-mode-day mode-${mode}${isSelected ? " selected" : ""}${isToday ? " today" : ""}${isSaturday ? " saturday" : ""}${solarEvent ? " solar-day" : ""}${taskCount ? " has-tasks" : ""}${popoverOpen ? " popover-open" : ""}`}
+        key={dateValue}
+      >
+        <button
+          type="button"
+          className="calendar-day-open"
+          onClick={() => openCalendarDate(date, "calendar")}
+          aria-pressed={isSelected}
+          aria-label={`${formatCalendarDate(date, mode, true)} — ${sacredDay.name} — ${moon.day} лунный день${taskCount ? ` — ${taskCount} задач` : ""}`}
+        />
+        <span className="calendar-mode-primary">
+          {mode === "lunar" ? <MoonPhaseIcon phaseStep={moon.phaseStep} size={26} /> : null}
+          <strong>{mode === "lunar" ? moon.day : date.getDate()}</strong>
+          <small>{mode === "lunar" ? moon.phase : weekday}</small>
+        </span>
+        <span className="calendar-cross-date profane-date">
+          <b aria-hidden="true">□</b>{mode === "profane" ? `${profaneDate} · ${date.getFullYear()}` : profaneDate}
+        </span>
+        <span className="calendar-cross-date sacred-date" title={sacredDay.name}>
+          <b aria-hidden="true">✦</b>{formatCalendarDate(date, "sacred")}
+        </span>
+        {mode === "profane" ? (
+          <span className="calendar-cross-date lunar-date" title={moon.phase}>
+            <MoonPhaseIcon phaseStep={moon.phaseStep} size={15} />{moon.day} лунный день
+          </span>
+        ) : (
+          <span className="calendar-cross-date lunar-date"><b aria-hidden="true">☾</b>{moon.epithet} · {moon.illumination}%</span>
+        )}
+        {solarEvent ? <span className="calendar-solar-mark" title={solarEvent.name}><b aria-hidden="true">{solarEvent.symbol}</b><em>{solarEvent.shortName}</em></span> : null}
+        <span
+          className="calendar-sun-times"
+          aria-label={`Рассвет ${sunrise}, закат ${sunset}`}
+          title={sunriseSunset ? "Рассвет и закат по времени устройства" : "Синхронизируем время рассвета и заката"}
+        >
+          <span><i aria-hidden="true">↗</i>{sunrise}</span>
+          <span><i aria-hidden="true">↘</i>{sunset}</span>
+        </span>
+        {taskCount ? (
+          <div
+            className="calendar-day-task-control"
+            onPointerEnter={(event) => { if (event.pointerType === "mouse") setOpenDayTaskPopover(dateValue); }}
+            onPointerLeave={(event) => { if (event.pointerType === "mouse") setOpenDayTaskPopover((current) => current === dateValue ? "" : current); }}
+            onFocus={() => setOpenDayTaskPopover(dateValue)}
+            onBlur={(event) => {
+              const nextTarget = event.relatedTarget;
+              if (!(nextTarget instanceof Node) || !event.currentTarget.contains(nextTarget)) {
+                setOpenDayTaskPopover((current) => current === dateValue ? "" : current);
+              }
+            }}
+          >
+            <button
+              type="button"
+              className="calendar-day-task-count"
+              onClick={() => {
+                selectCalendarDate(date);
+                setOpenDayTaskPopover(dateValue);
+              }}
+              aria-label={`Показать задачи на ${formatGregorian(date, true)}: ${taskCount}`}
+              aria-expanded={popoverOpen}
+              aria-controls={`calendar-task-popover-${dateValue}`}
+              aria-haspopup="dialog"
+            >
+              {taskCount}
+            </button>
+            {popoverOpen ? (
+              <div className={`calendar-task-popover ${popoverAlignment}`} id={`calendar-task-popover-${dateValue}`} role="dialog" aria-label={`Задачи на ${formatGregorian(date, true)}`}>
+                <header>
+                  <strong>Задачи · {taskCount}</strong>
+                  <button type="button" onClick={() => setOpenDayTaskPopover("")} aria-label="Закрыть список задач">×</button>
+                </header>
+                <ul>
+                  {cellTasks.slice(0, 6).map((task) => (
+                    <li className={task.done ? "done" : ""} key={task.id}>
+                      <button type="button" onClick={() => {
+                        setOpenDayTaskPopover("");
+                        openTaskEditor(task);
+                      }}>
+                        <time>{task.time || "Весь день"}</time>
+                        <span data-no-translate>{task.title}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                {taskCount > 6 ? <small>Ещё {taskCount - 6}</small> : null}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </article>
+    );
+  };
+
+  const renderSacredCalendar = () => {
     const dayCount = monthIndex === 12 ? apeironLength(sacredYear) : 30;
     const days = Array.from({ length: dayCount }, (_, index) => index + 1);
     const rows = Array.from({ length: Math.ceil(dayCount / 5) }, (_, row) =>
@@ -2865,6 +3060,91 @@ export function GenesisCalendar() {
       </div>
     );
   };
+
+  const renderAlternativeCalendar = (mode: Exclude<CalendarMode, "sacred">) => {
+    const lunarDates = mode === "lunar" ? getLunarMonthDates(selectedLunarMonthIndex) : [];
+    const dates = mode === "profane" ? profaneMonthDates(selectedDate) : lunarDates;
+    const representativeDate = dates[Math.floor(dates.length / 2)] ?? selectedDate;
+    const representativeSacred = getSacredDate(representativeDate);
+    const accentMonth = MONTHS[representativeSacred.monthIndex];
+    const firstDate = dates[0] ?? selectedDate;
+    const lastDate = dates.at(-1) ?? selectedDate;
+    const lunarOrdinal = selectedLunarMonthIndex - selectedLunarYear.startMonthIndex + 1;
+    const lunarRoman = ROMAN_MONTHS[lunarOrdinal - 1] ?? String(lunarOrdinal);
+    const monthTitle = mode === "profane" ? profaneMonthName(selectedDate) : `${lunarRoman} лунный месяц`;
+    const monthEyebrow = mode === "profane"
+      ? `Профанский календарь · ${selectedDate.getFullYear()} год`
+      : `Лунный год ${selectedLunarYear.sacredYear}–${selectedLunarYear.sacredYear + 1} · месяц ${lunarOrdinal} из ${selectedLunarYear.monthCount}`;
+    const monthSubtitle = mode === "profane"
+      ? `${profaneMonthName(selectedDate)} · ${dates.length} дней`
+      : formatDateRange(firstDate, lastDate);
+    const monthDescription = mode === "profane"
+      ? "Обычный календарный месяц с неделями с понедельника по воскресенье. В каждом дне дополнительно показаны сакральная дата, лунные сутки, рассвет и закат."
+      : "Лунный месяц начинается новолунием. Основной ритм образуют лунные сутки; рядом остаются видимыми профанская и сакральная даты. Лунный год начинается с первого новолуния после весеннего равноденствия."
+    const leadingDays = mode === "profane" ? (firstDate.getDay() + 6) % 7 : 0;
+    const weekdayLabels = Array.from({ length: 7 }, (_, index) => {
+      const day = new Date(2024, 0, 1 + index, 12);
+      return new Intl.DateTimeFormat(runtimeLocale(), { weekday: "short" }).format(day).replace(/\.$/u, "");
+    });
+    const moveMonth = (delta: number) => {
+      if (mode === "profane") {
+        selectCalendarDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth() + delta, 1, 12));
+        return;
+      }
+      selectCalendarDate(getLunarMonthStart(selectedLunarMonthIndex + delta));
+    };
+
+    return (
+      <div
+        className={`calendar-view calendar-mode-view mode-${mode}`}
+        style={{
+          "--month-accent": accentMonth.color,
+          "--month-art": `url("${monthArtUrl(accentMonth.index)}")`,
+        } as CSSProperties}
+      >
+        <header className="calendar-header calendar-mode-header">
+          <span className="calendar-month-art" aria-hidden="true" />
+          <div>
+            <span className="eyebrow">{monthEyebrow}</span>
+            <h1>{monthTitle}</h1>
+            <p className="calendar-title">{monthSubtitle}</p>
+            <p>{monthDescription}</p>
+            <div className={`calendar-solar-control status-${solarLocationStatus}`} aria-live="polite">
+              <div><span aria-hidden="true">☀</span><strong>{solarLocationStatus === "ready" ? "Рассвет и закат · время устройства" : "Синхронизируем рассвет и закат…"}</strong></div>
+              <small>{solarLocationStatus === "ready" ? `${deviceTimeZone} · автоматический расчёт для региона устройства` : "Определяем регион автоматически, без запроса геопозиции"}</small>
+            </div>
+          </div>
+          <div className="month-switcher" aria-label={mode === "profane" ? "Переключение календарных месяцев" : "Переключение лунных месяцев"}>
+            <button type="button" onClick={() => moveMonth(-1)} aria-label={mode === "profane" ? "Предыдущий календарный месяц" : "Предыдущий лунный месяц"}>←</button>
+            <span aria-hidden="true">{CALENDAR_MODE_META[mode].symbol}</span>
+            <button type="button" onClick={() => moveMonth(1)} aria-label={mode === "profane" ? "Следующий календарный месяц" : "Следующий лунный месяц"}>→</button>
+          </div>
+        </header>
+
+        <section className={`month-calendar calendar-mode-calendar mode-${mode}`} aria-label={`${CALENDAR_MODE_META[mode].label}: ${monthTitle}`}>
+          {mode === "profane" ? (
+            <div className="calendar-mode-weekdays" aria-hidden="true">
+              {weekdayLabels.map((label) => <span key={label}>{label}</span>)}
+            </div>
+          ) : (
+            <div className="lunar-month-rule">
+              <MoonPhaseIcon phaseStep={getMoon(firstDate).phaseStep} size={28} />
+              <span><strong>Новолуние открывает месяц</strong><small>{formatGregorian(firstDate, true)}</small></span>
+              <i>{dates.length} лунных суток</i>
+            </div>
+          )}
+          <div className="calendar-mode-days">
+            {mode === "profane" ? Array.from({ length: leadingDays }, (_, index) => <span className="calendar-mode-blank" aria-hidden="true" key={`blank-${index}`} />) : null}
+            {dates.map((date, index) => renderModeCalendarDay(date, mode, leadingDays + index))}
+          </div>
+        </section>
+      </div>
+    );
+  };
+
+  const renderCalendar = () => activeCalendarMode === "sacred"
+    ? renderSacredCalendar()
+    : renderAlternativeCalendar(activeCalendarMode);
 
   const renderProjects = () => {
     const searchTerms = tagSearch
@@ -3275,7 +3555,7 @@ export function GenesisCalendar() {
     );
   };
 
-  const renderYear = () => (
+  const renderSacredYear = () => (
     <div className="year-view">
       <header className="projects-header year-header">
         <div>
@@ -3436,6 +3716,169 @@ export function GenesisCalendar() {
     </div>
   );
 
+  const renderAlternativeYear = (mode: Exclude<CalendarMode, "sacred">) => {
+    const profaneYear = selectedDate.getFullYear();
+    const lunarYear = selectedLunarYear;
+    const yearMonths: AlternativeYearMonth[] = mode === "profane"
+      ? Array.from({ length: 12 }, (_, month) => {
+          const dates = profaneMonthDates(new Date(profaneYear, month, 1, 12));
+          const representative = dates[Math.floor(dates.length / 2)];
+          const accentMonth = MONTHS[getSacredDate(representative).monthIndex];
+          return {
+            id: `profane-${profaneYear}-${month}`,
+            title: profaneMonthName(representative),
+            subtitle: `${dates.length} дней · ${profaneYear} год`,
+            ordinal: String(month + 1).padStart(2, "0"),
+            symbol: "□",
+            dates,
+            accentMonth,
+          };
+        })
+      : Array.from({ length: lunarYear.monthCount }, (_, offset) => {
+          const absoluteIndex = lunarYear.startMonthIndex + offset;
+          const dates = getLunarMonthDates(absoluteIndex);
+          const representative = dates[Math.floor(dates.length / 2)] ?? getLunarMonthStart(absoluteIndex);
+          const accentMonth = MONTHS[getSacredDate(representative).monthIndex];
+          return {
+            id: `lunar-${lunarYear.sacredYear}-${absoluteIndex}`,
+            title: `${ROMAN_MONTHS[offset] ?? offset + 1} лунный месяц`,
+            subtitle: formatDateRange(dates[0] ?? representative, dates.at(-1) ?? representative),
+            ordinal: String(offset + 1).padStart(2, "0"),
+            symbol: "☾",
+            dates,
+            accentMonth,
+          };
+        });
+    const yearValue = mode === "profane" ? profaneYear : lunarYear.sacredYear;
+    const yearSolarEvents = mode === "profane"
+      ? getSolarEvents(yearValue)
+      : [...getSolarEvents(lunarYear.sacredYear), ...getSolarEvents(lunarYear.sacredYear + 1)]
+          .filter((event) => event.date >= lunarYear.startDate && event.date < lunarYear.endDate);
+    const yearDayCount = mode === "profane"
+      ? Math.round((Date.UTC(profaneYear + 1, 0, 1) - Date.UTC(profaneYear, 0, 1)) / 86_400_000)
+      : Math.round((Date.UTC(lunarYear.endDate.getFullYear(), lunarYear.endDate.getMonth(), lunarYear.endDate.getDate()) - Date.UTC(lunarYear.startDate.getFullYear(), lunarYear.startDate.getMonth(), lunarYear.startDate.getDate())) / 86_400_000);
+    const yearTitle = mode === "profane" ? `Календарный год ${profaneYear}` : `Лунный год ${lunarYear.sacredYear}–${lunarYear.sacredYear + 1}`;
+    const yearDescription = mode === "profane"
+      ? "Двенадцать обычных календарных месяцев с января по декабрь. Откройте любой день, чтобы увидеть его сакральный смысл, лунные сутки, рассвет, закат и задачи."
+      : `Год начинается ${formatGregorian(lunarYear.startDate, true)} — в первое новолуние после весеннего равноденствия — и включает ${lunarYear.monthCount} лунных месяцев.`;
+    const changeYear = (delta: number) => {
+      if (mode === "profane") {
+        const targetYear = profaneYear + delta;
+        const targetDay = Math.min(selectedDate.getDate(), new Date(targetYear, selectedDate.getMonth() + 1, 0).getDate());
+        selectCalendarDate(new Date(targetYear, selectedDate.getMonth(), targetDay, 12));
+        return;
+      }
+      const target = getLunarYear(lunarYear.sacredYear + delta);
+      const currentOrdinal = selectedLunarMonthIndex - lunarYear.startMonthIndex;
+      selectCalendarDate(getLunarMonthStart(target.startMonthIndex + Math.min(currentOrdinal, target.monthCount - 1)));
+    };
+
+    return (
+      <div className={`year-view calendar-mode-year mode-${mode}`}>
+        <header className="projects-header year-header">
+          <div>
+            <span className="eyebrow">{yearDayCount} дней · {yearMonths.length} месяцев</span>
+            <h1>{yearTitle}</h1>
+            <p>{yearDescription}</p>
+          </div>
+          <div className="year-switcher">
+            <button type="button" onClick={() => changeYear(-1)} aria-label="Предыдущий год">←</button>
+            <strong>{mode === "profane" ? profaneYear : `${lunarYear.sacredYear}–${lunarYear.sacredYear + 1}`}</strong>
+            <button type="button" onClick={() => changeYear(1)} aria-label="Следующий год">→</button>
+          </div>
+        </header>
+        <section className="solar-year-strip" aria-label="Солнцестояния и равноденствия года">
+          {yearSolarEvents.map((event) => {
+            const weekday = new Intl.DateTimeFormat(runtimeLocale(), { weekday: "long" }).format(event.date);
+            const date = new Intl.DateTimeFormat(runtimeLocale(), { day: "numeric", month: "long", year: "numeric" }).format(event.date);
+            return (
+              <button type="button" key={event.id} onClick={() => openCalendarDate(event.date, "year")}>
+                <span className="solar-glyph" aria-hidden="true"><i>{event.symbol}</i></span>
+                <span><small>{event.kind === "equinox" ? "Равноденствие" : "Солнцестояние"}</small><em>{weekday}</em><strong>{date}</strong></span>
+              </button>
+            );
+          })}
+        </section>
+        <section className="year-grid" aria-label={mode === "profane" ? "Двенадцать календарных месяцев" : "Лунные месяцы года"}>
+          {yearMonths.map((month) => {
+            const monthTaskCount = datesTaskCount(tasks, month.dates);
+            const containsToday = month.dates.some((date) => inputDate(date) === todayDateValue);
+            const containsSelectedMonth = month.dates.some((date) => inputDate(date) === selectedDateValue);
+            const leadingDays = mode === "profane" ? ((month.dates[0]?.getDay() ?? 1) + 6) % 7 : 0;
+            const openMonth = () => {
+              const todayInMonth = month.dates.find((date) => inputDate(date) === todayDateValue);
+              selectCalendarDate(todayInMonth ?? month.dates[0]);
+              setDayDetailsOrigin("calendar");
+              setDayDetailsOpen(false);
+              navigateTo("calendar");
+            };
+            return (
+              <article
+                className={`year-month calendar-mode-year-month mode-${mode}${containsToday ? " current" : ""}${containsSelectedMonth ? " selected-period" : ""}`}
+                key={month.id}
+                aria-labelledby={`year-month-${month.id}`}
+                style={{
+                  "--month-accent": month.accentMonth.color,
+                  "--month-art": `url("${monthArtUrl(month.accentMonth.index)}")`,
+                } as CSSProperties}
+              >
+                <span className="year-month-top"><i>{month.ordinal}</i><b>{month.symbol}</b></span>
+                <strong id={`year-month-${month.id}`}>{month.title}</strong>
+                <small>{month.subtitle}</small>
+                <div className={`civil-mini-calendar mode-${mode}`}>
+                  {mode === "profane" ? ["П", "В", "С", "Ч", "П", "С", "В"].map((label, index) => <span className="civil-mini-weekday" key={`${month.id}-weekday-${index}`}>{label}</span>) : null}
+                  {Array.from({ length: leadingDays }, (_, index) => <span className="civil-mini-blank" aria-hidden="true" key={`${month.id}-blank-${index}`} />)}
+                  {month.dates.map((date) => {
+                    const dateValue = inputDate(date);
+                    const dayTasks = tasks.filter((task) => task.dueDate === dateValue).length;
+                    const moon = getMoon(date);
+                    const sacred = getSacredDate(date);
+                    const sacredDay = getSacredDay(sacred.monthIndex, sacred.day);
+                    const solar = getSolarEvent(sacred.sacredYear, sacred.monthIndex, sacred.day);
+                    const isSaturday = date.getDay() === 6;
+                    return (
+                      <button
+                        type="button"
+                        className={`mini-day${dayTasks ? " has-task" : ""}${dateValue === todayDateValue ? " today" : ""}${solar ? " solar" : ""}${isSaturday ? " saturday" : ""}`}
+                        key={dateValue}
+                        onClick={() => openCalendarDate(date, "year")}
+                        aria-label={`${formatCalendarDate(date, mode, true)}; ${sacredDay.name}; ${moon.day} лунный день${dayTasks ? `; задач: ${dayTasks}` : ""}`}
+                        title={`${formatGregorian(date, true)} · ${formatCalendarDate(date, "sacred")} · ${moon.day} лунный день`}
+                      >
+                        <span className="mini-day-number">{mode === "lunar" ? moon.day : date.getDate()}</span>
+                        {dayTasks ? <span className="mini-day-task-count" aria-hidden="true">{dayTasks}</span> : null}
+                      </button>
+                    );
+                  })}
+                </div>
+                <footer className="year-month-footer">
+                  <span className="year-month-meta"><em>{mode === "profane" ? "Профанский месяц" : `${month.dates.length} лунных суток`}</em>{monthTaskCount ? <i>{monthTaskCount} задач</i> : null}</span>
+                  <button type="button" className="year-open-button" onClick={openMonth}><span>Открыть месяц</span><i aria-hidden="true" /></button>
+                </footer>
+              </article>
+            );
+          })}
+          <article className="year-description-card calendar-mode-description" aria-labelledby="calendar-mode-year-description">
+            <span className="eyebrow">{CALENDAR_MODE_META[mode].label}</span>
+            <h2 id="calendar-mode-year-description">{mode === "profane" ? "Обычный год, полный контекст" : "Лунный год после равноденствия"}</h2>
+            <p>{yearDescription}</p>
+            <dl>
+              <div><dt>{yearMonths.length}</dt><dd>месяцев</dd></div>
+              <div><dt>{yearDayCount}</dt><dd>дней в круге</dd></div>
+              <div><dt>3</dt><dd>системы дат в каждом дне</dd></div>
+              <div><dt>4</dt><dd>солнечные точки</dd></div>
+            </dl>
+            <p>Клик по дню открывает задачи, сакральное значение, фазу Луны, точное время рассвета и заката для региона устройства.</p>
+          </article>
+        </section>
+      </div>
+    );
+  };
+
+  const renderYear = () => activeCalendarMode === "sacred"
+    ? renderSacredYear()
+    : renderAlternativeYear(activeCalendarMode);
+
   const syncLabel =
     syncStatus === "loading"
       ? "Загрузка данных"
@@ -3454,6 +3897,50 @@ export function GenesisCalendar() {
   const navigation = cloudUser?.isAdmin
     ? [...NAVIGATION, { id: "admin" as const, label: "Админ", symbol: "Σ" }]
     : NAVIGATION;
+  const calendarRailItems = activeCalendarMode === "sacred"
+    ? MONTHS.map((month) => ({
+        id: `sacred-${month.index}`,
+        name: month.name,
+        label: month.name,
+        symbol: month.symbol,
+        color: month.color,
+        active: monthIndex === month.index,
+        date: getGregorianDate(sacredYear, month.index, 1),
+      }))
+    : activeCalendarMode === "profane"
+      ? Array.from({ length: 12 }, (_, month) => {
+          const date = new Date(selectedDate.getFullYear(), month, 1, 12);
+          const sacred = getSacredDate(date);
+          return {
+            id: `profane-${selectedDate.getFullYear()}-${month}`,
+            name: profaneMonthName(date),
+            label: profaneMonthName(date, true),
+            symbol: String(month + 1).padStart(2, "0"),
+            color: MONTHS[sacred.monthIndex].color,
+            active: selectedDate.getMonth() === month,
+            date,
+          };
+        })
+      : Array.from({ length: selectedLunarYear.monthCount }, (_, offset) => {
+          const absoluteIndex = selectedLunarYear.startMonthIndex + offset;
+          const dates = getLunarMonthDates(absoluteIndex);
+          const date = dates[0] ?? getLunarMonthStart(absoluteIndex);
+          const sacred = getSacredDate(date);
+          return {
+            id: `lunar-${selectedLunarYear.sacredYear}-${absoluteIndex}`,
+            name: `${ROMAN_MONTHS[offset] ?? offset + 1} лунный месяц`,
+            label: `${ROMAN_MONTHS[offset] ?? offset + 1} лунный`,
+            symbol: "☾",
+            color: MONTHS[sacred.monthIndex].color,
+            active: selectedLunarMonthIndex === absoluteIndex,
+            date,
+          };
+        });
+  const calendarRailTitle = activeCalendarMode === "sacred"
+    ? `Сакральные месяцы ${sacredYear}–${sacredYear + 1}`
+    : activeCalendarMode === "profane"
+      ? `Месяцы ${selectedDate.getFullYear()} года`
+      : `Лунные месяцы ${selectedLunarYear.sacredYear}–${selectedLunarYear.sacredYear + 1}`;
 
   if (legalPage) {
     return <LegalPage page={legalPage} />;
@@ -3512,17 +3999,16 @@ export function GenesisCalendar() {
             </button>
           ))}
         </nav>
-        <div className="month-rail" aria-label="Месяцы">
-          <span className="month-rail-title">Месяцы года</span>
+        <div className={`month-rail mode-${activeCalendarMode}`} aria-label={calendarRailTitle}>
+          <span className="month-rail-title">{calendarRailTitle}</span>
           <div className="month-rail-grid">
-            {MONTHS.map((month) => (
+            {calendarRailItems.map((month) => (
               <button
                 type="button"
-                key={month.name}
-                className={monthIndex === month.index ? "active" : ""}
+                key={month.id}
+                className={month.active ? "active" : ""}
                 onClick={() => {
-                  setMonthIndex(month.index);
-                  setSelectedDay(1);
+                  selectCalendarDate(month.date);
                   navigateTo("calendar");
                 }}
                 title={month.name}
@@ -3548,8 +4034,8 @@ export function GenesisCalendar() {
       <section className="app-stage">
         <header className="topbar">
           <div>
-            <span className="topbar-kicker">Сакральный календарь</span>
-            <strong>{MONTHS[todayInfo.monthIndex].name} · {romanDay(todayInfo.monthIndex, todayInfo.day)}</strong>
+            <span className="topbar-kicker">{CALENDAR_MODE_META[activeCalendarMode].label}</span>
+            <strong>{formatCalendarDate(today, activeCalendarMode, activeCalendarMode !== "sacred")}</strong>
           </div>
           <div className="topbar-actions">
             {androidApkUrl ? (
@@ -3687,17 +4173,32 @@ export function GenesisCalendar() {
       </nav>
       {dayDetailsOpen ? (
         <div className="modal-backdrop day-details-backdrop" role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) setDayDetailsOpen(false); }}>
-          <section className={`selected-day-card day-details-modal${selectedSolarEvent ? " solar-selected-day" : ""}`} role="dialog" aria-modal="true" aria-labelledby="selected-day-title" aria-describedby="selected-day-description">
+          <section className={`selected-day-card day-details-modal mode-${activeCalendarMode}${selectedSolarEvent ? " solar-selected-day" : ""}`} role="dialog" aria-modal="true" aria-labelledby="selected-day-title" aria-describedby="selected-day-description">
             <button type="button" className="modal-close" onClick={() => setDayDetailsOpen(false)} aria-label="Закрыть сведения о дне">×</button>
-            <div className="selected-day-symbol" aria-hidden="true">{selectedSolarEvent?.symbol ?? selectedElement.symbol}</div>
+            <div className="selected-day-symbol" aria-hidden="true">{selectedSolarEvent?.symbol ?? (activeCalendarMode === "lunar" ? "☾" : activeCalendarMode === "profane" ? selectedDate.getDate() : selectedElement.symbol)}</div>
             <div className="selected-day-copy">
-              <span className="eyebrow">{formatGregorian(selectedDate, true)} · {selectedMoon.epithet}</span>
-              <h2 id="selected-day-title">{selectedSacredDay.name}</h2>
-              <p id="selected-day-description">{selectedSacredDay.description}</p>
+              <span className="eyebrow">{activeCalendarMode === "profane"
+                ? `${formatCalendarDate(selectedDate, "sacred")} · ${selectedMoon.day} лунный день`
+                : activeCalendarMode === "lunar"
+                  ? `${formatGregorian(selectedDate, true)} · ${formatCalendarDate(selectedDate, "sacred")}`
+                  : `${formatGregorian(selectedDate, true)} · ${selectedMoon.epithet}`}</span>
+              <h2 id="selected-day-title">{activeCalendarMode === "profane"
+                ? formatGregorian(selectedDate, true)
+                : activeCalendarMode === "lunar"
+                  ? `${selectedMoon.day} лунный день · ${selectedMoon.phase}`
+                  : selectedSacredDay.name}</h2>
+              <p id="selected-day-description">{activeCalendarMode === "lunar"
+                ? `${selectedMoon.epithet} · ${selectedMoon.direction} · освещённость ${selectedMoon.illumination}%. Сакральный смысл дня: ${selectedSacredDay.name} — ${selectedSacredDay.description}`
+                : activeCalendarMode === "profane"
+                  ? `${selectedSacredDay.name} — ${selectedSacredDay.description}`
+                  : selectedSacredDay.description}</p>
               {selectedSolarEvent ? <strong className="selected-solar-event">{selectedSolarEvent.name} · День Солнца</strong> : null}
             </div>
             <dl className="selected-day-facts">
               {selectedSolarEvent ? <div className="solar-fact"><dt>Солнечная точка</dt><dd>{selectedSolarEvent.name}</dd></div> : null}
+              <div><dt>Профанская дата</dt><dd>{formatGregorian(selectedDate, true)}</dd></div>
+              <div><dt>Сакральная дата</dt><dd>{formatCalendarDate(selectedDate, "sacred")}</dd></div>
+              <div><dt>Лунные сутки</dt><dd>{selectedMoon.day} · {selectedMoon.phase}</dd></div>
               <div><dt>Стихия</dt><dd>{selectedElement.name}</dd></div>
               <div><dt>Пята</dt><dd>{selectedSacredDay.pyataTitle || "Апейрон"}</dd></div>
               <div><dt>Число</dt><dd>{selectedPythagorean?.name || "Безграничное"}</dd></div>
@@ -3737,7 +4238,7 @@ export function GenesisCalendar() {
                 </div>
               </section>
             ) : null}
-            <details className="day-details-celestial">
+            <details className="day-details-celestial" open={activeCalendarMode !== "sacred" ? true : undefined}>
               <summary>
                 <span><i aria-hidden="true">☾</i> Луна и Солнце</span>
                 <small>Фаза Луны, рассвет и закат</small>
@@ -3776,7 +4277,7 @@ export function GenesisCalendar() {
                   setDayDetailsOpen(false);
                   navigateTo("calendar");
                 }}>
-                  Открыть месяц «{selectedMonth.name}» <span aria-hidden="true">→</span>
+                  Открыть месяц «{selectedDisplayMonthName}» <span aria-hidden="true">→</span>
                 </button>
               </div>
             ) : null}

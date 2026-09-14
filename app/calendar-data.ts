@@ -56,6 +56,15 @@ export type MoonInfo = {
   illumination: number;
 };
 
+export type LunarYearInfo = {
+  sacredYear: number;
+  startMonthIndex: number;
+  endMonthIndex: number;
+  monthCount: number;
+  startDate: Date;
+  endDate: Date;
+};
+
 export type CalendarMode = "profane" | "sacred" | "lunar";
 
 export const ELEMENTS = [
@@ -283,6 +292,35 @@ export function getLunarMonthDates(index: number) {
     if (lunarMonthIndex(date) === index) dates.push(date);
   }
   return dates;
+}
+
+export function getLunarMonthStart(index: number) {
+  return getLunarMonthDates(index)[0] ?? new Date(MOON_EPOCH + index * MOON_CYCLE * DAY_MS);
+}
+
+function firstLunarMonthAfterSpringEquinox(sacredYear: number) {
+  const springEquinox = getSolarEvents(sacredYear).find((event) => event.id === "spring-equinox")?.date
+    ?? new Date(sacredYear, 2, 20, 12);
+  return lunarMonthIndex(springEquinox) + 1;
+}
+
+export function getLunarYear(sacredYear: number): LunarYearInfo {
+  const startMonthIndex = firstLunarMonthAfterSpringEquinox(sacredYear);
+  const endMonthIndex = firstLunarMonthAfterSpringEquinox(sacredYear + 1);
+  return {
+    sacredYear,
+    startMonthIndex,
+    endMonthIndex,
+    monthCount: endMonthIndex - startMonthIndex,
+    startDate: getLunarMonthStart(startMonthIndex),
+    endDate: getLunarMonthStart(endMonthIndex),
+  };
+}
+
+export function getLunarYearForDate(date: Date) {
+  const sacredYear = getSacredDate(date).sacredYear;
+  const candidate = getLunarYear(sacredYear);
+  return utcDay(date) >= utcDay(candidate.startDate) ? candidate : getLunarYear(sacredYear - 1);
 }
 
 export function formatSacredDate(date: Date, long = false) {
