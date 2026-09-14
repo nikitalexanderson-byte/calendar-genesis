@@ -24,8 +24,8 @@ android {
         applicationId = "ru.genesis.calendar"
         minSdk = 23
         targetSdk = 36
-        versionCode = 4
-        versionName = "1.2.1"
+        versionCode = 5
+        versionName = "1.2.2"
 
         manifestPlaceholders["genesisHost"] = genesisUri.host
         resValue("string", "launch_url", genesisUrl)
@@ -55,5 +55,5 @@ android {
 }
 
 dependencies {
-    implementation("com.google.androidbrowserhelper:androidbrowserhelper:2.7.3")
+    implementation("androidx.browser:browser:1.10.0")
 }

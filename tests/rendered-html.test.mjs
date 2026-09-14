@@ -46,7 +46,7 @@ test("ships a compact verified Android test application only to Android phones",
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../android/app/build.gradle.kts", import.meta.url), "utf8"),
     readFile(new URL("../android/app/src/main/AndroidManifest.xml", import.meta.url), "utf8"),
-    readFile(new URL("../android/app/src/main/java/ru/genesis/calendar/ResilientLauncherActivity.java", import.meta.url), "utf8"),
+    readFile(new URL("../android/app/src/main/java/ru/genesis/calendar/BrowserLauncherActivity.java", import.meta.url), "utf8"),
     readFile(new URL("../android/app/src/main/res/values/styles.xml", import.meta.url), "utf8"),
     readFile(new URL("../android/app/src/main/res/values-v27/styles.xml", import.meta.url), "utf8"),
     readFile(new URL("../public/.well-known/assetlinks.json", import.meta.url), "utf8"),
@@ -54,29 +54,35 @@ test("ships a compact verified Android test application only to Android phones",
     readFile(new URL("../public/sw.js", import.meta.url), "utf8"),
   ]);
   const association = JSON.parse(assetLinks)[0];
-  const apk = await stat(new URL("../public/downloads/GENESIS-Android-1.2.1.apk", import.meta.url));
+  const apk = await stat(new URL("../public/downloads/GENESIS-Android-1.2.2.apk", import.meta.url));
 
   assert.match(installHook, /\/android\/i/);
   assert.match(installHook, /\/mobile\/i/);
   assert.match(installHook, /window\.location\.hostname[\s\S]*device[\s\S]*android-phone/);
   assert.match(installHook, /isAndroidPhone && !isStandalone/);
-  assert.match(installHook, /downloads\/GENESIS-Android-1\.2\.1\.apk/);
+  assert.match(installHook, /downloads\/GENESIS-Android-1\.2\.2\.apk/);
   assert.match(calendar, /androidApkUrl=\{androidApkUrl\}/);
   assert.match(calendar, /Скачать приложение для телефона/);
   assert.match(welcome, /android-download-button/);
   assert.match(welcome, /Скачать приложение для телефона/);
   assert.match(styles, /\.android-download-button/);
-  assert.match(androidBuild, /versionCode = 4/);
-  assert.match(androidBuild, /versionName = "1\.2\.1"/);
+  assert.match(androidBuild, /versionCode = 5/);
+  assert.match(androidBuild, /versionName = "1\.2\.2"/);
+  assert.match(androidBuild, /androidx\.browser:browser:1\.10\.0/);
   assert.match(androidBuild, /isMinifyEnabled = true/);
   assert.match(androidBuild, /signingConfigs\.getByName\("debug"\)/);
   assert.match(androidManifest, /android\.permission\.INTERNET/);
-  assert.match(androidManifest, /\.ResilientLauncherActivity/);
-  assert.match(androidManifest, /android:value="webview"/);
-  assert.match(androidManifest, /trusted\.WebViewFallbackActivity/);
-  assert.match(androidLauncher, /extends LauncherActivity/);
-  assert.match(androidLauncher, /WebViewFallbackActivity\.createLaunchIntent/);
-  assert.match(androidLauncher, /catch \(RuntimeException launchError\)/);
+  assert.match(androidManifest, /\.BrowserLauncherActivity/);
+  assert.match(androidManifest, /android\.support\.customtabs\.action\.CustomTabsService/);
+  assert.doesNotMatch(androidManifest, /WebViewFallbackActivity|FALLBACK_STRATEGY/);
+  assert.match(androidLauncher, /extends Activity/);
+  assert.match(androidLauncher, /CustomTabsClient\.getPackageName/);
+  assert.match(androidLauncher, /customTab\.launchUrl/);
+  assert.match(androidLauncher, /Intent\.ACTION_VIEW/);
+  assert.match(androidLauncher, /queryIntentActivities/);
+  assert.match(androidLauncher, /getPackageName\(\)\.equals\(packageName\)/);
+  assert.match(androidLauncher, /showLaunchError/);
+  assert.doesNotMatch(androidLauncher, /android\.webkit\.WebView|extends\s+LauncherActivity/);
   assert.doesNotMatch(androidBaseStyles, /windowLightNavigationBar/);
   assert.match(androidApi27Styles, /windowLightNavigationBar/);
   assert.deepEqual(association.relation, ["delegate_permission/common.handle_all_urls"]);
@@ -84,7 +90,7 @@ test("ships a compact verified Android test application only to Android phones",
   assert.match(association.target.sha256_cert_fingerprints[0], /^(?:[0-9A-F]{2}:){31}[0-9A-F]{2}$/);
   assert.match(htaccess, /application\/vnd\.android\.package-archive/);
   assert.match(htaccess, /ForceType application\/vnd\.android\.package-archive/);
-  assert.match(htaccess, /Content-Disposition "attachment; filename=GENESIS-Android-1\.2\.1\.apk"/);
+  assert.match(htaccess, /Content-Disposition "attachment; filename=GENESIS-Android-1\.2\.2\.apk"/);
   assert.match(htaccess, /Cache-Control "public, max-age=300, must-revalidate"/);
   assert.match(serviceWorker, /url\.pathname\.includes\("\/downloads\/"\)/);
   assert.ok(apk.size > 100_000, "APK should contain the complete Android application");

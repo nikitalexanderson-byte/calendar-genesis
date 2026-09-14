@@ -10,7 +10,7 @@ Use Android Studio's bundled JDK, the production Beget URL and the same persiste
 .\gradlew.bat :app:assembleRelease -PgenesisUrl=https://genesiscalendar.ru/
 ```
 
-The APK is created in `app/build/outputs/apk/release/`. The current direct-download build is signed by the workstation's persistent Android test key, is not debuggable, and is minified. The matching public certificate fingerprint is published in `public/.well-known/assetlinks.json`, so Android can verify the domain and open GENESIS as a full-screen Trusted Web Activity. If a compatible browser provider cannot start, `ResilientLauncherActivity` opens the same HTTPS application through the Android Browser Helper WebView fallback instead of closing. The private key must never be committed and must be retained to issue installable updates for this test package.
+The APK is created in `app/build/outputs/apk/release/`. The current direct-download build is signed by the workstation's persistent Android test key, is not debuggable, and is minified. `BrowserLauncherActivity` opens the live HTTPS application in an Android Custom Tab, preserving browser cookies, Google OAuth, microphone permissions and PWA storage while avoiding vendor-specific TWA/WebView blank screens. If Custom Tabs are unavailable, it falls back to the default browser and shows a readable error instead of an empty black activity when no browser exists. The private key must never be committed and must be retained to issue installable updates for this test package.
 
 ## Play Market release
 
