@@ -207,7 +207,10 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(accountPanel, /Полное отображение и система дат/);
   assert.match(accountPanel, /taskCalendarMode/);
   assert.match(accountPanel, /Календарь постановки задач/);
-  assert.match(calendar, /activeTaskCalendarMode/);
+  assert.match(accountPanel, /систему постановки задач можно выбрать отдельно для любого режима/);
+  assert.doesNotMatch(accountPanel, /\(user\.calendarMode \?\? "sacred"\) === "sacred" \? \(/);
+  assert.match(calendar, /const activeTaskCalendarMode: CalendarMode = cloudUser\?\.taskCalendarMode \?\? "sacred"/);
+  assert.doesNotMatch(calendar, /activeCalendarMode === "sacred"\s*\? cloudUser\?\.taskCalendarMode/);
   assert.match(cloudSync, /taskCalendarMode: CalendarMode/);
   assert.match(repository, /'taskCalendarMode' => \$taskCalendarMode/);
   assert.match(taskCalendarMigration, /ADD COLUMN task_calendar_mode/);
@@ -344,6 +347,12 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /selectedDayTasks/);
   assert.match(calendar, /day-details-tasks/);
   assert.match(calendar, /day-details-celestial/);
+  assert.match(calendar, /day-details-create-task-button/);
+  assert.match(calendar, /beginSelectedDayTask/);
+  assert.match(calendar, /setTaskDueDate\(selectedDateValue\)/);
+  assert.match(calendar, /renderTaskCreateForm\("day-details"\)/);
+  assert.match(calendar, /day-task-create-modal/);
+  assert.match(calendar, /Новая задача на выбранный день/);
   assert.match(calendar, /Луна и Солнце/);
   assert.match(calendar, /Фаза Луны, рассвет и закат/);
   assert.match(calendar, /Редактирование задачи/);
@@ -516,6 +525,10 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(styles, /\.inbox-card-items > article\.inbox-task-item/);
   assert.match(styles, /\.inbox-card-items \.inbox-task-delete/);
   assert.match(styles, /\.day-details-modal/);
+  assert.match(styles, /\.day-details-create-task-button/);
+  assert.match(styles, /\.day-task-create-modal > \.task-form/);
+  assert.match(styles, /\.day-task-create-backdrop\s*\{[\s\S]*z-index: 675/);
+  assert.match(i18n, /"Новая задача на выбранный день": "New task for the selected day"/);
   assert.match(styles, /\.today-create-options:has\(> details\[open\]\)/);
   assert.match(styles, /\.task-form-section/);
   assert.match(styles, /\.recurrence-builder/);

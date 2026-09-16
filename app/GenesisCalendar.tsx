@@ -592,6 +592,7 @@ export function GenesisCalendar() {
   const [monthIndex, setMonthIndex] = useState(initial.monthIndex);
   const [selectedDay, setSelectedDay] = useState(initial.day);
   const [dayDetailsOpen, setDayDetailsOpen] = useState(false);
+  const [dayTaskCreatorOpen, setDayTaskCreatorOpen] = useState(false);
   const [dayDetailsOrigin, setDayDetailsOrigin] = useState<DayDetailsOrigin>("calendar");
   const [openDayTaskPopover, setOpenDayTaskPopover] = useState("");
   const [deviceLocation, setDeviceLocation] = useState<DeviceLocation | null>(null);
@@ -739,9 +740,7 @@ export function GenesisCalendar() {
 
   const todayInfo = useMemo(() => getSacredDate(today), [today]);
   const activeCalendarMode: CalendarMode = cloudUser?.calendarMode ?? "sacred";
-  const activeTaskCalendarMode: CalendarMode = activeCalendarMode === "sacred"
-    ? cloudUser?.taskCalendarMode ?? "sacred"
-    : activeCalendarMode;
+  const activeTaskCalendarMode: CalendarMode = cloudUser?.taskCalendarMode ?? "sacred";
   const googleAccounts = cloudUser?.googleAccounts ?? [];
   const defaultSyncAccountIds = cloudUser?.syncRouting?.defaultAccountIds?.length
     ? cloudUser.syncRouting.defaultAccountIds
@@ -826,6 +825,26 @@ export function GenesisCalendar() {
     setDayDetailsOpen(true);
   };
 
+  const beginSelectedDayTask = () => {
+    setTaskTitle("");
+    setTaskDescription("");
+    setTaskDueDate(selectedDateValue);
+    setTaskEndDate(selectedDateValue);
+    setTaskTime("");
+    setTaskTags("");
+    setTaskDependsOn([]);
+    setTaskPriority("5");
+    setTaskSyncAccountIds(null);
+    setTaskRecurrenceConfig(alignRecurrenceConfigWithCalendar(DEFAULT_RECURRENCE_CONFIG, activeTaskCalendarMode, selectedDateValue));
+    setDayDetailsOpen(false);
+    setDayTaskCreatorOpen(true);
+  };
+
+  const closeSelectedDayTaskCreator = () => {
+    setDayTaskCreatorOpen(false);
+    setDayDetailsOpen(true);
+  };
+
   const navigateTo = (nextView: ViewName, replace = false) => {
     setOpenDayTaskPopover("");
     setAccountMenuOpen(false);
@@ -885,9 +904,15 @@ export function GenesisCalendar() {
   }, [accountMenuOpen]);
 
   useEffect(() => {
-    if (!dayDetailsOpen) return;
+    if (!dayDetailsOpen && !dayTaskCreatorOpen) return;
     const closeWithEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setDayDetailsOpen(false);
+      if (event.key !== "Escape") return;
+      if (dayTaskCreatorOpen) {
+        setDayTaskCreatorOpen(false);
+        setDayDetailsOpen(true);
+      } else {
+        setDayDetailsOpen(false);
+      }
     };
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -896,7 +921,7 @@ export function GenesisCalendar() {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", closeWithEscape);
     };
-  }, [dayDetailsOpen]);
+  }, [dayDetailsOpen, dayTaskCreatorOpen]);
 
   useEffect(() => {
     if (!openDayTaskPopover) return;
@@ -1427,7 +1452,11 @@ export function GenesisCalendar() {
     setTaskDependsOn([]);
     setTaskPriority("5");
     setTaskSyncAccountIds(null);
-    setTaskRecurrenceConfig(DEFAULT_RECURRENCE_CONFIG);
+    setTaskRecurrenceConfig(alignRecurrenceConfigWithCalendar(DEFAULT_RECURRENCE_CONFIG, activeTaskCalendarMode, todayDateValue));
+    if (dayTaskCreatorOpen) {
+      setDayTaskCreatorOpen(false);
+      setDayDetailsOpen(true);
+    }
   };
 
   const openTaskEditor = (task: Task) => {
@@ -2464,7 +2493,7 @@ export function GenesisCalendar() {
     </div>
   );
 
-  const renderTaskCreateForm = (context: "today" | "all-tasks") => {
+  const renderTaskCreateForm = (context: "today" | "all-tasks" | "day-details") => {
     const selectedTaskList = taskLists.find((taskList) => taskList.id === taskTaskListId);
     const createsTaskList = taskTaskListId === CREATE_NEW_TASK_LIST_ID;
     const dueDateIsPast = newTaskDueDate < todayDateValue;
@@ -4239,6 +4268,13 @@ export function GenesisCalendar() {
               <div><dt>Пята</dt><dd>{selectedSacredDay.pyataTitle || "Апейрон"}</dd></div>
               <div><dt>Число</dt><dd>{selectedPythagorean?.name || "Безграничное"}</dd></div>
             </dl>
+            <div className="day-details-create-task">
+              <button type="button" className="day-details-create-task-button" onClick={beginSelectedDayTask}>
+                <span aria-hidden="true">＋</span>
+                <span><strong>Создать задачу</strong><small>{formatCalendarDate(selectedDate, activeTaskCalendarMode, true)}</small></span>
+                <i aria-hidden="true">→</i>
+              </button>
+            </div>
             {selectedDayTasks.length ? (
               <section className="day-details-tasks" aria-labelledby="day-details-tasks-title">
                 <header>
@@ -4317,6 +4353,21 @@ export function GenesisCalendar() {
                 </button>
               </div>
             ) : null}
+          </section>
+        </div>
+      ) : null}
+      {dayTaskCreatorOpen ? (
+        <div className="modal-backdrop day-task-create-backdrop" role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) closeSelectedDayTaskCreator(); }}>
+          <section className="editor-modal day-task-create-modal" role="dialog" aria-modal="true" aria-labelledby="day-task-create-title" aria-describedby="day-task-create-description">
+            <button type="button" className="modal-close" onClick={closeSelectedDayTaskCreator} aria-label="Закрыть создание задачи">×</button>
+            <span className="eyebrow">Дата задачи</span>
+            <h2 id="day-task-create-title">Новая задача на выбранный день</h2>
+            <p className="day-task-create-date" id="day-task-create-description">
+              <strong>{formatCalendarDate(selectedDate, activeTaskCalendarMode, true)}</strong>
+              <small>{formatGregorian(selectedDate, true)}</small>
+              <span>Дата уже выбрана. При необходимости её можно изменить в форме.</span>
+            </p>
+            {renderTaskCreateForm("day-details")}
           </section>
         </div>
       ) : null}
@@ -4516,7 +4567,7 @@ export function GenesisCalendar() {
             setLanguage(nextLanguage);
             storeLanguage(nextLanguage);
             setCloudUser(user);
-            const nextTaskCalendarMode = user.calendarMode === "sacred" ? user.taskCalendarMode ?? "sacred" : user.calendarMode;
+            const nextTaskCalendarMode = user.taskCalendarMode ?? "sacred";
             setTaskRecurrenceConfig((current) => alignRecurrenceConfigWithCalendar(current, nextTaskCalendarMode, newTaskDueDate));
             localStorage.setItem(LAST_USER_KEY, JSON.stringify(user));
           }}
