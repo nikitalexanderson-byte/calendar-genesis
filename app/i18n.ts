@@ -60,7 +60,6 @@ const curatedTranslations: Record<string, string> = {
   "солнечные точки": "solar points",
   "Новолуние открывает месяц": "The new moon opens the month",
   "Лунный год после равноденствия": "Lunar year after the equinox",
-  "Магический женский год Луны": "The Moon's magical feminine year",
   "Генезион": "Genesion",
   "Агонион": "Agonion",
   "Эвризион": "Euresion",

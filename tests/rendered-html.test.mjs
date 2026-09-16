@@ -291,9 +291,14 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /activeCalendarMode === "lunar"/);
   assert.match(calendar, /Календарный год \$\{profaneYear\}/);
   assert.match(calendar, /первого точного новолуния после весеннего равноденствия/);
-  assert.match(calendar, /Магический женский год Луны/);
+  assert.match(calendar, /"Лунный год"/);
+  assert.doesNotMatch(calendar, /Магический женский год Луны/);
   assert.match(calendar, /современная символическая система GENESIS/);
-  assert.match(calendar, /Гомеров гимн XXXII к Селене/);
+  assert.doesNotMatch(calendar, /calendar-source-links|Гомеров гимн XXXII к Селене/);
+  assert.match(calendar, /mode === "profane" && date\.getDay\(\) === 6/);
+  assert.match(calendar, /mini-day-moon-phase/);
+  assert.match(calendar, /lunar-year-has-intercalary/);
+  assert.match(calendar, /lunar-year-full-width/);
   assert.match(calendar, /lunar-decades/);
   const alternativeCalendar = calendar.slice(calendar.indexOf("const renderAlternativeCalendar"), calendar.indexOf("const renderCalendar"));
   assert.doesNotMatch(alternativeCalendar, /calendar-month-art|--month-art/);
@@ -541,6 +546,10 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(styles, /\.month-rail\.mode-sacred button:last-child/);
   assert.match(styles, /\.calendar-mode-calendar\.mode-lunar \.calendar-mode-days/);
   assert.match(styles, /\.civil-mini-calendar\.mode-lunar/);
+  assert.match(styles, /\.civil-mini-calendar\.mode-lunar \.mini-day-moon-phase/);
+  assert.match(styles, /\.calendar-mode-description\.lunar-year-full-width\s*\{[\s\S]*grid-column: 1 \/ -1/);
+  assert.match(styles, /\.calendar-mode-description\.lunar-year-has-intercalary\s*\{[\s\S]*grid-column: span 2/);
+  assert.doesNotMatch(styles, /\.calendar-source-links/);
   assert.doesNotMatch(styles, /\.mobile-nav button\[data-nav-id="admin"\]\s*\{/);
   assert.match(styles, /grid-auto-flow: column/);
   assert.match(styles, /mask-image: linear-gradient\(to right/);

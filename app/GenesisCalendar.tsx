@@ -3859,7 +3859,7 @@ export function GenesisCalendar() {
                     const sacred = getSacredDate(date);
                     const sacredDay = getSacredDay(sacred.monthIndex, sacred.day);
                     const solar = getSolarEvent(sacred.sacredYear, sacred.monthIndex, sacred.day);
-                    const isSaturday = date.getDay() === 6;
+                    const isSaturday = mode === "profane" && date.getDay() === 6;
                     return (
                       <button
                         type="button"
@@ -3869,6 +3869,7 @@ export function GenesisCalendar() {
                         aria-label={`${formatCalendarDate(date, mode, true)}; ${sacredDay.name}; ${moon.day} лунный день${dayTasks ? `; задач: ${dayTasks}` : ""}`}
                         title={`${formatGregorian(date, true)} · ${formatCalendarDate(date, "sacred")} · ${moon.day} лунный день`}
                       >
+                        {mode === "lunar" ? <MoonPhaseIcon phaseStep={moon.phaseStep} size={30} className="mini-day-moon-phase" /> : null}
                         <span className="mini-day-number">{mode === "lunar" ? moon.day : date.getDate()}</span>
                         {dayTasks ? <span className="mini-day-task-count" aria-hidden="true">{dayTasks}</span> : null}
                       </button>
@@ -3882,9 +3883,12 @@ export function GenesisCalendar() {
               </article>
             );
           })}
-          <article className="year-description-card calendar-mode-description" aria-labelledby="calendar-mode-year-description">
+          <article
+            className={`year-description-card calendar-mode-description${mode === "lunar" ? yearMonths.length === 13 ? " lunar-year-has-intercalary" : " lunar-year-full-width" : ""}`}
+            aria-labelledby="calendar-mode-year-description"
+          >
             <span className="eyebrow">{CALENDAR_MODE_META[mode].label}</span>
-            <h2 id="calendar-mode-year-description">{mode === "profane" ? "Обычный год, полный контекст" : "Магический женский год Луны"}</h2>
+            <h2 id="calendar-mode-year-description">{mode === "profane" ? "Обычный год, полный контекст" : "Лунный год"}</h2>
             <p>{yearDescription}</p>
             <dl>
               <div><dt>{yearMonths.length}</dt><dd>месяцев</dd></div>
@@ -3896,10 +3900,6 @@ export function GenesisCalendar() {
               <>
                 <p>В системе GENESIS это магический «женский» год: его внутренняя ткань определяется не месяцами и неделями солнечного года, а ростом, полнотой и исходом Луны. Весеннее равноденствие служит только ежегодной точкой настройки; условия для практик рождаются внутри самих лунных месяцев и потому не привязаны к профанскому делению года.</p>
                 <p>Это современная символическая система GENESIS, а не реконструкция единого древнегреческого календаря. Её античная опора — образ Селены как небесного знака для людей и полнота Луны в середине месяца в Гомеровом гимне; греческие лунно-солнечные календари действительно удерживали месяцы рядом с сезонами при помощи вставочного месяца.</p>
-                <nav className="calendar-source-links" aria-label="Источники об античном лунном календаре">
-                  <a href="https://www.perseus.tufts.edu/hopper/text?doc=Perseus%3Atext%3A1999.01.0138%3Ahymn%3D32" target="_blank" rel="noreferrer">Гомеров гимн XXXII к Селене</a>
-                  <a href="https://academic.oup.com/book/27844/chapter-abstract/198158216" target="_blank" rel="noreferrer">Calendars of Ancient Greece · Oxford</a>
-                </nav>
               </>
             ) : <p>Клик по дню открывает задачи, сакральное значение, фазу Луны, точное время рассвета и заката для региона устройства.</p>}
           </article>

@@ -8632,6 +8632,34 @@ button.project-drag-handle:active { cursor: grabbing; }
   grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
+.civil-mini-calendar.mode-lunar .mini-day {
+  isolation: isolate;
+}
+
+.civil-mini-calendar.mode-lunar .mini-day-moon-phase {
+  width: 62%;
+  height: 62%;
+  color: color-mix(in srgb, var(--month-accent) 70%, #243b39);
+  filter: drop-shadow(0 1px 2px rgba(7, 16, 18, .24));
+}
+
+.civil-mini-calendar.mode-lunar .mini-day-number {
+  position: absolute;
+  z-index: 2;
+  right: 3px;
+  bottom: 3px;
+  display: grid;
+  min-width: 12px;
+  height: 12px;
+  padding: 0 2px;
+  place-items: center;
+  color: #16312e;
+  font: 800 6px/1 Inter, sans-serif;
+  background: rgba(255, 253, 248, .88);
+  border: 1px solid color-mix(in srgb, var(--month-accent) 35%, transparent);
+  border-radius: 999px;
+}
+
 .civil-mini-weekday {
   color: color-mix(in srgb, var(--month-accent) 70%, #435653);
   font-size: 6px;
@@ -8652,26 +8680,12 @@ button.project-drag-handle:active { cursor: grabbing; }
   min-height: 396px;
 }
 
-.calendar-source-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
+.calendar-mode-description.lunar-year-full-width {
+  grid-column: 1 / -1;
 }
 
-.calendar-source-links a {
-  padding: 7px 9px;
-  color: #dfc77f;
-  border: 1px solid rgba(178, 138, 74, .28);
-  border-radius: 999px;
-  font-size: 8px;
-  letter-spacing: .04em;
-  text-decoration: none;
-}
-
-.calendar-source-links a:hover,
-.calendar-source-links a:focus-visible {
-  color: #fff8e7;
-  border-color: rgba(223, 199, 127, .7);
+.calendar-mode-description.lunar-year-has-intercalary {
+  grid-column: span 2;
 }
 
 .day-details-modal.mode-profane .selected-day-symbol {
@@ -8690,6 +8704,10 @@ button.project-drag-handle:active { cursor: grabbing; }
 }
 
 @media (max-width: 760px) {
+  .calendar-mode-description.lunar-year-has-intercalary {
+    grid-column: 1 / -1;
+  }
+
   .calendar-mode-header h1 {
     max-width: 100%;
     font-size: clamp(31px, 11vw, 48px);
