@@ -1466,6 +1466,33 @@ button:disabled {
   border-radius: 50%;
 }
 
+.cronus-sickle-icon {
+  display: block;
+  flex: 0 0 auto;
+  overflow: visible;
+  color: inherit;
+}
+
+.cronus-sickle-blade,
+.cronus-sickle-handle,
+.cronus-sickle-binding {
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.cronus-sickle-blade {
+  stroke-width: 3.4;
+}
+
+.cronus-sickle-handle {
+  stroke-width: 4.2;
+}
+
+.cronus-sickle-binding {
+  stroke-width: 2.5;
+}
+
 .month-calendar {
   display: grid;
   min-width: 0;
@@ -2131,6 +2158,8 @@ button:disabled {
 }
 
 .year-month-top b {
+  display: grid;
+  place-items: center;
   color: var(--month-accent);
   font-family: Georgia, "Times New Roman", serif;
   font-size: 23px;
@@ -8638,6 +8667,10 @@ button.project-drag-handle:active { cursor: grabbing; }
   padding: 11px 10px 43px;
 }
 
+.calendar-mode-day.mode-profane {
+  min-height: 222px;
+}
+
 .calendar-mode-primary {
   display: flex;
   min-width: 0;
@@ -8660,9 +8693,38 @@ button.project-drag-handle:active { cursor: grabbing; }
   white-space: nowrap;
 }
 
+.profane-weekday-patron {
+  display: grid;
+  gap: 2px;
+  margin-top: 7px;
+  padding-top: 7px;
+  color: #526965;
+  border-top: 1px solid color-mix(in srgb, var(--month-accent) 20%, transparent);
+}
+
+.profane-weekday-patron > strong {
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: .08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.profane-weekday-patron > small {
+  color: #687a77;
+  font: 500 8px/1.35 Georgia, "Times New Roman", serif;
+  overflow-wrap: anywhere;
+}
+
 .calendar-mode-day.selected .calendar-mode-primary > small,
-.calendar-mode-day.selected .calendar-cross-date {
+.calendar-mode-day.selected .calendar-cross-date,
+.calendar-mode-day.selected .profane-weekday-patron,
+.calendar-mode-day.selected .profane-weekday-patron > small {
   color: #dce6e2;
+}
+
+.calendar-mode-day.selected .profane-weekday-patron {
+  border-top-color: rgba(255, 255, 255, .18);
 }
 
 .calendar-cross-date {
@@ -8685,6 +8747,10 @@ button.project-drag-handle:active { cursor: grabbing; }
   font: 700 9px/1 Georgia, "Times New Roman", serif;
 }
 
+.calendar-cross-date > .cronus-sickle-icon {
+  color: var(--month-accent);
+}
+
 .calendar-cross-date .moon-phase-icon {
   color: #806f49;
 }
@@ -8695,8 +8761,14 @@ button.project-drag-handle:active { cursor: grabbing; }
 
 .calendar-mode-day.today .calendar-mode-primary > strong,
 .calendar-mode-day.today .calendar-mode-primary > small,
-.calendar-mode-day.today .calendar-cross-date {
+.calendar-mode-day.today .calendar-cross-date,
+.calendar-mode-day.today .profane-weekday-patron,
+.calendar-mode-day.today .profane-weekday-patron > small {
   color: #17312e;
+}
+
+.calendar-mode-day.selected .calendar-cross-date > .cronus-sickle-icon {
+  color: #dce6e2;
 }
 
 .lunar-month-rule {

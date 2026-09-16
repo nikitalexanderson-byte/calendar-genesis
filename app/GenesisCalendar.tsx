@@ -50,6 +50,7 @@ import { currentLegalPage, LegalPage } from "./LegalPage";
 import { StoicheionView } from "./StoicheionView";
 import { TimeClockPicker } from "./TimeClockPicker";
 import { CalendarDatePicker } from "./CalendarDatePicker";
+import { CronusSickleIcon } from "./CronusSickleIcon";
 import { MoonPhaseIcon } from "./MoonPhaseIcon";
 import { RecurrenceBuilder } from "./RecurrenceBuilder";
 import { WelcomeScreen } from "./WelcomeScreen";
@@ -173,11 +174,21 @@ const NAVIGATION: Array<{ id: ViewName; label: string; symbol: string }> = [
   { id: "stoicheion", label: "Стойхейон", symbol: "ϟ" },
 ];
 
-const CALENDAR_MODE_META: Record<CalendarMode, { label: string; symbol: string }> = {
-  sacred: { label: "Сакральный календарь", symbol: "✦" },
-  lunar: { label: "Лунный календарь", symbol: "☾" },
-  profane: { label: "Профанский календарь", symbol: "□" },
+const CALENDAR_MODE_META: Record<CalendarMode, { label: string }> = {
+  sacred: { label: "Сакральный календарь" },
+  lunar: { label: "Лунный календарь" },
+  profane: { label: "Профанский календарь" },
 };
+
+const PROFANE_WEEKDAY_PATRONS = [
+  { weekday: "Воскресенье", patronage: "День Аполлона" },
+  { weekday: "Понедельник", patronage: "День Луны — Селены, Гекаты и Артемиды" },
+  { weekday: "Вторник", patronage: "День Ареса" },
+  { weekday: "Среда", patronage: "День Меркурия" },
+  { weekday: "Четверг", patronage: "День Зевса и Геры" },
+  { weekday: "Пятница", patronage: "День Афродиты, Гестии и Диониса" },
+  { weekday: "Суббота", patronage: "День Кроноса, Посейдона и Аида" },
+] as const;
 
 const TASK_INBOX_PROJECT_ID = "__genesis_inbox__";
 const CREATE_NEW_TASK_LIST_ID = "__create_new_task_list__";
@@ -769,6 +780,7 @@ export function GenesisCalendar() {
   const selectedSacredDay = getSacredDay(monthIndex, selectedDay);
   const selectedMoon = getMoon(selectedDate);
   const selectedLunarDate = getLunarDate(selectedDate);
+  const selectedWeekdayPatron = PROFANE_WEEKDAY_PATRONS[selectedDate.getDay()];
   const selectedElement = getDayElement(monthIndex, selectedDay);
   const selectedPythagorean = getPythagorean(monthIndex, selectedDay);
   const selectedSolarEvent = getSolarEvent(sacredYear, monthIndex, selectedDay);
@@ -2807,6 +2819,7 @@ export function GenesisCalendar() {
     const column = layoutIndex % columnCount;
     const popoverAlignment = column < 2 ? "align-left" : column >= columnCount - 2 ? "align-right" : "align-center";
     const weekday = new Intl.DateTimeFormat(runtimeLocale(), { weekday: "short" }).format(date).replace(/\.$/u, "");
+    const weekdayPatron = PROFANE_WEEKDAY_PATRONS[date.getDay()];
     const profaneDate = new Intl.DateTimeFormat(runtimeLocale(), { day: "numeric", month: "short" }).format(date);
 
     return (
@@ -2819,15 +2832,21 @@ export function GenesisCalendar() {
           className="calendar-day-open"
           onClick={() => openCalendarDate(date, "calendar")}
           aria-pressed={isSelected}
-          aria-label={`${formatCalendarDate(date, mode, true)} — ${sacredDay.name} — ${moon.day} лунный день${taskCount ? ` — ${taskCount} задач` : ""}`}
+          aria-label={`${formatCalendarDate(date, mode, true)}${mode === "profane" ? ` — ${weekdayPatron.weekday}, ${weekdayPatron.patronage}` : ""} — ${sacredDay.name} — ${moon.day} лунный день${taskCount ? ` — ${taskCount} задач` : ""}`}
         />
         <span className="calendar-mode-primary">
           {mode === "lunar" ? <MoonPhaseIcon phaseStep={moon.phaseStep} size={26} /> : null}
           <strong>{mode === "lunar" ? moon.day : date.getDate()}</strong>
           <small>{mode === "lunar" && lunar.isThreshold ? "Рубеж" : mode === "lunar" ? moon.phase : weekday}</small>
         </span>
+        {mode === "profane" ? (
+          <span className="profane-weekday-patron">
+            <strong>{weekdayPatron.weekday}</strong>
+            <small>{weekdayPatron.patronage}</small>
+          </span>
+        ) : null}
         <span className="calendar-cross-date profane-date">
-          <b aria-hidden="true">□</b>{mode === "profane" ? `${profaneDate} · ${date.getFullYear()}` : profaneDate}
+          <CronusSickleIcon size={12} />{mode === "profane" ? `${profaneDate} · ${date.getFullYear()}` : profaneDate}
         </span>
         <span className="calendar-cross-date sacred-date" title={sacredDay.name}>
           <b aria-hidden="true">✦</b>{formatCalendarDate(date, "sacred")}
@@ -3114,11 +3133,11 @@ export function GenesisCalendar() {
       ? `${profaneMonthName(selectedDate)} · ${dates.length} дней`
       : `${lunarDefinition.title} · ${formatDateRange(firstDate, lastDate)}`;
     const monthDescription = mode === "profane"
-      ? "Обычный календарный месяц с неделями с понедельника по воскресенье. В каждом дне дополнительно показаны сакральная дата, лунные сутки, рассвет и закат."
+      ? "Профанский календарный месяц с неделями с воскресенья по субботу. В каждом дне дополнительно показаны покровители дня, сакральная дата, лунные сутки, рассвет и закат."
       : lunarDefinition.description;
-    const leadingDays = mode === "profane" ? (firstDate.getDay() + 6) % 7 : 0;
+    const leadingDays = mode === "profane" ? firstDate.getDay() : 0;
     const weekdayLabels = Array.from({ length: 7 }, (_, index) => {
-      const day = new Date(2024, 0, 1 + index, 12);
+      const day = new Date(2024, 0, 7 + index, 12);
       return new Intl.DateTimeFormat(runtimeLocale(), { weekday: "short" }).format(day).replace(/\.$/u, "");
     });
     const moveMonth = (delta: number) => {
@@ -3149,7 +3168,7 @@ export function GenesisCalendar() {
           </div>
           <div className="month-switcher" aria-label={mode === "profane" ? "Переключение календарных месяцев" : "Переключение лунных месяцев"}>
             <button type="button" onClick={() => moveMonth(-1)} aria-label={mode === "profane" ? "Предыдущий календарный месяц" : "Предыдущий лунный месяц"}>←</button>
-            <span aria-hidden="true">{CALENDAR_MODE_META[mode].symbol}</span>
+            <span aria-hidden="true">{mode === "profane" ? <CronusSickleIcon size={35} /> : "☾"}</span>
             <button type="button" onClick={() => moveMonth(1)} aria-label={mode === "profane" ? "Следующий календарный месяц" : "Следующий лунный месяц"}>→</button>
           </div>
         </header>
@@ -3781,7 +3800,7 @@ export function GenesisCalendar() {
             title: profaneMonthName(representative),
             subtitle: `${dates.length} дней · ${profaneYear} год`,
             ordinal: String(month + 1).padStart(2, "0"),
-            symbol: "□",
+            symbol: "",
             dates,
             accentMonth,
           };
@@ -3812,8 +3831,12 @@ export function GenesisCalendar() {
       : Math.round((Date.UTC(lunarYear.endDate.getFullYear(), lunarYear.endDate.getMonth(), lunarYear.endDate.getDate()) - Date.UTC(lunarYear.startDate.getFullYear(), lunarYear.startDate.getMonth(), lunarYear.startDate.getDate())) / 86_400_000);
     const yearTitle = mode === "profane" ? `Календарный год ${profaneYear}` : `Лунный год ${lunarYear.sacredYear}–${lunarYear.sacredYear + 1}`;
     const yearDescription = mode === "profane"
-      ? "Двенадцать обычных календарных месяцев с января по декабрь. Откройте любой день, чтобы увидеть его сакральный смысл, лунные сутки, рассвет, закат и задачи."
+      ? "Профанский календарь состоит из двенадцати стандартных календарных месяцев с января по декабрь. Откройте любой день, чтобы увидеть его сакральный смысл, лунные сутки, рассвет, закат и задачи."
       : `Год начинается ${formatGregorian(lunarYear.startDate, true)} — в день первого точного новолуния после весеннего равноденствия — и включает ${lunarYear.monthCount} лунных месяцев по 29 или 30 суток.`;
+    const profaneWeekdayLabels = Array.from({ length: 7 }, (_, index) => {
+      const day = new Date(2024, 0, 7 + index, 12);
+      return new Intl.DateTimeFormat(runtimeLocale(), { weekday: "short" }).format(day).replace(/\.$/u, "");
+    });
     const changeYear = (delta: number) => {
       if (mode === "profane") {
         const targetYear = profaneYear + delta;
@@ -3857,7 +3880,7 @@ export function GenesisCalendar() {
             const monthTaskCount = datesTaskCount(tasks, month.dates);
             const containsToday = month.dates.some((date) => inputDate(date) === todayDateValue);
             const containsSelectedMonth = month.dates.some((date) => inputDate(date) === selectedDateValue);
-            const leadingDays = mode === "profane" ? ((month.dates[0]?.getDay() ?? 1) + 6) % 7 : 0;
+            const leadingDays = mode === "profane" ? (month.dates[0]?.getDay() ?? 0) : 0;
             const openMonth = () => {
               const todayInMonth = month.dates.find((date) => inputDate(date) === todayDateValue);
               selectCalendarDate(todayInMonth ?? month.dates[0]);
@@ -3875,11 +3898,11 @@ export function GenesisCalendar() {
                   "--month-art": `url("${monthArtUrl(month.accentMonth.index)}")`,
                 } as CSSProperties}
               >
-                <span className="year-month-top"><i>{month.ordinal}</i><b>{month.symbol}</b></span>
+                <span className="year-month-top"><i>{month.ordinal}</i><b>{mode === "profane" ? <CronusSickleIcon size={27} /> : month.symbol}</b></span>
                 <strong id={`year-month-${month.id}`}>{month.title}</strong>
                 <small>{month.subtitle}</small>
                 <div className={`civil-mini-calendar mode-${mode}`}>
-                  {mode === "profane" ? ["П", "В", "С", "Ч", "П", "С", "В"].map((label, index) => <span className="civil-mini-weekday" key={`${month.id}-weekday-${index}`}>{label}</span>) : null}
+                  {mode === "profane" ? profaneWeekdayLabels.map((label, index) => <span className="civil-mini-weekday" key={`${month.id}-weekday-${index}`}>{label}</span>) : null}
                   {Array.from({ length: leadingDays }, (_, index) => <span className="civil-mini-blank" aria-hidden="true" key={`${month.id}-blank-${index}`} />)}
                   {month.dates.map((date) => {
                     const dateValue = inputDate(date);
@@ -3889,14 +3912,15 @@ export function GenesisCalendar() {
                     const sacredDay = getSacredDay(sacred.monthIndex, sacred.day);
                     const solar = getSolarEvent(sacred.sacredYear, sacred.monthIndex, sacred.day);
                     const isSaturday = mode === "profane" && date.getDay() === 6;
+                    const weekdayPatron = PROFANE_WEEKDAY_PATRONS[date.getDay()];
                     return (
                       <button
                         type="button"
                         className={`mini-day${dayTasks ? " has-task" : ""}${dateValue === todayDateValue ? " today" : ""}${solar ? " solar" : ""}${isSaturday ? " saturday" : ""}`}
                         key={dateValue}
                         onClick={() => openCalendarDate(date, "year")}
-                        aria-label={`${formatCalendarDate(date, mode, true)}; ${sacredDay.name}; ${moon.day} лунный день${dayTasks ? `; задач: ${dayTasks}` : ""}`}
-                        title={`${formatGregorian(date, true)} · ${formatCalendarDate(date, "sacred")} · ${moon.day} лунный день`}
+                        aria-label={`${formatCalendarDate(date, mode, true)}${mode === "profane" ? `; ${weekdayPatron.weekday}, ${weekdayPatron.patronage}` : ""}; ${sacredDay.name}; ${moon.day} лунный день${dayTasks ? `; задач: ${dayTasks}` : ""}`}
+                        title={`${formatGregorian(date, true)}${mode === "profane" ? ` · ${weekdayPatron.patronage}` : ""} · ${formatCalendarDate(date, "sacred")} · ${moon.day} лунный день`}
                       >
                         {mode === "lunar" ? <MoonPhaseIcon phaseStep={moon.phaseStep} size={30} className="mini-day-moon-phase" /> : null}
                         <span className="mini-day-number">{mode === "lunar" ? moon.day : date.getDate()}</span>
@@ -4253,12 +4277,13 @@ export function GenesisCalendar() {
               <p id="selected-day-description">{activeCalendarMode === "lunar"
                 ? `${selectedLunarDate.isThreshold ? "Рубеж" : selectedLunarDate.decade.name} · ${selectedMoon.phase} · освещённость ${selectedMoon.illumination}%. ${selectedLunarDate.month.description} Сакральный смысл дня: ${selectedSacredDay.name} — ${selectedSacredDay.description}`
                 : activeCalendarMode === "profane"
-                  ? `${selectedSacredDay.name} — ${selectedSacredDay.description}`
+                  ? `${selectedWeekdayPatron.patronage}. ${selectedSacredDay.name} — ${selectedSacredDay.description}`
                   : selectedSacredDay.description}</p>
               {selectedSolarEvent ? <strong className="selected-solar-event">{selectedSolarEvent.name} · День Солнца</strong> : null}
             </div>
             <dl className="selected-day-facts">
               {selectedSolarEvent ? <div className="solar-fact"><dt>Солнечная точка</dt><dd>{selectedSolarEvent.name}</dd></div> : null}
+              {activeCalendarMode === "profane" ? <div><dt>Покровители дня</dt><dd>{selectedWeekdayPatron.weekday} · {selectedWeekdayPatron.patronage}</dd></div> : null}
               <div><dt>Профанская дата</dt><dd>{formatGregorian(selectedDate, true)}</dd></div>
               <div><dt>Сакральная дата</dt><dd>{formatCalendarDate(selectedDate, "sacred")}</dd></div>
               <div><dt>Лунный месяц</dt><dd>{selectedLunarDate.month.name} · {selectedLunarDate.month.title}</dd></div>

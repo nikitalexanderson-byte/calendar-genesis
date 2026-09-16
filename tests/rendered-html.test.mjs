@@ -148,7 +148,7 @@ test("turns Russian and English voice commands into local task plans", () => {
 });
 
 test("keeps the requested calendar and privacy features wired", async () => {
-  const [calendarData, calendar, calendarDatePicker, accountPanel, cloudSync, recurrenceBuilder, taskRecurrence, moonPhase, solarTimes, stoicheion, stoicheionData, welcome, styles, api, google, repository, multiAccountMigration, i18n, languageMigration, taskCalendarMigration, englishManifest, geminiAssistant, localVoiceAssistant, localVoicePlan, geminiServer, publicHtaccess, serverConfigExample] = await Promise.all([
+  const [calendarData, calendar, calendarDatePicker, accountPanel, cloudSync, recurrenceBuilder, taskRecurrence, moonPhase, solarTimes, stoicheion, stoicheionData, welcome, styles, api, google, repository, multiAccountMigration, i18n, languageMigration, taskCalendarMigration, englishManifest, geminiAssistant, localVoiceAssistant, localVoicePlan, geminiServer, publicHtaccess, serverConfigExample, cronusSickle] = await Promise.all([
     readFile(new URL("../app/calendar-data.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/CalendarDatePicker.tsx", import.meta.url), "utf8"),
@@ -176,6 +176,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
     readFile(new URL("../server/src/gemini.php", import.meta.url), "utf8"),
     readFile(new URL("../public/.htaccess", import.meta.url), "utf8"),
     readFile(new URL("../server/config.example.php", import.meta.url), "utf8"),
+    readFile(new URL("../app/CronusSickleIcon.tsx", import.meta.url), "utf8"),
   ]);
 
   assert.match(calendarData, /getSolarEvents/);
@@ -299,6 +300,21 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /современная символическая система GENESIS/);
   assert.doesNotMatch(calendar, /calendar-source-links|Гомеров гимн XXXII к Селене/);
   assert.match(calendar, /mode === "profane" && date\.getDay\(\) === 6/);
+  assert.match(calendar, /PROFANE_WEEKDAY_PATRONS/);
+  assert.match(calendar, /День Луны — Селены, Гекаты и Артемиды/);
+  assert.match(calendar, /День Кроноса, Посейдона и Аида/);
+  assert.match(calendar, /Профанский календарь состоит из двенадцати стандартных календарных месяцев/);
+  assert.match(calendar, /const leadingDays = mode === "profane" \? firstDate\.getDay\(\) : 0/);
+  assert.match(calendar, /month\.dates\[0\]\?\.getDay\(\) \?\? 0/);
+  assert.match(calendar, /new Date\(2024, 0, 7 \+ index, 12\)/);
+  assert.match(calendar, /<CronusSickleIcon size=\{35\}/);
+  assert.match(calendar, /<CronusSickleIcon size=\{27\}/);
+  assert.match(calendar, /profane-weekday-patron/);
+  assert.match(cronusSickle, /cronus-sickle-blade/);
+  assert.match(cronusSickle, /cronus-sickle-handle/);
+  assert.match(styles, /\.cronus-sickle-icon/);
+  assert.match(styles, /\.profane-weekday-patron/);
+  assert.doesNotMatch(calendar, /symbol: "□"/);
   assert.match(calendar, /mini-day-moon-phase/);
   assert.match(calendar, /lunar-year-has-intercalary/);
   assert.match(calendar, /lunar-year-full-width/);
