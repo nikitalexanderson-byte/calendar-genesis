@@ -3957,7 +3957,6 @@ export function GenesisCalendar() {
                 aria-labelledby={`year-month-${month.id}`}
                 style={{
                   "--month-accent": month.accentMonth.color,
-                  "--month-art": `url("${monthArtUrl(month.accentMonth.index)}")`,
                 } as CSSProperties}
               >
                 <span className="year-month-top"><i>{month.ordinal}</i><b>{mode === "profane" ? <CronusSickleIcon size={27} /> : month.symbol}</b></span>

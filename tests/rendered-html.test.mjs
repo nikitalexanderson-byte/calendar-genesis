@@ -357,6 +357,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /lunar-year-has-intercalary/);
   assert.match(calendar, /lunar-year-full-width/);
   assert.match(calendar, /lunar-decades/);
+  assert.equal((calendar.match(/"--month-art"/g) ?? []).length, 2);
+  assert.match(styles, /\.calendar-mode-year-month::before\s*\{[\s\S]*background-image: none;[\s\S]*opacity: 0/);
   const alternativeCalendar = calendar.slice(calendar.indexOf("const renderAlternativeCalendar"), calendar.indexOf("const renderCalendar"));
   assert.doesNotMatch(alternativeCalendar, /calendar-month-art|--month-art/);
   assert.match(calendar, /calendarRailItems/);

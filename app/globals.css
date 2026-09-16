@@ -9020,6 +9020,11 @@ button.project-drag-handle:active { cursor: grabbing; }
   min-height: 396px;
 }
 
+.calendar-mode-year-month::before {
+  background-image: none;
+  opacity: 0;
+}
+
 .calendar-mode-year-month.selected-period:not(.current) {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--month-accent) 72%, #fff);
 }
