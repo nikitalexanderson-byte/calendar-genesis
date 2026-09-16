@@ -545,6 +545,9 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(styles, /\.stoicheion-view/);
   assert.match(styles, /\.month-rail\.mode-sacred button:last-child/);
   assert.match(styles, /\.calendar-mode-calendar\.mode-lunar \.calendar-mode-days/);
+  assert.match(styles, /@media \(max-width: 760px\)[\s\S]*\.calendar-mode-calendar\.mode-lunar \.calendar-mode-days\s*\{[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(styles, /\.calendar-mode-calendar\.mode-lunar \.calendar-mode-primary > small\s*\{[\s\S]*overflow-wrap: break-word;[\s\S]*white-space: normal/);
+  assert.match(styles, /\.calendar-mode-calendar\.mode-lunar \.calendar-cross-date\s*\{[\s\S]*overflow-wrap: break-word;[\s\S]*white-space: normal/);
   assert.match(styles, /\.civil-mini-calendar\.mode-lunar/);
   assert.match(styles, /\.civil-mini-calendar\.mode-lunar \.mini-day-moon-phase/);
   assert.match(styles, /\.calendar-mode-description\.lunar-year-full-width\s*\{[\s\S]*grid-column: 1 \/ -1/);

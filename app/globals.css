@@ -8714,7 +8714,40 @@ button.project-drag-handle:active { cursor: grabbing; }
   }
 
   .calendar-mode-calendar.mode-lunar .calendar-mode-days {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+  }
+
+  .calendar-mode-calendar.mode-lunar .calendar-mode-day {
+    min-height: 184px;
+    padding: 12px 10px 43px;
+  }
+
+  .calendar-mode-calendar.mode-lunar .calendar-mode-primary {
+    display: grid;
+    width: 100%;
+    grid-template-columns: auto auto minmax(0, 1fr);
+    align-items: center;
+    gap: 6px;
+  }
+
+  .calendar-mode-calendar.mode-lunar .calendar-mode-primary > small {
+    overflow: visible;
+    font-size: 8px;
+    line-height: 1.25;
+    overflow-wrap: break-word;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  .calendar-mode-calendar.mode-lunar .calendar-cross-date {
+    align-items: flex-start;
+    overflow: visible;
+    font-size: 8px;
+    line-height: 1.3;
+    overflow-wrap: break-word;
+    text-overflow: clip;
+    white-space: normal;
   }
 
   .calendar-mode-day,
