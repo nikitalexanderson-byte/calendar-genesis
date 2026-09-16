@@ -243,7 +243,7 @@ function parseTask(command: string, context: GeminiAssistantContext): GeminiPlan
     taskList: taskList.value,
     tags,
     priority: Math.min(10, Math.max(1, priority.value || 5)),
-    reminderMinutes: Math.min(43200, Math.max(0, reminder.value || 0)),
+    reminderMinutes: Math.min(40320, Math.max(0, reminder.value || 0)),
   };
 }
 

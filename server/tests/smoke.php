@@ -89,6 +89,22 @@ try {
     expect($assistantPlan['tasks'][0]['reminderMinutes'] === 0, 'Gemini reminder was not clamped.');
     expect($assistantPlan['projects'][0]['tags'] === ['release'], 'Gemini plan tags were not normalized.');
 
+    $reminders = genesisNormalizeTaskReminders([
+        ['kind' => 'relative', 'minutes' => 30],
+        ['kind' => 'relative', 'minutes' => 30],
+        ['kind' => 'absolute', 'at' => '2026-10-28T06:00:00+00:00'],
+    ]);
+    expect(count($reminders) === 2, 'Duplicate reminders were not removed.');
+    $overrides = genesisTaskReminderOverrides(
+        $reminders,
+        new DateTimeImmutable('2026-10-28 10:00:00', new DateTimeZone('Europe/Moscow')),
+    );
+    expect($overrides === [
+        ['method' => 'popup', 'minutes' => 30],
+        ['method' => 'popup', 'minutes' => 60],
+    ], 'Relative and absolute reminders were not converted for Google Calendar.');
+    expect(genesisNormalizeTaskReminders([], 10) === [['kind' => 'relative', 'minutes' => 10]], 'Legacy reminders were not migrated.');
+
     $db->rollBack();
     echo json_encode(['ok' => true, 'privacyModel' => 2, 'workspaceEncrypted' => true, 'taskRows' => 0], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;
 } catch (Throwable $error) {

@@ -50,6 +50,7 @@ import { currentLegalPage, LegalPage } from "./LegalPage";
 import { StoicheionView } from "./StoicheionView";
 import { TimeClockPicker } from "./TimeClockPicker";
 import { CalendarDatePicker } from "./CalendarDatePicker";
+import { TaskReminderPicker } from "./TaskReminderPicker";
 import { CronusSickleIcon } from "./CronusSickleIcon";
 import { MoonPhaseIcon } from "./MoonPhaseIcon";
 import { RecurrenceBuilder } from "./RecurrenceBuilder";
@@ -108,6 +109,7 @@ import {
   type RecurrenceMode,
   type RecurrencePattern,
 } from "./task-recurrence";
+import { legacyReminderMinutes, normalizeTaskReminders, type TaskReminder } from "./task-reminders";
 
 type ViewName = "today" | "calendar" | "projects" | "year" | "all-tasks" | "stoicheion" | "admin";
 
@@ -246,6 +248,7 @@ function readStoredState(key: string): StoredState {
         const calendarMode: CalendarMode = ["profane", "sacred", "lunar"].includes(legacy.calendarMode ?? "")
           ? legacy.calendarMode as CalendarMode
           : "profane";
+        const reminders = normalizeTaskReminders(legacy.reminders, legacy.reminderMinutes);
         return {
           id: legacy.id ?? uid(),
           sacredYear: legacyYear,
@@ -264,7 +267,8 @@ function readStoredState(key: string): StoredState {
           priority: legacy.priority ?? 5,
           done: legacy.done ?? false,
           completedAt: legacy.completedAt ?? (legacy.done ? new Date().toISOString() : null),
-          reminderMinutes: legacy.reminderMinutes ?? null,
+          reminders,
+          reminderMinutes: legacyReminderMinutes(reminders),
           recurrence: legacy.recurrence ?? "none",
           recurrenceInterval: legacy.recurrenceInterval ?? 1,
           recurrenceMode,
@@ -637,7 +641,7 @@ export function GenesisCalendar() {
   const [taskNewListTitle, setTaskNewListTitle] = useState("");
   const [taskNewListAccountId, setTaskNewListAccountId] = useState("");
   const [taskTags, setTaskTags] = useState("");
-  const [taskReminder, setTaskReminder] = useState("30");
+  const [taskReminders, setTaskReminders] = useState<TaskReminder[]>([{ kind: "relative", minutes: 30 }]);
   const [taskRecurrenceConfig, setTaskRecurrenceConfig] = useState<RecurrenceConfig>(DEFAULT_RECURRENCE_CONFIG);
   const [taskDependsOn, setTaskDependsOn] = useState<string[]>([]);
   const [taskPriority, setTaskPriority] = useState("5");
@@ -1300,6 +1304,7 @@ export function GenesisCalendar() {
       priority: 5,
       done: false,
       completedAt: null,
+      reminders: [],
       reminderMinutes: null,
       recurrence: "none",
       recurrenceInterval: 1,
@@ -1423,7 +1428,8 @@ export function GenesisCalendar() {
       priority: Math.min(10, Math.max(1, Number(taskPriority) || 5)),
       done: false,
       completedAt: null,
-      reminderMinutes: taskReminder ? Number(taskReminder) : null,
+      reminders: taskReminders,
+      reminderMinutes: legacyReminderMinutes(taskReminders),
       recurrence: "none",
       recurrenceInterval: taskRecurrenceConfig.enabled ? taskRecurrenceConfig.interval : 1,
       recurrenceMode: taskRecurrenceConfig.enabled ? taskRecurrenceConfig.mode : "none",
@@ -1461,6 +1467,7 @@ export function GenesisCalendar() {
     setTaskEndDate("");
     setTaskTime("");
     setTaskTags("");
+    setTaskReminders([{ kind: "relative", minutes: 30 }]);
     setTaskDependsOn([]);
     setTaskPriority("5");
     setTaskSyncAccountIds(null);
@@ -1472,7 +1479,7 @@ export function GenesisCalendar() {
   };
 
   const openTaskEditor = (task: Task) => {
-    setEditingTask({ ...task, tags: [...task.tags], dependsOnIds: [...task.dependsOnIds] });
+    setEditingTask({ ...task, tags: [...task.tags], dependsOnIds: [...task.dependsOnIds], reminders: [...task.reminders] });
     setEditingTaskTags(task.tags.join(", "));
   };
 
@@ -1558,6 +1565,7 @@ export function GenesisCalendar() {
     const nextTask: Task = {
       ...task,
       time: "",
+      reminders: [],
       reminderMinutes: null,
       recurrence: "none",
       recurrenceInterval: 1,
@@ -2099,7 +2107,8 @@ export function GenesisCalendar() {
         priority: Math.min(10, Math.max(1, Number(taskPlan.priority) || 5)),
         done: false,
         completedAt: null,
-        reminderMinutes: taskPlan.reminderMinutes > 0 ? Math.min(43200, taskPlan.reminderMinutes) : null,
+        reminders: taskPlan.reminderMinutes > 0 ? [{ kind: "relative" as const, minutes: Math.min(40_320, taskPlan.reminderMinutes) }] : [],
+        reminderMinutes: taskPlan.reminderMinutes > 0 ? Math.min(40_320, taskPlan.reminderMinutes) : null,
         recurrence: "none",
         recurrenceInterval: 1,
         recurrenceMode: "none",
@@ -2563,7 +2572,7 @@ export function GenesisCalendar() {
               if (nextTaskListId !== CREATE_NEW_TASK_LIST_ID) setTaskNewListTitle("");
               if (nextTaskListId) {
                 setTaskTime("");
-                setTaskReminder("");
+                setTaskReminders([]);
               }
             }}>
               <option value="">Google Calendar</option>
@@ -2596,16 +2605,14 @@ export function GenesisCalendar() {
           calendarMode={activeTaskCalendarMode}
         />
         <div className="task-form-section task-form-settings" aria-label="Настройки задачи">
-          <label>
-            <span>Напомнить</span>
-            <select value={taskReminder} onChange={(event) => setTaskReminder(event.target.value)} disabled={Boolean(taskTaskListId)}>
-              <option value="">Без напоминания</option>
-              <option value="10">За 10 минут</option>
-              <option value="30">За 30 минут</option>
-              <option value="60">За 1 час</option>
-              <option value="1440">За 1 день</option>
-            </select>
-          </label>
+          <TaskReminderPicker
+            value={taskReminders}
+            onChange={setTaskReminders}
+            taskDate={newTaskDueDate}
+            taskTime={taskTime}
+            calendarMode={activeTaskCalendarMode}
+            disabled={Boolean(taskTaskListId)}
+          />
           <label>
             <span>Приоритет</span>
             <select value={taskPriority} onChange={(event) => setTaskPriority(event.target.value)}>
@@ -4457,6 +4464,7 @@ export function GenesisCalendar() {
                     googleAccountEmail: destination?.accountEmail ?? "",
                     syncAccountIds: destination?.accountId ? [destination.accountId] : current.syncAccountIds,
                     time: nextListId ? "" : current.time,
+                    reminders: nextListId ? [] : current.reminders,
                     reminderMinutes: nextListId ? null : current.reminderMinutes,
                     recurrence: nextListId ? "none" : current.recurrence,
                     recurrenceInterval: nextListId ? 1 : current.recurrenceInterval,
@@ -4474,16 +4482,18 @@ export function GenesisCalendar() {
                   {taskLists.map((taskList) => <option value={taskList.id} key={`${taskList.accountId ?? "primary"}-${taskList.id}`}>Список · {taskList.title}{taskList.accountEmail ? ` · ${taskList.accountEmail}` : ""}</option>)}
                 </select>
               </label>
-              <label>
-                <span>Напоминание</span>
-                <select value={editingTask.reminderMinutes ?? ""} onChange={(event) => setEditingTask((current) => current ? { ...current, reminderMinutes: event.target.value ? Number(event.target.value) : null } : current)} disabled={Boolean(editingTask.googleTaskId)}>
-                  <option value="">Без напоминания</option>
-                  <option value="10">За 10 минут</option>
-                  <option value="30">За 30 минут</option>
-                  <option value="60">За 1 час</option>
-                  <option value="1440">За 1 день</option>
-                </select>
-              </label>
+              <TaskReminderPicker
+                value={editingTask.reminders}
+                onChange={(reminders) => setEditingTask((current) => current ? {
+                  ...current,
+                  reminders,
+                  reminderMinutes: legacyReminderMinutes(reminders),
+                } : current)}
+                taskDate={editingTask.dueDate}
+                taskTime={editingTask.time}
+                calendarMode={activeTaskCalendarMode}
+                disabled={Boolean(editingTask.googleTaskId)}
+              />
               <label>
                 <span>Приоритет</span>
                 <select value={editingTask.priority} onChange={(event) => setEditingTask((current) => current ? { ...current, priority: Number(event.target.value) } : current)}>

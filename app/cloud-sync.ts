@@ -1,6 +1,7 @@
 import type { RecurrenceMode, RecurrencePattern } from "./task-recurrence";
 import { normalizeCalendarDateNote, type CalendarMode } from "./calendar-data";
 import type { Language } from "./i18n";
+import { legacyReminderMinutes, normalizeTaskReminders, type TaskReminder } from "./task-reminders";
 
 export type RecurrenceKind =
   | "none"
@@ -67,6 +68,8 @@ export type GenesisTask = {
   priority: number;
   done: boolean;
   completedAt: string | null;
+  reminders: TaskReminder[];
+  /** Legacy single-reminder field kept while older local and remote tasks are migrated. */
   reminderMinutes: number | null;
   recurrence: RecurrenceKind;
   recurrenceInterval: number;
@@ -369,6 +372,7 @@ function normalizeTask(task: Partial<GenesisTask> & Pick<GenesisTask, "id" | "ti
   const calendarMode: CalendarMode = ["profane", "sacred", "lunar"].includes(task.calendarMode ?? "")
     ? task.calendarMode as CalendarMode
     : "profane";
+  const reminders = normalizeTaskReminders(task.reminders, task.reminderMinutes);
   return {
     sacredYear: 0,
     monthIndex: 0,
@@ -385,6 +389,7 @@ function normalizeTask(task: Partial<GenesisTask> & Pick<GenesisTask, "id" | "ti
     priority: 5,
     done: false,
     completedAt: null,
+    reminders: [],
     reminderMinutes: null,
     recurrence: "none",
     recurrenceInterval: 1,
@@ -404,6 +409,8 @@ function normalizeTask(task: Partial<GenesisTask> & Pick<GenesisTask, "id" | "ti
     recurrenceMonths,
     recurrencePyatas,
     recurrenceSeriesId: typeof task.recurrenceSeriesId === "string" && task.recurrenceSeriesId ? task.recurrenceSeriesId : null,
+    reminders,
+    reminderMinutes: legacyReminderMinutes(reminders),
     calendarMode,
     calendarNote: normalizeCalendarDateNote(typeof task.calendarNote === "string" ? task.calendarNote : "", calendarMode),
     syncAccountIds: Array.isArray(task.syncAccountIds) ? task.syncAccountIds.filter((id): id is string => typeof id === "string" && Boolean(id)) : [],

@@ -297,6 +297,84 @@ function genesisTaskOriginLabel(string $origin, string $language = 'ru'): string
     };
 }
 
+function genesisNormalizeTaskReminders(mixed $value, mixed $legacyReminderMinutes = null): array
+{
+    $source = is_array($value) ? $value : [];
+    $result = [];
+    $seen = [];
+    foreach ($source as $candidate) {
+        if (!is_array($candidate)) {
+            continue;
+        }
+        $kind = (string)($candidate['kind'] ?? '');
+        $reminder = null;
+        if ($kind === 'relative' && is_numeric($candidate['minutes'] ?? null)) {
+            $minutes = (int)$candidate['minutes'];
+            if ($minutes >= 0 && $minutes <= 40320) {
+                $reminder = ['kind' => 'relative', 'minutes' => $minutes];
+            }
+        } elseif ($kind === 'absolute') {
+            $at = trim((string)($candidate['at'] ?? ''));
+            if ($at !== '' && strlen($at) <= 64) {
+                try {
+                    $instant = new DateTimeImmutable($at);
+                    $reminder = ['kind' => 'absolute', 'at' => $instant->format(DATE_RFC3339)];
+                } catch (Throwable) {
+                    $reminder = null;
+                }
+            }
+        }
+        if ($reminder === null) {
+            continue;
+        }
+        $key = $reminder['kind'] === 'relative'
+            ? 'relative:' . $reminder['minutes']
+            : 'absolute:' . $reminder['at'];
+        if (isset($seen[$key])) {
+            continue;
+        }
+        $seen[$key] = true;
+        $result[] = $reminder;
+        if (count($result) >= 5) {
+            break;
+        }
+    }
+    if (!$result && $legacyReminderMinutes !== null && is_numeric($legacyReminderMinutes)) {
+        $result[] = [
+            'kind' => 'relative',
+            'minutes' => genesisClampInt($legacyReminderMinutes, 0, 40320, 30),
+        ];
+    }
+    return $result;
+}
+
+function genesisTaskReminderOverrides(array $reminders, DateTimeImmutable $eventStart): array
+{
+    $overrides = [];
+    $seen = [];
+    foreach ($reminders as $reminder) {
+        if (($reminder['kind'] ?? '') === 'relative') {
+            $minutes = (int)($reminder['minutes'] ?? -1);
+        } else {
+            try {
+                $instant = new DateTimeImmutable((string)($reminder['at'] ?? ''));
+            } catch (Throwable) {
+                throw new InvalidArgumentException('Дата напоминания указана неверно.');
+            }
+            $minutes = (int)round(($eventStart->getTimestamp() - $instant->getTimestamp()) / 60);
+        }
+        if ($minutes < 0 || $minutes > 40320) {
+            throw new InvalidArgumentException('Напоминание должно быть установлено от момента начала задачи до 4 недель перед ним.');
+        }
+        if (isset($seen[$minutes])) {
+            continue;
+        }
+        $seen[$minutes] = true;
+        $overrides[] = ['method' => 'popup', 'minutes' => $minutes];
+    }
+    return array_slice($overrides, 0, 5);
+}
+
 function genesisTaskPayloadForGoogle(string $taskId, array $task): array
 {
     $language = genesisGoogleLanguage($task);
@@ -316,6 +394,9 @@ function genesisTaskPayloadForGoogle(string $taskId, array $task): array
         throw new InvalidArgumentException('Срок выполнения задачи указан неверно.');
     }
     $timeValue = preg_match('/^\d{2}:\d{2}$/', (string)($task['time'] ?? '')) ? (string)$task['time'] : '';
+    $eventStart = new DateTimeImmutable($dueDate . ' ' . ($timeValue !== '' ? $timeValue : '00:00'), $timezone);
+    $reminders = genesisNormalizeTaskReminders($task['reminders'] ?? [], $task['reminderMinutes'] ?? null);
+    $reminderOverrides = genesisTaskReminderOverrides($reminders, $eventStart);
     $done = !empty($task['done']);
     $tags = genesisStringList($task['tags'] ?? [], 10);
     $dependsOn = genesisStringList($task['dependsOnIds'] ?? [], 30);
@@ -384,17 +465,18 @@ function genesisTaskPayloadForGoogle(string $taskId, array $task): array
         'genesisUpdatedAt' => (string)genesisClampInt($task['updatedAt'] ?? (int)(microtime(true) * 1000), 0, PHP_INT_MAX, (int)(microtime(true) * 1000)),
         'genesisCalendarMode' => $calendarMode,
         'genesisCalendarNote' => genesisBase64Url($calendarNote),
+        'genesisReminders' => genesisBase64Url(json_encode($reminders, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)),
     ];
     $event = [
         'summary' => ($done ? '✓ ' : '') . $title,
         'description' => $visibleDescription,
         'extendedProperties' => ['private' => $private],
-        'reminders' => isset($task['reminderMinutes']) && $task['reminderMinutes'] !== null
-            ? ['useDefault' => false, 'overrides' => [['method' => 'popup', 'minutes' => genesisClampInt($task['reminderMinutes'], 0, 40320, 30)]]]
-            : ['useDefault' => true],
+        'reminders' => $reminderOverrides
+            ? ['useDefault' => false, 'overrides' => $reminderOverrides]
+            : ['useDefault' => false],
     ];
     if ($timeValue !== '') {
-        $start = new DateTimeImmutable($dueDate . ' ' . $timeValue, $timezone);
+        $start = $eventStart;
         $end = new DateTimeImmutable($endDate . ' ' . $timeValue, $timezone);
         if ($end <= $start) {
             $end = $start->modify('+1 hour');
@@ -437,6 +519,23 @@ function genesisDecodeBase64IntJson(string $value, int $minimum = 1, int $maximu
     )));
     sort($items);
     return $items;
+}
+
+function genesisDecodeTaskReminders(string $value, array $eventReminders): array
+{
+    $decoded = genesisDecodeBase64String($value);
+    $json = $decoded !== '' ? json_decode($decoded, true) : null;
+    $reminders = genesisNormalizeTaskReminders(is_array($json) ? $json : []);
+    if ($reminders || ($eventReminders['useDefault'] ?? true) !== false) {
+        return $reminders;
+    }
+    $fallback = [];
+    foreach (($eventReminders['overrides'] ?? []) as $override) {
+        if (is_array($override) && is_numeric($override['minutes'] ?? null)) {
+            $fallback[] = ['kind' => 'relative', 'minutes' => (int)$override['minutes']];
+        }
+    }
+    return genesisNormalizeTaskReminders($fallback);
 }
 
 function genesisDecodeTaskNotes(string $notes): array
@@ -555,10 +654,16 @@ function genesisGoogleEventForClient(array $event): ?array
     $sacred = genesisSacredFromDate($dueDate);
     $rawDescription = (string)($event['description'] ?? '');
     $description = trim(explode("\n\n— GENESIS —\n", $rawDescription, 2)[0]);
+    $reminders = genesisDecodeTaskReminders(
+        (string)($private['genesisReminders'] ?? ''),
+        is_array($event['reminders'] ?? null) ? $event['reminders'] : [],
+    );
     $reminder = null;
-    if (($event['reminders']['useDefault'] ?? true) === false) {
-        $first = $event['reminders']['overrides'][0]['minutes'] ?? null;
-        $reminder = is_numeric($first) ? (int)$first : null;
+    foreach ($reminders as $candidateReminder) {
+        if (($candidateReminder['kind'] ?? '') === 'relative') {
+            $reminder = (int)$candidateReminder['minutes'];
+            break;
+        }
     }
     return [
         'id' => $taskId,
@@ -578,6 +683,7 @@ function genesisGoogleEventForClient(array $event): ?array
         'priority' => genesisClampInt($private['genesisPriority'] ?? 5, 1, 10, 5),
         'done' => $done,
         'completedAt' => ($private['genesisCompletedAt'] ?? '') !== '' ? (string)$private['genesisCompletedAt'] : null,
+        'reminders' => $reminders,
         'reminderMinutes' => $reminder,
         'recurrence' => (string)($private['genesisRecurrence'] ?? 'none'),
         'recurrenceInterval' => genesisClampInt($private['genesisInterval'] ?? 1, 1, 99, 1),
@@ -647,6 +753,7 @@ function genesisGoogleNativeTaskForClient(array $task, string $taskListId, strin
         'priority' => genesisClampInt($metadata['priority'] ?? 5, 1, 10, 5),
         'done' => $done,
         'completedAt' => $completedAt !== '' ? $completedAt : null,
+        'reminders' => [],
         'reminderMinutes' => null,
         'recurrence' => 'none',
         'recurrenceInterval' => genesisClampInt($metadata['recurrenceInterval'] ?? 1, 1, 99, 1),

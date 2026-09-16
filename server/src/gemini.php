@@ -322,7 +322,7 @@ function genesisNormalizeGeminiPlan(array $plan): array
             'taskList' => genesisGeminiString($task['taskList'] ?? '', 160),
             'tags' => genesisGeminiStringList($task['tags'] ?? [], 60, 6),
             'priority' => genesisClampInt($task['priority'] ?? 5, 1, 10, 5),
-            'reminderMinutes' => genesisClampInt($task['reminderMinutes'] ?? 0, 0, 43200, 0),
+            'reminderMinutes' => genesisClampInt($task['reminderMinutes'] ?? 0, 0, 40320, 0),
         ];
     }
 

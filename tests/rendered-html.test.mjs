@@ -2,6 +2,11 @@ import assert from "node:assert/strict";
 import { access, readFile, stat } from "node:fs/promises";
 import test from "node:test";
 import { createLocalVoicePlan } from "../app/local-voice-plan.ts";
+import {
+  MAX_TASK_REMINDERS,
+  normalizeTaskReminders,
+  reminderMinutesBeforeTask,
+} from "../app/task-reminders.ts";
 
 async function render() {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
@@ -147,8 +152,30 @@ test("turns Russian and English voice commands into local task plans", () => {
   assert.equal(projectFirst.tasks[0].project, "Работа");
 });
 
+test("normalizes multiple relative and absolute task reminders", () => {
+  assert.deepEqual(normalizeTaskReminders(undefined, 30), [{ kind: "relative", minutes: 30 }]);
+
+  const reminders = normalizeTaskReminders([
+    { kind: "relative", minutes: 10 },
+    { kind: "relative", minutes: 10 },
+    { kind: "relative", minutes: 60 },
+    { kind: "relative", minutes: 1_440 },
+    { kind: "relative", minutes: 10_080 },
+    { kind: "absolute", at: "2026-10-28T06:00:00.000Z" },
+    { kind: "relative", minutes: 30 },
+  ]);
+  assert.equal(reminders.length, MAX_TASK_REMINDERS);
+  assert.deepEqual(reminders.slice(0, 2), [
+    { kind: "relative", minutes: 10 },
+    { kind: "relative", minutes: 60 },
+  ]);
+
+  const absolute = { kind: "absolute", at: new Date("2026-10-28T09:00:00").toISOString() };
+  assert.equal(reminderMinutesBeforeTask(absolute, "2026-10-28", "10:00"), 60);
+});
+
 test("keeps the requested calendar and privacy features wired", async () => {
-  const [calendarData, calendar, calendarDatePicker, accountPanel, cloudSync, recurrenceBuilder, taskRecurrence, moonPhase, solarTimes, stoicheion, stoicheionData, welcome, styles, api, google, repository, multiAccountMigration, i18n, languageMigration, taskCalendarMigration, englishManifest, geminiAssistant, localVoiceAssistant, localVoicePlan, geminiServer, publicHtaccess, serverConfigExample, cronusSickle] = await Promise.all([
+  const [calendarData, calendar, calendarDatePicker, accountPanel, cloudSync, recurrenceBuilder, taskRecurrence, moonPhase, solarTimes, stoicheion, stoicheionData, welcome, styles, api, google, repository, multiAccountMigration, i18n, languageMigration, taskCalendarMigration, englishManifest, geminiAssistant, localVoiceAssistant, localVoicePlan, geminiServer, publicHtaccess, serverConfigExample, cronusSickle, reminderPicker, taskReminders] = await Promise.all([
     readFile(new URL("../app/calendar-data.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/CalendarDatePicker.tsx", import.meta.url), "utf8"),
@@ -177,6 +204,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
     readFile(new URL("../public/.htaccess", import.meta.url), "utf8"),
     readFile(new URL("../server/config.example.php", import.meta.url), "utf8"),
     readFile(new URL("../app/CronusSickleIcon.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/TaskReminderPicker.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/task-reminders.ts", import.meta.url), "utf8"),
   ]);
 
   assert.match(calendarData, /getSolarEvents/);
@@ -637,6 +666,17 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(cloudSync, /updateGoogleTaskList/);
   assert.match(cloudSync, /removeGoogleTaskList/);
   assert.match(cloudSync, /X-Genesis-Time-Zone/);
+  assert.match(cloudSync, /reminders: TaskReminder\[\]/);
+  assert.match(taskReminders, /MAX_TASK_REMINDERS = 5/);
+  assert.match(taskReminders, /normalizeTaskReminders/);
+  assert.match(reminderPicker, /Пользовательский\.\.\./);
+  assert.match(reminderPicker, /Пользовательское напоминание/);
+  assert.match(reminderPicker, /Относительное время/);
+  assert.match(reminderPicker, /Дата и время/);
+  assert.match(reminderPicker, /reminder-chips/);
+  assert.match(calendar, /TaskReminderPicker/);
+  assert.match(google, /genesisReminders/);
+  assert.match(google, /genesisTaskReminderOverrides/);
   assert.match(repository, /genesisSaveStoicheionDraw/);
   assert.match(accountPanel, /role="switch"/);
   assert.match(accountPanel, /Запретить себе гадания/);
