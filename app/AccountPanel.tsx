@@ -20,7 +20,7 @@ type AccountPanelProps = {
 const CALENDAR_MODES: Array<{ id: CalendarMode; label: string; hint: string }> = [
   { id: "sacred", label: "Сакральный", hint: "Месяцы, пяты и дни GENESIS" },
   { id: "lunar", label: "Лунный", hint: "Лунные месяцы и дни" },
-  { id: "profane", label: "Профанский", hint: "Обычные даты, недели и 12 месяцев" },
+  { id: "profane", label: "Григорианский", hint: "Обычные даты, недели и 12 месяцев" },
 ];
 
 export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditionalGoogle, onLanguageChange, onUserChange, categories }: AccountPanelProps) {

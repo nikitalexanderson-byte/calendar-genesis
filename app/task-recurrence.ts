@@ -50,8 +50,8 @@ export const RECURRENCE_MODE_COPY = {
     description: "Сакральные месяцы, пяты и дни 360-дневного круга.",
   },
   classic: {
-    title: "Профанский календарь",
-    shortTitle: "Профанский календарь",
+    title: "Григорианский календарь",
+    shortTitle: "Григорианский календарь",
     description: "Обычные дни, недели, месяцы и годы с синхронизацией в Google.",
   },
   lunar: {

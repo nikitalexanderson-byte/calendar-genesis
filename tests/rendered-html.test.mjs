@@ -234,6 +234,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(styles, /\.sacred-picker-days button > time/);
   assert.match(accountPanel, /calendar-mode-segment/);
   assert.match(accountPanel, /Основной календарь/);
+  assert.match(accountPanel, /label: "Григорианский"/);
+  assert.doesNotMatch(accountPanel + recurrenceBuilder + taskRecurrence, /Профанск|профанск/u);
   assert.match(accountPanel, /Полное отображение и система дат/);
   assert.match(accountPanel, /taskCalendarMode/);
   assert.match(accountPanel, /Календарь постановки задач/);
@@ -322,7 +324,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /renderAlternativeYear/);
   assert.match(calendar, /activeCalendarMode === "profane"/);
   assert.match(calendar, /activeCalendarMode === "lunar"/);
-  assert.match(calendar, /Календарный год \$\{profaneYear\}/);
+  assert.match(calendar, /Григорианский год \$\{profaneYear\}/);
   assert.match(calendar, /первого точного новолуния после весеннего равноденствия/);
   assert.match(calendar, /"Лунный год"/);
   assert.doesNotMatch(calendar, /Магический женский год Луны/);
@@ -331,8 +333,10 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /mode === "profane" && date\.getDay\(\) === 6/);
   assert.match(calendar, /PROFANE_WEEKDAY_PATRONS/);
   assert.match(calendar, /День Луны — Селены, Гекаты и Артемиды/);
+  assert.match(calendar, /День Гермеса/);
   assert.match(calendar, /День Кроноса, Посейдона и Аида/);
-  assert.match(calendar, /Профанский календарь состоит из двенадцати стандартных календарных месяцев/);
+  assert.match(calendar, /Григорианский календарь — это профанский календарь из двенадцати стандартных месяцев/);
+  assert.equal((calendar.match(/профанск/giu) ?? []).length, 1);
   assert.match(calendar, /const leadingDays = mode === "profane" \? firstDate\.getDay\(\) : 0/);
   assert.match(calendar, /month\.dates\[0\]\?\.getDay\(\) \?\? 0/);
   assert.match(calendar, /new Date\(2024, 0, 7 \+ index, 12\)/);
@@ -341,6 +345,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /profane-weekday-patron/);
   assert.match(cronusSickle, /cronus-sickle-blade/);
   assert.match(cronusSickle, /cronus-sickle-handle/);
+  assert.match(cronusSickle, /viewBox="0 0 64 116"/);
+  assert.match(cronusSickle, /fill="currentColor"/);
   assert.match(styles, /\.cronus-sickle-icon/);
   assert.match(styles, /\.profane-weekday-patron/);
   assert.doesNotMatch(calendar, /symbol: "□"/);
@@ -509,7 +515,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(taskRecurrence, /calendarMode === "profane"\) return "classic"/);
   assert.match(taskRecurrence, /calendarMode === "lunar"\) return "lunar"/);
   assert.match(taskRecurrence, /Сакральный календарь/);
-  assert.match(taskRecurrence, /Профанский календарь/);
+  assert.match(taskRecurrence, /Григорианский календарь/);
   assert.match(taskRecurrence, /Лунный календарь/);
   assert.match(taskRecurrence, /getSacredDate/);
   assert.match(taskRecurrence, /getMoon/);

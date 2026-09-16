@@ -164,7 +164,7 @@ export function RecurrenceBuilder({
 
           {value.mode === "classic" ? (
             <>
-              <div className="recurrence-pattern-toggle wrap" role="group" aria-label="Ритм профанского календаря">
+              <div className="recurrence-pattern-toggle wrap" role="group" aria-label="Ритм григорианского календаря">
                 {(Object.keys(CLASSIC_PATTERN_COPY) as Array<keyof typeof CLASSIC_PATTERN_COPY>).map((pattern) => (
                   <button type="button" key={pattern} className={value.pattern === pattern ? "active" : ""} aria-pressed={value.pattern === pattern} onClick={() => setPattern(pattern)}>{CLASSIC_PATTERN_COPY[pattern]}</button>
                 ))}

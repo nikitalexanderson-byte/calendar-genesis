@@ -181,14 +181,14 @@ const NAVIGATION: Array<{ id: ViewName; label: string; symbol: string }> = [
 const CALENDAR_MODE_META: Record<CalendarMode, { label: string }> = {
   sacred: { label: "Сакральный календарь" },
   lunar: { label: "Лунный календарь" },
-  profane: { label: "Профанский календарь" },
+  profane: { label: "Григорианский календарь" },
 };
 
 const PROFANE_WEEKDAY_PATRONS = [
   { weekday: "Воскресенье", patronage: "День Аполлона" },
   { weekday: "Понедельник", patronage: "День Луны — Селены, Гекаты и Артемиды" },
   { weekday: "Вторник", patronage: "День Ареса" },
-  { weekday: "Среда", patronage: "День Меркурия" },
+  { weekday: "Среда", patronage: "День Гермеса" },
   { weekday: "Четверг", patronage: "День Зевса и Геры" },
   { weekday: "Пятница", patronage: "День Афродиты, Гестии и Диониса" },
   { weekday: "Суббота", patronage: "День Кроноса, Посейдона и Аида" },
@@ -2709,7 +2709,7 @@ export function GenesisCalendar() {
               ? `${recurrenceOccurrenceCount} задач по выбранным датам попадут в список «${selectedTaskList.title}» Google Tasks`
               : `Срок завершения попадёт в список «${selectedTaskList.title}» Google Tasks, начало сохранится в данных GENESIS`
             : taskRecurrenceConfig.enabled
-            ? `${taskRecurrenceConfig.mode === "classic" ? "Профанская" : taskRecurrenceConfig.mode === "lunar" ? "Лунная" : "Сакральная"} серия из ${recurrenceOccurrenceCount} повторений будет сохранена одной задачей в GENESIS и одним событием в Google Calendar`
+            ? `${taskRecurrenceConfig.mode === "classic" ? "Григорианская" : taskRecurrenceConfig.mode === "lunar" ? "Лунная" : "Сакральная"} серия из ${recurrenceOccurrenceCount} повторений будет сохранена одной задачей в GENESIS и одним событием в Google Calendar`
             : "Задача будет синхронизирована с Google Calendar в часовом поясе этого устройства"}</span>
         </div>
         <button type="submit" className="add-task-button" disabled={!taskTitle.trim() || !newTaskDueDate || !newTaskEndDate || dueDateIsPast || rangeIsInvalid || recurrenceIsInvalid || syncAccountsInvalid || (createsTaskList && !taskNewListTitle.trim())}>
@@ -3178,13 +3178,13 @@ export function GenesisCalendar() {
     const lunarDefinition = getLunarMonthDefinition(lunarOrdinal);
     const monthTitle = mode === "profane" ? profaneMonthName(selectedDate) : lunarDefinition.name;
     const monthEyebrow = mode === "profane"
-      ? `Профанский календарь · ${selectedDate.getFullYear()} год`
+      ? `Григорианский календарь · ${selectedDate.getFullYear()} год`
       : `Лунный год ${selectedLunarYear.sacredYear}–${selectedLunarYear.sacredYear + 1} · ${lunarDefinition.roman} месяц из ${selectedLunarYear.monthCount}`;
     const monthSubtitle = mode === "profane"
       ? `${profaneMonthName(selectedDate)} · ${dates.length} дней`
       : `${lunarDefinition.title} · ${formatDateRange(firstDate, lastDate)}`;
     const monthDescription = mode === "profane"
-      ? "Профанский календарный месяц с неделями с воскресенья по субботу. В каждом дне дополнительно показаны покровители дня, сакральная дата, лунные сутки, рассвет и закат."
+      ? "Григорианский календарный месяц с неделями с воскресенья по субботу. В каждом дне дополнительно показаны покровители дня, сакральная дата, лунные сутки, рассвет и закат."
       : lunarDefinition.description;
     const leadingDays = mode === "profane" ? firstDate.getDay() : 0;
     const weekdayLabels = Array.from({ length: 7 }, (_, index) => {
@@ -3879,9 +3879,9 @@ export function GenesisCalendar() {
     const yearDayCount = mode === "profane"
       ? Math.round((Date.UTC(profaneYear + 1, 0, 1) - Date.UTC(profaneYear, 0, 1)) / 86_400_000)
       : Math.round((Date.UTC(lunarYear.endDate.getFullYear(), lunarYear.endDate.getMonth(), lunarYear.endDate.getDate()) - Date.UTC(lunarYear.startDate.getFullYear(), lunarYear.startDate.getMonth(), lunarYear.startDate.getDate())) / 86_400_000);
-    const yearTitle = mode === "profane" ? `Календарный год ${profaneYear}` : `Лунный год ${lunarYear.sacredYear}–${lunarYear.sacredYear + 1}`;
+    const yearTitle = mode === "profane" ? `Григорианский год ${profaneYear}` : `Лунный год ${lunarYear.sacredYear}–${lunarYear.sacredYear + 1}`;
     const yearDescription = mode === "profane"
-      ? "Профанский календарь состоит из двенадцати стандартных календарных месяцев с января по декабрь. Откройте любой день, чтобы увидеть его сакральный смысл, лунные сутки, рассвет, закат и задачи."
+      ? "Григорианский календарь — это профанский календарь из двенадцати стандартных месяцев с января по декабрь. Откройте любой день, чтобы увидеть его сакральный смысл, лунные сутки, рассвет, закат и задачи."
       : `Год начинается ${formatGregorian(lunarYear.startDate, true)} — в день первого точного новолуния после весеннего равноденствия — и включает ${lunarYear.monthCount} лунных месяцев по 29 или 30 суток.`;
     const profaneWeekdayLabels = Array.from({ length: 7 }, (_, index) => {
       const day = new Date(2024, 0, 7 + index, 12);
@@ -3980,7 +3980,7 @@ export function GenesisCalendar() {
                   })}
                 </div>
                 <footer className="year-month-footer">
-                  <span className="year-month-meta"><em>{mode === "profane" ? "Профанский месяц" : `${month.dates.length} лунных суток`}</em>{monthTaskCount ? <i>{monthTaskCount} задач</i> : null}</span>
+                  <span className="year-month-meta"><em>{mode === "profane" ? "Григорианский месяц" : `${month.dates.length} лунных суток`}</em>{monthTaskCount ? <i>{monthTaskCount} задач</i> : null}</span>
                   <button type="button" className="year-open-button" onClick={openMonth}><span>Открыть месяц</span><i aria-hidden="true" /></button>
                 </footer>
               </article>
@@ -4001,7 +4001,7 @@ export function GenesisCalendar() {
             </dl>
             {mode === "lunar" ? (
               <>
-                <p>В системе GENESIS это магический «женский» год: его внутренняя ткань определяется не месяцами и неделями солнечного года, а ростом, полнотой и исходом Луны. Весеннее равноденствие служит только ежегодной точкой настройки; условия для практик рождаются внутри самих лунных месяцев и потому не привязаны к профанскому делению года.</p>
+                <p>В системе GENESIS это магический «женский» год: его внутренняя ткань определяется не месяцами и неделями солнечного года, а ростом, полнотой и исходом Луны. Весеннее равноденствие служит только ежегодной точкой настройки; условия для практик рождаются внутри самих лунных месяцев и потому не привязаны к григорианскому делению года.</p>
                 <p>Это современная символическая система GENESIS, а не реконструкция единого древнегреческого календаря. Её античная опора — образ Селены как небесного знака для людей и полнота Луны в середине месяца в Гомеровом гимне; греческие лунно-солнечные календари действительно удерживали месяцы рядом с сезонами при помощи вставочного месяца.</p>
               </>
             ) : <p>Клик по дню открывает задачи, сакральное значение, фазу Луны, точное время рассвета и заката для региона устройства.</p>}
@@ -4334,7 +4334,7 @@ export function GenesisCalendar() {
             <dl className="selected-day-facts">
               {selectedSolarEvent ? <div className="solar-fact"><dt>Солнечная точка</dt><dd>{selectedSolarEvent.name}</dd></div> : null}
               {activeCalendarMode === "profane" ? <div><dt>Покровители дня</dt><dd>{selectedWeekdayPatron.weekday} · {selectedWeekdayPatron.patronage}</dd></div> : null}
-              <div><dt>Профанская дата</dt><dd>{formatGregorian(selectedDate, true)}</dd></div>
+              <div><dt>Григорианская дата</dt><dd>{formatGregorian(selectedDate, true)}</dd></div>
               <div><dt>Сакральная дата</dt><dd>{formatCalendarDate(selectedDate, "sacred")}</dd></div>
               <div><dt>Лунный месяц</dt><dd>{selectedLunarDate.month.name} · {selectedLunarDate.month.title}</dd></div>
               <div><dt>Лунные сутки</dt><dd>{selectedMoon.day} · {selectedMoon.phase}</dd></div>
