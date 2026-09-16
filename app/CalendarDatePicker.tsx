@@ -7,6 +7,7 @@ import {
   formatCalendarDate,
   formatGregorian,
   getGregorianDate,
+  getLunarDate,
   getLunarMonthDates,
   getMoon,
   getSacredDay,
@@ -92,6 +93,7 @@ export function CalendarDatePicker({ id, value, mode, min, max, required, ariaLa
     .filter((day) => sacredMonth !== 12 || inputDate(getGregorianDate(sacredYear, sacredMonth, day.day)) < inputDate(getGregorianDate(sacredYear + 1, 0, 1)));
   const lunarDates = getLunarMonthDates(lunarMonth);
   const lunarTitleDate = lunarDates[Math.floor(lunarDates.length / 2)] ?? selectedDate;
+  const lunarTitle = getLunarDate(lunarTitleDate);
 
   return (
     <>
@@ -133,17 +135,18 @@ export function CalendarDatePicker({ id, value, mode, min, max, required, ariaLa
               <>
                 <div className="calendar-picker-controls">
                   <button type="button" onClick={() => setLunarMonth((current) => current - 1)} aria-label="Предыдущий лунный месяц">←</button>
-                  <strong>{new Intl.DateTimeFormat(runtimeLocale(), { month: "long", year: "numeric" }).format(lunarTitleDate)}</strong>
+                  <strong>{lunarTitle.month.name} · {lunarTitle.month.roman}</strong>
                   <button type="button" onClick={() => setLunarMonth((current) => current + 1)} aria-label="Следующий лунный месяц">→</button>
                 </div>
-                <p className="calendar-picker-note">Лунный месяц начинается новолунием; привычные недели здесь не используются.</p>
+                <p className="calendar-picker-note">{lunarTitle.month.title}. Месяц начинается точным новолунием и делится на декады Роста, Полноты и Исхода.</p>
                 <div className="lunar-picker-days">
                   {lunarDates.map((date) => {
                     const dateValue = inputDate(date);
                     const moon = getMoon(date);
+                    const lunar = getLunarDate(date);
                     return (
                       <button type="button" disabled={!allowed(dateValue, min, max)} className={dateValue === value ? "selected" : ""} onClick={() => choose(date)} key={dateValue}>
-                        <MoonPhaseIcon phaseStep={moon.phaseStep} size={24} /><strong>{moon.day}</strong><span>{moon.phase}</span><small>{moon.illumination}%</small>
+                        <MoonPhaseIcon phaseStep={moon.phaseStep} size={24} /><strong>{moon.day}</strong><span>{lunar.isThreshold ? "Рубеж" : lunar.decade.name}</span><small>{moon.phase} · {moon.illumination}%</small>
                       </button>
                     );
                   })}

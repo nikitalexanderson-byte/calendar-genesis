@@ -148,7 +148,7 @@ test("turns Russian and English voice commands into local task plans", () => {
 });
 
 test("keeps the requested calendar and privacy features wired", async () => {
-  const [calendarData, calendar, calendarDatePicker, accountPanel, cloudSync, recurrenceBuilder, taskRecurrence, moonPhase, solarTimes, stoicheion, stoicheionData, welcome, styles, api, google, repository, multiAccountMigration, i18n, languageMigration, englishManifest, geminiAssistant, localVoiceAssistant, localVoicePlan, geminiServer, publicHtaccess, serverConfigExample] = await Promise.all([
+  const [calendarData, calendar, calendarDatePicker, accountPanel, cloudSync, recurrenceBuilder, taskRecurrence, moonPhase, solarTimes, stoicheion, stoicheionData, welcome, styles, api, google, repository, multiAccountMigration, i18n, languageMigration, taskCalendarMigration, englishManifest, geminiAssistant, localVoiceAssistant, localVoicePlan, geminiServer, publicHtaccess, serverConfigExample] = await Promise.all([
     readFile(new URL("../app/calendar-data.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/CalendarDatePicker.tsx", import.meta.url), "utf8"),
@@ -168,6 +168,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
     readFile(new URL("../server/migrations/006_calendar_multi_account.sql", import.meta.url), "utf8"),
     readFile(new URL("../app/i18n.ts", import.meta.url), "utf8"),
     readFile(new URL("../server/migrations/007_user_language.sql", import.meta.url), "utf8"),
+    readFile(new URL("../server/migrations/008_task_calendar_mode.sql", import.meta.url), "utf8"),
     readFile(new URL("../public/manifest.en.webmanifest", import.meta.url), "utf8"),
     readFile(new URL("../app/GeminiAssistant.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/LocalVoiceAssistant.tsx", import.meta.url), "utf8"),
@@ -186,7 +187,15 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendarData, /formatCalendarDate/);
   assert.match(calendarData, /getLunarYearForDate/);
   assert.match(calendarData, /firstLunarMonthAfterSpringEquinox/);
-  assert.match(calendarData, /lunarMonthIndex\(springEquinox\) \+ 1/);
+  assert.match(calendarData, /SearchMoonPhase\(0, springEquinox, 40\)/);
+  assert.match(calendarData, /Seasons\(sacredYear\)\.mar_equinox/);
+  assert.match(calendarData, /LUNAR_MONTHS/);
+  assert.match(calendarData, /Генезион/);
+  assert.match(calendarData, /Апорион/);
+  assert.match(calendarData, /Декада Роста/);
+  assert.match(calendarData, /Декада Полноты/);
+  assert.match(calendarData, /Декада Исхода/);
+  assert.match(calendarData, /isThreshold: day === monthLength/);
   assert.match(calendarDatePicker, /Сакральный календарь/);
   assert.match(calendarDatePicker, /Лунный календарь/);
   assert.match(calendarDatePicker, /Пята \{day\.pyata/);
@@ -196,6 +205,12 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(accountPanel, /calendar-mode-segment/);
   assert.match(accountPanel, /Основной календарь/);
   assert.match(accountPanel, /Полное отображение и система дат/);
+  assert.match(accountPanel, /taskCalendarMode/);
+  assert.match(accountPanel, /Календарь постановки задач/);
+  assert.match(calendar, /activeTaskCalendarMode/);
+  assert.match(cloudSync, /taskCalendarMode: CalendarMode/);
+  assert.match(repository, /'taskCalendarMode' => \$taskCalendarMode/);
+  assert.match(taskCalendarMigration, /ADD COLUMN task_calendar_mode/);
   assert.match(accountPanel, /Несколько Google-аккаунтов/);
   assert.match(accountPanel, /По выбору при создании/);
   assert.match(accountPanel, /language-preference/);
@@ -275,7 +290,13 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /activeCalendarMode === "profane"/);
   assert.match(calendar, /activeCalendarMode === "lunar"/);
   assert.match(calendar, /Календарный год \$\{profaneYear\}/);
-  assert.match(calendar, /первое новолуние после весеннего равноденствия/);
+  assert.match(calendar, /первого точного новолуния после весеннего равноденствия/);
+  assert.match(calendar, /Магический женский год Луны/);
+  assert.match(calendar, /современная символическая система GENESIS/);
+  assert.match(calendar, /Гомеров гимн XXXII к Селене/);
+  assert.match(calendar, /lunar-decades/);
+  const alternativeCalendar = calendar.slice(calendar.indexOf("const renderAlternativeCalendar"), calendar.indexOf("const renderCalendar"));
+  assert.doesNotMatch(alternativeCalendar, /calendar-month-art|--month-art/);
   assert.match(calendar, /calendarRailItems/);
   assert.match(calendar, /const isSaturday = gregorian\.getDay\(\) === 6/);
   assert.match(calendar, /weekday: "long"/);
@@ -596,6 +617,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   await access(new URL("../server/migrations/004_stoicheion_draws.sql", import.meta.url));
   await access(new URL("../server/migrations/005_stoicheion_divination_preference.sql", import.meta.url));
   await access(new URL("../server/migrations/007_user_language.sql", import.meta.url));
+  await access(new URL("../server/migrations/008_task_calendar_mode.sql", import.meta.url));
 });
 
 test("ships complete English sacred-day and Stoicheion datasets", async () => {

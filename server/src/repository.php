@@ -136,6 +136,9 @@ function genesisUserForClient(array $user): array
     $calendarMode = in_array($user['calendar_mode'] ?? '', ['profane', 'sacred', 'lunar'], true)
         ? (string)$user['calendar_mode']
         : 'sacred';
+    $taskCalendarMode = in_array($user['task_calendar_mode'] ?? '', ['profane', 'sacred', 'lunar'], true)
+        ? (string)$user['task_calendar_mode']
+        : 'sacred';
     $language = in_array($user['language'] ?? '', ['ru', 'en'], true)
         ? (string)$user['language']
         : 'ru';
@@ -170,6 +173,7 @@ function genesisUserForClient(array $user): array
         'stoicheionDivinationDisabled' => !empty($user['stoicheion_divination_disabled']),
         'isAdmin' => mb_strtolower((string)$user['email']) === genesisAdminEmail(),
         'calendarMode' => $calendarMode,
+        'taskCalendarMode' => $taskCalendarMode,
         'language' => $language,
         'multiAccountEnabled' => $multiAccountEnabled,
         'googleAccounts' => $accounts,
@@ -616,6 +620,14 @@ function genesisUpdateAccountPreferences(string $userId, array $payload): array
         }
         $updates[] = 'calendar_mode = :calendar_mode';
         $values['calendar_mode'] = $calendarMode;
+    }
+    if (array_key_exists('taskCalendarMode', $payload)) {
+        $taskCalendarMode = trim((string)$payload['taskCalendarMode']);
+        if (!in_array($taskCalendarMode, ['profane', 'sacred', 'lunar'], true)) {
+            throw new InvalidArgumentException('Неизвестный календарь постановки задач.');
+        }
+        $updates[] = 'task_calendar_mode = :task_calendar_mode';
+        $values['task_calendar_mode'] = $taskCalendarMode;
     }
     if (array_key_exists('language', $payload)) {
         $language = trim((string)$payload['language']);

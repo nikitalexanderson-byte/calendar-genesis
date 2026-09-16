@@ -105,6 +105,7 @@ export type GenesisUser = {
   stoicheionDivinationDisabled: boolean;
   isAdmin: boolean;
   calendarMode: CalendarMode;
+  taskCalendarMode?: CalendarMode;
   language: Language;
   multiAccountEnabled: boolean;
   googleAccounts: GoogleAccount[];
@@ -574,6 +575,7 @@ export function disconnectGoogleServices() {
 export async function updateAccountPreferences(preferences: Partial<{
   stoicheionDivinationDisabled: boolean;
   calendarMode: CalendarMode;
+  taskCalendarMode: CalendarMode;
   language: Language;
   syncRouting: SyncRouting;
 }>) {

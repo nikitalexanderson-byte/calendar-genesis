@@ -1,4 +1,5 @@
 import source from "../references/days.txt?raw";
+import { MoonPhase, SearchMoonPhase, Seasons } from "astronomy-engine";
 import englishDays from "./calendar-days.en.json";
 import { runtimeLocale, translateText } from "./i18n";
 
@@ -63,6 +64,31 @@ export type LunarYearInfo = {
   monthCount: number;
   startDate: Date;
   endDate: Date;
+};
+
+export type LunarMonthDefinition = {
+  index: number;
+  roman: string;
+  name: string;
+  title: string;
+  description: string;
+};
+
+export type LunarDecade = {
+  id: "growth" | "fullness" | "outflow";
+  name: string;
+  range: string;
+};
+
+export type LunarDateInfo = {
+  year: LunarYearInfo;
+  monthIndex: number;
+  monthOrdinal: number;
+  month: LunarMonthDefinition;
+  day: number;
+  monthLength: number;
+  decade: LunarDecade;
+  isThreshold: boolean;
 };
 
 export type CalendarMode = "profane" | "sacred" | "lunar";
@@ -190,11 +216,36 @@ function parseCalendar(text: string): SacredMonth[] {
 
 export const MONTHS = parseCalendar(source);
 
+export const LUNAR_MONTHS: readonly LunarMonthDefinition[] = [
+  { index: 0, roman: "I", name: "Генезион", title: "Месяц Рождения и Замысла", description: "Время формулировать цели на год. Энергия чистого потенциала: начинания ещё невидимы, но их внутренний импульс уже задан." },
+  { index: 1, roman: "II", name: "Агонион", title: "Месяц Преодоления", description: "Первые трудности на пути реализации замысла. Время приложения усилий, здоровой конкуренции и тренировки воли." },
+  { index: 2, roman: "III", name: "Эвризион", title: "Месяц Открытий", description: "Время инсайтов и первых результатов работы. Пройдя сопротивление, система обнаруживает новые решения и возможности." },
+  { index: 3, roman: "IV", name: "Кинонион", title: "Месяц Связей", description: "Время социальной активности, укрепления отношений, переговоров и союзов. Фокус естественно смещается с «Я» на «Мы»." },
+  { index: 4, roman: "V", name: "Акмеон", title: "Месяц Вершины", description: "Точка максимальной продуктивности и раскрытия потенциала. Время воплощать намерение и принимать плоды собственных действий." },
+  { index: 5, roman: "VI", name: "Критион", title: "Месяц Переоценки", description: "Экватор года и время трезвого взгляда на достигнутое: распознать ошибки, сохранить существенное и отсечь лишнее." },
+  { index: 6, roman: "VII", name: "Практион", title: "Месяц Усердия", description: "После переоценки приходит время упорной, рутинной, но осмысленной работы и внедрения новых правил в повседневность." },
+  { index: 7, roman: "VIII", name: "Софион", title: "Месяц Мудрости", description: "Время передачи опыта, обучения и философского размышления. Накопленное знание становится действующей силой." },
+  { index: 8, roman: "IX", name: "Катартион", title: "Месяц Очищения", description: "Подготовка к завершению цикла: освобождение от долгов, старых обид и ненужных вещей, духовная и физическая уборка." },
+  { index: 9, roman: "X", name: "Мнемонион", title: "Месяц Памяти", description: "Обращение к прошлому. Время вспоминать предков и наставников, благодарить их и подводить исторические итоги года." },
+  { index: 10, roman: "XI", name: "Эремион", title: "Месяц Тишины", description: "Время уединения, медитации и глубокого внутреннего покоя, когда внешняя активность уступает место вниманию к себе." },
+  { index: 11, roman: "XII", name: "Телейон", title: "Месяц Завершения", description: "Окончательная точка цикла: завершение начатого, подведение итогов и освобождение пространства перед новым рождением." },
+  { index: 12, roman: "XIII", name: "Апорион", title: "Вставочный месяц · Вне Времени", description: "Сакральная пауза перед новым циклом. Период неопределённости и творческого хаоса, когда старые правила уже не действуют, а новые ещё не проявились." },
+] as const;
+
+export const LUNAR_DECADES: readonly LunarDecade[] = [
+  { id: "growth", name: "Декада Роста", range: "1–10 сутки" },
+  { id: "fullness", name: "Декада Полноты", range: "11–20 сутки" },
+  { id: "outflow", name: "Декада Исхода", range: "21 сутки — Рубеж" },
+] as const;
+
 const ENGLISH_DAYS = englishDays as readonly Pick<SacredDay, "name" | "description">[];
 
 export const DAY_MS = 86_400_000;
 export const MOON_CYCLE = 29.53058867;
-export const MOON_EPOCH = Date.UTC(2024, 0, 11, 11, 57);
+export const MOON_EPOCH = Date.UTC(2000, 0, 6, 18, 14);
+
+const newMoonCache = new Map<number, Date>();
+const lunarYearCache = new Map<number, LunarYearInfo>();
 
 function utcDay(date: Date) {
   return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
@@ -240,9 +291,12 @@ export function formatGregorian(date: Date, long = false) {
 }
 
 export function getMoon(date: Date): MoonInfo {
-  const elapsed = (date.getTime() - MOON_EPOCH) / DAY_MS;
-  const age = ((elapsed % MOON_CYCLE) + MOON_CYCLE) % MOON_CYCLE;
-  const fraction = age / MOON_CYCLE;
+  const phaseAngle = MoonPhase(date);
+  const fraction = phaseAngle / 360;
+  const index = lunarMonthIndex(date);
+  const monthStart = getLunarMonthStart(index);
+  const age = Math.max(0, Math.round((utcDay(date) - utcDay(monthStart)) / DAY_MS));
+  const day = age + 1;
   const phaseIndex = Math.round(fraction * 8) % 8;
   const phaseNames = [
     "Новолуние",
@@ -254,10 +308,9 @@ export function getMoon(date: Date): MoonInfo {
     "Последняя четверть",
     "Старый серп",
   ];
-  const halfCycle = MOON_CYCLE / 2;
-  const isNewMoon = age < 1.5 || age > MOON_CYCLE - 1.5;
-  const isFullMoon = Math.abs(age - halfCycle) <= 1.5;
-  const isWaxing = age < halfCycle;
+  const isNewMoon = day === 1;
+  const isFullMoon = Math.abs(phaseAngle - 180) <= 18;
+  const isWaxing = phaseAngle < 180;
   const epithet = isNewMoon ? "Геката" : isWaxing ? "Артемида" : "Геката";
   const direction = isWaxing && !isNewMoon ? "Восходящая луна" : "Нисходящая луна";
   const event = isNewMoon
@@ -268,7 +321,7 @@ export function getMoon(date: Date): MoonInfo {
 
   return {
     age,
-    day: Math.floor(age) + 1,
+    day,
     phaseStep: Math.round(fraction * 30) % 30,
     epithet,
     direction,
@@ -279,35 +332,54 @@ export function getMoon(date: Date): MoonInfo {
 }
 
 export function lunarMonthIndex(date: Date) {
-  return Math.floor((date.getTime() - MOON_EPOCH) / (MOON_CYCLE * DAY_MS));
+  const target = utcDay(date);
+  let index = Math.floor((date.getTime() - MOON_EPOCH) / (MOON_CYCLE * DAY_MS));
+  while (target < utcDay(getLunarMonthStart(index))) index -= 1;
+  while (target >= utcDay(getLunarMonthStart(index + 1))) index += 1;
+  return index;
 }
 
 export function getLunarMonthDates(index: number) {
-  const approximateStart = new Date(MOON_EPOCH + index * MOON_CYCLE * DAY_MS);
-  const cursor = new Date(approximateStart.getFullYear(), approximateStart.getMonth(), approximateStart.getDate() - 2, 12);
-  const dates: Date[] = [];
-  for (let offset = 0; offset < 35; offset += 1) {
-    const date = new Date(cursor);
-    date.setDate(cursor.getDate() + offset);
-    if (lunarMonthIndex(date) === index) dates.push(date);
-  }
-  return dates;
+  const start = getLunarMonthStart(index);
+  const end = getLunarMonthStart(index + 1);
+  const length = Math.round((utcDay(end) - utcDay(start)) / DAY_MS);
+  return Array.from({ length }, (_, offset) => {
+    const date = new Date(start);
+    date.setDate(start.getDate() + offset);
+    return date;
+  });
 }
 
 export function getLunarMonthStart(index: number) {
-  return getLunarMonthDates(index)[0] ?? new Date(MOON_EPOCH + index * MOON_CYCLE * DAY_MS);
+  const moment = getNewMoonMoment(index);
+  return new Date(moment.getFullYear(), moment.getMonth(), moment.getDate(), 12);
 }
 
 function firstLunarMonthAfterSpringEquinox(sacredYear: number) {
-  const springEquinox = getSolarEvents(sacredYear).find((event) => event.id === "spring-equinox")?.date
-    ?? new Date(sacredYear, 2, 20, 12);
-  return lunarMonthIndex(springEquinox) + 1;
+  const springEquinox = Seasons(sacredYear).mar_equinox.date;
+  const firstNewMoon = SearchMoonPhase(0, springEquinox, 40);
+  if (!firstNewMoon) throw new Error(`Не удалось вычислить первое новолуние ${sacredYear} года.`);
+  return Math.round((firstNewMoon.date.getTime() - MOON_EPOCH) / (MOON_CYCLE * DAY_MS));
+}
+
+function getNewMoonMoment(index: number) {
+  const cached = newMoonCache.get(index);
+  if (cached) return new Date(cached);
+  const approximate = new Date(MOON_EPOCH + index * MOON_CYCLE * DAY_MS);
+  const searchStart = new Date(approximate.getTime() - 2.5 * DAY_MS);
+  const found = SearchMoonPhase(0, searchStart, 5);
+  if (!found) throw new Error(`Не удалось вычислить новолуние ${index}.`);
+  const moment = new Date(found.date);
+  newMoonCache.set(index, moment);
+  return new Date(moment);
 }
 
 export function getLunarYear(sacredYear: number): LunarYearInfo {
+  const cached = lunarYearCache.get(sacredYear);
+  if (cached) return cached;
   const startMonthIndex = firstLunarMonthAfterSpringEquinox(sacredYear);
   const endMonthIndex = firstLunarMonthAfterSpringEquinox(sacredYear + 1);
-  return {
+  const year = {
     sacredYear,
     startMonthIndex,
     endMonthIndex,
@@ -315,12 +387,42 @@ export function getLunarYear(sacredYear: number): LunarYearInfo {
     startDate: getLunarMonthStart(startMonthIndex),
     endDate: getLunarMonthStart(endMonthIndex),
   };
+  lunarYearCache.set(sacredYear, year);
+  return year;
 }
 
 export function getLunarYearForDate(date: Date) {
   const sacredYear = getSacredDate(date).sacredYear;
   const candidate = getLunarYear(sacredYear);
   return utcDay(date) >= utcDay(candidate.startDate) ? candidate : getLunarYear(sacredYear - 1);
+}
+
+export function getLunarMonthDefinition(monthOrdinal: number) {
+  return LUNAR_MONTHS[Math.min(Math.max(monthOrdinal - 1, 0), LUNAR_MONTHS.length - 1)];
+}
+
+export function getLunarDecade(day: number) {
+  if (day <= 10) return LUNAR_DECADES[0];
+  if (day <= 20) return LUNAR_DECADES[1];
+  return LUNAR_DECADES[2];
+}
+
+export function getLunarDate(date: Date): LunarDateInfo {
+  const year = getLunarYearForDate(date);
+  const monthIndex = lunarMonthIndex(date);
+  const monthOrdinal = monthIndex - year.startMonthIndex + 1;
+  const monthLength = getLunarMonthDates(monthIndex).length;
+  const day = Math.round((utcDay(date) - utcDay(getLunarMonthStart(monthIndex))) / DAY_MS) + 1;
+  return {
+    year,
+    monthIndex,
+    monthOrdinal,
+    month: getLunarMonthDefinition(monthOrdinal),
+    day,
+    monthLength,
+    decade: getLunarDecade(day),
+    isThreshold: day === monthLength,
+  };
 }
 
 export function formatSacredDate(date: Date, long = false) {
@@ -333,9 +435,10 @@ export function formatSacredDate(date: Date, long = false) {
 
 export function formatLunarDate(date: Date, long = false) {
   const moon = getMoon(date);
+  const lunar = getLunarDate(date);
   return translateText(long
-    ? `${moon.day} лунный день · ${moon.phase} · ${moon.epithet}`
-    : `${moon.day} лунный день · ${moon.phase}`, undefined, true);
+    ? `${lunar.month.name} · ${lunar.day} лунный день · ${lunar.isThreshold ? "Рубеж" : lunar.decade.name} · ${moon.phase}`
+    : `${lunar.day} · ${lunar.month.name}`, undefined, true);
 }
 
 export function formatCalendarDate(date: Date, mode: CalendarMode, long = false) {

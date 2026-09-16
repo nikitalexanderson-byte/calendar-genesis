@@ -63,6 +63,20 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
     }
   };
 
+  const changeTaskCalendarMode = async (taskCalendarMode: CalendarMode) => {
+    setPreferenceBusy(true);
+    setMessage("");
+    try {
+      const result = await updateAccountPreferences({ taskCalendarMode });
+      onUserChange(result.user);
+      setMessage(`Календарь постановки задач переключён: ${CALENDAR_MODES.find((item) => item.id === taskCalendarMode)?.label.toLocaleLowerCase(runtimeLocale())}.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Не удалось переключить календарь постановки задач.");
+    } finally {
+      setPreferenceBusy(false);
+    }
+  };
+
   const changeLanguage = async (language: Language) => {
     if (user.language === language) return;
     setPreferenceBusy(true);
@@ -184,7 +198,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
           <div>
             <span className="eyebrow">Основной календарь</span>
             <h3 id="calendar-mode-title">Полное отображение и система дат</h3>
-            <p>Выбор полностью переключает разделы «Месяц» и «Круг года», постановку задач, повторения и подписи дат. Сакральный календарь используется по умолчанию.</p>
+            <p>Выбор полностью переключает разделы «Месяц» и «Круг года». Сакральный календарь используется по умолчанию; для него систему постановки задач можно выбрать отдельно.</p>
           </div>
           <div className="calendar-mode-segment" role="radiogroup" aria-label="Система дат">
             {CALENDAR_MODES.map((mode) => (
@@ -203,6 +217,32 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
             ))}
           </div>
         </section>
+
+        {(user.calendarMode ?? "sacred") === "sacred" ? (
+          <section className="account-preferences task-calendar-mode-preference" aria-labelledby="task-calendar-mode-title">
+            <div>
+              <span className="eyebrow">Календарь задач</span>
+              <h3 id="task-calendar-mode-title">По какой системе выставлять даты</h3>
+              <p>Отображение останется сакральным, а выбор дат, повторений и календарные подписи новых задач будут работать по выбранной системе.</p>
+            </div>
+            <div className="calendar-mode-segment" role="radiogroup" aria-label="Календарь постановки задач">
+              {CALENDAR_MODES.map((mode) => (
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={(user.taskCalendarMode ?? "sacred") === mode.id}
+                  className={(user.taskCalendarMode ?? "sacred") === mode.id ? "active" : ""}
+                  disabled={preferenceBusy}
+                  onClick={() => void changeTaskCalendarMode(mode.id)}
+                  key={mode.id}
+                >
+                  <strong>{mode.label}</strong>
+                  <small>{mode.hint}</small>
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         {user.multiAccountEnabled ? (
           <section className="account-preferences multi-account-preference" aria-labelledby="multi-account-title">
