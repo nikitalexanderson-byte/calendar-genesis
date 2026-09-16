@@ -105,6 +105,20 @@ try {
     ], 'Relative and absolute reminders were not converted for Google Calendar.');
     expect(genesisNormalizeTaskReminders([], 10) === [['kind' => 'relative', 'minutes' => 10]], 'Legacy reminders were not migrated.');
 
+    $calendarRecurrence = genesisGoogleRecurrenceLines([
+        'recurrenceMode' => 'genesis',
+        'recurrenceSeriesId' => null,
+        'recurrenceDates' => ['2026-10-01', '2026-10-06', '2026-10-11'],
+    ], '2026-10-01', '09:00', 'Europe/Moscow');
+    expect($calendarRecurrence === [
+        'RDATE;TZID=Europe/Moscow:20261006T090000,20261011T090000',
+    ], 'A Calendar recurrence must be represented by one native RDATE series.');
+    expect(genesisGoogleRecurrenceLines([
+        'recurrenceMode' => 'genesis',
+        'recurrenceSeriesId' => 'expanded-for-google-tasks',
+        'recurrenceDates' => ['2026-10-01', '2026-10-06'],
+    ], '2026-10-01', '', 'Europe/Moscow') === [], 'Expanded task series must not become nested Calendar recurrences.');
+
     $db->rollBack();
     echo json_encode(['ok' => true, 'privacyModel' => 2, 'workspaceEncrypted' => true, 'taskRows' => 0], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;
 } catch (Throwable $error) {

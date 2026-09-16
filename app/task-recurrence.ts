@@ -323,3 +323,25 @@ export function recurrenceConfigFromTask(task: {
     pyatas: Array.isArray(task.recurrencePyatas) ? task.recurrencePyatas : [],
   });
 }
+
+export function recurrenceDatesForTask(task: {
+  dueDate: string;
+  googleTaskListId?: string | null;
+  recurrenceSeriesId?: string | null;
+  recurrence?: string;
+  recurrenceMode?: RecurrenceMode;
+  recurrencePattern?: RecurrencePattern;
+  recurrenceDays?: number[];
+  recurrenceInterval?: number;
+  recurrenceStartDate?: string | null;
+  recurrenceEndDate?: string | null;
+  recurrenceMonths?: number[];
+  recurrencePyatas?: number[];
+}) {
+  if (!parseInputDate(task.dueDate)) return [];
+  if (task.googleTaskListId || task.recurrenceSeriesId) return [task.dueDate];
+  const config = recurrenceConfigFromTask(task);
+  if (!config.enabled) return [task.dueDate];
+  const dates = buildRecurrenceDates(task.dueDate, config);
+  return dates.length ? dates : [task.dueDate];
+}

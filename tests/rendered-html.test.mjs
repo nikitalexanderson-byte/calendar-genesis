@@ -481,6 +481,9 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /<RecurrenceBuilder/);
   assert.match(calendar, /buildTaskSeries/);
   assert.match(calendar, /saveTaskSeries/);
+  assert.match(calendar, /recurrenceDatesForTask/);
+  assert.match(calendar, /tasksByDate/);
+  assert.match(calendar, /одним событием в Google Calendar/);
   assert.doesNotMatch(calendar, /setTaskRecurrence\(/);
   assert.doesNotMatch(calendar, /<option value="daily">Каждый день<\/option>/);
   assert.match(recurrenceBuilder, /type="checkbox"/);
@@ -494,11 +497,14 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(recurrenceBuilder, /Будни/);
   assert.match(recurrenceBuilder, /Выходные/);
   assert.match(recurrenceBuilder, /Google Tasks/);
+  assert.match(recurrenceBuilder, /Google Tasks API не поддерживает создание повторяющейся задачи/);
+  assert.match(recurrenceBuilder, /одно повторяющееся событие/);
   assert.match(recurrenceBuilder, /aria-pressed=\{selected\}/);
   assert.match(recurrenceBuilder, /recurrence-inherited-mode/);
   assert.doesNotMatch(recurrenceBuilder, /recurrence-mode-toggle/);
   assert.doesNotMatch(recurrenceBuilder, /const setMode/);
   assert.match(taskRecurrence, /buildRecurrenceDates/);
+  assert.match(taskRecurrence, /recurrenceDatesForTask/);
   assert.match(taskRecurrence, /alignRecurrenceConfigWithCalendar/);
   assert.match(taskRecurrence, /calendarMode === "profane"\) return "classic"/);
   assert.match(taskRecurrence, /calendarMode === "lunar"\) return "lunar"/);
@@ -649,6 +655,9 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(google, /genesisCycleMonths/);
   assert.match(google, /genesisCyclePyatas/);
   assert.match(google, /genesisSeriesId/);
+  assert.match(google, /genesisGoogleRecurrenceLines/);
+  assert.match(google, /RDATE;VALUE=DATE/);
+  assert.match(google, /'singleEvents' => 'false'/);
   assert.match(google, /'due' => \$endDate/);
   assert.match(cloudSync, /googleTaskListId/);
   assert.match(cloudSync, /recurrenceMode: RecurrenceMode/);
@@ -659,6 +668,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(cloudSync, /recurrenceMonths: number\[\]/);
   assert.match(cloudSync, /recurrencePyatas: number\[\]/);
   assert.match(cloudSync, /recurrenceSeriesId: string \| null/);
+  assert.match(cloudSync, /recurrenceDates: recurrenceDatesForTask\(task\)/);
   assert.match(cloudSync, /taskListLinks/);
   assert.match(cloudSync, /googleEventId: task\.googleEventId/);
   assert.match(api, /\$path === 'task-lists'/);

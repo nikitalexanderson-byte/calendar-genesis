@@ -104,6 +104,8 @@ import {
   alignRecurrenceConfigWithCalendar,
   DEFAULT_RECURRENCE_CONFIG,
   MAX_RECURRENCE_OCCURRENCES,
+  recurrenceConfigFromTask,
+  recurrenceDatesForTask,
   resolveRecurrenceConfig,
   type RecurrenceConfig,
   type RecurrenceMode,
@@ -459,9 +461,8 @@ function formatDateRange(start: Date, end: Date) {
   return `${formatter.format(start)} — ${formatter.format(end)}`;
 }
 
-function datesTaskCount(tasks: Task[], dates: Date[]) {
-  const keys = new Set(dates.map(inputDate));
-  return tasks.filter((task) => keys.has(task.dueDate)).length;
+function datesTaskCount(tasksByDate: Map<string, Task[]>, dates: Date[]) {
+  return dates.reduce((count, date) => count + (tasksByDate.get(inputDate(date))?.length ?? 0), 0);
 }
 
 function nextOccurrenceDate(dueDate: string, recurrence: RecurrenceKind, interval: number) {
@@ -517,6 +518,30 @@ function buildTaskSeries(task: Task, rawConfig: RecurrenceConfig) {
   }
 
   const dates = buildRecurrenceDates(task.dueDate, config);
+  if (!task.googleTaskListId) {
+    const dueDate = dates[0] ?? task.dueDate;
+    const date = new Date(`${dueDate}T12:00:00`);
+    const sacred = getSacredDate(date);
+    return [{
+      ...task,
+      sacredYear: sacred.sacredYear,
+      monthIndex: sacred.monthIndex,
+      day: sacred.day,
+      dueDate,
+      endDate: shiftRangeEndDate(task.dueDate, task.endDate, dueDate),
+      recurrence: "none" as const,
+      recurrenceInterval: config.interval,
+      recurrenceMode: config.mode,
+      recurrencePattern: config.pattern,
+      recurrenceDays: [...config.days],
+      recurrenceStartDate: config.rangeStart || dueDate,
+      recurrenceEndDate: config.rangeEnd,
+      recurrenceMonths: [...config.months],
+      recurrencePyatas: [...config.pyatas],
+      recurrenceSeriesId: null,
+      calendarNote: calendarDateNote(date, task.calendarMode),
+    }];
+  }
   const seriesId = `series-${uid()}`;
   return dates.map((dueDate, index): Task => {
     const date = new Date(`${dueDate}T12:00:00`);
@@ -549,7 +574,14 @@ function buildTaskSeries(task: Task, rawConfig: RecurrenceConfig) {
 }
 
 function taskRangeLabel(task: Task, mode: CalendarMode = "sacred") {
-  const start = formatCalendarDate(new Date(`${task.dueDate}T12:00:00`), mode, true);
+  const recurrenceDates = recurrenceDatesForTask(task);
+  const firstDate = recurrenceDates[0] ?? task.dueDate;
+  const lastDate = recurrenceDates.at(-1) ?? task.dueDate;
+  const start = formatCalendarDate(new Date(`${firstDate}T12:00:00`), mode, true);
+  if (recurrenceDates.length > 1) {
+    const finish = formatCalendarDate(new Date(`${lastDate}T12:00:00`), mode, true);
+    return `${start} — ${finish} · ${recurrenceDates.length} повторений${task.time ? ` · ${task.time}` : ""}`;
+  }
   const endDate = task.endDate || task.dueDate;
   const end = endDate === task.dueDate
     ? ""
@@ -793,9 +825,18 @@ export function GenesisCalendar() {
     : activeCalendarMode === "profane"
       ? profaneMonthName(selectedDate)
       : getLunarMonthDefinition(selectedLunarMonthOrdinal).name;
-  const selectedDayKey = taskDateKey(sacredYear, monthIndex, selectedDay);
-  const selectedDayTasks = tasks
-    .filter((task) => taskDateKey(task.sacredYear, task.monthIndex, task.day) === selectedDayKey)
+  const tasksByDate = useMemo(() => {
+    const occurrences = new Map<string, Task[]>();
+    tasks.forEach((task) => {
+      recurrenceDatesForTask(task).forEach((dateValue) => {
+        const current = occurrences.get(dateValue);
+        if (current) current.push(task);
+        else occurrences.set(dateValue, [task]);
+      });
+    });
+    return occurrences;
+  }, [tasks]);
+  const selectedDayTasks = [...(tasksByDate.get(selectedDateValue) ?? [])]
     .sort((a, b) => a.time.localeCompare(b.time));
   const selectedSunriseSunset = deviceLocation ? getSunriseSunset(selectedDate, deviceLocation) : null;
   const selectedSunrise = selectedSunriseSunset
@@ -1366,7 +1407,7 @@ export function GenesisCalendar() {
       return;
     }
     if (recurrenceDates.length > MAX_RECURRENCE_OCCURRENCES) {
-      setSyncError(`Серия может содержать не более ${MAX_RECURRENCE_OCCURRENCES} задач. Сократите период или выберите меньше дат.`);
+      setSyncError(`Серия может содержать не более ${MAX_RECURRENCE_OCCURRENCES} повторений. Сократите период или выберите меньше дат.`);
       setSyncStatus("error");
       return;
     }
@@ -1516,28 +1557,32 @@ export function GenesisCalendar() {
     event.preventDefault();
     if (!editingTask) return;
     const original = tasks.find((task) => task.id === editingTask.id);
-    const title = editingTask.title.trim();
+    const recurrenceConfig = recurrenceConfigFromTask(editingTask);
+    const taskDraft = !editingTask.googleTaskListId && !editingTask.recurrenceSeriesId && recurrenceConfig.enabled
+      ? buildTaskSeries(editingTask, recurrenceConfig)[0] ?? editingTask
+      : editingTask;
+    const title = taskDraft.title.trim();
     if (!original || !title) return;
-    if (editingTask.dueDate < todayDateValue && editingTask.dueDate !== original.dueDate) {
+    if (taskDraft.dueDate < todayDateValue && taskDraft.dueDate !== original.dueDate) {
       setSyncError("Нельзя переносить задачу на дату в прошлом.");
       setSyncStatus("error");
       return;
     }
-    if ((editingTask.endDate || editingTask.dueDate) < editingTask.dueDate) {
+    if ((taskDraft.endDate || taskDraft.dueDate) < taskDraft.dueDate) {
       setSyncError("Срок выполнения не может быть раньше даты начала.");
       setSyncStatus("error");
       return;
     }
-    const dueDate = new Date(`${editingTask.dueDate}T12:00:00`);
+    const dueDate = new Date(`${taskDraft.dueDate}T12:00:00`);
     if (Number.isNaN(dueDate.getTime())) return;
     const sacred = getSacredDate(dueDate);
-    const selectedProject = projects.find((project) => project.id === editingTask.projectId);
-    const selectedTaskList = taskLists.find((taskList) => taskList.id === editingTask.googleTaskListId);
-    const keepInInbox = editingTask.projectId === TASK_INBOX_PROJECT_ID;
+    const selectedProject = projects.find((project) => project.id === taskDraft.projectId);
+    const selectedTaskList = taskLists.find((taskList) => taskList.id === taskDraft.googleTaskListId);
+    const keepInInbox = taskDraft.projectId === TASK_INBOX_PROJECT_ID;
     const nextTask: Task = {
-      ...editingTask,
+      ...taskDraft,
       title,
-      description: editingTask.description.trim(),
+      description: taskDraft.description.trim(),
       sacredYear: sacred.sacredYear,
       monthIndex: sacred.monthIndex,
       day: sacred.day,
@@ -1549,9 +1594,9 @@ export function GenesisCalendar() {
       tags: editingTaskTags.split(",").map((tag) => tag.trim().replace(/^#/, "")).filter(Boolean).slice(0, 10),
       googleTaskListId: selectedTaskList?.id ?? null,
       googleTaskListTitle: selectedTaskList?.title ?? "",
-      googleAccountId: selectedTaskList?.accountId ?? editingTask.googleAccountId,
-      googleAccountEmail: selectedTaskList?.accountEmail ?? editingTask.googleAccountEmail,
-      syncAccountIds: selectedTaskList?.accountId ? [selectedTaskList.accountId] : editingTask.syncAccountIds,
+      googleAccountId: selectedTaskList?.accountId ?? taskDraft.googleAccountId,
+      googleAccountEmail: selectedTaskList?.accountEmail ?? taskDraft.googleAccountEmail,
+      syncAccountIds: selectedTaskList?.accountId ? [selectedTaskList.accountId] : taskDraft.syncAccountIds,
       updatedAt: timestamp(),
     };
     persistTaskChange(original, nextTask);
@@ -2664,7 +2709,7 @@ export function GenesisCalendar() {
               ? `${recurrenceOccurrenceCount} задач по выбранным датам попадут в список «${selectedTaskList.title}» Google Tasks`
               : `Срок завершения попадёт в список «${selectedTaskList.title}» Google Tasks, начало сохранится в данных GENESIS`
             : taskRecurrenceConfig.enabled
-            ? `${taskRecurrenceConfig.mode === "classic" ? "Профанская" : taskRecurrenceConfig.mode === "lunar" ? "Лунная" : "Сакральная"} серия из ${recurrenceOccurrenceCount} задач будет синхронизирована с Google Calendar`
+            ? `${taskRecurrenceConfig.mode === "classic" ? "Профанская" : taskRecurrenceConfig.mode === "lunar" ? "Лунная" : "Сакральная"} серия из ${recurrenceOccurrenceCount} повторений будет сохранена одной задачей в GENESIS и одним событием в Google Calendar`
             : "Задача будет синхронизирована с Google Calendar в часовом поясе этого устройства"}</span>
         </div>
         <button type="submit" className="add-task-button" disabled={!taskTitle.trim() || !newTaskDueDate || !newTaskEndDate || dueDateIsPast || rangeIsInvalid || recurrenceIsInvalid || syncAccountsInvalid || (createsTaskList && !taskNewListTitle.trim())}>
@@ -2810,8 +2855,7 @@ export function GenesisCalendar() {
     const moon = getMoon(date);
     const lunar = getLunarDate(date);
     const solarEvent = getSolarEvent(sacred.sacredYear, sacred.monthIndex, sacred.day);
-    const cellTasks = tasks
-      .filter((task) => task.dueDate === dateValue)
+    const cellTasks = [...(tasksByDate.get(dateValue) ?? [])]
       .sort((a, b) => a.time.localeCompare(b.time));
     const taskCount = cellTasks.length;
     const isToday = dateValue === todayDateValue;
@@ -2990,8 +3034,8 @@ export function GenesisCalendar() {
                     const moon = getMoon(gregorian);
                     const sacredDay = getSacredDay(monthIndex, dayNumber);
                     const key = taskDateKey(sacredYear, monthIndex, dayNumber);
-                    const cellTasks = tasks
-                      .filter((task) => taskDateKey(task.sacredYear, task.monthIndex, task.day) === key)
+                    const gregorianDateValue = inputDate(gregorian);
+                    const cellTasks = [...(tasksByDate.get(gregorianDateValue) ?? [])]
                       .sort((a, b) => a.time.localeCompare(b.time));
                     const taskCount = cellTasks.length;
                     const isToday = key === todayKey;
@@ -3576,7 +3620,8 @@ export function GenesisCalendar() {
           {sortedTasks.length ? sortedTasks.map((task) => {
             const project = resolvedTaskProject(task);
             const category = categories.find((item) => item.id === (task.categoryId ?? project?.categoryId));
-            const isOverdue = !task.done && (task.endDate || task.dueDate) < todayDateValue;
+            const lastOccurrenceDate = recurrenceDatesForTask(task).at(-1) ?? task.endDate ?? task.dueDate;
+            const isOverdue = !task.done && lastOccurrenceDate < todayDateValue;
             const source = taskOriginMeta(task.createdIn);
             const dependencyNames = task.dependsOnIds
               .map((dependencyId) => tasks.find((item) => item.id === dependencyId)?.title)
@@ -3682,9 +3727,9 @@ export function GenesisCalendar() {
               (__, dayIndex) => pyataIndex * 5 + dayIndex + 1,
             ),
           );
-          const monthTaskCount = tasks.filter(
-            (task) => task.sacredYear === sacredYear && task.monthIndex === month.index,
-          ).length;
+          const monthTaskCount = Array.from({ length: availableDays }, (_, index) => (
+            tasksByDate.get(inputDate(getGregorianDate(sacredYear, month.index, index + 1)))?.length ?? 0
+          )).reduce((total, count) => total + count, 0);
           const isCurrent = sacredYear === todayInfo.sacredYear && month.index === todayInfo.monthIndex;
           const openDay = (day: number) => {
             setMonthIndex(month.index);
@@ -3725,9 +3770,7 @@ export function GenesisCalendar() {
                     <span className="mini-pyata-days">
                       {days.map((dayNumber) => {
                         const key = taskDateKey(sacredYear, month.index, dayNumber);
-                        const taskCount = tasks.filter(
-                          (task) => taskDateKey(task.sacredYear, task.monthIndex, task.day) === key,
-                        ).length;
+                        const taskCount = tasksByDate.get(inputDate(getGregorianDate(sacredYear, month.index, dayNumber)))?.length ?? 0;
                         const hasTask = taskCount > 0;
                         const todayDot = key === todayKey;
                         const solarDot = Boolean(getSolarEvent(sacredYear, month.index, dayNumber));
@@ -3884,7 +3927,7 @@ export function GenesisCalendar() {
         </section>
         <section className="year-grid" aria-label={mode === "profane" ? "Двенадцать календарных месяцев" : "Лунные месяцы года"}>
           {yearMonths.map((month) => {
-            const monthTaskCount = datesTaskCount(tasks, month.dates);
+            const monthTaskCount = datesTaskCount(tasksByDate, month.dates);
             const containsToday = month.dates.some((date) => inputDate(date) === todayDateValue);
             const containsSelectedMonth = month.dates.some((date) => inputDate(date) === selectedDateValue);
             const leadingDays = mode === "profane" ? (month.dates[0]?.getDay() ?? 0) : 0;
@@ -3913,7 +3956,7 @@ export function GenesisCalendar() {
                   {Array.from({ length: leadingDays }, (_, index) => <span className="civil-mini-blank" aria-hidden="true" key={`${month.id}-blank-${index}`} />)}
                   {month.dates.map((date) => {
                     const dateValue = inputDate(date);
-                    const dayTasks = tasks.filter((task) => task.dueDate === dateValue).length;
+                    const dayTasks = tasksByDate.get(dateValue)?.length ?? 0;
                     const moon = getMoon(date);
                     const sacred = getSacredDate(date);
                     const sacredDay = getSacredDay(sacred.monthIndex, sacred.day);

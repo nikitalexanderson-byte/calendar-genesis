@@ -375,6 +375,36 @@ function genesisTaskReminderOverrides(array $reminders, DateTimeImmutable $event
     return array_slice($overrides, 0, 5);
 }
 
+function genesisGoogleRecurrenceLines(array $task, string $dueDate, string $timeValue, string $timezoneName): array
+{
+    $mode = (string)($task['recurrenceMode'] ?? 'none');
+    $seriesId = trim((string)($task['recurrenceSeriesId'] ?? ''));
+    if (!in_array($mode, ['genesis', 'classic', 'lunar'], true) || $seriesId !== '') {
+        return [];
+    }
+
+    $dates = array_values(array_filter(
+        genesisStringList($task['recurrenceDates'] ?? [], 500),
+        static fn(string $date): bool => preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) === 1,
+    ));
+    sort($dates);
+    $dates = array_values(array_unique($dates));
+    $additionalDates = array_values(array_filter($dates, static fn(string $date): bool => $date !== $dueDate));
+    if ($additionalDates === []) {
+        return [];
+    }
+
+    $values = array_map(static function (string $date) use ($timeValue): string {
+        $compactDate = str_replace('-', '', $date);
+        return $timeValue === '' ? $compactDate : $compactDate . 'T' . str_replace(':', '', $timeValue) . '00';
+    }, $additionalDates);
+    $prefix = $timeValue === '' ? 'RDATE;VALUE=DATE:' : 'RDATE;TZID=' . $timezoneName . ':';
+    return array_map(
+        static fn(array $chunk): string => $prefix . implode(',', $chunk),
+        array_chunk($values, 50),
+    );
+}
+
 function genesisTaskPayloadForGoogle(string $taskId, array $task): array
 {
     $language = genesisGoogleLanguage($task);
@@ -488,6 +518,10 @@ function genesisTaskPayloadForGoogle(string $taskId, array $task): array
         $rangeEnd = new DateTimeImmutable($endDate . ' 12:00:00', $timezone);
         $event['start'] = ['date' => $date->format('Y-m-d')];
         $event['end'] = ['date' => $rangeEnd->modify('+1 day')->format('Y-m-d')];
+    }
+    $googleRecurrence = genesisGoogleRecurrenceLines($task, $dueDate, $timeValue, $timezoneName);
+    if ($googleRecurrence !== []) {
+        $event['recurrence'] = $googleRecurrence;
     }
     return $event;
 }
@@ -607,7 +641,7 @@ function genesisTaskNotesForGoogle(string $taskId, array $task): string
 function genesisGoogleEventForClient(array $event): ?array
 {
     $private = $event['extendedProperties']['private'] ?? [];
-    if (($event['status'] ?? '') === 'cancelled') {
+    if (($event['status'] ?? '') === 'cancelled' || !empty($event['recurringEventId'])) {
         return null;
     }
     $eventId = trim((string)($event['id'] ?? ''));
@@ -1335,7 +1369,7 @@ function genesisListGoogleTasks(array $user): array
     $pageToken = null;
     do {
         $query = [
-            'singleEvents' => 'true',
+            'singleEvents' => 'false',
             'showDeleted' => 'false',
             'maxResults' => 2500,
         ];

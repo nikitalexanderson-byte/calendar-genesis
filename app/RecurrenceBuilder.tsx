@@ -284,16 +284,14 @@ export function RecurrenceBuilder({
           <div className={`recurrence-summary${tooManyOccurrences ? " warning" : ""}`} role={tooManyOccurrences ? "alert" : "status"}>
             <strong>{occurrenceCount}</strong>
             <span>{tooManyOccurrences
-              ? `Слишком много задач. Сократите период или выберите меньше дат — максимум ${MAX_RECURRENCE_OCCURRENCES}.`
-              : `задач будет создано с ${shortDate(rangeStart, true)} по ${shortDate(rangeEnd, true)}`}</span>
+              ? `Слишком много повторений. Сократите период или выберите меньше дат — максимум ${MAX_RECURRENCE_OCCURRENCES}.`
+              : `— количество ${destination === "calendar" ? "повторений одной задачи" : "отдельных задач"} с ${shortDate(rangeStart, true)} по ${shortDate(rangeEnd, true)}`}</span>
           </div>
 
           <small className="recurrence-sync-note">
             {destination === "tasks"
-              ? "Каждая выбранная дата станет отдельной задачей в выбранном списке Google Tasks."
-              : value.mode === "classic"
-                ? "Профанское расписание будет синхронизировано с Google Calendar по выбранным датам."
-                : `Расписание рассчитает GENESIS и синхронизирует каждую дату с Google Calendar; ${value.mode === "lunar" ? "лунные сутки" : "сакральные месяцы и пяты"} не зависят от правил Google.`}
+              ? "Google Tasks API не поддерживает создание повторяющейся задачи, поэтому каждая выбранная дата станет отдельной задачей в списке."
+              : `GENESIS сохранит одну задачу, а Google Calendar — одно повторяющееся событие со всеми ${value.mode === "lunar" ? "лунными" : value.mode === "genesis" ? "сакральными" : "выбранными"} датами.`}
           </small>
         </div>
       ) : null}

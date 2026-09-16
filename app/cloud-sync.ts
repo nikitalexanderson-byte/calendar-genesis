@@ -1,4 +1,4 @@
-import type { RecurrenceMode, RecurrencePattern } from "./task-recurrence";
+import { recurrenceDatesForTask, type RecurrenceMode, type RecurrencePattern } from "./task-recurrence";
 import { normalizeCalendarDateNote, type CalendarMode } from "./calendar-data";
 import type { Language } from "./i18n";
 import { legacyReminderMinutes, normalizeTaskReminders, type TaskReminder } from "./task-reminders";
@@ -652,7 +652,11 @@ export async function mergeLocalWorkspace(
 
 export async function saveCloudTask(_uid: string, task: GenesisTask) {
   const path = `/tasks/${encodeURIComponent(task.id)}`;
-  const body = JSON.stringify({ ...task, syncToGoogle: true });
+  const body = JSON.stringify({
+    ...task,
+    recurrenceDates: recurrenceDatesForTask(task),
+    syncToGoogle: true,
+  });
   queueMutation({ key: `task:${task.id}`, path, method: "PUT", body });
   const result = await api<{ task: GenesisTask }>(path, { method: "PUT", body });
   clearMutation(`task:${task.id}`);
