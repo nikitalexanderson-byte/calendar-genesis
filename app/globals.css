@@ -943,6 +943,7 @@ button:disabled {
   z-index: 2;
   width: min(570px, 68%);
   padding: 42px 44px 44px;
+  container-type: inline-size;
 }
 
 .eyebrow-row {
@@ -994,6 +995,21 @@ button:disabled {
   max-width: 540px;
   font-size: clamp(34px, 4vw, 58px);
   line-height: 0.98;
+}
+
+.hero-day-title-primary,
+.hero-day-title-translation {
+  display: block;
+}
+
+.hero-day-title-translation {
+  max-width: 100%;
+  margin-top: .08em;
+  overflow: visible;
+  font-size: clamp(20px, 2.6vw, 44px);
+  line-height: 1.04;
+  letter-spacing: -.045em;
+  white-space: nowrap;
 }
 
 .hero-description {
@@ -7477,6 +7493,58 @@ button.project-drag-handle:active { cursor: grabbing; }
   color: #f4eee3;
 }
 
+.month-calendar .calendar-day.mode-profane.weekday-0 {
+  --weekday-card-tint: rgba(214, 166, 39, .09);
+  --weekday-card-tint-hover: rgba(214, 166, 39, .12);
+  --weekday-card-border: rgba(178, 132, 28, .18);
+}
+
+.month-calendar .calendar-day.mode-profane.weekday-1 {
+  --weekday-card-tint: rgba(255, 255, 255, .36);
+  --weekday-card-tint-hover: rgba(255, 255, 255, .46);
+  --weekday-card-border: rgba(255, 255, 255, .72);
+}
+
+.month-calendar .calendar-day.mode-profane.weekday-2 {
+  --weekday-card-tint: rgba(166, 67, 58, .09);
+  --weekday-card-tint-hover: rgba(166, 67, 58, .12);
+  --weekday-card-border: rgba(166, 67, 58, .18);
+}
+
+.month-calendar .calendar-day.mode-profane.weekday-3 {
+  --weekday-card-tint: rgba(52, 125, 84, .09);
+  --weekday-card-tint-hover: rgba(52, 125, 84, .12);
+  --weekday-card-border: rgba(52, 125, 84, .18);
+}
+
+.month-calendar .calendar-day.mode-profane.weekday-4 {
+  --weekday-card-tint: rgba(54, 101, 151, .09);
+  --weekday-card-tint-hover: rgba(54, 101, 151, .12);
+  --weekday-card-border: rgba(54, 101, 151, .18);
+}
+
+.month-calendar .calendar-day.mode-profane.weekday-5 {
+  --weekday-card-tint: rgba(113, 75, 148, .09);
+  --weekday-card-tint-hover: rgba(113, 75, 148, .12);
+  --weekday-card-border: rgba(113, 75, 148, .18);
+}
+
+.month-calendar .calendar-day.mode-profane.weekday-6 {
+  --weekday-card-tint: rgba(22, 37, 35, .085);
+  --weekday-card-tint-hover: rgba(22, 37, 35, .105);
+  --weekday-card-border: rgba(29, 48, 45, .18);
+}
+
+.month-calendar .calendar-day.mode-profane[class*="weekday-"]:not(.selected, .today) {
+  border-color: var(--weekday-card-border);
+  box-shadow: inset 0 0 0 999px var(--weekday-card-tint);
+}
+
+.month-calendar .calendar-day.mode-profane[class*="weekday-"]:not(.selected, .today):hover {
+  border-color: var(--weekday-card-border);
+  box-shadow: inset 0 0 0 999px var(--weekday-card-tint-hover), 0 14px 28px rgba(32, 50, 47, .08);
+}
+
 .day-details-actions {
   display: flex;
   grid-column: 1 / -1;
@@ -9016,6 +9084,7 @@ button.project-drag-handle:active { cursor: grabbing; }
   min-height: 396px;
 }
 
+.calendar-mode-description.profane-year-full-width,
 .calendar-mode-description.lunar-year-full-width {
   grid-column: 1 / -1;
 }

@@ -2730,6 +2730,12 @@ export function GenesisCalendar() {
     const solarEvent = getSolarEvent(info.sacredYear, info.monthIndex, info.day);
     const solarCopy = solarEvent ? SOLAR_EVENT_COPY[solarEvent.id] : null;
     const isNewMoonDay = moon.event.toLocaleLowerCase().includes("новолуние");
+    const dayTitleMatch = day.name.match(/^(.*?)\s*(\([^()]+\))$/u);
+    const dayTitlePrimary = dayTitleMatch?.[1] ?? day.name;
+    const dayTitleTranslation = dayTitleMatch?.[2] ?? "";
+    const dayTitleTranslationSize = dayTitleTranslation
+      ? `clamp(16px, ${Math.min(8.2, 164 / dayTitleTranslation.length)}cqw, 44px)`
+      : undefined;
 
     return (
       <div className="today-view">
@@ -2740,7 +2746,12 @@ export function GenesisCalendar() {
               {solarEvent ? <span className="event-badge solar-event-badge"><b aria-hidden="true">{solarEvent.symbol}</b> {solarEvent.name}</span> : null}
             </div>
             <p className="hero-month">{month.name}</p>
-            <h1 id="today-title">{day.name}</h1>
+            <h1 id="today-title">
+              <span className="hero-day-title-primary">{dayTitlePrimary}</span>
+              {dayTitleTranslation ? (
+                <span className="hero-day-title-translation" style={{ fontSize: dayTitleTranslationSize }}>{dayTitleTranslation}</span>
+              ) : null}
+            </h1>
             <p className="hero-description">{day.description}</p>
             <div className="hero-actions">
               <button className="primary-button" type="button" onClick={openSelectedInCalendar}>
@@ -2860,7 +2871,8 @@ export function GenesisCalendar() {
     const taskCount = cellTasks.length;
     const isToday = dateValue === todayDateValue;
     const isSelected = dateValue === selectedDateValue;
-    const isSaturday = date.getDay() === 6;
+    const weekdayIndex = date.getDay();
+    const isSaturday = weekdayIndex === 6;
     const sunriseSunset = deviceLocation ? getSunriseSunset(date, deviceLocation) : null;
     const solarTimePlaceholder = solarLocationStatus === "ready" ? "нет" : "…";
     const sunrise = sunriseSunset ? formatDeviceSolarTime(sunriseSunset.sunrise, deviceTimeZone) : solarTimePlaceholder;
@@ -2875,7 +2887,7 @@ export function GenesisCalendar() {
 
     return (
       <article
-        className={`calendar-day calendar-mode-day mode-${mode}${isSelected ? " selected" : ""}${isToday ? " today" : ""}${isSaturday ? " saturday" : ""}${solarEvent ? " solar-day" : ""}${taskCount ? " has-tasks" : ""}${popoverOpen ? " popover-open" : ""}`}
+        className={`calendar-day calendar-mode-day mode-${mode}${mode === "profane" ? ` weekday-${weekdayIndex}` : ""}${isSelected ? " selected" : ""}${isToday ? " today" : ""}${isSaturday ? " saturday" : ""}${solarEvent ? " solar-day" : ""}${taskCount ? " has-tasks" : ""}${popoverOpen ? " popover-open" : ""}`}
         key={dateValue}
       >
         <button
@@ -3987,7 +3999,7 @@ export function GenesisCalendar() {
             );
           })}
           <article
-            className={`year-description-card calendar-mode-description${mode === "lunar" ? yearMonths.length === 13 ? " lunar-year-has-intercalary" : " lunar-year-full-width" : ""}`}
+            className={`year-description-card calendar-mode-description${mode === "profane" ? " profane-year-full-width" : yearMonths.length === 13 ? " lunar-year-has-intercalary" : " lunar-year-full-width"}`}
             aria-labelledby="calendar-mode-year-description"
           >
             <span className="eyebrow">{CALENDAR_MODE_META[mode].label}</span>

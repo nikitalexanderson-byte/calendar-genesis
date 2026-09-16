@@ -335,6 +335,9 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /День Луны — Селены, Гекаты и Артемиды/);
   assert.match(calendar, /День Гермеса/);
   assert.match(calendar, /День Кроноса, Посейдона и Аида/);
+  assert.match(calendar, /hero-day-title-primary/);
+  assert.match(calendar, /hero-day-title-translation/);
+  assert.match(calendar, /dayTitleTranslationSize/);
   assert.match(calendar, /Григорианский календарь — это профанский календарь из двенадцати стандартных месяцев/);
   assert.equal((calendar.match(/профанск/giu) ?? []).length, 1);
   assert.match(calendar, /const leadingDays = mode === "profane" \? firstDate\.getDay\(\) : 0/);
@@ -592,6 +595,13 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(styles, /\.recurrence-inherited-mode/);
   assert.doesNotMatch(styles, /\.recurrence-mode-toggle/);
   assert.match(styles, /\.month-calendar \.calendar-day\.saturday/);
+  assert.match(calendar, /weekday-\$\{weekdayIndex\}/);
+  assert.match(styles, /\.calendar-day\.mode-profane\.weekday-0/);
+  assert.match(styles, /\.calendar-day\.mode-profane\.weekday-5/);
+  assert.match(styles, /--weekday-card-tint: rgba\(54, 101, 151, \.09\)/);
+  assert.match(styles, /\.hero-day-title-translation\s*\{[\s\S]*white-space: nowrap/);
+  assert.match(calendar, /profane-year-full-width/);
+  assert.match(styles, /\.calendar-mode-description\.profane-year-full-width,[\s\S]*grid-column: 1 \/ -1/);
   assert.match(styles, /\.year-grid \.mini-day\.saturday\s*\{[\s\S]*rgba\(22, 37, 35, \.09\)/);
   assert.match(styles, /\.mini-day-task-count\s*\{[\s\S]*width: 16px;[\s\S]*height: 16px;[\s\S]*background: var\(--terracotta\)/);
   assert.doesNotMatch(styles, /\.mini-day\.has-task\s*\{[\s\S]{0,160}background: var\(--terracotta\)/);
