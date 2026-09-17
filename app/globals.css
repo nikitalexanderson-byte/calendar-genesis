@@ -4059,6 +4059,12 @@ button:disabled {
 .calendar-mode-preference > div:first-child > p,
 .task-calendar-mode-preference > div:first-child > p,
 .multi-account-heading p { margin: 0 0 14px; color: var(--ink-soft); font-size: 11px; line-height: 1.55; }
+.multi-account-benefits { display: grid; gap: 9px; margin: 2px 0 16px; padding: 14px 16px; color: var(--ink-soft); background: rgba(255,255,255,.46); border: 1px solid rgba(29,45,43,.12); border-radius: 12px; }
+.multi-account-benefits > strong { color: var(--ink); font-size: 11px; }
+.multi-account-benefits ul { display: grid; gap: 7px; margin: 0; padding-left: 18px; }
+.multi-account-benefits li { padding-left: 2px; font-size: 10px; line-height: 1.55; }
+.multi-account-benefits li b { color: var(--ink); }
+.multi-account-benefits small { font-size: 9px; line-height: 1.55; }
 .calendar-mode-segment { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 4px; background: rgba(255,255,255,.5); border: 1px solid rgba(29,45,43,.14); border-radius: 14px; }
 .calendar-mode-segment button { display: grid; gap: 4px; min-height: 64px; padding: 10px; color: var(--ink-soft); background: transparent; border: 0; border-radius: 10px; text-align: left; cursor: pointer; }
 .calendar-mode-segment button strong { font-size: 12px; }
@@ -4120,6 +4126,10 @@ button:disabled {
 .sync-routing-modes, .sync-account-checks { display: grid; gap: 8px; margin: 0; padding: 12px; border: 1px solid rgba(29,45,43,.14); border-radius: 10px; }
 .sync-routing-modes legend, .sync-account-checks legend { padding: 0 6px; font-size: 10px; font-weight: 800; }
 .sync-routing-modes label, .sync-account-checks label, .category-routing-grid label, .task-sync-account-picker label { display: flex; align-items: center; gap: 8px; color: var(--ink); font-size: 10px; }
+.sync-routing-modes label { align-items: flex-start; }
+.sync-routing-modes label > span { display: grid; gap: 2px; }
+.sync-routing-modes label strong { font-size: 10px; }
+.sync-routing-modes label small { color: var(--ink-soft); font-size: 9px; line-height: 1.45; }
 .category-routing-grid { display: grid; gap: 9px; }
 .category-routing-grid > fieldset { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin: 0; padding: 10px; border: 1px solid rgba(29,45,43,.12); border-radius: 9px; }
 .category-routing-grid legend { padding: 0 6px; font-size: 10px; font-weight: 800; }

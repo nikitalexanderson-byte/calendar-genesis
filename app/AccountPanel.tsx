@@ -295,15 +295,25 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
           </div>
         </section>
 
-        {user.multiAccountEnabled ? (
-          <section className="account-preferences multi-account-preference" aria-labelledby="multi-account-title">
+        <section className="account-preferences multi-account-preference" aria-labelledby="multi-account-title">
             <div className="multi-account-heading">
               <div>
-                <span className="eyebrow">Закрытая функция администратора</span>
+                <span className="eyebrow">Доступно всем пользователям</span>
                 <h3 id="multi-account-title">Несколько Google-аккаунтов</h3>
-                <p>Основной аккаунт владеет пространством GENESIS. Вход через любой подключённый дополнительный аккаунт открывает это же пространство.</p>
+                <p>Объедините личный, рабочий и другие Google-аккаунты в одном пространстве GENESIS и сами решайте, в какие Calendar и Google Tasks отправлять новые задачи.</p>
               </div>
               <button type="button" className="primary-button" onClick={onConnectAdditionalGoogle}>＋ Подключить аккаунт</button>
+            </div>
+            <div className="multi-account-benefits">
+              <strong>Что даёт подключение</strong>
+              <ul>
+                <li><b>Один кабинет.</b> Вход через любой связанный Google-аккаунт открывает те же проекты, категории и настройки GENESIS.</li>
+                <li><b>Раздельные календари.</b> GENESIS синхронизирует задачу с выбранным аккаунтом или сразу с несколькими аккаунтами.</li>
+                <li><b>Удобная маршрутизация.</b> Можно задать постоянные аккаунты, выбирать их при создании каждой задачи или распределять автоматически по категории проекта.</li>
+                <li><b>Безопасное отключение.</b> При удалении связи уже созданные события, списки и задачи остаются в соответствующем Google-аккаунте.</li>
+              </ul>
+              <small>Подключение проходит через официальный OAuth Google с отдельным разрешением Calendar и Tasks. GENESIS не получает пароль дополнительного аккаунта.</small>
+              <small>Если Google-аккаунт уже создал собственное отдельное пространство GENESIS, его нельзя присоединить автоматически: это защищает существующие проекты и задачи от случайного объединения.</small>
             </div>
             <div className="google-account-list">
               {(user.googleAccounts ?? []).map((account, index) => (
@@ -320,9 +330,9 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
               <div className="sync-routing-editor">
                 <fieldset className="sync-routing-modes">
                   <legend>Как выбирать аккаунты для новых задач</legend>
-                  <label><input type="radio" checked={routing.mode === "fixed"} onChange={() => setRouting((current) => ({ ...current, mode: "fixed" }))} /> Заранее выбранные</label>
-                  <label><input type="radio" checked={routing.mode === "choose"} onChange={() => setRouting((current) => ({ ...current, mode: "choose" }))} /> По выбору при создании</label>
-                  <label><input type="radio" checked={routing.mode === "category"} onChange={() => setRouting((current) => ({ ...current, mode: "category" }))} /> По категории проекта</label>
+                  <label><input type="radio" aria-label="Заранее выбранные" checked={routing.mode === "fixed"} onChange={() => setRouting((current) => ({ ...current, mode: "fixed" }))} /><span><strong>Заранее выбранные</strong><small>Каждая новая задача отправляется в отмеченные ниже аккаунты.</small></span></label>
+                  <label><input type="radio" aria-label="По выбору при создании" checked={routing.mode === "choose"} onChange={() => setRouting((current) => ({ ...current, mode: "choose" }))} /><span><strong>По выбору при создании</strong><small>В форме задачи появляется выбор одного или нескольких аккаунтов.</small></span></label>
+                  <label><input type="radio" aria-label="По категории проекта" checked={routing.mode === "category"} onChange={() => setRouting((current) => ({ ...current, mode: "category" }))} /><span><strong>По категории проекта</strong><small>Аккаунты выбираются автоматически по правилам категорий; ниже задаются аккаунты по умолчанию.</small></span></label>
                 </fieldset>
 
                 <fieldset className="sync-account-checks">
@@ -372,7 +382,6 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
               </div>
             ) : null}
           </section>
-        ) : null}
 
         <section className="account-preferences" aria-labelledby="account-preferences-title">
           <div>

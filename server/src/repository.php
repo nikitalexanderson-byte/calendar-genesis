@@ -79,7 +79,7 @@ function genesisGoogleAccountForUser(string $ownerUserId, string $accountId): ?a
 
 function genesisMultiAccountEnabled(array $owner): bool
 {
-    return mb_strtolower((string)$owner['email']) === genesisAdminEmail();
+    return isset($owner['id']) && trim((string)$owner['id']) !== '';
 }
 
 function genesisAccountForClient(array $account, bool $primary): array
@@ -319,9 +319,6 @@ function genesisLinkGoogleAccount(string $ownerUserId, array $profile, array $to
     $owner = genesisFindUser($ownerUserId);
     if ($owner === null) {
         throw new RuntimeException('Пользователь не найден.');
-    }
-    if (!genesisMultiAccountEnabled($owner)) {
-        throw new DomainException('Подключение нескольких аккаунтов пока доступно только администратору GENESIS.');
     }
     $sub = trim((string)($profile['sub'] ?? ''));
     $email = mb_strtolower(trim((string)($profile['email'] ?? '')));
