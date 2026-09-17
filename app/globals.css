@@ -10723,14 +10723,16 @@ button.project-drag-handle:active { cursor: grabbing; }
 }
 
 .theokyklos-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1.42fr) minmax(330px, .72fr);
-  gap: 18px;
-  align-items: start;
+  display: block;
+  width: 100%;
 }
 
 .theokyklos-mandala-card {
+  display: grid;
   min-width: 0;
+  width: 100%;
+  min-height: calc(100dvh - 34px);
+  grid-template-rows: auto minmax(0, 1fr) auto;
   padding: clamp(18px, 3vw, 30px);
   color: #eae3d6;
   background:
@@ -10756,7 +10758,7 @@ button.project-drag-handle:active { cursor: grabbing; }
 
 .theokyklos-mandala-viewport {
   display: grid;
-  width: min(100%, 760px);
+  width: min(100%, 1040px);
   margin: 0 auto;
   place-items: center;
 }
@@ -10873,19 +10875,54 @@ button.project-drag-handle:active { cursor: grabbing; }
 
 .theokyklos-details {
   --detail-accent: #a66d39;
-  position: sticky;
-  top: 18px;
+  position: relative;
   display: grid;
+  width: min(840px, 100%);
+  max-height: calc(100dvh - 48px);
   gap: 17px;
   padding: clamp(21px, 3vw, 30px);
+  overflow-y: auto;
   color: var(--theokyklos-ink);
   background:
     radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--detail-accent) 13%, transparent), transparent 36%),
     rgba(248, 245, 237, .92);
   border: 1px solid color-mix(in srgb, var(--detail-accent) 28%, rgba(33, 56, 56, .12));
   border-radius: 7px 28px 7px 28px;
-  box-shadow: 0 22px 60px rgba(42, 55, 50, .1);
-  scroll-margin-top: 18px;
+  box-shadow: 0 34px 100px rgba(0, 0, 0, .42);
+  animation: theokyklos-modal-enter 180ms ease-out both;
+}
+
+.modal-backdrop.theokyklos-details-backdrop {
+  z-index: 760;
+  padding: 24px;
+  background: rgba(2, 13, 15, .82);
+  backdrop-filter: blur(14px);
+}
+
+.theokyklos-details-close {
+  position: absolute;
+  z-index: 2;
+  top: 18px;
+  right: 18px;
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  color: var(--detail-accent);
+  background: rgba(255, 255, 255, .68);
+  border: 1px solid color-mix(in srgb, var(--detail-accent) 28%, transparent);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 150ms ease, transform 150ms ease;
+}
+
+.theokyklos-details-close:hover,
+.theokyklos-details-close:focus-visible { background: #fff; outline: none; transform: rotate(6deg) scale(1.06); }
+.theokyklos-details-close svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+
+@keyframes theokyklos-modal-enter {
+  from { opacity: 0; transform: translateY(18px) scale(.975); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .theokyklos-details.segment-north { --detail-accent: #497d9c; }
@@ -10928,13 +10965,10 @@ button.project-drag-handle:active { cursor: grabbing; }
 .theokyklos-incantation li small { color: #73837f; font: 400 9px/1.35 Georgia, serif; }
 
 @media (max-width: 1180px) {
-  .theokyklos-layout { grid-template-columns: minmax(0, 1fr) 330px; }
   .theokyklos-segment-index { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 }
 
 @media (max-width: 920px) {
-  .theokyklos-layout { grid-template-columns: minmax(0, 1fr); }
-  .theokyklos-details { position: static; }
   .theokyklos-segment-index { grid-template-columns: repeat(7, minmax(0, 1fr)); }
 }
 
@@ -10956,7 +10990,9 @@ button.project-drag-handle:active { cursor: grabbing; }
   .theokyklos-segment-direction { font-size: 15px; }
   .theokyklos-segment-index { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; padding-inline: 3px; }
   .theokyklos-segment-index button { min-height: 64px; }
-  .theokyklos-details { gap: 15px; padding: 22px 17px; border-radius: 5px 22px 5px 22px; }
+  .modal-backdrop.theokyklos-details-backdrop { padding: 0; }
+  .theokyklos-details { width: 100%; height: 100dvh; max-height: none; gap: 15px; padding: 68px 17px 30px; border: 0; border-radius: 0; }
+  .theokyklos-details-close { position: fixed; top: 15px; right: 15px; }
   .theokyklos-details > header { grid-template-columns: 50px minmax(0, 1fr); }
   .theokyklos-details-symbol { width: 50px; height: 50px; font-size: 21px; }
   .theokyklos-details h2 { font-size: clamp(27px, 9vw, 36px); }
@@ -10976,5 +11012,6 @@ button.project-drag-handle:active { cursor: grabbing; }
 @media (prefers-reduced-motion: reduce) {
   .theokyklos-hero-seal::before,
   .theokyklos-hero-seal::after,
-  .theokyklos-hero-seal span { animation: none; }
+  .theokyklos-hero-seal span,
+  .theokyklos-details { animation: none; }
 }
