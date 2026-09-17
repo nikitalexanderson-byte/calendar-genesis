@@ -13,6 +13,7 @@ const SKIPPED_FILES = new Set([
   "stoicheion-data.ts",
   "stoicheion-data.en.ts",
   "theokyklos-data.ts",
+  "habits.ts",
 ]);
 
 function normalize(value) {

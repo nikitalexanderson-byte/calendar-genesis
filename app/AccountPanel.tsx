@@ -15,6 +15,8 @@ type AccountPanelProps = {
   onConnectAdditionalGoogle: () => void;
   onLanguageChange: (language: Language) => void;
   onUserChange: (user: GenesisUser) => void;
+  habitTrackingEnabled: boolean;
+  onHabitTrackingChange: (enabled: boolean) => void;
   categories: GenesisCategory[];
 };
 
@@ -29,7 +31,7 @@ const TIME_FORMATS: Array<{ id: TimeFormat; label: string; example: string }> = 
   { id: "12h", label: "AM / PM", example: "01:30 PM" },
 ];
 
-export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditionalGoogle, onLanguageChange, onUserChange, categories }: AccountPanelProps) {
+export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditionalGoogle, onLanguageChange, onUserChange, habitTrackingEnabled, onHabitTrackingChange, categories }: AccountPanelProps) {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [preferenceBusy, setPreferenceBusy] = useState(false);
@@ -382,6 +384,30 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
               </div>
             ) : null}
           </section>
+
+        <section className="account-preferences" aria-labelledby="account-habits-title">
+          <div>
+            <span className="eyebrow">{user.language === "en" ? "Daily practice" : "Ежедневная практика"}</span>
+            <h3 id="account-habits-title">{user.language === "en" ? "Habit tracking" : "Трекинг привычек"}</h3>
+          </div>
+          <label className="account-switch-row">
+            <span>
+              <strong>{user.language === "en" ? "Enable habit tracker" : "Включить трекер привычек"}</strong>
+              <small>{user.language === "en" ? "Shows today's habits, the Habits page, mood and progress. Existing encrypted records remain saved when disabled." : "Показывает привычки дня, страницу «Привычки», настроение и прогресс. При отключении зашифрованные записи сохраняются."}</small>
+            </span>
+            <input
+              type="checkbox"
+              role="switch"
+              checked={habitTrackingEnabled}
+              onChange={(event) => onHabitTrackingChange(event.target.checked)}
+              aria-label={user.language === "en" ? "Enable habit tracking" : "Включить трекинг привычек"}
+            />
+            <i aria-hidden="true" />
+          </label>
+          <p className="account-preference-status" aria-live="polite">
+            {habitTrackingEnabled ? (user.language === "en" ? "Habit tracking is enabled" : "Трекинг привычек включён") : (user.language === "en" ? "Habit tracking is hidden" : "Трекинг привычек скрыт")}
+          </p>
+        </section>
 
         <section className="account-preferences" aria-labelledby="account-preferences-title">
           <div>

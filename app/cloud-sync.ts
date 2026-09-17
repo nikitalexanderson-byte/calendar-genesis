@@ -3,6 +3,11 @@ import { normalizeCalendarDateNote, type CalendarMode } from "./calendar-data";
 import type { Language } from "./i18n";
 import { legacyReminderMinutes, normalizeTaskReminders, type TaskReminder } from "./task-reminders";
 import type { TimeFormat } from "./time-format";
+import {
+  EMPTY_HABIT_WORKSPACE,
+  normalizeHabitWorkspace,
+  type HabitWorkspace,
+} from "./habits";
 
 export type RecurrenceKind =
   | "none"
@@ -143,6 +148,10 @@ export type GenesisWorkspace = {
   categories: GenesisCategory[];
   taskLists: GoogleTaskList[];
   taskListLinks: TaskListProjectLink[];
+  habits: HabitWorkspace["habits"];
+  habitEntries: HabitWorkspace["habitEntries"];
+  moodEntries: HabitWorkspace["moodEntries"];
+  habitSettings: HabitWorkspace["habitSettings"];
   hasRemoteStructure: boolean;
   syncWarning: string | null;
 };
@@ -272,6 +281,7 @@ function deviceTimeZone() {
 let csrfToken = "";
 let workspaceKey = "";
 let workspaceVersion = Date.now();
+let encryptedHabitWorkspace: HabitWorkspace = EMPTY_HABIT_WORKSPACE;
 
 type PendingMutation = {
   key: string;
@@ -393,8 +403,6 @@ function normalizeTask(task: Partial<GenesisTask> & Pick<GenesisTask, "id" | "ti
     priority: 5,
     done: false,
     completedAt: null,
-    reminders: [],
-    reminderMinutes: null,
     recurrence: "none",
     recurrenceInterval: 1,
     syncToGoogle: true,
@@ -441,8 +449,11 @@ async function importWorkspaceKey() {
   return crypto.subtle.importKey("raw", base64ToBytes(workspaceKey), "AES-GCM", false, ["encrypt", "decrypt"]);
 }
 
-async function decryptWorkspace(envelope: WorkspaceEnvelope | null): Promise<Pick<GenesisWorkspace, "projects" | "categories" | "taskListLinks">> {
-  if (!envelope) return { projects: [], categories: [], taskListLinks: [] };
+async function decryptWorkspace(envelope: WorkspaceEnvelope | null): Promise<Pick<GenesisWorkspace, "projects" | "categories" | "taskListLinks" | "habits" | "habitEntries" | "moodEntries" | "habitSettings">> {
+  if (!envelope) {
+    encryptedHabitWorkspace = normalizeHabitWorkspace(EMPTY_HABIT_WORKSPACE);
+    return { projects: [], categories: [], taskListLinks: [], ...encryptedHabitWorkspace };
+  }
   const key = await importWorkspaceKey();
   const plain = await crypto.subtle.decrypt(
     { name: "AES-GCM", iv: base64ToBytes(envelope.iv) },
@@ -453,12 +464,18 @@ async function decryptWorkspace(envelope: WorkspaceEnvelope | null): Promise<Pic
     projects?: GenesisProject[];
     categories?: GenesisCategory[];
     taskListLinks?: TaskListProjectLink[];
+    habits?: HabitWorkspace["habits"];
+    habitEntries?: HabitWorkspace["habitEntries"];
+    moodEntries?: HabitWorkspace["moodEntries"];
+    habitSettings?: HabitWorkspace["habitSettings"];
   };
   workspaceVersion = Math.max(workspaceVersion, envelope.version + 1);
+  encryptedHabitWorkspace = normalizeHabitWorkspace(decoded);
   return {
     projects: Array.isArray(decoded.projects) ? decoded.projects : [],
     categories: Array.isArray(decoded.categories) ? decoded.categories : [],
     taskListLinks: Array.isArray(decoded.taskListLinks) ? decoded.taskListLinks : [],
+    ...encryptedHabitWorkspace,
   };
 }
 
@@ -466,10 +483,17 @@ async function encryptWorkspace(
   projects: GenesisProject[],
   categories: GenesisCategory[],
   taskListLinks: TaskListProjectLink[],
+  habitWorkspace?: HabitWorkspace,
 ) {
+  if (habitWorkspace) encryptedHabitWorkspace = normalizeHabitWorkspace(habitWorkspace);
   const key = await importWorkspaceKey();
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const plaintext = new TextEncoder().encode(JSON.stringify({ projects, categories, taskListLinks }));
+  const plaintext = new TextEncoder().encode(JSON.stringify({
+    projects,
+    categories,
+    taskListLinks,
+    ...encryptedHabitWorkspace,
+  }));
   const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, plaintext);
   workspaceVersion = Math.max(workspaceVersion + 1, Date.now());
   return {
@@ -492,6 +516,10 @@ export async function loadGenesisWorkspace(): Promise<GenesisWorkspace> {
     categories: structure.categories,
     taskLists: Array.isArray(payload.taskLists) ? payload.taskLists : [],
     taskListLinks: structure.taskListLinks,
+    habits: structure.habits,
+    habitEntries: structure.habitEntries,
+    moodEntries: structure.moodEntries,
+    habitSettings: structure.habitSettings,
     hasRemoteStructure: payload.workspace.envelope !== null,
     syncWarning: payload.syncWarning,
   };
@@ -638,11 +666,25 @@ export function observeCloudTasks(
 
 export async function mergeLocalWorkspace(
   _uid: string,
-  local: Pick<GenesisWorkspace, "tasks" | "projects" | "categories" | "taskListLinks">,
+  local: Pick<GenesisWorkspace, "tasks" | "projects" | "categories" | "taskListLinks"> & Partial<HabitWorkspace>,
 ) {
   const remote = await loadGenesisWorkspace();
-  if (!remote.hasRemoteStructure && (local.projects.length || local.categories.length || local.taskListLinks.length)) {
-    await saveWorkspaceStructure(local.projects, local.categories, local.taskListLinks, metricsFor(local.tasks, local.projects));
+  if (!remote.hasRemoteStructure && (local.projects.length || local.categories.length || local.taskListLinks.length || local.habits?.length)) {
+    await saveWorkspaceStructure(
+      local.projects,
+      local.categories,
+      local.taskListLinks,
+      metricsFor(local.tasks, local.projects),
+      normalizeHabitWorkspace(local),
+    );
+  } else if (remote.hasRemoteStructure && !remote.habits.length && local.habits?.length) {
+    await saveWorkspaceStructure(
+      remote.projects,
+      remote.categories,
+      remote.taskListLinks,
+      metricsFor(local.tasks, remote.projects),
+      normalizeHabitWorkspace(local),
+    );
   }
   if (!remote.user.calendarConnected) return;
   const remoteById = new Map(remote.tasks.map((task) => [task.id, task]));
@@ -696,8 +738,9 @@ export async function saveWorkspaceStructure(
   categories: GenesisCategory[],
   taskListLinks: TaskListProjectLink[],
   metrics: GenesisMetrics,
+  habitWorkspace?: HabitWorkspace,
 ) {
-  const envelope = await encryptWorkspace(projects, categories, taskListLinks);
+  const envelope = await encryptWorkspace(projects, categories, taskListLinks, habitWorkspace);
   const body = JSON.stringify({ ...envelope, metrics });
   queueMutation({ key: "workspace", path: "/workspace", method: "PUT", body });
   const result = await api<{ ok: boolean }>("/workspace", { method: "PUT", body });

@@ -46,6 +46,50 @@ test("server-renders the GENESIS application shell", async () => {
   assert.doesNotMatch(html, /href=["']\/admin-access/);
 });
 
+test("ships the encrypted habit tracker across dashboard, calendars and account settings", async () => {
+  const [calendar, tracker, habits, cloud, account, styles, rankArt] = await Promise.all([
+    readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/HabitTracker.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/habits.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/cloud-sync.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/AccountPanel.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    stat(new URL("../public/habit-ranks/heroic-ranks.webp", import.meta.url)),
+  ]);
+
+  assert.match(calendar, /id: "habits", label: "Привычки", symbol: "✦"/);
+  assert.match(calendar, /<HabitDailyPanel[\s\S]*date=\{todayDateValue\}/);
+  assert.match(calendar, /<HabitDailyPanel[\s\S]*date=\{selectedDateValue\}/);
+  assert.match(calendar, /<HabitTrackerPage/);
+  assert.match(calendar, /habitTrackingEnabled=\{habitWorkspace\.habitSettings\.enabled\}/);
+  assert.match(calendar, /createHabitGoogleReminder/);
+  assert.match(calendar, /taskLists\.find\(\(item\) => item\.title === "Привычки GENESIS"\)/);
+
+  assert.match(cloud, /crypto\.subtle\.encrypt\(\{ name: "AES-GCM"/);
+  assert.match(cloud, /JSON\.stringify\(\{[\s\S]*\.\.\.encryptedHabitWorkspace/);
+  assert.match(cloud, /habits: structure\.habits/);
+  assert.match(cloud, /habitEntries: structure\.habitEntries/);
+  assert.match(cloud, /moodEntries: structure\.moodEntries/);
+
+  assert.match(habits, /type HabitKind = "positive" \| "negative" \| "monitor" \| "sleep" \| "wake"/);
+  assert.match(habits, /type HabitQualityScale = "none" \| "ten" \| "bipolar"/);
+  assert.match(habits, /export function isHabitScheduledForDate/);
+  assert.match(habits, /export function habitScore/);
+  assert.match(habits, /export const HEROIC_RANKS/);
+  assert.equal((habits.match(/titleEn:/g) ?? []).length, 7);
+  assert.equal((habits.match(/labelEn:/g) ?? []).length, 16);
+
+  assert.match(tracker, /type="range"/);
+  assert.match(tracker, /habit-time-rules/);
+  assert.match(tracker, /mood-options/);
+  assert.match(tracker, /habit-line-chart/);
+  assert.match(tracker, /habit-heatmap/);
+  assert.match(tracker, /heroic-rank-road/);
+  assert.match(account, /onHabitTrackingChange/);
+  assert.match(styles, /\/habit-ranks\/heroic-ranks\.webp/);
+  assert.ok(rankArt.size > 100_000, "heroic rank artwork should be a production image");
+});
+
 test("ships the complete interactive bilingual Theokyklos", async () => {
   const [calendar, component, styles, i18n] = await Promise.all([
     readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
