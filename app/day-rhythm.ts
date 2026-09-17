@@ -133,7 +133,7 @@ export const DAY_RHYTHM_PERIODS: readonly DayRhythmPeriod[] = [
         deity: "Афина",
         title: "Зоркость совы",
         description: "Глубокий анализ смыслов, скрытых за дневной суетой.",
-        symbol: "🦉",
+        symbol: "⚴",
       },
       {
         id: "zeus",

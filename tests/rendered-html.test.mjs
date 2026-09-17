@@ -200,6 +200,7 @@ test("resolves the elemental period and divine watch from device time", () => {
   assert.deepEqual([at(12).period.id, at(12).watch.deity], ["fire", "Артемида"]);
   assert.equal(at(16).watch.deity, "Деметра");
   assert.deepEqual([at(18).period.id, at(18).watch.deity], ["water", "Гефест"]);
+  assert.deepEqual([at(20).watch.deity, at(20).watch.symbol], ["Афина", "⚴"]);
   assert.equal(at(23, 59).watch.deity, "Зевс");
   assert.equal(formatDayRhythmRange(18, 24, "24h"), "18:00–00:00");
   assert.equal(formatDayRhythmRange(18, 24, "12h"), "06:00 PM–12:00 AM");
