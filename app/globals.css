@@ -7542,42 +7542,77 @@ button.project-drag-handle:active { cursor: grabbing; }
   --weekday-card-tint: rgba(214, 166, 39, .09);
   --weekday-card-tint-hover: rgba(214, 166, 39, .12);
   --weekday-card-border: rgba(178, 132, 28, .18);
+  --weekday-selected-bg: #70561a;
+  --weekday-selected-border: #d4a933;
+  --weekday-selected-fg: #fff7d7;
+  --weekday-selected-muted: #ead999;
+  --weekday-selected-accent: #ffd46b;
 }
 
 .month-calendar .calendar-day.mode-profane.weekday-1 {
   --weekday-card-tint: rgba(255, 255, 255, .36);
   --weekday-card-tint-hover: rgba(255, 255, 255, .46);
   --weekday-card-border: rgba(255, 255, 255, .72);
+  --weekday-selected-bg: #465451;
+  --weekday-selected-border: #bfc9c5;
+  --weekday-selected-fg: #fffdf8;
+  --weekday-selected-muted: #dce5e1;
+  --weekday-selected-accent: #ffffff;
 }
 
 .month-calendar .calendar-day.mode-profane.weekday-2 {
   --weekday-card-tint: rgba(166, 67, 58, .09);
   --weekday-card-tint-hover: rgba(166, 67, 58, .12);
   --weekday-card-border: rgba(166, 67, 58, .18);
+  --weekday-selected-bg: #73342f;
+  --weekday-selected-border: #c8786d;
+  --weekday-selected-fg: #fff2ed;
+  --weekday-selected-muted: #efc6bd;
+  --weekday-selected-accent: #ffb5a8;
 }
 
 .month-calendar .calendar-day.mode-profane.weekday-3 {
   --weekday-card-tint: rgba(52, 125, 84, .09);
   --weekday-card-tint-hover: rgba(52, 125, 84, .12);
   --weekday-card-border: rgba(52, 125, 84, .18);
+  --weekday-selected-bg: #24583d;
+  --weekday-selected-border: #63a67b;
+  --weekday-selected-fg: #effff4;
+  --weekday-selected-muted: #c2e5cd;
+  --weekday-selected-accent: #91d7a8;
 }
 
 .month-calendar .calendar-day.mode-profane.weekday-4 {
   --weekday-card-tint: rgba(54, 101, 151, .09);
   --weekday-card-tint-hover: rgba(54, 101, 151, .12);
   --weekday-card-border: rgba(54, 101, 151, .18);
+  --weekday-selected-bg: #2b5278;
+  --weekday-selected-border: #76a5d2;
+  --weekday-selected-fg: #f0f7ff;
+  --weekday-selected-muted: #c5dbee;
+  --weekday-selected-accent: #9cc9f2;
 }
 
 .month-calendar .calendar-day.mode-profane.weekday-5 {
   --weekday-card-tint: rgba(113, 75, 148, .09);
   --weekday-card-tint-hover: rgba(113, 75, 148, .12);
   --weekday-card-border: rgba(113, 75, 148, .18);
+  --weekday-selected-bg: #55386d;
+  --weekday-selected-border: #a583c0;
+  --weekday-selected-fg: #fbf3ff;
+  --weekday-selected-muted: #ddc9e9;
+  --weekday-selected-accent: #cda9e5;
 }
 
 .month-calendar .calendar-day.mode-profane.weekday-6 {
   --weekday-card-tint: rgba(22, 37, 35, .085);
   --weekday-card-tint-hover: rgba(22, 37, 35, .105);
   --weekday-card-border: rgba(29, 48, 45, .18);
+  --weekday-selected-bg: #172725;
+  --weekday-selected-border: #738680;
+  --weekday-selected-fg: #f4f1e8;
+  --weekday-selected-muted: #c7d0cc;
+  --weekday-selected-accent: #d8c98f;
 }
 
 .month-calendar .calendar-day.mode-profane[class*="weekday-"]:not(.selected, .today) {
@@ -8829,6 +8864,24 @@ button.project-drag-handle:active { cursor: grabbing; }
   gap: 12px;
 }
 
+.calendar-mode-calendar.mode-profane {
+  background:
+    radial-gradient(circle at 78% 12%, rgba(55, 128, 118, .18), transparent 30rem),
+    linear-gradient(145deg, #061619, #0a2528 56%, #07171b);
+  border-color: rgba(216, 189, 128, .2);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .025), 0 22px 48px rgba(3, 18, 20, .16);
+}
+
+.calendar-mode-calendar.mode-profane .calendar-mode-weekdays span {
+  color: #d8c786;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .36);
+}
+
+.calendar-mode-calendar.mode-profane .calendar-mode-blank {
+  background: rgba(255, 255, 255, .025);
+  border-color: rgba(216, 189, 128, .13);
+}
+
 .calendar-mode-weekdays {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -9014,6 +9067,48 @@ button.project-drag-handle:active { cursor: grabbing; }
 .calendar-mode-day.today .profane-weekday-patron,
 .calendar-mode-day.today .profane-weekday-patron > small {
   color: #17312e;
+}
+
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane[class*="weekday-"].selected,
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane[class*="weekday-"].selected:hover {
+  color: var(--weekday-selected-fg);
+  background: linear-gradient(145deg, color-mix(in srgb, var(--weekday-selected-bg) 84%, #fff), var(--weekday-selected-bg));
+  border-color: var(--weekday-selected-border);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--weekday-selected-border) 38%, transparent),
+    0 16px 32px rgba(0, 0, 0, .25);
+}
+
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.selected .calendar-mode-primary > strong,
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.selected .calendar-weekday,
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.selected .profane-weekday-patron > strong {
+  color: var(--weekday-selected-fg);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .3);
+}
+
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.selected .calendar-mode-primary > small,
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.selected .calendar-cross-date,
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.selected .profane-weekday-patron,
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.selected .profane-weekday-patron > small,
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.selected .calendar-sun-times,
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.selected .calendar-moon {
+  color: var(--weekday-selected-muted);
+}
+
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.selected .profane-weekday-patron {
+  border-top-color: color-mix(in srgb, var(--weekday-selected-fg) 24%, transparent);
+}
+
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.selected .calendar-cross-date b,
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.selected .calendar-cross-date .cronus-sickle-icon,
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.selected .calendar-cross-date .moon-phase-icon,
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.selected .calendar-sun-times i {
+  color: var(--weekday-selected-accent);
+}
+
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.selected.today::after {
+  background: var(--weekday-selected-accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--weekday-selected-accent) 24%, transparent);
 }
 
 .calendar-mode-day.selected .calendar-cross-date > .cronus-sickle-icon {
