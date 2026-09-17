@@ -8983,11 +8983,6 @@ button.project-drag-handle:active { cursor: grabbing; }
   text-shadow: 0 1px 2px rgba(0, 0, 0, .36);
 }
 
-.calendar-mode-calendar.mode-profane .calendar-mode-blank {
-  background: rgba(255, 255, 255, .025);
-  border-color: rgba(216, 189, 128, .13);
-}
-
 .calendar-mode-weekdays {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -9077,6 +9072,21 @@ button.project-drag-handle:active { cursor: grabbing; }
 
 .calendar-mode-day.mode-profane {
   min-height: 222px;
+}
+
+.calendar-mode-calendar.mode-profane .calendar-mode-day.adjacent-month {
+  opacity: var(--adjacent-month-opacity, .5);
+  pointer-events: none;
+  filter: saturate(.62) brightness(.86);
+  transform: none;
+  transition: none;
+  user-select: none;
+}
+
+.calendar-mode-calendar.mode-profane .calendar-mode-day.adjacent-month:hover {
+  border-color: var(--weekday-card-border);
+  box-shadow: inset 0 0 0 999px var(--weekday-card-tint);
+  transform: none;
 }
 
 .calendar-mode-primary {

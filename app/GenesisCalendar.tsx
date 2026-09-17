@@ -3011,25 +3011,32 @@ export function GenesisCalendar() {
     );
   };
 
-  const renderModeCalendarDay = (date: Date, mode: Exclude<CalendarMode, "sacred">, layoutIndex: number) => {
+  const renderModeCalendarDay = (
+    date: Date,
+    mode: Exclude<CalendarMode, "sacred">,
+    layoutIndex: number,
+    adjacentMonth: "previous" | "next" | null = null,
+    adjacentOpacity = 1,
+  ) => {
+    const isAdjacentMonth = adjacentMonth !== null;
     const dateValue = inputDate(date);
     const sacred = getSacredDate(date);
     const sacredDay = getSacredDay(sacred.monthIndex, sacred.day);
     const moon = getMoon(date);
     const lunar = getLunarDate(date);
     const solarEvent = getSolarEvent(sacred.sacredYear, sacred.monthIndex, sacred.day);
-    const cellTasks = [...(tasksByDate.get(dateValue) ?? [])]
+    const cellTasks = isAdjacentMonth ? [] : [...(tasksByDate.get(dateValue) ?? [])]
       .sort((a, b) => a.time.localeCompare(b.time));
     const taskCount = cellTasks.length;
-    const isToday = dateValue === todayDateValue;
-    const isSelected = dateValue === selectedDateValue;
+    const isToday = !isAdjacentMonth && dateValue === todayDateValue;
+    const isSelected = !isAdjacentMonth && dateValue === selectedDateValue;
     const weekdayIndex = date.getDay();
     const isSaturday = weekdayIndex === 6;
     const sunriseSunset = deviceLocation ? getSunriseSunset(date, deviceLocation) : null;
     const solarTimePlaceholder = solarLocationStatus === "ready" ? "нет" : "…";
     const sunrise = sunriseSunset ? formatDeviceSolarTime(sunriseSunset.sunrise, deviceTimeZone) : solarTimePlaceholder;
     const sunset = sunriseSunset ? formatDeviceSolarTime(sunriseSunset.sunset, deviceTimeZone) : solarTimePlaceholder;
-    const popoverOpen = openDayTaskPopover === dateValue;
+    const popoverOpen = !isAdjacentMonth && openDayTaskPopover === dateValue;
     const columnCount = mode === "profane" ? 7 : 6;
     const column = layoutIndex % columnCount;
     const popoverAlignment = column < 2 ? "align-left" : column >= columnCount - 2 ? "align-right" : "align-center";
@@ -3039,16 +3046,20 @@ export function GenesisCalendar() {
 
     return (
       <article
-        className={`calendar-day calendar-mode-day mode-${mode}${mode === "profane" ? ` weekday-${weekdayIndex}` : ""}${isSelected ? " selected" : ""}${isToday ? " today" : ""}${isSaturday ? " saturday" : ""}${solarEvent ? " solar-day" : ""}${taskCount ? " has-tasks" : ""}${popoverOpen ? " popover-open" : ""}`}
-        key={dateValue}
+        className={`calendar-day calendar-mode-day mode-${mode}${mode === "profane" ? ` weekday-${weekdayIndex}` : ""}${isSelected ? " selected" : ""}${isToday ? " today" : ""}${isSaturday ? " saturday" : ""}${solarEvent ? " solar-day" : ""}${taskCount ? " has-tasks" : ""}${popoverOpen ? " popover-open" : ""}${isAdjacentMonth ? ` adjacent-month ${adjacentMonth}-month` : ""}`}
+        style={isAdjacentMonth ? { "--adjacent-month-opacity": adjacentOpacity } as CSSProperties : undefined}
+        aria-label={isAdjacentMonth ? `${formatGregorian(date, true)} — соседний месяц, только для просмотра` : undefined}
+        key={`${adjacentMonth ?? "current"}-${dateValue}`}
       >
-        <button
-          type="button"
-          className="calendar-day-open"
-          onClick={() => openCalendarDate(date, "calendar")}
-          aria-pressed={isSelected}
-          aria-label={`${formatCalendarDate(date, mode, true)}${mode === "profane" ? ` — ${weekdayPatron.weekday}, ${weekdayPatron.patronage}` : ""} — ${sacredDay.name} — ${moon.day} лунный день${taskCount ? ` — ${taskCount} задач` : ""}`}
-        />
+        {isAdjacentMonth ? null : (
+          <button
+            type="button"
+            className="calendar-day-open"
+            onClick={() => openCalendarDate(date, "calendar")}
+            aria-pressed={isSelected}
+            aria-label={`${formatCalendarDate(date, mode, true)}${mode === "profane" ? ` — ${weekdayPatron.weekday}, ${weekdayPatron.patronage}` : ""} — ${sacredDay.name} — ${moon.day} лунный день${taskCount ? ` — ${taskCount} задач` : ""}`}
+          />
+        )}
         <span className="calendar-mode-primary">
           {mode === "lunar" ? <MoonPhaseIcon phaseStep={moon.phaseStep} size={26} /> : null}
           <strong>{mode === "lunar" ? moon.day : date.getDate()}</strong>
@@ -3351,6 +3362,28 @@ export function GenesisCalendar() {
       ? "Григорианский календарный месяц с неделями с воскресенья по субботу. В каждом дне дополнительно показаны покровители дня, сакральная дата, лунные сутки, рассвет и закат."
       : lunarDefinition.description;
     const leadingDays = mode === "profane" ? firstDate.getDay() : 0;
+    const trailingDays = mode === "profane" ? (7 - ((leadingDays + dates.length) % 7)) % 7 : 0;
+    const previousMonthDates = mode === "profane"
+      ? Array.from({ length: leadingDays }, (_, index) => new Date(
+          firstDate.getFullYear(),
+          firstDate.getMonth(),
+          1 - leadingDays + index,
+          12,
+        ))
+      : [];
+    const nextMonthDates = mode === "profane"
+      ? Array.from({ length: trailingDays }, (_, index) => new Date(
+          lastDate.getFullYear(),
+          lastDate.getMonth(),
+          lastDate.getDate() + index + 1,
+          12,
+        ))
+      : [];
+    const adjacentMonthOpacity = (position: "previous" | "next", index: number, count: number) => {
+      if (count <= 1) return 0.68;
+      const progress = index / (count - 1);
+      return position === "previous" ? 0.32 + (progress * 0.36) : 0.68 - (progress * 0.36);
+    };
     const weekdayLabels = Array.from({ length: 7 }, (_, index) => {
       const day = new Date(2024, 0, 7 + index, 12);
       return new Intl.DateTimeFormat(runtimeLocale(), { weekday: "short" }).format(day).replace(/\.$/u, "");
@@ -3396,8 +3429,21 @@ export function GenesisCalendar() {
           ) : null}
           {mode === "profane" ? (
             <div className="calendar-mode-days">
-              {Array.from({ length: leadingDays }, (_, index) => <span className="calendar-mode-blank" aria-hidden="true" key={`blank-${index}`} />)}
+              {previousMonthDates.map((date, index) => renderModeCalendarDay(
+                date,
+                mode,
+                index,
+                "previous",
+                adjacentMonthOpacity("previous", index, previousMonthDates.length),
+              ))}
               {dates.map((date, index) => renderModeCalendarDay(date, mode, leadingDays + index))}
+              {nextMonthDates.map((date, index) => renderModeCalendarDay(
+                date,
+                mode,
+                leadingDays + dates.length + index,
+                "next",
+                adjacentMonthOpacity("next", index, nextMonthDates.length),
+              ))}
             </div>
           ) : (
             <div className="lunar-decades">
