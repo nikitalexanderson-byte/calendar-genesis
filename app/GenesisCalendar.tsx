@@ -2731,44 +2731,90 @@ export function GenesisCalendar() {
     const day = getSacredDay(info.monthIndex, info.day);
     const gregorian = getGregorianDate(info.sacredYear, info.monthIndex, info.day);
     const moon = getMoon(gregorian);
+    const lunar = getLunarDate(gregorian);
+    const weekdayPatron = PROFANE_WEEKDAY_PATRONS[gregorian.getDay()];
+    const gregorianWeekdayRaw = new Intl.DateTimeFormat(runtimeLocale(), { weekday: "long" }).format(gregorian);
+    const gregorianWeekday = `${gregorianWeekdayRaw.charAt(0).toLocaleUpperCase(runtimeLocale())}${gregorianWeekdayRaw.slice(1)}`;
+    const gregorianMonth = profaneMonthName(gregorian);
+    const gregorianDateTitle = new Intl.DateTimeFormat(runtimeLocale(), {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }).format(gregorian);
+    const gregorianMonthLength = new Date(gregorian.getFullYear(), gregorian.getMonth() + 1, 0).getDate();
+    const gregorianYearLength = new Date(gregorian.getFullYear(), 1, 29).getMonth() === 1 ? 366 : 365;
+    const gregorianDayOfYear = Math.floor((Date.UTC(gregorian.getFullYear(), gregorian.getMonth(), gregorian.getDate()) - Date.UTC(gregorian.getFullYear(), 0, 0)) / 86_400_000);
+    const gregorianWeek = (() => {
+      const normalized = new Date(Date.UTC(gregorian.getFullYear(), gregorian.getMonth(), gregorian.getDate()));
+      normalized.setUTCDate(normalized.getUTCDate() + 4 - (normalized.getUTCDay() || 7));
+      const yearStart = new Date(Date.UTC(normalized.getUTCFullYear(), 0, 1));
+      return Math.ceil((((normalized.getTime() - yearStart.getTime()) / 86_400_000) + 1) / 7);
+    })();
     const element = getDayElement(info.monthIndex, info.day);
     const pythagorean = getPythagorean(info.monthIndex, info.day);
     const solarEvent = getSolarEvent(info.sacredYear, info.monthIndex, info.day);
     const solarCopy = solarEvent ? SOLAR_EVENT_COPY[solarEvent.id] : null;
     const isNewMoonDay = moon.event.toLocaleLowerCase().includes("новолуние");
     const dayTitleMatch = day.name.match(/^(.*?)\s*(\([^()]+\))$/u);
-    const dayTitlePrimary = dayTitleMatch?.[1] ?? day.name;
-    const dayTitleTranslation = dayTitleMatch?.[2] ?? "";
-    const dayTitleTranslationSize = dayTitleTranslation
-      ? `clamp(16px, ${Math.min(8.2, 164 / dayTitleTranslation.length)}cqw, 44px)`
+    const sacredTitlePrimary = dayTitleMatch?.[1] ?? day.name;
+    const sacredTitleTranslation = dayTitleMatch?.[2] ?? "";
+    const heroTitlePrimary = activeCalendarMode === "lunar"
+      ? `${lunar.day} лунный день`
+      : activeCalendarMode === "profane"
+        ? gregorianWeekday
+        : sacredTitlePrimary;
+    const heroTitleTranslation = activeCalendarMode === "lunar"
+      ? (lunar.isThreshold ? "Рубеж лунного месяца" : lunar.decade.name)
+      : activeCalendarMode === "profane"
+        ? gregorianDateTitle
+        : sacredTitleTranslation;
+    const dayTitleTranslationSize = heroTitleTranslation
+      ? `clamp(16px, ${Math.min(8.2, 164 / heroTitleTranslation.length)}cqw, 44px)`
       : undefined;
+    const heroEyebrow = activeCalendarMode === "lunar"
+      ? `Лунный календарь · ${lunar.month.roman} месяц`
+      : activeCalendarMode === "profane"
+        ? `Григорианский календарь · ${gregorian.getFullYear()} год`
+        : `${month.season} · ${month.roman} месяц`;
+    const heroMonth = activeCalendarMode === "lunar" ? lunar.month.name : activeCalendarMode === "profane" ? gregorianMonth : month.name;
+    const heroDescription = activeCalendarMode === "lunar"
+      ? `${moon.direction}. ${moon.phase}, освещённость ${moon.illumination}%. ${lunar.month.description}`
+      : activeCalendarMode === "profane"
+        ? `${weekdayPatron.patronage}. ${gregorianMonth} содержит ${gregorianMonthLength} дней; сегодня ${gregorianDayOfYear}-й день ${gregorian.getFullYear()} года.`
+        : day.description;
 
     return (
       <div className="today-view">
-        <section className="hero-card" aria-labelledby="today-title">
+        <section className={`hero-card mode-${activeCalendarMode}`} aria-labelledby="today-title">
           <div className="hero-copy">
             <div className="eyebrow-row">
-              <span className="eyebrow">{month.season} · {month.roman} месяц</span>
-              {solarEvent ? <span className="event-badge solar-event-badge"><b aria-hidden="true">{solarEvent.symbol}</b> {solarEvent.name}</span> : null}
+              <span className="eyebrow">{heroEyebrow}</span>
+              {activeCalendarMode === "lunar" ? (
+                <span className="event-badge lunar-event-badge"><MoonPhaseIcon phaseStep={moon.phaseStep} size={14} /> {moon.event || moon.epithet}</span>
+              ) : solarEvent ? <span className="event-badge solar-event-badge"><b aria-hidden="true">{solarEvent.symbol}</b> {solarEvent.name}</span> : null}
             </div>
-            <p className="hero-month">{month.name}</p>
+            <p className="hero-month">{heroMonth}</p>
             <h1 id="today-title">
-              <span className="hero-day-title-primary">{dayTitlePrimary}</span>
-              {dayTitleTranslation ? (
-                <span className="hero-day-title-translation" style={{ fontSize: dayTitleTranslationSize }}>{dayTitleTranslation}</span>
+              <span className="hero-day-title-primary">{heroTitlePrimary}</span>
+              {heroTitleTranslation ? (
+                <span className="hero-day-title-translation" style={{ fontSize: dayTitleTranslationSize }}>{heroTitleTranslation}</span>
               ) : null}
             </h1>
-            <p className="hero-description">{day.description}</p>
+            <p className="hero-description">{heroDescription}</p>
             <div className="hero-actions">
               <button className="primary-button" type="button" onClick={openSelectedInCalendar}>
                 Открыть день <span aria-hidden="true">↗</span>
               </button>
-              <span className="hero-date">{formatGregorian(gregorian, true)}</span>
+              <span className="hero-date">{activeCalendarMode === "profane" ? formatCalendarDate(gregorian, "sacred") : formatGregorian(gregorian, true)}</span>
             </div>
           </div>
           <div className="hero-number" aria-hidden="true">
-            <span>{romanDay(info.monthIndex, info.day)}</span>
-            <small>{info.monthIndex === 12 ? "вне времени" : `${day.pyata} пята`}</small>
+            {activeCalendarMode === "lunar" ? (
+              <MoonPhaseIcon phaseStep={moon.phaseStep} size={68} className="hero-mode-moon" />
+            ) : (
+              <span>{activeCalendarMode === "profane" ? gregorian.getDate() : romanDay(info.monthIndex, info.day)}</span>
+            )}
+            <small>{activeCalendarMode === "lunar" ? moon.phase : activeCalendarMode === "profane" ? weekdayPatron.weekday : info.monthIndex === 12 ? "вне времени" : `${day.pyata} пята`}</small>
           </div>
           <DeviceClock />
         </section>
@@ -2816,34 +2862,80 @@ export function GenesisCalendar() {
           </section>
         ) : null}
 
-        <div className="today-lower-grid">
-          <section className="meaning-panel" aria-labelledby="rhythm-title">
+        <div className={`today-lower-grid mode-${activeCalendarMode}`}>
+          <section className={`meaning-panel today-mode-panel mode-${activeCalendarMode}`} aria-labelledby="rhythm-title">
             <div className="section-heading compact-heading">
               <div>
-                <span className="eyebrow">Смысл дня</span>
-                <h2 id="rhythm-title">Три ритма в одной точке</h2>
+                <span className="eyebrow">{activeCalendarMode === "lunar" ? "Лунный день" : activeCalendarMode === "profane" ? "Григорианский день" : "Смысл дня"}</span>
+                <h2 id="rhythm-title">{activeCalendarMode === "lunar" ? "Ритм Луны сегодня" : activeCalendarMode === "profane" ? "Дата в гражданском календаре" : "Три ритма в одной точке"}</h2>
               </div>
-              <span className="ornament" aria-hidden="true">✣</span>
+              <span className="ornament" aria-hidden="true">{activeCalendarMode === "lunar" ? "☾" : activeCalendarMode === "profane" ? <CronusSickleIcon size={24} /> : "✣"}</span>
             </div>
             <div className="meaning-grid">
-              <article className="meaning-card">
-                <span className="meaning-symbol" aria-hidden="true">{month.symbol}</span>
-                <span className="meaning-label">Пята {day.pyata || "Ω"}</span>
-                <strong>{day.pyataTitle || "Чистый эфир"}</strong>
-                <p>{info.monthIndex === 12 ? "Законы обычного цикла приостановлены" : PYATA_MEANINGS[day.pyata - 1]}</p>
-              </article>
-              <article className="meaning-card">
-                <span className="meaning-symbol alchemical" aria-hidden="true">{element.symbol}</span>
-                <span className="meaning-label">Стихия</span>
-                <strong>{element.name}</strong>
-                <p>{element.meaning}</p>
-              </article>
-              <article className="meaning-card">
-                <span className="meaning-symbol" aria-hidden="true">{pythagorean?.roman ?? "∞"}</span>
-                <span className="meaning-label">Пифагорейский смысл</span>
-                <strong>{pythagorean?.name ?? "Апейрон"}</strong>
-                <p>{pythagorean?.meaning ?? "Безграничное · Пространство первообразов"}</p>
-              </article>
+              {activeCalendarMode === "lunar" ? (
+                <>
+                  <article className="meaning-card">
+                    <span className="meaning-symbol meaning-moon-symbol" aria-hidden="true"><MoonPhaseIcon phaseStep={moon.phaseStep} size={34} /></span>
+                    <span className="meaning-label">{lunar.day} лунный день</span>
+                    <strong>{moon.phase}</strong>
+                    <p>{moon.direction} · освещённость {moon.illumination}%</p>
+                  </article>
+                  <article className="meaning-card">
+                    <span className="meaning-symbol" aria-hidden="true">{lunar.month.roman}</span>
+                    <span className="meaning-label">Лунный месяц</span>
+                    <strong>{lunar.month.name}</strong>
+                    <p>{lunar.month.title}</p>
+                  </article>
+                  <article className="meaning-card">
+                    <span className="meaning-symbol" aria-hidden="true">{lunar.isThreshold ? "○" : "≈"}</span>
+                    <span className="meaning-label">Ритм месяца</span>
+                    <strong>{lunar.isThreshold ? "Рубеж" : lunar.decade.name}</strong>
+                    <p>{lunar.decade.range} · {lunar.monthLength} дней в месяце</p>
+                  </article>
+                </>
+              ) : activeCalendarMode === "profane" ? (
+                <>
+                  <article className="meaning-card">
+                    <span className="meaning-symbol meaning-sickle-symbol" aria-hidden="true"><CronusSickleIcon size={34} /></span>
+                    <span className="meaning-label">День недели</span>
+                    <strong>{weekdayPatron.weekday}</strong>
+                    <p>{weekdayPatron.patronage}</p>
+                  </article>
+                  <article className="meaning-card">
+                    <span className="meaning-symbol" aria-hidden="true">{gregorian.getDate()}</span>
+                    <span className="meaning-label">Дата</span>
+                    <strong>{gregorianMonth} {gregorian.getFullYear()}</strong>
+                    <p>{gregorianMonthLength} дней в этом месяце</p>
+                  </article>
+                  <article className="meaning-card">
+                    <span className="meaning-symbol" aria-hidden="true">{gregorianWeek}</span>
+                    <span className="meaning-label">Неделя года</span>
+                    <strong>{gregorianDayOfYear}-й день</strong>
+                    <p>{gregorianDayOfYear} из {gregorianYearLength} дней года</p>
+                  </article>
+                </>
+              ) : (
+                <>
+                  <article className="meaning-card">
+                    <span className="meaning-symbol" aria-hidden="true">{month.symbol}</span>
+                    <span className="meaning-label">Пята {day.pyata || "Ω"}</span>
+                    <strong>{day.pyataTitle || "Чистый эфир"}</strong>
+                    <p>{info.monthIndex === 12 ? "Законы обычного цикла приостановлены" : PYATA_MEANINGS[day.pyata - 1]}</p>
+                  </article>
+                  <article className="meaning-card">
+                    <span className="meaning-symbol alchemical" aria-hidden="true">{element.symbol}</span>
+                    <span className="meaning-label">Стихия</span>
+                    <strong>{element.name}</strong>
+                    <p>{element.meaning}</p>
+                  </article>
+                  <article className="meaning-card">
+                    <span className="meaning-symbol" aria-hidden="true">{pythagorean?.roman ?? "∞"}</span>
+                    <span className="meaning-label">Пифагорейский смысл</span>
+                    <strong>{pythagorean?.name ?? "Апейрон"}</strong>
+                    <p>{pythagorean?.meaning ?? "Безграничное · Пространство первообразов"}</p>
+                  </article>
+                </>
+              )}
             </div>
           </section>
 
@@ -4125,8 +4217,15 @@ export function GenesisCalendar() {
 
   return (
     <main
-      className="genesis-app"
-      style={{ "--genesis-hero-image": `url("${dayArtUrl(todayInfo.monthIndex, todayInfo.day)}")` } as CSSProperties}
+      className={`genesis-app mode-${activeCalendarMode}`}
+      style={{
+        "--genesis-hero-image": activeCalendarMode === "sacred"
+          ? `url("${dayArtUrl(todayInfo.monthIndex, todayInfo.day)}")`
+          : activeCalendarMode === "lunar"
+            ? `url("${APP_BASE}/genesis-hero.png")`
+            : "none",
+        "--genesis-hero-fallback": activeCalendarMode === "sacred" ? `url("${APP_BASE}/genesis-hero.png")` : "none",
+      } as CSSProperties}
     >
       <a className="skip-link" href="#main-content">К основному содержанию</a>
       <aside className="app-sidebar" aria-label="Основная навигация">

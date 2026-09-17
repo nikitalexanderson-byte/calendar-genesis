@@ -389,8 +389,15 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /month-art-v4\/month-/);
   assert.match(calendar, /day-art-v1\/month-/);
   assert.match(calendar, /dayArtUrl\(todayInfo\.monthIndex, todayInfo\.day\)/);
-  assert.match(styles, /var\(--genesis-hero-image, none\),[\s\S]*url\("\/genesis-hero\.png"\)/);
-  assert.match(serviceWorker, /genesis-shell-v15/);
+  assert.match(calendar, /activeCalendarMode === "lunar"[\s\S]*genesis-hero\.png/);
+  assert.match(calendar, /hero-card mode-\$\{activeCalendarMode\}/);
+  assert.match(calendar, /Ритм Луны сегодня/);
+  assert.match(calendar, /Дата в гражданском календаре/);
+  assert.match(calendar, /lunar\.day} лунный день/);
+  assert.match(calendar, /weekdayPatron\.patronage/);
+  assert.match(styles, /var\(--genesis-hero-image, none\),[\s\S]*var\(--genesis-hero-fallback, none\)/);
+  assert.match(styles, /\.hero-card\.mode-profane\s*\{[\s\S]*repeating-radial-gradient/);
+  assert.match(serviceWorker, /genesis-shell-v16/);
   assert.match(calendar, /calendar-month-art/);
   assert.match(calendar, /mini-pyata/);
   assert.match(calendar, /Math\.ceil\(availableDays \/ 5\)/);
