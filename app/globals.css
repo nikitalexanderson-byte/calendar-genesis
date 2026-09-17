@@ -9761,11 +9761,19 @@ button.project-drag-handle:active { cursor: grabbing; }
 }
 
 .profane-weekday-patron > strong {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   font-size: 7px;
   font-weight: 900;
   letter-spacing: .08em;
   line-height: 1.2;
   text-transform: uppercase;
+}
+
+.profane-weekday-patron > strong b {
+  color: var(--month-accent);
+  font: 800 11px/1 Georgia, "Times New Roman", serif;
 }
 
 .profane-weekday-patron > small {
@@ -10097,6 +10105,130 @@ button.project-drag-handle:active { cursor: grabbing; }
   font-size: 25px;
 }
 
+.profane-day-guidance {
+  --guidance-accent: #a37a27;
+  --guidance-wash: rgba(163, 122, 39, .1);
+  position: relative;
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1.15fr) minmax(270px, .85fr);
+  gap: 18px 26px;
+  align-items: start;
+  padding: 22px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 5% 0%, var(--guidance-wash), transparent 42%),
+    rgba(255, 253, 248, .66);
+  border: 1px solid color-mix(in srgb, var(--guidance-accent) 28%, var(--line));
+  border-radius: 5px 22px 5px 22px;
+}
+
+.day-details-modal.mode-profane > .selected-day-facts {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.profane-day-guidance::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--guidance-accent);
+  content: "";
+}
+
+.profane-day-guidance.weekday-0 { --guidance-accent: #b48618; --guidance-wash: rgba(214, 166, 39, .16); }
+.profane-day-guidance.weekday-1 { --guidance-accent: #778986; --guidance-wash: rgba(140, 157, 154, .14); }
+.profane-day-guidance.weekday-2 { --guidance-accent: #a64d42; --guidance-wash: rgba(166, 67, 58, .13); }
+.profane-day-guidance.weekday-3 { --guidance-accent: #347d54; --guidance-wash: rgba(52, 125, 84, .13); }
+.profane-day-guidance.weekday-4 { --guidance-accent: #366597; --guidance-wash: rgba(54, 101, 151, .13); }
+.profane-day-guidance.weekday-5 { --guidance-accent: #714b94; --guidance-wash: rgba(113, 75, 148, .13); }
+.profane-day-guidance.weekday-6 { --guidance-accent: #2c403d; --guidance-wash: rgba(22, 37, 35, .13); }
+
+.profane-day-guidance > header {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 14px;
+}
+
+.profane-day-guidance-symbol {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  flex: 0 0 auto;
+  place-items: center;
+  color: var(--guidance-accent);
+  font: 700 27px/1 Georgia, "Times New Roman", serif;
+  background: color-mix(in srgb, var(--guidance-accent) 9%, #fffdf8);
+  border: 1px solid color-mix(in srgb, var(--guidance-accent) 32%, transparent);
+  border-radius: 50%;
+}
+
+.profane-day-guidance h3 {
+  margin: 3px 0 2px;
+  color: var(--ink);
+  font: 400 clamp(20px, 3vw, 28px)/1.08 Georgia, "Times New Roman", serif;
+}
+
+.profane-day-guidance header small {
+  color: var(--guidance-accent);
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+.profane-day-guidance > p {
+  margin: 0;
+  color: var(--ink-soft);
+  font: 400 13px/1.62 Georgia, "Times New Roman", serif;
+}
+
+.profane-day-guidance > dl {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.profane-day-guidance > dl > div {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, .55);
+  border: 1px solid color-mix(in srgb, var(--guidance-accent) 18%, var(--line));
+  border-radius: 13px;
+}
+
+.profane-day-guidance dt {
+  color: var(--guidance-accent);
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.profane-day-guidance dd {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  color: var(--ink);
+  font: 400 13px/1.45 Georgia, "Times New Roman", serif;
+}
+
+.profane-day-guidance dd strong {
+  font-size: 17px;
+  font-weight: 500;
+}
+
+.profane-day-guidance dd small {
+  color: var(--ink-soft);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+}
+
 @media (max-width: 1100px) {
   .calendar-mode-calendar.mode-profane {
     overflow-x: auto;
@@ -10109,6 +10241,30 @@ button.project-drag-handle:active { cursor: grabbing; }
 }
 
 @media (max-width: 760px) {
+  .day-details-modal.mode-profane > .selected-day-facts {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+
+  .profane-day-guidance {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 15px;
+    padding: 18px 15px;
+  }
+
+  .profane-day-guidance > p,
+  .profane-day-guidance > dl {
+    grid-column: 1;
+  }
+
+  .profane-day-guidance > dl {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .profane-day-guidance h3 {
+    font-size: clamp(20px, 7vw, 25px);
+  }
+
   .calendar-mode-description.lunar-year-has-intercalary {
     grid-column: 1 / -1;
   }

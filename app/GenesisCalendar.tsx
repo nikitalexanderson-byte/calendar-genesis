@@ -199,43 +199,99 @@ const CALENDAR_MODE_META: Record<CalendarMode, { label: string }> = {
 const PROFANE_WEEKDAY_PATRONS = [
   {
     weekday: "Воскресенье",
+    symbol: "☉",
     patronage: "День Аполлона",
+    guidancePatrons: "Аполлон",
+    guidanceTitle: "День Света и Прозрения",
+    guidance: "Начало цикла. Чистое видение цели и стратегии на неделю.",
+    synthema: "Φάος. Λύκειος.",
+    pronunciation: "Фа-ос. Лю-кей-ос",
+    alternatePronunciation: "",
+    meaning: "Свет и Светозарный.",
     deity: "Аполлон (или Гелиос) — бог света, истины, искусств, порядка и самого источника жизни.",
     bodyParts: "Сердце, позвоночник и правый глаз. Солнце — центральный «мотор» макрокосма, а в человеке эту роль играет сердце; позвоночник выражает внутренний стержень и прямую осанку, дарованную божественным светом.",
   },
   {
     weekday: "Понедельник",
+    symbol: "☽",
     patronage: "День Луны — Селены, Гекаты и Артемиды",
+    guidancePatrons: "Артемида и Геката",
+    guidanceTitle: "День Границы и Перекрёстка",
+    guidance: "Защита пространства и инстинктивная мудрость выбора пути.",
+    synthema: "Ἁγνή. Τρίοδος.",
+    pronunciation: "Аг-не. Три-о-дос",
+    alternatePronunciation: "Или — Э-ка-тэ.",
+    meaning: "Чистая и Богиня Трёх Дорог.",
     deity: "Селена, Геката и Артемида — богини ночного светила, интуиции, циклов и скрытой природы вещей.",
     bodyParts: "Желудок, грудь, матка, левый глаз и все жидкости организма — лимфа и слизь. В античной традиции Луна отвечает за питание, усвоение и материнскую заботу о теле.",
   },
   {
     weekday: "Вторник",
+    symbol: "♂",
     patronage: "День Ареса",
+    guidancePatrons: "Арес",
+    guidanceTitle: "День Натиска и Воли",
+    guidance: "День активной реализации, жёсткого тайм-менеджмента, мощных тренировок и битвы.",
+    synthema: "Ὁρμή. Κραταιά.",
+    pronunciation: "Ор-ме. Кра-тай-а",
+    alternatePronunciation: "",
+    meaning: "Стремительный натиск и Несокрушимая мощь.",
     deity: "Арес — бог яростной, неукротимой войны, физической силы и первобытного драйва.",
     bodyParts: "Голова, лицо, кровеносная система и мышцы. Арес управляет жаром тела, кровью как носителем жизненной энергии и мускулатурой, которая позволяет действовать и сражаться.",
   },
   {
     weekday: "Среда",
+    symbol: "☿",
     patronage: "День Гермеса",
+    guidancePatrons: "Гермес",
+    guidanceTitle: "День Текста и Переговоров",
+    guidance: "Работа с коммуникациями, деловые встречи, переговоры и торги.",
+    synthema: "Λόγος. Ἔννοια.",
+    pronunciation: "Ло-гос. Эн-ной-а",
+    alternatePronunciation: "",
+    meaning: "Слово и Чёткий замысел.",
     deity: "Гермес — вестник богов, покровитель торговли, интеллекта, речи и связи между мирами.",
     bodyParts: "Руки, плечи, лёгкие, язык и нервная система. Гермес отвечает за коммуникацию, дыхание и обмен с внешним миром, мелкую моторику и передачу сигналов по телу.",
   },
   {
     weekday: "Четверг",
+    symbol: "♃",
     patronage: "День Зевса и Геры",
+    guidancePatrons: "Зевс и Гера",
+    guidanceTitle: "День Суверенитета",
+    guidance: "День расширения влияния и утверждения своего авторитета. Также — переговоры.",
+    synthema: "Τάξις. Βασιλεία.",
+    pronunciation: "Так-сис. Ба-си-лей-а",
+    alternatePronunciation: "",
+    meaning: "Порядок и Абсолютное царствование.",
     deity: "Зевс — царь богов, громовержец, символ закона, расширения, изобилия и высшей власти; Гера хранит царственный союз, порядок и достоинство.",
     bodyParts: "Печень, бёдра и тазобедренные суставы. В древности печень считалась вместилищем высших эмоций и источником кровотворения, а мощные бёдра — символом опоры и физической силы.",
   },
   {
     weekday: "Пятница",
+    symbol: "♀",
     patronage: "День Афродиты, Гестии и Диониса",
+    guidancePatrons: "Гестия, Афродита и Дионис",
+    guidanceTitle: "День Очага и Экстаза",
+    guidance: "День семьи, эстетики и выхода за пределы ума. Для одних Гестия и Афродита — близость и любовь. Для других — Дионис, экстаз, страсть и опьянение.",
+    synthema: "Ἕδρα. Μυστήριον.",
+    pronunciation: "Э-дра. Мюс-те-ри-он",
+    alternatePronunciation: "",
+    meaning: "Основание и Сакральная тайна.",
     deity: "Афродита — богиня любви, красоты, гармонии и влечения. День также открывает путь Гестии, хранительницы очага, или Диониса — силы трансгрессии, растворения и экстаза; каждый выбирает любовь, семейный круг или дионисийское веселье.",
     bodyParts: "Горло, почки, кожа и женские репродуктивные органы. Афродита отвечает за фильтрацию и баланс, внешнюю привлекательность и осязание, а также за голос, который очаровывает.",
   },
   {
     weekday: "Суббота",
+    symbol: "♄",
     patronage: "День Кроноса, Аида и Посейдона",
+    guidancePatrons: "Аид, Посейдон и Кронос",
+    guidanceTitle: "День Памяти, Времени и Денег",
+    guidance: "День тишины, покоя и связи с предками. Работа с энергией Сатурна — временем и материальными ресурсами.",
+    synthema: "Βάθος. Αἰώνια.",
+    pronunciation: "Ба-тос. Ай-о-ни-а",
+    alternatePronunciation: "",
+    meaning: "Бездна и Вечная.",
     deity: "Кронос, титан и отец Зевса, — владыка времени, ограничений, структуры и неизбежной судьбы.",
     bodyParts: "Кости, зубы, суставы, селезёнка и кожа как граница. Кронос управляет самым твёрдым, долговременным и кристаллизованным в организме — внутренним каркасом, на котором держится всё остальное.",
   },
@@ -245,7 +301,15 @@ function localizeWeekdayPatron(patron: (typeof PROFANE_WEEKDAY_PATRONS)[number],
   if (language === "ru") return patron;
   return {
     weekday: translateText(patron.weekday, "en"),
+    symbol: patron.symbol,
     patronage: translateText(patron.patronage, "en"),
+    guidancePatrons: translateText(patron.guidancePatrons, "en"),
+    guidanceTitle: translateText(patron.guidanceTitle, "en"),
+    guidance: translateText(patron.guidance, "en"),
+    synthema: patron.synthema,
+    pronunciation: translateText(patron.pronunciation, "en"),
+    alternatePronunciation: translateText(patron.alternatePronunciation, "en"),
+    meaning: translateText(patron.meaning, "en"),
     deity: translateText(patron.deity, "en"),
     bodyParts: translateText(patron.bodyParts, "en"),
   };
@@ -3407,7 +3471,7 @@ export function GenesisCalendar() {
             className="calendar-day-open"
             onClick={() => openCalendarDate(date, "calendar")}
             aria-pressed={isSelected}
-            aria-label={`${formatCalendarDate(date, mode, true)}${mode === "profane" ? ` — ${weekdayPatron.weekday}, ${weekdayPatron.patronage}` : ""} — ${sacredDay.name} — ${moon.day} ${language === "en" ? "lunar day" : "лунный день"}${taskCount ? ` — ${taskCount} задач` : ""}`}
+            aria-label={`${formatCalendarDate(date, mode, true)}${mode === "profane" ? ` — ${weekdayPatron.weekday}, ${weekdayPatron.guidanceTitle}, ${weekdayPatron.patronage}` : ""} — ${sacredDay.name} — ${moon.day} ${language === "en" ? "lunar day" : "лунный день"}${taskCount ? ` — ${taskCount} задач` : ""}`}
           />
         )}
         {isAdjacentMonth ? (
@@ -3423,8 +3487,8 @@ export function GenesisCalendar() {
         </span>
         {mode === "profane" ? (
           <span className="profane-weekday-patron">
-            <strong>{weekdayPatron.weekday}</strong>
-            <small>{weekdayPatron.patronage}</small>
+            <strong><b aria-hidden="true">{weekdayPatron.symbol}</b>{weekdayPatron.weekday}</strong>
+            <small>{weekdayPatron.guidanceTitle}</small>
           </span>
         ) : null}
         <span className="calendar-cross-date profane-date">
@@ -5075,7 +5139,7 @@ export function GenesisCalendar() {
         <div className="modal-backdrop day-details-backdrop" role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) setDayDetailsOpen(false); }}>
           <section className={`selected-day-card day-details-modal mode-${activeCalendarMode}${selectedSolarEvent ? " solar-selected-day" : ""}`} role="dialog" aria-modal="true" aria-labelledby="selected-day-title" aria-describedby="selected-day-description">
             <button type="button" className="modal-close" onClick={() => setDayDetailsOpen(false)} aria-label="Закрыть сведения о дне">×</button>
-            <div className="selected-day-symbol" aria-hidden="true">{selectedSolarEvent?.symbol ?? (activeCalendarMode === "lunar" ? "☾" : activeCalendarMode === "profane" ? selectedDate.getDate() : selectedElement.symbol)}</div>
+            <div className="selected-day-symbol" aria-hidden="true">{selectedSolarEvent?.symbol ?? (activeCalendarMode === "lunar" ? "☾" : activeCalendarMode === "profane" ? selectedWeekdayPatron.symbol : selectedElement.symbol)}</div>
             <div className="selected-day-copy">
               <span className="eyebrow">{activeCalendarMode === "profane"
                 ? `${formatCalendarDate(selectedDate, "sacred")} · ${selectedMoon.day} ${language === "en" ? "lunar day" : "лунный день"}`
@@ -5096,9 +5160,35 @@ export function GenesisCalendar() {
                   : selectedSacredDay.description}</p>
               {selectedSolarEvent ? <strong className="selected-solar-event">{selectedSolarEvent.name} · День Солнца</strong> : null}
             </div>
+            {activeCalendarMode === "profane" ? (
+              <article className={`profane-day-guidance weekday-${selectedDate.getDay()}`} aria-labelledby="profane-day-guidance-title">
+                <header>
+                  <span className="profane-day-guidance-symbol" aria-hidden="true">{selectedWeekdayPatron.symbol}</span>
+                  <div>
+                    <span className="eyebrow">{language === "en" ? "Rhythm of the Gregorian day" : "Ритм григорианского дня"}</span>
+                    <h3 id="profane-day-guidance-title">{selectedWeekdayPatron.guidanceTitle}</h3>
+                    <small>{selectedWeekdayPatron.guidancePatrons}</small>
+                  </div>
+                </header>
+                <p>{selectedWeekdayPatron.guidance}</p>
+                <dl>
+                  <div>
+                    <dt>{language === "en" ? "Synthema" : "Синтема"}</dt>
+                    <dd>
+                      <strong lang="grc">{selectedWeekdayPatron.synthema}</strong>
+                      <small>«{selectedWeekdayPatron.pronunciation}»{selectedWeekdayPatron.alternatePronunciation ? ` · ${selectedWeekdayPatron.alternatePronunciation}` : ""}</small>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>{language === "en" ? "Meaning" : "Смысл"}</dt>
+                    <dd>{selectedWeekdayPatron.meaning}</dd>
+                  </div>
+                </dl>
+              </article>
+            ) : null}
             <dl className="selected-day-facts">
               {selectedSolarEvent ? <div className="solar-fact"><dt>Солнечная точка</dt><dd>{selectedSolarEvent.name}</dd></div> : null}
-              {activeCalendarMode === "profane" ? <div><dt>{language === "en" ? "Sacralization of the day" : "Сакрализация дня"}</dt><dd>{selectedWeekdayPatron.weekday} · {selectedWeekdayPatron.patronage}</dd></div> : null}
+              {activeCalendarMode === "profane" ? <div><dt>{language === "en" ? "Sacralization of the day" : "Сакрализация дня"}</dt><dd>{selectedWeekdayPatron.weekday} · {selectedWeekdayPatron.guidanceTitle}</dd></div> : null}
               <div><dt>Григорианская дата</dt><dd>{formatGregorian(selectedDate, true)}</dd></div>
               <div><dt>Сакральная дата</dt><dd>{formatCalendarDate(selectedDate, "sacred")}</dd></div>
               <div><dt>Лунный месяц</dt><dd>{selectedLunarDate.month.name} · {selectedLunarDate.month.title}</dd></div>
