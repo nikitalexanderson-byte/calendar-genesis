@@ -9685,3 +9685,239 @@ button.project-drag-handle:active { cursor: grabbing; }
     font-size: 15px;
   }
 }
+
+/* Live elemental rhythm of the day. */
+.day-rhythm-panel {
+  --rhythm-accent: #83b9b7;
+  --rhythm-accent-soft: rgba(131, 185, 183, .18);
+  --rhythm-deep: #15363b;
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  width: 100%;
+  gap: 15px;
+  padding: clamp(19px, 2.4vw, 30px);
+  overflow: hidden;
+  color: #f5eee1;
+  background:
+    radial-gradient(circle at 88% 12%, var(--rhythm-accent-soft), transparent 31%),
+    linear-gradient(138deg, var(--rhythm-deep), #07171b 72%);
+  border: 1px solid color-mix(in srgb, var(--rhythm-accent) 32%, transparent);
+  border-radius: 21px;
+  box-shadow: 0 15px 38px rgba(7, 23, 27, .16);
+  transition: background 240ms ease, border-color 240ms ease;
+}
+
+.day-rhythm-panel.rhythm-air,
+.tone-air { --rhythm-accent: #83b9b7; --rhythm-accent-soft: rgba(131, 185, 183, .18); --rhythm-deep: #15363b; }
+.day-rhythm-panel.rhythm-fire,
+.tone-fire { --rhythm-accent: #e39348; --rhythm-accent-soft: rgba(227, 147, 72, .2); --rhythm-deep: #432719; }
+.day-rhythm-panel.rhythm-water,
+.tone-water { --rhythm-accent: #6d9fc2; --rhythm-accent-soft: rgba(109, 159, 194, .2); --rhythm-deep: #172d43; }
+.day-rhythm-panel.rhythm-earth,
+.tone-earth { --rhythm-accent: #b6a477; --rhythm-accent-soft: rgba(182, 164, 119, .2); --rhythm-deep: #312e26; }
+
+.day-rhythm-panel::before {
+  position: absolute;
+  z-index: -1;
+  top: -110px;
+  right: -70px;
+  width: 270px;
+  height: 270px;
+  content: "";
+  background: radial-gradient(circle, var(--rhythm-accent-soft), transparent 66%);
+  border: 1px solid color-mix(in srgb, var(--rhythm-accent) 11%, transparent);
+  border-radius: 50%;
+}
+
+.day-rhythm-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.day-rhythm-heading .eyebrow { color: color-mix(in srgb, var(--rhythm-accent) 76%, #fff); }
+.day-rhythm-heading h2 { margin: 5px 0 0; font: 500 clamp(24px, 2.7vw, 38px)/1.08 Georgia, "Times New Roman", serif; }
+.day-rhythm-heading > time {
+  flex: 0 0 auto;
+  min-width: 104px;
+  padding: 9px 13px;
+  color: #07171b;
+  font-size: 14px;
+  font-weight: 950;
+  text-align: center;
+  background: var(--rhythm-accent);
+  border-radius: 999px;
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--rhythm-accent) 20%, transparent);
+}
+
+.day-rhythm-current {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) minmax(160px, 220px);
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: rgba(255, 255, 255, .055);
+  border: 1px solid color-mix(in srgb, var(--rhythm-accent) 26%, transparent);
+  border-radius: 16px;
+}
+
+.day-rhythm-current-symbol {
+  position: relative;
+  display: grid;
+  width: 64px;
+  height: 64px;
+  place-items: center;
+  color: #07171b;
+  background: var(--rhythm-accent);
+  border-radius: 50%;
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--rhythm-accent) 22%, transparent);
+}
+.day-rhythm-current-symbol b { font: 500 30px/1 Georgia, serif; }
+.day-rhythm-current-symbol i {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  display: grid;
+  width: 23px;
+  height: 23px;
+  place-items: center;
+  color: var(--rhythm-accent);
+  font: normal 15px/1 Georgia, serif;
+  background: #07171b;
+  border: 2px solid var(--rhythm-accent);
+  border-radius: 50%;
+}
+
+.day-rhythm-current-copy { min-width: 0; }
+.day-rhythm-current-copy > span { color: var(--rhythm-accent); font-size: 8px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.day-rhythm-current-copy h3 { margin: 4px 0 5px; font: 500 clamp(19px, 2vw, 27px)/1.1 Georgia, "Times New Roman", serif; }
+.day-rhythm-current-copy p { max-width: 760px; margin: 0; color: #bdc9c5; font-size: 10px; line-height: 1.55; }
+
+.day-rhythm-progress { display: grid; gap: 7px; }
+.day-rhythm-progress > span { display: block; height: 6px; overflow: hidden; background: rgba(255, 255, 255, .09); border-radius: 999px; }
+.day-rhythm-progress > span i { display: block; width: var(--day-rhythm-progress); height: 100%; background: var(--rhythm-accent); border-radius: inherit; transition: width 400ms ease; }
+.day-rhythm-progress small { color: #9daea9; font-size: 8px; font-weight: 800; text-align: right; }
+
+.day-rhythm-dayline {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 4px;
+  padding: 5px;
+  background: rgba(0, 0, 0, .16);
+  border-radius: 12px;
+  scrollbar-width: none;
+}
+.day-rhythm-dayline::-webkit-scrollbar { display: none; }
+
+.day-rhythm-tick {
+  --rhythm-accent: #83b9b7;
+  display: grid;
+  min-width: 0;
+  min-height: 42px;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 4px;
+  padding: 6px 5px;
+  color: color-mix(in srgb, var(--rhythm-accent) 74%, #fff);
+  background: color-mix(in srgb, var(--rhythm-accent) 9%, transparent);
+  border: 1px solid color-mix(in srgb, var(--rhythm-accent) 13%, transparent);
+  border-radius: 8px;
+}
+.day-rhythm-tick b { font: 500 16px/1 Georgia, serif; }
+.day-rhythm-tick small { min-width: 0; overflow: hidden; font-size: 6px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.day-rhythm-tick.current {
+  color: #07171b;
+  background: var(--rhythm-accent);
+  border-color: color-mix(in srgb, var(--rhythm-accent) 70%, #fff);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--rhythm-accent) 25%, transparent);
+}
+
+.day-rhythm-periods { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
+.day-rhythm-periods button {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  color: #b8c5c0;
+  text-align: left;
+  background: rgba(255, 255, 255, .04);
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease, transform 140ms ease;
+}
+.day-rhythm-periods button:hover { transform: translateY(-1px); }
+.day-rhythm-periods button.selected { background: var(--rhythm-accent-soft); border-color: color-mix(in srgb, var(--rhythm-accent) 52%, transparent); }
+.day-rhythm-periods button.current { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rhythm-accent) 38%, transparent); }
+.day-rhythm-periods button > span { display: grid; width: 34px; height: 34px; place-items: center; font-size: 18px; background: var(--rhythm-accent-soft); border-radius: 50%; }
+.day-rhythm-periods button strong { display: block; color: #f4eee2; font: 500 15px/1.1 Georgia, serif; }
+.day-rhythm-periods button small { display: block; margin-top: 3px; color: #91a29d; font-size: 7px; }
+.day-rhythm-periods button em { grid-column: 1 / -1; color: var(--rhythm-accent); font-size: 7px; font-style: normal; font-weight: 900; letter-spacing: .07em; text-transform: uppercase; }
+.day-rhythm-periods button > i { position: absolute; top: 7px; right: 8px; color: var(--rhythm-accent); font-size: 6px; font-style: normal; font-weight: 950; letter-spacing: .06em; text-transform: uppercase; }
+
+.day-rhythm-explorer {
+  --rhythm-accent: #83b9b7;
+  display: grid;
+  gap: 13px;
+  padding: 15px;
+  background: rgba(255, 255, 255, .045);
+  border: 1px solid color-mix(in srgb, var(--rhythm-accent) 21%, transparent);
+  border-radius: 15px;
+}
+.day-rhythm-explorer > header { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 13px; }
+.day-rhythm-period-symbol { display: grid; width: 48px; height: 48px; place-items: center; color: #07171b; font: 500 28px/1 Georgia, serif; background: var(--rhythm-accent); border-radius: 12px 50% 50%; }
+.day-rhythm-explorer header div > span { color: var(--rhythm-accent); font-size: 8px; font-weight: 900; letter-spacing: .07em; text-transform: uppercase; }
+.day-rhythm-explorer h3 { margin: 3px 0; font: 500 19px/1.2 Georgia, serif; }
+.day-rhythm-explorer header p { margin: 0; color: #aebdb8; font-size: 9px; line-height: 1.45; }
+.day-rhythm-explorer header button { padding: 7px 10px; color: var(--rhythm-accent); font: inherit; font-size: 7px; font-weight: 900; background: transparent; border: 1px solid color-mix(in srgb, var(--rhythm-accent) 36%, transparent); border-radius: 999px; cursor: pointer; }
+
+.day-rhythm-watches { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+.day-rhythm-watches section {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  padding: 11px;
+  background: rgba(0, 0, 0, .12);
+  border: 1px solid rgba(255, 255, 255, .06);
+  border-radius: 11px;
+}
+.day-rhythm-watches section.current { background: var(--rhythm-accent-soft); border-color: color-mix(in srgb, var(--rhythm-accent) 54%, transparent); }
+.day-rhythm-watches section > span { display: grid; width: 28px; height: 28px; place-items: center; color: var(--rhythm-accent); font: 500 18px/1 Georgia, serif; background: rgba(0, 0, 0, .14); border-radius: 50%; }
+.day-rhythm-watches time { color: var(--rhythm-accent); font-size: 7px; font-weight: 900; letter-spacing: .06em; }
+.day-rhythm-watches h4 { margin: 3px 0 5px; color: #f3ede2; font: 500 14px/1.15 Georgia, serif; }
+.day-rhythm-watches p { margin: 0; color: #9fafaa; font-size: 8px; line-height: 1.5; }
+.day-rhythm-watches section > strong { position: absolute; top: 7px; right: 8px; color: var(--rhythm-accent); font-size: 6px; letter-spacing: .06em; text-transform: uppercase; }
+
+.today-workspace .hero-card { order: 1; }
+.today-workspace .day-rhythm-panel { order: 2; }
+.today-workspace .today-create-panel { order: 3; }
+.today-workspace .today-event-notices { order: 4; }
+.today-workspace .today-lower-grid { order: 5; }
+.today-workspace .five-day-strip { order: 6; }
+.today-workspace .genesis-page-footer { order: 7; }
+
+@media (max-width: 760px) {
+  .day-rhythm-panel { gap: 12px; padding: 17px 14px; border-radius: 17px; }
+  .day-rhythm-heading { align-items: flex-start; flex-direction: column; gap: 10px; }
+  .day-rhythm-heading h2 { font-size: clamp(23px, 7.5vw, 30px); }
+  .day-rhythm-heading > time { min-width: 0; padding: 7px 11px; font-size: 12px; }
+  .day-rhythm-current { grid-template-columns: 52px minmax(0, 1fr); gap: 12px; padding: 13px; }
+  .day-rhythm-current-symbol { width: 52px; height: 52px; }
+  .day-rhythm-current-symbol b { font-size: 25px; }
+  .day-rhythm-current-copy h3 { font-size: 19px; }
+  .day-rhythm-progress { grid-column: 1 / -1; }
+  .day-rhythm-dayline { grid-template-columns: repeat(12, 62px); overflow-x: auto; overscroll-behavior-x: contain; }
+  .day-rhythm-periods { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .day-rhythm-explorer > header { grid-template-columns: 42px minmax(0, 1fr); }
+  .day-rhythm-period-symbol { width: 42px; height: 42px; font-size: 24px; }
+  .day-rhythm-explorer header button { grid-column: 1 / -1; justify-self: start; }
+  .day-rhythm-watches { grid-template-columns: 1fr; }
+}
