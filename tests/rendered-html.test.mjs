@@ -400,7 +400,9 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /PROFANE_WEEKDAY_PATRONS/);
   assert.match(calendar, /День Луны — Селены, Гекаты и Артемиды/);
   assert.match(calendar, /День Гермеса/);
-  assert.match(calendar, /День Кроноса/);
+  assert.match(calendar, /patronage: "День Кроноса, Аида и Посейдона"/);
+  assert.doesNotMatch(calendar, /patronage: "День Кроноса"/);
+  assert.match(i18n, /"День Кроноса, Аида и Посейдона": "Day of Cronus, Hades, and Poseidon"/);
   assert.match(calendar, /Части тела:/);
   assert.match(calendar, /Сердце, позвоночник и правый глаз/);
   assert.match(calendar, /Кости, зубы, суставы, селезёнка/);

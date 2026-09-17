@@ -131,7 +131,7 @@ const curatedTranslations: Record<string, string> = {
   "День Гермеса": "Day of Hermes",
   "День Зевса и Геры": "Day of Zeus and Hera",
   "День Афродиты, Гестии и Диониса": "Day of Aphrodite, Hestia, and Dionysus",
-  "День Кроноса, Посейдона и Аида": "Day of Cronus, Poseidon, and Hades",
+  "День Кроноса, Аида и Посейдона": "Day of Cronus, Hades, and Poseidon",
   "Покровители дня": "Patrons of the day",
   "Воскресенье": "Sunday",
   "Понедельник": "Monday",
