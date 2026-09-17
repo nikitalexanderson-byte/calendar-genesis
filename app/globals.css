@@ -9111,6 +9111,89 @@ button.project-drag-handle:active { cursor: grabbing; }
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--weekday-selected-accent) 24%, transparent);
 }
 
+/* Solar points are unmistakably golden until ordinary weekday interaction takes over. */
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.solar-day:not(.selected, .today) {
+  color: #172824;
+  background: linear-gradient(145deg, #fae9ae 0%, #dfc16b 54%, #c59b43 100%);
+  border-color: #f0cf6c;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 249, 207, .72),
+    0 15px 30px rgba(91, 64, 13, .25);
+}
+
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.solar-day:not(.selected, .today) .calendar-mode-primary > strong,
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.solar-day:not(.selected, .today) .calendar-weekday,
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.solar-day:not(.selected, .today) .profane-weekday-patron > strong {
+  color: #172824;
+}
+
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.solar-day:not(.selected, .today) .calendar-mode-primary > small,
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.solar-day:not(.selected, .today) .calendar-cross-date,
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.solar-day:not(.selected, .today) .profane-weekday-patron,
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.solar-day:not(.selected, .today) .profane-weekday-patron > small,
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.solar-day:not(.selected, .today) .calendar-sun-times,
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.solar-day:not(.selected, .today) .calendar-moon {
+  color: #34463d;
+}
+
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.solar-day:not(.selected, .today) .profane-weekday-patron {
+  border-top-color: rgba(23, 40, 36, .24);
+}
+
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.solar-day:not(.selected, .today) .calendar-cross-date b,
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.solar-day:not(.selected, .today) .calendar-cross-date .cronus-sickle-icon,
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.solar-day:not(.selected, .today) .calendar-cross-date .moon-phase-icon,
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.solar-day:not(.selected, .today) .calendar-sun-times i,
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.solar-day:not(.selected, .today) .calendar-solar-mark {
+  color: #60420b;
+}
+
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.solar-day:not(.selected, .today):hover {
+  color: #142b29;
+  background: var(--white);
+  border-color: var(--weekday-card-border);
+  box-shadow:
+    inset 0 0 0 999px var(--weekday-card-tint-hover),
+    0 14px 28px rgba(32, 50, 47, .12);
+}
+
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.solar-day:not(.selected, .today):hover::before {
+  background: var(--weekday-selected-border);
+}
+
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.solar-day:not(.selected, .today):hover .calendar-mode-primary > strong,
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.solar-day:not(.selected, .today):hover .calendar-weekday,
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.solar-day:not(.selected, .today):hover .profane-weekday-patron > strong {
+  color: #142b29;
+}
+
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.solar-day:not(.selected, .today):hover .calendar-mode-primary > small,
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.solar-day:not(.selected, .today):hover .calendar-cross-date,
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.solar-day:not(.selected, .today):hover .profane-weekday-patron,
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.solar-day:not(.selected, .today):hover .profane-weekday-patron > small,
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.solar-day:not(.selected, .today):hover .calendar-sun-times,
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.solar-day:not(.selected, .today):hover .calendar-moon {
+  color: #526965;
+}
+
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.solar-day:not(.selected, .today):hover .calendar-cross-date b,
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.solar-day:not(.selected, .today):hover .calendar-cross-date .cronus-sickle-icon,
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.solar-day:not(.selected, .today):hover .calendar-cross-date .moon-phase-icon,
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.solar-day:not(.selected, .today):hover .calendar-sun-times i,
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.solar-day:not(.selected, .today):hover .calendar-solar-mark {
+  color: #805b16;
+}
+
+/* A selected current day keeps its weekday fill, but never loses the red "today" frame. */
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.selected.today,
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.selected.today:hover {
+  border-color: #a54133;
+  box-shadow:
+    inset 0 0 0 2px rgba(165, 65, 51, .94),
+    inset 0 0 0 3px color-mix(in srgb, var(--weekday-selected-border) 34%, transparent),
+    0 16px 32px rgba(0, 0, 0, .25);
+}
+
 .calendar-mode-day.selected .calendar-cross-date > .cronus-sickle-icon {
   color: #dce6e2;
 }
