@@ -404,7 +404,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(styles, /var\(--genesis-hero-image, none\),[\s\S]*var\(--genesis-hero-fallback, none\)/);
   assert.match(styles, /\.hero-card\.mode-profane\s*\{[\s\S]*repeating-radial-gradient/);
   assert.match(styles, /\.all-tasks-create\[open\]\s*\{[\s\S]*overflow:\s*visible/);
-  assert.match(serviceWorker, /genesis-shell-v21/);
+  assert.match(serviceWorker, /genesis-shell-v22/);
   assert.match(calendar, /calendar-month-art/);
   assert.match(calendar, /mini-pyata/);
   assert.match(calendar, /Math\.ceil\(availableDays \/ 5\)/);
@@ -625,6 +625,9 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(styles, /\.calendar-mode-calendar\.mode-profane \.calendar-mode-blank\s*\{[\s\S]*rgba\(255, 255, 255, \.025\)/);
   assert.match(styles, /\.calendar-mode-calendar\.mode-profane \.calendar-day\.mode-profane\[class\*="weekday-"\]\.selected/);
   assert.match(styles, /var\(--weekday-selected-muted\)/);
+  assert.match(styles, /\.calendar-mode-calendar\.mode-profane \.calendar-day\.mode-profane\.solar-day:not\(\.selected, \.today\)\s*\{[\s\S]*linear-gradient\(145deg, #fae9ae 0%, #dfc16b 54%, #c59b43 100%\)/);
+  assert.match(styles, /\.calendar-day\.mode-profane\.solar-day:not\(\.selected, \.today\):hover\s*\{[\s\S]*background: var\(--white\);[\s\S]*var\(--weekday-card-tint-hover\)/);
+  assert.match(styles, /\.calendar-day\.mode-profane\.selected\.today,[\s\S]*border-color: #a54133;[\s\S]*rgba\(165, 65, 51, \.94\)/);
   assert.match(styles, /\.hero-day-title-translation\s*\{[\s\S]*white-space: nowrap/);
   assert.match(calendar, /profane-year-full-width/);
   assert.match(styles, /\.calendar-mode-description\.profane-year-full-width,[\s\S]*grid-column: 1 \/ -1/);
