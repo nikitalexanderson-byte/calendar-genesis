@@ -185,13 +185,58 @@ const CALENDAR_MODE_META: Record<CalendarMode, { label: string }> = {
 };
 
 const PROFANE_WEEKDAY_PATRONS = [
-  { weekday: "Воскресенье", patronage: "День Аполлона" },
-  { weekday: "Понедельник", patronage: "День Луны — Селены, Гекаты и Артемиды" },
-  { weekday: "Вторник", patronage: "День Ареса" },
-  { weekday: "Среда", patronage: "День Гермеса" },
-  { weekday: "Четверг", patronage: "День Зевса и Геры" },
-  { weekday: "Пятница", patronage: "День Афродиты, Гестии и Диониса" },
-  { weekday: "Суббота", patronage: "День Кроноса, Посейдона и Аида" },
+  {
+    weekday: "Воскресенье",
+    patronage: "День Аполлона",
+    deity: "Аполлон (или Гелиос) — бог света, истины, искусств, порядка и самого источника жизни.",
+    bodyParts: "Сердце, позвоночник и правый глаз. Солнце — центральный «мотор» макрокосма, а в человеке эту роль играет сердце; позвоночник выражает внутренний стержень и прямую осанку, дарованную божественным светом.",
+  },
+  {
+    weekday: "Понедельник",
+    patronage: "День Луны — Селены, Гекаты и Артемиды",
+    deity: "Селена, Геката и Артемида — богини ночного светила, интуиции, циклов и скрытой природы вещей.",
+    bodyParts: "Желудок, грудь, матка, левый глаз и все жидкости организма — лимфа и слизь. В античной традиции Луна отвечает за питание, усвоение и материнскую заботу о теле.",
+  },
+  {
+    weekday: "Вторник",
+    patronage: "День Ареса",
+    deity: "Арес — бог яростной, неукротимой войны, физической силы и первобытного драйва.",
+    bodyParts: "Голова, лицо, кровеносная система и мышцы. Арес управляет жаром тела, кровью как носителем жизненной энергии и мускулатурой, которая позволяет действовать и сражаться.",
+  },
+  {
+    weekday: "Среда",
+    patronage: "День Гермеса",
+    deity: "Гермес — вестник богов, покровитель торговли, интеллекта, речи и связи между мирами.",
+    bodyParts: "Руки, плечи, лёгкие, язык и нервная система. Гермес отвечает за коммуникацию, дыхание и обмен с внешним миром, мелкую моторику и передачу сигналов по телу.",
+  },
+  {
+    weekday: "Четверг",
+    patronage: "День Зевса и Геры",
+    deity: "Зевс — царь богов, громовержец, символ закона, расширения, изобилия и высшей власти; Гера хранит царственный союз, порядок и достоинство.",
+    bodyParts: "Печень, бёдра и тазобедренные суставы. В древности печень считалась вместилищем высших эмоций и источником кровотворения, а мощные бёдра — символом опоры и физической силы.",
+  },
+  {
+    weekday: "Пятница",
+    patronage: "День Афродиты, Гестии и Диониса",
+    deity: "Афродита — богиня любви, красоты, гармонии и влечения. День также открывает путь Гестии, хранительницы очага, или Диониса — силы трансгрессии, растворения и экстаза; каждый выбирает любовь, семейный круг или дионисийское веселье.",
+    bodyParts: "Горло, почки, кожа и женские репродуктивные органы. Афродита отвечает за фильтрацию и баланс, внешнюю привлекательность и осязание, а также за голос, который очаровывает.",
+  },
+  {
+    weekday: "Суббота",
+    patronage: "День Кроноса",
+    deity: "Кронос, титан и отец Зевса, — владыка времени, ограничений, структуры и неизбежной судьбы.",
+    bodyParts: "Кости, зубы, суставы, селезёнка и кожа как граница. Кронос управляет самым твёрдым, долговременным и кристаллизованным в организме — внутренним каркасом, на котором держится всё остальное.",
+  },
+] as const;
+
+const WEEKDAY_ART_FILES = [
+  "weekday-0-sunday-apollo.webp",
+  "weekday-1-monday-lunar-goddesses.webp",
+  "weekday-2-tuesday-ares.webp",
+  "weekday-3-wednesday-hermes.webp",
+  "weekday-4-thursday-zeus-hera.webp",
+  "weekday-5-friday-aphrodite-hestia-dionysus.webp",
+  "weekday-6-saturday-cronus.webp",
 ] as const;
 
 const TASK_INBOX_PROJECT_ID = "__genesis_inbox__";
@@ -601,6 +646,11 @@ function dayArtUrl(monthIndex: number, day: number) {
   const monthPart = String(monthIndex + 1).padStart(2, "0");
   const dayPart = String(day).padStart(2, "0");
   return `${APP_BASE}/day-art-v1/month-${monthPart}/day-${dayPart}.webp`;
+}
+
+function weekdayArtUrl(weekday: number) {
+  const filename = WEEKDAY_ART_FILES[weekday] ?? WEEKDAY_ART_FILES[0];
+  return `${APP_BASE}/weekday-art/${filename}`;
 }
 
 function taskOriginMeta(origin: TaskOrigin) {
@@ -2779,13 +2829,11 @@ export function GenesisCalendar() {
     const heroMonth = activeCalendarMode === "lunar" ? lunar.month.name : activeCalendarMode === "profane" ? gregorianMonth : month.name;
     const heroDescription = activeCalendarMode === "lunar"
       ? `${moon.direction}. ${moon.phase}, освещённость ${moon.illumination}%. ${lunar.month.description}`
-      : activeCalendarMode === "profane"
-        ? `${weekdayPatron.patronage}. ${gregorianMonth} содержит ${gregorianMonthLength} дней; сегодня ${gregorianDayOfYear}-й день ${gregorian.getFullYear()} года.`
-        : day.description;
+      : day.description;
 
     return (
       <div className="today-view">
-        <section className={`hero-card mode-${activeCalendarMode}`} aria-labelledby="today-title">
+        <section className={`hero-card mode-${activeCalendarMode}${activeCalendarMode === "profane" ? ` weekday-${gregorian.getDay()}` : ""}`} aria-labelledby="today-title">
           <div className="hero-copy">
             <div className="eyebrow-row">
               <span className="eyebrow">{heroEyebrow}</span>
@@ -2800,7 +2848,13 @@ export function GenesisCalendar() {
                 <span className="hero-day-title-translation" style={{ fontSize: dayTitleTranslationSize }}>{heroTitleTranslation}</span>
               ) : null}
             </h1>
-            <p className="hero-description">{heroDescription}</p>
+            {activeCalendarMode === "profane" ? (
+              <div className="hero-description profane-hero-description">
+                <strong>{weekdayPatron.patronage}</strong>
+                <span>{weekdayPatron.deity}</span>
+                <span><b>Части тела:</b> {weekdayPatron.bodyParts}</span>
+              </div>
+            ) : <p className="hero-description">{heroDescription}</p>}
             <div className="hero-actions">
               <button className="primary-button" type="button" onClick={openSelectedInCalendar}>
                 Открыть день <span aria-hidden="true">↗</span>
@@ -4217,7 +4271,7 @@ export function GenesisCalendar() {
           ? `url("${dayArtUrl(todayInfo.monthIndex, todayInfo.day)}")`
           : activeCalendarMode === "lunar"
             ? `url("${APP_BASE}/genesis-hero.png")`
-            : "none",
+            : `url("${weekdayArtUrl(today.getDay())}")`,
         "--genesis-hero-fallback": activeCalendarMode === "sacred" ? `url("${APP_BASE}/genesis-hero.png")` : "none",
       } as CSSProperties}
     >
@@ -4437,13 +4491,13 @@ export function GenesisCalendar() {
               <p id="selected-day-description">{activeCalendarMode === "lunar"
                 ? `${selectedLunarDate.isThreshold ? "Рубеж" : selectedLunarDate.decade.name} · ${selectedMoon.phase} · освещённость ${selectedMoon.illumination}%. ${selectedLunarDate.month.description} Сакральный смысл дня: ${selectedSacredDay.name} — ${selectedSacredDay.description}`
                 : activeCalendarMode === "profane"
-                  ? `${selectedWeekdayPatron.patronage}. ${selectedSacredDay.name} — ${selectedSacredDay.description}`
+                  ? `${selectedWeekdayPatron.patronage}. ${selectedWeekdayPatron.deity} Части тела: ${selectedWeekdayPatron.bodyParts}`
                   : selectedSacredDay.description}</p>
               {selectedSolarEvent ? <strong className="selected-solar-event">{selectedSolarEvent.name} · День Солнца</strong> : null}
             </div>
             <dl className="selected-day-facts">
               {selectedSolarEvent ? <div className="solar-fact"><dt>Солнечная точка</dt><dd>{selectedSolarEvent.name}</dd></div> : null}
-              {activeCalendarMode === "profane" ? <div><dt>Покровители дня</dt><dd>{selectedWeekdayPatron.weekday} · {selectedWeekdayPatron.patronage}</dd></div> : null}
+              {activeCalendarMode === "profane" ? <div><dt>Сакрализация дня</dt><dd>{selectedWeekdayPatron.weekday} · {selectedWeekdayPatron.patronage}</dd></div> : null}
               <div><dt>Григорианская дата</dt><dd>{formatGregorian(selectedDate, true)}</dd></div>
               <div><dt>Сакральная дата</dt><dd>{formatCalendarDate(selectedDate, "sacred")}</dd></div>
               <div><dt>Лунный месяц</dt><dd>{selectedLunarDate.month.name} · {selectedLunarDate.month.title}</dd></div>
