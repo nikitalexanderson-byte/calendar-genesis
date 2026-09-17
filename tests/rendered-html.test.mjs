@@ -291,8 +291,16 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /aria-expanded=\{pyataDescriptionOpen\}/);
   assert.match(calendar, /className="pyata-row-description"/);
   assert.match(calendar, /Ритм пяты · действует в каждом месяце/);
+  assert.match(calendar, /monthIndex === 12 \? \(/);
+  assert.match(calendar, /className="apeiron-guide-card"/);
+  assert.match(calendar, /Апейрон: 13-й месяц и лайф-менеджмент/);
+  assert.match(calendar, /className="apeiron-protogenoi"/);
+  assert.match(calendar, /Закон Анабасиса/);
   assert.match(styles, /\.pyata-row-description/);
   assert.match(styles, /\.pyata-row-disclosure svg/);
+  assert.match(styles, /\.apeiron-guide-card/);
+  assert.match(styles, /\.apeiron-protogenoi/);
+  assert.match(styles, /\.apeiron-element-ascent/);
   assert.match(accountPanel, /calendar-mode-segment/);
   assert.match(accountPanel, /Основной календарь/);
   assert.match(accountPanel, /label: "Григорианский"/);
@@ -991,6 +999,9 @@ test("uses Quinta terminology throughout the English interface", async () => {
   assert.equal(translations["Подробнее"], "Learn more");
   assert.equal(translations["Пентада: 5 стихий и геометрия восхождения"], "Pentad: Five Elements and the Geometry of Ascent");
   assert.equal(translations["Гексада: 6 Пят и Куб Событий"], "Hexad: Six Quintas and the Cube of Events");
+  assert.equal(translations["Апейрон: 13-й месяц и лайф-менеджмент по нашему календарю"], "Apeiron: The Thirteenth Month and Life Management in Our Calendar");
+  assert.equal(translations["Закон Анабасиса"], "The Law of Anabasis");
+  assert.match(translations["Эти 6 дней стоят вне времени. Это пространство Протогеносов — Первозданных Богов, существовавших до начала мира. Здесь нет стихий Пяты, здесь правит Чистый Хаос."], /Pure Chaos reigns/);
   assert.doesNotMatch(displayedEnglish, /\bpyatas?\b/i);
 });
 

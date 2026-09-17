@@ -3734,6 +3734,82 @@ export function GenesisCalendar() {
           })}
         </section>
 
+        {monthIndex === 12 ? (
+          <section className="apeiron-guide-card" aria-labelledby="apeiron-guide-title">
+            <header className="apeiron-guide-header">
+              <span className="apeiron-guide-sigil" aria-hidden="true">Ω</span>
+              <div>
+                <span className="eyebrow">13-й месяц · 5–6 дней вне обычного счёта</span>
+                <h2 id="apeiron-guide-title">Апейрон: 13-й месяц и лайф-менеджмент по нашему календарю</h2>
+                <p>Солнечный год длится 365 или 366 дней. Если в году 12 месяцев по 30 дней, то куда деваются остальные 5–6 дней? В древних сакральных традициях эти «лишние» дни никогда не смешивали с обычным временем. Они образуют 13-й, тайный месяц нашего календаря — Апейрон.</p>
+              </div>
+            </header>
+
+            <article className="apeiron-guide-section apeiron-outside-time">
+              <span className="apeiron-guide-icon" aria-hidden="true">
+                <svg viewBox="0 0 32 32" focusable="false">
+                  <path d="M9 4h14M9 28h14M11 5c0 5 1.5 7.2 5 10.2C19.5 12.2 21 10 21 5M11 27c0-5 1.5-7.2 5-10.2 3.5 3 5 5.2 5 10.2" />
+                </svg>
+              </span>
+              <div>
+                <h3>Апейрон: Время вне времени (14.03–19.03)</h3>
+                <p>Слово «Апейрон» означает «Безграничное». Это 5–6 дней Святок перед весенним равноденствием. В эти дни законы 12 месяцев перестают действовать. Нет ни Пят, ни строгой иерархии стихий.</p>
+                <p>Если 360 дней года — это Порядок (Космос), то Апейрон — это изначальный Хаос. В теологии это время Протогеносов (Первобогов), которые существовали до появления формы:</p>
+              </div>
+            </article>
+
+            <div className="apeiron-protogenoi" aria-label="Протогеносы Апейрона">
+              <article><span aria-hidden="true">Χ</span><div><strong>Хаос</strong><p>Нулевая точка, чистый, непредсказуемый потенциал.</p></div></article>
+              <article><span aria-hidden="true">Ν</span><div><strong>Нюкс · Ночь</strong><p>Темнота, в которой в скрытом виде хранятся семена нового года.</p></div></article>
+              <article><span aria-hidden="true">Ε</span><div><strong>Эребос · Мрак</strong><p>Плотная пустота растворения старых эго-конструкций.</p></div></article>
+              <article><span aria-hidden="true">Τ</span><div><strong>Тартарос · Бездна</strong><p>Касание самого дна бессознательного, фундамента психики.</p></div></article>
+              <article><span aria-hidden="true">Ἔ</span><div><strong>Эрос · Влечение</strong><p>Первичная гравитация, которая начинает стягивать элементы для новой жизни.</p></div></article>
+              <article className="phanes"><span aria-hidden="true">Φ</span><div><strong>Фанес · Сияние</strong><p>Шестой, високосный день. Вспышка света за секунду до старта нового цикла.</p></div></article>
+            </div>
+
+            <div className="apeiron-practice-grid">
+              <article className="apeiron-practice-card">
+                <span className="apeiron-guide-icon" aria-hidden="true">
+                  <svg viewBox="0 0 32 32" focusable="false">
+                    <path d="M16 10a6 6 0 1 0 0 12 6 6 0 0 0 0-12Zm0-6v3m0 18v3M4 16h3m18 0h3M7.5 7.5l2.1 2.1m12.8 12.8 2.1 2.1m0-17-2.1 2.1M9.6 22.4l-2.1 2.1" />
+                  </svg>
+                </span>
+                <div>
+                  <h3>Практика лайф-менеджмента в Апейрон</h3>
+                  <p>В эти дни категорически нельзя ставить цели по метрикам Земли или Воды. Это период «Титаномахии» — крушения старых систем. Задача 13-го месяца — полная перезагрузка, информационный детокс и добровольный отказ от контроля, чтобы в месяц Арейос (20 марта) войти с абсолютно чистым листом.</p>
+                  <p>Есть два типа аскезы в Святки: полное ограничение себя от общества либо максимально трансгрессивные практики на грани.</p>
+                </div>
+              </article>
+
+              <article className="apeiron-practice-card anabasis">
+                <span className="apeiron-guide-icon" aria-hidden="true">
+                  <svg viewBox="0 0 32 32" focusable="false">
+                    <path d="M16 28c6 0 10-4 10-10 0-5-3-8-7-13 0 6-3 8-5 10-1-3-3-5-5-7 0 6-3 8-3 12 0 5 4 8 10 8Z" />
+                    <path d="M16 26c3 0 5-2 5-5 0-2-1-4-3-6 0 3-1 4-3 6-1-2-2-3-3-4 0 3-1 4-1 6 0 2 2 3 5 3Z" />
+                  </svg>
+                </span>
+                <div>
+                  <h3>Закон Анабасиса</h3>
+                  <p>И последнее важнейшее правило календаря — принцип Восхождения (Анабасиса). Стихии в Пяте идут строго от Земли к Эфиру, а не наоборот. Это защита от выгорания.</p>
+                  <p>Нельзя зажечь Огонь воли, если ты не подготовил Воздух (план, коммуникацию) и не увлажнил почву Водой (эмоциональный ресурс). Каждая Пята заставляет нас стартовать с плотной, скучной Земли (рутины), чтобы к пятому дню заслуженно выйти в Эфир (чистое творчество и синтез).</p>
+                </div>
+              </article>
+            </div>
+
+            <div className="apeiron-element-ascent" aria-label="Путь Анабасиса от Земли к Эфиру">
+              <span><b aria-hidden="true">🜃</b><strong>Земля</strong><small>рутина</small></span>
+              <i aria-hidden="true">→</i>
+              <span><b aria-hidden="true">🜄</b><strong>Вода</strong><small>ресурс</small></span>
+              <i aria-hidden="true">→</i>
+              <span><b aria-hidden="true">🜁</b><strong>Воздух</strong><small>план</small></span>
+              <i aria-hidden="true">→</i>
+              <span><b aria-hidden="true">🜂</b><strong>Огонь</strong><small>воля</small></span>
+              <i aria-hidden="true">→</i>
+              <span><b aria-hidden="true">✦</b><strong>Эфир</strong><small>синтез</small></span>
+            </div>
+          </section>
+        ) : null}
+
       </div>
     );
   };
