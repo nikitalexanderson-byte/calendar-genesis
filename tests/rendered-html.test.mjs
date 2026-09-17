@@ -911,6 +911,22 @@ test("ships complete English sacred-day and Stoicheion datasets", async () => {
   assert.match(stoicheionView, /Upright position/);
 });
 
+test("uses Quinta terminology throughout the English interface", async () => {
+  const [i18n, translationsRaw] = await Promise.all([
+    readFile(new URL("../app/i18n.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/translations.en.json", import.meta.url), "utf8"),
+  ]);
+  const translations = JSON.parse(translationsRaw);
+  const displayedEnglish = Object.values(translations).join("\n");
+
+  assert.match(i18n, /"Пята": "Quinta"/);
+  assert.match(i18n, /"Пяты": "Quintas"/);
+  assert.equal(translations["Пята"], "Quinta");
+  assert.equal(translations["Пяты месяца"], "Quintas of the month");
+  assert.equal(translations["I пята"], "Quinta I");
+  assert.doesNotMatch(displayedEnglish, /\bpyatas?\b/i);
+});
+
 test("ships the complete illustrated Stoicheion deck with exact Greek typography", async () => {
   const ids = [
     "alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta",
