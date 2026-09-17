@@ -560,9 +560,18 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /DeviceClock/);
   assert.match(calendar, /<div className="hero-number" aria-hidden="true">[\s\S]*?<\/div>\s*<DeviceClock timeFormat=\{activeTimeFormat\} \/>/);
   assert.match(calendar, /<DayRhythmPanel now=\{today\} timeFormat=\{activeTimeFormat\} \/>/);
+  assert.match(calendar, /const \[expanded, setExpanded\] = useState\(false\)/);
+  assert.match(calendar, /aria-expanded=\{expanded\}/);
+  assert.match(calendar, /aria-controls="day-rhythm-details"/);
+  assert.match(calendar, /id="day-rhythm-details" hidden=\{!expanded\}/);
+  assert.match(calendar, /Развернуть ритм суток/);
+  assert.match(calendar, /Expand daily rhythm/);
   assert.match(calendar, /Двенадцать двухчасовых периодов суток/);
   assert.match(calendar, /Вернуться к текущему/);
   assert.match(styles, /\.day-rhythm-panel\s*\{/);
+  assert.match(styles, /\.day-rhythm-panel\.is-collapsed\s*\{/);
+  assert.match(styles, /\.day-rhythm-toggle\s*\{/);
+  assert.match(styles, /\.day-rhythm-details\s*\{/);
   assert.match(styles, /\.day-rhythm-dayline\s*\{[\s\S]*repeat\(12/);
   assert.match(styles, /\.today-workspace \.day-rhythm-panel \{ order: 2; \}/);
   assert.match(calendar, /Сегодня \{isNewMoonDay \? "новолуние" : "полнолуние"\}/);
