@@ -172,9 +172,7 @@ try {
                 unset($_SESSION['user_id']);
                 genesisOAuthRedirect($returnTo, 'session_expired');
             }
-            if ($purpose === 'link') {
-                genesisRequireAdmin($requestUser);
-            } else {
+            if ($purpose === 'services') {
                 $loginHint = (string)$requestUser['email'];
             }
         }

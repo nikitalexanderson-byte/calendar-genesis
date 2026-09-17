@@ -39,6 +39,16 @@ try {
     expect((genesisUserForClient($user)['timeFormat'] ?? '') === '12h', 'Time format preference was not exposed to the client.');
     expect(($user['language'] ?? '') === 'en', 'Language preference was not stored.');
     expect((genesisUserForClient($user)['language'] ?? '') === 'en', 'Language preference was not exposed to the client.');
+    expect(genesisMultiAccountEnabled($user), 'Multi-account must be available to every authenticated user.');
+    expect((genesisUserForClient($user)['multiAccountEnabled'] ?? false) === true, 'Multi-account availability was not exposed to a regular user.');
+    $user = genesisUpdateAccountPreferences($userId, [
+        'syncRouting' => [
+            'mode' => 'choose',
+            'defaultAccountIds' => [$userId],
+            'categoryAccountIds' => [],
+        ],
+    ]);
+    expect(($user['sync_routing_mode'] ?? '') === 'choose', 'A regular user could not save multi-account routing.');
     $workspace = genesisWorkspaceForClient($user);
     expect(is_string($workspace['key']) && strlen(base64_decode($workspace['key'], true)) === 32, 'Workspace key is invalid.');
 
