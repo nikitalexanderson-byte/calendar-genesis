@@ -204,7 +204,8 @@ export function TheokyklosView({ language }: { language: Language }) {
                 <circle className="theokyklos-hearth-hit" cx={CENTER.x} cy={CENTER.y} r="139" />
                 <circle className="theokyklos-hearth-line" cx={CENTER.x} cy={CENTER.y} r="139" />
                 <text className="theokyklos-ring-label" x={CENTER.x} y="301" textAnchor="middle">
-                  <tspan>{language === "en" ? "RING" : "КОЛЬЦО"}</tspan>
+                  <tspan x={CENTER.x}>{language === "en" ? "RING" : "КОЛЬЦО"}</tspan>
+                  <tspan className="theokyklos-ring-patron" x={CENTER.x} dy="17">{language === "en" ? "HESTIA" : "ГЕСТИЯ"}</tspan>
                 </text>
               </g>
 

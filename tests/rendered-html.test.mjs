@@ -76,6 +76,7 @@ test("ships the complete interactive bilingual Theokyklos", async () => {
   assert.match(component, /Круг божественных сил/);
   assert.match(component, /Circle of Divine Powers/);
   assert.match(component, /language === "en" \? "RING" : "КОЛЬЦО"/);
+  assert.match(component, /language === "en" \? "HESTIA" : "ГЕСТИЯ"/);
   assert.doesNotMatch(component, /theokyklos-counts/);
   assert.doesNotMatch(component, /theokyklos-ritual-path/);
   assert.match(component, /role="dialog" aria-modal="true"/);
@@ -88,6 +89,7 @@ test("ships the complete interactive bilingual Theokyklos", async () => {
   assert.match(styles, /@keyframes theokyklos-rays/);
   assert.match(styles, /\.modal-backdrop\.theokyklos-details-backdrop/);
   assert.match(styles, /min-height: calc\(100dvh - 34px\)/);
+  assert.match(styles, /height: calc\(100dvh - 92px\)/);
   assert.match(i18n, /"Теокиклос": "Theokyklos"/);
 });
 
