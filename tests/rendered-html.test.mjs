@@ -276,6 +276,10 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendarData, /Декада Роста/);
   assert.match(calendarData, /Декада Полноты/);
   assert.match(calendarData, /Декада Исхода/);
+  assert.match(calendarData, /PYATA_DETAILS/);
+  assert.match(calendarData, /Пята Инициации/);
+  assert.match(calendarData, /Пята Столкновения/);
+  assert.match(calendarData, /Пята Перехода/);
   assert.match(calendarData, /isThreshold: day === monthLength/);
   assert.match(calendarDatePicker, /Сакральный календарь/);
   assert.match(calendarDatePicker, /Лунный календарь/);
@@ -283,6 +287,12 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendarDatePicker, /formatCompactGregorian\(date\)/);
   assert.match(calendarDatePicker, /<time dateTime=\{dateValue\}>/);
   assert.match(styles, /\.sacred-picker-days button > time/);
+  assert.match(calendar, /openPyataDescription/);
+  assert.match(calendar, /aria-expanded=\{pyataDescriptionOpen\}/);
+  assert.match(calendar, /className="pyata-row-description"/);
+  assert.match(calendar, /Ритм пяты · действует в каждом месяце/);
+  assert.match(styles, /\.pyata-row-description/);
+  assert.match(styles, /\.pyata-row-disclosure svg/);
   assert.match(accountPanel, /calendar-mode-segment/);
   assert.match(accountPanel, /Основной календарь/);
   assert.match(accountPanel, /label: "Григорианский"/);
@@ -965,6 +975,10 @@ test("uses Quinta terminology throughout the English interface", async () => {
   assert.equal(translations["Пята"], "Quinta");
   assert.equal(translations["Пяты месяца"], "Quintas of the month");
   assert.equal(translations["I пята"], "Quinta I");
+  assert.equal(translations["Пята Инициации"], "Quinta of Initiation");
+  assert.equal(translations["Пята Столкновения"], "Quinta of Confrontation");
+  assert.equal(translations["Пята Перехода"], "Quinta of Transition");
+  assert.equal(translations["Ритм пяты · действует в каждом месяце"], "Quinta rhythm · applies to every month");
   assert.doesNotMatch(displayedEnglish, /\bpyatas?\b/i);
 });
 

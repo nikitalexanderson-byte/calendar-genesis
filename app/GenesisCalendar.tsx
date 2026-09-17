@@ -60,6 +60,7 @@ import { WelcomeScreen } from "./WelcomeScreen";
 import {
   MONTHS,
   LUNAR_DECADES,
+  PYATA_DETAILS,
   PYATA_MEANINGS,
   type CalendarMode,
   calendarDateNote,
@@ -993,6 +994,7 @@ export function GenesisCalendar() {
   const [dayTaskCreatorOpen, setDayTaskCreatorOpen] = useState(false);
   const [dayDetailsOrigin, setDayDetailsOrigin] = useState<DayDetailsOrigin>("calendar");
   const [openDayTaskPopover, setOpenDayTaskPopover] = useState("");
+  const [openPyataDescription, setOpenPyataDescription] = useState("");
   const [deviceLocation, setDeviceLocation] = useState<DeviceLocation | null>(null);
   const [solarLocationSource, setSolarLocationSource] = useState<AutomaticSolarLocation["source"] | null>(null);
   const [solarLocationStatus, setSolarLocationStatus] = useState<SolarLocationStatus>("loading");
@@ -3529,13 +3531,38 @@ export function GenesisCalendar() {
         <section className="month-calendar" aria-label={`Календарь месяца ${selectedMonth.name}`}>
           {rows.map((row, rowIndex) => {
             const firstDay = getSacredDay(monthIndex, row[0]);
+            const pyataDescriptionId = `pyata-description-${monthIndex}-${rowIndex + 1}`;
+            const pyataDescriptionKey = `${monthIndex}-${rowIndex + 1}`;
+            const pyataDescriptionOpen = openPyataDescription === pyataDescriptionKey;
+            const pyataDetail = PYATA_DETAILS[rowIndex];
             return (
               <div className="pyata-row" key={`${monthIndex}-${rowIndex}`}>
-                <div className="pyata-row-label">
-                  <span>Пята {monthIndex === 12 ? "Ω" : rowIndex + 1}</span>
-                  <strong>{monthIndex === 12 ? "Вне времени" : firstDay.pyataTitle}</strong>
-                  <small>{monthIndex === 12 ? "Чистый эфир" : PYATA_MEANINGS[rowIndex]}</small>
-                </div>
+                {monthIndex === 12 ? (
+                  <div className="pyata-row-label">
+                    <span className="pyata-row-kicker">Пята Ω</span>
+                    <strong>Вне времени</strong>
+                    <small>Чистый эфир</small>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className={`pyata-row-label pyata-row-toggle${pyataDescriptionOpen ? " is-open" : ""}`}
+                    aria-expanded={pyataDescriptionOpen}
+                    aria-controls={pyataDescriptionId}
+                    aria-label={language === "en" ? `Quinta ${rowIndex + 1}: open description` : `Пята ${rowIndex + 1}: открыть описание`}
+                    onClick={() => setOpenPyataDescription((current) => current === pyataDescriptionKey ? "" : pyataDescriptionKey)}
+                  >
+                    <span className="pyata-row-kicker">Пята {rowIndex + 1}</span>
+                    <strong>{firstDay.pyataTitle}</strong>
+                    <small>{PYATA_MEANINGS[rowIndex]}</small>
+                    <span className="pyata-row-disclosure">
+                      <span>{pyataDescriptionOpen ? "Скрыть описание" : "Открыть описание"}</span>
+                      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="m6.5 9 5.5 5.5L17.5 9" />
+                      </svg>
+                    </span>
+                  </button>
+                )}
                 <div className="pyata-days">
                   {row.map((dayNumber, dayColumn) => {
                     const gregorian = getGregorianDate(sacredYear, monthIndex, dayNumber);
@@ -3665,6 +3692,22 @@ export function GenesisCalendar() {
                     );
                   })}
                 </div>
+                {monthIndex !== 12 && pyataDetail && pyataDescriptionOpen ? (
+                  <div
+                    className="pyata-row-description"
+                    id={pyataDescriptionId}
+                    role="region"
+                    aria-live="polite"
+                  >
+                    <span className="pyata-description-number" aria-hidden="true">{rowIndex + 1}</span>
+                    <div>
+                      <span className="eyebrow">Ритм пяты · действует в каждом месяце</span>
+                      <h3>{pyataDetail.title}</h3>
+                      <strong>{pyataDetail.archetype}</strong>
+                      <p>{pyataDetail.description}</p>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             );
           })}
