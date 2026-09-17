@@ -4823,6 +4823,179 @@ html.project-drag-active body {
 .year-description-card dt { color: #e2c886; font: 500 25px/1 Georgia, "Times New Roman", serif; }
 .year-description-card dd { margin: 0; color: #9fb0ac; font-size: 8px; line-height: 1.4; text-transform: uppercase; }
 
+.year-details-button {
+  position: relative;
+  display: inline-grid;
+  width: fit-content;
+  min-width: 228px;
+  grid-template-columns: 28px minmax(0, 1fr) 24px;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+  padding: 11px 14px;
+  overflow: hidden;
+  color: #0a2729;
+  text-align: left;
+  background: linear-gradient(135deg, #f0dda5, #c99a47);
+  border: 1px solid rgba(255, 241, 191, .65);
+  border-radius: 999px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, .22), inset 0 1px rgba(255, 255, 255, .5);
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, filter 160ms ease;
+}
+
+.year-details-button::before {
+  position: absolute;
+  inset: 0 auto 0 -45%;
+  width: 34%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .4), transparent);
+  transform: skewX(-20deg);
+  transition: left 360ms ease;
+  content: "";
+}
+
+.year-details-button:hover {
+  filter: saturate(1.08) brightness(1.04);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, .28), inset 0 1px rgba(255, 255, 255, .55);
+  transform: translateY(-2px);
+}
+
+.year-details-button:hover::before { left: 118%; }
+.year-details-button:focus-visible { outline: 3px solid rgba(240, 221, 165, .45); outline-offset: 3px; }
+.year-details-button > span:first-child { display: grid; width: 28px; height: 28px; place-items: center; color: #f7e8bc; background: #173d3b; border-radius: 50%; }
+.year-details-button > span:nth-child(2) { display: grid; gap: 1px; }
+.year-details-button strong { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
+.year-details-button small { color: rgba(10, 39, 41, .72); font-size: 8px; }
+.year-details-button svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: transform 160ms ease; }
+.year-details-button:hover svg { transform: translateX(3px); }
+
+.modal-backdrop.sacred-year-details-backdrop {
+  z-index: 720;
+  align-items: start;
+  padding: clamp(12px, 3vw, 34px);
+  overflow-y: auto;
+  background: rgba(2, 13, 15, .84);
+  backdrop-filter: blur(14px);
+}
+
+.sacred-year-details-modal {
+  position: relative;
+  width: min(1040px, 100%);
+  margin: auto;
+  padding: clamp(26px, 5vw, 56px);
+  overflow: hidden;
+  color: #eee8dc;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(204, 158, 73, .22), transparent 31rem),
+    radial-gradient(circle at 0% 45%, rgba(54, 111, 100, .17), transparent 27rem),
+    linear-gradient(145deg, #102e30, #07171b 70%);
+  border: 1px solid rgba(225, 198, 137, .3);
+  border-radius: 8px 36px 8px 36px;
+  box-shadow: 0 42px 110px rgba(0, 0, 0, .52);
+}
+
+.sacred-year-details-modal::before {
+  position: absolute;
+  top: -170px;
+  right: -120px;
+  width: 360px;
+  height: 360px;
+  border: 1px solid rgba(225, 198, 137, .13);
+  border-radius: 50%;
+  box-shadow: 0 0 0 52px rgba(225, 198, 137, .025), 0 0 0 104px rgba(225, 198, 137, .018);
+  content: "";
+  pointer-events: none;
+}
+
+.modal-close.sacred-year-details-close {
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  color: #ead69f;
+  border-color: rgba(225, 198, 137, .32);
+}
+
+.modal-close.sacred-year-details-close svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.modal-close.sacred-year-details-close:hover { color: #07171b; background: #e1c689; }
+
+.sacred-year-details-header {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  padding-right: 48px;
+}
+
+.sacred-year-details-sigil {
+  display: grid;
+  width: 58px;
+  height: 58px;
+  place-items: center;
+  color: #f3dda2;
+  font-size: 22px;
+  background: radial-gradient(circle, rgba(213, 169, 83, .32), rgba(17, 55, 53, .7));
+  border: 1px solid rgba(225, 198, 137, .34);
+  border-radius: 50%;
+  box-shadow: 0 0 0 8px rgba(225, 198, 137, .035);
+}
+
+.sacred-year-details-header .eyebrow { color: #d9bd79; }
+.sacred-year-details-header h2 { max-width: 780px; margin: 5px 0 0; font: 500 clamp(29px, 4.5vw, 52px)/1.04 Georgia, "Times New Roman", serif; }
+
+.sacred-year-details-lead {
+  display: grid;
+  gap: 10px;
+  margin-top: 24px;
+  padding: 20px 22px;
+  background: rgba(255, 255, 255, .045);
+  border: 1px solid rgba(225, 198, 137, .14);
+  border-radius: 16px;
+}
+
+.sacred-year-details-lead p { max-width: 900px; margin: 0; color: #bdcac5; font: 400 13px/1.7 Georgia, "Times New Roman", serif; }
+.sacred-year-details-lead p:first-child { color: #f0e9dc; font-size: clamp(15px, 2vw, 18px); }
+
+.sacred-year-details-sections { display: grid; gap: 14px; margin-top: 16px; }
+
+.sacred-year-details-section {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 16px;
+  padding: 20px 22px;
+  background: rgba(4, 22, 24, .58);
+  border: 1px solid rgba(225, 198, 137, .13);
+  border-radius: 16px;
+}
+
+.sacred-year-details-section.equinox { border-left: 3px solid #7ca269; }
+.sacred-year-details-section.pentad { border-left: 3px solid #d1a34e; }
+.sacred-year-details-section.hexad { border-left: 3px solid #8f719f; }
+
+.sacred-year-section-symbol {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+  font-size: 24px;
+  background: rgba(255, 255, 255, .06);
+  border: 1px solid rgba(255, 255, 255, .09);
+  border-radius: 15px;
+}
+
+.sacred-year-details-section h3 { margin: 0; color: #f0dfb2; font: 500 clamp(20px, 3vw, 30px)/1.15 Georgia, "Times New Roman", serif; }
+.sacred-year-details-section p { margin: 10px 0 0; color: #b6c5c0; font-size: 11px; line-height: 1.75; }
+
+.sacred-year-source-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
+.sacred-year-source-grid > div { padding: 15px; background: rgba(255, 255, 255, .045); border: 1px solid rgba(225, 198, 137, .12); border-radius: 12px; }
+.sacred-year-source-grid strong { display: block; color: #edcf87; font: 500 18px/1.15 Georgia, "Times New Roman", serif; }
+.sacred-year-source-grid span { display: block; margin-top: 4px; color: #799b94; font-size: 8px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.sacred-year-source-grid p { margin-top: 9px; font-size: 10px; line-height: 1.68; }
+
+.sacred-year-details-thesis { padding: 13px 15px; color: #f2e5c8 !important; background: rgba(202, 154, 70, .12); border: 1px solid rgba(225, 198, 137, .18); border-radius: 11px; }
+.sacred-year-details-thesis strong { font-family: Georgia, "Times New Roman", serif; font-size: 12px; }
+
 @media (min-width: 1061px) {
   .app-sidebar {
     position: fixed;
@@ -4891,6 +5064,16 @@ html.project-drag-active body {
   .task-form-row { grid-template-columns: 1fr; }
   .year-description-card { min-height: 0; grid-column: 1; padding: 25px 20px; }
   .year-description-card dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .year-details-button { width: 100%; }
+  .modal-backdrop.sacred-year-details-backdrop { padding: 0; }
+  .sacred-year-details-modal { min-height: 100dvh; margin: 0; padding: 26px 17px 92px; border-width: 0; border-radius: 0; }
+  .sacred-year-details-header { grid-template-columns: 44px minmax(0, 1fr); gap: 11px; padding-right: 34px; }
+  .sacred-year-details-sigil { width: 44px; height: 44px; font-size: 18px; }
+  .sacred-year-details-header h2 { font-size: 29px; }
+  .sacred-year-details-lead { margin-top: 18px; padding: 16px; }
+  .sacred-year-details-section { grid-template-columns: 1fr; gap: 11px; padding: 17px 15px; }
+  .sacred-year-section-symbol { width: 42px; height: 42px; font-size: 20px; }
+  .sacred-year-source-grid { grid-template-columns: 1fr; }
   .projects-header.year-header { padding: 24px; }
   .projects-header.year-header p { color: #aebbb6; }
   .projects-header.year-header .year-switcher { width: 100%; justify-content: space-between; }

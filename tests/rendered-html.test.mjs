@@ -752,6 +752,15 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(styles, /\.year-month::before/);
   assert.match(styles, /\.year-open-button/);
   assert.match(styles, /\.mini-pyata-days/);
+  assert.match(calendar, /sacredYearDetailsOpen/);
+  assert.match(calendar, /className="year-details-button"/);
+  assert.match(calendar, /Почему наш год устроен именно так/);
+  assert.match(calendar, /Пентада: 5 стихий и геометрия восхождения/);
+  assert.match(calendar, /Гексада: 6 Пят и Куб Событий/);
+  assert.match(calendar, /aria-modal="true" aria-labelledby="sacred-year-details-title"/);
+  assert.match(styles, /\.year-details-button/);
+  assert.match(styles, /\.sacred-year-details-modal/);
+  assert.match(styles, /\.sacred-year-source-grid/);
   assert.match(styles, /grid-auto-rows: max-content/);
   assert.match(styles, /\.project-row\.drop-target/);
   assert.match(styles, /\.project-tree-workspace/);
@@ -979,6 +988,9 @@ test("uses Quinta terminology throughout the English interface", async () => {
   assert.equal(translations["Пята Столкновения"], "Quinta of Confrontation");
   assert.equal(translations["Пята Перехода"], "Quinta of Transition");
   assert.equal(translations["Ритм пяты · действует в каждом месяце"], "Quinta rhythm · applies to every month");
+  assert.equal(translations["Подробнее"], "Learn more");
+  assert.equal(translations["Пентада: 5 стихий и геометрия восхождения"], "Pentad: Five Elements and the Geometry of Ascent");
+  assert.equal(translations["Гексада: 6 Пят и Куб Событий"], "Hexad: Six Quintas and the Cube of Events");
   assert.doesNotMatch(displayedEnglish, /\bpyatas?\b/i);
 });
 
