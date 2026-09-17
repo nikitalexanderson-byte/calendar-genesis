@@ -14,6 +14,23 @@ type Point = { x: number; y: number };
 
 const CENTER: Point = { x: 450, y: 420 };
 
+const THEOKYKLOS_ART: Record<TheokyklosSegmentId, string> = {
+  north: "/theokyklos-art/north-athena.webp",
+  northeast: "/theokyklos-art/northeast-artemis.webp",
+  east: "/theokyklos-art/east-hermes-peitho.webp",
+  southeast: "/theokyklos-art/southeast-hephaestus-aglaea.webp",
+  south: "/theokyklos-art/south-ares-aphrodite.webp",
+  southwest: "/theokyklos-art/southwest-demeter.webp",
+  west: "/theokyklos-art/west-poseidon-amphitrite.webp",
+  northwest: "/theokyklos-art/northwest-apollo.webp",
+  zenith: "/theokyklos-art/zenith-zeus-hera.webp",
+  nadir: "/theokyklos-art/nadir-hades-persephone.webp",
+  hearth: "/theokyklos-art/hearth-hestia.webp",
+  center: "/theokyklos-art/center-dionysus-ariadne.webp",
+  entrance: "/theokyklos-art/entrance-aether-hemera.webp",
+  exit: "/theokyklos-art/exit-eros-psyche.webp",
+};
+
 function localized(copy: TheokyklosLocalizedText, language: Language) {
   return copy[language];
 }
@@ -293,6 +310,16 @@ export function TheokyklosView({ language }: { language: Language }) {
                   <strong>{localized(selected.patrons, language)}</strong>
                 </div>
               </header>
+              <figure className="theokyklos-details-art">
+                {/* eslint-disable-next-line @next/next/no-img-element -- Artwork is a pre-optimized WebP shared by both deployment targets. */}
+                <img
+                  src={THEOKYKLOS_ART[selected.id]}
+                  alt={`${localized(selected.patrons, language)} — ${localized(selected.title, language)}`}
+                  width="1680"
+                  height="945"
+                  decoding="async"
+                />
+              </figure>
               <p className="theokyklos-essence">{localized(selected.essence, language)}</p>
               <p className="theokyklos-description">{localized(selected.description, language)}</p>
               <section className="theokyklos-incantation" aria-labelledby="theokyklos-incantation-title">
