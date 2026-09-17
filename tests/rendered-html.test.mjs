@@ -63,6 +63,8 @@ test("ships the encrypted habit tracker across dashboard, calendars and account 
   assert.match(calendar, /<HabitTrackerPage/);
   assert.match(calendar, /habitTrackingEnabled=\{habitWorkspace\.habitSettings\.enabled\}/);
   assert.match(calendar, /createHabitGoogleReminder/);
+  assert.match(calendar, /advanceHabitGoogleReminder/);
+  assert.match(calendar, /nextHabitReminderDate/);
   assert.match(calendar, /taskLists\.find\(\(item\) => item\.title === "Привычки GENESIS"\)/);
 
   assert.match(cloud, /crypto\.subtle\.encrypt\(\{ name: "AES-GCM"/);

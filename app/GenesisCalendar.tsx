@@ -60,8 +60,8 @@ import { RecurrenceBuilder } from "./RecurrenceBuilder";
 import { WelcomeScreen } from "./WelcomeScreen";
 import { HabitDailyPanel, HabitTrackerPage } from "./HabitTracker";
 import {
+  addHabitDays,
   EMPTY_HABIT_WORKSPACE,
-  habitDateKey,
   isHabitScheduledForDate,
   normalizeHabitWorkspace,
   type Habit,
@@ -361,6 +361,16 @@ const SOLAR_EVENT_COPY: Record<NonNullable<ReturnType<typeof getSolarEvent>>["id
 };
 
 const VIEW_NAMES = new Set<ViewName>(["today", "calendar", "projects", "year", "all-tasks", "habits", "stoicheion", "theokyklos", "admin"]);
+const HABIT_REMINDER_LOOKAHEAD_DAYS = 20_000;
+
+function nextHabitReminderDate(habit: Habit, fromDate: string) {
+  for (let offset = 0; offset < HABIT_REMINDER_LOOKAHEAD_DAYS; offset += 1) {
+    const value = offset === 0 ? fromDate : addHabitDays(fromDate, offset);
+    if (habit.schedule.endDate && value > habit.schedule.endDate) return null;
+    if (isHabitScheduledForDate(habit, value)) return value;
+  }
+  return null;
+}
 
 function viewFromHash(): ViewName {
   if (typeof window === "undefined") return "today";
@@ -1849,15 +1859,9 @@ export function GenesisCalendar() {
       taskList = created.taskList;
       setTaskLists((current) => [...current.filter((item) => item.id !== created.taskList.id), created.taskList]);
     }
-    let nextDate = habit.schedule.startDate < todayDateValue ? todayDateValue : habit.schedule.startDate;
-    let attempts = 0;
-    while (!isHabitScheduledForDate(habit, nextDate) && attempts < 740) {
-      const next = new Date(`${nextDate}T12:00:00`);
-      next.setDate(next.getDate() + 1);
-      nextDate = habitDateKey(next);
-      attempts += 1;
-    }
-    if (attempts >= 740 || (habit.schedule.endDate && nextDate > habit.schedule.endDate)) {
+    const searchStart = habit.schedule.startDate < todayDateValue ? todayDateValue : habit.schedule.startDate;
+    const nextDate = nextHabitReminderDate(habit, searchStart);
+    if (!nextDate) {
       throw new Error(language === "en" ? "No upcoming date was found for this habit." : "Для этой привычки не нашлось ближайшей даты.");
     }
     const existingReminder = habit.reminder.googleTaskId
@@ -1883,6 +1887,33 @@ export function GenesisCalendar() {
     setTasks((current) => current.map((item) => item.id === saved.id ? { ...item, ...saved } : item));
     setSyncStatus("synced");
     return saved.id;
+  };
+
+  const advanceHabitGoogleReminder = async (habit: Habit, completedDate: string) => {
+    if (!cloudUser || !habit.reminder.googleTaskId) return;
+    const reminderTask = tasks.find((task) => task.id === habit.reminder.googleTaskId);
+    if (!reminderTask) return;
+    if (reminderTask.dueDate > completedDate) return;
+    const searchStart = completedDate < todayDateValue ? todayDateValue : addHabitDays(completedDate, 1);
+    const nextDate = nextHabitReminderDate(habit, searchStart);
+    const nextTask = nextDate
+      ? {
+          ...reminderTask,
+          dueDate: nextDate,
+          endDate: nextDate,
+          done: false,
+          completedAt: null,
+          updatedAt: timestamp(),
+        }
+      : {
+          ...reminderTask,
+          done: true,
+          completedAt: new Date().toISOString(),
+          updatedAt: timestamp(),
+        };
+    setTasks((current) => current.map((task) => task.id === nextTask.id ? nextTask : task));
+    const saved = await saveCloudTask(cloudUser.uid, nextTask);
+    setTasks((current) => current.map((task) => task.id === saved.id ? { ...task, ...saved } : task));
   };
 
   const appendTasksToList = (titles: string[], dueDateValue: string, taskList: GoogleTaskList, projectId = "") => {
@@ -2219,8 +2250,20 @@ export function GenesisCalendar() {
 
   const updateHabitWorkspace = (nextWorkspace: HabitWorkspace) => {
     const normalized = normalizeHabitWorkspace(nextWorkspace);
+    const newlyCompletedEntries = normalized.habitEntries.filter((entry) => (
+      entry.completed
+      && !habitWorkspace.habitEntries.some((current) => current.id === entry.id && current.completed)
+    ));
     setHabitWorkspace(normalized);
     if (!cloudUser) return;
+    newlyCompletedEntries.forEach((entry) => {
+      const habit = normalized.habits.find((item) => item.id === entry.habitId);
+      if (!habit?.reminder.enabled || !habit.reminder.syncToGoogle || !habit.reminder.googleTaskId) return;
+      void advanceHabitGoogleReminder(habit, entry.date).catch((error: Error) => {
+        setSyncError(error.message);
+        setSyncStatus(navigator.onLine ? "error" : "offline");
+      });
+    });
     if (habitSaveTimerRef.current !== null) window.clearTimeout(habitSaveTimerRef.current);
     habitSaveTimerRef.current = window.setTimeout(() => {
       setSyncStatus("syncing");
