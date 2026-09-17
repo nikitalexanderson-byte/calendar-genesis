@@ -669,7 +669,11 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(styles, /--weekday-card-tint: rgba\(54, 101, 151, \.09\)/);
   assert.match(styles, /--weekday-selected-bg: #24583d/);
   assert.match(styles, /\.calendar-mode-calendar\.mode-profane\s*\{[\s\S]*linear-gradient\(145deg, #061619, #0a2528 56%, #07171b\)/);
-  assert.match(styles, /\.calendar-mode-calendar\.mode-profane \.calendar-mode-day\.adjacent-month\s*\{[\s\S]*opacity: var\(--adjacent-month-opacity, \.5\);[\s\S]*pointer-events: none/);
+  assert.match(calendar, /adjacent-month-label/);
+  assert.match(calendar, /const adjacentMonthName = isAdjacentMonth/);
+  assert.match(calendar, /return position === "previous" \? 0\.24 \+ \(progress \* 0\.3\) : 0\.54 - \(progress \* 0\.3\)/);
+  assert.match(styles, /\.calendar-mode-calendar\.mode-profane \.calendar-mode-day\.adjacent-month\s*\{[\s\S]*opacity: var\(--adjacent-month-opacity, \.4\);[\s\S]*pointer-events: none/);
+  assert.match(styles, /\.calendar-mode-day\.adjacent-month \.adjacent-month-label\s*\{[\s\S]*bottom: 43px;[\s\S]*text-transform: uppercase/);
   assert.match(styles, /\.calendar-mode-calendar\.mode-profane \.calendar-mode-day\.adjacent-month:hover\s*\{[\s\S]*transform: none/);
   assert.match(styles, /\.calendar-mode-calendar\.mode-profane \.calendar-day\.mode-profane\[class\*="weekday-"\]\.selected/);
   assert.match(styles, /var\(--weekday-selected-muted\)/);
