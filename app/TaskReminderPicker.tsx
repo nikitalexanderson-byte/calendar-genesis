@@ -5,6 +5,7 @@ import { CalendarDatePicker } from "./CalendarDatePicker";
 import { TimeClockPicker } from "./TimeClockPicker";
 import type { CalendarMode } from "./calendar-data";
 import { runtimeLocale } from "./i18n";
+import type { TimeFormat } from "./time-format";
 import {
   MAX_REMINDER_MINUTES,
   MAX_TASK_REMINDERS,
@@ -36,6 +37,7 @@ export function TaskReminderPicker({
   taskDate,
   taskTime,
   calendarMode,
+  timeFormat = "24h",
   disabled = false,
 }: {
   value: TaskReminder[];
@@ -43,6 +45,7 @@ export function TaskReminderPicker({
   taskDate: string;
   taskTime: string;
   calendarMode: CalendarMode;
+  timeFormat?: TimeFormat;
   disabled?: boolean;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -164,11 +167,11 @@ export function TaskReminderPicker({
           <div className="reminder-chips" role="list" aria-label="Добавленные напоминания">
             {value.map((reminder) => (
               <span className="reminder-chip" role="listitem" key={taskReminderKey(reminder)}>
-                <span>{formatTaskReminder(reminder, locale)}</span>
+                <span>{formatTaskReminder(reminder, locale, timeFormat)}</span>
                 <button
                   type="button"
                   onClick={() => onChange(value.filter((item) => taskReminderKey(item) !== taskReminderKey(reminder)))}
-                  aria-label={`Удалить напоминание: ${formatTaskReminder(reminder, locale)}`}
+                  aria-label={`Удалить напоминание: ${formatTaskReminder(reminder, locale, timeFormat)}`}
                   disabled={disabled}
                 >
                   ×
@@ -196,7 +199,7 @@ export function TaskReminderPicker({
                 const added = includes(reminder);
                 return (
                   <button type="button" role="option" aria-selected={added} disabled={added} onClick={() => choosePreset(minutes)} key={minutes}>
-                    <span>{formatTaskReminder(reminder, locale)}</span>
+                    <span>{formatTaskReminder(reminder, locale, timeFormat)}</span>
                     {added ? <small>Добавлено</small> : null}
                   </button>
                 );
@@ -256,7 +259,7 @@ export function TaskReminderPicker({
                 </label>
                 <label htmlFor="custom-reminder-time">
                   <span>Точное время</span>
-                  <TimeClockPicker id="custom-reminder-time" value={absoluteTime} onChange={setAbsoluteTime} />
+                  <TimeClockPicker id="custom-reminder-time" value={absoluteTime} timeFormat={timeFormat} onChange={setAbsoluteTime} />
                 </label>
               </div>
             )}

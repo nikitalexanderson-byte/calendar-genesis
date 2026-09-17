@@ -139,6 +139,9 @@ function genesisUserForClient(array $user): array
     $taskCalendarMode = in_array($user['task_calendar_mode'] ?? '', ['profane', 'sacred', 'lunar'], true)
         ? (string)$user['task_calendar_mode']
         : 'sacred';
+    $timeFormat = in_array($user['time_format'] ?? '', ['24h', '12h'], true)
+        ? (string)$user['time_format']
+        : '24h';
     $language = in_array($user['language'] ?? '', ['ru', 'en'], true)
         ? (string)$user['language']
         : 'ru';
@@ -174,6 +177,7 @@ function genesisUserForClient(array $user): array
         'isAdmin' => mb_strtolower((string)$user['email']) === genesisAdminEmail(),
         'calendarMode' => $calendarMode,
         'taskCalendarMode' => $taskCalendarMode,
+        'timeFormat' => $timeFormat,
         'language' => $language,
         'multiAccountEnabled' => $multiAccountEnabled,
         'googleAccounts' => $accounts,
@@ -628,6 +632,14 @@ function genesisUpdateAccountPreferences(string $userId, array $payload): array
         }
         $updates[] = 'task_calendar_mode = :task_calendar_mode';
         $values['task_calendar_mode'] = $taskCalendarMode;
+    }
+    if (array_key_exists('timeFormat', $payload)) {
+        $timeFormat = trim((string)$payload['timeFormat']);
+        if (!in_array($timeFormat, ['24h', '12h'], true)) {
+            throw new InvalidArgumentException('Неизвестный формат времени.');
+        }
+        $updates[] = 'time_format = :time_format';
+        $values['time_format'] = $timeFormat;
     }
     if (array_key_exists('language', $payload)) {
         $language = trim((string)$payload['language']);

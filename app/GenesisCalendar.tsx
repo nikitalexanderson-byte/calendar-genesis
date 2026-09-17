@@ -112,6 +112,7 @@ import {
   type RecurrencePattern,
 } from "./task-recurrence";
 import { legacyReminderMinutes, normalizeTaskReminders, type TaskReminder } from "./task-reminders";
+import { formatClockTime, formatTimeValue, normalizeTimeFormat, type TimeFormat } from "./time-format";
 
 type ViewName = "today" | "calendar" | "projects" | "year" | "all-tasks" | "stoicheion" | "admin";
 
@@ -618,20 +619,20 @@ function buildTaskSeries(task: Task, rawConfig: RecurrenceConfig) {
   });
 }
 
-function taskRangeLabel(task: Task, mode: CalendarMode = "sacred") {
+function taskRangeLabel(task: Task, mode: CalendarMode = "sacred", timeFormat: TimeFormat = "24h") {
   const recurrenceDates = recurrenceDatesForTask(task);
   const firstDate = recurrenceDates[0] ?? task.dueDate;
   const lastDate = recurrenceDates.at(-1) ?? task.dueDate;
   const start = formatCalendarDate(new Date(`${firstDate}T12:00:00`), mode, true);
   if (recurrenceDates.length > 1) {
     const finish = formatCalendarDate(new Date(`${lastDate}T12:00:00`), mode, true);
-    return `${start} — ${finish} · ${recurrenceDates.length} повторений${task.time ? ` · ${task.time}` : ""}`;
+    return `${start} — ${finish} · ${recurrenceDates.length} повторений${task.time ? ` · ${formatTimeValue(task.time, timeFormat)}` : ""}`;
   }
   const endDate = task.endDate || task.dueDate;
   const end = endDate === task.dueDate
     ? ""
     : ` — ${formatCalendarDate(new Date(`${endDate}T12:00:00`), mode, true)}`;
-  return `${start}${end}${task.time ? ` · ${task.time}` : ""}`;
+  return `${start}${end}${task.time ? ` · ${formatTimeValue(task.time, timeFormat)}` : ""}`;
 }
 
 function romanDay(monthIndex: number, day: number) {
@@ -659,7 +660,7 @@ function taskOriginMeta(origin: TaskOrigin) {
   return { label: "Создано в GENESIS", className: "local" };
 }
 
-function DeviceClock() {
+function DeviceClock({ timeFormat }: { timeFormat: TimeFormat }) {
   const [clock, setClock] = useState<{ now: Date; timezone: string } | null>(null);
 
   useEffect(() => {
@@ -679,8 +680,8 @@ function DeviceClock() {
   }, []);
 
   return (
-    <time className="device-clock" dateTime={clock?.now.toISOString()} aria-label={clock ? `Время устройства: ${clock.now.toLocaleTimeString(runtimeLocale())}` : "Время устройства синхронизируется"}>
-      <strong>{clock ? new Intl.DateTimeFormat(runtimeLocale(), { hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(clock.now) : "--:--:--"}</strong>
+    <time className="device-clock" dateTime={clock?.now.toISOString()} aria-label={clock ? `Время устройства: ${formatClockTime(clock.now, timeFormat)}` : "Время устройства синхронизируется"}>
+      <strong>{clock ? formatClockTime(clock.now, timeFormat) : "--:--:--"}</strong>
       <small>{clock ? `время устройства · ${clock.timezone}` : "синхронизация времени"}</small>
     </time>
   );
@@ -844,6 +845,7 @@ export function GenesisCalendar() {
   const todayInfo = useMemo(() => getSacredDate(today), [today]);
   const activeCalendarMode: CalendarMode = cloudUser?.calendarMode ?? "sacred";
   const activeTaskCalendarMode: CalendarMode = cloudUser?.taskCalendarMode ?? "sacred";
+  const activeTimeFormat = normalizeTimeFormat(cloudUser?.timeFormat);
   const googleAccounts = cloudUser?.googleAccounts ?? [];
   const defaultSyncAccountIds = cloudUser?.syncRouting?.defaultAccountIds?.length
     ? cloudUser.syncRouting.defaultAccountIds
@@ -2532,7 +2534,7 @@ export function GenesisCalendar() {
                             <button type="button" className="task-check" onClick={() => toggleTask(task.id)} aria-label={task.done ? `Вернуть задачу «${task.title}»` : `Завершить задачу «${task.title}»`}>{task.done ? "✓" : ""}</button>
                             <button type="button" className="task-list-item-open" onClick={() => openTaskEditor(task)}>
                               <strong data-no-translate>{task.title}</strong>
-                              <small>{taskRangeLabel(task, activeTaskCalendarMode)}</small>
+                              <small>{taskRangeLabel(task, activeTaskCalendarMode, activeTimeFormat)}</small>
                             </button>
                             <label className="task-list-move-select">
                               <span className="sr-only">Переместить задачу «{task.title}»</span>
@@ -2652,7 +2654,7 @@ export function GenesisCalendar() {
           </label>
           <label htmlFor={`${context}-new-task-time-hour`}>
             <span>Время</span>
-            <TimeClockPicker id={`${context}-new-task-time-hour`} value={taskTime} disabled={Boolean(taskTaskListId)} onChange={setTaskTime} />
+            <TimeClockPicker id={`${context}-new-task-time-hour`} value={taskTime} timeFormat={activeTimeFormat} disabled={Boolean(taskTaskListId)} onChange={setTaskTime} />
           </label>
         </div>
         <div className="task-form-section task-form-destination" aria-label="Контекст задачи">
@@ -2712,6 +2714,7 @@ export function GenesisCalendar() {
             taskDate={newTaskDueDate}
             taskTime={taskTime}
             calendarMode={activeTaskCalendarMode}
+            timeFormat={activeTimeFormat}
             disabled={Boolean(taskTaskListId)}
           />
           <label>
@@ -2870,7 +2873,7 @@ export function GenesisCalendar() {
             )}
             <small>{activeCalendarMode === "lunar" ? moon.phase : activeCalendarMode === "profane" ? weekdayPatron.weekday : info.monthIndex === 12 ? "вне времени" : `${day.pyata} пята`}</small>
           </div>
-          <DeviceClock />
+          <DeviceClock timeFormat={activeTimeFormat} />
         </section>
 
         <section className="today-create-panel" aria-labelledby="today-create-title">
@@ -3133,7 +3136,7 @@ export function GenesisCalendar() {
                         setOpenDayTaskPopover("");
                         openTaskEditor(task);
                       }}>
-                        <time>{task.time || "Весь день"}</time>
+                        <time>{task.time ? formatTimeValue(task.time, activeTimeFormat) : "Весь день"}</time>
                         <span data-no-translate>{task.title}</span>
                       </button>
                     </li>
@@ -3317,7 +3320,7 @@ export function GenesisCalendar() {
                                         setOpenDayTaskPopover("");
                                         openTaskEditor(task);
                                       }}>
-                                        <time>{task.time || "Весь день"}</time>
+                                        <time>{task.time ? formatTimeValue(task.time, activeTimeFormat) : "Весь день"}</time>
                                         <span data-no-translate>{task.title}</span>
                                       </button>
                                     </li>
@@ -3580,7 +3583,7 @@ export function GenesisCalendar() {
                           if (!suppressProjectItemClickRef.current) openTaskEditor(task);
                         }}>
                           <strong data-no-translate>{task.title}</strong>
-                          <small>{taskRangeLabel(task, activeTaskCalendarMode)}</small>
+                          <small>{taskRangeLabel(task, activeTaskCalendarMode, activeTimeFormat)}</small>
                         </button>
                         <button
                           type="button"
@@ -3658,7 +3661,7 @@ export function GenesisCalendar() {
                               <span className="project-drag-handle" aria-hidden="true">⋮⋮</span>
                               <button type="button" className="project-assigned-task-open" onClick={() => {
                                 if (!suppressProjectItemClickRef.current) openTaskEditor(task);
-                              }}><strong data-no-translate>{task.title}</strong><small>{taskRangeLabel(task, activeTaskCalendarMode)}</small></button>
+                              }}><strong data-no-translate>{task.title}</strong><small>{taskRangeLabel(task, activeTaskCalendarMode, activeTimeFormat)}</small></button>
                             </article>
                           );
                         })}
@@ -3841,7 +3844,7 @@ export function GenesisCalendar() {
                     <span className="all-task-priority" title="Приоритет">⚑{task.priority}</span>
                   </div>
                   <div className="all-task-meta">
-                    <span>{taskRangeLabel(task, activeTaskCalendarMode)}</span>
+                    <span>{taskRangeLabel(task, activeTaskCalendarMode, activeTimeFormat)}</span>
                     <span>{resolvedTaskProjectTitle(task) || "Без проекта"}</span>
                     {task.googleTaskListTitle ? <span>Список: {task.googleTaskListTitle}</span> : null}
                     {task.syncAccountIds.length > 1 ? <span>Google-аккаунты: {task.syncAccountIds.length}</span> : task.googleAccountEmail ? <span>{task.googleAccountEmail}</span> : null}
@@ -4583,7 +4586,7 @@ export function GenesisCalendar() {
                           setDayDetailsOpen(false);
                           openTaskEditor(task);
                         }}>
-                          <span><time>{task.time || "Весь день"}</time>{task.priority ? <em>Приоритет {task.priority}</em> : null}</span>
+                          <span><time>{task.time ? formatTimeValue(task.time, activeTimeFormat) : "Весь день"}</time>{task.priority ? <em>Приоритет {task.priority}</em> : null}</span>
                           <strong data-no-translate>{task.title}</strong>
                           {task.description || projectTitle || task.googleTaskListTitle ? (
                             <small data-no-translate>{task.description || projectTitle || task.googleTaskListTitle}</small>
@@ -4692,6 +4695,7 @@ export function GenesisCalendar() {
                 <TimeClockPicker
                   id="edit-task-time-hour"
                   value={editingTask.time}
+                  timeFormat={activeTimeFormat}
                   disabled={Boolean(editingTask.googleTaskId)}
                   onChange={(value) => setEditingTask((current) => current ? { ...current, time: value } : current)}
                 />
@@ -4745,6 +4749,7 @@ export function GenesisCalendar() {
                 taskDate={editingTask.dueDate}
                 taskTime={editingTask.time}
                 calendarMode={activeTaskCalendarMode}
+                timeFormat={activeTimeFormat}
                 disabled={Boolean(editingTask.googleTaskId)}
               />
               <label>

@@ -7,6 +7,7 @@ import {
   normalizeTaskReminders,
   reminderMinutesBeforeTask,
 } from "../app/task-reminders.ts";
+import { formatClockTime, formatTimeValue, hourFromTwelveHour, twelveHourParts } from "../app/time-format.ts";
 
 async function render() {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
@@ -174,6 +175,17 @@ test("normalizes multiple relative and absolute task reminders", () => {
   assert.equal(reminderMinutesBeforeTask(absolute, "2026-10-28", "10:00"), 60);
 });
 
+test("formats canonical task times as 24-hour or AM/PM values", () => {
+  assert.equal(formatTimeValue("00:05", "24h"), "00:05");
+  assert.equal(formatTimeValue("00:05", "12h"), "12:05 AM");
+  assert.equal(formatTimeValue("12:30", "12h"), "12:30 PM");
+  assert.equal(formatTimeValue("23:59", "12h"), "11:59 PM");
+  assert.deepEqual(twelveHourParts(15), { hour: 3, period: "PM" });
+  assert.equal(hourFromTwelveHour(12, "AM"), 0);
+  assert.equal(hourFromTwelveHour(12, "PM"), 12);
+  assert.equal(formatClockTime(new Date(2026, 0, 1, 13, 7, 9), "12h"), "01:07:09 PM");
+});
+
 test("keeps the requested calendar and privacy features wired", async () => {
   const [calendarData, calendar, calendarDatePicker, accountPanel, cloudSync, recurrenceBuilder, taskRecurrence, moonPhase, solarTimes, stoicheion, stoicheionData, welcome, styles, api, google, repository, multiAccountMigration, i18n, languageMigration, taskCalendarMigration, englishManifest, geminiAssistant, localVoiceAssistant, localVoicePlan, geminiServer, publicHtaccess, serverConfigExample, cronusSickle, reminderPicker, taskReminders, serviceWorker] = await Promise.all([
     readFile(new URL("../app/calendar-data.ts", import.meta.url), "utf8"),
@@ -207,6 +219,11 @@ test("keeps the requested calendar and privacy features wired", async () => {
     readFile(new URL("../app/TaskReminderPicker.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/task-reminders.ts", import.meta.url), "utf8"),
     readFile(new URL("../public/sw.js", import.meta.url), "utf8"),
+  ]);
+  const [timeClockPicker, timeFormatSource, timeFormatMigration] = await Promise.all([
+    readFile(new URL("../app/TimeClockPicker.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/time-format.ts", import.meta.url), "utf8"),
+    readFile(new URL("../server/migrations/009_user_time_format.sql", import.meta.url), "utf8"),
   ]);
 
   assert.match(calendarData, /getSolarEvents/);
@@ -252,6 +269,17 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(accountPanel, /language-preference/);
   assert.match(accountPanel, /🇷🇺/);
   assert.match(accountPanel, /🇺🇸/);
+  assert.match(accountPanel, /time-format-preference/);
+  assert.match(accountPanel, /user\.timeFormat \?\? "24h"/);
+  assert.match(cloudSync, /timeFormat: TimeFormat/);
+  assert.match(repository, /'timeFormat' => \$timeFormat/);
+  assert.match(timeFormatMigration, /ADD COLUMN time_format TEXT NOT NULL DEFAULT '24h'/);
+  assert.match(calendar, /<DeviceClock timeFormat=\{activeTimeFormat\}/);
+  assert.match(calendar, /timeFormat=\{activeTimeFormat\}/);
+  assert.match(timeClockPicker, /time-clock-period/);
+  assert.match(timeClockPicker, /hourFromTwelveHour/);
+  assert.match(timeFormatSource, /12:05 AM|formatTimeValue/);
+  assert.match(styles, /\.time-clock-period/);
   assert.match(welcome, /welcome-language-picker/);
   assert.match(welcome, /Task and project/);
   assert.match(welcome, /How GENESIS uses Google Calendar and Google Tasks/);
@@ -497,7 +525,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /renderTaskListCreateForm\("today"\)/);
   assert.doesNotMatch(calendar, /renderTaskListCreateForm\("projects"\)/);
   assert.match(calendar, /DeviceClock/);
-  assert.match(calendar, /<div className="hero-number" aria-hidden="true">[\s\S]*?<\/div>\s*<DeviceClock \/>/);
+  assert.match(calendar, /<div className="hero-number" aria-hidden="true">[\s\S]*?<\/div>\s*<DeviceClock timeFormat=\{activeTimeFormat\} \/>/);
   assert.match(calendar, /Сегодня \{isNewMoonDay \? "новолуние" : "полнолуние"\}/);
   assert.match(calendar, /SOLAR_EVENT_COPY/);
   assert.match(calendar, /Академия Генезис/);

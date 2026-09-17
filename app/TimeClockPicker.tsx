@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { formatTimeValue, hourFromTwelveHour, twelveHourParts, type TimeFormat } from "./time-format";
 
 const CENTER = 122;
 const HOUR_RADIUS = 96;
@@ -21,11 +22,12 @@ function pointOnCircle(radius: number, index: number, total: number) {
   };
 }
 
-export function TimeClockPicker({ id, value, onChange, disabled = false }: {
+export function TimeClockPicker({ id, value, onChange, disabled = false, timeFormat = "24h" }: {
   id?: string;
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
+  timeFormat?: TimeFormat;
 }) {
   const [open, setOpen] = useState(false);
   const faceRef = useRef<SVGSVGElement | null>(null);
@@ -34,6 +36,9 @@ export function TimeClockPicker({ id, value, onChange, disabled = false }: {
   const [hourValue, minuteValue] = value ? value.split(":") : ["", "00"];
   const hour = hourValue === "" ? null : Number(hourValue);
   const minute = Number(minuteValue || "0");
+  const isTwelveHour = timeFormat === "12h";
+  const twelveHour = twelveHourParts(hour ?? 0);
+  const period = hour === null ? "AM" : twelveHour.period;
 
   useEffect(() => {
     if (!open) return;
@@ -49,7 +54,11 @@ export function TimeClockPicker({ id, value, onChange, disabled = false }: {
     const rect = faceRef.current.getBoundingClientRect();
     const angle = angleFromPoint(clientX, clientY, rect);
     if (kind === "hour") {
-      const nextHour = Math.round((angle / (Math.PI * 2)) * 24) % 24;
+      const hourCount = isTwelveHour ? 12 : 24;
+      const clockHour = Math.round((angle / (Math.PI * 2)) * hourCount) % hourCount;
+      const nextHour = isTwelveHour
+        ? hourFromTwelveHour(clockHour === 0 ? 12 : clockHour, period)
+        : clockHour;
       onChange(`${String(nextHour).padStart(2, "0")}:${minuteValue || "00"}`);
     } else {
       const nextMinute = Math.round((angle / (Math.PI * 2)) * 60) % 60;
@@ -80,7 +89,13 @@ export function TimeClockPicker({ id, value, onChange, disabled = false }: {
     if (event.target === event.currentTarget) setOpen(false);
   };
 
-  const displayValue = value || "—:—";
+  const changePeriod = (nextPeriod: "AM" | "PM") => {
+    const nextHour = hourFromTwelveHour(twelveHour.hour, nextPeriod);
+    onChange(`${String(nextHour).padStart(2, "0")}:${minuteValue || "00"}`);
+  };
+
+  const displayValue = value ? formatTimeValue(value, timeFormat) : "—:—";
+  const readoutValue = hour === null ? `--:${minuteValue || "00"}` : formatTimeValue(`${String(hour).padStart(2, "0")}:${minuteValue || "00"}`, timeFormat);
 
   return (
     <div className="time-clock-picker">
@@ -103,6 +118,12 @@ export function TimeClockPicker({ id, value, onChange, disabled = false }: {
               <span className="time-clock-legend-item hour"><i aria-hidden="true" /> Часы</span>
               <span className="time-clock-legend-item minute"><i aria-hidden="true" /> Минуты</span>
             </div>
+            {isTwelveHour ? (
+              <div className="time-clock-period" role="group" aria-label="Половина дня">
+                <button type="button" className={period === "AM" ? "active" : ""} aria-pressed={period === "AM"} onClick={() => changePeriod("AM")}>AM</button>
+                <button type="button" className={period === "PM" ? "active" : ""} aria-pressed={period === "PM"} onClick={() => changePeriod("PM")}>PM</button>
+              </div>
+            ) : null}
             <svg
               ref={faceRef}
               className="time-clock-face"
@@ -114,20 +135,22 @@ export function TimeClockPicker({ id, value, onChange, disabled = false }: {
               <circle cx={CENTER} cy={CENTER} r={HOUR_RADIUS + 12} className="time-clock-dial" />
               <circle cx={CENTER} cy={CENTER} r={MINUTE_RADIUS + 12} className="time-clock-dial-inner" />
               <text x={CENTER} y={CENTER - 6} textAnchor="middle" className="time-clock-readout">
-                {hourValue || "--"}:{minuteValue || "00"}
+                {readoutValue}
               </text>
               <text x={CENTER} y={CENTER + 14} textAnchor="middle" className="time-clock-readout-label">
                 нажмите или потяните
               </text>
               <g data-clock-ring="hour" onPointerDown={handlePointerDown} className="time-clock-ring">
-                {Array.from({ length: 24 }, (_, index) => {
-                  const point = pointOnCircle(HOUR_RADIUS, index, 24);
-                  const active = hour === index;
+                {Array.from({ length: isTwelveHour ? 12 : 24 }, (_, index) => {
+                  const hourCount = isTwelveHour ? 12 : 24;
+                  const hourMark = isTwelveHour && index === 0 ? 12 : index;
+                  const point = pointOnCircle(HOUR_RADIUS, index, hourCount);
+                  const active = hour !== null && (isTwelveHour ? twelveHour.hour === hourMark : hour === index);
                   return (
                     <g key={index}>
                       <circle cx={point.x} cy={point.y} r={active ? 12 : 9} className={active ? "time-clock-tick hour active" : "time-clock-tick hour"} />
                       <text x={point.x} y={point.y + 3.2} textAnchor="middle" className={active ? "time-clock-tick-label active" : "time-clock-tick-label"}>
-                        {index}
+                        {hourMark}
                       </text>
                     </g>
                   );

@@ -1,3 +1,5 @@
+import { formatTimeValue, type TimeFormat } from "./time-format.ts";
+
 export const MAX_TASK_REMINDERS = 5;
 export const MAX_REMINDER_MINUTES = 40_320;
 
@@ -90,15 +92,15 @@ export function formatRelativeReminder(minutes: number, locale: string) {
   return `За ${value} ${russianUnit(value, unit.ru)}`;
 }
 
-export function formatTaskReminder(reminder: TaskReminder, locale: string) {
+export function formatTaskReminder(reminder: TaskReminder, locale: string, timeFormat: TimeFormat = "24h") {
   if (reminder.kind === "relative") return formatRelativeReminder(reminder.minutes, locale);
   const date = new Date(reminder.at);
   if (Number.isNaN(date.getTime())) return reminder.at;
-  return new Intl.DateTimeFormat(locale, {
+  const dateLabel = new Intl.DateTimeFormat(locale, {
     day: "numeric",
     month: "long",
     year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
   }).format(date);
+  const timeLabel = formatTimeValue(`${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`, timeFormat);
+  return `${dateLabel}, ${timeLabel}`;
 }
