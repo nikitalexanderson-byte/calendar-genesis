@@ -92,6 +92,8 @@ import { usePwaInstall } from "./use-pwa-install";
 import {
   LANGUAGE_LOGIN_PENDING_KEY,
   browserLanguage,
+  getRuntimeLanguage,
+  localizeCategoryName,
   normalizeLanguage,
   runtimeLocale,
   storeLanguage,
@@ -235,6 +237,16 @@ const PROFANE_WEEKDAY_PATRONS = [
     bodyParts: "Кости, зубы, суставы, селезёнка и кожа как граница. Кронос управляет самым твёрдым, долговременным и кристаллизованным в организме — внутренним каркасом, на котором держится всё остальное.",
   },
 ] as const;
+
+function localizeWeekdayPatron(patron: (typeof PROFANE_WEEKDAY_PATRONS)[number], language: Language) {
+  if (language === "ru") return patron;
+  return {
+    weekday: translateText(patron.weekday, "en"),
+    patronage: translateText(patron.patronage, "en"),
+    deity: translateText(patron.deity, "en"),
+    bodyParts: translateText(patron.bodyParts, "en"),
+  };
+}
 
 const WEEKDAY_ART_FILES = [
   "weekday-0-sunday-apollo.webp",
@@ -632,7 +644,10 @@ function taskRangeLabel(task: Task, mode: CalendarMode = "sacred", timeFormat: T
   const start = formatCalendarDate(new Date(`${firstDate}T12:00:00`), mode, true);
   if (recurrenceDates.length > 1) {
     const finish = formatCalendarDate(new Date(`${lastDate}T12:00:00`), mode, true);
-    return `${start} — ${finish} · ${recurrenceDates.length} повторений${task.time ? ` · ${formatTimeValue(task.time, timeFormat)}` : ""}`;
+    const recurrenceLabel = getRuntimeLanguage() === "en"
+      ? `${recurrenceDates.length} recurrences`
+      : `${recurrenceDates.length} повторений`;
+    return `${start} — ${finish} · ${recurrenceLabel}${task.time ? ` · ${formatTimeValue(task.time, timeFormat)}` : ""}`;
   }
   const endDate = task.endDate || task.dueDate;
   const end = endDate === task.dueDate
@@ -643,6 +658,12 @@ function taskRangeLabel(task: Task, mode: CalendarMode = "sacred", timeFormat: T
 
 function romanDay(monthIndex: number, day: number) {
   return monthIndex === 12 ? String(day) : ["I", "II", "III", "IIII", "V"][(day - 1) % 5];
+}
+
+function englishOrdinal(value: number) {
+  const lastTwo = value % 100;
+  if (lastTwo >= 11 && lastTwo <= 13) return `${value}th`;
+  return `${value}${value % 10 === 1 ? "st" : value % 10 === 2 ? "nd" : value % 10 === 3 ? "rd" : "th"}`;
 }
 
 function monthArtUrl(monthIndex: number) {
@@ -827,7 +848,7 @@ function DayRhythmPanel({ now, timeFormat }: { now: Date; timeFormat: TimeFormat
           return (
             <span
               className={`day-rhythm-tick tone-${period.id}${isCurrent ? " current" : ""}`}
-              aria-label={`${formatDayRhythmRange(watch.startHour, watch.endHour, timeFormat)} — ${watch.deity}, ${watch.title}${isCurrent ? ", сейчас" : ""}`}
+              aria-label={`${formatDayRhythmRange(watch.startHour, watch.endHour, timeFormat)} — ${watch.deity}, ${watch.title}${isCurrent ? (getRuntimeLanguage() === "en" ? ", now" : ", сейчас") : ""}`}
               title={`${watch.deity} · ${watch.title}`}
               key={watch.id}
             >
@@ -1082,7 +1103,7 @@ export function GenesisCalendar() {
   const selectedSacredDay = getSacredDay(monthIndex, selectedDay);
   const selectedMoon = getMoon(selectedDate);
   const selectedLunarDate = getLunarDate(selectedDate);
-  const selectedWeekdayPatron = PROFANE_WEEKDAY_PATRONS[selectedDate.getDay()];
+  const selectedWeekdayPatron = localizeWeekdayPatron(PROFANE_WEEKDAY_PATRONS[selectedDate.getDay()], language);
   const selectedElement = getDayElement(monthIndex, selectedDay);
   const selectedPythagorean = getPythagorean(monthIndex, selectedDay);
   const selectedSolarEvent = getSolarEvent(sacredYear, monthIndex, selectedDay);
@@ -1673,7 +1694,9 @@ export function GenesisCalendar() {
       return;
     }
     if (recurrenceDates.length > MAX_RECURRENCE_OCCURRENCES) {
-      setSyncError(`Серия может содержать не более ${MAX_RECURRENCE_OCCURRENCES} повторений. Сократите период или выберите меньше дат.`);
+      setSyncError(language === "en"
+        ? `A series can contain no more than ${MAX_RECURRENCE_OCCURRENCES} recurrences. Shorten the period or choose fewer dates.`
+        : `Серия может содержать не более ${MAX_RECURRENCE_OCCURRENCES} повторений. Сократите период или выберите меньше дат.`);
       setSyncStatus("error");
       return;
     }
@@ -2298,7 +2321,10 @@ export function GenesisCalendar() {
       return { ...task, startDate, dueDate };
     });
 
-    const categoryByName = new Map(categories.map((category) => [nameKey(category.name), category]));
+    const categoryByName = new Map(categories.flatMap((category) => [
+      [nameKey(category.name), category] as const,
+      [nameKey(localizeCategoryName(category, language)), category] as const,
+    ]));
     const existingProjectByName = new Map(projects.map((project) => [nameKey(project.title), project]));
     const newProjectPlanByName = new Map(plan.projects.map((project) => [nameKey(project.title), project]));
     for (const projectPlan of plan.projects) {
@@ -2521,7 +2547,7 @@ export function GenesisCalendar() {
 
   const beginCategoryEdit = (category: GenesisCategory) => {
     setEditingCategoryId(category.id);
-    setEditingCategoryTitle(category.name);
+    setEditingCategoryTitle(localizeCategoryName(category, language));
     setEditingCategoryColor(category.color);
   };
 
@@ -2976,7 +3002,9 @@ export function GenesisCalendar() {
               ? `${recurrenceOccurrenceCount} задач по выбранным датам попадут в список «${selectedTaskList.title}» Google Tasks`
               : `Срок завершения попадёт в список «${selectedTaskList.title}» Google Tasks, начало сохранится в данных GENESIS`
             : taskRecurrenceConfig.enabled
-            ? `${taskRecurrenceConfig.mode === "classic" ? "Григорианская" : taskRecurrenceConfig.mode === "lunar" ? "Лунная" : "Сакральная"} серия из ${recurrenceOccurrenceCount} повторений будет сохранена одной задачей в GENESIS и одним событием в Google Calendar`
+            ? language === "en"
+              ? `${taskRecurrenceConfig.mode === "classic" ? "Gregorian" : taskRecurrenceConfig.mode === "lunar" ? "Lunar" : "Sacred"} series of ${recurrenceOccurrenceCount} recurrences will be saved as one task in GENESIS and one event in Google Calendar`
+              : `${taskRecurrenceConfig.mode === "classic" ? "Григорианская" : taskRecurrenceConfig.mode === "lunar" ? "Лунная" : "Сакральная"} серия из ${recurrenceOccurrenceCount} повторений будет сохранена одной задачей в GENESIS и одним событием в Google Calendar`
             : "Задача будет синхронизирована с Google Calendar в часовом поясе этого устройства"}</span>
         </div>
         <button type="submit" className="add-task-button" disabled={!taskTitle.trim() || !newTaskDueDate || !newTaskEndDate || dueDateIsPast || rangeIsInvalid || recurrenceIsInvalid || syncAccountsInvalid || (createsTaskList && !taskNewListTitle.trim())}>
@@ -2987,13 +3015,14 @@ export function GenesisCalendar() {
   };
 
   const renderToday = () => {
+    const isEnglish = language === "en";
     const info = todayInfo;
     const month = MONTHS[info.monthIndex];
     const day = getSacredDay(info.monthIndex, info.day);
     const gregorian = getGregorianDate(info.sacredYear, info.monthIndex, info.day);
     const moon = getMoon(gregorian);
     const lunar = getLunarDate(gregorian);
-    const weekdayPatron = PROFANE_WEEKDAY_PATRONS[gregorian.getDay()];
+    const weekdayPatron = localizeWeekdayPatron(PROFANE_WEEKDAY_PATRONS[gregorian.getDay()], language);
     const gregorianWeekdayRaw = new Intl.DateTimeFormat(runtimeLocale(), { weekday: "long" }).format(gregorian);
     const gregorianWeekday = `${gregorianWeekdayRaw.charAt(0).toLocaleUpperCase(runtimeLocale())}${gregorianWeekdayRaw.slice(1)}`;
     const gregorianMonth = profaneMonthName(gregorian);
@@ -3020,12 +3049,12 @@ export function GenesisCalendar() {
     const sacredTitlePrimary = dayTitleMatch?.[1] ?? day.name;
     const sacredTitleTranslation = dayTitleMatch?.[2] ?? "";
     const heroTitlePrimary = activeCalendarMode === "lunar"
-      ? `${lunar.day} лунный день`
+      ? `${lunar.day} ${isEnglish ? "lunar day" : "лунный день"}`
       : activeCalendarMode === "profane"
         ? gregorianWeekday
         : sacredTitlePrimary;
     const heroTitleTranslation = activeCalendarMode === "lunar"
-      ? (lunar.isThreshold ? "Рубеж лунного месяца" : lunar.decade.name)
+      ? (lunar.isThreshold ? (isEnglish ? "Lunar month threshold" : "Рубеж лунного месяца") : lunar.decade.name)
       : activeCalendarMode === "profane"
         ? gregorianDateTitle
         : sacredTitleTranslation;
@@ -3033,13 +3062,15 @@ export function GenesisCalendar() {
       ? `clamp(16px, ${Math.min(8.2, 164 / heroTitleTranslation.length)}cqw, 44px)`
       : undefined;
     const heroEyebrow = activeCalendarMode === "lunar"
-      ? `Лунный календарь · ${lunar.month.roman} месяц`
+      ? (isEnglish ? `Lunar calendar · month ${lunar.month.roman}` : `Лунный календарь · ${lunar.month.roman} месяц`)
       : activeCalendarMode === "profane"
-        ? `Григорианский календарь · ${gregorian.getFullYear()} год`
+        ? (isEnglish ? `Gregorian calendar · ${gregorian.getFullYear()}` : `Григорианский календарь · ${gregorian.getFullYear()} год`)
         : `${month.season} · ${month.roman} месяц`;
     const heroMonth = activeCalendarMode === "lunar" ? lunar.month.name : activeCalendarMode === "profane" ? gregorianMonth : month.name;
     const heroDescription = activeCalendarMode === "lunar"
-      ? `${moon.direction}. ${moon.phase}, освещённость ${moon.illumination}%. ${lunar.month.description}`
+      ? (isEnglish
+          ? `${moon.direction}. ${moon.phase}, ${moon.illumination}% illuminated. ${lunar.month.description}`
+          : `${moon.direction}. ${moon.phase}, освещённость ${moon.illumination}%. ${lunar.month.description}`)
       : day.description;
 
     return (
@@ -3063,7 +3094,7 @@ export function GenesisCalendar() {
               <div className="hero-description profane-hero-description">
                 <strong>{weekdayPatron.patronage}</strong>
                 <span>{weekdayPatron.deity}</span>
-                <span><b>Части тела:</b> {weekdayPatron.bodyParts}</span>
+                <span><b>{isEnglish ? "Body parts:" : "Части тела:"}</b> {weekdayPatron.bodyParts}</span>
               </div>
             ) : <p className="hero-description">{heroDescription}</p>}
             <div className="hero-actions">
@@ -3134,7 +3165,11 @@ export function GenesisCalendar() {
             <div className="section-heading compact-heading">
               <div>
                 <span className="eyebrow">{activeCalendarMode === "lunar" ? "Лунный день" : activeCalendarMode === "profane" ? "Григорианский день" : "Смысл дня"}</span>
-                <h2 id="rhythm-title">{activeCalendarMode === "lunar" ? "Ритм Луны сегодня" : activeCalendarMode === "profane" ? "Дата в гражданском календаре" : "Три ритма в одной точке"}</h2>
+                 <h2 id="rhythm-title">{activeCalendarMode === "lunar"
+                   ? (isEnglish ? "Today's lunar rhythm" : "Ритм Луны сегодня")
+                   : activeCalendarMode === "profane"
+                     ? (isEnglish ? "Date in the civil calendar" : "Дата в гражданском календаре")
+                     : "Три ритма в одной точке"}</h2>
               </div>
               <span className="ornament" aria-hidden="true">{activeCalendarMode === "lunar" ? "☾" : activeCalendarMode === "profane" ? <CronusSickleIcon size={24} /> : "✣"}</span>
             </div>
@@ -3143,9 +3178,9 @@ export function GenesisCalendar() {
                 <>
                   <article className="meaning-card">
                     <span className="meaning-symbol meaning-moon-symbol" aria-hidden="true"><MoonPhaseIcon phaseStep={moon.phaseStep} size={34} /></span>
-                    <span className="meaning-label">{lunar.day} лунный день</span>
+                    <span className="meaning-label">{lunar.day} {isEnglish ? "lunar day" : "лунный день"}</span>
                     <strong>{moon.phase}</strong>
-                    <p>{moon.direction} · освещённость {moon.illumination}%</p>
+                    <p>{moon.direction} · {isEnglish ? `${moon.illumination}% illuminated` : `освещённость ${moon.illumination}%`}</p>
                   </article>
                   <article className="meaning-card">
                     <span className="meaning-symbol" aria-hidden="true">{lunar.month.roman}</span>
@@ -3155,30 +3190,30 @@ export function GenesisCalendar() {
                   </article>
                   <article className="meaning-card">
                     <span className="meaning-symbol" aria-hidden="true">{lunar.isThreshold ? "○" : "≈"}</span>
-                    <span className="meaning-label">Ритм месяца</span>
+                    <span className="meaning-label">{isEnglish ? "Month rhythm" : "Ритм месяца"}</span>
                     <strong>{lunar.isThreshold ? "Рубеж" : lunar.decade.name}</strong>
-                    <p>{lunar.decade.range} · {lunar.monthLength} дней в месяце</p>
+                    <p>{lunar.decade.range} · {lunar.monthLength} {isEnglish ? "days in the month" : "дней в месяце"}</p>
                   </article>
                 </>
               ) : activeCalendarMode === "profane" ? (
                 <>
                   <article className="meaning-card">
                     <span className="meaning-symbol meaning-sickle-symbol" aria-hidden="true"><CronusSickleIcon size={34} /></span>
-                    <span className="meaning-label">День недели</span>
+                    <span className="meaning-label">{isEnglish ? "Day of the week" : "День недели"}</span>
                     <strong>{weekdayPatron.weekday}</strong>
                     <p>{weekdayPatron.patronage}</p>
                   </article>
                   <article className="meaning-card">
                     <span className="meaning-symbol" aria-hidden="true">{gregorian.getDate()}</span>
-                    <span className="meaning-label">Дата</span>
+                    <span className="meaning-label">{isEnglish ? "Date" : "Дата"}</span>
                     <strong>{gregorianMonth} {gregorian.getFullYear()}</strong>
-                    <p>{gregorianMonthLength} дней в этом месяце</p>
+                    <p>{gregorianMonthLength} {isEnglish ? "days in this month" : "дней в этом месяце"}</p>
                   </article>
                   <article className="meaning-card">
                     <span className="meaning-symbol" aria-hidden="true">{gregorianWeek}</span>
-                    <span className="meaning-label">Неделя года</span>
-                    <strong>{gregorianDayOfYear}-й день</strong>
-                    <p>{gregorianDayOfYear} из {gregorianYearLength} дней года</p>
+                    <span className="meaning-label">{isEnglish ? "Week of the year" : "Неделя года"}</span>
+                    <strong>{isEnglish ? `${englishOrdinal(gregorianDayOfYear)} day` : `${gregorianDayOfYear}-й день`}</strong>
+                    <p>{isEnglish ? `${gregorianDayOfYear} of ${gregorianYearLength} days in the year` : `${gregorianDayOfYear} из ${gregorianYearLength} дней года`}</p>
                   </article>
                 </>
               ) : (
@@ -3254,7 +3289,7 @@ export function GenesisCalendar() {
     const column = layoutIndex % columnCount;
     const popoverAlignment = column < 2 ? "align-left" : column >= columnCount - 2 ? "align-right" : "align-center";
     const weekday = new Intl.DateTimeFormat(runtimeLocale(), { weekday: "short" }).format(date).replace(/\.$/u, "");
-    const weekdayPatron = PROFANE_WEEKDAY_PATRONS[date.getDay()];
+    const weekdayPatron = localizeWeekdayPatron(PROFANE_WEEKDAY_PATRONS[date.getDay()], language);
     const profaneDate = new Intl.DateTimeFormat(runtimeLocale(), { day: "numeric", month: "short" }).format(date);
     const adjacentMonthName = isAdjacentMonth
       ? new Intl.DateTimeFormat(runtimeLocale(), { month: "long" }).format(date)
@@ -3265,7 +3300,11 @@ export function GenesisCalendar() {
       <article
         className={`calendar-day calendar-mode-day mode-${mode}${mode === "profane" ? ` weekday-${weekdayIndex}` : ""}${isSelected ? " selected" : ""}${isToday ? " today" : ""}${isSaturday ? " saturday" : ""}${solarEvent ? " solar-day" : ""}${taskCount ? " has-tasks" : ""}${popoverOpen ? " popover-open" : ""}${isAdjacentMonth ? ` adjacent-month ${adjacentMonth}-month` : ""}`}
         style={isAdjacentMonth ? { "--adjacent-month-opacity": adjacentOpacity } as CSSProperties : undefined}
-        aria-label={isAdjacentMonth ? `${formatGregorian(date, true)} — ${adjacentMonthDescriptor.toLocaleLowerCase(runtimeLocale())}, только для просмотра` : undefined}
+        aria-label={isAdjacentMonth
+          ? (language === "en"
+              ? `${formatGregorian(date, true)} — ${adjacentMonthDescriptor.toLocaleLowerCase(runtimeLocale())}, view only`
+              : `${formatGregorian(date, true)} — ${adjacentMonthDescriptor.toLocaleLowerCase(runtimeLocale())}, только для просмотра`)
+          : undefined}
         key={`${adjacentMonth ?? "current"}-${dateValue}`}
       >
         {isAdjacentMonth ? null : (
@@ -3274,7 +3313,7 @@ export function GenesisCalendar() {
             className="calendar-day-open"
             onClick={() => openCalendarDate(date, "calendar")}
             aria-pressed={isSelected}
-            aria-label={`${formatCalendarDate(date, mode, true)}${mode === "profane" ? ` — ${weekdayPatron.weekday}, ${weekdayPatron.patronage}` : ""} — ${sacredDay.name} — ${moon.day} лунный день${taskCount ? ` — ${taskCount} задач` : ""}`}
+            aria-label={`${formatCalendarDate(date, mode, true)}${mode === "profane" ? ` — ${weekdayPatron.weekday}, ${weekdayPatron.patronage}` : ""} — ${sacredDay.name} — ${moon.day} ${language === "en" ? "lunar day" : "лунный день"}${taskCount ? ` — ${taskCount} задач` : ""}`}
           />
         )}
         {isAdjacentMonth ? (
@@ -3302,7 +3341,7 @@ export function GenesisCalendar() {
         </span>
         {mode === "profane" ? (
           <span className="calendar-cross-date lunar-date" title={moon.phase}>
-            <MoonPhaseIcon phaseStep={moon.phaseStep} size={15} />{moon.day} лунный день
+            <MoonPhaseIcon phaseStep={moon.phaseStep} size={15} />{moon.day} {language === "en" ? "lunar day" : "лунный день"}
           </span>
         ) : (
           <span className="calendar-cross-date lunar-date"><b aria-hidden="true">☾</b>{moon.epithet} · {moon.illumination}%</span>
@@ -3336,7 +3375,7 @@ export function GenesisCalendar() {
                 selectCalendarDate(date);
                 setOpenDayTaskPopover(dateValue);
               }}
-              aria-label={`Показать задачи на ${formatGregorian(date, true)}: ${taskCount}`}
+              aria-label={language === "en" ? `Show tasks for ${formatGregorian(date, true)}: ${taskCount}` : `Показать задачи на ${formatGregorian(date, true)}: ${taskCount}`}
               aria-expanded={popoverOpen}
               aria-controls={`calendar-task-popover-${dateValue}`}
               aria-haspopup="dialog"
@@ -3344,10 +3383,10 @@ export function GenesisCalendar() {
               {taskCount}
             </button>
             {popoverOpen ? (
-              <div className={`calendar-task-popover ${popoverAlignment}`} id={`calendar-task-popover-${dateValue}`} role="dialog" aria-label={`Задачи на ${formatGregorian(date, true)}`}>
+              <div className={`calendar-task-popover ${popoverAlignment}`} id={`calendar-task-popover-${dateValue}`} role="dialog" aria-label={language === "en" ? `Tasks for ${formatGregorian(date, true)}` : `Задачи на ${formatGregorian(date, true)}`}>
                 <header>
                   <strong>Задачи · {taskCount}</strong>
-                  <button type="button" onClick={() => setOpenDayTaskPopover("")} aria-label="Закрыть список задач">×</button>
+                  <button type="button" onClick={() => setOpenDayTaskPopover("")} aria-label={language === "en" ? "Close task list" : "Закрыть список задач"}>×</button>
                 </header>
                 <ul>
                   {cellTasks.slice(0, 6).map((task) => (
@@ -3362,7 +3401,7 @@ export function GenesisCalendar() {
                     </li>
                   ))}
                 </ul>
-                {taskCount > 6 ? <small>Ещё {taskCount - 6}</small> : null}
+                {taskCount > 6 ? <small>{language === "en" ? "More" : "Ещё"} {taskCount - 6}</small> : null}
               </div>
             ) : null}
           </div>
@@ -3515,7 +3554,7 @@ export function GenesisCalendar() {
                                 setSelectedDay(dayNumber);
                                 setOpenDayTaskPopover(key);
                               }}
-                              aria-label={`Показать задачи на ${formatGregorian(gregorian, true)}: ${taskCount}`}
+                              aria-label={language === "en" ? `Show tasks for ${formatGregorian(gregorian, true)}: ${taskCount}` : `Показать задачи на ${formatGregorian(gregorian, true)}: ${taskCount}`}
                               aria-expanded={popoverOpen}
                               aria-controls={`calendar-task-popover-${monthIndex}-${dayNumber}`}
                               aria-haspopup="dialog"
@@ -3527,11 +3566,11 @@ export function GenesisCalendar() {
                                 className={`calendar-task-popover ${popoverAlignment}`}
                                 id={`calendar-task-popover-${monthIndex}-${dayNumber}`}
                                 role="dialog"
-                                aria-label={`Задачи на ${formatGregorian(gregorian, true)}`}
+                                aria-label={language === "en" ? `Tasks for ${formatGregorian(gregorian, true)}` : `Задачи на ${formatGregorian(gregorian, true)}`}
                               >
                                 <header>
                                   <strong>Задачи · {taskCount}</strong>
-                                  <button type="button" onClick={() => setOpenDayTaskPopover("")} aria-label="Закрыть список задач">×</button>
+                                  <button type="button" onClick={() => setOpenDayTaskPopover("")} aria-label={language === "en" ? "Close task list" : "Закрыть список задач"}>×</button>
                                 </header>
                                 <ul>
                                   {cellTasks.slice(0, 6).map((task) => (
@@ -3546,7 +3585,7 @@ export function GenesisCalendar() {
                                     </li>
                                   ))}
                                 </ul>
-                                {taskCount > 6 ? <small>Ещё {taskCount - 6}</small> : null}
+                                {taskCount > 6 ? <small>{language === "en" ? "More" : "Ещё"} {taskCount - 6}</small> : null}
                               </div>
                             ) : null}
                           </div>
@@ -3576,8 +3615,10 @@ export function GenesisCalendar() {
     const lunarDefinition = getLunarMonthDefinition(lunarOrdinal);
     const monthTitle = mode === "profane" ? profaneMonthName(selectedDate) : lunarDefinition.name;
     const monthEyebrow = mode === "profane"
-      ? `Григорианский календарь · ${selectedDate.getFullYear()} год`
-      : `Лунный год ${selectedLunarYear.sacredYear}–${selectedLunarYear.sacredYear + 1} · ${lunarDefinition.roman} месяц из ${selectedLunarYear.monthCount}`;
+      ? (language === "en" ? `Gregorian calendar · ${selectedDate.getFullYear()}` : `Григорианский календарь · ${selectedDate.getFullYear()} год`)
+      : (language === "en"
+          ? `Lunar year ${selectedLunarYear.sacredYear}–${selectedLunarYear.sacredYear + 1} · month ${lunarDefinition.roman} of ${selectedLunarYear.monthCount}`
+          : `Лунный год ${selectedLunarYear.sacredYear}–${selectedLunarYear.sacredYear + 1} · ${lunarDefinition.roman} месяц из ${selectedLunarYear.monthCount}`);
     const monthSubtitle = mode === "profane"
       ? `${profaneMonthName(selectedDate)} · ${dates.length} дней`
       : `${lunarDefinition.title} · ${formatDateRange(firstDate, lastDate)}`;
@@ -3916,7 +3957,7 @@ export function GenesisCalendar() {
                   <span>Категория</span>
                   <select value={newProjectCategory} onChange={(event) => setNewProjectCategory(event.target.value)}>
                     <option value="">Без категории</option>
-                    {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+                    {categories.map((category) => <option key={category.id} value={category.id}>{localizeCategoryName(category, language)}</option>)}
                   </select>
                 </label>
                 <label>
@@ -3955,7 +3996,7 @@ export function GenesisCalendar() {
                 ) : (
                   <>
                     <i aria-hidden="true" />
-                    <strong data-no-translate>{category.name}</strong>
+                    <strong data-no-translate>{localizeCategoryName(category, language)}</strong>
                     <span>{projectCount} проектов</span>
                     <div className="category-actions">
                       <button type="button" onClick={() => beginCategoryEdit(category)} aria-label={`Редактировать категорию «${category.name}»`}>✎</button>
@@ -4068,7 +4109,7 @@ export function GenesisCalendar() {
                     <span>{resolvedTaskProjectTitle(task) || "Без проекта"}</span>
                     {task.googleTaskListTitle ? <span>Список: {task.googleTaskListTitle}</span> : null}
                     {task.syncAccountIds.length > 1 ? <span>Google-аккаунты: {task.syncAccountIds.length}</span> : task.googleAccountEmail ? <span>{task.googleAccountEmail}</span> : null}
-                    {category ? <span className="all-task-category" data-no-translate style={{ "--project-color": category.color } as CSSProperties}>{category.name}</span> : null}
+                    {category ? <span className="all-task-category" data-no-translate style={{ "--project-color": category.color } as CSSProperties}>{localizeCategoryName(category, language)}</span> : null}
                     <span className={`all-task-source source-${source.className}`}>{source.label}</span>
                   </div>
                   {task.tags.length ? <div className="task-tags">{task.tags.map((tag) => <i key={tag}>#{tag}</i>)}</div> : null}
@@ -4275,7 +4316,7 @@ export function GenesisCalendar() {
           return {
             id: `profane-${profaneYear}-${month}`,
             title: profaneMonthName(representative),
-            subtitle: `${dates.length} дней · ${profaneYear} год`,
+            subtitle: language === "en" ? `${dates.length} days · ${profaneYear}` : `${dates.length} дней · ${profaneYear} год`,
             ordinal: String(month + 1).padStart(2, "0"),
             symbol: "",
             dates,
@@ -4306,10 +4347,14 @@ export function GenesisCalendar() {
     const yearDayCount = mode === "profane"
       ? Math.round((Date.UTC(profaneYear + 1, 0, 1) - Date.UTC(profaneYear, 0, 1)) / 86_400_000)
       : Math.round((Date.UTC(lunarYear.endDate.getFullYear(), lunarYear.endDate.getMonth(), lunarYear.endDate.getDate()) - Date.UTC(lunarYear.startDate.getFullYear(), lunarYear.startDate.getMonth(), lunarYear.startDate.getDate())) / 86_400_000);
-    const yearTitle = mode === "profane" ? `Григорианский год ${profaneYear}` : `Лунный год ${lunarYear.sacredYear}–${lunarYear.sacredYear + 1}`;
+    const yearTitle = mode === "profane"
+      ? (language === "en" ? `Gregorian year ${profaneYear}` : `Григорианский год ${profaneYear}`)
+      : (language === "en" ? `Lunar year ${lunarYear.sacredYear}–${lunarYear.sacredYear + 1}` : `Лунный год ${lunarYear.sacredYear}–${lunarYear.sacredYear + 1}`);
     const yearDescription = mode === "profane"
       ? "Современный григорианский календарь — профанская гражданская система с многослойной историей. Его месяцы и счёт года унаследованы от Рима. Предпосылки семидневной недели восходят к Древнему Вавилону: вавилонская астрология придала особое значение семи видимым небесным светилам. В Рим семидневный ритм пришёл по двум линиям — иудейской субботней и греко-римской планетарной. В античном мире дни недели получили небесных покровителей — Солнце, Луну, Марс, Меркурий, Юпитер, Венеру и Сатурн, — и так ещё в древности сложился сакральный образ каждого дня. Традиция отмечать Новый год 1 января тоже пришла из Рима и не была изобретена одним человеком. Январь связывали с Янусом, богом дверей, переходов и начал. В 153 году до н. э. вступление консулов в должность перенесли на этот день, чтобы они раньше отправились на войну в Испании; поскольку годы называли именами консулов, 1 января стало гражданским началом года, а реформа Юлия Цезаря закрепила эту традицию. В 1582 году папа Григорий XIII ввёл названную его именем реформу, чтобы исправить накопившееся смещение юлианского календаря и вернуть весеннее равноденствие к церковному расчёту Пасхи. Поэтому современный календарь соединяет вавилонско-иудейское, греко-римское, римское гражданское и христианско-церковное наследие. В символической системе GENESIS покровителем этого летоисчисления выступает Кронос — образ времени, меры, предела и неумолимого хода циклов. Суббота здесь понимается как сакральный день обязательного покоя: время прекращать обычный труд, восстанавливать тело и возвращаться к внутренней тишине. Эта практика созвучна иудейскому Шаббату — седьмому дню, когда предписано воздерживаться от работы и посвящать день Богу."
-      : `Год начинается ${formatGregorian(lunarYear.startDate, true)} — в день первого точного новолуния после весеннего равноденствия — и включает ${lunarYear.monthCount} лунных месяцев по 29 или 30 суток.`;
+      : (language === "en"
+          ? `The year begins on ${formatGregorian(lunarYear.startDate, true)} — the day of the first exact new moon after the spring equinox — and includes ${lunarYear.monthCount} lunar months of 29 or 30 days.`
+          : `Год начинается ${formatGregorian(lunarYear.startDate, true)} — в день первого точного новолуния после весеннего равноденствия — и включает ${lunarYear.monthCount} лунных месяцев по 29 или 30 суток.`);
     const profaneWeekdayLabels = Array.from({ length: 7 }, (_, index) => {
       const day = new Date(2024, 0, 7 + index, 12);
       return new Intl.DateTimeFormat(runtimeLocale(), { weekday: "short" }).format(day).replace(/\.$/u, "");
@@ -4330,7 +4375,7 @@ export function GenesisCalendar() {
       <div className={`year-view calendar-mode-year mode-${mode}`}>
         <header className="projects-header year-header">
           <div>
-            <span className="eyebrow">{yearDayCount} дней · {yearMonths.length} месяцев</span>
+            <span className="eyebrow">{yearDayCount} {language === "en" ? "days" : "дней"} · {yearMonths.length} {language === "en" ? "months" : "месяцев"}</span>
             <h1>{yearTitle}</h1>
             {mode === "lunar" ? <p>{yearDescription}</p> : null}
           </div>
@@ -4352,7 +4397,9 @@ export function GenesisCalendar() {
             );
           })}
         </section>
-        <section className="year-grid" aria-label={mode === "profane" ? "Двенадцать календарных месяцев" : "Лунные месяцы года"}>
+        <section className="year-grid" aria-label={mode === "profane"
+          ? (language === "en" ? "Twelve calendar months" : "Двенадцать календарных месяцев")
+          : (language === "en" ? "Lunar months of the year" : "Лунные месяцы года")}>
           {yearMonths.map((month) => {
             const monthTaskCount = datesTaskCount(tasksByDate, month.dates);
             const containsToday = month.dates.some((date) => inputDate(date) === todayDateValue);
@@ -4388,15 +4435,15 @@ export function GenesisCalendar() {
                     const sacredDay = getSacredDay(sacred.monthIndex, sacred.day);
                     const solar = getSolarEvent(sacred.sacredYear, sacred.monthIndex, sacred.day);
                     const isSaturday = mode === "profane" && date.getDay() === 6;
-                    const weekdayPatron = PROFANE_WEEKDAY_PATRONS[date.getDay()];
+                    const weekdayPatron = localizeWeekdayPatron(PROFANE_WEEKDAY_PATRONS[date.getDay()], language);
                     return (
                       <button
                         type="button"
                         className={`mini-day${dayTasks ? " has-task" : ""}${dateValue === todayDateValue ? " today" : ""}${solar ? " solar" : ""}${isSaturday ? " saturday" : ""}`}
                         key={dateValue}
                         onClick={() => openCalendarDate(date, "year")}
-                        aria-label={`${formatCalendarDate(date, mode, true)}${mode === "profane" ? `; ${weekdayPatron.weekday}, ${weekdayPatron.patronage}` : ""}; ${sacredDay.name}; ${moon.day} лунный день${dayTasks ? `; задач: ${dayTasks}` : ""}`}
-                        title={`${formatGregorian(date, true)}${mode === "profane" ? ` · ${weekdayPatron.patronage}` : ""} · ${formatCalendarDate(date, "sacred")} · ${moon.day} лунный день`}
+                        aria-label={`${formatCalendarDate(date, mode, true)}${mode === "profane" ? `; ${weekdayPatron.weekday}, ${weekdayPatron.patronage}` : ""}; ${sacredDay.name}; ${moon.day} ${language === "en" ? "lunar day" : "лунный день"}${dayTasks ? `; задач: ${dayTasks}` : ""}`}
+                        title={`${formatGregorian(date, true)}${mode === "profane" ? ` · ${weekdayPatron.patronage}` : ""} · ${formatCalendarDate(date, "sacred")} · ${moon.day} ${language === "en" ? "lunar day" : "лунный день"}`}
                       >
                         {mode === "lunar" ? <MoonPhaseIcon phaseStep={moon.phaseStep} size={30} className="mini-day-moon-phase" /> : null}
                         <span className="mini-day-number">{mode === "lunar" ? moon.day : date.getDate()}</span>
@@ -4420,8 +4467,8 @@ export function GenesisCalendar() {
             <h2 id="calendar-mode-year-description">{mode === "profane" ? "Григорианский календарь (профанский)" : "Лунный год"}</h2>
             <p>{yearDescription}</p>
             <dl>
-              <div><dt>{yearMonths.length}</dt><dd>месяцев</dd></div>
-              <div><dt>{yearDayCount}</dt><dd>дней в круге</dd></div>
+              <div><dt>{yearMonths.length}</dt><dd>{language === "en" ? "months" : "месяцев"}</dd></div>
+              <div><dt>{yearDayCount}</dt><dd>{language === "en" ? "days in the cycle" : "дней в круге"}</dd></div>
               <div><dt>3</dt><dd>системы дат в каждом дне</dd></div>
               <div><dt>4</dt><dd>солнечные точки</dd></div>
             </dl>
@@ -4502,7 +4549,7 @@ export function GenesisCalendar() {
   const calendarRailTitle = activeCalendarMode === "sacred"
     ? `Сакральные месяцы ${sacredYear}–${sacredYear + 1}`
     : activeCalendarMode === "profane"
-      ? `Месяцы ${selectedDate.getFullYear()} года`
+      ? (language === "en" ? `Months of ${selectedDate.getFullYear()}` : `Месяцы ${selectedDate.getFullYear()} года`)
       : `Лунные месяцы ${selectedLunarYear.sacredYear}–${selectedLunarYear.sacredYear + 1}`;
 
   if (legalPage) {
@@ -4618,7 +4665,7 @@ export function GenesisCalendar() {
                 <span className="ux-install-icon" aria-hidden="true" />
               </button>
             ) : null}
-            <button type="button" className={`voice-open-button${voiceLaunchAnimating ? " is-activating" : ""}`} onClick={openVoiceAssistant} title="Открыть бесплатного голосового помощника GENESIS Voice" aria-label="Открыть бесплатного голосового помощника GENESIS Voice" aria-busy={voiceLaunchAnimating}>
+            <button type="button" className={`voice-open-button${voiceLaunchAnimating ? " is-activating" : ""}`} onClick={openVoiceAssistant} title={language === "en" ? "Open the free GENESIS Voice assistant" : "Открыть бесплатного голосового помощника GENESIS Voice"} aria-label={language === "en" ? "Open the free GENESIS Voice assistant" : "Открыть бесплатного голосового помощника GENESIS Voice"} aria-busy={voiceLaunchAnimating}>
               <svg className="voice-microphone-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
                 <rect className="voice-microphone-capsule" x="8.7" y="2.8" width="6.6" height="11.2" rx="3.3" />
                 <path className="voice-microphone-grille" d="M10.55 6.2h2.9M10.55 8.45h2.9" />
@@ -4748,30 +4795,32 @@ export function GenesisCalendar() {
             <div className="selected-day-symbol" aria-hidden="true">{selectedSolarEvent?.symbol ?? (activeCalendarMode === "lunar" ? "☾" : activeCalendarMode === "profane" ? selectedDate.getDate() : selectedElement.symbol)}</div>
             <div className="selected-day-copy">
               <span className="eyebrow">{activeCalendarMode === "profane"
-                ? `${formatCalendarDate(selectedDate, "sacred")} · ${selectedMoon.day} лунный день`
+                ? `${formatCalendarDate(selectedDate, "sacred")} · ${selectedMoon.day} ${language === "en" ? "lunar day" : "лунный день"}`
                 : activeCalendarMode === "lunar"
                   ? `${formatGregorian(selectedDate, true)} · ${formatCalendarDate(selectedDate, "sacred")}`
                   : `${formatGregorian(selectedDate, true)} · ${selectedMoon.epithet}`}</span>
               <h2 id="selected-day-title">{activeCalendarMode === "profane"
                 ? formatGregorian(selectedDate, true)
                 : activeCalendarMode === "lunar"
-                  ? `${selectedLunarDate.month.name} · ${selectedMoon.day} лунный день`
+                  ? `${selectedLunarDate.month.name} · ${selectedMoon.day} ${language === "en" ? "lunar day" : "лунный день"}`
                   : selectedSacredDay.name}</h2>
               <p id="selected-day-description">{activeCalendarMode === "lunar"
-                ? `${selectedLunarDate.isThreshold ? "Рубеж" : selectedLunarDate.decade.name} · ${selectedMoon.phase} · освещённость ${selectedMoon.illumination}%. ${selectedLunarDate.month.description} Сакральный смысл дня: ${selectedSacredDay.name} — ${selectedSacredDay.description}`
+                ? (language === "en"
+                    ? `${selectedLunarDate.isThreshold ? "Threshold" : selectedLunarDate.decade.name} · ${selectedMoon.phase} · ${selectedMoon.illumination}% illuminated. ${selectedLunarDate.month.description} Sacred meaning of the day: ${selectedSacredDay.name} — ${selectedSacredDay.description}`
+                    : `${selectedLunarDate.isThreshold ? "Рубеж" : selectedLunarDate.decade.name} · ${selectedMoon.phase} · освещённость ${selectedMoon.illumination}%. ${selectedLunarDate.month.description} Сакральный смысл дня: ${selectedSacredDay.name} — ${selectedSacredDay.description}`)
                 : activeCalendarMode === "profane"
-                  ? `${selectedWeekdayPatron.patronage}. ${selectedWeekdayPatron.deity} Части тела: ${selectedWeekdayPatron.bodyParts}`
+                  ? `${selectedWeekdayPatron.patronage}. ${selectedWeekdayPatron.deity} ${language === "en" ? "Body parts:" : "Части тела:"} ${selectedWeekdayPatron.bodyParts}`
                   : selectedSacredDay.description}</p>
               {selectedSolarEvent ? <strong className="selected-solar-event">{selectedSolarEvent.name} · День Солнца</strong> : null}
             </div>
             <dl className="selected-day-facts">
               {selectedSolarEvent ? <div className="solar-fact"><dt>Солнечная точка</dt><dd>{selectedSolarEvent.name}</dd></div> : null}
-              {activeCalendarMode === "profane" ? <div><dt>Сакрализация дня</dt><dd>{selectedWeekdayPatron.weekday} · {selectedWeekdayPatron.patronage}</dd></div> : null}
+              {activeCalendarMode === "profane" ? <div><dt>{language === "en" ? "Sacralization of the day" : "Сакрализация дня"}</dt><dd>{selectedWeekdayPatron.weekday} · {selectedWeekdayPatron.patronage}</dd></div> : null}
               <div><dt>Григорианская дата</dt><dd>{formatGregorian(selectedDate, true)}</dd></div>
               <div><dt>Сакральная дата</dt><dd>{formatCalendarDate(selectedDate, "sacred")}</dd></div>
               <div><dt>Лунный месяц</dt><dd>{selectedLunarDate.month.name} · {selectedLunarDate.month.title}</dd></div>
               <div><dt>Лунные сутки</dt><dd>{selectedMoon.day} · {selectedMoon.phase}</dd></div>
-              <div><dt>Лунная декада</dt><dd>{selectedLunarDate.isThreshold ? "Рубеж" : selectedLunarDate.decade.name}</dd></div>
+              <div><dt>{language === "en" ? "Lunar decade" : "Лунная декада"}</dt><dd>{selectedLunarDate.isThreshold ? "Рубеж" : selectedLunarDate.decade.name}</dd></div>
               <div><dt>Стихия</dt><dd>{selectedElement.name}</dd></div>
               <div><dt>Пята</dt><dd>{selectedSacredDay.pyataTitle || "Апейрон"}</dd></div>
               <div><dt>Число</dt><dd>{selectedPythagorean?.name || "Безграничное"}</dd></div>
@@ -5039,7 +5088,7 @@ export function GenesisCalendar() {
                 <span>Категория</span>
                 <select value={editingProject.categoryId ?? ""} onChange={(event) => setEditingProject((current) => current ? { ...current, categoryId: event.target.value || null } : current)}>
                   <option value="">Без категории</option>
-                  {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+                  {categories.map((category) => <option key={category.id} value={category.id}>{localizeCategoryName(category, language)}</option>)}
                 </select>
               </label>
               <label>
@@ -5095,7 +5144,7 @@ export function GenesisCalendar() {
             calendarMode: activeTaskCalendarMode,
             today: todayDateValue,
             timeZone: deviceTimeZone,
-            categories: categories.map((category) => ({ name: category.name })),
+            categories: categories.map((category) => ({ name: localizeCategoryName(category, language) })),
             projects: projects.map((project) => ({
               title: project.title,
               parent: projects.find((candidate) => candidate.id === project.parentId)?.title ?? "",
@@ -5119,7 +5168,7 @@ export function GenesisCalendar() {
             calendarMode: activeTaskCalendarMode,
             today: todayDateValue,
             timeZone: deviceTimeZone,
-            categories: categories.map((category) => ({ name: category.name })),
+            categories: categories.map((category) => ({ name: localizeCategoryName(category, language) })),
             projects: projects.map((project) => ({
               title: project.title,
               parent: projects.find((candidate) => candidate.id === project.parentId)?.title ?? "",

@@ -309,6 +309,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(languageMigration, /ADD COLUMN language/);
   assert.match(i18n, /useDocumentLanguage/);
   assert.match(i18n, /MutationObserver/);
+  assert.match(i18n, /"data-tooltip"/);
+  assert.match(i18n, /localizeCategoryName/);
   assert.match(englishManifest, /"lang": "en-US"/);
   assert.match(calendar, /GeminiAssistant/);
   assert.match(calendar, /LocalVoiceAssistant/);
@@ -470,7 +472,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /hero-card mode-\$\{activeCalendarMode\}/);
   assert.match(calendar, /Ритм Луны сегодня/);
   assert.match(calendar, /Дата в гражданском календаре/);
-  assert.match(calendar, /lunar\.day} лунный день/);
+  assert.match(calendar, /lunar\.day} \{isEnglish \? "lunar day" : "лунный день"\}/);
   assert.match(calendar, /weekdayPatron\.patronage/);
   assert.match(styles, /var\(--genesis-hero-image, none\),[\s\S]*var\(--genesis-hero-fallback, none\)/);
   assert.match(styles, /\.hero-card\.mode-profane\s*\{[\s\S]*var\(--genesis-hero-image, none\)/);

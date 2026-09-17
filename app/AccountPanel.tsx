@@ -5,7 +5,7 @@ import { useState } from "react";
 import type { CalendarMode } from "./calendar-data";
 import type { GenesisCategory, GenesisUser, SyncRouting } from "./cloud-sync";
 import { deleteGenesisAccount, disconnectGoogleServices, removeAdditionalGoogleAccount, updateAccountPreferences } from "./cloud-sync";
-import { runtimeLocale, translateText, type Language } from "./i18n";
+import { localizeCategoryName, runtimeLocale, translateText, type Language } from "./i18n";
 import type { TimeFormat } from "./time-format";
 
 type AccountPanelProps = {
@@ -61,7 +61,10 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
     try {
       const result = await updateAccountPreferences({ calendarMode });
       onUserChange(result.user);
-      setMessage(`Основной календарь переключён: ${CALENDAR_MODES.find((item) => item.id === calendarMode)?.label.toLocaleLowerCase(runtimeLocale())}.`);
+      const calendarLabel = CALENDAR_MODES.find((item) => item.id === calendarMode)?.label ?? "";
+      setMessage(user.language === "en"
+        ? `Primary calendar changed to ${translateText(calendarLabel, "en").toLocaleLowerCase(runtimeLocale())}.`
+        : `Основной календарь переключён: ${calendarLabel.toLocaleLowerCase(runtimeLocale())}.`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Не удалось переключить календарь.");
     } finally {
@@ -75,9 +78,14 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
     try {
       const result = await updateAccountPreferences({ taskCalendarMode });
       onUserChange(result.user);
-      setMessage(`Календарь постановки задач переключён: ${CALENDAR_MODES.find((item) => item.id === taskCalendarMode)?.label.toLocaleLowerCase(runtimeLocale())}.`);
+      const calendarLabel = CALENDAR_MODES.find((item) => item.id === taskCalendarMode)?.label ?? "";
+      setMessage(user.language === "en"
+        ? `Task scheduling calendar changed to ${translateText(calendarLabel, "en").toLocaleLowerCase(runtimeLocale())}.`
+        : `Календарь постановки задач переключён: ${calendarLabel.toLocaleLowerCase(runtimeLocale())}.`);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Не удалось переключить календарь постановки задач.");
+      setMessage(error instanceof Error
+        ? translateText(error.message, user.language, true)
+        : user.language === "en" ? "Could not change the task scheduling calendar." : "Не удалось переключить календарь постановки задач.");
     } finally {
       setPreferenceBusy(false);
     }
@@ -341,7 +349,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
                     <strong>Категории и аккаунты</strong>
                     {categories.map((category) => (
                       <fieldset key={category.id}>
-                        <legend><i style={{ backgroundColor: category.color }} /><span data-no-translate>{category.name}</span></legend>
+                        <legend><i style={{ backgroundColor: category.color }} /><span data-no-translate>{localizeCategoryName(category, user.language)}</span></legend>
                         {(user.googleAccounts ?? []).map((account) => {
                           const selected = routing.categoryAccountIds[category.id] ?? [];
                           return (

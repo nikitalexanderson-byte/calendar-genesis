@@ -22,7 +22,7 @@ import {
   type StoicheionDrawKind,
   type StoicheionDrawRecord,
 } from "./cloud-sync";
-import { runtimeLocale } from "./i18n";
+import { getRuntimeLanguage, runtimeLocale, translateText } from "./i18n";
 
 const LOCAL_DRAW_STORAGE_PREFIX = "genesis-stoicheion-draws-v2:";
 const STOICHEION_CARD_ART_VERSION = "20260906-anatomy-glow";
@@ -287,12 +287,15 @@ function StoicheionCardFace({
   variant: StoicheionCardVariant;
 }) {
   const art = getStoicheionCardArt(letter);
+  const cardLabel = getRuntimeLanguage() === "en"
+    ? `Card ${letter.name}: ${letter.symbol}, ${translateText(art.body)}, ${art.bodyGreek}`
+    : `Карта ${letter.name}: ${letter.symbol}, ${art.body}, ${art.bodyGreek}`;
 
   return (
     <span
       className={`stoicheion-card-visual stoicheion-card-visual-${variant}${reversed ? " is-reversed" : ""}`}
       role="img"
-      aria-label={`Карта ${letter.name}: ${letter.symbol}, ${art.body}, ${art.bodyGreek}`}
+      aria-label={cardLabel}
       style={{
         "--stoicheion-card-accent": art.accent,
         "--stoicheion-card-accent-rgb": art.accentRgb,

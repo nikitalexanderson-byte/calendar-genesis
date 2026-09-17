@@ -9,7 +9,7 @@ export const LANGUAGE_STORAGE_KEY = "genesis-language-v1";
 export const LANGUAGE_LOGIN_PENDING_KEY = "genesis-language-login-pending-v1";
 
 const CYRILLIC = /[А-Яа-яЁё]/;
-const TRANSLATABLE_ATTRIBUTES = ["aria-label", "placeholder", "title", "alt"] as const;
+const TRANSLATABLE_ATTRIBUTES = ["aria-label", "placeholder", "title", "alt", "data-tooltip"] as const;
 const ENGLISH_DESCRIPTION = "GENESIS is a task calendar and project manager with daily planning, reminders, and optional Google Calendar and Google Tasks synchronization.";
 const APP_BASE = (process.env.NEXT_PUBLIC_GENESIS_BASE_PATH?.trim() || "").replace(/\/$/, "");
 
@@ -155,6 +155,12 @@ const partialTranslations = Object.entries(translations)
 let runtimeLanguage: Language = "ru";
 const subscribeHydration = () => () => undefined;
 
+const BUILT_IN_CATEGORY_NAMES: Record<string, { ru: string; en: string }> = {
+  personal: { ru: "Личное", en: "Personal" },
+  work: { ru: "Работа", en: "Work" },
+  health: { ru: "Тело и здоровье", en: "Body and health" },
+};
+
 type RenderRecord = { source: string; rendered: string };
 const textRecords = new WeakMap<Text, RenderRecord>();
 const attributeRecords = new WeakMap<Element, Map<string, RenderRecord>>();
@@ -192,6 +198,12 @@ export function setRuntimeLanguage(language: Language) {
 
 export function getRuntimeLanguage() {
   return runtimeLanguage;
+}
+
+export function localizeCategoryName(category: { id: string; name: string }, language: Language = runtimeLanguage) {
+  const builtInNames = BUILT_IN_CATEGORY_NAMES[category.id];
+  if (!builtInNames || !Object.values(builtInNames).includes(category.name)) return category.name;
+  return builtInNames[language];
 }
 
 export function runtimeLocale() {

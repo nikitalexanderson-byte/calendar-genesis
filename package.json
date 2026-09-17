@@ -11,7 +11,8 @@
     "build": "vinext build",
     "build:beget": "vite build --config vite.beget.config.ts",
     "start": "vinext start",
-    "test": "npm run build && node --experimental-strip-types --test tests/rendered-html.test.mjs",
+    "test": "npm run i18n:audit && npm run build && node --experimental-strip-types --test tests/rendered-html.test.mjs",
+    "i18n:audit": "node scripts/audit-translations.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate"
   },

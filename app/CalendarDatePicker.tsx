@@ -15,7 +15,7 @@ import {
   lunarMonthIndex,
 } from "./calendar-data";
 import { MoonPhaseIcon } from "./MoonPhaseIcon";
-import { runtimeLocale } from "./i18n";
+import { getRuntimeLanguage, runtimeLocale } from "./i18n";
 
 type CalendarDatePickerProps = {
   id?: string;
@@ -57,6 +57,7 @@ function formatCompactGregorian(date: Date) {
 }
 
 export function CalendarDatePicker({ id, value, mode, min, max, required, ariaLabel, onChange }: CalendarDatePickerProps) {
+  const isEnglish = getRuntimeLanguage() === "en";
   const [open, setOpen] = useState(false);
   const selectedDate = useMemo(() => parseDate(value), [value]);
   const selectedSacred = useMemo(() => getSacredDate(selectedDate), [selectedDate]);
@@ -138,7 +139,9 @@ export function CalendarDatePicker({ id, value, mode, min, max, required, ariaLa
                   <strong>{lunarTitle.month.name} · {lunarTitle.month.roman}</strong>
                   <button type="button" onClick={() => setLunarMonth((current) => current + 1)} aria-label="Следующий лунный месяц">→</button>
                 </div>
-                <p className="calendar-picker-note">{lunarTitle.month.title}. Месяц начинается точным новолунием и делится на декады Роста, Полноты и Исхода.</p>
+                <p className="calendar-picker-note">{lunarTitle.month.title}. {isEnglish
+                  ? "The month begins at the exact new moon and is divided into the Decades of Growth, Fullness, and Outflow."
+                  : "Месяц начинается точным новолунием и делится на декады Роста, Полноты и Исхода."}</p>
                 <div className="lunar-picker-days">
                   {lunarDates.map((date) => {
                     const dateValue = inputDate(date);

@@ -358,7 +358,9 @@ export function getLunarMonthStart(index: number) {
 function firstLunarMonthAfterSpringEquinox(sacredYear: number) {
   const springEquinox = Seasons(sacredYear).mar_equinox.date;
   const firstNewMoon = SearchMoonPhase(0, springEquinox, 40);
-  if (!firstNewMoon) throw new Error(`Не удалось вычислить первое новолуние ${sacredYear} года.`);
+  if (!firstNewMoon) throw new Error(runtimeLocale().startsWith("en")
+    ? `Could not calculate the first new moon of ${sacredYear}.`
+    : `Не удалось вычислить первое новолуние ${sacredYear} года.`);
   return Math.round((firstNewMoon.date.getTime() - MOON_EPOCH) / (MOON_CYCLE * DAY_MS));
 }
 
@@ -368,7 +370,9 @@ function getNewMoonMoment(index: number) {
   const approximate = new Date(MOON_EPOCH + index * MOON_CYCLE * DAY_MS);
   const searchStart = new Date(approximate.getTime() - 2.5 * DAY_MS);
   const found = SearchMoonPhase(0, searchStart, 5);
-  if (!found) throw new Error(`Не удалось вычислить новолуние ${index}.`);
+  if (!found) throw new Error(runtimeLocale().startsWith("en")
+    ? `Could not calculate new moon ${index}.`
+    : `Не удалось вычислить новолуние ${index}.`);
   const moment = new Date(found.date);
   newMoonCache.set(index, moment);
   return new Date(moment);

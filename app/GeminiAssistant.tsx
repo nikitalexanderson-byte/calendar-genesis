@@ -28,15 +28,15 @@ function preferredAudioMimeType() {
   ].find((mimeType) => MediaRecorder.isTypeSupported(mimeType)) ?? "";
 }
 
-function blobToBase64(blob: Blob) {
+function blobToBase64(blob: Blob, language: Language) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
-    reader.onerror = () => reject(new Error("Не удалось прочитать запись."));
+    reader.onerror = () => reject(new Error(language === "en" ? "Could not read the recording." : "Не удалось прочитать запись."));
     reader.onload = () => {
       const result = typeof reader.result === "string" ? reader.result : "";
       const separator = result.indexOf(",");
       if (separator < 0) {
-        reject(new Error("Не удалось подготовить запись."));
+        reject(new Error(language === "en" ? "Could not prepare the recording." : "Не удалось подготовить запись."));
         return;
       }
       resolve(result.slice(separator + 1));
@@ -138,7 +138,7 @@ export function GeminiAssistant({ language, context, onApply, onClose }: GeminiA
           setError(language === "en" ? "The recording is larger than 4 MB." : "Запись превышает 4 МБ.");
           return;
         }
-        void blobToBase64(recording)
+        void blobToBase64(recording, language)
           .then((data) => setAudio({ data, mimeType: recording.type || "audio/webm", bytes: recording.size }))
           .catch((readError) => setError(assistantError(readError, language)));
       };

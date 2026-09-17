@@ -15,7 +15,7 @@ import {
 import type { CalendarMode } from "./calendar-data";
 import { CalendarDatePicker } from "./CalendarDatePicker";
 import { CronusSickleIcon } from "./CronusSickleIcon";
-import { runtimeLocale } from "./i18n";
+import { getRuntimeLanguage, runtimeLocale } from "./i18n";
 
 const PYATA_DAY_LABELS = ["I", "II", "III", "IIII", "V"];
 const PYATA_LABELS = ["I пята", "II пята", "III пята", "IIII пята", "V пята", "VI пята"];
@@ -69,6 +69,7 @@ export function RecurrenceBuilder({
   destination?: "calendar" | "tasks";
   calendarMode?: CalendarMode;
 }) {
+  const isEnglish = getRuntimeLanguage() === "en";
   const value = alignRecurrenceConfigWithCalendar(rawValue, calendarMode, startDate);
   const rangeStart = value.rangeStart && value.rangeStart >= startDate ? value.rangeStart : startDate;
   const maximumEnd = recurrenceMaximumEndDate(rangeStart);
@@ -285,14 +286,22 @@ export function RecurrenceBuilder({
           <div className={`recurrence-summary${tooManyOccurrences ? " warning" : ""}`} role={tooManyOccurrences ? "alert" : "status"}>
             <strong>{occurrenceCount}</strong>
             <span>{tooManyOccurrences
-              ? `Слишком много повторений. Сократите период или выберите меньше дат — максимум ${MAX_RECURRENCE_OCCURRENCES}.`
-              : `— количество ${destination === "calendar" ? "повторений одной задачи" : "отдельных задач"} с ${shortDate(rangeStart, true)} по ${shortDate(rangeEnd, true)}`}</span>
+              ? (isEnglish
+                  ? `Too many recurrences. Shorten the period or choose fewer dates — maximum ${MAX_RECURRENCE_OCCURRENCES}.`
+                  : `Слишком много повторений. Сократите период или выберите меньше дат — максимум ${MAX_RECURRENCE_OCCURRENCES}.`)
+              : (isEnglish
+                  ? `— number of ${destination === "calendar" ? "recurrences of one task" : "separate tasks"} from ${shortDate(rangeStart, true)} to ${shortDate(rangeEnd, true)}`
+                  : `— количество ${destination === "calendar" ? "повторений одной задачи" : "отдельных задач"} с ${shortDate(rangeStart, true)} по ${shortDate(rangeEnd, true)}`)}</span>
           </div>
 
           <small className="recurrence-sync-note">
             {destination === "tasks"
-              ? "Google Tasks API не поддерживает создание повторяющейся задачи, поэтому каждая выбранная дата станет отдельной задачей в списке."
-              : `GENESIS сохранит одну задачу, а Google Calendar — одно повторяющееся событие со всеми ${value.mode === "lunar" ? "лунными" : value.mode === "genesis" ? "сакральными" : "выбранными"} датами.`}
+              ? (isEnglish
+                  ? "The Google Tasks API does not support recurring tasks, so every selected date will become a separate task in the list."
+                  : "Google Tasks API не поддерживает создание повторяющейся задачи, поэтому каждая выбранная дата станет отдельной задачей в списке.")
+              : (isEnglish
+                  ? `GENESIS will save one task, and Google Calendar will save one recurring event with all ${value.mode === "lunar" ? "lunar" : value.mode === "genesis" ? "sacred" : "selected"} dates.`
+                  : `GENESIS сохранит одну задачу, а Google Calendar — одно повторяющееся событие со всеми ${value.mode === "lunar" ? "лунными" : value.mode === "genesis" ? "сакральными" : "выбранными"} датами.`)}
           </small>
         </div>
       ) : null}
