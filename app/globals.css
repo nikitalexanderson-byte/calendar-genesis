@@ -9115,42 +9115,6 @@ button.project-drag-handle:active { cursor: grabbing; }
   color: #dce6e2;
 }
 
-.lunar-month-rule {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  padding: 11px 13px;
-  color: #d9c894;
-  background: #102f32;
-  border: 1px solid rgba(178, 138, 74, .26);
-  border-radius: 14px;
-}
-
-.lunar-month-rule > span {
-  display: grid;
-  gap: 2px;
-}
-
-.lunar-month-rule strong {
-  color: #f1eadb;
-  font: 500 14px/1.2 Georgia, "Times New Roman", serif;
-}
-
-.lunar-month-rule small,
-.lunar-month-rule > i {
-  color: #9fb1ad;
-  font-size: 8px;
-  font-style: normal;
-}
-
-.lunar-month-rule > i {
-  margin-left: auto;
-  color: #dfc77f;
-  font-weight: 900;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-}
-
 .calendar-mode-year .year-switcher strong {
   min-width: 132px;
   font-size: 18px;
@@ -9308,16 +9272,6 @@ button.project-drag-handle:active { cursor: grabbing; }
   .calendar-mode-primary > small,
   .calendar-cross-date {
     font-size: 7.5px;
-  }
-
-  .lunar-month-rule {
-    align-items: flex-start;
-    flex-wrap: wrap;
-  }
-
-  .lunar-month-rule > i {
-    width: 100%;
-    margin-left: 39px;
   }
 
   .calendar-mode-year .year-switcher strong {

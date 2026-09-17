@@ -325,6 +325,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /renderAlternativeYear/);
   assert.match(calendar, /activeCalendarMode === "profane"/);
   assert.match(calendar, /activeCalendarMode === "lunar"/);
+  assert.doesNotMatch(calendar, /Новолуние открывает месяц|lunar-month-rule/);
+  assert.doesNotMatch(styles, /\.lunar-month-rule/);
   assert.match(calendar, /Григорианский год \$\{profaneYear\}/);
   assert.match(calendar, /mode === "lunar" \? <p>\{yearDescription\}<\/p> : null/);
   assert.match(calendar, /первого точного новолуния после весеннего равноденствия/);
@@ -402,7 +404,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(styles, /var\(--genesis-hero-image, none\),[\s\S]*var\(--genesis-hero-fallback, none\)/);
   assert.match(styles, /\.hero-card\.mode-profane\s*\{[\s\S]*repeating-radial-gradient/);
   assert.match(styles, /\.all-tasks-create\[open\]\s*\{[\s\S]*overflow:\s*visible/);
-  assert.match(serviceWorker, /genesis-shell-v20/);
+  assert.match(serviceWorker, /genesis-shell-v21/);
   assert.match(calendar, /calendar-month-art/);
   assert.match(calendar, /mini-pyata/);
   assert.match(calendar, /Math\.ceil\(availableDays \/ 5\)/);

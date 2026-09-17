@@ -64,7 +64,6 @@ const curatedTranslations: Record<string, string> = {
   "лунных суток": "lunar days",
   "системы дат в каждом дне": "date systems in every day",
   "солнечные точки": "solar points",
-  "Новолуние открывает месяц": "The new moon opens the month",
   "Лунный год после равноденствия": "Lunar year after the equinox",
   "Генезион": "Genesion",
   "Агонион": "Agonion",

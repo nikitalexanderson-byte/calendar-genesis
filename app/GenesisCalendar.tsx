@@ -3339,13 +3339,7 @@ export function GenesisCalendar() {
             <div className="calendar-mode-weekdays" aria-hidden="true">
               {weekdayLabels.map((label) => <span key={label}>{label}</span>)}
             </div>
-          ) : (
-            <div className="lunar-month-rule">
-              <MoonPhaseIcon phaseStep={getMoon(firstDate).phaseStep} size={28} />
-              <span><strong>Новолуние открывает месяц</strong><small>{formatGregorian(firstDate, true)}</small></span>
-              <i>{dates.length} лунных суток</i>
-            </div>
-          )}
+          ) : null}
           {mode === "profane" ? (
             <div className="calendar-mode-days">
               {Array.from({ length: leadingDays }, (_, index) => <span className="calendar-mode-blank" aria-hidden="true" key={`blank-${index}`} />)}
