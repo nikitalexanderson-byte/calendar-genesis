@@ -10605,3 +10605,384 @@ button.project-drag-handle:active { cursor: grabbing; }
   .day-rhythm-explorer header button { grid-column: 1 / -1; justify-self: start; }
   .day-rhythm-watches { grid-template-columns: 1fr; }
 }
+
+/* Theokyklos: interactive mandala of divine vectors. */
+.theokyklos-view {
+  --theokyklos-ink: #102a2c;
+  --theokyklos-night: #07191d;
+  --theokyklos-gold: #d5b66e;
+  display: grid;
+  gap: 20px;
+  padding-bottom: 26px;
+}
+
+.theokyklos-hero {
+  position: relative;
+  display: grid;
+  min-height: 270px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 26px;
+  padding: clamp(28px, 5vw, 58px);
+  overflow: hidden;
+  color: #f3ede0;
+  background:
+    radial-gradient(circle at 82% 18%, rgba(217, 183, 102, .2), transparent 31%),
+    radial-gradient(circle at 12% 110%, rgba(75, 128, 124, .2), transparent 40%),
+    linear-gradient(135deg, #102b2d 0%, #07191d 55%, #151d1b 100%);
+  border: 1px solid rgba(213, 182, 110, .28);
+  border-radius: 7px 34px 7px 34px;
+  box-shadow: 0 24px 70px rgba(6, 22, 25, .2);
+}
+
+.theokyklos-hero::before,
+.theokyklos-hero::after {
+  position: absolute;
+  border: 1px solid rgba(213, 182, 110, .13);
+  border-radius: 50%;
+  content: "";
+}
+
+.theokyklos-hero::before { top: -170px; right: -80px; width: 420px; height: 420px; }
+.theokyklos-hero::after { right: 58px; bottom: -154px; width: 300px; height: 300px; }
+
+.theokyklos-hero-copy { position: relative; z-index: 1; max-width: 750px; }
+.theokyklos-hero .eyebrow { color: #dfbd70; }
+.theokyklos-hero h1 {
+  margin: 8px 0 12px;
+  font: 400 clamp(48px, 7vw, 84px)/.95 Georgia, "Times New Roman", serif;
+  letter-spacing: -.04em;
+}
+
+.theokyklos-hero-copy > p {
+  max-width: 690px;
+  margin: 0;
+  color: #b9c7c2;
+  font: 400 13px/1.7 Georgia, "Times New Roman", serif;
+}
+
+.theokyklos-hero-seal {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: 126px;
+  height: 126px;
+  place-items: center;
+  color: #f4db9a;
+  background: radial-gradient(circle, rgba(213, 182, 110, .2), rgba(213, 182, 110, .03) 70%);
+  border: 1px solid rgba(213, 182, 110, .42);
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 12px rgba(213, 182, 110, .025), 0 0 42px rgba(213, 182, 110, .12);
+}
+
+.theokyklos-hero-seal::before,
+.theokyklos-hero-seal::after {
+  position: absolute;
+  inset: 12px;
+  border: 1px solid rgba(213, 182, 110, .18);
+  transform: rotate(45deg);
+  content: "";
+}
+
+.theokyklos-hero-seal::after { inset: 28px; transform: rotate(0); }
+.theokyklos-hero-seal span { position: relative; z-index: 1; margin-top: 13px; font: 400 58px/1 Georgia, serif; }
+.theokyklos-hero-seal small { position: relative; z-index: 1; margin-top: -26px; font: 700 8px/1 system-ui, sans-serif; letter-spacing: .18em; text-transform: uppercase; }
+
+.theokyklos-counts {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 12px 0 0;
+}
+
+.theokyklos-counts > div {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding-top: 11px;
+  border-top: 1px solid rgba(213, 182, 110, .17);
+}
+
+.theokyklos-counts dt { color: #e4c77e; font: 400 22px/1 Georgia, serif; }
+.theokyklos-counts dd { margin: 0; color: #8fa5a0; font-size: 7px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+
+.theokyklos-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.42fr) minmax(330px, .72fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.theokyklos-mandala-card {
+  min-width: 0;
+  padding: clamp(18px, 3vw, 30px);
+  color: #eae3d6;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(201, 161, 76, .09), transparent 36%),
+    linear-gradient(145deg, #102b2d, #07191d 68%);
+  border: 1px solid rgba(213, 182, 110, .23);
+  border-radius: 7px 28px 7px 28px;
+  box-shadow: 0 22px 60px rgba(6, 22, 25, .16);
+}
+
+.theokyklos-mandala-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 0 6px 14px;
+  border-bottom: 1px solid rgba(213, 182, 110, .13);
+}
+
+.theokyklos-mandala-heading .eyebrow { color: #d8b96e; }
+.theokyklos-mandala-heading h2 { margin: 4px 0 0; font: 400 clamp(24px, 3vw, 36px)/1 Georgia, serif; }
+.theokyklos-mandala-heading p { max-width: 220px; margin: 0; color: #8ea39f; font-size: 8px; line-height: 1.55; text-align: right; }
+
+.theokyklos-mandala-viewport {
+  display: grid;
+  width: min(100%, 760px);
+  margin: 0 auto;
+  place-items: center;
+}
+
+.theokyklos-mandala { display: block; width: 100%; height: auto; overflow: visible; }
+.theokyklos-celestial-field { fill: rgba(255, 255, 255, .008); stroke: rgba(216, 190, 128, .08); stroke-width: 1; }
+.theokyklos-orbit { fill: none; stroke: rgba(213, 182, 110, .16); stroke-width: 1; stroke-dasharray: 3 8; }
+.theokyklos-orbit.orbit-inner { stroke: rgba(213, 182, 110, .26); stroke-dasharray: 1 6; }
+.theokyklos-axis { fill: none; stroke: url(#theokyklos-axis-glow); stroke-width: 2; }
+.theokyklos-cross-axis { fill: none; stroke: rgba(135, 171, 167, .13); stroke-width: 1; }
+.theokyklos-core-aura { pointer-events: none; }
+
+.theokyklos-svg-segment {
+  --segment-color: #d5b66e;
+  --segment-soft: rgba(213, 182, 110, .16);
+  cursor: pointer;
+  outline: none;
+}
+
+.theokyklos-svg-segment.segment-north { --segment-color: #a8cbe1; --segment-soft: rgba(104, 157, 190, .19); }
+.theokyklos-svg-segment.segment-northeast { --segment-color: #91bd93; --segment-soft: rgba(72, 139, 78, .2); }
+.theokyklos-svg-segment.segment-east { --segment-color: #e9cd72; --segment-soft: rgba(211, 171, 48, .2); }
+.theokyklos-svg-segment.segment-southeast { --segment-color: #e39c58; --segment-soft: rgba(202, 106, 31, .2); }
+.theokyklos-svg-segment.segment-south { --segment-color: #d9786e; --segment-soft: rgba(178, 59, 49, .22); }
+.theokyklos-svg-segment.segment-southwest { --segment-color: #c3a067; --segment-soft: rgba(147, 106, 48, .2); }
+.theokyklos-svg-segment.segment-west { --segment-color: #78afc3; --segment-soft: rgba(50, 119, 151, .21); }
+.theokyklos-svg-segment.segment-northwest { --segment-color: #e7d28c; --segment-soft: rgba(215, 181, 74, .19); }
+
+.theokyklos-segment-shape {
+  fill: var(--segment-soft);
+  stroke: color-mix(in srgb, var(--segment-color) 48%, transparent);
+  stroke-width: 1;
+  transition: fill 160ms ease, stroke 160ms ease, filter 160ms ease;
+}
+
+.theokyklos-svg-segment:hover .theokyklos-segment-shape,
+.theokyklos-svg-segment:focus-visible .theokyklos-segment-shape,
+.theokyklos-svg-segment.is-selected .theokyklos-segment-shape {
+  fill: color-mix(in srgb, var(--segment-color) 28%, rgba(8, 27, 31, .86));
+  stroke: var(--segment-color);
+  stroke-width: 2;
+  filter: drop-shadow(0 0 11px color-mix(in srgb, var(--segment-color) 42%, transparent));
+}
+
+.theokyklos-segment-label { pointer-events: none; fill: #91aaa5; font-family: system-ui, sans-serif; }
+.theokyklos-segment-sigil { fill: var(--segment-color); font: 500 25px/1 Georgia, serif; }
+.theokyklos-segment-direction { fill: #eee7d9; font-size: 11px; font-weight: 950; letter-spacing: .12em; }
+.theokyklos-segment-name { fill: #91aaa5; font-size: 9px; font-weight: 700; }
+.theokyklos-svg-segment.is-selected .theokyklos-segment-name { fill: #f0e7d7; }
+
+.theokyklos-hearth-hit { fill: none; stroke: transparent; stroke-width: 58; pointer-events: stroke; }
+.theokyklos-hearth-line { fill: none; stroke: #cf8f49; stroke-width: 3; stroke-dasharray: 2 8; pointer-events: none; }
+.hearth-segment:hover .theokyklos-hearth-line,
+.hearth-segment:focus-visible .theokyklos-hearth-line,
+.hearth-segment.is-selected .theokyklos-hearth-line { stroke: #f0b866; stroke-width: 8; filter: url(#theokyklos-soft-glow); }
+.theokyklos-ring-label { pointer-events: none; fill: #d69d58; font: 800 10px/1 system-ui, sans-serif; letter-spacing: .1em; text-transform: uppercase; }
+
+.theokyklos-center-disc { fill: rgba(144, 50, 51, .54); stroke: #e0ad64; stroke-width: 2; }
+.theokyklos-center-line { fill: none; stroke: rgba(251, 222, 153, .35); stroke-width: 1; stroke-dasharray: 2 5; }
+.center-segment:hover .theokyklos-center-disc,
+.center-segment:focus-visible .theokyklos-center-disc,
+.center-segment.is-selected .theokyklos-center-disc { fill: rgba(164, 58, 57, .78); stroke: #f3d38a; filter: url(#theokyklos-soft-glow); }
+.theokyklos-center-label { pointer-events: none; fill: #f2dfb0; font: 800 10px/1 system-ui, sans-serif; letter-spacing: .05em; text-transform: uppercase; }
+.theokyklos-center-sigil { font: 500 28px/1 Georgia, serif; letter-spacing: .04em; }
+.theokyklos-center-caption { fill: #e8b96d; font-size: 8px; letter-spacing: .14em; }
+
+.axis-node circle { fill: #102b2d; stroke: rgba(213, 182, 110, .58); stroke-width: 2; }
+.axis-node text { pointer-events: none; fill: #e7d69e; font: 900 8px/1 system-ui, sans-serif; letter-spacing: .1em; }
+.axis-node-sigil { font: 500 24px/1 Georgia, serif; }
+.nadir-node circle { fill: #1b2028; stroke: rgba(150, 143, 179, .66); }
+.nadir-node text { fill: #c5bfda; }
+.axis-node:hover circle,
+.axis-node:focus-visible circle,
+.axis-node.is-selected circle { stroke-width: 5; filter: url(#theokyklos-soft-glow); }
+
+.threshold-node path { fill: rgba(213, 182, 110, .04); stroke: rgba(213, 182, 110, .55); stroke-width: 4; }
+.threshold-node text { pointer-events: none; fill: #d9c48d; font: 900 8px/1 system-ui, sans-serif; letter-spacing: .1em; }
+.threshold-sigil { font: 500 19px/1 Georgia, serif; }
+.exit-node path { stroke: rgba(175, 131, 160, .7); }
+.exit-node text { fill: #d8b7d0; }
+.threshold-node:hover path,
+.threshold-node:focus-visible path,
+.threshold-node.is-selected path { stroke-width: 8; filter: url(#theokyklos-soft-glow); }
+
+.theokyklos-stars { pointer-events: none; fill: #d5b66e; stroke: #d5b66e; stroke-width: 1; opacity: .48; }
+
+.theokyklos-segment-index {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(213, 182, 110, .13);
+}
+
+.theokyklos-segment-index button {
+  display: grid;
+  min-width: 0;
+  min-height: 70px;
+  place-items: center;
+  gap: 2px;
+  padding: 8px 5px;
+  color: #8fa5a0;
+  background: rgba(255, 255, 255, .025);
+  border: 1px solid rgba(255, 255, 255, .07);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.theokyklos-segment-index button:hover,
+.theokyklos-segment-index button.active { color: #f0e6d5; background: rgba(213, 182, 110, .1); border-color: rgba(213, 182, 110, .42); }
+.theokyklos-segment-index span { color: #d9ba72; font: 500 18px/1 Georgia, serif; }
+.theokyklos-segment-index small { font-size: 6px; font-weight: 950; letter-spacing: .09em; text-transform: uppercase; }
+.theokyklos-segment-index strong { max-width: 100%; overflow: hidden; font: 500 8px/1.2 Georgia, serif; text-overflow: ellipsis; white-space: nowrap; }
+
+.theokyklos-details {
+  --detail-accent: #a66d39;
+  position: sticky;
+  top: 18px;
+  display: grid;
+  gap: 17px;
+  padding: clamp(21px, 3vw, 30px);
+  color: var(--theokyklos-ink);
+  background:
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--detail-accent) 13%, transparent), transparent 36%),
+    rgba(248, 245, 237, .92);
+  border: 1px solid color-mix(in srgb, var(--detail-accent) 28%, rgba(33, 56, 56, .12));
+  border-radius: 7px 28px 7px 28px;
+  box-shadow: 0 22px 60px rgba(42, 55, 50, .1);
+  scroll-margin-top: 18px;
+}
+
+.theokyklos-details.segment-north { --detail-accent: #497d9c; }
+.theokyklos-details.segment-northeast { --detail-accent: #487f4b; }
+.theokyklos-details.segment-east { --detail-accent: #b48825; }
+.theokyklos-details.segment-southeast { --detail-accent: #bd6828; }
+.theokyklos-details.segment-south { --detail-accent: #a93f39; }
+.theokyklos-details.segment-southwest { --detail-accent: #8b6533; }
+.theokyklos-details.segment-west { --detail-accent: #347a96; }
+.theokyklos-details.segment-northwest { --detail-accent: #aa841d; }
+.theokyklos-details.segment-zenith { --detail-accent: #a37c24; }
+.theokyklos-details.segment-nadir { --detail-accent: #5e5879; }
+.theokyklos-details.segment-hearth { --detail-accent: #b26830; }
+.theokyklos-details.segment-center { --detail-accent: #9b393b; }
+.theokyklos-details.segment-entrance { --detail-accent: #ad8d42; }
+.theokyklos-details.segment-exit { --detail-accent: #8c567b; }
+
+.theokyklos-details > header { display: grid; grid-template-columns: 58px minmax(0, 1fr); align-items: center; gap: 14px; }
+.theokyklos-details-symbol { display: grid; width: 58px; height: 58px; place-items: center; color: var(--detail-accent); font: 500 24px/1 Georgia, serif; background: color-mix(in srgb, var(--detail-accent) 10%, #fff); border: 1px solid color-mix(in srgb, var(--detail-accent) 28%, transparent); border-radius: 50%; }
+.theokyklos-details .eyebrow { color: var(--detail-accent); }
+.theokyklos-details h2 { margin: 4px 0 3px; font: 400 clamp(27px, 3vw, 40px)/1.02 Georgia, serif; letter-spacing: -.03em; }
+.theokyklos-details header strong { color: var(--detail-accent); font-size: 8px; letter-spacing: .09em; text-transform: uppercase; }
+.theokyklos-essence { margin: 0; color: var(--detail-accent); font: 600 14px/1.5 Georgia, serif; }
+.theokyklos-description { margin: 0; color: #536965; font: 400 12px/1.7 Georgia, serif; }
+
+.theokyklos-incantation {
+  display: grid;
+  gap: 12px;
+  padding-top: 17px;
+  border-top: 1px solid color-mix(in srgb, var(--detail-accent) 24%, transparent);
+}
+
+.theokyklos-incantation h3 { margin: 3px 0 0; font: 400 23px/1.1 Georgia, serif; }
+.theokyklos-incantation > p { margin: 0; color: #748581; font-size: 8px; line-height: 1.55; }
+.theokyklos-incantation ol { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; counter-reset: sacred-word; }
+.theokyklos-incantation li { display: grid; grid-template-columns: minmax(88px, .62fr) minmax(0, 1fr); align-items: center; gap: 12px; padding: 11px 12px; background: rgba(255, 255, 255, .58); border: 1px solid color-mix(in srgb, var(--detail-accent) 15%, rgba(33, 56, 56, .09)); border-radius: 11px; counter-increment: sacred-word; }
+.theokyklos-incantation li > span { color: var(--detail-accent); font: 500 19px/1.1 Georgia, serif; }
+.theokyklos-incantation li > div { display: grid; min-width: 0; gap: 3px; }
+.theokyklos-incantation li strong { color: #243f3e; font-size: 9px; }
+.theokyklos-incantation li small { color: #73837f; font: 400 9px/1.35 Georgia, serif; }
+
+.theokyklos-ritual-path {
+  display: grid;
+  grid-template-columns: minmax(240px, .62fr) minmax(0, 1.38fr);
+  gap: 25px;
+  align-items: center;
+  padding: clamp(23px, 4vw, 38px);
+  color: #eee5d6;
+  background: linear-gradient(135deg, #102b2d, #07191d);
+  border: 1px solid rgba(213, 182, 110, .2);
+  border-radius: 7px 26px 7px 26px;
+}
+
+.theokyklos-ritual-path .eyebrow { color: #d5b66e; }
+.theokyklos-ritual-path h2 { margin: 5px 0 0; font: 400 clamp(25px, 3vw, 38px)/1.05 Georgia, serif; }
+.theokyklos-ritual-path ol { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+.theokyklos-ritual-path li { display: grid; min-width: 0; gap: 5px; padding: 14px; background: rgba(255, 255, 255, .035); border: 1px solid rgba(255, 255, 255, .07); border-radius: 12px; }
+.theokyklos-ritual-path li > span { color: #d5b66e; font-size: 7px; font-weight: 950; letter-spacing: .08em; }
+.theokyklos-ritual-path li strong { font: 500 12px/1.25 Georgia, serif; }
+.theokyklos-ritual-path li small { color: #8fa29d; font-size: 7px; line-height: 1.35; }
+
+@media (max-width: 1180px) {
+  .theokyklos-layout { grid-template-columns: minmax(0, 1fr) 330px; }
+  .theokyklos-segment-index { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .theokyklos-ritual-path { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 920px) {
+  .theokyklos-layout { grid-template-columns: minmax(0, 1fr); }
+  .theokyklos-details { position: static; }
+  .theokyklos-segment-index { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+}
+
+@media (max-width: 760px) {
+  .theokyklos-view { gap: 13px; }
+  .theokyklos-hero { min-height: 0; grid-template-columns: minmax(0, 1fr) 72px; gap: 13px; padding: 25px 19px; border-radius: 5px 24px 5px 24px; }
+  .theokyklos-hero h1 { font-size: clamp(43px, 14vw, 60px); }
+  .theokyklos-hero-copy > p { font-size: 10px; line-height: 1.55; }
+  .theokyklos-hero-seal { width: 72px; height: 72px; }
+  .theokyklos-hero-seal::before { inset: 8px; }
+  .theokyklos-hero-seal::after { inset: 19px; }
+  .theokyklos-hero-seal span { margin-top: 8px; font-size: 34px; }
+  .theokyklos-hero-seal small { margin-top: -16px; font-size: 5px; }
+  .theokyklos-counts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .theokyklos-counts dt { font-size: 18px; }
+  .theokyklos-counts dd { font-size: 6px; }
+  .theokyklos-mandala-card { padding: 15px 9px; border-radius: 5px 22px 5px 22px; }
+  .theokyklos-mandala-heading { align-items: start; flex-direction: column; gap: 8px; padding-inline: 8px; }
+  .theokyklos-mandala-heading h2 { font-size: 27px; }
+  .theokyklos-mandala-heading p { max-width: none; text-align: left; }
+  .theokyklos-segment-name { display: none; }
+  .theokyklos-segment-sigil { font-size: 29px; }
+  .theokyklos-segment-direction { font-size: 14px; }
+  .theokyklos-segment-index { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; padding-inline: 3px; }
+  .theokyklos-segment-index button { min-height: 64px; }
+  .theokyklos-details { gap: 15px; padding: 22px 17px; border-radius: 5px 22px 5px 22px; }
+  .theokyklos-details > header { grid-template-columns: 50px minmax(0, 1fr); }
+  .theokyklos-details-symbol { width: 50px; height: 50px; font-size: 21px; }
+  .theokyklos-details h2 { font-size: clamp(27px, 9vw, 36px); }
+  .theokyklos-description { font-size: 11px; }
+  .theokyklos-incantation li { grid-template-columns: 94px minmax(0, 1fr); }
+  .theokyklos-incantation li > span { font-size: 17px; }
+  .theokyklos-ritual-path { gap: 18px; padding: 23px 18px; }
+  .theokyklos-ritual-path ol { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 430px) {
+  .theokyklos-hero { grid-template-columns: minmax(0, 1fr); }
+  .theokyklos-hero-seal { display: none; }
+  .theokyklos-incantation li { grid-template-columns: minmax(0, 1fr); gap: 5px; }
+  .theokyklos-ritual-path ol { grid-template-columns: minmax(0, 1fr); }
+  .mobile-nav { overflow-x: auto; grid-auto-columns: minmax(48px, 1fr); overscroll-behavior-x: contain; }
+}

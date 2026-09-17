@@ -50,6 +50,7 @@ import { GeminiAssistant } from "./GeminiAssistant";
 import { LocalVoiceAssistant } from "./LocalVoiceAssistant";
 import { currentLegalPage, LegalPage } from "./LegalPage";
 import { StoicheionView } from "./StoicheionView";
+import { TheokyklosView } from "./TheokyklosView";
 import { TimeClockPicker } from "./TimeClockPicker";
 import { CalendarDatePicker } from "./CalendarDatePicker";
 import { TaskReminderPicker } from "./TaskReminderPicker";
@@ -125,7 +126,7 @@ import {
   type DayRhythmPeriodId,
 } from "./day-rhythm";
 
-type ViewName = "today" | "calendar" | "projects" | "year" | "all-tasks" | "stoicheion" | "admin";
+type ViewName = "today" | "calendar" | "projects" | "year" | "all-tasks" | "stoicheion" | "theokyklos" | "admin";
 
 type StoredState = {
   tasks: Task[];
@@ -188,6 +189,7 @@ const NAVIGATION: Array<{ id: ViewName; label: string; symbol: string }> = [
   { id: "calendar", label: "Месяц", symbol: "◫" },
   { id: "year", label: "Круг года", symbol: "◎" },
   { id: "stoicheion", label: "Стойхейон", symbol: "ϟ" },
+  { id: "theokyklos", label: "Теокиклос", symbol: "Θ" },
 ];
 
 const CALENDAR_MODE_META: Record<CalendarMode, { label: string }> = {
@@ -348,7 +350,7 @@ const SOLAR_EVENT_COPY: Record<NonNullable<ReturnType<typeof getSolarEvent>>["id
   },
 };
 
-const VIEW_NAMES = new Set<ViewName>(["today", "calendar", "projects", "year", "all-tasks", "stoicheion", "admin"]);
+const VIEW_NAMES = new Set<ViewName>(["today", "calendar", "projects", "year", "all-tasks", "stoicheion", "theokyklos", "admin"]);
 
 function viewFromHash(): ViewName {
   if (typeof window === "undefined") return "today";
@@ -4933,7 +4935,7 @@ export function GenesisCalendar() {
       <section className="app-stage">
         <header className="topbar">
           <div>
-            <span className="topbar-kicker">{CALENDAR_MODE_META[activeCalendarMode].label}</span>
+            <span className="topbar-kicker">{view === "theokyklos" ? "Теокиклос" : CALENDAR_MODE_META[activeCalendarMode].label}</span>
             <strong>{formatCalendarDate(today, activeCalendarMode, activeCalendarMode !== "sacred")}</strong>
           </div>
           <div className="topbar-actions">
@@ -5043,6 +5045,7 @@ export function GenesisCalendar() {
                 divinationDisabled={Boolean(cloudUser?.stoicheionDivinationDisabled)}
               />
             ) : null}
+            {view === "theokyklos" ? <TheokyklosView language={language} /> : null}
             {view === "admin" && cloudUser?.isAdmin ? <AdminPanel /> : null}
             <footer className="genesis-page-footer" aria-label="Ссылки проекта">
               <a href="https://t.me/genesisbasilea" target="_blank" rel="noreferrer">

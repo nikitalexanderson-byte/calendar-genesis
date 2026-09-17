@@ -9,6 +9,7 @@ import {
 } from "../app/task-reminders.ts";
 import { formatClockTime, formatTimeValue, hourFromTwelveHour, twelveHourParts } from "../app/time-format.ts";
 import { DAY_RHYTHM_PERIODS, formatDayRhythmRange, getDayRhythmMoment } from "../app/day-rhythm.ts";
+import { THEOKYKLOS_DIRECTION_IDS, THEOKYKLOS_SEGMENTS } from "../app/theokyklos-data.ts";
 
 async function render() {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
@@ -43,6 +44,40 @@ test("server-renders the GENESIS application shell", async () => {
   assert.match(html, /--month-accent:/);
   assert.doesNotMatch(html, /Your site is taking shape|Building your site/);
   assert.doesNotMatch(html, /href=["']\/admin-access/);
+});
+
+test("ships the complete interactive bilingual Theokyklos", async () => {
+  const [calendar, component, styles, i18n] = await Promise.all([
+    readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/TheokyklosView.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../app/i18n.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.equal(THEOKYKLOS_SEGMENTS.length, 14);
+  assert.equal(THEOKYKLOS_DIRECTION_IDS.length, 8);
+  assert.deepEqual(new Set(THEOKYKLOS_SEGMENTS.map((segment) => segment.id)), new Set([
+    "north", "northeast", "east", "southeast", "south", "southwest", "west", "northwest",
+    "zenith", "nadir", "hearth", "center", "entrance", "exit",
+  ]));
+  assert.ok(THEOKYKLOS_SEGMENTS.every((segment) => segment.words.length === 4));
+  const englishCopy = THEOKYKLOS_SEGMENTS.flatMap((segment) => [
+    segment.short.en,
+    segment.title.en,
+    segment.patrons.en,
+    segment.essence.en,
+    segment.description.en,
+    ...segment.words.flatMap((word) => [word.pronunciation.en, word.meaning.en]),
+  ]).join("\n");
+  assert.doesNotMatch(englishCopy, /[А-Яа-яЁё]/u);
+  assert.match(calendar, /id: "theokyklos", label: "Теокиклос", symbol: "Θ"/);
+  assert.match(calendar, /<TheokyklosView language=\{language\} \/>/);
+  assert.match(component, /theokyklos-mandala/);
+  assert.match(component, /aria-pressed=\{selectedId === segment\.id\}/);
+  assert.match(component, /selected\.words\.map/);
+  assert.match(styles, /\.theokyklos-view/);
+  assert.match(styles, /\.theokyklos-segment-shape/);
+  assert.match(i18n, /"Теокиклос": "Theokyklos"/);
 });
 
 test("ships a compact verified Android test application only to Android phones", async () => {
