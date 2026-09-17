@@ -3046,12 +3046,16 @@ export function GenesisCalendar() {
     const weekday = new Intl.DateTimeFormat(runtimeLocale(), { weekday: "short" }).format(date).replace(/\.$/u, "");
     const weekdayPatron = PROFANE_WEEKDAY_PATRONS[date.getDay()];
     const profaneDate = new Intl.DateTimeFormat(runtimeLocale(), { day: "numeric", month: "short" }).format(date);
+    const adjacentMonthName = isAdjacentMonth
+      ? new Intl.DateTimeFormat(runtimeLocale(), { month: "long" }).format(date)
+      : "";
+    const adjacentMonthDescriptor = adjacentMonth === "previous" ? "Предыдущий месяц" : "Следующий месяц";
 
     return (
       <article
         className={`calendar-day calendar-mode-day mode-${mode}${mode === "profane" ? ` weekday-${weekdayIndex}` : ""}${isSelected ? " selected" : ""}${isToday ? " today" : ""}${isSaturday ? " saturday" : ""}${solarEvent ? " solar-day" : ""}${taskCount ? " has-tasks" : ""}${popoverOpen ? " popover-open" : ""}${isAdjacentMonth ? ` adjacent-month ${adjacentMonth}-month` : ""}`}
         style={isAdjacentMonth ? { "--adjacent-month-opacity": adjacentOpacity } as CSSProperties : undefined}
-        aria-label={isAdjacentMonth ? `${formatGregorian(date, true)} — соседний месяц, только для просмотра` : undefined}
+        aria-label={isAdjacentMonth ? `${formatGregorian(date, true)} — ${adjacentMonthDescriptor.toLocaleLowerCase(runtimeLocale())}, только для просмотра` : undefined}
         key={`${adjacentMonth ?? "current"}-${dateValue}`}
       >
         {isAdjacentMonth ? null : (
@@ -3063,6 +3067,12 @@ export function GenesisCalendar() {
             aria-label={`${formatCalendarDate(date, mode, true)}${mode === "profane" ? ` — ${weekdayPatron.weekday}, ${weekdayPatron.patronage}` : ""} — ${sacredDay.name} — ${moon.day} лунный день${taskCount ? ` — ${taskCount} задач` : ""}`}
           />
         )}
+        {isAdjacentMonth ? (
+          <span className="adjacent-month-label" aria-hidden="true">
+            <small>{adjacentMonthDescriptor}</small>
+            <strong>{adjacentMonthName}</strong>
+          </span>
+        ) : null}
         <span className="calendar-mode-primary">
           {mode === "lunar" ? <MoonPhaseIcon phaseStep={moon.phaseStep} size={26} /> : null}
           <strong>{mode === "lunar" ? moon.day : date.getDate()}</strong>
@@ -3383,9 +3393,9 @@ export function GenesisCalendar() {
         ))
       : [];
     const adjacentMonthOpacity = (position: "previous" | "next", index: number, count: number) => {
-      if (count <= 1) return 0.68;
+      if (count <= 1) return 0.54;
       const progress = index / (count - 1);
-      return position === "previous" ? 0.32 + (progress * 0.36) : 0.68 - (progress * 0.36);
+      return position === "previous" ? 0.24 + (progress * 0.3) : 0.54 - (progress * 0.3);
     };
     const weekdayLabels = Array.from({ length: 7 }, (_, index) => {
       const day = new Date(2024, 0, 7 + index, 12);

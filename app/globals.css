@@ -9081,12 +9081,42 @@ button.project-drag-handle:active { cursor: grabbing; }
 }
 
 .calendar-mode-calendar.mode-profane .calendar-mode-day.adjacent-month {
-  opacity: var(--adjacent-month-opacity, .5);
+  opacity: var(--adjacent-month-opacity, .4);
   pointer-events: none;
   filter: saturate(.62) brightness(.86);
   transform: none;
   transition: none;
   user-select: none;
+}
+
+.calendar-mode-calendar.mode-profane .calendar-mode-day.adjacent-month .adjacent-month-label {
+  position: absolute;
+  z-index: 0;
+  right: 10px;
+  bottom: 43px;
+  display: grid;
+  max-width: calc(100% - 20px);
+  gap: 2px;
+  justify-items: end;
+  color: #17332f;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.calendar-mode-calendar.mode-profane .calendar-mode-day.adjacent-month .adjacent-month-label small {
+  color: #74571c;
+  font-size: 5.5px;
+  font-weight: 900;
+  letter-spacing: .08em;
+  line-height: 1.2;
+}
+
+.calendar-mode-calendar.mode-profane .calendar-mode-day.adjacent-month .adjacent-month-label strong {
+  overflow: hidden;
+  font: 700 14px/1 Georgia, "Times New Roman", serif;
+  letter-spacing: .06em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .calendar-mode-calendar.mode-profane .calendar-mode-day.adjacent-month:hover {
