@@ -6,6 +6,7 @@ import type { CalendarMode } from "./calendar-data";
 import type { GenesisCategory, GenesisUser, SyncRouting } from "./cloud-sync";
 import { deleteGenesisAccount, disconnectGoogleServices, removeAdditionalGoogleAccount, updateAccountPreferences } from "./cloud-sync";
 import { runtimeLocale, translateText, type Language } from "./i18n";
+import type { TimeFormat } from "./time-format";
 
 type AccountPanelProps = {
   user: GenesisUser;
@@ -21,6 +22,11 @@ const CALENDAR_MODES: Array<{ id: CalendarMode; label: string; hint: string }> =
   { id: "sacred", label: "Сакральный", hint: "Месяцы, пяты и дни GENESIS" },
   { id: "lunar", label: "Лунный", hint: "Лунные месяцы и дни" },
   { id: "profane", label: "Григорианский", hint: "Обычные даты, недели и 12 месяцев" },
+];
+
+const TIME_FORMATS: Array<{ id: TimeFormat; label: string; example: string }> = [
+  { id: "24h", label: "24 часа", example: "13:30" },
+  { id: "12h", label: "AM / PM", example: "01:30 PM" },
 ];
 
 export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditionalGoogle, onLanguageChange, onUserChange, categories }: AccountPanelProps) {
@@ -88,6 +94,21 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
       setMessage(language === "en" ? "Language changed to English." : "Язык переключён на русский.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Не удалось переключить язык.");
+    } finally {
+      setPreferenceBusy(false);
+    }
+  };
+
+  const changeTimeFormat = async (timeFormat: TimeFormat) => {
+    if ((user.timeFormat ?? "24h") === timeFormat) return;
+    setPreferenceBusy(true);
+    setMessage("");
+    try {
+      const result = await updateAccountPreferences({ timeFormat });
+      onUserChange(result.user);
+      setMessage(timeFormat === "12h" ? "Включён формат времени AM / PM." : "Включён 24-часовой формат времени.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Не удалось переключить формат времени.");
     } finally {
       setPreferenceBusy(false);
     }
@@ -191,6 +212,30 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
             <button type="button" role="radio" aria-checked={user.language === "en"} className={user.language === "en" ? "active" : ""} disabled={preferenceBusy} onClick={() => void changeLanguage("en")}>
               <span className="language-flag" aria-hidden="true">🇺🇸</span><strong>English</strong>
             </button>
+          </div>
+        </section>
+
+        <section className="account-preferences time-format-preference" aria-labelledby="time-format-title">
+          <div>
+            <span className="eyebrow">Формат времени</span>
+            <h3 id="time-format-title">Отображение часов</h3>
+            <p>Настройка применяется к часам раздела «Сегодня», выбору времени задач и точным напоминаниям.</p>
+          </div>
+          <div className="language-choice time-format-choice" role="radiogroup" aria-label="Формат времени">
+            {TIME_FORMATS.map((format) => (
+              <button
+                type="button"
+                role="radio"
+                aria-checked={(user.timeFormat ?? "24h") === format.id}
+                className={(user.timeFormat ?? "24h") === format.id ? "active" : ""}
+                disabled={preferenceBusy}
+                onClick={() => void changeTimeFormat(format.id)}
+                key={format.id}
+              >
+                <strong>{format.label}</strong>
+                <small>{format.example}</small>
+              </button>
+            ))}
           </div>
         </section>
 

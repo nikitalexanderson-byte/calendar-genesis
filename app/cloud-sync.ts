@@ -2,6 +2,7 @@ import { recurrenceDatesForTask, type RecurrenceMode, type RecurrencePattern } f
 import { normalizeCalendarDateNote, type CalendarMode } from "./calendar-data";
 import type { Language } from "./i18n";
 import { legacyReminderMinutes, normalizeTaskReminders, type TaskReminder } from "./task-reminders";
+import type { TimeFormat } from "./time-format";
 
 export type RecurrenceKind =
   | "none"
@@ -109,6 +110,7 @@ export type GenesisUser = {
   isAdmin: boolean;
   calendarMode: CalendarMode;
   taskCalendarMode?: CalendarMode;
+  timeFormat?: TimeFormat;
   language: Language;
   multiAccountEnabled: boolean;
   googleAccounts: GoogleAccount[];
@@ -583,6 +585,7 @@ export async function updateAccountPreferences(preferences: Partial<{
   stoicheionDivinationDisabled: boolean;
   calendarMode: CalendarMode;
   taskCalendarMode: CalendarMode;
+  timeFormat: TimeFormat;
   language: Language;
   syncRouting: SyncRouting;
 }>) {
