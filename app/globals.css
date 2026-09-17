@@ -9306,6 +9306,58 @@ button.project-drag-handle:active { cursor: grabbing; }
   color: #805b16;
 }
 
+/* Lunar solar points carry the same unmistakable gold hierarchy as Gregorian ones. */
+.calendar-mode-calendar.mode-lunar .calendar-day.mode-lunar.solar-day:not(.selected, .today) {
+  color: #172824;
+  background: linear-gradient(145deg, #fae9ae 0%, #dfc16b 54%, #c59b43 100%);
+  border-color: #f0cf6c;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 249, 207, .72),
+    0 15px 30px rgba(91, 64, 13, .25);
+}
+
+.calendar-mode-calendar.mode-lunar .calendar-day.mode-lunar.solar-day:not(.selected, .today) .calendar-mode-primary > strong {
+  color: #172824;
+}
+
+.calendar-mode-calendar.mode-lunar .calendar-day.mode-lunar.solar-day:not(.selected, .today) .calendar-mode-primary > small,
+.calendar-mode-calendar.mode-lunar .calendar-day.mode-lunar.solar-day:not(.selected, .today) .calendar-cross-date,
+.calendar-mode-calendar.mode-lunar .calendar-day.mode-lunar.solar-day:not(.selected, .today) .calendar-sun-times,
+.calendar-mode-calendar.mode-lunar .calendar-day.mode-lunar.solar-day:not(.selected, .today) .calendar-moon {
+  color: #34463d;
+}
+
+.calendar-mode-calendar.mode-lunar .calendar-day.mode-lunar.solar-day:not(.selected, .today) .calendar-cross-date b,
+.calendar-mode-calendar.mode-lunar .calendar-day.mode-lunar.solar-day:not(.selected, .today) .calendar-cross-date .cronus-sickle-icon,
+.calendar-mode-calendar.mode-lunar .calendar-day.mode-lunar.solar-day:not(.selected, .today) .calendar-cross-date .moon-phase-icon,
+.calendar-mode-calendar.mode-lunar .calendar-day.mode-lunar.solar-day:not(.selected, .today) .calendar-sun-times i {
+  color: #60420b;
+}
+
+.calendar-mode-calendar.mode-lunar .calendar-day.mode-lunar.solar-day:not(.selected, .today) .calendar-solar-mark {
+  width: fit-content;
+  padding: 4px 7px;
+  color: #513502;
+  background: rgba(255, 249, 207, .42);
+  border: 1px solid rgba(96, 66, 11, .28);
+  border-radius: 999px;
+}
+
+.calendar-mode-calendar.mode-lunar .calendar-day.mode-lunar.solar-day:not(.selected, .today) .calendar-solar-mark em {
+  display: inline;
+  font-size: 7px;
+  font-weight: 950;
+}
+
+.calendar-mode-calendar.mode-lunar .calendar-day.mode-lunar.solar-day:not(.selected, .today):hover {
+  color: #142b29;
+  background: linear-gradient(145deg, #fff4c7 0%, #e8cc79 54%, #d1aa51 100%);
+  border-color: #ffe092;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 253, 224, .86),
+    0 18px 34px rgba(91, 64, 13, .3);
+}
+
 /* A selected current day keeps its weekday fill, but never loses the red "today" frame. */
 .calendar-mode-calendar.mode-profane .calendar-day.mode-profane.selected.today,
 .calendar-mode-calendar.mode-profane .calendar-day.mode-profane.selected.today:hover {
