@@ -675,6 +675,10 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(styles, /var\(--weekday-selected-muted\)/);
   assert.match(styles, /\.calendar-mode-calendar\.mode-profane \.calendar-day\.mode-profane\.solar-day:not\(\.selected, \.today\)\s*\{[\s\S]*linear-gradient\(145deg, #fae9ae 0%, #dfc16b 54%, #c59b43 100%\)/);
   assert.match(styles, /\.calendar-day\.mode-profane\.solar-day:not\(\.selected, \.today\):hover\s*\{[\s\S]*background: var\(--white\);[\s\S]*var\(--weekday-card-tint-hover\)/);
+  assert.match(styles, /\.calendar-mode-calendar\.mode-lunar \.calendar-day\.mode-lunar\.solar-day:not\(\.selected, \.today\)\s*\{[\s\S]*linear-gradient\(145deg, #fae9ae 0%, #dfc16b 54%, #c59b43 100%\)/);
+  assert.match(styles, /\.calendar-day\.mode-lunar\.solar-day:not\(\.selected, \.today\) \.calendar-solar-mark\s*\{[\s\S]*background: rgba\(255, 249, 207, \.42\);[\s\S]*border-radius: 999px/);
+  assert.match(styles, /\.calendar-day\.mode-lunar\.solar-day:not\(\.selected, \.today\) \.calendar-solar-mark em\s*\{[\s\S]*display: inline;[\s\S]*font-weight: 950/);
+  assert.match(styles, /\.calendar-day\.mode-lunar\.solar-day:not\(\.selected, \.today\):hover\s*\{[\s\S]*linear-gradient\(145deg, #fff4c7 0%, #e8cc79 54%, #d1aa51 100%\)/);
   assert.match(styles, /\.calendar-day\.mode-profane\.selected\.today,[\s\S]*border-color: #a54133;[\s\S]*rgba\(165, 65, 51, \.94\)/);
   assert.match(styles, /\.hero-day-title-translation\s*\{[\s\S]*white-space: nowrap/);
   assert.match(calendar, /profane-year-full-width/);
