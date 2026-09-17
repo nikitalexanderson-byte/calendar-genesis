@@ -853,7 +853,6 @@ function DayRhythmPanel({ now, timeFormat }: { now: Date; timeFormat: TimeFormat
   const toggleLabel = expanded
     ? (isEnglish ? "Collapse daily rhythm" : "Свернуть ритм суток")
     : (isEnglish ? "Expand daily rhythm" : "Развернуть ритм суток");
-  const currentTime = formatClockTime(liveNow, timeFormat);
   const remainingTime = `${String(Math.floor(moment.remainingSeconds / 60)).padStart(2, "0")}:${String(moment.remainingSeconds % 60).padStart(2, "0")}`;
 
   return (
@@ -874,7 +873,6 @@ function DayRhythmPanel({ now, timeFormat }: { now: Date; timeFormat: TimeFormat
           ) : null}
         </div>
         <div className="day-rhythm-heading-actions">
-          <time dateTime={liveNow.toISOString()}>{currentTime}</time>
           <button
             type="button"
             className="day-rhythm-toggle"
@@ -883,7 +881,9 @@ function DayRhythmPanel({ now, timeFormat }: { now: Date; timeFormat: TimeFormat
             onClick={() => setExpanded((value) => !value)}
           >
             <span>{toggleLabel}</span>
-            <i aria-hidden="true">⌄</i>
+            <svg className="day-rhythm-toggle-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="m6.5 9 5.5 5.5L17.5 9" />
+            </svg>
           </button>
         </div>
       </header>

@@ -9752,18 +9752,6 @@ button.project-drag-handle:active { cursor: grabbing; }
 }
 .day-rhythm-summary > span { color: var(--rhythm-accent); font: 500 17px/1 Georgia, serif; }
 .day-rhythm-heading-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 9px; }
-.day-rhythm-heading-actions > time {
-  flex: 0 0 auto;
-  min-width: 104px;
-  padding: 9px 13px;
-  color: #07171b;
-  font-size: 14px;
-  font-weight: 950;
-  text-align: center;
-  background: var(--rhythm-accent);
-  border-radius: 999px;
-  box-shadow: 0 8px 22px color-mix(in srgb, var(--rhythm-accent) 20%, transparent);
-}
 .day-rhythm-toggle {
   display: flex;
   align-items: center;
@@ -9784,8 +9772,23 @@ button.project-drag-handle:active { cursor: grabbing; }
 }
 .day-rhythm-toggle:hover { color: #07171b; background: var(--rhythm-accent); border-color: var(--rhythm-accent); }
 .day-rhythm-toggle:focus-visible { outline: 2px solid var(--rhythm-accent); outline-offset: 3px; }
-.day-rhythm-toggle i { font-size: 17px; font-style: normal; line-height: .7; transition: transform 180ms ease; }
-.day-rhythm-panel.is-expanded .day-rhythm-toggle i { transform: rotate(180deg); }
+.day-rhythm-toggle-icon {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  padding: 3px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  background: color-mix(in srgb, var(--rhythm-accent) 13%, transparent);
+  border: 1px solid color-mix(in srgb, var(--rhythm-accent) 28%, transparent);
+  border-radius: 50%;
+  transition: transform 180ms ease, background 140ms ease, border-color 140ms ease;
+}
+.day-rhythm-toggle:hover .day-rhythm-toggle-icon { background: rgba(7, 23, 27, .12); border-color: rgba(7, 23, 27, .22); }
+.day-rhythm-panel.is-expanded .day-rhythm-toggle-icon { transform: rotate(180deg); }
 
 .day-rhythm-details { display: grid; gap: 15px; }
 .day-rhythm-details[hidden] { display: none; }
@@ -9947,8 +9950,7 @@ button.project-drag-handle:active { cursor: grabbing; }
   .day-rhythm-panel.is-collapsed { padding-block: 15px; }
   .day-rhythm-heading { align-items: flex-start; flex-direction: column; gap: 10px; }
   .day-rhythm-heading h2 { font-size: clamp(23px, 7.5vw, 30px); }
-  .day-rhythm-heading-actions { width: 100%; justify-content: space-between; }
-  .day-rhythm-heading-actions > time { min-width: 0; padding: 7px 11px; font-size: 12px; }
+  .day-rhythm-heading-actions { width: 100%; justify-content: flex-end; }
   .day-rhythm-toggle { min-height: 34px; }
   .day-rhythm-current { grid-template-columns: 52px minmax(0, 1fr); gap: 12px; padding: 13px; }
   .day-rhythm-current-symbol { width: 52px; height: 52px; }

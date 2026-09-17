@@ -565,7 +565,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /useSyncExternalStore\(subscribeDeviceClock, getDeviceClockSnapshot, getServerDeviceClockSnapshot\)/);
   assert.match(calendar, /1000 - \(Date\.now\(\) % 1000\)/);
   assert.match(calendar, /const liveNow = clock\?\.now \?\? now/);
-  assert.match(calendar, /const currentTime = formatClockTime\(liveNow, timeFormat\)/);
+  assert.doesNotMatch(calendar, /const currentTime = formatClockTime\(liveNow, timeFormat\)/);
+  assert.doesNotMatch(calendar, /<time dateTime=\{liveNow\.toISOString\(\)\}>/);
   assert.match(calendar, /moment\.remainingSeconds % 60/);
   assert.match(calendar, /const \[expanded, setExpanded\] = useState\(false\)/);
   assert.match(calendar, /aria-expanded=\{expanded\}/);
@@ -573,11 +574,14 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /id="day-rhythm-details" hidden=\{!expanded\}/);
   assert.match(calendar, /Развернуть ритм суток/);
   assert.match(calendar, /Expand daily rhythm/);
+  assert.match(calendar, /<svg className="day-rhythm-toggle-icon"[\s\S]*?<path d="m6\.5 9 5\.5 5\.5L17\.5 9" \/>/);
+  assert.doesNotMatch(calendar, /<i aria-hidden="true">⌄<\/i>/);
   assert.match(calendar, /Двенадцать двухчасовых периодов суток/);
   assert.match(calendar, /Вернуться к текущему/);
   assert.match(styles, /\.day-rhythm-panel\s*\{/);
   assert.match(styles, /\.day-rhythm-panel\.is-collapsed\s*\{/);
   assert.match(styles, /\.day-rhythm-toggle\s*\{/);
+  assert.match(styles, /\.day-rhythm-toggle-icon\s*\{/);
   assert.match(styles, /\.day-rhythm-details\s*\{/);
   assert.match(styles, /\.day-rhythm-dayline\s*\{[\s\S]*repeat\(12/);
   assert.match(styles, /\.today-workspace \.day-rhythm-panel \{ order: 2; \}/);
