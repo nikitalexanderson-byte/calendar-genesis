@@ -8,6 +8,7 @@ import {
   reminderMinutesBeforeTask,
 } from "../app/task-reminders.ts";
 import { formatClockTime, formatTimeValue, hourFromTwelveHour, twelveHourParts } from "../app/time-format.ts";
+import { DAY_RHYTHM_PERIODS, formatDayRhythmRange, getDayRhythmMoment } from "../app/day-rhythm.ts";
 
 async function render() {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
@@ -184,6 +185,25 @@ test("formats canonical task times as 24-hour or AM/PM values", () => {
   assert.equal(hourFromTwelveHour(12, "AM"), 0);
   assert.equal(hourFromTwelveHour(12, "PM"), 12);
   assert.equal(formatClockTime(new Date(2026, 0, 1, 13, 7, 9), "12h"), "01:07:09 PM");
+});
+
+test("resolves the elemental period and divine watch from device time", () => {
+  const at = (hour, minute = 0) => getDayRhythmMoment(new Date(2026, 0, 1, hour, minute));
+
+  assert.equal(DAY_RHYTHM_PERIODS.length, 4);
+  assert.equal(DAY_RHYTHM_PERIODS.flatMap((period) => period.watches).length, 12);
+  assert.deepEqual([at(0).period.id, at(0).watch.deity], ["earth", "Гестия"]);
+  assert.equal(at(2).watch.deity, "Гера");
+  assert.equal(at(4).watch.deity, "Посейдон");
+  assert.deepEqual([at(6).period.id, at(6).watch.deity], ["air", "Арес"]);
+  assert.equal(at(10, 59).watch.deity, "Гермес");
+  assert.deepEqual([at(12).period.id, at(12).watch.deity], ["fire", "Артемида"]);
+  assert.equal(at(16).watch.deity, "Деметра");
+  assert.deepEqual([at(18).period.id, at(18).watch.deity], ["water", "Гефест"]);
+  assert.equal(at(23, 59).watch.deity, "Зевс");
+  assert.equal(formatDayRhythmRange(18, 24, "24h"), "18:00–00:00");
+  assert.equal(formatDayRhythmRange(18, 24, "12h"), "06:00 PM–12:00 AM");
+  assert.equal(formatDayRhythmRange(0, 6, "12h"), "12:00 AM–06:00 AM");
 });
 
 test("keeps the requested calendar and privacy features wired", async () => {
@@ -537,6 +557,12 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.doesNotMatch(calendar, /renderTaskListCreateForm\("projects"\)/);
   assert.match(calendar, /DeviceClock/);
   assert.match(calendar, /<div className="hero-number" aria-hidden="true">[\s\S]*?<\/div>\s*<DeviceClock timeFormat=\{activeTimeFormat\} \/>/);
+  assert.match(calendar, /<DayRhythmPanel now=\{today\} timeFormat=\{activeTimeFormat\} \/>/);
+  assert.match(calendar, /Двенадцать двухчасовых периодов суток/);
+  assert.match(calendar, /Вернуться к текущему/);
+  assert.match(styles, /\.day-rhythm-panel\s*\{/);
+  assert.match(styles, /\.day-rhythm-dayline\s*\{[\s\S]*repeat\(12/);
+  assert.match(styles, /\.today-workspace \.day-rhythm-panel \{ order: 2; \}/);
   assert.match(calendar, /Сегодня \{isNewMoonDay \? "новолуние" : "полнолуние"\}/);
   assert.match(calendar, /SOLAR_EVENT_COPY/);
   assert.match(calendar, /Академия Генезис/);

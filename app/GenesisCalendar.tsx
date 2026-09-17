@@ -113,6 +113,12 @@ import {
 } from "./task-recurrence";
 import { legacyReminderMinutes, normalizeTaskReminders, type TaskReminder } from "./task-reminders";
 import { formatClockTime, formatTimeValue, normalizeTimeFormat, type TimeFormat } from "./time-format";
+import {
+  DAY_RHYTHM_PERIODS,
+  formatDayRhythmRange,
+  getDayRhythmMoment,
+  type DayRhythmPeriodId,
+} from "./day-rhythm";
 
 type ViewName = "today" | "calendar" | "projects" | "year" | "all-tasks" | "stoicheion" | "admin";
 
@@ -773,6 +779,119 @@ function DeviceClock({ timeFormat }: { timeFormat: TimeFormat }) {
       <strong>{clock ? formatClockTime(clock.now, timeFormat) : "--:--:--"}</strong>
       <small>{clock ? `время устройства · ${clock.timezone}` : "синхронизация времени"}</small>
     </time>
+  );
+}
+
+function DayRhythmPanel({ now, timeFormat }: { now: Date; timeFormat: TimeFormat }) {
+  const moment = getDayRhythmMoment(now);
+  const [exploredPeriodId, setExploredPeriodId] = useState<DayRhythmPeriodId | null>(null);
+  const exploredPeriod = DAY_RHYTHM_PERIODS.find((period) => period.id === exploredPeriodId) ?? moment.period;
+  const currentTime = formatTimeValue(
+    `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`,
+    timeFormat,
+  );
+
+  return (
+    <section
+      className={`day-rhythm-panel rhythm-${moment.period.id}`}
+      aria-labelledby="day-rhythm-title"
+      style={{ "--day-rhythm-progress": `${moment.progress}%` } as CSSProperties}
+    >
+      <header className="day-rhythm-heading">
+        <div>
+          <span className="eyebrow">Ритм суток · время устройства</span>
+          <h2 id="day-rhythm-title">Сейчас — {moment.period.name} · Стихия {moment.period.element}</h2>
+        </div>
+        <time dateTime={now.toISOString()}>{currentTime}</time>
+      </header>
+
+      <article className="day-rhythm-current" aria-live="polite">
+        <span className="day-rhythm-current-symbol" aria-hidden="true">
+          <b>{moment.watch.symbol}</b>
+          <i>{moment.period.alchemySymbol}</i>
+        </span>
+        <div className="day-rhythm-current-copy">
+          <span>{formatDayRhythmRange(moment.watch.startHour, moment.watch.endHour, timeFormat)} · {moment.period.symbol} {moment.period.name}</span>
+          <h3>{moment.watch.deity} · «{moment.watch.title}»</h3>
+          <p>{moment.watch.description}</p>
+        </div>
+        <div className="day-rhythm-progress" aria-label={`Текущий двухчасовой период: ${Math.round(moment.progress)}%`}>
+          <span><i /></span>
+          <small>До смены часа · {moment.remainingMinutes} мин.</small>
+        </div>
+      </article>
+
+      <div className="day-rhythm-dayline" aria-label="Двенадцать двухчасовых периодов суток">
+        {DAY_RHYTHM_PERIODS.flatMap((period) => period.watches.map((watch) => {
+          const isCurrent = watch.id === moment.watch.id;
+          return (
+            <span
+              className={`day-rhythm-tick tone-${period.id}${isCurrent ? " current" : ""}`}
+              aria-label={`${formatDayRhythmRange(watch.startHour, watch.endHour, timeFormat)} — ${watch.deity}, ${watch.title}${isCurrent ? ", сейчас" : ""}`}
+              title={`${watch.deity} · ${watch.title}`}
+              key={watch.id}
+            >
+              <b aria-hidden="true">{watch.symbol}</b>
+              <small>{formatTimeValue(`${String(watch.startHour % 24).padStart(2, "0")}:00`, timeFormat)}</small>
+            </span>
+          );
+        }))}
+      </div>
+
+      <nav className="day-rhythm-periods" aria-label="Периоды суток">
+        {DAY_RHYTHM_PERIODS.map((period) => {
+          const isCurrent = period.id === moment.period.id;
+          const isSelected = period.id === exploredPeriod.id;
+          return (
+            <button
+              type="button"
+              className={`tone-${period.id}${isCurrent ? " current" : ""}${isSelected ? " selected" : ""}`}
+              aria-pressed={isSelected}
+              onClick={() => setExploredPeriodId(period.id)}
+              key={period.id}
+            >
+              <span aria-hidden="true">{period.symbol}</span>
+              <div>
+                <strong>{period.name}</strong>
+                <small>{formatDayRhythmRange(period.startHour, period.endHour, timeFormat)}</small>
+              </div>
+              <em>Стихия {period.element}</em>
+              {isCurrent ? <i>Сейчас</i> : null}
+            </button>
+          );
+        })}
+      </nav>
+
+      <article className={`day-rhythm-explorer tone-${exploredPeriod.id}`}>
+        <header>
+          <span className="day-rhythm-period-symbol" aria-hidden="true">{exploredPeriod.alchemySymbol}</span>
+          <div>
+            <span>{exploredPeriod.symbol} {exploredPeriod.name} · Стихия {exploredPeriod.element}</span>
+            <h3>{exploredPeriod.source}</h3>
+            <p>{exploredPeriod.description}</p>
+          </div>
+          {exploredPeriod.id !== moment.period.id ? (
+            <button type="button" onClick={() => setExploredPeriodId(null)}>Вернуться к текущему</button>
+          ) : null}
+        </header>
+        <div className="day-rhythm-watches">
+          {exploredPeriod.watches.map((watch) => {
+            const isCurrent = watch.id === moment.watch.id;
+            return (
+              <section className={isCurrent ? "current" : ""} key={watch.id}>
+                <span aria-hidden="true">{watch.symbol}</span>
+                <div>
+                  <time>{formatDayRhythmRange(watch.startHour, watch.endHour, timeFormat)}</time>
+                  <h4>{watch.deity} · «{watch.title}»</h4>
+                  <p>{watch.description}</p>
+                </div>
+                {isCurrent ? <strong>Сейчас</strong> : null}
+              </section>
+            );
+          })}
+        </div>
+      </article>
+    </section>
   );
 }
 
@@ -2964,6 +3083,8 @@ export function GenesisCalendar() {
           </div>
           <DeviceClock timeFormat={activeTimeFormat} />
         </section>
+
+        <DayRhythmPanel now={today} timeFormat={activeTimeFormat} />
 
         <section className="today-create-panel" aria-labelledby="today-create-title">
           <div>
