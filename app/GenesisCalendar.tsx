@@ -58,6 +58,15 @@ import { CronusSickleIcon } from "./CronusSickleIcon";
 import { MoonPhaseIcon } from "./MoonPhaseIcon";
 import { RecurrenceBuilder } from "./RecurrenceBuilder";
 import { WelcomeScreen } from "./WelcomeScreen";
+import { HabitDailyPanel, HabitTrackerPage } from "./HabitTracker";
+import {
+  EMPTY_HABIT_WORKSPACE,
+  habitDateKey,
+  isHabitScheduledForDate,
+  normalizeHabitWorkspace,
+  type Habit,
+  type HabitWorkspace,
+} from "./habits";
 import {
   MONTHS,
   LUNAR_DECADES,
@@ -126,7 +135,7 @@ import {
   type DayRhythmPeriodId,
 } from "./day-rhythm";
 
-type ViewName = "today" | "calendar" | "projects" | "year" | "all-tasks" | "stoicheion" | "theokyklos" | "admin";
+type ViewName = "today" | "calendar" | "projects" | "year" | "all-tasks" | "habits" | "stoicheion" | "theokyklos" | "admin";
 
 type StoredState = {
   tasks: Task[];
@@ -134,7 +143,7 @@ type StoredState = {
   categories: GenesisCategory[];
   taskLists: GoogleTaskList[];
   taskListLinks: TaskListProjectLink[];
-};
+} & HabitWorkspace;
 
 type SyncStatus =
   | "loading"
@@ -186,6 +195,7 @@ const NAVIGATION: Array<{ id: ViewName; label: string; symbol: string }> = [
   { id: "today", label: "Сегодня", symbol: "☉" },
   { id: "all-tasks", label: "Задачи", symbol: "☰" },
   { id: "projects", label: "Проекты", symbol: "◇" },
+  { id: "habits", label: "Привычки", symbol: "✦" },
   { id: "calendar", label: "Месяц", symbol: "◫" },
   { id: "year", label: "Круг года", symbol: "◎" },
   { id: "stoicheion", label: "Стойхейон", symbol: "ϟ" },
@@ -350,7 +360,7 @@ const SOLAR_EVENT_COPY: Record<NonNullable<ReturnType<typeof getSolarEvent>>["id
   },
 };
 
-const VIEW_NAMES = new Set<ViewName>(["today", "calendar", "projects", "year", "all-tasks", "stoicheion", "theokyklos", "admin"]);
+const VIEW_NAMES = new Set<ViewName>(["today", "calendar", "projects", "year", "all-tasks", "habits", "stoicheion", "theokyklos", "admin"]);
 
 function viewFromHash(): ViewName {
   if (typeof window === "undefined") return "today";
@@ -361,7 +371,7 @@ function viewFromHash(): ViewName {
 function readStoredState(key: string): StoredState {
   try {
     const saved = localStorage.getItem(key);
-    if (!saved) return { tasks: [], projects: [], categories: DEFAULT_CATEGORIES, taskLists: [], taskListLinks: [] };
+    if (!saved) return { tasks: [], projects: [], categories: DEFAULT_CATEGORIES, taskLists: [], taskListLinks: [], ...normalizeHabitWorkspace(null) };
     const parsed = JSON.parse(saved) as Partial<StoredState>;
     const storedTasks = Array.isArray(parsed.tasks) ? parsed.tasks : [];
     const storedProjects = Array.isArray(parsed.projects) ? parsed.projects : [];
@@ -447,9 +457,10 @@ function readStoredState(key: string): StoredState {
       categories: Array.isArray(parsed.categories) ? parsed.categories : DEFAULT_CATEGORIES,
       taskLists: Array.isArray(parsed.taskLists) ? parsed.taskLists : [],
       taskListLinks: Array.isArray(parsed.taskListLinks) ? parsed.taskListLinks : [],
+      ...normalizeHabitWorkspace(parsed),
     };
   } catch {
-    return { tasks: [], projects: [], categories: DEFAULT_CATEGORIES, taskLists: [], taskListLinks: [] };
+    return { tasks: [], projects: [], categories: DEFAULT_CATEGORIES, taskLists: [], taskListLinks: [], ...normalizeHabitWorkspace(null) };
   }
 }
 
@@ -1070,6 +1081,7 @@ export function GenesisCalendar() {
   const [categories, setCategories] = useState<GenesisCategory[]>(DEFAULT_CATEGORIES);
   const [taskLists, setTaskLists] = useState<GoogleTaskList[]>([]);
   const [taskListLinks, setTaskListLinks] = useState<TaskListProjectLink[]>([]);
+  const [habitWorkspace, setHabitWorkspace] = useState<HabitWorkspace>(() => normalizeHabitWorkspace(EMPTY_HABIT_WORKSPACE));
   const [hydrated, setHydrated] = useState(false);
   const [authResolved, setAuthResolved] = useState(!isGoogleSyncConfigured);
   const [cloudUser, setCloudUser] = useState<GenesisUser | null>(null);
@@ -1139,6 +1151,7 @@ export function GenesisCalendar() {
   const sacredYearDetailsTriggerRef = useRef<HTMLButtonElement | null>(null);
   const sacredYearDetailsCloseRef = useRef<HTMLButtonElement | null>(null);
   const projectTouchDragRef = useRef<ProjectTouchDrag | null>(null);
+  const habitSaveTimerRef = useRef<number | null>(null);
   const projectPointerDragRef = useRef<{
     item: ProjectDragItem;
     pointerId: number;
@@ -1447,7 +1460,7 @@ export function GenesisCalendar() {
 
   useEffect(() => {
     const initialState = isGoogleSyncConfigured
-      ? { tasks: [], projects: [], categories: DEFAULT_CATEGORIES, taskLists: [], taskListLinks: [] }
+      ? { tasks: [], projects: [], categories: DEFAULT_CATEGORIES, taskLists: [], taskListLinks: [], ...normalizeHabitWorkspace(null) }
       : readStoredState(LEGACY_STORAGE_KEY);
 
     const timer = window.setTimeout(() => {
@@ -1459,6 +1472,7 @@ export function GenesisCalendar() {
       setCategories(initialState.categories);
       setTaskLists(initialState.taskLists);
       setTaskListLinks(initialState.taskListLinks);
+      setHabitWorkspace(normalizeHabitWorkspace(initialState));
       setNewProjectCategory(initialState.categories[0]?.id ?? "");
       setHydrated(true);
       setSyncStatus(isGoogleSyncConfigured ? "loading" : "setup");
@@ -1473,8 +1487,8 @@ export function GenesisCalendar() {
     projectsRef.current = projects;
     categoriesRef.current = categories;
     const key = cloudUser ? `${USER_STORAGE_PREFIX}${cloudUser.uid}` : LEGACY_STORAGE_KEY;
-    localStorage.setItem(key, JSON.stringify({ tasks, projects, categories, taskLists, taskListLinks }));
-  }, [hydrated, cloudUser, tasks, projects, categories, taskLists, taskListLinks]);
+    localStorage.setItem(key, JSON.stringify({ tasks, projects, categories, taskLists, taskListLinks, ...habitWorkspace }));
+  }, [hydrated, cloudUser, tasks, projects, categories, taskLists, taskListLinks, habitWorkspace]);
 
   useEffect(() => {
     if (!hydrated || !isGoogleSyncConfigured) return;
@@ -1533,6 +1547,7 @@ export function GenesisCalendar() {
       setCategories(local.categories);
       setTaskLists(local.taskLists);
       setTaskListLinks(local.taskListLinks);
+      setHabitWorkspace(normalizeHabitWorkspace(local));
       setNewProjectCategory(local.categories[0]?.id ?? "");
 
       setSyncStatus("syncing");
@@ -1541,6 +1556,7 @@ export function GenesisCalendar() {
         projects: local.projects,
         categories: local.categories,
         taskListLinks: local.taskListLinks,
+        ...normalizeHabitWorkspace(local),
       })
         .then(async () => {
           if (!active) return;
@@ -1565,6 +1581,7 @@ export function GenesisCalendar() {
           setCategories(nextCategories);
           setTaskLists(workspace.taskLists);
           setTaskListLinks(nextTaskListLinks);
+          setHabitWorkspace(normalizeHabitWorkspace(workspace.hasRemoteStructure ? workspace : local));
           setNewProjectCategory(nextCategories[0]?.id ?? "");
           setSyncError(workspace.syncWarning ?? "");
           setSyncStatus(workspace.user.calendarConnected ? (workspace.syncWarning ? "offline" : "synced") : "local");
@@ -1611,6 +1628,7 @@ export function GenesisCalendar() {
           setCategories(local.categories);
           setTaskLists(local.taskLists);
           setTaskListLinks(local.taskListLinks);
+          setHabitWorkspace(normalizeHabitWorkspace(local));
           setNewProjectCategory(local.categories[0]?.id ?? "");
           setLanguage(cachedLanguage);
           storeLanguage(cachedLanguage);
@@ -1819,6 +1837,52 @@ export function GenesisCalendar() {
       googleReadOnly: false,
       updatedAt: timestamp(),
     };
+  };
+
+  const createHabitGoogleReminder = async (habit: Habit) => {
+    if (!cloudUser?.googleTasksImportReady) {
+      throw new Error(language === "en" ? "Connect Google Tasks in your account first." : "Сначала подключите Google Tasks в личном кабинете.");
+    }
+    let taskList = taskLists.find((item) => item.title === "Привычки GENESIS") ?? taskLists.find((item) => item.isDefault) ?? taskLists[0];
+    if (!taskList) {
+      const created = await createGoogleTaskList("Привычки GENESIS", defaultSyncAccountIds[0]);
+      taskList = created.taskList;
+      setTaskLists((current) => [...current.filter((item) => item.id !== created.taskList.id), created.taskList]);
+    }
+    let nextDate = habit.schedule.startDate < todayDateValue ? todayDateValue : habit.schedule.startDate;
+    let attempts = 0;
+    while (!isHabitScheduledForDate(habit, nextDate) && attempts < 740) {
+      const next = new Date(`${nextDate}T12:00:00`);
+      next.setDate(next.getDate() + 1);
+      nextDate = habitDateKey(next);
+      attempts += 1;
+    }
+    if (attempts >= 740 || (habit.schedule.endDate && nextDate > habit.schedule.endDate)) {
+      throw new Error(language === "en" ? "No upcoming date was found for this habit." : "Для этой привычки не нашлось ближайшей даты.");
+    }
+    const existingReminder = habit.reminder.googleTaskId
+      ? tasks.find((item) => item.id === habit.reminder.googleTaskId)
+      : undefined;
+    const task = {
+      ...(existingReminder ?? taskForList(`${language === "en" ? "Habit" : "Привычка"}: ${habit.title}`, nextDate, taskList)),
+      dueDate: nextDate,
+      endDate: nextDate,
+      title: `${language === "en" ? "Habit" : "Привычка"}: ${habit.title}`,
+      description: [
+        habit.description,
+        language === "en"
+          ? "GENESIS tracks the recurrence; this Google Task is the unobtrusive reminder anchor."
+          : "Повтор контролирует GENESIS; эта Google-задача служит ненавязчивой точкой напоминания.",
+        habit.reminder.time ? `${language === "en" ? "Reminder time" : "Время напоминания"}: ${habit.reminder.time}` : "",
+      ].filter(Boolean).join("\n\n"),
+      tags: ["habit"],
+    };
+    setTasks((current) => [...current.filter((item) => item.id !== task.id), task]);
+    setSyncStatus("syncing");
+    const saved = await saveCloudTask(cloudUser.uid, task);
+    setTasks((current) => current.map((item) => item.id === saved.id ? { ...item, ...saved } : item));
+    setSyncStatus("synced");
+    return saved.id;
   };
 
   const appendTasksToList = (titles: string[], dueDateValue: string, taskList: GoogleTaskList, projectId = "") => {
@@ -2152,6 +2216,32 @@ export function GenesisCalendar() {
         });
     }
   };
+
+  const updateHabitWorkspace = (nextWorkspace: HabitWorkspace) => {
+    const normalized = normalizeHabitWorkspace(nextWorkspace);
+    setHabitWorkspace(normalized);
+    if (!cloudUser) return;
+    if (habitSaveTimerRef.current !== null) window.clearTimeout(habitSaveTimerRef.current);
+    habitSaveTimerRef.current = window.setTimeout(() => {
+      setSyncStatus("syncing");
+      void saveWorkspaceStructure(
+        projectsRef.current,
+        categoriesRef.current,
+        taskListLinks,
+        metricsFor(tasksRef.current, projectsRef.current),
+        normalized,
+      )
+        .then(() => setSyncStatus("synced"))
+        .catch((error: Error) => {
+          setSyncError(error.message);
+          setSyncStatus(navigator.onLine ? "error" : "offline");
+        });
+    }, 650);
+  };
+
+  useEffect(() => () => {
+    if (habitSaveTimerRef.current !== null) window.clearTimeout(habitSaveTimerRef.current);
+  }, []);
 
   const persistStructure = (
     nextProjects: GenesisProject[],
@@ -3274,6 +3364,17 @@ export function GenesisCalendar() {
           </div>
           <DeviceClock timeFormat={activeTimeFormat} />
         </section>
+
+        {habitWorkspace.habitSettings.enabled ? (
+          <HabitDailyPanel
+            workspace={habitWorkspace}
+            date={todayDateValue}
+            language={language}
+            timeFormat={activeTimeFormat}
+            onChange={updateHabitWorkspace}
+            onOpenHabits={() => navigateTo("habits")}
+          />
+        ) : null}
 
         <DayRhythmPanel now={today} timeFormat={activeTimeFormat} />
 
@@ -4787,9 +4888,10 @@ export function GenesisCalendar() {
                 ? "Google-синхронизация готовится"
                 : "Сохранено на устройстве";
 
+  const visibleNavigation = habitWorkspace.habitSettings.enabled ? NAVIGATION : NAVIGATION.filter((item) => item.id !== "habits");
   const navigation = cloudUser?.isAdmin
-    ? [...NAVIGATION, { id: "admin" as const, label: "Админ", symbol: "Σ" }]
-    : NAVIGATION;
+    ? [...visibleNavigation, { id: "admin" as const, label: "Админ", symbol: "Σ" }]
+    : visibleNavigation;
   const calendarRailItems = activeCalendarMode === "sacred"
     ? MONTHS.map((month) => ({
         id: `sacred-${month.index}`,
@@ -4935,7 +5037,7 @@ export function GenesisCalendar() {
       <section className="app-stage">
         <header className="topbar">
           <div>
-            <span className="topbar-kicker">{view === "theokyklos" ? "Теокиклос" : CALENDAR_MODE_META[activeCalendarMode].label}</span>
+            <span className="topbar-kicker">{view === "theokyklos" ? "Теокиклос" : view === "habits" ? (language === "en" ? "Habit tracker" : "Трекер привычек") : CALENDAR_MODE_META[activeCalendarMode].label}</span>
             <strong>{formatCalendarDate(today, activeCalendarMode, activeCalendarMode !== "sacred")}</strong>
           </div>
           <div className="topbar-actions">
@@ -5039,6 +5141,24 @@ export function GenesisCalendar() {
             {view === "projects" ? renderProjects() : null}
             {view === "year" ? renderYear() : null}
             {view === "all-tasks" ? renderAllTasks() : null}
+            {view === "habits" && habitWorkspace.habitSettings.enabled ? (
+              <HabitTrackerPage
+                workspace={habitWorkspace}
+                date={todayDateValue}
+                language={language}
+                timeFormat={activeTimeFormat}
+                calendarMode={activeCalendarMode}
+                googleTasksReady={Boolean(cloudUser?.googleTasksImportReady)}
+                onChange={updateHabitWorkspace}
+                onReminderRequested={createHabitGoogleReminder}
+                onReminderRemoved={async (taskId) => {
+                  const reminderTask = tasks.find((task) => task.id === taskId);
+                  if (!reminderTask || !cloudUser) return;
+                  await removeCloudTask(cloudUser.uid, reminderTask);
+                  setTasks((current) => current.filter((task) => task.id !== taskId));
+                }}
+              />
+            ) : null}
             {view === "stoicheion" ? (
               <StoicheionView
                 key={cloudUser?.stoicheionDivinationDisabled ? "divination-disabled" : "divination-enabled"}
@@ -5208,6 +5328,20 @@ export function GenesisCalendar() {
                 <i aria-hidden="true">→</i>
               </button>
             </div>
+            {habitWorkspace.habitSettings.enabled ? (
+              <HabitDailyPanel
+                workspace={habitWorkspace}
+                date={selectedDateValue}
+                language={language}
+                timeFormat={activeTimeFormat}
+                onChange={updateHabitWorkspace}
+                onOpenHabits={() => {
+                  setDayDetailsOpen(false);
+                  navigateTo("habits");
+                }}
+                compact
+              />
+            ) : null}
             {selectedDayTasks.length ? (
               <section className="day-details-tasks" aria-labelledby="day-details-tasks-title">
                 <header>
@@ -5500,6 +5634,11 @@ export function GenesisCalendar() {
           }}
           onLanguageChange={selectLanguage}
           categories={categories}
+          habitTrackingEnabled={habitWorkspace.habitSettings.enabled}
+          onHabitTrackingChange={(enabled) => {
+            updateHabitWorkspace({ ...habitWorkspace, habitSettings: { ...habitWorkspace.habitSettings, enabled } });
+            if (!enabled && view === "habits") navigateTo("today");
+          }}
           onUserChange={(user) => {
             const nextLanguage = normalizeLanguage(user.language);
             setLanguage(nextLanguage);
