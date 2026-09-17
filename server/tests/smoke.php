@@ -74,7 +74,7 @@ try {
         ]],
         'taskLists' => [],
         'tasks' => [[
-            'title' => 'Prepare brief',
+            'title' => 'please create a task Prepare brief',
             'description' => '',
             'startDate' => '2026-09-11',
             'dueDate' => '2026-09-12',
@@ -87,9 +87,18 @@ try {
         ]],
     ]);
     expect(count($assistantPlan['projects']) === 1 && count($assistantPlan['tasks']) === 1, 'Gemini plan normalization lost valid actions.');
+    expect($assistantPlan['tasks'][0]['title'] === 'Prepare brief', 'Assistant command words leaked into the task title.');
     expect($assistantPlan['tasks'][0]['priority'] === 10, 'Gemini task priority was not clamped.');
     expect($assistantPlan['tasks'][0]['reminderMinutes'] === 0, 'Gemini reminder was not clamped.');
     expect($assistantPlan['projects'][0]['tags'] === ['release'], 'Gemini plan tags were not normalized.');
+    $gigaChatAudio = genesisGigaChatAudioFile([
+        'mimeType' => 'audio/webm;codecs=opus',
+        'data' => base64_encode('test-audio'),
+    ]);
+    expect($gigaChatAudio['mimeType'] === 'audio/webm' && $gigaChatAudio['extension'] === 'weba', 'GigaChat audio format was not normalized.');
+    expect(strlen($gigaChatAudio['bytes']) === 10, 'GigaChat audio payload was not decoded.');
+    expect(preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/', genesisGigaChatUuid()) === 1, 'GigaChat request UUID is invalid.');
+    expect((genesisGeminiPlanSchema()['additionalProperties'] ?? true) === false, 'Assistant JSON schema must reject unexpected properties.');
 
     $reminders = genesisNormalizeTaskReminders([
         ['kind' => 'relative', 'minutes' => 30],

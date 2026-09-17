@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  requestGeminiPlan,
+  requestAssistantPlan,
+  type AssistantProvider,
   type GeminiAssistantContext,
   type GeminiPlan,
 } from "./cloud-sync";
@@ -40,13 +41,13 @@ type SpeechRecognizer = {
 type SpeechRecognizerConstructor = {
   new(): SpeechRecognizer;
   available?: (options: { langs: string[]; processLocally: boolean }) => Promise<"available" | "downloadable" | "downloading" | "unavailable">;
-  install?: (options: { langs: string[]; processLocally: boolean }) => Promise<boolean>;
 };
 
 type LocalVoiceAssistantProps = {
   language: Language;
   context: GeminiAssistantContext;
   neuralAvailable: boolean;
+  neuralProvider: AssistantProvider;
   onApply: (plan: GeminiPlan) => Promise<string>;
   onClose: () => void;
 };
@@ -75,7 +76,25 @@ function speechErrorMessage(error: string, language: Language) {
   return language === "en" ? "Speech recognition could not start. You can type the command instead." : "Не удалось запустить распознавание речи. Команду можно написать вручную.";
 }
 
-export function LocalVoiceAssistant({ language, context, neuralAvailable, onApply, onClose }: LocalVoiceAssistantProps) {
+function settleWithin<T>(promise: Promise<T>, timeoutMs: number, fallback: T) {
+  return new Promise<T>((resolve) => {
+    let settled = false;
+    const timer = window.setTimeout(() => {
+      if (!settled) resolve(fallback);
+    }, timeoutMs);
+    promise.then((value) => {
+      settled = true;
+      window.clearTimeout(timer);
+      resolve(value);
+    }).catch(() => {
+      settled = true;
+      window.clearTimeout(timer);
+      resolve(fallback);
+    });
+  });
+}
+
+export function LocalVoiceAssistant({ language, context, neuralAvailable, neuralProvider, onApply, onClose }: LocalVoiceAssistantProps) {
   const [command, setCommand] = useState("");
   const [interim, setInterim] = useState("");
   const [starting, setStarting] = useState(false);
@@ -88,10 +107,13 @@ export function LocalVoiceAssistant({ language, context, neuralAvailable, onAppl
   const [message, setMessage] = useState("");
   const [recognitionMode, setRecognitionMode] = useState<"device" | "browser" | "text">("text");
   const recognizerRef = useRef<SpeechRecognizer | null>(null);
+  const recognitionStartTimerRef = useRef<number | null>(null);
+  const interimRef = useRef("");
   const activeRef = useRef(true);
 
   useEffect(() => () => {
     activeRef.current = false;
+    if (recognitionStartTimerRef.current !== null) window.clearTimeout(recognitionStartTimerRef.current);
     recognizerRef.current?.abort();
   }, []);
 
@@ -102,6 +124,7 @@ export function LocalVoiceAssistant({ language, context, neuralAvailable, onAppl
     setMessage("");
     setPlan(null);
     setInterim("");
+    interimRef.current = "";
     const Constructor = speechRecognizerConstructor();
     if (!Constructor) {
       setStarting(false);
@@ -114,20 +137,12 @@ export function LocalVoiceAssistant({ language, context, neuralAvailable, onAppl
     let useDeviceRecognition = false;
     try {
       if (Constructor.available) {
-        try {
-          const availability = await Constructor.available({ langs: [locale], processLocally: true });
-          if (availability === "available") {
-            useDeviceRecognition = true;
-          } else if ((availability === "downloadable" || availability === "downloading") && Constructor.install) {
-            setMessage(language === "en" ? "Installing the on-device speech pack…" : "Устанавливается голосовой пакет на устройство…");
-            useDeviceRecognition = await Constructor.install({ langs: [locale], processLocally: true });
-            setMessage(useDeviceRecognition
-              ? (language === "en" ? "The speech pack is ready." : "Голосовой пакет готов.")
-              : (language === "en" ? "Using the browser speech service." : "Используется голосовой сервис браузера."));
-          }
-        } catch {
-          useDeviceRecognition = false;
-        }
+        const availability = await settleWithin(
+          Constructor.available({ langs: [locale], processLocally: true }),
+          800,
+          "unavailable" as const,
+        );
+        useDeviceRecognition = availability === "available";
       }
       if (!activeRef.current) return;
 
@@ -138,6 +153,8 @@ export function LocalVoiceAssistant({ language, context, neuralAvailable, onAppl
       recognizer.maxAlternatives = 1;
       if (useDeviceRecognition && "processLocally" in recognizer) recognizer.processLocally = true;
       recognizer.onstart = () => {
+        if (recognitionStartTimerRef.current !== null) window.clearTimeout(recognitionStartTimerRef.current);
+        recognitionStartTimerRef.current = null;
         setStarting(false);
         setListening(true);
         setRecognitionMode(useDeviceRecognition ? "device" : "browser");
@@ -150,23 +167,44 @@ export function LocalVoiceAssistant({ language, context, neuralAvailable, onAppl
           if (event.results[index].isFinal) finalText += transcript;
           else interimText += transcript;
         }
-        if (finalText.trim()) setCommand((current) => `${current.trim()} ${finalText.trim()}`.trim());
-        setInterim(interimText.trim());
+        const finalValue = finalText.trim();
+        const interimValue = interimText.trim();
+        if (finalValue) setCommand((current) => `${current.trim()} ${finalValue}`.trim());
+        interimRef.current = interimValue;
+        setInterim(interimValue);
       };
       recognizer.onerror = (event) => {
+        if (recognitionStartTimerRef.current !== null) window.clearTimeout(recognitionStartTimerRef.current);
+        recognitionStartTimerRef.current = null;
         setStarting(false);
         setListening(false);
         setInterim("");
+        interimRef.current = "";
         setError(speechErrorMessage(event.error, language));
       };
       recognizer.onend = () => {
+        if (recognitionStartTimerRef.current !== null) window.clearTimeout(recognitionStartTimerRef.current);
+        recognitionStartTimerRef.current = null;
+        const pendingText = interimRef.current.trim();
+        if (pendingText) setCommand((current) => `${current.trim()} ${pendingText}`.trim());
+        interimRef.current = "";
         setStarting(false);
         setListening(false);
         setInterim("");
       };
       recognizerRef.current = recognizer;
+      recognitionStartTimerRef.current = window.setTimeout(() => {
+        recognizer.abort();
+        recognitionStartTimerRef.current = null;
+        setStarting(false);
+        setListening(false);
+        setRecognitionMode("text");
+        setError(speechErrorMessage("start-failed", language));
+      }, 8_000);
       recognizer.start();
     } catch (recognitionError) {
+      if (recognitionStartTimerRef.current !== null) window.clearTimeout(recognitionStartTimerRef.current);
+      recognitionStartTimerRef.current = null;
       setStarting(false);
       setListening(false);
       setInterim("");
@@ -187,7 +225,7 @@ export function LocalVoiceAssistant({ language, context, neuralAvailable, onAppl
     try {
       if (neuralAvailable) {
         try {
-          const result = await requestGeminiPlan({
+          const result = await requestAssistantPlan({
             command: command.trim(),
             audio: null,
             context,
@@ -228,12 +266,13 @@ export function LocalVoiceAssistant({ language, context, neuralAvailable, onAppl
   };
 
   const actionCount = plan?.tasks.length ?? 0;
+  const neuralProviderName = neuralProvider === "gigachat" ? "GigaChat" : "Gemini";
   const labels = language === "en" ? {
     eyebrow: "GENESIS Voice · free assistant",
     title: "Create tasks by voice",
     close: "Close voice assistant",
     intro: neuralAvailable
-      ? "Dictate naturally: Gemini understands dates, projects, task lists, priorities and several tasks in one request."
+      ? `Dictate naturally: ${neuralProviderName} understands dates, projects, task lists, priorities and several tasks in one request.`
       : "Dictate a task, date and time. Separate several tasks with a semicolon.",
     listen: "Dictate a task",
     stop: "Stop listening",
@@ -243,10 +282,10 @@ export function LocalVoiceAssistant({ language, context, neuralAvailable, onAppl
     textLabel: "Command",
     placeholder: "For example: create a task call Alex tomorrow at 18:30 #calls",
     privacy: neuralAvailable
-      ? "GENESIS does not send or store an audio recording. The recognized text, available project/list names and linked account addresses are sent to Google Gemini to prepare the preview; the local parser is used if it is unavailable."
+      ? `GENESIS does not store an audio recording. Recognized text, available project/list names and linked account addresses are sent to ${neuralProviderName} to prepare the preview; the local parser is used if it is unavailable.`
       : "GENESIS does not send or store an audio recording. Speech-to-text and task parsing happen on your device or in the browser.",
     prepare: "Prepare preview",
-    preparing: neuralAvailable ? "Analyzing with Gemini…" : "Preparing preview…",
+    preparing: neuralAvailable ? `Analyzing with ${neuralProviderName}…` : "Preparing preview…",
     preview: "Check before creating",
     understood: "Recognized:",
     tasks: "Tasks",
@@ -256,14 +295,14 @@ export function LocalVoiceAssistant({ language, context, neuralAvailable, onAppl
     local: "on device",
     browser: "browser speech",
     text: "text mode",
-    neural: "Gemini neural parser",
+    neural: `${neuralProviderName} neural parser`,
     localPlan: "local parser",
   } : {
     eyebrow: "GENESIS Voice · бесплатный помощник",
     title: "Создание задач голосом",
     close: "Закрыть голосовой помощник",
     intro: neuralAvailable
-      ? "Говорите естественно: Gemini понимает даты, проекты, списки задач, приоритеты и несколько задач в одной команде."
+      ? `Говорите естественно: ${neuralProviderName} понимает даты, проекты, списки задач, приоритеты и несколько задач в одной команде.`
       : "Продиктуйте задачу, дату и время. Несколько задач разделяйте точкой с запятой.",
     listen: "Продиктовать задачу",
     stop: "Остановить",
@@ -273,10 +312,10 @@ export function LocalVoiceAssistant({ language, context, neuralAvailable, onAppl
     textLabel: "Команда",
     placeholder: "Например: создай задачу позвонить врачу завтра в 18:30 #звонки",
     privacy: neuralAvailable
-      ? "GENESIS не отправляет и не хранит аудиозапись. Для подготовки плана распознанный текст, названия доступных проектов/списков и адреса связанных аккаунтов передаются Google Gemini; при недоступности используется локальный разбор."
+      ? `GENESIS не хранит аудиозапись. Для подготовки плана распознанный текст, названия доступных проектов/списков и адреса связанных аккаунтов передаются ${neuralProviderName}; при недоступности используется локальный разбор.`
       : "GENESIS не отправляет и не хранит аудиозапись. Речь преобразуется в текст и разбирается на устройстве или в браузере.",
     prepare: "Подготовить план",
-    preparing: neuralAvailable ? "Разбираю с Gemini…" : "Подготавливаю план…",
+    preparing: neuralAvailable ? `Разбираю с ${neuralProviderName}…` : "Подготавливаю план…",
     preview: "Проверка перед созданием",
     understood: "Распознано:",
     tasks: "Задачи",
@@ -286,7 +325,7 @@ export function LocalVoiceAssistant({ language, context, neuralAvailable, onAppl
     local: "на устройстве",
     browser: "голосовой сервис браузера",
     text: "текстовый режим",
-    neural: "нейросеть Gemini",
+    neural: `нейросеть ${neuralProviderName}`,
     localPlan: "локальный разбор",
   };
 

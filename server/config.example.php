@@ -5,6 +5,18 @@ return [
     'app_url' => 'https://genesiscalendar.ru',
     'google_client_id' => '',
     'google_client_secret' => '',
+    // Recommended neural provider for Russian hosting. Create one GigaChat API
+    // project, paste its Authorization Key here once, and token renewal will be
+    // handled automatically by GENESIS.
+    'gigachat_enabled' => false,
+    'gigachat_authorization_key' => '',
+    'gigachat_scope' => 'GIGACHAT_API_PERS',
+    'gigachat_model' => 'GigaChat',
+    'gigachat_auth_endpoint' => 'https://ngw.devices.sberbank.ru:9443/api/v2/oauth',
+    'gigachat_api_endpoint' => 'https://api.giga.chat/v1',
+    // Optional absolute path to a CA bundle containing the Russian Ministry of
+    // Digital Development root certificates when the host does not trust them.
+    'gigachat_ca_path' => '',
     // Keep the assistant disabled unless the server can reach Gemini from a
     // supported region (or through an explicitly configured relay).
     'gemini_enabled' => false,

@@ -127,8 +127,10 @@ try {
     if ($method === 'GET' && $path === 'assistant/status') {
         genesisRequireUserId();
         genesisJson([
-            'available' => genesisGeminiAvailable(),
-            'model' => genesisGeminiModel(),
+            'available' => genesisAssistantAvailable(),
+            'provider' => genesisAssistantProvider(),
+            'model' => genesisAssistantModel(),
+            'audioAvailable' => genesisAssistantAvailable(),
         ]);
     }
 
@@ -139,7 +141,7 @@ try {
         if ($user === null) {
             genesisJson(['error' => 'AUTH_REQUIRED'], 401);
         }
-        genesisJson(genesisCreateGeminiPlan(genesisReadJson()));
+        genesisJson(genesisCreateAssistantPlan(genesisReadJson()));
     }
 
     if ($method === 'GET' && $path === 'sync/tasks') {

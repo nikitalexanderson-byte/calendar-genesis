@@ -28,7 +28,8 @@ import {
   createGoogleTaskList,
   removeGoogleTaskList,
   isGoogleSyncConfigured,
-  loadGeminiStatus,
+  loadAssistantStatus,
+  type AssistantProvider,
   loadGenesisWorkspace,
   mergeLocalWorkspace,
   metricsFor,
@@ -1008,7 +1009,11 @@ export function GenesisCalendar() {
   const [voiceAssistantOpen, setVoiceAssistantOpen] = useState(false);
   const [voiceLaunchAnimating, setVoiceLaunchAnimating] = useState(false);
   const [geminiOpen, setGeminiOpen] = useState(false);
-  const [geminiAvailable, setGeminiAvailable] = useState(false);
+  const [assistantStatus, setAssistantStatus] = useState<{ available: boolean; provider: AssistantProvider; audioAvailable: boolean }>({
+    available: false,
+    provider: "local",
+    audioAvailable: false,
+  });
   const [legalPage] = useState<ReturnType<typeof currentLegalPage>>(() => currentLegalPage());
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("loading");
   const [syncError, setSyncError] = useState("");
@@ -1083,15 +1088,17 @@ export function GenesisCalendar() {
     if (!voiceLaunchAnimating) return;
     const timer = window.setTimeout(() => {
       setVoiceLaunchAnimating(false);
-      setVoiceAssistantOpen(true);
+      if (assistantStatus.audioAvailable) setGeminiOpen(true);
+      else setVoiceAssistantOpen(true);
     }, 260);
     return () => window.clearTimeout(timer);
-  }, [voiceLaunchAnimating]);
+  }, [assistantStatus.audioAvailable, voiceLaunchAnimating]);
 
   const openVoiceAssistant = () => {
     if (voiceLaunchAnimating) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setVoiceAssistantOpen(true);
+      if (assistantStatus.audioAvailable) setGeminiOpen(true);
+      else setVoiceAssistantOpen(true);
       return;
     }
     setVoiceLaunchAnimating(true);
@@ -1623,12 +1630,12 @@ export function GenesisCalendar() {
   useEffect(() => {
     if (!cloudUser || !isGoogleSyncConfigured) return;
     let active = true;
-    void loadGeminiStatus()
+    void loadAssistantStatus()
       .then((status) => {
-        if (active) setGeminiAvailable(status.available);
+        if (active) setAssistantStatus({ available: status.available, provider: status.provider, audioAvailable: status.audioAvailable });
       })
       .catch(() => {
-        if (active) setGeminiAvailable(false);
+        if (active) setAssistantStatus({ available: false, provider: "local", audioAvailable: false });
       });
     return () => {
       active = false;
@@ -4738,11 +4745,6 @@ export function GenesisCalendar() {
                 <circle className="voice-microphone-spark" cx="18.7" cy="5.2" r="1.15" />
               </svg>
             </button>
-            {geminiAvailable ? (
-              <button type="button" className="gemini-open-button" onClick={() => setGeminiOpen(true)} title="Открыть голосового помощника Gemini" aria-label="Открыть голосового помощника Gemini">
-                <span aria-hidden="true">✦</span>
-              </button>
-            ) : null}
             {cloudUser ? (
               <div className="account-chip" ref={accountMenuRef}>
                 <button
@@ -5202,7 +5204,8 @@ export function GenesisCalendar() {
       {voiceAssistantOpen ? (
         <LocalVoiceAssistant
           language={language}
-          neuralAvailable={geminiAvailable}
+          neuralAvailable={assistantStatus.available}
+          neuralProvider={assistantStatus.provider}
           context={{
             language,
             calendarMode: activeTaskCalendarMode,
@@ -5224,9 +5227,10 @@ export function GenesisCalendar() {
           onClose={() => setVoiceAssistantOpen(false)}
         />
       ) : null}
-      {geminiOpen && geminiAvailable ? (
+      {geminiOpen && assistantStatus.audioAvailable ? (
         <GeminiAssistant
           language={language}
+          provider={assistantStatus.provider === "gemini" ? "gemini" : "gigachat"}
           context={{
             language,
             calendarMode: activeTaskCalendarMode,

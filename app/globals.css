@@ -404,7 +404,6 @@ button:disabled {
 .google-button img { display: block; width: 40px; height: 40px; }
 .google-button:disabled { cursor: wait; opacity: .58; }
 
-.gemini-open-button,
 .voice-open-button {
   display: inline-grid;
   width: 40px;
@@ -420,8 +419,6 @@ button:disabled {
   transition: transform 160ms ease, box-shadow 160ms ease;
 }
 
-.gemini-open-button:hover,
-.gemini-open-button:focus-visible,
 .voice-open-button:hover,
 .voice-open-button:focus-visible {
   transform: translateY(-1px) scale(1.04);

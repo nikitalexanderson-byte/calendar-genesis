@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  requestGeminiPlan,
+  requestAssistantPlan,
+  type AssistantProvider,
   type GeminiAssistantContext,
   type GeminiPlan,
 } from "./cloud-sync";
@@ -14,6 +15,7 @@ const MAX_RECORDING_MS = 60_000;
 type GeminiAssistantProps = {
   language: Language;
   context: GeminiAssistantContext;
+  provider: Exclude<AssistantProvider, "local">;
   onApply: (plan: GeminiPlan) => Promise<string>;
   onClose: () => void;
 };
@@ -45,14 +47,15 @@ function blobToBase64(blob: Blob, language: Language) {
   });
 }
 
-function assistantError(error: unknown, language: Language) {
+function assistantError(error: unknown, language: Language, provider: Exclude<AssistantProvider, "local">) {
   const message = error instanceof Error ? error.message : "";
-  if (message === "GEMINI_NOT_CONFIGURED") {
+  const providerName = provider === "gigachat" ? "GigaChat" : "Gemini";
+  if (message === "ASSISTANT_NOT_CONFIGURED" || message === "GEMINI_NOT_CONFIGURED" || message === "GIGACHAT_NOT_CONFIGURED") {
     return language === "en"
-      ? "Gemini is not configured on the GENESIS server yet."
-      : "Gemini пока не настроен на сервере GENESIS.";
+      ? `${providerName} is not configured on the GENESIS server yet.`
+      : `${providerName} пока не настроен на сервере GENESIS.`;
   }
-  if (message === "GEMINI_RATE_LIMIT") {
+  if (message === "GEMINI_RATE_LIMIT" || message === "GIGACHAT_RATE_LIMIT") {
     return language === "en"
       ? "Too many requests. Please try again in a few minutes."
       : "Слишком много запросов. Повторите через несколько минут.";
@@ -67,10 +70,20 @@ function assistantError(error: unknown, language: Language) {
       ? "The Gemini API key is invalid or does not have access to the selected model."
       : "Ключ Gemini недействителен или не имеет доступа к выбранной модели.";
   }
-  return message || (language === "en" ? "Gemini could not prepare the plan." : "Gemini не смог подготовить план.");
+  if (message === "GIGACHAT_KEY_INVALID") {
+    return language === "en"
+      ? "The GigaChat Authorization Key is invalid or does not have access to the selected model."
+      : "Authorization Key GigaChat недействителен или не имеет доступа к выбранной модели.";
+  }
+  if (message === "GIGACHAT_CERTIFICATE_ERROR") {
+    return language === "en"
+      ? "The server does not trust the GigaChat certificate. Configure the Russian CA bundle path once on the server."
+      : "Сервер не доверяет сертификату GigaChat. Один раз укажите путь к российскому CA-bundle в настройках сервера.";
+  }
+  return message || (language === "en" ? `${providerName} could not prepare the plan.` : `${providerName} не смог подготовить план.`);
 }
 
-export function GeminiAssistant({ language, context, onApply, onClose }: GeminiAssistantProps) {
+export function GeminiAssistant({ language, context, provider, onApply, onClose }: GeminiAssistantProps) {
   const [command, setCommand] = useState("");
   const [audio, setAudio] = useState<{ data: string; mimeType: string; bytes: number } | null>(null);
   const [recording, setRecording] = useState(false);
@@ -83,6 +96,64 @@ export function GeminiAssistant({ language, context, onApply, onClose }: GeminiA
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const stopTimerRef = useRef<number | null>(null);
+  const providerName = provider === "gigachat" ? "GigaChat" : "Gemini";
+  const labels = language === "en" ? {
+    eyebrow: `GENESIS Voice · ${providerName}`,
+    title: "Create tasks by voice",
+    close: "Close voice assistant",
+    intro: `Speak or type which projects, Google Tasks lists, and tasks to create. ${providerName} will show the complete plan before saving.`,
+    stopRecording: "Stop recording",
+    recordAgain: "Record again",
+    record: "Record a voice command",
+    recording: "Recording · 60 seconds maximum",
+    recordingReady: (kilobytes: number) => `Recording ready · ${kilobytes} KB`,
+    microphoneHint: "The microphone turns on only after you press the button",
+    command: "Text command",
+    placeholder: "For example: create a task call the doctor tomorrow at 18:00 in the Health project",
+    privacy: provider === "gigachat"
+      ? "After you click Prepare plan, the recording and context are sent to GigaChat. GENESIS does not store the recording and requests its deletion from GigaChat file storage immediately after parsing."
+      : "The recording, command text, item names, and connected account addresses are sent to Google Gemini only after you click Prepare plan. GENESIS does not store them.",
+    preparing: `${providerName} is preparing the plan…`,
+    prepare: "Prepare plan",
+    review: "Review before creation",
+    defaultSummary: `${providerName} prepared a plan`,
+    understood: "Understood:",
+    projects: "Projects",
+    taskLists: "Google Tasks lists",
+    tasks: "Tasks",
+    empty: "No creation actions were found in the command. Clarify the wording and try again.",
+    edit: "Edit command",
+    creating: "Creating…",
+    createAll: (count: number) => `Create all · ${count}`,
+  } : {
+    eyebrow: `GENESIS Voice · ${providerName}`,
+    title: "Создание задач голосом",
+    close: "Закрыть голосовой помощник",
+    intro: `Продиктуйте или напишите, какие проекты, списки Google Tasks и задачи нужно создать. Перед сохранением ${providerName} покажет полный план.`,
+    stopRecording: "Остановить запись",
+    recordAgain: "Записать заново",
+    record: "Записать голосовую команду",
+    recording: "Идёт запись · максимум 60 секунд",
+    recordingReady: (kilobytes: number) => `Запись готова · ${kilobytes} КБ`,
+    microphoneHint: "Микрофон включается только после нажатия",
+    command: "Команда текстом",
+    placeholder: "Например: создай задачу позвонить врачу завтра в 18:00 в проекте Здоровье",
+    privacy: provider === "gigachat"
+      ? "После нажатия «Подготовить план» запись и контекст отправляются в GigaChat; GENESIS не хранит запись и запрашивает её удаление из файлового хранилища GigaChat сразу после разбора."
+      : "Запись, текст команды, названия элементов и адреса подключённых аккаунтов отправляются в Google Gemini только после нажатия «Подготовить план». GENESIS их не сохраняет.",
+    preparing: `${providerName} составляет план…`,
+    prepare: "Подготовить план",
+    review: "Проверка перед созданием",
+    defaultSummary: `${providerName} подготовил план`,
+    understood: "Распознано:",
+    projects: "Проекты",
+    taskLists: "Списки Google Tasks",
+    tasks: "Задачи",
+    empty: "В команде не найдено действий для создания. Уточните формулировку и попробуйте ещё раз.",
+    edit: "Изменить команду",
+    creating: "Создание…",
+    createAll: (count: number) => `Создать всё · ${count}`,
+  };
 
   const stopStream = () => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -140,7 +211,7 @@ export function GeminiAssistant({ language, context, onApply, onClose }: GeminiA
         }
         void blobToBase64(recording, language)
           .then((data) => setAudio({ data, mimeType: recording.type || "audio/webm", bytes: recording.size }))
-          .catch((readError) => setError(assistantError(readError, language)));
+          .catch((readError) => setError(assistantError(readError, language, provider)));
       };
       recorder.start(250);
       setRecording(true);
@@ -170,7 +241,7 @@ export function GeminiAssistant({ language, context, onApply, onClose }: GeminiA
     setError("");
     setMessage("");
     try {
-      const result = await requestGeminiPlan({
+      const result = await requestAssistantPlan({
         command: command.trim(),
         audio: audio ? { data: audio.data, mimeType: audio.mimeType } : null,
         context,
@@ -178,7 +249,7 @@ export function GeminiAssistant({ language, context, onApply, onClose }: GeminiA
       setPlan(result.plan);
       setModel(result.model);
     } catch (requestError) {
-      setError(assistantError(requestError, language));
+      setError(assistantError(requestError, language, provider));
     } finally {
       setBusy(false);
     }
@@ -194,7 +265,7 @@ export function GeminiAssistant({ language, context, onApply, onClose }: GeminiA
       setCommand("");
       setAudio(null);
     } catch (applyError) {
-      setError(assistantError(applyError, language));
+      setError(assistantError(applyError, language, provider));
     } finally {
       setBusy(false);
     }
@@ -210,61 +281,61 @@ export function GeminiAssistant({ language, context, onApply, onClose }: GeminiA
         <header>
           <div className="gemini-mark" aria-hidden="true">✦</div>
           <div>
-            <span className="eyebrow">Gemini · голосовой помощник</span>
-            <h2 id="gemini-assistant-title">Создание задач голосом</h2>
+            <span className="eyebrow">{labels.eyebrow}</span>
+            <h2 id="gemini-assistant-title">{labels.title}</h2>
           </div>
-          <button type="button" className="modal-close" onClick={onClose} disabled={busy} aria-label="Закрыть Gemini">×</button>
+          <button type="button" className="modal-close" onClick={onClose} disabled={busy} aria-label={labels.close}>×</button>
         </header>
 
-        <p className="gemini-intro">Продиктуйте или напишите, какие проекты, списки Google Tasks и задачи нужно создать. Перед сохранением Gemini покажет полный план.</p>
+        <p className="gemini-intro">{labels.intro}</p>
 
         <div className={`gemini-recorder${recording ? " recording" : ""}`}>
           <button type="button" className="gemini-record-button" onClick={() => void (recording ? stopRecording() : startRecording())} disabled={busy}>
             <span aria-hidden="true">{recording ? "■" : "●"}</span>
-            {recording ? "Остановить запись" : audio ? "Записать заново" : "Записать голосовую команду"}
+            {recording ? labels.stopRecording : audio ? labels.recordAgain : labels.record}
           </button>
           <small>{recording
-            ? "Идёт запись · максимум 60 секунд"
+            ? labels.recording
             : audio
-              ? `Запись готова · ${Math.max(1, Math.round(audio.bytes / 1024))} КБ`
-              : "Микрофон включается только после нажатия"}</small>
+              ? labels.recordingReady(Math.max(1, Math.round(audio.bytes / 1024)))
+              : labels.microphoneHint}</small>
         </div>
 
         <label className="gemini-command-field">
-          <span>Команда текстом</span>
+          <span>{labels.command}</span>
           <textarea
             value={command}
             onChange={(event) => setCommand(event.target.value)}
-            placeholder="Например: создай проект «Запуск курса» и пять задач к следующей пятнице"
+            placeholder={labels.placeholder}
             rows={4}
             maxLength={4000}
             disabled={busy}
           />
         </label>
 
-        <p className="gemini-privacy"><span aria-hidden="true">◇</span> Запись, текст команды, названия элементов и адреса подключённых аккаунтов отправляются в Google Gemini только после нажатия «Подготовить план». GENESIS их не сохраняет.</p>
+        <p className="gemini-privacy"><span aria-hidden="true">◇</span> {labels.privacy}</p>
 
         {error ? <p className="form-error" role="alert">{error}</p> : null}
         {message ? <p className="form-success" role="status">{message}</p> : null}
 
         {!plan ? (
           <button type="button" className="gemini-primary" onClick={() => void analyze()} disabled={busy || recording || (!command.trim() && !audio)}>
-            {busy ? "Gemini составляет план…" : "Подготовить план"}
+            {busy ? labels.preparing : labels.prepare}
           </button>
         ) : (
           <div className="gemini-plan">
             <div className="gemini-plan-heading">
               <div>
-                <span className="eyebrow">Проверка перед созданием</span>
-                <h3 data-no-translate>{plan.summary || (language === "en" ? "Gemini prepared a plan" : "Gemini подготовил план")}</h3>
+                <span className="eyebrow">{labels.review}</span>
+                <h3 data-no-translate>{plan.summary || labels.defaultSummary}</h3>
               </div>
               {model ? <small>{model}</small> : null}
             </div>
-            {plan.request ? <p className="gemini-understood"><strong>Распознано:</strong> <span data-no-translate>{plan.request}</span></p> : null}
+            {plan.request ? <p className="gemini-understood"><strong>{labels.understood}</strong> <span data-no-translate>{plan.request}</span></p> : null}
 
             {plan.projects.length ? (
               <section>
-                <h4>Проекты · {plan.projects.length}</h4>
+                <h4>{labels.projects} · {plan.projects.length}</h4>
                 {plan.projects.map((project, index) => (
                   <article key={`project-${index}-${project.title}`}>
                     <strong data-no-translate>{project.title}</strong>
@@ -277,7 +348,7 @@ export function GeminiAssistant({ language, context, onApply, onClose }: GeminiA
 
             {plan.taskLists.length ? (
               <section>
-                <h4>Списки Google Tasks · {plan.taskLists.length}</h4>
+                <h4>{labels.taskLists} · {plan.taskLists.length}</h4>
                 {plan.taskLists.map((taskList, index) => (
                   <article key={`list-${index}-${taskList.title}`}>
                     <strong data-no-translate>{taskList.title}</strong>
@@ -289,7 +360,7 @@ export function GeminiAssistant({ language, context, onApply, onClose }: GeminiA
 
             {plan.tasks.length ? (
               <section>
-                <h4>Задачи · {plan.tasks.length}</h4>
+                <h4>{labels.tasks} · {plan.tasks.length}</h4>
                 {plan.tasks.map((task, index) => (
                   <article key={`task-${index}-${task.title}`}>
                     <strong data-no-translate>{task.title}</strong>
@@ -300,12 +371,12 @@ export function GeminiAssistant({ language, context, onApply, onClose }: GeminiA
               </section>
             ) : null}
 
-            {!actionCount ? <p className="gemini-empty">В команде не найдено действий для создания. Уточните формулировку и попробуйте ещё раз.</p> : null}
+            {!actionCount ? <p className="gemini-empty">{labels.empty}</p> : null}
 
             <div className="gemini-plan-actions">
-              <button type="button" onClick={() => setPlan(null)} disabled={busy}>Изменить команду</button>
+              <button type="button" onClick={() => setPlan(null)} disabled={busy}>{labels.edit}</button>
               <button type="button" className="gemini-primary" onClick={() => void apply()} disabled={busy || !actionCount}>
-                {busy ? "Создание…" : `Создать всё · ${actionCount}`}
+                {busy ? labels.creating : labels.createAll(actionCount)}
               </button>
             </div>
           </div>
