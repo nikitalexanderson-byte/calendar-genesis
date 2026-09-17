@@ -339,8 +339,11 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /hero-day-title-primary/);
   assert.match(calendar, /hero-day-title-translation/);
   assert.match(calendar, /dayTitleTranslationSize/);
-  assert.match(calendar, /Григорианский календарь — это профанский календарь из двенадцати стандартных месяцев/);
-  assert.equal((calendar.match(/профанск/giu) ?? []).length, 1);
+  assert.match(calendar, /Григорианский календарь \(профанский\)/);
+  assert.match(calendar, /В 153 году до н\. э\.[\s\S]*войну в Испании/);
+  assert.match(calendar, /папа Григорий XIII[\s\S]*церковному расчёту Пасхи/);
+  assert.match(calendar, /вавилонско-иудейское[\s\S]*христианско-церковное наследие/);
+  assert.equal((calendar.match(/профанск/giu) ?? []).length, 2);
   assert.match(calendar, /const leadingDays = mode === "profane" \? firstDate\.getDay\(\) : 0/);
   assert.match(calendar, /month\.dates\[0\]\?\.getDay\(\) \?\? 0/);
   assert.match(calendar, /new Date\(2024, 0, 7 \+ index, 12\)/);
@@ -398,7 +401,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(styles, /var\(--genesis-hero-image, none\),[\s\S]*var\(--genesis-hero-fallback, none\)/);
   assert.match(styles, /\.hero-card\.mode-profane\s*\{[\s\S]*repeating-radial-gradient/);
   assert.match(styles, /\.all-tasks-create\[open\]\s*\{[\s\S]*overflow:\s*visible/);
-  assert.match(serviceWorker, /genesis-shell-v18/);
+  assert.match(serviceWorker, /genesis-shell-v19/);
   assert.match(calendar, /calendar-month-art/);
   assert.match(calendar, /mini-pyata/);
   assert.match(calendar, /Math\.ceil\(availableDays \/ 5\)/);
