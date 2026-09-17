@@ -920,11 +920,84 @@ button:disabled {
 }
 
 .hero-card.mode-profane {
+  --weekday-hero-accent: #e0bd68;
+  --weekday-hero-border: rgba(224, 189, 104, 0.42);
+  --weekday-hero-glow: rgba(224, 189, 104, 0.2);
+  --weekday-hero-wash: rgba(224, 189, 104, 0.08);
+  min-height: 520px;
   background-image:
-    linear-gradient(90deg, rgba(4, 17, 21, 0.98) 0%, rgba(4, 17, 21, 0.88) 48%, rgba(4, 17, 21, 0.4) 100%),
-    radial-gradient(circle at 76% 38%, rgba(221, 192, 127, 0.2), transparent 23%),
-    repeating-radial-gradient(circle at 76% 38%, rgba(221, 192, 127, 0.08) 0 1px, transparent 1px 31px),
-    linear-gradient(135deg, #071b1d, #102827 58%, #071214);
+    linear-gradient(90deg, rgba(4, 17, 21, 0.99) 0%, rgba(4, 17, 21, 0.93) 32%, rgba(4, 17, 21, 0.63) 51%, rgba(4, 17, 21, 0.12) 100%),
+    radial-gradient(circle at 78% 42%, var(--weekday-hero-glow), transparent 44%),
+    linear-gradient(135deg, var(--weekday-hero-wash), transparent 66%),
+    var(--genesis-hero-image, none);
+  background-position: center;
+  border-color: var(--weekday-hero-border);
+}
+
+.hero-card.mode-profane.weekday-0 {
+  --weekday-hero-accent: #e4c675;
+  --weekday-hero-border: rgba(228, 198, 117, 0.48);
+  --weekday-hero-glow: rgba(238, 195, 83, 0.24);
+  --weekday-hero-wash: rgba(222, 175, 57, 0.1);
+}
+
+.hero-card.mode-profane.weekday-1 {
+  --weekday-hero-accent: #edf2f3;
+  --weekday-hero-border: rgba(226, 235, 238, 0.46);
+  --weekday-hero-glow: rgba(224, 236, 241, 0.22);
+  --weekday-hero-wash: rgba(220, 230, 235, 0.09);
+}
+
+.hero-card.mode-profane.weekday-2 {
+  --weekday-hero-accent: #d88a78;
+  --weekday-hero-border: rgba(216, 109, 87, 0.5);
+  --weekday-hero-glow: rgba(177, 49, 33, 0.25);
+  --weekday-hero-wash: rgba(167, 48, 35, 0.11);
+}
+
+.hero-card.mode-profane.weekday-3 {
+  --weekday-hero-accent: #8fc8a0;
+  --weekday-hero-border: rgba(113, 187, 137, 0.46);
+  --weekday-hero-glow: rgba(57, 137, 87, 0.24);
+  --weekday-hero-wash: rgba(47, 126, 77, 0.1);
+}
+
+.hero-card.mode-profane.weekday-4 {
+  --weekday-hero-accent: #91b9e2;
+  --weekday-hero-border: rgba(107, 163, 220, 0.48);
+  --weekday-hero-glow: rgba(64, 117, 183, 0.26);
+  --weekday-hero-wash: rgba(48, 101, 169, 0.11);
+}
+
+.hero-card.mode-profane.weekday-5 {
+  --weekday-hero-accent: #d0a9df;
+  --weekday-hero-border: rgba(181, 126, 206, 0.48);
+  --weekday-hero-glow: rgba(135, 69, 160, 0.26);
+  --weekday-hero-wash: rgba(128, 57, 153, 0.11);
+}
+
+.hero-card.mode-profane.weekday-6 {
+  --weekday-hero-accent: #bbb6a5;
+  --weekday-hero-border: rgba(154, 150, 135, 0.46);
+  --weekday-hero-glow: rgba(68, 69, 65, 0.26);
+  --weekday-hero-wash: rgba(21, 22, 21, 0.18);
+}
+
+.hero-card.mode-profane::before {
+  border-color: var(--weekday-hero-border);
+}
+
+.hero-card.mode-profane .hero-month,
+.hero-card.mode-profane .hero-number span {
+  color: var(--weekday-hero-accent);
+}
+
+.hero-card.mode-profane .primary-button {
+  background: var(--weekday-hero-accent);
+}
+
+.hero-card.mode-profane .primary-button:hover {
+  filter: brightness(1.08);
 }
 
 .hero-card::before,
@@ -1032,6 +1105,28 @@ button:disabled {
   font-family: Georgia, "Times New Roman", serif;
   font-size: 14px;
   line-height: 1.65;
+}
+
+.profane-hero-description {
+  display: grid;
+  gap: 5px;
+  max-width: 570px;
+  font-size: 12px;
+  line-height: 1.48;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.76);
+}
+
+.profane-hero-description strong {
+  color: var(--weekday-hero-accent);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 10px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.profane-hero-description b {
+  color: #f1e9dc;
+  font-weight: 700;
 }
 
 .hero-actions {
@@ -3819,7 +3914,13 @@ button:disabled {
   }
 
   .hero-card.mode-profane {
-    background-position: center;
+    min-height: 690px;
+    background-image:
+      linear-gradient(0deg, rgba(4, 17, 21, 0.99) 0%, rgba(4, 17, 21, 0.95) 37%, rgba(4, 17, 21, 0.48) 68%, rgba(4, 17, 21, 0.14) 100%),
+      radial-gradient(circle at 69% 28%, var(--weekday-hero-glow), transparent 43%),
+      linear-gradient(135deg, var(--weekday-hero-wash), transparent 66%),
+      var(--genesis-hero-image, none);
+    background-position: 68% center;
   }
 
   .hero-card::before {
@@ -3838,6 +3939,11 @@ button:disabled {
 
   .hero-description {
     font-size: 13px;
+  }
+
+  .profane-hero-description {
+    font-size: 11.5px;
+    line-height: 1.46;
   }
 
   .hero-number {

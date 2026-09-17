@@ -1,7 +1,16 @@
-const CACHE = "genesis-shell-v22";
+const CACHE = "genesis-shell-v23";
 const SCOPE = self.registration.scope;
 const MONTH_ART = Array.from({ length: 13 }, (_, index) => `./month-art-v4/month-${String(index + 1).padStart(2, "0")}.webp`);
-const CORE = ["./", "./manifest.webmanifest", "./manifest.en.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./genesis-hero.png", ...MONTH_ART]
+const WEEKDAY_ART = [
+  "./weekday-art/weekday-0-sunday-apollo.webp",
+  "./weekday-art/weekday-1-monday-lunar-goddesses.webp",
+  "./weekday-art/weekday-2-tuesday-ares.webp",
+  "./weekday-art/weekday-3-wednesday-hermes.webp",
+  "./weekday-art/weekday-4-thursday-zeus-hera.webp",
+  "./weekday-art/weekday-5-friday-aphrodite-hestia-dionysus.webp",
+  "./weekday-art/weekday-6-saturday-cronus.webp",
+];
+const CORE = ["./", "./manifest.webmanifest", "./manifest.en.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./genesis-hero.png", ...MONTH_ART, ...WEEKDAY_ART]
   .map((path) => new URL(path, SCOPE).href);
 
 self.addEventListener("install", (event) => {

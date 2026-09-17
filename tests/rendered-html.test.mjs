@@ -338,7 +338,10 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /PROFANE_WEEKDAY_PATRONS/);
   assert.match(calendar, /День Луны — Селены, Гекаты и Артемиды/);
   assert.match(calendar, /День Гермеса/);
-  assert.match(calendar, /День Кроноса, Посейдона и Аида/);
+  assert.match(calendar, /День Кроноса/);
+  assert.match(calendar, /Части тела:/);
+  assert.match(calendar, /Сердце, позвоночник и правый глаз/);
+  assert.match(calendar, /Кости, зубы, суставы, селезёнка/);
   assert.match(calendar, /hero-day-title-primary/);
   assert.match(calendar, /hero-day-title-translation/);
   assert.match(calendar, /dayTitleTranslationSize/);
@@ -395,6 +398,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /month-art-v4\/month-/);
   assert.match(calendar, /day-art-v1\/month-/);
   assert.match(calendar, /dayArtUrl\(todayInfo\.monthIndex, todayInfo\.day\)/);
+  assert.match(calendar, /weekdayArtUrl\(today\.getDay\(\)\)/);
+  assert.match(calendar, /weekday-5-friday-aphrodite-hestia-dionysus\.webp/);
   assert.match(calendar, /activeCalendarMode === "lunar"[\s\S]*genesis-hero\.png/);
   assert.match(calendar, /hero-card mode-\$\{activeCalendarMode\}/);
   assert.match(calendar, /Ритм Луны сегодня/);
@@ -402,9 +407,14 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /lunar\.day} лунный день/);
   assert.match(calendar, /weekdayPatron\.patronage/);
   assert.match(styles, /var\(--genesis-hero-image, none\),[\s\S]*var\(--genesis-hero-fallback, none\)/);
-  assert.match(styles, /\.hero-card\.mode-profane\s*\{[\s\S]*repeating-radial-gradient/);
+  assert.match(styles, /\.hero-card\.mode-profane\s*\{[\s\S]*var\(--genesis-hero-image, none\)/);
+  assert.match(styles, /\.hero-card\.mode-profane\.weekday-0/);
+  assert.match(styles, /\.hero-card\.mode-profane\.weekday-6/);
+  assert.match(styles, /\.profane-hero-description/);
   assert.match(styles, /\.all-tasks-create\[open\]\s*\{[\s\S]*overflow:\s*visible/);
-  assert.match(serviceWorker, /genesis-shell-v22/);
+  assert.match(serviceWorker, /genesis-shell-v23/);
+  assert.match(serviceWorker, /weekday-0-sunday-apollo\.webp/);
+  assert.match(serviceWorker, /weekday-6-saturday-cronus\.webp/);
   assert.match(calendar, /calendar-month-art/);
   assert.match(calendar, /mini-pyata/);
   assert.match(calendar, /Math\.ceil\(availableDays \/ 5\)/);
