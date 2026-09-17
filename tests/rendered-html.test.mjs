@@ -351,6 +351,10 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /вавилонско-иудейское[\s\S]*христианско-церковное наследие/);
   assert.equal((calendar.match(/профанск/giu) ?? []).length, 2);
   assert.match(calendar, /const leadingDays = mode === "profane" \? firstDate\.getDay\(\) : 0/);
+  assert.match(calendar, /const trailingDays = mode === "profane" \? \(7 - \(\(leadingDays \+ dates\.length\) % 7\)\) % 7 : 0/);
+  assert.match(calendar, /previousMonthDates\.map/);
+  assert.match(calendar, /nextMonthDates\.map/);
+  assert.match(calendar, /isAdjacentMonth \? null : \(/);
   assert.match(calendar, /month\.dates\[0\]\?\.getDay\(\) \?\? 0/);
   assert.match(calendar, /new Date\(2024, 0, 7 \+ index, 12\)/);
   assert.match(calendar, /<CronusSickleIcon size=\{35\}/);
@@ -632,7 +636,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(styles, /--weekday-card-tint: rgba\(54, 101, 151, \.09\)/);
   assert.match(styles, /--weekday-selected-bg: #24583d/);
   assert.match(styles, /\.calendar-mode-calendar\.mode-profane\s*\{[\s\S]*linear-gradient\(145deg, #061619, #0a2528 56%, #07171b\)/);
-  assert.match(styles, /\.calendar-mode-calendar\.mode-profane \.calendar-mode-blank\s*\{[\s\S]*rgba\(255, 255, 255, \.025\)/);
+  assert.match(styles, /\.calendar-mode-calendar\.mode-profane \.calendar-mode-day\.adjacent-month\s*\{[\s\S]*opacity: var\(--adjacent-month-opacity, \.5\);[\s\S]*pointer-events: none/);
+  assert.match(styles, /\.calendar-mode-calendar\.mode-profane \.calendar-mode-day\.adjacent-month:hover\s*\{[\s\S]*transform: none/);
   assert.match(styles, /\.calendar-mode-calendar\.mode-profane \.calendar-day\.mode-profane\[class\*="weekday-"\]\.selected/);
   assert.match(styles, /var\(--weekday-selected-muted\)/);
   assert.match(styles, /\.calendar-mode-calendar\.mode-profane \.calendar-day\.mode-profane\.solar-day:not\(\.selected, \.today\)\s*\{[\s\S]*linear-gradient\(145deg, #fae9ae 0%, #dfc16b 54%, #c59b43 100%\)/);
