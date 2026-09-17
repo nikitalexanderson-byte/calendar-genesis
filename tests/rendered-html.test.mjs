@@ -73,10 +73,16 @@ test("ships the complete interactive bilingual Theokyklos", async () => {
   assert.match(calendar, /id: "theokyklos", label: "Теокиклос", symbol: "Θ"/);
   assert.match(calendar, /<TheokyklosView language=\{language\} \/>/);
   assert.match(component, /theokyklos-mandala/);
+  assert.match(component, /Круг божественных сил/);
+  assert.match(component, /Circle of Divine Powers/);
+  assert.match(component, /language === "en" \? "RING" : "КОЛЬЦО"/);
+  assert.doesNotMatch(component, /theokyklos-counts/);
+  assert.doesNotMatch(component, /theokyklos-ritual-path/);
   assert.match(component, /aria-pressed=\{selectedId === segment\.id\}/);
   assert.match(component, /selected\.words\.map/);
   assert.match(styles, /\.theokyklos-view/);
   assert.match(styles, /\.theokyklos-segment-shape/);
+  assert.match(styles, /@keyframes theokyklos-rays/);
   assert.match(i18n, /"Теокиклос": "Theokyklos"/);
 });
 
