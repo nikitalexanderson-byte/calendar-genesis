@@ -175,7 +175,7 @@ test("normalizes multiple relative and absolute task reminders", () => {
 });
 
 test("keeps the requested calendar and privacy features wired", async () => {
-  const [calendarData, calendar, calendarDatePicker, accountPanel, cloudSync, recurrenceBuilder, taskRecurrence, moonPhase, solarTimes, stoicheion, stoicheionData, welcome, styles, api, google, repository, multiAccountMigration, i18n, languageMigration, taskCalendarMigration, englishManifest, geminiAssistant, localVoiceAssistant, localVoicePlan, geminiServer, publicHtaccess, serverConfigExample, cronusSickle, reminderPicker, taskReminders] = await Promise.all([
+  const [calendarData, calendar, calendarDatePicker, accountPanel, cloudSync, recurrenceBuilder, taskRecurrence, moonPhase, solarTimes, stoicheion, stoicheionData, welcome, styles, api, google, repository, multiAccountMigration, i18n, languageMigration, taskCalendarMigration, englishManifest, geminiAssistant, localVoiceAssistant, localVoicePlan, geminiServer, publicHtaccess, serverConfigExample, cronusSickle, reminderPicker, taskReminders, serviceWorker] = await Promise.all([
     readFile(new URL("../app/calendar-data.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/CalendarDatePicker.tsx", import.meta.url), "utf8"),
@@ -206,6 +206,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
     readFile(new URL("../app/CronusSickleIcon.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/TaskReminderPicker.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/task-reminders.ts", import.meta.url), "utf8"),
+    readFile(new URL("../public/sw.js", import.meta.url), "utf8"),
   ]);
 
   assert.match(calendarData, /getSolarEvents/);
@@ -386,6 +387,10 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.doesNotMatch(welcome, /Артемида · полнолуние|Геката · новолуние/);
   assert.doesNotMatch(welcome, /admin-access/);
   assert.match(calendar, /month-art-v4\/month-/);
+  assert.match(calendar, /day-art-v1\/month-/);
+  assert.match(calendar, /dayArtUrl\(todayInfo\.monthIndex, todayInfo\.day\)/);
+  assert.match(styles, /var\(--genesis-hero-image, none\),[\s\S]*url\("\/genesis-hero\.png"\)/);
+  assert.match(serviceWorker, /genesis-shell-v15/);
   assert.match(calendar, /calendar-month-art/);
   assert.match(calendar, /mini-pyata/);
   assert.match(calendar, /Math\.ceil\(availableDays \/ 5\)/);
@@ -723,6 +728,13 @@ test("keeps the requested calendar and privacy features wired", async () => {
   await Promise.all(Array.from({ length: 13 }, (_, index) =>
     access(new URL(`../public/month-art-v4/month-${String(index + 1).padStart(2, "0")}.webp`, import.meta.url)),
   ));
+  const dailyArtStats = await Promise.all(Array.from({ length: 366 }, (_, index) => {
+    const month = index < 360 ? Math.floor(index / 30) + 1 : 13;
+    const day = index < 360 ? (index % 30) + 1 : index - 359;
+    return stat(new URL(`../public/day-art-v1/month-${String(month).padStart(2, "0")}/day-${String(day).padStart(2, "0")}.webp`, import.meta.url));
+  }));
+  assert.equal(dailyArtStats.length, 366);
+  assert.ok(dailyArtStats.every((entry) => entry.size > 200_000));
   await access(new URL("../server/migrations/004_stoicheion_draws.sql", import.meta.url));
   await access(new URL("../server/migrations/005_stoicheion_divination_preference.sql", import.meta.url));
   await access(new URL("../server/migrations/007_user_language.sql", import.meta.url));

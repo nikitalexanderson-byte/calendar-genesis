@@ -597,6 +597,12 @@ function monthArtUrl(monthIndex: number) {
   return `${APP_BASE}/month-art-v4/month-${String(monthIndex + 1).padStart(2, "0")}.webp`;
 }
 
+function dayArtUrl(monthIndex: number, day: number) {
+  const monthPart = String(monthIndex + 1).padStart(2, "0");
+  const dayPart = String(day).padStart(2, "0");
+  return `${APP_BASE}/day-art-v1/month-${monthPart}/day-${dayPart}.webp`;
+}
+
 function taskOriginMeta(origin: TaskOrigin) {
   if (origin === "google-calendar") return { label: "Создано в Google Calendar", className: "calendar" };
   if (origin === "google-tasks") return { label: "Создано в Google Tasks", className: "tasks" };
@@ -4120,7 +4126,7 @@ export function GenesisCalendar() {
   return (
     <main
       className="genesis-app"
-      style={{ "--genesis-hero-image": `url("${APP_BASE}/genesis-hero.png")` } as CSSProperties}
+      style={{ "--genesis-hero-image": `url("${dayArtUrl(todayInfo.monthIndex, todayInfo.day)}")` } as CSSProperties}
     >
       <a className="skip-link" href="#main-content">К основному содержанию</a>
       <aside className="app-sidebar" aria-label="Основная навигация">
