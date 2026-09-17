@@ -190,7 +190,9 @@ export function TaskReminderPicker({
             onClick={() => setMenuOpen((current) => !current)}
           >
             <span>{atLimit ? "Добавлено 5 напоминаний" : triggerLabel}</span>
-            <span aria-hidden="true">⌄</span>
+            <svg className="reminder-disclosure-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="m6.5 9 5.5 5.5L17.5 9" />
+            </svg>
           </button>
           {menuOpen ? (
             <div className="reminder-menu" role="listbox" aria-label="Добавить напоминание">

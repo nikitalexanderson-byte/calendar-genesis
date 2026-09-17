@@ -846,6 +846,10 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(reminderPicker, /Относительное время/);
   assert.match(reminderPicker, /Дата и время/);
   assert.match(reminderPicker, /reminder-chips/);
+  assert.match(reminderPicker, /<svg className="reminder-disclosure-icon"[\s\S]*?<path d="m6\.5 9 5\.5 5\.5L17\.5 9" \/>/);
+  assert.doesNotMatch(reminderPicker, /<span aria-hidden="true">⌄<\/span>/);
+  assert.match(styles, /\.reminder-disclosure-icon\s*\{/);
+  assert.match(styles, /\.reminder-add-button\[aria-expanded="true"\] \.reminder-disclosure-icon/);
   assert.match(calendar, /TaskReminderPicker/);
   assert.match(google, /genesisReminders/);
   assert.match(google, /genesisTaskReminderOverrides/);

@@ -6785,6 +6785,33 @@ button.project-drag-handle:active { cursor: grabbing; }
   background: transparent;
   border-style: dashed;
 }
+.reminder-disclosure-icon {
+  width: 19px;
+  height: 19px;
+  flex: 0 0 19px;
+  padding: 3px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.25;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  background: rgba(37, 91, 89, .07);
+  border: 1px solid rgba(37, 91, 89, .17);
+  border-radius: 50%;
+  transform: rotate(0deg);
+  transition: transform 180ms ease, background 140ms ease, border-color 140ms ease;
+}
+.reminder-select-trigger:hover .reminder-disclosure-icon,
+.reminder-add-button:hover .reminder-disclosure-icon {
+  background: rgba(37, 91, 89, .13);
+  border-color: rgba(37, 91, 89, .3);
+}
+.reminder-select-trigger[aria-expanded="true"] .reminder-disclosure-icon,
+.reminder-add-button[aria-expanded="true"] .reminder-disclosure-icon {
+  background: rgba(37, 91, 89, .14);
+  border-color: rgba(37, 91, 89, .34);
+  transform: rotate(180deg);
+}
 .reminder-select-trigger:disabled,
 .reminder-add-button:disabled { cursor: not-allowed; opacity: .55; }
 .reminder-menu {
