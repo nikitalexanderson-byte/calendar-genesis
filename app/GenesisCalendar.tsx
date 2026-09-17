@@ -10,6 +10,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import {
   type GeminiPlan,
@@ -776,24 +777,62 @@ function TaskPriorityControl({
   );
 }
 
-function DeviceClock({ timeFormat }: { timeFormat: TimeFormat }) {
-  const [clock, setClock] = useState<{ now: Date; timezone: string } | null>(null);
+type DeviceClockSnapshot = { now: Date; timezone: string };
 
-  useEffect(() => {
-    const update = () => setClock({
-      now: new Date(),
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
-    });
-    update();
-    const interval = window.setInterval(update, 1000);
-    window.addEventListener("focus", update);
-    document.addEventListener("visibilitychange", update);
-    return () => {
-      window.clearInterval(interval);
-      window.removeEventListener("focus", update);
-      document.removeEventListener("visibilitychange", update);
-    };
-  }, []);
+let deviceClockSnapshot: DeviceClockSnapshot | null = null;
+let deviceClockTimeout: number | null = null;
+const deviceClockSubscribers = new Set<() => void>();
+
+function updateDeviceClockSnapshot() {
+  deviceClockSnapshot = {
+    now: new Date(),
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+  };
+  deviceClockSubscribers.forEach((subscriber) => subscriber());
+}
+
+function scheduleDeviceClockTick() {
+  const delay = Math.max(16, 1000 - (Date.now() % 1000));
+  deviceClockTimeout = window.setTimeout(() => {
+    updateDeviceClockSnapshot();
+    scheduleDeviceClockTick();
+  }, delay);
+}
+
+function subscribeDeviceClock(subscriber: () => void) {
+  deviceClockSubscribers.add(subscriber);
+  if (deviceClockSubscribers.size === 1) {
+    updateDeviceClockSnapshot();
+    scheduleDeviceClockTick();
+    window.addEventListener("focus", updateDeviceClockSnapshot);
+    document.addEventListener("visibilitychange", updateDeviceClockSnapshot);
+  }
+
+  return () => {
+    deviceClockSubscribers.delete(subscriber);
+    if (deviceClockSubscribers.size === 0) {
+      if (deviceClockTimeout !== null) window.clearTimeout(deviceClockTimeout);
+      deviceClockTimeout = null;
+      window.removeEventListener("focus", updateDeviceClockSnapshot);
+      document.removeEventListener("visibilitychange", updateDeviceClockSnapshot);
+    }
+  };
+}
+
+function getDeviceClockSnapshot() {
+  return deviceClockSnapshot;
+}
+
+function getServerDeviceClockSnapshot() {
+  return null;
+}
+
+function useDeviceClock() {
+  return useSyncExternalStore(subscribeDeviceClock, getDeviceClockSnapshot, getServerDeviceClockSnapshot);
+}
+
+function DeviceClock({ timeFormat }: { timeFormat: TimeFormat }) {
+  const clock = useDeviceClock();
 
   return (
     <time className="device-clock" dateTime={clock?.now.toISOString()} aria-label={clock ? `Время устройства: ${formatClockTime(clock.now, timeFormat)}` : "Время устройства синхронизируется"}>
@@ -804,7 +843,9 @@ function DeviceClock({ timeFormat }: { timeFormat: TimeFormat }) {
 }
 
 function DayRhythmPanel({ now, timeFormat }: { now: Date; timeFormat: TimeFormat }) {
-  const moment = getDayRhythmMoment(now);
+  const clock = useDeviceClock();
+  const liveNow = clock?.now ?? now;
+  const moment = getDayRhythmMoment(liveNow);
   const [expanded, setExpanded] = useState(false);
   const [exploredPeriodId, setExploredPeriodId] = useState<DayRhythmPeriodId | null>(null);
   const exploredPeriod = DAY_RHYTHM_PERIODS.find((period) => period.id === exploredPeriodId) ?? moment.period;
@@ -812,10 +853,8 @@ function DayRhythmPanel({ now, timeFormat }: { now: Date; timeFormat: TimeFormat
   const toggleLabel = expanded
     ? (isEnglish ? "Collapse daily rhythm" : "Свернуть ритм суток")
     : (isEnglish ? "Expand daily rhythm" : "Развернуть ритм суток");
-  const currentTime = formatTimeValue(
-    `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`,
-    timeFormat,
-  );
+  const currentTime = formatClockTime(liveNow, timeFormat);
+  const remainingTime = `${String(Math.floor(moment.remainingSeconds / 60)).padStart(2, "0")}:${String(moment.remainingSeconds % 60).padStart(2, "0")}`;
 
   return (
     <section
@@ -835,7 +874,7 @@ function DayRhythmPanel({ now, timeFormat }: { now: Date; timeFormat: TimeFormat
           ) : null}
         </div>
         <div className="day-rhythm-heading-actions">
-          <time dateTime={now.toISOString()}>{currentTime}</time>
+          <time dateTime={liveNow.toISOString()}>{currentTime}</time>
           <button
             type="button"
             className="day-rhythm-toggle"
@@ -862,7 +901,7 @@ function DayRhythmPanel({ now, timeFormat }: { now: Date; timeFormat: TimeFormat
           </div>
           <div className="day-rhythm-progress" aria-label={`Текущий двухчасовой период: ${Math.round(moment.progress)}%`}>
             <span><i /></span>
-            <small>До смены часа · {moment.remainingMinutes} мин.</small>
+            <small>{isEnglish ? "Until the next watch" : "До смены часа"} · {remainingTime}</small>
           </div>
         </article>
 

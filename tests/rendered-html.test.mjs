@@ -188,7 +188,7 @@ test("formats canonical task times as 24-hour or AM/PM values", () => {
 });
 
 test("resolves the elemental period and divine watch from device time", () => {
-  const at = (hour, minute = 0) => getDayRhythmMoment(new Date(2026, 0, 1, hour, minute));
+  const at = (hour, minute = 0, second = 0) => getDayRhythmMoment(new Date(2026, 0, 1, hour, minute, second));
 
   assert.equal(DAY_RHYTHM_PERIODS.length, 4);
   assert.equal(DAY_RHYTHM_PERIODS.flatMap((period) => period.watches).length, 12);
@@ -201,6 +201,7 @@ test("resolves the elemental period and divine watch from device time", () => {
   assert.equal(at(16).watch.deity, "Деметра");
   assert.deepEqual([at(18).period.id, at(18).watch.deity], ["water", "Гефест"]);
   assert.deepEqual([at(20).watch.deity, at(20).watch.symbol], ["Афина", "⚴"]);
+  assert.equal(at(20, 30, 15).remainingSeconds, 5_385);
   assert.equal(at(23, 59).watch.deity, "Зевс");
   assert.equal(formatDayRhythmRange(18, 24, "24h"), "18:00–00:00");
   assert.equal(formatDayRhythmRange(18, 24, "12h"), "06:00 PM–12:00 AM");
@@ -561,6 +562,11 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /DeviceClock/);
   assert.match(calendar, /<div className="hero-number" aria-hidden="true">[\s\S]*?<\/div>\s*<DeviceClock timeFormat=\{activeTimeFormat\} \/>/);
   assert.match(calendar, /<DayRhythmPanel now=\{today\} timeFormat=\{activeTimeFormat\} \/>/);
+  assert.match(calendar, /useSyncExternalStore\(subscribeDeviceClock, getDeviceClockSnapshot, getServerDeviceClockSnapshot\)/);
+  assert.match(calendar, /1000 - \(Date\.now\(\) % 1000\)/);
+  assert.match(calendar, /const liveNow = clock\?\.now \?\? now/);
+  assert.match(calendar, /const currentTime = formatClockTime\(liveNow, timeFormat\)/);
+  assert.match(calendar, /moment\.remainingSeconds % 60/);
   assert.match(calendar, /const \[expanded, setExpanded\] = useState\(false\)/);
   assert.match(calendar, /aria-expanded=\{expanded\}/);
   assert.match(calendar, /aria-controls="day-rhythm-details"/);

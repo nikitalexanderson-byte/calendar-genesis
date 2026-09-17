@@ -194,7 +194,8 @@ export function formatDayRhythmRange(startHour: number, endHour: number, timeFor
 }
 
 export function getDayRhythmMoment(date: Date) {
-  const minutes = date.getHours() * 60 + date.getMinutes() + date.getSeconds() / 60;
+  const seconds = date.getHours() * 3600 + date.getMinutes() * 60 + date.getSeconds();
+  const minutes = seconds / 60;
   const period = DAY_RHYTHM_PERIODS.find(({ startHour, endHour }) => minutes >= startHour * 60 && minutes < endHour * 60)
     ?? DAY_RHYTHM_PERIODS[3];
   const watch = period.watches.find(({ startHour, endHour }) => minutes >= startHour * 60 && minutes < endHour * 60)
@@ -207,5 +208,6 @@ export function getDayRhythmMoment(date: Date) {
     watch,
     progress: Math.max(0, Math.min(100, (elapsedMinutes / durationMinutes) * 100)),
     remainingMinutes: Math.max(0, Math.ceil(watch.endHour * 60 - minutes)),
+    remainingSeconds: Math.max(0, Math.ceil(watch.endHour * 3600 - seconds)),
   };
 }
