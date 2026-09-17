@@ -193,6 +193,8 @@ export type GeminiAssistantContext = {
   accounts: Array<{ email: string }>;
 };
 
+export type AssistantProvider = "local" | "gigachat" | "gemini";
+
 export type GenesisMetrics = {
   projectCount: number;
   taskCount: number;
@@ -743,17 +745,17 @@ export async function saveStoicheionDraw(kind: StoicheionDrawKind, seed: number)
   });
 }
 
-export async function requestGeminiPlan(payload: {
+export async function requestAssistantPlan(payload: {
   command: string;
   audio: { data: string; mimeType: string } | null;
   context: GeminiAssistantContext;
 }) {
-  return api<{ model: string; plan: GeminiPlan }>("/assistant/plan", {
+  return api<{ provider: Exclude<AssistantProvider, "local">; model: string; plan: GeminiPlan }>("/assistant/plan", {
     method: "POST",
     body: JSON.stringify(payload),
   });
 }
 
-export async function loadGeminiStatus() {
-  return api<{ available: boolean; model: string }>("/assistant/status");
+export async function loadAssistantStatus() {
+  return api<{ available: boolean; provider: AssistantProvider; model: string; audioAvailable: boolean }>("/assistant/status");
 }

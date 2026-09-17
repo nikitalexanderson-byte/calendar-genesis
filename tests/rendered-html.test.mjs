@@ -152,6 +152,17 @@ test("turns Russian and English voice commands into local task plans", () => {
   );
   assert.equal(projectFirst.tasks[0].title, "подготовить презентацию");
   assert.equal(projectFirst.tasks[0].project, "Работа");
+
+  const noisySpeech = createLocalVoicePlan(
+    "ну пожалуйста создай мне новую задачу: позвонить врачу завтра в 18 часов",
+    context,
+  );
+  assert.equal(noisySpeech.tasks[0].title, "позвонить врачу");
+  assert.equal(noisySpeech.tasks[0].time, "18:00");
+  assert.throws(
+    () => createLocalVoicePlan("создай задачу", context),
+    /название задачи/,
+  );
 });
 
 test("normalizes multiple relative and absolute task reminders", () => {
@@ -329,23 +340,25 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(styles, /@keyframes voiceButtonActivate/);
   assert.match(styles, /\.voice-open-button\.is-activating/);
   assert.match(styles, /prefers-reduced-motion: reduce[\s\S]*\.voice-microphone-icon/);
-  assert.match(calendar, /gemini-open-button/);
+  assert.doesNotMatch(calendar, /gemini-open-button/);
+  assert.match(calendar, /assistantStatus\.audioAvailable/);
+  assert.match(calendar, /loadAssistantStatus/);
   assert.match(localVoiceAssistant, /SpeechRecognition/);
   assert.match(localVoiceAssistant, /processLocally/);
   assert.match(localVoiceAssistant, /GENESIS не отправляет и не хранит аудиозапись/);
-  assert.match(localVoiceAssistant, /requestGeminiPlan/);
+  assert.match(localVoiceAssistant, /requestAssistantPlan/);
   assert.match(localVoiceAssistant, /neuralAvailable/);
   assert.match(localVoiceAssistant, /План подготовлен локально на устройстве/);
-  assert.match(localVoiceAssistant, /нейросеть Gemini/);
+  assert.match(localVoiceAssistant, /neuralProviderName/);
   assert.match(localVoiceAssistant, /voice-microphone-icon/);
   assert.doesNotMatch(localVoiceAssistant, /className="gemini-mark voice-mark" aria-hidden="true">●/);
   assert.match(localVoicePlan, /createLocalVoicePlan/);
   assert.match(geminiAssistant, /navigator\.mediaDevices\.getUserMedia/);
   assert.match(geminiAssistant, /MAX_RECORDING_MS = 60_000/);
   assert.match(geminiAssistant, /MAX_AUDIO_BYTES = 4 \* 1024 \* 1024/);
-  assert.match(geminiAssistant, /Перед сохранением Gemini покажет полный план/);
-  assert.match(geminiAssistant, /GENESIS их не сохраняет/);
-  assert.match(cloudSync, /requestGeminiPlan/);
+  assert.match(geminiAssistant, /providerName/);
+  assert.match(geminiAssistant, /запрашивает её удаление из файлового хранилища GigaChat/);
+  assert.match(cloudSync, /requestAssistantPlan/);
   assert.match(api, /assistant\/plan/);
   assert.match(api, /genesisRequireUserId\(\)/);
   assert.match(api, /genesisRequireCsrf\(\)/);
@@ -365,8 +378,21 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(geminiServer, /noisy automatic speech transcript/);
   assert.match(geminiServer, /set that task's project field/);
   assert.match(geminiServer, /x-goog-api-key/);
-  assert.doesNotMatch(calendar + cloudSync + geminiAssistant, /gemini_api_key|GEMINI_API_KEY/);
+  assert.match(geminiServer, /https:\/\/api\.giga\.chat\/v1/);
+  assert.match(geminiServer, /https:\/\/ngw\.devices\.sberbank\.ru:9443\/api\/v2\/oauth/);
+  assert.match(geminiServer, /GIGACHAT_API_PERS/);
+  assert.match(geminiServer, /'type' => 'json_schema'/);
+  assert.match(geminiServer, /'purpose' => 'general'/);
+  assert.match(geminiServer, /genesisGigaChatDeleteFile/);
+  assert.match(geminiServer, /Remove interface phrases such as "create a task", "создай задачу"/);
+  assert.match(geminiServer, /function genesisAssistantTaskTitle/);
+  assert.match(geminiServer, /genesisCreateAssistantPlan/);
+  assert.doesNotMatch(calendar + cloudSync + geminiAssistant, /gemini_api_key|GEMINI_API_KEY|gigachat_authorization_key|GIGACHAT_AUTHORIZATION_KEY/);
   assert.match(geminiServer, /genesisGeminiEnabled\(\) && genesisGeminiApiKey\(\) !== ''/);
+  assert.match(geminiServer, /genesisGigaChatEnabled\(\) && genesisGigaChatAuthorizationKey\(\) !== ''/);
+  assert.match(serverConfigExample, /'gigachat_enabled' => false/);
+  assert.match(serverConfigExample, /'gigachat_authorization_key' => ''/);
+  assert.match(serverConfigExample, /'gigachat_api_endpoint'/);
   assert.match(serverConfigExample, /'gemini_enabled' => false/);
   assert.match(serverConfigExample, /'gemini_api_key' => ''/);
   assert.match(serverConfigExample, /'gemini_api_endpoint'/);
@@ -1017,8 +1043,9 @@ test("keeps Google OAuth consent, account binding, and token handling hardened",
   assert.match(legal, /Google Tasks/);
   assert.match(legal, /Limited Use/);
   assert.match(legal, /developers\.google\.com\/terms\/api-services-user-data-policy/);
-  assert.match(legal, /Голосовые команды и Gemini/);
-  assert.match(legal, /Для бесплатного тарифа Google указывает/);
+  assert.match(legal, /Голосовые команды и нейросетевой разбор/);
+  assert.match(legal, /GigaChat или Google Gemini/);
+  assert.match(legal, /сразу после разбора отправляет запрос на её удаление/);
   assert.match(viteConfig, /sourcemap: false/);
   assert.match(htaccess, /connect-src 'self' https:\/\/get\.geojs\.io https:\/\/geocoding-api\.open-meteo\.com/);
   assert.match(legal, /GeoJS/);

@@ -4,6 +4,9 @@ declare(strict_types=1);
 const GENESIS_GEMINI_DEFAULT_MODEL = 'gemini-3.8-flash';
 const GENESIS_GEMINI_DEFAULT_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/interactions';
 const GENESIS_GEMINI_MAX_AUDIO_BYTES = 4 * 1024 * 1024;
+const GENESIS_GIGACHAT_DEFAULT_MODEL = 'GigaChat';
+const GENESIS_GIGACHAT_DEFAULT_AUTH_ENDPOINT = 'https://ngw.devices.sberbank.ru:9443/api/v2/oauth';
+const GENESIS_GIGACHAT_DEFAULT_API_ENDPOINT = 'https://api.giga.chat/v1';
 const GENESIS_GEMINI_AUDIO_MIME_TYPES = [
     'audio/aac',
     'audio/flac',
@@ -124,6 +127,21 @@ function genesisGeminiStringList(mixed $value, int $itemLimit, int $countLimit):
         }
     }
     return array_values(array_unique($result));
+}
+
+function genesisAssistantTaskTitle(mixed $value): string
+{
+    $title = genesisGeminiString($value, 300);
+    $patterns = [
+        '/^(?:(?:ну|пожалуйста)\s*[,—–-]?\s*)*(?:(?:мне\s+)?(?:нужно|надо)\s+)?(?:(?:создай|создать|добавь|добавить|запиши|записать|запланируй|запланировать|поставь|поставить)(?:\s+мне)?(?:\s+(?:новую?\s+)?(?:задач[а-яё]*|напоминан[а-яё]*))?|напомни(?:\s+мне)?|(?:задач[а-яё]*|напоминан[а-яё]*))\s*[.:;—–,-]?\s*/iu',
+        '/^(?:please\s+)?(?:(?:create|add|schedule|plan|make)(?:\s+me)?(?:\s+(?:a\s+)?(?:new\s+)?(?:task|reminder))?|remind\s+me(?:\s+to)?|(?:task|reminder))\s*[.:;—–,-]?\s*/i',
+    ];
+    for ($pass = 0; $pass < 3; $pass++) {
+        $cleaned = preg_replace($patterns, '', $title);
+        if (!is_string($cleaned) || $cleaned === $title) break;
+        $title = trim(preg_replace('/\s+/u', ' ', $cleaned) ?? $cleaned);
+    }
+    return trim((string)(preg_replace('/^[«“"\s]+|[»”"\s.,!?]+$/u', '', $title) ?? $title));
 }
 
 function genesisGeminiContext(mixed $value): array
@@ -307,7 +325,7 @@ function genesisNormalizeGeminiPlan(array $plan): array
     $tasks = [];
     foreach (array_slice(is_array($plan['tasks'] ?? null) ? $plan['tasks'] : [], 0, 100) as $task) {
         if (!is_array($task)) continue;
-        $title = genesisGeminiString($task['title'] ?? '', 300);
+        $title = genesisAssistantTaskTitle($task['title'] ?? '');
         if ($title === '') continue;
         $startDate = genesisGeminiString($task['startDate'] ?? '', 10);
         $dueDate = genesisGeminiString($task['dueDate'] ?? '', 10);
@@ -423,4 +441,319 @@ PROMPT;
         'model' => genesisGeminiModel(),
         'plan' => genesisNormalizeGeminiPlan($plan),
     ];
+}
+
+function genesisGigaChatAuthorizationKey(): string
+{
+    $environmentKey = getenv('GIGACHAT_AUTHORIZATION_KEY');
+    if (is_string($environmentKey) && trim($environmentKey) !== '') {
+        return trim($environmentKey);
+    }
+    return trim((string)(genesisConfig()['gigachat_authorization_key'] ?? ''));
+}
+
+function genesisGigaChatEnabled(): bool
+{
+    $environmentValue = getenv('GIGACHAT_ENABLED');
+    $configuredValue = is_string($environmentValue)
+        ? $environmentValue
+        : (genesisConfig()['gigachat_enabled'] ?? false);
+    return filter_var($configuredValue, FILTER_VALIDATE_BOOLEAN) === true;
+}
+
+function genesisGigaChatAvailable(): bool
+{
+    return genesisGigaChatEnabled() && genesisGigaChatAuthorizationKey() !== '';
+}
+
+function genesisGigaChatModel(): string
+{
+    $configured = trim((string)(genesisConfig()['gigachat_model'] ?? GENESIS_GIGACHAT_DEFAULT_MODEL));
+    return preg_match('/^[A-Za-z0-9][A-Za-z0-9._-]{2,80}$/', $configured) === 1
+        ? $configured
+        : GENESIS_GIGACHAT_DEFAULT_MODEL;
+}
+
+function genesisGigaChatScope(): string
+{
+    $scope = trim((string)(genesisConfig()['gigachat_scope'] ?? 'GIGACHAT_API_PERS'));
+    return in_array($scope, ['GIGACHAT_API_PERS', 'GIGACHAT_API_B2B', 'GIGACHAT_API_CORP'], true)
+        ? $scope
+        : 'GIGACHAT_API_PERS';
+}
+
+function genesisGigaChatHttpsEndpoint(string $key, string $fallback): string
+{
+    $configured = trim((string)(genesisConfig()[$key] ?? ''));
+    if ($configured === '') return $fallback;
+    $parts = parse_url($configured);
+    return is_array($parts)
+        && ($parts['scheme'] ?? '') === 'https'
+        && is_string($parts['host'] ?? null)
+        && trim((string)$parts['host']) !== ''
+            ? rtrim($configured, '/')
+            : $fallback;
+}
+
+function genesisGigaChatAuthEndpoint(): string
+{
+    return genesisGigaChatHttpsEndpoint('gigachat_auth_endpoint', GENESIS_GIGACHAT_DEFAULT_AUTH_ENDPOINT);
+}
+
+function genesisGigaChatApiEndpoint(): string
+{
+    return genesisGigaChatHttpsEndpoint('gigachat_api_endpoint', GENESIS_GIGACHAT_DEFAULT_API_ENDPOINT);
+}
+
+function genesisGigaChatTlsOptions(): array
+{
+    $caPath = trim((string)(genesisConfig()['gigachat_ca_path'] ?? ''));
+    return $caPath !== '' && is_file($caPath) ? [CURLOPT_CAINFO => $caPath] : [];
+}
+
+function genesisGigaChatUuid(): string
+{
+    $bytes = random_bytes(16);
+    $bytes[6] = chr((ord($bytes[6]) & 0x0f) | 0x40);
+    $bytes[8] = chr((ord($bytes[8]) & 0x3f) | 0x80);
+    $hex = bin2hex($bytes);
+    return substr($hex, 0, 8) . '-' . substr($hex, 8, 4) . '-' . substr($hex, 12, 4)
+        . '-' . substr($hex, 16, 4) . '-' . substr($hex, 20, 12);
+}
+
+function genesisGigaChatHandleError(RuntimeException $error): never
+{
+    $message = mb_strtolower($error->getMessage());
+    if (str_contains($message, '(401)') || str_contains($message, 'unauthorized') || str_contains($message, 'invalid credentials')) {
+        genesisJson(['error' => 'GIGACHAT_KEY_INVALID'], 503);
+    }
+    if (str_contains($message, '(429)') || str_contains($message, 'too many requests')) {
+        genesisJson(['error' => 'GIGACHAT_RATE_LIMIT'], 429);
+    }
+    if (str_contains($message, 'certificate') || str_contains($message, 'ssl')) {
+        genesisJson(['error' => 'GIGACHAT_CERTIFICATE_ERROR'], 503);
+    }
+    throw $error;
+}
+
+function genesisGigaChatAccessToken(): string
+{
+    $cachedToken = trim((string)($_SESSION['gigachat_access_token'] ?? ''));
+    $cachedExpiry = (int)($_SESSION['gigachat_access_token_expires_at'] ?? 0);
+    if ($cachedToken !== '' && $cachedExpiry > time() + 60) {
+        return $cachedToken;
+    }
+
+    try {
+        $response = genesisCurl(genesisGigaChatAuthEndpoint(), genesisGigaChatTlsOptions() + [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => http_build_query(['scope' => genesisGigaChatScope()], '', '&', PHP_QUERY_RFC3986),
+            CURLOPT_HTTPHEADER => [
+                'Accept: application/json',
+                'Content-Type: application/x-www-form-urlencoded',
+                'Authorization: Basic ' . genesisGigaChatAuthorizationKey(),
+                'RqUID: ' . genesisGigaChatUuid(),
+            ],
+            CURLOPT_TIMEOUT => 30,
+        ]);
+    } catch (RuntimeException $error) {
+        genesisGigaChatHandleError($error);
+    }
+
+    $token = trim((string)($response['access_token'] ?? ''));
+    $expiresAt = (int)($response['expires_at'] ?? 0);
+    if ($expiresAt > 10_000_000_000) $expiresAt = (int)floor($expiresAt / 1000);
+    if ($token === '') throw new RuntimeException('GigaChat returned no access token.');
+    $_SESSION['gigachat_access_token'] = $token;
+    $_SESSION['gigachat_access_token_expires_at'] = $expiresAt > time() ? $expiresAt : time() + 1500;
+    return $token;
+}
+
+function genesisGigaChatRequest(string $path, array $options = []): array
+{
+    try {
+        return genesisCurl(genesisGigaChatApiEndpoint() . '/' . ltrim($path, '/'), genesisGigaChatTlsOptions() + $options);
+    } catch (RuntimeException $error) {
+        genesisGigaChatHandleError($error);
+    }
+}
+
+function genesisGigaChatAudioFile(array $audio): array
+{
+    $mimeType = strtolower(trim(explode(';', genesisGeminiString($audio['mimeType'] ?? '', 100), 2)[0]));
+    $formats = [
+        'audio/mp4' => ['audio/mp4', 'm4a'],
+        'audio/m4a' => ['audio/x-m4a', 'm4a'],
+        'audio/mpeg' => ['audio/mpeg', 'mp3'],
+        'audio/mp3' => ['audio/mpeg', 'mp3'],
+        'audio/ogg' => ['audio/x-ogg', 'ogg'],
+        'audio/opus' => ['audio/opus', 'opus'],
+        'audio/wav' => ['audio/wav', 'wav'],
+        'audio/webm' => ['audio/webm', 'weba'],
+    ];
+    if (!isset($formats[$mimeType])) throw new InvalidArgumentException('Unsupported audio format.');
+    $decoded = base64_decode((string)($audio['data'] ?? ''), true);
+    if (!is_string($decoded) || $decoded === '' || strlen($decoded) > GENESIS_GEMINI_MAX_AUDIO_BYTES) {
+        throw new InvalidArgumentException('Voice recording is empty or too large.');
+    }
+    return ['bytes' => $decoded, 'mimeType' => $formats[$mimeType][0], 'extension' => $formats[$mimeType][1]];
+}
+
+function genesisGigaChatUploadAudio(array $audio, string $accessToken): string
+{
+    $file = genesisGigaChatAudioFile($audio);
+    $temporaryPath = tempnam(sys_get_temp_dir(), 'genesis-voice-');
+    if (!is_string($temporaryPath) || file_put_contents($temporaryPath, $file['bytes'], LOCK_EX) === false) {
+        throw new RuntimeException('Could not prepare the voice recording.');
+    }
+    try {
+        $response = genesisGigaChatRequest('/files', [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => [
+                'file' => new CURLFile($temporaryPath, $file['mimeType'], 'genesis-command.' . $file['extension']),
+                'purpose' => 'general',
+            ],
+            CURLOPT_HTTPHEADER => [
+                'Accept: application/json',
+                'Authorization: Bearer ' . $accessToken,
+            ],
+            CURLOPT_TIMEOUT => 60,
+        ]);
+    } finally {
+        @unlink($temporaryPath);
+    }
+    $fileId = trim((string)($response['id'] ?? ''));
+    if ($fileId === '') throw new RuntimeException('GigaChat returned no uploaded file ID.');
+    return $fileId;
+}
+
+function genesisGigaChatDeleteFile(string $fileId, string $accessToken): void
+{
+    if ($fileId === '') return;
+    try {
+        genesisGigaChatRequest('/files/' . rawurlencode($fileId) . '/delete', [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => '',
+            CURLOPT_HTTPHEADER => [
+                'Accept: application/json',
+                'Authorization: Bearer ' . $accessToken,
+            ],
+            CURLOPT_TIMEOUT => 30,
+        ]);
+    } catch (Throwable $error) {
+        genesisLogError('Could not delete the temporary GigaChat audio file.', $error);
+    }
+}
+
+function genesisGigaChatOutputText(array $response): string
+{
+    $content = $response['choices'][0]['message']['content'] ?? null;
+    if (!is_string($content) || trim($content) === '') {
+        throw new RuntimeException('GigaChat returned no planning result.');
+    }
+    return trim($content);
+}
+
+function genesisAssistantSystemInstruction(array $context): string
+{
+    $languageInstruction = $context['language'] === 'en'
+        ? 'Write request and summary in English.'
+        : 'Write request and summary in Russian.';
+    return <<<PROMPT
+You are the planning parser for the GENESIS calendar. Convert the user's written or spoken request into a draft only. Never execute actions and never invent goals the user did not request.
+
+Rules:
+- Return only the structured response required by the JSON schema.
+- {$languageInstruction}
+- The command or audio may contain a noisy speech transcript. Remove interface phrases such as "create a task", "создай задачу", "add a reminder", and similar wording from the task title. A task title must describe the action itself, for example "Позвонить врачу", never "Создай задачу".
+- Interpret relative dates using context.today and context.timeZone. All output dates must be Gregorian ISO YYYY-MM-DD.
+- startDate is when work starts; dueDate is the final deadline. If only one date is given, use it for both. If no date is given, use context.today for both.
+- Never make dueDate earlier than startDate. Do not choose a past date unless the user explicitly named that past date.
+- Match existing project, category, task-list, and account names exactly when the user refers to them.
+- When the user asks to put, place, add, move, or assign a task in/to/for an existing project, set that task's project field to the exact context title and do not leave the placement words in the task title.
+- Add an item to projects or taskLists only when the user explicitly asks to create it. A task may reference an existing item without recreating it.
+- A taskLists item means a Google Tasks list. Use accountEmail only when the user selected a connected account.
+- Keep titles concise. Preserve meaningful wording from the user. Use empty strings and empty arrays for omitted optional details.
+- priority is 1 to 10 (10 is highest); default to 5. reminderMinutes is 0 when no reminder was requested.
+- If the request is not about creating projects, Google Tasks lists, or tasks, return empty action arrays and explain briefly in summary.
+PROMPT;
+}
+
+function genesisCreateGigaChatPlan(array $payload): array
+{
+    if (!genesisGigaChatAvailable()) genesisJson(['error' => 'GIGACHAT_NOT_CONFIGURED'], 503);
+    $command = genesisGeminiString($payload['command'] ?? '', 4000);
+    $audio = is_array($payload['audio'] ?? null) ? $payload['audio'] : null;
+    if ($command === '' && $audio === null) throw new InvalidArgumentException('Voice recording or command text is required.');
+
+    $context = genesisGeminiContext($payload['context'] ?? []);
+    genesisGeminiRateLimit();
+    $accessToken = genesisGigaChatAccessToken();
+    $audioFileId = $audio !== null ? genesisGigaChatUploadAudio($audio, $accessToken) : '';
+    $userMessage = [
+        'role' => 'user',
+        'content' => "Current GENESIS context (user-provided planning metadata):\n"
+            . json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)
+            . "\n\nWritten command (may be empty when audio is attached):\n"
+            . $command
+            . ($audioFileId !== '' ? "\n\nListen to the attached audio command and use it as the primary request." : ''),
+    ];
+    if ($audioFileId !== '') $userMessage['attachments'] = [$audioFileId];
+
+    try {
+        $response = genesisGigaChatRequest('/chat/completions', [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => json_encode([
+                'model' => genesisGigaChatModel(),
+                'messages' => [
+                    ['role' => 'system', 'content' => genesisAssistantSystemInstruction($context)],
+                    $userMessage,
+                ],
+                'temperature' => 0.1,
+                'max_tokens' => 8192,
+                'response_format' => [
+                    'type' => 'json_schema',
+                    'schema' => genesisGeminiPlanSchema(),
+                    'strict' => true,
+                ],
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+            CURLOPT_HTTPHEADER => [
+                'Accept: application/json',
+                'Content-Type: application/json',
+                'Authorization: Bearer ' . $accessToken,
+            ],
+            CURLOPT_TIMEOUT => 90,
+        ]);
+    } finally {
+        genesisGigaChatDeleteFile($audioFileId, $accessToken);
+    }
+
+    $plan = json_decode(genesisGigaChatOutputText($response), true, 512, JSON_THROW_ON_ERROR);
+    if (!is_array($plan)) throw new RuntimeException('GigaChat returned an invalid planning result.');
+    return ['provider' => 'gigachat', 'model' => genesisGigaChatModel(), 'plan' => genesisNormalizeGeminiPlan($plan)];
+}
+
+function genesisAssistantProvider(): string
+{
+    if (genesisGigaChatAvailable()) return 'gigachat';
+    if (genesisGeminiAvailable()) return 'gemini';
+    return 'local';
+}
+
+function genesisAssistantAvailable(): bool
+{
+    return genesisAssistantProvider() !== 'local';
+}
+
+function genesisAssistantModel(): string
+{
+    return genesisAssistantProvider() === 'gigachat' ? genesisGigaChatModel()
+        : (genesisAssistantProvider() === 'gemini' ? genesisGeminiModel() : '');
+}
+
+function genesisCreateAssistantPlan(array $payload): array
+{
+    if (genesisGigaChatAvailable()) return genesisCreateGigaChatPlan($payload);
+    if (genesisGeminiAvailable()) return ['provider' => 'gemini'] + genesisCreateGeminiPlan($payload);
+    genesisJson(['error' => 'ASSISTANT_NOT_CONFIGURED'], 503);
 }

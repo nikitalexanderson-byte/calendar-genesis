@@ -152,8 +152,8 @@ function extractDate(source: string, todayIso: string): Extraction<string> {
 }
 
 function extractTime(source: string): Extraction<string> {
-  let match = /(?<![\p{L}\p{N}_])(?:в|на|at)?\s*(\d{1,2})[:.](\d{2})\s*(утра|дня|вечера|ночи|am|pm)?(?![\p{L}\p{N}_])/iu.exec(source);
-  if (!match) match = /(?<![\p{L}\p{N}_])(?:в|на|at)\s+(\d{1,2})\s*(утра|дня|вечера|ночи|am|pm)?(?![\p{L}\p{N}_])/iu.exec(source);
+  let match = /(?<![\p{L}\p{N}_])(?:в|на|at)?\s*(\d{1,2})[:.](\d{2})\s*(?:час(?:а|ов)?\s*)?(утра|дня|вечера|ночи|am|pm)?(?![\p{L}\p{N}_])/iu.exec(source);
+  if (!match) match = /(?<![\p{L}\p{N}_])(?:в|на|at)\s+(\d{1,2})\s*(?:час(?:а|ов)?\s*)?(утра|дня|вечера|ночи|am|pm)?(?![\p{L}\p{N}_])/iu.exec(source);
   if (!match) return { text: source, value: "" };
   let hour = Number(match[1]);
   const minute = match[2] && /^\d{2}$/.test(match[2]) ? Number(match[2]) : 0;
@@ -196,12 +196,15 @@ function extractKnownName(source: string, marker: RegExp, names: string[]): Extr
 }
 
 function cleanTitle(source: string) {
-  return normalizeSpaces(source)
-    .replace(/^(?:пожалуйста\s+)?(?:создай|создать|добавь|добавить|запиши|записать|запланируй|запланировать|поставь)(?:\s+мне)?(?:\s+(?:задачу|напоминание))?\s*[:—–,-]?\s*/i, "")
-    .replace(/^(?:пожалуйста\s+)?напомни(?:\s+мне)?\s*/i, "")
-    .replace(/^(?:please\s+)?(?:create|add|schedule|plan|make)(?:\s+me)?(?:\s+(?:a\s+)?(?:task|reminder))?\s*[:—–,-]?\s*/i, "")
-    .replace(/^(?:please\s+)?remind\s+me(?:\s+to)?\s*/i, "")
-    .replace(/^(?:задачу|напоминание|task|reminder)\s*[:—–,-]?\s*/i, "")
+  let title = normalizeSpaces(source);
+  const russianCommandPrefix = /^(?:(?:ну|пожалуйста)\s*[,—–-]?\s*)*(?:(?:мне\s+)?(?:нужно|надо)\s+)?(?:(?:создай|создать|добавь|добавить|запиши|записать|запланируй|запланировать|поставь|поставить)(?:\s+мне)?(?:\s+(?:новую?\s+)?(?:задач[а-яё]*|напоминан[а-яё]*))?|напомни(?:\s+мне)?|(?:задач[а-яё]*|напоминан[а-яё]*))\s*[.:;—–,-]?\s*/iu;
+  const englishCommandPrefix = /^(?:please\s+)?(?:(?:create|add|schedule|plan|make)(?:\s+me)?(?:\s+(?:a\s+)?(?:new\s+)?(?:task|reminder))?|remind\s+me(?:\s+to)?|(?:task|reminder))\s*[.:;—–,-]?\s*/i;
+  for (let pass = 0; pass < 3; pass += 1) {
+    const cleaned = title.replace(russianCommandPrefix, "").replace(englishCommandPrefix, "");
+    if (cleaned === title) break;
+    title = normalizeSpaces(cleaned);
+  }
+  return title
     .replace(/\s+(?:размести(?:ть)?|помести(?:ть)?|привяжи|добавь|добавить|перенеси(?:ть)?|assign|put|place|move)\s*$/i, "")
     .replace(/\s+(?:пожалуйста|please)$/i, "")
     .replace(/^[«"“\s]+|[»"”\s.,!?]+$/g, "")
@@ -232,7 +235,8 @@ function parseTask(command: string, context: GeminiAssistantContext): GeminiPlan
   remaining = time.text;
 
   const title = cleanTitle(remaining);
-  if (!title) throw new Error(context.language === "en" ? "Say or type a task title." : "Произнесите или напишите название задачи.");
+  const genericTitle = /^(?:(?:создай|создать|добавь|добавить|поставь|поставить)\s+)?(?:новую?\s+)?(?:задач[а-яё]*|напоминан[а-яё]*)$|^(?:(?:create|add|make)\s+)?(?:a\s+)?(?:new\s+)?(?:task|reminder)$/iu.test(title);
+  if (!title || genericTitle) throw new Error(context.language === "en" ? "Say or type a task title." : "Произнесите или напишите название задачи.");
   return {
     title: title.slice(0, 300),
     description: "",
