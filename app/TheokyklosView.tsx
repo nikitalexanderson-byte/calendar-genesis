@@ -61,6 +61,20 @@ function groupLabel(segment: TheokyklosSegment, language: Language) {
   return labels[segment.group];
 }
 
+function directionLabel(id: TheokyklosSegmentId, language: Language) {
+  const labels: Record<(typeof THEOKYKLOS_DIRECTION_IDS)[number], TheokyklosLocalizedText> = {
+    north: { ru: "Север", en: "North" },
+    northeast: { ru: "Северо-Восток", en: "Northeast" },
+    east: { ru: "Восток", en: "East" },
+    southeast: { ru: "Юго-Восток", en: "Southeast" },
+    south: { ru: "Юг", en: "South" },
+    southwest: { ru: "Юго-Запад", en: "Southwest" },
+    west: { ru: "Запад", en: "West" },
+    northwest: { ru: "Северо-Запад", en: "Northwest" },
+  };
+  return localized(labels[id as (typeof THEOKYKLOS_DIRECTION_IDS)[number]], language);
+}
+
 export function TheokyklosView({ language }: { language: Language }) {
   const [selectedId, setSelectedId] = useState<TheokyklosSegmentId>("center");
   const segmentsById = useMemo(() => new Map(THEOKYKLOS_SEGMENTS.map((segment) => [segment.id, segment])), []);
@@ -103,19 +117,12 @@ export function TheokyklosView({ language }: { language: Language }) {
           <span className="eyebrow">ΘΕΟΚΥΚΛΟΣ · {language === "en" ? "THE CIRCLE OF GODS" : "КРУГ БОГОВ"}</span>
           <h1 id="theokyklos-title">{language === "en" ? "Theokyklos" : "Теокиклос"}</h1>
           <p>{language === "en"
-            ? "An interactive mandala of divine powers: eight directions of manifestation, the vertical axis, the sacred hearth, the Point of the Absolute, and the guardians of entry and exit."
-            : "Интерактивная мандала божественных сил: восемь направлений проявления, вертикальная ось, сакральный очаг, Точка Абсолюта и стражи входа и выхода."}</p>
+            ? "An interactive circle of divine powers: eight directions of manifestation, the vertical axis, the sacred hearth, the Point of the Absolute, and the guardians of entry and exit."
+            : "Интерактивный круг божественных сил: восемь направлений проявления, вертикальная ось, сакральный очаг, Точка Абсолюта и стражи входа и выхода."}</p>
         </div>
         <div className="theokyklos-hero-seal" aria-hidden="true">
           <span>Θ</span>
-          <small>κύκλος</small>
         </div>
-        <dl className="theokyklos-counts">
-          <div><dt>8</dt><dd>{language === "en" ? "directions" : "направлений"}</dd></div>
-          <div><dt>2</dt><dd>{language === "en" ? "axis poles" : "полюса оси"}</dd></div>
-          <div><dt>2</dt><dd>{language === "en" ? "core layers" : "слоя ядра"}</dd></div>
-          <div><dt>2</dt><dd>{language === "en" ? "thresholds" : "порога"}</dd></div>
-        </dl>
       </header>
 
       <div className="theokyklos-layout">
@@ -123,14 +130,14 @@ export function TheokyklosView({ language }: { language: Language }) {
           <div className="theokyklos-mandala-heading">
             <div>
               <span className="eyebrow">{language === "en" ? "Living diagram" : "Живая схема"}</span>
-              <h2 id="theokyklos-mandala-title">{language === "en" ? "Mandala of divine vectors" : "Мандала божественных векторов"}</h2>
+              <h2 id="theokyklos-mandala-title">{language === "en" ? "Circle of Divine Powers" : "Круг божественных сил"}</h2>
             </div>
             <p>{language === "en" ? "Select any ray, ring, pole, or gate." : "Выберите любой луч, круг, полюс или врата."}</p>
           </div>
 
           <div className="theokyklos-mandala-viewport">
             <svg className="theokyklos-mandala" viewBox="0 0 900 880" role="img" aria-labelledby="theokyklos-svg-title theokyklos-svg-description">
-              <title id="theokyklos-svg-title">{language === "en" ? "Interactive Theokyklos mandala" : "Интерактивная мандала Теокиклоса"}</title>
+              <title id="theokyklos-svg-title">{language === "en" ? "Interactive Circle of Divine Powers" : "Интерактивный Круг божественных сил"}</title>
               <desc id="theokyklos-svg-description">{language === "en"
                 ? "Eight directional sectors surround Hestia's inner ring and the central point of Dionysus and Ariadne. Zeus and Hera stand at the zenith, Hades and Persephone at the nadir, with guardians of entry and exit below."
                 : "Восемь направлений окружают внутреннее кольцо Гестии и центральную точку Диониса и Ариадны. Зевс и Гера стоят в зените, Аид и Персефона — в надире, а внизу находятся стражи входа и выхода."}</desc>
@@ -169,7 +176,7 @@ export function TheokyklosView({ language }: { language: Language }) {
                     <path className="theokyklos-segment-shape" d={annularSectorPath(segment.angle!)} />
                     <text className="theokyklos-segment-label" x={label.x} y={label.y - 10} textAnchor="middle">
                       <tspan className="theokyklos-segment-sigil" x={label.x}>{segment.symbol}</tspan>
-                      <tspan className="theokyklos-segment-direction" x={label.x} dy="22">{localized(segment.short, language)}</tspan>
+                      <tspan className="theokyklos-segment-direction" x={label.x} dy="22">{directionLabel(segment.id, language)}</tspan>
                       <tspan className="theokyklos-segment-name" x={label.x} dy="17">{localized(segment.patrons, language)}</tspan>
                     </text>
                   </g>
@@ -183,7 +190,7 @@ export function TheokyklosView({ language }: { language: Language }) {
                 <circle className="theokyklos-hearth-hit" cx={CENTER.x} cy={CENTER.y} r="139" />
                 <circle className="theokyklos-hearth-line" cx={CENTER.x} cy={CENTER.y} r="139" />
                 <text className="theokyklos-ring-label" x={CENTER.x} y="301" textAnchor="middle">
-                  <tspan>{hearth.symbol}</tspan><tspan dx="7">{localized(hearth.patrons, language)}</tspan>
+                  <tspan>{language === "en" ? "RING" : "КОЛЬЦО"}</tspan>
                 </text>
               </g>
 
@@ -289,18 +296,6 @@ export function TheokyklosView({ language }: { language: Language }) {
         </aside>
       </div>
 
-      <section className="theokyklos-ritual-path" aria-labelledby="theokyklos-path-title">
-        <div>
-          <span className="eyebrow">{language === "en" ? "Sequence of passage" : "Последовательность прохождения"}</span>
-          <h2 id="theokyklos-path-title">{language === "en" ? "Entry · Alignment · Integration" : "Вход · Сборка · Интеграция"}</h2>
-        </div>
-        <ol>
-          <li><span>01</span><strong>{language === "en" ? "Enter through the light" : "Войти через свет"}</strong><small>{localized(entrance.patrons, language)}</small></li>
-          <li><span>02</span><strong>{language === "en" ? "Choose the necessary vector" : "Выбрать нужный вектор"}</strong><small>{language === "en" ? "Eight directions and the vertical axis" : "Восемь направлений и вертикальная ось"}</small></li>
-          <li><span>03</span><strong>{language === "en" ? "Return to the center" : "Вернуться в центр"}</strong><small>{localized(center.patrons, language)} · {localized(hearth.patrons, language)}</small></li>
-          <li><span>04</span><strong>{language === "en" ? "Seal the experience" : "Запечатать опыт"}</strong><small>{localized(exit.patrons, language)}</small></li>
-        </ol>
-      </section>
     </section>
   );
 }
