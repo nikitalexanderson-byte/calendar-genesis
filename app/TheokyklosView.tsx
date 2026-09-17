@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import {
   THEOKYKLOS_DIRECTION_IDS,
   THEOKYKLOS_SEGMENTS,
@@ -76,16 +76,30 @@ function directionLabel(id: TheokyklosSegmentId, language: Language) {
 }
 
 export function TheokyklosView({ language }: { language: Language }) {
-  const [selectedId, setSelectedId] = useState<TheokyklosSegmentId>("center");
+  const [selectedId, setSelectedId] = useState<TheokyklosSegmentId | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
   const segmentsById = useMemo(() => new Map(THEOKYKLOS_SEGMENTS.map((segment) => [segment.id, segment])), []);
   const directions = THEOKYKLOS_DIRECTION_IDS.map((id) => segmentsById.get(id)).filter((segment): segment is TheokyklosSegment => Boolean(segment));
-  const selected = segmentsById.get(selectedId) ?? THEOKYKLOS_SEGMENTS[0];
+  const selected = selectedId ? segmentsById.get(selectedId) ?? null : null;
+
+  useEffect(() => {
+    if (!selectedId) return;
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSelectedId(null);
+    };
+    const focusFrame = window.requestAnimationFrame(() => closeButtonRef.current?.focus());
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.cancelAnimationFrame(focusFrame);
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [selectedId]);
 
   const selectSegment = (id: TheokyklosSegmentId) => {
     setSelectedId(id);
-    if (typeof window !== "undefined" && window.matchMedia("(max-width: 920px)").matches) {
-      window.requestAnimationFrame(() => document.getElementById("theokyklos-details")?.scrollIntoView({ behavior: "smooth", block: "start" }));
-    }
   };
 
   const selectWithKeyboard = (event: ReactKeyboardEvent<SVGGElement>, id: TheokyklosSegmentId) => {
@@ -262,38 +276,47 @@ export function TheokyklosView({ language }: { language: Language }) {
           </div>
         </section>
 
-        <aside id="theokyklos-details" className={`theokyklos-details segment-${selected.id}`} aria-live="polite" aria-labelledby="theokyklos-details-title">
-          <header>
-            <span className="theokyklos-details-symbol" aria-hidden="true">{selected.symbol}</span>
-            <div>
-              <span className="eyebrow">{groupLabel(selected, language)}</span>
-              <h2 id="theokyklos-details-title">{localized(selected.title, language)}</h2>
-              <strong>{localized(selected.patrons, language)}</strong>
-            </div>
-          </header>
-          <p className="theokyklos-essence">{localized(selected.essence, language)}</p>
-          <p className="theokyklos-description">{localized(selected.description, language)}</p>
-          <section className="theokyklos-incantation" aria-labelledby="theokyklos-incantation-title">
-            <div>
-              <span className="eyebrow">{language === "en" ? "Sacred utterance" : "Сакральное произнесение"}</span>
-              <h3 id="theokyklos-incantation-title">{language === "en" ? "Words of the segment" : "Слова сегмента"}</h3>
-            </div>
-            <p>{language === "en"
-              ? "Pronounce each word deliberately, moving from meaning to sound."
-              : "Произносите каждое слово осознанно, переходя от смысла к звучанию."}</p>
-            <ol>
-              {selected.words.map((sacredWord) => (
-                <li key={sacredWord.greek}>
-                  <span lang="grc">{sacredWord.greek}</span>
-                  <div>
-                    <strong>«{localized(sacredWord.pronunciation, language)}»</strong>
-                    <small>{localized(sacredWord.meaning, language)}</small>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </section>
-        </aside>
+        {selected ? (
+          <div className="modal-backdrop theokyklos-details-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedId(null); }}>
+            <aside id="theokyklos-details" className={`theokyklos-details segment-${selected.id}`} role="dialog" aria-modal="true" aria-labelledby="theokyklos-details-title">
+              <button ref={closeButtonRef} className="theokyklos-details-close" type="button" onClick={() => setSelectedId(null)} aria-label={language === "en" ? "Close segment description" : "Закрыть описание сегмента"}>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </button>
+              <header>
+                <span className="theokyklos-details-symbol" aria-hidden="true">{selected.symbol}</span>
+                <div>
+                  <span className="eyebrow">{groupLabel(selected, language)}</span>
+                  <h2 id="theokyklos-details-title">{localized(selected.title, language)}</h2>
+                  <strong>{localized(selected.patrons, language)}</strong>
+                </div>
+              </header>
+              <p className="theokyklos-essence">{localized(selected.essence, language)}</p>
+              <p className="theokyklos-description">{localized(selected.description, language)}</p>
+              <section className="theokyklos-incantation" aria-labelledby="theokyklos-incantation-title">
+                <div>
+                  <span className="eyebrow">{language === "en" ? "Sacred utterance" : "Сакральное произнесение"}</span>
+                  <h3 id="theokyklos-incantation-title">{language === "en" ? "Words of the segment" : "Слова сегмента"}</h3>
+                </div>
+                <p>{language === "en"
+                  ? "Pronounce each word deliberately, moving from meaning to sound."
+                  : "Произносите каждое слово осознанно, переходя от смысла к звучанию."}</p>
+                <ol>
+                  {selected.words.map((sacredWord) => (
+                    <li key={sacredWord.greek}>
+                      <span lang="grc">{sacredWord.greek}</span>
+                      <div>
+                        <strong>«{localized(sacredWord.pronunciation, language)}»</strong>
+                        <small>{localized(sacredWord.meaning, language)}</small>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            </aside>
+          </div>
+        ) : null}
       </div>
 
     </section>

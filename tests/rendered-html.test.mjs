@@ -78,11 +78,16 @@ test("ships the complete interactive bilingual Theokyklos", async () => {
   assert.match(component, /language === "en" \? "RING" : "КОЛЬЦО"/);
   assert.doesNotMatch(component, /theokyklos-counts/);
   assert.doesNotMatch(component, /theokyklos-ritual-path/);
+  assert.match(component, /role="dialog" aria-modal="true"/);
+  assert.match(component, /Close segment description/);
+  assert.match(component, /event\.key === "Escape"/);
   assert.match(component, /aria-pressed=\{selectedId === segment\.id\}/);
   assert.match(component, /selected\.words\.map/);
   assert.match(styles, /\.theokyklos-view/);
   assert.match(styles, /\.theokyklos-segment-shape/);
   assert.match(styles, /@keyframes theokyklos-rays/);
+  assert.match(styles, /\.modal-backdrop\.theokyklos-details-backdrop/);
+  assert.match(styles, /min-height: calc\(100dvh - 34px\)/);
   assert.match(i18n, /"Теокиклос": "Theokyklos"/);
 });
 
