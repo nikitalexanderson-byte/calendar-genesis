@@ -386,7 +386,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /Григорианский календарь \(профанский\)/);
   assert.match(calendar, /покровителем этого летоисчисления выступает Кронос/);
   assert.match(calendar, /сакральный день обязательного покоя/);
-  assert.match(calendar, /посвящать день Богу; это сходство не означает поклонения Сатурну или Кроносу/);
+  assert.match(calendar, /посвящать день Богу\./);
+  assert.doesNotMatch(calendar + i18n, /сходство не означает поклонения Сатурну или Кроносу|resemblance does not mean worship of Saturn or Cronus/i);
   assert.match(calendar, /В 153 году до н\. э\.[\s\S]*войну в Испании/);
   assert.match(calendar, /папа Григорий XIII[\s\S]*церковному расчёту Пасхи/);
   assert.match(calendar, /вавилонско-иудейское[\s\S]*христианско-церковное наследие/);
