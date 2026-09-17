@@ -324,8 +324,8 @@ export function TheokyklosView({ language }: { language: Language }) {
               <p className="theokyklos-description">{localized(selected.description, language)}</p>
               <section className="theokyklos-incantation" aria-labelledby="theokyklos-incantation-title">
                 <div>
-                  <span className="eyebrow">{language === "en" ? "Sacred utterance" : "Сакральное произнесение"}</span>
-                  <h3 id="theokyklos-incantation-title">{language === "en" ? "Words of the segment" : "Слова сегмента"}</h3>
+                  <span className="eyebrow">{language === "en" ? "Sacred utterance" : "Священные слова"}</span>
+                  <h3 id="theokyklos-incantation-title">{language === "en" ? "Words of the segment" : "Заклинания Божеств"}</h3>
                 </div>
                 <p>{language === "en"
                   ? "Pronounce each word deliberately, moving from meaning to sound."
