@@ -660,6 +660,95 @@ function taskOriginMeta(origin: TaskOrigin) {
   return { label: "Создано в GENESIS", className: "local" };
 }
 
+const TASK_PRIORITY_LEVELS = [
+  { label: "Можно позже", color: "#4f9f68" },
+  { label: "Низкий", color: "#68ad63" },
+  { label: "Ниже среднего", color: "#87b75b" },
+  { label: "Умеренный", color: "#aebe50" },
+  { label: "Средний", color: "#c7b943" },
+  { label: "Заметный", color: "#d8aa3b" },
+  { label: "Высокий", color: "#e28f38" },
+  { label: "Очень высокий", color: "#dc6f34" },
+  { label: "Срочный", color: "#d64f32" },
+  { label: "Горит", color: "#c8332f" },
+] as const;
+
+function TaskPriorityControl({
+  id,
+  value,
+  onChange,
+}: {
+  id: string;
+  value: number;
+  onChange: (value: number) => void;
+}) {
+  const normalizedValue = Math.min(TASK_PRIORITY_LEVELS.length, Math.max(1, Number(value) || 5));
+  const selectedLevel = TASK_PRIORITY_LEVELS[normalizedValue - 1];
+
+  return (
+    <div
+      className="task-priority-control"
+      style={{ "--task-priority-color": selectedLevel.color } as CSSProperties}
+    >
+      <div className="task-priority-current" aria-live="polite">
+        <span>Выбранный приоритет</span>
+        <strong>{selectedLevel.label}</strong>
+        <em>{normalizedValue} из 10</em>
+      </div>
+      <div className="task-priority-slider">
+        <div className="task-priority-steps" aria-hidden="true">
+          {TASK_PRIORITY_LEVELS.map((level, index) => {
+            const step = index + 1;
+            const className = [step <= normalizedValue ? "active" : "", step === normalizedValue ? "current" : ""]
+              .filter(Boolean)
+              .join(" ");
+            return (
+              <i
+                className={className}
+                key={level.label}
+                style={{
+                  "--priority-step": step,
+                  "--priority-step-color": level.color,
+                } as CSSProperties}
+              />
+            );
+          })}
+        </div>
+        <input
+          id={id}
+          type="range"
+          min={1}
+          max={TASK_PRIORITY_LEVELS.length}
+          step={1}
+          value={normalizedValue}
+          aria-label="Приоритет задачи"
+          aria-valuetext={`${selectedLevel.label}, ${normalizedValue} из 10`}
+          onInput={(event) => onChange(Number(event.currentTarget.value))}
+          onKeyDown={(event) => {
+            const nextValue = event.key === "Home"
+              ? 1
+              : event.key === "End"
+                ? TASK_PRIORITY_LEVELS.length
+                : event.key === "ArrowRight" || event.key === "ArrowUp"
+                  ? Math.min(TASK_PRIORITY_LEVELS.length, normalizedValue + 1)
+                  : event.key === "ArrowLeft" || event.key === "ArrowDown"
+                    ? Math.max(1, normalizedValue - 1)
+                    : null;
+            if (nextValue === null) return;
+            event.preventDefault();
+            onChange(nextValue);
+          }}
+        />
+      </div>
+      <div className="task-priority-scale" aria-hidden="true">
+        <span>Менее важный</span>
+        <span>Средний</span>
+        <strong>Горит · самый важный</strong>
+      </div>
+    </div>
+  );
+}
+
 function DeviceClock({ timeFormat }: { timeFormat: TimeFormat }) {
   const [clock, setClock] = useState<{ now: Date; timezone: string } | null>(null);
 
@@ -2717,14 +2806,14 @@ export function GenesisCalendar() {
             timeFormat={activeTimeFormat}
             disabled={Boolean(taskTaskListId)}
           />
-          <label>
+          <div className="task-form-field task-form-priority">
             <span>Приоритет</span>
-            <select value={taskPriority} onChange={(event) => setTaskPriority(event.target.value)}>
-              {Array.from({ length: 10 }, (_, index) => index + 1).map((level) => (
-                <option key={level} value={level}>{level}</option>
-              ))}
-            </select>
-          </label>
+            <TaskPriorityControl
+              id="create-task-priority"
+              value={Number(taskPriority)}
+              onChange={(value) => setTaskPriority(String(value))}
+            />
+          </div>
           <label>
             <span>Теги</span>
             <input value={taskTags} onChange={(event) => setTaskTags(event.target.value)} placeholder="ритуал, работа, дом" />
@@ -4762,14 +4851,14 @@ export function GenesisCalendar() {
                 timeFormat={activeTimeFormat}
                 disabled={Boolean(editingTask.googleTaskId)}
               />
-              <label>
+              <div className="task-form-field task-form-priority">
                 <span>Приоритет</span>
-                <select value={editingTask.priority} onChange={(event) => setEditingTask((current) => current ? { ...current, priority: Number(event.target.value) } : current)}>
-                  {Array.from({ length: 10 }, (_, index) => index + 1).map((level) => (
-                    <option key={level} value={level}>{level}</option>
-                  ))}
-                </select>
-              </label>
+                <TaskPriorityControl
+                  id="edit-task-priority"
+                  value={editingTask.priority}
+                  onChange={(value) => setEditingTask((current) => current ? { ...current, priority: value } : current)}
+                />
+              </div>
             </div>
             <label>
               <span>Теги через запятую</span>

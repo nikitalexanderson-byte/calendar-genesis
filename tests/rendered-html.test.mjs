@@ -348,6 +348,16 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(serverConfigExample, /'gemini_api_endpoint'/);
   assert.match(calendar, /task-description-viewer/);
   assert.match(calendar, /task-sync-account-picker/);
+  assert.match(calendar, /const TASK_PRIORITY_LEVELS/);
+  assert.match(calendar, /function TaskPriorityControl/);
+  assert.equal((calendar.match(/<TaskPriorityControl/g) ?? []).length, 2);
+  assert.match(calendar, /type="range"/);
+  assert.match(calendar, /event\.key === "ArrowRight"/);
+  assert.match(calendar, /Горит · самый важный/);
+  assert.doesNotMatch(calendar, /<span>Приоритет<\/span>\s*<select/);
+  assert.match(styles, /\.task-priority-steps\s*\{[\s\S]*grid-template-columns: repeat\(10, minmax\(0, 1fr\)\)/);
+  assert.match(styles, /\.task-priority-steps i\.current/);
+  assert.match(styles, /\.task-priority-control:focus-within/);
   assert.doesNotMatch(calendar, /renderTaskCalendarByMode/);
   assert.match(calendar, /renderAlternativeCalendar/);
   assert.match(calendar, /renderAlternativeYear/);
