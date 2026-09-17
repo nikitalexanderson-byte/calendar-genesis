@@ -84,6 +84,8 @@ test("ships the complete interactive bilingual Theokyklos", async () => {
   assert.match(component, /event\.key === "Escape"/);
   assert.match(component, /aria-pressed=\{selectedId === segment\.id\}/);
   assert.match(component, /selected\.words\.map/);
+  assert.match(component, /Священные слова/);
+  assert.match(component, /Заклинания Божеств/);
   assert.match(component, /THEOKYKLOS_ART\[selected\.id\]/);
   for (const segment of THEOKYKLOS_SEGMENTS) {
     const mappedAsset = component.match(new RegExp(`/theokyklos-art/${segment.id}(?:-[^"]+)?\\.webp`))?.[0];

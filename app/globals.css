@@ -10947,7 +10947,7 @@ button.project-drag-handle:active { cursor: grabbing; }
 .theokyklos-details-symbol { display: grid; width: 58px; height: 58px; place-items: center; color: var(--detail-accent); font: 500 24px/1 Georgia, serif; background: color-mix(in srgb, var(--detail-accent) 10%, #fff); border: 1px solid color-mix(in srgb, var(--detail-accent) 28%, transparent); border-radius: 50%; }
 .theokyklos-details .eyebrow { color: var(--detail-accent); }
 .theokyklos-details h2 { margin: 4px 0 3px; font: 400 clamp(27px, 3vw, 40px)/1.02 Georgia, serif; letter-spacing: -.03em; }
-.theokyklos-details header strong { color: var(--detail-accent); font-size: 8px; letter-spacing: .09em; text-transform: uppercase; }
+.theokyklos-details header strong { color: var(--detail-accent); font-size: 12px; letter-spacing: .09em; text-transform: uppercase; }
 .theokyklos-details-art {
   position: relative;
   min-height: 0;
