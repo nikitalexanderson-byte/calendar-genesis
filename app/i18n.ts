@@ -28,6 +28,7 @@ const curatedTranslations: Record<string, string> = {
   "пяты": "quintas",
   "Апейрон": "Apeiron",
   "Стойхейон": "Stoicheion",
+  "Теокиклос": "Theokyklos",
   "Личный кабинет": "Account",
   "Дата по сакральному календарю": "Sacred calendar date",
   "Дата по лунному календарю": "Lunar calendar date",

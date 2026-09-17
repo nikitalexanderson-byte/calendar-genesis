@@ -12,6 +12,7 @@ const SKIPPED_FILES = new Set([
   "task-reminders.ts",
   "stoicheion-data.ts",
   "stoicheion-data.en.ts",
+  "theokyklos-data.ts",
 ]);
 
 function normalize(value) {
