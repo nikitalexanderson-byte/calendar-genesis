@@ -1779,6 +1779,149 @@ button.pyata-row-label:focus-visible {
   line-height: 1.55;
 }
 
+.apeiron-guide-card {
+  position: relative;
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+  padding: clamp(24px, 4vw, 46px);
+  overflow: hidden;
+  color: #efe9de;
+  background:
+    radial-gradient(circle at 92% 7%, rgba(207, 174, 101, .2), transparent 29rem),
+    radial-gradient(circle at 2% 74%, rgba(67, 107, 119, .2), transparent 25rem),
+    linear-gradient(145deg, #13272d, #071419 74%);
+  border: 1px solid rgba(216, 189, 128, .24);
+  border-radius: 8px 30px 8px 30px;
+  box-shadow: 0 24px 62px rgba(7, 20, 25, .25);
+}
+
+.apeiron-guide-card::before {
+  position: absolute;
+  top: -190px;
+  right: -145px;
+  width: 390px;
+  height: 390px;
+  border: 1px solid rgba(216, 189, 128, .13);
+  border-radius: 50%;
+  box-shadow: 0 0 0 54px rgba(216, 189, 128, .025), 0 0 0 108px rgba(216, 189, 128, .018);
+  content: "";
+  pointer-events: none;
+}
+
+.apeiron-guide-header {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  align-items: start;
+  gap: 18px;
+}
+
+.apeiron-guide-sigil {
+  display: grid;
+  width: 72px;
+  height: 72px;
+  place-items: center;
+  color: #f1d993;
+  font: 400 34px/1 Georgia, "Times New Roman", serif;
+  background: radial-gradient(circle, rgba(218, 177, 87, .22), rgba(15, 46, 51, .72));
+  border: 1px solid rgba(224, 195, 126, .35);
+  border-radius: 50%;
+  box-shadow: 0 0 0 9px rgba(216, 189, 128, .035);
+}
+
+.apeiron-guide-header .eyebrow { color: #d7b96f; }
+.apeiron-guide-header h2 { max-width: 880px; margin: 7px 0 0; font: 500 clamp(28px, 4vw, 48px)/1.06 Georgia, "Times New Roman", serif; }
+.apeiron-guide-header p { max-width: 950px; margin: 14px 0 0; color: #b8c6c2; font: 400 12px/1.72 Georgia, "Times New Roman", serif; }
+
+.apeiron-guide-section,
+.apeiron-practice-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 14px;
+  padding: 18px 20px;
+  background: rgba(1, 15, 19, .5);
+  border: 1px solid rgba(216, 189, 128, .13);
+  border-radius: 15px;
+}
+
+.apeiron-outside-time { border-left: 3px solid #80939f; }
+.apeiron-practice-card { border-left: 3px solid #b28a4a; }
+.apeiron-practice-card.anabasis { border-left-color: #b65136; }
+
+.apeiron-guide-icon {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  color: #e4ca88;
+  background: rgba(216, 189, 128, .07);
+  border: 1px solid rgba(216, 189, 128, .14);
+  border-radius: 14px;
+}
+
+.apeiron-guide-icon svg { width: 29px; height: 29px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.apeiron-guide-section h3,
+.apeiron-practice-card h3 { margin: 0; color: #eedba8; font: 500 clamp(19px, 2.6vw, 27px)/1.16 Georgia, "Times New Roman", serif; }
+.apeiron-guide-section p,
+.apeiron-practice-card p { margin: 8px 0 0; color: #afbfba; font-size: 10.5px; line-height: 1.72; }
+
+.apeiron-protogenoi {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.apeiron-protogenoi article {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 14px;
+  background: rgba(255, 255, 255, .04);
+  border: 1px solid rgba(216, 189, 128, .1);
+  border-radius: 13px;
+}
+
+.apeiron-protogenoi article > span {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  color: #afc2c0;
+  font: 500 19px/1 Georgia, "Times New Roman", serif;
+  background: rgba(77, 115, 122, .16);
+  border: 1px solid rgba(150, 179, 181, .15);
+  border-radius: 50%;
+}
+
+.apeiron-protogenoi article.phanes { background: linear-gradient(135deg, rgba(211, 168, 78, .12), rgba(255, 255, 255, .035)); border-color: rgba(216, 189, 128, .22); }
+.apeiron-protogenoi article.phanes > span { color: #f5dda0; background: rgba(194, 142, 51, .18); border-color: rgba(225, 194, 119, .28); box-shadow: 0 0 20px rgba(222, 181, 89, .12); }
+.apeiron-protogenoi strong { display: block; color: #e7dbc3; font: 500 16px/1.18 Georgia, "Times New Roman", serif; }
+.apeiron-protogenoi p { margin: 5px 0 0; color: #96aaa6; font-size: 9px; line-height: 1.55; }
+
+.apeiron-practice-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+
+.apeiron-element-ascent {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(5px, 1.5vw, 14px);
+  padding: 15px;
+  background: rgba(255, 255, 255, .035);
+  border: 1px solid rgba(216, 189, 128, .1);
+  border-radius: 13px;
+}
+
+.apeiron-element-ascent > span { display: grid; min-width: 65px; justify-items: center; gap: 2px; }
+.apeiron-element-ascent b { color: #ddc57f; font-size: 20px; font-weight: 400; }
+.apeiron-element-ascent strong { color: #e5ddd0; font-size: 9px; letter-spacing: .06em; text-transform: uppercase; }
+.apeiron-element-ascent small { color: #7f9792; font-size: 7px; }
+.apeiron-element-ascent i { color: rgba(216, 189, 128, .48); font-style: normal; }
+
 .pyata-days {
   display: grid;
   grid-template-columns: repeat(5, minmax(92px, 1fr));
@@ -4115,6 +4258,9 @@ button.pyata-row-label:focus-visible {
     overflow-x: visible;
   }
 
+  .apeiron-protogenoi { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .apeiron-practice-grid { grid-template-columns: 1fr; }
+
   .calendar-solar-mark em { display: none; }
   .calendar-solar-mark b { font-size: 18px; }
 
@@ -5764,6 +5910,17 @@ html[data-language="en"] .inbox-card.drop-target::after {
   .ux-action-button::after { display: none; }
   .calendar-month-art { width: min(68%, 230px); opacity: .5; }
   .month-calendar { padding: 10px; }
+  .apeiron-guide-card { padding: 22px 15px; border-radius: 6px 22px 6px 22px; }
+  .apeiron-guide-header { grid-template-columns: 50px minmax(0, 1fr); gap: 12px; }
+  .apeiron-guide-sigil { width: 50px; height: 50px; font-size: 25px; }
+  .apeiron-guide-header h2 { font-size: 29px; }
+  .apeiron-guide-header p { grid-column: 1 / -1; }
+  .apeiron-guide-section,
+  .apeiron-practice-card { grid-template-columns: 1fr; padding: 16px 14px; }
+  .apeiron-guide-icon { width: 42px; height: 42px; }
+  .apeiron-protogenoi { grid-template-columns: 1fr; }
+  .apeiron-element-ascent { justify-content: flex-start; overflow-x: auto; }
+  .apeiron-element-ascent > span { min-width: 54px; }
   .calendar-day { min-height: 122px; padding: 9px 6px; border-radius: 11px; }
   .calendar-day > strong { font-size: 22px; }
   .calendar-day > small { font-size: 7px; }
