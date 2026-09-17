@@ -14,6 +14,7 @@ import {
 } from "./task-recurrence";
 import type { CalendarMode } from "./calendar-data";
 import { CalendarDatePicker } from "./CalendarDatePicker";
+import { CronusSickleIcon } from "./CronusSickleIcon";
 import { runtimeLocale } from "./i18n";
 
 const PYATA_DAY_LABELS = ["I", "II", "III", "IIII", "V"];
@@ -134,7 +135,7 @@ export function RecurrenceBuilder({
       {value.enabled ? (
         <div className="recurrence-builder-body">
           <div className="recurrence-inherited-mode" aria-label={`Система повторения: ${RECURRENCE_MODE_COPY[value.mode].shortTitle}`}>
-            <span aria-hidden="true">{value.mode === "genesis" ? "✦" : value.mode === "classic" ? "□" : "☾"}</span>
+            <span aria-hidden="true">{value.mode === "genesis" ? "✦" : value.mode === "classic" ? <CronusSickleIcon size={24} /> : "☾"}</span>
             <div>
               <small>Из личного кабинета</small>
               <strong>{RECURRENCE_MODE_COPY[value.mode].shortTitle}</strong>

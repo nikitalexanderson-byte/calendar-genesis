@@ -346,6 +346,9 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /hero-day-title-translation/);
   assert.match(calendar, /dayTitleTranslationSize/);
   assert.match(calendar, /Григорианский календарь \(профанский\)/);
+  assert.match(calendar, /покровителем этого летоисчисления выступает Кронос/);
+  assert.match(calendar, /сакральный день обязательного покоя/);
+  assert.match(calendar, /посвящать день Богу; это сходство не означает поклонения Сатурну или Кроносу/);
   assert.match(calendar, /В 153 году до н\. э\.[\s\S]*войну в Испании/);
   assert.match(calendar, /папа Григорий XIII[\s\S]*церковному расчёту Пасхи/);
   assert.match(calendar, /вавилонско-иудейское[\s\S]*христианско-церковное наследие/);
@@ -545,6 +548,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(recurrenceBuilder, /одно повторяющееся событие/);
   assert.match(recurrenceBuilder, /aria-pressed=\{selected\}/);
   assert.match(recurrenceBuilder, /recurrence-inherited-mode/);
+  assert.match(recurrenceBuilder, /<CronusSickleIcon size=\{24\}/);
+  assert.doesNotMatch(recurrenceBuilder, /value\.mode === "classic" \? "□"/);
   assert.doesNotMatch(recurrenceBuilder, /recurrence-mode-toggle/);
   assert.doesNotMatch(recurrenceBuilder, /const setMode/);
   assert.match(taskRecurrence, /buildRecurrenceDates/);
