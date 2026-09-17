@@ -4015,7 +4015,7 @@ export function GenesisCalendar() {
           <div>
             <span className="eyebrow">{yearDayCount} дней · {yearMonths.length} месяцев</span>
             <h1>{yearTitle}</h1>
-            <p>{yearDescription}</p>
+            {mode === "lunar" ? <p>{yearDescription}</p> : null}
           </div>
           <div className="year-switcher">
             <button type="button" onClick={() => changeYear(-1)} aria-label="Предыдущий год">←</button>
