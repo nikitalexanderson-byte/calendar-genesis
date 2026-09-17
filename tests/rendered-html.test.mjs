@@ -397,7 +397,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /weekdayPatron\.patronage/);
   assert.match(styles, /var\(--genesis-hero-image, none\),[\s\S]*var\(--genesis-hero-fallback, none\)/);
   assert.match(styles, /\.hero-card\.mode-profane\s*\{[\s\S]*repeating-radial-gradient/);
-  assert.match(serviceWorker, /genesis-shell-v16/);
+  assert.match(styles, /\.all-tasks-create\[open\]\s*\{[\s\S]*overflow:\s*visible/);
+  assert.match(serviceWorker, /genesis-shell-v17/);
   assert.match(calendar, /calendar-month-art/);
   assert.match(calendar, /mini-pyata/);
   assert.match(calendar, /Math\.ceil\(availableDays \/ 5\)/);
