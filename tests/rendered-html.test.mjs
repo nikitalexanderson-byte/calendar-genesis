@@ -501,6 +501,9 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.doesNotMatch(calendar, /patronage: "День Кроноса"/);
   assert.match(i18n, /"День Кроноса, Аида и Посейдона": "Day of Cronus, Hades, and Poseidon"/);
   assert.match(calendar, /guidanceTitle: "День Света и Прозрения"/);
+  assert.match(calendar, /guidanceTitle: "День путешествий и переговоров"/);
+  assert.match(calendar, /guidanceTitle: "День Власти и Суверенитета"/);
+  assert.match(calendar, /guidanceTitle: "День любви и очага"/);
   assert.match(calendar, /guidanceTitle: "День Памяти, Времени и Денег"/);
   assert.match(calendar, /synthema: "Φάος\. Λύκειος\."/);
   assert.match(calendar, /synthema: "Βάθος\. Αἰώνια\."/);
