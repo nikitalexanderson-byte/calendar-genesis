@@ -14,8 +14,13 @@ import {
   HEROIC_RANKS,
   MAX_HABIT_XP_PER_COMPLETION,
   STARTER_HABIT_TEMPLATES,
+  COMEBACK_REWARD_LAURELS,
+  HESTIA_SPARK_COST,
+  HESTIA_SPARK_MAX,
   addHabitDays,
+  buyHestiaSpark,
   calculateHabitTotal,
+  calculateComebackSummary,
   canRecordHabitOnDate,
   createHabitFromSacredPractice,
   createHabitFromTemplate,
@@ -262,6 +267,9 @@ function dailyGoalModeDescription(mode: DailyGoalMode, isEnglish: boolean) {
 }
 
 function dailyGoalGuidance(record: DailyGoalRecord, isEnglish: boolean) {
+  if (record.status === "protected") return isEnglish
+    ? "Hestia's Spark protected the streak. The missed habits remain incomplete and grant no XP."
+    : "Искра Гестии сохранила серию. Пропущенные привычки остались невыполненными и не дали XP.";
   if (record.status === "timezone-shift") return isEnglish
     ? "Timezone transition: this day is neutral and cannot break or duplicate the streak."
     : "Смена часового пояса: день нейтрален и не может ни сбросить, ни удвоить серию.";
@@ -285,6 +293,7 @@ function rewardReasonLabel(reason: RewardReason, isEnglish: boolean) {
   if (reason === "streak-milestone") return isEnglish ? "Streak milestone" : "Этап серии";
   if (reason === "rank-up") return isEnglish ? "New rank" : "Новый ранг";
   if (reason === "achievement") return isEnglish ? "Achievement" : "Достижение";
+  if (reason === "comeback") return isEnglish ? "Comeback completed" : "Возвращение завершено";
   if (reason === "habit-deleted-reset") return isEnglish ? "Habit deleted · Laurels reset" : "Привычка удалена · Лавры обнулены";
   if (reason === "habit-missed-reset") return isEnglish ? "Habit missed · Laurels reset" : "Привычка не выполнена · Лавры обнулены";
   return isEnglish ? "Hestia Spark" : "Искра Гестии";
@@ -861,6 +870,10 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
   const total = calculateHabitTotal(workspace);
   const rank = heroicRank(total);
   const creationDate = habitDateKey(new Date());
+  const comeback = calculateComebackSummary(workspace.dailyGoalRecords, creationDate);
+  const sparkCount = workspace.userProgress.streakFreezeCount;
+  const canBuySpark = sparkCount < HESTIA_SPARK_MAX && workspace.userProgress.laurelsBalance >= HESTIA_SPARK_COST;
+  const latestProtectedDate = [...workspace.dailyGoalRecords].reverse().find((record) => record.status === "protected")?.date ?? null;
   const openNewHabit = () => setEditingHabit(defaultHabit(habitDateKey(new Date()), calendarMode));
   const hasHabits = workspace.habits.length > 0;
   const activeTemplateIds = new Set(workspace.habits.flatMap((habit) => habit.sourceTemplateId ? [habit.sourceTemplateId] : []));
@@ -902,6 +915,19 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
     setMessage(isEnglish ? `“${template.titleEn}” was removed from suggestions.` : `«${template.title}» скрыта из предложений.`);
   };
 
+  const purchaseSpark = () => {
+    if (sparkCount >= HESTIA_SPARK_MAX) {
+      setMessage(isEnglish ? "The Hestia Spark reserve is full." : "Запас Искр Гестии уже заполнен.");
+      return;
+    }
+    if (workspace.userProgress.laurelsBalance < HESTIA_SPARK_COST) {
+      setMessage(isEnglish ? `You need ${HESTIA_SPARK_COST} Laurels for a Hestia Spark.` : `Для Искры Гестии нужно ${HESTIA_SPARK_COST} Лавров.`);
+      return;
+    }
+    onChange(buyHestiaSpark(workspace));
+    setMessage(isEnglish ? "Hestia's Spark added. It will automatically protect one missed streak day." : "Искра Гестии добавлена. Она автоматически защитит один пропущенный день серии.");
+  };
+
   return (
     <div className="habits-view">
       <header className="habits-hero">
@@ -913,6 +939,24 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
         </div>
         <button type="button" className="primary-button" onClick={openNewHabit}>＋ {isEnglish ? "New habit" : "Новая привычка"}</button>
       </header>
+      {hasHabits ? <section className="streak-resilience" aria-label={isEnglish ? "Streak protection and comeback" : "Защита серии и возвращение"}>
+        <article className="hestia-spark-card">
+          <span className="hestia-spark-icon" aria-hidden="true">
+            <svg viewBox="0 0 48 48"><defs><radialGradient id="hestia-flame"><stop offset="0" stopColor="#fff1b7" /><stop offset=".55" stopColor="#e7bb5f" /><stop offset="1" stopColor="#aa5c36" /></radialGradient></defs><path d="M25 5c3 8-3 10 1 16 2-4 6-5 7-10 7 7 10 15 7 23-3 8-10 11-17 10C13 43 7 37 8 28c1-8 7-13 13-18-1 6 1 8 4 11 2-5-1-9 0-16Z" fill="url(#hestia-flame)" /><path d="M24 26c4 4 5 7 3 11-2 3-7 3-9 0-3-5 1-8 6-11Z" fill="#fff7d6" /></svg>
+          </span>
+          <div><small>{isEnglish ? "Automatic streak protection" : "Автоматическая защита серии"}</small><h2>{isEnglish ? "Hestia's Spark" : "Искра Гестии"}</h2><p>{isEnglish ? "Protects one missed day without XP or a fake completion." : "Сохраняет серию при одном пропуске, не начисляя XP и не создавая ложного выполнения."}</p>{latestProtectedDate ? <em>{isEnglish ? `Last protection: ${latestProtectedDate}` : `Последняя защита: ${latestProtectedDate}`}</em> : null}</div>
+          <div className="hestia-spark-inventory" aria-label={isEnglish ? `${sparkCount} of ${HESTIA_SPARK_MAX} Sparks` : `${sparkCount} из ${HESTIA_SPARK_MAX} Искр`}>
+            {Array.from({ length: HESTIA_SPARK_MAX }, (_, index) => <i className={index < sparkCount ? "filled" : ""} key={index}>✦</i>)}
+            <strong>{sparkCount} / {HESTIA_SPARK_MAX}</strong>
+          </div>
+          <button type="button" disabled={!canBuySpark} onClick={purchaseSpark}>{sparkCount >= HESTIA_SPARK_MAX ? (isEnglish ? "Reserve full" : "Запас полон") : <>♕ {HESTIA_SPARK_COST} · {isEnglish ? "Buy" : "Купить"}</>}</button>
+        </article>
+        <article className={`comeback-card${comeback.active ? " active" : ""}`}>
+          <span className="comeback-mark" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M39 19A16 16 0 1 0 40 31" /><path d="m31 10 8 9 4-11" /><path d="M16 31c4-7 11-10 18-8" /></svg></span>
+          <div><small>{isEnglish ? "After a broken streak" : "После разрыва серии"}</small><h2>{isEnglish ? "Comeback" : "Возвращение"}</h2><p>{comeback.active ? (isEnglish ? "Reach the daily goal three times in a row. The old streak is not restored." : "Выполните дневную цель три раза подряд. Прежняя серия не восстанавливается.") : (isEnglish ? "If a streak breaks, a humane three-day return path will appear here." : "Если серия прервётся, здесь появится бережный трёхдневный путь возвращения.")}</p>{comeback.lastCompletedDate && !comeback.active ? <em>{isEnglish ? `Last comeback: ${comeback.lastCompletedDate} · +${COMEBACK_REWARD_LAURELS} Laurels` : `Последнее возвращение: ${comeback.lastCompletedDate} · +${COMEBACK_REWARD_LAURELS} Лавров`}</em> : null}</div>
+          <div className="comeback-progress" aria-label={isEnglish ? `${comeback.progress} of ${comeback.target} days` : `${comeback.progress} из ${comeback.target} дней`}><div>{Array.from({ length: comeback.target }, (_, index) => <i className={index < comeback.progress ? "done" : ""} key={index}>{index < comeback.progress ? "✓" : index + 1}</i>)}</div><strong>{comeback.active ? `${comeback.progress} / ${comeback.target}` : (isEnglish ? "Ready" : "Готово")}</strong></div>
+        </article>
+      </section> : null}
       {hasHabits ? dailyPanel : null}
       {message ? <p className="habit-status-message" role="status">{message}</p> : null}
 

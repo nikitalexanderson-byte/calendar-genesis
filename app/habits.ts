@@ -63,6 +63,14 @@ import {
   type RewardTransaction,
 } from "./rewards";
 import {
+  applyAutomaticStreakProtection,
+  calculateStreakFreezeCount,
+  normalizeStreakFreezeTransactions,
+  purchaseHestiaSpark,
+  reconcileComebackRewards,
+  type StreakFreezeTransaction,
+} from "./streak-protection";
+import {
   HABIT_COLORS,
   STARTER_HABIT_TEMPLATES,
   isHabitTemplateId,
@@ -84,6 +92,8 @@ export type { HeroicRank, HeroicRankId, UserProgress } from "./habit-progress";
 export { DEFAULT_HABIT_EMOJI, DEFAULT_HABIT_PRIORITY, HABIT_EMOJI_PRESETS, canRecordHabitOnDate, normalizeHabitEmoji, normalizeHabitPriority } from "./habit-integrity";
 export type { RewardCurrency, RewardReason, RewardTransaction } from "./rewards";
 export { DAILY_GOAL_LAURELS, PERFECT_DAY_LAURELS, laurelsForDailyGoal, resetLaurelsBalance } from "./rewards";
+export { COMEBACK_REWARD_LAURELS, COMEBACK_TARGET_DAYS, HESTIA_SPARK_COST, HESTIA_SPARK_MAX, calculateComebackSummary, calculateStreakFreezeCount } from "./streak-protection";
+export type { ComebackSummary, StreakFreezeReason, StreakFreezeTransaction } from "./streak-protection";
 export { dailyGoalTarget } from "./daily-goal";
 export type { DailyGoalMode, DailyGoalModeChange, DailyGoalRecord, DailyGoalStatus } from "./daily-goal";
 
@@ -138,7 +148,7 @@ export type HabitSettings = {
 };
 
 export type HabitWorkspace = {
-  trackerSchemaVersion: 8;
+  trackerSchemaVersion: 9;
   userProgress: UserProgress;
   habits: Habit[];
   habitCompletions: HabitCompletion[];
@@ -150,6 +160,7 @@ export type HabitWorkspace = {
   analyticsSnapshots: TrackerAnalyticsSnapshot[];
   dailyGoalRecords: DailyGoalRecord[];
   rewardTransactions: RewardTransaction[];
+  streakFreezeTransactions: StreakFreezeTransaction[];
   habitSettings: HabitSettings;
   hiddenDefaultTemplates: HabitTemplateId[];
 };
@@ -216,7 +227,7 @@ export const DEFAULT_HABIT_SETTINGS: HabitSettings = {
 };
 
 export const EMPTY_HABIT_WORKSPACE: HabitWorkspace = {
-  trackerSchemaVersion: 8,
+  trackerSchemaVersion: 9,
   userProgress: {
     lifetimeXp: 0,
     laurelsBalance: 0,
@@ -238,6 +249,7 @@ export const EMPTY_HABIT_WORKSPACE: HabitWorkspace = {
   analyticsSnapshots: [],
   dailyGoalRecords: [],
   rewardTransactions: [],
+  streakFreezeTransactions: [],
   habitSettings: DEFAULT_HABIT_SETTINGS,
   hiddenDefaultTemplates: [],
 };
@@ -568,12 +580,14 @@ export function normalizeHabitWorkspace(
     .map((entry) => normalizeHabitCompletion(entry, habitMap))
     .filter((entry): entry is HabitCompletion => entry !== null);
   const rewardTransactions = normalizeRewardTransactions(value.rewardTransactions);
+  const streakFreezeTransactions = normalizeStreakFreezeTransactions(value.streakFreezeTransactions);
   const userProgress = reconcileUserProgress(
     value.userProgress,
     habitCompletions,
     new Date().toISOString(),
     undefined,
     calculateLaurelsBalance(rewardTransactions),
+    calculateStreakFreezeCount(streakFreezeTransactions),
   );
 
   const explicitSleepPlans = Array.isArray(value.sleepPlans)
@@ -609,7 +623,7 @@ export function normalizeHabitWorkspace(
   });
 
   const workspace: HabitWorkspace = {
-    trackerSchemaVersion: 8,
+    trackerSchemaVersion: 9,
     userProgress,
     habits,
     habitCompletions,
@@ -621,6 +635,7 @@ export function normalizeHabitWorkspace(
     analyticsSnapshots: normalizeSnapshots(value.analyticsSnapshots),
     dailyGoalRecords: normalizeDailyGoalRecords(value.dailyGoalRecords),
     rewardTransactions,
+    streakFreezeTransactions,
     habitSettings: normalizeSettings(value.habitSettings),
     hiddenDefaultTemplates: normalizeHiddenDefaultTemplates(value.hiddenDefaultTemplates),
   };
@@ -667,6 +682,7 @@ export function dailyGoalForDate(
     ...counts,
     today,
     isRestDay: workspace.habitSettings.plannedRestDays.includes(date),
+    isStreakProtected: existing?.status === "protected",
   });
   return existing
     && existing.mode === next.mode
@@ -699,7 +715,7 @@ export function reconcileMissedHabitLaurels(
     .map((entry) => `${entry.habitId}:${entry.date}`));
   const restDays = new Set(workspace.habitSettings.plannedRestDays);
   const closedDates = workspace.dailyGoalRecords
-    .filter((record) => ["qualified", "perfect", "missed"].includes(record.status))
+    .filter((record) => ["qualified", "perfect", "missed", "protected"].includes(record.status))
     .map((record) => record.date)
     .filter((date, index, dates) => date < today && !restDays.has(date) && dates.indexOf(date) === index)
     .sort();
@@ -719,13 +735,31 @@ export function reconcileMissedHabitLaurels(
   return transactions;
 }
 
-function withDailyGoalStreak(workspace: HabitWorkspace, today: string, calendarMode: CalendarMode) {
-  const streak = calculateGlobalStreak(workspace.dailyGoalRecords, today);
+function withDailyGoalStreak(
+  workspace: HabitWorkspace,
+  today: string,
+  calendarMode: CalendarMode,
+  protectableDates: ReadonlySet<string> = new Set(),
+) {
   const timestamp = new Date().toISOString();
-  const earnedTransactions = reconcileDailyGoalRewards(workspace.dailyGoalRecords, workspace.rewardTransactions, today, timestamp);
-  const rewardTransactions = reconcileMissedHabitLaurels(workspace, earnedTransactions, today, timestamp, calendarMode);
-  return {
+  const protection = applyAutomaticStreakProtection({
+    records: workspace.dailyGoalRecords,
+    transactions: workspace.streakFreezeTransactions,
+    protectableDates,
+    today,
+    timestamp,
+  });
+  const protectedWorkspace = {
     ...workspace,
+    dailyGoalRecords: protection.records,
+    streakFreezeTransactions: protection.transactions,
+  };
+  const streak = calculateGlobalStreak(protectedWorkspace.dailyGoalRecords, today);
+  const earnedTransactions = reconcileDailyGoalRewards(protectedWorkspace.dailyGoalRecords, protectedWorkspace.rewardTransactions, today, timestamp);
+  const resetTransactions = reconcileMissedHabitLaurels(protectedWorkspace, earnedTransactions, today, timestamp, calendarMode);
+  const rewardTransactions = reconcileComebackRewards(protectedWorkspace.dailyGoalRecords, resetTransactions, today, timestamp);
+  return {
+    ...protectedWorkspace,
     rewardTransactions,
     userProgress: reconcileUserProgress(
       workspace.userProgress,
@@ -733,6 +767,7 @@ function withDailyGoalStreak(workspace: HabitWorkspace, today: string, calendarM
       timestamp,
       streak,
       calculateLaurelsBalance(rewardTransactions),
+      calculateStreakFreezeCount(protection.transactions),
     ),
   };
 }
@@ -744,12 +779,15 @@ export function refreshDailyGoalProgress(
   today = habitDateKey(new Date()),
 ): HabitWorkspace {
   let records = normalizeDailyGoalRecords(workspace.dailyGoalRecords);
+  const protectableDates = new Set<string>();
   for (const date of dates) {
     if (!DATE_PATTERN.test(date)) continue;
+    const previous = records.find((record) => record.date === date);
     const record = dailyGoalForDate({ ...workspace, dailyGoalRecords: records }, date, calendarMode, today);
+    if (previous?.status === "open" && record.status === "missed") protectableDates.add(date);
     records = upsertDailyGoalRecord(records, record);
   }
-  return withDailyGoalStreak({ ...workspace, dailyGoalRecords: records }, today, calendarMode);
+  return withDailyGoalStreak({ ...workspace, dailyGoalRecords: records }, today, calendarMode, protectableDates);
 }
 
 export function ensureDailyGoalProgress(
@@ -762,9 +800,10 @@ export function ensureDailyGoalProgress(
   const previousCurrentRecord = normalizedRecords.filter((record) => record.date <= today).at(-1);
   const timezoneChanged = Boolean(previousCurrentRecord && previousCurrentRecord.timezone !== currentTimezone);
   const timezoneBoundaryDate = timezoneChanged ? addHabitDays(today, -1) : "";
+  const protectableDates = new Set<string>();
   let records = normalizedRecords.map((record) => {
     if (record.status !== "open" || record.date >= today) return record;
-    return buildDailyGoalRecord({
+    const closed = buildDailyGoalRecord({
       date: record.date,
       mode: record.mode,
       timezone: record.timezone,
@@ -774,6 +813,8 @@ export function ensureDailyGoalProgress(
       isTimezoneShift: record.date === timezoneBoundaryDate,
       updatedAt: record.updatedAt,
     });
+    if (closed.status === "missed") protectableDates.add(record.date);
+    return closed;
   });
   const latestDate = records.filter((record) => record.date <= today).at(-1)?.date;
   const earliestSource = [
@@ -791,6 +832,7 @@ export function ensureDailyGoalProgress(
       const record = date === timezoneBoundaryDate
         ? { ...calculated, timezone: currentTimezone, status: "timezone-shift" as const }
         : calculated;
+      if (record.status === "missed") protectableDates.add(date);
       records = upsertDailyGoalRecord(records, record);
     });
   }
@@ -798,7 +840,35 @@ export function ensureDailyGoalProgress(
     const current = dailyGoalForDate({ ...workspace, dailyGoalRecords: records }, today, calendarMode, today);
     records = upsertDailyGoalRecord(records, current);
   }
-  return withDailyGoalStreak({ ...workspace, dailyGoalRecords: records }, today, calendarMode);
+  return withDailyGoalStreak({ ...workspace, dailyGoalRecords: records }, today, calendarMode, protectableDates);
+}
+
+export function buyHestiaSpark(
+  workspace: HabitWorkspace,
+  purchaseId = `spark-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+  timestamp = new Date().toISOString(),
+): HabitWorkspace {
+  const purchase = purchaseHestiaSpark({
+    rewardTransactions: workspace.rewardTransactions,
+    streakFreezeTransactions: workspace.streakFreezeTransactions,
+    laurelsBalance: workspace.userProgress.laurelsBalance,
+    purchaseId,
+    createdAt: timestamp,
+  });
+  if (!purchase.ok) return workspace;
+  return {
+    ...workspace,
+    rewardTransactions: purchase.rewardTransactions,
+    streakFreezeTransactions: purchase.streakFreezeTransactions,
+    userProgress: reconcileUserProgress(
+      workspace.userProgress,
+      workspace.habitCompletions,
+      timestamp,
+      undefined,
+      calculateLaurelsBalance(purchase.rewardTransactions),
+      calculateStreakFreezeCount(purchase.streakFreezeTransactions),
+    ),
+  };
 }
 
 export function removeHabitFromWorkspace(
@@ -827,6 +897,7 @@ export function removeHabitFromWorkspace(
       timestamp,
       undefined,
       calculateLaurelsBalance(rewardTransactions),
+      calculateStreakFreezeCount(workspace.streakFreezeTransactions),
     ),
   };
 }
