@@ -14,6 +14,7 @@ const SKIPPED_FILES = new Set([
   "stoicheion-data.en.ts",
   "theokyklos-data.ts",
   "habits.ts",
+  "habit-progress.ts",
   "habit-templates.ts",
   "mood-tracker.ts",
   "sleep-tracker.ts",

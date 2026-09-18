@@ -24,6 +24,13 @@ import {
   isHabitTemplateId,
   starterTemplateRecurrencePreset,
 } from "../app/habit-templates.ts";
+import {
+  HEROIC_RANKS,
+  completionXpAward,
+  heroicRank,
+  highestRankForXp,
+  reconcileUserProgress,
+} from "../app/habit-progress.ts";
 
 async function render() {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
@@ -61,10 +68,11 @@ test("server-renders the GENESIS application shell", async () => {
 });
 
 test("ships the modular encrypted tracker across dashboard, calendars and account settings", async () => {
-  const [calendar, tracker, habits, sleep, mood, addiction, analytics, cache, trackerMath, cloud, account, repository, migration, styles, rankArt] = await Promise.all([
+  const [calendar, tracker, habits, progress, sleep, mood, addiction, analytics, cache, trackerMath, cloud, account, repository, migration, styles, rankArt] = await Promise.all([
     readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/HabitTracker.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/habits.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/habit-progress.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/sleep-tracker.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/mood-tracker.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/addiction-tracker.ts", import.meta.url), "utf8"),
@@ -97,6 +105,7 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(cloud, /JSON\.stringify\(\{[\s\S]*\.\.\.encryptedHabitWorkspace/);
   assert.match(cloud, /habits: structure\.habits/);
   assert.match(cloud, /habitCompletions: structure\.habitCompletions/);
+  assert.match(cloud, /userProgress: structure\.userProgress/);
   assert.match(cloud, /hiddenDefaultTemplates: structure\.hiddenDefaultTemplates/);
   assert.match(cloud, /sleepEntries: structure\.sleepEntries/);
   assert.match(cloud, /addictionEntries: structure\.addictionEntries/);
@@ -112,12 +121,14 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(habits, /type HabitQualityScale = "none" \| "ten" \| "bipolar"/);
   assert.match(habits, /export function isHabitScheduledForDate/);
   assert.match(habits, /export function habitScore/);
-  assert.match(habits, /export const HEROIC_RANKS/);
+  assert.match(habits, /HEROIC_RANKS, completionXpAward, heroicRank, nextHeroicRank/);
   assert.match(habits, /STARTER_HABIT_TEMPLATES/);
   assert.match(habits, /createHabitFromTemplate/);
   assert.match(habits, /normalizeHiddenDefaultTemplates/);
-  assert.match(habits, /trackerSchemaVersion: 3/);
-  assert.equal((habits.match(/titleEn:/g) ?? []).length, 7);
+  assert.match(habits, /trackerSchemaVersion: 4/);
+  assert.match(habits, /userProgress: UserProgress/);
+  assert.match(habits, /xpAwarded: number/);
+  assert.equal((progress.match(/titleEn:/g) ?? []).length, 14);
   assert.match(sleep, /type SleepPlan/);
   assert.match(sleep, /type SleepEntry/);
   assert.match(sleep, /calculateSleepDuration/);
@@ -170,6 +181,36 @@ test("starter habit template catalog exposes ten inert calendar-aware suggestion
   assert.equal(starterTemplateRecurrencePreset(water, "profane").pattern, "daily");
   assert.deepEqual(starterTemplateRecurrencePreset(water, "sacred").days, [1, 2, 3, 4, 5]);
   assert.equal(starterTemplateRecurrencePreset(water, "lunar").days.length, 30);
+});
+
+test("lifetime XP exposes twelve ranks and never moves backwards", () => {
+  assert.equal(HEROIC_RANKS.length, 12);
+  assert.deepEqual(HEROIC_RANKS.map((rank) => rank.threshold), [10, 100, 250, 450, 700, 1_000, 1_400, 1_900, 2_500, 3_300, 4_300, 5_600]);
+  assert.equal(new Set(HEROIC_RANKS.map((rank) => rank.id)).size, 12);
+
+  assert.equal(highestRankForXp(0), null);
+  assert.equal(highestRankForXp(9), null);
+  assert.equal(heroicRank(9).title, "Путь ещё не начат");
+  assert.equal(heroicRank(10).id, "lion-heart");
+  assert.equal(heroicRank(5_600).id, "risen-from-the-abyss");
+
+  assert.equal(completionXpAward(0, 10), 10);
+  assert.equal(completionXpAward(10, 10), 10);
+  assert.equal(completionXpAward(10, 20), 20);
+  assert.equal(completionXpAward(20, 0), 20);
+
+  const migrated = reconcileUserProgress(null, [{ xpAwarded: 10 }, { xpAwarded: 20 }], "2026-09-18T00:00:00.000Z");
+  assert.equal(migrated.lifetimeXp, 30);
+  assert.equal(migrated.currentRankId, "lion-heart");
+
+  const afterDeletion = reconcileUserProgress({
+    lifetimeXp: 100,
+    currentRankId: "venom-vanquisher",
+    updatedAt: "2026-09-17T00:00:00.000Z",
+  }, [], "2026-09-18T00:00:00.000Z");
+  assert.equal(afterDeletion.lifetimeXp, 100);
+  assert.equal(afterDeletion.currentRankId, "venom-vanquisher");
+  assert.equal(afterDeletion.updatedAt, "2026-09-17T00:00:00.000Z");
 });
 
 test("tracker scoring and time math preserve the specified invariants", () => {
@@ -789,6 +830,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /day-details-tasks/);
   assert.match(calendar, /day-details-celestial/);
   assert.match(calendar, /day-details-create-task-button/);
+  assert.match(calendar, /className="day-details-hero"/);
+  assert.doesNotMatch(calendar, /selected-day-card day-details-modal/);
   assert.match(calendar, /beginSelectedDayTask/);
   assert.match(calendar, /setTaskDueDate\(selectedDateValue\)/);
   assert.match(calendar, /renderTaskCreateForm\("day-details"\)/);
@@ -1007,6 +1050,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(styles, /\.inbox-card-items > article\.inbox-task-item/);
   assert.match(styles, /\.inbox-card-items \.inbox-task-delete/);
   assert.match(styles, /\.day-details-modal/);
+  assert.match(styles, /\.day-details-hero[\s\S]*grid-template-columns: 72px minmax\(0, 1fr\)/);
+  assert.match(styles, /\.day-details-modal \.habit-daily-panel\.compact \{ width:100%; min-width:0;/);
   assert.match(styles, /\.day-details-create-task-button/);
   assert.match(styles, /\.day-task-create-modal > \.task-form/);
   assert.match(styles, /\.day-task-create-backdrop\s*\{[\s\S]*z-index: 675/);

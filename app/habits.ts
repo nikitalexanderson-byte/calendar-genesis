@@ -27,7 +27,12 @@ import {
 } from "./tracker-core";
 import { recurrenceModeForCalendar, type RecurrenceConfig } from "./task-recurrence";
 import type { TrackerAnalyticsSnapshot } from "./tracker-analytics";
-import { nonNegativeTrackerTotal, scoreHabitFormula } from "./tracker-math";
+import { scoreHabitFormula } from "./tracker-math";
+import {
+  completionXpAward,
+  reconcileUserProgress,
+  type UserProgress,
+} from "./habit-progress";
 import {
   HABIT_COLORS,
   isHabitTemplateId,
@@ -38,6 +43,8 @@ import {
 
 export { HABIT_COLORS, STARTER_HABIT_TEMPLATES } from "./habit-templates";
 export type { HabitTemplate, HabitTemplateId } from "./habit-templates";
+export { HEROIC_RANKS, completionXpAward, heroicRank, nextHeroicRank } from "./habit-progress";
+export type { HeroicRank, HeroicRankId, UserProgress } from "./habit-progress";
 
 export type HabitQualityScale = "none" | "ten" | "bipolar";
 export type HabitScoringMode = "none" | "binary" | "quality-ten" | "quality-bipolar";
@@ -71,6 +78,7 @@ export type HabitCompletion = TrackerEntity & {
   completed: boolean;
   qualityValue: number | null;
   score: number;
+  xpAwarded: number;
   note: string;
 };
 
@@ -82,7 +90,8 @@ export type HabitSettings = {
 };
 
 export type HabitWorkspace = {
-  trackerSchemaVersion: 3;
+  trackerSchemaVersion: 4;
+  userProgress: UserProgress;
   habits: Habit[];
   habitCompletions: HabitCompletion[];
   sleepPlans: SleepPlan[];
@@ -133,6 +142,7 @@ type LegacyHabitEntry = Partial<TrackerEntity> & {
   time?: string;
   note?: string;
   score?: number;
+  xpAwarded?: number;
 };
 
 type HabitWorkspaceInput = Partial<HabitWorkspace> & {
@@ -149,7 +159,12 @@ export const DEFAULT_HABIT_SETTINGS: HabitSettings = {
 };
 
 export const EMPTY_HABIT_WORKSPACE: HabitWorkspace = {
-  trackerSchemaVersion: 3,
+  trackerSchemaVersion: 4,
+  userProgress: {
+    lifetimeXp: 0,
+    currentRankId: null,
+    updatedAt: "",
+  },
   habits: [],
   habitCompletions: [],
   sleepPlans: [],
@@ -161,16 +176,6 @@ export const EMPTY_HABIT_WORKSPACE: HabitWorkspace = {
   habitSettings: DEFAULT_HABIT_SETTINGS,
   hiddenDefaultTemplates: [],
 };
-
-export const HEROIC_RANKS = [
-  { id: "spark", title: "Искра намерения", titleEn: "Spark of Intention", threshold: 0, symbol: "✦", color: "#70736d" },
-  { id: "seeker", title: "Искатель ритма", titleEn: "Seeker of Rhythm", threshold: 100, symbol: "❧", color: "#9a6a43" },
-  { id: "hoplite", title: "Гоплит дисциплины", titleEn: "Hoplite of Discipline", threshold: 300, symbol: "♜", color: "#9ba1a0" },
-  { id: "strategist", title: "Стратег привычек", titleEn: "Strategist of Habits", threshold: 750, symbol: "☉", color: "#c69b50" },
-  { id: "archon", title: "Архонт воли", titleEn: "Archon of Will", threshold: 1_500, symbol: "❖", color: "#34836e" },
-  { id: "hero", title: "Герой постоянства", titleEn: "Hero of Consistency", threshold: 3_000, symbol: "✧", color: "#3e66a0" },
-  { id: "lightbearer", title: "Светоносец GENESIS", titleEn: "Lightbearer of GENESIS", threshold: 6_000, symbol: "☼", color: "#e2c778" },
-] as const;
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
@@ -293,12 +298,16 @@ function normalizeHabitCompletion(value: LegacyHabitEntry, habits: Map<string, H
     completed: value.completed === true,
     qualityValue,
   };
+  const score = scoreHabitCompletion(habit, completion);
   return {
     ...normalizeTrackerEntity(value, "habit-completion"),
     habitId,
     date,
     ...completion,
-    score: scoreHabitCompletion(habit, completion),
+    score,
+    xpAwarded: typeof value.xpAwarded === "number"
+      ? completionXpAward(value.xpAwarded, 0)
+      : completionXpAward(0, score),
     note: typeof value.note === "string" ? value.note : "",
   };
 }
@@ -442,6 +451,7 @@ export function normalizeHabitWorkspace(
   const habitCompletions = rawEntries
     .map((entry) => normalizeHabitCompletion(entry, habitMap))
     .filter((entry): entry is HabitCompletion => entry !== null);
+  const userProgress = reconcileUserProgress(value.userProgress, habitCompletions);
 
   const explicitSleepPlans = Array.isArray(value.sleepPlans)
     ? value.sleepPlans.map((plan) => normalizeSleepPlan(plan as unknown as Record<string, unknown>, fallbackDate, calendarMode)).filter((plan): plan is SleepPlan => plan !== null)
@@ -476,7 +486,8 @@ export function normalizeHabitWorkspace(
   });
 
   return {
-    trackerSchemaVersion: 3,
+    trackerSchemaVersion: 4,
+    userProgress,
     habits,
     habitCompletions,
     sleepPlans,
@@ -500,16 +511,7 @@ export function habitScore(habit: Habit, entry: HabitCompletion | undefined, val
 }
 
 export function calculateHabitTotal(workspace: HabitWorkspace) {
-  return nonNegativeTrackerTotal([workspace.habitCompletions, workspace.sleepEntries, workspace.addictionEntries]);
-}
-
-export function heroicRank(points: number) {
-  const safePoints = Math.max(0, points);
-  return [...HEROIC_RANKS].reverse().find((rank) => safePoints >= rank.threshold) ?? HEROIC_RANKS[0];
-}
-
-export function nextHeroicRank(points: number) {
-  return HEROIC_RANKS.find((rank) => Math.max(0, points) < rank.threshold) ?? null;
+  return workspace.userProgress.lifetimeXp;
 }
 
 function startOfMonth(value: string) {

@@ -5405,29 +5405,43 @@ export function GenesisCalendar() {
       ) : null}
       {dayDetailsOpen ? (
         <div className="modal-backdrop day-details-backdrop" role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) setDayDetailsOpen(false); }}>
-          <section className={`selected-day-card day-details-modal mode-${activeCalendarMode}${selectedSolarEvent ? " solar-selected-day" : ""}`} role="dialog" aria-modal="true" aria-labelledby="selected-day-title" aria-describedby="selected-day-description">
+          <section className={`day-details-modal mode-${activeCalendarMode}${selectedSolarEvent ? " solar-selected-day" : ""}`} role="dialog" aria-modal="true" aria-labelledby="selected-day-title" aria-describedby="selected-day-description">
             <button type="button" className="modal-close" onClick={() => setDayDetailsOpen(false)} aria-label="Закрыть сведения о дне">×</button>
-            <div className="selected-day-symbol" aria-hidden="true">{selectedSolarEvent?.symbol ?? (activeCalendarMode === "lunar" ? "☾" : activeCalendarMode === "profane" ? selectedWeekdayPatron.symbol : selectedElement.symbol)}</div>
-            <div className="selected-day-copy">
-              <span className="eyebrow">{activeCalendarMode === "profane"
-                ? `${formatCalendarDate(selectedDate, "sacred")} · ${selectedMoon.day} ${language === "en" ? "lunar day" : "лунный день"}`
-                : activeCalendarMode === "lunar"
-                  ? `${formatGregorian(selectedDate, true)} · ${formatCalendarDate(selectedDate, "sacred")}`
-                  : `${formatGregorian(selectedDate, true)} · ${selectedMoon.epithet}`}</span>
-              <h2 id="selected-day-title">{activeCalendarMode === "profane"
-                ? formatGregorian(selectedDate, true)
-                : activeCalendarMode === "lunar"
-                  ? `${selectedLunarDate.month.name} · ${selectedMoon.day} ${language === "en" ? "lunar day" : "лунный день"}`
-                  : selectedSacredDay.name}</h2>
-              <p id="selected-day-description">{activeCalendarMode === "lunar"
-                ? (language === "en"
-                    ? `${selectedLunarDate.isThreshold ? "Threshold" : selectedLunarDate.decade.name} · ${selectedMoon.phase} · ${selectedMoon.illumination}% illuminated. ${selectedLunarDate.month.description} Sacred meaning of the day: ${selectedSacredDay.name} — ${selectedSacredDay.description}`
-                    : `${selectedLunarDate.isThreshold ? "Рубеж" : selectedLunarDate.decade.name} · ${selectedMoon.phase} · освещённость ${selectedMoon.illumination}%. ${selectedLunarDate.month.description} Сакральный смысл дня: ${selectedSacredDay.name} — ${selectedSacredDay.description}`)
-                : activeCalendarMode === "profane"
-                  ? `${selectedWeekdayPatron.patronage}. ${selectedWeekdayPatron.deity} ${language === "en" ? "Body parts:" : "Части тела:"} ${selectedWeekdayPatron.bodyParts}`
-                  : selectedSacredDay.description}</p>
-              {selectedSolarEvent ? <strong className="selected-solar-event">{selectedSolarEvent.name} · День Солнца</strong> : null}
-            </div>
+            <header className="day-details-hero">
+              <div className="selected-day-symbol" aria-hidden="true">{selectedSolarEvent?.symbol ?? (activeCalendarMode === "lunar" ? "☾" : activeCalendarMode === "profane" ? selectedWeekdayPatron.symbol : selectedElement.symbol)}</div>
+              <div className="selected-day-copy">
+                <span className="eyebrow">{activeCalendarMode === "profane"
+                  ? `${formatCalendarDate(selectedDate, "sacred")} · ${selectedMoon.day} ${language === "en" ? "lunar day" : "лунный день"}`
+                  : activeCalendarMode === "lunar"
+                    ? `${formatGregorian(selectedDate, true)} · ${formatCalendarDate(selectedDate, "sacred")}`
+                    : `${formatGregorian(selectedDate, true)} · ${selectedMoon.epithet}`}</span>
+                <h2 id="selected-day-title">{activeCalendarMode === "profane"
+                  ? formatGregorian(selectedDate, true)
+                  : activeCalendarMode === "lunar"
+                    ? `${selectedLunarDate.month.name} · ${selectedMoon.day} ${language === "en" ? "lunar day" : "лунный день"}`
+                    : selectedSacredDay.name}</h2>
+                <p id="selected-day-description">{activeCalendarMode === "lunar"
+                  ? (language === "en"
+                      ? `${selectedLunarDate.isThreshold ? "Threshold" : selectedLunarDate.decade.name} · ${selectedMoon.phase} · ${selectedMoon.illumination}% illuminated. ${selectedLunarDate.month.description} Sacred meaning of the day: ${selectedSacredDay.name} — ${selectedSacredDay.description}`
+                      : `${selectedLunarDate.isThreshold ? "Рубеж" : selectedLunarDate.decade.name} · ${selectedMoon.phase} · освещённость ${selectedMoon.illumination}%. ${selectedLunarDate.month.description} Сакральный смысл дня: ${selectedSacredDay.name} — ${selectedSacredDay.description}`)
+                  : activeCalendarMode === "profane"
+                    ? `${selectedWeekdayPatron.patronage}. ${selectedWeekdayPatron.deity} ${language === "en" ? "Body parts:" : "Части тела:"} ${selectedWeekdayPatron.bodyParts}`
+                    : selectedSacredDay.description}</p>
+                {selectedSolarEvent ? <strong className="selected-solar-event">{selectedSolarEvent.name} · День Солнца</strong> : null}
+              </div>
+              <dl className="selected-day-facts">
+                {selectedSolarEvent ? <div className="solar-fact"><dt>Солнечная точка</dt><dd>{selectedSolarEvent.name}</dd></div> : null}
+                {activeCalendarMode === "profane" ? <div><dt>{language === "en" ? "Sacralization of the day" : "Сакрализация дня"}</dt><dd>{selectedWeekdayPatron.weekday} · {selectedWeekdayPatron.guidanceTitle}</dd></div> : null}
+                <div><dt>Григорианская дата</dt><dd>{formatGregorian(selectedDate, true)}</dd></div>
+                <div><dt>Сакральная дата</dt><dd>{formatCalendarDate(selectedDate, "sacred")}</dd></div>
+                <div><dt>Лунный месяц</dt><dd>{selectedLunarDate.month.name} · {selectedLunarDate.month.title}</dd></div>
+                <div><dt>Лунные сутки</dt><dd>{selectedMoon.day} · {selectedMoon.phase}</dd></div>
+                <div><dt>{language === "en" ? "Lunar decade" : "Лунная декада"}</dt><dd>{selectedLunarDate.isThreshold ? "Рубеж" : selectedLunarDate.decade.name}</dd></div>
+                <div><dt>Стихия</dt><dd>{selectedElement.name}</dd></div>
+                <div><dt>Пята</dt><dd>{selectedSacredDay.pyataTitle || "Апейрон"}</dd></div>
+                <div><dt>Число</dt><dd>{selectedPythagorean?.name || "Безграничное"}</dd></div>
+              </dl>
+            </header>
             {activeCalendarMode === "profane" ? (
               <article className={`profane-day-guidance weekday-${selectedDate.getDay()}`} aria-labelledby="profane-day-guidance-title">
                 <header>
@@ -5454,18 +5468,6 @@ export function GenesisCalendar() {
                 </dl>
               </article>
             ) : null}
-            <dl className="selected-day-facts">
-              {selectedSolarEvent ? <div className="solar-fact"><dt>Солнечная точка</dt><dd>{selectedSolarEvent.name}</dd></div> : null}
-              {activeCalendarMode === "profane" ? <div><dt>{language === "en" ? "Sacralization of the day" : "Сакрализация дня"}</dt><dd>{selectedWeekdayPatron.weekday} · {selectedWeekdayPatron.guidanceTitle}</dd></div> : null}
-              <div><dt>Григорианская дата</dt><dd>{formatGregorian(selectedDate, true)}</dd></div>
-              <div><dt>Сакральная дата</dt><dd>{formatCalendarDate(selectedDate, "sacred")}</dd></div>
-              <div><dt>Лунный месяц</dt><dd>{selectedLunarDate.month.name} · {selectedLunarDate.month.title}</dd></div>
-              <div><dt>Лунные сутки</dt><dd>{selectedMoon.day} · {selectedMoon.phase}</dd></div>
-              <div><dt>{language === "en" ? "Lunar decade" : "Лунная декада"}</dt><dd>{selectedLunarDate.isThreshold ? "Рубеж" : selectedLunarDate.decade.name}</dd></div>
-              <div><dt>Стихия</dt><dd>{selectedElement.name}</dd></div>
-              <div><dt>Пята</dt><dd>{selectedSacredDay.pyataTitle || "Апейрон"}</dd></div>
-              <div><dt>Число</dt><dd>{selectedPythagorean?.name || "Безграничное"}</dd></div>
-            </dl>
             <div className="day-details-create-task">
               <button type="button" className="day-details-create-task-button" onClick={beginSelectedDayTask}>
                 <span aria-hidden="true">＋</span>
