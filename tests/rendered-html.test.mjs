@@ -55,6 +55,9 @@ import {
   normalizeHabitPriority,
 } from "../app/habit-integrity.ts";
 import {
+  resetHabitWorkspace,
+} from "../app/habit-reset.ts";
+import {
   buildDailyGoalRecord,
   calculateGlobalStreak,
   dailyGoalModeForDate,
@@ -108,10 +111,11 @@ test("server-renders the GENESIS application shell", async () => {
 });
 
 test("ships the modular encrypted tracker across dashboard, calendars and account settings", async () => {
-  const [calendar, tracker, habits, progress, dailyGoal, rewards, sleep, mood, addiction, analytics, cache, trackerMath, cloud, account, repository, migration, styles, sigil, metricSigil, rankArt] = await Promise.all([
+  const [calendar, tracker, habits, habitReset, progress, dailyGoal, rewards, sleep, mood, addiction, analytics, cache, trackerMath, cloud, account, repository, migration, styles, sigil, metricSigil, rankArt] = await Promise.all([
     readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/HabitTracker.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/habits.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/habit-reset.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/habit-progress.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/daily-goal.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/rewards.ts", import.meta.url), "utf8"),
@@ -144,6 +148,8 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(calendar, /advanceHabitGoogleReminder/);
   assert.match(calendar, /nextHabitReminderDate/);
   assert.match(calendar, /taskLists\.find\(\(item\) => item\.title === "Привычки GENESIS"\)/);
+  assert.match(calendar, /onResetHabitTracking=\{resetAllHabitTracking\}/);
+  assert.match(calendar, /clearTrackerAnalyticsCache\(cloudUser\.uid\)/);
 
   assert.match(cloud, /crypto\.subtle\.encrypt\(\{ name: "AES-GCM"/);
   assert.match(cloud, /JSON\.stringify\(\{[\s\S]*\.\.\.encryptedHabitWorkspace/);
@@ -187,6 +193,7 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(habits, /habit-deleted:self:/);
   assert.match(habits, /export function reconcileMissedHabitLaurels/);
   assert.match(habits, /export function removeHabitFromWorkspace/);
+  assert.match(habitReset, /export function resetHabitWorkspace/);
   assert.equal((progress.match(/titleEn:/g) ?? []).length, 30);
   assert.match(sleep, /type SleepPlan/);
   assert.match(sleep, /type SleepEntry/);
@@ -229,6 +236,10 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(tracker, /Точно настроить повторение и дни/);
   assert.match(account, /onHabitTrackingChange/);
   assert.match(account, /Восстановить стандартные привычки/);
+  assert.match(account, /Обнулить все привычки/);
+  assert.match(account, /role="alertdialog"/);
+  assert.match(account, /window\.crypto\.getRandomValues/);
+  assert.match(account, /Подтвердить удаление/);
   assert.match(account, /workspaceRecoveryCode/);
   assert.match(styles, /\.habits-hero-status[\s\S]*position: absolute/);
   assert.match(styles, /\.daily-goal-ring/);
@@ -259,8 +270,68 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(metricSigil, /onPointerMove/);
   assert.match(metricSigil, /setHighlight/);
   assert.match(styles, /@keyframes metric-sigil-awaken/);
+  assert.match(styles, /\.habit-reset-dialog/);
   assert.match(styles, /\/habit-ranks\/heroic-ranks\.webp/);
   assert.ok(rankArt.size > 100_000, "heroic rank artwork should be a production image");
+});
+
+test("resetting habit tracking clears every tracker and statistic while preserving preferences", () => {
+  const populated = {
+    userProgress: {
+      lifetimeXp: 9_999,
+      laurelsBalance: 321,
+      currentRankId: "icarus",
+      currentStreak: 14,
+      longestStreak: 28,
+      streakGoalMode: "perfect",
+    },
+    habits: [{ id: "habit" }],
+    habitCompletions: [{ id: "completion" }],
+    sleepPlans: [{ id: "sleep-plan" }],
+    sleepEntries: [{ id: "sleep-entry" }],
+    moodEntries: [{ id: "mood-entry" }],
+    addictionTrackers: [{ id: "addiction" }],
+    addictionEntries: [{ id: "addiction-entry" }],
+    analyticsSnapshots: [{ id: "snapshot" }],
+    dailyGoalRecords: [{ id: "goal" }],
+    rewardTransactions: [{ id: "reward" }],
+    habitSettings: {
+      enabled: false,
+      reportRange: "custom",
+      customRangeStart: "2026-01-01",
+      customRangeEnd: "2026-02-01",
+      dailyGoalModeChanges: [{ id: "mode-change" }],
+      plannedRestDays: ["2026-01-10"],
+    },
+    hiddenDefaultTemplates: ["morning-water"],
+  };
+  const reset = resetHabitWorkspace(populated, "2026-09-18T12:00:00.000Z");
+
+  for (const field of [
+    "habits",
+    "habitCompletions",
+    "sleepPlans",
+    "sleepEntries",
+    "moodEntries",
+    "addictionTrackers",
+    "addictionEntries",
+    "analyticsSnapshots",
+    "dailyGoalRecords",
+    "rewardTransactions",
+    "hiddenDefaultTemplates",
+  ]) assert.deepEqual(reset[field], []);
+  assert.equal(reset.userProgress.lifetimeXp, 0);
+  assert.equal(reset.userProgress.laurelsBalance, 0);
+  assert.equal(reset.userProgress.currentRankId, null);
+  assert.equal(reset.userProgress.currentStreak, 0);
+  assert.equal(reset.userProgress.longestStreak, 0);
+  assert.equal(reset.userProgress.streakGoalMode, "perfect");
+  assert.equal(reset.habitSettings.enabled, false);
+  assert.equal(reset.habitSettings.reportRange, "custom");
+  assert.equal(reset.habitSettings.customRangeStart, "2026-01-01");
+  assert.equal(reset.habitSettings.customRangeEnd, "2026-02-01");
+  assert.deepEqual(reset.habitSettings.dailyGoalModeChanges, []);
+  assert.deepEqual(reset.habitSettings.plannedRestDays, []);
 });
 
 test("starter habit template catalog exposes ten inert calendar-aware suggestions", () => {
