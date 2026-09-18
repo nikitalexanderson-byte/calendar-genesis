@@ -24,6 +24,11 @@ export type HeroicRank = {
 export type UserProgress = {
   lifetimeXp: number;
   currentRankId: HeroicRankId | null;
+  currentStreak: number;
+  longestStreak: number;
+  lastQualifiedDate: string | null;
+  streakGoalMode: "easy" | "rhythm" | "perfect";
+  streakFreezeCount: number;
   updatedAt: string;
 };
 
@@ -77,14 +82,31 @@ export function reconcileUserProgress(
   value: Partial<UserProgress> | null | undefined,
   sources: ReadonlyArray<{ xpAwarded?: number }>,
   timestamp = new Date().toISOString(),
+  streak?: { currentStreak: number; longestStreak: number; lastQualifiedDate: string | null },
 ): UserProgress {
   const awardedXp = sources.reduce((total, source) => total + safeXp(source.xpAwarded), 0);
   const lifetimeXp = Math.max(safeXp(value?.lifetimeXp), awardedXp);
   const currentRankId = highestRankForXp(lifetimeXp)?.id ?? null;
-  const changed = lifetimeXp !== safeXp(value?.lifetimeXp) || currentRankId !== (value?.currentRankId ?? null);
+  const currentStreak = streak?.currentStreak ?? safeXp(value?.currentStreak);
+  const longestStreak = Math.max(streak?.longestStreak ?? safeXp(value?.longestStreak), currentStreak);
+  const lastQualifiedDate = streak?.lastQualifiedDate ?? (typeof value?.lastQualifiedDate === "string" ? value.lastQualifiedDate : null);
+  const streakGoalMode = ["easy", "rhythm", "perfect"].includes(value?.streakGoalMode ?? "") ? value!.streakGoalMode! : "rhythm";
+  const streakFreezeCount = safeXp(value?.streakFreezeCount);
+  const changed = lifetimeXp !== safeXp(value?.lifetimeXp)
+    || currentRankId !== (value?.currentRankId ?? null)
+    || currentStreak !== safeXp(value?.currentStreak)
+    || longestStreak !== safeXp(value?.longestStreak)
+    || lastQualifiedDate !== (value?.lastQualifiedDate ?? null)
+    || (value?.streakGoalMode !== undefined && streakGoalMode !== value.streakGoalMode)
+    || streakFreezeCount !== safeXp(value?.streakFreezeCount);
   return {
     lifetimeXp,
     currentRankId,
+    currentStreak,
+    longestStreak,
+    lastQualifiedDate,
+    streakGoalMode,
+    streakFreezeCount,
     updatedAt: !changed && typeof value?.updatedAt === "string" && value.updatedAt ? value.updatedAt : timestamp,
   };
 }
