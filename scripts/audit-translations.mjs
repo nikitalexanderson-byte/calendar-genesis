@@ -13,6 +13,7 @@ const SKIPPED_FILES = new Set([
   "stoicheion-data.ts",
   "stoicheion-data.en.ts",
   "theokyklos-data.ts",
+  "sacred-practices.ts",
   "habits.ts",
   "habit-progress.ts",
   "habit-templates.ts",

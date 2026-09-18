@@ -11,6 +11,12 @@ import { formatClockTime, formatTimeValue, hourFromTwelveHour, twelveHourParts }
 import { DAY_RHYTHM_PERIODS, formatDayRhythmRange, getDayRhythmMoment } from "../app/day-rhythm.ts";
 import { THEOKYKLOS_DIRECTION_IDS, THEOKYKLOS_SEGMENTS } from "../app/theokyklos-data.ts";
 import {
+  SACRED_PRACTICE_SECTOR_IDS,
+  SACRED_PRACTICES,
+  sacredPracticesForSector,
+  sacredSectorGuidance,
+} from "../app/sacred-practices.ts";
+import {
   calculateSleepDuration,
   currentAbstinenceStreak,
   moodValueColor,
@@ -152,7 +158,7 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(habits, /STARTER_HABIT_TEMPLATES/);
   assert.match(habits, /createHabitFromTemplate/);
   assert.match(habits, /normalizeHiddenDefaultTemplates/);
-  assert.match(habits, /trackerSchemaVersion: 7/);
+  assert.match(habits, /trackerSchemaVersion: 8/);
   assert.match(habits, /createdDate: string/);
   assert.match(habits, /emoji: string/);
   assert.match(habits, /priority: number/);
@@ -435,9 +441,11 @@ test("ships the complete interactive bilingual Theokyklos", async () => {
   ]).join("\n");
   assert.doesNotMatch(englishCopy, /[А-Яа-яЁё]/u);
   assert.match(calendar, /id: "theokyklos", label: "Теокиклос", symbol: "Θ"/);
-  assert.match(calendar, /<TheokyklosView language=\{language\} \/>/);
+  assert.match(calendar, /<TheokyklosView/);
   assert.match(component, /theokyklos-mandala/);
   assert.match(component, /Круг божественных сил/);
+  assert.match(component, /theokyklos-sacred-practices/);
+  assert.match(component, /createHabitFromSacredPractice/);
   assert.match(component, /Circle of Divine Powers/);
   assert.match(component, /language === "en" \? "RING" : "КОЛЬЦО"/);
   assert.match(component, /language === "en" \? "HESTIA" : "ГЕСТИЯ"/);
@@ -463,6 +471,46 @@ test("ships the complete interactive bilingual Theokyklos", async () => {
   assert.match(styles, /min-height: calc\(100dvh - 34px\)/);
   assert.match(styles, /height: calc\(100dvh - 92px\)/);
   assert.match(i18n, /"Теокиклос": "Theokyklos"/);
+});
+
+test("maps the nine-card spread to complete sacred-practice sectors", async () => {
+  const [calendar, stoicheion, theokyklos, tracker, habits, styles] = await Promise.all([
+    readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/StoicheionView.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/TheokyklosView.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/HabitTracker.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/habits.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.equal(SACRED_PRACTICE_SECTOR_IDS.length, 9);
+  assert.deepEqual(new Set(SACRED_PRACTICE_SECTOR_IDS), new Set([
+    "north", "northeast", "east", "southeast", "south", "southwest", "west", "northwest", "center",
+  ]));
+  assert.equal(SACRED_PRACTICES.length, 18);
+  assert.equal(new Set(SACRED_PRACTICES.map((practice) => practice.id)).size, SACRED_PRACTICES.length);
+  for (const sectorId of SACRED_PRACTICE_SECTOR_IDS) {
+    assert.equal(sacredPracticesForSector(sectorId).length, 2);
+    assert.ok(sacredSectorGuidance(sectorId).upright.ru);
+    assert.ok(sacredSectorGuidance(sectorId).reversed.ru);
+  }
+  const englishCopy = SACRED_PRACTICES.flatMap((practice) => [practice.title.en, practice.description.en, practice.myth.en]).join("\n");
+  assert.doesNotMatch(englishCopy, /[А-Яа-яЁё]/u);
+
+  assert.match(stoicheion, /position: SpreadPosition \| null/);
+  assert.match(stoicheion, /Практика сектора расклада/);
+  assert.match(stoicheion, /Открыть сектор Теокиклоса/);
+  assert.match(calendar, /openTheokyklosSector/);
+  assert.match(calendar, /initialSectorId=\{requestedTheokyklosSector\}/);
+  assert.match(theokyklos, /Сакральные привычки/);
+  assert.match(theokyklos, /updateHabitCompletion/);
+  assert.match(tracker, /sacred-habit-library/);
+  assert.match(tracker, /Начать практику/);
+  assert.match(habits, /sacredPracticeId: string \| null/);
+  assert.match(habits, /createHabitFromSacredPractice/);
+  assert.match(styles, /\.stoicheion-sector-practice/);
+  assert.match(styles, /\.theokyklos-sacred-practices/);
+  assert.match(styles, /\.sacred-habit-library/);
 });
 
 test("ships a compact verified Android test application only to Android phones", async () => {

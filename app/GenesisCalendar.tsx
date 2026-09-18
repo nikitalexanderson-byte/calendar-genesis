@@ -6,6 +6,7 @@ import {
   type FormEvent,
   type PointerEvent,
   type TouchEvent,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -71,6 +72,7 @@ import {
 } from "./habits";
 import { changedTrackerDates, ensureTrackerAnalytics, refreshTrackerAnalytics } from "./tracker-analytics";
 import { loadTrackerAnalyticsCache, saveTrackerAnalyticsCache } from "./tracker-cache";
+import type { SacredPracticeSectorId } from "./sacred-practices";
 import {
   MONTHS,
   LUNAR_DECADES,
@@ -1078,6 +1080,8 @@ export function GenesisCalendar() {
   const [language, setLanguage] = useState<Language>(browserLanguage);
   const [today, setToday] = useState(() => new Date());
   const [view, setView] = useState<ViewName>("today");
+  const [requestedTheokyklosSector, setRequestedTheokyklosSector] = useState<SacredPracticeSectorId | null>(null);
+  const clearRequestedTheokyklosSector = useCallback(() => setRequestedTheokyklosSector(null), []);
   const [sacredYear, setSacredYear] = useState(initial.sacredYear);
   const [monthIndex, setMonthIndex] = useState(initial.monthIndex);
   const [selectedDay, setSelectedDay] = useState(initial.day);
@@ -1361,6 +1365,7 @@ export function GenesisCalendar() {
   const navigateTo = (nextView: ViewName, replace = false) => {
     setOpenDayTaskPopover("");
     setAccountMenuOpen(false);
+    if (nextView !== "theokyklos") setRequestedTheokyklosSector(null);
     setView(nextView);
     const nextUrl = new URL(window.location.href);
     nextUrl.hash = nextView;
@@ -1375,6 +1380,11 @@ export function GenesisCalendar() {
       document.querySelector<HTMLElement>(".app-stage")?.scrollTo({ top: 0, behavior: "auto" });
       document.querySelector<HTMLElement>(".workspace")?.scrollTo({ top: 0, behavior: "auto" });
     });
+  };
+
+  const openTheokyklosSector = (sectorId: SacredPracticeSectorId) => {
+    setRequestedTheokyklosSector(sectorId);
+    navigateTo("theokyklos");
   };
 
   useEffect(() => {
@@ -5308,15 +5318,28 @@ export function GenesisCalendar() {
                   await Promise.all(reminderTasks.map((task) => removeCloudTask(cloudUser.uid, task)));
                   setTasks((current) => current.filter((task) => !reminderIds.includes(task.id)));
                 }}
+                onOpenTheokyklosSector={openTheokyklosSector}
               />
             ) : null}
             {view === "stoicheion" ? (
               <StoicheionView
                 key={cloudUser?.stoicheionDivinationDisabled ? "divination-disabled" : "divination-enabled"}
                 divinationDisabled={Boolean(cloudUser?.stoicheionDivinationDisabled)}
+                onOpenTheokyklosSector={openTheokyklosSector}
               />
             ) : null}
-            {view === "theokyklos" ? <TheokyklosView language={language} /> : null}
+            {view === "theokyklos" ? (
+              <TheokyklosView
+                language={language}
+                workspace={habitWorkspace}
+                date={todayDateValue}
+                calendarMode={activeTaskCalendarMode}
+                initialSectorId={requestedTheokyklosSector}
+                onSelectedSectorClosed={clearRequestedTheokyklosSector}
+                onChange={updateHabitWorkspace}
+                onOpenHabits={() => navigateTo("habits")}
+              />
+            ) : null}
             {view === "admin" && cloudUser?.isAdmin ? <AdminPanel /> : null}
             <footer className="genesis-page-footer" aria-label="Ссылки проекта">
               <a href="https://t.me/genesisbasilea" target="_blank" rel="noreferrer">

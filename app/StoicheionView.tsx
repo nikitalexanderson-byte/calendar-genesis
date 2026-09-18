@@ -23,6 +23,12 @@ import {
   type StoicheionDrawRecord,
 } from "./cloud-sync";
 import { getRuntimeLanguage, runtimeLocale, translateText } from "./i18n";
+import { THEOKYKLOS_SEGMENTS } from "./theokyklos-data";
+import {
+  sacredPracticesForSector,
+  sacredSectorGuidance,
+  type SacredPracticeSectorId,
+} from "./sacred-practices";
 
 const LOCAL_DRAW_STORAGE_PREFIX = "genesis-stoicheion-draws-v2:";
 const STOICHEION_CARD_ART_VERSION = "20260906-anatomy-glow";
@@ -44,12 +50,13 @@ type MotionTracker = {
 type SelectedReading = {
   letter: StoicheionLetter;
   reversed: boolean | null;
+  position: SpreadPosition | null;
 };
 
 const MOTION_TRAVEL_REQUIRED = 4480;
 
 type SpreadPosition = {
-  id: string;
+  id: SacredPracticeSectorId;
   direction: string;
   shortDirection: string;
   meaning: string;
@@ -334,12 +341,20 @@ function StoicheionCardFace({
 function LetterDetails({
   letter,
   reversed,
+  position,
   onClose,
+  onOpenTheokyklosSector,
 }: {
   letter: StoicheionLetter;
   reversed: boolean | null;
+  position: SpreadPosition | null;
   onClose: () => void;
+  onOpenTheokyklosSector?: (sectorId: SacredPracticeSectorId) => void;
 }) {
+  const language = getRuntimeLanguage();
+  const sector = position ? THEOKYKLOS_SEGMENTS.find((segment) => segment.id === position.id) ?? null : null;
+  const guidance = position ? sacredSectorGuidance(position.id) : null;
+  const practices = position ? sacredPracticesForSector(position.id) : [];
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -385,6 +400,24 @@ function LetterDetails({
               </section>
             );
           })}
+          {position && sector && guidance && reversed !== null ? (
+            <section className={`stoicheion-sector-practice${reversed ? " is-reversed" : ""}`}>
+              <header>
+                <span aria-hidden="true">{sector.symbol}</span>
+                <div><small>{language === "en" ? "Practice of the spread sector" : "Практика сектора расклада"}</small><h3>{position.direction} · {sector.patrons[language]}</h3></div>
+              </header>
+              <p>{guidance[reversed ? "reversed" : "upright"][language]}</p>
+              <div className="stoicheion-sector-words">
+                <small>{language === "en" ? "Sacred words" : "Священные слова"}</small>
+                <div>{sector.words.map((word) => <span key={word.greek}><b lang="grc">{word.greek}</b><em>{word.pronunciation[language]}</em></span>)}</div>
+              </div>
+              <div className="stoicheion-sector-habits">
+                <small>{language === "en" ? "Suggested embodied practices" : "Предлагаемые воплощённые практики"}</small>
+                {practices.map((practice) => <article key={practice.id}><span aria-hidden="true">{practice.emoji}</span><div><strong>{practice.title[language]}</strong><p>{practice.description[language]}</p></div></article>)}
+              </div>
+              {onOpenTheokyklosSector ? <button type="button" onClick={() => { onClose(); onOpenTheokyklosSector(position.id); }}>{language === "en" ? "Open the Theokyklos sector" : "Открыть сектор Теокиклоса"} →</button> : null}
+            </section>
+          ) : null}
         </div>
       </article>
     </div>,
@@ -394,9 +427,10 @@ function LetterDetails({
 
 type StoicheionViewProps = {
   divinationDisabled?: boolean;
+  onOpenTheokyklosSector?: (sectorId: SacredPracticeSectorId) => void;
 };
 
-export function StoicheionView({ divinationDisabled = false }: StoicheionViewProps) {
+export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSector }: StoicheionViewProps) {
   const locale = runtimeLocale();
   const letters = useMemo(() => getStoicheionLetters(locale === "en-US"), [locale]);
   const entropy = useRef(INITIAL_ENTROPY);
@@ -672,7 +706,7 @@ export function StoicheionView({ divinationDisabled = false }: StoicheionViewPro
               <button
                 type="button"
                 className={`stoicheion-revealed-card${dailyReversed ? " is-reversed" : ""}`}
-                onClick={() => setSelectedReading({ letter: dailyLetter, reversed: dailyReversed })}
+                onClick={() => setSelectedReading({ letter: dailyLetter, reversed: dailyReversed, position: null })}
                 aria-label={`${dailyLetter.name}, ${orientationLabel(dailyReversed)}. Открыть полное описание`}
               >
                 <StoicheionCardFace letter={dailyLetter} reversed={dailyReversed} variant="daily" />
@@ -683,7 +717,7 @@ export function StoicheionView({ divinationDisabled = false }: StoicheionViewPro
                 <h3>{dailyLetter.tagline}</h3>
                 <p>Выбор сохранён. Нажмите на букву, чтобы прочитать полное описание, или продолжите к раскладу девяти ликов.</p>
                 <div className="stoicheion-result-actions">
-                  <button type="button" className="stoicheion-text-button" onClick={() => setSelectedReading({ letter: dailyLetter, reversed: dailyReversed })}>Прочитать о букве</button>
+                  <button type="button" className="stoicheion-text-button" onClick={() => setSelectedReading({ letter: dailyLetter, reversed: dailyReversed, position: null })}>Прочитать о букве</button>
                   {dailyCanReroll ? (
                     <button type="button" className="stoicheion-redraw-button" disabled={savingKind !== null} onClick={(event) => beginMotion("daily", true, event.timeStamp)}>
                       <span aria-hidden="true">↻</span>
@@ -725,7 +759,7 @@ export function StoicheionView({ divinationDisabled = false }: StoicheionViewPro
                         type="button"
                         className={`stoicheion-sector sector-${position.id}${card.reversed ? " is-reversed" : ""}`}
                         key={position.id}
-                        onClick={() => setSelectedReading({ letter, reversed: card.reversed })}
+                        onClick={() => setSelectedReading({ letter, reversed: card.reversed, position })}
                         aria-label={`${position.direction}: ${letter.name}, ${orientationLabel(card.reversed)}. ${position.meaning}`}
                       >
                         <span className="stoicheion-direction"><i>{position.shortDirection}</i>{position.direction}</span>
@@ -785,7 +819,7 @@ export function StoicheionView({ divinationDisabled = false }: StoicheionViewPro
               <button
                 type="button"
                 key={letter.id}
-                onClick={() => setSelectedReading({ letter, reversed: null })}
+                onClick={() => setSelectedReading({ letter, reversed: null, position: null })}
                 aria-label={`Открыть карту ${letter.name}, ${letter.symbol}`}
               >
                 <StoicheionCardFace letter={letter} variant="alphabet" />
@@ -851,7 +885,9 @@ export function StoicheionView({ divinationDisabled = false }: StoicheionViewPro
         <LetterDetails
           letter={letters.find((letter) => letter.id === selectedReading.letter.id) ?? selectedReading.letter}
           reversed={selectedReading.reversed}
+          position={selectedReading.position}
           onClose={() => setSelectedReading(null)}
+          onOpenTheokyklosSector={onOpenTheokyklosSector}
         />
       ) : null}
     </section>
