@@ -5781,6 +5781,8 @@ export function GenesisCalendar() {
           onLanguageChange={selectLanguage}
           categories={categories}
           habitTrackingEnabled={habitWorkspace.habitSettings.enabled}
+          hiddenHabitTemplateCount={habitWorkspace.hiddenDefaultTemplates.length}
+          onRestoreHabitTemplates={() => updateHabitWorkspace({ ...habitWorkspace, hiddenDefaultTemplates: [] })}
           workspaceRecoveryCode={workspaceRecoveryCodeForUser(cloudUser.uid)}
           onHabitTrackingChange={(enabled) => {
             updateHabitWorkspace({ ...habitWorkspace, habitSettings: { ...habitWorkspace.habitSettings, enabled } });

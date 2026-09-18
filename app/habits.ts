@@ -28,6 +28,16 @@ import {
 import { recurrenceModeForCalendar, type RecurrenceConfig } from "./task-recurrence";
 import type { TrackerAnalyticsSnapshot } from "./tracker-analytics";
 import { nonNegativeTrackerTotal, scoreHabitFormula } from "./tracker-math";
+import {
+  HABIT_COLORS,
+  isHabitTemplateId,
+  starterTemplateRecurrencePreset,
+  type HabitTemplate,
+  type HabitTemplateId,
+} from "./habit-templates";
+
+export { HABIT_COLORS, STARTER_HABIT_TEMPLATES } from "./habit-templates";
+export type { HabitTemplate, HabitTemplateId } from "./habit-templates";
 
 export type HabitQualityScale = "none" | "ten" | "bipolar";
 export type HabitScoringMode = "none" | "binary" | "quality-ten" | "quality-bipolar";
@@ -47,6 +57,8 @@ export type Habit = TrackerEntity & {
   description: string;
   color: string;
   active: boolean;
+  sourceTemplateId: HabitTemplateId | null;
+  preferredTime: string;
   schedule: TrackerSchedule;
   scoringMode: HabitScoringMode;
   qualityScale: HabitQualityScale;
@@ -70,7 +82,7 @@ export type HabitSettings = {
 };
 
 export type HabitWorkspace = {
-  trackerSchemaVersion: 2;
+  trackerSchemaVersion: 3;
   habits: Habit[];
   habitCompletions: HabitCompletion[];
   sleepPlans: SleepPlan[];
@@ -80,6 +92,7 @@ export type HabitWorkspace = {
   addictionEntries: AddictionEntry[];
   analyticsSnapshots: TrackerAnalyticsSnapshot[];
   habitSettings: HabitSettings;
+  hiddenDefaultTemplates: HabitTemplateId[];
 };
 
 type LegacyHabitSchedule = {
@@ -98,6 +111,8 @@ type LegacyHabit = Partial<TrackerEntity> & {
   kind?: "positive" | "negative" | "monitor" | "sleep" | "wake";
   color?: string;
   active?: boolean;
+  sourceTemplateId?: HabitTemplateId | null;
+  preferredTime?: string;
   scoringEnabled?: boolean;
   completionPoints?: number;
   failurePoints?: number;
@@ -134,7 +149,7 @@ export const DEFAULT_HABIT_SETTINGS: HabitSettings = {
 };
 
 export const EMPTY_HABIT_WORKSPACE: HabitWorkspace = {
-  trackerSchemaVersion: 2,
+  trackerSchemaVersion: 3,
   habits: [],
   habitCompletions: [],
   sleepPlans: [],
@@ -144,9 +159,8 @@ export const EMPTY_HABIT_WORKSPACE: HabitWorkspace = {
   addictionEntries: [],
   analyticsSnapshots: [],
   habitSettings: DEFAULT_HABIT_SETTINGS,
+  hiddenDefaultTemplates: [],
 };
-
-export const HABIT_COLORS = ["#bb8f4a", "#2d7771", "#5271a8", "#8b5f83", "#9b5d4a", "#668b55", "#b06779"];
 
 export const HEROIC_RANKS = [
   { id: "spark", title: "Искра намерения", titleEn: "Spark of Intention", threshold: 0, symbol: "✦", color: "#70736d" },
@@ -159,6 +173,7 @@ export const HEROIC_RANKS = [
 ] as const;
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 
 export function habitDateKey(date: Date) {
   const year = date.getFullYear();
@@ -229,6 +244,11 @@ function normalizeReminder(value: LegacyHabit["reminder"]): HabitReminder {
   };
 }
 
+function normalizeHiddenDefaultTemplates(value: unknown): HabitTemplateId[] {
+  if (!Array.isArray(value)) return [];
+  return Array.from(new Set(value.filter(isHabitTemplateId)));
+}
+
 function legacyScoringMode(value: LegacyHabit): HabitScoringMode {
   if (value.scoringEnabled === false || value.kind === "monitor") return "none";
   if (value.qualityScale === "ten") return "quality-ten";
@@ -248,6 +268,8 @@ function normalizeHabit(value: LegacyHabit, fallbackDate: string, calendarMode: 
     description: typeof value.description === "string" ? value.description : "",
     color: typeof value.color === "string" ? value.color : HABIT_COLORS[0],
     active: value.active !== false,
+    sourceTemplateId: isHabitTemplateId(value.sourceTemplateId) ? value.sourceTemplateId : null,
+    preferredTime: TIME_PATTERN.test(value.preferredTime ?? "") ? value.preferredTime! : "",
     schedule: legacySchedule(value.schedule, fallbackDate, calendarMode),
     scoringMode,
     qualityScale,
@@ -454,7 +476,7 @@ export function normalizeHabitWorkspace(
   });
 
   return {
-    trackerSchemaVersion: 2,
+    trackerSchemaVersion: 3,
     habits,
     habitCompletions,
     sleepPlans,
@@ -464,6 +486,7 @@ export function normalizeHabitWorkspace(
     addictionEntries: [...explicitAddictionEntries, ...migratedAddictionEntries],
     analyticsSnapshots: normalizeSnapshots(value.analyticsSnapshots),
     habitSettings: normalizeSettings(value.habitSettings),
+    hiddenDefaultTemplates: normalizeHiddenDefaultTemplates(value.hiddenDefaultTemplates),
   };
 }
 
@@ -536,12 +559,46 @@ export function defaultHabit(date: string, calendarMode: CalendarMode): Habit {
     description: "",
     color: HABIT_COLORS[0],
     active: true,
+    sourceTemplateId: null,
+    preferredTime: "",
     schedule: defaultTrackerSchedule(date, calendarMode),
     scoringMode: "binary",
     qualityScale: "none",
     reminder: {
       enabled: false,
       time: "09:00",
+      syncToGoogleTasks: false,
+      showInGoogleCalendar: false,
+      googleTaskId: null,
+      googleEventId: null,
+    },
+  };
+}
+
+function templateSchedule(template: HabitTemplate, date: string, calendarMode: CalendarMode): TrackerSchedule {
+  const schedule = defaultTrackerSchedule(date, calendarMode);
+  const preset = starterTemplateRecurrencePreset(template, calendarMode);
+  return { ...schedule, recurrence: { ...schedule.recurrence, ...preset } };
+}
+
+export function createHabitFromTemplate(
+  template: HabitTemplate,
+  startDate: string,
+  calendarMode: CalendarMode,
+  language: "ru" | "en" = "ru",
+): Habit {
+  const schedule = templateSchedule(template, startDate, calendarMode);
+  return {
+    ...defaultHabit(startDate, calendarMode),
+    sourceTemplateId: template.id,
+    title: language === "en" ? template.titleEn : template.title,
+    description: language === "en" ? template.descriptionEn : template.description,
+    color: template.color,
+    preferredTime: template.suggestedTime,
+    schedule,
+    reminder: {
+      enabled: false,
+      time: template.suggestedTime,
       syncToGoogleTasks: false,
       showInGoogleCalendar: false,
       googleTaskId: null,

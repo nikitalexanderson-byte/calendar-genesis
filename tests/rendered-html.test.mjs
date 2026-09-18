@@ -19,6 +19,11 @@ import {
   scoreHabitFormula,
   scoreSleepRules,
 } from "../app/tracker-math.ts";
+import {
+  STARTER_HABIT_TEMPLATES,
+  isHabitTemplateId,
+  starterTemplateRecurrencePreset,
+} from "../app/habit-templates.ts";
 
 async function render() {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
@@ -92,6 +97,7 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(cloud, /JSON\.stringify\(\{[\s\S]*\.\.\.encryptedHabitWorkspace/);
   assert.match(cloud, /habits: structure\.habits/);
   assert.match(cloud, /habitCompletions: structure\.habitCompletions/);
+  assert.match(cloud, /hiddenDefaultTemplates: structure\.hiddenDefaultTemplates/);
   assert.match(cloud, /sleepEntries: structure\.sleepEntries/);
   assert.match(cloud, /addictionEntries: structure\.addictionEntries/);
   assert.match(cloud, /moodEntries: structure\.moodEntries/);
@@ -107,6 +113,10 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(habits, /export function isHabitScheduledForDate/);
   assert.match(habits, /export function habitScore/);
   assert.match(habits, /export const HEROIC_RANKS/);
+  assert.match(habits, /STARTER_HABIT_TEMPLATES/);
+  assert.match(habits, /createHabitFromTemplate/);
+  assert.match(habits, /normalizeHiddenDefaultTemplates/);
+  assert.match(habits, /trackerSchemaVersion: 3/);
   assert.equal((habits.match(/titleEn:/g) ?? []).length, 7);
   assert.match(sleep, /type SleepPlan/);
   assert.match(sleep, /type SleepEntry/);
@@ -130,12 +140,36 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(tracker, /habit-line-chart/);
   assert.match(tracker, /habit-heatmap/);
   assert.match(tracker, /heroic-rank-road/);
+  assert.match(tracker, /habit-template-library/);
+  assert.match(tracker, /Начать сегодня/);
+  assert.match(tracker, /Начать с завтрашнего дня/);
+  assert.match(tracker, /Скрыть предложение/);
+  assert.match(tracker, /Точно настроить повторение и дни/);
   assert.match(account, /onHabitTrackingChange/);
+  assert.match(account, /Восстановить стандартные привычки/);
   assert.match(account, /workspaceRecoveryCode/);
   assert.match(styles, /\.habits-hero-score[\s\S]*position: absolute/);
   assert.match(styles, /\.mood-tracker\.is-open \.mood-summary-action svg/);
   assert.match(styles, /\/habit-ranks\/heroic-ranks\.webp/);
   assert.ok(rankArt.size > 100_000, "heroic rank artwork should be a production image");
+});
+
+test("starter habit template catalog exposes ten inert calendar-aware suggestions", () => {
+  assert.equal(STARTER_HABIT_TEMPLATES.length, 10);
+  assert.equal(new Set(STARTER_HABIT_TEMPLATES.map((template) => template.id)).size, 10);
+  assert.ok(STARTER_HABIT_TEMPLATES.every((template) => isHabitTemplateId(template.id)));
+
+  const focus = STARTER_HABIT_TEMPLATES.find((template) => template.id === "focus-session");
+  assert.ok(focus);
+  const classicFocus = starterTemplateRecurrencePreset(focus, "profane");
+  assert.equal(classicFocus.pattern, "weekdays");
+  assert.deepEqual(classicFocus.days, [1, 2, 3, 4, 5]);
+
+  const water = STARTER_HABIT_TEMPLATES.find((template) => template.id === "morning-water");
+  assert.ok(water);
+  assert.equal(starterTemplateRecurrencePreset(water, "profane").pattern, "daily");
+  assert.deepEqual(starterTemplateRecurrencePreset(water, "sacred").days, [1, 2, 3, 4, 5]);
+  assert.equal(starterTemplateRecurrencePreset(water, "lunar").days.length, 30);
 });
 
 test("tracker scoring and time math preserve the specified invariants", () => {
