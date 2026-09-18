@@ -38,6 +38,7 @@ import {
 import {
   HEROIC_RANKS,
   FOUNDATIONAL_HEROIC_RANKS,
+  HERO_PATH_CHECKPOINTS,
   HIDDEN_HEROIC_PATH_UNLOCK_XP,
   HIDDEN_HEROIC_RANKS,
   INTRODUCTORY_HEROIC_RANKS,
@@ -284,10 +285,42 @@ test("account deletion atomically purges only the authenticated user's server an
   assert.match(smoke, /Account deletion removed another user/);
 });
 
+test("admin moderation exposes only aggregate habit counts and can optionally blacklist a deleted identity", async () => {
+  const [repository, apiRouter, cloud, adminPanel, migration, smoke] = await Promise.all([
+    readFile(new URL("../server/src/repository.php", import.meta.url), "utf8"),
+    readFile(new URL("../server/public/api/index.php", import.meta.url), "utf8"),
+    readFile(new URL("../app/cloud-sync.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/AdminPanel.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../server/migrations/011_admin_moderation.sql", import.meta.url), "utf8"),
+    readFile(new URL("../server/tests/smoke.php", import.meta.url), "utf8"),
+  ]);
+  assert.match(migration, /ALTER TABLE user_metrics ADD COLUMN habit_count/);
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS blocked_identities/);
+  assert.doesNotMatch(migration, /\bemail\s+TEXT|google_sub\s+TEXT/);
+  assert.match(repository, /genesisClampInt\(\$metrics\['habitCount'\][\s\S]*100_000/);
+  assert.match(repository, /COALESCE\(m\.habit_count, 0\) AS habit_count/);
+  assert.match(repository, /function genesisAdminDeleteUser/);
+  assert.match(repository, /\$linkedIdentities = genesisLinkedGoogleAccounts\(\$targetUserId\)/);
+  assert.match(repository, /foreach \(\$linkedIdentities as \$linkedIdentity\)/);
+  assert.match(repository, /genesisIdentifierHash\('google-sub'/);
+  assert.match(repository, /genesisIdentifierHash\('email'/);
+  assert.match(repository, /genesisAssertIdentityAllowed\(\$googleSub, \$email\)/);
+  assert.match(apiRouter, /count\(\$segments\) === 3[\s\S]*\$segments\[0\] === 'admin'[\s\S]*genesisRequireCsrf\(\)[\s\S]*genesisRequireAdmin\(\$user\)[\s\S]*genesisAdminDeleteUser/);
+  assert.match(cloud, /habitCount: number/);
+  assert.match(cloud, /deleteAdminUser\(userId: string, blacklist: boolean\)/);
+  assert.match(adminPanel, /stats\.totals\.habits/);
+  assert.match(adminPanel, /user\.habitCount/);
+  assert.match(adminPanel, /Добавить в чёрный список после удаления/);
+  assert.match(adminPanel, /confirmation\.trim\(\)\.toLowerCase\(\) !== deleteTarget\.email\.toLowerCase\(\)/);
+  assert.match(smoke, /genesisAdminDeleteUser/);
+  assert.match(smoke, /A blacklisted identity was unexpectedly allowed to sign in/);
+});
+
 test("ships the modular encrypted tracker across dashboard, calendars and account settings", async () => {
-  const [calendar, tracker, habits, habitReset, progress, dailyGoal, rewards, streakProtection, sleep, mood, addiction, analytics, cache, trackerMath, cloud, account, repository, migration, styles, sigil, metricSigil, rankArt] = await Promise.all([
+  const [calendar, tracker, heroPath, habits, habitReset, progress, dailyGoal, rewards, streakProtection, sleep, mood, addiction, analytics, cache, trackerMath, cloud, account, repository, migration, styles, sigil, metricSigil, rankArt] = await Promise.all([
     readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/HabitTracker.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/HeroPathPanel.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/habits.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/habit-reset.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/habit-progress.ts", import.meta.url), "utf8"),
@@ -348,7 +381,7 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(habits, /type HabitQualityScale = "none" \| "ten" \| "bipolar"/);
   assert.match(habits, /export function isHabitScheduledForDate/);
   assert.match(habits, /export function habitScore/);
-  assert.match(habits, /HEROIC_RANKS, MAX_HABIT_XP_PER_COMPLETION, completionXpAward, heroicRank, hiddenHeroicPathUnlocked, nextHeroicRank, visibleHeroicRanksForXp/);
+  assert.match(habits, /FOUNDATIONAL_HEROIC_RANKS, HEROIC_RANKS, HERO_PATH_CHECKPOINTS/);
   assert.match(habits, /STARTER_HABIT_TEMPLATES/);
   assert.match(habits, /createHabitFromTemplate/);
   assert.match(habits, /normalizeHiddenDefaultTemplates/);
@@ -370,11 +403,12 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(habits, /export function reconcileMissedHabitLaurels/);
   assert.match(habits, /export function removeHabitFromWorkspace/);
   assert.match(habits, /export function buyHestiaSpark/);
+  assert.match(habits, /export function claimHeroPathAmphora/);
   assert.match(streakProtection, /export function applyAutomaticStreakProtection/);
   assert.match(streakProtection, /hestia-spark-use:self:/);
   assert.match(streakProtection, /comeback:self:/);
   assert.match(habitReset, /export function resetHabitWorkspace/);
-  assert.equal((progress.match(/titleEn:/g) ?? []).length, 30);
+  assert.equal((progress.match(/titleEn:/g) ?? []).length, 35);
   assert.match(sleep, /type SleepPlan/);
   assert.match(sleep, /type SleepEntry/);
   assert.match(sleep, /calculateSleepDuration/);
@@ -396,7 +430,12 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.doesNotMatch(tracker, /Система календаря/);
   assert.match(tracker, /habit-line-chart/);
   assert.match(tracker, /habit-heatmap/);
-  assert.match(tracker, /heroic-rank-road/);
+  assert.match(tracker, /<HeroPathPanel/);
+  assert.match(tracker, /Путь Героя/);
+  assert.match(heroPath, /FOUNDATIONAL_HEROIC_RANKS\.map/);
+  assert.match(heroPath, /hero-path-amphora:self:/);
+  assert.match(heroPath, /Путь продолжается…/);
+  assert.doesNotMatch(heroPath, /12 тайных|24 rank|24 ран/);
   assert.match(tracker, /daily-goal-ring/);
   assert.match(tracker, /habits-hero-laurels/);
   assert.match(tracker, /hestia-spark-card/);
@@ -453,6 +492,9 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(metricSigil, /onPointerMove/);
   assert.match(metricSigil, /setHighlight/);
   assert.match(styles, /@keyframes metric-sigil-awaken/);
+  assert.match(styles, /\.hero-path-panel/);
+  assert.match(styles, /\.hero-path-map/);
+  assert.match(styles, /\.hero-path-checkpoint/);
   assert.match(styles, /\.habit-reset-dialog/);
   assert.match(styles, /\/habit-ranks\/heroic-ranks\.webp/);
   assert.ok(rankArt.size > 100_000, "heroic rank artwork should be a production image");
@@ -543,6 +585,8 @@ test("lifetime XP follows four overture, twelve heroic and twelve hidden ranks w
   assert.equal(INTRODUCTORY_HEROIC_RANKS.length, 4);
   assert.equal(FOUNDATIONAL_HEROIC_RANKS.length, 16);
   assert.equal(HIDDEN_HEROIC_RANKS.length, 12);
+  assert.deepEqual(HERO_PATH_CHECKPOINTS.map((checkpoint) => checkpoint.rankId), ["icarus", "mountain-tamer", "iron-charioteer", "risen-from-the-abyss"]);
+  assert.deepEqual(HERO_PATH_CHECKPOINTS.map((checkpoint) => checkpoint.rewardLaurels), [15, 25, 40, 60]);
   assert.deepEqual(INTRODUCTORY_HEROIC_RANKS.map((rank) => rank.id), ["tantalus", "sisyphus", "cyclops", "icarus"]);
   assert.deepEqual(HEROIC_RANKS.map((rank) => rank.threshold), [10, 40, 90, 160, 250, 450, 750, 1_100, 1_550, 2_100, 2_800, 3_700, 4_800, 6_200, 8_000, 10_500, 14_000, 18_500, 24_000, 31_000, 40_000, 52_000, 67_000, 86_000, 110_000, 141_000, 180_000, 230_000]);
   assert.equal(new Set(HEROIC_RANKS.map((rank) => rank.id)).size, 28);

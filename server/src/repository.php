@@ -235,13 +235,15 @@ function genesisTouchUser(string $userId, bool $login = false): void
 function genesisUpsertGoogleUser(array $profile, array $tokens, bool $persistGoogleTokens = true): array
 {
     $email = mb_strtolower(trim((string)($profile['email'] ?? '')));
+    $googleSub = trim((string)($profile['sub'] ?? ''));
     $emailVerified = filter_var($profile['email_verified'] ?? false, FILTER_VALIDATE_BOOLEAN);
-    if (!genesisIsValidEmail($email) || $emailVerified !== true) {
+    if (!genesisIsValidEmail($email) || $emailVerified !== true || $googleSub === '') {
         throw new InvalidArgumentException('Google не подтвердил адрес электронной почты этого аккаунта.');
     }
+    genesisAssertIdentityAllowed($googleSub, $email);
 
     $db = genesisDb();
-    $linkedAccount = genesisFindLinkedGoogleAccountBySub((string)($profile['sub'] ?? ''));
+    $linkedAccount = genesisFindLinkedGoogleAccountBySub($googleSub);
     if ($linkedAccount !== null && !$persistGoogleTokens) {
         $db->prepare('UPDATE linked_google_accounts SET email = :email, display_name = :display_name, avatar_url = :avatar_url, updated_at = :updated_at WHERE id = :id')->execute([
             'email' => $email,
@@ -258,7 +260,7 @@ function genesisUpsertGoogleUser(array $profile, array $tokens, bool $persistGoo
         return genesisEnsureWorkspaceKey($owner);
     }
     $statement = $db->prepare('SELECT * FROM users WHERE google_sub = :sub LIMIT 1');
-    $statement->execute(['sub' => (string)$profile['sub']]);
+    $statement->execute(['sub' => $googleSub]);
     $existing = $statement->fetch();
     if (!is_array($existing)) {
         $emailOwner = genesisFindUserByEmail($email);
@@ -285,7 +287,7 @@ function genesisUpsertGoogleUser(array $profile, array $tokens, bool $persistGoo
 
     $values = [
         'id' => $id,
-        'sub' => (string)$profile['sub'],
+        'sub' => $googleSub,
         'email' => $email,
         'display_name' => mb_substr((string)($profile['name'] ?? $email), 0, 160),
         'avatar_url' => isset($profile['picture']) ? mb_substr((string)$profile['picture'], 0, 1000) : null,
@@ -339,6 +341,7 @@ function genesisLinkGoogleAccount(string $ownerUserId, array $profile, array $to
     if ($sub === '' || !genesisIsValidEmail($email)) {
         throw new InvalidArgumentException('Google-профиль дополнительного аккаунта неполон.');
     }
+    genesisAssertIdentityAllowed($sub, $email);
     if (hash_equals((string)$owner['google_sub'], $sub)) {
         throw new DomainException('Этот Google-аккаунт уже является основным.');
     }
@@ -530,10 +533,11 @@ function genesisSaveMetrics(string $userId, array $payload): void
         'open_task_count' => genesisClampInt($metrics['openTaskCount'] ?? 0, 0, 10_000_000, 0),
         'completed_task_count' => genesisClampInt($metrics['completedTaskCount'] ?? 0, 0, 10_000_000, 0),
         'google_synced_count' => genesisClampInt($metrics['googleSyncedCount'] ?? 0, 0, 10_000_000, 0),
+        'habit_count' => genesisClampInt($metrics['habitCount'] ?? 0, 0, 100_000, 0),
     ];
     $values['user_id'] = $userId;
     $values['updated_at'] = genesisNow();
-    genesisDb()->prepare('INSERT INTO user_metrics (user_id, project_count, task_count, open_task_count, completed_task_count, google_synced_count, updated_at) VALUES (:user_id, :project_count, :task_count, :open_task_count, :completed_task_count, :google_synced_count, :updated_at) ON CONFLICT(user_id) DO UPDATE SET project_count = excluded.project_count, task_count = excluded.task_count, open_task_count = excluded.open_task_count, completed_task_count = excluded.completed_task_count, google_synced_count = excluded.google_synced_count, updated_at = excluded.updated_at')->execute($values);
+    genesisDb()->prepare('INSERT INTO user_metrics (user_id, project_count, task_count, open_task_count, completed_task_count, google_synced_count, habit_count, updated_at) VALUES (:user_id, :project_count, :task_count, :open_task_count, :completed_task_count, :google_synced_count, :habit_count, :updated_at) ON CONFLICT(user_id) DO UPDATE SET project_count = excluded.project_count, task_count = excluded.task_count, open_task_count = excluded.open_task_count, completed_task_count = excluded.completed_task_count, google_synced_count = excluded.google_synced_count, habit_count = excluded.habit_count, updated_at = excluded.updated_at')->execute($values);
     genesisTouchUser($userId);
 }
 
@@ -546,9 +550,10 @@ function genesisRequireAdmin(array $user): void
 
 function genesisAdminStats(): array
 {
-    $rows = genesisDb()->query('SELECT u.email, u.display_name, u.created_at, u.last_login_at, u.last_seen_at, u.login_count, u.password_hash IS NOT NULL AS password_enabled, u.google_calendar_id IS NOT NULL AS calendar_connected, COALESCE(m.project_count, 0) AS project_count, COALESCE(m.task_count, 0) AS task_count, COALESCE(m.open_task_count, 0) AS open_task_count, COALESCE(m.completed_task_count, 0) AS completed_task_count, COALESCE(m.google_synced_count, 0) AS google_synced_count, m.updated_at AS metrics_updated_at FROM users u LEFT JOIN user_metrics m ON m.user_id = u.id ORDER BY COALESCE(u.last_seen_at, u.created_at) DESC')->fetchAll();
+    $rows = genesisDb()->query('SELECT u.id, u.email, u.display_name, u.created_at, u.last_login_at, u.last_seen_at, u.login_count, u.password_hash IS NOT NULL AS password_enabled, u.google_calendar_id IS NOT NULL AS calendar_connected, COALESCE(m.project_count, 0) AS project_count, COALESCE(m.task_count, 0) AS task_count, COALESCE(m.open_task_count, 0) AS open_task_count, COALESCE(m.completed_task_count, 0) AS completed_task_count, COALESCE(m.google_synced_count, 0) AS google_synced_count, COALESCE(m.habit_count, 0) AS habit_count, m.updated_at AS metrics_updated_at FROM users u LEFT JOIN user_metrics m ON m.user_id = u.id ORDER BY COALESCE(u.last_seen_at, u.created_at) DESC')->fetchAll();
     return [
         'users' => array_map(static fn(array $row): array => [
+            'id' => (string)$row['id'],
             'email' => (string)$row['email'],
             'displayName' => (string)$row['display_name'],
             'createdAt' => (string)$row['created_at'],
@@ -562,6 +567,8 @@ function genesisAdminStats(): array
             'openTaskCount' => (int)$row['open_task_count'],
             'completedTaskCount' => (int)$row['completed_task_count'],
             'googleSyncedCount' => (int)$row['google_synced_count'],
+            'habitCount' => (int)$row['habit_count'],
+            'isAdmin' => mb_strtolower((string)$row['email']) === genesisAdminEmail(),
             'metricsUpdatedAt' => $row['metrics_updated_at'] ?: null,
         ], $rows),
         'totals' => [
@@ -569,8 +576,35 @@ function genesisAdminStats(): array
             'projects' => array_sum(array_map(static fn(array $row): int => (int)$row['project_count'], $rows)),
             'tasks' => array_sum(array_map(static fn(array $row): int => (int)$row['task_count'], $rows)),
             'completedTasks' => array_sum(array_map(static fn(array $row): int => (int)$row['completed_task_count'], $rows)),
+            'habits' => array_sum(array_map(static fn(array $row): int => (int)$row['habit_count'], $rows)),
+            'blockedIdentities' => (int)genesisDb()->query('SELECT COUNT(*) FROM blocked_identities')->fetchColumn(),
         ],
     ];
+}
+
+function genesisAssertIdentityAllowed(string $googleSub, string $email): void
+{
+    $statement = genesisDb()->prepare('SELECT 1 FROM blocked_identities WHERE google_sub_hash = :google_sub_hash OR email_hash = :email_hash LIMIT 1');
+    $statement->execute([
+        'google_sub_hash' => genesisIdentifierHash('google-sub', $googleSub),
+        'email_hash' => genesisIdentifierHash('email', $email),
+    ]);
+    if ($statement->fetchColumn() !== false) {
+        throw new DomainException('Этот аккаунт заблокирован администратором GENESIS.');
+    }
+}
+
+function genesisBlockUserIdentity(array $user): void
+{
+    $googleSub = trim((string)($user['google_sub'] ?? ''));
+    $email = trim((string)($user['email'] ?? ''));
+    $statement = genesisDb()->prepare('INSERT OR IGNORE INTO blocked_identities (id, google_sub_hash, email_hash, created_at) VALUES (:id, :google_sub_hash, :email_hash, :created_at)');
+    $statement->execute([
+        'id' => genesisUuid(),
+        'google_sub_hash' => $googleSub !== '' ? genesisIdentifierHash('google-sub', $googleSub) : null,
+        'email_hash' => $email !== '' ? genesisIdentifierHash('email', $email) : null,
+        'created_at' => genesisNow(),
+    ]);
 }
 
 function genesisStoicheionDrawForClient(array $row): array
@@ -781,13 +815,9 @@ function genesisAccountDataCounts(string $userId): array
     return $counts;
 }
 
-function genesisDeleteAccount(string $userId): array
+function genesisRevokeAccountTokens(array $user): void
 {
-    $user = genesisFindUser($userId);
-    if ($user === null) {
-        throw new DomainException('Аккаунт не найден или уже удалён.');
-    }
-    foreach (genesisLinkedGoogleAccounts($userId) as $account) {
+    foreach (genesisLinkedGoogleAccounts((string)$user['id']) as $account) {
         try {
             genesisRevokeGoogleToken($account);
         } catch (Throwable $error) {
@@ -799,27 +829,82 @@ function genesisDeleteAccount(string $userId): array
     } catch (Throwable $error) {
         genesisLogError('Google token revocation failed during account deletion.', $error);
     }
+}
 
+function genesisDeleteAccountRows(string $userId): array
+{
+    $purged = genesisAccountDataCounts($userId);
+    $statement = genesisDb()->prepare('DELETE FROM users WHERE id = :id');
+    $statement->execute(['id' => $userId]);
+    if ($statement->rowCount() !== 1) {
+        throw new RuntimeException('Аккаунт не удалось удалить.');
+    }
+    $remaining = genesisAccountDataCounts($userId);
+    if (array_sum($remaining) !== 0) {
+        throw new RuntimeException('Не все данные аккаунта были удалены. Операция отменена.');
+    }
+    return $purged;
+}
+
+function genesisDeleteAccount(string $userId): array
+{
+    $user = genesisFindUser($userId);
+    if ($user === null) {
+        throw new DomainException('Аккаунт не найден или уже удалён.');
+    }
+    genesisRevokeAccountTokens($user);
     $db = genesisDb();
     $ownsTransaction = !$db->inTransaction();
     if ($ownsTransaction) {
         $db->beginTransaction();
     }
     try {
-        $purged = genesisAccountDataCounts($userId);
-        $statement = $db->prepare('DELETE FROM users WHERE id = :id');
-        $statement->execute(['id' => $userId]);
-        if ($statement->rowCount() !== 1) {
-            throw new RuntimeException('Аккаунт не удалось удалить.');
-        }
-        $remaining = genesisAccountDataCounts($userId);
-        if (array_sum($remaining) !== 0) {
-            throw new RuntimeException('Не все данные аккаунта были удалены. Операция отменена.');
-        }
+        $purged = genesisDeleteAccountRows($userId);
         if ($ownsTransaction) {
             $db->commit();
         }
         return $purged;
+    } catch (Throwable $error) {
+        if ($ownsTransaction && $db->inTransaction()) {
+            $db->rollBack();
+        }
+        throw $error;
+    }
+}
+
+function genesisAdminDeleteUser(string $adminUserId, string $targetUserId, bool $blacklist): array
+{
+    $admin = genesisFindUser($adminUserId);
+    $target = genesisFindUser($targetUserId);
+    if ($admin === null || mb_strtolower((string)$admin['email']) !== genesisAdminEmail()) {
+        throw new DomainException('Недостаточно прав для удаления пользователя.');
+    }
+    if ($target === null) {
+        throw new DomainException('Пользователь не найден или уже удалён.');
+    }
+    if ($adminUserId === $targetUserId || mb_strtolower((string)$target['email']) === genesisAdminEmail()) {
+        throw new DomainException('Администратор не может удалить собственный аккаунт через панель модерации.');
+    }
+
+    $linkedIdentities = genesisLinkedGoogleAccounts($targetUserId);
+    genesisRevokeAccountTokens($target);
+    $db = genesisDb();
+    $ownsTransaction = !$db->inTransaction();
+    if ($ownsTransaction) {
+        $db->beginTransaction();
+    }
+    try {
+        if ($blacklist) {
+            genesisBlockUserIdentity($target);
+            foreach ($linkedIdentities as $linkedIdentity) {
+                genesisBlockUserIdentity($linkedIdentity);
+            }
+        }
+        $purged = genesisDeleteAccountRows($targetUserId);
+        if ($ownsTransaction) {
+            $db->commit();
+        }
+        return ['deleted' => true, 'blacklisted' => $blacklist, 'purged' => $purged];
     } catch (Throwable $error) {
         if ($ownsTransaction && $db->inTransaction()) {
             $db->rollBack();

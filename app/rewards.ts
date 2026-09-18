@@ -9,6 +9,7 @@ export type RewardReason =
   | "rank-up"
   | "achievement"
   | "comeback"
+  | "hero-path-amphora"
   | "hestia-spark"
   | "habit-deleted-reset"
   | "habit-missed-reset";
@@ -37,6 +38,7 @@ const REWARD_REASONS: readonly RewardReason[] = [
   "rank-up",
   "achievement",
   "comeback",
+  "hero-path-amphora",
   "hestia-spark",
   "habit-deleted-reset",
   "habit-missed-reset",

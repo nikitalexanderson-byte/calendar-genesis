@@ -39,6 +39,13 @@ export type HeroicRank = {
   path: HeroicRankPath;
 };
 
+export type HeroPathCheckpoint = {
+  rankId: HeroicRankId;
+  rewardLaurels: number;
+  title: string;
+  titleEn: string;
+};
+
 export type UserProgress = {
   lifetimeXp: number;
   laurelsBalance: number;
@@ -86,6 +93,13 @@ export const INTRODUCTORY_HEROIC_RANKS = HEROIC_RANKS.filter((rank) => rank.path
 export const FOUNDATIONAL_HEROIC_RANKS = HEROIC_RANKS.filter((rank) => rank.path !== "hidden");
 export const HIDDEN_HEROIC_RANKS = HEROIC_RANKS.filter((rank) => rank.path === "hidden");
 export const HIDDEN_HEROIC_PATH_UNLOCK_XP = HEROIC_RANKS.find((rank) => rank.id === "risen-from-the-abyss")!.threshold;
+
+export const HERO_PATH_CHECKPOINTS: readonly HeroPathCheckpoint[] = [
+  { rankId: "icarus", rewardLaurels: 15, title: "Амфора стремления", titleEn: "Amphora of aspiration" },
+  { rankId: "mountain-tamer", rewardLaurels: 25, title: "Амфора стойкости", titleEn: "Amphora of resolve" },
+  { rankId: "iron-charioteer", rewardLaurels: 40, title: "Амфора мастерства", titleEn: "Amphora of mastery" },
+  { rankId: "risen-from-the-abyss", rewardLaurels: 60, title: "Амфора бездны", titleEn: "Amphora of the abyss" },
+] as const;
 
 export const UNRANKED_HEROIC_STATE = {
   id: "unranked",
