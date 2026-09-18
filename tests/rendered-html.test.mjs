@@ -249,6 +249,10 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(trackerPage, /const dailyPanel = <HabitDailyPanel/);
   assert.ok(trackerPage.indexOf("{hasHabits ? dailyPanel : null}") < trackerPage.indexOf('className="habit-range-toolbar"'));
   assert.ok(trackerPage.indexOf("<SacredHabitLibrary") < trackerPage.indexOf("{!hasHabits ? dailyPanel : null}"));
+  assert.ok(trackerPage.indexOf('className="tracker-module-grid"') < trackerPage.indexOf('className="habit-range-toolbar"'));
+  assert.ok(trackerPage.indexOf('className="habit-range-toolbar"') < trackerPage.indexOf("<HabitStatistics"));
+  assert.match(tracker, /Статистика моих привычек/);
+  assert.doesNotMatch(tracker, /Клиентская аналитика/);
   assert.equal((trackerPage.match(/<HabitDailyPanel/g) ?? []).length, 1);
   assert.match(metricSigil, /metric-sigil-laurel-core/);
   assert.match(metricSigil, /metric-sigil-streak-core/);
