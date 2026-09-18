@@ -292,6 +292,12 @@ try {
         genesisJson(['ok' => true, 'workspace' => $saved]);
     }
 
+    if ($method === 'PUT' && $path === 'workspace/key') {
+        $userId = genesisRequireUserId();
+        genesisRequireCsrf();
+        genesisJson(['ok' => true, 'workspace' => genesisSaveClientWorkspaceKey($userId, genesisReadJson())]);
+    }
+
     if ($method === 'POST' && $path === 'metrics') {
         $userId = genesisRequireUserId();
         genesisRequireCsrf();

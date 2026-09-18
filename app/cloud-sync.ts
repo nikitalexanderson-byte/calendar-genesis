@@ -140,7 +140,7 @@ export type GenesisProject = {
   position: number;
 };
 
-export type GenesisWorkspace = {
+export type GenesisWorkspace = HabitWorkspace & {
   user: GenesisUser;
   csrf: string;
   tasks: GenesisTask[];
@@ -148,12 +148,9 @@ export type GenesisWorkspace = {
   categories: GenesisCategory[];
   taskLists: GoogleTaskList[];
   taskListLinks: TaskListProjectLink[];
-  habits: HabitWorkspace["habits"];
-  habitEntries: HabitWorkspace["habitEntries"];
-  moodEntries: HabitWorkspace["moodEntries"];
-  habitSettings: HabitWorkspace["habitSettings"];
   hasRemoteStructure: boolean;
   syncWarning: string | null;
+  workspaceKeyMode: "legacy" | "client" | "new";
 };
 
 export type GeminiPlanProject = {
@@ -259,7 +256,13 @@ type BootstrapPayload = {
   csrf: string;
   tasks: GenesisTask[];
   taskLists: GoogleTaskList[];
-  workspace: { key: string; envelope: WorkspaceEnvelope | null };
+  workspace: {
+    key: string | null;
+    keyMode: "legacy" | "client" | "new";
+    wrappedKey: string | null;
+    wrappedKeyIv: string | null;
+    envelope: WorkspaceEnvelope | null;
+  };
   syncWarning: string | null;
 };
 
@@ -267,6 +270,7 @@ const configuredBase = process.env.NEXT_PUBLIC_GENESIS_API_URL?.trim() ?? "";
 const API_BASE = configuredBase.replace(/\/$/, "");
 const PENDING_KEY = "genesis-pending-mutations-v2";
 const LAST_USER_CACHE = "genesis-last-user-v2";
+const WORKSPACE_DEVICE_KEY_PREFIX = "genesis-workspace-device-key-v2:";
 
 export const isGoogleSyncConfigured = Boolean(API_BASE);
 
@@ -280,6 +284,7 @@ function deviceTimeZone() {
 
 let csrfToken = "";
 let workspaceKey = "";
+let workspaceUserId = "";
 let workspaceVersion = Date.now();
 let encryptedHabitWorkspace: HabitWorkspace = EMPTY_HABIT_WORKSPACE;
 
@@ -444,12 +449,97 @@ function base64ToBytes(value: string) {
   return Uint8Array.from(binary, (character) => character.charCodeAt(0));
 }
 
+type DeviceWorkspaceKey = { key: string; recoveryCode: string };
+
+function deviceWorkspaceKey(userId: string) {
+  if (typeof window === "undefined") return null;
+  try {
+    const parsed = JSON.parse(localStorage.getItem(`${WORKSPACE_DEVICE_KEY_PREFIX}${userId}`) || "null") as DeviceWorkspaceKey | null;
+    if (!parsed || base64ToBytes(parsed.key).length !== 32 || base64ToBytes(parsed.recoveryCode).length !== 32) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function storeDeviceWorkspaceKey(userId: string, value: DeviceWorkspaceKey) {
+  localStorage.setItem(`${WORKSPACE_DEVICE_KEY_PREFIX}${userId}`, JSON.stringify(value));
+}
+
+export function workspaceRecoveryCodeForUser(userId: string) {
+  return deviceWorkspaceKey(userId)?.recoveryCode ?? "";
+}
+
+async function wrapWorkspaceKey(userId: string, rawKey: string, recoveryCode?: string) {
+  const recoveryBytes = recoveryCode ? base64ToBytes(recoveryCode) : crypto.getRandomValues(new Uint8Array(32));
+  if (recoveryBytes.length !== 32) throw new Error("Код восстановления должен содержать 32 байта.");
+  const recovery = bytesToBase64(recoveryBytes);
+  const wrappingKey = await crypto.subtle.importKey("raw", recoveryBytes, "AES-GCM", false, ["encrypt"]);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const wrappedKey = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, wrappingKey, base64ToBytes(rawKey));
+  storeDeviceWorkspaceKey(userId, { key: rawKey, recoveryCode: recovery });
+  await api<{ ok: boolean }>("/workspace/key", {
+    method: "PUT",
+    body: JSON.stringify({ wrappedKey: bytesToBase64(new Uint8Array(wrappedKey)), iv: bytesToBase64(iv) }),
+  });
+  return recovery;
+}
+
+async function unwrapWorkspaceKey(userId: string, wrappedKey: string, wrappedKeyIv: string, recoveryCode: string) {
+  const recoveryBytes = base64ToBytes(recoveryCode.trim());
+  if (recoveryBytes.length !== 32) throw new Error("Неверный формат кода восстановления.");
+  try {
+    const wrappingKey = await crypto.subtle.importKey("raw", recoveryBytes, "AES-GCM", false, ["decrypt"]);
+    const rawKey = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: base64ToBytes(wrappedKeyIv) },
+      wrappingKey,
+      base64ToBytes(wrappedKey),
+    );
+    const key = bytesToBase64(new Uint8Array(rawKey));
+    storeDeviceWorkspaceKey(userId, { key, recoveryCode: recoveryCode.trim() });
+    return key;
+  } catch {
+    throw new Error("Код восстановления не подошёл. Зашифрованные данные не изменены.");
+  }
+}
+
+async function resolveWorkspaceKey(payload: BootstrapPayload) {
+  workspaceUserId = payload.user.uid;
+  const stored = deviceWorkspaceKey(workspaceUserId);
+  if (payload.workspace.keyMode === "new") {
+    workspaceKey = stored?.key ?? bytesToBase64(crypto.getRandomValues(new Uint8Array(32)));
+    await wrapWorkspaceKey(workspaceUserId, workspaceKey, stored?.recoveryCode);
+    return;
+  }
+  if (payload.workspace.keyMode === "legacy") {
+    if (!payload.workspace.key) throw new Error("Ключ пространства не получен");
+    workspaceKey = payload.workspace.key;
+    const recoveryCode = stored?.key === workspaceKey ? stored.recoveryCode : undefined;
+    try {
+      await wrapWorkspaceKey(workspaceUserId, workspaceKey, recoveryCode);
+    } catch {
+      // Safe fallback: the server keeps the legacy key until client-key registration succeeds.
+    }
+    return;
+  }
+  if (stored?.key) {
+    workspaceKey = stored.key;
+    return;
+  }
+  if (!payload.workspace.wrappedKey || !payload.workspace.wrappedKeyIv) {
+    throw new Error("Зашифрованное пространство не содержит ключ восстановления.");
+  }
+  const recoveryCode = window.prompt("Введите код восстановления GENESIS для расшифровки данных на этом устройстве:");
+  if (!recoveryCode) throw new Error("Для доступа к зашифрованным данным нужен код восстановления из личного кабинета.");
+  workspaceKey = await unwrapWorkspaceKey(workspaceUserId, payload.workspace.wrappedKey, payload.workspace.wrappedKeyIv, recoveryCode);
+}
+
 async function importWorkspaceKey() {
   if (!workspaceKey) throw new Error("Ключ пространства не получен");
   return crypto.subtle.importKey("raw", base64ToBytes(workspaceKey), "AES-GCM", false, ["encrypt", "decrypt"]);
 }
 
-async function decryptWorkspace(envelope: WorkspaceEnvelope | null): Promise<Pick<GenesisWorkspace, "projects" | "categories" | "taskListLinks" | "habits" | "habitEntries" | "moodEntries" | "habitSettings">> {
+async function decryptWorkspace(envelope: WorkspaceEnvelope | null): Promise<Pick<GenesisWorkspace, "projects" | "categories" | "taskListLinks"> & HabitWorkspace> {
   if (!envelope) {
     encryptedHabitWorkspace = normalizeHabitWorkspace(EMPTY_HABIT_WORKSPACE);
     return { projects: [], categories: [], taskListLinks: [], ...encryptedHabitWorkspace };
@@ -464,13 +554,9 @@ async function decryptWorkspace(envelope: WorkspaceEnvelope | null): Promise<Pic
     projects?: GenesisProject[];
     categories?: GenesisCategory[];
     taskListLinks?: TaskListProjectLink[];
-    habits?: HabitWorkspace["habits"];
-    habitEntries?: HabitWorkspace["habitEntries"];
-    moodEntries?: HabitWorkspace["moodEntries"];
-    habitSettings?: HabitWorkspace["habitSettings"];
-  };
+  } & Partial<HabitWorkspace> & { habitEntries?: unknown[] };
   workspaceVersion = Math.max(workspaceVersion, envelope.version + 1);
-  encryptedHabitWorkspace = normalizeHabitWorkspace(decoded);
+  encryptedHabitWorkspace = normalizeHabitWorkspace(decoded as Parameters<typeof normalizeHabitWorkspace>[0]);
   return {
     projects: Array.isArray(decoded.projects) ? decoded.projects : [],
     categories: Array.isArray(decoded.categories) ? decoded.categories : [],
@@ -506,8 +592,17 @@ async function encryptWorkspace(
 export async function loadGenesisWorkspace(): Promise<GenesisWorkspace> {
   const payload = await api<BootstrapPayload>("/bootstrap");
   csrfToken = payload.csrf;
-  workspaceKey = payload.workspace.key;
-  const structure = await decryptWorkspace(payload.workspace.envelope);
+  await resolveWorkspaceKey(payload);
+  let structure: Awaited<ReturnType<typeof decryptWorkspace>>;
+  try {
+    structure = await decryptWorkspace(payload.workspace.envelope);
+  } catch (error) {
+    if (payload.workspace.keyMode !== "client" || !payload.workspace.wrappedKey || !payload.workspace.wrappedKeyIv) throw error;
+    const recoveryCode = window.prompt("Введите код восстановления GENESIS: локальный ключ этого устройства не подошёл к зашифрованным данным.");
+    if (!recoveryCode) throw new Error("Для восстановления доступа к зашифрованным данным нужен код из личного кабинета.");
+    workspaceKey = await unwrapWorkspaceKey(workspaceUserId, payload.workspace.wrappedKey, payload.workspace.wrappedKeyIv, recoveryCode);
+    structure = await decryptWorkspace(payload.workspace.envelope);
+  }
   return {
     user: payload.user,
     csrf: payload.csrf,
@@ -516,12 +611,19 @@ export async function loadGenesisWorkspace(): Promise<GenesisWorkspace> {
     categories: structure.categories,
     taskLists: Array.isArray(payload.taskLists) ? payload.taskLists : [],
     taskListLinks: structure.taskListLinks,
+    trackerSchemaVersion: structure.trackerSchemaVersion,
     habits: structure.habits,
-    habitEntries: structure.habitEntries,
+    habitCompletions: structure.habitCompletions,
+    sleepPlans: structure.sleepPlans,
+    sleepEntries: structure.sleepEntries,
     moodEntries: structure.moodEntries,
+    addictionTrackers: structure.addictionTrackers,
+    addictionEntries: structure.addictionEntries,
+    analyticsSnapshots: structure.analyticsSnapshots,
     habitSettings: structure.habitSettings,
     hasRemoteStructure: payload.workspace.envelope !== null,
     syncWarning: payload.syncWarning,
+    workspaceKeyMode: payload.workspace.keyMode,
   };
 }
 
@@ -593,13 +695,16 @@ export function consumeGoogleAuthError() {
 export async function signOutFromGoogle() {
   await api<{ ok: boolean }>("/auth/logout", { method: "POST", body: "{}" });
   workspaceKey = "";
+  workspaceUserId = "";
   localStorage.removeItem(LAST_USER_CACHE);
   window.location.reload();
 }
 
 export async function deleteGenesisAccount() {
   await api<{ ok: boolean }>("/account", { method: "DELETE", body: "{}" });
+  if (workspaceUserId) localStorage.removeItem(`${WORKSPACE_DEVICE_KEY_PREFIX}${workspaceUserId}`);
   workspaceKey = "";
+  workspaceUserId = "";
   localStorage.removeItem(LAST_USER_CACHE);
   window.location.assign("/");
 }
