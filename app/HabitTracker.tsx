@@ -1030,7 +1030,7 @@ function HabitStatistics({ workspace, date, language, calendarMode }: { workspac
   const habitQualityCount = daily.reduce((sum, item) => sum + item.habit.qualityCount, 0);
   const moodTotal = daily.reduce((sum, item) => sum + item.mood.moodTotal, 0);
   const moodCount = daily.reduce((sum, item) => sum + item.mood.moodCount, 0);
-  const moodDistribution = daily.reduce((distribution, item) => distribution.map((count, index) => count + (item.mood.moodDistribution[index] ?? 0)), Array.from({ length: 11 }, () => 0));
+  const moodDistribution = daily.reduce((distribution, item) => distribution.map((count, index) => count + (item.mood.moodDistribution[index] ?? 0)), Array.from({ length: 12 }, () => 0));
   const cleanDays = daily.reduce((sum, item) => sum + item.addiction.cleanDays, 0);
   const relapses = daily.reduce((sum, item) => sum + item.addiction.relapses, 0);
   const cravingTotal = daily.reduce((sum, item) => sum + item.addiction.cravingTotal, 0);

@@ -54,7 +54,7 @@ function emptyMetrics(): TrackerAnalyticsMetrics {
     sleepWakeMinutesTotal: 0,
     moodTotal: 0,
     moodCount: 0,
-    moodDistribution: Array.from({ length: 11 }, () => 0),
+    moodDistribution: Array.from({ length: 12 }, () => 0),
     cleanDays: 0,
     relapses: 0,
     cravingTotal: 0,

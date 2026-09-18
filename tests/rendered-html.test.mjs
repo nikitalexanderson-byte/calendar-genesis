@@ -514,7 +514,7 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(sleep, /calculateSleepDuration/);
   assert.match(trackerMath, /timeZoneOffset/);
   assert.match(mood, /moodValue: MoodValue/);
-  assert.ok((mood.match(/labelEn:/g) ?? []).length >= 11);
+  assert.equal((mood.match(/labelEn: "/g) ?? []).length, 12);
   assert.match(addiction, /type AddictionTracker/);
   assert.match(addiction, /type AddictionEntry/);
   assert.match(analytics, /refreshTrackerAnalytics/);
@@ -1541,6 +1541,7 @@ test("tracker scoring and time math preserve the specified invariants", () => {
 
   assert.notEqual(moodValueColor(-5), moodValueColor(0));
   assert.notEqual(moodValueColor(0), moodValueColor(5));
+  assert.notEqual(moodValueColor(5), moodValueColor(6));
   assert.equal(scoreAbstinenceDay(10, 0, true, false), 10);
   assert.equal(scoreAbstinenceDay(10, 0, false, true), 0);
   assert.equal(scoreAbstinenceDay(10, 7, false, true), -7);
@@ -1920,6 +1921,25 @@ test("Path of the Hero uses a full-size accessible glowing action button", async
   assert.match(styles, /@keyframes hero-path-button-shimmer/);
   assert.match(styles, /\.hero-path-open:focus-visible/);
   assert.match(styles, /prefers-reduced-motion:[\s\S]*\.hero-path-open/);
+});
+
+test("mood tracker exposes twelve choices in one responsive desktop row", async () => {
+  const [mood, styles, analytics, habits] = await Promise.all([
+    readFile(new URL("../app/mood-tracker.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../app/tracker-analytics.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/habits.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.equal((mood.match(/labelEn: "/g) ?? []).length, 12);
+  assert.match(mood, /value: 6, label: "Восторг", labelEn: "Delighted"/);
+  assert.match(mood, /Math\.min\(6, Math\.round\(value\)\)/);
+  assert.match(mood, /Math\.min\(6, Math\.round\(rawMoodValue\)\)/);
+  assert.match(styles, /\.mood-options \{[^}]*grid-template-columns:repeat\(12,minmax\(0,1fr\)\)/);
+  assert.match(styles, /max-width: 760px[\s\S]*\.mood-options[^}]*repeat\(4,minmax\(0,1fr\)\)/);
+  assert.match(styles, /max-width: 430px[\s\S]*\.mood-options[^}]*repeat\(3,minmax\(0,1fr\)\)/);
+  assert.match(analytics, /moodDistribution: Array\.from\(\{ length: 12 \}/);
+  assert.match(habits, /moodDistribution: Array\.from\(\{ length: 12 \}/);
 });
 
 test("keeps the requested calendar and privacy features wired", async () => {

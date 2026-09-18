@@ -111,10 +111,10 @@ export function currentAbstinenceStreak(entries: Array<{ trackerId: string; date
   return streak;
 }
 
-const MOOD_COLORS = ["#783d4b", "#67506d", "#526b87", "#8a6558", "#717b85", "#8a918d", "#679b95", "#557ca8", "#7f9555", "#d2965b", "#e2b64f"] as const;
+const MOOD_COLORS = ["#783d4b", "#67506d", "#526b87", "#8a6558", "#717b85", "#8a918d", "#679b95", "#557ca8", "#7f9555", "#d2965b", "#e2b64f", "#df775d"] as const;
 
 export function moodValueColor(value: number) {
-  return MOOD_COLORS[Math.max(0, Math.min(10, Math.round(value) + 5))];
+  return MOOD_COLORS[Math.max(0, Math.min(11, Math.round(value) + 5))];
 }
 
 export function nonNegativeTrackerTotal(groups: ReadonlyArray<ReadonlyArray<{ score: number }>>) {
