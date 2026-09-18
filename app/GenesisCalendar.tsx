@@ -71,6 +71,7 @@ import { HabitDailyPanel, HabitTrackerPage } from "./HabitTracker";
 import { WorkspaceRecoveryDialog } from "./WorkspaceRecoveryDialog";
 import {
   addHabitDays,
+  dailyGoalForDate,
   EMPTY_HABIT_WORKSPACE,
   isHabitScheduledForDate,
   normalizeHabitWorkspace,
@@ -78,6 +79,16 @@ import {
   type Habit,
   type HabitWorkspace,
 } from "./habits";
+import { nextHeroicRankForProgress } from "./habit-progress";
+import {
+  buildHabitNotificationPlan,
+  habitNotificationPermission,
+  observeHabitNotificationClicks,
+  recordHabitNotificationsDisabled,
+  requestHabitNotificationPermission,
+  scheduleHabitNotifications,
+  type HabitNotificationPermission,
+} from "./habit-notifications";
 import { resetHabitWorkspace } from "./habit-reset";
 import { changedTrackerDates, ensureTrackerAnalytics, refreshTrackerAnalytics } from "./tracker-analytics";
 import { clearTrackerAnalyticsCache, loadTrackerAnalyticsCache, saveTrackerAnalyticsCache } from "./tracker-cache";
@@ -1107,6 +1118,7 @@ export function GenesisCalendar() {
   const [taskLists, setTaskLists] = useState<GoogleTaskList[]>([]);
   const [taskListLinks, setTaskListLinks] = useState<TaskListProjectLink[]>([]);
   const [habitWorkspace, setHabitWorkspace] = useState<HabitWorkspace>(() => normalizeHabitWorkspace(EMPTY_HABIT_WORKSPACE));
+  const [habitNotificationPermissionState, setHabitNotificationPermissionState] = useState<HabitNotificationPermission>("unsupported");
   const [hydrated, setHydrated] = useState(false);
   const [authResolved, setAuthResolved] = useState(!isGoogleSyncConfigured);
   const [cloudUser, setCloudUser] = useState<GenesisUser | null>(null);
@@ -1331,6 +1343,50 @@ export function GenesisCalendar() {
     .sort((left, right) => Number(left.done) - Number(right.done)
       || (left.time || "24:00").localeCompare(right.time || "24:00")
       || right.priority - left.priority);
+  const todayHabitNotificationPlan = useMemo(() => {
+    const completedHabitIds = new Set(habitWorkspace.habitCompletions
+      .filter((entry) => entry.date === todayDateValue && entry.completed)
+      .map((entry) => entry.habitId));
+    const habits = habitWorkspace.habits
+      .filter((habit) => habit.active
+        && habit.reminder.enabled
+        && !completedHabitIds.has(habit.id)
+        && isHabitScheduledForDate(habit, todayDateValue, activeTaskCalendarMode))
+      .map((habit) => ({
+        id: habit.id,
+        title: habit.title,
+        emoji: habit.emoji,
+        priority: habit.priority,
+        reminderTime: habit.reminder.time,
+      }));
+    const dailyGoal = dailyGoalForDate(habitWorkspace, todayDateValue, activeTaskCalendarMode, todayDateValue);
+    const nextRank = nextHeroicRankForProgress(habitWorkspace.userProgress);
+    return buildHabitNotificationPlan({
+      date: todayDateValue,
+      now: today,
+      language,
+      settings: habitWorkspace.habitSettings.notifications,
+      habits,
+      dailyGoal: {
+        scheduled: dailyGoal.scheduledCount,
+        completed: dailyGoal.completedCount,
+        target: dailyGoal.targetCount,
+        currentStreak: habitWorkspace.userProgress.currentStreak,
+      },
+      xpToNextRank: nextRank ? Math.max(0, nextRank.threshold - habitWorkspace.userProgress.lifetimeXp) : null,
+    });
+  }, [activeTaskCalendarMode, habitWorkspace, language, today, todayDateValue]);
+
+  useEffect(() => {
+    const permissionTimer = window.setTimeout(() => setHabitNotificationPermissionState(habitNotificationPermission()), 0);
+    const stopObserving = observeHabitNotificationClicks();
+    return () => {
+      window.clearTimeout(permissionTimer);
+      stopObserving();
+    };
+  }, []);
+
+  useEffect(() => scheduleHabitNotifications(todayHabitNotificationPlan, APP_BASE), [todayHabitNotificationPlan]);
   const selectedSunriseSunset = deviceLocation ? getSunriseSunset(selectedDate, deviceLocation) : null;
   const selectedSunrise = selectedSunriseSunset
     ? formatDeviceSolarTime(selectedSunriseSunset.sunrise, deviceTimeZone)
@@ -5305,7 +5361,7 @@ export function GenesisCalendar() {
               aria-current={view === item.id ? "page" : undefined}
             >
               <span aria-hidden="true">{item.symbol}</span>
-              {item.label}
+              <small>{item.label}</small>
             </button>
           ))}
         </nav>
@@ -5502,10 +5558,10 @@ export function GenesisCalendar() {
         </div>
       </section>
 
-      <nav className="mobile-nav" aria-label="Мобильная навигация">
+      <nav className="mobile-nav" aria-label="Мобильная навигация" style={{ "--mobile-nav-count": navigation.length } as CSSProperties}>
         {navigation.map((item) => (
           <button type="button" key={item.id} data-nav-id={item.id} className={view === item.id ? "active" : ""} onClick={() => activateNavigation(item.id)}>
-            <span aria-hidden="true">{item.symbol}</span>{item.label}
+            <span aria-hidden="true">{item.symbol}</span><small>{item.label}</small>
           </button>
         ))}
       </nav>
@@ -5967,6 +6023,17 @@ export function GenesisCalendar() {
           onLanguageChange={selectLanguage}
           categories={categories}
           habitTrackingEnabled={habitWorkspace.habitSettings.enabled}
+          habitNotificationSettings={habitWorkspace.habitSettings.notifications}
+          notificationPermission={habitNotificationPermissionState}
+          onRequestHabitNotifications={async () => {
+            const permission = await requestHabitNotificationPermission();
+            setHabitNotificationPermissionState(permission);
+            return permission;
+          }}
+          onHabitNotificationSettingsChange={(notifications) => {
+            if (habitWorkspace.habitSettings.notifications.enabled && !notifications.enabled) recordHabitNotificationsDisabled();
+            updateHabitWorkspace({ ...habitWorkspace, habitSettings: { ...habitWorkspace.habitSettings, notifications } });
+          }}
           hiddenHabitTemplateCount={habitWorkspace.hiddenDefaultTemplates.length}
           onRestoreHabitTemplates={() => updateHabitWorkspace({ ...habitWorkspace, hiddenDefaultTemplates: [] })}
           onResetHabitTracking={resetAllHabitTracking}

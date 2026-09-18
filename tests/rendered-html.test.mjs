@@ -104,6 +104,13 @@ import {
   achievementMetrics,
   reconcileAchievementUnlocks,
 } from "../app/achievements.ts";
+import {
+  DEFAULT_HABIT_NOTIFICATION_SETTINGS,
+  buildHabitNotificationPlan,
+  isHabitNotificationQuietTime,
+  normalizeHabitNotificationSettings,
+  suggestHabitReminderTime,
+} from "../app/habit-notifications.ts";
 
 function syncClock(version, updatedAt, deviceId) {
   return { version, updatedAt, deviceId };
@@ -128,7 +135,7 @@ test("encrypted workspace sync merges concurrent entities and preserves deletion
       achievementUnlocks: [],
       rewardTransactions: [],
       streakFreezeTransactions: [],
-      trackerSchemaVersion: 12,
+      trackerSchemaVersion: 13,
       userProgress: { lifetimeXp: 0 },
       habitSettings: { enabled: true },
       hiddenDefaultTemplates: [],
@@ -175,7 +182,7 @@ test("workspace merge deduplicates reward ledger entries by idempotency key", ()
   const common = {
     projects: [], categories: [], taskListLinks: [], habits: [], habitCompletions: [], sleepPlans: [], sleepEntries: [],
     moodEntries: [], addictionTrackers: [], addictionEntries: [], analyticsSnapshots: [], dailyGoalRecords: [],
-    quests: [], achievementUnlocks: [], trackerSchemaVersion: 12, userProgress: {}, habitSettings: {}, hiddenDefaultTemplates: [], streakFreezeTransactions: [],
+    quests: [], achievementUnlocks: [], trackerSchemaVersion: 13, userProgress: {}, habitSettings: {}, hiddenDefaultTemplates: [], streakFreezeTransactions: [],
   };
   const left = prepareWorkspaceForSync({
     current: {
@@ -334,7 +341,7 @@ test("admin moderation exposes only aggregate habit counts and can optionally bl
 });
 
 test("ships the modular encrypted tracker across dashboard, calendars and account settings", async () => {
-  const [calendar, tracker, heroPath, habits, habitReset, habitQuests, achievements, progress, dailyGoal, rewards, streakProtection, sleep, mood, addiction, analytics, cache, trackerMath, cloud, account, recoveryDialog, repository, migration, styles, sigil, metricSigil, achievementSigil, rankArt] = await Promise.all([
+  const [calendar, tracker, heroPath, habits, habitReset, habitQuests, achievements, habitNotifications, progress, dailyGoal, rewards, streakProtection, sleep, mood, addiction, analytics, cache, trackerMath, cloud, account, recoveryDialog, repository, migration, styles, sigil, metricSigil, achievementSigil, rankArt] = await Promise.all([
     readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/HabitTracker.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/HeroPathPanel.tsx", import.meta.url), "utf8"),
@@ -342,6 +349,7 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
     readFile(new URL("../app/habit-reset.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/habit-quests.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/achievements.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/habit-notifications.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/habit-progress.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/daily-goal.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/rewards.ts", import.meta.url), "utf8"),
@@ -420,7 +428,7 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(habits, /STARTER_HABIT_TEMPLATES/);
   assert.match(habits, /createHabitFromTemplate/);
   assert.match(habits, /normalizeHiddenDefaultTemplates/);
-  assert.match(habits, /trackerSchemaVersion: 12/);
+  assert.match(habits, /trackerSchemaVersion: 13/);
   assert.match(habits, /createdDate: string/);
   assert.match(habits, /emoji: string/);
   assert.match(habits, /priority: number/);
@@ -440,6 +448,10 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.equal((achievements.match(/id: "/g) ?? []).length, 10);
   assert.match(achievements, /reconcileAchievementUnlocks/);
   assert.match(achievements, /hidden: true/);
+  assert.match(habitNotifications, /buildHabitNotificationPlan/);
+  assert.match(habitNotifications, /GROUP_WINDOW_MINUTES = 20/);
+  assert.match(habitNotifications, /hasNotificationFatigue/);
+  assert.doesNotMatch(habitNotifications, /fetch\(|\/api\//);
   assert.match(habits, /habit-missed:self:/);
   assert.match(habits, /habit-deleted:self:/);
   assert.match(habits, /export function reconcileMissedHabitLaurels/);
@@ -515,6 +527,10 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(account, /window\.crypto\.getRandomValues/);
   assert.match(account, /Подтвердить удаление/);
   assert.match(account, /workspaceRecoveryCode/);
+  assert.match(account, /Уведомления привычек/);
+  assert.match(account, /Тихих часов|тихих часов/);
+  assert.match(calendar, /--mobile-nav-count/);
+  assert.match(calendar, /buildHabitNotificationPlan/);
   assert.match(styles, /\.habits-hero-status[\s\S]*position: absolute/);
   assert.match(styles, /\.daily-goal-ring/);
   assert.match(styles, /\.laurel-ledger/);
@@ -522,6 +538,9 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(styles, /\.habit-quest-panel/);
   assert.match(styles, /\.workspace-recovery-dialog/);
   assert.match(styles, /\.achievement-panel/);
+  assert.match(styles, /\.mobile-nav[\s\S]*overflow:hidden/);
+  assert.match(styles, /\.app-sidebar \{ overflow:hidden; \}/);
+  assert.match(styles, /max-height:900px/);
   assert.match(styles, /\.mood-tracker\.is-open \.mood-summary-action svg/);
   assert.match(styles, /prefers-reduced-motion: reduce/);
   assert.match(sigil, /<svg/);
@@ -591,6 +610,7 @@ test("resetting habit tracking clears every tracker and statistic while preservi
       customRangeEnd: "2026-02-01",
       dailyGoalModeChanges: [{ id: "mode-change" }],
       plannedRestDays: ["2026-01-10"],
+      notifications: { ...DEFAULT_HABIT_NOTIFICATION_SETTINGS, enabled: true, tone: "heroic" },
     },
     hiddenDefaultTemplates: ["morning-water"],
   };
@@ -625,6 +645,8 @@ test("resetting habit tracking clears every tracker and statistic while preservi
   assert.equal(reset.habitSettings.customRangeEnd, "2026-02-01");
   assert.deepEqual(reset.habitSettings.dailyGoalModeChanges, []);
   assert.deepEqual(reset.habitSettings.plannedRestDays, []);
+  assert.equal(reset.habitSettings.notifications.enabled, true);
+  assert.equal(reset.habitSettings.notifications.tone, "heroic");
 });
 
 test("starter habit template catalog exposes ten inert calendar-aware suggestions", () => {
@@ -866,6 +888,60 @@ test("achievements unlock from real history without changing Rank XP", () => {
   assert.equal(all.find((unlock) => unlock.achievementId === "first-step")?.unlockedAt, "2026-09-18T12:00:00.000Z");
   assert.deepEqual(reconcileAchievementUnlocks({ ...fullSource, unlocks: all, timestamp: "2026-09-20T12:00:00.000Z" }), all, "achievement reconciliation must be idempotent");
   assert.deepEqual(reconcileAchievementUnlocks({ habitCompletions: [], dailyGoalRecords: [], longestStreak: 0, rewardTransactions: [], unlocks: [] }), []);
+});
+
+test("habit notifications combine nearby reminders, respect quiet hours and stay achievable", () => {
+  const settings = normalizeHabitNotificationSettings({
+    enabled: true,
+    motivational: true,
+    tone: "heroic",
+    dailyGoalTime: "20:30",
+    quietHoursStart: "22:00",
+    quietHoursEnd: "07:30",
+  });
+  assert.equal(isHabitNotificationQuietTime("23:10", settings), true);
+  assert.equal(isHabitNotificationQuietTime("06:45", settings), true);
+  assert.equal(isHabitNotificationQuietTime("08:00", settings), false);
+
+  const plan = buildHabitNotificationPlan({
+    date: "2026-09-18",
+    now: new Date(2026, 8, 18, 8, 0),
+    language: "ru",
+    settings,
+    habits: [
+      { id: "water", title: "Вода", emoji: "💧", priority: 8, reminderTime: "09:00" },
+      { id: "reading", title: "Чтение", emoji: "📚", priority: 6, reminderTime: "09:15" },
+      { id: "late", title: "Поздняя практика", emoji: "🌙", priority: 3, reminderTime: "23:00" },
+    ],
+    dailyGoal: { scheduled: 3, completed: 0, target: 2, currentStreak: 7 },
+    xpToNextRank: 80,
+  });
+  assert.equal(plan.length, 2);
+  assert.equal(plan[0].kind, "habit-group");
+  assert.match(plan[0].body, /объединил/);
+  assert.equal(plan[1].kind, "daily-goal");
+  assert.doesNotMatch(plan.map((candidate) => candidate.scheduledAt).join(" "), /23:00/);
+  assert.ok(plan.every((candidate) => !candidate.id.includes("water") && !candidate.id.includes("reading")), "telemetry identifiers must not contain habit content");
+
+  const goalWithoutIndividualReminder = buildHabitNotificationPlan({
+    date: "2026-09-18",
+    now: new Date(2026, 8, 18, 8, 0),
+    language: "ru",
+    settings,
+    habits: [],
+    dailyGoal: { scheduled: 3, completed: 0, target: 2, currentStreak: 7 },
+  });
+  assert.equal(goalWithoutIndividualReminder.length, 1, "the daily goal remains achievable when scheduled habits have no individual reminder");
+  assert.equal(goalWithoutIndividualReminder[0].kind, "daily-goal");
+
+  const suggestion = suggestHabitReminderTime([
+    { completed: true, updatedAt: "2026-09-14T21:10:00" },
+    { completed: true, updatedAt: "2026-09-15T21:20:00" },
+    { completed: true, updatedAt: "2026-09-16T21:30:00" },
+    { completed: true, updatedAt: "2026-09-17T21:40:00" },
+  ], "18:00");
+  assert.equal(suggestion?.time, "21:30");
+  assert.equal(suggestion?.sampleSize, 4);
 });
 
 test("Hestia Sparks use idempotent ledgers and protect only the global streak", () => {
@@ -1740,7 +1816,9 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(styles, /\.hero-card\.mode-profane\.weekday-6/);
   assert.match(styles, /\.profane-hero-description/);
   assert.match(styles, /\.all-tasks-create\[open\]\s*\{[\s\S]*overflow:\s*visible/);
-  assert.match(serviceWorker, /genesis-shell-v23/);
+  assert.match(serviceWorker, /genesis-shell-v24/);
+  assert.match(serviceWorker, /notificationclick/);
+  assert.match(serviceWorker, /GENESIS_NOTIFICATION_OPENED/);
   assert.match(serviceWorker, /weekday-0-sunday-apollo\.webp/);
   assert.match(serviceWorker, /weekday-6-saturday-cronus\.webp/);
   assert.match(calendar, /calendar-month-art/);

@@ -7,6 +7,7 @@ import type { GenesisCategory, GenesisUser, SyncRouting } from "./cloud-sync";
 import { deleteGenesisAccount, disconnectGoogleServices, removeAdditionalGoogleAccount, updateAccountPreferences } from "./cloud-sync";
 import { localizeCategoryName, runtimeLocale, translateText, type Language } from "./i18n";
 import type { TimeFormat } from "./time-format";
+import type { HabitNotificationPermission, HabitNotificationSettings } from "./habit-notifications";
 
 type AccountPanelProps = {
   user: GenesisUser;
@@ -17,6 +18,10 @@ type AccountPanelProps = {
   onUserChange: (user: GenesisUser) => void;
   habitTrackingEnabled: boolean;
   onHabitTrackingChange: (enabled: boolean) => void;
+  habitNotificationSettings: HabitNotificationSettings;
+  notificationPermission: HabitNotificationPermission;
+  onHabitNotificationSettingsChange: (settings: HabitNotificationSettings) => void;
+  onRequestHabitNotifications: () => Promise<HabitNotificationPermission>;
   hiddenHabitTemplateCount: number;
   onRestoreHabitTemplates: () => void;
   onResetHabitTracking: () => Promise<void>;
@@ -61,10 +66,11 @@ function createHabitResetChallenge(): HabitResetChallenge {
   };
 }
 
-export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditionalGoogle, onLanguageChange, onUserChange, habitTrackingEnabled, onHabitTrackingChange, hiddenHabitTemplateCount, onRestoreHabitTemplates, onResetHabitTracking, workspaceRecoveryCode, categories }: AccountPanelProps) {
+export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditionalGoogle, onLanguageChange, onUserChange, habitTrackingEnabled, onHabitTrackingChange, habitNotificationSettings, notificationPermission, onHabitNotificationSettingsChange, onRequestHabitNotifications, hiddenHabitTemplateCount, onRestoreHabitTemplates, onResetHabitTracking, workspaceRecoveryCode, categories }: AccountPanelProps) {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [preferenceBusy, setPreferenceBusy] = useState(false);
+  const [notificationBusy, setNotificationBusy] = useState(false);
   const [recoveryVisible, setRecoveryVisible] = useState(false);
   const [habitResetChallenge, setHabitResetChallenge] = useState<HabitResetChallenge | null>(null);
   const [habitResetAnswer, setHabitResetAnswer] = useState("");
@@ -163,6 +169,29 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
       setMessage(error instanceof Error ? error.message : "Не удалось переключить формат времени.");
     } finally {
       setPreferenceBusy(false);
+    }
+  };
+
+  const toggleHabitNotifications = async (enabled: boolean) => {
+    if (!enabled) {
+      onHabitNotificationSettingsChange({ ...habitNotificationSettings, enabled: false });
+      setMessage(user.language === "en" ? "Habit notifications are disabled on this device." : "Уведомления привычек отключены на этом устройстве.");
+      return;
+    }
+    setNotificationBusy(true);
+    setMessage("");
+    try {
+      const permission = await onRequestHabitNotifications();
+      if (permission === "granted") {
+        onHabitNotificationSettingsChange({ ...habitNotificationSettings, enabled: true });
+        setMessage(user.language === "en" ? "Smart habit notifications are enabled." : "Умные уведомления привычек включены.");
+      } else if (permission === "unsupported") {
+        setMessage(user.language === "en" ? "This browser does not support device notifications." : "Этот браузер не поддерживает уведомления устройства.");
+      } else {
+        setMessage(user.language === "en" ? "Notification permission was not granted. You can allow it in the browser settings." : "Разрешение на уведомления не выдано. Его можно включить в настройках браузера.");
+      }
+    } finally {
+      setNotificationBusy(false);
     }
   };
 
@@ -500,6 +529,61 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
             </div>
             <button type="button" onClick={openHabitReset}>{user.language === "en" ? "Reset all habits" : "Обнулить все привычки"}</button>
           </div>
+        </section>
+
+        <section className="account-preferences habit-notification-preference" aria-labelledby="habit-notification-title">
+          <div>
+            <span className="eyebrow">{user.language === "en" ? "On-device motivation" : "Мотивация на устройстве"}</span>
+            <h3 id="habit-notification-title">{user.language === "en" ? "Habit notifications" : "Уведомления привычек"}</h3>
+            <p>{user.language === "en"
+              ? "GENESIS combines nearby reminders, respects quiet hours and reduces motivational messages after repeated ignoring."
+              : "GENESIS объединяет близкие напоминания, соблюдает тихие часы и снижает частоту мотивационных сообщений после повторных пропусков."}</p>
+          </div>
+          <label className="account-switch-row">
+            <span>
+              <strong>{user.language === "en" ? "Enable notifications on this device" : "Включить уведомления на этом устройстве"}</strong>
+              <small>{user.language === "en" ? "Permission is requested only after this switch is enabled." : "Разрешение браузера запрашивается только после включения этого переключателя."}</small>
+            </span>
+            <input
+              type="checkbox"
+              role="switch"
+              checked={habitNotificationSettings.enabled && notificationPermission === "granted"}
+              disabled={notificationBusy || notificationPermission === "unsupported"}
+              onChange={(event) => void toggleHabitNotifications(event.target.checked)}
+              aria-label={user.language === "en" ? "Enable habit notifications" : "Включить уведомления привычек"}
+            />
+            <i aria-hidden="true" />
+          </label>
+          <p className="account-preference-status" aria-live="polite">{notificationPermission === "unsupported"
+            ? (user.language === "en" ? "Notifications are not supported" : "Уведомления не поддерживаются")
+            : notificationPermission === "denied"
+              ? (user.language === "en" ? "Permission is blocked in the browser" : "Разрешение заблокировано в браузере")
+              : habitNotificationSettings.enabled && notificationPermission === "granted"
+                ? (user.language === "en" ? "Notifications are enabled" : "Уведомления включены")
+                : (user.language === "en" ? "Notifications are disabled" : "Уведомления отключены")}</p>
+          <fieldset className="habit-notification-settings" disabled={!habitNotificationSettings.enabled || notificationPermission !== "granted"}>
+            <legend>{user.language === "en" ? "Notification behavior" : "Поведение уведомлений"}</legend>
+            <div className="habit-notification-tone" role="radiogroup" aria-label={user.language === "en" ? "Notification tone" : "Тон уведомлений"}>
+              {([
+                ["calm", user.language === "en" ? "Calm" : "Спокойный"],
+                ["heroic", user.language === "en" ? "Heroic" : "Героический"],
+                ["ironic", user.language === "en" ? "With irony" : "С иронией"],
+              ] as const).map(([tone, label]) => <button type="button" role="radio" aria-checked={habitNotificationSettings.tone === tone} className={habitNotificationSettings.tone === tone ? "active" : ""} onClick={() => onHabitNotificationSettingsChange({ ...habitNotificationSettings, tone })} key={tone}>{label}</button>)}
+            </div>
+            <div className="habit-notification-times">
+              <label><span>{user.language === "en" ? "Daily goal reminder" : "Напоминание о дневной цели"}</span><input type="time" value={habitNotificationSettings.dailyGoalTime} onChange={(event) => onHabitNotificationSettingsChange({ ...habitNotificationSettings, dailyGoalTime: event.target.value })} /></label>
+              <label><span>{user.language === "en" ? "Quiet hours start" : "Начало тихих часов"}</span><input type="time" value={habitNotificationSettings.quietHoursStart} onChange={(event) => onHabitNotificationSettingsChange({ ...habitNotificationSettings, quietHoursStart: event.target.value })} /></label>
+              <label><span>{user.language === "en" ? "Quiet hours end" : "Конец тихих часов"}</span><input type="time" value={habitNotificationSettings.quietHoursEnd} onChange={(event) => onHabitNotificationSettingsChange({ ...habitNotificationSettings, quietHoursEnd: event.target.value })} /></label>
+            </div>
+            <label className="account-switch-row compact">
+              <span><strong>{user.language === "en" ? "Daily goal and streak reminders" : "Напоминания о цели и серии"}</strong><small>{user.language === "en" ? "Shown only while the goal is still achievable; they never shame or deduct progress." : "Показываются только пока цель достижима; не стыдят и не отнимают прогресс."}</small></span>
+              <input type="checkbox" role="switch" aria-label={user.language === "en" ? "Daily goal and streak reminders" : "Напоминания о цели и серии"} checked={habitNotificationSettings.motivational} onChange={(event) => onHabitNotificationSettingsChange({ ...habitNotificationSettings, motivational: event.target.checked })} />
+              <i aria-hidden="true" />
+            </label>
+          </fieldset>
+          <small className="habit-notification-privacy">{user.language === "en"
+            ? "Notification analytics contain no habit titles and remain only on this device. Notification settings are stored inside your encrypted workspace."
+            : "Аналитика уведомлений не содержит названий привычек и остаётся только на этом устройстве. Настройки уведомлений хранятся внутри зашифрованного пространства."}</small>
         </section>
 
         <section className="account-preferences account-e2ee" aria-labelledby="account-e2ee-title">
