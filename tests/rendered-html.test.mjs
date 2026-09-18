@@ -58,6 +58,7 @@ import {
   normalizeHabitEmoji,
   normalizeHabitPriority,
 } from "../app/habit-integrity.ts";
+import { applyEditableHabitUpdate } from "../app/habit-editing.ts";
 import {
   resetHabitWorkspace,
 } from "../app/habit-reset.ts";
@@ -518,9 +519,11 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(tracker, /habit-template-library/);
   assert.match(tracker, /Неизменяемое начало/);
   assert.doesNotMatch(tracker, /Начать с завтрашнего дня/);
-  assert.doesNotMatch(tracker, /setEditingHabit\(habit\)/);
+  assert.match(tracker, /setEditingHabit\(habit\)/);
+  assert.match(tracker, /isExisting=\{workspace\.habits\.some/);
   assert.match(tracker, /habit\.active \? \(isEnglish \? "Pause" : "Пауза"\)/);
-  assert.match(tracker, /Настройки сохранённой привычки нельзя редактировать/);
+  assert.match(tracker, /Можно изменять все настройки, кроме баллов и шкалы качества/);
+  assert.match(tracker, /applyEditableHabitUpdate/);
   assert.match(tracker, /MAX_HABIT_XP_PER_COMPLETION/);
   assert.match(tracker, /HabitPriorityControl/);
   assert.match(tracker, /HabitEmojiField/);
@@ -672,6 +675,91 @@ test("starter habit template catalog exposes ten inert calendar-aware suggestion
   assert.equal(starterTemplateRecurrencePreset(water, "profane").pattern, "daily");
   assert.deepEqual(starterTemplateRecurrencePreset(water, "sacred").days, [1, 2, 3, 4, 5]);
   assert.equal(starterTemplateRecurrencePreset(water, "lunar").days.length, 30);
+});
+
+test("habit settings remain editable while scoring and first tracking identity stay locked", () => {
+  const recurrence = {
+    enabled: true,
+    mode: "profane",
+    pattern: "daily",
+    days: [1, 2, 3, 4, 5, 6, 7],
+    interval: 1,
+    rangeStart: "2026-09-18",
+    rangeEnd: "",
+    months: [],
+    pyatas: [],
+  };
+  const previous = {
+    id: "habit-original",
+    createdAt: "2026-09-18T08:00:00.000Z",
+    updatedAt: "2026-09-18T08:00:00.000Z",
+    version: 1,
+    syncState: "local",
+    title: "Чтение",
+    description: "20 минут",
+    createdDate: "2026-09-18",
+    emoji: "📚",
+    priority: 4,
+    color: "#b28a4a",
+    active: true,
+    sourceTemplateId: "reading",
+    sacredPracticeId: null,
+    sacredSectorId: null,
+    preferredTime: "20:00",
+    schedule: { startDate: "2026-09-18", endDate: null, timezone: "Europe/Moscow", recurrence },
+    scoringMode: "quality-ten",
+    qualityScale: "ten",
+    reminder: { enabled: true, time: "20:00", syncToGoogleTasks: true, showInGoogleCalendar: false, googleTaskId: "task-1", googleEventId: null },
+  };
+  const candidate = {
+    ...previous,
+    id: "tampered-id",
+    createdAt: "2099-01-01T00:00:00.000Z",
+    updatedAt: "2026-09-20T08:00:00.000Z",
+    version: 2,
+    title: "Вечернее чтение",
+    description: "30 минут без телефона",
+    createdDate: "2026-09-01",
+    emoji: "🌙",
+    priority: 9,
+    color: "#356d68",
+    sourceTemplateId: null,
+    sacredPracticeId: "tampered-practice",
+    sacredSectorId: "south",
+    preferredTime: "21:30",
+    schedule: {
+      startDate: "2026-09-01",
+      endDate: "2027-01-31",
+      timezone: "Europe/Athens",
+      recurrence: { ...recurrence, pattern: "weekly", days: [2, 4, 6], rangeStart: "2026-09-01", rangeEnd: "2027-01-31" },
+    },
+    scoringMode: "none",
+    qualityScale: "none",
+    reminder: { enabled: true, time: "21:25", syncToGoogleTasks: false, showInGoogleCalendar: true, googleTaskId: null, googleEventId: "event-2" },
+  };
+
+  const updated = applyEditableHabitUpdate(previous, candidate);
+  assert.equal(updated.title, "Вечернее чтение");
+  assert.equal(updated.description, "30 минут без телефона");
+  assert.equal(updated.emoji, "🌙");
+  assert.equal(updated.priority, 9);
+  assert.equal(updated.color, "#356d68");
+  assert.equal(updated.preferredTime, "21:30");
+  assert.equal(updated.schedule.endDate, "2027-01-31");
+  assert.equal(updated.schedule.timezone, "Europe/Athens");
+  assert.deepEqual(updated.schedule.recurrence.days, [2, 4, 6]);
+  assert.equal(updated.reminder.time, "21:25");
+  assert.equal(updated.reminder.showInGoogleCalendar, true);
+  assert.equal(updated.id, previous.id);
+  assert.equal(updated.createdAt, previous.createdAt);
+  assert.equal(updated.createdDate, previous.createdDate);
+  assert.equal(updated.schedule.startDate, previous.schedule.startDate);
+  assert.equal(updated.schedule.recurrence.rangeStart, previous.schedule.recurrence.rangeStart);
+  assert.equal(updated.sourceTemplateId, previous.sourceTemplateId);
+  assert.equal(updated.sacredPracticeId, previous.sacredPracticeId);
+  assert.equal(updated.sacredSectorId, previous.sacredSectorId);
+  assert.equal(updated.scoringMode, previous.scoringMode);
+  assert.equal(updated.qualityScale, previous.qualityScale);
 });
 
 test("lifetime XP follows four overture, twelve heroic and twelve hidden ranks without moving backwards", () => {

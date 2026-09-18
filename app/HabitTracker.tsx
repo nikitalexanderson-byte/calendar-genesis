@@ -91,6 +91,7 @@ import {
   trackerTimestamp,
 } from "./tracker-core";
 import { trackerSnapshot } from "./tracker-analytics";
+import { applyEditableHabitUpdate } from "./habit-editing";
 
 type DailyPanelProps = {
   workspace: HabitWorkspace;
@@ -666,7 +667,7 @@ function HabitTemplateSetup({ template, date, language, calendarMode, googleTask
 
         <fieldset className="habit-template-start">
           <legend>{isEnglish ? "Immutable start" : "Неизменяемое начало"}</legend>
-          <div className="habit-creation-lock"><span aria-hidden="true">🔒</span><div><small>{isEnglish ? "Creation and tracking date" : "Дата создания и начала"}</small><strong>{draft.createdDate}</strong><p>{isEnglish ? "A habit begins today. Its settings cannot be edited after creation." : "Привычка начинается сегодня. После создания её настройки нельзя редактировать."}</p></div></div>
+          <div className="habit-creation-lock"><span aria-hidden="true">🔒</span><div><small>{isEnglish ? "Creation and tracking date" : "Дата создания и начала"}</small><strong>{draft.createdDate}</strong><p>{isEnglish ? "A habit begins today. You can edit its settings later, but its scoring formula will remain fixed." : "Привычка начинается сегодня. Позже настройки можно изменить, но формула начисления баллов останется зафиксированной."}</p></div></div>
         </fieldset>
 
         <div className="habit-template-quick-settings">
@@ -693,7 +694,7 @@ function HabitTemplateSetup({ template, date, language, calendarMode, googleTask
   );
 }
 
-function HabitEditor({ habit, language, calendarMode, googleTasksReady, onSave, onClose }: { habit: Habit; language: Language; calendarMode: CalendarMode; googleTasksReady: boolean; onSave: (habit: Habit) => void; onClose: () => void }) {
+function HabitEditor({ habit, isExisting, language, calendarMode, googleTasksReady, onSave, onClose }: { habit: Habit; isExisting: boolean; language: Language; calendarMode: CalendarMode; googleTasksReady: boolean; onSave: (habit: Habit) => void; onClose: () => void }) {
   const isEnglish = language === "en";
   const [draft, setDraft] = useState(habit);
   const [forever, setForever] = useState(habit.schedule.endDate === null);
@@ -704,8 +705,8 @@ function HabitEditor({ habit, language, calendarMode, googleTasksReady, onSave, 
   };
   return (
     <div className="modal-backdrop habit-editor-backdrop" role="presentation">
-      <form className="habit-editor" onSubmit={(event) => { event.preventDefault(); onSave(markTrackerEntityChanged({ ...draft, createdDate: habit.createdDate, emoji: normalizeHabitEmoji(draft.emoji), priority: normalizeHabitPriority(draft.priority), schedule: { ...draft.schedule, startDate: habit.createdDate, recurrence: { ...draft.schedule.recurrence, rangeStart: habit.createdDate } } })); }}>
-        <header><div><span className="eyebrow">{isEnglish ? "Habit core" : "Ядро привычек"}</span><h2>{isEnglish ? "New habit" : "Новая привычка"}</h2></div><button type="button" className="modal-close" onClick={onClose} aria-label={isEnglish ? "Close" : "Закрыть"}>×</button></header>
+      <form className="habit-editor" onSubmit={(event) => { event.preventDefault(); const candidate = markTrackerEntityChanged({ ...draft, createdDate: habit.createdDate, emoji: normalizeHabitEmoji(draft.emoji), priority: normalizeHabitPriority(draft.priority), schedule: { ...draft.schedule, startDate: habit.createdDate, recurrence: { ...draft.schedule.recurrence, rangeStart: habit.createdDate } } }); onSave(isExisting ? applyEditableHabitUpdate(habit, candidate) : candidate); }}>
+        <header><div><span className="eyebrow">{isEnglish ? "Habit core" : "Ядро привычек"}</span><h2>{isExisting ? (isEnglish ? "Edit habit" : "Редактирование привычки") : (isEnglish ? "New habit" : "Новая привычка")}</h2></div><button type="button" className="modal-close" onClick={onClose} aria-label={isEnglish ? "Close" : "Закрыть"}>×</button></header>
         <div className="habit-editor-grid">
           <label><span>{isEnglish ? "Name" : "Название"}</span><input required maxLength={100} value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} /></label>
           <label><span>{isEnglish ? "Preferred time" : "Желаемое время"}</span><input type="time" value={draft.preferredTime} onChange={(event) => setDraft((current) => ({ ...current, preferredTime: event.target.value }))} /></label>
@@ -717,7 +718,7 @@ function HabitEditor({ habit, language, calendarMode, googleTasksReady, onSave, 
         <fieldset className="habit-editor-section">
           <legend><span>01</span>{isEnglish ? "Rhythm and calendar" : "Ритм и календарь"}</legend>
           <div className="habit-editor-grid">
-            <div className="habit-creation-lock"><span aria-hidden="true">🔒</span><div><small>{isEnglish ? "Creation and tracking date" : "Дата создания и начала"}</small><strong>{draft.createdDate}</strong><p>{isEnglish ? "Only today's tracking can be changed. The habit definition becomes immutable after saving." : "Отметку можно менять только за сегодня. После сохранения определение привычки станет неизменяемым."}</p></div></div>
+            <div className="habit-creation-lock"><span aria-hidden="true">🔒</span><div><small>{isEnglish ? "Creation and tracking date" : "Дата создания и начала"}</small><strong>{draft.createdDate}</strong><p>{isExisting ? (isEnglish ? "The first tracking day remains fixed; all current and future settings can be changed." : "Первый день трекинга остаётся неизменным; текущие и будущие настройки можно менять.") : (isEnglish ? "Tracking begins today; past dates are unavailable. Scoring becomes locked after the first save." : "Трекинг начинается сегодня, прошлые даты недоступны. После первого сохранения система баллов будет зафиксирована.")}</p></div></div>
             <label className="habit-switch"><span><strong>{isEnglish ? "Track indefinitely" : "Отслеживать всегда"}</strong><small>{isEnglish ? "No final date" : "Без даты окончания"}</small></span><input type="checkbox" role="switch" aria-label={isEnglish ? "Track indefinitely" : "Отслеживать всегда"} checked={forever} onChange={(event) => { setForever(event.target.checked); setDraft((current) => ({ ...current, schedule: { ...current.schedule, endDate: event.target.checked ? null : current.schedule.recurrence.rangeEnd || current.schedule.startDate } })); }} /><i /></label>
           </div>
           <RecurrenceBuilder
@@ -731,12 +732,15 @@ function HabitEditor({ habit, language, calendarMode, googleTasksReady, onSave, 
         </fieldset>
         <fieldset className="habit-editor-section">
           <legend><span>02</span>{isEnglish ? "Quality and points" : "Качество и баллы"}</legend>
-          <label className="habit-switch habit-disable-switch"><span><strong>{isEnglish ? "Disable scoring" : "Отключить начисление баллов"}</strong><small>{isEnglish ? "All scoring fields will be disabled" : "Все поля качества и баллов будут выключены"}</small></span><input type="checkbox" role="switch" aria-label={isEnglish ? "Disable habit scoring" : "Отключить начисление баллов"} checked={scoringDisabled} onChange={(event) => setDraft((current) => ({ ...current, scoringMode: event.target.checked ? "none" : current.qualityScale === "ten" ? "quality-ten" : current.qualityScale === "bipolar" ? "quality-bipolar" : "binary" }))} /><i /></label>
-          <fieldset className="habit-scoring-fields" disabled={scoringDisabled}>
+          {isExisting ? <p className="habit-scoring-lock-note">🔒 {isEnglish ? "Points and the quality scale were fixed when this habit was created and cannot be changed." : "Баллы и шкала качества зафиксированы при создании этой привычки и не могут быть изменены."}</p> : null}
+          <fieldset className="habit-scoring-locked-fields" disabled={isExisting}>
+            <label className="habit-switch habit-disable-switch"><span><strong>{isEnglish ? "Disable scoring" : "Отключить начисление баллов"}</strong><small>{isEnglish ? "All scoring fields will be disabled" : "Все поля качества и баллов будут выключены"}</small></span><input type="checkbox" role="switch" aria-label={isEnglish ? "Disable habit scoring" : "Отключить начисление баллов"} checked={scoringDisabled} onChange={(event) => setDraft((current) => ({ ...current, scoringMode: event.target.checked ? "none" : current.qualityScale === "ten" ? "quality-ten" : current.qualityScale === "bipolar" ? "quality-bipolar" : "binary" }))} /><i /></label>
+          <fieldset className="habit-scoring-fields" disabled={scoringDisabled || isExisting}>
             <div className="habit-editor-grid">
               <label><span>{isEnglish ? "Quality scale" : "Шкала качества"}</span><select value={draft.qualityScale} onChange={(event) => setQualityScale(event.target.value as HabitQualityScale)}><option value="none">{isEnglish ? "No scale" : "Без оценки"}</option><option value="ten">{isEnglish ? "1 to 10" : "От 1 до 10"}</option><option value="bipolar">{isEnglish ? "−5 to +5" : "От −5 до +5"}</option></select></label>
               <div className="habit-formula-card"><span>{isEnglish ? "Exact formula" : "Точная формула"}</span><strong>{scoringFormula(scoringDisabled ? "none" : draft.scoringMode, isEnglish)}</strong><small>{isEnglish ? `Hard limit: ${MAX_HABIT_XP_PER_COMPLETION} XP per completion` : `Жёсткий лимит: ${MAX_HABIT_XP_PER_COMPLETION} XP за выполнение`}</small></div>
             </div>
+          </fieldset>
           </fieldset>
         </fieldset>
         <fieldset className="habit-editor-section">
@@ -750,7 +754,7 @@ function HabitEditor({ habit, language, calendarMode, googleTasksReady, onSave, 
             </div>
           </fieldset>
         </fieldset>
-        <footer><button type="button" className="secondary-button" onClick={onClose}>{isEnglish ? "Cancel" : "Отмена"}</button><button type="submit" className="primary-button" disabled={!draft.title.trim()}>{isEnglish ? "Save habit" : "Сохранить привычку"}</button></footer>
+        <footer><button type="button" className="secondary-button" onClick={onClose}>{isEnglish ? "Cancel" : "Отмена"}</button><button type="submit" className="primary-button" disabled={!draft.title.trim()}>{isExisting ? (isEnglish ? "Save changes" : "Сохранить изменения") : (isEnglish ? "Save habit" : "Сохранить привычку")}</button></footer>
       </form>
     </div>
   );
@@ -876,6 +880,7 @@ function SacredHabitLibrary({
   calendarMode,
   onChange,
   onStart,
+  onEdit,
   onOpenTheokyklosSector,
 }: {
   workspace: HabitWorkspace;
@@ -884,6 +889,7 @@ function SacredHabitLibrary({
   calendarMode: CalendarMode;
   onChange: (workspace: HabitWorkspace) => void;
   onStart: (practice: SacredPractice) => void;
+  onEdit: (habit: Habit) => void;
   onOpenTheokyklosSector?: (sectorId: SacredPracticeSectorId) => void;
 }) {
   const isEnglish = language === "en";
@@ -955,13 +961,14 @@ function SacredHabitLibrary({
           const entry = habit ? completionFor(workspace, habit.id, date) : undefined;
           const canTrack = habit?.active && isHabitScheduledForDate(habit, date, calendarMode) && canRecordHabitOnDate(habit.createdDate, date, habitDateKey(new Date()));
           return (
-            <article className={`${habit ? "started" : ""}${habit && !habit.active ? " paused" : ""}`} style={{ "--habit-color": practice.color } as CSSProperties} key={practice.id}>
-              <header><span aria-hidden="true">{practice.emoji}</span><div><small>{sector.patrons[language]}</small><h3>{practice.title[language]}</h3></div>{habit ? <em>{habit.active ? (isEnglish ? "Active" : "Активна") : (isEnglish ? "Paused" : "На паузе")}</em> : null}</header>
-              <p>{practice.description[language]}</p>
+            <article className={`${habit ? "started" : ""}${habit && !habit.active ? " paused" : ""}`} style={{ "--habit-color": habit?.color ?? practice.color } as CSSProperties} key={practice.id}>
+              <header><span aria-hidden="true">{habit?.emoji ?? practice.emoji}</span><div><small>{sector.patrons[language]}</small><h3 data-no-translate={habit ? true : undefined}>{habit?.title ?? practice.title[language]}</h3></div>{habit ? <em>{habit.active ? (isEnglish ? "Active" : "Активна") : (isEnglish ? "Paused" : "На паузе")}</em> : null}</header>
+              <p data-no-translate={habit ? true : undefined}>{habit?.description ?? practice.description[language]}</p>
               <blockquote>{practice.myth[language]}</blockquote>
               <footer>
                 {habit ? (
                   <div className="sacred-practice-actions">
+                    <button type="button" className="sacred-practice-edit" onClick={() => onEdit(habit)}>{isEnglish ? "Edit" : "Изменить"}</button>
                     {habit.active ? <>
                       <button
                         type="button"
@@ -975,7 +982,7 @@ function SacredHabitLibrary({
                     </> : <button type="button" className="primary-button" onClick={() => onChange({ ...workspace, habits: workspace.habits.map((item) => item.id === habit.id ? markTrackerEntityChanged({ ...item, active: true }) : item) })}>{isEnglish ? "Enable again" : "Включить снова"}</button>}
                   </div>
                 ) : <button type="button" className="primary-button" onClick={() => onStart(practice)}>{isEnglish ? "Begin practice" : "Начать практику"}</button>}
-                <small>{practice.suggestedTime} · {isEnglish ? `priority ${practice.priority}` : `приоритет ${practice.priority}`}</small>
+                <small>{habit?.preferredTime || habit?.reminder.time || practice.suggestedTime} · {isEnglish ? `priority ${habit?.priority ?? practice.priority}` : `приоритет ${habit?.priority ?? practice.priority}`}</small>
               </footer>
             </article>
           );
@@ -1007,17 +1014,20 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
   const visibleStarterTemplates = STARTER_HABIT_TEMPLATES.filter((template) => !workspace.hiddenDefaultTemplates.includes(template.id) && !activeTemplateIds.has(template.id));
   const dailyPanel = <HabitDailyPanel workspace={workspace} date={date} language={language} timeFormat={timeFormat} calendarMode={calendarMode} onChange={onChange} showGoalSettings />;
 
-  const saveHabit = (habit: Habit) => {
-    const previous = workspace.habits.find((item) => item.id === habit.id);
-    if (previous) {
-      setEditingHabit(null);
-      setMessage(isEnglish ? "Habit settings are immutable. Pause it or delete it and create a new habit." : "Настройки привычки неизменяемы. Поставьте её на паузу или удалите и создайте заново.");
-      return;
-    }
-    const nextWorkspace = { ...workspace, habits: [...workspace.habits, habit] };
+  const saveHabit = (candidate: Habit) => {
+    const previous = workspace.habits.find((item) => item.id === candidate.id);
+    const habit = previous ? applyEditableHabitUpdate(previous, candidate) : candidate;
+    const nextWorkspace = {
+      ...workspace,
+      habits: previous
+        ? workspace.habits.map((item) => item.id === habit.id ? habit : item)
+        : [...workspace.habits, habit],
+    };
     onChange(nextWorkspace);
     setEditingHabit(null);
-    setMessage(isEnglish ? "Habit saved in the encrypted core." : "Привычка сохранена в зашифрованном ядре.");
+    setMessage(previous
+      ? (isEnglish ? "Habit settings updated. Its scoring formula and history were preserved." : "Настройки привычки обновлены. Формула баллов и история сохранены.")
+      : (isEnglish ? "Habit saved in the encrypted core." : "Привычка сохранена в зашифрованном ядре."));
     const wantsExternal = habit.reminder.enabled && (habit.reminder.syncToGoogleTasks || habit.reminder.showInGoogleCalendar);
     if (!previous?.reminder.googleTaskId && !previous?.reminder.googleEventId && !wantsExternal) return;
     void (async () => {
@@ -1113,12 +1123,13 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
         calendarMode={calendarMode}
         onChange={onChange}
         onStart={(practice) => saveHabit(createHabitFromSacredPractice(practice, creationDate, calendarMode, language))}
+        onEdit={setEditingHabit}
         onOpenTheokyklosSector={onOpenTheokyklosSector}
       />
 
       {!hasHabits ? dailyPanel : null}
 
-      <section className="habit-library"><header><div><span className="eyebrow">{isEnglish ? "Habit core" : "Ядро привычек"}</span><h2>{isEnglish ? "Habits" : "Обычные привычки"}</h2></div><button type="button" onClick={openNewHabit}>＋ {isEnglish ? "Add" : "Добавить"}</button></header><p className="habit-library-rule">🔒 {isEnglish ? `Saved habit settings cannot be edited. Pause remains available; deleting before ${HABIT_LAUREL_RETENTION_COMPLETIONS} completions resets all Laurels.` : `Настройки сохранённой привычки нельзя редактировать. Пауза остаётся доступной; удаление до ${HABIT_LAUREL_RETENTION_COMPLETIONS} выполнений обнуляет все Лавры.`}</p>{workspace.habits.length ? <div>{[...workspace.habits].sort((left, right) => right.priority - left.priority || left.title.localeCompare(right.title)).map((habit) => <article className={!habit.active ? "paused" : ""} style={{ "--habit-color": habit.color } as CSSProperties} key={habit.id}><i /><div><span><b className="habit-emoji" aria-hidden="true">{habit.emoji}</b><strong data-no-translate>{habit.title}</strong><em>{isEnglish ? `Priority ${habit.priority}` : `Приоритет ${habit.priority}`}</em></span><small>{scoringFormula(habit.scoringMode, isEnglish)} · {isEnglish ? `created ${habit.createdDate}` : `создана ${habit.createdDate}`} · {isEnglish ? "Laurels milestone" : "Рубеж Лавров"} {Math.min(habitCompletionCount(workspace.habitCompletions, habit.id), HABIT_LAUREL_RETENTION_COMPLETIONS)}/{HABIT_LAUREL_RETENTION_COMPLETIONS}</small></div><output>{habit.scoringMode === "none" ? "—" : `≤${MAX_HABIT_XP_PER_COMPLETION}`}</output><button type="button" onClick={() => onChange({ ...workspace, habits: workspace.habits.map((item) => item.id === habit.id ? markTrackerEntityChanged({ ...item, active: !item.active }) : item) })}>{habit.active ? (isEnglish ? "Pause" : "Пауза") : (isEnglish ? "Resume" : "Включить")}</button><button type="button" className="danger" onClick={() => removeHabit(habit)}>{isEnglish ? "Delete" : "Удалить"}</button></article>)}</div> : <div className="habit-library-empty"><p>{isEnglish ? "No regular habits yet." : "Обычных привычек пока нет."}</p><button type="button" className="primary-button" onClick={openNewHabit}>{isEnglish ? "Create first habit" : "Создать первую привычку"}</button></div>}</section>
+      <section className="habit-library"><header><div><span className="eyebrow">{isEnglish ? "Habit core" : "Ядро привычек"}</span><h2>{isEnglish ? "Habits" : "Обычные привычки"}</h2></div><button type="button" onClick={openNewHabit}>＋ {isEnglish ? "Add" : "Добавить"}</button></header><p className="habit-library-rule">🔒 {isEnglish ? `All settings can be edited except points and the quality scale. Deleting before ${HABIT_LAUREL_RETENTION_COMPLETIONS} completions resets all Laurels.` : `Можно изменять все настройки, кроме баллов и шкалы качества. Удаление до ${HABIT_LAUREL_RETENTION_COMPLETIONS} выполнений обнуляет все Лавры.`}</p>{workspace.habits.length ? <div>{[...workspace.habits].sort((left, right) => right.priority - left.priority || left.title.localeCompare(right.title)).map((habit) => <article className={!habit.active ? "paused" : ""} style={{ "--habit-color": habit.color } as CSSProperties} key={habit.id}><i /><div><span><b className="habit-emoji" aria-hidden="true">{habit.emoji}</b><strong data-no-translate>{habit.title}</strong><em>{isEnglish ? `Priority ${habit.priority}` : `Приоритет ${habit.priority}`}</em></span><small>{scoringFormula(habit.scoringMode, isEnglish)} · {isEnglish ? `created ${habit.createdDate}` : `создана ${habit.createdDate}`} · {isEnglish ? "Laurels milestone" : "Рубеж Лавров"} {Math.min(habitCompletionCount(workspace.habitCompletions, habit.id), HABIT_LAUREL_RETENTION_COMPLETIONS)}/{HABIT_LAUREL_RETENTION_COMPLETIONS}</small></div><output>{habit.scoringMode === "none" ? "—" : `≤${MAX_HABIT_XP_PER_COMPLETION}`}</output><div className="habit-library-actions"><button type="button" onClick={() => setEditingHabit(habit)}>{isEnglish ? "Edit" : "Изменить"}</button><button type="button" onClick={() => onChange({ ...workspace, habits: workspace.habits.map((item) => item.id === habit.id ? markTrackerEntityChanged({ ...item, active: !item.active }) : item) })}>{habit.active ? (isEnglish ? "Pause" : "Пауза") : (isEnglish ? "Resume" : "Включить")}</button><button type="button" className="danger" onClick={() => removeHabit(habit)}>{isEnglish ? "Delete" : "Удалить"}</button></div></article>)}</div> : <div className="habit-library-empty"><p>{isEnglish ? "No regular habits yet." : "Обычных привычек пока нет."}</p><button type="button" className="primary-button" onClick={openNewHabit}>{isEnglish ? "Create first habit" : "Создать первую привычку"}</button></div>}</section>
 
       <div className="tracker-module-grid">
         <section className="tracker-module-card sleep-module"><header><div><span className="eyebrow">{isEnglish ? "Independent module" : "Независимый модуль"}</span><h2>{isEnglish ? "Sleep" : "Сон"}</h2></div><button type="button" onClick={() => setEditingSleep(defaultSleepPlan(date, calendarMode))}>＋ {isEnglish ? "Plan" : "План"}</button></header>{workspace.sleepPlans.length ? workspace.sleepPlans.map((plan) => <article key={plan.id}><div><strong data-no-translate>{plan.title}</strong><small>{plan.targetBedtime} → {plan.targetWakeTime} · {plan.schedule.timezone}</small></div><button type="button" onClick={() => setEditingSleep(plan)}>{isEnglish ? "Edit" : "Изменить"}</button><button type="button" className="danger" onClick={() => onChange({ ...workspace, sleepPlans: workspace.sleepPlans.filter((item) => item.id !== plan.id), sleepEntries: workspace.sleepEntries.filter((entry) => entry.planId !== plan.id) })}>{isEnglish ? "Delete" : "Удалить"}</button></article>) : <p>{isEnglish ? "Track bedtime, wake time, duration and quality across midnight and DST." : "Отслеживайте сон, пробуждение, длительность и качество с учётом полуночи и DST."}</p>}</section>
@@ -1130,7 +1141,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
       <HabitStatistics workspace={workspace} date={date} language={language} calendarMode={calendarMode} />
       {heroPathOpen ? <HeroPathPanel workspace={workspace} language={language} onClaimCheckpoint={(rankId) => { const next = claimHeroPathAmphora(workspace, rankId); onChange(next); if (next !== workspace) setMessage(isEnglish ? "The amphora is open. Laurels were added to your ledger." : "Амфора открыта. Лавры добавлены в журнал наград."); }} onRevealHiddenPath={() => { const next = revealHiddenHeroicPath(workspace); onChange(next); if (next !== workspace) setMessage(isEnglish ? "The second path has been revealed." : "Второй путь открыт."); }} onClose={() => setHeroPathOpen(false)} /> : null}
       {activatingTemplate ? <HabitTemplateSetup template={activatingTemplate} date={creationDate} language={language} calendarMode={calendarMode} googleTasksReady={googleTasksReady} onSave={(habit) => { setActivatingTemplate(null); saveHabit(habit); }} onClose={() => setActivatingTemplate(null)} /> : null}
-      {editingHabit ? <HabitEditor habit={editingHabit} language={language} calendarMode={calendarMode} googleTasksReady={googleTasksReady} onSave={saveHabit} onClose={() => setEditingHabit(null)} /> : null}
+      {editingHabit ? <HabitEditor habit={editingHabit} isExisting={workspace.habits.some((habit) => habit.id === editingHabit.id)} language={language} calendarMode={calendarMode} googleTasksReady={googleTasksReady} onSave={saveHabit} onClose={() => setEditingHabit(null)} /> : null}
       {editingSleep ? <SleepEditor plan={editingSleep} language={language} calendarMode={calendarMode} onSave={(plan) => { onChange({ ...workspace, sleepPlans: workspace.sleepPlans.some((item) => item.id === plan.id) ? workspace.sleepPlans.map((item) => item.id === plan.id ? plan : item) : [...workspace.sleepPlans, plan] }); setEditingSleep(null); }} onClose={() => setEditingSleep(null)} /> : null}
       {editingAddiction ? <AddictionEditor tracker={editingAddiction} language={language} calendarMode={calendarMode} onSave={(tracker) => { onChange({ ...workspace, addictionTrackers: workspace.addictionTrackers.some((item) => item.id === tracker.id) ? workspace.addictionTrackers.map((item) => item.id === tracker.id ? tracker : item) : [...workspace.addictionTrackers, tracker] }); setEditingAddiction(null); }} onClose={() => setEditingAddiction(null)} /> : null}
     </div>
