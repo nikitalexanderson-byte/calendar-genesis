@@ -26,11 +26,17 @@ import {
 } from "../app/habit-templates.ts";
 import {
   HEROIC_RANKS,
+  MAX_HABIT_XP_PER_COMPLETION,
   completionXpAward,
   heroicRank,
   highestRankForXp,
   reconcileUserProgress,
 } from "../app/habit-progress.ts";
+import {
+  canRecordHabitOnDate,
+  normalizeHabitEmoji,
+  normalizeHabitPriority,
+} from "../app/habit-integrity.ts";
 import {
   buildDailyGoalRecord,
   calculateGlobalStreak,
@@ -84,7 +90,7 @@ test("server-renders the GENESIS application shell", async () => {
 });
 
 test("ships the modular encrypted tracker across dashboard, calendars and account settings", async () => {
-  const [calendar, tracker, habits, progress, dailyGoal, rewards, sleep, mood, addiction, analytics, cache, trackerMath, cloud, account, repository, migration, styles, rankArt] = await Promise.all([
+  const [calendar, tracker, habits, progress, dailyGoal, rewards, sleep, mood, addiction, analytics, cache, trackerMath, cloud, account, repository, migration, styles, sigil, rankArt] = await Promise.all([
     readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/HabitTracker.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/habits.ts", import.meta.url), "utf8"),
@@ -102,6 +108,7 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
     readFile(new URL("../server/src/repository.php", import.meta.url), "utf8"),
     readFile(new URL("../server/migrations/010_client_workspace_keys.sql", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../app/HeroicRankSigil.tsx", import.meta.url), "utf8"),
     stat(new URL("../public/habit-ranks/heroic-ranks.webp", import.meta.url)),
   ]);
 
@@ -141,11 +148,14 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(habits, /type HabitQualityScale = "none" \| "ten" \| "bipolar"/);
   assert.match(habits, /export function isHabitScheduledForDate/);
   assert.match(habits, /export function habitScore/);
-  assert.match(habits, /HEROIC_RANKS, completionXpAward, heroicRank, nextHeroicRank/);
+  assert.match(habits, /HEROIC_RANKS, MAX_HABIT_XP_PER_COMPLETION, completionXpAward, heroicRank, nextHeroicRank/);
   assert.match(habits, /STARTER_HABIT_TEMPLATES/);
   assert.match(habits, /createHabitFromTemplate/);
   assert.match(habits, /normalizeHiddenDefaultTemplates/);
-  assert.match(habits, /trackerSchemaVersion: 6/);
+  assert.match(habits, /trackerSchemaVersion: 7/);
+  assert.match(habits, /createdDate: string/);
+  assert.match(habits, /emoji: string/);
+  assert.match(habits, /priority: number/);
   assert.match(habits, /userProgress: UserProgress/);
   assert.match(habits, /xpAwarded: number/);
   assert.match(habits, /dailyGoalRecords: DailyGoalRecord/);
@@ -184,8 +194,14 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(tracker, /Режим дневной цели/);
   assert.match(tracker, /Ещё один шаг — и дневная цель выполнена/);
   assert.match(tracker, /habit-template-library/);
-  assert.match(tracker, /Начать сегодня/);
-  assert.match(tracker, /Начать с завтрашнего дня/);
+  assert.match(tracker, /Неизменяемое начало/);
+  assert.doesNotMatch(tracker, /Начать с завтрашнего дня/);
+  assert.doesNotMatch(tracker, /setEditingHabit\(habit\)/);
+  assert.match(tracker, /habit\.active \? \(isEnglish \? "Pause" : "Пауза"\)/);
+  assert.match(tracker, /Настройки сохранённой привычки нельзя редактировать/);
+  assert.match(tracker, /MAX_HABIT_XP_PER_COMPLETION/);
+  assert.match(tracker, /HabitPriorityControl/);
+  assert.match(tracker, /HabitEmojiField/);
   assert.match(tracker, /Скрыть предложение/);
   assert.match(tracker, /Точно настроить повторение и дни/);
   assert.match(account, /onHabitTrackingChange/);
@@ -195,6 +211,10 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(styles, /\.daily-goal-ring/);
   assert.match(styles, /\.laurel-ledger/);
   assert.match(styles, /\.mood-tracker\.is-open \.mood-summary-action svg/);
+  assert.match(styles, /prefers-reduced-motion: reduce/);
+  assert.match(sigil, /<svg/);
+  assert.match(sigil, /onPointerMove/);
+  assert.match(sigil, /rank-sigil-orbit/);
   assert.match(styles, /\/habit-ranks\/heroic-ranks\.webp/);
   assert.ok(rankArt.size > 100_000, "heroic rank artwork should be a production image");
 });
@@ -203,6 +223,7 @@ test("starter habit template catalog exposes ten inert calendar-aware suggestion
   assert.equal(STARTER_HABIT_TEMPLATES.length, 10);
   assert.equal(new Set(STARTER_HABIT_TEMPLATES.map((template) => template.id)).size, 10);
   assert.ok(STARTER_HABIT_TEMPLATES.every((template) => isHabitTemplateId(template.id)));
+  assert.ok(STARTER_HABIT_TEMPLATES.every((template) => /\p{Extended_Pictographic}/u.test(template.icon)));
 
   const focus = STARTER_HABIT_TEMPLATES.find((template) => template.id === "focus-session");
   assert.ok(focus);
@@ -232,6 +253,18 @@ test("lifetime XP exposes twelve ranks and never moves backwards", () => {
   assert.equal(completionXpAward(10, 10), 10);
   assert.equal(completionXpAward(10, 20), 20);
   assert.equal(completionXpAward(20, 0), 20);
+  assert.equal(MAX_HABIT_XP_PER_COMPLETION, 20);
+  assert.equal(completionXpAward(999, 999), 20);
+  assert.equal(completionXpAward(999, 999, 10), 10);
+
+  assert.equal(normalizeHabitPriority(-20), 1);
+  assert.equal(normalizeHabitPriority(999), 10);
+  assert.equal(normalizeHabitPriority("7"), 7);
+  assert.equal(normalizeHabitEmoji("not an emoji"), "✨");
+  assert.equal(normalizeHabitEmoji("🎯"), "🎯");
+  assert.equal(canRecordHabitOnDate("2026-09-18", "2026-09-18", "2026-09-18"), true);
+  assert.equal(canRecordHabitOnDate("2026-09-18", "2026-09-17", "2026-09-18"), false);
+  assert.equal(canRecordHabitOnDate("2026-09-18", "2026-09-19", "2026-09-18"), false);
 
   const migrated = reconcileUserProgress(null, [{ xpAwarded: 10 }, { xpAwarded: 20 }], "2026-09-18T00:00:00.000Z");
   assert.equal(migrated.lifetimeXp, 30);
@@ -350,6 +383,7 @@ test("tracker scoring and time math preserve the specified invariants", () => {
   assert.equal(scoreHabitFormula("quality-bipolar", true, -5), 0);
   assert.equal(scoreHabitFormula("quality-bipolar", true, 0), 10);
   assert.equal(scoreHabitFormula("quality-bipolar", true, 5), 20);
+  assert.equal(scoreHabitFormula("quality-bipolar", true, 999), 20);
   assert.equal(scoreHabitFormula("none", true, 10), 0);
 
   assert.equal(calculateSleepDuration("2026-09-14", "21:00", "23:00", "Europe/Moscow"), 120);
