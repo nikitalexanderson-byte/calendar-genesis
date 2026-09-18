@@ -66,7 +66,7 @@ export function RecurrenceBuilder({
   value: RecurrenceConfig;
   onChange: (value: RecurrenceConfig) => void;
   startDate: string;
-  destination?: "calendar" | "tasks";
+  destination?: "calendar" | "tasks" | "tracker";
   calendarMode?: CalendarMode;
 }) {
   const isEnglish = getRuntimeLanguage() === "en";
@@ -290,12 +290,16 @@ export function RecurrenceBuilder({
                   ? `Too many recurrences. Shorten the period or choose fewer dates — maximum ${MAX_RECURRENCE_OCCURRENCES}.`
                   : `Слишком много повторений. Сократите период или выберите меньше дат — максимум ${MAX_RECURRENCE_OCCURRENCES}.`)
               : (isEnglish
-                  ? `— number of ${destination === "calendar" ? "recurrences of one task" : "separate tasks"} from ${shortDate(rangeStart, true)} to ${shortDate(rangeEnd, true)}`
-                  : `— количество ${destination === "calendar" ? "повторений одной задачи" : "отдельных задач"} с ${shortDate(rangeStart, true)} по ${shortDate(rangeEnd, true)}`)}</span>
+                  ? `— number of ${destination === "calendar" ? "recurrences of one task" : destination === "tracker" ? "tracker dates" : "separate tasks"} from ${shortDate(rangeStart, true)} to ${shortDate(rangeEnd, true)}`
+                  : `— количество ${destination === "calendar" ? "повторений одной задачи" : destination === "tracker" ? "дней трекинга" : "отдельных задач"} с ${shortDate(rangeStart, true)} по ${shortDate(rangeEnd, true)}`)}</span>
           </div>
 
           <small className="recurrence-sync-note">
-            {destination === "tasks"
+            {destination === "tracker"
+              ? (isEnglish
+                  ? "GENESIS owns the recurrence. Google Tasks or Calendar are used only when you explicitly enable a reminder."
+                  : "Повтор хранится в GENESIS. Google Tasks или Календарь используются только при явно включённом напоминании.")
+              : destination === "tasks"
               ? (isEnglish
                   ? "The Google Tasks API does not support recurring tasks, so every selected date will become a separate task in the list."
                   : "Google Tasks API не поддерживает создание повторяющейся задачи, поэтому каждая выбранная дата станет отдельной задачей в списке.")

@@ -1234,5 +1234,16 @@
   "Эти 6 дней стоят вне времени. Это пространство Протогеносов — Первозданных Богов, существовавших до начала мира. Здесь нет стихий Пяты, здесь правит Чистый Хаос.": "These six days stand outside time. This is the realm of the Protogenoi — the Primordial Gods who existed before the beginning of the world. There are no elements of the Quinta here; Pure Chaos reigns.",
   "Привычки": "Habits",
   "Привычки GENESIS": "GENESIS Habits",
+  "Личные данные": "Personal data",
+  "Зашифрованы": "Encrypted",
+  "AES-GCM на устройстве; сервер не получает ключ.": "AES-GCM on the device; the server never receives the key.",
+  "Код восстановления должен содержать 32 байта.": "The recovery code must contain 32 bytes.",
+  "Неверный формат кода восстановления.": "Invalid recovery code format.",
+  "Код восстановления не подошёл. Зашифрованные данные не изменены.": "The recovery code did not match. Encrypted data was not changed.",
+  "Зашифрованное пространство не содержит ключ восстановления.": "The encrypted workspace does not contain a recovery key.",
+  "Введите код восстановления GENESIS для расшифровки данных на этом устройстве:": "Enter your GENESIS recovery code to decrypt data on this device:",
+  "Для доступа к зашифрованным данным нужен код восстановления из личного кабинета.": "The recovery code from your account is required to access encrypted data.",
+  "Введите код восстановления GENESIS: локальный ключ этого устройства не подошёл к зашифрованным данным.": "Enter your GENESIS recovery code: this device's local key did not match the encrypted data.",
+  "Для восстановления доступа к зашифрованным данным нужен код из личного кабинета.": "The recovery code from your account is required to restore access to encrypted data.",
   "__manual_catalog__": "manual"
 }

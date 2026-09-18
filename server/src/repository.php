@@ -16,6 +16,9 @@ function genesisIsValidEmail(string $email): bool
 
 function genesisEnsureWorkspaceKey(array $user): array
 {
+    if (($user['workspace_key_mode'] ?? 'legacy') === 'client') {
+        return $user;
+    }
     if (!empty($user['workspace_key_enc'])) {
         return $user;
     }
@@ -263,7 +266,8 @@ function genesisUpsertGoogleUser(array $profile, array $tokens, bool $persistGoo
     $access = $persistGoogleTokens && isset($tokens['access_token']) && is_string($tokens['access_token'])
         ? genesisEncrypt($tokens['access_token'])
         : ($existing['access_token_enc'] ?? null);
-    $workspaceKey = $existing['workspace_key_enc'] ?? genesisEncrypt(base64_encode(random_bytes(32)));
+    $workspaceKey = is_array($existing) ? ($existing['workspace_key_enc'] ?? null) : null;
+    $workspaceKeyMode = is_array($existing) ? (string)($existing['workspace_key_mode'] ?? 'legacy') : 'client';
     $expiresAt = $persistGoogleTokens && isset($tokens['access_token'])
         ? time() + genesisClampInt($tokens['expires_in'] ?? 3600, 60, 86400, 3600) - 60
         : ($existing['token_expires_at'] ?? null);
@@ -282,13 +286,14 @@ function genesisUpsertGoogleUser(array $profile, array $tokens, bool $persistGoo
         'token_expires_at' => $expiresAt,
         'granted_scopes' => $grantedScopes,
         'workspace_key_enc' => $workspaceKey,
+        'workspace_key_mode' => $workspaceKeyMode,
         'last_login_at' => $now,
         'last_seen_at' => $now,
         'created_at' => is_array($existing) ? (string)$existing['created_at'] : $now,
         'updated_at' => $now,
     ];
     if (is_array($existing)) {
-        $db->prepare('UPDATE users SET google_sub = :sub, email = :email, display_name = :display_name, avatar_url = :avatar_url, access_token_enc = :access_token_enc, refresh_token_enc = :refresh_token_enc, token_expires_at = :token_expires_at, granted_scopes = :granted_scopes, workspace_key_enc = :workspace_key_enc, login_count = login_count + 1, last_login_at = :last_login_at, last_seen_at = :last_seen_at, updated_at = :updated_at WHERE id = :id')->execute([
+        $db->prepare('UPDATE users SET google_sub = :sub, email = :email, display_name = :display_name, avatar_url = :avatar_url, access_token_enc = :access_token_enc, refresh_token_enc = :refresh_token_enc, token_expires_at = :token_expires_at, granted_scopes = :granted_scopes, workspace_key_enc = :workspace_key_enc, workspace_key_mode = :workspace_key_mode, login_count = login_count + 1, last_login_at = :last_login_at, last_seen_at = :last_seen_at, updated_at = :updated_at WHERE id = :id')->execute([
             'id' => $values['id'],
             'sub' => $values['sub'],
             'email' => $values['email'],
@@ -299,12 +304,13 @@ function genesisUpsertGoogleUser(array $profile, array $tokens, bool $persistGoo
             'token_expires_at' => $values['token_expires_at'],
             'granted_scopes' => $values['granted_scopes'],
             'workspace_key_enc' => $values['workspace_key_enc'],
+            'workspace_key_mode' => $values['workspace_key_mode'],
             'last_login_at' => $values['last_login_at'],
             'last_seen_at' => $values['last_seen_at'],
             'updated_at' => $values['updated_at'],
         ]);
     } else {
-        $db->prepare('INSERT INTO users (id, google_sub, email, display_name, avatar_url, access_token_enc, refresh_token_enc, token_expires_at, granted_scopes, workspace_key_enc, login_count, last_login_at, last_seen_at, created_at, updated_at) VALUES (:id, :sub, :email, :display_name, :avatar_url, :access_token_enc, :refresh_token_enc, :token_expires_at, :granted_scopes, :workspace_key_enc, 1, :last_login_at, :last_seen_at, :created_at, :updated_at)')->execute($values);
+        $db->prepare('INSERT INTO users (id, google_sub, email, display_name, avatar_url, access_token_enc, refresh_token_enc, token_expires_at, granted_scopes, workspace_key_enc, workspace_key_mode, login_count, last_login_at, last_seen_at, created_at, updated_at) VALUES (:id, :sub, :email, :display_name, :avatar_url, :access_token_enc, :refresh_token_enc, :token_expires_at, :granted_scopes, :workspace_key_enc, :workspace_key_mode, 1, :last_login_at, :last_seen_at, :created_at, :updated_at)')->execute($values);
     }
 
     $user = genesisFindUser($id);
@@ -413,16 +419,23 @@ function genesisVerifyPasswordLogin(string $email, string $password): ?array
 
 function genesisWorkspaceForClient(array $user): array
 {
-    $user = genesisEnsureWorkspaceKey($user);
-    $key = genesisDecrypt($user['workspace_key_enc'] ?? null);
-    if (!is_string($key) || $key === '') {
-        throw new RuntimeException('Workspace encryption key is unavailable.');
+    $clientManaged = ($user['workspace_key_mode'] ?? 'legacy') === 'client';
+    $key = null;
+    if (!$clientManaged) {
+        $user = genesisEnsureWorkspaceKey($user);
+        $key = genesisDecrypt($user['workspace_key_enc'] ?? null);
+        if (!is_string($key) || $key === '') {
+            throw new RuntimeException('Workspace encryption key is unavailable.');
+        }
     }
     $statement = genesisDb()->prepare('SELECT ciphertext, iv, version, updated_at FROM workspace_blobs WHERE user_id = :user_id LIMIT 1');
     $statement->execute(['user_id' => (string)$user['id']]);
     $blob = $statement->fetch();
     return [
         'key' => $key,
+        'keyMode' => $clientManaged ? (empty($user['workspace_key_wrapped']) ? 'new' : 'client') : 'legacy',
+        'wrappedKey' => $clientManaged ? ($user['workspace_key_wrapped'] ?: null) : null,
+        'wrappedKeyIv' => $clientManaged ? ($user['workspace_key_iv'] ?: null) : null,
         'envelope' => is_array($blob) ? [
             'ciphertext' => (string)$blob['ciphertext'],
             'iv' => (string)$blob['iv'],
@@ -430,6 +443,28 @@ function genesisWorkspaceForClient(array $user): array
             'updatedAt' => (string)$blob['updated_at'],
         ] : null,
     ];
+}
+
+function genesisSaveClientWorkspaceKey(string $userId, array $payload): array
+{
+    $wrappedKey = trim((string)($payload['wrappedKey'] ?? ''));
+    $iv = trim((string)($payload['iv'] ?? ''));
+    $decodedKey = base64_decode($wrappedKey, true);
+    $decodedIv = base64_decode($iv, true);
+    if (!is_string($decodedKey) || strlen($decodedKey) < 48 || strlen($decodedKey) > 96) {
+        throw new InvalidArgumentException('Wrapped workspace key is invalid.');
+    }
+    if (!is_string($decodedIv) || strlen($decodedIv) !== 12) {
+        throw new InvalidArgumentException('Wrapped workspace key IV is invalid.');
+    }
+    genesisDb()->prepare('UPDATE users SET workspace_key_mode = :mode, workspace_key_wrapped = :wrapped_key, workspace_key_iv = :iv, workspace_key_enc = NULL, updated_at = :updated_at WHERE id = :id')->execute([
+        'mode' => 'client',
+        'wrapped_key' => $wrappedKey,
+        'iv' => $iv,
+        'updated_at' => genesisNow(),
+        'id' => $userId,
+    ]);
+    return ['keyMode' => 'client', 'wrappedKey' => $wrappedKey, 'wrappedKeyIv' => $iv];
 }
 
 function genesisSaveWorkspaceEnvelope(string $userId, array $payload): array

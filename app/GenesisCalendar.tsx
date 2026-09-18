@@ -43,6 +43,7 @@ import {
   signOutFromGoogle,
   updateAccountPreferences,
   updateGoogleTaskList,
+  workspaceRecoveryCodeForUser,
 } from "./cloud-sync";
 import { AccountPanel } from "./AccountPanel";
 import { AdminPanel } from "./AdminPanel";
@@ -67,6 +68,8 @@ import {
   type Habit,
   type HabitWorkspace,
 } from "./habits";
+import { changedTrackerDates, ensureTrackerAnalytics, refreshTrackerAnalytics } from "./tracker-analytics";
+import { loadTrackerAnalyticsCache, saveTrackerAnalyticsCache } from "./tracker-cache";
 import {
   MONTHS,
   LUNAR_DECADES,
@@ -363,11 +366,11 @@ const SOLAR_EVENT_COPY: Record<NonNullable<ReturnType<typeof getSolarEvent>>["id
 const VIEW_NAMES = new Set<ViewName>(["today", "calendar", "projects", "year", "all-tasks", "habits", "stoicheion", "theokyklos", "admin"]);
 const HABIT_REMINDER_LOOKAHEAD_DAYS = 20_000;
 
-function nextHabitReminderDate(habit: Habit, fromDate: string) {
+function nextHabitReminderDate(habit: Habit, fromDate: string, calendarMode: CalendarMode) {
   for (let offset = 0; offset < HABIT_REMINDER_LOOKAHEAD_DAYS; offset += 1) {
     const value = offset === 0 ? fromDate : addHabitDays(fromDate, offset);
     if (habit.schedule.endDate && value > habit.schedule.endDate) return null;
-    if (isHabitScheduledForDate(habit, value)) return value;
+    if (isHabitScheduledForDate(habit, value, calendarMode)) return value;
   }
   return null;
 }
@@ -1501,6 +1504,21 @@ export function GenesisCalendar() {
   }, [hydrated, cloudUser, tasks, projects, categories, taskLists, taskListLinks, habitWorkspace]);
 
   useEffect(() => {
+    if (!hydrated) return;
+    const cacheKey = cloudUser?.uid ?? "local";
+    if (habitWorkspace.analyticsSnapshots.length) {
+      void saveTrackerAnalyticsCache(cacheKey, habitWorkspace.analyticsSnapshots);
+      return;
+    }
+    let active = true;
+    void loadTrackerAnalyticsCache(cacheKey).then((snapshots) => {
+      if (!active || !snapshots.length) return;
+      setHabitWorkspace((current) => current.analyticsSnapshots.length ? current : { ...current, analyticsSnapshots: snapshots });
+    });
+    return () => { active = false; };
+  }, [hydrated, cloudUser?.uid, habitWorkspace.analyticsSnapshots]);
+
+  useEffect(() => {
     if (!hydrated || !isGoogleSyncConfigured) return;
 
     let active = true;
@@ -1557,7 +1575,7 @@ export function GenesisCalendar() {
       setCategories(local.categories);
       setTaskLists(local.taskLists);
       setTaskListLinks(local.taskListLinks);
-      setHabitWorkspace(normalizeHabitWorkspace(local));
+      setHabitWorkspace(ensureTrackerAnalytics(normalizeHabitWorkspace(local, user.taskCalendarMode ?? "sacred"), user.taskCalendarMode ?? "sacred"));
       setNewProjectCategory(local.categories[0]?.id ?? "");
 
       setSyncStatus("syncing");
@@ -1566,7 +1584,7 @@ export function GenesisCalendar() {
         projects: local.projects,
         categories: local.categories,
         taskListLinks: local.taskListLinks,
-        ...normalizeHabitWorkspace(local),
+        ...normalizeHabitWorkspace(local, user.taskCalendarMode ?? "sacred"),
       })
         .then(async () => {
           if (!active) return;
@@ -1591,7 +1609,10 @@ export function GenesisCalendar() {
           setCategories(nextCategories);
           setTaskLists(workspace.taskLists);
           setTaskListLinks(nextTaskListLinks);
-          setHabitWorkspace(normalizeHabitWorkspace(workspace.hasRemoteStructure ? workspace : local));
+          setHabitWorkspace(ensureTrackerAnalytics(
+            normalizeHabitWorkspace(workspace.hasRemoteStructure ? workspace : local, workspace.user.taskCalendarMode ?? "sacred"),
+            workspace.user.taskCalendarMode ?? "sacred",
+          ));
           setNewProjectCategory(nextCategories[0]?.id ?? "");
           setSyncError(workspace.syncWarning ?? "");
           setSyncStatus(workspace.user.calendarConnected ? (workspace.syncWarning ? "offline" : "synced") : "local");
@@ -1638,7 +1659,7 @@ export function GenesisCalendar() {
           setCategories(local.categories);
           setTaskLists(local.taskLists);
           setTaskListLinks(local.taskListLinks);
-          setHabitWorkspace(normalizeHabitWorkspace(local));
+          setHabitWorkspace(ensureTrackerAnalytics(normalizeHabitWorkspace(local, cached.taskCalendarMode ?? "sacred"), cached.taskCalendarMode ?? "sacred"));
           setNewProjectCategory(local.categories[0]?.id ?? "");
           setLanguage(cachedLanguage);
           storeLanguage(cachedLanguage);
@@ -1850,43 +1871,102 @@ export function GenesisCalendar() {
   };
 
   const createHabitGoogleReminder = async (habit: Habit) => {
-    if (!cloudUser?.googleTasksImportReady) {
-      throw new Error(language === "en" ? "Connect Google Tasks in your account first." : "Сначала подключите Google Tasks в личном кабинете.");
-    }
-    let taskList = taskLists.find((item) => item.title === "Привычки GENESIS") ?? taskLists.find((item) => item.isDefault) ?? taskLists[0];
-    if (!taskList) {
-      const created = await createGoogleTaskList("Привычки GENESIS", defaultSyncAccountIds[0]);
-      taskList = created.taskList;
-      setTaskLists((current) => [...current.filter((item) => item.id !== created.taskList.id), created.taskList]);
-    }
     const searchStart = habit.schedule.startDate < todayDateValue ? todayDateValue : habit.schedule.startDate;
-    const nextDate = nextHabitReminderDate(habit, searchStart);
+    const nextDate = nextHabitReminderDate(habit, searchStart, activeTaskCalendarMode);
     if (!nextDate) {
       throw new Error(language === "en" ? "No upcoming date was found for this habit." : "Для этой привычки не нашлось ближайшей даты.");
     }
-    const existingReminder = habit.reminder.googleTaskId
-      ? tasks.find((item) => item.id === habit.reminder.googleTaskId)
-      : undefined;
-    const task = {
-      ...(existingReminder ?? taskForList(`${language === "en" ? "Habit" : "Привычка"}: ${habit.title}`, nextDate, taskList)),
-      dueDate: nextDate,
-      endDate: nextDate,
-      title: `${language === "en" ? "Habit" : "Привычка"}: ${habit.title}`,
-      description: [
-        habit.description,
-        language === "en"
-          ? "GENESIS tracks the recurrence; this Google Task is the unobtrusive reminder anchor."
-          : "Повтор контролирует GENESIS; эта Google-задача служит ненавязчивой точкой напоминания.",
-        habit.reminder.time ? `${language === "en" ? "Reminder time" : "Время напоминания"}: ${habit.reminder.time}` : "",
-      ].filter(Boolean).join("\n\n"),
-      tags: ["habit"],
-    };
-    setTasks((current) => [...current.filter((item) => item.id !== task.id), task]);
+    if (!cloudUser) throw new Error(language === "en" ? "Sign in to use Google reminders." : "Войдите в аккаунт, чтобы использовать Google-напоминания.");
+
+    const title = `${language === "en" ? "Habit" : "Привычка"}: ${habit.title}`;
+    const description = [
+      habit.description,
+      language === "en"
+        ? "GENESIS is the source of truth for this recurrence."
+        : "GENESIS является источником истины для этого повторения.",
+      habit.reminder.time ? `${language === "en" ? "Reminder time" : "Время напоминания"}: ${habit.reminder.time}` : "",
+    ].filter(Boolean).join("\n\n");
+    let googleTaskId: string | null = null;
+    let googleEventId: string | null = null;
     setSyncStatus("syncing");
-    const saved = await saveCloudTask(cloudUser.uid, task);
-    setTasks((current) => current.map((item) => item.id === saved.id ? { ...item, ...saved } : item));
+
+    if (habit.reminder.syncToGoogleTasks) {
+      if (!cloudUser.googleTasksImportReady) {
+        throw new Error(language === "en" ? "Connect Google Tasks in your account first." : "Сначала подключите Google Tasks в личном кабинете.");
+      }
+      let taskList = taskLists.find((item) => item.title === "Привычки GENESIS") ?? taskLists.find((item) => item.isDefault) ?? taskLists[0];
+      if (!taskList) {
+        const created = await createGoogleTaskList("Привычки GENESIS", defaultSyncAccountIds[0]);
+        taskList = created.taskList;
+        setTaskLists((current) => [...current.filter((item) => item.id !== created.taskList.id), created.taskList]);
+      }
+      const existingTask = habit.reminder.googleTaskId ? tasks.find((item) => item.id === habit.reminder.googleTaskId) : undefined;
+      const reminderTask: Task = {
+        ...(existingTask ?? taskForList(title, nextDate, taskList)),
+        dueDate: nextDate,
+        endDate: nextDate,
+        title,
+        description,
+        tags: ["habit"],
+        time: "",
+        recurrence: "none",
+        recurrenceMode: "none",
+        recurrencePattern: "none",
+        recurrenceSeriesId: null,
+        updatedAt: timestamp(),
+      };
+      setTasks((current) => [...current.filter((item) => item.id !== reminderTask.id), reminderTask]);
+      const saved = await saveCloudTask(cloudUser.uid, reminderTask);
+      setTasks((current) => [...current.filter((item) => item.id !== saved.id), saved]);
+      googleTaskId = saved.id;
+    }
+
+    if (habit.reminder.showInGoogleCalendar) {
+      const calendarTarget: GoogleTaskList = { id: "", title: "", updatedAt: null };
+      const existingEvent = habit.reminder.googleEventId ? tasks.find((item) => item.id === habit.reminder.googleEventId) : undefined;
+      const recurrence = habit.schedule.recurrence;
+      const reminderEvent: Task = {
+        ...(existingEvent ?? taskForList(title, nextDate, calendarTarget)),
+        dueDate: nextDate,
+        endDate: habit.schedule.endDate ?? (recurrence.rangeEnd || nextDate),
+        title,
+        description,
+        time: habit.reminder.time,
+        tags: ["habit"],
+        recurrence: recurrence.mode !== "classic"
+          ? "none"
+          : recurrence.pattern === "daily"
+            ? "daily"
+            : recurrence.pattern === "weekdays"
+              ? "weekly"
+              : recurrence.pattern === "monthly"
+                ? "monthly"
+                : recurrence.pattern === "yearly" ? "yearly" : "none",
+        recurrenceInterval: recurrence.interval,
+        recurrenceMode: recurrence.enabled ? recurrence.mode : "none",
+        recurrencePattern: recurrence.enabled ? recurrence.pattern : "none",
+        recurrenceDays: recurrence.days,
+        recurrenceStartDate: nextDate,
+        recurrenceEndDate: habit.schedule.endDate ?? (recurrence.rangeEnd || null),
+        recurrenceMonths: recurrence.months,
+        recurrencePyatas: recurrence.pyatas,
+        recurrenceSeriesId: null,
+        calendarMode: activeTaskCalendarMode,
+        calendarNote: calendarDateNote(new Date(`${nextDate}T12:00:00`), activeTaskCalendarMode),
+        syncAccountIds: defaultSyncAccountIds,
+        googleAccountId: null,
+        googleAccountEmail: "",
+        googleTaskListId: null,
+        googleTaskListTitle: "",
+        updatedAt: timestamp(),
+      };
+      setTasks((current) => [...current.filter((item) => item.id !== reminderEvent.id), reminderEvent]);
+      const saved = await saveCloudTask(cloudUser.uid, reminderEvent);
+      setTasks((current) => [...current.filter((item) => item.id !== saved.id), saved]);
+      googleEventId = saved.id;
+    }
     setSyncStatus("synced");
-    return saved.id;
+    return { googleTaskId, googleEventId };
   };
 
   const advanceHabitGoogleReminder = async (habit: Habit, completedDate: string) => {
@@ -1895,7 +1975,7 @@ export function GenesisCalendar() {
     if (!reminderTask) return;
     if (reminderTask.dueDate > completedDate) return;
     const searchStart = completedDate < todayDateValue ? todayDateValue : addHabitDays(completedDate, 1);
-    const nextDate = nextHabitReminderDate(habit, searchStart);
+    const nextDate = nextHabitReminderDate(habit, searchStart, activeTaskCalendarMode);
     const nextTask = nextDate
       ? {
           ...reminderTask,
@@ -2249,16 +2329,36 @@ export function GenesisCalendar() {
   };
 
   const updateHabitWorkspace = (nextWorkspace: HabitWorkspace) => {
-    const normalized = normalizeHabitWorkspace(nextWorkspace);
-    const newlyCompletedEntries = normalized.habitEntries.filter((entry) => (
+    const normalizedBase = normalizeHabitWorkspace(nextWorkspace, activeTaskCalendarMode);
+    const changedDates = changedTrackerDates(habitWorkspace, normalizedBase);
+    const trackerDefinitionsChanged = JSON.stringify([
+      habitWorkspace.habits,
+      habitWorkspace.sleepPlans,
+      habitWorkspace.addictionTrackers,
+    ]) !== JSON.stringify([
+      normalizedBase.habits,
+      normalizedBase.sleepPlans,
+      normalizedBase.addictionTrackers,
+    ]);
+    if (trackerDefinitionsChanged) {
+      changedDates.add(todayDateValue);
+      normalizedBase.habitCompletions.forEach((entry) => changedDates.add(entry.date));
+      normalizedBase.sleepEntries.forEach((entry) => changedDates.add(entry.date));
+      normalizedBase.addictionEntries.forEach((entry) => changedDates.add(entry.date));
+    }
+    const normalized = ensureTrackerAnalytics(
+      refreshTrackerAnalytics(normalizedBase, changedDates, activeTaskCalendarMode),
+      activeTaskCalendarMode,
+    );
+    const newlyCompletedEntries = normalized.habitCompletions.filter((entry) => (
       entry.completed
-      && !habitWorkspace.habitEntries.some((current) => current.id === entry.id && current.completed)
+      && !habitWorkspace.habitCompletions.some((current) => current.id === entry.id && current.completed)
     ));
     setHabitWorkspace(normalized);
     if (!cloudUser) return;
     newlyCompletedEntries.forEach((entry) => {
       const habit = normalized.habits.find((item) => item.id === entry.habitId);
-      if (!habit?.reminder.enabled || !habit.reminder.syncToGoogle || !habit.reminder.googleTaskId) return;
+      if (!habit?.reminder.enabled || !habit.reminder.syncToGoogleTasks || !habit.reminder.googleTaskId) return;
       void advanceHabitGoogleReminder(habit, entry.date).catch((error: Error) => {
         setSyncError(error.message);
         setSyncStatus(navigator.onLine ? "error" : "offline");
@@ -3414,6 +3514,7 @@ export function GenesisCalendar() {
             date={todayDateValue}
             language={language}
             timeFormat={activeTimeFormat}
+            calendarMode={activeTaskCalendarMode}
             onChange={updateHabitWorkspace}
             onOpenHabits={() => navigateTo("habits")}
           />
@@ -5190,15 +5291,16 @@ export function GenesisCalendar() {
                 date={todayDateValue}
                 language={language}
                 timeFormat={activeTimeFormat}
-                calendarMode={activeCalendarMode}
+                calendarMode={activeTaskCalendarMode}
                 googleTasksReady={Boolean(cloudUser?.googleTasksImportReady)}
                 onChange={updateHabitWorkspace}
                 onReminderRequested={createHabitGoogleReminder}
-                onReminderRemoved={async (taskId) => {
-                  const reminderTask = tasks.find((task) => task.id === taskId);
-                  if (!reminderTask || !cloudUser) return;
-                  await removeCloudTask(cloudUser.uid, reminderTask);
-                  setTasks((current) => current.filter((task) => task.id !== taskId));
+                onReminderRemoved={async (habit) => {
+                  if (!cloudUser) return;
+                  const reminderIds = Array.from(new Set([habit.reminder.googleTaskId, habit.reminder.googleEventId].filter((id): id is string => Boolean(id))));
+                  const reminderTasks = tasks.filter((task) => reminderIds.includes(task.id));
+                  await Promise.all(reminderTasks.map((task) => removeCloudTask(cloudUser.uid, task)));
+                  setTasks((current) => current.filter((task) => !reminderIds.includes(task.id)));
                 }}
               />
             ) : null}
@@ -5377,6 +5479,7 @@ export function GenesisCalendar() {
                 date={selectedDateValue}
                 language={language}
                 timeFormat={activeTimeFormat}
+                calendarMode={activeTaskCalendarMode}
                 onChange={updateHabitWorkspace}
                 onOpenHabits={() => {
                   setDayDetailsOpen(false);
@@ -5678,6 +5781,7 @@ export function GenesisCalendar() {
           onLanguageChange={selectLanguage}
           categories={categories}
           habitTrackingEnabled={habitWorkspace.habitSettings.enabled}
+          workspaceRecoveryCode={workspaceRecoveryCodeForUser(cloudUser.uid)}
           onHabitTrackingChange={(enabled) => {
             updateHabitWorkspace({ ...habitWorkspace, habitSettings: { ...habitWorkspace.habitSettings, enabled } });
             if (!enabled && view === "habits") navigateTo("today");

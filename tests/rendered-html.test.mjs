@@ -10,6 +10,15 @@ import {
 import { formatClockTime, formatTimeValue, hourFromTwelveHour, twelveHourParts } from "../app/time-format.ts";
 import { DAY_RHYTHM_PERIODS, formatDayRhythmRange, getDayRhythmMoment } from "../app/day-rhythm.ts";
 import { THEOKYKLOS_DIRECTION_IDS, THEOKYKLOS_SEGMENTS } from "../app/theokyklos-data.ts";
+import {
+  calculateSleepDuration,
+  currentAbstinenceStreak,
+  moodValueColor,
+  nonNegativeTrackerTotal,
+  scoreAbstinenceDay,
+  scoreHabitFormula,
+  scoreSleepRules,
+} from "../app/tracker-math.ts";
 
 async function render() {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
@@ -46,13 +55,21 @@ test("server-renders the GENESIS application shell", async () => {
   assert.doesNotMatch(html, /href=["']\/admin-access/);
 });
 
-test("ships the encrypted habit tracker across dashboard, calendars and account settings", async () => {
-  const [calendar, tracker, habits, cloud, account, styles, rankArt] = await Promise.all([
+test("ships the modular encrypted tracker across dashboard, calendars and account settings", async () => {
+  const [calendar, tracker, habits, sleep, mood, addiction, analytics, cache, trackerMath, cloud, account, repository, migration, styles, rankArt] = await Promise.all([
     readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/HabitTracker.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/habits.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/sleep-tracker.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/mood-tracker.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/addiction-tracker.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/tracker-analytics.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/tracker-cache.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/tracker-math.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/cloud-sync.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/AccountPanel.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../server/src/repository.php", import.meta.url), "utf8"),
+    readFile(new URL("../server/migrations/010_client_workspace_keys.sql", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     stat(new URL("../public/habit-ranks/heroic-ranks.webp", import.meta.url)),
   ]);
@@ -60,6 +77,7 @@ test("ships the encrypted habit tracker across dashboard, calendars and account 
   assert.match(calendar, /id: "habits", label: "Привычки", symbol: "✦"/);
   assert.match(calendar, /<HabitDailyPanel[\s\S]*date=\{todayDateValue\}/);
   assert.match(calendar, /<HabitDailyPanel[\s\S]*date=\{selectedDateValue\}/);
+  assert.match(calendar, /calendarMode=\{activeTaskCalendarMode\}/);
   assert.match(calendar, /<HabitTrackerPage/);
   assert.match(calendar, /habitTrackingEnabled=\{habitWorkspace\.habitSettings\.enabled\}/);
   assert.match(calendar, /createHabitGoogleReminder/);
@@ -70,26 +88,86 @@ test("ships the encrypted habit tracker across dashboard, calendars and account 
   assert.match(cloud, /crypto\.subtle\.encrypt\(\{ name: "AES-GCM"/);
   assert.match(cloud, /JSON\.stringify\(\{[\s\S]*\.\.\.encryptedHabitWorkspace/);
   assert.match(cloud, /habits: structure\.habits/);
-  assert.match(cloud, /habitEntries: structure\.habitEntries/);
+  assert.match(cloud, /habitCompletions: structure\.habitCompletions/);
+  assert.match(cloud, /sleepEntries: structure\.sleepEntries/);
+  assert.match(cloud, /addictionEntries: structure\.addictionEntries/);
   assert.match(cloud, /moodEntries: structure\.moodEntries/);
+  assert.match(cloud, /WORKSPACE_DEVICE_KEY_PREFIX/);
+  assert.match(cloud, /wrapWorkspaceKey/);
+  assert.match(repository, /workspace_key_enc = NULL/);
+  assert.match(repository, /'key' => \$key/);
+  assert.match(migration, /workspace_key_wrapped/);
 
-  assert.match(habits, /type HabitKind = "positive" \| "negative" \| "monitor" \| "sleep" \| "wake"/);
+  assert.doesNotMatch(habits, /type HabitKind/);
+  assert.match(habits, /type HabitCompletion/);
   assert.match(habits, /type HabitQualityScale = "none" \| "ten" \| "bipolar"/);
   assert.match(habits, /export function isHabitScheduledForDate/);
   assert.match(habits, /export function habitScore/);
   assert.match(habits, /export const HEROIC_RANKS/);
   assert.equal((habits.match(/titleEn:/g) ?? []).length, 7);
-  assert.equal((habits.match(/labelEn:/g) ?? []).length, 16);
+  assert.match(sleep, /type SleepPlan/);
+  assert.match(sleep, /type SleepEntry/);
+  assert.match(sleep, /calculateSleepDuration/);
+  assert.match(trackerMath, /timeZoneOffset/);
+  assert.match(mood, /moodValue: MoodValue/);
+  assert.ok((mood.match(/labelEn:/g) ?? []).length >= 11);
+  assert.match(addiction, /type AddictionTracker/);
+  assert.match(addiction, /type AddictionEntry/);
+  assert.match(analytics, /refreshTrackerAnalytics/);
+  assert.match(cache, /indexedDB\.open/);
 
   assert.match(tracker, /type="range"/);
-  assert.match(tracker, /habit-time-rules/);
+  assert.match(tracker, /sleep-rule-editor/);
   assert.match(tracker, /mood-options/);
+  assert.match(tracker, /mood-summary-action/);
+  assert.match(tracker, /className="mood-summary" aria-expanded=\{isOpen\}/);
+  assert.match(tracker, /Выбрать/);
+  assert.match(tracker, /destination="tracker"/);
+  assert.doesNotMatch(tracker, /Система календаря/);
   assert.match(tracker, /habit-line-chart/);
   assert.match(tracker, /habit-heatmap/);
   assert.match(tracker, /heroic-rank-road/);
   assert.match(account, /onHabitTrackingChange/);
+  assert.match(account, /workspaceRecoveryCode/);
+  assert.match(styles, /\.habits-hero-score[\s\S]*position: absolute/);
+  assert.match(styles, /\.mood-tracker\.is-open \.mood-summary-action svg/);
   assert.match(styles, /\/habit-ranks\/heroic-ranks\.webp/);
   assert.ok(rankArt.size > 100_000, "heroic rank artwork should be a production image");
+});
+
+test("tracker scoring and time math preserve the specified invariants", () => {
+  assert.equal(scoreHabitFormula("binary", true, null), 10);
+  assert.equal(scoreHabitFormula("binary", false, null), 0);
+  assert.equal(scoreHabitFormula("quality-ten", true, 1), 1);
+  assert.equal(scoreHabitFormula("quality-ten", true, 5), 5);
+  assert.equal(scoreHabitFormula("quality-ten", true, 10), 10);
+  assert.equal(scoreHabitFormula("quality-bipolar", true, -5), 0);
+  assert.equal(scoreHabitFormula("quality-bipolar", true, 0), 10);
+  assert.equal(scoreHabitFormula("quality-bipolar", true, 5), 20);
+  assert.equal(scoreHabitFormula("none", true, 10), 0);
+
+  assert.equal(calculateSleepDuration("2026-09-14", "21:00", "23:00", "Europe/Moscow"), 120);
+  assert.equal(calculateSleepDuration("2026-09-14", "23:30", "07:30", "Europe/Moscow"), 480);
+  assert.equal(calculateSleepDuration("2026-03-07", "23:30", "03:30", "America/New_York"), 180);
+  assert.equal(scoreSleepRules(true, [
+    { field: "bedtime", operator: "on-or-before", threshold: "23:00", points: 10 },
+    { field: "wake", operator: "after", threshold: "08:00", points: -5 },
+  ], "22:45", "08:30"), 5);
+  assert.equal(scoreSleepRules(false, [{ field: "bedtime", operator: "after", threshold: "23:00", points: -10 }], "23:30", "07:00"), 0);
+
+  assert.notEqual(moodValueColor(-5), moodValueColor(0));
+  assert.notEqual(moodValueColor(0), moodValueColor(5));
+  assert.equal(scoreAbstinenceDay(10, 0, true, false), 10);
+  assert.equal(scoreAbstinenceDay(10, 0, false, true), 0);
+  assert.equal(scoreAbstinenceDay(10, 7, false, true), -7);
+  const entries = [
+    { trackerId: "a", date: "2026-09-14", cleanDay: true, relapse: false },
+    { trackerId: "a", date: "2026-09-15", cleanDay: true, relapse: false },
+    { trackerId: "a", date: "2026-09-16", cleanDay: false, relapse: true },
+  ];
+  assert.equal(currentAbstinenceStreak(entries, "a", "2026-09-15"), 2);
+  assert.equal(currentAbstinenceStreak(entries, "a", "2026-09-16"), 0);
+  assert.equal(nonNegativeTrackerTotal([[{ score: 10 }], [{ score: -50 }], [{ score: 10 }]]), 0);
 });
 
 test("ships the complete interactive bilingual Theokyklos", async () => {

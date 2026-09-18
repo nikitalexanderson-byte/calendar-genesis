@@ -233,6 +233,69 @@ export function lunarMonthOptions(startDate: string, endDate: string): LunarMont
   return options;
 }
 
+export function recurrenceMatchesDate(
+  startDate: string,
+  rawConfig: RecurrenceConfig,
+  dateValue: string,
+  options: { ignoreRangeEnd?: boolean } = {},
+) {
+  const taskStart = parseInputDate(startDate);
+  const candidate = parseInputDate(dateValue);
+  if (!taskStart || !candidate) return false;
+  const config = normalizeRecurrenceConfig(rawConfig);
+  if (!config.enabled) return dateValue === startDate;
+
+  const requestedStart = parseInputDate(config.rangeStart);
+  const anchor = requestedStart && requestedStart > taskStart ? requestedStart : taskStart;
+  const requestedEnd = parseInputDate(config.rangeEnd);
+  if (candidate < anchor || (!options.ignoreRangeEnd && requestedEnd && candidate > requestedEnd)) return false;
+
+  const selectedDays = new Set(config.days);
+  const selectedMonths = new Set(config.months);
+  const selectedPyatas = new Set(config.pyatas);
+
+  if (config.mode === "classic") {
+    if (config.pattern === "daily") {
+      return (utcDayNumber(candidate) - utcDayNumber(anchor)) % config.interval === 0;
+    }
+    if (config.pattern === "weekdays") {
+      const weekIndex = Math.floor((utcDayNumber(mondayOf(candidate)) - utcDayNumber(mondayOf(anchor))) / 7);
+      return weekIndex >= 0 && weekIndex % config.interval === 0 && selectedDays.has(calendarDayNumber(candidate));
+    }
+    if (config.pattern === "monthly") {
+      const monthsFromStart = monthDistance(anchor, candidate);
+      return monthsFromStart >= 0 && monthsFromStart % config.interval === 0 && candidate.getDate() === taskStart.getDate();
+    }
+    const yearsFromStart = candidate.getFullYear() - anchor.getFullYear();
+    return yearsFromStart >= 0
+      && yearsFromStart % config.interval === 0
+      && candidate.getMonth() === taskStart.getMonth()
+      && candidate.getDate() === taskStart.getDate();
+  }
+
+  if (config.mode === "genesis") {
+    const sacred = getSacredDate(candidate);
+    if (sacred.monthIndex >= 12 || (selectedMonths.size && !selectedMonths.has(sacred.monthIndex + 1))) return false;
+    if (config.pattern === "pyata-days") {
+      const pyata = Math.floor((sacred.day - 1) / 5) + 1;
+      return (!selectedPyatas.size || selectedPyatas.has(pyata)) && selectedDays.has(((sacred.day - 1) % 5) + 1);
+    }
+    return selectedDays.has(sacred.day);
+  }
+
+  const lunarDay = getMoon(candidate).day;
+  if (!selectedDays.has(lunarDay)) return false;
+  if (!selectedMonths.size) return true;
+  let lunarMonth = 1;
+  let previousDay = getMoon(anchor).day;
+  for (let cursor = shiftDate(anchor, 1); cursor <= candidate; cursor = shiftDate(cursor, 1)) {
+    const day = getMoon(cursor).day;
+    if (day < previousDay) lunarMonth += 1;
+    previousDay = day;
+  }
+  return selectedMonths.has(lunarMonth);
+}
+
 export function buildRecurrenceDates(startDate: string, rawConfig: RecurrenceConfig) {
   const config = resolveRecurrenceConfig(startDate, rawConfig);
   const range = resolvedRecurrenceRange(startDate, config);
