@@ -39,6 +39,14 @@ import {
   scheduleDailyGoalMode,
   upsertDailyGoalRecord,
 } from "../app/daily-goal.ts";
+import {
+  DAILY_GOAL_LAURELS,
+  PERFECT_DAY_LAURELS,
+  calculateLaurelsBalance,
+  createRewardTransaction,
+  normalizeRewardTransactions,
+  reconcileDailyGoalRewards,
+} from "../app/rewards.ts";
 
 async function render() {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
@@ -76,12 +84,13 @@ test("server-renders the GENESIS application shell", async () => {
 });
 
 test("ships the modular encrypted tracker across dashboard, calendars and account settings", async () => {
-  const [calendar, tracker, habits, progress, dailyGoal, sleep, mood, addiction, analytics, cache, trackerMath, cloud, account, repository, migration, styles, rankArt] = await Promise.all([
+  const [calendar, tracker, habits, progress, dailyGoal, rewards, sleep, mood, addiction, analytics, cache, trackerMath, cloud, account, repository, migration, styles, rankArt] = await Promise.all([
     readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/HabitTracker.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/habits.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/habit-progress.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/daily-goal.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/rewards.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/sleep-tracker.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/mood-tracker.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/addiction-tracker.ts", import.meta.url), "utf8"),
@@ -116,6 +125,7 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(cloud, /habitCompletions: structure\.habitCompletions/);
   assert.match(cloud, /userProgress: structure\.userProgress/);
   assert.match(cloud, /dailyGoalRecords: structure\.dailyGoalRecords/);
+  assert.match(cloud, /rewardTransactions: structure\.rewardTransactions/);
   assert.match(cloud, /hiddenDefaultTemplates: structure\.hiddenDefaultTemplates/);
   assert.match(cloud, /sleepEntries: structure\.sleepEntries/);
   assert.match(cloud, /addictionEntries: structure\.addictionEntries/);
@@ -135,12 +145,15 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(habits, /STARTER_HABIT_TEMPLATES/);
   assert.match(habits, /createHabitFromTemplate/);
   assert.match(habits, /normalizeHiddenDefaultTemplates/);
-  assert.match(habits, /trackerSchemaVersion: 5/);
+  assert.match(habits, /trackerSchemaVersion: 6/);
   assert.match(habits, /userProgress: UserProgress/);
   assert.match(habits, /xpAwarded: number/);
   assert.match(habits, /dailyGoalRecords: DailyGoalRecord/);
+  assert.match(habits, /rewardTransactions: RewardTransaction/);
   assert.match(habits, /refreshDailyGoalProgress/);
   assert.match(dailyGoal, /calculateGlobalStreak/);
+  assert.match(rewards, /reconcileDailyGoalRewards/);
+  assert.match(rewards, /daily-goal:self:/);
   assert.equal((progress.match(/titleEn:/g) ?? []).length, 14);
   assert.match(sleep, /type SleepPlan/);
   assert.match(sleep, /type SleepEntry/);
@@ -165,6 +178,9 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(tracker, /habit-heatmap/);
   assert.match(tracker, /heroic-rank-road/);
   assert.match(tracker, /daily-goal-ring/);
+  assert.match(tracker, /habits-hero-laurels/);
+  assert.match(tracker, /laurel-ledger/);
+  assert.match(tracker, /Лавров начислено/);
   assert.match(tracker, /Режим дневной цели/);
   assert.match(tracker, /Ещё один шаг — и дневная цель выполнена/);
   assert.match(tracker, /habit-template-library/);
@@ -177,6 +193,7 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(account, /workspaceRecoveryCode/);
   assert.match(styles, /\.habits-hero-status[\s\S]*position: absolute/);
   assert.match(styles, /\.daily-goal-ring/);
+  assert.match(styles, /\.laurel-ledger/);
   assert.match(styles, /\.mood-tracker\.is-open \.mood-summary-action svg/);
   assert.match(styles, /\/habit-ranks\/heroic-ranks\.webp/);
   assert.ok(rankArt.size > 100_000, "heroic rank artwork should be a production image");
@@ -280,6 +297,48 @@ test("daily goals preserve future-only modes and global streak rules", () => {
   assert.equal(deduplicated.filter((item) => item.date === "2026-09-21").length, 1);
   assert.equal(deduplicated.find((item) => item.date === "2026-09-21").timezone, "Asia/Tokyo");
   assert.equal(upsertDailyGoalRecord(deduplicated, timezoneReplacement).length, deduplicated.length);
+});
+
+test("Laurels use an idempotent ledger for daily goals and Perfect Days", () => {
+  assert.equal(DAILY_GOAL_LAURELS, 5);
+  assert.equal(PERFECT_DAY_LAURELS, 3);
+  const record = (date, completedCount, today = "2026-09-20") => buildDailyGoalRecord({
+    date,
+    mode: "rhythm",
+    timezone: "Europe/Moscow",
+    scheduledCount: 3,
+    completedCount,
+    today,
+    updatedAt: `${date}T12:00:00.000Z`,
+  });
+  const records = [
+    record("2026-09-15", 0),
+    buildDailyGoalRecord({ date: "2026-09-16", mode: "rhythm", timezone: "Europe/Moscow", scheduledCount: 0, completedCount: 0, today: "2026-09-20" }),
+    buildDailyGoalRecord({ date: "2026-09-17", mode: "rhythm", timezone: "Europe/Moscow", scheduledCount: 3, completedCount: 0, today: "2026-09-20", isRestDay: true }),
+    record("2026-09-18", 2),
+    record("2026-09-19", 3),
+    record("2026-09-20", 0),
+    record("2026-09-21", 3),
+  ];
+
+  const firstPass = reconcileDailyGoalRewards(records, [], "2026-09-20", "2026-09-20T13:00:00.000Z");
+  assert.deepEqual(firstPass.map((transaction) => transaction.amount), [5, 5, 3]);
+  assert.deepEqual(firstPass.map((transaction) => transaction.reason), ["daily-goal", "daily-goal", "perfect-day"]);
+  assert.equal(calculateLaurelsBalance(firstPass), 13);
+  assert.ok(firstPass.every((transaction) => transaction.userId === "self" && transaction.currency === "laurels"));
+
+  const repeatedPass = reconcileDailyGoalRewards(records, firstPass, "2026-09-20", "2026-09-20T14:00:00.000Z");
+  assert.deepEqual(repeatedPass, firstPass, "reload and repeated synchronization must not duplicate rewards");
+  assert.equal(repeatedPass.filter((transaction) => transaction.idempotencyKey === "daily-goal:self:2026-09-19").length, 1);
+  assert.equal(repeatedPass.some((transaction) => transaction.sourceId === "2026-09-21"), false, "future Perfect Days must not be rewarded early");
+  assert.equal(repeatedPass.some((transaction) => ["2026-09-15", "2026-09-16", "2026-09-17"].includes(transaction.sourceId)), false, "missed, neutral and rest days must not earn Laurels");
+
+  const duplicate = { ...firstPass[0], id: "offline-copy", createdAt: "2026-09-18T13:00:00.000Z" };
+  assert.equal(normalizeRewardTransactions([...firstPass, duplicate]).length, firstPass.length, "offline copies use the same idempotency key");
+
+  const quest = createRewardTransaction({ amount: 200, reason: "weekly-quest", sourceId: "quest-1", idempotencyKey: "weekly-quest:self:quest-1" });
+  const purchase = createRewardTransaction({ amount: -120, reason: "hestia-spark", sourceId: "spark-1", idempotencyKey: "hestia-spark:self:spark-1" });
+  assert.equal(calculateLaurelsBalance([...firstPass, quest, purchase]), 93, "spendable balance must be derived from the complete ledger");
 });
 
 test("tracker scoring and time math preserve the specified invariants", () => {

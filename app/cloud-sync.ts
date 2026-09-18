@@ -622,6 +622,7 @@ export async function loadGenesisWorkspace(): Promise<GenesisWorkspace> {
     addictionEntries: structure.addictionEntries,
     analyticsSnapshots: structure.analyticsSnapshots,
     dailyGoalRecords: structure.dailyGoalRecords,
+    rewardTransactions: structure.rewardTransactions,
     habitSettings: structure.habitSettings,
     hiddenDefaultTemplates: structure.hiddenDefaultTemplates,
     hasRemoteStructure: payload.workspace.envelope !== null,

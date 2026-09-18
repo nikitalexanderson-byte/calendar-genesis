@@ -46,6 +46,12 @@ import {
   type UserProgress,
 } from "./habit-progress";
 import {
+  calculateLaurelsBalance,
+  normalizeRewardTransactions,
+  reconcileDailyGoalRewards,
+  type RewardTransaction,
+} from "./rewards";
+import {
   HABIT_COLORS,
   isHabitTemplateId,
   starterTemplateRecurrencePreset,
@@ -57,6 +63,8 @@ export { HABIT_COLORS, STARTER_HABIT_TEMPLATES } from "./habit-templates";
 export type { HabitTemplate, HabitTemplateId } from "./habit-templates";
 export { HEROIC_RANKS, completionXpAward, heroicRank, nextHeroicRank } from "./habit-progress";
 export type { HeroicRank, HeroicRankId, UserProgress } from "./habit-progress";
+export type { RewardCurrency, RewardReason, RewardTransaction } from "./rewards";
+export { DAILY_GOAL_LAURELS, PERFECT_DAY_LAURELS, laurelsForDailyGoal } from "./rewards";
 export { dailyGoalTarget } from "./daily-goal";
 export type { DailyGoalMode, DailyGoalModeChange, DailyGoalRecord, DailyGoalStatus } from "./daily-goal";
 
@@ -106,7 +114,7 @@ export type HabitSettings = {
 };
 
 export type HabitWorkspace = {
-  trackerSchemaVersion: 5;
+  trackerSchemaVersion: 6;
   userProgress: UserProgress;
   habits: Habit[];
   habitCompletions: HabitCompletion[];
@@ -117,6 +125,7 @@ export type HabitWorkspace = {
   addictionEntries: AddictionEntry[];
   analyticsSnapshots: TrackerAnalyticsSnapshot[];
   dailyGoalRecords: DailyGoalRecord[];
+  rewardTransactions: RewardTransaction[];
   habitSettings: HabitSettings;
   hiddenDefaultTemplates: HabitTemplateId[];
 };
@@ -178,9 +187,10 @@ export const DEFAULT_HABIT_SETTINGS: HabitSettings = {
 };
 
 export const EMPTY_HABIT_WORKSPACE: HabitWorkspace = {
-  trackerSchemaVersion: 5,
+  trackerSchemaVersion: 6,
   userProgress: {
     lifetimeXp: 0,
+    laurelsBalance: 0,
     currentRankId: null,
     currentStreak: 0,
     longestStreak: 0,
@@ -198,6 +208,7 @@ export const EMPTY_HABIT_WORKSPACE: HabitWorkspace = {
   addictionEntries: [],
   analyticsSnapshots: [],
   dailyGoalRecords: [],
+  rewardTransactions: [],
   habitSettings: DEFAULT_HABIT_SETTINGS,
   hiddenDefaultTemplates: [],
 };
@@ -480,7 +491,14 @@ export function normalizeHabitWorkspace(
   const habitCompletions = rawEntries
     .map((entry) => normalizeHabitCompletion(entry, habitMap))
     .filter((entry): entry is HabitCompletion => entry !== null);
-  const userProgress = reconcileUserProgress(value.userProgress, habitCompletions);
+  const rewardTransactions = normalizeRewardTransactions(value.rewardTransactions);
+  const userProgress = reconcileUserProgress(
+    value.userProgress,
+    habitCompletions,
+    new Date().toISOString(),
+    undefined,
+    calculateLaurelsBalance(rewardTransactions),
+  );
 
   const explicitSleepPlans = Array.isArray(value.sleepPlans)
     ? value.sleepPlans.map((plan) => normalizeSleepPlan(plan as unknown as Record<string, unknown>, fallbackDate, calendarMode)).filter((plan): plan is SleepPlan => plan !== null)
@@ -515,7 +533,7 @@ export function normalizeHabitWorkspace(
   });
 
   const workspace: HabitWorkspace = {
-    trackerSchemaVersion: 5,
+    trackerSchemaVersion: 6,
     userProgress,
     habits,
     habitCompletions,
@@ -526,6 +544,7 @@ export function normalizeHabitWorkspace(
     addictionEntries: [...explicitAddictionEntries, ...migratedAddictionEntries],
     analyticsSnapshots: normalizeSnapshots(value.analyticsSnapshots),
     dailyGoalRecords: normalizeDailyGoalRecords(value.dailyGoalRecords),
+    rewardTransactions,
     habitSettings: normalizeSettings(value.habitSettings),
     hiddenDefaultTemplates: normalizeHiddenDefaultTemplates(value.hiddenDefaultTemplates),
   };
@@ -565,7 +584,7 @@ export function dailyGoalForDate(
     ? existing.mode
     : dailyGoalModeForDate(workspace.habitSettings.dailyGoalModeChanges, date);
   const counts = dailyGoalCounts(workspace, date, calendarMode);
-  return buildDailyGoalRecord({
+  const next = buildDailyGoalRecord({
     date,
     mode,
     timezone: existing?.timezone ?? trackerTimeZone(),
@@ -573,13 +592,31 @@ export function dailyGoalForDate(
     today,
     isRestDay: workspace.habitSettings.plannedRestDays.includes(date),
   });
+  return existing
+    && existing.mode === next.mode
+    && existing.timezone === next.timezone
+    && existing.scheduledCount === next.scheduledCount
+    && existing.completedCount === next.completedCount
+    && existing.targetCount === next.targetCount
+    && existing.status === next.status
+    ? existing
+    : next;
 }
 
 function withDailyGoalStreak(workspace: HabitWorkspace, today: string) {
   const streak = calculateGlobalStreak(workspace.dailyGoalRecords, today);
+  const timestamp = new Date().toISOString();
+  const rewardTransactions = reconcileDailyGoalRewards(workspace.dailyGoalRecords, workspace.rewardTransactions, today, timestamp);
   return {
     ...workspace,
-    userProgress: reconcileUserProgress(workspace.userProgress, workspace.habitCompletions, new Date().toISOString(), streak),
+    rewardTransactions,
+    userProgress: reconcileUserProgress(
+      workspace.userProgress,
+      workspace.habitCompletions,
+      timestamp,
+      streak,
+      calculateLaurelsBalance(rewardTransactions),
+    ),
   };
 }
 
