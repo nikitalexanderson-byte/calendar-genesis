@@ -490,7 +490,7 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(habitQuests, /HabitQuestCadence = "daily" \| "weekly" \| "epic"/);
   assert.match(habitQuests, /attainableCompletions/);
   assert.match(habitQuests, /EPIC_QUEST_LAURELS/);
-  assert.equal((achievements.match(/id: "/g) ?? []).length, 17);
+  assert.equal((achievements.match(/id: "/g) ?? []).length, 18);
   assert.match(achievements, /reconcileAchievementUnlocks/);
   assert.match(achievements, /hidden: true/);
   assert.match(habitNotifications, /buildHabitNotificationPlan/);
@@ -620,9 +620,14 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(habitInsightsPanel, /Итоги недели/);
   assert.match(habitInsightsPanel, /Индекс Ритма/);
   assert.match(habitInsightsPanel, /Мозаика года/);
+  assert.match(habitInsightsPanel, /className="habit-year-mosaic-toggle"/);
+  assert.match(habitInsightsPanel, /aria-expanded=\{mosaicOpen\}/);
+  assert.match(habitInsightsPanel, /disclosure-chevron\$\{mosaicOpen \? " open" : ""\}/);
   assert.match(habitInsightsPanel, /Личные рекорды и мастерство/);
   assert.match(habitInsights, /HABIT_MASTERY_MILESTONES = \[7, 30, 50, 100, 365, 500, 1_000\]/);
   assert.match(styles, /\.habit-year-mosaic-grid/);
+  assert.match(styles, /grid-template-columns:repeat\(14,minmax\(0,1fr\)\)/);
+  assert.match(styles, /\.habit-year-mosaic-body \{ padding:4px 13px 15px; overflow-x:visible; \}/);
   assert.match(styles, /\.habit-personal-record-grid/);
   assert.match(styles, /\.streak-reward-track/);
   assert.match(styles, /\.adaptive-habit-panel/);
@@ -1183,8 +1188,8 @@ test("daily, weekly and epic trials stay achievable and reward idempotently", ()
 });
 
 test("achievements unlock from real history without changing Rank XP", () => {
-  assert.equal(ACHIEVEMENTS.length, 17);
-  assert.equal(ACHIEVEMENTS.filter((achievement) => achievement.hidden).length, 7);
+  assert.equal(ACHIEVEMENTS.length, 18);
+  assert.equal(ACHIEVEMENTS.filter((achievement) => achievement.hidden).length, 8);
   const firstSource = {
     habitCompletions: [{ habitId: "reading", completed: true }],
     dailyGoalRecords: [{ date: "2026-09-18", status: "perfect" }],
@@ -1203,7 +1208,7 @@ test("achievements unlock from real history without changing Rank XP", () => {
   assert.deepEqual(first.map((unlock) => unlock.achievementId), ["first-step", "three-day-rhythm", "perfect-day"]);
   assert.ok(first.every((unlock) => unlock.userId === "self" && unlock.id === `achievement:${unlock.achievementId}`));
 
-  const perfectWeek = Array.from({ length: 7 }, (_, index) => ({ date: `2026-09-${String(12 + index).padStart(2, "0")}`, status: "perfect" }));
+  const perfectWeek = Array.from({ length: 30 }, (_, index) => ({ date: new Date(Date.UTC(2026, 7, 20 + index)).toISOString().slice(0, 10), status: "perfect" }));
   const fullSource = {
     habitCompletions: Array.from({ length: 1_000 }, () => ({ habitId: "reading", completed: true })),
     dailyGoalRecords: perfectWeek,

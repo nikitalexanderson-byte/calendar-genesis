@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, type CSSProperties } from "react";
+import { useId, useMemo, useState, type CSSProperties } from "react";
 import type { CalendarMode } from "./calendar-data";
 import type { Language } from "./i18n";
 import { isHabitScheduledForDate, type HabitWorkspace } from "./habits";
@@ -34,6 +34,8 @@ function comparisonCopy(current: number, previous: number, change: number, isEng
 
 export function HabitInsightsPanel({ workspace, date, language, calendarMode }: HabitInsightsPanelProps) {
   const isEnglish = language === "en";
+  const [mosaicOpen, setMosaicOpen] = useState(false);
+  const mosaicBodyId = useId();
   const weekly = useMemo(() => buildWeeklyHabitSummary(workspace, date), [date, workspace]);
   const mosaic = useMemo(() => buildHabitYearMosaic(workspace.dailyGoalRecords, date), [date, workspace.dailyGoalRecords]);
   const records = useMemo(() => [...workspace.habits]
@@ -68,15 +70,27 @@ export function HabitInsightsPanel({ workspace, date, language, calendarMode }: 
         <div><span className="eyebrow">{isEnglish ? "Recent 28 days" : "Последние 28 дней"}</span><h3 id="habit-rhythm-index-title">{isEnglish ? "Rhythm index" : "Индекс Ритма"}</h3><strong>{rhythmLabel(rhythm, isEnglish)}</strong><p>{isEnglish ? "A client-side consistency indicator. Recent days weigh more, so returning to practice becomes visible quickly." : "Клиентский показатель последовательности. Недавние дни имеют больший вес, поэтому возвращение к практике становится заметно быстро."}</p></div>
       </section>
 
-      <details className="habit-year-mosaic">
-        <summary><span><small>{isEnglish ? "365-day perspective" : "Перспектива 365 дней"}</small><strong>{isEnglish ? "Year mosaic" : "Мозаика года"}</strong></span><span>{date.slice(0, 4)} · {qualifiedDays} {isEnglish ? "goal days" : "дней с целью"} · {perfectDays} Perfect</span></summary>
-        <div className="habit-year-mosaic-body">
+      <section className={`habit-year-mosaic${mosaicOpen ? " open" : ""}`}>
+        <button
+          type="button"
+          className="habit-year-mosaic-toggle"
+          aria-expanded={mosaicOpen}
+          aria-controls={mosaicBodyId}
+          onClick={() => setMosaicOpen((current) => !current)}
+        >
+          <span><small>{isEnglish ? "365-day perspective" : "Перспектива 365 дней"}</small><strong>{isEnglish ? "Year mosaic" : "Мозаика года"}</strong></span>
+          <span className="habit-year-mosaic-meta">{date.slice(0, 4)} · {qualifiedDays} {isEnglish ? "goal days" : "дней с целью"} · {perfectDays} Perfect</span>
+          <svg className={`disclosure-chevron${mosaicOpen ? " open" : ""}`} viewBox="0 0 20 20" aria-hidden="true">
+            <path d="m5.5 7.5 4.5 4.5 4.5-4.5" />
+          </svg>
+        </button>
+        {mosaicOpen ? <div className="habit-year-mosaic-body" id={mosaicBodyId}>
           <div className="habit-year-mosaic-grid" role="img" aria-label={isEnglish ? `Habit activity mosaic for ${date.slice(0, 4)}` : `Мозаика активности привычек за ${date.slice(0, 4)} год`}>
-            {mosaic.map((cell) => <i className={cell.status} style={{ gridColumn: cell.week, gridRow: cell.weekday }} title={`${cell.date}: ${cell.completed}/${cell.scheduled}`} key={cell.date} />)}
+            {mosaic.map((cell) => <i className={cell.status} style={{ "--mosaic-week": cell.week, "--mosaic-weekday": cell.weekday } as CSSProperties} title={`${cell.date}: ${cell.completed}/${cell.scheduled}`} key={cell.date} />)}
           </div>
           <footer><span>{isEnglish ? "No activity" : "Нет активности"}</span><i className="none" /><i className="partial" /><i className="qualified" /><i className="perfect" /><span>{isEnglish ? "Perfect Day" : "Идеальный день"}</span></footer>
-        </div>
-      </details>
+        </div> : null}
+      </section>
 
       {records.length ? <section className="habit-personal-records" aria-labelledby="habit-personal-records-title">
         <header><div><span className="eyebrow">{isEnglish ? "Compete with yourself" : "Соревнование с собой"}</span><h3 id="habit-personal-records-title">{isEnglish ? "Personal records and mastery" : "Личные рекорды и мастерство"}</h3><p>{isEnglish ? "Progress for each habit is separate from your overall heroic rank." : "Прогресс каждой привычки существует отдельно от общего героического ранга."}</p></div></header>

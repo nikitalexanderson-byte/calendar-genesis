@@ -8,6 +8,7 @@ export type AchievementId =
   | "fortnight-rhythm"
   | "perfect-day"
   | "perfect-week"
+  | "perfect-month"
   | "habit-thirty"
   | "century"
   | "iron-rhythm"
@@ -59,6 +60,7 @@ export const ACHIEVEMENTS: readonly AchievementDefinition[] = [
   { id: "fortnight-rhythm", title: "Укреплённый ритм", titleEn: "Anchored Rhythm", description: "Сохранить серию 14 дней.", descriptionEn: "Keep a 14-day streak.", hidden: false, motif: "steps" },
   { id: "perfect-day", title: "Завершённый круг", titleEn: "The Complete Circle", description: "Прожить первый идеальный день.", descriptionEn: "Reach your first Perfect Day.", hidden: false, motif: "circle" },
   { id: "perfect-week", title: "Идеальная неделя", titleEn: "Perfect Week", description: "Семь идеальных дней подряд.", descriptionEn: "Reach seven Perfect Days in a row.", hidden: true, motif: "crown" },
+  { id: "perfect-month", title: "Золотая череда", titleEn: "The Golden Sequence", description: "Тридцать идеальных дней подряд.", descriptionEn: "Reach thirty Perfect Days in a row.", hidden: true, motif: "constellation" },
   { id: "habit-thirty", title: "Укоренение", titleEn: "Taking Root", description: "Выполнить одну привычку 30 раз.", descriptionEn: "Complete one habit 30 times.", hidden: false, motif: "leaf" },
   { id: "century", title: "Сотня", titleEn: "Century", description: "Выполнить одну привычку 100 раз.", descriptionEn: "Complete one habit 100 times.", hidden: false, motif: "column" },
   { id: "iron-rhythm", title: "Железный ритм", titleEn: "Iron Rhythm", description: "Сохранить серию 30 дней.", descriptionEn: "Keep a 30-day streak.", hidden: false, motif: "shield" },
@@ -116,6 +118,7 @@ function qualifies(id: AchievementId, metrics: AchievementMetrics) {
   if (id === "fortnight-rhythm") return metrics.longestStreak >= 14;
   if (id === "perfect-day") return metrics.hasPerfectDay;
   if (id === "perfect-week") return metrics.longestPerfectRun >= 7;
+  if (id === "perfect-month") return metrics.longestPerfectRun >= 30;
   if (id === "habit-thirty") return metrics.bestHabitCompletions >= 30;
   if (id === "century") return metrics.bestHabitCompletions >= 100;
   if (id === "iron-rhythm") return metrics.longestStreak >= 30;
