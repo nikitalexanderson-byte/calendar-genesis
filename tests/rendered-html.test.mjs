@@ -1942,6 +1942,40 @@ test("mood tracker exposes twelve choices in one responsive desktop row", async 
   assert.match(habits, /moodDistribution: Array\.from\(\{ length: 12 \}/);
 });
 
+test("QA-01 precaches the complete cold-install shell before activating the worker", async () => {
+  const [serviceWorker, viteConfig, packageSource, verifier, htaccess, installHook, tracker, styles] = await Promise.all([
+    readFile(new URL("../public/sw.js", import.meta.url), "utf8"),
+    readFile(new URL("../vite.beget.config.ts", import.meta.url), "utf8"),
+    readFile(new URL("../package.json", import.meta.url), "utf8"),
+    readFile(new URL("../scripts/verify-offline-precache.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../public/.htaccess", import.meta.url), "utf8"),
+    readFile(new URL("../app/use-pwa-install.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/HabitTracker.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+  const packageJson = JSON.parse(packageSource);
+
+  assert.match(viteConfig, /genesis-offline-precache-manifest/);
+  assert.match(viteConfig, /precache-manifest\.js/);
+  assert.match(viteConfig, /createHash\("sha256"\)/);
+  assert.equal(packageJson.scripts["build:beget"], "vite build --config vite.beget.config.ts && node scripts/verify-offline-precache.mjs");
+  assert.match(verifier, /missingAssets/);
+  assert.match(verifier, /mandatory entry assets/);
+  assert.match(serviceWorker, /importScripts\(new URL\("\.\/precache-manifest\.js", SCOPE\)\.href\)/);
+  assert.match(serviceWorker, /REQUIRED_SHELL/);
+  assert.match(serviceWorker, /await cache\.addAll\([\s\S]*await self\.skipWaiting\(\)/);
+  assert.match(serviceWorker, /key\.startsWith\(CACHE_PREFIX\) && key !== CACHE/);
+  assert.match(installHook, /updateViaCache: "none"/);
+  assert.match(htaccess, /\^\(\?:sw\|precache-manifest\)\\\.js\$/);
+  assert.match(htaccess, /no-cache, no-store, must-revalidate/);
+
+  assert.match(tracker, /className="secondary-button sacred-library-toggle" aria-expanded=\{expanded\}/);
+  assert.match(tracker, /<DisclosureChevron open=\{expanded\}/);
+  assert.match(styles, /\.sacred-library-toggle \{[^}]*border-radius:999px/);
+  assert.match(styles, /\.sacred-library-toggle\[aria-expanded="true"\]/);
+  assert.match(styles, /\.sacred-library-toggle \.disclosure-chevron/);
+});
+
 test("keeps the requested calendar and privacy features wired", async () => {
   const [calendarData, calendar, calendarDatePicker, accountPanel, cloudSync, recurrenceBuilder, taskRecurrence, moonPhase, solarTimes, stoicheion, stoicheionData, welcome, styles, api, google, repository, multiAccountMigration, i18n, languageMigration, taskCalendarMigration, englishManifest, geminiAssistant, localVoiceAssistant, localVoicePlan, geminiServer, publicHtaccess, serverConfigExample, cronusSickle, reminderPicker, taskReminders, serviceWorker] = await Promise.all([
     readFile(new URL("../app/calendar-data.ts", import.meta.url), "utf8"),
@@ -2274,7 +2308,9 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(styles, /\.hero-card\.mode-profane\.weekday-6/);
   assert.match(styles, /\.profane-hero-description/);
   assert.match(styles, /\.all-tasks-create\[open\]\s*\{[\s\S]*overflow:\s*visible/);
-  assert.match(serviceWorker, /genesis-shell-v24/);
+  assert.match(serviceWorker, /CACHE_PREFIX = "genesis-shell-"/);
+  assert.match(serviceWorker, /__GENESIS_PRECACHE_VERSION/);
+  assert.match(serviceWorker, /__GENESIS_PRECACHE/);
   assert.match(serviceWorker, /notificationclick/);
   assert.match(serviceWorker, /GENESIS_NOTIFICATION_OPENED/);
   assert.match(serviceWorker, /weekday-0-sunday-apollo\.webp/);

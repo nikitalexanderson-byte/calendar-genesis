@@ -23,6 +23,12 @@ RewriteRule . index.html [L]
   </IfModule>
 </FilesMatch>
 
+<FilesMatch "^(?:sw|precache-manifest)\.js$">
+  <IfModule mod_headers.c>
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+  </IfModule>
+</FilesMatch>
+
 <FilesMatch "\.apk$">
   ForceType application/vnd.android.package-archive
   <IfModule mod_headers.c>

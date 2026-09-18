@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "vinext dev",
     "build": "vinext build",
-    "build:beget": "vite build --config vite.beget.config.ts",
+    "build:beget": "vite build --config vite.beget.config.ts && node scripts/verify-offline-precache.mjs",
     "start": "vinext start",
     "test": "npm run i18n:audit && npm run build && node --experimental-strip-types --test tests/rendered-html.test.mjs",
     "i18n:audit": "node scripts/audit-translations.mjs",
