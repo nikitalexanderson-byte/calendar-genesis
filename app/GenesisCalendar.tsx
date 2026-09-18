@@ -23,6 +23,8 @@ import {
   type RecurrenceKind,
   type TaskListProjectLink,
   type TaskOrigin,
+  GENESIS_LEGACY_WORKSPACE_STORAGE_KEY,
+  GENESIS_USER_WORKSPACE_STORAGE_PREFIX,
   connectAdditionalGoogleAccount,
   connectGoogleServices,
   consumeGoogleAuthError,
@@ -194,8 +196,6 @@ type AlternativeYearMonth = {
 type DayDetailsOrigin = "calendar" | "year";
 type SolarLocationStatus = "loading" | "ready";
 
-const LEGACY_STORAGE_KEY = "genesis-calendar-v1";
-const USER_STORAGE_PREFIX = "genesis-calendar-v2:";
 const LAST_USER_KEY = "genesis-last-user-v2";
 
 const NAVIGATION: Array<{ id: ViewName; label: string; symbol: string }> = [
@@ -1486,7 +1486,7 @@ export function GenesisCalendar() {
   useEffect(() => {
     const initialState = isGoogleSyncConfigured
       ? { tasks: [], projects: [], categories: DEFAULT_CATEGORIES, taskLists: [], taskListLinks: [], ...normalizeHabitWorkspace(null) }
-      : readStoredState(LEGACY_STORAGE_KEY);
+      : readStoredState(GENESIS_LEGACY_WORKSPACE_STORAGE_KEY);
 
     const timer = window.setTimeout(() => {
       tasksRef.current = initialState.tasks;
@@ -1511,7 +1511,7 @@ export function GenesisCalendar() {
     tasksRef.current = tasks;
     projectsRef.current = projects;
     categoriesRef.current = categories;
-    const key = cloudUser ? `${USER_STORAGE_PREFIX}${cloudUser.uid}` : LEGACY_STORAGE_KEY;
+    const key = cloudUser ? `${GENESIS_USER_WORKSPACE_STORAGE_PREFIX}${cloudUser.uid}` : GENESIS_LEGACY_WORKSPACE_STORAGE_KEY;
     localStorage.setItem(key, JSON.stringify({ tasks, projects, categories, taskLists, taskListLinks, ...habitWorkspace }));
   }, [hydrated, cloudUser, tasks, projects, categories, taskLists, taskListLinks, habitWorkspace]);
 
@@ -1577,8 +1577,8 @@ export function GenesisCalendar() {
       stopTasks = undefined;
       loadedUserId = user.uid;
 
-      const userKey = `${USER_STORAGE_PREFIX}${user.uid}`;
-      const local = readStoredState(localStorage.getItem(userKey) ? userKey : LEGACY_STORAGE_KEY);
+      const userKey = `${GENESIS_USER_WORKSPACE_STORAGE_PREFIX}${user.uid}`;
+      const local = readStoredState(localStorage.getItem(userKey) ? userKey : GENESIS_LEGACY_WORKSPACE_STORAGE_KEY);
       tasksRef.current = local.tasks;
       projectsRef.current = local.projects;
       categoriesRef.current = local.categories;
@@ -1662,7 +1662,7 @@ export function GenesisCalendar() {
         const cached = JSON.parse(localStorage.getItem(LAST_USER_KEY) || "null") as GenesisUser | null;
         if (cached?.uid) {
           const cachedLanguage = normalizeLanguage(cached.language);
-          const local = readStoredState(`${USER_STORAGE_PREFIX}${cached.uid}`);
+          const local = readStoredState(`${GENESIS_USER_WORKSPACE_STORAGE_PREFIX}${cached.uid}`);
           tasksRef.current = local.tasks;
           projectsRef.current = local.projects;
           categoriesRef.current = local.categories;

@@ -110,6 +110,48 @@ test("server-renders the GENESIS application shell", async () => {
   assert.doesNotMatch(html, /href=["']\/admin-access/);
 });
 
+test("account deletion atomically purges only the authenticated user's server and device data", async () => {
+  const [repository, apiRouter, cloud, account, smoke] = await Promise.all([
+    readFile(new URL("../server/src/repository.php", import.meta.url), "utf8"),
+    readFile(new URL("../server/public/api/index.php", import.meta.url), "utf8"),
+    readFile(new URL("../app/cloud-sync.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/AccountPanel.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../server/tests/smoke.php", import.meta.url), "utf8"),
+  ]);
+  const deletion = repository.slice(repository.indexOf("function genesisAccountDataLocations"), repository.indexOf("function genesisRemoveLinkedGoogleAccount"));
+  for (const table of [
+    "categories",
+    "projects",
+    "tasks",
+    "task_links",
+    "workspace_blobs",
+    "user_metrics",
+    "stoicheion_draws",
+    "linked_google_accounts",
+    "users",
+  ]) assert.match(deletion, new RegExp(`'${table}'`));
+  assert.match(deletion, /\$ownsTransaction = !\$db->inTransaction\(\)/);
+  assert.match(deletion, /\$db->beginTransaction\(\)/);
+  assert.match(deletion, /DELETE FROM users WHERE id = :id/);
+  assert.match(deletion, /array_sum\(\$remaining\) !== 0/);
+  assert.match(deletion, /\$db->rollBack\(\)/);
+
+  const accountRoute = apiRouter.slice(apiRouter.indexOf("if ($method === 'DELETE' && $path === 'account')"));
+  assert.match(accountRoute, /\$userId = genesisRequireUserId\(\);[\s\S]*genesisRequireCsrf\(\);[\s\S]*genesisDeleteAccount\(\$userId\)/);
+  assert.match(accountRoute, /'deleted' => true/);
+  assert.doesNotMatch(accountRoute.slice(0, accountRoute.indexOf("if ($method === 'POST' && $path === 'account/google-services/disconnect')")), /genesisReadJson\(\)/);
+
+  assert.match(cloud, /deleteGenesisAccount\(userId\?: string\)/);
+  assert.match(cloud, /GENESIS_USER_WORKSPACE_STORAGE_PREFIX/);
+  assert.match(cloud, /localStorage\.removeItem\(PENDING_KEY\)/);
+  assert.match(cloud, /clearTrackerAnalyticsCache\(deletedUserId\)/);
+  assert.match(account, /deleteGenesisAccount\(user\.uid\)/);
+  assert.match(account, /все связанные с ним данные с сервера GENESIS/);
+  assert.match(smoke, /test-account-deletion-survivor/);
+  assert.match(smoke, /array_sum\(genesisAccountDataCounts\(\$userId\)\) === 0/);
+  assert.match(smoke, /Account deletion removed another user/);
+});
+
 test("ships the modular encrypted tracker across dashboard, calendars and account settings", async () => {
   const [calendar, tracker, habits, habitReset, progress, dailyGoal, rewards, sleep, mood, addiction, analytics, cache, trackerMath, cloud, account, repository, migration, styles, sigil, metricSigil, rankArt] = await Promise.all([
     readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),

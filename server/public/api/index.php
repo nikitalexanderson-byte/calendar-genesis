@@ -40,7 +40,7 @@ if ($method === 'OPTIONS') {
     exit;
 }
 
-function genesisFinishSession(): never
+function genesisFinishSession(array $payload = ['ok' => true]): never
 {
     $_SESSION = [];
     if (ini_get('session.use_cookies')) {
@@ -48,7 +48,7 @@ function genesisFinishSession(): never
         setcookie(session_name(), '', time() - 42000, $params['path'], $params['domain'] ?? '', (bool)$params['secure'], (bool)$params['httponly']);
     }
     session_destroy();
-    genesisJson(['ok' => true]);
+    genesisJson($payload);
 }
 
 function genesisSafeReturnTo(string $value): string
@@ -344,7 +344,7 @@ try {
         $userId = genesisRequireUserId();
         genesisRequireCsrf();
         genesisDeleteAccount($userId);
-        genesisFinishSession();
+        genesisFinishSession(['ok' => true, 'deleted' => true]);
     }
 
     if ($method === 'POST' && $path === 'account/google-services/disconnect') {

@@ -202,10 +202,10 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
   };
 
   const removeAccount = async () => {
-    if (!window.confirm(translateText("Удалить аккаунт GENESIS и данные с сервера? Разрешения Google будут отозваны. События и списки задач останутся в вашем Google-аккаунте.", undefined, true))) return;
+    if (!window.confirm(translateText("Безвозвратно удалить аккаунт GENESIS и все относящиеся к нему данные с сервера? Будут удалены профиль, зашифрованное пространство, привычки, статистика, расклады и привязки аккаунтов. Разрешения Google будут отозваны. Уже созданные события и списки задач останутся в вашем Google-аккаунте.", undefined, true))) return;
     setBusy(true);
     try {
-      await deleteGenesisAccount();
+      await deleteGenesisAccount(user.uid);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Не удалось удалить аккаунт.");
       setBusy(false);
@@ -554,7 +554,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
         {message ? <p className="account-message" role="status">{message}</p> : null}
 
         <div className="account-danger">
-          <div><strong>Удаление аккаунта</strong><small>Удалит профиль и данные с сервера GENESIS, а также отзовёт выданные приложению разрешения Google.</small></div>
+          <div><strong>Удаление аккаунта</strong><small>Безвозвратно удалит только ваш профиль и все связанные с ним данные с сервера GENESIS, локальные копии на этом устройстве и отзовёт разрешения Google.</small></div>
           <button type="button" onClick={() => void removeAccount()} disabled={busy}>Удалить</button>
         </div>
       </section>
