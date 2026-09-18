@@ -1906,6 +1906,22 @@ test("habit dates follow the selected calendar while canonical day keys stay sta
   assert.match(calendarDatePicker, /showGregorianReference \? <small>/);
 });
 
+test("Path of the Hero uses a full-size accessible glowing action button", async () => {
+  const [tracker, styles] = await Promise.all([
+    readFile(new URL("../app/HabitTracker.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(tracker, /className="hero-path-open"/);
+  assert.match(tracker, /className="hero-path-open-sigil"/);
+  assert.doesNotMatch(tracker, /Путь Героя"\} →/);
+  assert.match(styles, /\.habits-hero-actions button \{[^}]*min-width:210px;[^}]*min-height:44px;/);
+  assert.match(styles, /@keyframes hero-path-button-glow/);
+  assert.match(styles, /@keyframes hero-path-button-shimmer/);
+  assert.match(styles, /\.hero-path-open:focus-visible/);
+  assert.match(styles, /prefers-reduced-motion:[\s\S]*\.hero-path-open/);
+});
+
 test("keeps the requested calendar and privacy features wired", async () => {
   const [calendarData, calendar, calendarDatePicker, accountPanel, cloudSync, recurrenceBuilder, taskRecurrence, moonPhase, solarTimes, stoicheion, stoicheionData, welcome, styles, api, google, repository, multiAccountMigration, i18n, languageMigration, taskCalendarMigration, englishManifest, geminiAssistant, localVoiceAssistant, localVoicePlan, geminiServer, publicHtaccess, serverConfigExample, cronusSickle, reminderPicker, taskReminders, serviceWorker] = await Promise.all([
     readFile(new URL("../app/calendar-data.ts", import.meta.url), "utf8"),
