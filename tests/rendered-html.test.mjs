@@ -31,6 +31,14 @@ import {
   highestRankForXp,
   reconcileUserProgress,
 } from "../app/habit-progress.ts";
+import {
+  buildDailyGoalRecord,
+  calculateGlobalStreak,
+  dailyGoalModeForDate,
+  dailyGoalTarget,
+  scheduleDailyGoalMode,
+  upsertDailyGoalRecord,
+} from "../app/daily-goal.ts";
 
 async function render() {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
@@ -68,11 +76,12 @@ test("server-renders the GENESIS application shell", async () => {
 });
 
 test("ships the modular encrypted tracker across dashboard, calendars and account settings", async () => {
-  const [calendar, tracker, habits, progress, sleep, mood, addiction, analytics, cache, trackerMath, cloud, account, repository, migration, styles, rankArt] = await Promise.all([
+  const [calendar, tracker, habits, progress, dailyGoal, sleep, mood, addiction, analytics, cache, trackerMath, cloud, account, repository, migration, styles, rankArt] = await Promise.all([
     readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/HabitTracker.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/habits.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/habit-progress.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/daily-goal.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/sleep-tracker.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/mood-tracker.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/addiction-tracker.ts", import.meta.url), "utf8"),
@@ -106,6 +115,7 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(cloud, /habits: structure\.habits/);
   assert.match(cloud, /habitCompletions: structure\.habitCompletions/);
   assert.match(cloud, /userProgress: structure\.userProgress/);
+  assert.match(cloud, /dailyGoalRecords: structure\.dailyGoalRecords/);
   assert.match(cloud, /hiddenDefaultTemplates: structure\.hiddenDefaultTemplates/);
   assert.match(cloud, /sleepEntries: structure\.sleepEntries/);
   assert.match(cloud, /addictionEntries: structure\.addictionEntries/);
@@ -125,9 +135,12 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(habits, /STARTER_HABIT_TEMPLATES/);
   assert.match(habits, /createHabitFromTemplate/);
   assert.match(habits, /normalizeHiddenDefaultTemplates/);
-  assert.match(habits, /trackerSchemaVersion: 4/);
+  assert.match(habits, /trackerSchemaVersion: 5/);
   assert.match(habits, /userProgress: UserProgress/);
   assert.match(habits, /xpAwarded: number/);
+  assert.match(habits, /dailyGoalRecords: DailyGoalRecord/);
+  assert.match(habits, /refreshDailyGoalProgress/);
+  assert.match(dailyGoal, /calculateGlobalStreak/);
   assert.equal((progress.match(/titleEn:/g) ?? []).length, 14);
   assert.match(sleep, /type SleepPlan/);
   assert.match(sleep, /type SleepEntry/);
@@ -151,6 +164,9 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(tracker, /habit-line-chart/);
   assert.match(tracker, /habit-heatmap/);
   assert.match(tracker, /heroic-rank-road/);
+  assert.match(tracker, /daily-goal-ring/);
+  assert.match(tracker, /Режим дневной цели/);
+  assert.match(tracker, /Ещё один шаг — и дневная цель выполнена/);
   assert.match(tracker, /habit-template-library/);
   assert.match(tracker, /Начать сегодня/);
   assert.match(tracker, /Начать с завтрашнего дня/);
@@ -159,7 +175,8 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(account, /onHabitTrackingChange/);
   assert.match(account, /Восстановить стандартные привычки/);
   assert.match(account, /workspaceRecoveryCode/);
-  assert.match(styles, /\.habits-hero-score[\s\S]*position: absolute/);
+  assert.match(styles, /\.habits-hero-status[\s\S]*position: absolute/);
+  assert.match(styles, /\.daily-goal-ring/);
   assert.match(styles, /\.mood-tracker\.is-open \.mood-summary-action svg/);
   assert.match(styles, /\/habit-ranks\/heroic-ranks\.webp/);
   assert.ok(rankArt.size > 100_000, "heroic rank artwork should be a production image");
@@ -211,6 +228,58 @@ test("lifetime XP exposes twelve ranks and never moves backwards", () => {
   assert.equal(afterDeletion.lifetimeXp, 100);
   assert.equal(afterDeletion.currentRankId, "venom-vanquisher");
   assert.equal(afterDeletion.updatedAt, "2026-09-17T00:00:00.000Z");
+});
+
+test("daily goals preserve future-only modes and global streak rules", () => {
+  assert.equal(dailyGoalTarget("easy", 7), 1);
+  assert.equal(dailyGoalTarget("rhythm", 7), 5);
+  assert.equal(dailyGoalTarget("perfect", 7), 7);
+  assert.equal(dailyGoalTarget("rhythm", 0), 0);
+
+  const changes = scheduleDailyGoalMode([], "perfect", "2026-09-20", "2026-09-18T10:00:00.000Z");
+  assert.equal(dailyGoalModeForDate(changes, "2026-09-19"), "rhythm");
+  assert.equal(dailyGoalModeForDate(changes, "2026-09-20"), "perfect");
+
+  const record = (date, scheduledCount, completedCount, options = {}) => buildDailyGoalRecord({
+    date,
+    mode: "rhythm",
+    timezone: options.timezone ?? "Europe/Moscow",
+    scheduledCount,
+    completedCount,
+    today: "2026-09-22",
+    isRestDay: options.isRestDay,
+    updatedAt: `${date}T12:00:00.000Z`,
+  });
+  const successful = [
+    record("2026-09-18", 3, 2),
+    record("2026-09-19", 0, 0),
+    record("2026-09-20", 3, 0, { isRestDay: true }),
+    record("2026-09-21", 3, 3),
+    record("2026-09-22", 3, 0),
+  ];
+  assert.deepEqual(successful.map((item) => item.status), ["qualified", "neutral", "rest", "perfect", "open"]);
+  assert.deepEqual(calculateGlobalStreak(successful, "2026-09-22"), {
+    currentStreak: 2,
+    longestStreak: 2,
+    lastQualifiedDate: "2026-09-21",
+  });
+
+  const failed = [...successful, buildDailyGoalRecord({
+    date: "2026-09-22",
+    mode: "rhythm",
+    timezone: "Europe/Moscow",
+    scheduledCount: 3,
+    completedCount: 0,
+    today: "2026-09-23",
+    updatedAt: "2026-09-23T00:00:00.000Z",
+  })];
+  assert.equal(calculateGlobalStreak(failed, "2026-09-23").currentStreak, 0);
+
+  const timezoneReplacement = { ...record("2026-09-21", 3, 3), timezone: "Asia/Tokyo", updatedAt: "2026-09-21T13:00:00.000Z" };
+  const deduplicated = upsertDailyGoalRecord(successful, timezoneReplacement);
+  assert.equal(deduplicated.filter((item) => item.date === "2026-09-21").length, 1);
+  assert.equal(deduplicated.find((item) => item.date === "2026-09-21").timezone, "Asia/Tokyo");
+  assert.equal(upsertDailyGoalRecord(deduplicated, timezoneReplacement).length, deduplicated.length);
 });
 
 test("tracker scoring and time math preserve the specified invariants", () => {

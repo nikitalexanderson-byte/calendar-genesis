@@ -29,6 +29,18 @@ import { recurrenceModeForCalendar, type RecurrenceConfig } from "./task-recurre
 import type { TrackerAnalyticsSnapshot } from "./tracker-analytics";
 import { scoreHabitFormula } from "./tracker-math";
 import {
+  buildDailyGoalRecord,
+  calculateGlobalStreak,
+  dailyGoalModeForDate,
+  normalizeDailyGoalModeChanges,
+  normalizeDailyGoalRecords,
+  scheduleDailyGoalMode,
+  upsertDailyGoalRecord,
+  type DailyGoalMode,
+  type DailyGoalModeChange,
+  type DailyGoalRecord,
+} from "./daily-goal";
+import {
   completionXpAward,
   reconcileUserProgress,
   type UserProgress,
@@ -45,6 +57,8 @@ export { HABIT_COLORS, STARTER_HABIT_TEMPLATES } from "./habit-templates";
 export type { HabitTemplate, HabitTemplateId } from "./habit-templates";
 export { HEROIC_RANKS, completionXpAward, heroicRank, nextHeroicRank } from "./habit-progress";
 export type { HeroicRank, HeroicRankId, UserProgress } from "./habit-progress";
+export { dailyGoalTarget } from "./daily-goal";
+export type { DailyGoalMode, DailyGoalModeChange, DailyGoalRecord, DailyGoalStatus } from "./daily-goal";
 
 export type HabitQualityScale = "none" | "ten" | "bipolar";
 export type HabitScoringMode = "none" | "binary" | "quality-ten" | "quality-bipolar";
@@ -87,10 +101,12 @@ export type HabitSettings = {
   reportRange: HabitReportRange;
   customRangeStart: string;
   customRangeEnd: string;
+  dailyGoalModeChanges: DailyGoalModeChange[];
+  plannedRestDays: string[];
 };
 
 export type HabitWorkspace = {
-  trackerSchemaVersion: 4;
+  trackerSchemaVersion: 5;
   userProgress: UserProgress;
   habits: Habit[];
   habitCompletions: HabitCompletion[];
@@ -100,6 +116,7 @@ export type HabitWorkspace = {
   addictionTrackers: AddictionTracker[];
   addictionEntries: AddictionEntry[];
   analyticsSnapshots: TrackerAnalyticsSnapshot[];
+  dailyGoalRecords: DailyGoalRecord[];
   habitSettings: HabitSettings;
   hiddenDefaultTemplates: HabitTemplateId[];
 };
@@ -156,13 +173,20 @@ export const DEFAULT_HABIT_SETTINGS: HabitSettings = {
   reportRange: "month",
   customRangeStart: "",
   customRangeEnd: "",
+  dailyGoalModeChanges: [],
+  plannedRestDays: [],
 };
 
 export const EMPTY_HABIT_WORKSPACE: HabitWorkspace = {
-  trackerSchemaVersion: 4,
+  trackerSchemaVersion: 5,
   userProgress: {
     lifetimeXp: 0,
     currentRankId: null,
+    currentStreak: 0,
+    longestStreak: 0,
+    lastQualifiedDate: null,
+    streakGoalMode: "rhythm",
+    streakFreezeCount: 0,
     updatedAt: "",
   },
   habits: [],
@@ -173,6 +197,7 @@ export const EMPTY_HABIT_WORKSPACE: HabitWorkspace = {
   addictionTrackers: [],
   addictionEntries: [],
   analyticsSnapshots: [],
+  dailyGoalRecords: [],
   habitSettings: DEFAULT_HABIT_SETTINGS,
   hiddenDefaultTemplates: [],
 };
@@ -397,6 +422,10 @@ function normalizeSettings(value: Partial<HabitSettings> | undefined): HabitSett
     ...DEFAULT_HABIT_SETTINGS,
     ...value,
     reportRange,
+    dailyGoalModeChanges: normalizeDailyGoalModeChanges(value?.dailyGoalModeChanges),
+    plannedRestDays: Array.isArray(value?.plannedRestDays)
+      ? Array.from(new Set(value.plannedRestDays.filter((date) => DATE_PATTERN.test(date)))).sort()
+      : [],
   };
 }
 
@@ -485,8 +514,8 @@ export function normalizeHabitWorkspace(
     return migrated ? [migrated] : [];
   });
 
-  return {
-    trackerSchemaVersion: 4,
+  const workspace: HabitWorkspace = {
+    trackerSchemaVersion: 5,
     userProgress,
     habits,
     habitCompletions,
@@ -496,9 +525,11 @@ export function normalizeHabitWorkspace(
     addictionTrackers,
     addictionEntries: [...explicitAddictionEntries, ...migratedAddictionEntries],
     analyticsSnapshots: normalizeSnapshots(value.analyticsSnapshots),
+    dailyGoalRecords: normalizeDailyGoalRecords(value.dailyGoalRecords),
     habitSettings: normalizeSettings(value.habitSettings),
     hiddenDefaultTemplates: normalizeHiddenDefaultTemplates(value.hiddenDefaultTemplates),
   };
+  return ensureDailyGoalProgress(workspace, calendarMode);
 }
 
 export function isHabitScheduledForDate(habit: Habit, value: string, calendarMode: CalendarMode = "sacred") {
@@ -512,6 +543,134 @@ export function habitScore(habit: Habit, entry: HabitCompletion | undefined, val
 
 export function calculateHabitTotal(workspace: HabitWorkspace) {
   return workspace.userProgress.lifetimeXp;
+}
+
+function dailyGoalCounts(workspace: HabitWorkspace, date: string, calendarMode: CalendarMode) {
+  const scheduledHabits = workspace.habits.filter((habit) => isHabitScheduledForDate(habit, date, calendarMode));
+  const scheduledIds = new Set(scheduledHabits.map((habit) => habit.id));
+  const completedCount = new Set(workspace.habitCompletions
+    .filter((entry) => entry.date === date && entry.completed && scheduledIds.has(entry.habitId))
+    .map((entry) => entry.habitId)).size;
+  return { scheduledCount: scheduledHabits.length, completedCount };
+}
+
+export function dailyGoalForDate(
+  workspace: HabitWorkspace,
+  date: string,
+  calendarMode: CalendarMode,
+  today = habitDateKey(new Date()),
+) {
+  const existing = workspace.dailyGoalRecords.find((record) => record.date === date);
+  const mode = existing && date < today
+    ? existing.mode
+    : dailyGoalModeForDate(workspace.habitSettings.dailyGoalModeChanges, date);
+  const counts = dailyGoalCounts(workspace, date, calendarMode);
+  return buildDailyGoalRecord({
+    date,
+    mode,
+    timezone: existing?.timezone ?? trackerTimeZone(),
+    ...counts,
+    today,
+    isRestDay: workspace.habitSettings.plannedRestDays.includes(date),
+  });
+}
+
+function withDailyGoalStreak(workspace: HabitWorkspace, today: string) {
+  const streak = calculateGlobalStreak(workspace.dailyGoalRecords, today);
+  return {
+    ...workspace,
+    userProgress: reconcileUserProgress(workspace.userProgress, workspace.habitCompletions, new Date().toISOString(), streak),
+  };
+}
+
+export function refreshDailyGoalProgress(
+  workspace: HabitWorkspace,
+  dates: Iterable<string>,
+  calendarMode: CalendarMode,
+  today = habitDateKey(new Date()),
+): HabitWorkspace {
+  let records = normalizeDailyGoalRecords(workspace.dailyGoalRecords);
+  for (const date of dates) {
+    if (!DATE_PATTERN.test(date)) continue;
+    const record = dailyGoalForDate({ ...workspace, dailyGoalRecords: records }, date, calendarMode, today);
+    records = upsertDailyGoalRecord(records, record);
+  }
+  return withDailyGoalStreak({ ...workspace, dailyGoalRecords: records }, today);
+}
+
+export function ensureDailyGoalProgress(
+  workspace: HabitWorkspace,
+  calendarMode: CalendarMode,
+  today = habitDateKey(new Date()),
+): HabitWorkspace {
+  let records = normalizeDailyGoalRecords(workspace.dailyGoalRecords).map((record) => (
+    record.status === "open" && record.date < today
+      ? buildDailyGoalRecord({
+        date: record.date,
+        mode: record.mode,
+        timezone: record.timezone,
+        scheduledCount: record.scheduledCount,
+        completedCount: record.completedCount,
+        today,
+        updatedAt: record.updatedAt,
+      })
+      : record
+  ));
+  const latestDate = records.filter((record) => record.date <= today).at(-1)?.date;
+  const earliestSource = [
+    ...workspace.habits.filter((habit) => habit.active).map((habit) => habit.schedule.startDate),
+    ...workspace.habitCompletions.map((entry) => entry.date),
+  ].filter((date) => DATE_PATTERN.test(date)).sort()[0];
+  const historyFloor = addHabitDays(today, -3_699);
+  const start = latestDate
+    ? addHabitDays(latestDate, 1)
+    : earliestSource && earliestSource <= today ? (earliestSource < historyFloor ? historyFloor : earliestSource) : "";
+  if (start && start <= today) {
+    const draft = { ...workspace, dailyGoalRecords: records };
+    dateValuesBetween(start, today).forEach((date) => {
+      const record = dailyGoalForDate({ ...draft, dailyGoalRecords: records }, date, calendarMode, today);
+      records = upsertDailyGoalRecord(records, record);
+    });
+  }
+  if (records.some((record) => record.date === today)) {
+    const current = dailyGoalForDate({ ...workspace, dailyGoalRecords: records }, today, calendarMode, today);
+    records = upsertDailyGoalRecord(records, current);
+  }
+  return withDailyGoalStreak({ ...workspace, dailyGoalRecords: records }, today);
+}
+
+export function setDailyGoalMode(
+  workspace: HabitWorkspace,
+  mode: DailyGoalMode,
+  today = habitDateKey(new Date()),
+): HabitWorkspace {
+  const effectiveFrom = addHabitDays(today, 1);
+  const timestamp = new Date().toISOString();
+  return {
+    ...workspace,
+    userProgress: { ...workspace.userProgress, streakGoalMode: mode, updatedAt: timestamp },
+    habitSettings: {
+      ...workspace.habitSettings,
+      dailyGoalModeChanges: scheduleDailyGoalMode(workspace.habitSettings.dailyGoalModeChanges, mode, effectiveFrom, timestamp),
+    },
+  };
+}
+
+export function setPlannedRestDay(
+  workspace: HabitWorkspace,
+  date: string,
+  planned: boolean,
+  calendarMode: CalendarMode,
+  today = habitDateKey(new Date()),
+): HabitWorkspace {
+  if (!DATE_PATTERN.test(date) || date < today) return workspace;
+  const restDays = new Set(workspace.habitSettings.plannedRestDays);
+  if (planned) restDays.add(date);
+  else restDays.delete(date);
+  return refreshDailyGoalProgress({
+    ...workspace,
+    habitSettings: { ...workspace.habitSettings, plannedRestDays: Array.from(restDays).sort() },
+  }, [date], calendarMode, today);
 }
 
 function startOfMonth(value: string) {

@@ -65,6 +65,7 @@ import {
   EMPTY_HABIT_WORKSPACE,
   isHabitScheduledForDate,
   normalizeHabitWorkspace,
+  refreshDailyGoalProgress,
   type Habit,
   type HabitWorkspace,
 } from "./habits";
@@ -2346,8 +2347,13 @@ export function GenesisCalendar() {
       normalizedBase.sleepEntries.forEach((entry) => changedDates.add(entry.date));
       normalizedBase.addictionEntries.forEach((entry) => changedDates.add(entry.date));
     }
+    const previousRestDays = new Set(habitWorkspace.habitSettings.plannedRestDays);
+    const nextRestDays = new Set(normalizedBase.habitSettings.plannedRestDays);
+    previousRestDays.forEach((date) => { if (!nextRestDays.has(date)) changedDates.add(date); });
+    nextRestDays.forEach((date) => { if (!previousRestDays.has(date)) changedDates.add(date); });
+    const dailyGoalWorkspace = refreshDailyGoalProgress(normalizedBase, changedDates, activeTaskCalendarMode, todayDateValue);
     const normalized = ensureTrackerAnalytics(
-      refreshTrackerAnalytics(normalizedBase, changedDates, activeTaskCalendarMode),
+      refreshTrackerAnalytics(dailyGoalWorkspace, changedDates, activeTaskCalendarMode),
       activeTaskCalendarMode,
     );
     const newlyCompletedEntries = normalized.habitCompletions.filter((entry) => (
