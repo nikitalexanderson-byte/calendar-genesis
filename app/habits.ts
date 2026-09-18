@@ -1101,15 +1101,19 @@ function startOfQuarter(value: string) {
   return `${year}-${String(quarterMonth).padStart(2, "0")}-01`;
 }
 
-export function reportDateRange(settings: HabitSettings, today = habitDateKey(new Date())) {
+export function reportDateRange(
+  settings: HabitSettings,
+  today = habitDateKey(new Date()),
+  calendarStarts?: { month: string; quarter: string; year: string },
+) {
   if (settings.reportRange === "custom" && DATE_PATTERN.test(settings.customRangeStart) && DATE_PATTERN.test(settings.customRangeEnd)) {
     const end = settings.customRangeEnd > today ? today : settings.customRangeEnd;
     const start = settings.customRangeStart > end ? end : settings.customRangeStart;
     return { start, end };
   }
-  if (settings.reportRange === "month") return { start: startOfMonth(today), end: today };
-  if (settings.reportRange === "quarter") return { start: startOfQuarter(today), end: today };
-  if (settings.reportRange === "year") return { start: `${today.slice(0, 4)}-01-01`, end: today };
+  if (settings.reportRange === "month") return { start: calendarStarts?.month ?? startOfMonth(today), end: today };
+  if (settings.reportRange === "quarter") return { start: calendarStarts?.quarter ?? startOfQuarter(today), end: today };
+  if (settings.reportRange === "year") return { start: calendarStarts?.year ?? `${today.slice(0, 4)}-01-01`, end: today };
   const days = settings.reportRange === "week" ? 7 : 30;
   return { start: addHabitDays(today, -(days - 1)), end: today };
 }
