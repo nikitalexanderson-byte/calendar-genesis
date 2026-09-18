@@ -25,6 +25,7 @@ import {
   canRecordHabitOnDate,
   createHabitFromSacredPractice,
   createHabitFromTemplate,
+  currentHabitQuests,
   dailyGoalForDate,
   dateValuesBetween,
   defaultHabit,
@@ -46,6 +47,7 @@ import {
   type HabitScoringMode,
   type HabitTemplate,
   type HabitWorkspace,
+  type HabitQuest,
   type DailyGoalMode,
   type DailyGoalRecord,
   type RewardReason,
@@ -290,6 +292,7 @@ function dailyGoalGuidance(record: DailyGoalRecord, isEnglish: boolean) {
 function rewardReasonLabel(reason: RewardReason, isEnglish: boolean) {
   if (reason === "daily-goal") return isEnglish ? "Daily goal" : "Дневная цель";
   if (reason === "perfect-day") return isEnglish ? "Perfect Day" : "Идеальный день";
+  if (reason === "daily-quest") return isEnglish ? "Daily trial" : "Ежедневное испытание";
   if (reason === "weekly-quest") return isEnglish ? "Weekly quest" : "Недельный квест";
   if (reason === "streak-milestone") return isEnglish ? "Streak milestone" : "Этап серии";
   if (reason === "rank-up") return isEnglish ? "New rank" : "Новый ранг";
@@ -299,6 +302,85 @@ function rewardReasonLabel(reason: RewardReason, isEnglish: boolean) {
   if (reason === "habit-deleted-reset") return isEnglish ? "Habit deleted · Laurels reset" : "Привычка удалена · Лавры обнулены";
   if (reason === "habit-missed-reset") return isEnglish ? "Habit missed · Laurels reset" : "Привычка не выполнена · Лавры обнулены";
   return isEnglish ? "Hestia Spark" : "Искра Гестии";
+}
+
+function habitQuestCopy(quest: HabitQuest, isEnglish: boolean) {
+  if (quest.kind === "daily-goal") return {
+    eyebrow: isEnglish ? "Daily trial" : "Испытание дня",
+    title: isEnglish ? "Complete today's goal" : "Завершить дневную цель",
+    description: isEnglish
+      ? "Keep the chosen rhythm without demanding a perfect day."
+      : "Сохраните выбранный ритм — идеальный день для этого не обязателен.",
+  };
+  return {
+    eyebrow: isEnglish ? "Weekly trial" : "Испытание недели",
+    title: isEnglish ? `Complete ${quest.target} scheduled habits` : `Выполнить ${quest.target} запланированных привычек`,
+    description: isEnglish
+      ? "The target is calculated only from habits that can actually occur this week."
+      : "Цель рассчитана только по привычкам, которые действительно могут выпасть на этой неделе.",
+  };
+}
+
+function HabitQuestSigil({ cadence }: { cadence: HabitQuest["cadence"] }) {
+  return cadence === "daily" ? (
+    <svg viewBox="0 0 48 48" aria-hidden="true">
+      <circle cx="24" cy="24" r="14" />
+      <path d="M24 4v7M24 37v7M4 24h7M37 24h7M10 10l5 5M33 33l5 5M38 10l-5 5M15 33l-5 5" />
+      <path className="habit-quest-sigil-core" d="m24 16 2.5 5.5L32 24l-5.5 2.5L24 32l-2.5-5.5L16 24l5.5-2.5Z" />
+    </svg>
+  ) : (
+    <svg viewBox="0 0 48 48" aria-hidden="true">
+      <path d="M12 18h24v20H12zM17 10v12M31 10v12M12 24h24" />
+      <path className="habit-quest-sigil-core" d="m19 31 3 3 7-7" />
+    </svg>
+  );
+}
+
+function HabitQuestPanel({ workspace, date, language }: Pick<DailyPanelProps, "workspace" | "date" | "language">) {
+  const isEnglish = language === "en";
+  const quests = currentHabitQuests(workspace.quests, date);
+  return (
+    <section className="habit-quest-panel" aria-labelledby="habit-quest-panel-title">
+      <header>
+        <div>
+          <span className="eyebrow">{isEnglish ? "Built from your active rhythm" : "Составлены из вашего активного ритма"}</span>
+          <h2 id="habit-quest-panel-title">{isEnglish ? "Trials" : "Испытания"}</h2>
+        </div>
+        <small>{isEnglish ? "Laurels, not Rank XP" : "Лавры, а не опыт ранга"}</small>
+      </header>
+      {quests.length ? (
+        <div className="habit-quest-grid">
+          {quests.map((quest) => {
+            const copy = habitQuestCopy(quest, isEnglish);
+            const progress = Math.min(100, Math.round((quest.progress / quest.target) * 100));
+            return (
+              <article className={quest.completedAt ? "completed" : ""} key={quest.id}>
+                <span className={`habit-quest-sigil cadence-${quest.cadence}`}><HabitQuestSigil cadence={quest.cadence} /></span>
+                <div className="habit-quest-copy">
+                  <small>{copy.eyebrow}</small>
+                  <h3>{copy.title}</h3>
+                  <p>{copy.description}</p>
+                  <div className="habit-quest-progress" role="progressbar" aria-label={copy.title} aria-valuemin={0} aria-valuemax={quest.target} aria-valuenow={quest.progress}>
+                    <i><span style={{ width: `${progress}%` }} /></i>
+                    <strong>{quest.progress} / {quest.target}</strong>
+                  </div>
+                </div>
+                <div className="habit-quest-reward">
+                  <span>{quest.completedAt ? "✓" : "♕"}</span>
+                  <strong>{quest.completedAt ? (isEnglish ? "Complete" : "Завершено") : `+${quest.rewardLaurels}`}</strong>
+                  <small>{quest.completedAt ? `+${quest.rewardLaurels} ${isEnglish ? "Laurels" : "Лавров"}` : (isEnglish ? "Laurels" : "Лавров")}</small>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="habit-quest-empty">{isEnglish
+          ? "No achievable trial is available yet. It will appear when an active habit is scheduled."
+          : "Пока нет доступного выполнимого испытания. Оно появится, когда будет запланирована активная привычка."}</p>
+      )}
+    </section>
+  );
 }
 
 function DailyGoalSettings({ workspace, today, language, calendarMode, onChange }: Pick<DailyPanelProps, "workspace" | "language" | "calendarMode" | "onChange"> & { today: string }) {
@@ -958,6 +1040,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
         </article>
       </section> : null}
       {hasHabits ? dailyPanel : null}
+      {hasHabits ? <HabitQuestPanel workspace={workspace} date={date} language={language} /> : null}
       {message ? <p className="habit-status-message" role="status">{message}</p> : null}
 
       {visibleStarterTemplates.length || workspace.hiddenDefaultTemplates.length ? (
