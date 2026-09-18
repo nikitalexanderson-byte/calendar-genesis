@@ -8,7 +8,11 @@ export type RewardReason =
   | "streak-milestone"
   | "rank-up"
   | "achievement"
-  | "hestia-spark";
+  | "hestia-spark"
+  | "habit-deleted-reset"
+  | "habit-missed-reset";
+
+export type LaurelsResetReason = Extract<RewardReason, "habit-deleted-reset" | "habit-missed-reset">;
 
 export type RewardTransaction = {
   readonly id: string;
@@ -32,11 +36,17 @@ const REWARD_REASONS: readonly RewardReason[] = [
   "rank-up",
   "achievement",
   "hestia-spark",
+  "habit-deleted-reset",
+  "habit-missed-reset",
 ];
+
+const LAURELS_RESET_REASONS: readonly LaurelsResetReason[] = ["habit-deleted-reset", "habit-missed-reset"];
 
 function rewardAmount(value: unknown) {
   const amount = Number(value);
-  return Number.isFinite(amount) ? Math.round(amount) : 0;
+  if (!Number.isFinite(amount)) return 0;
+  const rounded = Math.round(amount);
+  return Object.is(rounded, -0) ? 0 : rounded;
 }
 
 function isRewardReason(value: unknown): value is RewardReason {
@@ -75,7 +85,8 @@ export function normalizeRewardTransactions(value: unknown): RewardTransaction[]
     const idempotencyKey = typeof source.idempotencyKey === "string" ? source.idempotencyKey.trim() : "";
     const sourceId = typeof source.sourceId === "string" ? source.sourceId.trim() : "";
     const amount = rewardAmount(source.amount);
-    if (!idempotencyKey || !sourceId || !amount || source.currency !== "laurels" || !isRewardReason(source.reason)) return;
+    if (!idempotencyKey || !sourceId || source.currency !== "laurels" || !isRewardReason(source.reason)) return;
+    if (!amount && !LAURELS_RESET_REASONS.includes(source.reason as LaurelsResetReason)) return;
     const transaction: RewardTransaction = {
       id: typeof source.id === "string" && source.id ? source.id : rewardId(idempotencyKey),
       userId: "self",
@@ -95,7 +106,26 @@ export function normalizeRewardTransactions(value: unknown): RewardTransaction[]
 }
 
 export function calculateLaurelsBalance(transactions: readonly RewardTransaction[]) {
-  return normalizeRewardTransactions(transactions).reduce((total, transaction) => total + transaction.amount, 0);
+  return Math.max(0, normalizeRewardTransactions(transactions).reduce((total, transaction) => total + transaction.amount, 0));
+}
+
+export function resetLaurelsBalance(
+  value: unknown,
+  reason: LaurelsResetReason,
+  sourceId: string,
+  idempotencyKey: string,
+  createdAt = new Date().toISOString(),
+) {
+  const transactions = normalizeRewardTransactions(value);
+  if (transactions.some((transaction) => transaction.idempotencyKey === idempotencyKey)) return transactions;
+  transactions.push(createRewardTransaction({
+    amount: -calculateLaurelsBalance(transactions),
+    reason,
+    sourceId,
+    idempotencyKey,
+    createdAt,
+  }));
+  return normalizeRewardTransactions(transactions);
 }
 
 export function laurelsForDailyGoal(record: Pick<DailyGoalRecord, "status">) {

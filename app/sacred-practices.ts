@@ -7,10 +7,29 @@ export const SACRED_PRACTICE_SECTOR_IDS = [
   "southwest",
   "west",
   "northwest",
+  "zenith",
+  "nadir",
+  "hearth",
   "center",
+  "entrance",
+  "exit",
 ] as const;
 
 export type SacredPracticeSectorId = (typeof SACRED_PRACTICE_SECTOR_IDS)[number];
+
+export const STOICHEION_PRACTICE_SECTOR_IDS = [
+  "north",
+  "northeast",
+  "east",
+  "southeast",
+  "south",
+  "southwest",
+  "west",
+  "northwest",
+  "center",
+] as const satisfies readonly SacredPracticeSectorId[];
+
+export type StoicheionPracticeSectorId = (typeof STOICHEION_PRACTICE_SECTOR_IDS)[number];
 
 export type SacredPracticeLocalizedText = {
   ru: string;
@@ -30,7 +49,7 @@ export type SacredPractice = {
 };
 
 export type SacredSectorGuidance = {
-  sectorId: SacredPracticeSectorId;
+  sectorId: StoicheionPracticeSectorId;
   upright: SacredPracticeLocalizedText;
   reversed: SacredPracticeLocalizedText;
 };
@@ -282,6 +301,116 @@ export const SACRED_PRACTICES: readonly SacredPractice[] = [
     priority: 6,
     color: "#ad4c50",
   },
+  {
+    id: "zeus-sovereign-rule",
+    sectorId: "zenith",
+    emoji: "⚡",
+    title: { ru: "Закон Зевса", en: "Zeus's sovereign rule" },
+    description: { ru: "Утром выбрать одно главное правило дня и вечером проверить, было ли оно соблюдено.", en: "Choose one governing rule for the day each morning and review it in the evening." },
+    myth: { ru: "Зевс удерживает космический порядок не множеством приказов, а силой ясного и обязательного закона.", en: "Zeus sustains cosmic order not through countless commands, but through one clear and binding law." },
+    suggestedTime: "08:30",
+    priority: 9,
+    color: "#8b75bd",
+  },
+  {
+    id: "hera-kept-covenant",
+    sectorId: "zenith",
+    emoji: "👑",
+    title: { ru: "Союз Геры", en: "Hera's covenant" },
+    description: { ru: "Выполнить одно данное обещание или бережно восстановить один нарушенный договор.", en: "Keep one promise you have made or carefully repair one neglected agreement." },
+    myth: { ru: "Гера охраняет достоинство союза: порядок становится живым, когда слово поддержано поступком.", en: "Hera guards the dignity of covenant: order becomes living when a promise is upheld by action." },
+    suggestedTime: "18:00",
+    priority: 8,
+    color: "#7566a6",
+  },
+  {
+    id: "persephone-new-seed",
+    sectorId: "nadir",
+    emoji: "🌱",
+    title: { ru: "Семя Персефоны", en: "Persephone's seed" },
+    description: { ru: "Освободить место от одной отжившей вещи, записи или обязательства и назвать, чему теперь можно прорасти.", en: "Release one outgrown object, note, or obligation and name what may grow in its place." },
+    myth: { ru: "Персефона возвращается из глубины с новым циклом жизни: завершение становится почвой для роста.", en: "Persephone returns from the depths with a new cycle of life: an ending becomes soil for growth." },
+    suggestedTime: "19:00",
+    priority: 7,
+    color: "#66547f",
+  },
+  {
+    id: "hades-hidden-treasure",
+    sectorId: "nadir",
+    emoji: "🗝️",
+    title: { ru: "Сокровище Аида", en: "Hades's hidden treasure" },
+    description: { ru: "Десять минут спокойно разбирать финансы, запасы или скрытую незавершённую задачу.", en: "Spend ten quiet minutes reviewing finances, reserves, or a hidden unfinished task." },
+    myth: { ru: "Имя Плутон напоминает: глубина хранит богатство, которое открывается внимательному и бесстрашному взгляду.", en: "The name Plouton recalls that the depths hold wealth revealed by an attentive and fearless gaze." },
+    suggestedTime: "20:00",
+    priority: 8,
+    color: "#54456d",
+  },
+  {
+    id: "hestia-tended-hearth",
+    sectorId: "hearth",
+    emoji: "🔥",
+    title: { ru: "Огонь Гестии", en: "Hestia's tended flame" },
+    description: { ru: "Привести в порядок одну центральную точку дома: стол, кровать, кухонную поверхность или место отдыха.", en: "Restore one central place at home: a table, bed, kitchen surface, or resting corner." },
+    myth: { ru: "Неподвижный огонь Гестии делает дом священным через малое, постоянное поддержание очага.", en: "Hestia's unmoving flame makes the home sacred through small, steady acts of tending." },
+    suggestedTime: "19:30",
+    priority: 8,
+    color: "#bf633f",
+  },
+  {
+    id: "hestia-five-quiet-minutes",
+    sectorId: "hearth",
+    emoji: "🕯️",
+    title: { ru: "Тишина очага", en: "Stillness of the hearth" },
+    description: { ru: "Провести пять минут без экрана и разговоров, спокойно дыша и возвращая внимание в дом и тело.", en: "Spend five screen-free, silent minutes breathing calmly and returning attention to home and body." },
+    myth: { ru: "Гестия остаётся в центре, пока боги странствуют: её тишина удерживает целостность пространства.", en: "Hestia remains at the center while the gods wander; her stillness preserves the wholeness of the space." },
+    suggestedTime: "21:30",
+    priority: 6,
+    color: "#a95339",
+  },
+  {
+    id: "aether-clear-threshold",
+    sectorId: "entrance",
+    emoji: "🌬️",
+    title: { ru: "Порог Эфира", en: "Aether's clear threshold" },
+    description: { ru: "Перед первой важной работой проветрить пространство, расправить плечи и сделать три осознанных вдоха.", en: "Before the first important task, air the room, open your posture, and take three deliberate breaths." },
+    myth: { ru: "Эфир — чистый верхний воздух: ясный вход отделяет намеренную работу от повседневного шума.", en: "Aether is the pure upper air: a clear entrance separates intentional work from everyday noise." },
+    suggestedTime: "08:00",
+    priority: 7,
+    color: "#6f9db5",
+  },
+  {
+    id: "hemera-first-light",
+    sectorId: "entrance",
+    emoji: "🌅",
+    title: { ru: "Первый свет Гемеры", en: "Hemera's first light" },
+    description: { ru: "Первые десять минут дня провести при естественном свете, не открывая уведомления.", en: "Spend the first ten minutes of the day in natural light without opening notifications." },
+    myth: { ru: "Гемера выводит ясный день из ночи: свет получает первенство прежде, чем чужие голоса займут внимание.", en: "Hemera brings bright day out of night: light receives priority before other voices claim attention." },
+    suggestedTime: "07:30",
+    priority: 8,
+    color: "#8aacc0",
+  },
+  {
+    id: "psyche-evening-seal",
+    sectorId: "exit",
+    emoji: "🦋",
+    title: { ru: "Печать Психеи", en: "Psyche's evening seal" },
+    description: { ru: "В конце дня записать одной строкой главный полученный опыт и закрыть незавершённые вкладки.", en: "At day's end, record the main lesson in one line and close unfinished browser tabs." },
+    myth: { ru: "Психея проходит испытания и сохраняет их смысл в душе: завершённый опыт становится внутренней опорой.", en: "Psyche passes through trials and preserves their meaning in the soul: completed experience becomes inner support." },
+    suggestedTime: "22:00",
+    priority: 7,
+    color: "#9c668d",
+  },
+  {
+    id: "eros-grateful-return",
+    sectorId: "exit",
+    emoji: "💞",
+    title: { ru: "Благодарность Эроса", en: "Eros's grateful return" },
+    description: { ru: "Выразить одному человеку искреннюю благодарность или отметить связь, которая поддержала вас сегодня.", en: "Offer sincere thanks to one person or acknowledge a bond that supported you today." },
+    myth: { ru: "Эрос возвращает Психею к жизни через связь: день завершается не разрывом, а признанием любви и поддержки.", en: "Eros restores Psyche through connection: the day ends not in severance, but in recognition of love and support." },
+    suggestedTime: "20:30",
+    priority: 6,
+    color: "#ad6b83",
+  },
 ] as const;
 
 const sacredPracticeIds = new Set(SACRED_PRACTICES.map((practice) => practice.id));
@@ -299,6 +428,6 @@ export function sacredPracticesForSector(sectorId: SacredPracticeSectorId) {
   return SACRED_PRACTICES.filter((practice) => practice.sectorId === sectorId);
 }
 
-export function sacredSectorGuidance(sectorId: SacredPracticeSectorId) {
+export function sacredSectorGuidance(sectorId: StoicheionPracticeSectorId) {
   return SACRED_SECTOR_GUIDANCE.find((guidance) => guidance.sectorId === sectorId)!;
 }

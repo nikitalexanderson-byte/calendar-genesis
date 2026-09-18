@@ -1,4 +1,8 @@
 export type HeroicRankId =
+  | "tantalus"
+  | "sisyphus"
+  | "cyclops"
+  | "icarus"
   | "lion-heart"
   | "venom-vanquisher"
   | "golden-horn-pathfinder"
@@ -10,7 +14,21 @@ export type HeroicRankId =
   | "royal-honor-bearer"
   | "western-verge-guardian"
   | "golden-garden-keeper"
-  | "risen-from-the-abyss";
+  | "risen-from-the-abyss"
+  | "mirror-victor"
+  | "lord-of-the-thread"
+  | "golden-argonaut"
+  | "celestial-rider"
+  | "voice-beyond-styx"
+  | "arcadian-arrow"
+  | "myrmidon-shield"
+  | "many-counseled-wanderer"
+  | "spear-of-athena"
+  | "dragon-seed-sower"
+  | "sphinx-solver"
+  | "calydonian-glory-bearer";
+
+export type HeroicRankPath = "overture" | "heroic" | "hidden";
 
 export type HeroicRank = {
   id: HeroicRankId;
@@ -18,6 +36,7 @@ export type HeroicRank = {
   titleEn: string;
   threshold: number;
   color: string;
+  path: HeroicRankPath;
 };
 
 export type UserProgress = {
@@ -33,19 +52,40 @@ export type UserProgress = {
 };
 
 export const HEROIC_RANKS: readonly HeroicRank[] = [
-  { id: "lion-heart", title: "Львиное Сердце", titleEn: "Lionheart", threshold: 10, color: "#aa6f3f" },
-  { id: "venom-vanquisher", title: "Победитель Яда", titleEn: "Vanquisher of Venom", threshold: 100, color: "#71855c" },
-  { id: "golden-horn-pathfinder", title: "Златорогий Следопыт", titleEn: "Golden-Horned Pathfinder", threshold: 250, color: "#b88a43" },
-  { id: "mountain-tamer", title: "Горный Укротитель", titleEn: "Mountain Tamer", threshold: 450, color: "#777b78" },
-  { id: "lord-of-the-current", title: "Владыка Потока", titleEn: "Lord of the Current", threshold: 700, color: "#397a79" },
-  { id: "bronze-wing", title: "Бронзовое Крыло", titleEn: "Bronze Wing", threshold: 1_000, color: "#a96f4f" },
-  { id: "tamer-of-might", title: "Укротитель Мощи", titleEn: "Tamer of Might", threshold: 1_400, color: "#986946" },
-  { id: "iron-charioteer", title: "Железный Возничий", titleEn: "Iron Charioteer", threshold: 1_900, color: "#737b7c" },
-  { id: "royal-honor-bearer", title: "Носитель Царской Чести", titleEn: "Bearer of Royal Honor", threshold: 2_500, color: "#b38a4f" },
-  { id: "western-verge-guardian", title: "Страж Западного Предела", titleEn: "Guardian of the Western Verge", threshold: 3_300, color: "#5d718c" },
-  { id: "golden-garden-keeper", title: "Хранитель Золотого Сада", titleEn: "Keeper of the Golden Garden", threshold: 4_300, color: "#a9873e" },
-  { id: "risen-from-the-abyss", title: "Восставший из Бездны", titleEn: "Risen from the Abyss", threshold: 5_600, color: "#d0ad5a" },
+  { id: "tantalus", title: "Тантал", titleEn: "Tantalus", threshold: 10, color: "#86614f", path: "overture" },
+  { id: "sisyphus", title: "Сизиф", titleEn: "Sisyphus", threshold: 40, color: "#73726c", path: "overture" },
+  { id: "cyclops", title: "Циклоп", titleEn: "Cyclops", threshold: 90, color: "#9a6541", path: "overture" },
+  { id: "icarus", title: "Икар", titleEn: "Icarus", threshold: 160, color: "#b88c42", path: "overture" },
+  { id: "lion-heart", title: "Львиное Сердце", titleEn: "Lionheart", threshold: 250, color: "#aa6f3f", path: "heroic" },
+  { id: "venom-vanquisher", title: "Победитель Яда", titleEn: "Vanquisher of Venom", threshold: 450, color: "#71855c", path: "heroic" },
+  { id: "golden-horn-pathfinder", title: "Златорогий Следопыт", titleEn: "Golden-Horned Pathfinder", threshold: 750, color: "#b88a43", path: "heroic" },
+  { id: "mountain-tamer", title: "Горный Укротитель", titleEn: "Mountain Tamer", threshold: 1_100, color: "#777b78", path: "heroic" },
+  { id: "lord-of-the-current", title: "Владыка Потока", titleEn: "Lord of the Current", threshold: 1_550, color: "#397a79", path: "heroic" },
+  { id: "bronze-wing", title: "Бронзовое Крыло", titleEn: "Bronze Wing", threshold: 2_100, color: "#a96f4f", path: "heroic" },
+  { id: "tamer-of-might", title: "Укротитель Мощи", titleEn: "Tamer of Might", threshold: 2_800, color: "#986946", path: "heroic" },
+  { id: "iron-charioteer", title: "Железный Возничий", titleEn: "Iron Charioteer", threshold: 3_700, color: "#737b7c", path: "heroic" },
+  { id: "royal-honor-bearer", title: "Носитель Царской Чести", titleEn: "Bearer of Royal Honor", threshold: 4_800, color: "#b38a4f", path: "heroic" },
+  { id: "western-verge-guardian", title: "Страж Западного Предела", titleEn: "Guardian of the Western Verge", threshold: 6_200, color: "#5d718c", path: "heroic" },
+  { id: "golden-garden-keeper", title: "Хранитель Золотого Сада", titleEn: "Keeper of the Golden Garden", threshold: 8_000, color: "#a9873e", path: "heroic" },
+  { id: "risen-from-the-abyss", title: "Восставший из Бездны", titleEn: "Risen from the Abyss", threshold: 10_500, color: "#d0ad5a", path: "heroic" },
+  { id: "mirror-victor", title: "Зеркальный Победитель", titleEn: "Mirror Victor", threshold: 14_000, color: "#92b4bd", path: "hidden" },
+  { id: "lord-of-the-thread", title: "Владыка Нити", titleEn: "Lord of the Thread", threshold: 18_500, color: "#a86468", path: "hidden" },
+  { id: "golden-argonaut", title: "Золотой Аргонавт", titleEn: "Golden Argonaut", threshold: 24_000, color: "#d1a64c", path: "hidden" },
+  { id: "celestial-rider", title: "Небесный Всадник", titleEn: "Celestial Rider", threshold: 31_000, color: "#678db5", path: "hidden" },
+  { id: "voice-beyond-styx", title: "Голос за Стиксом", titleEn: "Voice Beyond the Styx", threshold: 40_000, color: "#685f91", path: "hidden" },
+  { id: "arcadian-arrow", title: "Аркадийская Стрела", titleEn: "Arcadian Arrow", threshold: 52_000, color: "#66875d", path: "hidden" },
+  { id: "myrmidon-shield", title: "Щит Мирмидонян", titleEn: "Shield of the Myrmidons", threshold: 67_000, color: "#8e7051", path: "hidden" },
+  { id: "many-counseled-wanderer", title: "Многоумный Странник", titleEn: "Many-Counseled Wanderer", threshold: 86_000, color: "#477d82", path: "hidden" },
+  { id: "spear-of-athena", title: "Копьё Афины", titleEn: "Spear of Athena", threshold: 110_000, color: "#718ca6", path: "hidden" },
+  { id: "dragon-seed-sower", title: "Сеятель Драконьего Семени", titleEn: "Sower of the Dragon Seed", threshold: 141_000, color: "#89694c", path: "hidden" },
+  { id: "sphinx-solver", title: "Разгадчик Сфинкса", titleEn: "Solver of the Sphinx", threshold: 180_000, color: "#96733f", path: "hidden" },
+  { id: "calydonian-glory-bearer", title: "Носитель Калидонской Славы", titleEn: "Bearer of Calydonian Glory", threshold: 230_000, color: "#d1b15b", path: "hidden" },
 ] as const;
+
+export const INTRODUCTORY_HEROIC_RANKS = HEROIC_RANKS.filter((rank) => rank.path === "overture");
+export const FOUNDATIONAL_HEROIC_RANKS = HEROIC_RANKS.filter((rank) => rank.path !== "hidden");
+export const HIDDEN_HEROIC_RANKS = HEROIC_RANKS.filter((rank) => rank.path === "hidden");
+export const HIDDEN_HEROIC_PATH_UNLOCK_XP = HEROIC_RANKS.find((rank) => rank.id === "risen-from-the-abyss")!.threshold;
 
 export const UNRANKED_HEROIC_STATE = {
   id: "unranked",
@@ -53,12 +93,21 @@ export const UNRANKED_HEROIC_STATE = {
   titleEn: "The path has not begun",
   threshold: 0,
   color: "#70736d",
+  path: "overture",
 } as const;
 
 export const MAX_HABIT_XP_PER_COMPLETION = 20;
 
 function safeXp(value: unknown) {
   return Math.max(0, Math.round(Number(value) || 0));
+}
+
+export function hiddenHeroicPathUnlocked(lifetimeXp: number) {
+  return safeXp(lifetimeXp) >= HIDDEN_HEROIC_PATH_UNLOCK_XP;
+}
+
+export function visibleHeroicRanksForXp(lifetimeXp: number) {
+  return hiddenHeroicPathUnlocked(lifetimeXp) ? HEROIC_RANKS : FOUNDATIONAL_HEROIC_RANKS;
 }
 
 export function highestRankForXp(lifetimeXp: number) {

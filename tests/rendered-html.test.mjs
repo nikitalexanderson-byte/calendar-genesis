@@ -13,6 +13,7 @@ import { THEOKYKLOS_DIRECTION_IDS, THEOKYKLOS_SEGMENTS } from "../app/theokyklos
 import {
   SACRED_PRACTICE_SECTOR_IDS,
   SACRED_PRACTICES,
+  STOICHEION_PRACTICE_SECTOR_IDS,
   sacredPracticesForSector,
   sacredSectorGuidance,
 } from "../app/sacred-practices.ts";
@@ -32,11 +33,17 @@ import {
 } from "../app/habit-templates.ts";
 import {
   HEROIC_RANKS,
+  FOUNDATIONAL_HEROIC_RANKS,
+  HIDDEN_HEROIC_PATH_UNLOCK_XP,
+  HIDDEN_HEROIC_RANKS,
+  INTRODUCTORY_HEROIC_RANKS,
   MAX_HABIT_XP_PER_COMPLETION,
   completionXpAward,
   heroicRank,
   highestRankForXp,
+  hiddenHeroicPathUnlocked,
   reconcileUserProgress,
+  visibleHeroicRanksForXp,
 } from "../app/habit-progress.ts";
 import {
   canRecordHabitOnDate,
@@ -58,6 +65,7 @@ import {
   createRewardTransaction,
   normalizeRewardTransactions,
   reconcileDailyGoalRewards,
+  resetLaurelsBalance,
 } from "../app/rewards.ts";
 
 async function render() {
@@ -155,7 +163,7 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(habits, /type HabitQualityScale = "none" \| "ten" \| "bipolar"/);
   assert.match(habits, /export function isHabitScheduledForDate/);
   assert.match(habits, /export function habitScore/);
-  assert.match(habits, /HEROIC_RANKS, MAX_HABIT_XP_PER_COMPLETION, completionXpAward, heroicRank, nextHeroicRank/);
+  assert.match(habits, /HEROIC_RANKS, MAX_HABIT_XP_PER_COMPLETION, completionXpAward, heroicRank, hiddenHeroicPathUnlocked, nextHeroicRank, visibleHeroicRanksForXp/);
   assert.match(habits, /STARTER_HABIT_TEMPLATES/);
   assert.match(habits, /createHabitFromTemplate/);
   assert.match(habits, /normalizeHiddenDefaultTemplates/);
@@ -171,7 +179,11 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(dailyGoal, /calculateGlobalStreak/);
   assert.match(rewards, /reconcileDailyGoalRewards/);
   assert.match(rewards, /daily-goal:self:/);
-  assert.equal((progress.match(/titleEn:/g) ?? []).length, 14);
+  assert.match(habits, /habit-missed:self:/);
+  assert.match(habits, /habit-deleted:self:/);
+  assert.match(habits, /export function reconcileMissedHabitLaurels/);
+  assert.match(habits, /export function removeHabitFromWorkspace/);
+  assert.equal((progress.match(/titleEn:/g) ?? []).length, 30);
   assert.match(sleep, /type SleepPlan/);
   assert.match(sleep, /type SleepEntry/);
   assert.match(sleep, /calculateSleepDuration/);
@@ -222,6 +234,8 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(sigil, /<svg/);
   assert.match(sigil, /onPointerMove/);
   assert.match(sigil, /rank-sigil-orbit/);
+  assert.match(sigil, /HEROIC_RANK_SIGIL_MOTIFS/);
+  assert.equal((sigil.match(/primary:/g) ?? []).length, 30);
   assert.match(tracker, /HabitMetricSigil variant="laurels"/);
   assert.match(tracker, /HabitMetricSigil variant="streak"/);
   assert.doesNotMatch(tracker, /habits-hero-laurels"><span/);
@@ -254,16 +268,28 @@ test("starter habit template catalog exposes ten inert calendar-aware suggestion
   assert.equal(starterTemplateRecurrencePreset(water, "lunar").days.length, 30);
 });
 
-test("lifetime XP exposes twelve ranks and never moves backwards", () => {
-  assert.equal(HEROIC_RANKS.length, 12);
-  assert.deepEqual(HEROIC_RANKS.map((rank) => rank.threshold), [10, 100, 250, 450, 700, 1_000, 1_400, 1_900, 2_500, 3_300, 4_300, 5_600]);
-  assert.equal(new Set(HEROIC_RANKS.map((rank) => rank.id)).size, 12);
+test("lifetime XP follows four overture, twelve heroic and twelve hidden ranks without moving backwards", () => {
+  assert.equal(HEROIC_RANKS.length, 28);
+  assert.equal(INTRODUCTORY_HEROIC_RANKS.length, 4);
+  assert.equal(FOUNDATIONAL_HEROIC_RANKS.length, 16);
+  assert.equal(HIDDEN_HEROIC_RANKS.length, 12);
+  assert.deepEqual(INTRODUCTORY_HEROIC_RANKS.map((rank) => rank.id), ["tantalus", "sisyphus", "cyclops", "icarus"]);
+  assert.deepEqual(HEROIC_RANKS.map((rank) => rank.threshold), [10, 40, 90, 160, 250, 450, 750, 1_100, 1_550, 2_100, 2_800, 3_700, 4_800, 6_200, 8_000, 10_500, 14_000, 18_500, 24_000, 31_000, 40_000, 52_000, 67_000, 86_000, 110_000, 141_000, 180_000, 230_000]);
+  assert.equal(new Set(HEROIC_RANKS.map((rank) => rank.id)).size, 28);
+  assert.equal(HIDDEN_HEROIC_PATH_UNLOCK_XP, 10_500);
+  assert.equal(hiddenHeroicPathUnlocked(10_499), false);
+  assert.equal(hiddenHeroicPathUnlocked(10_500), true);
+  assert.equal(visibleHeroicRanksForXp(10_499).length, 16);
+  assert.equal(visibleHeroicRanksForXp(10_500).length, 28);
 
   assert.equal(highestRankForXp(0), null);
   assert.equal(highestRankForXp(9), null);
   assert.equal(heroicRank(9).title, "Путь ещё не начат");
-  assert.equal(heroicRank(10).id, "lion-heart");
-  assert.equal(heroicRank(5_600).id, "risen-from-the-abyss");
+  assert.equal(heroicRank(10).id, "tantalus");
+  assert.equal(heroicRank(160).id, "icarus");
+  assert.equal(heroicRank(250).id, "lion-heart");
+  assert.equal(heroicRank(10_500).id, "risen-from-the-abyss");
+  assert.equal(heroicRank(14_000).id, "mirror-victor");
 
   assert.equal(completionXpAward(0, 10), 10);
   assert.equal(completionXpAward(10, 10), 10);
@@ -284,15 +310,15 @@ test("lifetime XP exposes twelve ranks and never moves backwards", () => {
 
   const migrated = reconcileUserProgress(null, [{ xpAwarded: 10 }, { xpAwarded: 20 }], "2026-09-18T00:00:00.000Z");
   assert.equal(migrated.lifetimeXp, 30);
-  assert.equal(migrated.currentRankId, "lion-heart");
+  assert.equal(migrated.currentRankId, "tantalus");
 
   const afterDeletion = reconcileUserProgress({
     lifetimeXp: 100,
-    currentRankId: "venom-vanquisher",
+    currentRankId: "cyclops",
     updatedAt: "2026-09-17T00:00:00.000Z",
   }, [], "2026-09-18T00:00:00.000Z");
   assert.equal(afterDeletion.lifetimeXp, 100);
-  assert.equal(afterDeletion.currentRankId, "venom-vanquisher");
+  assert.equal(afterDeletion.currentRankId, "cyclops");
   assert.equal(afterDeletion.updatedAt, "2026-09-17T00:00:00.000Z");
 });
 
@@ -388,6 +414,18 @@ test("Laurels use an idempotent ledger for daily goals and Perfect Days", () => 
   const quest = createRewardTransaction({ amount: 200, reason: "weekly-quest", sourceId: "quest-1", idempotencyKey: "weekly-quest:self:quest-1" });
   const purchase = createRewardTransaction({ amount: -120, reason: "hestia-spark", sourceId: "spark-1", idempotencyKey: "hestia-spark:self:spark-1" });
   assert.equal(calculateLaurelsBalance([...firstPass, quest, purchase]), 93, "spendable balance must be derived from the complete ledger");
+
+  const deletedReset = resetLaurelsBalance([...firstPass, quest, purchase], "habit-deleted-reset", "habit-1", "habit-deleted:self:habit-1", "2026-09-20T15:00:00.000Z");
+  assert.equal(calculateLaurelsBalance(deletedReset), 0, "deleting a habit resets the full spendable balance");
+  assert.equal(deletedReset.at(-1).amount, -93);
+  assert.equal(deletedReset.at(-1).reason, "habit-deleted-reset");
+  assert.deepEqual(resetLaurelsBalance(deletedReset, "habit-deleted-reset", "habit-1", "habit-deleted:self:habit-1"), deletedReset, "a reset event is idempotent");
+
+  const missedAtZero = resetLaurelsBalance([], "habit-missed-reset", "habit-2:2026-09-20", "habit-missed:self:habit-2:2026-09-20", "2026-09-21T00:00:00.000Z");
+  assert.equal(missedAtZero.length, 1, "zero-balance resets retain an immutable marker");
+  assert.equal(missedAtZero[0].amount, 0);
+  const earnedAfterReset = createRewardTransaction({ amount: 5, reason: "daily-goal", sourceId: "2026-09-21", idempotencyKey: "daily-goal:self:2026-09-21", createdAt: "2026-09-21T20:00:00.000Z" });
+  assert.equal(calculateLaurelsBalance([...missedAtZero, earnedAfterReset]), 5, "new Laurels earned after a reset remain spendable");
 });
 
 test("tracker scoring and time math preserve the specified invariants", () => {
@@ -483,7 +521,7 @@ test("ships the complete interactive bilingual Theokyklos", async () => {
   assert.match(i18n, /"Теокиклос": "Theokyklos"/);
 });
 
-test("maps the nine-card spread to complete sacred-practice sectors", async () => {
+test("covers every Theokyklos sector with sacred habits while keeping Stoicheion strictly nine-to-nine", async () => {
   const [calendar, stoicheion, theokyklos, tracker, habits, styles] = await Promise.all([
     readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/StoicheionView.tsx", import.meta.url), "utf8"),
@@ -493,14 +531,21 @@ test("maps the nine-card spread to complete sacred-practice sectors", async () =
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
 
-  assert.equal(SACRED_PRACTICE_SECTOR_IDS.length, 9);
+  assert.equal(SACRED_PRACTICE_SECTOR_IDS.length, 14);
   assert.deepEqual(new Set(SACRED_PRACTICE_SECTOR_IDS), new Set([
+    "north", "northeast", "east", "southeast", "south", "southwest", "west", "northwest", "zenith", "nadir", "hearth", "center", "entrance", "exit",
+  ]));
+  assert.equal(STOICHEION_PRACTICE_SECTOR_IDS.length, 9);
+  assert.deepEqual(new Set(STOICHEION_PRACTICE_SECTOR_IDS), new Set([
     "north", "northeast", "east", "southeast", "south", "southwest", "west", "northwest", "center",
   ]));
-  assert.equal(SACRED_PRACTICES.length, 18);
+  assert.equal(STOICHEION_PRACTICE_SECTOR_IDS.some((sectorId) => ["zenith", "nadir", "hearth", "entrance", "exit"].includes(sectorId)), false);
+  assert.equal(SACRED_PRACTICES.length, 28);
   assert.equal(new Set(SACRED_PRACTICES.map((practice) => practice.id)).size, SACRED_PRACTICES.length);
   for (const sectorId of SACRED_PRACTICE_SECTOR_IDS) {
     assert.equal(sacredPracticesForSector(sectorId).length, 2);
+  }
+  for (const sectorId of STOICHEION_PRACTICE_SECTOR_IDS) {
     assert.ok(sacredSectorGuidance(sectorId).upright.ru);
     assert.ok(sacredSectorGuidance(sectorId).reversed.ru);
   }
@@ -508,6 +553,11 @@ test("maps the nine-card spread to complete sacred-practice sectors", async () =
   assert.doesNotMatch(englishCopy, /[А-Яа-яЁё]/u);
 
   assert.match(stoicheion, /position: SpreadPosition \| null/);
+  assert.match(stoicheion, /id: StoicheionPracticeSectorId/);
+  const spreadBlock = stoicheion.match(/const SPREAD_POSITIONS:[\s\S]*?\] as const;/)?.[0] ?? "";
+  const spreadSectorIds = [...spreadBlock.matchAll(/\bid: "([a-z]+)"/g)].map((match) => match[1]);
+  assert.equal(spreadSectorIds.length, 9);
+  assert.deepEqual(new Set(spreadSectorIds), new Set(STOICHEION_PRACTICE_SECTOR_IDS));
   assert.match(stoicheion, /Практика сектора расклада/);
   assert.match(stoicheion, /Открыть сектор Теокиклоса/);
   assert.match(calendar, /openTheokyklosSector/);

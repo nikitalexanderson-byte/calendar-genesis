@@ -59,6 +59,7 @@ import {
   calculateLaurelsBalance,
   normalizeRewardTransactions,
   reconcileDailyGoalRewards,
+  resetLaurelsBalance,
   type RewardTransaction,
 } from "./rewards";
 import {
@@ -78,11 +79,11 @@ import {
 
 export { HABIT_COLORS, STARTER_HABIT_TEMPLATES } from "./habit-templates";
 export type { HabitTemplate, HabitTemplateId } from "./habit-templates";
-export { HEROIC_RANKS, MAX_HABIT_XP_PER_COMPLETION, completionXpAward, heroicRank, nextHeroicRank } from "./habit-progress";
+export { HEROIC_RANKS, MAX_HABIT_XP_PER_COMPLETION, completionXpAward, heroicRank, hiddenHeroicPathUnlocked, nextHeroicRank, visibleHeroicRanksForXp } from "./habit-progress";
 export type { HeroicRank, HeroicRankId, UserProgress } from "./habit-progress";
 export { DEFAULT_HABIT_EMOJI, DEFAULT_HABIT_PRIORITY, HABIT_EMOJI_PRESETS, canRecordHabitOnDate, normalizeHabitEmoji, normalizeHabitPriority } from "./habit-integrity";
 export type { RewardCurrency, RewardReason, RewardTransaction } from "./rewards";
-export { DAILY_GOAL_LAURELS, PERFECT_DAY_LAURELS, laurelsForDailyGoal } from "./rewards";
+export { DAILY_GOAL_LAURELS, PERFECT_DAY_LAURELS, laurelsForDailyGoal, resetLaurelsBalance } from "./rewards";
 export { dailyGoalTarget } from "./daily-goal";
 export type { DailyGoalMode, DailyGoalModeChange, DailyGoalRecord, DailyGoalStatus } from "./daily-goal";
 
@@ -678,10 +679,50 @@ export function dailyGoalForDate(
     : next;
 }
 
-function withDailyGoalStreak(workspace: HabitWorkspace, today: string) {
+function scheduledBeforePause(habit: Habit, date: string, calendarMode: CalendarMode) {
+  if (date < habit.createdDate || !isTrackerScheduledForDate(habit.schedule, date, calendarMode)) return false;
+  if (habit.active) return true;
+  const pausedDate = DATE_PATTERN.test(habit.updatedAt.slice(0, 10)) ? habit.updatedAt.slice(0, 10) : habit.createdDate;
+  return date < pausedDate;
+}
+
+export function reconcileMissedHabitLaurels(
+  workspace: HabitWorkspace,
+  value: readonly RewardTransaction[],
+  today: string,
+  timestamp: string,
+  calendarMode: CalendarMode,
+) {
+  let transactions = normalizeRewardTransactions(value);
+  const completed = new Set(workspace.habitCompletions
+    .filter((entry) => entry.completed)
+    .map((entry) => `${entry.habitId}:${entry.date}`));
+  const restDays = new Set(workspace.habitSettings.plannedRestDays);
+  const closedDates = workspace.dailyGoalRecords
+    .map((record) => record.date)
+    .filter((date, index, dates) => date < today && !restDays.has(date) && dates.indexOf(date) === index)
+    .sort();
+
+  closedDates.forEach((date) => {
+    workspace.habits.forEach((habit) => {
+      if (!scheduledBeforePause(habit, date, calendarMode) || completed.has(`${habit.id}:${date}`)) return;
+      transactions = resetLaurelsBalance(
+        transactions,
+        "habit-missed-reset",
+        `${habit.id}:${date}`,
+        `habit-missed:self:${habit.id}:${date}`,
+        timestamp,
+      );
+    });
+  });
+  return transactions;
+}
+
+function withDailyGoalStreak(workspace: HabitWorkspace, today: string, calendarMode: CalendarMode) {
   const streak = calculateGlobalStreak(workspace.dailyGoalRecords, today);
   const timestamp = new Date().toISOString();
-  const rewardTransactions = reconcileDailyGoalRewards(workspace.dailyGoalRecords, workspace.rewardTransactions, today, timestamp);
+  const earnedTransactions = reconcileDailyGoalRewards(workspace.dailyGoalRecords, workspace.rewardTransactions, today, timestamp);
+  const rewardTransactions = reconcileMissedHabitLaurels(workspace, earnedTransactions, today, timestamp, calendarMode);
   return {
     ...workspace,
     rewardTransactions,
@@ -707,7 +748,7 @@ export function refreshDailyGoalProgress(
     const record = dailyGoalForDate({ ...workspace, dailyGoalRecords: records }, date, calendarMode, today);
     records = upsertDailyGoalRecord(records, record);
   }
-  return withDailyGoalStreak({ ...workspace, dailyGoalRecords: records }, today);
+  return withDailyGoalStreak({ ...workspace, dailyGoalRecords: records }, today, calendarMode);
 }
 
 export function ensureDailyGoalProgress(
@@ -748,7 +789,37 @@ export function ensureDailyGoalProgress(
     const current = dailyGoalForDate({ ...workspace, dailyGoalRecords: records }, today, calendarMode, today);
     records = upsertDailyGoalRecord(records, current);
   }
-  return withDailyGoalStreak({ ...workspace, dailyGoalRecords: records }, today);
+  return withDailyGoalStreak({ ...workspace, dailyGoalRecords: records }, today, calendarMode);
+}
+
+export function removeHabitFromWorkspace(
+  workspace: HabitWorkspace,
+  habitId: string,
+  timestamp = new Date().toISOString(),
+): HabitWorkspace {
+  const habit = workspace.habits.find((item) => item.id === habitId);
+  if (!habit) return workspace;
+  const habitCompletions = workspace.habitCompletions.filter((entry) => entry.habitId !== habitId);
+  const rewardTransactions = resetLaurelsBalance(
+    workspace.rewardTransactions,
+    "habit-deleted-reset",
+    habitId,
+    `habit-deleted:self:${habitId}`,
+    timestamp,
+  );
+  return {
+    ...workspace,
+    habits: workspace.habits.filter((item) => item.id !== habitId),
+    habitCompletions,
+    rewardTransactions,
+    userProgress: reconcileUserProgress(
+      workspace.userProgress,
+      habitCompletions,
+      timestamp,
+      undefined,
+      calculateLaurelsBalance(rewardTransactions),
+    ),
+  };
 }
 
 export function setDailyGoalMode(

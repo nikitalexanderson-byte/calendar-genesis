@@ -23,14 +23,17 @@ import {
   defaultHabit,
   habitDateKey,
   heroicRank,
+  hiddenHeroicPathUnlocked,
   isHabitScheduledForDate,
   normalizeHabitEmoji,
   normalizeHabitPriority,
   reportDateRange,
+  removeHabitFromWorkspace,
   scoreHabitCompletion,
   setDailyGoalMode,
   setPlannedRestDay,
   updateHabitCompletion,
+  visibleHeroicRanksForXp,
   type Habit,
   type HabitQualityScale,
   type HabitScoringMode,
@@ -275,6 +278,8 @@ function rewardReasonLabel(reason: RewardReason, isEnglish: boolean) {
   if (reason === "streak-milestone") return isEnglish ? "Streak milestone" : "Этап серии";
   if (reason === "rank-up") return isEnglish ? "New rank" : "Новый ранг";
   if (reason === "achievement") return isEnglish ? "Achievement" : "Достижение";
+  if (reason === "habit-deleted-reset") return isEnglish ? "Habit deleted · Laurels reset" : "Привычка удалена · Лавры обнулены";
+  if (reason === "habit-missed-reset") return isEnglish ? "Habit missed · Laurels reset" : "Привычка не выполнена · Лавры обнулены";
   return isEnglish ? "Hestia Spark" : "Искра Гестии";
 }
 
@@ -698,6 +703,8 @@ function HabitStatistics({ workspace, date, language, calendarMode }: { workspac
   const total = calculateHabitTotal(workspace);
   const rank = heroicRank(total);
   const nextRank = HEROIC_RANKS.find((item) => item.threshold > total);
+  const visibleRanks = visibleHeroicRanksForXp(total);
+  const hiddenPathUnlocked = hiddenHeroicPathUnlocked(total);
   const progress = nextRank ? Math.max(0, Math.min(100, Math.round((total - rank.threshold) / (nextRank.threshold - rank.threshold) * 100))) : 100;
   const maxDaily = Math.max(20, ...daily.map((item) => item.habit.score + item.sleep.score + item.addiction.score));
   const points = daily.map((item, index) => `${daily.length > 1 ? index / (daily.length - 1) * 100 : 0},${55 - (item.habit.score + item.sleep.score + item.addiction.score) / maxDaily * 50}`).join(" ");
@@ -715,7 +722,7 @@ function HabitStatistics({ workspace, date, language, calendarMode }: { workspac
       </div>
       {workspace.habits.length ? <div className="habit-ranking-list"><header><span className="eyebrow">{isEnglish ? "Habits" : "Привычки"}</span><h3>{isEnglish ? "Current streaks" : "Текущие серии"}</h3></header>{workspace.habits.map((habit) => { const completions = workspace.habitCompletions.filter((entry) => entry.habitId === habit.id && entry.date >= range.start && entry.date <= range.end && entry.completed); const qualities = completions.filter((entry) => entry.qualityValue !== null); return <article style={{ "--habit-color": habit.color } as CSSProperties} key={habit.id}><i /><div><strong data-no-translate>{habit.title}</strong><small>{completions.length} {isEnglish ? "completions" : "выполнений"}{qualities.length ? ` · ${isEnglish ? "quality" : "качество"} ${(qualities.reduce((sum, entry) => sum + (entry.qualityValue ?? 0), 0) / qualities.length).toFixed(1)}` : ""}</small></div><span>{habitStreak(workspace, habit, date, calendarMode)} {isEnglish ? "days" : "дней"}</span></article>; })}</div> : null}
       {workspace.addictionTrackers.length ? <div className="habit-ranking-list"><header><span className="eyebrow">{isEnglish ? "Abstinence" : "Воздержание"}</span><h3>{isEnglish ? "Current clean streaks" : "Текущие чистые серии"}</h3></header>{workspace.addictionTrackers.map((tracker) => <article style={{ "--habit-color": "#8f6951" } as CSSProperties} key={tracker.id}><i /><div><strong data-no-translate>{tracker.trackedBehavior}</strong><small>{isEnglish ? "Relapse never removes earned points" : "Срыв не отнимает заработанные баллы"}</small></div><span>{addictionStreak(workspace.addictionEntries, tracker.id, date)} {isEnglish ? "days" : "дней"}</span></article>)}</div> : null}
-      <div className="heroic-rank-road"><header><span className="eyebrow">{isEnglish ? "Path of the hero" : "Путь героя"}</span><h3>{isEnglish ? "Rank milestones" : "Ступени рангов"}</h3></header><div>{HEROIC_RANKS.map((item) => <article className={total >= item.threshold ? "reached" : ""} style={{ "--rank-color": item.color } as CSSProperties} key={item.id}><HeroicRankSigil compact rankId={item.id} color={item.color} /><strong>{isEnglish ? item.titleEn : item.title}</strong><small>{item.threshold} XP</small></article>)}</div></div>
+      <div className="heroic-rank-road"><header><span className="eyebrow">{isEnglish ? "Path of the hero" : "Путь героя"}</span><h3>{isEnglish ? "Rank milestones" : "Ступени рангов"}</h3></header><div>{visibleRanks.map((item) => <article className={`${total >= item.threshold ? "reached" : ""}${item.path === "hidden" ? " hidden-path-rank" : ""}`} style={{ "--rank-color": item.color } as CSSProperties} key={item.id}><HeroicRankSigil compact rankId={item.id} color={item.color} /><strong>{isEnglish ? item.titleEn : item.title}</strong><small>{item.threshold.toLocaleString(isEnglish ? "en-US" : "ru-RU")} XP</small></article>)}</div>{!hiddenPathUnlocked ? <aside className="heroic-hidden-gate"><span aria-hidden="true">◇</span><div><strong>{isEnglish ? "The second path is hidden" : "Второй путь пока скрыт"}</strong><small>{isEnglish ? "Reach “Risen from the Abyss” to reveal twelve secret ranks." : "Достигните ранга «Восставший из Бездны», чтобы открыть 12 тайных ступеней."}</small></div></aside> : <p className="heroic-hidden-revealed">{isEnglish ? "The secret path has awakened: twelve further ranks are now visible." : "Тайный путь пробуждён: открыты ещё 12 рангов."}</p>}</div>
     </section>
   );
 }
@@ -785,14 +792,19 @@ function SacredHabitLibrary({
               <blockquote>{practice.myth[language]}</blockquote>
               <footer>
                 {habit ? (
-                  <button
-                    type="button"
-                    className={entry?.completed ? "sacred-practice-done" : "primary-button"}
-                    disabled={!canTrack}
-                    onClick={() => onChange(updateHabitCompletion(workspace, habit, date, { completed: !entry?.completed }))}
-                  >
-                    {entry?.completed ? `✓ ${isEnglish ? "Completed today" : "Выполнено сегодня"}` : (isEnglish ? "Mark today" : "Отметить сегодня")}
-                  </button>
+                  <div className="sacred-practice-actions">
+                    {habit.active ? <>
+                      <button
+                        type="button"
+                        className={entry?.completed ? "sacred-practice-done" : "primary-button"}
+                        disabled={!canTrack}
+                        onClick={() => onChange(updateHabitCompletion(workspace, habit, date, { completed: !entry?.completed }))}
+                      >
+                        {entry?.completed ? `✓ ${isEnglish ? "Completed today" : "Выполнено сегодня"}` : (isEnglish ? "Mark today" : "Отметить сегодня")}
+                      </button>
+                      <button type="button" className="sacred-practice-disable" onClick={() => onChange({ ...workspace, habits: workspace.habits.map((item) => item.id === habit.id ? markTrackerEntityChanged({ ...item, active: false }) : item) })}>{isEnglish ? "Disable" : "Отключить"}</button>
+                    </> : <button type="button" className="primary-button" onClick={() => onChange({ ...workspace, habits: workspace.habits.map((item) => item.id === habit.id ? markTrackerEntityChanged({ ...item, active: true }) : item) })}>{isEnglish ? "Enable again" : "Включить снова"}</button>}
+                  </div>
                 ) : <button type="button" className="primary-button" onClick={() => onStart(practice)}>{isEnglish ? "Begin practice" : "Начать практику"}</button>}
                 <small>{practice.suggestedTime} · {isEnglish ? `priority ${practice.priority}` : `приоритет ${practice.priority}`}</small>
               </footer>
@@ -843,8 +855,9 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
   };
 
   const removeHabit = (habit: Habit) => {
-    if (!window.confirm(isEnglish ? `Delete “${habit.title}” and its completions?` : `Удалить «${habit.title}» и все отметки?`)) return;
-    onChange({ ...workspace, habits: workspace.habits.filter((item) => item.id !== habit.id), habitCompletions: workspace.habitCompletions.filter((entry) => entry.habitId !== habit.id) });
+    if (!window.confirm(isEnglish ? `Delete “${habit.title}” and its completions? The Laurels balance will be reset to zero.` : `Удалить «${habit.title}» и все отметки? Баланс Лавров будет обнулён.`)) return;
+    onChange(removeHabitFromWorkspace(workspace, habit.id));
+    setMessage(isEnglish ? "Habit deleted. The Laurels balance has been reset to zero." : "Привычка удалена. Баланс Лавров обнулён.");
     if ((habit.reminder.googleTaskId || habit.reminder.googleEventId) && onReminderRemoved) void onReminderRemoved(habit).catch((error: Error) => setMessage(error.message));
   };
 
@@ -886,7 +899,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
 
       <HabitDailyPanel workspace={workspace} date={date} language={language} timeFormat={timeFormat} calendarMode={calendarMode} onChange={onChange} showGoalSettings />
 
-      <section className="habit-library"><header><div><span className="eyebrow">{isEnglish ? "Habit core" : "Ядро привычек"}</span><h2>{isEnglish ? "Habits" : "Обычные привычки"}</h2></div><button type="button" onClick={openNewHabit}>＋ {isEnglish ? "Add" : "Добавить"}</button></header><p className="habit-library-rule">🔒 {isEnglish ? "Saved habit settings cannot be edited. Pause remains available; deleting removes the habit and its marks." : "Настройки сохранённой привычки нельзя редактировать. Пауза остаётся доступной; удаление стирает привычку и её отметки."}</p>{workspace.habits.length ? <div>{[...workspace.habits].sort((left, right) => right.priority - left.priority || left.title.localeCompare(right.title)).map((habit) => <article className={!habit.active ? "paused" : ""} style={{ "--habit-color": habit.color } as CSSProperties} key={habit.id}><i /><div><span><b className="habit-emoji" aria-hidden="true">{habit.emoji}</b><strong data-no-translate>{habit.title}</strong><em>{isEnglish ? `Priority ${habit.priority}` : `Приоритет ${habit.priority}`}</em></span><small>{scoringFormula(habit.scoringMode, isEnglish)} · {isEnglish ? `created ${habit.createdDate}` : `создана ${habit.createdDate}`}</small></div><output>{habit.scoringMode === "none" ? "—" : `≤${MAX_HABIT_XP_PER_COMPLETION}`}</output><button type="button" onClick={() => onChange({ ...workspace, habits: workspace.habits.map((item) => item.id === habit.id ? markTrackerEntityChanged({ ...item, active: !item.active }) : item) })}>{habit.active ? (isEnglish ? "Pause" : "Пауза") : (isEnglish ? "Resume" : "Включить")}</button><button type="button" className="danger" onClick={() => removeHabit(habit)}>{isEnglish ? "Delete" : "Удалить"}</button></article>)}</div> : <div className="habit-library-empty"><p>{isEnglish ? "No regular habits yet." : "Обычных привычек пока нет."}</p><button type="button" className="primary-button" onClick={openNewHabit}>{isEnglish ? "Create first habit" : "Создать первую привычку"}</button></div>}</section>
+      <section className="habit-library"><header><div><span className="eyebrow">{isEnglish ? "Habit core" : "Ядро привычек"}</span><h2>{isEnglish ? "Habits" : "Обычные привычки"}</h2></div><button type="button" onClick={openNewHabit}>＋ {isEnglish ? "Add" : "Добавить"}</button></header><p className="habit-library-rule">🔒 {isEnglish ? "Saved habit settings cannot be edited. Pause remains available; deleting removes the habit and its marks and resets Laurels to zero." : "Настройки сохранённой привычки нельзя редактировать. Пауза остаётся доступной; удаление стирает привычку с отметками и обнуляет Лавры."}</p>{workspace.habits.length ? <div>{[...workspace.habits].sort((left, right) => right.priority - left.priority || left.title.localeCompare(right.title)).map((habit) => <article className={!habit.active ? "paused" : ""} style={{ "--habit-color": habit.color } as CSSProperties} key={habit.id}><i /><div><span><b className="habit-emoji" aria-hidden="true">{habit.emoji}</b><strong data-no-translate>{habit.title}</strong><em>{isEnglish ? `Priority ${habit.priority}` : `Приоритет ${habit.priority}`}</em></span><small>{scoringFormula(habit.scoringMode, isEnglish)} · {isEnglish ? `created ${habit.createdDate}` : `создана ${habit.createdDate}`}</small></div><output>{habit.scoringMode === "none" ? "—" : `≤${MAX_HABIT_XP_PER_COMPLETION}`}</output><button type="button" onClick={() => onChange({ ...workspace, habits: workspace.habits.map((item) => item.id === habit.id ? markTrackerEntityChanged({ ...item, active: !item.active }) : item) })}>{habit.active ? (isEnglish ? "Pause" : "Пауза") : (isEnglish ? "Resume" : "Включить")}</button><button type="button" className="danger" onClick={() => removeHabit(habit)}>{isEnglish ? "Delete" : "Удалить"}</button></article>)}</div> : <div className="habit-library-empty"><p>{isEnglish ? "No regular habits yet." : "Обычных привычек пока нет."}</p><button type="button" className="primary-button" onClick={openNewHabit}>{isEnglish ? "Create first habit" : "Создать первую привычку"}</button></div>}</section>
 
       <div className="tracker-module-grid">
         <section className="tracker-module-card sleep-module"><header><div><span className="eyebrow">{isEnglish ? "Independent module" : "Независимый модуль"}</span><h2>{isEnglish ? "Sleep" : "Сон"}</h2></div><button type="button" onClick={() => setEditingSleep(defaultSleepPlan(date, calendarMode))}>＋ {isEnglish ? "Plan" : "План"}</button></header>{workspace.sleepPlans.length ? workspace.sleepPlans.map((plan) => <article key={plan.id}><div><strong data-no-translate>{plan.title}</strong><small>{plan.targetBedtime} → {plan.targetWakeTime} · {plan.schedule.timezone}</small></div><button type="button" onClick={() => setEditingSleep(plan)}>{isEnglish ? "Edit" : "Изменить"}</button><button type="button" className="danger" onClick={() => onChange({ ...workspace, sleepPlans: workspace.sleepPlans.filter((item) => item.id !== plan.id), sleepEntries: workspace.sleepEntries.filter((entry) => entry.planId !== plan.id) })}>{isEnglish ? "Delete" : "Удалить"}</button></article>) : <p>{isEnglish ? "Track bedtime, wake time, duration and quality across midnight and DST." : "Отслеживайте сон, пробуждение, длительность и качество с учётом полуночи и DST."}</p>}</section>
