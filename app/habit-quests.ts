@@ -6,12 +6,13 @@ import {
 } from "./rewards.ts";
 import type { TrackerEntity, TrackerSchedule } from "./tracker-core.ts";
 
-export type HabitQuestCadence = "daily" | "weekly";
-export type HabitQuestKind = "daily-goal" | "weekly-completions";
+export type HabitQuestCadence = "daily" | "weekly" | "epic";
+export type HabitQuestKind = "daily-goal" | "weekly-completions" | "daily-goals" | "perfect-days" | "habit-completions" | "epic-completions";
 
 export type HabitQuest = TrackerEntity & {
   cadence: HabitQuestCadence;
   kind: HabitQuestKind;
+  habitId: string | null;
   startDate: string;
   endDate: string;
   target: number;
@@ -23,6 +24,7 @@ export type HabitQuest = TrackerEntity & {
 type QuestHabit = {
   id: string;
   active: boolean;
+  priority?: number;
   schedule: TrackerSchedule;
 };
 
@@ -34,10 +36,11 @@ type QuestCompletion = {
 
 export const DAILY_QUEST_LAURELS = 3;
 export const WEEKLY_QUEST_LAURELS = 25;
+export const EPIC_QUEST_LAURELS = 80;
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-const QUEST_KINDS: readonly HabitQuestKind[] = ["daily-goal", "weekly-completions"];
-const QUEST_CADENCES: readonly HabitQuestCadence[] = ["daily", "weekly"];
+const QUEST_KINDS: readonly HabitQuestKind[] = ["daily-goal", "weekly-completions", "daily-goals", "perfect-days", "habit-completions", "epic-completions"];
+const QUEST_CADENCES: readonly HabitQuestCadence[] = ["daily", "weekly", "epic"];
 
 function safeCount(value: unknown) {
   return Math.max(0, Math.round(Number(value) || 0));
@@ -49,10 +52,7 @@ function localDate(value: string) {
 }
 
 function dateKey(value: Date) {
-  const year = value.getFullYear();
-  const month = String(value.getMonth() + 1).padStart(2, "0");
-  const day = String(value.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
 }
 
 function addDays(value: string, days: number) {
@@ -63,7 +63,7 @@ function addDays(value: string, days: number) {
 
 function datesBetween(start: string, end: string) {
   const values: string[] = [];
-  for (let value = start; value <= end && values.length < 31; value = addDays(value, 1)) values.push(value);
+  for (let value = start; value <= end && values.length < 370; value = addDays(value, 1)) values.push(value);
   return values;
 }
 
@@ -72,6 +72,13 @@ export function habitQuestWeek(today: string) {
   const offset = (date.getDay() + 6) % 7;
   const startDate = addDays(today, -offset);
   return { startDate, endDate: addDays(startDate, 6) };
+}
+
+export function habitQuestMonth(today: string) {
+  const date = localDate(today);
+  const startDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-01`;
+  const end = new Date(date.getFullYear(), date.getMonth() + 1, 0, 12);
+  return { startDate, endDate: dateKey(end) };
 }
 
 function questId(cadence: HabitQuestCadence, startDate: string) {
@@ -83,10 +90,47 @@ function scheduledOccurrences(
   dates: readonly string[],
   calendarMode: CalendarMode,
   isScheduledForDate: (schedule: TrackerSchedule, date: string, calendarMode: CalendarMode) => boolean,
+  habitId: string | null = null,
 ) {
   return habits.reduce((total, habit) => total + dates.filter((date) => (
-    habit.active && isScheduledForDate(habit.schedule, date, calendarMode)
+    habit.active && (!habitId || habit.id === habitId) && isScheduledForDate(habit.schedule, date, calendarMode)
   )).length, 0);
+}
+
+function completionKeys(completions: readonly QuestCompletion[]) {
+  return new Set(completions.filter((completion) => completion.completed).map((completion) => `${completion.habitId}:${completion.date}`));
+}
+
+function attainableCompletions(input: {
+  habits: readonly QuestHabit[];
+  completions: readonly QuestCompletion[];
+  dates: readonly string[];
+  today: string;
+  calendarMode: CalendarMode;
+  isScheduledForDate: (schedule: TrackerSchedule, date: string, calendarMode: CalendarMode) => boolean;
+  habitId?: string | null;
+}) {
+  const completed = completionKeys(input.completions);
+  return input.habits.reduce((total, habit) => total + input.dates.filter((date) => {
+    if (!habit.active || (input.habitId && habit.id !== input.habitId) || !input.isScheduledForDate(habit.schedule, date, input.calendarMode)) return false;
+    return date >= input.today || completed.has(`${habit.id}:${date}`);
+  }).length, 0);
+}
+
+function attainableGoalDays(
+  dates: readonly string[],
+  today: string,
+  dailyGoalRecords: readonly DailyGoalRecord[],
+  habits: readonly QuestHabit[],
+  calendarMode: CalendarMode,
+  isScheduledForDate: (schedule: TrackerSchedule, date: string, calendarMode: CalendarMode) => boolean,
+  perfectOnly = false,
+) {
+  return dates.filter((date) => {
+    const record = dailyGoalRecords.find((item) => item.date === date);
+    if (date < today) return perfectOnly ? record?.status === "perfect" : Boolean(record && ["qualified", "perfect"].includes(record.status));
+    return scheduledOccurrences(habits, [date], calendarMode, isScheduledForDate) > 0;
+  }).length;
 }
 
 function normalizeQuestEntity(value: Partial<TrackerEntity>): TrackerEntity {
@@ -105,12 +149,18 @@ function questProgress(
   completions: readonly QuestCompletion[],
   dailyGoalRecords: readonly DailyGoalRecord[],
 ) {
+  const records = dailyGoalRecords.filter((item) => item.date >= quest.startDate && item.date <= quest.endDate);
   if (quest.kind === "daily-goal") {
-    const record = dailyGoalRecords.find((item) => item.date === quest.startDate);
+    const record = records.find((item) => item.date === quest.startDate);
     return record && ["qualified", "perfect"].includes(record.status) ? 1 : 0;
   }
+  if (quest.kind === "daily-goals") return records.filter((record) => ["qualified", "perfect"].includes(record.status)).length;
+  if (quest.kind === "perfect-days") return records.filter((record) => record.status === "perfect").length;
   return new Set(completions
-    .filter((completion) => completion.completed && completion.date >= quest.startDate && completion.date <= quest.endDate)
+    .filter((completion) => completion.completed
+      && completion.date >= quest.startDate
+      && completion.date <= quest.endDate
+      && (!quest.habitId || completion.habitId === quest.habitId))
     .map((completion) => `${completion.habitId}:${completion.date}`)).size;
 }
 
@@ -124,19 +174,13 @@ function updateQuest(
   const progress = quest.completedAt ? Math.max(quest.progress, measuredProgress) : measuredProgress;
   const completedAt = quest.completedAt ?? (progress >= quest.target ? timestamp : null);
   if (progress === quest.progress && completedAt === quest.completedAt) return quest;
-  return {
-    ...quest,
-    progress,
-    completedAt,
-    updatedAt: timestamp,
-    version: quest.version + 1,
-    syncState: "pending" as const,
-  };
+  return { ...quest, progress, completedAt, updatedAt: timestamp, version: quest.version + 1, syncState: "pending" as const };
 }
 
 function createQuest(input: {
   cadence: HabitQuestCadence;
   kind: HabitQuestKind;
+  habitId?: string | null;
   startDate: string;
   endDate: string;
   target: number;
@@ -151,6 +195,7 @@ function createQuest(input: {
     syncState: "local",
     cadence: input.cadence,
     kind: input.kind,
+    habitId: input.habitId ?? null,
     startDate: input.startDate,
     endDate: input.endDate,
     target: Math.max(1, safeCount(input.target)),
@@ -178,6 +223,7 @@ export function normalizeHabitQuests(value: unknown): HabitQuest[] {
       ...entity,
       cadence: source.cadence!,
       kind: source.kind!,
+      habitId: typeof source.habitId === "string" && source.habitId ? source.habitId : null,
       startDate: source.startDate!,
       endDate: source.endDate!,
       target,
@@ -213,19 +259,48 @@ export function reconcileHabitQuests(input: {
 
   const week = habitQuestWeek(input.today);
   const weekDates = datesBetween(week.startDate, week.endDate);
-  const weeklyScheduled = scheduledOccurrences(input.habits, weekDates, input.calendarMode, input.isScheduledForDate);
   const weeklyId = questId("weekly", week.startDate);
-  if (weeklyScheduled > 0 && !quests.has(weeklyId)) {
-    const quest = createQuest({
-      cadence: "weekly",
-      kind: "weekly-completions",
-      startDate: week.startDate,
-      endDate: week.endDate,
-      target: Math.min(10, weeklyScheduled),
-      rewardLaurels: WEEKLY_QUEST_LAURELS,
-      timestamp,
-    });
-    quests.set(quest.id, updateQuest(quest, input.completions, input.dailyGoalRecords, timestamp));
+  if (!quests.has(weeklyId)) {
+    const variant = Number(week.startDate.replaceAll("-", "")) % 4;
+    let kind: HabitQuestKind = "weekly-completions";
+    let habitId: string | null = null;
+    let capacity = attainableCompletions({ ...input, dates: weekDates });
+    let target = Math.min(10, capacity);
+    if (variant === 1) {
+      kind = "daily-goals";
+      capacity = attainableGoalDays(weekDates, input.today, input.dailyGoalRecords, input.habits, input.calendarMode, input.isScheduledForDate);
+      target = Math.min(5, capacity);
+    } else if (variant === 2) {
+      kind = "perfect-days";
+      capacity = attainableGoalDays(weekDates, input.today, input.dailyGoalRecords, input.habits, input.calendarMode, input.isScheduledForDate, true);
+      target = Math.min(3, capacity);
+    } else if (variant === 3) {
+      const candidate = input.habits
+        .filter((habit) => habit.active)
+        .map((habit) => ({ habit, capacity: attainableCompletions({ ...input, dates: weekDates, habitId: habit.id }) }))
+        .filter((item) => item.capacity > 0)
+        .sort((left, right) => right.capacity - left.capacity || (right.habit.priority ?? 0) - (left.habit.priority ?? 0) || left.habit.id.localeCompare(right.habit.id))[0];
+      kind = "habit-completions";
+      habitId = candidate?.habit.id ?? null;
+      capacity = candidate?.capacity ?? 0;
+      target = Math.min(5, capacity);
+    }
+    if (target > 0) {
+      const quest = createQuest({ cadence: "weekly", kind, habitId, startDate: week.startDate, endDate: week.endDate, target, rewardLaurels: WEEKLY_QUEST_LAURELS, timestamp });
+      quests.set(quest.id, updateQuest(quest, input.completions, input.dailyGoalRecords, timestamp));
+    }
+  }
+
+  const month = habitQuestMonth(input.today);
+  const monthDates = datesBetween(month.startDate, month.endDate);
+  const epicId = questId("epic", month.startDate);
+  if (!quests.has(epicId)) {
+    const capacity = attainableCompletions({ ...input, dates: monthDates });
+    const target = Math.min(30, capacity);
+    if (target > 0) {
+      const quest = createQuest({ cadence: "epic", kind: "epic-completions", startDate: month.startDate, endDate: month.endDate, target, rewardLaurels: EPIC_QUEST_LAURELS, timestamp });
+      quests.set(quest.id, updateQuest(quest, input.completions, input.dailyGoalRecords, timestamp));
+    }
   }
   return Array.from(quests.values()).sort((left, right) => left.startDate.localeCompare(right.startDate) || left.cadence.localeCompare(right.cadence));
 }
@@ -242,7 +317,7 @@ export function reconcileHabitQuestRewards(
     if (knownKeys.has(idempotencyKey)) return;
     transactions.push(createRewardTransaction({
       amount: quest.rewardLaurels,
-      reason: quest.cadence === "weekly" ? "weekly-quest" : "daily-quest",
+      reason: quest.cadence === "epic" ? "epic-quest" : quest.cadence === "weekly" ? "weekly-quest" : "daily-quest",
       sourceId: quest.id,
       idempotencyKey,
       createdAt: quest.completedAt ?? timestamp,
@@ -253,6 +328,7 @@ export function reconcileHabitQuestRewards(
 }
 
 export function currentHabitQuests(quests: readonly HabitQuest[], today: string) {
+  const cadenceOrder: Record<HabitQuestCadence, number> = { daily: 0, weekly: 1, epic: 2 };
   return quests.filter((quest) => quest.startDate <= today && quest.endDate >= today)
-    .sort((left, right) => left.cadence.localeCompare(right.cadence));
+    .sort((left, right) => cadenceOrder[left.cadence] - cadenceOrder[right.cadence]);
 }

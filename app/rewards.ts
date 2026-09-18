@@ -6,6 +6,7 @@ export type RewardReason =
   | "perfect-day"
   | "daily-quest"
   | "weekly-quest"
+  | "epic-quest"
   | "streak-milestone"
   | "rank-up"
   | "achievement"
@@ -37,6 +38,7 @@ const REWARD_REASONS: readonly RewardReason[] = [
   "perfect-day",
   "daily-quest",
   "weekly-quest",
+  "epic-quest",
   "streak-milestone",
   "rank-up",
   "achievement",

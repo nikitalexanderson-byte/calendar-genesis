@@ -5,7 +5,7 @@ export function resetHabitWorkspace(
   timestamp = new Date().toISOString(),
 ): HabitWorkspace {
   return {
-    trackerSchemaVersion: 14,
+    trackerSchemaVersion: 15,
     userProgress: {
       lifetimeXp: 0,
       laurelsBalance: 0,

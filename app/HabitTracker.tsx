@@ -12,16 +12,19 @@ import { AchievementSigil } from "./AchievementSigil";
 import { SACRED_SECTOR_SIGIL_MOTIFS, SacredSectorSigil } from "./SacredSectorSigil";
 import {
   HABIT_EMOJI_PRESETS,
+  HABIT_RITUAL_OPTIONS,
   ACHIEVEMENTS,
   HABIT_COLORS,
   HABIT_LAUREL_RETENTION_COMPLETIONS,
   MAX_HABIT_XP_PER_COMPLETION,
   STARTER_HABIT_TEMPLATES,
+  STREAK_REWARD_MILESTONES,
   COMEBACK_REWARD_LAURELS,
   HESTIA_SPARK_COST,
   HESTIA_SPARK_MAX,
   addHabitDays,
   buyHestiaSpark,
+  buildAdaptiveHabitSuggestions,
   claimHeroPathAmphora,
   calculateHabitTotal,
   calculateComebackSummary,
@@ -29,12 +32,15 @@ import {
   createHabitFromSacredPractice,
   createHabitFromTemplate,
   currentHabitQuests,
+  claimedStreakMilestones,
   dailyGoalForDate,
   dateValuesBetween,
   defaultHabit,
   habitDateKey,
   habitCompletionCount,
   habitRetainsLaurelsOnDeletion,
+  groupHabitsByRitual,
+  habitRitualLabel,
   heroicRankForProgress,
   isHabitScheduledForDate,
   normalizeHabitEmoji,
@@ -45,10 +51,12 @@ import {
   revealHiddenHeroicPath,
   scoreHabitCompletion,
   setDailyGoalMode,
+  setKeyHabit,
   setPlannedRestDay,
   updateHabitCompletion,
   type Habit,
   type HabitQualityScale,
+  type HabitRitualId,
   type HabitScoringMode,
   type HabitTemplate,
   type HabitWorkspace,
@@ -226,6 +234,23 @@ function HabitPriorityControl({ value, language, onChange }: { value: number; la
   );
 }
 
+function HabitRoleFields({ habit, language, onChange }: { habit: Habit; language: Language; onChange: (patch: Partial<Habit>) => void }) {
+  const isEnglish = language === "en";
+  return (
+    <div className="habit-role-fields">
+      <div className="habit-switch key-habit-switch">
+        <span><strong>{isEnglish ? "Key habit" : "Главная привычка"}</strong><small>{isEnglish ? "Only one habit can hold the focus. It never grants extra XP." : "В фокусе может быть только одна привычка. Дополнительный XP не начисляется."}</small></span>
+        <input type="checkbox" role="switch" aria-label={isEnglish ? "Key habit" : "Главная привычка"} checked={habit.isKeyHabit} onChange={(event) => onChange({ isKeyHabit: event.target.checked })} />
+        <i />
+      </div>
+      <div className="habit-ritual-fields">
+        <label><span>{isEnglish ? "Ritual" : "Ритуал"}</span><select value={habit.ritualId} onChange={(event) => onChange({ ritualId: event.target.value as HabitRitualId, ritualName: event.target.value === "custom" ? habit.ritualName : "" })}>{HABIT_RITUAL_OPTIONS.map((option) => <option value={option.id} key={option.id}>{isEnglish ? option.titleEn : option.title}</option>)}</select></label>
+        {habit.ritualId === "custom" ? <label><span>{isEnglish ? "Group name" : "Название группы"}</span><input required maxLength={60} value={habit.ritualName} placeholder={isEnglish ? "For example: Recovery" : "Например: Восстановление"} onChange={(event) => onChange({ ritualName: event.target.value })} /></label> : null}
+      </div>
+    </div>
+  );
+}
+
 function HabitEmojiField({ value, language, onChange }: { value: string; language: Language; onChange: (value: string) => void }) {
   const isEnglish = language === "en";
   return (
@@ -301,6 +326,7 @@ function rewardReasonLabel(reason: RewardReason, isEnglish: boolean) {
   if (reason === "perfect-day") return isEnglish ? "Perfect Day" : "Идеальный день";
   if (reason === "daily-quest") return isEnglish ? "Daily trial" : "Ежедневное испытание";
   if (reason === "weekly-quest") return isEnglish ? "Weekly quest" : "Недельный квест";
+  if (reason === "epic-quest") return isEnglish ? "Epic trial" : "Эпическое испытание";
   if (reason === "streak-milestone") return isEnglish ? "Streak milestone" : "Этап серии";
   if (reason === "rank-up") return isEnglish ? "New rank" : "Новый ранг";
   if (reason === "achievement") return isEnglish ? "Achievement" : "Достижение";
@@ -312,7 +338,7 @@ function rewardReasonLabel(reason: RewardReason, isEnglish: boolean) {
   return isEnglish ? "Hestia Spark" : "Искра Гестии";
 }
 
-function habitQuestCopy(quest: HabitQuest, isEnglish: boolean) {
+function habitQuestCopy(quest: HabitQuest, isEnglish: boolean, habitTitle = "") {
   if (quest.kind === "daily-goal") return {
     eyebrow: isEnglish ? "Daily trial" : "Испытание дня",
     title: isEnglish ? "Complete today's goal" : "Завершить дневную цель",
@@ -320,8 +346,31 @@ function habitQuestCopy(quest: HabitQuest, isEnglish: boolean) {
       ? "Keep the chosen rhythm without demanding a perfect day."
       : "Сохраните выбранный ритм — идеальный день для этого не обязателен.",
   };
+  const eyebrow = quest.cadence === "epic"
+    ? (isEnglish ? "Epic trial" : "Эпическое испытание")
+    : (isEnglish ? "Weekly trial" : "Испытание недели");
+  if (quest.kind === "daily-goals") return {
+    eyebrow,
+    title: isEnglish ? `Reach the daily goal ${quest.target} times` : `Выполнить дневную цель ${quest.target} раз`,
+    description: isEnglish ? "Only days that remain achievable are included in the target." : "В цель входят только дни, которые ещё реально завершить.",
+  };
+  if (quest.kind === "perfect-days") return {
+    eyebrow,
+    title: isEnglish ? `Create ${quest.target} Perfect Days` : `Создать идеальных дней: ${quest.target}`,
+    description: isEnglish ? "The target never exceeds the remaining scheduled days." : "Цель никогда не превышает число оставшихся запланированных дней.",
+  };
+  if (quest.kind === "habit-completions") return {
+    eyebrow,
+    title: isEnglish ? `Complete “${habitTitle}” ${quest.target} times` : `Выполнить «${habitTitle}» ${quest.target} раз`,
+    description: isEnglish ? "The target follows this habit's real schedule." : "Цель учитывает реальное расписание этой привычки.",
+  };
+  if (quest.kind === "epic-completions") return {
+    eyebrow,
+    title: isEnglish ? `Complete ${quest.target} habits this month` : `Выполнить ${quest.target} привычек за месяц`,
+    description: isEnglish ? "A longer path calculated from the remaining possible completions." : "Долгий путь, рассчитанный по оставшимся возможным выполнениям.",
+  };
   return {
-    eyebrow: isEnglish ? "Weekly trial" : "Испытание недели",
+    eyebrow,
     title: isEnglish ? `Complete ${quest.target} scheduled habits` : `Выполнить ${quest.target} запланированных привычек`,
     description: isEnglish
       ? "The target is calculated only from habits that can actually occur this week."
@@ -330,13 +379,20 @@ function habitQuestCopy(quest: HabitQuest, isEnglish: boolean) {
 }
 
 function HabitQuestSigil({ cadence }: { cadence: HabitQuest["cadence"] }) {
-  return cadence === "daily" ? (
+  if (cadence === "daily") return (
     <svg viewBox="0 0 48 48" aria-hidden="true">
       <circle cx="24" cy="24" r="14" />
       <path d="M24 4v7M24 37v7M4 24h7M37 24h7M10 10l5 5M33 33l5 5M38 10l-5 5M15 33l-5 5" />
       <path className="habit-quest-sigil-core" d="m24 16 2.5 5.5L32 24l-5.5 2.5L24 32l-2.5-5.5L16 24l5.5-2.5Z" />
     </svg>
-  ) : (
+  );
+  if (cadence === "epic") return (
+    <svg viewBox="0 0 48 48" aria-hidden="true">
+      <path d="M24 5 29 17l13 1-10 8 3 13-11-7-11 7 3-13-10-8 13-1Z" />
+      <circle className="habit-quest-sigil-core" cx="24" cy="24" r="5" />
+    </svg>
+  );
+  return (
     <svg viewBox="0 0 48 48" aria-hidden="true">
       <path d="M12 18h24v20H12zM17 10v12M31 10v12M12 24h24" />
       <path className="habit-quest-sigil-core" d="m19 31 3 3 7-7" />
@@ -359,7 +415,8 @@ function HabitQuestPanel({ workspace, date, language }: Pick<DailyPanelProps, "w
       {quests.length ? (
         <div className="habit-quest-grid">
           {quests.map((quest) => {
-            const copy = habitQuestCopy(quest, isEnglish);
+            const questHabitTitle = workspace.habits.find((habit) => habit.id === quest.habitId)?.title ?? (isEnglish ? "selected habit" : "выбранную привычку");
+            const copy = habitQuestCopy(quest, isEnglish, questHabitTitle);
             const progress = Math.min(100, Math.round((quest.progress / quest.target) * 100));
             return (
               <article className={quest.completedAt ? "completed" : ""} key={quest.id}>
@@ -387,6 +444,53 @@ function HabitQuestPanel({ workspace, date, language }: Pick<DailyPanelProps, "w
           ? "No achievable trial is available yet. It will appear when an active habit is scheduled."
           : "Пока нет доступного выполнимого испытания. Оно появится, когда будет запланирована активная привычка."}</p>
       )}
+    </section>
+  );
+}
+
+function StreakRewardLadder({ workspace, language }: Pick<DailyPanelProps, "workspace" | "language">) {
+  const isEnglish = language === "en";
+  const claimed = new Set(claimedStreakMilestones(workspace.rewardTransactions).map((milestone) => milestone.days));
+  const record = workspace.userProgress.longestStreak;
+  const next = STREAK_REWARD_MILESTONES.find((milestone) => milestone.days > record) ?? null;
+  return (
+    <section className="streak-reward-ladder" aria-labelledby="streak-reward-title">
+      <header><div><span className="eyebrow">{isEnglish ? "Guaranteed milestones" : "Гарантированные рубежи"}</span><h2 id="streak-reward-title">{isEnglish ? "Streak reward path" : "Награды за серию"}</h2><p>{isEnglish ? "Every reward is granted once. A broken streak never takes it back." : "Каждая награда выдаётся один раз. Разрыв серии не отнимает уже достигнутое."}</p></div><strong>{next ? (isEnglish ? `${next.days - record} days to the next milestone` : `${next.days - record} дн. до следующего рубежа`) : (isEnglish ? "All milestones reached" : "Все рубежи достигнуты")}</strong></header>
+      <div className="streak-reward-track">
+        {STREAK_REWARD_MILESTONES.map((milestone) => {
+          const achieved = claimed.has(milestone.days);
+          return <article className={achieved ? "achieved" : milestone === next ? "next" : ""} key={milestone.days}>
+            <span>{achieved ? "✓" : milestone.days}</span>
+            <div><strong>{isEnglish ? milestone.titleEn : milestone.title}</strong><small>{milestone.days} {isEnglish ? "days" : "дней"}</small></div>
+            <em>♕ {milestone.laurels}</em>
+          </article>;
+        })}
+      </div>
+    </section>
+  );
+}
+
+function AdaptiveDifficultyPanel({ workspace, date, language, calendarMode, onEdit, onPause }: Pick<DailyPanelProps, "workspace" | "date" | "language" | "calendarMode"> & { onEdit: (habit: Habit) => void; onPause: (habit: Habit) => void }) {
+  const isEnglish = language === "en";
+  const suggestions = buildAdaptiveHabitSuggestions({
+    habits: workspace.habits,
+    completions: workspace.habitCompletions,
+    today: date,
+    calendarMode,
+    isScheduledForDate: isTrackerScheduledForDate,
+  });
+  if (!suggestions.length) return null;
+  return (
+    <section className="adaptive-habit-panel" aria-labelledby="adaptive-habit-title">
+      <header><div><span className="eyebrow">{isEnglish ? "Gentle adjustment" : "Бережная настройка"}</span><h2 id="adaptive-habit-title">{isEnglish ? "Make the rhythm achievable" : "Сделать ритм посильнее"}</h2><p>{isEnglish ? "GENESIS only suggests changes and never edits your schedule automatically." : "GENESIS только предлагает изменения и никогда не меняет расписание автоматически."}</p></div></header>
+      <div>
+        {suggestions.map((suggestion) => <article style={{ "--habit-color": suggestion.habit.color } as CSSProperties} key={suggestion.habit.id}>
+          <span className="habit-emoji" aria-hidden="true">{suggestion.habit.emoji}</span>
+          <div><strong data-no-translate>{suggestion.habit.title}</strong><p>{isEnglish ? `${suggestion.completedCount} of ${suggestion.scheduledCount} scheduled completions in the last ${suggestion.windowDays} days.` : `${suggestion.completedCount} из ${suggestion.scheduledCount} запланированных выполнений за последние ${suggestion.windowDays} дней.`}</p><small>{isEnglish ? "Try fewer days, another time, or a temporary pause." : "Можно уменьшить частоту, изменить время или поставить привычку на паузу."}</small></div>
+          <output>{suggestion.completionRate}%</output>
+          <footer><button type="button" onClick={() => onEdit(suggestion.habit)}>{isEnglish ? "Adjust schedule" : "Настроить расписание"}</button><button type="button" className="secondary-button" onClick={() => onPause(suggestion.habit)}>{isEnglish ? "Pause" : "Пауза"}</button></footer>
+        </article>)}
+      </div>
     </section>
   );
 }
@@ -511,7 +615,8 @@ export function HabitDailyPanel({ workspace, date, language, timeFormat, calenda
   const today = habitDateKey(new Date());
   const dueHabits = workspace.habits
     .filter((habit) => isHabitScheduledForDate(habit, date, calendarMode))
-    .sort((left, right) => right.priority - left.priority || left.title.localeCompare(right.title));
+    .sort((left, right) => Number(right.isKeyHabit) - Number(left.isKeyHabit) || right.priority - left.priority || left.title.localeCompare(right.title));
+  const ritualGroups = groupHabitsByRitual(dueHabits, isEnglish);
   const dueSleepPlans = workspace.sleepPlans.filter((plan) => plan.active && isTrackerScheduledForDate(plan.schedule, date, calendarMode));
   const dueAddictions = workspace.addictionTrackers.filter((tracker) => tracker.status === "active" && isTrackerScheduledForDate(tracker.schedule, date, calendarMode));
   const totalDue = dueHabits.length + dueSleepPlans.length + dueAddictions.length;
@@ -570,13 +675,18 @@ export function HabitDailyPanel({ workspace, date, language, timeFormat, calenda
       ) : null}
 
       {dueHabits.length ? (
-        <div className="habit-check-list">
-          {dueHabits.map((habit) => {
+        <div className="habit-ritual-list">
+          {ritualGroups.map((group) => {
+            const completedInGroup = group.habits.filter((habit) => completionFor(workspace, habit.id, date)?.completed).length;
+            return <section className={`habit-ritual-group ritual-${group.id.split(":")[0]}`} key={group.id}>
+              <header><div><span>{isEnglish ? "Ritual" : "Ритуал"}</span><strong data-no-translate>{group.title}</strong></div><em>{completedInGroup}/{group.habits.length}</em></header>
+              <div className="habit-check-list">
+          {group.habits.map((habit) => {
             const entry = completionFor(workspace, habit.id, date);
             const score = entry ? scoreHabitCompletion(habit, entry) : 0;
             const canRecord = canRecordHabitOnDate(habit.createdDate, date, today);
             return (
-              <article className={`${entry?.completed ? "done" : ""}${canRecord ? "" : " read-only"}`} style={{ "--habit-color": habit.color } as CSSProperties} key={habit.id}>
+              <article className={`${entry?.completed ? "done" : ""}${canRecord ? "" : " read-only"}${habit.isKeyHabit ? " key-habit" : ""}`} style={{ "--habit-color": habit.color } as CSSProperties} key={habit.id}>
                 <button
                   type="button"
                   className="habit-check"
@@ -592,7 +702,7 @@ export function HabitDailyPanel({ workspace, date, language, timeFormat, calenda
                   {entry?.completed ? "✓" : ""}
                 </button>
                 <div className="habit-check-copy">
-                  <span><b className="habit-emoji" aria-hidden="true">{habit.emoji}</b><strong data-no-translate>{habit.title}</strong><em>{isEnglish ? `Priority ${habit.priority}` : `Приоритет ${habit.priority}`}</em></span>
+                  <span><b className="habit-emoji" aria-hidden="true">{habit.emoji}</b><strong data-no-translate>{habit.title}</strong>{habit.isKeyHabit ? <mark>{isEnglish ? "Key habit" : "Главная"}</mark> : null}<em>{isEnglish ? `Priority ${habit.priority}` : `Приоритет ${habit.priority}`}</em></span>
                   {habit.description ? <small data-no-translate>{habit.description}</small> : null}
                   {habit.preferredTime ? <small className="habit-preferred-time">{isEnglish ? "Preferred" : "Желаемое время"}: {formatTimeValue(habit.preferredTime, timeFormat)}</small> : null}
                 </div>
@@ -614,6 +724,9 @@ export function HabitDailyPanel({ workspace, date, language, timeFormat, calenda
                 {habit.scoringMode !== "none" ? <output>{score > 0 ? "+" : ""}{score}</output> : <output className="monitor">{isEnglish ? "log" : "учёт"}</output>}
               </article>
             );
+          })}
+              </div>
+            </section>;
           })}
         </div>
       ) : null}
@@ -677,6 +790,7 @@ function HabitTemplateSetup({ template, date, language, calendarMode, googleTask
         </div>
         <HabitEmojiField value={draft.emoji} language={language} onChange={(emoji) => setDraft((current) => ({ ...current, emoji }))} />
         <HabitPriorityControl value={draft.priority} language={language} onChange={(priority) => setDraft((current) => ({ ...current, priority }))} />
+        <HabitRoleFields habit={draft} language={language} onChange={(patch) => setDraft((current) => ({ ...current, ...patch }))} />
 
         <label className="habit-switch"><span><strong>{isEnglish ? "Enable reminder" : "Добавить напоминание"}</strong><small>{isEnglish ? "The habit works without a notification" : "Привычка работает и без уведомления"}</small></span><input type="checkbox" role="switch" aria-label={isEnglish ? "Enable reminder" : "Добавить напоминание"} checked={draft.reminder.enabled} onChange={(event) => setDraft((current) => ({ ...current, reminder: { ...current.reminder, enabled: event.target.checked } }))} /><i /></label>
         <fieldset className="habit-reminder-fields habit-template-reminder" disabled={!draft.reminder.enabled}>
@@ -716,6 +830,7 @@ function HabitEditor({ habit, isExisting, language, calendarMode, googleTasksRea
         </div>
         <HabitEmojiField value={draft.emoji} language={language} onChange={(emoji) => setDraft((current) => ({ ...current, emoji }))} />
         <HabitPriorityControl value={draft.priority} language={language} onChange={(priority) => setDraft((current) => ({ ...current, priority }))} />
+        <HabitRoleFields habit={draft} language={language} onChange={(patch) => setDraft((current) => ({ ...current, ...patch }))} />
         <fieldset className="habit-editor-section">
           <legend><span>01</span>{isEnglish ? "Rhythm and calendar" : "Ритм и календарь"}</legend>
           <div className="habit-editor-grid">
@@ -1019,12 +1134,13 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
   const saveHabit = (candidate: Habit) => {
     const previous = workspace.habits.find((item) => item.id === candidate.id);
     const habit = previous ? applyEditableHabitUpdate(previous, candidate) : candidate;
-    const nextWorkspace = {
+    const populatedWorkspace = {
       ...workspace,
       habits: previous
         ? workspace.habits.map((item) => item.id === habit.id ? habit : item)
         : [...workspace.habits, habit],
     };
+    const nextWorkspace = habit.isKeyHabit ? setKeyHabit(populatedWorkspace, habit.id) : populatedWorkspace;
     onChange(nextWorkspace);
     setEditingHabit(null);
     setMessage(previous
@@ -1109,6 +1225,8 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
       </section> : null}
       {hasHabits ? dailyPanel : null}
       {hasHabits ? <HabitQuestPanel workspace={workspace} date={date} language={language} /> : null}
+      {hasHabits ? <StreakRewardLadder workspace={workspace} language={language} /> : null}
+      {hasHabits ? <AdaptiveDifficultyPanel workspace={workspace} date={creationDate} language={language} calendarMode={calendarMode} onEdit={setEditingHabit} onPause={(habit) => { onChange({ ...workspace, habits: workspace.habits.map((item) => item.id === habit.id ? markTrackerEntityChanged({ ...item, active: false }) : item) }); setMessage(isEnglish ? "Habit paused. Its history and settings were preserved." : "Привычка поставлена на паузу. История и настройки сохранены."); }} /> : null}
       {message ? <p className="habit-status-message" role="status">{message}</p> : null}
 
       {visibleStarterTemplates.length || workspace.hiddenDefaultTemplates.length ? (
@@ -1131,7 +1249,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
 
       {!hasHabits ? dailyPanel : null}
 
-      <section className="habit-library"><header><div><span className="eyebrow">{isEnglish ? "Habit core" : "Ядро привычек"}</span><h2>{isEnglish ? "Habits" : "Обычные привычки"}</h2></div><button type="button" onClick={openNewHabit}>＋ {isEnglish ? "Add" : "Добавить"}</button></header><p className="habit-library-rule">🔒 {isEnglish ? `All settings can be edited except points and the quality scale. Deleting before ${HABIT_LAUREL_RETENTION_COMPLETIONS} completions resets all Laurels.` : `Можно изменять все настройки, кроме баллов и шкалы качества. Удаление до ${HABIT_LAUREL_RETENTION_COMPLETIONS} выполнений обнуляет все Лавры.`}</p>{workspace.habits.length ? <div>{[...workspace.habits].sort((left, right) => right.priority - left.priority || left.title.localeCompare(right.title)).map((habit) => <article className={!habit.active ? "paused" : ""} style={{ "--habit-color": habit.color } as CSSProperties} key={habit.id}><i /><div><span><b className="habit-emoji" aria-hidden="true">{habit.emoji}</b><strong data-no-translate>{habit.title}</strong><em>{isEnglish ? `Priority ${habit.priority}` : `Приоритет ${habit.priority}`}</em></span><small>{scoringFormula(habit.scoringMode, isEnglish)} · {isEnglish ? `created ${habit.createdDate}` : `создана ${habit.createdDate}`} · {isEnglish ? "Laurels milestone" : "Рубеж Лавров"} {Math.min(habitCompletionCount(workspace.habitCompletions, habit.id), HABIT_LAUREL_RETENTION_COMPLETIONS)}/{HABIT_LAUREL_RETENTION_COMPLETIONS}</small></div><output>{habit.scoringMode === "none" ? "—" : `≤${MAX_HABIT_XP_PER_COMPLETION}`}</output><div className="habit-library-actions"><button type="button" onClick={() => setEditingHabit(habit)}>{isEnglish ? "Edit" : "Изменить"}</button><button type="button" onClick={() => onChange({ ...workspace, habits: workspace.habits.map((item) => item.id === habit.id ? markTrackerEntityChanged({ ...item, active: !item.active }) : item) })}>{habit.active ? (isEnglish ? "Pause" : "Пауза") : (isEnglish ? "Resume" : "Включить")}</button><button type="button" className="danger" onClick={() => removeHabit(habit)}>{isEnglish ? "Delete" : "Удалить"}</button></div></article>)}</div> : <div className="habit-library-empty"><p>{isEnglish ? "No regular habits yet." : "Обычных привычек пока нет."}</p><button type="button" className="primary-button" onClick={openNewHabit}>{isEnglish ? "Create first habit" : "Создать первую привычку"}</button></div>}</section>
+      <section className="habit-library"><header><div><span className="eyebrow">{isEnglish ? "Habit core" : "Ядро привычек"}</span><h2>{isEnglish ? "Habits" : "Обычные привычки"}</h2></div><button type="button" onClick={openNewHabit}>＋ {isEnglish ? "Add" : "Добавить"}</button></header><p className="habit-library-rule">🔒 {isEnglish ? `All settings can be edited except points and the quality scale. Deleting before ${HABIT_LAUREL_RETENTION_COMPLETIONS} completions resets all Laurels.` : `Можно изменять все настройки, кроме баллов и шкалы качества. Удаление до ${HABIT_LAUREL_RETENTION_COMPLETIONS} выполнений обнуляет все Лавры.`}</p>{workspace.habits.length ? <div>{[...workspace.habits].sort((left, right) => Number(right.isKeyHabit) - Number(left.isKeyHabit) || right.priority - left.priority || left.title.localeCompare(right.title)).map((habit) => <article className={`${!habit.active ? "paused" : ""}${habit.isKeyHabit ? " key-habit" : ""}`} style={{ "--habit-color": habit.color } as CSSProperties} key={habit.id}><i /><div><span><b className="habit-emoji" aria-hidden="true">{habit.emoji}</b><strong data-no-translate>{habit.title}</strong>{habit.isKeyHabit ? <mark>{isEnglish ? "Key habit" : "Главная"}</mark> : null}<em>{isEnglish ? `Priority ${habit.priority}` : `Приоритет ${habit.priority}`}</em></span><small>{habitRitualLabel(habit, isEnglish)} · {scoringFormula(habit.scoringMode, isEnglish)} · {isEnglish ? `created ${habit.createdDate}` : `создана ${habit.createdDate}`} · {isEnglish ? "Laurels milestone" : "Рубеж Лавров"} {Math.min(habitCompletionCount(workspace.habitCompletions, habit.id), HABIT_LAUREL_RETENTION_COMPLETIONS)}/{HABIT_LAUREL_RETENTION_COMPLETIONS}</small></div><output>{habit.scoringMode === "none" ? "—" : `≤${MAX_HABIT_XP_PER_COMPLETION}`}</output><div className="habit-library-actions"><button type="button" onClick={() => onChange(setKeyHabit(workspace, habit.isKeyHabit ? null : habit.id))}>{habit.isKeyHabit ? (isEnglish ? "Remove focus" : "Убрать фокус") : (isEnglish ? "Make key" : "Сделать главной")}</button><button type="button" onClick={() => setEditingHabit(habit)}>{isEnglish ? "Edit" : "Изменить"}</button><button type="button" onClick={() => onChange({ ...workspace, habits: workspace.habits.map((item) => item.id === habit.id ? markTrackerEntityChanged({ ...item, active: !item.active }) : item) })}>{habit.active ? (isEnglish ? "Pause" : "Пауза") : (isEnglish ? "Resume" : "Включить")}</button><button type="button" className="danger" onClick={() => removeHabit(habit)}>{isEnglish ? "Delete" : "Удалить"}</button></div></article>)}</div> : <div className="habit-library-empty"><p>{isEnglish ? "No regular habits yet." : "Обычных привычек пока нет."}</p><button type="button" className="primary-button" onClick={openNewHabit}>{isEnglish ? "Create first habit" : "Создать первую привычку"}</button></div>}</section>
 
       <div className="tracker-module-grid">
         <section className="tracker-module-card sleep-module"><header><div><span className="eyebrow">{isEnglish ? "Independent module" : "Независимый модуль"}</span><h2>{isEnglish ? "Sleep" : "Сон"}</h2></div><button type="button" onClick={() => setEditingSleep(defaultSleepPlan(date, calendarMode))}>＋ {isEnglish ? "Plan" : "План"}</button></header>{workspace.sleepPlans.length ? workspace.sleepPlans.map((plan) => <article key={plan.id}><div><strong data-no-translate>{plan.title}</strong><small>{plan.targetBedtime} → {plan.targetWakeTime} · {plan.schedule.timezone}</small></div><button type="button" onClick={() => setEditingSleep(plan)}>{isEnglish ? "Edit" : "Изменить"}</button><button type="button" className="danger" onClick={() => onChange({ ...workspace, sleepPlans: workspace.sleepPlans.filter((item) => item.id !== plan.id), sleepEntries: workspace.sleepEntries.filter((entry) => entry.planId !== plan.id) })}>{isEnglish ? "Delete" : "Удалить"}</button></article>) : <p>{isEnglish ? "Track bedtime, wake time, duration and quality across midnight and DST." : "Отслеживайте сон, пробуждение, длительность и качество с учётом полуночи и DST."}</p>}</section>

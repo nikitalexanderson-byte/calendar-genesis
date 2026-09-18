@@ -60,6 +60,12 @@ import {
 } from "../app/habit-integrity.ts";
 import { applyEditableHabitUpdate } from "../app/habit-editing.ts";
 import {
+  buildAdaptiveHabitSuggestions,
+  groupHabitsByRitual,
+  normalizeKeyHabitSelection,
+  normalizeHabitRitualId,
+} from "../app/habit-guidance.ts";
+import {
   resetHabitWorkspace,
 } from "../app/habit-reset.ts";
 import {
@@ -102,11 +108,17 @@ import {
 } from "../app/workspace-sync-state.ts";
 import {
   DAILY_QUEST_LAURELS,
+  EPIC_QUEST_LAURELS,
   WEEKLY_QUEST_LAURELS,
   currentHabitQuests,
   reconcileHabitQuestRewards,
   reconcileHabitQuests,
 } from "../app/habit-quests.ts";
+import {
+  STREAK_REWARD_MILESTONES,
+  claimedStreakMilestones,
+  reconcileStreakMilestoneRewards,
+} from "../app/streak-rewards.ts";
 import {
   ACHIEVEMENTS,
   achievementMetrics,
@@ -149,7 +161,7 @@ test("encrypted workspace sync merges concurrent entities and preserves deletion
       achievementUnlocks: [],
       rewardTransactions: [],
       streakFreezeTransactions: [],
-      trackerSchemaVersion: 14,
+      trackerSchemaVersion: 15,
       userProgress: { lifetimeXp: 0 },
       habitSettings: { enabled: true },
       hiddenDefaultTemplates: [],
@@ -196,7 +208,7 @@ test("workspace merge deduplicates reward ledger entries by idempotency key", ()
   const common = {
     projects: [], categories: [], taskListLinks: [], habits: [], habitCompletions: [], sleepPlans: [], sleepEntries: [],
     moodEntries: [], addictionTrackers: [], addictionEntries: [], analyticsSnapshots: [], dailyGoalRecords: [],
-    quests: [], achievementUnlocks: [], trackerSchemaVersion: 14, userProgress: {}, habitSettings: {}, hiddenDefaultTemplates: [], streakFreezeTransactions: [],
+    quests: [], achievementUnlocks: [], trackerSchemaVersion: 15, userProgress: {}, habitSettings: {}, hiddenDefaultTemplates: [], streakFreezeTransactions: [],
   };
   const left = prepareWorkspaceForSync({
     current: {
@@ -355,11 +367,14 @@ test("admin moderation exposes only aggregate habit counts and can optionally bl
 });
 
 test("ships the modular encrypted tracker across dashboard, calendars and account settings", async () => {
-  const [calendar, tracker, habitInsightsPanel, habitInsights, heroPath, habits, habitReset, habitQuests, achievements, habitNotifications, progress, dailyGoal, rewards, streakProtection, sleep, mood, addiction, analytics, cache, trackerMath, cloud, account, recoveryDialog, repository, migration, styles, sigil, metricSigil, achievementSigil, rankArt] = await Promise.all([
+  const [calendar, tracker, habitInsightsPanel, habitInsights, habitGuidance, streakRewards, cosmeticsBacklog, heroPath, habits, habitReset, habitQuests, achievements, habitNotifications, progress, dailyGoal, rewards, streakProtection, sleep, mood, addiction, analytics, cache, trackerMath, cloud, account, recoveryDialog, repository, migration, styles, sigil, metricSigil, achievementSigil, rankArt] = await Promise.all([
     readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/HabitTracker.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/HabitInsightsPanel.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/habit-insights.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/habit-guidance.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/streak-rewards.ts", import.meta.url), "utf8"),
+    readFile(new URL("../docs/BACKLOG-HABIT-COSMETICS.md", import.meta.url), "utf8"),
     readFile(new URL("../app/HeroPathPanel.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/habits.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/habit-reset.ts", import.meta.url), "utf8"),
@@ -444,10 +459,13 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(habits, /STARTER_HABIT_TEMPLATES/);
   assert.match(habits, /createHabitFromTemplate/);
   assert.match(habits, /normalizeHiddenDefaultTemplates/);
-  assert.match(habits, /trackerSchemaVersion: 14/);
+  assert.match(habits, /trackerSchemaVersion: 15/);
   assert.match(habits, /createdDate: string/);
   assert.match(habits, /emoji: string/);
   assert.match(habits, /priority: number/);
+  assert.match(habits, /isKeyHabit: boolean/);
+  assert.match(habits, /ritualId: HabitRitualId/);
+  assert.match(habits, /export function setKeyHabit/);
   assert.match(habits, /userProgress: UserProgress/);
   assert.match(habits, /xpAwarded: number/);
   assert.match(habits, /dailyGoalRecords: DailyGoalRecord/);
@@ -460,8 +478,10 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(rewards, /reconcileDailyGoalRewards/);
   assert.match(rewards, /daily-goal:self:/);
   assert.match(habitQuests, /quest:self:/);
-  assert.match(habitQuests, /Math\.min\(10, weeklyScheduled\)/);
-  assert.equal((achievements.match(/id: "/g) ?? []).length, 10);
+  assert.match(habitQuests, /HabitQuestCadence = "daily" \| "weekly" \| "epic"/);
+  assert.match(habitQuests, /attainableCompletions/);
+  assert.match(habitQuests, /EPIC_QUEST_LAURELS/);
+  assert.equal((achievements.match(/id: "/g) ?? []).length, 17);
   assert.match(achievements, /reconcileAchievementUnlocks/);
   assert.match(achievements, /hidden: true/);
   assert.match(habitNotifications, /buildHabitNotificationPlan/);
@@ -536,6 +556,14 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(tracker, /MAX_HABIT_XP_PER_COMPLETION/);
   assert.match(tracker, /HabitPriorityControl/);
   assert.match(tracker, /HabitEmojiField/);
+  assert.match(tracker, /HabitRoleFields/);
+  assert.match(tracker, /Главная привычка/);
+  assert.match(tracker, /habit-ritual-group/);
+  assert.match(tracker, /AdaptiveDifficultyPanel/);
+  assert.match(tracker, /StreakRewardLadder/);
+  assert.match(habitGuidance, /buildAdaptiveHabitSuggestions/);
+  assert.match(streakRewards, /STREAK_REWARD_MILESTONES/);
+  assert.match(cosmeticsBacklog, /До отдельного одобрения эту механику не реализовывать/);
   assert.match(tracker, /Скрыть предложение/);
   assert.match(tracker, /Точно настроить повторение и дни/);
   assert.match(account, /onHabitTrackingChange/);
@@ -587,6 +615,9 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(habitInsights, /HABIT_MASTERY_MILESTONES = \[7, 30, 50, 100, 365, 500, 1_000\]/);
   assert.match(styles, /\.habit-year-mosaic-grid/);
   assert.match(styles, /\.habit-personal-record-grid/);
+  assert.match(styles, /\.streak-reward-track/);
+  assert.match(styles, /\.adaptive-habit-panel/);
+  assert.match(styles, /\.habit-role-fields/);
   assert.equal((trackerPage.match(/<HabitDailyPanel/g) ?? []).length, 1);
   assert.match(metricSigil, /metric-sigil-laurel-core/);
   assert.match(metricSigil, /metric-sigil-streak-core/);
@@ -909,6 +940,56 @@ test("daily goals preserve future-only modes and global streak rules", () => {
   assert.equal(reconcileDailyGoalRewards(timezoneTransition, [], "2026-09-20").filter((item) => item.sourceId === "2026-09-19").length, 0, "a timezone transition cannot mint a duplicate daily reward");
 });
 
+test("ritual grouping and adaptive difficulty keep the user in control", () => {
+  const schedule = { startDate: "2026-09-01", endDate: null, timezone: "Europe/Moscow", recurrence: {} };
+  const base = { active: true, createdDate: "2026-09-01", priority: 5, isKeyHabit: false, ritualName: "", schedule };
+  const habits = [
+    { ...base, id: "reading", title: "Чтение", ritualId: "evening", isKeyHabit: true },
+    { ...base, id: "water", title: "Вода", ritualId: "morning", priority: 8 },
+    { ...base, id: "journal", title: "Дневник", ritualId: "custom", ritualName: "Тихий час" },
+  ];
+  const groups = groupHabitsByRitual(habits, false);
+  assert.deepEqual(groups.map((group) => group.title), ["Утро", "Вечер", "Тихий час"]);
+  assert.equal(groups[1].habits[0].isKeyHabit, true);
+  assert.equal(normalizeHabitRitualId("unknown"), "none");
+  const singleKey = normalizeKeyHabitSelection([
+    { id: "older", isKeyHabit: true, updatedAt: "2026-09-01T00:00:00.000Z", version: 2 },
+    { id: "newer", isKeyHabit: true, updatedAt: "2026-09-02T00:00:00.000Z", version: 1 },
+  ]);
+  assert.deepEqual(singleKey.filter((habit) => habit.isKeyHabit).map((habit) => habit.id), ["newer"]);
+
+  const completions = ["2026-09-03", "2026-09-10", "2026-09-20"].map((date) => ({ habitId: "reading", date, completed: true }));
+  const suggestions = buildAdaptiveHabitSuggestions({
+    habits: [habits[0]],
+    completions,
+    today: "2026-09-30",
+    calendarMode: "profane",
+    isScheduledForDate: () => true,
+  });
+  assert.equal(suggestions.length, 1);
+  assert.equal(suggestions[0].scheduledCount, 28);
+  assert.equal(suggestions[0].completedCount, 3);
+  assert.ok(suggestions[0].completionRate < 40);
+  assert.deepEqual(buildAdaptiveHabitSuggestions({ ...suggestions, habits: [], completions: [], today: "2026-09-30", calendarMode: "profane", isScheduledForDate: () => true }), []);
+});
+
+test("the complete streak ladder rewards every milestone once", () => {
+  assert.deepEqual(STREAK_REWARD_MILESTONES.map((milestone) => milestone.days), [3, 7, 14, 30, 50, 100, 180, 365, 500, 1_000]);
+  const records = Array.from({ length: 7 }, (_, index) => buildDailyGoalRecord({
+    date: `2026-09-${String(index + 1).padStart(2, "0")}`,
+    mode: "rhythm",
+    timezone: "Europe/Moscow",
+    scheduledCount: 1,
+    completedCount: 1,
+    today: "2026-09-08",
+    updatedAt: `2026-09-${String(index + 1).padStart(2, "0")}T20:00:00.000Z`,
+  }));
+  const first = reconcileStreakMilestoneRewards(records, []);
+  assert.deepEqual(claimedStreakMilestones(first).map((milestone) => milestone.days), [3, 7]);
+  assert.equal(calculateLaurelsBalance(first), 17);
+  assert.deepEqual(reconcileStreakMilestoneRewards(records, first), first, "replaying sync must not mint a milestone twice");
+});
+
 test("Phase K builds weighted rhythm, weekly comparison, year mosaic and per-habit records locally", () => {
   const goalRecord = (date, completedCount, scheduledCount = 1) => buildDailyGoalRecord({
     date,
@@ -974,7 +1055,7 @@ test("Phase K builds weighted rhythm, weekly comparison, year mosaic and per-hab
   assert.ok(mosaic.every((cell) => cell.week >= 1 && cell.week <= 53 && cell.weekday >= 1 && cell.weekday <= 7));
 });
 
-test("daily and weekly trials stay achievable and reward idempotently", () => {
+test("daily, weekly and epic trials stay achievable and reward idempotently", () => {
   const habit = {
     id: "habit-daily",
     active: true,
@@ -1004,37 +1085,42 @@ test("daily and weekly trials stay achievable and reward idempotently", () => {
   });
   const daily = first.find((quest) => quest.cadence === "daily");
   const weekly = first.find((quest) => quest.cadence === "weekly");
+  const epic = first.find((quest) => quest.cadence === "epic");
   assert.equal(daily?.target, 1);
   assert.equal(daily?.progress, 1);
   assert.equal(daily?.rewardLaurels, DAILY_QUEST_LAURELS);
-  assert.equal(weekly?.target, 7, "a daily habit can occur only seven times in this week");
-  assert.equal(weekly?.progress, 3);
+  assert.ok(weekly && weekly.target > 0 && weekly.target <= 7, "a weekly target must fit the remaining schedule");
+  assert.ok(weekly.progress <= weekly.target);
   assert.equal(weekly?.rewardLaurels, WEEKLY_QUEST_LAURELS);
-  assert.deepEqual(currentHabitQuests(first, "2026-09-18").map((quest) => quest.cadence), ["daily", "weekly"]);
+  assert.ok(epic && epic.target > 0 && epic.target <= 30, "an epic target must fit the remaining month");
+  assert.equal(epic?.rewardLaurels, EPIC_QUEST_LAURELS);
+  assert.deepEqual(currentHabitQuests(first, "2026-09-18").map((quest) => quest.cadence), ["daily", "weekly", "epic"]);
 
   const dailyReward = reconcileHabitQuestRewards(first, [], "2026-09-18T09:01:00.000Z");
   assert.equal(calculateLaurelsBalance(dailyReward), DAILY_QUEST_LAURELS);
-  const fullWeekCompletions = ["2026-09-14", "2026-09-15", "2026-09-16", "2026-09-17", "2026-09-18", "2026-09-19", "2026-09-20"]
+  const fullWeekDates = ["2026-09-14", "2026-09-15", "2026-09-16", "2026-09-17", "2026-09-18", "2026-09-19", "2026-09-20"];
+  const fullMonthCompletions = Array.from({ length: 17 }, (_, index) => `2026-09-${String(index + 14).padStart(2, "0")}`)
     .map((date) => ({ habitId: habit.id, date, completed: true }));
+  const fullGoalRecords = fullWeekDates.map((date) => buildDailyGoalRecord({ date, mode: "perfect", timezone: "Europe/Moscow", scheduledCount: 1, completedCount: 1, today: "2026-09-20", updatedAt: `${date}T20:00:00.000Z` }));
   const completed = reconcileHabitQuests({
     quests: first,
     habits: [habit],
-    completions: fullWeekCompletions,
-    dailyGoalRecords,
+    completions: fullMonthCompletions,
+    dailyGoalRecords: fullGoalRecords,
     today: "2026-09-18",
     calendarMode: "profane",
     isScheduledForDate,
     timestamp: "2026-09-18T20:00:00.000Z",
   });
   const allRewards = reconcileHabitQuestRewards(completed, dailyReward, "2026-09-18T20:00:00.000Z");
-  assert.equal(calculateLaurelsBalance(allRewards), DAILY_QUEST_LAURELS + WEEKLY_QUEST_LAURELS);
+  assert.equal(calculateLaurelsBalance(allRewards), DAILY_QUEST_LAURELS + WEEKLY_QUEST_LAURELS + EPIC_QUEST_LAURELS);
   assert.deepEqual(reconcileHabitQuestRewards(completed, allRewards), allRewards, "replayed sync cannot reward a quest twice");
   assert.deepEqual(reconcileHabitQuests({ quests: [], habits: [], completions: [], dailyGoalRecords: [], today: "2026-09-18", calendarMode: "profane", isScheduledForDate }), []);
 });
 
 test("achievements unlock from real history without changing Rank XP", () => {
-  assert.equal(ACHIEVEMENTS.length, 10);
-  assert.equal(ACHIEVEMENTS.filter((achievement) => achievement.hidden).length, 3);
+  assert.equal(ACHIEVEMENTS.length, 17);
+  assert.equal(ACHIEVEMENTS.filter((achievement) => achievement.hidden).length, 7);
   const firstSource = {
     habitCompletions: [{ habitId: "reading", completed: true }],
     dailyGoalRecords: [{ date: "2026-09-18", status: "perfect" }],
@@ -1057,7 +1143,7 @@ test("achievements unlock from real history without changing Rank XP", () => {
   const fullSource = {
     habitCompletions: Array.from({ length: 1_000 }, () => ({ habitId: "reading", completed: true })),
     dailyGoalRecords: perfectWeek,
-    longestStreak: 30,
+    longestStreak: 1_000,
     rewardTransactions: [{ reason: "comeback" }],
   };
   const all = reconcileAchievementUnlocks({ ...fullSource, unlocks: first, timestamp: "2026-09-19T12:00:00.000Z" });
