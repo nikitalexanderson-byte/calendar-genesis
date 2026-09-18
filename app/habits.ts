@@ -117,6 +117,11 @@ import {
   type HabitRitualId,
 } from "./habit-guidance";
 import { reconcileStreakMilestoneRewards } from "./streak-rewards";
+import {
+  DEFAULT_HABIT_FEEDBACK_SETTINGS,
+  normalizeHabitFeedbackSettings,
+  type HabitFeedbackSettings,
+} from "./habit-feedback";
 
 export { HABIT_COLORS, STARTER_HABIT_TEMPLATES } from "./habit-templates";
 export type { HabitTemplate, HabitTemplateId } from "./habit-templates";
@@ -138,6 +143,8 @@ export type { StreakRewardMilestone } from "./streak-rewards";
 export { HABIT_LAUREL_RETENTION_COMPLETIONS, habitCompletionCount, habitRetainsLaurelsOnDeletion } from "./habit-laurel-retention";
 export { dailyGoalTarget } from "./daily-goal";
 export type { DailyGoalMode, DailyGoalModeChange, DailyGoalRecord, DailyGoalStatus } from "./daily-goal";
+export { DEFAULT_HABIT_FEEDBACK_SETTINGS } from "./habit-feedback";
+export type { HabitFeedbackSettings } from "./habit-feedback";
 
 export type HabitQualityScale = "none" | "ten" | "bipolar";
 export type HabitScoringMode = "none" | "binary" | "quality-ten" | "quality-bipolar";
@@ -191,10 +198,11 @@ export type HabitSettings = {
   dailyGoalModeChanges: DailyGoalModeChange[];
   plannedRestDays: string[];
   notifications: HabitNotificationSettings;
+  feedback: HabitFeedbackSettings;
 };
 
 export type HabitWorkspace = {
-  trackerSchemaVersion: 15;
+  trackerSchemaVersion: 16;
   userProgress: UserProgress;
   habits: Habit[];
   habitCompletions: HabitCompletion[];
@@ -276,10 +284,11 @@ export const DEFAULT_HABIT_SETTINGS: HabitSettings = {
   dailyGoalModeChanges: [],
   plannedRestDays: [],
   notifications: DEFAULT_HABIT_NOTIFICATION_SETTINGS,
+  feedback: DEFAULT_HABIT_FEEDBACK_SETTINGS,
 };
 
 export const EMPTY_HABIT_WORKSPACE: HabitWorkspace = {
-  trackerSchemaVersion: 15,
+  trackerSchemaVersion: 16,
   userProgress: {
     lifetimeXp: 0,
     laurelsBalance: 0,
@@ -585,6 +594,7 @@ function normalizeSettings(value: Partial<HabitSettings> | undefined): HabitSett
       ? Array.from(new Set(value.plannedRestDays.filter((date) => DATE_PATTERN.test(date)))).sort()
       : [],
     notifications: normalizeHabitNotificationSettings(value?.notifications),
+    feedback: normalizeHabitFeedbackSettings(value?.feedback),
   };
 }
 
@@ -689,7 +699,7 @@ export function normalizeHabitWorkspace(
   });
 
   const workspace: HabitWorkspace = {
-    trackerSchemaVersion: 15,
+    trackerSchemaVersion: 16,
     userProgress,
     habits,
     habitCompletions,
@@ -827,17 +837,21 @@ function withDailyGoalStreak(
   const milestoneTransactions = reconcileStreakMilestoneRewards(protectedWorkspace.dailyGoalRecords, earnedTransactions);
   const resetTransactions = reconcileMissedHabitLaurels(protectedWorkspace, milestoneTransactions, today, timestamp, calendarMode);
   const comebackTransactions = reconcileComebackRewards(protectedWorkspace.dailyGoalRecords, resetTransactions, today, timestamp);
-  const quests = reconcileHabitQuests({
-    quests: protectedWorkspace.quests,
-    habits: protectedWorkspace.habits,
-    completions: protectedWorkspace.habitCompletions,
-    dailyGoalRecords: protectedWorkspace.dailyGoalRecords,
-    today,
-    calendarMode,
-    isScheduledForDate: isTrackerScheduledForDate,
-    timestamp,
-  });
-  const rewardTransactions = reconcileHabitQuestRewards(quests, comebackTransactions, timestamp);
+  const quests = protectedWorkspace.habitSettings.feedback.questsEnabled
+    ? reconcileHabitQuests({
+      quests: protectedWorkspace.quests,
+      habits: protectedWorkspace.habits,
+      completions: protectedWorkspace.habitCompletions,
+      dailyGoalRecords: protectedWorkspace.dailyGoalRecords,
+      today,
+      calendarMode,
+      isScheduledForDate: isTrackerScheduledForDate,
+      timestamp,
+    })
+    : protectedWorkspace.quests;
+  const rewardTransactions = protectedWorkspace.habitSettings.feedback.questsEnabled
+    ? reconcileHabitQuestRewards(quests, comebackTransactions, timestamp)
+    : comebackTransactions;
   const achievementUnlocks = reconcileAchievementUnlocks({
     unlocks: protectedWorkspace.achievementUnlocks,
     habitCompletions: protectedWorkspace.habitCompletions,

@@ -8,6 +8,7 @@ import { deleteGenesisAccount, disconnectGoogleServices, removeAdditionalGoogleA
 import { localizeCategoryName, runtimeLocale, translateText, type Language } from "./i18n";
 import type { TimeFormat } from "./time-format";
 import type { HabitNotificationPermission, HabitNotificationSettings } from "./habit-notifications";
+import type { HabitFeedbackSettings } from "./habit-feedback";
 
 type AccountPanelProps = {
   user: GenesisUser;
@@ -21,6 +22,8 @@ type AccountPanelProps = {
   habitNotificationSettings: HabitNotificationSettings;
   notificationPermission: HabitNotificationPermission;
   onHabitNotificationSettingsChange: (settings: HabitNotificationSettings) => void;
+  habitFeedbackSettings: HabitFeedbackSettings;
+  onHabitFeedbackSettingsChange: (settings: HabitFeedbackSettings) => void;
   onRequestHabitNotifications: () => Promise<HabitNotificationPermission>;
   hiddenHabitTemplateCount: number;
   onRestoreHabitTemplates: () => void;
@@ -66,7 +69,7 @@ function createHabitResetChallenge(): HabitResetChallenge {
   };
 }
 
-export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditionalGoogle, onLanguageChange, onUserChange, habitTrackingEnabled, onHabitTrackingChange, habitNotificationSettings, notificationPermission, onHabitNotificationSettingsChange, onRequestHabitNotifications, hiddenHabitTemplateCount, onRestoreHabitTemplates, onResetHabitTracking, workspaceRecoveryCode, categories }: AccountPanelProps) {
+export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditionalGoogle, onLanguageChange, onUserChange, habitTrackingEnabled, onHabitTrackingChange, habitNotificationSettings, notificationPermission, onHabitNotificationSettingsChange, habitFeedbackSettings, onHabitFeedbackSettingsChange, onRequestHabitNotifications, hiddenHabitTemplateCount, onRestoreHabitTemplates, onResetHabitTracking, workspaceRecoveryCode, categories }: AccountPanelProps) {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [preferenceBusy, setPreferenceBusy] = useState(false);
@@ -584,6 +587,50 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
           <small className="habit-notification-privacy">{user.language === "en"
             ? "Notification analytics contain no habit titles and remain only on this device. Notification settings are stored inside your encrypted workspace."
             : "Аналитика уведомлений не содержит названий привычек и остаётся только на этом устройстве. Настройки уведомлений хранятся внутри зашифрованного пространства."}</small>
+        </section>
+
+        <section className="account-preferences habit-feedback-preference" aria-labelledby="habit-feedback-title">
+          <div>
+            <span className="eyebrow">{user.language === "en" ? "Feedback and accessibility" : "Отклик и доступность"}</span>
+            <h3 id="habit-feedback-title">{user.language === "en" ? "Completion feedback" : "Отклик на выполнение"}</h3>
+            <p>{user.language === "en"
+              ? "Choose how GENESIS confirms a completed habit. System reduced-motion preferences always take priority."
+              : "Выберите, как GENESIS подтверждает выполнение привычки. Системное ограничение движения всегда имеет приоритет."}</p>
+          </div>
+          <fieldset className="habit-feedback-settings" disabled={!habitTrackingEnabled}>
+            <legend className="sr-only">{user.language === "en" ? "Habit feedback settings" : "Настройки отклика привычек"}</legend>
+            <label className="account-switch-row compact">
+              <span><strong>{user.language === "en" ? "Short animations" : "Короткие анимации"}</strong><small>{user.language === "en" ? "Smooth checkbox, card and progress feedback; disabled automatically when reduced motion is requested." : "Плавный отклик галочки, карточки и прогресса; автоматически отключается при системном ограничении движения."}</small></span>
+              <input type="checkbox" role="switch" checked={habitFeedbackSettings.animations} onChange={(event) => onHabitFeedbackSettingsChange({ ...habitFeedbackSettings, animations: event.target.checked })} aria-label={user.language === "en" ? "Short completion animations" : "Короткие анимации выполнения"} />
+              <i aria-hidden="true" />
+            </label>
+            <label className="account-switch-row compact">
+              <span><strong>{user.language === "en" ? "Completion sound" : "Звук выполнения"}</strong><small>{user.language === "en" ? "A brief local tone. Off by default and never downloaded from a server." : "Короткий локальный сигнал. По умолчанию выключен и не загружается с сервера."}</small></span>
+              <input type="checkbox" role="switch" checked={habitFeedbackSettings.sound} onChange={(event) => onHabitFeedbackSettingsChange({ ...habitFeedbackSettings, sound: event.target.checked })} aria-label={user.language === "en" ? "Completion sound" : "Звук выполнения"} />
+              <i aria-hidden="true" />
+            </label>
+            <label className="account-switch-row compact">
+              <span><strong>{user.language === "en" ? "Haptic feedback" : "Тактильный отклик"}</strong><small>{user.language === "en" ? "A light vibration on supported mobile devices. Off by default." : "Лёгкая вибрация на поддерживаемых мобильных устройствах. По умолчанию выключена."}</small></span>
+              <input type="checkbox" role="switch" checked={habitFeedbackSettings.haptics} onChange={(event) => onHabitFeedbackSettingsChange({ ...habitFeedbackSettings, haptics: event.target.checked })} aria-label={user.language === "en" ? "Haptic feedback" : "Тактильный отклик"} />
+              <i aria-hidden="true" />
+            </label>
+            <label className="account-switch-row compact">
+              <span><strong>{user.language === "en" ? "Achievement notices" : "Уведомления о достижениях"}</strong><small>{user.language === "en" ? "Include a newly unlocked achievement in the completion notice." : "Показывать новое достижение в уведомлении о выполнении."}</small></span>
+              <input type="checkbox" role="switch" checked={habitFeedbackSettings.achievementPopups} onChange={(event) => onHabitFeedbackSettingsChange({ ...habitFeedbackSettings, achievementPopups: event.target.checked })} aria-label={user.language === "en" ? "Achievement notices" : "Уведомления о достижениях"} />
+              <i aria-hidden="true" />
+            </label>
+            <label className="account-switch-row compact">
+              <span><strong>{user.language === "en" ? "Trials" : "Испытания"}</strong><small>{user.language === "en" ? "Create and show daily, weekly and epic trials. Existing progress is preserved while disabled." : "Создавать и показывать ежедневные, недельные и эпические испытания. При отключении прежний прогресс сохраняется."}</small></span>
+              <input type="checkbox" role="switch" checked={habitFeedbackSettings.questsEnabled} onChange={(event) => onHabitFeedbackSettingsChange({ ...habitFeedbackSettings, questsEnabled: event.target.checked })} aria-label={user.language === "en" ? "Habit trials" : "Испытания привычек"} />
+              <i aria-hidden="true" />
+            </label>
+            <label className="account-switch-row compact">
+              <span><strong>{user.language === "en" ? "Gamification widgets" : "Игровые блоки"}</strong><small>{user.language === "en" ? "Show ranks, Laurels, streak rewards and achievements. Habit tracking continues normally when hidden." : "Показывать ранги, Лавры, награды серии и достижения. Без них трекинг продолжает работать как обычно."}</small></span>
+              <input type="checkbox" role="switch" checked={habitFeedbackSettings.gamificationWidgets} onChange={(event) => onHabitFeedbackSettingsChange({ ...habitFeedbackSettings, gamificationWidgets: event.target.checked })} aria-label={user.language === "en" ? "Gamification widgets" : "Игровые блоки"} />
+              <i aria-hidden="true" />
+            </label>
+          </fieldset>
+          {!habitTrackingEnabled ? <p className="account-preference-status" role="status">{user.language === "en" ? "Enable habit tracking to change these settings" : "Включите трекинг привычек, чтобы изменить эти настройки"}</p> : null}
         </section>
 
         <section className="account-preferences account-e2ee" aria-labelledby="account-e2ee-title">

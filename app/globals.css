@@ -5823,6 +5823,11 @@ html[data-language="en"] .inbox-card.drop-target::after {
 .account-switch-row input:checked + i::after { transform: translateX(22px); background: var(--terracotta); }
 .account-switch-row input:focus-visible + i { outline: 2px solid var(--gold); outline-offset: 3px; }
 .account-switch-row input:disabled + i { cursor: wait; opacity: .58; }
+.habit-feedback-settings { display:grid; gap:0; margin:15px 0 0; padding:0; border:0; }
+.habit-feedback-settings .account-switch-row { min-height:68px; padding:12px 0; border-top:1px solid rgba(178,138,74,.16); }
+.habit-feedback-settings .account-switch-row:first-of-type { border-top:0; }
+.habit-feedback-settings:disabled { opacity:.58; }
+.habit-feedback-settings:disabled .account-switch-row { cursor:not-allowed; }
 .account-preference-status { margin: 12px 0 0; color: var(--terracotta); font-size: 8px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .account-template-restore { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 16px; padding-top: 15px; border-top: 1px solid rgba(178, 138, 74, .2); }
 .account-template-restore > div { display: grid; gap: 4px; }
@@ -11310,6 +11315,7 @@ button.project-drag-handle:active { cursor: grabbing; }
 
 .habits-hero > * { position: relative; z-index: 1; }
 .habits-hero > div:first-child { max-width: min(720px, calc(100% - 700px)); }
+.habits-view.gamification-hidden .habits-hero > div:first-child { max-width:min(780px,calc(100% - 250px)); }
 .habits-hero h1 { margin: 6px 0 9px; font: 500 clamp(42px, 6vw, 74px)/.95 Georgia, serif; letter-spacing: -.045em; }
 .habits-hero p { max-width: 660px; margin: 0; color: #b9c7c1; font-size: 11px; line-height: 1.7; }
 .habits-hero-actions { position: absolute !important; right: 38px; bottom: 34px; display:flex; align-items:center; gap:9px; }
@@ -11582,8 +11588,17 @@ button.project-drag-handle:active { cursor: grabbing; }
   cursor: pointer;
   font-weight: 800;
 }
+.habit-check:focus-visible,
+.mood-options button:focus-visible,
+.daily-goal-actions button:focus-visible,
+.habit-quality-slider input:focus-visible {
+  outline:3px solid color-mix(in srgb,var(--gold) 72%,#fff);
+  outline-offset:3px;
+}
 .habit-check:disabled { cursor: not-allowed; filter: grayscale(.42); }
 .done > .habit-check { background: var(--habit-color); box-shadow: 0 5px 16px color-mix(in srgb, var(--habit-color), transparent 63%); }
+.habit-check-list > article.done { animation:habit-completion-confirm .46s cubic-bezier(.2,.8,.2,1); }
+.habit-check-list > article.done > .habit-check { animation:habit-check-confirm .4s cubic-bezier(.2,.9,.25,1); }
 .kind-negative.done > .habit-check { background: #923e3e; }
 .habit-check-copy { display: grid; min-width: 0; gap: 4px; }
 .habit-check-copy > span { display: flex; align-items: baseline; gap: 9px; min-width: 0; }
@@ -11602,6 +11617,49 @@ button.project-drag-handle:active { cursor: grabbing; }
 .habit-quality-slider > div { display: flex; justify-content: space-between; color: #7a8581; font-size: 7px; }
 .habit-quality-slider > div i { font-style: normal; }
 .habit-quality-slider input:disabled { cursor: not-allowed; opacity: .58; }
+@keyframes habit-completion-confirm { 0% { transform:scale(.985); } 55% { transform:scale(1.006); } 100% { transform:scale(1); } }
+@keyframes habit-check-confirm { 0% { transform:scale(.7) rotate(-12deg); } 65% { transform:scale(1.12) rotate(3deg); } 100% { transform:scale(1) rotate(0); } }
+
+.habit-completion-feedback {
+  position:fixed;
+  z-index:620;
+  right:max(22px,env(safe-area-inset-right));
+  bottom:max(22px,env(safe-area-inset-bottom));
+  display:grid;
+  width:min(390px,calc(100vw - 28px));
+  grid-template-columns:50px minmax(0,1fr) 30px;
+  align-items:center;
+  gap:13px;
+  padding:14px 15px;
+  color:#f8f1df;
+  border:1px solid rgba(224,190,111,.4);
+  border-radius:6px 20px 6px 20px;
+  background:linear-gradient(135deg,rgba(6,35,34,.97),rgba(20,54,47,.96));
+  box-shadow:0 22px 58px rgba(4,22,23,.34);
+  animation:habit-feedback-enter .34s cubic-bezier(.18,.82,.24,1),habit-feedback-leave .3s ease 2.3s forwards;
+}
+.habit-completion-feedback.kind-perfect-day,.habit-completion-feedback.kind-rank-up { border-color:rgba(236,198,105,.68); box-shadow:0 24px 64px rgba(92,62,18,.34),0 0 0 4px rgba(210,168,73,.08); }
+.habit-feedback-symbol { display:grid; width:48px; height:48px; place-items:center; border:1px solid rgba(230,198,122,.35); border-radius:50%; background:rgba(255,255,255,.06); font-size:23px; }
+.habit-completion-feedback > div { display:grid; min-width:0; gap:4px; }
+.habit-completion-feedback small { color:#dcc487; font-size:7px; font-weight:850; letter-spacing:.11em; text-transform:uppercase; }
+.habit-completion-feedback strong { overflow:hidden; font:500 18px/1.1 Georgia,serif; text-overflow:ellipsis; white-space:nowrap; }
+.habit-completion-feedback p { display:flex; flex-wrap:wrap; gap:8px; margin:1px 0 0; }
+.habit-completion-feedback p b { color:#f3d482; font-size:9px; }
+.habit-completion-feedback em { color:#b8d1c8; font-size:8px; font-style:normal; line-height:1.35; }
+.habit-feedback-check { display:grid; width:28px; height:28px; place-items:center; color:#113d36; border-radius:50%; background:#e5c36f; font-weight:900; }
+@keyframes habit-feedback-enter { from { opacity:0; transform:translateY(18px) scale(.97); } to { opacity:1; transform:translateY(0) scale(1); } }
+@keyframes habit-feedback-leave { to { opacity:0; transform:translateY(8px); } }
+
+.habit-animations-off .habit-completion-feedback,
+.habit-animations-off .habit-check-list > article.done,
+.habit-animations-off .habit-check-list > article.done > .habit-check,
+.habit-animations-off .rank-sigil,
+.habit-animations-off .rank-sigil *,
+.habit-animations-off .habit-metric-sigil,
+.habit-animations-off .habit-metric-sigil *,
+.habit-animations-off .achievement-sigil *,
+.habit-animations-off .habit-quest-sigil *,
+.habit-animations-off .hero-path-panel * { animation:none !important; transition:none !important; }
 .habit-history-lock { margin:0; padding:9px 11px; color:#765f39; border:1px solid rgba(178,138,74,.22); border-radius:9px; background:rgba(178,138,74,.07); font-size:9px; line-height:1.45; }
 .habit-time-entry { display: grid; grid-template-columns: auto minmax(90px, 130px) auto; align-items: center; gap: 8px; color: var(--ink-soft); font-size: 8px; }
 .habit-time-entry input { min-height: 34px; padding: 0 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--white); }
@@ -12315,11 +12373,19 @@ button.project-drag-handle:active { cursor: grabbing; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rank-sigil, .rank-sigil *, .habit-metric-sigil, .habit-metric-sigil *, .sacred-sector-sigil, .sacred-sector-sigil *, .hestia-spark-icon svg, .comeback-mark svg, .hero-amphora-sigil *, .hero-path-progress i, .hero-path-gate-art *, .hero-path-reveal-gate *, .habit-quest-sigil *, .habit-quest-progress *, .today-task-list > article, .workspace-recovery-dialog *, .achievement-sigil *, .achievement-grid > article { animation:none !important; transition:none !important; }
+  .rank-sigil, .rank-sigil *, .habit-metric-sigil, .habit-metric-sigil *, .sacred-sector-sigil, .sacred-sector-sigil *, .hestia-spark-icon svg, .comeback-mark svg, .hero-amphora-sigil *, .hero-path-progress i, .hero-path-gate-art *, .hero-path-reveal-gate *, .habit-quest-sigil *, .habit-quest-progress *, .today-task-list > article, .workspace-recovery-dialog *, .achievement-sigil *, .achievement-grid > article, .habit-completion-feedback, .habit-check-list > article.done, .habit-check-list > article.done > .habit-check { animation:none !important; transition:none !important; }
   .rank-sigil, .habit-metric-sigil, .sacred-sector-sigil { transform:none !important; }
 }
 
+@media (forced-colors: active) {
+  .habit-check,.habit-feedback-check,.account-switch-row > i { border:2px solid ButtonText; }
+  .habit-check:focus-visible,.mood-options button:focus-visible,.daily-goal-actions button:focus-visible { outline:3px solid Highlight; }
+  .habit-completion-feedback { border:2px solid CanvasText; background:Canvas; color:CanvasText; }
+}
+
 @media (max-width: 430px) {
+  .habit-completion-feedback { right:14px; bottom:calc(76px + env(safe-area-inset-bottom)); width:calc(100vw - 28px); grid-template-columns:42px minmax(0,1fr) 26px; padding:12px; }
+  .habit-feedback-symbol { width:40px; height:40px; font-size:20px; }
   .habits-hero-status { grid-template-columns:minmax(0,1fr); }
   .habits-hero-score { grid-column:auto; }
   .habits-hero-streak,.habits-hero-laurels { min-height:72px; }
