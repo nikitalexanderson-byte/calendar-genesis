@@ -642,6 +642,11 @@ export function HabitDailyPanel({ workspace, date, language, timeFormat, calenda
           <div
             className={`daily-goal-ring state-${goalRecord.status}`}
             style={{ "--goal-progress": `${goalPercent}%` } as CSSProperties}
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={goalRecord.scheduledCount || 1}
+            aria-valuenow={goalRecord.completedCount}
+            aria-valuetext={`${goalPercent}%`}
             aria-label={isEnglish ? `${goalRecord.completedCount} of ${goalRecord.scheduledCount} habits complete` : `Выполнено привычек: ${goalRecord.completedCount} из ${goalRecord.scheduledCount}`}
           >
             <span><strong>{goalRecord.scheduledCount ? `${goalRecord.completedCount}/${goalRecord.scheduledCount}` : "—"}</strong><small>{goalRecord.status === "perfect" ? (isEnglish ? "perfect" : "идеал") : (isEnglish ? "day" : "день")}</small></span>
@@ -654,7 +659,7 @@ export function HabitDailyPanel({ workspace, date, language, timeFormat, calenda
           <div><span>{isEnglish ? "Daily goal" : "Дневная цель"}</span><strong>{dailyGoalModeLabel(goalRecord.mode, isEnglish)} · {goalRecord.targetCount}/{goalRecord.scheduledCount}</strong></div>
           <p>{dailyGoalGuidance(goalRecord, isEnglish)}</p>
           <div className="daily-goal-actions">
-            <div><small>+{Math.max(0, dayPoints)} {isEnglish ? "pts today" : "баллов сегодня"}</small>{awardedLaurels > 0 ? <strong>♕ +{awardedLaurels} {isEnglish ? "Laurels awarded" : "Лавров начислено"}</strong> : <strong className="pending">♕ {isEnglish ? "5 + 3 for Perfect Day" : "5 + 3 за идеальный день"}</strong>}</div>
+            {workspace.habitSettings.feedback.gamificationWidgets ? <div><small>+{Math.max(0, dayPoints)} {isEnglish ? "pts today" : "баллов сегодня"}</small>{awardedLaurels > 0 ? <strong>♕ +{awardedLaurels} {isEnglish ? "Laurels awarded" : "Лавров начислено"}</strong> : <strong className="pending">♕ {isEnglish ? "5 + 3 for Perfect Day" : "5 + 3 за идеальный день"}</strong>}</div> : null}
             {(date > today || plannedRest) && goalRecord.scheduledCount ? <button type="button" onClick={() => onChange(setPlannedRestDay(workspace, date, !plannedRest, calendarMode, today))}>{plannedRest ? (isEnglish ? "Cancel rest" : "Отменить отдых") : (isEnglish ? "Plan rest" : "Запланировать отдых")}</button> : null}
           </div>
         </div>
@@ -697,11 +702,12 @@ export function HabitDailyPanel({ workspace, date, language, timeFormat, calenda
                     qualityValue: !entry?.completed && habit.qualityScale !== "none" ? entry?.qualityValue ?? (habit.qualityScale === "ten" ? 5 : 0) : entry?.qualityValue ?? null,
                   }))}
                   aria-pressed={Boolean(entry?.completed)}
+                  aria-describedby={`habit-copy-${habit.id}-${date}`}
                   aria-label={entry?.completed ? (isEnglish ? `Unmark ${habit.title}` : `Снять отметку «${habit.title}»`) : (isEnglish ? `Mark ${habit.title}` : `Отметить «${habit.title}»`)}
                 >
                   {entry?.completed ? "✓" : ""}
                 </button>
-                <div className="habit-check-copy">
+                <div className="habit-check-copy" id={`habit-copy-${habit.id}-${date}`}>
                   <span><b className="habit-emoji" aria-hidden="true">{habit.emoji}</b><strong data-no-translate>{habit.title}</strong>{habit.isKeyHabit ? <mark>{isEnglish ? "Key habit" : "Главная"}</mark> : null}<em>{isEnglish ? `Priority ${habit.priority}` : `Приоритет ${habit.priority}`}</em></span>
                   {habit.description ? <small data-no-translate>{habit.description}</small> : null}
                   {habit.preferredTime ? <small className="habit-preferred-time">{isEnglish ? "Preferred" : "Желаемое время"}: {formatTimeValue(habit.preferredTime, timeFormat)}</small> : null}
@@ -716,12 +722,13 @@ export function HabitDailyPanel({ workspace, date, language, timeFormat, calenda
                       step="1"
                       value={entry.qualityValue ?? (habit.qualityScale === "ten" ? 5 : 0)}
                       disabled={!canRecord}
+                      aria-label={isEnglish ? `Quality of ${habit.title}` : `Качество выполнения «${habit.title}»`}
                       onChange={(event) => onChange(updateHabitCompletion(workspace, habit, date, { completed: true, qualityValue: Number(event.target.value) }))}
                     />
                     <div><span>{habit.qualityScale === "ten" ? "1" : "−5"}</span>{habit.qualityScale === "bipolar" ? <i>0</i> : null}<span>{habit.qualityScale === "ten" ? "10" : "+5"}</span></div>
                   </label>
                 ) : null}
-                {habit.scoringMode !== "none" ? <output>{score > 0 ? "+" : ""}{score}</output> : <output className="monitor">{isEnglish ? "log" : "учёт"}</output>}
+                {habit.scoringMode !== "none" ? <output aria-label={isEnglish ? `${score} XP for this completion` : `${score} XP за это выполнение`}>{score > 0 ? "+" : ""}{score}</output> : <output className="monitor" aria-label={isEnglish ? "Monitoring only, without points" : "Только наблюдение, без баллов"}>{isEnglish ? "log" : "учёт"}</output>}
               </article>
             );
           })}
@@ -1195,17 +1202,17 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
   };
 
   return (
-    <div className="habits-view">
+    <div className={`habits-view${workspace.habitSettings.feedback.gamificationWidgets ? "" : " gamification-hidden"}`}>
       <header className="habits-hero">
         <div><span className="eyebrow">{isEnglish ? "Encrypted personal tracker" : "Зашифрованный личный трекер"}</span><h1>{isEnglish ? "Trackers" : "Привычки"}</h1><p>{isEnglish ? "Habits, sleep, mood and abstinence are independent modules over one secure tracker core." : "Привычки, сон, настроение и воздержание — независимые модули поверх единого защищённого ядра."}</p></div>
-        <div className="habits-hero-status">
+        {workspace.habitSettings.feedback.gamificationWidgets ? <div className="habits-hero-status">
           <article className="habits-hero-laurels"><HabitMetricSigil variant="laurels" value={workspace.userProgress.laurelsBalance} /><div><small>{isEnglish ? "Laurels" : "Лавры"}</small><strong>{workspace.userProgress.laurelsBalance}</strong><em>{isEnglish ? "spendable" : "можно тратить"}</em></div></article>
           <article className="habits-hero-streak"><HabitMetricSigil variant="streak" value={workspace.userProgress.currentStreak} record={workspace.userProgress.longestStreak} /><div><small>{isEnglish ? "Current streak" : "Текущая серия"}</small><strong>{workspace.userProgress.currentStreak}</strong><em>{isEnglish ? `best ${workspace.userProgress.longestStreak} days` : `рекорд ${workspace.userProgress.longestStreak} дней`}</em></div></article>
           <div className="habits-hero-score" style={{ "--rank-color": rank.color } as CSSProperties}><HeroicRankSigil rankId={rank.id} color={rank.color} /><div><small>{isEnglish ? "Current rank" : "Текущий ранг"}</small><strong>{isEnglish ? rank.titleEn : rank.title}</strong><em>{total} XP</em></div></div>
-        </div>
-        <div className="habits-hero-actions"><button type="button" className="secondary-button hero-path-open" onClick={() => setHeroPathOpen(true)}>{isEnglish ? "Path of the Hero" : "Путь Героя"} →</button><button type="button" className="primary-button" onClick={openNewHabit}>＋ {isEnglish ? "New habit" : "Новая привычка"}</button></div>
+        </div> : null}
+        <div className="habits-hero-actions">{workspace.habitSettings.feedback.gamificationWidgets ? <button type="button" className="secondary-button hero-path-open" onClick={() => setHeroPathOpen(true)}>{isEnglish ? "Path of the Hero" : "Путь Героя"} →</button> : null}<button type="button" className="primary-button" onClick={openNewHabit}>＋ {isEnglish ? "New habit" : "Новая привычка"}</button></div>
       </header>
-      {hasHabits ? <section className="streak-resilience" aria-label={isEnglish ? "Streak protection and comeback" : "Защита серии и возвращение"}>
+      {hasHabits && workspace.habitSettings.feedback.gamificationWidgets ? <section className="streak-resilience" aria-label={isEnglish ? "Streak protection and comeback" : "Защита серии и возвращение"}>
         <article className="hestia-spark-card">
           <span className="hestia-spark-icon" aria-hidden="true">
             <svg viewBox="0 0 48 48"><defs><radialGradient id="hestia-flame"><stop offset="0" stopColor="#fff1b7" /><stop offset=".55" stopColor="#e7bb5f" /><stop offset="1" stopColor="#aa5c36" /></radialGradient></defs><path d="M25 5c3 8-3 10 1 16 2-4 6-5 7-10 7 7 10 15 7 23-3 8-10 11-17 10C13 43 7 37 8 28c1-8 7-13 13-18-1 6 1 8 4 11 2-5-1-9 0-16Z" fill="url(#hestia-flame)" /><path d="M24 26c4 4 5 7 3 11-2 3-7 3-9 0-3-5 1-8 6-11Z" fill="#fff7d6" /></svg>
@@ -1224,8 +1231,8 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
         </article>
       </section> : null}
       {hasHabits ? dailyPanel : null}
-      {hasHabits ? <HabitQuestPanel workspace={workspace} date={date} language={language} /> : null}
-      {hasHabits ? <StreakRewardLadder workspace={workspace} language={language} /> : null}
+      {hasHabits && workspace.habitSettings.feedback.gamificationWidgets && workspace.habitSettings.feedback.questsEnabled ? <HabitQuestPanel workspace={workspace} date={date} language={language} /> : null}
+      {hasHabits && workspace.habitSettings.feedback.gamificationWidgets ? <StreakRewardLadder workspace={workspace} language={language} /> : null}
       {hasHabits ? <AdaptiveDifficultyPanel workspace={workspace} date={creationDate} language={language} calendarMode={calendarMode} onEdit={setEditingHabit} onPause={(habit) => { onChange({ ...workspace, habits: workspace.habits.map((item) => item.id === habit.id ? markTrackerEntityChanged({ ...item, active: false }) : item) }); setMessage(isEnglish ? "Habit paused. Its history and settings were preserved." : "Привычка поставлена на паузу. История и настройки сохранены."); }} /> : null}
       {message ? <p className="habit-status-message" role="status">{message}</p> : null}
 
@@ -1256,7 +1263,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
         <section className="tracker-module-card addiction-module"><header><div><span className="eyebrow">{isEnglish ? "Independent module" : "Независимый модуль"}</span><h2>{isEnglish ? "Abstinence" : "Воздержание"}</h2></div><button type="button" onClick={() => setEditingAddiction(defaultAddictionTracker(date, calendarMode))}>＋ {isEnglish ? "Tracker" : "Трекер"}</button></header>{workspace.addictionTrackers.length ? workspace.addictionTrackers.map((tracker) => <article key={tracker.id}><div><strong data-no-translate>{tracker.trackedBehavior}</strong><small>{isEnglish ? `Clean day +${tracker.cleanDayPoints} · relapse -${tracker.relapsePenalty}` : `Чистый день +${tracker.cleanDayPoints} · срыв -${tracker.relapsePenalty}`}</small></div><button type="button" onClick={() => setEditingAddiction(tracker)}>{isEnglish ? "Edit" : "Изменить"}</button><button type="button" className="danger" onClick={() => onChange({ ...workspace, addictionTrackers: workspace.addictionTrackers.filter((item) => item.id !== tracker.id), addictionEntries: workspace.addictionEntries.filter((entry) => entry.trackerId !== tracker.id) })}>{isEnglish ? "Delete" : "Удалить"}</button></article>) : <p>{isEnglish ? "Clean days, relapses, craving and triggers stay separate from habit completions." : "Чистые дни, срывы, тяга и триггеры хранятся отдельно от выполнений привычек."}</p>}</section>
       </div>
 
-      <AchievementPanel workspace={workspace} language={language} />
+      {workspace.habitSettings.feedback.gamificationWidgets ? <AchievementPanel workspace={workspace} language={language} /> : null}
       <section className="habit-range-toolbar"><span>{isEnglish ? "Analytics period" : "Период аналитики"}</span><div>{(["week", "days-30", "month", "quarter", "year", "custom"] as const).map((period) => <button type="button" className={workspace.habitSettings.reportRange === period ? "active" : ""} onClick={() => onChange({ ...workspace, habitSettings: { ...workspace.habitSettings, reportRange: period } })} key={period}>{period === "week" ? (isEnglish ? "7 days" : "7 дней") : period === "days-30" ? (isEnglish ? "30 days" : "30 дней") : period === "month" ? (isEnglish ? "Month" : "Месяц") : period === "quarter" ? (isEnglish ? "Quarter" : "Квартал") : period === "year" ? (isEnglish ? "Year" : "Год") : (isEnglish ? "Custom" : "Свой")}</button>)}</div>{workspace.habitSettings.reportRange === "custom" ? <label><input type="date" value={workspace.habitSettings.customRangeStart} onChange={(event) => onChange({ ...workspace, habitSettings: { ...workspace.habitSettings, customRangeStart: event.target.value } })} /><span>—</span><input type="date" value={workspace.habitSettings.customRangeEnd} onChange={(event) => onChange({ ...workspace, habitSettings: { ...workspace.habitSettings, customRangeEnd: event.target.value } })} /></label> : <small>{range.start} — {range.end}</small>}</section>
       <HabitStatistics workspace={workspace} date={date} language={language} calendarMode={calendarMode} />
       {heroPathOpen ? <HeroPathPanel workspace={workspace} language={language} onClaimCheckpoint={(rankId) => { const next = claimHeroPathAmphora(workspace, rankId); onChange(next); if (next !== workspace) setMessage(isEnglish ? "The amphora is open. Laurels were added to your ledger." : "Амфора открыта. Лавры добавлены в журнал наград."); }} onRevealHiddenPath={() => { const next = revealHiddenHeroicPath(workspace); onChange(next); if (next !== workspace) setMessage(isEnglish ? "The second path has been revealed." : "Второй путь открыт."); }} onClose={() => setHeroPathOpen(false)} /> : null}

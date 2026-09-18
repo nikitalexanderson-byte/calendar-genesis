@@ -68,11 +68,14 @@ import { MoonPhaseIcon } from "./MoonPhaseIcon";
 import { RecurrenceBuilder } from "./RecurrenceBuilder";
 import { WelcomeScreen } from "./WelcomeScreen";
 import { HabitDailyPanel, HabitTrackerPage } from "./HabitTracker";
+import { HabitCompletionFeedback } from "./HabitCompletionFeedback";
 import { WorkspaceRecoveryDialog } from "./WorkspaceRecoveryDialog";
 import {
+  ACHIEVEMENTS,
   addHabitDays,
   dailyGoalForDate,
   EMPTY_HABIT_WORKSPACE,
+  heroicRankForProgress,
   isHabitScheduledForDate,
   normalizeHabitWorkspace,
   refreshDailyGoalProgress,
@@ -80,6 +83,7 @@ import {
   type HabitWorkspace,
 } from "./habits";
 import { nextHeroicRankForProgress } from "./habit-progress";
+import { deliverHabitFeedback, type HabitFeedbackEvent } from "./habit-feedback";
 import {
   buildHabitNotificationPlan,
   habitNotificationPermission,
@@ -1118,6 +1122,7 @@ export function GenesisCalendar() {
   const [taskLists, setTaskLists] = useState<GoogleTaskList[]>([]);
   const [taskListLinks, setTaskListLinks] = useState<TaskListProjectLink[]>([]);
   const [habitWorkspace, setHabitWorkspace] = useState<HabitWorkspace>(() => normalizeHabitWorkspace(EMPTY_HABIT_WORKSPACE));
+  const [habitFeedback, setHabitFeedback] = useState<HabitFeedbackEvent | null>(null);
   const [habitNotificationPermissionState, setHabitNotificationPermissionState] = useState<HabitNotificationPermission>("unsupported");
   const [hydrated, setHydrated] = useState(false);
   const [authResolved, setAuthResolved] = useState(!isGoogleSyncConfigured);
@@ -1190,6 +1195,7 @@ export function GenesisCalendar() {
   const sacredYearDetailsCloseRef = useRef<HTMLButtonElement | null>(null);
   const projectTouchDragRef = useRef<ProjectTouchDrag | null>(null);
   const habitSaveTimerRef = useRef<number | null>(null);
+  const habitFeedbackTimerRef = useRef<number | null>(null);
   const workspaceRecoveryResolverRef = useRef<((accepted: boolean) => void) | null>(null);
   const projectPointerDragRef = useRef<{
     item: ProjectDragItem;
@@ -1220,6 +1226,7 @@ export function GenesisCalendar() {
   useEffect(() => () => {
     workspaceRecoveryResolverRef.current?.(false);
     workspaceRecoveryResolverRef.current = null;
+    if (habitFeedbackTimerRef.current !== null) window.clearTimeout(habitFeedbackTimerRef.current);
   }, []);
 
   useEffect(() => {
@@ -2490,6 +2497,49 @@ export function GenesisCalendar() {
       entry.completed
       && !habitWorkspace.habitCompletions.some((current) => current.id === entry.id && current.completed)
     ));
+    const latestCompletion = newlyCompletedEntries[newlyCompletedEntries.length - 1];
+    if (latestCompletion) {
+      const habit = normalized.habits.find((item) => item.id === latestCompletion.habitId);
+      if (habit) {
+        const previousGoal = dailyGoalForDate(habitWorkspace, latestCompletion.date, activeTaskCalendarMode, todayDateValue);
+        const nextGoal = dailyGoalForDate(normalized, latestCompletion.date, activeTaskCalendarMode, todayDateValue);
+        const rankChanged = Boolean(normalized.userProgress.currentRankId && normalized.userProgress.currentRankId !== habitWorkspace.userProgress.currentRankId);
+        const rank = heroicRankForProgress(normalized.userProgress);
+        const previousRewardIds = new Set(habitWorkspace.rewardTransactions.map((transaction) => transaction.id));
+        const laurels = normalized.rewardTransactions
+          .filter((transaction) => !previousRewardIds.has(transaction.id) && transaction.amount > 0)
+          .reduce((total, transaction) => total + transaction.amount, 0);
+        const previousAchievementIds = new Set(habitWorkspace.achievementUnlocks.map((unlock) => unlock.id));
+        const achievementUnlock = normalized.achievementUnlocks.find((unlock) => !previousAchievementIds.has(unlock.id));
+        const achievement = normalized.habitSettings.feedback.achievementPopups
+          ? ACHIEVEMENTS.find((definition) => definition.id === achievementUnlock?.achievementId)
+          : undefined;
+        const kind = rankChanged
+          ? "rank-up"
+          : nextGoal.status === "perfect" && previousGoal.status !== "perfect"
+            ? "perfect-day"
+            : ["qualified", "perfect"].includes(nextGoal.status) && !["qualified", "perfect"].includes(previousGoal.status)
+              ? "daily-goal"
+              : "completion";
+        const feedback: HabitFeedbackEvent = {
+          id: `${latestCompletion.id}:${latestCompletion.updatedAt}`,
+          habitId: habit.id,
+          habitTitle: habit.title,
+          habitEmoji: habit.emoji,
+          kind,
+          xp: Math.max(0, latestCompletion.xpAwarded),
+          laurels,
+          rankTitle: rank.title,
+          rankTitleEn: rank.titleEn,
+          achievementTitle: achievement?.title ?? "",
+          achievementTitleEn: achievement?.titleEn ?? "",
+        };
+        setHabitFeedback(feedback);
+        deliverHabitFeedback(kind, normalized.habitSettings.feedback);
+        if (habitFeedbackTimerRef.current !== null) window.clearTimeout(habitFeedbackTimerRef.current);
+        habitFeedbackTimerRef.current = window.setTimeout(() => setHabitFeedback(null), 2600);
+      }
+    }
     setHabitWorkspace(normalized);
     if (!cloudUser) return;
     newlyCompletedEntries.forEach((entry) => {
@@ -5330,7 +5380,7 @@ export function GenesisCalendar() {
 
   return (
     <main
-      className={`genesis-app mode-${activeCalendarMode}`}
+      className={`genesis-app mode-${activeCalendarMode}${habitWorkspace.habitSettings.feedback.animations ? "" : " habit-animations-off"}`}
       style={{
         "--genesis-hero-image": activeCalendarMode === "sacred"
           ? `url("${dayArtUrl(todayInfo.monthIndex, todayInfo.day)}")`
@@ -5558,6 +5608,7 @@ export function GenesisCalendar() {
         </div>
       </section>
 
+      {habitFeedback ? <HabitCompletionFeedback event={habitFeedback} language={language} showGamification={habitWorkspace.habitSettings.feedback.gamificationWidgets} /> : null}
       <nav className="mobile-nav" aria-label="Мобильная навигация" style={{ "--mobile-nav-count": navigation.length } as CSSProperties}>
         {navigation.map((item) => (
           <button type="button" key={item.id} data-nav-id={item.id} className={view === item.id ? "active" : ""} onClick={() => activateNavigation(item.id)}>
@@ -6024,6 +6075,7 @@ export function GenesisCalendar() {
           categories={categories}
           habitTrackingEnabled={habitWorkspace.habitSettings.enabled}
           habitNotificationSettings={habitWorkspace.habitSettings.notifications}
+          habitFeedbackSettings={habitWorkspace.habitSettings.feedback}
           notificationPermission={habitNotificationPermissionState}
           onRequestHabitNotifications={async () => {
             const permission = await requestHabitNotificationPermission();
@@ -6033,6 +6085,9 @@ export function GenesisCalendar() {
           onHabitNotificationSettingsChange={(notifications) => {
             if (habitWorkspace.habitSettings.notifications.enabled && !notifications.enabled) recordHabitNotificationsDisabled();
             updateHabitWorkspace({ ...habitWorkspace, habitSettings: { ...habitWorkspace.habitSettings, notifications } });
+          }}
+          onHabitFeedbackSettingsChange={(feedback) => {
+            updateHabitWorkspace({ ...habitWorkspace, habitSettings: { ...habitWorkspace.habitSettings, feedback } });
           }}
           hiddenHabitTemplateCount={habitWorkspace.hiddenDefaultTemplates.length}
           onRestoreHabitTemplates={() => updateHabitWorkspace({ ...habitWorkspace, hiddenDefaultTemplates: [] })}

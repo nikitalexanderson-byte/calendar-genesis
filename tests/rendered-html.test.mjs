@@ -137,6 +137,10 @@ import {
   habitCompletionCount,
   reconcileOrphanedHabitLaurels,
 } from "../app/habit-laurel-retention.ts";
+import {
+  DEFAULT_HABIT_FEEDBACK_SETTINGS,
+  normalizeHabitFeedbackSettings,
+} from "../app/habit-feedback.ts";
 
 function syncClock(version, updatedAt, deviceId) {
   return { version, updatedAt, deviceId };
@@ -161,7 +165,7 @@ test("encrypted workspace sync merges concurrent entities and preserves deletion
       achievementUnlocks: [],
       rewardTransactions: [],
       streakFreezeTransactions: [],
-      trackerSchemaVersion: 15,
+      trackerSchemaVersion: 16,
       userProgress: { lifetimeXp: 0 },
       habitSettings: { enabled: true },
       hiddenDefaultTemplates: [],
@@ -208,7 +212,7 @@ test("workspace merge deduplicates reward ledger entries by idempotency key", ()
   const common = {
     projects: [], categories: [], taskListLinks: [], habits: [], habitCompletions: [], sleepPlans: [], sleepEntries: [],
     moodEntries: [], addictionTrackers: [], addictionEntries: [], analyticsSnapshots: [], dailyGoalRecords: [],
-    quests: [], achievementUnlocks: [], trackerSchemaVersion: 15, userProgress: {}, habitSettings: {}, hiddenDefaultTemplates: [], streakFreezeTransactions: [],
+    quests: [], achievementUnlocks: [], trackerSchemaVersion: 16, userProgress: {}, habitSettings: {}, hiddenDefaultTemplates: [], streakFreezeTransactions: [],
   };
   const left = prepareWorkspaceForSync({
     current: {
@@ -459,7 +463,7 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(habits, /STARTER_HABIT_TEMPLATES/);
   assert.match(habits, /createHabitFromTemplate/);
   assert.match(habits, /normalizeHiddenDefaultTemplates/);
-  assert.match(habits, /trackerSchemaVersion: 15/);
+  assert.match(habits, /trackerSchemaVersion: 16/);
   assert.match(habits, /createdDate: string/);
   assert.match(habits, /emoji: string/);
   assert.match(habits, /priority: number/);
@@ -668,6 +672,7 @@ test("resetting habit tracking clears every tracker and statistic while preservi
       dailyGoalModeChanges: [{ id: "mode-change" }],
       plannedRestDays: ["2026-01-10"],
       notifications: { ...DEFAULT_HABIT_NOTIFICATION_SETTINGS, enabled: true, tone: "heroic" },
+      feedback: { ...DEFAULT_HABIT_FEEDBACK_SETTINGS, animations: false, sound: true, haptics: true },
     },
     hiddenDefaultTemplates: ["morning-water"],
   };
@@ -705,6 +710,54 @@ test("resetting habit tracking clears every tracker and statistic while preservi
   assert.deepEqual(reset.habitSettings.plannedRestDays, []);
   assert.equal(reset.habitSettings.notifications.enabled, true);
   assert.equal(reset.habitSettings.notifications.tone, "heroic");
+  assert.equal(reset.habitSettings.feedback.animations, false);
+  assert.equal(reset.habitSettings.feedback.sound, true);
+  assert.equal(reset.habitSettings.feedback.haptics, true);
+});
+
+test("habit feedback settings are conservative, normalized and independently configurable", () => {
+  assert.deepEqual(normalizeHabitFeedbackSettings(undefined), DEFAULT_HABIT_FEEDBACK_SETTINGS);
+  assert.deepEqual(normalizeHabitFeedbackSettings({
+    animations: false,
+    sound: true,
+    haptics: true,
+    achievementPopups: false,
+    questsEnabled: false,
+    gamificationWidgets: false,
+  }), {
+    animations: false,
+    sound: true,
+    haptics: true,
+    achievementPopups: false,
+    questsEnabled: false,
+    gamificationWidgets: false,
+  });
+  assert.equal(DEFAULT_HABIT_FEEDBACK_SETTINGS.sound, false, "sound must require explicit consent");
+  assert.equal(DEFAULT_HABIT_FEEDBACK_SETTINGS.haptics, false, "haptics must require explicit consent");
+});
+
+test("Phase L ships accessible immediate feedback and reduced-motion controls", async () => {
+  const [calendar, account, tracker, feedback, styles] = await Promise.all([
+    readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/AccountPanel.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/HabitTracker.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/HabitCompletionFeedback.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+  assert.match(calendar, /deliverHabitFeedback/);
+  assert.match(calendar, /HabitCompletionFeedback/);
+  assert.match(calendar, /habit-animations-off/);
+  assert.match(account, /Отклик и доступность/);
+  assert.match(account, /Тактильный отклик/);
+  assert.match(account, /Игровые блоки/);
+  assert.match(tracker, /role="progressbar"/);
+  assert.match(tracker, /aria-valuenow/);
+  assert.match(feedback, /aria-live="polite"/);
+  assert.match(feedback, /aria-atomic="true"/);
+  assert.match(styles, /@keyframes habit-feedback-enter/);
+  assert.match(styles, /\.habit-animations-off/);
+  assert.match(styles, /@media \(forced-colors: active\)/);
+  assert.match(styles, /prefers-reduced-motion: reduce[\s\S]*\.habit-completion-feedback/);
 });
 
 test("starter habit template catalog exposes ten inert calendar-aware suggestions", () => {
