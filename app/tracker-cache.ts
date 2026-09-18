@@ -52,3 +52,20 @@ export async function saveTrackerAnalyticsCache(cacheKey: string, snapshots: Tra
     // The encrypted workspace remains the source of truth when IndexedDB is unavailable.
   }
 }
+
+export async function clearTrackerAnalyticsCache(cacheKey: string) {
+  if (typeof indexedDB === "undefined") return true;
+  try {
+    const database = await openCache();
+    await new Promise<void>((resolve, reject) => {
+      const transaction = database.transaction(STORE_NAME, "readwrite");
+      transaction.objectStore(STORE_NAME).delete(cacheKey);
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error ?? new Error("Analytics cache could not be cleared"));
+    });
+    database.close();
+    return true;
+  } catch {
+    return false;
+  }
+}

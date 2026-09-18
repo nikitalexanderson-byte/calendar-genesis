@@ -70,8 +70,9 @@ import {
   type Habit,
   type HabitWorkspace,
 } from "./habits";
+import { resetHabitWorkspace } from "./habit-reset";
 import { changedTrackerDates, ensureTrackerAnalytics, refreshTrackerAnalytics } from "./tracker-analytics";
-import { loadTrackerAnalyticsCache, saveTrackerAnalyticsCache } from "./tracker-cache";
+import { clearTrackerAnalyticsCache, loadTrackerAnalyticsCache, saveTrackerAnalyticsCache } from "./tracker-cache";
 import type { SacredPracticeSectorId } from "./sacred-practices";
 import {
   MONTHS,
@@ -2396,6 +2397,49 @@ export function GenesisCalendar() {
           setSyncStatus(navigator.onLine ? "error" : "offline");
         });
     }, 650);
+  };
+
+  const resetAllHabitTracking = async () => {
+    if (!cloudUser) throw new Error(language === "en" ? "Sign in to reset habit data." : "Войдите в аккаунт, чтобы обнулить данные привычек.");
+    const clearedWorkspace = resetHabitWorkspace(habitWorkspace);
+    const reminderIds = new Set(habitWorkspace.habits.flatMap((habit) => (
+      [habit.reminder.googleTaskId, habit.reminder.googleEventId].filter((id): id is string => Boolean(id))
+    )));
+    const reminderTasks = tasks.filter((task) => reminderIds.has(task.id));
+    const remainingTasks = tasks.filter((task) => !reminderIds.has(task.id));
+    setSyncStatus("syncing");
+    setSyncError("");
+    try {
+      if (habitSaveTimerRef.current !== null) {
+        window.clearTimeout(habitSaveTimerRef.current);
+        habitSaveTimerRef.current = null;
+      }
+      const analyticsCacheCleared = await clearTrackerAnalyticsCache(cloudUser.uid);
+      if (!analyticsCacheCleared) {
+        throw new Error(language === "en"
+          ? "The local statistics cache could not be cleared. Nothing was reset."
+          : "Не удалось очистить локальный кэш статистики. Данные привычек не были обнулены.");
+      }
+      await Promise.all(reminderTasks.map((task) => removeCloudTask(cloudUser.uid, task)));
+      await saveWorkspaceStructure(
+        projectsRef.current,
+        categoriesRef.current,
+        taskListLinks,
+        metricsFor(remainingTasks, projectsRef.current),
+        clearedWorkspace,
+      );
+      tasksRef.current = remainingTasks;
+      setTasks(remainingTasks);
+      setHabitWorkspace(clearedWorkspace);
+      setSyncStatus("synced");
+    } catch (error) {
+      const resetError = error instanceof Error
+        ? error
+        : new Error(language === "en" ? "Habit data could not be reset." : "Не удалось обнулить данные привычек.");
+      setSyncError(resetError.message);
+      setSyncStatus(navigator.onLine ? "error" : "offline");
+      throw resetError;
+    }
   };
 
   useEffect(() => () => {
@@ -5814,6 +5858,7 @@ export function GenesisCalendar() {
           habitTrackingEnabled={habitWorkspace.habitSettings.enabled}
           hiddenHabitTemplateCount={habitWorkspace.hiddenDefaultTemplates.length}
           onRestoreHabitTemplates={() => updateHabitWorkspace({ ...habitWorkspace, hiddenDefaultTemplates: [] })}
+          onResetHabitTracking={resetAllHabitTracking}
           workspaceRecoveryCode={workspaceRecoveryCodeForUser(cloudUser.uid)}
           onHabitTrackingChange={(enabled) => {
             updateHabitWorkspace({ ...habitWorkspace, habitSettings: { ...habitWorkspace.habitSettings, enabled } });

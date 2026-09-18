@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element -- Google profile pictures are remote OAuth assets. */
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CalendarMode } from "./calendar-data";
 import type { GenesisCategory, GenesisUser, SyncRouting } from "./cloud-sync";
 import { deleteGenesisAccount, disconnectGoogleServices, removeAdditionalGoogleAccount, updateAccountPreferences } from "./cloud-sync";
@@ -19,6 +19,7 @@ type AccountPanelProps = {
   onHabitTrackingChange: (enabled: boolean) => void;
   hiddenHabitTemplateCount: number;
   onRestoreHabitTemplates: () => void;
+  onResetHabitTracking: () => Promise<void>;
   workspaceRecoveryCode: string;
   categories: GenesisCategory[];
 };
@@ -34,16 +35,53 @@ const TIME_FORMATS: Array<{ id: TimeFormat; label: string; example: string }> = 
   { id: "12h", label: "AM / PM", example: "01:30 PM" },
 ];
 
-export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditionalGoogle, onLanguageChange, onUserChange, habitTrackingEnabled, onHabitTrackingChange, hiddenHabitTemplateCount, onRestoreHabitTemplates, workspaceRecoveryCode, categories }: AccountPanelProps) {
+type HabitResetChallenge = {
+  left: number;
+  right: number;
+  operator: "+" | "−" | "×";
+  answer: number;
+};
+
+function createHabitResetChallenge(): HabitResetChallenge {
+  const entropy = new Uint32Array(3);
+  window.crypto.getRandomValues(entropy);
+  const operator = (["+", "−", "×"] as const)[entropy[0] % 3];
+  const first = 2 + (entropy[1] % 11);
+  const second = 2 + (entropy[2] % 11);
+  if (operator === "−") {
+    const left = Math.max(first, second);
+    const right = Math.min(first, second);
+    return { left, right, operator, answer: left - right };
+  }
+  return {
+    left: first,
+    right: second,
+    operator,
+    answer: operator === "+" ? first + second : first * second,
+  };
+}
+
+export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditionalGoogle, onLanguageChange, onUserChange, habitTrackingEnabled, onHabitTrackingChange, hiddenHabitTemplateCount, onRestoreHabitTemplates, onResetHabitTracking, workspaceRecoveryCode, categories }: AccountPanelProps) {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [preferenceBusy, setPreferenceBusy] = useState(false);
   const [recoveryVisible, setRecoveryVisible] = useState(false);
+  const [habitResetChallenge, setHabitResetChallenge] = useState<HabitResetChallenge | null>(null);
+  const [habitResetAnswer, setHabitResetAnswer] = useState("");
+  const [habitResetBusy, setHabitResetBusy] = useState(false);
+  const [habitResetError, setHabitResetError] = useState("");
+  const habitResetInputRef = useRef<HTMLInputElement>(null);
   const [routing, setRouting] = useState<SyncRouting>(() => user.syncRouting ?? {
     mode: "fixed",
     defaultAccountIds: [user.uid],
     categoryAccountIds: {},
   });
+
+  useEffect(() => {
+    if (!habitResetChallenge) return;
+    const frame = window.requestAnimationFrame(() => habitResetInputRef.current?.focus());
+    return () => window.cancelAnimationFrame(frame);
+  }, [habitResetChallenge]);
 
   const changeDivinationPreference = async (disabled: boolean) => {
     setPreferenceBusy(true);
@@ -186,6 +224,39 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
       setMessage(error instanceof Error ? error.message : "Не удалось отключить Google Calendar и Tasks.");
     } finally {
       setBusy(false);
+    }
+  };
+
+  const openHabitReset = () => {
+    setHabitResetChallenge(createHabitResetChallenge());
+    setHabitResetAnswer("");
+    setHabitResetError("");
+  };
+
+  const closeHabitReset = () => {
+    if (habitResetBusy) return;
+    setHabitResetChallenge(null);
+    setHabitResetAnswer("");
+    setHabitResetError("");
+  };
+
+  const confirmHabitReset = async () => {
+    if (!habitResetChallenge || habitResetAnswer.trim() === "" || Number(habitResetAnswer) !== habitResetChallenge.answer) return;
+    setHabitResetBusy(true);
+    setHabitResetError("");
+    try {
+      await onResetHabitTracking();
+      setHabitResetChallenge(null);
+      setHabitResetAnswer("");
+      setMessage(user.language === "en"
+        ? "All habit tracking data and statistics have been reset."
+        : "Все привычки и их статистика обнулены.");
+    } catch (error) {
+      setHabitResetError(error instanceof Error
+        ? error.message
+        : user.language === "en" ? "Habit data could not be reset." : "Не удалось обнулить данные привычек.");
+    } finally {
+      setHabitResetBusy(false);
     }
   };
 
@@ -420,6 +491,15 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
             </div>
             <button type="button" className="secondary-button" disabled={!hiddenHabitTemplateCount} onClick={onRestoreHabitTemplates}>{user.language === "en" ? "Restore standard habits" : "Восстановить стандартные привычки"}</button>
           </div>
+          <div className="account-habit-reset">
+            <div>
+              <strong>{user.language === "en" ? "Reset habit tracking" : "Обнуление трекера"}</strong>
+              <small>{user.language === "en"
+                ? "Permanently deletes habits, sleep, mood, abstinence, statistics, XP and laurels. Account and calendar settings stay unchanged."
+                : "Безвозвратно удалит привычки, сон, настроение, воздержание, статистику, XP и лавры. Настройки аккаунта и календаря сохранятся."}</small>
+            </div>
+            <button type="button" onClick={openHabitReset}>{user.language === "en" ? "Reset all habits" : "Обнулить все привычки"}</button>
+          </div>
         </section>
 
         <section className="account-preferences account-e2ee" aria-labelledby="account-e2ee-title">
@@ -478,6 +558,63 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
           <button type="button" onClick={() => void removeAccount()} disabled={busy}>Удалить</button>
         </div>
       </section>
+      {habitResetChallenge ? (
+        <div className="habit-reset-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeHabitReset(); }}>
+          <form
+            className="habit-reset-dialog"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="habit-reset-title"
+            aria-describedby="habit-reset-description"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void confirmHabitReset();
+            }}
+          >
+            <span className="habit-reset-mark" aria-hidden="true">!</span>
+            <div className="habit-reset-copy">
+              <span className="eyebrow">{user.language === "en" ? "Irreversible action" : "Необратимое действие"}</span>
+              <h3 id="habit-reset-title">{user.language === "en" ? "Reset all habit data?" : "Обнулить все привычки?"}</h3>
+              <p id="habit-reset-description">{user.language === "en"
+                ? "Every tracker, record, statistic, rank progress, XP and laurel will be deleted from this encrypted workspace. This cannot be undone."
+                : "Все трекеры, записи, статистика, прогресс рангов, XP и лавры будут удалены из зашифрованного пространства. Отменить это действие невозможно."}</p>
+            </div>
+            <label className="habit-reset-captcha">
+              <span>{user.language === "en" ? "Solve to confirm" : "Решите пример для подтверждения"}</span>
+              <strong>{habitResetChallenge.left} {habitResetChallenge.operator} {habitResetChallenge.right} = ?</strong>
+              <input
+                ref={habitResetInputRef}
+                type="number"
+                inputMode="numeric"
+                value={habitResetAnswer}
+                disabled={habitResetBusy}
+                onChange={(event) => {
+                  setHabitResetAnswer(event.target.value);
+                  setHabitResetError("");
+                }}
+                aria-label={user.language === "en" ? "Answer to the arithmetic challenge" : "Ответ на арифметический пример"}
+                aria-invalid={habitResetAnswer.trim() !== "" && Number(habitResetAnswer) !== habitResetChallenge.answer}
+              />
+              <small>{habitResetAnswer.trim() === "" || Number(habitResetAnswer) !== habitResetChallenge.answer
+                ? (user.language === "en" ? "The delete button unlocks after the correct answer." : "Кнопка удаления станет доступна после верного ответа.")
+                : (user.language === "en" ? "Answer accepted. Check the action once more." : "Ответ верный. Ещё раз проверьте действие.")}</small>
+            </label>
+            {habitResetError ? <p className="habit-reset-error" role="alert">{habitResetError}</p> : null}
+            <div className="habit-reset-actions">
+              <button type="button" className="secondary-button" disabled={habitResetBusy} onClick={closeHabitReset}>{user.language === "en" ? "Cancel" : "Отменить"}</button>
+              <button
+                type="submit"
+                className="habit-reset-confirm"
+                disabled={habitResetBusy || habitResetAnswer.trim() === "" || Number(habitResetAnswer) !== habitResetChallenge.answer}
+              >
+                {habitResetBusy
+                  ? (user.language === "en" ? "Resetting…" : "Обнуляем…")
+                  : (user.language === "en" ? "Confirm reset" : "Подтвердить удаление")}
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
     </div>
   );
 }
