@@ -29,7 +29,7 @@ export const HABIT_COLORS = ["#bb8f4a", "#2d7771", "#5271a8", "#8b5f83", "#9b5d4
 export const STARTER_HABIT_TEMPLATES: readonly HabitTemplate[] = [
   {
     id: "daily-plan",
-    icon: "☀",
+    icon: "🗓️",
     title: "План на день",
     titleEn: "Plan the day",
     description: "5 минут утром, чтобы определить главные задачи дня.",
@@ -42,7 +42,7 @@ export const STARTER_HABIT_TEMPLATES: readonly HabitTemplate[] = [
   },
   {
     id: "morning-water",
-    icon: "◉",
+    icon: "💧",
     title: "Стакан воды после пробуждения",
     titleEn: "A glass of water after waking",
     description: "Начать день с простого действия.",
@@ -55,7 +55,7 @@ export const STARTER_HABIT_TEMPLATES: readonly HabitTemplate[] = [
   },
   {
     id: "morning-mobility",
-    icon: "↟",
+    icon: "🤸",
     title: "Утренняя разминка",
     titleEn: "Morning mobility",
     description: "5–10 минут движения после пробуждения.",
@@ -68,7 +68,7 @@ export const STARTER_HABIT_TEMPLATES: readonly HabitTemplate[] = [
   },
   {
     id: "walk",
-    icon: "◇",
+    icon: "🚶",
     title: "Прогулка",
     titleEn: "Walk",
     description: "Минимум 20 минут движения на свежем воздухе.",
@@ -81,7 +81,7 @@ export const STARTER_HABIT_TEMPLATES: readonly HabitTemplate[] = [
   },
   {
     id: "reading",
-    icon: "⌑",
+    icon: "📚",
     title: "Чтение",
     titleEn: "Reading",
     description: "20 минут чтения без отвлечений.",
@@ -94,7 +94,7 @@ export const STARTER_HABIT_TEMPLATES: readonly HabitTemplate[] = [
   },
   {
     id: "focus-session",
-    icon: "◎",
+    icon: "🎯",
     title: "Фокус-сессия",
     titleEn: "Focus session",
     description: "Не менее 30 минут сосредоточенной работы над одной важной задачей.",
@@ -107,7 +107,7 @@ export const STARTER_HABIT_TEMPLATES: readonly HabitTemplate[] = [
   },
   {
     id: "meditation",
-    icon: "◯",
+    icon: "🧘",
     title: "Медитация / дыхательная практика",
     titleEn: "Meditation / breathing practice",
     description: "5 минут спокойного наблюдения или дыхательной практики.",
@@ -120,7 +120,7 @@ export const STARTER_HABIT_TEMPLATES: readonly HabitTemplate[] = [
   },
   {
     id: "ten-minute-reset",
-    icon: "✦",
+    icon: "🧹",
     title: "10 минут порядка",
     titleEn: "Ten-minute reset",
     description: "Небольшая уборка или организация пространства.",
@@ -133,7 +133,7 @@ export const STARTER_HABIT_TEMPLATES: readonly HabitTemplate[] = [
   },
   {
     id: "evening-review",
-    icon: "☽",
+    icon: "✍️",
     title: "Вечерний обзор дня",
     titleEn: "Evening review",
     description: "Кратко вспомнить сделанное и определить главное на завтра.",
@@ -146,7 +146,7 @@ export const STARTER_HABIT_TEMPLATES: readonly HabitTemplate[] = [
   },
   {
     id: "screen-free-bedtime",
-    icon: "◐",
+    icon: "🌙",
     title: "Без экрана перед сном",
     titleEn: "Screen-free before bed",
     description: "Отложить телефон и другие экраны минимум за 30 минут до сна.",

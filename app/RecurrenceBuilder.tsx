@@ -62,12 +62,14 @@ export function RecurrenceBuilder({
   startDate,
   destination = "calendar",
   calendarMode = "profane",
+  lockRangeStart = false,
 }: {
   value: RecurrenceConfig;
   onChange: (value: RecurrenceConfig) => void;
   startDate: string;
   destination?: "calendar" | "tasks" | "tracker";
   calendarMode?: CalendarMode;
+  lockRangeStart?: boolean;
 }) {
   const isEnglish = getRuntimeLanguage() === "en";
   const value = alignRecurrenceConfigWithCalendar(rawValue, calendarMode, startDate);
@@ -145,13 +147,13 @@ export function RecurrenceBuilder({
 
           <fieldset className="recurrence-range">
             <legend>Период повторения</legend>
-            <label htmlFor="recurrence-range-start">
+            {lockRangeStart ? <div className="recurrence-locked-start"><span>С какого</span><strong>{rangeStart}</strong><small>Дата создания · изменить нельзя</small></div> : <label htmlFor="recurrence-range-start">
               <span>С какого</span>
               <CalendarDatePicker id="recurrence-range-start" mode={calendarMode} min={startDate} value={rangeStart} onChange={(nextStart) => {
                 const nextEnd = rangeEnd < nextStart ? recurrenceDefaultEndDate(nextStart) : rangeEnd;
                 onChange({ ...value, rangeStart: nextStart, rangeEnd: nextEnd, months: value.mode === "lunar" ? [] : value.months });
               }} />
-            </label>
+            </label>}
             <label htmlFor="recurrence-range-end">
               <span>По какое</span>
               <CalendarDatePicker id="recurrence-range-end" mode={calendarMode} min={rangeStart} max={maximumEnd} value={rangeEnd} onChange={(nextEnd) => onChange({

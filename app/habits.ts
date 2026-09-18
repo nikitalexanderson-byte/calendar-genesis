@@ -42,9 +42,16 @@ import {
 } from "./daily-goal";
 import {
   completionXpAward,
+  MAX_HABIT_XP_PER_COMPLETION,
   reconcileUserProgress,
   type UserProgress,
 } from "./habit-progress";
+import {
+  DEFAULT_HABIT_EMOJI,
+  DEFAULT_HABIT_PRIORITY,
+  normalizeHabitEmoji,
+  normalizeHabitPriority,
+} from "./habit-integrity";
 import {
   calculateLaurelsBalance,
   normalizeRewardTransactions,
@@ -53,6 +60,7 @@ import {
 } from "./rewards";
 import {
   HABIT_COLORS,
+  STARTER_HABIT_TEMPLATES,
   isHabitTemplateId,
   starterTemplateRecurrencePreset,
   type HabitTemplate,
@@ -61,8 +69,9 @@ import {
 
 export { HABIT_COLORS, STARTER_HABIT_TEMPLATES } from "./habit-templates";
 export type { HabitTemplate, HabitTemplateId } from "./habit-templates";
-export { HEROIC_RANKS, completionXpAward, heroicRank, nextHeroicRank } from "./habit-progress";
+export { HEROIC_RANKS, MAX_HABIT_XP_PER_COMPLETION, completionXpAward, heroicRank, nextHeroicRank } from "./habit-progress";
 export type { HeroicRank, HeroicRankId, UserProgress } from "./habit-progress";
+export { DEFAULT_HABIT_EMOJI, DEFAULT_HABIT_PRIORITY, HABIT_EMOJI_PRESETS, canRecordHabitOnDate, normalizeHabitEmoji, normalizeHabitPriority } from "./habit-integrity";
 export type { RewardCurrency, RewardReason, RewardTransaction } from "./rewards";
 export { DAILY_GOAL_LAURELS, PERFECT_DAY_LAURELS, laurelsForDailyGoal } from "./rewards";
 export { dailyGoalTarget } from "./daily-goal";
@@ -84,6 +93,9 @@ export type HabitReminder = {
 export type Habit = TrackerEntity & {
   title: string;
   description: string;
+  createdDate: string;
+  emoji: string;
+  priority: number;
   color: string;
   active: boolean;
   sourceTemplateId: HabitTemplateId | null;
@@ -114,7 +126,7 @@ export type HabitSettings = {
 };
 
 export type HabitWorkspace = {
-  trackerSchemaVersion: 6;
+  trackerSchemaVersion: 7;
   userProgress: UserProgress;
   habits: Habit[];
   habitCompletions: HabitCompletion[];
@@ -143,6 +155,9 @@ type LegacyHabit = Partial<TrackerEntity> & {
   id?: string;
   title?: string;
   description?: string;
+  createdDate?: string;
+  emoji?: string;
+  priority?: number;
   kind?: "positive" | "negative" | "monitor" | "sleep" | "wake";
   color?: string;
   active?: boolean;
@@ -187,7 +202,7 @@ export const DEFAULT_HABIT_SETTINGS: HabitSettings = {
 };
 
 export const EMPTY_HABIT_WORKSPACE: HabitWorkspace = {
-  trackerSchemaVersion: 6,
+  trackerSchemaVersion: 7,
   userProgress: {
     lifetimeXp: 0,
     laurelsBalance: 0,
@@ -303,15 +318,27 @@ function normalizeHabit(value: LegacyHabit, fallbackDate: string, calendarMode: 
     ? (value as Habit).scoringMode
     : legacyScoringMode(value);
   const qualityScale: HabitQualityScale = scoringMode === "quality-ten" ? "ten" : scoringMode === "quality-bipolar" ? "bipolar" : "none";
+  const normalizedSchedule = legacySchedule(value.schedule, fallbackDate, calendarMode);
+  const createdDate = DATE_PATTERN.test(value.createdDate ?? "") ? value.createdDate! : normalizedSchedule.startDate;
+  const sourceTemplateId = isHabitTemplateId(value.sourceTemplateId) ? value.sourceTemplateId : null;
+  const templateEmoji = STARTER_HABIT_TEMPLATES.find((template) => template.id === sourceTemplateId)?.icon;
+  const schedule: TrackerSchedule = {
+    ...normalizedSchedule,
+    startDate: createdDate,
+    recurrence: { ...normalizedSchedule.recurrence, rangeStart: createdDate },
+  };
   return {
     ...normalizeTrackerEntity(value, "habit"),
     title: value.title,
     description: typeof value.description === "string" ? value.description : "",
+    createdDate,
+    emoji: normalizeHabitEmoji(value.emoji ?? templateEmoji),
+    priority: normalizeHabitPriority(value.priority),
     color: typeof value.color === "string" ? value.color : HABIT_COLORS[0],
     active: value.active !== false,
-    sourceTemplateId: isHabitTemplateId(value.sourceTemplateId) ? value.sourceTemplateId : null,
+    sourceTemplateId,
     preferredTime: TIME_PATTERN.test(value.preferredTime ?? "") ? value.preferredTime! : "",
-    schedule: legacySchedule(value.schedule, fallbackDate, calendarMode),
+    schedule,
     scoringMode,
     qualityScale,
     reminder: normalizeReminder(value.reminder),
@@ -326,7 +353,7 @@ function normalizeHabitCompletion(value: LegacyHabitEntry, habits: Map<string, H
   const habitId = typeof value.habitId === "string" ? value.habitId : "";
   const date = typeof value.date === "string" ? value.date : "";
   const habit = habits.get(habitId);
-  if (!habit || !DATE_PATTERN.test(date)) return null;
+  if (!habit || !DATE_PATTERN.test(date) || date < habit.createdDate) return null;
   const qualityValue = typeof value.qualityValue === "number"
     ? value.qualityValue
     : typeof value.quality === "number" ? value.quality : null;
@@ -342,8 +369,8 @@ function normalizeHabitCompletion(value: LegacyHabitEntry, habits: Map<string, H
     ...completion,
     score,
     xpAwarded: typeof value.xpAwarded === "number"
-      ? completionXpAward(value.xpAwarded, 0)
-      : completionXpAward(0, score),
+      ? completionXpAward(value.xpAwarded, 0, MAX_HABIT_XP_PER_COMPLETION)
+      : completionXpAward(0, score, MAX_HABIT_XP_PER_COMPLETION),
     note: typeof value.note === "string" ? value.note : "",
   };
 }
@@ -533,7 +560,7 @@ export function normalizeHabitWorkspace(
   });
 
   const workspace: HabitWorkspace = {
-    trackerSchemaVersion: 6,
+    trackerSchemaVersion: 7,
     userProgress,
     habits,
     habitCompletions,
@@ -755,6 +782,9 @@ export function defaultHabit(date: string, calendarMode: CalendarMode): Habit {
     ...normalizeTrackerEntity(null, "habit"),
     title: "",
     description: "",
+    createdDate: date,
+    emoji: DEFAULT_HABIT_EMOJI,
+    priority: DEFAULT_HABIT_PRIORITY,
     color: HABIT_COLORS[0],
     active: true,
     sourceTemplateId: null,
@@ -789,6 +819,7 @@ export function createHabitFromTemplate(
   return {
     ...defaultHabit(startDate, calendarMode),
     sourceTemplateId: template.id,
+    emoji: normalizeHabitEmoji(template.icon),
     title: language === "en" ? template.titleEn : template.title,
     description: language === "en" ? template.descriptionEn : template.description,
     color: template.color,
