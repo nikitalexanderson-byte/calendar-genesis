@@ -11,8 +11,12 @@ import { formatClockTime, formatTimeValue, hourFromTwelveHour, twelveHourParts }
 import { DAY_RHYTHM_PERIODS, formatDayRhythmRange, getDayRhythmMoment } from "../app/day-rhythm.ts";
 import { THEOKYKLOS_DIRECTION_IDS, THEOKYKLOS_SEGMENTS } from "../app/theokyklos-data.ts";
 import {
+  SACRED_AXIS_SECTOR_IDS,
+  SACRED_COMPASS_SECTOR_IDS,
   SACRED_PRACTICE_SECTOR_IDS,
   SACRED_PRACTICES,
+  SACRED_SECTOR_NAMES,
+  SACRED_THRESHOLD_SECTOR_IDS,
   STOICHEION_PRACTICE_SECTOR_IDS,
   sacredPracticesForSector,
   sacredSectorGuidance,
@@ -522,11 +526,12 @@ test("ships the complete interactive bilingual Theokyklos", async () => {
 });
 
 test("covers every Theokyklos sector with sacred habits while keeping Stoicheion strictly nine-to-nine", async () => {
-  const [calendar, stoicheion, theokyklos, tracker, habits, styles] = await Promise.all([
+  const [calendar, stoicheion, theokyklos, tracker, sectorSigil, habits, styles] = await Promise.all([
     readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/StoicheionView.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/TheokyklosView.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/HabitTracker.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/SacredSectorSigil.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/habits.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
@@ -540,6 +545,18 @@ test("covers every Theokyklos sector with sacred habits while keeping Stoicheion
     "north", "northeast", "east", "southeast", "south", "southwest", "west", "northwest", "center",
   ]));
   assert.equal(STOICHEION_PRACTICE_SECTOR_IDS.some((sectorId) => ["zenith", "nadir", "hearth", "entrance", "exit"].includes(sectorId)), false);
+  assert.deepEqual(SACRED_COMPASS_SECTOR_IDS, [
+    "north", "northeast", "east", "southeast", "south", "southwest", "west", "northwest", "center",
+  ]);
+  assert.deepEqual(SACRED_AXIS_SECTOR_IDS, ["zenith", "hearth", "nadir"]);
+  assert.deepEqual(SACRED_THRESHOLD_SECTOR_IDS, ["entrance", "exit"]);
+  assert.deepEqual(
+    new Set([...SACRED_COMPASS_SECTOR_IDS, ...SACRED_AXIS_SECTOR_IDS, ...SACRED_THRESHOLD_SECTOR_IDS]),
+    new Set(SACRED_PRACTICE_SECTOR_IDS),
+  );
+  assert.deepEqual(SACRED_COMPASS_SECTOR_IDS.map((sectorId) => SACRED_SECTOR_NAMES[sectorId].ru), [
+    "Север", "Северо-восток", "Восток", "Юго-восток", "Юг", "Юго-запад", "Запад", "Северо-запад", "Центр",
+  ]);
   assert.equal(SACRED_PRACTICES.length, 28);
   assert.equal(new Set(SACRED_PRACTICES.map((practice) => practice.id)).size, SACRED_PRACTICES.length);
   for (const sectorId of SACRED_PRACTICE_SECTOR_IDS) {
@@ -566,11 +583,23 @@ test("covers every Theokyklos sector with sacred habits while keeping Stoicheion
   assert.match(theokyklos, /updateHabitCompletion/);
   assert.match(tracker, /sacred-habit-library/);
   assert.match(tracker, /Начать практику/);
+  assert.match(tracker, /sacred-compass-grid/);
+  assert.match(tracker, /SacredSectorSigil/);
+  assert.match(tracker, /SACRED_SECTOR_NAMES/);
+  assert.doesNotMatch(tracker, /item\.short\[language\]/);
+  assert.match(sectorSigil, /<svg viewBox="0 0 100 100"/);
+  assert.match(sectorSigil, /onPointerMove=\{handlePointerMove\}/);
+  assert.match(sectorSigil, /data-sacred-sector-sigil=\{sectorId\}/);
+  const motifBlock = sectorSigil.match(/SACRED_SECTOR_SIGIL_MOTIFS:[\s\S]*?\n\};\n\nexport function/)?.[0] ?? "";
+  for (const sectorId of SACRED_PRACTICE_SECTOR_IDS) assert.match(motifBlock, new RegExp(`\\n  ${sectorId}: \\{`));
   assert.match(habits, /sacredPracticeId: string \| null/);
   assert.match(habits, /createHabitFromSacredPractice/);
   assert.match(styles, /\.stoicheion-sector-practice/);
   assert.match(styles, /\.theokyklos-sacred-practices/);
   assert.match(styles, /\.sacred-habit-library/);
+  assert.match(styles, /grid-template-areas:"northwest north northeast" "west center east" "southwest south southeast"/);
+  assert.match(styles, /@keyframes sacred-sector-orbit/);
+  assert.match(styles, /\.sacred-sector-sigil\.awakened/);
 });
 
 test("ships a compact verified Android test application only to Android phones", async () => {
