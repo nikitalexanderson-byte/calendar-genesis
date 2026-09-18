@@ -32,6 +32,7 @@ import {
   type HabitWorkspace,
   type DailyGoalMode,
   type DailyGoalRecord,
+  type RewardReason,
 } from "./habits";
 import { MOOD_SCALE, moodColor, moodOption, type MoodEntry, type MoodValue } from "./mood-tracker";
 import {
@@ -236,6 +237,16 @@ function dailyGoalGuidance(record: DailyGoalRecord, isEnglish: boolean) {
   return isEnglish ? `${remainingToGoal} completions to the daily goal.` : `До дневной цели: ${remainingToGoal}.`;
 }
 
+function rewardReasonLabel(reason: RewardReason, isEnglish: boolean) {
+  if (reason === "daily-goal") return isEnglish ? "Daily goal" : "Дневная цель";
+  if (reason === "perfect-day") return isEnglish ? "Perfect Day" : "Идеальный день";
+  if (reason === "weekly-quest") return isEnglish ? "Weekly quest" : "Недельный квест";
+  if (reason === "streak-milestone") return isEnglish ? "Streak milestone" : "Этап серии";
+  if (reason === "rank-up") return isEnglish ? "New rank" : "Новый ранг";
+  if (reason === "achievement") return isEnglish ? "Achievement" : "Достижение";
+  return isEnglish ? "Hestia Spark" : "Искра Гестии";
+}
+
 function DailyGoalSettings({ workspace, today, language, calendarMode, onChange }: Pick<DailyPanelProps, "workspace" | "language" | "calendarMode" | "onChange"> & { today: string }) {
   const isEnglish = language === "en";
   const selectedMode = workspace.userProgress.streakGoalMode;
@@ -325,6 +336,9 @@ export function HabitDailyPanel({ workspace, date, language, timeFormat, calenda
   const hasTrackers = workspace.habits.length || workspace.sleepPlans.length || workspace.addictionTrackers.length;
   const goalRecord = dailyGoalForDate(workspace, date, calendarMode, today);
   const goalPercent = goalRecord.scheduledCount ? Math.round(goalRecord.completedCount / goalRecord.scheduledCount * 100) : 0;
+  const awardedLaurels = workspace.rewardTransactions
+    .filter((transaction) => transaction.sourceId === date && ["daily-goal", "perfect-day"].includes(transaction.reason))
+    .reduce((sum, transaction) => sum + transaction.amount, 0);
   const plannedRest = workspace.habitSettings.plannedRestDays.includes(date);
 
   return (
@@ -340,7 +354,7 @@ export function HabitDailyPanel({ workspace, date, language, timeFormat, calenda
             style={{ "--goal-progress": `${goalPercent}%` } as CSSProperties}
             aria-label={isEnglish ? `${goalRecord.completedCount} of ${goalRecord.scheduledCount} habits complete` : `Выполнено привычек: ${goalRecord.completedCount} из ${goalRecord.scheduledCount}`}
           >
-            <span><strong>{goalRecord.scheduledCount ? `${goalRecord.completedCount}/${goalRecord.scheduledCount}` : "—"}</strong><small>{isEnglish ? "day" : "день"}</small></span>
+            <span><strong>{goalRecord.scheduledCount ? `${goalRecord.completedCount}/${goalRecord.scheduledCount}` : "—"}</strong><small>{goalRecord.status === "perfect" ? (isEnglish ? "perfect" : "идеал") : (isEnglish ? "day" : "день")}</small></span>
           </div>
         ) : null}
       </header>
@@ -350,7 +364,7 @@ export function HabitDailyPanel({ workspace, date, language, timeFormat, calenda
           <div><span>{isEnglish ? "Daily goal" : "Дневная цель"}</span><strong>{dailyGoalModeLabel(goalRecord.mode, isEnglish)} · {goalRecord.targetCount}/{goalRecord.scheduledCount}</strong></div>
           <p>{dailyGoalGuidance(goalRecord, isEnglish)}</p>
           <div className="daily-goal-actions">
-            <small>+{Math.max(0, dayPoints)} {isEnglish ? "pts today" : "баллов сегодня"}</small>
+            <div><small>+{Math.max(0, dayPoints)} {isEnglish ? "pts today" : "баллов сегодня"}</small>{awardedLaurels > 0 ? <strong>♕ +{awardedLaurels} {isEnglish ? "Laurels awarded" : "Лавров начислено"}</strong> : <strong className="pending">♕ {isEnglish ? "5 + 3 for Perfect Day" : "5 + 3 за идеальный день"}</strong>}</div>
             {(date > today || plannedRest) && goalRecord.scheduledCount ? <button type="button" onClick={() => onChange(setPlannedRestDay(workspace, date, !plannedRest, calendarMode, today))}>{plannedRest ? (isEnglish ? "Cancel rest" : "Отменить отдых") : (isEnglish ? "Plan rest" : "Запланировать отдых")}</button> : null}
           </div>
         </div>
@@ -649,6 +663,8 @@ function HabitStatistics({ workspace, date, language, calendarMode }: { workspac
   const cravingTotal = daily.reduce((sum, item) => sum + item.addiction.cravingTotal, 0);
   const cravingCount = daily.reduce((sum, item) => sum + item.addiction.cravingCount, 0);
   const rate = scheduled ? Math.round(done / scheduled * 100) : 0;
+  const perfectDays = workspace.dailyGoalRecords.filter((record) => record.date >= range.start && record.date <= range.end && record.status === "perfect").length;
+  const recentRewards = [...workspace.rewardTransactions].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 8);
   const total = calculateHabitTotal(workspace);
   const rank = heroicRank(total);
   const nextRank = HEROIC_RANKS.find((item) => item.threshold > total);
@@ -659,7 +675,8 @@ function HabitStatistics({ workspace, date, language, calendarMode }: { workspac
     <section className="habit-statistics" aria-labelledby="habit-statistics-title">
       <header className="habit-stats-heading"><div><span className="eyebrow">{isEnglish ? "Client-side analytics" : "Клиентская аналитика"}</span><h2 id="habit-statistics-title">{isEnglish ? "Independent tracker metrics" : "Метрики отдельных трекеров"}</h2></div></header>
       <article className="heroic-rank-card" style={{ "--rank-color": rank.color } as CSSProperties}><div className="heroic-rank-art" /><div className="heroic-rank-copy"><span>{isEnglish ? "Heroic progression" : "Героический путь"}</span><h3>{isEnglish ? rank.titleEn : rank.title}</h3><p>{isEnglish ? `${total} lifetime XP · never spent or lost` : `${total} пожизненного XP · не тратится и не теряется`}</p><div><i style={{ width: `${progress}%` }} /></div><small>{nextRank ? (isEnglish ? `${nextRank.threshold - total} XP to ${nextRank.titleEn}` : `${nextRank.threshold - total} XP до «${nextRank.title}»`) : (isEnglish ? "Highest rank reached" : "Высший ранг достигнут")}</small></div><span className="heroic-rank-seal" aria-hidden="true">{rank.symbol}</span></article>
-      <div className="habit-stat-cards"><article><span>{isEnglish ? "Habit completion" : "Выполнение привычек"}</span><strong>{rate}%</strong><small>{done} / {scheduled}</small></article><article><span>{isEnglish ? "Average quality" : "Среднее качество"}</span><strong>{habitQualityCount ? (habitQualityTotal / habitQualityCount).toFixed(1) : "—"}</strong><small>{habitQualityCount} {isEnglish ? "ratings" : "оценок"}</small></article><article><span>{isEnglish ? "Period score" : "Баллы периода"}</span><strong>{Math.max(0, periodScore)}</strong><small>{range.start} — {range.end}</small></article><article><span>{isEnglish ? "Average sleep" : "Средняя длительность сна"}</span><strong>{formatDuration(sleepCount ? Math.round(sleepMinutes / sleepCount) : 0, isEnglish)}</strong><small>{sleepCount} {isEnglish ? "entries" : "записей"}</small></article><article><span>{isEnglish ? "Average mood" : "Среднее настроение"}</span><strong>{moodCount ? (moodTotal / moodCount).toFixed(1) : "—"}</strong><small>{moodCount} {isEnglish ? "entries" : "записей"}</small></article><article><span>{isEnglish ? "Abstinence" : "Воздержание"}</span><strong>{cleanDays}</strong><small>{isEnglish ? `${relapses} relapse(s)` : `${relapses} срывов`}</small></article></div>
+      <div className="habit-stat-cards"><article className="laurels-stat"><span>{isEnglish ? "Spendable currency" : "Расходуемая валюта"}</span><strong>♕ {workspace.userProgress.laurelsBalance}</strong><small>{isEnglish ? "Laurels balance" : "Баланс Лавров"}</small></article><article className="perfect-days-stat"><span>Perfect Day</span><strong>{perfectDays}</strong><small>{isEnglish ? "in selected period" : "за выбранный период"}</small></article><article><span>{isEnglish ? "Habit completion" : "Выполнение привычек"}</span><strong>{rate}%</strong><small>{done} / {scheduled}</small></article><article><span>{isEnglish ? "Average quality" : "Среднее качество"}</span><strong>{habitQualityCount ? (habitQualityTotal / habitQualityCount).toFixed(1) : "—"}</strong><small>{habitQualityCount} {isEnglish ? "ratings" : "оценок"}</small></article><article><span>{isEnglish ? "Period score" : "Баллы периода"}</span><strong>{Math.max(0, periodScore)}</strong><small>{range.start} — {range.end}</small></article><article><span>{isEnglish ? "Average sleep" : "Средняя длительность сна"}</span><strong>{formatDuration(sleepCount ? Math.round(sleepMinutes / sleepCount) : 0, isEnglish)}</strong><small>{sleepCount} {isEnglish ? "entries" : "записей"}</small></article><article><span>{isEnglish ? "Average mood" : "Среднее настроение"}</span><strong>{moodCount ? (moodTotal / moodCount).toFixed(1) : "—"}</strong><small>{moodCount} {isEnglish ? "entries" : "записей"}</small></article><article><span>{isEnglish ? "Abstinence" : "Воздержание"}</span><strong>{cleanDays}</strong><small>{isEnglish ? `${relapses} relapse(s)` : `${relapses} срывов`}</small></article></div>
+      <article className="laurel-ledger"><header><div><span className="eyebrow">{isEnglish ? "Immutable reward history" : "Неизменяемая история наград"}</span><h3>{isEnglish ? "Laurels ledger" : "Журнал Лавров"}</h3></div><strong>♕ {workspace.userProgress.laurelsBalance}</strong></header>{recentRewards.length ? <div>{recentRewards.map((transaction) => <div key={transaction.idempotencyKey}><span className={transaction.amount > 0 ? "credit" : "debit"}>{transaction.amount > 0 ? "+" : ""}{transaction.amount}</span><div><strong>{rewardReasonLabel(transaction.reason, isEnglish)}</strong><small>{transaction.sourceId}</small></div><code>{transaction.currency}</code></div>)}</div> : <p>{isEnglish ? "Complete a daily goal to earn the first 5 Laurels." : "Выполните дневную цель, чтобы получить первые 5 Лавров."}</p>}</article>
       <div className="habit-charts-grid"><article className="habit-line-chart"><header><div><span className="eyebrow">{isEnglish ? "Score" : "Баллы"}</span><h3>{isEnglish ? "Earned over time" : "Динамика начисления"}</h3></div><strong>+{Math.max(0, periodScore)}</strong></header><svg viewBox="0 0 100 60" preserveAspectRatio="none" role="img" aria-label={isEnglish ? "Daily points chart" : "График баллов по дням"}><line x1="0" y1="55" x2="100" y2="55" /><line x1="0" y1="30" x2="100" y2="30" /><polygon points={`0,55 ${points} 100,55`} /><polyline points={points} /></svg><footer><span>{range.start}</span><span>{range.end}</span></footer></article><article className="habit-heatmap"><header><span className="eyebrow">{isEnglish ? "Regularity" : "Регулярность"}</span><h3>{isEnglish ? "Last 35 days" : "Последние 35 дней"}</h3></header><div>{dateValuesBetween(addHabitDays(date, -34), date).map((value) => { const snapshot = trackerSnapshot(workspace, "habit", "day", value, calendarMode).metrics; const intensity = snapshot.scheduled ? snapshot.completed / snapshot.scheduled : -1; return <span className={intensity < 0 ? "rest" : ""} style={intensity >= 0 ? { opacity: .22 + intensity * .78 } : undefined} title={`${value}: ${snapshot.completed}/${snapshot.scheduled}`} key={value} />; })}</div><footer><span>{isEnglish ? "Less" : "Меньше"}</span><i /><i /><i /><i /><span>{isEnglish ? "More" : "Больше"}</span></footer></article></div>
       <div className="tracker-insight-grid">
         <article><header><span className="eyebrow">{isEnglish ? "Sleep" : "Сон"}</span><h3>{isEnglish ? "Rhythm and quality" : "Ритм и качество"}</h3></header><dl><div><dt>{isEnglish ? "Bedtime" : "Засыпание"}</dt><dd>{sleepCount ? formatClockMinutes(sleepBedtimeMinutes / sleepCount) : "—"}</dd></div><div><dt>{isEnglish ? "Wake time" : "Пробуждение"}</dt><dd>{sleepCount ? formatClockMinutes(sleepWakeMinutes / sleepCount) : "—"}</dd></div><div><dt>{isEnglish ? "Plan deviation" : "Отклонение"}</dt><dd>{sleepCount ? `${Math.round(sleepDeviation / sleepCount)} ${isEnglish ? "min" : "мин"}` : "—"}</dd></div><div><dt>{isEnglish ? "Quality" : "Качество"}</dt><dd>{sleepQualityCount ? (sleepQualityTotal / sleepQualityCount).toFixed(1) : "—"}</dd></div></dl></article>
@@ -721,6 +738,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
       <header className="habits-hero">
         <div><span className="eyebrow">{isEnglish ? "Encrypted personal tracker" : "Зашифрованный личный трекер"}</span><h1>{isEnglish ? "Trackers" : "Привычки"}</h1><p>{isEnglish ? "Habits, sleep, mood and abstinence are independent modules over one secure tracker core." : "Привычки, сон, настроение и воздержание — независимые модули поверх единого защищённого ядра."}</p></div>
         <div className="habits-hero-status">
+          <article className="habits-hero-laurels"><span aria-hidden="true">♕</span><div><small>{isEnglish ? "Laurels" : "Лавры"}</small><strong>{workspace.userProgress.laurelsBalance}</strong><em>{isEnglish ? "spendable" : "можно тратить"}</em></div></article>
           <article className="habits-hero-streak"><span aria-hidden="true">↟</span><div><small>{isEnglish ? "Current streak" : "Текущая серия"}</small><strong>{workspace.userProgress.currentStreak}</strong><em>{isEnglish ? `best ${workspace.userProgress.longestStreak} days` : `рекорд ${workspace.userProgress.longestStreak} дней`}</em></div></article>
           <div className="habits-hero-score" style={{ "--rank-color": rank.color } as CSSProperties}><span aria-hidden="true">{rank.symbol}</span><div><small>{isEnglish ? "Current rank" : "Текущий ранг"}</small><strong>{isEnglish ? rank.titleEn : rank.title}</strong><em>{total} XP</em></div></div>
         </div>
