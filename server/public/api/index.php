@@ -283,6 +283,15 @@ try {
         genesisFinishSession();
     }
 
+    if ($method === 'GET' && $path === 'workspace') {
+        $userId = genesisRequireUserId();
+        $user = genesisFindUser($userId);
+        if ($user === null) {
+            genesisJson(['error' => 'AUTH_REQUIRED'], 401);
+        }
+        genesisJson(['workspace' => genesisWorkspaceForClient($user)]);
+    }
+
     if ($method === 'PUT' && $path === 'workspace') {
         $userId = genesisRequireUserId();
         genesisRequireCsrf();
@@ -403,6 +412,8 @@ try {
     }
 
     genesisJson(['error' => 'NOT_FOUND'], 404);
+} catch (GenesisWorkspaceConflictException $error) {
+    genesisJson(['error' => $error->getMessage(), 'currentVersion' => $error->currentVersion], 409);
 } catch (DomainException $error) {
     genesisJson(['error' => $error->getMessage()], 409);
 } catch (JsonException | InvalidArgumentException $error) {

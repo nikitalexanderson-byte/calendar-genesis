@@ -74,6 +74,117 @@ import {
   reconcileDailyGoalRewards,
   resetLaurelsBalance,
 } from "../app/rewards.ts";
+import {
+  mergeWorkspaceDocuments,
+  prepareWorkspaceForSync,
+} from "../app/workspace-sync-state.ts";
+
+function syncClock(version, updatedAt, deviceId) {
+  return { version, updatedAt, deviceId };
+}
+
+test("encrypted workspace sync merges concurrent entities and preserves deletions", () => {
+  const initial = prepareWorkspaceForSync({
+    current: {
+      projects: [{ id: "project-existing", title: "Existing" }],
+      categories: [],
+      taskListLinks: [],
+      habits: [],
+      habitCompletions: [],
+      sleepPlans: [],
+      sleepEntries: [],
+      moodEntries: [],
+      addictionTrackers: [],
+      addictionEntries: [],
+      analyticsSnapshots: [],
+      dailyGoalRecords: [],
+      rewardTransactions: [],
+      trackerSchemaVersion: 8,
+      userProgress: { lifetimeXp: 0 },
+      habitSettings: { enabled: true },
+      hiddenDefaultTemplates: [],
+    },
+    clock: syncClock(1, "2026-09-18T08:00:00.000Z", "origin"),
+  });
+  const base = initial.document;
+  const left = prepareWorkspaceForSync({
+    current: {
+      ...base,
+      projects: [],
+      habitCompletions: [{ id: "completion-left", habitId: "habit", date: "2026-09-18" }],
+    },
+    base,
+    metadata: initial.metadata,
+    baseMetadata: initial.metadata,
+    clock: syncClock(2, "2026-09-18T09:00:00.000Z", "device-a"),
+  });
+  const right = prepareWorkspaceForSync({
+    current: {
+      ...base,
+      projects: [
+        { id: "project-existing", title: "Existing" },
+        { id: "project-remote", title: "Remote" },
+      ],
+      habitCompletions: [{ id: "completion-right", habitId: "habit", date: "2026-09-18" }],
+    },
+    base,
+    metadata: initial.metadata,
+    baseMetadata: initial.metadata,
+    clock: syncClock(2, "2026-09-18T09:00:00.000Z", "device-b"),
+  });
+  const merged = mergeWorkspaceDocuments({
+    left: left.document,
+    right: right.document,
+    leftFallback: syncClock(2, "2026-09-18T09:00:00.000Z", "device-a"),
+    rightFallback: syncClock(2, "2026-09-18T09:00:00.000Z", "device-b"),
+  }).document;
+  assert.deepEqual(merged.projects.map((item) => item.id), ["project-remote"], "a tombstone must beat a stale copy without deleting a concurrent addition");
+  assert.deepEqual(merged.habitCompletions.map((item) => item.id), ["completion-left", "completion-right"]);
+});
+
+test("workspace merge deduplicates reward ledger entries by idempotency key", () => {
+  const common = {
+    projects: [], categories: [], taskListLinks: [], habits: [], habitCompletions: [], sleepPlans: [], sleepEntries: [],
+    moodEntries: [], addictionTrackers: [], addictionEntries: [], analyticsSnapshots: [], dailyGoalRecords: [],
+    trackerSchemaVersion: 8, userProgress: {}, habitSettings: {}, hiddenDefaultTemplates: [],
+  };
+  const left = prepareWorkspaceForSync({
+    current: { ...common, rewardTransactions: [{ id: "one", idempotencyKey: "daily-goal:self:2026-09-18", amount: 5 }] },
+    clock: syncClock(1, "2026-09-18T09:00:00.000Z", "device-a"),
+  });
+  const right = prepareWorkspaceForSync({
+    current: { ...common, rewardTransactions: [{ id: "two", idempotencyKey: "daily-goal:self:2026-09-18", amount: 5 }] },
+    clock: syncClock(1, "2026-09-18T09:00:00.000Z", "device-b"),
+  });
+  const merged = mergeWorkspaceDocuments({
+    left: left.document,
+    right: right.document,
+    leftFallback: syncClock(1, "2026-09-18T09:00:00.000Z", "device-a"),
+    rightFallback: syncClock(1, "2026-09-18T09:00:00.000Z", "device-b"),
+  }).document;
+  assert.equal(merged.rewardTransactions.length, 1);
+  assert.equal(merged.rewardTransactions[0].idempotencyKey, "daily-goal:self:2026-09-18");
+});
+
+test("workspace API uses monotonic compare-and-swap without exposing plaintext", async () => {
+  const [repository, router, cloud] = await Promise.all([
+    readFile(new URL("../server/src/repository.php", import.meta.url), "utf8"),
+    readFile(new URL("../server/public/api/index.php", import.meta.url), "utf8"),
+    readFile(new URL("../app/cloud-sync.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(repository, /class GenesisWorkspaceConflictException/);
+  assert.match(repository, /expectedVersion/);
+  assert.match(repository, /BEGIN IMMEDIATE/);
+  assert.match(repository, /\$version = \$currentVersion \+ 1/);
+  assert.doesNotMatch(repository, /excluded\.version >= workspace_blobs\.version/);
+  assert.match(router, /\$method === 'GET' && \$path === 'workspace'/);
+  assert.match(router, /currentVersion' => \$error->currentVersion/);
+  assert.match(cloud, /mergeWorkspaceDocuments/);
+  assert.match(cloud, /expectedVersion: workspaceVersion/);
+  assert.match(cloud, /pendingStorageKey\(userId = workspaceUserId\)/);
+  assert.match(cloud, /restoreOfflineWorkspaceSession/);
+  assert.doesNotMatch(cloud, /let workspaceVersion = Date\.now\(\)/);
+});
 
 async function render() {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
@@ -467,6 +578,7 @@ test("daily goals preserve future-only modes and global streak rules", () => {
     completedCount,
     today: "2026-09-22",
     isRestDay: options.isRestDay,
+    isTimezoneShift: options.isTimezoneShift,
     updatedAt: `${date}T12:00:00.000Z`,
   });
   const successful = [
@@ -499,6 +611,15 @@ test("daily goals preserve future-only modes and global streak rules", () => {
   assert.equal(deduplicated.filter((item) => item.date === "2026-09-21").length, 1);
   assert.equal(deduplicated.find((item) => item.date === "2026-09-21").timezone, "Asia/Tokyo");
   assert.equal(upsertDailyGoalRecord(deduplicated, timezoneReplacement).length, deduplicated.length);
+
+  const timezoneTransition = [
+    record("2026-09-18", 3, 2),
+    record("2026-09-19", 3, 0, { timezone: "Pacific/Auckland", isTimezoneShift: true }),
+    record("2026-09-20", 3, 2, { timezone: "America/Los_Angeles" }),
+  ];
+  assert.equal(timezoneTransition[1].status, "timezone-shift");
+  assert.equal(calculateGlobalStreak(timezoneTransition, "2026-09-20").currentStreak, 2, "a timezone transition must not destroy a valid streak");
+  assert.equal(reconcileDailyGoalRewards(timezoneTransition, [], "2026-09-20").filter((item) => item.sourceId === "2026-09-19").length, 0, "a timezone transition cannot mint a duplicate daily reward");
 });
 
 test("Laurels use an idempotent ledger for daily goals and Perfect Days", () => {
