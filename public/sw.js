@@ -1,5 +1,14 @@
-const CACHE = "genesis-shell-v24";
 const SCOPE = self.registration.scope;
+try {
+  importScripts(new URL("./precache-manifest.js", SCOPE).href);
+} catch {
+  self.__GENESIS_PRECACHE_VERSION = "fallback";
+  self.__GENESIS_PRECACHE = [];
+}
+const CACHE_PREFIX = "genesis-shell-";
+const CACHE_VERSION = typeof self.__GENESIS_PRECACHE_VERSION === "string" ? self.__GENESIS_PRECACHE_VERSION : "fallback";
+const CACHE = `${CACHE_PREFIX}${CACHE_VERSION}`;
+const PRECACHE = Array.isArray(self.__GENESIS_PRECACHE) ? self.__GENESIS_PRECACHE : [];
 const MONTH_ART = Array.from({ length: 13 }, (_, index) => `./month-art-v4/month-${String(index + 1).padStart(2, "0")}.webp`);
 const WEEKDAY_ART = [
   "./weekday-art/weekday-0-sunday-apollo.webp",
@@ -12,17 +21,21 @@ const WEEKDAY_ART = [
 ];
 const CORE = ["./", "./manifest.webmanifest", "./manifest.en.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./genesis-hero.png", ...MONTH_ART, ...WEEKDAY_ART]
   .map((path) => new URL(path, SCOPE).href);
+const REQUIRED_SHELL = [...new Set([...CORE, ...PRECACHE.map((path) => new URL(path, SCOPE).href)])];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(CORE)));
-  self.skipWaiting();
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE);
+    await cache.addAll(REQUIRED_SHELL.map((url) => new Request(url, { cache: "reload" })));
+    await self.skipWaiting();
+  })());
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))
+      .then((keys) => Promise.all(keys.filter((key) => key.startsWith(CACHE_PREFIX) && key !== CACHE).map((key) => caches.delete(key))))
       .then(() => self.clients.claim()),
   );
 });

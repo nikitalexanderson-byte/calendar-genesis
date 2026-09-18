@@ -51,6 +51,7 @@ export function usePwaInstall() {
     if (process.env.NODE_ENV === "production" && !isLocalPreview && "serviceWorker" in navigator) {
       void navigator.serviceWorker.register(`${APP_BASE}/sw.js`, {
         scope: `${APP_BASE || ""}/`,
+        updateViaCache: "none",
       });
     }
 
