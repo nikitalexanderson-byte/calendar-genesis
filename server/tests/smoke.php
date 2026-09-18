@@ -152,6 +152,81 @@ try {
         'recurrenceDates' => ['2026-10-01', '2026-10-06'],
     ], '2026-10-01', '', 'Europe/Moscow') === [], 'Expanded task series must not become nested Calendar recurrences.');
 
+    $survivorId = 'test-account-deletion-survivor';
+    $db->prepare('INSERT OR REPLACE INTO users (id, google_sub, email, display_name, created_at, updated_at) VALUES (:id, :sub, :email, :name, :created_at, :updated_at)')->execute([
+        'id' => $survivorId,
+        'sub' => 'test-account-deletion-survivor-sub',
+        'email' => 'genesis.deletion.survivor@gmail.com',
+        'name' => 'Deletion Survivor',
+        'created_at' => $now,
+        'updated_at' => $now,
+    ]);
+    $db->prepare('INSERT OR REPLACE INTO workspace_blobs (user_id, ciphertext, iv, version, updated_at) VALUES (:user_id, :ciphertext, :iv, 1, :updated_at)')->execute([
+        'user_id' => $survivorId,
+        'ciphertext' => base64_encode(random_bytes(32)),
+        'iv' => base64_encode(random_bytes(12)),
+        'updated_at' => $now,
+    ]);
+    $db->prepare('INSERT OR REPLACE INTO linked_google_accounts (id, owner_user_id, google_sub, email, display_name, created_at, updated_at) VALUES (:id, :owner_user_id, :google_sub, :email, :display_name, :created_at, :updated_at)')->execute([
+        'id' => 'test-linked-account',
+        'owner_user_id' => $userId,
+        'google_sub' => 'test-linked-account-sub',
+        'email' => 'genesis.linked.test@gmail.com',
+        'display_name' => 'Linked Test',
+        'created_at' => $now,
+        'updated_at' => $now,
+    ]);
+    $db->prepare('INSERT OR REPLACE INTO stoicheion_draws (user_id, day_key, draw_kind, seed_value, attempt_count, first_draw_at, updated_at) VALUES (:user_id, :day_key, :draw_kind, 42, 1, :first_draw_at, :updated_at)')->execute([
+        'user_id' => $userId,
+        'day_key' => '2026-09-18',
+        'draw_kind' => 'daily',
+        'first_draw_at' => $now,
+        'updated_at' => $now,
+    ]);
+    $db->prepare('INSERT OR REPLACE INTO categories (id, user_id, name, color, created_at, updated_at) VALUES (:id, :user_id, :name, :color, :created_at, :updated_at)')->execute([
+        'id' => 'test-deletion-category',
+        'user_id' => $userId,
+        'name' => 'Deletion Category',
+        'color' => '#2d6c68',
+        'created_at' => $now,
+        'updated_at' => $now,
+    ]);
+    $db->prepare("INSERT OR REPLACE INTO projects (id, user_id, category_id, title, status, created_at, updated_at) VALUES (:id, :user_id, :category_id, :title, 'active', :created_at, :updated_at)")->execute([
+        'id' => 'test-deletion-project',
+        'user_id' => $userId,
+        'category_id' => 'test-deletion-category',
+        'title' => 'Deletion Project',
+        'created_at' => $now,
+        'updated_at' => $now,
+    ]);
+    foreach (['test-deletion-task', 'test-deletion-dependency'] as $taskId) {
+        $db->prepare("INSERT OR REPLACE INTO tasks (id, user_id, project_id, category_id, sacred_year, month_index, sacred_day, due_date, title, recurrence, sync_to_google, created_at, updated_at) VALUES (:id, :user_id, :project_id, :category_id, 2026, 1, 1, '2026-09-18', :title, 'none', 0, :created_at, :updated_at)")->execute([
+            'id' => $taskId,
+            'user_id' => $userId,
+            'project_id' => 'test-deletion-project',
+            'category_id' => 'test-deletion-category',
+            'title' => $taskId,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+    }
+    $db->prepare('INSERT OR REPLACE INTO task_links (user_id, task_id, depends_on_task_id, created_at) VALUES (:user_id, :task_id, :depends_on_task_id, :created_at)')->execute([
+        'user_id' => $userId,
+        'task_id' => 'test-deletion-task',
+        'depends_on_task_id' => 'test-deletion-dependency',
+        'created_at' => $now,
+    ]);
+
+    $beforeDeletion = genesisAccountDataCounts($userId);
+    expect(count(array_filter($beforeDeletion, static fn (int $count): bool => $count > 0)) === count(genesisAccountDataLocations()), 'Deletion fixture did not cover every user-owned table.');
+    $purged = genesisDeleteAccount($userId);
+    expect($purged === $beforeDeletion, 'Account deletion receipt did not match the deleted records.');
+    expect(array_sum(genesisAccountDataCounts($userId)) === 0, 'Account deletion left user-owned rows on the server.');
+    expect(genesisFindUser($survivorId) !== null, 'Account deletion removed another user.');
+    $survivorWorkspace = $db->prepare('SELECT COUNT(*) FROM workspace_blobs WHERE user_id = :user_id');
+    $survivorWorkspace->execute(['user_id' => $survivorId]);
+    expect((int)$survivorWorkspace->fetchColumn() === 1, 'Account deletion removed another user\'s encrypted workspace.');
+
     $db->rollBack();
     echo json_encode(['ok' => true, 'privacyModel' => 2, 'workspaceEncrypted' => true, 'taskRows' => 0], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;
 } catch (Throwable $error) {

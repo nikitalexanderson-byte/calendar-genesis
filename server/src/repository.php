@@ -723,24 +723,77 @@ function genesisUpdateAccountPreferences(string $userId, array $payload): array
     return $updated;
 }
 
-function genesisDeleteAccount(string $userId): void
+function genesisAccountDataLocations(): array
+{
+    return [
+        'categories' => 'user_id',
+        'projects' => 'user_id',
+        'tasks' => 'user_id',
+        'task_links' => 'user_id',
+        'workspace_blobs' => 'user_id',
+        'user_metrics' => 'user_id',
+        'stoicheion_draws' => 'user_id',
+        'linked_google_accounts' => 'owner_user_id',
+        'users' => 'id',
+    ];
+}
+
+function genesisAccountDataCounts(string $userId): array
+{
+    $counts = [];
+    foreach (genesisAccountDataLocations() as $table => $column) {
+        $statement = genesisDb()->prepare("SELECT COUNT(*) FROM {$table} WHERE {$column} = :user_id");
+        $statement->execute(['user_id' => $userId]);
+        $counts[$table] = (int)$statement->fetchColumn();
+    }
+    return $counts;
+}
+
+function genesisDeleteAccount(string $userId): array
 {
     $user = genesisFindUser($userId);
-    if ($user !== null) {
-        foreach (genesisLinkedGoogleAccounts($userId) as $account) {
-            try {
-                genesisRevokeGoogleToken($account);
-            } catch (Throwable $error) {
-                genesisLogError('Linked Google token revocation failed during account deletion.', $error);
-            }
-        }
+    if ($user === null) {
+        throw new DomainException('Аккаунт не найден или уже удалён.');
+    }
+    foreach (genesisLinkedGoogleAccounts($userId) as $account) {
         try {
-            genesisRevokeGoogleToken($user);
+            genesisRevokeGoogleToken($account);
         } catch (Throwable $error) {
-            genesisLogError('Google token revocation failed during account deletion.', $error);
+            genesisLogError('Linked Google token revocation failed during account deletion.', $error);
         }
     }
-    genesisDb()->prepare('DELETE FROM users WHERE id = :id')->execute(['id' => $userId]);
+    try {
+        genesisRevokeGoogleToken($user);
+    } catch (Throwable $error) {
+        genesisLogError('Google token revocation failed during account deletion.', $error);
+    }
+
+    $db = genesisDb();
+    $ownsTransaction = !$db->inTransaction();
+    if ($ownsTransaction) {
+        $db->beginTransaction();
+    }
+    try {
+        $purged = genesisAccountDataCounts($userId);
+        $statement = $db->prepare('DELETE FROM users WHERE id = :id');
+        $statement->execute(['id' => $userId]);
+        if ($statement->rowCount() !== 1) {
+            throw new RuntimeException('Аккаунт не удалось удалить.');
+        }
+        $remaining = genesisAccountDataCounts($userId);
+        if (array_sum($remaining) !== 0) {
+            throw new RuntimeException('Не все данные аккаунта были удалены. Операция отменена.');
+        }
+        if ($ownsTransaction) {
+            $db->commit();
+        }
+        return $purged;
+    } catch (Throwable $error) {
+        if ($ownsTransaction && $db->inTransaction()) {
+            $db->rollBack();
+        }
+        throw $error;
+    }
 }
 
 function genesisRemoveLinkedGoogleAccount(string $ownerUserId, string $accountId): void

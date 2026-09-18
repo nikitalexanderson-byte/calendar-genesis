@@ -8,6 +8,7 @@ import {
   normalizeHabitWorkspace,
   type HabitWorkspace,
 } from "./habits";
+import { clearTrackerAnalyticsCache } from "./tracker-cache";
 
 export type RecurrenceKind =
   | "none"
@@ -271,6 +272,8 @@ const API_BASE = configuredBase.replace(/\/$/, "");
 const PENDING_KEY = "genesis-pending-mutations-v2";
 const LAST_USER_CACHE = "genesis-last-user-v2";
 const WORKSPACE_DEVICE_KEY_PREFIX = "genesis-workspace-device-key-v2:";
+export const GENESIS_LEGACY_WORKSPACE_STORAGE_KEY = "genesis-calendar-v1";
+export const GENESIS_USER_WORKSPACE_STORAGE_PREFIX = "genesis-calendar-v2:";
 
 export const isGoogleSyncConfigured = Boolean(API_BASE);
 
@@ -704,12 +707,23 @@ export async function signOutFromGoogle() {
   window.location.reload();
 }
 
-export async function deleteGenesisAccount() {
-  await api<{ ok: boolean }>("/account", { method: "DELETE", body: "{}" });
-  if (workspaceUserId) localStorage.removeItem(`${WORKSPACE_DEVICE_KEY_PREFIX}${workspaceUserId}`);
+export async function deleteGenesisAccount(userId?: string) {
+  const deletedUserId = userId || workspaceUserId || "";
+  const result = await api<{ ok: boolean; deleted: boolean }>("/account", { method: "DELETE", body: "{}" });
+  if (!result.deleted) throw new Error("Сервер не подтвердил полное удаление аккаунта.");
+  if (deletedUserId) {
+    localStorage.removeItem(`${WORKSPACE_DEVICE_KEY_PREFIX}${deletedUserId}`);
+    localStorage.removeItem(`${GENESIS_USER_WORKSPACE_STORAGE_PREFIX}${deletedUserId}`);
+    await clearTrackerAnalyticsCache(deletedUserId);
+  }
+  localStorage.removeItem(GENESIS_LEGACY_WORKSPACE_STORAGE_KEY);
+  localStorage.removeItem(PENDING_KEY);
+  localStorage.removeItem(LAST_USER_CACHE);
+  csrfToken = "";
   workspaceKey = "";
   workspaceUserId = "";
-  localStorage.removeItem(LAST_USER_CACHE);
+  workspaceVersion = Date.now();
+  encryptedHabitWorkspace = normalizeHabitWorkspace(EMPTY_HABIT_WORKSPACE);
   window.location.assign("/");
 }
 
