@@ -56,6 +56,7 @@ import {
   canRecordHabitOnDate,
   DEFAULT_HABIT_EMOJI,
   DEFAULT_HABIT_PRIORITY,
+  normalizeHabitColor,
   normalizeHabitEmoji,
   normalizeHabitPriority,
 } from "./habit-integrity";
@@ -127,7 +128,7 @@ export { HABIT_COLORS, STARTER_HABIT_TEMPLATES } from "./habit-templates";
 export type { HabitTemplate, HabitTemplateId } from "./habit-templates";
 export { FOUNDATIONAL_HEROIC_RANKS, HEROIC_RANKS, HERO_PATH_CHECKPOINTS, HIDDEN_HEROIC_RANKS, MAX_HABIT_XP_PER_COMPLETION, completionXpAward, heroicRank, heroicRankForProgress, hiddenHeroicPathRevealed, hiddenHeroicPathUnlocked, nextHeroicRank, nextHeroicRankForProgress, visibleHeroicRanksForXp } from "./habit-progress";
 export type { HeroicRank, HeroicRankId, HeroPathCheckpoint, UserProgress } from "./habit-progress";
-export { DEFAULT_HABIT_EMOJI, DEFAULT_HABIT_PRIORITY, HABIT_EMOJI_PRESETS, canRecordHabitOnDate, normalizeHabitEmoji, normalizeHabitPriority } from "./habit-integrity";
+export { DEFAULT_HABIT_EMOJI, DEFAULT_HABIT_PRIORITY, HABIT_EMOJI_CATEGORIES, HABIT_EMOJI_PRESETS, canRecordHabitOnDate, normalizeHabitColor, normalizeHabitEmoji, normalizeHabitPriority } from "./habit-integrity";
 export type { RewardCurrency, RewardReason, RewardTransaction } from "./rewards";
 export { DAILY_GOAL_LAURELS, PERFECT_DAY_LAURELS, laurelsForDailyGoal, resetLaurelsBalance } from "./rewards";
 export { COMEBACK_REWARD_LAURELS, COMEBACK_TARGET_DAYS, HESTIA_SPARK_COST, HESTIA_SPARK_MAX, calculateComebackSummary, calculateStreakFreezeCount } from "./streak-protection";
@@ -430,7 +431,7 @@ function normalizeHabit(value: LegacyHabit, fallbackDate: string, calendarMode: 
     isKeyHabit: value.isKeyHabit === true,
     ritualId: normalizeHabitRitualId(value.ritualId),
     ritualName: normalizeHabitRitualName(value.ritualName),
-    color: typeof value.color === "string" ? value.color : HABIT_COLORS[0],
+    color: normalizeHabitColor(value.color, HABIT_COLORS[0]),
     active: value.active !== false,
     sourceTemplateId,
     sacredPracticeId,

@@ -24,7 +24,11 @@ export type HabitTemplate = {
   color: string;
 };
 
-export const HABIT_COLORS = ["#bb8f4a", "#2d7771", "#5271a8", "#8b5f83", "#9b5d4a", "#668b55", "#b06779"];
+export const HABIT_COLORS = [
+  "#bb8f4a", "#2d7771", "#5271a8", "#8b5f83", "#9b5d4a", "#668b55", "#b06779",
+  "#c7a84b", "#348c83", "#3d8fb0", "#3f5e98", "#7258a3", "#a65372", "#c8534f",
+  "#cf713d", "#7e6a55", "#5f6f77", "#687271", "#294b4a", "#1f3c5a", "#2a2524",
+] as const;
 
 export const STARTER_HABIT_TEMPLATES: readonly HabitTemplate[] = [
   {

@@ -5885,10 +5885,10 @@ html[data-language="en"] .inbox-card.drop-target::after {
 .account-danger button { padding: 9px 14px; color: #8f3f31; background: transparent; border: 1px solid rgba(165,84,63,.35); border-radius: 3px; cursor: pointer; }
 
 .admin-view { padding: 34px; }
-.admin-totals { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 28px 0; }
-.admin-totals article { display: grid; gap: 5px; padding: 22px; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; }
-.admin-totals strong { font: 400 36px/1 Georgia, serif; }
-.admin-totals span { color: var(--ink-soft); font-size: 9px; text-transform: uppercase; }
+.admin-totals { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: clamp(5px, 1vw, 12px); margin: 28px 0; }
+.admin-totals article { display: grid; min-width: 0; gap: 5px; padding: clamp(12px, 1.7vw, 22px); background: var(--surface); border: 1px solid var(--line); border-radius: 4px; }
+.admin-totals strong { font: 400 clamp(24px, 3vw, 36px)/1 Georgia, serif; }
+.admin-totals span { color: var(--ink-soft); font-size: clamp(6px, .72vw, 9px); line-height: 1.3; text-transform: uppercase; overflow-wrap: anywhere; }
 .admin-table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; }
 .admin-table { width: 100%; border-collapse: collapse; font-size: 10px; }
 .admin-table th { padding: 13px 15px; color: var(--ink-soft); font-size: 8px; text-align: left; text-transform: uppercase; letter-spacing: .08em; border-bottom: 1px solid var(--line); }
@@ -5951,8 +5951,7 @@ html[data-language="en"] .inbox-card.drop-target::after {
   .welcome-auth { width: min(480px, 100%); margin: 0 auto; }
   .welcome-footer { justify-content: center; flex-wrap: wrap; padding: 20px 0; text-align: center; }
   .welcome-footer span:nth-child(2) { display: none; }
-  .account-security-grid,
-  .admin-totals { grid-template-columns: 1fr 1fr; }
+  .account-security-grid { grid-template-columns: 1fr 1fr; }
   .google-connect-banner { align-items: stretch; flex-direction: column; }
   .google-connect-banner button { width: 100%; }
 }
@@ -5993,8 +5992,11 @@ html[data-language="en"] .inbox-card.drop-target::after {
   .calendar-day-task-control { top: 5px; right: 5px; }
   .calendar-day-task-count { min-width: 20px; height: 20px; padding-inline: 5px; }
   .calendar-day-task-preview { margin-top: 5px; padding-top: 4px; font-size: 5.5px; }
-  .account-security-grid,
-  .admin-totals { grid-template-columns: 1fr; }
+  .account-security-grid { grid-template-columns: 1fr; }
+  .admin-totals { gap: 4px; margin: 18px 0; }
+  .admin-totals article { gap: 3px; padding: 10px 5px; }
+  .admin-totals strong { font-size: 22px; }
+  .admin-totals span { font-size: 5.5px; }
   .account-danger { align-items: flex-start; flex-direction: column; }
   .legal-header { min-height: 78px; }
   .legal-document { padding: 55px 0; }
@@ -11755,7 +11757,12 @@ button.project-drag-handle:active { cursor: grabbing; }
 .sacred-habit-library h2 { margin: 0; font: 500 30px/1.05 Georgia, serif; }
 .sacred-habit-library > header p { margin: 0; color: #9bb0aa; font-size: 9px; line-height: 1.55; }
 .sacred-habit-library > header button { color: #e5cc8b; border-color: rgba(213,182,110,.26); background: rgba(213,182,110,.07); }
+.sacred-library-toggle { display:inline-flex; align-items:center; justify-content:center; gap:9px; white-space:nowrap; }
+.disclosure-chevron { width:18px; height:18px; flex:0 0 auto; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; transition:transform .2s ease; }
+.disclosure-chevron.open { transform:rotate(180deg); }
 .sacred-sector-navigation { display:grid; grid-template-columns:minmax(0,1.65fr) minmax(230px,.7fr); align-items:stretch; gap:12px; }
+.sacred-sector-navigation.open { animation:sacred-library-reveal .24s ease both; }
+@keyframes sacred-library-reveal { from { opacity:0; transform:translateY(-7px); } to { opacity:1; transform:translateY(0); } }
 .sacred-compass { position:relative; min-width:0; padding:12px; overflow:hidden; border:1px solid rgba(213,182,110,.13); border-radius:16px; background:radial-gradient(circle at 50% 50%,rgba(213,182,110,.1),transparent 47%),rgba(255,255,255,.018); }
 .sacred-compass::before { position:absolute; inset:8%; border:1px solid rgba(213,182,110,.08); border-radius:50%; content:""; pointer-events:none; }
 .sacred-compass-rose { position:absolute; inset:12%; pointer-events:none; opacity:.23; }
@@ -11829,6 +11836,16 @@ button.project-drag-handle:active { cursor: grabbing; }
 .sacred-practice-actions { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
 .sacred-practice-actions button.sacred-practice-edit { color:#315c57; border:1px solid rgba(45,119,113,.22); background:rgba(45,119,113,.06); cursor:pointer; font-size:8px; font-weight:850; }
 .sacred-practice-actions button.sacred-practice-disable { color:#855b52; border:1px solid rgba(133,91,82,.24); background:rgba(133,91,82,.06); cursor:pointer; font-size:8px; font-weight:850; }
+.sacred-sector-modal-backdrop { z-index:175; align-items:flex-start; padding:24px; overflow-y:auto; background:rgba(2,14,16,.72); backdrop-filter:blur(8px); }
+.sacred-sector-modal { position:relative; display:grid; width:min(940px,100%); gap:16px; margin:auto; padding:23px; color:#eee6d6; border:1px solid rgba(213,182,110,.28); border-radius:5px 25px 5px 25px; background:radial-gradient(circle at 90% 0,rgba(213,182,110,.16),transparent 24rem),linear-gradient(145deg,#0b2a2d,#071b1f); box-shadow:0 30px 100px rgba(0,0,0,.45); }
+.sacred-sector-modal > header { padding-right:42px; }
+.sacred-sector-modal > header { display:flex; align-items:start; justify-content:space-between; gap:18px; }
+.sacred-sector-modal > header > div { display:grid; gap:4px; }
+.sacred-sector-modal > header .eyebrow { color:#d8b96e; }
+.sacred-sector-modal > header h2 { margin:0; font:500 clamp(26px,4vw,38px)/1.05 Georgia,serif; }
+.sacred-sector-modal .modal-close { color:#f0e5cf; border-color:rgba(213,182,110,.28); background:rgba(255,255,255,.04); }
+.sacred-sector-modal-actions { display:flex; justify-content:flex-end; gap:8px; }
+.sacred-sector-modal-actions button { color:#e5cc8b; border-color:rgba(213,182,110,.26); background:rgba(213,182,110,.07); }
 
 .habit-editor-backdrop { z-index: 150; align-items: flex-start; padding: 28px; overflow-y: auto; }
 .habit-editor {
@@ -11852,9 +11869,13 @@ button.project-drag-handle:active { cursor: grabbing; }
 .habit-editor textarea { min-height: 72px; resize: vertical; }
 .habit-color-field { min-width: 0; margin: 0; padding: 0; border: 0; }
 .habit-color-field legend { margin-bottom: 8px; color: var(--ink-soft); font-size: 8px; }
-.habit-color-field > div { display: flex; gap: 6px; }
+.habit-color-field > div { display: flex; flex-wrap:wrap; gap: 7px; }
 .habit-color-field button { width: 25px; height: 25px; padding: 0; border: 2px solid transparent; border-radius: 50%; cursor: pointer; box-shadow: 0 0 0 1px rgba(19,36,38,.12); }
 .habit-color-field button.selected { border-color: var(--white); outline: 2px solid var(--ink); }
+.habit-custom-color { display:grid !important; grid-template-columns:34px auto 1fr; align-items:center; gap:8px !important; margin-top:10px; }
+.habit-custom-color input[type="color"] { width:34px !important; min-height:34px !important; height:34px; padding:2px !important; border-radius:9px !important; cursor:pointer; }
+.habit-custom-color span { color:var(--ink); font-size:8px; font-weight:800; }
+.habit-custom-color output { justify-self:end; color:var(--ink-soft); font:700 8px/1 monospace; }
 .habit-editor-section { display: grid; gap: 12px; margin: 0; padding: 15px; border: 1px solid rgba(37,91,89,.13); border-radius: 13px; background: rgba(255,253,248,.55); }
 .habit-editor-section > legend { padding: 0 8px 0 0; font: 500 14px/1 Georgia, serif; }
 .habit-editor-section > legend span { display: inline-grid; width: 25px; height: 25px; margin-right: 7px; place-items: center; color: var(--gold); border: 1px solid rgba(178,138,74,.3); border-radius: 50%; font: 600 8px/1 Arial, sans-serif; }
@@ -11879,6 +11900,19 @@ button.project-drag-handle:active { cursor: grabbing; }
 .habit-emoji-presets button { display:grid; width:36px; height:36px; place-items:center; padding:0; border:1px solid var(--line); border-radius:9px; background:var(--white); cursor:pointer; font-size:19px; }
 .habit-emoji-presets button.selected { border-color:var(--teal); background:rgba(45,119,113,.08); box-shadow:0 0 0 2px rgba(45,119,113,.12); }
 .habit-emoji-field label { grid-template-columns:auto minmax(90px,150px); align-items:center; }
+.habit-emoji-expand { display:flex; width:max-content; max-width:100%; align-items:center; gap:7px; padding:7px 10px; color:var(--teal); border:1px solid rgba(45,119,113,.2); border-radius:999px; background:rgba(45,119,113,.05); cursor:pointer; font:800 8px/1.2 var(--font-sans); }
+.habit-emoji-catalog { display:grid; max-height:300px; gap:13px; padding:12px; overflow-y:auto; border:1px solid rgba(37,91,89,.13); border-radius:10px; background:rgba(255,255,255,.58); }
+.habit-emoji-catalog section { display:grid; gap:6px; }
+.habit-emoji-catalog h3 { margin:0; color:var(--ink-soft); font:900 7px/1.2 var(--font-sans); letter-spacing:.1em; text-transform:uppercase; }
+.habit-emoji-catalog section > div { display:grid; grid-template-columns:repeat(auto-fill,minmax(34px,1fr)); gap:5px; }
+.habit-emoji-catalog button { display:grid; min-width:0; height:34px; place-items:center; padding:0; border:1px solid var(--line); border-radius:8px; background:var(--white); cursor:pointer; font-size:18px; }
+.habit-emoji-catalog button:hover,.habit-emoji-catalog button.selected { border-color:var(--teal); background:rgba(45,119,113,.08); box-shadow:0 0 0 2px rgba(45,119,113,.1); }
+.habit-strict-time-field { display:grid; align-content:start; gap:7px; min-width:0; }
+.habit-strict-time-field > label:first-child { display:grid; gap:5px; }
+.habit-strict-time-field input[type="time"]:disabled { opacity:.48; cursor:not-allowed; }
+.habit-strict-time-field .habit-no-strict-time { display:flex; grid-template-columns:none; align-items:center; gap:7px; color:var(--ink); cursor:pointer; font-size:8px; font-weight:800; letter-spacing:0; }
+.habit-no-strict-time input { width:16px; height:16px; margin:0; accent-color:var(--teal); }
+.habit-strict-time-field > small { color:var(--ink-soft); font-size:7px; line-height:1.45; }
 .habit-creation-lock { display:grid; grid-template-columns:34px minmax(0,1fr); align-items:center; gap:10px; min-width:0; padding:10px 11px; border:1px solid rgba(178,138,74,.22); border-radius:9px; background:rgba(178,138,74,.055); }
 .habit-creation-lock > span { display:grid; width:32px; height:32px; place-items:center; border:1px solid rgba(178,138,74,.26); border-radius:50%; background:rgba(255,255,255,.5); font-size:14px; }
 .habit-creation-lock > div { display:grid; gap:3px; min-width:0; }
@@ -12309,6 +12343,7 @@ button.project-drag-handle:active { cursor: grabbing; }
   .habit-template-grid > article { min-height:0; }
   .sacred-habit-library { padding:17px 13px; border-radius:4px 18px 4px 18px; }
   .sacred-habit-library > header { align-items:start; flex-direction:column; }
+  .sacred-library-toggle { width:100%; justify-content:space-between; }
   .sacred-sector-navigation { grid-template-columns:minmax(0,1fr); }
   .sacred-compass { padding:8px; }
   .sacred-compass-grid { gap:5px; }
@@ -12318,6 +12353,10 @@ button.project-drag-handle:active { cursor: grabbing; }
   .sacred-sector-summary { grid-template-columns:minmax(0,1fr); }
   .sacred-practice-grid { grid-template-columns:minmax(0,1fr); }
   .sacred-practice-grid > article { min-height:0; }
+  .sacred-sector-modal-backdrop { align-items:end; padding:9px; }
+  .sacred-sector-modal { width:100%; max-height:calc(100dvh - 18px); margin:auto 0 0; padding:18px 13px calc(18px + env(safe-area-inset-bottom)); overflow-y:auto; border-radius:5px 22px 5px 22px; }
+  .sacred-sector-modal-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .sacred-sector-modal-actions button { min-width:0; }
   .habit-daily-panel > header { align-items:start; flex-direction:column; }.habit-day-progress { width:100%; grid-template-columns:auto minmax(0,1fr) auto; }
   .daily-goal-ring { width:72px; height:72px; }
   .daily-goal-guidance { grid-template-columns:minmax(0,1fr) auto; align-items:start; }.daily-goal-guidance > p { grid-column:1; }.daily-goal-actions { grid-column:2; grid-row:1 / span 2; align-items:flex-end; flex-direction:column; }
@@ -12373,7 +12412,7 @@ button.project-drag-handle:active { cursor: grabbing; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rank-sigil, .rank-sigil *, .habit-metric-sigil, .habit-metric-sigil *, .sacred-sector-sigil, .sacred-sector-sigil *, .hestia-spark-icon svg, .comeback-mark svg, .hero-amphora-sigil *, .hero-path-progress i, .hero-path-gate-art *, .hero-path-reveal-gate *, .habit-quest-sigil *, .habit-quest-progress *, .today-task-list > article, .workspace-recovery-dialog *, .achievement-sigil *, .achievement-grid > article, .habit-completion-feedback, .habit-check-list > article.done, .habit-check-list > article.done > .habit-check { animation:none !important; transition:none !important; }
+  .rank-sigil, .rank-sigil *, .habit-metric-sigil, .habit-metric-sigil *, .sacred-sector-sigil, .sacred-sector-sigil *, .hestia-spark-icon svg, .comeback-mark svg, .hero-amphora-sigil *, .hero-path-progress i, .hero-path-gate-art *, .hero-path-reveal-gate *, .habit-quest-sigil *, .habit-quest-progress *, .today-task-list > article, .workspace-recovery-dialog *, .achievement-sigil *, .achievement-grid > article, .habit-completion-feedback, .habit-check-list > article.done, .habit-check-list > article.done > .habit-check, .sacred-sector-navigation, .disclosure-chevron { animation:none !important; transition:none !important; }
   .rank-sigil, .habit-metric-sigil, .sacred-sector-sigil { transform:none !important; }
 }
 
