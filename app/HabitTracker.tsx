@@ -8,9 +8,11 @@ import { RecurrenceBuilder } from "./RecurrenceBuilder";
 import { HeroicRankSigil } from "./HeroicRankSigil";
 import { HeroPathPanel } from "./HeroPathPanel";
 import { HabitMetricSigil } from "./HabitMetricSigil";
+import { AchievementSigil } from "./AchievementSigil";
 import { SACRED_SECTOR_SIGIL_MOTIFS, SacredSectorSigil } from "./SacredSectorSigil";
 import {
   HABIT_EMOJI_PRESETS,
+  ACHIEVEMENTS,
   HABIT_COLORS,
   MAX_HABIT_XP_PER_COMPLETION,
   STARTER_HABIT_TEMPLATES,
@@ -379,6 +381,45 @@ function HabitQuestPanel({ workspace, date, language }: Pick<DailyPanelProps, "w
           ? "No achievable trial is available yet. It will appear when an active habit is scheduled."
           : "Пока нет доступного выполнимого испытания. Оно появится, когда будет запланирована активная привычка."}</p>
       )}
+    </section>
+  );
+}
+
+function AchievementPanel({ workspace, language }: Pick<DailyPanelProps, "workspace" | "language">) {
+  const isEnglish = language === "en";
+  const unlocked = new Map(workspace.achievementUnlocks.map((entry) => [entry.achievementId, entry]));
+  const locale = isEnglish ? "en-US" : "ru-RU";
+  return (
+    <section className="achievement-panel" aria-labelledby="achievement-panel-title">
+      <header>
+        <div>
+          <span className="eyebrow">{isEnglish ? "A history that cannot be bought" : "История, которую нельзя купить"}</span>
+          <h2 id="achievement-panel-title">{isEnglish ? "Achievements" : "Достижения"}</h2>
+          <p>{isEnglish ? "They preserve meaningful milestones but never alter Rank XP." : "Они сохраняют значимые рубежи, но никогда не изменяют опыт ранга."}</p>
+        </div>
+        <strong>{unlocked.size} / {ACHIEVEMENTS.length}</strong>
+      </header>
+      <div className="achievement-grid">
+        {ACHIEVEMENTS.map((achievement) => {
+          const unlock = unlocked.get(achievement.id);
+          const concealed = achievement.hidden && !unlock;
+          const title = concealed ? (isEnglish ? "Hidden achievement" : "Тайное достижение") : (isEnglish ? achievement.titleEn : achievement.title);
+          const description = concealed
+            ? (isEnglish ? "Its name and condition will be revealed when the moment arrives." : "Название и условие откроются, когда наступит нужный момент.")
+            : (isEnglish ? achievement.descriptionEn : achievement.description);
+          return (
+            <article className={`${unlock ? "unlocked" : "locked"}${concealed ? " concealed" : ""}`} key={achievement.id}>
+              <AchievementSigil motif={achievement.motif} unlocked={Boolean(unlock)} label={title} />
+              <div>
+                <small>{unlock ? (isEnglish ? "Unlocked" : "Открыто") : (concealed ? (isEnglish ? "Unknown path" : "Неизвестный путь") : (isEnglish ? "Ahead" : "Впереди"))}</small>
+                <h3>{title}</h3>
+                <p>{description}</p>
+                {unlock ? <time dateTime={unlock.unlockedAt}>{new Intl.DateTimeFormat(locale, { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(unlock.unlockedAt))}</time> : null}
+              </div>
+            </article>
+          );
+        })}
+      </div>
     </section>
   );
 }
@@ -1069,6 +1110,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
         <section className="tracker-module-card addiction-module"><header><div><span className="eyebrow">{isEnglish ? "Independent module" : "Независимый модуль"}</span><h2>{isEnglish ? "Abstinence" : "Воздержание"}</h2></div><button type="button" onClick={() => setEditingAddiction(defaultAddictionTracker(date, calendarMode))}>＋ {isEnglish ? "Tracker" : "Трекер"}</button></header>{workspace.addictionTrackers.length ? workspace.addictionTrackers.map((tracker) => <article key={tracker.id}><div><strong data-no-translate>{tracker.trackedBehavior}</strong><small>{isEnglish ? `Clean day +${tracker.cleanDayPoints} · relapse -${tracker.relapsePenalty}` : `Чистый день +${tracker.cleanDayPoints} · срыв -${tracker.relapsePenalty}`}</small></div><button type="button" onClick={() => setEditingAddiction(tracker)}>{isEnglish ? "Edit" : "Изменить"}</button><button type="button" className="danger" onClick={() => onChange({ ...workspace, addictionTrackers: workspace.addictionTrackers.filter((item) => item.id !== tracker.id), addictionEntries: workspace.addictionEntries.filter((entry) => entry.trackerId !== tracker.id) })}>{isEnglish ? "Delete" : "Удалить"}</button></article>) : <p>{isEnglish ? "Clean days, relapses, craving and triggers stay separate from habit completions." : "Чистые дни, срывы, тяга и триггеры хранятся отдельно от выполнений привычек."}</p>}</section>
       </div>
 
+      <AchievementPanel workspace={workspace} language={language} />
       <section className="habit-range-toolbar"><span>{isEnglish ? "Analytics period" : "Период аналитики"}</span><div>{(["week", "days-30", "month", "quarter", "year", "custom"] as const).map((period) => <button type="button" className={workspace.habitSettings.reportRange === period ? "active" : ""} onClick={() => onChange({ ...workspace, habitSettings: { ...workspace.habitSettings, reportRange: period } })} key={period}>{period === "week" ? (isEnglish ? "7 days" : "7 дней") : period === "days-30" ? (isEnglish ? "30 days" : "30 дней") : period === "month" ? (isEnglish ? "Month" : "Месяц") : period === "quarter" ? (isEnglish ? "Quarter" : "Квартал") : period === "year" ? (isEnglish ? "Year" : "Год") : (isEnglish ? "Custom" : "Свой")}</button>)}</div>{workspace.habitSettings.reportRange === "custom" ? <label><input type="date" value={workspace.habitSettings.customRangeStart} onChange={(event) => onChange({ ...workspace, habitSettings: { ...workspace.habitSettings, customRangeStart: event.target.value } })} /><span>—</span><input type="date" value={workspace.habitSettings.customRangeEnd} onChange={(event) => onChange({ ...workspace, habitSettings: { ...workspace.habitSettings, customRangeEnd: event.target.value } })} /></label> : <small>{range.start} — {range.end}</small>}</section>
       <HabitStatistics workspace={workspace} date={date} language={language} calendarMode={calendarMode} />
       {heroPathOpen ? <HeroPathPanel workspace={workspace} language={language} onClaimCheckpoint={(rankId) => { const next = claimHeroPathAmphora(workspace, rankId); onChange(next); if (next !== workspace) setMessage(isEnglish ? "The amphora is open. Laurels were added to your ledger." : "Амфора открыта. Лавры добавлены в журнал наград."); }} onRevealHiddenPath={() => { const next = revealHiddenHeroicPath(workspace); onChange(next); if (next !== workspace) setMessage(isEnglish ? "The second path has been revealed." : "Второй путь открыт."); }} onClose={() => setHeroPathOpen(false)} /> : null}

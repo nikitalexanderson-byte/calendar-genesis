@@ -99,6 +99,11 @@ import {
   reconcileHabitQuestRewards,
   reconcileHabitQuests,
 } from "../app/habit-quests.ts";
+import {
+  ACHIEVEMENTS,
+  achievementMetrics,
+  reconcileAchievementUnlocks,
+} from "../app/achievements.ts";
 
 function syncClock(version, updatedAt, deviceId) {
   return { version, updatedAt, deviceId };
@@ -120,9 +125,10 @@ test("encrypted workspace sync merges concurrent entities and preserves deletion
       analyticsSnapshots: [],
       dailyGoalRecords: [],
       quests: [],
+      achievementUnlocks: [],
       rewardTransactions: [],
       streakFreezeTransactions: [],
-      trackerSchemaVersion: 11,
+      trackerSchemaVersion: 12,
       userProgress: { lifetimeXp: 0 },
       habitSettings: { enabled: true },
       hiddenDefaultTemplates: [],
@@ -169,7 +175,7 @@ test("workspace merge deduplicates reward ledger entries by idempotency key", ()
   const common = {
     projects: [], categories: [], taskListLinks: [], habits: [], habitCompletions: [], sleepPlans: [], sleepEntries: [],
     moodEntries: [], addictionTrackers: [], addictionEntries: [], analyticsSnapshots: [], dailyGoalRecords: [],
-    quests: [], trackerSchemaVersion: 11, userProgress: {}, habitSettings: {}, hiddenDefaultTemplates: [], streakFreezeTransactions: [],
+    quests: [], achievementUnlocks: [], trackerSchemaVersion: 12, userProgress: {}, habitSettings: {}, hiddenDefaultTemplates: [], streakFreezeTransactions: [],
   };
   const left = prepareWorkspaceForSync({
     current: {
@@ -328,13 +334,14 @@ test("admin moderation exposes only aggregate habit counts and can optionally bl
 });
 
 test("ships the modular encrypted tracker across dashboard, calendars and account settings", async () => {
-  const [calendar, tracker, heroPath, habits, habitReset, habitQuests, progress, dailyGoal, rewards, streakProtection, sleep, mood, addiction, analytics, cache, trackerMath, cloud, account, repository, migration, styles, sigil, metricSigil, rankArt] = await Promise.all([
+  const [calendar, tracker, heroPath, habits, habitReset, habitQuests, achievements, progress, dailyGoal, rewards, streakProtection, sleep, mood, addiction, analytics, cache, trackerMath, cloud, account, recoveryDialog, repository, migration, styles, sigil, metricSigil, achievementSigil, rankArt] = await Promise.all([
     readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/HabitTracker.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/HeroPathPanel.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/habits.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/habit-reset.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/habit-quests.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/achievements.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/habit-progress.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/daily-goal.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/rewards.ts", import.meta.url), "utf8"),
@@ -347,11 +354,13 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
     readFile(new URL("../app/tracker-math.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/cloud-sync.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/AccountPanel.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/WorkspaceRecoveryDialog.tsx", import.meta.url), "utf8"),
     readFile(new URL("../server/src/repository.php", import.meta.url), "utf8"),
     readFile(new URL("../server/migrations/010_client_workspace_keys.sql", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../app/HeroicRankSigil.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/HabitMetricSigil.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/AchievementSigil.tsx", import.meta.url), "utf8"),
     stat(new URL("../public/habit-ranks/heroic-ranks.webp", import.meta.url)),
   ]);
 
@@ -373,6 +382,8 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(calendar, /taskLists\.find\(\(item\) => item\.title === "Привычки GENESIS"\)/);
   assert.match(calendar, /onResetHabitTracking=\{resetAllHabitTracking\}/);
   assert.match(calendar, /clearTrackerAnalyticsCache\(cloudUser\.uid\)/);
+  assert.match(calendar, /registerWorkspaceRecoveryRequestHandler/);
+  assert.match(calendar, /<WorkspaceRecoveryDialog/);
 
   assert.match(cloud, /crypto\.subtle\.encrypt\(\{ name: "AES-GCM"/);
   assert.match(cloud, /JSON\.stringify\(\{[\s\S]*\.\.\.encryptedHabitWorkspace/);
@@ -381,6 +392,7 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(cloud, /userProgress: structure\.userProgress/);
   assert.match(cloud, /dailyGoalRecords: structure\.dailyGoalRecords/);
   assert.match(cloud, /quests: structure\.quests/);
+  assert.match(cloud, /achievementUnlocks: structure\.achievementUnlocks/);
   assert.match(cloud, /rewardTransactions: structure\.rewardTransactions/);
   assert.match(cloud, /streakFreezeTransactions: structure\.streakFreezeTransactions/);
   assert.match(cloud, /hiddenDefaultTemplates: structure\.hiddenDefaultTemplates/);
@@ -389,6 +401,12 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(cloud, /moodEntries: structure\.moodEntries/);
   assert.match(cloud, /WORKSPACE_DEVICE_KEY_PREFIX/);
   assert.match(cloud, /wrapWorkspaceKey/);
+  assert.match(cloud, /recoverWorkspaceKey/);
+  assert.doesNotMatch(cloud, /window\.prompt/);
+  assert.match(recoveryDialog, /role="dialog"/);
+  assert.match(recoveryDialog, /Расшифровать данные/);
+  assert.match(recoveryDialog, /request\.validate\(code\)/);
+  assert.match(recoveryDialog, /Код обрабатывается только на этом устройстве/);
   assert.match(repository, /workspace_key_enc = NULL/);
   assert.match(repository, /'key' => \$key/);
   assert.match(migration, /workspace_key_wrapped/);
@@ -402,7 +420,7 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(habits, /STARTER_HABIT_TEMPLATES/);
   assert.match(habits, /createHabitFromTemplate/);
   assert.match(habits, /normalizeHiddenDefaultTemplates/);
-  assert.match(habits, /trackerSchemaVersion: 11/);
+  assert.match(habits, /trackerSchemaVersion: 12/);
   assert.match(habits, /createdDate: string/);
   assert.match(habits, /emoji: string/);
   assert.match(habits, /priority: number/);
@@ -410,6 +428,7 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(habits, /xpAwarded: number/);
   assert.match(habits, /dailyGoalRecords: DailyGoalRecord/);
   assert.match(habits, /quests: HabitQuest/);
+  assert.match(habits, /achievementUnlocks: AchievementUnlock/);
   assert.match(habits, /rewardTransactions: RewardTransaction/);
   assert.match(habits, /streakFreezeTransactions: StreakFreezeTransaction/);
   assert.match(habits, /refreshDailyGoalProgress/);
@@ -418,6 +437,9 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(rewards, /daily-goal:self:/);
   assert.match(habitQuests, /quest:self:/);
   assert.match(habitQuests, /Math\.min\(10, weeklyScheduled\)/);
+  assert.equal((achievements.match(/id: "/g) ?? []).length, 10);
+  assert.match(achievements, /reconcileAchievementUnlocks/);
+  assert.match(achievements, /hidden: true/);
   assert.match(habits, /habit-missed:self:/);
   assert.match(habits, /habit-deleted:self:/);
   assert.match(habits, /export function reconcileMissedHabitLaurels/);
@@ -468,6 +490,9 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(tracker, /не начисляя XP и не создавая ложного выполнения/);
   assert.match(tracker, /laurel-ledger/);
   assert.match(tracker, /habit-quest-panel/);
+  assert.match(tracker, /achievement-panel/);
+  assert.match(tracker, /История, которую нельзя купить/);
+  assert.match(tracker, /Тайное достижение/);
   assert.match(tracker, /Лавры, а не опыт ранга/);
   assert.match(tracker, /Лавров начислено/);
   assert.match(tracker, /Режим дневной цели/);
@@ -495,6 +520,8 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(styles, /\.laurel-ledger/);
   assert.match(styles, /\.today-tasks-panel/);
   assert.match(styles, /\.habit-quest-panel/);
+  assert.match(styles, /\.workspace-recovery-dialog/);
+  assert.match(styles, /\.achievement-panel/);
   assert.match(styles, /\.mood-tracker\.is-open \.mood-summary-action svg/);
   assert.match(styles, /prefers-reduced-motion: reduce/);
   assert.match(sigil, /<svg/);
@@ -520,6 +547,9 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(metricSigil, /metric-sigil-streak-core/);
   assert.match(metricSigil, /onPointerMove/);
   assert.match(metricSigil, /setHighlight/);
+  assert.match(achievementSigil, /<svg/);
+  assert.match(achievementSigil, /onPointerMove/);
+  assert.match(achievementSigil, /achievement-sigil-orbit/);
   assert.match(styles, /@keyframes metric-sigil-awaken/);
   assert.match(styles, /\.hero-path-panel/);
   assert.match(styles, /\.hero-path-map/);
@@ -551,6 +581,7 @@ test("resetting habit tracking clears every tracker and statistic while preservi
     analyticsSnapshots: [{ id: "snapshot" }],
     dailyGoalRecords: [{ id: "goal" }],
     quests: [{ id: "quest" }],
+    achievementUnlocks: [{ id: "achievement" }],
     rewardTransactions: [{ id: "reward" }],
     streakFreezeTransactions: [{ id: "freeze" }],
     habitSettings: {
@@ -576,6 +607,7 @@ test("resetting habit tracking clears every tracker and statistic while preservi
     "analyticsSnapshots",
     "dailyGoalRecords",
     "quests",
+    "achievementUnlocks",
     "rewardTransactions",
     "streakFreezeTransactions",
     "hiddenDefaultTemplates",
@@ -799,6 +831,41 @@ test("daily and weekly trials stay achievable and reward idempotently", () => {
   assert.equal(calculateLaurelsBalance(allRewards), DAILY_QUEST_LAURELS + WEEKLY_QUEST_LAURELS);
   assert.deepEqual(reconcileHabitQuestRewards(completed, allRewards), allRewards, "replayed sync cannot reward a quest twice");
   assert.deepEqual(reconcileHabitQuests({ quests: [], habits: [], completions: [], dailyGoalRecords: [], today: "2026-09-18", calendarMode: "profane", isScheduledForDate }), []);
+});
+
+test("achievements unlock from real history without changing Rank XP", () => {
+  assert.equal(ACHIEVEMENTS.length, 10);
+  assert.equal(ACHIEVEMENTS.filter((achievement) => achievement.hidden).length, 3);
+  const firstSource = {
+    habitCompletions: [{ habitId: "reading", completed: true }],
+    dailyGoalRecords: [{ date: "2026-09-18", status: "perfect" }],
+    longestStreak: 3,
+    rewardTransactions: [],
+  };
+  assert.deepEqual(achievementMetrics(firstSource), {
+    totalCompletions: 1,
+    longestStreak: 3,
+    longestPerfectRun: 1,
+    bestHabitCompletions: 1,
+    hasPerfectDay: true,
+    hasComeback: false,
+  });
+  const first = reconcileAchievementUnlocks({ ...firstSource, unlocks: [], timestamp: "2026-09-18T12:00:00.000Z" });
+  assert.deepEqual(first.map((unlock) => unlock.achievementId), ["first-step", "three-day-rhythm", "perfect-day"]);
+  assert.ok(first.every((unlock) => unlock.userId === "self" && unlock.id === `achievement:${unlock.achievementId}`));
+
+  const perfectWeek = Array.from({ length: 7 }, (_, index) => ({ date: `2026-09-${String(12 + index).padStart(2, "0")}`, status: "perfect" }));
+  const fullSource = {
+    habitCompletions: Array.from({ length: 1_000 }, () => ({ habitId: "reading", completed: true })),
+    dailyGoalRecords: perfectWeek,
+    longestStreak: 30,
+    rewardTransactions: [{ reason: "comeback" }],
+  };
+  const all = reconcileAchievementUnlocks({ ...fullSource, unlocks: first, timestamp: "2026-09-19T12:00:00.000Z" });
+  assert.equal(all.length, ACHIEVEMENTS.length);
+  assert.equal(all.find((unlock) => unlock.achievementId === "first-step")?.unlockedAt, "2026-09-18T12:00:00.000Z");
+  assert.deepEqual(reconcileAchievementUnlocks({ ...fullSource, unlocks: all, timestamp: "2026-09-20T12:00:00.000Z" }), all, "achievement reconciliation must be idempotent");
+  assert.deepEqual(reconcileAchievementUnlocks({ habitCompletions: [], dailyGoalRecords: [], longestStreak: 0, rewardTransactions: [], unlocks: [] }), []);
 });
 
 test("Hestia Sparks use idempotent ledgers and protect only the global streak", () => {
