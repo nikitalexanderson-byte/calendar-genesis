@@ -1,7 +1,7 @@
 import { normalizeTrackerEntity, trackerTimestamp, type TrackerEntity } from "./tracker-core";
 import { moodValueColor } from "./tracker-math";
 
-export type MoodValue = -5 | -4 | -3 | -2 | -1 | 0 | 1 | 2 | 3 | 4 | 5;
+export type MoodValue = -5 | -4 | -3 | -2 | -1 | 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
 export type MoodEntry = TrackerEntity & {
   date: string;
@@ -23,6 +23,7 @@ export const MOOD_SCALE = [
   { value: 3, label: "Уверенность", labelEn: "Confident", symbol: "▲" },
   { value: 4, label: "Радость", labelEn: "Joyful", symbol: "✦" },
   { value: 5, label: "Воодушевление", labelEn: "Inspired", symbol: "☀" },
+  { value: 6, label: "Восторг", labelEn: "Delighted", symbol: "✺" },
 ] as const satisfies ReadonlyArray<{ value: MoodValue; label: string; labelEn: string; symbol: string }>;
 
 const LEGACY_MOOD_VALUES: Record<string, MoodValue> = {
@@ -50,7 +51,7 @@ export function moodColor(value: number) {
 }
 
 export function moodOption(value: number) {
-  const normalized = Math.max(-5, Math.min(5, Math.round(value))) as MoodValue;
+  const normalized = Math.max(-5, Math.min(6, Math.round(value))) as MoodValue;
   return MOOD_SCALE.find((option) => option.value === normalized) ?? MOOD_SCALE[5];
 }
 
@@ -60,7 +61,7 @@ export function normalizeMoodEntry(value: Record<string, unknown>, index = 0): M
   const rawMoodValue = typeof value.moodValue === "number"
     ? value.moodValue
     : LEGACY_MOOD_VALUES[String(value.moodId ?? "neutral")] ?? 0;
-  const moodValue = Math.max(-5, Math.min(5, Math.round(rawMoodValue))) as MoodValue;
+  const moodValue = Math.max(-5, Math.min(6, Math.round(rawMoodValue))) as MoodValue;
   const meta = normalizeTrackerEntity(value as Partial<TrackerEntity>, `mood-${date}-${index}`);
   const note = typeof value.note === "string"
     ? value.note

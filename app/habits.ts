@@ -622,7 +622,7 @@ function normalizeSnapshots(value: unknown): TrackerAnalyticsSnapshot[] {
         sleepWakeMinutesTotal: Number(metrics.sleepWakeMinutesTotal) || 0,
         moodTotal: Number(metrics.moodTotal) || 0,
         moodCount: Number(metrics.moodCount) || 0,
-        moodDistribution: Array.isArray(metrics.moodDistribution) && metrics.moodDistribution.length === 11 ? metrics.moodDistribution.map((count) => Math.max(0, Number(count) || 0)) : Array.from({ length: 11 }, () => 0),
+        moodDistribution: Array.from({ length: 12 }, (_, index) => Math.max(0, Number(Array.isArray(metrics.moodDistribution) ? metrics.moodDistribution[index] : 0) || 0)),
         cleanDays: Number(metrics.cleanDays) || 0,
         relapses: Number(metrics.relapses) || 0,
         cravingTotal: Number(metrics.cravingTotal) || 0,
