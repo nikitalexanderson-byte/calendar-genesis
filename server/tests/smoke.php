@@ -96,11 +96,12 @@ try {
         'openTaskCount' => 5,
         'completedTaskCount' => 4,
         'googleSyncedCount' => 9,
+        'habitCount' => 7,
     ]);
     $metrics = $db->prepare('SELECT * FROM user_metrics WHERE user_id = :user_id');
     $metrics->execute(['user_id' => $userId]);
     $row = $metrics->fetch();
-    expect(is_array($row) && (int)$row['task_count'] === 9 && (int)$row['project_count'] === 4, 'Aggregate metrics were not stored.');
+    expect(is_array($row) && (int)$row['task_count'] === 9 && (int)$row['project_count'] === 4 && (int)$row['habit_count'] === 7, 'Aggregate metrics were not stored.');
     expect((int)$db->query('SELECT COUNT(*) FROM tasks')->fetchColumn() === 0, 'Task content must not be stored in SQLite.');
 
     $assistantPlan = genesisNormalizeGeminiPlan([
@@ -238,9 +239,36 @@ try {
 
     $beforeDeletion = genesisAccountDataCounts($userId);
     expect(count(array_filter($beforeDeletion, static fn (int $count): bool => $count > 0)) === count(genesisAccountDataLocations()), 'Deletion fixture did not cover every user-owned table.');
-    $purged = genesisDeleteAccount($userId);
-    expect($purged === $beforeDeletion, 'Account deletion receipt did not match the deleted records.');
+    $admin = genesisFindUserByEmail(genesisAdminEmail());
+    if ($admin === null) {
+        $adminId = 'test-admin-moderation';
+        $db->prepare('INSERT INTO users (id, google_sub, email, display_name, created_at, updated_at) VALUES (:id, :sub, :email, :name, :created_at, :updated_at)')->execute([
+            'id' => $adminId,
+            'sub' => 'test-admin-moderation-sub',
+            'email' => genesisAdminEmail(),
+            'name' => 'Moderation Admin',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        $admin = genesisFindUser($adminId);
+    }
+    expect(is_array($admin), 'Admin moderation fixture was not created.');
+    $moderation = genesisAdminDeleteUser((string)$admin['id'], $userId, true);
+    expect(($moderation['purged'] ?? null) === $beforeDeletion, 'Admin deletion receipt did not match the deleted records.');
+    expect(($moderation['blacklisted'] ?? false) === true, 'Admin deletion did not confirm blacklist selection.');
     expect(array_sum(genesisAccountDataCounts($userId)) === 0, 'Account deletion left user-owned rows on the server.');
+    $blocked = $db->prepare('SELECT COUNT(*) FROM blocked_identities WHERE google_sub_hash = :google_sub_hash AND email_hash = :email_hash');
+    $blocked->execute([
+        'google_sub_hash' => genesisIdentifierHash('google-sub', 'test-private-workspace-sub'),
+        'email_hash' => genesisIdentifierHash('email', 'genesis.smoke.test@gmail.com'),
+    ]);
+    expect((int)$blocked->fetchColumn() === 1, 'Deleted spam account identifiers were not blacklisted.');
+    try {
+        genesisAssertIdentityAllowed('test-private-workspace-sub', 'genesis.smoke.test@gmail.com');
+        throw new RuntimeException('A blacklisted identity was unexpectedly allowed to sign in.');
+    } catch (DomainException $blockedIdentity) {
+        expect(str_contains($blockedIdentity->getMessage(), 'заблокирован'), 'Blacklisted sign-in returned an unexpected error.');
+    }
     expect(genesisFindUser($survivorId) !== null, 'Account deletion removed another user.');
     $survivorWorkspace = $db->prepare('SELECT COUNT(*) FROM workspace_blobs WHERE user_id = :user_id');
     $survivorWorkspace->execute(['user_id' => $survivorId]);

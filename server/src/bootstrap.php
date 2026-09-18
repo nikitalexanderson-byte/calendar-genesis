@@ -229,6 +229,16 @@ function genesisDecrypt(?string $encoded): ?string
     return is_string($plain) ? $plain : null;
 }
 
+function genesisIdentifierHash(string $namespace, string $value): string
+{
+    $key = base64_decode((string)genesisConfig()['crypto_key'], true);
+    if (!is_string($key) || strlen($key) !== SODIUM_CRYPTO_SECRETBOX_KEYBYTES) {
+        throw new RuntimeException('Invalid encryption key.');
+    }
+    $normalized = mb_strtolower(trim($value));
+    return hash_hmac('sha256', $namespace . "\0" . $normalized, $key);
+}
+
 function genesisClampInt(mixed $value, int $min, int $max, int $fallback): int
 {
     if (!is_numeric($value)) {

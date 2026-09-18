@@ -6,6 +6,7 @@ import type { Language } from "./i18n";
 import { formatTimeValue, type TimeFormat } from "./time-format";
 import { RecurrenceBuilder } from "./RecurrenceBuilder";
 import { HeroicRankSigil } from "./HeroicRankSigil";
+import { HeroPathPanel } from "./HeroPathPanel";
 import { HabitMetricSigil } from "./HabitMetricSigil";
 import { SACRED_SECTOR_SIGIL_MOTIFS, SacredSectorSigil } from "./SacredSectorSigil";
 import {
@@ -19,6 +20,7 @@ import {
   HESTIA_SPARK_MAX,
   addHabitDays,
   buyHestiaSpark,
+  claimHeroPathAmphora,
   calculateHabitTotal,
   calculateComebackSummary,
   canRecordHabitOnDate,
@@ -29,7 +31,6 @@ import {
   defaultHabit,
   habitDateKey,
   heroicRank,
-  hiddenHeroicPathUnlocked,
   isHabitScheduledForDate,
   normalizeHabitEmoji,
   normalizeHabitPriority,
@@ -39,7 +40,6 @@ import {
   setDailyGoalMode,
   setPlannedRestDay,
   updateHabitCompletion,
-  visibleHeroicRanksForXp,
   type Habit,
   type HabitQualityScale,
   type HabitScoringMode,
@@ -294,6 +294,7 @@ function rewardReasonLabel(reason: RewardReason, isEnglish: boolean) {
   if (reason === "rank-up") return isEnglish ? "New rank" : "Новый ранг";
   if (reason === "achievement") return isEnglish ? "Achievement" : "Достижение";
   if (reason === "comeback") return isEnglish ? "Comeback completed" : "Возвращение завершено";
+  if (reason === "hero-path-amphora") return isEnglish ? "Path checkpoint amphora" : "Амфора Пути Героя";
   if (reason === "habit-deleted-reset") return isEnglish ? "Habit deleted · Laurels reset" : "Привычка удалена · Лавры обнулены";
   if (reason === "habit-missed-reset") return isEnglish ? "Habit missed · Laurels reset" : "Привычка не выполнена · Лавры обнулены";
   return isEnglish ? "Hestia Spark" : "Искра Гестии";
@@ -719,8 +720,6 @@ function HabitStatistics({ workspace, date, language, calendarMode }: { workspac
   const total = calculateHabitTotal(workspace);
   const rank = heroicRank(total);
   const nextRank = HEROIC_RANKS.find((item) => item.threshold > total);
-  const visibleRanks = visibleHeroicRanksForXp(total);
-  const hiddenPathUnlocked = hiddenHeroicPathUnlocked(total);
   const progress = nextRank ? Math.max(0, Math.min(100, Math.round((total - rank.threshold) / (nextRank.threshold - rank.threshold) * 100))) : 100;
   const maxDaily = Math.max(20, ...daily.map((item) => item.habit.score + item.sleep.score + item.addiction.score));
   const points = daily.map((item, index) => `${daily.length > 1 ? index / (daily.length - 1) * 100 : 0},${55 - (item.habit.score + item.sleep.score + item.addiction.score) / maxDaily * 50}`).join(" ");
@@ -738,7 +737,6 @@ function HabitStatistics({ workspace, date, language, calendarMode }: { workspac
       </div>
       {workspace.habits.length ? <div className="habit-ranking-list"><header><span className="eyebrow">{isEnglish ? "Habits" : "Привычки"}</span><h3>{isEnglish ? "Current streaks" : "Текущие серии"}</h3></header>{workspace.habits.map((habit) => { const completions = workspace.habitCompletions.filter((entry) => entry.habitId === habit.id && entry.date >= range.start && entry.date <= range.end && entry.completed); const qualities = completions.filter((entry) => entry.qualityValue !== null); return <article style={{ "--habit-color": habit.color } as CSSProperties} key={habit.id}><i /><div><strong data-no-translate>{habit.title}</strong><small>{completions.length} {isEnglish ? "completions" : "выполнений"}{qualities.length ? ` · ${isEnglish ? "quality" : "качество"} ${(qualities.reduce((sum, entry) => sum + (entry.qualityValue ?? 0), 0) / qualities.length).toFixed(1)}` : ""}</small></div><span>{habitStreak(workspace, habit, date, calendarMode)} {isEnglish ? "days" : "дней"}</span></article>; })}</div> : null}
       {workspace.addictionTrackers.length ? <div className="habit-ranking-list"><header><span className="eyebrow">{isEnglish ? "Abstinence" : "Воздержание"}</span><h3>{isEnglish ? "Current clean streaks" : "Текущие чистые серии"}</h3></header>{workspace.addictionTrackers.map((tracker) => <article style={{ "--habit-color": "#8f6951" } as CSSProperties} key={tracker.id}><i /><div><strong data-no-translate>{tracker.trackedBehavior}</strong><small>{isEnglish ? "Relapse never removes earned points" : "Срыв не отнимает заработанные баллы"}</small></div><span>{addictionStreak(workspace.addictionEntries, tracker.id, date)} {isEnglish ? "days" : "дней"}</span></article>)}</div> : null}
-      <div className="heroic-rank-road"><header><span className="eyebrow">{isEnglish ? "Path of the hero" : "Путь героя"}</span><h3>{isEnglish ? "Rank milestones" : "Ступени рангов"}</h3></header><div>{visibleRanks.map((item) => <article className={`${total >= item.threshold ? "reached" : ""}${item.path === "hidden" ? " hidden-path-rank" : ""}`} style={{ "--rank-color": item.color } as CSSProperties} key={item.id}><HeroicRankSigil compact rankId={item.id} color={item.color} /><strong>{isEnglish ? item.titleEn : item.title}</strong><small>{item.threshold.toLocaleString(isEnglish ? "en-US" : "ru-RU")} XP</small></article>)}</div>{!hiddenPathUnlocked ? <aside className="heroic-hidden-gate"><span aria-hidden="true">◇</span><div><strong>{isEnglish ? "The second path is hidden" : "Второй путь пока скрыт"}</strong><small>{isEnglish ? "Reach “Risen from the Abyss” to reveal twelve secret ranks." : "Достигните ранга «Восставший из Бездны», чтобы открыть 12 тайных ступеней."}</small></div></aside> : <p className="heroic-hidden-revealed">{isEnglish ? "The secret path has awakened: twelve further ranks are now visible." : "Тайный путь пробуждён: открыты ещё 12 рангов."}</p>}</div>
     </section>
   );
 }
@@ -866,6 +864,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
   const [editingSleep, setEditingSleep] = useState<SleepPlan | null>(null);
   const [editingAddiction, setEditingAddiction] = useState<AddictionTracker | null>(null);
   const [message, setMessage] = useState("");
+  const [heroPathOpen, setHeroPathOpen] = useState(false);
   const range = reportDateRange(workspace.habitSettings, date);
   const total = calculateHabitTotal(workspace);
   const rank = heroicRank(total);
@@ -937,7 +936,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
           <article className="habits-hero-streak"><HabitMetricSigil variant="streak" value={workspace.userProgress.currentStreak} record={workspace.userProgress.longestStreak} /><div><small>{isEnglish ? "Current streak" : "Текущая серия"}</small><strong>{workspace.userProgress.currentStreak}</strong><em>{isEnglish ? `best ${workspace.userProgress.longestStreak} days` : `рекорд ${workspace.userProgress.longestStreak} дней`}</em></div></article>
           <div className="habits-hero-score" style={{ "--rank-color": rank.color } as CSSProperties}><HeroicRankSigil rankId={rank.id} color={rank.color} /><div><small>{isEnglish ? "Current rank" : "Текущий ранг"}</small><strong>{isEnglish ? rank.titleEn : rank.title}</strong><em>{total} XP</em></div></div>
         </div>
-        <button type="button" className="primary-button" onClick={openNewHabit}>＋ {isEnglish ? "New habit" : "Новая привычка"}</button>
+        <div className="habits-hero-actions"><button type="button" className="secondary-button hero-path-open" onClick={() => setHeroPathOpen(true)}>{isEnglish ? "Path of the Hero" : "Путь Героя"} →</button><button type="button" className="primary-button" onClick={openNewHabit}>＋ {isEnglish ? "New habit" : "Новая привычка"}</button></div>
       </header>
       {hasHabits ? <section className="streak-resilience" aria-label={isEnglish ? "Streak protection and comeback" : "Защита серии и возвращение"}>
         <article className="hestia-spark-card">
@@ -988,6 +987,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
 
       <section className="habit-range-toolbar"><span>{isEnglish ? "Analytics period" : "Период аналитики"}</span><div>{(["week", "days-30", "month", "quarter", "year", "custom"] as const).map((period) => <button type="button" className={workspace.habitSettings.reportRange === period ? "active" : ""} onClick={() => onChange({ ...workspace, habitSettings: { ...workspace.habitSettings, reportRange: period } })} key={period}>{period === "week" ? (isEnglish ? "7 days" : "7 дней") : period === "days-30" ? (isEnglish ? "30 days" : "30 дней") : period === "month" ? (isEnglish ? "Month" : "Месяц") : period === "quarter" ? (isEnglish ? "Quarter" : "Квартал") : period === "year" ? (isEnglish ? "Year" : "Год") : (isEnglish ? "Custom" : "Свой")}</button>)}</div>{workspace.habitSettings.reportRange === "custom" ? <label><input type="date" value={workspace.habitSettings.customRangeStart} onChange={(event) => onChange({ ...workspace, habitSettings: { ...workspace.habitSettings, customRangeStart: event.target.value } })} /><span>—</span><input type="date" value={workspace.habitSettings.customRangeEnd} onChange={(event) => onChange({ ...workspace, habitSettings: { ...workspace.habitSettings, customRangeEnd: event.target.value } })} /></label> : <small>{range.start} — {range.end}</small>}</section>
       <HabitStatistics workspace={workspace} date={date} language={language} calendarMode={calendarMode} />
+      {heroPathOpen ? <HeroPathPanel workspace={workspace} language={language} onClaimCheckpoint={(rankId) => { const next = claimHeroPathAmphora(workspace, rankId); onChange(next); if (next !== workspace) setMessage(isEnglish ? "The amphora is open. Laurels were added to your ledger." : "Амфора открыта. Лавры добавлены в журнал наград."); }} onClose={() => setHeroPathOpen(false)} /> : null}
       {activatingTemplate ? <HabitTemplateSetup template={activatingTemplate} date={creationDate} language={language} calendarMode={calendarMode} googleTasksReady={googleTasksReady} onSave={(habit) => { setActivatingTemplate(null); saveHabit(habit); }} onClose={() => setActivatingTemplate(null)} /> : null}
       {editingHabit ? <HabitEditor habit={editingHabit} language={language} calendarMode={calendarMode} googleTasksReady={googleTasksReady} onSave={saveHabit} onClose={() => setEditingHabit(null)} /> : null}
       {editingSleep ? <SleepEditor plan={editingSleep} language={language} calendarMode={calendarMode} onSave={(plan) => { onChange({ ...workspace, sleepPlans: workspace.sleepPlans.some((item) => item.id === plan.id) ? workspace.sleepPlans.map((item) => item.id === plan.id ? plan : item) : [...workspace.sleepPlans, plan] }); setEditingSleep(null); }} onClose={() => setEditingSleep(null)} /> : null}

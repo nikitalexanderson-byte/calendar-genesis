@@ -349,6 +349,22 @@ try {
         genesisJson(genesisAdminStats());
     }
 
+    if ($method === 'DELETE' && count($segments) === 3 && $segments[0] === 'admin' && $segments[1] === 'users') {
+        $userId = genesisRequireUserId();
+        genesisRequireCsrf();
+        $user = genesisFindUser($userId);
+        if ($user === null) {
+            genesisJson(['error' => 'AUTH_REQUIRED'], 401);
+        }
+        genesisRequireAdmin($user);
+        $targetUserId = mb_substr(trim((string)$segments[2]), 0, 100);
+        if ($targetUserId === '') {
+            throw new InvalidArgumentException('Не указан пользователь для удаления.');
+        }
+        $payload = genesisReadJson();
+        genesisJson(genesisAdminDeleteUser($userId, $targetUserId, ($payload['blacklist'] ?? false) === true));
+    }
+
     if ($method === 'DELETE' && $path === 'account') {
         $userId = genesisRequireUserId();
         genesisRequireCsrf();

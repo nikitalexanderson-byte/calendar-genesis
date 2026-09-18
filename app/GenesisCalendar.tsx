@@ -1806,10 +1806,10 @@ export function GenesisCalendar() {
   useEffect(() => {
     if (!hydrated || !cloudUser || !navigator.onLine) return;
     const timer = window.setTimeout(() => {
-      void saveMetrics(metricsFor(tasks, projects)).catch(() => undefined);
+      void saveMetrics(metricsFor(tasks, projects, habitWorkspace.habits.length)).catch(() => undefined);
     }, 1500);
     return () => window.clearTimeout(timer);
-  }, [hydrated, cloudUser, tasks, projects]);
+  }, [hydrated, cloudUser, tasks, projects, habitWorkspace.habits.length]);
 
   useEffect(() => {
     if (!cloudUser || !isGoogleSyncConfigured) return;
@@ -2422,7 +2422,7 @@ export function GenesisCalendar() {
         projectsRef.current,
         categoriesRef.current,
         taskListLinks,
-        metricsFor(tasksRef.current, projectsRef.current),
+        metricsFor(tasksRef.current, projectsRef.current, normalized.habits.length),
         normalized,
       )
         .then(() => setSyncStatus("synced"))
@@ -2459,7 +2459,7 @@ export function GenesisCalendar() {
         projectsRef.current,
         categoriesRef.current,
         taskListLinks,
-        metricsFor(remainingTasks, projectsRef.current),
+        metricsFor(remainingTasks, projectsRef.current, 0),
         clearedWorkspace,
       );
       tasksRef.current = remainingTasks;
@@ -2487,7 +2487,7 @@ export function GenesisCalendar() {
   ) => {
     if (!cloudUser) return;
     setSyncStatus("syncing");
-    void saveWorkspaceStructure(nextProjects, nextCategories, nextTaskListLinks, metricsFor(tasks, nextProjects))
+    void saveWorkspaceStructure(nextProjects, nextCategories, nextTaskListLinks, metricsFor(tasks, nextProjects, habitWorkspace.habits.length), habitWorkspace)
       .then(() => setSyncStatus("synced"))
       .catch((error: Error) => {
         setSyncError(error.message);

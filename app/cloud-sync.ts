@@ -215,9 +215,11 @@ export type GenesisMetrics = {
   openTaskCount: number;
   completedTaskCount: number;
   googleSyncedCount: number;
+  habitCount: number;
 };
 
 export type AdminUserStats = {
+  id: string;
   email: string;
   displayName: string;
   createdAt: string;
@@ -231,12 +233,14 @@ export type AdminUserStats = {
   openTaskCount: number;
   completedTaskCount: number;
   googleSyncedCount: number;
+  habitCount: number;
+  isAdmin: boolean;
   metricsUpdatedAt: string | null;
 };
 
 export type AdminStats = {
   users: AdminUserStats[];
-  totals: { users: number; projects: number; tasks: number; completedTasks: number };
+  totals: { users: number; projects: number; tasks: number; completedTasks: number; habits: number; blockedIdentities: number };
 };
 
 export type StoicheionDrawKind = "daily" | "spread";
@@ -1148,7 +1152,7 @@ export async function mergeLocalWorkspace(
       local.projects,
       local.categories,
       local.taskListLinks,
-      metricsFor(local.tasks, local.projects),
+      metricsFor(local.tasks, local.projects, local.habits?.length ?? 0),
       normalizeHabitWorkspace(local),
     );
   } else if (remote.hasRemoteStructure && !remote.habits.length && local.habits?.length) {
@@ -1156,7 +1160,7 @@ export async function mergeLocalWorkspace(
       remote.projects,
       remote.categories,
       remote.taskListLinks,
-      metricsFor(local.tasks, remote.projects),
+      metricsFor(local.tasks, remote.projects, local.habits?.length ?? 0),
       normalizeHabitWorkspace(local),
     );
   }
@@ -1197,13 +1201,14 @@ export async function removeCloudTask(_uid: string, task: GenesisTask) {
   clearMutation(`task:${task.id}`);
 }
 
-export function metricsFor(tasks: GenesisTask[], projects: GenesisProject[]): GenesisMetrics {
+export function metricsFor(tasks: GenesisTask[], projects: GenesisProject[], habitCount = 0): GenesisMetrics {
   return {
     projectCount: projects.length,
     taskCount: tasks.length,
     openTaskCount: tasks.filter((task) => !task.done).length,
     completedTaskCount: tasks.filter((task) => task.done).length,
     googleSyncedCount: tasks.filter((task) => Boolean(task.googleEventId || task.googleTaskId)).length,
+    habitCount: Math.max(0, Math.min(100_000, Math.round(habitCount))),
   };
 }
 
@@ -1255,6 +1260,13 @@ export async function saveMetrics(metrics: GenesisMetrics) {
 
 export async function loadAdminStats() {
   return api<AdminStats>("/admin/stats");
+}
+
+export async function deleteAdminUser(userId: string, blacklist: boolean) {
+  return api<{ deleted: true; blacklisted: boolean; purged: Record<string, number> }>(`/admin/users/${encodeURIComponent(userId)}`, {
+    method: "DELETE",
+    body: JSON.stringify({ blacklist }),
+  });
 }
 
 export async function loadStoicheionDraws() {

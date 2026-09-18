@@ -44,6 +44,8 @@ import {
 } from "./daily-goal";
 import {
   completionXpAward,
+  HEROIC_RANKS,
+  HERO_PATH_CHECKPOINTS,
   MAX_HABIT_XP_PER_COMPLETION,
   reconcileUserProgress,
   type UserProgress,
@@ -57,6 +59,7 @@ import {
 } from "./habit-integrity";
 import {
   calculateLaurelsBalance,
+  createRewardTransaction,
   normalizeRewardTransactions,
   reconcileDailyGoalRewards,
   resetLaurelsBalance,
@@ -87,8 +90,8 @@ import {
 
 export { HABIT_COLORS, STARTER_HABIT_TEMPLATES } from "./habit-templates";
 export type { HabitTemplate, HabitTemplateId } from "./habit-templates";
-export { HEROIC_RANKS, MAX_HABIT_XP_PER_COMPLETION, completionXpAward, heroicRank, hiddenHeroicPathUnlocked, nextHeroicRank, visibleHeroicRanksForXp } from "./habit-progress";
-export type { HeroicRank, HeroicRankId, UserProgress } from "./habit-progress";
+export { FOUNDATIONAL_HEROIC_RANKS, HEROIC_RANKS, HERO_PATH_CHECKPOINTS, MAX_HABIT_XP_PER_COMPLETION, completionXpAward, heroicRank, hiddenHeroicPathUnlocked, nextHeroicRank, visibleHeroicRanksForXp } from "./habit-progress";
+export type { HeroicRank, HeroicRankId, HeroPathCheckpoint, UserProgress } from "./habit-progress";
 export { DEFAULT_HABIT_EMOJI, DEFAULT_HABIT_PRIORITY, HABIT_EMOJI_PRESETS, canRecordHabitOnDate, normalizeHabitEmoji, normalizeHabitPriority } from "./habit-integrity";
 export type { RewardCurrency, RewardReason, RewardTransaction } from "./rewards";
 export { DAILY_GOAL_LAURELS, PERFECT_DAY_LAURELS, laurelsForDailyGoal, resetLaurelsBalance } from "./rewards";
@@ -867,6 +870,41 @@ export function buyHestiaSpark(
       undefined,
       calculateLaurelsBalance(purchase.rewardTransactions),
       calculateStreakFreezeCount(purchase.streakFreezeTransactions),
+    ),
+  };
+}
+
+export function claimHeroPathAmphora(
+  workspace: HabitWorkspace,
+  rankId: string,
+  timestamp = new Date().toISOString(),
+): HabitWorkspace {
+  const checkpoint = HERO_PATH_CHECKPOINTS.find((item) => item.rankId === rankId);
+  if (!checkpoint) return workspace;
+  const rank = HEROIC_RANKS.find((item) => item.id === checkpoint.rankId);
+  if (!rank || workspace.userProgress.lifetimeXp < rank.threshold) return workspace;
+  const idempotencyKey = `hero-path-amphora:self:${checkpoint.rankId}`;
+  if (workspace.rewardTransactions.some((transaction) => transaction.idempotencyKey === idempotencyKey)) return workspace;
+  const rewardTransactions = normalizeRewardTransactions([
+    ...workspace.rewardTransactions,
+    createRewardTransaction({
+      amount: checkpoint.rewardLaurels,
+      reason: "hero-path-amphora",
+      sourceId: checkpoint.rankId,
+      idempotencyKey,
+      createdAt: timestamp,
+    }),
+  ]);
+  return {
+    ...workspace,
+    rewardTransactions,
+    userProgress: reconcileUserProgress(
+      workspace.userProgress,
+      workspace.habitCompletions,
+      timestamp,
+      undefined,
+      calculateLaurelsBalance(rewardTransactions),
+      calculateStreakFreezeCount(workspace.streakFreezeTransactions),
     ),
   };
 }
