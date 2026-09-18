@@ -77,6 +77,9 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(calendar, /id: "habits", label: "Привычки", symbol: "✦"/);
   assert.match(calendar, /<HabitDailyPanel[\s\S]*date=\{todayDateValue\}/);
   assert.match(calendar, /<HabitDailyPanel[\s\S]*date=\{selectedDateValue\}/);
+  assert.ok(calendar.indexOf("<DayRhythmPanel") < calendar.indexOf('className="today-create-panel"'));
+  assert.ok(calendar.indexOf('className="today-create-panel"') < calendar.indexOf("<HabitDailyPanel"));
+  assert.match(calendar, /Быстрое создание задач/);
   assert.match(calendar, /calendarMode=\{activeTaskCalendarMode\}/);
   assert.match(calendar, /<HabitTrackerPage/);
   assert.match(calendar, /habitTrackingEnabled=\{habitWorkspace\.habitSettings\.enabled\}/);

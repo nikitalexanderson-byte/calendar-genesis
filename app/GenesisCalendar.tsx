@@ -3508,23 +3508,11 @@ export function GenesisCalendar() {
           <DeviceClock timeFormat={activeTimeFormat} />
         </section>
 
-        {habitWorkspace.habitSettings.enabled ? (
-          <HabitDailyPanel
-            workspace={habitWorkspace}
-            date={todayDateValue}
-            language={language}
-            timeFormat={activeTimeFormat}
-            calendarMode={activeTaskCalendarMode}
-            onChange={updateHabitWorkspace}
-            onOpenHabits={() => navigateTo("habits")}
-          />
-        ) : null}
-
         <DayRhythmPanel now={today} timeFormat={activeTimeFormat} />
 
         <section className="today-create-panel" aria-labelledby="today-create-title">
           <div>
-            <span className="eyebrow">Быстрое действие</span>
+            <span className="eyebrow">Быстрое создание задач</span>
             <h2 id="today-create-title">Создать для сегодняшнего дня</h2>
           </div>
           <div className="today-create-options">
@@ -3538,6 +3526,18 @@ export function GenesisCalendar() {
             </details>
           </div>
         </section>
+
+        {habitWorkspace.habitSettings.enabled ? (
+          <HabitDailyPanel
+            workspace={habitWorkspace}
+            date={todayDateValue}
+            language={language}
+            timeFormat={activeTimeFormat}
+            calendarMode={activeTaskCalendarMode}
+            onChange={updateHabitWorkspace}
+            onOpenHabits={() => navigateTo("habits")}
+          />
+        ) : null}
 
         {moon.event || solarEvent ? (
           <section className="today-event-notices" aria-label="Особая сила сегодняшнего дня" aria-live="polite">

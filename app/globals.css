@@ -11453,9 +11453,9 @@ button.project-drag-handle:active { cursor: grabbing; }
 
 .day-details-modal .habit-daily-panel.compact { margin-top: 14px; padding: 16px; box-shadow: none; }
 .habit-daily-panel.compact .mood-options { grid-template-columns: repeat(8,minmax(0,1fr)); }
-.today-workspace .habit-daily-panel { order: 2; width: 100%; }
-.today-workspace .day-rhythm-panel { order: 3; }
-.today-workspace .today-create-panel { order: 4; }
+.today-workspace .day-rhythm-panel { order: 2; }
+.today-workspace .today-create-panel { order: 3; }
+.today-workspace .habit-daily-panel { order: 4; width: 100%; }
 .today-workspace .today-event-notices { order: 5; }
 .today-workspace .today-lower-grid { order: 6; }
 .today-workspace .five-day-strip { order: 7; }
