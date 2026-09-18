@@ -50,6 +50,7 @@ export type UserProgress = {
   lifetimeXp: number;
   laurelsBalance: number;
   currentRankId: HeroicRankId | null;
+  hiddenHeroicPathRevealedAt: string | null;
   currentStreak: number;
   longestStreak: number;
   lastQualifiedDate: string | null;
@@ -99,6 +100,10 @@ export const HERO_PATH_CHECKPOINTS: readonly HeroPathCheckpoint[] = [
   { rankId: "mountain-tamer", rewardLaurels: 25, title: "Амфора стойкости", titleEn: "Amphora of resolve" },
   { rankId: "iron-charioteer", rewardLaurels: 40, title: "Амфора мастерства", titleEn: "Amphora of mastery" },
   { rankId: "risen-from-the-abyss", rewardLaurels: 60, title: "Амфора бездны", titleEn: "Amphora of the abyss" },
+  { rankId: "golden-argonaut", rewardLaurels: 90, title: "Амфора странствия", titleEn: "Amphora of passage" },
+  { rankId: "arcadian-arrow", rewardLaurels: 130, title: "Амфора точности", titleEn: "Amphora of precision" },
+  { rankId: "spear-of-athena", rewardLaurels: 180, title: "Амфора мудрости", titleEn: "Amphora of wisdom" },
+  { rankId: "calydonian-glory-bearer", rewardLaurels: 260, title: "Амфора славы", titleEn: "Amphora of glory" },
 ] as const;
 
 export const UNRANKED_HEROIC_STATE = {
@@ -120,8 +125,14 @@ export function hiddenHeroicPathUnlocked(lifetimeXp: number) {
   return safeXp(lifetimeXp) >= HIDDEN_HEROIC_PATH_UNLOCK_XP;
 }
 
-export function visibleHeroicRanksForXp(lifetimeXp: number) {
-  return hiddenHeroicPathUnlocked(lifetimeXp) ? HEROIC_RANKS : FOUNDATIONAL_HEROIC_RANKS;
+export function hiddenHeroicPathRevealed(progress: Pick<UserProgress, "lifetimeXp" | "hiddenHeroicPathRevealedAt">) {
+  return hiddenHeroicPathUnlocked(progress.lifetimeXp)
+    && typeof progress.hiddenHeroicPathRevealedAt === "string"
+    && !Number.isNaN(Date.parse(progress.hiddenHeroicPathRevealedAt));
+}
+
+export function visibleHeroicRanksForXp(lifetimeXp: number, hiddenPathRevealed = false) {
+  return hiddenHeroicPathUnlocked(lifetimeXp) && hiddenPathRevealed ? HEROIC_RANKS : FOUNDATIONAL_HEROIC_RANKS;
 }
 
 export function highestRankForXp(lifetimeXp: number) {
@@ -133,9 +144,20 @@ export function heroicRank(lifetimeXp: number) {
   return highestRankForXp(lifetimeXp) ?? UNRANKED_HEROIC_STATE;
 }
 
+export function heroicRankForProgress(progress: Pick<UserProgress, "lifetimeXp" | "hiddenHeroicPathRevealedAt">) {
+  const visibleRanks = visibleHeroicRanksForXp(progress.lifetimeXp, hiddenHeroicPathRevealed(progress));
+  const rank = [...visibleRanks].reverse().find((item) => safeXp(progress.lifetimeXp) >= item.threshold);
+  return rank ?? UNRANKED_HEROIC_STATE;
+}
+
 export function nextHeroicRank(lifetimeXp: number) {
   const xp = safeXp(lifetimeXp);
   return HEROIC_RANKS.find((rank) => xp < rank.threshold) ?? null;
+}
+
+export function nextHeroicRankForProgress(progress: Pick<UserProgress, "lifetimeXp" | "hiddenHeroicPathRevealedAt">) {
+  const visibleRanks = visibleHeroicRanksForXp(progress.lifetimeXp, hiddenHeroicPathRevealed(progress));
+  return visibleRanks.find((rank) => safeXp(progress.lifetimeXp) < rank.threshold) ?? null;
 }
 
 export function completionXpAward(previousAward: unknown, completionScore: unknown, maximum = MAX_HABIT_XP_PER_COMPLETION) {
@@ -153,6 +175,9 @@ export function reconcileUserProgress(
   const awardedXp = sources.reduce((total, source) => total + safeXp(source.xpAwarded), 0);
   const lifetimeXp = Math.max(safeXp(value?.lifetimeXp), awardedXp);
   const currentRankId = highestRankForXp(lifetimeXp)?.id ?? null;
+  const hiddenHeroicPathRevealedAt = typeof value?.hiddenHeroicPathRevealedAt === "string" && !Number.isNaN(Date.parse(value.hiddenHeroicPathRevealedAt))
+    ? value.hiddenHeroicPathRevealedAt
+    : null;
   const currentStreak = streak?.currentStreak ?? safeXp(value?.currentStreak);
   const longestStreak = Math.max(streak?.longestStreak ?? safeXp(value?.longestStreak), currentStreak);
   const lastQualifiedDate = streak?.lastQualifiedDate ?? (typeof value?.lastQualifiedDate === "string" ? value.lastQualifiedDate : null);
@@ -161,6 +186,7 @@ export function reconcileUserProgress(
   const changed = lifetimeXp !== safeXp(value?.lifetimeXp)
     || laurelsBalance !== Math.round(Number(value?.laurelsBalance) || 0)
     || currentRankId !== (value?.currentRankId ?? null)
+    || hiddenHeroicPathRevealedAt !== (value?.hiddenHeroicPathRevealedAt ?? null)
     || currentStreak !== safeXp(value?.currentStreak)
     || longestStreak !== safeXp(value?.longestStreak)
     || lastQualifiedDate !== (value?.lastQualifiedDate ?? null)
@@ -170,6 +196,7 @@ export function reconcileUserProgress(
     lifetimeXp,
     laurelsBalance,
     currentRankId,
+    hiddenHeroicPathRevealedAt,
     currentStreak,
     longestStreak,
     lastQualifiedDate,

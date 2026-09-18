@@ -5,11 +5,12 @@ export function resetHabitWorkspace(
   timestamp = new Date().toISOString(),
 ): HabitWorkspace {
   return {
-    trackerSchemaVersion: 9,
+    trackerSchemaVersion: 10,
     userProgress: {
       lifetimeXp: 0,
       laurelsBalance: 0,
       currentRankId: null,
+      hiddenHeroicPathRevealedAt: null,
       currentStreak: 0,
       longestStreak: 0,
       lastQualifiedDate: null,

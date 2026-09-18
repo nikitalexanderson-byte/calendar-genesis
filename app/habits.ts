@@ -46,6 +46,7 @@ import {
   completionXpAward,
   HEROIC_RANKS,
   HERO_PATH_CHECKPOINTS,
+  hiddenHeroicPathUnlocked,
   MAX_HABIT_XP_PER_COMPLETION,
   reconcileUserProgress,
   type UserProgress,
@@ -90,7 +91,7 @@ import {
 
 export { HABIT_COLORS, STARTER_HABIT_TEMPLATES } from "./habit-templates";
 export type { HabitTemplate, HabitTemplateId } from "./habit-templates";
-export { FOUNDATIONAL_HEROIC_RANKS, HEROIC_RANKS, HERO_PATH_CHECKPOINTS, MAX_HABIT_XP_PER_COMPLETION, completionXpAward, heroicRank, hiddenHeroicPathUnlocked, nextHeroicRank, visibleHeroicRanksForXp } from "./habit-progress";
+export { FOUNDATIONAL_HEROIC_RANKS, HEROIC_RANKS, HERO_PATH_CHECKPOINTS, HIDDEN_HEROIC_RANKS, MAX_HABIT_XP_PER_COMPLETION, completionXpAward, heroicRank, heroicRankForProgress, hiddenHeroicPathRevealed, hiddenHeroicPathUnlocked, nextHeroicRank, nextHeroicRankForProgress, visibleHeroicRanksForXp } from "./habit-progress";
 export type { HeroicRank, HeroicRankId, HeroPathCheckpoint, UserProgress } from "./habit-progress";
 export { DEFAULT_HABIT_EMOJI, DEFAULT_HABIT_PRIORITY, HABIT_EMOJI_PRESETS, canRecordHabitOnDate, normalizeHabitEmoji, normalizeHabitPriority } from "./habit-integrity";
 export type { RewardCurrency, RewardReason, RewardTransaction } from "./rewards";
@@ -151,7 +152,7 @@ export type HabitSettings = {
 };
 
 export type HabitWorkspace = {
-  trackerSchemaVersion: 9;
+  trackerSchemaVersion: 10;
   userProgress: UserProgress;
   habits: Habit[];
   habitCompletions: HabitCompletion[];
@@ -230,11 +231,12 @@ export const DEFAULT_HABIT_SETTINGS: HabitSettings = {
 };
 
 export const EMPTY_HABIT_WORKSPACE: HabitWorkspace = {
-  trackerSchemaVersion: 9,
+  trackerSchemaVersion: 10,
   userProgress: {
     lifetimeXp: 0,
     laurelsBalance: 0,
     currentRankId: null,
+    hiddenHeroicPathRevealedAt: null,
     currentStreak: 0,
     longestStreak: 0,
     lastQualifiedDate: null,
@@ -626,7 +628,7 @@ export function normalizeHabitWorkspace(
   });
 
   const workspace: HabitWorkspace = {
-    trackerSchemaVersion: 9,
+    trackerSchemaVersion: 10,
     userProgress,
     habits,
     habitCompletions,
@@ -906,6 +908,21 @@ export function claimHeroPathAmphora(
       calculateLaurelsBalance(rewardTransactions),
       calculateStreakFreezeCount(workspace.streakFreezeTransactions),
     ),
+  };
+}
+
+export function revealHiddenHeroicPath(
+  workspace: HabitWorkspace,
+  timestamp = new Date().toISOString(),
+): HabitWorkspace {
+  if (!hiddenHeroicPathUnlocked(workspace.userProgress.lifetimeXp) || workspace.userProgress.hiddenHeroicPathRevealedAt) return workspace;
+  return {
+    ...workspace,
+    userProgress: {
+      ...workspace.userProgress,
+      hiddenHeroicPathRevealedAt: timestamp,
+      updatedAt: timestamp,
+    },
   };
 }
 
