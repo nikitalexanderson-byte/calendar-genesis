@@ -5,11 +5,18 @@ export type AchievementId =
   | "first-step"
   | "three-day-rhythm"
   | "seven-sunrises"
+  | "fortnight-rhythm"
   | "perfect-day"
   | "perfect-week"
   | "habit-thirty"
   | "century"
   | "iron-rhythm"
+  | "fifty-sunrises"
+  | "hundred-day-path"
+  | "half-year-circle"
+  | "full-revolution"
+  | "five-hundred-sunrises"
+  | "thousand-day-path"
   | "comeback"
   | "consistency";
 
@@ -49,11 +56,18 @@ export const ACHIEVEMENTS: readonly AchievementDefinition[] = [
   { id: "first-step", title: "Первый шаг", titleEn: "First Step", description: "Выполнить первую привычку.", descriptionEn: "Complete your first habit.", hidden: false, motif: "spark" },
   { id: "three-day-rhythm", title: "Нить ритма", titleEn: "Thread of Rhythm", description: "Сохранить серию три дня.", descriptionEn: "Keep a three-day streak.", hidden: false, motif: "steps" },
   { id: "seven-sunrises", title: "Семь восходов", titleEn: "Seven Sunrises", description: "Сохранить серию семь дней.", descriptionEn: "Keep a seven-day streak.", hidden: false, motif: "sun" },
+  { id: "fortnight-rhythm", title: "Укреплённый ритм", titleEn: "Anchored Rhythm", description: "Сохранить серию 14 дней.", descriptionEn: "Keep a 14-day streak.", hidden: false, motif: "steps" },
   { id: "perfect-day", title: "Завершённый круг", titleEn: "The Complete Circle", description: "Прожить первый идеальный день.", descriptionEn: "Reach your first Perfect Day.", hidden: false, motif: "circle" },
   { id: "perfect-week", title: "Идеальная неделя", titleEn: "Perfect Week", description: "Семь идеальных дней подряд.", descriptionEn: "Reach seven Perfect Days in a row.", hidden: true, motif: "crown" },
   { id: "habit-thirty", title: "Укоренение", titleEn: "Taking Root", description: "Выполнить одну привычку 30 раз.", descriptionEn: "Complete one habit 30 times.", hidden: false, motif: "leaf" },
   { id: "century", title: "Сотня", titleEn: "Century", description: "Выполнить одну привычку 100 раз.", descriptionEn: "Complete one habit 100 times.", hidden: false, motif: "column" },
   { id: "iron-rhythm", title: "Железный ритм", titleEn: "Iron Rhythm", description: "Сохранить серию 30 дней.", descriptionEn: "Keep a 30-day streak.", hidden: false, motif: "shield" },
+  { id: "fifty-sunrises", title: "Пятьдесят восходов", titleEn: "Fifty Sunrises", description: "Сохранить серию 50 дней.", descriptionEn: "Keep a 50-day streak.", hidden: false, motif: "sun" },
+  { id: "hundred-day-path", title: "Стодневный путь", titleEn: "Hundred-Day Path", description: "Сохранить серию 100 дней.", descriptionEn: "Keep a 100-day streak.", hidden: false, motif: "column" },
+  { id: "half-year-circle", title: "Полугодовой круг", titleEn: "Half-Year Circle", description: "Сохранить серию 180 дней.", descriptionEn: "Keep a 180-day streak.", hidden: true, motif: "circle" },
+  { id: "full-revolution", title: "Полный оборот", titleEn: "Full Revolution", description: "Сохранить серию 365 дней.", descriptionEn: "Keep a 365-day streak.", hidden: true, motif: "crown" },
+  { id: "five-hundred-sunrises", title: "Пятьсот восходов", titleEn: "Five Hundred Sunrises", description: "Сохранить серию 500 дней.", descriptionEn: "Keep a 500-day streak.", hidden: true, motif: "constellation" },
+  { id: "thousand-day-path", title: "Тысяча дней пути", titleEn: "A Thousand Days", description: "Сохранить серию 1000 дней.", descriptionEn: "Keep a 1,000-day streak.", hidden: true, motif: "constellation" },
   { id: "comeback", title: "Возвращение", titleEn: "The Return", description: "Завершить путь возвращения после разрыва серии.", descriptionEn: "Complete a comeback after a broken streak.", hidden: true, motif: "return" },
   { id: "consistency", title: "Созвездие постоянства", titleEn: "Constellation of Consistency", description: "Достичь 1000 суммарных выполнений привычек.", descriptionEn: "Reach 1,000 total habit completions.", hidden: true, motif: "constellation" },
 ] as const;
@@ -99,11 +113,18 @@ function qualifies(id: AchievementId, metrics: AchievementMetrics) {
   if (id === "first-step") return metrics.totalCompletions >= 1;
   if (id === "three-day-rhythm") return metrics.longestStreak >= 3;
   if (id === "seven-sunrises") return metrics.longestStreak >= 7;
+  if (id === "fortnight-rhythm") return metrics.longestStreak >= 14;
   if (id === "perfect-day") return metrics.hasPerfectDay;
   if (id === "perfect-week") return metrics.longestPerfectRun >= 7;
   if (id === "habit-thirty") return metrics.bestHabitCompletions >= 30;
   if (id === "century") return metrics.bestHabitCompletions >= 100;
   if (id === "iron-rhythm") return metrics.longestStreak >= 30;
+  if (id === "fifty-sunrises") return metrics.longestStreak >= 50;
+  if (id === "hundred-day-path") return metrics.longestStreak >= 100;
+  if (id === "half-year-circle") return metrics.longestStreak >= 180;
+  if (id === "full-revolution") return metrics.longestStreak >= 365;
+  if (id === "five-hundred-sunrises") return metrics.longestStreak >= 500;
+  if (id === "thousand-day-path") return metrics.longestStreak >= 1_000;
   if (id === "comeback") return metrics.hasComeback;
   return metrics.totalCompletions >= 1_000;
 }

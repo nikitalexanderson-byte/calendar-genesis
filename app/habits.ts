@@ -109,6 +109,14 @@ import {
   applyHabitDeletionLaurelPolicy,
   reconcileOrphanedHabitLaurels,
 } from "./habit-laurel-retention";
+import {
+  normalizeHabitRitualId,
+  normalizeHabitRitualName,
+  normalizeKeyHabitSelection,
+  suggestedHabitRitual,
+  type HabitRitualId,
+} from "./habit-guidance";
+import { reconcileStreakMilestoneRewards } from "./streak-rewards";
 
 export { HABIT_COLORS, STARTER_HABIT_TEMPLATES } from "./habit-templates";
 export type { HabitTemplate, HabitTemplateId } from "./habit-templates";
@@ -119,10 +127,14 @@ export type { RewardCurrency, RewardReason, RewardTransaction } from "./rewards"
 export { DAILY_GOAL_LAURELS, PERFECT_DAY_LAURELS, laurelsForDailyGoal, resetLaurelsBalance } from "./rewards";
 export { COMEBACK_REWARD_LAURELS, COMEBACK_TARGET_DAYS, HESTIA_SPARK_COST, HESTIA_SPARK_MAX, calculateComebackSummary, calculateStreakFreezeCount } from "./streak-protection";
 export type { ComebackSummary, StreakFreezeReason, StreakFreezeTransaction } from "./streak-protection";
-export { DAILY_QUEST_LAURELS, WEEKLY_QUEST_LAURELS, currentHabitQuests, habitQuestWeek } from "./habit-quests";
+export { DAILY_QUEST_LAURELS, EPIC_QUEST_LAURELS, WEEKLY_QUEST_LAURELS, currentHabitQuests, habitQuestMonth, habitQuestWeek } from "./habit-quests";
 export type { HabitQuest, HabitQuestCadence, HabitQuestKind } from "./habit-quests";
 export { ACHIEVEMENTS, achievementMetrics } from "./achievements";
 export type { AchievementDefinition, AchievementId, AchievementUnlock } from "./achievements";
+export { HABIT_RITUAL_OPTIONS, buildAdaptiveHabitSuggestions, groupHabitsByRitual, habitRitualLabel, normalizeKeyHabitSelection } from "./habit-guidance";
+export type { AdaptiveHabitSuggestion, HabitRitualGroup, HabitRitualId } from "./habit-guidance";
+export { STREAK_REWARD_MILESTONES, claimedStreakMilestones } from "./streak-rewards";
+export type { StreakRewardMilestone } from "./streak-rewards";
 export { HABIT_LAUREL_RETENTION_COMPLETIONS, habitCompletionCount, habitRetainsLaurelsOnDeletion } from "./habit-laurel-retention";
 export { dailyGoalTarget } from "./daily-goal";
 export type { DailyGoalMode, DailyGoalModeChange, DailyGoalRecord, DailyGoalStatus } from "./daily-goal";
@@ -146,6 +158,9 @@ export type Habit = TrackerEntity & {
   createdDate: string;
   emoji: string;
   priority: number;
+  isKeyHabit: boolean;
+  ritualId: HabitRitualId;
+  ritualName: string;
   color: string;
   active: boolean;
   sourceTemplateId: HabitTemplateId | null;
@@ -179,7 +194,7 @@ export type HabitSettings = {
 };
 
 export type HabitWorkspace = {
-  trackerSchemaVersion: 14;
+  trackerSchemaVersion: 15;
   userProgress: UserProgress;
   habits: Habit[];
   habitCompletions: HabitCompletion[];
@@ -214,6 +229,9 @@ type LegacyHabit = Partial<TrackerEntity> & {
   createdDate?: string;
   emoji?: string;
   priority?: number;
+  isKeyHabit?: boolean;
+  ritualId?: HabitRitualId;
+  ritualName?: string;
   kind?: "positive" | "negative" | "monitor" | "sleep" | "wake";
   color?: string;
   active?: boolean;
@@ -261,7 +279,7 @@ export const DEFAULT_HABIT_SETTINGS: HabitSettings = {
 };
 
 export const EMPTY_HABIT_WORKSPACE: HabitWorkspace = {
-  trackerSchemaVersion: 14,
+  trackerSchemaVersion: 15,
   userProgress: {
     lifetimeXp: 0,
     laurelsBalance: 0,
@@ -400,6 +418,9 @@ function normalizeHabit(value: LegacyHabit, fallbackDate: string, calendarMode: 
     createdDate,
     emoji: normalizeHabitEmoji(value.emoji ?? templateEmoji),
     priority: normalizeHabitPriority(value.priority),
+    isKeyHabit: value.isKeyHabit === true,
+    ritualId: normalizeHabitRitualId(value.ritualId),
+    ritualName: normalizeHabitRitualName(value.ritualName),
     color: typeof value.color === "string" ? value.color : HABIT_COLORS[0],
     active: value.active !== false,
     sourceTemplateId,
@@ -608,9 +629,9 @@ export function normalizeHabitWorkspace(
   const fallbackDate = habitDateKey(new Date());
   const rawHabits = Array.isArray(value.habits) ? value.habits as LegacyHabit[] : [];
   const regularRaw = rawHabits.filter((habit) => !["negative", "sleep", "wake"].includes(habit.kind ?? "positive"));
-  const habits = regularRaw
+  const habits = normalizeKeyHabitSelection(regularRaw
     .map((habit) => normalizeHabit(habit, fallbackDate, calendarMode))
-    .filter((habit): habit is Habit => habit !== null);
+    .filter((habit): habit is Habit => habit !== null));
   const habitMap = new Map(habits.map((habit) => [habit.id, habit]));
   const rawEntries = Array.isArray(value.habitCompletions)
     ? value.habitCompletions as LegacyHabitEntry[]
@@ -668,7 +689,7 @@ export function normalizeHabitWorkspace(
   });
 
   const workspace: HabitWorkspace = {
-    trackerSchemaVersion: 14,
+    trackerSchemaVersion: 15,
     userProgress,
     habits,
     habitCompletions,
@@ -803,7 +824,8 @@ function withDailyGoalStreak(
   };
   const streak = calculateGlobalStreak(protectedWorkspace.dailyGoalRecords, today);
   const earnedTransactions = reconcileDailyGoalRewards(protectedWorkspace.dailyGoalRecords, protectedWorkspace.rewardTransactions, today);
-  const resetTransactions = reconcileMissedHabitLaurels(protectedWorkspace, earnedTransactions, today, timestamp, calendarMode);
+  const milestoneTransactions = reconcileStreakMilestoneRewards(protectedWorkspace.dailyGoalRecords, earnedTransactions);
+  const resetTransactions = reconcileMissedHabitLaurels(protectedWorkspace, milestoneTransactions, today, timestamp, calendarMode);
   const comebackTransactions = reconcileComebackRewards(protectedWorkspace.dailyGoalRecords, resetTransactions, today, timestamp);
   const quests = reconcileHabitQuests({
     quests: protectedWorkspace.quests,
@@ -1102,6 +1124,9 @@ export function defaultHabit(date: string, calendarMode: CalendarMode): Habit {
     createdDate: date,
     emoji: DEFAULT_HABIT_EMOJI,
     priority: DEFAULT_HABIT_PRIORITY,
+    isKeyHabit: false,
+    ritualId: "none",
+    ritualName: "",
     color: HABIT_COLORS[0],
     active: true,
     sourceTemplateId: null,
@@ -1143,6 +1168,7 @@ export function createHabitFromTemplate(
     description: language === "en" ? template.descriptionEn : template.description,
     color: template.color,
     preferredTime: template.suggestedTime,
+    ritualId: suggestedHabitRitual(template.suggestedTime),
     schedule,
     reminder: {
       enabled: false,
@@ -1171,6 +1197,7 @@ export function createHabitFromSacredPractice(
     color: practice.color,
     priority: normalizeHabitPriority(practice.priority),
     preferredTime: practice.suggestedTime,
+    ritualId: suggestedHabitRitual(practice.suggestedTime),
     reminder: {
       enabled: false,
       time: practice.suggestedTime,
@@ -1180,4 +1207,20 @@ export function createHabitFromSacredPractice(
       googleEventId: null,
     },
   };
+}
+
+export function setKeyHabit(
+  workspace: HabitWorkspace,
+  habitId: string | null,
+  timestamp = new Date().toISOString(),
+): HabitWorkspace {
+  if (habitId && !workspace.habits.some((habit) => habit.id === habitId)) return workspace;
+  let changed = false;
+  const habits = workspace.habits.map((habit) => {
+    const isKeyHabit = habit.id === habitId;
+    if (habit.isKeyHabit === isKeyHabit) return habit;
+    changed = true;
+    return { ...habit, isKeyHabit, updatedAt: timestamp, version: habit.version + 1, syncState: "pending" as const };
+  });
+  return changed ? { ...workspace, habits } : workspace;
 }
