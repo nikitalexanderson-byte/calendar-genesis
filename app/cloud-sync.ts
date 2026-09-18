@@ -612,6 +612,7 @@ export async function loadGenesisWorkspace(): Promise<GenesisWorkspace> {
     taskLists: Array.isArray(payload.taskLists) ? payload.taskLists : [],
     taskListLinks: structure.taskListLinks,
     trackerSchemaVersion: structure.trackerSchemaVersion,
+    userProgress: structure.userProgress,
     habits: structure.habits,
     habitCompletions: structure.habitCompletions,
     sleepPlans: structure.sleepPlans,

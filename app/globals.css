@@ -11498,7 +11498,7 @@ button.project-drag-handle:active { cursor: grabbing; }
 .habit-ranking-list > article { display: grid; grid-template-columns: 5px minmax(0,1fr) auto; align-items:center; gap:10px; padding:9px 10px; border:1px solid var(--line); border-radius:8px; }
 .habit-ranking-list > article > i { width:5px; height:30px; border-radius:8px; background:var(--habit-color); }
 .habit-ranking-list > article > div { display:grid; gap:3px; }.habit-ranking-list > article strong { font-size:10px; }.habit-ranking-list > article small { color:var(--ink-soft); font-size:7px; }.habit-ranking-list > article > span { color:var(--habit-color); font:500 13px/1 Georgia,serif; }
-.heroic-rank-road > div { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:6px; margin-top:14px; }
+.heroic-rank-road > div { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; margin-top:14px; }
 .heroic-rank-road article { display:grid; min-height:112px; place-items:center; align-content:center; gap:5px; padding:9px 5px; opacity:.38; border:1px solid var(--line); border-radius:10px; text-align:center; }
 .heroic-rank-road article.reached { opacity:1; border-color:color-mix(in srgb,var(--rank-color),transparent 55%); background:color-mix(in srgb,var(--rank-color) 7%,#fffdf8); }
 .heroic-rank-road article > span { display:grid; width:39px; height:39px; place-items:center; color:var(--rank-color); border:1px solid currentColor; border-radius:50%; font:18px/1 Georgia,serif; }
