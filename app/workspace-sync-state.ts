@@ -14,6 +14,7 @@ export const WORKSPACE_SYNC_COLLECTIONS = [
   "analyticsSnapshots",
   "dailyGoalRecords",
   "rewardTransactions",
+  "streakFreezeTransactions",
 ] as const;
 
 export const WORKSPACE_SYNC_FIELDS = [
@@ -123,7 +124,7 @@ function collectionItems(document: SyncableWorkspaceDocument | null | undefined,
 export function workspaceSyncEntityId(collection: WorkspaceSyncCollection, item: Record<string, unknown>) {
   if (collection === "taskListLinks") return typeof item.taskListId === "string" ? item.taskListId : "";
   if (collection === "dailyGoalRecords") return typeof item.date === "string" ? item.date : "";
-  if (collection === "rewardTransactions") {
+  if (collection === "rewardTransactions" || collection === "streakFreezeTransactions") {
     return typeof item.idempotencyKey === "string" && item.idempotencyKey
       ? item.idempotencyKey
       : typeof item.id === "string" ? item.id : "";

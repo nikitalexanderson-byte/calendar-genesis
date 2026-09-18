@@ -1,5 +1,5 @@
 export type DailyGoalMode = "easy" | "rhythm" | "perfect";
-export type DailyGoalStatus = "open" | "qualified" | "perfect" | "missed" | "neutral" | "rest" | "timezone-shift";
+export type DailyGoalStatus = "open" | "qualified" | "perfect" | "missed" | "protected" | "neutral" | "rest" | "timezone-shift";
 
 export type DailyGoalModeChange = {
   effectiveFrom: string;
@@ -26,7 +26,7 @@ export type DailyGoalStreakSummary = {
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const MODES: readonly DailyGoalMode[] = ["easy", "rhythm", "perfect"];
-const STATUSES: readonly DailyGoalStatus[] = ["open", "qualified", "perfect", "missed", "neutral", "rest", "timezone-shift"];
+const STATUSES: readonly DailyGoalStatus[] = ["open", "qualified", "perfect", "missed", "protected", "neutral", "rest", "timezone-shift"];
 
 function safeCount(value: unknown) {
   return Math.max(0, Math.round(Number(value) || 0));
@@ -88,6 +88,7 @@ export function buildDailyGoalRecord(input: {
   today: string;
   isRestDay?: boolean;
   isTimezoneShift?: boolean;
+  isStreakProtected?: boolean;
   updatedAt?: string;
 }): DailyGoalRecord {
   const scheduledCount = safeCount(input.scheduledCount);
@@ -97,6 +98,8 @@ export function buildDailyGoalRecord(input: {
     ? "rest"
     : input.isTimezoneShift
       ? "timezone-shift"
+      : input.isStreakProtected
+        ? "protected"
       : scheduledCount === 0
         ? "neutral"
         : completedCount === scheduledCount

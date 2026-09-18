@@ -8,6 +8,7 @@ export type RewardReason =
   | "streak-milestone"
   | "rank-up"
   | "achievement"
+  | "comeback"
   | "hestia-spark"
   | "habit-deleted-reset"
   | "habit-missed-reset";
@@ -35,6 +36,7 @@ const REWARD_REASONS: readonly RewardReason[] = [
   "streak-milestone",
   "rank-up",
   "achievement",
+  "comeback",
   "hestia-spark",
   "habit-deleted-reset",
   "habit-missed-reset",

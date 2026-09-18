@@ -134,6 +134,7 @@ export function reconcileUserProgress(
   timestamp = new Date().toISOString(),
   streak?: { currentStreak: number; longestStreak: number; lastQualifiedDate: string | null },
   laurelsBalance = Math.round(Number(value?.laurelsBalance) || 0),
+  streakFreezeCountValue = safeXp(value?.streakFreezeCount),
 ): UserProgress {
   const awardedXp = sources.reduce((total, source) => total + safeXp(source.xpAwarded), 0);
   const lifetimeXp = Math.max(safeXp(value?.lifetimeXp), awardedXp);
@@ -142,7 +143,7 @@ export function reconcileUserProgress(
   const longestStreak = Math.max(streak?.longestStreak ?? safeXp(value?.longestStreak), currentStreak);
   const lastQualifiedDate = streak?.lastQualifiedDate ?? (typeof value?.lastQualifiedDate === "string" ? value.lastQualifiedDate : null);
   const streakGoalMode = ["easy", "rhythm", "perfect"].includes(value?.streakGoalMode ?? "") ? value!.streakGoalMode! : "rhythm";
-  const streakFreezeCount = safeXp(value?.streakFreezeCount);
+  const streakFreezeCount = Math.min(2, safeXp(streakFreezeCountValue));
   const changed = lifetimeXp !== safeXp(value?.lifetimeXp)
     || laurelsBalance !== Math.round(Number(value?.laurelsBalance) || 0)
     || currentRankId !== (value?.currentRankId ?? null)

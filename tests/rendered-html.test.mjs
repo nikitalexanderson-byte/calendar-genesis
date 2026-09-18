@@ -75,6 +75,16 @@ import {
   resetLaurelsBalance,
 } from "../app/rewards.ts";
 import {
+  COMEBACK_REWARD_LAURELS,
+  HESTIA_SPARK_COST,
+  HESTIA_SPARK_MAX,
+  applyAutomaticStreakProtection,
+  calculateComebackSummary,
+  calculateStreakFreezeCount,
+  purchaseHestiaSpark,
+  reconcileComebackRewards,
+} from "../app/streak-protection.ts";
+import {
   mergeWorkspaceDocuments,
   prepareWorkspaceForSync,
 } from "../app/workspace-sync-state.ts";
@@ -99,7 +109,8 @@ test("encrypted workspace sync merges concurrent entities and preserves deletion
       analyticsSnapshots: [],
       dailyGoalRecords: [],
       rewardTransactions: [],
-      trackerSchemaVersion: 8,
+      streakFreezeTransactions: [],
+      trackerSchemaVersion: 9,
       userProgress: { lifetimeXp: 0 },
       habitSettings: { enabled: true },
       hiddenDefaultTemplates: [],
@@ -146,14 +157,22 @@ test("workspace merge deduplicates reward ledger entries by idempotency key", ()
   const common = {
     projects: [], categories: [], taskListLinks: [], habits: [], habitCompletions: [], sleepPlans: [], sleepEntries: [],
     moodEntries: [], addictionTrackers: [], addictionEntries: [], analyticsSnapshots: [], dailyGoalRecords: [],
-    trackerSchemaVersion: 8, userProgress: {}, habitSettings: {}, hiddenDefaultTemplates: [],
+    trackerSchemaVersion: 9, userProgress: {}, habitSettings: {}, hiddenDefaultTemplates: [], streakFreezeTransactions: [],
   };
   const left = prepareWorkspaceForSync({
-    current: { ...common, rewardTransactions: [{ id: "one", idempotencyKey: "daily-goal:self:2026-09-18", amount: 5 }] },
+    current: {
+      ...common,
+      rewardTransactions: [{ id: "one", idempotencyKey: "daily-goal:self:2026-09-18", amount: 5 }],
+      streakFreezeTransactions: [{ id: "spark-one", idempotencyKey: "hestia-spark-purchase:self:spark-one", amount: 1 }],
+    },
     clock: syncClock(1, "2026-09-18T09:00:00.000Z", "device-a"),
   });
   const right = prepareWorkspaceForSync({
-    current: { ...common, rewardTransactions: [{ id: "two", idempotencyKey: "daily-goal:self:2026-09-18", amount: 5 }] },
+    current: {
+      ...common,
+      rewardTransactions: [{ id: "two", idempotencyKey: "daily-goal:self:2026-09-18", amount: 5 }],
+      streakFreezeTransactions: [{ id: "spark-two", idempotencyKey: "hestia-spark-purchase:self:spark-one", amount: 1 }],
+    },
     clock: syncClock(1, "2026-09-18T09:00:00.000Z", "device-b"),
   });
   const merged = mergeWorkspaceDocuments({
@@ -164,6 +183,8 @@ test("workspace merge deduplicates reward ledger entries by idempotency key", ()
   }).document;
   assert.equal(merged.rewardTransactions.length, 1);
   assert.equal(merged.rewardTransactions[0].idempotencyKey, "daily-goal:self:2026-09-18");
+  assert.equal(merged.streakFreezeTransactions.length, 1);
+  assert.equal(merged.streakFreezeTransactions[0].idempotencyKey, "hestia-spark-purchase:self:spark-one");
 });
 
 test("workspace API uses monotonic compare-and-swap without exposing plaintext", async () => {
@@ -264,7 +285,7 @@ test("account deletion atomically purges only the authenticated user's server an
 });
 
 test("ships the modular encrypted tracker across dashboard, calendars and account settings", async () => {
-  const [calendar, tracker, habits, habitReset, progress, dailyGoal, rewards, sleep, mood, addiction, analytics, cache, trackerMath, cloud, account, repository, migration, styles, sigil, metricSigil, rankArt] = await Promise.all([
+  const [calendar, tracker, habits, habitReset, progress, dailyGoal, rewards, streakProtection, sleep, mood, addiction, analytics, cache, trackerMath, cloud, account, repository, migration, styles, sigil, metricSigil, rankArt] = await Promise.all([
     readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/HabitTracker.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/habits.ts", import.meta.url), "utf8"),
@@ -272,6 +293,7 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
     readFile(new URL("../app/habit-progress.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/daily-goal.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/rewards.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/streak-protection.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/sleep-tracker.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/mood-tracker.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/addiction-tracker.ts", import.meta.url), "utf8"),
@@ -330,7 +352,7 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(habits, /STARTER_HABIT_TEMPLATES/);
   assert.match(habits, /createHabitFromTemplate/);
   assert.match(habits, /normalizeHiddenDefaultTemplates/);
-  assert.match(habits, /trackerSchemaVersion: 8/);
+  assert.match(habits, /trackerSchemaVersion: 9/);
   assert.match(habits, /createdDate: string/);
   assert.match(habits, /emoji: string/);
   assert.match(habits, /priority: number/);
@@ -338,6 +360,7 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(habits, /xpAwarded: number/);
   assert.match(habits, /dailyGoalRecords: DailyGoalRecord/);
   assert.match(habits, /rewardTransactions: RewardTransaction/);
+  assert.match(habits, /streakFreezeTransactions: StreakFreezeTransaction/);
   assert.match(habits, /refreshDailyGoalProgress/);
   assert.match(dailyGoal, /calculateGlobalStreak/);
   assert.match(rewards, /reconcileDailyGoalRewards/);
@@ -346,6 +369,10 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(habits, /habit-deleted:self:/);
   assert.match(habits, /export function reconcileMissedHabitLaurels/);
   assert.match(habits, /export function removeHabitFromWorkspace/);
+  assert.match(habits, /export function buyHestiaSpark/);
+  assert.match(streakProtection, /export function applyAutomaticStreakProtection/);
+  assert.match(streakProtection, /hestia-spark-use:self:/);
+  assert.match(streakProtection, /comeback:self:/);
   assert.match(habitReset, /export function resetHabitWorkspace/);
   assert.equal((progress.match(/titleEn:/g) ?? []).length, 30);
   assert.match(sleep, /type SleepPlan/);
@@ -372,6 +399,9 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(tracker, /heroic-rank-road/);
   assert.match(tracker, /daily-goal-ring/);
   assert.match(tracker, /habits-hero-laurels/);
+  assert.match(tracker, /hestia-spark-card/);
+  assert.match(tracker, /comeback-card/);
+  assert.match(tracker, /не начисляя XP и не создавая ложного выполнения/);
   assert.match(tracker, /laurel-ledger/);
   assert.match(tracker, /Лавров начислено/);
   assert.match(tracker, /Режим дневной цели/);
@@ -448,6 +478,7 @@ test("resetting habit tracking clears every tracker and statistic while preservi
     analyticsSnapshots: [{ id: "snapshot" }],
     dailyGoalRecords: [{ id: "goal" }],
     rewardTransactions: [{ id: "reward" }],
+    streakFreezeTransactions: [{ id: "freeze" }],
     habitSettings: {
       enabled: false,
       reportRange: "custom",
@@ -471,6 +502,7 @@ test("resetting habit tracking clears every tracker and statistic while preservi
     "analyticsSnapshots",
     "dailyGoalRecords",
     "rewardTransactions",
+    "streakFreezeTransactions",
     "hiddenDefaultTemplates",
   ]) assert.deepEqual(reset[field], []);
   assert.equal(reset.userProgress.lifetimeXp, 0);
@@ -620,6 +652,148 @@ test("daily goals preserve future-only modes and global streak rules", () => {
   assert.equal(timezoneTransition[1].status, "timezone-shift");
   assert.equal(calculateGlobalStreak(timezoneTransition, "2026-09-20").currentStreak, 2, "a timezone transition must not destroy a valid streak");
   assert.equal(reconcileDailyGoalRewards(timezoneTransition, [], "2026-09-20").filter((item) => item.sourceId === "2026-09-19").length, 0, "a timezone transition cannot mint a duplicate daily reward");
+});
+
+test("Hestia Sparks use idempotent ledgers and protect only the global streak", () => {
+  assert.equal(HESTIA_SPARK_COST, 120);
+  assert.equal(HESTIA_SPARK_MAX, 2);
+  const insufficient = purchaseHestiaSpark({
+    rewardTransactions: [],
+    streakFreezeTransactions: [],
+    laurelsBalance: HESTIA_SPARK_COST - 1,
+    purchaseId: "insufficient",
+  });
+  assert.equal(insufficient.ok, false);
+  assert.equal(insufficient.reason, "insufficient-laurels");
+  const funds = [createRewardTransaction({
+    amount: 300,
+    reason: "weekly-quest",
+    sourceId: "quest-funding",
+    idempotencyKey: "weekly-quest:self:quest-funding",
+    createdAt: "2026-09-18T08:00:00.000Z",
+  })];
+  const first = purchaseHestiaSpark({
+    rewardTransactions: funds,
+    streakFreezeTransactions: [],
+    laurelsBalance: 300,
+    purchaseId: "spark-one",
+    createdAt: "2026-09-18T09:00:00.000Z",
+  });
+  assert.equal(first.ok, true);
+  assert.equal(first.reason, "purchased");
+  assert.equal(calculateLaurelsBalance(first.rewardTransactions), 180);
+  assert.equal(calculateStreakFreezeCount(first.streakFreezeTransactions), 1);
+
+  const retry = purchaseHestiaSpark({
+    rewardTransactions: first.rewardTransactions,
+    streakFreezeTransactions: first.streakFreezeTransactions,
+    laurelsBalance: 180,
+    purchaseId: "spark-one",
+    createdAt: "2026-09-18T09:05:00.000Z",
+  });
+  assert.equal(retry.reason, "already-purchased");
+  assert.deepEqual(retry.rewardTransactions, first.rewardTransactions);
+  assert.deepEqual(retry.streakFreezeTransactions, first.streakFreezeTransactions);
+
+  const second = purchaseHestiaSpark({
+    rewardTransactions: retry.rewardTransactions,
+    streakFreezeTransactions: retry.streakFreezeTransactions,
+    laurelsBalance: 180,
+    purchaseId: "spark-two",
+    createdAt: "2026-09-18T10:00:00.000Z",
+  });
+  assert.equal(calculateLaurelsBalance(second.rewardTransactions), 60);
+  assert.equal(calculateStreakFreezeCount(second.streakFreezeTransactions), 2);
+  const full = purchaseHestiaSpark({
+    rewardTransactions: second.rewardTransactions,
+    streakFreezeTransactions: second.streakFreezeTransactions,
+    laurelsBalance: 60,
+    purchaseId: "spark-three",
+  });
+  assert.equal(full.ok, false);
+  assert.equal(full.reason, "inventory-full");
+
+  const record = (date, completedCount, today = "2026-09-20") => buildDailyGoalRecord({
+    date,
+    mode: "rhythm",
+    timezone: "Europe/Moscow",
+    scheduledCount: 2,
+    completedCount,
+    today,
+    updatedAt: `${date}T20:00:00.000Z`,
+  });
+  const records = [record("2026-09-18", 2), record("2026-09-19", 0)];
+  const protectedState = applyAutomaticStreakProtection({
+    records,
+    transactions: first.streakFreezeTransactions,
+    protectableDates: new Set(["2026-09-19"]),
+    today: "2026-09-20",
+    timestamp: "2026-09-20T00:00:00.000Z",
+  });
+  assert.equal(protectedState.records[1].status, "protected");
+  assert.equal(protectedState.records[1].completedCount, 0, "a Spark must not create a fake completion");
+  assert.equal(calculateStreakFreezeCount(protectedState.transactions), 0);
+  assert.equal(calculateGlobalStreak(protectedState.records, "2026-09-20").currentStreak, 1);
+  assert.equal(reconcileDailyGoalRewards(protectedState.records, [], "2026-09-20").some((item) => item.sourceId === "2026-09-19"), false, "a protected miss grants no Laurels");
+
+  const repeatedProtection = applyAutomaticStreakProtection({
+    records: protectedState.records,
+    transactions: protectedState.transactions,
+    protectableDates: new Set(["2026-09-19"]),
+    today: "2026-09-20",
+  });
+  assert.equal(repeatedProtection.transactions.filter((item) => item.reason === "automatic-use").length, 1, "replay cannot consume the same Spark twice");
+
+  const neutralDay = buildDailyGoalRecord({ date: "2026-09-19", mode: "rhythm", timezone: "Europe/Moscow", scheduledCount: 0, completedCount: 0, today: "2026-09-20" });
+  const neutralState = applyAutomaticStreakProtection({
+    records: [record("2026-09-18", 2), neutralDay],
+    transactions: first.streakFreezeTransactions,
+    protectableDates: new Set(["2026-09-19"]),
+    today: "2026-09-20",
+  });
+  assert.equal(calculateStreakFreezeCount(neutralState.transactions), 1, "neutral days cannot consume a Spark");
+});
+
+test("Comeback rewards three successful days without restoring the broken streak", () => {
+  assert.equal(COMEBACK_REWARD_LAURELS, 15);
+  const record = (date, completedCount) => buildDailyGoalRecord({
+    date,
+    mode: "rhythm",
+    timezone: "Europe/Moscow",
+    scheduledCount: 2,
+    completedCount,
+    today: "2026-09-24",
+    updatedAt: `${date}T20:00:00.000Z`,
+  });
+  const partial = [
+    record("2026-09-18", 2),
+    record("2026-09-19", 0),
+    record("2026-09-20", 2),
+    record("2026-09-21", 2),
+  ];
+  assert.deepEqual(calculateComebackSummary(partial, "2026-09-24"), {
+    active: true,
+    triggerDate: "2026-09-19",
+    progress: 2,
+    target: 3,
+    lastCompletedDate: null,
+  });
+  const completed = [...partial, record("2026-09-22", 2)];
+  const summary = calculateComebackSummary(completed, "2026-09-24");
+  assert.equal(summary.active, false);
+  assert.equal(summary.lastCompletedDate, "2026-09-22");
+  assert.equal(calculateGlobalStreak(completed, "2026-09-24").currentStreak, 3, "Comeback rebuilds from zero instead of restoring the previous streak");
+
+  const rewards = reconcileComebackRewards(completed, [], "2026-09-24", "2026-09-24T12:00:00.000Z");
+  assert.equal(rewards.length, 1);
+  assert.equal(rewards[0].amount, COMEBACK_REWARD_LAURELS);
+  assert.equal(rewards[0].reason, "comeback");
+  assert.deepEqual(reconcileComebackRewards(completed, rewards, "2026-09-24"), rewards, "Comeback reward must be idempotent");
+
+  const protectedMiss = { ...record("2026-09-19", 0), status: "protected" };
+  const noComeback = calculateComebackSummary([record("2026-09-18", 2), protectedMiss, record("2026-09-20", 2)], "2026-09-24");
+  assert.equal(noComeback.active, false);
+  assert.equal(noComeback.lastCompletedDate, null, "a protected day must not start Comeback");
 });
 
 test("Laurels use an idempotent ledger for daily goals and Perfect Days", () => {
