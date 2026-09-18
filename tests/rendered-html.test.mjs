@@ -1122,6 +1122,14 @@ test("Phase K builds weighted rhythm, weekly comparison, year mosaic and per-hab
   assert.equal(mosaic.find((cell) => cell.date === "2026-09-18").status, "perfect");
   assert.equal(mosaic.find((cell) => cell.date === "2026-12-31").status, "future");
   assert.ok(mosaic.every((cell) => cell.week >= 1 && cell.week <= 53 && cell.weekday >= 1 && cell.weekday <= 7));
+
+  const calendarYearMosaic = buildHabitYearMosaic(workspace.dailyGoalRecords, "2026-09-18", { start: "2026-03-20", end: "2027-03-19" });
+  assert.equal(calendarYearMosaic[0].date, "2026-03-20");
+  assert.equal(calendarYearMosaic.at(-1).date, "2027-03-19");
+  assert.equal(calendarYearMosaic.length, 365);
+
+  const presentedMonth = buildHabitPersonalRecord(habit, completions, "2026-09-18", "sacred", () => true, () => ({ key: "sacred:2026:5", label: "ТРИГЕ · 2026" }));
+  assert.equal(presentedMonth.bestMonth, "ТРИГЕ · 2026");
 });
 
 test("daily, weekly and epic trials stay achievable and reward idempotently", () => {
@@ -1859,6 +1867,43 @@ test("resolves the elemental period and divine watch from device time", () => {
   assert.equal(formatDayRhythmRange(18, 24, "24h"), "18:00–00:00");
   assert.equal(formatDayRhythmRange(18, 24, "12h"), "06:00 PM–12:00 AM");
   assert.equal(formatDayRhythmRange(0, 6, "12h"), "12:00 AM–06:00 AM");
+});
+
+test("habit dates follow the selected calendar while canonical day keys stay stable", async () => {
+  const [calendarData, tracker, insightsPanel, insights, habits, recurrenceBuilder, calendarDatePicker] = await Promise.all([
+    readFile(new URL("../app/calendar-data.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/HabitTracker.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/HabitInsightsPanel.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/habit-insights.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/habits.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/RecurrenceBuilder.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/CalendarDatePicker.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(calendarData, /export function formatCalendarDateValue/);
+  assert.match(calendarData, /export function calendarYearRange/);
+  assert.match(calendarData, /export function calendarMonthRange/);
+  assert.match(calendarData, /export function calendarQuarterRange/);
+  assert.match(calendarData, /export function calendarMonthKey/);
+  assert.match(calendarData, /export function formatCalendarMonthValue/);
+  assert.match(tracker, /reportCalendarStarts\(date, calendarMode\)/);
+  assert.match(tracker, /formatCalendarDateValue\(habit\.createdDate, calendarMode, true\)/);
+  assert.match(tracker, /formatCalendarDateValue\(latestProtectedDate, calendarMode, true\)/);
+  assert.match(tracker, /formatCalendarDateValue\(comeback\.lastCompletedDate, calendarMode, true\)/);
+  assert.match(tracker, /<CalendarDatePicker mode=\{calendarMode\}/);
+  assert.doesNotMatch(tracker, /type="date"/);
+  assert.doesNotMatch(tracker, /created \$\{habit\.createdDate\}/);
+  assert.match(insightsPanel, /calendarYearRange\(date, calendarMode\)/);
+  assert.match(insightsPanel, /calendarMonthKey\(value, calendarMode\)/);
+  assert.match(insightsPanel, /formatCalendarDateValue\(cell\.date, calendarMode, true\)/);
+  assert.match(insights, /monthPresentation/);
+  assert.match(insights, /range\?: \{ start: string; end: string \}/);
+  assert.match(habits, /calendarStarts\?: \{ month: string; quarter: string; year: string \}/);
+  assert.match(recurrenceBuilder, /formatCalendarDateValue\(rangeStart, calendarMode, true\)/);
+  assert.doesNotMatch(recurrenceBuilder, /<strong>\{rangeStart\}<\/strong>/);
+  assert.match(recurrenceBuilder, /showGregorianReference=\{destination !== "tracker"\}/);
+  assert.match(calendarDatePicker, /showGregorianReference = true/);
+  assert.match(calendarDatePicker, /showGregorianReference \? <small>/);
 });
 
 test("keeps the requested calendar and privacy features wired", async () => {

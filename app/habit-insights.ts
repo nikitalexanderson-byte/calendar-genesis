@@ -116,6 +116,7 @@ export function buildHabitPersonalRecord(
   today: string,
   calendarMode: CalendarMode,
   isScheduledForDate: (habit: Habit, date: string, calendarMode: CalendarMode) => boolean,
+  monthPresentation: (date: string) => { key: string; label: string } = (date) => ({ key: date.slice(0, 7), label: date.slice(0, 7) }),
 ): HabitPersonalRecord {
   const endDate = habit.schedule.endDate && habit.schedule.endDate < today ? habit.schedule.endDate : today;
   const dates = endDate >= habit.createdDate ? datesBetween(habit.createdDate, endDate) : [];
@@ -135,9 +136,17 @@ export function buildHabitPersonalRecord(
     }
   });
   const completed = completions.filter((entry) => entry.habitId === habit.id && entry.completed && entry.date <= today);
-  const byMonth = new Map<string, number>();
-  completed.forEach((entry) => byMonth.set(entry.date.slice(0, 7), (byMonth.get(entry.date.slice(0, 7)) ?? 0) + 1));
-  const bestMonth = Array.from(byMonth.entries()).sort((left, right) => right[1] - left[1] || right[0].localeCompare(left[0]))[0];
+  const byMonth = new Map<string, { count: number; label: string }>();
+  completed.forEach((entry) => {
+    const presentation = monthPresentation(entry.date);
+    const key = presentation.key;
+    const current = byMonth.get(key);
+    byMonth.set(key, {
+      count: (current?.count ?? 0) + 1,
+      label: current?.label ?? presentation.label,
+    });
+  });
+  const bestMonth = Array.from(byMonth.entries()).sort((left, right) => right[1].count - left[1].count || right[0].localeCompare(left[0]))[0];
   const totalCompletions = completed.length;
   const reachedMilestone = [...HABIT_MASTERY_MILESTONES].reverse().find((milestone) => totalCompletions >= milestone) ?? 0;
   const nextMilestone = HABIT_MASTERY_MILESTONES.find((milestone) => totalCompletions < milestone) ?? null;
@@ -152,8 +161,8 @@ export function buildHabitPersonalRecord(
     totalCompletions,
     scheduledCount: scheduledDates.length,
     completionRate: scheduledDates.length ? Math.min(100, Math.round(totalCompletions / scheduledDates.length * 100)) : 0,
-    bestMonth: bestMonth?.[0] ?? null,
-    bestMonthCompletions: bestMonth?.[1] ?? 0,
+    bestMonth: bestMonth?.[1].label ?? null,
+    bestMonthCompletions: bestMonth?.[1].count ?? 0,
     startedAt: habit.createdDate,
     reachedMilestone,
     nextMilestone,
@@ -170,10 +179,10 @@ function mosaicStatus(record: DailyGoalRecord | undefined, future: boolean): Hab
   return record.completedCount > 0 ? "partial" : "none";
 }
 
-export function buildHabitYearMosaic(records: readonly DailyGoalRecord[], today: string): HabitYearMosaicCell[] {
+export function buildHabitYearMosaic(records: readonly DailyGoalRecord[], today: string, range?: { start: string; end: string }): HabitYearMosaicCell[] {
   const year = today.slice(0, 4);
-  const start = `${year}-01-01`;
-  const end = `${year}-12-31`;
+  const start = range?.start ?? `${year}-01-01`;
+  const end = range?.end ?? `${year}-12-31`;
   const firstWeekday = (localDate(start).getDay() + 6) % 7;
   const byDate = new Map(records.map((record) => [record.date, record]));
   return datesBetween(start, end, 370).map((date, dayIndex) => {

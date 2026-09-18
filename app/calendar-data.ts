@@ -483,6 +483,129 @@ export function formatCalendarDate(date: Date, mode: CalendarMode, long = false)
   return formatGregorian(date, long);
 }
 
+const CALENDAR_DATE_VALUE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+export function parseCalendarDateValue(value: string) {
+  const normalized = value.slice(0, 10);
+  if (!CALENDAR_DATE_VALUE_PATTERN.test(normalized)) return null;
+  const date = new Date(`${normalized}T12:00:00`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+export function calendarDateValue(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+export function formatCalendarDateValue(value: string, mode: CalendarMode, long = false) {
+  const date = parseCalendarDateValue(value);
+  return date ? formatCalendarDate(date, mode, long) : value;
+}
+
+function calendarDayBefore(date: Date) {
+  const previous = new Date(date);
+  previous.setDate(previous.getDate() - 1);
+  return previous;
+}
+
+export function calendarYearRange(value: string, mode: CalendarMode) {
+  const date = parseCalendarDateValue(value) ?? new Date();
+  if (mode === "sacred") {
+    const sacred = getSacredDate(date);
+    const start = getGregorianDate(sacred.sacredYear, 0, 1);
+    const end = calendarDayBefore(getGregorianDate(sacred.sacredYear + 1, 0, 1));
+    return { start: calendarDateValue(start), end: calendarDateValue(end) };
+  }
+  if (mode === "lunar") {
+    const lunarYear = getLunarYearForDate(date);
+    return { start: calendarDateValue(lunarYear.startDate), end: calendarDateValue(calendarDayBefore(lunarYear.endDate)) };
+  }
+  return {
+    start: `${date.getFullYear()}-01-01`,
+    end: `${date.getFullYear()}-12-31`,
+  };
+}
+
+export function calendarMonthRange(value: string, mode: CalendarMode) {
+  const date = parseCalendarDateValue(value) ?? new Date();
+  if (mode === "sacred") {
+    const sacred = getSacredDate(date);
+    const start = getGregorianDate(sacred.sacredYear, sacred.monthIndex, 1);
+    const next = sacred.monthIndex < 12
+      ? getGregorianDate(sacred.sacredYear, sacred.monthIndex + 1, 1)
+      : getGregorianDate(sacred.sacredYear + 1, 0, 1);
+    return { start: calendarDateValue(start), end: calendarDateValue(calendarDayBefore(next)) };
+  }
+  if (mode === "lunar") {
+    const index = lunarMonthIndex(date);
+    return { start: calendarDateValue(getLunarMonthStart(index)), end: calendarDateValue(calendarDayBefore(getLunarMonthStart(index + 1))) };
+  }
+  const start = new Date(date.getFullYear(), date.getMonth(), 1, 12);
+  const next = new Date(date.getFullYear(), date.getMonth() + 1, 1, 12);
+  return { start: calendarDateValue(start), end: calendarDateValue(calendarDayBefore(next)) };
+}
+
+export function calendarQuarterRange(value: string, mode: CalendarMode) {
+  const date = parseCalendarDateValue(value) ?? new Date();
+  if (mode === "sacred") {
+    const sacred = getSacredDate(date);
+    const firstMonth = Math.floor(sacred.monthIndex / 3) * 3;
+    const start = getGregorianDate(sacred.sacredYear, firstMonth, 1);
+    const next = firstMonth + 3 < 13
+      ? getGregorianDate(sacred.sacredYear, firstMonth + 3, 1)
+      : getGregorianDate(sacred.sacredYear + 1, 0, 1);
+    return { start: calendarDateValue(start), end: calendarDateValue(calendarDayBefore(next)) };
+  }
+  if (mode === "lunar") {
+    const lunar = getLunarDate(date);
+    const firstMonth = lunar.year.startMonthIndex + Math.floor((lunar.monthOrdinal - 1) / 3) * 3;
+    const nextMonth = Math.min(firstMonth + 3, lunar.year.endMonthIndex);
+    return { start: calendarDateValue(getLunarMonthStart(firstMonth)), end: calendarDateValue(calendarDayBefore(getLunarMonthStart(nextMonth))) };
+  }
+  const firstMonth = Math.floor(date.getMonth() / 3) * 3;
+  const start = new Date(date.getFullYear(), firstMonth, 1, 12);
+  const next = new Date(date.getFullYear(), firstMonth + 3, 1, 12);
+  return { start: calendarDateValue(start), end: calendarDateValue(calendarDayBefore(next)) };
+}
+
+export function calendarYearLabel(value: string, mode: CalendarMode) {
+  const date = parseCalendarDateValue(value);
+  if (!date) return value.slice(0, 4);
+  if (mode === "sacred") {
+    const year = getSacredDate(date).sacredYear;
+    return `${year}–${year + 1}`;
+  }
+  if (mode === "lunar") {
+    const year = getLunarYearForDate(date).sacredYear;
+    return `${year}–${year + 1}`;
+  }
+  return String(date.getFullYear());
+}
+
+export function calendarMonthKey(value: string, mode: CalendarMode) {
+  const date = parseCalendarDateValue(value);
+  if (!date) return value.slice(0, 7);
+  if (mode === "sacred") {
+    const sacred = getSacredDate(date);
+    return `sacred:${sacred.sacredYear}:${sacred.monthIndex}`;
+  }
+  if (mode === "lunar") return `lunar:${lunarMonthIndex(date)}`;
+  return value.slice(0, 7);
+}
+
+export function formatCalendarMonthValue(value: string, mode: CalendarMode) {
+  const date = parseCalendarDateValue(value);
+  if (!date) return value;
+  if (mode === "sacred") {
+    const sacred = getSacredDate(date);
+    return `${translateText(MONTHS[sacred.monthIndex].name)} · ${sacred.sacredYear}`;
+  }
+  if (mode === "lunar") {
+    const lunar = getLunarDate(date);
+    return `${translateText(lunar.month.name)} · ${lunar.year.sacredYear}–${lunar.year.sacredYear + 1}`;
+  }
+  return new Intl.DateTimeFormat(runtimeLocale(), { month: "long", year: "numeric" }).format(date);
+}
+
 export function normalizeCalendarDateNote(note: string, mode: CalendarMode) {
   const normalized = note.trim();
   if (!normalized || mode === "profane" || /^Профан(?:ская|ическая) дата:/iu.test(normalized)) return "";
