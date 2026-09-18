@@ -11322,8 +11322,33 @@ button.project-drag-handle:active { cursor: grabbing; }
 .habits-hero h1 { margin: 6px 0 9px; font: 500 clamp(42px, 6vw, 74px)/.95 Georgia, serif; letter-spacing: -.045em; }
 .habits-hero p { max-width: 660px; margin: 0; color: #b9c7c1; font-size: 11px; line-height: 1.7; }
 .habits-hero-actions { position: absolute !important; right: 38px; bottom: 34px; display:flex; align-items:center; gap:9px; }
-.habits-hero-actions button { white-space:nowrap; }
-.habits-hero-actions .hero-path-open { color:#f0d898; border-color:rgba(224,197,132,.38); background:rgba(4,17,18,.58); backdrop-filter:blur(10px); }
+.habits-hero-actions button { justify-content:center; min-width:210px; min-height:44px; padding:12px 19px; white-space:nowrap; }
+.habits-hero-actions .hero-path-open {
+  position:relative;
+  isolation:isolate;
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  overflow:hidden;
+  color:#f3fff8;
+  font-size:11px;
+  font-weight:850;
+  border:1px solid rgba(167,235,204,.52);
+  border-radius:999px;
+  background:linear-gradient(135deg,#0b5146 0%,#137561 52%,#0c594d 100%);
+  box-shadow:inset 0 1px 0 rgba(229,255,241,.24),0 0 0 1px rgba(46,161,124,.12),0 9px 26px rgba(10,112,88,.32),0 0 28px rgba(54,196,147,.18);
+  cursor:pointer;
+  animation:hero-path-button-glow 3.6s ease-in-out infinite;
+  transition:transform 150ms ease,box-shadow 180ms ease,filter 180ms ease;
+}
+.habits-hero-actions .hero-path-open::before { position:absolute; z-index:-1; top:-70%; bottom:-70%; left:-38%; width:28%; content:""; background:linear-gradient(90deg,transparent,rgba(226,255,238,.34),transparent); transform:rotate(17deg); animation:hero-path-button-shimmer 4.8s ease-in-out infinite; }
+.habits-hero-actions .hero-path-open:hover { filter:saturate(1.08) brightness(1.06); box-shadow:inset 0 1px 0 rgba(235,255,244,.3),0 0 0 1px rgba(97,218,172,.2),0 12px 32px rgba(8,124,95,.4),0 0 34px rgba(75,221,164,.28); transform:translateY(-1px); }
+.habits-hero-actions .hero-path-open:focus-visible { outline:3px solid rgba(174,242,208,.8); outline-offset:3px; }
+.hero-path-open-sigil { display:grid; width:21px; height:21px; flex:0 0 auto; place-items:center; border:1px solid rgba(222,255,237,.32); border-radius:50%; background:rgba(3,42,36,.34); box-shadow:0 0 13px rgba(165,244,202,.24); }
+.hero-path-open-sigil svg { width:17px; height:17px; overflow:visible; fill:none; stroke:#dcffeb; stroke-linecap:round; stroke-linejoin:round; stroke-width:1.15; filter:drop-shadow(0 0 4px rgba(218,255,234,.72)); }
+.hero-path-open-sigil svg path { fill:rgba(220,255,235,.18); }
+@keyframes hero-path-button-glow { 0%,100% { box-shadow:inset 0 1px 0 rgba(229,255,241,.24),0 0 0 1px rgba(46,161,124,.12),0 9px 26px rgba(10,112,88,.3),0 0 22px rgba(54,196,147,.15); } 50% { box-shadow:inset 0 1px 0 rgba(237,255,246,.3),0 0 0 1px rgba(89,204,160,.2),0 11px 30px rgba(10,127,96,.38),0 0 36px rgba(75,221,164,.28); } }
+@keyframes hero-path-button-shimmer { 0%,64% { opacity:0; transform:translateX(0) rotate(17deg); } 72% { opacity:.92; } 88%,100% { opacity:0; transform:translateX(540%) rotate(17deg); } }
 
 .habits-hero-status {
   position: absolute;
@@ -11664,6 +11689,9 @@ button.project-drag-handle:active { cursor: grabbing; }
 .habit-animations-off .habit-metric-sigil *,
 .habit-animations-off .achievement-sigil *,
 .habit-animations-off .habit-quest-sigil *,
+.habit-animations-off .hero-path-open,
+.habit-animations-off .hero-path-open::before,
+.habit-animations-off .hero-path-open *,
 .habit-animations-off .hero-path-panel * { animation:none !important; transition:none !important; }
 .habit-history-lock { margin:0; padding:9px 11px; color:#765f39; border:1px solid rgba(178,138,74,.22); border-radius:9px; background:rgba(178,138,74,.07); font-size:9px; line-height:1.45; }
 .habit-time-entry { display: grid; grid-template-columns: auto minmax(90px, 130px) auto; align-items: center; gap: 8px; color: var(--ink-soft); font-size: 8px; }
@@ -12424,7 +12452,7 @@ button.project-drag-handle:active { cursor: grabbing; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rank-sigil, .rank-sigil *, .habit-metric-sigil, .habit-metric-sigil *, .sacred-sector-sigil, .sacred-sector-sigil *, .hestia-spark-icon svg, .comeback-mark svg, .hero-amphora-sigil *, .hero-path-progress i, .hero-path-gate-art *, .hero-path-reveal-gate *, .habit-quest-sigil *, .habit-quest-progress *, .today-task-list > article, .workspace-recovery-dialog *, .achievement-sigil *, .achievement-grid > article, .habit-completion-feedback, .habit-check-list > article.done, .habit-check-list > article.done > .habit-check, .sacred-sector-navigation, .disclosure-chevron { animation:none !important; transition:none !important; }
+  .rank-sigil, .rank-sigil *, .habit-metric-sigil, .habit-metric-sigil *, .sacred-sector-sigil, .sacred-sector-sigil *, .hestia-spark-icon svg, .comeback-mark svg, .hero-amphora-sigil *, .hero-path-progress i, .hero-path-gate-art *, .hero-path-reveal-gate *, .hero-path-open, .hero-path-open::before, .hero-path-open *, .habit-quest-sigil *, .habit-quest-progress *, .today-task-list > article, .workspace-recovery-dialog *, .achievement-sigil *, .achievement-grid > article, .habit-completion-feedback, .habit-check-list > article.done, .habit-check-list > article.done > .habit-check, .sacred-sector-navigation, .disclosure-chevron { animation:none !important; transition:none !important; }
   .rank-sigil, .habit-metric-sigil, .sacred-sector-sigil { transform:none !important; }
 }
 
@@ -12435,6 +12463,7 @@ button.project-drag-handle:active { cursor: grabbing; }
 }
 
 @media (max-width: 430px) {
+  .habits-hero-actions button { width:100%; min-width:0; }
   .habit-range-custom { grid-template-columns:minmax(0,1fr); }.habit-range-custom > span { text-align:center; }
   .habit-completion-feedback { right:14px; bottom:calc(76px + env(safe-area-inset-bottom)); width:calc(100vw - 28px); grid-template-columns:42px minmax(0,1fr) 26px; padding:12px; }
   .habit-feedback-symbol { width:40px; height:40px; font-size:20px; }
