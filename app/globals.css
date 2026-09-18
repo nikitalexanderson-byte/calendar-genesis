@@ -11651,7 +11651,7 @@ button.project-drag-handle:active { cursor: grabbing; }
 .habit-library h2, .habit-statistics h2 { margin: 4px 0 0; font: 500 27px/1.05 Georgia, serif; }
 .habit-library > header > span { color: var(--ink-soft); font-size: 9px; }
 .habit-library > div { display: grid; gap: 7px; }
-.habit-library > div > article { display: grid; grid-template-columns: 5px minmax(0, 1fr) 44px auto auto; align-items: center; gap: 9px; min-height: 58px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 10px; background: var(--white); }
+.habit-library > div > article { display: grid; grid-template-columns: 5px minmax(0, 1fr) 44px auto; align-items: center; gap: 9px; min-height: 58px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 10px; background: var(--white); }
 .habit-library > div > article.paused { opacity: .55; }
 .habit-library article > i { width: 5px; height: 34px; border-radius: 9px; background: var(--habit-color); }
 .habit-library article > div { display: grid; gap: 4px; min-width: 0; }
@@ -11661,6 +11661,7 @@ button.project-drag-handle:active { cursor: grabbing; }
 .habit-library article output { color: var(--habit-color); font-weight: 700; text-align: center; }
 .habit-library article button { padding: 6px 8px; color: #315c57; border: 1px solid rgba(45,119,113,.18); border-radius: 7px; background: rgba(45,119,113,.05); cursor: pointer; font-size: 8px; }
 .habit-library article button.danger { color: #98483f; border-color: rgba(152,72,63,.18); background: rgba(152,72,63,.04); }
+.habit-library article > .habit-library-actions { display:flex; align-items:center; justify-content:flex-end; gap:6px; min-width:0; }
 .habit-library-rule { margin:0; padding:9px 11px; color:var(--ink-soft); border-left:2px solid var(--gold); background:rgba(178,138,74,.05); font-size:8px; line-height:1.5; }
 .habit-library-empty { place-items: start; padding: 18px; border: 1px dashed var(--line); border-radius: 11px; }
 .habit-library-empty p { margin: 0 0 10px; color: var(--ink-soft); font-size: 10px; }
@@ -11767,7 +11768,8 @@ button.project-drag-handle:active { cursor: grabbing; }
 .sacred-practice-grid footer button.sacred-practice-done { color: #315c57; border: 1px solid rgba(45,119,113,.22); background: rgba(45,119,113,.1); cursor: pointer; font-size: 8px; font-weight: 850; }
 .sacred-practice-grid footer button:disabled { cursor: not-allowed; opacity: .45; }
 .sacred-practice-grid footer small { color: #70827e; font-size: 7px; }
-.sacred-practice-actions { display:flex; align-items:center; gap:6px; }
+.sacred-practice-actions { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+.sacred-practice-actions button.sacred-practice-edit { color:#315c57; border:1px solid rgba(45,119,113,.22); background:rgba(45,119,113,.06); cursor:pointer; font-size:8px; font-weight:850; }
 .sacred-practice-actions button.sacred-practice-disable { color:#855b52; border:1px solid rgba(133,91,82,.24); background:rgba(133,91,82,.06); cursor:pointer; font-size:8px; font-weight:850; }
 
 .habit-editor-backdrop { z-index: 150; align-items: flex-start; padding: 28px; overflow-y: auto; }
@@ -11801,6 +11803,10 @@ button.project-drag-handle:active { cursor: grabbing; }
 .habit-scoring-fields, .habit-reminder-fields { min-width: 0; margin: 0; padding: 0; border: 0; transition: opacity .2s ease; }
 .habit-scoring-fields:disabled, .habit-reminder-fields:disabled { opacity: .42; }
 .habit-scoring-fields:disabled *, .habit-reminder-fields:disabled * { cursor: not-allowed; }
+.habit-scoring-locked-fields { display:grid; gap:12px; min-width:0; margin:0; padding:0; border:0; }
+.habit-scoring-locked-fields:disabled { opacity:.56; }
+.habit-scoring-locked-fields:disabled * { cursor:not-allowed; }
+.habit-scoring-lock-note { margin:0; padding:9px 11px; color:#765f39; border:1px solid rgba(178,138,74,.22); border-radius:9px; background:rgba(178,138,74,.07); font-size:8px; line-height:1.5; }
 .habit-disable-switch > i { background: var(--teal); }
 .habit-disable-switch input:checked + i { background: #9b584e; }
 .habit-formula-card { display: grid; align-content: center; gap: 5px; min-height: 58px; padding: 9px 11px; border: 1px solid rgba(178,138,74,.22); border-radius: 9px; background: rgba(178,138,74,.055); }
@@ -12231,7 +12237,7 @@ button.project-drag-handle:active { cursor: grabbing; }
   .habit-quest-panel { padding:18px 13px; }.habit-quest-panel > header { align-items:start; flex-direction:column; gap:6px; }.habit-quest-grid { grid-template-columns:minmax(0,1fr); }.habit-quest-grid > article { grid-template-columns:48px minmax(0,1fr) auto; gap:10px; padding:13px 11px; }.habit-quest-sigil { width:46px; height:46px; }.habit-quest-sigil svg { width:32px; height:32px; }.habit-quest-reward { min-width:58px; }
   .achievement-panel { padding:18px 13px; }.achievement-panel > header { align-items:start; }.achievement-panel > header p { max-width:40ch; }.achievement-grid { grid-template-columns:minmax(0,1fr); }.achievement-grid > article { min-height:102px; padding:12px; }
   .sleep-time-grid, .tracker-module-grid { grid-template-columns:minmax(0,1fr); }
-  .habit-library > div > article { grid-template-columns:5px minmax(0,1fr) 38px; }.habit-library article > button { grid-row:2; }.habit-library article > button:nth-last-child(2) { grid-column:2; }.habit-library article > button:last-child { grid-column:3; }
+  .habit-library > div > article { grid-template-columns:5px minmax(0,1fr) 38px; }.habit-library article > .habit-library-actions { grid-column:2 / -1; grid-row:2; justify-content:stretch; }.habit-library-actions button { flex:1 1 auto; }
   .habit-editor-backdrop { padding:0; }.habit-editor { min-height:100dvh; margin:0; padding:62px 15px 25px; border:0; border-radius:0; }.habit-editor > header .modal-close { position:fixed; top:13px; right:13px; z-index:2; }.habit-editor-grid { grid-template-columns:minmax(0,1fr); }.habit-editor-grid .wide { grid-column:auto; }.habit-time-rules > div { grid-template-columns:minmax(0,1fr) 110px; }.habit-time-rules > div input[type="number"] { grid-column:1; }.habit-time-rules > div button { grid-column:2; }
   .habit-template-setup-title { grid-template-columns:46px minmax(0,1fr); }.habit-template-setup-title > span { width:46px; height:46px; }
   .habit-template-start > div, .habit-template-quick-settings, .habit-template-reminder { grid-template-columns:minmax(0,1fr); }
