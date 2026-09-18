@@ -6607,6 +6607,29 @@ html[data-language="en"] .inbox-card.drop-target::after {
 .stoicheion-letter-copy h3 { margin: 0; color: #ddc480; font: 400 22px/1.2 Georgia, serif; }
 .stoicheion-letter-copy p { margin: 0; color: #a9b9b4; font-size: 11px; line-height: 1.78; white-space: pre-line; }
 
+.stoicheion-sector-practice { display: grid; gap: 15px; padding: 21px; background: linear-gradient(135deg, rgba(220, 191, 125, .09), rgba(73, 125, 156, .06)); border: 1px solid rgba(220, 191, 125, .18); border-radius: 5px 18px 5px 18px; }
+.stoicheion-sector-practice.is-reversed { background: linear-gradient(135deg, rgba(177, 93, 76, .1), rgba(73, 125, 156, .04)); border-color: rgba(216, 145, 127, .2); }
+.stoicheion-sector-practice > header { display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: center; gap: 12px; }
+.stoicheion-sector-practice > header > span { display: grid; width: 44px; height: 44px; place-items: center; color: #e1c67f; font: 500 21px/1 Georgia, serif; border: 1px solid rgba(225, 198, 127, .25); border-radius: 50%; background: rgba(225, 198, 127, .05); }
+.stoicheion-sector-practice > header div { display: grid; gap: 4px; }
+.stoicheion-sector-practice > header small,
+.stoicheion-sector-words > small,
+.stoicheion-sector-habits > small { color: #7f9a94; font-size: 7px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
+.stoicheion-sector-practice > header h3 { margin: 0; color: #e1c67f; font: 400 21px/1.15 Georgia, serif; }
+.stoicheion-sector-practice > p { color: #d3ddd8; font: 400 13px/1.6 Georgia, serif; }
+.stoicheion-sector-words,
+.stoicheion-sector-habits { display: grid; gap: 8px; }
+.stoicheion-sector-words > div { display: flex; flex-wrap: wrap; gap: 6px; }
+.stoicheion-sector-words span { display: grid; min-width: 98px; gap: 2px; padding: 8px 10px; border: 1px solid rgba(225, 198, 127, .14); border-radius: 8px; background: rgba(2, 14, 16, .22); }
+.stoicheion-sector-words b { color: #e1c67f; font: 500 15px/1 Georgia, serif; }
+.stoicheion-sector-words em { color: #90a59f; font-size: 7px; font-style: normal; }
+.stoicheion-sector-habits article { display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; gap: 10px; padding: 9px 10px; border: 1px solid rgba(146, 173, 166, .13); border-radius: 9px; background: rgba(255, 255, 255, .025); }
+.stoicheion-sector-habits article > span { font-size: 20px; }
+.stoicheion-sector-habits article > div { display: grid; gap: 2px; }
+.stoicheion-sector-habits article strong { color: #e8dfcd; font-size: 10px; }
+.stoicheion-sector-habits article p { color: #93a9a3; font-size: 8px; line-height: 1.45; }
+.stoicheion-sector-practice > button { justify-self: start; min-height: 37px; padding: 0 15px; color: #071b1e; border: 0; border-radius: 999px; background: #dfc47f; cursor: pointer; font-size: 9px; font-weight: 850; }
+
 /* The illustrated deck uses generated paintings under a deterministic frame and exact typography. */
 .stoicheion-card-visual {
   --stoicheion-card-accent: #dfc47f;
@@ -6874,6 +6897,11 @@ html[data-language="en"] .inbox-card.drop-target::after {
   .stoicheion-letter-copy { gap: 20px; padding: 24px 20px 42px; }
   .stoicheion-letter-copy h3 { font-size: 19px; }
   .stoicheion-letter-copy p { font-size: 10px; }
+  .stoicheion-sector-practice { padding: 15px 12px; }
+  .stoicheion-sector-practice > header { grid-template-columns: 38px minmax(0, 1fr); }
+  .stoicheion-sector-practice > header > span { width: 38px; height: 38px; font-size: 18px; }
+  .stoicheion-sector-practice > header h3 { font-size: 18px; }
+  .stoicheion-sector-words span { min-width: 0; flex: 1 1 42%; }
 }
 
 @media (max-width: 420px) {
@@ -11091,6 +11119,24 @@ button.project-drag-handle:active { cursor: grabbing; }
 .theokyklos-incantation li strong { color: #243f3e; font-size: 9px; }
 .theokyklos-incantation li small { color: #73837f; font: 400 9px/1.35 Georgia, serif; }
 
+.theokyklos-sacred-practices { display: grid; gap: 12px; padding-top: 18px; border-top: 1px solid color-mix(in srgb, var(--detail-accent) 24%, transparent); }
+.theokyklos-sacred-practices > header { display: flex; align-items: end; justify-content: space-between; gap: 14px; }
+.theokyklos-sacred-practices h3 { margin: 3px 0 0; font: 400 23px/1.1 Georgia, serif; }
+.theokyklos-sacred-practices > header button { padding: 7px 10px; color: var(--detail-accent); border: 1px solid color-mix(in srgb, var(--detail-accent) 24%, transparent); border-radius: 999px; background: rgba(255,255,255,.48); cursor: pointer; font-size: 8px; font-weight: 800; }
+.theokyklos-sacred-practices > p { margin: 0; color: #6d807c; font-size: 9px; line-height: 1.55; }
+.theokyklos-sacred-practices > div { display: grid; gap: 8px; }
+.theokyklos-sacred-practices article { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center; gap: 11px; padding: 12px; background: color-mix(in srgb, var(--practice-color) 5%, rgba(255,255,255,.6)); border: 1px solid color-mix(in srgb, var(--practice-color) 20%, rgba(33,56,56,.08)); border-left: 3px solid var(--practice-color); border-radius: 4px 12px 4px 12px; }
+.theokyklos-sacred-practices article.paused { opacity: .65; }
+.theokyklos-sacred-practices article > span { display: grid; width: 42px; height: 42px; place-items: center; background: rgba(255,255,255,.58); border: 1px solid color-mix(in srgb, var(--practice-color) 18%, transparent); border-radius: 50%; font-size: 21px; }
+.theokyklos-sacred-practices article > div { display: grid; gap: 3px; min-width: 0; }
+.theokyklos-sacred-practices article small { color: var(--practice-color); font-size: 6px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
+.theokyklos-sacred-practices article strong { color: #223c3b; font: 600 13px/1.2 Georgia, serif; }
+.theokyklos-sacred-practices article p { margin: 0; color: #617773; font-size: 8px; line-height: 1.45; }
+.theokyklos-sacred-practices article blockquote { margin: 2px 0 0; color: #7e7160; font: italic 8px/1.45 Georgia, serif; }
+.theokyklos-sacred-practices article > button { min-width: 104px; min-height: 36px; padding: 7px 10px; color: #fff; border: 0; border-radius: 999px; background: var(--practice-color); cursor: pointer; font-size: 8px; font-weight: 850; }
+.theokyklos-sacred-practices article > button.completed { color: #315c57; background: rgba(45,119,113,.12); border: 1px solid rgba(45,119,113,.24); }
+.theokyklos-sacred-practices article > button:disabled { cursor: not-allowed; opacity: .42; }
+
 @media (min-width: 921px) {
   .theokyklos-mandala-card {
     height: calc(100dvh - 92px);
@@ -11153,6 +11199,8 @@ button.project-drag-handle:active { cursor: grabbing; }
   .theokyklos-description { font-size: 11px; }
   .theokyklos-incantation li { grid-template-columns: 94px minmax(0, 1fr); }
   .theokyklos-incantation li > span { font-size: 17px; }
+  .theokyklos-sacred-practices article { grid-template-columns: 40px minmax(0, 1fr); }
+  .theokyklos-sacred-practices article > button { grid-column: 1 / -1; width: 100%; }
 }
 
 @media (max-width: 430px) {
@@ -11525,6 +11573,44 @@ button.project-drag-handle:active { cursor: grabbing; }
 .habit-template-hide { padding: 7px 9px; color: var(--ink-soft); border: 0; background: transparent; cursor: pointer; font-size: 8px; text-decoration: underline; text-decoration-color: rgba(19, 36, 38, .2); text-underline-offset: 3px; }
 .habit-status-message { margin: 0; padding: 10px 13px; color: #315c57; border: 1px solid rgba(45,119,113,.2); border-radius: 9px; background: rgba(45,119,113,.07); font-size: 10px; }
 
+.sacred-habit-library { display: grid; gap: 18px; padding: 24px; color: #eee6d6; background: radial-gradient(circle at 92% 0, rgba(213,182,110,.16), transparent 28rem), linear-gradient(145deg, #0a282b, #06191d); border: 1px solid rgba(213,182,110,.24); border-radius: 5px 25px 5px 25px; box-shadow: 0 20px 48px rgba(4,22,24,.1); }
+.sacred-habit-library > header { display: flex; align-items: end; justify-content: space-between; gap: 18px; }
+.sacred-habit-library > header > div { display: grid; max-width: 720px; gap: 5px; }
+.sacred-habit-library .eyebrow { color: #d8b96e; }
+.sacred-habit-library h2 { margin: 0; font: 500 30px/1.05 Georgia, serif; }
+.sacred-habit-library > header p { margin: 0; color: #9bb0aa; font-size: 9px; line-height: 1.55; }
+.sacred-habit-library > header button { color: #e5cc8b; border-color: rgba(213,182,110,.26); background: rgba(213,182,110,.07); }
+.sacred-sector-tabs { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 6px; }
+.sacred-sector-tabs button { display: grid; min-width: 0; min-height: 72px; place-items: center; align-content: center; gap: 4px; padding: 8px 5px; color: #8fa6a0; border: 1px solid rgba(213,182,110,.12); border-radius: 9px; background: rgba(255,255,255,.025); cursor: pointer; }
+.sacred-sector-tabs button:hover,
+.sacred-sector-tabs button.active { color: #f0e5cf; border-color: rgba(213,182,110,.45); background: rgba(213,182,110,.1); }
+.sacred-sector-tabs span { color: #d8b96e; font: 500 20px/1 Georgia, serif; }
+.sacred-sector-tabs strong { max-width: 100%; overflow: hidden; font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
+.sacred-sector-tabs small { max-width: 100%; overflow: hidden; color: #78928c; font-size: 6px; text-overflow: ellipsis; white-space: nowrap; }
+.sacred-sector-summary { display: grid; grid-template-columns: minmax(180px, .42fr) minmax(0, 1fr); align-items: center; gap: 18px; padding: 13px 15px; border: 1px solid rgba(213,182,110,.13); border-radius: 11px; background: rgba(255,255,255,.025); }
+.sacred-sector-summary > div { display: grid; grid-template-columns: 36px minmax(0,1fr); align-items: center; gap: 10px; }
+.sacred-sector-summary > div > span { display: grid; width: 36px; height: 36px; place-items: center; color: #d8b96e; border: 1px solid rgba(213,182,110,.24); border-radius: 50%; font: 500 17px/1 Georgia, serif; }
+.sacred-sector-summary p { margin: 0; color: #9db0ab; font: 400 10px/1.55 Georgia, serif; }
+.sacred-sector-summary > div p { display: grid; gap: 3px; font-family: inherit; }
+.sacred-sector-summary small { color: #738c86; font-size: 6px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
+.sacred-sector-summary strong { color: #e3ca87; font-size: 10px; }
+.sacred-practice-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.sacred-practice-grid > article { display: grid; grid-template-rows: auto auto 1fr auto; gap: 9px; min-height: 220px; padding: 16px; color: #123032; background: color-mix(in srgb, var(--habit-color) 5%, #f8f5ed); border: 1px solid color-mix(in srgb, var(--habit-color) 26%, rgba(213,182,110,.18)); border-top: 3px solid var(--habit-color); border-radius: 4px 15px 4px 15px; }
+.sacred-practice-grid > article.paused { filter: saturate(.55); opacity: .7; }
+.sacred-practice-grid article > header { display: grid; grid-template-columns: 43px minmax(0,1fr) auto; align-items: center; gap: 10px; }
+.sacred-practice-grid article > header > span { display: grid; width: 42px; height: 42px; place-items: center; background: #fffdf8; border: 1px solid color-mix(in srgb, var(--habit-color) 24%, transparent); border-radius: 50%; font-size: 21px; }
+.sacred-practice-grid article > header > div { display: grid; gap: 3px; }
+.sacred-practice-grid article > header small { color: var(--habit-color); font-size: 6px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.sacred-practice-grid h3 { margin: 0; font: 500 17px/1.16 Georgia, serif; }
+.sacred-practice-grid article > header em { padding: 5px 7px; color: var(--habit-color); border: 1px solid color-mix(in srgb, var(--habit-color) 24%, transparent); border-radius: 999px; font-size: 6px; font-style: normal; font-weight: 900; text-transform: uppercase; }
+.sacred-practice-grid article > p { margin: 0; color: #526d69; font-size: 9px; line-height: 1.55; }
+.sacred-practice-grid blockquote { margin: 0; padding: 9px 11px; color: #756b5c; background: rgba(178,138,74,.055); border-left: 2px solid var(--habit-color); font: italic 9px/1.5 Georgia, serif; }
+.sacred-practice-grid footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.sacred-practice-grid footer button { min-height: 35px; padding: 0 13px; border-radius: 999px; }
+.sacred-practice-grid footer button.sacred-practice-done { color: #315c57; border: 1px solid rgba(45,119,113,.22); background: rgba(45,119,113,.1); cursor: pointer; font-size: 8px; font-weight: 850; }
+.sacred-practice-grid footer button:disabled { cursor: not-allowed; opacity: .45; }
+.sacred-practice-grid footer small { color: #70827e; font-size: 7px; }
+
 .habit-editor-backdrop { z-index: 150; align-items: flex-start; padding: 28px; overflow-y: auto; }
 .habit-editor {
   position: relative;
@@ -11782,6 +11868,13 @@ button.project-drag-handle:active { cursor: grabbing; }
   .habit-template-library > header { align-items:start; flex-direction:column; }
   .habit-template-grid { grid-template-columns:minmax(0,1fr); }
   .habit-template-grid > article { min-height:0; }
+  .sacred-habit-library { padding:17px 13px; border-radius:4px 18px 4px 18px; }
+  .sacred-habit-library > header { align-items:start; flex-direction:column; }
+  .sacred-sector-tabs { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .sacred-sector-tabs button { min-height:66px; }
+  .sacred-sector-summary { grid-template-columns:minmax(0,1fr); }
+  .sacred-practice-grid { grid-template-columns:minmax(0,1fr); }
+  .sacred-practice-grid > article { min-height:0; }
   .habit-daily-panel > header { align-items:start; flex-direction:column; }.habit-day-progress { width:100%; grid-template-columns:auto minmax(0,1fr) auto; }
   .daily-goal-ring { width:72px; height:72px; }
   .daily-goal-guidance { grid-template-columns:minmax(0,1fr) auto; align-items:start; }.daily-goal-guidance > p { grid-column:1; }.daily-goal-actions { grid-column:2; grid-row:1 / span 2; align-items:flex-end; flex-direction:column; }
@@ -11819,4 +11912,8 @@ button.project-drag-handle:active { cursor: grabbing; }
   .daily-goal-settings > div { grid-template-columns:minmax(0,1fr); }
   .habit-stat-cards { grid-template-columns:minmax(0,1fr); }
   .mood-options,.habit-daily-panel.compact .mood-options { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .sacred-practice-grid article > header { grid-template-columns:40px minmax(0,1fr); }
+  .sacred-practice-grid article > header > span { width:38px; height:38px; }
+  .sacred-practice-grid article > header em { grid-column:2; justify-self:start; }
+  .sacred-practice-grid footer { align-items:flex-start; flex-direction:column; }
 }

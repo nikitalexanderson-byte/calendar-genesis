@@ -19,6 +19,8 @@ import {
 import {
   defaultTrackerSchedule,
   isTrackerScheduledForDate,
+  markTrackerEntityChanged,
+  newTrackerEntity,
   normalizeTrackerEntity,
   normalizeTrackerSchedule,
   trackerTimeZone,
@@ -47,6 +49,7 @@ import {
   type UserProgress,
 } from "./habit-progress";
 import {
+  canRecordHabitOnDate,
   DEFAULT_HABIT_EMOJI,
   DEFAULT_HABIT_PRIORITY,
   normalizeHabitEmoji,
@@ -66,6 +69,12 @@ import {
   type HabitTemplate,
   type HabitTemplateId,
 } from "./habit-templates";
+import {
+  SACRED_PRACTICES,
+  isSacredPracticeId,
+  type SacredPractice,
+  type SacredPracticeSectorId,
+} from "./sacred-practices";
 
 export { HABIT_COLORS, STARTER_HABIT_TEMPLATES } from "./habit-templates";
 export type { HabitTemplate, HabitTemplateId } from "./habit-templates";
@@ -99,6 +108,8 @@ export type Habit = TrackerEntity & {
   color: string;
   active: boolean;
   sourceTemplateId: HabitTemplateId | null;
+  sacredPracticeId: string | null;
+  sacredSectorId: SacredPracticeSectorId | null;
   preferredTime: string;
   schedule: TrackerSchedule;
   scoringMode: HabitScoringMode;
@@ -126,7 +137,7 @@ export type HabitSettings = {
 };
 
 export type HabitWorkspace = {
-  trackerSchemaVersion: 7;
+  trackerSchemaVersion: 8;
   userProgress: UserProgress;
   habits: Habit[];
   habitCompletions: HabitCompletion[];
@@ -162,6 +173,8 @@ type LegacyHabit = Partial<TrackerEntity> & {
   color?: string;
   active?: boolean;
   sourceTemplateId?: HabitTemplateId | null;
+  sacredPracticeId?: string | null;
+  sacredSectorId?: SacredPracticeSectorId | null;
   preferredTime?: string;
   scoringEnabled?: boolean;
   completionPoints?: number;
@@ -202,7 +215,7 @@ export const DEFAULT_HABIT_SETTINGS: HabitSettings = {
 };
 
 export const EMPTY_HABIT_WORKSPACE: HabitWorkspace = {
-  trackerSchemaVersion: 7,
+  trackerSchemaVersion: 8,
   userProgress: {
     lifetimeXp: 0,
     laurelsBalance: 0,
@@ -321,6 +334,8 @@ function normalizeHabit(value: LegacyHabit, fallbackDate: string, calendarMode: 
   const normalizedSchedule = legacySchedule(value.schedule, fallbackDate, calendarMode);
   const createdDate = DATE_PATTERN.test(value.createdDate ?? "") ? value.createdDate! : normalizedSchedule.startDate;
   const sourceTemplateId = isHabitTemplateId(value.sourceTemplateId) ? value.sourceTemplateId : null;
+  const sacredPracticeId = isSacredPracticeId(value.sacredPracticeId) ? value.sacredPracticeId : null;
+  const sacredSectorId = sacredPracticeId ? SACRED_PRACTICES.find((practice) => practice.id === sacredPracticeId)?.sectorId ?? null : null;
   const templateEmoji = STARTER_HABIT_TEMPLATES.find((template) => template.id === sourceTemplateId)?.icon;
   const schedule: TrackerSchedule = {
     ...normalizedSchedule,
@@ -337,6 +352,8 @@ function normalizeHabit(value: LegacyHabit, fallbackDate: string, calendarMode: 
     color: typeof value.color === "string" ? value.color : HABIT_COLORS[0],
     active: value.active !== false,
     sourceTemplateId,
+    sacredPracticeId,
+    sacredSectorId,
     preferredTime: TIME_PATTERN.test(value.preferredTime ?? "") ? value.preferredTime! : "",
     schedule,
     scoringMode,
@@ -347,6 +364,37 @@ function normalizeHabit(value: LegacyHabit, fallbackDate: string, calendarMode: 
 
 export function scoreHabitCompletion(habit: Habit, completion: Pick<HabitCompletion, "completed" | "qualityValue">) {
   return scoreHabitFormula(habit.scoringMode, completion.completed, completion.qualityValue);
+}
+
+export function updateHabitCompletion(
+  workspace: HabitWorkspace,
+  habit: Habit,
+  date: string,
+  patch: Partial<HabitCompletion>,
+  today = habitDateKey(new Date()),
+) {
+  if (!canRecordHabitOnDate(habit.createdDate, date, today)) return workspace;
+  const current = workspace.habitCompletions.find((entry) => entry.habitId === habit.id && entry.date === date);
+  const base: HabitCompletion = current ?? {
+    ...newTrackerEntity("habit-completion"),
+    habitId: habit.id,
+    date,
+    completed: false,
+    qualityValue: null,
+    score: 0,
+    xpAwarded: 0,
+    note: "",
+  };
+  const patched = markTrackerEntityChanged({ ...base, ...patch });
+  const score = scoreHabitCompletion(habit, patched);
+  const entry = { ...patched, score, xpAwarded: completionXpAward(base.xpAwarded, score, MAX_HABIT_XP_PER_COMPLETION) };
+  return {
+    ...workspace,
+    habitCompletions: [
+      ...workspace.habitCompletions.filter((item) => !(item.habitId === habit.id && item.date === date)),
+      entry,
+    ],
+  };
 }
 
 function normalizeHabitCompletion(value: LegacyHabitEntry, habits: Map<string, Habit>): HabitCompletion | null {
@@ -560,7 +608,7 @@ export function normalizeHabitWorkspace(
   });
 
   const workspace: HabitWorkspace = {
-    trackerSchemaVersion: 7,
+    trackerSchemaVersion: 8,
     userProgress,
     habits,
     habitCompletions,
@@ -788,6 +836,8 @@ export function defaultHabit(date: string, calendarMode: CalendarMode): Habit {
     color: HABIT_COLORS[0],
     active: true,
     sourceTemplateId: null,
+    sacredPracticeId: null,
+    sacredSectorId: null,
     preferredTime: "",
     schedule: defaultTrackerSchedule(date, calendarMode),
     scoringMode: "binary",
@@ -828,6 +878,33 @@ export function createHabitFromTemplate(
     reminder: {
       enabled: false,
       time: template.suggestedTime,
+      syncToGoogleTasks: false,
+      showInGoogleCalendar: false,
+      googleTaskId: null,
+      googleEventId: null,
+    },
+  };
+}
+
+export function createHabitFromSacredPractice(
+  practice: SacredPractice,
+  startDate: string,
+  calendarMode: CalendarMode,
+  language: "ru" | "en" = "ru",
+): Habit {
+  return {
+    ...defaultHabit(startDate, calendarMode),
+    sacredPracticeId: practice.id,
+    sacredSectorId: practice.sectorId,
+    emoji: normalizeHabitEmoji(practice.emoji),
+    title: practice.title[language],
+    description: practice.description[language],
+    color: practice.color,
+    priority: normalizeHabitPriority(practice.priority),
+    preferredTime: practice.suggestedTime,
+    reminder: {
+      enabled: false,
+      time: practice.suggestedTime,
       syncToGoogleTasks: false,
       showInGoogleCalendar: false,
       googleTaskId: null,

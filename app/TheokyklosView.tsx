@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import {
   THEOKYKLOS_DIRECTION_IDS,
   THEOKYKLOS_SEGMENTS,
@@ -9,6 +9,20 @@ import {
   type TheokyklosSegmentId,
 } from "./theokyklos-data";
 import type { Language } from "./i18n";
+import type { CalendarMode } from "./calendar-data";
+import {
+  createHabitFromSacredPractice,
+  habitDateKey,
+  isHabitScheduledForDate,
+  updateHabitCompletion,
+  type HabitWorkspace,
+} from "./habits";
+import {
+  isSacredPracticeSectorId,
+  sacredPracticesForSector,
+  type SacredPracticeSectorId,
+} from "./sacred-practices";
+import { markTrackerEntityChanged } from "./tracker-core";
 
 type Point = { x: number; y: number };
 
@@ -92,18 +106,40 @@ function directionLabel(id: TheokyklosSegmentId, language: Language) {
   return localized(labels[id as (typeof THEOKYKLOS_DIRECTION_IDS)[number]], language);
 }
 
-export function TheokyklosView({ language }: { language: Language }) {
-  const [selectedId, setSelectedId] = useState<TheokyklosSegmentId | null>(null);
+type TheokyklosViewProps = {
+  language: Language;
+  workspace: HabitWorkspace;
+  date: string;
+  calendarMode: CalendarMode;
+  initialSectorId?: SacredPracticeSectorId | null;
+  onSelectedSectorClosed?: () => void;
+  onChange: (workspace: HabitWorkspace) => void;
+  onOpenHabits?: () => void;
+};
+
+export function TheokyklosView({ language, workspace, date, calendarMode, initialSectorId = null, onSelectedSectorClosed, onChange, onOpenHabits }: TheokyklosViewProps) {
+  const [selectedId, setSelectedId] = useState<TheokyklosSegmentId | null>(initialSectorId);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const segmentsById = useMemo(() => new Map(THEOKYKLOS_SEGMENTS.map((segment) => [segment.id, segment])), []);
   const directions = THEOKYKLOS_DIRECTION_IDS.map((id) => segmentsById.get(id)).filter((segment): segment is TheokyklosSegment => Boolean(segment));
   const selected = selectedId ? segmentsById.get(selectedId) ?? null : null;
+  const selectedPracticeSectorId = selected && isSacredPracticeSectorId(selected.id) ? selected.id : null;
+  const sectorHabits = selectedPracticeSectorId ? workspace.habits.filter((habit) => habit.sacredSectorId === selectedPracticeSectorId) : [];
+  const sectorPractices = selectedPracticeSectorId ? sacredPracticesForSector(selectedPracticeSectorId) : [];
+
+  const closeSelected = () => {
+    setSelectedId(null);
+    onSelectedSectorClosed?.();
+  };
 
   useEffect(() => {
     if (!selectedId) return;
     const previousOverflow = document.body.style.overflow;
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setSelectedId(null);
+      if (event.key === "Escape") {
+        setSelectedId(null);
+        onSelectedSectorClosed?.();
+      }
     };
     const focusFrame = window.requestAnimationFrame(() => closeButtonRef.current?.focus());
     document.body.style.overflow = "hidden";
@@ -113,7 +149,7 @@ export function TheokyklosView({ language }: { language: Language }) {
       window.cancelAnimationFrame(focusFrame);
       window.removeEventListener("keydown", closeOnEscape);
     };
-  }, [selectedId]);
+  }, [selectedId, onSelectedSectorClosed]);
 
   const selectSegment = (id: TheokyklosSegmentId) => {
     setSelectedId(id);
@@ -295,9 +331,9 @@ export function TheokyklosView({ language }: { language: Language }) {
         </section>
 
         {selected ? (
-          <div className="modal-backdrop theokyklos-details-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedId(null); }}>
+          <div className="modal-backdrop theokyklos-details-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeSelected(); }}>
             <aside id="theokyklos-details" className={`theokyklos-details segment-${selected.id}`} role="dialog" aria-modal="true" aria-labelledby="theokyklos-details-title">
-              <button ref={closeButtonRef} className="theokyklos-details-close" type="button" onClick={() => setSelectedId(null)} aria-label={language === "en" ? "Close segment description" : "Закрыть описание сегмента"}>
+              <button ref={closeButtonRef} className="theokyklos-details-close" type="button" onClick={closeSelected} aria-label={language === "en" ? "Close segment description" : "Закрыть описание сегмента"}>
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M6 6l12 12M18 6L6 18" />
                 </svg>
@@ -342,6 +378,39 @@ export function TheokyklosView({ language }: { language: Language }) {
                   ))}
                 </ol>
               </section>
+              {selectedPracticeSectorId ? (
+                <section className="theokyklos-sacred-practices" aria-labelledby="theokyklos-sacred-practices-title">
+                  <header>
+                    <div><span className="eyebrow">{language === "en" ? "Myth in daily life" : "Миф в повседневности"}</span><h3 id="theokyklos-sacred-practices-title">{language === "en" ? "Sacred habits" : "Сакральные привычки"}</h3></div>
+                    {onOpenHabits ? <button type="button" onClick={onOpenHabits}>{language === "en" ? "All habits" : "Все привычки"} →</button> : null}
+                  </header>
+                  <p>{!workspace.habitSettings.enabled
+                    ? (language === "en" ? "Habit tracking is disabled in your account. Practices remain visible but cannot be started or marked." : "Трекинг привычек отключён в личном кабинете. Практики видны, но их нельзя начинать или отмечать.")
+                    : sectorHabits.length
+                    ? (language === "en" ? "Your chosen practice is active in this sector and can be marked here." : "В этом секторе уже действует выбранная вами практика — её можно отметить прямо здесь.")
+                    : (language === "en" ? "Choose an ordinary action and begin it as a daily offering to the patron deity." : "Выберите обычное действие и начните его как ежедневное приношение божеству-покровителю.")}</p>
+                  <div>
+                    {(sectorHabits.length
+                      ? sectorHabits.map((habit) => ({ habit, practice: sectorPractices.find((practice) => practice.id === habit.sacredPracticeId) }))
+                      : sectorPractices.map((practice) => ({ habit: null, practice })))
+                      .filter((item) => item.practice)
+                      .map(({ habit, practice }) => {
+                        const completion = habit ? workspace.habitCompletions.find((entry) => entry.habitId === habit.id && entry.date === date) : undefined;
+                        const canTrack = Boolean(workspace.habitSettings.enabled && habit?.active && isHabitScheduledForDate(habit, date, calendarMode) && habit.createdDate <= date && date === habitDateKey(new Date()));
+                        return (
+                          <article className={`${habit ? "started" : "suggested"}${habit && !habit.active ? " paused" : ""}`} style={{ "--practice-color": practice!.color } as CSSProperties} key={habit?.id ?? practice!.id}>
+                            <span aria-hidden="true">{practice!.emoji}</span>
+                            <div><small>{habit ? (habit.active ? (language === "en" ? "Active practice" : "Активная практика") : (language === "en" ? "Paused" : "На паузе")) : (language === "en" ? "Suggested practice" : "Предлагаемая практика")}</small><strong>{practice!.title[language]}</strong><p>{practice!.description[language]}</p><blockquote>{practice!.myth[language]}</blockquote></div>
+                            {habit ? (
+                              habit.active ? <button type="button" className={completion?.completed ? "completed" : ""} disabled={!canTrack} onClick={() => onChange(updateHabitCompletion(workspace, habit, date, { completed: !completion?.completed }))}>{completion?.completed ? `✓ ${language === "en" ? "Done" : "Выполнено"}` : (language === "en" ? "Mark today" : "Отметить сегодня")}</button>
+                                : <button type="button" disabled={!workspace.habitSettings.enabled} onClick={() => onChange({ ...workspace, habits: workspace.habits.map((item) => item.id === habit.id ? markTrackerEntityChanged({ ...item, active: true }) : item) })}>{language === "en" ? "Resume" : "Возобновить"}</button>
+                            ) : <button type="button" disabled={!workspace.habitSettings.enabled} onClick={() => onChange({ ...workspace, habits: [...workspace.habits, createHabitFromSacredPractice(practice!, habitDateKey(new Date()), calendarMode, language)] })}>{language === "en" ? "Begin" : "Начать"}</button>}
+                          </article>
+                        );
+                      })}
+                  </div>
+                </section>
+              ) : null}
             </aside>
           </div>
         ) : null}

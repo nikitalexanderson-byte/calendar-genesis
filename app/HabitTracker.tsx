@@ -15,7 +15,7 @@ import {
   addHabitDays,
   calculateHabitTotal,
   canRecordHabitOnDate,
-  completionXpAward,
+  createHabitFromSacredPractice,
   createHabitFromTemplate,
   dailyGoalForDate,
   dateValuesBetween,
@@ -29,8 +29,8 @@ import {
   scoreHabitCompletion,
   setDailyGoalMode,
   setPlannedRestDay,
+  updateHabitCompletion,
   type Habit,
-  type HabitCompletion,
   type HabitQualityScale,
   type HabitScoringMode,
   type HabitTemplate,
@@ -39,6 +39,13 @@ import {
   type DailyGoalRecord,
   type RewardReason,
 } from "./habits";
+import {
+  SACRED_PRACTICE_SECTOR_IDS,
+  sacredPracticesForSector,
+  type SacredPractice,
+  type SacredPracticeSectorId,
+} from "./sacred-practices";
+import { THEOKYKLOS_SEGMENTS } from "./theokyklos-data";
 import { MOOD_SCALE, moodColor, moodOption, type MoodEntry, type MoodValue } from "./mood-tracker";
 import {
   defaultSleepPlan,
@@ -80,35 +87,11 @@ type HabitTrackerPageProps = DailyPanelProps & {
   googleTasksReady: boolean;
   onReminderRequested?: (habit: Habit) => Promise<{ googleTaskId: string | null; googleEventId: string | null }>;
   onReminderRemoved?: (habit: Habit) => Promise<void>;
+  onOpenTheokyklosSector?: (sectorId: SacredPracticeSectorId) => void;
 };
 
 function completionFor(workspace: HabitWorkspace, habitId: string, date: string) {
   return workspace.habitCompletions.find((entry) => entry.habitId === habitId && entry.date === date);
-}
-
-function replaceCompletion(workspace: HabitWorkspace, habit: Habit, date: string, patch: Partial<HabitCompletion>) {
-  if (!canRecordHabitOnDate(habit.createdDate, date, habitDateKey(new Date()))) return workspace;
-  const current = completionFor(workspace, habit.id, date);
-  const base: HabitCompletion = current ?? {
-    ...newTrackerEntity("habit-completion"),
-    habitId: habit.id,
-    date,
-    completed: false,
-    qualityValue: null,
-    score: 0,
-    xpAwarded: 0,
-    note: "",
-  };
-  const patched = markTrackerEntityChanged({ ...base, ...patch });
-  const score = scoreHabitCompletion(habit, patched);
-  const entry = { ...patched, score, xpAwarded: completionXpAward(base.xpAwarded, score, MAX_HABIT_XP_PER_COMPLETION) };
-  return {
-    ...workspace,
-    habitCompletions: [
-      ...workspace.habitCompletions.filter((item) => !(item.habitId === habit.id && item.date === date)),
-      entry,
-    ],
-  };
 }
 
 function replaceMood(workspace: HabitWorkspace, date: string, patch: Partial<MoodEntry>) {
@@ -446,7 +429,7 @@ export function HabitDailyPanel({ workspace, date, language, timeFormat, calenda
                   className="habit-check"
                   disabled={!canRecord}
                   title={!canRecord ? (isEnglish ? "Only today's mark can be changed" : "Можно изменить только сегодняшнюю отметку") : undefined}
-                  onClick={() => onChange(replaceCompletion(workspace, habit, date, {
+                  onClick={() => onChange(updateHabitCompletion(workspace, habit, date, {
                     completed: !entry?.completed,
                     qualityValue: !entry?.completed && habit.qualityScale !== "none" ? entry?.qualityValue ?? (habit.qualityScale === "ten" ? 5 : 0) : entry?.qualityValue ?? null,
                   }))}
@@ -470,7 +453,7 @@ export function HabitDailyPanel({ workspace, date, language, timeFormat, calenda
                       step="1"
                       value={entry.qualityValue ?? (habit.qualityScale === "ten" ? 5 : 0)}
                       disabled={!canRecord}
-                      onChange={(event) => onChange(replaceCompletion(workspace, habit, date, { completed: true, qualityValue: Number(event.target.value) }))}
+                      onChange={(event) => onChange(updateHabitCompletion(workspace, habit, date, { completed: true, qualityValue: Number(event.target.value) }))}
                     />
                     <div><span>{habit.qualityScale === "ten" ? "1" : "−5"}</span>{habit.qualityScale === "bipolar" ? <i>0</i> : null}<span>{habit.qualityScale === "ten" ? "10" : "+5"}</span></div>
                   </label>
@@ -736,7 +719,91 @@ function HabitStatistics({ workspace, date, language, calendarMode }: { workspac
   );
 }
 
-export function HabitTrackerPage({ workspace, date, language, timeFormat, calendarMode, googleTasksReady, onChange, onReminderRequested, onReminderRemoved }: HabitTrackerPageProps) {
+function SacredHabitLibrary({
+  workspace,
+  date,
+  language,
+  calendarMode,
+  onChange,
+  onStart,
+  onOpenTheokyklosSector,
+}: {
+  workspace: HabitWorkspace;
+  date: string;
+  language: Language;
+  calendarMode: CalendarMode;
+  onChange: (workspace: HabitWorkspace) => void;
+  onStart: (practice: SacredPractice) => void;
+  onOpenTheokyklosSector?: (sectorId: SacredPracticeSectorId) => void;
+}) {
+  const isEnglish = language === "en";
+  const [selectedSectorId, setSelectedSectorId] = useState<SacredPracticeSectorId>("north");
+  const segments = useMemo(() => new Map(THEOKYKLOS_SEGMENTS.map((segment) => [segment.id, segment])), []);
+  const sector = segments.get(selectedSectorId)!;
+  const practices = sacredPracticesForSector(selectedSectorId);
+
+  return (
+    <section className="sacred-habit-library" aria-labelledby="sacred-habit-library-title">
+      <header>
+        <div>
+          <span className="eyebrow">ΘΕΟΚΥΚΛΟΣ · {isEnglish ? "embodied myth" : "воплощённый миф"}</span>
+          <h2 id="sacred-habit-library-title">{isEnglish ? "Sacred habits" : "Сакральные привычки"}</h2>
+          <p>{isEnglish ? "Every practice is an ordinary, trackable action illuminated by a myth and a patron deity." : "Каждая практика — обычное отслеживаемое действие, освещённое мифом и божеством-покровителем."}</p>
+        </div>
+        {onOpenTheokyklosSector ? <button type="button" className="secondary-button" onClick={() => onOpenTheokyklosSector(selectedSectorId)}>{isEnglish ? "Open sector" : "Открыть сектор"} →</button> : null}
+      </header>
+
+      <div className="sacred-sector-tabs" role="tablist" aria-label={isEnglish ? "Theokyklos practice sectors" : "Секторы практик Теокиклоса"}>
+        {SACRED_PRACTICE_SECTOR_IDS.map((sectorId) => {
+          const item = segments.get(sectorId)!;
+          const started = workspace.habits.filter((habit) => habit.sacredSectorId === sectorId).length;
+          return (
+            <button type="button" role="tab" aria-selected={selectedSectorId === sectorId} className={selectedSectorId === sectorId ? "active" : ""} onClick={() => setSelectedSectorId(sectorId)} key={sectorId}>
+              <span aria-hidden="true">{item.symbol}</span>
+              <strong>{item.short[language]}</strong>
+              <small>{started ? `${started}/${sacredPracticesForSector(sectorId).length}` : item.patrons[language]}</small>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="sacred-sector-summary">
+        <div><span aria-hidden="true">{sector.symbol}</span><p><small>{isEnglish ? "Patron deity" : "Божество-покровитель"}</small><strong>{sector.patrons[language]}</strong></p></div>
+        <p>{sector.essence[language]}</p>
+      </div>
+
+      <div className="sacred-practice-grid">
+        {practices.map((practice) => {
+          const habit = workspace.habits.find((item) => item.sacredPracticeId === practice.id);
+          const entry = habit ? completionFor(workspace, habit.id, date) : undefined;
+          const canTrack = habit?.active && isHabitScheduledForDate(habit, date, calendarMode) && canRecordHabitOnDate(habit.createdDate, date, habitDateKey(new Date()));
+          return (
+            <article className={`${habit ? "started" : ""}${habit && !habit.active ? " paused" : ""}`} style={{ "--habit-color": practice.color } as CSSProperties} key={practice.id}>
+              <header><span aria-hidden="true">{practice.emoji}</span><div><small>{sector.patrons[language]}</small><h3>{practice.title[language]}</h3></div>{habit ? <em>{habit.active ? (isEnglish ? "Active" : "Активна") : (isEnglish ? "Paused" : "На паузе")}</em> : null}</header>
+              <p>{practice.description[language]}</p>
+              <blockquote>{practice.myth[language]}</blockquote>
+              <footer>
+                {habit ? (
+                  <button
+                    type="button"
+                    className={entry?.completed ? "sacred-practice-done" : "primary-button"}
+                    disabled={!canTrack}
+                    onClick={() => onChange(updateHabitCompletion(workspace, habit, date, { completed: !entry?.completed }))}
+                  >
+                    {entry?.completed ? `✓ ${isEnglish ? "Completed today" : "Выполнено сегодня"}` : (isEnglish ? "Mark today" : "Отметить сегодня")}
+                  </button>
+                ) : <button type="button" className="primary-button" onClick={() => onStart(practice)}>{isEnglish ? "Begin practice" : "Начать практику"}</button>}
+                <small>{practice.suggestedTime} · {isEnglish ? `priority ${practice.priority}` : `приоритет ${practice.priority}`}</small>
+              </footer>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+export function HabitTrackerPage({ workspace, date, language, timeFormat, calendarMode, googleTasksReady, onChange, onReminderRequested, onReminderRemoved, onOpenTheokyklosSector }: HabitTrackerPageProps) {
   const isEnglish = language === "en";
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   const [activatingTemplate, setActivatingTemplate] = useState<HabitTemplate | null>(null);
@@ -805,6 +872,16 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
           {visibleStarterTemplates.length ? <div className="habit-template-grid">{visibleStarterTemplates.map((template) => <article style={{ "--habit-color": template.color } as CSSProperties} key={template.id}><span className="habit-template-icon" aria-hidden="true">{template.icon}</span><div><h3>{isEnglish ? template.titleEn : template.title}</h3><p>{isEnglish ? template.descriptionEn : template.description}</p><small>{isEnglish ? template.frequencyEn : template.frequency}</small></div><footer><button type="button" className="primary-button" onClick={() => setActivatingTemplate(template)}>{isEnglish ? "Add" : "Добавить"}</button><button type="button" className="habit-template-hide" onClick={() => hideStarterTemplate(template)}>{isEnglish ? "Hide suggestion" : "Скрыть предложение"}</button></footer></article>)}</div> : <p className="habit-template-empty">{isEnglish ? "All remaining suggestions are hidden. You can restore them here or in account settings." : "Все оставшиеся предложения скрыты. Их можно вернуть здесь или в настройках личного кабинета."}</p>}
         </section>
       ) : null}
+
+      <SacredHabitLibrary
+        workspace={workspace}
+        date={date}
+        language={language}
+        calendarMode={calendarMode}
+        onChange={onChange}
+        onStart={(practice) => saveHabit(createHabitFromSacredPractice(practice, creationDate, calendarMode, language))}
+        onOpenTheokyklosSector={onOpenTheokyklosSector}
+      />
 
       <HabitDailyPanel workspace={workspace} date={date} language={language} timeFormat={timeFormat} calendarMode={calendarMode} onChange={onChange} showGoalSettings />
 
