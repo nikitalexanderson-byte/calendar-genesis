@@ -165,3 +165,28 @@ export function calculateGlobalStreak(records: readonly DailyGoalRecord[], today
   });
   return { currentStreak, longestStreak, lastQualifiedDate };
 }
+
+export function calculateRhythmScore(records: readonly DailyGoalRecord[], today: string, windowDays = 28) {
+  const days = Math.max(7, Math.min(90, Math.round(Number(windowDays) || 28)));
+  const end = new Date(`${today}T12:00:00`);
+  const start = new Date(end);
+  start.setDate(start.getDate() - days + 1);
+  const startKey = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}-${String(start.getDate()).padStart(2, "0")}`;
+  const eligible = normalizeDailyGoalRecords(records).filter((record) => (
+    record.date >= startKey
+    && record.date <= today
+    && record.scheduledCount > 0
+    && !["neutral", "rest", "timezone-shift"].includes(record.status)
+  ));
+  if (!eligible.length) return 0;
+  const weighted = eligible.reduce((summary, record) => {
+    const age = Math.max(0, Math.round((end.getTime() - new Date(`${record.date}T12:00:00`).getTime()) / 86_400_000));
+    const recency = Math.max(0, 1 - age / days);
+    const weight = 1 + recency * 1.5;
+    const completionRatio = record.scheduledCount ? Math.min(1, record.completedCount / record.scheduledCount) : 0;
+    summary.earned += completionRatio * weight;
+    summary.possible += weight;
+    return summary;
+  }, { earned: 0, possible: 0 });
+  return weighted.possible ? Math.max(0, Math.min(100, Math.round(weighted.earned / weighted.possible * 100))) : 0;
+}

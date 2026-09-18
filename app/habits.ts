@@ -33,6 +33,7 @@ import { scoreHabitFormula } from "./tracker-math";
 import {
   buildDailyGoalRecord,
   calculateGlobalStreak,
+  calculateRhythmScore,
   dailyGoalModeForDate,
   normalizeDailyGoalModeChanges,
   normalizeDailyGoalRecords,
@@ -178,7 +179,7 @@ export type HabitSettings = {
 };
 
 export type HabitWorkspace = {
-  trackerSchemaVersion: 13;
+  trackerSchemaVersion: 14;
   userProgress: UserProgress;
   habits: Habit[];
   habitCompletions: HabitCompletion[];
@@ -260,7 +261,7 @@ export const DEFAULT_HABIT_SETTINGS: HabitSettings = {
 };
 
 export const EMPTY_HABIT_WORKSPACE: HabitWorkspace = {
-  trackerSchemaVersion: 13,
+  trackerSchemaVersion: 14,
   userProgress: {
     lifetimeXp: 0,
     laurelsBalance: 0,
@@ -271,6 +272,7 @@ export const EMPTY_HABIT_WORKSPACE: HabitWorkspace = {
     lastQualifiedDate: null,
     streakGoalMode: "rhythm",
     streakFreezeCount: 0,
+    rhythmScore: 0,
     updatedAt: "",
   },
   habits: [],
@@ -666,7 +668,7 @@ export function normalizeHabitWorkspace(
   });
 
   const workspace: HabitWorkspace = {
-    trackerSchemaVersion: 13,
+    trackerSchemaVersion: 14,
     userProgress,
     habits,
     habitCompletions,
@@ -834,6 +836,7 @@ function withDailyGoalStreak(
       streak,
       calculateLaurelsBalance(rewardTransactions),
       calculateStreakFreezeCount(protection.transactions),
+      calculateRhythmScore(protectedWorkspace.dailyGoalRecords, today),
     ),
   };
 }

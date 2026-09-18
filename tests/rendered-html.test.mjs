@@ -65,11 +65,18 @@ import {
 import {
   buildDailyGoalRecord,
   calculateGlobalStreak,
+  calculateRhythmScore,
   dailyGoalModeForDate,
   dailyGoalTarget,
   scheduleDailyGoalMode,
   upsertDailyGoalRecord,
 } from "../app/daily-goal.ts";
+import {
+  HABIT_MASTERY_MILESTONES,
+  buildHabitPersonalRecord,
+  buildHabitYearMosaic,
+  buildWeeklyHabitSummary,
+} from "../app/habit-insights.ts";
 import {
   DAILY_GOAL_LAURELS,
   PERFECT_DAY_LAURELS,
@@ -142,7 +149,7 @@ test("encrypted workspace sync merges concurrent entities and preserves deletion
       achievementUnlocks: [],
       rewardTransactions: [],
       streakFreezeTransactions: [],
-      trackerSchemaVersion: 13,
+      trackerSchemaVersion: 14,
       userProgress: { lifetimeXp: 0 },
       habitSettings: { enabled: true },
       hiddenDefaultTemplates: [],
@@ -189,7 +196,7 @@ test("workspace merge deduplicates reward ledger entries by idempotency key", ()
   const common = {
     projects: [], categories: [], taskListLinks: [], habits: [], habitCompletions: [], sleepPlans: [], sleepEntries: [],
     moodEntries: [], addictionTrackers: [], addictionEntries: [], analyticsSnapshots: [], dailyGoalRecords: [],
-    quests: [], achievementUnlocks: [], trackerSchemaVersion: 13, userProgress: {}, habitSettings: {}, hiddenDefaultTemplates: [], streakFreezeTransactions: [],
+    quests: [], achievementUnlocks: [], trackerSchemaVersion: 14, userProgress: {}, habitSettings: {}, hiddenDefaultTemplates: [], streakFreezeTransactions: [],
   };
   const left = prepareWorkspaceForSync({
     current: {
@@ -348,9 +355,11 @@ test("admin moderation exposes only aggregate habit counts and can optionally bl
 });
 
 test("ships the modular encrypted tracker across dashboard, calendars and account settings", async () => {
-  const [calendar, tracker, heroPath, habits, habitReset, habitQuests, achievements, habitNotifications, progress, dailyGoal, rewards, streakProtection, sleep, mood, addiction, analytics, cache, trackerMath, cloud, account, recoveryDialog, repository, migration, styles, sigil, metricSigil, achievementSigil, rankArt] = await Promise.all([
+  const [calendar, tracker, habitInsightsPanel, habitInsights, heroPath, habits, habitReset, habitQuests, achievements, habitNotifications, progress, dailyGoal, rewards, streakProtection, sleep, mood, addiction, analytics, cache, trackerMath, cloud, account, recoveryDialog, repository, migration, styles, sigil, metricSigil, achievementSigil, rankArt] = await Promise.all([
     readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/HabitTracker.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/HabitInsightsPanel.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/habit-insights.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/HeroPathPanel.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/habits.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/habit-reset.ts", import.meta.url), "utf8"),
@@ -435,7 +444,7 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(habits, /STARTER_HABIT_TEMPLATES/);
   assert.match(habits, /createHabitFromTemplate/);
   assert.match(habits, /normalizeHiddenDefaultTemplates/);
-  assert.match(habits, /trackerSchemaVersion: 13/);
+  assert.match(habits, /trackerSchemaVersion: 14/);
   assert.match(habits, /createdDate: string/);
   assert.match(habits, /emoji: string/);
   assert.match(habits, /priority: number/);
@@ -570,6 +579,14 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.ok(trackerPage.indexOf('className="habit-range-toolbar"') < trackerPage.indexOf("<HabitStatistics"));
   assert.match(tracker, /Статистика моих привычек/);
   assert.doesNotMatch(tracker, /Клиентская аналитика/);
+  assert.match(tracker, /<HabitInsightsPanel/);
+  assert.match(habitInsightsPanel, /Итоги недели/);
+  assert.match(habitInsightsPanel, /Индекс Ритма/);
+  assert.match(habitInsightsPanel, /Мозаика года/);
+  assert.match(habitInsightsPanel, /Личные рекорды и мастерство/);
+  assert.match(habitInsights, /HABIT_MASTERY_MILESTONES = \[7, 30, 50, 100, 365, 500, 1_000\]/);
+  assert.match(styles, /\.habit-year-mosaic-grid/);
+  assert.match(styles, /\.habit-personal-record-grid/);
   assert.equal((trackerPage.match(/<HabitDailyPanel/g) ?? []).length, 1);
   assert.match(metricSigil, /metric-sigil-laurel-core/);
   assert.match(metricSigil, /metric-sigil-streak-core/);
@@ -647,6 +664,7 @@ test("resetting habit tracking clears every tracker and statistic while preservi
   assert.equal(reset.userProgress.hiddenHeroicPathRevealedAt, null);
   assert.equal(reset.userProgress.currentStreak, 0);
   assert.equal(reset.userProgress.longestStreak, 0);
+  assert.equal(reset.userProgress.rhythmScore, 0);
   assert.equal(reset.userProgress.streakGoalMode, "perfect");
   assert.equal(reset.habitSettings.enabled, false);
   assert.equal(reset.habitSettings.reportRange, "custom");
@@ -889,6 +907,71 @@ test("daily goals preserve future-only modes and global streak rules", () => {
   assert.equal(timezoneTransition[1].status, "timezone-shift");
   assert.equal(calculateGlobalStreak(timezoneTransition, "2026-09-20").currentStreak, 2, "a timezone transition must not destroy a valid streak");
   assert.equal(reconcileDailyGoalRewards(timezoneTransition, [], "2026-09-20").filter((item) => item.sourceId === "2026-09-19").length, 0, "a timezone transition cannot mint a duplicate daily reward");
+});
+
+test("Phase K builds weighted rhythm, weekly comparison, year mosaic and per-habit records locally", () => {
+  const goalRecord = (date, completedCount, scheduledCount = 1) => buildDailyGoalRecord({
+    date,
+    mode: "rhythm",
+    timezone: "Europe/Moscow",
+    scheduledCount,
+    completedCount,
+    today: "2026-09-18",
+    updatedAt: `${date}T20:00:00.000Z`,
+  });
+  assert.equal(calculateRhythmScore([goalRecord("2026-09-17", 1), goalRecord("2026-09-18", 1)], "2026-09-18"), 100);
+  assert.equal(calculateRhythmScore([], "2026-09-18"), 0);
+  const recoveringRhythm = calculateRhythmScore([
+    goalRecord("2026-09-01", 0),
+    goalRecord("2026-09-16", 1),
+    goalRecord("2026-09-17", 1),
+    goalRecord("2026-09-18", 1),
+  ], "2026-09-18");
+  assert.ok(recoveringRhythm > 75 && recoveringRhythm < 100, "recent successful days should restore Rhythm quickly without erasing older history");
+
+  const habit = {
+    id: "habit-reading",
+    title: "Чтение",
+    createdDate: "2026-09-01",
+    schedule: { startDate: "2026-09-01", endDate: null },
+  };
+  const completionDates = ["2026-09-01", "2026-09-02", "2026-09-03", "2026-09-04", "2026-09-05", "2026-09-06", "2026-09-07", "2026-09-09", "2026-09-10", "2026-09-18"];
+  const completions = completionDates.map((date, index) => ({ habitId: habit.id, date, completed: true, xpAwarded: 10, id: `completion-${index}` }));
+  const personal = buildHabitPersonalRecord(habit, completions, "2026-09-18", "profane", () => true);
+  assert.equal(personal.totalCompletions, 10);
+  assert.equal(personal.longestStreak, 7);
+  assert.equal(personal.currentStreak, 1);
+  assert.equal(personal.completionRate, 56);
+  assert.equal(personal.bestMonth, "2026-09");
+  assert.equal(personal.reachedMilestone, 7);
+  assert.equal(personal.nextMilestone, 30);
+  assert.deepEqual(HABIT_MASTERY_MILESTONES, [7, 30, 50, 100, 365, 500, 1_000]);
+
+  const workspace = {
+    habits: [habit],
+    habitCompletions: [
+      { habitId: habit.id, date: "2026-09-10", completed: true, xpAwarded: 10 },
+      { habitId: habit.id, date: "2026-09-14", completed: true, xpAwarded: 10 },
+      { habitId: habit.id, date: "2026-09-15", completed: true, xpAwarded: 10 },
+      { habitId: habit.id, date: "2026-09-18", completed: true, xpAwarded: 10 },
+    ],
+    dailyGoalRecords: [goalRecord("2026-09-14", 1), goalRecord("2026-09-15", 1), goalRecord("2026-09-18", 1)],
+    rewardTransactions: [{ amount: 5, sourceId: "2026-09-18", createdAt: "2026-09-18T18:00:00.000Z" }],
+  };
+  const weekly = buildWeeklyHabitSummary(workspace, "2026-09-18");
+  assert.equal(weekly.startDate, "2026-09-14");
+  assert.equal(weekly.completed, 3);
+  assert.equal(weekly.previousCompleted, 1);
+  assert.equal(weekly.changePercent, 200);
+  assert.equal(weekly.xp, 30);
+  assert.equal(weekly.laurels, 5);
+  assert.equal(weekly.bestHabitTitle, "Чтение");
+
+  const mosaic = buildHabitYearMosaic(workspace.dailyGoalRecords, "2026-09-18");
+  assert.equal(mosaic.length, 365);
+  assert.equal(mosaic.find((cell) => cell.date === "2026-09-18").status, "perfect");
+  assert.equal(mosaic.find((cell) => cell.date === "2026-12-31").status, "future");
+  assert.ok(mosaic.every((cell) => cell.week >= 1 && cell.week <= 53 && cell.weekday >= 1 && cell.weekday <= 7));
 });
 
 test("daily and weekly trials stay achievable and reward idempotently", () => {
