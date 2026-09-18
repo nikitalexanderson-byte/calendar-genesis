@@ -11992,6 +11992,7 @@ button.project-drag-handle:active { cursor: grabbing; }
 .laurel-ledger > div > div { display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:9px; min-width:0; padding:9px 10px; border:1px solid rgba(19,36,38,.08); border-radius:9px; background:rgba(255,255,255,.66); }
 .laurel-ledger > div > div > span { min-width:38px; color:var(--teal); font:600 15px/1 Georgia,serif; }
 .laurel-ledger > div > div > span.debit { color:#98554e; }
+.laurel-ledger > div > div > span.neutral { color:var(--gold-dark); }
 .laurel-ledger > div > div > div { display:grid; gap:3px; min-width:0; }
 .laurel-ledger > div > div strong { overflow:hidden; font-size:9px; text-overflow:ellipsis; white-space:nowrap; }
 .laurel-ledger > div > div small,.laurel-ledger code { color:var(--ink-soft); font-size:7px; }
