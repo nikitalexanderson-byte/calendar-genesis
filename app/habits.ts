@@ -88,6 +88,12 @@ import {
   type SacredPractice,
   type SacredPracticeSectorId,
 } from "./sacred-practices";
+import {
+  normalizeHabitQuests,
+  reconcileHabitQuestRewards,
+  reconcileHabitQuests,
+  type HabitQuest,
+} from "./habit-quests";
 
 export { HABIT_COLORS, STARTER_HABIT_TEMPLATES } from "./habit-templates";
 export type { HabitTemplate, HabitTemplateId } from "./habit-templates";
@@ -98,6 +104,8 @@ export type { RewardCurrency, RewardReason, RewardTransaction } from "./rewards"
 export { DAILY_GOAL_LAURELS, PERFECT_DAY_LAURELS, laurelsForDailyGoal, resetLaurelsBalance } from "./rewards";
 export { COMEBACK_REWARD_LAURELS, COMEBACK_TARGET_DAYS, HESTIA_SPARK_COST, HESTIA_SPARK_MAX, calculateComebackSummary, calculateStreakFreezeCount } from "./streak-protection";
 export type { ComebackSummary, StreakFreezeReason, StreakFreezeTransaction } from "./streak-protection";
+export { DAILY_QUEST_LAURELS, WEEKLY_QUEST_LAURELS, currentHabitQuests, habitQuestWeek } from "./habit-quests";
+export type { HabitQuest, HabitQuestCadence, HabitQuestKind } from "./habit-quests";
 export { dailyGoalTarget } from "./daily-goal";
 export type { DailyGoalMode, DailyGoalModeChange, DailyGoalRecord, DailyGoalStatus } from "./daily-goal";
 
@@ -152,7 +160,7 @@ export type HabitSettings = {
 };
 
 export type HabitWorkspace = {
-  trackerSchemaVersion: 10;
+  trackerSchemaVersion: 11;
   userProgress: UserProgress;
   habits: Habit[];
   habitCompletions: HabitCompletion[];
@@ -163,6 +171,7 @@ export type HabitWorkspace = {
   addictionEntries: AddictionEntry[];
   analyticsSnapshots: TrackerAnalyticsSnapshot[];
   dailyGoalRecords: DailyGoalRecord[];
+  quests: HabitQuest[];
   rewardTransactions: RewardTransaction[];
   streakFreezeTransactions: StreakFreezeTransaction[];
   habitSettings: HabitSettings;
@@ -231,7 +240,7 @@ export const DEFAULT_HABIT_SETTINGS: HabitSettings = {
 };
 
 export const EMPTY_HABIT_WORKSPACE: HabitWorkspace = {
-  trackerSchemaVersion: 10,
+  trackerSchemaVersion: 11,
   userProgress: {
     lifetimeXp: 0,
     laurelsBalance: 0,
@@ -253,6 +262,7 @@ export const EMPTY_HABIT_WORKSPACE: HabitWorkspace = {
   addictionEntries: [],
   analyticsSnapshots: [],
   dailyGoalRecords: [],
+  quests: [],
   rewardTransactions: [],
   streakFreezeTransactions: [],
   habitSettings: DEFAULT_HABIT_SETTINGS,
@@ -586,6 +596,7 @@ export function normalizeHabitWorkspace(
     .filter((entry): entry is HabitCompletion => entry !== null);
   const rewardTransactions = normalizeRewardTransactions(value.rewardTransactions);
   const streakFreezeTransactions = normalizeStreakFreezeTransactions(value.streakFreezeTransactions);
+  const quests = normalizeHabitQuests(value.quests);
   const userProgress = reconcileUserProgress(
     value.userProgress,
     habitCompletions,
@@ -628,7 +639,7 @@ export function normalizeHabitWorkspace(
   });
 
   const workspace: HabitWorkspace = {
-    trackerSchemaVersion: 10,
+    trackerSchemaVersion: 11,
     userProgress,
     habits,
     habitCompletions,
@@ -639,6 +650,7 @@ export function normalizeHabitWorkspace(
     addictionEntries: [...explicitAddictionEntries, ...migratedAddictionEntries],
     analyticsSnapshots: normalizeSnapshots(value.analyticsSnapshots),
     dailyGoalRecords: normalizeDailyGoalRecords(value.dailyGoalRecords),
+    quests,
     rewardTransactions,
     streakFreezeTransactions,
     habitSettings: normalizeSettings(value.habitSettings),
@@ -762,9 +774,21 @@ function withDailyGoalStreak(
   const streak = calculateGlobalStreak(protectedWorkspace.dailyGoalRecords, today);
   const earnedTransactions = reconcileDailyGoalRewards(protectedWorkspace.dailyGoalRecords, protectedWorkspace.rewardTransactions, today, timestamp);
   const resetTransactions = reconcileMissedHabitLaurels(protectedWorkspace, earnedTransactions, today, timestamp, calendarMode);
-  const rewardTransactions = reconcileComebackRewards(protectedWorkspace.dailyGoalRecords, resetTransactions, today, timestamp);
+  const comebackTransactions = reconcileComebackRewards(protectedWorkspace.dailyGoalRecords, resetTransactions, today, timestamp);
+  const quests = reconcileHabitQuests({
+    quests: protectedWorkspace.quests,
+    habits: protectedWorkspace.habits,
+    completions: protectedWorkspace.habitCompletions,
+    dailyGoalRecords: protectedWorkspace.dailyGoalRecords,
+    today,
+    calendarMode,
+    isScheduledForDate: isTrackerScheduledForDate,
+    timestamp,
+  });
+  const rewardTransactions = reconcileHabitQuestRewards(quests, comebackTransactions, timestamp);
   return {
     ...protectedWorkspace,
+    quests,
     rewardTransactions,
     userProgress: reconcileUserProgress(
       workspace.userProgress,

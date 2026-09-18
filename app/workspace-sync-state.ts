@@ -13,6 +13,7 @@ export const WORKSPACE_SYNC_COLLECTIONS = [
   "addictionEntries",
   "analyticsSnapshots",
   "dailyGoalRecords",
+  "quests",
   "rewardTransactions",
   "streakFreezeTransactions",
 ] as const;

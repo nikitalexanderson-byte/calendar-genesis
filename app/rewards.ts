@@ -4,6 +4,7 @@ export type RewardCurrency = "laurels";
 export type RewardReason =
   | "daily-goal"
   | "perfect-day"
+  | "daily-quest"
   | "weekly-quest"
   | "streak-milestone"
   | "rank-up"
@@ -33,6 +34,7 @@ export const PERFECT_DAY_LAURELS = 3;
 const REWARD_REASONS: readonly RewardReason[] = [
   "daily-goal",
   "perfect-day",
+  "daily-quest",
   "weekly-quest",
   "streak-milestone",
   "rank-up",

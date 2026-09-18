@@ -1302,6 +1302,10 @@ export function GenesisCalendar() {
   }, [tasks]);
   const selectedDayTasks = [...(tasksByDate.get(selectedDateValue) ?? [])]
     .sort((a, b) => a.time.localeCompare(b.time));
+  const todayTasks = [...(tasksByDate.get(todayDateValue) ?? [])]
+    .sort((left, right) => Number(left.done) - Number(right.done)
+      || (left.time || "24:00").localeCompare(right.time || "24:00")
+      || right.priority - left.priority);
   const selectedSunriseSunset = deviceLocation ? getSunriseSunset(selectedDate, deviceLocation) : null;
   const selectedSunrise = selectedSunriseSunset
     ? formatDeviceSolarTime(selectedSunriseSunset.sunrise, deviceTimeZone)
@@ -3619,6 +3623,46 @@ export function GenesisCalendar() {
               {renderTaskListCreateForm("today")}
             </details>
           </div>
+        </section>
+
+        <section className="today-tasks-panel" aria-labelledby="today-tasks-title">
+          <header>
+            <div>
+              <span className="eyebrow">{isEnglish ? "The shape of today" : "План сегодняшнего дня"}</span>
+              <h2 id="today-tasks-title">{isEnglish ? "Today's tasks" : "Задачи на сегодня"}</h2>
+            </div>
+            <div>
+              <strong>{todayTasks.filter((task) => task.done).length} / {todayTasks.length}</strong>
+              <button type="button" className="text-button" onClick={() => navigateTo("all-tasks")}>{isEnglish ? "All tasks" : "Все задачи"} →</button>
+            </div>
+          </header>
+          {todayTasks.length ? (
+            <div className="today-task-list" aria-live="polite">
+              {todayTasks.map((task) => (
+                <article className={task.done ? "done" : ""} key={task.id}>
+                  <button type="button" className="task-check" onClick={() => toggleTask(task.id)} aria-label={task.done
+                    ? (isEnglish ? `Restore task “${task.title}”` : `Вернуть задачу «${task.title}»`)
+                    : (isEnglish ? `Complete task “${task.title}”` : `Завершить задачу «${task.title}»`)}>
+                    {task.done ? "✓" : ""}
+                  </button>
+                  <button type="button" className="today-task-open" onClick={() => openTaskEditor(task)}>
+                    <strong data-no-translate>{task.title}</strong>
+                    <span>
+                      <time>{task.time ? formatTimeValue(task.time, activeTimeFormat) : (isEnglish ? "All day" : "Весь день")}</time>
+                      <em>{resolvedTaskProjectTitle(task) || (isEnglish ? "No project" : "Без проекта")}</em>
+                      <i>{isEnglish ? `Priority ${task.priority}` : `Приоритет ${task.priority}`}</i>
+                    </span>
+                  </button>
+                  <button type="button" className="icon-button" onClick={() => openTaskEditor(task)} aria-label={isEnglish ? `Edit task “${task.title}”` : `Редактировать задачу «${task.title}»`}>↗</button>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="today-tasks-empty" role="status">
+              <span aria-hidden="true">✓</span>
+              <div><strong>{isEnglish ? "No tasks for today" : "На сегодня задач нет"}</strong><p>{isEnglish ? "You can leave the day open or create a task above." : "Можно оставить день свободным или создать задачу выше."}</p></div>
+            </div>
+          )}
         </section>
 
         {habitWorkspace.habitSettings.enabled ? (
