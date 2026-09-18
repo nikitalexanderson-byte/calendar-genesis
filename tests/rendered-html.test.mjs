@@ -96,7 +96,7 @@ test("server-renders the GENESIS application shell", async () => {
 });
 
 test("ships the modular encrypted tracker across dashboard, calendars and account settings", async () => {
-  const [calendar, tracker, habits, progress, dailyGoal, rewards, sleep, mood, addiction, analytics, cache, trackerMath, cloud, account, repository, migration, styles, sigil, rankArt] = await Promise.all([
+  const [calendar, tracker, habits, progress, dailyGoal, rewards, sleep, mood, addiction, analytics, cache, trackerMath, cloud, account, repository, migration, styles, sigil, metricSigil, rankArt] = await Promise.all([
     readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/HabitTracker.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/habits.ts", import.meta.url), "utf8"),
@@ -115,6 +115,7 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
     readFile(new URL("../server/migrations/010_client_workspace_keys.sql", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../app/HeroicRankSigil.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/HabitMetricSigil.tsx", import.meta.url), "utf8"),
     stat(new URL("../public/habit-ranks/heroic-ranks.webp", import.meta.url)),
   ]);
 
@@ -221,6 +222,15 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(sigil, /<svg/);
   assert.match(sigil, /onPointerMove/);
   assert.match(sigil, /rank-sigil-orbit/);
+  assert.match(tracker, /HabitMetricSigil variant="laurels"/);
+  assert.match(tracker, /HabitMetricSigil variant="streak"/);
+  assert.doesNotMatch(tracker, /habits-hero-laurels"><span/);
+  assert.doesNotMatch(tracker, /habits-hero-streak"><span/);
+  assert.match(metricSigil, /metric-sigil-laurel-core/);
+  assert.match(metricSigil, /metric-sigil-streak-core/);
+  assert.match(metricSigil, /onPointerMove/);
+  assert.match(metricSigil, /setHighlight/);
+  assert.match(styles, /@keyframes metric-sigil-awaken/);
   assert.match(styles, /\/habit-ranks\/heroic-ranks\.webp/);
   assert.ok(rankArt.size > 100_000, "heroic rank artwork should be a production image");
 });
