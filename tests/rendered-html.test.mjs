@@ -244,6 +244,12 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(tracker, /HabitMetricSigil variant="streak"/);
   assert.doesNotMatch(tracker, /habits-hero-laurels"><span/);
   assert.doesNotMatch(tracker, /habits-hero-streak"><span/);
+  const trackerPage = tracker.slice(tracker.indexOf("export function HabitTrackerPage"));
+  assert.match(trackerPage, /const hasHabits = workspace\.habits\.length > 0;/);
+  assert.match(trackerPage, /const dailyPanel = <HabitDailyPanel/);
+  assert.ok(trackerPage.indexOf("{hasHabits ? dailyPanel : null}") < trackerPage.indexOf('className="habit-range-toolbar"'));
+  assert.ok(trackerPage.indexOf("<SacredHabitLibrary") < trackerPage.indexOf("{!hasHabits ? dailyPanel : null}"));
+  assert.equal((trackerPage.match(/<HabitDailyPanel/g) ?? []).length, 1);
   assert.match(metricSigil, /metric-sigil-laurel-core/);
   assert.match(metricSigil, /metric-sigil-streak-core/);
   assert.match(metricSigil, /onPointerMove/);
@@ -590,8 +596,8 @@ test("covers every Theokyklos sector with sacred habits while keeping Stoicheion
   assert.match(sectorSigil, /<svg viewBox="0 0 100 100"/);
   assert.match(sectorSigil, /onPointerMove=\{handlePointerMove\}/);
   assert.match(sectorSigil, /data-sacred-sector-sigil=\{sectorId\}/);
-  const motifBlock = sectorSigil.match(/SACRED_SECTOR_SIGIL_MOTIFS:[\s\S]*?\n\};\n\nexport function/)?.[0] ?? "";
-  for (const sectorId of SACRED_PRACTICE_SECTOR_IDS) assert.match(motifBlock, new RegExp(`\\n  ${sectorId}: \\{`));
+  const motifBlock = sectorSigil.match(/SACRED_SECTOR_SIGIL_MOTIFS:[\s\S]*?\r?\n\};\r?\n\r?\nexport function/)?.[0] ?? "";
+  for (const sectorId of SACRED_PRACTICE_SECTOR_IDS) assert.match(motifBlock, new RegExp(`\\r?\\n  ${sectorId}: \\{`));
   assert.match(habits, /sacredPracticeId: string \| null/);
   assert.match(habits, /createHabitFromSacredPractice/);
   assert.match(styles, /\.stoicheion-sector-practice/);
