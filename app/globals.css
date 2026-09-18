@@ -11136,6 +11136,11 @@ button.project-drag-handle:active { cursor: grabbing; }
 .theokyklos-sacred-practices article > button { min-width: 104px; min-height: 36px; padding: 7px 10px; color: #fff; border: 0; border-radius: 999px; background: var(--practice-color); cursor: pointer; font-size: 8px; font-weight: 850; }
 .theokyklos-sacred-practices article > button.completed { color: #315c57; background: rgba(45,119,113,.12); border: 1px solid rgba(45,119,113,.24); }
 .theokyklos-sacred-practices article > button:disabled { cursor: not-allowed; opacity: .42; }
+.theokyklos-practice-actions { display: grid; gap: 6px; min-width: 104px; }
+.theokyklos-practice-actions button { min-height: 34px; padding: 7px 10px; color: #fff; border: 0; border-radius: 999px; background: var(--practice-color); cursor: pointer; font-size: 8px; font-weight: 850; }
+.theokyklos-practice-actions button.completed { color: #315c57; background: rgba(45,119,113,.12); border: 1px solid rgba(45,119,113,.24); }
+.theokyklos-practice-actions button.disable { color: #7a554f; border: 1px solid rgba(132,83,72,.22); background: rgba(132,83,72,.07); }
+.theokyklos-practice-actions button:disabled { cursor: not-allowed; opacity: .42; }
 
 @media (min-width: 921px) {
   .theokyklos-mandala-card {
@@ -11201,6 +11206,7 @@ button.project-drag-handle:active { cursor: grabbing; }
   .theokyklos-incantation li > span { font-size: 17px; }
   .theokyklos-sacred-practices article { grid-template-columns: 40px minmax(0, 1fr); }
   .theokyklos-sacred-practices article > button { grid-column: 1 / -1; width: 100%; }
+  .theokyklos-practice-actions { grid-column: 1 / -1; grid-template-columns: repeat(2,minmax(0,1fr)); width: 100%; }
 }
 
 @media (max-width: 430px) {
@@ -11579,7 +11585,7 @@ button.project-drag-handle:active { cursor: grabbing; }
 .sacred-habit-library h2 { margin: 0; font: 500 30px/1.05 Georgia, serif; }
 .sacred-habit-library > header p { margin: 0; color: #9bb0aa; font-size: 9px; line-height: 1.55; }
 .sacred-habit-library > header button { color: #e5cc8b; border-color: rgba(213,182,110,.26); background: rgba(213,182,110,.07); }
-.sacred-sector-tabs { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 6px; }
+.sacred-sector-tabs { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
 .sacred-sector-tabs button { display: grid; min-width: 0; min-height: 72px; place-items: center; align-content: center; gap: 4px; padding: 8px 5px; color: #8fa6a0; border: 1px solid rgba(213,182,110,.12); border-radius: 9px; background: rgba(255,255,255,.025); cursor: pointer; }
 .sacred-sector-tabs button:hover,
 .sacred-sector-tabs button.active { color: #f0e5cf; border-color: rgba(213,182,110,.45); background: rgba(213,182,110,.1); }
@@ -11609,6 +11615,8 @@ button.project-drag-handle:active { cursor: grabbing; }
 .sacred-practice-grid footer button.sacred-practice-done { color: #315c57; border: 1px solid rgba(45,119,113,.22); background: rgba(45,119,113,.1); cursor: pointer; font-size: 8px; font-weight: 850; }
 .sacred-practice-grid footer button:disabled { cursor: not-allowed; opacity: .45; }
 .sacred-practice-grid footer small { color: #70827e; font-size: 7px; }
+.sacred-practice-actions { display:flex; align-items:center; gap:6px; }
+.sacred-practice-actions button.sacred-practice-disable { color:#855b52; border:1px solid rgba(133,91,82,.24); background:rgba(133,91,82,.06); cursor:pointer; font-size:8px; font-weight:850; }
 
 .habit-editor-backdrop { z-index: 150; align-items: flex-start; padding: 28px; overflow-y: auto; }
 .habit-editor {
@@ -11802,13 +11810,19 @@ button.project-drag-handle:active { cursor: grabbing; }
 .rank-sigil-core { transform-origin:50px 50px; animation:rank-sigil-breathe 3.6s ease-in-out infinite; animation-delay:var(--sigil-phase); }
 .rank-sigil-core circle { fill:#fff7db; stroke:currentColor; stroke-width:1; }
 .rank-sigil-core path { fill:none; stroke:#fff1bd; stroke-width:.9; opacity:.75; }
+.rank-sigil-motif { fill:none; stroke:#fff4c9; stroke-linecap:round; stroke-linejoin:round; stroke-width:2.1; }
+.rank-sigil-motif .rank-sigil-motif-secondary { stroke:currentColor; stroke-width:1.15; opacity:.92; }
+.rank-sigil-motif-nodes circle { fill:#fff7db; stroke:currentColor; stroke-width:1.1; }
+.rank-sigil:hover .rank-sigil-motif { stroke-width:2.45; }
 .rank-sigil-laurels { fill:currentColor; opacity:.66; }
 .rank-sigil-laurels path { fill:none; stroke:currentColor; stroke-width:1.3; }
 .rank-sigil.awakened { filter:drop-shadow(0 0 21px color-mix(in srgb,var(--rank-color),transparent 34%)); }
 .rank-sigil.awakened .rank-sigil-core { animation-duration:1.1s; }
+.rank-sigil.awakened .rank-sigil-motif-secondary { stroke-dasharray:3 2; animation:rank-sigil-trace 1.2s linear infinite; }
 .rank-sigil.compact { width:42px; height:42px; }
 @keyframes rank-sigil-orbit { to { transform:rotate(360deg); } }
 @keyframes rank-sigil-breathe { 0%,100% { transform:scale(.92); opacity:.76; } 50% { transform:scale(1.06); opacity:1; } }
+@keyframes rank-sigil-trace { to { stroke-dashoffset:-20; } }
 
 .habit-stat-cards { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 9px; }
 .habit-stat-cards article { display: grid; gap: 5px; min-height: 100px; padding: 14px; border: 1px solid var(--line); border-radius: 11px; background: var(--white); }
@@ -11867,8 +11881,13 @@ button.project-drag-handle:active { cursor: grabbing; }
 .heroic-rank-road > div { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; margin-top:14px; }
 .heroic-rank-road article { display:grid; min-height:112px; place-items:center; align-content:center; gap:5px; padding:9px 5px; opacity:.38; border:1px solid var(--line); border-radius:10px; text-align:center; }
 .heroic-rank-road article.reached { opacity:1; border-color:color-mix(in srgb,var(--rank-color),transparent 55%); background:color-mix(in srgb,var(--rank-color) 7%,#fffdf8); }
+.heroic-rank-road article.hidden-path-rank { box-shadow:inset 0 0 22px color-mix(in srgb,var(--rank-color) 8%,transparent); }
 .heroic-rank-road article > .rank-sigil { width:42px; height:42px; }
 .heroic-rank-road article strong { font:500 10px/1.2 Georgia,serif; }.heroic-rank-road article small { color:var(--ink-soft); font-size:7px; }
+.heroic-hidden-gate { display:flex; align-items:center; gap:12px; margin-top:10px; padding:12px 14px; color:#7c7466; border:1px dashed rgba(166,129,63,.34); border-radius:10px; background:rgba(190,154,83,.05); }
+.heroic-hidden-gate > span { display:grid; width:34px; height:34px; flex:0 0 auto; place-items:center; color:#b28a4a; border:1px solid rgba(178,138,74,.3); border-radius:50%; font-size:18px; }
+.heroic-hidden-gate > div { display:grid; gap:3px; }.heroic-hidden-gate strong { color:#2d4744; font:500 12px/1.2 Georgia,serif; }.heroic-hidden-gate small,.heroic-hidden-revealed { color:#73817e; font-size:8px; line-height:1.45; }
+.heroic-hidden-revealed { margin:10px 0 0; padding:9px 12px; color:#80662f; border-left:2px solid #b28a4a; background:rgba(178,138,74,.06); }
 
 .day-details-modal .habit-daily-panel.compact { width:100%; min-width:0; margin:0; padding:16px; box-sizing:border-box; box-shadow:none; }
 .day-details-modal .habit-daily-panel.compact > *,

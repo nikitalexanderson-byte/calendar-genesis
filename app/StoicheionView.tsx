@@ -27,7 +27,7 @@ import { THEOKYKLOS_SEGMENTS } from "./theokyklos-data";
 import {
   sacredPracticesForSector,
   sacredSectorGuidance,
-  type SacredPracticeSectorId,
+  type StoicheionPracticeSectorId,
 } from "./sacred-practices";
 
 const LOCAL_DRAW_STORAGE_PREFIX = "genesis-stoicheion-draws-v2:";
@@ -56,7 +56,7 @@ type SelectedReading = {
 const MOTION_TRAVEL_REQUIRED = 4480;
 
 type SpreadPosition = {
-  id: SacredPracticeSectorId;
+  id: StoicheionPracticeSectorId;
   direction: string;
   shortDirection: string;
   meaning: string;
@@ -349,7 +349,7 @@ function LetterDetails({
   reversed: boolean | null;
   position: SpreadPosition | null;
   onClose: () => void;
-  onOpenTheokyklosSector?: (sectorId: SacredPracticeSectorId) => void;
+  onOpenTheokyklosSector?: (sectorId: StoicheionPracticeSectorId) => void;
 }) {
   const language = getRuntimeLanguage();
   const sector = position ? THEOKYKLOS_SEGMENTS.find((segment) => segment.id === position.id) ?? null : null;
@@ -427,7 +427,7 @@ function LetterDetails({
 
 type StoicheionViewProps = {
   divinationDisabled?: boolean;
-  onOpenTheokyklosSector?: (sectorId: SacredPracticeSectorId) => void;
+  onOpenTheokyklosSector?: (sectorId: StoicheionPracticeSectorId) => void;
 };
 
 export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSector }: StoicheionViewProps) {
