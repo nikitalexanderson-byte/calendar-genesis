@@ -40,6 +40,7 @@ import {
   observeCloudWorkspace,
   observeEncryptedWorkspaceUpdates,
   observeGenesisUser,
+  registerWorkspaceRecoveryRequestHandler,
   removeCloudTask,
   saveCloudTask,
   saveMetrics,
@@ -50,6 +51,7 @@ import {
   updateAccountPreferences,
   updateGoogleTaskList,
   workspaceRecoveryCodeForUser,
+  type WorkspaceRecoveryRequest,
 } from "./cloud-sync";
 import { AccountPanel } from "./AccountPanel";
 import { AdminPanel } from "./AdminPanel";
@@ -66,6 +68,7 @@ import { MoonPhaseIcon } from "./MoonPhaseIcon";
 import { RecurrenceBuilder } from "./RecurrenceBuilder";
 import { WelcomeScreen } from "./WelcomeScreen";
 import { HabitDailyPanel, HabitTrackerPage } from "./HabitTracker";
+import { WorkspaceRecoveryDialog } from "./WorkspaceRecoveryDialog";
 import {
   addHabitDays,
   EMPTY_HABIT_WORKSPACE,
@@ -1162,6 +1165,7 @@ export function GenesisCalendar() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [editingTaskTags, setEditingTaskTags] = useState("");
   const [editingTaskList, setEditingTaskList] = useState<GoogleTaskList | null>(null);
+  const [workspaceRecoveryRequest, setWorkspaceRecoveryRequest] = useState<WorkspaceRecoveryRequest | null>(null);
   const [projectDragItem, setProjectDragItem] = useState<ProjectDragItem | null>(null);
   const [projectDropTargetId, setProjectDropTargetId] = useState("");
   const [projectTouchPoint, setProjectTouchPoint] = useState<{ x: number; y: number } | null>(null);
@@ -1174,6 +1178,7 @@ export function GenesisCalendar() {
   const sacredYearDetailsCloseRef = useRef<HTMLButtonElement | null>(null);
   const projectTouchDragRef = useRef<ProjectTouchDrag | null>(null);
   const habitSaveTimerRef = useRef<number | null>(null);
+  const workspaceRecoveryResolverRef = useRef<((accepted: boolean) => void) | null>(null);
   const projectPointerDragRef = useRef<{
     item: ProjectDragItem;
     pointerId: number;
@@ -1184,6 +1189,26 @@ export function GenesisCalendar() {
   const suppressProjectItemClickRef = useRef(false);
   const { androidApkUrl, canInstall, install, isStandalone } = usePwaInstall();
   useDocumentLanguage(language);
+
+  const finishWorkspaceRecovery = useCallback((accepted: boolean) => {
+    const resolve = workspaceRecoveryResolverRef.current;
+    workspaceRecoveryResolverRef.current = null;
+    setWorkspaceRecoveryRequest(null);
+    resolve?.(accepted);
+  }, []);
+  const confirmWorkspaceRecovery = useCallback(() => finishWorkspaceRecovery(true), [finishWorkspaceRecovery]);
+  const cancelWorkspaceRecovery = useCallback(() => finishWorkspaceRecovery(false), [finishWorkspaceRecovery]);
+
+  useEffect(() => registerWorkspaceRecoveryRequestHandler((request) => new Promise<boolean>((resolve) => {
+    workspaceRecoveryResolverRef.current?.(false);
+    workspaceRecoveryResolverRef.current = resolve;
+    setWorkspaceRecoveryRequest(request);
+  })), []);
+
+  useEffect(() => () => {
+    workspaceRecoveryResolverRef.current?.(false);
+    workspaceRecoveryResolverRef.current = null;
+  }, []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setAuthError(consumeGoogleAuthError()), 0);
@@ -5918,6 +5943,14 @@ export function GenesisCalendar() {
             </div>
           </form>
         </div>
+      ) : null}
+      {workspaceRecoveryRequest ? (
+        <WorkspaceRecoveryDialog
+          request={workspaceRecoveryRequest}
+          language={language}
+          onRecovered={confirmWorkspaceRecovery}
+          onCancel={cancelWorkspaceRecovery}
+        />
       ) : null}
       {accountOpen && cloudUser ? (
         <AccountPanel

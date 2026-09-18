@@ -94,6 +94,11 @@ import {
   reconcileHabitQuests,
   type HabitQuest,
 } from "./habit-quests";
+import {
+  normalizeAchievementUnlocks,
+  reconcileAchievementUnlocks,
+  type AchievementUnlock,
+} from "./achievements";
 
 export { HABIT_COLORS, STARTER_HABIT_TEMPLATES } from "./habit-templates";
 export type { HabitTemplate, HabitTemplateId } from "./habit-templates";
@@ -106,6 +111,8 @@ export { COMEBACK_REWARD_LAURELS, COMEBACK_TARGET_DAYS, HESTIA_SPARK_COST, HESTI
 export type { ComebackSummary, StreakFreezeReason, StreakFreezeTransaction } from "./streak-protection";
 export { DAILY_QUEST_LAURELS, WEEKLY_QUEST_LAURELS, currentHabitQuests, habitQuestWeek } from "./habit-quests";
 export type { HabitQuest, HabitQuestCadence, HabitQuestKind } from "./habit-quests";
+export { ACHIEVEMENTS, achievementMetrics } from "./achievements";
+export type { AchievementDefinition, AchievementId, AchievementUnlock } from "./achievements";
 export { dailyGoalTarget } from "./daily-goal";
 export type { DailyGoalMode, DailyGoalModeChange, DailyGoalRecord, DailyGoalStatus } from "./daily-goal";
 
@@ -160,7 +167,7 @@ export type HabitSettings = {
 };
 
 export type HabitWorkspace = {
-  trackerSchemaVersion: 11;
+  trackerSchemaVersion: 12;
   userProgress: UserProgress;
   habits: Habit[];
   habitCompletions: HabitCompletion[];
@@ -172,6 +179,7 @@ export type HabitWorkspace = {
   analyticsSnapshots: TrackerAnalyticsSnapshot[];
   dailyGoalRecords: DailyGoalRecord[];
   quests: HabitQuest[];
+  achievementUnlocks: AchievementUnlock[];
   rewardTransactions: RewardTransaction[];
   streakFreezeTransactions: StreakFreezeTransaction[];
   habitSettings: HabitSettings;
@@ -240,7 +248,7 @@ export const DEFAULT_HABIT_SETTINGS: HabitSettings = {
 };
 
 export const EMPTY_HABIT_WORKSPACE: HabitWorkspace = {
-  trackerSchemaVersion: 11,
+  trackerSchemaVersion: 12,
   userProgress: {
     lifetimeXp: 0,
     laurelsBalance: 0,
@@ -263,6 +271,7 @@ export const EMPTY_HABIT_WORKSPACE: HabitWorkspace = {
   analyticsSnapshots: [],
   dailyGoalRecords: [],
   quests: [],
+  achievementUnlocks: [],
   rewardTransactions: [],
   streakFreezeTransactions: [],
   habitSettings: DEFAULT_HABIT_SETTINGS,
@@ -597,6 +606,7 @@ export function normalizeHabitWorkspace(
   const rewardTransactions = normalizeRewardTransactions(value.rewardTransactions);
   const streakFreezeTransactions = normalizeStreakFreezeTransactions(value.streakFreezeTransactions);
   const quests = normalizeHabitQuests(value.quests);
+  const achievementUnlocks = normalizeAchievementUnlocks(value.achievementUnlocks);
   const userProgress = reconcileUserProgress(
     value.userProgress,
     habitCompletions,
@@ -639,7 +649,7 @@ export function normalizeHabitWorkspace(
   });
 
   const workspace: HabitWorkspace = {
-    trackerSchemaVersion: 11,
+    trackerSchemaVersion: 12,
     userProgress,
     habits,
     habitCompletions,
@@ -651,6 +661,7 @@ export function normalizeHabitWorkspace(
     analyticsSnapshots: normalizeSnapshots(value.analyticsSnapshots),
     dailyGoalRecords: normalizeDailyGoalRecords(value.dailyGoalRecords),
     quests,
+    achievementUnlocks,
     rewardTransactions,
     streakFreezeTransactions,
     habitSettings: normalizeSettings(value.habitSettings),
@@ -786,9 +797,18 @@ function withDailyGoalStreak(
     timestamp,
   });
   const rewardTransactions = reconcileHabitQuestRewards(quests, comebackTransactions, timestamp);
+  const achievementUnlocks = reconcileAchievementUnlocks({
+    unlocks: protectedWorkspace.achievementUnlocks,
+    habitCompletions: protectedWorkspace.habitCompletions,
+    dailyGoalRecords: protectedWorkspace.dailyGoalRecords,
+    longestStreak: Math.max(streak.longestStreak, workspace.userProgress.longestStreak),
+    rewardTransactions,
+    timestamp,
+  });
   return {
     ...protectedWorkspace,
     quests,
+    achievementUnlocks,
     rewardTransactions,
     userProgress: reconcileUserProgress(
       workspace.userProgress,

@@ -161,6 +161,15 @@ export type GenesisWorkspace = HabitWorkspace & {
   workspaceKeyMode: "legacy" | "client" | "new";
 };
 
+export type WorkspaceRecoveryReason = "new-device" | "key-mismatch";
+
+export type WorkspaceRecoveryRequest = {
+  reason: WorkspaceRecoveryReason;
+  validate: (recoveryCode: string) => Promise<void>;
+};
+
+type WorkspaceRecoveryRequestHandler = (request: WorkspaceRecoveryRequest) => Promise<boolean>;
+
 export type GeminiPlanProject = {
   title: string;
   description: string;
@@ -323,6 +332,7 @@ let workspaceBaseMetadata: WorkspaceSyncMetadata | null = null;
 let workspaceSyncMetadata: WorkspaceSyncMetadata | null = null;
 let encryptedHabitWorkspace: HabitWorkspace = EMPTY_HABIT_WORKSPACE;
 let workspaceMutationLock: Promise<void> = Promise.resolve();
+let workspaceRecoveryRequestHandler: WorkspaceRecoveryRequestHandler | null = null;
 const workspaceUpdateListeners = new Set<(workspace: EncryptedWorkspaceStructure, userId: string) => void>();
 
 type WorkspaceSyncCache = {
@@ -336,6 +346,13 @@ export function observeEncryptedWorkspaceUpdates(listener: (workspace: Encrypted
   workspaceUpdateListeners.add(listener);
   return () => {
     workspaceUpdateListeners.delete(listener);
+  };
+}
+
+export function registerWorkspaceRecoveryRequestHandler(handler: WorkspaceRecoveryRequestHandler) {
+  workspaceRecoveryRequestHandler = handler;
+  return () => {
+    if (workspaceRecoveryRequestHandler === handler) workspaceRecoveryRequestHandler = null;
   };
 }
 
@@ -602,6 +619,7 @@ function workspaceDocument(structure: EncryptedWorkspaceStructure, metadata = wo
     analyticsSnapshots: structure.analyticsSnapshots,
     dailyGoalRecords: structure.dailyGoalRecords,
     quests: structure.quests,
+    achievementUnlocks: structure.achievementUnlocks,
     rewardTransactions: structure.rewardTransactions,
     streakFreezeTransactions: structure.streakFreezeTransactions,
     habitSettings: structure.habitSettings,
@@ -706,6 +724,25 @@ async function unwrapWorkspaceKey(userId: string, wrappedKey: string, wrappedKey
   }
 }
 
+async function recoverWorkspaceKey(
+  reason: WorkspaceRecoveryReason,
+  wrappedKey: string,
+  wrappedKeyIv: string,
+  cancelledMessage: string,
+) {
+  const handler = workspaceRecoveryRequestHandler;
+  if (!handler) throw new Error(cancelledMessage);
+  let recoveredKey = "";
+  const accepted = await handler({
+    reason,
+    validate: async (recoveryCode) => {
+      recoveredKey = await unwrapWorkspaceKey(workspaceUserId, wrappedKey, wrappedKeyIv, recoveryCode);
+    },
+  });
+  if (!accepted || !recoveredKey) throw new Error(cancelledMessage);
+  workspaceKey = recoveredKey;
+}
+
 async function resolveWorkspaceKey(payload: BootstrapPayload) {
   workspaceUserId = payload.user.uid;
   workspaceDeviceId = deviceWorkspaceId(workspaceUserId);
@@ -734,9 +771,12 @@ async function resolveWorkspaceKey(payload: BootstrapPayload) {
   if (!payload.workspace.wrappedKey || !payload.workspace.wrappedKeyIv) {
     throw new Error("Зашифрованное пространство не содержит ключ восстановления.");
   }
-  const recoveryCode = window.prompt("Введите код восстановления GENESIS для расшифровки данных на этом устройстве:");
-  if (!recoveryCode) throw new Error("Для доступа к зашифрованным данным нужен код восстановления из личного кабинета.");
-  workspaceKey = await unwrapWorkspaceKey(workspaceUserId, payload.workspace.wrappedKey, payload.workspace.wrappedKeyIv, recoveryCode);
+  await recoverWorkspaceKey(
+    "new-device",
+    payload.workspace.wrappedKey,
+    payload.workspace.wrappedKeyIv,
+    "Для доступа к зашифрованным данным нужен код восстановления из личного кабинета.",
+  );
 }
 
 async function importWorkspaceKey() {
@@ -914,9 +954,12 @@ export async function loadGenesisWorkspace(): Promise<GenesisWorkspace> {
     structure = await decryptWorkspace(payload.workspace.envelope);
   } catch (error) {
     if (payload.workspace.keyMode !== "client" || !payload.workspace.wrappedKey || !payload.workspace.wrappedKeyIv) throw error;
-    const recoveryCode = window.prompt("Введите код восстановления GENESIS: локальный ключ этого устройства не подошёл к зашифрованным данным.");
-    if (!recoveryCode) throw new Error("Для восстановления доступа к зашифрованным данным нужен код из личного кабинета.");
-    workspaceKey = await unwrapWorkspaceKey(workspaceUserId, payload.workspace.wrappedKey, payload.workspace.wrappedKeyIv, recoveryCode);
+    await recoverWorkspaceKey(
+      "key-mismatch",
+      payload.workspace.wrappedKey,
+      payload.workspace.wrappedKeyIv,
+      "Для восстановления доступа к зашифрованным данным нужен код из личного кабинета.",
+    );
     structure = await decryptWorkspace(payload.workspace.envelope);
   }
   return {
@@ -939,6 +982,7 @@ export async function loadGenesisWorkspace(): Promise<GenesisWorkspace> {
     analyticsSnapshots: structure.analyticsSnapshots,
     dailyGoalRecords: structure.dailyGoalRecords,
     quests: structure.quests,
+    achievementUnlocks: structure.achievementUnlocks,
     rewardTransactions: structure.rewardTransactions,
     streakFreezeTransactions: structure.streakFreezeTransactions,
     habitSettings: structure.habitSettings,
