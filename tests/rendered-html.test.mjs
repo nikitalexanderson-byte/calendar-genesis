@@ -830,6 +830,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /day-details-tasks/);
   assert.match(calendar, /day-details-celestial/);
   assert.match(calendar, /day-details-create-task-button/);
+  assert.match(calendar, /className="day-details-hero"/);
+  assert.doesNotMatch(calendar, /selected-day-card day-details-modal/);
   assert.match(calendar, /beginSelectedDayTask/);
   assert.match(calendar, /setTaskDueDate\(selectedDateValue\)/);
   assert.match(calendar, /renderTaskCreateForm\("day-details"\)/);
@@ -1048,6 +1050,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(styles, /\.inbox-card-items > article\.inbox-task-item/);
   assert.match(styles, /\.inbox-card-items \.inbox-task-delete/);
   assert.match(styles, /\.day-details-modal/);
+  assert.match(styles, /\.day-details-hero[\s\S]*grid-template-columns: 72px minmax\(0, 1fr\)/);
+  assert.match(styles, /\.day-details-modal \.habit-daily-panel\.compact \{ width:100%; min-width:0;/);
   assert.match(styles, /\.day-details-create-task-button/);
   assert.match(styles, /\.day-task-create-modal > \.task-form/);
   assert.match(styles, /\.day-task-create-backdrop\s*\{[\s\S]*z-index: 675/);
