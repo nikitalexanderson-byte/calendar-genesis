@@ -9,6 +9,13 @@ import {
   type HabitWorkspace,
 } from "./habits";
 import { clearTrackerAnalyticsCache } from "./tracker-cache";
+import {
+  mergeWorkspaceDocuments,
+  normalizeWorkspaceSyncMetadata,
+  prepareWorkspaceForSync,
+  type SyncableWorkspaceDocument,
+  type WorkspaceSyncMetadata,
+} from "./workspace-sync-state";
 
 export type RecurrenceKind =
   | "none"
@@ -245,11 +252,26 @@ export type StoicheionDrawRecord = {
   canReroll: boolean;
 };
 
-type WorkspaceEnvelope = {
+export type WorkspaceEnvelope = {
   ciphertext: string;
   iv: string;
   version: number;
   updatedAt: string;
+};
+
+export type EncryptedWorkspaceStructure = Pick<GenesisWorkspace, "projects" | "categories" | "taskListLinks"> & HabitWorkspace;
+
+type WorkspaceSaveResponse = {
+  ok: boolean;
+  workspace: { version: number; updatedAt: string };
+};
+
+type WorkspaceEnvelopeRequest = {
+  ciphertext: string;
+  iv: string;
+  version: number;
+  expectedVersion: number;
+  metrics: GenesisMetrics;
 };
 
 type BootstrapPayload = {
@@ -272,6 +294,8 @@ const API_BASE = configuredBase.replace(/\/$/, "");
 const PENDING_KEY = "genesis-pending-mutations-v2";
 const LAST_USER_CACHE = "genesis-last-user-v2";
 const WORKSPACE_DEVICE_KEY_PREFIX = "genesis-workspace-device-key-v2:";
+const WORKSPACE_DEVICE_ID_PREFIX = "genesis-workspace-device-id-v1:";
+const WORKSPACE_SYNC_STATE_PREFIX = "genesis-workspace-sync-state-v1:";
 export const GENESIS_LEGACY_WORKSPACE_STORAGE_KEY = "genesis-calendar-v1";
 export const GENESIS_USER_WORKSPACE_STORAGE_PREFIX = "genesis-calendar-v2:";
 
@@ -288,8 +312,45 @@ function deviceTimeZone() {
 let csrfToken = "";
 let workspaceKey = "";
 let workspaceUserId = "";
-let workspaceVersion = Date.now();
+let workspaceVersion = 0;
+let workspaceDeviceId = "";
+let workspaceBase: EncryptedWorkspaceStructure | null = null;
+let workspaceBaseMetadata: WorkspaceSyncMetadata | null = null;
+let workspaceSyncMetadata: WorkspaceSyncMetadata | null = null;
 let encryptedHabitWorkspace: HabitWorkspace = EMPTY_HABIT_WORKSPACE;
+let workspaceMutationLock: Promise<void> = Promise.resolve();
+const workspaceUpdateListeners = new Set<(workspace: EncryptedWorkspaceStructure, userId: string) => void>();
+
+type WorkspaceSyncCache = {
+  version: number;
+  base: EncryptedWorkspaceStructure | null;
+  baseMetadata: WorkspaceSyncMetadata | null;
+  metadata: WorkspaceSyncMetadata | null;
+};
+
+export function observeEncryptedWorkspaceUpdates(listener: (workspace: EncryptedWorkspaceStructure, userId: string) => void) {
+  workspaceUpdateListeners.add(listener);
+  return () => {
+    workspaceUpdateListeners.delete(listener);
+  };
+}
+
+function publishWorkspaceUpdate(workspace: EncryptedWorkspaceStructure) {
+  const userId = workspaceUserId;
+  workspaceUpdateListeners.forEach((listener) => listener(workspace, userId));
+}
+
+async function withWorkspaceMutationLock<T>(operation: () => Promise<T>): Promise<T> {
+  const previous = workspaceMutationLock;
+  let release: () => void = () => undefined;
+  workspaceMutationLock = new Promise<void>((resolve) => { release = resolve; });
+  await previous;
+  try {
+    return await operation();
+  } finally {
+    release();
+  }
+}
 
 type PendingMutation = {
   key: string;
@@ -298,10 +359,19 @@ type PendingMutation = {
   body?: string;
 };
 
+function pendingStorageKey(userId = workspaceUserId) {
+  return `${PENDING_KEY}:${userId || "anonymous"}`;
+}
+
 function readPending(): PendingMutation[] {
   if (typeof window === "undefined") return [];
   try {
-    const parsed = JSON.parse(localStorage.getItem(PENDING_KEY) || "[]") as unknown;
+    const storageKey = pendingStorageKey();
+    if (workspaceUserId && !localStorage.getItem(storageKey) && localStorage.getItem(PENDING_KEY)) {
+      localStorage.setItem(storageKey, localStorage.getItem(PENDING_KEY) || "[]");
+      localStorage.removeItem(PENDING_KEY);
+    }
+    const parsed = JSON.parse(localStorage.getItem(storageKey) || "[]") as unknown;
     return Array.isArray(parsed) ? parsed.filter((item): item is PendingMutation => (
       Boolean(item) && typeof item === "object" &&
       typeof (item as PendingMutation).key === "string" &&
@@ -315,7 +385,7 @@ function readPending(): PendingMutation[] {
 
 function writePending(items: PendingMutation[]) {
   if (typeof window !== "undefined") {
-    localStorage.setItem(PENDING_KEY, JSON.stringify(items.slice(-2000)));
+    localStorage.setItem(pendingStorageKey(), JSON.stringify(items.slice(-2000)));
   }
 }
 
@@ -327,6 +397,18 @@ function queueMutation(mutation: PendingMutation) {
 
 function clearMutation(key: string) {
   writePending(readPending().filter((item) => item.key !== key));
+}
+
+class GenesisApiError extends Error {
+  readonly status: number;
+  readonly payload: Record<string, unknown> | null;
+
+  constructor(status: number, payload: Record<string, unknown> | null, message: string) {
+    super(message);
+    this.name = "GenesisApiError";
+    this.status = status;
+    this.payload = payload;
+  }
 }
 
 async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -341,7 +423,10 @@ async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
       ...init.headers,
     },
   });
-  const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+  const payload = (await response.json().catch(() => null)) as ({ error?: string } & Record<string, unknown>) | null;
+  if (!response.ok) {
+    throw new GenesisApiError(response.status, payload, payload?.error || `GENESIS API ${response.status}`);
+  }
   if (!response.ok) {
     throw new Error(payload?.error || (response.status === 401 ? "AUTH_REQUIRED" : `Ошибка сервера ${response.status}`));
   }
@@ -353,6 +438,20 @@ async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 async function flushPendingMutations() {
   for (const mutation of readPending()) {
+    if (mutation.key === "workspace" && mutation.body) {
+      await withWorkspaceMutationLock(async () => {
+        const queued = readPending().find((item) => item.key === "workspace" && item.body);
+        if (!queued?.body) return;
+        const body = JSON.parse(queued.body) as WorkspaceEnvelopeRequest;
+        const local = await decryptWorkspaceEnvelope({ ...body, updatedAt: new Date().toISOString() });
+        const result = await sendWorkspaceMutation(body);
+        if (workspaceVersion < result.workspace.version) {
+          adoptSavedWorkspace(local.structure, local.metadata, result.workspace);
+        }
+        clearMutation(queued.key);
+      });
+      continue;
+    }
     await api(mutation.path, {
       method: mutation.method,
       ...(mutation.body ? { body: mutation.body } : {}),
@@ -469,6 +568,101 @@ function storeDeviceWorkspaceKey(userId: string, value: DeviceWorkspaceKey) {
   localStorage.setItem(`${WORKSPACE_DEVICE_KEY_PREFIX}${userId}`, JSON.stringify(value));
 }
 
+function deviceWorkspaceId(userId: string) {
+  if (typeof window === "undefined") return "server";
+  const storageKey = `${WORKSPACE_DEVICE_ID_PREFIX}${userId}`;
+  const stored = localStorage.getItem(storageKey)?.trim();
+  if (stored) return stored;
+  const generated = bytesToBase64(crypto.getRandomValues(new Uint8Array(18)))
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replaceAll("=", "");
+  localStorage.setItem(storageKey, generated);
+  return generated;
+}
+
+function workspaceDocument(structure: EncryptedWorkspaceStructure, metadata = workspaceSyncMetadata) {
+  return {
+    projects: structure.projects,
+    categories: structure.categories,
+    taskListLinks: structure.taskListLinks,
+    trackerSchemaVersion: structure.trackerSchemaVersion,
+    userProgress: structure.userProgress,
+    habits: structure.habits,
+    habitCompletions: structure.habitCompletions,
+    sleepPlans: structure.sleepPlans,
+    sleepEntries: structure.sleepEntries,
+    moodEntries: structure.moodEntries,
+    addictionTrackers: structure.addictionTrackers,
+    addictionEntries: structure.addictionEntries,
+    analyticsSnapshots: structure.analyticsSnapshots,
+    dailyGoalRecords: structure.dailyGoalRecords,
+    rewardTransactions: structure.rewardTransactions,
+    habitSettings: structure.habitSettings,
+    hiddenDefaultTemplates: structure.hiddenDefaultTemplates,
+    ...(metadata ? { syncMetadata: metadata } : {}),
+  } satisfies SyncableWorkspaceDocument;
+}
+
+function structureFromDocument(document: SyncableWorkspaceDocument): EncryptedWorkspaceStructure {
+  const normalized = normalizeHabitWorkspace(document as Parameters<typeof normalizeHabitWorkspace>[0]);
+  return {
+    projects: Array.isArray(document.projects) ? document.projects as GenesisProject[] : [],
+    categories: Array.isArray(document.categories) ? document.categories as GenesisCategory[] : [],
+    taskListLinks: Array.isArray(document.taskListLinks) ? document.taskListLinks as TaskListProjectLink[] : [],
+    ...normalized,
+  };
+}
+
+function syncFallback(version = workspaceVersion, updatedAt = new Date().toISOString(), deviceId = workspaceDeviceId || "legacy") {
+  return { version: Math.max(1, version), updatedAt, deviceId };
+}
+
+function readWorkspaceSyncCache(userId = workspaceUserId): WorkspaceSyncCache | null {
+  if (typeof window === "undefined" || !userId) return null;
+  try {
+    const parsed = JSON.parse(localStorage.getItem(`${WORKSPACE_SYNC_STATE_PREFIX}${userId}`) || "null") as WorkspaceSyncCache | null;
+    if (!parsed || typeof parsed !== "object") return null;
+    const version = Math.max(0, Math.round(Number(parsed.version) || 0));
+    const base = parsed.base && typeof parsed.base === "object" ? structureFromDocument(parsed.base as unknown as SyncableWorkspaceDocument) : null;
+    const baseMetadata = normalizeWorkspaceSyncMetadata(parsed.baseMetadata ?? parsed.metadata, syncFallback(version));
+    const metadata = normalizeWorkspaceSyncMetadata(parsed.metadata, syncFallback(version));
+    return { version, base, baseMetadata, metadata };
+  } catch {
+    return null;
+  }
+}
+
+function persistWorkspaceSyncCache() {
+  if (typeof window === "undefined" || !workspaceUserId) return;
+  const cache: WorkspaceSyncCache = {
+    version: workspaceVersion,
+    base: workspaceBase,
+    baseMetadata: workspaceBaseMetadata,
+    metadata: workspaceSyncMetadata,
+  };
+  localStorage.setItem(`${WORKSPACE_SYNC_STATE_PREFIX}${workspaceUserId}`, JSON.stringify(cache));
+}
+
+function restoreWorkspaceSyncCache() {
+  const cached = readWorkspaceSyncCache();
+  if (!cached) return;
+  workspaceVersion = cached.version;
+  workspaceBase = cached.base;
+  workspaceBaseMetadata = cached.baseMetadata;
+  workspaceSyncMetadata = cached.metadata;
+  if (cached.base) encryptedHabitWorkspace = normalizeHabitWorkspace(cached.base);
+}
+
+export function restoreOfflineWorkspaceSession(userId: string) {
+  workspaceUserId = userId;
+  workspaceDeviceId = deviceWorkspaceId(userId);
+  const stored = deviceWorkspaceKey(userId);
+  workspaceKey = stored?.key ?? "";
+  restoreWorkspaceSyncCache();
+  return Boolean(workspaceKey);
+}
+
 export function workspaceRecoveryCodeForUser(userId: string) {
   return deviceWorkspaceKey(userId)?.recoveryCode ?? "";
 }
@@ -508,6 +702,8 @@ async function unwrapWorkspaceKey(userId: string, wrappedKey: string, wrappedKey
 
 async function resolveWorkspaceKey(payload: BootstrapPayload) {
   workspaceUserId = payload.user.uid;
+  workspaceDeviceId = deviceWorkspaceId(workspaceUserId);
+  restoreWorkspaceSyncCache();
   const stored = deviceWorkspaceKey(workspaceUserId);
   if (payload.workspace.keyMode === "new") {
     workspaceKey = stored?.key ?? bytesToBase64(crypto.getRandomValues(new Uint8Array(32)));
@@ -542,30 +738,42 @@ async function importWorkspaceKey() {
   return crypto.subtle.importKey("raw", base64ToBytes(workspaceKey), "AES-GCM", false, ["encrypt", "decrypt"]);
 }
 
-async function decryptWorkspace(envelope: WorkspaceEnvelope | null): Promise<Pick<GenesisWorkspace, "projects" | "categories" | "taskListLinks"> & HabitWorkspace> {
-  if (!envelope) {
-    encryptedHabitWorkspace = normalizeHabitWorkspace(EMPTY_HABIT_WORKSPACE);
-    return { projects: [], categories: [], taskListLinks: [], ...encryptedHabitWorkspace };
-  }
+async function decryptWorkspaceEnvelope(envelope: WorkspaceEnvelope): Promise<{
+  structure: EncryptedWorkspaceStructure;
+  metadata: WorkspaceSyncMetadata;
+}> {
   const key = await importWorkspaceKey();
   const plain = await crypto.subtle.decrypt(
     { name: "AES-GCM", iv: base64ToBytes(envelope.iv) },
     key,
     base64ToBytes(envelope.ciphertext),
   );
-  const decoded = JSON.parse(new TextDecoder().decode(plain)) as {
-    projects?: GenesisProject[];
-    categories?: GenesisCategory[];
-    taskListLinks?: TaskListProjectLink[];
-  } & Partial<HabitWorkspace> & { habitEntries?: unknown[] };
-  workspaceVersion = Math.max(workspaceVersion, envelope.version + 1);
-  encryptedHabitWorkspace = normalizeHabitWorkspace(decoded as Parameters<typeof normalizeHabitWorkspace>[0]);
-  return {
-    projects: Array.isArray(decoded.projects) ? decoded.projects : [],
-    categories: Array.isArray(decoded.categories) ? decoded.categories : [],
-    taskListLinks: Array.isArray(decoded.taskListLinks) ? decoded.taskListLinks : [],
-    ...encryptedHabitWorkspace,
-  };
+  const decoded = JSON.parse(new TextDecoder().decode(plain)) as SyncableWorkspaceDocument & { habitEntries?: unknown[] };
+  const metadata = normalizeWorkspaceSyncMetadata(
+    decoded.syncMetadata,
+    syncFallback(envelope.version, envelope.updatedAt, "legacy"),
+  );
+  return { structure: structureFromDocument(decoded), metadata };
+}
+
+async function decryptWorkspace(envelope: WorkspaceEnvelope | null): Promise<EncryptedWorkspaceStructure> {
+  if (!envelope) {
+    workspaceVersion = 0;
+    workspaceSyncMetadata = normalizeWorkspaceSyncMetadata(null, syncFallback(1));
+    workspaceBaseMetadata = workspaceSyncMetadata;
+    encryptedHabitWorkspace = normalizeHabitWorkspace(EMPTY_HABIT_WORKSPACE);
+    workspaceBase = { projects: [], categories: [], taskListLinks: [], ...encryptedHabitWorkspace };
+    persistWorkspaceSyncCache();
+    return workspaceBase;
+  }
+  const decrypted = await decryptWorkspaceEnvelope(envelope);
+  workspaceVersion = envelope.version;
+  workspaceBase = decrypted.structure;
+  workspaceBaseMetadata = decrypted.metadata;
+  workspaceSyncMetadata = decrypted.metadata;
+  encryptedHabitWorkspace = normalizeHabitWorkspace(decrypted.structure);
+  persistWorkspaceSyncCache();
+  return decrypted.structure;
 }
 
 async function encryptWorkspace(
@@ -575,21 +783,120 @@ async function encryptWorkspace(
   habitWorkspace?: HabitWorkspace,
 ) {
   if (habitWorkspace) encryptedHabitWorkspace = normalizeHabitWorkspace(habitWorkspace);
+  const current: EncryptedWorkspaceStructure = { projects, categories, taskListLinks, ...encryptedHabitWorkspace };
+  const timestamp = new Date().toISOString();
+  const prepared = prepareWorkspaceForSync({
+    current: workspaceDocument(current),
+    base: workspaceBase ? workspaceDocument(workspaceBase, workspaceBaseMetadata) : null,
+    metadata: workspaceSyncMetadata,
+    baseMetadata: workspaceBaseMetadata,
+    clock: syncFallback(workspaceVersion + 1, timestamp, workspaceDeviceId),
+  });
+  const structure = structureFromDocument(prepared.document);
+  workspaceSyncMetadata = prepared.metadata;
   const key = await importWorkspaceKey();
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const plaintext = new TextEncoder().encode(JSON.stringify({
-    projects,
-    categories,
-    taskListLinks,
-    ...encryptedHabitWorkspace,
-  }));
+  const plaintext = new TextEncoder().encode(JSON.stringify(workspaceDocument(structure, prepared.metadata)));
   const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, plaintext);
-  workspaceVersion = Math.max(workspaceVersion + 1, Date.now());
+  return {
+    envelope: {
+      ciphertext: bytesToBase64(new Uint8Array(ciphertext)),
+      iv: bytesToBase64(iv),
+      version: workspaceVersion + 1,
+      expectedVersion: workspaceVersion,
+    },
+    structure,
+    metadata: prepared.metadata,
+  };
+}
+
+async function encryptWorkspaceDocument(
+  structure: EncryptedWorkspaceStructure,
+  metadata: WorkspaceSyncMetadata,
+  expectedVersion: number,
+) {
+  const key = await importWorkspaceKey();
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const plaintext = new TextEncoder().encode(JSON.stringify(workspaceDocument(structure, metadata)));
+  const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, plaintext);
   return {
     ciphertext: bytesToBase64(new Uint8Array(ciphertext)),
     iv: bytesToBase64(iv),
-    version: workspaceVersion,
+    version: expectedVersion + 1,
+    expectedVersion,
   };
+}
+
+async function fetchWorkspaceEnvelope() {
+  const payload = await api<{ workspace: { envelope: WorkspaceEnvelope | null } }>("/workspace");
+  return payload.workspace.envelope;
+}
+
+function adoptSavedWorkspace(
+  structure: EncryptedWorkspaceStructure,
+  metadata: WorkspaceSyncMetadata,
+  saved: WorkspaceSaveResponse["workspace"],
+) {
+  workspaceVersion = saved.version;
+  workspaceBase = structure;
+  workspaceBaseMetadata = metadata;
+  workspaceSyncMetadata = metadata;
+  encryptedHabitWorkspace = normalizeHabitWorkspace(structure);
+  persistWorkspaceSyncCache();
+}
+
+async function resolveWorkspaceConflict(body: WorkspaceEnvelopeRequest) {
+  const remoteEnvelope = await fetchWorkspaceEnvelope();
+  if (!remoteEnvelope) throw new Error("WORKSPACE_CONFLICT_WITHOUT_REMOTE");
+  const [local, remote] = await Promise.all([
+    decryptWorkspaceEnvelope({ ...body, updatedAt: new Date().toISOString() }),
+    decryptWorkspaceEnvelope(remoteEnvelope),
+  ]);
+  const merged = mergeWorkspaceDocuments({
+    left: workspaceDocument(local.structure, local.metadata),
+    right: workspaceDocument(remote.structure, remote.metadata),
+    leftFallback: syncFallback(body.version, new Date().toISOString(), workspaceDeviceId),
+    rightFallback: syncFallback(remoteEnvelope.version, remoteEnvelope.updatedAt, "remote"),
+  });
+  const mergedStructure = structureFromDocument(merged.document);
+  const envelope = await encryptWorkspaceDocument(mergedStructure, merged.metadata, remoteEnvelope.version);
+  const retryBody: WorkspaceEnvelopeRequest = {
+    ...envelope,
+    metrics: { ...body.metrics, projectCount: mergedStructure.projects.length },
+  };
+  const serialized = JSON.stringify(retryBody);
+  queueMutation({ key: "workspace", path: "/workspace", method: "PUT", body: serialized });
+  const response = await api<WorkspaceSaveResponse>("/workspace", { method: "PUT", body: serialized });
+  adoptSavedWorkspace(mergedStructure, merged.metadata, response.workspace);
+  clearMutation("workspace");
+  publishWorkspaceUpdate(mergedStructure);
+  return response;
+}
+
+async function sendWorkspaceMutation(body: WorkspaceEnvelopeRequest) {
+  try {
+    const response = await api<WorkspaceSaveResponse>("/workspace", { method: "PUT", body: JSON.stringify(body) });
+    return response;
+  } catch (error) {
+    if (error instanceof GenesisApiError && error.status === 409) return resolveWorkspaceConflict(body);
+    throw error;
+  }
+}
+
+async function refreshWorkspaceFromCloud() {
+  await withWorkspaceMutationLock(async () => {
+    if (readPending().some((mutation) => mutation.key === "workspace")) return;
+    const envelope = await fetchWorkspaceEnvelope();
+    if (!envelope || envelope.version <= workspaceVersion) return;
+    const remote = await decryptWorkspaceEnvelope(envelope);
+    workspaceVersion = envelope.version;
+    workspaceBase = remote.structure;
+    workspaceBaseMetadata = remote.metadata;
+    workspaceSyncMetadata = remote.metadata;
+    encryptedHabitWorkspace = normalizeHabitWorkspace(remote.structure);
+    persistWorkspaceSyncCache();
+    publishWorkspaceUpdate(remote.structure);
+  });
 }
 
 export async function loadGenesisWorkspace(): Promise<GenesisWorkspace> {
@@ -654,9 +961,14 @@ export function observeGenesisUser(
   };
   void poll();
   const interval = window.setInterval(poll, 60_000);
+  const refresh = () => void poll();
+  window.addEventListener("focus", refresh);
+  window.addEventListener("online", refresh);
   return () => {
     active = false;
     window.clearInterval(interval);
+    window.removeEventListener("focus", refresh);
+    window.removeEventListener("online", refresh);
   };
 }
 
@@ -703,6 +1015,11 @@ export async function signOutFromGoogle() {
   await api<{ ok: boolean }>("/auth/logout", { method: "POST", body: "{}" });
   workspaceKey = "";
   workspaceUserId = "";
+  workspaceVersion = 0;
+  workspaceDeviceId = "";
+  workspaceBase = null;
+  workspaceBaseMetadata = null;
+  workspaceSyncMetadata = null;
   localStorage.removeItem(LAST_USER_CACHE);
   window.location.reload();
 }
@@ -713,6 +1030,9 @@ export async function deleteGenesisAccount(userId?: string) {
   if (!result.deleted) throw new Error("Сервер не подтвердил полное удаление аккаунта.");
   if (deletedUserId) {
     localStorage.removeItem(`${WORKSPACE_DEVICE_KEY_PREFIX}${deletedUserId}`);
+    localStorage.removeItem(`${WORKSPACE_DEVICE_ID_PREFIX}${deletedUserId}`);
+    localStorage.removeItem(`${WORKSPACE_SYNC_STATE_PREFIX}${deletedUserId}`);
+    localStorage.removeItem(pendingStorageKey(deletedUserId));
     localStorage.removeItem(`${GENESIS_USER_WORKSPACE_STORAGE_PREFIX}${deletedUserId}`);
     await clearTrackerAnalyticsCache(deletedUserId);
   }
@@ -722,7 +1042,11 @@ export async function deleteGenesisAccount(userId?: string) {
   csrfToken = "";
   workspaceKey = "";
   workspaceUserId = "";
-  workspaceVersion = Date.now();
+  workspaceVersion = 0;
+  workspaceDeviceId = "";
+  workspaceBase = null;
+  workspaceBaseMetadata = null;
+  workspaceSyncMetadata = null;
   encryptedHabitWorkspace = normalizeHabitWorkspace(EMPTY_HABIT_WORKSPACE);
   window.location.assign("/");
 }
@@ -764,6 +1088,7 @@ export function observeCloudTasks(
   const poll = async () => {
     try {
       await flushPendingMutations();
+      await refreshWorkspaceFromCloud();
       const result = await api<{ tasks: GenesisTask[]; taskLists?: GoogleTaskList[]; syncWarning?: string | null }>("/sync/tasks");
       if (active) listener(
         result.tasks.map((task) => normalizeTask(task)),
@@ -787,12 +1112,38 @@ export function observeCloudTasks(
   };
 }
 
+export function observeCloudWorkspace(onError?: (error: Error) => void) {
+  let active = true;
+  const poll = async () => {
+    if (!workspaceUserId || !workspaceKey) return;
+    try {
+      await flushPendingMutations();
+      await refreshWorkspaceFromCloud();
+    } catch (error) {
+      if (active) onError?.(error instanceof Error ? error : new Error("WORKSPACE_SYNC_FAILED"));
+    }
+  };
+  const interval = window.setInterval(poll, 30_000);
+  const refresh = () => void poll();
+  window.addEventListener("focus", refresh);
+  window.addEventListener("online", refresh);
+  void poll();
+  return () => {
+    active = false;
+    window.clearInterval(interval);
+    window.removeEventListener("focus", refresh);
+    window.removeEventListener("online", refresh);
+  };
+}
+
 export async function mergeLocalWorkspace(
   _uid: string,
   local: Pick<GenesisWorkspace, "tasks" | "projects" | "categories" | "taskListLinks"> & Partial<HabitWorkspace>,
 ) {
   const remote = await loadGenesisWorkspace();
-  if (!remote.hasRemoteStructure && (local.projects.length || local.categories.length || local.taskListLinks.length || local.habits?.length)) {
+  if (readPending().some((mutation) => mutation.key === "workspace")) {
+    await flushPendingMutations();
+  } else if (!remote.hasRemoteStructure && (local.projects.length || local.categories.length || local.taskListLinks.length || local.habits?.length)) {
     await saveWorkspaceStructure(
       local.projects,
       local.categories,
@@ -863,12 +1214,18 @@ export async function saveWorkspaceStructure(
   metrics: GenesisMetrics,
   habitWorkspace?: HabitWorkspace,
 ) {
-  const envelope = await encryptWorkspace(projects, categories, taskListLinks, habitWorkspace);
-  const body = JSON.stringify({ ...envelope, metrics });
-  queueMutation({ key: "workspace", path: "/workspace", method: "PUT", body });
-  const result = await api<{ ok: boolean }>("/workspace", { method: "PUT", body });
-  clearMutation("workspace");
-  return result;
+  return withWorkspaceMutationLock(async () => {
+    const encrypted = await encryptWorkspace(projects, categories, taskListLinks, habitWorkspace);
+    const request: WorkspaceEnvelopeRequest = { ...encrypted.envelope, metrics };
+    const body = JSON.stringify(request);
+    queueMutation({ key: "workspace", path: "/workspace", method: "PUT", body });
+    const result = await sendWorkspaceMutation(request);
+    if (workspaceVersion < result.workspace.version) {
+      adoptSavedWorkspace(encrypted.structure, encrypted.metadata, result.workspace);
+    }
+    clearMutation("workspace");
+    return result;
+  });
 }
 
 export async function createGoogleTaskList(title: string, accountId?: string) {

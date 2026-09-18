@@ -3,6 +3,14 @@ declare(strict_types=1);
 
 const GENESIS_ADMIN_EMAIL = 'nikitalexanderson@gmail.com';
 
+final class GenesisWorkspaceConflictException extends DomainException
+{
+    public function __construct(public readonly int $currentVersion)
+    {
+        parent::__construct('WORKSPACE_VERSION_CONFLICT');
+    }
+}
+
 function genesisAdminEmail(): string
 {
     return mb_strtolower(trim((string)(genesisConfig()['admin_email'] ?? GENESIS_ADMIN_EMAIL)));
@@ -471,22 +479,46 @@ function genesisSaveWorkspaceEnvelope(string $userId, array $payload): array
 {
     $ciphertext = trim((string)($payload['ciphertext'] ?? ''));
     $iv = trim((string)($payload['iv'] ?? ''));
-    if ($ciphertext === '' || strlen($ciphertext) > 2_000_000 || !preg_match('/^[A-Za-z0-9+\/=]+$/', $ciphertext)) {
+    if ($ciphertext === '' || strlen($ciphertext) > 10_000_000 || !preg_match('/^[A-Za-z0-9+\/=]+$/', $ciphertext)) {
         throw new InvalidArgumentException('Encrypted workspace is invalid.');
     }
     if ($iv === '' || strlen($iv) > 128 || !preg_match('/^[A-Za-z0-9+\/=]+$/', $iv)) {
         throw new InvalidArgumentException('Workspace IV is invalid.');
     }
-    $version = genesisClampInt($payload['version'] ?? 1, 1, 1_000_000_000, 1);
-    $now = genesisNow();
-    genesisDb()->prepare('INSERT INTO workspace_blobs (user_id, ciphertext, iv, version, updated_at) VALUES (:user_id, :ciphertext, :iv, :version, :updated_at) ON CONFLICT(user_id) DO UPDATE SET ciphertext = excluded.ciphertext, iv = excluded.iv, version = excluded.version, updated_at = excluded.updated_at WHERE excluded.version >= workspace_blobs.version')->execute([
-        'user_id' => $userId,
-        'ciphertext' => $ciphertext,
-        'iv' => $iv,
-        'version' => $version,
-        'updated_at' => $now,
-    ]);
-    return ['version' => $version, 'updatedAt' => $now];
+    $hasExpectedVersion = array_key_exists('expectedVersion', $payload);
+    $expectedVersion = genesisClampInt($payload['expectedVersion'] ?? 0, 0, 9_000_000_000_000_000, 0);
+    $db = genesisDb();
+    $ownsTransaction = !$db->inTransaction();
+    if ($ownsTransaction) {
+        $db->exec('BEGIN IMMEDIATE');
+    }
+    try {
+        $statement = $db->prepare('SELECT version FROM workspace_blobs WHERE user_id = :user_id LIMIT 1');
+        $statement->execute(['user_id' => $userId]);
+        $storedVersion = $statement->fetchColumn();
+        $currentVersion = $storedVersion === false ? 0 : (int)$storedVersion;
+        if ($hasExpectedVersion && $expectedVersion !== $currentVersion) {
+            throw new GenesisWorkspaceConflictException($currentVersion);
+        }
+        $version = $currentVersion + 1;
+        $now = genesisNow();
+        $db->prepare('INSERT INTO workspace_blobs (user_id, ciphertext, iv, version, updated_at) VALUES (:user_id, :ciphertext, :iv, :version, :updated_at) ON CONFLICT(user_id) DO UPDATE SET ciphertext = excluded.ciphertext, iv = excluded.iv, version = excluded.version, updated_at = excluded.updated_at')->execute([
+            'user_id' => $userId,
+            'ciphertext' => $ciphertext,
+            'iv' => $iv,
+            'version' => $version,
+            'updated_at' => $now,
+        ]);
+        if ($ownsTransaction) {
+            $db->exec('COMMIT');
+        }
+        return ['version' => $version, 'updatedAt' => $now];
+    } catch (Throwable $error) {
+        if ($ownsTransaction) {
+            $db->exec('ROLLBACK');
+        }
+        throw $error;
+    }
 }
 
 function genesisSaveMetrics(string $userId, array $payload): void

@@ -262,6 +262,9 @@ function dailyGoalModeDescription(mode: DailyGoalMode, isEnglish: boolean) {
 }
 
 function dailyGoalGuidance(record: DailyGoalRecord, isEnglish: boolean) {
+  if (record.status === "timezone-shift") return isEnglish
+    ? "Timezone transition: this day is neutral and cannot break or duplicate the streak."
+    : "Смена часового пояса: день нейтрален и не может ни сбросить, ни удвоить серию.";
   if (record.status === "rest") return isEnglish ? "Planned rest protects your streak." : "Запланированный отдых сохраняет серию.";
   if (record.status === "neutral") return isEnglish ? "A neutral day: nothing is scheduled, so the streak stays unchanged." : "Нейтральный день: ничего не запланировано, серия не изменится.";
   if (record.status === "perfect") return isEnglish ? "Perfect day — every scheduled habit is complete." : "Идеальный день — выполнены все запланированные привычки.";

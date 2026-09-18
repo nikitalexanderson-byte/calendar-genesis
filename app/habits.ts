@@ -699,6 +699,7 @@ export function reconcileMissedHabitLaurels(
     .map((entry) => `${entry.habitId}:${entry.date}`));
   const restDays = new Set(workspace.habitSettings.plannedRestDays);
   const closedDates = workspace.dailyGoalRecords
+    .filter((record) => ["qualified", "perfect", "missed"].includes(record.status))
     .map((record) => record.date)
     .filter((date, index, dates) => date < today && !restDays.has(date) && dates.indexOf(date) === index)
     .sort();
@@ -756,19 +757,24 @@ export function ensureDailyGoalProgress(
   calendarMode: CalendarMode,
   today = habitDateKey(new Date()),
 ): HabitWorkspace {
-  let records = normalizeDailyGoalRecords(workspace.dailyGoalRecords).map((record) => (
-    record.status === "open" && record.date < today
-      ? buildDailyGoalRecord({
-        date: record.date,
-        mode: record.mode,
-        timezone: record.timezone,
-        scheduledCount: record.scheduledCount,
-        completedCount: record.completedCount,
-        today,
-        updatedAt: record.updatedAt,
-      })
-      : record
-  ));
+  const currentTimezone = trackerTimeZone();
+  const normalizedRecords = normalizeDailyGoalRecords(workspace.dailyGoalRecords);
+  const previousCurrentRecord = normalizedRecords.filter((record) => record.date <= today).at(-1);
+  const timezoneChanged = Boolean(previousCurrentRecord && previousCurrentRecord.timezone !== currentTimezone);
+  const timezoneBoundaryDate = timezoneChanged ? addHabitDays(today, -1) : "";
+  let records = normalizedRecords.map((record) => {
+    if (record.status !== "open" || record.date >= today) return record;
+    return buildDailyGoalRecord({
+      date: record.date,
+      mode: record.mode,
+      timezone: record.timezone,
+      scheduledCount: record.scheduledCount,
+      completedCount: record.completedCount,
+      today,
+      isTimezoneShift: record.date === timezoneBoundaryDate,
+      updatedAt: record.updatedAt,
+    });
+  });
   const latestDate = records.filter((record) => record.date <= today).at(-1)?.date;
   const earliestSource = [
     ...workspace.habits.filter((habit) => habit.active).map((habit) => habit.schedule.startDate),
@@ -781,7 +787,10 @@ export function ensureDailyGoalProgress(
   if (start && start <= today) {
     const draft = { ...workspace, dailyGoalRecords: records };
     dateValuesBetween(start, today).forEach((date) => {
-      const record = dailyGoalForDate({ ...draft, dailyGoalRecords: records }, date, calendarMode, today);
+      const calculated = dailyGoalForDate({ ...draft, dailyGoalRecords: records }, date, calendarMode, today);
+      const record = date === timezoneBoundaryDate
+        ? { ...calculated, timezone: currentTimezone, status: "timezone-shift" as const }
+        : calculated;
       records = upsertDailyGoalRecord(records, record);
     });
   }

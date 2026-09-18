@@ -56,9 +56,28 @@ try {
     $saved = genesisSaveWorkspaceEnvelope($userId, [
         'ciphertext' => base64_encode(random_bytes(64)),
         'iv' => base64_encode(random_bytes(12)),
-        'version' => 2,
+        'version' => 1,
+        'expectedVersion' => 0,
     ]);
-    expect($saved['version'] === 2, 'Encrypted envelope was not stored.');
+    expect($saved['version'] === 1, 'Encrypted envelope was not stored with a server-assigned version.');
+    try {
+        genesisSaveWorkspaceEnvelope($userId, [
+            'ciphertext' => base64_encode(random_bytes(64)),
+            'iv' => base64_encode(random_bytes(12)),
+            'version' => 1,
+            'expectedVersion' => 0,
+        ]);
+        throw new RuntimeException('A stale encrypted workspace unexpectedly overwrote the current envelope.');
+    } catch (GenesisWorkspaceConflictException $conflict) {
+        expect($conflict->currentVersion === 1, 'Workspace conflict did not expose the current server version.');
+    }
+    $saved = genesisSaveWorkspaceEnvelope($userId, [
+        'ciphertext' => base64_encode(random_bytes(64)),
+        'iv' => base64_encode(random_bytes(12)),
+        'version' => 2,
+        'expectedVersion' => 1,
+    ]);
+    expect($saved['version'] === 2, 'A current encrypted workspace revision could not be saved.');
 
     $wrappedKey = base64_encode(random_bytes(48));
     $wrappedIv = base64_encode(random_bytes(12));

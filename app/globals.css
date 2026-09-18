@@ -11407,6 +11407,7 @@ button.project-drag-handle:active { cursor: grabbing; }
 .daily-goal-ring.state-qualified { --goal-ring-color:#b28a4a; }
 .daily-goal-ring.state-perfect { --goal-ring-color:#2d7771; box-shadow:0 8px 24px rgba(45,119,113,.2), 0 0 0 4px rgba(178,138,74,.12); }
 .daily-goal-ring.state-neutral { --goal-ring-color:#abb3af; }
+.daily-goal-ring.state-timezone-shift { --goal-ring-color:#7c9aa0; }
 .daily-goal-ring.state-rest { --goal-ring-color:#b28a4a; }
 .daily-goal-ring.state-missed { --goal-ring-color:#9b655d; }
 
