@@ -56,6 +56,7 @@ export type UserProgress = {
   lastQualifiedDate: string | null;
   streakGoalMode: "easy" | "rhythm" | "perfect";
   streakFreezeCount: number;
+  rhythmScore: number;
   updatedAt: string;
 };
 
@@ -171,6 +172,7 @@ export function reconcileUserProgress(
   streak?: { currentStreak: number; longestStreak: number; lastQualifiedDate: string | null },
   laurelsBalance = Math.round(Number(value?.laurelsBalance) || 0),
   streakFreezeCountValue = safeXp(value?.streakFreezeCount),
+  rhythmScoreValue = safeXp(value?.rhythmScore),
 ): UserProgress {
   const awardedXp = sources.reduce((total, source) => total + safeXp(source.xpAwarded), 0);
   const lifetimeXp = Math.max(safeXp(value?.lifetimeXp), awardedXp);
@@ -183,6 +185,7 @@ export function reconcileUserProgress(
   const lastQualifiedDate = streak?.lastQualifiedDate ?? (typeof value?.lastQualifiedDate === "string" ? value.lastQualifiedDate : null);
   const streakGoalMode = ["easy", "rhythm", "perfect"].includes(value?.streakGoalMode ?? "") ? value!.streakGoalMode! : "rhythm";
   const streakFreezeCount = Math.min(2, safeXp(streakFreezeCountValue));
+  const rhythmScore = Math.min(100, safeXp(rhythmScoreValue));
   const changed = lifetimeXp !== safeXp(value?.lifetimeXp)
     || laurelsBalance !== Math.round(Number(value?.laurelsBalance) || 0)
     || currentRankId !== (value?.currentRankId ?? null)
@@ -191,7 +194,8 @@ export function reconcileUserProgress(
     || longestStreak !== safeXp(value?.longestStreak)
     || lastQualifiedDate !== (value?.lastQualifiedDate ?? null)
     || (value?.streakGoalMode !== undefined && streakGoalMode !== value.streakGoalMode)
-    || streakFreezeCount !== safeXp(value?.streakFreezeCount);
+    || streakFreezeCount !== safeXp(value?.streakFreezeCount)
+    || rhythmScore !== safeXp(value?.rhythmScore);
   return {
     lifetimeXp,
     laurelsBalance,
@@ -202,6 +206,7 @@ export function reconcileUserProgress(
     lastQualifiedDate,
     streakGoalMode,
     streakFreezeCount,
+    rhythmScore,
     updatedAt: !changed && typeof value?.updatedAt === "string" && value.updatedAt ? value.updatedAt : timestamp,
   };
 }
