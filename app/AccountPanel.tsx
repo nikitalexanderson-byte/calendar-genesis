@@ -17,6 +17,8 @@ type AccountPanelProps = {
   onUserChange: (user: GenesisUser) => void;
   habitTrackingEnabled: boolean;
   onHabitTrackingChange: (enabled: boolean) => void;
+  hiddenHabitTemplateCount: number;
+  onRestoreHabitTemplates: () => void;
   workspaceRecoveryCode: string;
   categories: GenesisCategory[];
 };
@@ -32,7 +34,7 @@ const TIME_FORMATS: Array<{ id: TimeFormat; label: string; example: string }> = 
   { id: "12h", label: "AM / PM", example: "01:30 PM" },
 ];
 
-export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditionalGoogle, onLanguageChange, onUserChange, habitTrackingEnabled, onHabitTrackingChange, workspaceRecoveryCode, categories }: AccountPanelProps) {
+export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditionalGoogle, onLanguageChange, onUserChange, habitTrackingEnabled, onHabitTrackingChange, hiddenHabitTemplateCount, onRestoreHabitTemplates, workspaceRecoveryCode, categories }: AccountPanelProps) {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [preferenceBusy, setPreferenceBusy] = useState(false);
@@ -409,6 +411,15 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
           <p className="account-preference-status" aria-live="polite">
             {habitTrackingEnabled ? (user.language === "en" ? "Habit tracking is enabled" : "Трекинг привычек включён") : (user.language === "en" ? "Habit tracking is hidden" : "Трекинг привычек скрыт")}
           </p>
+          <div className="account-template-restore">
+            <div>
+              <strong>{user.language === "en" ? "Starter habit suggestions" : "Стартовые привычки"}</strong>
+              <small>{hiddenHabitTemplateCount
+                ? (user.language === "en" ? `${hiddenHabitTemplateCount} suggestion(s) hidden` : `Скрыто предложений: ${hiddenHabitTemplateCount}`)
+                : (user.language === "en" ? "All standard suggestions are available" : "Все стандартные предложения доступны")}</small>
+            </div>
+            <button type="button" className="secondary-button" disabled={!hiddenHabitTemplateCount} onClick={onRestoreHabitTemplates}>{user.language === "en" ? "Restore standard habits" : "Восстановить стандартные привычки"}</button>
+          </div>
         </section>
 
         <section className="account-preferences account-e2ee" aria-labelledby="account-e2ee-title">
