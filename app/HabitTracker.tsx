@@ -7,6 +7,7 @@ import { formatTimeValue, type TimeFormat } from "./time-format";
 import { RecurrenceBuilder } from "./RecurrenceBuilder";
 import { HeroicRankSigil } from "./HeroicRankSigil";
 import { HabitMetricSigil } from "./HabitMetricSigil";
+import { SACRED_SECTOR_SIGIL_MOTIFS, SacredSectorSigil } from "./SacredSectorSigil";
 import {
   HABIT_EMOJI_PRESETS,
   HABIT_COLORS,
@@ -44,7 +45,10 @@ import {
   type RewardReason,
 } from "./habits";
 import {
-  SACRED_PRACTICE_SECTOR_IDS,
+  SACRED_AXIS_SECTOR_IDS,
+  SACRED_COMPASS_SECTOR_IDS,
+  SACRED_SECTOR_NAMES,
+  SACRED_THRESHOLD_SECTOR_IDS,
   sacredPracticesForSector,
   type SacredPractice,
   type SacredPracticeSectorId,
@@ -749,6 +753,28 @@ function SacredHabitLibrary({
   const segments = useMemo(() => new Map(THEOKYKLOS_SEGMENTS.map((segment) => [segment.id, segment])), []);
   const sector = segments.get(selectedSectorId)!;
   const practices = sacredPracticesForSector(selectedSectorId);
+  const renderSectorTab = (sectorId: SacredPracticeSectorId) => {
+    const item = segments.get(sectorId)!;
+    const started = workspace.habits.filter((habit) => habit.sacredSectorId === sectorId).length;
+    const sectorName = SACRED_SECTOR_NAMES[sectorId][language];
+    return (
+      <button
+        type="button"
+        role="tab"
+        aria-label={`${sectorName}: ${item.patrons[language]}`}
+        aria-selected={selectedSectorId === sectorId}
+        className={selectedSectorId === sectorId ? "active" : ""}
+        data-sector-id={sectorId}
+        style={{ "--sector-sigil-color": SACRED_SECTOR_SIGIL_MOTIFS[sectorId].color } as CSSProperties}
+        onClick={() => setSelectedSectorId(sectorId)}
+        key={sectorId}
+      >
+        <SacredSectorSigil sectorId={sectorId} active={selectedSectorId === sectorId} compact />
+        <strong>{sectorName}</strong>
+        <small>{started ? `${started}/${sacredPracticesForSector(sectorId).length}` : item.patrons[language]}</small>
+      </button>
+    );
+  };
 
   return (
     <section className="sacred-habit-library" aria-labelledby="sacred-habit-library-title">
@@ -761,22 +787,27 @@ function SacredHabitLibrary({
         {onOpenTheokyklosSector ? <button type="button" className="secondary-button" onClick={() => onOpenTheokyklosSector(selectedSectorId)}>{isEnglish ? "Open sector" : "Открыть сектор"} →</button> : null}
       </header>
 
-      <div className="sacred-sector-tabs" role="tablist" aria-label={isEnglish ? "Theokyklos practice sectors" : "Секторы практик Теокиклоса"}>
-        {SACRED_PRACTICE_SECTOR_IDS.map((sectorId) => {
-          const item = segments.get(sectorId)!;
-          const started = workspace.habits.filter((habit) => habit.sacredSectorId === sectorId).length;
-          return (
-            <button type="button" role="tab" aria-selected={selectedSectorId === sectorId} className={selectedSectorId === sectorId ? "active" : ""} onClick={() => setSelectedSectorId(sectorId)} key={sectorId}>
-              <span aria-hidden="true">{item.symbol}</span>
-              <strong>{item.short[language]}</strong>
-              <small>{started ? `${started}/${sacredPracticesForSector(sectorId).length}` : item.patrons[language]}</small>
-            </button>
-          );
-        })}
+      <div className="sacred-sector-navigation" role="tablist" aria-label={isEnglish ? "Theokyklos practice sectors" : "Секторы практик Теокиклоса"}>
+        <div className="sacred-compass">
+          <div className="sacred-compass-rose" aria-hidden="true"><i /><i /><i /><i /></div>
+          <div className="sacred-compass-grid">
+            {SACRED_COMPASS_SECTOR_IDS.map(renderSectorTab)}
+          </div>
+        </div>
+        <aside className="sacred-auxiliary-sectors">
+          <div>
+            <span>{isEnglish ? "Sacred axis" : "Сакральная ось"}</span>
+            <div className="sacred-axis-grid">{SACRED_AXIS_SECTOR_IDS.map(renderSectorTab)}</div>
+          </div>
+          <div>
+            <span>{isEnglish ? "Thresholds" : "Пороги"}</span>
+            <div className="sacred-threshold-grid">{SACRED_THRESHOLD_SECTOR_IDS.map(renderSectorTab)}</div>
+          </div>
+        </aside>
       </div>
 
       <div className="sacred-sector-summary">
-        <div><span aria-hidden="true">{sector.symbol}</span><p><small>{isEnglish ? "Patron deity" : "Божество-покровитель"}</small><strong>{sector.patrons[language]}</strong></p></div>
+        <div><SacredSectorSigil sectorId={selectedSectorId} active /><p><small>{SACRED_SECTOR_NAMES[selectedSectorId][language]} · {isEnglish ? "patron deity" : "божество-покровитель"}</small><strong>{sector.patrons[language]}</strong></p></div>
         <p>{sector.essence[language]}</p>
       </div>
 

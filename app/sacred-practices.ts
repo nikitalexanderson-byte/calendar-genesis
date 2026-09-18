@@ -17,6 +17,38 @@ export const SACRED_PRACTICE_SECTOR_IDS = [
 
 export type SacredPracticeSectorId = (typeof SACRED_PRACTICE_SECTOR_IDS)[number];
 
+export const SACRED_COMPASS_SECTOR_IDS = [
+  "north",
+  "northeast",
+  "east",
+  "southeast",
+  "south",
+  "southwest",
+  "west",
+  "northwest",
+  "center",
+] as const satisfies readonly SacredPracticeSectorId[];
+
+export const SACRED_AXIS_SECTOR_IDS = ["zenith", "hearth", "nadir"] as const satisfies readonly SacredPracticeSectorId[];
+export const SACRED_THRESHOLD_SECTOR_IDS = ["entrance", "exit"] as const satisfies readonly SacredPracticeSectorId[];
+
+export const SACRED_SECTOR_NAMES: Readonly<Record<SacredPracticeSectorId, SacredPracticeLocalizedText>> = {
+  north: { ru: "Север", en: "North" },
+  northeast: { ru: "Северо-восток", en: "Northeast" },
+  east: { ru: "Восток", en: "East" },
+  southeast: { ru: "Юго-восток", en: "Southeast" },
+  south: { ru: "Юг", en: "South" },
+  southwest: { ru: "Юго-запад", en: "Southwest" },
+  west: { ru: "Запад", en: "West" },
+  northwest: { ru: "Северо-запад", en: "Northwest" },
+  zenith: { ru: "Зенит", en: "Zenith" },
+  nadir: { ru: "Надир", en: "Nadir" },
+  hearth: { ru: "Очаг", en: "Hearth" },
+  center: { ru: "Центр", en: "Center" },
+  entrance: { ru: "Вход", en: "Entrance" },
+  exit: { ru: "Выход", en: "Exit" },
+};
+
 export const STOICHEION_PRACTICE_SECTOR_IDS = [
   "north",
   "northeast",
