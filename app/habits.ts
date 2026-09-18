@@ -104,6 +104,10 @@ import {
   normalizeHabitNotificationSettings,
   type HabitNotificationSettings,
 } from "./habit-notifications";
+import {
+  applyHabitDeletionLaurelPolicy,
+  reconcileOrphanedHabitLaurels,
+} from "./habit-laurel-retention";
 
 export { HABIT_COLORS, STARTER_HABIT_TEMPLATES } from "./habit-templates";
 export type { HabitTemplate, HabitTemplateId } from "./habit-templates";
@@ -118,6 +122,7 @@ export { DAILY_QUEST_LAURELS, WEEKLY_QUEST_LAURELS, currentHabitQuests, habitQue
 export type { HabitQuest, HabitQuestCadence, HabitQuestKind } from "./habit-quests";
 export { ACHIEVEMENTS, achievementMetrics } from "./achievements";
 export type { AchievementDefinition, AchievementId, AchievementUnlock } from "./achievements";
+export { HABIT_LAUREL_RETENTION_COMPLETIONS, habitCompletionCount, habitRetainsLaurelsOnDeletion } from "./habit-laurel-retention";
 export { dailyGoalTarget } from "./daily-goal";
 export type { DailyGoalMode, DailyGoalModeChange, DailyGoalRecord, DailyGoalStatus } from "./daily-goal";
 
@@ -611,7 +616,11 @@ export function normalizeHabitWorkspace(
   const habitCompletions = rawEntries
     .map((entry) => normalizeHabitCompletion(entry, habitMap))
     .filter((entry): entry is HabitCompletion => entry !== null);
-  const rewardTransactions = normalizeRewardTransactions(value.rewardTransactions);
+  const rewardTransactions = reconcileOrphanedHabitLaurels(
+    habits.length,
+    normalizeRewardTransactions(value.rewardTransactions),
+    new Date().toISOString(),
+  );
   const streakFreezeTransactions = normalizeStreakFreezeTransactions(value.streakFreezeTransactions);
   const quests = normalizeHabitQuests(value.quests);
   const achievementUnlocks = normalizeAchievementUnlocks(value.achievementUnlocks);
@@ -791,7 +800,7 @@ function withDailyGoalStreak(
     streakFreezeTransactions: protection.transactions,
   };
   const streak = calculateGlobalStreak(protectedWorkspace.dailyGoalRecords, today);
-  const earnedTransactions = reconcileDailyGoalRewards(protectedWorkspace.dailyGoalRecords, protectedWorkspace.rewardTransactions, today, timestamp);
+  const earnedTransactions = reconcileDailyGoalRewards(protectedWorkspace.dailyGoalRecords, protectedWorkspace.rewardTransactions, today);
   const resetTransactions = reconcileMissedHabitLaurels(protectedWorkspace, earnedTransactions, today, timestamp, calendarMode);
   const comebackTransactions = reconcileComebackRewards(protectedWorkspace.dailyGoalRecords, resetTransactions, today, timestamp);
   const quests = reconcileHabitQuests({
@@ -986,13 +995,12 @@ export function removeHabitFromWorkspace(
   const habit = workspace.habits.find((item) => item.id === habitId);
   if (!habit) return workspace;
   const habitCompletions = workspace.habitCompletions.filter((entry) => entry.habitId !== habitId);
-  const rewardTransactions = resetLaurelsBalance(
+  const rewardTransactions = applyHabitDeletionLaurelPolicy(
     workspace.rewardTransactions,
-    "habit-deleted-reset",
+    workspace.habitCompletions,
     habitId,
-    `habit-deleted:self:${habitId}`,
     timestamp,
-  );
+  ).transactions;
   return {
     ...workspace,
     habits: workspace.habits.filter((item) => item.id !== habitId),

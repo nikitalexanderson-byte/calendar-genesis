@@ -111,6 +111,12 @@ import {
   normalizeHabitNotificationSettings,
   suggestHabitReminderTime,
 } from "../app/habit-notifications.ts";
+import {
+  HABIT_LAUREL_RETENTION_COMPLETIONS,
+  applyHabitDeletionLaurelPolicy,
+  habitCompletionCount,
+  reconcileOrphanedHabitLaurels,
+} from "../app/habit-laurel-retention.ts";
 
 function syncClock(version, updatedAt, deviceId) {
   return { version, updatedAt, deviceId };
@@ -453,7 +459,7 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(habitNotifications, /hasNotificationFatigue/);
   assert.doesNotMatch(habitNotifications, /fetch\(|\/api\//);
   assert.match(habits, /habit-missed:self:/);
-  assert.match(habits, /habit-deleted:self:/);
+  assert.match(habits, /applyHabitDeletionLaurelPolicy/);
   assert.match(habits, /export function reconcileMissedHabitLaurels/);
   assert.match(habits, /export function removeHabitFromWorkspace/);
   assert.match(habits, /export function buyHestiaSpark/);
@@ -1108,13 +1114,13 @@ test("Laurels use an idempotent ledger for daily goals and Perfect Days", () => 
     record("2026-09-21", 3),
   ];
 
-  const firstPass = reconcileDailyGoalRewards(records, [], "2026-09-20", "2026-09-20T13:00:00.000Z");
+  const firstPass = reconcileDailyGoalRewards(records, [], "2026-09-20");
   assert.deepEqual(firstPass.map((transaction) => transaction.amount), [5, 5, 3]);
   assert.deepEqual(firstPass.map((transaction) => transaction.reason), ["daily-goal", "daily-goal", "perfect-day"]);
   assert.equal(calculateLaurelsBalance(firstPass), 13);
   assert.ok(firstPass.every((transaction) => transaction.userId === "self" && transaction.currency === "laurels"));
 
-  const repeatedPass = reconcileDailyGoalRewards(records, firstPass, "2026-09-20", "2026-09-20T14:00:00.000Z");
+  const repeatedPass = reconcileDailyGoalRewards(records, firstPass, "2026-09-20");
   assert.deepEqual(repeatedPass, firstPass, "reload and repeated synchronization must not duplicate rewards");
   assert.equal(repeatedPass.filter((transaction) => transaction.idempotencyKey === "daily-goal:self:2026-09-19").length, 1);
   assert.equal(repeatedPass.some((transaction) => transaction.sourceId === "2026-09-21"), false, "future Perfect Days must not be rewarded early");
@@ -1132,12 +1138,50 @@ test("Laurels use an idempotent ledger for daily goals and Perfect Days", () => 
   assert.equal(deletedReset.at(-1).amount, -93);
   assert.equal(deletedReset.at(-1).reason, "habit-deleted-reset");
   assert.deepEqual(resetLaurelsBalance(deletedReset, "habit-deleted-reset", "habit-1", "habit-deleted:self:habit-1"), deletedReset, "a reset event is idempotent");
+  const staleOfflineReward = createRewardTransaction({ amount: 40, reason: "weekly-quest", sourceId: "stale-quest", idempotencyKey: "weekly-quest:self:stale-quest", createdAt: "2026-09-20T14:59:00.000Z" });
+  assert.equal(calculateLaurelsBalance([...deletedReset, staleOfflineReward]), 0, "a stale pre-reset reward cannot resurrect Laurels after synchronization");
+  const legacyRecordWithoutTimestamp = { ...record("2026-09-14", 3), updatedAt: "" };
+  const replayedLegacyReward = reconcileDailyGoalRewards([legacyRecordWithoutTimestamp], deletedReset, "2026-09-20");
+  assert.equal(calculateLaurelsBalance(replayedLegacyReward), 0, "reconciling an old goal without a timestamp cannot cross the deletion reset barrier");
 
   const missedAtZero = resetLaurelsBalance([], "habit-missed-reset", "habit-2:2026-09-20", "habit-missed:self:habit-2:2026-09-20", "2026-09-21T00:00:00.000Z");
   assert.equal(missedAtZero.length, 1, "zero-balance resets retain an immutable marker");
   assert.equal(missedAtZero[0].amount, 0);
   const earnedAfterReset = createRewardTransaction({ amount: 5, reason: "daily-goal", sourceId: "2026-09-21", idempotencyKey: "daily-goal:self:2026-09-21", createdAt: "2026-09-21T20:00:00.000Z" });
   assert.equal(calculateLaurelsBalance([...missedAtZero, earnedAfterReset]), 5, "new Laurels earned after a reset remain spendable");
+});
+
+test("habit deletion retains Laurels only after 50 completed days", () => {
+  const rewardTransactions = [
+    createRewardTransaction({ amount: 5, reason: "daily-goal", sourceId: "2026-09-18", idempotencyKey: "daily-goal:self:2026-09-18", createdAt: "2026-09-18T20:00:00.000Z" }),
+    createRewardTransaction({ amount: 3, reason: "perfect-day", sourceId: "2026-09-18", idempotencyKey: "perfect-day:self:2026-09-18", createdAt: "2026-09-18T20:00:01.000Z" }),
+  ];
+  const completions = (count, habitId) => Array.from({ length: count }, (_, index) => {
+    const date = new Date(Date.UTC(2026, 0, index + 1)).toISOString().slice(0, 10);
+    return {
+      habitId,
+      date,
+      completed: true,
+    };
+  });
+
+  const earlyCompletions = completions(HABIT_LAUREL_RETENTION_COMPLETIONS - 1, "habit-early");
+  assert.equal(habitCompletionCount(earlyCompletions, "habit-early"), 49);
+  const earlyDeletion = applyHabitDeletionLaurelPolicy(rewardTransactions, earlyCompletions, "habit-early", "2026-09-20T12:00:00.000Z");
+  assert.equal(earlyDeletion.retained, false);
+  assert.equal(calculateLaurelsBalance(earlyDeletion.transactions), 0);
+  assert.equal(earlyDeletion.transactions.at(-1).reason, "habit-deleted-reset");
+
+  const masteredCompletions = completions(HABIT_LAUREL_RETENTION_COMPLETIONS, "habit-mastered");
+  const masteredDeletion = applyHabitDeletionLaurelPolicy(rewardTransactions, masteredCompletions, "habit-mastered", "2026-09-20T12:00:00.000Z");
+  assert.equal(masteredDeletion.retained, true);
+  assert.equal(calculateLaurelsBalance(masteredDeletion.transactions), 8);
+  assert.equal(masteredDeletion.transactions.at(-1).reason, "habit-mastery-retained");
+
+  const legacyOrphan = reconcileOrphanedHabitLaurels(0, rewardTransactions, "2026-09-20T12:00:00.000Z");
+  assert.equal(calculateLaurelsBalance(legacyOrphan), 0, "an old empty workspace with unexplained Laurels self-heals once");
+  assert.equal(legacyOrphan.at(-1).reason, "habit-deleted-reset");
+  assert.deepEqual(reconcileOrphanedHabitLaurels(0, legacyOrphan, "2026-09-21T12:00:00.000Z"), legacyOrphan, "legacy repair is idempotent");
 });
 
 test("tracker scoring and time math preserve the specified invariants", () => {

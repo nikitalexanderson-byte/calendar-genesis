@@ -12,6 +12,7 @@ export type RewardReason =
   | "comeback"
   | "hero-path-amphora"
   | "hestia-spark"
+  | "habit-mastery-retained"
   | "habit-deleted-reset"
   | "habit-missed-reset";
 
@@ -42,11 +43,13 @@ const REWARD_REASONS: readonly RewardReason[] = [
   "comeback",
   "hero-path-amphora",
   "hestia-spark",
+  "habit-mastery-retained",
   "habit-deleted-reset",
   "habit-missed-reset",
 ];
 
 const LAURELS_RESET_REASONS: readonly LaurelsResetReason[] = ["habit-deleted-reset", "habit-missed-reset"];
+const ZERO_AMOUNT_REASONS: readonly RewardReason[] = [...LAURELS_RESET_REASONS, "habit-mastery-retained"];
 
 function rewardAmount(value: unknown) {
   const amount = Number(value);
@@ -92,7 +95,7 @@ export function normalizeRewardTransactions(value: unknown): RewardTransaction[]
     const sourceId = typeof source.sourceId === "string" ? source.sourceId.trim() : "";
     const amount = rewardAmount(source.amount);
     if (!idempotencyKey || !sourceId || source.currency !== "laurels" || !isRewardReason(source.reason)) return;
-    if (!amount && !LAURELS_RESET_REASONS.includes(source.reason as LaurelsResetReason)) return;
+    if (!amount && !ZERO_AMOUNT_REASONS.includes(source.reason)) return;
     const transaction: RewardTransaction = {
       id: typeof source.id === "string" && source.id ? source.id : rewardId(idempotencyKey),
       userId: "self",
@@ -112,7 +115,29 @@ export function normalizeRewardTransactions(value: unknown): RewardTransaction[]
 }
 
 export function calculateLaurelsBalance(transactions: readonly RewardTransaction[]) {
-  return Math.max(0, normalizeRewardTransactions(transactions).reduce((total, transaction) => total + transaction.amount, 0));
+  const balance = normalizeRewardTransactions(transactions).reduce((current, transaction) => {
+    if (LAURELS_RESET_REASONS.includes(transaction.reason as LaurelsResetReason)) return 0;
+    return current + transaction.amount;
+  }, 0);
+  return Math.max(0, balance);
+}
+
+export function recordHabitMasteryRetention(
+  value: unknown,
+  habitId: string,
+  createdAt = new Date().toISOString(),
+) {
+  const transactions = normalizeRewardTransactions(value);
+  const idempotencyKey = `habit-mastery-retained:self:${habitId}`;
+  if (transactions.some((transaction) => transaction.idempotencyKey === idempotencyKey)) return transactions;
+  transactions.push(createRewardTransaction({
+    amount: 0,
+    reason: "habit-mastery-retained",
+    sourceId: habitId,
+    idempotencyKey,
+    createdAt,
+  }));
+  return normalizeRewardTransactions(transactions);
 }
 
 export function resetLaurelsBalance(
@@ -144,7 +169,6 @@ export function reconcileDailyGoalRewards(
   records: readonly DailyGoalRecord[],
   value: unknown,
   today: string,
-  timestamp = new Date().toISOString(),
 ) {
   const transactions = normalizeRewardTransactions(value);
   const knownKeys = new Set(transactions.map((transaction) => transaction.idempotencyKey));
@@ -157,7 +181,7 @@ export function reconcileDailyGoalRewards(
         reason: "daily-goal",
         sourceId: record.date,
         idempotencyKey: dailyKey,
-        createdAt: record.updatedAt || timestamp,
+        createdAt: record.updatedAt || `${record.date}T00:00:00.000Z`,
       }));
       knownKeys.add(dailyKey);
     }
@@ -168,7 +192,7 @@ export function reconcileDailyGoalRewards(
         reason: "perfect-day",
         sourceId: record.date,
         idempotencyKey: perfectKey,
-        createdAt: record.updatedAt || timestamp,
+        createdAt: record.updatedAt || `${record.date}T00:00:00.000Z`,
       }));
       knownKeys.add(perfectKey);
     }
