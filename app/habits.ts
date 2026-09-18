@@ -99,6 +99,11 @@ import {
   reconcileAchievementUnlocks,
   type AchievementUnlock,
 } from "./achievements";
+import {
+  DEFAULT_HABIT_NOTIFICATION_SETTINGS,
+  normalizeHabitNotificationSettings,
+  type HabitNotificationSettings,
+} from "./habit-notifications";
 
 export { HABIT_COLORS, STARTER_HABIT_TEMPLATES } from "./habit-templates";
 export type { HabitTemplate, HabitTemplateId } from "./habit-templates";
@@ -164,10 +169,11 @@ export type HabitSettings = {
   customRangeEnd: string;
   dailyGoalModeChanges: DailyGoalModeChange[];
   plannedRestDays: string[];
+  notifications: HabitNotificationSettings;
 };
 
 export type HabitWorkspace = {
-  trackerSchemaVersion: 12;
+  trackerSchemaVersion: 13;
   userProgress: UserProgress;
   habits: Habit[];
   habitCompletions: HabitCompletion[];
@@ -245,10 +251,11 @@ export const DEFAULT_HABIT_SETTINGS: HabitSettings = {
   customRangeEnd: "",
   dailyGoalModeChanges: [],
   plannedRestDays: [],
+  notifications: DEFAULT_HABIT_NOTIFICATION_SETTINGS,
 };
 
 export const EMPTY_HABIT_WORKSPACE: HabitWorkspace = {
-  trackerSchemaVersion: 12,
+  trackerSchemaVersion: 13,
   userProgress: {
     lifetimeXp: 0,
     laurelsBalance: 0,
@@ -549,6 +556,7 @@ function normalizeSettings(value: Partial<HabitSettings> | undefined): HabitSett
     plannedRestDays: Array.isArray(value?.plannedRestDays)
       ? Array.from(new Set(value.plannedRestDays.filter((date) => DATE_PATTERN.test(date)))).sort()
       : [],
+    notifications: normalizeHabitNotificationSettings(value?.notifications),
   };
 }
 
@@ -649,7 +657,7 @@ export function normalizeHabitWorkspace(
   });
 
   const workspace: HabitWorkspace = {
-    trackerSchemaVersion: 12,
+    trackerSchemaVersion: 13,
     userProgress,
     habits,
     habitCompletions,

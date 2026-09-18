@@ -1,4 +1,4 @@
-const CACHE = "genesis-shell-v23";
+const CACHE = "genesis-shell-v24";
 const SCOPE = self.registration.scope;
 const MONTH_ART = Array.from({ length: 13 }, (_, index) => `./month-art-v4/month-${String(index + 1).padStart(2, "0")}.webp`);
 const WEEKDAY_ART = [
@@ -58,5 +58,28 @@ self.addEventListener("fetch", (event) => {
         return response;
       })
       .catch(() => caches.match(request)),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const data = event.notification.data || {};
+  const targetUrl = new URL(data.url || "./#today", SCOPE).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (clients) => {
+      const visibleClient = clients.find((client) => "focus" in client);
+      if (visibleClient) {
+        visibleClient.postMessage({
+          type: "GENESIS_NOTIFICATION_OPENED",
+          notificationId: data.genesisNotificationId,
+          kind: data.kind,
+          variant: data.variant,
+        });
+        await visibleClient.focus();
+        if ("navigate" in visibleClient) await visibleClient.navigate(targetUrl);
+        return;
+      }
+      await self.clients.openWindow(targetUrl);
+    }),
   );
 });
