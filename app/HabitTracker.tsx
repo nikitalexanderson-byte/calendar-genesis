@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type CSSProperties } from "react";
+import { useId, useMemo, useState, type CSSProperties } from "react";
 import type { CalendarMode } from "./calendar-data";
 import type { Language } from "./i18n";
 import { formatTimeValue, type TimeFormat } from "./time-format";
@@ -12,6 +12,7 @@ import { AchievementSigil } from "./AchievementSigil";
 import { SACRED_SECTOR_SIGIL_MOTIFS, SacredSectorSigil } from "./SacredSectorSigil";
 import {
   HABIT_EMOJI_PRESETS,
+  HABIT_EMOJI_CATEGORIES,
   HABIT_RITUAL_OPTIONS,
   ACHIEVEMENTS,
   HABIT_COLORS,
@@ -44,6 +45,7 @@ import {
   heroicRankForProgress,
   isHabitScheduledForDate,
   normalizeHabitEmoji,
+  normalizeHabitColor,
   normalizeHabitPriority,
   nextHeroicRankForProgress,
   reportDateRange,
@@ -251,13 +253,63 @@ function HabitRoleFields({ habit, language, onChange }: { habit: Habit; language
   );
 }
 
+function DisclosureChevron({ open }: { open: boolean }) {
+  return (
+    <svg className={`disclosure-chevron${open ? " open" : ""}`} viewBox="0 0 20 20" aria-hidden="true">
+      <path d="m5.5 7.5 4.5 4.5 4.5-4.5" />
+    </svg>
+  );
+}
+
 function HabitEmojiField({ value, language, onChange }: { value: string; language: Language; onChange: (value: string) => void }) {
   const isEnglish = language === "en";
+  const [catalogOpen, setCatalogOpen] = useState(false);
+  const catalogId = useId();
   return (
     <fieldset className="habit-emoji-field">
       <legend>{isEnglish ? "Habit emoji" : "Эмодзи привычки"}</legend>
       <div className="habit-emoji-presets">{HABIT_EMOJI_PRESETS.map((emoji) => <button type="button" className={value === emoji ? "selected" : ""} aria-label={emoji} aria-pressed={value === emoji} onClick={() => onChange(emoji)} key={emoji}>{emoji}</button>)}</div>
-      <label><span>{isEnglish ? "Or enter your own emoji" : "Или введите свой эмодзи"}</span><input value={value} maxLength={16} inputMode="text" onChange={(event) => onChange(event.target.value)} onBlur={() => onChange(normalizeHabitEmoji(value))} /></label>
+      <button type="button" className="habit-emoji-expand" aria-expanded={catalogOpen} aria-controls={catalogId} onClick={() => setCatalogOpen((current) => !current)}>
+        <span>{catalogOpen ? (isEnglish ? "Hide full catalog" : "Скрыть полный набор") : (isEnglish ? "Open full emoji catalog" : "Открыть полный набор эмодзи")}</span>
+        <DisclosureChevron open={catalogOpen} />
+      </button>
+      {catalogOpen ? <div className="habit-emoji-catalog" id={catalogId}>
+        {HABIT_EMOJI_CATEGORIES.map((category) => <section aria-labelledby={`${catalogId}-${category.id}`} key={category.id}>
+          <h3 id={`${catalogId}-${category.id}`}>{isEnglish ? category.labelEn : category.label}</h3>
+          <div>{category.emojis.map((emoji) => <button type="button" className={value === emoji ? "selected" : ""} aria-label={emoji} aria-pressed={value === emoji} onClick={() => onChange(emoji)} key={`${category.id}-${emoji}`}>{emoji}</button>)}</div>
+        </section>)}
+      </div> : null}
+      <label><span>{isEnglish ? "Or enter your own emoji" : "Или введите свой эмодзи"}</span><input value={value} maxLength={32} inputMode="text" onChange={(event) => onChange(event.target.value)} onBlur={() => onChange(normalizeHabitEmoji(value))} /></label>
+    </fieldset>
+  );
+}
+
+function HabitStrictTimeField({ value, fallbackTime, language, onChange }: { value: string; fallbackTime: string; language: Language; onChange: (value: string) => void }) {
+  const isEnglish = language === "en";
+  const disabled = !value;
+  return (
+    <div className="habit-strict-time-field">
+      <label>
+        <span>{isEnglish ? "Strict completion time" : "Строгое время выполнения"}</span>
+        <input type="time" value={value} disabled={disabled} required={!disabled} onChange={(event) => onChange(event.target.value)} />
+      </label>
+      <label className="habit-no-strict-time">
+        <input type="checkbox" checked={disabled} onChange={(event) => onChange(event.target.checked ? "" : fallbackTime || "09:00")} />
+        <span>{isEnglish ? "No strict time" : "Без строгого времени"}</span>
+      </label>
+      <small>{isEnglish ? "This is the exact time when the habit is planned. Turn strict time off if it may be completed at any time of day." : "Это точное время, в которое запланировано выполнение привычки. Отключите строгое время, если привычку можно выполнить в любой момент дня."}</small>
+    </div>
+  );
+}
+
+function HabitColorField({ value, language, onChange }: { value: string; language: Language; onChange: (value: string) => void }) {
+  const isEnglish = language === "en";
+  const normalized = normalizeHabitColor(value, HABIT_COLORS[0]);
+  return (
+    <fieldset className="habit-color-field wide">
+      <legend>{isEnglish ? "Color" : "Цвет"}</legend>
+      <div className="habit-color-palette">{HABIT_COLORS.map((color) => <button type="button" className={normalized === color ? "selected" : ""} style={{ background: color }} onClick={() => onChange(color)} aria-label={`${isEnglish ? "Choose color" : "Выбрать цвет"} ${color}`} aria-pressed={normalized === color} key={color} />)}</div>
+      <label className="habit-custom-color"><input type="color" value={normalized} onChange={(event) => onChange(normalizeHabitColor(event.target.value, HABIT_COLORS[0]))} /><span>{isEnglish ? "Custom color" : "Свой цвет"}</span><output>{normalized.toUpperCase()}</output></label>
     </fieldset>
   );
 }
@@ -710,7 +762,7 @@ export function HabitDailyPanel({ workspace, date, language, timeFormat, calenda
                 <div className="habit-check-copy" id={`habit-copy-${habit.id}-${date}`}>
                   <span><b className="habit-emoji" aria-hidden="true">{habit.emoji}</b><strong data-no-translate>{habit.title}</strong>{habit.isKeyHabit ? <mark>{isEnglish ? "Key habit" : "Главная"}</mark> : null}<em>{isEnglish ? `Priority ${habit.priority}` : `Приоритет ${habit.priority}`}</em></span>
                   {habit.description ? <small data-no-translate>{habit.description}</small> : null}
-                  {habit.preferredTime ? <small className="habit-preferred-time">{isEnglish ? "Preferred" : "Желаемое время"}: {formatTimeValue(habit.preferredTime, timeFormat)}</small> : null}
+                  {habit.preferredTime ? <small className="habit-preferred-time">{isEnglish ? "Strict time" : "Строгое время"}: {formatTimeValue(habit.preferredTime, timeFormat)}</small> : null}
                 </div>
                 {entry?.completed && habit.qualityScale !== "none" ? (
                   <label className={`habit-quality-slider scale-${habit.qualityScale}`}>
@@ -780,7 +832,7 @@ function HabitTemplateSetup({ template, date, language, calendarMode, googleTask
     : calendarMode === "lunar" ? (isEnglish ? "Lunar calendar" : "Лунный календарь") : (isEnglish ? "Gregorian calendar" : "Григорианский календарь");
   return (
     <div className="modal-backdrop habit-editor-backdrop" role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <form className="habit-editor habit-template-setup" onSubmit={(event) => { event.preventDefault(); onSave(markTrackerEntityChanged({ ...draft, emoji: normalizeHabitEmoji(draft.emoji), priority: normalizeHabitPriority(draft.priority) })); }}>
+      <form className="habit-editor habit-template-setup" onSubmit={(event) => { event.preventDefault(); onSave(markTrackerEntityChanged({ ...draft, color: normalizeHabitColor(draft.color, HABIT_COLORS[0]), emoji: normalizeHabitEmoji(draft.emoji), priority: normalizeHabitPriority(draft.priority) })); }}>
         <header>
           <div className="habit-template-setup-title"><span aria-hidden="true">{template.icon}</span><div><small>{isEnglish ? "Starter suggestion" : "Стартовое предложение"}</small><h2>{isEnglish ? template.titleEn : template.title}</h2><p>{isEnglish ? template.descriptionEn : template.description}</p></div></div>
           <button type="button" className="modal-close" onClick={onClose} aria-label={isEnglish ? "Close" : "Закрыть"}>×</button>
@@ -793,7 +845,7 @@ function HabitTemplateSetup({ template, date, language, calendarMode, googleTask
 
         <div className="habit-template-quick-settings">
           <article><span>{isEnglish ? "Recommended rhythm" : "Рекомендуемый ритм"}</span><strong>{isEnglish ? template.frequencyEn : template.frequency}</strong><small>{calendarLabel}</small></article>
-          <label><span>{isEnglish ? "Preferred time" : "Желаемое время"}</span><input type="time" value={draft.preferredTime} onChange={(event) => setDraft((current) => ({ ...current, preferredTime: event.target.value, reminder: { ...current.reminder, time: event.target.value } }))} /></label>
+          <HabitStrictTimeField value={draft.preferredTime} fallbackTime={draft.reminder.time} language={language} onChange={(preferredTime) => setDraft((current) => ({ ...current, preferredTime, reminder: preferredTime ? { ...current.reminder, time: preferredTime } : current.reminder }))} />
         </div>
         <HabitEmojiField value={draft.emoji} language={language} onChange={(emoji) => setDraft((current) => ({ ...current, emoji }))} />
         <HabitPriorityControl value={draft.priority} language={language} onChange={(priority) => setDraft((current) => ({ ...current, priority }))} />
@@ -827,13 +879,13 @@ function HabitEditor({ habit, isExisting, language, calendarMode, googleTasksRea
   };
   return (
     <div className="modal-backdrop habit-editor-backdrop" role="presentation">
-      <form className="habit-editor" onSubmit={(event) => { event.preventDefault(); const candidate = markTrackerEntityChanged({ ...draft, createdDate: habit.createdDate, emoji: normalizeHabitEmoji(draft.emoji), priority: normalizeHabitPriority(draft.priority), schedule: { ...draft.schedule, startDate: habit.createdDate, recurrence: { ...draft.schedule.recurrence, rangeStart: habit.createdDate } } }); onSave(isExisting ? applyEditableHabitUpdate(habit, candidate) : candidate); }}>
+      <form className="habit-editor" onSubmit={(event) => { event.preventDefault(); const candidate = markTrackerEntityChanged({ ...draft, createdDate: habit.createdDate, color: normalizeHabitColor(draft.color, HABIT_COLORS[0]), emoji: normalizeHabitEmoji(draft.emoji), priority: normalizeHabitPriority(draft.priority), schedule: { ...draft.schedule, startDate: habit.createdDate, recurrence: { ...draft.schedule.recurrence, rangeStart: habit.createdDate } } }); onSave(isExisting ? applyEditableHabitUpdate(habit, candidate) : candidate); }}>
         <header><div><span className="eyebrow">{isEnglish ? "Habit core" : "Ядро привычек"}</span><h2>{isExisting ? (isEnglish ? "Edit habit" : "Редактирование привычки") : (isEnglish ? "New habit" : "Новая привычка")}</h2></div><button type="button" className="modal-close" onClick={onClose} aria-label={isEnglish ? "Close" : "Закрыть"}>×</button></header>
         <div className="habit-editor-grid">
           <label><span>{isEnglish ? "Name" : "Название"}</span><input required maxLength={100} value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} /></label>
-          <label><span>{isEnglish ? "Preferred time" : "Желаемое время"}</span><input type="time" value={draft.preferredTime} onChange={(event) => setDraft((current) => ({ ...current, preferredTime: event.target.value }))} /></label>
+          <HabitStrictTimeField value={draft.preferredTime} fallbackTime={draft.reminder.time} language={language} onChange={(preferredTime) => setDraft((current) => ({ ...current, preferredTime }))} />
           <label className="wide"><span>{isEnglish ? "Description" : "Описание"}</span><textarea maxLength={500} value={draft.description} onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} /></label>
-          <fieldset className="habit-color-field wide"><legend>{isEnglish ? "Color" : "Цвет"}</legend><div>{HABIT_COLORS.map((color) => <button type="button" className={draft.color === color ? "selected" : ""} style={{ background: color }} onClick={() => setDraft((current) => ({ ...current, color }))} aria-label={color} key={color} />)}</div></fieldset>
+          <HabitColorField value={draft.color} language={language} onChange={(color) => setDraft((current) => ({ ...current, color }))} />
         </div>
         <HabitEmojiField value={draft.emoji} language={language} onChange={(emoji) => setDraft((current) => ({ ...current, emoji }))} />
         <HabitPriorityControl value={draft.priority} language={language} onChange={(priority) => setDraft((current) => ({ ...current, priority }))} />
@@ -1017,10 +1069,11 @@ function SacredHabitLibrary({
   onOpenTheokyklosSector?: (sectorId: SacredPracticeSectorId) => void;
 }) {
   const isEnglish = language === "en";
-  const [selectedSectorId, setSelectedSectorId] = useState<SacredPracticeSectorId>("north");
+  const [expanded, setExpanded] = useState(false);
+  const [selectedSectorId, setSelectedSectorId] = useState<SacredPracticeSectorId | null>(null);
   const segments = useMemo(() => new Map(THEOKYKLOS_SEGMENTS.map((segment) => [segment.id, segment])), []);
-  const sector = segments.get(selectedSectorId)!;
-  const practices = sacredPracticesForSector(selectedSectorId);
+  const sector = selectedSectorId ? segments.get(selectedSectorId) : null;
+  const practices = selectedSectorId ? sacredPracticesForSector(selectedSectorId) : [];
   const renderSectorTab = (sectorId: SacredPracticeSectorId) => {
     const item = segments.get(sectorId)!;
     const started = workspace.habits.filter((habit) => habit.sacredSectorId === sectorId).length;
@@ -1028,9 +1081,8 @@ function SacredHabitLibrary({
     return (
       <button
         type="button"
-        role="tab"
         aria-label={`${sectorName}: ${item.patrons[language]}`}
-        aria-selected={selectedSectorId === sectorId}
+        aria-haspopup="dialog"
         className={selectedSectorId === sectorId ? "active" : ""}
         data-sector-id={sectorId}
         style={{ "--sector-sigil-color": SACRED_SECTOR_SIGIL_MOTIFS[sectorId].color } as CSSProperties}
@@ -1052,10 +1104,13 @@ function SacredHabitLibrary({
           <h2 id="sacred-habit-library-title">{isEnglish ? "Sacred habits" : "Сакральные привычки"}</h2>
           <p>{isEnglish ? "Every practice is an ordinary, trackable action illuminated by a myth and a patron deity." : "Каждая практика — обычное отслеживаемое действие, освещённое мифом и божеством-покровителем."}</p>
         </div>
-        {onOpenTheokyklosSector ? <button type="button" className="secondary-button" onClick={() => onOpenTheokyklosSector(selectedSectorId)}>{isEnglish ? "Open sector" : "Открыть сектор"} →</button> : null}
+        <button type="button" className="secondary-button sacred-library-toggle" aria-expanded={expanded} aria-controls="sacred-sector-picker" onClick={() => setExpanded((current) => !current)}>
+          <span>{expanded ? (isEnglish ? "Hide sectors" : "Скрыть сектора") : (isEnglish ? "Choose a sector" : "Выбрать сектор")}</span>
+          <DisclosureChevron open={expanded} />
+        </button>
       </header>
 
-      <div className="sacred-sector-navigation" role="tablist" aria-label={isEnglish ? "Theokyklos practice sectors" : "Секторы практик Теокиклоса"}>
+      {expanded ? <div className="sacred-sector-navigation open" id="sacred-sector-picker" role="group" aria-label={isEnglish ? "Theokyklos practice sectors" : "Секторы практик Теокиклоса"}>
         <div className="sacred-compass">
           <div className="sacred-compass-rose" aria-hidden="true"><i /><i /><i /><i /></div>
           <div className="sacred-compass-grid">
@@ -1072,18 +1127,26 @@ function SacredHabitLibrary({
             <div className="sacred-threshold-grid">{SACRED_THRESHOLD_SECTOR_IDS.map(renderSectorTab)}</div>
           </div>
         </aside>
-      </div>
+      </div> : null}
 
-      <div className="sacred-sector-summary">
-        <div><SacredSectorSigil sectorId={selectedSectorId} active /><p><small>{SACRED_SECTOR_NAMES[selectedSectorId][language]} · {isEnglish ? "patron deity" : "божество-покровитель"}</small><strong>{sector.patrons[language]}</strong></p></div>
-        <p>{sector.essence[language]}</p>
-      </div>
-
-      <div className="sacred-practice-grid">
-        {practices.map((practice) => {
+      {selectedSectorId && sector ? <div className="modal-backdrop sacred-sector-modal-backdrop" role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) setSelectedSectorId(null); }}>
+        <section className="sacred-sector-modal" role="dialog" aria-modal="true" aria-labelledby="sacred-sector-modal-title">
+          <header>
+            <div><span className="eyebrow">ΘΕΟΚΥΚΛΟΣ · {SACRED_SECTOR_NAMES[selectedSectorId][language]}</span><h2 id="sacred-sector-modal-title">{isEnglish ? "Choose a sacred habit" : "Выберите сакральную привычку"}</h2></div>
+            <button type="button" className="modal-close" onClick={() => setSelectedSectorId(null)} aria-label={isEnglish ? "Close" : "Закрыть"}>×</button>
+          </header>
+          <div className="sacred-sector-summary">
+            <div><SacredSectorSigil sectorId={selectedSectorId} active /><p><small>{SACRED_SECTOR_NAMES[selectedSectorId][language]} · {isEnglish ? "patron deity" : "божество-покровитель"}</small><strong>{sector.patrons[language]}</strong></p></div>
+            <p>{sector.essence[language]}</p>
+          </div>
+          <div className="sacred-practice-grid">
+          {practices.map((practice) => {
           const habit = workspace.habits.find((item) => item.sacredPracticeId === practice.id);
           const entry = habit ? completionFor(workspace, habit.id, date) : undefined;
           const canTrack = habit?.active && isHabitScheduledForDate(habit, date, calendarMode) && canRecordHabitOnDate(habit.createdDate, date, habitDateKey(new Date()));
+          const timeLabel = habit
+            ? (habit.preferredTime ? `${isEnglish ? "Strict time" : "Строго"} ${habit.preferredTime}` : (isEnglish ? "No strict time" : "Без строгого времени"))
+            : `${isEnglish ? "Suggested" : "Рекомендуется"} ${practice.suggestedTime}`;
           return (
             <article className={`${habit ? "started" : ""}${habit && !habit.active ? " paused" : ""}`} style={{ "--habit-color": habit?.color ?? practice.color } as CSSProperties} key={practice.id}>
               <header><span aria-hidden="true">{habit?.emoji ?? practice.emoji}</span><div><small>{sector.patrons[language]}</small><h3 data-no-translate={habit ? true : undefined}>{habit?.title ?? practice.title[language]}</h3></div>{habit ? <em>{habit.active ? (isEnglish ? "Active" : "Активна") : (isEnglish ? "Paused" : "На паузе")}</em> : null}</header>
@@ -1092,7 +1155,7 @@ function SacredHabitLibrary({
               <footer>
                 {habit ? (
                   <div className="sacred-practice-actions">
-                    <button type="button" className="sacred-practice-edit" onClick={() => onEdit(habit)}>{isEnglish ? "Edit" : "Изменить"}</button>
+                    <button type="button" className="sacred-practice-edit" onClick={() => { setSelectedSectorId(null); onEdit(habit); }}>{isEnglish ? "Edit" : "Изменить"}</button>
                     {habit.active ? <>
                       <button
                         type="button"
@@ -1106,12 +1169,18 @@ function SacredHabitLibrary({
                     </> : <button type="button" className="primary-button" onClick={() => onChange({ ...workspace, habits: workspace.habits.map((item) => item.id === habit.id ? markTrackerEntityChanged({ ...item, active: true }) : item) })}>{isEnglish ? "Enable again" : "Включить снова"}</button>}
                   </div>
                 ) : <button type="button" className="primary-button" onClick={() => onStart(practice)}>{isEnglish ? "Begin practice" : "Начать практику"}</button>}
-                <small>{habit?.preferredTime || habit?.reminder.time || practice.suggestedTime} · {isEnglish ? `priority ${habit?.priority ?? practice.priority}` : `приоритет ${habit?.priority ?? practice.priority}`}</small>
+                <small>{timeLabel} · {isEnglish ? `priority ${habit?.priority ?? practice.priority}` : `приоритет ${habit?.priority ?? practice.priority}`}</small>
               </footer>
             </article>
           );
         })}
-      </div>
+          </div>
+          <footer className="sacred-sector-modal-actions">
+            {onOpenTheokyklosSector ? <button type="button" className="secondary-button" onClick={() => onOpenTheokyklosSector(selectedSectorId)}>{isEnglish ? "Open in Theokyklos" : "Открыть в Теокиклосе"}</button> : null}
+            <button type="button" className="secondary-button" onClick={() => setSelectedSectorId(null)}>{isEnglish ? "Close" : "Закрыть"}</button>
+          </footer>
+        </section>
+      </div> : null}
     </section>
   );
 }

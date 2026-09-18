@@ -31,6 +31,7 @@ import {
   scoreSleepRules,
 } from "../app/tracker-math.ts";
 import {
+  HABIT_COLORS,
   STARTER_HABIT_TEMPLATES,
   isHabitTemplateId,
   starterTemplateRecurrencePreset,
@@ -54,7 +55,9 @@ import {
   visibleHeroicRanksForXp,
 } from "../app/habit-progress.ts";
 import {
+  HABIT_EMOJI_CATEGORIES,
   canRecordHabitOnDate,
+  normalizeHabitColor,
   normalizeHabitEmoji,
   normalizeHabitPriority,
 } from "../app/habit-integrity.ts";
@@ -340,13 +343,14 @@ test("account deletion atomically purges only the authenticated user's server an
 });
 
 test("admin moderation exposes only aggregate habit counts and can optionally blacklist a deleted identity", async () => {
-  const [repository, apiRouter, cloud, adminPanel, migration, smoke] = await Promise.all([
+  const [repository, apiRouter, cloud, adminPanel, migration, smoke, styles] = await Promise.all([
     readFile(new URL("../server/src/repository.php", import.meta.url), "utf8"),
     readFile(new URL("../server/public/api/index.php", import.meta.url), "utf8"),
     readFile(new URL("../app/cloud-sync.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/AdminPanel.tsx", import.meta.url), "utf8"),
     readFile(new URL("../server/migrations/011_admin_moderation.sql", import.meta.url), "utf8"),
     readFile(new URL("../server/tests/smoke.php", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
   assert.match(migration, /ALTER TABLE user_metrics ADD COLUMN habit_count/);
   assert.match(migration, /CREATE TABLE IF NOT EXISTS blocked_identities/);
@@ -366,6 +370,7 @@ test("admin moderation exposes only aggregate habit counts and can optionally bl
   assert.match(adminPanel, /user\.habitCount/);
   assert.match(adminPanel, /Добавить в чёрный список после удаления/);
   assert.match(adminPanel, /confirmation\.trim\(\)\.toLowerCase\(\) !== deleteTarget\.email\.toLowerCase\(\)/);
+  assert.match(styles, /\.admin-totals \{[^}]*grid-template-columns: repeat\(5, minmax\(0, 1fr\)\)/);
   assert.match(smoke, /genesisAdminDeleteUser/);
   assert.match(smoke, /A blacklisted identity was unexpectedly allowed to sign in/);
 });
@@ -912,6 +917,12 @@ test("lifetime XP follows four overture, twelve heroic and twelve hidden ranks w
   assert.equal(normalizeHabitPriority("7"), 7);
   assert.equal(normalizeHabitEmoji("not an emoji"), "✨");
   assert.equal(normalizeHabitEmoji("🎯"), "🎯");
+  assert.equal(normalizeHabitEmoji("👨‍👩‍👧‍👦extra"), "👨‍👩‍👧‍👦");
+  assert.ok(HABIT_EMOJI_CATEGORIES.length >= 10);
+  assert.ok(new Set(HABIT_EMOJI_CATEGORIES.flatMap((category) => category.emojis)).size >= 200);
+  assert.ok(HABIT_COLORS.length >= 20);
+  assert.equal(normalizeHabitColor("#ABCDEF"), "#abcdef");
+  assert.equal(normalizeHabitColor("red"), "#bb8f4a");
   assert.equal(canRecordHabitOnDate("2026-09-18", "2026-09-18", "2026-09-18"), true);
   assert.equal(canRecordHabitOnDate("2026-09-18", "2026-09-17", "2026-09-18"), false);
   assert.equal(canRecordHabitOnDate("2026-09-18", "2026-09-19", "2026-09-18"), false);
@@ -1644,6 +1655,13 @@ test("covers every Theokyklos sector with sacred habits while keeping Stoicheion
   assert.match(theokyklos, /Сакральные привычки/);
   assert.match(theokyklos, /updateHabitCompletion/);
   assert.match(tracker, /sacred-habit-library/);
+  assert.match(tracker, /const \[expanded, setExpanded\] = useState\(false\)/);
+  assert.match(tracker, /aria-controls="sacred-sector-picker"/);
+  assert.match(tracker, /className="sacred-sector-modal" role="dialog" aria-modal="true"/);
+  assert.match(tracker, /Выберите сакральную привычку/);
+  assert.match(tracker, /Открыть полный набор эмодзи/);
+  assert.match(tracker, /Без строгого времени/);
+  assert.match(tracker, /Свой цвет/);
   assert.match(tracker, /Начать практику/);
   assert.match(tracker, /sacred-compass-grid/);
   assert.match(tracker, /SacredSectorSigil/);
