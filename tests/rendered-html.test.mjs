@@ -45,8 +45,11 @@ import {
   MAX_HABIT_XP_PER_COMPLETION,
   completionXpAward,
   heroicRank,
+  heroicRankForProgress,
   highestRankForXp,
+  hiddenHeroicPathRevealed,
   hiddenHeroicPathUnlocked,
+  nextHeroicRankForProgress,
   reconcileUserProgress,
   visibleHeroicRanksForXp,
 } from "../app/habit-progress.ts";
@@ -111,7 +114,7 @@ test("encrypted workspace sync merges concurrent entities and preserves deletion
       dailyGoalRecords: [],
       rewardTransactions: [],
       streakFreezeTransactions: [],
-      trackerSchemaVersion: 9,
+      trackerSchemaVersion: 10,
       userProgress: { lifetimeXp: 0 },
       habitSettings: { enabled: true },
       hiddenDefaultTemplates: [],
@@ -158,7 +161,7 @@ test("workspace merge deduplicates reward ledger entries by idempotency key", ()
   const common = {
     projects: [], categories: [], taskListLinks: [], habits: [], habitCompletions: [], sleepPlans: [], sleepEntries: [],
     moodEntries: [], addictionTrackers: [], addictionEntries: [], analyticsSnapshots: [], dailyGoalRecords: [],
-    trackerSchemaVersion: 9, userProgress: {}, habitSettings: {}, hiddenDefaultTemplates: [], streakFreezeTransactions: [],
+    trackerSchemaVersion: 10, userProgress: {}, habitSettings: {}, hiddenDefaultTemplates: [], streakFreezeTransactions: [],
   };
   const left = prepareWorkspaceForSync({
     current: {
@@ -385,7 +388,7 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(habits, /STARTER_HABIT_TEMPLATES/);
   assert.match(habits, /createHabitFromTemplate/);
   assert.match(habits, /normalizeHiddenDefaultTemplates/);
-  assert.match(habits, /trackerSchemaVersion: 9/);
+  assert.match(habits, /trackerSchemaVersion: 10/);
   assert.match(habits, /createdDate: string/);
   assert.match(habits, /emoji: string/);
   assert.match(habits, /priority: number/);
@@ -404,11 +407,12 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(habits, /export function removeHabitFromWorkspace/);
   assert.match(habits, /export function buyHestiaSpark/);
   assert.match(habits, /export function claimHeroPathAmphora/);
+  assert.match(habits, /export function revealHiddenHeroicPath/);
   assert.match(streakProtection, /export function applyAutomaticStreakProtection/);
   assert.match(streakProtection, /hestia-spark-use:self:/);
   assert.match(streakProtection, /comeback:self:/);
   assert.match(habitReset, /export function resetHabitWorkspace/);
-  assert.equal((progress.match(/titleEn:/g) ?? []).length, 35);
+  assert.equal((progress.match(/titleEn:/g) ?? []).length, 39);
   assert.match(sleep, /type SleepPlan/);
   assert.match(sleep, /type SleepEntry/);
   assert.match(sleep, /calculateSleepDuration/);
@@ -432,7 +436,11 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(tracker, /habit-heatmap/);
   assert.match(tracker, /<HeroPathPanel/);
   assert.match(tracker, /Путь Героя/);
-  assert.match(heroPath, /FOUNDATIONAL_HEROIC_RANKS\.map/);
+  assert.match(heroPath, /ranks\.map/);
+  assert.match(heroPath, /hiddenHeroicPathRevealed\(workspace\.userProgress\)/);
+  assert.match(heroPath, /hiddenUnlocked && !hiddenRevealed/);
+  assert.match(heroPath, /hiddenRevealed \? <section className="hero-path-second-path"/);
+  assert.match(heroPath, /HIDDEN_HEROIC_RANKS/);
   assert.match(heroPath, /hero-path-amphora:self:/);
   assert.match(heroPath, /Путь продолжается…/);
   assert.doesNotMatch(heroPath, /12 тайных|24 rank|24 ран/);
@@ -495,6 +503,8 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(styles, /\.hero-path-panel/);
   assert.match(styles, /\.hero-path-map/);
   assert.match(styles, /\.hero-path-checkpoint/);
+  assert.match(styles, /\.hero-path-reveal-gate/);
+  assert.match(styles, /@keyframes heroGateOpening/);
   assert.match(styles, /\.habit-reset-dialog/);
   assert.match(styles, /\/habit-ranks\/heroic-ranks\.webp/);
   assert.ok(rankArt.size > 100_000, "heroic rank artwork should be a production image");
@@ -550,6 +560,7 @@ test("resetting habit tracking clears every tracker and statistic while preservi
   assert.equal(reset.userProgress.lifetimeXp, 0);
   assert.equal(reset.userProgress.laurelsBalance, 0);
   assert.equal(reset.userProgress.currentRankId, null);
+  assert.equal(reset.userProgress.hiddenHeroicPathRevealedAt, null);
   assert.equal(reset.userProgress.currentStreak, 0);
   assert.equal(reset.userProgress.longestStreak, 0);
   assert.equal(reset.userProgress.streakGoalMode, "perfect");
@@ -585,8 +596,8 @@ test("lifetime XP follows four overture, twelve heroic and twelve hidden ranks w
   assert.equal(INTRODUCTORY_HEROIC_RANKS.length, 4);
   assert.equal(FOUNDATIONAL_HEROIC_RANKS.length, 16);
   assert.equal(HIDDEN_HEROIC_RANKS.length, 12);
-  assert.deepEqual(HERO_PATH_CHECKPOINTS.map((checkpoint) => checkpoint.rankId), ["icarus", "mountain-tamer", "iron-charioteer", "risen-from-the-abyss"]);
-  assert.deepEqual(HERO_PATH_CHECKPOINTS.map((checkpoint) => checkpoint.rewardLaurels), [15, 25, 40, 60]);
+  assert.deepEqual(HERO_PATH_CHECKPOINTS.map((checkpoint) => checkpoint.rankId), ["icarus", "mountain-tamer", "iron-charioteer", "risen-from-the-abyss", "golden-argonaut", "arcadian-arrow", "spear-of-athena", "calydonian-glory-bearer"]);
+  assert.deepEqual(HERO_PATH_CHECKPOINTS.map((checkpoint) => checkpoint.rewardLaurels), [15, 25, 40, 60, 90, 130, 180, 260]);
   assert.deepEqual(INTRODUCTORY_HEROIC_RANKS.map((rank) => rank.id), ["tantalus", "sisyphus", "cyclops", "icarus"]);
   assert.deepEqual(HEROIC_RANKS.map((rank) => rank.threshold), [10, 40, 90, 160, 250, 450, 750, 1_100, 1_550, 2_100, 2_800, 3_700, 4_800, 6_200, 8_000, 10_500, 14_000, 18_500, 24_000, 31_000, 40_000, 52_000, 67_000, 86_000, 110_000, 141_000, 180_000, 230_000]);
   assert.equal(new Set(HEROIC_RANKS.map((rank) => rank.id)).size, 28);
@@ -594,7 +605,8 @@ test("lifetime XP follows four overture, twelve heroic and twelve hidden ranks w
   assert.equal(hiddenHeroicPathUnlocked(10_499), false);
   assert.equal(hiddenHeroicPathUnlocked(10_500), true);
   assert.equal(visibleHeroicRanksForXp(10_499).length, 16);
-  assert.equal(visibleHeroicRanksForXp(10_500).length, 28);
+  assert.equal(visibleHeroicRanksForXp(10_500).length, 16);
+  assert.equal(visibleHeroicRanksForXp(10_500, true).length, 28);
 
   assert.equal(highestRankForXp(0), null);
   assert.equal(highestRankForXp(9), null);
@@ -604,6 +616,15 @@ test("lifetime XP follows four overture, twelve heroic and twelve hidden ranks w
   assert.equal(heroicRank(250).id, "lion-heart");
   assert.equal(heroicRank(10_500).id, "risen-from-the-abyss");
   assert.equal(heroicRank(14_000).id, "mirror-victor");
+  const lockedHiddenPath = { lifetimeXp: 14_000, hiddenHeroicPathRevealedAt: null };
+  assert.equal(hiddenHeroicPathRevealed(lockedHiddenPath), false);
+  assert.equal(hiddenHeroicPathRevealed({ lifetimeXp: 14_000, hiddenHeroicPathRevealedAt: "invalid" }), false);
+  assert.equal(heroicRankForProgress(lockedHiddenPath).id, "risen-from-the-abyss");
+  assert.equal(nextHeroicRankForProgress(lockedHiddenPath), null);
+  const revealedHiddenPath = { lifetimeXp: 14_000, hiddenHeroicPathRevealedAt: "2026-09-18T12:00:00.000Z" };
+  assert.equal(hiddenHeroicPathRevealed(revealedHiddenPath), true);
+  assert.equal(heroicRankForProgress(revealedHiddenPath).id, "mirror-victor");
+  assert.equal(nextHeroicRankForProgress(revealedHiddenPath)?.id, "lord-of-the-thread");
 
   assert.equal(completionXpAward(0, 10), 10);
   assert.equal(completionXpAward(10, 10), 10);
@@ -625,6 +646,7 @@ test("lifetime XP follows four overture, twelve heroic and twelve hidden ranks w
   const migrated = reconcileUserProgress(null, [{ xpAwarded: 10 }, { xpAwarded: 20 }], "2026-09-18T00:00:00.000Z");
   assert.equal(migrated.lifetimeXp, 30);
   assert.equal(migrated.currentRankId, "tantalus");
+  assert.equal(migrated.hiddenHeroicPathRevealedAt, null);
 
   const afterDeletion = reconcileUserProgress({
     lifetimeXp: 100,

@@ -12,7 +12,6 @@ import { SACRED_SECTOR_SIGIL_MOTIFS, SacredSectorSigil } from "./SacredSectorSig
 import {
   HABIT_EMOJI_PRESETS,
   HABIT_COLORS,
-  HEROIC_RANKS,
   MAX_HABIT_XP_PER_COMPLETION,
   STARTER_HABIT_TEMPLATES,
   COMEBACK_REWARD_LAURELS,
@@ -30,12 +29,14 @@ import {
   dateValuesBetween,
   defaultHabit,
   habitDateKey,
-  heroicRank,
+  heroicRankForProgress,
   isHabitScheduledForDate,
   normalizeHabitEmoji,
   normalizeHabitPriority,
+  nextHeroicRankForProgress,
   reportDateRange,
   removeHabitFromWorkspace,
+  revealHiddenHeroicPath,
   scoreHabitCompletion,
   setDailyGoalMode,
   setPlannedRestDay,
@@ -718,8 +719,8 @@ function HabitStatistics({ workspace, date, language, calendarMode }: { workspac
   const perfectDays = workspace.dailyGoalRecords.filter((record) => record.date >= range.start && record.date <= range.end && record.status === "perfect").length;
   const recentRewards = [...workspace.rewardTransactions].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 8);
   const total = calculateHabitTotal(workspace);
-  const rank = heroicRank(total);
-  const nextRank = HEROIC_RANKS.find((item) => item.threshold > total);
+  const rank = heroicRankForProgress(workspace.userProgress);
+  const nextRank = nextHeroicRankForProgress(workspace.userProgress);
   const progress = nextRank ? Math.max(0, Math.min(100, Math.round((total - rank.threshold) / (nextRank.threshold - rank.threshold) * 100))) : 100;
   const maxDaily = Math.max(20, ...daily.map((item) => item.habit.score + item.sleep.score + item.addiction.score));
   const points = daily.map((item, index) => `${daily.length > 1 ? index / (daily.length - 1) * 100 : 0},${55 - (item.habit.score + item.sleep.score + item.addiction.score) / maxDaily * 50}`).join(" ");
@@ -867,7 +868,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
   const [heroPathOpen, setHeroPathOpen] = useState(false);
   const range = reportDateRange(workspace.habitSettings, date);
   const total = calculateHabitTotal(workspace);
-  const rank = heroicRank(total);
+  const rank = heroicRankForProgress(workspace.userProgress);
   const creationDate = habitDateKey(new Date());
   const comeback = calculateComebackSummary(workspace.dailyGoalRecords, creationDate);
   const sparkCount = workspace.userProgress.streakFreezeCount;
@@ -987,7 +988,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
 
       <section className="habit-range-toolbar"><span>{isEnglish ? "Analytics period" : "Период аналитики"}</span><div>{(["week", "days-30", "month", "quarter", "year", "custom"] as const).map((period) => <button type="button" className={workspace.habitSettings.reportRange === period ? "active" : ""} onClick={() => onChange({ ...workspace, habitSettings: { ...workspace.habitSettings, reportRange: period } })} key={period}>{period === "week" ? (isEnglish ? "7 days" : "7 дней") : period === "days-30" ? (isEnglish ? "30 days" : "30 дней") : period === "month" ? (isEnglish ? "Month" : "Месяц") : period === "quarter" ? (isEnglish ? "Quarter" : "Квартал") : period === "year" ? (isEnglish ? "Year" : "Год") : (isEnglish ? "Custom" : "Свой")}</button>)}</div>{workspace.habitSettings.reportRange === "custom" ? <label><input type="date" value={workspace.habitSettings.customRangeStart} onChange={(event) => onChange({ ...workspace, habitSettings: { ...workspace.habitSettings, customRangeStart: event.target.value } })} /><span>—</span><input type="date" value={workspace.habitSettings.customRangeEnd} onChange={(event) => onChange({ ...workspace, habitSettings: { ...workspace.habitSettings, customRangeEnd: event.target.value } })} /></label> : <small>{range.start} — {range.end}</small>}</section>
       <HabitStatistics workspace={workspace} date={date} language={language} calendarMode={calendarMode} />
-      {heroPathOpen ? <HeroPathPanel workspace={workspace} language={language} onClaimCheckpoint={(rankId) => { const next = claimHeroPathAmphora(workspace, rankId); onChange(next); if (next !== workspace) setMessage(isEnglish ? "The amphora is open. Laurels were added to your ledger." : "Амфора открыта. Лавры добавлены в журнал наград."); }} onClose={() => setHeroPathOpen(false)} /> : null}
+      {heroPathOpen ? <HeroPathPanel workspace={workspace} language={language} onClaimCheckpoint={(rankId) => { const next = claimHeroPathAmphora(workspace, rankId); onChange(next); if (next !== workspace) setMessage(isEnglish ? "The amphora is open. Laurels were added to your ledger." : "Амфора открыта. Лавры добавлены в журнал наград."); }} onRevealHiddenPath={() => { const next = revealHiddenHeroicPath(workspace); onChange(next); if (next !== workspace) setMessage(isEnglish ? "The second path has been revealed." : "Второй путь открыт."); }} onClose={() => setHeroPathOpen(false)} /> : null}
       {activatingTemplate ? <HabitTemplateSetup template={activatingTemplate} date={creationDate} language={language} calendarMode={calendarMode} googleTasksReady={googleTasksReady} onSave={(habit) => { setActivatingTemplate(null); saveHabit(habit); }} onClose={() => setActivatingTemplate(null)} /> : null}
       {editingHabit ? <HabitEditor habit={editingHabit} language={language} calendarMode={calendarMode} googleTasksReady={googleTasksReady} onSave={saveHabit} onClose={() => setEditingHabit(null)} /> : null}
       {editingSleep ? <SleepEditor plan={editingSleep} language={language} calendarMode={calendarMode} onSave={(plan) => { onChange({ ...workspace, sleepPlans: workspace.sleepPlans.some((item) => item.id === plan.id) ? workspace.sleepPlans.map((item) => item.id === plan.id ? plan : item) : [...workspace.sleepPlans, plan] }); setEditingSleep(null); }} onClose={() => setEditingSleep(null)} /> : null}
