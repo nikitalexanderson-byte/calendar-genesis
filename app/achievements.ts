@@ -29,6 +29,7 @@ export type AchievementDefinition = {
   descriptionEn: string;
   hidden: boolean;
   motif: "spark" | "steps" | "sun" | "circle" | "crown" | "leaf" | "column" | "shield" | "return" | "constellation";
+  artwork: string;
 };
 
 export type AchievementUnlock = TrackerEntity & {
@@ -54,24 +55,24 @@ type AchievementSource = {
 };
 
 export const ACHIEVEMENTS: readonly AchievementDefinition[] = [
-  { id: "first-step", title: "Первый шаг", titleEn: "First Step", description: "Выполнить первую привычку.", descriptionEn: "Complete your first habit.", hidden: false, motif: "spark" },
-  { id: "three-day-rhythm", title: "Нить ритма", titleEn: "Thread of Rhythm", description: "Сохранить серию три дня.", descriptionEn: "Keep a three-day streak.", hidden: false, motif: "steps" },
-  { id: "seven-sunrises", title: "Семь восходов", titleEn: "Seven Sunrises", description: "Сохранить серию семь дней.", descriptionEn: "Keep a seven-day streak.", hidden: false, motif: "sun" },
-  { id: "fortnight-rhythm", title: "Укреплённый ритм", titleEn: "Anchored Rhythm", description: "Сохранить серию 14 дней.", descriptionEn: "Keep a 14-day streak.", hidden: false, motif: "steps" },
-  { id: "perfect-day", title: "Завершённый круг", titleEn: "The Complete Circle", description: "Прожить первый идеальный день.", descriptionEn: "Reach your first Perfect Day.", hidden: false, motif: "circle" },
-  { id: "perfect-week", title: "Идеальная неделя", titleEn: "Perfect Week", description: "Семь идеальных дней подряд.", descriptionEn: "Reach seven Perfect Days in a row.", hidden: true, motif: "crown" },
-  { id: "perfect-month", title: "Золотая череда", titleEn: "The Golden Sequence", description: "Тридцать идеальных дней подряд.", descriptionEn: "Reach thirty Perfect Days in a row.", hidden: true, motif: "constellation" },
-  { id: "habit-thirty", title: "Укоренение", titleEn: "Taking Root", description: "Выполнить одну привычку 30 раз.", descriptionEn: "Complete one habit 30 times.", hidden: false, motif: "leaf" },
-  { id: "century", title: "Сотня", titleEn: "Century", description: "Выполнить одну привычку 100 раз.", descriptionEn: "Complete one habit 100 times.", hidden: false, motif: "column" },
-  { id: "iron-rhythm", title: "Железный ритм", titleEn: "Iron Rhythm", description: "Сохранить серию 30 дней.", descriptionEn: "Keep a 30-day streak.", hidden: false, motif: "shield" },
-  { id: "fifty-sunrises", title: "Пятьдесят восходов", titleEn: "Fifty Sunrises", description: "Сохранить серию 50 дней.", descriptionEn: "Keep a 50-day streak.", hidden: false, motif: "sun" },
-  { id: "hundred-day-path", title: "Стодневный путь", titleEn: "Hundred-Day Path", description: "Сохранить серию 100 дней.", descriptionEn: "Keep a 100-day streak.", hidden: false, motif: "column" },
-  { id: "half-year-circle", title: "Полугодовой круг", titleEn: "Half-Year Circle", description: "Сохранить серию 180 дней.", descriptionEn: "Keep a 180-day streak.", hidden: true, motif: "circle" },
-  { id: "full-revolution", title: "Полный оборот", titleEn: "Full Revolution", description: "Сохранить серию 365 дней.", descriptionEn: "Keep a 365-day streak.", hidden: true, motif: "crown" },
-  { id: "five-hundred-sunrises", title: "Пятьсот восходов", titleEn: "Five Hundred Sunrises", description: "Сохранить серию 500 дней.", descriptionEn: "Keep a 500-day streak.", hidden: true, motif: "constellation" },
-  { id: "thousand-day-path", title: "Тысяча дней пути", titleEn: "A Thousand Days", description: "Сохранить серию 1000 дней.", descriptionEn: "Keep a 1,000-day streak.", hidden: true, motif: "constellation" },
-  { id: "comeback", title: "Возвращение", titleEn: "The Return", description: "Завершить путь возвращения после разрыва серии.", descriptionEn: "Complete a comeback after a broken streak.", hidden: true, motif: "return" },
-  { id: "consistency", title: "Созвездие постоянства", titleEn: "Constellation of Consistency", description: "Достичь 1000 суммарных выполнений привычек.", descriptionEn: "Reach 1,000 total habit completions.", hidden: true, motif: "constellation" },
+  { id: "first-step", title: "Первый шаг", titleEn: "First Step", description: "Выполнить первую привычку.", descriptionEn: "Complete your first habit.", hidden: false, motif: "spark", artwork: "/achievement-art/first-step.webp" },
+  { id: "three-day-rhythm", title: "Нить ритма", titleEn: "Thread of Rhythm", description: "Сохранить серию три дня.", descriptionEn: "Keep a three-day streak.", hidden: false, motif: "steps", artwork: "/achievement-art/three-day-rhythm.webp" },
+  { id: "seven-sunrises", title: "Семь восходов", titleEn: "Seven Sunrises", description: "Сохранить серию семь дней.", descriptionEn: "Keep a seven-day streak.", hidden: false, motif: "sun", artwork: "/achievement-art/seven-sunrises.webp" },
+  { id: "fortnight-rhythm", title: "Укреплённый ритм", titleEn: "Anchored Rhythm", description: "Сохранить серию 14 дней.", descriptionEn: "Keep a 14-day streak.", hidden: false, motif: "steps", artwork: "/achievement-art/fortnight-rhythm.webp" },
+  { id: "perfect-day", title: "Завершённый круг", titleEn: "The Complete Circle", description: "Прожить первый идеальный день.", descriptionEn: "Reach your first Perfect Day.", hidden: false, motif: "circle", artwork: "/achievement-art/perfect-day.webp" },
+  { id: "perfect-week", title: "Идеальная неделя", titleEn: "Perfect Week", description: "Семь идеальных дней подряд.", descriptionEn: "Reach seven Perfect Days in a row.", hidden: true, motif: "crown", artwork: "/achievement-art/perfect-week.webp" },
+  { id: "perfect-month", title: "Золотая череда", titleEn: "The Golden Sequence", description: "Тридцать идеальных дней подряд.", descriptionEn: "Reach thirty Perfect Days in a row.", hidden: true, motif: "constellation", artwork: "/achievement-art/perfect-month.webp" },
+  { id: "habit-thirty", title: "Укоренение", titleEn: "Taking Root", description: "Выполнить одну привычку 30 раз.", descriptionEn: "Complete one habit 30 times.", hidden: false, motif: "leaf", artwork: "/achievement-art/habit-thirty.webp" },
+  { id: "century", title: "Сотня", titleEn: "Century", description: "Выполнить одну привычку 100 раз.", descriptionEn: "Complete one habit 100 times.", hidden: false, motif: "column", artwork: "/achievement-art/century.webp" },
+  { id: "iron-rhythm", title: "Железный ритм", titleEn: "Iron Rhythm", description: "Сохранить серию 30 дней.", descriptionEn: "Keep a 30-day streak.", hidden: false, motif: "shield", artwork: "/achievement-art/iron-rhythm.webp" },
+  { id: "fifty-sunrises", title: "Пятьдесят восходов", titleEn: "Fifty Sunrises", description: "Сохранить серию 50 дней.", descriptionEn: "Keep a 50-day streak.", hidden: false, motif: "sun", artwork: "/achievement-art/fifty-sunrises.webp" },
+  { id: "hundred-day-path", title: "Стодневный путь", titleEn: "Hundred-Day Path", description: "Сохранить серию 100 дней.", descriptionEn: "Keep a 100-day streak.", hidden: false, motif: "column", artwork: "/achievement-art/hundred-day-path.webp" },
+  { id: "half-year-circle", title: "Полугодовой круг", titleEn: "Half-Year Circle", description: "Сохранить серию 180 дней.", descriptionEn: "Keep a 180-day streak.", hidden: true, motif: "circle", artwork: "/achievement-art/half-year-circle.webp" },
+  { id: "full-revolution", title: "Полный оборот", titleEn: "Full Revolution", description: "Сохранить серию 365 дней.", descriptionEn: "Keep a 365-day streak.", hidden: true, motif: "crown", artwork: "/achievement-art/full-revolution.webp" },
+  { id: "five-hundred-sunrises", title: "Пятьсот восходов", titleEn: "Five Hundred Sunrises", description: "Сохранить серию 500 дней.", descriptionEn: "Keep a 500-day streak.", hidden: true, motif: "constellation", artwork: "/achievement-art/five-hundred-sunrises.webp" },
+  { id: "thousand-day-path", title: "Тысяча дней пути", titleEn: "A Thousand Days", description: "Сохранить серию 1000 дней.", descriptionEn: "Keep a 1,000-day streak.", hidden: true, motif: "constellation", artwork: "/achievement-art/thousand-day-path.webp" },
+  { id: "comeback", title: "Возвращение", titleEn: "The Return", description: "Завершить путь возвращения после разрыва серии.", descriptionEn: "Complete a comeback after a broken streak.", hidden: true, motif: "return", artwork: "/achievement-art/comeback.webp" },
+  { id: "consistency", title: "Созвездие постоянства", titleEn: "Constellation of Consistency", description: "Достичь 1000 суммарных выполнений привычек.", descriptionEn: "Reach 1,000 total habit completions.", hidden: true, motif: "constellation", artwork: "/achievement-art/consistency.webp" },
 ] as const;
 
 const ACHIEVEMENT_IDS = new Set<AchievementId>(ACHIEVEMENTS.map((achievement) => achievement.id));

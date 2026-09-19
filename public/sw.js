@@ -19,7 +19,43 @@ const WEEKDAY_ART = [
   "./weekday-art/weekday-5-friday-aphrodite-hestia-dionysus.webp",
   "./weekday-art/weekday-6-saturday-cronus.webp",
 ];
-const CORE = ["./", "./manifest.webmanifest", "./manifest.en.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./genesis-hero.png", ...MONTH_ART, ...WEEKDAY_ART]
+const ACHIEVEMENT_ART = [
+  "./achievement-art/first-step.webp",
+  "./achievement-art/three-day-rhythm.webp",
+  "./achievement-art/seven-sunrises.webp",
+  "./achievement-art/fortnight-rhythm.webp",
+  "./achievement-art/perfect-day.webp",
+  "./achievement-art/habit-thirty.webp",
+  "./achievement-art/century.webp",
+  "./achievement-art/iron-rhythm.webp",
+  "./achievement-art/fifty-sunrises.webp",
+  "./achievement-art/hundred-day-path.webp",
+  "./achievement-art/perfect-week.webp",
+  "./achievement-art/perfect-month.webp",
+  "./achievement-art/half-year-circle.webp",
+  "./achievement-art/full-revolution.webp",
+  "./achievement-art/five-hundred-sunrises.webp",
+  "./achievement-art/thousand-day-path.webp",
+  "./achievement-art/comeback.webp",
+  "./achievement-art/consistency.webp",
+];
+const THEOKYKLOS_ART = [
+  "./theokyklos-art/northwest-apollo.webp",
+  "./theokyklos-art/north-athena.webp",
+  "./theokyklos-art/northeast-artemis.webp",
+  "./theokyklos-art/west-poseidon-amphitrite.webp",
+  "./theokyklos-art/center-dionysus-ariadne.webp",
+  "./theokyklos-art/east-hermes-peitho.webp",
+  "./theokyklos-art/southwest-demeter.webp",
+  "./theokyklos-art/south-ares-aphrodite.webp",
+  "./theokyklos-art/southeast-hephaestus-aglaea.webp",
+  "./theokyklos-art/zenith-zeus-hera.webp",
+  "./theokyklos-art/hearth-hestia.webp",
+  "./theokyklos-art/nadir-hades-persephone.webp",
+  "./theokyklos-art/entrance-aether-hemera.webp",
+  "./theokyklos-art/exit-eros-psyche.webp",
+];
+const CORE = ["./", "./manifest.webmanifest", "./manifest.en.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./genesis-hero.png", ...MONTH_ART, ...WEEKDAY_ART, ...ACHIEVEMENT_ART, ...THEOKYKLOS_ART]
   .map((path) => new URL(path, SCOPE).href);
 const REQUIRED_SHELL = [...new Set([...CORE, ...PRECACHE.map((path) => new URL(path, SCOPE).href)])];
 

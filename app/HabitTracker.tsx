@@ -609,7 +609,7 @@ function AchievementPanel({ workspace, language, calendarMode }: Pick<DailyPanel
             : (isEnglish ? achievement.descriptionEn : achievement.description);
           return (
             <article className={`${unlock ? "unlocked" : "locked"}${concealed ? " concealed" : ""}`} key={achievement.id}>
-              <AchievementSigil motif={achievement.motif} unlocked={Boolean(unlock)} label={title} />
+              <AchievementSigil motif={achievement.motif} artwork={achievement.artwork} unlocked={Boolean(unlock)} concealed={concealed} label={title} />
               <div>
                 <small>{unlock ? (isEnglish ? "Unlocked" : "Открыто") : (concealed ? (isEnglish ? "Unknown path" : "Неизвестный путь") : (isEnglish ? "Ahead" : "Впереди"))}</small>
                 <h3>{title}</h3>

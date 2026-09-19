@@ -5,7 +5,9 @@ import type { AchievementDefinition } from "./achievements";
 
 type AchievementSigilProps = {
   motif: AchievementDefinition["motif"];
+  artwork: string;
   unlocked: boolean;
+  concealed: boolean;
   label: string;
 };
 
@@ -22,7 +24,7 @@ function AchievementMotif({ motif }: Pick<AchievementSigilProps, "motif">) {
   return <><path d="m15 39 8-18 9 23 8-29 9 24" /><circle cx="15" cy="39" r="3" /><circle cx="23" cy="21" r="3" /><circle cx="32" cy="44" r="3" /><circle cx="40" cy="15" r="3" /><circle cx="49" cy="39" r="3" /></>;
 }
 
-export function AchievementSigil({ motif, unlocked, label }: AchievementSigilProps) {
+export function AchievementSigil({ motif, artwork, unlocked, concealed, label }: AchievementSigilProps) {
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
   const move = (event: PointerEvent<HTMLSpanElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect();
@@ -38,9 +40,12 @@ export function AchievementSigil({ motif, unlocked, label }: AchievementSigilPro
       onPointerLeave={() => setTilt({ x: 0, y: 0 })}
     >
       <svg viewBox="0 0 64 64" aria-hidden="true">
-        <circle className="achievement-sigil-orbit" cx="32" cy="32" r="27" />
-        <circle className="achievement-sigil-field" cx="32" cy="32" r="22" />
-        <g className="achievement-sigil-motif"><AchievementMotif motif={motif} /></g>
+        {!concealed ? <image className="achievement-sigil-art" href={artwork} x="0" y="0" width="64" height="64" preserveAspectRatio="xMidYMid meet" /> : null}
+        {concealed ? <>
+          <circle className="achievement-sigil-orbit" cx="32" cy="32" r="27" />
+          <circle className="achievement-sigil-field" cx="32" cy="32" r="22" />
+          <g className="achievement-sigil-motif"><AchievementMotif motif={motif} /></g>
+        </> : null}
         {!unlocked ? <path className="achievement-sigil-lock" d="M26 31v-4a6 6 0 0 1 12 0v4m-15 0h18v14H23Z" /> : null}
       </svg>
     </span>

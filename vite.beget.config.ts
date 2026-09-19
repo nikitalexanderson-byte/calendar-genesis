@@ -8,6 +8,7 @@ const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 const configuredBase = process.env.GENESIS_BASE_PATH?.trim() || "/";
 const base = configuredBase.endsWith("/") ? configuredBase : `${configuredBase}/`;
 const apiUrl = process.env.GENESIS_API_URL?.trim() || `${base.replace(/\/$/, "")}/api`;
+const PRECACHE_STATIC_REVISION = "achievement-deity-art-v1";
 
 function offlinePrecacheManifest(basePath: string): Plugin {
   return {
@@ -19,7 +20,7 @@ function offlinePrecacheManifest(basePath: string): Plugin {
         .filter((fileName) => /\.(?:js|css)$/i.test(fileName))
         .sort();
       if (!requiredFiles.length) this.error("Offline precache manifest has no JavaScript or CSS assets.");
-      const version = createHash("sha256").update(requiredFiles.join("\n")).digest("hex").slice(0, 16);
+      const version = createHash("sha256").update(`${PRECACHE_STATIC_REVISION}\n${requiredFiles.join("\n")}`).digest("hex").slice(0, 16);
       const publicUrls = requiredFiles.map((fileName) => `${basePath}${fileName}`);
       this.emitFile({
         type: "asset",
