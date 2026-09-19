@@ -5708,6 +5708,14 @@ html[data-language="en"] .inbox-card.drop-target::after {
   background: rgba(4,16,18,.72);
   backdrop-filter: blur(10px);
 }
+.deferred-view-loading { display:grid; min-height:min(52vh,480px); place-content:center; justify-items:center; gap:13px; color:var(--teal); border:1px solid var(--line); border-radius:18px; background:rgba(255,253,248,.7); }
+.deferred-view-loading > span,.deferred-dialog-backdrop > div > span { position:relative; display:grid; width:48px; height:48px; place-items:center; border:1px solid rgba(178,138,74,.34); border-radius:50%; }
+.deferred-view-loading > span::before,.deferred-dialog-backdrop > div > span::before,.deferred-habit-loading > span::before { width:27px; height:27px; border:2px solid rgba(37,91,89,.16); border-top-color:#b28a4a; border-radius:50%; animation:deferred-view-spin .75s linear infinite; content:""; }
+.deferred-view-loading strong,.deferred-dialog-backdrop strong,.deferred-habit-loading strong { font-size:9px; letter-spacing:.08em; text-transform:uppercase; }
+.deferred-dialog-backdrop > div { display:grid; justify-items:center; gap:13px; padding:24px 30px; color:var(--teal); border:1px solid rgba(178,138,74,.34); border-radius:16px; background:var(--surface); box-shadow:0 28px 70px rgba(0,0,0,.28); }
+.deferred-habit-loading { display:flex; min-height:118px; align-items:center; justify-content:center; gap:12px; padding:18px; color:var(--teal); border:1px solid var(--line); border-radius:16px; background:rgba(255,253,248,.72); }
+.deferred-habit-loading > span { display:grid; width:38px; height:38px; place-items:center; }
+@keyframes deferred-view-spin { to { transform:rotate(360deg); } }
 
 .account-panel {
   position: relative;

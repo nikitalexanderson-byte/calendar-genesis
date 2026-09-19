@@ -2018,6 +2018,39 @@ test("QA-02 gives large habit sections consistent disclosure controls and modal 
   assert.match(recovery, /data-dialog-initial-focus/);
 });
 
+test("QA-04 splits heavy views and keeps regularity on an exact thirty-day window", async () => {
+  const [calendar, tracker, viteConfig, bundleVerifier, begetEntry] = await Promise.all([
+    readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/HabitTracker.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../vite.beget.config.ts", import.meta.url), "utf8"),
+    readFile(new URL("../scripts/verify-offline-precache.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../beget/main.tsx", import.meta.url), "utf8"),
+  ]);
+
+  for (const moduleName of ["AccountPanel", "AdminPanel", "GeminiAssistant", "HabitTracker", "LocalVoiceAssistant", "StoicheionView", "TheokyklosView"]) {
+    assert.match(calendar, new RegExp(`lazy\\(\\(\\) => import\\(\\"\\./${moduleName}\\"\\)`));
+  }
+  assert.match(calendar, /<Suspense fallback=\{/);
+  assert.match(calendar, /DeferredViewFallback/);
+  assert.match(calendar, /DeferredDialogFallback/);
+  assert.match(calendar, /DeferredHabitFallback/);
+  assert.doesNotMatch(calendar, /import \{ (?:AccountPanel|AdminPanel|GeminiAssistant|HabitDailyPanel|HabitTrackerPage|LocalVoiceAssistant|StoicheionView|TheokyklosView) \} from/);
+
+  assert.match(viteConfig, /codeSplitting/);
+  for (const chunkName of ["react-vendor", "astronomy-engine", "sync-engine", "tracker-engine", "calendar-engine"]) {
+    assert.match(viteConfig, new RegExp(`name: \\"${chunkName}\\"`));
+  }
+  assert.match(viteConfig, /maxSize: 300_000/);
+  assert.match(bundleVerifier, /MAX_PRODUCTION_JS_CHUNK_BYTES = 350_000/);
+  assert.match(bundleVerifier, /Production JavaScript chunk budget exceeded/);
+  assert.match(begetEntry, /vite:preloadError/);
+  assert.match(begetEntry, /window\.location\.reload\(\)/);
+
+  assert.match(tracker, /Last 30 days/);
+  assert.match(tracker, /addHabitDays\(date, -29\)/);
+  assert.doesNotMatch(tracker, /Last 35 days|addHabitDays\(date, -34\)/);
+});
+
 test("keeps the requested calendar and privacy features wired", async () => {
   const [calendarData, calendar, calendarDatePicker, accountPanel, cloudSync, recurrenceBuilder, taskRecurrence, moonPhase, solarTimes, stoicheion, stoicheionData, welcome, styles, api, google, repository, multiAccountMigration, i18n, languageMigration, taskCalendarMigration, englishManifest, geminiAssistant, localVoiceAssistant, localVoicePlan, geminiServer, publicHtaccess, serverConfigExample, cronusSickle, reminderPicker, taskReminders, serviceWorker] = await Promise.all([
     readFile(new URL("../app/calendar-data.ts", import.meta.url), "utf8"),
