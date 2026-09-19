@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import {
   THEOKYKLOS_DIRECTION_IDS,
   THEOKYKLOS_SEGMENTS,
@@ -23,6 +23,7 @@ import {
   type SacredPracticeSectorId,
 } from "./sacred-practices";
 import { markTrackerEntityChanged } from "./tracker-core";
+import { useDialogAccessibility } from "./use-dialog-accessibility";
 
 type Point = { x: number; y: number };
 
@@ -119,7 +120,6 @@ type TheokyklosViewProps = {
 
 export function TheokyklosView({ language, workspace, date, calendarMode, initialSectorId = null, onSelectedSectorClosed, onChange, onOpenHabits }: TheokyklosViewProps) {
   const [selectedId, setSelectedId] = useState<TheokyklosSegmentId | null>(initialSectorId);
-  const closeButtonRef = useRef<HTMLButtonElement>(null);
   const segmentsById = useMemo(() => new Map(THEOKYKLOS_SEGMENTS.map((segment) => [segment.id, segment])), []);
   const directions = THEOKYKLOS_DIRECTION_IDS.map((id) => segmentsById.get(id)).filter((segment): segment is TheokyklosSegment => Boolean(segment));
   const selected = selectedId ? segmentsById.get(selectedId) ?? null : null;
@@ -131,25 +131,16 @@ export function TheokyklosView({ language, workspace, date, calendarMode, initia
     setSelectedId(null);
     onSelectedSectorClosed?.();
   };
+  const detailsDialogRef = useDialogAccessibility<HTMLElement>(closeSelected, Boolean(selected));
 
   useEffect(() => {
     if (!selectedId) return;
     const previousOverflow = document.body.style.overflow;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setSelectedId(null);
-        onSelectedSectorClosed?.();
-      }
-    };
-    const focusFrame = window.requestAnimationFrame(() => closeButtonRef.current?.focus());
     document.body.style.overflow = "hidden";
-    window.addEventListener("keydown", closeOnEscape);
     return () => {
       document.body.style.overflow = previousOverflow;
-      window.cancelAnimationFrame(focusFrame);
-      window.removeEventListener("keydown", closeOnEscape);
     };
-  }, [selectedId, onSelectedSectorClosed]);
+  }, [selectedId]);
 
   const selectSegment = (id: TheokyklosSegmentId) => {
     setSelectedId(id);
@@ -332,8 +323,8 @@ export function TheokyklosView({ language, workspace, date, calendarMode, initia
 
         {selected ? (
           <div className="modal-backdrop theokyklos-details-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeSelected(); }}>
-            <aside id="theokyklos-details" className={`theokyklos-details segment-${selected.id}`} role="dialog" aria-modal="true" aria-labelledby="theokyklos-details-title">
-              <button ref={closeButtonRef} className="theokyklos-details-close" type="button" onClick={closeSelected} aria-label={language === "en" ? "Close segment description" : "Закрыть описание сегмента"}>
+            <aside ref={detailsDialogRef} id="theokyklos-details" className={`theokyklos-details segment-${selected.id}`} role="dialog" aria-modal="true" aria-labelledby="theokyklos-details-title" tabIndex={-1}>
+              <button className="theokyklos-details-close" type="button" onClick={closeSelected} aria-label={language === "en" ? "Close segment description" : "Закрыть описание сегмента"}>
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M6 6l12 12M18 6L6 18" />
                 </svg>

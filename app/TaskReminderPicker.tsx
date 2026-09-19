@@ -6,6 +6,7 @@ import { TimeClockPicker } from "./TimeClockPicker";
 import type { CalendarMode } from "./calendar-data";
 import { runtimeLocale } from "./i18n";
 import type { TimeFormat } from "./time-format";
+import { useDialogAccessibility } from "./use-dialog-accessibility";
 import {
   MAX_REMINDER_MINUTES,
   MAX_TASK_REMINDERS,
@@ -59,6 +60,7 @@ export function TaskReminderPicker({
   const rootRef = useRef<HTMLDivElement | null>(null);
   const locale = runtimeLocale();
   const atLimit = value.length >= MAX_TASK_REMINDERS;
+  const customDialogRef = useDialogAccessibility<HTMLElement>(() => setCustomOpen(false), customOpen);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -75,15 +77,6 @@ export function TaskReminderPicker({
       window.removeEventListener("keydown", closeOnEscape);
     };
   }, [menuOpen]);
-
-  useEffect(() => {
-    if (!customOpen) return;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setCustomOpen(false);
-    };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [customOpen]);
 
   const includes = (reminder: TaskReminder) => value.some((item) => taskReminderKey(item) === taskReminderKey(reminder));
 
@@ -216,7 +209,7 @@ export function TaskReminderPicker({
 
       {customOpen ? (
         <div className="modal-backdrop custom-reminder-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setCustomOpen(false); }}>
-          <section className="custom-reminder-modal" role="dialog" aria-modal="true" aria-labelledby="custom-reminder-title">
+          <section ref={customDialogRef} className="custom-reminder-modal" role="dialog" aria-modal="true" aria-labelledby="custom-reminder-title" tabIndex={-1}>
             <button type="button" className="modal-close" onClick={() => setCustomOpen(false)} aria-label="Закрыть">×</button>
             <span className="eyebrow">Точная настройка</span>
             <h2 id="custom-reminder-title">Пользовательское напоминание</h2>

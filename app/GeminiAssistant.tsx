@@ -8,6 +8,7 @@ import {
   type GeminiPlan,
 } from "./cloud-sync";
 import type { Language } from "./i18n";
+import { useDialogAccessibility } from "./use-dialog-accessibility";
 
 const MAX_AUDIO_BYTES = 4 * 1024 * 1024;
 const MAX_RECORDING_MS = 60_000;
@@ -96,6 +97,7 @@ export function GeminiAssistant({ language, context, provider, onApply, onClose 
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const stopTimerRef = useRef<number | null>(null);
+  const dialogRef = useDialogAccessibility<HTMLElement>(onClose);
   const providerName = provider === "gigachat" ? "GigaChat" : "Gemini";
   const labels = language === "en" ? {
     eyebrow: `GENESIS Voice · ${providerName}`,
@@ -277,7 +279,7 @@ export function GeminiAssistant({ language, context, provider, onApply, onClose 
     <div className="modal-backdrop gemini-backdrop" role="presentation" onMouseDown={(event) => {
       if (event.currentTarget === event.target && !busy) onClose();
     }}>
-      <section className="gemini-assistant" role="dialog" aria-modal="true" aria-labelledby="gemini-assistant-title">
+      <section ref={dialogRef} className="gemini-assistant" role="dialog" aria-modal="true" aria-labelledby="gemini-assistant-title" tabIndex={-1}>
         <header>
           <div className="gemini-mark" aria-hidden="true">✦</div>
           <div>

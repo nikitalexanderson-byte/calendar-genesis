@@ -9,6 +9,7 @@ import { localizeCategoryName, runtimeLocale, translateText, type Language } fro
 import type { TimeFormat } from "./time-format";
 import type { HabitNotificationPermission, HabitNotificationSettings } from "./habit-notifications";
 import type { HabitFeedbackSettings } from "./habit-feedback";
+import { useDialogAccessibility } from "./use-dialog-accessibility";
 
 type AccountPanelProps = {
   user: GenesisUser;
@@ -292,9 +293,12 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
     }
   };
 
+  const accountDialogRef = useDialogAccessibility<HTMLElement>(onClose);
+  const habitResetDialogRef = useDialogAccessibility<HTMLFormElement>(closeHabitReset, Boolean(habitResetChallenge));
+
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section className="account-panel" role="dialog" aria-modal="true" aria-labelledby="account-title">
+      <section ref={accountDialogRef} className="account-panel" role="dialog" aria-modal="true" aria-labelledby="account-title" tabIndex={-1}>
         <button type="button" className="modal-close" onClick={onClose} aria-label="Закрыть">×</button>
         <span className="eyebrow">Личный кабинет</span>
         <h2 id="account-title">{user.displayName || "Аккаунт GENESIS"}</h2>
@@ -692,11 +696,13 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
       {habitResetChallenge ? (
         <div className="habit-reset-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeHabitReset(); }}>
           <form
+            ref={habitResetDialogRef}
             className="habit-reset-dialog"
             role="alertdialog"
             aria-modal="true"
             aria-labelledby="habit-reset-title"
             aria-describedby="habit-reset-description"
+            tabIndex={-1}
             onSubmit={(event) => {
               event.preventDefault();
               void confirmHabitReset();

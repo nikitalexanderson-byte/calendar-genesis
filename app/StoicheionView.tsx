@@ -29,6 +29,7 @@ import {
   sacredSectorGuidance,
   type StoicheionPracticeSectorId,
 } from "./sacred-practices";
+import { useDialogAccessibility } from "./use-dialog-accessibility";
 
 const LOCAL_DRAW_STORAGE_PREFIX = "genesis-stoicheion-draws-v2:";
 const STOICHEION_CARD_ART_VERSION = "20260906-anatomy-glow";
@@ -355,25 +356,23 @@ function LetterDetails({
   const sector = position ? THEOKYKLOS_SEGMENTS.find((segment) => segment.id === position.id) ?? null : null;
   const guidance = position ? sacredSectorGuidance(position.id) : null;
   const practices = position ? sacredPracticesForSector(position.id) : [];
+  const dialogRef = useDialogAccessibility<HTMLDivElement>(onClose);
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", closeOnEscape);
     return () => {
       document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", closeOnEscape);
     };
-  }, [onClose]);
+  }, []);
 
   return createPortal(
     <div
       className="stoicheion-letter-dialog"
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-labelledby={`letter-${letter.id}-title`}
+      tabIndex={-1}
     >
       <article>
         <button type="button" className="stoicheion-dialog-close" onClick={onClose} aria-label="Закрыть описание буквы">×</button>
@@ -644,6 +643,7 @@ export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSec
     motionTracker.current = null;
     setMotion(null);
   };
+  const motionDialogRef = useDialogAccessibility<HTMLDivElement>(cancelMotion, motionActive);
 
   return (
     <section
@@ -843,9 +843,11 @@ export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSec
       {motion && typeof document !== "undefined" ? createPortal(
         <div
           className="stoicheion-motion-veil"
+          ref={motionDialogRef}
           role="dialog"
           aria-modal="true"
           aria-label={motion.mode === "daily" ? "Поле выбора карты дня" : "Поле выбора девяти карт"}
+          tabIndex={-1}
           style={{
             "--motion-progress": motion.progress,
             "--motion-x": `${pointer.x}%`,

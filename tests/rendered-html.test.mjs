@@ -610,8 +610,8 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   const trackerPage = tracker.slice(tracker.indexOf("export function HabitTrackerPage"));
   assert.match(trackerPage, /const hasHabits = workspace\.habits\.length > 0;/);
   assert.match(trackerPage, /const dailyPanel = <HabitDailyPanel/);
-  assert.ok(trackerPage.indexOf("{hasHabits ? dailyPanel : null}") < trackerPage.indexOf('className="habit-range-toolbar"'));
-  assert.ok(trackerPage.indexOf("<SacredHabitLibrary") < trackerPage.indexOf("{!hasHabits ? dailyPanel : null}"));
+  assert.ok(trackerPage.indexOf('{hasHabits ? <CollapsibleHabitBlock label={isEnglish ? "Daily trackers"') < trackerPage.indexOf('className="habit-range-toolbar"'));
+  assert.ok(trackerPage.indexOf("<SacredHabitLibrary") < trackerPage.indexOf('{!hasHabits ? <CollapsibleHabitBlock label={isEnglish ? "Daily trackers"'));
   assert.ok(trackerPage.indexOf('className="tracker-module-grid"') < trackerPage.indexOf('className="habit-range-toolbar"'));
   assert.ok(trackerPage.indexOf('className="habit-range-toolbar"') < trackerPage.indexOf("<HabitStatistics"));
   assert.match(tracker, /Статистика моих привычек/);
@@ -1592,7 +1592,7 @@ test("ships the complete interactive bilingual Theokyklos", async () => {
   assert.doesNotMatch(component, /theokyklos-ritual-path/);
   assert.match(component, /role="dialog" aria-modal="true"/);
   assert.match(component, /Close segment description/);
-  assert.match(component, /event\.key === "Escape"/);
+  assert.match(component, /useDialogAccessibility/);
   assert.match(component, /aria-pressed=\{selectedId === segment\.id\}/);
   assert.match(component, /selected\.words\.map/);
   assert.match(component, /Священные слова/);
@@ -1974,6 +1974,48 @@ test("QA-01 precaches the complete cold-install shell before activating the work
   assert.match(styles, /\.sacred-library-toggle \{[^}]*border-radius:999px/);
   assert.match(styles, /\.sacred-library-toggle\[aria-expanded="true"\]/);
   assert.match(styles, /\.sacred-library-toggle \.disclosure-chevron/);
+});
+
+test("QA-02 gives large habit sections consistent disclosure controls and modal dialogs a shared focus contract", async () => {
+  const [tracker, styles, dialogHook, calendar, account, admin, heroPath, theokyklos, stoicheion, recovery] = await Promise.all([
+    readFile(new URL("../app/HabitTracker.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../app/use-dialog-accessibility.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/AccountPanel.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/AdminPanel.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/HeroPathPanel.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/TheokyklosView.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/StoicheionView.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/WorkspaceRecoveryDialog.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(tracker, /function CollapsibleHabitBlock/);
+  assert.match(tracker, /aria-expanded=\{open\} aria-controls=\{contentId\}/);
+  assert.match(tracker, /<DisclosureChevron open=\{open\}/);
+  for (const label of ["Трекеры дня", "Защита серии и возвращение", "Испытания", "Награды за серию", "Стартовые привычки", "Обычные привычки", "Сон и воздержание", "Достижения", "Статистика моих привычек"]) {
+    assert.match(tracker, new RegExp(label));
+  }
+  assert.match(styles, /\.habit-collapsible-toolbar > button \{/);
+  assert.match(styles, /\.habit-collapsible-toolbar \.disclosure-chevron/);
+  assert.match(styles, /max-width: 760px[\s\S]*\.habit-collapsible-toolbar > button[\s\S]*width:100%/);
+
+  assert.match(dialogHook, /FOCUSABLE_SELECTOR/);
+  assert.match(dialogHook, /data-dialog-initial-focus/);
+  assert.match(dialogHook, /activeDialogStack\.at\(-1\) !== dialog/);
+  assert.match(dialogHook, /activeDialogStack\.splice\(stackIndex, 1\)/);
+  assert.match(dialogHook, /event\.key === "Escape"/);
+  assert.match(dialogHook, /event\.key !== "Tab"/);
+  assert.match(dialogHook, /document\.addEventListener\("keydown", handleKeyDown\)/);
+  assert.match(dialogHook, /trigger\.focus\(\{ preventScroll: true \}\)/);
+  assert.match(calendar, /dayDetailsDialogRef = useDialogAccessibility/);
+  assert.match(tracker, /role="dialog" aria-modal="true" aria-labelledby="habit-editor-title" tabIndex=\{-1\}/);
+  assert.match(account, /habitResetDialogRef = useDialogAccessibility/);
+  assert.match(admin, /deleteDialogRef = useDialogAccessibility/);
+  assert.match(heroPath, /dialogRef = useDialogAccessibility/);
+  assert.match(theokyklos, /detailsDialogRef = useDialogAccessibility/);
+  assert.match(stoicheion, /motionDialogRef = useDialogAccessibility/);
+  assert.match(recovery, /data-dialog-initial-focus/);
 });
 
 test("keeps the requested calendar and privacy features wired", async () => {
