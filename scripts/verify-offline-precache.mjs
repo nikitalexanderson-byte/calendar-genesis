@@ -3,6 +3,40 @@ import { readdir, readFile, stat } from "node:fs/promises";
 const outputRoot = new URL("../dist-beget/public_html/", import.meta.url);
 const assetsRoot = new URL("assets/", outputRoot);
 const MAX_PRODUCTION_JS_CHUNK_BYTES = 350_000;
+const REQUIRED_VISUAL_ASSETS = [
+  "achievement-art/first-step.webp",
+  "achievement-art/three-day-rhythm.webp",
+  "achievement-art/seven-sunrises.webp",
+  "achievement-art/fortnight-rhythm.webp",
+  "achievement-art/perfect-day.webp",
+  "achievement-art/habit-thirty.webp",
+  "achievement-art/century.webp",
+  "achievement-art/iron-rhythm.webp",
+  "achievement-art/fifty-sunrises.webp",
+  "achievement-art/hundred-day-path.webp",
+  "achievement-art/perfect-week.webp",
+  "achievement-art/perfect-month.webp",
+  "achievement-art/half-year-circle.webp",
+  "achievement-art/full-revolution.webp",
+  "achievement-art/five-hundred-sunrises.webp",
+  "achievement-art/thousand-day-path.webp",
+  "achievement-art/comeback.webp",
+  "achievement-art/consistency.webp",
+  "theokyklos-art/northwest-apollo.webp",
+  "theokyklos-art/north-athena.webp",
+  "theokyklos-art/northeast-artemis.webp",
+  "theokyklos-art/west-poseidon-amphitrite.webp",
+  "theokyklos-art/center-dionysus-ariadne.webp",
+  "theokyklos-art/east-hermes-peitho.webp",
+  "theokyklos-art/southwest-demeter.webp",
+  "theokyklos-art/south-ares-aphrodite.webp",
+  "theokyklos-art/southeast-hephaestus-aglaea.webp",
+  "theokyklos-art/zenith-zeus-hera.webp",
+  "theokyklos-art/hearth-hestia.webp",
+  "theokyklos-art/nadir-hades-persephone.webp",
+  "theokyklos-art/entrance-aether-hemera.webp",
+  "theokyklos-art/exit-eros-psyche.webp",
+];
 const [html, manifest, serviceWorker] = await Promise.all([
   readFile(new URL("index.html", outputRoot), "utf8"),
   readFile(new URL("precache-manifest.js", outputRoot), "utf8"),
@@ -17,6 +51,18 @@ if (missingAssets.length) throw new Error(`Offline precache manifest is missing:
 if (!/__GENESIS_PRECACHE_VERSION="[a-f0-9]{16}"/.test(manifest)) throw new Error("Offline precache manifest has no build fingerprint.");
 if (!serviceWorker.includes('importScripts(new URL("./precache-manifest.js", SCOPE).href)')) throw new Error("Service worker does not import the generated precache manifest.");
 
+const missingVisualAssets = [];
+for (const asset of REQUIRED_VISUAL_ASSETS) {
+  try {
+    await stat(new URL(asset, outputRoot));
+  } catch {
+    missingVisualAssets.push(asset);
+    continue;
+  }
+  if (!serviceWorker.includes(JSON.stringify(`./${asset}`))) missingVisualAssets.push(`${asset} (not precached)`);
+}
+if (missingVisualAssets.length) throw new Error(`Required visual assets are missing: ${missingVisualAssets.join(", ")}`);
+
 const javascriptAssets = (await readdir(assetsRoot)).filter((fileName) => fileName.endsWith(".js"));
 const javascriptAssetSizes = await Promise.all(javascriptAssets.map(async (fileName) => ({
   fileName,
@@ -28,4 +74,4 @@ if (oversizedChunks.length) {
 }
 const largestChunk = javascriptAssetSizes.sort((left, right) => right.bytes - left.bytes)[0];
 
-console.log(`Offline precache verified: ${entryAssets.length} mandatory entry assets. Largest JS chunk: ${largestChunk.fileName} (${largestChunk.bytes} bytes).`);
+console.log(`Offline precache verified: ${entryAssets.length} mandatory entry assets and ${REQUIRED_VISUAL_ASSETS.length} visual assets. Largest JS chunk: ${largestChunk.fileName} (${largestChunk.bytes} bytes).`);

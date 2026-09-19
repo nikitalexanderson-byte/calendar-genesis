@@ -640,6 +640,10 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(achievementSigil, /<svg/);
   assert.match(achievementSigil, /onPointerMove/);
   assert.match(achievementSigil, /achievement-sigil-orbit/);
+  assert.match(achievementSigil, /!concealed \? <image className="achievement-sigil-art"/);
+  assert.match(tracker, /artwork=\{achievement\.artwork\}/);
+  assert.match(tracker, /concealed=\{concealed\}/);
+  assert.match(styles, /\.achievement-sigil\.locked \.achievement-sigil-art/);
   assert.match(styles, /@keyframes metric-sigil-awaken/);
   assert.match(styles, /\.hero-path-panel/);
   assert.match(styles, /\.hero-path-map/);
@@ -1230,6 +1234,31 @@ test("achievements unlock from real history without changing Rank XP", () => {
   assert.deepEqual(reconcileAchievementUnlocks({ habitCompletions: [], dailyGoalRecords: [], longestStreak: 0, rewardTransactions: [], unlocks: [] }), []);
 });
 
+test("achievement artwork follows public milestones and the current hidden-achievement order", async () => {
+  const expectedArtwork = [
+    ["first-step", "/achievement-art/first-step.webp"],
+    ["three-day-rhythm", "/achievement-art/three-day-rhythm.webp"],
+    ["seven-sunrises", "/achievement-art/seven-sunrises.webp"],
+    ["fortnight-rhythm", "/achievement-art/fortnight-rhythm.webp"],
+    ["perfect-day", "/achievement-art/perfect-day.webp"],
+    ["perfect-week", "/achievement-art/perfect-week.webp"],
+    ["perfect-month", "/achievement-art/perfect-month.webp"],
+    ["habit-thirty", "/achievement-art/habit-thirty.webp"],
+    ["century", "/achievement-art/century.webp"],
+    ["iron-rhythm", "/achievement-art/iron-rhythm.webp"],
+    ["fifty-sunrises", "/achievement-art/fifty-sunrises.webp"],
+    ["hundred-day-path", "/achievement-art/hundred-day-path.webp"],
+    ["half-year-circle", "/achievement-art/half-year-circle.webp"],
+    ["full-revolution", "/achievement-art/full-revolution.webp"],
+    ["five-hundred-sunrises", "/achievement-art/five-hundred-sunrises.webp"],
+    ["thousand-day-path", "/achievement-art/thousand-day-path.webp"],
+    ["comeback", "/achievement-art/comeback.webp"],
+    ["consistency", "/achievement-art/consistency.webp"],
+  ];
+  assert.deepEqual(ACHIEVEMENTS.map(({ id, artwork }) => [id, artwork]), expectedArtwork);
+  await Promise.all(ACHIEVEMENTS.map(({ artwork }) => access(new URL(`../public${artwork}`, import.meta.url))));
+});
+
 test("habit notifications combine nearby reminders, respect quiet hours and stay achievable", () => {
   const settings = normalizeHabitNotificationSettings({
     enabled: true,
@@ -1607,6 +1636,7 @@ test("ships the complete interactive bilingual Theokyklos", async () => {
   assert.match(styles, /\.theokyklos-segment-shape/);
   assert.match(styles, /@keyframes theokyklos-rays/);
   assert.match(styles, /\.modal-backdrop\.theokyklos-details-backdrop/);
+  assert.match(styles, /\.theokyklos-details-art img \{[^}]*object-fit: contain/);
   assert.match(styles, /min-height: calc\(100dvh - 34px\)/);
   assert.match(styles, /height: calc\(100dvh - 92px\)/);
   assert.match(i18n, /"Теокиклос": "Theokyklos"/);
@@ -1973,11 +2003,15 @@ test("QA-01 precaches the complete cold-install shell before activating the work
   assert.match(viteConfig, /genesis-offline-precache-manifest/);
   assert.match(viteConfig, /precache-manifest\.js/);
   assert.match(viteConfig, /createHash\("sha256"\)/);
+  assert.match(viteConfig, /PRECACHE_STATIC_REVISION = "achievement-deity-art-v1"/);
   assert.equal(packageJson.scripts["build:beget"], "vite build --config vite.beget.config.ts && node scripts/verify-offline-precache.mjs");
   assert.match(verifier, /missingAssets/);
+  assert.match(verifier, /REQUIRED_VISUAL_ASSETS/);
   assert.match(verifier, /mandatory entry assets/);
   assert.match(serviceWorker, /importScripts\(new URL\("\.\/precache-manifest\.js", SCOPE\)\.href\)/);
   assert.match(serviceWorker, /REQUIRED_SHELL/);
+  assert.match(serviceWorker, /ACHIEVEMENT_ART/);
+  assert.match(serviceWorker, /THEOKYKLOS_ART/);
   assert.match(serviceWorker, /await cache\.addAll\([\s\S]*await self\.skipWaiting\(\)/);
   assert.match(serviceWorker, /key\.startsWith\(CACHE_PREFIX\) && key !== CACHE/);
   assert.match(installHook, /updateViaCache: "none"/);

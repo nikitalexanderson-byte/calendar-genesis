@@ -342,8 +342,8 @@ export function TheokyklosView({ language, workspace, date, calendarMode, initia
                 <img
                   src={THEOKYKLOS_ART[selected.id]}
                   alt={`${localized(selected.patrons, language)} — ${localized(selected.title, language)}`}
-                  width="1680"
-                  height="945"
+                  width="512"
+                  height="512"
                   decoding="async"
                 />
               </figure>
