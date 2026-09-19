@@ -5619,7 +5619,7 @@ export function GenesisCalendar() {
       </section>
 
       {habitFeedback ? <HabitCompletionFeedback event={habitFeedback} language={language} showGamification={habitWorkspace.habitSettings.feedback.gamificationWidgets} /> : null}
-      <nav className="mobile-nav" aria-label="Мобильная навигация" style={{ "--mobile-nav-count": navigation.length } as CSSProperties}>
+      <nav className="mobile-nav" aria-label="Мобильная навигация">
         {navigation.map((item) => (
           <button type="button" key={item.id} data-nav-id={item.id} className={view === item.id ? "active" : ""} onClick={() => activateNavigation(item.id)}>
             <span aria-hidden="true">{item.symbol}</span><small>{item.label}</small>
