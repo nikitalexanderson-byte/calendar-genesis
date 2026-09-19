@@ -584,7 +584,7 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(account, /workspaceRecoveryCode/);
   assert.match(account, /Уведомления привычек/);
   assert.match(account, /Тихих часов|тихих часов/);
-  assert.match(calendar, /--mobile-nav-count/);
+  assert.doesNotMatch(calendar, /--mobile-nav-count/);
   assert.match(calendar, /buildHabitNotificationPlan/);
   assert.match(styles, /\.habits-hero-status[\s\S]*position: absolute/);
   assert.match(styles, /\.daily-goal-ring/);
@@ -1919,8 +1919,23 @@ test("Path of the Hero uses a full-size accessible glowing action button", async
   assert.match(styles, /\.habits-hero-actions button \{[^}]*min-width:210px;[^}]*min-height:44px;/);
   assert.match(styles, /@keyframes hero-path-button-glow/);
   assert.match(styles, /@keyframes hero-path-button-shimmer/);
+  assert.match(styles, /\.hero-path-open \{[\s\S]*color:#e2c37b;[\s\S]*background:linear-gradient\(135deg,#071f20 0%,#0d3532 52%,#092725 100%\)/);
+  assert.match(styles, /\.hero-path-open-sigil svg \{[^}]*stroke:#e2c37b;/);
   assert.match(styles, /\.hero-path-open:focus-visible/);
   assert.match(styles, /prefers-reduced-motion:[\s\S]*\.hero-path-open/);
+});
+
+test("QA-03 keeps every mobile navigation item readable without horizontal scrolling", async () => {
+  const [calendar, styles] = await Promise.all([
+    readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.doesNotMatch(calendar, /--mobile-nav-count/);
+  assert.match(styles, /@media \(max-width:520px\) \{[\s\S]*\.genesis-app \{ padding-bottom:calc\(118px \+ env\(safe-area-inset-bottom\)\); \}/);
+  assert.match(styles, /@media \(max-width:520px\) \{[\s\S]*\.mobile-nav \{[^}]*display:flex;[^}]*flex-wrap:wrap;[^}]*overflow:hidden;/);
+  assert.match(styles, /@media \(max-width:520px\) \{[\s\S]*\.mobile-nav button \{[^}]*min-width:44px;[^}]*min-height:48px;[^}]*flex:1 1 calc\(20% - 2px\);/);
+  assert.match(styles, /@media \(max-width:520px\) \{[\s\S]*\.mobile-nav button > small \{[^}]*font-size:8px;/);
 });
 
 test("mood tracker exposes twelve choices in one responsive desktop row", async () => {
