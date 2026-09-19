@@ -6,6 +6,8 @@ import {
   type FormEvent,
   type PointerEvent,
   type TouchEvent,
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -53,13 +55,7 @@ import {
   workspaceRecoveryCodeForUser,
   type WorkspaceRecoveryRequest,
 } from "./cloud-sync";
-import { AccountPanel } from "./AccountPanel";
-import { AdminPanel } from "./AdminPanel";
-import { GeminiAssistant } from "./GeminiAssistant";
-import { LocalVoiceAssistant } from "./LocalVoiceAssistant";
 import { currentLegalPage, LegalPage } from "./LegalPage";
-import { StoicheionView } from "./StoicheionView";
-import { TheokyklosView } from "./TheokyklosView";
 import { TimeClockPicker } from "./TimeClockPicker";
 import { CalendarDatePicker } from "./CalendarDatePicker";
 import { TaskReminderPicker } from "./TaskReminderPicker";
@@ -67,7 +63,6 @@ import { CronusSickleIcon } from "./CronusSickleIcon";
 import { MoonPhaseIcon } from "./MoonPhaseIcon";
 import { RecurrenceBuilder } from "./RecurrenceBuilder";
 import { WelcomeScreen } from "./WelcomeScreen";
-import { HabitDailyPanel, HabitTrackerPage } from "./HabitTracker";
 import { HabitCompletionFeedback } from "./HabitCompletionFeedback";
 import { WorkspaceRecoveryDialog } from "./WorkspaceRecoveryDialog";
 import { useDialogAccessibility } from "./use-dialog-accessibility";
@@ -94,6 +89,7 @@ import {
   scheduleHabitNotifications,
   type HabitNotificationPermission,
 } from "./habit-notifications";
+
 import { resetHabitWorkspace } from "./habit-reset";
 import { changedTrackerDates, ensureTrackerAnalytics, refreshTrackerAnalytics } from "./tracker-analytics";
 import { clearTrackerAnalyticsCache, loadTrackerAnalyticsCache, saveTrackerAnalyticsCache } from "./tracker-cache";
@@ -165,6 +161,27 @@ import {
   getDayRhythmMoment,
   type DayRhythmPeriodId,
 } from "./day-rhythm";
+
+const AccountPanel = lazy(() => import("./AccountPanel").then((module) => ({ default: module.AccountPanel })));
+const AdminPanel = lazy(() => import("./AdminPanel").then((module) => ({ default: module.AdminPanel })));
+const GeminiAssistant = lazy(() => import("./GeminiAssistant").then((module) => ({ default: module.GeminiAssistant })));
+const HabitDailyPanel = lazy(() => import("./HabitTracker").then((module) => ({ default: module.HabitDailyPanel })));
+const HabitTrackerPage = lazy(() => import("./HabitTracker").then((module) => ({ default: module.HabitTrackerPage })));
+const LocalVoiceAssistant = lazy(() => import("./LocalVoiceAssistant").then((module) => ({ default: module.LocalVoiceAssistant })));
+const StoicheionView = lazy(() => import("./StoicheionView").then((module) => ({ default: module.StoicheionView })));
+const TheokyklosView = lazy(() => import("./TheokyklosView").then((module) => ({ default: module.TheokyklosView })));
+
+function DeferredViewFallback({ label }: { label: string }) {
+  return <section className="deferred-view-loading" role="status" aria-live="polite"><span aria-hidden="true"><i /></span><strong>{label}</strong></section>;
+}
+
+function DeferredDialogFallback({ label }: { label: string }) {
+  return <div className="modal-backdrop deferred-dialog-backdrop" role="status" aria-live="polite"><div><span aria-hidden="true"><i /></span><strong>{label}</strong></div></div>;
+}
+
+function DeferredHabitFallback({ label }: { label: string }) {
+  return <section className="deferred-habit-loading" role="status" aria-live="polite"><span aria-hidden="true"><i /></span><strong>{label}</strong></section>;
+}
 
 type ViewName = "today" | "calendar" | "projects" | "year" | "all-tasks" | "habits" | "stoicheion" | "theokyklos" | "admin";
 
@@ -3782,15 +3799,17 @@ export function GenesisCalendar() {
         </section>
 
         {habitWorkspace.habitSettings.enabled ? (
-          <HabitDailyPanel
-            workspace={habitWorkspace}
-            date={todayDateValue}
-            language={language}
-            timeFormat={activeTimeFormat}
-            calendarMode={activeTaskCalendarMode}
-            onChange={updateHabitWorkspace}
-            onOpenHabits={() => navigateTo("habits")}
-          />
+          <Suspense fallback={<DeferredHabitFallback label={language === "en" ? "Opening daily trackers…" : "Открываем трекеры дня…"} />}>
+            <HabitDailyPanel
+              workspace={habitWorkspace}
+              date={todayDateValue}
+              language={language}
+              timeFormat={activeTimeFormat}
+              calendarMode={activeTaskCalendarMode}
+              onChange={updateHabitWorkspace}
+              onOpenHabits={() => navigateTo("habits")}
+            />
+          </Suspense>
         ) : null}
 
         {moon.event || solarEvent ? (
@@ -5540,45 +5559,51 @@ export function GenesisCalendar() {
             {view === "year" ? renderYear() : null}
             {view === "all-tasks" ? renderAllTasks() : null}
             {view === "habits" && habitWorkspace.habitSettings.enabled ? (
-              <HabitTrackerPage
-                workspace={habitWorkspace}
-                date={todayDateValue}
-                language={language}
-                timeFormat={activeTimeFormat}
-                calendarMode={activeTaskCalendarMode}
-                googleTasksReady={Boolean(cloudUser?.googleTasksImportReady)}
-                onChange={updateHabitWorkspace}
-                onReminderRequested={createHabitGoogleReminder}
-                onReminderRemoved={async (habit) => {
-                  if (!cloudUser) return;
-                  const reminderIds = Array.from(new Set([habit.reminder.googleTaskId, habit.reminder.googleEventId].filter((id): id is string => Boolean(id))));
-                  const reminderTasks = tasks.filter((task) => reminderIds.includes(task.id));
-                  await Promise.all(reminderTasks.map((task) => removeCloudTask(cloudUser.uid, task)));
-                  setTasks((current) => current.filter((task) => !reminderIds.includes(task.id)));
-                }}
-                onOpenTheokyklosSector={openTheokyklosSector}
-              />
+              <Suspense fallback={<DeferredViewFallback label={language === "en" ? "Opening habit tracker…" : "Открываем трекер привычек…"} />}>
+                <HabitTrackerPage
+                  workspace={habitWorkspace}
+                  date={todayDateValue}
+                  language={language}
+                  timeFormat={activeTimeFormat}
+                  calendarMode={activeTaskCalendarMode}
+                  googleTasksReady={Boolean(cloudUser?.googleTasksImportReady)}
+                  onChange={updateHabitWorkspace}
+                  onReminderRequested={createHabitGoogleReminder}
+                  onReminderRemoved={async (habit) => {
+                    if (!cloudUser) return;
+                    const reminderIds = Array.from(new Set([habit.reminder.googleTaskId, habit.reminder.googleEventId].filter((id): id is string => Boolean(id))));
+                    const reminderTasks = tasks.filter((task) => reminderIds.includes(task.id));
+                    await Promise.all(reminderTasks.map((task) => removeCloudTask(cloudUser.uid, task)));
+                    setTasks((current) => current.filter((task) => !reminderIds.includes(task.id)));
+                  }}
+                  onOpenTheokyklosSector={openTheokyklosSector}
+                />
+              </Suspense>
             ) : null}
             {view === "stoicheion" ? (
-              <StoicheionView
-                key={cloudUser?.stoicheionDivinationDisabled ? "divination-disabled" : "divination-enabled"}
-                divinationDisabled={Boolean(cloudUser?.stoicheionDivinationDisabled)}
-                onOpenTheokyklosSector={openTheokyklosSector}
-              />
+              <Suspense fallback={<DeferredViewFallback label={language === "en" ? "Opening Stoicheion…" : "Открываем Стойхейон…"} />}>
+                <StoicheionView
+                  key={cloudUser?.stoicheionDivinationDisabled ? "divination-disabled" : "divination-enabled"}
+                  divinationDisabled={Boolean(cloudUser?.stoicheionDivinationDisabled)}
+                  onOpenTheokyklosSector={openTheokyklosSector}
+                />
+              </Suspense>
             ) : null}
             {view === "theokyklos" ? (
-              <TheokyklosView
-                language={language}
-                workspace={habitWorkspace}
-                date={todayDateValue}
-                calendarMode={activeTaskCalendarMode}
-                initialSectorId={requestedTheokyklosSector}
-                onSelectedSectorClosed={clearRequestedTheokyklosSector}
-                onChange={updateHabitWorkspace}
-                onOpenHabits={() => navigateTo("habits")}
-              />
+              <Suspense fallback={<DeferredViewFallback label={language === "en" ? "Opening Theokyklos…" : "Открываем Теокиклос…"} />}>
+                <TheokyklosView
+                  language={language}
+                  workspace={habitWorkspace}
+                  date={todayDateValue}
+                  calendarMode={activeTaskCalendarMode}
+                  initialSectorId={requestedTheokyklosSector}
+                  onSelectedSectorClosed={clearRequestedTheokyklosSector}
+                  onChange={updateHabitWorkspace}
+                  onOpenHabits={() => navigateTo("habits")}
+                />
+              </Suspense>
             ) : null}
-            {view === "admin" && cloudUser?.isAdmin ? <AdminPanel /> : null}
+            {view === "admin" && cloudUser?.isAdmin ? <Suspense fallback={<DeferredViewFallback label={language === "en" ? "Opening administration…" : "Открываем панель администратора…"} />}><AdminPanel /></Suspense> : null}
             <footer className="genesis-page-footer" aria-label="Ссылки проекта">
               <a href="https://t.me/genesisbasilea" target="_blank" rel="noreferrer">
                 <span aria-hidden="true">✦</span>
@@ -5744,19 +5769,21 @@ export function GenesisCalendar() {
               </button>
             </div>
             {habitWorkspace.habitSettings.enabled ? (
-              <HabitDailyPanel
-                workspace={habitWorkspace}
-                date={selectedDateValue}
-                language={language}
-                timeFormat={activeTimeFormat}
-                calendarMode={activeTaskCalendarMode}
-                onChange={updateHabitWorkspace}
-                onOpenHabits={() => {
-                  setDayDetailsOpen(false);
-                  navigateTo("habits");
-                }}
-                compact
-              />
+              <Suspense fallback={<DeferredHabitFallback label={language === "en" ? "Opening daily trackers…" : "Открываем трекеры дня…"} />}>
+                <HabitDailyPanel
+                  workspace={habitWorkspace}
+                  date={selectedDateValue}
+                  language={language}
+                  timeFormat={activeTimeFormat}
+                  calendarMode={activeTaskCalendarMode}
+                  onChange={updateHabitWorkspace}
+                  onOpenHabits={() => {
+                    setDayDetailsOpen(false);
+                    navigateTo("habits");
+                  }}
+                  compact
+                />
+              </Suspense>
             ) : null}
             {selectedDayTasks.length ? (
               <section className="day-details-tasks" aria-labelledby="day-details-tasks-title">
@@ -6045,56 +6072,58 @@ export function GenesisCalendar() {
         />
       ) : null}
       {accountOpen && cloudUser ? (
-        <AccountPanel
-          user={cloudUser}
-          onClose={() => setAccountOpen(false)}
-          onReconnectGoogle={() => {
-            setAccountOpen(false);
-            void handleGoogleConnect();
-          }}
-          onConnectAdditionalGoogle={() => {
-            setAccountOpen(false);
-            void connectAdditionalGoogleAccount();
-          }}
-          onLanguageChange={selectLanguage}
-          categories={categories}
-          habitTrackingEnabled={habitWorkspace.habitSettings.enabled}
-          habitNotificationSettings={habitWorkspace.habitSettings.notifications}
-          habitFeedbackSettings={habitWorkspace.habitSettings.feedback}
-          notificationPermission={habitNotificationPermissionState}
-          onRequestHabitNotifications={async () => {
-            const permission = await requestHabitNotificationPermission();
-            setHabitNotificationPermissionState(permission);
-            return permission;
-          }}
-          onHabitNotificationSettingsChange={(notifications) => {
-            if (habitWorkspace.habitSettings.notifications.enabled && !notifications.enabled) recordHabitNotificationsDisabled();
-            updateHabitWorkspace({ ...habitWorkspace, habitSettings: { ...habitWorkspace.habitSettings, notifications } });
-          }}
-          onHabitFeedbackSettingsChange={(feedback) => {
-            updateHabitWorkspace({ ...habitWorkspace, habitSettings: { ...habitWorkspace.habitSettings, feedback } });
-          }}
-          hiddenHabitTemplateCount={habitWorkspace.hiddenDefaultTemplates.length}
-          onRestoreHabitTemplates={() => updateHabitWorkspace({ ...habitWorkspace, hiddenDefaultTemplates: [] })}
-          onResetHabitTracking={resetAllHabitTracking}
-          workspaceRecoveryCode={workspaceRecoveryCodeForUser(cloudUser.uid)}
-          onHabitTrackingChange={(enabled) => {
-            updateHabitWorkspace({ ...habitWorkspace, habitSettings: { ...habitWorkspace.habitSettings, enabled } });
-            if (!enabled && view === "habits") navigateTo("today");
-          }}
-          onUserChange={(user) => {
-            const nextLanguage = normalizeLanguage(user.language);
-            setLanguage(nextLanguage);
-            storeLanguage(nextLanguage);
-            setCloudUser(user);
-            const nextTaskCalendarMode = user.taskCalendarMode ?? "sacred";
-            setTaskRecurrenceConfig((current) => alignRecurrenceConfigWithCalendar(current, nextTaskCalendarMode, newTaskDueDate));
-            localStorage.setItem(LAST_USER_KEY, JSON.stringify(user));
-          }}
-        />
+        <Suspense fallback={<DeferredDialogFallback label={language === "en" ? "Opening account…" : "Открываем личный кабинет…"} />}>
+          <AccountPanel
+            user={cloudUser}
+            onClose={() => setAccountOpen(false)}
+            onReconnectGoogle={() => {
+              setAccountOpen(false);
+              void handleGoogleConnect();
+            }}
+            onConnectAdditionalGoogle={() => {
+              setAccountOpen(false);
+              void connectAdditionalGoogleAccount();
+            }}
+            onLanguageChange={selectLanguage}
+            categories={categories}
+            habitTrackingEnabled={habitWorkspace.habitSettings.enabled}
+            habitNotificationSettings={habitWorkspace.habitSettings.notifications}
+            habitFeedbackSettings={habitWorkspace.habitSettings.feedback}
+            notificationPermission={habitNotificationPermissionState}
+            onRequestHabitNotifications={async () => {
+              const permission = await requestHabitNotificationPermission();
+              setHabitNotificationPermissionState(permission);
+              return permission;
+            }}
+            onHabitNotificationSettingsChange={(notifications) => {
+              if (habitWorkspace.habitSettings.notifications.enabled && !notifications.enabled) recordHabitNotificationsDisabled();
+              updateHabitWorkspace({ ...habitWorkspace, habitSettings: { ...habitWorkspace.habitSettings, notifications } });
+            }}
+            onHabitFeedbackSettingsChange={(feedback) => {
+              updateHabitWorkspace({ ...habitWorkspace, habitSettings: { ...habitWorkspace.habitSettings, feedback } });
+            }}
+            hiddenHabitTemplateCount={habitWorkspace.hiddenDefaultTemplates.length}
+            onRestoreHabitTemplates={() => updateHabitWorkspace({ ...habitWorkspace, hiddenDefaultTemplates: [] })}
+            onResetHabitTracking={resetAllHabitTracking}
+            workspaceRecoveryCode={workspaceRecoveryCodeForUser(cloudUser.uid)}
+            onHabitTrackingChange={(enabled) => {
+              updateHabitWorkspace({ ...habitWorkspace, habitSettings: { ...habitWorkspace.habitSettings, enabled } });
+              if (!enabled && view === "habits") navigateTo("today");
+            }}
+            onUserChange={(user) => {
+              const nextLanguage = normalizeLanguage(user.language);
+              setLanguage(nextLanguage);
+              storeLanguage(nextLanguage);
+              setCloudUser(user);
+              const nextTaskCalendarMode = user.taskCalendarMode ?? "sacred";
+              setTaskRecurrenceConfig((current) => alignRecurrenceConfigWithCalendar(current, nextTaskCalendarMode, newTaskDueDate));
+              localStorage.setItem(LAST_USER_KEY, JSON.stringify(user));
+            }}
+          />
+        </Suspense>
       ) : null}
       {voiceAssistantOpen ? (
-        <LocalVoiceAssistant
+        <Suspense fallback={<DeferredDialogFallback label={language === "en" ? "Opening voice assistant…" : "Открываем голосового помощника…"} />}><LocalVoiceAssistant
           language={language}
           neuralAvailable={assistantStatus.available}
           neuralProvider={assistantStatus.provider}
@@ -6117,10 +6146,10 @@ export function GenesisCalendar() {
           }}
           onApply={applyAssistantPlan}
           onClose={() => setVoiceAssistantOpen(false)}
-        />
+        /></Suspense>
       ) : null}
       {geminiOpen && assistantStatus.audioAvailable ? (
-        <GeminiAssistant
+        <Suspense fallback={<DeferredDialogFallback label={language === "en" ? "Opening assistant…" : "Открываем помощника…"} />}><GeminiAssistant
           language={language}
           provider={assistantStatus.provider === "gemini" ? "gemini" : "gigachat"}
           context={{
@@ -6142,7 +6171,7 @@ export function GenesisCalendar() {
           }}
           onApply={applyAssistantPlan}
           onClose={() => setGeminiOpen(false)}
-        />
+        /></Suspense>
       ) : null}
     </main>
   );

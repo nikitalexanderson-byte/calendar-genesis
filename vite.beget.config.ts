@@ -44,5 +44,39 @@ export default defineConfig({
     emptyOutDir: true,
     sourcemap: false,
     target: "es2020",
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            {
+              name: "react-vendor",
+              test: /node_modules[\\/](?:react|react-dom|scheduler)[\\/]/,
+              priority: 30,
+            },
+            {
+              name: "astronomy-engine",
+              test: /node_modules[\\/]astronomy-engine[\\/]/,
+              priority: 20,
+            },
+            {
+              name: "sync-engine",
+              test: /app[\\/](?:cloud-sync|workspace-sync-state|tracker-cache)\.ts$/,
+              maxSize: 300_000,
+              priority: 15,
+            },
+            {
+              name: "tracker-engine",
+              test: /app[\\/](?:habits|habit-[^\\/]+|tracker-(?:analytics|core|math)|daily-goal|rewards|achievements|streak-(?:protection|rewards)|mood-tracker|sleep-tracker|addiction-tracker|sacred-practices)\.ts$/,
+              priority: 14,
+            },
+            {
+              name: "calendar-engine",
+              test: /app[\\/](?:calendar-data|solar-times|day-rhythm|task-recurrence|task-reminders|time-format)\.ts$/,
+              priority: 13,
+            },
+          ],
+        },
+      },
+    },
   },
 });
