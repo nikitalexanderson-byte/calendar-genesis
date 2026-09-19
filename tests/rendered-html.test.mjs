@@ -640,10 +640,15 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(achievementSigil, /<svg/);
   assert.match(achievementSigil, /onPointerMove/);
   assert.match(achievementSigil, /achievement-sigil-orbit/);
-  assert.match(achievementSigil, /!concealed \? <image className="achievement-sigil-art"/);
+  assert.match(achievementSigil, /achievement-sigil-secret-lock/);
+  assert.match(achievementSigil, /concealed \? \(/);
+  assert.match(achievementSigil, /\) : \(\s*<image className="achievement-sigil-art"/);
+  assert.doesNotMatch(achievementSigil, /AchievementMotif/);
   assert.match(tracker, /artwork=\{achievement\.artwork\}/);
   assert.match(tracker, /concealed=\{concealed\}/);
+  assert.doesNotMatch(tracker, /<AchievementSigil motif=/);
   assert.match(styles, /\.achievement-sigil\.locked \.achievement-sigil-art/);
+  assert.match(styles, /\.achievement-sigil-secret-lock/);
   assert.match(styles, /@keyframes metric-sigil-awaken/);
   assert.match(styles, /\.hero-path-panel/);
   assert.match(styles, /\.hero-path-map/);
@@ -1234,28 +1239,32 @@ test("achievements unlock from real history without changing Rank XP", () => {
   assert.deepEqual(reconcileAchievementUnlocks({ habitCompletions: [], dailyGoalRecords: [], longestStreak: 0, rewardTransactions: [], unlocks: [] }), []);
 });
 
-test("achievement artwork follows public milestones and the current hidden-achievement order", async () => {
+test("achievement artwork uses PNG icons and places hidden achievements after public milestones", async () => {
   const expectedArtwork = [
-    ["first-step", "/achievement-art/first-step.webp"],
-    ["three-day-rhythm", "/achievement-art/three-day-rhythm.webp"],
-    ["seven-sunrises", "/achievement-art/seven-sunrises.webp"],
-    ["fortnight-rhythm", "/achievement-art/fortnight-rhythm.webp"],
-    ["perfect-day", "/achievement-art/perfect-day.webp"],
-    ["perfect-week", "/achievement-art/perfect-week.webp"],
-    ["perfect-month", "/achievement-art/perfect-month.webp"],
-    ["habit-thirty", "/achievement-art/habit-thirty.webp"],
-    ["century", "/achievement-art/century.webp"],
-    ["iron-rhythm", "/achievement-art/iron-rhythm.webp"],
-    ["fifty-sunrises", "/achievement-art/fifty-sunrises.webp"],
-    ["hundred-day-path", "/achievement-art/hundred-day-path.webp"],
-    ["half-year-circle", "/achievement-art/half-year-circle.webp"],
-    ["full-revolution", "/achievement-art/full-revolution.webp"],
-    ["five-hundred-sunrises", "/achievement-art/five-hundred-sunrises.webp"],
-    ["thousand-day-path", "/achievement-art/thousand-day-path.webp"],
-    ["comeback", "/achievement-art/comeback.webp"],
-    ["consistency", "/achievement-art/consistency.webp"],
+    ["first-step", "/achievement-art/first-step.png"],
+    ["three-day-rhythm", "/achievement-art/three-day-rhythm.png"],
+    ["seven-sunrises", "/achievement-art/seven-sunrises.png"],
+    ["fortnight-rhythm", "/achievement-art/fortnight-rhythm.png"],
+    ["perfect-day", "/achievement-art/perfect-day.png"],
+    ["habit-thirty", "/achievement-art/habit-thirty.png"],
+    ["century", "/achievement-art/century.png"],
+    ["iron-rhythm", "/achievement-art/iron-rhythm.png"],
+    ["fifty-sunrises", "/achievement-art/fifty-sunrises.png"],
+    ["hundred-day-path", "/achievement-art/hundred-day-path.png"],
+    ["perfect-week", "/achievement-art/perfect-week.png"],
+    ["perfect-month", "/achievement-art/perfect-month.png"],
+    ["half-year-circle", "/achievement-art/half-year-circle.png"],
+    ["full-revolution", "/achievement-art/full-revolution.png"],
+    ["five-hundred-sunrises", "/achievement-art/five-hundred-sunrises.png"],
+    ["thousand-day-path", "/achievement-art/thousand-day-path.png"],
+    ["comeback", "/achievement-art/comeback.png"],
+    ["consistency", "/achievement-art/consistency.png"],
   ];
   assert.deepEqual(ACHIEVEMENTS.map(({ id, artwork }) => [id, artwork]), expectedArtwork);
+  const firstHiddenIndex = ACHIEVEMENTS.findIndex(({ hidden }) => hidden);
+  assert.equal(firstHiddenIndex, 10);
+  assert.ok(ACHIEVEMENTS.slice(0, firstHiddenIndex).every(({ hidden }) => !hidden));
+  assert.ok(ACHIEVEMENTS.slice(firstHiddenIndex).every(({ hidden }) => hidden));
   await Promise.all(ACHIEVEMENTS.map(({ artwork }) => access(new URL(`../public${artwork}`, import.meta.url))));
 });
 
@@ -2013,7 +2022,7 @@ test("QA-01 precaches the complete cold-install shell before activating the work
   assert.match(viteConfig, /genesis-offline-precache-manifest/);
   assert.match(viteConfig, /precache-manifest\.js/);
   assert.match(viteConfig, /createHash\("sha256"\)/);
-  assert.match(viteConfig, /PRECACHE_STATIC_REVISION = "theokyklos-png-symbols-v2"/);
+  assert.match(viteConfig, /PRECACHE_STATIC_REVISION = "achievement-secret-lock-v3"/);
   assert.equal(packageJson.scripts["build:beget"], "vite build --config vite.beget.config.ts && node scripts/verify-offline-precache.mjs");
   assert.match(verifier, /missingAssets/);
   assert.match(verifier, /REQUIRED_VISUAL_ASSETS/);
