@@ -1585,9 +1585,10 @@ test("tracker scoring and time math preserve the specified invariants", () => {
 });
 
 test("ships the complete interactive bilingual Theokyklos", async () => {
-  const [calendar, component, styles, i18n] = await Promise.all([
+  const [calendar, component, assets, styles, i18n] = await Promise.all([
     readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/TheokyklosView.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/theokyklos-assets.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../app/i18n.ts", import.meta.url), "utf8"),
   ]);
@@ -1626,11 +1627,18 @@ test("ships the complete interactive bilingual Theokyklos", async () => {
   assert.match(component, /selected\.words\.map/);
   assert.match(component, /Священные слова/);
   assert.match(component, /Заклинания Божеств/);
-  assert.match(component, /THEOKYKLOS_ART\[selected\.id\]/);
+  assert.match(component, /THEOKYKLOS_DETAIL_ART\[selected\.id\]/);
+  assert.match(component, /THEOKYKLOS_SYMBOL_ART\[segment\.id\]/);
+  assert.match(component, /<image className="theokyklos-mandala-icon/);
+  assert.match(component, /<img src=\{THEOKYKLOS_SYMBOL_ART\[segment\.id\]\}/);
+  assert.doesNotMatch(component, />\{segment\.symbol\}</);
   for (const segment of THEOKYKLOS_SEGMENTS) {
-    const mappedAsset = component.match(new RegExp(`/theokyklos-art/${segment.id}(?:-[^"]+)?\\.webp`))?.[0];
-    assert.ok(mappedAsset, `missing Theokyklos artwork mapping for ${segment.id}`);
-    await access(new URL(`../public${mappedAsset}`, import.meta.url));
+    const detailAsset = assets.match(new RegExp(`/theokyklos-art/${segment.id}(?:-[^"]+)?\\.webp`))?.[0];
+    const symbolAsset = assets.match(new RegExp(`/theokyklos-symbols/${segment.id}(?:-[^"]+)?\\.png`))?.[0];
+    assert.ok(detailAsset, `missing Theokyklos detail artwork mapping for ${segment.id}`);
+    assert.ok(symbolAsset, `missing Theokyklos PNG symbol mapping for ${segment.id}`);
+    await access(new URL(`../public${detailAsset}`, import.meta.url));
+    await access(new URL(`../public${symbolAsset}`, import.meta.url));
   }
   assert.match(styles, /\.theokyklos-view/);
   assert.match(styles, /\.theokyklos-segment-shape/);
@@ -1643,12 +1651,13 @@ test("ships the complete interactive bilingual Theokyklos", async () => {
 });
 
 test("covers every Theokyklos sector with sacred habits while keeping Stoicheion strictly nine-to-nine", async () => {
-  const [calendar, stoicheion, theokyklos, tracker, sectorSigil, habits, styles] = await Promise.all([
+  const [calendar, stoicheion, theokyklos, tracker, sectorSigil, assets, habits, styles] = await Promise.all([
     readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/StoicheionView.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/TheokyklosView.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/HabitTracker.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/SacredSectorSigil.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/theokyklos-assets.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/habits.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
@@ -1711,11 +1720,12 @@ test("covers every Theokyklos sector with sacred habits while keeping Stoicheion
   assert.match(tracker, /SacredSectorSigil/);
   assert.match(tracker, /SACRED_SECTOR_NAMES/);
   assert.doesNotMatch(tracker, /item\.short\[language\]/);
-  assert.match(sectorSigil, /<svg viewBox="0 0 100 100"/);
+  assert.match(sectorSigil, /<img src=\{THEOKYKLOS_SYMBOL_ART\[sectorId\]\}/);
+  assert.doesNotMatch(sectorSigil, /<svg/);
   assert.match(sectorSigil, /onPointerMove=\{handlePointerMove\}/);
   assert.match(sectorSigil, /data-sacred-sector-sigil=\{sectorId\}/);
-  const motifBlock = sectorSigil.match(/SACRED_SECTOR_SIGIL_MOTIFS:[\s\S]*?\r?\n\};\r?\n\r?\nexport function/)?.[0] ?? "";
-  for (const sectorId of SACRED_PRACTICE_SECTOR_IDS) assert.match(motifBlock, new RegExp(`\\r?\\n  ${sectorId}: \\{`));
+  const symbolBlock = assets.match(/THEOKYKLOS_SYMBOL_ART:[\s\S]*?\r?\n\};/)?.[0] ?? "";
+  for (const sectorId of SACRED_PRACTICE_SECTOR_IDS) assert.match(symbolBlock, new RegExp(`\\r?\\n  ${sectorId}: "/theokyklos-symbols/`));
   assert.match(habits, /sacredPracticeId: string \| null/);
   assert.match(habits, /createHabitFromSacredPractice/);
   assert.match(styles, /\.stoicheion-sector-practice/);
@@ -2003,7 +2013,7 @@ test("QA-01 precaches the complete cold-install shell before activating the work
   assert.match(viteConfig, /genesis-offline-precache-manifest/);
   assert.match(viteConfig, /precache-manifest\.js/);
   assert.match(viteConfig, /createHash\("sha256"\)/);
-  assert.match(viteConfig, /PRECACHE_STATIC_REVISION = "achievement-deity-art-v1"/);
+  assert.match(viteConfig, /PRECACHE_STATIC_REVISION = "theokyklos-png-symbols-v2"/);
   assert.equal(packageJson.scripts["build:beget"], "vite build --config vite.beget.config.ts && node scripts/verify-offline-precache.mjs");
   assert.match(verifier, /missingAssets/);
   assert.match(verifier, /REQUIRED_VISUAL_ASSETS/);
@@ -2012,6 +2022,7 @@ test("QA-01 precaches the complete cold-install shell before activating the work
   assert.match(serviceWorker, /REQUIRED_SHELL/);
   assert.match(serviceWorker, /ACHIEVEMENT_ART/);
   assert.match(serviceWorker, /THEOKYKLOS_ART/);
+  assert.match(serviceWorker, /THEOKYKLOS_SYMBOL_ART/);
   assert.match(serviceWorker, /await cache\.addAll\([\s\S]*await self\.skipWaiting\(\)/);
   assert.match(serviceWorker, /key\.startsWith\(CACHE_PREFIX\) && key !== CACHE/);
   assert.match(installHook, /updateViaCache: "none"/);

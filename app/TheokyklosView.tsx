@@ -24,27 +24,11 @@ import {
 } from "./sacred-practices";
 import { markTrackerEntityChanged } from "./tracker-core";
 import { useDialogAccessibility } from "./use-dialog-accessibility";
+import { THEOKYKLOS_DETAIL_ART, THEOKYKLOS_SYMBOL_ART } from "./theokyklos-assets";
 
 type Point = { x: number; y: number };
 
 const CENTER: Point = { x: 450, y: 420 };
-
-const THEOKYKLOS_ART: Record<TheokyklosSegmentId, string> = {
-  north: "/theokyklos-art/north-athena.webp",
-  northeast: "/theokyklos-art/northeast-artemis.webp",
-  east: "/theokyklos-art/east-hermes-peitho.webp",
-  southeast: "/theokyklos-art/southeast-hephaestus-aglaea.webp",
-  south: "/theokyklos-art/south-ares-aphrodite.webp",
-  southwest: "/theokyklos-art/southwest-demeter.webp",
-  west: "/theokyklos-art/west-poseidon-amphitrite.webp",
-  northwest: "/theokyklos-art/northwest-apollo.webp",
-  zenith: "/theokyklos-art/zenith-zeus-hera.webp",
-  nadir: "/theokyklos-art/nadir-hades-persephone.webp",
-  hearth: "/theokyklos-art/hearth-hestia.webp",
-  center: "/theokyklos-art/center-dionysus-ariadne.webp",
-  entrance: "/theokyklos-art/entrance-aether-hemera.webp",
-  exit: "/theokyklos-art/exit-eros-psyche.webp",
-};
 
 function localized(copy: TheokyklosLocalizedText, language: Language) {
   return copy[language];
@@ -232,9 +216,9 @@ export function TheokyklosView({ language, workspace, date, calendarMode, initia
                     key={segment.id}
                   >
                     <path className="theokyklos-segment-shape" d={annularSectorPath(segment.angle!)} />
-                    <text className="theokyklos-segment-label" x={label.x} y={label.y - 10} textAnchor="middle">
-                      <tspan className="theokyklos-segment-sigil" x={label.x}>{segment.symbol}</tspan>
-                      <tspan className="theokyklos-segment-direction" x={label.x} dy="22">{directionLabel(segment.id, language)}</tspan>
+                    <image className="theokyklos-mandala-icon theokyklos-direction-icon" href={THEOKYKLOS_SYMBOL_ART[segment.id]} x={label.x - 29} y={label.y - 48} width="58" height="58" preserveAspectRatio="xMidYMid meet" />
+                    <text className="theokyklos-segment-label" x={label.x} y={label.y + 20} textAnchor="middle">
+                      <tspan className="theokyklos-segment-direction" x={label.x}>{directionLabel(segment.id, language)}</tspan>
                       <tspan className="theokyklos-segment-name" x={label.x} dy="17">{localized(segment.patrons, language)}</tspan>
                     </text>
                   </g>
@@ -247,9 +231,10 @@ export function TheokyklosView({ language, workspace, date, calendarMode, initia
               >
                 <circle className="theokyklos-hearth-hit" cx={CENTER.x} cy={CENTER.y} r="139" />
                 <circle className="theokyklos-hearth-line" cx={CENTER.x} cy={CENTER.y} r="139" />
-                <text className="theokyklos-ring-label" x={CENTER.x} y="301" textAnchor="middle">
+                <image className="theokyklos-mandala-icon theokyklos-hearth-icon" href={THEOKYKLOS_SYMBOL_ART.hearth} x="431" y="282" width="38" height="38" preserveAspectRatio="xMidYMid meet" />
+                <text className="theokyklos-ring-label" x={CENTER.x} y="324" textAnchor="middle">
                   <tspan x={CENTER.x}>{language === "en" ? "RING" : "КОЛЬЦО"}</tspan>
-                  <tspan className="theokyklos-ring-patron" x={CENTER.x} dy="17">{language === "en" ? "HESTIA" : "ГЕСТИЯ"}</tspan>
+                  <tspan className="theokyklos-ring-patron" x={CENTER.x} dy="12">{language === "en" ? "HESTIA" : "ГЕСТИЯ"}</tspan>
                 </text>
               </g>
 
@@ -259,9 +244,9 @@ export function TheokyklosView({ language, workspace, date, calendarMode, initia
               >
                 <circle className="theokyklos-center-disc" cx={CENTER.x} cy={CENTER.y} r="86" />
                 <circle className="theokyklos-center-line" cx={CENTER.x} cy={CENTER.y} r="69" />
-                <text className="theokyklos-center-label" x={CENTER.x} y="397" textAnchor="middle">
-                  <tspan className="theokyklos-center-sigil" x={CENTER.x}>{center.symbol}</tspan>
-                  <tspan x={CENTER.x} dy="27">{localized(center.patrons, language)}</tspan>
+                <image className="theokyklos-mandala-icon theokyklos-center-icon" href={THEOKYKLOS_SYMBOL_ART.center} x="411" y="349" width="78" height="78" preserveAspectRatio="xMidYMid meet" />
+                <text className="theokyklos-center-label" x={CENTER.x} y="447" textAnchor="middle">
+                  <tspan x={CENTER.x}>{localized(center.patrons, language)}</tspan>
                   <tspan className="theokyklos-center-caption" x={CENTER.x} dy="20">{localized(center.short, language)}</tspan>
                 </text>
               </g>
@@ -271,14 +256,16 @@ export function TheokyklosView({ language, workspace, date, calendarMode, initia
                 className={`theokyklos-svg-segment axis-node zenith-node${selectedId === "zenith" ? " is-selected" : ""}`}
               >
                 <circle cx="450" cy="61" r="47" />
-                <text x="450" y="51" textAnchor="middle"><tspan className="axis-node-sigil">{zenith.symbol}</tspan><tspan x="450" dy="22">{localized(zenith.short, language)}</tspan></text>
+                <image className="theokyklos-mandala-icon theokyklos-axis-icon" href={THEOKYKLOS_SYMBOL_ART.zenith} x="424" y="19" width="52" height="52" preserveAspectRatio="xMidYMid meet" />
+                <text x="450" y="94" textAnchor="middle">{localized(zenith.short, language)}</text>
               </g>
               <g
                 {...interactiveProps(nadir)}
                 className={`theokyklos-svg-segment axis-node nadir-node${selectedId === "nadir" ? " is-selected" : ""}`}
               >
                 <circle cx="450" cy="785" r="47" />
-                <text x="450" y="775" textAnchor="middle"><tspan className="axis-node-sigil">{nadir.symbol}</tspan><tspan x="450" dy="22">{localized(nadir.short, language)}</tspan></text>
+                <image className="theokyklos-mandala-icon theokyklos-axis-icon" href={THEOKYKLOS_SYMBOL_ART.nadir} x="424" y="743" width="52" height="52" preserveAspectRatio="xMidYMid meet" />
+                <text x="450" y="818" textAnchor="middle">{localized(nadir.short, language)}</text>
               </g>
 
               <g
@@ -286,14 +273,16 @@ export function TheokyklosView({ language, workspace, date, calendarMode, initia
                 className={`theokyklos-svg-segment threshold-node entrance-node${selectedId === "entrance" ? " is-selected" : ""}`}
               >
                 <path d="M108 827V758Q108 712 154 712Q200 712 200 758V827" />
-                <text x="154" y="760" textAnchor="middle"><tspan className="threshold-sigil">{entrance.symbol}</tspan><tspan x="154" dy="22">{localized(entrance.short, language)}</tspan></text>
+                <image className="theokyklos-mandala-icon theokyklos-threshold-icon" href={THEOKYKLOS_SYMBOL_ART.entrance} x="125" y="716" width="58" height="58" preserveAspectRatio="xMidYMid meet" />
+                <text x="154" y="801" textAnchor="middle">{localized(entrance.short, language)}</text>
               </g>
               <g
                 {...interactiveProps(exit)}
                 className={`theokyklos-svg-segment threshold-node exit-node${selectedId === "exit" ? " is-selected" : ""}`}
               >
                 <path d="M700 827V758Q700 712 746 712Q792 712 792 758V827" />
-                <text x="746" y="760" textAnchor="middle"><tspan className="threshold-sigil">{exit.symbol}</tspan><tspan x="746" dy="22">{localized(exit.short, language)}</tspan></text>
+                <image className="theokyklos-mandala-icon theokyklos-threshold-icon" href={THEOKYKLOS_SYMBOL_ART.exit} x="717" y="716" width="58" height="58" preserveAspectRatio="xMidYMid meet" />
+                <text x="746" y="801" textAnchor="middle">{localized(exit.short, language)}</text>
               </g>
 
               <g className="theokyklos-stars" aria-hidden="true">
@@ -313,7 +302,8 @@ export function TheokyklosView({ language, workspace, date, calendarMode, initia
                 aria-pressed={selectedId === segment.id}
                 key={segment.id}
               >
-                <span aria-hidden="true">{segment.symbol}</span>
+                {/* eslint-disable-next-line @next/next/no-img-element -- Shared static PNG is pre-optimized for both deployment targets. */}
+                <img src={THEOKYKLOS_SYMBOL_ART[segment.id]} alt="" width="256" height="256" draggable="false" />
                 <small>{localized(segment.short, language)}</small>
                 <strong>{localized(segment.patrons, language)}</strong>
               </button>
@@ -330,7 +320,10 @@ export function TheokyklosView({ language, workspace, date, calendarMode, initia
                 </svg>
               </button>
               <header>
-                <span className="theokyklos-details-symbol" aria-hidden="true">{selected.symbol}</span>
+                <span className="theokyklos-details-symbol" aria-hidden="true">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- Shared static PNG is pre-optimized for both deployment targets. */}
+                  <img src={THEOKYKLOS_SYMBOL_ART[selected.id]} alt="" width="256" height="256" draggable="false" />
+                </span>
                 <div>
                   <span className="eyebrow">{groupLabel(selected, language)}</span>
                   <h2 id="theokyklos-details-title">{localized(selected.title, language)}</h2>
@@ -340,7 +333,7 @@ export function TheokyklosView({ language, workspace, date, calendarMode, initia
               <figure className="theokyklos-details-art">
                 {/* eslint-disable-next-line @next/next/no-img-element -- Artwork is a pre-optimized WebP shared by both deployment targets. */}
                 <img
-                  src={THEOKYKLOS_ART[selected.id]}
+                  src={THEOKYKLOS_DETAIL_ART[selected.id]}
                   alt={`${localized(selected.patrons, language)} — ${localized(selected.title, language)}`}
                   width="512"
                   height="512"

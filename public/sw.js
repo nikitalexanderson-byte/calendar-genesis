@@ -55,7 +55,23 @@ const THEOKYKLOS_ART = [
   "./theokyklos-art/entrance-aether-hemera.webp",
   "./theokyklos-art/exit-eros-psyche.webp",
 ];
-const CORE = ["./", "./manifest.webmanifest", "./manifest.en.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./genesis-hero.png", ...MONTH_ART, ...WEEKDAY_ART, ...ACHIEVEMENT_ART, ...THEOKYKLOS_ART]
+const THEOKYKLOS_SYMBOL_ART = [
+  "./theokyklos-symbols/northwest-apollo.png",
+  "./theokyklos-symbols/north-athena.png",
+  "./theokyklos-symbols/northeast-artemis.png",
+  "./theokyklos-symbols/west-poseidon-amphitrite.png",
+  "./theokyklos-symbols/center-dionysus-ariadne.png",
+  "./theokyklos-symbols/east-hermes-peitho.png",
+  "./theokyklos-symbols/southwest-demeter.png",
+  "./theokyklos-symbols/south-ares-aphrodite.png",
+  "./theokyklos-symbols/southeast-hephaestus-aglaea.png",
+  "./theokyklos-symbols/zenith-zeus-hera.png",
+  "./theokyklos-symbols/hearth-hestia.png",
+  "./theokyklos-symbols/nadir-hades-persephone.png",
+  "./theokyklos-symbols/entrance-aether-hemera.png",
+  "./theokyklos-symbols/exit-eros-psyche.png",
+];
+const CORE = ["./", "./manifest.webmanifest", "./manifest.en.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./genesis-hero.png", ...MONTH_ART, ...WEEKDAY_ART, ...ACHIEVEMENT_ART, ...THEOKYKLOS_ART, ...THEOKYKLOS_SYMBOL_ART]
   .map((path) => new URL(path, SCOPE).href);
 const REQUIRED_SHELL = [...new Set([...CORE, ...PRECACHE.map((path) => new URL(path, SCOPE).href)])];
 
