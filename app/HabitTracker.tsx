@@ -17,7 +17,8 @@ import { HeroPathPanel } from "./HeroPathPanel";
 import { HabitMetricSigil } from "./HabitMetricSigil";
 import { AchievementSigil } from "./AchievementSigil";
 import { useDialogAccessibility } from "./use-dialog-accessibility";
-import { SACRED_SECTOR_SIGIL_MOTIFS, SacredSectorSigil } from "./SacredSectorSigil";
+import { SacredSectorSigil } from "./SacredSectorSigil";
+import { THEOKYKLOS_SYMBOL_COLORS } from "./theokyklos-assets";
 import {
   HABIT_EMOJI_PRESETS,
   HABIT_EMOJI_CATEGORIES,
@@ -1129,7 +1130,7 @@ function SacredHabitLibrary({
         aria-haspopup="dialog"
         className={selectedSectorId === sectorId ? "active" : ""}
         data-sector-id={sectorId}
-        style={{ "--sector-sigil-color": SACRED_SECTOR_SIGIL_MOTIFS[sectorId].color } as CSSProperties}
+        style={{ "--sector-sigil-color": THEOKYKLOS_SYMBOL_COLORS[sectorId] } as CSSProperties}
         onClick={() => setSelectedSectorId(sectorId)}
         key={sectorId}
       >
