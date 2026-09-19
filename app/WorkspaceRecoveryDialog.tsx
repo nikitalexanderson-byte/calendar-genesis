@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { Language } from "./i18n";
 import type { WorkspaceRecoveryRequest } from "./cloud-sync";
+import { useDialogAccessibility } from "./use-dialog-accessibility";
 
 type WorkspaceRecoveryDialogProps = {
   request: WorkspaceRecoveryRequest;
@@ -18,21 +19,15 @@ export function WorkspaceRecoveryDialog({ request, language, onRecovered, onCanc
   const [submitting, setSubmitting] = useState(false);
   const [codeVisible, setCodeVisible] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const dialogRef = useDialogAccessibility<HTMLFormElement>(() => { if (!submitting) onCancel(); });
 
   useEffect(() => {
-    const focusFrame = window.requestAnimationFrame(() => inputRef.current?.focus());
     const previousOverflow = document.body.style.overflow;
-    const closeWithEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !submitting) onCancel();
-    };
     document.body.style.overflow = "hidden";
-    window.addEventListener("keydown", closeWithEscape);
     return () => {
-      window.cancelAnimationFrame(focusFrame);
       document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", closeWithEscape);
     };
-  }, [onCancel, submitting]);
+  }, []);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -66,7 +61,7 @@ export function WorkspaceRecoveryDialog({ request, language, onRecovered, onCanc
     <div className="modal-backdrop workspace-recovery-backdrop" role="presentation" onMouseDown={(event) => {
       if (event.target === event.currentTarget && !submitting) onCancel();
     }}>
-      <form className="workspace-recovery-dialog" role="dialog" aria-modal="true" aria-labelledby="workspace-recovery-title" aria-describedby="workspace-recovery-description" onSubmit={submit}>
+      <form ref={dialogRef} className="workspace-recovery-dialog" role="dialog" aria-modal="true" aria-labelledby="workspace-recovery-title" aria-describedby="workspace-recovery-description" tabIndex={-1} onSubmit={submit}>
         <button type="button" className="modal-close" disabled={submitting} onClick={onCancel} aria-label={isEnglish ? "Cancel recovery" : "Отменить восстановление"}>×</button>
         <span className="workspace-recovery-mark" aria-hidden="true">
           <svg viewBox="0 0 64 64"><path d="M21 29v-8a11 11 0 0 1 22 0v8" /><rect x="13" y="28" width="38" height="28" rx="8" /><circle cx="32" cy="41" r="4" /><path d="M32 45v5M8 19l5 2M56 19l-5 2M32 3v5" /></svg>
@@ -81,7 +76,7 @@ export function WorkspaceRecoveryDialog({ request, language, onRecovered, onCanc
         <label className="workspace-recovery-field">
           <span>{isEnglish ? "GENESIS recovery code" : "Код восстановления GENESIS"}</span>
           <div>
-            <input ref={inputRef} type={codeVisible ? "text" : "password"} value={recoveryCode} onChange={(event) => setRecoveryCode(event.target.value)} autoComplete="off" autoCapitalize="none" spellCheck={false} placeholder={isEnglish ? "Paste the code saved from your account" : "Вставьте код, сохранённый из личного кабинета"} aria-invalid={Boolean(error)} aria-describedby={error ? "workspace-recovery-error" : "workspace-recovery-hint"} />
+            <input ref={inputRef} data-dialog-initial-focus type={codeVisible ? "text" : "password"} value={recoveryCode} onChange={(event) => setRecoveryCode(event.target.value)} autoComplete="off" autoCapitalize="none" spellCheck={false} placeholder={isEnglish ? "Paste the code saved from your account" : "Вставьте код, сохранённый из личного кабинета"} aria-invalid={Boolean(error)} aria-describedby={error ? "workspace-recovery-error" : "workspace-recovery-hint"} />
             <button type="button" onClick={() => setCodeVisible((visible) => !visible)}>{codeVisible ? (isEnglish ? "Hide" : "Скрыть") : (isEnglish ? "Show" : "Показать")}</button>
           </div>
         </label>

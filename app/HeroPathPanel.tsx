@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useRef, useState, type CSSProperties } from "react";
 import type { Language } from "./i18n";
 import { HeroicRankSigil } from "./HeroicRankSigil";
+import { useDialogAccessibility } from "./use-dialog-accessibility";
 import {
   FOUNDATIONAL_HEROIC_RANKS,
   HERO_PATH_CHECKPOINTS,
@@ -112,12 +113,7 @@ export function HeroPathPanel({ workspace, language, onClaimCheckpoint, onReveal
   const [revealRequested, setRevealRequested] = useState(false);
   const revealTimer = useRef<number | null>(null);
   const hiddenPathRef = useRef<HTMLElement | null>(null);
-
-  useEffect(() => {
-    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [onClose]);
+  const dialogRef = useDialogAccessibility<HTMLElement>(onClose);
 
   useEffect(() => () => {
     if (revealTimer.current !== null) window.clearTimeout(revealTimer.current);
@@ -142,7 +138,7 @@ export function HeroPathPanel({ workspace, language, onClaimCheckpoint, onReveal
 
   return (
     <div className="modal-backdrop hero-path-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section className="hero-path-panel" role="dialog" aria-modal="true" aria-labelledby="hero-path-title">
+      <section ref={dialogRef} className="hero-path-panel" role="dialog" aria-modal="true" aria-labelledby="hero-path-title" tabIndex={-1}>
         <header className="hero-path-header">
           <div><span className="eyebrow">{isEnglish ? "Lifetime progress" : "Пожизненный прогресс"}</span><h2 id="hero-path-title">{isEnglish ? "Path of the Hero" : "Путь Героя"}</h2><p>{isEnglish ? "Every point records a real completion. XP is never spent and ranks are never lost." : "Каждый балл сохраняет реальное выполнение. XP не тратится, а достигнутые ранги не теряются."}</p></div>
           <button type="button" className="modal-close" onClick={onClose} aria-label={isEnglish ? "Close" : "Закрыть"}>×</button>

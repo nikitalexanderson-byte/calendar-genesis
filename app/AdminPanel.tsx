@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { deleteAdminUser, type AdminStats, type AdminUserStats, loadAdminStats } from "./cloud-sync";
 import { runtimeLocale } from "./i18n";
+import { useDialogAccessibility } from "./use-dialog-accessibility";
 
 function formatActivity(value: string | null) {
   if (!value) return "—";
@@ -79,6 +80,7 @@ export function AdminPanel() {
       setBusy(false);
     }
   };
+  const deleteDialogRef = useDialogAccessibility<HTMLElement>(closeDeleteDialog, Boolean(deleteTarget));
 
   if (!stats && !error) return <section className="admin-view"><p>{copy.loading}</p></section>;
 
@@ -117,7 +119,7 @@ export function AdminPanel() {
         </div>
       </> : null}
       {deleteTarget ? <div className="modal-backdrop admin-delete-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeDeleteDialog(); }}>
-        <section className="admin-delete-dialog" role="dialog" aria-modal="true" aria-labelledby="admin-delete-title">
+        <section ref={deleteDialogRef} className="admin-delete-dialog" role="dialog" aria-modal="true" aria-labelledby="admin-delete-title" tabIndex={-1}>
           <header><div><span className="eyebrow">{copy.irreversible}</span><h2 id="admin-delete-title">{copy.deleteTitle}</h2></div><button type="button" className="modal-close" onClick={closeDeleteDialog} aria-label={isEnglish ? "Close" : "Закрыть"}>×</button></header>
           <p>{copy.deleteLead} <strong>{deleteTarget.email}</strong>.</p>
           <label className="admin-blacklist-choice" htmlFor="admin-blacklist-user"><input id="admin-blacklist-user" type="checkbox" aria-label={copy.blacklistAria} checked={blacklist} onChange={(event) => setBlacklist(event.target.checked)} /><span><strong>{copy.blacklistTitle}</strong><small>{copy.blacklistHelp}</small></span></label>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   type CalendarMode,
   MONTHS,
@@ -16,6 +16,7 @@ import {
 } from "./calendar-data";
 import { MoonPhaseIcon } from "./MoonPhaseIcon";
 import { getRuntimeLanguage, runtimeLocale } from "./i18n";
+import { useDialogAccessibility } from "./use-dialog-accessibility";
 
 type CalendarDatePickerProps = {
   id?: string;
@@ -65,13 +66,7 @@ export function CalendarDatePicker({ id, value, mode, min, max, required, ariaLa
   const [sacredYear, setSacredYear] = useState(selectedSacred.sacredYear);
   const [sacredMonth, setSacredMonth] = useState(selectedSacred.monthIndex);
   const [lunarMonth, setLunarMonth] = useState(() => lunarMonthIndex(selectedDate));
-
-  useEffect(() => {
-    if (!open) return;
-    const close = (event: KeyboardEvent) => { if (event.key === "Escape") setOpen(false); };
-    window.addEventListener("keydown", close);
-    return () => window.removeEventListener("keydown", close);
-  }, [open]);
+  const dialogRef = useDialogAccessibility<HTMLElement>(() => setOpen(false), open);
 
   if (mode === "profane") {
     return <input id={id} type="date" value={value} min={min} max={max} required={required} aria-label={ariaLabel} onChange={(event) => onChange(event.target.value)} />;
@@ -105,7 +100,7 @@ export function CalendarDatePicker({ id, value, mode, min, max, required, ariaLa
       </button>
       {open ? (
         <div className="modal-backdrop calendar-picker-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>
-          <section className={`calendar-picker mode-${mode}`} role="dialog" aria-modal="true" aria-label={mode === "sacred" ? "Выбор сакральной даты" : "Выбор лунной даты"}>
+          <section ref={dialogRef} className={`calendar-picker mode-${mode}`} role="dialog" aria-modal="true" aria-label={mode === "sacred" ? "Выбор сакральной даты" : "Выбор лунной даты"} tabIndex={-1}>
             <button type="button" className="modal-close" onClick={() => setOpen(false)} aria-label="Закрыть">×</button>
             <span className="eyebrow">{mode === "sacred" ? "Сакральный календарь" : "Лунный календарь"}</span>
             <h2>{mode === "sacred" ? "Выберите день круга" : "Выберите лунный день"}</h2>

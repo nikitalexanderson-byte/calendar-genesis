@@ -11289,6 +11289,31 @@ button.project-drag-handle:active { cursor: grabbing; }
   gap: 18px;
 }
 
+.habit-collapsible-block { display:grid; min-width:0; gap:8px; }
+.habit-collapsible-toolbar { display:flex; justify-content:flex-end; min-width:0; }
+.habit-collapsible-toolbar > button {
+  display:inline-flex;
+  min-height:40px;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:9px 11px 9px 15px;
+  color:var(--teal);
+  border:1px solid rgba(37,91,89,.2);
+  border-radius:999px;
+  background:linear-gradient(135deg,rgba(255,253,248,.96),rgba(238,242,236,.88));
+  box-shadow:0 8px 22px rgba(18,48,45,.07),inset 0 1px 0 rgba(255,255,255,.9);
+  cursor:pointer;
+  font-size:9px;
+  font-weight:850;
+  transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease,background .18s ease;
+}
+.habit-collapsible-toolbar > button:hover { border-color:rgba(37,91,89,.42); box-shadow:0 11px 26px rgba(18,48,45,.1),inset 0 1px 0 #fff; transform:translateY(-1px); }
+.habit-collapsible-toolbar > button:focus-visible { outline:3px solid rgba(45,119,113,.24); outline-offset:3px; }
+.habit-collapsible-toolbar .disclosure-chevron { box-sizing:border-box; width:22px; height:22px; padding:4px; border:1px solid rgba(37,91,89,.2); border-radius:50%; background:rgba(45,119,113,.06); }
+.habit-collapsible-block.collapsed .habit-collapsible-toolbar > button { width:min(100%,360px); background:rgba(255,253,248,.72); }
+.habit-collapsible-content { display:grid; min-width:0; gap:18px; }
+
 .habits-hero {
   position: relative;
   display: grid;
@@ -12361,6 +12386,9 @@ button.project-drag-handle:active { cursor: grabbing; }
 
 @media (max-width: 760px) {
   .habits-view { gap:12px; }
+  .habit-collapsible-block { gap:6px; }
+  .habit-collapsible-toolbar > button,
+  .habit-collapsible-block.collapsed .habit-collapsible-toolbar > button { width:100%; min-height:42px; }
   .habits-hero { grid-template-columns:minmax(0,1fr); min-height:0; padding:27px 19px; border-radius:4px 24px 4px 24px; }
   .habits-hero > div:first-child { max-width:none; }
   .habits-hero-status { position:relative; inset:auto; width:100%; grid-template-columns:repeat(2,minmax(0,1fr)); margin-top:18px; }

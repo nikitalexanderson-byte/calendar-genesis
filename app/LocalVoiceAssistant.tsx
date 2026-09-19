@@ -9,6 +9,7 @@ import {
 } from "./cloud-sync";
 import type { Language } from "./i18n";
 import { createLocalVoicePlan } from "./local-voice-plan";
+import { useDialogAccessibility } from "./use-dialog-accessibility";
 
 type SpeechResultEvent = Event & {
   resultIndex: number;
@@ -110,6 +111,7 @@ export function LocalVoiceAssistant({ language, context, neuralAvailable, neural
   const recognitionStartTimerRef = useRef<number | null>(null);
   const interimRef = useRef("");
   const activeRef = useRef(true);
+  const dialogRef = useDialogAccessibility<HTMLElement>(onClose);
 
   useEffect(() => () => {
     activeRef.current = false;
@@ -333,7 +335,7 @@ export function LocalVoiceAssistant({ language, context, neuralAvailable, neural
     <div className="modal-backdrop gemini-backdrop" role="presentation" onMouseDown={(event) => {
       if (event.currentTarget === event.target && !busy) onClose();
     }}>
-      <section className="gemini-assistant local-voice-assistant" role="dialog" aria-modal="true" aria-labelledby="local-voice-assistant-title">
+      <section ref={dialogRef} className="gemini-assistant local-voice-assistant" role="dialog" aria-modal="true" aria-labelledby="local-voice-assistant-title" tabIndex={-1}>
         <header>
           <div className="gemini-mark voice-mark" aria-hidden="true">
             <svg className="voice-microphone-icon" viewBox="0 0 24 24" fill="none" focusable="false">

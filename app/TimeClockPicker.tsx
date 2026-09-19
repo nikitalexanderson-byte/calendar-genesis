@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { formatTimeValue, hourFromTwelveHour, twelveHourParts, type TimeFormat } from "./time-format";
+import { useDialogAccessibility } from "./use-dialog-accessibility";
 
 const CENTER = 122;
 const HOUR_RADIUS = 96;
@@ -39,15 +40,7 @@ export function TimeClockPicker({ id, value, onChange, disabled = false, timeFor
   const isTwelveHour = timeFormat === "12h";
   const twelveHour = twelveHourParts(hour ?? 0);
   const period = hour === null ? "AM" : twelveHour.period;
-
-  useEffect(() => {
-    if (!open) return;
-    const handleKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [open]);
+  const dialogRef = useDialogAccessibility<HTMLDivElement>(() => setOpen(false), open);
 
   const applyFromAngle = (kind: "hour" | "minute", clientX: number, clientY: number) => {
     if (!faceRef.current) return;
@@ -112,7 +105,7 @@ export function TimeClockPicker({ id, value, onChange, disabled = false, timeFor
       </button>
       {open ? (
         <div className="modal-backdrop time-clock-picker-backdrop" role="presentation" onMouseDown={handleBackdropMouseDown}>
-          <div className="time-clock-picker-panel" role="dialog" aria-modal="true" aria-label="Выбор времени">
+          <div ref={dialogRef} className="time-clock-picker-panel" role="dialog" aria-modal="true" aria-label="Выбор времени" tabIndex={-1}>
             <button type="button" className="modal-close" onClick={() => setOpen(false)} aria-label="Закрыть">×</button>
             <div className="time-clock-picker-legend">
               <span className="time-clock-legend-item hour"><i aria-hidden="true" /> Часы</span>

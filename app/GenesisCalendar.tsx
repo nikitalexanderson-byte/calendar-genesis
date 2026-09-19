@@ -70,6 +70,7 @@ import { WelcomeScreen } from "./WelcomeScreen";
 import { HabitDailyPanel, HabitTrackerPage } from "./HabitTracker";
 import { HabitCompletionFeedback } from "./HabitCompletionFeedback";
 import { WorkspaceRecoveryDialog } from "./WorkspaceRecoveryDialog";
+import { useDialogAccessibility } from "./use-dialog-accessibility";
 import {
   ACHIEVEMENTS,
   addHabitDays,
@@ -1191,8 +1192,6 @@ export function GenesisCalendar() {
   const projectsRef = useRef<GenesisProject[]>([]);
   const categoriesRef = useRef<GenesisCategory[]>(DEFAULT_CATEGORIES);
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
-  const sacredYearDetailsTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const sacredYearDetailsCloseRef = useRef<HTMLButtonElement | null>(null);
   const projectTouchDragRef = useRef<ProjectTouchDrag | null>(null);
   const habitSaveTimerRef = useRef<number | null>(null);
   const habitFeedbackTimerRef = useRef<number | null>(null);
@@ -1206,6 +1205,12 @@ export function GenesisCalendar() {
   } | null>(null);
   const suppressProjectItemClickRef = useRef(false);
   const { androidApkUrl, canInstall, install, isStandalone } = usePwaInstall();
+  const sacredYearDialogRef = useDialogAccessibility<HTMLElement>(() => setSacredYearDetailsOpen(false), sacredYearDetailsOpen);
+  const dayDetailsDialogRef = useDialogAccessibility<HTMLElement>(() => setDayDetailsOpen(false), dayDetailsOpen);
+  const dayTaskCreatorDialogRef = useDialogAccessibility<HTMLElement>(() => { setDayTaskCreatorOpen(false); setDayDetailsOpen(true); }, dayTaskCreatorOpen);
+  const taskEditorDialogRef = useDialogAccessibility<HTMLFormElement>(() => setEditingTask(null), Boolean(editingTask));
+  const taskListEditorDialogRef = useDialogAccessibility<HTMLFormElement>(() => setEditingTaskList(null), Boolean(editingTaskList));
+  const projectEditorDialogRef = useDialogAccessibility<HTMLFormElement>(() => setEditingProject(null), Boolean(editingProject));
   useDocumentLanguage(language);
 
   const finishWorkspaceRecovery = useCallback((accepted: boolean) => {
@@ -1524,39 +1529,19 @@ export function GenesisCalendar() {
 
   useEffect(() => {
     if (!dayDetailsOpen && !dayTaskCreatorOpen) return;
-    const closeWithEscape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      if (dayTaskCreatorOpen) {
-        setDayTaskCreatorOpen(false);
-        setDayDetailsOpen(true);
-      } else {
-        setDayDetailsOpen(false);
-      }
-    };
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    window.addEventListener("keydown", closeWithEscape);
     return () => {
       document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", closeWithEscape);
     };
   }, [dayDetailsOpen, dayTaskCreatorOpen]);
 
   useEffect(() => {
     if (!sacredYearDetailsOpen) return;
-    const trigger = sacredYearDetailsTriggerRef.current;
-    const focusFrame = window.requestAnimationFrame(() => sacredYearDetailsCloseRef.current?.focus());
-    const closeWithEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setSacredYearDetailsOpen(false);
-    };
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    window.addEventListener("keydown", closeWithEscape);
     return () => {
-      window.cancelAnimationFrame(focusFrame);
       document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", closeWithEscape);
-      trigger?.focus();
     };
   }, [sacredYearDetailsOpen]);
 
@@ -5091,7 +5076,7 @@ export function GenesisCalendar() {
             <div><dt>4</dt><dd>солнечных праздника года</dd></div>
           </dl>
           <p>Равноденствия и солнцестояния образуют четыре праздничные опоры. После завершения двенадцатого месяца наступает Апейрон — несколько дней вне обычного счёта, пространство тишины перед новым весенним началом.</p>
-          <button ref={sacredYearDetailsTriggerRef} type="button" className="year-details-button" onClick={() => setSacredYearDetailsOpen(true)}>
+          <button type="button" className="year-details-button" onClick={() => setSacredYearDetailsOpen(true)}>
             <span aria-hidden="true">✦</span>
             <span><strong>Подробнее</strong><small>Сакральная геометрия времени</small></span>
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -5618,8 +5603,8 @@ export function GenesisCalendar() {
       </nav>
       {sacredYearDetailsOpen ? (
         <div className="modal-backdrop sacred-year-details-backdrop" role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) setSacredYearDetailsOpen(false); }}>
-          <section className="sacred-year-details-modal" role="dialog" aria-modal="true" aria-labelledby="sacred-year-details-title" aria-describedby="sacred-year-details-intro">
-            <button ref={sacredYearDetailsCloseRef} type="button" className="modal-close sacred-year-details-close" onClick={() => setSacredYearDetailsOpen(false)} aria-label="Закрыть описание сакрального года">
+          <section ref={sacredYearDialogRef} className="sacred-year-details-modal" role="dialog" aria-modal="true" aria-labelledby="sacred-year-details-title" aria-describedby="sacred-year-details-intro" tabIndex={-1}>
+            <button type="button" className="modal-close sacred-year-details-close" onClick={() => setSacredYearDetailsOpen(false)} aria-label="Закрыть описание сакрального года">
               <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <path d="M6 6l12 12M18 6 6 18" />
               </svg>
@@ -5688,7 +5673,7 @@ export function GenesisCalendar() {
       ) : null}
       {dayDetailsOpen ? (
         <div className="modal-backdrop day-details-backdrop" role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) setDayDetailsOpen(false); }}>
-          <section className={`day-details-modal mode-${activeCalendarMode}${selectedSolarEvent ? " solar-selected-day" : ""}`} role="dialog" aria-modal="true" aria-labelledby="selected-day-title" aria-describedby="selected-day-description">
+          <section ref={dayDetailsDialogRef} className={`day-details-modal mode-${activeCalendarMode}${selectedSolarEvent ? " solar-selected-day" : ""}`} role="dialog" aria-modal="true" aria-labelledby="selected-day-title" aria-describedby="selected-day-description" tabIndex={-1}>
             <button type="button" className="modal-close" onClick={() => setDayDetailsOpen(false)} aria-label="Закрыть сведения о дне">×</button>
             <header className="day-details-hero">
               <div className="selected-day-symbol" aria-hidden="true">{selectedSolarEvent?.symbol ?? (activeCalendarMode === "lunar" ? "☾" : activeCalendarMode === "profane" ? selectedWeekdayPatron.symbol : selectedElement.symbol)}</div>
@@ -5856,7 +5841,7 @@ export function GenesisCalendar() {
       ) : null}
       {dayTaskCreatorOpen ? (
         <div className="modal-backdrop day-task-create-backdrop" role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) closeSelectedDayTaskCreator(); }}>
-          <section className="editor-modal day-task-create-modal" role="dialog" aria-modal="true" aria-labelledby="day-task-create-title" aria-describedby="day-task-create-description">
+          <section ref={dayTaskCreatorDialogRef} className="editor-modal day-task-create-modal" role="dialog" aria-modal="true" aria-labelledby="day-task-create-title" aria-describedby="day-task-create-description" tabIndex={-1}>
             <button type="button" className="modal-close" onClick={closeSelectedDayTaskCreator} aria-label="Закрыть создание задачи">×</button>
             <span className="eyebrow">Дата задачи</span>
             <h2 id="day-task-create-title">Новая задача на выбранный день</h2>
@@ -5871,7 +5856,7 @@ export function GenesisCalendar() {
       ) : null}
       {editingTask ? (
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditingTask(null); }}>
-          <form className="editor-modal" role="dialog" aria-modal="true" aria-labelledby="task-editor-title" onSubmit={saveTaskEdit}>
+          <form ref={taskEditorDialogRef} className="editor-modal" role="dialog" aria-modal="true" aria-labelledby="task-editor-title" tabIndex={-1} onSubmit={saveTaskEdit}>
             <button type="button" className="modal-close" onClick={() => setEditingTask(null)} aria-label="Закрыть">×</button>
             <span className="eyebrow">Редактирование задачи</span>
             <h2 id="task-editor-title">Задача и её контекст</h2>
@@ -5995,7 +5980,7 @@ export function GenesisCalendar() {
       ) : null}
       {editingTaskList ? (
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditingTaskList(null); }}>
-          <form className="editor-modal task-list-editor" role="dialog" aria-modal="true" aria-labelledby="task-list-editor-title" onSubmit={saveTaskListEdit}>
+          <form ref={taskListEditorDialogRef} className="editor-modal task-list-editor" role="dialog" aria-modal="true" aria-labelledby="task-list-editor-title" tabIndex={-1} onSubmit={saveTaskListEdit}>
             <button type="button" className="modal-close" onClick={() => setEditingTaskList(null)} aria-label="Закрыть">×</button>
             <span className="eyebrow">Редактирование списка задач</span>
             <h2 id="task-list-editor-title">Название списка</h2>
@@ -6012,7 +5997,7 @@ export function GenesisCalendar() {
       ) : null}
       {editingProject ? (
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditingProject(null); }}>
-          <form className="editor-modal" role="dialog" aria-modal="true" aria-labelledby="project-editor-title" onSubmit={saveProjectEdit}>
+          <form ref={projectEditorDialogRef} className="editor-modal" role="dialog" aria-modal="true" aria-labelledby="project-editor-title" tabIndex={-1} onSubmit={saveProjectEdit}>
             <button type="button" className="modal-close" onClick={() => setEditingProject(null)} aria-label="Закрыть">×</button>
             <span className="eyebrow">Редактирование проекта</span>
             <h2 id="project-editor-title">Название и описание</h2>
