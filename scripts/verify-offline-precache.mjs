@@ -3,6 +3,28 @@ import { readdir, readFile, stat } from "node:fs/promises";
 const outputRoot = new URL("../dist-beget/public_html/", import.meta.url);
 const assetsRoot = new URL("assets/", outputRoot);
 const MAX_PRODUCTION_JS_CHUNK_BYTES = 350_000;
+const HERO_PATH_ICON_FILES = [
+  "01_tantal",
+  "02_sisyphus",
+  "03_cyclops",
+  "04_icarus",
+  "05_lionheart",
+  "06_poison_conqueror",
+  "07_golden_horn_pathfinder",
+  "08_mountain_tamer",
+  "09_lord_of_the_flow",
+  "10_bronze_wing",
+  "11_tamer_of_might",
+  "12_iron_charioteer",
+  "13_bearer_of_royal_honor",
+  "14_guardian_of_the_western_border",
+  "15_keeper_of_the_golden_garden",
+  "16_risen_from_the_abyss",
+  "17_amphora_of_aspiration",
+  "18_amphora_of_endurance",
+  "19_amphora_of_mastery",
+  "20_amphora_of_abyss",
+];
 const REQUIRED_VISUAL_ASSETS = [
   "achievement-art/first-step.png",
   "achievement-art/three-day-rhythm.png",
@@ -24,6 +46,10 @@ const REQUIRED_VISUAL_ASSETS = [
   "achievement-art/consistency.png",
   "habit-reward-art/hestia-spark.png",
   "habit-reward-art/comeback.png",
+  ...HERO_PATH_ICON_FILES.flatMap((fileName) => [
+    `hero-path/256/${fileName}.webp`,
+    `hero-path/512/${fileName}.webp`,
+  ]),
   "theokyklos-art/northwest-apollo.webp",
   "theokyklos-art/north-athena.webp",
   "theokyklos-art/northeast-artemis.webp",
@@ -75,7 +101,15 @@ for (const asset of REQUIRED_VISUAL_ASSETS) {
     missingVisualAssets.push(asset);
     continue;
   }
-  if (!serviceWorker.includes(JSON.stringify(`./${asset}`))) missingVisualAssets.push(`${asset} (not precached)`);
+  if (asset.startsWith("hero-path/")) {
+    const fileName = asset.slice(asset.lastIndexOf("/") + 1, -".webp".length);
+    const size = asset.split("/")[1];
+    if (!serviceWorker.includes(JSON.stringify(fileName)) || !serviceWorker.includes(`\`./hero-path/${size}/\${fileName}.webp\``)) {
+      missingVisualAssets.push(`${asset} (not precached)`);
+    }
+  } else if (!serviceWorker.includes(JSON.stringify(`./${asset}`))) {
+    missingVisualAssets.push(`${asset} (not precached)`);
+  }
 }
 if (missingVisualAssets.length) throw new Error(`Required visual assets are missing: ${missingVisualAssets.join(", ")}`);
 

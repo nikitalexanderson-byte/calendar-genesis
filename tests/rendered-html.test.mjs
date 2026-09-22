@@ -54,6 +54,7 @@ import {
   reconcileUserProgress,
   visibleHeroicRanksForXp,
 } from "../app/habit-progress.ts";
+import { HEROIC_RANK_ICON_ASSETS, HERO_PATH_CHECKPOINT_ICON_ASSETS } from "../app/hero-path-assets.ts";
 import {
   HABIT_EMOJI_CATEGORIES,
   canRecordHabitOnDate,
@@ -954,6 +955,47 @@ test("lifetime XP follows four overture, twelve heroic and twelve hidden ranks w
   assert.equal(afterDeletion.lifetimeXp, 100);
   assert.equal(afterDeletion.currentRankId, "cyclops");
   assert.equal(afterDeletion.updatedAt, "2026-09-17T00:00:00.000Z");
+});
+
+test("Hero Path uses the supplied artwork for all sixteen visible ranks and four amphora checkpoints", async () => {
+  const rankIds = FOUNDATIONAL_HEROIC_RANKS.map((rank) => rank.id);
+  const checkpointIds = HERO_PATH_CHECKPOINTS.slice(0, 4).map((checkpoint) => checkpoint.rankId);
+  assert.deepEqual(Object.keys(HEROIC_RANK_ICON_ASSETS), rankIds);
+  assert.deepEqual(Object.keys(HERO_PATH_CHECKPOINT_ICON_ASSETS), checkpointIds);
+  assert.equal(HEROIC_RANK_ICON_ASSETS["tamer-of-might"]?.src, "/hero-path/256/11_tamer_of_might.webp");
+
+  const artwork = [
+    ...Object.values(HEROIC_RANK_ICON_ASSETS),
+    ...Object.values(HERO_PATH_CHECKPOINT_ICON_ASSETS),
+  ];
+  assert.equal(artwork.length, 20);
+  for (const asset of artwork) {
+    assert.ok(asset);
+    const fileName = asset.src.slice(asset.src.lastIndexOf("/") + 1, -".webp".length);
+    const [source, small, large] = await Promise.all([
+      stat(new URL(`../assets/hero-path/source/${fileName}.png`, import.meta.url)),
+      stat(new URL(`../public/hero-path/256/${fileName}.webp`, import.meta.url)),
+      stat(new URL(`../public/hero-path/512/${fileName}.webp`, import.meta.url)),
+    ]);
+    assert.ok(source.size > 0);
+    assert.ok(small.size > 0);
+    assert.ok(large.size > small.size);
+    assert.match(asset.srcSet, new RegExp(`/hero-path/256/${fileName}\\.webp 256w, /hero-path/512/${fileName}\\.webp 512w`));
+  }
+
+  const [rankSigil, heroPath, styles, serviceWorker] = await Promise.all([
+    readFile(new URL("../app/HeroicRankSigil.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/HeroPathPanel.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../public/sw.js", import.meta.url), "utf8"),
+  ]);
+  assert.match(rankSigil, /HEROIC_RANK_ICON_ASSETS/);
+  assert.match(rankSigil, /className="rank-sigil-image"/);
+  assert.match(heroPath, /HERO_PATH_CHECKPOINT_ICON_ASSETS/);
+  assert.match(heroPath, /<AmphoraSigil open=\{claimed\} rankId=\{item\.id\}/);
+  assert.match(styles, /\.rank-sigil-image \{[^}]*object-fit:contain/);
+  assert.match(styles, /\.hero-amphora-sigil img \{[^}]*object-fit:contain/);
+  assert.match(serviceWorker, /\.\.\.HERO_PATH_ART/);
 });
 
 test("daily goals preserve future-only modes and global streak rules", () => {
@@ -2033,7 +2075,7 @@ test("QA-01 precaches the complete cold-install shell before activating the work
   assert.match(viteConfig, /genesis-offline-precache-manifest/);
   assert.match(viteConfig, /precache-manifest\.js/);
   assert.match(viteConfig, /createHash\("sha256"\)/);
-  assert.match(viteConfig, /PRECACHE_STATIC_REVISION = "theokyklos-gods-and-rewards-v4"/);
+  assert.match(viteConfig, /PRECACHE_STATIC_REVISION = "hero-path-art-v5"/);
   assert.equal(packageJson.scripts["build:beget"], "vite build --config vite.beget.config.ts && node scripts/verify-offline-precache.mjs");
   assert.match(verifier, /missingAssets/);
   assert.match(verifier, /REQUIRED_VISUAL_ASSETS/);
