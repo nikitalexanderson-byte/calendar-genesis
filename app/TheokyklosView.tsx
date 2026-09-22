@@ -231,10 +231,9 @@ export function TheokyklosView({ language, workspace, date, calendarMode, initia
               >
                 <circle className="theokyklos-hearth-hit" cx={CENTER.x} cy={CENTER.y} r="139" />
                 <circle className="theokyklos-hearth-line" cx={CENTER.x} cy={CENTER.y} r="139" />
-                <image className="theokyklos-mandala-icon theokyklos-hearth-icon" href={THEOKYKLOS_SYMBOL_ART.hearth} x="431" y="282" width="38" height="38" preserveAspectRatio="xMidYMid meet" />
-                <text className="theokyklos-ring-label" x={CENTER.x} y="324" textAnchor="middle">
+                <text className="theokyklos-ring-label" x={CENTER.x} y="301" textAnchor="middle">
                   <tspan x={CENTER.x}>{language === "en" ? "RING" : "КОЛЬЦО"}</tspan>
-                  <tspan className="theokyklos-ring-patron" x={CENTER.x} dy="12">{language === "en" ? "HESTIA" : "ГЕСТИЯ"}</tspan>
+                  <tspan className="theokyklos-ring-patron" x={CENTER.x} dy="17">{language === "en" ? "HESTIA" : "ГЕСТИЯ"}</tspan>
                 </text>
               </g>
 
@@ -335,8 +334,8 @@ export function TheokyklosView({ language, workspace, date, calendarMode, initia
                 <img
                   src={THEOKYKLOS_DETAIL_ART[selected.id]}
                   alt={`${localized(selected.patrons, language)} — ${localized(selected.title, language)}`}
-                  width="512"
-                  height="512"
+                  width="1680"
+                  height="945"
                   decoding="async"
                 />
               </figure>

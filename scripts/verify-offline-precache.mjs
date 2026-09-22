@@ -22,6 +22,8 @@ const REQUIRED_VISUAL_ASSETS = [
   "achievement-art/thousand-day-path.png",
   "achievement-art/comeback.png",
   "achievement-art/consistency.png",
+  "habit-reward-art/hestia-spark.png",
+  "habit-reward-art/comeback.png",
   "theokyklos-art/northwest-apollo.webp",
   "theokyklos-art/north-athena.webp",
   "theokyklos-art/northeast-artemis.webp",
