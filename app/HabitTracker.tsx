@@ -1329,7 +1329,8 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
       {hasHabits && workspace.habitSettings.feedback.gamificationWidgets ? <CollapsibleHabitBlock label={isEnglish ? "Streak protection and comeback" : "Защита серии и возвращение"} language={language}><section className="streak-resilience" aria-label={isEnglish ? "Streak protection and comeback" : "Защита серии и возвращение"}>
         <article className="hestia-spark-card">
           <span className="hestia-spark-icon" aria-hidden="true">
-            <svg viewBox="0 0 48 48"><defs><radialGradient id="hestia-flame"><stop offset="0" stopColor="#fff1b7" /><stop offset=".55" stopColor="#e7bb5f" /><stop offset="1" stopColor="#aa5c36" /></radialGradient></defs><path d="M25 5c3 8-3 10 1 16 2-4 6-5 7-10 7 7 10 15 7 23-3 8-10 11-17 10C13 43 7 37 8 28c1-8 7-13 13-18-1 6 1 8 4 11 2-5-1-9 0-16Z" fill="url(#hestia-flame)" /><path d="M24 26c4 4 5 7 3 11-2 3-7 3-9 0-3-5 1-8 6-11Z" fill="#fff7d6" /></svg>
+            {/* eslint-disable-next-line @next/next/no-img-element -- Generated PNG is optimized and shared by both deployment targets. */}
+            <img src="/habit-reward-art/hestia-spark.png" alt="" width="512" height="512" draggable="false" />
           </span>
           <div><small>{isEnglish ? "Automatic streak protection" : "Автоматическая защита серии"}</small><h2>{isEnglish ? "Hestia's Spark" : "Искра Гестии"}</h2><p>{isEnglish ? "Protects one missed day without XP or a fake completion." : "Сохраняет серию при одном пропуске, не начисляя XP и не создавая ложного выполнения."}</p>{latestProtectedDate ? <em>{isEnglish ? "Last protection" : "Последняя защита"}: {formatCalendarDateValue(latestProtectedDate, calendarMode, true)}</em> : null}</div>
           <div className="hestia-spark-inventory" aria-label={isEnglish ? `${sparkCount} of ${HESTIA_SPARK_MAX} Sparks` : `${sparkCount} из ${HESTIA_SPARK_MAX} Искр`}>
@@ -1339,7 +1340,10 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
           <button type="button" disabled={!canBuySpark} onClick={purchaseSpark}>{sparkCount >= HESTIA_SPARK_MAX ? (isEnglish ? "Reserve full" : "Запас полон") : <>♕ {HESTIA_SPARK_COST} · {isEnglish ? "Buy" : "Купить"}</>}</button>
         </article>
         <article className={`comeback-card${comeback.active ? " active" : ""}`}>
-          <span className="comeback-mark" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M39 19A16 16 0 1 0 40 31" /><path d="m31 10 8 9 4-11" /><path d="M16 31c4-7 11-10 18-8" /></svg></span>
+          <span className="comeback-mark" aria-hidden="true">
+            {/* eslint-disable-next-line @next/next/no-img-element -- Generated PNG is optimized and shared by both deployment targets. */}
+            <img src="/habit-reward-art/comeback.png" alt="" width="512" height="512" draggable="false" />
+          </span>
           <div><small>{isEnglish ? "After a broken streak" : "После разрыва серии"}</small><h2>{isEnglish ? "Comeback" : "Возвращение"}</h2><p>{comeback.active ? (isEnglish ? "Reach the daily goal three times in a row. The old streak is not restored." : "Выполните дневную цель три раза подряд. Прежняя серия не восстанавливается.") : (isEnglish ? "If a streak breaks, a humane three-day return path will appear here." : "Если серия прервётся, здесь появится бережный трёхдневный путь возвращения.")}</p>{comeback.lastCompletedDate && !comeback.active ? <em>{isEnglish ? "Last comeback" : "Последнее возвращение"}: {formatCalendarDateValue(comeback.lastCompletedDate, calendarMode, true)} · +{COMEBACK_REWARD_LAURELS} {isEnglish ? "Laurels" : "Лавров"}</em> : null}</div>
           <div className="comeback-progress" aria-label={isEnglish ? `${comeback.progress} of ${comeback.target} days` : `${comeback.progress} из ${comeback.target} дней`}><div>{Array.from({ length: comeback.target }, (_, index) => <i className={index < comeback.progress ? "done" : ""} key={index}>{index < comeback.progress ? "✓" : index + 1}</i>)}</div><strong>{comeback.active ? `${comeback.progress} / ${comeback.target}` : (isEnglish ? "Ready" : "Готово")}</strong></div>
         </article>
@@ -1356,17 +1360,6 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
           {visibleStarterTemplates.length ? <div className="habit-template-grid">{visibleStarterTemplates.map((template) => <article style={{ "--habit-color": template.color } as CSSProperties} key={template.id}><span className="habit-template-icon" aria-hidden="true">{template.icon}</span><div><h3>{isEnglish ? template.titleEn : template.title}</h3><p>{isEnglish ? template.descriptionEn : template.description}</p><small>{isEnglish ? template.frequencyEn : template.frequency}</small></div><footer><button type="button" className="primary-button" onClick={() => setActivatingTemplate(template)}>{isEnglish ? "Add" : "Добавить"}</button><button type="button" className="habit-template-hide" onClick={() => hideStarterTemplate(template)}>{isEnglish ? "Hide suggestion" : "Скрыть предложение"}</button></footer></article>)}</div> : <p className="habit-template-empty">{isEnglish ? "All remaining suggestions are hidden. You can restore them here or in account settings." : "Все оставшиеся предложения скрыты. Их можно вернуть здесь или в настройках личного кабинета."}</p>}
         </section></CollapsibleHabitBlock>
       ) : null}
-
-      <SacredHabitLibrary
-        workspace={workspace}
-        date={date}
-        language={language}
-        calendarMode={calendarMode}
-        onChange={onChange}
-        onStart={(practice) => saveHabit(createHabitFromSacredPractice(practice, creationDate, calendarMode, language))}
-        onEdit={setEditingHabit}
-        onOpenTheokyklosSector={onOpenTheokyklosSector}
-      />
 
       {!hasHabits ? <CollapsibleHabitBlock label={isEnglish ? "Daily trackers" : "Трекеры дня"} language={language}>{dailyPanel}</CollapsibleHabitBlock> : null}
 
@@ -1389,6 +1382,16 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
       </section>
       <HabitStatistics workspace={workspace} date={date} language={language} calendarMode={calendarMode} />
       </CollapsibleHabitBlock>
+      <SacredHabitLibrary
+        workspace={workspace}
+        date={date}
+        language={language}
+        calendarMode={calendarMode}
+        onChange={onChange}
+        onStart={(practice) => saveHabit(createHabitFromSacredPractice(practice, creationDate, calendarMode, language))}
+        onEdit={setEditingHabit}
+        onOpenTheokyklosSector={onOpenTheokyklosSector}
+      />
       {heroPathOpen ? <HeroPathPanel workspace={workspace} language={language} onClaimCheckpoint={(rankId) => { const next = claimHeroPathAmphora(workspace, rankId); onChange(next); if (next !== workspace) setMessage(isEnglish ? "The amphora is open. Laurels were added to your ledger." : "Амфора открыта. Лавры добавлены в журнал наград."); }} onRevealHiddenPath={() => { const next = revealHiddenHeroicPath(workspace); onChange(next); if (next !== workspace) setMessage(isEnglish ? "The second path has been revealed." : "Второй путь открыт."); }} onClose={() => setHeroPathOpen(false)} /> : null}
       {activatingTemplate ? <HabitTemplateSetup template={activatingTemplate} date={creationDate} language={language} calendarMode={calendarMode} googleTasksReady={googleTasksReady} onSave={(habit) => { setActivatingTemplate(null); saveHabit(habit); }} onClose={() => setActivatingTemplate(null)} /> : null}
       {editingHabit ? <HabitEditor habit={editingHabit} isExisting={workspace.habits.some((habit) => habit.id === editingHabit.id)} language={language} calendarMode={calendarMode} googleTasksReady={googleTasksReady} onSave={saveHabit} onClose={() => setEditingHabit(null)} /> : null}

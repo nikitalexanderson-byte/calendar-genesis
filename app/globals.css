@@ -11169,7 +11169,7 @@ button.project-drag-handle:active { cursor: grabbing; }
     linear-gradient(90deg, rgba(213, 182, 110, .08), transparent 18%, transparent 82%, rgba(213, 182, 110, .08));
   box-shadow: inset 0 0 30px rgba(3, 15, 18, .22);
 }
-.theokyklos-details-art img { display: block; box-sizing: border-box; width: 100%; height: 100%; padding: clamp(10px, 2vw, 18px); object-fit: contain; filter: drop-shadow(0 0 12px color-mix(in srgb, var(--detail-accent) 32%, transparent)); }
+.theokyklos-details-art img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .theokyklos-essence { margin: 0; color: var(--detail-accent); font: 600 14px/1.5 Georgia, serif; }
 .theokyklos-description { margin: 0; color: #536965; font: 400 12px/1.7 Georgia, serif; }
 
@@ -11480,9 +11480,9 @@ button.project-drag-handle:active { cursor: grabbing; }
   border-radius:50%;
   background:rgba(255,255,255,.54);
 }
-.hestia-spark-icon svg,.comeback-mark svg { width:38px; height:38px; overflow:visible; }
-.hestia-spark-icon svg { filter:drop-shadow(0 4px 7px rgba(177,102,47,.22)); animation:hestia-flame-breathe 2.8s ease-in-out infinite; transform-origin:50% 88%; }
-.comeback-mark svg { fill:none; stroke:#2d7069; stroke-width:2.1; stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:80; animation:comeback-line 4s ease-in-out infinite; }
+.hestia-spark-icon img,.comeback-mark img { display:block; width:50px; height:50px; object-fit:contain; }
+.hestia-spark-icon img { filter:drop-shadow(0 4px 7px rgba(177,102,47,.24)); animation:hestia-flame-breathe 2.8s ease-in-out infinite; transform-origin:50% 88%; }
+.comeback-mark img { filter:drop-shadow(0 4px 7px rgba(45,112,105,.2)); animation:comeback-art-breathe 3.4s ease-in-out infinite; transform-origin:center; }
 
 .hestia-spark-inventory,.comeback-progress { display:grid; justify-items:center; gap:5px; min-width:74px; }
 .hestia-spark-inventory { grid-template-columns:repeat(2,24px); justify-content:center; }
@@ -11501,7 +11501,7 @@ button.project-drag-handle:active { cursor: grabbing; }
 .comeback-progress i.done { color:#fff; border-color:#2d7069; background:#2d7069; box-shadow:0 0 0 3px rgba(45,112,105,.09); }
 
 @keyframes hestia-flame-breathe { 0%,100% { transform:translateY(1px) scale(.96); } 50% { transform:translateY(-1px) scale(1.035); } }
-@keyframes comeback-line { 0%,100% { stroke-dashoffset:80; opacity:.62; } 45%,70% { stroke-dashoffset:0; opacity:1; } }
+@keyframes comeback-art-breathe { 0%,100% { transform:scale(.96); opacity:.82; } 50% { transform:scale(1.035); opacity:1; } }
 
 .habit-range-toolbar {
   display: flex;
@@ -12407,7 +12407,7 @@ button.project-drag-handle:active { cursor: grabbing; }
   .habits-hero-actions { position:relative !important; inset:auto; width:100%; margin-top:18px; flex-wrap:wrap; justify-content:flex-start; }
   .habits-hero-score { grid-template-columns:52px minmax(0,1fr); }.habits-hero-score > .rank-sigil { width:52px; height:52px; }
   .streak-resilience > article { grid-template-columns:48px minmax(0,1fr); padding:15px 13px; }
-  .hestia-spark-icon,.comeback-mark { width:46px; height:46px; }.hestia-spark-icon svg,.comeback-mark svg { width:33px; height:33px; }
+  .hestia-spark-icon,.comeback-mark { width:46px; height:46px; }.hestia-spark-icon img,.comeback-mark img { width:42px; height:42px; }
   .hestia-spark-inventory,.comeback-progress,.hestia-spark-card > button { grid-column:2; justify-self:start; }
   .habit-range-toolbar { align-items:stretch; flex-direction:column; }.habit-range-toolbar > div:first-of-type { margin:0; }.habit-range-custom { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); }.habit-range-custom .calendar-date-trigger { min-width:0; }
   .habit-daily-panel, .habit-library, .habit-statistics { padding:15px 13px; border-radius:14px; }
@@ -12493,7 +12493,7 @@ button.project-drag-handle:active { cursor: grabbing; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rank-sigil, .rank-sigil *, .habit-metric-sigil, .habit-metric-sigil *, .sacred-sector-sigil, .sacred-sector-sigil *, .hestia-spark-icon svg, .comeback-mark svg, .hero-amphora-sigil *, .hero-path-progress i, .hero-path-gate-art *, .hero-path-reveal-gate *, .hero-path-open, .hero-path-open::before, .hero-path-open *, .habit-quest-sigil *, .habit-quest-progress *, .today-task-list > article, .workspace-recovery-dialog *, .achievement-sigil *, .achievement-grid > article, .habit-completion-feedback, .habit-check-list > article.done, .habit-check-list > article.done > .habit-check, .sacred-sector-navigation, .disclosure-chevron { animation:none !important; transition:none !important; }
+  .rank-sigil, .rank-sigil *, .habit-metric-sigil, .habit-metric-sigil *, .sacred-sector-sigil, .sacred-sector-sigil *, .hestia-spark-icon img, .comeback-mark img, .hero-amphora-sigil *, .hero-path-progress i, .hero-path-gate-art *, .hero-path-reveal-gate *, .hero-path-open, .hero-path-open::before, .hero-path-open *, .habit-quest-sigil *, .habit-quest-progress *, .today-task-list > article, .workspace-recovery-dialog *, .achievement-sigil *, .achievement-grid > article, .habit-completion-feedback, .habit-check-list > article.done, .habit-check-list > article.done > .habit-check, .sacred-sector-navigation, .disclosure-chevron { animation:none !important; transition:none !important; }
   .rank-sigil, .habit-metric-sigil, .sacred-sector-sigil { transform:none !important; }
 }
 

@@ -611,7 +611,7 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(trackerPage, /const hasHabits = workspace\.habits\.length > 0;/);
   assert.match(trackerPage, /const dailyPanel = <HabitDailyPanel/);
   assert.ok(trackerPage.indexOf('{hasHabits ? <CollapsibleHabitBlock label={isEnglish ? "Daily trackers"') < trackerPage.indexOf('className="habit-range-toolbar"'));
-  assert.ok(trackerPage.indexOf("<SacredHabitLibrary") < trackerPage.indexOf('{!hasHabits ? <CollapsibleHabitBlock label={isEnglish ? "Daily trackers"'));
+  assert.ok(trackerPage.indexOf("<SacredHabitLibrary") > trackerPage.indexOf("<HabitStatistics"));
   assert.ok(trackerPage.indexOf('className="tracker-module-grid"') < trackerPage.indexOf('className="habit-range-toolbar"'));
   assert.ok(trackerPage.indexOf('className="habit-range-toolbar"') < trackerPage.indexOf("<HabitStatistics"));
   assert.match(tracker, /Статистика моих привычек/);
@@ -1501,8 +1501,8 @@ test("Laurels use an idempotent ledger for daily goals and Perfect Days", () => 
   const duplicate = { ...firstPass[0], id: "offline-copy", createdAt: "2026-09-18T13:00:00.000Z" };
   assert.equal(normalizeRewardTransactions([...firstPass, duplicate]).length, firstPass.length, "offline copies use the same idempotency key");
 
-  const quest = createRewardTransaction({ amount: 200, reason: "weekly-quest", sourceId: "quest-1", idempotencyKey: "weekly-quest:self:quest-1" });
-  const purchase = createRewardTransaction({ amount: -120, reason: "hestia-spark", sourceId: "spark-1", idempotencyKey: "hestia-spark:self:spark-1" });
+  const quest = createRewardTransaction({ amount: 200, reason: "weekly-quest", sourceId: "quest-1", idempotencyKey: "weekly-quest:self:quest-1", createdAt: "2026-09-19T10:00:00.000Z" });
+  const purchase = createRewardTransaction({ amount: -120, reason: "hestia-spark", sourceId: "spark-1", idempotencyKey: "hestia-spark:self:spark-1", createdAt: "2026-09-19T10:01:00.000Z" });
   assert.equal(calculateLaurelsBalance([...firstPass, quest, purchase]), 93, "spendable balance must be derived from the complete ledger");
 
   const deletedReset = resetLaurelsBalance([...firstPass, quest, purchase], "habit-deleted-reset", "habit-1", "habit-deleted:self:habit-1", "2026-09-20T15:00:00.000Z");
@@ -1637,10 +1637,16 @@ test("ships the complete interactive bilingual Theokyklos", async () => {
   assert.match(component, /Священные слова/);
   assert.match(component, /Заклинания Божеств/);
   assert.match(component, /THEOKYKLOS_DETAIL_ART\[selected\.id\]/);
+  assert.match(component, /width="1680"[\s\S]*height="945"/);
   assert.match(component, /THEOKYKLOS_SYMBOL_ART\[segment\.id\]/);
   assert.match(component, /<image className="theokyklos-mandala-icon/);
   assert.match(component, /<img src=\{THEOKYKLOS_SYMBOL_ART\[segment\.id\]\}/);
   assert.doesNotMatch(component, />\{segment\.symbol\}</);
+  const hearthStart = component.indexOf('className={`theokyklos-svg-segment hearth-segment');
+  const centerStart = component.indexOf('className={`theokyklos-svg-segment center-segment');
+  assert.ok(hearthStart > -1 && centerStart > hearthStart);
+  assert.doesNotMatch(component.slice(hearthStart, centerStart), /THEOKYKLOS_SYMBOL_ART\.hearth/);
+  assert.match(component, /theokyklos-details-symbol[\s\S]*THEOKYKLOS_SYMBOL_ART\[selected\.id\]/);
   for (const segment of THEOKYKLOS_SEGMENTS) {
     const detailAsset = assets.match(new RegExp(`/theokyklos-art/${segment.id}(?:-[^"]+)?\\.webp`))?.[0];
     const symbolAsset = assets.match(new RegExp(`/theokyklos-symbols/${segment.id}(?:-[^"]+)?\\.png`))?.[0];
@@ -1653,7 +1659,7 @@ test("ships the complete interactive bilingual Theokyklos", async () => {
   assert.match(styles, /\.theokyklos-segment-shape/);
   assert.match(styles, /@keyframes theokyklos-rays/);
   assert.match(styles, /\.modal-backdrop\.theokyklos-details-backdrop/);
-  assert.match(styles, /\.theokyklos-details-art img \{[^}]*object-fit: contain/);
+  assert.match(styles, /\.theokyklos-details-art img \{[^}]*object-fit: cover/);
   assert.match(styles, /min-height: calc\(100dvh - 34px\)/);
   assert.match(styles, /height: calc\(100dvh - 92px\)/);
   assert.match(i18n, /"Теокиклос": "Theokyklos"/);
@@ -1717,6 +1723,11 @@ test("covers every Theokyklos sector with sacred habits while keeping Stoicheion
   assert.match(theokyklos, /Сакральные привычки/);
   assert.match(theokyklos, /updateHabitCompletion/);
   assert.match(tracker, /sacred-habit-library/);
+  assert.ok(tracker.indexOf("<SacredHabitLibrary") > tracker.lastIndexOf('label={isEnglish ? "My habit statistics" : "Статистика моих привычек"}'));
+  assert.match(tracker, /src="\/habit-reward-art\/hestia-spark\.png"/);
+  assert.match(tracker, /src="\/habit-reward-art\/comeback\.png"/);
+  await access(new URL("../public/habit-reward-art/hestia-spark.png", import.meta.url));
+  await access(new URL("../public/habit-reward-art/comeback.png", import.meta.url));
   assert.match(tracker, /const \[expanded, setExpanded\] = useState\(false\)/);
   assert.match(tracker, /aria-controls="sacred-sector-picker"/);
   assert.match(tracker, /className="sacred-sector-modal" role="dialog" aria-modal="true"/);
@@ -2022,7 +2033,7 @@ test("QA-01 precaches the complete cold-install shell before activating the work
   assert.match(viteConfig, /genesis-offline-precache-manifest/);
   assert.match(viteConfig, /precache-manifest\.js/);
   assert.match(viteConfig, /createHash\("sha256"\)/);
-  assert.match(viteConfig, /PRECACHE_STATIC_REVISION = "achievement-secret-lock-v3"/);
+  assert.match(viteConfig, /PRECACHE_STATIC_REVISION = "theokyklos-gods-and-rewards-v4"/);
   assert.equal(packageJson.scripts["build:beget"], "vite build --config vite.beget.config.ts && node scripts/verify-offline-precache.mjs");
   assert.match(verifier, /missingAssets/);
   assert.match(verifier, /REQUIRED_VISUAL_ASSETS/);
@@ -2030,6 +2041,7 @@ test("QA-01 precaches the complete cold-install shell before activating the work
   assert.match(serviceWorker, /importScripts\(new URL\("\.\/precache-manifest\.js", SCOPE\)\.href\)/);
   assert.match(serviceWorker, /REQUIRED_SHELL/);
   assert.match(serviceWorker, /ACHIEVEMENT_ART/);
+  assert.match(serviceWorker, /HABIT_REWARD_ART/);
   assert.match(serviceWorker, /THEOKYKLOS_ART/);
   assert.match(serviceWorker, /THEOKYKLOS_SYMBOL_ART/);
   assert.match(serviceWorker, /await cache\.addAll\([\s\S]*await self\.skipWaiting\(\)/);
