@@ -400,11 +400,13 @@ export function recurrenceDatesForTask(task: {
   recurrenceEndDate?: string | null;
   recurrenceMonths?: number[];
   recurrencePyatas?: number[];
+  recurrenceExcludedDates?: string[];
 }) {
   if (!parseInputDate(task.dueDate)) return [];
   if (task.googleTaskListId || task.recurrenceSeriesId) return [task.dueDate];
   const config = recurrenceConfigFromTask(task);
   if (!config.enabled) return [task.dueDate];
-  const dates = buildRecurrenceDates(task.dueDate, config);
-  return dates.length ? dates : [task.dueDate];
+  const excludedDates = new Set(Array.isArray(task.recurrenceExcludedDates) ? task.recurrenceExcludedDates : []);
+  const dates = buildRecurrenceDates(task.dueDate, config).filter((date) => !excludedDates.has(date));
+  return dates.length ? dates : excludedDates.has(task.dueDate) ? [] : [task.dueDate];
 }

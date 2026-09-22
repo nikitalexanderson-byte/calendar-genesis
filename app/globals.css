@@ -2094,6 +2094,13 @@ button.pyata-row-label:focus-visible {
   text-transform: uppercase;
 }
 
+.calendar-solar-mark time {
+  font-size: 6px;
+  font-weight: 850;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .calendar-day.solar-day.selected .calendar-solar-mark { color: #ffe5a2; }
 
 .calendar-day > small {
@@ -2442,6 +2449,7 @@ button.pyata-row-label:focus-visible {
 .solar-year-strip small { font-size: 6px; font-weight: 900; letter-spacing: 0.1em; text-transform: uppercase; }
 .solar-year-strip em { color: #92722f; font-size: 8px; font-style: normal; font-weight: 700; text-transform: capitalize; }
 .solar-year-strip strong { overflow: hidden; font: 500 11px/1.2 Georgia, serif; text-overflow: ellipsis; white-space: nowrap; }
+.solar-year-strip b { color: #7a5b20; font-size: 8px; font-weight: 800; letter-spacing: .02em; }
 .solar-glyph { display: grid; width: 34px; height: 34px; flex: 0 0 34px; place-items: center; border: 1px solid rgba(190, 139, 43, 0.38); border-radius: 50%; }
 .solar-glyph i { font: 400 18px/1 Georgia, serif; animation: solarPulse 3.8s ease-in-out infinite; }
 
@@ -4570,6 +4578,7 @@ button.pyata-row-label:focus-visible {
 
 .today-event-notice .eyebrow { color: #d8bd80; }
 .today-event-notice h2 { margin: 3px 0 7px; font: 500 22px/1.2 Georgia, "Times New Roman", serif; }
+.solar-notice-time { display: block; margin: -2px 0 8px; color: #ead08f; font-size: 8px; font-weight: 850; letter-spacing: .08em; }
 .today-event-notice p { margin: 4px 0 0; color: #b8c4bf; font-size: 9px; line-height: 1.6; }
 .today-event-notice p strong { color: #f2dfad; }
 .solar-practice-notice { background: linear-gradient(135deg, #322713, #10282a 62%, #07171b); }
@@ -7270,6 +7279,20 @@ button.project-drag-handle:active { cursor: grabbing; }
 .editor-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .editor-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px; }
 .editor-source-note { margin: 0; padding: 10px 12px; color: var(--teal); font-size: 9px; line-height: 1.5; background: rgba(37, 91, 89, .07); border-radius: 8px; }
+.task-series-scope { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 10px; border: 1px solid rgba(178, 138, 74, .24); border-radius: 12px; }
+.task-series-scope legend { padding: 0 6px; color: var(--ink-soft); font-size: 8px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.task-series-scope > div { position: relative; display: grid; }
+.task-series-scope input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.task-series-scope label { display: grid; gap: 3px; padding: 10px 12px; color: var(--ink); background: rgba(255, 253, 248, .8); border: 1px solid var(--line); border-radius: 9px; cursor: pointer; }
+.task-series-scope label strong { font-size: 10px; }
+.task-series-scope label small { color: var(--ink-soft); font-size: 8px; line-height: 1.35; }
+.task-series-scope input:checked + label { color: var(--teal); background: rgba(37, 91, 89, .08); border-color: rgba(37, 91, 89, .38); box-shadow: inset 0 0 0 1px rgba(37, 91, 89, .1); }
+.task-series-delete-modal { width: min(520px, 100%); }
+.task-series-delete-modal > p { margin: 0; color: var(--ink-soft); font-size: 11px; line-height: 1.55; }
+.task-series-delete-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.task-series-delete-actions button,
+.danger-button { padding: 10px 14px; border: 1px solid rgba(37, 91, 89, .2); border-radius: 999px; cursor: pointer; }
+.danger-button { color: #fff; background: var(--terracotta); border-color: var(--terracotta); }
 
 .reminder-field {
   display: grid;
@@ -7628,6 +7651,7 @@ button.project-drag-handle:active { cursor: grabbing; }
   .task-list-manager-items article { grid-template-columns: 13px minmax(0, 1fr); }
   .task-list-manager-items article > label { grid-column: 2; }
   .editor-grid { grid-template-columns: 1fr; }
+  .task-series-scope { grid-template-columns: 1fr; }
   .editor-modal { padding: 26px 18px 22px; border-radius: 5px 22px 5px 22px; }
   .editor-actions { position: sticky; bottom: -22px; margin-inline: -18px; padding: 12px 18px 22px; background: linear-gradient(transparent, var(--surface) 28%); }
   .custom-reminder-modal { padding: 26px 18px 22px; border-radius: 5px 22px 5px 22px; }

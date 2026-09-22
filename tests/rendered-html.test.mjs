@@ -8,6 +8,7 @@ import {
   reminderMinutesBeforeTask,
 } from "../app/task-reminders.ts";
 import { formatClockTime, formatTimeValue, hourFromTwelveHour, twelveHourParts } from "../app/time-format.ts";
+import { cleanTaskDescription } from "../app/task-description.ts";
 import { DAY_RHYTHM_PERIODS, formatDayRhythmRange, getDayRhythmMoment } from "../app/day-rhythm.ts";
 import { THEOKYKLOS_DIRECTION_IDS, THEOKYKLOS_SEGMENTS } from "../app/theokyklos-data.ts";
 import {
@@ -882,6 +883,15 @@ test("habit settings remain editable while scoring and first tracking identity s
   assert.equal(updated.sacredSectorId, previous.sacredSectorId);
   assert.equal(updated.scoringMode, previous.scoringMode);
   assert.equal(updated.qualityScale, previous.qualityScale);
+});
+
+test("removes legacy GENESIS metadata from user-visible task descriptions", () => {
+  const legacy = "Только пользовательский текст\r\n\r\n— GENESIS —\r\nПриоритет: 10\r\nGENESIS-DATA:eyJ0YXNrSWQiOiIxIn0";
+  assert.equal(cleanTaskDescription(legacy), "Только пользовательский текст");
+  assert.equal(cleanTaskDescription("Заметка\nПриоритет: 10\nGENESIS-DATA:eyJ4IjoxfQ"), "Заметка");
+  assert.equal(cleanTaskDescription("Заметка\nСоздано в GENESIS\nПриоритет: 10\nGENESIS-DATA:eyJ4IjoxfQ"), "Заметка");
+  assert.equal(cleanTaskDescription("Пользователь написал GENESIS в обычном тексте"), "Пользователь написал GENESIS в обычном тексте");
+  assert.equal(cleanTaskDescription("Пользователь написал\n— GENESIS —\nобычную заметку"), "Пользователь написал\n— GENESIS —\nобычную заметку");
 });
 
 test("lifetime XP follows four overture, twelve heroic and twelve hidden ranks without moving backwards", () => {
@@ -2213,8 +2223,14 @@ test("keeps the requested calendar and privacy features wired", async () => {
     readFile(new URL("../app/time-format.ts", import.meta.url), "utf8"),
     readFile(new URL("../server/migrations/009_user_time_format.sql", import.meta.url), "utf8"),
   ]);
+  const [trackerCore, taskDescription] = await Promise.all([
+    readFile(new URL("../app/tracker-core.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/task-description.ts", import.meta.url), "utf8"),
+  ]);
 
   assert.match(calendarData, /getSolarEvents/);
+  assert.match(calendarData, /const seasons = Seasons\(sacredYear\)/);
+  assert.match(calendarData, /formatSolarEventTime/);
   assert.match(calendarData, /summer-solstice/);
   assert.match(calendarData, /calendarDateNote/);
   assert.match(calendarData, /normalizeCalendarDateNote/);
@@ -2661,7 +2677,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(recurrenceBuilder, /Будни/);
   assert.match(recurrenceBuilder, /Выходные/);
   assert.match(recurrenceBuilder, /Google Tasks/);
-  assert.match(recurrenceBuilder, /Google Tasks API не поддерживает создание повторяющейся задачи/);
+  assert.match(recurrenceBuilder, /Google Tasks не поддерживает серии/);
   assert.match(recurrenceBuilder, /одно повторяющееся событие/);
   assert.match(recurrenceBuilder, /aria-pressed=\{selected\}/);
   assert.match(recurrenceBuilder, /recurrence-inherited-mode/);
@@ -2671,6 +2687,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.doesNotMatch(recurrenceBuilder, /const setMode/);
   assert.match(taskRecurrence, /buildRecurrenceDates/);
   assert.match(taskRecurrence, /recurrenceDatesForTask/);
+  assert.match(taskRecurrence, /recurrenceExcludedDates/);
   assert.match(taskRecurrence, /alignRecurrenceConfigWithCalendar/);
   assert.match(taskRecurrence, /calendarMode === "profane"\) return "classic"/);
   assert.match(taskRecurrence, /calendarMode === "lunar"\) return "lunar"/);
@@ -2684,6 +2701,13 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(taskRecurrence, /MAX_RECURRENCE_OCCURRENCES/);
   assert.match(taskRecurrence, /cursor <= end/);
   assert.match(taskRecurrence, /selectedDays\.has/);
+  assert.match(calendar, /task-series-scope/);
+  assert.match(calendar, /Только этот день/);
+  assert.match(calendar, /Вся серия/);
+  assert.match(calendar, /taskSeriesAfterExcludingOccurrence/);
+  assert.match(trackerCore, /normalizeRecurrenceConfig\(\{ \.\.\.fallback, \.\.\.value\.recurrence \}\)/);
+  assert.doesNotMatch(trackerCore, /alignRecurrenceConfigWithCalendar\(\{ \.\.\.fallback, \.\.\.value\.recurrence \}/);
+  assert.match(taskDescription, /GENESIS-DATA/);
   assert.match(calendar, /calendar-sun-times/);
   assert.doesNotMatch(calendar, /navigator\.geolocation/);
   assert.doesNotMatch(calendar, /requestDeviceLocation/);
@@ -2844,7 +2868,11 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(google, /genesisDeleteGoogleTaskList/);
   assert.match(google, /genesisSource/);
   assert.match(google, /'google-calendar'/);
-  assert.match(google, /— GENESIS —/);
+  assert.match(google, /genesisCleanTaskDescription/);
+  assert.match(google, /GoogleCalendarMetadataCleanup/);
+  assert.match(google, /GoogleTasksMetadataCleanup/);
+  assert.match(google, /'description' => \$description/);
+  assert.match(google, /return genesisCleanTaskDescription\(\$task\['description'\] \?\? ''\);/);
   assert.match(google, /genesisGoogleTasksApi\(\s*'PATCH'/);
   assert.match(google, /genesisClientTimeZone/);
   assert.match(google, /genesisEndDate/);

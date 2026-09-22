@@ -158,6 +158,26 @@ try {
     ], 'Relative and absolute reminders were not converted for Google Calendar.');
     expect(genesisNormalizeTaskReminders([], 10) === [['kind' => 'relative', 'minutes' => 10]], 'Legacy reminders were not migrated.');
 
+    $legacyDescription = "Пользовательский текст\r\n\r\n— GENESIS —\r\nПриоритет: 10\r\nGENESIS-DATA:eyJ0YXNrSWQiOiIxIn0";
+    expect(genesisHasLegacyTaskDescriptionMetadata($legacyDescription), 'Legacy GENESIS metadata was not detected for migration.');
+    expect(genesisCleanTaskDescription($legacyDescription) === 'Пользовательский текст', 'Legacy GENESIS metadata leaked into a visible description.');
+    $partialLegacyDescription = "Пользовательский текст\nСоздано в GENESIS\nПриоритет: 10\nGENESIS-DATA:eyJ0YXNrSWQiOiIxIn0";
+    expect(genesisCleanTaskDescription($partialLegacyDescription) === 'Пользовательский текст', 'Partial legacy GENESIS metadata leaked into a visible description.');
+    $decodedLegacyNotes = genesisDecodeTaskNotes($partialLegacyDescription);
+    expect(($decodedLegacyNotes['metadata']['taskId'] ?? null) === '1', 'Partial legacy task metadata was not recovered before cleanup.');
+    expect(!genesisHasLegacyTaskDescriptionMetadata("Пользователь написал\n— GENESIS —\nобычную заметку"), 'Ordinary user text was mistaken for legacy metadata.');
+    expect(genesisTaskNotesForGoogle('task-clean-notes', ['description' => $legacyDescription]) === 'Пользовательский текст', 'Google Tasks notes must contain user text only.');
+    $cleanEvent = genesisTaskPayloadForGoogle('task-clean-event', [
+        'title' => 'Чистое описание',
+        'description' => $legacyDescription,
+        'dueDate' => '2026-10-01',
+        'endDate' => '2026-10-01',
+        'priority' => 10,
+        'reminders' => [],
+    ]);
+    expect(($cleanEvent['description'] ?? null) === 'Пользовательский текст', 'Google Calendar description must contain user text only.');
+    expect(($cleanEvent['extendedProperties']['private']['genesisPriority'] ?? null) === '10', 'Hidden Calendar metadata was not preserved.');
+
     $calendarRecurrence = genesisGoogleRecurrenceLines([
         'recurrenceMode' => 'genesis',
         'recurrenceSeriesId' => null,

@@ -1322,5 +1322,13 @@
   "Еда и напитки": "Food & drink",
   "Движение и места": "Travel & places",
   "Знаки": "Symbols",
+  "Удаление повторяющейся задачи": "Delete recurring task",
+  "Что удалить?": "What should be deleted?",
+  "Можно убрать только выбранный день или всю серию вместе со всеми её повторениями.": "You can remove only the selected day or the entire series with all its recurrences.",
+  "Только этот день": "Only this day",
+  "Всю серию": "Entire series",
+  "Область изменений": "Apply changes to",
+  "Вся серия": "Entire series",
+  "Изменить все повторения одной задачей": "Update every recurrence as one task",
   "__manual_catalog__": "manual"
 }

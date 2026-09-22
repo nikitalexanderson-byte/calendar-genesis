@@ -665,21 +665,16 @@ export function dateKey(monthIndex: number, day: number) {
 }
 
 const SOLAR_DEFINITIONS = [
-  { id: "spring-equinox", name: "Весеннее равноденствие", shortName: "Равноденствие", kind: "equinox", symbol: "☼", coefficient: [2451623.80984, 365242.37404, 0.05169, -0.00411, -0.00057] },
-  { id: "summer-solstice", name: "Летнее солнцестояние", shortName: "Солнцестояние", kind: "solstice", symbol: "✺", coefficient: [2451716.56767, 365241.62603, 0.00325, 0.00888, -0.00030] },
-  { id: "autumn-equinox", name: "Осеннее равноденствие", shortName: "Равноденствие", kind: "equinox", symbol: "☉", coefficient: [2451810.21715, 365242.01767, -0.11575, 0.00337, 0.00078] },
-  { id: "winter-solstice", name: "Зимнее солнцестояние", shortName: "Солнцестояние", kind: "solstice", symbol: "✹", coefficient: [2451900.05952, 365242.74049, -0.06223, -0.00823, 0.00032] },
+  { id: "spring-equinox", name: "Весеннее равноденствие", shortName: "Равноденствие", kind: "equinox", symbol: "☼", seasonKey: "mar_equinox" },
+  { id: "summer-solstice", name: "Летнее солнцестояние", shortName: "Солнцестояние", kind: "solstice", symbol: "✺", seasonKey: "jun_solstice" },
+  { id: "autumn-equinox", name: "Осеннее равноденствие", shortName: "Равноденствие", kind: "equinox", symbol: "☉", seasonKey: "sep_equinox" },
+  { id: "winter-solstice", name: "Зимнее солнцестояние", shortName: "Солнцестояние", kind: "solstice", symbol: "✹", seasonKey: "dec_solstice" },
 ] as const;
 
-function solarDate(year: number, coefficient: readonly number[]) {
-  const t = (year - 2000) / 1000;
-  const julianDay = coefficient.reduce((sum, value, power) => sum + value * (t ** power), 0);
-  return new Date((julianDay - 2440587.5) * DAY_MS);
-}
-
 export function getSolarEvents(sacredYear: number): SolarEvent[] {
+  const seasons = Seasons(sacredYear);
   return SOLAR_DEFINITIONS.map((definition) => {
-    const date = solarDate(sacredYear, definition.coefficient);
+    const date = new Date(seasons[definition.seasonKey].date);
     const sacred = getSacredDate(date);
     return {
       id: definition.id,
@@ -692,6 +687,14 @@ export function getSolarEvents(sacredYear: number): SolarEvent[] {
       day: sacred.day,
     };
   });
+}
+
+export function formatSolarEventTime(date: Date, locale = runtimeLocale()) {
+  return new Intl.DateTimeFormat(locale, {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZoneName: "short",
+  }).format(date);
 }
 
 export function getSolarEvent(sacredYear: number, monthIndex: number, day: number) {

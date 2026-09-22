@@ -1,6 +1,6 @@
 import type { CalendarMode } from "./calendar-data";
 import {
-  alignRecurrenceConfigWithCalendar,
+  normalizeRecurrenceConfig,
   recurrenceMatchesDate,
   recurrenceModeForCalendar,
   suggestedRecurrenceDays,
@@ -95,8 +95,11 @@ export function normalizeTrackerSchedule(
   const startDate = DATE_PATTERN.test(value?.startDate ?? "") ? value!.startDate! : fallbackDate;
   const endDate = DATE_PATTERN.test(value?.endDate ?? "") && value!.endDate! >= startDate ? value!.endDate! : null;
   const fallback = defaultTrackerRecurrence(startDate, calendarMode);
+  // A saved tracker schedule owns its calendar mode. Re-aligning it with the
+  // account's temporarily loaded mode used to replace saved weekdays with the
+  // start day's value (commonly Friday) during app startup.
   const recurrence = value?.recurrence && typeof value.recurrence === "object"
-    ? alignRecurrenceConfigWithCalendar({ ...fallback, ...value.recurrence }, calendarMode, startDate)
+    ? normalizeRecurrenceConfig({ ...fallback, ...value.recurrence })
     : fallback;
   return {
     startDate,
@@ -116,8 +119,9 @@ export function isTrackerScheduledForDate(
   date: string,
   calendarMode: CalendarMode,
 ) {
+  void calendarMode;
   if (date < schedule.startDate || (schedule.endDate && date > schedule.endDate)) return false;
-  const recurrence = alignRecurrenceConfigWithCalendar(schedule.recurrence, calendarMode, schedule.startDate);
+  const recurrence = normalizeRecurrenceConfig(schedule.recurrence);
   return recurrenceMatchesDate(
     schedule.startDate,
     { ...recurrence, rangeStart: schedule.startDate, rangeEnd: schedule.endDate ?? "" },
