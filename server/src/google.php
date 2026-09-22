@@ -281,22 +281,6 @@ function genesisGoogleLanguage(array $source): string
     return ($source['_language'] ?? $source['language'] ?? 'ru') === 'en' ? 'en' : 'ru';
 }
 
-function genesisTaskOriginLabel(string $origin, string $language = 'ru'): string
-{
-    if ($language === 'en') {
-        return match ($origin) {
-            'google-calendar' => 'Created in Google Calendar',
-            'google-tasks' => 'Created in Google Tasks',
-            default => 'Created in GENESIS',
-        };
-    }
-    return match ($origin) {
-        'google-calendar' => 'Создано в Google Calendar',
-        'google-tasks' => 'Создано в Google Tasks',
-        default => 'Создано в GENESIS',
-    };
-}
-
 function genesisNormalizeTaskReminders(mixed $value, mixed $legacyReminderMinutes = null): array
 {
     $source = is_array($value) ? $value : [];
@@ -407,8 +391,6 @@ function genesisGoogleRecurrenceLines(array $task, string $dueDate, string $time
 
 function genesisTaskPayloadForGoogle(string $taskId, array $task): array
 {
-    $language = genesisGoogleLanguage($task);
-    $english = $language === 'en';
     $timezone = genesisClientTimeZone();
     $timezoneName = $timezone->getName();
     $title = mb_substr(trim((string)($task['title'] ?? '')), 0, 500);
@@ -452,24 +434,18 @@ function genesisTaskPayloadForGoogle(string $taskId, array $task): array
     )));
     sort($recurrencePyatas);
     $recurrenceSeriesId = mb_substr(trim((string)($task['recurrenceSeriesId'] ?? '')), 0, 100);
+    $recurrenceExcludedDates = array_values(array_filter(
+        genesisStringList($task['recurrenceExcludedDates'] ?? [], 500),
+        static fn(string $date): bool => preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) === 1,
+    ));
     $project = mb_substr(trim((string)($task['project'] ?? '')), 0, 300);
-    $description = mb_substr(trim((string)($task['description'] ?? '')), 0, 5000);
+    $description = genesisCleanTaskDescription($task['description'] ?? '');
     $calendarMode = in_array($task['calendarMode'] ?? '', ['profane', 'sacred', 'lunar'], true) ? (string)$task['calendarMode'] : 'profane';
     $calendarNote = mb_substr(trim((string)($task['calendarNote'] ?? '')), 0, 1200);
     if ($calendarMode === 'profane') {
         $calendarNote = '';
     }
     $createdIn = genesisTaskOrigin($task['createdIn'] ?? null);
-    $metadataDescription = trim(implode("\n", array_filter([
-        genesisTaskOriginLabel($createdIn, $language),
-        ($english ? 'Due: ' : 'Срок: ') . $dueDate . ($endDate !== $dueDate ? ' — ' . $endDate : ''),
-        $project !== '' ? ($english ? 'Project: ' : 'Проект: ') . $project : '',
-        $tags ? ($english ? 'Tags: ' : 'Теги: ') . implode(' ', array_map(static fn(string $tag): string => '#' . $tag, $tags)) : '',
-        ($english ? 'Priority: ' : 'Приоритет: ') . $priority,
-        $dependsOn ? ($english ? 'Linked tasks: ' : 'Связанных задач: ') . count($dependsOn) : '',
-        $calendarNote,
-    ])));
-    $visibleDescription = trim($description . ($metadataDescription !== '' ? "\n\n— GENESIS —\n" . $metadataDescription : ''));
     $private = [
         'genesisTaskId' => $taskId,
         'genesisDone' => $done ? '1' : '0',
@@ -488,6 +464,7 @@ function genesisTaskPayloadForGoogle(string $taskId, array $task): array
         'genesisCycleEnd' => $recurrenceEndDate,
         'genesisCycleMonths' => genesisBase64Url(json_encode($recurrenceMonths, JSON_THROW_ON_ERROR)),
         'genesisCyclePyatas' => genesisBase64Url(json_encode($recurrencePyatas, JSON_THROW_ON_ERROR)),
+        'genesisExcludedDates' => genesisBase64Url(json_encode($recurrenceExcludedDates, JSON_THROW_ON_ERROR)),
         'genesisSeriesId' => $recurrenceSeriesId,
         'genesisPriority' => (string)$priority,
         'genesisSource' => $createdIn,
@@ -499,7 +476,7 @@ function genesisTaskPayloadForGoogle(string $taskId, array $task): array
     ];
     $event = [
         'summary' => ($done ? '✓ ' : '') . $title,
-        'description' => $visibleDescription,
+        'description' => $description,
         'extendedProperties' => ['private' => $private],
         'reminders' => $reminderOverrides
             ? ['useDefault' => false, 'overrides' => $reminderOverrides]
@@ -574,9 +551,8 @@ function genesisDecodeTaskReminders(string $value, array $eventReminders): array
 
 function genesisDecodeTaskNotes(string $notes): array
 {
-    $parts = explode("\n\n— GENESIS —\n", $notes, 2);
     $metadata = [];
-    if (isset($parts[1]) && preg_match('/^GENESIS-DATA:([A-Za-z0-9_-]+)$/m', $parts[1], $match)) {
+    if (preg_match('/^GENESIS-DATA:([A-Za-z0-9_-]+)$/m', str_replace("\r", '', $notes), $match)) {
         $value = $match[1];
         $padding = (4 - strlen($value) % 4) % 4;
         $decoded = base64_decode(strtr($value . str_repeat('=', $padding), '-_', '+/'), true);
@@ -584,58 +560,79 @@ function genesisDecodeTaskNotes(string $notes): array
         $metadata = is_array($parsed) ? $parsed : [];
     }
     return [
-        'description' => mb_substr(trim($parts[0]), 0, 5000),
+        'description' => genesisCleanTaskDescription($notes),
         'metadata' => $metadata,
     ];
 }
 
+function genesisIsLegacyTaskMetadataLine(string $line): bool
+{
+    return preg_match('/^\s*(?:(?:Приоритет|Priority|Срок|Due|Проект|Project|Теги|Tags|Связанных задач|Linked tasks)\s*:|(?:Создано в|Created in)\s+(?:GENESIS|Google Calendar|Google Tasks)\s*$)/iu', $line) === 1;
+}
+
+function genesisHasLegacyTaskDescriptionMetadata(mixed $value): bool
+{
+    $lines = preg_split('/\R/u', str_replace("\r", '', (string)$value)) ?: [];
+    foreach ($lines as $index => $line) {
+        if (preg_match('/^\s*GENESIS-DATA:[A-Za-z0-9_-]+\s*$/u', $line) === 1) {
+            return true;
+        }
+        if (preg_match('/^\s*[—–-]\s*GENESIS\s*[—–-]\s*$/iu', $line) !== 1) {
+            continue;
+        }
+        foreach (array_slice($lines, $index + 1) as $candidate) {
+            if (genesisIsLegacyTaskMetadataLine($candidate)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+function genesisCleanTaskDescription(mixed $value): string
+{
+    $description = str_replace("\r", '', (string)$value);
+    $lines = preg_split('/\R/u', $description) ?: [];
+    foreach ($lines as $index => $line) {
+        if (preg_match('/^\s*[—–-]\s*GENESIS\s*[—–-]\s*$/iu', $line) !== 1) {
+            continue;
+        }
+        $hasMetadataAfterMarker = array_filter(
+            array_slice($lines, $index + 1),
+            static fn(string $candidate): bool => genesisIsLegacyTaskMetadataLine($candidate)
+                || preg_match('/^\s*GENESIS-DATA:[A-Za-z0-9_-]+\s*$/u', $candidate) === 1,
+        ) !== [];
+        if ($hasMetadataAfterMarker) {
+            return mb_substr(trim(implode("\n", array_slice($lines, 0, $index))), 0, 5000);
+        }
+    }
+    $dataIndex = null;
+    foreach ($lines as $index => $line) {
+        if (preg_match('/^\s*GENESIS-DATA:[A-Za-z0-9_-]+\s*$/u', $line) === 1) {
+            $dataIndex = $index;
+            break;
+        }
+    }
+    if ($dataIndex === null) {
+        return mb_substr(trim($description), 0, 5000);
+    }
+    $blockStart = $dataIndex;
+    while ($blockStart > 0) {
+        $previous = $lines[$blockStart - 1];
+        $metadataLine = genesisIsLegacyTaskMetadataLine($previous);
+        if (trim($previous) === '' || $metadataLine) {
+            $blockStart -= 1;
+            continue;
+        }
+        break;
+    }
+    array_splice($lines, $blockStart, $dataIndex - $blockStart + 1);
+    return mb_substr(trim(implode("\n", $lines)), 0, 5000);
+}
+
 function genesisTaskNotesForGoogle(string $taskId, array $task): string
 {
-    $language = genesisGoogleLanguage($task);
-    $english = $language === 'en';
-    $description = mb_substr(trim((string)($task['description'] ?? '')), 0, 5000);
-    $project = mb_substr(trim((string)($task['project'] ?? '')), 0, 300);
-    $tags = genesisStringList($task['tags'] ?? [], 10);
-    $createdIn = genesisTaskOrigin($task['createdIn'] ?? null);
-    $startDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($task['dueDate'] ?? '')) ? (string)$task['dueDate'] : '';
-    $endDate = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($task['endDate'] ?? '')) ? (string)$task['endDate'] : $startDate;
-    $data = [
-        'taskId' => mb_substr($taskId, 0, 100),
-        'createdIn' => $createdIn,
-        'project' => $project,
-        'projectId' => mb_substr((string)($task['projectId'] ?? ''), 0, 100),
-        'categoryId' => mb_substr((string)($task['categoryId'] ?? ''), 0, 100),
-        'tags' => $tags,
-        'dependsOnIds' => genesisStringList($task['dependsOnIds'] ?? [], 30),
-        'priority' => genesisClampInt($task['priority'] ?? 5, 1, 10, 5),
-        'startDate' => $startDate,
-        'endDate' => $endDate,
-        'time' => preg_match('/^\d{2}:\d{2}$/', (string)($task['time'] ?? '')) ? (string)$task['time'] : '',
-        'recurrenceInterval' => genesisClampInt($task['recurrenceInterval'] ?? 1, 1, 99, 1),
-        'recurrenceMode' => in_array($task['recurrenceMode'] ?? '', ['none', 'genesis', 'classic', 'lunar'], true) ? (string)$task['recurrenceMode'] : 'none',
-        'recurrencePattern' => in_array($task['recurrencePattern'] ?? '', ['none', 'daily', 'weekdays', 'monthly', 'yearly', 'pyata-days', 'month-days', 'lunar-days'], true) ? (string)$task['recurrencePattern'] : 'none',
-        'recurrenceDays' => array_map('intval', genesisStringList($task['recurrenceDays'] ?? [], 30)),
-        'recurrenceStartDate' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($task['recurrenceStartDate'] ?? '')) ? (string)$task['recurrenceStartDate'] : '',
-        'recurrenceEndDate' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($task['recurrenceEndDate'] ?? '')) ? (string)$task['recurrenceEndDate'] : '',
-        'recurrenceMonths' => array_map('intval', genesisStringList($task['recurrenceMonths'] ?? [], 72)),
-        'recurrencePyatas' => array_map('intval', genesisStringList($task['recurrencePyatas'] ?? [], 6)),
-        'recurrenceSeriesId' => mb_substr(trim((string)($task['recurrenceSeriesId'] ?? '')), 0, 100),
-        'calendarMode' => in_array($task['calendarMode'] ?? '', ['profane', 'sacred', 'lunar'], true) ? (string)$task['calendarMode'] : 'profane',
-        'calendarNote' => mb_substr(trim((string)($task['calendarNote'] ?? '')), 0, 1200),
-    ];
-    if ($data['calendarMode'] === 'profane') {
-        $data['calendarNote'] = '';
-    }
-    $metadataLines = array_filter([
-        genesisTaskOriginLabel($createdIn, $language),
-        $startDate !== '' ? ($english ? 'Due: ' : 'Срок: ') . $startDate . ($endDate !== $startDate ? ' — ' . $endDate : '') : '',
-        $project !== '' ? ($english ? 'Project: ' : 'Проект: ') . $project : '',
-        $tags ? ($english ? 'Tags: ' : 'Теги: ') . implode(' ', array_map(static fn(string $tag): string => '#' . $tag, $tags)) : '',
-        ($english ? 'Priority: ' : 'Приоритет: ') . $data['priority'],
-        $data['calendarNote'],
-        'GENESIS-DATA:' . genesisBase64Url(json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)),
-    ]);
-    return mb_substr(trim($description . "\n\n— GENESIS —\n" . implode("\n", $metadataLines)), 0, 8192);
+    return genesisCleanTaskDescription($task['description'] ?? '');
 }
 
 function genesisGoogleEventForClient(array $event): ?array
@@ -686,8 +683,7 @@ function genesisGoogleEventForClient(array $event): ?array
     }
     if ($endDate < $dueDate) $endDate = $dueDate;
     $sacred = genesisSacredFromDate($dueDate);
-    $rawDescription = (string)($event['description'] ?? '');
-    $description = trim(explode("\n\n— GENESIS —\n", $rawDescription, 2)[0]);
+    $description = genesisCleanTaskDescription($event['description'] ?? '');
     $reminders = genesisDecodeTaskReminders(
         (string)($private['genesisReminders'] ?? ''),
         is_array($event['reminders'] ?? null) ? $event['reminders'] : [],
@@ -728,6 +724,10 @@ function genesisGoogleEventForClient(array $event): ?array
         'recurrenceEndDate' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($private['genesisCycleEnd'] ?? '')) ? (string)$private['genesisCycleEnd'] : null,
         'recurrenceMonths' => genesisDecodeBase64IntJson((string)($private['genesisCycleMonths'] ?? ''), 1, 72),
         'recurrencePyatas' => genesisDecodeBase64IntJson((string)($private['genesisCyclePyatas'] ?? ''), 1, 6),
+        'recurrenceExcludedDates' => array_values(array_filter(
+            genesisDecodeBase64Json((string)($private['genesisExcludedDates'] ?? '')),
+            static fn(string $date): bool => preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) === 1,
+        )),
         'recurrenceSeriesId' => ($private['genesisSeriesId'] ?? '') !== '' ? (string)$private['genesisSeriesId'] : null,
         'calendarMode' => in_array($private['genesisCalendarMode'] ?? '', ['profane', 'sacred', 'lunar'], true) ? (string)$private['genesisCalendarMode'] : 'profane',
         'calendarNote' => mb_substr(genesisDecodeBase64String((string)($private['genesisCalendarNote'] ?? '')), 0, 1200),
@@ -798,6 +798,7 @@ function genesisGoogleNativeTaskForClient(array $task, string $taskListId, strin
         'recurrenceEndDate' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($metadata['recurrenceEndDate'] ?? '')) ? (string)$metadata['recurrenceEndDate'] : null,
         'recurrenceMonths' => array_values(array_filter(array_map('intval', is_array($metadata['recurrenceMonths'] ?? null) ? $metadata['recurrenceMonths'] : []), static fn(int $month): bool => $month >= 1 && $month <= 72)),
         'recurrencePyatas' => array_values(array_filter(array_map('intval', is_array($metadata['recurrencePyatas'] ?? null) ? $metadata['recurrencePyatas'] : []), static fn(int $pyata): bool => $pyata >= 1 && $pyata <= 6)),
+        'recurrenceExcludedDates' => [],
         'recurrenceSeriesId' => ($metadata['recurrenceSeriesId'] ?? '') !== '' ? mb_substr((string)$metadata['recurrenceSeriesId'], 0, 100) : null,
         'calendarMode' => in_array($metadata['calendarMode'] ?? '', ['profane', 'sacred', 'lunar'], true) ? (string)$metadata['calendarMode'] : 'profane',
         'calendarNote' => mb_substr(trim((string)($metadata['calendarNote'] ?? '')), 0, 1200),
@@ -868,6 +869,7 @@ function genesisListGoogleNativeTasks(array $user, array $taskLists): array
     }
 
     $tasks = [];
+    $legacyNotesToClean = [];
     foreach ($taskLists as $taskList) {
         $taskListId = (string)$taskList['id'];
         $taskListTitle = trim((string)($taskList['title'] ?? 'Google Tasks')) ?: 'Google Tasks';
@@ -892,12 +894,35 @@ function genesisListGoogleNativeTasks(array $user, array $taskLists): array
                 if ($clientTask !== null) {
                     $tasks[] = $clientTask;
                 }
+                if (
+                    count($legacyNotesToClean) < 50
+                    && !empty($task['id'])
+                    && genesisHasLegacyTaskDescriptionMetadata($task['notes'] ?? '')
+                ) {
+                    $legacyNotesToClean[] = [
+                        'taskListId' => $taskListId,
+                        'taskId' => (string)$task['id'],
+                        'notes' => genesisCleanTaskDescription($task['notes'] ?? ''),
+                    ];
+                }
                 if (count($tasks) >= 5000) {
                     break 3;
                 }
             }
             $pageToken = $result['nextPageToken'] ?? null;
         } while (is_string($pageToken) && $pageToken !== '');
+    }
+    foreach ($legacyNotesToClean as $legacyTask) {
+        try {
+            genesisGoogleTasksApi(
+                'PATCH',
+                '/lists/' . rawurlencode($legacyTask['taskListId']) . '/tasks/' . rawurlencode($legacyTask['taskId']),
+                $user,
+                ['notes' => $legacyTask['notes']],
+            );
+        } catch (Throwable $cleanupError) {
+            genesisLogError('[GoogleTasksMetadataCleanup] ' . $cleanupError->getMessage(), $cleanupError);
+        }
     }
     return $tasks;
 }
@@ -1034,6 +1059,21 @@ function genesisGoogleNativeTaskPayload(string $taskId, array $task): array
     return $payload;
 }
 
+function genesisNativeGoogleTaskAfterSave(array $clientTask, array $sourceTask, string $taskId): array
+{
+    return array_merge($clientTask, $sourceTask, [
+        'id' => $taskId,
+        'description' => genesisCleanTaskDescription($sourceTask['description'] ?? ''),
+        'googleEventId' => null,
+        'googleTaskId' => $clientTask['googleTaskId'] ?? null,
+        'googleTaskListId' => $clientTask['googleTaskListId'] ?? null,
+        'googleTaskListTitle' => $clientTask['googleTaskListTitle'] ?? '',
+        'done' => $clientTask['done'] ?? !empty($sourceTask['done']),
+        'completedAt' => $clientTask['completedAt'] ?? ($sourceTask['completedAt'] ?? null),
+        'updatedAt' => $clientTask['updatedAt'] ?? (int)(microtime(true) * 1000),
+    ]);
+}
+
 function genesisSyncNativeGoogleTask(array $user, string $userId, array $task): array
 {
     if (!genesisGoogleScopeGranted($user, GENESIS_GOOGLE_TASKS_SCOPE)) {
@@ -1056,7 +1096,7 @@ function genesisSyncNativeGoogleTask(array $user, string $userId, array $task): 
         throw new RuntimeException('Google Tasks did not return the saved task.');
     }
     genesisTouchUser($userId);
-    return $clientTask;
+    return genesisNativeGoogleTaskAfterSave($clientTask, $task, (string)($task['id'] ?? $clientTask['id']));
 }
 
 function genesisCreateNativeGoogleTask(array $user, string $userId, string $taskId, array $task): array
@@ -1080,7 +1120,7 @@ function genesisCreateNativeGoogleTask(array $user, string $userId, string $task
         throw new RuntimeException('Google Tasks did not return the created task.');
     }
     genesisTouchUser($userId);
-    return $clientTask;
+    return genesisNativeGoogleTaskAfterSave($clientTask, $task, $taskId);
 }
 
 function genesisTaskListAccount(string $userId, ?string $accountId): array
@@ -1366,6 +1406,7 @@ function genesisListGoogleTasks(array $user): array
     }
     $user = genesisEnsureGoogleCalendar($user);
     $tasks = [];
+    $legacyDescriptionsToClean = [];
     $pageToken = null;
     do {
         $query = [
@@ -1381,6 +1422,17 @@ function genesisListGoogleTasks(array $user): array
             if (!is_array($event)) {
                 continue;
             }
+            if (
+                count($legacyDescriptionsToClean) < 50
+                && !empty($event['id'])
+                && empty($event['recurringEventId'])
+                && genesisHasLegacyTaskDescriptionMetadata($event['description'] ?? '')
+            ) {
+                $legacyDescriptionsToClean[] = [
+                    'eventId' => (string)$event['id'],
+                    'description' => genesisCleanTaskDescription($event['description'] ?? ''),
+                ];
+            }
             $task = genesisGoogleEventForClient($event);
             if ($task !== null) {
                 $tasks[] = $task;
@@ -1388,6 +1440,18 @@ function genesisListGoogleTasks(array $user): array
         }
         $pageToken = $result['nextPageToken'] ?? null;
     } while (is_string($pageToken) && $pageToken !== '' && count($tasks) < 10_000);
+    foreach ($legacyDescriptionsToClean as $legacyEvent) {
+        try {
+            genesisGoogleApi(
+                'PATCH',
+                '/calendars/' . rawurlencode((string)$user['google_calendar_id']) . '/events/' . rawurlencode($legacyEvent['eventId']),
+                $user,
+                ['description' => $legacyEvent['description']],
+            );
+        } catch (Throwable $cleanupError) {
+            genesisLogError('[GoogleCalendarMetadataCleanup] ' . $cleanupError->getMessage(), $cleanupError);
+        }
+    }
     if (genesisGoogleScopeGranted($user, GENESIS_GOOGLE_TASKS_SCOPE)) {
         try {
             $taskLists = genesisListGoogleTaskLists($user);

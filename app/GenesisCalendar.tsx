@@ -103,6 +103,7 @@ import {
   calendarDateNote,
   dateKey,
   formatGregorian,
+  formatSolarEventTime,
   formatCalendarDate,
   getDayElement,
   getGregorianDate,
@@ -155,6 +156,7 @@ import {
 } from "./task-recurrence";
 import { legacyReminderMinutes, normalizeTaskReminders, type TaskReminder } from "./task-reminders";
 import { formatClockTime, formatTimeValue, normalizeTimeFormat, type TimeFormat } from "./time-format";
+import { cleanTaskDescription } from "./task-description";
 import {
   DAY_RHYTHM_PERIODS,
   formatDayRhythmRange,
@@ -192,6 +194,50 @@ type StoredState = {
   taskLists: GoogleTaskList[];
   taskListLinks: TaskListProjectLink[];
 } & HabitWorkspace;
+
+function reconcileGoogleTaskMetadata(remoteTasks: Task[], localTasks: Task[]) {
+  const exact = new Map<string, Task>();
+  const simple = new Map<string, Task | null>();
+  localTasks.forEach((task) => {
+    if (!task.googleTaskId || !task.googleTaskListId) return;
+    exact.set(`${task.googleAccountId ?? ""}\0${task.googleTaskListId}\0${task.googleTaskId}`, task);
+    const simpleKey = `${task.googleTaskListId}\0${task.googleTaskId}`;
+    simple.set(simpleKey, simple.has(simpleKey) ? null : task);
+  });
+  return remoteTasks.map((remote) => {
+    if (!remote.googleTaskId || !remote.googleTaskListId) return remote;
+    const local = exact.get(`${remote.googleAccountId ?? ""}\0${remote.googleTaskListId}\0${remote.googleTaskId}`)
+      ?? simple.get(`${remote.googleTaskListId}\0${remote.googleTaskId}`);
+    if (!local) return remote;
+    return {
+      ...remote,
+      id: local.id,
+      project: local.project,
+      projectId: local.projectId,
+      categoryId: local.categoryId,
+      tags: [...local.tags],
+      dependsOnIds: [...local.dependsOnIds],
+      priority: local.priority,
+      time: local.time,
+      recurrence: local.recurrence,
+      recurrenceInterval: local.recurrenceInterval,
+      recurrenceMode: local.recurrenceMode,
+      recurrencePattern: local.recurrencePattern,
+      recurrenceDays: [...local.recurrenceDays],
+      recurrenceStartDate: local.recurrenceStartDate,
+      recurrenceEndDate: local.recurrenceEndDate,
+      recurrenceMonths: [...local.recurrenceMonths],
+      recurrencePyatas: [...local.recurrencePyatas],
+      recurrenceExcludedDates: [...local.recurrenceExcludedDates],
+      recurrenceSeriesId: local.recurrenceSeriesId,
+      calendarMode: local.calendarMode,
+      calendarNote: local.calendarNote,
+      createdIn: local.createdIn,
+      googleLinks: { ...local.googleLinks, ...remote.googleLinks },
+      syncAccountIds: Array.from(new Set([...local.syncAccountIds, ...remote.syncAccountIds])),
+    };
+  });
+}
 
 type SyncStatus =
   | "loading"
@@ -234,6 +280,8 @@ type AlternativeYearMonth = {
 
 type DayDetailsOrigin = "calendar" | "year";
 type SolarLocationStatus = "loading" | "ready";
+type TaskSeriesScope = "occurrence" | "series";
+type PendingTaskDeletion = { taskId: string; occurrenceDate: string };
 
 const LAST_USER_KEY = "genesis-last-user-v2";
 
@@ -458,7 +506,7 @@ function readStoredState(key: string): StoredState {
           dueDate,
           endDate: legacy.endDate || dueDate,
           title: legacy.title ?? "Без названия",
-          description: legacy.description ?? "",
+          description: cleanTaskDescription(legacy.description),
           time: legacy.time ?? "",
           project: legacy.project ?? "",
           projectId: legacy.projectId ?? null,
@@ -479,6 +527,7 @@ function readStoredState(key: string): StoredState {
           recurrenceEndDate: typeof legacy.recurrenceEndDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(legacy.recurrenceEndDate) ? legacy.recurrenceEndDate : null,
           recurrenceMonths: Array.isArray(legacy.recurrenceMonths) ? legacy.recurrenceMonths.map(Number).filter((month) => Number.isInteger(month) && month >= 1 && month <= 72) : [],
           recurrencePyatas: Array.isArray(legacy.recurrencePyatas) ? legacy.recurrencePyatas.map(Number).filter((pyata) => Number.isInteger(pyata) && pyata >= 1 && pyata <= 6) : [],
+          recurrenceExcludedDates: Array.isArray(legacy.recurrenceExcludedDates) ? legacy.recurrenceExcludedDates.filter((date): date is string => typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date)) : [],
           recurrenceSeriesId: typeof legacy.recurrenceSeriesId === "string" && legacy.recurrenceSeriesId ? legacy.recurrenceSeriesId : null,
           calendarMode,
           calendarNote: normalizeCalendarDateNote(legacy.calendarNote ?? "", calendarMode),
@@ -713,64 +762,103 @@ function buildTaskSeries(task: Task, rawConfig: RecurrenceConfig) {
       recurrenceEndDate: null,
       recurrenceMonths: [],
       recurrencePyatas: [],
+      recurrenceExcludedDates: [],
       recurrenceSeriesId: null,
     }];
   }
 
   const dates = buildRecurrenceDates(task.dueDate, config);
-  if (!task.googleTaskListId) {
-    const dueDate = dates[0] ?? task.dueDate;
-    const date = new Date(`${dueDate}T12:00:00`);
-    const sacred = getSacredDate(date);
-    return [{
-      ...task,
-      sacredYear: sacred.sacredYear,
-      monthIndex: sacred.monthIndex,
-      day: sacred.day,
-      dueDate,
-      endDate: shiftRangeEndDate(task.dueDate, task.endDate, dueDate),
-      recurrence: "none" as const,
-      recurrenceInterval: config.interval,
-      recurrenceMode: config.mode,
-      recurrencePattern: config.pattern,
-      recurrenceDays: [...config.days],
-      recurrenceStartDate: config.rangeStart || dueDate,
-      recurrenceEndDate: config.rangeEnd,
-      recurrenceMonths: [...config.months],
-      recurrencePyatas: [...config.pyatas],
-      recurrenceSeriesId: null,
-      calendarNote: calendarDateNote(date, task.calendarMode),
-    }];
-  }
-  const seriesId = `series-${uid()}`;
-  return dates.map((dueDate, index): Task => {
-    const date = new Date(`${dueDate}T12:00:00`);
-    const sacred = getSacredDate(date);
-    return {
-      ...task,
-      id: index === 0 ? task.id : uid(),
-      sacredYear: sacred.sacredYear,
-      monthIndex: sacred.monthIndex,
-      day: sacred.day,
-      dueDate,
-      endDate: shiftRangeEndDate(task.dueDate, task.endDate, dueDate),
-      recurrence: "none",
-      recurrenceInterval: config.interval,
-      recurrenceMode: config.mode,
-      recurrencePattern: config.pattern,
-      recurrenceDays: [...config.days],
-      recurrenceStartDate: config.rangeStart || task.dueDate,
-      recurrenceEndDate: config.rangeEnd,
-      recurrenceMonths: [...config.months],
-      recurrencePyatas: [...config.pyatas],
-      recurrenceSeriesId: seriesId,
-      calendarNote: calendarDateNote(date, task.calendarMode),
-      googleEventId: null,
-      googleTaskId: null,
-      googleLinks: {},
-      updatedAt: timestamp() + index,
-    };
-  });
+  const dueDate = dates[0] ?? task.dueDate;
+  const date = new Date(`${dueDate}T12:00:00`);
+  const sacred = getSacredDate(date);
+  return [{
+    ...task,
+    sacredYear: sacred.sacredYear,
+    monthIndex: sacred.monthIndex,
+    day: sacred.day,
+    dueDate,
+    endDate: shiftRangeEndDate(task.dueDate, task.endDate, dueDate),
+    recurrence: "none" as const,
+    recurrenceInterval: config.interval,
+    recurrenceMode: config.mode,
+    recurrencePattern: config.pattern,
+    recurrenceDays: [...config.days],
+    recurrenceStartDate: config.rangeStart || dueDate,
+    recurrenceEndDate: config.rangeEnd,
+    recurrenceMonths: [...config.months],
+    recurrencePyatas: [...config.pyatas],
+    recurrenceExcludedDates: [],
+    recurrenceSeriesId: null,
+    calendarNote: calendarDateNote(date, task.calendarMode),
+    // Google Tasks has no recurrence API. A recurring task is therefore
+    // stored as one native Google Calendar series instead of N independent tasks.
+    googleTaskListId: null,
+    googleTaskListTitle: "",
+    googleTaskId: null,
+    googleEventId: task.googleTaskListId ? null : task.googleEventId,
+    googleLinks: task.googleTaskListId ? {} : task.googleLinks,
+  }];
+}
+
+function taskForOccurrence(task: Task, occurrenceDate: string) {
+  if (occurrenceDate === task.dueDate) return { ...task };
+  const date = new Date(`${occurrenceDate}T12:00:00`);
+  const sacred = getSacredDate(date);
+  return {
+    ...task,
+    sacredYear: sacred.sacredYear,
+    monthIndex: sacred.monthIndex,
+    day: sacred.day,
+    dueDate: occurrenceDate,
+    endDate: shiftRangeEndDate(task.dueDate, task.endDate, occurrenceDate),
+    calendarNote: calendarDateNote(date, task.calendarMode),
+  };
+}
+
+function standaloneTaskFromOccurrence(task: Task, parentSeriesId: string | null) {
+  return {
+    ...task,
+    recurrence: "none" as const,
+    recurrenceInterval: 1,
+    recurrenceMode: "none" as const,
+    recurrencePattern: "none" as const,
+    recurrenceDays: [],
+    recurrenceStartDate: null,
+    recurrenceEndDate: null,
+    recurrenceMonths: [],
+    recurrencePyatas: [],
+    recurrenceExcludedDates: [],
+    recurrenceSeriesId: parentSeriesId,
+  };
+}
+
+function taskSeriesAfterExcludingOccurrence(task: Task, occurrenceDate: string) {
+  const remainingDates = recurrenceDatesForTask(task).filter((date) => date !== occurrenceDate);
+  if (!remainingDates.length) return null;
+  const nextTask = {
+    ...task,
+    recurrenceExcludedDates: Array.from(new Set([...task.recurrenceExcludedDates, occurrenceDate])).sort(),
+    updatedAt: timestamp(),
+  };
+  return occurrenceDate === task.dueDate ? taskForOccurrence(nextTask, remainingDates[0]) : nextTask;
+}
+
+function taskWithSharedSeriesFields(task: Task, source: Task): Task {
+  return {
+    ...task,
+    title: source.title,
+    description: source.description,
+    time: source.time,
+    project: source.project,
+    projectId: source.projectId,
+    categoryId: source.categoryId,
+    tags: [...source.tags],
+    dependsOnIds: [...source.dependsOnIds],
+    priority: source.priority,
+    reminders: [...source.reminders],
+    reminderMinutes: source.reminderMinutes,
+    updatedAt: timestamp(),
+  };
 }
 
 function taskRangeLabel(task: Task, mode: CalendarMode = "sacred", timeFormat: TimeFormat = "24h") {
@@ -1199,6 +1287,9 @@ export function GenesisCalendar() {
   const [editingProjectTags, setEditingProjectTags] = useState("");
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [editingTaskTags, setEditingTaskTags] = useState("");
+  const [editingTaskScope, setEditingTaskScope] = useState<TaskSeriesScope>("occurrence");
+  const [editingOccurrenceDate, setEditingOccurrenceDate] = useState("");
+  const [pendingTaskDeletion, setPendingTaskDeletion] = useState<PendingTaskDeletion | null>(null);
   const [editingTaskList, setEditingTaskList] = useState<GoogleTaskList | null>(null);
   const [workspaceRecoveryRequest, setWorkspaceRecoveryRequest] = useState<WorkspaceRecoveryRequest | null>(null);
   const [projectDragItem, setProjectDragItem] = useState<ProjectDragItem | null>(null);
@@ -1226,6 +1317,7 @@ export function GenesisCalendar() {
   const dayDetailsDialogRef = useDialogAccessibility<HTMLElement>(() => setDayDetailsOpen(false), dayDetailsOpen);
   const dayTaskCreatorDialogRef = useDialogAccessibility<HTMLElement>(() => { setDayTaskCreatorOpen(false); setDayDetailsOpen(true); }, dayTaskCreatorOpen);
   const taskEditorDialogRef = useDialogAccessibility<HTMLFormElement>(() => setEditingTask(null), Boolean(editingTask));
+  const taskDeleteDialogRef = useDialogAccessibility<HTMLElement>(() => setPendingTaskDeletion(null), Boolean(pendingTaskDeletion));
   const taskListEditorDialogRef = useDialogAccessibility<HTMLFormElement>(() => setEditingTaskList(null), Boolean(editingTaskList));
   const projectEditorDialogRef = useDialogAccessibility<HTMLFormElement>(() => setEditingProject(null), Boolean(editingProject));
   useDocumentLanguage(language);
@@ -1707,7 +1799,8 @@ export function GenesisCalendar() {
           const nextProjects = workspace.hasRemoteStructure ? workspace.projects : local.projects;
           const nextCategories = workspace.hasRemoteStructure ? workspace.categories : local.categories;
           const nextTaskListLinks = workspace.hasRemoteStructure ? workspace.taskListLinks : local.taskListLinks;
-          const nextTasksById = new Map(workspace.tasks.map((task) => [task.id, task]));
+          const reconciledWorkspaceTasks = reconcileGoogleTaskMetadata(workspace.tasks, local.tasks);
+          const nextTasksById = new Map(reconciledWorkspaceTasks.map((task) => [task.id, task]));
           local.tasks.forEach((task) => {
             const remoteTask = nextTasksById.get(task.id);
             if (!remoteTask || (!task.googleTaskId && task.updatedAt > remoteTask.updatedAt)) {
@@ -1740,9 +1833,10 @@ export function GenesisCalendar() {
               user.uid,
               (cloudTasks, cloudTaskLists, fromCache, warning) => {
                 if (!active) return;
+                const reconciledTasks = reconcileGoogleTaskMetadata(cloudTasks, tasksRef.current);
                 const visibleTasks = warning
-                  ? Array.from(new Map([...tasksRef.current, ...cloudTasks].map((task) => [task.id, task])).values())
-                  : cloudTasks;
+                  ? Array.from(new Map([...tasksRef.current, ...reconciledTasks].map((task) => [task.id, task])).values())
+                  : reconciledTasks;
                 tasksRef.current = visibleTasks;
                 setTasks(visibleTasks);
                 setTaskLists(cloudTaskLists);
@@ -1992,6 +2086,7 @@ export function GenesisCalendar() {
       recurrenceEndDate: null,
       recurrenceMonths: [],
       recurrencePyatas: [],
+      recurrenceExcludedDates: [],
       recurrenceSeriesId: null,
       calendarMode: activeTaskCalendarMode,
       calendarNote: calendarDateNote(dueDate, activeTaskCalendarMode),
@@ -2090,6 +2185,7 @@ export function GenesisCalendar() {
         recurrenceEndDate: habit.schedule.endDate ?? (recurrence.rangeEnd || null),
         recurrenceMonths: recurrence.months,
         recurrencePyatas: recurrence.pyatas,
+        recurrenceExcludedDates: [],
         recurrenceSeriesId: null,
         calendarMode: activeTaskCalendarMode,
         calendarNote: calendarDateNote(new Date(`${nextDate}T12:00:00`), activeTaskCalendarMode),
@@ -2244,6 +2340,7 @@ export function GenesisCalendar() {
       recurrenceEndDate: taskRecurrenceConfig.enabled ? taskRecurrenceConfig.rangeEnd || null : null,
       recurrenceMonths: taskRecurrenceConfig.enabled ? [...taskRecurrenceConfig.months] : [],
       recurrencePyatas: taskRecurrenceConfig.enabled ? [...taskRecurrenceConfig.pyatas] : [],
+      recurrenceExcludedDates: [],
       recurrenceSeriesId: null,
       calendarMode: activeTaskCalendarMode,
       calendarNote: calendarDateNote(dueDate, activeTaskCalendarMode),
@@ -2283,9 +2380,60 @@ export function GenesisCalendar() {
     }
   };
 
-  const openTaskEditor = (task: Task) => {
-    setEditingTask({ ...task, tags: [...task.tags], dependsOnIds: [...task.dependsOnIds], reminders: [...task.reminders] });
+  const seriesMembersForTask = (task: Task, source = tasks) => {
+    if (task.recurrenceSeriesId) {
+      const root = source.find((candidate) => candidate.id === task.recurrenceSeriesId);
+      return root
+        ? [root, ...source.filter((candidate) => candidate.recurrenceSeriesId === root.id)]
+        : source.filter((candidate) => candidate.recurrenceSeriesId === task.recurrenceSeriesId);
+    }
+    return [task, ...source.filter((candidate) => candidate.recurrenceSeriesId === task.id)];
+  };
+
+  const taskHasSeries = (task: Task) => recurrenceConfigFromTask(task).enabled || seriesMembersForTask(task).length > 1;
+
+  const openTaskEditor = (task: Task, occurrenceDate = task.dueDate) => {
+    const isSeries = taskHasSeries(task);
+    const draft = isSeries ? taskForOccurrence(task, occurrenceDate) : { ...task };
+    setEditingTask({ ...draft, description: cleanTaskDescription(draft.description), tags: [...draft.tags], dependsOnIds: [...draft.dependsOnIds], reminders: [...draft.reminders] });
     setEditingTaskTags(task.tags.join(", "));
+    setEditingOccurrenceDate(occurrenceDate);
+    setEditingTaskScope(isSeries ? "occurrence" : "series");
+  };
+
+  const changeEditingTaskScope = (scope: TaskSeriesScope) => {
+    if (!editingTask) return;
+    const original = tasks.find((task) => task.id === editingTask.id);
+    if (!original) return;
+    const parentSeries = original.recurrenceSeriesId
+      ? tasks.find((task) => task.id === original.recurrenceSeriesId && recurrenceConfigFromTask(task).enabled)
+      : null;
+    setEditingTaskScope(scope);
+    setEditingTask((current) => {
+      if (!current) return current;
+      const temporal = scope === "occurrence"
+        ? taskForOccurrence(original, editingOccurrenceDate || original.dueDate)
+        : parentSeries ?? original;
+      return {
+        ...current,
+        sacredYear: temporal.sacredYear,
+        monthIndex: temporal.monthIndex,
+        day: temporal.day,
+        dueDate: temporal.dueDate,
+        endDate: temporal.endDate,
+        calendarNote: temporal.calendarNote,
+        recurrence: temporal.recurrence,
+        recurrenceInterval: temporal.recurrenceInterval,
+        recurrenceMode: temporal.recurrenceMode,
+        recurrencePattern: temporal.recurrencePattern,
+        recurrenceDays: [...temporal.recurrenceDays],
+        recurrenceStartDate: temporal.recurrenceStartDate,
+        recurrenceEndDate: temporal.recurrenceEndDate,
+        recurrenceMonths: [...temporal.recurrenceMonths],
+        recurrencePyatas: [...temporal.recurrencePyatas],
+        recurrenceExcludedDates: [...temporal.recurrenceExcludedDates],
+      };
+    });
   };
 
   const persistTaskChange = (original: Task, nextTask: Task) => {
@@ -2322,9 +2470,7 @@ export function GenesisCalendar() {
     if (!editingTask) return;
     const original = tasks.find((task) => task.id === editingTask.id);
     const recurrenceConfig = recurrenceConfigFromTask(editingTask);
-    const taskDraft = !editingTask.googleTaskListId && !editingTask.recurrenceSeriesId && recurrenceConfig.enabled
-      ? buildTaskSeries(editingTask, recurrenceConfig)[0] ?? editingTask
-      : editingTask;
+    const taskDraft = editingTask;
     const title = taskDraft.title.trim();
     if (!original || !title) return;
     if (taskDraft.dueDate < todayDateValue && taskDraft.dueDate !== original.dueDate) {
@@ -2346,7 +2492,7 @@ export function GenesisCalendar() {
     const nextTask: Task = {
       ...taskDraft,
       title,
-      description: taskDraft.description.trim(),
+      description: cleanTaskDescription(taskDraft.description),
       sacredYear: sacred.sacredYear,
       monthIndex: sacred.monthIndex,
       day: sacred.day,
@@ -2363,7 +2509,111 @@ export function GenesisCalendar() {
       syncAccountIds: selectedTaskList?.accountId ? [selectedTaskList.accountId] : taskDraft.syncAccountIds,
       updatedAt: timestamp(),
     };
-    persistTaskChange(original, nextTask);
+
+    const seriesMembers = seriesMembersForTask(original);
+    const parentSeries = original.recurrenceSeriesId
+      ? tasks.find((task) => task.id === original.recurrenceSeriesId && recurrenceConfigFromTask(task).enabled)
+      : null;
+    const originalIsUnifiedSeries = !original.recurrenceSeriesId && recurrenceConfigFromTask(original).enabled;
+    if (taskHasSeries(original) && editingTaskScope === "occurrence" && originalIsUnifiedSeries) {
+      const occurrenceDate = editingOccurrenceDate || original.dueDate;
+      const remainingSeries = taskSeriesAfterExcludingOccurrence(original, occurrenceDate);
+      const occurrenceTask = standaloneTaskFromOccurrence({
+        ...nextTask,
+        id: uid(),
+        googleEventId: null,
+        googleTaskId: null,
+        googleTaskListId: null,
+        googleTaskListTitle: "",
+        googleLinks: {},
+        updatedAt: timestamp(),
+      }, original.id);
+      setTasks((current) => [
+        ...current.filter((task) => task.id !== original.id),
+        ...(remainingSeries ? [remainingSeries] : []),
+        occurrenceTask,
+      ]);
+      if (remainingSeries) saveTask(remainingSeries);
+      else if (cloudUser?.calendarConnected) void removeCloudTask(cloudUser.uid, original);
+      saveTask(occurrenceTask);
+      setEditingTask(null);
+      return;
+    }
+
+    if (editingTaskScope === "series" && !original.recurrenceSeriesId && (seriesMembers.length > 1 || originalIsUnifiedSeries)) {
+      const updatedRoot = buildTaskSeries(nextTask, recurrenceConfig)[0] ?? nextTask;
+      const updatedExceptions = seriesMembers
+        .filter((task) => task.id !== original.id)
+        .map((task) => taskWithSharedSeriesFields(task, nextTask));
+      const updates = new Map([updatedRoot, ...updatedExceptions].map((task) => [task.id, task]));
+      setTasks((current) => current.map((task) => updates.get(task.id) ?? task));
+      saveTask(updatedRoot);
+      updatedExceptions.forEach(saveTask);
+      setEditingTask(null);
+      return;
+    }
+
+    if (editingTaskScope === "series" && parentSeries) {
+      const rootDraft: Task = {
+        ...nextTask,
+        id: parentSeries.id,
+        recurrenceSeriesId: null,
+        googleEventId: parentSeries.googleEventId,
+        googleTaskId: null,
+        googleLinks: parentSeries.googleLinks,
+      };
+      const updatedRoot = buildTaskSeries(rootDraft, recurrenceConfig)[0] ?? rootDraft;
+      const updatedExceptions = seriesMembers
+        .filter((task) => task.id !== parentSeries.id)
+        .map((task) => taskWithSharedSeriesFields(task, nextTask));
+      const updates = new Map([updatedRoot, ...updatedExceptions].map((task) => [task.id, task]));
+      setTasks((current) => current.map((task) => updates.get(task.id) ?? task));
+      saveTask(updatedRoot);
+      updatedExceptions.forEach(saveTask);
+      setEditingTask(null);
+      return;
+    }
+
+    const isLegacyExpandedSeries = Boolean(original.recurrenceSeriesId)
+      && !tasks.some((task) => task.id === original.recurrenceSeriesId && recurrenceConfigFromTask(task).enabled);
+    if (editingTaskScope === "series" && isLegacyExpandedSeries && seriesMembers.length > 1) {
+      const firstMember = [...seriesMembers].sort((left, right) => left.dueDate.localeCompare(right.dueDate))[0];
+      const seriesStart = nextTask.recurrenceStartDate || firstMember.dueDate;
+      const consolidatedDraft: Task = {
+        ...nextTask,
+        id: firstMember.id,
+        dueDate: seriesStart,
+        endDate: shiftRangeEndDate(nextTask.dueDate, nextTask.endDate, seriesStart),
+        recurrenceSeriesId: null,
+        googleEventId: null,
+        googleTaskId: null,
+        googleTaskListId: null,
+        googleTaskListTitle: "",
+        googleLinks: {},
+      };
+      const consolidated = buildTaskSeries(consolidatedDraft, recurrenceConfig)[0] ?? consolidatedDraft;
+      const memberIds = new Set(seriesMembers.map((task) => task.id));
+      setTasks((current) => [...current.filter((task) => !memberIds.has(task.id)), consolidated]);
+      if (cloudUser?.calendarConnected) {
+        setSyncStatus("syncing");
+        void (async () => {
+          await Promise.all(seriesMembers.map((task) => removeCloudTask(cloudUser.uid, task)));
+          const saved = await saveCloudTask(cloudUser.uid, consolidated);
+          setTasks((current) => current.map((task) => task.id === saved.id ? { ...task, ...saved } : task));
+          setSyncStatus("synced");
+        })().catch((error: Error) => {
+          setSyncError(error.message);
+          setSyncStatus(navigator.onLine ? "error" : "offline");
+        });
+      }
+      setEditingTask(null);
+      return;
+    }
+
+    const taskToPersist = editingTaskScope === "series" && recurrenceConfig.enabled
+      ? buildTaskSeries(nextTask, recurrenceConfig)[0] ?? nextTask
+      : nextTask;
+    persistTaskChange(original, taskToPersist);
     setEditingTask(null);
   };
 
@@ -2385,6 +2635,7 @@ export function GenesisCalendar() {
       recurrenceEndDate: null,
       recurrenceMonths: [],
       recurrencePyatas: [],
+      recurrenceExcludedDates: [],
       recurrenceSeriesId: null,
       googleTaskListId: taskList.id,
       googleTaskListTitle: taskList.title,
@@ -2454,18 +2705,54 @@ export function GenesisCalendar() {
     if (nextOccurrence) saveTask(nextOccurrence);
   };
 
-  const deleteTask = (id: string) => {
-    const taskToDelete = tasks.find((task) => task.id === id);
-    setTasks((current) => current.filter((task) => task.id !== id));
-    if (cloudUser?.calendarConnected && taskToDelete) {
+  const removeTasks = (tasksToDelete: Task[]) => {
+    const ids = new Set(tasksToDelete.map((task) => task.id));
+    setTasks((current) => current.filter((task) => !ids.has(task.id)));
+    if (cloudUser?.calendarConnected && tasksToDelete.length) {
       setSyncStatus("syncing");
-      void removeCloudTask(cloudUser.uid, taskToDelete)
+      void Promise.all(tasksToDelete.map((task) => removeCloudTask(cloudUser.uid, task)))
         .then(() => setSyncStatus("synced"))
         .catch((error: Error) => {
           setSyncError(error.message);
           setSyncStatus(navigator.onLine ? "error" : "offline");
         });
     }
+  };
+
+  const deleteTask = (id: string, occurrenceDate?: string) => {
+    const task = tasks.find((candidate) => candidate.id === id);
+    if (!task) return;
+    if (taskHasSeries(task)) {
+      setPendingTaskDeletion({ taskId: id, occurrenceDate: occurrenceDate || task.dueDate });
+      return;
+    }
+    removeTasks([task]);
+  };
+
+  const deletePendingTaskOccurrence = () => {
+    if (!pendingTaskDeletion) return;
+    const task = tasks.find((candidate) => candidate.id === pendingTaskDeletion.taskId);
+    if (!task) return setPendingTaskDeletion(null);
+    const isUnifiedRoot = !task.recurrenceSeriesId && recurrenceConfigFromTask(task).enabled;
+    if (!isUnifiedRoot) {
+      removeTasks([task]);
+      setPendingTaskDeletion(null);
+      return;
+    }
+    const nextSeries = taskSeriesAfterExcludingOccurrence(task, pendingTaskDeletion.occurrenceDate);
+    if (!nextSeries) removeTasks([task]);
+    else {
+      setTasks((current) => current.map((candidate) => candidate.id === task.id ? nextSeries : candidate));
+      saveTask(nextSeries);
+    }
+    setPendingTaskDeletion(null);
+  };
+
+  const deletePendingTaskSeries = () => {
+    if (!pendingTaskDeletion) return;
+    const task = tasks.find((candidate) => candidate.id === pendingTaskDeletion.taskId);
+    if (task) removeTasks(seriesMembersForTask(task));
+    setPendingTaskDeletion(null);
   };
 
   const updateHabitWorkspace = (nextWorkspace: HabitWorkspace) => {
@@ -3079,6 +3366,7 @@ export function GenesisCalendar() {
         recurrenceEndDate: null,
         recurrenceMonths: [],
         recurrencePyatas: [],
+        recurrenceExcludedDates: [],
         recurrenceSeriesId: null,
         calendarMode: activeTaskCalendarMode,
         calendarNote: calendarDateNote(start, activeTaskCalendarMode),
@@ -3778,7 +4066,7 @@ export function GenesisCalendar() {
                     : (isEnglish ? `Complete task “${task.title}”` : `Завершить задачу «${task.title}»`)}>
                     {task.done ? "✓" : ""}
                   </button>
-                  <button type="button" className="today-task-open" onClick={() => openTaskEditor(task)}>
+                  <button type="button" className="today-task-open" onClick={() => openTaskEditor(task, todayDateValue)}>
                     <strong data-no-translate>{task.title}</strong>
                     <span>
                       <time>{task.time ? formatTimeValue(task.time, activeTimeFormat) : (isEnglish ? "All day" : "Весь день")}</time>
@@ -3786,7 +4074,7 @@ export function GenesisCalendar() {
                       <i>{isEnglish ? `Priority ${task.priority}` : `Приоритет ${task.priority}`}</i>
                     </span>
                   </button>
-                  <button type="button" className="icon-button" onClick={() => openTaskEditor(task)} aria-label={isEnglish ? `Edit task “${task.title}”` : `Редактировать задачу «${task.title}»`}>↗</button>
+                  <button type="button" className="icon-button" onClick={() => openTaskEditor(task, todayDateValue)} aria-label={isEnglish ? `Edit task “${task.title}”` : `Редактировать задачу «${task.title}»`}>↗</button>
                 </article>
               ))}
             </div>
@@ -3830,6 +4118,7 @@ export function GenesisCalendar() {
                 <div>
                   <span className="eyebrow">Солнечная точка года</span>
                   <h2>Сегодня {translateText(solarEvent.name).toLocaleLowerCase(runtimeLocale())}</h2>
+                  <time className="solar-notice-time">{formatSolarEventTime(solarEvent.date)}</time>
                   <p><strong>Сила дня.</strong> {solarCopy.force}</p>
                   <p><strong>Древняя Греция.</strong> {solarCopy.greekPractice}</p>
                 </div>
@@ -3991,7 +4280,7 @@ export function GenesisCalendar() {
             className="calendar-day-open"
             onClick={() => openCalendarDate(date, "calendar")}
             aria-pressed={isSelected}
-            aria-label={`${formatCalendarDate(date, mode, true)}${mode === "profane" ? ` — ${weekdayPatron.weekday}, ${weekdayPatron.guidanceTitle}, ${weekdayPatron.patronage}` : ""} — ${sacredDay.name} — ${moon.day} ${language === "en" ? "lunar day" : "лунный день"}${taskCount ? ` — ${taskCount} задач` : ""}`}
+            aria-label={`${formatCalendarDate(date, mode, true)}${mode === "profane" ? ` — ${weekdayPatron.weekday}, ${weekdayPatron.guidanceTitle}, ${weekdayPatron.patronage}` : ""} — ${sacredDay.name} — ${moon.day} ${language === "en" ? "lunar day" : "лунный день"}${solarEvent ? ` — ${solarEvent.name}, ${formatSolarEventTime(solarEvent.date)}` : ""}${taskCount ? ` — ${taskCount} задач` : ""}`}
           />
         )}
         {isAdjacentMonth ? (
@@ -4024,7 +4313,7 @@ export function GenesisCalendar() {
         ) : (
           <span className="calendar-cross-date lunar-date"><b aria-hidden="true">☾</b>{moon.epithet} · {moon.illumination}%</span>
         )}
-        {solarEvent ? <span className="calendar-solar-mark" title={solarEvent.name}><b aria-hidden="true">{solarEvent.symbol}</b><em>{solarEvent.shortName}</em></span> : null}
+        {solarEvent ? <span className="calendar-solar-mark" title={`${solarEvent.name} · ${formatSolarEventTime(solarEvent.date)}`}><b aria-hidden="true">{solarEvent.symbol}</b><em>{solarEvent.shortName}</em><time>{formatSolarEventTime(solarEvent.date)}</time></span> : null}
         <span
           className="calendar-sun-times"
           aria-label={`Рассвет ${sunrise}, закат ${sunset}`}
@@ -4071,7 +4360,7 @@ export function GenesisCalendar() {
                     <li className={task.done ? "done" : ""} key={task.id}>
                       <button type="button" onClick={() => {
                         setOpenDayTaskPopover("");
-                        openTaskEditor(task);
+                        openTaskEditor(task, dateValue);
                       }}>
                         <time>{task.time ? formatTimeValue(task.time, activeTimeFormat) : "Весь день"}</time>
                         <span data-no-translate>{task.title}</span>
@@ -4206,7 +4495,7 @@ export function GenesisCalendar() {
                             setDayDetailsOpen(true);
                           }}
                           aria-pressed={isSelected}
-                          aria-label={`${formatGregorian(gregorian, true)} — ${sacredDay.name}${solarEvent ? ` — ${solarEvent.name}` : ""}${taskCount ? ` — ${taskCount} задач` : ""}`}
+                          aria-label={`${formatGregorian(gregorian, true)} — ${sacredDay.name}${solarEvent ? ` — ${solarEvent.name}, ${formatSolarEventTime(solarEvent.date)}` : ""}${taskCount ? ` — ${taskCount} задач` : ""}`}
                         />
                         <span className="calendar-gregorian">
                           <b className="calendar-weekday">
@@ -4216,7 +4505,7 @@ export function GenesisCalendar() {
                           <span>{profaneDate}</span>
                         </span>
                         <strong>{romanDay(monthIndex, dayNumber)}</strong>
-                        {solarEvent ? <span className="calendar-solar-mark" title={solarEvent.name}><b aria-hidden="true">{solarEvent.symbol}</b><em>{solarEvent.shortName}</em></span> : null}
+                        {solarEvent ? <span className="calendar-solar-mark" title={`${solarEvent.name} · ${formatSolarEventTime(solarEvent.date)}`}><b aria-hidden="true">{solarEvent.symbol}</b><em>{solarEvent.shortName}</em><time>{formatSolarEventTime(solarEvent.date)}</time></span> : null}
                         <span className="calendar-moon" title={`${moon.epithet}: ${moon.phase}`}><MoonPhaseIcon phaseStep={moon.phaseStep} size={16} /> {moon.day}</span>
                         <span
                           className="calendar-sun-times"
@@ -4280,7 +4569,7 @@ export function GenesisCalendar() {
                                     <li className={task.done ? "done" : ""} key={task.id}>
                                       <button type="button" onClick={() => {
                                         setOpenDayTaskPopover("");
-                                        openTaskEditor(task);
+                                        openTaskEditor(task, inputDate(gregorian));
                                       }}>
                                         <time>{task.time ? formatTimeValue(task.time, activeTimeFormat) : "Весь день"}</time>
                                         <span data-no-translate>{task.title}</span>
@@ -4975,6 +5264,7 @@ export function GenesisCalendar() {
                 <small>{event.kind === "equinox" ? "Равноденствие" : "Солнцестояние"}</small>
                 <em>{weekday}</em>
                 <strong>{date}</strong>
+                <b>{formatSolarEventTime(event.date)}</b>
               </span>
             </button>
           );
@@ -5194,7 +5484,7 @@ export function GenesisCalendar() {
             return (
               <button type="button" key={event.id} onClick={() => openCalendarDate(event.date, "year")}>
                 <span className="solar-glyph" aria-hidden="true"><i>{event.symbol}</i></span>
-                <span><small>{event.kind === "equinox" ? "Равноденствие" : "Солнцестояние"}</small><em>{weekday}</em><strong>{date}</strong></span>
+                <span><small>{event.kind === "equinox" ? "Равноденствие" : "Солнцестояние"}</small><em>{weekday}</em><strong>{date}</strong><b>{formatSolarEventTime(event.date)}</b></span>
               </button>
             );
           })}
@@ -5720,10 +6010,10 @@ export function GenesisCalendar() {
                   : activeCalendarMode === "profane"
                     ? `${selectedWeekdayPatron.patronage}. ${selectedWeekdayPatron.deity} ${language === "en" ? "Body parts:" : "Части тела:"} ${selectedWeekdayPatron.bodyParts}`
                     : selectedSacredDay.description}</p>
-                {selectedSolarEvent ? <strong className="selected-solar-event">{selectedSolarEvent.name} · День Солнца</strong> : null}
+                {selectedSolarEvent ? <strong className="selected-solar-event">{selectedSolarEvent.name} · {formatSolarEventTime(selectedSolarEvent.date)} · День Солнца</strong> : null}
               </div>
               <dl className="selected-day-facts">
-                {selectedSolarEvent ? <div className="solar-fact"><dt>Солнечная точка</dt><dd>{selectedSolarEvent.name}</dd></div> : null}
+                {selectedSolarEvent ? <div className="solar-fact"><dt>Солнечная точка</dt><dd>{selectedSolarEvent.name} · {formatSolarEventTime(selectedSolarEvent.date)}</dd></div> : null}
                 {activeCalendarMode === "profane" ? <div><dt>{language === "en" ? "Sacralization of the day" : "Сакрализация дня"}</dt><dd>{selectedWeekdayPatron.weekday} · {selectedWeekdayPatron.guidanceTitle}</dd></div> : null}
                 <div><dt>Григорианская дата</dt><dd>{formatGregorian(selectedDate, true)}</dd></div>
                 <div><dt>Сакральная дата</dt><dd>{formatCalendarDate(selectedDate, "sacred")}</dd></div>
@@ -5806,7 +6096,7 @@ export function GenesisCalendar() {
                         </button>
                         <button type="button" className="day-details-task-open" onClick={() => {
                           setDayDetailsOpen(false);
-                          openTaskEditor(task);
+                          openTaskEditor(task, selectedDateValue);
                         }}>
                           <span><time>{task.time ? formatTimeValue(task.time, activeTimeFormat) : "Весь день"}</time>{task.priority ? <em>Приоритет {task.priority}</em> : null}</span>
                           <strong data-no-translate>{task.title}</strong>
@@ -5881,6 +6171,21 @@ export function GenesisCalendar() {
           </section>
         </div>
       ) : null}
+      {pendingTaskDeletion ? (
+        <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setPendingTaskDeletion(null); }}>
+          <section ref={taskDeleteDialogRef} className="editor-modal task-series-delete-modal" role="dialog" aria-modal="true" aria-labelledby="task-series-delete-title" tabIndex={-1}>
+            <button type="button" className="modal-close" onClick={() => setPendingTaskDeletion(null)} aria-label="Закрыть">×</button>
+            <span className="eyebrow">Удаление повторяющейся задачи</span>
+            <h2 id="task-series-delete-title">Что удалить?</h2>
+            <p>Можно убрать только выбранный день или всю серию вместе со всеми её повторениями.</p>
+            <div className="task-series-delete-actions">
+              <button type="button" className="text-button" onClick={() => setPendingTaskDeletion(null)}>Отмена</button>
+              <button type="button" onClick={deletePendingTaskOccurrence}>Только этот день</button>
+              <button type="button" className="danger-button" onClick={deletePendingTaskSeries}>Всю серию</button>
+            </div>
+          </section>
+        </div>
+      ) : null}
       {editingTask ? (
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditingTask(null); }}>
           <form ref={taskEditorDialogRef} className="editor-modal" role="dialog" aria-modal="true" aria-labelledby="task-editor-title" tabIndex={-1} onSubmit={saveTaskEdit}>
@@ -5891,6 +6196,13 @@ export function GenesisCalendar() {
               {taskOriginMeta(editingTask.createdIn).label}.
               {editingTask.googleTaskListTitle ? ` Список Google Tasks: «${editingTask.googleTaskListTitle}».` : " Изменения синхронизируются с Google Calendar."}
             </p>
+            {taskHasSeries(editingTask) ? (
+              <fieldset className="task-series-scope">
+                <legend>Область изменений</legend>
+                <div><input id="task-series-scope-occurrence" type="radio" name="task-series-scope" checked={editingTaskScope === "occurrence"} onChange={() => changeEditingTaskScope("occurrence")} /><label htmlFor="task-series-scope-occurrence"><strong>Только этот день</strong><small>{formatCalendarDate(new Date(`${editingOccurrenceDate || editingTask.dueDate}T12:00:00`), activeTaskCalendarMode, true)}</small></label></div>
+                <div><input id="task-series-scope-series" type="radio" name="task-series-scope" checked={editingTaskScope === "series"} onChange={() => changeEditingTaskScope("series")} /><label htmlFor="task-series-scope-series"><strong>Вся серия</strong><small>Изменить все повторения одной задачей</small></label></div>
+              </fieldset>
+            ) : null}
             <label>
               <span>Название</span>
               <input value={editingTask.title} onChange={(event) => setEditingTask((current) => current ? { ...current, title: event.target.value } : current)} required />
@@ -5954,6 +6266,7 @@ export function GenesisCalendar() {
                     recurrenceEndDate: nextListId ? null : current.recurrenceEndDate,
                     recurrenceMonths: nextListId ? [] : current.recurrenceMonths,
                     recurrencePyatas: nextListId ? [] : current.recurrencePyatas,
+                    recurrenceExcludedDates: nextListId ? [] : current.recurrenceExcludedDates,
                     recurrenceSeriesId: nextListId ? null : current.recurrenceSeriesId,
                   } : current);
                 }}>
@@ -5983,6 +6296,30 @@ export function GenesisCalendar() {
                 />
               </div>
             </div>
+            {editingTaskScope === "series" || !taskHasSeries(editingTask) ? (
+              <RecurrenceBuilder
+                value={recurrenceConfigFromTask(editingTask)}
+                startDate={editingTask.dueDate}
+                destination="calendar"
+                calendarMode={activeTaskCalendarMode}
+                onChange={(recurrence) => setEditingTask((current) => current ? {
+                  ...current,
+                  recurrence: "none",
+                  recurrenceInterval: recurrence.interval,
+                  recurrenceMode: recurrence.enabled ? recurrence.mode : "none",
+                  recurrencePattern: recurrence.enabled ? recurrence.pattern : "none",
+                  recurrenceDays: recurrence.enabled ? [...recurrence.days] : [],
+                  recurrenceStartDate: recurrence.enabled ? recurrence.rangeStart || current.dueDate : null,
+                  recurrenceEndDate: recurrence.enabled ? recurrence.rangeEnd || null : null,
+                  recurrenceMonths: recurrence.enabled ? [...recurrence.months] : [],
+                  recurrencePyatas: recurrence.enabled ? [...recurrence.pyatas] : [],
+                  recurrenceExcludedDates: recurrence.enabled ? current.recurrenceExcludedDates : [],
+                  googleTaskListId: recurrence.enabled ? null : current.googleTaskListId,
+                  googleTaskListTitle: recurrence.enabled ? "" : current.googleTaskListTitle,
+                  googleTaskId: recurrence.enabled ? null : current.googleTaskId,
+                } : current)}
+              />
+            ) : null}
             <label>
               <span>Теги через запятую</span>
               <input value={editingTaskTags} onChange={(event) => setEditingTaskTags(event.target.value)} placeholder="работа, дом, ритуал" />
@@ -5999,6 +6336,7 @@ export function GenesisCalendar() {
               </div>
             ) : null}
             <div className="editor-actions">
+              <button type="button" className="danger-button" onClick={() => { const id = editingTask.id; const occurrence = editingOccurrenceDate || editingTask.dueDate; setEditingTask(null); deleteTask(id, occurrence); }}>Удалить</button>
               <button type="button" className="text-button" onClick={() => setEditingTask(null)}>Отмена</button>
               <button type="submit" className="primary-button" disabled={!editingTask.title.trim()}>Сохранить задачу</button>
             </div>

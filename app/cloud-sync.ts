@@ -3,6 +3,7 @@ import { normalizeCalendarDateNote, type CalendarMode } from "./calendar-data";
 import type { Language } from "./i18n";
 import { legacyReminderMinutes, normalizeTaskReminders, type TaskReminder } from "./task-reminders";
 import type { TimeFormat } from "./time-format";
+import { cleanTaskDescription } from "./task-description";
 import {
   EMPTY_HABIT_WORKSPACE,
   normalizeHabitWorkspace,
@@ -94,6 +95,7 @@ export type GenesisTask = {
   recurrenceEndDate: string | null;
   recurrenceMonths: number[];
   recurrencePyatas: number[];
+  recurrenceExcludedDates: string[];
   recurrenceSeriesId: string | null;
   calendarMode: CalendarMode;
   calendarNote: string;
@@ -505,6 +507,9 @@ function normalizeTask(task: Partial<GenesisTask> & Pick<GenesisTask, "id" | "ti
   const recurrencePyatas = Array.isArray(task.recurrencePyatas)
     ? Array.from(new Set(task.recurrencePyatas.map(Number).filter((pyata) => Number.isInteger(pyata) && pyata >= 1 && pyata <= 6))).sort((left, right) => left - right)
     : [];
+  const recurrenceExcludedDates = Array.isArray(task.recurrenceExcludedDates)
+    ? Array.from(new Set(task.recurrenceExcludedDates.filter((date): date is string => typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date)))).sort()
+    : [];
   const recurrenceStartDate = typeof task.recurrenceStartDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(task.recurrenceStartDate)
     ? task.recurrenceStartDate
     : null;
@@ -540,6 +545,7 @@ function normalizeTask(task: Partial<GenesisTask> & Pick<GenesisTask, "id" | "ti
     googleReadOnly: false,
     updatedAt: Date.now(),
     ...task,
+    description: cleanTaskDescription(task.description),
     createdIn,
     recurrenceMode,
     recurrencePattern,
@@ -548,6 +554,7 @@ function normalizeTask(task: Partial<GenesisTask> & Pick<GenesisTask, "id" | "ti
     recurrenceEndDate,
     recurrenceMonths,
     recurrencePyatas,
+    recurrenceExcludedDates,
     recurrenceSeriesId: typeof task.recurrenceSeriesId === "string" && task.recurrenceSeriesId ? task.recurrenceSeriesId : null,
     reminders,
     reminderMinutes: legacyReminderMinutes(reminders),

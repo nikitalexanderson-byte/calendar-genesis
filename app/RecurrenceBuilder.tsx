@@ -290,8 +290,8 @@ export function RecurrenceBuilder({
                   ? `Too many recurrences. Shorten the period or choose fewer dates — maximum ${MAX_RECURRENCE_OCCURRENCES}.`
                   : `Слишком много повторений. Сократите период или выберите меньше дат — максимум ${MAX_RECURRENCE_OCCURRENCES}.`)
               : (isEnglish
-                  ? `— number of ${destination === "calendar" ? "recurrences of one task" : destination === "tracker" ? "tracker dates" : "separate tasks"} from ${shortDate(rangeStart, calendarMode, true)} to ${shortDate(rangeEnd, calendarMode, true)}`
-                  : `— количество ${destination === "calendar" ? "повторений одной задачи" : destination === "tracker" ? "дней трекинга" : "отдельных задач"} с ${shortDate(rangeStart, calendarMode, true)} по ${shortDate(rangeEnd, calendarMode, true)}`)}</span>
+                  ? `— number of ${destination === "tracker" ? "tracker dates" : "recurrences of one task"} from ${shortDate(rangeStart, calendarMode, true)} to ${shortDate(rangeEnd, calendarMode, true)}`
+                  : `— количество ${destination === "tracker" ? "дней трекинга" : "повторений одной задачи"} с ${shortDate(rangeStart, calendarMode, true)} по ${shortDate(rangeEnd, calendarMode, true)}`)}</span>
           </div>
 
           <small className="recurrence-sync-note">
@@ -301,8 +301,8 @@ export function RecurrenceBuilder({
                   : "Повтор хранится в GENESIS. Google Tasks или Календарь используются только при явно включённом напоминании.")
               : destination === "tasks"
               ? (isEnglish
-                  ? "The Google Tasks API does not support recurring tasks, so every selected date will become a separate task in the list."
-                  : "Google Tasks API не поддерживает создание повторяющейся задачи, поэтому каждая выбранная дата станет отдельной задачей в списке.")
+                  ? "Google Tasks has no recurrence API, so GENESIS will safely store this as one recurring Google Calendar event."
+                  : "Google Tasks не поддерживает серии, поэтому GENESIS безопасно сохранит повтор как одно событие-серию в Google Calendar.")
               : (isEnglish
                   ? `GENESIS will save one task, and Google Calendar will save one recurring event with all ${value.mode === "lunar" ? "lunar" : value.mode === "genesis" ? "sacred" : "selected"} dates.`
                   : `GENESIS сохранит одну задачу, а Google Calendar — одно повторяющееся событие со всеми ${value.mode === "lunar" ? "лунными" : value.mode === "genesis" ? "сакральными" : "выбранными"} датами.`)}
