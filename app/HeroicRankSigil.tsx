@@ -1,6 +1,8 @@
 "use client";
+/* eslint-disable @next/next/no-img-element -- Hero Path WebP artwork is pre-optimized for both deployment targets. */
 
 import { useId, useState, type CSSProperties, type PointerEvent } from "react";
+import { HEROIC_RANK_ICON_ASSETS } from "./hero-path-assets";
 import { HEROIC_RANKS, type HeroicRankId } from "./habit-progress";
 
 type HeroicRankSigilProps = {
@@ -59,6 +61,7 @@ export function HeroicRankSigil({ rankId, color, className = "", compact = false
   const glowId = `rank-sigil-glow-${rawId.replace(/:/g, "")}`;
   const rankIndex = Math.max(0, HEROIC_RANKS.findIndex((rank) => rank.id === rankId));
   const motif = rankId && rankId !== "unranked" ? HEROIC_RANK_SIGIL_MOTIFS[rankId] : UNRANKED_MOTIF;
+  const artwork = rankId && rankId !== "unranked" ? HEROIC_RANK_ICON_ASSETS[rankId] : undefined;
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
   const [awakened, setAwakened] = useState(0);
 
@@ -84,7 +87,17 @@ export function HeroicRankSigil({ rankId, color, className = "", compact = false
       onPointerLeave={() => setTilt({ x: 0, y: 0 })}
       onPointerDown={() => setAwakened((value) => value + 1)}
     >
-      <svg viewBox="0 0 100 100" focusable="false">
+      {artwork ? <img
+        className="rank-sigil-image"
+        src={artwork.src}
+        srcSet={artwork.srcSet}
+        sizes={artwork.sizes}
+        alt=""
+        width="512"
+        height="512"
+        decoding="async"
+        draggable="false"
+      /> : <svg viewBox="0 0 100 100" focusable="false">
         <defs>
           <radialGradient id={gradientId} cx="38%" cy="30%" r="72%">
             <stop offset="0" stopColor="#fff8dd" />
@@ -119,7 +132,7 @@ export function HeroicRankSigil({ rankId, color, className = "", compact = false
           {[0, 1, 2, 3].map((leaf) => <circle key={leaf} cx={20 + leaf * 2} cy={62 - leaf * 9} r="2.2" />)}
           {[0, 1, 2, 3].map((leaf) => <circle key={leaf} cx={80 - leaf * 2} cy={62 - leaf * 9} r="2.2" />)}
         </g>
-      </svg>
+      </svg>}
     </div>
   );
 }

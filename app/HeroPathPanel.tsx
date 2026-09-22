@@ -1,6 +1,8 @@
 "use client";
+/* eslint-disable @next/next/no-img-element -- Hero Path WebP artwork is pre-optimized for both deployment targets. */
 
 import { Fragment, useEffect, useRef, useState, type CSSProperties } from "react";
+import { HERO_PATH_CHECKPOINT_ICON_ASSETS } from "./hero-path-assets";
 import type { Language } from "./i18n";
 import { HeroicRankSigil } from "./HeroicRankSigil";
 import { useDialogAccessibility } from "./use-dialog-accessibility";
@@ -25,8 +27,18 @@ type HeroPathPanelProps = {
   onClose: () => void;
 };
 
-function AmphoraSigil({ open }: { open: boolean }) {
-  return <span className={`hero-amphora-sigil${open ? " open" : ""}`} aria-hidden="true"><svg viewBox="0 0 80 90"><path className="hero-amphora-lid" d="M27 14h26l4 7H23z" /><path d="M25 23c2 8 1 12-5 18-7 7-7 19-1 28 9 14 33 14 42 0 6-9 6-21-1-28-6-6-7-10-5-18z" /><path d="M22 36c-12-2-16 6-12 16 2 5 7 7 12 8M58 36c12-2 16 6 12 16-2 5-7 7-12 8M25 50h30M29 65c8-7 14-7 22 0" /><circle cx="40" cy="50" r="5" /></svg></span>;
+function AmphoraSigil({ open, rankId }: { open: boolean; rankId: HeroicRankId }) {
+  const artwork = HERO_PATH_CHECKPOINT_ICON_ASSETS[rankId];
+  return <span className={`hero-amphora-sigil${open ? " open" : ""}`} aria-hidden="true">{artwork ? <img
+    src={artwork.src}
+    srcSet={artwork.srcSet}
+    sizes={artwork.sizes}
+    alt=""
+    width="512"
+    height="512"
+    decoding="async"
+    draggable="false"
+  /> : <svg viewBox="0 0 80 90"><path className="hero-amphora-lid" d="M27 14h26l4 7H23z" /><path d="M25 23c2 8 1 12-5 18-7 7-7 19-1 28 9 14 33 14 42 0 6-9 6-21-1-28-6-6-7-10-5-18z" /><path d="M22 36c-12-2-16 6-12 16 2 5 7 7 12 8M58 36c12-2 16 6 12 16-2 5-7 7-12 8M25 50h30M29 65c8-7 14-7 22 0" /><circle cx="40" cy="50" r="5" /></svg>}</span>;
 }
 
 function RankPathMap({
@@ -64,7 +76,7 @@ function RankPathMap({
             <HeroicRankSigil compact rankId={item.id} color={item.color} />
           </article>
           {checkpoint ? <article className={`hero-path-checkpoint${hidden ? " hidden-path-checkpoint" : ""}${reached ? " unlocked" : ""}${claimed ? " claimed" : ""}`}>
-            <AmphoraSigil open={claimed} />
+            <AmphoraSigil open={claimed} rankId={item.id} />
             <div><small>{isEnglish ? "Guaranteed checkpoint reward" : "Гарантированная награда чекпоинта"}</small><strong>{isEnglish ? checkpoint.titleEn : checkpoint.title}</strong><span>♕ +{checkpoint.rewardLaurels} {isEnglish ? "Laurels" : "Лавров"}</span></div>
             <button type="button" disabled={!reached || claimed} onClick={() => onClaimCheckpoint(item.id)}>{claimed ? (isEnglish ? "Received" : "Получено") : reached ? (isEnglish ? "Open amphora" : "Открыть амфору") : (isEnglish ? "Locked" : "Закрыто")}</button>
           </article> : null}

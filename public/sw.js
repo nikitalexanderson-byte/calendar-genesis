@@ -43,6 +43,32 @@ const HABIT_REWARD_ART = [
   "./habit-reward-art/hestia-spark.png",
   "./habit-reward-art/comeback.png",
 ];
+const HERO_PATH_ICON_FILES = [
+  "01_tantal",
+  "02_sisyphus",
+  "03_cyclops",
+  "04_icarus",
+  "05_lionheart",
+  "06_poison_conqueror",
+  "07_golden_horn_pathfinder",
+  "08_mountain_tamer",
+  "09_lord_of_the_flow",
+  "10_bronze_wing",
+  "11_tamer_of_might",
+  "12_iron_charioteer",
+  "13_bearer_of_royal_honor",
+  "14_guardian_of_the_western_border",
+  "15_keeper_of_the_golden_garden",
+  "16_risen_from_the_abyss",
+  "17_amphora_of_aspiration",
+  "18_amphora_of_endurance",
+  "19_amphora_of_mastery",
+  "20_amphora_of_abyss",
+];
+const HERO_PATH_ART = HERO_PATH_ICON_FILES.flatMap((fileName) => [
+  `./hero-path/256/${fileName}.webp`,
+  `./hero-path/512/${fileName}.webp`,
+]);
 const THEOKYKLOS_ART = [
   "./theokyklos-art/northwest-apollo.webp",
   "./theokyklos-art/north-athena.webp",
@@ -75,7 +101,7 @@ const THEOKYKLOS_SYMBOL_ART = [
   "./theokyklos-symbols/entrance-aether-hemera.png",
   "./theokyklos-symbols/exit-eros-psyche.png",
 ];
-const CORE = ["./", "./manifest.webmanifest", "./manifest.en.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./genesis-hero.png", ...MONTH_ART, ...WEEKDAY_ART, ...ACHIEVEMENT_ART, ...HABIT_REWARD_ART, ...THEOKYKLOS_ART, ...THEOKYKLOS_SYMBOL_ART]
+const CORE = ["./", "./manifest.webmanifest", "./manifest.en.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./genesis-hero.png", ...MONTH_ART, ...WEEKDAY_ART, ...ACHIEVEMENT_ART, ...HABIT_REWARD_ART, ...HERO_PATH_ART, ...THEOKYKLOS_ART, ...THEOKYKLOS_SYMBOL_ART]
   .map((path) => new URL(path, SCOPE).href);
 const REQUIRED_SHELL = [...new Set([...CORE, ...PRECACHE.map((path) => new URL(path, SCOPE).href)])];
 

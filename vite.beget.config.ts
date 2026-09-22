@@ -8,7 +8,7 @@ const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 const configuredBase = process.env.GENESIS_BASE_PATH?.trim() || "/";
 const base = configuredBase.endsWith("/") ? configuredBase : `${configuredBase}/`;
 const apiUrl = process.env.GENESIS_API_URL?.trim() || `${base.replace(/\/$/, "")}/api`;
-const PRECACHE_STATIC_REVISION = "theokyklos-gods-and-rewards-v4";
+const PRECACHE_STATIC_REVISION = "hero-path-art-v5";
 
 function offlinePrecacheManifest(basePath: string): Plugin {
   return {
