@@ -2140,6 +2140,10 @@ test("ships an isolated account-owned Experimental theme while preserving author
   assert.match(account, /Текущая тема/);
   assert.match(account, /role="switch"/);
   assert.match(account, /GENESIS_THEME_LABEL/);
+  assert.match(calendar, /className="account-menu-theme" role="none"/);
+  assert.match(calendar, /className="account-menu-theme-switch"/);
+  assert.match(calendar, /"Личный кабинет"/);
+  assert.doesNotMatch(calendar, />\s*Личная страница\s*</);
   assert.match(calendar, /createGenesisThemeController/);
   assert.match(calendar, /themeState=\{themeState\}/);
   assert.match(calendar, /onThemeChange=\{changeGenesisTheme\}/);
