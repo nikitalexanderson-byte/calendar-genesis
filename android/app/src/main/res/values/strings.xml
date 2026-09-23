@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name" translatable="false">GENESIS</string>
+    <string name="native_stage">Первый нативный этап</string>
+    <string name="native_title">Календарь GENESIS</string>
+    <string name="native_status">Базовый экран работает на Kotlin и Jetpack Compose.</string>
     <string name="browser_error_message">Не удалось открыть GENESIS. Обновите или включите браузер и попробуйте снова.</string>
     <string name="browser_retry">Открыть сайт</string>
 </resources>

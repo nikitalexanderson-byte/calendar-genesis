@@ -1946,13 +1946,20 @@ test("ships a compact verified Android test application only to Android phones",
   assert.match(welcome, /android-download-button/);
   assert.match(welcome, /Скачать приложение для телефона/);
   assert.match(styles, /\.android-download-button/);
-  assert.match(androidBuild, /versionCode = 5/);
-  assert.match(androidBuild, /versionName = "1\.2\.2"/);
+  // The public 1.2.2 download stays unchanged while the isolated native alpha is developed.
+  assert.match(androidBuild, /versionCode = 6/);
+  assert.match(androidBuild, /versionName = "2\.0\.0-alpha01"/);
+  assert.match(androidBuild, /applicationIdSuffix = "\.debug"/);
   assert.match(androidBuild, /androidx\.browser:browser:1\.10\.0/);
   assert.match(androidBuild, /isMinifyEnabled = true/);
-  assert.match(androidBuild, /signingConfigs\.getByName\("debug"\)/);
+  assert.doesNotMatch(androidBuild, /signingConfig\s*=\s*signingConfigs\.getByName\("debug"\)/);
   assert.match(androidManifest, /android\.permission\.INTERNET/);
-  assert.match(androidManifest, /\.BrowserLauncherActivity/);
+  assert.match(androidManifest, /\.MainActivity/);
+  assert.doesNotMatch(androidManifest, /\.BrowserLauncherActivity/);
+  const nativeLauncher = await readFile(new URL("../android/app/src/main/java/ru/genesis/calendar/MainActivity.kt", import.meta.url), "utf8");
+  assert.match(nativeLauncher, /setContent/);
+  assert.match(nativeLauncher, /GenesisApp/);
+  assert.doesNotMatch(nativeLauncher, /WebView|customTab\.launchUrl/);
   assert.match(androidManifest, /android\.support\.customtabs\.action\.CustomTabsService/);
   assert.doesNotMatch(androidManifest, /WebViewFallbackActivity|FALLBACK_STRATEGY/);
   assert.match(androidLauncher, /extends Activity/);

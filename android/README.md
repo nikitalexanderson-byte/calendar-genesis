@@ -1,22 +1,28 @@
-# GENESIS for Android
+# GENESIS native Android — internal alpha
 
-This module wraps the HTTPS PWA as a Trusted Web Activity. The browser and Android app therefore share the same Google session, server account, tasks, projects and reminders.
+Kotlin/Jetpack Compose implementation in the existing Android module. It is not a WebView, TWA or browser launcher. Current screens are local tasks, day/calendar, habits and settings. Feature and visual parity are incomplete: see [STATUS](../docs/android/STATUS.md).
 
-## Direct test build
+## Build on Windows
 
-Use Android Studio's bundled JDK, the production Beget URL and the same persistent test keystore for every update:
+Use installed stable SDK and Android Studio JBR. Do not accept SDK licenses automatically.
 
 ```powershell
-.\gradlew.bat :app:assembleRelease -PgenesisUrl=https://genesiscalendar.ru/
+$env:JAVA_HOME = 'C:\Program Files\Android\Android Studio\jbr'
+.\gradlew.bat :app:assembleDebug :app:testDebugUnitTest :app:assembleDebugAndroidTest :app:lintDebug --no-daemon --console=plain '-Pandroid.builder.sdkDownload=false'
 ```
 
-The APK is created in `app/build/outputs/apk/release/`. The current direct-download build is signed by the workstation's persistent Android test key, is not debuggable, and is minified. `BrowserLauncherActivity` opens the live HTTPS application in an Android Custom Tab, preserving browser cookies, Google OAuth, microphone permissions and PWA storage while avoiding vendor-specific TWA/WebView blank screens. If Custom Tabs are unavailable, it falls back to the default browser and shows a readable error instead of an empty black activity when no browser exists. The private key must never be committed and must be retained to issue installable updates for this test package.
+APK: `app/build/outputs/apk/debug/app-debug.apk`, package `ru.genesis.calendar.debug`, version `2.0.0-alpha01` (6). Debug and release are different identities; debug is not a release upgrade channel. Use `adb install -r` only on an approved device. Never uninstall/clear as a signing workaround.
 
-## Play Market release
+Current toolchain: AGP 9.4.0, Gradle 9.6.0, Kotlin/Compose compiler 2.2.10, compileSdk 37.2, targetSdk 37, minSdk 26. Gradle JVM uses `file.encoding=COMPAT` because Java argfiles otherwise corrupt Cyrillic checkout paths on this Windows installation; source code remains UTF-8. No global OS setting is changed.
 
-1. Create an upload key and keep it outside Git.
-2. Build an Android App Bundle with `:app:bundleRelease` and the production HTTPS URL.
-3. Put the release certificate SHA-256 fingerprint into `assetlinks.json.template` and publish it as `https://genesiscalendar.ru/.well-known/assetlinks.json`.
-4. Verify the association, Google OAuth production consent screen, privacy policy and Play Console data-safety answers.
+## Data and security
 
-The application ID is `ru.genesis.calendar`, target SDK is Android 16 / API 36, and the Android Browser Helper dependency provides the TWA shell.
+Alpha has a deliberately isolated local validation scope. Tasks and habits are stored on device, not falsely marked cloud-synced. Keystore protects field encryption; schedule metadata is in credential-encrypted app storage. Backup is disabled. Synthetic fixtures live in androidTest, not production seed data.
+
+The Google sign-in panel is an integration diagnostic, not connected cloud workspace UI. Native backend routes are local/unpublished. Do not claim login, synchronization or release ready before real account tests.
+
+## Release
+
+Release no longer falls back to debug signing. A permanent owner-approved signing identity and backup, release login, data preservation, notification tests, verified links and full parity gates are required. Distribution is signed APK from the website, not Google Play. No public upload, merge/deploy or download CTA was activated.
+
+See [environment](../docs/android/ENVIRONMENT.md), [manual steps](../docs/android/MANUAL_STEPS.md), [release runbook](../docs/android/RELEASE_RUNBOOK.md).
