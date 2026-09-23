@@ -7147,10 +7147,13 @@ html[data-language="en"] .inbox-card.drop-target::after {
 }
 .project-draggable-item:active { cursor: grabbing; }
 .project-drag-handle {
+  display: grid;
+  place-items: center;
   color: rgba(37, 91, 89, .58);
   font-size: 11px;
   line-height: 1;
   letter-spacing: -3px;
+  user-select: none;
 }
 .task-list-manager-items article {
   grid-template-columns: 13px minmax(0, .8fr) minmax(120px, 1.2fr);
@@ -8176,7 +8179,8 @@ button.project-drag-handle:active { cursor: grabbing; }
   }
 
   .project-draggable-item {
-    touch-action: none;
+    cursor: auto;
+    touch-action: pan-y;
   }
 
   .project-assigned-items {
@@ -8202,7 +8206,7 @@ button.project-drag-handle:active { cursor: grabbing; }
   .project-assigned-task,
   .inbox-card-items > article {
     min-height: 52px;
-    grid-template-columns: 18px minmax(0, 1fr);
+    grid-template-columns: 36px minmax(0, 1fr);
     gap: 10px;
     padding: 11px 10px;
     background: rgba(255, 253, 248, .76);
@@ -8212,7 +8216,7 @@ button.project-drag-handle:active { cursor: grabbing; }
   }
 
   .inbox-card-items > article.inbox-task-item {
-    grid-template-columns: 18px minmax(0, 1fr) 32px;
+    grid-template-columns: 36px minmax(0, 1fr) 32px;
   }
 
   .inbox-card-items .inbox-task-delete {
@@ -8230,11 +8234,19 @@ button.project-drag-handle:active { cursor: grabbing; }
 
   .project-drag-handle {
     display: grid;
-    width: 18px;
-    min-height: 30px;
+    width: 36px;
+    min-height: 36px;
     place-items: center;
+    color: rgba(27, 82, 80, .72);
     font-size: 15px;
+    background: rgba(37, 91, 89, .065);
+    border: 1px solid rgba(37, 91, 89, .11);
+    border-radius: 10px;
+    cursor: grab;
+    touch-action: none;
   }
+
+  .project-drag-handle:active { cursor: grabbing; }
 
   .project-assigned-list strong,
   .project-assigned-task strong,
@@ -9786,6 +9798,17 @@ button.project-drag-handle:active { cursor: grabbing; }
   font-weight:950;
 }
 
+.month-calendar .calendar-day.solar-day:is(.selected, .today) .calendar-solar-mark {
+  width:max-content;
+  padding:4px 7px;
+  color:#ffe9a8;
+  border:1px solid rgba(255,225,145,.58);
+  border-radius:999px;
+  background:rgba(4,31,30,.9);
+  box-shadow:0 5px 14px rgba(3,20,20,.3),inset 0 1px 0 rgba(255,255,255,.1);
+  text-shadow:0 1px 2px rgba(0,0,0,.95);
+}
+
 @media (min-width: 761px) {
   .hero-card > .device-clock {
     position: absolute;
@@ -10020,6 +10043,8 @@ button.project-drag-handle:active { cursor: grabbing; }
   overflow-wrap: anywhere;
 }
 
+.profane-weekday-deity { display:none; }
+
 .calendar-mode-day.selected .calendar-mode-primary > small,
 .calendar-mode-day.selected .calendar-cross-date,
 .calendar-mode-day.selected .profane-weekday-patron,
@@ -10111,6 +10136,22 @@ button.project-drag-handle:active { cursor: grabbing; }
 .calendar-mode-calendar.mode-profane .calendar-day.mode-profane.selected.today::after {
   background: var(--weekday-selected-accent);
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--weekday-selected-accent) 24%, transparent);
+}
+
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.solar-day:is(.selected, .today) .calendar-solar-mark {
+  width:max-content;
+  padding:4px 7px;
+  color:#ffe9a8;
+  border:1px solid rgba(255,225,145,.58);
+  border-radius:999px;
+  background:rgba(4,31,30,.9);
+  box-shadow:0 5px 14px rgba(3,20,20,.3),inset 0 1px 0 rgba(255,255,255,.1);
+  text-shadow:0 1px 2px rgba(0,0,0,.95);
+}
+
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.solar-day:is(.selected, .today) .calendar-solar-mark em,
+.calendar-mode-calendar.mode-profane .calendar-day.mode-profane.solar-day:is(.selected, .today) .calendar-solar-mark time {
+  font-weight:950;
 }
 
 /* Solar points are unmistakably golden until ordinary weekday interaction takes over. */
@@ -10327,12 +10368,57 @@ button.project-drag-handle:active { cursor: grabbing; }
 }
 
 .calendar-mode-description {
+  position: relative;
   min-height: 396px;
+  overflow: hidden;
 }
 
 .calendar-mode-description.profane-year-full-width,
 .calendar-mode-description.lunar-year-full-width {
   grid-column: 1 / -1;
+}
+
+.calendar-mode-description.profane-year-full-width {
+  padding-right: clamp(315px, 25vw, 430px);
+}
+
+.calendar-mode-description.profane-year-full-width > :not(.profane-saturn-art) {
+  position: relative;
+  z-index: 1;
+}
+
+.profane-saturn-art {
+  position: absolute;
+  z-index: 0;
+  top: -5%;
+  right: clamp(8px, 2vw, 34px);
+  bottom: 0;
+  width: clamp(270px, 23vw, 390px);
+  margin: 0;
+  pointer-events: none;
+}
+
+.profane-saturn-art::before {
+  position: absolute;
+  z-index: -1;
+  inset: 14% 4% 7% 8%;
+  background: radial-gradient(circle, rgba(203, 159, 67, .17), transparent 68%);
+  filter: blur(10px);
+  content: "";
+}
+
+.profane-saturn-art img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: right bottom;
+  filter: drop-shadow(0 16px 24px rgba(0, 0, 0, .38));
+}
+
+@media (max-width: 1000px) {
+  .calendar-mode-description.profane-year-full-width { padding-right: clamp(26px, 3.2vw, 48px); }
+  .profane-saturn-art { display: none; }
 }
 
 .calendar-mode-description.lunar-year-has-intercalary {
@@ -10534,8 +10620,8 @@ button.project-drag-handle:active { cursor: grabbing; }
   .calendar-mode-calendar.mode-profane .calendar-mode-day,
   .calendar-mode-calendar.mode-profane .calendar-mode-blank {
     min-width:0;
-    min-height:78px;
-    padding:8px 3px 27px;
+    min-height:112px;
+    padding:7px 2px 28px;
     overflow:hidden;
     border-radius:8px;
   }
@@ -10554,21 +10640,55 @@ button.project-drag-handle:active { cursor: grabbing; }
     display:none;
   }
 
-  .calendar-mode-calendar.mode-profane .profane-weekday-patron,
   .calendar-mode-calendar.mode-profane .calendar-cross-date:not(.lunar-date),
-  .calendar-mode-calendar.mode-profane .calendar-solar-mark,
   .calendar-mode-calendar.mode-profane .calendar-sun-times,
   .calendar-mode-calendar.mode-profane .calendar-mode-day.adjacent-month .adjacent-month-label,
-  .calendar-mode-calendar.mode-profane .calendar-day-task-control,
   .calendar-mode-calendar.mode-profane .calendar-day-task-preview {
     display:none;
   }
 
+  .calendar-mode-calendar.mode-profane .profane-weekday-patron {
+    display:grid;
+    width:100%;
+    gap:1px;
+    margin-top:4px;
+    padding:4px 1px 0;
+    overflow:hidden;
+    border-top-color:color-mix(in srgb,var(--month-accent) 24%,transparent);
+    text-align:center;
+  }
+
+  .calendar-mode-calendar.mode-profane .profane-weekday-patron > strong {
+    justify-content:center;
+    gap:0;
+  }
+
+  .calendar-mode-calendar.mode-profane .profane-weekday-patron > strong b {
+    font-size:15px;
+  }
+
+  .calendar-mode-calendar.mode-profane .profane-weekday-name,
+  .calendar-mode-calendar.mode-profane .profane-weekday-guidance {
+    display:none;
+  }
+
+  .calendar-mode-calendar.mode-profane .profane-weekday-deity {
+    display:-webkit-box;
+    min-height:14px;
+    overflow:hidden;
+    font:700 5.5px/1.2 system-ui,sans-serif;
+    letter-spacing:0;
+    text-align:center;
+    text-transform:none;
+    -webkit-box-orient:vertical;
+    -webkit-line-clamp:2;
+  }
+
   .calendar-mode-calendar.mode-profane .calendar-cross-date.lunar-date {
     position:absolute;
-    right:auto;
+    right:4px;
     bottom:7px;
-    left:50%;
+    left:auto;
     display:flex;
     width:17px;
     height:17px;
@@ -10576,7 +10696,7 @@ button.project-drag-handle:active { cursor: grabbing; }
     align-items:center;
     justify-content:center;
     overflow:visible;
-    transform:translateX(-50%);
+    transform:none;
   }
 
   .calendar-mode-calendar.mode-profane .calendar-cross-date.lunar-date .moon-phase-icon {
@@ -10587,6 +10707,62 @@ button.project-drag-handle:active { cursor: grabbing; }
 
   .calendar-mode-calendar.mode-profane .calendar-lunar-day-label {
     display:none;
+  }
+
+  .calendar-mode-calendar.mode-profane .calendar-solar-mark {
+    position:absolute;
+    bottom:7px;
+    left:4px;
+    display:inline-flex;
+    width:17px;
+    height:17px;
+    margin:0;
+    padding:0;
+    align-items:center;
+    justify-content:center;
+    color:#6f4c0c;
+    border:1px solid rgba(135,91,15,.38);
+    border-radius:50%;
+    background:rgba(255,235,174,.86);
+    box-shadow:0 2px 7px rgba(54,35,4,.2);
+    text-shadow:none;
+  }
+
+  .calendar-mode-calendar.mode-profane .calendar-solar-mark b { font-size:12px; }
+  .calendar-mode-calendar.mode-profane .calendar-solar-mark em,
+  .calendar-mode-calendar.mode-profane .calendar-solar-mark time { display:none; }
+
+  .calendar-mode-calendar.mode-profane .calendar-day.mode-profane.solar-day:is(.selected, .today) .calendar-solar-mark {
+    width:17px;
+    height:17px;
+    padding:0;
+    color:#ffe9a8;
+    background:rgba(4,31,30,.94);
+  }
+
+  .calendar-mode-calendar.mode-profane .calendar-day-task-control {
+    display:block;
+    top:3px;
+    right:2px;
+  }
+
+  .calendar-mode-calendar.mode-profane .calendar-day-task-count {
+    min-width:14px;
+    height:14px;
+    padding:0 3px;
+    font-size:6px;
+    border-width:1px;
+    box-shadow:0 3px 8px rgba(102,43,31,.25);
+  }
+
+  .calendar-mode-calendar.mode-profane .calendar-day.has-tasks.today::after {
+    right:auto;
+    left:4px;
+  }
+
+  .calendar-mode-calendar.mode-profane .calendar-mode-day.popover-open {
+    z-index:25;
+    overflow:visible;
   }
 
   .calendar-mode-calendar.mode-profane .calendar-day.today::after,
@@ -11171,8 +11347,9 @@ button.project-drag-handle:active { cursor: grabbing; }
 .theokyklos-stars { pointer-events: none; fill: #d5b66e; stroke: #d5b66e; stroke-width: 1; opacity: .48; }
 
 .theokyklos-segment-index {
+  --theokyklos-index-columns: 7;
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--theokyklos-index-columns), minmax(0, 1fr));
   gap: 6px;
   padding-top: 16px;
   border-top: 1px solid rgba(213, 182, 110, .13);
@@ -11199,6 +11376,38 @@ button.project-drag-handle:active { cursor: grabbing; }
 .theokyklos-segment-index button.active img { filter:drop-shadow(0 0 9px rgba(217,186,114,.62)); transform:scale(1.08); }
 .theokyklos-segment-index small { font-size: 6px; font-weight: 950; letter-spacing: .09em; text-transform: uppercase; }
 .theokyklos-segment-index strong { max-width: 100%; overflow: hidden; font: 500 8px/1.2 Georgia, serif; text-overflow: ellipsis; white-space: nowrap; }
+
+.theokyklos-threshold-row {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(var(--theokyklos-index-columns), minmax(0, 1fr));
+  gap: inherit;
+}
+
+.theokyklos-threshold-card.threshold-entrance { grid-column: 1; }
+.theokyklos-threshold-card.threshold-exit { grid-column: -2 / -1; }
+
+.theokyklos-threshold-ornament {
+  display: grid;
+  min-width: 0;
+  grid-column: 2 / -2;
+  place-items: center;
+  color: #d5b66e;
+  pointer-events: none;
+  opacity: .24;
+}
+
+.theokyklos-threshold-ornament svg {
+  width: min(150px, 78%);
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.35;
+}
+
+.theokyklos-threshold-ornament circle { fill: currentColor; stroke: none; }
 
 .theokyklos-details {
   --detail-accent: #a66d39;
@@ -11366,11 +11575,11 @@ button.project-drag-handle:active { cursor: grabbing; }
 }
 
 @media (max-width: 1180px) {
-  .theokyklos-segment-index { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .theokyklos-segment-index { --theokyklos-index-columns: 5; }
 }
 
 @media (max-width: 920px) {
-  .theokyklos-segment-index { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+  .theokyklos-segment-index { --theokyklos-index-columns: 7; }
 }
 
 @media (max-width: 760px) {
@@ -11388,7 +11597,7 @@ button.project-drag-handle:active { cursor: grabbing; }
   .theokyklos-mandala-heading p { max-width: none; text-align: left; }
   .theokyklos-segment-name { display: none; }
   .theokyklos-segment-direction { font-size: 15px; }
-  .theokyklos-segment-index { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; padding-inline: 3px; }
+  .theokyklos-segment-index { --theokyklos-index-columns: 4; gap: 5px; padding-inline: 3px; }
   .theokyklos-segment-index button { min-height: 64px; }
   .modal-backdrop.theokyklos-details-backdrop { padding: 0; }
   .theokyklos-details { width: 100%; height: 100dvh; max-height: none; gap: 15px; padding: 68px 17px 30px; border: 0; border-radius: 0; }
@@ -11431,9 +11640,9 @@ button.project-drag-handle:active { cursor: grabbing; }
 
 .habits-view > .habits-hero,
 .habits-view > .habit-status-message { flex:1 0 100%; order:0; }
-.habit-collapsible-block { display:grid; min-width:0; flex:1 1 360px; gap:8px; }
+.habit-collapsible-block { display:grid; min-width:0; flex:1 1 360px; gap:8px; transition:opacity .16s ease,filter .16s ease,transform .16s ease; }
 .habit-collapsible-block.open { flex-basis:100%; }
-.habit-collapsible-block.dragging { opacity:.68; }
+.habit-collapsible-block.dragging { opacity:.42; filter:saturate(.72); transform:scale(.992); }
 .habit-collapsible-toolbar { display:flex; min-width:0; justify-content:flex-end; gap:7px; }
 .habit-collapsible-toggle {
   display:inline-flex;
@@ -11475,14 +11684,35 @@ button.project-drag-handle:active { cursor: grabbing; }
 }
 .habit-section-drag-handle:active { cursor:grabbing; }
 .habit-section-drag-handle span { font-size:18px; line-height:1; transform:rotate(90deg); }
+.habit-section-drag-preview {
+  position:fixed;
+  z-index:950;
+  display:grid;
+  max-width:calc(100vw - 24px);
+  gap:3px;
+  padding:12px 16px;
+  color:#f8f1df;
+  pointer-events:none;
+  border:1px solid rgba(226,200,134,.58);
+  border-radius:14px;
+  background:linear-gradient(135deg,rgba(6,34,35,.97),rgba(13,53,49,.95));
+  box-shadow:0 22px 52px rgba(7,23,27,.34),inset 0 1px 0 rgba(255,255,255,.08);
+  transform:translate(-50%,calc(-100% - 18px));
+}
+.habit-section-drag-preview span { color:#dfc47e; font-size:7px; font-weight:850; letter-spacing:.11em; text-transform:uppercase; }
+.habit-section-drag-preview strong { overflow:hidden; font:600 12px/1.25 Georgia,"Times New Roman",serif; text-overflow:ellipsis; white-space:nowrap; }
+.habit-section-drag-preview small { color:#aec2bc; font-size:7px; }
 .habit-collapsible-content { display:grid; min-width:0; gap:18px; }
 
 .habits-hero {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  align-items: center;
-  gap: 24px;
+  grid-template-columns: minmax(300px, .8fr) minmax(560px, 1.55fr);
+  grid-template-areas:
+    "copy status"
+    "copy actions";
+  align-items: start;
+  gap: 18px 28px;
   min-height: 248px;
   padding: 34px 38px;
   overflow: hidden;
@@ -11490,8 +11720,8 @@ button.project-drag-handle:active { cursor: grabbing; }
   border: 1px solid rgba(216, 189, 128, .26);
   border-radius: 4px 31px 4px 31px;
   background:
-    linear-gradient(105deg, rgba(5, 22, 24, .97), rgba(13, 42, 41, .91) 56%, rgba(42, 35, 24, .86)),
-    url("/habit-ranks/heroic-ranks.webp") center 44% / cover;
+    linear-gradient(105deg, rgba(5, 22, 24, .94), rgba(13, 42, 41, .86) 56%, rgba(42, 35, 24, .78)),
+    url("/habit-ranks/heroic-ranks.webp") center / cover;
   box-shadow: 0 24px 70px rgba(4, 24, 25, .2);
 }
 
@@ -11505,12 +11735,13 @@ button.project-drag-handle:active { cursor: grabbing; }
 }
 
 .habits-hero > * { position: relative; z-index: 1; }
-.habits-hero > div:first-child { max-width: min(720px, calc(100% - 700px)); }
-.habits-view.gamification-hidden .habits-hero > div:first-child { max-width:min(780px,calc(100% - 250px)); }
-.habits-hero h1 { margin: 6px 0 9px; font: 500 clamp(42px, 6vw, 74px)/.95 Georgia, serif; letter-spacing: -.045em; }
+.habits-hero > div:first-child { grid-area:copy; align-self:center; min-width:0; max-width:560px; }
+.habits-view.gamification-hidden .habits-hero { grid-template-columns:minmax(0,1fr) auto; grid-template-areas:"copy actions"; }
+.habits-view.gamification-hidden .habits-hero > div:first-child { max-width:780px; }
+.habits-hero h1 { margin: 6px 0 9px; font: 500 clamp(38px, 4.4vw, 66px)/.95 Georgia, serif; letter-spacing: -.045em; overflow-wrap:anywhere; }
 .habits-hero p { max-width: 660px; margin: 0; color: #b9c7c1; font-size: 11px; line-height: 1.7; }
 .habits-hero p.habits-hero-layout-hint { margin-top:8px; color:#e3cd92; font-size:9px; font-weight:700; }
-.habits-hero-actions { position: absolute !important; right: 38px; bottom: 34px; display:flex; align-items:center; gap:9px; }
+.habits-hero-actions { position:relative !important; grid-area:actions; display:flex; align-items:center; justify-self:end; gap:9px; }
 .habits-hero-actions button { justify-content:center; min-width:210px; min-height:44px; padding:12px 19px; white-space:nowrap; }
 .habits-hero-actions .hero-path-open {
   position:relative;
@@ -11540,11 +11771,10 @@ button.project-drag-handle:active { cursor: grabbing; }
 @keyframes hero-path-button-shimmer { 0%,64% { opacity:0; transform:translateX(0) rotate(17deg); } 72% { opacity:.92; } 88%,100% { opacity:0; transform:translateX(540%) rotate(17deg); } }
 
 .habits-hero-status {
-  position: absolute;
-  top: 34px;
-  right: 38px;
+  position:relative;
+  grid-area:status;
   display: grid;
-  width: min(680px, 54vw);
+  width:100%;
   grid-template-columns: 130px 145px minmax(0, 1fr);
   gap: 10px;
 }
@@ -11977,11 +12207,6 @@ button.project-drag-handle:active { cursor: grabbing; }
 .sacred-habit-library h2 { margin: 0; font: 500 30px/1.05 Georgia, serif; }
 .sacred-habit-library > header p { margin: 0; color: #9bb0aa; font-size: 9px; line-height: 1.55; }
 .sacred-habit-library > header button { color:#f3dfaa; }
-.sacred-library-toggle { display:inline-flex; min-height:42px; align-items:center; justify-content:center; gap:10px; padding:10px 13px 10px 16px; white-space:nowrap; border:1px solid rgba(213,182,110,.38); border-radius:999px; background:linear-gradient(135deg,rgba(213,182,110,.15),rgba(255,255,255,.035)); box-shadow:inset 0 1px 0 rgba(255,247,222,.1),0 8px 22px rgba(1,14,16,.2); cursor:pointer; font-size:9px; font-weight:800; letter-spacing:.02em; transition:background .18s ease,border-color .18s ease,transform .18s ease; }
-.sacred-library-toggle:hover { border-color:rgba(229,202,139,.62); background:linear-gradient(135deg,rgba(213,182,110,.22),rgba(255,255,255,.06)); transform:translateY(-1px); }
-.sacred-library-toggle:focus-visible { outline:3px solid rgba(231,205,145,.52); outline-offset:3px; }
-.sacred-library-toggle[aria-expanded="true"] { color:#fff1c8; border-color:rgba(224,193,119,.58); background:rgba(213,182,110,.18); }
-.sacred-library-toggle .disclosure-chevron { box-sizing:border-box; width:22px; height:22px; padding:4px; border:1px solid rgba(229,204,145,.3); border-radius:50%; background:rgba(1,18,20,.28); }
 .disclosure-chevron { width:18px; height:18px; flex:0 0 auto; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; transition:transform .2s ease; }
 .disclosure-chevron.open { transform:rotate(180deg); }
 .sacred-sector-navigation { display:grid; grid-template-columns:minmax(0,1.65fr) minmax(230px,.7fr); align-items:stretch; gap:12px; }
@@ -12539,9 +12764,12 @@ button.project-drag-handle:active { cursor: grabbing; }
 .today-workspace .genesis-page-footer { order: 9; }
 
 @media (max-width: 1050px) {
-  .habits-hero { grid-template-columns:minmax(0,1fr); }
-  .habits-hero > div:first-child { max-width: calc(100% - 620px); }
-  .habits-hero-status { width: 600px; grid-template-columns:120px 130px minmax(0,1fr); }
+  .habits-hero,
+  .habits-view.gamification-hidden .habits-hero { grid-template-columns:minmax(0,1fr); grid-template-areas:"copy" "status" "actions"; }
+  .habits-hero > div:first-child,
+  .habits-view.gamification-hidden .habits-hero > div:first-child { max-width:720px; }
+  .habits-hero-status { width:100%; grid-template-columns:120px 130px minmax(0,1fr); }
+  .habits-hero-actions { width:100%; justify-self:stretch; justify-content:flex-end; }
   .habit-check-list > article { grid-template-columns:38px minmax(160px,1fr) minmax(160px,.8fr) auto; }
   .habit-stat-cards { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .heroic-rank-road > div { grid-template-columns:repeat(4,minmax(0,1fr)); }
@@ -12556,12 +12784,13 @@ button.project-drag-handle:active { cursor: grabbing; }
   .habit-collapsible-toggle,
   .habit-collapsible-block.collapsed .habit-collapsible-toggle { width:auto; min-height:42px; }
   .habit-section-drag-handle { width:42px; min-width:42px; min-height:42px; }
-  .habits-hero { grid-template-columns:minmax(0,1fr); min-height:0; padding:27px 19px; border-radius:4px 24px 4px 24px; }
+  .habits-hero,
+  .habits-view.gamification-hidden .habits-hero { grid-template-columns:minmax(0,1fr); grid-template-areas:"copy" "status" "actions"; min-height:0; padding:27px 19px; border-radius:4px 24px 4px 24px; }
   .habits-hero > div:first-child { max-width:none; }
-  .habits-hero-status { position:relative; inset:auto; width:100%; grid-template-columns:repeat(2,minmax(0,1fr)); margin-top:18px; }
-  .habits-hero-score { position:relative; inset:auto; width:100%; margin-top:18px; }
+  .habits-hero-status { width:100%; grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .habits-hero-score { position:relative; inset:auto; width:100%; }
   .habits-hero-score { grid-column:1 / -1; margin-top:0; }
-  .habits-hero-actions { position:relative !important; inset:auto; width:100%; margin-top:18px; flex-wrap:wrap; justify-content:flex-start; }
+  .habits-hero-actions { width:100%; flex-wrap:wrap; justify-self:stretch; justify-content:flex-start; }
   .habits-hero-score { grid-template-columns:52px minmax(0,1fr); }.habits-hero-score > .rank-sigil { width:52px; height:52px; }
   .streak-resilience > article { grid-template-columns:48px minmax(0,1fr); padding:15px 13px; }
   .hestia-spark-icon,.comeback-mark { width:46px; height:46px; }.hestia-spark-icon img,.comeback-mark img { width:42px; height:42px; }
@@ -12574,7 +12803,6 @@ button.project-drag-handle:active { cursor: grabbing; }
   .habit-template-grid > article { min-height:0; }
   .sacred-habit-library { padding:17px 13px; border-radius:4px 18px 4px 18px; }
   .sacred-habit-library > header { align-items:start; flex-direction:column; }
-  .sacred-library-toggle { width:100%; justify-content:space-between; }
   .sacred-sector-navigation { grid-template-columns:minmax(0,1fr); }
   .sacred-compass { padding:8px; }
   .sacred-compass-grid { gap:5px; }

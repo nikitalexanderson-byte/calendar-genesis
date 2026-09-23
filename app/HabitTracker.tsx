@@ -312,29 +312,50 @@ function CollapsibleHabitBlock({ label, language, children, sectionId, position,
   const contentId = useId();
   const isEnglish = language === "en";
   const pointerTargetRef = useRef<HabitSectionId | null>(null);
+  const pointerDraggingRef = useRef(false);
+  const nativeDragOverSourceRef = useRef<HabitSectionId | null>(null);
   const [pointerDragging, setPointerDragging] = useState(false);
+  const [nativeDragging, setNativeDragging] = useState(false);
+  const [pointerPoint, setPointerPoint] = useState<{ x: number; y: number; width: number } | null>(null);
   const moveLabel = isEnglish ? `Drag ${label} to reorder` : `Перетащить раздел «${label}»`;
 
   const updatePointerTarget = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    const section = event.currentTarget.closest<HTMLElement>("[data-habit-section-id]");
+    setPointerPoint({ x: event.clientX, y: event.clientY, width: Math.min(section?.getBoundingClientRect().width ?? 420, window.innerWidth - 24) });
+    if (event.clientY < 88) window.scrollBy({ top: -16, behavior: "auto" });
+    if (event.clientY > window.innerHeight - 88) window.scrollBy({ top: 16, behavior: "auto" });
     const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>("[data-habit-section-id]")?.dataset.habitSectionId;
-    pointerTargetRef.current = isHabitSectionId(target) && target !== sectionId ? target : null;
+    const targetId = isHabitSectionId(target) && target !== sectionId ? target : null;
+    if (targetId === pointerTargetRef.current) return;
+    pointerTargetRef.current = targetId;
+    if (targetId) onMoveTo(sectionId, targetId);
   };
 
   const finishPointerDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    if (!pointerDragging) return;
+    if (!pointerDraggingRef.current) return;
     updatePointerTarget(event);
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
-    const targetId = pointerTargetRef.current;
     pointerTargetRef.current = null;
+    pointerDraggingRef.current = false;
     setPointerDragging(false);
-    if (targetId) onMoveTo(sectionId, targetId);
+    setPointerPoint(null);
+  };
+
+  const handleDragEnter = (event: ReactDragEvent<HTMLElement>) => {
+    const sourceId = event.dataTransfer.getData(HABIT_SECTION_DRAG_TYPE);
+    if (!isHabitSectionId(sourceId) || sourceId === sectionId) return;
+    event.preventDefault();
+    if (nativeDragOverSourceRef.current === sourceId) return;
+    nativeDragOverSourceRef.current = sourceId;
+    onMoveTo(sourceId, sectionId);
   };
 
   const handleDrop = (event: ReactDragEvent<HTMLElement>) => {
     const sourceId = event.dataTransfer.getData(HABIT_SECTION_DRAG_TYPE);
     if (!isHabitSectionId(sourceId) || sourceId === sectionId) return;
     event.preventDefault();
-    onMoveTo(sourceId, sectionId);
+    if (nativeDragOverSourceRef.current !== sourceId) onMoveTo(sourceId, sectionId);
+    nativeDragOverSourceRef.current = null;
   };
 
   const handleMoveKey = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
@@ -349,10 +370,12 @@ function CollapsibleHabitBlock({ label, language, children, sectionId, position,
 
   return (
     <section
-      className={`habit-collapsible-block${open ? " open" : " collapsed"}${pointerDragging ? " dragging" : ""}${className ? ` ${className}` : ""}`}
+      className={`habit-collapsible-block${open ? " open" : " collapsed"}${pointerDragging || nativeDragging ? " dragging" : ""}${className ? ` ${className}` : ""}`}
       data-habit-section-id={sectionId}
       style={{ order: 100 + position }}
+      onDragEnter={handleDragEnter}
       onDragOver={(event) => { if (event.dataTransfer.types.includes(HABIT_SECTION_DRAG_TYPE)) event.preventDefault(); }}
+      onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) nativeDragOverSourceRef.current = null; }}
       onDrop={handleDrop}
     >
       <header className="habit-collapsible-toolbar">
@@ -369,24 +392,37 @@ function CollapsibleHabitBlock({ label, language, children, sectionId, position,
           onDragStart={(event) => {
             event.dataTransfer.effectAllowed = "move";
             event.dataTransfer.setData(HABIT_SECTION_DRAG_TYPE, sectionId);
+            const section = event.currentTarget.closest<HTMLElement>("[data-habit-section-id]");
+            if (section) {
+              const bounds = section.getBoundingClientRect();
+              event.dataTransfer.setDragImage(section, Math.max(0, Math.min(event.clientX - bounds.left, bounds.width)), Math.max(0, Math.min(event.clientY - bounds.top, bounds.height)));
+            }
+            setNativeDragging(true);
           }}
+          onDragEnd={() => { nativeDragOverSourceRef.current = null; setNativeDragging(false); }}
           onPointerDown={(event) => {
             if (event.pointerType === "mouse") return;
             pointerTargetRef.current = null;
+            pointerDraggingRef.current = true;
             event.currentTarget.setPointerCapture(event.pointerId);
             setPointerDragging(true);
+            const section = event.currentTarget.closest<HTMLElement>("[data-habit-section-id]");
+            setPointerPoint({ x: event.clientX, y: event.clientY, width: Math.min(section?.getBoundingClientRect().width ?? 420, window.innerWidth - 24) });
           }}
-          onPointerMove={(event) => { if (pointerDragging) updatePointerTarget(event); }}
+          onPointerMove={(event) => { if (pointerDraggingRef.current) updatePointerTarget(event); }}
           onPointerUp={finishPointerDrag}
           onPointerCancel={(event) => {
             if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
             pointerTargetRef.current = null;
+            pointerDraggingRef.current = false;
             setPointerDragging(false);
+            setPointerPoint(null);
           }}
           onKeyDown={handleMoveKey}
         ><span aria-hidden="true">⠿</span></button> : null}
       </header>
       {open ? <div className="habit-collapsible-content" id={contentId}>{children}</div> : null}
+      {pointerDragging && pointerPoint ? <div className="habit-section-drag-preview" style={{ left: pointerPoint.x, top: pointerPoint.y, width: pointerPoint.width }} aria-hidden="true"><span>{isEnglish ? "Section" : "Раздел привычек"}</span><strong>{label}</strong><small>{isEnglish ? "Move between the highlighted sections" : "Перемещайте между соседними блоками"}</small></div> : null}
     </section>
   );
 }
@@ -1202,7 +1238,6 @@ function SacredHabitLibrary({
   onOpenTheokyklosSector?: (sectorId: SacredPracticeSectorId) => void;
 }) {
   const isEnglish = language === "en";
-  const [expanded, setExpanded] = useState(false);
   const [selectedSectorId, setSelectedSectorId] = useState<SacredPracticeSectorId | null>(null);
   const closeSectorDialog = () => setSelectedSectorId(null);
   const segments = useMemo(() => new Map(THEOKYKLOS_SEGMENTS.map((segment) => [segment.id, segment])), []);
@@ -1239,13 +1274,9 @@ function SacredHabitLibrary({
           <h2 id="sacred-habit-library-title">{isEnglish ? "Sacred habits" : "Сакральные привычки"}</h2>
           <p>{isEnglish ? "Every practice is an ordinary, trackable action illuminated by a myth and a patron deity." : "Каждая практика — обычное отслеживаемое действие, освещённое мифом и божеством-покровителем."}</p>
         </div>
-        <button type="button" className="secondary-button sacred-library-toggle" aria-expanded={expanded} aria-controls="sacred-sector-picker" onClick={() => setExpanded((current) => !current)}>
-          <span>{expanded ? (isEnglish ? "Hide sectors" : "Скрыть сектора") : (isEnglish ? "Choose a sector" : "Выбрать сектор")}</span>
-          <DisclosureChevron open={expanded} />
-        </button>
       </header>
 
-      {expanded ? <div className="sacred-sector-navigation open" id="sacred-sector-picker" role="group" aria-label={isEnglish ? "Theokyklos practice sectors" : "Секторы практик Теокиклоса"}>
+      <div className="sacred-sector-navigation open" id="sacred-sector-picker" role="group" aria-label={isEnglish ? "Theokyklos practice sectors" : "Секторы практик Теокиклоса"}>
         <div className="sacred-compass">
           <div className="sacred-compass-rose" aria-hidden="true"><i /><i /><i /><i /></div>
           <div className="sacred-compass-grid">
@@ -1262,7 +1293,7 @@ function SacredHabitLibrary({
             <div className="sacred-threshold-grid">{SACRED_THRESHOLD_SECTOR_IDS.map(renderSectorTab)}</div>
           </div>
         </aside>
-      </div> : null}
+      </div>
 
       {selectedSectorId && sector ? <div className="modal-backdrop sacred-sector-modal-backdrop" role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) closeSectorDialog(); }}>
         <section ref={sectorDialogRef} className="sacred-sector-modal" role="dialog" aria-modal="true" aria-labelledby="sacred-sector-modal-title" tabIndex={-1}>

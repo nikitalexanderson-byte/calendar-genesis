@@ -3123,6 +3123,8 @@ export function GenesisCalendar() {
 
   const beginProjectTouchDrag = (event: TouchEvent<HTMLElement>, item: ProjectDragItem) => {
     if (event.touches.length !== 1) return;
+    const dragHandle = event.target instanceof Element ? event.target.closest(".project-drag-handle") : null;
+    if (!dragHandle || !event.currentTarget.contains(dragHandle)) return;
     const touch = event.touches[0];
     const previous = projectTouchDragRef.current;
     if (previous) window.clearTimeout(previous.timer);
@@ -3140,7 +3142,7 @@ export function GenesisCalendar() {
       setProjectDragItem(drag.item);
       setProjectTouchPoint({ x: drag.startX, y: drag.startY });
       setProjectDropTargetId(projectDropTargetAt(drag.startX, drag.startY));
-    }, 180);
+    }, 320);
     projectTouchDragRef.current = drag;
   };
 
@@ -3148,11 +3150,10 @@ export function GenesisCalendar() {
     const drag = projectTouchDragRef.current;
     const touch = event.touches[0];
     if (!drag || !touch) return;
-    if (!drag.active && Math.hypot(touch.clientX - drag.startX, touch.clientY - drag.startY) > 6) {
+    if (!drag.active && Math.hypot(touch.clientX - drag.startX, touch.clientY - drag.startY) > 8) {
       window.clearTimeout(drag.timer);
-      drag.active = true;
-      document.documentElement.classList.add("project-drag-active");
-      setProjectDragItem(drag.item);
+      projectTouchDragRef.current = null;
+      return;
     }
     if (!drag.active) return;
     event.preventDefault();
@@ -4306,8 +4307,9 @@ export function GenesisCalendar() {
         </span>
         {mode === "profane" ? (
           <span className="profane-weekday-patron">
-            <strong><b aria-hidden="true">{weekdayPatron.symbol}</b>{weekdayPatron.weekday}</strong>
-            <small>{weekdayPatron.guidanceTitle}</small>
+            <strong><b aria-hidden="true">{weekdayPatron.symbol}</b><span className="profane-weekday-name">{weekdayPatron.weekday}</span></strong>
+            <small className="profane-weekday-deity">{weekdayPatron.guidancePatrons}</small>
+            <small className="profane-weekday-guidance">{weekdayPatron.guidanceTitle}</small>
           </span>
         ) : null}
         <span className="calendar-cross-date profane-date">
@@ -4917,7 +4919,7 @@ export function GenesisCalendar() {
               >
                 <span className="eyebrow">Несортированное · зона возврата</span>
                 <h2 id="project-inbox-title">Хаос-бокс</h2>
-                <p>{projectDragItem ? "Отпустите здесь, чтобы убрать элемент из проекта." : "Возьмите пальцем любую плашку задачи или списка и перенесите в нужный проект. Обратно в хаос-бокс она переносится так же."}</p>
+                <p>{projectDragItem ? "Отпустите здесь, чтобы убрать элемент из проекта." : "Прокручивайте карточки свободно. Для переноса удерживайте ручку ⋮⋮ и переместите задачу или список в нужный проект. Обратно в хаос-бокс элемент переносится так же."}</p>
                 <strong>{inboxTasks.length + inboxTaskLists.length}</strong>
                 <div className="inbox-card-items">
                   {inboxTaskLists.map((taskList) => {
@@ -4992,7 +4994,7 @@ export function GenesisCalendar() {
                     <div className="project-drop-field">
                       <div className="project-drop-heading">
                         <span>Пространство проекта</span>
-                        <small>{projectDragItem ? "Отпустите здесь" : "Перетаскивайте за всю плашку"}</small>
+                        <small>{projectDragItem ? "Отпустите здесь" : "Удерживайте ручку ⋮⋮ для переноса"}</small>
                       </div>
                       <div className="project-assigned-items">
                         {projectTaskLists.map((taskList) => {
@@ -5566,6 +5568,11 @@ export function GenesisCalendar() {
             className={`year-description-card calendar-mode-description${mode === "profane" ? " profane-year-full-width" : yearMonths.length === 13 ? " lunar-year-has-intercalary" : " lunar-year-full-width"}`}
             aria-labelledby="calendar-mode-year-description"
           >
+            {mode === "profane" ? (
+              <figure className="profane-saturn-art">
+                <img src="/calendar-art/saturn-cronus.webp" alt="Кронос с косой и золотой сигиллой Сатурна" width="640" height="960" />
+              </figure>
+            ) : null}
             <span className="eyebrow">{CALENDAR_MODE_META[mode].label}</span>
             <h2 id="calendar-mode-year-description">{mode === "profane" ? "Григорианский календарь (профанский)" : "Лунный год"}</h2>
             <p>{yearDescription}</p>

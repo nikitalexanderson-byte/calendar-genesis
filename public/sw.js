@@ -43,6 +43,12 @@ const HABIT_REWARD_ART = [
   "./habit-reward-art/hestia-spark.png",
   "./habit-reward-art/comeback.png",
 ];
+const HERO_RANK_BANNER_ART = [
+  "./habit-ranks/heroic-ranks.webp",
+];
+const CALENDAR_ART = [
+  "./calendar-art/saturn-cronus.webp",
+];
 const HERO_PATH_ICON_FILES = [
   "01_tantal",
   "02_sisyphus",
@@ -101,7 +107,7 @@ const THEOKYKLOS_SYMBOL_ART = [
   "./theokyklos-symbols/entrance-aether-hemera.png",
   "./theokyklos-symbols/exit-eros-psyche.png",
 ];
-const CORE = ["./", "./manifest.webmanifest", "./manifest.en.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./genesis-hero.png", ...MONTH_ART, ...WEEKDAY_ART, ...ACHIEVEMENT_ART, ...HABIT_REWARD_ART, ...HERO_PATH_ART, ...THEOKYKLOS_ART, ...THEOKYKLOS_SYMBOL_ART]
+const CORE = ["./", "./manifest.webmanifest", "./manifest.en.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./genesis-hero.png", ...MONTH_ART, ...WEEKDAY_ART, ...ACHIEVEMENT_ART, ...HABIT_REWARD_ART, ...HERO_RANK_BANNER_ART, ...CALENDAR_ART, ...HERO_PATH_ART, ...THEOKYKLOS_ART, ...THEOKYKLOS_SYMBOL_ART]
   .map((path) => new URL(path, SCOPE).href);
 const REQUIRED_SHELL = [...new Set([...CORE, ...PRECACHE.map((path) => new URL(path, SCOPE).href)])];
 

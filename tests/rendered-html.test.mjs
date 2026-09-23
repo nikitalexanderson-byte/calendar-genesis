@@ -396,7 +396,7 @@ test("admin moderation exposes only aggregate habit counts and can optionally bl
 });
 
 test("ships the modular encrypted tracker across dashboard, calendars and account settings", async () => {
-  const [calendar, tracker, habitInsightsPanel, habitInsights, habitGuidance, streakRewards, cosmeticsBacklog, heroPath, habits, habitReset, habitQuests, achievements, habitNotifications, progress, dailyGoal, rewards, streakProtection, sleep, mood, addiction, analytics, cache, trackerMath, cloud, account, recoveryDialog, repository, migration, styles, sigil, metricSigil, achievementSigil, rankArt] = await Promise.all([
+  const [calendar, tracker, habitInsightsPanel, habitInsights, habitGuidance, streakRewards, cosmeticsBacklog, heroPath, habits, habitReset, habitQuests, achievements, habitNotifications, progress, dailyGoal, rewards, streakProtection, sleep, mood, addiction, analytics, cache, trackerMath, cloud, account, recoveryDialog, repository, migration, styles, sigil, metricSigil, achievementSigil, rankArt, rankSourceArt] = await Promise.all([
     readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/HabitTracker.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/HabitInsightsPanel.tsx", import.meta.url), "utf8"),
@@ -430,6 +430,7 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
     readFile(new URL("../app/HabitMetricSigil.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/AchievementSigil.tsx", import.meta.url), "utf8"),
     stat(new URL("../public/habit-ranks/heroic-ranks.webp", import.meta.url)),
+    stat(new URL("../assets/habit-ranks/source/heroic-ranks-banner.png", import.meta.url)),
   ]);
 
   assert.match(calendar, /id: "habits", label: "Привычки", symbol: "✦"/);
@@ -613,7 +614,8 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(account, /Тихих часов|тихих часов/);
   assert.doesNotMatch(calendar, /--mobile-nav-count/);
   assert.match(calendar, /buildHabitNotificationPlan/);
-  assert.match(styles, /\.habits-hero-status[\s\S]*position: absolute/);
+  assert.match(styles, /\.habits-hero[\s\S]*grid-template-areas:[\s\S]*"copy status"[\s\S]*"copy actions"/);
+  assert.match(styles, /\.habits-hero-status \{[\s\S]*position:relative;[\s\S]*grid-area:status;/);
   assert.match(styles, /\.daily-goal-ring/);
   assert.match(styles, /\.habit-heatmap > div \{[^}]*grid-template-columns: repeat\(5,minmax\(0,1fr\)\)[^}]*grid-template-rows: repeat\(6,minmax\(0,1fr\)\)/);
   assert.match(styles, /\.laurel-ledger/);
@@ -686,6 +688,7 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(styles, /\.habit-reset-dialog/);
   assert.match(styles, /\/habit-ranks\/heroic-ranks\.webp/);
   assert.ok(rankArt.size > 100_000, "heroic rank artwork should be a production image");
+  assert.ok(rankSourceArt.size > 1_000_000, "the supplied heroic rank PNG should be preserved as a source asset");
 });
 
 test("resetting habit tracking clears every tracker and statistic while preserving preferences", () => {
@@ -1719,6 +1722,9 @@ test("ships the complete interactive bilingual Theokyklos", async () => {
   assert.match(component, /THEOKYKLOS_SYMBOL_ART\[segment\.id\]/);
   assert.match(component, /<image className="theokyklos-mandala-icon/);
   assert.match(component, /<img src=\{THEOKYKLOS_SYMBOL_ART\[segment\.id\]\}/);
+  assert.match(component, /className="theokyklos-threshold-row"/);
+  assert.ok(component.indexOf("threshold-entrance") < component.indexOf("theokyklos-threshold-ornament"));
+  assert.ok(component.indexOf("theokyklos-threshold-ornament") < component.indexOf("threshold-exit"));
   assert.doesNotMatch(component, />\{segment\.symbol\}</);
   const hearthStart = component.indexOf('className={`theokyklos-svg-segment hearth-segment');
   const centerStart = component.indexOf('className={`theokyklos-svg-segment center-segment');
@@ -1738,6 +1744,10 @@ test("ships the complete interactive bilingual Theokyklos", async () => {
   assert.match(styles, /@keyframes theokyklos-rays/);
   assert.match(styles, /\.modal-backdrop\.theokyklos-details-backdrop/);
   assert.match(styles, /\.theokyklos-details-art img \{[^}]*object-fit: cover/);
+  assert.match(styles, /\.theokyklos-threshold-row\s*\{[\s\S]*grid-column: 1 \/ -1/);
+  assert.match(styles, /\.theokyklos-threshold-card\.threshold-entrance \{ grid-column: 1; \}/);
+  assert.match(styles, /\.theokyklos-threshold-card\.threshold-exit \{ grid-column: -2 \/ -1; \}/);
+  assert.match(styles, /\.theokyklos-threshold-ornament\s*\{[\s\S]*opacity: \.24/);
   assert.match(styles, /min-height: calc\(100dvh - 34px\)/);
   assert.match(styles, /height: calc\(100dvh - 92px\)/);
   assert.match(i18n, /"Теокиклос": "Theokyklos"/);
@@ -1806,8 +1816,8 @@ test("covers every Theokyklos sector with sacred habits while keeping Stoicheion
   assert.match(tracker, /src="\/habit-reward-art\/comeback\.png"/);
   await access(new URL("../public/habit-reward-art/hestia-spark.png", import.meta.url));
   await access(new URL("../public/habit-reward-art/comeback.png", import.meta.url));
-  assert.match(tracker, /const \[expanded, setExpanded\] = useState\(false\)/);
-  assert.match(tracker, /aria-controls="sacred-sector-picker"/);
+  assert.doesNotMatch(tracker, /const \[expanded, setExpanded\] = useState\(false\)/);
+  assert.match(tracker, /className="sacred-sector-navigation open" id="sacred-sector-picker"/);
   assert.match(tracker, /className="sacred-sector-modal" role="dialog" aria-modal="true"/);
   assert.match(tracker, /Выберите сакральную привычку/);
   assert.match(tracker, /Открыть полный набор эмодзи/);
@@ -2089,12 +2099,19 @@ test("mobile Gregorian calendar fits all seven weekdays without horizontal scrol
   assert.ok(tabletRules > -1 && mobileRulesStart > tabletRules && mobileRulesEnd > mobileRulesStart);
   assert.match(mobileRules, /\.calendar-mode-calendar\.mode-profane \{[^}]*overflow-x:hidden;/);
   assert.match(mobileRules, /\.calendar-mode-calendar\.mode-profane \.calendar-mode-days \{[\s\S]*min-width:0;[\s\S]*grid-template-columns:repeat\(7,minmax\(0,1fr\)\);/);
-  assert.match(mobileRules, /\.calendar-mode-calendar\.mode-profane \.calendar-mode-day,[\s\S]*min-height:78px;[\s\S]*overflow:hidden;/);
-  assert.match(mobileRules, /\.calendar-mode-calendar\.mode-profane \.profane-weekday-patron,[\s\S]*\.calendar-mode-calendar\.mode-profane \.calendar-sun-times,[\s\S]*display:none;/);
+  assert.match(mobileRules, /\.calendar-mode-calendar\.mode-profane \.calendar-mode-day,[\s\S]*min-height:112px;[\s\S]*overflow:hidden;/);
+  assert.match(mobileRules, /\.calendar-mode-calendar\.mode-profane \.profane-weekday-patron \{[\s\S]*display:grid;[\s\S]*text-align:center;/);
+  assert.match(mobileRules, /\.calendar-mode-calendar\.mode-profane \.profane-weekday-deity \{[\s\S]*display:-webkit-box;[\s\S]*-webkit-line-clamp:2;/);
+  assert.match(mobileRules, /\.calendar-mode-calendar\.mode-profane \.profane-weekday-name,[\s\S]*\.profane-weekday-guidance[\s\S]*display:none;/);
   assert.match(mobileRules, /\.calendar-mode-calendar\.mode-profane \.calendar-mode-day\.adjacent-month \.adjacent-month-label,[\s\S]*display:none;/);
   assert.match(mobileRules, /\.calendar-mode-calendar\.mode-profane \.calendar-mode-primary > small \{[^}]*display:none;/);
   assert.match(mobileRules, /\.calendar-mode-calendar\.mode-profane \.calendar-cross-date\.lunar-date \{[\s\S]*position:absolute;[\s\S]*width:17px;/);
+  assert.match(mobileRules, /\.calendar-mode-calendar\.mode-profane \.calendar-solar-mark \{[\s\S]*display:inline-flex;[\s\S]*width:17px;/);
+  assert.match(mobileRules, /\.calendar-mode-calendar\.mode-profane \.calendar-day-task-control \{[\s\S]*display:block;/);
+  assert.match(mobileRules, /\.calendar-mode-calendar\.mode-profane \.calendar-day-task-count \{[\s\S]*min-width:14px;/);
+  assert.match(calendar, /className="profane-weekday-deity">\{weekdayPatron\.guidancePatrons\}/);
   assert.match(calendar, /className="calendar-lunar-day-label"/);
+  assert.match(calendar, /className="calendar-day-task-count"/);
   assert.match(calendar, /onClick=\{\(\) => openCalendarDate\(date, "calendar"\)\}/);
 });
 
@@ -2133,7 +2150,7 @@ test("QA-01 precaches the complete cold-install shell before activating the work
   assert.match(viteConfig, /genesis-offline-precache-manifest/);
   assert.match(viteConfig, /precache-manifest\.js/);
   assert.match(viteConfig, /createHash\("sha256"\)/);
-  assert.match(viteConfig, /PRECACHE_STATIC_REVISION = "hero-path-art-v5"/);
+  assert.match(viteConfig, /PRECACHE_STATIC_REVISION = "saturn-calendar-art-v7"/);
   assert.equal(packageJson.scripts["build:beget"], "vite build --config vite.beget.config.ts && node scripts/verify-offline-precache.mjs");
   assert.match(verifier, /missingAssets/);
   assert.match(verifier, /REQUIRED_VISUAL_ASSETS/);
@@ -2142,6 +2159,11 @@ test("QA-01 precaches the complete cold-install shell before activating the work
   assert.match(serviceWorker, /REQUIRED_SHELL/);
   assert.match(serviceWorker, /ACHIEVEMENT_ART/);
   assert.match(serviceWorker, /HABIT_REWARD_ART/);
+  assert.match(serviceWorker, /HERO_RANK_BANNER_ART/);
+  assert.match(serviceWorker, /\.\/habit-ranks\/heroic-ranks\.webp/);
+  assert.match(serviceWorker, /CALENDAR_ART/);
+  assert.match(serviceWorker, /\.\/calendar-art\/saturn-cronus\.webp/);
+  assert.match(verifier, /calendar-art\/saturn-cronus\.webp/);
   assert.match(serviceWorker, /THEOKYKLOS_ART/);
   assert.match(serviceWorker, /THEOKYKLOS_SYMBOL_ART/);
   assert.match(serviceWorker, /await cache\.addAll\([\s\S]*await self\.skipWaiting\(\)/);
@@ -2150,11 +2172,10 @@ test("QA-01 precaches the complete cold-install shell before activating the work
   assert.match(htaccess, /\^\(\?:sw\|precache-manifest\)\\\.js\$/);
   assert.match(htaccess, /no-cache, no-store, must-revalidate/);
 
-  assert.match(tracker, /className="secondary-button sacred-library-toggle" aria-expanded=\{expanded\}/);
-  assert.match(tracker, /<DisclosureChevron open=\{expanded\}/);
-  assert.match(styles, /\.sacred-library-toggle \{[^}]*border-radius:999px/);
-  assert.match(styles, /\.sacred-library-toggle\[aria-expanded="true"\]/);
-  assert.match(styles, /\.sacred-library-toggle \.disclosure-chevron/);
+  assert.doesNotMatch(tracker, /sacred-library-toggle/);
+  assert.doesNotMatch(tracker, /<DisclosureChevron open=\{expanded\}/);
+  assert.match(tracker, /<div className="sacred-sector-navigation open" id="sacred-sector-picker"/);
+  assert.doesNotMatch(styles, /\.sacred-library-toggle/);
 });
 
 test("QA-02 gives large habit sections consistent disclosure controls and modal dialogs a shared focus contract", async () => {
@@ -2185,6 +2206,11 @@ test("QA-02 gives large habit sections consistent disclosure controls and modal 
   assert.match(styles, /\.habit-section-drag-handle \{[\s\S]*touch-action:none;/);
   assert.match(styles, /max-width: 760px[\s\S]*\.habit-collapsible-block \{ flex-basis:100%;/);
   assert.match(tracker, /application\/x-genesis-habit-section/);
+  assert.match(tracker, /setDragImage\(section/);
+  assert.match(tracker, /onDragEnter=\{handleDragEnter\}/);
+  assert.match(tracker, /if \(targetId\) onMoveTo\(sectionId, targetId\)/);
+  assert.match(tracker, /className="habit-section-drag-preview"/);
+  assert.match(styles, /\.habit-section-drag-preview \{[\s\S]*position:fixed;[\s\S]*pointer-events:none;/);
   assert.match(tracker, /onPointerDown=/);
   assert.match(tracker, /onKeyDown=\{handleMoveKey\}/);
   assert.match(tracker, /sectionOrder: nextOrder/);
@@ -2628,6 +2654,11 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /Задача «\$\{item\.title\}» возвращена в хаос-бокс/);
   assert.match(calendar, /projectDragProps/);
   assert.match(calendar, /beginProjectTouchDrag/);
+  assert.match(calendar, /event\.target instanceof Element \? event\.target\.closest\("\.project-drag-handle"\)/);
+  assert.match(calendar, /if \(!dragHandle \|\| !event\.currentTarget\.contains\(dragHandle\)\) return/);
+  assert.match(calendar, /\}, 320\)/);
+  assert.match(calendar, /Math\.hypot\([\s\S]*> 8\)[\s\S]*projectTouchDragRef\.current = null;[\s\S]*return;/);
+  assert.match(calendar, /Прокручивайте карточки свободно\. Для переноса удерживайте ручку ⋮⋮/);
   assert.match(calendar, /className="inbox-list-item project-draggable-item"[\s\S]*projectDragProps\(item\)/);
   assert.match(calendar, /className="inbox-task-delete"/);
   assert.match(calendar, /className="inbox-task-delete"[\s\S]*deleteTask\(task\.id\)[\s\S]*Удалить задачу/);
@@ -2828,7 +2859,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(styles, /\.project-tree-workspace/);
   assert.match(styles, /\.inbox-card\.drop-target/);
   assert.match(styles, /\.project-drag-preview/);
-  assert.match(styles, /\.project-draggable-item\s*\{[\s\S]*touch-action: none/);
+  assert.match(styles, /@media \(max-width: 760px\)[\s\S]*?\.project-draggable-item\s*\{\s*cursor: auto;\s*touch-action: pan-y;/);
+  assert.match(styles, /@media \(max-width: 760px\)[\s\S]*?\.project-drag-handle\s*\{[^}]*touch-action: none/);
   assert.match(styles, /\.inbox-card-items > article\.inbox-task-item/);
   assert.match(styles, /\.inbox-card-items \.inbox-task-delete/);
   assert.match(styles, /\.day-details-modal/);
@@ -2869,6 +2901,12 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(styles, /\.hero-day-title-translation\s*\{[\s\S]*white-space: nowrap/);
   assert.match(calendar, /profane-year-full-width/);
   assert.match(styles, /\.calendar-mode-description\.profane-year-full-width,[\s\S]*grid-column: 1 \/ -1/);
+  assert.match(calendar, /className="profane-saturn-art"[\s\S]*calendar-art\/saturn-cronus\.webp/);
+  assert.match(calendar, /Кронос с косой и золотой сигиллой Сатурна/);
+  assert.match(styles, /\.profane-saturn-art\s*\{[\s\S]*position: absolute;[\s\S]*pointer-events: none/);
+  assert.match(styles, /@media \(max-width: 1000px\)[\s\S]*\.profane-saturn-art \{ display: none; \}/);
+  await access(new URL("../public/calendar-art/saturn-cronus.webp", import.meta.url));
+  await access(new URL("../assets/calendar-art/source/saturn-cronus.png", import.meta.url));
   assert.match(styles, /\.year-grid \.mini-day\.saturday\s*\{[\s\S]*rgba\(22, 37, 35, \.09\)/);
   assert.match(styles, /\.mini-day-task-count\s*\{[\s\S]*width: 16px;[\s\S]*height: 16px;[\s\S]*background: var\(--terracotta\)/);
   assert.doesNotMatch(styles, /\.mini-day\.has-task\s*\{[\s\S]{0,160}background: var\(--terracotta\)/);

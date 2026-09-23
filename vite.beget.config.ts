@@ -8,7 +8,7 @@ const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 const configuredBase = process.env.GENESIS_BASE_PATH?.trim() || "/";
 const base = configuredBase.endsWith("/") ? configuredBase : `${configuredBase}/`;
 const apiUrl = process.env.GENESIS_API_URL?.trim() || `${base.replace(/\/$/, "")}/api`;
-const PRECACHE_STATIC_REVISION = "hero-path-art-v5";
+const PRECACHE_STATIC_REVISION = "saturn-calendar-art-v7";
 
 function offlinePrecacheManifest(basePath: string): Plugin {
   return {

@@ -26,6 +26,8 @@ const HERO_PATH_ICON_FILES = [
   "20_amphora_of_abyss",
 ];
 const REQUIRED_VISUAL_ASSETS = [
+  "habit-ranks/heroic-ranks.webp",
+  "calendar-art/saturn-cronus.webp",
   "achievement-art/first-step.png",
   "achievement-art/three-day-rhythm.png",
   "achievement-art/seven-sunrises.png",

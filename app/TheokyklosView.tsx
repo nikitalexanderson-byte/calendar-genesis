@@ -293,7 +293,7 @@ export function TheokyklosView({ language, workspace, date, calendarMode, initia
           </div>
 
           <div className="theokyklos-segment-index" aria-label={language === "en" ? "All Theokyklos segments" : "Все сегменты Теокиклоса"}>
-            {THEOKYKLOS_SEGMENTS.map((segment) => (
+            {THEOKYKLOS_SEGMENTS.filter((segment) => segment.group !== "threshold").map((segment) => (
               <button
                 type="button"
                 className={selectedId === segment.id ? "active" : ""}
@@ -307,6 +307,37 @@ export function TheokyklosView({ language, workspace, date, calendarMode, initia
                 <strong>{localized(segment.patrons, language)}</strong>
               </button>
             ))}
+            <div className="theokyklos-threshold-row">
+              <button
+                type="button"
+                className={`${selectedId === entrance.id ? "active " : ""}theokyklos-threshold-card threshold-entrance`}
+                onClick={() => selectSegment(entrance.id)}
+                aria-pressed={selectedId === entrance.id}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element -- Shared static PNG is pre-optimized for both deployment targets. */}
+                <img src={THEOKYKLOS_SYMBOL_ART[entrance.id]} alt="" width="256" height="256" draggable="false" />
+                <small>{localized(entrance.short, language)}</small>
+                <strong>{localized(entrance.patrons, language)}</strong>
+              </button>
+              <span className="theokyklos-threshold-ornament" aria-hidden="true">
+                <svg viewBox="0 0 180 54">
+                  <path d="M16 28c22-18 34 17 55-2 8-8 10-19 19-19s11 11 19 19c21 19 33-16 55 2" />
+                  <path d="M61 27c10 2 17 8 29 18 12-10 19-16 29-18" />
+                  <circle cx="90" cy="26" r="4" />
+                </svg>
+              </span>
+              <button
+                type="button"
+                className={`${selectedId === exit.id ? "active " : ""}theokyklos-threshold-card threshold-exit`}
+                onClick={() => selectSegment(exit.id)}
+                aria-pressed={selectedId === exit.id}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element -- Shared static PNG is pre-optimized for both deployment targets. */}
+                <img src={THEOKYKLOS_SYMBOL_ART[exit.id]} alt="" width="256" height="256" draggable="false" />
+                <small>{localized(exit.short, language)}</small>
+                <strong>{localized(exit.patrons, language)}</strong>
+              </button>
+            </div>
           </div>
         </section>
 
