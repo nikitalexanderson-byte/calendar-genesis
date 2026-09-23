@@ -320,7 +320,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
 
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section ref={accountDialogRef} className="account-panel" role="dialog" aria-modal="true" aria-labelledby="account-title" tabIndex={-1}>
+      <section ref={accountDialogRef} className="account-panel" data-exp-layout="view" data-exp-ui="dialog" role="dialog" aria-modal="true" aria-labelledby="account-title" tabIndex={-1}>
         <button type="button" className="modal-close" onClick={onClose} aria-label="Закрыть">×</button>
         <span className="eyebrow">Личный кабинет</span>
         <h2 id="account-title">{user.displayName || "Аккаунт GENESIS"}</h2>

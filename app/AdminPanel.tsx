@@ -82,10 +82,10 @@ export function AdminPanel() {
   };
   const deleteDialogRef = useDialogAccessibility<HTMLElement>(closeDeleteDialog, Boolean(deleteTarget));
 
-  if (!stats && !error) return <section className="admin-view"><p>{copy.loading}</p></section>;
+  if (!stats && !error) return <section className="admin-view" data-exp-layout="view"><p>{copy.loading}</p></section>;
 
   return (
-    <section className="admin-view" aria-labelledby="admin-title">
+    <section className="admin-view" data-exp-layout="view" aria-labelledby="admin-title">
       <header className="projects-header">
         <div><span className="eyebrow">{copy.adminOnly}</span><h1 id="admin-title">{copy.title}</h1><p>{copy.intro}</p></div>
         <button type="button" className="secondary-button" onClick={() => void refresh()}>{copy.refresh}</button>

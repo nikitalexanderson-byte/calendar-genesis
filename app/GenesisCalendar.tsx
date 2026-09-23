@@ -1255,6 +1255,8 @@ export function GenesisCalendar() {
   });
   const [accountOpen, setAccountOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [experimentalTodayTab, setExperimentalTodayTab] = useState<"tasks" | "create">("tasks");
+  const [experimentalTaskCreateTab, setExperimentalTaskCreateTab] = useState<"task" | "list">("task");
   const [voiceAssistantOpen, setVoiceAssistantOpen] = useState(false);
   const [voiceLaunchAnimating, setVoiceLaunchAnimating] = useState(false);
   const [geminiOpen, setGeminiOpen] = useState(false);
@@ -4027,6 +4029,7 @@ export function GenesisCalendar() {
   };
 
   const renderToday = () => {
+    const experimentalThemeActive = themeState.available && themeState.theme === GENESIS_THEME.EXPERIMENTAL;
     const isEnglish = language === "en";
     const info = todayInfo;
     const month = MONTHS[info.monthIndex];
@@ -4086,7 +4089,7 @@ export function GenesisCalendar() {
       : day.description;
 
     return (
-      <div className="today-view">
+      <div className="today-view" data-exp-layout="view">
         <section className={`hero-card mode-${activeCalendarMode}${activeCalendarMode === "profane" ? ` weekday-${gregorian.getDay()}` : ""}`} aria-labelledby="today-title" data-genesis-preserve="today-hero-art">
           <div className="hero-copy">
             <div className="eyebrow-row">
@@ -4129,7 +4132,20 @@ export function GenesisCalendar() {
 
         <DayRhythmPanel now={today} timeFormat={activeTimeFormat} />
 
-        <section className="today-create-panel" aria-labelledby="today-create-title" data-exp-ui="panel">
+        {experimentalThemeActive ? (
+          <div className="experimental-workspace-tabs" role="tablist" aria-label={isEnglish ? "Daily workspace" : "Рабочая зона дня"}>
+            <button type="button" role="tab" aria-selected={experimentalTodayTab === "tasks"} aria-controls="experimental-today-tasks" onClick={() => setExperimentalTodayTab("tasks")}>
+              <span>{isEnglish ? "Tasks" : "Задачи"}</span>
+              <strong>{todayTasks.length}</strong>
+            </button>
+            <button type="button" role="tab" aria-selected={experimentalTodayTab === "create"} aria-controls="experimental-today-create" onClick={() => setExperimentalTodayTab("create")}>
+              <span>{isEnglish ? "Create" : "Создать"}</span>
+              <strong aria-hidden="true">＋</strong>
+            </button>
+          </div>
+        ) : null}
+
+        <section id="experimental-today-create" className="today-create-panel" aria-labelledby="today-create-title" data-exp-ui="panel" hidden={experimentalThemeActive && experimentalTodayTab !== "create"}>
           <div>
             <span className="eyebrow">Быстрое создание задач</span>
             <h2 id="today-create-title">Создать для сегодняшнего дня</h2>
@@ -4146,7 +4162,7 @@ export function GenesisCalendar() {
           </div>
         </section>
 
-        <section className="today-tasks-panel" aria-labelledby="today-tasks-title" data-exp-ui="panel">
+        <section id="experimental-today-tasks" className="today-tasks-panel" aria-labelledby="today-tasks-title" data-exp-ui="panel" hidden={experimentalThemeActive && experimentalTodayTab !== "tasks"}>
           <header>
             <div>
               <span className="eyebrow">{isEnglish ? "The shape of today" : "План сегодняшнего дня"}</span>
@@ -4954,7 +4970,7 @@ export function GenesisCalendar() {
     const completedProjects = projects.filter((project) => project.status === "completed").length;
 
     return (
-      <div className="projects-view">
+      <div className="projects-view" data-exp-layout="view">
         <header className="projects-header" data-exp-ui="panel">
           <div>
             <span className="eyebrow">Система порядка</span>
@@ -5211,6 +5227,7 @@ export function GenesisCalendar() {
   };
 
   const renderAllTasks = () => {
+    const experimentalThemeActive = themeState.available && themeState.theme === GENESIS_THEME.EXPERIMENTAL;
     const searchTerms = allTasksSearch
       .toLocaleLowerCase(runtimeLocale())
       .split(/[\s,;#]+/)
@@ -5232,7 +5249,7 @@ export function GenesisCalendar() {
     const doneCount = tasks.filter((task) => task.done).length;
 
     return (
-      <div className="all-tasks-view">
+      <div className="all-tasks-view" data-exp-layout="view">
         <header className="all-tasks-header" data-exp-ui="panel">
           <div>
             <span className="eyebrow">Полный обзор</span>
@@ -5246,12 +5263,25 @@ export function GenesisCalendar() {
           </div>
         </header>
 
+        {experimentalThemeActive ? (
+          <div className="experimental-workspace-tabs experimental-create-tabs" role="tablist" aria-label={isEnglish ? "Create in tasks" : "Создание в задачах"}>
+            <button type="button" role="tab" aria-selected={experimentalTaskCreateTab === "task"} aria-controls="experimental-create-task" onClick={() => setExperimentalTaskCreateTab("task")}>
+              <span>{isEnglish ? "Task" : "Задача"}</span>
+              <strong aria-hidden="true">＋</strong>
+            </button>
+            <button type="button" role="tab" aria-selected={experimentalTaskCreateTab === "list"} aria-controls="experimental-create-list" onClick={() => setExperimentalTaskCreateTab("list")}>
+              <span>{isEnglish ? "Task list" : "Список задач"}</span>
+              <strong aria-hidden="true">☷</strong>
+            </button>
+          </div>
+        ) : null}
+
         <div className="all-tasks-create-grid">
-          <details className="all-tasks-create" open>
+          <details id="experimental-create-task" className="all-tasks-create" open hidden={experimentalThemeActive && experimentalTaskCreateTab !== "task"}>
             <summary><span aria-hidden="true">＋</span> Добавить задачу</summary>
             {renderTaskCreateForm("all-tasks")}
           </details>
-          <details className="task-list-create">
+          <details id="experimental-create-list" className="task-list-create" open={experimentalThemeActive && experimentalTaskCreateTab === "list"} hidden={experimentalThemeActive && experimentalTaskCreateTab !== "list"}>
             <summary><span aria-hidden="true">☷</span> Создать список задач</summary>
             {renderTaskListCreateForm("all-tasks")}
           </details>
@@ -5987,6 +6017,7 @@ export function GenesisCalendar() {
                   timeFormat={activeTimeFormat}
                   calendarMode={activeTaskCalendarMode}
                   googleTasksReady={Boolean(cloudUser?.googleTasksImportReady)}
+                  experimentalThemeActive={themeState.available && themeState.theme === GENESIS_THEME.EXPERIMENTAL}
                   onChange={updateHabitWorkspace}
                   onReminderRequested={createHabitGoogleReminder}
                   onReminderRemoved={async (habit) => {
@@ -6288,7 +6319,7 @@ export function GenesisCalendar() {
       ) : null}
       {dayTaskCreatorOpen ? (
         <div className="modal-backdrop day-task-create-backdrop" role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) closeSelectedDayTaskCreator(); }}>
-          <section ref={dayTaskCreatorDialogRef} className="editor-modal day-task-create-modal" role="dialog" aria-modal="true" aria-labelledby="day-task-create-title" aria-describedby="day-task-create-description" tabIndex={-1}>
+          <section ref={dayTaskCreatorDialogRef} className="editor-modal day-task-create-modal" data-exp-ui="dialog" role="dialog" aria-modal="true" aria-labelledby="day-task-create-title" aria-describedby="day-task-create-description" tabIndex={-1}>
             <button type="button" className="modal-close" onClick={closeSelectedDayTaskCreator} aria-label="Закрыть создание задачи">×</button>
             <span className="eyebrow">Дата задачи</span>
             <h2 id="day-task-create-title">Новая задача на выбранный день</h2>
@@ -6303,7 +6334,7 @@ export function GenesisCalendar() {
       ) : null}
       {pendingTaskDeletion ? (
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setPendingTaskDeletion(null); }}>
-          <section ref={taskDeleteDialogRef} className="editor-modal task-series-delete-modal" role="dialog" aria-modal="true" aria-labelledby="task-series-delete-title" tabIndex={-1}>
+          <section ref={taskDeleteDialogRef} className="editor-modal task-series-delete-modal" data-exp-ui="dialog" role="dialog" aria-modal="true" aria-labelledby="task-series-delete-title" tabIndex={-1}>
             <button type="button" className="modal-close" onClick={() => setPendingTaskDeletion(null)} aria-label="Закрыть">×</button>
             <span className="eyebrow">Удаление повторяющейся задачи</span>
             <h2 id="task-series-delete-title">Что удалить?</h2>
@@ -6318,7 +6349,7 @@ export function GenesisCalendar() {
       ) : null}
       {editingTask ? (
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditingTask(null); }}>
-          <form ref={taskEditorDialogRef} className="editor-modal" role="dialog" aria-modal="true" aria-labelledby="task-editor-title" tabIndex={-1} onSubmit={saveTaskEdit}>
+          <form ref={taskEditorDialogRef} className="editor-modal" data-exp-ui="dialog" role="dialog" aria-modal="true" aria-labelledby="task-editor-title" tabIndex={-1} onSubmit={saveTaskEdit}>
             <button type="button" className="modal-close" onClick={() => setEditingTask(null)} aria-label="Закрыть">×</button>
             <span className="eyebrow">Редактирование задачи</span>
             <h2 id="task-editor-title">Задача и её контекст</h2>
@@ -6475,7 +6506,7 @@ export function GenesisCalendar() {
       ) : null}
       {editingTaskList ? (
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditingTaskList(null); }}>
-          <form ref={taskListEditorDialogRef} className="editor-modal task-list-editor" role="dialog" aria-modal="true" aria-labelledby="task-list-editor-title" tabIndex={-1} onSubmit={saveTaskListEdit}>
+          <form ref={taskListEditorDialogRef} className="editor-modal task-list-editor" data-exp-ui="dialog" role="dialog" aria-modal="true" aria-labelledby="task-list-editor-title" tabIndex={-1} onSubmit={saveTaskListEdit}>
             <button type="button" className="modal-close" onClick={() => setEditingTaskList(null)} aria-label="Закрыть">×</button>
             <span className="eyebrow">Редактирование списка задач</span>
             <h2 id="task-list-editor-title">Название списка</h2>
@@ -6492,7 +6523,7 @@ export function GenesisCalendar() {
       ) : null}
       {editingProject ? (
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditingProject(null); }}>
-          <form ref={projectEditorDialogRef} className="editor-modal" role="dialog" aria-modal="true" aria-labelledby="project-editor-title" tabIndex={-1} onSubmit={saveProjectEdit}>
+          <form ref={projectEditorDialogRef} className="editor-modal" data-exp-ui="dialog" role="dialog" aria-modal="true" aria-labelledby="project-editor-title" tabIndex={-1} onSubmit={saveProjectEdit}>
             <button type="button" className="modal-close" onClick={() => setEditingProject(null)} aria-label="Закрыть">×</button>
             <span className="eyebrow">Редактирование проекта</span>
             <h2 id="project-editor-title">Название и описание</h2>
