@@ -5903,12 +5903,30 @@ export function GenesisCalendar() {
                 </button>
                 {accountMenuOpen ? (
                   <div className="account-menu" role="menu">
+                    <div className="account-menu-theme" role="none">
+                      <span>
+                        <strong>{language === "en" ? "Interface theme" : "Тема интерфейса"}</strong>
+                        <small>{themeState.theme === GENESIS_THEME.EXPERIMENTAL ? "Experimental" : "Standart"}</small>
+                      </span>
+                      <label className="account-menu-theme-switch">
+                        <input
+                          type="checkbox"
+                          role="switch"
+                          checked={themeState.theme === GENESIS_THEME.EXPERIMENTAL}
+                          disabled={!themeState.available || ["signed-out", "loading", "load-error"].includes(themeState.status)}
+                          aria-label={language === "en" ? "Experimental theme" : "Тема Experimental"}
+                          aria-busy={themeState.pending}
+                          onChange={(event) => changeGenesisTheme(event.target.checked ? GENESIS_THEME.EXPERIMENTAL : GENESIS_THEME.STANDART)}
+                        />
+                        <i aria-hidden="true" />
+                      </label>
+                    </div>
                     <button type="button" role="menuitem" onClick={() => {
                       setAccountMenuOpen(false);
                       setAccountOpen(true);
                     }}>
                       <span aria-hidden="true">○</span>
-                      Личная страница
+                      {language === "en" ? "Account settings" : "Личный кабинет"}
                     </button>
                     <button type="button" role="menuitem" className="account-menu-signout" onClick={() => void handleGoogleSignOut()}>
                       <span aria-hidden="true">↗</span>

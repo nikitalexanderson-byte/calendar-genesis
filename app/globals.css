@@ -672,13 +672,95 @@ button:disabled {
   top: calc(100% + 9px);
   right: 0;
   display: grid;
-  width: 220px;
+  width: 250px;
   padding: 7px;
   background: rgba(250, 247, 238, .98);
   border: 1px solid rgba(37, 91, 89, .18);
   border-radius: 14px;
   box-shadow: 0 20px 48px rgba(10, 35, 36, .22);
   backdrop-filter: blur(16px);
+}
+
+.account-menu-theme {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 11px 12px;
+  border-bottom: 1px solid rgba(37, 91, 89, .12);
+}
+
+.account-menu-theme > span {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.account-menu-theme > span strong {
+  color: #173b3b;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.account-menu-theme > span small {
+  color: #7a8b88;
+  font-size: 8px;
+}
+
+.account-menu-theme-switch {
+  position: relative;
+  display: block;
+  width: 42px;
+  height: 24px;
+  cursor: pointer;
+}
+
+.account-menu-theme-switch input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.account-menu-theme-switch i {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(37, 91, 89, .3);
+  border-radius: 999px;
+  background: rgba(37, 91, 89, .09);
+  transition: border-color .2s ease, background .2s ease;
+}
+
+.account-menu-theme-switch i::after {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #78908a;
+  box-shadow: 0 2px 7px rgba(0, 0, 0, .18);
+  content: "";
+  transition: transform .2s ease, background .2s ease;
+}
+
+.account-menu-theme-switch input:checked + i {
+  border-color: rgba(165, 84, 63, .64);
+  background: rgba(165, 84, 63, .22);
+}
+
+.account-menu-theme-switch input:checked + i::after {
+  transform: translateX(18px);
+  background: var(--terracotta);
+}
+
+.account-menu-theme-switch input:focus-visible + i {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.account-menu-theme-switch input:disabled + i {
+  cursor: wait;
+  opacity: .58;
 }
 
 .account-chip > .account-menu > button {
