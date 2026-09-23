@@ -5228,6 +5228,7 @@ export function GenesisCalendar() {
 
   const renderAllTasks = () => {
     const experimentalThemeActive = themeState.available && themeState.theme === GENESIS_THEME.EXPERIMENTAL;
+    const isEnglish = language === "en";
     const searchTerms = allTasksSearch
       .toLocaleLowerCase(runtimeLocale())
       .split(/[\s,;#]+/)
