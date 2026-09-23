@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useEffect,
   useId,
   useMemo,
   useRef,
@@ -124,7 +125,7 @@ import {
   trackerTimestamp,
 } from "./tracker-core";
 import { trackerSnapshot } from "./tracker-analytics";
-import { applyEditableHabitUpdate } from "./habit-editing";
+import { applyEditableHabitUpdate, applyHabitReminderSyncResult } from "./habit-editing";
 import { HabitInsightsPanel } from "./HabitInsightsPanel";
 
 type DailyPanelProps = {
@@ -553,7 +554,6 @@ function rewardReasonLabel(reason: RewardReason, isEnglish: boolean) {
   if (reason === "hero-path-amphora") return isEnglish ? "Path checkpoint amphora" : "Амфора Пути Героя";
   if (reason === "habit-mastery-retained") return isEnglish ? "Habit milestone · Laurels retained" : "Рубеж привычки · Лавры сохранены";
   if (reason === "habit-deleted-reset") return isEnglish ? "Habit deleted · Laurels reset" : "Привычка удалена · Лавры обнулены";
-  if (reason === "habit-missed-reset") return isEnglish ? "Habit missed · Laurels reset" : "Привычка не выполнена · Лавры обнулены";
   return isEnglish ? "Hestia Spark" : "Искра Гестии";
 }
 
@@ -1354,6 +1354,10 @@ function SacredHabitLibrary({
 
 export function HabitTrackerPage({ workspace, date, language, timeFormat, calendarMode, googleTasksReady, experimentalThemeActive = false, onChange, onReminderRequested, onReminderRemoved, onOpenTheokyklosSector }: HabitTrackerPageProps) {
   const isEnglish = language === "en";
+  const workspaceRef = useRef(workspace);
+  useEffect(() => {
+    workspaceRef.current = workspace;
+  }, [workspace]);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   const [activatingTemplate, setActivatingTemplate] = useState<HabitTemplate | null>(null);
   const [editingSleep, setEditingSleep] = useState<SleepPlan | null>(null);
@@ -1385,6 +1389,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
         : [...workspace.habits, habit],
     };
     const nextWorkspace = habit.isKeyHabit ? setKeyHabit(populatedWorkspace, habit.id) : populatedWorkspace;
+    workspaceRef.current = nextWorkspace;
     onChange(nextWorkspace);
     setEditingHabit(null);
     setMessage(previous
@@ -1397,7 +1402,9 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
       const external = wantsExternal && onReminderRequested
         ? await onReminderRequested({ ...habit, reminder: { ...habit.reminder, googleTaskId: null, googleEventId: null } })
         : { googleTaskId: null, googleEventId: null };
-      onChange({ ...nextWorkspace, habits: nextWorkspace.habits.map((item) => item.id === habit.id ? { ...item, reminder: { ...item.reminder, ...external }, updatedAt: trackerTimestamp(), version: item.version + 1, syncState: "pending" } : item) });
+      const workspaceWithReminder = applyHabitReminderSyncResult(workspaceRef.current, habit.id, external, trackerTimestamp());
+      workspaceRef.current = workspaceWithReminder;
+      onChange(workspaceWithReminder);
       setMessage(wantsExternal ? (isEnglish ? "External reminder synchronized." : "Внешнее напоминание синхронизировано.") : (isEnglish ? "External reminder removed." : "Внешнее напоминание удалено."));
     })().catch((error: Error) => setMessage(error.message));
   };

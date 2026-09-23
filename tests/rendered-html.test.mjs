@@ -63,7 +63,7 @@ import {
   normalizeHabitEmoji,
   normalizeHabitPriority,
 } from "../app/habit-integrity.ts";
-import { applyEditableHabitUpdate } from "../app/habit-editing.ts";
+import { applyEditableHabitUpdate, applyHabitReminderSyncResult } from "../app/habit-editing.ts";
 import {
   buildAdaptiveHabitSuggestions,
   groupHabitsByRitual,
@@ -524,9 +524,9 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(habitNotifications, /GROUP_WINDOW_MINUTES = 20/);
   assert.match(habitNotifications, /hasNotificationFatigue/);
   assert.doesNotMatch(habitNotifications, /fetch\(|\/api\//);
-  assert.match(habits, /habit-missed:self:/);
   assert.match(habits, /applyHabitDeletionLaurelPolicy/);
-  assert.match(habits, /export function reconcileMissedHabitLaurels/);
+  assert.doesNotMatch(habits, /reconcileMissedHabitLaurels/);
+  assert.match(rewards, /RETIRED_MISSED_HABIT_RESET/);
   assert.match(habits, /export function removeHabitFromWorkspace/);
   assert.match(habits, /export function buyHestiaSpark/);
   assert.match(habits, /export function claimHeroPathAmphora/);
@@ -912,6 +912,52 @@ test("habit settings remain editable while scoring and first tracking identity s
   assert.equal(updated.sacredSectorId, previous.sacredSectorId);
   assert.equal(updated.scoringMode, previous.scoringMode);
   assert.equal(updated.qualityScale, previous.qualityScale);
+});
+
+test("habit weekday schedules keep their owning calendar and survive delayed reminder sync", () => {
+  const recurrence = {
+    enabled: true,
+    mode: "classic",
+    pattern: "weekdays",
+    days: [1, 2, 3, 4, 5, 6, 7],
+    interval: 1,
+    rangeStart: "2026-09-18",
+    rangeEnd: "",
+    months: [],
+    pyatas: [],
+  };
+  assert.deepEqual(recurrence.days, [1, 2, 3, 4, 5, 6, 7]);
+
+  const currentWorkspace = {
+    habits: [
+      {
+        id: "habit-with-reminder",
+        version: 4,
+        updatedAt: "2026-09-23T10:00:00.000Z",
+        syncState: "pending",
+        schedule: { recurrence },
+        reminder: { googleTaskId: null, googleEventId: null },
+      },
+      {
+        id: "newer-habit",
+        version: 3,
+        updatedAt: "2026-09-23T10:01:00.000Z",
+        syncState: "pending",
+        schedule: { recurrence: { ...recurrence, days: [2, 4, 6] } },
+        reminder: { googleTaskId: null, googleEventId: null },
+      },
+    ],
+  };
+  const merged = applyHabitReminderSyncResult(
+    currentWorkspace,
+    "habit-with-reminder",
+    { googleTaskId: "google-task", googleEventId: null },
+    "2026-09-23T10:02:00.000Z",
+  );
+  assert.deepEqual(merged.habits[0].schedule.recurrence.days, [1, 2, 3, 4, 5, 6, 7]);
+  assert.deepEqual(merged.habits[1].schedule.recurrence.days, [2, 4, 6]);
+  assert.equal(merged.habits[0].reminder.googleTaskId, "google-task");
+  assert.equal(merged.habits[0].version, 5);
 });
 
 test("removes legacy GENESIS metadata from user-visible task descriptions", () => {
@@ -1597,11 +1643,19 @@ test("Laurels use an idempotent ledger for daily goals and Perfect Days", () => 
   const replayedLegacyReward = reconcileDailyGoalRewards([legacyRecordWithoutTimestamp], deletedReset, "2026-09-20");
   assert.equal(calculateLaurelsBalance(replayedLegacyReward), 0, "reconciling an old goal without a timestamp cannot cross the deletion reset barrier");
 
-  const missedAtZero = resetLaurelsBalance([], "habit-missed-reset", "habit-2:2026-09-20", "habit-missed:self:habit-2:2026-09-20", "2026-09-21T00:00:00.000Z");
-  assert.equal(missedAtZero.length, 1, "zero-balance resets retain an immutable marker");
-  assert.equal(missedAtZero[0].amount, 0);
-  const earnedAfterReset = createRewardTransaction({ amount: 5, reason: "daily-goal", sourceId: "2026-09-21", idempotencyKey: "daily-goal:self:2026-09-21", createdAt: "2026-09-21T20:00:00.000Z" });
-  assert.equal(calculateLaurelsBalance([...missedAtZero, earnedAfterReset]), 5, "new Laurels earned after a reset remain spendable");
+  const corruptedMissedHabitReset = {
+    id: "reward:habit-missed:self:habit-2:2026-09-20",
+    userId: "self",
+    currency: "laurels",
+    amount: -93,
+    reason: "habit-missed-reset",
+    sourceId: "habit-2:2026-09-20",
+    idempotencyKey: "habit-missed:self:habit-2:2026-09-20",
+    createdAt: "2026-09-21T00:00:00.000Z",
+  };
+  const repairedLedger = normalizeRewardTransactions([...firstPass, quest, purchase, corruptedMissedHabitReset]);
+  assert.equal(repairedLedger.some((transaction) => transaction.reason === "habit-missed-reset"), false, "legacy per-habit resets are removed during normalization");
+  assert.equal(calculateLaurelsBalance(repairedLedger), 93, "earned Laurels are restored after removing an erroneous missed-habit reset");
 });
 
 test("habit deletion retains Laurels only after 50 completed days", () => {
@@ -2054,7 +2108,7 @@ test("habit dates follow the selected calendar while canonical day keys stay sta
   assert.match(insights, /monthPresentation/);
   assert.match(insights, /range\?: \{ start: string; end: string \}/);
   assert.match(habits, /calendarStarts\?: \{ month: string; quarter: string; year: string \}/);
-  assert.match(recurrenceBuilder, /formatCalendarDateValue\(rangeStart, calendarMode, true\)/);
+  assert.match(recurrenceBuilder, /formatCalendarDateValue\(rangeStart, displayCalendarMode, true\)/);
   assert.doesNotMatch(recurrenceBuilder, /<strong>\{rangeStart\}<\/strong>/);
   assert.match(recurrenceBuilder, /showGregorianReference=\{destination !== "tracker"\}/);
   assert.match(calendarDatePicker, /showGregorianReference = true/);
@@ -2535,6 +2589,9 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(accountPanel, /Основной календарь/);
   assert.match(accountPanel, /label: "Григорианский"/);
   assert.doesNotMatch(accountPanel + recurrenceBuilder + taskRecurrence, /Профанск|профанск/u);
+  assert.match(recurrenceBuilder, /destination === "tracker"[\s\S]*normalizeRecurrenceConfig\(rawValue\)/);
+  assert.match(recurrenceBuilder, /calendarModeForRecurrence\(value\.mode\)/);
+  assert.match(taskRecurrence, /export function calendarModeForRecurrence/);
   assert.match(accountPanel, /Полное отображение и система дат/);
   assert.match(accountPanel, /taskCalendarMode/);
   assert.match(accountPanel, /Календарь постановки задач/);
