@@ -141,6 +141,7 @@ type DailyPanelProps = {
 
 type HabitTrackerPageProps = DailyPanelProps & {
   googleTasksReady: boolean;
+  experimentalThemeActive?: boolean;
   onReminderRequested?: (habit: Habit) => Promise<{ googleTaskId: string | null; googleEventId: string | null }>;
   onReminderRemoved?: (habit: Habit) => Promise<void>;
   onOpenTheokyklosSector?: (sectorId: SacredPracticeSectorId) => void;
@@ -849,7 +850,7 @@ export function HabitDailyPanel({ workspace, date, language, timeFormat, calenda
   const plannedRest = workspace.habitSettings.plannedRestDays.includes(date);
 
   return (
-    <section className={`habit-daily-panel${compact ? " compact" : ""}`} aria-labelledby={`habit-daily-title-${date}`}>
+    <section className={`habit-daily-panel${compact ? " compact" : ""}`} data-exp-ui="tracker-panel" aria-labelledby={`habit-daily-title-${date}`}>
       <header>
         <div>
           <span className="eyebrow">{isEnglish ? "Daily rhythm" : "Ежедневный ритм"}</span>
@@ -998,7 +999,7 @@ function HabitTemplateSetup({ template, date, language, calendarMode, googleTask
     : calendarMode === "lunar" ? (isEnglish ? "Lunar calendar" : "Лунный календарь") : (isEnglish ? "Gregorian calendar" : "Григорианский календарь");
   return (
     <div className="modal-backdrop habit-editor-backdrop" role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <form ref={dialogRef} className="habit-editor habit-template-setup" role="dialog" aria-modal="true" aria-labelledby="habit-template-setup-title" tabIndex={-1} onSubmit={(event) => { event.preventDefault(); onSave(markTrackerEntityChanged({ ...draft, color: normalizeHabitColor(draft.color, HABIT_COLORS[0]), emoji: normalizeHabitEmoji(draft.emoji), priority: normalizeHabitPriority(draft.priority) })); }}>
+      <form ref={dialogRef} className="habit-editor habit-template-setup" data-exp-ui="dialog" role="dialog" aria-modal="true" aria-labelledby="habit-template-setup-title" tabIndex={-1} onSubmit={(event) => { event.preventDefault(); onSave(markTrackerEntityChanged({ ...draft, color: normalizeHabitColor(draft.color, HABIT_COLORS[0]), emoji: normalizeHabitEmoji(draft.emoji), priority: normalizeHabitPriority(draft.priority) })); }}>
         <header>
           <div className="habit-template-setup-title"><span aria-hidden="true">{template.icon}</span><div><small>{isEnglish ? "Starter suggestion" : "Стартовое предложение"}</small><h2 id="habit-template-setup-title">{isEnglish ? template.titleEn : template.title}</h2><p>{isEnglish ? template.descriptionEn : template.description}</p></div></div>
           <button type="button" className="modal-close" onClick={onClose} aria-label={isEnglish ? "Close" : "Закрыть"}>×</button>
@@ -1046,7 +1047,7 @@ function HabitEditor({ habit, isExisting, language, calendarMode, googleTasksRea
   };
   return (
     <div className="modal-backdrop habit-editor-backdrop" role="presentation">
-      <form ref={dialogRef} className="habit-editor" role="dialog" aria-modal="true" aria-labelledby="habit-editor-title" tabIndex={-1} onSubmit={(event) => { event.preventDefault(); const candidate = markTrackerEntityChanged({ ...draft, createdDate: habit.createdDate, color: normalizeHabitColor(draft.color, HABIT_COLORS[0]), emoji: normalizeHabitEmoji(draft.emoji), priority: normalizeHabitPriority(draft.priority), schedule: { ...draft.schedule, startDate: habit.createdDate, recurrence: { ...draft.schedule.recurrence, rangeStart: habit.createdDate } } }); onSave(isExisting ? applyEditableHabitUpdate(habit, candidate) : candidate); }}>
+      <form ref={dialogRef} className="habit-editor" data-exp-ui="dialog" role="dialog" aria-modal="true" aria-labelledby="habit-editor-title" tabIndex={-1} onSubmit={(event) => { event.preventDefault(); const candidate = markTrackerEntityChanged({ ...draft, createdDate: habit.createdDate, color: normalizeHabitColor(draft.color, HABIT_COLORS[0]), emoji: normalizeHabitEmoji(draft.emoji), priority: normalizeHabitPriority(draft.priority), schedule: { ...draft.schedule, startDate: habit.createdDate, recurrence: { ...draft.schedule.recurrence, rangeStart: habit.createdDate } } }); onSave(isExisting ? applyEditableHabitUpdate(habit, candidate) : candidate); }}>
         <header><div><span className="eyebrow">{isEnglish ? "Habit core" : "Ядро привычек"}</span><h2 id="habit-editor-title">{isExisting ? (isEnglish ? "Edit habit" : "Редактирование привычки") : (isEnglish ? "New habit" : "Новая привычка")}</h2></div><button type="button" className="modal-close" onClick={onClose} aria-label={isEnglish ? "Close" : "Закрыть"}>×</button></header>
         <div className="habit-editor-grid">
           <label><span>{isEnglish ? "Name" : "Название"}</span><input required maxLength={100} value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} /></label>
@@ -1119,7 +1120,7 @@ function SleepEditor({ plan, language, calendarMode, onSave, onClose }: { plan: 
   const updateRule = (id: string, patch: Partial<SleepRule>) => setDraft((current) => ({ ...current, rules: current.rules.map((rule) => rule.id === id ? { ...rule, ...patch } : rule) }));
   return (
     <div className="modal-backdrop habit-editor-backdrop" role="presentation">
-      <form ref={dialogRef} className="habit-editor specialist-editor" role="dialog" aria-modal="true" aria-labelledby="sleep-editor-title" tabIndex={-1} onSubmit={(event) => { event.preventDefault(); onSave(markTrackerEntityChanged(draft)); }}>
+      <form ref={dialogRef} className="habit-editor specialist-editor" data-exp-ui="dialog" role="dialog" aria-modal="true" aria-labelledby="sleep-editor-title" tabIndex={-1} onSubmit={(event) => { event.preventDefault(); onSave(markTrackerEntityChanged(draft)); }}>
         <header><div><span className="eyebrow">{isEnglish ? "Sleep tracker" : "Трекер сна"}</span><h2 id="sleep-editor-title">{isEnglish ? "Sleep plan" : "План сна"}</h2></div><button type="button" className="modal-close" onClick={onClose} aria-label={isEnglish ? "Close" : "Закрыть"}>×</button></header>
         <div className="habit-editor-grid"><label className="wide"><span>{isEnglish ? "Plan name" : "Название плана"}</span><input required value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} /></label><label><span>{isEnglish ? "Target bedtime" : "Плановое время сна"}</span><input type="time" value={draft.targetBedtime} onChange={(event) => setDraft((current) => ({ ...current, targetBedtime: event.target.value }))} /></label><label><span>{isEnglish ? "Target wake time" : "Плановое пробуждение"}</span><input type="time" value={draft.targetWakeTime} onChange={(event) => setDraft((current) => ({ ...current, targetWakeTime: event.target.value }))} /></label></div>
         <RecurrenceBuilder value={draft.schedule.recurrence} startDate={draft.schedule.startDate} calendarMode={calendarMode} destination="tracker" onChange={(recurrence) => setDraft((current) => ({ ...current, schedule: { ...current.schedule, recurrence } }))} />
@@ -1149,7 +1150,7 @@ function AddictionEditor({ tracker, language, calendarMode, onSave, onClose }: {
   const dialogRef = useDialogAccessibility<HTMLFormElement>(onClose);
   return (
     <div className="modal-backdrop habit-editor-backdrop" role="presentation">
-      <form ref={dialogRef} className="habit-editor specialist-editor" role="dialog" aria-modal="true" aria-labelledby="addiction-editor-title" tabIndex={-1} onSubmit={(event) => { event.preventDefault(); onSave(markTrackerEntityChanged(draft)); }}>
+      <form ref={dialogRef} className="habit-editor specialist-editor" data-exp-ui="dialog" role="dialog" aria-modal="true" aria-labelledby="addiction-editor-title" tabIndex={-1} onSubmit={(event) => { event.preventDefault(); onSave(markTrackerEntityChanged(draft)); }}>
         <header><div><span className="eyebrow">{isEnglish ? "Abstinence tracker" : "Трекер воздержания"}</span><h2 id="addiction-editor-title">{isEnglish ? "Tracked behavior" : "Наблюдаемое поведение"}</h2></div><button type="button" className="modal-close" onClick={onClose} aria-label={isEnglish ? "Close" : "Закрыть"}>×</button></header>
         <div className="habit-editor-grid"><label><span>{isEnglish ? "Behavior" : "Поведение"}</span><input required value={draft.trackedBehavior} onChange={(event) => setDraft((current) => ({ ...current, trackedBehavior: event.target.value }))} /></label><label><span>{isEnglish ? "Clean day points" : "Баллы за чистый день"}</span><input type="number" min="0" max="100" value={draft.cleanDayPoints} onChange={(event) => setDraft((current) => ({ ...current, cleanDayPoints: Math.max(0, Number(event.target.value) || 0) }))} /></label><label><span>{isEnglish ? "Optional relapse penalty" : "Штраф за срыв (необязательно)"}</span><input type="number" min="0" max="100" value={draft.relapsePenalty} onChange={(event) => setDraft((current) => ({ ...current, relapsePenalty: Math.max(0, Number(event.target.value) || 0) }))} /></label><label className="wide"><span>{isEnglish ? "Description" : "Описание"}</span><textarea value={draft.description} onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} /></label></div>
         <RecurrenceBuilder value={draft.schedule.recurrence} startDate={draft.schedule.startDate} calendarMode={calendarMode} destination="tracker" onChange={(recurrence) => setDraft((current) => ({ ...current, schedule: { ...current.schedule, recurrence } }))} />
@@ -1351,7 +1352,7 @@ function SacredHabitLibrary({
   );
 }
 
-export function HabitTrackerPage({ workspace, date, language, timeFormat, calendarMode, googleTasksReady, onChange, onReminderRequested, onReminderRemoved, onOpenTheokyklosSector }: HabitTrackerPageProps) {
+export function HabitTrackerPage({ workspace, date, language, timeFormat, calendarMode, googleTasksReady, experimentalThemeActive = false, onChange, onReminderRequested, onReminderRemoved, onOpenTheokyklosSector }: HabitTrackerPageProps) {
   const isEnglish = language === "en";
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   const [activatingTemplate, setActivatingTemplate] = useState<HabitTemplate | null>(null);
@@ -1475,9 +1476,18 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
       });
     },
   });
+  const setAllHabitSectionsOpen = (open: boolean) => {
+    onChange({
+      ...workspace,
+      habitSettings: {
+        ...workspace.habitSettings,
+        collapsedSections: open ? [] : [...sectionOrder],
+      },
+    });
+  };
 
   return (
-    <div className={`habits-view${workspace.habitSettings.feedback.gamificationWidgets ? "" : " gamification-hidden"}`}>
+    <div className={`habits-view${workspace.habitSettings.feedback.gamificationWidgets ? "" : " gamification-hidden"}`} data-exp-layout="view">
       <header className="habits-hero">
         <div><span className="eyebrow">{isEnglish ? "Encrypted personal tracker" : "Зашифрованный личный трекер"}</span><h1>{isEnglish ? "Trackers" : "Привычки"}</h1><p>{isEnglish ? "Habits, sleep, mood and abstinence are independent modules over one secure tracker core." : "Привычки, сон, настроение и воздержание — независимые модули поверх единого защищённого ядра."}</p><p className="habits-hero-layout-hint">{isEnglish ? "Collapse sections and drag the collapsed blocks to arrange your personal workspace." : "Сворачивайте разделы и перетаскивайте свёрнутые блоки, чтобы выстроить своё личное рабочее пространство."}</p></div>
         {workspace.habitSettings.feedback.gamificationWidgets ? <div className="habits-hero-status">
@@ -1485,7 +1495,14 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
           <article className="habits-hero-streak"><HabitMetricSigil variant="streak" value={workspace.userProgress.currentStreak} record={workspace.userProgress.longestStreak} /><div><small>{isEnglish ? "Current streak" : "Текущая серия"}</small><strong>{workspace.userProgress.currentStreak}</strong><em>{isEnglish ? `best ${workspace.userProgress.longestStreak} days` : `рекорд ${workspace.userProgress.longestStreak} дней`}</em></div></article>
           <div className="habits-hero-score" style={{ "--rank-color": rank.color } as CSSProperties}><HeroicRankSigil rankId={rank.id} color={rank.color} /><div><small>{isEnglish ? "Current rank" : "Текущий ранг"}</small><strong>{isEnglish ? rank.titleEn : rank.title}</strong><em>{total} XP</em></div></div>
         </div> : null}
-        <div className="habits-hero-actions">{workspace.habitSettings.feedback.gamificationWidgets ? <button type="button" className="hero-path-open" onClick={() => setHeroPathOpen(true)}><span className="hero-path-open-sigil" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="M12 5.5 13.8 10l4.7 2-4.7 2-1.8 4.5-1.8-4.5-4.7-2 4.7-2Z" /></svg></span><span>{isEnglish ? "Path of the Hero" : "Путь Героя"}</span></button> : null}<button type="button" className="primary-button" onClick={openNewHabit}>＋ {isEnglish ? "New habit" : "Новая привычка"}</button></div>
+        <div className="habits-hero-actions">
+          {experimentalThemeActive ? <div className="experimental-section-tools" role="group" aria-label={isEnglish ? "Tracker sections" : "Разделы трекеров"}>
+            <button type="button" onClick={() => setAllHabitSectionsOpen(true)}>{isEnglish ? "Expand all" : "Развернуть всё"}</button>
+            <button type="button" onClick={() => setAllHabitSectionsOpen(false)}>{isEnglish ? "Collapse all" : "Свернуть всё"}</button>
+          </div> : null}
+          {workspace.habitSettings.feedback.gamificationWidgets ? <button type="button" className="hero-path-open" onClick={() => setHeroPathOpen(true)}><span className="hero-path-open-sigil" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="M12 5.5 13.8 10l4.7 2-4.7 2-1.8 4.5-1.8-4.5-4.7-2 4.7-2Z" /></svg></span><span>{isEnglish ? "Path of the Hero" : "Путь Героя"}</span></button> : null}
+          <button type="button" className="primary-button" onClick={openNewHabit}>＋ {isEnglish ? "New habit" : "Новая привычка"}</button>
+        </div>
       </header>
       {hasHabits && workspace.habitSettings.feedback.gamificationWidgets ? <CollapsibleHabitBlock label={isEnglish ? "Streak protection and comeback" : "Защита серии и возвращение"} language={language} {...disclosureProps("streak-resilience")}><section className="streak-resilience" aria-label={isEnglish ? "Streak protection and comeback" : "Защита серии и возвращение"}>
         <article className="hestia-spark-card">

@@ -279,7 +279,7 @@ export function GeminiAssistant({ language, context, provider, onApply, onClose 
     <div className="modal-backdrop gemini-backdrop" role="presentation" onMouseDown={(event) => {
       if (event.currentTarget === event.target && !busy) onClose();
     }}>
-      <section ref={dialogRef} className="gemini-assistant" role="dialog" aria-modal="true" aria-labelledby="gemini-assistant-title" tabIndex={-1}>
+      <section ref={dialogRef} className="gemini-assistant" data-exp-ui="dialog" role="dialog" aria-modal="true" aria-labelledby="gemini-assistant-title" tabIndex={-1}>
         <header>
           <div className="gemini-mark" aria-hidden="true">✦</div>
           <div>

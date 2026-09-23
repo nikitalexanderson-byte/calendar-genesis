@@ -2187,6 +2187,40 @@ test("keeps every internal GENESIS URL free of the transient QA marker", async (
   assert.match(begetEntry, /<AppUrlCleaner \/>/);
 });
 
+test("Experimental applies one design system across ordinary views and adds safe workspace tabs", async () => {
+  const [calendar, habits, account, admin, assistant, voice, styles] = await Promise.all([
+    readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/HabitTracker.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/AccountPanel.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/AdminPanel.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/GeminiAssistant.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/LocalVoiceAssistant.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/experimental-theme.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(calendar, /className="today-view" data-exp-layout="view"/);
+  assert.match(calendar, /className="projects-view" data-exp-layout="view"/);
+  assert.match(calendar, /className="all-tasks-view" data-exp-layout="view"/);
+  assert.match(calendar, /className="experimental-workspace-tabs" role="tablist"/);
+  assert.match(calendar, /hidden=\{experimentalThemeActive && experimentalTodayTab !== "create"\}/);
+  assert.match(calendar, /hidden=\{experimentalThemeActive && experimentalTaskCreateTab !== "list"\}/);
+  assert.match(habits, /data-exp-layout="view"/);
+  assert.match(habits, /experimental-section-tools/);
+  assert.match(habits, /collapsedSections: open \? \[\] : \[\.\.\.sectionOrder\]/);
+  assert.match(account, /data-exp-layout="view" data-exp-ui="dialog"/);
+  assert.match(admin, /className="admin-view" data-exp-layout="view"/);
+  assert.match(assistant, /data-exp-ui="dialog"/);
+  assert.match(voice, /data-exp-ui="dialog"/);
+  assert.match(styles, /\.experimental-workspace-tabs/);
+  assert.match(styles, /\.today-task-list > article/);
+  assert.match(styles, /\.project-tree > article/);
+  assert.match(styles, /\.habit-check-list > article/);
+  assert.match(styles, /\.admin-table-wrap/);
+  assert.match(styles, /\.account-security-grid > article/);
+  assert.match(styles, /\[data-exp-ui="dialog"\]/);
+  assert.doesNotMatch(styles, /html\[data-genesis-theme="experimental"\][^\n{]*(?:img|picture|svg)\s*\{/);
+});
+
 test("mood tracker exposes twelve choices in one responsive desktop row", async () => {
   const [mood, styles, analytics, habits] = await Promise.all([
     readFile(new URL("../app/mood-tracker.ts", import.meta.url), "utf8"),

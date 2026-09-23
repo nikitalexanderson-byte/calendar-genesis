@@ -335,7 +335,7 @@ export function LocalVoiceAssistant({ language, context, neuralAvailable, neural
     <div className="modal-backdrop gemini-backdrop" role="presentation" onMouseDown={(event) => {
       if (event.currentTarget === event.target && !busy) onClose();
     }}>
-      <section ref={dialogRef} className="gemini-assistant local-voice-assistant" role="dialog" aria-modal="true" aria-labelledby="local-voice-assistant-title" tabIndex={-1}>
+      <section ref={dialogRef} className="gemini-assistant local-voice-assistant" data-exp-ui="dialog" role="dialog" aria-modal="true" aria-labelledby="local-voice-assistant-title" tabIndex={-1}>
         <header>
           <div className="gemini-mark voice-mark" aria-hidden="true">
             <svg className="voice-microphone-icon" viewBox="0 0 24 24" fill="none" focusable="false">
