@@ -1,6 +1,6 @@
 # GENESIS Android — матрица фактического переноса
 
-Срез 23.09.2026, `codex/android-native-bootstrap`, HEAD `ebfb4601cd7d2e96dfcebc3a47d1145be03ca48c` + незакоммиченные изменения. Internal alpha `ru.genesis.calendar.debug`, `2.0.0-alpha01` / versionCode 6 установлена на согласованный realme RMX5000 (Android 16 / API 36). Это не готовый release.
+Срез 23.09.2026, `codex/android-native-bootstrap`, source commit `741924e6421291e2221fe45b83cdb66927e096d5` (база `ebfb4601cd7d2e96dfcebc3a47d1145be03ca48c`). Internal alpha `ru.genesis.calendar.debug`, `2.0.0-alpha01` / versionCode 6 установлена на согласованный realme RMX5000 (Android 16 / API 36). Это не готовый release.
 
 Пути Android в таблице относительны `android/app/src/main/java/ru/genesis/calendar/`; web-пути — корню репозитория. `LOCAL_PARTIAL` означает работающий в коде локальный поднабор; `DOMAIN_ONLY` — предметные функции без завершённого пользовательского сценария; `NOT_PORTED` — переноса нет. Статус проверки отделён от наличия реализации. PASS для unit-поднабора не является PASS полной приёмки функции. BLOCKED — конкретная внешняя/интеграционная зависимость; NOT_RUN — критерий не испытан, в том числе когда экран ещё отсутствует.
 

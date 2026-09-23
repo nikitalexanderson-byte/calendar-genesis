@@ -8,7 +8,7 @@
 - На согласованный realme RMX5000 / Android16 API36 установлена `ru.genesis.calendar.debug`, `2.0.0-alpha01` (6). Старое `ru.genesis.calendar` не удалено. Данные Alpha изолированы от аккаунта.
 - APK: `android/app/build/outputs/apk/debug/app-debug.apk`; копия `outputs/android/GENESIS-2.0.0-alpha01-debug.apk` вне Git.
 - **157641687 bytes**, SHA-256 **f9dc04317775bb260f767d051012dc18b768d7060b0655660dead970bee45e60**.
-- Working-tree build этой ветки; исходники фиксируются локальным commit после проверок. Это не clean-checkout reproducible build.
+- Исходники и тесты зафиксированы локальным commit `741924e6421291e2221fe45b83cdb66927e096d5`. APK собран перед commit из того же main-source дерева; после сборки менялись androidTest и отчёты. Это не clean-checkout reproducible build. Push/merge/deploy не выполнялись.
 - `apksigner verify`: PASS, APK v2, debug RSA2048. `zipalign -c -P 16 4`: PASS; ELF PT_LOAD alignment отдельно NOT_RUN.
 
 ## Реализованный локальный поднабор
