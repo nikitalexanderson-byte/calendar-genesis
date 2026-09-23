@@ -2,9 +2,12 @@
 /* eslint-disable @next/next/no-img-element -- Google requires the official, unmodified sign-in asset. */
 
 import {
+  Component,
   type CSSProperties,
+  type ErrorInfo,
   type FormEvent,
   type PointerEvent,
+  type ReactNode,
   type TouchEvent,
   lazy,
   Suspense,
@@ -34,6 +37,7 @@ import {
   removeGoogleTaskList,
   isGoogleSyncConfigured,
   loadAssistantStatus,
+  loadGenesisSession,
   type AssistantProvider,
   loadGenesisWorkspace,
   mergeLocalWorkspace,
@@ -193,6 +197,41 @@ function DeferredDialogFallback({ label }: { label: string }) {
 
 function DeferredHabitFallback({ label }: { label: string }) {
   return <section className="deferred-habit-loading" role="status" aria-live="polite"><span aria-hidden="true"><i /></span><strong>{label}</strong></section>;
+}
+
+class ViewErrorBoundary extends Component<{
+  children: ReactNode;
+  resetKey: string;
+}, { hasError: boolean }> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error("GENESIS view rendering failed", error, info);
+  }
+
+  componentDidUpdate(previous: Readonly<{ resetKey: string }>) {
+    if (this.state.hasError && previous.resetKey !== this.props.resetKey) {
+      this.setState({ hasError: false });
+    }
+  }
+
+  render() {
+    if (!this.state.hasError) return this.props.children;
+    return (
+      <section className="view-error-state" role="alert">
+        <span aria-hidden="true">◇</span>
+        <div>
+          <strong>Раздел не удалось отобразить</strong>
+          <p>Остальные разделы продолжают работать. Обновите данные страницы и повторите открытие.</p>
+        </div>
+        <button type="button" onClick={() => window.location.reload()}>Обновить страницу</button>
+      </section>
+    );
+  }
 }
 
 type ViewName = "today" | "calendar" | "projects" | "year" | "all-tasks" | "habits" | "stoicheion" | "theokyklos" | "admin";
@@ -1255,6 +1294,7 @@ export function GenesisCalendar() {
   });
   const [accountOpen, setAccountOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [experimentalThemeWarningOpen, setExperimentalThemeWarningOpen] = useState(false);
   const [experimentalTodayTab, setExperimentalTodayTab] = useState<"tasks" | "create">("tasks");
   const [experimentalTaskCreateTab, setExperimentalTaskCreateTab] = useState<"task" | "list">("task");
   const [voiceAssistantOpen, setVoiceAssistantOpen] = useState(false);
@@ -1346,6 +1386,7 @@ export function GenesisCalendar() {
   const taskDeleteDialogRef = useDialogAccessibility<HTMLElement>(() => setPendingTaskDeletion(null), Boolean(pendingTaskDeletion));
   const taskListEditorDialogRef = useDialogAccessibility<HTMLFormElement>(() => setEditingTaskList(null), Boolean(editingTaskList));
   const projectEditorDialogRef = useDialogAccessibility<HTMLFormElement>(() => setEditingProject(null), Boolean(editingProject));
+  const experimentalThemeWarningDialogRef = useDialogAccessibility<HTMLElement>(() => setExperimentalThemeWarningOpen(false), experimentalThemeWarningOpen);
   const themeAccountId = cloudUser?.uid ?? null;
   useDocumentLanguage(language);
 
@@ -1358,10 +1399,14 @@ export function GenesisCalendar() {
       root: document.documentElement,
       enabled: EXPERIMENTAL_THEME_AVAILABLE,
       adapter: {
-        async read({ accountId, signal }) {
+        async read({ accountId, signal, fresh }) {
           if (signal.aborted) throw new DOMException("Theme read aborted", "AbortError");
-          const user = cloudUserRef.current;
+          const user = fresh ? await loadGenesisSession(signal) : cloudUserRef.current;
           if (!user || user.uid !== accountId) throw new Error("Theme account session changed");
+          if (fresh) {
+            setCloudUser(user);
+            localStorage.setItem(LAST_USER_KEY, JSON.stringify(user));
+          }
           return {
             theme: normalizeGenesisTheme(user.theme),
             revision: Math.max(0, Number(user.themeRevision ?? 0)),
@@ -1412,6 +1457,40 @@ export function GenesisCalendar() {
   const changeGenesisTheme = useCallback((theme: GenesisTheme) => {
     themeControllerRef.current?.setTheme(theme);
   }, []);
+
+  const requestGenesisThemeChange = useCallback((theme: GenesisTheme) => {
+    if (theme === GENESIS_THEME.EXPERIMENTAL) {
+      setExperimentalThemeWarningOpen(true);
+      return;
+    }
+    changeGenesisTheme(GENESIS_THEME.STANDART);
+  }, [changeGenesisTheme]);
+
+  const confirmExperimentalTheme = useCallback(() => {
+    setExperimentalThemeWarningOpen(false);
+    changeGenesisTheme(GENESIS_THEME.EXPERIMENTAL);
+  }, [changeGenesisTheme]);
+
+  useEffect(() => {
+    const retryThemeSave = () => themeControllerRef.current?.retry();
+    window.addEventListener("online", retryThemeSave);
+    return () => window.removeEventListener("online", retryThemeSave);
+  }, []);
+
+  useEffect(() => {
+    if (themeState.status !== "error" || themeState.theme === themeState.savedTheme) return undefined;
+    const timer = window.setInterval(() => themeControllerRef.current?.retry(), 30_000);
+    return () => window.clearInterval(timer);
+  }, [themeState.savedTheme, themeState.status, themeState.theme]);
+
+  useEffect(() => {
+    if (syncStatus !== "syncing") return undefined;
+    const timer = window.setTimeout(() => {
+      setSyncError((current) => current || "Google-синхронизация занимает слишком много времени. Локальные данные доступны, повторная попытка выполнится автоматически.");
+      setSyncStatus(navigator.onLine ? "error" : "offline");
+    }, 45_000);
+    return () => window.clearTimeout(timer);
+  }, [syncStatus]);
 
   const finishWorkspaceRecovery = useCallback((accepted: boolean) => {
     const resolve = workspaceRecoveryResolverRef.current;
@@ -5229,6 +5308,9 @@ export function GenesisCalendar() {
   const renderAllTasks = () => {
     const experimentalThemeActive = themeState.available && themeState.theme === GENESIS_THEME.EXPERIMENTAL;
     const isEnglish = language === "en";
+    const safeTaskTags = (task: Task) => Array.isArray(task.tags) ? task.tags : [];
+    const safeDependencyIds = (task: Task) => Array.isArray(task.dependsOnIds) ? task.dependsOnIds : [];
+    const safeSyncAccountIds = (task: Task) => Array.isArray(task.syncAccountIds) ? task.syncAccountIds : [];
     const searchTerms = allTasksSearch
       .toLocaleLowerCase(runtimeLocale())
       .split(/[\s,;#]+/)
@@ -5238,7 +5320,7 @@ export function GenesisCalendar() {
       if (allTasksStatusFilter === "active" && task.done) return false;
       if (allTasksStatusFilter === "done" && !task.done) return false;
       if (!searchTerms.length) return true;
-      const haystack = [task.title, task.description, task.calendarNote, resolvedTaskProjectTitle(task), task.googleTaskListTitle, ...task.tags]
+      const haystack = [task.title, task.description, task.calendarNote, resolvedTaskProjectTitle(task), task.googleTaskListTitle, ...safeTaskTags(task)]
         .join(" ")
         .toLocaleLowerCase(runtimeLocale());
       return searchTerms.every((term) => haystack.includes(term));
@@ -5309,7 +5391,9 @@ export function GenesisCalendar() {
             const lastOccurrenceDate = recurrenceDatesForTask(task).at(-1) ?? task.endDate ?? task.dueDate;
             const isOverdue = !task.done && lastOccurrenceDate < todayDateValue;
             const source = taskOriginMeta(task.createdIn);
-            const dependencyNames = task.dependsOnIds
+            const tags = safeTaskTags(task);
+            const syncAccountIds = safeSyncAccountIds(task);
+            const dependencyNames = safeDependencyIds(task)
               .map((dependencyId) => tasks.find((item) => item.id === dependencyId)?.title)
               .filter((title): title is string => Boolean(title));
             return (
@@ -5326,11 +5410,11 @@ export function GenesisCalendar() {
                     <span>{taskRangeLabel(task, activeTaskCalendarMode, activeTimeFormat)}</span>
                     <span>{resolvedTaskProjectTitle(task) || "Без проекта"}</span>
                     {task.googleTaskListTitle ? <span>Список: {task.googleTaskListTitle}</span> : null}
-                    {task.syncAccountIds.length > 1 ? <span>Google-аккаунты: {task.syncAccountIds.length}</span> : task.googleAccountEmail ? <span>{task.googleAccountEmail}</span> : null}
+                    {syncAccountIds.length > 1 ? <span>Google-аккаунты: {syncAccountIds.length}</span> : task.googleAccountEmail ? <span>{task.googleAccountEmail}</span> : null}
                     {category ? <span className="all-task-category" data-no-translate style={{ "--project-color": category.color } as CSSProperties}>{localizeCategoryName(category, language)}</span> : null}
                     <span className={`all-task-source source-${source.className}`}>{source.label}</span>
                   </div>
-                  {task.tags.length ? <div className="task-tags">{task.tags.map((tag) => <i key={tag}>#{tag}</i>)}</div> : null}
+                  {tags.length ? <div className="task-tags">{tags.map((tag) => <i key={tag}>#{tag}</i>)}</div> : null}
                   {dependencyNames.length ? <div className="task-dependency">↳ после: {dependencyNames.join(", ")}</div> : null}
                   {task.description || task.calendarNote ? (
                     <details className="task-description-viewer">
@@ -5873,7 +5957,7 @@ export function GenesisCalendar() {
             ))}
           </div>
         </div>
-        <div className={`sidebar-foot sync-${syncStatus}`}>
+        <div className={`sidebar-foot sync-${syncStatus}`} title={syncError || syncLabel}>
           <span className="sync-dot" aria-hidden="true" />
           <span>
             {cloudUser ? "Google-синхронизация" : "Локальное хранение"}
@@ -5947,7 +6031,7 @@ export function GenesisCalendar() {
                           disabled={!themeState.available || ["signed-out", "loading", "load-error"].includes(themeState.status)}
                           aria-label={language === "en" ? "Experimental theme" : "Тема Experimental"}
                           aria-busy={themeState.pending}
-                          onChange={(event) => changeGenesisTheme(event.target.checked ? GENESIS_THEME.EXPERIMENTAL : GENESIS_THEME.STANDART)}
+                          onChange={(event) => requestGenesisThemeChange(event.target.checked ? GENESIS_THEME.EXPERIMENTAL : GENESIS_THEME.STANDART)}
                         />
                         <i aria-hidden="true" />
                       </label>
@@ -6004,58 +6088,60 @@ export function GenesisCalendar() {
                 </button>
               </section>
             ) : null}
-            {view === "today" ? renderToday() : null}
-            {view === "calendar" ? renderCalendar() : null}
-            {view === "projects" ? renderProjects() : null}
-            {view === "year" ? renderYear() : null}
-            {view === "all-tasks" ? renderAllTasks() : null}
-            {view === "habits" && habitWorkspace.habitSettings.enabled ? (
-              <Suspense fallback={<DeferredViewFallback label={language === "en" ? "Opening habit tracker…" : "Открываем трекер привычек…"} />}>
-                <HabitTrackerPage
-                  workspace={habitWorkspace}
-                  date={todayDateValue}
-                  language={language}
-                  timeFormat={activeTimeFormat}
-                  calendarMode={activeTaskCalendarMode}
-                  googleTasksReady={Boolean(cloudUser?.googleTasksImportReady)}
-                  experimentalThemeActive={themeState.available && themeState.theme === GENESIS_THEME.EXPERIMENTAL}
-                  onChange={updateHabitWorkspace}
-                  onReminderRequested={createHabitGoogleReminder}
-                  onReminderRemoved={async (habit) => {
-                    if (!cloudUser) return;
-                    const reminderIds = Array.from(new Set([habit.reminder.googleTaskId, habit.reminder.googleEventId].filter((id): id is string => Boolean(id))));
-                    const reminderTasks = tasks.filter((task) => reminderIds.includes(task.id));
-                    await Promise.all(reminderTasks.map((task) => removeCloudTask(cloudUser.uid, task)));
-                    setTasks((current) => current.filter((task) => !reminderIds.includes(task.id)));
-                  }}
-                  onOpenTheokyklosSector={openTheokyklosSector}
-                />
-              </Suspense>
-            ) : null}
-            {view === "stoicheion" ? (
-              <Suspense fallback={<DeferredViewFallback label={language === "en" ? "Opening Stoicheion…" : "Открываем Стойхейон…"} />}>
-                <StoicheionView
-                  key={cloudUser?.stoicheionDivinationDisabled ? "divination-disabled" : "divination-enabled"}
-                  divinationDisabled={Boolean(cloudUser?.stoicheionDivinationDisabled)}
-                  onOpenTheokyklosSector={openTheokyklosSector}
-                />
-              </Suspense>
-            ) : null}
-            {view === "theokyklos" ? (
-              <Suspense fallback={<DeferredViewFallback label={language === "en" ? "Opening Theokyklos…" : "Открываем Теокиклос…"} />}>
-                <TheokyklosView
-                  language={language}
-                  workspace={habitWorkspace}
-                  date={todayDateValue}
-                  calendarMode={activeTaskCalendarMode}
-                  initialSectorId={requestedTheokyklosSector}
-                  onSelectedSectorClosed={clearRequestedTheokyklosSector}
-                  onChange={updateHabitWorkspace}
-                  onOpenHabits={() => navigateTo("habits")}
-                />
-              </Suspense>
-            ) : null}
-            {view === "admin" && cloudUser?.isAdmin ? <Suspense fallback={<DeferredViewFallback label={language === "en" ? "Opening administration…" : "Открываем панель администратора…"} />}><AdminPanel /></Suspense> : null}
+            <ViewErrorBoundary resetKey={view}>
+              {view === "today" ? renderToday() : null}
+              {view === "calendar" ? renderCalendar() : null}
+              {view === "projects" ? renderProjects() : null}
+              {view === "year" ? renderYear() : null}
+              {view === "all-tasks" ? renderAllTasks() : null}
+              {view === "habits" && habitWorkspace.habitSettings.enabled ? (
+                <Suspense fallback={<DeferredViewFallback label={language === "en" ? "Opening habit tracker…" : "Открываем трекер привычек…"} />}>
+                  <HabitTrackerPage
+                    workspace={habitWorkspace}
+                    date={todayDateValue}
+                    language={language}
+                    timeFormat={activeTimeFormat}
+                    calendarMode={activeTaskCalendarMode}
+                    googleTasksReady={Boolean(cloudUser?.googleTasksImportReady)}
+                    experimentalThemeActive={themeState.available && themeState.theme === GENESIS_THEME.EXPERIMENTAL}
+                    onChange={updateHabitWorkspace}
+                    onReminderRequested={createHabitGoogleReminder}
+                    onReminderRemoved={async (habit) => {
+                      if (!cloudUser) return;
+                      const reminderIds = Array.from(new Set([habit.reminder.googleTaskId, habit.reminder.googleEventId].filter((id): id is string => Boolean(id))));
+                      const reminderTasks = tasks.filter((task) => reminderIds.includes(task.id));
+                      await Promise.all(reminderTasks.map((task) => removeCloudTask(cloudUser.uid, task)));
+                      setTasks((current) => current.filter((task) => !reminderIds.includes(task.id)));
+                    }}
+                    onOpenTheokyklosSector={openTheokyklosSector}
+                  />
+                </Suspense>
+              ) : null}
+              {view === "stoicheion" ? (
+                <Suspense fallback={<DeferredViewFallback label={language === "en" ? "Opening Stoicheion…" : "Открываем Стойхейон…"} />}>
+                  <StoicheionView
+                    key={cloudUser?.stoicheionDivinationDisabled ? "divination-disabled" : "divination-enabled"}
+                    divinationDisabled={Boolean(cloudUser?.stoicheionDivinationDisabled)}
+                    onOpenTheokyklosSector={openTheokyklosSector}
+                  />
+                </Suspense>
+              ) : null}
+              {view === "theokyklos" ? (
+                <Suspense fallback={<DeferredViewFallback label={language === "en" ? "Opening Theokyklos…" : "Открываем Теокиклос…"} />}>
+                  <TheokyklosView
+                    language={language}
+                    workspace={habitWorkspace}
+                    date={todayDateValue}
+                    calendarMode={activeTaskCalendarMode}
+                    initialSectorId={requestedTheokyklosSector}
+                    onSelectedSectorClosed={clearRequestedTheokyklosSector}
+                    onChange={updateHabitWorkspace}
+                    onOpenHabits={() => navigateTo("habits")}
+                  />
+                </Suspense>
+              ) : null}
+              {view === "admin" && cloudUser?.isAdmin ? <Suspense fallback={<DeferredViewFallback label={language === "en" ? "Opening administration…" : "Открываем панель администратора…"} />}><AdminPanel /></Suspense> : null}
+            </ViewErrorBoundary>
             <footer className="genesis-page-footer" aria-label="Ссылки проекта" data-exp-layout="safe-footer">
               <a href="https://t.me/genesisbasilea" target="_blank" rel="noreferrer">
                 <span aria-hidden="true">✦</span>
@@ -6571,6 +6657,22 @@ export function GenesisCalendar() {
           onCancel={cancelWorkspaceRecovery}
         />
       ) : null}
+      {experimentalThemeWarningOpen ? (
+        <div className="modal-backdrop experimental-theme-warning-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setExperimentalThemeWarningOpen(false); }}>
+          <section ref={experimentalThemeWarningDialogRef} className="editor-modal experimental-theme-warning" data-exp-ui="dialog" role="dialog" aria-modal="true" aria-labelledby="experimental-theme-warning-title" aria-describedby="experimental-theme-warning-description" tabIndex={-1}>
+            <button type="button" className="modal-close" onClick={() => setExperimentalThemeWarningOpen(false)} aria-label={language === "en" ? "Close" : "Закрыть"}>×</button>
+            <span className="eyebrow">{language === "en" ? "Experimental mode" : "Экспериментальный режим"}</span>
+            <h2 id="experimental-theme-warning-title">{language === "en" ? "Experimental may be unstable" : "Experimental может работать нестабильно"}</h2>
+            <p id="experimental-theme-warning-description">{language === "en"
+              ? "Standart is the primary GENESIS theme. Experimental is still being refined, so some sections, contrast or adaptive behavior may temporarily contain defects. Your data and synchronization rules do not change."
+              : "Standart — основная тема GENESIS. Experimental ещё дорабатывается, поэтому в отдельных разделах, контрасте или адаптивном поведении временно возможны ошибки. Данные и правила синхронизации не изменяются."}</p>
+            <div className="editor-actions">
+              <button type="button" className="text-button" onClick={() => setExperimentalThemeWarningOpen(false)}>{language === "en" ? "Keep Standart" : "Оставить Standart"}</button>
+              <button type="button" className="primary-button" onClick={confirmExperimentalTheme}>{language === "en" ? "Enable Experimental" : "Включить Experimental"}</button>
+            </div>
+          </section>
+        </div>
+      ) : null}
       {accountOpen && cloudUser ? (
         <Suspense fallback={<DeferredDialogFallback label={language === "en" ? "Opening account…" : "Открываем личный кабинет…"} />}>
           <AccountPanel
@@ -6586,7 +6688,7 @@ export function GenesisCalendar() {
             }}
             onLanguageChange={selectLanguage}
             themeState={themeState}
-            onThemeChange={changeGenesisTheme}
+            onThemeChange={requestGenesisThemeChange}
             categories={categories}
             habitTrackingEnabled={habitWorkspace.habitSettings.enabled}
             habitNotificationSettings={habitWorkspace.habitSettings.notifications}

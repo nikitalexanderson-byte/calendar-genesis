@@ -13152,3 +13152,30 @@ button.project-drag-handle:active { cursor: grabbing; }
   .adaptive-habit-panel article footer button { flex:1; }
   .habit-ritual-group > header div { align-items:start; flex-direction:column; gap:2px; }
 }
+
+.view-error-state {
+  display:flex;
+  align-items:center;
+  gap:16px;
+  min-height:180px;
+  padding:24px;
+  color:var(--ink);
+  background:rgba(255,255,255,.72);
+  border:1px solid rgba(140,75,51,.22);
+  border-radius:16px;
+  box-shadow:0 16px 38px rgba(31,43,40,.08);
+}
+.view-error-state > span { color:#a5543f; font-size:28px; }
+.view-error-state > div { display:grid; flex:1; gap:6px; }
+.view-error-state strong { font-family:var(--font-display); font-size:24px; font-weight:500; }
+.view-error-state p { margin:0; color:var(--ink-soft); font-size:11px; line-height:1.5; }
+.view-error-state button { min-height:42px; padding:10px 16px; color:#fff; font:800 10px/1 var(--font-sans); background:#2d6c68; border:0; border-radius:10px; cursor:pointer; }
+
+.experimental-theme-warning { max-width:620px; }
+.experimental-theme-warning > p { margin:0; color:var(--ink-soft); font-size:12px; line-height:1.7; }
+.experimental-theme-warning .editor-actions { margin-top:8px; }
+
+@media (max-width:760px) {
+  .view-error-state { align-items:flex-start; flex-direction:column; }
+  .view-error-state button { width:100%; }
+}

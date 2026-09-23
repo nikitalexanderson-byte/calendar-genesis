@@ -87,24 +87,34 @@ test("fast on/off is serialized and latest intent wins", async () => {
   assert.equal(adapter.records.get("account-a").theme, "standart");
 });
 
-test("save errors roll back and revision conflicts are surfaced", async () => {
+test("save errors keep the selected theme locally and can be retried", async () => {
   const failing = memoryAdapter();
+  const recoveredWrite = failing.write.bind(failing);
   failing.write = async () => { throw new Error("offline"); };
   const first = createGenesisThemeController({ root: root(), adapter: failing });
   await first.bindAccount("account-a");
   first.setTheme("experimental");
   await waitFor(() => !first.getState().pending);
-  assert.equal(first.getState().theme, "standart");
+  assert.equal(first.getState().theme, "experimental");
+  assert.equal(first.getState().savedTheme, "standart");
   assert.equal(first.getState().error, "save-failed");
+  failing.write = recoveredWrite;
+  first.retry();
+  await waitFor(() => !first.getState().pending && first.getState().savedTheme === "experimental");
+  assert.equal(failing.records.get("account-a").theme, "experimental");
+});
 
+test("revision conflicts refresh server state and retry the latest intent", async () => {
   const conflicting = memoryAdapter();
   const second = createGenesisThemeController({ root: root(), adapter: conflicting });
   await second.bindAccount("account-a");
   conflicting.records.set("account-a", { theme: "standart", revision: 3 });
   second.setTheme("experimental");
   await waitFor(() => !second.getState().pending);
-  assert.equal(second.getState().error, "conflict");
-  assert.equal(conflicting.records.get("account-a").revision, 3);
+  assert.equal(second.getState().error, null);
+  assert.equal(second.getState().theme, "experimental");
+  assert.equal(conflicting.records.get("account-a").theme, "experimental");
+  assert.equal(conflicting.records.get("account-a").revision, 4);
 });
 
 test("logout, account switches and the kill switch always paint Standart safely", async () => {

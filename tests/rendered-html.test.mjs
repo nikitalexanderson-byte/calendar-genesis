@@ -2146,10 +2146,15 @@ test("ships an isolated account-owned Experimental theme while preserving author
   assert.doesNotMatch(calendar, />\s*Личная страница\s*</);
   assert.match(calendar, /createGenesisThemeController/);
   assert.match(calendar, /themeState=\{themeState\}/);
-  assert.match(calendar, /onThemeChange=\{changeGenesisTheme\}/);
+  assert.match(calendar, /onThemeChange=\{requestGenesisThemeChange\}/);
+  assert.match(calendar, /Experimental может работать нестабильно/);
+  assert.match(calendar, /Оставить Standart/);
+  assert.match(calendar, /confirmExperimentalTheme/);
+  assert.match(account, /Основная тема — Standart/);
   assert.doesNotMatch(calendar, /key=\{themeState|key=\{.*theme/);
   assert.match(cloud, /expectedThemeRevision/);
   assert.match(repository, /theme_revision = :theme_revision/);
+  assert.match(cloud, /"\/account\/preferences"/);
   assert.match(repository, /theme_revision = :expected_theme_revision/);
   assert.match(repository, /\$statement->rowCount\(\) !== 1/);
   assert.match(repository, /\['standart', 'experimental'\]/);
@@ -2205,6 +2210,8 @@ test("Experimental applies one design system across ordinary views and adds safe
   assert.match(calendar, /hidden=\{experimentalThemeActive && experimentalTodayTab !== "create"\}/);
   assert.match(calendar, /hidden=\{experimentalThemeActive && experimentalTaskCreateTab !== "list"\}/);
   assert.match(calendar, /const renderAllTasks = \(\) => \{\s+const experimentalThemeActive[^\n]+\s+const isEnglish = language === "en";/);
+  assert.match(calendar, /const safeTaskTags = \(task: Task\) => Array\.isArray\(task\.tags\)/);
+  assert.match(calendar, /<ViewErrorBoundary resetKey=\{view\}>/);
   assert.match(habits, /data-exp-layout="view"/);
   assert.match(habits, /className="experimental-habit-tabs" role="tablist"/);
   assert.match(habits, /experimental-habit-tab-\$\{experimentalHabitTab\}/);
@@ -2248,7 +2255,7 @@ test("mood tracker exposes twelve choices in one responsive desktop row", async 
 });
 
 test("QA-01 precaches the complete cold-install shell before activating the worker", async () => {
-  const [serviceWorker, viteConfig, packageSource, verifier, htaccess, installHook, tracker, styles] = await Promise.all([
+  const [serviceWorker, viteConfig, packageSource, verifier, htaccess, installHook, tracker, styles, begetEntry, cloud, calendar] = await Promise.all([
     readFile(new URL("../public/sw.js", import.meta.url), "utf8"),
     readFile(new URL("../vite.beget.config.ts", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
@@ -2257,6 +2264,9 @@ test("QA-01 precaches the complete cold-install shell before activating the work
     readFile(new URL("../app/use-pwa-install.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/HabitTracker.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../beget/main.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/cloud-sync.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
   ]);
   const packageJson = JSON.parse(packageSource);
 
@@ -2282,8 +2292,15 @@ test("QA-01 precaches the complete cold-install shell before activating the work
   assert.match(serviceWorker, /await cache\.addAll\([\s\S]*await self\.skipWaiting\(\)/);
   assert.match(serviceWorker, /key\.startsWith\(CACHE_PREFIX\) && key !== CACHE/);
   assert.match(installHook, /updateViaCache: "none"/);
+  assert.match(begetEntry, /serviceWorker\.addEventListener\("controllerchange"/);
+  assert.match(begetEntry, /registration\.update\(\)/);
   assert.match(htaccess, /\^\(\?:sw\|precache-manifest\)\\\.js\$/);
+  assert.match(htaccess, /\^\(\?:index\\\.html\|deploy-meta\\\.json\)\$/);
   assert.match(htaccess, /no-cache, no-store, must-revalidate/);
+  assert.match(cloud, /const API_TIMEOUT_MS = 20_000/);
+  assert.match(cloud, /if \(polling\) return;/);
+  assert.match(cloud, /tasksToUpload\.slice\(index, index \+ batchSize\)/);
+  assert.match(calendar, /setSyncStatus\(navigator\.onLine \? "error" : "offline"\);[\s\S]*}, 45_000\)/);
 
   assert.doesNotMatch(tracker, /sacred-library-toggle/);
   assert.doesNotMatch(tracker, /<DisclosureChevron open=\{expanded\}/);

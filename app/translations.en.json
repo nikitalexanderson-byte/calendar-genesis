@@ -1333,5 +1333,10 @@
   "Область изменений": "Apply changes to",
   "Вся серия": "Entire series",
   "Изменить все повторения одной задачей": "Update every recurrence as one task",
+  "Сервер GENESIS не ответил за 20 секунд. Изменения сохранены на устройстве и будут синхронизированы позже.": "The GENESIS server did not respond within 20 seconds. Changes remain saved on this device and will sync later.",
+  "Раздел не удалось отобразить": "This section could not be displayed",
+  "Остальные разделы продолжают работать. Обновите данные страницы и повторите открытие.": "Other sections remain available. Refresh the page data and try opening this section again.",
+  "Обновить страницу": "Refresh page",
+  "Google-синхронизация занимает слишком много времени. Локальные данные доступны, повторная попытка выполнится автоматически.": "Google synchronization is taking too long. Local data remains available and another attempt will run automatically.",
   "__manual_catalog__": "manual"
 }

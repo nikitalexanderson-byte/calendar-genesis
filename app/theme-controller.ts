@@ -29,7 +29,7 @@ export type ThemePreferenceRecord = {
 };
 
 export type ThemePreferenceAdapter = {
-  read: (input: { accountId: string; signal: AbortSignal }) => Promise<ThemePreferenceRecord>;
+  read: (input: { accountId: string; signal: AbortSignal; fresh?: boolean }) => Promise<ThemePreferenceRecord>;
   write: (input: {
     accountId: string;
     theme: GenesisTheme;
@@ -57,6 +57,7 @@ export type GenesisThemeController = Readonly<{
     options?: { verifiedInitialPreference?: { accountId: string; theme: unknown } },
   ) => Promise<ThemeControllerState>;
   setTheme: (theme: GenesisTheme) => ThemeControllerState;
+  retry: () => ThemeControllerState;
   setAvailable: (available: boolean) => void;
   destroy: () => void;
 }>;
@@ -143,6 +144,7 @@ export function createGenesisThemeController({
   const flush = async (currentSession: ThemeSession) => {
     if (currentSession.flushing || !isCurrent(currentSession) || !currentSession.ready || !allowed) return;
     currentSession.flushing = true;
+    let conflictRetries = 0;
     try {
       while (isCurrent(currentSession) && allowed && currentSession.desired !== currentSession.saved) {
         const requested = currentSession.desired;
@@ -170,10 +172,29 @@ export function createGenesisThemeController({
         } catch (error) {
           if (!isCurrent(currentSession)) return;
           if (currentSession.requestNumber !== requestNumber && !(error instanceof ThemeConflictError)) continue;
-          currentSession.desired = currentSession.saved;
+          if (error instanceof ThemeConflictError && conflictRetries < 2) {
+            try {
+              const response = await adapter.read({
+                accountId: currentSession.id,
+                signal: currentSession.abort.signal,
+                fresh: true,
+              });
+              if (!isCurrent(currentSession)) return;
+              if (response?.revision === undefined || response?.revision === null) {
+                throw new Error("Theme adapter did not return a current revision");
+              }
+              currentSession.saved = normalizeGenesisTheme(response.theme);
+              currentSession.revision = Math.max(0, Number(response.revision));
+              replaceState({ ...state, savedTheme: currentSession.saved, error: null });
+              conflictRetries += 1;
+              continue;
+            } catch {
+              if (!isCurrent(currentSession)) return;
+            }
+          }
           replaceState({
             ...state,
-            theme: currentSession.saved,
+            theme: currentSession.desired,
             savedTheme: currentSession.saved,
             status: "error",
             pending: false,
@@ -299,6 +320,14 @@ export function createGenesisThemeController({
       });
       emit();
       void flush(currentSession);
+      return snapshot();
+    },
+    retry() {
+      assertAlive();
+      const currentSession = session;
+      if (currentSession?.ready && allowed && currentSession.desired !== currentSession.saved) {
+        void flush(currentSession);
+      }
       return snapshot();
     },
     setAvailable(value) {
