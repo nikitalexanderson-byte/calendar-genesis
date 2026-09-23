@@ -52,7 +52,6 @@ import {
   signOutFromGoogle,
   updateAccountPreferences,
   updateGoogleTaskList,
-  workspaceRecoveryCodeForUser,
   type WorkspaceRecoveryRequest,
 } from "./cloud-sync";
 import { currentLegalPage, LegalPage } from "./LegalPage";
@@ -1299,6 +1298,8 @@ export function GenesisCalendar() {
   const tasksRef = useRef<Task[]>([]);
   const projectsRef = useRef<GenesisProject[]>([]);
   const categoriesRef = useRef<GenesisCategory[]>(DEFAULT_CATEGORIES);
+  const taskListLinksRef = useRef<TaskListProjectLink[]>([]);
+  const habitWorkspaceRef = useRef<HabitWorkspace>(normalizeHabitWorkspace(EMPTY_HABIT_WORKSPACE));
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
   const projectTouchDragRef = useRef<ProjectTouchDrag | null>(null);
   const habitSaveTimerRef = useRef<number | null>(null);
@@ -1700,6 +1701,8 @@ export function GenesisCalendar() {
     tasksRef.current = tasks;
     projectsRef.current = projects;
     categoriesRef.current = categories;
+    taskListLinksRef.current = taskListLinks;
+    habitWorkspaceRef.current = habitWorkspace;
     const key = cloudUser ? `${GENESIS_USER_WORKSPACE_STORAGE_PREFIX}${cloudUser.uid}` : GENESIS_LEGACY_WORKSPACE_STORAGE_KEY;
     localStorage.setItem(key, JSON.stringify({ tasks, projects, categories, taskLists, taskListLinks, ...habitWorkspace }));
   }, [hydrated, cloudUser, tasks, projects, categories, taskLists, taskListLinks, habitWorkspace]);
@@ -1907,10 +1910,13 @@ export function GenesisCalendar() {
       setProjects(workspace.projects);
       setCategories(workspace.categories);
       setTaskListLinks(workspace.taskListLinks);
-      setHabitWorkspace(ensureTrackerAnalytics(
+      const nextHabitWorkspace = ensureTrackerAnalytics(
         normalizeHabitWorkspace(workspace, activeTaskCalendarMode),
         activeTaskCalendarMode,
-      ));
+      );
+      taskListLinksRef.current = workspace.taskListLinks;
+      habitWorkspaceRef.current = nextHabitWorkspace;
+      setHabitWorkspace(nextHabitWorkspace);
       setNewProjectCategory(workspace.categories[0]?.id ?? "");
       setSyncError("");
       setSyncStatus("synced");
@@ -2829,6 +2835,7 @@ export function GenesisCalendar() {
         habitFeedbackTimerRef.current = window.setTimeout(() => setHabitFeedback(null), 2600);
       }
     }
+    habitWorkspaceRef.current = normalized;
     setHabitWorkspace(normalized);
     if (!cloudUser) return;
     newlyCompletedEntries.forEach((entry) => {
@@ -2845,7 +2852,7 @@ export function GenesisCalendar() {
       void saveWorkspaceStructure(
         projectsRef.current,
         categoriesRef.current,
-        taskListLinks,
+        taskListLinksRef.current,
         metricsFor(tasksRef.current, projectsRef.current, normalized.habits.length),
         normalized,
       )
@@ -2882,11 +2889,12 @@ export function GenesisCalendar() {
       await saveWorkspaceStructure(
         projectsRef.current,
         categoriesRef.current,
-        taskListLinks,
+        taskListLinksRef.current,
         metricsFor(remainingTasks, projectsRef.current, 0),
         clearedWorkspace,
       );
       tasksRef.current = remainingTasks;
+      habitWorkspaceRef.current = clearedWorkspace;
       setTasks(remainingTasks);
       setHabitWorkspace(clearedWorkspace);
       setSyncStatus("synced");
@@ -2909,9 +2917,9 @@ export function GenesisCalendar() {
     nextCategories: GenesisCategory[],
     nextTaskListLinks: TaskListProjectLink[] = taskListLinks,
   ) => {
-    if (!cloudUser) return;
+    if (!cloudUser) return Promise.resolve();
     setSyncStatus("syncing");
-    void saveWorkspaceStructure(nextProjects, nextCategories, nextTaskListLinks, metricsFor(tasks, nextProjects, habitWorkspace.habits.length), habitWorkspace)
+    return saveWorkspaceStructure(nextProjects, nextCategories, nextTaskListLinks, metricsFor(tasks, nextProjects, habitWorkspace.habits.length), habitWorkspace)
       .then(() => setSyncStatus("synced"))
       .catch((error: Error) => {
         setSyncError(error.message);
@@ -3509,7 +3517,7 @@ export function GenesisCalendar() {
     persistStructure(nextProjects, categories);
   };
 
-  const deleteProject = (id: string) => {
+  const deleteProject = async (id: string) => {
     const project = projects.find((item) => item.id === id);
     if (!project || !window.confirm(translateText(`Удалить проект «${project.title}» и все его подпроекты? Задачи останутся, но перейдут в раздел без проекта.`, undefined, true))) return;
     const removed = new Set<string>([id]);
@@ -3539,11 +3547,13 @@ export function GenesisCalendar() {
       setTasks((current) => current.map((task) => changedById.get(task.id) ?? task));
       changedTasks.forEach(saveTask);
     }
+    projectsRef.current = nextProjects;
+    taskListLinksRef.current = nextTaskListLinks;
     setProjects(nextProjects);
     setTaskProject((current) => removed.has(current) ? "" : current);
     setNewTaskListProject((current) => removed.has(current) ? "" : current);
     setTaskListLinks(nextTaskListLinks);
-    persistStructure(nextProjects, categories, nextTaskListLinks);
+    await persistStructure(nextProjects, categories, nextTaskListLinks);
   };
 
   const exportCalendar = () => {
@@ -4977,7 +4987,7 @@ export function GenesisCalendar() {
                       </div>
                     </button>
                     <button type="button" className="project-edit" onClick={() => openProjectEditor(project)} aria-label={`Редактировать проект «${project.title}»`}>✎</button>
-                    <button type="button" className="project-delete" onClick={() => deleteProject(project.id)} aria-label={`Удалить проект «${project.title}»`}>×</button>
+                    <button type="button" className="project-delete" onClick={() => void deleteProject(project.id)} aria-label={`Удалить проект «${project.title}»`}>×</button>
                     <div className="project-drop-field">
                       <div className="project-drop-heading">
                         <span>Пространство проекта</span>
@@ -6443,7 +6453,6 @@ export function GenesisCalendar() {
             hiddenHabitTemplateCount={habitWorkspace.hiddenDefaultTemplates.length}
             onRestoreHabitTemplates={() => updateHabitWorkspace({ ...habitWorkspace, hiddenDefaultTemplates: [] })}
             onResetHabitTracking={resetAllHabitTracking}
-            workspaceRecoveryCode={workspaceRecoveryCodeForUser(cloudUser.uid)}
             onHabitTrackingChange={(enabled) => {
               updateHabitWorkspace({ ...habitWorkspace, habitSettings: { ...habitWorkspace.habitSettings, enabled } });
               if (!enabled && view === "habits") navigateTo("today");

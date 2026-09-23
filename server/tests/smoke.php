@@ -51,7 +51,7 @@ try {
     expect(($user['sync_routing_mode'] ?? '') === 'choose', 'A regular user could not save multi-account routing.');
     $workspace = genesisWorkspaceForClient($user);
     expect(is_string($workspace['key']) && strlen(base64_decode($workspace['key'], true)) === 32, 'Workspace key is invalid.');
-    expect(($workspace['keyMode'] ?? '') === 'legacy', 'Legacy key migration mode was not exposed.');
+    expect(($workspace['keyMode'] ?? '') === 'account', 'Authenticated account key mode was not exposed.');
 
     $saved = genesisSaveWorkspaceEnvelope($userId, [
         'ciphertext' => base64_encode(random_bytes(64)),
@@ -81,14 +81,14 @@ try {
 
     $wrappedKey = base64_encode(random_bytes(48));
     $wrappedIv = base64_encode(random_bytes(12));
-    genesisSaveClientWorkspaceKey($userId, ['wrappedKey' => $wrappedKey, 'iv' => $wrappedIv]);
+    $accountKey = base64_encode(random_bytes(32));
+    genesisSaveClientWorkspaceKey($userId, ['key' => $accountKey, 'wrappedKey' => $wrappedKey, 'iv' => $wrappedIv]);
     $clientWorkspace = genesisWorkspaceForClient(genesisFindUser($userId) ?: []);
-    expect(($clientWorkspace['keyMode'] ?? '') === 'client', 'Client-managed workspace key mode was not stored.');
-    expect(($clientWorkspace['key'] ?? null) === null, 'The server exposed a client-managed plaintext key.');
-    expect(($clientWorkspace['wrappedKey'] ?? '') === $wrappedKey, 'The wrapped recovery key was not returned intact.');
+    expect(($clientWorkspace['keyMode'] ?? '') === 'account', 'Authenticated account key mode was not stored.');
+    expect(($clientWorkspace['key'] ?? null) === $accountKey, 'The authenticated session did not receive its workspace key.');
     $clientKeyRow = $db->prepare('SELECT workspace_key_enc FROM users WHERE id = :id');
     $clientKeyRow->execute(['id' => $userId]);
-    expect($clientKeyRow->fetchColumn() === null, 'The server retained a decryptable workspace key after migration.');
+    expect(is_string($clientKeyRow->fetchColumn()), 'The workspace key was not encrypted for account-based recovery.');
 
     genesisSaveMetrics($userId, [
         'projectCount' => 4,

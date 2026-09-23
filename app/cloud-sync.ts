@@ -160,7 +160,7 @@ export type GenesisWorkspace = HabitWorkspace & {
   taskListLinks: TaskListProjectLink[];
   hasRemoteStructure: boolean;
   syncWarning: string | null;
-  workspaceKeyMode: "legacy" | "client" | "new";
+  workspaceKeyMode: "account" | "legacy" | "client" | "new";
 };
 
 export type WorkspaceRecoveryReason = "new-device" | "key-mismatch";
@@ -296,7 +296,7 @@ type BootstrapPayload = {
   taskLists: GoogleTaskList[];
   workspace: {
     key: string | null;
-    keyMode: "legacy" | "client" | "new";
+    keyMode: "account" | "legacy" | "client" | "new";
     wrappedKey: string | null;
     wrappedKeyIv: string | null;
     envelope: WorkspaceEnvelope | null;
@@ -694,10 +694,6 @@ export function restoreOfflineWorkspaceSession(userId: string) {
   return Boolean(workspaceKey);
 }
 
-export function workspaceRecoveryCodeForUser(userId: string) {
-  return deviceWorkspaceKey(userId)?.recoveryCode ?? "";
-}
-
 async function wrapWorkspaceKey(userId: string, rawKey: string, recoveryCode?: string) {
   const recoveryBytes = recoveryCode ? base64ToBytes(recoveryCode) : crypto.getRandomValues(new Uint8Array(32));
   if (recoveryBytes.length !== 32) throw new Error("Код восстановления должен содержать 32 байта.");
@@ -708,7 +704,7 @@ async function wrapWorkspaceKey(userId: string, rawKey: string, recoveryCode?: s
   storeDeviceWorkspaceKey(userId, { key: rawKey, recoveryCode: recovery });
   await api<{ ok: boolean }>("/workspace/key", {
     method: "PUT",
-    body: JSON.stringify({ wrappedKey: bytesToBase64(new Uint8Array(wrappedKey)), iv: bytesToBase64(iv) }),
+    body: JSON.stringify({ key: rawKey, wrappedKey: bytesToBase64(new Uint8Array(wrappedKey)), iv: bytesToBase64(iv) }),
   });
   return recovery;
 }
@@ -760,19 +756,20 @@ async function resolveWorkspaceKey(payload: BootstrapPayload) {
     await wrapWorkspaceKey(workspaceUserId, workspaceKey, stored?.recoveryCode);
     return;
   }
-  if (payload.workspace.keyMode === "legacy") {
+  if (payload.workspace.keyMode === "account" || payload.workspace.keyMode === "legacy") {
     if (!payload.workspace.key) throw new Error("Ключ пространства не получен");
     workspaceKey = payload.workspace.key;
-    const recoveryCode = stored?.key === workspaceKey ? stored.recoveryCode : undefined;
-    try {
-      await wrapWorkspaceKey(workspaceUserId, workspaceKey, recoveryCode);
-    } catch {
-      // Safe fallback: the server keeps the legacy key until client-key registration succeeds.
+    if (stored?.key !== workspaceKey) {
+      storeDeviceWorkspaceKey(workspaceUserId, {
+        key: workspaceKey,
+        recoveryCode: stored?.recoveryCode ?? bytesToBase64(crypto.getRandomValues(new Uint8Array(32))),
+      });
     }
     return;
   }
   if (stored?.key) {
     workspaceKey = stored.key;
+    await wrapWorkspaceKey(workspaceUserId, workspaceKey, stored.recoveryCode);
     return;
   }
   if (!payload.workspace.wrappedKey || !payload.workspace.wrappedKeyIv) {
@@ -784,6 +781,7 @@ async function resolveWorkspaceKey(payload: BootstrapPayload) {
     payload.workspace.wrappedKeyIv,
     "Для доступа к зашифрованным данным нужен код восстановления из личного кабинета.",
   );
+  await wrapWorkspaceKey(workspaceUserId, workspaceKey, deviceWorkspaceKey(workspaceUserId)?.recoveryCode);
 }
 
 async function importWorkspaceKey() {

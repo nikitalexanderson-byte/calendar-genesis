@@ -5878,9 +5878,6 @@ html[data-language="en"] .inbox-card.drop-target::after {
 .habit-reset-actions button:disabled { cursor: not-allowed; opacity: .42; }
 .habit-reset-confirm { color: #fff9ef; border: 1px solid #8e4034; border-radius: 999px; background: #9c4c3e; }
 .account-e2ee > p { margin: 0; color: var(--ink-soft); font-size: 9px; line-height: 1.55; }
-.account-recovery-code { display: grid; justify-items: start; gap: 8px; margin-top: 12px; }
-.account-recovery-code code { display: block; width: 100%; padding: 11px; overflow-wrap: anywhere; color: var(--ink); border: 1px solid rgba(37,91,89,.18); border-radius: 8px; background: rgba(255,255,255,.7); font-size: 10px; line-height: 1.5; user-select: all; }
-.account-recovery-code small { color: #8a554b; font-size: 8px; line-height: 1.5; }
 .account-security-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; overflow: hidden; background: var(--line); border: 1px solid var(--line); border-radius: 4px; }
 .account-security-grid article { display: grid; gap: 8px; padding: 18px; background: var(--white); }
 .account-security-grid span { color: var(--ink-soft); font-size: 8px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
@@ -12250,7 +12247,7 @@ button.project-drag-handle:active { cursor: grabbing; }
 .habit-line-chart svg polygon { fill: rgba(45,119,113,.09); }
 .habit-line-chart svg polyline { fill: none; stroke: var(--teal); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
 .habit-line-chart > footer { display: flex; justify-content: space-between; color: var(--ink-soft); font-size: 7px; }
-.habit-heatmap > div { display: grid; grid-template-columns: repeat(7,1fr); gap: 5px; margin-top: 16px; }
+.habit-heatmap > div { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); grid-template-rows: repeat(6,minmax(0,1fr)); gap: 5px; margin-top: 16px; }
 .habit-heatmap > div span { aspect-ratio: 1; border-radius: 3px; background: var(--teal); }
 .habit-heatmap > div span.rest { opacity: 1 !important; background: rgba(19,36,38,.07); }
 .habit-heatmap > footer { display: flex; align-items: center; justify-content: end; gap: 4px; margin-top: 11px; color: var(--ink-soft); font-size: 7px; }

@@ -277,7 +277,7 @@ function genesisUpsertGoogleUser(array $profile, array $tokens, bool $persistGoo
         ? genesisEncrypt($tokens['access_token'])
         : ($existing['access_token_enc'] ?? null);
     $workspaceKey = is_array($existing) ? ($existing['workspace_key_enc'] ?? null) : null;
-    $workspaceKeyMode = is_array($existing) ? (string)($existing['workspace_key_mode'] ?? 'legacy') : 'client';
+    $workspaceKeyMode = is_array($existing) ? (string)($existing['workspace_key_mode'] ?? 'legacy') : 'account';
     $expiresAt = $persistGoogleTokens && isset($tokens['access_token'])
         ? time() + genesisClampInt($tokens['expires_in'] ?? 3600, 60, 86400, 3600) - 60
         : ($existing['token_expires_at'] ?? null);
@@ -430,7 +430,7 @@ function genesisVerifyPasswordLogin(string $email, string $password): ?array
 
 function genesisWorkspaceForClient(array $user): array
 {
-    $clientManaged = ($user['workspace_key_mode'] ?? 'legacy') === 'client';
+    $clientManaged = ($user['workspace_key_mode'] ?? 'legacy') === 'client' && empty($user['workspace_key_enc']);
     $key = null;
     if (!$clientManaged) {
         $user = genesisEnsureWorkspaceKey($user);
@@ -444,7 +444,7 @@ function genesisWorkspaceForClient(array $user): array
     $blob = $statement->fetch();
     return [
         'key' => $key,
-        'keyMode' => $clientManaged ? (empty($user['workspace_key_wrapped']) ? 'new' : 'client') : 'legacy',
+        'keyMode' => $clientManaged ? (empty($user['workspace_key_wrapped']) ? 'new' : 'client') : 'account',
         'wrappedKey' => $clientManaged ? ($user['workspace_key_wrapped'] ?: null) : null,
         'wrappedKeyIv' => $clientManaged ? ($user['workspace_key_iv'] ?: null) : null,
         'envelope' => is_array($blob) ? [
@@ -458,24 +458,30 @@ function genesisWorkspaceForClient(array $user): array
 
 function genesisSaveClientWorkspaceKey(string $userId, array $payload): array
 {
+    $key = trim((string)($payload['key'] ?? ''));
     $wrappedKey = trim((string)($payload['wrappedKey'] ?? ''));
     $iv = trim((string)($payload['iv'] ?? ''));
+    $decodedPlainKey = base64_decode($key, true);
     $decodedKey = base64_decode($wrappedKey, true);
     $decodedIv = base64_decode($iv, true);
+    if (!is_string($decodedPlainKey) || strlen($decodedPlainKey) !== 32) {
+        throw new InvalidArgumentException('Workspace key is invalid.');
+    }
     if (!is_string($decodedKey) || strlen($decodedKey) < 48 || strlen($decodedKey) > 96) {
         throw new InvalidArgumentException('Wrapped workspace key is invalid.');
     }
     if (!is_string($decodedIv) || strlen($decodedIv) !== 12) {
         throw new InvalidArgumentException('Wrapped workspace key IV is invalid.');
     }
-    genesisDb()->prepare('UPDATE users SET workspace_key_mode = :mode, workspace_key_wrapped = :wrapped_key, workspace_key_iv = :iv, workspace_key_enc = NULL, updated_at = :updated_at WHERE id = :id')->execute([
-        'mode' => 'client',
+    genesisDb()->prepare('UPDATE users SET workspace_key_mode = :mode, workspace_key_wrapped = :wrapped_key, workspace_key_iv = :iv, workspace_key_enc = :workspace_key, updated_at = :updated_at WHERE id = :id')->execute([
+        'mode' => 'account',
         'wrapped_key' => $wrappedKey,
         'iv' => $iv,
+        'workspace_key' => genesisEncrypt($key),
         'updated_at' => genesisNow(),
         'id' => $userId,
     ]);
-    return ['keyMode' => 'client', 'wrappedKey' => $wrappedKey, 'wrappedKeyIv' => $iv];
+    return ['keyMode' => 'account'];
 }
 
 function genesisSaveWorkspaceEnvelope(string $userId, array $payload): array

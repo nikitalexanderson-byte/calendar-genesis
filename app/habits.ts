@@ -123,6 +123,7 @@ import {
   normalizeHabitFeedbackSettings,
   type HabitFeedbackSettings,
 } from "./habit-feedback";
+import { normalizeHabitCollapsedSections, type HabitSectionId } from "./habit-section-state";
 
 export { HABIT_COLORS, STARTER_HABIT_TEMPLATES } from "./habit-templates";
 export type { HabitTemplate, HabitTemplateId } from "./habit-templates";
@@ -146,6 +147,8 @@ export { dailyGoalTarget } from "./daily-goal";
 export type { DailyGoalMode, DailyGoalModeChange, DailyGoalRecord, DailyGoalStatus } from "./daily-goal";
 export { DEFAULT_HABIT_FEEDBACK_SETTINGS } from "./habit-feedback";
 export type { HabitFeedbackSettings } from "./habit-feedback";
+export { HABIT_SECTION_IDS, normalizeHabitCollapsedSections } from "./habit-section-state";
+export type { HabitSectionId } from "./habit-section-state";
 
 export type HabitQualityScale = "none" | "ten" | "bipolar";
 export type HabitScoringMode = "none" | "binary" | "quality-ten" | "quality-bipolar";
@@ -196,6 +199,7 @@ export type HabitSettings = {
   reportRange: HabitReportRange;
   customRangeStart: string;
   customRangeEnd: string;
+  collapsedSections: HabitSectionId[];
   dailyGoalModeChanges: DailyGoalModeChange[];
   plannedRestDays: string[];
   notifications: HabitNotificationSettings;
@@ -282,6 +286,7 @@ export const DEFAULT_HABIT_SETTINGS: HabitSettings = {
   reportRange: "month",
   customRangeStart: "",
   customRangeEnd: "",
+  collapsedSections: [],
   dailyGoalModeChanges: [],
   plannedRestDays: [],
   notifications: DEFAULT_HABIT_NOTIFICATION_SETTINGS,
@@ -590,6 +595,7 @@ function normalizeSettings(value: Partial<HabitSettings> | undefined): HabitSett
     ...DEFAULT_HABIT_SETTINGS,
     ...value,
     reportRange,
+    collapsedSections: normalizeHabitCollapsedSections(value?.collapsedSections),
     dailyGoalModeChanges: normalizeDailyGoalModeChanges(value?.dailyGoalModeChanges),
     plannedRestDays: Array.isArray(value?.plannedRestDays)
       ? Array.from(new Set(value.plannedRestDays.filter((date) => DATE_PATTERN.test(date)))).sort()

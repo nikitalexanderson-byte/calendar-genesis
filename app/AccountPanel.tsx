@@ -29,7 +29,6 @@ type AccountPanelProps = {
   hiddenHabitTemplateCount: number;
   onRestoreHabitTemplates: () => void;
   onResetHabitTracking: () => Promise<void>;
-  workspaceRecoveryCode: string;
   categories: GenesisCategory[];
 };
 
@@ -70,12 +69,11 @@ function createHabitResetChallenge(): HabitResetChallenge {
   };
 }
 
-export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditionalGoogle, onLanguageChange, onUserChange, habitTrackingEnabled, onHabitTrackingChange, habitNotificationSettings, notificationPermission, onHabitNotificationSettingsChange, habitFeedbackSettings, onHabitFeedbackSettingsChange, onRequestHabitNotifications, hiddenHabitTemplateCount, onRestoreHabitTemplates, onResetHabitTracking, workspaceRecoveryCode, categories }: AccountPanelProps) {
+export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditionalGoogle, onLanguageChange, onUserChange, habitTrackingEnabled, onHabitTrackingChange, habitNotificationSettings, notificationPermission, onHabitNotificationSettingsChange, habitFeedbackSettings, onHabitFeedbackSettingsChange, onRequestHabitNotifications, hiddenHabitTemplateCount, onRestoreHabitTemplates, onResetHabitTracking, categories }: AccountPanelProps) {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [preferenceBusy, setPreferenceBusy] = useState(false);
   const [notificationBusy, setNotificationBusy] = useState(false);
-  const [recoveryVisible, setRecoveryVisible] = useState(false);
   const [habitResetChallenge, setHabitResetChallenge] = useState<HabitResetChallenge | null>(null);
   const [habitResetAnswer, setHabitResetAnswer] = useState("");
   const [habitResetBusy, setHabitResetBusy] = useState(false);
@@ -639,16 +637,10 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
 
         <section className="account-preferences account-e2ee" aria-labelledby="account-e2ee-title">
           <div>
-            <span className="eyebrow">End-to-end encryption</span>
+            <span className="eyebrow">Encrypted workspace</span>
             <h3 id="account-e2ee-title">{user.language === "en" ? "Encrypted personal data" : "Шифрование личных данных"}</h3>
           </div>
-          <p>{user.language === "en" ? "The decryption key stays on your devices. The server stores only ciphertext and a wrapped recovery copy that it cannot open." : "Ключ расшифровки остаётся на ваших устройствах. Сервер хранит только шифротекст и обёрнутую резервную копию ключа, которую не может открыть."}</p>
-          {workspaceRecoveryCode ? (
-            <div className="account-recovery-code">
-              <button type="button" className="text-button" onClick={() => setRecoveryVisible((visible) => !visible)}>{recoveryVisible ? (user.language === "en" ? "Hide recovery code" : "Скрыть код восстановления") : (user.language === "en" ? "Show recovery code" : "Показать код восстановления")}</button>
-              {recoveryVisible ? <><code>{workspaceRecoveryCode}</code><button type="button" className="text-button" onClick={() => void navigator.clipboard.writeText(workspaceRecoveryCode).then(() => setMessage(user.language === "en" ? "Recovery code copied." : "Код восстановления скопирован."))}>{user.language === "en" ? "Copy" : "Копировать"}</button><small>{user.language === "en" ? "Keep this code outside GENESIS. It is required to decrypt the tracker on a new device." : "Сохраните код вне GENESIS. Он понадобится для расшифровки трекера на новом устройстве."}</small></> : null}
-            </div>
-          ) : <p className="account-preference-status">{user.language === "en" ? "The recovery code will appear after the encrypted workspace is initialized." : "Код появится после инициализации зашифрованного пространства."}</p>}
+          <p>{user.language === "en" ? "Projects and tracker data are encrypted before storage. After Google sign-in, an authenticated GENESIS session unlocks them automatically on every device—no recovery code is required." : "Проекты и данные трекеров шифруются перед сохранением. После входа через Google защищённая сессия GENESIS автоматически открывает их на любом устройстве — код восстановления не нужен."}</p>
         </section>
 
         <section className="account-preferences" aria-labelledby="account-preferences-title">

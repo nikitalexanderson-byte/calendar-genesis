@@ -146,6 +146,7 @@ import {
   DEFAULT_HABIT_FEEDBACK_SETTINGS,
   normalizeHabitFeedbackSettings,
 } from "../app/habit-feedback.ts";
+import { normalizeHabitCollapsedSections } from "../app/habit-section-state.ts";
 
 function syncClock(version, updatedAt, deviceId) {
   return { version, updatedAt, deviceId };
@@ -245,6 +246,13 @@ test("workspace merge deduplicates reward ledger entries by idempotency key", ()
   assert.equal(merged.rewardTransactions[0].idempotencyKey, "daily-goal:self:2026-09-18");
   assert.equal(merged.streakFreezeTransactions.length, 1);
   assert.equal(merged.streakFreezeTransactions[0].idempotencyKey, "hestia-spark-purchase:self:spark-one");
+});
+
+test("habit section disclosure state is normalized for encrypted cross-device storage", () => {
+  assert.deepEqual(
+    normalizeHabitCollapsedSections(["statistics", "statistics", "regular-habits", "unknown-section"]),
+    ["statistics", "regular-habits"],
+  );
 });
 
 test("workspace API uses monotonic compare-and-swap without exposing plaintext", async () => {
@@ -434,6 +442,8 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(calendar, /clearTrackerAnalyticsCache\(cloudUser\.uid\)/);
   assert.match(calendar, /registerWorkspaceRecoveryRequestHandler/);
   assert.match(calendar, /<WorkspaceRecoveryDialog/);
+  assert.match(calendar, /const deleteProject = async/);
+  assert.match(calendar, /const deleteProject = async[\s\S]*projectsRef\.current = nextProjects;[\s\S]*taskListLinksRef\.current = nextTaskListLinks;[\s\S]*await persistStructure/);
 
   assert.match(cloud, /crypto\.subtle\.encrypt\(\{ name: "AES-GCM"/);
   assert.match(cloud, /JSON\.stringify\(\{[\s\S]*\.\.\.encryptedHabitWorkspace/);
@@ -451,14 +461,16 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(cloud, /moodEntries: structure\.moodEntries/);
   assert.match(cloud, /WORKSPACE_DEVICE_KEY_PREFIX/);
   assert.match(cloud, /wrapWorkspaceKey/);
+  assert.match(cloud, /body: JSON\.stringify\(\{ key: rawKey, wrappedKey:/);
   assert.match(cloud, /recoverWorkspaceKey/);
   assert.doesNotMatch(cloud, /window\.prompt/);
   assert.match(recoveryDialog, /role="dialog"/);
   assert.match(recoveryDialog, /Расшифровать данные/);
   assert.match(recoveryDialog, /request\.validate\(code\)/);
   assert.match(recoveryDialog, /Код обрабатывается только на этом устройстве/);
-  assert.match(repository, /workspace_key_enc = NULL/);
-  assert.match(repository, /'key' => \$key/);
+  assert.match(repository, /workspace_key_enc = :workspace_key/);
+  assert.match(repository, /'workspace_key' => genesisEncrypt\(\$key\)/);
+  assert.match(repository, /'keyMode' => \$clientManaged \? \(empty\([\s\S]*\) : 'account'/);
   assert.match(migration, /workspace_key_wrapped/);
 
   assert.doesNotMatch(habits, /type HabitKind/);
@@ -471,6 +483,7 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(habits, /createHabitFromTemplate/);
   assert.match(habits, /normalizeHiddenDefaultTemplates/);
   assert.match(habits, /trackerSchemaVersion: 16/);
+  assert.match(habits, /collapsedSections: HabitSectionId\[\]/);
   assert.match(habits, /createdDate: string/);
   assert.match(habits, /emoji: string/);
   assert.match(habits, /priority: number/);
@@ -583,13 +596,15 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(account, /role="alertdialog"/);
   assert.match(account, /window\.crypto\.getRandomValues/);
   assert.match(account, /Подтвердить удаление/);
-  assert.match(account, /workspaceRecoveryCode/);
+  assert.doesNotMatch(account, /workspaceRecoveryCode/);
+  assert.match(account, /код восстановления не нужен/);
   assert.match(account, /Уведомления привычек/);
   assert.match(account, /Тихих часов|тихих часов/);
   assert.doesNotMatch(calendar, /--mobile-nav-count/);
   assert.match(calendar, /buildHabitNotificationPlan/);
   assert.match(styles, /\.habits-hero-status[\s\S]*position: absolute/);
   assert.match(styles, /\.daily-goal-ring/);
+  assert.match(styles, /\.habit-heatmap > div \{[^}]*grid-template-columns: repeat\(5,minmax\(0,1fr\)\)[^}]*grid-template-rows: repeat\(6,minmax\(0,1fr\)\)/);
   assert.match(styles, /\.laurel-ledger/);
   assert.match(styles, /\.today-tasks-panel/);
   assert.match(styles, /\.habit-quest-panel/);
