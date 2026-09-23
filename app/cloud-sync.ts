@@ -315,6 +315,7 @@ const LAST_USER_CACHE = "genesis-last-user-v2";
 const WORKSPACE_DEVICE_KEY_PREFIX = "genesis-workspace-device-key-v2:";
 const WORKSPACE_DEVICE_ID_PREFIX = "genesis-workspace-device-id-v1:";
 const WORKSPACE_SYNC_STATE_PREFIX = "genesis-workspace-sync-state-v1:";
+const API_TIMEOUT_MS = 20_000;
 export const GENESIS_LEGACY_WORKSPACE_STORAGE_KEY = "genesis-calendar-v1";
 export const GENESIS_USER_WORKSPACE_STORAGE_PREFIX = "genesis-calendar-v2:";
 
@@ -440,16 +441,36 @@ class GenesisApiError extends Error {
 
 async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!API_BASE) throw new Error("Сервер GENESIS ещё не подключён");
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...init,
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Genesis-Time-Zone": deviceTimeZone(),
-      ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}),
-      ...init.headers,
-    },
-  });
+  const { signal: callerSignal, ...requestInit } = init;
+  const requestController = new AbortController();
+  let timedOut = false;
+  const abortFromCaller = () => requestController.abort(callerSignal?.reason);
+  if (callerSignal?.aborted) abortFromCaller();
+  else callerSignal?.addEventListener("abort", abortFromCaller, { once: true });
+  const timeout = globalThis.setTimeout(() => {
+    timedOut = true;
+    requestController.abort();
+  }, API_TIMEOUT_MS);
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, {
+      ...requestInit,
+      credentials: "include",
+      signal: requestController.signal,
+      headers: {
+        "Content-Type": "application/json",
+        "X-Genesis-Time-Zone": deviceTimeZone(),
+        ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}),
+        ...init.headers,
+      },
+    });
+  } catch (error) {
+    if (timedOut) throw new Error("Сервер GENESIS не ответил за 20 секунд. Изменения сохранены на устройстве и будут синхронизированы позже.");
+    throw error;
+  } finally {
+    globalThis.clearTimeout(timeout);
+    callerSignal?.removeEventListener("abort", abortFromCaller);
+  }
   const payload = (await response.json().catch(() => null)) as ({ error?: string } & Record<string, unknown>) | null;
   if (!response.ok) {
     throw new GenesisApiError(response.status, payload, payload?.error || `GENESIS API ${response.status}`);
@@ -1013,9 +1034,8 @@ export function observeGenesisUser(
   let active = true;
   const poll = async () => {
     try {
-      const result = await api<{ user: GenesisUser | null; csrf: string }>("/session");
-      csrfToken = result.csrf;
-      if (active) listener(result.user);
+      const user = await loadGenesisSession();
+      if (active) listener(user);
     } catch (error) {
       if (active) onError?.(error instanceof Error ? error : new Error("Сервер недоступен"));
     }
@@ -1031,6 +1051,12 @@ export function observeGenesisUser(
     window.removeEventListener("focus", refresh);
     window.removeEventListener("online", refresh);
   };
+}
+
+export async function loadGenesisSession(signal?: AbortSignal) {
+  const result = await api<{ user: GenesisUser | null; csrf: string }>("/session", { signal });
+  csrfToken = result.csrf;
+  return result.user;
 }
 
 export function signInWithGoogle() {
@@ -1156,7 +1182,10 @@ export function observeCloudTasks(
   onError: (error: Error) => void,
 ) {
   let active = true;
+  let polling = false;
   const poll = async () => {
+    if (polling) return;
+    polling = true;
     try {
       await flushPendingMutations();
       await refreshWorkspaceFromCloud();
@@ -1169,6 +1198,8 @@ export function observeCloudTasks(
       );
     } catch (error) {
       if (active) onError(error instanceof Error ? error : new Error("Ошибка синхронизации"));
+    } finally {
+      polling = false;
     }
   };
   const interval = window.setInterval(poll, 30_000);
@@ -1185,13 +1216,17 @@ export function observeCloudTasks(
 
 export function observeCloudWorkspace(onError?: (error: Error) => void) {
   let active = true;
+  let polling = false;
   const poll = async () => {
-    if (!workspaceUserId || !workspaceKey) return;
+    if (!workspaceUserId || !workspaceKey || polling) return;
+    polling = true;
     try {
       await flushPendingMutations();
       await refreshWorkspaceFromCloud();
     } catch (error) {
       if (active) onError?.(error instanceof Error ? error : new Error("WORKSPACE_SYNC_FAILED"));
+    } finally {
+      polling = false;
     }
   };
   const interval = window.setInterval(poll, 30_000);
@@ -1233,12 +1268,14 @@ export async function mergeLocalWorkspace(
   }
   if (!remote.user.calendarConnected) return;
   const remoteById = new Map(remote.tasks.map((task) => [task.id, task]));
-  for (const task of local.tasks) {
-    if (task.googleTaskId) continue;
+  const tasksToUpload = local.tasks.filter((task) => {
+    if (task.googleTaskId) return false;
     const remoteTask = remoteById.get(task.id);
-    if (!remoteTask || task.updatedAt > remoteTask.updatedAt) {
-      await saveCloudTask(_uid, task);
-    }
+    return !remoteTask || task.updatedAt > remoteTask.updatedAt;
+  });
+  const batchSize = 8;
+  for (let index = 0; index < tasksToUpload.length; index += batchSize) {
+    await Promise.all(tasksToUpload.slice(index, index + batchSize).map((task) => saveCloudTask(_uid, task)));
   }
 }
 

@@ -1,6 +1,6 @@
 # Experimental theme 1.1 — local QA
 
-Baseline commit for the corrective pass: `f136d764ec1df9337b41e6853a8c5db785da5c5e` (`origin/master`).
+Baseline commit for the runtime corrective pass: `9e8fe91f49ce07c13773d18b3239a9b6bb9bbf9b` (`origin/master`).
 
 ## Preservation gates
 
@@ -19,7 +19,7 @@ Machine-readable evidence:
 
 ## Visual evidence
 
-The before/after Standart screenshots were captured at the same viewports. Differences are limited to live clock/animation rasterization: desktop mean absolute RGB difference 0.639 and mobile 0.493. The repository captures below record the first integration and remain useful for asset-placement comparison. Authenticated production inspection of the first application-wide revision exposed two defects that this pass corrects: `#all-tasks` crashed on an unscoped locale variable, and dark feature headers inherited light-surface typography. Fresh production captures are required after this corrective commit is deployed.
+The before/after Standart screenshots were captured at the same viewports. Differences are limited to live clock/animation rasterization: desktop mean absolute RGB difference 0.639 and mobile 0.493. The repository captures below record the first integration and remain useful for asset-placement comparison. Runtime inspection exposed a stale-client path that could continue executing the previous `#all-tasks` bundle after deployment. This pass moves update registration before React, reloads on a new service-worker controller and prevents caching of `index.html`. Fresh authenticated production captures remain required because browser control and direct production access were unavailable from the local machine during this pass.
 
 - `reports/screenshots/standart-before-desktop.png`
 - `reports/screenshots/standart-after-desktop.png`
@@ -39,8 +39,8 @@ The before/after Standart screenshots were captured at the same viewports. Diffe
 
 - `pnpm install --frozen-lockfile`: passed.
 - `pnpm lint`: passed.
-- `pnpm test`: 63/63 passed, including an explicit scope regression for the Tasks locale variable and application-wide Experimental component coverage.
-- `pnpm build:beget`: passed; 10 mandatory entry assets and 90 visual assets in offline precache. The generated 529.18 kB CSS artifact contains `html[data-genesis-theme=experimental]`, the `--gx-*` token layer, view/dialog hooks, responsive workspace tabs and the mobile navigation dock.
+- `pnpm test`: 64/64 passed, including Tasks runtime guards, theme retry/conflict recovery, service-worker update recovery and application-wide Experimental component coverage.
+- `pnpm build:beget`: passed; 10 mandatory entry assets and 90 visual assets in offline precache. The generated 530.14 kB CSS artifact contains `html[data-genesis-theme=experimental]`, the `--gx-*` token layer, view/dialog hooks, responsive workspace tabs and the mobile navigation dock.
 - `pnpm test:preservation`: passed.
 - PHP smoke suite was extended for the default, update, revision increment and stale-write conflict. It could not be executed locally because this Windows host has no PHP runtime; CI is already configured to execute it before any deployment mutation.
 
@@ -55,3 +55,6 @@ The before/after Standart screenshots were captured at the same viewports. Diffe
 - Migration `012_account_theme.sql` is additive and defaults existing accounts to `standart` without a mass update. Code rollback can leave the two unused columns in place; database rollback remains a separately approved operation under the repository policy.
 - Authenticated multi-device UI verification remains for the normal CI/staging path because the local environment has no verified Google test account. Controller tests cover serialized rapid toggles, rollback, conflicts, logout/account changes, the kill switch, and all 36 theme/calendar/time combinations.
 - Internal URLs are normalized across the root layout, Beget entry, section navigation and authentication return paths: `/?qa=…#theokyklos` becomes `/#theokyklos` without losing the selected section.
+- Standart is explicitly presented as the primary theme. Enabling Experimental requires an accessible warning confirmation; returning to Standart is immediate.
+- The preference is written to the GENESIS server account through `/account/preferences`, independently of Google Calendar/Tasks synchronization. A temporary API failure keeps the selected local theme active and retries persistence automatically instead of snapping back.
+- API calls now time out after 20 seconds, background polls cannot overlap, initial local-task uploads run in bounded batches, and the UI leaves `syncing` after 45 seconds while preserving local data and automatic retries.

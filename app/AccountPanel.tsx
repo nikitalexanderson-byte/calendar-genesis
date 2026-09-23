@@ -186,8 +186,8 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
     ? (user.language === "en" ? "Saving the account preference…" : "Сохраняем выбор в аккаунте…")
     : themeState.status === "error"
       ? themeState.error === "conflict"
-        ? (user.language === "en" ? "The preference changed on another device. Refresh the account before trying again." : "Настройка изменилась на другом устройстве. Обновите данные перед повтором.")
-        : (user.language === "en" ? "The theme could not be saved. The last confirmed choice was restored." : "Не удалось сохранить тему. Возвращён последний подтверждённый выбор.")
+        ? (user.language === "en" ? "The selected theme is active on this device. Account synchronization will retry automatically." : "Выбранная тема активна на этом устройстве. Синхронизация с аккаунтом повторится автоматически.")
+        : (user.language === "en" ? "The selected theme is active on this device but is not synced yet. Saving will retry automatically." : "Выбранная тема активна на этом устройстве, но пока не синхронизирована. Сохранение повторится автоматически.")
       : themeState.status === "unavailable"
         ? (user.language === "en" ? "Experimental is temporarily unavailable. The saved choice remains intact; Standart is active." : "Experimental временно недоступна. Сохранённый выбор не удалён; используется Standart.")
         : themeState.status === "load-error"
@@ -344,7 +344,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
 
         <section className="account-preferences theme-preference" aria-labelledby="theme-title" data-exp-ui="panel">
           <div>
-            <span className="eyebrow">{user.language === "en" ? "Appearance" : "Оформление"}</span>
+            <span className="eyebrow">{user.language === "en" ? "Primary theme — Standart" : "Основная тема — Standart"}</span>
             <h3 id="theme-title" data-exp-ui="heading">{user.language === "en" ? "Interface theme" : "Тема интерфейса"}</h3>
             <p data-exp-ui="text">{user.language === "en" ? "Experimental changes only the presentation of ordinary components. Data, artwork and authored controls stay unchanged." : "Experimental меняет только оформление обычных компонентов. Данные, изображения и авторские элементы остаются прежними."}</p>
           </div>
