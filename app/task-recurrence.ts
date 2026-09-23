@@ -67,6 +67,12 @@ export function recurrenceModeForCalendar(calendarMode: CalendarMode): Recurrenc
   return "genesis";
 }
 
+export function calendarModeForRecurrence(mode: RecurrenceConfig["mode"]): CalendarMode {
+  if (mode === "classic") return "profane";
+  if (mode === "lunar") return "lunar";
+  return "sacred";
+}
+
 export function alignRecurrenceConfigWithCalendar(config: RecurrenceConfig, calendarMode: CalendarMode, startDate: string): RecurrenceConfig {
   const mode = recurrenceModeForCalendar(calendarMode);
   if (config.mode === mode) return config;

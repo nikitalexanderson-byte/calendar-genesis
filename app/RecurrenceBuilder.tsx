@@ -4,8 +4,10 @@ import { formatCalendarDateValue, MONTHS, type CalendarMode } from "./calendar-d
 import {
   buildRecurrenceDates,
   alignRecurrenceConfigWithCalendar,
+  calendarModeForRecurrence,
   lunarMonthOptions,
   MAX_RECURRENCE_OCCURRENCES,
+  normalizeRecurrenceConfig,
   RECURRENCE_MODE_COPY,
   recurrenceDefaultEndDate,
   recurrenceMaximumEndDate,
@@ -70,7 +72,16 @@ export function RecurrenceBuilder({
   lockRangeStart?: boolean;
 }) {
   const isEnglish = getRuntimeLanguage() === "en";
-  const value = alignRecurrenceConfigWithCalendar(rawValue, calendarMode, startDate);
+  // Tracker schedules keep the calendar in which they were created. Aligning a
+  // saved classic schedule with a later account preference replaces its days
+  // with the start weekday (often Friday), so only new task recurrences follow
+  // the currently selected account calendar.
+  const value = destination === "tracker"
+    ? normalizeRecurrenceConfig(rawValue)
+    : alignRecurrenceConfigWithCalendar(rawValue, calendarMode, startDate);
+  const displayCalendarMode = destination === "tracker"
+    ? calendarModeForRecurrence(value.mode)
+    : calendarMode;
   const rangeStart = value.rangeStart && value.rangeStart >= startDate ? value.rangeStart : startDate;
   const maximumEnd = recurrenceMaximumEndDate(rangeStart);
   const rangeEnd = value.rangeEnd && value.rangeEnd >= rangeStart
@@ -145,16 +156,16 @@ export function RecurrenceBuilder({
 
           <fieldset className="recurrence-range">
             <legend>Период повторения</legend>
-            {lockRangeStart ? <div className="recurrence-locked-start"><span>С какого</span><strong>{formatCalendarDateValue(rangeStart, calendarMode, true)}</strong><small>Дата создания · изменить нельзя</small></div> : <label htmlFor="recurrence-range-start">
+            {lockRangeStart ? <div className="recurrence-locked-start"><span>С какого</span><strong>{formatCalendarDateValue(rangeStart, displayCalendarMode, true)}</strong><small>Дата создания · изменить нельзя</small></div> : <label htmlFor="recurrence-range-start">
               <span>С какого</span>
-              <CalendarDatePicker id="recurrence-range-start" mode={calendarMode} min={startDate} value={rangeStart} showGregorianReference={destination !== "tracker"} onChange={(nextStart) => {
+              <CalendarDatePicker id="recurrence-range-start" mode={displayCalendarMode} min={startDate} value={rangeStart} showGregorianReference={destination !== "tracker"} onChange={(nextStart) => {
                 const nextEnd = rangeEnd < nextStart ? recurrenceDefaultEndDate(nextStart) : rangeEnd;
                 onChange({ ...value, rangeStart: nextStart, rangeEnd: nextEnd, months: value.mode === "lunar" ? [] : value.months });
               }} />
             </label>}
             <label htmlFor="recurrence-range-end">
               <span>По какое</span>
-              <CalendarDatePicker id="recurrence-range-end" mode={calendarMode} min={rangeStart} max={maximumEnd} value={rangeEnd} showGregorianReference={destination !== "tracker"} onChange={(nextEnd) => onChange({
+              <CalendarDatePicker id="recurrence-range-end" mode={displayCalendarMode} min={rangeStart} max={maximumEnd} value={rangeEnd} showGregorianReference={destination !== "tracker"} onChange={(nextEnd) => onChange({
                 ...value,
                 rangeStart,
                 rangeEnd: nextEnd,
@@ -193,7 +204,7 @@ export function RecurrenceBuilder({
                     ? "Задача появится через выбранное число календарных дней."
                     : value.pattern === "monthly"
                       ? `Задача появится ${new Date(`${startDate}T12:00:00`).getDate()} числа выбранных месяцев.`
-                      : `Задача появится ежегодно ${shortDate(startDate, calendarMode)}.`}
+                      : `Задача появится ежегодно ${shortDate(startDate, displayCalendarMode)}.`}
                 </p>
               )}
               <label className="recurrence-interval">
@@ -259,7 +270,7 @@ export function RecurrenceBuilder({
                   const selected = selectedMonths.includes(month.value);
                   return (
                     <button type="button" key={month.value} className={selected ? "selected" : ""} aria-pressed={selected} onClick={() => onChange({ ...value, months: toggleSelection(value.months, month.value, monthValues) })}>
-                      <strong>{month.value}</strong><span>{shortDate(month.startDate, calendarMode)} — {shortDate(month.endDate, calendarMode)}</span>
+                      <strong>{month.value}</strong><span>{shortDate(month.startDate, displayCalendarMode)} — {shortDate(month.endDate, displayCalendarMode)}</span>
                     </button>
                   );
                 })}
@@ -290,8 +301,8 @@ export function RecurrenceBuilder({
                   ? `Too many recurrences. Shorten the period or choose fewer dates — maximum ${MAX_RECURRENCE_OCCURRENCES}.`
                   : `Слишком много повторений. Сократите период или выберите меньше дат — максимум ${MAX_RECURRENCE_OCCURRENCES}.`)
               : (isEnglish
-                  ? `— number of ${destination === "tracker" ? "tracker dates" : "recurrences of one task"} from ${shortDate(rangeStart, calendarMode, true)} to ${shortDate(rangeEnd, calendarMode, true)}`
-                  : `— количество ${destination === "tracker" ? "дней трекинга" : "повторений одной задачи"} с ${shortDate(rangeStart, calendarMode, true)} по ${shortDate(rangeEnd, calendarMode, true)}`)}</span>
+                  ? `— number of ${destination === "tracker" ? "tracker dates" : "recurrences of one task"} from ${shortDate(rangeStart, displayCalendarMode, true)} to ${shortDate(rangeEnd, displayCalendarMode, true)}`
+                  : `— количество ${destination === "tracker" ? "дней трекинга" : "повторений одной задачи"} с ${shortDate(rangeStart, displayCalendarMode, true)} по ${shortDate(rangeEnd, displayCalendarMode, true)}`)}</span>
           </div>
 
           <small className="recurrence-sync-note">

@@ -14,10 +14,9 @@ export type RewardReason =
   | "hero-path-amphora"
   | "hestia-spark"
   | "habit-mastery-retained"
-  | "habit-deleted-reset"
-  | "habit-missed-reset";
+  | "habit-deleted-reset";
 
-export type LaurelsResetReason = Extract<RewardReason, "habit-deleted-reset" | "habit-missed-reset">;
+export type LaurelsResetReason = Extract<RewardReason, "habit-deleted-reset">;
 
 export type RewardTransaction = {
   readonly id: string;
@@ -47,11 +46,11 @@ const REWARD_REASONS: readonly RewardReason[] = [
   "hestia-spark",
   "habit-mastery-retained",
   "habit-deleted-reset",
-  "habit-missed-reset",
 ];
 
-const LAURELS_RESET_REASONS: readonly LaurelsResetReason[] = ["habit-deleted-reset", "habit-missed-reset"];
+const LAURELS_RESET_REASONS: readonly LaurelsResetReason[] = ["habit-deleted-reset"];
 const ZERO_AMOUNT_REASONS: readonly RewardReason[] = [...LAURELS_RESET_REASONS, "habit-mastery-retained"];
+const RETIRED_MISSED_HABIT_RESET = "habit-missed-reset";
 
 function rewardAmount(value: unknown) {
   const amount = Number(value);
@@ -93,6 +92,9 @@ export function normalizeRewardTransactions(value: unknown): RewardTransaction[]
   value.forEach((item) => {
     if (!item || typeof item !== "object") return;
     const source = item as Partial<RewardTransaction>;
+    // Older clients reset the whole balance once for every unchecked habit.
+    // Dropping those automatic entries repairs affected encrypted ledgers.
+    if (String(source.reason ?? "") === RETIRED_MISSED_HABIT_RESET) return;
     const idempotencyKey = typeof source.idempotencyKey === "string" ? source.idempotencyKey.trim() : "";
     const sourceId = typeof source.sourceId === "string" ? source.sourceId.trim() : "";
     const amount = rewardAmount(source.amount);

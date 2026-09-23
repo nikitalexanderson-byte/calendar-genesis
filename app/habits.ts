@@ -65,7 +65,6 @@ import {
   createRewardTransaction,
   normalizeRewardTransactions,
   reconcileDailyGoalRewards,
-  resetLaurelsBalance,
   type RewardTransaction,
 } from "./rewards";
 import {
@@ -794,46 +793,6 @@ export function dailyGoalForDate(
     : next;
 }
 
-function scheduledBeforePause(habit: Habit, date: string, calendarMode: CalendarMode) {
-  if (date < habit.createdDate || !isTrackerScheduledForDate(habit.schedule, date, calendarMode)) return false;
-  if (habit.active) return true;
-  const pausedDate = DATE_PATTERN.test(habit.updatedAt.slice(0, 10)) ? habit.updatedAt.slice(0, 10) : habit.createdDate;
-  return date < pausedDate;
-}
-
-export function reconcileMissedHabitLaurels(
-  workspace: HabitWorkspace,
-  value: readonly RewardTransaction[],
-  today: string,
-  timestamp: string,
-  calendarMode: CalendarMode,
-) {
-  let transactions = normalizeRewardTransactions(value);
-  const completed = new Set(workspace.habitCompletions
-    .filter((entry) => entry.completed)
-    .map((entry) => `${entry.habitId}:${entry.date}`));
-  const restDays = new Set(workspace.habitSettings.plannedRestDays);
-  const closedDates = workspace.dailyGoalRecords
-    .filter((record) => ["qualified", "perfect", "missed", "protected"].includes(record.status))
-    .map((record) => record.date)
-    .filter((date, index, dates) => date < today && !restDays.has(date) && dates.indexOf(date) === index)
-    .sort();
-
-  closedDates.forEach((date) => {
-    workspace.habits.forEach((habit) => {
-      if (!scheduledBeforePause(habit, date, calendarMode) || completed.has(`${habit.id}:${date}`)) return;
-      transactions = resetLaurelsBalance(
-        transactions,
-        "habit-missed-reset",
-        `${habit.id}:${date}`,
-        `habit-missed:self:${habit.id}:${date}`,
-        timestamp,
-      );
-    });
-  });
-  return transactions;
-}
-
 function withDailyGoalStreak(
   workspace: HabitWorkspace,
   today: string,
@@ -856,8 +815,7 @@ function withDailyGoalStreak(
   const streak = calculateGlobalStreak(protectedWorkspace.dailyGoalRecords, today);
   const earnedTransactions = reconcileDailyGoalRewards(protectedWorkspace.dailyGoalRecords, protectedWorkspace.rewardTransactions, today);
   const milestoneTransactions = reconcileStreakMilestoneRewards(protectedWorkspace.dailyGoalRecords, earnedTransactions);
-  const resetTransactions = reconcileMissedHabitLaurels(protectedWorkspace, milestoneTransactions, today, timestamp, calendarMode);
-  const comebackTransactions = reconcileComebackRewards(protectedWorkspace.dailyGoalRecords, resetTransactions, today, timestamp);
+  const comebackTransactions = reconcileComebackRewards(protectedWorkspace.dailyGoalRecords, milestoneTransactions, today, timestamp);
   const quests = protectedWorkspace.habitSettings.feedback.questsEnabled
     ? reconcileHabitQuests({
       quests: protectedWorkspace.quests,

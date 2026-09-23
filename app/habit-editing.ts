@@ -1,4 +1,5 @@
-import type { Habit } from "./habits";
+import type { Habit, HabitWorkspace } from "./habits";
+import type { TrackerSyncState } from "./tracker-core";
 
 /**
  * Applies user-editable habit settings while preserving the fields that define
@@ -25,5 +26,23 @@ export function applyEditableHabitUpdate(previous: Habit, candidate: Habit): Hab
         rangeStart: previous.schedule.recurrence.rangeStart,
       },
     },
+  };
+}
+
+export function applyHabitReminderSyncResult(
+  workspace: HabitWorkspace,
+  habitId: string,
+  external: Pick<Habit["reminder"], "googleTaskId" | "googleEventId">,
+  updatedAt: string,
+): HabitWorkspace {
+  return {
+    ...workspace,
+    habits: workspace.habits.map((habit) => habit.id === habitId ? {
+      ...habit,
+      reminder: { ...habit.reminder, ...external },
+      updatedAt,
+      version: habit.version + 1,
+      syncState: "pending" as TrackerSyncState,
+    } : habit),
   };
 }
