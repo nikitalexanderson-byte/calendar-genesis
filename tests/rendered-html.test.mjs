@@ -2267,6 +2267,52 @@ test("QA-04 splits heavy views and keeps regularity on an exact thirty-day windo
   assert.doesNotMatch(tracker, /Last 35 days|addHabitDays\(date, -34\)/);
 });
 
+test("QA-05 runs the PHP backend smoke suite before every production deploy", async () => {
+  const workflow = await readFile(new URL("../.github/workflows/deploy.yml", import.meta.url), "utf8");
+  const syntaxStep = workflow.indexOf("- name: Check PHP syntax");
+  const smokeStep = workflow.indexOf("- name: Test PHP backend with isolated SQLite");
+  const clientTestStep = workflow.indexOf("- name: Test\n");
+  const deployStep = workflow.indexOf("- name: Install backup helper and back up runtime state");
+
+  assert.ok(syntaxStep >= 0 && smokeStep > syntaxStep, "backend smoke must run after PHP syntax validation");
+  assert.ok(clientTestStep > smokeStep, "backend smoke must run before the client test suite");
+  assert.ok(deployStep > smokeStep, "backend smoke must block all production mutations");
+  assert.match(workflow, /GENESIS_SMOKE_ROOT: \$\{\{ runner\.temp \}\}\/genesis-backend-smoke/);
+  assert.match(workflow, /foreach \(\["pdo_sqlite", "sodium", "mbstring"\] as \$extension\)/);
+  assert.match(workflow, /GENESIS_SMOKE_KEY="\$\(php -r 'echo base64_encode\(random_bytes\(32\)\);'\)"/);
+  assert.match(workflow, /"db_path" => \$root \. "\/genesis\.sqlite"/);
+  assert.match(workflow, /trap cleanup EXIT/);
+  assert.match(workflow, /php server\/tests\/smoke\.php/);
+});
+
+test("QA-06 documents the trusted-device boundary without zero-knowledge claims", async () => {
+  const [privacy, account, legal, admin, translationsRaw] = await Promise.all([
+    readFile(new URL("../docs/PRIVACY-ARCHITECTURE.md", import.meta.url), "utf8"),
+    readFile(new URL("../app/AccountPanel.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/LegalPage.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/AdminPanel.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/translations.en.json", import.meta.url), "utf8"),
+  ]);
+  const translations = JSON.parse(translationsRaw);
+  const accountEncryptionCopy = "AES-GCM в браузере; ключ хранится на сервере отдельно и зашифрован для автоматического входа.";
+
+  assert.match(privacy, /не zero-knowledge E2EE/);
+  assert.match(privacy, /рабочую копию, очередь синхронизации и ключевой материал/);
+  assert.match(privacy, /`localStorage`/);
+  assert.match(privacy, /вредоносного расширения или XSS-кода/);
+  assert.match(privacy, /автоматического доступа после Google-входа/);
+  assert.match(account, new RegExp(accountEncryptionCopy.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.doesNotMatch(account, /сервер не получает ключ/);
+  assert.match(legal, /локальную рабочую копию, очередь синхронизации и ключевой материал/);
+  assert.match(legal, /Профиль браузера и вошедшее в аккаунт устройство считаются доверенными/);
+  assert.doesNotMatch(admin, /E2EE/);
+  assert.equal(
+    translations[accountEncryptionCopy],
+    "AES-GCM in the browser; the key is stored separately and encrypted on the server for automatic sign-in.",
+  );
+  assert.doesNotMatch(translationsRaw, /server never receives the key/);
+});
+
 test("keeps the requested calendar and privacy features wired", async () => {
   const [calendarData, calendar, calendarDatePicker, accountPanel, cloudSync, recurrenceBuilder, taskRecurrence, moonPhase, solarTimes, stoicheion, stoicheionData, welcome, styles, api, google, repository, multiAccountMigration, i18n, languageMigration, taskCalendarMigration, englishManifest, geminiAssistant, localVoiceAssistant, localVoicePlan, geminiServer, publicHtaccess, serverConfigExample, cronusSickle, reminderPicker, taskReminders, serviceWorker] = await Promise.all([
     readFile(new URL("../app/calendar-data.ts", import.meta.url), "utf8"),

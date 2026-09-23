@@ -40,6 +40,68 @@ jobs:
       - name: Check PHP syntax
         run: find server -type f -name '*.php' -print0 | xargs -0 -n1 php -l
 
+      - name: Test PHP backend with isolated SQLite
+        env:
+          GENESIS_SMOKE_ROOT: ${{ runner.temp }}/genesis-backend-smoke
+        run: |
+          set -euo pipefail
+
+          if [ -e server/config.php ]; then
+            printf 'Refusing to overwrite an existing server/config.php.\n' >&2
+            exit 1
+          fi
+
+          cleanup() {
+            rm -f server/config.php
+            rm -rf "$GENESIS_SMOKE_ROOT"
+          }
+          trap cleanup EXIT
+
+          rm -rf "$GENESIS_SMOKE_ROOT"
+          mkdir -p "$GENESIS_SMOKE_ROOT/sessions"
+
+          php -r '
+            foreach (["pdo_sqlite", "sodium", "mbstring"] as $extension) {
+              if (!extension_loaded($extension)) {
+                fwrite(STDERR, "Missing PHP extension: {$extension}\n");
+                exit(1);
+              }
+            }
+          '
+
+          GENESIS_SMOKE_KEY="$(php -r 'echo base64_encode(random_bytes(32));')"
+          export GENESIS_SMOKE_KEY
+          php -r '
+            $root = getenv("GENESIS_SMOKE_ROOT");
+            $key = getenv("GENESIS_SMOKE_KEY");
+            if (!is_string($root) || $root === "" || !is_string($key) || $key === "") {
+              fwrite(STDERR, "Smoke test environment is incomplete.\n");
+              exit(1);
+            }
+            $config = [
+              "app_url" => "https://localhost.invalid",
+              "google_client_id" => "",
+              "google_client_secret" => "",
+              "gigachat_enabled" => false,
+              "gigachat_authorization_key" => "",
+              "gemini_enabled" => false,
+              "gemini_api_key" => "",
+              "crypto_key" => $key,
+              "db_path" => $root . "/genesis.sqlite",
+              "session_path" => $root . "/sessions",
+              "cookie_secure" => false,
+              "timezone" => "Europe/Moscow",
+              "admin_email" => "nikitalexanderson@gmail.com",
+            ];
+            $payload = "<?php\ndeclare(strict_types=1);\n\nreturn " . var_export($config, true) . ";\n";
+            if (file_put_contents("server/config.php", $payload, LOCK_EX) === false) {
+              fwrite(STDERR, "Could not create the isolated smoke configuration.\n");
+              exit(1);
+            }
+          '
+
+          php server/tests/smoke.php
+
       - name: Test
         run: pnpm test
 

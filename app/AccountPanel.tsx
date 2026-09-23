@@ -304,7 +304,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
 
         <div className="account-security-grid">
           <article><span>Google-сервисы</span><strong>{user.calendarConnected && user.googleTasksImportReady ? "Подключены" : "По желанию"}</strong><small>Calendar и Tasks подключаются отдельным согласием после входа.</small></article>
-          <article><span>Личные данные</span><strong>Зашифрованы</strong><small>AES-GCM на устройстве; сервер не получает ключ.</small></article>
+          <article><span>Личные данные</span><strong>Зашифрованы</strong><small>AES-GCM в браузере; ключ хранится на сервере отдельно и зашифрован для автоматического входа.</small></article>
           <article><span>Офлайн-копия</span><strong>На устройстве</strong><small>Доступна без сети после входа на этом устройстве.</small></article>
         </div>
 
