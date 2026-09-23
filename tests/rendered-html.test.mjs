@@ -2076,6 +2076,28 @@ test("QA-03 keeps every mobile navigation item readable without horizontal scrol
   assert.match(styles, /@media \(max-width:520px\) \{[\s\S]*\.mobile-nav button > small \{[^}]*font-size:8px;/);
 });
 
+test("mobile Gregorian calendar fits all seven weekdays without horizontal scrolling", async () => {
+  const [calendar, styles] = await Promise.all([
+    readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+  const tabletRules = styles.indexOf("@media (max-width: 1100px)");
+  const mobileRulesStart = styles.indexOf("@media (max-width: 760px)", tabletRules);
+  const mobileRulesEnd = styles.indexOf("/* Live elemental rhythm of the day. */", mobileRulesStart);
+  const mobileRules = styles.slice(mobileRulesStart, mobileRulesEnd);
+
+  assert.ok(tabletRules > -1 && mobileRulesStart > tabletRules && mobileRulesEnd > mobileRulesStart);
+  assert.match(mobileRules, /\.calendar-mode-calendar\.mode-profane \{[^}]*overflow-x:hidden;/);
+  assert.match(mobileRules, /\.calendar-mode-calendar\.mode-profane \.calendar-mode-days \{[\s\S]*min-width:0;[\s\S]*grid-template-columns:repeat\(7,minmax\(0,1fr\)\);/);
+  assert.match(mobileRules, /\.calendar-mode-calendar\.mode-profane \.calendar-mode-day,[\s\S]*min-height:78px;[\s\S]*overflow:hidden;/);
+  assert.match(mobileRules, /\.calendar-mode-calendar\.mode-profane \.profane-weekday-patron,[\s\S]*\.calendar-mode-calendar\.mode-profane \.calendar-sun-times,[\s\S]*display:none;/);
+  assert.match(mobileRules, /\.calendar-mode-calendar\.mode-profane \.calendar-mode-day\.adjacent-month \.adjacent-month-label,[\s\S]*display:none;/);
+  assert.match(mobileRules, /\.calendar-mode-calendar\.mode-profane \.calendar-mode-primary > small \{[^}]*display:none;/);
+  assert.match(mobileRules, /\.calendar-mode-calendar\.mode-profane \.calendar-cross-date\.lunar-date \{[\s\S]*position:absolute;[\s\S]*width:17px;/);
+  assert.match(calendar, /className="calendar-lunar-day-label"/);
+  assert.match(calendar, /onClick=\{\(\) => openCalendarDate\(date, "calendar"\)\}/);
+});
+
 test("mood tracker exposes twelve choices in one responsive desktop row", async () => {
   const [mood, styles, analytics, habits] = await Promise.all([
     readFile(new URL("../app/mood-tracker.ts", import.meta.url), "utf8"),

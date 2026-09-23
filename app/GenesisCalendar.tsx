@@ -4318,7 +4318,8 @@ export function GenesisCalendar() {
         </span>
         {mode === "profane" ? (
           <span className="calendar-cross-date lunar-date" title={moon.phase}>
-            <MoonPhaseIcon phaseStep={moon.phaseStep} size={15} />{moon.day} {language === "en" ? "lunar day" : "лунный день"}
+            <MoonPhaseIcon phaseStep={moon.phaseStep} size={15} />
+            <span className="calendar-lunar-day-label">{moon.day} {language === "en" ? "lunar day" : "лунный день"}</span>
           </span>
         ) : (
           <span className="calendar-cross-date lunar-date"><b aria-hidden="true">☾</b>{moon.epithet} · {moon.illumination}%</span>

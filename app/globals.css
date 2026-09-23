@@ -10502,6 +10502,102 @@ button.project-drag-handle:active { cursor: grabbing; }
     font-size: clamp(31px, 11vw, 48px);
   }
 
+  .calendar-mode-calendar.mode-profane {
+    max-width:100%;
+    padding:8px;
+    overflow-x:hidden;
+    gap:6px;
+  }
+
+  .calendar-mode-calendar.mode-profane .calendar-mode-weekdays,
+  .calendar-mode-calendar.mode-profane .calendar-mode-days {
+    width:100%;
+    min-width:0;
+    grid-template-columns:repeat(7,minmax(0,1fr));
+    gap:3px;
+  }
+
+  .calendar-mode-calendar.mode-profane .calendar-mode-weekdays {
+    padding:0;
+  }
+
+  .calendar-mode-calendar.mode-profane .calendar-mode-weekdays span {
+    min-width:0;
+    padding:5px 0;
+    overflow:hidden;
+    font-size:8px;
+    letter-spacing:.03em;
+    text-overflow:clip;
+    white-space:nowrap;
+  }
+
+  .calendar-mode-calendar.mode-profane .calendar-mode-day,
+  .calendar-mode-calendar.mode-profane .calendar-mode-blank {
+    min-width:0;
+    min-height:78px;
+    padding:8px 3px 27px;
+    overflow:hidden;
+    border-radius:8px;
+  }
+
+  .calendar-mode-calendar.mode-profane .calendar-mode-primary {
+    width:100%;
+    justify-content:center;
+    gap:3px;
+  }
+
+  .calendar-mode-calendar.mode-profane .calendar-mode-primary > strong {
+    font-size:clamp(17px,5.4vw,22px);
+  }
+
+  .calendar-mode-calendar.mode-profane .calendar-mode-primary > small {
+    display:none;
+  }
+
+  .calendar-mode-calendar.mode-profane .profane-weekday-patron,
+  .calendar-mode-calendar.mode-profane .calendar-cross-date:not(.lunar-date),
+  .calendar-mode-calendar.mode-profane .calendar-solar-mark,
+  .calendar-mode-calendar.mode-profane .calendar-sun-times,
+  .calendar-mode-calendar.mode-profane .calendar-mode-day.adjacent-month .adjacent-month-label,
+  .calendar-mode-calendar.mode-profane .calendar-day-task-control,
+  .calendar-mode-calendar.mode-profane .calendar-day-task-preview {
+    display:none;
+  }
+
+  .calendar-mode-calendar.mode-profane .calendar-cross-date.lunar-date {
+    position:absolute;
+    right:auto;
+    bottom:7px;
+    left:50%;
+    display:flex;
+    width:17px;
+    height:17px;
+    margin:0;
+    align-items:center;
+    justify-content:center;
+    overflow:visible;
+    transform:translateX(-50%);
+  }
+
+  .calendar-mode-calendar.mode-profane .calendar-cross-date.lunar-date .moon-phase-icon {
+    width:17px;
+    height:17px;
+    flex:0 0 17px;
+  }
+
+  .calendar-mode-calendar.mode-profane .calendar-lunar-day-label {
+    display:none;
+  }
+
+  .calendar-mode-calendar.mode-profane .calendar-day.today::after,
+  .calendar-mode-calendar.mode-profane .calendar-day.has-tasks.today::after {
+    top:4px;
+    right:4px;
+    width:5px;
+    height:5px;
+    box-shadow:0 0 0 2px rgba(165,84,63,.12);
+  }
+
   .calendar-mode-calendar.mode-lunar .calendar-mode-days {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 9px;
