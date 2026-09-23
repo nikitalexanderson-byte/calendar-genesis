@@ -216,7 +216,6 @@ html[data-genesis-theme="experimental"] [data-exp-ui="notice"]:not(:where([data-
   color: var(--gx-color-ink);
   background-color: var(--gx-color-accent-soft);
   border: 1px solid var(--gx-color-border);
-  border-inline-start: 3px solid var(--gx-color-accent);
   border-radius: var(--gx-radius-control);
   font-size: var(--gx-size-secondary);
   line-height: 1.55;
@@ -224,7 +223,7 @@ html[data-genesis-theme="experimental"] [data-exp-ui="notice"]:not(:where([data-
 
 html[data-genesis-theme="experimental"] [data-exp-ui="notice"][data-exp-tone="error"]:not(:where([data-genesis-preserve], [data-genesis-preserve] *, [hidden], [hidden] *)) {
   background-color: var(--gx-color-danger-soft);
-  border-inline-start-color: var(--gx-color-danger);
+  border-color: color-mix(in srgb, var(--gx-color-danger) 35%, transparent);
 }
 
 html[data-genesis-theme="experimental"] [data-exp-ui="switch"]:not(:where([data-genesis-preserve], [data-genesis-preserve] *, [hidden], [hidden] *)) {
@@ -913,7 +912,6 @@ html[data-genesis-theme="experimental"] :where(.auth-error, .form-error, .accoun
   color: var(--gx-color-danger);
   background-color: var(--gx-color-danger-soft);
   border: 1px solid color-mix(in srgb, var(--gx-color-danger) 35%, transparent);
-  border-inline-start: 3px solid var(--gx-color-danger);
   border-radius: var(--gx-radius-control);
 }
 
@@ -921,8 +919,7 @@ html[data-genesis-theme="experimental"] :where(.admin-success, .form-success, .a
   padding: 12px 16px;
   color: var(--gx-color-accent);
   background-color: var(--gx-color-accent-soft);
-  border: 1px solid var(--gx-color-border);
-  border-inline-start: 3px solid var(--gx-color-accent);
+  border: 1px solid color-mix(in srgb, var(--gx-color-accent) 28%, transparent);
   border-radius: var(--gx-radius-control);
 }
 
@@ -1683,5 +1680,628 @@ html[data-genesis-theme="experimental"] .today-workspace ::selection {
     #experimental-today-tasks
   ):not([hidden]) {
     animation: none;
+  }
+}
+
+/* Stage 2: the rest of the app follows one quieter, editorial workspace. */
+html[data-genesis-theme="experimental"] .experimental-google-connect {
+  display: block;
+  padding: 0;
+  overflow: clip;
+  color: var(--gx-color-ink);
+  background: color-mix(in srgb, var(--gx-color-surface) 72%, transparent);
+  border: 1px solid var(--gx-color-border);
+  border-radius: var(--gx-radius-control);
+  box-shadow: none;
+}
+
+html[data-genesis-theme="experimental"] .experimental-google-connect > summary {
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  list-style: none;
+  cursor: pointer;
+}
+
+html[data-genesis-theme="experimental"] .experimental-google-connect > summary::-webkit-details-marker {
+  display: none;
+}
+
+html[data-genesis-theme="experimental"] .experimental-google-connect > summary:hover {
+  background: var(--gx-color-accent-soft);
+}
+
+html[data-genesis-theme="experimental"] .experimental-google-connect > summary:focus-visible {
+  outline: 3px solid var(--gx-color-focus);
+  outline-offset: -3px;
+}
+
+html[data-genesis-theme="experimental"] .experimental-google-connect-mark {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  color: var(--gx-color-gold-ink);
+  border: 1px solid color-mix(in srgb, var(--gx-color-gold) 48%, transparent);
+  border-radius: 50%;
+  font: 700 15px/1 var(--gx-font-display);
+}
+
+html[data-genesis-theme="experimental"] .experimental-google-connect > summary > span:nth-child(2) {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+html[data-genesis-theme="experimental"] .experimental-google-connect > summary strong {
+  font: 700 13px/1.25 var(--gx-font-ui);
+}
+
+html[data-genesis-theme="experimental"] .experimental-google-connect > summary small {
+  overflow: hidden;
+  color: var(--gx-color-muted);
+  font: 500 11px/1.35 var(--gx-font-ui);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-genesis-theme="experimental"] .experimental-google-connect-action {
+  color: var(--gx-color-accent);
+  font: 750 11px/1 var(--gx-font-ui);
+  letter-spacing: 0.04em;
+}
+
+html[data-genesis-theme="experimental"] .experimental-google-connect-action::after {
+  content: " ↓";
+  color: var(--gx-color-gold-ink);
+}
+
+html[data-genesis-theme="experimental"] .experimental-google-connect[open] .experimental-google-connect-action::after {
+  content: " ↑";
+}
+
+html[data-genesis-theme="experimental"] .experimental-google-connect-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: clamp(20px, 4vw, 52px);
+  padding: 20px 20px 22px 60px;
+  border-top: 1px solid var(--gx-color-border);
+}
+
+html[data-genesis-theme="experimental"] .experimental-google-connect-body h2 {
+  margin: 0 0 8px;
+  font: 400 clamp(22px, 2.2vw, 30px)/1.1 var(--gx-font-display);
+  letter-spacing: -0.02em;
+}
+
+html[data-genesis-theme="experimental"] .experimental-google-connect-body p {
+  max-width: 72ch;
+  margin: 0 0 8px;
+  color: var(--gx-color-muted);
+  font: 500 12px/1.6 var(--gx-font-ui);
+}
+
+html[data-genesis-theme="experimental"] .experimental-google-connect-body a {
+  color: var(--gx-color-accent);
+  text-underline-offset: 3px;
+}
+
+html[data-genesis-theme="experimental"] [data-exp-layout="view"] > :where(.projects-header, .all-tasks-header),
+html[data-genesis-theme="experimental"] .admin-view > .projects-header {
+  padding: 12px 8px 24px;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--gx-color-border);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+html[data-genesis-theme="experimental"] [data-exp-layout="view"] > :where(.projects-header, .all-tasks-header) h1,
+html[data-genesis-theme="experimental"] .admin-view > .projects-header h1 {
+  font-size: clamp(38px, 5vw, 62px);
+  letter-spacing: -0.03em;
+}
+
+html[data-genesis-theme="experimental"] :where(.projects-summary, .all-tasks-summary) {
+  align-self: stretch;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+
+html[data-genesis-theme="experimental"] :where(.projects-summary, .all-tasks-summary) > span {
+  min-width: 92px;
+  padding: 10px 16px;
+  background: transparent;
+  border: 0;
+  border-inline-start: 1px solid var(--gx-color-border);
+  border-radius: 0;
+  letter-spacing: 0.02em;
+}
+
+html[data-genesis-theme="experimental"] :where(.projects-summary, .all-tasks-summary) strong {
+  font: 400 30px/1 var(--gx-font-display);
+  font-variant-numeric: tabular-nums;
+}
+
+html[data-genesis-theme="experimental"] .all-tasks-view .experimental-create-tabs {
+  width: 100%;
+  display: flex;
+  gap: clamp(18px, 3vw, 36px);
+  padding: 0 8px;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--gx-color-border);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+html[data-genesis-theme="experimental"] .all-tasks-view .experimental-create-tabs > button {
+  min-width: 0;
+  min-height: 52px;
+  justify-content: flex-start;
+  padding: 12px 3px;
+  color: var(--gx-color-muted);
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+html[data-genesis-theme="experimental"] .all-tasks-view .experimental-create-tabs > button[aria-selected="true"] {
+  color: var(--gx-color-accent);
+  background: transparent;
+  border-color: var(--gx-color-gold);
+  box-shadow: none;
+}
+
+html[data-genesis-theme="experimental"] .all-tasks-view .experimental-create-tabs > button[aria-selected="true"] strong {
+  color: var(--gx-color-on-dark);
+  background: var(--gx-color-accent);
+}
+
+html[data-genesis-theme="experimental"] .all-tasks-create-grid {
+  gap: 0;
+}
+
+html[data-genesis-theme="experimental"] .all-tasks-view .experimental-create-panel {
+  min-width: 0;
+  grid-column: 1 / -1;
+}
+
+html[data-genesis-theme="experimental"] .all-tasks-view :where(.all-tasks-create, .task-list-create):not(:where([data-genesis-preserve], [data-genesis-preserve] *)) {
+  padding: 0 8px;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--gx-color-border);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+html[data-genesis-theme="experimental"] .all-tasks-view :where(.all-tasks-create, .task-list-create) > summary {
+  min-height: 58px;
+  padding: 10px 2px;
+  color: var(--gx-color-accent);
+  font-size: 14px;
+}
+
+html[data-genesis-theme="experimental"] .all-tasks-view :where(.all-tasks-create, .task-list-create)[open] > summary {
+  border-bottom: 1px solid var(--gx-color-border);
+}
+
+html[data-genesis-theme="experimental"] .all-tasks-view .all-tasks-create > .task-form,
+html[data-genesis-theme="experimental"] .all-tasks-view .task-list-create-block {
+  margin: 18px 0;
+  padding: clamp(16px, 2.4vw, 26px);
+  background: var(--gx-color-subtle);
+  border: 0;
+  border-radius: var(--gx-radius-card);
+  box-shadow: none;
+}
+
+html[data-genesis-theme="experimental"] .all-tasks-toolbar {
+  position: sticky;
+  top: 68px;
+  z-index: 8;
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 8px;
+  background: color-mix(in srgb, var(--gx-color-canvas) 94%, transparent);
+  border: 0;
+  border-bottom: 1px solid var(--gx-color-border);
+  border-radius: 0;
+  box-shadow: none;
+  backdrop-filter: blur(14px);
+}
+
+html[data-genesis-theme="experimental"] .all-tasks-toolbar .tag-search,
+html[data-genesis-theme="experimental"] .projects-view > .tag-search {
+  min-height: 48px;
+  background: var(--gx-color-surface);
+  border-color: var(--gx-color-control-border);
+  border-radius: var(--gx-radius-control);
+  box-shadow: none;
+}
+
+html[data-genesis-theme="experimental"] .all-tasks-list {
+  gap: 0;
+  padding-inline: 8px;
+}
+
+html[data-genesis-theme="experimental"] .all-task-row:not(:where([data-genesis-preserve], [data-genesis-preserve] *)) {
+  padding: 18px 4px;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--gx-color-border);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+html[data-genesis-theme="experimental"] .all-task-row:first-child {
+  border-top: 1px solid var(--gx-color-border);
+}
+
+html[data-genesis-theme="experimental"] .all-task-row:not(:where([data-genesis-preserve], [data-genesis-preserve] *)):hover {
+  background: var(--gx-color-accent-soft);
+  border-color: var(--gx-color-control-border);
+  box-shadow: none;
+  transform: none;
+}
+
+html[data-genesis-theme="experimental"] .all-task-title-row > strong {
+  font-family: var(--gx-font-display);
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1.3;
+}
+
+html[data-genesis-theme="experimental"] .all-task-meta {
+  gap: 5px 13px;
+  color: var(--gx-color-muted);
+  font-family: var(--gx-font-ui);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+html[data-genesis-theme="experimental"] .projects-view > .tag-search {
+  margin: 0 8px;
+}
+
+html[data-genesis-theme="experimental"] .project-tree-panel:not(:where([data-genesis-preserve], [data-genesis-preserve] *)) {
+  padding: 0;
+  overflow: clip;
+  border-radius: var(--gx-radius-card);
+  box-shadow: none;
+}
+
+html[data-genesis-theme="experimental"] .project-tree-panel > .section-heading {
+  padding: 24px 26px;
+}
+
+html[data-genesis-theme="experimental"] .project-tree-workspace {
+  gap: 1px;
+  padding: 1px;
+  background: var(--gx-color-border);
+}
+
+html[data-genesis-theme="experimental"] .project-tree-main,
+html[data-genesis-theme="experimental"] .project-tree-workspace > .inbox-card {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+html[data-genesis-theme="experimental"] .project-tree-panel .project-row:not(:where([data-genesis-preserve], [data-genesis-preserve] *)) {
+  padding-block: 14px;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--gx-color-border);
+  border-radius: 0;
+}
+
+html[data-genesis-theme="experimental"] .project-tree-panel :where(.project-assigned-task, .project-assigned-list, .inbox-card-items > article):not(:where([data-genesis-preserve], [data-genesis-preserve] *)) {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--gx-color-border);
+  border-radius: 0;
+}
+
+html[data-genesis-theme="experimental"] .category-strip > article,
+html[data-genesis-theme="experimental"] .quick-category-form {
+  border-radius: var(--gx-radius-control);
+  box-shadow: none;
+}
+
+html[data-genesis-theme="experimental"] .experimental-habit-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--gx-color-border);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+html[data-genesis-theme="experimental"] .experimental-habit-tabs > button {
+  min-height: 64px;
+  padding: 10px 14px 12px;
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+html[data-genesis-theme="experimental"] .experimental-habit-tabs > button[aria-selected="true"] {
+  color: var(--gx-color-accent);
+  background: transparent;
+  border-color: var(--gx-color-gold);
+  box-shadow: none;
+}
+
+html[data-genesis-theme="experimental"] .experimental-habit-tabs > button[aria-selected="true"] > span {
+  color: var(--gx-color-on-dark);
+  background: var(--gx-color-accent);
+}
+
+html[data-genesis-theme="experimental"] .experimental-habit-tabs > button[aria-selected="true"] :where(strong, small) {
+  color: var(--gx-color-accent);
+}
+
+html[data-genesis-theme="experimental"] .habits-view > .experimental-habit-section {
+  border-bottom: 1px solid var(--gx-color-border);
+}
+
+html[data-genesis-theme="experimental"] .habit-collapsible-toolbar {
+  padding: 10px 2px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+html[data-genesis-theme="experimental"] [data-exp-ui="tracker-panel"],
+html[data-genesis-theme="experimental"] .habits-view :where(.habit-template-library, .habit-library, .tracker-module-card, .habit-statistics, .adaptive-habit-panel):not(:where([data-genesis-preserve], [data-genesis-preserve] *)) {
+  padding-inline: 8px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+html[data-genesis-theme="experimental"] .account-panel {
+  width: min(920px, calc(100vw - 32px));
+  border-radius: 16px;
+}
+
+html[data-genesis-theme="experimental"] .account-security-grid {
+  gap: 0;
+  overflow: visible;
+  background: transparent;
+  border-block: 1px solid var(--gx-color-border);
+  border-inline: 0;
+  border-radius: 0;
+}
+
+html[data-genesis-theme="experimental"] .account-security-grid > article {
+  background: transparent;
+  border: 0;
+  border-inline-start: 1px solid var(--gx-color-border);
+  border-radius: 0;
+}
+
+html[data-genesis-theme="experimental"] .account-security-grid > article:first-child {
+  border-inline-start: 0;
+}
+
+html[data-genesis-theme="experimental"] .account-preferences:not(:where([data-genesis-preserve], [data-genesis-preserve] *)) {
+  margin-top: 0;
+  padding: 28px 0;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--gx-color-border);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+html[data-genesis-theme="experimental"] .account-oauth-note {
+  background: transparent;
+  border-inline: 0;
+  border-radius: 0;
+}
+
+html[data-genesis-theme="experimental"] [data-exp-ui="dialog"] {
+  scrollbar-color: var(--gx-color-accent) transparent;
+  scrollbar-width: thin;
+}
+
+html[data-genesis-theme="experimental"] :where([data-exp-layout="view"], [data-exp-ui="dialog"]) ::selection {
+  color: var(--gx-color-nav);
+  background: var(--gx-color-gold);
+}
+
+@media (max-width: 760px) {
+  html[data-genesis-theme="experimental"] .experimental-google-connect > summary {
+    min-height: 54px;
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 9px 11px;
+  }
+
+  html[data-genesis-theme="experimental"] .experimental-google-connect > summary small {
+    font-size: 10px;
+  }
+
+  html[data-genesis-theme="experimental"] .experimental-google-connect-action {
+    width: 28px;
+    overflow: hidden;
+    color: transparent;
+    white-space: nowrap;
+  }
+
+  html[data-genesis-theme="experimental"] .experimental-google-connect-action::after,
+  html[data-genesis-theme="experimental"] .experimental-google-connect[open] .experimental-google-connect-action::after {
+    display: grid;
+    width: 28px;
+    height: 28px;
+    place-items: center;
+    color: var(--gx-color-accent);
+    content: "↓";
+  }
+
+  html[data-genesis-theme="experimental"] .experimental-google-connect[open] .experimental-google-connect-action::after {
+    content: "↑";
+  }
+
+  html[data-genesis-theme="experimental"] .experimental-google-connect-body {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    padding: 18px 14px;
+  }
+
+  html[data-genesis-theme="experimental"] .experimental-google-connect-body .primary-button {
+    width: 100%;
+  }
+
+  html[data-genesis-theme="experimental"] [data-exp-layout="view"] > :where(.projects-header, .all-tasks-header),
+  html[data-genesis-theme="experimental"] .admin-view > .projects-header {
+    padding: 8px 2px 20px;
+    border-radius: 0;
+  }
+
+  html[data-genesis-theme="experimental"] [data-exp-layout="view"] > :where(.projects-header, .all-tasks-header) h1,
+  html[data-genesis-theme="experimental"] .admin-view > .projects-header h1 {
+    font-size: clamp(36px, 12vw, 48px);
+  }
+
+  html[data-genesis-theme="experimental"] :where(.projects-summary, .all-tasks-summary) {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  html[data-genesis-theme="experimental"] :where(.projects-summary, .all-tasks-summary) > span {
+    min-width: 0;
+    padding: 8px 5px;
+    font-size: 9px;
+  }
+
+  html[data-genesis-theme="experimental"] .all-tasks-view .experimental-create-tabs {
+    gap: 0;
+    padding-inline: 0;
+  }
+
+  html[data-genesis-theme="experimental"] .all-tasks-view .experimental-create-tabs > button {
+    flex: 1 1 50%;
+    justify-content: center;
+  }
+
+  html[data-genesis-theme="experimental"] .all-tasks-view :where(.all-tasks-create, .task-list-create):not(:where([data-genesis-preserve], [data-genesis-preserve] *)) {
+    padding-inline: 2px;
+  }
+
+  html[data-genesis-theme="experimental"] .all-tasks-view .all-tasks-create > .task-form,
+  html[data-genesis-theme="experimental"] .all-tasks-view .task-list-create-block {
+    margin-block: 14px;
+    padding: 14px;
+  }
+
+  html[data-genesis-theme="experimental"] .all-tasks-toolbar {
+    position: static;
+    grid-template-columns: minmax(0, 1fr);
+    padding: 12px 2px;
+    background: transparent;
+    backdrop-filter: none;
+  }
+
+  html[data-genesis-theme="experimental"] .all-tasks-list {
+    padding-inline: 2px;
+  }
+
+  html[data-genesis-theme="experimental"] .all-task-row:not(:where([data-genesis-preserve], [data-genesis-preserve] *)) {
+    grid-template-columns: 30px minmax(0, 1fr);
+    gap: 10px;
+    padding: 16px 2px;
+  }
+
+  html[data-genesis-theme="experimental"] .all-task-actions {
+    grid-column: 2;
+  }
+
+  html[data-genesis-theme="experimental"] .projects-view > .tag-search {
+    margin-inline: 2px;
+  }
+
+  html[data-genesis-theme="experimental"] .project-tree-panel > .section-heading {
+    padding: 20px 18px;
+  }
+
+  html[data-genesis-theme="experimental"] .project-tree-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  html[data-genesis-theme="experimental"] .experimental-habit-tabs {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0;
+    padding: 0;
+  }
+
+  html[data-genesis-theme="experimental"] .experimental-habit-tabs > button {
+    min-height: 58px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    justify-items: center;
+    gap: 4px;
+    padding: 8px 3px;
+    text-align: center;
+  }
+
+  html[data-genesis-theme="experimental"] .experimental-habit-tabs > button > span {
+    width: 25px;
+    height: 25px;
+    grid-row: auto;
+    font-size: 14px;
+  }
+
+  html[data-genesis-theme="experimental"] .experimental-habit-tabs > button strong {
+    font-size: 10px;
+  }
+
+  html[data-genesis-theme="experimental"] .experimental-habit-tabs > button small {
+    display: none;
+  }
+
+  html[data-genesis-theme="experimental"] [data-exp-ui="tracker-panel"],
+  html[data-genesis-theme="experimental"] .habits-view :where(.habit-template-library, .habit-library, .tracker-module-card, .habit-statistics, .adaptive-habit-panel):not(:where([data-genesis-preserve], [data-genesis-preserve] *)) {
+    padding-inline: 2px;
+  }
+
+  html[data-genesis-theme="experimental"] .account-panel {
+    width: min(100%, calc(100vw - 14px));
+    padding: 22px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+    border-radius: 14px;
+  }
+
+  html[data-genesis-theme="experimental"] .account-security-grid > article {
+    border-inline-start: 0;
+    border-top: 1px solid var(--gx-color-border);
+  }
+
+  html[data-genesis-theme="experimental"] .account-security-grid > article:first-child {
+    border-top: 0;
+  }
+
+  html[data-genesis-theme="experimental"] .mobile-nav[data-exp-ui="mobile-nav"] {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
