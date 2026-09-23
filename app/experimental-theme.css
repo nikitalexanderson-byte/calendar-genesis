@@ -1339,3 +1339,349 @@ html[data-genesis-theme="experimental"] .experimental-section-tools > button:foc
     color: var(--gx-color-gold);
   }
 }
+
+/* Today, stage 1: an editorial workspace beneath the authored hero. */
+html[data-genesis-theme="experimental"] .today-workspace .experimental-workspace-tabs {
+  order: 3;
+  display: flex;
+  width: 100%;
+  max-width: none;
+  align-items: flex-end;
+  gap: clamp(18px, 3vw, 36px);
+  padding: 0 clamp(8px, 2vw, 26px);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--gx-color-border);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+html[data-genesis-theme="experimental"] .today-workspace .experimental-workspace-tabs > button {
+  position: relative;
+  min-width: 0;
+  min-height: 54px;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 12px 4px 13px;
+  color: var(--gx-color-muted);
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+  box-shadow: none;
+}
+
+html[data-genesis-theme="experimental"] .today-workspace .experimental-workspace-tabs > button:hover {
+  color: var(--gx-color-ink);
+  background: transparent;
+  border-bottom-color: color-mix(in srgb, var(--gx-color-gold) 52%, transparent);
+}
+
+html[data-genesis-theme="experimental"] .today-workspace .experimental-workspace-tabs > button strong {
+  min-width: 25px;
+  height: 25px;
+  padding-inline: 6px;
+  color: var(--gx-color-gold-ink);
+  background: var(--gx-color-gold-soft);
+  border: 1px solid color-mix(in srgb, var(--gx-color-gold) 38%, transparent);
+  border-radius: var(--gx-radius-pill);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+html[data-genesis-theme="experimental"] .today-workspace .experimental-workspace-tabs > button[aria-selected="true"] {
+  color: var(--gx-color-accent);
+  background: transparent;
+  border-color: var(--gx-color-gold);
+  box-shadow: none;
+}
+
+html[data-genesis-theme="experimental"] .today-workspace .experimental-workspace-tabs > button[aria-selected="true"] strong {
+  color: var(--gx-color-on-dark);
+  background: var(--gx-color-accent);
+  border-color: var(--gx-color-accent);
+}
+
+html[data-genesis-theme="experimental"] .today-workspace .experimental-workspace-tabs > button:focus-visible {
+  z-index: 1;
+  outline: 3px solid var(--gx-color-focus);
+  outline-offset: 3px;
+}
+
+html[data-genesis-theme="experimental"] .today-workspace :where(
+  #experimental-today-create,
+  #experimental-today-tasks
+):not([hidden]) {
+  order: 4;
+  width: 100%;
+  min-width: 0;
+  padding: clamp(24px, 3vw, 38px) clamp(8px, 2vw, 26px);
+  background: color-mix(in srgb, var(--gx-color-surface) 44%, transparent);
+  border: 0;
+  border-bottom: 1px solid var(--gx-color-border);
+  border-radius: 0;
+  box-shadow: none;
+  animation: gx-today-panel-enter 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes gx-today-panel-enter {
+  from {
+    opacity: 0.9;
+    filter: blur(2px);
+    clip-path: inset(0 0 8px 0);
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+    clip-path: inset(0);
+    transform: translateY(0);
+  }
+}
+
+html[data-genesis-theme="experimental"] .today-workspace :where(
+  #experimental-today-create,
+  #experimental-today-tasks
+):focus-visible {
+  outline: 2px solid var(--gx-color-focus);
+  outline-offset: 4px;
+}
+
+html[data-genesis-theme="experimental"] .today-workspace .today-tasks-panel > header {
+  align-items: flex-end;
+  padding-bottom: 22px;
+  border-bottom: 0;
+}
+
+html[data-genesis-theme="experimental"] .today-workspace .today-tasks-panel > header h2,
+html[data-genesis-theme="experimental"] .today-workspace .today-create-panel h2 {
+  margin-top: 7px;
+  color: var(--gx-color-ink);
+  font-family: var(--gx-font-display);
+  font-size: clamp(28px, 3vw, 38px);
+  font-weight: 400;
+  line-height: 1.05;
+  letter-spacing: -0.025em;
+}
+
+html[data-genesis-theme="experimental"] .today-workspace .today-tasks-panel > header > div:last-child {
+  gap: 18px;
+}
+
+html[data-genesis-theme="experimental"] .today-workspace .today-tasks-panel > header > div:last-child > strong {
+  color: var(--gx-color-gold-ink);
+  font: 400 20px/1 var(--gx-font-display);
+  font-variant-numeric: tabular-nums;
+}
+
+html[data-genesis-theme="experimental"] .today-workspace .today-tasks-panel .text-button {
+  min-height: 40px;
+  padding-inline: 13px;
+  color: var(--gx-color-accent);
+  border-color: var(--gx-color-control-border);
+  font-size: 12px;
+}
+
+html[data-genesis-theme="experimental"] .today-workspace .today-task-list {
+  gap: 0;
+  max-height: min(52vh, 620px);
+  padding-inline: 2px;
+  overflow-y: auto;
+  scrollbar-color: var(--gx-color-accent) transparent;
+  scrollbar-width: thin;
+}
+
+html[data-genesis-theme="experimental"] .today-workspace .today-task-list > article:not(:where([data-genesis-preserve], [data-genesis-preserve] *)) {
+  grid-template-columns: 28px minmax(0, 1fr) 38px;
+  gap: 14px;
+  padding: 15px 4px;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--gx-color-border);
+  border-radius: 0;
+  box-shadow: none;
+  transition: background-color var(--gx-motion-fast) ease, border-color var(--gx-motion-fast) ease;
+}
+
+html[data-genesis-theme="experimental"] .today-workspace .today-task-list > article:first-child {
+  border-top: 1px solid var(--gx-color-border);
+}
+
+html[data-genesis-theme="experimental"] .today-workspace .today-task-list > article:not(:where([data-genesis-preserve], [data-genesis-preserve] *)):hover {
+  background-color: color-mix(in srgb, var(--gx-color-accent-soft) 62%, transparent);
+  border-color: var(--gx-color-control-border);
+  box-shadow: none;
+  transform: none;
+}
+
+html[data-genesis-theme="experimental"] .today-workspace .today-task-open > strong {
+  font-family: var(--gx-font-display);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.3;
+}
+
+html[data-genesis-theme="experimental"] .today-workspace .today-task-open > span {
+  gap: 6px 14px;
+  color: var(--gx-color-muted);
+  font-family: var(--gx-font-ui);
+  font-size: 10px;
+  line-height: 1.4;
+  letter-spacing: 0.035em;
+}
+
+html[data-genesis-theme="experimental"] .today-workspace .today-task-open > span i {
+  color: var(--gx-color-gold-ink);
+}
+
+html[data-genesis-theme="experimental"] .today-workspace .today-task-list .task-check {
+  width: 28px;
+  height: 28px;
+}
+
+html[data-genesis-theme="experimental"] .today-workspace .today-task-list .icon-button {
+  width: 38px;
+  height: 38px;
+  color: var(--gx-color-accent);
+  background: transparent;
+  border-color: transparent;
+  border-radius: var(--gx-radius-control);
+}
+
+html[data-genesis-theme="experimental"] .today-workspace .today-task-list .icon-button:hover,
+html[data-genesis-theme="experimental"] .today-workspace .today-task-list .icon-button:focus-visible {
+  background: var(--gx-color-accent-soft);
+  border-color: var(--gx-color-border);
+}
+
+html[data-genesis-theme="experimental"] .today-workspace .today-tasks-empty:not(:where([data-genesis-preserve], [data-genesis-preserve] *)) {
+  padding: 24px 2px;
+  color: var(--gx-color-muted);
+  background: transparent;
+  border: 0;
+  border-block: 1px dashed var(--gx-color-control-border);
+  border-radius: 0;
+  text-align: start;
+}
+
+html[data-genesis-theme="experimental"] .today-workspace .today-create-panel {
+  grid-template-columns: minmax(190px, 0.34fr) minmax(0, 1fr);
+  gap: clamp(24px, 4vw, 54px);
+  align-items: start;
+}
+
+html[data-genesis-theme="experimental"] .today-workspace .today-create-options {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+}
+
+html[data-genesis-theme="experimental"] .today-workspace .today-create-options > details {
+  overflow: visible;
+  background: transparent;
+  border: 0;
+  border-top: 1px solid var(--gx-color-border);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+html[data-genesis-theme="experimental"] .today-workspace .today-create-options > details:last-child {
+  border-bottom: 1px solid var(--gx-color-border);
+}
+
+html[data-genesis-theme="experimental"] .today-workspace .today-create-options > details > summary {
+  min-height: 54px;
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 13px 4px;
+  color: var(--gx-color-accent);
+  font-size: 14px;
+}
+
+html[data-genesis-theme="experimental"] .today-workspace .today-create-options > details > summary:hover {
+  color: var(--gx-color-accent-hover);
+  background: color-mix(in srgb, var(--gx-color-accent-soft) 58%, transparent);
+}
+
+html[data-genesis-theme="experimental"] .today-workspace .today-create-panel .task-form {
+  margin: 0 0 14px;
+  padding: clamp(16px, 2.4vw, 24px);
+  background: color-mix(in srgb, var(--gx-color-subtle) 68%, transparent);
+  border: 0;
+  border-radius: var(--gx-radius-card);
+  box-shadow: none;
+}
+
+html[data-genesis-theme="experimental"] .today-workspace .today-create-panel :where(input, textarea) {
+  caret-color: var(--gx-color-accent);
+}
+
+html[data-genesis-theme="experimental"] .today-workspace ::selection {
+  color: var(--gx-color-nav);
+  background: var(--gx-color-gold);
+}
+
+@media (max-width: 760px) {
+  html[data-genesis-theme="experimental"] .today-workspace .experimental-workspace-tabs {
+    gap: 0;
+    padding-inline: 0;
+  }
+
+  html[data-genesis-theme="experimental"] .today-workspace .experimental-workspace-tabs > button {
+    flex: 1 1 50%;
+    justify-content: center;
+    min-height: 50px;
+    padding-inline: 8px;
+    font-size: 14px;
+  }
+
+  html[data-genesis-theme="experimental"] .today-workspace :where(
+    #experimental-today-create,
+    #experimental-today-tasks
+  ):not([hidden]) {
+    padding: 24px 2px;
+  }
+
+  html[data-genesis-theme="experimental"] .today-workspace .today-tasks-panel > header {
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  html[data-genesis-theme="experimental"] .today-workspace .today-tasks-panel > header > div:last-child {
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    flex-direction: row;
+  }
+
+  html[data-genesis-theme="experimental"] .today-workspace .today-task-list > article:not(:where([data-genesis-preserve], [data-genesis-preserve] *)) {
+    grid-template-columns: 28px minmax(0, 1fr) 36px;
+    gap: 10px;
+    padding: 14px 2px;
+  }
+
+  html[data-genesis-theme="experimental"] .today-workspace .today-task-open > strong {
+    font-size: 15px;
+    white-space: normal;
+  }
+
+  html[data-genesis-theme="experimental"] .today-workspace .today-task-open > span {
+    gap: 5px 10px;
+    font-size: 9px;
+  }
+
+  html[data-genesis-theme="experimental"] .today-workspace .today-create-panel {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-genesis-theme="experimental"] .today-workspace :where(
+    #experimental-today-create,
+    #experimental-today-tasks
+  ):not([hidden]) {
+    animation: none;
+  }
+}

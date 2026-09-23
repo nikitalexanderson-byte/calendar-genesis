@@ -2260,7 +2260,11 @@ test("Experimental applies one design system across ordinary views and adds safe
   assert.match(calendar, /className="today-view" data-exp-layout="view"/);
   assert.match(calendar, /className="projects-view" data-exp-layout="view"/);
   assert.match(calendar, /className="all-tasks-view" data-exp-layout="view"/);
-  assert.match(calendar, /className="experimental-workspace-tabs" role="tablist"/);
+  assert.match(calendar, /className="experimental-workspace-tabs"\s+role="tablist"/);
+  assert.match(calendar, /ref=\{experimentalTodayTabsRef\}/);
+  assert.match(calendar, /data-experimental-today-tab="tasks"[^>]+tabIndex=\{experimentalTodayTab === "tasks" \? 0 : -1\}/);
+  assert.match(calendar, /\["ArrowLeft", "ArrowRight", "Home", "End"\]/);
+  assert.match(calendar, /role=\{experimentalThemeActive \? "tabpanel" : undefined\}/);
   assert.match(calendar, /hidden=\{experimentalThemeActive && experimentalTodayTab !== "create"\}/);
   assert.match(calendar, /hidden=\{experimentalThemeActive && experimentalTaskCreateTab !== "list"\}/);
   assert.match(calendar, /const renderAllTasks = \(\) => \{\s+const experimentalThemeActive[^\n]+\s+const isEnglish = language === "en";/);
@@ -2278,6 +2282,9 @@ test("Experimental applies one design system across ordinary views and adds safe
   assert.match(assistant, /data-exp-ui="dialog"/);
   assert.match(voice, /data-exp-ui="dialog"/);
   assert.match(styles, /\.experimental-workspace-tabs/);
+  assert.match(styles, /\.today-workspace \.experimental-workspace-tabs/);
+  assert.match(styles, /\.today-workspace \.today-task-list > article/);
+  assert.match(styles, /@keyframes gx-today-panel-enter/);
   assert.match(styles, /\.experimental-habit-tabs/);
   assert.match(styles, /\.mobile-nav\[data-exp-ui="mobile-nav"\]/);
   assert.match(styles, /\.today-task-list > article/);
