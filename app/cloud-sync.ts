@@ -3,7 +3,9 @@ import { normalizeCalendarDateNote, type CalendarMode } from "./calendar-data";
 import type { Language } from "./i18n";
 import { legacyReminderMinutes, normalizeTaskReminders, type TaskReminder } from "./task-reminders";
 import type { TimeFormat } from "./time-format";
+import { ThemeConflictError, type GenesisTheme } from "./theme-controller";
 import { cleanTaskDescription } from "./task-description";
+import { cleanGenesisAppUrl } from "./app-url";
 import {
   EMPTY_HABIT_WORKSPACE,
   normalizeHabitWorkspace,
@@ -126,6 +128,8 @@ export type GenesisUser = {
   calendarMode: CalendarMode;
   taskCalendarMode?: CalendarMode;
   timeFormat?: TimeFormat;
+  theme?: GenesisTheme;
+  themeRevision?: number;
   language: Language;
   multiAccountEnabled: boolean;
   googleAccounts: GoogleAccount[];
@@ -1031,21 +1035,21 @@ export function observeGenesisUser(
 
 export function signInWithGoogle() {
   if (!API_BASE) throw new Error("Сервер GENESIS ещё не подключён");
-  const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  const returnTo = cleanGenesisAppUrl(window.location.href);
   window.location.assign(`${API_BASE}/auth/google/start?purpose=login&return_to=${encodeURIComponent(returnTo)}`);
   return Promise.resolve();
 }
 
 export function connectGoogleServices() {
   if (!API_BASE) throw new Error("Сервер GENESIS ещё не подключён");
-  const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  const returnTo = cleanGenesisAppUrl(window.location.href);
   window.location.assign(`${API_BASE}/auth/google/start?purpose=services&return_to=${encodeURIComponent(returnTo)}`);
   return Promise.resolve();
 }
 
 export function connectAdditionalGoogleAccount() {
   if (!API_BASE) throw new Error("Сервер GENESIS ещё не подключён");
-  const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  const returnTo = cleanGenesisAppUrl(window.location.href);
   window.location.assign(`${API_BASE}/auth/google/start?purpose=link&return_to=${encodeURIComponent(returnTo)}`);
   return Promise.resolve();
 }
@@ -1056,7 +1060,7 @@ export function consumeGoogleAuthError() {
   const code = url.searchParams.get("auth_error");
   if (!code) return "";
   url.searchParams.delete("auth_error");
-  window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+  window.history.replaceState(window.history.state, "", cleanGenesisAppUrl(url));
   const messages: Record<string, string> = {
     access_denied: "Вы отменили вход или подключение сервисов Google. Доступ к данным не был предоставлен.",
     invalid_state: "Защитная проверка входа истекла. Пожалуйста, начните вход заново.",
@@ -1120,13 +1124,23 @@ export async function updateAccountPreferences(preferences: Partial<{
   calendarMode: CalendarMode;
   taskCalendarMode: CalendarMode;
   timeFormat: TimeFormat;
+  theme: GenesisTheme;
+  expectedThemeRevision: number;
   language: Language;
   syncRouting: SyncRouting;
-}>) {
-  return api<{ user: GenesisUser }>("/account/preferences", {
-    method: "PUT",
-    body: JSON.stringify(preferences),
-  });
+}>, signal?: AbortSignal) {
+  try {
+    return await api<{ user: GenesisUser }>("/account/preferences", {
+      method: "PUT",
+      body: JSON.stringify(preferences),
+      signal,
+    });
+  } catch (error) {
+    if ("theme" in preferences && error instanceof GenesisApiError && error.status === 409) {
+      throw new ThemeConflictError(error.message);
+    }
+    throw error;
+  }
 }
 
 export function removeAdditionalGoogleAccount(accountId: string) {

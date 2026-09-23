@@ -10,6 +10,12 @@ import type { TimeFormat } from "./time-format";
 import type { HabitNotificationPermission, HabitNotificationSettings } from "./habit-notifications";
 import type { HabitFeedbackSettings } from "./habit-feedback";
 import { useDialogAccessibility } from "./use-dialog-accessibility";
+import {
+  GENESIS_THEME,
+  GENESIS_THEME_LABEL,
+  type GenesisTheme,
+  type ThemeControllerState,
+} from "./theme-controller";
 
 type AccountPanelProps = {
   user: GenesisUser;
@@ -18,6 +24,8 @@ type AccountPanelProps = {
   onConnectAdditionalGoogle: () => void;
   onLanguageChange: (language: Language) => void;
   onUserChange: (user: GenesisUser) => void;
+  themeState: ThemeControllerState;
+  onThemeChange: (theme: GenesisTheme) => void;
   habitTrackingEnabled: boolean;
   onHabitTrackingChange: (enabled: boolean) => void;
   habitNotificationSettings: HabitNotificationSettings;
@@ -69,7 +77,7 @@ function createHabitResetChallenge(): HabitResetChallenge {
   };
 }
 
-export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditionalGoogle, onLanguageChange, onUserChange, habitTrackingEnabled, onHabitTrackingChange, habitNotificationSettings, notificationPermission, onHabitNotificationSettingsChange, habitFeedbackSettings, onHabitFeedbackSettingsChange, onRequestHabitNotifications, hiddenHabitTemplateCount, onRestoreHabitTemplates, onResetHabitTracking, categories }: AccountPanelProps) {
+export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditionalGoogle, onLanguageChange, onUserChange, themeState, onThemeChange, habitTrackingEnabled, onHabitTrackingChange, habitNotificationSettings, notificationPermission, onHabitNotificationSettingsChange, habitFeedbackSettings, onHabitFeedbackSettingsChange, onRequestHabitNotifications, hiddenHabitTemplateCount, onRestoreHabitTemplates, onResetHabitTracking, categories }: AccountPanelProps) {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [preferenceBusy, setPreferenceBusy] = useState(false);
@@ -173,6 +181,22 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
       setPreferenceBusy(false);
     }
   };
+
+  const themeStatusMessage = themeState.status === "saving"
+    ? (user.language === "en" ? "Saving the account preference…" : "Сохраняем выбор в аккаунте…")
+    : themeState.status === "error"
+      ? themeState.error === "conflict"
+        ? (user.language === "en" ? "The preference changed on another device. Refresh the account before trying again." : "Настройка изменилась на другом устройстве. Обновите данные перед повтором.")
+        : (user.language === "en" ? "The theme could not be saved. The last confirmed choice was restored." : "Не удалось сохранить тему. Возвращён последний подтверждённый выбор.")
+      : themeState.status === "unavailable"
+        ? (user.language === "en" ? "Experimental is temporarily unavailable. The saved choice remains intact; Standart is active." : "Experimental временно недоступна. Сохранённый выбор не удалён; используется Standart.")
+        : themeState.status === "load-error"
+          ? (user.language === "en" ? "The account theme could not be loaded. Standart remains active." : "Не удалось загрузить тему аккаунта. Продолжает работать Standart.")
+        : themeState.status === "loading"
+            ? (user.language === "en" ? "Loading the account preference…" : "Загружаем настройку аккаунта…")
+            : user.language === "en"
+              ? `Current theme: ${GENESIS_THEME_LABEL[themeState.theme]}.`
+              : `Текущая тема: ${GENESIS_THEME_LABEL[themeState.theme]}.`;
 
   const toggleHabitNotifications = async (enabled: boolean) => {
     if (!enabled) {
@@ -318,7 +342,35 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
           </section>
         ) : null}
 
-        <section className="account-preferences language-preference" aria-labelledby="language-title">
+        <section className="account-preferences theme-preference" aria-labelledby="theme-title" data-exp-ui="panel">
+          <div>
+            <span className="eyebrow">{user.language === "en" ? "Appearance" : "Оформление"}</span>
+            <h3 id="theme-title" data-exp-ui="heading">{user.language === "en" ? "Interface theme" : "Тема интерфейса"}</h3>
+            <p data-exp-ui="text">{user.language === "en" ? "Experimental changes only the presentation of ordinary components. Data, artwork and authored controls stay unchanged." : "Experimental меняет только оформление обычных компонентов. Данные, изображения и авторские элементы остаются прежними."}</p>
+          </div>
+          <label className="account-switch-row" data-exp-ui="row">
+            <span data-exp-ui="row-body">
+              <strong data-exp-ui="row-title">{user.language === "en" ? "Experimental theme" : "Тема Experimental"}</strong>
+              <small data-exp-ui="row-meta">{user.language === "en" ? "Off — Standart. On — Experimental." : "Выключено — Standart. Включено — Experimental."}</small>
+            </span>
+            <input
+              type="checkbox"
+              role="switch"
+              data-exp-ui="switch"
+              checked={themeState.theme === GENESIS_THEME.EXPERIMENTAL}
+              disabled={!themeState.available || ["signed-out", "loading", "load-error"].includes(themeState.status)}
+              aria-label={user.language === "en" ? "Experimental theme" : "Тема Experimental"}
+              aria-busy={themeState.pending}
+              onChange={(event) => onThemeChange(event.target.checked ? GENESIS_THEME.EXPERIMENTAL : GENESIS_THEME.STANDART)}
+            />
+            <i aria-hidden="true" />
+          </label>
+          <p className="account-preference-status" role="status" aria-live="polite" data-exp-ui="notice" data-exp-tone={themeState.status === "error" || themeState.status === "load-error" ? "error" : undefined}>
+            {themeStatusMessage}
+          </p>
+        </section>
+
+        <section className="account-preferences language-preference" aria-labelledby="language-title" data-exp-ui="panel">
           <div>
             <span className="eyebrow">Язык</span>
             <h3 id="language-title">Интерфейс и справочные тексты</h3>
@@ -334,7 +386,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
           </div>
         </section>
 
-        <section className="account-preferences time-format-preference" aria-labelledby="time-format-title">
+        <section className="account-preferences time-format-preference" aria-labelledby="time-format-title" data-exp-ui="panel">
           <div>
             <span className="eyebrow">Формат времени</span>
             <h3 id="time-format-title">Отображение часов</h3>
@@ -358,7 +410,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
           </div>
         </section>
 
-        <section className="account-preferences calendar-mode-preference" aria-labelledby="calendar-mode-title">
+        <section className="account-preferences calendar-mode-preference" aria-labelledby="calendar-mode-title" data-exp-ui="panel">
           <div>
             <span className="eyebrow">Основной календарь</span>
             <h3 id="calendar-mode-title">Полное отображение и система дат</h3>
@@ -382,7 +434,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
           </div>
         </section>
 
-        <section className="account-preferences task-calendar-mode-preference" aria-labelledby="task-calendar-mode-title">
+        <section className="account-preferences task-calendar-mode-preference" aria-labelledby="task-calendar-mode-title" data-exp-ui="panel">
           <div>
             <span className="eyebrow">Календарь задач</span>
             <h3 id="task-calendar-mode-title">По какой системе выставлять даты</h3>
@@ -429,7 +481,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
             <div className="google-account-list">
               {(user.googleAccounts ?? []).map((account, index) => (
                 <article key={account.id}>
-                  {account.photoURL ? <img src={account.photoURL} alt="" referrerPolicy="no-referrer" /> : <span className="account-avatar-fallback" aria-hidden="true">{account.email.slice(0, 1).toUpperCase()}</span>}
+                  {account.photoURL ? <img src={account.photoURL} alt="" referrerPolicy="no-referrer" data-genesis-preserve="linked-account-avatar" /> : <span className="account-avatar-fallback" aria-hidden="true">{account.email.slice(0, 1).toUpperCase()}</span>}
                   <div><strong>{account.displayName || account.email}</strong><small>{account.email}</small></div>
                   <em>{account.isPrimary ? "Основной" : `Дополнительный ${index}`}</em>
                   {!account.isPrimary ? <button type="button" className="text-button" disabled={busy} onClick={() => void removeAdditionalAccount(account.id)}>Отключить</button> : null}

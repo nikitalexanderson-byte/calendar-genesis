@@ -153,7 +153,7 @@ export function TheokyklosView({ language, workspace, date, calendarMode, initia
   const exit = segmentsById.get("exit")!;
 
   return (
-    <section className="theokyklos-view" aria-labelledby="theokyklos-title">
+    <section className="theokyklos-view" aria-labelledby="theokyklos-title" data-genesis-preserve="theokyklos">
       <header className="theokyklos-hero">
         <div className="theokyklos-hero-copy">
           <span className="eyebrow">ΘΕΟΚΥΚΛΟΣ · {language === "en" ? "THE CIRCLE OF GODS" : "КРУГ БОГОВ"}</span>

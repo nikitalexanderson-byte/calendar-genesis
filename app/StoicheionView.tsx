@@ -302,6 +302,7 @@ function StoicheionCardFace({
   return (
     <span
       className={`stoicheion-card-visual stoicheion-card-visual-${variant}${reversed ? " is-reversed" : ""}`}
+      data-genesis-preserve="stoicheion-card-art"
       role="img"
       aria-label={cardLabel}
       style={{
@@ -648,6 +649,7 @@ export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSec
   return (
     <section
       className="stoicheion-view"
+      data-genesis-preserve="stoicheion"
       aria-labelledby="stoicheion-title"
       onPointerMove={gatherEntropy}
       style={{ "--stoicheion-x": `${pointer.x}%`, "--stoicheion-y": `${pointer.y}%` } as CSSProperties}

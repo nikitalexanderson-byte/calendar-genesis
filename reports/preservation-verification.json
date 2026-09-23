@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "baselineCommit": "6b0d2bbbaa38be508661fce2e77cc5e865df416b",
+  "assets": {
+    "checked": 558,
+    "current": 558,
+    "removed": [],
+    "changed": [],
+    "pass": true
+  },
+  "sourceSlots": {
+    "filesChecked": 73,
+    "changedSignatures": [],
+    "pass": true,
+    "coverage": "Static/dynamic media path literals, img/image/svg/src/srcSet/background-image counts and navigation symbol declarations in app source"
+  }
+}

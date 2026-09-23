@@ -1491,7 +1491,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
         <article className="hestia-spark-card">
           <span className="hestia-spark-icon" aria-hidden="true">
             {/* eslint-disable-next-line @next/next/no-img-element -- Generated PNG is optimized and shared by both deployment targets. */}
-            <img src="/habit-reward-art/hestia-spark.png" alt="" width="512" height="512" draggable="false" />
+            <img src="/habit-reward-art/hestia-spark.png" alt="" width="512" height="512" draggable="false" data-genesis-preserve="habit-reward-art" />
           </span>
           <div><small>{isEnglish ? "Automatic streak protection" : "Автоматическая защита серии"}</small><h2>{isEnglish ? "Hestia's Spark" : "Искра Гестии"}</h2><p>{isEnglish ? "Protects one missed day without XP or a fake completion." : "Сохраняет серию при одном пропуске, не начисляя XP и не создавая ложного выполнения."}</p>{latestProtectedDate ? <em>{isEnglish ? "Last protection" : "Последняя защита"}: {formatCalendarDateValue(latestProtectedDate, calendarMode, true)}</em> : null}</div>
           <div className="hestia-spark-inventory" aria-label={isEnglish ? `${sparkCount} of ${HESTIA_SPARK_MAX} Sparks` : `${sparkCount} из ${HESTIA_SPARK_MAX} Искр`}>
@@ -1503,7 +1503,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
         <article className={`comeback-card${comeback.active ? " active" : ""}`}>
           <span className="comeback-mark" aria-hidden="true">
             {/* eslint-disable-next-line @next/next/no-img-element -- Generated PNG is optimized and shared by both deployment targets. */}
-            <img src="/habit-reward-art/comeback.png" alt="" width="512" height="512" draggable="false" />
+            <img src="/habit-reward-art/comeback.png" alt="" width="512" height="512" draggable="false" data-genesis-preserve="habit-reward-art" />
           </span>
           <div><small>{isEnglish ? "After a broken streak" : "После разрыва серии"}</small><h2>{isEnglish ? "Comeback" : "Возвращение"}</h2><p>{comeback.active ? (isEnglish ? "Reach the daily goal three times in a row. The old streak is not restored." : "Выполните дневную цель три раза подряд. Прежняя серия не восстанавливается.") : (isEnglish ? "If a streak breaks, a humane three-day return path will appear here." : "Если серия прервётся, здесь появится бережный трёхдневный путь возвращения.")}</p>{comeback.lastCompletedDate && !comeback.active ? <em>{isEnglish ? "Last comeback" : "Последнее возвращение"}: {formatCalendarDateValue(comeback.lastCompletedDate, calendarMode, true)} · +{COMEBACK_REWARD_LAURELS} {isEnglish ? "Laurels" : "Лавров"}</em> : null}</div>
           <div className="comeback-progress" aria-label={isEnglish ? `${comeback.progress} of ${comeback.target} days` : `${comeback.progress} из ${comeback.target} дней`}><div>{Array.from({ length: comeback.target }, (_, index) => <i className={index < comeback.progress ? "done" : ""} key={index}>{index < comeback.progress ? "✓" : index + 1}</i>)}</div><strong>{comeback.active ? `${comeback.progress} / ${comeback.target}` : (isEnglish ? "Ready" : "Готово")}</strong></div>

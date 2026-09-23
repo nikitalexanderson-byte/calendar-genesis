@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { cleanGenesisAppUrl } from "./app-url";
 
 export type ChatGPTUser = {
   userId: string;
@@ -70,7 +71,7 @@ function safeRelativeReturnPath(value: string): string {
   if (url.origin !== "https://app.local") return "/";
   if (isReservedAuthPath(url.pathname)) return "/";
 
-  return `${url.pathname}${url.search}${url.hash}`;
+  return cleanGenesisAppUrl(url);
 }
 
 function isReservedAuthPath(pathname: string): boolean {

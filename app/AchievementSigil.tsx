@@ -18,6 +18,7 @@ export function AchievementSigil({ artwork, unlocked, concealed, label }: Achiev
   return (
     <span
       className={`achievement-sigil${unlocked ? " unlocked" : " locked"}`}
+      data-genesis-preserve="achievement-medallion"
       style={{ "--achievement-tilt-x": `${tilt.x}deg`, "--achievement-tilt-y": `${tilt.y}deg` } as CSSProperties}
       role="img"
       aria-label={label}

@@ -153,6 +153,9 @@ function genesisUserForClient(array $user): array
     $timeFormat = in_array($user['time_format'] ?? '', ['24h', '12h'], true)
         ? (string)$user['time_format']
         : '24h';
+    $theme = in_array($user['theme'] ?? '', ['standart', 'experimental'], true)
+        ? (string)$user['theme']
+        : 'standart';
     $language = in_array($user['language'] ?? '', ['ru', 'en'], true)
         ? (string)$user['language']
         : 'ru';
@@ -189,6 +192,8 @@ function genesisUserForClient(array $user): array
         'calendarMode' => $calendarMode,
         'taskCalendarMode' => $taskCalendarMode,
         'timeFormat' => $timeFormat,
+        'theme' => $theme,
+        'themeRevision' => max(0, (int)($user['theme_revision'] ?? 0)),
         'language' => $language,
         'multiAccountEnabled' => $multiAccountEnabled,
         'googleAccounts' => $accounts,
@@ -714,6 +719,7 @@ function genesisUpdateAccountPreferences(string $userId, array $payload): array
     }
     $updates = [];
     $values = ['updated_at' => genesisNow(), 'id' => $userId];
+    $hasThemePreference = array_key_exists('theme', $payload);
     if (array_key_exists('stoicheionDivinationDisabled', $payload)) {
         if (!is_bool($payload['stoicheionDivinationDisabled'])) {
             throw new InvalidArgumentException('Настройка гаданий указана неверно.');
@@ -744,6 +750,25 @@ function genesisUpdateAccountPreferences(string $userId, array $payload): array
         }
         $updates[] = 'time_format = :time_format';
         $values['time_format'] = $timeFormat;
+    }
+    if ($hasThemePreference) {
+        $theme = trim((string)$payload['theme']);
+        if (!in_array($theme, ['standart', 'experimental'], true)) {
+            throw new InvalidArgumentException('Неизвестная тема интерфейса.');
+        }
+        $expectedThemeRevision = filter_var($payload['expectedThemeRevision'] ?? null, FILTER_VALIDATE_INT);
+        if ($expectedThemeRevision === false || (int)$expectedThemeRevision < 0) {
+            throw new InvalidArgumentException('Не указана версия настройки темы.');
+        }
+        $currentThemeRevision = max(0, (int)($user['theme_revision'] ?? 0));
+        if ((int)$expectedThemeRevision !== $currentThemeRevision) {
+            throw new DomainException('Настройка темы уже изменилась на другом устройстве. Обновите данные и повторите попытку.');
+        }
+        $updates[] = 'theme = :theme';
+        $updates[] = 'theme_revision = :theme_revision';
+        $values['theme'] = $theme;
+        $values['theme_revision'] = $currentThemeRevision + 1;
+        $values['expected_theme_revision'] = $currentThemeRevision;
     }
     if (array_key_exists('language', $payload)) {
         $language = trim((string)$payload['language']);
@@ -789,7 +814,15 @@ function genesisUpdateAccountPreferences(string $userId, array $payload): array
         throw new InvalidArgumentException('Нет настроек для сохранения.');
     }
     $updates[] = 'updated_at = :updated_at';
-    genesisDb()->prepare('UPDATE users SET ' . implode(', ', $updates) . ' WHERE id = :id')->execute($values);
+    $where = 'id = :id';
+    if ($hasThemePreference) {
+        $where .= ' AND theme_revision = :expected_theme_revision';
+    }
+    $statement = genesisDb()->prepare('UPDATE users SET ' . implode(', ', $updates) . ' WHERE ' . $where);
+    $statement->execute($values);
+    if ($hasThemePreference && $statement->rowCount() !== 1) {
+        throw new DomainException('Настройка темы уже изменилась на другом устройстве. Обновите данные и повторите попытку.');
+    }
     $updated = genesisFindUser($userId);
     if ($updated === null) throw new RuntimeException('Настройки аккаунта не удалось сохранить.');
     return $updated;
