@@ -146,7 +146,12 @@ import {
   DEFAULT_HABIT_FEEDBACK_SETTINGS,
   normalizeHabitFeedbackSettings,
 } from "../app/habit-feedback.ts";
-import { normalizeHabitCollapsedSections } from "../app/habit-section-state.ts";
+import {
+  HABIT_SECTION_IDS,
+  moveHabitSection,
+  normalizeHabitCollapsedSections,
+  normalizeHabitSectionOrder,
+} from "../app/habit-section-state.ts";
 
 function syncClock(version, updatedAt, deviceId) {
   return { version, updatedAt, deviceId };
@@ -253,6 +258,11 @@ test("habit section disclosure state is normalized for encrypted cross-device st
     normalizeHabitCollapsedSections(["statistics", "statistics", "regular-habits", "unknown-section"]),
     ["statistics", "regular-habits"],
   );
+  const order = normalizeHabitSectionOrder(["statistics", "regular-habits", "statistics", "unknown-section"]);
+  assert.deepEqual(order.slice(0, 2), ["statistics", "regular-habits"]);
+  assert.equal(order.length, HABIT_SECTION_IDS.length);
+  assert.deepEqual(moveHabitSection(order, "statistics", "regular-habits").slice(0, 2), ["regular-habits", "statistics"]);
+  assert.ok(order.includes("sacred-habits"));
 });
 
 test("workspace API uses monotonic compare-and-swap without exposing plaintext", async () => {
@@ -484,6 +494,7 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(habits, /normalizeHiddenDefaultTemplates/);
   assert.match(habits, /trackerSchemaVersion: 16/);
   assert.match(habits, /collapsedSections: HabitSectionId\[\]/);
+  assert.match(habits, /sectionOrder: HabitSectionId\[\]/);
   assert.match(habits, /createdDate: string/);
   assert.match(habits, /emoji: string/);
   assert.match(habits, /priority: number/);
@@ -2141,12 +2152,21 @@ test("QA-02 gives large habit sections consistent disclosure controls and modal 
   assert.match(tracker, /function CollapsibleHabitBlock/);
   assert.match(tracker, /aria-expanded=\{open\} aria-controls=\{contentId\}/);
   assert.match(tracker, /<DisclosureChevron open=\{open\}/);
-  for (const label of ["Трекеры дня", "Защита серии и возвращение", "Испытания", "Награды за серию", "Стартовые привычки", "Обычные привычки", "Сон и воздержание", "Достижения", "Статистика моих привычек"]) {
+  for (const label of ["Трекеры дня", "Защита серии и возвращение", "Испытания", "Награды за серию", "Стартовые привычки", "Обычные привычки", "Сон и воздержание", "Достижения", "Статистика моих привычек", "Сакральные привычки"]) {
     assert.match(tracker, new RegExp(label));
   }
-  assert.match(styles, /\.habit-collapsible-toolbar > button \{/);
+  assert.match(styles, /\.habits-view \{[\s\S]*display: flex;[\s\S]*flex-wrap: wrap;/);
+  assert.match(styles, /\.habit-collapsible-block \{[^}]*flex:1 1 360px;/);
+  assert.match(styles, /\.habit-collapsible-block\.open \{ flex-basis:100%; \}/);
+  assert.match(styles, /\.habit-collapsible-toggle \{/);
   assert.match(styles, /\.habit-collapsible-toolbar \.disclosure-chevron/);
-  assert.match(styles, /max-width: 760px[\s\S]*\.habit-collapsible-toolbar > button[\s\S]*width:100%/);
+  assert.match(styles, /\.habit-section-drag-handle \{[\s\S]*touch-action:none;/);
+  assert.match(styles, /max-width: 760px[\s\S]*\.habit-collapsible-block \{ flex-basis:100%;/);
+  assert.match(tracker, /application\/x-genesis-habit-section/);
+  assert.match(tracker, /onPointerDown=/);
+  assert.match(tracker, /onKeyDown=\{handleMoveKey\}/);
+  assert.match(tracker, /sectionOrder: nextOrder/);
+  assert.match(tracker, /перетаскивайте свёрнутые блоки/);
 
   assert.match(dialogHook, /FOCUSABLE_SELECTOR/);
   assert.match(dialogHook, /data-dialog-initial-focus/);
@@ -2822,6 +2842,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(styles, /\.calendar-day\.mode-lunar\.solar-day:not\(\.selected, \.today\) \.calendar-solar-mark\s*\{[\s\S]*background: rgba\(255, 249, 207, \.42\);[\s\S]*border-radius: 999px/);
   assert.match(styles, /\.calendar-day\.mode-lunar\.solar-day:not\(\.selected, \.today\) \.calendar-solar-mark em\s*\{[\s\S]*display: inline;[\s\S]*font-weight: 950/);
   assert.match(styles, /\.calendar-day\.mode-lunar\.solar-day:not\(\.selected, \.today\):hover\s*\{[\s\S]*linear-gradient\(145deg, #fff4c7 0%, #e8cc79 54%, #d1aa51 100%\)/);
+  assert.match(styles, /\.month-calendar \.calendar-day\.today\.solar-day \.calendar-solar-mark\s*\{[\s\S]*color: #7f5708;[\s\S]*text-shadow:/);
   assert.match(styles, /\.calendar-day\.mode-profane\.selected\.today,[\s\S]*border-color: #a54133;[\s\S]*rgba\(165, 65, 51, \.94\)/);
   assert.match(styles, /\.hero-day-title-translation\s*\{[\s\S]*white-space: nowrap/);
   assert.match(calendar, /profane-year-full-width/);

@@ -9776,6 +9776,16 @@ button.project-drag-handle:active { cursor: grabbing; }
   color: #95651d;
 }
 
+.month-calendar .calendar-day.today.solar-day .calendar-solar-mark {
+  color: #7f5708;
+  text-shadow: 0 1px 0 rgba(255,255,255,.72);
+}
+
+.month-calendar .calendar-day.today.solar-day .calendar-solar-mark em,
+.month-calendar .calendar-day.today.solar-day .calendar-solar-mark time {
+  font-weight:950;
+}
+
 @media (min-width: 761px) {
   .hero-card > .device-clock {
     position: absolute;
@@ -11316,14 +11326,20 @@ button.project-drag-handle:active { cursor: grabbing; }
 
 /* Encrypted habit tracker */
 .habits-view {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
   width: 100%;
   gap: 18px;
 }
 
-.habit-collapsible-block { display:grid; min-width:0; gap:8px; }
-.habit-collapsible-toolbar { display:flex; justify-content:flex-end; min-width:0; }
-.habit-collapsible-toolbar > button {
+.habits-view > .habits-hero,
+.habits-view > .habit-status-message { flex:1 0 100%; order:0; }
+.habit-collapsible-block { display:grid; min-width:0; flex:1 1 360px; gap:8px; }
+.habit-collapsible-block.open { flex-basis:100%; }
+.habit-collapsible-block.dragging { opacity:.68; }
+.habit-collapsible-toolbar { display:flex; min-width:0; justify-content:flex-end; gap:7px; }
+.habit-collapsible-toggle {
   display:inline-flex;
   min-height:40px;
   align-items:center;
@@ -11340,10 +11356,29 @@ button.project-drag-handle:active { cursor: grabbing; }
   font-weight:850;
   transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease,background .18s ease;
 }
-.habit-collapsible-toolbar > button:hover { border-color:rgba(37,91,89,.42); box-shadow:0 11px 26px rgba(18,48,45,.1),inset 0 1px 0 #fff; transform:translateY(-1px); }
-.habit-collapsible-toolbar > button:focus-visible { outline:3px solid rgba(45,119,113,.24); outline-offset:3px; }
+.habit-collapsible-toggle:hover { border-color:rgba(37,91,89,.42); box-shadow:0 11px 26px rgba(18,48,45,.1),inset 0 1px 0 #fff; transform:translateY(-1px); }
+.habit-collapsible-toggle:focus-visible,
+.habit-section-drag-handle:focus-visible { outline:3px solid rgba(45,119,113,.24); outline-offset:3px; }
 .habit-collapsible-toolbar .disclosure-chevron { box-sizing:border-box; width:22px; height:22px; padding:4px; border:1px solid rgba(37,91,89,.2); border-radius:50%; background:rgba(45,119,113,.06); }
-.habit-collapsible-block.collapsed .habit-collapsible-toolbar > button { width:min(100%,360px); background:rgba(255,253,248,.72); }
+.habit-collapsible-block.collapsed .habit-collapsible-toolbar { width:100%; }
+.habit-collapsible-block.collapsed .habit-collapsible-toggle { width:auto; flex:1 1 auto; background:rgba(255,253,248,.72); }
+.habit-section-drag-handle {
+  display:grid;
+  width:40px;
+  min-width:40px;
+  min-height:40px;
+  padding:0;
+  place-items:center;
+  color:var(--teal);
+  border:1px solid rgba(37,91,89,.2);
+  border-radius:999px;
+  background:rgba(255,253,248,.82);
+  box-shadow:0 8px 22px rgba(18,48,45,.07),inset 0 1px 0 rgba(255,255,255,.9);
+  cursor:grab;
+  touch-action:none;
+}
+.habit-section-drag-handle:active { cursor:grabbing; }
+.habit-section-drag-handle span { font-size:18px; line-height:1; transform:rotate(90deg); }
 .habit-collapsible-content { display:grid; min-width:0; gap:18px; }
 
 .habits-hero {
@@ -11378,6 +11413,7 @@ button.project-drag-handle:active { cursor: grabbing; }
 .habits-view.gamification-hidden .habits-hero > div:first-child { max-width:min(780px,calc(100% - 250px)); }
 .habits-hero h1 { margin: 6px 0 9px; font: 500 clamp(42px, 6vw, 74px)/.95 Georgia, serif; letter-spacing: -.045em; }
 .habits-hero p { max-width: 660px; margin: 0; color: #b9c7c1; font-size: 11px; line-height: 1.7; }
+.habits-hero p.habits-hero-layout-hint { margin-top:8px; color:#e3cd92; font-size:9px; font-weight:700; }
 .habits-hero-actions { position: absolute !important; right: 38px; bottom: 34px; display:flex; align-items:center; gap:9px; }
 .habits-hero-actions button { justify-content:center; min-width:210px; min-height:44px; padding:12px 19px; white-space:nowrap; }
 .habits-hero-actions .hero-path-open {
@@ -12420,9 +12456,10 @@ button.project-drag-handle:active { cursor: grabbing; }
 
 @media (max-width: 760px) {
   .habits-view { gap:12px; }
-  .habit-collapsible-block { gap:6px; }
-  .habit-collapsible-toolbar > button,
-  .habit-collapsible-block.collapsed .habit-collapsible-toolbar > button { width:100%; min-height:42px; }
+  .habit-collapsible-block { flex-basis:100%; gap:6px; }
+  .habit-collapsible-toggle,
+  .habit-collapsible-block.collapsed .habit-collapsible-toggle { width:auto; min-height:42px; }
+  .habit-section-drag-handle { width:42px; min-width:42px; min-height:42px; }
   .habits-hero { grid-template-columns:minmax(0,1fr); min-height:0; padding:27px 19px; border-radius:4px 24px 4px 24px; }
   .habits-hero > div:first-child { max-width:none; }
   .habits-hero-status { position:relative; inset:auto; width:100%; grid-template-columns:repeat(2,minmax(0,1fr)); margin-top:18px; }

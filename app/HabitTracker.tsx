@@ -1,6 +1,16 @@
 "use client";
 
-import { useId, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import {
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type DragEvent as ReactDragEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from "react";
 import {
   calendarMonthRange,
   calendarQuarterRange,
@@ -23,6 +33,7 @@ import {
   HABIT_EMOJI_PRESETS,
   HABIT_EMOJI_CATEGORIES,
   HABIT_RITUAL_OPTIONS,
+  HABIT_SECTION_IDS,
   ACHIEVEMENTS,
   HABIT_COLORS,
   HABIT_LAUREL_RETENTION_COMPLETIONS,
@@ -53,6 +64,8 @@ import {
   habitRitualLabel,
   heroicRankForProgress,
   isHabitScheduledForDate,
+  isHabitSectionId,
+  moveHabitSection,
   normalizeHabitEmoji,
   normalizeHabitColor,
   normalizeHabitPriority,
@@ -279,23 +292,99 @@ function DisclosureChevron({ open }: { open: boolean }) {
   );
 }
 
-function CollapsibleHabitBlock({ label, language, children, open, onOpenChange, className = "" }: {
+type HabitSectionDisclosureProps = {
+  sectionId: HabitSectionId;
+  position: number;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onMoveTo: (sourceId: HabitSectionId, targetId: HabitSectionId) => void;
+  onMoveBy: (sectionId: HabitSectionId, offset: -1 | 1) => void;
+};
+
+const HABIT_SECTION_DRAG_TYPE = "application/x-genesis-habit-section";
+
+function CollapsibleHabitBlock({ label, language, children, sectionId, position, open, onOpenChange, onMoveTo, onMoveBy, className = "" }: {
   label: string;
   language: Language;
   children: ReactNode;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
   className?: string;
-}) {
+} & HabitSectionDisclosureProps) {
   const contentId = useId();
   const isEnglish = language === "en";
+  const pointerTargetRef = useRef<HabitSectionId | null>(null);
+  const [pointerDragging, setPointerDragging] = useState(false);
+  const moveLabel = isEnglish ? `Drag ${label} to reorder` : `Перетащить раздел «${label}»`;
+
+  const updatePointerTarget = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>("[data-habit-section-id]")?.dataset.habitSectionId;
+    pointerTargetRef.current = isHabitSectionId(target) && target !== sectionId ? target : null;
+  };
+
+  const finishPointerDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (!pointerDragging) return;
+    updatePointerTarget(event);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    const targetId = pointerTargetRef.current;
+    pointerTargetRef.current = null;
+    setPointerDragging(false);
+    if (targetId) onMoveTo(sectionId, targetId);
+  };
+
+  const handleDrop = (event: ReactDragEvent<HTMLElement>) => {
+    const sourceId = event.dataTransfer.getData(HABIT_SECTION_DRAG_TYPE);
+    if (!isHabitSectionId(sourceId) || sourceId === sectionId) return;
+    event.preventDefault();
+    onMoveTo(sourceId, sectionId);
+  };
+
+  const handleMoveKey = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
+    if (["ArrowLeft", "ArrowUp"].includes(event.key)) {
+      event.preventDefault();
+      onMoveBy(sectionId, -1);
+    } else if (["ArrowRight", "ArrowDown"].includes(event.key)) {
+      event.preventDefault();
+      onMoveBy(sectionId, 1);
+    }
+  };
+
   return (
-    <section className={`habit-collapsible-block${open ? " open" : " collapsed"}${className ? ` ${className}` : ""}`}>
+    <section
+      className={`habit-collapsible-block${open ? " open" : " collapsed"}${pointerDragging ? " dragging" : ""}${className ? ` ${className}` : ""}`}
+      data-habit-section-id={sectionId}
+      style={{ order: 100 + position }}
+      onDragOver={(event) => { if (event.dataTransfer.types.includes(HABIT_SECTION_DRAG_TYPE)) event.preventDefault(); }}
+      onDrop={handleDrop}
+    >
       <header className="habit-collapsible-toolbar">
-        <button type="button" aria-expanded={open} aria-controls={contentId} onClick={() => onOpenChange(!open)}>
+        <button type="button" className="habit-collapsible-toggle" aria-expanded={open} aria-controls={contentId} onClick={() => onOpenChange(!open)}>
           <span>{open ? (isEnglish ? "Hide" : "Скрыть") : (isEnglish ? "Show" : "Показать")}: {label}</span>
           <DisclosureChevron open={open} />
         </button>
+        {!open ? <button
+          type="button"
+          className="habit-section-drag-handle"
+          aria-label={moveLabel}
+          title={moveLabel}
+          draggable
+          onDragStart={(event) => {
+            event.dataTransfer.effectAllowed = "move";
+            event.dataTransfer.setData(HABIT_SECTION_DRAG_TYPE, sectionId);
+          }}
+          onPointerDown={(event) => {
+            if (event.pointerType === "mouse") return;
+            pointerTargetRef.current = null;
+            event.currentTarget.setPointerCapture(event.pointerId);
+            setPointerDragging(true);
+          }}
+          onPointerMove={(event) => { if (pointerDragging) updatePointerTarget(event); }}
+          onPointerUp={finishPointerDrag}
+          onPointerCancel={(event) => {
+            if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+            pointerTargetRef.current = null;
+            setPointerDragging(false);
+          }}
+          onKeyDown={handleMoveKey}
+        ><span aria-hidden="true">⠿</span></button> : null}
       </header>
       {open ? <div className="habit-collapsible-content" id={contentId}>{children}</div> : null}
     </section>
@@ -563,7 +652,7 @@ function StreakRewardLadder({ workspace, language }: Pick<DailyPanelProps, "work
   );
 }
 
-function AdaptiveDifficultyPanel({ workspace, date, language, calendarMode, open, onOpenChange, onEdit, onPause }: Pick<DailyPanelProps, "workspace" | "date" | "language" | "calendarMode"> & { open: boolean; onOpenChange: (open: boolean) => void; onEdit: (habit: Habit) => void; onPause: (habit: Habit) => void }) {
+function AdaptiveDifficultyPanel({ workspace, date, language, calendarMode, sectionId, position, open, onOpenChange, onMoveTo, onMoveBy, onEdit, onPause }: Pick<DailyPanelProps, "workspace" | "date" | "language" | "calendarMode"> & HabitSectionDisclosureProps & { onEdit: (habit: Habit) => void; onPause: (habit: Habit) => void }) {
   const isEnglish = language === "en";
   const suggestions = buildAdaptiveHabitSuggestions({
     habits: workspace.habits,
@@ -574,7 +663,7 @@ function AdaptiveDifficultyPanel({ workspace, date, language, calendarMode, open
   });
   if (!suggestions.length) return null;
   return (
-    <CollapsibleHabitBlock label={isEnglish ? "Adaptive suggestions" : "Бережная настройка ритма"} language={language} open={open} onOpenChange={onOpenChange}><section className="adaptive-habit-panel" aria-labelledby="adaptive-habit-title">
+    <CollapsibleHabitBlock label={isEnglish ? "Adaptive suggestions" : "Бережная настройка ритма"} language={language} sectionId={sectionId} position={position} open={open} onOpenChange={onOpenChange} onMoveTo={onMoveTo} onMoveBy={onMoveBy}><section className="adaptive-habit-panel" aria-labelledby="adaptive-habit-title">
       <header><div><span className="eyebrow">{isEnglish ? "Gentle adjustment" : "Бережная настройка"}</span><h2 id="adaptive-habit-title">{isEnglish ? "Make the rhythm achievable" : "Сделать ритм посильнее"}</h2><p>{isEnglish ? "GENESIS only suggests changes and never edits your schedule automatically." : "GENESIS только предлагает изменения и никогда не меняет расписание автоматически."}</p></div></header>
       <div>
         {suggestions.map((suggestion) => <article style={{ "--habit-color": suggestion.habit.color } as CSSProperties} key={suggestion.habit.id}>
@@ -1316,8 +1405,32 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
     setMessage(isEnglish ? "Hestia's Spark added. It will automatically protect one missed streak day." : "Искра Гестии добавлена. Она автоматически защитит один пропущенный день серии.");
   };
 
-  const disclosureProps = (sectionId: HabitSectionId) => ({
+  const sectionOrder = workspace.habitSettings.sectionOrder?.length
+    ? workspace.habitSettings.sectionOrder
+    : [...HABIT_SECTION_IDS];
+  const saveSectionOrder = (nextOrder: HabitSectionId[]) => {
+    onChange({
+      ...workspace,
+      habitSettings: {
+        ...workspace.habitSettings,
+        sectionOrder: nextOrder,
+      },
+    });
+  };
+  const moveSectionTo = (sourceId: HabitSectionId, targetId: HabitSectionId) => {
+    saveSectionOrder(moveHabitSection(sectionOrder, sourceId, targetId));
+  };
+  const moveSectionBy = (sectionId: HabitSectionId, offset: -1 | 1) => {
+    const position = sectionOrder.indexOf(sectionId);
+    const targetId = sectionOrder[position + offset];
+    if (targetId) moveSectionTo(sectionId, targetId);
+  };
+  const disclosureProps = (sectionId: HabitSectionId): HabitSectionDisclosureProps => ({
+    sectionId,
+    position: Math.max(0, sectionOrder.indexOf(sectionId)),
     open: !workspace.habitSettings.collapsedSections.includes(sectionId),
+    onMoveTo: moveSectionTo,
+    onMoveBy: moveSectionBy,
     onOpenChange: (open: boolean) => {
       const collapsedSections = new Set(workspace.habitSettings.collapsedSections);
       if (open) collapsedSections.delete(sectionId);
@@ -1335,7 +1448,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
   return (
     <div className={`habits-view${workspace.habitSettings.feedback.gamificationWidgets ? "" : " gamification-hidden"}`}>
       <header className="habits-hero">
-        <div><span className="eyebrow">{isEnglish ? "Encrypted personal tracker" : "Зашифрованный личный трекер"}</span><h1>{isEnglish ? "Trackers" : "Привычки"}</h1><p>{isEnglish ? "Habits, sleep, mood and abstinence are independent modules over one secure tracker core." : "Привычки, сон, настроение и воздержание — независимые модули поверх единого защищённого ядра."}</p></div>
+        <div><span className="eyebrow">{isEnglish ? "Encrypted personal tracker" : "Зашифрованный личный трекер"}</span><h1>{isEnglish ? "Trackers" : "Привычки"}</h1><p>{isEnglish ? "Habits, sleep, mood and abstinence are independent modules over one secure tracker core." : "Привычки, сон, настроение и воздержание — независимые модули поверх единого защищённого ядра."}</p><p className="habits-hero-layout-hint">{isEnglish ? "Collapse sections and drag the collapsed blocks to arrange your personal workspace." : "Сворачивайте разделы и перетаскивайте свёрнутые блоки, чтобы выстроить своё личное рабочее пространство."}</p></div>
         {workspace.habitSettings.feedback.gamificationWidgets ? <div className="habits-hero-status">
           <article className="habits-hero-laurels"><HabitMetricSigil variant="laurels" value={workspace.userProgress.laurelsBalance} /><div><small>{isEnglish ? "Laurels" : "Лавры"}</small><strong>{workspace.userProgress.laurelsBalance}</strong><em>{isEnglish ? "spendable" : "можно тратить"}</em></div></article>
           <article className="habits-hero-streak"><HabitMetricSigil variant="streak" value={workspace.userProgress.currentStreak} record={workspace.userProgress.longestStreak} /><div><small>{isEnglish ? "Current streak" : "Текущая серия"}</small><strong>{workspace.userProgress.currentStreak}</strong><em>{isEnglish ? `best ${workspace.userProgress.longestStreak} days` : `рекорд ${workspace.userProgress.longestStreak} дней`}</em></div></article>
@@ -1399,16 +1512,16 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
       </section>
       <HabitStatistics workspace={workspace} date={date} language={language} calendarMode={calendarMode} />
       </CollapsibleHabitBlock>
-      <SacredHabitLibrary
-        workspace={workspace}
-        date={date}
-        language={language}
-        calendarMode={calendarMode}
-        onChange={onChange}
-        onStart={(practice) => saveHabit(createHabitFromSacredPractice(practice, creationDate, calendarMode, language))}
-        onEdit={setEditingHabit}
-        onOpenTheokyklosSector={onOpenTheokyklosSector}
-      />
+      <CollapsibleHabitBlock label={isEnglish ? "Sacred habits" : "Сакральные привычки"} language={language} {...disclosureProps("sacred-habits")}><SacredHabitLibrary
+          workspace={workspace}
+          date={date}
+          language={language}
+          calendarMode={calendarMode}
+          onChange={onChange}
+          onStart={(practice) => saveHabit(createHabitFromSacredPractice(practice, creationDate, calendarMode, language))}
+          onEdit={setEditingHabit}
+          onOpenTheokyklosSector={onOpenTheokyklosSector}
+        /></CollapsibleHabitBlock>
       {heroPathOpen ? <HeroPathPanel workspace={workspace} language={language} onClaimCheckpoint={(rankId) => { const next = claimHeroPathAmphora(workspace, rankId); onChange(next); if (next !== workspace) setMessage(isEnglish ? "The amphora is open. Laurels were added to your ledger." : "Амфора открыта. Лавры добавлены в журнал наград."); }} onRevealHiddenPath={() => { const next = revealHiddenHeroicPath(workspace); onChange(next); if (next !== workspace) setMessage(isEnglish ? "The second path has been revealed." : "Второй путь открыт."); }} onClose={() => setHeroPathOpen(false)} /> : null}
       {activatingTemplate ? <HabitTemplateSetup template={activatingTemplate} date={creationDate} language={language} calendarMode={calendarMode} googleTasksReady={googleTasksReady} onSave={(habit) => { setActivatingTemplate(null); saveHabit(habit); }} onClose={() => setActivatingTemplate(null)} /> : null}
       {editingHabit ? <HabitEditor habit={editingHabit} isExisting={workspace.habits.some((habit) => habit.id === editingHabit.id)} language={language} calendarMode={calendarMode} googleTasksReady={googleTasksReady} onSave={saveHabit} onClose={() => setEditingHabit(null)} /> : null}
