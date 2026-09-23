@@ -1296,6 +1296,7 @@ export function GenesisCalendar() {
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [experimentalThemeWarningOpen, setExperimentalThemeWarningOpen] = useState(false);
   const [experimentalTodayTab, setExperimentalTodayTab] = useState<"tasks" | "create">("tasks");
+  const experimentalTodayTabsRef = useRef<HTMLDivElement>(null);
   const [experimentalTaskCreateTab, setExperimentalTaskCreateTab] = useState<"task" | "list">("task");
   const [voiceAssistantOpen, setVoiceAssistantOpen] = useState(false);
   const [voiceLaunchAnimating, setVoiceLaunchAnimating] = useState(false);
@@ -4212,19 +4213,34 @@ export function GenesisCalendar() {
         <DayRhythmPanel now={today} timeFormat={activeTimeFormat} />
 
         {experimentalThemeActive ? (
-          <div className="experimental-workspace-tabs" role="tablist" aria-label={isEnglish ? "Daily workspace" : "Рабочая зона дня"}>
-            <button type="button" role="tab" aria-selected={experimentalTodayTab === "tasks"} aria-controls="experimental-today-tasks" onClick={() => setExperimentalTodayTab("tasks")}>
+          <div
+            ref={experimentalTodayTabsRef}
+            className="experimental-workspace-tabs"
+            role="tablist"
+            tabIndex={-1}
+            aria-label={isEnglish ? "Daily workspace" : "Рабочая зона дня"}
+            onKeyDown={(event) => {
+              if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+              event.preventDefault();
+              const nextTab = event.key === "ArrowLeft" || event.key === "Home" ? "tasks" : "create";
+              setExperimentalTodayTab(nextTab);
+              window.requestAnimationFrame(() => experimentalTodayTabsRef.current
+                ?.querySelector<HTMLButtonElement>(`[data-experimental-today-tab="${nextTab}"]`)
+                ?.focus());
+            }}
+          >
+            <button id="experimental-today-tab-tasks" data-experimental-today-tab="tasks" type="button" role="tab" tabIndex={experimentalTodayTab === "tasks" ? 0 : -1} aria-selected={experimentalTodayTab === "tasks"} aria-controls="experimental-today-tasks" onClick={() => setExperimentalTodayTab("tasks")}>
               <span>{isEnglish ? "Tasks" : "Задачи"}</span>
               <strong>{todayTasks.length}</strong>
             </button>
-            <button type="button" role="tab" aria-selected={experimentalTodayTab === "create"} aria-controls="experimental-today-create" onClick={() => setExperimentalTodayTab("create")}>
+            <button id="experimental-today-tab-create" data-experimental-today-tab="create" type="button" role="tab" tabIndex={experimentalTodayTab === "create" ? 0 : -1} aria-selected={experimentalTodayTab === "create"} aria-controls="experimental-today-create" onClick={() => setExperimentalTodayTab("create")}>
               <span>{isEnglish ? "Create" : "Создать"}</span>
               <strong aria-hidden="true">＋</strong>
             </button>
           </div>
         ) : null}
 
-        <section id="experimental-today-create" className="today-create-panel" aria-labelledby="today-create-title" data-exp-ui="panel" hidden={experimentalThemeActive && experimentalTodayTab !== "create"}>
+        <section id="experimental-today-create" className="today-create-panel" role={experimentalThemeActive ? "tabpanel" : undefined} aria-labelledby={experimentalThemeActive ? "experimental-today-tab-create" : "today-create-title"} tabIndex={experimentalThemeActive ? 0 : undefined} data-exp-ui="panel" hidden={experimentalThemeActive && experimentalTodayTab !== "create"}>
           <div>
             <span className="eyebrow">Быстрое создание задач</span>
             <h2 id="today-create-title">Создать для сегодняшнего дня</h2>
@@ -4241,7 +4257,7 @@ export function GenesisCalendar() {
           </div>
         </section>
 
-        <section id="experimental-today-tasks" className="today-tasks-panel" aria-labelledby="today-tasks-title" data-exp-ui="panel" hidden={experimentalThemeActive && experimentalTodayTab !== "tasks"}>
+        <section id="experimental-today-tasks" className="today-tasks-panel" role={experimentalThemeActive ? "tabpanel" : undefined} aria-labelledby={experimentalThemeActive ? "experimental-today-tab-tasks" : "today-tasks-title"} tabIndex={experimentalThemeActive ? 0 : undefined} data-exp-ui="panel" hidden={experimentalThemeActive && experimentalTodayTab !== "tasks"}>
           <header>
             <div>
               <span className="eyebrow">{isEnglish ? "The shape of today" : "План сегодняшнего дня"}</span>
