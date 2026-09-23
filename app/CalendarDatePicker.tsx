@@ -69,7 +69,7 @@ export function CalendarDatePicker({ id, value, mode, min, max, required, ariaLa
   const dialogRef = useDialogAccessibility<HTMLElement>(() => setOpen(false), open);
 
   if (mode === "profane") {
-    return <input id={id} type="date" value={value} min={min} max={max} required={required} aria-label={ariaLabel} onChange={(event) => onChange(event.target.value)} />;
+    return <input id={id} type="date" value={value} min={min} max={max} required={required} aria-label={ariaLabel} data-genesis-preserve="gregorian-date-picker" onChange={(event) => onChange(event.target.value)} />;
   }
 
   const choose = (date: Date) => {
@@ -94,12 +94,12 @@ export function CalendarDatePicker({ id, value, mode, min, max, required, ariaLa
 
   return (
     <>
-      <button id={id} type="button" className={`calendar-date-trigger mode-${mode}${showGregorianReference ? "" : " no-reference"}`} onClick={openPicker} aria-label={ariaLabel} aria-haspopup="dialog">
+      <button id={id} type="button" className={`calendar-date-trigger mode-${mode}${showGregorianReference ? "" : " no-reference"}`} data-genesis-preserve={`${mode}-date-picker-trigger`} onClick={openPicker} aria-label={ariaLabel} aria-haspopup="dialog">
         <span>{formatCalendarDate(selectedDate, mode, true)}</span>
         {showGregorianReference ? <small>{formatGregorian(selectedDate, true)}</small> : null}
       </button>
       {open ? (
-        <div className="modal-backdrop calendar-picker-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>
+        <div className="modal-backdrop calendar-picker-backdrop" role="presentation" data-genesis-preserve={`${mode}-date-picker`} onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>
           <section ref={dialogRef} className={`calendar-picker mode-${mode}`} role="dialog" aria-modal="true" aria-label={mode === "sacred" ? "Выбор сакральной даты" : "Выбор лунной даты"} tabIndex={-1}>
             <button type="button" className="modal-close" onClick={() => setOpen(false)} aria-label="Закрыть">×</button>
             <span className="eyebrow">{mode === "sacred" ? "Сакральный календарь" : "Лунный календарь"}</span>

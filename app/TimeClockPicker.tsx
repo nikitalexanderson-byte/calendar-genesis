@@ -91,7 +91,7 @@ export function TimeClockPicker({ id, value, onChange, disabled = false, timeFor
   const readoutValue = hour === null ? `--:${minuteValue || "00"}` : formatTimeValue(`${String(hour).padStart(2, "0")}:${minuteValue || "00"}`, timeFormat);
 
   return (
-    <div className="time-clock-picker">
+    <div className="time-clock-picker" data-genesis-preserve={`custom-time-picker-${timeFormat}`}>
       <button
         type="button"
         id={id}
@@ -104,7 +104,7 @@ export function TimeClockPicker({ id, value, onChange, disabled = false, timeFor
         {displayValue}
       </button>
       {open ? (
-        <div className="modal-backdrop time-clock-picker-backdrop" role="presentation" onMouseDown={handleBackdropMouseDown}>
+        <div className="modal-backdrop time-clock-picker-backdrop" role="presentation" data-genesis-preserve={`custom-time-picker-${timeFormat}-dialog`} onMouseDown={handleBackdropMouseDown}>
           <div ref={dialogRef} className="time-clock-picker-panel" role="dialog" aria-modal="true" aria-label="Выбор времени" tabIndex={-1}>
             <button type="button" className="modal-close" onClick={() => setOpen(false)} aria-label="Закрыть">×</button>
             <div className="time-clock-picker-legend">

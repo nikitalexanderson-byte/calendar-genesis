@@ -1,7 +1,9 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { GenesisCalendar } from "../app/GenesisCalendar";
+import { AppUrlCleaner } from "../app/AppUrlCleaner";
 import "../app/globals.css";
+import "../app/experimental-theme.css";
 
 const PRELOAD_RECOVERY_KEY = "genesis-preload-recovery-at";
 
@@ -21,6 +23,7 @@ if (!root) {
 
 createRoot(root).render(
   <StrictMode>
+    <AppUrlCleaner />
     <GenesisCalendar />
   </StrictMode>,
 );

@@ -39,6 +39,17 @@ try {
     expect((genesisUserForClient($user)['timeFormat'] ?? '') === '12h', 'Time format preference was not exposed to the client.');
     expect(($user['language'] ?? '') === 'en', 'Language preference was not stored.');
     expect((genesisUserForClient($user)['language'] ?? '') === 'en', 'Language preference was not exposed to the client.');
+    expect((genesisUserForClient($user)['theme'] ?? '') === 'standart', 'Theme must default safely to Standart.');
+    $user = genesisUpdateAccountPreferences($userId, ['theme' => 'experimental', 'expectedThemeRevision' => 0]);
+    expect(($user['theme'] ?? '') === 'experimental', 'Theme preference was not stored.');
+    expect((int)($user['theme_revision'] ?? -1) === 1, 'Theme revision was not incremented.');
+    expect((genesisUserForClient($user)['theme'] ?? '') === 'experimental', 'Theme preference was not exposed to the client.');
+    try {
+        genesisUpdateAccountPreferences($userId, ['theme' => 'standart', 'expectedThemeRevision' => 0]);
+        throw new RuntimeException('Stale theme revision was accepted.');
+    } catch (DomainException $error) {
+        expect(str_contains($error->getMessage(), 'другом устройстве'), 'Theme conflict did not return the expected message.');
+    }
     expect(genesisMultiAccountEnabled($user), 'Multi-account must be available to every authenticated user.');
     expect((genesisUserForClient($user)['multiAccountEnabled'] ?? false) === true, 'Multi-account availability was not exposed to a regular user.');
     $user = genesisUpdateAccountPreferences($userId, [

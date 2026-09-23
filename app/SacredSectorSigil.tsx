@@ -34,6 +34,7 @@ export function SacredSectorSigil({ sectorId, className = "", compact = false, a
       } as CSSProperties}
       aria-hidden="true"
       data-sacred-sector-sigil={sectorId}
+      data-genesis-preserve="theokyklos-sector-sigil"
       onPointerMove={handlePointerMove}
       onPointerLeave={() => setTilt({ x: 0, y: 0 })}
       onPointerDown={() => setAwakened((value) => !value)}

@@ -2121,6 +2121,68 @@ test("mobile Gregorian calendar fits all seven weekdays without horizontal scrol
   assert.match(calendar, /onClick=\{\(\) => openCalendarDate\(date, "calendar"\)\}/);
 });
 
+test("ships an isolated account-owned Experimental theme while preserving authored controls and assets", async () => {
+  const [calendar, account, cloud, controller, datePicker, timePicker, styles, layout, begetEntry, repository, migration] = await Promise.all([
+    readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/AccountPanel.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/cloud-sync.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/theme-controller.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/CalendarDatePicker.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/TimeClockPicker.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/experimental-theme.css", import.meta.url), "utf8"),
+    readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../beget/main.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../server/src/repository.php", import.meta.url), "utf8"),
+    readFile(new URL("../server/migrations/012_account_theme.sql", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(account, /Тема Experimental/);
+  assert.match(account, /Текущая тема/);
+  assert.match(account, /role="switch"/);
+  assert.match(account, /GENESIS_THEME_LABEL/);
+  assert.match(calendar, /createGenesisThemeController/);
+  assert.match(calendar, /themeState=\{themeState\}/);
+  assert.match(calendar, /onThemeChange=\{changeGenesisTheme\}/);
+  assert.doesNotMatch(calendar, /key=\{themeState|key=\{.*theme/);
+  assert.match(cloud, /expectedThemeRevision/);
+  assert.match(repository, /theme_revision = :theme_revision/);
+  assert.match(repository, /theme_revision = :expected_theme_revision/);
+  assert.match(repository, /\$statement->rowCount\(\) !== 1/);
+  assert.match(repository, /\['standart', 'experimental'\]/);
+  assert.match(migration, /DEFAULT 'standart'/);
+  assert.match(controller, /ThemeConflictError/);
+  assert.match(controller, /root\.setAttribute\(GENESIS_THEME_ATTRIBUTE/);
+  assert.match(layout, /import "\.\/experimental-theme\.css"/);
+  assert.match(begetEntry, /import "\.\.\/app\/experimental-theme\.css"/);
+  assert.match(styles, /html\[data-genesis-theme="experimental"\]/);
+  assert.match(styles, /\[hidden\], \[hidden\] \*/);
+  assert.doesNotMatch(styles, /(^|\n)\s*(button|input|img|svg|\.card)\s*[{,]/m);
+  assert.doesNotMatch(styles, /!important|all\s*:/);
+  assert.match(datePicker, /data-genesis-preserve="gregorian-date-picker"/);
+  assert.match(datePicker, /data-genesis-preserve=\{`\$\{mode\}-date-picker`\}/);
+  assert.match(timePicker, /data-genesis-preserve=\{`custom-time-picker-\$\{timeFormat\}`\}/);
+  assert.match(calendar, /data-genesis-preserve="task-priority"/);
+  assert.match(calendar, /data-genesis-preserve="today-hero-art"/);
+});
+
+test("keeps every internal GENESIS URL free of the transient QA marker", async () => {
+  const [cleaner, calendar, cloud, chatgptAuth, layout, begetEntry] = await Promise.all([
+    readFile(new URL("../app/AppUrlCleaner.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/cloud-sync.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/chatgpt-auth.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../beget/main.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(cleaner, /cleanGenesisAppUrl\(window\.location\.href\)/);
+  assert.match(calendar, /cleanGenesisAppUrl\(nextUrl\)/);
+  assert.match(cloud, /const returnTo = cleanGenesisAppUrl\(window\.location\.href\)/);
+  assert.match(chatgptAuth, /return cleanGenesisAppUrl\(url\)/);
+  assert.match(layout, /<AppUrlCleaner \/>/);
+  assert.match(begetEntry, /<AppUrlCleaner \/>/);
+});
+
 test("mood tracker exposes twelve choices in one responsive desktop row", async () => {
   const [mood, styles, analytics, habits] = await Promise.all([
     readFile(new URL("../app/mood-tracker.ts", import.meta.url), "utf8"),
@@ -2277,7 +2339,7 @@ test("QA-05 runs the PHP backend smoke suite before every production deploy", as
   const workflow = await readFile(new URL("../.github/workflows/deploy.yml", import.meta.url), "utf8");
   const syntaxStep = workflow.indexOf("- name: Check PHP syntax");
   const smokeStep = workflow.indexOf("- name: Test PHP backend with isolated SQLite");
-  const clientTestStep = workflow.indexOf("- name: Test\n");
+  const clientTestStep = workflow.search(/- name: Test\r?\n/);
   const deployStep = workflow.indexOf("- name: Install backup helper and back up runtime state");
 
   assert.ok(syntaxStep >= 0 && smokeStep > syntaxStep, "backend smoke must run after PHP syntax validation");

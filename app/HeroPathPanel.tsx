@@ -29,7 +29,7 @@ type HeroPathPanelProps = {
 
 function AmphoraSigil({ open, rankId }: { open: boolean; rankId: HeroicRankId }) {
   const artwork = HERO_PATH_CHECKPOINT_ICON_ASSETS[rankId];
-  return <span className={`hero-amphora-sigil${open ? " open" : ""}`} aria-hidden="true">{artwork ? <img
+  return <span className={`hero-amphora-sigil${open ? " open" : ""}`} aria-hidden="true" data-genesis-preserve="hero-path-checkpoint-art">{artwork ? <img
     src={artwork.src}
     srcSet={artwork.srcSet}
     sizes={artwork.sizes}

@@ -156,6 +156,15 @@ import {
 import { legacyReminderMinutes, normalizeTaskReminders, type TaskReminder } from "./task-reminders";
 import { formatClockTime, formatTimeValue, normalizeTimeFormat, type TimeFormat } from "./time-format";
 import { cleanTaskDescription } from "./task-description";
+import { cleanGenesisAppUrl } from "./app-url";
+import {
+  GENESIS_THEME,
+  createGenesisThemeController,
+  normalizeGenesisTheme,
+  type GenesisTheme,
+  type GenesisThemeController,
+  type ThemeControllerState,
+} from "./theme-controller";
 import {
   DAY_RHYTHM_PERIODS,
   formatDayRhythmRange,
@@ -171,6 +180,8 @@ const HabitTrackerPage = lazy(() => import("./HabitTracker").then((module) => ({
 const LocalVoiceAssistant = lazy(() => import("./LocalVoiceAssistant").then((module) => ({ default: module.LocalVoiceAssistant })));
 const StoicheionView = lazy(() => import("./StoicheionView").then((module) => ({ default: module.StoicheionView })));
 const TheokyklosView = lazy(() => import("./TheokyklosView").then((module) => ({ default: module.TheokyklosView })));
+
+const EXPERIMENTAL_THEME_AVAILABLE = process.env.NEXT_PUBLIC_GENESIS_EXPERIMENTAL_THEME_ENABLED !== "false";
 
 function DeferredViewFallback({ label }: { label: string }) {
   return <section className="deferred-view-loading" role="status" aria-live="polite"><span aria-hidden="true"><i /></span><strong>{label}</strong></section>;
@@ -938,6 +949,7 @@ function TaskPriorityControl({
   return (
     <div
       className="task-priority-control"
+      data-genesis-preserve="task-priority"
       style={{ "--task-priority-color": selectedLevel.color } as CSSProperties}
     >
       <div className="task-priority-current" aria-live="polite">
@@ -1232,6 +1244,15 @@ export function GenesisCalendar() {
   const [hydrated, setHydrated] = useState(false);
   const [authResolved, setAuthResolved] = useState(!isGoogleSyncConfigured);
   const [cloudUser, setCloudUser] = useState<GenesisUser | null>(null);
+  const [themeState, setThemeState] = useState<ThemeControllerState>({
+    accountId: null,
+    theme: GENESIS_THEME.STANDART,
+    savedTheme: GENESIS_THEME.STANDART,
+    status: "signed-out",
+    pending: false,
+    available: EXPERIMENTAL_THEME_AVAILABLE,
+    error: null,
+  });
   const [accountOpen, setAccountOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [voiceAssistantOpen, setVoiceAssistantOpen] = useState(false);
@@ -1300,6 +1321,8 @@ export function GenesisCalendar() {
   const categoriesRef = useRef<GenesisCategory[]>(DEFAULT_CATEGORIES);
   const taskListLinksRef = useRef<TaskListProjectLink[]>([]);
   const habitWorkspaceRef = useRef<HabitWorkspace>(normalizeHabitWorkspace(EMPTY_HABIT_WORKSPACE));
+  const cloudUserRef = useRef<GenesisUser | null>(null);
+  const themeControllerRef = useRef<GenesisThemeController | null>(null);
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
   const projectTouchDragRef = useRef<ProjectTouchDrag | null>(null);
   const habitSaveTimerRef = useRef<number | null>(null);
@@ -1321,7 +1344,72 @@ export function GenesisCalendar() {
   const taskDeleteDialogRef = useDialogAccessibility<HTMLElement>(() => setPendingTaskDeletion(null), Boolean(pendingTaskDeletion));
   const taskListEditorDialogRef = useDialogAccessibility<HTMLFormElement>(() => setEditingTaskList(null), Boolean(editingTaskList));
   const projectEditorDialogRef = useDialogAccessibility<HTMLFormElement>(() => setEditingProject(null), Boolean(editingProject));
+  const themeAccountId = cloudUser?.uid ?? null;
   useDocumentLanguage(language);
+
+  useEffect(() => {
+    cloudUserRef.current = cloudUser;
+  }, [cloudUser]);
+
+  useEffect(() => {
+    const controller = createGenesisThemeController({
+      root: document.documentElement,
+      enabled: EXPERIMENTAL_THEME_AVAILABLE,
+      adapter: {
+        async read({ accountId, signal }) {
+          if (signal.aborted) throw new DOMException("Theme read aborted", "AbortError");
+          const user = cloudUserRef.current;
+          if (!user || user.uid !== accountId) throw new Error("Theme account session changed");
+          return {
+            theme: normalizeGenesisTheme(user.theme),
+            revision: Math.max(0, Number(user.themeRevision ?? 0)),
+          };
+        },
+        async write({ accountId, theme, expectedRevision, signal }) {
+          const result = await updateAccountPreferences({
+            theme,
+            expectedThemeRevision: Math.max(0, Number(expectedRevision ?? 0)),
+          }, signal);
+          if (signal.aborted) throw new DOMException("Theme write aborted", "AbortError");
+          if (cloudUserRef.current?.uid === accountId) {
+            setCloudUser(result.user);
+            localStorage.setItem(LAST_USER_KEY, JSON.stringify(result.user));
+          }
+          return {
+            theme: normalizeGenesisTheme(result.user.theme),
+            revision: Math.max(0, Number(result.user.themeRevision ?? 0)),
+          };
+        },
+      },
+    });
+    themeControllerRef.current = controller;
+    const unsubscribe = controller.subscribe(setThemeState);
+    return () => {
+      unsubscribe();
+      controller.destroy();
+      themeControllerRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const controller = themeControllerRef.current;
+    if (!controller) return;
+    const currentUser = cloudUserRef.current;
+    if (!themeAccountId || !currentUser || currentUser.uid !== themeAccountId) {
+      void controller.bindAccount(null);
+      return;
+    }
+    void controller.bindAccount(themeAccountId, {
+      verifiedInitialPreference: {
+        accountId: themeAccountId,
+        theme: normalizeGenesisTheme(currentUser.theme),
+      },
+    });
+  }, [themeAccountId]);
+
+  const changeGenesisTheme = useCallback((theme: GenesisTheme) => {
+    themeControllerRef.current?.setTheme(theme);
+  }, []);
 
   const finishWorkspaceRecovery = useCallback((accepted: boolean) => {
     const resolve = workspaceRecoveryResolverRef.current;
@@ -1580,11 +1668,12 @@ export function GenesisCalendar() {
     setView(nextView);
     const nextUrl = new URL(window.location.href);
     nextUrl.hash = nextView;
+    const cleanUrl = cleanGenesisAppUrl(nextUrl);
     const state = { ...(window.history.state ?? {}), genesisView: nextView };
     if (replace || view === nextView) {
-      window.history.replaceState(state, "", `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`);
+      window.history.replaceState(state, "", cleanUrl);
     } else {
-      window.history.pushState(state, "", `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`);
+      window.history.pushState(state, "", cleanUrl);
     }
     window.requestAnimationFrame(() => {
       window.scrollTo({ top: 0, behavior: "auto" });
@@ -1606,7 +1695,7 @@ export function GenesisCalendar() {
     window.history.replaceState(
       { ...(window.history.state ?? {}), genesisView: initialView },
       "",
-      `${initialUrl.pathname}${initialUrl.search}${initialUrl.hash}`,
+      cleanGenesisAppUrl(initialUrl),
     );
     const handlePopState = () => {
       setAccountMenuOpen(false);
@@ -3785,7 +3874,7 @@ export function GenesisCalendar() {
     const recurrenceIsInvalid = recurrenceOccurrenceCount === 0 || recurrenceOccurrenceCount > MAX_RECURRENCE_OCCURRENCES;
     const syncAccountsInvalid = Boolean(cloudUser?.multiAccountEnabled && cloudUser.syncRouting.mode === "choose" && !selectedTaskList && !createsTaskList && effectiveTaskSyncAccountIds.length === 0);
     return (
-      <form className="task-form" onSubmit={addTask} aria-label="Создание задачи">
+      <form className="task-form" data-exp-ui="form" onSubmit={addTask} aria-label="Создание задачи">
         {dueDateIsPast ? (
           <p className="past-date-notice" role="status">Выберите сегодняшний или будущий срок для новой задачи.</p>
         ) : null}
@@ -3998,7 +4087,7 @@ export function GenesisCalendar() {
 
     return (
       <div className="today-view">
-        <section className={`hero-card mode-${activeCalendarMode}${activeCalendarMode === "profane" ? ` weekday-${gregorian.getDay()}` : ""}`} aria-labelledby="today-title">
+        <section className={`hero-card mode-${activeCalendarMode}${activeCalendarMode === "profane" ? ` weekday-${gregorian.getDay()}` : ""}`} aria-labelledby="today-title" data-genesis-preserve="today-hero-art">
           <div className="hero-copy">
             <div className="eyebrow-row">
               <span className="eyebrow">{heroEyebrow}</span>
@@ -4040,7 +4129,7 @@ export function GenesisCalendar() {
 
         <DayRhythmPanel now={today} timeFormat={activeTimeFormat} />
 
-        <section className="today-create-panel" aria-labelledby="today-create-title">
+        <section className="today-create-panel" aria-labelledby="today-create-title" data-exp-ui="panel">
           <div>
             <span className="eyebrow">Быстрое создание задач</span>
             <h2 id="today-create-title">Создать для сегодняшнего дня</h2>
@@ -4057,7 +4146,7 @@ export function GenesisCalendar() {
           </div>
         </section>
 
-        <section className="today-tasks-panel" aria-labelledby="today-tasks-title">
+        <section className="today-tasks-panel" aria-labelledby="today-tasks-title" data-exp-ui="panel">
           <header>
             <div>
               <span className="eyebrow">{isEnglish ? "The shape of today" : "План сегодняшнего дня"}</span>
@@ -4400,6 +4489,7 @@ export function GenesisCalendar() {
     return (
       <div
         className="calendar-view"
+        data-genesis-preserve="calendar-grid-and-month-art"
         style={{
           "--month-accent": selectedMonth.color,
           "--month-art": `url("${monthArtUrl(monthIndex)}")`,
@@ -4865,7 +4955,7 @@ export function GenesisCalendar() {
 
     return (
       <div className="projects-view">
-        <header className="projects-header">
+        <header className="projects-header" data-exp-ui="panel">
           <div>
             <span className="eyebrow">Система порядка</span>
             <h1>Проекты и направления</h1>
@@ -4902,7 +4992,7 @@ export function GenesisCalendar() {
         ) : null}
 
         <div className="projects-layout">
-          <section className="project-tree-panel" aria-labelledby="project-tree-title">
+          <section className="project-tree-panel" aria-labelledby="project-tree-title" data-exp-ui="panel">
             <div className="section-heading compact-heading">
               <div>
                 <span className="eyebrow">Иерархия</span>
@@ -5143,7 +5233,7 @@ export function GenesisCalendar() {
 
     return (
       <div className="all-tasks-view">
-        <header className="all-tasks-header">
+        <header className="all-tasks-header" data-exp-ui="panel">
           <div>
             <span className="eyebrow">Полный обзор</span>
             <h1>Задачи</h1>
@@ -5244,7 +5334,7 @@ export function GenesisCalendar() {
   };
 
   const renderSacredYear = () => (
-    <div className="year-view">
+    <div className="year-view" data-genesis-preserve="sacred-year-calendar-and-month-art">
       <header className="projects-header year-header">
         <div>
           <span className="eyebrow">360 + {apeironLength(sacredYear)} дней</span>
@@ -5477,7 +5567,7 @@ export function GenesisCalendar() {
     };
 
     return (
-      <div className={`year-view calendar-mode-year mode-${mode}`}>
+      <div className={`year-view calendar-mode-year mode-${mode}`} data-genesis-preserve="alternative-year-calendar-and-art">
         <header className="projects-header year-header">
           <div>
             <span className="eyebrow">{yearDayCount} {language === "en" ? "days" : "дней"} · {yearMonths.length} {language === "en" ? "months" : "месяцев"}</span>
@@ -5569,7 +5659,7 @@ export function GenesisCalendar() {
             aria-labelledby="calendar-mode-year-description"
           >
             {mode === "profane" ? (
-              <figure className="profane-saturn-art">
+              <figure className="profane-saturn-art" data-genesis-preserve="saturn-art">
                 <img src="/calendar-art/saturn-cronus.webp" alt="Кронос с косой и золотой сигиллой Сатурна" width="640" height="960" />
               </figure>
             ) : null}
@@ -5693,6 +5783,7 @@ export function GenesisCalendar() {
   return (
     <main
       className={`genesis-app mode-${activeCalendarMode}${habitWorkspace.habitSettings.feedback.animations ? "" : " habit-animations-off"}`}
+      data-exp-layout="app-shell"
       style={{
         "--genesis-hero-image": activeCalendarMode === "sacred"
           ? `url("${dayArtUrl(todayInfo.monthIndex, todayInfo.day)}")`
@@ -5703,10 +5794,11 @@ export function GenesisCalendar() {
       } as CSSProperties}
     >
       <a className="skip-link" href="#main-content">К основному содержанию</a>
-      <aside className="app-sidebar" aria-label="Основная навигация">
+      <aside className="app-sidebar" aria-label="Основная навигация" data-exp-ui="navigation">
         <button className="brand-mark" type="button" onClick={selectToday} aria-label="GENESIS — на главную">
           <span
             className="brand-icon"
+            data-genesis-preserve="brand-icon"
             style={{ backgroundImage: `url("${APP_BASE}/icons/icon-192.png")` }}
             aria-hidden="true"
           />
@@ -5721,6 +5813,7 @@ export function GenesisCalendar() {
               className={view === item.id ? "active" : ""}
               onClick={() => activateNavigation(item.id)}
               aria-current={view === item.id ? "page" : undefined}
+              data-exp-ui="nav-button"
             >
               <span aria-hidden="true">{item.symbol}</span>
               <small>{item.label}</small>
@@ -5759,8 +5852,8 @@ export function GenesisCalendar() {
         </div>
       </aside>
 
-      <section className="app-stage">
-        <header className="topbar">
+      <section className="app-stage" data-exp-layout="stage">
+        <header className="topbar" data-exp-ui="topbar">
           <div>
             <span className="topbar-kicker">{view === "theokyklos" ? "Теокиклос" : view === "habits" ? (language === "en" ? "Habit tracker" : "Трекер привычек") : CALENDAR_MODE_META[activeCalendarMode].label}</span>
             <strong>{formatCalendarDate(today, activeCalendarMode, activeCalendarMode !== "sacred")}</strong>
@@ -5797,6 +5890,7 @@ export function GenesisCalendar() {
                 >
                   <span
                     className="account-avatar"
+                    data-genesis-preserve="account-avatar"
                     style={cloudUser.photoURL ? { backgroundImage: `url(${cloudUser.photoURL})` } : undefined}
                     aria-hidden="true"
                   >
@@ -5832,7 +5926,7 @@ export function GenesisCalendar() {
                 title={!isGoogleSyncConfigured ? "Сервер GENESIS подключается" : "Войти через Google"}
                 aria-label="Войти через Google"
               >
-                <img src={`${APP_BASE}/google-signin-light-square.svg`} alt="" aria-hidden="true" />
+                <img src={`${APP_BASE}/google-signin-light-square.svg`} alt="" aria-hidden="true" data-genesis-preserve="google-signin-icon" />
               </button>
             )}
             <button type="button" className="ghost-button" onClick={selectToday}>К сегодняшнему дню</button>
@@ -5842,8 +5936,8 @@ export function GenesisCalendar() {
           </div>
         </header>
 
-        <div className={`workspace workspace-full${view === "today" ? " today-workspace" : ""}`} id="main-content">
-          <div className="content-column">
+        <div className={`workspace workspace-full${view === "today" ? " today-workspace" : ""}`} id="main-content" data-exp-layout="content">
+          <div className="content-column" data-exp-layout="stack">
             {authError ? <p className="oauth-callback-error" role="alert">{authError}</p> : null}
             {cloudUser && (!cloudUser.calendarConnected || !cloudUser.googleTasksImportReady) ? (
               <section className="google-connect-banner" aria-labelledby="google-connect-title">
@@ -5912,7 +6006,7 @@ export function GenesisCalendar() {
               </Suspense>
             ) : null}
             {view === "admin" && cloudUser?.isAdmin ? <Suspense fallback={<DeferredViewFallback label={language === "en" ? "Opening administration…" : "Открываем панель администратора…"} />}><AdminPanel /></Suspense> : null}
-            <footer className="genesis-page-footer" aria-label="Ссылки проекта">
+            <footer className="genesis-page-footer" aria-label="Ссылки проекта" data-exp-layout="safe-footer">
               <a href="https://t.me/genesisbasilea" target="_blank" rel="noreferrer">
                 <span aria-hidden="true">✦</span>
                 <span><strong>Академия Генезис</strong><small>Открыть Telegram</small></span>
@@ -5927,9 +6021,9 @@ export function GenesisCalendar() {
       </section>
 
       {habitFeedback ? <HabitCompletionFeedback event={habitFeedback} language={language} showGamification={habitWorkspace.habitSettings.feedback.gamificationWidgets} /> : null}
-      <nav className="mobile-nav" aria-label="Мобильная навигация">
+      <nav className="mobile-nav" aria-label="Мобильная навигация" data-exp-ui="mobile-nav">
         {navigation.map((item) => (
-          <button type="button" key={item.id} data-nav-id={item.id} className={view === item.id ? "active" : ""} onClick={() => activateNavigation(item.id)}>
+          <button type="button" key={item.id} data-nav-id={item.id} data-exp-ui="nav-button" className={view === item.id ? "active" : ""} onClick={() => activateNavigation(item.id)}>
             <span aria-hidden="true">{item.symbol}</span><small>{item.label}</small>
           </button>
         ))}
@@ -6441,6 +6535,8 @@ export function GenesisCalendar() {
               void connectAdditionalGoogleAccount();
             }}
             onLanguageChange={selectLanguage}
+            themeState={themeState}
+            onThemeChange={changeGenesisTheme}
             categories={categories}
             habitTrackingEnabled={habitWorkspace.habitSettings.enabled}
             habitNotificationSettings={habitWorkspace.habitSettings.notifications}

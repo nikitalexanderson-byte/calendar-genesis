@@ -83,6 +83,7 @@ export function HeroicRankSigil({ rankId, color, className = "", compact = false
       } as CSSProperties}
       aria-hidden="true"
       data-rank-sigil={rankId ?? "unranked"}
+      data-genesis-preserve="heroic-rank-medallion"
       onPointerMove={handlePointerMove}
       onPointerLeave={() => setTilt({ x: 0, y: 0 })}
       onPointerDown={() => setAwakened((value) => value + 1)}

@@ -136,7 +136,7 @@ export function WelcomeScreen({ androidApkUrl, busy, error, language, onLanguage
           </div>
 
           <button className="google-login-primary" type="button" onClick={onGoogle} disabled={busy} aria-label={copy.googleLabel}>
-            <img src={`${APP_BASE}/google-signin-light-pill.svg`} alt="" aria-hidden="true" />
+            <img src={`${APP_BASE}/google-signin-light-pill.svg`} alt="" aria-hidden="true" data-genesis-preserve="google-signin-pill" />
           </button>
 
           {androidApkUrl ? (

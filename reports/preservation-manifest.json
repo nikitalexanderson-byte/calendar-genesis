@@ -1,0 +1,82 @@
+{
+  "schema": 1,
+  "status": "BASELINE_CAPTURED_FROM_ORIGIN_MASTER_BEFORE_THEME_CHANGES",
+  "baselineCommit": "6b0d2bbbaa38be508661fce2e77cc5e865df416b",
+  "mediaRoots": [
+    "public"
+  ],
+  "assetSnapshot": {
+    "path": "reports/assets-baseline.json",
+    "files": 558,
+    "fields": ["relative path", "SHA-256", "byte length"]
+  },
+  "routes": [
+    "Сегодня/день",
+    "Задачи и формы",
+    "Проекты/подпроекты",
+    "Привычки/библиотека/статистика/награды/трекеры",
+    "Месяц",
+    "Круг года",
+    "Стойхейон",
+    "Теокиклос",
+    "Настройки аккаунта",
+    "Администрирование",
+    "Экран входа/PWA metadata/notifications"
+  ],
+  "mediaOccurrences": [
+    { "route": "Сегодня", "block": "hero-card", "slot": "dynamic sacred day background", "source": "/day-art-v1/month-{01..13}/day-{01..30}.webp", "instances": 1, "evidence": "app/GenesisCalendar.tsx: dayArtUrl + --genesis-hero-image" },
+    { "route": "Сегодня", "block": "hero-card", "slot": "lunar/fallback background", "source": "/genesis-hero.png", "instances": 2, "evidence": "--genesis-hero-image and --genesis-hero-fallback" },
+    { "route": "Сегодня", "block": "hero-card", "slot": "Gregorian weekday background", "source": "/weekday-art/weekday-{0..6}-*.webp", "instances": 1, "evidence": "weekdayArtUrl + --genesis-hero-image" },
+    { "route": "Месяц", "block": "calendar-view", "slot": "month artwork background", "source": "/month-art-v4/month-{01..13}.webp", "instances": 1, "evidence": "app/GenesisCalendar.tsx --month-art" },
+    { "route": "Круг года", "block": "year-month-card", "slot": "month artwork background per card", "source": "/month-art-v4/month-{01..13}.webp", "instances": 13, "evidence": "app/GenesisCalendar.tsx --month-art in year map" },
+    { "route": "Круг года", "block": "Gregorian description", "slot": "Saturn/Cronus figure", "source": "/calendar-art/saturn-cronus.webp", "instances": 1, "evidence": "app/GenesisCalendar.tsx profane-saturn-art" },
+    { "route": "Привычки", "block": "achievement grid", "slot": "achievement medallion artwork", "source": "/achievement-art/{18 ids}.png", "instances": 18, "evidence": "app/achievements.ts + AchievementSigil.tsx SVG image" },
+    { "route": "Привычки", "block": "reward banners", "slot": "Hestia spark", "source": "/habit-reward-art/hestia-spark.png", "instances": 1, "evidence": "app/HabitTracker.tsx" },
+    { "route": "Привычки", "block": "reward banners", "slot": "comeback", "source": "/habit-reward-art/comeback.png", "instances": 1, "evidence": "app/HabitTracker.tsx" },
+    { "route": "Привычки", "block": "heroic rank header", "slot": "wide rank artwork background", "source": "/habit-ranks/heroic-ranks.webp", "instances": 2, "evidence": "app/globals.css heroic-rank artwork rules" },
+    { "route": "Привычки", "block": "rank medallion", "slot": "responsive rank image", "source": "/hero-path/256/{rank}.webp + /hero-path/512/{rank}.webp", "instances": 1, "evidence": "HeroicRankSigil.tsx src/srcSet" },
+    { "route": "Привычки", "block": "Path of the Hero", "slot": "checkpoint amphora image", "source": "/hero-path/256/{rank}.webp + /hero-path/512/{rank}.webp", "instances": "one per rendered checkpoint", "evidence": "HeroPathPanel.tsx src/srcSet" },
+    { "route": "Стойхейон", "block": "alphabet/daily/dialog/spread card", "slot": "card face artwork", "source": "/stoicheion-cards/{24 letters}.webp", "instances": "one for every rendered card occurrence in each of four variants", "evidence": "StoicheionView.tsx StoicheionCardFace" },
+    { "route": "Стойхейон", "block": "alphabet/daily/dialog/spread card", "slot": "Greek-key overlay", "source": "/stoicheion-cards/frame-greek-key.svg", "instances": "one overlay per rendered card occurrence", "evidence": "StoicheionView.tsx StoicheionCardFace" },
+    { "route": "Теокиклос", "block": "mandala", "slot": "14 SVG image nodes", "source": "/theokyklos-symbols/{14 segment ids}.png", "instances": 14, "evidence": "TheokyklosView.tsx SVG <image> nodes" },
+    { "route": "Теокиклос", "block": "segment index", "slot": "segment symbol image", "source": "/theokyklos-symbols/{14 segment ids}.png", "instances": 14, "evidence": "TheokyklosView.tsx index buttons" },
+    { "route": "Теокиклос", "block": "selected segment dialog", "slot": "selected symbol", "source": "/theokyklos-symbols/{selected id}.png", "instances": 1, "evidence": "TheokyklosView.tsx details header" },
+    { "route": "Теокиклос", "block": "selected segment dialog", "slot": "selected full artwork", "source": "/theokyklos-art/{14 segment ids}.webp", "instances": 1, "evidence": "TheokyklosView.tsx details figure" },
+    { "route": "Привычки/Теокиклос links", "block": "sacred sector sigil", "slot": "sector symbol", "source": "/theokyklos-symbols/{sector id}.png", "instances": "one per rendered sigil occurrence", "evidence": "SacredSectorSigil.tsx" },
+    { "route": "Shell", "block": "sidebar brand", "slot": "brand background", "source": "/icons/icon-192.png", "instances": 1, "evidence": "GenesisCalendar.tsx brand-icon" },
+    { "route": "Shell", "block": "account menu", "slot": "remote verified account avatar", "source": "user.photoURL", "instances": 1, "evidence": "GenesisCalendar.tsx account-avatar" },
+    { "route": "Настройки аккаунта", "block": "linked Google account row", "slot": "remote account avatar", "source": "account.photoURL", "instances": "one per linked account", "evidence": "AccountPanel.tsx" },
+    { "route": "Shell", "block": "Google sign-in button", "slot": "official square mark", "source": "/google-signin-light-square.svg", "instances": 1, "evidence": "GenesisCalendar.tsx" },
+    { "route": "Welcome", "block": "Google sign-in button", "slot": "official pill", "source": "/google-signin-light-pill.svg", "instances": 1, "evidence": "WelcomeScreen.tsx" },
+    { "route": "PWA notifications", "block": "notification", "slot": "icon", "source": "/icons/icon-192.png", "instances": 1, "evidence": "habit-notifications.ts icon" },
+    { "route": "PWA notifications", "block": "notification", "slot": "badge", "source": "/icons/icon-192.png", "instances": 1, "evidence": "habit-notifications.ts badge" },
+    { "route": "Metadata/PWA", "block": "app icons", "slot": "192, 512, Apple and maskable manifest entries", "source": "/icons/*.png", "instances": 7, "evidence": "layout.tsx + manifest*.webmanifest" },
+    { "route": "Metadata", "block": "OpenGraph/Twitter", "slot": "share image", "source": "/og.png", "instances": 2, "evidence": "layout.tsx" },
+    { "route": "All", "block": "authored inline icon systems", "slot": "inline SVG and glyphs", "source": "React component inline SVG, MoonPhaseIcon, CronusSickleIcon, navigation symbols and existing CSS", "instances": "all existing occurrences retained; no source icon markup removed", "evidence": "app/*.tsx and app/globals.css" }
+  ],
+  "lockedWidgets": [
+    { "id": "sacred-date-picker", "component": "CalendarDatePicker", "marker": "data-genesis-preserve=sacred-date-picker", "behavior": "authorial year/month/pyata/day dialog" },
+    { "id": "lunar-date-picker", "component": "CalendarDatePicker", "marker": "data-genesis-preserve=lunar-date-picker", "behavior": "actual lunar month and 29/30 day dialog" },
+    { "id": "gregorian-date-picker", "component": "CalendarDatePicker", "marker": "data-genesis-preserve=gregorian-date-picker", "behavior": "current existing native date path retained exactly" },
+    { "id": "custom-time-picker-24h", "component": "TimeClockPicker", "marker": "data-genesis-preserve=custom-time-picker-24h", "behavior": "dual ring authored dialog" },
+    { "id": "custom-time-picker-12h-am-pm", "component": "TimeClockPicker", "marker": "data-genesis-preserve=custom-time-picker-12h", "behavior": "same authored dialog with AM/PM controls" },
+    { "id": "priority-selector", "component": "TaskPriorityControl", "marker": "data-genesis-preserve=task-priority", "behavior": "ten-step authored priority scale" },
+    { "id": "today-hero", "component": "GenesisCalendar hero-card", "marker": "data-genesis-preserve=today-hero-art" },
+    { "id": "month-and-year-calendars", "component": "GenesisCalendar", "marker": "calendar/year data-genesis-preserve markers" },
+    { "id": "achievement-medallions", "component": "AchievementSigil", "marker": "data-genesis-preserve=achievement-medallion" },
+    { "id": "heroic-rank-medallions", "component": "HeroicRankSigil", "marker": "data-genesis-preserve=heroic-rank-medallion" },
+    { "id": "stoicheion", "component": "StoicheionView and StoicheionCardFace", "marker": "data-genesis-preserve=stoicheion" },
+    { "id": "theokyklos", "component": "TheokyklosView and SacredSectorSigil", "marker": "data-genesis-preserve=theokyklos" }
+  ],
+  "baselineScreenshots": [
+    "reports/screenshots/standart-before-desktop.png",
+    "reports/screenshots/standart-before-mobile.png",
+    "reports/screenshots/protected-date-picker-before-mobile.png",
+    "reports/screenshots/protected-time-picker-24h-before-mobile.png"
+  ],
+  "notes": [
+    "Remote OAuth avatars are occurrence-registered but intentionally absent from the file-hash inventory.",
+    "Hidden achievements and conditional artwork keep their original visibility rules.",
+    "Unused historical assets remain included in the 558-file byte inventory so the task cannot silently delete them."
+  ]
+}
