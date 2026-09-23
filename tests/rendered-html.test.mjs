@@ -2266,7 +2266,7 @@ test("Experimental applies one design system across ordinary views and adds safe
   assert.match(calendar, /\["ArrowLeft", "ArrowRight", "Home", "End"\]/);
   assert.match(calendar, /role=\{experimentalThemeActive \? "tabpanel" : undefined\}/);
   assert.match(calendar, /hidden=\{experimentalThemeActive && experimentalTodayTab !== "create"\}/);
-  assert.match(calendar, /hidden=\{experimentalThemeActive && experimentalTaskCreateTab !== "list"\}/);
+  assert.match(calendar, /id="experimental-create-list"[^>]+role="tabpanel"[^>]+hidden=\{experimentalTaskCreateTab !== "list"\}/);
   assert.match(calendar, /const renderAllTasks = \(\) => \{\s+const experimentalThemeActive[^\n]+\s+const isEnglish = language === "en";/);
   assert.match(calendar, /const safeTaskTags = \(task: Task\) => Array\.isArray\(task\.tags\)/);
   assert.match(calendar, /<ViewErrorBoundary resetKey=\{view\}>/);

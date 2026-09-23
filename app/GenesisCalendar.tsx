@@ -1298,6 +1298,7 @@ export function GenesisCalendar() {
   const [experimentalTodayTab, setExperimentalTodayTab] = useState<"tasks" | "create">("tasks");
   const experimentalTodayTabsRef = useRef<HTMLDivElement>(null);
   const [experimentalTaskCreateTab, setExperimentalTaskCreateTab] = useState<"task" | "list">("task");
+  const experimentalTaskCreateTabsRef = useRef<HTMLDivElement>(null);
   const [voiceAssistantOpen, setVoiceAssistantOpen] = useState(false);
   const [voiceLaunchAnimating, setVoiceLaunchAnimating] = useState(false);
   const [geminiOpen, setGeminiOpen] = useState(false);
@@ -5363,12 +5364,27 @@ export function GenesisCalendar() {
         </header>
 
         {experimentalThemeActive ? (
-          <div className="experimental-workspace-tabs experimental-create-tabs" role="tablist" aria-label={isEnglish ? "Create in tasks" : "Создание в задачах"}>
-            <button type="button" role="tab" aria-selected={experimentalTaskCreateTab === "task"} aria-controls="experimental-create-task" onClick={() => setExperimentalTaskCreateTab("task")}>
+          <div
+            ref={experimentalTaskCreateTabsRef}
+            className="experimental-workspace-tabs experimental-create-tabs"
+            role="tablist"
+            tabIndex={-1}
+            aria-label={isEnglish ? "Create in tasks" : "Создание в задачах"}
+            onKeyDown={(event) => {
+              if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+              event.preventDefault();
+              const nextTab = event.key === "ArrowLeft" || event.key === "Home" ? "task" : "list";
+              setExperimentalTaskCreateTab(nextTab);
+              window.requestAnimationFrame(() => experimentalTaskCreateTabsRef.current
+                ?.querySelector<HTMLButtonElement>(`[data-experimental-create-tab="${nextTab}"]`)
+                ?.focus());
+            }}
+          >
+            <button id="experimental-create-tab-task" data-experimental-create-tab="task" type="button" role="tab" tabIndex={experimentalTaskCreateTab === "task" ? 0 : -1} aria-selected={experimentalTaskCreateTab === "task"} aria-controls="experimental-create-task" onClick={() => setExperimentalTaskCreateTab("task")}>
               <span>{isEnglish ? "Task" : "Задача"}</span>
               <strong aria-hidden="true">＋</strong>
             </button>
-            <button type="button" role="tab" aria-selected={experimentalTaskCreateTab === "list"} aria-controls="experimental-create-list" onClick={() => setExperimentalTaskCreateTab("list")}>
+            <button id="experimental-create-tab-list" data-experimental-create-tab="list" type="button" role="tab" tabIndex={experimentalTaskCreateTab === "list" ? 0 : -1} aria-selected={experimentalTaskCreateTab === "list"} aria-controls="experimental-create-list" onClick={() => setExperimentalTaskCreateTab("list")}>
               <span>{isEnglish ? "Task list" : "Список задач"}</span>
               <strong aria-hidden="true">☷</strong>
             </button>
@@ -5376,14 +5392,33 @@ export function GenesisCalendar() {
         ) : null}
 
         <div className="all-tasks-create-grid">
-          <details id="experimental-create-task" className="all-tasks-create" open hidden={experimentalThemeActive && experimentalTaskCreateTab !== "task"}>
-            <summary><span aria-hidden="true">＋</span> Добавить задачу</summary>
-            {renderTaskCreateForm("all-tasks")}
-          </details>
-          <details id="experimental-create-list" className="task-list-create" open={experimentalThemeActive && experimentalTaskCreateTab === "list"} hidden={experimentalThemeActive && experimentalTaskCreateTab !== "list"}>
-            <summary><span aria-hidden="true">☷</span> Создать список задач</summary>
-            {renderTaskListCreateForm("all-tasks")}
-          </details>
+          {experimentalThemeActive ? (
+            <>
+              <section id="experimental-create-task" className="experimental-create-panel" role="tabpanel" aria-labelledby="experimental-create-tab-task" tabIndex={0} hidden={experimentalTaskCreateTab !== "task"}>
+                <details className="all-tasks-create">
+                  <summary><span aria-hidden="true">＋</span> Добавить задачу</summary>
+                  {renderTaskCreateForm("all-tasks")}
+                </details>
+              </section>
+              <section id="experimental-create-list" className="experimental-create-panel" role="tabpanel" aria-labelledby="experimental-create-tab-list" tabIndex={0} hidden={experimentalTaskCreateTab !== "list"}>
+                <details className="task-list-create">
+                  <summary><span aria-hidden="true">☷</span> Создать список задач</summary>
+                  {renderTaskListCreateForm("all-tasks")}
+                </details>
+              </section>
+            </>
+          ) : (
+            <>
+              <details className="all-tasks-create" open>
+                <summary><span aria-hidden="true">＋</span> Добавить задачу</summary>
+                {renderTaskCreateForm("all-tasks")}
+              </details>
+              <details className="task-list-create">
+                <summary><span aria-hidden="true">☷</span> Создать список задач</summary>
+                {renderTaskListCreateForm("all-tasks")}
+              </details>
+            </>
+          )}
         </div>
 
         <div className="all-tasks-toolbar">
@@ -6089,20 +6124,46 @@ export function GenesisCalendar() {
           <div className="content-column" data-exp-layout="stack">
             {authError ? <p className="oauth-callback-error" role="alert">{authError}</p> : null}
             {cloudUser && (!cloudUser.calendarConnected || !cloudUser.googleTasksImportReady) ? (
-              <section className="google-connect-banner" aria-labelledby="google-connect-title">
-                <div>
-                  <span className="eyebrow">Необязательная синхронизация</span>
-                  <h2 id="google-connect-title">Подключите Google Calendar и Google Tasks</h2>
-                  <p>
-                    Вход уже выполнен. Разрешения на календарь и списки задач запрашиваются отдельно и только после вашего нажатия.
-                    GENESIS создаёт собственный календарь, а доступ к Google Tasks нужен для показа и двустороннего изменения выбранных вами списков и задач.
-                  </p>
-                  <p><a href="/privacy">Как GENESIS использует и защищает данные Google</a></p>
-                </div>
-                <button type="button" className="primary-button" onClick={() => void handleGoogleConnect()} disabled={syncStatus === "syncing"}>
-                  {syncStatus === "syncing" ? "Подключаем…" : "Подключить синхронизацию"}
-                </button>
-              </section>
+              themeState.available && themeState.theme === GENESIS_THEME.EXPERIMENTAL ? (
+                <details className="google-connect-banner experimental-google-connect">
+                  <summary>
+                    <span className="experimental-google-connect-mark" aria-hidden="true">↗</span>
+                    <span>
+                      <strong>{language === "en" ? "Google Calendar and Tasks" : "Google Calendar и Tasks"}</strong>
+                      <small>{language === "en" ? "Optional sync · connected only when you choose" : "Необязательная синхронизация · подключается только по вашему решению"}</small>
+                    </span>
+                    <span className="experimental-google-connect-action">{language === "en" ? "Set up" : "Настроить"}</span>
+                  </summary>
+                  <div className="experimental-google-connect-body">
+                    <div>
+                      <h2>Подключите Google Calendar и Google Tasks</h2>
+                      <p>
+                        Вход уже выполнен. Разрешения на календарь и списки задач запрашиваются отдельно и только после вашего нажатия.
+                        GENESIS создаёт собственный календарь, а доступ к Google Tasks нужен для показа и двустороннего изменения выбранных вами списков и задач.
+                      </p>
+                      <p><a href="/privacy">Как GENESIS использует и защищает данные Google</a></p>
+                    </div>
+                    <button type="button" className="primary-button" onClick={() => void handleGoogleConnect()} disabled={syncStatus === "syncing"}>
+                      {syncStatus === "syncing" ? "Подключаем…" : "Подключить синхронизацию"}
+                    </button>
+                  </div>
+                </details>
+              ) : (
+                <section className="google-connect-banner" aria-labelledby="google-connect-title">
+                  <div>
+                    <span className="eyebrow">Необязательная синхронизация</span>
+                    <h2 id="google-connect-title">Подключите Google Calendar и Google Tasks</h2>
+                    <p>
+                      Вход уже выполнен. Разрешения на календарь и списки задач запрашиваются отдельно и только после вашего нажатия.
+                      GENESIS создаёт собственный календарь, а доступ к Google Tasks нужен для показа и двустороннего изменения выбранных вами списков и задач.
+                    </p>
+                    <p><a href="/privacy">Как GENESIS использует и защищает данные Google</a></p>
+                  </div>
+                  <button type="button" className="primary-button" onClick={() => void handleGoogleConnect()} disabled={syncStatus === "syncing"}>
+                    {syncStatus === "syncing" ? "Подключаем…" : "Подключить синхронизацию"}
+                  </button>
+                </section>
+              )
             ) : null}
             <ViewErrorBoundary resetKey={view}>
               {view === "today" ? renderToday() : null}
