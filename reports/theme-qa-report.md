@@ -1,6 +1,6 @@
 # Experimental theme 1.1 — local QA
 
-Baseline commit: `6b0d2bbbaa38be508661fce2e77cc5e865df416b` (`origin/master`).
+Baseline commit for the corrective pass: `f136d764ec1df9337b41e6853a8c5db785da5c5e` (`origin/master`).
 
 ## Preservation gates
 
@@ -19,7 +19,7 @@ Machine-readable evidence:
 
 ## Visual evidence
 
-The before/after Standart screenshots were captured at the same viewports. Differences are limited to live clock/animation rasterization: desktop mean absolute RGB difference 0.639 and mobile 0.493. The original Experimental captures below record the first integration and are retained for comparison; they predate the application-wide component coverage revision. Fresh authenticated production captures are required after that revision is deployed because the local environment has no verified Google session.
+The before/after Standart screenshots were captured at the same viewports. Differences are limited to live clock/animation rasterization: desktop mean absolute RGB difference 0.639 and mobile 0.493. The repository captures below record the first integration and remain useful for asset-placement comparison. Authenticated production inspection of the first application-wide revision exposed two defects that this pass corrects: `#all-tasks` crashed on an unscoped locale variable, and dark feature headers inherited light-surface typography. Fresh production captures are required after this corrective commit is deployed.
 
 - `reports/screenshots/standart-before-desktop.png`
 - `reports/screenshots/standart-after-desktop.png`
@@ -39,14 +39,17 @@ The before/after Standart screenshots were captured at the same viewports. Diffe
 
 - `pnpm install --frozen-lockfile`: passed.
 - `pnpm lint`: passed.
-- `pnpm test`: 63/63 passed, including clean URL coverage and application-wide Experimental component coverage.
-- `pnpm build:beget`: passed; 10 mandatory entry assets and 90 visual assets in offline precache. The generated 522.22 kB CSS artifact contains `html[data-genesis-theme=experimental]`, the `--gx-*` token layer, view/dialog hooks and responsive workspace tabs.
+- `pnpm test`: 63/63 passed, including an explicit scope regression for the Tasks locale variable and application-wide Experimental component coverage.
+- `pnpm build:beget`: passed; 10 mandatory entry assets and 90 visual assets in offline precache. The generated 529.18 kB CSS artifact contains `html[data-genesis-theme=experimental]`, the `--gx-*` token layer, view/dialog hooks, responsive workspace tabs and the mobile navigation dock.
 - `pnpm test:preservation`: passed.
 - PHP smoke suite was extended for the default, update, revision increment and stale-write conflict. It could not be executed locally because this Windows host has no PHP runtime; CI is already configured to execute it before any deployment mutation.
 
 ## Operational notes
 
-- The coverage revision adds Experimental-only tabs for the ordinary Today and Tasks workspaces. Both tab panels remain mounted, so switching does not discard form state. It also adds an Experimental-only expand/collapse-all action for the existing habit disclosures.
+- The coverage revision adds Experimental-only tabs for the ordinary Today and Tasks workspaces. Both tab panels remain mounted, so switching does not discard form state.
+- The corrective pass adds four Experimental-only Habit workspaces: Today, Habits, Modules and Progress. Existing trackers, settings, art and histories remain mounted and unchanged; the tabs only control which ordinary section group is visible.
+- The mobile Experimental navigation is now an explicit five-column, two-row dock with readable labels, strong selected state and safe-area spacing.
+- Dark authored feature surfaces keep their original backgrounds and now use dedicated on-dark typography. Light Experimental headers use a complete `background` override rather than a conflicting `background-color`, preventing inherited gradients and text colors from merging.
 - Ordinary component coverage now includes shell/navigation/topbar, Today cards, task rows and empty states, task/list creation, project surfaces, habit panels and rows, account settings, admin statistics/tables, ordinary dialogs, fields, buttons, notices and mobile layouts.
 - Authored calendar grids, date pickers, both time pickers, priority controls, Stoicheion, Theokyklos, art panels, sigils and all media remain outside the generic component selectors.
 - Migration `012_account_theme.sql` is additive and defaults existing accounts to `standart` without a mass update. Code rollback can leave the two unused columns in place; database rollback remains a separately approved operation under the repository policy.
