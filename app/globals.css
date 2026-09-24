@@ -11229,7 +11229,7 @@ button.project-drag-handle:active { cursor: grabbing; }
 .theokyklos-hero::after { right: 58px; bottom: -154px; width: 300px; height: 300px; }
 
 .theokyklos-hero-copy { position: relative; z-index: 1; max-width: 750px; }
-.theokyklos-hero .eyebrow { color: #dfbd70; }
+.theokyklos-hero .eyebrow { color: #dfbd70; font-size: 11px; }
 .theokyklos-hero h1 {
   margin: 8px 0 12px;
   font: 400 clamp(48px, 7vw, 84px)/.95 Georgia, "Times New Roman", serif;
@@ -11240,7 +11240,7 @@ button.project-drag-handle:active { cursor: grabbing; }
   max-width: 690px;
   margin: 0;
   color: #b9c7c2;
-  font: 400 13px/1.7 Georgia, "Times New Roman", serif;
+  font: 400 clamp(15px, 1.35vw, 18px)/1.7 Georgia, "Times New Roman", serif;
 }
 
 .theokyklos-hero-seal {
@@ -11314,7 +11314,7 @@ button.project-drag-handle:active { cursor: grabbing; }
   min-width: 0;
   width: 100%;
   min-height: calc(100dvh - 34px);
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr);
   padding: clamp(18px, 3vw, 30px);
   color: #eae3d6;
   background:
@@ -11335,12 +11335,13 @@ button.project-drag-handle:active { cursor: grabbing; }
 }
 
 .theokyklos-mandala-heading .eyebrow { color: #d8b96e; }
-.theokyklos-mandala-heading h2 { margin: 4px 0 0; font: 400 clamp(24px, 3vw, 36px)/1 Georgia, serif; }
-.theokyklos-mandala-heading p { max-width: 220px; margin: 0; color: #8ea39f; font-size: 8px; line-height: 1.55; text-align: right; }
+.theokyklos-mandala-heading .eyebrow { font-size: 10px; }
+.theokyklos-mandala-heading h2 { margin: 5px 0 0; font: 400 clamp(30px, 3.4vw, 46px)/1 Georgia, serif; }
+.theokyklos-mandala-heading p { max-width: 310px; margin: 0; color: #a9bab5; font-size: 14px; line-height: 1.55; text-align: right; }
 
 .theokyklos-mandala-viewport {
   display: grid;
-  width: min(100%, 1040px);
+  width: min(100%, 1180px);
   margin: 0 auto;
   place-items: center;
 }
@@ -11390,8 +11391,8 @@ button.project-drag-handle:active { cursor: grabbing; }
 .theokyklos-svg-segment:hover .theokyklos-mandala-icon,
 .theokyklos-svg-segment:focus-visible .theokyklos-mandala-icon,
 .theokyklos-svg-segment.is-selected .theokyklos-mandala-icon { opacity:1; filter:drop-shadow(0 0 11px color-mix(in srgb,var(--segment-color,#d5b66e) 78%,transparent)); transform:scale(1.08); }
-.theokyklos-segment-direction { fill: #eee7d9; font-size: 12px; font-weight: 950; letter-spacing: .01em; }
-.theokyklos-segment-name { fill: #91aaa5; font-size: 9px; font-weight: 700; }
+.theokyklos-segment-direction { fill: #f4eee3; font-size: 16px; font-weight: 950; letter-spacing: .005em; }
+.theokyklos-segment-name { fill: #a9bdb8; font-size: 12px; font-weight: 700; }
 .theokyklos-svg-segment.is-selected .theokyklos-segment-name { fill: #f0e7d7; }
 
 .theokyklos-hearth-hit { fill: none; stroke: transparent; stroke-width: 58; pointer-events: stroke; }
@@ -11399,19 +11400,19 @@ button.project-drag-handle:active { cursor: grabbing; }
 .hearth-segment:hover .theokyklos-hearth-line,
 .hearth-segment:focus-visible .theokyklos-hearth-line,
 .hearth-segment.is-selected .theokyklos-hearth-line { stroke: #f0b866; stroke-width: 8; filter: url(#theokyklos-soft-glow); }
-.theokyklos-ring-label { pointer-events: none; fill: #d69d58; font: 800 12px/1 system-ui, sans-serif; letter-spacing: .08em; text-transform: uppercase; }
-.theokyklos-ring-patron { fill: #f0c982; font-size: 9px; letter-spacing: .12em; }
+.theokyklos-ring-label { pointer-events: none; fill: #e4aa63; font: 800 15px/1 system-ui, sans-serif; letter-spacing: .08em; text-transform: uppercase; }
+.theokyklos-ring-patron { fill: #f2d395; font-size: 11px; letter-spacing: .12em; }
 
 .theokyklos-center-disc { fill: rgba(144, 50, 51, .54); stroke: #e0ad64; stroke-width: 2; }
 .theokyklos-center-line { fill: none; stroke: rgba(251, 222, 153, .35); stroke-width: 1; stroke-dasharray: 2 5; }
 .center-segment:hover .theokyklos-center-disc,
 .center-segment:focus-visible .theokyklos-center-disc,
 .center-segment.is-selected .theokyklos-center-disc { fill: rgba(164, 58, 57, .78); stroke: #f3d38a; filter: url(#theokyklos-soft-glow); }
-.theokyklos-center-label { pointer-events: none; fill: #f2dfb0; font: 800 10px/1 system-ui, sans-serif; letter-spacing: .05em; text-transform: uppercase; }
-.theokyklos-center-caption { fill: #e8b96d; font-size: 8px; letter-spacing: .14em; }
+.theokyklos-center-label { pointer-events: none; fill: #f5e5bd; font: 800 13px/1 system-ui, sans-serif; letter-spacing: .04em; text-transform: uppercase; }
+.theokyklos-center-caption { fill: #efc57f; font-size: 10px; letter-spacing: .12em; }
 
 .axis-node circle { fill: #102b2d; stroke: rgba(213, 182, 110, .58); stroke-width: 2; }
-.axis-node text { pointer-events: none; fill: #e7d69e; font: 900 8px/1 system-ui, sans-serif; letter-spacing: .1em; }
+.axis-node text { pointer-events: none; fill: #eee0ad; font: 900 11px/1 system-ui, sans-serif; letter-spacing: .09em; }
 .nadir-node circle { fill: #1b2028; stroke: rgba(150, 143, 179, .66); }
 .nadir-node text { fill: #c5bfda; }
 .axis-node:hover circle,
@@ -11419,7 +11420,7 @@ button.project-drag-handle:active { cursor: grabbing; }
 .axis-node.is-selected circle { stroke-width: 5; filter: url(#theokyklos-soft-glow); }
 
 .threshold-node path { fill: rgba(213, 182, 110, .04); stroke: rgba(213, 182, 110, .55); stroke-width: 4; }
-.threshold-node text { pointer-events: none; fill: #d9c48d; font: 900 8px/1 system-ui, sans-serif; letter-spacing: .1em; }
+.threshold-node text { pointer-events: none; fill: #ead7a2; font: 900 11px/1 system-ui, sans-serif; letter-spacing: .09em; }
 .exit-node path { stroke: rgba(175, 131, 160, .7); }
 .exit-node text { fill: #d8b7d0; }
 .threshold-node:hover path,
@@ -11428,67 +11429,9 @@ button.project-drag-handle:active { cursor: grabbing; }
 
 .theokyklos-stars { pointer-events: none; fill: #d5b66e; stroke: #d5b66e; stroke-width: 1; opacity: .48; }
 
-.theokyklos-segment-index {
-  --theokyklos-index-columns: 7;
-  display: grid;
-  grid-template-columns: repeat(var(--theokyklos-index-columns), minmax(0, 1fr));
-  gap: 6px;
-  padding-top: 16px;
-  border-top: 1px solid rgba(213, 182, 110, .13);
-}
-
-.theokyklos-segment-index button {
-  display: grid;
-  min-width: 0;
-  min-height: 70px;
-  place-items: center;
-  gap: 2px;
-  padding: 8px 5px;
-  color: #8fa5a0;
-  background: rgba(255, 255, 255, .025);
-  border: 1px solid rgba(255, 255, 255, .07);
-  border-radius: 10px;
-  cursor: pointer;
-}
-
-.theokyklos-segment-index button:hover,
-.theokyklos-segment-index button.active { color: #f0e6d5; background: rgba(213, 182, 110, .1); border-color: rgba(213, 182, 110, .42); }
-.theokyklos-segment-index img { display:block; width:38px; height:38px; object-fit:contain; filter:drop-shadow(0 0 5px rgba(217,186,114,.3)); transition:filter 180ms ease,transform 180ms ease; }
-.theokyklos-segment-index button:hover img,
-.theokyklos-segment-index button.active img { filter:drop-shadow(0 0 9px rgba(217,186,114,.62)); transform:scale(1.08); }
-.theokyklos-segment-index small { font-size: 6px; font-weight: 950; letter-spacing: .09em; text-transform: uppercase; }
-.theokyklos-segment-index strong { max-width: 100%; overflow: hidden; font: 500 8px/1.2 Georgia, serif; text-overflow: ellipsis; white-space: nowrap; }
-
-.theokyklos-threshold-row {
-  display: contents;
-}
-
-.theokyklos-threshold-card.threshold-entrance,
-.theokyklos-threshold-card.threshold-exit { grid-column: auto; }
-
-.theokyklos-threshold-ornament {
-  display: none;
-  min-width: 0;
-  place-items: center;
-  color: #d5b66e;
-  pointer-events: none;
-  opacity: .24;
-}
-
-.theokyklos-threshold-ornament svg {
-  width: min(150px, 78%);
-  overflow: visible;
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.35;
-}
-
-.theokyklos-threshold-ornament circle { fill: currentColor; stroke: none; }
-
 .theokyklos-details {
   --detail-accent: #a66d39;
+  --theokyklos-ink: #102a2c;
   position: relative;
   display: grid;
   grid-auto-rows: max-content;
@@ -11559,9 +11502,9 @@ button.project-drag-handle:active { cursor: grabbing; }
 .theokyklos-details > header { display: grid; grid-template-columns: 58px minmax(0, 1fr); align-items: center; gap: 14px; }
 .theokyklos-details-symbol { display: grid; width: 58px; height: 58px; place-items: center; background: color-mix(in srgb, var(--detail-accent) 10%, #fff); border: 1px solid color-mix(in srgb, var(--detail-accent) 28%, transparent); border-radius: 50%; }
 .theokyklos-details-symbol img { display:block; width:54px; height:54px; object-fit:contain; filter:drop-shadow(0 0 8px color-mix(in srgb,var(--detail-accent) 58%,transparent)); }
-.theokyklos-details .eyebrow { color: var(--detail-accent); }
+.theokyklos-details .eyebrow { color: var(--detail-accent); font-size: 10px; }
 .theokyklos-details h2 { margin: 4px 0 3px; font: 400 clamp(27px, 3vw, 40px)/1.02 Georgia, serif; letter-spacing: -.03em; }
-.theokyklos-details header strong { color: var(--detail-accent); font-size: 12px; letter-spacing: .09em; text-transform: uppercase; }
+.theokyklos-details header strong { color: var(--detail-accent); font-size: 14px; letter-spacing: .075em; text-transform: uppercase; }
 .theokyklos-details-art {
   position: relative;
   min-height: 0;
@@ -11584,8 +11527,8 @@ button.project-drag-handle:active { cursor: grabbing; }
   box-shadow: inset 0 0 30px rgba(3, 15, 18, .22);
 }
 .theokyklos-details-art img { display: block; width: 100%; height: 100%; object-fit: cover; }
-.theokyklos-essence { margin: 0; color: var(--detail-accent); font: 600 14px/1.5 Georgia, serif; }
-.theokyklos-description { margin: 0; color: #536965; font: 400 12px/1.7 Georgia, serif; }
+.theokyklos-essence { max-width: 70ch; margin: 0; color: var(--detail-accent); font: 600 clamp(16px, 1.5vw, 19px)/1.55 Georgia, serif; }
+.theokyklos-description { max-width: 72ch; margin: 0; color: #435d59; font: 400 clamp(15px, 1.35vw, 17px)/1.75 Georgia, serif; }
 
 .theokyklos-incantation {
   display: grid;
@@ -11594,34 +11537,34 @@ button.project-drag-handle:active { cursor: grabbing; }
   border-top: 1px solid color-mix(in srgb, var(--detail-accent) 24%, transparent);
 }
 
-.theokyklos-incantation h3 { margin: 3px 0 0; font: 400 23px/1.1 Georgia, serif; }
-.theokyklos-incantation > p { margin: 0; color: #748581; font-size: 8px; line-height: 1.55; }
+.theokyklos-incantation h3 { margin: 4px 0 0; font: 400 clamp(24px, 2.4vw, 30px)/1.1 Georgia, serif; }
+.theokyklos-incantation > p { max-width: 70ch; margin: 0; color: #617772; font-size: 14px; line-height: 1.6; }
 .theokyklos-incantation ol { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; counter-reset: sacred-word; }
 .theokyklos-incantation li { display: grid; grid-template-columns: minmax(88px, .62fr) minmax(0, 1fr); align-items: center; gap: 12px; padding: 11px 12px; background: rgba(255, 255, 255, .58); border: 1px solid color-mix(in srgb, var(--detail-accent) 15%, rgba(33, 56, 56, .09)); border-radius: 11px; counter-increment: sacred-word; }
-.theokyklos-incantation li > span { color: var(--detail-accent); font: 500 19px/1.1 Georgia, serif; }
+.theokyklos-incantation li > span { color: var(--detail-accent); font: 500 22px/1.15 Georgia, serif; }
 .theokyklos-incantation li > div { display: grid; min-width: 0; gap: 3px; }
-.theokyklos-incantation li strong { color: #243f3e; font-size: 9px; }
-.theokyklos-incantation li small { color: #73837f; font: 400 9px/1.35 Georgia, serif; }
+.theokyklos-incantation li strong { color: #243f3e; font-size: 14px; }
+.theokyklos-incantation li small { color: #607570; font: 400 13px/1.45 Georgia, serif; }
 
 .theokyklos-sacred-practices { display: grid; gap: 12px; padding-top: 18px; border-top: 1px solid color-mix(in srgb, var(--detail-accent) 24%, transparent); }
 .theokyklos-sacred-practices > header { display: flex; align-items: end; justify-content: space-between; gap: 14px; }
-.theokyklos-sacred-practices h3 { margin: 3px 0 0; font: 400 23px/1.1 Georgia, serif; }
-.theokyklos-sacred-practices > header button { padding: 7px 10px; color: var(--detail-accent); border: 1px solid color-mix(in srgb, var(--detail-accent) 24%, transparent); border-radius: 999px; background: rgba(255,255,255,.48); cursor: pointer; font-size: 8px; font-weight: 800; }
-.theokyklos-sacred-practices > p { margin: 0; color: #6d807c; font-size: 9px; line-height: 1.55; }
+.theokyklos-sacred-practices h3 { margin: 4px 0 0; font: 400 clamp(24px, 2.4vw, 30px)/1.1 Georgia, serif; }
+.theokyklos-sacred-practices > header button { min-height: 44px; padding: 9px 14px; color: var(--detail-accent); border: 1px solid color-mix(in srgb, var(--detail-accent) 24%, transparent); border-radius: 999px; background: rgba(255,255,255,.48); cursor: pointer; font-size: 13px; font-weight: 800; }
+.theokyklos-sacred-practices > p { max-width: 70ch; margin: 0; color: #5e7570; font-size: 14px; line-height: 1.6; }
 .theokyklos-sacred-practices > div { display: grid; gap: 8px; }
 .theokyklos-sacred-practices article { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center; gap: 11px; padding: 12px; background: color-mix(in srgb, var(--practice-color) 5%, rgba(255,255,255,.6)); border: 1px solid color-mix(in srgb, var(--practice-color) 20%, rgba(33,56,56,.08)); border-left: 3px solid var(--practice-color); border-radius: 4px 12px 4px 12px; }
 .theokyklos-sacred-practices article.paused { opacity: .65; }
 .theokyklos-sacred-practices article > span { display: grid; width: 42px; height: 42px; place-items: center; background: rgba(255,255,255,.58); border: 1px solid color-mix(in srgb, var(--practice-color) 18%, transparent); border-radius: 50%; font-size: 21px; }
 .theokyklos-sacred-practices article > div { display: grid; gap: 3px; min-width: 0; }
-.theokyklos-sacred-practices article small { color: var(--practice-color); font-size: 6px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
-.theokyklos-sacred-practices article strong { color: #223c3b; font: 600 13px/1.2 Georgia, serif; }
-.theokyklos-sacred-practices article p { margin: 0; color: #617773; font-size: 8px; line-height: 1.45; }
-.theokyklos-sacred-practices article blockquote { margin: 2px 0 0; color: #7e7160; font: italic 8px/1.45 Georgia, serif; }
-.theokyklos-sacred-practices article > button { min-width: 104px; min-height: 36px; padding: 7px 10px; color: #fff; border: 0; border-radius: 999px; background: var(--practice-color); cursor: pointer; font-size: 8px; font-weight: 850; }
+.theokyklos-sacred-practices article small { color: var(--practice-color); font-size: 10px; font-weight: 900; letter-spacing: .09em; text-transform: uppercase; }
+.theokyklos-sacred-practices article strong { color: #223c3b; font: 600 16px/1.25 Georgia, serif; }
+.theokyklos-sacred-practices article p { margin: 0; color: #516b66; font-size: 14px; line-height: 1.55; }
+.theokyklos-sacred-practices article blockquote { margin: 3px 0 0; color: #6d604f; font: italic 13px/1.55 Georgia, serif; }
+.theokyklos-sacred-practices article > button { min-width: 112px; min-height: 44px; padding: 9px 13px; color: #fff; border: 0; border-radius: 999px; background: var(--practice-color); cursor: pointer; font-size: 13px; font-weight: 850; }
 .theokyklos-sacred-practices article > button.completed { color: #315c57; background: rgba(45,119,113,.12); border: 1px solid rgba(45,119,113,.24); }
 .theokyklos-sacred-practices article > button:disabled { cursor: not-allowed; opacity: .42; }
 .theokyklos-practice-actions { display: grid; gap: 6px; min-width: 104px; }
-.theokyklos-practice-actions button { min-height: 34px; padding: 7px 10px; color: #fff; border: 0; border-radius: 999px; background: var(--practice-color); cursor: pointer; font-size: 8px; font-weight: 850; }
+.theokyklos-practice-actions button { min-height: 44px; padding: 9px 13px; color: #fff; border: 0; border-radius: 999px; background: var(--practice-color); cursor: pointer; font-size: 13px; font-weight: 850; }
 .theokyklos-practice-actions button.completed { color: #315c57; background: rgba(45,119,113,.12); border: 1px solid rgba(45,119,113,.24); }
 .theokyklos-practice-actions button.disable { color: #7a554f; border: 1px solid rgba(132,83,72,.22); background: rgba(132,83,72,.07); }
 .theokyklos-practice-actions button:disabled { cursor: not-allowed; opacity: .42; }
@@ -11652,35 +11595,27 @@ button.project-drag-handle:active { cursor: grabbing; }
   }
 }
 
-@media (max-width: 1180px) {
-  .theokyklos-segment-index { --theokyklos-index-columns: 5; }
-}
-
-@media (max-width: 920px) {
-  .theokyklos-segment-index { --theokyklos-index-columns: 7; }
-}
-
 @media (max-width: 760px) {
   .theokyklos-view { gap: 13px; }
   .theokyklos-hero { min-height: 0; grid-template-columns: minmax(0, 1fr) 72px; gap: 13px; padding: 25px 19px; border-radius: 5px 24px 5px 24px; }
   .theokyklos-hero h1 { font-size: clamp(43px, 14vw, 60px); }
-  .theokyklos-hero-copy > p { font-size: 10px; line-height: 1.55; }
+  .theokyklos-hero-copy > p { font-size: 16px; line-height: 1.65; }
   .theokyklos-hero-seal { width: 72px; height: 72px; }
   .theokyklos-hero-seal::after { inset: 8px; }
   .theokyklos-hero-seal::before { inset: -29px; }
   .theokyklos-hero-seal span { font-size: 40px; }
   .theokyklos-mandala-card { padding: 15px 9px; border-radius: 5px 22px 5px 22px; }
   .theokyklos-mandala-heading { align-items: start; flex-direction: column; gap: 8px; padding-inline: 8px; }
-  .theokyklos-mandala-heading h2 { font-size: 27px; }
-  .theokyklos-mandala-heading p { max-width: none; text-align: left; }
+  .theokyklos-mandala-heading h2 { font-size: clamp(30px, 9vw, 38px); }
+  .theokyklos-mandala-heading p { max-width: none; font-size: 15px; text-align: left; }
   .theokyklos-segment-name { display: none; }
-  .theokyklos-segment-direction { font-size: 15px; }
-  .theokyklos-segment-index { --theokyklos-index-columns: 4; gap: 5px; padding-inline: 3px; }
-  .theokyklos-segment-index button { min-height: 64px; }
-  .theokyklos-threshold-row { display:grid; grid-column:1 / -1; grid-template-columns:repeat(var(--theokyklos-index-columns),minmax(0,1fr)); gap:inherit; }
-  .theokyklos-threshold-card.threshold-entrance { grid-column:1; }
-  .theokyklos-threshold-card.threshold-exit { grid-column:-2 / -1; }
-  .theokyklos-threshold-ornament { display:grid; grid-column:2 / -2; }
+  .theokyklos-segment-direction { font-size: 24px; }
+  .theokyklos-ring-label { font-size: 20px; }
+  .theokyklos-ring-patron { font-size: 15px; }
+  .theokyklos-center-label { font-size: 17px; }
+  .theokyklos-center-caption { font-size: 14px; }
+  .axis-node text,
+  .threshold-node text { font-size: 19px; }
   .modal-backdrop.theokyklos-details-backdrop { padding: 0; }
   .theokyklos-details { width: 100%; height: 100dvh; max-height: none; gap: 15px; padding: 68px 17px 30px; border: 0; border-radius: 0; }
   .theokyklos-details-close { position: fixed; top: 15px; right: 15px; }
@@ -11689,9 +11624,10 @@ button.project-drag-handle:active { cursor: grabbing; }
   .theokyklos-details-symbol img { width:46px; height:46px; }
   .theokyklos-details h2 { font-size: clamp(27px, 9vw, 36px); }
   .theokyklos-details-art { margin-inline: -17px; border-inline: 0; border-radius: 0; }
-  .theokyklos-description { font-size: 11px; }
+  .theokyklos-essence { font-size: 17px; }
+  .theokyklos-description { font-size: 16px; }
   .theokyklos-incantation li { grid-template-columns: 94px minmax(0, 1fr); }
-  .theokyklos-incantation li > span { font-size: 17px; }
+  .theokyklos-incantation li > span { font-size: 21px; }
   .theokyklos-sacred-practices article { grid-template-columns: 40px minmax(0, 1fr); }
   .theokyklos-sacred-practices article > button { grid-column: 1 / -1; width: 100%; }
   .theokyklos-practice-actions { grid-column: 1 / -1; grid-template-columns: repeat(2,minmax(0,1fr)); width: 100%; }
@@ -11701,6 +11637,8 @@ button.project-drag-handle:active { cursor: grabbing; }
   .theokyklos-hero { grid-template-columns: minmax(0, 1fr); }
   .theokyklos-hero-seal { width: 62px; height: 62px; justify-self: end; margin: -3px 12px 0 0; }
   .theokyklos-hero-seal span { font-size: 34px; }
+  .axis-node text,
+  .threshold-node text { font-size: 34px; letter-spacing: .045em; }
   .theokyklos-incantation li { grid-template-columns: minmax(0, 1fr); gap: 5px; }
 }
 
@@ -12374,8 +12312,32 @@ button.project-drag-handle:active { cursor: grabbing; }
 .sacred-sector-modal > header .eyebrow { color:#d8b96e; }
 .sacred-sector-modal > header h2 { margin:0; font:500 clamp(26px,4vw,38px)/1.05 Georgia,serif; }
 .sacred-sector-modal .modal-close { color:#f0e5cf; border-color:rgba(213,182,110,.28); background:rgba(255,255,255,.04); }
+.sacred-sector-header-close { display:grid; place-items:center; }
+.sacred-sector-header-close .sacred-dialog-action-icon { width:22px; height:22px; }
 .sacred-sector-modal-actions { display:flex; justify-content:flex-end; gap:8px; }
-.sacred-sector-modal-actions button { color:#e5cc8b; border-color:rgba(213,182,110,.26); background:rgba(213,182,110,.07); }
+.sacred-sector-modal-actions button {
+  display:inline-flex;
+  min-height:48px;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  padding:10px 17px;
+  border-radius:999px;
+  cursor:pointer;
+  font-size:13px;
+  font-weight:850;
+  transition:color 180ms ease,background 180ms ease,border-color 180ms ease,box-shadow 180ms ease,transform 180ms ease;
+}
+.sacred-dialog-action-icon { width:28px; height:28px; overflow:visible; fill:none; stroke:currentColor; stroke-width:1.55; stroke-linecap:round; stroke-linejoin:round; }
+.sacred-dialog-action-icon circle:first-child { fill:rgba(255,255,255,.055); }
+.sacred-dialog-action-ray { opacity:.52; transition:opacity 180ms ease,transform 180ms ease; transform-box:fill-box; transform-origin:center; }
+.sacred-description-button { color:#102a2c; border-color:#e4c779; background:linear-gradient(145deg,#f0d994,#d9b966); box-shadow:0 10px 24px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.54); }
+.sacred-description-button:hover { color:#07191d; border-color:#f3df9f; background:linear-gradient(145deg,#f5e2a7,#e1c475); box-shadow:0 14px 30px rgba(0,0,0,.26),inset 0 1px 0 rgba(255,255,255,.68); transform:translateY(-2px); }
+.sacred-description-button:hover .sacred-dialog-action-ray { opacity:1; transform:rotate(45deg); }
+.sacred-sector-close-button { color:#e8d6aa; border-color:rgba(213,182,110,.3); background:rgba(255,255,255,.035); }
+.sacred-sector-close-button:hover { color:#fff3d5; border-color:rgba(235,207,142,.62); background:rgba(213,182,110,.11); transform:translateY(-1px); }
+.sacred-sector-modal-actions button:focus-visible,
+.sacred-sector-header-close:focus-visible { outline:3px solid rgba(238,207,132,.48); outline-offset:3px; }
 
 .habit-editor-backdrop { z-index: 150; align-items: flex-start; padding: 28px; overflow-y: auto; }
 .habit-editor {

@@ -913,6 +913,51 @@ html[data-genesis-theme="experimental"] [data-exp-ui="dialog"] .modal-close {
   border-radius: var(--gx-radius-control);
 }
 
+html[data-genesis-theme="experimental"] .sacred-sector-modal-actions button {
+  box-sizing: border-box;
+  min-height: var(--gx-size-control);
+  gap: var(--gx-space-2);
+  padding: 10px 16px;
+  color: var(--gx-color-ink);
+  background: var(--gx-color-surface);
+  border: 1px solid var(--gx-color-control-border);
+  border-radius: var(--gx-radius-control);
+  box-shadow: none;
+  font: 700 14px/1.35 var(--gx-font-ui);
+  transform: none;
+}
+
+html[data-genesis-theme="experimental"] .sacred-sector-modal-actions .sacred-description-button {
+  color: var(--gx-color-white);
+  background: var(--gx-color-accent);
+  border-color: var(--gx-color-accent);
+}
+
+html[data-genesis-theme="experimental"] .sacred-sector-modal-actions button:hover {
+  border-color: var(--gx-color-accent);
+  box-shadow: none;
+  transform: none;
+}
+
+html[data-genesis-theme="experimental"] .sacred-sector-modal-actions .sacred-description-button:hover {
+  color: var(--gx-color-white);
+  background: var(--gx-color-accent-hover);
+}
+
+html[data-genesis-theme="experimental"] .sacred-sector-modal-actions .sacred-dialog-action-icon {
+  width: 22px;
+  height: 22px;
+}
+
+html[data-genesis-theme="experimental"] .sacred-sector-header-close {
+  width: 44px;
+  height: 44px;
+  color: var(--gx-color-on-dark);
+  background: rgba(255,255,255,.07);
+  border-color: rgba(248,243,232,.25);
+  border-radius: var(--gx-radius-control);
+}
+
 html[data-genesis-theme="experimental"] .account-panel {
   padding: clamp(22px, 4vw, 42px);
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useMemo, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import {
   THEOKYKLOS_DIRECTION_IDS,
   THEOKYKLOS_SEGMENTS,
@@ -10,21 +10,10 @@ import {
 } from "./theokyklos-data";
 import type { Language } from "./i18n";
 import type { CalendarMode } from "./calendar-data";
-import {
-  createHabitFromSacredPractice,
-  habitDateKey,
-  isHabitScheduledForDate,
-  updateHabitCompletion,
-  type HabitWorkspace,
-} from "./habits";
-import {
-  isSacredPracticeSectorId,
-  sacredPracticesForSector,
-  type SacredPracticeSectorId,
-} from "./sacred-practices";
-import { markTrackerEntityChanged } from "./tracker-core";
-import { useDialogAccessibility } from "./use-dialog-accessibility";
-import { THEOKYKLOS_DETAIL_ART, THEOKYKLOS_SYMBOL_ART } from "./theokyklos-assets";
+import type { HabitWorkspace } from "./habits";
+import type { SacredPracticeSectorId } from "./sacred-practices";
+import { THEOKYKLOS_SYMBOL_ART } from "./theokyklos-assets";
+import { TheokyklosDetailsDialog } from "./TheokyklosDetailsDialog";
 
 type Point = { x: number; y: number };
 
@@ -58,25 +47,6 @@ function annularSectorPath(centerAngle: number, innerRadius = 174, outerRadius =
   ].join(" ");
 }
 
-function groupLabel(segment: TheokyklosSegment, language: Language) {
-  const labels = language === "en"
-    ? {
-        paired: "Vector of transformation",
-        single: "Self-sufficient vector",
-        axis: "Vertical axis of power",
-        core: "Center and hearth",
-        threshold: "Guardian of the threshold",
-      }
-    : {
-        paired: "Вектор трансформации",
-        single: "Самодостаточный вектор",
-        axis: "Вертикаль силы",
-        core: "Центр и очаг",
-        threshold: "Страж порога",
-      };
-  return labels[segment.group];
-}
-
 function directionLabel(id: TheokyklosSegmentId, language: Language) {
   const labels: Record<(typeof THEOKYKLOS_DIRECTION_IDS)[number], TheokyklosLocalizedText> = {
     north: { ru: "Север", en: "North" },
@@ -107,25 +77,11 @@ export function TheokyklosView({ language, workspace, date, calendarMode, initia
   const segmentsById = useMemo(() => new Map(THEOKYKLOS_SEGMENTS.map((segment) => [segment.id, segment])), []);
   const directions = THEOKYKLOS_DIRECTION_IDS.map((id) => segmentsById.get(id)).filter((segment): segment is TheokyklosSegment => Boolean(segment));
   const selected = selectedId ? segmentsById.get(selectedId) ?? null : null;
-  const selectedPracticeSectorId = selected && isSacredPracticeSectorId(selected.id) ? selected.id : null;
-  const sectorHabits = selectedPracticeSectorId ? workspace.habits.filter((habit) => habit.sacredSectorId === selectedPracticeSectorId) : [];
-  const sectorPractices = selectedPracticeSectorId ? sacredPracticesForSector(selectedPracticeSectorId) : [];
 
   const closeSelected = () => {
     setSelectedId(null);
     onSelectedSectorClosed?.();
   };
-  const detailsDialogRef = useDialogAccessibility<HTMLElement>(closeSelected, Boolean(selected));
-
-  useEffect(() => {
-    if (!selectedId) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [selectedId]);
-
   const selectSegment = (id: TheokyklosSegmentId) => {
     setSelectedId(id);
   };
@@ -216,8 +172,8 @@ export function TheokyklosView({ language, workspace, date, calendarMode, initia
                     key={segment.id}
                   >
                     <path className="theokyklos-segment-shape" d={annularSectorPath(segment.angle!)} />
-                    <image className="theokyklos-mandala-icon theokyklos-direction-icon" href={THEOKYKLOS_SYMBOL_ART[segment.id]} x={label.x - 29} y={label.y - 48} width="58" height="58" preserveAspectRatio="xMidYMid meet" />
-                    <text className="theokyklos-segment-label" x={label.x} y={label.y + 20} textAnchor="middle">
+                    <image className="theokyklos-mandala-icon theokyklos-direction-icon" href={THEOKYKLOS_SYMBOL_ART[segment.id]} x={label.x - 36} y={label.y - 58} width="72" height="72" preserveAspectRatio="xMidYMid meet" />
+                    <text className="theokyklos-segment-label" x={label.x} y={label.y + 28} textAnchor="middle">
                       <tspan className="theokyklos-segment-direction" x={label.x}>{directionLabel(segment.id, language)}</tspan>
                       <tspan className="theokyklos-segment-name" x={label.x} dy="17">{localized(segment.patrons, language)}</tspan>
                     </text>
@@ -243,8 +199,8 @@ export function TheokyklosView({ language, workspace, date, calendarMode, initia
               >
                 <circle className="theokyklos-center-disc" cx={CENTER.x} cy={CENTER.y} r="86" />
                 <circle className="theokyklos-center-line" cx={CENTER.x} cy={CENTER.y} r="69" />
-                <image className="theokyklos-mandala-icon theokyklos-center-icon" href={THEOKYKLOS_SYMBOL_ART.center} x="411" y="349" width="78" height="78" preserveAspectRatio="xMidYMid meet" />
-                <text className="theokyklos-center-label" x={CENTER.x} y="447" textAnchor="middle">
+                <image className="theokyklos-mandala-icon theokyklos-center-icon" href={THEOKYKLOS_SYMBOL_ART.center} x="406" y="342" width="88" height="88" preserveAspectRatio="xMidYMid meet" />
+                <text className="theokyklos-center-label" x={CENTER.x} y="452" textAnchor="middle">
                   <tspan x={CENTER.x}>{localized(center.patrons, language)}</tspan>
                   <tspan className="theokyklos-center-caption" x={CENTER.x} dy="20">{localized(center.short, language)}</tspan>
                 </text>
@@ -254,34 +210,34 @@ export function TheokyklosView({ language, workspace, date, calendarMode, initia
                 {...interactiveProps(zenith)}
                 className={`theokyklos-svg-segment axis-node zenith-node${selectedId === "zenith" ? " is-selected" : ""}`}
               >
-                <circle cx="450" cy="61" r="47" />
-                <image className="theokyklos-mandala-icon theokyklos-axis-icon" href={THEOKYKLOS_SYMBOL_ART.zenith} x="424" y="19" width="52" height="52" preserveAspectRatio="xMidYMid meet" />
-                <text x="450" y="94" textAnchor="middle">{localized(zenith.short, language)}</text>
+                <circle cx="450" cy="61" r="56" />
+                <image className="theokyklos-mandala-icon theokyklos-axis-icon" href={THEOKYKLOS_SYMBOL_ART.zenith} x="418" y="9" width="64" height="64" preserveAspectRatio="xMidYMid meet" />
+                <text x="450" y="105" textAnchor="middle">{localized(zenith.short, language)}</text>
               </g>
               <g
                 {...interactiveProps(nadir)}
                 className={`theokyklos-svg-segment axis-node nadir-node${selectedId === "nadir" ? " is-selected" : ""}`}
               >
-                <circle cx="450" cy="785" r="47" />
-                <image className="theokyklos-mandala-icon theokyklos-axis-icon" href={THEOKYKLOS_SYMBOL_ART.nadir} x="424" y="743" width="52" height="52" preserveAspectRatio="xMidYMid meet" />
-                <text x="450" y="818" textAnchor="middle">{localized(nadir.short, language)}</text>
+                <circle cx="450" cy="785" r="56" />
+                <image className="theokyklos-mandala-icon theokyklos-axis-icon" href={THEOKYKLOS_SYMBOL_ART.nadir} x="418" y="733" width="64" height="64" preserveAspectRatio="xMidYMid meet" />
+                <text x="450" y="829" textAnchor="middle">{localized(nadir.short, language)}</text>
               </g>
 
               <g
                 {...interactiveProps(entrance)}
                 className={`theokyklos-svg-segment threshold-node entrance-node${selectedId === "entrance" ? " is-selected" : ""}`}
               >
-                <path d="M108 827V758Q108 712 154 712Q200 712 200 758V827" />
-                <image className="theokyklos-mandala-icon theokyklos-threshold-icon" href={THEOKYKLOS_SYMBOL_ART.entrance} x="125" y="716" width="58" height="58" preserveAspectRatio="xMidYMid meet" />
-                <text x="154" y="801" textAnchor="middle">{localized(entrance.short, language)}</text>
+                <path d="M92 839V754Q92 696 154 696Q216 696 216 754V839" />
+                <image className="theokyklos-mandala-icon theokyklos-threshold-icon" href={THEOKYKLOS_SYMBOL_ART.entrance} x="118" y="703" width="72" height="72" preserveAspectRatio="xMidYMid meet" />
+                <text x="154" y="818" textAnchor="middle">{localized(entrance.short, language)}</text>
               </g>
               <g
                 {...interactiveProps(exit)}
                 className={`theokyklos-svg-segment threshold-node exit-node${selectedId === "exit" ? " is-selected" : ""}`}
               >
-                <path d="M700 827V758Q700 712 746 712Q792 712 792 758V827" />
-                <image className="theokyklos-mandala-icon theokyklos-threshold-icon" href={THEOKYKLOS_SYMBOL_ART.exit} x="717" y="716" width="58" height="58" preserveAspectRatio="xMidYMid meet" />
-                <text x="746" y="801" textAnchor="middle">{localized(exit.short, language)}</text>
+                <path d="M684 839V754Q684 696 746 696Q808 696 808 754V839" />
+                <image className="theokyklos-mandala-icon theokyklos-threshold-icon" href={THEOKYKLOS_SYMBOL_ART.exit} x="710" y="703" width="72" height="72" preserveAspectRatio="xMidYMid meet" />
+                <text x="746" y="818" textAnchor="middle">{localized(exit.short, language)}</text>
               </g>
 
               <g className="theokyklos-stars" aria-hidden="true">
@@ -292,144 +248,9 @@ export function TheokyklosView({ language, workspace, date, calendarMode, initia
             </svg>
           </div>
 
-          <div className="theokyklos-segment-index" aria-label={language === "en" ? "All Theokyklos segments" : "Все сегменты Теокиклоса"}>
-            {THEOKYKLOS_SEGMENTS.filter((segment) => segment.group !== "threshold").map((segment) => (
-              <button
-                type="button"
-                className={selectedId === segment.id ? "active" : ""}
-                onClick={() => selectSegment(segment.id)}
-                aria-pressed={selectedId === segment.id}
-                key={segment.id}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element -- Shared static PNG is pre-optimized for both deployment targets. */}
-                <img src={THEOKYKLOS_SYMBOL_ART[segment.id]} alt="" width="256" height="256" draggable="false" />
-                <small>{localized(segment.short, language)}</small>
-                <strong>{localized(segment.patrons, language)}</strong>
-              </button>
-            ))}
-            <div className="theokyklos-threshold-row">
-              <button
-                type="button"
-                className={`${selectedId === entrance.id ? "active " : ""}theokyklos-threshold-card threshold-entrance`}
-                onClick={() => selectSegment(entrance.id)}
-                aria-pressed={selectedId === entrance.id}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element -- Shared static PNG is pre-optimized for both deployment targets. */}
-                <img src={THEOKYKLOS_SYMBOL_ART[entrance.id]} alt="" width="256" height="256" draggable="false" />
-                <small>{localized(entrance.short, language)}</small>
-                <strong>{localized(entrance.patrons, language)}</strong>
-              </button>
-              <span className="theokyklos-threshold-ornament" aria-hidden="true">
-                <svg viewBox="0 0 180 54">
-                  <path d="M16 28c22-18 34 17 55-2 8-8 10-19 19-19s11 11 19 19c21 19 33-16 55 2" />
-                  <path d="M61 27c10 2 17 8 29 18 12-10 19-16 29-18" />
-                  <circle cx="90" cy="26" r="4" />
-                </svg>
-              </span>
-              <button
-                type="button"
-                className={`${selectedId === exit.id ? "active " : ""}theokyklos-threshold-card threshold-exit`}
-                onClick={() => selectSegment(exit.id)}
-                aria-pressed={selectedId === exit.id}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element -- Shared static PNG is pre-optimized for both deployment targets. */}
-                <img src={THEOKYKLOS_SYMBOL_ART[exit.id]} alt="" width="256" height="256" draggable="false" />
-                <small>{localized(exit.short, language)}</small>
-                <strong>{localized(exit.patrons, language)}</strong>
-              </button>
-            </div>
-          </div>
         </section>
 
-        {selected ? (
-          <div className="modal-backdrop theokyklos-details-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeSelected(); }}>
-            <aside ref={detailsDialogRef} id="theokyklos-details" className={`theokyklos-details segment-${selected.id}`} role="dialog" aria-modal="true" aria-labelledby="theokyklos-details-title" tabIndex={-1}>
-              <button className="theokyklos-details-close" type="button" onClick={closeSelected} aria-label={language === "en" ? "Close segment description" : "Закрыть описание сегмента"}>
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M6 6l12 12M18 6L6 18" />
-                </svg>
-              </button>
-              <header>
-                <span className="theokyklos-details-symbol" aria-hidden="true">
-                  {/* eslint-disable-next-line @next/next/no-img-element -- Shared static PNG is pre-optimized for both deployment targets. */}
-                  <img src={THEOKYKLOS_SYMBOL_ART[selected.id]} alt="" width="256" height="256" draggable="false" />
-                </span>
-                <div>
-                  <span className="eyebrow">{groupLabel(selected, language)}</span>
-                  <h2 id="theokyklos-details-title">{localized(selected.title, language)}</h2>
-                  <strong>{localized(selected.patrons, language)}</strong>
-                </div>
-              </header>
-              <figure className="theokyklos-details-art">
-                {/* eslint-disable-next-line @next/next/no-img-element -- Artwork is a pre-optimized WebP shared by both deployment targets. */}
-                <img
-                  src={THEOKYKLOS_DETAIL_ART[selected.id]}
-                  alt={`${localized(selected.patrons, language)} — ${localized(selected.title, language)}`}
-                  width="1680"
-                  height="945"
-                  decoding="async"
-                />
-              </figure>
-              <p className="theokyklos-essence">{localized(selected.essence, language)}</p>
-              <p className="theokyklos-description">{localized(selected.description, language)}</p>
-              <section className="theokyklos-incantation" aria-labelledby="theokyklos-incantation-title">
-                <div>
-                  <span className="eyebrow">{language === "en" ? "Sacred utterance" : "Священные слова"}</span>
-                  <h3 id="theokyklos-incantation-title">{language === "en" ? "Words of the segment" : "Заклинания Божеств"}</h3>
-                </div>
-                <p>{language === "en"
-                  ? "Pronounce each word deliberately, moving from meaning to sound."
-                  : "Произносите каждое слово осознанно, переходя от смысла к звучанию."}</p>
-                <ol>
-                  {selected.words.map((sacredWord) => (
-                    <li key={sacredWord.greek}>
-                      <span lang="grc">{sacredWord.greek}</span>
-                      <div>
-                        <strong>«{localized(sacredWord.pronunciation, language)}»</strong>
-                        <small>{localized(sacredWord.meaning, language)}</small>
-                      </div>
-                    </li>
-                  ))}
-                </ol>
-              </section>
-              {selectedPracticeSectorId ? (
-                <section className="theokyklos-sacred-practices" aria-labelledby="theokyklos-sacred-practices-title">
-                  <header>
-                    <div><span className="eyebrow">{language === "en" ? "Myth in daily life" : "Миф в повседневности"}</span><h3 id="theokyklos-sacred-practices-title">{language === "en" ? "Sacred habits" : "Сакральные привычки"}</h3></div>
-                    {onOpenHabits ? <button type="button" onClick={onOpenHabits}>{language === "en" ? "All habits" : "Все привычки"} →</button> : null}
-                  </header>
-                  <p>{!workspace.habitSettings.enabled
-                    ? (language === "en" ? "Habit tracking is disabled in your account. Practices remain visible but cannot be started or marked." : "Трекинг привычек отключён в личном кабинете. Практики видны, но их нельзя начинать или отмечать.")
-                    : sectorHabits.some((habit) => habit.active)
-                    ? (language === "en" ? "Your chosen practice is active in this sector and can be marked here." : "В этом секторе уже действует выбранная вами практика — её можно отметить прямо здесь.")
-                    : sectorHabits.length
-                    ? (language === "en" ? "The chosen practice is disabled. You can enable it again here." : "Выбранная практика отключена. Здесь её можно включить снова.")
-                    : (language === "en" ? "Choose an ordinary action and begin it as a daily offering to the patron deity." : "Выберите обычное действие и начните его как ежедневное приношение божеству-покровителю.")}</p>
-                  <div>
-                    {(sectorHabits.length
-                      ? sectorHabits.map((habit) => ({ habit, practice: sectorPractices.find((practice) => practice.id === habit.sacredPracticeId) }))
-                      : sectorPractices.map((practice) => ({ habit: null, practice })))
-                      .filter((item) => item.practice)
-                      .map(({ habit, practice }) => {
-                        const completion = habit ? workspace.habitCompletions.find((entry) => entry.habitId === habit.id && entry.date === date) : undefined;
-                        const canTrack = Boolean(workspace.habitSettings.enabled && habit?.active && isHabitScheduledForDate(habit, date, calendarMode) && habit.createdDate <= date && date === habitDateKey(new Date()));
-                        return (
-                          <article className={`${habit ? "started" : "suggested"}${habit && !habit.active ? " paused" : ""}`} style={{ "--practice-color": habit?.color ?? practice!.color } as CSSProperties} key={habit?.id ?? practice!.id}>
-                            <span aria-hidden="true">{habit?.emoji ?? practice!.emoji}</span>
-                            <div><small>{habit ? (habit.active ? (language === "en" ? "Active practice" : "Активная практика") : (language === "en" ? "Paused" : "На паузе")) : (language === "en" ? "Suggested practice" : "Предлагаемая практика")}</small><strong data-no-translate={habit ? true : undefined}>{habit?.title ?? practice!.title[language]}</strong><p data-no-translate={habit ? true : undefined}>{habit?.description ?? practice!.description[language]}</p><blockquote>{practice!.myth[language]}</blockquote></div>
-                            {habit ? (
-                              habit.active ? <div className="theokyklos-practice-actions"><button type="button" className={completion?.completed ? "completed" : ""} disabled={!canTrack} onClick={() => onChange(updateHabitCompletion(workspace, habit, date, { completed: !completion?.completed }))}>{completion?.completed ? `✓ ${language === "en" ? "Done" : "Выполнено"}` : (language === "en" ? "Mark today" : "Отметить сегодня")}</button><button type="button" className="disable" onClick={() => onChange({ ...workspace, habits: workspace.habits.map((item) => item.id === habit.id ? markTrackerEntityChanged({ ...item, active: false }) : item) })}>{language === "en" ? "Disable" : "Отключить"}</button></div>
-                                : <button type="button" disabled={!workspace.habitSettings.enabled} onClick={() => onChange({ ...workspace, habits: workspace.habits.map((item) => item.id === habit.id ? markTrackerEntityChanged({ ...item, active: true }) : item) })}>{language === "en" ? "Enable again" : "Включить снова"}</button>
-                            ) : <button type="button" disabled={!workspace.habitSettings.enabled} onClick={() => onChange({ ...workspace, habits: [...workspace.habits, createHabitFromSacredPractice(practice!, habitDateKey(new Date()), calendarMode, language)] })}>{language === "en" ? "Begin" : "Начать"}</button>}
-                          </article>
-                        );
-                      })}
-                  </div>
-                </section>
-              ) : null}
-            </aside>
-          </div>
-        ) : null}
+        {selected ? <TheokyklosDetailsDialog segment={selected} language={language} workspace={workspace} date={date} calendarMode={calendarMode} onChange={onChange} onClose={closeSelected} onOpenHabits={onOpenHabits} /> : null}
       </div>
 
     </section>
