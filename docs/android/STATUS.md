@@ -1,6 +1,14 @@
 # GENESIS Android — internal alpha
 
-## Текущий этап: Теокиклос, 24.09.2026
+## Текущий этап: календарь месяца и года, 24.09.2026
+
+- Нативный **debug APK `2.0.0-alpha04` / versionCode 9**, `ru.genesis.calendar.debug`: `android/app/build/outputs/apk/debug/app-debug.apk`, копия `outputs/android/GENESIS-2.0.0-alpha04-debug.apk`. Размер **158041264 bytes**, SHA-256 **187bed484c4ff74ae809c8bcbd26bb6d34ee4af9d759848b69565c2147fdefe9**. `apksigner verify` PASS (v2), `zipalign -c -P 16 4` PASS. Это не TWA/PWA и не release.
+- Вместо нативного длинного списка появился экран месяца с сакральной сеткой пятидневных пят, выбранным днём и переходом к его задачам; в григорианском/лунном отображении — семиколоночная сетка. Сакральный месяц показывает свою исходную иллюстрацию, название/описание; обзор года содержит все 13 исходных иллюстраций, включая Апейрон. Эти изменения не меняют независимые настройки календаря ввода/повторов задач. Отдельные солнечные показатели, полная web-композиция года и drag-and-drop остаются в матрице как неперенесённые.
+- `assembleDebug`, `assembleDebugAndroidTest`, `testDebugUnitTest` (**59 PASS / 0 failures**), `lintDebug` — PASS. `verify-assets.mjs --require-apk`: **527/527** выбранных оригинальных изображений совпадают побайтово public → generated → APK; визуальный паритет NOT_RUN.
+- Финальный alpha04 установлен через `adb install -r` поверх alpha03 без очистки; `dumpsys package` подтвердил versionCode9. Аппаратный `CalendarFlowTest` **не завершился**: после старта обнаружено, что realme находится в `Dozing` с экраном блокировки. ADB-хост тест остановлен; JUnit PASS не получен. Владелец уведомлён, что нужно разблокировать телефон обычным способом. Скриншоты месяца/года, реальный переход в Апейрон, крупный текст, TalkBack/поворот и визуальная матрица обеих тем — **NOT_RUN** для alpha04. Никаких попыток обхода блокировки не было.
+- Figma-экран 14 уточнён текстом обязательных маркеров; нативный Теокиклос предыдущей alpha03 проверен отдельно. Точный Figma design-context недоступен из-за лимита вызовов коннектора; исходный Figma-круг остаётся схематичным. Production, SSH, push/merge не выполнялись.
+
+## Предыдущая веха: Теокиклос, 24.09.2026
 
 - Нативный **debug APK `2.0.0-alpha03` / versionCode 8**: `android/app/build/outputs/apk/debug/app-debug.apk`, копия `outputs/android/GENESIS-2.0.0-alpha03-debug.apk`. Package `ru.genesis.calendar.debug`, не TWA/PWA `ru.genesis.calendar`. Размер **157970671 bytes**, SHA-256 **eae1a04627b48113360d0e6e3413a9f954313d31e14c78a57adbd294c0832c18**. `apksigner verify` PASS (v2), `zipalign -c -P 16 4` PASS.
 - Новый Compose-экран «Теокиклос» встроен в существующее верхнее меню. Из исходников сайта механически экспортированы 14 секторов, 56 сакральных слов и 28 практик; все 14 исходных символов видны на мандале, в том числе **зенит, надир, вход, выход**, а детали показывают оригинальную иллюстрацию божеств. Практику можно начать, поставить на паузу, возобновить и отметить сегодня через уже существующее зашифрованное локальное хранилище привычек; отметка заблокирована, если сегодня не день практики. Это локальный поднабор, **не** web↔Android синхронизация.
@@ -27,7 +35,7 @@
 
 - Тогда ветка `codex/android-native-bootstrap` имела базу `origin/master` = `ebfb460`. Позднее она перебазирована на 30257ff. Worktree `.worktrees/android-native-bootstrap`, существующий модуль `android/`; пользовательские изменения основного checkout сохранены.
 - На согласованный realme RMX5000 / Android16 API36 установлена `ru.genesis.calendar.debug`, `2.0.0-alpha01` (6). Старое `ru.genesis.calendar` не удалено. Данные Alpha изолированы от аккаунта.
-- Тогдашний APK сохранён как `outputs/android/GENESIS-2.0.0-alpha01-debug.apk` вне Git; текущий build output уже содержит alpha03.
+- Тогдашний APK сохранён как `outputs/android/GENESIS-2.0.0-alpha01-debug.apk` вне Git; текущий build output уже содержит alpha04.
 - **157641687 bytes**, SHA-256 **f9dc04317775bb260f767d051012dc18b768d7060b0655660dead970bee45e60**.
 - Первоначальный commit был `741924e`; после локального rebase это `e7f3f46` (документация `8090fe4`). APK alpha01 был собран до commit из того же main-source дерева. Push/merge/deploy не выполнялись.
 - `apksigner verify`: PASS, APK v2, debug RSA2048. `zipalign -c -P 16 4`: PASS; ELF PT_LOAD alignment отдельно NOT_RUN.
@@ -64,10 +72,10 @@
 1. Native auth backend не опубликован; Android OAuth registration не подтверждена. Browser tool недоступен (`Unable to load browser request-header policy`); cookies/секреты не извлекались. Нужен доступ владельца к соответствующему Google Cloud project.
 2. Нужны isolated HTTP/session tests и независимый review verifier, проверенный global/edge rate limit перед public deploy.
 3. Cloud schema/merge/CAS/outbox transport, recovery, Google grants и FCM не интегрированы. Server escrow не является zero-knowledge E2EE.
-4. Полные проекты/перетаскивание/зависимости/повторения UI, аналитика/испытания/награды, Стойхейон, полный Теокиклос, admin, локализация и другие строки PARITY_MATRIX не готовы. Standart/Experimental частичны. Исходные изображения месяцев, рангов и наград упакованы, но ещё не размещены во всех смысловых слотах.
+4. Полные проекты/перетаскивание/зависимости/повторения UI, аналитика/испытания/награды, Стойхейон, полный Теокиклос, admin, локализация и другие строки PARITY_MATRIX не готовы. Standart/Experimental частичны. Исходные изображения месяцев имеют native month/year slots, но ещё не проверены на устройстве; ранги и награды упакованы, но не размещены во всех смысловых слотах.
 5. Нет согласованной постоянной release signing identity/backup, release OAuth, N→N+1, verified App Links и разрешения на публичную публикацию. Debug download CTA не включать.
 6. Слышимость последнего уведомления подтверждена владельцем; vibration, звук при screen-off, reboot/Doze/offline/timezone/отзыв permissions/несколько OEM/release update и полный visual/accessibility matrix — NOT_RUN.
 
 ## Одно следующее действие
 
-Продолжить перенос визуальных и рабочих разделов сайта: календарь месяца/года с исходными иллюстрациями, ранги/награды, Стойхейон и drag-and-drop проектов с доступной альтернативой. Затем закрыть остальные строки `PARITY_MATRIX.md` и интеграционные тесты. Настройка Google-входа остаётся последним этапом по просьбе владельца; подпись и public deploy — отдельные gates владельца.
+После обычной разблокировки realme повторить `CalendarFlowTest`, сохранить и проверить скриншоты обеих тем, года и Апейрона. Затем продолжить ранги/награды, Стойхейон и drag-and-drop проектов с доступной альтернативой; закрывать остальные строки `PARITY_MATRIX.md` и интеграционные тесты. Настройка Google-входа остаётся последним этапом по просьбе владельца; подпись и public deploy — отдельные gates владельца.

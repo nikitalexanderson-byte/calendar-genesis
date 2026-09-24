@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-24T15:39:16.901Z",
+  "generatedAt": "2026-09-24T15:53:29.702Z",
   "command": "node android/tools/verify-assets.mjs --require-apk",
   "sourceRoot": "public",
   "gradle": "android/app/build.gradle.kts",
-  "gradleSha256": "1c1221559817d1f5853ed56aaf986ee66896451c1d1e56cedf0d0ac83e0f0aea",
+  "gradleSha256": "56d6082bbe20c5e3249a3939350a21552acc2961bfaf9af6e7f899251d99914f",
   "includes": [
     "icons/**",
     "weekday-art/**",
@@ -24,8 +24,8 @@
   "generatedRoot": "android/app/build/generated/genesisAssets/originals",
   "apk": {
     "path": "android/app/build/outputs/apk/debug/app-debug.apk",
-    "size": 157970671,
-    "sha256": "eae1a04627b48113360d0e6e3413a9f954313d31e14c78a57adbd294c0832c18"
+    "size": 158041264,
+    "sha256": "187bed484c4ff74ae809c8bcbd26bb6d34ee4af9d759848b69565c2147fdefe9"
   },
   "summary": {
     "files": 527,
@@ -124,8 +124,8 @@
       "generatedPass": 13,
       "apkPass": 13,
       "webSlot": "Sacred month/year illustrations",
-      "nativeSlot": "Month/year original-art slots are not implemented in current native calendar list",
-      "uiStatus": "NOT_PORTED"
+      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; device visual test pending because the phone locked",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED"
     },
     {
       "family": "month-frieze-v2.png",
@@ -10571,8 +10571,8 @@
         "error": null
       },
       "webSlot": "Sacred month/year illustrations",
-      "nativeSlot": "Month/year original-art slots are not implemented in current native calendar list",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; device visual test pending because the phone locked",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
     {
@@ -10594,8 +10594,8 @@
         "error": null
       },
       "webSlot": "Sacred month/year illustrations",
-      "nativeSlot": "Month/year original-art slots are not implemented in current native calendar list",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; device visual test pending because the phone locked",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
     {
@@ -10617,8 +10617,8 @@
         "error": null
       },
       "webSlot": "Sacred month/year illustrations",
-      "nativeSlot": "Month/year original-art slots are not implemented in current native calendar list",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; device visual test pending because the phone locked",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
     {
@@ -10640,8 +10640,8 @@
         "error": null
       },
       "webSlot": "Sacred month/year illustrations",
-      "nativeSlot": "Month/year original-art slots are not implemented in current native calendar list",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; device visual test pending because the phone locked",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
     {
@@ -10663,8 +10663,8 @@
         "error": null
       },
       "webSlot": "Sacred month/year illustrations",
-      "nativeSlot": "Month/year original-art slots are not implemented in current native calendar list",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; device visual test pending because the phone locked",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
     {
@@ -10686,8 +10686,8 @@
         "error": null
       },
       "webSlot": "Sacred month/year illustrations",
-      "nativeSlot": "Month/year original-art slots are not implemented in current native calendar list",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; device visual test pending because the phone locked",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
     {
@@ -10709,8 +10709,8 @@
         "error": null
       },
       "webSlot": "Sacred month/year illustrations",
-      "nativeSlot": "Month/year original-art slots are not implemented in current native calendar list",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; device visual test pending because the phone locked",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
     {
@@ -10732,8 +10732,8 @@
         "error": null
       },
       "webSlot": "Sacred month/year illustrations",
-      "nativeSlot": "Month/year original-art slots are not implemented in current native calendar list",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; device visual test pending because the phone locked",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
     {
@@ -10755,8 +10755,8 @@
         "error": null
       },
       "webSlot": "Sacred month/year illustrations",
-      "nativeSlot": "Month/year original-art slots are not implemented in current native calendar list",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; device visual test pending because the phone locked",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
     {
@@ -10778,8 +10778,8 @@
         "error": null
       },
       "webSlot": "Sacred month/year illustrations",
-      "nativeSlot": "Month/year original-art slots are not implemented in current native calendar list",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; device visual test pending because the phone locked",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
     {
@@ -10801,8 +10801,8 @@
         "error": null
       },
       "webSlot": "Sacred month/year illustrations",
-      "nativeSlot": "Month/year original-art slots are not implemented in current native calendar list",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; device visual test pending because the phone locked",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
     {
@@ -10824,8 +10824,8 @@
         "error": null
       },
       "webSlot": "Sacred month/year illustrations",
-      "nativeSlot": "Month/year original-art slots are not implemented in current native calendar list",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; device visual test pending because the phone locked",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
     {
@@ -10847,8 +10847,8 @@
         "error": null
       },
       "webSlot": "Sacred month/year illustrations",
-      "nativeSlot": "Month/year original-art slots are not implemented in current native calendar list",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; device visual test pending because the phone locked",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
     {

@@ -166,28 +166,6 @@ private fun DayHeader(date: LocalDate,mode: CalendarMode) {
 }
 
 @Composable
-private fun CalendarScreen(date: LocalDate,mode: CalendarMode,onSelect:(LocalDate)->Unit) {
-    var shown by remember { mutableStateOf(date) }
-    val calendar=remember{GenesisCalendar()}
-    val range=calendar.monthRange(shown,mode)
-    LazyColumn(contentPadding=PaddingValues(16.dp)) {
-        item {
-            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
-                TextButton(onClick={shown=range.start.minusDays(1)}){Text("←")}
-                Text(calendar.formatDate(shown,mode),Modifier.weight(1f).padding(top=12.dp))
-                TextButton(onClick={shown=range.end.plusDays(1)}){Text("→")}
-            }
-        }
-        items(range.dates()) { day ->
-            TextButton(onClick={onSelect(day)},modifier=Modifier.fillMaxWidth()) {
-                Text(calendar.formatDate(day,mode),Modifier.weight(1f))
-                Text(day.toString(),style=MaterialTheme.typography.labelSmall)
-            }
-        }
-    }
-}
-
-@Composable
 private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,structure:WorkspaceStructure,initialProjectId:String?,onDismiss:()->Unit,
     onSave:(LocalTask)->Unit,onDelete:(()->Unit)?) {
     var title by rememberSaveable(task?.id) { mutableStateOf(task?.title ?: "") }

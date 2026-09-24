@@ -1,10 +1,10 @@
 # Android original asset manifest
 
-Generated: 2026-09-24T15:39:16.901Z. Byte parity: **PASS**. Visual parity: **NOT_RUN**.
+Generated: 2026-09-24T15:53:29.702Z. Byte parity: **PASS**. Visual parity: **NOT_RUN**.
 
 527 public originals, 140951613 original bytes. Generated copies match: 527/527. APK decompressed entries match: 527/527.
 
-APK: `android/app/build/outputs/apk/debug/app-debug.apk` (157970671 bytes), SHA-256 `eae1a04627b48113360d0e6e3413a9f954313d31e14c78a57adbd294c0832c18`.
+APK: `android/app/build/outputs/apk/debug/app-debug.apk` (158041264 bytes), SHA-256 `187bed484c4ff74ae809c8bcbd26bb6d34ee4af9d759848b69565c2147fdefe9`.
 
 ## Reproduce
 
@@ -24,7 +24,7 @@ The verifier reads the actual literal public include block in Gradle. It uses SH
 | originals/habit-reward-art | 2 | 648335 | 2/2 | 2/2 | NOT_PORTED | Purchase/comeback reward-art slots not ported |
 | originals/hero-path | 40 | 2595498 | 40/40 | 40/40 | NOT_PORTED | Hero path visual route/checkpoint slots not ported |
 | originals/icons | 4 | 4444680 | 4/4 | 4/4 | PARTIAL_IN_CODE | Header renders icon-192.png only; other web icon variants are not UI-parity verified |
-| originals/month-art-v4 | 13 | 5578824 | 13/13 | 13/13 | NOT_PORTED | Month/year original-art slots are not implemented in current native calendar list |
+| originals/month-art-v4 | 13 | 5578824 | 13/13 | 13/13 | IN_CODE_NOT_VISUALLY_VERIFIED | All 13 original month images have native sacred month and lazy year slots; device visual test pending because the phone locked |
 | originals/month-frieze-v2.png | 1 | 3124671 | 1/1 | 1/1 | NOT_PORTED | Frieze positioning not ported |
 | originals/stoicheion-cards | 27 | 4635888 | 27/27 | 27/27 | NOT_PORTED | Deck/divination/letter details/frame layering not ported; SVG needs a native renderer |
 | originals/theokyklos-art | 14 | 6144776 | 14/14 | 14/14 | IN_CODE_NOT_VISUALLY_VERIFIED | Native sector dialog renders original artwork; four critical detail states checked on one phone, full visual matrix pending |
