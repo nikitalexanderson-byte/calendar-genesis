@@ -67,6 +67,7 @@ fun GenesisApp(app: GenesisApplication, openedTask: String?) {
     var editId by rememberSaveable { mutableStateOf<String?>(null) }
     var creating by rememberSaveable { mutableStateOf(false) }
     var newTaskProjectId by rememberSaveable { mutableStateOf<String?>(null) }
+    var requestedTheokyklosSector by rememberSaveable { mutableStateOf<String?>(null) }
     var selected by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
     LaunchedEffect(openedTask) { if(openedTask!=null) { editId=openedTask; creating=false; tab="Задачи" } }
     MaterialTheme(colorScheme=if(prefs.theme=="Experimental") experimental else standart) {
@@ -88,8 +89,12 @@ fun GenesisApp(app: GenesisApplication, openedTask: String?) {
                 error?.let { Text(it,color=MaterialTheme.colorScheme.error,modifier=Modifier.padding(12.dp)) }
                 when(tab) {
                     "Привычки" -> HabitsScreen(app,prefs.theme=="Experimental")
-                    "Теокиклос" -> TheokyklosScreen(app,prefs.input,onOpenHabits={tab="Привычки"})
-                    "Стойхейон" -> StoicheionScreen()
+                    "Теокиклос" -> TheokyklosScreen(app,prefs.input,onOpenHabits={tab="Привычки"},
+                        initialSectorId=requestedTheokyklosSector,
+                        onInitialSectorConsumed={requestedTheokyklosSector=null})
+                    "Стойхейон" -> StoicheionScreen(app,prefs.divinationDisabled, onOpenTheokyklosSector={ sectorId ->
+                        requestedTheokyklosSector=sectorId; tab="Теокиклос"
+                    })
                     "Проекты" -> ProjectsScreen(app,tasks,prefs.theme=="Experimental",
                         onOpenTask={ taskId -> editId=taskId;creating=false;tab="Задачи" },
                         onCreateTask={ projectId -> newTaskProjectId=projectId;editId=null;creating=true })
@@ -320,6 +325,17 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,onSet:(Str
             } }
         }
         Row { listOf("24h","12h").forEach { FilterChip(selected=prefs.use24==(it=="24h"),onClick={onSet("time",it)},label={Text(it)})} }
+        HorizontalDivider()
+        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Гадания по картам",style=MaterialTheme.typography.titleMedium)
+                Text("Если выключить, карты дня и расклад Стойхейона будут скрыты; алфавит останется доступным.",
+                    style=MaterialTheme.typography.bodySmall)
+            }
+            Switch(checked=!prefs.divinationDisabled,
+                onCheckedChange={onSet("stoicheionDivinationDisabled",(!it).toString())},
+                modifier=Modifier.testTag("stoicheion-divination-setting"))
+        }
         HorizontalDivider()
         Text("Системные напоминания",style=MaterialTheme.typography.titleMedium)
         Text("Уведомления: ${if(app.scheduler.notificationsAllowed()) "разрешены" else "выключены"}")

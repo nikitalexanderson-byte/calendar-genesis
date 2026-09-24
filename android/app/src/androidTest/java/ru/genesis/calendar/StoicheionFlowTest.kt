@@ -11,6 +11,12 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
+import ru.genesis.calendar.data.LocalPreferences
+import ru.genesis.calendar.data.StoicheionDrawRepository
+import ru.genesis.calendar.domain.StoicheionReading
+import ru.genesis.calendar.domain.TheokyklosCatalogSource
 
 class StoicheionFlowTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
@@ -31,7 +37,13 @@ class StoicheionFlowTest {
             }
         }
         compose.onNodeWithText("Стойхейон").performScrollTo().performClick()
-        compose.onNodeWithTag("stoicheion-grid").assertExists()
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithTag("stoicheion-grid", useUnmergedTree = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("stoicheion-grid", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag("stoicheion-grid", useUnmergedTree = true)
+            .performScrollToNode(hasTestTag("stoicheion-letter-alpha"))
         compose.onNodeWithTag("stoicheion-face-alpha", useUnmergedTree = true).assertExists()
         val screenshot = File(app.getExternalFilesDir(null), "stoicheion-cards-after.png")
         assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(screenshot))
@@ -39,5 +51,84 @@ class StoicheionFlowTest {
         compose.onAllNodesWithText("ГОЛОВА").onLast().assertExists()
         compose.onNodeWithText("Метафизика изначального истока").assertExists()
         compose.onNodeWithText("Закрыть").performClick()
+    }
+
+    @Test fun dailyAndNineCardDrawsPersistLocallyAndRespectVisibilitySetting() {
+        val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
+        check(BuildConfig.DEBUG && app.packageName.endsWith(".debug"))
+        val preferences = LocalPreferences(app, app.workspaceScope)
+        val originalDisabled = runBlocking { preferences.values.first().divinationDisabled }
+        val repository = StoicheionDrawRepository(app)
+        try {
+            runBlocking { preferences.set("stoicheionDivinationDisabled", "false") }
+            compose.onNodeWithText("Стойхейон").performScrollTo().performClick()
+            if (runBlocking { repository.today.first().daily } == null) {
+                compose.onNodeWithTag("stoicheion-draw-daily").performClick()
+                compose.onNodeWithTag("stoicheion-accessible-draw").performClick()
+                compose.waitUntil(10_000) { runBlocking { repository.today.first().daily != null } }
+            }
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithTag("stoicheion-daily-result").fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.onNodeWithTag("stoicheion-daily-result").assertExists()
+            assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+                .takeScreenshot(File(app.getExternalFilesDir(null), "stoicheion-daily-after.png")))
+            if (runBlocking { repository.today.first().spread } == null) {
+                compose.onNodeWithTag("stoicheion-grid", useUnmergedTree = true)
+                    .performScrollToNode(hasTestTag("stoicheion-draw-spread"))
+                compose.onNodeWithTag("stoicheion-draw-spread").performClick()
+                compose.onNodeWithTag("stoicheion-accessible-draw").performClick()
+                compose.waitUntil(10_000) { runBlocking { repository.today.first().spread != null } }
+            }
+            compose.onNodeWithTag("stoicheion-grid", useUnmergedTree = true)
+                .performScrollToNode(hasTestTag("stoicheion-spread-center"))
+            compose.onNodeWithTag("stoicheion-spread-center").assertExists()
+            compose.onNodeWithTag("stoicheion-isopsephy").assertExists()
+            compose.onNodeWithTag("stoicheion-spread-center").performClick()
+            compose.onNodeWithText("Центр · сектор расклада").assertExists()
+            val centerGuidance = TheokyklosCatalogSource.load(app).guidanceById.getValue("center")
+            val centerReversed = StoicheionReading.reversed(
+                runBlocking { repository.today.first().spread!! }.seed, 5)
+            compose.onNodeWithText((if (centerReversed) centerGuidance.reversed else centerGuidance.upright).ru)
+                .assertExists()
+            compose.onNodeWithText("Закрыть").performClick()
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithText("Закрыть").fetchSemanticsNodes().isEmpty()
+            }
+            val draws = runBlocking { repository.today.first() }
+            assertTrue((draws.daily?.attempts ?: 0) in 1..2)
+            assertTrue((draws.spread?.attempts ?: 0) in 1..2)
+            assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+                .takeScreenshot(File(app.getExternalFilesDir(null), "stoicheion-nine-after.png")))
+            compose.onNodeWithTag("stoicheion-grid", useUnmergedTree = true)
+                .performScrollToNode(hasTestTag("stoicheion-isopsephy"))
+            UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).waitForIdle()
+            assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+                .takeScreenshot(File(app.getExternalFilesDir(null), "stoicheion-isopsephy-after.png")))
+            runBlocking { preferences.set("stoicheionDivinationDisabled", "true") }
+            compose.onNodeWithTag("stoicheion-grid", useUnmergedTree = true).performScrollToIndex(0)
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithText("Гадания по картам выключены").fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.onNodeWithTag("stoicheion-grid", useUnmergedTree = true)
+                .performScrollToNode(hasTestTag("stoicheion-letter-alpha"))
+            compose.onNodeWithTag("stoicheion-letter-alpha").assertExists()
+            runBlocking { preferences.set("stoicheionDivinationDisabled", "false") }
+            compose.onNodeWithTag("stoicheion-grid", useUnmergedTree = true)
+                .performScrollToNode(hasTestTag("stoicheion-spread-center"))
+            compose.onNodeWithTag("stoicheion-spread-center").performClick()
+            compose.onNodeWithText("Открыть сектор Теокиклоса →").performScrollTo().performClick()
+            compose.waitForIdle()
+            UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).waitForIdle()
+            assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+                .takeScreenshot(File(app.getExternalFilesDir(null), "stoicheion-theokyklos-link-after.png")))
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithText("Заклинания Божеств").fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.onNodeWithText("Заклинания Божеств").assertExists()
+            compose.onAllNodesWithText("Дионис и Ариадна").onLast().assertExists()
+        } finally {
+            runBlocking { preferences.set("stoicheionDivinationDisabled", originalDisabled.toString()) }
+        }
     }
 }

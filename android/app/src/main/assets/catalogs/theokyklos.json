@@ -1607,5 +1607,106 @@
       "priority": 6,
       "color": "#ad6b83"
     }
+  ],
+  "stoicheionGuidance": [
+    {
+      "sectorId": "north",
+      "upright": {
+        "ru": "Сила Афины проявлена: превратите ясную мысль в один выполнимый замысел.",
+        "en": "Athena's power is present: turn clear thought into one executable intention."
+      },
+      "reversed": {
+        "ru": "Мудрость заслонена шумом: остановитесь, отделите факт от страха и выберите один следующий шаг.",
+        "en": "Wisdom is obscured by noise: pause, separate fact from fear, and choose one next step."
+      }
+    },
+    {
+      "sectorId": "northeast",
+      "upright": {
+        "ru": "Артемида поддерживает самостоятельность: сохраните пространство для тела, природы и личных границ.",
+        "en": "Artemis supports self-reliance: protect space for your body, nature, and personal boundaries."
+      },
+      "reversed": {
+        "ru": "Инстинкт потерял направление: вернитесь к телу и восстановите одну нарушенную границу.",
+        "en": "Instinct has lost direction: return to the body and restore one crossed boundary."
+      }
+    },
+    {
+      "sectorId": "east",
+      "upright": {
+        "ru": "Гермес и Пейто открывают путь слову: назовите намерение и передайте его ясно.",
+        "en": "Hermes and Peitho open the way for speech: name your intention and communicate it clearly."
+      },
+      "reversed": {
+        "ru": "Слова рассеивают силу: сократите послание до правды, которую можно подтвердить действием.",
+        "en": "Words are scattering power: reduce the message to a truth you can support with action."
+      }
+    },
+    {
+      "sectorId": "southeast",
+      "upright": {
+        "ru": "Гефест и Аглая благословляют ремесло: улучшите одну вещь точным и красивым движением.",
+        "en": "Hephaestus and Aglaea bless craft: improve one thing through a precise and beautiful action."
+      },
+      "reversed": {
+        "ru": "Огонь мастерской расходуется впустую: очистите рабочее место и завершите малую починку.",
+        "en": "The workshop fire is being wasted: clear the work surface and finish one small repair."
+      }
+    },
+    {
+      "sectorId": "south",
+      "upright": {
+        "ru": "Арес и Афродита соединяют волю и притяжение: направьте энергию в тело и заботливое действие.",
+        "en": "Ares and Aphrodite unite will and attraction: direct energy into the body and a caring act."
+      },
+      "reversed": {
+        "ru": "Напор стал конфликтом или усталостью: верните меру через движение без борьбы и бережный уход.",
+        "en": "Drive has become conflict or fatigue: restore proportion through non-combative movement and gentle care."
+      }
+    },
+    {
+      "sectorId": "southwest",
+      "upright": {
+        "ru": "Деметра напоминает о плодородии повторения: накормите тело или позаботьтесь о живом.",
+        "en": "Demeter recalls the fertility of repetition: nourish the body or tend something living."
+      },
+      "reversed": {
+        "ru": "Почва истощена: сначала восстановите запас еды, воды или домашнего порядка.",
+        "en": "The soil is depleted: first restore food, water, or order in the home."
+      }
+    },
+    {
+      "sectorId": "west",
+      "upright": {
+        "ru": "Посейдон и Амфитрита дают глубину: признайте чувство и позвольте ему пройти, не управляя вами.",
+        "en": "Poseidon and Amphitrite bring depth: acknowledge a feeling and let it pass without steering you."
+      },
+      "reversed": {
+        "ru": "Внутреннее море неспокойно: верните текучесть водой, дыханием и короткой записью чувства.",
+        "en": "The inner sea is unsettled: restore flow with water, breath, and a brief written feeling."
+      }
+    },
+    {
+      "sectorId": "northwest",
+      "upright": {
+        "ru": "Аполлон освещает меру: вынесите главное на свет и настройте день по ясному ритму.",
+        "en": "Apollo illuminates measure: bring what matters into the light and tune the day to a clear rhythm."
+      },
+      "reversed": {
+        "ru": "Ясность превратилась в жёсткость: верните гармонию через свет, музыку или спокойное чтение.",
+        "en": "Clarity has hardened into rigidity: restore harmony through light, music, or quiet reading."
+      }
+    },
+    {
+      "sectorId": "center",
+      "upright": {
+        "ru": "Дионис и Ариадна удерживают живую нить целого: отметьте жизнь творчеством и благодарностью.",
+        "en": "Dionysus and Ariadne hold the living thread of the whole: affirm life through creativity and gratitude."
+      },
+      "reversed": {
+        "ru": "Нить центра потеряна: остановитесь, назовите своё состояние и сделайте одно свободное творческое действие.",
+        "en": "The thread to the center is lost: pause, name your state, and make one free creative gesture."
+      }
+    }
   ]
 }

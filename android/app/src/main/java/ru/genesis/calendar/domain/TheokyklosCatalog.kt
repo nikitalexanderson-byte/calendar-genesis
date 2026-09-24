@@ -31,8 +31,12 @@ data class TheokyklosPractice(
     val priority: Int,
     val color: String,
 )
-data class TheokyklosCatalog(val sectors: List<TheokyklosSector>, val practices: List<TheokyklosPractice>) {
+data class StoicheionSectorGuidance(val sectorId: String, val upright: TheokyklosText,
+    val reversed: TheokyklosText)
+data class TheokyklosCatalog(val sectors: List<TheokyklosSector>, val practices: List<TheokyklosPractice>,
+    val stoicheionGuidance: List<StoicheionSectorGuidance>) {
     val byId: Map<String, TheokyklosSector> = sectors.associateBy { it.id }
+    val guidanceById: Map<String, StoicheionSectorGuidance> = stoicheionGuidance.associateBy { it.sectorId }
     fun practicesFor(sectorId: String) = practices.filter { it.sectorId == sectorId }
 }
 
@@ -83,6 +87,14 @@ object TheokyklosCatalogSource {
         }
         require(practices.map { it.id }.toSet().size == practices.size &&
             practices.all { it.sectorId in ids }) { "Invalid Theokyklos practices" }
-        return TheokyklosCatalog(sectors, practices)
+        val guidanceArray = document.getJSONArray("stoicheionGuidance")
+        val guidance = (0 until guidanceArray.length()).map { index ->
+            val value = guidanceArray.getJSONObject(index)
+            StoicheionSectorGuidance(value.getString("sectorId"), text(value.getJSONObject("upright")),
+                text(value.getJSONObject("reversed")))
+        }
+        require(guidance.map { it.sectorId }.toSet() == (ids.take(8) + "center").toSet() &&
+            guidance.size == 9) { "Stoicheion guidance must cover nine sectors" }
+        return TheokyklosCatalog(sectors, practices, guidance)
     }
 }

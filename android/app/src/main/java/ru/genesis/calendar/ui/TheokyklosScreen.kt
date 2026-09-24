@@ -53,7 +53,8 @@ private val cream = Color(0xfffffcf6)
 private val gold = Color(0xffdfc17e)
 
 @Composable
-fun TheokyklosScreen(app: GenesisApplication, calendarMode: CalendarMode, onOpenHabits: () -> Unit) {
+fun TheokyklosScreen(app: GenesisApplication, calendarMode: CalendarMode, onOpenHabits: () -> Unit,
+    initialSectorId: String? = null, onInitialSectorConsumed: () -> Unit = {}) {
     val context = LocalContext.current
     val catalog = remember(context) { runCatching { TheokyklosCatalogSource.load(context) } }
     val repository = remember(app) { HabitsRepository(app) }
@@ -63,6 +64,13 @@ fun TheokyklosScreen(app: GenesisApplication, calendarMode: CalendarMode, onOpen
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+
+    LaunchedEffect(initialSectorId) {
+        if (initialSectorId != null) {
+            selectedId = initialSectorId
+            onInitialSectorConsumed()
+        }
+    }
 
     LaunchedEffect(repository) {
         try { repository.workspace.collect { workspace = it; storageError = null } }

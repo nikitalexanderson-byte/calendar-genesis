@@ -28,7 +28,7 @@ function sourceExports(relativePath) {
 
 const { THEOKYKLOS_SEGMENTS, THEOKYKLOS_DIRECTION_IDS } = sourceExports('app/theokyklos-data.ts');
 const { THEOKYKLOS_DETAIL_ART, THEOKYKLOS_SYMBOL_ART, THEOKYKLOS_SYMBOL_COLORS } = sourceExports('app/theokyklos-assets.ts');
-const { SACRED_PRACTICES } = sourceExports('app/sacred-practices.ts');
+const { SACRED_PRACTICES, SACRED_SECTOR_GUIDANCE } = sourceExports('app/sacred-practices.ts');
 
 if (THEOKYKLOS_SEGMENTS.length !== 14 || new Set(THEOKYKLOS_SEGMENTS.map(s => s.id)).size !== 14 ||
     ids.some((id, index) => THEOKYKLOS_SEGMENTS[index].id !== id)) {
@@ -53,7 +53,14 @@ if (new Set(SACRED_PRACTICES.map(p => p.id)).size !== SACRED_PRACTICES.length ||
     SACRED_PRACTICES.some(p => !ids.includes(p.sectorId))) {
   throw new Error('Sacred practice IDs or sector links are invalid');
 }
-const serialized = `${JSON.stringify({ schemaVersion: 1, segments, practices: SACRED_PRACTICES }, null, 2)}\n`;
+if (SACRED_SECTOR_GUIDANCE.length !== 9 ||
+    new Set(SACRED_SECTOR_GUIDANCE.map(g => g.sectorId)).size !== 9 ||
+    SACRED_SECTOR_GUIDANCE.some(g => ![...ids.slice(0, 8), 'center'].includes(g.sectorId) ||
+      !g.upright?.ru || !g.reversed?.ru)) {
+  throw new Error('Stoicheion sector guidance must cover the eight directions and center');
+}
+const serialized = `${JSON.stringify({ schemaVersion: 1, segments, practices: SACRED_PRACTICES,
+  stoicheionGuidance: SACRED_SECTOR_GUIDANCE }, null, 2)}\n`;
 if (process.argv.includes('--check')) {
   if (!existsSync(output) || readFileSync(output, 'utf8') !== serialized) {
     throw new Error('Theokyklos catalog is stale; run node android/tools/export-theokyklos.mjs');

@@ -18,6 +18,11 @@ class TheokyklosCatalogTest {
     @Test fun allOriginalSectorsAndPracticesAreLinked() {
         assertEquals(TheokyklosCatalogSource.ids, catalog.sectors.map { it.id })
         assertEquals(28, catalog.practices.size)
+        assertEquals((TheokyklosCatalogSource.ids.take(8) + "center").toSet(),
+            catalog.guidanceById.keys)
+        assertTrue(catalog.guidanceById.values.all {
+            it.upright.ru.isNotBlank() && it.reversed.ru.isNotBlank()
+        })
         for (sector in catalog.sectors) {
             assertEquals(4, sector.words.size)
             assertTrue(sector.title.ru.isNotBlank())

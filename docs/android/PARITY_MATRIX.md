@@ -1,16 +1,26 @@
 # GENESIS Android — матрица фактического переноса
 
-Срез 24.09.2026, `codex/android-native-bootstrap` поверх `origin/master` 30257ff. Alpha06 / versionCode 11 собрана и установлена поверх Alpha05 на согласованный realme RMX5000 (Android 16 / API 36), без очистки данных. Это нативный debug APK, не TWA/PWA и не готовый release. История проектов — `PROJECTS_STAGE.md`, текущий артефакт и ограничения — `STATUS.md`.
+Срез 24.09.2026, `codex/android-native-bootstrap` поверх `origin/master` 30257ff. Alpha07 / versionCode 12 собрана и установлена поверх Alpha06 на согласованный realme RMX5000 (Android 16 / API 36), без очистки данных. Это нативный debug APK, не TWA/PWA и не готовый release. История проектов — `PROJECTS_STAGE.md`, текущий артефакт и ограничения — `STATUS.md`.
 
 Пути Android в таблице относительны `android/app/src/main/java/ru/genesis/calendar/`; web-пути — корню репозитория. `LOCAL_PARTIAL` означает работающий в коде локальный поднабор; `DOMAIN_ONLY` — предметные функции без завершённого пользовательского сценария; `NOT_PORTED` — переноса нет. Статус проверки отделён от наличия реализации. PASS для unit-поднабора не является PASS полной приёмки функции. BLOCKED — конкретная внешняя/интеграционная зависимость; NOT_RUN — критерий не испытан, в том числе когда экран ещё отсутствует.
 
 ## Подтверждённая общая веха
+
+Итог alpha07: `assembleDebug`, `assembleDebugAndroidTest`, `testDebugUnitTest`, `lintDebug` PASS; **69 unit PASS**. Обычный realme UI-прогон **17/17 PASS**. Стойхейон получил зашифрованные локальные карту дня и расклад, двукратный лимит на день и 180-секундное окно переброса, точную секторную практику и переход к Теокиклосу. **Серверная** запись расклада и синхронизация не готовы.
 
 Итог alpha06: `assembleDebug`, `assembleDebugAndroidTest`, `testDebugUnitTest`, `lintDebug` PASS; **65 unit PASS**. Финальный обычный прогон на realme **16/16 UI PASS** после стабилизации ожиданий загрузки изображения и клавиатуры. APK hash и ограничения — `STATUS.md`. Alpha06 сохраняет alpha05 функции, но не доказывает полный web-паритет.
 
 Итог alpha05: `assembleDebug`, `assembleDebugAndroidTest`, `testDebugUnitTest` — PASS; **61 JUnit tests PASS**, `lintDebug` PASS. APK hash — `STATUS.md`. На реальном телефоне обычные Compose UI-сценарии **15 PASS**, включая drag-and-drop и календарь; два жестовых сценария повторно **2 PASS** после установки alpha05. Screen-off delivery, complete/dedup, fresh-process persistence, snooze/stale и открытие через системную шторку относились к alpha01; они не заменяются обычным UI-прогоном и их границы описаны в DEVICE_TESTS.md.
 
 Вкладка «Трекеры» со сном/настроением включена в проверенную сборку. Native UI tests задачи/привычки/настроения 3 PASS; 36 сочетаний настроек persistence PASS (не visual matrix). Web lint/64 tests/build:beget PASS; PHP syntax/44 standalone checks PASS. HTTP auth NOT_RUN.
+
+## Изменения alpha07 к матрице ниже
+
+| ID | Новый фактический статус alpha07 | Ещё отсутствует или не проверено |
+| --- | --- | --- |
+| STO01 | Карта дня, 9-карточный расклад, перевороты, пифмен, 1 переброс/3 минуты, шифрованное хранение и отключение гадания; unit + realme PASS | Серверный draw API и общие попытки между устройствами, UX всех граничных состояний, Figma-сверка |
+| THEO01 / STO01 | Описание позиции содержит подлинное upright/reversed руководство, слова и практики; кнопка открывает нужный сектор Теокиклоса на realme | Все 9 переходов и 28 практик вручную, TalkBack |
+| OPS01 | 69 unit, 17 обычных realme UI, lint и 527/527 byte parity PASS | Screen-off/Doze и 360/390/768/1440 обеих тем NOT_RUN |
 
 ## Изменения alpha06 к матрице ниже
 
