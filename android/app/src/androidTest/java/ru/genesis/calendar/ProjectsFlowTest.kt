@@ -2,6 +2,7 @@ package ru.genesis.calendar
 
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.geometry.Offset
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
 import androidx.room.Room
@@ -59,7 +60,7 @@ class ProjectsFlowTest {
         compose.onNodeWithTag("create-project").performClick()
         if (alreadyCreated) {
             compose.onNodeWithTag("project-title").assertExists()
-            compose.onNodeWithText("Отмена").performClick()
+            compose.onNodeWithText("Отмена").performScrollTo().performClick()
         } else {
             compose.onNodeWithTag("project-title").performTextInput(projectTitle)
             compose.onNodeWithTag("project-category-work").performClick()
@@ -87,6 +88,151 @@ class ProjectsFlowTest {
             }
         } finally {
             runBlocking { preferences.set("theme", originalTheme) }
+        }
+    }
+
+    @Test fun chaosBoxTaskCanBeMovedIntoProjectWithoutGoogleAccount() {
+        val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
+        check(BuildConfig.DEBUG && app.packageName.endsWith(".debug"))
+        val preferences = LocalPreferences(app, app.workspaceScope)
+        val originalTheme = runBlocking { preferences.values.first().theme }
+        val projectId = "internal-drag-target-v1"
+        val taskId = "internal-chaos-drag-v1"
+        val title = "Проект для переноса"
+        try {
+            runBlocking {
+                WorkspaceStructureRepository(app).saveProject(
+                    GenesisProject(projectId, null, "work", title, "", emptyList(), "active", 0))
+                val previous = app.repository.get(taskId)
+                app.repository.save(LocalTask(id = taskId, title = "Задача из Хаос-бокса",
+                    revision = previous?.revision ?: 0))
+                preferences.set("theme", "Experimental")
+            }
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithTag("app-theme-Experimental").fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.onNodeWithText("Проекты").performScrollTo().performClick()
+            compose.onNodeWithTag("project-inbox").assertExists()
+            compose.onNodeWithText("Открыть").performClick()
+            compose.onNodeWithTag("drag-task-$taskId", useUnmergedTree = true)
+                .performScrollTo().assertIsDisplayed()
+            compose.onNodeWithTag("move-task-$taskId").performClick()
+            compose.onNodeWithTag("project-destination-search").assertIsDisplayed()
+            compose.onNodeWithTag("project-destination-list")
+                .performScrollToNode(hasTestTag("project-menu-target-$projectId"))
+            compose.onNodeWithTag("project-menu-target-$projectId").performClick()
+            compose.waitUntil(10_000) {
+                runBlocking { app.repository.get(taskId)?.projectId == projectId }
+            }
+            compose.onNodeWithTag("projects-screen").performScrollToNode(hasTestTag("project-drop-$projectId"))
+            compose.onNodeWithTag("project-drop-$projectId").assertExists()
+        } finally {
+            runBlocking { preferences.set("theme", originalTheme) }
+        }
+    }
+
+    @Test fun longPressDragMovesChaosTaskToProject() {
+        val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
+        check(BuildConfig.DEBUG && app.packageName.endsWith(".debug"))
+        val preferences = LocalPreferences(app, app.workspaceScope)
+        val originalTheme = runBlocking { preferences.values.first().theme }
+        val taskId = "internal-gesture-task-v1"
+        val projectId = runBlocking {
+            val repo = WorkspaceStructureRepository(app)
+            if (repo.workspace.first().projects.isEmpty()) repo.saveProject(
+                GenesisProject("internal-gesture-project-v1", null, null, "Проект жеста", "", emptyList(), "active", 0))
+            val id = WorkspaceStructureCodec.ordered(repo.workspace.first()).first().first.id
+            val previous = app.repository.get(taskId)
+            app.repository.save(LocalTask(id = taskId, title = "Задача для жеста",
+                revision = previous?.revision ?: 0))
+            preferences.set("theme", "Experimental")
+            id
+        }
+        try {
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithTag("app-theme-Experimental").fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.onNodeWithText("Проекты").performScrollTo().performClick()
+            compose.onNodeWithText("Открыть").performClick()
+            val source = compose.onNodeWithTag("drag-task-$taskId", useUnmergedTree = true)
+            source.performScrollTo()
+            source.assertIsDisplayed()
+            val sourceBounds = source.fetchSemanticsNode().boundsInRoot
+            source.performTouchInput {
+                down(center)
+                advanceEventTime(700)
+                moveBy(Offset(0f, 4f))
+            }
+            compose.onNodeWithTag("drag-overlay").assertExists()
+            val preview = File(app.getExternalFilesDir(null), "projects-drag-preview-after.png")
+            assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(preview))
+            val targetPoint = compose.onNodeWithTag("drag-overlay-target-$projectId")
+                .fetchSemanticsNode().boundsInRoot.center
+            source.performTouchInput {
+                moveTo(Offset(targetPoint.x - sourceBounds.left, targetPoint.y - sourceBounds.top))
+                advanceEventTime(300)
+                up()
+            }
+            compose.waitUntil(10_000) { runBlocking { app.repository.get(taskId)?.projectId == projectId } }
+        } finally {
+            runBlocking { preferences.set("theme", originalTheme) }
+        }
+    }
+
+    @Test fun longPressDragMovesTaskBetweenProjectsAndBackToChaosBox() {
+        val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
+        check(BuildConfig.DEBUG && app.packageName.endsWith(".debug"))
+        val prefs = LocalPreferences(app, app.workspaceScope)
+        val originalTheme = runBlocking { prefs.values.first().theme }
+        val originId = "internal-project-drag-origin-v1"
+        val destinationId = "internal-project-drag-destination-v1"
+        val taskId = "internal-project-drag-task-v1"
+        try {
+            runBlocking {
+                val repo = WorkspaceStructureRepository(app)
+                repo.saveProject(GenesisProject(originId, null, null, "B Жест — исток", "", emptyList(), "active", 0))
+                repo.saveProject(GenesisProject(destinationId, null, null, "A Жест — цель", "", emptyList(), "active", 0))
+                val previous = app.repository.get(taskId)
+                app.repository.save(LocalTask(id = taskId, title = "Задача между проектами", projectId = originId,
+                    revision = previous?.revision ?: 0))
+                prefs.set("theme", "Experimental")
+            }
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithTag("app-theme-Experimental").fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.onNodeWithText("Проекты").performScrollTo().performClick()
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithTag("projects-screen").fetchSemanticsNodes().isNotEmpty()
+            }
+            fun dragTo(targetId: String) {
+                val source = compose.onNodeWithTag("drag-task-$taskId", useUnmergedTree = true)
+                source.performScrollTo()
+                source.assertIsDisplayed()
+                val sourceBounds = source.fetchSemanticsNode().boundsInRoot
+                source.performTouchInput { down(center); advanceEventTime(700); moveBy(Offset(0f, 4f)) }
+                compose.onNodeWithTag("drag-overlay").assertExists()
+                val point = compose.onNodeWithTag("drag-overlay-target-$targetId")
+                    .fetchSemanticsNode().boundsInRoot.center
+                source.performTouchInput {
+                    moveTo(Offset(point.x - sourceBounds.left, point.y - sourceBounds.top))
+                    advanceEventTime(150)
+                    up()
+                }
+            }
+            compose.onNodeWithTag("projects-screen").performScrollToNode(hasTestTag("project-drop-$originId"))
+            compose.onNodeWithTag("project-drop-$originId").performClick()
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithTag("drag-task-$taskId", useUnmergedTree = true)
+                    .fetchSemanticsNodes().isNotEmpty()
+            }
+            dragTo(destinationId)
+            compose.waitUntil(10_000) { runBlocking { app.repository.get(taskId)?.projectId == destinationId } }
+            compose.onNodeWithTag("projects-screen").performScrollToNode(hasTestTag("project-drop-$destinationId"))
+            compose.onNodeWithTag("project-drop-$destinationId").performClick()
+            dragTo("__genesis_inbox__")
+            compose.waitUntil(10_000) { runBlocking { app.repository.get(taskId)?.projectId == null } }
+        } finally {
+            runBlocking { prefs.set("theme", originalTheme) }
         }
     }
 }

@@ -66,6 +66,7 @@ class CalendarFlowTest {
             compose.onNodeWithTag("calendar-day-$apeironStart").performClick()
             compose.onNodeWithTag("calendar-selected-day").assertExists()
             compose.onNodeWithText("Открыть день и задачи").performScrollTo().performClick()
+            compose.onNodeWithTag("today-list").performScrollToNode(hasText("Задачи дня"))
             compose.onNodeWithText("Задачи дня").assertExists()
         } finally {
             runBlocking {

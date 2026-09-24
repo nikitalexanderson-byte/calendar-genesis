@@ -23,7 +23,23 @@ import ru.genesis.calendar.domain.*
 import ru.genesis.calendar.domain.habits.*
 
 @Composable
-fun HabitsScreen(app: GenesisApplication) {
+fun HabitsScreen(app: GenesisApplication, experimental: Boolean) {
+    var section by rememberSaveable { mutableStateOf("Привычки") }
+    Column(Modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("Привычки", "Сон и настроение").forEach { title ->
+                FilterChip(selected = section == title, onClick = { section = title }, label = { Text(title) })
+            }
+        }
+        Box(Modifier.weight(1f)) {
+            if (section == "Привычки") HabitWorkspaceContent(app, experimental) else TrackersScreen(app)
+        }
+    }
+}
+
+@Composable
+private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean) {
     val repository=remember(app) { HabitsRepository(app) }
     val scope=rememberCoroutineScope()
     var workspace by remember { mutableStateOf<LocalHabitWorkspace?>(null) }
@@ -68,11 +84,14 @@ fun HabitsScreen(app: GenesisApplication) {
         } else {
             val rank=HeroProgress.rankForProgress(current.progress)
             Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
+                OriginalImage("habit-ranks/heroic-ranks.webp", "Путь героических рангов",
+                    Modifier.fillMaxWidth().height(82.dp))
                 Text("${current.progress.lifetimeXp} XP · ${current.progress.laurelsBalance} Лавров",style=MaterialTheme.typography.titleLarge)
                 Text(rank.title)
                 Text("Серия: ${current.progress.currentStreak} · Ритм: ${current.progress.rhythmScore}%")
                 current.goals.firstOrNull { it.date==today }?.let { Text("Сегодня: ${it.completedCount}/${it.scheduledCount} · цель ${it.targetCount}") }
             } }
+            if (experimental) HabitArtGallery(current)
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 Button(enabled=!busy&&!storageError,onClick={edit=null;editorOpen=true}) { Text("Новая привычка") }
                 OutlinedButton(enabled=!busy&&!storageError,onClick={catalogueOpen=!catalogueOpen}) { Text("Библиотека") }

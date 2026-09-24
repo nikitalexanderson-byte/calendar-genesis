@@ -2,6 +2,7 @@ package ru.genesis.calendar.ui
 
 import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -15,6 +16,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.*
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import java.time.*
@@ -30,7 +32,15 @@ private val priorityNames = listOf("Можно позже","Низкий","Ни�
 fun PriorityControl(value: Int, onChange: (Int) -> Unit) {
     Column(Modifier.fillMaxWidth()) {
         Text("Приоритет · ${priorityNames[value - 1]} · $value из 10")
-        Row(Modifier.fillMaxWidth().height(72.dp), verticalAlignment = Alignment.Bottom) {
+        Row(Modifier.fillMaxWidth().height(72.dp).testTag("priority-scale").pointerInput(onChange) {
+            fun selectAt(x: Float) {
+                onChange(((x / size.width.coerceAtLeast(1)) * 10).toInt().coerceIn(0, 9) + 1)
+            }
+            detectDragGesturesAfterLongPress(onDragStart = { selectAt(it.x) }) { change, _ ->
+                selectAt(change.position.x)
+                change.consume()
+            }
+        }, verticalAlignment = Alignment.Bottom) {
             (1..10).forEach { step ->
                 Box(Modifier.weight(1f).fillMaxHeight().clickable { onChange(step) }
                     .semantics { contentDescription = "Приоритет $step, ${priorityNames[step - 1]}"; selected = value == step },

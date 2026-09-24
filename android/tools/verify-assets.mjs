@@ -109,14 +109,14 @@ const slots={
   'month-art-v4':['Sacred month/year illustrations','All 13 original month images have native sacred month and lazy year slots; current month and Apeiron observed on one phone, full 13-month visual matrix pending','IN_CODE_NOT_VISUALLY_VERIFIED'],
   'theokyklos-art':['14 Theokyklos deity/sector illustrations','Native sector dialog renders original artwork; four critical detail states checked on one phone, full visual matrix pending','IN_CODE_NOT_VISUALLY_VERIFIED'],
   'theokyklos-symbols':['Theokyklos symbol overlays','Native mandala renders all 14 original sigils including zenith, nadir, entry and exit; one-phone theme screenshots captured','IN_CODE_NOT_VISUALLY_VERIFIED'],
-  'stoicheion-cards':['Stoicheion card faces and frames','Deck/divination/letter details/frame layering not ported; SVG needs a native renderer','NOT_PORTED'],
-  'achievement-art':['Achievement medallion artwork','Native achievement gallery/detail slots not ported','NOT_PORTED'],
-  'habit-ranks':['Heroic rank background','Native habit screen uses rank text; artwork slot not ported','NOT_PORTED'],
-  'habit-reward-art':['Hestia spark/comeback reward illustrations','Purchase/comeback reward-art slots not ported','NOT_PORTED'],
-  'hero-path':['Hero path 256/512 artwork','Hero path visual route/checkpoint slots not ported','NOT_PORTED'],
+  'stoicheion-cards':['Stoicheion card faces and frames','All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported','PARTIAL_IN_CODE'],
+  'achievement-art':['Achievement medallion artwork','All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported','PARTIAL_IN_CODE'],
+  'habit-ranks':['Heroic rank background','Native habit progress card displays original rank panorama; individual rank journey/checkpoints remain unported','PARTIAL_IN_CODE'],
+  'habit-reward-art':['Hestia spark/comeback reward illustrations','Both original reward images render in Experimental Habits; purchase/comeback actions remain unported','PARTIAL_IN_CODE'],
+  'hero-path':['Hero path 256/512 artwork','Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported','PARTIAL_IN_CODE'],
   'calendar-art':['Gregorian Saturn/Cronus description artwork','Original annual description slot not ported','NOT_PORTED'],
   'genesis-hero.png':['Original GENESIS hero background','Hero composition and theme variants not ported','NOT_PORTED'],
-  'month-frieze-v2.png':['Month frieze/decorative band','Frieze positioning not ported','NOT_PORTED'],
+  'month-frieze-v2.png':['Legacy combined month frieze','Preserved in APK but intentionally not rendered in Projects; sacred calendar uses individual original month-art-v4 images','PRESERVED_NOT_RENDERED'],
 };
 const files=walk(publicRoot);
 const originals=files.filter(included);

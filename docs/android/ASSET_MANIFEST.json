@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-24T16:57:03.089Z",
+  "generatedAt": "2026-09-24T18:24:21.893Z",
   "command": "node android/tools/verify-assets.mjs --require-apk",
   "sourceRoot": "public",
   "gradle": "android/app/build.gradle.kts",
-  "gradleSha256": "56d6082bbe20c5e3249a3939350a21552acc2961bfaf9af6e7f899251d99914f",
+  "gradleSha256": "ee3564f39d2f4d143479a0f35847ad978eb71948b3696af3a9c76180954e4ffb",
   "includes": [
     "icons/**",
     "weekday-art/**",
@@ -24,8 +24,8 @@
   "generatedRoot": "android/app/build/generated/genesisAssets/originals",
   "apk": {
     "path": "android/app/build/outputs/apk/debug/app-debug.apk",
-    "size": 158041284,
-    "sha256": "c05bc664f8299efc8f1d6337d46e4667521f2fa9e389ada8da1348f70c57cfc3"
+    "size": 157874625,
+    "sha256": "be2e8703565ab9d8ebbc15f432817bf448ae1ca0b83704c6fca8a816b1f5e2d3"
   },
   "summary": {
     "files": 527,
@@ -44,8 +44,8 @@
       "generatedPass": 36,
       "apkPass": 36,
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "Native achievement gallery/detail slots not ported",
-      "uiStatus": "NOT_PORTED"
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "uiStatus": "PARTIAL_IN_CODE"
     },
     {
       "family": "calendar-art",
@@ -84,8 +84,8 @@
       "generatedPass": 1,
       "apkPass": 1,
       "webSlot": "Heroic rank background",
-      "nativeSlot": "Native habit screen uses rank text; artwork slot not ported",
-      "uiStatus": "NOT_PORTED"
+      "nativeSlot": "Native habit progress card displays original rank panorama; individual rank journey/checkpoints remain unported",
+      "uiStatus": "PARTIAL_IN_CODE"
     },
     {
       "family": "habit-reward-art",
@@ -94,8 +94,8 @@
       "generatedPass": 2,
       "apkPass": 2,
       "webSlot": "Hestia spark/comeback reward illustrations",
-      "nativeSlot": "Purchase/comeback reward-art slots not ported",
-      "uiStatus": "NOT_PORTED"
+      "nativeSlot": "Both original reward images render in Experimental Habits; purchase/comeback actions remain unported",
+      "uiStatus": "PARTIAL_IN_CODE"
     },
     {
       "family": "hero-path",
@@ -104,8 +104,8 @@
       "generatedPass": 40,
       "apkPass": 40,
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Hero path visual route/checkpoint slots not ported",
-      "uiStatus": "NOT_PORTED"
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "uiStatus": "PARTIAL_IN_CODE"
     },
     {
       "family": "icons",
@@ -133,9 +133,9 @@
       "bytes": 3124671,
       "generatedPass": 1,
       "apkPass": 1,
-      "webSlot": "Month frieze/decorative band",
-      "nativeSlot": "Frieze positioning not ported",
-      "uiStatus": "NOT_PORTED"
+      "webSlot": "Legacy combined month frieze",
+      "nativeSlot": "Preserved in APK but intentionally not rendered in Projects; sacred calendar uses individual original month-art-v4 images",
+      "uiStatus": "PRESERVED_NOT_RENDERED"
     },
     {
       "family": "stoicheion-cards",
@@ -144,8 +144,8 @@
       "generatedPass": 27,
       "apkPass": 27,
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "Deck/divination/letter details/frame layering not ported; SVG needs a native renderer",
-      "uiStatus": "NOT_PORTED"
+      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "uiStatus": "PARTIAL_IN_CODE"
     },
     {
       "family": "theokyklos-art",
@@ -198,8 +198,8 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "Native achievement gallery/detail slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -221,8 +221,8 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "Native achievement gallery/detail slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -244,8 +244,8 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "Native achievement gallery/detail slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -267,8 +267,8 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "Native achievement gallery/detail slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -290,8 +290,8 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "Native achievement gallery/detail slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -313,8 +313,8 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "Native achievement gallery/detail slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -336,8 +336,8 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "Native achievement gallery/detail slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -359,8 +359,8 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "Native achievement gallery/detail slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -382,8 +382,8 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "Native achievement gallery/detail slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -405,8 +405,8 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "Native achievement gallery/detail slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -428,8 +428,8 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "Native achievement gallery/detail slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -451,8 +451,8 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "Native achievement gallery/detail slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -474,8 +474,8 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "Native achievement gallery/detail slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -497,8 +497,8 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "Native achievement gallery/detail slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -520,8 +520,8 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "Native achievement gallery/detail slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -543,8 +543,8 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "Native achievement gallery/detail slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -566,8 +566,8 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "Native achievement gallery/detail slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -589,8 +589,8 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "Native achievement gallery/detail slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -612,8 +612,8 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "Native achievement gallery/detail slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -635,8 +635,8 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "Native achievement gallery/detail slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -658,8 +658,8 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "Native achievement gallery/detail slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -681,8 +681,8 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "Native achievement gallery/detail slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -704,8 +704,8 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "Native achievement gallery/detail slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -727,8 +727,8 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "Native achievement gallery/detail slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -750,8 +750,8 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "Native achievement gallery/detail slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -773,8 +773,8 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "Native achievement gallery/detail slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -796,8 +796,8 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "Native achievement gallery/detail slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -819,8 +819,8 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "Native achievement gallery/detail slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -842,8 +842,8 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "Native achievement gallery/detail slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -865,8 +865,8 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "Native achievement gallery/detail slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -888,8 +888,8 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "Native achievement gallery/detail slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -911,8 +911,8 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "Native achievement gallery/detail slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -934,8 +934,8 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "Native achievement gallery/detail slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -957,8 +957,8 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "Native achievement gallery/detail slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -980,8 +980,8 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "Native achievement gallery/detail slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -1003,8 +1003,8 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "Native achievement gallery/detail slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -9490,8 +9490,8 @@
         "error": null
       },
       "webSlot": "Heroic rank background",
-      "nativeSlot": "Native habit screen uses rank text; artwork slot not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Native habit progress card displays original rank panorama; individual rank journey/checkpoints remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -9513,8 +9513,8 @@
         "error": null
       },
       "webSlot": "Hestia spark/comeback reward illustrations",
-      "nativeSlot": "Purchase/comeback reward-art slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Both original reward images render in Experimental Habits; purchase/comeback actions remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -9536,8 +9536,8 @@
         "error": null
       },
       "webSlot": "Hestia spark/comeback reward illustrations",
-      "nativeSlot": "Purchase/comeback reward-art slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Both original reward images render in Experimental Habits; purchase/comeback actions remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -9559,8 +9559,8 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Hero path visual route/checkpoint slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -9582,8 +9582,8 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Hero path visual route/checkpoint slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -9605,8 +9605,8 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Hero path visual route/checkpoint slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -9628,8 +9628,8 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Hero path visual route/checkpoint slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -9651,8 +9651,8 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Hero path visual route/checkpoint slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -9674,8 +9674,8 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Hero path visual route/checkpoint slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -9697,8 +9697,8 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Hero path visual route/checkpoint slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -9720,8 +9720,8 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Hero path visual route/checkpoint slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -9743,8 +9743,8 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Hero path visual route/checkpoint slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -9766,8 +9766,8 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Hero path visual route/checkpoint slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -9789,8 +9789,8 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Hero path visual route/checkpoint slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -9812,8 +9812,8 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Hero path visual route/checkpoint slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -9835,8 +9835,8 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Hero path visual route/checkpoint slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -9858,8 +9858,8 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Hero path visual route/checkpoint slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -9881,8 +9881,8 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Hero path visual route/checkpoint slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -9904,8 +9904,8 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Hero path visual route/checkpoint slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -9927,8 +9927,8 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Hero path visual route/checkpoint slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -9950,8 +9950,8 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Hero path visual route/checkpoint slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -9973,8 +9973,8 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Hero path visual route/checkpoint slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -9996,8 +9996,8 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Hero path visual route/checkpoint slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -10019,8 +10019,8 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Hero path visual route/checkpoint slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -10042,8 +10042,8 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Hero path visual route/checkpoint slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -10065,8 +10065,8 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Hero path visual route/checkpoint slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -10088,8 +10088,8 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Hero path visual route/checkpoint slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -10111,8 +10111,8 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Hero path visual route/checkpoint slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -10134,8 +10134,8 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Hero path visual route/checkpoint slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -10157,8 +10157,8 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Hero path visual route/checkpoint slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -10180,8 +10180,8 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Hero path visual route/checkpoint slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -10203,8 +10203,8 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Hero path visual route/checkpoint slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -10226,8 +10226,8 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Hero path visual route/checkpoint slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -10249,8 +10249,8 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Hero path visual route/checkpoint slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -10272,8 +10272,8 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Hero path visual route/checkpoint slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -10295,8 +10295,8 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Hero path visual route/checkpoint slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -10318,8 +10318,8 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Hero path visual route/checkpoint slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -10341,8 +10341,8 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Hero path visual route/checkpoint slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -10364,8 +10364,8 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Hero path visual route/checkpoint slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -10387,8 +10387,8 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Hero path visual route/checkpoint slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -10410,8 +10410,8 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Hero path visual route/checkpoint slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -10433,8 +10433,8 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Hero path visual route/checkpoint slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -10456,8 +10456,8 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Hero path visual route/checkpoint slots not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -10869,9 +10869,9 @@
         "compressedBytes": 3124671,
         "error": null
       },
-      "webSlot": "Month frieze/decorative band",
-      "nativeSlot": "Frieze positioning not ported",
-      "uiStatus": "NOT_PORTED",
+      "webSlot": "Legacy combined month frieze",
+      "nativeSlot": "Preserved in APK but intentionally not rendered in Projects; sacred calendar uses individual original month-art-v4 images",
+      "uiStatus": "PRESERVED_NOT_RENDERED",
       "visualParity": "NOT_RUN"
     },
     {
@@ -10893,8 +10893,8 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "Deck/divination/letter details/frame layering not ported; SVG needs a native renderer",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -10916,8 +10916,8 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "Deck/divination/letter details/frame layering not ported; SVG needs a native renderer",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -10939,8 +10939,8 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "Deck/divination/letter details/frame layering not ported; SVG needs a native renderer",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -10962,8 +10962,8 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "Deck/divination/letter details/frame layering not ported; SVG needs a native renderer",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -10985,8 +10985,8 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "Deck/divination/letter details/frame layering not ported; SVG needs a native renderer",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11008,8 +11008,8 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "Deck/divination/letter details/frame layering not ported; SVG needs a native renderer",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11031,8 +11031,8 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "Deck/divination/letter details/frame layering not ported; SVG needs a native renderer",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11054,8 +11054,8 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "Deck/divination/letter details/frame layering not ported; SVG needs a native renderer",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11077,8 +11077,8 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "Deck/divination/letter details/frame layering not ported; SVG needs a native renderer",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11100,8 +11100,8 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "Deck/divination/letter details/frame layering not ported; SVG needs a native renderer",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11123,8 +11123,8 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "Deck/divination/letter details/frame layering not ported; SVG needs a native renderer",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11146,8 +11146,8 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "Deck/divination/letter details/frame layering not ported; SVG needs a native renderer",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11169,8 +11169,8 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "Deck/divination/letter details/frame layering not ported; SVG needs a native renderer",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11192,8 +11192,8 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "Deck/divination/letter details/frame layering not ported; SVG needs a native renderer",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11215,8 +11215,8 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "Deck/divination/letter details/frame layering not ported; SVG needs a native renderer",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11238,8 +11238,8 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "Deck/divination/letter details/frame layering not ported; SVG needs a native renderer",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11261,8 +11261,8 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "Deck/divination/letter details/frame layering not ported; SVG needs a native renderer",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11284,8 +11284,8 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "Deck/divination/letter details/frame layering not ported; SVG needs a native renderer",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11307,8 +11307,8 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "Deck/divination/letter details/frame layering not ported; SVG needs a native renderer",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11330,8 +11330,8 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "Deck/divination/letter details/frame layering not ported; SVG needs a native renderer",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11353,8 +11353,8 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "Deck/divination/letter details/frame layering not ported; SVG needs a native renderer",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11376,8 +11376,8 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "Deck/divination/letter details/frame layering not ported; SVG needs a native renderer",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11399,8 +11399,8 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "Deck/divination/letter details/frame layering not ported; SVG needs a native renderer",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11422,8 +11422,8 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "Deck/divination/letter details/frame layering not ported; SVG needs a native renderer",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11445,8 +11445,8 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "Deck/divination/letter details/frame layering not ported; SVG needs a native renderer",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11468,8 +11468,8 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "Deck/divination/letter details/frame layering not ported; SVG needs a native renderer",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11491,8 +11491,8 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "Deck/divination/letter details/frame layering not ported; SVG needs a native renderer",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
     {

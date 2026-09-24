@@ -19,6 +19,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -80,24 +81,29 @@ fun GenesisApp(app: GenesisApplication, openedTask: String?) {
                     else "Локальные черновики · аккаунт не подключён",Modifier.padding(horizontal=16.dp),
                     style=MaterialTheme.typography.bodySmall)
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal=8.dp)) {
-                    listOf("Сегодня","Задачи","Проекты","Календарь","Привычки","Теокиклос","Трекеры","Настройки").forEach {
+                    listOf("Сегодня","Задачи","Проекты","Календарь","Привычки","Стойхейон","Теокиклос","Настройки").forEach {
                         FilterChip(selected=tab==it,onClick={tab=it},label={Text(it)},modifier=Modifier.padding(3.dp))
                     }
                 }
                 error?.let { Text(it,color=MaterialTheme.colorScheme.error,modifier=Modifier.padding(12.dp)) }
                 when(tab) {
-                    "Привычки" -> HabitsScreen(app)
+                    "Привычки" -> HabitsScreen(app,prefs.theme=="Experimental")
                     "Теокиклос" -> TheokyklosScreen(app,prefs.input,onOpenHabits={tab="Привычки"})
-                    "Трекеры" -> TrackersScreen(app)
+                    "Стойхейон" -> StoicheionScreen()
                     "Проекты" -> ProjectsScreen(app,tasks,prefs.theme=="Experimental",
                         onOpenTask={ taskId -> editId=taskId;creating=false;tab="Задачи" },
                         onCreateTask={ projectId -> newTaskProjectId=projectId;editId=null;creating=true })
                     "Настройки" -> SettingsScreen(app,prefs) { name,value -> scope.launch { prefsStore.set(name,value) } }
                     "Календарь" -> CalendarScreen(LocalDate.parse(selected),prefs.display,
-                        onSelect={selected=it.toString();tab="Сегодня"})
-                    else -> LazyColumn(Modifier.weight(1f),contentPadding=PaddingValues(16.dp),
+                        onSelect={selected=it.toString();tab="Сегодня"},
+                        experimental=prefs.theme=="Experimental", tasks=tasks)
+                    else -> LazyColumn(Modifier.weight(1f).testTag("today-list"),contentPadding=PaddingValues(16.dp),
                         verticalArrangement=Arrangement.spacedBy(12.dp)) {
-                        if(tab=="Сегодня") item { DayHeader(LocalDate.parse(selected),prefs.display) }
+                        if(tab=="Сегодня") item { DayHeader(LocalDate.parse(selected),prefs.display,
+                            prefs.theme=="Experimental") }
+                        if(tab=="Сегодня" && prefs.theme=="Experimental") item {
+                            DayRhythmPanel(prefs.use24)
+                        }
                         item {
                             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
                                 Text(if(tab=="Сегодня") "Задачи дня" else "Все задачи",style=MaterialTheme.typography.titleLarge)
@@ -119,6 +125,9 @@ fun GenesisApp(app: GenesisApplication, openedTask: String?) {
                                     }
                                 }
                             }
+                        }
+                        if(tab=="Сегодня" && prefs.theme=="Experimental") item {
+                            DayKnowledgePanel(LocalDate.parse(selected))
                         }
                     }
                 }
@@ -144,7 +153,7 @@ fun OriginalImage(path: String, description: String?, modifier: Modifier=Modifie
 }
 
 @Composable
-private fun DayHeader(date: LocalDate,mode: CalendarMode) {
+private fun DayHeader(date: LocalDate,mode: CalendarMode,experimentalTheme: Boolean) {
     val calendar=remember { GenesisCalendar() }
     val sacred=calendar.sacredDate(date)
     val month=SacredCatalog.months[sacred.monthIndex]
@@ -152,9 +161,32 @@ private fun DayHeader(date: LocalDate,mode: CalendarMode) {
     val weekFiles=listOf("weekday-0-sunday-apollo.webp","weekday-1-monday-lunar-goddesses.webp",
         "weekday-2-tuesday-ares.webp","weekday-3-wednesday-hermes.webp","weekday-4-thursday-zeus-hera.webp",
         "weekday-5-friday-aphrodite-hestia-dionysus.webp","weekday-6-saturday-cronus.webp")
+    val path = if(mode==CalendarMode.PROFANE) "weekday-art/${weekFiles[date.dayOfWeek.value%7]}"
+        else "day-art-v1/month-${(sacred.monthIndex+1).toString().padStart(2,'0')}/day-${sacred.day.toString().padStart(2,'0')}.webp"
+    if (experimentalTheme) {
+        Card(Modifier.fillMaxWidth().testTag("today-hero"), shape = RoundedCornerShape(20.dp)) {
+            Box(Modifier.fillMaxWidth().height(310.dp)) {
+                OriginalImage(path, if(mode==CalendarMode.PROFANE) date.dayOfWeek.toString() else day.name,
+                    Modifier.matchParentSize())
+                Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(
+                    Color(0x08040e10), Color(0x55040e10), Color(0xf0071d20)))))
+                Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Text("${month.season.uppercase()} · ${month.roman} МЕСЯЦ ${month.name.uppercase()}",
+                        color = Color(0xffdfc17e), style = MaterialTheme.typography.labelMedium)
+                    Text(day.name, color = Color(0xfff9f2e2), style = MaterialTheme.typography.headlineSmall,
+                        maxLines = 2)
+                    Text(day.description, color = Color(0xffeee6d7), style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 3)
+                    Text(date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy",java.util.Locale.forLanguageTag("ru"))),
+                        color = Color(0xffdfc17e), style = MaterialTheme.typography.labelMedium)
+                }
+            }
+        }
+        return
+    }
     Card(Modifier.fillMaxWidth()) {
-        OriginalImage(if(mode==CalendarMode.PROFANE) "weekday-art/${weekFiles[date.dayOfWeek.value%7]}"
-            else "day-art-v1/month-${(sacred.monthIndex+1).toString().padStart(2,'0')}/day-${sacred.day.toString().padStart(2,'0')}.webp",
+        OriginalImage(path,
             if(mode==CalendarMode.PROFANE) date.dayOfWeek.toString() else day.name,
             Modifier.fillMaxWidth().height(190.dp))
         Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {

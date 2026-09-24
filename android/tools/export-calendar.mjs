@@ -62,6 +62,16 @@ const chunks = [];
 for (let i = 0; i < moments.length; i += 100) chunks.push(str(moments.slice(i, i + 100).join(',')));
 output(resolve(domain, 'LunarEphemeris.kt'), header + `/** astronomy-engine 2.1.19, exact SearchMoonPhase and Seasons, UTC milliseconds. */\ninternal object LunarEphemeris {\n    const val firstIndex = ${firstIndex}\n    const val firstYear = 1899\n    val newMoons: LongArray by lazy { listOf(\n${chunks.map((s) => `        ${s}`).join(',\n')}\n    ).flatMap { it.split(',') }.map { it.toLong() }.toLongArray() }\n    val yearStartIndices = intArrayOf(${years.join(',')})\n}\n`);
 
+const solarMoments = [];
+for (let year = 1900; year <= 2100; year++) {
+  const seasons = astro.Seasons(year);
+  solarMoments.push(...['mar_equinox', 'jun_solstice', 'sep_equinox', 'dec_solstice']
+    .map((key) => seasons[key].date.getTime()));
+}
+const solarChunks = [];
+for (let i = 0; i < solarMoments.length; i += 100) solarChunks.push(str(solarMoments.slice(i, i + 100).join(',')));
+output(resolve(domain, 'SolarEphemeris.kt'), header + `/** The same astronomy-engine Seasons instants used by the web calendar. */\ninternal object SolarEphemeris {\n    const val firstYear = 1900\n    val moments: LongArray by lazy { listOf(\n${solarChunks.map((s) => `        ${s}`).join(',\n')}\n    ).flatMap { it.split(',') }.map { it.toLong() }.toLongArray() }\n}\n`);
+
 const dates = ['1900-03-19','1900-03-20','2000-02-29','2023-03-14','2023-03-19','2023-03-20','2024-02-29','2024-03-13','2024-03-14','2024-03-19','2024-03-20','2026-03-19','2026-03-20','2026-04-17','2026-09-23','2026-12-31','2027-01-01','2099-03-19','2100-03-20','2100-12-31'];
 const vectors = [];
 for (const zone of ['Europe/Moscow','America/New_York','Pacific/Auckland','UTC']) {

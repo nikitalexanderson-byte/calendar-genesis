@@ -7,6 +7,9 @@ import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.ZonedDateTime
 import java.time.temporal.ChronoUnit
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.roundToInt
 
 enum class CalendarMode(val wireValue: String) {
     PROFANE("profane"), SACRED("sacred"), LUNAR("lunar");
@@ -33,6 +36,10 @@ data class LunarDateInfo(val year: LunarYearInfo, val monthIndex: Int, val month
     val isThreshold: Boolean get() = day == monthLength
     val decade: String get() = when { day <= 10 -> "Декада Роста"; day <= 20 -> "Декада Полноты"; else -> "Декада Исхода" }
 }
+data class MoonInfo(val day: Int, val phaseStep: Int, val phase: String, val illumination: Int,
+    val epithet: String, val direction: String, val event: String)
+data class SolarEvent(val name: String, val shortName: String, val symbol: String,
+    val instant: Instant, val date: LocalDate)
 data class CalendarRange(val start: LocalDate, val end: LocalDate) {
     fun dates(): List<LocalDate> = (0..ChronoUnit.DAYS.between(start, end)).map(start::plusDays)
 }
@@ -42,6 +49,21 @@ data class CalendarRange(val start: LocalDate, val end: LocalDate) {
  * Public offline ephemeris supports 1900..2100 inclusive; out-of-range calls fail explicitly.
  */
 class GenesisCalendar(val zoneId: ZoneId = ZoneId.systemDefault()) {
+    fun solarEvents(year: Int): List<SolarEvent> {
+        require(year in 1900..2100) { "Offline solar ephemeris supports 1900–2100" }
+        val offset = (year - SolarEphemeris.firstYear) * 4
+        val names = listOf("Весеннее равноденствие", "Летнее солнцестояние",
+            "Осеннее равноденствие", "Зимнее солнцестояние")
+        val symbols = listOf("☼", "✺", "☉", "✹")
+        return (0..3).map { index ->
+            val instant = Instant.ofEpochMilli(SolarEphemeris.moments[offset + index])
+            SolarEvent(names[index], if (index % 2 == 0) "Равноденствие" else "Солнцестояние",
+                symbols[index], instant, instant.atZone(zoneId).toLocalDate())
+        }
+    }
+
+    fun solarEvent(date: LocalDate): SolarEvent? = solarEvents(date.year).firstOrNull { it.date == date }
+
     fun sacredDate(date: LocalDate): SacredDateInfo {
         val year = if (date < LocalDate.of(date.year, 3, 20)) date.year - 1 else date.year
         val start = LocalDate.of(year, 3, 20)
@@ -97,6 +119,28 @@ class GenesisCalendar(val zoneId: ZoneId = ZoneId.systemDefault()) {
         return LunarDateInfo(year, index, ordinal, SacredCatalog.lunarMonths[(ordinal - 1).coerceIn(0,12)],
             ChronoUnit.DAYS.between(start, date).toInt() + 1,
             ChronoUnit.DAYS.between(start, lunarMonthStart(index + 1)).toInt())
+    }
+
+    /** Phase display interpolates between the same exact new-moon instants used by the lunar calendar. */
+    fun moonInfo(date: LocalDate): MoonInfo {
+        val lunar = lunarDate(date)
+        val offset = lunar.monthIndex - LunarEphemeris.firstIndex
+        val start = LunarEphemeris.newMoons[offset]
+        val end = LunarEphemeris.newMoons[offset + 1]
+        val instant = date.atTime(12, 0).atZone(zoneId).toInstant().toEpochMilli()
+        val fraction = ((instant - start).toDouble() / (end - start)).coerceIn(0.0, 0.999999)
+        val phaseIndex = (fraction * 8).roundToInt() % 8
+        val phase = listOf("Новолуние", "Молодой серп", "Первая четверть", "Растущая луна",
+            "Полнолуние", "Убывающая луна", "Последняя четверть", "Старый серп")[phaseIndex]
+        val newMoon = lunar.day == 1
+        val waxing = fraction < 0.5
+        val fullMoon = kotlin.math.abs(fraction - 0.5) <= 0.05
+        return MoonInfo(lunar.day, (fraction * 30).roundToInt() % 30, phase,
+            (((1 - cos(2 * PI * fraction)) / 2) * 100).roundToInt(),
+            if (newMoon || !waxing) "Геката" else "Артемида",
+            if (waxing && !newMoon) "Восходящая луна" else "Нисходящая луна",
+            if (newMoon) "Торжество Гекаты · новолуние"
+            else if (fullMoon) "Торжество Артемиды · полнолуние" else "")
     }
 
     fun monthRange(date: LocalDate, mode: CalendarMode): CalendarRange = when (mode) {

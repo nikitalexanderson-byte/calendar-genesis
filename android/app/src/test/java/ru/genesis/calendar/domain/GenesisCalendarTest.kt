@@ -82,4 +82,23 @@ class GenesisCalendarTest {
     @Test fun exhaustedEphemerisIsExplicit() {
         assertThrows(IllegalArgumentException::class.java) { GenesisCalendar().lunarDate(LocalDate.of(2101,1,1)) }
     }
+
+    @Test fun moonPhaseDisplayUsesAllThirtyStepsAndMeaningfulBounds() {
+        val calendar = GenesisCalendar(ZoneId.of("Europe/Moscow"))
+        val range = calendar.monthRange(LocalDate.of(2026,9,24), CalendarMode.LUNAR)
+        val phases = range.dates().map(calendar::moonInfo)
+        assertTrue(phases.all { it.phaseStep in 0..29 && it.illumination in 0..100 })
+        assertEquals(1, phases.first().day)
+        assertTrue(phases.any { it.phase == "Полнолуние" })
+        assertTrue(phases.any { it.event.contains("новолуние") })
+    }
+
+    @Test fun solarTurnPointsMatchWebCalendarInDeviceZone() {
+        val calendar = GenesisCalendar(ZoneId.of("Europe/Moscow"))
+        val autumn = calendar.solarEvent(LocalDate.of(2026, 9, 23))
+        assertEquals("Осеннее равноденствие", autumn?.name)
+        assertEquals("03:05", autumn?.instant?.atZone(calendar.zoneId)?.toLocalTime()
+            ?.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm")))
+        assertEquals(4, calendar.solarEvents(2026).size)
+    }
 }
