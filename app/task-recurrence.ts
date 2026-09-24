@@ -88,6 +88,27 @@ export function alignRecurrenceConfigWithCalendar(config: RecurrenceConfig, cale
   };
 }
 
+function coversEveryTrackerDay(config: RecurrenceConfig) {
+  const normalized = normalizeRecurrenceConfig(config);
+  if (normalized.interval !== 1 || normalized.months.length || normalized.pyatas.length) return false;
+  if (normalized.mode === "classic") {
+    return normalized.pattern === "daily"
+      || (normalized.pattern === "weekdays" && normalized.days.length === 7);
+  }
+  const expectedDays = normalized.mode === "genesis" && normalized.pattern === "pyata-days" ? 5 : 30;
+  return normalized.days.length === expectedDays
+    && normalized.days.every((day, index) => day === index + 1);
+}
+
+export function convertTrackerRecurrenceCalendar(config: RecurrenceConfig, calendarMode: CalendarMode, startDate: string): RecurrenceConfig {
+  const everyDay = coversEveryTrackerDay(config);
+  const converted = alignRecurrenceConfigWithCalendar(config, calendarMode, startDate);
+  if (!everyDay || converted.mode === config.mode) return converted;
+  if (converted.mode === "classic") return { ...converted, pattern: "daily", days: [1] };
+  if (converted.mode === "genesis") return { ...converted, pattern: "pyata-days", days: [1, 2, 3, 4, 5] };
+  return { ...converted, pattern: "lunar-days", days: Array.from({ length: 30 }, (_, index) => index + 1) };
+}
+
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const DAY_MS = 86_400_000;
 
