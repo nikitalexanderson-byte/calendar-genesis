@@ -1,6 +1,12 @@
 # GENESIS Android — internal alpha
 
-## Текущий этап: alpha11 — иллюстрированный день и цветной ритм времени, 25.09.2026
+## Текущий этап: alpha12 — облачный preview и Android OAuth-клиент, 25.09.2026
+
+- Нативный debug APK `2.0.0-alpha12` / versionCode 17: `outputs/android/cloud-preview-alpha12/GENESIS-2.0.0-alpha12-debug.apk`, SHA-256 `A2701B49FCA7DFF64D653CD44D11A765CB9D6E7129AF39BE09E70E856C8DA2B6`. Подпись v2, сборка, lint, 89 unit и 66 web tests PASS; установлен через USB поверх alpha11 без очистки данных. Запуск alpha12 на устройстве и живой Google-вход **NOT_RUN**: телефон во время установки был занят другим приложением; production backend native auth не опубликован.
+- В настройках добавлен отдельный read-only просмотр `/bootstrap`: при подтверждённой серверной сессии расшифровывает account-mode workspace в памяти и показывает объём данных. Ошибка расшифровки/режим восстановления не обнуляют облачные или локальные записи. Это **не** двусторонняя синхронизация; `/bootstrap` может обновить серверный импорт Google Tasks.
+- В Google Cloud `genesis-calendar-production` создан и повторно проверен Android OAuth-клиент `GENESIS Android Debug` для package `ru.genesis.calendar.debug` и SHA-1 установленного debug APK. Исходный Web OAuth client не изменён. Точные публичные параметры и границы тестирования — `AUTH_PROTOCOL.md`. Release signing/OAuth, HTTP/session security tests, account-scoped import/merge/CAS/outbox, Google grants и production deploy ещё **NOT_DONE**. SSH не использовался.
+
+## Предыдущая веха: alpha11 — иллюстрированный день и цветной ритм времени, 25.09.2026
 
 - Нативный debug APK `2.0.0-alpha11` / versionCode 16, пакет `ru.genesis.calendar.debug`: `outputs/android/today-hero-rhythm-alpha11/GENESIS-2.0.0-alpha11-debug.apk`. **158073505 bytes**, SHA-256 **3766c0f8e8c2a7b6877113a3f2c55a586938e9492e1756c6ea61fb76dc082ff1**. Подпись v2 и zipalign PASS; установлен на realme RMX5000 поверх alpha10 без очистки данных. TWA/PWA не затронут.
 - В теме Experimental экран «Сегодня» показывает полный текст дня поверх исходной иллюстрации: сакральное имя, перевод и описание; лунный день с фазой/месяцем; григорианский покровитель дня и связанные сведения на иллюстрации дня недели. Отдельная картинка месяца вне сакрального календаря не добавлялась. В теме Standart оформление не менялось.
@@ -118,7 +124,7 @@
 
 ## Ограничения / блокеры
 
-1. Native auth backend не опубликован; Android OAuth registration не подтверждена. Browser tool недоступен (`Unable to load browser request-header policy`); cookies/секреты не извлекались. Нужен доступ владельца к соответствующему Google Cloud project.
+1. Native auth backend не опубликован; debug Android OAuth registration подтверждена 25.09.2026 в открытой Google Cloud Console, но реальный вход ещё не испытан. Консольные credentials/секреты не скачивались. Release OAuth потребует постоянной release-подписи.
 2. Нужны isolated HTTP/session tests и независимый review verifier, проверенный global/edge rate limit перед public deploy.
 3. Cloud schema/merge/CAS/outbox transport, recovery, Google grants и FCM не интегрированы. Server escrow не является zero-knowledge E2EE.
 4. Полные проекты/перетаскивание/зависимости/повторения UI, аналитика/испытания/награды, Стойхейон, полный Теокиклос, admin, локализация и другие строки PARITY_MATRIX не готовы. Standart/Experimental частичны. Исходные изображения месяцев имеют native month/year slots, но ещё не проверены на устройстве; ранги и награды упакованы, но не размещены во всех смысловых слотах.
@@ -127,4 +133,4 @@
 
 ## Одно следующее действие
 
-После обычной разблокировки realme повторить `CalendarFlowTest`, сохранить и проверить скриншоты обеих тем, года и Апейрона. Затем продолжить ранги/награды, Стойхейон и drag-and-drop проектов с доступной альтернативой; закрывать остальные строки `PARITY_MATRIX.md` и интеграционные тесты. Настройка Google-входа остаётся последним этапом по просьбе владельца; подпись и public deploy — отдельные gates владельца.
+Следующий шаг — изолированные HTTP/session тесты native auth, затем безопасный перенос облачных данных в account-scoped хранилище с merge/CAS и проверкой на реальном APK. Пока backend не опубликован и эта цепочка не проверена, Google-вход и полную синхронизацию нельзя считать готовыми. Постоянная release-подпись и публичный deploy остаются отдельными gates.
