@@ -69,7 +69,7 @@ fun GenesisApp(app: GenesisApplication, openedTask: String?) {
     var selected by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
     LaunchedEffect(openedTask) { if(openedTask!=null) { editId=openedTask; creating=false; tab="Задачи" } }
     MaterialTheme(colorScheme=if(prefs.theme=="Experimental") experimental else standart) {
-        Surface(Modifier.fillMaxSize(),color=MaterialTheme.colorScheme.background) {
+        Surface(Modifier.fillMaxSize().testTag("app-theme-${prefs.theme}"),color=MaterialTheme.colorScheme.background) {
             Column(Modifier.safeDrawingPadding().imePadding()) {
                 Row(Modifier.fillMaxWidth().padding(12.dp),verticalAlignment=Alignment.CenterVertically) {
                     OriginalImage("icons/icon-192.png","GENESIS",Modifier.size(40.dp))

@@ -1,6 +1,6 @@
 # GENESIS Android: локальная среда
 
-Проверка 23–24.09.2026, Europe/Moscow. Нативная **Windows 11 x64**, PowerShell 7.6.5; не WSL и не удалённая машина. Среда реально собирает нативный APK, но это не означает готовность полного приложения. Текущий alpha02 build/hash и новый блокер устройства — STATUS.md; ниже сохранены результаты alpha01.
+Проверка 23–24.09.2026, Europe/Moscow. Нативная **Windows 11 x64**, PowerShell 7.6.5; не WSL и не удалённая машина. Среда реально собирает нативный APK, а alpha02 запущена на физическом телефоне. Это не означает готовность полного приложения. Итоговый hash и границы — STATUS.md; ниже сохранены результаты исходной alpha01.
 
 ## Пути и изоляция
 
@@ -12,7 +12,7 @@
 | Изолированный worktree | `.worktrees/android-native-bootstrap` |
 | APK | `android/app/build/outputs/apk/debug/app-debug.apk` |
 
-Ветка `codex/android-native-bootstrap` создана от обновлённого `origin/master` (`ebfb460`). Пользовательские незакоммиченные изменения основного checkout не менялись. Второй Android-проект не создавался. `local.properties` с локальным SDK игнорируется Git. Системные JAVA_HOME/PATH не изменены.
+Ветка `codex/android-native-bootstrap` первоначально создана от `origin/master` (`ebfb460`), затем перебазирована на 30257ff. Пользовательские незакоммиченные изменения основного checkout не менялись. Второй Android-проект не создавался. `local.properties` с локальным SDK игнорируется Git. Системные JAVA_HOME/PATH не изменены.
 
 ## Совместимые версии
 
@@ -39,7 +39,30 @@ Google ID 1.2.1 потребовал Kotlin metadata 2.4; выбран совм�
 
 Точный список пакетов, недостающих для текущего APK и физического устройства: **[]**. Эмулятор 36.5.10 установлен, AVD/system image для работы не потребовался. Новые платформы и образы агентом не устанавливались; лицензии автоматически не принимались.
 
-## Команды и фактические результаты
+## Контроль alpha02 на подключённом устройстве, 24.09.2026
+
+Одно устройство `adb devices`: realme RMX5000, Android 16/API 36, `device`. Серийный номер в документ не внесён. Debug-пакет `ru.genesis.calendar.debug` обновлён с versionCode 6 до 7 через `adb install -r`, без удаления или очистки данных; прежний пакет `ru.genesis.calendar` остался. Синтетические задачи Alpha01 видны после обновления. `adb shell am start -W -n ru.genesis.calendar.debug/ru.genesis.calendar.MainActivity`: `Status: ok`, `LaunchState: COLD`, 1128 ms.
+
+Команды текущего прогона (из worktree, Gradle — из `android/`):
+
+```powershell
+$env:JAVA_HOME = 'C:\Program Files\Android\Android Studio\jbr'
+$env:ANDROID_HOME = 'C:\Users\mrdeu\AppData\Local\Android\Sdk'
+.\gradlew.bat :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest :app:lintDebug --offline --quiet
+adb install -r genesis-alpha02.apk
+adb install -r -t genesis-alpha02-tests.apk
+adb shell am instrument -w -e class ru.genesis.calendar.ProjectsFlowTest ru.genesis.calendar.debug.test/androidx.test.runner.AndroidJUnitRunner
+adb shell am instrument -w -e class ru.genesis.calendar.NativeUiTest,ru.genesis.calendar.PreferencesTest ru.genesis.calendar.debug.test/androidx.test.runner.AndroidJUnitRunner
+node android/tools/verify-assets.mjs --check --require-apk
+apksigner verify --verbose android/app/build/outputs/apk/debug/app-debug.apk
+zipalign -c -P 16 4 android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+Фактически для `adb install` APK были скопированы в ASCII-путь временного каталога Windows; команда выше показывает смысл операции, а не абсолютное имя staging-каталога. Build/unit/lint PASS, **54 unit tests**; `ProjectsFlowTest` **2/2**, `NativeUiTest` **3/3**, `PreferencesTest` **1/1** PASS на realme. Итоговый APK 157842753 bytes, SHA-256 `d45ae7002a0b25be87ef4a14ee969234bd682fff1b221134f166cfd1696eaa1e`; подпись APK v2 и zipalign PASS, 527/527 assets byte parity PASS. Четыре снимка экрана устройства лежат вне Git в `outputs/android/device-projects/` (общий вид и карточки, Standart/Experimental). Лицензии/пакеты SDK не менялись, настройки безопасности устройства и Windows не менялись.
+
+Оставшиеся блокеры: реальная синхронизация web↔Android и Google-вход не готовы из-за отсутствия опубликованных native auth endpoints/подтверждённого OAuth-клиента и завершённого transport/merge; браузер без авторизованной сессии показывает только вход, поэтому web Projects в обеих темах не проверен. Остальные строки и тесты — `PARITY_MATRIX.md`; полный релиз не принят. SSH и production deploy не использовались.
+
+## Исходный этап alpha01: команды и фактические результаты
 
 ```powershell
 git status --short --branch
@@ -65,7 +88,7 @@ $env:JAVA_HOME = 'C:\Program Files\Android\Android Studio\jbr'
 
 Дополнительно: `pnpm install --frozen-lockfile`, lint, 64 web tests, build:beget — PASS. Portable PHP 8.3.35 NTS x64 использован во временном каталоге, без глобального PATH. ZIP с официального downloads.php.net проверен по SHA-256 `25a8e2ac9ff30f1d768d1447c09a600617fa6e6082729f6e95f008b59c91fe45`. Syntax checks трёх PHP файлов и 44 standalone auth checks PASS; HTTP integration ещё NOT_RUN. OpenSSL config задан только процессу. Команды и область проверок — AUTH_PROTOCOL.md.
 
-## Устройство
+## Устройство на этапе alpha01
 
 Согласованный realme RMX5000, Android 16 / API 36, adb state `device`. Серийный номер не сохраняется. Старое `ru.genesis.calendar` не удалялось; Alpha установлена отдельно как `ru.genesis.calendar.debug`, обновление через `adb install -r`. Последний cold start: Status ok, 1562 ms; process-specific AndroidRuntime error output пуст.
 
@@ -73,7 +96,7 @@ $env:JAVA_HOME = 'C:\Program Files\Android\Android Studio\jbr'
 
 `ReminderFlowTest#prepareScreenOffReminder`: PASS, синтетическая запись сохранена/прочитана независимым Room connection, title отсутствует в ciphertext; alarm назначен на +90 секунд. Затем Home, sleep-display и `am kill` (не force-stop). Результаты доставки/действий фиксируются отдельно в STATUS/DEVICE_TESTS.
 
-## Артефакт
+## Артефакт alpha01 (исторический)
 
 - Debug, `2.0.0-alpha01` / 6, `ru.genesis.calendar.debug`.
 - 157641687 bytes.

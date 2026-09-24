@@ -16,9 +16,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.util.UUID
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.collect
 import ru.genesis.calendar.GenesisApplication
 import ru.genesis.calendar.data.*
 
@@ -27,7 +27,16 @@ import ru.genesis.calendar.data.*
 fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental: Boolean,
     onOpenTask: (String) -> Unit, onCreateTask: (String?) -> Unit) {
     val repo = remember(app) { WorkspaceStructureRepository(app) }
-    val structure by repo.workspace.collectAsStateWithLifecycle(WorkspaceStructure())
+    val loadedStructure by produceState<WorkspaceStructure?>(null, repo) {
+        repo.workspace.collect { value = it }
+    }
+    if (loadedStructure == null) {
+        Box(Modifier.fillMaxSize().testTag("projects-loading"), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+    val structure = loadedStructure!!
     val scope = rememberCoroutineScope()
     var selectedCategory by remember { mutableStateOf<String?>(null) }
     var selectedProject by remember { mutableStateOf<String?>(null) }
@@ -35,6 +44,8 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
     var creating by remember { mutableStateOf(false) }
     var editingCategory by remember { mutableStateOf<GenesisCategory?>(null) }
     var categoryEditor by remember { mutableStateOf(false) }
+    var categoriesExpanded by remember { mutableStateOf(false) }
+    var inboxExpanded by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val background = if (experimental) Color(0xff103632) else MaterialTheme.colorScheme.surface
     val onBackground = if (experimental) Color(0xfff8f3e8) else MaterialTheme.colorScheme.onSurface
@@ -69,7 +80,8 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
                 FilterChip(selected = selectedCategory == null, onClick = { selectedCategory = null }, label = { Text("Все") })
                 structure.categories.sortedBy { it.position }.forEach { category ->
                     FilterChip(selected = selectedCategory == category.id,
-                        onClick = { selectedCategory = category.id }, label = { Text(category.name) })
+                        onClick = { selectedCategory = category.id }, label = { Text(category.name) },
+                        modifier = Modifier.testTag("category-filter-${category.id}"))
                 }
             }
         }
@@ -77,25 +89,17 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
                 Text("Категории жизни", style = MaterialTheme.typography.titleMedium)
-                TextButton(onClick = { editingCategory = null; categoryEditor = true; error = null }) { Text("Добавить") }
-            }
-            structure.categories.sortedBy { it.position }.forEach { category ->
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(category.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                    TextButton(onClick = { editingCategory = category; categoryEditor = true; error = null }) { Text("Изменить") }
+                TextButton(onClick = { categoriesExpanded = !categoriesExpanded }) {
+                    Text(if (categoriesExpanded) "Свернуть" else "Управлять")
                 }
             }
-        }
-        item {
-            Surface(color = background, shape = MaterialTheme.shapes.large) {
-                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Без проекта", color = onBackground, style = MaterialTheme.typography.titleMedium)
-                    Text("${inbox.size} задач в Хаос-боксе",
-                        color = subText, style = MaterialTheme.typography.bodyMedium)
-                    TextButton(onClick = { onCreateTask(null) }) { Text("Создать задачу без проекта") }
-                    if (selectedProject == null) inbox.take(5).forEach { task ->
-                            TextButton(onClick = { onOpenTask(task.id) }) { Text(task.title) }
-                        }
+            if (categoriesExpanded) {
+                TextButton(onClick = { editingCategory = null; categoryEditor = true; error = null }) { Text("Добавить категорию") }
+                structure.categories.sortedBy { it.position }.forEach { category ->
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(category.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                        TextButton(onClick = { editingCategory = category; categoryEditor = true; error = null }) { Text("Изменить") }
+                    }
                 }
             }
         }
@@ -124,6 +128,28 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
                         }
                         TextButton(onClick = { onCreateTask(project.id) }) { Text("Создать задачу в проекте") }
                         TextButton(onClick = { editing = project; creating = true; error = null }) { Text("Изменить проект") }
+                    }
+                }
+            }
+        }
+        item {
+            Surface(color = background, shape = MaterialTheme.shapes.large) {
+                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Без проекта", color = onBackground, style = MaterialTheme.typography.titleMedium)
+                    Text("${inbox.size} задач в Хаос-боксе",
+                        color = subText, style = MaterialTheme.typography.bodyMedium)
+                    TextButton(onClick = { onCreateTask(null) }, colors = ButtonDefaults.textButtonColors(contentColor = onBackground)) {
+                        Text("Создать задачу без проекта")
+                    }
+                    if (selectedProject == null) {
+                        inbox.take(if (inboxExpanded) inbox.size else 1).forEach { task ->
+                            TextButton(onClick = { onOpenTask(task.id) },
+                                colors = ButtonDefaults.textButtonColors(contentColor = onBackground)) { Text(task.title) }
+                        }
+                        if (inbox.size > 1) TextButton(onClick = { inboxExpanded = !inboxExpanded },
+                            colors = ButtonDefaults.textButtonColors(contentColor = onBackground)) {
+                            Text(if (inboxExpanded) "Свернуть список" else "Показать ещё ${inbox.size - 1}")
+                        }
                     }
                 }
             }
@@ -223,7 +249,7 @@ private fun ProjectEditor(structure: WorkspaceStructure, existing: GenesisProjec
                     FilterChip(selected = categoryId == null, onClick = { categoryId = null }, label = { Text("Без категории") })
                     structure.categories.sortedBy { it.position }.forEach { category ->
                         FilterChip(selected = categoryId == category.id, onClick = { categoryId = category.id },
-                            label = { Text(category.name) })
+                            label = { Text(category.name) }, modifier = Modifier.testTag("project-category-${category.id}"))
                     }
                 }
                 Text("Родительский проект", style = MaterialTheme.typography.titleSmall)
