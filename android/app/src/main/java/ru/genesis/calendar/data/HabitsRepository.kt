@@ -13,7 +13,8 @@ import ru.genesis.calendar.domain.habits.*
 
 data class LocalHabitWorkspace(val habits: List<Habit> = emptyList(), val completions: List<HabitCompletion> = emptyList(),
     val goals: List<DailyGoalRecord> = emptyList(), val rewards: List<RewardTransaction> = emptyList(),
-    val progress: UserProgress = UserProgress(), val revision: Long = 0)
+    val progress: UserProgress = UserProgress(), val revision: Long = 0,
+    val achievementUnlocks: List<AchievementUnlock> = emptyList())
 
 /** Local draft scope only. This document is not a cloud schema-16 import/sync adapter. */
 class HabitsRepository(private val app: GenesisApplication) {
@@ -56,6 +57,18 @@ class HabitsRepository(private val app: GenesisApplication) {
         workspace.copy(completions=entries)
     }
 
+    suspend fun claimHeroPathAmphora(rankId: String) = mutate { workspace ->
+        workspace.copy(rewards = HeroPathRewards.claim(workspace.progress, workspace.rewards,
+            rankId, Instant.now().toString()))
+    }
+
+    suspend fun revealHiddenHeroicPath() = mutate { workspace ->
+        val current = workspace.progress
+        require(HeroProgress.hiddenUnlocked(current.lifetimeXp)) { "Врата ещё закрыты." }
+        if (current.hiddenHeroicPathRevealedAt != null) workspace else workspace.copy(
+            progress = current.copy(hiddenHeroicPathRevealedAt = Instant.now().toString()))
+    }
+
     private fun reconcile(workspace: LocalHabitWorkspace) = reconcileHabitWorkspace(workspace,LocalDate.now(),ZoneId.systemDefault().id,Instant.now().toString())
 }
 
@@ -82,21 +95,14 @@ class HabitsRepository(private val app: GenesisApplication) {
         }
         val current=engine().dailyGoalForDate(workspace.habits,workspace.completions,goals,emptyList(),emptySet(),today,today,timestamp)
         goals=DailyGoals.normalize(goals.filterNot { it.date==today }+current)
-        var ledger=Rewards.reconcileDailyGoals(goals,workspace.rewards,today)
-        val completed=workspace.completions.filter { it.completed }.map { it.habitId to it.date }.toSet()
-        goals.filter { it.date<today && it.status in setOf("qualified","perfect","missed","protected") }.forEach { record ->
-            workspace.habits.forEach { habit ->
-                val pausedDate=runCatching { LocalDate.parse(habit.entity.updatedAt.take(10)) }.getOrDefault(habit.createdDate)
-                val wasScheduled=record.date>=habit.createdDate && (habit.active || record.date<pausedDate) && engine().isScheduled(habit.copy(active=true),record.date)
-                if(wasScheduled && (habit.id to record.date) !in completed) {
-                    val source="${habit.id}:${record.date}"
-                    ledger=Rewards.reset(ledger,"habit-missed-reset",source,"habit-missed:self:$source",timestamp)
-                }
-            }
-        }
+        // The website retired per-missed-habit Laurel resets. Normalization also repairs old
+        // local ledgers by ignoring those entries without discarding legitimate awards.
+        val ledger=StreakRewards.reconcile(goals,Rewards.reconcileDailyGoals(goals,workspace.rewards,today))
         val progress=HeroProgress.reconcile(workspace.progress,workspace.completions.map { it.xpAwarded },timestamp,
             DailyGoals.streak(goals,today),Rewards.balance(ledger),rhythmScore=DailyGoals.rhythmScore(goals,today))
-        return workspace.copy(goals=goals,rewards=ledger,progress=progress)
+        val unlocks=Achievements.reconcile(workspace.achievementUnlocks,workspace.completions,goals,
+            progress.longestStreak,ledger,timestamp)
+        return workspace.copy(goals=goals,rewards=ledger,progress=progress,achievementUnlocks=unlocks)
     }
 /** Explicit local format, never presented as the full synced HabitWorkspace schema. */
 internal object HabitDocument {
@@ -134,6 +140,8 @@ internal object HabitDocument {
                 .put("completedCount",g.completedCount).put("targetCount",g.targetCount).put("status",g.status).put("updatedAt",g.updatedAt) }))
             .put("rewards",JSONArray(w.rewards.map { t -> JSONObject().put("id",t.id).put("amount",t.amount).put("reason",t.reason).put("sourceId",t.sourceId)
                 .put("idempotencyKey",t.idempotencyKey).put("createdAt",t.createdAt).put("userId",t.userId).put("currency",t.currency) }))
+            .put("achievementUnlocks",JSONArray(w.achievementUnlocks.map { unlock ->
+                JSONObject().put("achievementId",unlock.achievementId).put("unlockedAt",unlock.unlockedAt) }))
             .put("progress",JSONObject().put("lifetimeXp",p.lifetimeXp).put("laurelsBalance",p.laurelsBalance).put("currentRankId",p.currentRankId ?: JSONObject.NULL)
                 .put("hiddenHeroicPathRevealedAt",p.hiddenHeroicPathRevealedAt ?: JSONObject.NULL).put("currentStreak",p.currentStreak).put("longestStreak",p.longestStreak)
                 .put("lastQualifiedDate",p.lastQualifiedDate?.toString() ?: JSONObject.NULL).put("streakGoalMode",p.streakGoalMode).put("streakFreezeCount",p.streakFreezeCount)
@@ -146,6 +154,9 @@ internal object HabitDocument {
             HabitCompletion(entity(c),c.getString("habitId"),LocalDate.parse(c.getString("date")),c.getBoolean("completed"),if(c.isNull("qualityValue")) null else c.getDouble("qualityValue"),c.getInt("score"),c.getInt("xpAwarded"),c.getString("note")) },
             v.getJSONArray("goals").objects().map { g -> DailyGoalRecord(LocalDate.parse(g.getString("date")),g.getString("mode"),g.getString("timezone"),g.getInt("scheduledCount"),g.getInt("completedCount"),g.getInt("targetCount"),g.getString("status"),g.getString("updatedAt")) },
             v.getJSONArray("rewards").objects().map { t -> RewardTransaction(t.getString("id"),t.getInt("amount"),t.getString("reason"),t.getString("sourceId"),t.getString("idempotencyKey"),t.getString("createdAt"),t.getString("userId"),t.getString("currency")) },
-            UserProgress(p.getInt("lifetimeXp"),p.getInt("laurelsBalance"),p.nullable("currentRankId"),p.nullable("hiddenHeroicPathRevealedAt"),p.getInt("currentStreak"),p.getInt("longestStreak"),p.nullable("lastQualifiedDate")?.let(LocalDate::parse),p.getString("streakGoalMode"),p.getInt("streakFreezeCount"),p.getInt("rhythmScore"),p.getString("updatedAt")),revision)
+            UserProgress(p.getInt("lifetimeXp"),p.getInt("laurelsBalance"),p.nullable("currentRankId"),p.nullable("hiddenHeroicPathRevealedAt"),p.getInt("currentStreak"),p.getInt("longestStreak"),p.nullable("lastQualifiedDate")?.let(LocalDate::parse),p.getString("streakGoalMode"),p.getInt("streakFreezeCount"),p.getInt("rhythmScore"),p.getString("updatedAt")),revision,
+            Achievements.normalize(v.optJSONArray("achievementUnlocks")?.objects()?.map { unlock ->
+                AchievementUnlock(unlock.getString("achievementId"),unlock.getString("unlockedAt"))
+            } ?: emptyList()))
     }
 }

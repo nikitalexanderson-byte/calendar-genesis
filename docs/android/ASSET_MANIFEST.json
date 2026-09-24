@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-24T18:29:35.202Z",
+  "generatedAt": "2026-09-24T20:28:46.545Z",
   "command": "node android/tools/verify-assets.mjs --require-apk",
   "sourceRoot": "public",
   "gradle": "android/app/build.gradle.kts",
-  "gradleSha256": "ee3564f39d2f4d143479a0f35847ad978eb71948b3696af3a9c76180954e4ffb",
+  "gradleSha256": "3808b2bb9ffe5147c40ea7a3db309385e6d99658fa3175790fc0b5d54259bf53",
   "includes": [
     "icons/**",
     "weekday-art/**",
@@ -23,9 +23,9 @@
   ],
   "generatedRoot": "android/app/build/generated/genesisAssets/originals",
   "apk": {
-    "path": "android/app/build/outputs/apk/debug/app-debug.apk",
-    "size": 158413771,
-    "sha256": "039b7e3e74353edf0fe042c4f3c4b2537a6d396e0a2ca0c5de933217246a1e78"
+    "path": "outputs/android/hero-tree-stoicheion-alpha08/GENESIS-2.0.0-alpha08-debug.apk",
+    "size": 158655424,
+    "sha256": "346a6d42314566ef53782ad9fb001dce7cd4af0f09146e69f48ef36402ccf105"
   },
   "summary": {
     "files": 527,
@@ -44,7 +44,7 @@
       "generatedPass": 36,
       "apkPass": 36,
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery with locally persisted unlocks; complete web award rules and account synchronization are pending",
       "uiStatus": "PARTIAL_IN_CODE"
     },
     {
@@ -84,7 +84,7 @@
       "generatedPass": 1,
       "apkPass": 1,
       "webSlot": "Heroic rank background",
-      "nativeSlot": "Native habit progress card displays original rank panorama; individual rank journey/checkpoints remain unported",
+      "nativeSlot": "Original rank panorama remains in the native habit progress card; Experimental also has the individual rank tree, checkpoint actions and detail artwork",
       "uiStatus": "PARTIAL_IN_CODE"
     },
     {
@@ -104,7 +104,7 @@
       "generatedPass": 40,
       "apkPass": 40,
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending",
       "uiStatus": "PARTIAL_IN_CODE"
     },
     {
@@ -144,7 +144,7 @@
       "generatedPass": 27,
       "apkPass": 27,
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "nativeSlot": "All 24 original card faces and letter details have native slots; local daily and nine-card gesture readings work with a three-minute reroll timer, but account synchronization is pending",
       "uiStatus": "PARTIAL_IN_CODE"
     },
     {
@@ -198,7 +198,7 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery with locally persisted unlocks; complete web award rules and account synchronization are pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -221,7 +221,7 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery with locally persisted unlocks; complete web award rules and account synchronization are pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -244,7 +244,7 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery with locally persisted unlocks; complete web award rules and account synchronization are pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -267,7 +267,7 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery with locally persisted unlocks; complete web award rules and account synchronization are pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -290,7 +290,7 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery with locally persisted unlocks; complete web award rules and account synchronization are pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -313,7 +313,7 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery with locally persisted unlocks; complete web award rules and account synchronization are pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -336,7 +336,7 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery with locally persisted unlocks; complete web award rules and account synchronization are pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -359,7 +359,7 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery with locally persisted unlocks; complete web award rules and account synchronization are pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -382,7 +382,7 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery with locally persisted unlocks; complete web award rules and account synchronization are pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -405,7 +405,7 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery with locally persisted unlocks; complete web award rules and account synchronization are pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -428,7 +428,7 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery with locally persisted unlocks; complete web award rules and account synchronization are pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -451,7 +451,7 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery with locally persisted unlocks; complete web award rules and account synchronization are pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -474,7 +474,7 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery with locally persisted unlocks; complete web award rules and account synchronization are pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -497,7 +497,7 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery with locally persisted unlocks; complete web award rules and account synchronization are pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -520,7 +520,7 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery with locally persisted unlocks; complete web award rules and account synchronization are pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -543,7 +543,7 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery with locally persisted unlocks; complete web award rules and account synchronization are pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -566,7 +566,7 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery with locally persisted unlocks; complete web award rules and account synchronization are pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -589,7 +589,7 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery with locally persisted unlocks; complete web award rules and account synchronization are pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -612,7 +612,7 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery with locally persisted unlocks; complete web award rules and account synchronization are pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -635,7 +635,7 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery with locally persisted unlocks; complete web award rules and account synchronization are pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -658,7 +658,7 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery with locally persisted unlocks; complete web award rules and account synchronization are pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -681,7 +681,7 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery with locally persisted unlocks; complete web award rules and account synchronization are pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -704,7 +704,7 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery with locally persisted unlocks; complete web award rules and account synchronization are pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -727,7 +727,7 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery with locally persisted unlocks; complete web award rules and account synchronization are pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -750,7 +750,7 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery with locally persisted unlocks; complete web award rules and account synchronization are pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -773,7 +773,7 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery with locally persisted unlocks; complete web award rules and account synchronization are pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -796,7 +796,7 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery with locally persisted unlocks; complete web award rules and account synchronization are pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -819,7 +819,7 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery with locally persisted unlocks; complete web award rules and account synchronization are pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -842,7 +842,7 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery with locally persisted unlocks; complete web award rules and account synchronization are pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -865,7 +865,7 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery with locally persisted unlocks; complete web award rules and account synchronization are pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -888,7 +888,7 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery with locally persisted unlocks; complete web award rules and account synchronization are pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -911,7 +911,7 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery with locally persisted unlocks; complete web award rules and account synchronization are pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -934,7 +934,7 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery with locally persisted unlocks; complete web award rules and account synchronization are pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -957,7 +957,7 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery with locally persisted unlocks; complete web award rules and account synchronization are pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -980,7 +980,7 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery with locally persisted unlocks; complete web award rules and account synchronization are pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -1003,7 +1003,7 @@
         "error": null
       },
       "webSlot": "Achievement medallion artwork",
-      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery; persistent unlock and reward behavior remain unported",
+      "nativeSlot": "All 18 original webp medallions render in the Experimental gallery with locally persisted unlocks; complete web award rules and account synchronization are pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -9490,7 +9490,7 @@
         "error": null
       },
       "webSlot": "Heroic rank background",
-      "nativeSlot": "Native habit progress card displays original rank panorama; individual rank journey/checkpoints remain unported",
+      "nativeSlot": "Original rank panorama remains in the native habit progress card; Experimental also has the individual rank tree, checkpoint actions and detail artwork",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -9559,7 +9559,7 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -9582,7 +9582,7 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -9605,7 +9605,7 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -9628,7 +9628,7 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -9651,7 +9651,7 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -9674,7 +9674,7 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -9697,7 +9697,7 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -9720,7 +9720,7 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -9743,7 +9743,7 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -9766,7 +9766,7 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -9789,7 +9789,7 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -9812,7 +9812,7 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -9835,7 +9835,7 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -9858,7 +9858,7 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -9881,7 +9881,7 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -9904,7 +9904,7 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -9927,7 +9927,7 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -9950,7 +9950,7 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -9973,7 +9973,7 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -9996,7 +9996,7 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -10019,7 +10019,7 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -10042,7 +10042,7 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -10065,7 +10065,7 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -10088,7 +10088,7 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -10111,7 +10111,7 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -10134,7 +10134,7 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -10157,7 +10157,7 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -10180,7 +10180,7 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -10203,7 +10203,7 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -10226,7 +10226,7 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -10249,7 +10249,7 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -10272,7 +10272,7 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -10295,7 +10295,7 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -10318,7 +10318,7 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -10341,7 +10341,7 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -10364,7 +10364,7 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -10387,7 +10387,7 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -10410,7 +10410,7 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -10433,7 +10433,7 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -10456,7 +10456,7 @@
         "error": null
       },
       "webSlot": "Hero path 256/512 artwork",
-      "nativeSlot": "Original 256px rank and amphora artwork renders in the rank gallery; checkpoint actions and 512px detail view remain unported",
+      "nativeSlot": "Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -10893,7 +10893,7 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "nativeSlot": "All 24 original card faces and letter details have native slots; local daily and nine-card gesture readings work with a three-minute reroll timer, but account synchronization is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -10916,7 +10916,7 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "nativeSlot": "All 24 original card faces and letter details have native slots; local daily and nine-card gesture readings work with a three-minute reroll timer, but account synchronization is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -10939,7 +10939,7 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "nativeSlot": "All 24 original card faces and letter details have native slots; local daily and nine-card gesture readings work with a three-minute reroll timer, but account synchronization is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -10962,7 +10962,7 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "nativeSlot": "All 24 original card faces and letter details have native slots; local daily and nine-card gesture readings work with a three-minute reroll timer, but account synchronization is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -10985,7 +10985,7 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "nativeSlot": "All 24 original card faces and letter details have native slots; local daily and nine-card gesture readings work with a three-minute reroll timer, but account synchronization is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -11008,7 +11008,7 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "nativeSlot": "All 24 original card faces and letter details have native slots; local daily and nine-card gesture readings work with a three-minute reroll timer, but account synchronization is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -11031,7 +11031,7 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "nativeSlot": "All 24 original card faces and letter details have native slots; local daily and nine-card gesture readings work with a three-minute reroll timer, but account synchronization is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -11054,7 +11054,7 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "nativeSlot": "All 24 original card faces and letter details have native slots; local daily and nine-card gesture readings work with a three-minute reroll timer, but account synchronization is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -11077,7 +11077,7 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "nativeSlot": "All 24 original card faces and letter details have native slots; local daily and nine-card gesture readings work with a three-minute reroll timer, but account synchronization is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -11100,7 +11100,7 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "nativeSlot": "All 24 original card faces and letter details have native slots; local daily and nine-card gesture readings work with a three-minute reroll timer, but account synchronization is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -11123,7 +11123,7 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "nativeSlot": "All 24 original card faces and letter details have native slots; local daily and nine-card gesture readings work with a three-minute reroll timer, but account synchronization is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -11146,7 +11146,7 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "nativeSlot": "All 24 original card faces and letter details have native slots; local daily and nine-card gesture readings work with a three-minute reroll timer, but account synchronization is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -11169,7 +11169,7 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "nativeSlot": "All 24 original card faces and letter details have native slots; local daily and nine-card gesture readings work with a three-minute reroll timer, but account synchronization is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -11192,7 +11192,7 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "nativeSlot": "All 24 original card faces and letter details have native slots; local daily and nine-card gesture readings work with a three-minute reroll timer, but account synchronization is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -11215,7 +11215,7 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "nativeSlot": "All 24 original card faces and letter details have native slots; local daily and nine-card gesture readings work with a three-minute reroll timer, but account synchronization is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -11238,7 +11238,7 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "nativeSlot": "All 24 original card faces and letter details have native slots; local daily and nine-card gesture readings work with a three-minute reroll timer, but account synchronization is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -11261,7 +11261,7 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "nativeSlot": "All 24 original card faces and letter details have native slots; local daily and nine-card gesture readings work with a three-minute reroll timer, but account synchronization is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -11284,7 +11284,7 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "nativeSlot": "All 24 original card faces and letter details have native slots; local daily and nine-card gesture readings work with a three-minute reroll timer, but account synchronization is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -11307,7 +11307,7 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "nativeSlot": "All 24 original card faces and letter details have native slots; local daily and nine-card gesture readings work with a three-minute reroll timer, but account synchronization is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -11330,7 +11330,7 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "nativeSlot": "All 24 original card faces and letter details have native slots; local daily and nine-card gesture readings work with a three-minute reroll timer, but account synchronization is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -11353,7 +11353,7 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "nativeSlot": "All 24 original card faces and letter details have native slots; local daily and nine-card gesture readings work with a three-minute reroll timer, but account synchronization is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -11376,7 +11376,7 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "nativeSlot": "All 24 original card faces and letter details have native slots; local daily and nine-card gesture readings work with a three-minute reroll timer, but account synchronization is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -11399,7 +11399,7 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "nativeSlot": "All 24 original card faces and letter details have native slots; local daily and nine-card gesture readings work with a three-minute reroll timer, but account synchronization is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -11422,7 +11422,7 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "nativeSlot": "All 24 original card faces and letter details have native slots; local daily and nine-card gesture readings work with a three-minute reroll timer, but account synchronization is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -11445,7 +11445,7 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "nativeSlot": "All 24 original card faces and letter details have native slots; local daily and nine-card gesture readings work with a three-minute reroll timer, but account synchronization is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -11468,7 +11468,7 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "nativeSlot": "All 24 original card faces and letter details have native slots; local daily and nine-card gesture readings work with a three-minute reroll timer, but account synchronization is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -11491,7 +11491,7 @@
         "error": null
       },
       "webSlot": "Stoicheion card faces and frames",
-      "nativeSlot": "All 24 original face images and full letter details have native slots; Greek-key SVG geometry is drawn in Compose; divination remains unported",
+      "nativeSlot": "All 24 original card faces and letter details have native slots; local daily and nine-card gesture readings work with a three-minute reroll timer, but account synchronization is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },

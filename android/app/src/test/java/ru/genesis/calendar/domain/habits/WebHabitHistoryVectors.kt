@@ -29,7 +29,7 @@ internal const val webHistoryRhythm = 35
 internal val webRewardStages = listOf(
     "18|daily-goal:self:2026-09-15=5;perfect-day:self:2026-09-15=3;daily-goal:self:2026-09-17=5;daily-goal:self:2026-09-21=5",
     "18|daily-goal:self:2026-09-15=5;perfect-day:self:2026-09-15=3;daily-goal:self:2026-09-17=5;daily-goal:self:2026-09-21=5",
-    "0|daily-goal:self:2026-09-15=5;perfect-day:self:2026-09-15=3;daily-goal:self:2026-09-17=5;daily-goal:self:2026-09-21=5;habit-missed-reset:self:h1:2026-09-23=-18",
-    "0|daily-goal:self:2026-09-15=5;perfect-day:self:2026-09-15=3;daily-goal:self:2026-09-17=5;daily-goal:self:2026-09-21=5;habit-missed-reset:self:h1:2026-09-23=-18;habit-mastery-retained:self:h1=0",
-    "0|daily-goal:self:2026-09-15=5;perfect-day:self:2026-09-15=3;daily-goal:self:2026-09-17=5;daily-goal:self:2026-09-21=5;habit-missed-reset:self:h1:2026-09-23=-18;habit-mastery-retained:self:h1=0"
+    "18|daily-goal:self:2026-09-15=5;perfect-day:self:2026-09-15=3;daily-goal:self:2026-09-17=5;daily-goal:self:2026-09-21=5",
+    "18|daily-goal:self:2026-09-15=5;perfect-day:self:2026-09-15=3;daily-goal:self:2026-09-17=5;daily-goal:self:2026-09-21=5;habit-mastery-retained:self:h1=0",
+    "18|daily-goal:self:2026-09-15=5;perfect-day:self:2026-09-15=3;daily-goal:self:2026-09-17=5;daily-goal:self:2026-09-21=5;habit-mastery-retained:self:h1=0"
 )

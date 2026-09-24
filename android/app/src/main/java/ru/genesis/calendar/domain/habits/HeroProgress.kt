@@ -13,6 +13,16 @@ data class UserProgress(val lifetimeXp: Int = 0, val laurelsBalance: Int = 0, va
 object HeroProgress {
     const val MAX_HABIT_XP_PER_COMPLETION = 20
     val unranked = HeroicRank("unranked","Путь ещё не начат","The path has not begun",0,"#70736d","overture")
+    val checkpoints = listOf(
+        HeroPathCheckpoint("icarus", 15, "Амфора стремления", "Amphora of aspiration"),
+        HeroPathCheckpoint("mountain-tamer", 25, "Амфора стойкости", "Amphora of resolve"),
+        HeroPathCheckpoint("iron-charioteer", 40, "Амфора мастерства", "Amphora of mastery"),
+        HeroPathCheckpoint("risen-from-the-abyss", 60, "Амфора бездны", "Amphora of the abyss"),
+        HeroPathCheckpoint("golden-argonaut", 90, "Амфора странствия", "Amphora of passage"),
+        HeroPathCheckpoint("arcadian-arrow", 130, "Амфора точности", "Amphora of precision"),
+        HeroPathCheckpoint("spear-of-athena", 180, "Амфора мудрости", "Amphora of wisdom"),
+        HeroPathCheckpoint("calydonian-glory-bearer", 260, "Амфора славы", "Amphora of glory"),
+    )
     fun hiddenUnlocked(xp: Int) = xp >= 10_500
     fun hiddenRevealed(progress: UserProgress) = hiddenUnlocked(progress.lifetimeXp) && validTimestamp(progress.hiddenHeroicPathRevealedAt)
     fun highestRank(xp: Int): HeroicRank? = HeroRankCatalog.ranks.lastOrNull { xp.coerceAtLeast(0) >= it.threshold }

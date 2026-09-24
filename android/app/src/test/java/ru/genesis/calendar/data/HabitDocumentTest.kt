@@ -2,6 +2,7 @@ package ru.genesis.calendar.data
 
 import org.junit.Assert.*
 import org.junit.Test
+import org.json.JSONObject
 import java.time.LocalDate
 import java.time.ZoneId
 import ru.genesis.calendar.domain.*
@@ -33,14 +34,27 @@ class HabitDocumentTest {
         assertEquals(w,HabitDocument.decode(HabitDocument.encode(w),0))
     }
 
-    @Test fun missedDayResetIsIdempotentAndLifetimeXpRemains() {
+    @Test fun achievementUnlockPersistsAfterCompletionIsRemovedAndLegacyDocumentDecodes() {
+        val h = habit()
+        val entries = engine.updateCompletion(emptyList(), h, day, day, true, null, "", stamp, "unlock-1")
+        val first = reconcileHabitWorkspace(LocalHabitWorkspace(listOf(h), entries), day,
+            "Europe/Moscow", stamp)
+        assertTrue(first.achievementUnlocks.any { it.achievementId == "first-step" })
+        val removed = reconcileHabitWorkspace(first.copy(completions = emptyList()), day,
+            "Europe/Moscow", "2026-09-23T11:00:00.000Z")
+        assertEquals(first.achievementUnlocks, removed.achievementUnlocks)
+        val legacy = JSONObject(HabitDocument.encode(first)).apply { remove("achievementUnlocks") }
+        assertTrue(HabitDocument.decode(legacy.toString(), 0).achievementUnlocks.isEmpty())
+    }
+
+    @Test fun missedDayNeverResetsLaurelsAndLifetimeXpRemains() {
         val h=habit()
         val entries=engine.updateCompletion(emptyList(),h,day,day,true,null,"",stamp,"c1")
         val first=reconcileHabitWorkspace(LocalHabitWorkspace(listOf(h),entries),day,"Europe/Moscow",stamp)
         val afterMissing=reconcileHabitWorkspace(first,day.plusDays(2),"Europe/Moscow","2026-09-25T10:00:00.000Z")
-        assertEquals(0,afterMissing.progress.laurelsBalance)
+        assertEquals(8,afterMissing.progress.laurelsBalance)
         assertEquals(10,afterMissing.progress.lifetimeXp)
-        assertEquals(1,afterMissing.rewards.count { it.reason=="habit-missed-reset" })
+        assertEquals(0,afterMissing.rewards.count { it.reason=="habit-missed-reset" })
         val replay=reconcileHabitWorkspace(afterMissing,day.plusDays(2),"Europe/Moscow","2026-09-25T11:00:00.000Z")
         assertEquals(afterMissing.rewards,replay.rewards)
         assertEquals(afterMissing.progress,replay.progress)

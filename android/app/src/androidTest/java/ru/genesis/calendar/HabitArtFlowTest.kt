@@ -49,6 +49,20 @@ class HabitArtFlowTest {
             assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(image))
             compose.onNodeWithText("Все ранги").performScrollTo().performClick()
             compose.onNodeWithTag("hero-rank-path").assertExists()
+            compose.onNodeWithTag("hero-rank-tree", useUnmergedTree = true).assertExists()
+            compose.onNodeWithTag("hero-tree-rank-tantalus").performScrollTo().assertIsDisplayed()
+            assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(
+                File(app.getExternalFilesDir(null), "hero-rank-tree-after.png")))
+            compose.onNodeWithTag("hero-tree-rank-tantalus").performClick()
+            compose.onNodeWithText("Ступень 1 · Тантал").assertExists()
+            compose.onNodeWithText("Закрыть").performClick()
+            compose.onNodeWithTag("amphora-icarus", useUnmergedTree = true).assertExists()
+            compose.onNodeWithTag("streak-reward-ladder", useUnmergedTree = true).assertExists()
+            compose.onNodeWithText("Все рубежи").performScrollTo().performClick()
+            compose.onAllNodesWithText("Первая нить", substring = true).onLast().assertExists()
+            compose.onNodeWithTag("streak-reward-ladder", useUnmergedTree = true).performScrollTo()
+            assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(
+                File(app.getExternalFilesDir(null), "habits-streak-rewards-after.png")))
         } finally {
             runBlocking { prefs.set("theme", originalTheme) }
         }

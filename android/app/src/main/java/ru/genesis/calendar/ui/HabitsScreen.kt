@@ -76,7 +76,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
         Text("Привычки",style=MaterialTheme.typography.headlineMedium)
         Text("Сохранено на этом устройстве · с аккаунтом сайта пока не синхронизируется.",style=MaterialTheme.typography.bodySmall)
-        Text("Внутренняя сборка: доступны отметки, XP и базовые Лавры. Испытания, достижения, защита серии и напоминания привычек ещё не подключены.",style=MaterialTheme.typography.bodySmall)
+        Text("Внутренняя сборка: доступны отметки, XP, амфоры, достижения и награды за серию. Испытания, защита серии и напоминания привычек ещё не подключены.",style=MaterialTheme.typography.bodySmall)
         error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
         val current=workspace
         if(current==null) {
@@ -91,7 +91,9 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                 Text("Серия: ${current.progress.currentStreak} · Ритм: ${current.progress.rhythmScore}%")
                 current.goals.firstOrNull { it.date==today }?.let { Text("Сегодня: ${it.completedCount}/${it.scheduledCount} · цель ${it.targetCount}") }
             } }
-            if (experimental) HabitArtGallery(current)
+            if (experimental) HabitArtGallery(current, busy,
+                onClaimAmphora = { rankId -> scope.launch { runAction { repository.claimHeroPathAmphora(rankId) } } },
+                onRevealHiddenPath = { scope.launch { runAction { repository.revealHiddenHeroicPath() } } })
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 Button(enabled=!busy&&!storageError,onClick={edit=null;editorOpen=true}) { Text("Новая привычка") }
                 OutlinedButton(enabled=!busy&&!storageError,onClick={catalogueOpen=!catalogueOpen}) { Text("Библиотека") }

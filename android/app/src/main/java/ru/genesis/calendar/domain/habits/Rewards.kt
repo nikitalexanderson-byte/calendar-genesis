@@ -9,10 +9,10 @@ data class RewardTransaction(val id: String, val amount: Int, val reason: String
 object Rewards {
     const val DAILY_GOAL_LAURELS = 5
     const val PERFECT_DAY_LAURELS = 3
-    val resetReasons = setOf("habit-deleted-reset","habit-missed-reset")
+    val resetReasons = setOf("habit-deleted-reset")
     private val reasons = setOf("daily-goal","perfect-day","daily-quest","weekly-quest","epic-quest",
         "streak-milestone","rank-up","achievement","comeback","hero-path-amphora","hestia-spark",
-        "habit-mastery-retained","habit-deleted-reset","habit-missed-reset")
+        "habit-mastery-retained","habit-deleted-reset")
 
     fun create(amount: Double, reason: String, sourceId: String, key: String, timestamp: String) =
         RewardTransaction("reward:$key",jsRound(amount),reason,sourceId,key,timestamp)
@@ -62,5 +62,68 @@ object Rewards {
             if(record.status=="perfect") award("perfect-day",3)
         }
         return normalize(transactions)
+    }
+}
+
+data class StreakRewardMilestone(val days: Int, val laurels: Int, val title: String)
+
+/** Guaranteed, once-only rewards from app/streak-rewards.ts. A missed day does not erase Laurels. */
+object StreakRewards {
+    val milestones = listOf(
+        StreakRewardMilestone(3, 5, "Первая нить"),
+        StreakRewardMilestone(7, 12, "Семь восходов"),
+        StreakRewardMilestone(14, 20, "Укреплённый ритм"),
+        StreakRewardMilestone(30, 40, "Железный месяц"),
+        StreakRewardMilestone(50, 60, "Пятьдесят шагов"),
+        StreakRewardMilestone(100, 100, "Стодневный путь"),
+        StreakRewardMilestone(180, 160, "Полугодовой круг"),
+        StreakRewardMilestone(365, 300, "Полный оборот"),
+        StreakRewardMilestone(500, 450, "Пятьсот восходов"),
+        StreakRewardMilestone(1000, 1000, "Тысяча дней пути"),
+    )
+
+    fun reachedDates(records: List<DailyGoalRecord>): Map<Int, LocalDate> {
+        val reached = mutableMapOf<Int, LocalDate>()
+        var streak = 0
+        DailyGoals.normalize(records).forEach { record ->
+            when (record.status) {
+                "qualified", "perfect" -> {
+                    streak++
+                    if (milestones.any { it.days == streak }) reached[streak] = record.date
+                }
+                "missed" -> streak = 0
+            }
+        }
+        return reached
+    }
+
+    fun reconcile(records: List<DailyGoalRecord>, items: List<RewardTransaction>): List<RewardTransaction> {
+        val ledger = Rewards.normalize(items).toMutableList()
+        val known = ledger.map { it.idempotencyKey }.toMutableSet()
+        val reached = reachedDates(records)
+        milestones.forEach { milestone ->
+            val date = reached[milestone.days] ?: return@forEach
+            val key = "streak-milestone:self:${milestone.days}"
+            if (known.add(key)) ledger += Rewards.create(milestone.laurels.toDouble(), "streak-milestone",
+                milestone.days.toString(), key, "${date}T23:59:58.000Z")
+        }
+        return Rewards.normalize(ledger)
+    }
+}
+
+/** Web claimHeroPathAmphora: claimable once after the matching XP threshold. */
+object HeroPathRewards {
+    fun claim(progress: UserProgress, items: List<RewardTransaction>, rankId: String,
+        timestamp: String): List<RewardTransaction> {
+        val checkpoint = HeroProgress.checkpoints.firstOrNull { it.rankId == rankId }
+            ?: throw IllegalArgumentException("Амфора не найдена.")
+        val rank = HeroRankCatalog.ranks.firstOrNull { it.id == rankId }
+            ?: throw IllegalArgumentException("Ранг не найден.")
+        require(progress.lifetimeXp >= rank.threshold) { "Этот рубеж ещё не достигнут." }
+        val ledger = Rewards.normalize(items)
+        val key = "hero-path-amphora:self:$rankId"
+        if (ledger.any { it.idempotencyKey == key }) return ledger
+        return Rewards.normalize(ledger + Rewards.create(checkpoint.rewardLaurels.toDouble(),
+            "hero-path-amphora", rankId, key, timestamp))
     }
 }

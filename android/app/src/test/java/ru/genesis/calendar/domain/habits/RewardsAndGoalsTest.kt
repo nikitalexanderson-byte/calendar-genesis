@@ -26,12 +26,13 @@ class RewardsAndGoalsTest {
         assertEquals(webHistoryRhythm,DailyGoals.rhythmScore(history(),today))
     }
 
-    @Test fun rewardReplayResetAndMasteryMatchActualWebStages() {
+    @Test fun rewardReplayDropsRetiredMissedResetAndRetainsMastery() {
         var ledger=Rewards.reconcileDailyGoals(history(),emptyList(),today)
         fun check(index: Int) { assertEquals(webRewardStages[index],"${Rewards.balance(ledger)}|${ledger.joinToString(";") { "${it.idempotencyKey}=${it.amount}" }}") }
         check(0)
         ledger=Rewards.reconcileDailyGoals(history(),ledger,today); check(1)
-        ledger=Rewards.reset(ledger,"habit-missed-reset","h1","habit-missed-reset:self:h1:2026-09-23",stamp); check(2)
+        ledger=Rewards.normalize(ledger + RewardTransaction("legacy-missed",-18,"habit-missed-reset",
+            "h1","habit-missed-reset:self:h1:2026-09-23",stamp)); check(2)
         ledger=Rewards.retainMastery(ledger,"h1","2026-09-23T10:01:00.000Z"); check(3)
         ledger=Rewards.retainMastery(ledger,"h1","2026-09-23T10:02:00.000Z"); check(4)
     }
@@ -51,6 +52,39 @@ class RewardsAndGoalsTest {
         assertEquals("timezone-shift",DailyGoals.build(today,"easy","",1.0,1.0,today,stamp,false,true,true).status)
         assertEquals("protected",DailyGoals.build(today,"easy","",1.0,1.0,today,stamp,false,false,true).status)
         assertEquals("open",DailyGoals.build(today,"perfect","UTC",2.0,0.0,today,stamp).status)
+    }
+
+    @Test fun streakMilestonesAreOnceOnlyAndKeepPriorAwardsAfterBreak() {
+        val start = LocalDate.of(2026, 9, 1)
+        val records = (0..7).map { offset ->
+            val day = start.plusDays(offset.toLong())
+            DailyGoalRecord(day, "rhythm", "Europe/Moscow", 1, if (offset == 7) 0 else 1,
+                1, if (offset == 7) "missed" else "perfect", "${day}T12:00:00.000Z")
+        }
+        val ledger = StreakRewards.reconcile(records, emptyList())
+        assertEquals(listOf("3", "7"), ledger.map { it.sourceId })
+        assertEquals(17, Rewards.balance(ledger))
+        assertEquals(ledger, StreakRewards.reconcile(records, ledger))
+        assertEquals(ledger, StreakRewards.reconcile(records.take(4), ledger))
+    }
+
+    @Test fun legacyMissedResetIsIgnoredWithoutErasingLegitimateLaurels() {
+        val original = Rewards.create(5.0, "daily-goal", "2026-09-23", "daily-goal:self:2026-09-23", stamp)
+        val legacy = RewardTransaction("legacy", -5, "habit-missed-reset", "h1",
+            "habit-missed:self:h1:2026-09-23", stamp)
+        assertEquals(listOf(original), Rewards.normalize(listOf(original, legacy)))
+        assertEquals(5, Rewards.balance(listOf(original, legacy)))
+    }
+
+    @Test fun amphoraRequiresItsRankAndCanBeClaimedOnlyOnce() {
+        assertEquals(8, HeroProgress.checkpoints.size)
+        assertThrows(IllegalArgumentException::class.java) {
+            HeroPathRewards.claim(UserProgress(lifetimeXp = 159), emptyList(), "icarus", stamp)
+        }
+        val awarded = HeroPathRewards.claim(UserProgress(lifetimeXp = 160), emptyList(), "icarus", stamp)
+        assertEquals(15, Rewards.balance(awarded))
+        assertEquals(awarded, HeroPathRewards.claim(UserProgress(lifetimeXp = 999), awarded, "icarus", stamp))
+        assertEquals("hero-path-amphora:self:icarus", awarded.single().idempotencyKey)
     }
 
     @Test fun modeAndHistoryNormalizationChooseLatestTimestamp() {

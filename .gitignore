@@ -51,6 +51,7 @@ yarn-error.log*
 /backups/
 
 # Android signing material
+/android/.kotlin/
 *.jks
 *.keystore
 

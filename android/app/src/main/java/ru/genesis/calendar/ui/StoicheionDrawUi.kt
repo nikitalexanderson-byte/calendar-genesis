@@ -1,5 +1,7 @@
 package ru.genesis.calendar.ui
 
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
@@ -11,7 +13,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -22,6 +26,9 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import java.security.SecureRandom
 import kotlin.math.hypot
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.min
 import ru.genesis.calendar.data.StoicheionDraw
 import ru.genesis.calendar.data.StoicheionDraws
 import ru.genesis.calendar.domain.StoicheionReading
@@ -146,6 +153,7 @@ internal fun StoicheionMotionDialog(mode: String, busy: Boolean, onCancel: () ->
     var travel by remember(mode) { mutableFloatStateOf(0f) }
     var seed by remember(mode) { mutableLongStateOf(SecureRandom().nextInt().toUInt().toLong()) }
     var submitted by remember(mode) { mutableStateOf(false) }
+    var pointer by remember(mode) { mutableStateOf(Offset.Unspecified) }
     val density = LocalDensity.current.density
     Dialog(onDismissRequest = onCancel, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.fillMaxWidth().fillMaxHeight(.92f).padding(12.dp),
@@ -165,7 +173,9 @@ internal fun StoicheionMotionDialog(mode: String, busy: Boolean, onCancel: () ->
                         detectDragGestures { change, drag ->
                             change.consume()
                             if (!submitted && !busy) {
-                                travel = (travel + hypot(drag.x, drag.y) / density).coerceAtMost(4480f)
+                                pointer = change.position
+                                travel = (travel + (hypot(drag.x, drag.y) / density).coerceAtMost(70f))
+                                    .coerceAtMost(4480f)
                                 seed = StoicheionReading.mix(seed,
                                     change.position.x / size.width * 100f,
                                     change.position.y / size.height * 100f, System.nanoTime())
@@ -175,16 +185,43 @@ internal fun StoicheionMotionDialog(mode: String, busy: Boolean, onCancel: () ->
                     }
                     .semantics { contentDescription = "Поле движения для случайного выбора" }
                     .testTag("stoicheion-motion-field"), contentAlignment = Alignment.Center) {
-                    Text("Α · Β · Γ · Δ · Ε\nΖ · Η · Θ · Ι · Κ\nΛ · Μ · Ν · Ξ · Ο",
-                        color = Color(0xffdfc17e), style = MaterialTheme.typography.headlineLarge)
+                    Canvas(Modifier.matchParentSize()) {
+                        val point = if (pointer.x.isFinite() && pointer.y.isFinite()) pointer
+                            else Offset(size.width / 2, size.height / 2)
+                        drawCircle(Brush.radialGradient(listOf(Color(0x99dfc17e), Color(0x22245d59),
+                            Color.Transparent), center = point, radius = size.minDimension * .58f),
+                            radius = size.minDimension * .58f, center = point)
+                        listOf(.24f, .36f, .45f).forEach { fraction ->
+                            drawCircle(Color(0x88dfc17e), radius = size.minDimension * fraction,
+                                style = Stroke(1.dp.toPx()))
+                        }
+                    }
+                    BoxWithConstraints(Modifier.matchParentSize()) {
+                        val orbit = min(maxWidth.value, maxHeight.value) * .34f
+                        val symbols = listOf("Α", "Β", "Γ", "Δ", "Ε", "Ζ", "Η", "Θ", "Ι", "Κ", "Λ", "Μ")
+                        symbols.forEachIndexed { index, symbol ->
+                            val angle = index * Math.PI * 2 / symbols.size - Math.PI / 2 + travel / 240f
+                            Text(symbol, Modifier.offset(
+                                x = (maxWidth.value / 2 + cos(angle).toFloat() * orbit - 14).dp,
+                                y = (maxHeight.value / 2 + sin(angle).toFloat() * orbit - 18).dp),
+                                color = Color(0xffdfc17e), style = MaterialTheme.typography.headlineMedium)
+                        }
+                    }
+                    Surface(shape = RoundedCornerShape(100.dp), color = Color(0xd9071d20)) {
+                        Text("${(travel / 44.8f).toInt()}%", Modifier.padding(20.dp),
+                            color = Color(0xfffffcf6), style = MaterialTheme.typography.headlineLarge)
+                    }
                 }
-                LinearProgressIndicator(progress = { travel / 4480f }, modifier = Modifier.fillMaxWidth())
+                LinearProgressIndicator(progress = { travel / 4480f }, modifier = Modifier.fillMaxWidth(),
+                    color = Color(0xffdfc17e), trackColor = Color(0x665b756e))
                 Text("${(travel / 44.8f).toInt()}% · ${if (travel < 1568f) "Пробуждение поля"
                     else if (travel < 3360f) "Знаки смешиваются" else "Образ почти проявился"}",
                     color = Color(0xfffffcf6), style = MaterialTheme.typography.bodyMedium)
                 OutlinedButton(onClick = {
                     if (!submitted) { submitted = true; onFinish(SecureRandom().nextInt().toUInt().toLong()) }
                 }, enabled = !busy && !submitted,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xffdfc17e)),
+                    border = BorderStroke(1.dp, Color(0xffdfc17e)),
                     modifier = Modifier.fillMaxWidth().testTag("stoicheion-accessible-draw")) {
                     Text("Выбрать без жеста")
                 }

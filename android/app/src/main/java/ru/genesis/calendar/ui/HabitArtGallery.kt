@@ -1,19 +1,17 @@
 package ru.genesis.calendar.ui
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import ru.genesis.calendar.data.LocalHabitWorkspace
-import ru.genesis.calendar.domain.habits.HeroRankCatalog
+import ru.genesis.calendar.domain.habits.StreakRewards
 import java.time.LocalDate
 
 private data class AchievementArt(val id: String, val title: String, val rule: String, val hidden: Boolean = false)
@@ -38,55 +36,17 @@ private val achievements = listOf(
     AchievementArt("consistency", "Созвездие постоянства", "1000 выполнений всего", true)
 )
 
-private val rankArt = listOf(
-    "01_tantal.webp", "02_sisyphus.webp", "03_cyclops.webp", "04_icarus.webp",
-    "05_lionheart.webp", "06_poison_conqueror.webp", "07_golden_horn_pathfinder.webp",
-    "08_mountain_tamer.webp", "09_lord_of_the_flow.webp", "10_bronze_wing.webp",
-    "11_tamer_of_might.webp", "12_iron_charioteer.webp", "13_bearer_of_royal_honor.webp",
-    "14_guardian_of_the_western_border.webp", "15_keeper_of_the_golden_garden.webp",
-    "16_risen_from_the_abyss.webp"
-)
-
 private fun achievementIsQualified(id: String, workspace: LocalHabitWorkspace): Boolean {
-    val completed = workspace.completions.filter { it.completed }
-    val bestHabit = completed.groupingBy { it.habitId }.eachCount().values.maxOrNull() ?: 0
-    val streak = workspace.progress.longestStreak
-    val perfectDates = workspace.goals.filter { it.status == "perfect" }.map { it.date }.distinct().sorted()
-    var perfectRun = 0
-    var currentRun = 0
-    var previous: LocalDate? = null
-    perfectDates.forEach { date ->
-        currentRun = if (previous?.plusDays(1) == date) currentRun + 1 else 1
-        perfectRun = maxOf(perfectRun, currentRun)
-        previous = date
-    }
-    return when (id) {
-        "first-step" -> completed.isNotEmpty()
-        "three-day-rhythm" -> streak >= 3
-        "seven-sunrises" -> streak >= 7
-        "fortnight-rhythm" -> streak >= 14
-        "perfect-day" -> perfectDates.isNotEmpty()
-        "habit-thirty" -> bestHabit >= 30
-        "century" -> bestHabit >= 100
-        "iron-rhythm" -> streak >= 30
-        "fifty-sunrises" -> streak >= 50
-        "hundred-day-path" -> streak >= 100
-        "perfect-week" -> perfectRun >= 7
-        "perfect-month" -> perfectRun >= 30
-        "half-year-circle" -> streak >= 180
-        "full-revolution" -> streak >= 365
-        "five-hundred-sunrises" -> streak >= 500
-        "thousand-day-path" -> streak >= 1_000
-        "comeback" -> workspace.rewards.any { it.reason == "comeback" }
-        else -> completed.size >= 1_000
-    }
+    return workspace.achievementUnlocks.any { it.achievementId == id }
 }
 
 /** Original web images stay visible in their semantic rank, achievement and reward sections. */
 @Composable
-fun HabitArtGallery(workspace: LocalHabitWorkspace) {
+fun HabitArtGallery(workspace: LocalHabitWorkspace, busy: Boolean,
+    onClaimAmphora: (String) -> Unit, onRevealHiddenPath: () -> Unit) {
     var galleryOpen by remember { mutableStateOf(false) }
     var rankOpen by remember { mutableStateOf(false) }
+    var streakOpen by remember { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Card(Modifier.fillMaxWidth().testTag("hero-rank-path")) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -97,30 +57,35 @@ fun HabitArtGallery(workspace: LocalHabitWorkspace) {
                         Text(if (rankOpen) "Свернуть" else "Все ранги")
                     }
                 }
-                if (rankOpen) {
-                    Row(Modifier.horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        HeroRankCatalog.ranks.take(rankArt.size).forEachIndexed { index, rank ->
-                            Card(Modifier.width(136.dp), border = BorderStroke(1.dp,
-                                if (workspace.progress.lifetimeXp >= rank.threshold) Color(0xffb18b48)
-                                else Color(0xffd9d7cc))) {
-                                Column(Modifier.padding(6.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                    OriginalImage("hero-path/256/${rankArt[index]}", rank.title,
-                                        Modifier.fillMaxWidth().height(116.dp))
-                                    Text(rank.title, style = MaterialTheme.typography.labelMedium,
-                                        maxLines = 2)
-                                    Text("${rank.threshold} XP", style = MaterialTheme.typography.labelSmall)
-                                }
-                            }
-                        }
+                if (rankOpen) HeroRankTree(workspace, busy, onClaimAmphora, onRevealHiddenPath)
+            }
+        }
+        Card(Modifier.fillMaxWidth().testTag("streak-reward-ladder")) {
+            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Награды за серию", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                    TextButton(onClick = { streakOpen = !streakOpen }) {
+                        Text(if (streakOpen) "Свернуть" else "Все рубежи")
                     }
-                    Row(Modifier.horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf("17_amphora_of_aspiration.webp", "18_amphora_of_endurance.webp",
-                            "19_amphora_of_mastery.webp", "20_amphora_of_abyss.webp").forEach { filename ->
-                            OriginalImage("hero-path/256/$filename", "Амфора пути",
-                                Modifier.size(82.dp))
-                        }
+                }
+                val claimed = workspace.rewards.filter { it.reason == "streak-milestone" }
+                    .mapNotNull { it.sourceId.toIntOrNull() }.toSet()
+                val next = StreakRewards.milestones.firstOrNull { it.days !in claimed }
+                Text("Рекорд: ${workspace.progress.longestStreak} дней · получено ${claimed.size}/${StreakRewards.milestones.size}",
+                    style = MaterialTheme.typography.bodySmall)
+                Text(if (next == null) "Все рубежи достигнуты" else
+                    "Следующий рубеж: ${next.title} · ${next.days} ${if (next.days == 3) "дня" else "дней"} · +${next.laurels} Лавров",
+                    style = MaterialTheme.typography.bodySmall)
+                Text("Каждая награда начисляется один раз. Разрыв серии её не отнимает.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (streakOpen) StreakRewards.milestones.forEach { milestone ->
+                    val earned = milestone.days in claimed
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(if (earned) "✓" else "◇", color = MaterialTheme.colorScheme.primary)
+                        Text("${milestone.days} ${if (milestone.days == 3) "дня" else "дней"} · ${milestone.title}", Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodyMedium)
+                        Text(if (earned) "Получено" else "+${milestone.laurels} Лавров",
+                            style = MaterialTheme.typography.labelMedium)
                     }
                 }
             }
@@ -132,7 +97,7 @@ fun HabitArtGallery(workspace: LocalHabitWorkspace) {
                     Text("${achievements.count { achievementIsQualified(it.id, workspace) }} / ${achievements.size}",
                         style = MaterialTheme.typography.labelLarge)
                 }
-                Text("Иллюстрации и условия из оригинального каталога. Награда за новое достижение появится после переноса системы достижений.",
+                Text("Достигнутые рубежи сохраняются. Достижения не изменяют опыт ранга.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 TextButton(onClick = { galleryOpen = !galleryOpen }) {

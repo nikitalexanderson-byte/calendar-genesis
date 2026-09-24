@@ -1,10 +1,12 @@
 # GENESIS Android — матрица фактического переноса
 
-Срез 24.09.2026, `codex/android-native-bootstrap` поверх `origin/master` 30257ff. Alpha07 / versionCode 12 собрана и установлена поверх Alpha06 на согласованный realme RMX5000 (Android 16 / API 36), без очистки данных. Это нативный debug APK, не TWA/PWA и не готовый release. История проектов — `PROJECTS_STAGE.md`, текущий артефакт и ограничения — `STATUS.md`.
+Срез 24.09.2026, `codex/android-native-bootstrap` поверх `origin/master` 30257ff. Alpha08 / versionCode 13 собрана и установлена поверх Alpha07 на согласованный realme RMX5000 (Android 16 / API 36), без очистки данных. Это нативный debug APK, не TWA/PWA и не готовый release. История проектов — `PROJECTS_STAGE.md`, текущий артефакт и ограничения — `STATUS.md`.
 
 Пути Android в таблице относительны `android/app/src/main/java/ru/genesis/calendar/`; web-пути — корню репозитория. `LOCAL_PARTIAL` означает работающий в коде локальный поднабор; `DOMAIN_ONLY` — предметные функции без завершённого пользовательского сценария; `NOT_PORTED` — переноса нет. Статус проверки отделён от наличия реализации. PASS для unit-поднабора не является PASS полной приёмки функции. BLOCKED — конкретная внешняя/интеграционная зависимость; NOT_RUN — критерий не испытан, в том числе когда экран ещё отсутствует.
 
 ## Подтверждённая общая веха
+
+Итог alpha08: `assembleDebug`, `assembleDebugAndroidTest`, `testDebugUnitTest`, `lintDebug` PASS; **73 unit PASS**. Обычный realme UI-прогон **19/19 PASS**. Древо рангов, одноразовые амфоры, сохранение достижений, десять наград за серию и оба жеста расклада добавлены. Полного паритета наград/привычек и серверной синхронизации это не доказывает.
 
 Итог alpha07: `assembleDebug`, `assembleDebugAndroidTest`, `testDebugUnitTest`, `lintDebug` PASS; **69 unit PASS**. Обычный realme UI-прогон **17/17 PASS**. Стойхейон получил зашифрованные локальные карту дня и расклад, двукратный лимит на день и 180-секундное окно переброса, точную секторную практику и переход к Теокиклосу. **Серверная** запись расклада и синхронизация не готовы.
 
@@ -13,6 +15,15 @@
 Итог alpha05: `assembleDebug`, `assembleDebugAndroidTest`, `testDebugUnitTest` — PASS; **61 JUnit tests PASS**, `lintDebug` PASS. APK hash — `STATUS.md`. На реальном телефоне обычные Compose UI-сценарии **15 PASS**, включая drag-and-drop и календарь; два жестовых сценария повторно **2 PASS** после установки alpha05. Screen-off delivery, complete/dedup, fresh-process persistence, snooze/stale и открытие через системную шторку относились к alpha01; они не заменяются обычным UI-прогоном и их границы описаны в DEVICE_TESTS.md.
 
 Вкладка «Трекеры» со сном/настроением включена в проверенную сборку. Native UI tests задачи/привычки/настроения 3 PASS; 36 сочетаний настроек persistence PASS (не visual matrix). Web lint/64 tests/build:beget PASS; PHP syntax/44 standalone checks PASS. HTTP auth NOT_RUN.
+
+## Изменения alpha08 к матрице ниже
+
+| ID | Новый фактический статус alpha08 | Ещё отсутствует или не проверено |
+| --- | --- | --- |
+| REW01 | Experimental: вертикальное чередующееся древо 16 видимых + 12 скрытых рангов, оригинальные 256/512-иллюстрации видимых рангов, 8 амфор с одноразовым claim после XP-порога, скрытый путь. Unit + realme UI PASS | Объёмный web-эффект открытия, все 8 claim на реальном XP, sync |
+| REW02 | 10 идемпотентных наград за серию и сохранённые 18 unlocks достижений; старые `habit-missed-reset` исключены из баланса. Unit и экран лестницы на realme PASS | Квесты, comeback, искры Гестии, streak freeze, полноценный серверный ledger |
+| STO01 | Для одной/девяти карт отдельный нативный жестовый тест на realme PASS, орбитальное поле реагирует на палец, 4480 dp прогресса; переброс показывает 3-минутный отсчёт | Серверный лимит для аккаунта, TalkBack и иной размер экрана |
+| OPS01 | 73 unit, 19 обычных UI, lint и 527/527 byte parity PASS | Screen-off/Doze, 360/390/768/1440 двух тем NOT_RUN |
 
 ## Изменения alpha07 к матрице ниже
 
