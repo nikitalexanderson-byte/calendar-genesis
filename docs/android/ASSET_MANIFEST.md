@@ -1,10 +1,10 @@
 # Android original asset manifest
 
-Generated: 2026-09-24T03:36:13.859Z. Byte parity: **PASS**. Visual parity: **NOT_RUN**.
+Generated: 2026-09-24T15:39:16.901Z. Byte parity: **PASS**. Visual parity: **NOT_RUN**.
 
 527 public originals, 140951613 original bytes. Generated copies match: 527/527. APK decompressed entries match: 527/527.
 
-APK: `android/app/build/outputs/apk/debug/app-debug.apk` (157842753 bytes), SHA-256 `d45ae7002a0b25be87ef4a14ee969234bd682fff1b221134f166cfd1696eaa1e`.
+APK: `android/app/build/outputs/apk/debug/app-debug.apk` (157970671 bytes), SHA-256 `eae1a04627b48113360d0e6e3413a9f954313d31e14c78a57adbd294c0832c18`.
 
 ## Reproduce
 
@@ -27,8 +27,8 @@ The verifier reads the actual literal public include block in Gradle. It uses SH
 | originals/month-art-v4 | 13 | 5578824 | 13/13 | 13/13 | NOT_PORTED | Month/year original-art slots are not implemented in current native calendar list |
 | originals/month-frieze-v2.png | 1 | 3124671 | 1/1 | 1/1 | NOT_PORTED | Frieze positioning not ported |
 | originals/stoicheion-cards | 27 | 4635888 | 27/27 | 27/27 | NOT_PORTED | Deck/divination/letter details/frame layering not ported; SVG needs a native renderer |
-| originals/theokyklos-art | 14 | 6144776 | 14/14 | 14/14 | NOT_PORTED | Theokyklos screen and sector composition not ported |
-| originals/theokyklos-symbols | 14 | 1579934 | 14/14 | 14/14 | NOT_PORTED | Symbol overlays and placement not ported |
+| originals/theokyklos-art | 14 | 6144776 | 14/14 | 14/14 | IN_CODE_NOT_VISUALLY_VERIFIED | Native sector dialog renders original artwork; four critical detail states checked on one phone, full visual matrix pending |
+| originals/theokyklos-symbols | 14 | 1579934 | 14/14 | 14/14 | IN_CODE_NOT_VISUALLY_VERIFIED | Native mandala renders all 14 original sigils including zenith, nadir, entry and exit; one-phone theme screenshots captured |
 | originals/weekday-art | 7 | 2720240 | 7/7 | 7/7 | IN_CODE_NOT_VISUALLY_VERIFIED | DayHeader references all seven original weekday files |
 
 Per-file source → asset → ZIP mapping, lengths, all three hashes, compression and slot annotations are in [ASSET_MANIFEST.json](ASSET_MANIFEST.json).

@@ -1,6 +1,14 @@
 # GENESIS Android — internal alpha
 
-## Текущий этап: проекты и категории, 24.09.2026
+## Текущий этап: Теокиклос, 24.09.2026
+
+- Нативный **debug APK `2.0.0-alpha03` / versionCode 8**: `android/app/build/outputs/apk/debug/app-debug.apk`, копия `outputs/android/GENESIS-2.0.0-alpha03-debug.apk`. Package `ru.genesis.calendar.debug`, не TWA/PWA `ru.genesis.calendar`. Размер **157970671 bytes**, SHA-256 **eae1a04627b48113360d0e6e3413a9f954313d31e14c78a57adbd294c0832c18**. `apksigner verify` PASS (v2), `zipalign -c -P 16 4` PASS.
+- Новый Compose-экран «Теокиклос» встроен в существующее верхнее меню. Из исходников сайта механически экспортированы 14 секторов, 56 сакральных слов и 28 практик; все 14 исходных символов видны на мандале, в том числе **зенит, надир, вход, выход**, а детали показывают оригинальную иллюстрацию божеств. Практику можно начать, поставить на паузу, возобновить и отметить сегодня через уже существующее зашифрованное локальное хранилище привычек; отметка заблокирована, если сегодня не день практики. Это локальный поднабор, **не** web↔Android синхронизация.
+- `assembleDebug`, `assembleDebugAndroidTest`, `testDebugUnitTest` (**57 PASS / 0 failures**), `lintDebug` — PASS. `export-theokyklos.mjs --check` PASS; `verify-assets.mjs --require-apk` PASS: **527/527** выбранных оригинальных файлов побайтово соответствуют public → generated → APK. Полный визуальный/функциональный паритет NOT_RUN; 31 public media вне текущего манифеста ещё требуют оценки.
+- На согласованном realme RMX5000 (Android 16/API36) APK установлен через `adb install -r` без очистки. Инструментальный `TheokyklosFlowTest` **1 PASS**: существуют все 14 узлов с 48dp зонами касания, детали четырёх обязательных маркеров открываются; скриншоты Standart/Experimental и Зенита получены с телефона в `outputs/android/theokyklos-alpha03/`. После финальной пересборки/теста `am start -W` — **Status ok, COLD, 1227 ms**. Обе темы проверены только для этого экрана на данном телефоне, не для всей матрицы ширин/состояний.
+- Figma-файл `GENESIS Android — Universal UI` просмотрен в открытом браузере; подпись экрана 14 уточнена до «14 сил · зенит · надир · вход · выход». Круг в исходном макете пока условный (без 14 оригинальных сигилов), поэтому нативная композиция сознательно развивает его, а не выдаётся за точную пиксельную копию. Figma MCP вернул лимит вызовов; полноценная синхронизация нового экранного макета и проверка design-context недоступны. Production, SSH, push/merge не выполнялись.
+
+## Предыдущая веха: проекты и категории, 24.09.2026
 
 - Ветка `codex/android-native-bootstrap` обновлена до `origin/master` 30257ff; исходники alpha02 и тесты развиваются локально в этом worktree. Нет push/merge/deploy. Debug APK `2.0.0-alpha02` / versionCode 7, `ru.genesis.calendar.debug`: `android/app/build/outputs/apk/debug/app-debug.apk` и копия `outputs/android/GENESIS-2.0.0-alpha02-debug.apk`.
 - Итоговый артефакт: **157842753 bytes**, SHA-256 **d45ae7002a0b25be87ef4a14ee969234bd682fff1b221134f166cfd1696eaa1e**. `apksigner verify` PASS, v2; `zipalign -c -P 16 4` PASS. Все 527 оригинальных изображений имеют побайтовое соответствие public → generated → APK; полный визуальный паритет NOT_RUN.
@@ -19,7 +27,7 @@
 
 - Тогда ветка `codex/android-native-bootstrap` имела базу `origin/master` = `ebfb460`. Позднее она перебазирована на 30257ff. Worktree `.worktrees/android-native-bootstrap`, существующий модуль `android/`; пользовательские изменения основного checkout сохранены.
 - На согласованный realme RMX5000 / Android16 API36 установлена `ru.genesis.calendar.debug`, `2.0.0-alpha01` (6). Старое `ru.genesis.calendar` не удалено. Данные Alpha изолированы от аккаунта.
-- Тогдашний APK сохранён как `outputs/android/GENESIS-2.0.0-alpha01-debug.apk` вне Git; текущий build output уже содержит alpha02.
+- Тогдашний APK сохранён как `outputs/android/GENESIS-2.0.0-alpha01-debug.apk` вне Git; текущий build output уже содержит alpha03.
 - **157641687 bytes**, SHA-256 **f9dc04317775bb260f767d051012dc18b768d7060b0655660dead970bee45e60**.
 - Первоначальный commit был `741924e`; после локального rebase это `e7f3f46` (документация `8090fe4`). APK alpha01 был собран до commit из того же main-source дерева. Push/merge/deploy не выполнялись.
 - `apksigner verify`: PASS, APK v2, debug RSA2048. `zipalign -c -P 16 4`: PASS; ELF PT_LOAD alignment отдельно NOT_RUN.
@@ -56,10 +64,10 @@
 1. Native auth backend не опубликован; Android OAuth registration не подтверждена. Browser tool недоступен (`Unable to load browser request-header policy`); cookies/секреты не извлекались. Нужен доступ владельца к соответствующему Google Cloud project.
 2. Нужны isolated HTTP/session tests и независимый review verifier, проверенный global/edge rate limit перед public deploy.
 3. Cloud schema/merge/CAS/outbox transport, recovery, Google grants и FCM не интегрированы. Server escrow не является zero-knowledge E2EE.
-4. Полные проекты/зависимости/повторения UI, аналитика/испытания/награды, Стойхейон, Теокиклос, admin, локализация и другие строки PARITY_MATRIX не готовы. Standart/Experimental частичны.
+4. Полные проекты/перетаскивание/зависимости/повторения UI, аналитика/испытания/награды, Стойхейон, полный Теокиклос, admin, локализация и другие строки PARITY_MATRIX не готовы. Standart/Experimental частичны. Исходные изображения месяцев, рангов и наград упакованы, но ещё не размещены во всех смысловых слотах.
 5. Нет согласованной постоянной release signing identity/backup, release OAuth, N→N+1, verified App Links и разрешения на публичную публикацию. Debug download CTA не включать.
 6. Слышимость последнего уведомления подтверждена владельцем; vibration, звук при screen-off, reboot/Doze/offline/timezone/отзыв permissions/несколько OEM/release update и полный visual/accessibility matrix — NOT_RUN.
 
 ## Одно следующее действие
 
-Добавить изолированный HTTP/session integration harness для локальных native auth routes: CSRF, cookie rotation, replay и сохранность прежней сессии при отказе. Production для этого не нужен. Затем продолжать PARITY_MATRIX; OAuth, подпись и public deploy остаются отдельными gates владельца.
+Продолжить перенос визуальных и рабочих разделов сайта: календарь месяца/года с исходными иллюстрациями, ранги/награды, Стойхейон и drag-and-drop проектов с доступной альтернативой. Затем закрыть остальные строки `PARITY_MATRIX.md` и интеграционные тесты. Настройка Google-входа остаётся последним этапом по просьбе владельца; подпись и public deploy — отдельные gates владельца.

@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-24T03:36:13.859Z",
+  "generatedAt": "2026-09-24T15:39:16.901Z",
   "command": "node android/tools/verify-assets.mjs --require-apk",
   "sourceRoot": "public",
   "gradle": "android/app/build.gradle.kts",
-  "gradleSha256": "237db0218cbf7ee8b9170d4c4932f4bf3c731dcf0447324a0a0c5cbdf49920f2",
+  "gradleSha256": "1c1221559817d1f5853ed56aaf986ee66896451c1d1e56cedf0d0ac83e0f0aea",
   "includes": [
     "icons/**",
     "weekday-art/**",
@@ -24,8 +24,8 @@
   "generatedRoot": "android/app/build/generated/genesisAssets/originals",
   "apk": {
     "path": "android/app/build/outputs/apk/debug/app-debug.apk",
-    "size": 157842753,
-    "sha256": "d45ae7002a0b25be87ef4a14ee969234bd682fff1b221134f166cfd1696eaa1e"
+    "size": 157970671,
+    "sha256": "eae1a04627b48113360d0e6e3413a9f954313d31e14c78a57adbd294c0832c18"
   },
   "summary": {
     "files": 527,
@@ -154,8 +154,8 @@
       "generatedPass": 14,
       "apkPass": 14,
       "webSlot": "14 Theokyklos deity/sector illustrations",
-      "nativeSlot": "Theokyklos screen and sector composition not ported",
-      "uiStatus": "NOT_PORTED"
+      "nativeSlot": "Native sector dialog renders original artwork; four critical detail states checked on one phone, full visual matrix pending",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED"
     },
     {
       "family": "theokyklos-symbols",
@@ -164,8 +164,8 @@
       "generatedPass": 14,
       "apkPass": 14,
       "webSlot": "Theokyklos symbol overlays",
-      "nativeSlot": "Symbol overlays and placement not ported",
-      "uiStatus": "NOT_PORTED"
+      "nativeSlot": "Native mandala renders all 14 original sigils including zenith, nadir, entry and exit; one-phone theme screenshots captured",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED"
     },
     {
       "family": "weekday-art",
@@ -11514,8 +11514,8 @@
         "error": null
       },
       "webSlot": "14 Theokyklos deity/sector illustrations",
-      "nativeSlot": "Theokyklos screen and sector composition not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Native sector dialog renders original artwork; four critical detail states checked on one phone, full visual matrix pending",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11537,8 +11537,8 @@
         "error": null
       },
       "webSlot": "14 Theokyklos deity/sector illustrations",
-      "nativeSlot": "Theokyklos screen and sector composition not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Native sector dialog renders original artwork; four critical detail states checked on one phone, full visual matrix pending",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11560,8 +11560,8 @@
         "error": null
       },
       "webSlot": "14 Theokyklos deity/sector illustrations",
-      "nativeSlot": "Theokyklos screen and sector composition not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Native sector dialog renders original artwork; four critical detail states checked on one phone, full visual matrix pending",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11583,8 +11583,8 @@
         "error": null
       },
       "webSlot": "14 Theokyklos deity/sector illustrations",
-      "nativeSlot": "Theokyklos screen and sector composition not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Native sector dialog renders original artwork; four critical detail states checked on one phone, full visual matrix pending",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11606,8 +11606,8 @@
         "error": null
       },
       "webSlot": "14 Theokyklos deity/sector illustrations",
-      "nativeSlot": "Theokyklos screen and sector composition not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Native sector dialog renders original artwork; four critical detail states checked on one phone, full visual matrix pending",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11629,8 +11629,8 @@
         "error": null
       },
       "webSlot": "14 Theokyklos deity/sector illustrations",
-      "nativeSlot": "Theokyklos screen and sector composition not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Native sector dialog renders original artwork; four critical detail states checked on one phone, full visual matrix pending",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11652,8 +11652,8 @@
         "error": null
       },
       "webSlot": "14 Theokyklos deity/sector illustrations",
-      "nativeSlot": "Theokyklos screen and sector composition not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Native sector dialog renders original artwork; four critical detail states checked on one phone, full visual matrix pending",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11675,8 +11675,8 @@
         "error": null
       },
       "webSlot": "14 Theokyklos deity/sector illustrations",
-      "nativeSlot": "Theokyklos screen and sector composition not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Native sector dialog renders original artwork; four critical detail states checked on one phone, full visual matrix pending",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11698,8 +11698,8 @@
         "error": null
       },
       "webSlot": "14 Theokyklos deity/sector illustrations",
-      "nativeSlot": "Theokyklos screen and sector composition not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Native sector dialog renders original artwork; four critical detail states checked on one phone, full visual matrix pending",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11721,8 +11721,8 @@
         "error": null
       },
       "webSlot": "14 Theokyklos deity/sector illustrations",
-      "nativeSlot": "Theokyklos screen and sector composition not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Native sector dialog renders original artwork; four critical detail states checked on one phone, full visual matrix pending",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11744,8 +11744,8 @@
         "error": null
       },
       "webSlot": "14 Theokyklos deity/sector illustrations",
-      "nativeSlot": "Theokyklos screen and sector composition not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Native sector dialog renders original artwork; four critical detail states checked on one phone, full visual matrix pending",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11767,8 +11767,8 @@
         "error": null
       },
       "webSlot": "14 Theokyklos deity/sector illustrations",
-      "nativeSlot": "Theokyklos screen and sector composition not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Native sector dialog renders original artwork; four critical detail states checked on one phone, full visual matrix pending",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11790,8 +11790,8 @@
         "error": null
       },
       "webSlot": "14 Theokyklos deity/sector illustrations",
-      "nativeSlot": "Theokyklos screen and sector composition not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Native sector dialog renders original artwork; four critical detail states checked on one phone, full visual matrix pending",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11813,8 +11813,8 @@
         "error": null
       },
       "webSlot": "14 Theokyklos deity/sector illustrations",
-      "nativeSlot": "Theokyklos screen and sector composition not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Native sector dialog renders original artwork; four critical detail states checked on one phone, full visual matrix pending",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11836,8 +11836,8 @@
         "error": null
       },
       "webSlot": "Theokyklos symbol overlays",
-      "nativeSlot": "Symbol overlays and placement not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Native mandala renders all 14 original sigils including zenith, nadir, entry and exit; one-phone theme screenshots captured",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11859,8 +11859,8 @@
         "error": null
       },
       "webSlot": "Theokyklos symbol overlays",
-      "nativeSlot": "Symbol overlays and placement not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Native mandala renders all 14 original sigils including zenith, nadir, entry and exit; one-phone theme screenshots captured",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11882,8 +11882,8 @@
         "error": null
       },
       "webSlot": "Theokyklos symbol overlays",
-      "nativeSlot": "Symbol overlays and placement not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Native mandala renders all 14 original sigils including zenith, nadir, entry and exit; one-phone theme screenshots captured",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11905,8 +11905,8 @@
         "error": null
       },
       "webSlot": "Theokyklos symbol overlays",
-      "nativeSlot": "Symbol overlays and placement not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Native mandala renders all 14 original sigils including zenith, nadir, entry and exit; one-phone theme screenshots captured",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11928,8 +11928,8 @@
         "error": null
       },
       "webSlot": "Theokyklos symbol overlays",
-      "nativeSlot": "Symbol overlays and placement not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Native mandala renders all 14 original sigils including zenith, nadir, entry and exit; one-phone theme screenshots captured",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11951,8 +11951,8 @@
         "error": null
       },
       "webSlot": "Theokyklos symbol overlays",
-      "nativeSlot": "Symbol overlays and placement not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Native mandala renders all 14 original sigils including zenith, nadir, entry and exit; one-phone theme screenshots captured",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11974,8 +11974,8 @@
         "error": null
       },
       "webSlot": "Theokyklos symbol overlays",
-      "nativeSlot": "Symbol overlays and placement not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Native mandala renders all 14 original sigils including zenith, nadir, entry and exit; one-phone theme screenshots captured",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
     {
@@ -11997,8 +11997,8 @@
         "error": null
       },
       "webSlot": "Theokyklos symbol overlays",
-      "nativeSlot": "Symbol overlays and placement not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Native mandala renders all 14 original sigils including zenith, nadir, entry and exit; one-phone theme screenshots captured",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
     {
@@ -12020,8 +12020,8 @@
         "error": null
       },
       "webSlot": "Theokyklos symbol overlays",
-      "nativeSlot": "Symbol overlays and placement not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Native mandala renders all 14 original sigils including zenith, nadir, entry and exit; one-phone theme screenshots captured",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
     {
@@ -12043,8 +12043,8 @@
         "error": null
       },
       "webSlot": "Theokyklos symbol overlays",
-      "nativeSlot": "Symbol overlays and placement not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Native mandala renders all 14 original sigils including zenith, nadir, entry and exit; one-phone theme screenshots captured",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
     {
@@ -12066,8 +12066,8 @@
         "error": null
       },
       "webSlot": "Theokyklos symbol overlays",
-      "nativeSlot": "Symbol overlays and placement not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Native mandala renders all 14 original sigils including zenith, nadir, entry and exit; one-phone theme screenshots captured",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
     {
@@ -12089,8 +12089,8 @@
         "error": null
       },
       "webSlot": "Theokyklos symbol overlays",
-      "nativeSlot": "Symbol overlays and placement not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Native mandala renders all 14 original sigils including zenith, nadir, entry and exit; one-phone theme screenshots captured",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
     {
@@ -12112,8 +12112,8 @@
         "error": null
       },
       "webSlot": "Theokyklos symbol overlays",
-      "nativeSlot": "Symbol overlays and placement not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Native mandala renders all 14 original sigils including zenith, nadir, entry and exit; one-phone theme screenshots captured",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
     {
@@ -12135,8 +12135,8 @@
         "error": null
       },
       "webSlot": "Theokyklos symbol overlays",
-      "nativeSlot": "Symbol overlays and placement not ported",
-      "uiStatus": "NOT_PORTED",
+      "nativeSlot": "Native mandala renders all 14 original sigils including zenith, nadir, entry and exit; one-phone theme screenshots captured",
+      "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
     {

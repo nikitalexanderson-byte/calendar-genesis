@@ -80,13 +80,14 @@ fun GenesisApp(app: GenesisApplication, openedTask: String?) {
                     else "Локальные черновики · аккаунт не подключён",Modifier.padding(horizontal=16.dp),
                     style=MaterialTheme.typography.bodySmall)
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal=8.dp)) {
-                    listOf("Сегодня","Задачи","Проекты","Календарь","Привычки","Трекеры","Настройки").forEach {
+                    listOf("Сегодня","Задачи","Проекты","Календарь","Привычки","Теокиклос","Трекеры","Настройки").forEach {
                         FilterChip(selected=tab==it,onClick={tab=it},label={Text(it)},modifier=Modifier.padding(3.dp))
                     }
                 }
                 error?.let { Text(it,color=MaterialTheme.colorScheme.error,modifier=Modifier.padding(12.dp)) }
                 when(tab) {
                     "Привычки" -> HabitsScreen(app)
+                    "Теокиклос" -> TheokyklosScreen(app,prefs.input,onOpenHabits={tab="Привычки"})
                     "Трекеры" -> TrackersScreen(app)
                     "Проекты" -> ProjectsScreen(app,tasks,prefs.theme=="Experimental",
                         onOpenTask={ taskId -> editId=taskId;creating=false;tab="Задачи" },
