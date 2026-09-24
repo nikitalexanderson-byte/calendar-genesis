@@ -1,14 +1,26 @@
 # GENESIS Android — internal alpha
 
+## Текущий этап: проекты и категории, 24.09.2026
+
+- Ветка `codex/android-native-bootstrap` обновлена до `origin/master` 30257ff; исходники alpha02 и тесты — локальный commit `138ace62795b06dc76e450fc69acb56e76fe25f7`. Нет push/merge/deploy. Новый debug APK `2.0.0-alpha02` / versionCode 7, `ru.genesis.calendar.debug`: `android/app/build/outputs/apk/debug/app-debug.apk` и копия `outputs/android/GENESIS-2.0.0-alpha02-debug.apk`.
+- Артефакт: **157838231 bytes**, SHA-256 **be05012e7e7d99d208fde0e1c0b8e5641bda91a36510ace46d875d8e92757d28**. `apksigner verify` PASS, v2. Все 527 оригинальных изображений имеют побайтовое соответствие public → generated → APK; визуальный паритет NOT_RUN.
+- Проекты/категории/связи списков теперь имеют web-совместимые имена полей в зашифрованном локальном документе. Задачи сохраняют `projectId/categoryId`; старые записи читаются как Хаос-бокс. Экран «Проекты» и редактор задач связывают проект с задачами. Experimental получает палитру и оригинальный фриз из web; схема Standart не менялась. Точный аудит, границы и источник — `PROJECTS_STAGE.md`.
+- `assembleDebug`, `testDebugUnitTest` (**54 PASS / 0 failures**), `assembleDebugAndroidTest`, `lintDebug` — PASS. `pnpm install --frozen-lockfile`, lint, test и build:beget — PASS на свежем master. Standalone PHP проверка прежней alpha остаётся отдельной от live auth.
+- Новый APK **не установлен на realme**: `adb devices` сейчас показывает 0 устройств. Тесты `ProjectsFlowTest` собраны, но device run/скриншот нового Android-экрана NOT_RUN. Установленная ранее alpha01 и её данные не удалялись. Подключение телефона запрошено у владельца.
+- Browser reference captured at 360/390/768/1440 px для Standart и локально принудительно включённого Experimental CSS; без Google login видна только публичная страница входа. Это не проверка web Projects workspace или нативного экрана. Файлы `outputs/android/web-reference/`.
+- Сервер требует авторизованную сессию и CSRF для `/workspace`, парольный вход отключён (410). Поэтому структура подготовлена для будущего синхронизатора, но **не синхронизирована**. Полный task wire adapter, ключ workspace, CAS/merge, импорт и разграничение аккаунтов остаются следующими этапами. Production и SSH не затрагивались.
+
+## Предыдущая веха: alpha01 (исторические результаты)
+
 Обновлено 23.09.2026, Europe/Moscow. Полный release **не готов**. Production не менялся; SSH не использовался.
 
 ## Рабочая точка и APK
 
-- Ветка `codex/android-native-bootstrap`, база `origin/master` = `ebfb460`. Worktree `.worktrees/android-native-bootstrap`, существующий модуль `android/`; пользовательские изменения основного checkout сохранены.
+- Тогда ветка `codex/android-native-bootstrap` имела базу `origin/master` = `ebfb460`. Позднее она перебазирована на 30257ff. Worktree `.worktrees/android-native-bootstrap`, существующий модуль `android/`; пользовательские изменения основного checkout сохранены.
 - На согласованный realme RMX5000 / Android16 API36 установлена `ru.genesis.calendar.debug`, `2.0.0-alpha01` (6). Старое `ru.genesis.calendar` не удалено. Данные Alpha изолированы от аккаунта.
-- APK: `android/app/build/outputs/apk/debug/app-debug.apk`; копия `outputs/android/GENESIS-2.0.0-alpha01-debug.apk` вне Git.
+- Тогдашний APK сохранён как `outputs/android/GENESIS-2.0.0-alpha01-debug.apk` вне Git; текущий build output уже содержит alpha02.
 - **157641687 bytes**, SHA-256 **f9dc04317775bb260f767d051012dc18b768d7060b0655660dead970bee45e60**.
-- Исходники и тесты зафиксированы локальным commit `741924e6421291e2221fe45b83cdb66927e096d5`. APK собран перед commit из того же main-source дерева; после сборки менялись androidTest и отчёты. Это не clean-checkout reproducible build. Push/merge/deploy не выполнялись.
+- Первоначальный commit был `741924e`; после локального rebase это `e7f3f46` (документация `8090fe4`). APK alpha01 был собран до commit из того же main-source дерева. Push/merge/deploy не выполнялись.
 - `apksigner verify`: PASS, APK v2, debug RSA2048. `zipalign -c -P 16 4`: PASS; ELF PT_LOAD alignment отдельно NOT_RUN.
 
 ## Реализованный локальный поднабор
