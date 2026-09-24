@@ -14,7 +14,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import ru.genesis.calendar.domain.CalendarMode
 import ru.genesis.calendar.domain.CalendarRange
@@ -122,8 +121,7 @@ private fun SacredMonthHero(month: SacredMonth, year: Int) {
                     color = MaterialTheme.colorScheme.primary)
                 Text(month.name, style = MaterialTheme.typography.titleLarge)
                 Text(month.title, style = MaterialTheme.typography.titleSmall)
-                Text(month.description, style = MaterialTheme.typography.bodySmall,
-                    maxLines = 5, overflow = TextOverflow.Ellipsis)
+                Text(month.description, style = MaterialTheme.typography.bodySmall)
             }
         }
     }

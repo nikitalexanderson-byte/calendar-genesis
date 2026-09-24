@@ -106,7 +106,7 @@ const slots={
   icons:['app identity/icon family','Header renders icon-192.png only; other web icon variants are not UI-parity verified','PARTIAL_IN_CODE'],
   'weekday-art':['Gregorian selected-day header','DayHeader references all seven original weekday files','IN_CODE_NOT_VISUALLY_VERIFIED'],
   'day-art-v1':['Sacred selected-day artwork, month/day paths','DayHeader computes original month/day path; crop/layout in both themes still unverified','IN_CODE_NOT_VISUALLY_VERIFIED'],
-  'month-art-v4':['Sacred month/year illustrations','All 13 original month images have native sacred month and lazy year slots; device visual test pending because the phone locked','IN_CODE_NOT_VISUALLY_VERIFIED'],
+  'month-art-v4':['Sacred month/year illustrations','All 13 original month images have native sacred month and lazy year slots; current month and Apeiron observed on one phone, full 13-month visual matrix pending','IN_CODE_NOT_VISUALLY_VERIFIED'],
   'theokyklos-art':['14 Theokyklos deity/sector illustrations','Native sector dialog renders original artwork; four critical detail states checked on one phone, full visual matrix pending','IN_CODE_NOT_VISUALLY_VERIFIED'],
   'theokyklos-symbols':['Theokyklos symbol overlays','Native mandala renders all 14 original sigils including zenith, nadir, entry and exit; one-phone theme screenshots captured','IN_CODE_NOT_VISUALLY_VERIFIED'],
   'stoicheion-cards':['Stoicheion card faces and frames','Deck/divination/letter details/frame layering not ported; SVG needs a native renderer','NOT_PORTED'],

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-24T15:53:29.702Z",
+  "generatedAt": "2026-09-24T16:57:03.089Z",
   "command": "node android/tools/verify-assets.mjs --require-apk",
   "sourceRoot": "public",
   "gradle": "android/app/build.gradle.kts",
@@ -24,8 +24,8 @@
   "generatedRoot": "android/app/build/generated/genesisAssets/originals",
   "apk": {
     "path": "android/app/build/outputs/apk/debug/app-debug.apk",
-    "size": 158041264,
-    "sha256": "187bed484c4ff74ae809c8bcbd26bb6d34ee4af9d759848b69565c2147fdefe9"
+    "size": 158041284,
+    "sha256": "c05bc664f8299efc8f1d6337d46e4667521f2fa9e389ada8da1348f70c57cfc3"
   },
   "summary": {
     "files": 527,
@@ -124,7 +124,7 @@
       "generatedPass": 13,
       "apkPass": 13,
       "webSlot": "Sacred month/year illustrations",
-      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; device visual test pending because the phone locked",
+      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; current month and Apeiron observed on one phone, full 13-month visual matrix pending",
       "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED"
     },
     {
@@ -10571,7 +10571,7 @@
         "error": null
       },
       "webSlot": "Sacred month/year illustrations",
-      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; device visual test pending because the phone locked",
+      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; current month and Apeiron observed on one phone, full 13-month visual matrix pending",
       "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
@@ -10594,7 +10594,7 @@
         "error": null
       },
       "webSlot": "Sacred month/year illustrations",
-      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; device visual test pending because the phone locked",
+      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; current month and Apeiron observed on one phone, full 13-month visual matrix pending",
       "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
@@ -10617,7 +10617,7 @@
         "error": null
       },
       "webSlot": "Sacred month/year illustrations",
-      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; device visual test pending because the phone locked",
+      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; current month and Apeiron observed on one phone, full 13-month visual matrix pending",
       "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
@@ -10640,7 +10640,7 @@
         "error": null
       },
       "webSlot": "Sacred month/year illustrations",
-      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; device visual test pending because the phone locked",
+      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; current month and Apeiron observed on one phone, full 13-month visual matrix pending",
       "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
@@ -10663,7 +10663,7 @@
         "error": null
       },
       "webSlot": "Sacred month/year illustrations",
-      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; device visual test pending because the phone locked",
+      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; current month and Apeiron observed on one phone, full 13-month visual matrix pending",
       "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
@@ -10686,7 +10686,7 @@
         "error": null
       },
       "webSlot": "Sacred month/year illustrations",
-      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; device visual test pending because the phone locked",
+      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; current month and Apeiron observed on one phone, full 13-month visual matrix pending",
       "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
@@ -10709,7 +10709,7 @@
         "error": null
       },
       "webSlot": "Sacred month/year illustrations",
-      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; device visual test pending because the phone locked",
+      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; current month and Apeiron observed on one phone, full 13-month visual matrix pending",
       "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
@@ -10732,7 +10732,7 @@
         "error": null
       },
       "webSlot": "Sacred month/year illustrations",
-      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; device visual test pending because the phone locked",
+      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; current month and Apeiron observed on one phone, full 13-month visual matrix pending",
       "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
@@ -10755,7 +10755,7 @@
         "error": null
       },
       "webSlot": "Sacred month/year illustrations",
-      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; device visual test pending because the phone locked",
+      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; current month and Apeiron observed on one phone, full 13-month visual matrix pending",
       "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
@@ -10778,7 +10778,7 @@
         "error": null
       },
       "webSlot": "Sacred month/year illustrations",
-      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; device visual test pending because the phone locked",
+      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; current month and Apeiron observed on one phone, full 13-month visual matrix pending",
       "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
@@ -10801,7 +10801,7 @@
         "error": null
       },
       "webSlot": "Sacred month/year illustrations",
-      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; device visual test pending because the phone locked",
+      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; current month and Apeiron observed on one phone, full 13-month visual matrix pending",
       "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
@@ -10824,7 +10824,7 @@
         "error": null
       },
       "webSlot": "Sacred month/year illustrations",
-      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; device visual test pending because the phone locked",
+      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; current month and Apeiron observed on one phone, full 13-month visual matrix pending",
       "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
@@ -10847,7 +10847,7 @@
         "error": null
       },
       "webSlot": "Sacred month/year illustrations",
-      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; device visual test pending because the phone locked",
+      "nativeSlot": "All 13 original month images have native sacred month and lazy year slots; current month and Apeiron observed on one phone, full 13-month visual matrix pending",
       "uiStatus": "IN_CODE_NOT_VISUALLY_VERIFIED",
       "visualParity": "NOT_RUN"
     },
