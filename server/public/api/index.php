@@ -23,6 +23,7 @@ if ($serverRoot === '') {
 require $serverRoot . '/src/bootstrap.php';
 require $serverRoot . '/src/repository.php';
 require $serverRoot . '/src/google.php';
+require $serverRoot . '/src/native-auth.php';
 require $serverRoot . '/src/gemini.php';
 
 header('X-Content-Type-Options: nosniff');
@@ -157,6 +158,54 @@ try {
             'syncedAt' => genesisNow(),
             'syncWarning' => genesisGoogleTasksSyncWarning(),
         ]);
+    }
+
+    if ($method === 'POST' && $path === 'auth/google/native/challenge') {
+        genesisRequireCsrf();
+        $clientId = trim((string)(genesisConfig()['google_client_id'] ?? ''));
+        if ($clientId === '') {
+            throw new GenesisNativeAuthException(503, 'NATIVE_AUTH_NOT_CONFIGURED');
+        }
+        header('Cache-Control: no-store');
+        genesisJson([
+            'nonce' => genesisNativeChallenge($_SESSION, time()),
+            'expiresIn' => 300,
+            'serverClientId' => $clientId,
+        ]);
+    }
+
+    if ($method === 'POST' && $path === 'auth/google/native') {
+        genesisRequireCsrf();
+        header('Cache-Control: no-store');
+        $now = time();
+        $challenge = genesisNativeConsumeChallenge($_SESSION, $now);
+        $raw = file_get_contents('php://input', false, null, 0, 20001);
+        if (!is_string($raw) || strlen($raw) > 20000) {
+            throw new GenesisNativeAuthException(400, 'NATIVE_AUTH_INVALID_REQUEST');
+        }
+        try {
+            $payload = json_decode($raw, true, 4, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            throw new GenesisNativeAuthException(400, 'NATIVE_AUTH_INVALID_REQUEST');
+        }
+        if (!is_array($payload) || !is_string($payload['idToken'] ?? null)) {
+            throw new GenesisNativeAuthException(400, 'NATIVE_AUTH_INVALID_REQUEST');
+        }
+        $profile = genesisVerifyNativeGoogleToken(
+            $payload['idToken'],
+            trim((string)(genesisConfig()['google_client_id'] ?? '')),
+            $challenge,
+            $now,
+            static function () use ($now): array { return genesisNativeGoogleCertificates($_SESSION, $now); },
+        );
+        $user = genesisUpsertGoogleUser($profile, [], false);
+        if (!session_regenerate_id(true)) {
+            throw new GenesisNativeAuthException(503, 'NATIVE_AUTH_TEMPORARILY_UNAVAILABLE');
+        }
+        $_SESSION['user_id'] = (string)$user['id'];
+        $_SESSION['csrf'] = bin2hex(random_bytes(24));
+        unset($_SESSION['oauth_request']);
+        genesisJson(['user' => genesisUserForClient($user), 'csrf' => (string)$_SESSION['csrf']]);
     }
 
     if ($method === 'GET' && $path === 'auth/google/start') {
@@ -428,6 +477,12 @@ try {
     }
 
     genesisJson(['error' => 'NOT_FOUND'], 404);
+} catch (GenesisNativeAuthException $error) {
+    header('Cache-Control: no-store');
+    if ($error->status === 429) {
+        header('Retry-After: 60');
+    }
+    genesisJson(['error' => $error->getMessage()], $error->status);
 } catch (GenesisWorkspaceConflictException $error) {
     genesisJson(['error' => $error->getMessage(), 'currentVersion' => $error->currentVersion], 409);
 } catch (DomainException $error) {
