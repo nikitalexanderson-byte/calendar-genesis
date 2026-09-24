@@ -47,6 +47,38 @@ class HabitDocumentTest {
         assertTrue(HabitDocument.decode(legacy.toString(), 0).achievementUnlocks.isEmpty())
     }
 
+    @Test fun hestiaTransactionsSurviveEncryptedDocumentFormatAndLegacyDocumentDecodes() {
+        val freeze = StreakFreezeTransaction(1, "purchase", "p1",
+            "hestia-spark-purchase:self:p1", stamp)
+        val workspace = LocalHabitWorkspace(streakFreezeTransactions = listOf(freeze))
+        assertEquals(workspace, HabitDocument.decode(HabitDocument.encode(workspace), 0))
+        val legacy = JSONObject(HabitDocument.encode(workspace)).apply { remove("streakFreezeTransactions") }
+        assertTrue(HabitDocument.decode(legacy.toString(), 0).streakFreezeTransactions.isEmpty())
+    }
+
+    @Test fun closingNewMissConsumesPurchasedSparkWithoutXpOrFalseCompletion() {
+        val h = habit()
+        val entries = engine.updateCompletion(emptyList(), h, day, day, true, null, "", stamp, "c-protected")
+        val first = reconcileHabitWorkspace(LocalHabitWorkspace(listOf(h), entries), day,
+            "Europe/Moscow", stamp)
+        val bonus = Rewards.create(200.0, "comeback", "seed", "seed-comeback", stamp)
+        val (paid, freezes) = StreakProtection.purchase(first.rewards + bonus, emptyList(),
+            "purchase-test", stamp)
+        val purchased = reconcileHabitWorkspace(first.copy(rewards = paid,
+            streakFreezeTransactions = freezes), day, "Europe/Moscow", stamp)
+        val next = reconcileHabitWorkspace(purchased, day.plusDays(2), "Europe/Moscow",
+            "2026-09-25T10:00:00.000Z")
+        val missed = next.goals.single { it.date == day.plusDays(1) }
+        assertEquals("protected", missed.status)
+        assertEquals(0, missed.completedCount)
+        assertEquals(10, next.progress.lifetimeXp)
+        assertEquals(0, next.progress.streakFreezeCount)
+        assertEquals(1, next.progress.currentStreak)
+        assertEquals(next, HabitDocument.decode(HabitDocument.encode(next), next.revision))
+        assertEquals(next.rewards, reconcileHabitWorkspace(next, day.plusDays(2),
+            "Europe/Moscow", "2026-09-25T11:00:00.000Z").rewards)
+    }
+
     @Test fun missedDayNeverResetsLaurelsAndLifetimeXpRemains() {
         val h=habit()
         val entries=engine.updateCompletion(emptyList(),h,day,day,true,null,"",stamp,"c1")

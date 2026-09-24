@@ -112,7 +112,7 @@ const slots={
   'stoicheion-cards':['Stoicheion card faces and frames','All 24 original card faces and letter details have native slots; local daily and nine-card gesture readings work with a three-minute reroll timer, but account synchronization is pending','PARTIAL_IN_CODE'],
   'achievement-art':['Achievement medallion artwork','All 18 original webp medallions render in the Experimental gallery with locally persisted unlocks; complete web award rules and account synchronization are pending','PARTIAL_IN_CODE'],
   'habit-ranks':['Heroic rank background','Original rank panorama remains in the native habit progress card; Experimental also has the individual rank tree, checkpoint actions and detail artwork','PARTIAL_IN_CODE'],
-  'habit-reward-art':['Hestia spark/comeback reward illustrations','Both original reward images render in Experimental Habits; purchase/comeback actions remain unported','PARTIAL_IN_CODE'],
+  'habit-reward-art':['Hestia spark/comeback reward illustrations','Both original images render in Experimental Habits; local Spark purchase/automatic use and three-day Comeback awards work, but cloud synchronization is pending','PARTIAL_IN_CODE'],
   'hero-path':['Hero path 256/512 artwork','Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending','PARTIAL_IN_CODE'],
   'calendar-art':['Gregorian Saturn/Cronus description artwork','Original annual description slot not ported','NOT_PORTED'],
   'genesis-hero.png':['Original GENESIS hero background','Hero composition and theme variants not ported','NOT_PORTED'],

@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-24T20:28:46.545Z",
+  "generatedAt": "2026-09-24T20:39:48.995Z",
   "command": "node android/tools/verify-assets.mjs --require-apk",
   "sourceRoot": "public",
   "gradle": "android/app/build.gradle.kts",
-  "gradleSha256": "3808b2bb9ffe5147c40ea7a3db309385e6d99658fa3175790fc0b5d54259bf53",
+  "gradleSha256": "b0196e55d13789f30d8f62c4740564db005539c72fdda45b6667d0bdca0ec3f6",
   "includes": [
     "icons/**",
     "weekday-art/**",
@@ -23,9 +23,9 @@
   ],
   "generatedRoot": "android/app/build/generated/genesisAssets/originals",
   "apk": {
-    "path": "outputs/android/hero-tree-stoicheion-alpha08/GENESIS-2.0.0-alpha08-debug.apk",
-    "size": 158655424,
-    "sha256": "346a6d42314566ef53782ad9fb001dce7cd4af0f09146e69f48ef36402ccf105"
+    "path": "outputs/android/streak-resilience-alpha09/GENESIS-2.0.0-alpha09-debug.apk",
+    "size": 158024353,
+    "sha256": "1d4d8481120fb97b79e2f16c9c4a5e5aaf5417427a05698211d346aa2ff425f3"
   },
   "summary": {
     "files": 527,
@@ -94,7 +94,7 @@
       "generatedPass": 2,
       "apkPass": 2,
       "webSlot": "Hestia spark/comeback reward illustrations",
-      "nativeSlot": "Both original reward images render in Experimental Habits; purchase/comeback actions remain unported",
+      "nativeSlot": "Both original images render in Experimental Habits; local Spark purchase/automatic use and three-day Comeback awards work, but cloud synchronization is pending",
       "uiStatus": "PARTIAL_IN_CODE"
     },
     {
@@ -9513,7 +9513,7 @@
         "error": null
       },
       "webSlot": "Hestia spark/comeback reward illustrations",
-      "nativeSlot": "Both original reward images render in Experimental Habits; purchase/comeback actions remain unported",
+      "nativeSlot": "Both original images render in Experimental Habits; local Spark purchase/automatic use and three-day Comeback awards work, but cloud synchronization is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },
@@ -9536,7 +9536,7 @@
         "error": null
       },
       "webSlot": "Hestia spark/comeback reward illustrations",
-      "nativeSlot": "Both original reward images render in Experimental Habits; purchase/comeback actions remain unported",
+      "nativeSlot": "Both original images render in Experimental Habits; local Spark purchase/automatic use and three-day Comeback awards work, but cloud synchronization is pending",
       "uiStatus": "PARTIAL_IN_CODE",
       "visualParity": "NOT_RUN"
     },

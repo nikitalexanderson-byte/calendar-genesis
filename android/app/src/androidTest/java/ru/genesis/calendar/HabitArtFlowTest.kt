@@ -63,6 +63,10 @@ class HabitArtFlowTest {
             compose.onNodeWithTag("streak-reward-ladder", useUnmergedTree = true).performScrollTo()
             assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(
                 File(app.getExternalFilesDir(null), "habits-streak-rewards-after.png")))
+            compose.onNodeWithTag("hestia-spark-card", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
+            compose.onNodeWithTag("comeback-card", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
+            assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(
+                File(app.getExternalFilesDir(null), "habits-resilience-after.png")))
         } finally {
             runBlocking { prefs.set("theme", originalTheme) }
         }

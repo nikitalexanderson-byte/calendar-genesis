@@ -1,10 +1,10 @@
 # Android original asset manifest
 
-Generated: 2026-09-24T20:28:46.545Z. Byte parity: **PASS**. Visual parity: **NOT_RUN**.
+Generated: 2026-09-24T20:39:48.995Z. Byte parity: **PASS**. Visual parity: **NOT_RUN**.
 
 527 public originals, 140951613 original bytes. Generated copies match: 527/527. APK decompressed entries match: 527/527.
 
-APK: `outputs/android/hero-tree-stoicheion-alpha08/GENESIS-2.0.0-alpha08-debug.apk` (158655424 bytes), SHA-256 `346a6d42314566ef53782ad9fb001dce7cd4af0f09146e69f48ef36402ccf105`.
+APK: `outputs/android/streak-resilience-alpha09/GENESIS-2.0.0-alpha09-debug.apk` (158024353 bytes), SHA-256 `1d4d8481120fb97b79e2f16c9c4a5e5aaf5417427a05698211d346aa2ff425f3`.
 
 ## Reproduce
 
@@ -21,7 +21,7 @@ The verifier reads the actual literal public include block in Gradle. It uses SH
 | originals/day-art-v1 | 366 | 105298016 | 366/366 | 366/366 | IN_CODE_NOT_VISUALLY_VERIFIED | DayHeader computes original month/day path; crop/layout in both themes still unverified |
 | originals/genesis-hero.png | 1 | 2566435 | 1/1 | 1/1 | NOT_PORTED | Hero composition and theme variants not ported |
 | originals/habit-ranks | 1 | 290184 | 1/1 | 1/1 | PARTIAL_IN_CODE | Original rank panorama remains in the native habit progress card; Experimental also has the individual rank tree, checkpoint actions and detail artwork |
-| originals/habit-reward-art | 2 | 648335 | 2/2 | 2/2 | PARTIAL_IN_CODE | Both original reward images render in Experimental Habits; purchase/comeback actions remain unported |
+| originals/habit-reward-art | 2 | 648335 | 2/2 | 2/2 | PARTIAL_IN_CODE | Both original images render in Experimental Habits; local Spark purchase/automatic use and three-day Comeback awards work, but cloud synchronization is pending |
 | originals/hero-path | 40 | 2595498 | 40/40 | 40/40 | PARTIAL_IN_CODE | Original 256px rank and amphora artwork renders in the Experimental tree; 512px rank detail and local checkpoint claims are implemented, but web/account parity is pending |
 | originals/icons | 4 | 4444680 | 4/4 | 4/4 | PARTIAL_IN_CODE | Header renders icon-192.png only; other web icon variants are not UI-parity verified |
 | originals/month-art-v4 | 13 | 5578824 | 13/13 | 13/13 | IN_CODE_NOT_VISUALLY_VERIFIED | All 13 original month images have native sacred month and lazy year slots; current month and Apeiron observed on one phone, full 13-month visual matrix pending |

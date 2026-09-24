@@ -12,6 +12,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import ru.genesis.calendar.data.LocalHabitWorkspace
 import ru.genesis.calendar.domain.habits.StreakRewards
+import ru.genesis.calendar.domain.habits.StreakProtection
 import java.time.LocalDate
 
 private data class AchievementArt(val id: String, val title: String, val rule: String, val hidden: Boolean = false)
@@ -42,8 +43,9 @@ private fun achievementIsQualified(id: String, workspace: LocalHabitWorkspace): 
 
 /** Original web images stay visible in their semantic rank, achievement and reward sections. */
 @Composable
-fun HabitArtGallery(workspace: LocalHabitWorkspace, busy: Boolean,
-    onClaimAmphora: (String) -> Unit, onRevealHiddenPath: () -> Unit) {
+fun HabitArtGallery(workspace: LocalHabitWorkspace, today: LocalDate, busy: Boolean,
+    onClaimAmphora: (String) -> Unit, onRevealHiddenPath: () -> Unit,
+    onBuySpark: () -> Unit) {
     var galleryOpen by remember { mutableStateOf(false) }
     var rankOpen by remember { mutableStateOf(false) }
     var streakOpen by remember { mutableStateOf(false) }
@@ -126,19 +128,44 @@ fun HabitArtGallery(workspace: LocalHabitWorkspace, busy: Boolean,
                 }
             }
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            RewardImageCard("habit-reward-art/hestia-spark.png", "Искра Гестии", Modifier.weight(1f))
-            RewardImageCard("habit-reward-art/comeback.png", "Возвращение", Modifier.weight(1f))
+        Card(Modifier.fillMaxWidth().testTag("hestia-spark-card")) {
+            Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                OriginalImage("habit-reward-art/hestia-spark.png", "Искра Гестии", Modifier.size(72.dp))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Искра Гестии", style = MaterialTheme.typography.titleMedium)
+                    Text("Автоматически защитит один пропущенный день без XP и ложного выполнения.",
+                        style = MaterialTheme.typography.bodySmall)
+                    Text("Запас: ${workspace.progress.streakFreezeCount}/${StreakProtection.sparkMax} · ${StreakProtection.sparkCost} Лавров",
+                        style = MaterialTheme.typography.labelMedium)
+                    workspace.streakFreezeTransactions.lastOrNull { it.reason == "automatic-use" }?.let {
+                        Text("Последняя защита: ${it.sourceId}", style = MaterialTheme.typography.bodySmall)
+                    }
+                    Button(onClick = onBuySpark, enabled = !busy &&
+                        workspace.progress.streakFreezeCount < StreakProtection.sparkMax &&
+                        workspace.progress.laurelsBalance >= StreakProtection.sparkCost,
+                        modifier = Modifier.testTag("buy-hestia-spark")) { Text("Купить Искру") }
+                }
+            }
         }
-    }
-}
-
-@Composable
-private fun RewardImageCard(path: String, title: String, modifier: Modifier) {
-    Card(modifier) {
-        Column(Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            OriginalImage(path, title, Modifier.fillMaxWidth().height(112.dp))
-            Text(title, style = MaterialTheme.typography.titleSmall)
+        val comeback = StreakProtection.comebackSummary(workspace.goals, today)
+        Card(Modifier.fillMaxWidth().testTag("comeback-card")) {
+            Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                OriginalImage("habit-reward-art/comeback.png", "Возвращение", Modifier.size(72.dp))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Возвращение", style = MaterialTheme.typography.titleMedium)
+                    Text(if (comeback.active) "Выполните дневную цель три раза подряд. Прежняя серия не восстанавливается."
+                        else "После разрыва серии здесь появится трёхдневный путь возвращения.",
+                        style = MaterialTheme.typography.bodySmall)
+                    Text(if (comeback.active) "${comeback.progress}/${StreakProtection.comebackTarget} дня"
+                        else "Готово", style = MaterialTheme.typography.labelMedium)
+                    comeback.lastCompletedDate?.let { date ->
+                        Text("Последнее возвращение: $date · +${StreakProtection.comebackReward} Лавров",
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
         }
     }
 }

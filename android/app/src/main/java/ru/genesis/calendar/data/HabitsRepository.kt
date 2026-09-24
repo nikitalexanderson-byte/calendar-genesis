@@ -2,6 +2,7 @@ package ru.genesis.calendar.data
 
 import androidx.room.withTransaction
 import java.time.*
+import java.util.UUID
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.Dispatchers
@@ -14,7 +15,8 @@ import ru.genesis.calendar.domain.habits.*
 data class LocalHabitWorkspace(val habits: List<Habit> = emptyList(), val completions: List<HabitCompletion> = emptyList(),
     val goals: List<DailyGoalRecord> = emptyList(), val rewards: List<RewardTransaction> = emptyList(),
     val progress: UserProgress = UserProgress(), val revision: Long = 0,
-    val achievementUnlocks: List<AchievementUnlock> = emptyList())
+    val achievementUnlocks: List<AchievementUnlock> = emptyList(),
+    val streakFreezeTransactions: List<StreakFreezeTransaction> = emptyList())
 
 /** Local draft scope only. This document is not a cloud schema-16 import/sync adapter. */
 class HabitsRepository(private val app: GenesisApplication) {
@@ -62,6 +64,12 @@ class HabitsRepository(private val app: GenesisApplication) {
             rankId, Instant.now().toString()))
     }
 
+    suspend fun buyHestiaSpark() = mutate { workspace ->
+        val (rewards, freezes) = StreakProtection.purchase(workspace.rewards,
+            workspace.streakFreezeTransactions, UUID.randomUUID().toString(), Instant.now().toString())
+        workspace.copy(rewards = rewards, streakFreezeTransactions = freezes)
+    }
+
     suspend fun revealHiddenHeroicPath() = mutate { workspace ->
         val current = workspace.progress
         require(HeroProgress.hiddenUnlocked(current.lifetimeXp)) { "Врата ещё закрыты." }
@@ -72,17 +80,18 @@ class HabitsRepository(private val app: GenesisApplication) {
     private fun reconcile(workspace: LocalHabitWorkspace) = reconcileHabitWorkspace(workspace,LocalDate.now(),ZoneId.systemDefault().id,Instant.now().toString())
 }
 
-    /** The available local subset follows ensureDailyGoalProgress's day closing,
-     * daily/perfect awards and missed-habit resets. No quest/freeze reward is fabricated.
-     */
+    /** Local day closing, automatic protection and deterministic reward reconciliation. */
     internal fun reconcileHabitWorkspace(workspace: LocalHabitWorkspace, today: LocalDate, zone: String, timestamp: String): LocalHabitWorkspace {
         fun engine()=HabitEngine(GenesisCalendar(ZoneId.of(zone)))
         val previous=DailyGoals.normalize(workspace.goals)
+        val protectableDates=mutableSetOf<LocalDate>()
         val timezoneBoundary=previous.lastOrNull { it.date<=today }?.takeIf { it.timezone!=zone }?.let { today.minusDays(1) }
         var goals=previous.map { record ->
             if(record.status=="open" && record.date<today) DailyGoals.build(record.date,record.mode,record.timezone,
                 record.scheduledCount.toDouble(),record.completedCount.toDouble(),today,record.updatedAt,
-                isTimezoneShift=record.date==timezoneBoundary) else record
+                isTimezoneShift=record.date==timezoneBoundary).also {
+                    if(it.status=="missed") protectableDates += it.date
+                } else record
         }
         val latest=goals.lastOrNull { it.date<=today }?.date
         val earliest=(workspace.habits.filter { it.active }.map { it.schedule.startDate }+workspace.completions.map { it.date }).minOrNull()
@@ -90,19 +99,26 @@ class HabitsRepository(private val app: GenesisApplication) {
         while(cursor<=today) {
             var record=engine().dailyGoalForDate(workspace.habits,workspace.completions,goals,emptyList(),emptySet(),cursor,today,timestamp)
             if(cursor==timezoneBoundary) record=record.copy(timezone=zone,status="timezone-shift")
+            if(record.status=="missed") protectableDates += record.date
             goals=DailyGoals.normalize(goals+record)
             cursor=cursor.plusDays(1)
         }
         val current=engine().dailyGoalForDate(workspace.habits,workspace.completions,goals,emptyList(),emptySet(),today,today,timestamp)
         goals=DailyGoals.normalize(goals.filterNot { it.date==today }+current)
+        val (protectedGoals, freezes)=StreakProtection.protect(goals,workspace.streakFreezeTransactions,
+            protectableDates,today,timestamp)
+        goals=protectedGoals
         // The website retired per-missed-habit Laurel resets. Normalization also repairs old
         // local ledgers by ignoring those entries without discarding legitimate awards.
-        val ledger=StreakRewards.reconcile(goals,Rewards.reconcileDailyGoals(goals,workspace.rewards,today))
+        val ledger=StreakProtection.reconcileComeback(goals,
+            StreakRewards.reconcile(goals,Rewards.reconcileDailyGoals(goals,workspace.rewards,today)),today)
         val progress=HeroProgress.reconcile(workspace.progress,workspace.completions.map { it.xpAwarded },timestamp,
-            DailyGoals.streak(goals,today),Rewards.balance(ledger),rhythmScore=DailyGoals.rhythmScore(goals,today))
+            DailyGoals.streak(goals,today),Rewards.balance(ledger),streakFreezeCount=StreakProtection.count(freezes),
+            rhythmScore=DailyGoals.rhythmScore(goals,today))
         val unlocks=Achievements.reconcile(workspace.achievementUnlocks,workspace.completions,goals,
             progress.longestStreak,ledger,timestamp)
-        return workspace.copy(goals=goals,rewards=ledger,progress=progress,achievementUnlocks=unlocks)
+        return workspace.copy(goals=goals,rewards=ledger,progress=progress,achievementUnlocks=unlocks,
+            streakFreezeTransactions=freezes)
     }
 /** Explicit local format, never presented as the full synced HabitWorkspace schema. */
 internal object HabitDocument {
@@ -142,6 +158,9 @@ internal object HabitDocument {
                 .put("idempotencyKey",t.idempotencyKey).put("createdAt",t.createdAt).put("userId",t.userId).put("currency",t.currency) }))
             .put("achievementUnlocks",JSONArray(w.achievementUnlocks.map { unlock ->
                 JSONObject().put("achievementId",unlock.achievementId).put("unlockedAt",unlock.unlockedAt) }))
+            .put("streakFreezeTransactions",JSONArray(w.streakFreezeTransactions.map { item ->
+                JSONObject().put("amount",item.amount).put("reason",item.reason).put("sourceId",item.sourceId)
+                    .put("idempotencyKey",item.idempotencyKey).put("createdAt",item.createdAt) }))
             .put("progress",JSONObject().put("lifetimeXp",p.lifetimeXp).put("laurelsBalance",p.laurelsBalance).put("currentRankId",p.currentRankId ?: JSONObject.NULL)
                 .put("hiddenHeroicPathRevealedAt",p.hiddenHeroicPathRevealedAt ?: JSONObject.NULL).put("currentStreak",p.currentStreak).put("longestStreak",p.longestStreak)
                 .put("lastQualifiedDate",p.lastQualifiedDate?.toString() ?: JSONObject.NULL).put("streakGoalMode",p.streakGoalMode).put("streakFreezeCount",p.streakFreezeCount)
@@ -157,6 +176,9 @@ internal object HabitDocument {
             UserProgress(p.getInt("lifetimeXp"),p.getInt("laurelsBalance"),p.nullable("currentRankId"),p.nullable("hiddenHeroicPathRevealedAt"),p.getInt("currentStreak"),p.getInt("longestStreak"),p.nullable("lastQualifiedDate")?.let(LocalDate::parse),p.getString("streakGoalMode"),p.getInt("streakFreezeCount"),p.getInt("rhythmScore"),p.getString("updatedAt")),revision,
             Achievements.normalize(v.optJSONArray("achievementUnlocks")?.objects()?.map { unlock ->
                 AchievementUnlock(unlock.getString("achievementId"),unlock.getString("unlockedAt"))
+            } ?: emptyList()),StreakProtection.normalize(v.optJSONArray("streakFreezeTransactions")?.objects()?.map { item ->
+                StreakFreezeTransaction(item.getInt("amount"),item.getString("reason"),item.getString("sourceId"),
+                    item.getString("idempotencyKey"),item.getString("createdAt"))
             } ?: emptyList()))
     }
 }

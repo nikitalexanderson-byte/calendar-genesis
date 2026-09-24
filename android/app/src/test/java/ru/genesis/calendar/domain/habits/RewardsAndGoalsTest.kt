@@ -87,6 +87,62 @@ class RewardsAndGoalsTest {
         assertEquals("hero-path-amphora:self:icarus", awarded.single().idempotencyKey)
     }
 
+    @Test fun hestiaPurchaseIsIdempotentCappedAndRequiresLaurels() {
+        val awarded = listOf(Rewards.create(250.0, "comeback", "d1", "seed", stamp))
+        assertThrows(IllegalArgumentException::class.java) {
+            StreakProtection.purchase(emptyList(), emptyList(), "p1", stamp)
+        }
+        val first = StreakProtection.purchase(awarded, emptyList(), "p1", stamp)
+        assertEquals(1, StreakProtection.count(first.second))
+        assertEquals(130, Rewards.balance(first.first))
+        assertEquals(first, StreakProtection.purchase(first.first, first.second, "p1", stamp))
+        val second = StreakProtection.purchase(first.first, first.second, "p2", stamp)
+        assertEquals(2, StreakProtection.count(second.second))
+        assertEquals(10, Rewards.balance(second.first))
+        assertThrows(IllegalArgumentException::class.java) {
+            StreakProtection.purchase(second.first, second.second, "p3", stamp)
+        }
+    }
+
+    @Test fun hestiaProtectsNewMissOnlyOnceWithoutFabricatingCompletionOrXp() {
+        val start = LocalDate.of(2026, 9, 1)
+        fun record(offset: Long, status: String) = DailyGoalRecord(start.plusDays(offset), "rhythm",
+            "Europe/Moscow", 1, if (status == "perfect") 1 else 0, 1, status, stamp)
+        val purchase = StreakFreezeTransaction(1, "purchase", "p1", "hestia-spark-purchase:self:p1", stamp)
+        val records = listOf(record(0, "perfect"), record(1, "missed"), record(2, "perfect"))
+        val protected = StreakProtection.protect(records, listOf(purchase),
+            setOf(start.plusDays(1)), start.plusDays(2), stamp)
+        assertEquals(listOf("perfect", "protected", "perfect"), protected.first.map { it.status })
+        assertEquals(0, protected.first[1].completedCount)
+        assertEquals(0, StreakProtection.count(protected.second))
+        assertEquals(1, protected.second.count { it.reason == "automatic-use" })
+        assertEquals(protected, StreakProtection.protect(protected.first, protected.second,
+            emptySet(), start.plusDays(2), stamp))
+        assertEquals(2, DailyGoals.streak(protected.first, start.plusDays(2)).currentStreak)
+        val oldMiss = StreakProtection.protect(records, listOf(purchase), emptySet(),
+            start.plusDays(2), stamp)
+        assertEquals("missed", oldMiss.first[1].status)
+        assertEquals(1, StreakProtection.count(oldMiss.second))
+    }
+
+    @Test fun comebackPaysOnceAfterThreeQualifiedDaysAndNeverRestoresOldStreak() {
+        val start = LocalDate.of(2026, 9, 1)
+        val statuses = listOf("perfect", "missed", "qualified", "perfect", "qualified")
+        val records = statuses.mapIndexed { index, status ->
+            DailyGoalRecord(start.plusDays(index.toLong()), "rhythm", "Europe/Moscow", 1,
+                if (status in setOf("qualified", "perfect")) 1 else 0, 1, status, stamp)
+        }
+        val halfway = StreakProtection.comebackSummary(records.take(4), start.plusDays(3))
+        assertTrue(halfway.active)
+        assertEquals(2, halfway.progress)
+        val ledger = StreakProtection.reconcileComeback(records, emptyList(), start.plusDays(4))
+        assertEquals(15, Rewards.balance(ledger))
+        assertEquals("comeback:self:${start.plusDays(1)}", ledger.single().idempotencyKey)
+        assertEquals(ledger, StreakProtection.reconcileComeback(records, ledger, start.plusDays(4)))
+        assertEquals(3, DailyGoals.streak(records, start.plusDays(4)).currentStreak)
+        assertEquals(start.plusDays(4), StreakProtection.comebackSummary(records, start.plusDays(4)).lastCompletedDate)
+    }
+
     @Test fun modeAndHistoryNormalizationChooseLatestTimestamp() {
         val changes=listOf(DailyGoalModeChange(today,"perfect",stamp),DailyGoalModeChange(today,"easy","2026-09-23T11:00:00.000Z"))
         assertEquals("easy",DailyGoals.modeForDate(DailyGoals.normalizeModeChanges(changes),today))
