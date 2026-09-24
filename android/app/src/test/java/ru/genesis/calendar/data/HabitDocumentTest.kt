@@ -21,7 +21,7 @@ class HabitDocumentTest {
         val workspace=reconcileHabitWorkspace(LocalHabitWorkspace(listOf(habit),entries,revision=4),day,"Europe/Moscow",stamp)
         assertEquals(workspace,HabitDocument.decode(HabitDocument.encode(workspace),4))
         assertEquals(10,workspace.progress.lifetimeXp)
-        assertEquals(8,workspace.progress.laurelsBalance)
+        assertEquals(11,workspace.progress.laurelsBalance) // 8 for perfect day + 3 daily trial
         val replay=reconcileHabitWorkspace(workspace,day,"Europe/Moscow",stamp)
         assertEquals(workspace,replay)
     }
@@ -56,6 +56,23 @@ class HabitDocumentTest {
         assertTrue(HabitDocument.decode(legacy.toString(), 0).streakFreezeTransactions.isEmpty())
     }
 
+    @Test fun questIdentityProgressAndRewardSurviveDocumentRoundTrip() {
+        val h = habit()
+        val first = reconcileHabitWorkspace(LocalHabitWorkspace(habits = listOf(h)), day,
+            "Europe/Moscow", stamp)
+        assertEquals(3, first.quests.size)
+        assertEquals(first, HabitDocument.decode(HabitDocument.encode(first), first.revision))
+        val legacy = JSONObject(HabitDocument.encode(first)).apply { remove("quests") }
+        assertTrue(HabitDocument.decode(legacy.toString(), 0).quests.isEmpty())
+        val entry = engine.updateCompletion(emptyList(), h, day, day, true, null, "", stamp, "quest-1")
+        val completed = reconcileHabitWorkspace(first.copy(completions = entry), day,
+            "Europe/Moscow", stamp)
+        assertTrue(completed.quests.any { it.cadence == "daily" && it.completedAt != null })
+        assertEquals(3, completed.rewards.filter { it.reason == "daily-quest" }.sumOf { it.amount })
+        assertEquals(completed.rewards, reconcileHabitWorkspace(completed, day,
+            "Europe/Moscow", stamp).rewards)
+    }
+
     @Test fun closingNewMissConsumesPurchasedSparkWithoutXpOrFalseCompletion() {
         val h = habit()
         val entries = engine.updateCompletion(emptyList(), h, day, day, true, null, "", stamp, "c-protected")
@@ -84,7 +101,7 @@ class HabitDocumentTest {
         val entries=engine.updateCompletion(emptyList(),h,day,day,true,null,"",stamp,"c1")
         val first=reconcileHabitWorkspace(LocalHabitWorkspace(listOf(h),entries),day,"Europe/Moscow",stamp)
         val afterMissing=reconcileHabitWorkspace(first,day.plusDays(2),"Europe/Moscow","2026-09-25T10:00:00.000Z")
-        assertEquals(8,afterMissing.progress.laurelsBalance)
+        assertEquals(11,afterMissing.progress.laurelsBalance)
         assertEquals(10,afterMissing.progress.lifetimeXp)
         assertEquals(0,afterMissing.rewards.count { it.reason=="habit-missed-reset" })
         val replay=reconcileHabitWorkspace(afterMissing,day.plusDays(2),"Europe/Moscow","2026-09-25T11:00:00.000Z")

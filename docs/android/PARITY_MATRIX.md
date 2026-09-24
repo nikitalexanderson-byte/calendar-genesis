@@ -1,10 +1,12 @@
 # GENESIS Android — матрица фактического переноса
 
-Срез 24.09.2026, `codex/android-native-bootstrap` поверх `origin/master` 30257ff. Alpha09 / versionCode 14 собрана и установлена поверх Alpha08 на согласованный realme RMX5000 (Android 16 / API 36), без очистки данных. Это нативный debug APK, не TWA/PWA и не готовый release. История проектов — `PROJECTS_STAGE.md`, текущий артефакт и ограничения — `STATUS.md`.
+Срез 24.09.2026, `codex/android-native-bootstrap` поверх `origin/master` 30257ff. Alpha10 / versionCode 15 собрана и установлена поверх Alpha09 на согласованный realme RMX5000 (Android 16 / API 36), без очистки данных. Это нативный debug APK, не TWA/PWA и не готовый release. История проектов — `PROJECTS_STAGE.md`, текущий артефакт и ограничения — `STATUS.md`.
 
 Пути Android в таблице относительны `android/app/src/main/java/ru/genesis/calendar/`; web-пути — корню репозитория. `LOCAL_PARTIAL` означает работающий в коде локальный поднабор; `DOMAIN_ONLY` — предметные функции без завершённого пользовательского сценария; `NOT_PORTED` — переноса нет. Статус проверки отделён от наличия реализации. PASS для unit-поднабора не является PASS полной приёмки функции. BLOCKED — конкретная внешняя/интеграционная зависимость; NOT_RUN — критерий не испытан, в том числе когда экран ещё отсутствует.
 
 ## Подтверждённая общая веха
+
+Итог alpha10: `assembleDebug`, `assembleDebugAndroidTest`, `testDebugUnitTest`, `lintDebug` PASS; **83 unit PASS**. Обычный realme UI-прогон **19/19 PASS**. Локальные испытания дня/недели/месяца и одноразовые награды перенесены; серверная синхронизация и полная приёмка каждой вариации ещё не готовы.
 
 Итог alpha09: `assembleDebug`, `assembleDebugAndroidTest`, `testDebugUnitTest`, `lintDebug` PASS; **78 unit PASS**. Обычный realme UI-прогон **19/19 PASS**. Искра Гестии и трёхдневный путь возвращения работают локально; покупка с реальным балансом на телефоне не испытана, серверный sync не готов.
 
@@ -17,6 +19,13 @@
 Итог alpha05: `assembleDebug`, `assembleDebugAndroidTest`, `testDebugUnitTest` — PASS; **61 JUnit tests PASS**, `lintDebug` PASS. APK hash — `STATUS.md`. На реальном телефоне обычные Compose UI-сценарии **15 PASS**, включая drag-and-drop и календарь; два жестовых сценария повторно **2 PASS** после установки alpha05. Screen-off delivery, complete/dedup, fresh-process persistence, snooze/stale и открытие через системную шторку относились к alpha01; они не заменяются обычным UI-прогоном и их границы описаны в DEVICE_TESTS.md.
 
 Вкладка «Трекеры» со сном/настроением включена в проверенную сборку. Native UI tests задачи/привычки/настроения 3 PASS; 36 сочетаний настроек persistence PASS (не visual matrix). Web lint/64 tests/build:beget PASS; PHP syntax/44 standalone checks PASS. HTTP auth NOT_RUN.
+
+## Изменения alpha10 к матрице ниже
+
+| ID | Новый фактический статус alpha10 | Ещё отсутствует или не проверено |
+| --- | --- | --- |
+| REW02 | Локальные daily/weekly/epic квесты с точными периодами и достижимой целью по расписанию, сохранённым прогрессом, одноразовой наградой; оригинальные SVG-знаки перерисованы в Compose. Unit + realme UI PASS | Все 4 варианта недели и полный эпический жизненный цикл на realme, cloud ledger/sync |
+| OPS01 | 83 unit, 19 обычных UI, lint и 527/527 byte parity PASS | Screen-off/Doze, 360/390/768/1440 двух тем, TalkBack/планшет NOT_RUN |
 
 ## Изменения alpha09 к матрице ниже
 

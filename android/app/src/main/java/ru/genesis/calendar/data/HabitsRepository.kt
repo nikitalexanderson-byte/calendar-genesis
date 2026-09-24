@@ -16,7 +16,8 @@ data class LocalHabitWorkspace(val habits: List<Habit> = emptyList(), val comple
     val goals: List<DailyGoalRecord> = emptyList(), val rewards: List<RewardTransaction> = emptyList(),
     val progress: UserProgress = UserProgress(), val revision: Long = 0,
     val achievementUnlocks: List<AchievementUnlock> = emptyList(),
-    val streakFreezeTransactions: List<StreakFreezeTransaction> = emptyList())
+    val streakFreezeTransactions: List<StreakFreezeTransaction> = emptyList(),
+    val quests: List<HabitQuest> = emptyList())
 
 /** Local draft scope only. This document is not a cloud schema-16 import/sync adapter. */
 class HabitsRepository(private val app: GenesisApplication) {
@@ -110,15 +111,18 @@ class HabitsRepository(private val app: GenesisApplication) {
         goals=protectedGoals
         // The website retired per-missed-habit Laurel resets. Normalization also repairs old
         // local ledgers by ignoring those entries without discarding legitimate awards.
-        val ledger=StreakProtection.reconcileComeback(goals,
+        val quests=HabitQuests.reconcile(workspace.quests,workspace.habits,workspace.completions,
+            goals,today,timestamp) { habit,date -> engine().isScheduled(habit,date) }
+        val ledger=HabitQuests.reconcileRewards(quests,StreakProtection.reconcileComeback(goals,
             StreakRewards.reconcile(goals,Rewards.reconcileDailyGoals(goals,workspace.rewards,today)),today)
+        )
         val progress=HeroProgress.reconcile(workspace.progress,workspace.completions.map { it.xpAwarded },timestamp,
             DailyGoals.streak(goals,today),Rewards.balance(ledger),streakFreezeCount=StreakProtection.count(freezes),
             rhythmScore=DailyGoals.rhythmScore(goals,today))
         val unlocks=Achievements.reconcile(workspace.achievementUnlocks,workspace.completions,goals,
             progress.longestStreak,ledger,timestamp)
         return workspace.copy(goals=goals,rewards=ledger,progress=progress,achievementUnlocks=unlocks,
-            streakFreezeTransactions=freezes)
+            streakFreezeTransactions=freezes,quests=quests)
     }
 /** Explicit local format, never presented as the full synced HabitWorkspace schema. */
 internal object HabitDocument {
@@ -161,6 +165,11 @@ internal object HabitDocument {
             .put("streakFreezeTransactions",JSONArray(w.streakFreezeTransactions.map { item ->
                 JSONObject().put("amount",item.amount).put("reason",item.reason).put("sourceId",item.sourceId)
                     .put("idempotencyKey",item.idempotencyKey).put("createdAt",item.createdAt) }))
+            .put("quests",JSONArray(w.quests.map { q -> entity(q.entity).put("cadence",q.cadence)
+                .put("kind",q.kind).put("habitId",q.habitId ?: JSONObject.NULL)
+                .put("startDate",q.startDate.toString()).put("endDate",q.endDate.toString())
+                .put("target",q.target).put("progress",q.progress).put("rewardLaurels",q.rewardLaurels)
+                .put("completedAt",q.completedAt ?: JSONObject.NULL) }))
             .put("progress",JSONObject().put("lifetimeXp",p.lifetimeXp).put("laurelsBalance",p.laurelsBalance).put("currentRankId",p.currentRankId ?: JSONObject.NULL)
                 .put("hiddenHeroicPathRevealedAt",p.hiddenHeroicPathRevealedAt ?: JSONObject.NULL).put("currentStreak",p.currentStreak).put("longestStreak",p.longestStreak)
                 .put("lastQualifiedDate",p.lastQualifiedDate?.toString() ?: JSONObject.NULL).put("streakGoalMode",p.streakGoalMode).put("streakFreezeCount",p.streakFreezeCount)
@@ -179,6 +188,10 @@ internal object HabitDocument {
             } ?: emptyList()),StreakProtection.normalize(v.optJSONArray("streakFreezeTransactions")?.objects()?.map { item ->
                 StreakFreezeTransaction(item.getInt("amount"),item.getString("reason"),item.getString("sourceId"),
                     item.getString("idempotencyKey"),item.getString("createdAt"))
+            } ?: emptyList()),HabitQuests.normalize(v.optJSONArray("quests")?.objects()?.map { q ->
+                HabitQuest(entity(q),q.getString("cadence"),q.getString("kind"),q.nullable("habitId"),
+                    LocalDate.parse(q.getString("startDate")),LocalDate.parse(q.getString("endDate")),
+                    q.getInt("target"),q.getInt("progress"),q.getInt("rewardLaurels"),q.nullable("completedAt"))
             } ?: emptyList()))
     }
 }

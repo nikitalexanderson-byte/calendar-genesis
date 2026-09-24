@@ -1,18 +1,27 @@
 package ru.genesis.calendar.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import ru.genesis.calendar.data.LocalHabitWorkspace
 import ru.genesis.calendar.domain.habits.StreakRewards
 import ru.genesis.calendar.domain.habits.StreakProtection
+import ru.genesis.calendar.domain.habits.HabitQuest
+import ru.genesis.calendar.domain.habits.HabitQuests
+import kotlin.math.cos
+import kotlin.math.sin
 import java.time.LocalDate
 
 private data class AchievementArt(val id: String, val title: String, val rule: String, val hidden: Boolean = false)
@@ -92,6 +101,7 @@ fun HabitArtGallery(workspace: LocalHabitWorkspace, today: LocalDate, busy: Bool
                 }
             }
         }
+        HabitQuestPanel(workspace, today)
         Card(Modifier.fillMaxWidth().testTag("achievement-gallery")) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -165,6 +175,94 @@ fun HabitArtGallery(workspace: LocalHabitWorkspace, today: LocalDate, busy: Bool
                             style = MaterialTheme.typography.bodySmall)
                     }
                 }
+            }
+        }
+    }
+}
+
+private fun questTitle(quest: HabitQuest, workspace: LocalHabitWorkspace): String = when (quest.kind) {
+    "daily-goal" -> "Завершить дневную цель"
+    "daily-goals" -> "Выполнить дневную цель ${quest.target} раз"
+    "perfect-days" -> "Создать идеальных дней: ${quest.target}"
+    "habit-completions" -> "Выполнить «${workspace.habits.firstOrNull { it.id == quest.habitId }?.title ?: "привычку"}» ${quest.target} раз"
+    "epic-completions" -> "Выполнить ${quest.target} привычек за месяц"
+    else -> "Выполнить ${quest.target} запланированных привычек"
+}
+
+@Composable
+private fun HabitQuestPanel(workspace: LocalHabitWorkspace, today: LocalDate) {
+    val quests = HabitQuests.current(workspace.quests, today)
+    Card(Modifier.fillMaxWidth().testTag("habit-quest-panel")) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Испытания", style = MaterialTheme.typography.titleMedium)
+            Text("Составлены из вашего активного ритма · награда — Лавры, не XP ранга",
+                style = MaterialTheme.typography.bodySmall)
+            if (quests.isEmpty()) Text("Выполнимое испытание появится, когда будет запланирована активная привычка.",
+                style = MaterialTheme.typography.bodySmall)
+            quests.forEach { quest ->
+                Card(Modifier.fillMaxWidth().testTag("quest-${quest.cadence}"),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+                    Row(Modifier.padding(10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        QuestSigil(quest.cadence)
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                            Text(when (quest.cadence) { "daily" -> "Испытание дня";
+                                "weekly" -> "Испытание недели"; else -> "Эпическое испытание" },
+                                style = MaterialTheme.typography.labelMedium)
+                            Text(questTitle(quest, workspace), style = MaterialTheme.typography.titleSmall)
+                            LinearProgressIndicator(progress = { quest.progress.toFloat() / quest.target },
+                                modifier = Modifier.fillMaxWidth())
+                            Text("${quest.progress}/${quest.target} · ${if (quest.completedAt != null) "Завершено" else "+${quest.rewardLaurels} Лавров"}",
+                                style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun QuestSigil(cadence: String) {
+    val gold = Color(0xffb18b48)
+    Canvas(Modifier.size(42.dp)) {
+        val center = Offset(size.width / 2, size.height / 2)
+        val stroke = 1.5.dp.toPx()
+        when (cadence) {
+            "daily" -> {
+                drawCircle(gold, radius = size.minDimension * .28f, center = center, style = Stroke(stroke))
+                drawCircle(gold, radius = size.minDimension * .08f, center = center)
+                (0 until 8).forEach { index ->
+                    val angle = index * Math.PI / 4
+                    val dx = cos(angle).toFloat(); val dy = sin(angle).toFloat()
+                    drawLine(gold, center + Offset(dx * size.minDimension * .36f, dy * size.minDimension * .36f),
+                        center + Offset(dx * size.minDimension * .47f, dy * size.minDimension * .47f), stroke)
+                }
+            }
+            "weekly" -> {
+                drawRect(gold, topLeft = Offset(size.width * .16f, size.height * .22f),
+                    size = androidx.compose.ui.geometry.Size(size.width * .68f, size.height * .62f),
+                    style = Stroke(stroke))
+                drawLine(gold, Offset(size.width * .16f, size.height * .38f),
+                    Offset(size.width * .84f, size.height * .38f), stroke)
+                drawLine(gold, Offset(size.width * .34f, size.height * .12f),
+                    Offset(size.width * .34f, size.height * .31f), stroke)
+                drawLine(gold, Offset(size.width * .66f, size.height * .12f),
+                    Offset(size.width * .66f, size.height * .31f), stroke)
+                drawCircle(gold, radius = size.minDimension * .07f, center = center)
+            }
+            else -> {
+                val star = Path()
+                (0 until 10).forEach { index ->
+                    val radius = if (index % 2 == 0) .44f else .21f
+                    val angle = -Math.PI / 2 + index * Math.PI / 5
+                    val x = center.x + cos(angle).toFloat() * size.minDimension * radius
+                    val y = center.y + sin(angle).toFloat() * size.minDimension * radius
+                    if (index == 0) star.moveTo(x, y) else star.lineTo(x, y)
+                }
+                star.close()
+                drawPath(star, gold, style = Stroke(stroke))
+                drawCircle(gold, radius = size.minDimension * .055f, center = center)
             }
         }
     }

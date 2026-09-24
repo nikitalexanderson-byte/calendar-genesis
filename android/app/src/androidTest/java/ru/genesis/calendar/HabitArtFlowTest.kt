@@ -41,6 +41,9 @@ class HabitArtFlowTest {
                 compose.onAllNodesWithTag("achievement-gallery").fetchSemanticsNodes().isNotEmpty()
             }
             compose.onNodeWithTag("achievement-gallery").assertExists()
+            compose.onNodeWithTag("habit-quest-panel", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
+            assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(
+                File(app.getExternalFilesDir(null), "habits-quests-after.png")))
             compose.onNodeWithText("Открыть всю галерею").performScrollTo().performClick()
             compose.onNodeWithTag("achievement-first-step").assertExists()
             compose.onNodeWithTag("achievement-consistency").assertExists()

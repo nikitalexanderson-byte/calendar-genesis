@@ -1,10 +1,10 @@
 # Android original asset manifest
 
-Generated: 2026-09-24T20:39:48.995Z. Byte parity: **PASS**. Visual parity: **NOT_RUN**.
+Generated: 2026-09-24T20:52:54.998Z. Byte parity: **PASS**. Visual parity: **NOT_RUN**.
 
 527 public originals, 140951613 original bytes. Generated copies match: 527/527. APK decompressed entries match: 527/527.
 
-APK: `outputs/android/streak-resilience-alpha09/GENESIS-2.0.0-alpha09-debug.apk` (158024353 bytes), SHA-256 `1d4d8481120fb97b79e2f16c9c4a5e5aaf5417427a05698211d346aa2ff425f3`.
+APK: `outputs/android/habit-quests-alpha10/GENESIS-2.0.0-alpha10-debug.apk` (158040733 bytes), SHA-256 `48207d27899b7baeb2a5277a5f3587d0fd10326cca2e62a1d2d449d23fba280f`.
 
 ## Reproduce
 

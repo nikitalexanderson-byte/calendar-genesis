@@ -76,7 +76,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
         Text("Привычки",style=MaterialTheme.typography.headlineMedium)
         Text("Сохранено на этом устройстве · с аккаунтом сайта пока не синхронизируется.",style=MaterialTheme.typography.bodySmall)
-        Text("Внутренняя сборка: доступны отметки, XP, древо рангов, награды, защита серии и возвращение. Испытания и напоминания привычек ещё не подключены.",style=MaterialTheme.typography.bodySmall)
+        Text("Внутренняя сборка: доступны отметки, XP, древо рангов, испытания, награды, защита серии и возвращение. Напоминания привычек ещё не подключены.",style=MaterialTheme.typography.bodySmall)
         error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
         val current=workspace
         if(current==null) {

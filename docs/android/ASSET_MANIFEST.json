@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-24T20:39:48.995Z",
+  "generatedAt": "2026-09-24T20:52:54.998Z",
   "command": "node android/tools/verify-assets.mjs --require-apk",
   "sourceRoot": "public",
   "gradle": "android/app/build.gradle.kts",
-  "gradleSha256": "b0196e55d13789f30d8f62c4740564db005539c72fdda45b6667d0bdca0ec3f6",
+  "gradleSha256": "40b18059162e7282805639fb5192ae207ff7a66012e967d41976379bb9b16447",
   "includes": [
     "icons/**",
     "weekday-art/**",
@@ -23,9 +23,9 @@
   ],
   "generatedRoot": "android/app/build/generated/genesisAssets/originals",
   "apk": {
-    "path": "outputs/android/streak-resilience-alpha09/GENESIS-2.0.0-alpha09-debug.apk",
-    "size": 158024353,
-    "sha256": "1d4d8481120fb97b79e2f16c9c4a5e5aaf5417427a05698211d346aa2ff425f3"
+    "path": "outputs/android/habit-quests-alpha10/GENESIS-2.0.0-alpha10-debug.apk",
+    "size": 158040733,
+    "sha256": "48207d27899b7baeb2a5277a5f3587d0fd10326cca2e62a1d2d449d23fba280f"
   },
   "summary": {
     "files": 527,
