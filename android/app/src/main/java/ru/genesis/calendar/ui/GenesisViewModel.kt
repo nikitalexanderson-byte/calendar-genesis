@@ -20,4 +20,9 @@ class GenesisViewModel(application: Application) : AndroidViewModel(application)
     }
     fun complete(task: LocalTask) = save(task.copy(done = !task.done)) {}
     fun delete(task: LocalTask) = viewModelScope.launch { app.repository.delete(task.id) }
+    fun excludeOccurrence(task: LocalTask, date: String, onSaved: () -> Unit) = viewModelScope.launch {
+        try { app.repository.excludeOccurrence(task.id, task.revision, date); error.value = null; onSaved() }
+        catch (e: IllegalArgumentException) { error.value = e.message ?: "Проверьте дату повторения." }
+        catch (_: Exception) { error.value = "Не удалось удалить это повторение." }
+    }
 }

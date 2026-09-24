@@ -2,11 +2,9 @@ package ru.genesis.calendar.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -26,7 +24,6 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -92,23 +89,14 @@ fun TheokyklosScreen(app: GenesisApplication, calendarMode: CalendarMode, onOpen
         Text("Круг божественных сил", style = MaterialTheme.typography.titleLarge)
         Text("Коснитесь любого направления, полюса, очага, центра или врат.",
             style = MaterialTheme.typography.bodySmall)
-        TheokyklosMandala(data.sectors, selectedId) { selectedId = it }
-        Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.secondaryContainer,
-            modifier = Modifier.fillMaxWidth().clickable { selectedId = "center" }) {
-            Column(Modifier.padding(14.dp)) {
-                Text("Центр · Дионис и Ариадна →", style = MaterialTheme.typography.titleMedium)
-                Text("Ядро круга. Откройте описание, слова и практики.",
-                    style = MaterialTheme.typography.bodySmall)
-            }
-        }
-        Text("Ось и врата", style = MaterialTheme.typography.titleMedium)
-        listOf("zenith", "nadir", "entrance", "exit", "hearth").chunked(2).forEach { row ->
+        TheokyklosMandala(data.sectors) { selectedId = it }
+        Text("Ось, врата и ядро", style = MaterialTheme.typography.titleMedium)
+        listOf("zenith", "nadir", "entrance", "exit", "center", "hearth").chunked(2).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 row.forEach { id ->
                     val sector = data.byId.getValue(id)
                     SectorCard(sector, Modifier.weight(1f)) { selectedId = id }
                 }
-                if (row.size == 1) Spacer(Modifier.weight(1f))
             }
         }
         Text("Восемь направлений", style = MaterialTheme.typography.titleMedium)
@@ -147,22 +135,29 @@ fun TheokyklosScreen(app: GenesisApplication, calendarMode: CalendarMode, onOpen
 
 @Composable
 private fun SectorCard(sector: TheokyklosSector, modifier: Modifier, onClick: () -> Unit) {
-    Surface(onClick = onClick, modifier = modifier.heightIn(min = 66.dp),
+    Surface(onClick = onClick, modifier = modifier.heightIn(min = 82.dp)
+        .testTag("theokyklos-card-${sector.id}"),
         shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surface) {
         Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
             OriginalImage(sector.symbolArt, null, Modifier.size(36.dp))
             Spacer(Modifier.width(6.dp))
             Column {
-                Text(sector.short.ru, style = MaterialTheme.typography.labelMedium)
+                Text(sector.cardTitle(), style = MaterialTheme.typography.labelMedium)
                 Text(sector.patrons.ru, style = MaterialTheme.typography.bodySmall, maxLines = 2)
             }
         }
     }
 }
 
+private fun TheokyklosSector.cardTitle(): String = when (id) {
+    "center" -> "Центр"
+    "hearth" -> "Очаг"
+    else -> title.ru.substringBefore(" · ").lowercase().replaceFirstChar { it.titlecase() }
+}
+
 /** The 14 visible touch nodes preserve the website's eight directions, vertical axis and thresholds. */
 @Composable
-private fun TheokyklosMandala(sectors: List<TheokyklosSector>, selectedId: String?, onSelect: (String) -> Unit) {
+private fun TheokyklosMandala(sectors: List<TheokyklosSector>, onSelect: (String) -> Unit) {
     BoxWithConstraints(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(16.dp))
         .background(cream).testTag("theokyklos-mandala")) {
         Canvas(Modifier.fillMaxSize()) {
@@ -182,27 +177,32 @@ private fun TheokyklosMandala(sectors: List<TheokyklosSector>, selectedId: Strin
             }
             drawLine(gold.copy(alpha = .45f), Offset(unit * .5f, unit * .02f),
                 Offset(unit * .5f, unit * .98f), unit * .003f)
-            drawCircle(cream, radius = unit * .073f, center = center)
-            drawCircle(gold, radius = unit * .082f, center = center, style = Stroke(unit * .004f))
         }
-        sectors.forEach { sector ->
+        // The hearth is the inner ring itself, not an extra deity icon above the center.
+        Box(Modifier.offset(maxWidth * .5f - 64.dp, maxWidth * .49f - 64.dp)
+            .size(128.dp)
+            .clickable { onSelect("hearth") }
+            .semantics { role = Role.Button; contentDescription = "Очаг, Гестия" }
+            .testTag("theokyklos-sector-hearth"), contentAlignment = Alignment.Center) {
+            Canvas(Modifier.fillMaxSize()) {
+                val center = Offset(size.width / 2f, size.height / 2f)
+                val radius = size.minDimension * .34f
+                for (index in 0 until 40) {
+                    val angle = index * 2 * Math.PI / 40
+                    drawCircle(gold, radius = 1.8.dp.toPx(),
+                        center = center + Offset(cos(angle).toFloat(), sin(angle).toFloat()) * radius)
+                }
+            }
+        }
+        sectors.filterNot { it.id == "hearth" }.forEach { sector ->
             val (x, y) = mandalaPosition(sector)
-            val active = selectedId == sector.id
-            Box(Modifier.offset(maxWidth * x - 24.dp, maxWidth * y - 24.dp)
-                .size(48.dp)
+            Box(Modifier.offset(maxWidth * x - 32.dp, maxWidth * y - 32.dp)
+                .size(64.dp)
                 .clickable { onSelect(sector.id) }
                 .semantics { role = Role.Button; contentDescription = "${sector.title.ru}, ${sector.patrons.ru}" }
                 .testTag("theokyklos-sector-${sector.id}"),
                 contentAlignment = Alignment.Center) {
-                Column(Modifier.size(44.dp).clip(CircleShape)
-                    .background(if (active) gold else cream)
-                    .border(1.dp, gold, CircleShape),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center) {
-                    OriginalImage(sector.symbolArt, null, Modifier.size(26.dp))
-                    Text(sector.short.ru, fontSize = 8.sp, lineHeight = 9.sp, color = night,
-                        textAlign = TextAlign.Center, maxLines = 1)
-                }
+                OriginalImage(sector.symbolArt, null, Modifier.size(52.dp))
             }
         }
     }
@@ -210,15 +210,14 @@ private fun TheokyklosMandala(sectors: List<TheokyklosSector>, selectedId: Strin
 
 private fun mandalaPosition(sector: TheokyklosSector): Pair<Float, Float> {
     return when (sector.id) {
-        "zenith" -> .5f to .07f
-        "nadir" -> .5f to .925f
+        "zenith" -> .5f to .085f
+        "nadir" -> .5f to .91f
         "entrance" -> .145f to .865f
         "exit" -> .855f to .865f
-        "hearth" -> .5f to .355f
         "center" -> .5f to .49f
         else -> {
             val angle = Math.toRadians(requireNotNull(sector.angle).toDouble())
-            (.5f + cos(angle).toFloat() * .292f) to (.49f + sin(angle).toFloat() * .292f)
+            (.5f + cos(angle).toFloat() * .245f) to (.49f + sin(angle).toFloat() * .245f)
         }
     }
 }

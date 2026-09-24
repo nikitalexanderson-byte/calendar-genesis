@@ -23,6 +23,7 @@ import ru.genesis.calendar.domain.SacredMonth
 import ru.genesis.calendar.domain.MoonInfo
 import ru.genesis.calendar.domain.SolarEvent
 import ru.genesis.calendar.data.LocalTask
+import ru.genesis.calendar.data.TaskOccurrences
 import java.time.LocalDate
 import java.time.Month
 import java.time.format.DateTimeFormatter
@@ -107,7 +108,7 @@ private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange
         Text("${range.start.format(dateLabel)} — ${range.end.format(dateLabel)}",
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
-        val tasksByDate = remember(tasks) { tasks.groupBy { it.date } }
+        val tasksByDate = remember(tasks, range) { TaskOccurrences.byDate(tasks, range.start, range.end) }
         if (mode == CalendarMode.SACRED) SacredDayGrid(calendar, range, selected, choose, experimental, tasksByDate)
         else SevenDayGrid(calendar, range, mode, selected, choose, experimental, tasksByDate)
         SelectedDayCard(calendar, selected, onOpenDay, experimental, tasksByDate[selected.toString()].orEmpty())
@@ -350,9 +351,8 @@ private fun CalendarYearOverview(calendar: GenesisCalendar, shown: LocalDate, mo
                                 Text(" ${calendar.lunarDate(start).monthLength} дней",
                                     style = MaterialTheme.typography.labelSmall)
                             }
-                            val count = tasks.count { task -> runCatching {
-                                LocalDate.parse(task.date) in calendar.monthRange(start, mode).let { it.start..it.end }
-                            }.getOrDefault(false) }
+                            val monthRange = calendar.monthRange(start, mode)
+                            val count = TaskOccurrences.countInRange(tasks, monthRange.start, monthRange.end)
                             if (count > 0) Text("$count задач", style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.primary)
                         }

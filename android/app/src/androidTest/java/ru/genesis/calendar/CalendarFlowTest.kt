@@ -53,12 +53,12 @@ class CalendarFlowTest {
             }
             assertTrue(device.takeScreenshot(File(app.getExternalFilesDir(null), "calendar-sacred-year-apeiron.png")))
             compose.onNodeWithTag("sacred-year-month-12").performClick()
+            compose.waitUntil(10_000) {
+                runCatching { compose.onAllNodesWithContentDescription("Иллюстрация месяца АПЕЙРОН")
+                    .fetchSemanticsNodes().isNotEmpty() }.getOrDefault(false)
+            }
             compose.onNodeWithTag("sacred-month-hero").assertIsDisplayed()
             compose.onNodeWithText(SacredCatalog.months[12].name).assertExists()
-            compose.waitUntil(10_000) {
-                compose.onAllNodesWithContentDescription("Иллюстрация месяца АПЕЙРОН")
-                    .fetchSemanticsNodes().isNotEmpty()
-            }
             val calendar = GenesisCalendar()
             val apeironStart = calendar.gregorianDate(calendar.sacredDate(LocalDate.now()).sacredYear, 12, 1)
             compose.onNodeWithTag("calendar-day-$apeironStart").assertExists()

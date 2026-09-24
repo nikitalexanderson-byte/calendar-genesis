@@ -110,7 +110,7 @@ fun GenesisApp(app: GenesisApplication, openedTask: String?) {
                                 Button(onClick={creating=true;editId=null;newTaskProjectId=null},modifier=Modifier.testTag("create-task")) { Text("Создать") }
                             }
                         }
-                        val shown=tasks.filter { tab!="Сегодня" || it.date==selected }
+                        val shown=tasks.filter { tab!="Сегодня" || TaskOccurrences.occursOn(it,LocalDate.parse(selected)) }
                         if(shown.isEmpty()) item { Text("Задач пока нет. Создайте первую запись.") }
                         items(shown,key={it.id}) { task ->
                             Card(Modifier.fillMaxWidth().testTag("task-${task.id}")) {
@@ -118,7 +118,8 @@ fun GenesisApp(app: GenesisApplication, openedTask: String?) {
                                     Checkbox(checked=task.done,onCheckedChange={model.complete(task)})
                                     Column(Modifier.weight(1f).clickable { editId=task.id;creating=false }.padding(8.dp)) {
                                         Text(task.title,style=MaterialTheme.typography.titleMedium)
-                                        Text("${task.date} ${timeLabel(task.time,prefs.use24)} · Приоритет ${task.priority}",style=MaterialTheme.typography.bodySmall)
+                                        Text("${if(tab=="Сегодня") selected else task.date} ${timeLabel(task.time,prefs.use24)} · Приоритет ${task.priority}" +
+                                            if (task.recurrence.enabled) " · Повторяется" else "",style=MaterialTheme.typography.bodySmall)
                                         if(task.projectId!=null) Text(structure.projects.firstOrNull { it.id==task.projectId }?.title
                                             ?: task.project.ifBlank { "Проект" },style=MaterialTheme.typography.labelSmall)
                                         Text("Сохранено на устройстве",style=MaterialTheme.typography.labelSmall)
@@ -136,7 +137,11 @@ fun GenesisApp(app: GenesisApplication, openedTask: String?) {
             if(creating || existing!=null) TaskEditor(existing,selected,prefs,structure,newTaskProjectId,
                 onDismiss={creating=false;editId=null},
                 onSave={draft -> model.save(draft){creating=false;editId=null}},
-                onDelete=existing?.let{{model.delete(it);creating=false;editId=null}})
+                onDelete=existing?.let{{model.delete(it);creating=false;editId=null}},
+                onDeleteOccurrence=existing?.takeIf { it.recurrence.enabled }?.let { series ->
+                    { date -> model.excludeOccurrence(series,date) { creating=false;editId=null } }
+                },
+                showSelectedOccurrence=tab=="Сегодня")
         }
     }
 }
@@ -199,19 +204,24 @@ private fun DayHeader(date: LocalDate,mode: CalendarMode,experimentalTheme: Bool
 
 @Composable
 private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,structure:WorkspaceStructure,initialProjectId:String?,onDismiss:()->Unit,
-    onSave:(LocalTask)->Unit,onDelete:(()->Unit)?) {
+    onSave:(LocalTask)->Unit,onDelete:(()->Unit)?,onDeleteOccurrence:((String)->Unit)?,showSelectedOccurrence:Boolean) {
     var title by rememberSaveable(task?.id) { mutableStateOf(task?.title ?: "") }
     var description by rememberSaveable(task?.id) { mutableStateOf(task?.description ?: "") }
     var date by rememberSaveable(task?.id) { mutableStateOf(task?.date ?: selected) }
     var time by rememberSaveable(task?.id) { mutableStateOf(task?.time ?: "") }
     var priority by rememberSaveable(task?.id) { mutableIntStateOf(task?.priority ?: 5) }
+    var recurrence by remember(task?.id) { mutableStateOf(task?.recurrence ?: defaultTaskRecurrence(task?.date ?: selected, prefs.input)) }
     var projectId by rememberSaveable(task?.id,initialProjectId) { mutableStateOf(task?.projectId ?: initialProjectId) }
     var remind by rememberSaveable(task?.id) { mutableStateOf(task?.reminderAt) }
     var confirmDelete by remember { mutableStateOf(false) }
     var validation by remember { mutableStateOf<String?>(null) }
+    val occurrenceDate = if (task?.recurrence?.enabled == true && showSelectedOccurrence &&
+        runCatching { TaskOccurrences.occursOn(task,LocalDate.parse(selected)) }.getOrDefault(false)) selected
+        else task?.date ?: selected
     Dialog(onDismissRequest=onDismiss,properties=androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth=false)) {
         Surface(Modifier.fillMaxWidth().padding(12.dp),shape=RoundedCornerShape(20.dp)) {
-            Column(Modifier.padding(16.dp).imePadding().verticalScroll(rememberScrollState()),
+            Column(Modifier.padding(16.dp).imePadding().verticalScroll(rememberScrollState())
+                .testTag("task-editor-scroll"),
                 verticalArrangement=Arrangement.spacedBy(8.dp)) {
                 Text(if(task==null) "Новая задача" else "Изменить задачу",style=MaterialTheme.typography.titleLarge)
                 OutlinedTextField(title,{title=it},label={Text("Название")},modifier=Modifier.fillMaxWidth().testTag("task-title"))
@@ -229,6 +239,11 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                 AuthorDatePicker(date,prefs.input){date=it}
                 AuthorTimePicker(time,prefs.use24){time=it}
                 PriorityControl(priority){priority=it}
+                if(task?.recurrence?.enabled==true) Text(
+                    "Сохранение изменит всю серию. При удалении можно выбрать только $occurrenceDate.",
+                    style=MaterialTheme.typography.bodySmall,
+                    color=MaterialTheme.colorScheme.onSurfaceVariant)
+                val occurrenceCount = TaskRecurrenceEditor(recurrence,date,prefs.input) { recurrence=it;validation=null }
                 Text("Напоминание",style=MaterialTheme.typography.titleMedium)
                 Row(Modifier.horizontalScroll(rememberScrollState())) {
                     TextButton(onClick={remind=null}){Text("Нет")}
@@ -251,17 +266,39 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
                     TextButton(onClick=onDismiss){Text("Отмена")}
                     Button(enabled=title.isNotBlank(),onClick={
-                        onSave((task ?: LocalTask(title=title)).copy(title=title.trim(),description=description,date=date,time=time,priority=priority,
-                            reminderAt=remind,projectId=projectId,categoryId=structure.projects.firstOrNull{it.id==projectId}?.categoryId))
+                        val start = runCatching { LocalDate.parse(date) }.getOrNull()
+                        val end = runCatching { LocalDate.parse(recurrence.rangeEnd) }.getOrNull()
+                        validation = when {
+                            start == null -> "Выберите корректную дату задачи."
+                            recurrence.enabled && (end == null || end < start || end > start.plusYears(5).minusDays(1)) ->
+                                "Период повторения — от даты задачи до пяти лет."
+                            recurrence.enabled && occurrenceCount !in 1..500 ->
+                                "Серия должна содержать от 1 до 500 повторений."
+                            else -> null
+                        }
+                        if (validation == null) onSave((task ?: LocalTask(title=title)).copy(title=title.trim(),description=description,date=date,time=time,priority=priority,
+                            reminderAt=remind,projectId=projectId,categoryId=structure.projects.firstOrNull{it.id==projectId}?.categoryId,
+                            recurrence=if (recurrence.enabled) RecurrenceEngine(GenesisCalendar()).resolve(date,recurrence.copy(rangeStart=date))
+                                else recurrence.copy(enabled=false,rangeStart="",rangeEnd=""),
+                            recurrenceExcludedDates=if(recurrence.enabled) task?.recurrenceExcludedDates ?: emptyList() else emptyList()))
                     },modifier=Modifier.testTag("save-task")){Text("Сохранить")}
                 }
                 onDelete?.let { TextButton(onClick={confirmDelete=true}){Text("Удалить задачу")} }
             }
         }
     }
-    if(confirmDelete) AlertDialog(onDismissRequest={confirmDelete=false},title={Text("Удалить задачу?")},
-        text={Text("Напоминание этой задачи будет отменено.")},
-        confirmButton={TextButton(onClick={onDelete?.invoke()}){Text("Удалить")}},
+    if(confirmDelete) AlertDialog(onDismissRequest={confirmDelete=false},
+        title={Text(if(onDeleteOccurrence!=null) "Удалить повторение?" else "Удалить задачу?")},
+        text={Text(if(onDeleteOccurrence!=null) "Можно удалить только $occurrenceDate или всю серию."
+            else "Напоминание этой задачи будет отменено.")},
+        confirmButton={
+            Column {
+                if(onDeleteOccurrence!=null) TextButton(onClick={onDeleteOccurrence(occurrenceDate);confirmDelete=false},
+                    modifier=Modifier.testTag("delete-occurrence")){Text("Только этот день")}
+                TextButton(onClick={onDelete?.invoke();confirmDelete=false},
+                    modifier=Modifier.testTag("delete-series")){Text(if(onDeleteOccurrence!=null) "Вся серия" else "Удалить")}
+            }
+        },
         dismissButton={TextButton(onClick={confirmDelete=false}){Text("Отмена")}})
 }
 

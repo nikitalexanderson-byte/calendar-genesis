@@ -4,7 +4,11 @@ import androidx.room.withTransaction
 import java.time.*
 import java.util.UUID
 import kotlinx.coroutines.flow.map
+import org.json.JSONArray
 import org.json.JSONObject
+import ru.genesis.calendar.domain.GenesisCalendar
+import ru.genesis.calendar.domain.RecurrenceConfig
+import ru.genesis.calendar.domain.RecurrenceEngine
 import ru.genesis.calendar.reminders.ReminderScheduler
 
 data class LocalTask(
@@ -21,21 +25,54 @@ data class LocalTask(
     val projectId: String? = null,
     val categoryId: String? = null,
     val project: String = "",
+    val recurrence: RecurrenceConfig = RecurrenceConfig(),
+    val recurrenceExcludedDates: List<String> = emptyList(),
+    /** Retains web fields that the native editor does not yet expose. Always encrypted at rest. */
+    val sourceFieldsJson: String = "{}",
 ) {
-    fun json() = JSONObject().put("title", title).put("description", description)
+    fun json() = JSONObject(sourceFieldsJson).put("id", id).put("done", done)
+        .put("title", title).put("description", description)
         .put("dueDate", date).put("time", time).put("zoneId", zoneId).put("priority", priority)
         .put("reminderAt", reminderAt ?: JSONObject.NULL)
         .put("projectId", projectId ?: JSONObject.NULL).put("categoryId", categoryId ?: JSONObject.NULL)
-        .put("project", project).toString()
+        .put("project", project)
+        .put("recurrence", "none")
+        .put("recurrenceMode", if (recurrence.enabled) recurrence.mode else "none")
+        .put("recurrencePattern", if (recurrence.enabled) recurrence.pattern else "none")
+        .put("recurrenceDays", JSONArray(if (recurrence.enabled) recurrence.days else emptyList<Int>()))
+        .put("recurrenceInterval", recurrence.interval)
+        .put("recurrenceStartDate", recurrence.rangeStart.takeIf { recurrence.enabled && it.isNotBlank() } ?: JSONObject.NULL)
+        .put("recurrenceEndDate", recurrence.rangeEnd.takeIf { recurrence.enabled && it.isNotBlank() } ?: JSONObject.NULL)
+        .put("recurrenceMonths", JSONArray(if (recurrence.enabled) recurrence.months else emptyList<Int>()))
+        .put("recurrencePyatas", JSONArray(if (recurrence.enabled) recurrence.pyatas else emptyList<Int>()))
+        .put("recurrenceExcludedDates", JSONArray(if (recurrence.enabled) recurrenceExcludedDates else emptyList<String>())).toString()
     companion object {
+        private fun ints(array: JSONArray?) = if (array == null) emptyList() else
+            (0 until array.length()).mapNotNull { index -> array.optInt(index).takeIf { it > 0 } }
+        private fun strings(array: JSONArray?) = if (array == null) emptyList() else
+            (0 until array.length()).mapNotNull { index -> array.optString(index).takeIf { it.matches(Regex("\\d{4}-\\d{2}-\\d{2}")) } }
         fun from(record: TaskRecord, json: String): LocalTask {
             val v = JSONObject(json)
+            val mode = v.optString("recurrenceMode").takeIf { it in setOf("classic", "genesis", "lunar") }
+                ?: if (v.optString("recurrence") in setOf("daily", "weekly", "monthly", "yearly")) "classic" else "genesis"
+            val enabled = if (v.has("recurrenceMode")) v.optString("recurrenceMode") in setOf("classic", "genesis", "lunar")
+                else v.optString("recurrence") in setOf("daily", "weekly", "monthly", "yearly")
+            val recurrence = RecurrenceConfig(enabled, mode,
+                v.optString("recurrencePattern").takeUnless { it.isBlank() || it == "none" } ?: when (mode) {
+                    "classic" -> v.optString("recurrence").takeIf { it in setOf("daily", "monthly", "yearly") } ?: "weekdays"
+                    "lunar" -> "lunar-days"
+                    else -> "pyata-days"
+                }, ints(v.optJSONArray("recurrenceDays")).ifEmpty { listOf(1) },
+                v.optInt("recurrenceInterval", 1), v.optString("recurrenceStartDate").takeUnless { it == "null" } ?: "",
+                v.optString("recurrenceEndDate").takeUnless { it == "null" } ?: "",
+                ints(v.optJSONArray("recurrenceMonths")), ints(v.optJSONArray("recurrencePyatas")))
             return LocalTask(record.id, v.getString("title"), v.optString("description"),
                 v.getString("dueDate"), v.optString("time"), v.getString("zoneId"),
                 v.getInt("priority"), record.done,
                 if (v.isNull("reminderAt")) null else v.getLong("reminderAt"), record.revision,
                 if (v.isNull("projectId")) null else v.getString("projectId"),
-                if (v.isNull("categoryId")) null else v.getString("categoryId"), v.optString("project"))
+                if (v.isNull("categoryId")) null else v.getString("categoryId"), v.optString("project"),
+                recurrence, strings(v.optJSONArray("recurrenceExcludedDates")), json)
         }
     }
 }
@@ -57,6 +94,12 @@ class TaskRepository(private val db: GenesisDatabase, private val cipher: LocalC
         if (task.time.isNotEmpty()) LocalTime.parse(task.time)
         ZoneId.of(task.zoneId)
         require(task.priority in 1..10)
+        if (task.recurrence.enabled) {
+            val dates = RecurrenceEngine(GenesisCalendar()).buildDates(task.date, task.recurrence)
+            require(dates.isNotEmpty()) { "В выбранном периоде нет дат повторения." }
+            require(dates.size <= 500) { "Серия может содержать не более 500 повторений." }
+            require(task.recurrenceExcludedDates.all { runCatching { LocalDate.parse(it) }.isSuccess })
+        }
         val previous = dao.taskReminders(scope, task.id)
         val saved = db.withTransaction {
             val existing = dao.task(scope, task.id)
@@ -88,10 +131,19 @@ class TaskRepository(private val db: GenesisDatabase, private val cipher: LocalC
         val task = get(id) ?: return
         if (!task.done) save(task.copy(done = true))
     }
-    suspend fun delete(id: String) = scheduler.withMutation {
+    suspend fun excludeOccurrence(id: String, expectedRevision: Long, date: String) {
+        val current = get(id) ?: throw IllegalArgumentException("Задача больше недоступна.")
+        require(current.revision == expectedRevision) { "Запись изменилась. Откройте её заново." }
+        val remaining = TaskOccurrences.withoutDate(current, date)
+        if (remaining == null) delete(id, expectedRevision) else save(remaining)
+    }
+    suspend fun delete(id: String, expectedRevision: Long? = null) = scheduler.withMutation {
         val reminders = dao.taskReminders(scope, id)
         db.withTransaction {
             val row = dao.task(scope, id) ?: return@withTransaction
+            require(expectedRevision == null || row.revision == expectedRevision) {
+                "Запись изменилась. Откройте её заново."
+            }
             dao.putTask(row.copy(deleted = true, revision = row.revision + 1))
             dao.cancelReminders(scope, id)
             dao.putOutbox(OutboxRecord(scope, id, row.revision + 1, UUID.randomUUID().toString()))

@@ -25,6 +25,7 @@ class NativeUiTest {
         compose.runOnUiThread { compose.activity.window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
         compose.onNodeWithTag("create-task").performClick()
         compose.onNodeWithTag("task-title").performTextInput(title)
+        UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()
         compose.onNodeWithTag("save-task").performScrollTo().performClick()
         compose.waitUntil(10_000) {
             runBlocking { app.repository.tasks.first().any { it.title == title } }
