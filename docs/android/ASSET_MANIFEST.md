@@ -1,10 +1,10 @@
 # Android original asset manifest
 
-Generated: 2026-09-24T20:52:54.998Z. Byte parity: **PASS**. Visual parity: **NOT_RUN**.
+Generated: 2026-09-24T21:04:15.932Z. Byte parity: **PASS**. Visual parity: **NOT_RUN**.
 
 527 public originals, 140951613 original bytes. Generated copies match: 527/527. APK decompressed entries match: 527/527.
 
-APK: `outputs/android/habit-quests-alpha10/GENESIS-2.0.0-alpha10-debug.apk` (158040733 bytes), SHA-256 `48207d27899b7baeb2a5277a5f3587d0fd10326cca2e62a1d2d449d23fba280f`.
+APK: `outputs/android/today-hero-rhythm-alpha11/GENESIS-2.0.0-alpha11-debug.apk` (158073505 bytes), SHA-256 `3766c0f8e8c2a7b6877113a3f2c55a586938e9492e1756c6ea61fb76dc082ff1`.
 
 ## Reproduce
 

@@ -174,21 +174,38 @@ private fun DayHeader(date: LocalDate,mode: CalendarMode,experimentalTheme: Bool
     val path = if(mode==CalendarMode.PROFANE) "weekday-art/${weekFiles[date.dayOfWeek.value%7]}"
         else "day-art-v1/month-${(sacred.monthIndex+1).toString().padStart(2,'0')}/day-${sacred.day.toString().padStart(2,'0')}.webp"
     if (experimentalTheme) {
-        Card(Modifier.fillMaxWidth().testTag("today-hero"), shape = RoundedCornerShape(20.dp)) {
-            Box(Modifier.fillMaxWidth().height(310.dp)) {
-                OriginalImage(path, if(mode==CalendarMode.PROFANE) date.dayOfWeek.toString() else day.name,
+        val copy = remember(date,mode) { todayHeroCopy(date,mode,calendar) }
+        Card(Modifier.fillMaxWidth().testTag("today-hero"), shape = RoundedCornerShape(20.dp),
+            border = BorderStroke(1.dp, Color(0x66dfc17e))) {
+            Box(Modifier.fillMaxWidth().heightIn(min = if(mode==CalendarMode.PROFANE) 540.dp else 390.dp)) {
+                OriginalImage(copy.imagePath, copy.title,
                     Modifier.matchParentSize())
-                Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(
-                    Color(0x08040e10), Color(0x55040e10), Color(0xf0071d20)))))
-                Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(18.dp),
-                    verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Text("${month.season.uppercase()} · ${month.roman} МЕСЯЦ ${month.name.uppercase()}",
+                Box(Modifier.matchParentSize().background(Brush.verticalGradient(0f to Color(0x22040e10),
+                    .32f to Color(0x44040e10), .62f to Color(0xc6071d20),
+                    1f to Color(0xfa071d20))))
+                copy.badge?.let { badge ->
+                    Surface(Modifier.align(Alignment.TopEnd).padding(14.dp),
+                        color = Color(0xc2071d20), shape = RoundedCornerShape(100.dp),
+                        border = BorderStroke(1.dp, Color(0x88dfc17e))) {
+                        Text(badge, Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            color = Color(0xfff5dcaa), style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+                Column(Modifier.align(Alignment.BottomStart).fillMaxWidth()
+                    .padding(start = 18.dp, end = 18.dp, top = 148.dp, bottom = 20.dp)
+                    .testTag("today-hero-copy"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(copy.eyebrow,
                         color = Color(0xffdfc17e), style = MaterialTheme.typography.labelMedium)
-                    Text(day.name, color = Color(0xfff9f2e2), style = MaterialTheme.typography.headlineSmall,
-                        maxLines = 2)
-                    Text(day.description, color = Color(0xffeee6d7), style = MaterialTheme.typography.bodyMedium,
-                        maxLines = 3)
-                    Text(date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy",java.util.Locale.forLanguageTag("ru"))),
+                    Text(copy.month.uppercase(java.util.Locale.forLanguageTag("ru")),
+                        color = Color(0xfff0d49b), style = MaterialTheme.typography.labelLarge)
+                    Text(copy.title, color = Color(0xfff9f2e2), style = MaterialTheme.typography.headlineSmall)
+                    copy.subtitle?.let { Text(it, color = Color(0xfff1e5cb),
+                        style = MaterialTheme.typography.titleMedium) }
+                    Text(copy.description, Modifier.testTag("today-hero-description"),
+                        color = Color(0xffeee6d7), style = MaterialTheme.typography.bodyMedium)
+                    copy.details.forEach { Text(it, color = Color(0xffeee6d7),
+                        style = MaterialTheme.typography.bodySmall) }
+                    Text(copy.footerDate,
                         color = Color(0xffdfc17e), style = MaterialTheme.typography.labelMedium)
                 }
             }

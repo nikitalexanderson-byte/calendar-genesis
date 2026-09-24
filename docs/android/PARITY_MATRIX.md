@@ -1,10 +1,12 @@
 # GENESIS Android — матрица фактического переноса
 
-Срез 24.09.2026, `codex/android-native-bootstrap` поверх `origin/master` 30257ff. Alpha10 / versionCode 15 собрана и установлена поверх Alpha09 на согласованный realme RMX5000 (Android 16 / API 36), без очистки данных. Это нативный debug APK, не TWA/PWA и не готовый release. История проектов — `PROJECTS_STAGE.md`, текущий артефакт и ограничения — `STATUS.md`.
+Срез 25.09.2026, `codex/android-native-bootstrap` поверх `origin/master` 30257ff. Alpha11 / versionCode 16 собрана и установлена поверх Alpha10 на согласованный realme RMX5000 (Android 16 / API 36), без очистки данных. Это нативный debug APK, не TWA/PWA и не готовый release. История проектов — `PROJECTS_STAGE.md`, текущий артефакт и ограничения — `STATUS.md`.
 
 Пути Android в таблице относительны `android/app/src/main/java/ru/genesis/calendar/`; web-пути — корню репозитория. `LOCAL_PARTIAL` означает работающий в коде локальный поднабор; `DOMAIN_ONLY` — предметные функции без завершённого пользовательского сценария; `NOT_PORTED` — переноса нет. Статус проверки отделён от наличия реализации. PASS для unit-поднабора не является PASS полной приёмки функции. BLOCKED — конкретная внешняя/интеграционная зависимость; NOT_RUN — критерий не испытан, в том числе когда экран ещё отсутствует.
 
 ## Подтверждённая общая веха
+
+Итог alpha11: `assembleDebug`, `assembleDebugAndroidTest`, `testDebugUnitTest`, `lintDebug` PASS; **86 unit PASS**. Обычный realme UI-прогон **19/19 PASS**. В Experimental на «Сегодня» полный текст дня расположен поверх исходного изображения во всех трёх режимах, а время выделено по цветам четырёх периодов и 12 часов. Это не полная web↔Android синхронизация и не pixel-perfect Figma-сверка.
 
 Итог alpha10: `assembleDebug`, `assembleDebugAndroidTest`, `testDebugUnitTest`, `lintDebug` PASS; **83 unit PASS**. Обычный realme UI-прогон **19/19 PASS**. Локальные испытания дня/недели/месяца и одноразовые награды перенесены; серверная синхронизация и полная приёмка каждой вариации ещё не готовы.
 
@@ -19,6 +21,13 @@
 Итог alpha05: `assembleDebug`, `assembleDebugAndroidTest`, `testDebugUnitTest` — PASS; **61 JUnit tests PASS**, `lintDebug` PASS. APK hash — `STATUS.md`. На реальном телефоне обычные Compose UI-сценарии **15 PASS**, включая drag-and-drop и календарь; два жестовых сценария повторно **2 PASS** после установки alpha05. Screen-off delivery, complete/dedup, fresh-process persistence, snooze/stale и открытие через системную шторку относились к alpha01; они не заменяются обычным UI-прогоном и их границы описаны в DEVICE_TESTS.md.
 
 Вкладка «Трекеры» со сном/настроением включена в проверенную сборку. Native UI tests задачи/привычки/настроения 3 PASS; 36 сочетаний настроек persistence PASS (не visual matrix). Web lint/64 tests/build:beget PASS; PHP syntax/44 standalone checks PASS. HTTP auth NOT_RUN.
+
+## Изменения alpha11 к матрице ниже
+
+| ID | Новый фактический статус alpha11 | Ещё отсутствует или не проверено |
+| --- | --- | --- |
+| HOME01–02 | В Experimental полный mode-specific текст дня поверх оригинальной иллюстрации; время имеет цвета периодов, 12 цветных часов, карточки четырёх стихий и отсчёт. Unit + realme UI PASS, снимки трёх режимов и раскрытого блока просмотрены | Все граничные дни/фазы, точная web-освещённость, pixel-perfect Figma, обе темы × 360/390/768/1440 |
+| OPS01 | 86 unit, 19 обычных UI, lint и 527/527 byte parity PASS | Screen-off/Doze в этой сборке, TalkBack/планшет/поворот NOT_RUN |
 
 ## Изменения alpha10 к матрице ниже
 

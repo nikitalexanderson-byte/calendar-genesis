@@ -1,6 +1,13 @@
 # GENESIS Android — internal alpha
 
-## Текущий этап: alpha10 — ежедневные, недельные и эпические испытания, 24.09.2026
+## Текущий этап: alpha11 — иллюстрированный день и цветной ритм времени, 25.09.2026
+
+- Нативный debug APK `2.0.0-alpha11` / versionCode 16, пакет `ru.genesis.calendar.debug`: `outputs/android/today-hero-rhythm-alpha11/GENESIS-2.0.0-alpha11-debug.apk`. **158073505 bytes**, SHA-256 **3766c0f8e8c2a7b6877113a3f2c55a586938e9492e1756c6ea61fb76dc082ff1**. Подпись v2 и zipalign PASS; установлен на realme RMX5000 поверх alpha10 без очистки данных. TWA/PWA не затронут.
+- В теме Experimental экран «Сегодня» показывает полный текст дня поверх исходной иллюстрации: сакральное имя, перевод и описание; лунный день с фазой/месяцем; григорианский покровитель дня и связанные сведения на иллюстрации дня недели. Отдельная картинка месяца вне сакрального календаря не добавлялась. В теме Standart оформление не менялось.
+- Блок времени в Experimental перестроен по ритму сайта: цвет текущего периода, градиентный фон, 12 цветных двухчасовых отрезков, четыре карточки стихий с переходом к подробностям и живой отсчёт до смены часа. Снимки до/после и трёх календарных режимов: `outputs/android/habit-quests-alpha10/today-before.png`, `outputs/android/today-hero-rhythm-alpha11/today-{hero,profane,lunar,rhythm-expanded}-after.png`; просмотрены на реальном телефоне.
+- `assembleDebug`, `assembleDebugAndroidTest`, `testDebugUnitTest`, `lintDebug` PASS; **86/86 unit**, **19/19 обычных UI tests на realme**. 527/527 выбранных оригиналов побайтово совпадают с APK; визуальная идентичность каждого ассета и полная Figma-сверка не установлены. Обе темы на ширинах 360/390/768/1440, крупный текст, TalkBack, поворот и планшет **NOT_RUN**. Полная синхронизация с сайтом, часть task/reward/settings сценариев и Google OAuth ещё не готовы. Production, push/merge/deploy и SSH не выполнялись.
+
+## Предыдущая веха: alpha10 — ежедневные, недельные и эпические испытания, 24.09.2026
 
 - Нативный debug APK `2.0.0-alpha10` / versionCode 15, пакет `ru.genesis.calendar.debug`: `outputs/android/habit-quests-alpha10/GENESIS-2.0.0-alpha10-debug.apk`. **158040733 bytes**, SHA-256 **48207d27899b7baeb2a5277a5f3587d0fd10326cca2e62a1d2d449d23fba280f**. v2 signature и zipalign PASS; установлен на realme RMX5000 поверх alpha09 без очистки данных. TWA/PWA не затронут.
 - В Experimental добавлен нативный блок «Испытания» с отрисованными знаками дня/недели/эпоса, целью, прогрессом и наградой. Тип недельного испытания и достижимая цель выбираются по правилам `app/habit-quests.ts` с учётом расписания и сделанных отметок; итоговый квест сохраняется в шифрованном локальном документе и не пересоздаётся при повторном открытии. Награда в Лаврах одноразовая, XP ранга не начисляется. Снимок `outputs/android/habit-quests-alpha10/habits-quests-after.png` просмотрен.

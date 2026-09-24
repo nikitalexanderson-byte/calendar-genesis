@@ -26,10 +26,35 @@ class CalendarAndTodayFlowTest {
                 compose.onAllNodesWithTag("app-theme-Experimental").fetchSemanticsNodes().isNotEmpty()
             }
             compose.onNodeWithTag("today-day-rhythm").assertExists()
+            compose.onNodeWithTag("today-hero-copy", useUnmergedTree = true).assertExists()
+            compose.onNodeWithTag("today-hero-description", useUnmergedTree = true).assertExists()
             val todayImage = File(app.getExternalFilesDir(null), "today-after.png")
             assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(todayImage))
+            runBlocking { prefs.set("display", "profane") }
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithText("ГРИГОРИАНСКИЙ КАЛЕНДАРЬ", substring = true)
+                    .fetchSemanticsNodes().isNotEmpty()
+            }
+            assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(
+                File(app.getExternalFilesDir(null), "today-profane-after.png")))
+            runBlocking { prefs.set("display", "lunar") }
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithText("ЛУННЫЙ КАЛЕНДАРЬ", substring = true)
+                    .fetchSemanticsNodes().isNotEmpty()
+            }
+            assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(
+                File(app.getExternalFilesDir(null), "today-lunar-after.png")))
+            runBlocking { prefs.set("display", "sacred") }
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithText("МЕСЯЦ", substring = true)
+                    .fetchSemanticsNodes().isNotEmpty()
+            }
             compose.onNodeWithTag("day-rhythm-expand").performScrollTo().performClick()
             compose.onNodeWithText("Двенадцать двухчасовых периодов").assertExists()
+            compose.onNodeWithTag("rhythm-period-12", useUnmergedTree = true).performScrollTo().performClick()
+            compose.onNodeWithText("Время «Логоса» Гераклита").assertExists()
+            assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(
+                File(app.getExternalFilesDir(null), "today-rhythm-expanded-after.png")))
             compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("day-knowledge"))
             compose.onNodeWithTag("day-knowledge").assertExists()
             compose.onNodeWithText("Календарь").performScrollTo().performClick()
