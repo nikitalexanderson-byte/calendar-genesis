@@ -1745,9 +1745,10 @@ test("tracker scoring and time math preserve the specified invariants", () => {
 });
 
 test("ships the complete interactive bilingual Theokyklos", async () => {
-  const [calendar, component, assets, styles, i18n] = await Promise.all([
+  const [calendar, component, details, assets, styles, i18n] = await Promise.all([
     readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/TheokyklosView.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/TheokyklosDetailsDialog.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/theokyklos-assets.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../app/i18n.ts", import.meta.url), "utf8"),
@@ -1773,34 +1774,33 @@ test("ships the complete interactive bilingual Theokyklos", async () => {
   assert.match(calendar, /<TheokyklosView/);
   assert.match(component, /theokyklos-mandala/);
   assert.match(component, /Круг божественных сил/);
-  assert.match(component, /theokyklos-sacred-practices/);
-  assert.match(component, /createHabitFromSacredPractice/);
+  assert.match(details, /theokyklos-sacred-practices/);
+  assert.match(details, /createHabitFromSacredPractice/);
   assert.match(component, /Circle of Divine Powers/);
   assert.match(component, /language === "en" \? "RING" : "КОЛЬЦО"/);
   assert.match(component, /language === "en" \? "HESTIA" : "ГЕСТИЯ"/);
   assert.doesNotMatch(component, /theokyklos-counts/);
   assert.doesNotMatch(component, /theokyklos-ritual-path/);
-  assert.match(component, /role="dialog" aria-modal="true"/);
-  assert.match(component, /Close segment description/);
-  assert.match(component, /useDialogAccessibility/);
-  assert.match(component, /aria-pressed=\{selectedId === segment\.id\}/);
-  assert.match(component, /selected\.words\.map/);
-  assert.match(component, /Священные слова/);
-  assert.match(component, /Заклинания Божеств/);
-  assert.match(component, /THEOKYKLOS_DETAIL_ART\[selected\.id\]/);
-  assert.match(component, /width="1680"[\s\S]*height="945"/);
+  assert.match(details, /role="dialog" aria-modal="true"/);
+  assert.match(details, /Close segment description/);
+  assert.match(details, /useDialogAccessibility/);
+  assert.match(component, /"aria-pressed": selectedId === segment\.id/);
+  assert.match(details, /segment\.words\.map/);
+  assert.match(details, /Священные слова/);
+  assert.match(details, /Заклинания Божеств/);
+  assert.match(details, /THEOKYKLOS_DETAIL_ART\[segment\.id\]/);
+  assert.match(details, /width="1680"[\s\S]*height="945"/);
   assert.match(component, /THEOKYKLOS_SYMBOL_ART\[segment\.id\]/);
   assert.match(component, /<image className="theokyklos-mandala-icon/);
-  assert.match(component, /<img src=\{THEOKYKLOS_SYMBOL_ART\[segment\.id\]\}/);
-  assert.match(component, /className="theokyklos-threshold-row"/);
-  assert.ok(component.indexOf("threshold-entrance") < component.indexOf("theokyklos-threshold-ornament"));
-  assert.ok(component.indexOf("theokyklos-threshold-ornament") < component.indexOf("threshold-exit"));
+  assert.match(details, /<img src=\{THEOKYKLOS_SYMBOL_ART\[segment\.id\]\}/);
+  assert.doesNotMatch(component, /theokyklos-segment-index/);
+  assert.doesNotMatch(component, /theokyklos-threshold-row/);
   assert.doesNotMatch(component, />\{segment\.symbol\}</);
   const hearthStart = component.indexOf('className={`theokyklos-svg-segment hearth-segment');
   const centerStart = component.indexOf('className={`theokyklos-svg-segment center-segment');
   assert.ok(hearthStart > -1 && centerStart > hearthStart);
   assert.doesNotMatch(component.slice(hearthStart, centerStart), /THEOKYKLOS_SYMBOL_ART\.hearth/);
-  assert.match(component, /theokyklos-details-symbol[\s\S]*THEOKYKLOS_SYMBOL_ART\[selected\.id\]/);
+  assert.match(details, /theokyklos-details-symbol[\s\S]*THEOKYKLOS_SYMBOL_ART\[segment\.id\]/);
   for (const segment of THEOKYKLOS_SEGMENTS) {
     const detailAsset = assets.match(new RegExp(`/theokyklos-art/${segment.id}(?:-[^"]+)?\\.webp`))?.[0];
     const symbolAsset = assets.match(new RegExp(`/theokyklos-symbols/${segment.id}(?:-[^"]+)?\\.png`))?.[0];
@@ -1814,26 +1814,19 @@ test("ships the complete interactive bilingual Theokyklos", async () => {
   assert.match(styles, /@keyframes theokyklos-rays/);
   assert.match(styles, /\.modal-backdrop\.theokyklos-details-backdrop/);
   assert.match(styles, /\.theokyklos-details-art img \{[^}]*object-fit: cover/);
-  assert.match(styles, /\.theokyklos-threshold-row\s*\{\s*display: contents;\s*\}/);
-  assert.match(styles, /\.theokyklos-threshold-card\.threshold-entrance,[\s\S]*\.theokyklos-threshold-card\.threshold-exit \{ grid-column: auto; \}/);
-  assert.match(styles, /\.theokyklos-threshold-ornament\s*\{[\s\S]*display: none;[\s\S]*opacity: \.24/);
-  const theokyklosMobileStart = styles.indexOf("@media (max-width: 760px)", styles.indexOf(".theokyklos-threshold-row"));
-  const theokyklosMobileEnd = styles.indexOf("@media (max-width: 430px)", theokyklosMobileStart);
-  const theokyklosMobile = styles.slice(theokyklosMobileStart, theokyklosMobileEnd);
-  assert.match(theokyklosMobile, /\.theokyklos-threshold-row \{ display:grid; grid-column:1 \/ -1;/);
-  assert.match(theokyklosMobile, /\.theokyklos-threshold-card\.threshold-entrance \{ grid-column:1; \}/);
-  assert.match(theokyklosMobile, /\.theokyklos-threshold-card\.threshold-exit \{ grid-column:-2 \/ -1; \}/);
-  assert.match(theokyklosMobile, /\.theokyklos-threshold-ornament \{ display:grid; grid-column:2 \/ -2; \}/);
+  assert.doesNotMatch(styles, /\.theokyklos-segment-index/);
+  assert.match(styles, /\.theokyklos-segment-direction \{[^}]*font-size: 16px/);
+  assert.match(styles, /@media \(max-width: 760px\)[\s\S]*\.theokyklos-segment-direction \{ font-size: 24px; \}/);
   assert.match(styles, /min-height: calc\(100dvh - 34px\)/);
   assert.match(styles, /height: calc\(100dvh - 92px\)/);
   assert.match(i18n, /"Теокиклос": "Theokyklos"/);
 });
 
 test("covers every Theokyklos sector with sacred habits while keeping Stoicheion strictly nine-to-nine", async () => {
-  const [calendar, stoicheion, theokyklos, tracker, sectorSigil, assets, habits, styles] = await Promise.all([
+  const [calendar, stoicheion, details, tracker, sectorSigil, assets, habits, styles] = await Promise.all([
     readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/StoicheionView.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/TheokyklosView.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/TheokyklosDetailsDialog.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/HabitTracker.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/SacredSectorSigil.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/theokyklos-assets.ts", import.meta.url), "utf8"),
@@ -1884,8 +1877,8 @@ test("covers every Theokyklos sector with sacred habits while keeping Stoicheion
   assert.match(stoicheion, /Открыть сектор Теокиклоса/);
   assert.match(calendar, /openTheokyklosSector/);
   assert.match(calendar, /initialSectorId=\{requestedTheokyklosSector\}/);
-  assert.match(theokyklos, /Сакральные привычки/);
-  assert.match(theokyklos, /updateHabitCompletion/);
+  assert.match(details, /Сакральные привычки/);
+  assert.match(details, /updateHabitCompletion/);
   assert.match(tracker, /sacred-habit-library/);
   assert.ok(tracker.indexOf("<SacredHabitLibrary") > tracker.lastIndexOf('label={isEnglish ? "My habit statistics" : "Статистика моих привычек"}'));
   assert.match(tracker, /src="\/habit-reward-art\/hestia-spark\.png"/);
@@ -1896,6 +1889,11 @@ test("covers every Theokyklos sector with sacred habits while keeping Stoicheion
   assert.match(tracker, /className="sacred-sector-navigation open" id="sacred-sector-picker"/);
   assert.match(tracker, /className="sacred-sector-modal" role="dialog" aria-modal="true"/);
   assert.match(tracker, /Выберите сакральную привычку/);
+  assert.match(tracker, /Открыть описание/);
+  assert.doesNotMatch(tracker, /Открыть в Теокиклосе/);
+  assert.match(tracker, /TheokyklosDetailsDialog segment=\{describedSector\}/);
+  assert.match(tracker, /sacred-description-button/);
+  assert.match(tracker, /SacredDialogActionIcon/);
   assert.match(tracker, /Открыть полный набор эмодзи/);
   assert.match(tracker, /Без строгого времени/);
   assert.match(tracker, /Свой цвет/);
@@ -2388,7 +2386,7 @@ test("QA-01 precaches the complete cold-install shell before activating the work
 });
 
 test("QA-02 gives large habit sections consistent disclosure controls and modal dialogs a shared focus contract", async () => {
-  const [tracker, styles, dialogHook, calendar, account, admin, heroPath, theokyklos, stoicheion, recovery] = await Promise.all([
+  const [tracker, styles, dialogHook, calendar, account, admin, heroPath, theokyklosDetails, stoicheion, recovery] = await Promise.all([
     readFile(new URL("../app/HabitTracker.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../app/use-dialog-accessibility.ts", import.meta.url), "utf8"),
@@ -2396,7 +2394,7 @@ test("QA-02 gives large habit sections consistent disclosure controls and modal 
     readFile(new URL("../app/AccountPanel.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/AdminPanel.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/HeroPathPanel.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/TheokyklosView.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/TheokyklosDetailsDialog.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/StoicheionView.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/WorkspaceRecoveryDialog.tsx", import.meta.url), "utf8"),
   ]);
@@ -2438,7 +2436,7 @@ test("QA-02 gives large habit sections consistent disclosure controls and modal 
   assert.match(account, /habitResetDialogRef = useDialogAccessibility/);
   assert.match(admin, /deleteDialogRef = useDialogAccessibility/);
   assert.match(heroPath, /dialogRef = useDialogAccessibility/);
-  assert.match(theokyklos, /detailsDialogRef = useDialogAccessibility/);
+  assert.match(theokyklosDetails, /detailsDialogRef = useDialogAccessibility/);
   assert.match(stoicheion, /motionDialogRef = useDialogAccessibility/);
   assert.match(recovery, /data-dialog-initial-focus/);
 });

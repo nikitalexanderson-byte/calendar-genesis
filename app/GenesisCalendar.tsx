@@ -6190,7 +6190,6 @@ export function GenesisCalendar() {
                       await Promise.all(reminderTasks.map((task) => removeCloudTask(cloudUser.uid, task)));
                       setTasks((current) => current.filter((task) => !reminderIds.includes(task.id)));
                     }}
-                    onOpenTheokyklosSector={openTheokyklosSector}
                   />
                 </Suspense>
               ) : null}

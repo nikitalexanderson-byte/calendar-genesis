@@ -57,16 +57,41 @@ const sourceSignature = (source) => ({
   iconSymbols: count(source, /\bsymbol\s*:/gu),
 });
 
+const numericSignatureFields = ["img", "svgImage", "inlineSvg", "src", "srcSet", "backgroundImage", "cssMediaUrl", "dynamicMediaTemplates", "iconSymbols"];
+const sourceSlotAllowances = manifest.sourceSlotChangeAllowances ?? [];
+const sourceAdditions = manifest.sourceAdditions ?? [];
+
 const slotChanges = [];
+const unexpectedSlotChanges = [];
 for (const file of sourceFiles) {
   const before = execFileSync("git", ["show", `${baselineCommit}:${file}`], { cwd: root, encoding: "utf8" });
   const after = await readFile(path.join(root, file), "utf8");
   const beforeSignature = sourceSignature(before);
   const afterSignature = sourceSignature(after);
   if (JSON.stringify(beforeSignature) !== JSON.stringify(afterSignature)) {
-    slotChanges.push({ file, before: beforeSignature, after: afterSignature });
+    const delta = Object.fromEntries(numericSignatureFields.map((field) => [field, afterSignature[field] - beforeSignature[field]]));
+    const allowance = sourceSlotAllowances.find((candidate) => candidate.file === file);
+    const approved = Boolean(
+      allowance
+      && JSON.stringify(beforeSignature.references) === JSON.stringify(afterSignature.references)
+      && JSON.stringify(delta) === JSON.stringify(allowance.delta),
+    );
+    const change = { file, before: beforeSignature, after: afterSignature, delta, approved, reason: approved ? allowance.reason : null };
+    slotChanges.push(change);
+    if (!approved) unexpectedSlotChanges.push(change);
   }
 }
+
+const checkedSourceAdditions = await Promise.all(sourceAdditions.map(async (addition) => {
+  const signature = sourceSignature(await readFile(path.join(root, addition.file), "utf8"));
+  return {
+    file: addition.file,
+    signature,
+    expected: addition.signature,
+    reason: addition.reason,
+    pass: JSON.stringify(signature) === JSON.stringify(addition.signature),
+  };
+}));
 
 const result = {
   schema: 1,
@@ -81,7 +106,8 @@ const result = {
   sourceSlots: {
     filesChecked: sourceFiles.length,
     changedSignatures: slotChanges,
-    pass: slotChanges.length === 0,
+    additions: checkedSourceAdditions,
+    pass: unexpectedSlotChanges.length === 0 && checkedSourceAdditions.every((addition) => addition.pass),
     coverage: "Static/dynamic media path literals, img/image/svg/src/srcSet/background-image counts and navigation symbol declarations in app source",
   },
 };

@@ -10,7 +10,125 @@
   },
   "sourceSlots": {
     "filesChecked": 73,
-    "changedSignatures": [],
+    "changedSignatures": [
+      {
+        "file": "app/HabitTracker.tsx",
+        "before": {
+          "references": [
+            "/habit-reward-art/comeback.png",
+            "/habit-reward-art/hestia-spark.png"
+          ],
+          "img": 2,
+          "svgImage": 0,
+          "inlineSvg": 8,
+          "src": 2,
+          "srcSet": 0,
+          "backgroundImage": 0,
+          "cssMediaUrl": 0,
+          "dynamicMediaTemplates": 2,
+          "iconSymbols": 0
+        },
+        "after": {
+          "references": [
+            "/habit-reward-art/comeback.png",
+            "/habit-reward-art/hestia-spark.png"
+          ],
+          "img": 2,
+          "svgImage": 0,
+          "inlineSvg": 10,
+          "src": 2,
+          "srcSet": 0,
+          "backgroundImage": 0,
+          "cssMediaUrl": 0,
+          "dynamicMediaTemplates": 2,
+          "iconSymbols": 0
+        },
+        "delta": {
+          "img": 0,
+          "svgImage": 0,
+          "inlineSvg": 2,
+          "src": 0,
+          "srcSet": 0,
+          "backgroundImage": 0,
+          "cssMediaUrl": 0,
+          "dynamicMediaTemplates": 0,
+          "iconSymbols": 0
+        },
+        "approved": true,
+        "reason": "Two authored inline SVG icons were explicitly requested for the local sacred-practice description and close actions."
+      },
+      {
+        "file": "app/TheokyklosView.tsx",
+        "before": {
+          "references": [],
+          "img": 5,
+          "svgImage": 6,
+          "inlineSvg": 3,
+          "src": 5,
+          "srcSet": 0,
+          "backgroundImage": 0,
+          "cssMediaUrl": 0,
+          "dynamicMediaTemplates": 0,
+          "iconSymbols": 0
+        },
+        "after": {
+          "references": [],
+          "img": 0,
+          "svgImage": 6,
+          "inlineSvg": 1,
+          "src": 0,
+          "srcSet": 0,
+          "backgroundImage": 0,
+          "cssMediaUrl": 0,
+          "dynamicMediaTemplates": 0,
+          "iconSymbols": 0
+        },
+        "delta": {
+          "img": -5,
+          "svgImage": 0,
+          "inlineSvg": -2,
+          "src": -5,
+          "srcSet": 0,
+          "backgroundImage": 0,
+          "cssMediaUrl": 0,
+          "dynamicMediaTemplates": 0,
+          "iconSymbols": 0
+        },
+        "approved": true,
+        "reason": "The requested removal of the duplicate segment-card index removes three repeated image slots; the two dialog image slots and its close SVG moved intact to the shared details component."
+      }
+    ],
+    "additions": [
+      {
+        "file": "app/TheokyklosDetailsDialog.tsx",
+        "signature": {
+          "references": [],
+          "img": 2,
+          "svgImage": 0,
+          "inlineSvg": 1,
+          "src": 2,
+          "srcSet": 0,
+          "backgroundImage": 0,
+          "cssMediaUrl": 0,
+          "dynamicMediaTemplates": 0,
+          "iconSymbols": 0
+        },
+        "expected": {
+          "references": [],
+          "img": 2,
+          "svgImage": 0,
+          "inlineSvg": 1,
+          "src": 2,
+          "srcSet": 0,
+          "backgroundImage": 0,
+          "cssMediaUrl": 0,
+          "dynamicMediaTemplates": 0,
+          "iconSymbols": 0
+        },
+        "reason": "Shared local details dialog preserves the selected segment symbol and full artwork in both Habits and Theokyklos.",
+        "pass": true
+      }
+    ],
     "pass": true,
     "coverage": "Static/dynamic media path literals, img/image/svg/src/srcSet/background-image counts and navigation symbol declarations in app source"
   }

@@ -127,6 +127,7 @@ import {
 import { trackerSnapshot } from "./tracker-analytics";
 import { applyEditableHabitUpdate, applyHabitReminderSyncResult } from "./habit-editing";
 import { HabitInsightsPanel } from "./HabitInsightsPanel";
+import { TheokyklosDetailsDialog } from "./TheokyklosDetailsDialog";
 
 type DailyPanelProps = {
   workspace: HabitWorkspace;
@@ -145,7 +146,6 @@ type HabitTrackerPageProps = DailyPanelProps & {
   experimentalThemeActive?: boolean;
   onReminderRequested?: (habit: Habit) => Promise<{ googleTaskId: string | null; googleEventId: string | null }>;
   onReminderRemoved?: (habit: Habit) => Promise<void>;
-  onOpenTheokyklosSector?: (sectorId: SacredPracticeSectorId) => void;
 };
 
 function completionFor(workspace: HabitWorkspace, habitId: string, date: string) {
@@ -1220,6 +1220,22 @@ function HabitStatistics({ workspace, date, language, calendarMode }: { workspac
   );
 }
 
+function SacredDialogActionIcon({ variant }: { variant: "description" | "close" }) {
+  return variant === "description" ? (
+    <svg className="sacred-dialog-action-icon" viewBox="0 0 28 28" aria-hidden="true">
+      <circle cx="14" cy="14" r="11" />
+      <path d="M6.5 14c2.2-3.4 4.7-5.1 7.5-5.1s5.3 1.7 7.5 5.1c-2.2 3.4-4.7 5.1-7.5 5.1S8.7 17.4 6.5 14Z" />
+      <circle cx="14" cy="14" r="2.6" />
+      <path className="sacred-dialog-action-ray" d="M14 1.8v2.4M14 23.8v2.4M1.8 14h2.4M23.8 14h2.4" />
+    </svg>
+  ) : (
+    <svg className="sacred-dialog-action-icon" viewBox="0 0 28 28" aria-hidden="true">
+      <circle cx="14" cy="14" r="11" />
+      <path d="m9.5 9.5 9 9m0-9-9 9" />
+    </svg>
+  );
+}
+
 function SacredHabitLibrary({
   workspace,
   date,
@@ -1228,7 +1244,6 @@ function SacredHabitLibrary({
   onChange,
   onStart,
   onEdit,
-  onOpenTheokyklosSector,
 }: {
   workspace: HabitWorkspace;
   date: string;
@@ -1237,13 +1252,14 @@ function SacredHabitLibrary({
   onChange: (workspace: HabitWorkspace) => void;
   onStart: (practice: SacredPractice) => void;
   onEdit: (habit: Habit) => void;
-  onOpenTheokyklosSector?: (sectorId: SacredPracticeSectorId) => void;
 }) {
   const isEnglish = language === "en";
   const [selectedSectorId, setSelectedSectorId] = useState<SacredPracticeSectorId | null>(null);
+  const [describedSectorId, setDescribedSectorId] = useState<SacredPracticeSectorId | null>(null);
   const closeSectorDialog = () => setSelectedSectorId(null);
   const segments = useMemo(() => new Map(THEOKYKLOS_SEGMENTS.map((segment) => [segment.id, segment])), []);
   const sector = selectedSectorId ? segments.get(selectedSectorId) : null;
+  const describedSector = describedSectorId ? segments.get(describedSectorId) : null;
   const practices = selectedSectorId ? sacredPracticesForSector(selectedSectorId) : [];
   const sectorDialogRef = useDialogAccessibility<HTMLElement>(closeSectorDialog, Boolean(selectedSectorId && sector));
   const renderSectorTab = (sectorId: SacredPracticeSectorId) => {
@@ -1301,7 +1317,7 @@ function SacredHabitLibrary({
         <section ref={sectorDialogRef} className="sacred-sector-modal" role="dialog" aria-modal="true" aria-labelledby="sacred-sector-modal-title" tabIndex={-1}>
           <header>
             <div><span className="eyebrow">ΘΕΟΚΥΚΛΟΣ · {SACRED_SECTOR_NAMES[selectedSectorId][language]}</span><h2 id="sacred-sector-modal-title">{isEnglish ? "Choose a sacred habit" : "Выберите сакральную привычку"}</h2></div>
-            <button type="button" className="modal-close" onClick={closeSectorDialog} aria-label={isEnglish ? "Close" : "Закрыть"}>×</button>
+            <button type="button" className="modal-close sacred-sector-header-close" onClick={closeSectorDialog} aria-label={isEnglish ? "Close" : "Закрыть"}><SacredDialogActionIcon variant="close" /></button>
           </header>
           <div className="sacred-sector-summary">
             <div><SacredSectorSigil sectorId={selectedSectorId} active /><p><small>{SACRED_SECTOR_NAMES[selectedSectorId][language]} · {isEnglish ? "patron deity" : "божество-покровитель"}</small><strong>{sector.patrons[language]}</strong></p></div>
@@ -1344,16 +1360,17 @@ function SacredHabitLibrary({
         })}
           </div>
           <footer className="sacred-sector-modal-actions">
-            {onOpenTheokyklosSector ? <button type="button" className="secondary-button" onClick={() => onOpenTheokyklosSector(selectedSectorId)}>{isEnglish ? "Open in Theokyklos" : "Открыть в Теокиклосе"}</button> : null}
-            <button type="button" className="secondary-button" onClick={closeSectorDialog}>{isEnglish ? "Close" : "Закрыть"}</button>
+            <button type="button" className="secondary-button sacred-description-button" onClick={() => { setSelectedSectorId(null); setDescribedSectorId(selectedSectorId); }}><SacredDialogActionIcon variant="description" /><span>{isEnglish ? "Open description" : "Открыть описание"}</span></button>
+            <button type="button" className="secondary-button sacred-sector-close-button" onClick={closeSectorDialog}><SacredDialogActionIcon variant="close" /><span>{isEnglish ? "Close" : "Закрыть"}</span></button>
           </footer>
         </section>
       </div> : null}
+      {describedSector ? <TheokyklosDetailsDialog segment={describedSector} language={language} workspace={workspace} date={date} calendarMode={calendarMode} onChange={onChange} onClose={() => setDescribedSectorId(null)} /> : null}
     </section>
   );
 }
 
-export function HabitTrackerPage({ workspace, date, language, timeFormat, calendarMode, googleTasksReady, experimentalThemeActive = false, onChange, onReminderRequested, onReminderRemoved, onOpenTheokyklosSector }: HabitTrackerPageProps) {
+export function HabitTrackerPage({ workspace, date, language, timeFormat, calendarMode, googleTasksReady, experimentalThemeActive = false, onChange, onReminderRequested, onReminderRemoved }: HabitTrackerPageProps) {
   const isEnglish = language === "en";
   const workspaceRef = useRef(workspace);
   useEffect(() => {
@@ -1581,7 +1598,6 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
           onChange={onChange}
           onStart={(practice) => saveHabit(createHabitFromSacredPractice(practice, creationDate, calendarMode, language))}
           onEdit={setEditingHabit}
-          onOpenTheokyklosSector={onOpenTheokyklosSector}
         /></CollapsibleHabitBlock>
       {heroPathOpen ? <HeroPathPanel workspace={workspace} language={language} onClaimCheckpoint={(rankId) => { const next = claimHeroPathAmphora(workspace, rankId); onChange(next); if (next !== workspace) setMessage(isEnglish ? "The amphora is open. Laurels were added to your ledger." : "Амфора открыта. Лавры добавлены в журнал наград."); }} onRevealHiddenPath={() => { const next = revealHiddenHeroicPath(workspace); onChange(next); if (next !== workspace) setMessage(isEnglish ? "The second path has been revealed." : "Второй путь открыт."); }} onClose={() => setHeroPathOpen(false)} /> : null}
       {activatingTemplate ? <HabitTemplateSetup template={activatingTemplate} date={creationDate} language={language} calendarMode={calendarMode} googleTasksReady={googleTasksReady} allowCalendarModeChange={experimentalThemeActive} onSave={(habit) => { setActivatingTemplate(null); saveHabit(habit); }} onClose={() => setActivatingTemplate(null)} /> : null}

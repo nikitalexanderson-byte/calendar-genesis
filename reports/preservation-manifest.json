@@ -5,6 +5,56 @@
   "mediaRoots": [
     "public"
   ],
+  "sourceSlotChangeAllowances": [
+    {
+      "file": "app/HabitTracker.tsx",
+      "reason": "Two authored inline SVG icons were explicitly requested for the local sacred-practice description and close actions.",
+      "delta": {
+        "img": 0,
+        "svgImage": 0,
+        "inlineSvg": 2,
+        "src": 0,
+        "srcSet": 0,
+        "backgroundImage": 0,
+        "cssMediaUrl": 0,
+        "dynamicMediaTemplates": 0,
+        "iconSymbols": 0
+      }
+    },
+    {
+      "file": "app/TheokyklosView.tsx",
+      "reason": "The requested removal of the duplicate segment-card index removes three repeated image slots; the two dialog image slots and its close SVG moved intact to the shared details component.",
+      "delta": {
+        "img": -5,
+        "svgImage": 0,
+        "inlineSvg": -2,
+        "src": -5,
+        "srcSet": 0,
+        "backgroundImage": 0,
+        "cssMediaUrl": 0,
+        "dynamicMediaTemplates": 0,
+        "iconSymbols": 0
+      }
+    }
+  ],
+  "sourceAdditions": [
+    {
+      "file": "app/TheokyklosDetailsDialog.tsx",
+      "reason": "Shared local details dialog preserves the selected segment symbol and full artwork in both Habits and Theokyklos.",
+      "signature": {
+        "references": [],
+        "img": 2,
+        "svgImage": 0,
+        "inlineSvg": 1,
+        "src": 2,
+        "srcSet": 0,
+        "backgroundImage": 0,
+        "cssMediaUrl": 0,
+        "dynamicMediaTemplates": 0,
+        "iconSymbols": 0
+      }
+    }
+  ],
   "assetSnapshot": {
     "path": "reports/assets-baseline.json",
     "files": 558,
@@ -39,9 +89,8 @@
     { "route": "Стойхейон", "block": "alphabet/daily/dialog/spread card", "slot": "card face artwork", "source": "/stoicheion-cards/{24 letters}.webp", "instances": "one for every rendered card occurrence in each of four variants", "evidence": "StoicheionView.tsx StoicheionCardFace" },
     { "route": "Стойхейон", "block": "alphabet/daily/dialog/spread card", "slot": "Greek-key overlay", "source": "/stoicheion-cards/frame-greek-key.svg", "instances": "one overlay per rendered card occurrence", "evidence": "StoicheionView.tsx StoicheionCardFace" },
     { "route": "Теокиклос", "block": "mandala", "slot": "14 SVG image nodes", "source": "/theokyklos-symbols/{14 segment ids}.png", "instances": 14, "evidence": "TheokyklosView.tsx SVG <image> nodes" },
-    { "route": "Теокиклос", "block": "segment index", "slot": "segment symbol image", "source": "/theokyklos-symbols/{14 segment ids}.png", "instances": 14, "evidence": "TheokyklosView.tsx index buttons" },
-    { "route": "Теокиклос", "block": "selected segment dialog", "slot": "selected symbol", "source": "/theokyklos-symbols/{selected id}.png", "instances": 1, "evidence": "TheokyklosView.tsx details header" },
-    { "route": "Теокиклос", "block": "selected segment dialog", "slot": "selected full artwork", "source": "/theokyklos-art/{14 segment ids}.webp", "instances": 1, "evidence": "TheokyklosView.tsx details figure" },
+    { "route": "Теокиклос", "block": "selected segment dialog", "slot": "selected symbol", "source": "/theokyklos-symbols/{selected id}.png", "instances": 1, "evidence": "TheokyklosDetailsDialog.tsx details header" },
+    { "route": "Теокиклос", "block": "selected segment dialog", "slot": "selected full artwork", "source": "/theokyklos-art/{14 segment ids}.webp", "instances": 1, "evidence": "TheokyklosDetailsDialog.tsx details figure" },
     { "route": "Привычки/Теокиклос links", "block": "sacred sector sigil", "slot": "sector symbol", "source": "/theokyklos-symbols/{sector id}.png", "instances": "one per rendered sigil occurrence", "evidence": "SacredSectorSigil.tsx" },
     { "route": "Shell", "block": "sidebar brand", "slot": "brand background", "source": "/icons/icon-192.png", "instances": 1, "evidence": "GenesisCalendar.tsx brand-icon" },
     { "route": "Shell", "block": "account menu", "slot": "remote verified account avatar", "source": "user.photoURL", "instances": 1, "evidence": "GenesisCalendar.tsx account-avatar" },
@@ -52,7 +101,7 @@
     { "route": "PWA notifications", "block": "notification", "slot": "badge", "source": "/icons/icon-192.png", "instances": 1, "evidence": "habit-notifications.ts badge" },
     { "route": "Metadata/PWA", "block": "app icons", "slot": "192, 512, Apple and maskable manifest entries", "source": "/icons/*.png", "instances": 7, "evidence": "layout.tsx + manifest*.webmanifest" },
     { "route": "Metadata", "block": "OpenGraph/Twitter", "slot": "share image", "source": "/og.png", "instances": 2, "evidence": "layout.tsx" },
-    { "route": "All", "block": "authored inline icon systems", "slot": "inline SVG and glyphs", "source": "React component inline SVG, MoonPhaseIcon, CronusSickleIcon, navigation symbols and existing CSS", "instances": "all existing occurrences retained; no source icon markup removed", "evidence": "app/*.tsx and app/globals.css" }
+    { "route": "All", "block": "authored inline icon systems", "slot": "inline SVG and glyphs", "source": "React component inline SVG, MoonPhaseIcon, CronusSickleIcon, navigation symbols and existing CSS", "instances": "existing occurrences retained except the explicitly removed duplicate Theokyklos index ornament; two requested sacred-dialog action icons added", "evidence": "app/*.tsx and app/globals.css" }
   ],
   "lockedWidgets": [
     { "id": "sacred-date-picker", "component": "CalendarDatePicker", "marker": "data-genesis-preserve=sacred-date-picker", "behavior": "authorial year/month/pyata/day dialog" },
