@@ -5,6 +5,7 @@ import {
   buildRecurrenceDates,
   alignRecurrenceConfigWithCalendar,
   calendarModeForRecurrence,
+  convertTrackerRecurrenceCalendar,
   lunarMonthOptions,
   MAX_RECURRENCE_OCCURRENCES,
   normalizeRecurrenceConfig,
@@ -63,6 +64,7 @@ export function RecurrenceBuilder({
   destination = "calendar",
   calendarMode = "profane",
   lockRangeStart = false,
+  allowCalendarModeChange = false,
 }: {
   value: RecurrenceConfig;
   onChange: (value: RecurrenceConfig) => void;
@@ -70,6 +72,7 @@ export function RecurrenceBuilder({
   destination?: "calendar" | "tasks" | "tracker";
   calendarMode?: CalendarMode;
   lockRangeStart?: boolean;
+  allowCalendarModeChange?: boolean;
 }) {
   const isEnglish = getRuntimeLanguage() === "en";
   // Tracker schedules keep the calendar in which they were created. Aligning a
@@ -112,6 +115,11 @@ export function RecurrenceBuilder({
     });
   };
 
+  const changeCalendarMode = (nextMode: CalendarMode) => {
+    if (nextMode === displayCalendarMode) return;
+    onChange(convertTrackerRecurrenceCalendar(value, nextMode, rangeStart));
+  };
+
   const setWeekdayPreset = (days: number[]) => onChange({ ...value, days: [...days] });
   const setPyataPreset = (pyatas: number[]) => onChange({ ...value, pyatas: sameNumbers(pyatas, ALL_PYATAS) ? [] : [...pyatas] });
   const intervalUnit = value.pattern === "daily"
@@ -146,13 +154,34 @@ export function RecurrenceBuilder({
 
       {value.enabled ? (
         <div className="recurrence-builder-body">
-          <div className="recurrence-inherited-mode" aria-label={`Система повторения: ${RECURRENCE_MODE_COPY[value.mode].shortTitle}`}>
-            <span aria-hidden="true">{value.mode === "genesis" ? "✦" : value.mode === "classic" ? <CronusSickleIcon size={24} /> : "☾"}</span>
-            <div>
-              <small>Из личного кабинета</small>
-              <strong>{RECURRENCE_MODE_COPY[value.mode].shortTitle}</strong>
+          {destination === "tracker" && allowCalendarModeChange ? (
+            <div className="recurrence-calendar-choice">
+              <div>
+                <strong>{isEnglish ? "This habit's calendar" : "Календарь этой привычки"}</strong>
+                <small>{isEnglish ? "Changing it rebuilds the recurrence rhythm but keeps the original start date." : "Смена календаря пересоберёт ритм повторения, но сохранит исходную дату начала."}</small>
+              </div>
+              <div className="recurrence-calendar-options" role="radiogroup" aria-label={isEnglish ? "Habit recurrence calendar" : "Календарь повторения привычки"}>
+                {([
+                  { id: "profane" as const, label: isEnglish ? "Gregorian" : "Григорианский" },
+                  { id: "sacred" as const, label: isEnglish ? "GENESIS" : "Сакральный" },
+                  { id: "lunar" as const, label: isEnglish ? "Lunar" : "Лунный" },
+                ]).map((option) => (
+                  <label key={option.id}>
+                    <input type="radio" name={`tracker-calendar-${startDate}`} value={option.id} checked={displayCalendarMode === option.id} onChange={() => changeCalendarMode(option.id)} />
+                    <span>{option.label}</span>
+                  </label>
+                ))}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="recurrence-inherited-mode" aria-label={`Система повторения: ${RECURRENCE_MODE_COPY[value.mode].shortTitle}`}>
+              <span aria-hidden="true">{value.mode === "genesis" ? "✦" : value.mode === "classic" ? <CronusSickleIcon size={24} /> : "☾"}</span>
+              <div>
+                <small>Из личного кабинета</small>
+                <strong>{RECURRENCE_MODE_COPY[value.mode].shortTitle}</strong>
+              </div>
+            </div>
+          )}
 
           <fieldset className="recurrence-range">
             <legend>Период повторения</legend>

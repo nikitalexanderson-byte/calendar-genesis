@@ -960,6 +960,22 @@ test("habit weekday schedules keep their owning calendar and survive delayed rem
   assert.equal(merged.habits[0].version, 5);
 });
 
+test("every habit tracker owns an explicit calendar and can be deliberately converted", async () => {
+  const [habits, sleep, addiction, trackerCore, recurrenceBuilder] = await Promise.all([
+    readFile(new URL("../app/habits.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/sleep-tracker.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/addiction-tracker.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/tracker-core.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/RecurrenceBuilder.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(habits, /createHabitFromSacredPractice[\s\S]*defaultHabit\(startDate, calendarMode\)/, "a sacred-practice source must not force a sacred schedule");
+  assert.match(sleep, /schedule: normalizeTrackerSchedule\(value\.schedule as Partial<TrackerSchedule>, fallbackDate, calendarMode\)/);
+  assert.match(addiction, /schedule: normalizeTrackerSchedule\(value\.schedule as Partial<TrackerSchedule>, fallbackDate, calendarMode\)/);
+  assert.match(trackerCore, /A saved tracker schedule owns its calendar mode/);
+  assert.match(recurrenceBuilder, /convertTrackerRecurrenceCalendar\(value, nextMode, rangeStart\)/);
+});
+
 test("removes legacy GENESIS metadata from user-visible task descriptions", () => {
   const legacy = "Только пользовательский текст\r\n\r\n— GENESIS —\r\nПриоритет: 10\r\nGENESIS-DATA:eyJ0YXNrSWQiOiIxIn0";
   assert.equal(cleanTaskDescription(legacy), "Только пользовательский текст");
@@ -2277,6 +2293,8 @@ test("Experimental applies one design system across ordinary views and adds safe
   assert.match(habits, /experimental-habit-section-library/);
   assert.match(habits, /experimental-habit-section-modules/);
   assert.match(habits, /experimental-habit-section-progress/);
+  assert.match(habits, /allowCalendarModeChange=\{experimentalThemeActive\}/);
+  assert.equal((habits.match(/allowCalendarModeChange=\{experimentalThemeActive\}/g) ?? []).length, 4);
   assert.match(account, /data-exp-layout="view" data-exp-ui="dialog"/);
   assert.match(admin, /className="admin-view" data-exp-layout="view"/);
   assert.match(assistant, /data-exp-ui="dialog"/);
@@ -3009,6 +3027,11 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(recurrenceBuilder, /одно повторяющееся событие/);
   assert.match(recurrenceBuilder, /aria-pressed=\{selected\}/);
   assert.match(recurrenceBuilder, /recurrence-inherited-mode/);
+  assert.match(recurrenceBuilder, /allowCalendarModeChange = false/);
+  assert.match(recurrenceBuilder, /recurrence-calendar-choice/);
+  assert.match(recurrenceBuilder, /convertTrackerRecurrenceCalendar\(value, nextMode, rangeStart\)/);
+  assert.match(recurrenceBuilder, /role="radiogroup"/);
+  assert.match(recurrenceBuilder, /type="radio"/);
   assert.match(recurrenceBuilder, /<CronusSickleIcon size=\{24\}/);
   assert.doesNotMatch(recurrenceBuilder, /value\.mode === "classic" \? "□"/);
   assert.doesNotMatch(recurrenceBuilder, /recurrence-mode-toggle/);
@@ -3017,6 +3040,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(taskRecurrence, /recurrenceDatesForTask/);
   assert.match(taskRecurrence, /recurrenceExcludedDates/);
   assert.match(taskRecurrence, /alignRecurrenceConfigWithCalendar/);
+  assert.match(taskRecurrence, /convertTrackerRecurrenceCalendar/);
   assert.match(taskRecurrence, /calendarMode === "profane"\) return "classic"/);
   assert.match(taskRecurrence, /calendarMode === "lunar"\) return "lunar"/);
   assert.match(taskRecurrence, /Сакральный календарь/);
