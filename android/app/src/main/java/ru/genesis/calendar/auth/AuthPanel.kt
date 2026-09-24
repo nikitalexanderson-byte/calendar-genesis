@@ -36,11 +36,20 @@ fun AuthPanel(app: GenesisApplication) {
     Card(Modifier.fillMaxWidth().testTag("auth-panel")) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("Вход в GENESIS", style = MaterialTheme.typography.titleMedium)
-            Text("Это проверка серверного входа. Задачи и привычки этой сборки остаются локальными: загрузка данных сайта и синхронизация ещё не подключены.", style = MaterialTheme.typography.bodySmall)
+            Text("Google-вход и облачное пространство сайта. Перед объединением можно безопасно проверить данные: локальные записи при этом не изменятся.", style = MaterialTheme.typography.bodySmall)
             if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
             state.user?.let { identity ->
                 Text(identity.displayName, style = MaterialTheme.typography.titleSmall)
                 Text(identity.email)
+            }
+            state.preview?.let { cloud ->
+                Text("Облако · версия ${cloud.version}", style = MaterialTheme.typography.titleSmall)
+                Text("${cloud.projects} проектов · ${cloud.categories} категорий · ${cloud.habits} привычек · ${cloud.completions} отметок")
+                cloud.tasks?.let { Text("Задачи сайта: $it · списки: ${cloud.taskLists ?: 0}") }
+                Text("Сон: ${cloud.sleepEntries} · настроение: ${cloud.moodEntries} · награды: ${cloud.rewards} · испытания: ${cloud.quests}")
+                if (cloud.hasGoogleSyncWarning) Text("Google Tasks сообщил о неполной загрузке. Объединение пока недоступно.",
+                    color = MaterialTheme.colorScheme.error)
+                Text("Это только проверка содержимого; синхронизация записей ещё не запущена.", style = MaterialTheme.typography.bodySmall)
             }
             Text(state.message, modifier = Modifier.testTag("auth-status"))
             state.checkedAt?.let { time ->
@@ -53,6 +62,8 @@ fun AuthPanel(app: GenesisApplication) {
             }
             OutlinedButton(onClick = controller::checkSession, enabled = !state.busy,
                 modifier = Modifier.fillMaxWidth().testTag("auth-check-session")) { Text("Проверить серверную сессию") }
+            OutlinedButton(onClick = controller::inspectWorkspace, enabled = !state.busy && state.user != null,
+                modifier = Modifier.fillMaxWidth().testTag("auth-inspect-workspace")) { Text("Проверить облачные данные") }
             OutlinedButton(onClick = controller::logout,
                 modifier = Modifier.fillMaxWidth().testTag("auth-logout")) { Text("Выйти / отменить вход") }
         }

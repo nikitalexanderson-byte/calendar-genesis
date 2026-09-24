@@ -18,12 +18,12 @@ function sourceExports(relativePath) {
     reportDiagnostics: true,
   });
   if (compiled.diagnostics?.length) throw new Error(`TypeScript diagnostics in ${relativePath}`);
-  const module = { exports: {} };
-  runInNewContext(compiled.outputText, { module, exports: module.exports }, {
+  const sourceModule = { exports: {} };
+  runInNewContext(compiled.outputText, { module: sourceModule, exports: sourceModule.exports }, {
     filename: relativePath,
     timeout: 2000,
   });
-  return module.exports;
+  return sourceModule.exports;
 }
 
 const { THEOKYKLOS_SEGMENTS, THEOKYKLOS_DIRECTION_IDS } = sourceExports('app/theokyklos-data.ts');

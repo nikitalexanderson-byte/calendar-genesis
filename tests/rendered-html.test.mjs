@@ -1946,9 +1946,10 @@ test("ships a compact verified Android test application only to Android phones",
   assert.match(welcome, /android-download-button/);
   assert.match(welcome, /Скачать приложение для телефона/);
   assert.match(styles, /\.android-download-button/);
-  // The public 1.2.2 download stays unchanged while the isolated native alpha is developed.
-  assert.match(androidBuild, /versionCode = 7/);
-  assert.match(androidBuild, /versionName = "2\.0\.0-alpha02"/);
+  // The public 1.2.2 download stays unchanged while the isolated native alpha advances.
+  const nativeVersionCode = Number(androidBuild.match(/versionCode = (\d+)/)?.[1]);
+  assert.ok(nativeVersionCode >= 7);
+  assert.match(androidBuild, /versionName = "2\.0\.0-alpha\d+"/);
   assert.match(androidBuild, /applicationIdSuffix = "\.debug"/);
   assert.match(androidBuild, /androidx\.browser:browser:1\.10\.0/);
   assert.match(androidBuild, /isMinifyEnabled = true/);

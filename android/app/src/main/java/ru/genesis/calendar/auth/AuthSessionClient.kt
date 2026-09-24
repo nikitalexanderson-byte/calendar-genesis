@@ -78,6 +78,8 @@ internal class AuthSessionClient(context: Context) {
     }
 
     fun session(expected: Long): JSONObject = request(expected, "/session", null)
+    fun workspace(expected: Long): JSONObject = request(expected, "/workspace", null)
+    fun bootstrap(expected: Long): JSONObject = request(expected, "/bootstrap", null)
     fun challenge(expected: Long): JSONObject = request(expected, "/auth/google/native/challenge", JSONObject())
     fun authenticate(expected: Long, idToken: String): JSONObject {
         require(idToken.length in 1..16384)
@@ -91,7 +93,7 @@ internal class AuthSessionClient(context: Context) {
 
     /** Blocking; the controller always calls on Dispatchers.IO. Default platform TLS verification. */
     private fun request(expected: Long, path: String, body: JSONObject?, secret: SessionSecret? = null, persist: Boolean = true): JSONObject {
-        require(path in setOf("/session", "/auth/google/native/challenge", "/auth/google/native", "/auth/logout"))
+        require(path in setOf("/session", "/workspace", "/bootstrap", "/auth/google/native/challenge", "/auth/google/native", "/auth/logout"))
         val current = secret ?: load(expected)
         if (body != null && (current.cookie.isBlank() || current.csrf.isBlank())) throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
         val connection = URL("$AUTH_ORIGIN/api$path").openConnection() as HttpsURLConnection
@@ -132,7 +134,12 @@ internal class AuthSessionClient(context: Context) {
                 while (true) {
                     val read = input.read(buffer)
                     if (read < 0) break
-                    if (output.size() + read > 131072) throw AuthFailure(AuthFailure.Kind.PROTOCOL)
+                    val maximumBytes = when (path) {
+                        "/workspace" -> 11_000_000
+                        "/bootstrap" -> 24_000_000
+                        else -> 131_072
+                    }
+                    if (output.size() + read > maximumBytes) throw AuthFailure(AuthFailure.Kind.PROTOCOL)
                     output.write(buffer, 0, read)
                 }
             }

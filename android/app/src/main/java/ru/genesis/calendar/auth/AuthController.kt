@@ -19,11 +19,12 @@ import kotlinx.coroutines.flow.asStateFlow
 class AuthPanelState(
     val busy: Boolean = false,
     val user: ServerIdentity? = null,
+    val preview: CloudWorkspacePreview.Summary? = null,
     val checkedAt: Long? = null,
     val message: String = "Серверная сессия ещё не проверена.",
 )
 
-/** Authentication only: it never changes draft workspaceScope or calls bootstrap/sync. */
+/** Account entry and explicit read-only cloud inspection; local draft scope never changes here. */
 class AuthController private constructor(context: Context) {
     private val client = AuthSessionClient(context.applicationContext)
     private val credentials = CredentialManager.create(context.applicationContext)
@@ -36,7 +37,17 @@ class AuthController private constructor(context: Context) {
         val payload = withContext(Dispatchers.IO) { client.session(generation) }
         val identity = AuthProtocol.identity(payload)
         publish(generation, AuthPanelState(user = identity, checkedAt = System.currentTimeMillis(),
-            message = if (identity == null) "На сервере нет активного входа." else "Сервер подтвердил вход. Синхронизация данных ещё не подключена."))
+            message = if (identity == null) "На сервере нет активного входа." else "Сервер подтвердил вход. Можно проверить облачные данные без их изменения."))
+    }
+
+    fun inspectWorkspace() = start("Читаем зашифрованное пространство…") { generation ->
+        val payload = withContext(Dispatchers.IO) { client.bootstrap(generation) }
+        val identity = AuthProtocol.identity(payload) ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
+        val preview = withContext(Dispatchers.Default) { CloudWorkspacePreview.inspect(payload) }
+        publish(generation, AuthPanelState(user = identity, preview = preview,
+            checkedAt = System.currentTimeMillis(), message = if (preview.isEmpty && (preview.tasks ?: 0) == 0)
+                "На сайте пока нет данных для загрузки. Локальные записи не менялись."
+            else "Облачные данные прочитаны и проверены. Локальные записи не менялись."))
     }
 
     fun signIn(activity: Activity) = start("Готовим защищённый вход…") { generation ->
@@ -54,7 +65,7 @@ class AuthController private constructor(context: Context) {
         val payload = withContext(Dispatchers.IO) { client.authenticate(generation, token) }
         val identity = AuthProtocol.identity(payload) ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
         publish(generation, AuthPanelState(user = identity, checkedAt = System.currentTimeMillis(),
-            message = "Вход подтверждён сервером. Локальные записи остаются в отдельном пространстве."))
+            message = "Вход подтверждён сервером. Проверьте облачные данные перед объединением."))
     }
 
     fun logout() = start("Закрываем серверную сессию…") { generation ->
@@ -87,24 +98,34 @@ class AuthController private constructor(context: Context) {
     private fun start(message: String, block: suspend (Long) -> Unit) {
         val generation = client.begin()
         operation?.cancel()
-        mutableState.value = AuthPanelState(busy = true, message = message)
+        val previous = mutableState.value
+        mutableState.value = AuthPanelState(busy = true, user = previous.user, preview = previous.preview,
+            checkedAt = previous.checkedAt, message = message)
         operation = scope.launch {
+            fun failed(message: String, retainIdentity: Boolean = true) = publish(generation,
+                AuthPanelState(user = previous.user.takeIf { retainIdentity },
+                    preview = previous.preview.takeIf { retainIdentity },
+                    checkedAt = previous.checkedAt.takeIf { retainIdentity }, message = message))
             try {
                 block(generation)
             } catch (error: CancellationException) {
-                if (client.isCurrent(generation)) publish(generation, AuthPanelState(message = "Проверка входа отменена."))
+                if (client.isCurrent(generation)) failed("Проверка входа отменена.")
                 throw error
             } catch (_: GetCredentialCancellationException) {
-                publish(generation, AuthPanelState(message = "Вход отменён. Локальные записи не изменены."))
+                failed("Вход отменён. Локальные записи не изменены.")
             } catch (_: GetCredentialProviderConfigurationException) {
-                publish(generation, AuthPanelState(message = "Поставщик входа Google недоступен. Проверьте наличие Google Play services; локальные функции доступны."))
+                failed("Поставщик входа Google недоступен. Проверьте наличие Google Play services; локальные функции доступны.")
             } catch (_: NoCredentialException) {
-                publish(generation, AuthPanelState(message = "Google не предоставил данные для входа. Проверьте аккаунт и настройки OAuth. Локальные функции доступны."))
+                failed("Google не предоставил данные для входа. Проверьте аккаунт и настройки OAuth. Локальные функции доступны.")
+            } catch (_: CloudWorkspacePreview.RecoveryRequired) {
+                failed("Данные сайта защищены кодом восстановления. Ничего не перезаписано; понадобится код из личного кабинета.")
+            } catch (_: CloudWorkspacePreview.Unreadable) {
+                failed("Не удалось проверить зашифрованные данные сайта. Сессия и локальные записи сохранены; ничего не перезаписано.")
             } catch (_: GetCredentialException) {
-                publish(generation, AuthPanelState(message = "Google-вход сейчас недоступен на устройстве. Локальные функции доступны."))
+                failed("Google-вход сейчас недоступен на устройстве. Локальные функции доступны.")
             } catch (error: AuthFailure) {
                 if (error.kind == AuthFailure.Kind.UNAUTHORIZED) clearCurrent(generation)
-                publish(generation, AuthPanelState(message = when (error.kind) {
+                failed(when (error.kind) {
                     AuthFailure.Kind.NOT_DEPLOYED -> "Нативный вход ещё не опубликован на сервере. Локальные функции доступны."
                     AuthFailure.Kind.UNAUTHORIZED -> "Сессия или запрос входа отклонены. Начните вход заново."
                     AuthFailure.Kind.RATE_LIMIT -> "Слишком много попыток. Повторите вход через минуту."
@@ -112,10 +133,10 @@ class AuthController private constructor(context: Context) {
                     AuthFailure.Kind.STORAGE -> "Защищённая сессия на устройстве недоступна. Повторите вход; локальные записи не изменены."
                     AuthFailure.Kind.SERVER -> "Сервер временно не может подтвердить вход. Повторите позже."
                     AuthFailure.Kind.PROTOCOL -> "Ответ сервера не прошёл проверку. Вход не подтверждён."
-                }))
+                }, retainIdentity = error.kind != AuthFailure.Kind.UNAUTHORIZED)
             } catch (_: Exception) {
                 clearCurrent(generation)
-                publish(generation, AuthPanelState(message = "Не удалось безопасно подтвердить вход. Локальные записи не изменены."))
+                failed("Не удалось безопасно подтвердить вход. Локальные записи не изменены.", retainIdentity = false)
             }
         }
     }
