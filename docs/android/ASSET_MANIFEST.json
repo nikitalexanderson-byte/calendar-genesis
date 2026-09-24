@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-24T18:24:21.893Z",
+  "generatedAt": "2026-09-24T18:29:35.202Z",
   "command": "node android/tools/verify-assets.mjs --require-apk",
   "sourceRoot": "public",
   "gradle": "android/app/build.gradle.kts",
@@ -24,8 +24,8 @@
   "generatedRoot": "android/app/build/generated/genesisAssets/originals",
   "apk": {
     "path": "android/app/build/outputs/apk/debug/app-debug.apk",
-    "size": 157874625,
-    "sha256": "be2e8703565ab9d8ebbc15f432817bf448ae1ca0b83704c6fca8a816b1f5e2d3"
+    "size": 158413771,
+    "sha256": "039b7e3e74353edf0fe042c4f3c4b2537a6d396e0a2ca0c5de933217246a1e78"
   },
   "summary": {
     "files": 527,

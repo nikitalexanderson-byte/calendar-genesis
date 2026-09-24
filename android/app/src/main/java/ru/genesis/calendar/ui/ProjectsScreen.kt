@@ -233,11 +233,15 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
                         if (project.description.isNotBlank()) Text(project.description, style = MaterialTheme.typography.bodyMedium)
                         tasksByProject[project.id].orEmpty().forEach { task ->
                             DraggableTaskRow(task, pickup?.id == task.id, onPickup, onDrag, onRelease) {
-                                TaskDragHandle(task)
-                                TextButton(onClick = { onOpenTask(task.id) }, modifier = Modifier.weight(1f)) {
-                                    Text(task.title)
+                                if (experimental) {
+                                    TaskDragHandle(task)
+                                    TextButton(onClick = { onOpenTask(task.id) }, modifier = Modifier.weight(1f)) {
+                                        Text(task.title)
+                                    }
+                                    TaskDestinationMenu(task, structure.projects, moveTask)
+                                } else {
+                                    TextButton(onClick = { onOpenTask(task.id) }) { Text(task.title) }
                                 }
-                                TaskDestinationMenu(task, structure.projects, moveTask)
                             }
                         }
                         TextButton(onClick = { onCreateTask(project.id) }) { Text("Создать задачу в проекте") }
@@ -247,9 +251,24 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
             }
         }
         if (!experimental) item {
-            InboxProjectCard(inbox, structure.projects, false, inboxExpanded,
-                { inboxExpanded = !inboxExpanded }, pickup?.id,
-                onPickup, onDrag, onRelease, onOpenTask, onCreateTask, moveTask)
+            Surface(color = MaterialTheme.colorScheme.surface, shape = MaterialTheme.shapes.large) {
+                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Без проекта", style = MaterialTheme.typography.titleMedium)
+                    Text("${inbox.size} задач в Хаос-боксе", style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    TextButton(onClick = { onCreateTask(null) }) { Text("Создать задачу без проекта") }
+                    if (selectedProject == null) {
+                        inbox.take(if (inboxExpanded) inbox.size else 1).forEach { task ->
+                            DraggableTaskRow(task, pickup?.id == task.id, onPickup, onDrag, onRelease) {
+                                TextButton(onClick = { onOpenTask(task.id) }) { Text(task.title) }
+                            }
+                        }
+                        if (inbox.size > 1) TextButton(onClick = { inboxExpanded = !inboxExpanded }) {
+                            Text(if (inboxExpanded) "Свернуть список" else "Показать ещё ${inbox.size - 1}")
+                        }
+                    }
+                }
+            }
         }
         error?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.error) } }
         moveAnnouncement?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.primary,

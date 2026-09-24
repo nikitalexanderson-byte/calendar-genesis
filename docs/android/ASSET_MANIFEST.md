@@ -1,10 +1,10 @@
 # Android original asset manifest
 
-Generated: 2026-09-24T18:24:21.893Z. Byte parity: **PASS**. Visual parity: **NOT_RUN**.
+Generated: 2026-09-24T18:29:35.202Z. Byte parity: **PASS**. Visual parity: **NOT_RUN**.
 
 527 public originals, 140951613 original bytes. Generated copies match: 527/527. APK decompressed entries match: 527/527.
 
-APK: `android/app/build/outputs/apk/debug/app-debug.apk` (157874625 bytes), SHA-256 `be2e8703565ab9d8ebbc15f432817bf448ae1ca0b83704c6fca8a816b1f5e2d3`.
+APK: `android/app/build/outputs/apk/debug/app-debug.apk` (158413771 bytes), SHA-256 `039b7e3e74353edf0fe042c4f3c4b2537a6d396e0a2ca0c5de933217246a1e78`.
 
 ## Reproduce
 
