@@ -11,7 +11,7 @@ $env:JAVA_HOME = 'C:\Program Files\Android\Android Studio\jbr'
 .\gradlew.bat :app:assembleDebug :app:testDebugUnitTest :app:assembleDebugAndroidTest :app:lintDebug --no-daemon --console=plain '-Pandroid.builder.sdkDownload=false'
 ```
 
-APK: `app/build/outputs/apk/debug/app-debug.apk`, package `ru.genesis.calendar.debug`, version `2.0.0-alpha01` (6). Debug and release are different identities; debug is not a release upgrade channel. Use `adb install -r` only on an approved device. Never uninstall/clear as a signing workaround.
+APK: `app/build/outputs/apk/debug/app-debug.apk`, package `ru.genesis.calendar.debug`, version `2.0.0-alpha02` (7). Debug and release are different identities; debug is not a release upgrade channel. Use `adb install -r` only on an approved device. Never uninstall/clear as a signing workaround.
 
 Current toolchain: AGP 9.4.0, Gradle 9.6.0, Kotlin/Compose compiler 2.2.10, compileSdk 37.2, targetSdk 37, minSdk 26. Gradle JVM uses `file.encoding=COMPAT` because Java argfiles otherwise corrupt Cyrillic checkout paths on this Windows installation; source code remains UTF-8. No global OS setting is changed.
 

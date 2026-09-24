@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-23T16:58:38.754Z",
+  "generatedAt": "2026-09-24T03:00:59.231Z",
   "command": "node android/tools/verify-assets.mjs --require-apk",
   "sourceRoot": "public",
   "gradle": "android/app/build.gradle.kts",
-  "gradleSha256": "1151f54cc94117edc145f9b4a3050da1516416c60fc3b43e68b2c5ea2721a1b4",
+  "gradleSha256": "237db0218cbf7ee8b9170d4c4932f4bf3c731dcf0447324a0a0c5cbdf49920f2",
   "includes": [
     "icons/**",
     "weekday-art/**",
@@ -24,8 +24,8 @@
   "generatedRoot": "android/app/build/generated/genesisAssets/originals",
   "apk": {
     "path": "android/app/build/outputs/apk/debug/app-debug.apk",
-    "size": 157641687,
-    "sha256": "f9dc04317775bb260f767d051012dc18b768d7060b0655660dead970bee45e60"
+    "size": 157838231,
+    "sha256": "be05012e7e7d99d208fde0e1c0b8e5641bda91a36510ace46d875d8e92757d28"
   },
   "summary": {
     "files": 527,

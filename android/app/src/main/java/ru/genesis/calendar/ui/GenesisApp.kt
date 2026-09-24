@@ -57,12 +57,15 @@ fun GenesisApp(app: GenesisApplication, openedTask: String?) {
     val model: GenesisViewModel = viewModel()
     val tasks by model.tasks.collectAsStateWithLifecycle()
     val error by model.error.collectAsStateWithLifecycle()
+    val structureRepo = remember(app) { WorkspaceStructureRepository(app) }
+    val structure by structureRepo.workspace.collectAsStateWithLifecycle(WorkspaceStructure())
     val prefsStore=remember { LocalPreferences(app,app.workspaceScope) }
     val prefs by prefsStore.values.collectAsStateWithLifecycle(UiPreferences())
     val scope=rememberCoroutineScope()
     var tab by rememberSaveable { mutableStateOf("Сегодня") }
     var editId by rememberSaveable { mutableStateOf<String?>(null) }
     var creating by rememberSaveable { mutableStateOf(false) }
+    var newTaskProjectId by rememberSaveable { mutableStateOf<String?>(null) }
     var selected by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
     LaunchedEffect(openedTask) { if(openedTask!=null) { editId=openedTask; creating=false; tab="Задачи" } }
     MaterialTheme(colorScheme=if(prefs.theme=="Experimental") experimental else standart) {
@@ -77,7 +80,7 @@ fun GenesisApp(app: GenesisApplication, openedTask: String?) {
                     else "Локальные черновики · аккаунт не подключён",Modifier.padding(horizontal=16.dp),
                     style=MaterialTheme.typography.bodySmall)
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal=8.dp)) {
-                    listOf("Сегодня","Задачи","Календарь","Привычки","Трекеры","Настройки").forEach {
+                    listOf("Сегодня","Задачи","Проекты","Календарь","Привычки","Трекеры","Настройки").forEach {
                         FilterChip(selected=tab==it,onClick={tab=it},label={Text(it)},modifier=Modifier.padding(3.dp))
                     }
                 }
@@ -85,6 +88,9 @@ fun GenesisApp(app: GenesisApplication, openedTask: String?) {
                 when(tab) {
                     "Привычки" -> HabitsScreen(app)
                     "Трекеры" -> TrackersScreen(app)
+                    "Проекты" -> ProjectsScreen(app,tasks,prefs.theme=="Experimental",
+                        onOpenTask={ taskId -> editId=taskId;creating=false;tab="Задачи" },
+                        onCreateTask={ projectId -> newTaskProjectId=projectId;editId=null;creating=true })
                     "Настройки" -> SettingsScreen(app,prefs) { name,value -> scope.launch { prefsStore.set(name,value) } }
                     "Календарь" -> CalendarScreen(LocalDate.parse(selected),prefs.display,
                         onSelect={selected=it.toString();tab="Сегодня"})
@@ -94,7 +100,7 @@ fun GenesisApp(app: GenesisApplication, openedTask: String?) {
                         item {
                             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
                                 Text(if(tab=="Сегодня") "Задачи дня" else "Все задачи",style=MaterialTheme.typography.titleLarge)
-                                Button(onClick={creating=true;editId=null},modifier=Modifier.testTag("create-task")) { Text("Создать") }
+                                Button(onClick={creating=true;editId=null;newTaskProjectId=null},modifier=Modifier.testTag("create-task")) { Text("Создать") }
                             }
                         }
                         val shown=tasks.filter { tab!="Сегодня" || it.date==selected }
@@ -106,6 +112,8 @@ fun GenesisApp(app: GenesisApplication, openedTask: String?) {
                                     Column(Modifier.weight(1f).clickable { editId=task.id;creating=false }.padding(8.dp)) {
                                         Text(task.title,style=MaterialTheme.typography.titleMedium)
                                         Text("${task.date} ${timeLabel(task.time,prefs.use24)} · Приоритет ${task.priority}",style=MaterialTheme.typography.bodySmall)
+                                        if(task.projectId!=null) Text(structure.projects.firstOrNull { it.id==task.projectId }?.title
+                                            ?: task.project.ifBlank { "Проект" },style=MaterialTheme.typography.labelSmall)
                                         Text("Сохранено на устройстве",style=MaterialTheme.typography.labelSmall)
                                     }
                                 }
@@ -115,7 +123,7 @@ fun GenesisApp(app: GenesisApplication, openedTask: String?) {
                 }
             }
             val existing=tasks.find { it.id==editId }
-            if(creating || existing!=null) TaskEditor(existing,selected,prefs,
+            if(creating || existing!=null) TaskEditor(existing,selected,prefs,structure,newTaskProjectId,
                 onDismiss={creating=false;editId=null},
                 onSave={draft -> model.save(draft){creating=false;editId=null}},
                 onDelete=existing?.let{{model.delete(it);creating=false;editId=null}})
@@ -179,13 +187,14 @@ private fun CalendarScreen(date: LocalDate,mode: CalendarMode,onSelect:(LocalDat
 }
 
 @Composable
-private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,onDismiss:()->Unit,
+private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,structure:WorkspaceStructure,initialProjectId:String?,onDismiss:()->Unit,
     onSave:(LocalTask)->Unit,onDelete:(()->Unit)?) {
     var title by rememberSaveable(task?.id) { mutableStateOf(task?.title ?: "") }
     var description by rememberSaveable(task?.id) { mutableStateOf(task?.description ?: "") }
     var date by rememberSaveable(task?.id) { mutableStateOf(task?.date ?: selected) }
     var time by rememberSaveable(task?.id) { mutableStateOf(task?.time ?: "") }
     var priority by rememberSaveable(task?.id) { mutableIntStateOf(task?.priority ?: 5) }
+    var projectId by rememberSaveable(task?.id,initialProjectId) { mutableStateOf(task?.projectId ?: initialProjectId) }
     var remind by rememberSaveable(task?.id) { mutableStateOf(task?.reminderAt) }
     var confirmDelete by remember { mutableStateOf(false) }
     var validation by remember { mutableStateOf<String?>(null) }
@@ -196,6 +205,15 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,onDis
                 Text(if(task==null) "Новая задача" else "Изменить задачу",style=MaterialTheme.typography.titleLarge)
                 OutlinedTextField(title,{title=it},label={Text("Название")},modifier=Modifier.fillMaxWidth().testTag("task-title"))
                 OutlinedTextField(description,{description=it},label={Text("Описание")},modifier=Modifier.fillMaxWidth())
+                Text("Проект",style=MaterialTheme.typography.titleMedium)
+                Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+                    FilterChip(selected=projectId==null || projectId=="__genesis_inbox__",
+                        onClick={projectId=null},label={Text("Хаос-бокс")})
+                    WorkspaceStructureCodec.ordered(structure).forEach { (project,depth) ->
+                        FilterChip(selected=projectId==project.id,onClick={projectId=project.id},
+                            label={Text("  ".repeat(depth)+project.title)})
+                    }
+                }
                 Text("Дата задачи · ${prefs.input.wireValue}")
                 AuthorDatePicker(date,prefs.input){date=it}
                 AuthorTimePicker(time,prefs.use24){time=it}
@@ -222,7 +240,8 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,onDis
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
                     TextButton(onClick=onDismiss){Text("Отмена")}
                     Button(enabled=title.isNotBlank(),onClick={
-                        onSave((task ?: LocalTask(title=title)).copy(title=title.trim(),description=description,date=date,time=time,priority=priority,reminderAt=remind))
+                        onSave((task ?: LocalTask(title=title)).copy(title=title.trim(),description=description,date=date,time=time,priority=priority,
+                            reminderAt=remind,projectId=projectId,categoryId=structure.projects.firstOrNull{it.id==projectId}?.categoryId))
                     },modifier=Modifier.testTag("save-task")){Text("Сохранить")}
                 }
                 onDelete?.let { TextButton(onClick={confirmDelete=true}){Text("Удалить задачу")} }

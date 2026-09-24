@@ -18,17 +18,24 @@ data class LocalTask(
     val done: Boolean = false,
     val reminderAt: Long? = null,
     val revision: Long = 0,
+    val projectId: String? = null,
+    val categoryId: String? = null,
+    val project: String = "",
 ) {
     fun json() = JSONObject().put("title", title).put("description", description)
         .put("dueDate", date).put("time", time).put("zoneId", zoneId).put("priority", priority)
-        .put("reminderAt", reminderAt ?: JSONObject.NULL).toString()
+        .put("reminderAt", reminderAt ?: JSONObject.NULL)
+        .put("projectId", projectId ?: JSONObject.NULL).put("categoryId", categoryId ?: JSONObject.NULL)
+        .put("project", project).toString()
     companion object {
         fun from(record: TaskRecord, json: String): LocalTask {
             val v = JSONObject(json)
             return LocalTask(record.id, v.getString("title"), v.optString("description"),
                 v.getString("dueDate"), v.optString("time"), v.getString("zoneId"),
                 v.getInt("priority"), record.done,
-                if (v.isNull("reminderAt")) null else v.getLong("reminderAt"), record.revision)
+                if (v.isNull("reminderAt")) null else v.getLong("reminderAt"), record.revision,
+                if (v.isNull("projectId")) null else v.getString("projectId"),
+                if (v.isNull("categoryId")) null else v.getString("categoryId"), v.optString("project"))
         }
     }
 }
@@ -54,7 +61,16 @@ class TaskRepository(private val db: GenesisDatabase, private val cipher: LocalC
         val saved = db.withTransaction {
             val existing = dao.task(scope, task.id)
             require(existing == null || existing.revision == task.revision) { "Запись изменилась. Откройте её заново." }
-            val next = task.copy(revision = (existing?.revision ?: 0) + 1)
+            val structure = dao.document(scope, "structure")?.let { WorkspaceStructureCodec.decode(
+                cipher.decrypt(it.encrypted, "$scope/structure"), it.revision) } ?: WorkspaceStructure()
+            val assigned = task.projectId?.takeUnless { it == "__genesis_inbox__" }?.let { id ->
+                structure.projects.find { it.id == id } ?: throw IllegalArgumentException("Проект не найден. Выберите его заново.")
+            }
+            require(task.categoryId == null || task.categoryId in structure.categories.map { it.id }) { "Категория не найдена." }
+            val next = task.copy(revision = (existing?.revision ?: 0) + 1,
+                project = assigned?.title ?: "",
+                categoryId = if (assigned != null) assigned.categoryId else
+                    if (task.projectId == "__genesis_inbox__") null else task.categoryId)
             dao.putTask(TaskRecord(scope, task.id, cipher.encrypt(next.json(), "$scope/${task.id}"), next.revision, task.done))
             dao.putOutbox(OutboxRecord(scope, task.id, next.revision, UUID.randomUUID().toString()))
             dao.cancelReminders(scope, task.id)
