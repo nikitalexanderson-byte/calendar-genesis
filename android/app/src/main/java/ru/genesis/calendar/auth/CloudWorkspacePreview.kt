@@ -7,6 +7,8 @@ import java.security.GeneralSecurityException
 
 /** Read-only inspection. A failed decrypt must never become an empty workspace or a new key. */
 object CloudWorkspacePreview {
+    data class Category(val id: String, val name: String, val color: String)
+
     data class Summary(
         val version: Long,
         val updatedAt: String?,
@@ -22,6 +24,7 @@ object CloudWorkspacePreview {
         val taskLists: Int?,
         val hasGoogleSyncWarning: Boolean,
         val isEmpty: Boolean,
+        val categoryItems: List<Category> = emptyList(),
     )
 
     class RecoveryRequired : Exception("Workspace recovery code is required")
@@ -63,10 +66,17 @@ object CloudWorkspacePreview {
                 val schema = document.optInt("trackerSchemaVersion", 0)
                 require(schema in 1..16) { "Unsupported cloud workspace schema" }
                 fun count(name: String): Int = document.getJSONArray(name).length()
+                val categoryRows = document.getJSONArray("categories")
+                val categoryItems = (0 until categoryRows.length()).mapNotNull { index ->
+                    val item = categoryRows.optJSONObject(index) ?: return@mapNotNull null
+                    val id = item.optString("id")
+                    val name = item.optString("name")
+                    if (id.isBlank() || name.isBlank()) null else Category(id, name, item.optString("color"))
+                }
                 return Summary(version, envelope.optString("updatedAt").takeIf { it.isNotBlank() },
                     count("projects"), count("categories"), count("habits"), count("habitCompletions"),
                     count("sleepEntries"), count("moodEntries"), count("rewardTransactions"),
-                    count("quests"), tasks, taskLists, warning, false)
+                    count("quests"), tasks, taskLists, warning, false, categoryItems)
             } finally {
                 plain.fill(0)
             }

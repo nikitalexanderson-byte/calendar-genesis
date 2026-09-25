@@ -16,7 +16,7 @@ import ru.genesis.calendar.domain.GenesisCalendar
 import ru.genesis.calendar.domain.SacredCatalog
 
 class CalendarFlowTest {
-    @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule val compose = createAndroidComposeRule<TestWorkspaceActivity>()
 
     @Test fun sacredMonthYearAndApeironRenderOriginalArtWithoutChangingTaskCalendar() {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
@@ -33,16 +33,10 @@ class CalendarFlowTest {
                 compose.onAllNodesWithContentDescription("Иллюстрация месяца ${currentMonth.name}")
                     .fetchSemanticsNodes().isNotEmpty()
             }
-            for (theme in listOf("Standart", "Experimental")) {
-                runBlocking { preferences.set("theme", theme) }
-                compose.waitUntil(10_000) {
-                    compose.onAllNodesWithTag("app-theme-$theme").fetchSemanticsNodes().isNotEmpty()
-                }
-                compose.onNodeWithTag("sacred-month-hero").assertIsDisplayed()
-                device.waitForIdle()
-                assertTrue(device.takeScreenshot(File(app.getExternalFilesDir(null),
-                    "calendar-${theme.lowercase()}-month.png")))
-            }
+            compose.onNodeWithTag("app-theme-Standart").assertExists()
+            compose.onNodeWithTag("sacred-month-hero").assertIsDisplayed()
+            device.waitForIdle()
+            assertTrue(device.takeScreenshot(File(app.getExternalFilesDir(null), "calendar-standart-month.png")))
             compose.onNodeWithText("Год").performClick()
             compose.onNodeWithTag("calendar-year").assertIsDisplayed()
             compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag("sacred-year-month-12"))
@@ -70,7 +64,6 @@ class CalendarFlowTest {
             compose.onNodeWithText("Задачи дня").assertExists()
         } finally {
             runBlocking {
-                preferences.set("theme", original.theme)
                 preferences.set("display", original.display.wireValue)
             }
         }

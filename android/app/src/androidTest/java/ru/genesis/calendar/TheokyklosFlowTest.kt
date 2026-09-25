@@ -7,16 +7,13 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
 import java.io.File
 import kotlin.math.abs
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
-import ru.genesis.calendar.data.LocalPreferences
 import ru.genesis.calendar.domain.TheokyklosCatalogSource
 
 class TheokyklosFlowTest {
-    @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule val compose = createAndroidComposeRule<TestWorkspaceActivity>()
 
     @Test fun allFourAxisAndThresholdMarkersOpenNativeDetails() {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
@@ -34,22 +31,10 @@ class TheokyklosFlowTest {
             compose.onNodeWithText(direction).assertExists()
         }
         val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
-        val preferences = LocalPreferences(app, app.workspaceScope)
-        val originalTheme = runBlocking { preferences.values.first().theme }
-        try {
-            for (theme in listOf("Standart", "Experimental")) {
-                runBlocking { preferences.set("theme", theme) }
-                compose.waitUntil(10_000) {
-                    compose.onAllNodesWithTag("app-theme-$theme").fetchSemanticsNodes().isNotEmpty()
-                }
-                compose.onNodeWithTag("theokyklos-mandala").assertIsDisplayed()
-                device.waitForIdle()
-                assertTrue(device.takeScreenshot(File(app.getExternalFilesDir(null),
-                    "theokyklos-${theme.lowercase()}-mandala.png")))
-            }
-        } finally {
-            runBlocking { preferences.set("theme", originalTheme) }
-        }
+        compose.onNodeWithTag("app-theme-Standart").assertExists()
+        compose.onNodeWithTag("theokyklos-mandala").assertIsDisplayed()
+        device.waitForIdle()
+        assertTrue(device.takeScreenshot(File(app.getExternalFilesDir(null), "theokyklos-standart-mandala.png")))
         compose.onNodeWithTag("theokyklos-card-hearth").performScrollTo()
         val centerTop = compose.onNodeWithTag("theokyklos-card-center").fetchSemanticsNode().boundsInRoot.top
         val hearthTop = compose.onNodeWithTag("theokyklos-card-hearth").fetchSemanticsNode().boundsInRoot.top

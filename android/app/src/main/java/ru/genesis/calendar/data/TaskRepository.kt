@@ -30,22 +30,42 @@ data class LocalTask(
     /** Retains web fields that the native editor does not yet expose. Always encrypted at rest. */
     val sourceFieldsJson: String = "{}",
 ) {
-    fun json() = JSONObject(sourceFieldsJson).put("id", id).put("done", done)
-        .put("title", title).put("description", description)
-        .put("dueDate", date).put("time", time).put("zoneId", zoneId).put("priority", priority)
-        .put("reminderAt", reminderAt ?: JSONObject.NULL)
-        .put("projectId", projectId ?: JSONObject.NULL).put("categoryId", categoryId ?: JSONObject.NULL)
-        .put("project", project)
-        .put("recurrence", "none")
-        .put("recurrenceMode", if (recurrence.enabled) recurrence.mode else "none")
-        .put("recurrencePattern", if (recurrence.enabled) recurrence.pattern else "none")
-        .put("recurrenceDays", JSONArray(if (recurrence.enabled) recurrence.days else emptyList<Int>()))
-        .put("recurrenceInterval", recurrence.interval)
-        .put("recurrenceStartDate", recurrence.rangeStart.takeIf { recurrence.enabled && it.isNotBlank() } ?: JSONObject.NULL)
-        .put("recurrenceEndDate", recurrence.rangeEnd.takeIf { recurrence.enabled && it.isNotBlank() } ?: JSONObject.NULL)
-        .put("recurrenceMonths", JSONArray(if (recurrence.enabled) recurrence.months else emptyList<Int>()))
-        .put("recurrencePyatas", JSONArray(if (recurrence.enabled) recurrence.pyatas else emptyList<Int>()))
-        .put("recurrenceExcludedDates", JSONArray(if (recurrence.enabled) recurrenceExcludedDates else emptyList<String>())).toString()
+    fun json(): String {
+        val source = JSONObject(sourceFieldsJson)
+        val previousDone = source.optBoolean("done")
+        val oldDate = runCatching { LocalDate.parse(source.optString("dueDate")) }.getOrNull()
+        val oldEnd = runCatching { LocalDate.parse(source.optString("endDate")) }.getOrNull()
+        val endDate = if (oldDate != null && oldEnd != null && oldEnd >= oldDate && oldDate.toString() != date)
+            runCatching { LocalDate.parse(date).plusDays(java.time.temporal.ChronoUnit.DAYS.between(oldDate, oldEnd)).toString() }
+                .getOrDefault(date)
+        else oldEnd?.toString() ?: date
+        val previousReminder = if (source.isNull("reminderAt")) null else source.optLong("reminderAt")
+        val remindersChanged = previousReminder != reminderAt
+        source.put("id", id).put("done", done)
+            .put("title", title).put("description", description)
+            .put("dueDate", date).put("endDate", endDate)
+            .put("time", time).put("zoneId", zoneId).put("priority", priority)
+            .put("updatedAt", System.currentTimeMillis())
+            .put("completedAt", if (done) source.optString("completedAt").takeIf {
+                previousDone && it.isNotBlank() && it != "null"
+            } ?: java.time.Instant.now().toString() else JSONObject.NULL)
+            .put("reminderAt", reminderAt ?: JSONObject.NULL)
+            .put("projectId", projectId ?: JSONObject.NULL).put("categoryId", categoryId ?: JSONObject.NULL)
+            .put("project", project)
+            .put("recurrence", "none")
+            .put("recurrenceMode", if (recurrence.enabled) recurrence.mode else "none")
+            .put("recurrencePattern", if (recurrence.enabled) recurrence.pattern else "none")
+            .put("recurrenceDays", JSONArray(if (recurrence.enabled) recurrence.days else emptyList<Int>()))
+            .put("recurrenceInterval", recurrence.interval)
+            .put("recurrenceStartDate", recurrence.rangeStart.takeIf { recurrence.enabled && it.isNotBlank() } ?: JSONObject.NULL)
+            .put("recurrenceEndDate", recurrence.rangeEnd.takeIf { recurrence.enabled && it.isNotBlank() } ?: JSONObject.NULL)
+            .put("recurrenceMonths", JSONArray(if (recurrence.enabled) recurrence.months else emptyList<Int>()))
+            .put("recurrencePyatas", JSONArray(if (recurrence.enabled) recurrence.pyatas else emptyList<Int>()))
+            .put("recurrenceExcludedDates", JSONArray(if (recurrence.enabled) recurrenceExcludedDates else emptyList<String>()))
+        if (remindersChanged) source.put("reminders", if (reminderAt == null) JSONArray() else JSONArray().put(
+            JSONObject().put("kind", "absolute").put("at", java.time.Instant.ofEpochMilli(reminderAt).toString())))
+        return source.toString()
+    }
     companion object {
         private fun ints(array: JSONArray?) = if (array == null) emptyList() else
             (0 until array.length()).mapNotNull { index -> array.optInt(index).takeIf { it > 0 } }

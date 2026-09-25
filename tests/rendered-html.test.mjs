@@ -1918,7 +1918,7 @@ test("covers every Theokyklos sector with sacred habits while keeping Stoicheion
   assert.match(styles, /\.sacred-sector-sigil\.awakened/);
 });
 
-test("ships a compact verified Android test application only to Android phones", async () => {
+test("keeps the TWA download and prepares a separate signed native Android release", async () => {
   const [installHook, calendar, welcome, styles, androidBuild, androidManifest, androidLauncher, androidBaseStyles, androidApi27Styles, assetLinks, htaccess, serviceWorker] = await Promise.all([
     readFile(new URL("../app/use-pwa-install.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
@@ -1941,15 +1941,19 @@ test("ships a compact verified Android test application only to Android phones",
   assert.match(installHook, /window\.location\.hostname[\s\S]*device[\s\S]*android-phone/);
   assert.match(installHook, /isAndroidPhone && !isStandalone/);
   assert.match(installHook, /downloads\/GENESIS-Android-1\.2\.2\.apk/);
+  assert.match(installHook, /downloads\/GENESIS-Android-Native-2\.0\.0\.apk/);
   assert.match(calendar, /androidApkUrl=\{androidApkUrl\}/);
-  assert.match(calendar, /Скачать приложение для телефона/);
+  assert.match(calendar, /nativeAndroidApkUrl=\{nativeAndroidApkUrl\}/);
+  assert.match(calendar, /android-native-icon-button/);
   assert.match(welcome, /android-download-button/);
-  assert.match(welcome, /Скачать приложение для телефона/);
+  assert.match(welcome, /Нативное Android-приложение/);
   assert.match(styles, /\.android-download-button/);
+  assert.match(styles, /\.ux-android-robot/);
   // The public 1.2.2 download stays unchanged while the isolated native alpha advances.
   const nativeVersionCode = Number(androidBuild.match(/versionCode = (\d+)/)?.[1]);
   assert.ok(nativeVersionCode >= 7);
-  assert.match(androidBuild, /versionName = "2\.0\.0-alpha\d+"/);
+  assert.match(androidBuild, /versionName = "2\.0\.0"/);
+  assert.match(androidBuild, /releaseSigningReady/);
   assert.match(androidBuild, /applicationIdSuffix = "\.debug"/);
   assert.match(androidBuild, /androidx\.browser:browser:1\.10\.0/);
   assert.match(androidBuild, /isMinifyEnabled = true/);
@@ -1979,6 +1983,7 @@ test("ships a compact verified Android test application only to Android phones",
   assert.match(htaccess, /application\/vnd\.android\.package-archive/);
   assert.match(htaccess, /ForceType application\/vnd\.android\.package-archive/);
   assert.match(htaccess, /Content-Disposition "attachment; filename=GENESIS-Android-1\.2\.2\.apk"/);
+  assert.match(htaccess, /Content-Disposition "attachment; filename=GENESIS-Android-Native-2\.0\.0\.apk"/);
   assert.match(htaccess, /Cache-Control "public, max-age=300, must-revalidate"/);
   assert.match(serviceWorker, /url\.pathname\.includes\("\/downloads\/"\)/);
   assert.ok(apk.size > 100_000, "APK should contain the complete Android application");

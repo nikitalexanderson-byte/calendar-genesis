@@ -346,7 +346,11 @@ try {
         genesisRequireCsrf();
         $payload = genesisReadJson();
         $saved = genesisSaveWorkspaceEnvelope($userId, $payload);
-        genesisSaveMetrics($userId, $payload);
+        // Native clients do not send a complete Google task census. Preserve the last
+        // trusted metrics instead of resetting them to zero on an encrypted-only PUT.
+        if (array_key_exists('metrics', $payload)) {
+            genesisSaveMetrics($userId, $payload);
+        }
         genesisJson(['ok' => true, 'workspace' => $saved]);
     }
 

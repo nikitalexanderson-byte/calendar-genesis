@@ -75,29 +75,42 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
     LaunchedEffect(repository) { runAction { repository.refresh() } }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
         Text("Привычки",style=MaterialTheme.typography.headlineMedium)
-        Text("Сохранено на этом устройстве · с аккаунтом сайта пока не синхронизируется.",style=MaterialTheme.typography.bodySmall)
-        Text("Внутренняя сборка: доступны отметки, XP, древо рангов, испытания, награды, защита серии и возвращение. Напоминания привычек ещё не подключены.",style=MaterialTheme.typography.bodySmall)
+        Text("Ежедневная практика, сон и настроение в одном защищённом пространстве.",
+            style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(if(app.workspaceScope.startsWith("account-"))
+            "Защищённая копия аккаунта GENESIS · изменения синхронизируются с сайтом"
+            else "Личные данные сохраняются на этом устройстве до входа в аккаунт.",
+            style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
         val current=workspace
         if(current==null) {
             if(!storageError) CircularProgressIndicator()
         } else {
             val rank=HeroProgress.rankForProgress(current.progress)
-            Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
-                OriginalImage("habit-ranks/heroic-ranks.webp", "Путь героических рангов",
-                    Modifier.fillMaxWidth().height(82.dp))
-                Text("${current.progress.lifetimeXp} XP · ${current.progress.laurelsBalance} Лавров",style=MaterialTheme.typography.titleLarge)
-                Text(rank.title)
-                Text("Серия: ${current.progress.currentStreak} · Ритм: ${current.progress.rhythmScore}%")
-                current.goals.firstOrNull { it.date==today }?.let { Text("Сегодня: ${it.completedCount}/${it.scheduledCount} · цель ${it.targetCount}") }
-            } }
-            if (experimental) HabitArtGallery(current, today, busy,
-                onClaimAmphora = { rankId -> scope.launch { runAction { repository.claimHeroPathAmphora(rankId) } } },
-                onRevealHiddenPath = { scope.launch { runAction { repository.revealHiddenHeroicPath() } } },
-                onBuySpark = { scope.launch { runAction { repository.buyHestiaSpark() } } })
+            val goal=current.goals.firstOrNull { it.date==today }
+            Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.primaryContainer)) {
+                Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                    Text("ЕЖЕДНЕВНЫЙ РИТМ",style=MaterialTheme.typography.labelMedium,
+                        color=MaterialTheme.colorScheme.primary)
+                    Text(if(goal==null || goal.scheduledCount==0) "Свободный день" else
+                        "Сегодня · ${goal.completedCount} из ${goal.scheduledCount}",
+                        style=MaterialTheme.typography.titleLarge)
+                    Text(if(goal==null || goal.scheduledCount==0)
+                        "На сегодня нет запланированных привычек. Серия не изменится."
+                        else "Дневная цель: ${goal.targetCount} · ${if(goal.status=="achieved") "достигнута" else "впереди"}",
+                        style=MaterialTheme.typography.bodyMedium)
+                    if(goal!=null && goal.scheduledCount>0) LinearProgressIndicator(
+                        progress={ (goal.completedCount.toFloat()/goal.scheduledCount).coerceIn(0f,1f) },
+                        modifier=Modifier.fillMaxWidth())
+                    HorizontalDivider()
+                    Text("Серия ${current.progress.currentStreak} дн.  ·  Ритм ${current.progress.rhythmScore}%  ·  ♕ ${current.progress.laurelsBalance} Лавров",
+                        style=MaterialTheme.typography.labelMedium)
+                }
+            }
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                Button(enabled=!busy&&!storageError,onClick={edit=null;editorOpen=true}) { Text("Новая привычка") }
-                OutlinedButton(enabled=!busy&&!storageError,onClick={catalogueOpen=!catalogueOpen}) { Text("Библиотека") }
+                Button(enabled=!busy&&!storageError,onClick={edit=null;editorOpen=true},modifier=Modifier.weight(1f)) { Text("Новая привычка") }
+                OutlinedButton(enabled=!busy&&!storageError,onClick={catalogueOpen=!catalogueOpen},modifier=Modifier.weight(1f)) {
+                    Text(if(catalogueOpen) "Скрыть подборку" else "Подборка") }
             }
             if(catalogueOpen) HabitTemplateCatalog.templates.forEach { template ->
                 Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(12.dp)) {
@@ -114,7 +127,9 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                     }) { Text("Добавить из библиотеки") }
                 } }
             }
-            if(current.habits.isEmpty()) Text("Добавьте привычку или выберите оригинальный шаблон из библиотеки.")
+            Text("Обычные привычки",style=MaterialTheme.typography.titleLarge)
+            if(current.habits.isEmpty()) Text("Здесь появятся ваши практики. Выберите идею из подборки или создайте свою.",
+                style=MaterialTheme.typography.bodyMedium)
             current.habits.sortedByDescending { it.priority }.forEach { habit ->
                 val entry=current.completions.firstOrNull { it.habitId==habit.id && it.date==today }
                 val scheduled=runCatching { engine.isScheduled(habit,today) }.getOrDefault(false)
@@ -139,6 +154,21 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                         TextButton(enabled=!busy&&!storageError,onClick={scope.launch { runAction { repository.save(habit.copy(active=!habit.active)) } }}) { Text(if(habit.active) "Пауза" else "Продолжить") }
                     }
                 } }
+            }
+            if (experimental) {
+                Text("Путь Героя и награды",style=MaterialTheme.typography.titleLarge)
+                Text("XP открывает ступени ранга; Лавры можно тратить на защиту серии. Ранги не заменяют ваши привычки.",
+                    style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(14.dp),
+                    verticalArrangement=Arrangement.spacedBy(4.dp)) {
+                    Text("Текущий ранг · ${rank.title}",style=MaterialTheme.typography.titleMedium)
+                    Text("${current.progress.lifetimeXp} XP накоплено · опыт не тратится",
+                        style=MaterialTheme.typography.bodySmall)
+                } }
+                HabitArtGallery(current, today, busy,
+                    onClaimAmphora = { rankId -> scope.launch { runAction { repository.claimHeroPathAmphora(rankId) } } },
+                    onRevealHiddenPath = { scope.launch { runAction { repository.revealHiddenHeroicPath() } } },
+                    onBuySpark = { scope.launch { runAction { repository.buyHestiaSpark() } } })
             }
             if(current.completions.isNotEmpty()) {
                 Text("История отметок",style=MaterialTheme.typography.titleMedium)

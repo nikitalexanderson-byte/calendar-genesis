@@ -29,15 +29,20 @@ import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
 import ru.genesis.calendar.*
 import ru.genesis.calendar.data.*
 import ru.genesis.calendar.domain.*
 import java.time.*
 import java.time.format.DateTimeFormatter
 
-private val standart = lightColorScheme(primary=Color(0xff255b59),onPrimary=Color(0xfffffdf8),
+internal val standart = lightColorScheme(primary=Color(0xff255b59),onPrimary=Color(0xfffffdf8),
     background=Color(0xffe1d9c8),onBackground=Color(0xff132426),surface=Color(0xfff8f5ed),
     onSurface=Color(0xff132426),onSurfaceVariant=Color(0xff526263),
     secondary=Color(0xffb28a4a),onSecondary=Color(0xff132426),secondaryContainer=Color(0xffd8bd80),
@@ -45,24 +50,47 @@ private val standart = lightColorScheme(primary=Color(0xff255b59),onPrimary=Colo
     surfaceVariant=Color(0xffe9e1d0),surfaceContainer=Color(0xfff8f5ed),surfaceContainerLow=Color(0xfff8f5ed),
     surfaceContainerLowest=Color(0xfffffdf8),surfaceContainerHigh=Color(0xffefe8d9),surfaceContainerHighest=Color(0xffe9e1d0),
     outline=Color(0xff9c927e),outlineVariant=Color(0xffd5cab4))
-private val experimental = standart.copy(primary=Color(0xff245d59),background=Color(0xfff3efe6),
-    onBackground=Color(0xff182c2d),surface=Color(0xfffffcf6),onSurface=Color(0xff182c2d),
-    onSurfaceVariant=Color(0xff586966),secondary=Color(0xff795b2b),secondaryContainer=Color(0xfff3e8cc),
-    primaryContainer=Color(0xffe4eeea),surfaceVariant=Color(0xffece7dc),
-    surfaceContainer=Color(0xfffffcf6),surfaceContainerLow=Color(0xfffffcf6),
-    surfaceContainerHighest=Color(0xffece7dc),outline=Color(0xff819089),outlineVariant=Color(0xffd9d7cc),
-    error=Color(0xffa13f35),errorContainer=Color(0xfff6e8e3))
-
 @Composable
-fun GenesisApp(app: GenesisApplication, openedTask: String?) {
-    val model: GenesisViewModel = viewModel()
+fun GenesisApp(app: GenesisApplication, openedTask: String?, testWorkspace: Boolean = false) {
+    require(!testWorkspace || BuildConfig.DEBUG)
+    val activeScope by app.scopeFlow.collectAsStateWithLifecycle()
+    key(activeScope) { GenesisWorkspaceContent(app, openedTask, activeScope, testWorkspace) }
+}
+
+@OptIn(FlowPreview::class)
+@Composable
+private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?, activeScope: String,
+    testWorkspace: Boolean) {
+    val model: GenesisViewModel = viewModel(key = "genesis-$activeScope")
     val tasks by model.tasks.collectAsStateWithLifecycle()
     val error by model.error.collectAsStateWithLifecycle()
-    val structureRepo = remember(app) { WorkspaceStructureRepository(app) }
+    val structureRepo = remember(app, activeScope) { WorkspaceStructureRepository(app) }
     val structure by structureRepo.workspace.collectAsStateWithLifecycle(WorkspaceStructure())
-    val prefsStore=remember { LocalPreferences(app,app.workspaceScope) }
+    val prefsStore=remember(app, activeScope) { LocalPreferences(app,activeScope) }
     val prefs by prefsStore.values.collectAsStateWithLifecycle(UiPreferences())
+    val welcomePrefsStore=remember(app) { LocalPreferences(app,"welcome") }
+    val welcomePrefs by welcomePrefsStore.values.collectAsStateWithLifecycle(UiPreferences())
+    val authController = remember(app) { ru.genesis.calendar.auth.AuthController.get(app) }
+    val authState by authController.state.collectAsStateWithLifecycle()
     val scope=rememberCoroutineScope()
+    var preferredWelcomeLanguage by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(authController, activeScope, testWorkspace) { if (!testWorkspace) authController.checkSession() }
+    LaunchedEffect(activeScope, authState.user, authState.busy) {
+        if (!testWorkspace && activeScope.startsWith("account-") && authState.user != null && !authState.busy) {
+            app.database.dao().observeOutbox(activeScope).debounce(800).collectLatest { pending ->
+                if (pending.isNotEmpty()) authController.syncPending()
+            }
+        }
+    }
+    LaunchedEffect(authState.accountSettings) {
+        authState.accountSettings?.let { remote ->
+            if (remote.calendarMode in setOf("sacred", "lunar", "profane")) prefsStore.set("display", remote.calendarMode)
+            if (remote.taskCalendarMode in setOf("sacred", "lunar", "profane")) prefsStore.set("input", remote.taskCalendarMode)
+            if (remote.timeFormat in setOf("12h", "24h")) prefsStore.set("time", remote.timeFormat)
+            if (remote.language in setOf("ru", "en")) prefsStore.set("language", remote.language)
+            prefsStore.set("stoicheionDivinationDisabled", remote.divinationDisabled.toString())
+        }
+    }
     var tab by rememberSaveable { mutableStateOf("Сегодня") }
     var editId by rememberSaveable { mutableStateOf<String?>(null) }
     var creating by rememberSaveable { mutableStateOf(false) }
@@ -70,15 +98,24 @@ fun GenesisApp(app: GenesisApplication, openedTask: String?) {
     var requestedTheokyklosSector by rememberSaveable { mutableStateOf<String?>(null) }
     var selected by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
     LaunchedEffect(openedTask) { if(openedTask!=null) { editId=openedTask; creating=false; tab="Задачи" } }
-    MaterialTheme(colorScheme=if(prefs.theme=="Experimental") experimental else standart) {
-        Surface(Modifier.fillMaxSize().testTag("app-theme-${prefs.theme}"),color=MaterialTheme.colorScheme.background) {
+    MaterialTheme(colorScheme=standart) {
+      CompositionLocalProvider(LocalGenesisLanguage provides
+          (if(testWorkspace || activeScope.startsWith("account-")) prefs.language else welcomePrefs.language)) {
+        Surface(Modifier.fillMaxSize().testTag("app-theme-Standart"),color=MaterialTheme.colorScheme.background) {
+            if (!testWorkspace && (!activeScope.startsWith("account-") || authState.user == null || !authState.ready)) {
+                WelcomeScreen(authState,authController,welcomePrefs.language,preferredWelcomeLanguage) { language ->
+                    preferredWelcomeLanguage = language
+                    scope.launch { welcomePrefsStore.set("language",language) }
+                }
+            } else {
             Column(Modifier.safeDrawingPadding().imePadding()) {
                 Row(Modifier.fillMaxWidth().padding(12.dp),verticalAlignment=Alignment.CenterVertically) {
                     OriginalImage("icons/icon-192.png","GENESIS",Modifier.size(40.dp))
                     Text("GENESIS",Modifier.padding(start=10.dp).weight(1f),style=MaterialTheme.typography.titleLarge)
                     Text(if(BuildConfig.DEBUG) "Internal alpha" else "2.0",style=MaterialTheme.typography.labelSmall)
                 }
-                Text(if(BuildConfig.DEBUG) "Изолированное тестовое пространство · только на этом устройстве"
+                Text(if (activeScope.startsWith("account-")) "Аккаунт GENESIS · защищённая локальная копия"
+                    else if(BuildConfig.DEBUG) "Изолированное тестовое пространство · только на этом устройстве"
                     else "Локальные черновики · аккаунт не подключён",Modifier.padding(horizontal=16.dp),
                     style=MaterialTheme.typography.bodySmall)
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal=8.dp)) {
@@ -88,25 +125,27 @@ fun GenesisApp(app: GenesisApplication, openedTask: String?) {
                 }
                 error?.let { Text(it,color=MaterialTheme.colorScheme.error,modifier=Modifier.padding(12.dp)) }
                 when(tab) {
-                    "Привычки" -> HabitsScreen(app,prefs.theme=="Experimental")
+                    "Привычки" -> HabitsScreen(app,true)
                     "Теокиклос" -> TheokyklosScreen(app,prefs.input,onOpenHabits={tab="Привычки"},
                         initialSectorId=requestedTheokyklosSector,
                         onInitialSectorConsumed={requestedTheokyklosSector=null})
                     "Стойхейон" -> StoicheionScreen(app,prefs.divinationDisabled, onOpenTheokyklosSector={ sectorId ->
                         requestedTheokyklosSector=sectorId; tab="Теокиклос"
                     })
-                    "Проекты" -> ProjectsScreen(app,tasks,prefs.theme=="Experimental",
+                    "Проекты" -> ProjectsScreen(app,tasks,true,
                         onOpenTask={ taskId -> editId=taskId;creating=false;tab="Задачи" },
                         onCreateTask={ projectId -> newTaskProjectId=projectId;editId=null;creating=true })
-                    "Настройки" -> SettingsScreen(app,prefs) { name,value -> scope.launch { prefsStore.set(name,value) } }
+                    "Настройки" -> SettingsScreen(app,prefs,authState.busy,authState.user != null,authState.message) { name,value ->
+                        if (authState.user != null) authController.updateSharedPreference(name,value)
+                        else scope.launch { prefsStore.set(name,value) }
+                    }
                     "Календарь" -> CalendarScreen(LocalDate.parse(selected),prefs.display,
                         onSelect={selected=it.toString();tab="Сегодня"},
-                        experimental=prefs.theme=="Experimental", tasks=tasks)
+                        experimental=true, tasks=tasks)
                     else -> LazyColumn(Modifier.weight(1f).testTag("today-list"),contentPadding=PaddingValues(16.dp),
                         verticalArrangement=Arrangement.spacedBy(12.dp)) {
-                        if(tab=="Сегодня") item { DayHeader(LocalDate.parse(selected),prefs.display,
-                            prefs.theme=="Experimental") }
-                        if(tab=="Сегодня" && prefs.theme=="Experimental") item {
+                        if(tab=="Сегодня") item { DayHeader(LocalDate.parse(selected),prefs.display) }
+                        if(tab=="Сегодня") item {
                             DayRhythmPanel(prefs.use24)
                         }
                         item {
@@ -122,7 +161,7 @@ fun GenesisApp(app: GenesisApplication, openedTask: String?) {
                                 Row(Modifier.padding(8.dp),verticalAlignment=Alignment.CenterVertically) {
                                     Checkbox(checked=task.done,onCheckedChange={model.complete(task)})
                                     Column(Modifier.weight(1f).clickable { editId=task.id;creating=false }.padding(8.dp)) {
-                                        Text(task.title,style=MaterialTheme.typography.titleMedium)
+                                        androidx.compose.material3.Text(task.title,style=MaterialTheme.typography.titleMedium)
                                         Text("${if(tab=="Сегодня") selected else task.date} ${timeLabel(task.time,prefs.use24)} · Приоритет ${task.priority}" +
                                             if (task.recurrence.enabled) " · Повторяется" else "",style=MaterialTheme.typography.bodySmall)
                                         if(task.projectId!=null) Text(structure.projects.firstOrNull { it.id==task.projectId }?.title
@@ -132,7 +171,7 @@ fun GenesisApp(app: GenesisApplication, openedTask: String?) {
                                 }
                             }
                         }
-                        if(tab=="Сегодня" && prefs.theme=="Experimental") item {
+                        if(tab=="Сегодня") item {
                             DayKnowledgePanel(LocalDate.parse(selected))
                         }
                     }
@@ -140,6 +179,7 @@ fun GenesisApp(app: GenesisApplication, openedTask: String?) {
             }
             val existing=tasks.find { it.id==editId }
             if(creating || existing!=null) TaskEditor(existing,selected,prefs,structure,newTaskProjectId,
+                authState.accountSettings,
                 onDismiss={creating=false;editId=null},
                 onSave={draft -> model.save(draft){creating=false;editId=null}},
                 onDelete=existing?.let{{model.delete(it);creating=false;editId=null}},
@@ -147,7 +187,9 @@ fun GenesisApp(app: GenesisApplication, openedTask: String?) {
                     { date -> model.excludeOccurrence(series,date) { creating=false;editId=null } }
                 },
                 showSelectedOccurrence=tab=="Сегодня")
+            }
         }
+      }
     }
 }
 
@@ -163,18 +205,9 @@ fun OriginalImage(path: String, description: String?, modifier: Modifier=Modifie
 }
 
 @Composable
-private fun DayHeader(date: LocalDate,mode: CalendarMode,experimentalTheme: Boolean) {
+private fun DayHeader(date: LocalDate,mode: CalendarMode) {
     val calendar=remember { GenesisCalendar() }
-    val sacred=calendar.sacredDate(date)
-    val month=SacredCatalog.months[sacred.monthIndex]
-    val day=month.days.first { it.day==sacred.day }
-    val weekFiles=listOf("weekday-0-sunday-apollo.webp","weekday-1-monday-lunar-goddesses.webp",
-        "weekday-2-tuesday-ares.webp","weekday-3-wednesday-hermes.webp","weekday-4-thursday-zeus-hera.webp",
-        "weekday-5-friday-aphrodite-hestia-dionysus.webp","weekday-6-saturday-cronus.webp")
-    val path = if(mode==CalendarMode.PROFANE) "weekday-art/${weekFiles[date.dayOfWeek.value%7]}"
-        else "day-art-v1/month-${(sacred.monthIndex+1).toString().padStart(2,'0')}/day-${sacred.day.toString().padStart(2,'0')}.webp"
-    if (experimentalTheme) {
-        val copy = remember(date,mode) { todayHeroCopy(date,mode,calendar) }
+    val copy = remember(date,mode) { todayHeroCopy(date,mode,calendar) }
         Card(Modifier.fillMaxWidth().testTag("today-hero"), shape = RoundedCornerShape(20.dp),
             border = BorderStroke(1.dp, Color(0x66dfc17e))) {
             Box(Modifier.fillMaxWidth().heightIn(min = if(mode==CalendarMode.PROFANE) 540.dp else 390.dp)) {
@@ -210,22 +243,11 @@ private fun DayHeader(date: LocalDate,mode: CalendarMode,experimentalTheme: Bool
                 }
             }
         }
-        return
-    }
-    Card(Modifier.fillMaxWidth()) {
-        OriginalImage(path,
-            if(mode==CalendarMode.PROFANE) date.dayOfWeek.toString() else day.name,
-            Modifier.fillMaxWidth().height(190.dp))
-        Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-            Text(calendar.formatDate(date,mode),style=MaterialTheme.typography.titleLarge)
-            Text(date.format(DateTimeFormatter.ofPattern("d MMMM yyyy",java.util.Locale.forLanguageTag("ru"))))
-            if(mode==CalendarMode.SACRED) { Text(day.name,style=MaterialTheme.typography.titleMedium);Text(day.description) }
-        }
-    }
 }
 
 @Composable
-private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,structure:WorkspaceStructure,initialProjectId:String?,onDismiss:()->Unit,
+private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,structure:WorkspaceStructure,initialProjectId:String?,
+    accountSettings:ru.genesis.calendar.auth.AccountSettings?,onDismiss:()->Unit,
     onSave:(LocalTask)->Unit,onDelete:(()->Unit)?,onDeleteOccurrence:((String)->Unit)?,showSelectedOccurrence:Boolean) {
     var title by rememberSaveable(task?.id) { mutableStateOf(task?.title ?: "") }
     var description by rememberSaveable(task?.id) { mutableStateOf(task?.description ?: "") }
@@ -234,6 +256,13 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
     var priority by rememberSaveable(task?.id) { mutableIntStateOf(task?.priority ?: 5) }
     var recurrence by remember(task?.id) { mutableStateOf(task?.recurrence ?: defaultTaskRecurrence(task?.date ?: selected, prefs.input)) }
     var projectId by rememberSaveable(task?.id,initialProjectId) { mutableStateOf(task?.projectId ?: initialProjectId) }
+    val routing=accountSettings?.routing
+    val originalTargets=remember(task?.id,accountSettings) {
+        task?.sourceFieldsJson?.let { raw -> runCatching { JSONObject(raw).optJSONArray("syncAccountIds") }.getOrNull() }
+            ?.let { array -> (0 until array.length()).map { array.optString(it) } }
+            ?.takeIf { it.isNotEmpty() } ?: routing?.defaultAccountIds.orEmpty()
+    }
+    var syncTargets by remember(task?.id,accountSettings) { mutableStateOf(originalTargets) }
     var remind by rememberSaveable(task?.id) { mutableStateOf(task?.reminderAt) }
     var confirmDelete by remember { mutableStateOf(false) }
     var validation by remember { mutableStateOf<String?>(null) }
@@ -255,6 +284,20 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                     WorkspaceStructureCodec.ordered(structure).forEach { (project,depth) ->
                         FilterChip(selected=projectId==project.id,onClick={projectId=project.id},
                             label={Text("  ".repeat(depth)+project.title)})
+                    }
+                }
+                if(accountSettings?.multiAccountEnabled==true && accountSettings.accounts.size>1 && routing?.mode=="choose") {
+                    Text("Отправить в Google-аккаунты",style=MaterialTheme.typography.titleMedium)
+                    Text("Выберите один или несколько аккаунтов для этой задачи.",
+                        style=MaterialTheme.typography.bodySmall)
+                    accountSettings.accounts.forEach { account ->
+                        Row(Modifier.fillMaxWidth().heightIn(min=48.dp),verticalAlignment=Alignment.CenterVertically) {
+                            Checkbox(checked=account.id in syncTargets,onCheckedChange={ checked ->
+                                syncTargets=if(checked) (syncTargets+account.id).distinct()
+                                    else syncTargets.filterNot { it==account.id }
+                            })
+                            Text(account.email,style=MaterialTheme.typography.bodyMedium)
+                        }
                     }
                 }
                 Text("Дата задачи · ${prefs.input.wireValue}")
@@ -287,7 +330,8 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                 validation?.let { Text(it,color=MaterialTheme.colorScheme.error) }
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
                     TextButton(onClick=onDismiss){Text("Отмена")}
-                    Button(enabled=title.isNotBlank(),onClick={
+                    Button(enabled=title.isNotBlank() && (routing?.mode!="choose" ||
+                        accountSettings?.multiAccountEnabled!=true || syncTargets.isNotEmpty()),onClick={
                         val start = runCatching { LocalDate.parse(date) }.getOrNull()
                         val end = runCatching { LocalDate.parse(recurrence.rangeEnd) }.getOrNull()
                         validation = when {
@@ -298,11 +342,17 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                                 "Серия должна содержать от 1 до 500 повторений."
                             else -> null
                         }
+                        val source = JSONObject(task?.sourceFieldsJson ?: "{}")
+                        if(routing?.mode=="choose" && accountSettings?.multiAccountEnabled==true && accountSettings.accounts.size>1)
+                            source.put("syncAccountIds",JSONArray(syncTargets))
+                        else if(task==null || task.categoryId!=structure.projects.firstOrNull{it.id==projectId}?.categoryId)
+                            source.remove("syncAccountIds")
                         if (validation == null) onSave((task ?: LocalTask(title=title)).copy(title=title.trim(),description=description,date=date,time=time,priority=priority,
                             reminderAt=remind,projectId=projectId,categoryId=structure.projects.firstOrNull{it.id==projectId}?.categoryId,
                             recurrence=if (recurrence.enabled) RecurrenceEngine(GenesisCalendar()).resolve(date,recurrence.copy(rangeStart=date))
                                 else recurrence.copy(enabled=false,rangeStart="",rangeEnd=""),
-                            recurrenceExcludedDates=if(recurrence.enabled) task?.recurrenceExcludedDates ?: emptyList() else emptyList()))
+                            recurrenceExcludedDates=if(recurrence.enabled) task?.recurrenceExcludedDates ?: emptyList() else emptyList(),
+                            sourceFieldsJson=source.toString()))
                     },modifier=Modifier.testTag("save-task")){Text("Сохранить")}
                 }
                 onDelete?.let { TextButton(onClick={confirmDelete=true}){Text("Удалить задачу")} }
@@ -325,23 +375,30 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
 }
 
 @Composable
-private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,onSet:(String,String)->Unit) {
+private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy:Boolean,signedIn:Boolean,
+    sharedStatus:String,
+    onSet:(String,String)->Unit) {
     var refresh by remember { mutableIntStateOf(0) }
     val request=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()){refresh++}
     val scope=rememberCoroutineScope()
     val rows by produceState(emptyList<ReminderRecord>(),refresh) { value=withContext(Dispatchers.IO){app.database.dao().reminders(app.workspaceScope)} }
     Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(10.dp)) {
         Text("Настройки",style=MaterialTheme.typography.titleLarge)
-        Text("Тема")
-        Row { listOf("Standart","Experimental").forEach{FilterChip(selected=prefs.theme==it,onClick={onSet("theme",it)},label={Text(it)})} }
+        Text("Язык интерфейса",style=MaterialTheme.typography.titleMedium)
+        LanguageChips(prefs.language) { onSet("language",it) }
+        Text(if(signedIn) "Календарь, время и гадания сохраняются в аккаунте GENESIS и зеркалируются на устройстве."
+            else "До входа эти настройки сохраняются только на устройстве.",style=MaterialTheme.typography.bodySmall)
+        if(signedIn) Text(sharedStatus,style=MaterialTheme.typography.labelSmall)
         listOf("display" to "Календарь отображения","input" to "Календарь ввода и повторений").forEach{(key,label)->
             Text(label)
             Row(Modifier.horizontalScroll(rememberScrollState())) { CalendarMode.entries.forEach { mode->
                 FilterChip(selected=(if(key=="display") prefs.display else prefs.input)==mode,onClick={onSet(key,mode.wireValue)},
+                    enabled=!sharedBusy,
                     label={Text(when(mode){CalendarMode.SACRED->"Сакральный";CalendarMode.LUNAR->"Лунный";else->"Григорианский"})})
             } }
         }
-        Row { listOf("24h","12h").forEach { FilterChip(selected=prefs.use24==(it=="24h"),onClick={onSet("time",it)},label={Text(it)})} }
+        Row { listOf("24h","12h").forEach { FilterChip(selected=prefs.use24==(it=="24h"),onClick={onSet("time",it)},
+            enabled=!sharedBusy,label={Text(it)})} }
         HorizontalDivider()
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -351,6 +408,7 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,onSet:(Str
             }
             Switch(checked=!prefs.divinationDisabled,
                 onCheckedChange={onSet("stoicheionDivinationDisabled",(!it).toString())},
+                enabled=!sharedBusy,
                 modifier=Modifier.testTag("stoicheion-divination-setting"))
         }
         HorizontalDivider()

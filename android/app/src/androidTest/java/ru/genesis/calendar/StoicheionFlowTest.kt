@@ -19,7 +19,7 @@ import ru.genesis.calendar.domain.StoicheionReading
 import ru.genesis.calendar.domain.TheokyklosCatalogSource
 
 class StoicheionFlowTest {
-    @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule val compose = createAndroidComposeRule<TestWorkspaceActivity>()
 
     @Test fun allAuthoredLettersAndArtAreAvailableOffline() {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication

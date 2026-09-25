@@ -35,6 +35,7 @@ class HabitsRepository(private val app: GenesisApplication) {
         val current=if(record==null) LocalHabitWorkspace() else HabitDocument.decode(cipher.decrypt(record.encrypted,"$scope/habits"),record.revision)
         val next=reconcile(change(current)).copy(revision=current.revision+1)
         dao.putDocument(DocumentRecord(scope,"habits",cipher.encrypt(HabitDocument.encode(next),"$scope/habits"),next.revision))
+        if (scope.startsWith("account-")) dao.putOutbox(OutboxRecord(scope,"habits",next.revision,UUID.randomUUID().toString()))
     }
 
     suspend fun refresh() { if(dao.document(scope,"habits") != null) mutate { it } }

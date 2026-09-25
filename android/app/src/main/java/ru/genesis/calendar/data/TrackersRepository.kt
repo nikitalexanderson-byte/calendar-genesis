@@ -2,6 +2,7 @@ package ru.genesis.calendar.data
 
 import androidx.room.withTransaction
 import java.time.*
+import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
@@ -30,6 +31,7 @@ class TrackersRepository(app: GenesisApplication) {
         val current=if(row==null)LocalTrackersWorkspace() else TrackersDocument.decode(cipher.decrypt(row.encrypted,"$scope/trackers"),row.revision)
         val next=change(current).copy(revision=current.revision+1)
         dao.putDocument(DocumentRecord(scope,"trackers",cipher.encrypt(TrackersDocument.encode(next),"$scope/trackers"),next.revision))
+        if (scope.startsWith("account-")) dao.putOutbox(OutboxRecord(scope,"trackers",next.revision,UUID.randomUUID().toString()))
     }
     suspend fun savePlan(plan: SleepPlan) = mutate { current ->
         require(plan.title.isNotBlank()&&plan.title.length<=500) { "Введите название плана до 500 символов." }

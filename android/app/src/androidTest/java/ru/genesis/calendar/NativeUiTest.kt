@@ -14,7 +14,7 @@ import kotlinx.coroutines.runBlocking
 import java.util.UUID
 
 class NativeUiTest {
-    @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule val compose = createAndroidComposeRule<TestWorkspaceActivity>()
     @Before fun requireIsolatedDebug() {
         check(BuildConfig.DEBUG && compose.activity.packageName.endsWith(".debug"))
         compose.runOnUiThread { compose.activity.window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
@@ -23,6 +23,7 @@ class NativeUiTest {
         val title = "UI synthetic validation ${UUID.randomUUID()}"
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
         compose.runOnUiThread { compose.activity.window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
+        compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("create-task"))
         compose.onNodeWithTag("create-task").performClick()
         compose.onNodeWithTag("task-title").performTextInput(title)
         UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()
@@ -59,6 +60,7 @@ class NativeUiTest {
     }
 
     @Test fun prioritySupportsHoldAndHorizontalDrag() {
+        compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("create-task"))
         compose.onNodeWithTag("create-task").performClick()
         compose.onNodeWithTag("priority-scale").performScrollTo().performTouchInput {
             down(Offset(center.x * .24f, center.y))
@@ -69,5 +71,29 @@ class NativeUiTest {
         }
         compose.onNodeWithText("Приоритет · Горит · 10 из 10").assertExists()
         compose.onNodeWithText("Отмена").performScrollTo().performClick()
+    }
+
+    @Test fun accountSettingsAlwaysShowThreeExternalLinks() {
+        compose.onNodeWithText("Настройки").performScrollTo().performClick()
+        compose.onNodeWithTag("account-link-telegram").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("account-link-donate").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("account-link-web").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test fun settingsLanguageSwitchesWithoutLeavingWorkspace() {
+        val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
+        val preferences = ru.genesis.calendar.data.LocalPreferences(app, app.workspaceScope)
+        val initial = runBlocking { preferences.values.first().language }
+        try {
+            runBlocking { preferences.set("language", "ru") }
+            compose.waitUntil(5_000) { compose.onAllNodesWithText("Настройки").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithText("Настройки").performScrollTo().performClick()
+            compose.onNodeWithTag("language-en").performClick()
+            compose.onAllNodesWithText("Settings").onFirst().assertExists()
+            compose.onNodeWithTag("language-ru").performClick()
+            compose.onAllNodesWithText("Настройки").onFirst().assertExists()
+        } finally {
+            runBlocking { preferences.set("language", initial) }
+        }
     }
 }

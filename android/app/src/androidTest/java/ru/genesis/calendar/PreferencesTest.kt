@@ -9,7 +9,7 @@ import ru.genesis.calendar.data.LocalPreferences
 import ru.genesis.calendar.domain.CalendarMode
 
 class PreferencesTest {
-    @Test fun thirtySixSettingsCombinationsPersistWithoutTaskMutation() = runBlocking {
+    @Test fun eighteenCalendarAndTimeCombinationsPersistWithoutTaskMutation() = runBlocking {
         val app=InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
         check(BuildConfig.DEBUG && app.packageName.endsWith(".debug"))
         val preferences=LocalPreferences(app,app.workspaceScope)
@@ -17,19 +17,19 @@ class PreferencesTest {
         val recordsBefore=app.database.dao().observeTasks(app.workspaceScope).first().sortedBy { it.id }
         var combinations=0
         try {
-            for(theme in listOf("Standart","Experimental")) for(display in CalendarMode.entries)
+            for(display in CalendarMode.entries)
                 for(input in CalendarMode.entries) for(time in listOf("24h","12h")) {
-                    preferences.set("theme",theme); preferences.set("display",display.wireValue)
+                    preferences.set("display",display.wireValue)
                     preferences.set("input",input.wireValue); preferences.set("time",time)
                     val read=LocalPreferences(app,app.workspaceScope).values.first()
-                    assertEquals(theme,read.theme);assertEquals(display,read.display);assertEquals(input,read.input)
+                    assertEquals(display,read.display);assertEquals(input,read.input)
                     assertEquals(time=="24h",read.use24)
                     assertEquals(recordsBefore,app.database.dao().observeTasks(app.workspaceScope).first().sortedBy { it.id })
                     combinations++
                 }
-            assertEquals(36,combinations)
+            assertEquals(18,combinations)
         } finally {
-            preferences.set("theme",initial.theme);preferences.set("display",initial.display.wireValue)
+            preferences.set("display",initial.display.wireValue)
             preferences.set("input",initial.input.wireValue);preferences.set("time",if(initial.use24)"24h" else "12h")
         }
     }

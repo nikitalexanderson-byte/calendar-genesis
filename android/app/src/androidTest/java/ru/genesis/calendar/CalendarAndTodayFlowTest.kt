@@ -13,17 +13,17 @@ import androidx.test.uiautomator.UiDevice
 import ru.genesis.calendar.data.LocalPreferences
 
 class CalendarAndTodayFlowTest {
-    @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule val compose = createAndroidComposeRule<TestWorkspaceActivity>()
 
-    @Test fun experimentalTodayAndCalendarExposeWebDayDetails() {
+    @Test fun singleThemeTodayAndCalendarExposeWebDayDetails() {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
         check(BuildConfig.DEBUG && app.packageName.endsWith(".debug"))
         val prefs = LocalPreferences(app, app.workspaceScope)
         val original = runBlocking { prefs.values.first() }
         try {
-            runBlocking { prefs.set("theme", "Experimental"); prefs.set("display", "sacred") }
+            runBlocking { prefs.set("display", "sacred") }
             compose.waitUntil(10_000) {
-                compose.onAllNodesWithTag("app-theme-Experimental").fetchSemanticsNodes().isNotEmpty()
+                compose.onAllNodesWithTag("app-theme-Standart").fetchSemanticsNodes().isNotEmpty()
             }
             compose.onNodeWithTag("today-day-rhythm").assertExists()
             compose.onNodeWithTag("today-hero-copy", useUnmergedTree = true).assertExists()
@@ -66,7 +66,7 @@ class CalendarAndTodayFlowTest {
             val image = File(app.getExternalFilesDir(null), "calendar-selected-day-after.png")
             assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(image))
         } finally {
-            runBlocking { prefs.set("theme", original.theme); prefs.set("display", original.display.wireValue) }
+            runBlocking { prefs.set("display", original.display.wireValue) }
         }
     }
 }

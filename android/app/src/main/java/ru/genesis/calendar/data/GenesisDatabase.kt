@@ -30,6 +30,10 @@ interface GenesisDao {
     fun observeTasks(scope: String): Flow<List<TaskRecord>>
     @Query("SELECT * FROM tasks WHERE scope=:scope AND id=:id")
     suspend fun task(scope: String, id: String): TaskRecord?
+    @Query("DELETE FROM tasks WHERE scope=:scope")
+    suspend fun clearAccountTaskCache(scope: String)
+    @Query("SELECT * FROM tasks WHERE scope=:scope AND deleted=0")
+    suspend fun accountTasks(scope: String): List<TaskRecord>
     @Upsert suspend fun putTask(task: TaskRecord)
     @Upsert suspend fun putOutbox(operation: OutboxRecord)
     @Query("SELECT * FROM reminders WHERE scope=:scope")
@@ -45,6 +49,10 @@ interface GenesisDao {
     suspend fun claimReminder(scope: String, id: String, revision: Long, state: String, now: Long): Int
     @Query("SELECT * FROM outbox WHERE scope=:scope")
     suspend fun outbox(scope: String): List<OutboxRecord>
+    @Query("SELECT * FROM outbox WHERE scope=:scope")
+    fun observeOutbox(scope: String): Flow<List<OutboxRecord>>
+    @Query("DELETE FROM outbox WHERE scope=:scope AND entityId=:entityId AND revision=:revision AND operationId=:operationId")
+    suspend fun acknowledgeOutbox(scope: String, entityId: String, revision: Long, operationId: String): Int
 }
 
 @Database(entities = [TaskRecord::class, ReminderRecord::class, OutboxRecord::class, DocumentRecord::class],

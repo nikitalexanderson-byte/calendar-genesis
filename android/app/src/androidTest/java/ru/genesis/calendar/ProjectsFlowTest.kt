@@ -15,7 +15,7 @@ import org.junit.Test
 import ru.genesis.calendar.data.*
 
 class ProjectsFlowTest {
-    @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule val compose = createAndroidComposeRule<TestWorkspaceActivity>()
 
     @Test fun projectAndTaskAssignmentPersistEncrypted() = runBlocking {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
@@ -67,49 +67,34 @@ class ProjectsFlowTest {
             compose.onNodeWithTag("save-project").performScrollTo().performClick()
         }
         compose.waitUntil(10_000) { compose.onAllNodesWithTag("project-title").fetchSemanticsNodes().isEmpty() }
-        val preferences = LocalPreferences(app, app.workspaceScope)
-        val originalTheme = runBlocking { preferences.values.first().theme }
-        try {
-            for (theme in listOf("Standart", "Experimental")) {
-                runBlocking { preferences.set("theme", theme) }
-                compose.waitUntil(10_000) { compose.onAllNodesWithTag("app-theme-$theme").fetchSemanticsNodes().isNotEmpty() }
-                compose.onNodeWithTag("projects-screen").performScrollToNode(hasTestTag("category-filter-work"))
-                compose.onNodeWithTag("category-filter-work").performClick()
-                compose.onNodeWithTag("projects-screen").performScrollToIndex(0)
-                compose.waitForIdle()
-                val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
-                val overview = File(app.getExternalFilesDir(null), "projects-${theme.lowercase()}-overview.png")
-                assertTrue("Overview screenshot failed: $theme", device.takeScreenshot(overview))
-                compose.onNodeWithTag("projects-screen").performScrollToNode(hasText(projectTitle))
-                assertTrue(compose.onAllNodesWithText(projectTitle).fetchSemanticsNodes().isNotEmpty())
-                compose.waitForIdle()
-                val image = File(app.getExternalFilesDir(null), "projects-${theme.lowercase()}.png")
-                assertTrue("Detail screenshot failed: $theme", device.takeScreenshot(image))
-            }
-        } finally {
-            runBlocking { preferences.set("theme", originalTheme) }
-        }
+        compose.onNodeWithTag("app-theme-Standart").assertExists()
+        compose.onNodeWithTag("projects-screen").performScrollToNode(hasTestTag("category-filter-work"))
+        compose.onNodeWithTag("category-filter-work").performClick()
+        compose.onNodeWithTag("projects-screen").performScrollToIndex(0)
+        compose.waitForIdle()
+        val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+        assertTrue(device.takeScreenshot(File(app.getExternalFilesDir(null), "projects-standart-overview.png")))
+        compose.onNodeWithTag("projects-screen").performScrollToNode(hasText(projectTitle))
+        assertTrue(compose.onAllNodesWithText(projectTitle).fetchSemanticsNodes().isNotEmpty())
+        compose.waitForIdle()
+        assertTrue(device.takeScreenshot(File(app.getExternalFilesDir(null), "projects-standart.png")))
     }
 
     @Test fun chaosBoxTaskCanBeMovedIntoProjectWithoutGoogleAccount() {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
         check(BuildConfig.DEBUG && app.packageName.endsWith(".debug"))
-        val preferences = LocalPreferences(app, app.workspaceScope)
-        val originalTheme = runBlocking { preferences.values.first().theme }
         val projectId = "internal-drag-target-v1"
         val taskId = "internal-chaos-drag-v1"
         val title = "Проект для переноса"
-        try {
             runBlocking {
                 WorkspaceStructureRepository(app).saveProject(
                     GenesisProject(projectId, null, "work", title, "", emptyList(), "active", 0))
                 val previous = app.repository.get(taskId)
                 app.repository.save(LocalTask(id = taskId, title = "Задача из Хаос-бокса",
                     revision = previous?.revision ?: 0))
-                preferences.set("theme", "Experimental")
             }
             compose.waitUntil(10_000) {
-                compose.onAllNodesWithTag("app-theme-Experimental").fetchSemanticsNodes().isNotEmpty()
+                compose.onAllNodesWithTag("app-theme-Standart").fetchSemanticsNodes().isNotEmpty()
             }
             compose.onNodeWithText("Проекты").performScrollTo().performClick()
             compose.onNodeWithTag("project-inbox").assertExists()
@@ -126,16 +111,11 @@ class ProjectsFlowTest {
             }
             compose.onNodeWithTag("projects-screen").performScrollToNode(hasTestTag("project-drop-$projectId"))
             compose.onNodeWithTag("project-drop-$projectId").assertExists()
-        } finally {
-            runBlocking { preferences.set("theme", originalTheme) }
-        }
     }
 
     @Test fun longPressDragMovesChaosTaskToProject() {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
         check(BuildConfig.DEBUG && app.packageName.endsWith(".debug"))
-        val preferences = LocalPreferences(app, app.workspaceScope)
-        val originalTheme = runBlocking { preferences.values.first().theme }
         val taskId = "internal-gesture-task-v1"
         val projectId = runBlocking {
             val repo = WorkspaceStructureRepository(app)
@@ -145,12 +125,10 @@ class ProjectsFlowTest {
             val previous = app.repository.get(taskId)
             app.repository.save(LocalTask(id = taskId, title = "Задача для жеста",
                 revision = previous?.revision ?: 0))
-            preferences.set("theme", "Experimental")
             id
         }
-        try {
             compose.waitUntil(10_000) {
-                compose.onAllNodesWithTag("app-theme-Experimental").fetchSemanticsNodes().isNotEmpty()
+                compose.onAllNodesWithTag("app-theme-Standart").fetchSemanticsNodes().isNotEmpty()
             }
             compose.onNodeWithText("Проекты").performScrollTo().performClick()
             compose.onNodeWithText("Открыть").performClick()
@@ -174,20 +152,14 @@ class ProjectsFlowTest {
                 up()
             }
             compose.waitUntil(10_000) { runBlocking { app.repository.get(taskId)?.projectId == projectId } }
-        } finally {
-            runBlocking { preferences.set("theme", originalTheme) }
-        }
     }
 
     @Test fun longPressDragMovesTaskBetweenProjectsAndBackToChaosBox() {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
         check(BuildConfig.DEBUG && app.packageName.endsWith(".debug"))
-        val prefs = LocalPreferences(app, app.workspaceScope)
-        val originalTheme = runBlocking { prefs.values.first().theme }
         val originId = "internal-project-drag-origin-v1"
         val destinationId = "internal-project-drag-destination-v1"
         val taskId = "internal-project-drag-task-v1"
-        try {
             runBlocking {
                 val repo = WorkspaceStructureRepository(app)
                 repo.saveProject(GenesisProject(originId, null, null, "B Жест — исток", "", emptyList(), "active", 0))
@@ -195,10 +167,9 @@ class ProjectsFlowTest {
                 val previous = app.repository.get(taskId)
                 app.repository.save(LocalTask(id = taskId, title = "Задача между проектами", projectId = originId,
                     revision = previous?.revision ?: 0))
-                prefs.set("theme", "Experimental")
             }
             compose.waitUntil(10_000) {
-                compose.onAllNodesWithTag("app-theme-Experimental").fetchSemanticsNodes().isNotEmpty()
+                compose.onAllNodesWithTag("app-theme-Standart").fetchSemanticsNodes().isNotEmpty()
             }
             compose.onNodeWithText("Проекты").performScrollTo().performClick()
             compose.waitUntil(10_000) {
@@ -231,8 +202,5 @@ class ProjectsFlowTest {
             compose.onNodeWithTag("project-drop-$destinationId").performClick()
             dragTo("__genesis_inbox__")
             compose.waitUntil(10_000) { runBlocking { app.repository.get(taskId)?.projectId == null } }
-        } finally {
-            runBlocking { prefs.set("theme", originalTheme) }
-        }
     }
 }

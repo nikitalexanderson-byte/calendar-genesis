@@ -13,6 +13,12 @@ val genesisUri = URI(genesisUrl)
 require(genesisUri.scheme == "https" && !genesisUri.host.isNullOrBlank()) {
     "-PgenesisUrl must be an absolute HTTPS URL"
 }
+val releaseStore = providers.environmentVariable("GENESIS_ANDROID_SIGNING_STORE").orNull
+val releaseStorePassword = providers.environmentVariable("GENESIS_ANDROID_SIGNING_STORE_PASSWORD").orNull
+val releaseKeyAlias = providers.environmentVariable("GENESIS_ANDROID_SIGNING_KEY_ALIAS").orNull
+val releaseKeyPassword = providers.environmentVariable("GENESIS_ANDROID_SIGNING_KEY_PASSWORD").orNull
+val releaseSigningReady = listOf(releaseStore, releaseStorePassword, releaseKeyAlias, releaseKeyPassword)
+    .all { !it.isNullOrBlank() }
 
 android {
     namespace = "ru.genesis.calendar"
@@ -26,13 +32,22 @@ android {
         applicationId = "ru.genesis.calendar"
         minSdk = 26
         targetSdk = 37
-        versionCode = 17
-        versionName = "2.0.0-alpha12"
+        versionCode = 20
+        versionName = "2.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         manifestPlaceholders["genesisHost"] = genesisUri.host
         resValue("string", "launch_url", genesisUrl)
         resValue("string", "app_name", "GENESIS")
+    }
+
+    signingConfigs {
+        if (releaseSigningReady) create("genesisRelease") {
+            storeFile = file(requireNotNull(releaseStore))
+            storePassword = releaseStorePassword
+            keyAlias = releaseKeyAlias
+            keyPassword = releaseKeyPassword
+        }
     }
 
     buildTypes {
@@ -41,6 +56,7 @@ android {
             resValue("string", "app_name", "GENESIS Alpha")
         }
         release {
+            if (releaseSigningReady) signingConfig = signingConfigs.getByName("genesisRelease")
             isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -73,6 +89,9 @@ val genesisAssets = tasks.register<GenesisAssetsTask>("genesisAssets") {
             "achievement-art/**", "habit-ranks/**", "habit-reward-art/**", "hero-path/**",
             "calendar-art/**", "genesis-hero.png", "month-frieze-v2.png")
     }
+    from(rootProject.file("../app/translations.en.json")) { into("i18n") }
+    from(rootProject.file("../app/curated-translations.en.json")) { into("i18n") }
+    from(rootProject.file("../app/calendar-days.en.json")) { into("i18n") }
     into(assetsDirectory.dir("originals"))
 }
 androidComponents.onVariants { variant ->

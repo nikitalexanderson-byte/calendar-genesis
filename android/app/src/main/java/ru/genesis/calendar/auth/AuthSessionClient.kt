@@ -1,15 +1,17 @@
 package ru.genesis.calendar.auth
 
 import android.content.Context
+import android.util.Log
 import kotlinx.coroutines.CancellationException
 import org.json.JSONObject
+import ru.genesis.calendar.BuildConfig
 import ru.genesis.calendar.data.LocalCipher
 import java.io.ByteArrayOutputStream
 import java.net.URL
 import javax.net.ssl.HttpsURLConnection
 
 internal class AuthFailure(val kind: Kind) : Exception("Authentication request failed") {
-    enum class Kind { NOT_DEPLOYED, UNAUTHORIZED, RATE_LIMIT, NETWORK, PROTOCOL, STORAGE, SERVER }
+    enum class Kind { NOT_DEPLOYED, UNAUTHORIZED, RATE_LIMIT, NETWORK, PROTOCOL, STORAGE, CONFLICT, SERVER }
 }
 
 /** A dedicated, encrypted native cookie jar; never shared with Custom Tabs or the local drafts DB. */
@@ -23,6 +25,7 @@ internal class AuthSessionClient(context: Context) {
     private var session = SessionSecret("", 0, "")
 
     fun begin(): Long = synchronized(guard) { ++generation }
+    fun currentGeneration(): Long = synchronized(guard) { generation }
     fun isCurrent(expected: Long): Boolean = synchronized(guard) { generation == expected }
 
     private fun check(expected: Long) {
@@ -79,8 +82,26 @@ internal class AuthSessionClient(context: Context) {
 
     fun session(expected: Long): JSONObject = request(expected, "/session", null)
     fun workspace(expected: Long): JSONObject = request(expected, "/workspace", null)
+    fun putWorkspace(expected: Long, envelope: JSONObject): JSONObject =
+        request(expected, "/workspace", envelope, method = "PUT")
     fun bootstrap(expected: Long): JSONObject = request(expected, "/bootstrap", null)
+    fun putTask(expected: Long, id: String, task: JSONObject): JSONObject {
+        require(id.matches(Regex("[A-Za-z0-9_-]{1,100}")))
+        return request(expected, "/tasks/$id", task, method = "PUT")
+    }
+    fun deleteTask(expected: Long, id: String, task: JSONObject): JSONObject {
+        require(id.matches(Regex("[A-Za-z0-9_-]{1,100}")))
+        return request(expected, "/tasks/$id", task, method = "DELETE")
+    }
     fun challenge(expected: Long): JSONObject = request(expected, "/auth/google/native/challenge", JSONObject())
+    fun updateRouting(expected: Long, routing: SyncRouting): JSONObject =
+        request(expected, "/account/preferences", JSONObject().put("syncRouting", routing.toJson()), method = "PUT")
+    fun updatePreferences(expected: Long, changes: JSONObject): JSONObject =
+        request(expected, "/account/preferences", changes, method = "PUT")
+    fun removeLinkedAccount(expected: Long, accountId: String): JSONObject {
+        require(accountId.matches(Regex("[A-Za-z0-9_-]{1,100}")))
+        return request(expected, "/account/google-accounts/$accountId", JSONObject(), method = "DELETE")
+    }
     fun authenticate(expected: Long, idToken: String): JSONObject {
         require(idToken.length in 1..16384)
         return request(expected, "/auth/google/native", JSONObject().put("idToken", idToken))
@@ -92,17 +113,23 @@ internal class AuthSessionClient(context: Context) {
     }
 
     /** Blocking; the controller always calls on Dispatchers.IO. Default platform TLS verification. */
-    private fun request(expected: Long, path: String, body: JSONObject?, secret: SessionSecret? = null, persist: Boolean = true): JSONObject {
-        require(path in setOf("/session", "/workspace", "/bootstrap", "/auth/google/native/challenge", "/auth/google/native", "/auth/logout"))
+    private fun request(expected: Long, path: String, body: JSONObject?, secret: SessionSecret? = null,
+        persist: Boolean = true, method: String = if (body == null) "GET" else "POST"): JSONObject {
+        require(path in setOf("/session", "/workspace", "/bootstrap", "/auth/google/native/challenge",
+            "/auth/google/native", "/auth/logout", "/account/preferences") ||
+            (method in setOf("PUT", "DELETE") && path.matches(Regex("/tasks/[A-Za-z0-9_-]{1,100}"))) ||
+            (method == "DELETE" && path.matches(Regex("/account/google-accounts/[A-Za-z0-9_-]{1,100}"))))
+        require(method in setOf("GET", "POST", "PUT", "DELETE") && (method == "GET") == (body == null))
         val current = secret ?: load(expected)
         if (body != null && (current.cookie.isBlank() || current.csrf.isBlank())) throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
         val connection = URL("$AUTH_ORIGIN/api$path").openConnection() as HttpsURLConnection
+        var phase = "prepare"
         try {
             connection.instanceFollowRedirects = false
-            connection.connectTimeout = 10_000
-            connection.readTimeout = 15_000
+            connection.connectTimeout = 15_000
+            connection.readTimeout = 30_000
             connection.useCaches = false
-            connection.requestMethod = if (body == null) "GET" else "POST"
+            connection.requestMethod = method
             connection.setRequestProperty("Accept", "application/json")
             connection.setRequestProperty("Cache-Control", "no-store")
             if (current.cookie.isNotBlank()) connection.setRequestProperty("Cookie", "$SESSION_COOKIE=${current.cookie}")
@@ -113,15 +140,18 @@ internal class AuthSessionClient(context: Context) {
                 val bytes = body.toString().toByteArray(Charsets.UTF_8)
                 connection.setFixedLengthStreamingMode(bytes.size)
                 synchronized(guard) { check(expected) }
+                phase = "write"
                 connection.outputStream.use { it.write(bytes) }
             }
             synchronized(guard) { check(expected) }
+            phase = "status"
             val status = connection.responseCode
             if (status !in 200..299) {
                 throw AuthFailure(when (status) {
                     404, 405 -> AuthFailure.Kind.NOT_DEPLOYED
                     401, 403 -> AuthFailure.Kind.UNAUTHORIZED
                     429 -> AuthFailure.Kind.RATE_LIMIT
+                    409 -> AuthFailure.Kind.CONFLICT
                     in 300..399 -> AuthFailure.Kind.PROTOCOL
                     else -> AuthFailure.Kind.SERVER
                 })
@@ -129,6 +159,7 @@ internal class AuthSessionClient(context: Context) {
             if (!connection.contentType.orEmpty().substringBefore(';').trim().equals("application/json", true))
                 throw AuthFailure(AuthFailure.Kind.PROTOCOL)
             val output = ByteArrayOutputStream()
+            phase = "read"
             connection.inputStream.use { input ->
                 val buffer = ByteArray(4096)
                 while (true) {
@@ -163,7 +194,8 @@ internal class AuthSessionClient(context: Context) {
             throw error
         } catch (error: AuthFailure) {
             throw error
-        } catch (_: java.io.IOException) {
+        } catch (error: java.io.IOException) {
+            if (BuildConfig.DEBUG) Log.w("GenesisAuth", "HTTPS transport failed at $path/$phase: ${error.javaClass.simpleName}")
             throw AuthFailure(AuthFailure.Kind.NETWORK)
         } catch (_: Exception) {
             throw AuthFailure(AuthFailure.Kind.PROTOCOL)

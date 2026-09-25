@@ -14,12 +14,13 @@ import org.junit.Test
 import ru.genesis.calendar.data.TaskOccurrences
 
 class TaskRecurrenceFlowTest {
-    @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule val compose = createAndroidComposeRule<TestWorkspaceActivity>()
 
     @Test fun taskEditorStoresOneClassicSeriesAndProjectsTomorrow() {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
         check(BuildConfig.DEBUG && app.packageName.endsWith(".debug"))
         val title = "UI серия ${UUID.randomUUID()}"
+        compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("create-task"))
         compose.onNodeWithTag("create-task").performClick()
         compose.onNodeWithTag("task-title").performTextInput(title)
         UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()

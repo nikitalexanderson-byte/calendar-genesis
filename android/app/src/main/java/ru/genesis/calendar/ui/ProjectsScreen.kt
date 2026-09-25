@@ -221,7 +221,7 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
                     .padding(start = (16 + depth.coerceAtMost(5) * 14).dp, end = 16.dp, top = 14.dp, bottom = 14.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(project.title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                        androidx.compose.material3.Text(project.title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
                         Text("$count", style = MaterialTheme.typography.labelLarge)
                     }
                     val category = structure.categories.firstOrNull { it.id == project.categoryId }
@@ -236,11 +236,11 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
                                 if (experimental) {
                                     TaskDragHandle(task)
                                     TextButton(onClick = { onOpenTask(task.id) }, modifier = Modifier.weight(1f)) {
-                                        Text(task.title)
+                                        androidx.compose.material3.Text(task.title)
                                     }
                                     TaskDestinationMenu(task, structure.projects, moveTask)
                                 } else {
-                                    TextButton(onClick = { onOpenTask(task.id) }) { Text(task.title) }
+                                    TextButton(onClick = { onOpenTask(task.id) }) { androidx.compose.material3.Text(task.title) }
                                 }
                             }
                         }
@@ -260,7 +260,7 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
                     if (selectedProject == null) {
                         inbox.take(if (inboxExpanded) inbox.size else 1).forEach { task ->
                             DraggableTaskRow(task, pickup?.id == task.id, onPickup, onDrag, onRelease) {
-                                TextButton(onClick = { onOpenTask(task.id) }) { Text(task.title) }
+                                TextButton(onClick = { onOpenTask(task.id) }) { androidx.compose.material3.Text(task.title) }
                             }
                         }
                         if (inbox.size > 1) TextButton(onClick = { inboxExpanded = !inboxExpanded }) {
@@ -337,7 +337,7 @@ private fun InboxProjectCard(inbox: List<LocalTask>, projects: List<GenesisProje
                         TaskDragHandle(task)
                         TextButton(onClick = { onOpenTask(task.id) }, modifier = Modifier.weight(1f),
                             colors = ButtonDefaults.textButtonColors(contentColor = foreground)) {
-                            Text(task.title, maxLines = 2)
+                            androidx.compose.material3.Text(task.title, maxLines = 2)
                         }
                         TaskDestinationMenu(task, projects, onMoveTask, foreground)
                     }
@@ -365,7 +365,7 @@ private fun TaskDestinationMenu(task: LocalTask, projects: List<GenesisProject>,
             Column(Modifier.fillMaxWidth().heightIn(max = 580.dp).padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Куда перенести задачу?", style = MaterialTheme.typography.titleLarge)
-                Text(task.title, style = MaterialTheme.typography.bodyMedium)
+                androidx.compose.material3.Text(task.title, style = MaterialTheme.typography.bodyMedium)
                 OutlinedTextField(query, { query = it }, label = { Text("Найти проект") },
                     singleLine = true, modifier = Modifier.fillMaxWidth().testTag("project-destination-search"))
                 Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())
@@ -381,7 +381,7 @@ private fun TaskDestinationMenu(task: LocalTask, projects: List<GenesisProject>,
                         .forEach { project ->
                             TextButton(onClick = { open = false; onMoveTask(task.id, project.id) },
                                 modifier = Modifier.fillMaxWidth().testTag("project-menu-target-${project.id}")) {
-                                Text(project.title)
+                                androidx.compose.material3.Text(project.title)
                             }
                         }
                 }
