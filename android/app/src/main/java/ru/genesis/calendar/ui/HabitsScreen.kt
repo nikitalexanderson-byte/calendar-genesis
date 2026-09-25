@@ -50,6 +50,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
     var error by remember { mutableStateOf<String?>(null) }
     var storageError by remember { mutableStateOf(false) }
     var edit by remember { mutableStateOf<Habit?>(null) }
+    var deleteCandidate by remember { mutableStateOf<Habit?>(null) }
     var editorOpen by remember { mutableStateOf(false) }
     var catalogueOpen by rememberSaveable { mutableStateOf(false) }
     var heroPathOpen by rememberSaveable { mutableStateOf(false) }
@@ -146,7 +147,12 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
             current.habits.sortedByDescending { it.priority }.forEach { habit ->
                 val entry=current.completions.firstOrNull { it.habitId==habit.id && it.date==today }
                 val scheduled=runCatching { engine.isScheduled(habit,today) }.getOrDefault(false)
-                Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
+                if (experimental) ExperimentalHabitCard(habit, entry, scheduled, busy || storageError,
+                    onComplete={checked,quality -> scope.launch { runAction { repository.complete(habit.id,checked,quality) } }},
+                    onEdit={edit=habit;editorOpen=true},
+                    onToggle={scope.launch { runAction { repository.save(habit.copy(active=!habit.active)) } }},
+                    onDelete={deleteCandidate=habit})
+                else Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
                     Text("${habit.emoji} ${habit.title}",style=MaterialTheme.typography.titleMedium)
                     if(habit.description.isNotEmpty()) Text(habit.description)
                     Text(if(!habit.active) "На паузе" else if(scheduled) "Запланировано сегодня" else "Сегодня не запланировано",style=MaterialTheme.typography.bodySmall)
@@ -165,6 +171,9 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                     Row {
                         TextButton(enabled=!busy&&!storageError,onClick={edit=habit;editorOpen=true}) { Text("Изменить") }
                         TextButton(enabled=!busy&&!storageError,onClick={scope.launch { runAction { repository.save(habit.copy(active=!habit.active)) } }}) { Text(if(habit.active) "Пауза" else "Продолжить") }
+                        TextButton(enabled=!busy&&!storageError,onClick={deleteCandidate=habit},
+                            colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.error),
+                            modifier=Modifier.testTag("delete-habit-${habit.id}")) { Text("Удалить") }
                     }
                 } }
             }
@@ -196,6 +205,100 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
     if(editorOpen) HabitEditor(edit,busy,error,onDismiss={if(!busy) editorOpen=false},onSave={ habit ->
         scope.launch { runAction { repository.save(habit); editorOpen=false } }
     })
+    deleteCandidate?.let { habit ->
+        val completionCount = workspace?.let { habitCompletionCount(it.completions, habit.id) } ?: 0
+        val retainsLaurels = completionCount >= HABIT_LAUREL_RETENTION_COMPLETIONS
+        AlertDialog(onDismissRequest={if(!busy) deleteCandidate=null},
+            title={Text("Удалить привычку?")},
+            text={Text(if(retainsLaurels)
+                "«${habit.title}» и все отметки будут удалены. Рубеж в $HABIT_LAUREL_RETENTION_COMPLETIONS выполнений достигнут — заработанные Лавры сохранятся."
+                else "«${habit.title}» и все отметки будут удалены. Прогресс: $completionCount/$HABIT_LAUREL_RETENTION_COMPLETIONS; баланс Лавров будет обнулён.")},
+            confirmButton={TextButton(enabled=!busy,onClick={scope.launch {
+                runAction { repository.delete(habit.id); deleteCandidate=null; if(edit?.id==habit.id) editorOpen=false }
+            }},modifier=Modifier.testTag("confirm-delete-habit"),
+                colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.error)) { Text("Удалить") }},
+            dismissButton={TextButton(enabled=!busy,onClick={deleteCandidate=null}) { Text("Отмена") }})
+    }
+}
+
+@Composable
+private fun ExperimentalHabitCard(habit: Habit, entry: HabitCompletion?, scheduled: Boolean, disabled: Boolean,
+    onComplete: (Boolean, Double?) -> Unit, onEdit: () -> Unit, onToggle: () -> Unit, onDelete: () -> Unit) {
+    val status = if (!habit.active) "На паузе" else if (scheduled) "Запланировано сегодня" else "Сегодня свободно"
+    val calendar = when (habit.schedule.recurrence.mode) {
+        "classic" -> "Григорианский ритм"
+        "lunar" -> "Лунный ритм"
+        else -> "Сакральный ритм"
+    }
+    Card(Modifier.fillMaxWidth().testTag("habit-card-${habit.id}"), shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xfff8f3e8))) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Surface(Modifier.size(48.dp), shape = RoundedCornerShape(14.dp), color = Color(0xff123b36)) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(habit.emoji, style = MaterialTheme.typography.headlineSmall, color = Color(0xfff8f3e8))
+                    }
+                }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(habit.title, style = MaterialTheme.typography.titleMedium, color = Color(0xff132426))
+                    Text(status, style = MaterialTheme.typography.labelMedium,
+                        color = if (habit.active && scheduled) Color(0xff255b59) else Color(0xff596665))
+                }
+            }
+            if (habit.description.isNotEmpty()) Text(habit.description,
+                style = MaterialTheme.typography.bodyMedium, color = Color(0xff344747))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Surface(Modifier.weight(1f), shape = RoundedCornerShape(12.dp), color = Color(0xffe4ded0)) {
+                    Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("РАСПИСАНИЕ", style = MaterialTheme.typography.labelSmall, color = Color(0xff596665))
+                        Text(calendar, style = MaterialTheme.typography.bodySmall, color = Color(0xff132426))
+                    }
+                }
+                Surface(Modifier.weight(1f), shape = RoundedCornerShape(12.dp), color = Color(0xffd7e3dd)) {
+                    Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("ПРИОРИТЕТ", style = MaterialTheme.typography.labelSmall, color = Color(0xff45605e))
+                        Text("${habit.priority} из 10", style = MaterialTheme.typography.bodySmall, color = Color(0xff132426))
+                    }
+                }
+            }
+            Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp),
+                color = if (entry?.completed == true) Color(0xffcfe1d8) else Color(0xffeee7d8)) {
+                Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (habit.scoringMode.startsWith("quality") && scheduled) {
+                        var quality by remember(habit.id, entry?.qualityValue) {
+                            mutableFloatStateOf((entry?.qualityValue ?: if(habit.scoringMode=="quality-ten") 5.0 else 0.0).toFloat())
+                        }
+                        Text("Качество выполнения · ${quality.toInt()}", style = MaterialTheme.typography.titleSmall)
+                        Slider(value=quality,onValueChange={quality=it},enabled=!disabled,
+                            valueRange=if(habit.scoringMode=="quality-ten") 1f..10f else -5f..5f,
+                            steps=if(habit.scoringMode=="quality-ten") 8 else 9)
+                        Row {
+                            Button(enabled=!disabled,onClick={onComplete(true,quality.toDouble())}) {
+                                Text(if(entry?.completed==true) "Обновить оценку" else "Выполнено")
+                            }
+                            if(entry?.completed==true) TextButton(enabled=!disabled,
+                                onClick={onComplete(false,entry.qualityValue)}) { Text("Снять отметку") }
+                        }
+                    } else Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked=entry?.completed==true,enabled=scheduled&&!disabled,
+                            onCheckedChange={ checked -> onComplete(checked,null) })
+                        Text(if(entry?.completed==true) "Выполнено · ${entry.score} баллов" else
+                            if(scheduled) "Отметить выполнение" else "Сегодня не запланировано",
+                            style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            }
+            HorizontalDivider(color = Color(0xffd5cab4))
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
+                TextButton(enabled=!disabled,onClick=onEdit) { Text("Изменить") }
+                TextButton(enabled=!disabled,onClick=onToggle) { Text(if(habit.active) "Пауза" else "Продолжить") }
+                TextButton(enabled=!disabled,onClick=onDelete,
+                    colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.error),
+                    modifier=Modifier.testTag("delete-habit-${habit.id}")) { Text("Удалить") }
+            }
+        }
+    }
 }
 
 @Composable

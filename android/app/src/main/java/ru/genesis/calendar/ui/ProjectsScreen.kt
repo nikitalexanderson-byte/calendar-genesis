@@ -51,6 +51,21 @@ internal fun russianCount(value: Int, one: String, few: String, many: String): S
 internal fun projectTreeLabel(title: String, depth: Int): String =
     if (depth > 0) "— $title" else title
 
+internal fun projectHierarchyLabel(title: String, depth: Int): String =
+    if (depth > 0) "${"  ".repeat(depth - 1)}↳ $title" else title
+
+internal fun projectBreadcrumb(projects: List<GenesisProject>, projectId: String?): String {
+    val byId = projects.associateBy { it.id }
+    val path = mutableListOf<String>()
+    val visited = mutableSetOf<String>()
+    var cursor = projectId?.let(byId::get)
+    while (cursor != null && visited.add(cursor.id)) {
+        path += cursor.title
+        cursor = cursor.parentId?.let(byId::get)
+    }
+    return path.asReversed().joinToString(" › ")
+}
+
 private data class TaskPickup(val id: String, val title: String, val originId: String?, val position: Offset)
 
 @Composable
@@ -242,7 +257,8 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
                     .padding(start = (16 + depth.coerceAtMost(5) * 14).dp, end = 16.dp, top = 14.dp, bottom = 14.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        androidx.compose.material3.Text(projectTreeLabel(project.title, depth), Modifier.weight(1f),
+                        androidx.compose.material3.Text(if (experimental) projectHierarchyLabel(project.title, depth)
+                            else projectTreeLabel(project.title, depth), Modifier.weight(1f),
                             style = MaterialTheme.typography.titleMedium)
                         Text("$count", style = MaterialTheme.typography.labelLarge)
                     }
@@ -398,12 +414,24 @@ private fun TaskDestinationMenu(task: LocalTask, projects: List<GenesisProject>,
                             Text("Хаос-бокс")
                         }
                     }
-                    projects.filterNot { it.id == task.projectId }
-                        .filter { query.isBlank() || it.title.contains(query, true) }
-                        .forEach { project ->
+                    WorkspaceStructureCodec.ordered(WorkspaceStructure(projects = projects))
+                        .filterNot { (project, _) -> project.id == task.projectId }
+                        .filter { (project, _) -> query.isBlank() ||
+                            projectBreadcrumb(projects, project.id).contains(query, true) }
+                        .forEach { (project, depth) ->
                             TextButton(onClick = { open = false; onMoveTask(task.id, project.id) },
-                                modifier = Modifier.fillMaxWidth().testTag("project-menu-target-${project.id}")) {
-                                androidx.compose.material3.Text(project.title)
+                                modifier = Modifier.fillMaxWidth().testTag("project-menu-target-${project.id}"),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp)) {
+                                Column(Modifier.fillMaxWidth().padding(start = (depth * 16).dp),
+                                    horizontalAlignment = Alignment.Start) {
+                                    androidx.compose.material3.Text(projectHierarchyLabel(project.title, depth),
+                                        style = MaterialTheme.typography.titleSmall)
+                                    project.parentId?.let {
+                                        Text("В составе: ${projectBreadcrumb(projects, it)}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
                             }
                         }
                 }
@@ -422,8 +450,11 @@ private fun BoxScope.ProjectDropOverlay(held: TaskPickup, projects: List<Genesis
     val parchment = if (experimental) Color(0xfff7f1e5) else MaterialTheme.colorScheme.onSurface
     val background = if (experimental) Color(0xff071d20) else MaterialTheme.colorScheme.surfaceContainerHigh
     val gold = if (experimental) Color(0xffdfc17e) else MaterialTheme.colorScheme.primary
-    val entries = (listOf(inboxDropId to "Хаос-бокс") + projects.sortedBy { it.position }
-        .map { it.id to it.title }).filterNot { (id, _) -> id == (held.originId ?: inboxDropId) }
+    data class Target(val id: String, val title: String, val depth: Int, val parentPath: String)
+    val entries = (listOf(Target(inboxDropId, "Хаос-бокс", 0, "")) +
+        WorkspaceStructureCodec.ordered(WorkspaceStructure(projects = projects)).map { (project, depth) ->
+            Target(project.id, project.title, depth, projectBreadcrumb(projects, project.parentId))
+        }).filterNot { it.id == (held.originId ?: inboxDropId) }
     Surface(Modifier.align(Alignment.BottomCenter).fillMaxWidth().heightIn(max = 490.dp)
         .padding(12.dp).testTag("drag-overlay"),
         shape = MaterialTheme.shapes.large, color = background,
@@ -435,7 +466,8 @@ private fun BoxScope.ProjectDropOverlay(held: TaskPickup, projects: List<Genesis
                 style = MaterialTheme.typography.bodySmall)
             Column(Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                entries.forEach { (id, title) ->
+                entries.forEach { target ->
+                    val id = target.id
                     val hovered = dropBounds[id]?.contains(held.position) == true
                     Surface(Modifier.fillMaxWidth().heightIn(min = 56.dp)
                         .onGloballyPositioned { dropBounds[id] = it.boundsInRoot() }
@@ -447,10 +479,14 @@ private fun BoxScope.ProjectDropOverlay(held: TaskPickup, projects: List<Genesis
                             if (hovered) parchment else gold.copy(alpha = .45f))) {
                         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically) {
-                            Text(if (id == inboxDropId) "↩" else "✦", color = if (hovered) background else gold)
-                            Spacer(Modifier.width(12.dp))
-                            Text(title, color = if (hovered) background else parchment,
-                                style = MaterialTheme.typography.titleSmall, maxLines = 2)
+                            Column(Modifier.padding(start = (target.depth * 14).dp)) {
+                                Text(projectHierarchyLabel(target.title, target.depth),
+                                    color = if (hovered) background else parchment,
+                                    style = MaterialTheme.typography.titleSmall, maxLines = 2)
+                                if (target.parentPath.isNotEmpty()) Text("В составе: ${target.parentPath}",
+                                    color = if (hovered) background.copy(alpha = .75f) else gold,
+                                    style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                            }
                         }
                     }
                 }
