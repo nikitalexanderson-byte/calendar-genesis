@@ -74,7 +74,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     val authState by authController.state.collectAsStateWithLifecycle()
     val scope=rememberCoroutineScope()
     var preferredWelcomeLanguage by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(authController, activeScope, testWorkspace) { if (!testWorkspace) authController.checkSession() }
+    LaunchedEffect(authController, testWorkspace) { if (!testWorkspace) authController.ensureSession() }
     LaunchedEffect(activeScope, authState.user, authState.busy) {
         if (!testWorkspace && activeScope.startsWith("account-") && authState.user != null && !authState.busy) {
             app.database.dao().observeOutbox(activeScope).debounce(800).collectLatest { pending ->
@@ -103,10 +103,11 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
           (if(testWorkspace || activeScope.startsWith("account-")) prefs.language else welcomePrefs.language)) {
         Surface(Modifier.fillMaxSize().testTag("app-theme-Standart"),color=MaterialTheme.colorScheme.background) {
             if (!testWorkspace && (!activeScope.startsWith("account-") || authState.user == null || !authState.ready)) {
-                WelcomeScreen(authState,authController,welcomePrefs.language,preferredWelcomeLanguage) { language ->
-                    preferredWelcomeLanguage = language
-                    scope.launch { welcomePrefsStore.set("language",language) }
-                }
+                if (authState.busy && authState.user != null) AuthTransitionScreen(authState.message)
+                else WelcomeScreen(authState,authController,welcomePrefs.language,preferredWelcomeLanguage) { language ->
+                        preferredWelcomeLanguage = language
+                        scope.launch { welcomePrefsStore.set("language",language) }
+                    }
             } else {
             Column(Modifier.safeDrawingPadding().imePadding()) {
                 Row(Modifier.fillMaxWidth().padding(12.dp),verticalAlignment=Alignment.CenterVertically) {
@@ -146,6 +147,9 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                     else -> LazyColumn(Modifier.weight(1f).testTag("today-list"),contentPadding=PaddingValues(16.dp),
                         verticalArrangement=Arrangement.spacedBy(12.dp)) {
                         if(tab=="Сегодня") item { DayHeader(LocalDate.parse(selected),prefs.display) }
+                        if(tab=="Сегодня" && !testWorkspace) item {
+                            TodaySyncPanel(authState.busy, authState.message) { authController.checkSession() }
+                        }
                         if(tab=="Сегодня") item {
                             DayRhythmPanel(prefs.use24)
                         }
@@ -191,6 +195,39 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
             }
         }
       }
+    }
+}
+
+@Composable
+private fun AuthTransitionScreen(message: String) {
+    Box(Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            CircularProgressIndicator()
+            Text("Открываем защищённое пространство", style = MaterialTheme.typography.titleMedium)
+            Text(message, style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun TodaySyncPanel(busy: Boolean, status: String, onRefresh: () -> Unit) {
+    Surface(Modifier.fillMaxWidth().testTag("today-manual-sync"), shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+        Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text("Синхронизация аккаунта", style = MaterialTheme.typography.titleSmall)
+                Text(if (busy) "Получаем изменения с сервера…" else status,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
+            }
+            OutlinedButton(onClick = onRefresh, enabled = !busy,
+                modifier = Modifier.testTag("today-refresh")) {
+                Text(if (busy) "Обновление…" else "Обновить")
+            }
+        }
     }
 }
 
@@ -290,15 +327,7 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                 Text(if(task==null) "Новая задача" else "Изменить задачу",style=MaterialTheme.typography.titleLarge)
                 OutlinedTextField(title,{title=it},label={Text("Название")},modifier=Modifier.fillMaxWidth().testTag("task-title"))
                 OutlinedTextField(description,{description=it},label={Text("Описание")},modifier=Modifier.fillMaxWidth())
-                Text("Проект",style=MaterialTheme.typography.titleMedium)
-                Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
-                    FilterChip(selected=projectId==null || projectId=="__genesis_inbox__",
-                        onClick={projectId=null},label={Text("Хаос-бокс")})
-                    WorkspaceStructureCodec.ordered(structure).forEach { (project,depth) ->
-                        FilterChip(selected=projectId==project.id,onClick={projectId=project.id},
-                            label={Text("  ".repeat(depth)+project.title)})
-                    }
-                }
+                ProjectHierarchyPicker(structure.projects, projectId) { projectId = it }
                 if(accountSettings?.multiAccountEnabled==true && accountSettings.accounts.size>1 && routing?.mode=="choose") {
                     Text("Отправить в Google-аккаунты",style=MaterialTheme.typography.titleMedium)
                     Text("Выберите один или несколько аккаунтов для этой задачи.",
@@ -425,6 +454,64 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
             }
         },
         dismissButton={TextButton(onClick={confirmDelete=false}){Text("Отмена")}})
+}
+
+private fun projectPath(projects: List<GenesisProject>, selectedId: String?): List<GenesisProject> {
+    val byId = projects.associateBy { it.id }
+    val result = mutableListOf<GenesisProject>()
+    val visited = mutableSetOf<String>()
+    var cursor = selectedId?.let(byId::get)
+    while (cursor != null && visited.add(cursor.id)) {
+        result += cursor
+        cursor = cursor.parentId?.let(byId::get)
+    }
+    return result.asReversed()
+}
+
+@Composable
+private fun ProjectHierarchyPicker(projects: List<GenesisProject>, selectedId: String?,
+    onSelect: (String?) -> Unit) {
+    val sorted = remember(projects) {
+        projects.groupBy { it.parentId }.mapValues { (_, values) ->
+            values.sortedWith(compareBy<GenesisProject> { it.position }.thenBy { it.title })
+        }
+    }
+    val path = remember(projects, selectedId) { projectPath(projects, selectedId) }
+    Text("Проект", style = MaterialTheme.typography.titleMedium)
+    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        FilterChip(selected = selectedId == null || selectedId == "__genesis_inbox__",
+            onClick = { onSelect(null) }, label = { Text("Хаос-бокс") })
+        sorted[null].orEmpty().forEach { project ->
+            FilterChip(selected = selectedId == project.id, onClick = { onSelect(project.id) },
+                label = { Text(project.title) })
+        }
+    }
+    path.forEachIndexed { depth, parent ->
+        val children = sorted[parent.id].orEmpty()
+        if (children.isNotEmpty()) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(if (depth == 0) "Подпроекты «${parent.title}»" else "Следующий уровень «${parent.title}»",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary)
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    children.forEach { child ->
+                        FilterChip(selected = selectedId == child.id, onClick = { onSelect(child.id) },
+                            label = { Text(child.title) })
+                    }
+                }
+            }
+        }
+    }
+    if (path.isNotEmpty()) {
+        Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(12.dp)) {
+            Text("Выбрано: ${path.joinToString(" › ") { it.title }}",
+                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer)
+        }
+    }
 }
 
 @Composable

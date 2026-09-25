@@ -75,6 +75,15 @@ fun StoicheionScreen(app: GenesisApplication, divinationDisabled: Boolean,
     var motionMode by remember { mutableStateOf<String?>(null) }
     var saving by remember { mutableStateOf(false) }
     var drawError by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(repository) {
+        if (app.workspaceScope.startsWith("account-")) try {
+            repository.refreshFromServer()
+            drawError = null
+        } catch (error: CancellationException) { throw error }
+        catch (_: Exception) {
+            drawError = "Не удалось обновить выбор карты с сервера. Сохранённая копия на устройстве не изменена."
+        }
+    }
     val beginMotion: (String) -> Unit = { mode ->
         if (!saving && !divinationDisabled) { drawError = null; motionMode = mode }
     }

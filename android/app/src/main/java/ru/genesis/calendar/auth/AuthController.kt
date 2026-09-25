@@ -12,12 +12,14 @@ import androidx.credentials.exceptions.GetCredentialProviderConfigurationExcepti
 import androidx.credentials.exceptions.NoCredentialException
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.json.JSONObject
 import ru.genesis.calendar.GenesisApplication
 import ru.genesis.calendar.data.CloudAccountImporter
+import ru.genesis.calendar.data.StoicheionDrawRepository
 
 data class AuthPanelState(
     val busy: Boolean = false,
@@ -41,7 +43,13 @@ class AuthController private constructor(context: Context) {
     private val mutableState = MutableStateFlow(AuthPanelState())
     val state = mutableState.asStateFlow()
 
-    fun checkSession() = start("Проверяем серверную сессию…", requireFresh = true) { generation ->
+    /** Process-start check only. Recomposition and configuration changes must not restart auth. */
+    fun ensureSession() {
+        if (mutableState.value.checkedAt != null || operation?.isActive == true) return
+        checkSession()
+    }
+
+    fun checkSession() = start("Проверяем серверную сессию…") { generation ->
         val payload = withContext(Dispatchers.IO) { client.session(generation) }
         val identity = AuthProtocol.identity(payload)
         if (identity == null) {
@@ -52,7 +60,7 @@ class AuthController private constructor(context: Context) {
         else completeSignedIn(generation, payload, "Сессия подтверждена; зашифрованное пространство прочитано.")
     }
 
-    fun signIn(activity: Activity, preferredLanguage: String? = null) = start("Готовим защищённый вход…", requireFresh = true) { generation ->
+    fun signIn(activity: Activity, preferredLanguage: String? = null) = start("Готовим защищённый вход…") { generation ->
         // A fresh server challenge must exist before any provider UI/token request.
         withContext(Dispatchers.IO) { client.session(generation) }
         val challenge = withContext(Dispatchers.IO) { AuthProtocol.challenge(client.challenge(generation)) }
@@ -82,6 +90,10 @@ class AuthController private constructor(context: Context) {
             val preview = withContext(Dispatchers.Default) { CloudWorkspacePreview.inspect(payload) }
             val snapshot = withContext(Dispatchers.Default) { CloudAccountSnapshot.fromBootstrap(payload) }
             val imported = withContext(Dispatchers.IO) { CloudAccountImporter(app.database, app.scheduler).import(snapshot) }
+            val stoicheionPayload = try {
+                withContext(Dispatchers.IO) { client.stoicheionDraws(generation) }
+            } catch (error: CancellationException) { throw error }
+            catch (_: Exception) { null }
             var resolvedSettings = AccountSettings.fromResponse(payload) ?: settings
             var languageWarning = false
             if (preferredLanguage in setOf("ru", "en") && resolvedSettings.language != preferredLanguage) {
@@ -95,6 +107,11 @@ class AuthController private constructor(context: Context) {
                 catch (_: Exception) { languageWarning = true }
             }
             app.activateAccount(confirmed.uid)
+            val stoicheionWarning = if (stoicheionPayload != null) try {
+                withContext(Dispatchers.IO) { StoicheionDrawRepository(app).replaceFromServer(stoicheionPayload) }
+                false
+            } catch (error: CancellationException) { throw error }
+            catch (_: Exception) { true } else true
             withContext(Dispatchers.IO) { app.scheduler.restore() }
             publish(generation, AuthPanelState(ready = true, user = confirmed,
                 accountSettings = resolvedSettings, preview = preview,
@@ -104,7 +121,8 @@ class AuthController private constructor(context: Context) {
                         "Пространство открыто, но Google не подтвердил обновление задач. Ранее загруженные задачи сохранены."
                     CloudAccountImporter.Result.PENDING_LOCAL_CHANGES ->
                         "Есть локальные изменения аккаунта, ещё не отправленные на сервер. Облачная копия не перезаписала их."
-                }) + if (languageWarning) " Выбранный язык пока не сохранён в аккаунте; повторите выбор в личном кабинете." else ""))
+                }) + (if (languageWarning) " Выбранный язык пока не сохранён в аккаунте; повторите выбор в личном кабинете." else "") +
+                    (if (stoicheionWarning) " Выбор карты пока не обновлён; нажмите «Обновить» при восстановлении сети." else "")))
         } catch (error: CancellationException) {
             throw error
         } catch (error: AuthFailure) {
@@ -193,6 +211,29 @@ class AuthController private constructor(context: Context) {
 
     fun syncPending() = syncPending(WorkspacePatch.ConflictPolicy.STOP)
 
+    internal suspend fun loadStoicheionDraws(): JSONObject {
+        val generation = client.currentGeneration()
+        return try { withContext(Dispatchers.IO) { client.stoicheionDraws(generation) } }
+        catch (error: CancellationException) { throw error }
+        catch (error: AuthFailure) { throw IllegalStateException(stoicheionFailureMessage(error.kind)) }
+    }
+
+    internal suspend fun saveStoicheionDraw(kind: String, seed: Long): JSONObject {
+        val generation = client.currentGeneration()
+        return try { withContext(Dispatchers.IO) { client.saveStoicheionDraw(generation, kind, seed) } }
+        catch (error: CancellationException) { throw error }
+        catch (error: AuthFailure) { throw IllegalStateException(stoicheionFailureMessage(error.kind)) }
+    }
+
+    private fun stoicheionFailureMessage(kind: AuthFailure.Kind) = when (kind) {
+        AuthFailure.Kind.UNAUTHORIZED -> "Сессия аккаунта завершилась. Повторите вход и выбор карты."
+        AuthFailure.Kind.RATE_LIMIT -> "Слишком много запросов. Повторите выбор карты через минуту."
+        AuthFailure.Kind.NETWORK -> "Нет подтверждения от сервера. Проверьте сеть; прежний выбор карты сохранён."
+        AuthFailure.Kind.CONFLICT -> "Карта уже изменилась на другом устройстве. Нажмите «Обновить»."
+        AuthFailure.Kind.SERVER -> "Сервер временно не сохранил карту. Повторите позже."
+        else -> "Не удалось безопасно синхронизировать карту с аккаунтом."
+    }
+
     fun keepLocalWorkspaceChanges() = syncPending(WorkspacePatch.ConflictPolicy.KEEP_LOCAL)
     fun keepRemoteWorkspaceChanges() = syncPending(WorkspacePatch.ConflictPolicy.KEEP_REMOTE)
 
@@ -237,18 +278,20 @@ class AuthController private constructor(context: Context) {
         }
     }
 
-    private fun start(message: String, requireFresh: Boolean = false, block: suspend (Long) -> Unit) {
+    private fun start(message: String, block: suspend (Long) -> Unit) {
         val generation = client.begin()
         operation?.cancel()
         syncJob?.cancel()
         val previous = mutableState.value
-        mutableState.value = AuthPanelState(busy = true, ready = previous.ready && !requireFresh, user = previous.user,
+        // A transient refresh/provider failure must not throw an authenticated user back to Welcome.
+        // Only a verified unauthorized/protocol response below is allowed to clear that state.
+        mutableState.value = AuthPanelState(busy = true, ready = previous.ready, user = previous.user,
             accountSettings = previous.accountSettings, preview = previous.preview,
             workspaceConflictPath = previous.workspaceConflictPath,
             checkedAt = previous.checkedAt, message = message)
         operation = scope.launch {
             fun failed(message: String, retainIdentity: Boolean = true) = publish(generation,
-                AuthPanelState(ready = previous.ready && !requireFresh && retainIdentity,
+                AuthPanelState(ready = previous.ready && retainIdentity,
                     user = previous.user.takeIf { retainIdentity },
                     accountSettings = previous.accountSettings.takeIf { retainIdentity },
                     preview = previous.preview.takeIf { retainIdentity },
@@ -268,8 +311,10 @@ class AuthController private constructor(context: Context) {
                 failed("Данные сайта защищены кодом восстановления. Ничего не перезаписано; понадобится код из личного кабинета.")
             } catch (_: CloudWorkspacePreview.Unreadable) {
                 failed("Не удалось проверить зашифрованные данные сайта. Сессия и локальные записи сохранены; ничего не перезаписано.")
+            } catch (_: GoogleIdTokenParsingException) {
+                failed("Google вернул ответ, который не удалось проверить. Обновите Google Play services и повторите вход.")
             } catch (_: GetCredentialException) {
-                failed("Google-вход сейчас недоступен на устройстве. Локальные функции доступны.")
+                failed("Google-вход не подтверждён. Проверьте сеть, Google Play services и OAuth-регистрацию этой Android-сборки.")
             } catch (error: AuthFailure) {
                 if (error.kind in setOf(AuthFailure.Kind.UNAUTHORIZED, AuthFailure.Kind.PROTOCOL)) clearCurrent(generation)
                 failed(when (error.kind) {
@@ -283,8 +328,7 @@ class AuthController private constructor(context: Context) {
                     AuthFailure.Kind.PROTOCOL -> "Ответ сервера не прошёл проверку. Вход не подтверждён."
                 }, retainIdentity = error.kind !in setOf(AuthFailure.Kind.UNAUTHORIZED, AuthFailure.Kind.PROTOCOL))
             } catch (_: Exception) {
-                clearCurrent(generation)
-                failed("Не удалось безопасно подтвердить вход. Локальные записи не изменены.", retainIdentity = false)
+                failed("Не удалось безопасно завершить проверку. Текущая сессия и локальные записи не изменены.")
             }
         }
     }

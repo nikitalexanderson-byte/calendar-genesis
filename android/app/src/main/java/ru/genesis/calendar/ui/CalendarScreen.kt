@@ -1,6 +1,7 @@
 package ru.genesis.calendar.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -13,6 +14,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -274,6 +277,10 @@ private fun CalendarDay(date: LocalDate, number: Int, sublabel: String?, fullNam
 @Composable
 private fun SelectedDayCard(calendar: GenesisCalendar, date: LocalDate, mode: CalendarMode,
     onOpenDay: (LocalDate) -> Unit, experimental: Boolean, tasks: List<LocalTask>) {
+    if (experimental) {
+        ExperimentalSelectedDayCard(calendar, date, mode, onOpenDay, tasks)
+        return
+    }
     val sacred = calendar.sacredDate(date)
     val month = SacredCatalog.months[sacred.monthIndex]
     val day = month.days[sacred.day - 1]
@@ -351,6 +358,120 @@ private fun SelectedDayCard(calendar: GenesisCalendar, date: LocalDate, mode: Ca
                 if (tasks.size > 5) Text("И ещё ${tasks.size - 5}…", style = MaterialTheme.typography.labelSmall)
             }
             Button(onClick = { onOpenDay(date) }) { Text("Открыть день и задачи") }
+        }
+    }
+}
+
+@Composable
+private fun ExperimentalSelectedDayCard(calendar: GenesisCalendar, date: LocalDate, mode: CalendarMode,
+    onOpenDay: (LocalDate) -> Unit, tasks: List<LocalTask>) {
+    val sacred = calendar.sacredDate(date)
+    val month = SacredCatalog.months[sacred.monthIndex]
+    val day = month.days[sacred.day - 1]
+    val lunar = calendar.lunarDate(date)
+    val moon = calendar.moonInfo(date)
+    val locale = if (LocalGenesisLanguage.current == "en") Locale.ENGLISH else ru
+    val weekday = if (mode == CalendarMode.PROFANE) todayHeroCopy(date, mode, calendar) else null
+    val primaryDate = when (mode) {
+        CalendarMode.PROFANE -> date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy", locale))
+            .replaceFirstChar { it.titlecase(locale) }
+        CalendarMode.LUNAR -> "${lunar.day} · ${lunar.month.name}"
+        CalendarMode.SACRED -> "${sacred.day} · ${month.name}"
+    }
+    val modeTitle = when (mode) {
+        CalendarMode.PROFANE -> "ГРИГОРИАНСКИЙ ДЕНЬ"
+        CalendarMode.LUNAR -> "ЛУННЫЙ ДЕНЬ"
+        CalendarMode.SACRED -> "САКРАЛЬНЫЙ ДЕНЬ"
+    }
+    val heroPath = weekday?.imagePath ?: "day-art-v1/month-${(sacred.monthIndex + 1).toString().padStart(2, '0')}/day-${sacred.day.toString().padStart(2, '0')}.webp"
+    val heroTitle = weekday?.title ?: day.name
+    val heroDescription = weekday?.description ?: day.description
+    Card(Modifier.fillMaxWidth().testTag("calendar-selected-day"), shape = RoundedCornerShape(20.dp),
+        border = BorderStroke(1.dp, Color(0x66dfc17e)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
+        Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+            Box(Modifier.fillMaxWidth().heightIn(min = 300.dp).testTag("calendar-day-hero")) {
+                OriginalImage(heroPath, heroTitle, Modifier.matchParentSize().testTag("calendar-weekday-art"))
+                Box(Modifier.matchParentSize().background(Brush.verticalGradient(
+                    0f to Color(0x15040e10), .45f to Color(0x55040e10), 1f to Color(0xf5071d20))))
+                Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(modeTitle, style = MaterialTheme.typography.labelMedium, color = Color(0xffdfc17e))
+                    Text(primaryDate, style = MaterialTheme.typography.headlineSmall,
+                        color = Color(0xfff9f2e2), modifier = Modifier.testTag("calendar-selected-primary-date"))
+                    Text(heroTitle, style = MaterialTheme.typography.titleMedium, color = Color(0xfff1e5cb))
+                    Text(heroDescription, style = MaterialTheme.typography.bodyMedium,
+                        color = Color(0xffeee6d7), maxLines = 4)
+                }
+            }
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (mode == CalendarMode.PROFANE) {
+                    val patron = weekdayPatronMark(date)
+                    Surface(color = MaterialTheme.colorScheme.primaryContainer,
+                        shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()
+                            .testTag("calendar-selected-patron")) {
+                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text(patron.symbol, style = MaterialTheme.typography.headlineMedium, color = patron.accent)
+                            Column {
+                                Text(patron.guidance, style = MaterialTheme.typography.titleSmall, color = patron.accent)
+                                Text(patron.patrons, style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer)
+                            }
+                        }
+                    }
+                    weekday?.details?.forEach { detail ->
+                        Text(detail, style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                } else Text(date.format(dateLabel), style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary)
+
+                Surface(color = MaterialTheme.colorScheme.primaryContainer,
+                    shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            MoonPhaseIcon(moon.phaseStep, size = 42.dp)
+                            Column {
+                                Text("${moon.day} лунный день · ${moon.phase}",
+                                    style = MaterialTheme.typography.titleSmall)
+                                Text("${moon.epithet} · ${moon.direction} · освещённость ${moon.illumination}%",
+                                    style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        Text("${lunar.month.name} · ${lunar.decade}${if (lunar.isThreshold) " · Рубеж" else ""}",
+                            style = MaterialTheme.typography.bodySmall)
+                        Text("Сакральная дата · ${sacred.day} · ${month.name} · ${day.name}",
+                            style = MaterialTheme.typography.bodySmall)
+                        Text("Пята ${day.pyata} · ${day.pyataTitle}", style = MaterialTheme.typography.bodySmall)
+                        Text("${date.dayOfWeek.getDisplayName(TextStyle.FULL_STANDALONE, ru)} · ${date.dayOfYear}-й день года",
+                            style = MaterialTheme.typography.bodySmall)
+                        if (moon.event.isNotBlank()) Text(moon.event, color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.labelLarge)
+                        calendar.solarEvent(date)?.let { event ->
+                            Text("${event.symbol} ${event.name} · ${event.instant.atZone(calendar.zoneId).format(DateTimeFormatter.ofPattern("HH:mm z", ru))}",
+                                color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleSmall)
+                        }
+                    }
+                }
+                Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Text("Задачи дня · ${tasks.size}", style = MaterialTheme.typography.titleSmall)
+                        if (tasks.isEmpty()) Text("На этот день задач нет.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        tasks.take(5).forEach { task -> Text("${if (task.done) "✓" else "○"} ${task.title}",
+                            style = MaterialTheme.typography.bodySmall, maxLines = 1) }
+                        if (tasks.size > 5) Text("И ещё ${tasks.size - 5}…", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+                Button(onClick = { onOpenDay(date) }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Открыть день и задачи")
+                }
+            }
         }
     }
 }

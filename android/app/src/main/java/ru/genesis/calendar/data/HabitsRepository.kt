@@ -19,6 +19,22 @@ data class LocalHabitWorkspace(val habits: List<Habit> = emptyList(), val comple
     val streakFreezeTransactions: List<StreakFreezeTransaction> = emptyList(),
     val quests: List<HabitQuest> = emptyList())
 
+internal const val HABIT_LAUREL_RETENTION_COMPLETIONS = 50
+
+internal fun habitCompletionCount(completions: List<HabitCompletion>, habitId: String): Int = completions
+    .asSequence().filter { it.habitId == habitId && it.completed }.map { it.date }.distinct().count()
+
+internal fun deleteHabitFromWorkspace(workspace: LocalHabitWorkspace, habitId: String,
+    timestamp: String): LocalHabitWorkspace {
+    if (workspace.habits.none { it.id == habitId }) return workspace
+    val retained = habitCompletionCount(workspace.completions, habitId) >= HABIT_LAUREL_RETENTION_COMPLETIONS
+    val rewards = if (retained) Rewards.retainMastery(workspace.rewards, habitId, timestamp)
+        else Rewards.reset(workspace.rewards, "habit-deleted-reset", habitId,
+            "habit-deleted:self:$habitId", timestamp)
+    return workspace.copy(habits = workspace.habits.filterNot { it.id == habitId },
+        completions = workspace.completions.filterNot { it.habitId == habitId }, rewards = rewards)
+}
+
 /** Local draft scope only. This document is not a cloud schema-16 import/sync adapter. */
 class HabitsRepository(private val app: GenesisApplication) {
     private val db=app.database
@@ -49,6 +65,11 @@ class HabitsRepository(private val app: GenesisApplication) {
         val saved=habit.copy(entity=habit.entity.changed(Instant.now().toString()),
             createdDate=previous?.createdDate ?: LocalDate.now(),schedule=engine().normalizeSchedule(habit.schedule))
         workspace.copy(habits=workspace.habits.filterNot { it.id==habit.id }+saved)
+    }
+
+    suspend fun delete(id: String) {
+        mutate { workspace -> deleteHabitFromWorkspace(workspace, id, Instant.now().toString()) }
+        app.scheduler.restore()
     }
 
     suspend fun complete(id: String, completed: Boolean, quality: Double? = null) = mutate { workspace ->

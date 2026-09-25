@@ -8,7 +8,7 @@ type InstallPrompt = Event & {
 };
 
 const APP_BASE = (process.env.NEXT_PUBLIC_GENESIS_BASE_PATH?.trim() || "").replace(/\/$/, "");
-const NATIVE_ANDROID_APK_URL = `${APP_BASE}/downloads/GENESIS-Android-Native-2.1.0.apk`;
+const NATIVE_ANDROID_APK_URL = `${APP_BASE}/downloads/GENESIS-Android-Native-2.1.1.apk`;
 
 type NavigatorWithUserAgentData = Navigator & {
   userAgentData?: {

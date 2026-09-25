@@ -8,6 +8,7 @@ import ru.genesis.calendar.BuildConfig
 import ru.genesis.calendar.data.LocalCipher
 import java.io.ByteArrayOutputStream
 import java.net.URL
+import java.util.TimeZone
 import javax.net.ssl.HttpsURLConnection
 
 internal class AuthFailure(val kind: Kind) : Exception("Authentication request failed") {
@@ -85,6 +86,12 @@ internal class AuthSessionClient(context: Context) {
     fun putWorkspace(expected: Long, envelope: JSONObject): JSONObject =
         request(expected, "/workspace", envelope, method = "PUT")
     fun bootstrap(expected: Long): JSONObject = request(expected, "/bootstrap", null)
+    fun stoicheionDraws(expected: Long): JSONObject = request(expected, "/stoicheion/draws", null)
+    fun saveStoicheionDraw(expected: Long, kind: String, seed: Long): JSONObject {
+        require(kind in setOf("daily", "spread"))
+        require(seed in 0..0xffff_ffffL)
+        return request(expected, "/stoicheion/draws", JSONObject().put("kind", kind).put("seed", seed))
+    }
     fun putTask(expected: Long, id: String, task: JSONObject): JSONObject {
         require(id.matches(Regex("[A-Za-z0-9_-]{1,100}")))
         return request(expected, "/tasks/$id", task, method = "PUT")
@@ -115,7 +122,7 @@ internal class AuthSessionClient(context: Context) {
     /** Blocking; the controller always calls on Dispatchers.IO. Default platform TLS verification. */
     private fun request(expected: Long, path: String, body: JSONObject?, secret: SessionSecret? = null,
         persist: Boolean = true, method: String = if (body == null) "GET" else "POST"): JSONObject {
-        require(path in setOf("/session", "/workspace", "/bootstrap", "/auth/google/native/challenge",
+        require(path in setOf("/session", "/workspace", "/bootstrap", "/stoicheion/draws", "/auth/google/native/challenge",
             "/auth/google/native", "/auth/logout", "/account/preferences") ||
             (method in setOf("PUT", "DELETE") && path.matches(Regex("/tasks/[A-Za-z0-9_-]{1,100}"))) ||
             (method == "DELETE" && path.matches(Regex("/account/google-accounts/[A-Za-z0-9_-]{1,100}"))))
@@ -132,6 +139,7 @@ internal class AuthSessionClient(context: Context) {
             connection.requestMethod = method
             connection.setRequestProperty("Accept", "application/json")
             connection.setRequestProperty("Cache-Control", "no-store")
+            connection.setRequestProperty("X-Genesis-Time-Zone", TimeZone.getDefault().id)
             if (current.cookie.isNotBlank()) connection.setRequestProperty("Cookie", "$SESSION_COOKIE=${current.cookie}")
             if (body != null) {
                 connection.setRequestProperty("X-CSRF-Token", current.csrf)

@@ -2,12 +2,15 @@ package ru.genesis.calendar.data
 
 import androidx.room.withTransaction
 import java.security.SecureRandom
+import java.time.Instant
 import java.time.LocalDate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flowOn
+import org.json.JSONArray
 import org.json.JSONObject
 import ru.genesis.calendar.GenesisApplication
+import ru.genesis.calendar.auth.AuthController
 
 data class StoicheionDraw(val kind: String, val dayKey: String, val seed: Long,
     val attempts: Int, val firstAt: Long, val rerollDeadline: Long) {
@@ -32,7 +35,25 @@ object StoicheionDrawRules {
     }
 }
 
-/** Local encrypted fallback only. It does not impersonate the website's account-bound draw API. */
+internal object StoicheionDrawWire {
+    fun drawsObject(payload: JSONObject): JSONObject = when (val value = payload.get("draws")) {
+        is JSONObject -> value
+        is JSONArray -> JSONObject().also { require(value.length() == 0) }
+        else -> error("Некорректный набор раскладов.")
+    }
+
+    fun fromServerJson(value: JSONObject): StoicheionDraw {
+        val draw = StoicheionDraw(value.getString("kind"), value.getString("dayKey"),
+            value.getLong("seed"), value.getInt("attempts"),
+            Instant.parse(value.getString("firstDrawAt")).toEpochMilli(),
+            Instant.parse(value.getString("rerollDeadline")).toEpochMilli())
+        require(draw.kind in setOf("daily", "spread") && draw.seed in 0..0xffff_ffffL && draw.attempts in 1..2)
+        LocalDate.parse(draw.dayKey)
+        return draw
+    }
+}
+
+/** Account scopes mirror the server draw API; local scopes retain the encrypted offline fallback. */
 class StoicheionDrawRepository(private val app: GenesisApplication) {
     private val dao = app.database.dao()
     private val scope = app.workspaceScope
@@ -46,8 +67,17 @@ class StoicheionDrawRepository(private val app: GenesisApplication) {
             JSONObject(cipher.decrypt(record.encrypted, associatedData)), LocalDate.now().toString())
     }.flowOn(Dispatchers.IO)
 
-    suspend fun save(drawKind: String, seed: Long = random.nextInt().toUInt().toLong()): StoicheionDraw =
-        app.database.withTransaction {
+    suspend fun refreshFromServer(): StoicheionDraws {
+        require(scope.startsWith("account-")) { "Серверная синхронизация доступна после входа." }
+        return replaceFromServer(AuthController.get(app).loadStoicheionDraws())
+    }
+
+    suspend fun save(drawKind: String, seed: Long = random.nextInt().toUInt().toLong()): StoicheionDraw {
+        if (scope.startsWith("account-")) {
+            val payload = AuthController.get(app).saveStoicheionDraw(drawKind, seed)
+            return mergeServerDraw(payload.getJSONObject("draw"))
+        }
+        return app.database.withTransaction {
             val dayKey = LocalDate.now().toString()
             val row = dao.document(scope, kind)
             val root = if (row == null) JSONObject().put("days", JSONObject())
@@ -62,6 +92,52 @@ class StoicheionDrawRepository(private val app: GenesisApplication) {
                 (row?.revision ?: 0L) + 1L))
             next
         }
+    }
+
+    internal suspend fun replaceFromServer(payload: JSONObject): StoicheionDraws = app.database.withTransaction {
+        val dayKey = payload.getString("dayKey")
+        LocalDate.parse(dayKey)
+        val draws = StoicheionDrawWire.drawsObject(payload)
+        val root = currentRoot()
+        val days = root.optJSONObject("days") ?: JSONObject().also { root.put("days", it) }
+        val values = JSONObject()
+        listOf("daily", "spread").forEach { drawKind ->
+            draws.optJSONObject(drawKind)?.let { value ->
+                val parsed = StoicheionDrawWire.fromServerJson(value)
+                require(parsed.kind == drawKind && parsed.dayKey == dayKey)
+                values.put(drawKind, localJson(parsed))
+            }
+        }
+        days.put(dayKey, values)
+        persist(root)
+        read(root, dayKey)
+    }
+
+    private suspend fun mergeServerDraw(value: JSONObject): StoicheionDraw = app.database.withTransaction {
+        val draw = StoicheionDrawWire.fromServerJson(value)
+        val root = currentRoot()
+        val days = root.optJSONObject("days") ?: JSONObject().also { root.put("days", it) }
+        val values = days.optJSONObject(draw.dayKey) ?: JSONObject().also { days.put(draw.dayKey, it) }
+        values.put(draw.kind, localJson(draw))
+        persist(root)
+        draw
+    }
+
+    private suspend fun currentRoot(): JSONObject {
+        val row = dao.document(scope, kind)
+        return if (row == null) JSONObject().put("days", JSONObject())
+            else JSONObject(cipher.decrypt(row.encrypted, associatedData))
+    }
+
+    private suspend fun persist(root: JSONObject) {
+        val row = dao.document(scope, kind)
+        dao.putDocument(DocumentRecord(scope, kind, cipher.encrypt(root.toString(), associatedData),
+            (row?.revision ?: 0L) + 1L))
+    }
+
+    private fun localJson(draw: StoicheionDraw) = JSONObject().put("seed", draw.seed)
+        .put("attempts", draw.attempts).put("firstAt", draw.firstAt)
+        .put("rerollDeadline", draw.rerollDeadline)
 
     private fun read(root: JSONObject, dayKey: String): StoicheionDraws {
         val values = root.optJSONObject("days")?.optJSONObject(dayKey) ?: return StoicheionDraws()

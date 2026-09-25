@@ -8,6 +8,8 @@ class ProjectsCopyTest {
         assertEquals("Основной проект", projectTreeLabel("Основной проект", 0))
         assertEquals("— Подпроект", projectTreeLabel("Подпроект", 1))
         assertEquals("— Вложенный проект", projectTreeLabel("Вложенный проект", 2))
+        assertEquals("↳ Подпроект", projectHierarchyLabel("Подпроект", 1))
+        assertEquals("  ↳ Вложенный проект", projectHierarchyLabel("Вложенный проект", 2))
     }
 
     @Test fun russianProjectAndTaskCountsDeclineCorrectly() {
