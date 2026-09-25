@@ -42,11 +42,15 @@ interface GenesisDao {
     suspend fun reminder(scope: String, id: String): ReminderRecord?
     @Query("SELECT * FROM reminders WHERE scope=:scope AND taskId=:task")
     suspend fun taskReminders(scope: String, task: String): List<ReminderRecord>
+    @Query("DELETE FROM reminders WHERE scope=:scope")
+    suspend fun clearReminders(scope: String)
     @Upsert suspend fun putReminder(reminder: ReminderRecord)
     @Query("UPDATE reminders SET state='cancelled', revision=revision+1 WHERE scope=:scope AND taskId=:task")
     suspend fun cancelReminders(scope: String, task: String)
     @Query("UPDATE reminders SET state=:state, deliveredAt=:now WHERE scope=:scope AND id=:id AND revision=:revision AND state='pending'")
     suspend fun claimReminder(scope: String, id: String, revision: Long, state: String, now: Long): Int
+    @Query("UPDATE reminders SET state='cancelled' WHERE scope=:scope AND id=:id AND revision=:revision AND state='delivered'")
+    suspend fun closeDeliveredReminder(scope: String, id: String, revision: Long): Int
     @Query("SELECT * FROM outbox WHERE scope=:scope")
     suspend fun outbox(scope: String): List<OutboxRecord>
     @Query("SELECT * FROM outbox WHERE scope=:scope")

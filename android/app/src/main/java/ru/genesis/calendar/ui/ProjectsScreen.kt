@@ -48,6 +48,9 @@ internal fun russianCount(value: Int, one: String, few: String, many: String): S
         else -> many
     }
 
+internal fun projectTreeLabel(title: String, depth: Int): String =
+    if (depth > 0) "— $title" else title
+
 private data class TaskPickup(val id: String, val title: String, val originId: String?, val position: Offset)
 
 @Composable
@@ -239,7 +242,8 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
                     .padding(start = (16 + depth.coerceAtMost(5) * 14).dp, end = 16.dp, top = 14.dp, bottom = 14.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        androidx.compose.material3.Text(project.title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                        androidx.compose.material3.Text(projectTreeLabel(project.title, depth), Modifier.weight(1f),
+                            style = MaterialTheme.typography.titleMedium)
                         Text("$count", style = MaterialTheme.typography.labelLarge)
                     }
                     val category = structure.categories.firstOrNull { it.id == project.categoryId }
@@ -551,7 +555,7 @@ private fun ProjectEditor(structure: WorkspaceStructure, existing: GenesisProjec
                     FilterChip(selected = parentId == null, onClick = { parentId = null }, label = { Text("Корневой") })
                     WorkspaceStructureCodec.ordered(structure).filter { it.first.id !in invalidParents }.forEach { (project, depth) ->
                         FilterChip(selected = parentId == project.id, onClick = { parentId = project.id },
-                            label = { Text("  ".repeat(depth) + project.title) })
+                            label = { Text("  ".repeat(depth) + projectTreeLabel(project.title, depth)) })
                     }
                 }
                 OutlinedTextField(tags, { tags = it }, label = { Text("Метки через запятую") },

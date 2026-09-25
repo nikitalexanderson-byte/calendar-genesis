@@ -1380,7 +1380,7 @@ export function GenesisCalendar() {
     active: boolean;
   } | null>(null);
   const suppressProjectItemClickRef = useRef(false);
-  const { androidApkUrl, nativeAndroidApkUrl, canInstall, install, isStandalone } = usePwaInstall();
+  const { nativeAndroidApkUrl, canInstall, install, isStandalone } = usePwaInstall();
   const sacredYearDialogRef = useDialogAccessibility<HTMLElement>(() => setSacredYearDetailsOpen(false), sacredYearDetailsOpen);
   const dayDetailsDialogRef = useDialogAccessibility<HTMLElement>(() => setDayDetailsOpen(false), dayDetailsOpen);
   const dayTaskCreatorDialogRef = useDialogAccessibility<HTMLElement>(() => { setDayTaskCreatorOpen(false); setDayDetailsOpen(true); }, dayTaskCreatorOpen);
@@ -5936,7 +5936,6 @@ export function GenesisCalendar() {
   if (isGoogleSyncConfigured && !cloudUser) {
     return (
       <WelcomeScreen
-        androidApkUrl={androidApkUrl}
         nativeAndroidApkUrl={nativeAndroidApkUrl}
         busy={syncStatus === "syncing"}
         error={authError || syncError}
@@ -6026,17 +6025,12 @@ export function GenesisCalendar() {
             <strong>{formatCalendarDate(today, activeCalendarMode, activeCalendarMode !== "sacred")}</strong>
           </div>
           <div className="topbar-actions">
-            {androidApkUrl ? (
-              <a className="icon-button ux-action-button android-apk-icon-button" href={androidApkUrl} download data-tooltip={language === "en" ? "Download TWA version" : "Скачать TWA-версию"} title={language === "en" ? "Download GENESIS TWA for Android" : "Скачать GENESIS TWA для Android"} aria-label={language === "en" ? "Download GENESIS TWA for Android" : "Скачать TWA-версию GENESIS для Android"}>
-                <span className="ux-android-icon" aria-hidden="true" />
-              </a>
-            ) : null}
             {nativeAndroidApkUrl ? (
-              <a className="icon-button ux-action-button android-native-icon-button" href={nativeAndroidApkUrl} download data-tooltip={language === "en" ? "Download native Android app" : "Скачать нативное Android-приложение"} title={language === "en" ? "GENESIS native Android APK" : "GENESIS — нативный Android APK"} aria-label={language === "en" ? "Download GENESIS native Android app" : "Скачать нативное Android-приложение GENESIS"}>
+              <a className="icon-button ux-action-button android-native-icon-button" href={nativeAndroidApkUrl} download data-tooltip={language === "en" ? "Native Android app · remove the old TWA first" : "Нативное приложение · сначала удалите прежнюю TWA"} title={language === "en" ? "Native GENESIS APK; old TWA must be removed first" : "Нативный GENESIS APK; прежнюю TWA необходимо сначала удалить"} aria-label={language === "en" ? "Download native GENESIS for Android; remove the old TWA first" : "Скачать нативный GENESIS для Android; сначала удалите старую TWA"}>
                 <svg className="ux-android-robot" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M5.5 9h13v8.5a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2V9ZM5.5 9a6.5 6.5 0 0 1 13 0M4 11v5M20 11v5M9 19.5V22M15 19.5V22M7 3 5.5 1M17 3 18.5 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><circle cx="9.3" cy="7" r=".8" fill="currentColor"/><circle cx="14.7" cy="7" r=".8" fill="currentColor"/></svg>
               </a>
             ) : null}
-            {!androidApkUrl && !isStandalone && canInstall ? (
+            {!nativeAndroidApkUrl && !isStandalone && canInstall ? (
               <button type="button" className="icon-button ux-action-button" data-tooltip="Установить приложение" title="Установить GENESIS" aria-label="Установить GENESIS" onClick={() => void install()}>
                 <span className="ux-install-icon" aria-hidden="true" />
               </button>

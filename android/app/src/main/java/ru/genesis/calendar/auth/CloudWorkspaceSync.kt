@@ -21,7 +21,8 @@ internal interface CloudWorkspaceTransport {
 internal class CloudWorkspaceSync(private val db: GenesisDatabase, private val transport: CloudWorkspaceTransport) {
     private val documentKinds = setOf("workspace-structure", "habits", "trackers")
 
-    suspend fun flush(scope: String): Int {
+    suspend fun flush(scope: String,
+        conflictPolicy: WorkspacePatch.ConflictPolicy = WorkspacePatch.ConflictPolicy.STOP): Int {
         require(scope.startsWith("account-") && scope.length == 40)
         val dao = db.dao()
         val cipher = LocalCipher()
@@ -43,7 +44,7 @@ internal class CloudWorkspaceSync(private val db: GenesisDatabase, private val t
                     "Remote workspace version moved backwards"
                 }
                 val patch = WorkspacePatch.apply(base, local, remote.document,
-                    pending.map { it.entityId }.toSet(), remote.version, timestamp, deviceId)
+                    pending.map { it.entityId }.toSet(), remote.version, timestamp, deviceId, conflictPolicy)
                 val version = if (!patch.changed) remote.version else {
                     val encrypted = WorkspaceCipher.encrypt(patch.document.toString().toByteArray(), remote.key)
                     val response = transport.put(JSONObject().put("ciphertext", encrypted.ciphertext)

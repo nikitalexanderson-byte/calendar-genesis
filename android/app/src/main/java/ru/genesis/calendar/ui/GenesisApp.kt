@@ -112,7 +112,8 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                 Row(Modifier.fillMaxWidth().padding(12.dp),verticalAlignment=Alignment.CenterVertically) {
                     OriginalImage("icons/icon-192.png","GENESIS",Modifier.size(40.dp))
                     Text("GENESIS",Modifier.padding(start=10.dp).weight(1f),style=MaterialTheme.typography.titleLarge)
-                    Text(if(BuildConfig.DEBUG) "Internal alpha" else "2.0",style=MaterialTheme.typography.labelSmall)
+                    Text(if(BuildConfig.DEBUG) "Internal alpha" else BuildConfig.VERSION_NAME,
+                        style=MaterialTheme.typography.labelSmall)
                 }
                 Text(if (activeScope.startsWith("account-")) "Аккаунт GENESIS · защищённая локальная копия"
                     else if(BuildConfig.DEBUG) "Изолированное тестовое пространство · только на этом устройстве"
@@ -263,7 +264,19 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
             ?.takeIf { it.isNotEmpty() } ?: routing?.defaultAccountIds.orEmpty()
     }
     var syncTargets by remember(task?.id,accountSettings) { mutableStateOf(originalTargets) }
-    var remind by rememberSaveable(task?.id) { mutableStateOf(task?.reminderAt) }
+    var reminders by remember(task?.id) { mutableStateOf(task?.reminders ?: task?.reminderAt?.let {
+        listOf(TaskReminder.absolute(it)) } ?: emptyList()) }
+    var customReminder by remember { mutableStateOf(false) }
+    var customRelative by remember { mutableStateOf(true) }
+    var customAmount by rememberSaveable { mutableStateOf("1") }
+    var customUnit by remember { mutableIntStateOf(60) }
+    var absoluteDate by rememberSaveable { mutableStateOf(date) }
+    var absoluteTime by rememberSaveable { mutableStateOf(time.ifBlank { "09:00" }) }
+    val googleTaskBacked = task?.sourceFieldsJson?.let { raw ->
+        runCatching { JSONObject(raw).optString("googleTaskId") }.getOrNull()?.let {
+            it.isNotBlank() && it != "null"
+        } ?: false
+    } ?: false
     var confirmDelete by remember { mutableStateOf(false) }
     var validation by remember { mutableStateOf<String?>(null) }
     val occurrenceDate = if (task?.recurrence?.enabled == true && showSelectedOccurrence &&
@@ -309,24 +322,63 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                     style=MaterialTheme.typography.bodySmall,
                     color=MaterialTheme.colorScheme.onSurfaceVariant)
                 val occurrenceCount = TaskRecurrenceEditor(recurrence,date,prefs.input) { recurrence=it;validation=null }
-                Text("Напоминание",style=MaterialTheme.typography.titleMedium)
-                Row(Modifier.horizontalScroll(rememberScrollState())) {
-                    TextButton(onClick={remind=null}){Text("Нет")}
-                    TextButton(onClick={remind=System.currentTimeMillis()+60_000}){Text("Через 1 мин")}
-                    TextButton(onClick={remind=System.currentTimeMillis()+120_000}){Text("Через 2 мин")}
-                    TextButton(onClick={
-                        if(time.isBlank()) validation="Сначала выберите время."
-                        else {
-                            val local=LocalDateTime.of(LocalDate.parse(date),LocalTime.parse(time))
-                            val zone=ZoneId.systemDefault()
-                            val offsets=zone.rules.getValidOffsets(local)
-                            if(offsets.size!=1) validation="Это время неоднозначно или отсутствует из-за перевода часов. Выберите другое."
-                            else { remind=local.toInstant(offsets.first()).toEpochMilli();validation=null }
-                        }
-                    }){Text("Во время задачи")}
+                Text("Напомнить · ${reminders.size}/5",style=MaterialTheme.typography.titleMedium)
+                if(googleTaskBacked) Text("Для задачи из списка Google Tasks напоминания здесь недоступны; они поддерживаются для событий Google Calendar.",
+                    style=MaterialTheme.typography.bodySmall)
+                if(reminders.isEmpty()) Text("Без напоминания",style=MaterialTheme.typography.bodySmall)
+                reminders.forEach { reminder ->
+                    Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+                        Text(if(reminder.kind=="relative") "За ${reminder.minutes} мин до задачи" else
+                            Instant.ofEpochMilli(requireNotNull(reminder.at)).atZone(ZoneId.systemDefault())
+                                .format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")),Modifier.weight(1f))
+                        TextButton(enabled=!googleTaskBacked,onClick={reminders=reminders.filterNot { it.key==reminder.key }}) { Text("Убрать") }
+                    }
                 }
-                remind?.let { Text(Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault())
-                    .format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss"))) }
+                Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(4.dp)) {
+                    listOf(10 to "10 мин",30 to "30 мин",60 to "1 час",1440 to "1 день").forEach { (minutes,label) ->
+                        FilterChip(selected=reminders.any{it.kind=="relative" && it.minutes==minutes},
+                            enabled=!googleTaskBacked && (reminders.size<5 || reminders.any{it.kind=="relative" && it.minutes==minutes}),
+                            onClick={ val spec=TaskReminder.relative(minutes)
+                                reminders=if(reminders.any{it.key==spec.key}) reminders.filterNot{it.key==spec.key}
+                                    else reminders+spec },label={Text(label)})
+                    }
+                }
+                OutlinedButton(enabled=!googleTaskBacked && reminders.size<5,onClick={customReminder=true}) { Text("+ Своё напоминание") }
+                if(customReminder) {
+                    Row { FilterChip(selected=customRelative,onClick={customRelative=true},label={Text("За время до задачи")})
+                        FilterChip(selected=!customRelative,onClick={customRelative=false},label={Text("Точная дата и время")}) }
+                    if(customRelative) {
+                        OutlinedTextField(customAmount,{customAmount=it},label={Text("Целое число")},singleLine=true)
+                        Row(Modifier.horizontalScroll(rememberScrollState())) {
+                            listOf(1 to "Мин",60 to "Часы",1440 to "Дни",10080 to "Недели").forEach { (unit,label) ->
+                                FilterChip(selected=customUnit==unit,onClick={customUnit=unit},label={Text(label)})
+                            }
+                        }
+                    } else {
+                        Text("Дата напоминания · ${prefs.input.wireValue}")
+                        AuthorDatePicker(absoluteDate,prefs.input){absoluteDate=it}
+                        AuthorTimePicker(absoluteTime,prefs.use24){absoluteTime=it}
+                    }
+                    Row {
+                        TextButton(onClick={customReminder=false}) { Text("Отмена") }
+                        Button(onClick={
+                            val spec=if(customRelative) customAmount.toIntOrNull()?.let { count ->
+                                (count.toLong()*customUnit).takeIf { it in 0..40_320 }?.let { TaskReminder.relative(it.toInt()) }
+                            } else runCatching { TaskReminder.absolute(LocalDate.parse(absoluteDate)
+                                .atTime(LocalTime.parse(absoluteTime)).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()) }.getOrNull()
+                            val start=runCatching { LocalDate.parse(date).atTime(LocalTime.parse(time.ifBlank { "00:00" }))
+                                .atZone(ZoneId.systemDefault()).toInstant().toEpochMilli() }.getOrNull()
+                            validation=when {
+                                spec==null || start==null -> "Введите корректную дату, время и интервал до четырёх недель."
+                                spec.kind=="absolute" && (requireNotNull(spec.at)>start || start-requireNotNull(spec.at)>40_320L*60_000) ->
+                                    "Точная дата должна быть не позже задачи и не раньше четырёх недель до неё."
+                                reminders.any{it.key==spec.key} -> "Такое напоминание уже добавлено."
+                                else -> null
+                            }
+                            if(validation==null && spec!=null) { reminders=reminders+spec;customReminder=false }
+                        }) { Text("Добавить") }
+                    }
+                }
                 validation?.let { Text(it,color=MaterialTheme.colorScheme.error) }
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
                     TextButton(onClick=onDismiss){Text("Отмена")}
@@ -348,7 +400,8 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                         else if(task==null || task.categoryId!=structure.projects.firstOrNull{it.id==projectId}?.categoryId)
                             source.remove("syncAccountIds")
                         if (validation == null) onSave((task ?: LocalTask(title=title)).copy(title=title.trim(),description=description,date=date,time=time,priority=priority,
-                            reminderAt=remind,projectId=projectId,categoryId=structure.projects.firstOrNull{it.id==projectId}?.categoryId,
+                            reminderAt=reminders.firstOrNull{it.kind=="absolute"}?.at,reminders=reminders,
+                            projectId=projectId,categoryId=structure.projects.firstOrNull{it.id==projectId}?.categoryId,
                             recurrence=if (recurrence.enabled) RecurrenceEngine(GenesisCalendar()).resolve(date,recurrence.copy(rangeStart=date))
                                 else recurrence.copy(enabled=false,rangeStart="",rangeEnd=""),
                             recurrenceExcludedDates=if(recurrence.enabled) task?.recurrenceExcludedDates ?: emptyList() else emptyList(),
@@ -420,9 +473,12 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
             if(Build.VERSION.SDK_INT>=33 && !app.scheduler.notificationsAllowed()) request.launch(Manifest.permission.POST_NOTIFICATIONS)
             else app.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE,app.packageName).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }){Text("Разрешить уведомления")}
-        if(Build.VERSION.SDK_INT>=31) OutlinedButton(onClick={
+        if(Build.VERSION.SDK_INT in 31..32 && !app.scheduler.exactAllowed()) OutlinedButton(onClick={
             app.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,Uri.parse("package:${app.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }){Text("Точное время напоминаний")}
+        if(Build.VERSION.SDK_INT>=33 && !app.scheduler.exactAllowed())
+            Text("Система ограничила точные сигналы. Уведомления могут приходить с задержкой; проверьте разрешения GENESIS в настройках устройства.",
+                style=MaterialTheme.typography.bodySmall)
         Text("На выключенном телефоне, после Force stop и при системном запрете уведомления недоступны. DND и отключённый звук сохраняются.")
         Text("После перезагрузки расписание восстанавливается после разблокировки. Просроченные сигналы не проигрываются повторно.")
         OutlinedButton(onClick={scope.launch{app.scheduler.restore();refresh++}}){Text("Проверить расписание")}

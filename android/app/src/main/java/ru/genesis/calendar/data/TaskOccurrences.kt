@@ -42,6 +42,7 @@ object TaskOccurrences {
         if (remaining.isEmpty()) return null
         return task.copy(date = if (date == task.date) remaining.first() else task.date,
             recurrenceExcludedDates = (task.recurrenceExcludedDates + date).distinct().sorted(),
-            reminderAt = if (date == task.date) null else task.reminderAt)
+            reminderAt = if (date == task.date) null else task.reminderAt,
+            reminders = if (date == task.date) task.reminders?.filter { it.kind == "relative" } else task.reminders)
     }
 }

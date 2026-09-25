@@ -25,6 +25,7 @@ data class AuthPanelState(
     val user: ServerIdentity? = null,
     val accountSettings: AccountSettings? = null,
     val preview: CloudWorkspacePreview.Summary? = null,
+    val workspaceConflictPath: String? = null,
     val checkedAt: Long? = null,
     val message: String = "Серверная сессия ещё не проверена.",
 )
@@ -80,7 +81,7 @@ class AuthController private constructor(context: Context) {
             if (confirmed.uid != identity.uid) throw AuthFailure(AuthFailure.Kind.PROTOCOL)
             val preview = withContext(Dispatchers.Default) { CloudWorkspacePreview.inspect(payload) }
             val snapshot = withContext(Dispatchers.Default) { CloudAccountSnapshot.fromBootstrap(payload) }
-            val imported = withContext(Dispatchers.IO) { CloudAccountImporter(app.database).import(snapshot) }
+            val imported = withContext(Dispatchers.IO) { CloudAccountImporter(app.database, app.scheduler).import(snapshot) }
             var resolvedSettings = AccountSettings.fromResponse(payload) ?: settings
             var languageWarning = false
             if (preferredLanguage in setOf("ru", "en") && resolvedSettings.language != preferredLanguage) {
@@ -94,6 +95,7 @@ class AuthController private constructor(context: Context) {
                 catch (_: Exception) { languageWarning = true }
             }
             app.activateAccount(confirmed.uid)
+            withContext(Dispatchers.IO) { app.scheduler.restore() }
             publish(generation, AuthPanelState(ready = true, user = confirmed,
                 accountSettings = resolvedSettings, preview = preview,
                 checkedAt = System.currentTimeMillis(), message = (when (imported) {
@@ -189,7 +191,12 @@ class AuthController private constructor(context: Context) {
         publish(generation, AuthPanelState(message = message + if (providerCleared) "" else " Поставщик Google недоступен для очистки состояния."))
     }
 
-    fun syncPending() {
+    fun syncPending() = syncPending(WorkspacePatch.ConflictPolicy.STOP)
+
+    fun keepLocalWorkspaceChanges() = syncPending(WorkspacePatch.ConflictPolicy.KEEP_LOCAL)
+    fun keepRemoteWorkspaceChanges() = syncPending(WorkspacePatch.ConflictPolicy.KEEP_REMOTE)
+
+    private fun syncPending(conflictPolicy: WorkspacePatch.ConflictPolicy) {
         val identity = mutableState.value.user ?: return
         val accountScope = CloudAccountSnapshot.scopeFor(identity.uid)
         if (app.workspaceScope != accountScope || syncJob?.isActive == true) return
@@ -198,15 +205,19 @@ class AuthController private constructor(context: Context) {
             var sentTasks = 0
             var sentWorkspace = 0
             var failure: String? = null
+            var conflictPath: String? = null
             try {
                 sentWorkspace = withContext(Dispatchers.IO) {
                     CloudWorkspaceSync(app.database, object : CloudWorkspaceTransport {
                         override fun get() = client.workspace(generation)
                         override fun put(body: JSONObject) = client.putWorkspace(generation, body)
-                    }).flush(accountScope)
+                    }).flush(accountScope, conflictPolicy)
                 }
             } catch (error: CancellationException) { throw error }
-            catch (_: WorkspacePatch.Conflict) { failure = "Конфликт зашифрованного пространства: данные устройства сохранены, автоматическая перезапись сайта остановлена." }
+            catch (error: WorkspacePatch.Conflict) {
+                conflictPath = error.field
+                failure = "Конфликт зашифрованного пространства: данные устройства сохранены. Решите, какую версию оставить."
+            }
             catch (_: CloudWorkspacePreview.RecoveryRequired) { failure = "Для синхронизации нужен код восстановления пространства." }
             catch (_: Exception) { failure = "Изменения проектов или привычек пока не подтверждены сервером и сохранены на устройстве." }
             try {
@@ -219,7 +230,8 @@ class AuthController private constructor(context: Context) {
             } catch (error: CancellationException) { throw error }
             catch (_: Exception) { failure = listOfNotNull(failure,
                 "Изменения задач пока не подтверждены Google и сохранены на устройстве.").joinToString(" ") }
-            if (client.isCurrent(generation)) mutableState.value = mutableState.value.copy(message = failure ?:
+            if (client.isCurrent(generation)) mutableState.value = mutableState.value.copy(
+                workspaceConflictPath = conflictPath, message = failure ?:
                 if (sentTasks + sentWorkspace > 0) "Синхронизировано: $sentTasks задач, $sentWorkspace изменений пространства."
                 else mutableState.value.message)
         }
@@ -232,6 +244,7 @@ class AuthController private constructor(context: Context) {
         val previous = mutableState.value
         mutableState.value = AuthPanelState(busy = true, ready = previous.ready && !requireFresh, user = previous.user,
             accountSettings = previous.accountSettings, preview = previous.preview,
+            workspaceConflictPath = previous.workspaceConflictPath,
             checkedAt = previous.checkedAt, message = message)
         operation = scope.launch {
             fun failed(message: String, retainIdentity: Boolean = true) = publish(generation,

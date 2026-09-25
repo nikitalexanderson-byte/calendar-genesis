@@ -29,6 +29,7 @@ data class LocalTask(
     val recurrenceExcludedDates: List<String> = emptyList(),
     /** Retains web fields that the native editor does not yet expose. Always encrypted at rest. */
     val sourceFieldsJson: String = "{}",
+    val reminders: List<TaskReminder>? = null,
 ) {
     fun json(): String {
         val source = JSONObject(sourceFieldsJson)
@@ -40,7 +41,9 @@ data class LocalTask(
                 .getOrDefault(date)
         else oldEnd?.toString() ?: date
         val previousReminder = if (source.isNull("reminderAt")) null else source.optLong("reminderAt")
-        val remindersChanged = previousReminder != reminderAt
+        val selectedReminders = reminders ?: if (previousReminder != reminderAt)
+            reminderAt?.let { listOf(TaskReminder.absolute(it)) } ?: emptyList()
+            else TaskReminder.from(source)
         source.put("id", id).put("done", done)
             .put("title", title).put("description", description)
             .put("dueDate", date).put("endDate", endDate)
@@ -49,7 +52,9 @@ data class LocalTask(
             .put("completedAt", if (done) source.optString("completedAt").takeIf {
                 previousDone && it.isNotBlank() && it != "null"
             } ?: java.time.Instant.now().toString() else JSONObject.NULL)
-            .put("reminderAt", reminderAt ?: JSONObject.NULL)
+            .put("reminderAt", selectedReminders.firstOrNull { it.kind == "absolute" }?.at ?: JSONObject.NULL)
+            .put("reminderMinutes", selectedReminders.firstOrNull { it.kind == "relative" }?.minutes ?: JSONObject.NULL)
+            .put("reminders", TaskReminder.array(selectedReminders))
             .put("projectId", projectId ?: JSONObject.NULL).put("categoryId", categoryId ?: JSONObject.NULL)
             .put("project", project)
             .put("recurrence", "none")
@@ -62,8 +67,6 @@ data class LocalTask(
             .put("recurrenceMonths", JSONArray(if (recurrence.enabled) recurrence.months else emptyList<Int>()))
             .put("recurrencePyatas", JSONArray(if (recurrence.enabled) recurrence.pyatas else emptyList<Int>()))
             .put("recurrenceExcludedDates", JSONArray(if (recurrence.enabled) recurrenceExcludedDates else emptyList<String>()))
-        if (remindersChanged) source.put("reminders", if (reminderAt == null) JSONArray() else JSONArray().put(
-            JSONObject().put("kind", "absolute").put("at", java.time.Instant.ofEpochMilli(reminderAt).toString())))
         return source.toString()
     }
     companion object {
@@ -92,7 +95,7 @@ data class LocalTask(
                 if (v.isNull("reminderAt")) null else v.getLong("reminderAt"), record.revision,
                 if (v.isNull("projectId")) null else v.getString("projectId"),
                 if (v.isNull("categoryId")) null else v.getString("categoryId"), v.optString("project"),
-                recurrence, strings(v.optJSONArray("recurrenceExcludedDates")), json)
+                recurrence, strings(v.optJSONArray("recurrenceExcludedDates")), json, TaskReminder.from(v))
         }
     }
 }
@@ -114,6 +117,7 @@ class TaskRepository(private val db: GenesisDatabase, private val cipher: LocalC
         if (task.time.isNotEmpty()) LocalTime.parse(task.time)
         ZoneId.of(task.zoneId)
         require(task.priority in 1..10)
+        require((task.reminders?.size ?: 0) <= 5 && task.reminders?.distinctBy { it.key }?.size == task.reminders?.size)
         if (task.recurrence.enabled) {
             val dates = RecurrenceEngine(GenesisCalendar()).buildDates(task.date, task.recurrence)
             require(dates.isNotEmpty()) { "В выбранном периоде нет дат повторения." }
@@ -137,14 +141,14 @@ class TaskRepository(private val db: GenesisDatabase, private val cipher: LocalC
             dao.putTask(TaskRecord(scope, task.id, cipher.encrypt(next.json(), "$scope/${task.id}"), next.revision, task.done))
             dao.putOutbox(OutboxRecord(scope, task.id, next.revision, UUID.randomUUID().toString()))
             dao.cancelReminders(scope, task.id)
-            if (!task.done && task.reminderAt != null) {
-                dao.putReminder(ReminderRecord(scope, task.id + ":0", task.id, task.date,
-                    next.revision, task.reminderAt))
+            TaskReminderPlan.times(next).forEach { (occurrence, at) ->
+                dao.putReminder(ReminderRecord(scope, task.id + ":" + occurrence, task.id,
+                    occurrence.substringBefore(':'), next.revision, at))
             }
             next
         }
         previous.forEach(scheduler::cancel)
-        dao.taskReminders(scope, task.id).filter { it.state == "pending" }.forEach(scheduler::schedule)
+        scheduler.scheduleUpcomingLocked(scope)
         return saved
     }
     suspend fun complete(id: String) {
@@ -179,13 +183,20 @@ class TaskRepository(private val db: GenesisDatabase, private val cipher: LocalC
         if(reminder.revision!=revision || reminder.state!="delivered") return@withMutation false
         val task=get(reminder.taskId)?.takeUnless { it.done } ?: return@withMutation false
         if(task.revision!=revision) return@withMutation false
-        val next=when(action) {
-            "complete" -> task.copy(done=true)
-            "snooze" -> task.copy(reminderAt=System.currentTimeMillis()+durationMillis)
-            "dismiss" -> task.copy(reminderAt=null)
-            else -> return@withMutation false
+        if (action == "complete") { saveLocked(task.copy(done=true)); return@withMutation true }
+        if (action !in setOf("snooze", "dismiss") || durationMillis <= 0) return@withMutation false
+        val deferred = if (action == "snooze") ReminderRecord(scope, UUID.randomUUID().toString(),
+            task.id, reminder.occurrenceId, revision, System.currentTimeMillis() + durationMillis) else null
+        val claimed = db.withTransaction {
+            if (dao.closeDeliveredReminder(scope, id, revision) != 1) false else {
+                if (deferred != null) dao.putReminder(deferred)
+                true
+            }
         }
-        saveLocked(next)
-        true
+        if (claimed) {
+            scheduler.cancel(reminder)
+            scheduler.scheduleUpcomingLocked(scope)
+        }
+        claimed
     }
 }

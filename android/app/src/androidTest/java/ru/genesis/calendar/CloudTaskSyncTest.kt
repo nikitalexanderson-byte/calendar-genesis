@@ -68,4 +68,59 @@ class CloudTaskSyncTest {
             assertEquals(encrypted, db.dao().task(scope, "task-2")?.encrypted)
         } finally { db.close() }
     }
+
+    @Test fun deletionIsSentToGoogleWithoutResurrectingTheEncryptedTask() = runBlocking {
+        val db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), GenesisDatabase::class.java).build()
+        try {
+            val cipher = LocalCipher()
+            val raw = JSONObject().put("id", "deleted-task").put("title", "Delete")
+                .put("dueDate", "2026-09-25").put("googleEventId", "event-from-google")
+            db.dao().putTask(TaskRecord(scope, "deleted-task",
+                cipher.encrypt(raw.toString(), "$scope/deleted-task"), 3, false, deleted=true))
+            db.dao().putOutbox(OutboxRecord(scope, "deleted-task", 3, "delete-operation"))
+            var calls = 0
+            val transport = object : CloudTaskTransport {
+                override fun put(id: String, task: JSONObject): JSONObject = error("Unexpected put")
+                override fun delete(id: String, task: JSONObject): JSONObject {
+                    calls++
+                    assertEquals("deleted-task", id)
+                    assertEquals("event-from-google", task.getString("googleEventId"))
+                    return JSONObject().put("ok", true)
+                }
+            }
+            assertEquals(1, CloudTaskSync(db, transport).flush(scope))
+            assertEquals(1, calls)
+            assertTrue(db.dao().outbox(scope).isEmpty())
+            assertTrue(db.dao().task(scope, "deleted-task")!!.deleted)
+        } finally { db.close() }
+    }
+
+    @Test fun newerLocalRevisionIsNeverAcknowledgedByOlderGoogleResponse() = runBlocking {
+        val db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), GenesisDatabase::class.java).build()
+        try {
+            val cipher = LocalCipher()
+            val original = JSONObject().put("id", "racing-task").put("title", "First")
+                .put("dueDate", "2026-09-25").put("priority", 5)
+            db.dao().putTask(TaskRecord(scope, "racing-task",
+                cipher.encrypt(original.toString(), "$scope/racing-task"), 1, false))
+            db.dao().putOutbox(OutboxRecord(scope, "racing-task", 1, "old-operation"))
+            val transport = object : CloudTaskTransport {
+                override fun put(id: String, task: JSONObject): JSONObject {
+                    val newer = JSONObject(task.toString()).put("title", "Second")
+                    runBlocking {
+                        db.dao().putTask(TaskRecord(scope, id,
+                            cipher.encrypt(newer.toString(), "$scope/$id"), 2, false))
+                        db.dao().putOutbox(OutboxRecord(scope, id, 2, "new-operation"))
+                    }
+                    return JSONObject().put("task", JSONObject().put("id", id).put("title", "First confirmed"))
+                }
+                override fun delete(id: String, task: JSONObject): JSONObject = error("Unexpected delete")
+            }
+            assertEquals(0, CloudTaskSync(db, transport).flush(scope))
+            assertEquals(2, db.dao().task(scope, "racing-task")!!.revision)
+            assertEquals("Second", JSONObject(cipher.decrypt(db.dao().task(scope, "racing-task")!!.encrypted,
+                "$scope/racing-task")).getString("title"))
+            assertEquals("new-operation", db.dao().outbox(scope).single().operationId)
+        } finally { db.close() }
+    }
 }

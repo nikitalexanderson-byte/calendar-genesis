@@ -89,4 +89,25 @@ class CloudAccountImporterTest {
                 LocalCipher().decrypt(record.encrypted, "${first.scope}/google-1")).title)
         } finally { db.close() }
     }
+
+    @Test fun importedWebRemindersAreScheduledAndRefreshedWithoutLocalOutbox() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, GenesisDatabase::class.java).build()
+        try {
+            val first = response("Reminder task", "Project")
+            first.getJSONArray("tasks").getJSONObject(0).put("time", "12:00")
+                .put("zoneId", "UTC").put("reminders", JSONArray()
+                    .put(JSONObject().put("kind", "relative").put("minutes", 10))
+                    .put(JSONObject().put("kind", "relative").put("minutes", 60)))
+            val snapshot = CloudAccountSnapshot.fromBootstrap(first)
+            assertEquals(CloudAccountImporter.Result.IMPORTED, CloudAccountImporter(db).import(snapshot))
+            val reminders = db.dao().taskReminders(snapshot.scope, "google-1")
+            assertEquals(2, reminders.size)
+            assertEquals(0, db.dao().outbox(snapshot.scope).size)
+            val changed = response("Reminder task", "Project")
+            assertEquals(CloudAccountImporter.Result.IMPORTED,
+                CloudAccountImporter(db).import(CloudAccountSnapshot.fromBootstrap(changed)))
+            assertTrue(db.dao().taskReminders(snapshot.scope, "google-1").isEmpty())
+        } finally { db.close() }
+    }
 }

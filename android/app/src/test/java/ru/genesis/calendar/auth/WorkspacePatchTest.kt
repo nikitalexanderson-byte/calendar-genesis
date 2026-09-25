@@ -55,6 +55,38 @@ class WorkspacePatchTest {
         }
     }
 
+    @Test fun explicitKeepLocalResolvesOnlyCollidingFields() {
+        val old = base()
+        val local = JSONObject(old.toString())
+        local.getJSONArray("projects").getJSONObject(0).put("title", "Native choice")
+        val remote = JSONObject(old.toString())
+        remote.getJSONArray("projects").getJSONObject(0).put("title", "Web change")
+            .put("webOnly", "New web detail")
+        remote.getJSONArray("projects").put(JSONObject().put("id", "p2").put("title", "Web addition"))
+        val result = WorkspacePatch.apply(old, local, remote, setOf("workspace-structure"),
+            9, stamp(), "android-test", WorkspacePatch.ConflictPolicy.KEEP_LOCAL)
+        assertTrue(result.changed)
+        assertEquals("Native choice", result.document.getJSONArray("projects").getJSONObject(0).getString("title"))
+        assertEquals("New web detail", result.document.getJSONArray("projects").getJSONObject(0).getString("webOnly"))
+        assertEquals("Web addition", result.document.getJSONArray("projects").getJSONObject(1).getString("title"))
+    }
+
+    @Test fun explicitKeepRemoteResolvesOnlyCollidingFields() {
+        val old = base()
+        val local = JSONObject(old.toString())
+        local.getJSONArray("projects").getJSONObject(0).put("title", "Native edit")
+            .put("description", "Unrelated local detail")
+        val remote = JSONObject(old.toString())
+        remote.getJSONArray("projects").getJSONObject(0).put("title", "Web edit")
+            .put("webOnly", "New web detail")
+        val result = WorkspacePatch.apply(old, local, remote, setOf("workspace-structure"),
+            9, stamp(), "android-test", WorkspacePatch.ConflictPolicy.KEEP_REMOTE)
+        val project = result.document.getJSONArray("projects").getJSONObject(0)
+        assertEquals("Web edit", project.getString("title"))
+        assertEquals("Unrelated local detail", project.getString("description"))
+        assertEquals("New web detail", project.getString("webOnly"))
+    }
+
     @Test fun deletionCreatesWebCompatibleTombstoneWithoutTouchingOtherCollections() {
         val old = base()
         val local = JSONObject(old.toString()).put("projects", JSONArray())

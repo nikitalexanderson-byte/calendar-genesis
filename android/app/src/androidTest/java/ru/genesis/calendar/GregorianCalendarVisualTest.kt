@@ -1,7 +1,11 @@
 package ru.genesis.calendar
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.ui.Modifier
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -10,8 +14,12 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import java.time.LocalDate
+import java.io.File
 import org.junit.Rule
 import org.junit.Test
+import org.junit.Assert.assertTrue
+import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.uiautomator.UiDevice
 import ru.genesis.calendar.domain.CalendarMode
 import ru.genesis.calendar.auth.AuthController
 import ru.genesis.calendar.auth.AuthPanelState
@@ -19,20 +27,49 @@ import ru.genesis.calendar.ui.CalendarScreen
 import ru.genesis.calendar.ui.LocalGenesisLanguage
 import ru.genesis.calendar.ui.Text
 import ru.genesis.calendar.ui.WelcomeScreen
+import ru.genesis.calendar.ui.standart
 
 class GregorianCalendarVisualTest {
     @get:Rule val compose = createAndroidComposeRule<StoicheionGestureActivity>()
 
     @Test fun selectedGregorianDateUsesWeekdayArtAndGregorianPrimaryLabel() {
         compose.setContent {
-            MaterialTheme {
-                CalendarScreen(LocalDate.of(2026, 1, 29), CalendarMode.PROFANE, onSelect = {})
+            MaterialTheme(colorScheme=standart) {
+                Surface(Modifier.fillMaxSize(),color=standart.background) {
+                    Column(Modifier.safeDrawingPadding()) {
+                        CalendarScreen(LocalDate.of(2026, 1, 29), CalendarMode.PROFANE, onSelect = {})
+                    }
+                }
             }
         }
         compose.onNodeWithTag("calendar-day-2026-01-29").assertExists()
         compose.onNodeWithTag("calendar-selected-primary-date")
             .assert(hasText("29 января 2026", substring = true))
         compose.onNodeWithTag("calendar-weekday-art").assertExists()
+        compose.onNodeWithTag("calendar-selected-patron").assertExists()
+        compose.onNodeWithTag("calendar-day-2025-12-28").assertIsNotEnabled()
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+            .takeScreenshot(File(context.getExternalFilesDir(null), "gregorian-refined.png")))
+    }
+
+    @Test fun solarPointsAppearInGregorianYear() {
+        compose.setContent {
+            MaterialTheme(colorScheme=standart) {
+                Surface(Modifier.fillMaxSize(),color=standart.background) {
+                    Column(Modifier.safeDrawingPadding()) {
+                        CalendarScreen(LocalDate.of(2026, 9, 25), CalendarMode.PROFANE,
+                            onSelect = {}, experimental = true)
+                    }
+                }
+            }
+        }
+        compose.onNodeWithText("Год").performClick()
+        compose.onNodeWithText("Солнечные точки года").assertExists()
+        compose.onNodeWithTag("solar-point-2026-09-23").assertExists()
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+            .takeScreenshot(File(context.getExternalFilesDir(null), "solar-year-refined.png")))
     }
 
     @Test fun websiteEnglishCopyIsAvailableOffline() {

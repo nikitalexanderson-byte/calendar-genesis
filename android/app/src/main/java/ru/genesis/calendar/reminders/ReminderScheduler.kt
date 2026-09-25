@@ -66,13 +66,16 @@ class ReminderScheduler(private val context: Context) {
         alarms.cancel(alarmIntent(row))
         notifications.cancel(row.scope + "/" + row.id, 1)
     }
-    suspend fun restore() = withMutation {
-        app.database.dao().reminders(app.workspaceScope).filter { it.state == "pending" }.forEach { row ->
-            if (row.at > System.currentTimeMillis()) schedule(row)
-            // Do not consume an overdue row here: a cold-started alarm receiver may
-            // be delivering it concurrently. Diagnostics derives overdue from at.
-        }
+    /** Keep the nearest alarms active; later recurrence alarms are promoted after deliveries. */
+    suspend fun scheduleUpcomingLocked(scope: String) {
+        if (scope != app.workspaceScope) return
+        val now = System.currentTimeMillis()
+        app.database.dao().reminders(scope).asSequence()
+            .filter { it.state == "pending" && it.at > now }
+            .sortedBy { it.at }.take(100).forEach(::schedule)
+        // An overdue row remains visible in diagnostics; never replay it in a sound storm.
     }
+    suspend fun restore() = withMutation { scheduleUpcomingLocked(app.workspaceScope) }
     suspend fun deliver(scope: String, id: String, revision: Long) = withMutation { deliverLocked(scope,id,revision) }
     private suspend fun deliverLocked(scope: String, id: String, revision: Long) {
         if (scope != app.workspaceScope) return
@@ -83,7 +86,7 @@ class ReminderScheduler(private val context: Context) {
         if (task.done || task.deleted || task.revision != revision) return
         val permitted = notificationsAllowed() && channelAllowed()
         if (dao.claimReminder(scope, id, revision, if (permitted) "delivered" else "blocked", System.currentTimeMillis()) != 1) return
-        if (!permitted) return
+        if (!permitted) { scheduleUpcomingLocked(scope); return }
         val open = PendingIntent.getActivity(context, 0, Intent(context, MainActivity::class.java).apply {
             data = Uri.Builder().scheme("genesis").authority("task").appendPath(scope).appendPath(row.taskId).build()
             putExtra("scope", scope); putExtra("taskId", row.taskId)
@@ -102,5 +105,6 @@ class ReminderScheduler(private val context: Context) {
             .build()
         try { notifications.notify(scope + "/" + id, 1, note) }
         catch (_: SecurityException) { /* Permission may be revoked between check and notify. */ }
+        scheduleUpcomingLocked(scope)
     }
 }

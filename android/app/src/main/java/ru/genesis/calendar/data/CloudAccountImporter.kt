@@ -4,9 +4,10 @@ import androidx.room.withTransaction
 import org.json.JSONArray
 import org.json.JSONObject
 import ru.genesis.calendar.auth.CloudAccountSnapshot
+import ru.genesis.calendar.reminders.ReminderScheduler
 
 /** Pulls verified server data into an account-only encrypted cache; never touches isolated drafts. */
-internal class CloudAccountImporter(private val db: GenesisDatabase) {
+internal class CloudAccountImporter(private val db: GenesisDatabase, private val scheduler: ReminderScheduler? = null) {
     enum class Result { IMPORTED, IMPORTED_WITH_GOOGLE_WARNING, PENDING_LOCAL_CHANGES }
 
     companion object {
@@ -48,18 +49,26 @@ internal class CloudAccountImporter(private val db: GenesisDatabase) {
             require(id.isNotBlank() && id.length <= 100)
             val revision = value.optLong("updatedAt", 1).coerceAtLeast(1)
             val json = value.toString()
-            LocalTask.from(TaskRecord(scope, id, "", revision, value.optBoolean("done")), json)
-            TaskRecord(scope, id, cipher.encrypt(json, "$scope/$id"), revision, value.optBoolean("done"))
+            val record = TaskRecord(scope, id, cipher.encrypt(json, "$scope/$id"), revision, value.optBoolean("done"))
+            record to LocalTask.from(record, json)
         }
-        require(tasks.distinctBy { it.id }.size == tasks.size)
+        require(tasks.distinctBy { it.first.id }.size == tasks.size)
         val dao = db.dao()
-        return db.withTransaction {
+        val previousReminders = dao.reminders(scope)
+        val update: suspend () -> Result = { db.withTransaction {
             if (dao.outbox(scope).isNotEmpty()) return@withTransaction Result.PENDING_LOCAL_CHANGES
             val cached = dao.document(scope, "cloud-base")
             if (cached != null && cached.revision > snapshot.version) return@withTransaction Result.PENDING_LOCAL_CHANGES
             if (!snapshot.googleSyncWarning) {
                 dao.clearAccountTaskCache(scope)
-                tasks.forEach { dao.putTask(it) }
+                dao.clearReminders(scope)
+                tasks.forEach { (record, task) ->
+                    dao.putTask(record)
+                    TaskReminderPlan.times(task).forEach { (occurrence, at) ->
+                        dao.putReminder(ReminderRecord(scope, task.id + ":" + occurrence, task.id,
+                            occurrence.substringBefore(':'), record.revision, at))
+                    }
+                }
             }
             dao.putDocument(DocumentRecord(scope, "structure", cipher.encrypt(structure, "$scope/structure"), snapshot.version))
             if (document != null) {
@@ -68,6 +77,10 @@ internal class CloudAccountImporter(private val db: GenesisDatabase) {
                 dao.putDocument(DocumentRecord(scope, "trackers", cipher.encrypt(requireNotNull(trackers), "$scope/trackers"), snapshot.version))
             }
             if (snapshot.googleSyncWarning) Result.IMPORTED_WITH_GOOGLE_WARNING else Result.IMPORTED
+        } }
+        val result = if (scheduler == null) update() else scheduler.withMutation {
+            update().also { if (it == Result.IMPORTED) previousReminders.forEach(scheduler::cancel) }
         }
+        return result
     }
 }
