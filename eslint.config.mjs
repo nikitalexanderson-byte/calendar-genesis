@@ -14,6 +14,7 @@ const eslintConfig = defineConfig([
     "dist-beget/**",
     "out/**",
     "build/**",
+    "android/**/build/**",
     "next-env.d.ts",
   ]),
   eslint.configs.recommended,

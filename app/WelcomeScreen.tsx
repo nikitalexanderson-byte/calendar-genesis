@@ -6,6 +6,7 @@ import type { Language } from "./i18n";
 
 type WelcomeScreenProps = {
   androidApkUrl: string | null;
+  nativeAndroidApkUrl: string | null;
   busy: boolean;
   error: string;
   language: Language;
@@ -15,7 +16,7 @@ type WelcomeScreenProps = {
 
 const APP_BASE = (process.env.NEXT_PUBLIC_GENESIS_BASE_PATH?.trim() || "").replace(/\/$/, "");
 
-export function WelcomeScreen({ androidApkUrl, busy, error, language, onLanguageChange, onGoogle }: WelcomeScreenProps) {
+export function WelcomeScreen({ androidApkUrl, nativeAndroidApkUrl, busy, error, language, onLanguageChange, onGoogle }: WelcomeScreenProps) {
   const copy = language === "en" ? {
     home: "GENESIS — home",
     tagline: "calendar of clear action",
@@ -41,8 +42,10 @@ export function WelcomeScreen({ androidApkUrl, busy, error, language, onLanguage
     googleLabel: "Sign in with Google",
     secureSignIn: "Secure Google sign-in",
     passwordNote: "GENESIS never asks for your Google password. Authentication takes place only on the secure accounts.google.com page.",
-    downloadApp: "Download the phone app",
-    downloadAppNote: "Android · APK · test version 1.2.2",
+    downloadApp: "Web-based Android app (TWA)",
+    downloadAppNote: "Android · APK · version 1.2.2",
+    downloadNative: "Native Android app",
+    downloadNativeNote: "GENESIS 2.0 · native APK",
     agreement: <>By continuing, you accept the <a href="/terms">Terms of Service</a> and acknowledge the <a href="/privacy">Privacy Policy</a>.</>,
     deleteAccount: "Delete account",
   } : {
@@ -70,8 +73,10 @@ export function WelcomeScreen({ androidApkUrl, busy, error, language, onLanguage
     googleLabel: "Войти через Google",
     secureSignIn: "Безопасный вход через Google",
     passwordNote: "GENESIS никогда не запрашивает пароль от Google. Авторизация выполняется только на защищённой странице accounts.google.com.",
-    downloadApp: "Скачать приложение для телефона",
-    downloadAppNote: "Android · APK · тестовая версия 1.2.2",
+    downloadApp: "Веб-оболочка для Android (TWA)",
+    downloadAppNote: "Android · APK · версия 1.2.2",
+    downloadNative: "Нативное Android-приложение",
+    downloadNativeNote: "GENESIS 2.0 · нативный APK",
     agreement: <>Продолжая, вы принимаете <a href="/terms">пользовательское соглашение</a> и подтверждаете ознакомление с <a href="/privacy">политикой конфиденциальности</a>.</>,
     deleteAccount: "Удаление аккаунта",
   };
@@ -143,6 +148,12 @@ export function WelcomeScreen({ androidApkUrl, busy, error, language, onLanguage
             <a className="android-download-button" href={androidApkUrl} download>
               <span className="android-download-mark" aria-hidden="true"><i /></span>
               <span><strong>{copy.downloadApp}</strong><small>{copy.downloadAppNote}</small></span>
+            </a>
+          ) : null}
+          {nativeAndroidApkUrl ? (
+            <a className="android-download-button android-native-download-button" href={nativeAndroidApkUrl} download>
+              <span className="android-download-mark" aria-hidden="true"><svg className="ux-android-robot" viewBox="0 0 24 24" fill="none"><path d="M5.5 9h13v8.5a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2V9ZM5.5 9a6.5 6.5 0 0 1 13 0M4 11v5M20 11v5M9 19.5V22M15 19.5V22M7 3 5.5 1M17 3 18.5 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><circle cx="9.3" cy="7" r=".8" fill="currentColor"/><circle cx="14.7" cy="7" r=".8" fill="currentColor"/></svg></span>
+              <span><strong>{copy.downloadNative}</strong><small>{copy.downloadNativeNote}</small></span>
             </a>
           ) : null}
 

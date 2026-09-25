@@ -37,10 +37,18 @@ RewriteRule . index.html [L]
   </IfModule>
 </FilesMatch>
 
-<FilesMatch "\.apk$">
+<FilesMatch "^GENESIS-Android-1\.2\.2\.apk$">
   ForceType application/vnd.android.package-archive
   <IfModule mod_headers.c>
     Header set Content-Disposition "attachment; filename=GENESIS-Android-1.2.2.apk"
+    Header set Cache-Control "public, max-age=300, must-revalidate"
+  </IfModule>
+</FilesMatch>
+
+<FilesMatch "^GENESIS-Android-Native-2\.0\.0\.apk$">
+  ForceType application/vnd.android.package-archive
+  <IfModule mod_headers.c>
+    Header set Content-Disposition "attachment; filename=GENESIS-Android-Native-2.0.0.apk"
     Header set Cache-Control "public, max-age=300, must-revalidate"
   </IfModule>
 </FilesMatch>

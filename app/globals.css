@@ -5754,6 +5754,12 @@ html[data-language="en"] .inbox-card.drop-target::after {
 .android-download-mark i::after,
 .ux-android-icon::after { position: absolute; top: 2px; left: 4px; width: 4px; height: 7px; content: ""; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); }
 .android-apk-icon-button { color: var(--teal); text-decoration: none; }
+.android-native-icon-button { color: var(--teal); text-decoration: none; }
+.ux-android-robot { display: block; width: 22px; height: 22px; }
+.android-native-download-button { margin-top: 8px; background: linear-gradient(135deg, #82632c, #ad8640); border-color: rgba(224,188,112,.46); }
+.android-native-download-button:hover,
+.android-native-download-button:focus-visible { box-shadow: 0 12px 28px rgba(80,58,22,.26); }
+.android-native-download-button .ux-android-robot { width: 24px; height: 24px; }
 .auth-trust-note { display: grid; gap: 5px; margin-top: 17px; padding: 13px 14px; color: #526966; background: rgba(37,91,89,.06); border: 1px solid rgba(37,91,89,.14); border-radius: 3px; }
 .auth-trust-note strong { color: #254f4d; font-size: 9px; letter-spacing: .06em; text-transform: uppercase; }
 .auth-trust-note span { font-size: 9px; line-height: 1.55; }

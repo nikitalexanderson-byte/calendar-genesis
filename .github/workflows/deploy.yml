@@ -14,7 +14,7 @@ concurrency:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -111,6 +111,42 @@ jobs:
       - name: Build client for Beget
         run: pnpm build:beget
 
+      - name: Set up Java for native Android release
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Build signed native Android APK
+        env:
+          SIGNING_KEYSTORE_B64: ${{ secrets.GENESIS_ANDROID_RELEASE_KEYSTORE_B64 }}
+          GENESIS_ANDROID_SIGNING_STORE_PASSWORD: ${{ secrets.GENESIS_ANDROID_RELEASE_STORE_PASSWORD }}
+          GENESIS_ANDROID_SIGNING_KEY_ALIAS: ${{ secrets.GENESIS_ANDROID_RELEASE_KEY_ALIAS }}
+          GENESIS_ANDROID_SIGNING_KEY_PASSWORD: ${{ secrets.GENESIS_ANDROID_RELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$SIGNING_KEYSTORE_B64"
+          test -n "$GENESIS_ANDROID_SIGNING_STORE_PASSWORD"
+          test -n "$GENESIS_ANDROID_SIGNING_KEY_ALIAS"
+          test -n "$GENESIS_ANDROID_SIGNING_KEY_PASSWORD"
+          sdkmanager "platforms;android-37.2" "build-tools;37.0.0"
+          umask 077
+          mkdir -p "$RUNNER_TEMP/genesis-signing" dist-beget/public_html/downloads
+          export GENESIS_ANDROID_SIGNING_STORE="$RUNNER_TEMP/genesis-signing/release.jks"
+          printf '%s' "$SIGNING_KEYSTORE_B64" | base64 -d > "$GENESIS_ANDROID_SIGNING_STORE"
+          (cd android && ./gradlew :app:assembleRelease --no-daemon --console=plain)
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          test -s "$APK"
+          "$ANDROID_HOME/build-tools/37.0.0/apksigner" verify --verbose --print-certs "$APK" \
+            | grep -qi 'certificate SHA-256 digest: 1e161d36f574b0560d808c7ee95e1abe98165b3385336d0276fb381dfd901cb8'
+          "$ANDROID_HOME/build-tools/37.0.0/aapt" dump badging "$APK" \
+            | grep -q "package: name='ru.genesis.calendar' versionCode='20' versionName='2.0.0'"
+          cp "$APK" dist-beget/public_html/downloads/GENESIS-Android-Native-2.0.0.apk
+          sha256sum dist-beget/public_html/downloads/GENESIS-Android-Native-2.0.0.apk
+
       # PHP-роутер должен физически лежать в public_html/api. Добавляем его в
       # единый public artifact, чтобы rsync --delete не создавал окно с 404.
       - name: Assemble public artifact and deployment metadata
@@ -189,6 +225,14 @@ jobs:
           ACTUAL_COMMIT="$(printf '%s' "$META" | jq -er '.commit')"
           test "$ACTUAL_COMMIT" = "$EXPECTED_COMMIT"
           printf 'Production commit: %s\n' "$ACTUAL_COMMIT"
+
+      - name: Verify public native APK
+        run: |
+          set -euo pipefail
+          EXPECTED="$(sha256sum dist-beget/public_html/downloads/GENESIS-Android-Native-2.0.0.apk | cut -d' ' -f1)"
+          curl -fsSL --retry 3 'https://genesiscalendar.ru/downloads/GENESIS-Android-Native-2.0.0.apk' \
+            | sha256sum \
+            | awk -v expected="$EXPECTED" '$1 == expected { found = 1 } END { exit !found }'
 
 # Примечания:
 # - server/config.php и server/var/ (SQLite, сессии) никогда не перезаписываются —

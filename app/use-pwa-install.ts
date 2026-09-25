@@ -9,6 +9,7 @@ type InstallPrompt = Event & {
 
 const APP_BASE = (process.env.NEXT_PUBLIC_GENESIS_BASE_PATH?.trim() || "").replace(/\/$/, "");
 const ANDROID_APK_URL = `${APP_BASE}/downloads/GENESIS-Android-1.2.2.apk`;
+const NATIVE_ANDROID_APK_URL = `${APP_BASE}/downloads/GENESIS-Android-Native-2.0.0.apk`;
 
 type NavigatorWithUserAgentData = Navigator & {
   userAgentData?: {
@@ -82,6 +83,7 @@ export function usePwaInstall() {
 
   return {
     androidApkUrl: isAndroidPhone && !isStandalone ? ANDROID_APK_URL : null,
+    nativeAndroidApkUrl: isAndroidPhone && !isStandalone ? NATIVE_ANDROID_APK_URL : null,
     canInstall: Boolean(prompt),
     install,
     isStandalone,

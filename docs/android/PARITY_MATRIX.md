@@ -1,0 +1,153 @@
+# GENESIS Android — матрица фактического переноса
+
+Срез 25.09.2026, `codex/android-native-bootstrap` поверх `origin/master` 30257ff. Alpha11 / versionCode 16 собрана и установлена поверх Alpha10 на согласованный realme RMX5000 (Android 16 / API 36), без очистки данных. Это нативный debug APK, не TWA/PWA и не готовый release. История проектов — `PROJECTS_STAGE.md`, текущий артефакт и ограничения — `STATUS.md`.
+
+Пути Android в таблице относительны `android/app/src/main/java/ru/genesis/calendar/`; web-пути — корню репозитория. `LOCAL_PARTIAL` означает работающий в коде локальный поднабор; `DOMAIN_ONLY` — предметные функции без завершённого пользовательского сценария; `NOT_PORTED` — переноса нет. Статус проверки отделён от наличия реализации. PASS для unit-поднабора не является PASS полной приёмки функции. BLOCKED — конкретная внешняя/интеграционная зависимость; NOT_RUN — критерий не испытан, в том числе когда экран ещё отсутствует.
+
+## Подтверждённая общая веха
+
+Итог alpha11: `assembleDebug`, `assembleDebugAndroidTest`, `testDebugUnitTest`, `lintDebug` PASS; **86 unit PASS**. Обычный realme UI-прогон **19/19 PASS**. В Experimental на «Сегодня» полный текст дня расположен поверх исходного изображения во всех трёх режимах, а время выделено по цветам четырёх периодов и 12 часов. Это не полная web↔Android синхронизация и не pixel-perfect Figma-сверка.
+
+Итог alpha10: `assembleDebug`, `assembleDebugAndroidTest`, `testDebugUnitTest`, `lintDebug` PASS; **83 unit PASS**. Обычный realme UI-прогон **19/19 PASS**. Локальные испытания дня/недели/месяца и одноразовые награды перенесены; серверная синхронизация и полная приёмка каждой вариации ещё не готовы.
+
+Итог alpha09: `assembleDebug`, `assembleDebugAndroidTest`, `testDebugUnitTest`, `lintDebug` PASS; **78 unit PASS**. Обычный realme UI-прогон **19/19 PASS**. Искра Гестии и трёхдневный путь возвращения работают локально; покупка с реальным балансом на телефоне не испытана, серверный sync не готов.
+
+Итог alpha08: `assembleDebug`, `assembleDebugAndroidTest`, `testDebugUnitTest`, `lintDebug` PASS; **73 unit PASS**. Обычный realme UI-прогон **19/19 PASS**. Древо рангов, одноразовые амфоры, сохранение достижений, десять наград за серию и оба жеста расклада добавлены. Полного паритета наград/привычек и серверной синхронизации это не доказывает.
+
+Итог alpha07: `assembleDebug`, `assembleDebugAndroidTest`, `testDebugUnitTest`, `lintDebug` PASS; **69 unit PASS**. Обычный realme UI-прогон **17/17 PASS**. Стойхейон получил зашифрованные локальные карту дня и расклад, двукратный лимит на день и 180-секундное окно переброса, точную секторную практику и переход к Теокиклосу. **Серверная** запись расклада и синхронизация не готовы.
+
+Итог alpha06: `assembleDebug`, `assembleDebugAndroidTest`, `testDebugUnitTest`, `lintDebug` PASS; **65 unit PASS**. Финальный обычный прогон на realme **16/16 UI PASS** после стабилизации ожиданий загрузки изображения и клавиатуры. APK hash и ограничения — `STATUS.md`. Alpha06 сохраняет alpha05 функции, но не доказывает полный web-паритет.
+
+Итог alpha05: `assembleDebug`, `assembleDebugAndroidTest`, `testDebugUnitTest` — PASS; **61 JUnit tests PASS**, `lintDebug` PASS. APK hash — `STATUS.md`. На реальном телефоне обычные Compose UI-сценарии **15 PASS**, включая drag-and-drop и календарь; два жестовых сценария повторно **2 PASS** после установки alpha05. Screen-off delivery, complete/dedup, fresh-process persistence, snooze/stale и открытие через системную шторку относились к alpha01; они не заменяются обычным UI-прогоном и их границы описаны в DEVICE_TESTS.md.
+
+Вкладка «Трекеры» со сном/настроением включена в проверенную сборку. Native UI tests задачи/привычки/настроения 3 PASS; 36 сочетаний настроек persistence PASS (не visual matrix). Web lint/64 tests/build:beget PASS; PHP syntax/44 standalone checks PASS. HTTP auth NOT_RUN.
+
+## Изменения alpha11 к матрице ниже
+
+| ID | Новый фактический статус alpha11 | Ещё отсутствует или не проверено |
+| --- | --- | --- |
+| HOME01–02 | В Experimental полный mode-specific текст дня поверх оригинальной иллюстрации; время имеет цвета периодов, 12 цветных часов, карточки четырёх стихий и отсчёт. Unit + realme UI PASS, снимки трёх режимов и раскрытого блока просмотрены | Все граничные дни/фазы, точная web-освещённость, pixel-perfect Figma, обе темы × 360/390/768/1440 |
+| OPS01 | 86 unit, 19 обычных UI, lint и 527/527 byte parity PASS | Screen-off/Doze в этой сборке, TalkBack/планшет/поворот NOT_RUN |
+
+## Изменения alpha10 к матрице ниже
+
+| ID | Новый фактический статус alpha10 | Ещё отсутствует или не проверено |
+| --- | --- | --- |
+| REW02 | Локальные daily/weekly/epic квесты с точными периодами и достижимой целью по расписанию, сохранённым прогрессом, одноразовой наградой; оригинальные SVG-знаки перерисованы в Compose. Unit + realme UI PASS | Все 4 варианта недели и полный эпический жизненный цикл на realme, cloud ledger/sync |
+| OPS01 | 83 unit, 19 обычных UI, lint и 527/527 byte parity PASS | Screen-off/Doze, 360/390/768/1440 двух тем, TalkBack/планшет NOT_RUN |
+
+## Изменения alpha09 к матрице ниже
+
+| ID | Новый фактический статус alpha09 | Ещё отсутствует или не проверено |
+| --- | --- | --- |
+| REW02 | Experimental: покупка Искры за 120 Лавров, максимум две; автоматическая защита нового пропуска после серии без XP/ложного выполнения, зашифрованный локальный ledger; трёхдневное возвращение и 15 Лавров. Unit + экран realme PASS | Ручная покупка при достаточном балансе на realme, серверный ledger/sync и конфликтное слияние |
+| OPS01 | 78 unit, 19 обычных UI, lint и 527/527 byte parity PASS | Screen-off/Doze, 360/390/768/1440 двух тем, TalkBack/планшет NOT_RUN |
+
+## Изменения alpha08 к матрице ниже
+
+| ID | Новый фактический статус alpha08 | Ещё отсутствует или не проверено |
+| --- | --- | --- |
+| REW01 | Experimental: вертикальное чередующееся древо 16 видимых + 12 скрытых рангов, оригинальные 256/512-иллюстрации видимых рангов, 8 амфор с одноразовым claim после XP-порога, скрытый путь. Unit + realme UI PASS | Объёмный web-эффект открытия, все 8 claim на реальном XP, sync |
+| REW02 | 10 идемпотентных наград за серию и сохранённые 18 unlocks достижений; старые `habit-missed-reset` исключены из баланса. Unit и экран лестницы на realme PASS | Квесты, comeback, искры Гестии, streak freeze, полноценный серверный ledger |
+| STO01 | Для одной/девяти карт отдельный нативный жестовый тест на realme PASS, орбитальное поле реагирует на палец, 4480 dp прогресса; переброс показывает 3-минутный отсчёт | Серверный лимит для аккаунта, TalkBack и иной размер экрана |
+| OPS01 | 73 unit, 19 обычных UI, lint и 527/527 byte parity PASS | Screen-off/Doze, 360/390/768/1440 двух тем NOT_RUN |
+
+## Изменения alpha07 к матрице ниже
+
+| ID | Новый фактический статус alpha07 | Ещё отсутствует или не проверено |
+| --- | --- | --- |
+| STO01 | Карта дня, 9-карточный расклад, перевороты, пифмен, 1 переброс/3 минуты, шифрованное хранение и отключение гадания; unit + realme PASS | Серверный draw API и общие попытки между устройствами, UX всех граничных состояний, Figma-сверка |
+| THEO01 / STO01 | Описание позиции содержит подлинное upright/reversed руководство, слова и практики; кнопка открывает нужный сектор Теокиклоса на realme | Все 9 переходов и 28 практик вручную, TalkBack |
+| OPS01 | 69 unit, 17 обычных realme UI, lint и 527/527 byte parity PASS | Screen-off/Doze и 360/390/768/1440 обеих тем NOT_RUN |
+
+## Изменения alpha06 к матрице ниже
+
+Эти строки имеют приоритет над alpha05 и baseline alpha04. `LOCAL_PARTIAL` и ограничения остаются явными.
+
+| ID | Новый фактический статус alpha06 | Ещё отсутствует или не проверено |
+| --- | --- | --- |
+| THEO01 | Центр/Очаг в одном ряду; восемь полных названий; 13 оригинальных символов по 52 dp без дополнительных белых кругов и текста, Очаг — точечный кликабельный круг. 14/14 узлов, шесть деталей и обе темы на realme PASS | Все 28 практик end-to-end, крупный шрифт/TalkBack/планшет/веб-сверка |
+| REC01–02 | Редактор трёх типов повторений, один сохранённый task и календарная проекция; исключение одного дня/удаление серии. Unit и realme create→next day→exclude PASS | Редактирование одного occurrence, повторные напоминания, sync/merge, весь web wire |
+| TASK03 / DATA02 | Неизвестные web-поля задачи сохраняются в encrypted local JSON при native edit; unit roundtrip PASS | Это не импорт, не CAS/outbox sender и не live sync; typed UI полей ещё нет |
+| OPS01 | 65 unit PASS, 16 обычных UI PASS, lint PASS, 527/527 packaged asset bytes PASS | Первые два общих прогона alpha06 имели transient UI-test ожидания; финальный чистый. HTTP/security, screen-off/reboot, 360/390/768/1440 обеих тем NOT_RUN |
+
+## Изменения alpha05 к матрице ниже
+
+Строки подробной таблицы ниже сохранены как проверяемый baseline alpha04; для перечисленных ID этот раздел имеет приоритет. Всё не упомянутое остаётся в прежнем статусе. Ни один из этих пунктов не является обещанием полного web-паритета.
+
+| ID | Новый фактический статус alpha05 | Ещё отсутствует или не проверено |
+| --- | --- | --- |
+| HOME01–02 | Experimental «Сегодня»: авторская иллюстрация дня, описания трёх ритмов, четыре периода и двенадцать часов; сезонные моменты 1900–2100; 30-шаговый лунный значок | Локальные восход/закат и точная web-освещённость/все состояния |
+| TASK02 / UI02 | Приоритет 1–10 переключается нажатием и горизонтальным движением после удержания; touch test PASS на realme | TalkBack, отмена и большой шрифт |
+| TASK04 | Вся строка задачи поднимается удержанием: виброотклик, плавающая карточка, подсветка цели, перенос Хаос-бокс ↔ проект ↔ проект; окно назначения с поиском. Пять ProjectsFlowTest PASS, два жестовых сценария повторно PASS после alpha05 | Автопрокрутка во время удержания при очень длинном списке; delete/import/server CAS/live sync |
+| REW01 / UI04 | Оригинальные изображения 18 достижений, 16 рангов, 4 амфор и 2 наград размещены в «Привычках»; 527/527 выбранных файлов совпадают побайтово в APK | Выдача/unlock-транзакции, claim flow, 31 неупакованный media-файл и полная визуальная матрица |
+| TRACK01–02 | Сон и настроение вложены в «Привычки»; самостоятельная верхняя вкладка «Трекеры» удалена | Полная аналитика и cloud sync |
+| CAL02 | Отдельные изображения месяцев только в сакральном календаре; лунные графические значки, отметки задач/солнечных точек, раскрытие пят и детали дня в Experimental. CalendarFlowTest и CalendarAndTodayFlowTest PASS | Сверка каждого дня/месяца и полная web-композиция |
+| STO01 | Нативный экран 24 авторских буквенных карточек с греческим обрамлением и оригинальными изображениями; StoicheionFlowTest PASS | Серверный расклад, лимит попыток и все состояния |
+| OPS01 | Android 61 JUnit PASS, обычный UI-прогон 15 PASS на realme, lint PASS | HTTP/security integration, обе темы на 360/390/768/1440, полноценный release |
+
+## Пользовательские функции — baseline alpha04, с поправками alpha05 выше
+
+| ID / функция | Источник web | Android / степень переноса | Модель / API | Проверка и реальный статус |
+| --- | --- | --- | --- | --- |
+| HOME01 Сегодня, выбранный день, описание | `app/GenesisCalendar.tsx`, `app/calendar-data.ts` | `ui/GenesisApp.kt:DayHeader`, `domain/SacredCatalog.kt`; LOCAL_PARTIAL | LocalDate, native catalog, локальный список задач | CAL domain vectors PASS; композиция/описания всех состояний UI NOT_RUN |
+| HOME02 Ритм суток, Солнце/Луна | `app/solar-times.ts`, `app/calendar-data.ts`, `app/GenesisCalendar.tsx` | Полные solar times/phase illumination UI NOT_PORTED; lunar month boundaries есть | `domain/LunarEphemeris.kt` не заменяет все астрономические показатели | Фазы/освещённость/местность/ритм суток NOT_RUN |
+| TASK01 Создать/изменить/выполнить/удалить задачу | `app/GenesisCalendar.tsx`, `app/cloud-sync.ts:GenesisTask` | `ui/GenesisApp.kt:TaskEditor`, `ui/GenesisViewModel.kt`; LOCAL_PARTIAL | `data/LocalTask`, `TaskRepository`, Room TaskRecord + tombstone | Native task form PASS; notification completion и чтение после нового процесса PASS; полный CRUD matrix NOT_RUN |
+| TASK02 Название, описание, дата, время, приоритет | `app/GenesisCalendar.tsx:TaskPriorityControl`, `CalendarDatePicker.tsx`, `TimeClockPicker.tsx` | `TaskEditor`, `ui/AuthorControls.kt`; LOCAL_PARTIAL | LocalTask: title/description/date/time/zoneId/priority | Model validation и сборка PASS; author visual/длинные тексты/IME NOT_RUN |
+| TASK03 Начало/срок/интервал, теги, зависимости, происхождение | `app/cloud-sync.ts:GenesisTask`, `app/GenesisCalendar.tsx` | NOT_PORTED как полный wire; LocalTask содержит только добавленные `projectId/categoryId/project` | Нет endDate/tags/dependsOnIds/external-binding и полного wire roundtrip | Полный импорт/редактирование NOT_RUN; нельзя импортировать с потерей неизвестных полей |
+| TASK04 Проекты/подпроекты/категории/вложенность | `app/GenesisCalendar.tsx:flattenProjects/projectIsDescendant`, `app/cloud-sync.ts` | `data/WorkspaceStructure.kt`, `ui/ProjectsScreen.kt`; LOCAL_PARTIAL | Exact web structure fields/default categories; encrypted local document, create/edit/status/tree, task `projectId/categoryId`; no delete/import/live sync | Unit cycles/roundtrip/legacy PASS; ProjectsFlowTest 2 PASS на realme, снимки Standart/Experimental проверены; full CRUD/server CAS NOT_RUN |
+| TASK05 Google task lists и связь с проектами | `app/cloud-sync.ts:TaskListProjectLink`, `server/src/google.php` | Wire-shaped `taskListLinks` stored in native structure; DOMAIN_ONLY | Существующие `/api/task-lists`; нет native transport и UI привязки | BLOCKED до auth/data integration; тест адресата и bindings NOT_RUN |
+| REC01 Расчёт обычных/сакральных/лунных повторений | `app/task-recurrence.ts` | `domain/RecurrenceEngine.kt`; DOMAIN_ONLY | RecurrenceConfig; нормализованные civil dates, filters, exclusions | Соответствующие `GenesisCalendarTest` и web vectors PASS; это не recurring task UI |
+| REC02 Редактор серии, один occurrence/вся серия, исключения | `app/RecurrenceBuilder.tsx`, `GenesisCalendar.tsx:buildTaskSeries/taskForOccurrence/taskSeriesAfterExcludingOccurrence` | NOT_PORTED в task UI/repository | LocalTask не хранит seriesId/recurrence; сохранение occurrence отсутствует | NOT_RUN; нельзя обещать серию по domain-only engine |
+| HAB01 Привычка создать/изменить/пауза/возобновление | `app/HabitTracker.tsx:HabitEditor`, `app/habit-editing.ts`, `app/habits.ts` | `ui/HabitsScreen.kt`, `data/HabitsRepository.kt`; LOCAL_PARTIAL | Encrypted `DocumentRecord(scope,"habits")`, localSchema=1 | HabitDocument roundtrip/pause PASS; физический CRUD/reopen NOT_RUN |
+| HAB02 Библиотека стартовых привычек | `app/habit-templates.ts`, `app/HabitTracker.tsx` | `domain/habits/HabitTemplateCatalog.kt`, HabitsScreen; LOCAL_PARTIAL | Все 10 исходных templates; вставка только после действия пользователя | Generator check PASS; полные template install/delete/restore rules NOT_RUN |
+| HAB03 Сакральные практики, роли и связи с Теокиклос | `app/sacred-practices.ts`, `HabitTracker.tsx:SacredHabitLibrary`, `SacredSectorSigil.tsx` | `domain/TheokyklosCatalog.kt`, `ui/TheokyklosScreen.kt`; LOCAL_PARTIAL | Все 28 исходных практик связаны с 14 секторами; begin/pause/resume/today action сохраняются в локальном зашифрованном HabitDocument, без cloud import/sync; отдельного full editor из detail нет | Catalog/link/toHabit unit PASS, 4 детали устройства PASS; реальное begin→reopen→complete/pause и web parity NOT_RUN |
+| HAB04 Отметки, качество, история, score, XP cap | `app/habits.ts:updateHabitCompletion`, `app/tracker-math.ts` | HabitCore/HabitEngine + локальный экран; LOCAL_PARTIAL | Atomic habit document; today-only guard, identity/version, monotonic XP | 8 HabitCore + 4 document tests PASS; реальные device/history сценарии NOT_RUN |
+| HAB05 Календарь/расписание привычки | `app/tracker-core.ts`, `app/habits.ts`, `app/RecurrenceBuilder.tsx` | HabitCore и частичный editor; LOCAL_PARTIAL | typed schedule с сохранением отдельных unsupported полей | Calendar ownership/schedule unit PASS; interval/month/pentad filters UI NOT_RUN |
+| HAB06 Удаление/мастерство/сохранение Лавров | `app/habit-editing.ts`, `app/habit-reset.ts`, `app/habit-laurel-retention.ts` | Delete UI намеренно не выставлен; отдельный missed-day reset LOCAL_PARTIAL | Reconcile document, ledger reset | Idempotent missed reset unit PASS; вся deletion/mastery eligibility NOT_RUN |
+| REW01 XP/ранги/скрытый путь/дневная цель/Лавры | `app/habit-progress.ts`, `app/daily-goal.ts`, `app/rewards.ts` | `domain/habits/HeroProgress.kt`, `HeroRankCatalog.kt`, `DailyGoals.kt`, `Rewards.kt`; LOCAL_PARTIAL | 28 рангов, 8 checkpoints; history/ledger; UI показывает базовые totals | 6 RewardsAndGoals tests + rank vectors PASS; полная визуальная лестница/claim flow NOT_RUN |
+| REW02 Испытания, достижения, награды серий | `app/habit-quests.ts`, `app/achievements.ts`, `app/streak-rewards.ts` | NOT_PORTED | Web quests/achievementUnlocks/rewardTransactions; нет native orchestration | NOT_RUN; не начислять вымышленные награды |
+| REW03 Защита серии/Искры Гестии/возвращение | `app/streak-protection.ts`, `app/habit-guidance.ts` | NOT_PORTED; понятия protected/rest в domain не равны покупке/consumption | Web streakFreezeTransactions/comeback; интеграция отсутствует | NOT_RUN |
+| TRACK01 Сон | `app/sleep-tracker.ts`, `HabitTracker.tsx:SleepEditor/replaceSleepEntry` | `ui/TrackersScreen.kt`, `data/TrackersRepository.kt`, `domain/trackers/SleepTracker.kt`; LOCAL_PARTIAL | Отдельный encrypted DocumentRecord(scope,"trackers"), localSchema1; планы/наблюдения/качество/история, CAS version; отсутствующие значения остаются null | 11 tracker unit tests PASS; sleep device persistence NOT_RUN. Нет cloud import/полной аналитики |
+| TRACK02 Настроение | `app/mood-tracker.ts`, `HabitTracker.tsx:MoodTracker` | TrackersScreen, TrackersRepository, MoodTracker/MoodCatalog; LOCAL_PARTIAL | Исходная шкала, заметка, одна видимая запись/date, existing ID/tags сохраняются; отсутствие записи не равно neutral0; XP/Лавры не начисляются | Tracker unit tests PASS, mood selection/save native UI PASS; полный visual parity NOT_RUN; sync отсутствует |
+| TRACK03 Воздержание | `app/addiction-tracker.ts`, `HabitTracker.tsx:AddictionEditor` | `domain/trackers/AddictionTrackerRules.kt` — DOMAIN_ONLY; UI/repository NOT_PORTED | Scoring/streak/relapse precedence pure functions; нет сохранённого пользовательского flow | TrackerDomainTest PASS; полного сценария воздержания нет |
+| TRACK04 Аналитика/диапазоны/инсайты/перестановка секций | `app/tracker-analytics.ts`, `app/HabitInsightsPanel.tsx`, `app/habit-insights.ts`, `app/habit-section-state.ts` | NOT_PORTED | Нет native analyticsSnapshots/full settings | NOT_RUN |
+| CAL01 Три календаря и границы месяцев/годов | `app/calendar-data.ts` | `domain/GenesisCalendar.kt`, `SacredCatalog.kt`, `LunarEphemeris.kt`; DOMAIN + month list | 177 web date vectors; точные lunar moments 1900–2100 | 9 GenesisCalendar tests PASS; horizon явно ограничен, полный astro engine не перенесён |
+| CAL02 Месяц/год/Апейрон с оригинальной композицией | `app/GenesisCalendar.tsx`, `app/calendar-data.ts`, `public/month-art-v4` | `ui/CalendarScreen.kt`; LOCAL_PARTIAL | Сакральная 5×6 сетка/Апейрон, Gregorian/Lunar 7-column; month hero с полным описанием, selected-day preview, year list всех 13 оригинальных иллюстраций, переход к дню; solar control/pyata expansion/полная web-композиция отсутствуют | Domain Apeiron + CalendarArt tests PASS; CalendarFlowTest 1 PASS на realme после финальной пересборки, 4 снимка месяца/года/Апейрона; полная visual parity и остальные календарные режимы NOT_RUN |
+| CAL03 Date-only, timezone, DST | `app/calendar-data.ts`, `app/task-recurrence.ts` | LocalDate/LocalTime/ZoneId, `resolveReminderTime`; LOCAL_PARTIAL | Date-only не UTC-midnight; TaskEditor отвергает gap/overlap, reminderAt — instant | Domain DST/date-only tests PASS; runtime timezone/time-change reschedule NOT_RUN |
+| UI01 Три авторских выбора даты, IIII, 29/30 дней | `app/CalendarDatePicker.tsx`, `app/calendar-data.ts` | `ui/AuthorControls.kt:AuthorDatePicker`; LOCAL_PARTIAL | Независимый input calendar и civil date | Компиляция PASS; визуальное/поведенческое сравнение с web NOT_RUN |
+| UI02 Авторские часы 24h/AM-PM, priority scale | `app/TimeClockPicker.tsx`, `app/time-format.ts`, `GenesisCalendar.tsx:TaskPriorityControl` | AuthorTimePicker/PriorityControl; LOCAL_PARTIAL | LocalTime, priority1..10 | Компиляция PASS; точный дизайн/cancel/back/touch/TalkBack NOT_RUN |
+| UI03 Темы Standart/Experimental и 36 сочетаний | `app/theme-controller.ts`, `app/experimental-theme.css`, `app/AccountPanel.tsx` | `ui/GenesisApp.kt`, `data/LocalPreferences.kt`; LOCAL_PARTIAL | DataStore по local scope, Standart default; cloud theme revision не подключён | Независимость domain preferences unit PASS; 36 настроек persistence PASS с восстановлением прежних настроек; экраны Projects и сакрального месяца в обеих темах проверены на realme; 36 visual states/account switch NOT_RUN |
+| UI04 Изображения и смысловые слоты | `public/…`, `app/*-assets.ts`, `app/stoicheion-card-art.ts` | Generated `assets/originals`; LOCAL_PARTIAL | См. `ASSET_MANIFEST.json`: оригинал→копия→APK bytes | 527/527 selected originals byte parity PASS для указанного в manifest APK; 14 Theokyklos symbols и detail-art видны в одном device flow; month-art текущего месяца и Апейрона видны на realme в месяце/годе, но 13 деталей отдельно и остальные слоты/31 excluded media требуют оценки |
+| UI05 Локализация/шрифты/адаптация/accessibility | `app/translations.en.json`, `app/globals.css`, исходные UI компоненты | Русский частичный UI, safe insets/IME; LOCAL_PARTIAL | Нет полного native EN/content/font parity | Малый экран/tablet/rotation/large text/TalkBack/Back NOT_RUN |
+| STO01 Стойхейон: алфавит/карта дня/расклад/лимит попыток | `app/StoicheionView.tsx`, `stoicheion-data.ts`, `stoicheion-card-art.ts`, server API | NOT_PORTED; упакованные карточки не равны экрану | Действующие серверные draw rules не подключены | NOT_RUN |
+| THEO01 Теокиклос: 14 элементов, связи/практики | `app/TheokyklosView.tsx`, `theokyklos-data.ts`, `theokyklos-assets.ts`, `sacred-practices.ts` | `ui/TheokyklosScreen.kt`, `domain/TheokyklosCatalog.kt`; LOCAL_PARTIAL | Экспорт из web 14 секторов/56 слов/28 практик; tappable mandala с зенитом, надиром, входом, выходом; оригинальные sigils/art, detail, локальные habit actions | Catalog tests PASS; realme 14-node/4-detail test PASS; screenshot обеих тем; полный gesture/TalkBack/large-text/tablet/visual parity и синхронизация NOT_RUN |
+| SET01 Настройки календарей/времени/темы | `app/AccountPanel.tsx`, `server/src/repository.php:genesisUpdateAccountPreferences` | SettingsScreen + DataStore; LOCAL_PARTIAL | Local scope only; server account preferences не используются | Build PASS; 36 настроек persistence PASS; visual matrix и server reconciliation NOT_RUN |
+| SET02 Reset/восстановление данных/скрытые templates | `app/AccountPanel.tsx`, `app/habit-reset.ts`, `app/WorkspaceRecoveryDialog.tsx` | NOT_PORTED как полный пользовательский flow | WorkspaceCipher.unwrapKey — только primitive, не recovery UI | NOT_RUN |
+| AUTH01 Google вход | `app/cloud-sync.ts`, `server/public/api/index.php`, `server/src/google.php` | `auth/AuthPanel.kt`, AuthController/AuthSessionClient; LOCAL_PARTIAL | Локально добавлены native challenge/token endpoints; CSRF+PHP session | 5 helper tests PASS; реальный native login BLOCKED: endpoints не опубликованы, OAuth Android client не подтверждён |
+| AUTH02 Logout/account switching | `app/cloud-sync.ts`, server session | Auth generation guard + encrypted cookie; LOCAL_PARTIAL | Прежние response игнорируются; local drafts scope не меняется | Helper tests PASS; HTTP session/device race/multi-account data isolation NOT_RUN |
+| GOOGLE01 Calendar/Tasks grants отдельно от login | `server/src/google.php`, `app/AccountPanel.tsx` | NOT_PORTED | Существующие server refresh tokens/grants; native handoff отсутствует | BLOCKED до согласованной grant integration; не заменено повторным Android exporter |
+| GOOGLE02 Несколько Google accounts/routing/partial sync | `app/cloud-sync.ts:SyncRouting/GoogleTaskLink`, `server/src/google.php` | NOT_PORTED | Существующие account IDs/calendar IDs/task-list IDs должны сохраняться | BLOCKED; recipient confirmation/revoke/retry NOT_RUN |
+| ADMIN01 Статистика/удаление/блокировка по роли | `app/AdminPanel.tsx`, `server/src/repository.php:genesisRequireAdmin` | NOT_PORTED | Нативное UI не принимает роль из локального флага; server checks сохраняются | NOT_RUN |
+| VOICE01 Голос/локальный разбор/assistant plan | `app/LocalVoiceAssistant.tsx`, `app/local-voice-plan.ts`, `app/GeminiAssistant.tsx`, `server/src/gemini.php` | NOT_PORTED | Нет native speech/assistant integration | NOT_RUN; новые AI service/subscription не добавлялись |
+
+## Данные, напоминания и распространение
+
+| ID / критерий | Источник | Android / реализация | Модель / API | Проверка и реальный статус |
+| --- | --- | --- | --- | --- |
+| DATA01 Локальная работа без сети | `app/cloud-sync.ts` local storage/queue | TaskRepository/HabitsRepository + Room; LOCAL_PARTIAL | Ciphertext задач/привычек; стабильные local scopes | 4 habit document tests PASS; завершение задачи сохраняется в новом процессе PASS; полный offline→online NOT_RUN |
+| DATA02 Устойчивая outbox/CAS/конфликты web↔Android | `app/workspace-sync-state.ts`, `app/cloud-sync.ts`, server workspace CAS | OutboxRecord только state=local; native transport/merge NOT_PORTED | Нет отправителя, acknowledgement/retry/idempotency протокола; habits document отдельно | BLOCKED до schema-preserving account integration; локальный outbox не называется синхронизацией |
+| SEC01 Web↔Kotlin ciphertext/recovery | `app/cloud-sync.ts` AES-GCM | `security/WorkspaceCipher.kt`; primitive готов | AES256-GCM, IV12, tag128, no AAD; same Base64 | 7 unit tests + WebCrypto reference PASS; живой workspace decrypt/import NOT_RUN |
+| SEC02 Локальная защита/backup | Android requirement; web encryption источник выше | `data/LocalCipher.kt`, encrypted document fields, auth prefs; LOCAL_PARTIAL | Android Keystore; metadata schedule/IDs/revision незашифрованы на field level; backup disabled | Build/unit PASS; file/WAL/device/key-loss audit NOT_RUN |
+| NOT01 Permissions/каналы/диагностика | `app/task-reminders.ts`, `app/habit-notifications.ts`, platform | SettingsScreen, ReminderScheduler; LOCAL_PARTIAL | POST_NOTIFICATIONS, SCHEDULE_EXACT_ALARM, системные channels | Разрешения выбранного телефона включены; матрица granted/denied/revoked/channel-muted NOT_RUN |
+| NOT02 Задача→системное уведомление при погашенном экране | Native requirement | AlarmManager exact/fallback + ReminderReceiver; LOCAL_PARTIAL | Один reminder на LocalTask, pending/delivered/blocked; opaque extras | Screen-off + am kill: delivery PASS, одна измеренная задержка 1439ms; звук первого screen-off теста не услышан; слышимость последнего отдельного теста подтверждена владельцем |
+| NOT03 Open/complete/snooze/cancel, stale revision/dedup | Web task semantics + native requirement | ReminderActionReceiver + TaskRepository; LOCAL_PARTIAL | Revision guard, one-process Mutex, atomic DB transitions, notification cancel | Open через системную шторку, complete/dedup, snooze/stale/cancel PASS; open/snooze используют прямой delivery отдельно от screen-off AlarmManager теста |
+| NOT04 Reboot/timezone/process death/update/offline | Native requirement | RestoreReceiver + app startup restore; LOCAL_PARTIAL | Credential-encrypted storage; до unlock недоступно; replay overdue не делается | Doze/reboot/upgrade/timezone и Force stop limitation tests NOT_RUN |
+| NOT05 Habit/daily-goal/reward notifications, quiet hours | `app/habit-notifications.ts`, `habit-feedback.ts`, `task-reminders.ts` | Channels есть; бизнес-планирование кроме tasks NOT_PORTED | Системный default notification sound; quiet-hours picker/правила не реализованы | Владелец подтвердил «звук был» после последнего теста: audible PASS для этого события; screen-off/Doze/vibration/upgrade NOT_RUN |
+| PUSH01 FCM/remote invalidation/refresh/logout | Полное Android requirement; готового FCM backend нет | NOT_PORTED | Нет Firebase config, registration endpoint, sender, push sync worker | BLOCKED до настройки Firebase и data integration; локальный AlarmManager отдельный |
+| LINK01 Verified App Links/deep links | Старый `public/.well-known/assetlinks.json`, native requirement | Только explicit local notification intents; verified native links NOT_PORTED | Старый TWA/debug association не доказывает native release | BLOCKED до signing и нового безопасного path scope; web fallback NOT_RUN |
+| REL01 Постоянная подпись/release OAuth/N→N+1 | `android/app/build.gradle.kts`, прежние Android docs | Internal debug only; release debug-signing снято | `.debug` и release — разные application IDs | BLOCKED: постоянная identity/backup и release tests не согласованы/не выполнены |
+| REL02 Download CTA/manifest/безопасная публикация | Web router/PWA, `.github/workflows/deploy.yml` | NOT_PORTED/не активировано | Нет утверждённого signed release artifact/публичного latest manifest | BLOCKED; production/SSH/deploy не выполнялись |
+| OPS01 CI/web regression/security/native UI | `.github/workflows/deploy.yml`, test suites | Локальная Android интеграция; PHP routes только в ветке | Gradle build/unit/lint, PHP standalone tests подготовлены | Android59 unit PASS, PHP44 standalone PASS, web lint/test/build ранее PASS; ProjectsFlowTest2 + прежние UI3/preferences1 + TheokyklosFlowTest1 + CalendarFlowTest1 PASS на realme в соответствующих этапах; HTTP session tests/security review NOT_RUN |
+
+Следующие product gates: другие native-разделы и визуальные слоты, функциональные сценарии и schema-preserving workspace import/merge; Google-вход настроить последним по просьбе владельца. Отсутствие Google доступов не превращает DOMAIN_ONLY/NOT_PORTED строки в PASS.
