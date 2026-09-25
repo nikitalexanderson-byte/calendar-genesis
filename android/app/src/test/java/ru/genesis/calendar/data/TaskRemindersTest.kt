@@ -47,4 +47,9 @@ class TaskRemindersTest {
             .put(JSONObject().put("kind", "absolute").put("at", "not-a-date")))
         assertEquals(listOf(TaskReminder.relative(10)), TaskReminder.from(source))
     }
+
+    @Test fun undatedGoogleInboxTaskDoesNotAbortReminderImport() {
+        val task = LocalTask(title = "Google inbox", date = "", reminders = listOf(TaskReminder.relative(30)))
+        assertTrue(TaskReminderPlan.times(task).isEmpty())
+    }
 }

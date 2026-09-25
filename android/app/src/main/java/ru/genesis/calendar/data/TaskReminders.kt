@@ -48,6 +48,9 @@ object TaskReminderPlan {
         if (task.done) return emptyList()
         val specs = task.reminders ?: task.reminderAt?.let { listOf(TaskReminder.absolute(it)) } ?: emptyList()
         if (specs.isEmpty()) return emptyList()
+        // Google Tasks may have no due date. They are valid inbox entries, but cannot
+        // produce a local dated alarm until the user assigns a date.
+        if (runCatching { LocalDate.parse(task.date) }.isFailure) return emptyList()
         val dates = if (task.recurrence.enabled) RecurrenceEngine(GenesisCalendar()).datesForTask(
             task.date, task.recurrence,
             googleTaskListId = JSONObject(task.sourceFieldsJson).optString("googleTaskListId"),
