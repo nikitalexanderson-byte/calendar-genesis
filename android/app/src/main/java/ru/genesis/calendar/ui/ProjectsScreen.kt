@@ -41,6 +41,13 @@ import ru.genesis.calendar.data.*
 
 private const val inboxDropId = "__genesis_inbox__"
 
+internal fun russianCount(value: Int, one: String, few: String, many: String): String =
+    if (value % 100 in 11..14) many else when (value % 10) {
+        1 -> one
+        in 2..4 -> few
+        else -> many
+    }
+
 private data class TaskPickup(val id: String, val title: String, val originId: String?, val position: Offset)
 
 @Composable
@@ -124,6 +131,14 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
         .map { (project,depth) -> project to if (selectedCategory == null) depth else 0 }
     val tasksByProject = remember(tasks) { tasks.groupBy { it.projectId } }
     val inbox = remember(tasks) { tasks.filter { it.projectId == null || it.projectId == "__genesis_inbox__" } }
+    val language = LocalGenesisLanguage.current
+    val projectCount = structure.projects.size
+    val activeCount = tasks.count { !it.done }
+    val projectSummary = if (language == "en")
+        "$projectCount ${if (projectCount == 1) "project" else "projects"} · " +
+            "$activeCount active ${if (activeCount == 1) "task" else "tasks"}"
+    else "$projectCount ${russianCount(projectCount, "проект", "проекта", "проектов")} · " +
+        "$activeCount ${russianCount(activeCount, "активная задача", "активные задачи", "активных задач")}"
     val moveTask: (String, String) -> Unit = { taskId, targetId ->
         scope.launch {
             try {
@@ -164,11 +179,14 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Проекты", style = MaterialTheme.typography.headlineMedium)
-                Text("Структура задач и разделов на этом устройстве", style = MaterialTheme.typography.bodyMedium,
+                Text(if (app.workspaceScope.startsWith("account-")) {
+                    if (language == "en") "Projects and tasks in your account" else "Проекты и задачи аккаунта"
+                } else if (language == "en") "Projects and tasks on this device"
+                else "Структура задач и разделов на этом устройстве", style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically) {
-                    Text("${structure.projects.size} проектов · ${tasks.count { !it.done }} активных задач",
+                    Text(projectSummary, Modifier.weight(1f).padding(end = 8.dp),
                         style = MaterialTheme.typography.labelLarge)
                     Button(onClick = { creating = true; editing = null; error = null }, modifier = Modifier.testTag("create-project")) {
                         Text("Создать")
