@@ -346,8 +346,8 @@ try {
         genesisRequireCsrf();
         $payload = genesisReadJson();
         $saved = genesisSaveWorkspaceEnvelope($userId, $payload);
-        // Native clients do not send a complete Google task census. Preserve the last
-        // trusted metrics instead of resetting them to zero on an encrypted-only PUT.
+        // Encrypted-only native writes omit aggregate metrics. Keep the last
+        // complete web census instead of accidentally resetting it to zero.
         if (array_key_exists('metrics', $payload)) {
             genesisSaveMetrics($userId, $payload);
         }

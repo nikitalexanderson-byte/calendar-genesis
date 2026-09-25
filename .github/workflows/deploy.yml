@@ -40,6 +40,9 @@ jobs:
       - name: Check PHP syntax
         run: find server -type f -name '*.php' -print0 | xargs -0 -n1 php -l
 
+      - name: Test native Google token verification
+        run: php server/tests/native-auth.php
+
       - name: Test PHP backend with isolated SQLite
         env:
           GENESIS_SMOKE_ROOT: ${{ runner.temp }}/genesis-backend-smoke
