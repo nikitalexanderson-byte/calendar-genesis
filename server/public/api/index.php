@@ -346,7 +346,11 @@ try {
         genesisRequireCsrf();
         $payload = genesisReadJson();
         $saved = genesisSaveWorkspaceEnvelope($userId, $payload);
-        genesisSaveMetrics($userId, $payload);
+        // Encrypted-only native writes omit aggregate metrics. Keep the last
+        // complete web census instead of accidentally resetting it to zero.
+        if (array_key_exists('metrics', $payload)) {
+            genesisSaveMetrics($userId, $payload);
+        }
         genesisJson(['ok' => true, 'workspace' => $saved]);
     }
 
