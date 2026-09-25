@@ -3467,3 +3467,8 @@ test("keeps Google OAuth consent, account binding, and token handling hardened",
   await access(new URL("../public/sitemap.xml", import.meta.url));
   await access(new URL("../docs/GOOGLE-OAUTH-PUBLISHING.md", import.meta.url));
 });
+
+test("encrypted-only workspace updates preserve the last complete metrics census", async () => {
+  const api = await readFile(new URL("../server/public/api/index.php", import.meta.url), "utf8");
+  assert.match(api, /if \(array_key_exists\('metrics', \$payload\)\) \{\s*genesisSaveMetrics\(\$userId, \$payload\);\s*\}/);
+});
