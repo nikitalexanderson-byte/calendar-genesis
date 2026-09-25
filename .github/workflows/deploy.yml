@@ -139,7 +139,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/genesis-signing" dist-beget/public_html/downloads
           export GENESIS_ANDROID_SIGNING_STORE="$RUNNER_TEMP/genesis-signing/release.jks"
           printf '%s' "$SIGNING_KEYSTORE_B64" | base64 -d > "$GENESIS_ANDROID_SIGNING_STORE"
-          (cd android && ./gradlew :app:assembleRelease --no-daemon --console=plain)
+          (cd android && bash ./gradlew :app:assembleRelease --no-daemon --console=plain)
           APK=android/app/build/outputs/apk/release/app-release.apk
           test -s "$APK"
           "$ANDROID_HOME/build-tools/37.0.0/apksigner" verify --verbose --print-certs "$APK" \
