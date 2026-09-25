@@ -4,6 +4,12 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class ProjectsCopyTest {
+    @Test fun nestedProjectsHaveVisibleHierarchyMarker() {
+        assertEquals("Основной проект", projectTreeLabel("Основной проект", 0))
+        assertEquals("— Подпроект", projectTreeLabel("Подпроект", 1))
+        assertEquals("— Вложенный проект", projectTreeLabel("Вложенный проект", 2))
+    }
+
     @Test fun russianProjectAndTaskCountsDeclineCorrectly() {
         fun noun(count: Int) = russianCount(count, "задача", "задачи", "задач")
         assertEquals("задач", noun(0))

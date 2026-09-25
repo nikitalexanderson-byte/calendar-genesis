@@ -60,6 +60,44 @@ try {
         ],
     ]);
     expect(($user['sync_routing_mode'] ?? '') === 'choose', 'A regular user could not save multi-account routing.');
+    // Five-account routing is exercised without Google sign-in or network writes.
+    $db->prepare('UPDATE users SET refresh_token_enc = :token WHERE id = :id')->execute([
+        'token' => genesisEncrypt('synthetic-primary-token'), 'id' => $userId,
+    ]);
+    $routeIds = [$userId];
+    foreach (range(1, 4) as $index) {
+        $accountId = 'test-route-account-' . $index;
+        $routeIds[] = $accountId;
+        $db->prepare('INSERT INTO linked_google_accounts (id, owner_user_id, google_sub, email, display_name, refresh_token_enc, position, created_at, updated_at) VALUES (:id, :owner, :sub, :email, :name, :token, :position, :created_at, :updated_at)')->execute([
+            'id' => $accountId,
+            'owner' => $userId,
+            'sub' => 'test-route-sub-' . $index,
+            'email' => 'genesis.route.' . $index . '@example.com',
+            'name' => 'Synthetic Route ' . $index,
+            'token' => genesisEncrypt('synthetic-route-token-' . $index),
+            'position' => $index,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+    }
+    $user = genesisUpdateAccountPreferences($userId, ['syncRouting' => [
+        'mode' => 'category',
+        'defaultAccountIds' => [$userId],
+        'categoryAccountIds' => ['test-route-category' => $routeIds],
+    ]]);
+    expect(count(genesisUserForClient($user)['googleAccounts']) === 5, 'Five Google account slots were not exposed.');
+    $targets = genesisResolveTaskTargetAccounts($user, ['categoryId' => 'test-route-category']);
+    expect(array_map(static fn(array $account): string => (string)$account['id'], $targets) === $routeIds,
+        'Category routing did not select all five linked accounts.');
+    $fallback = genesisResolveTaskTargetAccounts($user, ['categoryId' => 'another-category']);
+    expect(count($fallback) === 1 && ($fallback[0]['id'] ?? '') === $userId,
+        'Unmapped categories must fall back to the primary account.');
+    $explicit = genesisResolveTaskTargetAccounts($user, ['syncAccountIds' => [$routeIds[2], $routeIds[4]]]);
+    expect(array_map(static fn(array $account): string => (string)$account['id'], $explicit) === [$routeIds[2], $routeIds[4]],
+        'Explicit task routing must override category defaults.');
+    $user = genesisUpdateAccountPreferences($userId, ['syncRouting' => [
+        'mode' => 'choose', 'defaultAccountIds' => [$userId], 'categoryAccountIds' => [],
+    ]]);
     $workspace = genesisWorkspaceForClient($user);
     expect(is_string($workspace['key']) && strlen(base64_decode($workspace['key'], true)) === 32, 'Workspace key is invalid.');
     expect(($workspace['keyMode'] ?? '') === 'account', 'Authenticated account key mode was not exposed.');

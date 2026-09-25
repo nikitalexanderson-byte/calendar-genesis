@@ -1918,7 +1918,7 @@ test("covers every Theokyklos sector with sacred habits while keeping Stoicheion
   assert.match(styles, /\.sacred-sector-sigil\.awakened/);
 });
 
-test("keeps the TWA download and prepares a separate signed native Android release", async () => {
+test("retains the legacy TWA artifact but promotes only the signed native Android release", async () => {
   const [installHook, calendar, welcome, styles, androidBuild, androidManifest, androidLauncher, androidBaseStyles, androidApi27Styles, assetLinks, htaccess, serviceWorker] = await Promise.all([
     readFile(new URL("../app/use-pwa-install.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
@@ -1940,19 +1940,20 @@ test("keeps the TWA download and prepares a separate signed native Android relea
   assert.match(installHook, /\/mobile\/i/);
   assert.match(installHook, /window\.location\.hostname[\s\S]*device[\s\S]*android-phone/);
   assert.match(installHook, /isAndroidPhone && !isStandalone/);
-  assert.match(installHook, /downloads\/GENESIS-Android-1\.2\.2\.apk/);
-  assert.match(installHook, /downloads\/GENESIS-Android-Native-2\.0\.0\.apk/);
-  assert.match(calendar, /androidApkUrl=\{androidApkUrl\}/);
+  assert.doesNotMatch(installHook, /downloads\/GENESIS-Android-1\.2\.2\.apk/);
+  assert.match(installHook, /downloads\/GENESIS-Android-Native-2\.1\.0\.apk/);
+  assert.doesNotMatch(calendar, /android-apk-icon-button/);
   assert.match(calendar, /nativeAndroidApkUrl=\{nativeAndroidApkUrl\}/);
   assert.match(calendar, /android-native-icon-button/);
   assert.match(welcome, /android-download-button/);
   assert.match(welcome, /Нативное Android-приложение/);
+  assert.match(welcome, /androidMigration/);
   assert.match(styles, /\.android-download-button/);
   assert.match(styles, /\.ux-android-robot/);
   // The public 1.2.2 download stays unchanged while the isolated native alpha advances.
   const nativeVersionCode = Number(androidBuild.match(/versionCode = (\d+)/)?.[1]);
   assert.ok(nativeVersionCode >= 7);
-  assert.match(androidBuild, /versionName = "2\.0\.0"/);
+  assert.match(androidBuild, /versionName = "2\.1\.0"/);
   assert.match(androidBuild, /releaseSigningReady/);
   assert.match(androidBuild, /applicationIdSuffix = "\.debug"/);
   assert.match(androidBuild, /androidx\.browser:browser:1\.10\.0/);

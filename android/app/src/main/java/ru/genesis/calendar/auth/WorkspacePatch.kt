@@ -6,6 +6,7 @@ import org.json.JSONObject
 /** Conservative three-way patch for the web's encrypted schema-16 workspace. */
 internal object WorkspacePatch {
     class Conflict(val field: String) : Exception("Workspace changed concurrently: $field")
+    enum class ConflictPolicy { STOP, KEEP_LOCAL, KEEP_REMOTE }
     data class Result(val document: JSONObject, val changed: Boolean)
 
     private val collectionIds = mapOf(
@@ -38,7 +39,8 @@ internal object WorkspacePatch {
             .put("updatedAt", ""))
 
     fun apply(base: JSONObject, local: JSONObject, remote: JSONObject, dirtyKinds: Set<String>,
-        remoteVersion: Long, timestamp: String, deviceId: String): Result {
+        remoteVersion: Long, timestamp: String, deviceId: String,
+        conflictPolicy: ConflictPolicy = ConflictPolicy.STOP): Result {
         require(base.optInt("trackerSchemaVersion") == 16 && remote.optInt("trackerSchemaVersion") == 16)
         require(remoteVersion >= 0 && deviceId.isNotBlank())
         val output = JSONObject(remote.toString())
@@ -63,18 +65,25 @@ internal object WorkspacePatch {
                     val current = remoteRows[id]
                     val merged = when {
                         edited == null -> {
-                            if (current != null && !same(current, old)) throw Conflict("$key/$id")
-                            null
+                            if (current != null && !same(current, old) && conflictPolicy == ConflictPolicy.STOP)
+                                throw Conflict("$key/$id")
+                            if (current != null && !same(current, old) && conflictPolicy == ConflictPolicy.KEEP_REMOTE)
+                                current else null
                         }
                         old == null -> {
-                            if (current != null && !same(current, edited)) throw Conflict("$key/$id")
-                            current ?: JSONObject(edited.toString())
+                            if (current != null && !same(current, edited) && conflictPolicy == ConflictPolicy.STOP)
+                                throw Conflict("$key/$id")
+                            if (current != null && !same(current, edited) && conflictPolicy == ConflictPolicy.KEEP_REMOTE)
+                                current else JSONObject(edited.toString())
                         }
-                        current == null -> throw Conflict("$key/$id")
-                        else -> patchObject(old, edited, current, "$key/$id")
+                        current == null -> if (conflictPolicy == ConflictPolicy.KEEP_LOCAL)
+                            JSONObject(edited.toString()) else if (conflictPolicy == ConflictPolicy.KEEP_REMOTE)
+                            null else throw Conflict("$key/$id")
+                        else -> patchObject(old, edited, current, "$key/$id", conflictPolicy)
                     }
                     if (merged == null) result.remove(id) else result[id] = merged
                     if (!same(current, merged)) changed = true
+                    if (same(current, merged)) continue
                     val revision = nextRevision(revisions.optJSONObject(id), remoteVersion, timestamp, deviceId)
                     if (merged == null) {
                         revisions.remove(id)
@@ -89,14 +98,16 @@ internal object WorkspacePatch {
                 if (sameKnown(old, edited)) continue
                 val current = output.opt(key)
                 val merged = if (old is JSONObject && edited is JSONObject && current is JSONObject)
-                    patchObject(old, edited, current, key)
+                    patchObject(old, edited, current, key, conflictPolicy)
                 else {
-                    if (!same(old, current) && !same(edited, current)) throw Conflict(key)
-                    edited
+                    if (!same(old, current) && !same(edited, current) && conflictPolicy == ConflictPolicy.STOP)
+                        throw Conflict(key)
+                    if (!same(old, current) && !same(edited, current) && conflictPolicy == ConflictPolicy.KEEP_REMOTE)
+                        current else edited
                 }
                 if (merged == null) output.remove(key) else output.put(key, merged)
                 if (!same(current, merged)) changed = true
-                fields.put(key, nextRevision(fields.optJSONObject(key), remoteVersion, timestamp, deviceId))
+                if (!same(current, merged)) fields.put(key, nextRevision(fields.optJSONObject(key), remoteVersion, timestamp, deviceId))
             }
         }
         if (changed) output.put("syncMetadata", metadata.put("entities", entities)
@@ -129,7 +140,8 @@ internal object WorkspacePatch {
         return result
     }
 
-    private fun patchObject(base: JSONObject, local: JSONObject, remote: JSONObject, path: String): JSONObject {
+    private fun patchObject(base: JSONObject, local: JSONObject, remote: JSONObject, path: String,
+        conflictPolicy: ConflictPolicy): JSONObject {
         val output = JSONObject(remote.toString())
         // Native codecs intentionally omit web-only properties; omission is never a deletion.
         for (key in local.keys().asSequence().toList()) {
@@ -138,10 +150,12 @@ internal object WorkspacePatch {
             if (sameKnown(old, edited)) continue
             val current = remote.opt(key)
             val merged = if (old is JSONObject && edited is JSONObject && current is JSONObject)
-                patchObject(old, edited, current, "$path/$key")
+                patchObject(old, edited, current, "$path/$key", conflictPolicy)
             else {
-                if (!same(old, current) && !same(edited, current)) throw Conflict("$path/$key")
-                edited
+                if (!same(old, current) && !same(edited, current) && conflictPolicy == ConflictPolicy.STOP)
+                    throw Conflict("$path/$key")
+                if (!same(old, current) && !same(edited, current) && conflictPolicy == ConflictPolicy.KEEP_REMOTE)
+                    current else edited
             }
             if (merged == null) output.remove(key) else output.put(key, merged)
         }

@@ -29,6 +29,9 @@ private val rankPaintings = listOf(
     "11_tamer_of_might.webp", "12_iron_charioteer.webp", "13_bearer_of_royal_honor.webp",
     "14_guardian_of_the_western_border.webp", "15_keeper_of_the_golden_garden.webp",
     "16_risen_from_the_abyss.webp")
+
+internal fun heroRankThumbnailPath(rank: HeroicRank): String? =
+    rankPaintings.getOrNull(HeroRankCatalog.ranks.indexOf(rank))?.let { "hero-path/256/$it" }
 private val amphoraPaintings = listOf("17_amphora_of_aspiration.webp", "18_amphora_of_endurance.webp",
     "19_amphora_of_mastery.webp", "20_amphora_of_abyss.webp")
 

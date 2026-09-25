@@ -12,13 +12,17 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -38,6 +42,8 @@ fun AuthPanel(app: GenesisApplication) {
     val state by controller.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val activity = context.activity()
+    var confirmKeepLocal by remember { mutableStateOf(false) }
+    var confirmKeepRemote by remember { mutableStateOf(false) }
     Card(Modifier.fillMaxWidth().testTag("auth-panel")) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("Вход в GENESIS", style = MaterialTheme.typography.titleMedium)
@@ -72,6 +78,18 @@ fun AuthPanel(app: GenesisApplication) {
             if (state.user != null) {
                 OutlinedButton(onClick = controller::syncPending,
                     modifier = Modifier.fillMaxWidth().testTag("auth-sync-retry")) { Text("Повторить синхронизацию") }
+                if (state.workspaceConflictPath != null) {
+                    Text("Одно и то же поле изменено на сайте и на телефоне. Обычная синхронизация остановлена; обе копии сохранены.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    OutlinedButton(onClick = { confirmKeepLocal = true },
+                        modifier = Modifier.fillMaxWidth().testTag("auth-resolve-keep-local")) {
+                        Text("Оставить изменения телефона")
+                    }
+                    OutlinedButton(onClick = { confirmKeepRemote = true },
+                        modifier = Modifier.fillMaxWidth().testTag("auth-resolve-keep-remote")) {
+                        Text("Оставить изменения сайта")
+                    }
+                }
                 OutlinedButton(onClick = controller::logout,
                     modifier = Modifier.fillMaxWidth().testTag("auth-logout")) { Text("Выйти") }
             }
@@ -92,6 +110,22 @@ fun AuthPanel(app: GenesisApplication) {
             }
         }
     }
+    if (confirmKeepLocal) AlertDialog(onDismissRequest = { confirmKeepLocal = false },
+        title = { Text("Оставить версию телефона?") },
+        text = { Text("Совпавшее поле на сайте будет заменено вашей локальной версией. Остальные изменения сайта сохранятся. Задачи Google это действие не затрагивает.") },
+        confirmButton = { TextButton(onClick = {
+            confirmKeepLocal = false
+            controller.keepLocalWorkspaceChanges()
+        }) { Text("Оставить на телефоне") } },
+        dismissButton = { TextButton(onClick = { confirmKeepLocal = false }) { Text("Отмена") } })
+    if (confirmKeepRemote) AlertDialog(onDismissRequest = { confirmKeepRemote = false },
+        title = { Text("Оставить версию сайта?") },
+        text = { Text("Только совпавшие изменения телефона будут заменены версией сайта. Остальные ваши изменения и задачи Google сохранятся.") },
+        confirmButton = { TextButton(onClick = {
+            confirmKeepRemote = false
+            controller.keepRemoteWorkspaceChanges()
+        }) { Text("Оставить на сайте") } },
+        dismissButton = { TextButton(onClick = { confirmKeepRemote = false }) { Text("Отмена") } })
 }
 
 internal tailrec fun Context.activity(): Activity? = when (this) {

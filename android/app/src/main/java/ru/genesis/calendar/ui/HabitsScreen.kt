@@ -4,10 +4,14 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.Lifecycle
@@ -48,6 +52,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
     var edit by remember { mutableStateOf<Habit?>(null) }
     var editorOpen by remember { mutableStateOf(false) }
     var catalogueOpen by rememberSaveable { mutableStateOf(false) }
+    var heroPathOpen by rememberSaveable { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var today by remember { mutableStateOf(LocalDate.now()) }
     val engine=HabitEngine(GenesisCalendar())
@@ -88,23 +93,31 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
         } else {
             val rank=HeroProgress.rankForProgress(current.progress)
             val goal=current.goals.firstOrNull { it.date==today }
-            Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.primaryContainer)) {
-                Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-                    Text("ЕЖЕДНЕВНЫЙ РИТМ",style=MaterialTheme.typography.labelMedium,
-                        color=MaterialTheme.colorScheme.primary)
+            Surface(Modifier.fillMaxWidth().testTag("habit-daily-hero"),shape=RoundedCornerShape(24.dp),color=Color(0xff123b36)) {
+                Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+                    Text("ЕЖЕДНЕВНЫЙ РИТМ",style=MaterialTheme.typography.labelMedium,color=Color(0xffdfc17e))
                     Text(if(goal==null || goal.scheduledCount==0) "Свободный день" else
                         "Сегодня · ${goal.completedCount} из ${goal.scheduledCount}",
-                        style=MaterialTheme.typography.titleLarge)
+                        style=MaterialTheme.typography.headlineSmall,color=Color(0xfff8f3e8))
                     Text(if(goal==null || goal.scheduledCount==0)
                         "На сегодня нет запланированных привычек. Серия не изменится."
                         else "Дневная цель: ${goal.targetCount} · ${if(goal.status=="achieved") "достигнута" else "впереди"}",
-                        style=MaterialTheme.typography.bodyMedium)
+                        style=MaterialTheme.typography.bodyMedium,color=Color(0xffd8e7df))
                     if(goal!=null && goal.scheduledCount>0) LinearProgressIndicator(
                         progress={ (goal.completedCount.toFloat()/goal.scheduledCount).coerceIn(0f,1f) },
-                        modifier=Modifier.fillMaxWidth())
-                    HorizontalDivider()
-                    Text("Серия ${current.progress.currentStreak} дн.  ·  Ритм ${current.progress.rhythmScore}%  ·  ♕ ${current.progress.laurelsBalance} Лавров",
-                        style=MaterialTheme.typography.labelMedium)
+                        modifier=Modifier.fillMaxWidth(),color=Color(0xffdfc17e),trackColor=Color(0xff46645e))
+                    HorizontalDivider(color=Color(0xff46645e))
+                    Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+                        heroRankThumbnailPath(rank)?.let { OriginalImage(it,rank.title,
+                            Modifier.size(56.dp)) }
+                        Column(verticalArrangement=Arrangement.spacedBy(2.dp)) {
+                            Text("Путь Героя · ${rank.title}",style=MaterialTheme.typography.titleMedium,color=Color(0xfff8f3e8))
+                            Text("${current.progress.lifetimeXp} XP · серия ${current.progress.currentStreak} дн.",
+                                style=MaterialTheme.typography.bodySmall,color=Color(0xffd8e7df))
+                        }
+                    }
+                    Text("Ритм ${current.progress.rhythmScore}%  ·  ${current.progress.laurelsBalance} лавров",
+                        style=MaterialTheme.typography.labelMedium,color=Color(0xffdfc17e))
                 }
             }
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
@@ -127,7 +140,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                     }) { Text("Добавить из библиотеки") }
                 } }
             }
-            Text("Обычные привычки",style=MaterialTheme.typography.titleLarge)
+            Text("Мои привычки",style=MaterialTheme.typography.titleLarge)
             if(current.habits.isEmpty()) Text("Здесь появятся ваши практики. Выберите идею из подборки или создайте свою.",
                 style=MaterialTheme.typography.bodyMedium)
             current.habits.sortedByDescending { it.priority }.forEach { habit ->
@@ -156,16 +169,17 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                 } }
             }
             if (experimental) {
-                Text("Путь Героя и награды",style=MaterialTheme.typography.titleLarge)
-                Text("XP открывает ступени ранга; Лавры можно тратить на защиту серии. Ранги не заменяют ваши привычки.",
-                    style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(14.dp),
-                    verticalArrangement=Arrangement.spacedBy(4.dp)) {
-                    Text("Текущий ранг · ${rank.title}",style=MaterialTheme.typography.titleMedium)
-                    Text("${current.progress.lifetimeXp} XP накоплено · опыт не тратится",
-                        style=MaterialTheme.typography.bodySmall)
-                } }
-                HabitArtGallery(current, today, busy,
+                Card(Modifier.fillMaxWidth().testTag("habit-hero-path-section")) {
+                    Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
+                        Text("Путь Героя и награды",style=MaterialTheme.typography.titleLarge)
+                        Text("Древо рангов, достижения и защита серии. Накопленный XP не тратится.",
+                            style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                        TextButton(onClick={heroPathOpen=!heroPathOpen},modifier=Modifier.testTag("habit-hero-path-toggle")) {
+                            Text(if(heroPathOpen) "Свернуть путь" else "Открыть путь и награды")
+                        }
+                    }
+                }
+                if(heroPathOpen) HabitArtGallery(current, today, busy,
                     onClaimAmphora = { rankId -> scope.launch { runAction { repository.claimHeroPathAmphora(rankId) } } },
                     onRevealHiddenPath = { scope.launch { runAction { repository.revealHiddenHeroicPath() } } },
                     onBuySpark = { scope.launch { runAction { repository.buyHestiaSpark() } } })

@@ -2,6 +2,7 @@ package ru.genesis.calendar
 
 import android.app.NotificationManager
 import android.content.Context
+import java.time.LocalDate
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -40,7 +41,7 @@ class ReminderFlowTest {
     }
 
     @Test fun verifyDeliveredAndCompleteAction() = runBlocking {
-        val row=app.database.dao().taskReminders(app.workspaceScope,fixtureId).single()
+        val row=app.database.dao().taskReminders(app.workspaceScope,fixtureId).single { it.state=="delivered" }
         assertEquals("delivered",row.state)
         assertNotNull(row.deliveredAt)
         assertTrue("Alarm should arrive after due time",row.deliveredAt!! >= row.at - 1000)
@@ -58,7 +59,7 @@ class ReminderFlowTest {
         action.send()
         Thread.sleep(300)
         assertEquals(revision,app.repository.get(fixtureId)!!.revision)
-        assertEquals("cancelled",app.database.dao().taskReminders(app.workspaceScope,fixtureId).single().state)
+        assertTrue(app.database.dao().taskReminders(app.workspaceScope,fixtureId).all{it.state=="cancelled"})
         assertTrue(manager.activeNotifications.none { it.tag==notification.tag })
     }
 
@@ -73,9 +74,9 @@ class ReminderFlowTest {
         val old=app.repository.get(openId)
         app.repository.save(LocalTask(id=openId,title="Изолированный тест открытия",
             reminderAt=System.currentTimeMillis()-1000,revision=old?.revision ?: 0))
-        val opening=app.database.dao().taskReminders(app.workspaceScope,openId).single()
+        val opening=app.database.dao().taskReminders(app.workspaceScope,openId).single{it.state=="pending"}
         app.scheduler.deliver(opening.scope,opening.id,opening.revision)
-        val row=app.database.dao().taskReminders(app.workspaceScope,openId).single()
+        val row=app.database.dao().taskReminders(app.workspaceScope,openId).single{it.state=="delivered"}
         assertEquals("delivered",row.state)
         val notification=app.getSystemService(NotificationManager::class.java).activeNotifications.single {
             it.tag==app.workspaceScope + "/" + row.id
@@ -101,7 +102,7 @@ class ReminderFlowTest {
             android.os.Bundle().apply { putString("stream","\n$text\n") }) }
         report("GENESIS channel importance=${channel.importance}, soundConfigured=${channel.sound!=null}, vibration=${channel.shouldVibrate()}, DNDfilter=${manager.currentInterruptionFilter}")
         report("GENESIS notification volume=${audio.getStreamVolume(android.media.AudioManager.STREAM_NOTIFICATION)}, ringerMode=${audio.ringerMode}, globalSoundConfigured=${!android.provider.Settings.System.getString(app.contentResolver,android.provider.Settings.System.NOTIFICATION_SOUND).isNullOrBlank()}")
-        val row=app.database.dao().taskReminders(app.workspaceScope,fixtureId).singleOrNull()
+        val row=app.database.dao().taskReminders(app.workspaceScope,fixtureId).lastOrNull()
         report("GENESIS synthetic alarm state=${row?.state}, delayMs=${row?.deliveredAt?.minus(row.at)}")
         assertTrue(app.scheduler.notificationsAllowed())
         assertTrue(app.scheduler.exactAllowed())
@@ -111,7 +112,7 @@ class ReminderFlowTest {
 
     @Test fun persistedCompletionSurvivesFreshProcess() = runBlocking {
         assertTrue(app.repository.get(fixtureId)!!.done)
-        val row=app.database.dao().taskReminders(app.workspaceScope,fixtureId).single()
+        val row=app.database.dao().taskReminders(app.workspaceScope,fixtureId).maxBy { it.revision }
         assertEquals("cancelled",row.state)
         app.scheduler.restore()
         app.scheduler.deliver(row.scope,row.id,row.revision-1)
@@ -125,16 +126,32 @@ class ReminderFlowTest {
         val old=app.repository.get(id)
         val task=app.repository.save(LocalTask(id=id,title="Изолированный тест отложения",
             reminderAt=System.currentTimeMillis()-1000,revision=old?.revision?:0))
-        val row=app.database.dao().taskReminders(app.workspaceScope,id).single()
+        val row=app.database.dao().taskReminders(app.workspaceScope,id).single{it.state=="pending"}
         app.scheduler.deliver(row.scope,row.id,row.revision)
         assertTrue(app.repository.snooze(row.id,row.revision))
         assertFalse(app.repository.snooze(row.id,row.revision))
-        val next=app.database.dao().taskReminders(app.workspaceScope,id).single()
-        assertTrue(next.revision>task.revision)
+        val next=app.database.dao().taskReminders(app.workspaceScope,id).single{it.state=="pending"}
+        assertEquals(task.revision,next.revision)
         assertTrue(next.at>System.currentTimeMillis())
         app.scheduler.deliver(row.scope,row.id,row.revision)
-        assertEquals("pending",app.database.dao().reminder(row.scope,row.id)!!.state)
+        assertEquals("pending",app.database.dao().reminder(row.scope,next.id)!!.state)
         app.repository.complete(id)
-        assertEquals("cancelled",app.database.dao().reminder(row.scope,row.id)!!.state)
+        assertTrue(app.database.dao().taskReminders(app.workspaceScope,id).all{it.state=="cancelled"})
+    }
+
+    @Test fun fiveRemindersPersistAndCancelTogether() = runBlocking {
+        check(BuildConfig.DEBUG && app.packageName.endsWith(".debug"))
+        val id = "internal-five-reminders-validation-v1"
+        val previous = app.repository.get(id)
+        val saved = app.repository.save(LocalTask(id=id, title="Изолированный тест пяти напоминаний",
+            date=LocalDate.now().plusDays(2).toString(), time="12:00",
+            reminders=listOf(10,30,60,1440,2880).map(TaskReminder::relative),
+            revision=previous?.revision ?: 0))
+        val rows = app.database.dao().taskReminders(app.workspaceScope,id)
+        assertEquals(5,rows.count{it.state=="pending"})
+        assertEquals(5,app.repository.get(id)!!.reminders!!.size)
+        app.repository.complete(id)
+        assertTrue(app.database.dao().taskReminders(app.workspaceScope,id).all{it.state=="cancelled"})
+        assertEquals(saved.revision+1,app.repository.get(id)!!.revision)
     }
 }

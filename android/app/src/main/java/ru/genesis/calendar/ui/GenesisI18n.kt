@@ -29,6 +29,18 @@ private val nativeCopy = mapOf(
     "Новая привычка" to "New habit", "Обычные привычки" to "Habits",
     "Подборка" to "Suggestions", "Скрыть подборку" to "Hide suggestions",
     "Путь Героя и награды" to "Hero's path & rewards", "История отметок" to "Completion history",
+    "Мои привычки" to "My habits", "Открыть путь и награды" to "Open path & rewards",
+    "Свернуть путь" to "Collapse path", "Древо рангов, достижения и защита серии. Накопленный XP не тратится." to
+        "Rank tree, achievements, and streak protection. Earned XP is never spent.",
+    "Оставить изменения телефона" to "Keep phone changes", "Оставить изменения сайта" to "Keep website changes",
+    "Оставить версию телефона?" to "Keep the phone version?", "Оставить версию сайта?" to "Keep the website version?",
+    "Оставить на телефоне" to "Keep on phone", "Оставить на сайте" to "Keep on website",
+    "Одно и то же поле изменено на сайте и на телефоне. Обычная синхронизация остановлена; обе копии сохранены." to
+        "The same field changed on the website and phone. Automatic sync stopped; both copies are safe.",
+    "Совпавшее поле на сайте будет заменено вашей локальной версией. Остальные изменения сайта сохранятся. Задачи Google это действие не затрагивает." to
+        "The conflicting website field will use your phone version. Other website changes and Google tasks are preserved.",
+    "Только совпавшие изменения телефона будут заменены версией сайта. Остальные ваши изменения и задачи Google сохранятся." to
+        "Only conflicting phone changes will use the website version. Your other changes and Google tasks are preserved.",
     "ЕЖЕДНЕВНЫЙ РИТМ" to "DAILY RHYTHM", "Свободный день" to "A free day",
     "ГРИГОРИАНСКИЙ ДЕНЬ" to "GREGORIAN DAY", "ЛУННЫЙ ДЕНЬ" to "LUNAR DAY",
     "САКРАЛЬНЫЙ ДЕНЬ" to "SACRED DAY", "Открыть день и задачи" to "Open day and tasks",
