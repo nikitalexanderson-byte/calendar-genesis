@@ -62,9 +62,7 @@ object CloudWorkspacePreview {
             val encrypted = WorkspaceCipher.Envelope(envelope.getString("ciphertext"), envelope.getString("iv"))
             val plain = WorkspaceCipher.decrypt(encrypted, key)
             try {
-                val document = JSONObject(plain.toString(Charsets.UTF_8))
-                val schema = document.optInt("trackerSchemaVersion", 0)
-                require(schema in 1..16) { "Unsupported cloud workspace schema" }
+                val document = CloudWorkspaceMigration.normalize(JSONObject(plain.toString(Charsets.UTF_8)))
                 fun count(name: String): Int = document.getJSONArray(name).length()
                 val categoryRows = document.getJSONArray("categories")
                 val categoryItems = (0 until categoryRows.length()).mapNotNull { index ->

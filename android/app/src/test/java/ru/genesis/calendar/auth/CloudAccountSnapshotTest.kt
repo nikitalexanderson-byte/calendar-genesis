@@ -5,6 +5,10 @@ import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
+import ru.genesis.calendar.data.CloudAccountImporter
+import ru.genesis.calendar.data.HabitDocument
+import ru.genesis.calendar.data.TrackersDocument
+import ru.genesis.calendar.data.WorkspaceStructureCodec
 import ru.genesis.calendar.security.WorkspaceCipher
 
 class CloudAccountSnapshotTest {
@@ -60,5 +64,28 @@ class CloudAccountSnapshotTest {
         val bad = payload(document())
         bad.getJSONObject("workspace").put("key", Base64.getEncoder().encodeToString(ByteArray(32)))
         assertThrows(Exception::class.java) { CloudAccountSnapshot.fromBootstrap(bad) }
+    }
+
+    @Test fun migratesLegacyWebWorkspaceBeforeNativeImport() {
+        val legacy = JSONObject().put("trackerSchemaVersion", 3)
+            .put("habits", JSONArray().put(JSONObject().put("id", "legacy-habit")
+                .put("title", "Legacy rhythm").put("createdDate", "2026-09-01")
+                .put("schedule", JSONObject().put("startDate", "2026-09-01")
+                    .put("calendarMode", "profane").put("cadence", "daily"))
+                .put("reminder", JSONObject().put("enabled", false))))
+            .put("habitCompletions", JSONArray().put(JSONObject().put("id", "legacy-completion")
+                .put("habitId", "legacy-habit").put("date", "2026-09-02").put("completed", true)))
+
+        val snapshot = CloudAccountSnapshot.fromBootstrap(payload(legacy))
+        val migrated = requireNotNull(snapshot.document)
+
+        assertEquals(16, migrated.getInt("trackerSchemaVersion"))
+        assertEquals(10, migrated.getJSONArray("habitCompletions").getJSONObject(0).getInt("xpAwarded"))
+        assertEquals(10, migrated.getJSONObject("userProgress").getInt("lifetimeXp"))
+        WorkspaceStructureCodec.decode(CloudAccountImporter.structureDocument(migrated))
+        val habits = HabitDocument.decode(CloudAccountImporter.habitsDocument(migrated), snapshot.version)
+        TrackersDocument.decode(CloudAccountImporter.trackersDocument(migrated), snapshot.version)
+        assertEquals("legacy-habit", habits.habits.single().id)
+        assertEquals("classic", habits.habits.single().schedule.recurrence.mode)
     }
 }
