@@ -44,8 +44,9 @@ internal fun HeroRankTree(workspace: LocalHabitWorkspace, busy: Boolean,
     var selected by remember { mutableStateOf<HeroicRank?>(null) }
     Column(Modifier.fillMaxWidth().testTag("hero-rank-tree"),
         verticalArrangement = Arrangement.spacedBy(0.dp)) {
-        Text("Путь Героя", style = MaterialTheme.typography.titleLarge)
-        Text("${current.title} · ${progress.lifetimeXp} XP", style = MaterialTheme.typography.titleMedium)
+        Text("Путь Героя", style = MaterialTheme.typography.titleLarge, color = Color(0xff123b36))
+        Text("${current.title} · ${progress.lifetimeXp} XP", style = MaterialTheme.typography.titleMedium,
+            color = Color(0xff9b6c24))
         Text(if (next == null) "Видимый путь пройден" else
             "До «${next.title}»: ${(next.threshold - progress.lifetimeXp).coerceAtLeast(0)} XP",
             style = MaterialTheme.typography.bodySmall)
@@ -56,11 +57,14 @@ internal fun HeroRankTree(workspace: LocalHabitWorkspace, busy: Boolean,
                 onSelect = { selected = rank }, onClaimAmphora = onClaimAmphora)
         }
         if (!HeroProgress.hiddenUnlocked(progress.lifetimeXp)) {
-            Card(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+            Card(Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xff123b36)),
+                border = BorderStroke(1.dp, Color(0x99dfc17e))) {
                 Column(Modifier.padding(16.dp)) {
-                    Text("Путь продолжается…", style = MaterialTheme.typography.titleMedium)
+                    Text("Путь продолжается…", style = MaterialTheme.typography.titleMedium,
+                        color = Color(0xffffe4a6))
                     Text("За видимыми вратами скрывается продолжение.",
-                        style = MaterialTheme.typography.bodySmall)
+                        style = MaterialTheme.typography.bodySmall, color = Color(0xffd8e7df))
                 }
             }
         } else if (!HeroProgress.hiddenRevealed(progress)) {
@@ -134,11 +138,16 @@ private fun RankTreeNode(rank: HeroicRank, index: Int, painting: String?,
     val gold = Color(0xffb18b48)
     Column(Modifier.fillMaxWidth().padding(vertical = 7.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
         Card(onClick = onSelect, modifier = Modifier.fillMaxWidth().testTag("hero-tree-rank-${rank.id}"),
-            border = BorderStroke(1.dp, if (reached) gold else MaterialTheme.colorScheme.outlineVariant)) {
+            colors = CardDefaults.cardColors(containerColor = when {
+                current -> Color(0xffffefd0)
+                reached -> Color(0xffe4efe9)
+                else -> Color(0xfff6f1e6)
+            }), border = BorderStroke(if (current) 2.dp else 1.dp,
+                if (reached) gold else Color(0x668f8878))) {
             Column(Modifier.padding(7.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 if (painting != null) OriginalImage("hero-path/256/$painting", rank.title,
                     Modifier.fillMaxWidth().height(104.dp))
-                Text("СТУПЕНЬ ${index + 1}", color = MaterialTheme.colorScheme.primary,
+                Text("СТУПЕНЬ ${index + 1}", color = if (current) Color(0xff9b6c24) else Color(0xff255b59),
                     style = MaterialTheme.typography.labelSmall)
                 Text(rank.title, style = MaterialTheme.typography.titleSmall, maxLines = 2)
                 Text("${rank.threshold} XP · ${if (current) "Вы здесь" else if (reached) "Достигнут" else "Впереди"}",

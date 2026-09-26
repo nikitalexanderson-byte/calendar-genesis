@@ -1,11 +1,15 @@
 package ru.genesis.calendar.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -49,59 +53,171 @@ fun TrackersScreen(app: GenesisApplication) {
         catch(e: CancellationException) { throw e }
         catch(_: Exception) { storageError=true;error="Защищённые записи недоступны. Сохранённые данные не будут заменены пустыми." }
     }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
         Text("Сон и настроение",style=MaterialTheme.typography.headlineMedium)
-        Text("Локальные записи на этом устройстве. Синхронизация с аккаунтом сайта пока не подключена.",style=MaterialTheme.typography.bodySmall)
+        Text("Восстановление тела и эмоциональный ритм — отдельные наблюдения без оценки и давления.",
+            style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
         AuthorDatePicker(dateValue,prefs.input) { if(!busy)dateValue=it }
         error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
         val current=workspace
         if(current==null) { if(!storageError)CircularProgressIndicator() }
         else {
             val mood=current.moodEntries.firstOrNull { it.date==date }
-            Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-                Text("Настроение дня",style=MaterialTheme.typography.titleLarge)
-                if(mood==null) Text("Не выбрано") else {
-                    val option=MoodTracker.option(mood.moodValue.toDouble())
-                    Text("${option.symbol} ${option.label}",color=Color(android.graphics.Color.parseColor(option.color)))
-                    if(mood.note.isNotEmpty())Text(mood.note)
+            val selectedSleepEntries = current.sleepEntries.filter { it.date == date }
+            val averageMinutes = selectedSleepEntries.mapNotNull { it.durationMinutes }.takeIf { it.isNotEmpty() }
+                ?.average()?.toInt()
+            Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), color = Color(0xff0b2b2d),
+                border = BorderStroke(1.dp, Color(0x88dfc17e)), shadowElevation = 8.dp) {
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Surface(Modifier.size(54.dp), shape = CircleShape, color = Color(0xffdfc17e)) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text("☾", color = Color(0xff0b2b2d), style = MaterialTheme.typography.headlineSmall)
+                            }
+                        }
+                        Column(Modifier.weight(1f)) {
+                            Text("Ритм восстановления", color = Color(0xfffff5df),
+                                style = MaterialTheme.typography.titleLarge)
+                            Text(date.toString(), color = Color(0xffc8d9d4),
+                                style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TrackerMetric("☾", "Сон", averageMinutes?.let { "${it/60} ч ${it%60} мин" } ?: "Нет записи",
+                            Modifier.weight(1f))
+                        TrackerMetric("♥", "Настроение", mood?.let {
+                            MoodTracker.option(it.moodValue.toDouble()).label
+                        } ?: "Не выбрано", Modifier.weight(1f))
+                    }
                 }
-                Text("Настроение используется для аналитики и не влияет на баллы.",style=MaterialTheme.typography.bodySmall)
-                OutlinedButton(enabled=!busy&&!storageError,onClick={moodEditor=true}) { Text(if(mood==null)"Выбрать настроение" else "Изменить настроение") }
-            } }
-            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
-                Text("Сон",style=MaterialTheme.typography.titleLarge)
-                TextButton(enabled=!busy&&!storageError,onClick={
+            }
+            Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xfff4e7e0)),
+                border = BorderStroke(1.dp, Color(0x778e5b62))) {
+                Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        val moodColor = mood?.let { Color(android.graphics.Color.parseColor(
+                            MoodTracker.option(it.moodValue.toDouble()).color)) } ?: Color(0xff8e5b62)
+                        Surface(Modifier.size(48.dp), shape = CircleShape, color = moodColor.copy(alpha = .16f),
+                            border = BorderStroke(1.dp, moodColor.copy(alpha = .55f))) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(mood?.let { MoodTracker.option(it.moodValue.toDouble()).symbol } ?: "♡",
+                                    color = moodColor, style = MaterialTheme.typography.headlineSmall)
+                            }
+                        }
+                        Column(Modifier.weight(1f)) {
+                            Text("Настроение дня",style=MaterialTheme.typography.titleLarge,
+                                color = Color(0xff553238))
+                            if(mood==null) Text("Пока не выбрано", color = Color(0xff765b60)) else {
+                                val option=MoodTracker.option(mood.moodValue.toDouble())
+                                Text(option.label,color=Color(android.graphics.Color.parseColor(option.color)),
+                                    style = MaterialTheme.typography.titleMedium)
+                            }
+                        }
+                    }
+                    if(mood?.note?.isNotEmpty()==true)Text(mood.note)
+                    Text("Отметка помогает увидеть закономерности и не влияет на XP или Лавры.",
+                        style=MaterialTheme.typography.bodySmall,color=Color(0xff6c5559))
+                    Button(enabled=!busy&&!storageError,onClick={moodEditor=true},
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xff8e5b62))) {
+                        Text(if(mood==null)"Выбрать настроение" else "Изменить настроение")
+                    }
+                }
+            }
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically) {
+                Column {
+                    Text("Сон",style=MaterialTheme.typography.titleLarge)
+                    Text("Планы и фактическое восстановление", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                FilledTonalButton(enabled=!busy&&!storageError,onClick={
                     val schedule=HabitEngine(GenesisCalendar()).defaultSchedule(date,prefs.input)
                     planEditor=SleepPlan(TrackerEntity.create("sleep-plan"),schedule)
-                }) { Text("Добавить план") }
+                }) { Text("＋ План") }
             }
-            if(current.sleepPlans.isEmpty())Text("Пока нет плана сна. Создайте план, затем добавьте время засыпания и пробуждения.")
+            if(current.sleepPlans.isEmpty()) Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp),
+                color = Color(0xffe5efed), border = BorderStroke(1.dp, Color(0x66255b59))) {
+                Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text("☾", color = Color(0xff255b59), style = MaterialTheme.typography.headlineMedium)
+                    Text("Пока нет плана сна. Создайте ориентир, затем отмечайте фактическое время.",
+                        Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                }
+            }
             current.sleepPlans.forEach { plan ->
                 val entry=current.sleepEntries.firstOrNull { it.planId==plan.id&&it.date==date }
-                Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
-                    Text(plan.title,style=MaterialTheme.typography.titleMedium)
-                    Text("План: ${timeLabel(plan.targetBedtime.toString(),prefs.use24)} → ${timeLabel(plan.targetWakeTime.toString(),prefs.use24)} · ${plan.schedule.timezone}",style=MaterialTheme.typography.bodySmall)
-                    if(!plan.active)Text("На паузе")
-                    if(entry==null)Text("Нет записи на выбранную дату") else {
-                        Text("Засыпание: ${entry.fellAsleepAt?.let { timeLabel(it.toString(),prefs.use24) } ?: "не указано"}")
-                        Text("Пробуждение: ${entry.wokeAt?.let { timeLabel(it.toString(),prefs.use24) } ?: "не указано"}")
-                        Text(entry.durationMinutes?.let { "Длительность: ${it/60} ч ${it%60} мин" } ?: "Длительность пока не рассчитана")
-                        Text(entry.quality?.let { "Качество: $it из 10" } ?: "Качество не оценено")
-                        entry.deviationMinutes?.let { Text("Среднее отклонение от плана: $it мин",style=MaterialTheme.typography.bodySmall) }
+                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xffe4efed)),
+                    border = BorderStroke(1.dp, Color(0x77255b59))) {
+                    Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Surface(Modifier.size(48.dp), shape = RoundedCornerShape(14.dp), color = Color(0xff255b59)) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text("☾", color = Color(0xffffe4a6), style = MaterialTheme.typography.headlineSmall)
+                            }
+                        }
+                        Column(Modifier.weight(1f)) {
+                            Text(plan.title,style=MaterialTheme.typography.titleMedium,color = Color(0xff123b36))
+                            Text(if(plan.active) "Активный план" else "На паузе",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if(plan.active) Color(0xff255b59) else Color(0xff74685b))
+                        }
+                    }
+                    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), color = Color(0xfff8f4e9)) {
+                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                            Text("◷ План · ${timeLabel(plan.targetBedtime.toString(),prefs.use24)} → ${timeLabel(plan.targetWakeTime.toString(),prefs.use24)}",
+                                style=MaterialTheme.typography.titleSmall,color = Color(0xff314f4d))
+                            Text(plan.schedule.timezone,style=MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    if(entry==null)Text("Нет записи на выбранную дату", color = Color(0xff5c6d6a)) else {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TrackerLightMetric("Засыпание", entry.fellAsleepAt?.let { timeLabel(it.toString(),prefs.use24) } ?: "—",
+                                Modifier.weight(1f))
+                            TrackerLightMetric("Пробуждение", entry.wokeAt?.let { timeLabel(it.toString(),prefs.use24) } ?: "—",
+                                Modifier.weight(1f))
+                        }
+                        Text(entry.durationMinutes?.let { "☾ Длительность · ${it/60} ч ${it%60} мин" } ?: "Длительность пока не рассчитана",
+                            style = MaterialTheme.typography.titleSmall, color = Color(0xff255b59))
+                        Text(entry.quality?.let { "✦ Качество · $it из 10" } ?: "Качество не оценено",
+                            style = MaterialTheme.typography.bodyMedium)
+                        entry.deviationMinutes?.let { Text("Отклонение от плана · $it мин",style=MaterialTheme.typography.bodySmall) }
                         if(entry.note.isNotEmpty())Text(entry.note)
                     }
-                    Row {
-                        TextButton(enabled=plan.active&&!busy&&!storageError,onClick={sleepEditor=plan to entry}) { Text(if(entry==null)"Добавить запись" else "Изменить запись") }
-                        TextButton(enabled=!busy&&!storageError,onClick={planEditor=plan}) { Text("План") }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(enabled=plan.active&&!busy&&!storageError,onClick={sleepEditor=plan to entry},
+                            modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
+                            Text(if(entry==null)"Добавить запись" else "Изменить запись")
+                        }
+                        OutlinedButton(enabled=!busy&&!storageError,onClick={planEditor=plan},
+                            modifier = Modifier.heightIn(min = 48.dp)) { Text("План") }
                     }
                 } }
             }
-            Text("Сон и настроение — отдельные записи, без начисления XP или Лавров. Расчёты сна сохраняют правила сайта; это не медицинская оценка.",style=MaterialTheme.typography.bodySmall)
+            Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), color = Color(0xfffff3d8)) {
+                Text("ⓘ Сон и настроение — личные наблюдения без XP и Лавров. Это не медицинская оценка.",
+                    Modifier.padding(14.dp), style=MaterialTheme.typography.bodySmall,
+                    color = Color(0xff5f4c28))
+            }
             if(current.sleepEntries.isNotEmpty()||current.moodEntries.isNotEmpty()) {
-                Text("История",style=MaterialTheme.typography.titleMedium)
-                (current.sleepEntries.map { it.date }+current.moodEntries.map { it.date }).distinct().sortedDescending().take(90).forEach { historyDate ->
-                    TextButton(onClick={dateValue=historyDate.toString()},enabled=!busy) {
-                        Text("$historyDate · сон: ${current.sleepEntries.count { it.date==historyDate }} · настроение: ${if(current.moodEntries.any { it.date==historyDate })"записано" else "нет записи"}")
+                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xfffffbf2)),
+                    border = BorderStroke(1.dp, Color(0x55b28a4a))) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("История наблюдений",style=MaterialTheme.typography.titleMedium)
+                    (current.sleepEntries.map { it.date }+current.moodEntries.map { it.date }).distinct().sortedDescending().take(90).forEach { historyDate ->
+                        TextButton(onClick={dateValue=historyDate.toString()},enabled=!busy,
+                            modifier = Modifier.fillMaxWidth()) {
+                            Text("$historyDate · ☾ ${current.sleepEntries.count { it.date==historyDate }} · ♥ ${if(current.moodEntries.any { it.date==historyDate })"есть" else "—"}",
+                                Modifier.fillMaxWidth())
+                        }
+                    }
                     }
                 }
             }
@@ -117,6 +233,28 @@ fun TrackersScreen(app: GenesisApplication) {
         val existing=workspace?.moodEntries?.firstOrNull { it.date==date }
         MoodObservationEditor(existing,date,busy,error,onDismiss={if(!busy)moodEditor=false}) { value,note ->
             scope.launch { action { repository.saveMood(date,value,note,existing?.tags ?: emptyList(),existing?.entity?.version ?: 0);moodEditor=false } }
+        }
+    }
+}
+
+@Composable
+private fun TrackerMetric(symbol: String, label: String, value: String, modifier: Modifier = Modifier) {
+    Surface(modifier, shape = RoundedCornerShape(14.dp), color = Color(0xff143b39)) {
+        Column(Modifier.padding(11.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(symbol, color = Color(0xffdfc17e), style = MaterialTheme.typography.titleMedium)
+            Text(label, color = Color(0xffb8ccc5), style = MaterialTheme.typography.labelSmall)
+            Text(value, color = Color(0xfffff5df), style = MaterialTheme.typography.titleSmall,
+                maxLines = 2)
+        }
+    }
+}
+
+@Composable
+private fun TrackerLightMetric(label: String, value: String, modifier: Modifier = Modifier) {
+    Surface(modifier, shape = RoundedCornerShape(12.dp), color = Color(0xfff8f4e9)) {
+        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(label, style = MaterialTheme.typography.labelSmall, color = Color(0xff60706e))
+            Text(value, style = MaterialTheme.typography.titleSmall, color = Color(0xff123b36))
         }
     }
 }
@@ -169,7 +307,9 @@ private fun SleepObservationEditor(plan: SleepPlan,entry: SleepEntry?,date: Loca
             Text("Пробуждение");AuthorTimePicker(wake,use24) { if(!busy)wake=it }
             if(bedtime!=null&&wakeTime!=null) {
                 val duration=SleepTracker.durationMinutes(date,bedtime,wakeTime,plan.schedule.timezone)
-                Text("Длительность: ${duration/60} ч ${duration%60} мин")
+                Text(if (LocalGenesisLanguage.current == "en")
+                    "Duration: ${duration / 60} hr ${duration % 60} min"
+                else "Длительность: ${duration / 60} ч ${duration % 60} мин")
                 if(SleepTracker.hasAmbiguousLocalTime(date,bedtime,wakeTime,ZoneId.of(plan.schedule.timezone)))
                     Text("В этот день часы переводятся: время неоднозначно или отсутствует. Используется совместимый с сайтом расчёт; проверьте запись.",color=MaterialTheme.colorScheme.error)
             } else Text("Укажите оба времени для расчёта длительности.")

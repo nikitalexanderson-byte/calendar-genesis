@@ -63,6 +63,10 @@ class AuthController private constructor(context: Context) {
     fun signIn(activity: Activity, preferredLanguage: String? = null) = start("Готовим защищённый вход…") { generation ->
         // A fresh server challenge must exist before any provider UI/token request.
         withContext(Dispatchers.IO) { client.session(generation) }
+        // Google Play services may retain a stale provider selection after the native
+        // session has expired. Reset only the provider state (never local GENESIS data)
+        // so every consumer or Workspace account can be selected on each new sign-in.
+        resetCredentialProvider()
         val challenge = withContext(Dispatchers.IO) { AuthProtocol.challenge(client.challenge(generation)) }
         if (!client.isCurrent(generation)) throw CancellationException()
         val option = GetSignInWithGoogleOption.Builder(challenge.serverClientId).setNonce(challenge.nonce).build()
@@ -314,6 +318,7 @@ class AuthController private constructor(context: Context) {
             } catch (_: GoogleIdTokenParsingException) {
                 failed("Google вернул ответ, который не удалось проверить. Обновите Google Play services и повторите вход.")
             } catch (_: GetCredentialException) {
+                resetCredentialProvider()
                 failed("Google-вход не подтверждён. Проверьте сеть, Google Play services и OAuth-регистрацию этой Android-сборки.")
             } catch (error: AuthFailure) {
                 if (error.kind in setOf(AuthFailure.Kind.UNAUTHORIZED, AuthFailure.Kind.PROTOCOL)) clearCurrent(generation)
@@ -327,9 +332,21 @@ class AuthController private constructor(context: Context) {
                     AuthFailure.Kind.SERVER -> "Сервер временно не может подтвердить вход. Повторите позже."
                     AuthFailure.Kind.PROTOCOL -> "Ответ сервера не прошёл проверку. Вход не подтверждён."
                 }, retainIdentity = error.kind !in setOf(AuthFailure.Kind.UNAUTHORIZED, AuthFailure.Kind.PROTOCOL))
-            } catch (_: Exception) {
-                failed("Не удалось безопасно завершить проверку. Текущая сессия и локальные записи не изменены.")
+            } catch (error: Exception) {
+                resetCredentialProvider()
+                val code = error.javaClass.simpleName.filter { it.isLetterOrDigit() }.take(32).ifBlank { "Unknown" }
+                failed("Не удалось безопасно завершить проверку. Состояние Google сброшено; повторите вход. Код: $code. Текущая сессия и локальные записи не изменены.")
             }
+        }
+    }
+
+    private suspend fun resetCredentialProvider() {
+        try {
+            credentials.clearCredentialState(ClearCredentialStateRequest())
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            // The following getCredential call still has its own precise error path.
         }
     }
 

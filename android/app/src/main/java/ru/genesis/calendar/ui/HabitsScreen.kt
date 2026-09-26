@@ -178,12 +178,48 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                 } }
             }
             if (experimental) {
-                Card(Modifier.fillMaxWidth().testTag("habit-hero-path-section")) {
-                    Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
-                        Text("Путь Героя и награды",style=MaterialTheme.typography.titleLarge)
-                        Text("Древо рангов, достижения и защита серии. Накопленный XP не тратится.",
-                            style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                        TextButton(onClick={heroPathOpen=!heroPathOpen},modifier=Modifier.testTag("habit-hero-path-toggle")) {
+                Surface(Modifier.fillMaxWidth().testTag("habit-hero-path-section"),
+                    shape = RoundedCornerShape(22.dp), color = Color(0xff0b2b2d),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x99dfc17e)),
+                    shadowElevation = 8.dp) {
+                    Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Surface(Modifier.size(52.dp), shape = RoundedCornerShape(16.dp),
+                                color = Color(0xffdfc17e)) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text("✦", color = Color(0xff0b2b2d),
+                                        style = MaterialTheme.typography.headlineSmall)
+                                }
+                            }
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                Text("Путь Героя и награды",style=MaterialTheme.typography.titleLarge,
+                                    color = Color(0xfffff6e2))
+                                Text("Древо рангов, достижения и защита серии. Накопленный XP не тратится.",
+                                    style=MaterialTheme.typography.bodySmall,color=Color(0xffc8d9d4))
+                            }
+                        }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf(
+                                "XP" to current.progress.lifetimeXp.toString(),
+                                "Серия" to "${current.progress.currentStreak} дн.",
+                                "Лавры" to current.progress.laurelsBalance.toString(),
+                            ).forEach { (label, value) ->
+                                Surface(Modifier.weight(1f), shape = RoundedCornerShape(12.dp),
+                                    color = Color(0xff143b39)) {
+                                    Column(Modifier.padding(9.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(value, color = Color(0xffffe4a6),
+                                            style = MaterialTheme.typography.titleSmall)
+                                        Text(label, color = Color(0xffb8ccc5),
+                                            style = MaterialTheme.typography.labelSmall)
+                                    }
+                                }
+                            }
+                        }
+                        FilledTonalButton(onClick={heroPathOpen=!heroPathOpen},
+                            modifier=Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("habit-hero-path-toggle"),
+                            colors = ButtonDefaults.filledTonalButtonColors(containerColor = Color(0xffdfc17e),
+                                contentColor = Color(0xff0b2b2d))) {
                             Text(if(heroPathOpen) "Свернуть путь" else "Открыть путь и награды")
                         }
                     }

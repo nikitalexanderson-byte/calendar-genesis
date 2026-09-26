@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
 import ru.genesis.calendar.data.LocalHabitWorkspace
 import ru.genesis.calendar.domain.habits.StreakRewards
@@ -59,11 +60,19 @@ fun HabitArtGallery(workspace: LocalHabitWorkspace, today: LocalDate, busy: Bool
     var rankOpen by remember { mutableStateOf(false) }
     var streakOpen by remember { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Card(Modifier.fillMaxWidth().testTag("hero-rank-path")) {
-            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Card(Modifier.fillMaxWidth().testTag("hero-rank-path"),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xffe4efe9)),
+            border = BorderStroke(1.dp, Color(0x77255b59))) {
+            Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Путь героических рангов", Modifier.weight(1f),
-                        style = MaterialTheme.typography.titleMedium)
+                    Surface(Modifier.size(40.dp), shape = RoundedCornerShape(12.dp), color = Color(0xff255b59)) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text("♜", color = Color(0xffffe4a6), style = MaterialTheme.typography.titleMedium)
+                        }
+                    }
+                    Text("Путь героических рангов", Modifier.weight(1f).padding(start = 10.dp),
+                        style = MaterialTheme.typography.titleMedium, color = Color(0xff123b36))
                     TextButton(onClick = { rankOpen = !rankOpen }) {
                         Text(if (rankOpen) "Свернуть" else "Все ранги")
                     }
@@ -71,10 +80,19 @@ fun HabitArtGallery(workspace: LocalHabitWorkspace, today: LocalDate, busy: Bool
                 if (rankOpen) HeroRankTree(workspace, busy, onClaimAmphora, onRevealHiddenPath)
             }
         }
-        Card(Modifier.fillMaxWidth().testTag("streak-reward-ladder")) {
-            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Card(Modifier.fillMaxWidth().testTag("streak-reward-ladder"),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xfffff1cf)),
+            border = BorderStroke(1.dp, Color(0x88b18b48))) {
+            Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Награды за серию", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                    Surface(Modifier.size(40.dp), shape = RoundedCornerShape(12.dp), color = Color(0xffb18b48)) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text("♛", color = Color(0xff132426), style = MaterialTheme.typography.titleMedium)
+                        }
+                    }
+                    Text("Награды за серию", Modifier.weight(1f).padding(start = 10.dp),
+                        style = MaterialTheme.typography.titleMedium, color = Color(0xff4d3a18))
                     TextButton(onClick = { streakOpen = !streakOpen }) {
                         Text(if (streakOpen) "Свернуть" else "Все рубежи")
                     }
@@ -102,10 +120,19 @@ fun HabitArtGallery(workspace: LocalHabitWorkspace, today: LocalDate, busy: Bool
             }
         }
         HabitQuestPanel(workspace, today)
-        Card(Modifier.fillMaxWidth().testTag("achievement-gallery")) {
-            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Card(Modifier.fillMaxWidth().testTag("achievement-gallery"),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xfff4e8df)),
+            border = BorderStroke(1.dp, Color(0x778e5b48))) {
+            Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Достижения", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                    Surface(Modifier.size(40.dp), shape = RoundedCornerShape(12.dp), color = Color(0xff8e5b48)) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text("✺", color = Color(0xfffff4df), style = MaterialTheme.typography.titleMedium)
+                        }
+                    }
+                    Text("Достижения", Modifier.weight(1f).padding(start = 10.dp),
+                        style = MaterialTheme.typography.titleMedium, color = Color(0xff553226))
                     Text("${achievements.count { achievementIsQualified(it.id, workspace) }} / ${achievements.size}",
                         style = MaterialTheme.typography.labelLarge)
                 }
@@ -138,7 +165,9 @@ fun HabitArtGallery(workspace: LocalHabitWorkspace, today: LocalDate, busy: Bool
                 }
             }
         }
-        Card(Modifier.fillMaxWidth().testTag("hestia-spark-card")) {
+        Card(Modifier.fillMaxWidth().testTag("hestia-spark-card"), shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xfffff8e8)),
+            border = BorderStroke(1.dp, Color(0x99c68d37))) {
             Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 OriginalImage("habit-reward-art/hestia-spark.png", "Искра Гестии", Modifier.size(72.dp))
@@ -159,7 +188,9 @@ fun HabitArtGallery(workspace: LocalHabitWorkspace, today: LocalDate, busy: Bool
             }
         }
         val comeback = StreakProtection.comebackSummary(workspace.goals, today)
-        Card(Modifier.fillMaxWidth().testTag("comeback-card")) {
+        Card(Modifier.fillMaxWidth().testTag("comeback-card"), shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xffe7f0e7)),
+            border = BorderStroke(1.dp, Color(0x772f6a55))) {
             Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 OriginalImage("habit-reward-art/comeback.png", "Возвращение", Modifier.size(72.dp))
@@ -192,9 +223,18 @@ private fun questTitle(quest: HabitQuest, workspace: LocalHabitWorkspace): Strin
 @Composable
 private fun HabitQuestPanel(workspace: LocalHabitWorkspace, today: LocalDate) {
     val quests = HabitQuests.current(workspace.quests, today)
-    Card(Modifier.fillMaxWidth().testTag("habit-quest-panel")) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Испытания", style = MaterialTheme.typography.titleMedium)
+    Card(Modifier.fillMaxWidth().testTag("habit-quest-panel"), shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xffeee9f4)),
+        border = BorderStroke(1.dp, Color(0x77665c88))) {
+        Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Surface(Modifier.size(40.dp), shape = RoundedCornerShape(12.dp), color = Color(0xff665c88)) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text("⚔", color = Color.White, style = MaterialTheme.typography.titleMedium)
+                    }
+                }
+                Text("Испытания", style = MaterialTheme.typography.titleMedium, color = Color(0xff332d4d))
+            }
             Text("Составлены из вашего активного ритма · награда — Лавры, не XP ранга",
                 style = MaterialTheme.typography.bodySmall)
             if (quests.isEmpty()) Text("Выполнимое испытание появится, когда будет запланирована активная привычка.",

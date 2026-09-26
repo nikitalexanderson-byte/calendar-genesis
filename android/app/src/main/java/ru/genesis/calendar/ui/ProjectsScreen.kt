@@ -5,6 +5,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -34,6 +35,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.window.Dialog
 import java.util.UUID
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlin.math.roundToInt
 import ru.genesis.calendar.GenesisApplication
@@ -447,6 +449,8 @@ private fun TaskDestinationMenu(task: LocalTask, projects: List<GenesisProject>,
 private fun BoxScope.ProjectDropOverlay(held: TaskPickup, projects: List<GenesisProject>,
     experimental: Boolean, workspaceBounds: Rect, dropBounds: MutableMap<String, Rect>) {
     val density = LocalDensity.current
+    val targetScroll = rememberScrollState()
+    var targetListBounds by remember { mutableStateOf(Rect.Zero) }
     val parchment = if (experimental) Color(0xfff7f1e5) else MaterialTheme.colorScheme.onSurface
     val background = if (experimental) Color(0xff071d20) else MaterialTheme.colorScheme.surfaceContainerHigh
     val gold = if (experimental) Color(0xffdfc17e) else MaterialTheme.colorScheme.primary
@@ -455,6 +459,21 @@ private fun BoxScope.ProjectDropOverlay(held: TaskPickup, projects: List<Genesis
         WorkspaceStructureCodec.ordered(WorkspaceStructure(projects = projects)).map { (project, depth) ->
             Target(project.id, project.title, depth, projectBreadcrumb(projects, project.parentId))
         }).filterNot { it.id == (held.originId ?: inboxDropId) }
+    LaunchedEffect(held.position, targetListBounds, targetScroll.maxValue) {
+        if (targetListBounds == Rect.Zero || targetScroll.maxValue == 0) return@LaunchedEffect
+        val edge = with(density) { 72.dp.toPx() }
+        while (true) {
+            val speed = when {
+                held.position.y < targetListBounds.top + edge -> -with(density) { 13.dp.toPx() }
+                held.position.y > targetListBounds.bottom - edge -> with(density) { 13.dp.toPx() }
+                else -> 0f
+            }
+            if (speed == 0f) break
+            val consumed = targetScroll.scrollBy(speed)
+            if (kotlin.math.abs(consumed) < .5f) break
+            delay(16)
+        }
+    }
     Surface(Modifier.align(Alignment.BottomCenter).fillMaxWidth().heightIn(max = 490.dp)
         .padding(12.dp).testTag("drag-overlay"),
         shape = MaterialTheme.shapes.large, color = background,
@@ -464,7 +483,9 @@ private fun BoxScope.ProjectDropOverlay(held: TaskPickup, projects: List<Genesis
                 style = MaterialTheme.typography.titleMedium, maxLines = 2)
             Text("Отпустите задачу над нужным проектом", color = gold,
                 style = MaterialTheme.typography.bodySmall)
-            Column(Modifier.verticalScroll(rememberScrollState()),
+            Column(Modifier.fillMaxWidth().weight(1f).onGloballyPositioned {
+                    targetListBounds = it.boundsInRoot()
+                }.verticalScroll(targetScroll).testTag("drag-overlay-target-list"),
                 verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 entries.forEach { target ->
                     val id = target.id
