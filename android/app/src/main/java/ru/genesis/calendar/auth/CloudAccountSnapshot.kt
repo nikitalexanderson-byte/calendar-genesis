@@ -43,8 +43,9 @@ internal class CloudAccountSnapshot private constructor(
                 WorkspaceCipher.decrypt(WorkspaceCipher.Envelope(envelope.getString("ciphertext"),
                     envelope.getString("iv")), key)
             } finally { key.fill(0) }
-            val document = try { JSONObject(plain.toString(Charsets.UTF_8)) } finally { plain.fill(0) }
-            require(document.optInt("trackerSchemaVersion", 0) == 16)
+            val decoded = try { JSONObject(plain.toString(Charsets.UTF_8)) } finally { plain.fill(0) }
+            val document = CloudWorkspaceMigration.normalize(decoded)
+            require(document.optInt("trackerSchemaVersion", 0) == CloudWorkspaceMigration.CURRENT_SCHEMA)
             listOf("projects", "categories", "taskListLinks", "habits", "habitCompletions",
                 "sleepPlans", "sleepEntries", "moodEntries", "dailyGoalRecords", "rewardTransactions").forEach {
                 document.getJSONArray(it)

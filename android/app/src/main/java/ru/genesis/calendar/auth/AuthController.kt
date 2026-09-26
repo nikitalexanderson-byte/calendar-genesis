@@ -2,6 +2,7 @@ package ru.genesis.calendar.auth
 
 import android.app.Activity
 import android.content.Context
+import android.util.Log
 import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
@@ -136,9 +137,14 @@ class AuthController private constructor(context: Context) {
         } catch (_: CloudWorkspacePreview.RecoveryRequired) {
             publish(generation, AuthPanelState(user = identity, accountSettings = settings,
                 checkedAt = System.currentTimeMillis(), message = "Вход выполнен, но для этого пространства требуется код восстановления. Данные не перезаписаны."))
-        } catch (_: Exception) {
+        } catch (error: CloudWorkspacePreview.Unreadable) {
+            Log.e("GenesisAuth", "Cloud workspace verification failed", error)
             publish(generation, AuthPanelState(user = identity, accountSettings = settings,
-                checkedAt = System.currentTimeMillis(), message = "Вход выполнен, но загрузка облачных данных пока не завершилась. Локальные записи сохранены."))
+                checkedAt = System.currentTimeMillis(), message = "Вход выполнен, но формат облачных данных не удалось проверить (CLOUD_FORMAT). Локальные записи сохранены."))
+        } catch (error: Exception) {
+            Log.e("GenesisAuth", "Cloud account import failed", error)
+            publish(generation, AuthPanelState(user = identity, accountSettings = settings,
+                checkedAt = System.currentTimeMillis(), message = "Вход выполнен, но импорт облачных данных не завершён (CLOUD_IMPORT). Локальные записи сохранены."))
         }
     }
 
