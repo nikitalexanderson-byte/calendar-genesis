@@ -61,7 +61,16 @@ data class AccountSettings(
                 )
             }
             val route = user.getJSONObject("syncRouting")
-            val categoryMap = route.getJSONObject("categoryAccountIds")
+            val categoryValue = route.opt("categoryAccountIds")
+            val categoryMap = when (categoryValue) {
+                is JSONObject -> categoryValue
+                // Servers before 2.2.1 encoded an empty PHP map as []. Accept only
+                // that legacy empty shape while keeping malformed populated arrays invalid.
+                is JSONArray -> if (categoryValue.length() == 0) JSONObject()
+                    else throw IllegalArgumentException("Invalid category account routing")
+                null, JSONObject.NULL -> JSONObject()
+                else -> throw IllegalArgumentException("Invalid category account routing")
+            }
             val categories = categoryMap.keys().asSequence().associateWith { key -> categoryMap.getJSONArray(key).strings() }
             val routing = SyncRouting(route.getString("mode"), route.getJSONArray("defaultAccountIds").strings(), categories)
             require(accounts.isNotEmpty() && routing.validFor(accounts)) { "Invalid account routing" }

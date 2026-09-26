@@ -200,7 +200,10 @@ function genesisUserForClient(array $user): array
         'syncRouting' => [
             'mode' => $syncRoutingMode,
             'defaultAccountIds' => $defaultAccountIds,
-            'categoryAccountIds' => $categoryAccountIds,
+            // An empty PHP array is encoded as [] while the native client contract
+            // requires a JSON object. Preserve the map shape for accounts that have
+            // not configured category routing yet.
+            'categoryAccountIds' => (object)$categoryAccountIds,
         ],
     ];
 }
