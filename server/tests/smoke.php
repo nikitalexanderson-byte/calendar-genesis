@@ -60,6 +60,9 @@ try {
         ],
     ]);
     expect(($user['sync_routing_mode'] ?? '') === 'choose', 'A regular user could not save multi-account routing.');
+    $emptyRouting = genesisUserForClient($user)['syncRouting']['categoryAccountIds'] ?? null;
+    expect($emptyRouting instanceof stdClass, 'Empty category routing must be encoded as a JSON object for native clients.');
+    expect(json_encode($emptyRouting, JSON_THROW_ON_ERROR) === '{}', 'Empty category routing changed its wire shape.');
     // Five-account routing is exercised without Google sign-in or network writes.
     $db->prepare('UPDATE users SET refresh_token_enc = :token WHERE id = :id')->execute([
         'token' => genesisEncrypt('synthetic-primary-token'), 'id' => $userId,

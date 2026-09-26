@@ -1,5 +1,6 @@
 package ru.genesis.calendar.auth
 
+import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
@@ -47,5 +48,25 @@ class AccountSettingsTest {
         assertEquals(5, settings.accounts.size)
         assertTrue(settings.routing.copy(defaultAccountIds = settings.accounts.map { it.id })
             .validFor(settings.accounts))
+    }
+
+    @Test fun acceptsLegacyEmptyCategoryArrayFromAccountsWithoutRouting() {
+        val legacy = JSONObject(response.toString())
+        legacy.getJSONObject("user").getJSONObject("syncRouting")
+            .put("mode", "fixed")
+            .put("categoryAccountIds", JSONArray())
+
+        val settings = AccountSettings.fromResponse(legacy)!!
+
+        assertTrue(settings.routing.categoryAccountIds.isEmpty())
+        assertEquals("owner-1", settings.routing.defaultAccountIds.single())
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsPopulatedArrayInPlaceOfCategoryMap() {
+        val malformed = JSONObject(response.toString())
+        malformed.getJSONObject("user").getJSONObject("syncRouting")
+            .put("categoryAccountIds", JSONArray().put("owner-1"))
+        AccountSettings.fromResponse(malformed)
     }
 }
