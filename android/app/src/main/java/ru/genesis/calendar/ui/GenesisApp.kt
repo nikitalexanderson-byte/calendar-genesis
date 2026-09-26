@@ -116,6 +116,9 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                     Text(if(BuildConfig.DEBUG) "Internal alpha" else BuildConfig.VERSION_NAME,
                         style=MaterialTheme.typography.labelSmall)
                 }
+                if (tab == "Сегодня" && !testWorkspace) {
+                    TodaySyncPanel(authState.busy, authState.message) { authController.checkSession() }
+                }
                 Text(if (activeScope.startsWith("account-")) "Аккаунт GENESIS · защищённая локальная копия"
                     else if(BuildConfig.DEBUG) "Изолированное тестовое пространство · только на этом устройстве"
                     else "Локальные черновики · аккаунт не подключён",Modifier.padding(horizontal=16.dp),
@@ -147,31 +150,35 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                     else -> LazyColumn(Modifier.weight(1f).testTag("today-list"),contentPadding=PaddingValues(16.dp),
                         verticalArrangement=Arrangement.spacedBy(12.dp)) {
                         if(tab=="Сегодня") item { DayHeader(LocalDate.parse(selected),prefs.display) }
-                        if(tab=="Сегодня" && !testWorkspace) item {
-                            TodaySyncPanel(authState.busy, authState.message) { authController.checkSession() }
-                        }
                         if(tab=="Сегодня") item {
                             DayRhythmPanel(prefs.use24)
                         }
-                        item {
-                            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
-                                Text(if(tab=="Сегодня") "Задачи дня" else "Все задачи",style=MaterialTheme.typography.titleLarge)
-                                Button(onClick={creating=true;editId=null;newTaskProjectId=null},modifier=Modifier.testTag("create-task")) { Text("Создать") }
-                            }
-                        }
                         val shown=tasks.filter { tab!="Сегодня" || TaskOccurrences.occursOn(it,LocalDate.parse(selected)) }
-                        if(shown.isEmpty()) item { Text("Задач пока нет. Создайте первую запись.") }
-                        items(shown,key={it.id}) { task ->
-                            Card(Modifier.fillMaxWidth().testTag("task-${task.id}")) {
-                                Row(Modifier.padding(8.dp),verticalAlignment=Alignment.CenterVertically) {
-                                    Checkbox(checked=task.done,onCheckedChange={model.complete(task)})
-                                    Column(Modifier.weight(1f).clickable { editId=task.id;creating=false }.padding(8.dp)) {
-                                        androidx.compose.material3.Text(task.title,style=MaterialTheme.typography.titleMedium)
-                                        Text("${if(tab=="Сегодня") selected else task.date} ${timeLabel(task.time,prefs.use24)} · Приоритет ${task.priority}" +
-                                            if (task.recurrence.enabled) " · Повторяется" else "",style=MaterialTheme.typography.bodySmall)
-                                        if(task.projectId!=null) Text(structure.projects.firstOrNull { it.id==task.projectId }?.title
-                                            ?: task.project.ifBlank { "Проект" },style=MaterialTheme.typography.labelSmall)
-                                        Text("Сохранено на устройстве",style=MaterialTheme.typography.labelSmall)
+                        if (tab == "Сегодня") item {
+                            TodayTasksPanel(shown, selected, prefs.use24, structure,
+                                onCreate = { creating=true;editId=null;newTaskProjectId=null },
+                                onComplete = model::complete,
+                                onOpen = { taskId -> editId=taskId;creating=false })
+                        } else {
+                            item {
+                                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
+                                    Text("Все задачи",style=MaterialTheme.typography.titleLarge)
+                                    Button(onClick={creating=true;editId=null;newTaskProjectId=null},modifier=Modifier.testTag("create-task")) { Text("Создать") }
+                                }
+                            }
+                            if(shown.isEmpty()) item { Text("Задач пока нет. Создайте первую запись.") }
+                            items(shown,key={it.id}) { task ->
+                                Card(Modifier.fillMaxWidth().testTag("task-${task.id}")) {
+                                    Row(Modifier.padding(8.dp),verticalAlignment=Alignment.CenterVertically) {
+                                        Checkbox(checked=task.done,onCheckedChange={model.complete(task)})
+                                        Column(Modifier.weight(1f).clickable { editId=task.id;creating=false }.padding(8.dp)) {
+                                            androidx.compose.material3.Text(task.title,style=MaterialTheme.typography.titleMedium)
+                                            Text("${task.date} ${timeLabel(task.time,prefs.use24)} · Приоритет ${task.priority}" +
+                                                if (task.recurrence.enabled) " · Повторяется" else "",style=MaterialTheme.typography.bodySmall)
+                                            if(task.projectId!=null) Text(structure.projects.firstOrNull { it.id==task.projectId }?.title
+                                                ?: task.project.ifBlank { "Проект" },style=MaterialTheme.typography.labelSmall)
+                                            Text("Сохранено на устройстве",style=MaterialTheme.typography.labelSmall)
+                                        }
                                     }
                                 }
                             }
@@ -213,10 +220,16 @@ private fun AuthTransitionScreen(message: String) {
 
 @Composable
 private fun TodaySyncPanel(busy: Boolean, status: String, onRefresh: () -> Unit) {
-    Surface(Modifier.fillMaxWidth().testTag("today-manual-sync"), shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh) {
-        Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically,
+    Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp)
+        .testTag("today-manual-sync"), shape = RoundedCornerShape(18.dp),
+        color = Color(0xfff4ead2), border = BorderStroke(1.dp, Color(0x66b28a4a))) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Surface(Modifier.size(38.dp), shape = RoundedCornerShape(12.dp), color = Color(0xff123b36)) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text("↻", color = Color(0xfff3d68f), style = MaterialTheme.typography.titleLarge)
+                }
+            }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text("Синхронизация аккаунта", style = MaterialTheme.typography.titleSmall)
                 Text(if (busy) "Получаем изменения с сервера…" else status,
@@ -226,6 +239,64 @@ private fun TodaySyncPanel(busy: Boolean, status: String, onRefresh: () -> Unit)
             OutlinedButton(onClick = onRefresh, enabled = !busy,
                 modifier = Modifier.testTag("today-refresh")) {
                 Text(if (busy) "Обновление…" else "Обновить")
+            }
+        }
+    }
+}
+
+@Composable
+private fun TodayTasksPanel(tasks: List<LocalTask>, selected: String, use24: Boolean,
+    structure: WorkspaceStructure, onCreate: () -> Unit, onComplete: (LocalTask) -> Unit,
+    onOpen: (String) -> Unit) {
+    Card(Modifier.fillMaxWidth().testTag("today-tasks-section"), shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xfffffbf2)),
+        border = BorderStroke(1.dp, Color(0x55b28a4a))) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Surface(Modifier.size(44.dp), shape = RoundedCornerShape(14.dp), color = Color(0xff123b36)) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text("✓", color = Color(0xfff3d68f), style = MaterialTheme.typography.titleLarge)
+                    }
+                }
+                Column(Modifier.weight(1f)) {
+                    Text("Задачи дня", style = MaterialTheme.typography.titleLarge)
+                    Text(if (tasks.isEmpty()) "День свободен для нового замысла" else
+                        "${tasks.count { it.done }} из ${tasks.size} выполнено",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Button(onClick = onCreate, modifier = Modifier.heightIn(min = 48.dp).testTag("create-task")) {
+                    Text("Создать")
+                }
+            }
+            if (tasks.isEmpty()) {
+                Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), color = Color(0xfff2ead9)) {
+                    Text("На сегодня задач нет. Можно оставить день свободным или создать задачу.",
+                        Modifier.padding(14.dp), style = MaterialTheme.typography.bodyMedium)
+                }
+            } else tasks.forEach { task ->
+                Surface(Modifier.fillMaxWidth().testTag("task-${task.id}"), shape = RoundedCornerShape(14.dp),
+                    color = if (task.done) Color(0xffedf2ea) else Color(0xfff7f1e5),
+                    border = BorderStroke(1.dp, if (task.done) Color(0x55255b59) else Color(0x44b28a4a))) {
+                    Row(Modifier.fillMaxWidth().padding(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = task.done, onCheckedChange = { onComplete(task) })
+                        Column(Modifier.weight(1f).clickable { onOpen(task.id) }.padding(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            androidx.compose.material3.Text(task.title, style = MaterialTheme.typography.titleMedium)
+                            Text("$selected ${timeLabel(task.time, use24)} · Приоритет ${task.priority}" +
+                                if (task.recurrence.enabled) " · Повторяется" else "",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            task.projectId?.let { projectId ->
+                                Text(structure.projects.firstOrNull { it.id == projectId }?.title
+                                    ?: task.project.ifBlank { "Проект" },
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -522,56 +593,135 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
     val request=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()){refresh++}
     val scope=rememberCoroutineScope()
     val rows by produceState(emptyList<ReminderRecord>(),refresh) { value=withContext(Dispatchers.IO){app.database.dao().reminders(app.workspaceScope)} }
-    Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(10.dp)) {
-        Text("Настройки",style=MaterialTheme.typography.titleLarge)
-        Text("Язык интерфейса",style=MaterialTheme.typography.titleMedium)
-        LanguageChips(prefs.language) { onSet("language",it) }
-        Text(if(signedIn) "Календарь, время и гадания сохраняются в аккаунте GENESIS и зеркалируются на устройстве."
-            else "До входа эти настройки сохраняются только на устройстве.",style=MaterialTheme.typography.bodySmall)
-        if(signedIn) Text(sharedStatus,style=MaterialTheme.typography.labelSmall)
-        listOf("display" to "Календарь отображения","input" to "Календарь ввода и повторений").forEach{(key,label)->
-            Text(label)
-            Row(Modifier.horizontalScroll(rememberScrollState())) { CalendarMode.entries.forEach { mode->
-                FilterChip(selected=(if(key=="display") prefs.display else prefs.input)==mode,onClick={onSet(key,mode.wireValue)},
-                    enabled=!sharedBusy,
-                    label={Text(when(mode){CalendarMode.SACRED->"Сакральный";CalendarMode.LUNAR->"Лунный";else->"Григорианский"})})
+    Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(14.dp)) {
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), color = Color(0xff0b2b2d),
+            border = BorderStroke(1.dp, Color(0x88dfc17e)), shadowElevation = 8.dp) {
+            Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                Surface(Modifier.size(54.dp), shape = RoundedCornerShape(17.dp), color = Color(0xffdfc17e)) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text("⚙", color = Color(0xff0b2b2d), style = MaterialTheme.typography.headlineSmall)
+                    }
+                }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text("Настройки",style=MaterialTheme.typography.headlineSmall,color = Color(0xfffff5df))
+                    Text("Календарь, время, приватность и напоминания",
+                        style=MaterialTheme.typography.bodySmall,color = Color(0xffc8d9d4))
+                }
+            }
+        }
+        SettingsSection("文", "Язык интерфейса",
+            if(signedIn) "Выбор сохраняется в аккаунте GENESIS" else "Выбор хранится на этом устройстве",
+            Color(0xfffff5df)) {
+            LanguageChips(prefs.language) { onSet("language",it) }
+            Text(if(signedIn) "Календарь, время и гадания сохраняются в аккаунте GENESIS и зеркалируются на устройстве."
+                else "До входа эти настройки сохраняются только на устройстве.",style=MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if(signedIn) Text(sharedStatus,style=MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary)
+        }
+        SettingsSection("◉", "Календари и время", "Отображение не меняет календарь ввода и повторений",
+            Color(0xffe4efed)) {
+            listOf("display" to "Календарь отображения","input" to "Календарь ввода и повторений").forEach{(key,label)->
+                Text(label, style = MaterialTheme.typography.titleSmall)
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)) { CalendarMode.entries.forEach { mode->
+                    FilterChip(selected=(if(key=="display") prefs.display else prefs.input)==mode,onClick={onSet(key,mode.wireValue)},
+                        enabled=!sharedBusy,
+                        label={Text(when(mode){CalendarMode.SACRED->"Сакральный";CalendarMode.LUNAR->"Лунный";else->"Григорианский"})})
+                } }
+            }
+            Text("Формат времени", style = MaterialTheme.typography.titleSmall)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("24h","12h").forEach {
+                FilterChip(selected=prefs.use24==(it=="24h"),onClick={onSet("time",it)},
+                    enabled=!sharedBusy,label={Text(it)})
             } }
         }
-        Row { listOf("24h","12h").forEach { FilterChip(selected=prefs.use24==(it=="24h"),onClick={onSet("time",it)},
-            enabled=!sharedBusy,label={Text(it)})} }
-        HorizontalDivider()
-        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("Гадания по картам",style=MaterialTheme.typography.titleMedium)
-                Text("Если выключить, карты дня и расклад Стойхейона будут скрыты; алфавит останется доступным.",
-                    style=MaterialTheme.typography.bodySmall)
+        SettingsSection("Σ", "Стойхейон", "Управление картами без отключения алфавита",
+            Color(0xffeee9f4)) {
+            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Гадания по картам",style=MaterialTheme.typography.titleMedium)
+                    Text("Карты дня и расклад можно скрыть; буквы и значения останутся доступны.",
+                        style=MaterialTheme.typography.bodySmall,color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(checked=!prefs.divinationDisabled,
+                    onCheckedChange={onSet("stoicheionDivinationDisabled",(!it).toString())},
+                    enabled=!sharedBusy,
+                    modifier=Modifier.testTag("stoicheion-divination-setting"))
             }
-            Switch(checked=!prefs.divinationDisabled,
-                onCheckedChange={onSet("stoicheionDivinationDisabled",(!it).toString())},
-                enabled=!sharedBusy,
-                modifier=Modifier.testTag("stoicheion-divination-setting"))
         }
-        HorizontalDivider()
-        Text("Системные напоминания",style=MaterialTheme.typography.titleMedium)
-        Text("Уведомления: ${if(app.scheduler.notificationsAllowed()) "разрешены" else "выключены"}")
-        Text("Канал задач: ${if(app.scheduler.channelAllowed()) "включён" else "выключен"}")
-        Text("Время доставки: ${if(app.scheduler.exactAllowed()) "точное" else "приблизительное — Android может задержать"}")
-        Button(onClick={
-            if(Build.VERSION.SDK_INT>=33 && !app.scheduler.notificationsAllowed()) request.launch(Manifest.permission.POST_NOTIFICATIONS)
-            else app.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE,app.packageName).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        }){Text("Разрешить уведомления")}
-        if(Build.VERSION.SDK_INT in 31..32 && !app.scheduler.exactAllowed()) OutlinedButton(onClick={
-            app.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,Uri.parse("package:${app.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        }){Text("Точное время напоминаний")}
-        if(Build.VERSION.SDK_INT>=33 && !app.scheduler.exactAllowed())
-            Text("Система ограничила точные сигналы. Уведомления могут приходить с задержкой; проверьте разрешения GENESIS в настройках устройства.",
-                style=MaterialTheme.typography.bodySmall)
-        Text("На выключенном телефоне, после Force stop и при системном запрете уведомления недоступны. DND и отключённый звук сохраняются.")
-        Text("После перезагрузки расписание восстанавливается после разблокировки. Просроченные сигналы не проигрываются повторно.")
-        OutlinedButton(onClick={scope.launch{app.scheduler.restore();refresh++}}){Text("Проверить расписание")}
-        rows.sortedBy{it.at}.takeLast(8).forEach{Text("Напоминание · ${it.state} · ${Instant.ofEpochMilli(it.at).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("dd.MM HH:mm"))}",style=MaterialTheme.typography.bodySmall)}
-        HorizontalDivider()
-        ru.genesis.calendar.auth.AuthPanel(app)
-        Text("Версия ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",style=MaterialTheme.typography.labelSmall)
+        SettingsSection("◷", "Системные напоминания", "Проверка разрешений и точности Android",
+            Color(0xfffff1cf)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SettingsStatusTile("Уведомления", if(app.scheduler.notificationsAllowed()) "Включены" else "Выключены",
+                    app.scheduler.notificationsAllowed(), Modifier.weight(1f))
+                SettingsStatusTile("Доставка", if(app.scheduler.exactAllowed()) "Точная" else "Приблизительная",
+                    app.scheduler.exactAllowed(), Modifier.weight(1f))
+            }
+            Text("Канал задач · ${if(app.scheduler.channelAllowed()) "включён" else "выключен"}",
+                style = MaterialTheme.typography.bodyMedium)
+            Button(onClick={
+                if(Build.VERSION.SDK_INT>=33 && !app.scheduler.notificationsAllowed()) request.launch(Manifest.permission.POST_NOTIFICATIONS)
+                else app.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE,app.packageName).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)){Text("Настроить уведомления")}
+            if(Build.VERSION.SDK_INT in 31..32 && !app.scheduler.exactAllowed()) OutlinedButton(onClick={
+                app.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,Uri.parse("package:${app.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)){Text("Точное время напоминаний")}
+            if(Build.VERSION.SDK_INT>=33 && !app.scheduler.exactAllowed())
+                Text("Android может задерживать сигналы. Проверьте разрешения GENESIS в настройках устройства.",
+                    style=MaterialTheme.typography.bodySmall,color = Color(0xff7a5521))
+            Text("После перезагрузки расписание восстанавливается после разблокировки; просроченные сигналы не повторяются.",
+                style = MaterialTheme.typography.bodySmall)
+            OutlinedButton(onClick={scope.launch{app.scheduler.restore();refresh++}},
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)){Text("Проверить расписание")}
+            rows.sortedBy{it.at}.takeLast(8).forEach{Text("Напоминание · ${it.state} · ${Instant.ofEpochMilli(it.at).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("dd.MM HH:mm"))}",style=MaterialTheme.typography.bodySmall)}
+        }
+        SettingsSection("G", "Аккаунт GENESIS", "Вход, синхронизация и связанные Google-аккаунты",
+            Color(0xfff4e8df)) {
+            ru.genesis.calendar.auth.AuthPanel(app)
+        }
+        Text("Версия ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",style=MaterialTheme.typography.labelSmall,
+            modifier = Modifier.align(Alignment.CenterHorizontally), color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun SettingsSection(symbol: String, title: String, subtitle: String, color: Color,
+    content: @Composable ColumnScope.() -> Unit) {
+    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = color),
+        border = BorderStroke(1.dp, Color(0x55b28a4a))) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Surface(Modifier.size(46.dp), shape = RoundedCornerShape(14.dp), color = Color(0xff123b36)) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(symbol, color = Color(0xffffe4a6), style = MaterialTheme.typography.titleLarge)
+                    }
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(title, style = MaterialTheme.typography.titleLarge, color = Color(0xff132426))
+                    Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Color(0xff596665))
+                }
+            }
+            HorizontalDivider(color = Color(0x33b28a4a))
+            content()
+        }
+    }
+}
+
+@Composable
+private fun SettingsStatusTile(label: String, value: String, active: Boolean, modifier: Modifier = Modifier) {
+    Surface(modifier, shape = RoundedCornerShape(14.dp),
+        color = if(active) Color(0xffe4efe9) else Color(0xffffe0d6),
+        border = BorderStroke(1.dp, if(active) Color(0x66255b59) else Color(0x66a5543f))) {
+        Column(Modifier.padding(11.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(if(active) "✓" else "!", color = if(active) Color(0xff255b59) else Color(0xffa5543f),
+                style = MaterialTheme.typography.titleMedium)
+            Text(label, style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(value, style = MaterialTheme.typography.titleSmall)
+        }
     }
 }

@@ -28,6 +28,7 @@ import ru.genesis.calendar.ui.LocalGenesisLanguage
 import ru.genesis.calendar.ui.Text
 import ru.genesis.calendar.ui.WelcomeScreen
 import ru.genesis.calendar.ui.standart
+import ru.genesis.calendar.data.LocalTask
 
 class GregorianCalendarVisualTest {
     @get:Rule val compose = createAndroidComposeRule<StoicheionGestureActivity>()
@@ -85,6 +86,28 @@ class GregorianCalendarVisualTest {
         compose.onNodeWithText("Habits").assertExists()
         compose.onNodeWithText("Month of Birth and Intention").assertExists()
         compose.onNodeWithText("Areios Ridzomatos (Areios Rooting)").assertExists()
+    }
+
+    @Test fun taskCountBadgeOpensDayListInAllThreeMonthCalendars() {
+        val date = LocalDate.of(2026, 9, 26)
+        var mode by mutableStateOf(CalendarMode.SACRED)
+        compose.setContent {
+            MaterialTheme(colorScheme = standart) {
+                Surface(Modifier.fillMaxSize(), color = standart.background) {
+                    CalendarScreen(date, mode, onSelect = {}, experimental = true,
+                        tasks = listOf(LocalTask(id = "calendar-badge-fixture", title = "Badge task",
+                            date = date.toString())))
+                }
+            }
+        }
+        listOf(CalendarMode.SACRED, CalendarMode.LUNAR, CalendarMode.PROFANE).forEach { calendarMode ->
+            compose.runOnIdle { mode = calendarMode }
+            compose.waitForIdle()
+            compose.onNodeWithTag("calendar-task-count-$date").performScrollTo().assertIsDisplayed().performClick()
+            compose.onNodeWithTag("calendar-task-list-dialog").assertIsDisplayed()
+            compose.onNodeWithText("Badge task").assertExists()
+            compose.onNodeWithText("Закрыть").performClick()
+        }
     }
 
     @Test fun welcomeHasLanguageChoiceAndNoWorkspaceShortcut() {

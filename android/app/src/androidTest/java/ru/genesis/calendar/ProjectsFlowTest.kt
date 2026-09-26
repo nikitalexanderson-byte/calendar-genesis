@@ -203,4 +203,45 @@ class ProjectsFlowTest {
             dragTo("__genesis_inbox__")
             compose.waitUntil(10_000) { runBlocking { app.repository.get(taskId)?.projectId == null } }
     }
+
+    @Test fun draggingNearBottomAutoScrollsProjectDestinations() {
+        val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
+        check(BuildConfig.DEBUG && app.packageName.endsWith(".debug"))
+        val originId = "internal-autoscroll-origin-v1"
+        val lastId = "internal-autoscroll-target-18-v1"
+        val taskId = "internal-autoscroll-task-v1"
+        runBlocking {
+            val repo = WorkspaceStructureRepository(app)
+            repo.saveProject(GenesisProject(originId, null, null, "00 Auto-scroll origin", "", emptyList(), "active", 0))
+            (1..18).forEach { index ->
+                val id = "internal-autoscroll-target-${index.toString().padStart(2, '0')}-v1"
+                repo.saveProject(GenesisProject(id, null, null,
+                    "${index.toString().padStart(2, '0')} Auto-scroll destination", "", emptyList(), "active", index))
+            }
+            val previous = app.repository.get(taskId)
+            app.repository.save(LocalTask(id = taskId, title = "Auto-scroll drag task", projectId = originId,
+                revision = previous?.revision ?: 0))
+        }
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithTag("app-theme-Standart").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("Проекты").performScrollTo().performClick()
+        compose.onNodeWithTag("projects-screen").performScrollToNode(hasTestTag("project-drop-$originId"))
+        compose.onNodeWithTag("project-drop-$originId").performClick()
+        val source = compose.onNodeWithTag("drag-task-$taskId", useUnmergedTree = true)
+        source.performScrollTo().assertIsDisplayed()
+        val sourceBounds = source.fetchSemanticsNode().boundsInRoot
+        source.performTouchInput { down(center); advanceEventTime(700); moveBy(Offset(0f, 4f)) }
+        val listBounds = compose.onNodeWithTag("drag-overlay-target-list").fetchSemanticsNode().boundsInRoot
+        source.performTouchInput {
+            moveTo(Offset(listBounds.center.x - sourceBounds.left, listBounds.bottom - sourceBounds.top - 8f))
+            advanceEventTime(1_600)
+        }
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithTag("drag-overlay-target-$lastId")
+                .fetchSemanticsNodes().any { it.boundsInRoot.bottom <= listBounds.bottom }
+        }
+        compose.onNodeWithTag("drag-overlay-target-$lastId").assertIsDisplayed()
+        source.performTouchInput { up() }
+    }
 }
