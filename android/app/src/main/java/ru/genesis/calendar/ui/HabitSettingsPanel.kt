@@ -38,15 +38,16 @@ internal fun HabitSettingsPanel(app: GenesisApplication, use24: Boolean) {
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var resetConfirmation by remember { mutableStateOf(false) }
-    fun save(settings: HabitSettings) {
+    fun save(settings: HabitSettings, afterSave: () -> Unit = {}) {
         scope.launch {
             busy = true
             runCatching { repository.updateSettings(settings) }
                 .onFailure { error = "Не удалось сохранить настройки привычек." }
-                .onSuccess { error = null }
+                .onSuccess { error = null; afterSave() }
             busy = false
         }
     }
+    val english = LocalGenesisLanguage.current == "en"
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         save(workspace.settings.copy(notifications = workspace.settings.notifications.copy(enabled = granted)))
     }
@@ -102,11 +103,20 @@ internal fun HabitSettingsPanel(app: GenesisApplication, use24: Boolean) {
                 horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 listOf("calm" to "Спокойный", "heroic" to "Героический", "ironic" to "С иронией").forEach { (value, label) ->
                     FilterChip(selected = settings.notifications.tone == value,
-                        onClick = { save(settings.copy(notifications = settings.notifications.copy(tone = value))) },
+                        onClick = {
+                            save(settings.copy(notifications = settings.notifications.copy(tone = value))) {
+                                if (!app.scheduler.showHabitTonePreview(value, english))
+                                    error = "Android не разрешил показать пример уведомления."
+                            }
+                        },
                         enabled = settings.notifications.enabled && notificationsAllowed && !busy,
-                        label = { Text(label) }, modifier = Modifier.heightIn(min = 48.dp))
+                        label = { Text(label) }, modifier = Modifier.heightIn(min = 48.dp)
+                            .testTag("habit-notification-tone-$value"))
                 }
             }
+            Text("При выборе стиля сразу появится тестовое уведомление с примером формулировки.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
             TimePreference("Напоминание о дневной цели", settings.notifications.dailyGoalTime,
                 use24, settings.notifications.enabled && notificationsAllowed && !busy) {
                 save(settings.copy(notifications = settings.notifications.copy(dailyGoalTime = it)))

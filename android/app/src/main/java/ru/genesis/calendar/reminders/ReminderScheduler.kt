@@ -26,6 +26,39 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.ZoneId
 
+internal fun habitNotificationBody(tone: String, kind: String, count: Int, english: Boolean): String {
+    val goal = kind == "goal"
+    return when (tone) {
+        "heroic" -> if (english) {
+            if (goal) "Heroic call: complete today's practice and carry the rhythm forward."
+            else if (count == 1) "Heroic call: a planned practice awaits your action."
+            else "Heroic call: $count planned practices await your action."
+        } else {
+            if (goal) "Героический зов: завершите практику дня и продолжите ритм."
+            else if (count == 1) "Героический зов: запланированная практика ждёт свершения."
+            else "Героический зов: вас ждут практики — $count."
+        }
+        "ironic" -> if (english) {
+            if (goal) "Your daily goal is still waiting. Apparently it has excellent patience."
+            else if (count == 1) "Your practice noticed your absence. Shall we call that a warm-up?"
+            else "$count practices noticed your absence. A remarkably attentive audience."
+        } else {
+            if (goal) "Дневная цель всё ещё ждёт. Кажется, терпения ей не занимать."
+            else if (count == 1) "Привычка заметила ваше отсутствие. Считаем это разминкой?"
+            else "Практики заметили ваше отсутствие — все $count. Внимательная публика."
+        }
+        else -> if (english) {
+            if (goal) "A quiet nudge: your daily practice is still within reach."
+            else if (count == 1) "A quiet nudge: a planned practice is waiting."
+            else "A quiet nudge: $count planned practices are waiting."
+        } else {
+            if (goal) "Спокойное напоминание: дневная цель ещё достижима."
+            else if (count == 1) "Спокойное напоминание: вас ждёт запланированная практика."
+            else "Спокойное напоминание: вас ждут практики — $count."
+        }
+    }
+}
+
 class ReminderScheduler(private val context: Context) {
     // The application runs in one process. Serialize the DB transition and the
     // system side effect so an old delivery cannot race past an edit/cancel.
@@ -35,6 +68,7 @@ class ReminderScheduler(private val context: Context) {
         const val TASK_CHANNEL = "genesis.tasks.v1"
         const val HABIT_CHANNEL = "genesis.habits.v1"
         const val DAILY_GOAL_CHANNEL = "genesis.daily-goal.v1"
+        const val ACHIEVEMENT_CHANNEL = "genesis.achievements.v1"
     }
     private val app get() = context.applicationContext as GenesisApplication
     private val alarms get() = context.getSystemService(AlarmManager::class.java)
@@ -45,10 +79,10 @@ class ReminderScheduler(private val context: Context) {
     fun channelAllowed() = notifications.getNotificationChannel(TASK_CHANNEL)?.importance != NotificationManager.IMPORTANCE_NONE
     fun channelAllowed(channel: String) = notifications.getNotificationChannel(channel)?.importance != NotificationManager.IMPORTANCE_NONE
     fun createChannels(language: String = "ru") {
-        val labels = if (language == "en") listOf(TASK_CHANNEL to "Tasks and events", "genesis.habits.v1" to "Habits",
-            "genesis.daily-goal.v1" to "Daily goal", "genesis.achievements.v1" to "Achievements")
-        else listOf(TASK_CHANNEL to "Задачи и события", "genesis.habits.v1" to "Привычки",
-            "genesis.daily-goal.v1" to "Дневная цель", "genesis.achievements.v1" to "Достижения")
+        val labels = if (language == "en") listOf(TASK_CHANNEL to "Tasks and events", HABIT_CHANNEL to "Habits",
+            DAILY_GOAL_CHANNEL to "Daily goal", ACHIEVEMENT_CHANNEL to "Achievements")
+        else listOf(TASK_CHANNEL to "Задачи и события", HABIT_CHANNEL to "Привычки",
+            DAILY_GOAL_CHANNEL to "Дневная цель", ACHIEVEMENT_CHANNEL to "Достижения")
         labels.forEach { (id, label) ->
             val channel = NotificationChannel(id, label, NotificationManager.IMPORTANCE_HIGH)
             channel.enableVibration(true)
@@ -59,6 +93,48 @@ class ReminderScheduler(private val context: Context) {
         }
         notifications.createNotificationChannel(NotificationChannel("genesis.sync.v1", if (language == "en") "Sync" else "Синхронизация",
             NotificationManager.IMPORTANCE_LOW).apply { setSound(null, null) })
+    }
+    private fun openAppIntent() = PendingIntent.getActivity(context, 0, Intent(context, MainActivity::class.java).apply {
+        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+    }, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+    fun showHabitTonePreview(tone: String, english: Boolean): Boolean {
+        createChannels(if (english) "en" else "ru")
+        if (!notificationsAllowed() || !channelAllowed(HABIT_CHANNEL)) return false
+        val label = when (tone) {
+            "heroic" -> if (english) "Heroic" else "Героический"
+            "ironic" -> if (english) "Wry" else "С иронией"
+            else -> if (english) "Calm" else "Спокойный"
+        }
+        val note = NotificationCompat.Builder(context, HABIT_CHANNEL)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(if (english) "GENESIS · $label preview" else "GENESIS · пример: $label")
+            .setContentText(habitNotificationBody(tone, "habit", 1, english))
+            .setContentIntent(openAppIntent()).setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE).setAutoCancel(true).build()
+        return runCatching {
+            NotificationManagerCompat.from(context).notify("habit-tone-preview", 7301, note); true
+        }.getOrDefault(false)
+    }
+    fun showAchievementNotification(count: Int, english: Boolean): Boolean {
+        if (count <= 0) return false
+        createChannels(if (english) "en" else "ru")
+        if (!notificationsAllowed() || !channelAllowed(ACHIEVEMENT_CHANNEL)) return false
+        val body = if (english) {
+            if (count == 1) "A new achievement is now part of your path."
+            else "$count new achievements are now part of your path."
+        } else {
+            if (count == 1) "Новое достижение стало частью вашего пути."
+            else "Новых достижений открыто: $count."
+        }
+        val note = NotificationCompat.Builder(context, ACHIEVEMENT_CHANNEL)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(if (english) "GENESIS · Achievement" else "GENESIS · Достижение")
+            .setContentText(body).setContentIntent(openAppIntent())
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE).setAutoCancel(true).build()
+        return runCatching {
+            NotificationManagerCompat.from(context).notify("habit-achievement", 7302, note); true
+        }.getOrDefault(false)
     }
     private fun intent(row: ReminderRecord, action: String, clazz: Class<*>) = Intent(context, clazz).apply {
         this.action = action
@@ -130,17 +206,7 @@ class ReminderScheduler(private val context: Context) {
             val uri = Uri.Builder().scheme("genesis").authority("habit-reminder")
                 .appendPath(app.workspaceScope).appendPath(date.toString()).appendPath(time.toString())
                 .appendPath(kind).build()
-            val body = when (kind) {
-                "goal" -> if (language == "en") "Your daily practice is still within reach."
-                    else "Дневная цель ещё достижима."
-                else -> if (language == "en") {
-                    if (count == 1) "A planned practice is waiting."
-                    else "$count planned practices are waiting."
-                } else {
-                    if (count == 1) "Вас ждёт запланированная практика."
-                    else "Вас ждут запланированные практики: $count."
-                }
-            }
+            val body = habitNotificationBody(settings.tone, kind, count, language == "en")
             val intent = Intent(context, HabitNotificationReceiver::class.java).apply {
                 action = "ru.genesis.calendar.HABIT_NOTIFICATION"
                 data = uri

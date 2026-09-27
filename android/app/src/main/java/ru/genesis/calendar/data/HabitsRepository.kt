@@ -32,6 +32,8 @@ data class HabitSettings(val enabled: Boolean = true,
     val notifications: HabitNotificationSettings = HabitNotificationSettings(),
     val feedback: HabitFeedbackSettings = HabitFeedbackSettings(), val rawJson: String = defaultHabitSettingsJson())
 
+data class HabitCompletionResult(val newlyUnlockedAchievements: Int = 0)
+
 data class LocalHabitWorkspace(val habits: List<Habit> = emptyList(), val completions: List<HabitCompletion> = emptyList(),
     val goals: List<DailyGoalRecord> = emptyList(), val rewards: List<RewardTransaction> = emptyList(),
     val progress: UserProgress = UserProgress(), val revision: Long = 0,
@@ -67,15 +69,18 @@ class HabitsRepository(private val app: GenesisApplication) {
         if(record == null) LocalHabitWorkspace() else HabitDocument.decode(cipher.decrypt(record.encrypted,"$scope/habits"),record.revision)
     }.flowOn(Dispatchers.IO)
 
-    private suspend fun mutate(change: (LocalHabitWorkspace) -> LocalHabitWorkspace) {
+    private suspend fun mutate(change: (LocalHabitWorkspace) -> LocalHabitWorkspace): Pair<LocalHabitWorkspace, LocalHabitWorkspace> {
+        lateinit var mutation: Pair<LocalHabitWorkspace, LocalHabitWorkspace>
         db.withTransaction {
             val record=dao.document(scope,"habits")
             val current=if(record==null) LocalHabitWorkspace() else HabitDocument.decode(cipher.decrypt(record.encrypted,"$scope/habits"),record.revision)
             val next=reconcile(change(current)).copy(revision=current.revision+1)
             dao.putDocument(DocumentRecord(scope,"habits",cipher.encrypt(HabitDocument.encode(next),"$scope/habits"),next.revision))
             if (scope.startsWith("account-")) dao.putOutbox(OutboxRecord(scope,"habits",next.revision,UUID.randomUUID().toString()))
+            mutation = current to next
         }
         app.scheduler.restoreHabitNotifications()
+        return mutation
     }
 
     suspend fun refresh() { if(dao.document(scope,"habits") != null) mutate { it } }
@@ -108,14 +113,18 @@ class HabitsRepository(private val app: GenesisApplication) {
         app.scheduler.restore()
     }
 
-    suspend fun complete(id: String, completed: Boolean, quality: Double? = null) = mutate { workspace ->
-        val habit=workspace.habits.firstOrNull { it.id==id } ?: error("Привычка не найдена")
-        val today=LocalDate.now()
-        require(engine().isScheduled(habit,today)) { "Сегодня привычка не запланирована." }
-        val existing=workspace.completions.firstOrNull { it.habitId==id && it.date==today }
-        val entries=if(existing!=null && existing.completed==completed && existing.qualityValue==quality) workspace.completions else
-            engine().updateCompletion(workspace.completions,habit,today,today,completed,quality,existing?.note ?: "")
-        workspace.copy(completions=entries)
+    suspend fun complete(id: String, completed: Boolean, quality: Double? = null): HabitCompletionResult {
+        val (before, after) = mutate { workspace ->
+            val habit=workspace.habits.firstOrNull { it.id==id } ?: error("Привычка не найдена")
+            val today=LocalDate.now()
+            require(engine().isScheduled(habit,today)) { "Сегодня привычка не запланирована." }
+            val existing=workspace.completions.firstOrNull { it.habitId==id && it.date==today }
+            val entries=if(existing!=null && existing.completed==completed && existing.qualityValue==quality) workspace.completions else
+                engine().updateCompletion(workspace.completions,habit,today,today,completed,quality,existing?.note ?: "")
+            workspace.copy(completions=entries)
+        }
+        val known = before.achievementUnlocks.mapTo(hashSetOf()) { it.achievementId }
+        return HabitCompletionResult(after.achievementUnlocks.count { it.achievementId !in known })
     }
 
     suspend fun claimHeroPathAmphora(rankId: String) = mutate { workspace ->
@@ -169,11 +178,12 @@ class HabitsRepository(private val app: GenesisApplication) {
         goals=protectedGoals
         // The website retired per-missed-habit Laurel resets. Normalization also repairs old
         // local ledgers by ignoring those entries without discarding legitimate awards.
-        val quests=HabitQuests.reconcile(workspace.quests,workspace.habits,workspace.completions,
-            goals,today,timestamp) { habit,date -> engine().isScheduled(habit,date) }
-        val ledger=HabitQuests.reconcileRewards(quests,StreakProtection.reconcileComeback(goals,
+        val questsEnabled = workspace.settings.feedback.questsEnabled
+        val quests=if (questsEnabled) HabitQuests.reconcile(workspace.quests,workspace.habits,workspace.completions,
+            goals,today,timestamp) { habit,date -> engine().isScheduled(habit,date) } else workspace.quests
+        val nonQuestLedger=StreakProtection.reconcileComeback(goals,
             StreakRewards.reconcile(goals,Rewards.reconcileDailyGoals(goals,workspace.rewards,today)),today)
-        )
+        val ledger=if (questsEnabled) HabitQuests.reconcileRewards(quests,nonQuestLedger) else nonQuestLedger
         val progress=HeroProgress.reconcile(workspace.progress,workspace.completions.map { it.xpAwarded },timestamp,
             DailyGoals.streak(goals,today),Rewards.balance(ledger),streakFreezeCount=StreakProtection.count(freezes),
             rhythmScore=DailyGoals.rhythmScore(goals,today))

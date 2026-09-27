@@ -6,6 +6,13 @@ import org.junit.Test
 import ru.genesis.calendar.domain.CalendarRange
 
 class CalendarVisualDataTest {
+
+    @Test
+    fun `lunar cells format sacred dates as day pyata and month`() {
+        assertEquals("II/3/VII", lunarSacredDateLabel(sacredDay = 12, pyata = 3, monthIndex = 6))
+        assertEquals("IIII/6/VIIII", lunarSacredDateLabel(sacredDay = 29, pyata = 6, monthIndex = 8))
+        assertEquals("V/1/O", lunarSacredDateLabel(sacredDay = 5, pyata = 1, monthIndex = 12))
+    }
     @Test fun gregorianGridShowsFadedNeighbouringDatesInSundayFirstRows() {
         val dates = gregorianGridDates(CalendarRange(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31)))
         assertEquals(LocalDate.of(2025, 12, 28), dates.first())

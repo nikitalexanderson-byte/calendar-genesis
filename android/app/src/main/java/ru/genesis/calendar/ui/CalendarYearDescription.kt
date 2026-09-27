@@ -101,11 +101,7 @@ internal fun CalendarYearDescriptionCard(calendar: GenesisCalendar, shown: Local
         shape = RoundedCornerShape(24.dp), color = yearCardBackground,
         border = BorderStroke(1.dp, Color(0x665f8a7d))) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            if (mode == CalendarMode.PROFANE) OriginalImage("calendar-art/saturn-cronus.webp",
-                copy("Кронос с косой и золотой сигиллой Сатурна", "Cronus with a scythe and golden Saturn sigil"),
-                Modifier.fillMaxWidth().height(280.dp).testTag("calendar-year-cronus-art"))
-            Column(Modifier.padding(if (mode == CalendarMode.PROFANE) PaddingValues(start = 18.dp, end = 18.dp, bottom = 20.dp)
-                else PaddingValues(18.dp)), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(eyebrow, style = MaterialTheme.typography.labelMedium, color = yearCardGold)
                 Text(title, style = MaterialTheme.typography.headlineSmall, color = yearCardText)
                 paragraphs.take(if (mode == CalendarMode.SACRED) 2 else paragraphs.size).forEach {

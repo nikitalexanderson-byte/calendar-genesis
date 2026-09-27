@@ -20,6 +20,14 @@ class TheokyklosFlowTest {
         check(BuildConfig.DEBUG && app.packageName.endsWith(".debug"))
         compose.onNodeWithText("Теокиклос").performScrollTo().performClick()
         compose.onNodeWithTag("theokyklos-mandala").assertIsDisplayed()
+        val entranceCenter = compose.onNodeWithTag("theokyklos-sector-entrance")
+            .fetchSemanticsNode().boundsInRoot.center
+        val exitCenter = compose.onNodeWithTag("theokyklos-sector-exit")
+            .fetchSemanticsNode().boundsInRoot.center
+        val mandalaCenter = compose.onNodeWithTag("theokyklos-sector-center")
+            .fetchSemanticsNode().boundsInRoot.center
+        assertTrue("Вход должен находиться рядом с восточным сектором", entranceCenter.x > mandalaCenter.x)
+        assertTrue("Выход должен находиться рядом с западным сектором", exitCenter.x < mandalaCenter.x)
         TheokyklosCatalogSource.ids.forEach { id ->
             compose.onNodeWithTag("theokyklos-sector-$id").assertExists()
         }
