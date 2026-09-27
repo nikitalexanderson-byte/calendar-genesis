@@ -69,7 +69,9 @@ class TrackersRepository(app: GenesisApplication) {
 internal object TrackersDocument {
     private fun JSONArray.objects()=(0 until length()).map { getJSONObject(it) }
     private fun ints(array: JSONArray)=(0 until array.length()).map { array.getInt(it) }
-    private fun JSONObject.nullable(key: String)=if(isNull(key))null else getString(key)
+    // Web schema 16 represents unfilled sleep times as ""; native drafts use null.
+    // Both mean "not recorded", including quality-only and note-only sleep entries.
+    private fun JSONObject.nullable(key: String)=if(isNull(key))null else getString(key).takeIf(String::isNotBlank)
     private fun entity(e: TrackerEntity)=JSONObject().put("id",e.id).put("createdAt",e.createdAt).put("updatedAt",e.updatedAt).put("version",e.version).put("syncState",e.syncState)
     private fun entity(v: JSONObject)=TrackerEntity(v.getString("id"),v.getString("createdAt"),v.getString("updatedAt"),v.getInt("version"),v.getString("syncState"))
     private fun schedule(s: TrackerSchedule): JSONObject {
@@ -88,8 +90,8 @@ internal object TrackersDocument {
         .put("sleepPlans",JSONArray(w.sleepPlans.map { p -> entity(p.entity).put("title",p.title).put("active",p.active).put("schedule",schedule(p.schedule))
             .put("targetBedtime",p.targetBedtime.toString()).put("targetWakeTime",p.targetWakeTime.toString()).put("qualityEnabled",p.qualityEnabled).put("scoringEnabled",p.scoringEnabled)
             .put("rules",JSONArray(p.rules.map { r -> JSONObject().put("id",r.id).put("field",r.field).put("operator",r.operator).put("threshold",r.threshold.toString()).put("points",r.points) })) }))
-        .put("sleepEntries",JSONArray(w.sleepEntries.map { e -> entity(e.entity).put("planId",e.planId).put("date",e.date.toString()).put("fellAsleepAt",e.fellAsleepAt?.toString() ?: JSONObject.NULL)
-            .put("wokeAt",e.wokeAt?.toString() ?: JSONObject.NULL).put("durationMinutes",e.durationMinutes ?: JSONObject.NULL).put("quality",e.quality ?: JSONObject.NULL)
+        .put("sleepEntries",JSONArray(w.sleepEntries.map { e -> entity(e.entity).put("planId",e.planId).put("date",e.date.toString()).put("fellAsleepAt",e.fellAsleepAt?.toString() ?: "")
+            .put("wokeAt",e.wokeAt?.toString() ?: "").put("durationMinutes",e.durationMinutes ?: JSONObject.NULL).put("quality",e.quality ?: JSONObject.NULL)
             .put("deviationMinutes",e.deviationMinutes ?: JSONObject.NULL).put("note",e.note).put("score",e.score) }))
         .put("moodEntries",JSONArray(w.moodEntries.map { e -> entity(e.entity).put("date",e.date.toString()).put("recordedAt",e.recordedAt).put("moodValue",e.moodValue)
             .put("note",e.note).put("tags",JSONArray(e.tags)) })).toString()

@@ -1945,7 +1945,7 @@ test("retains the legacy TWA artifact but promotes only the signed native Androi
   assert.match(installHook, /window\.location\.hostname[\s\S]*device[\s\S]*android-phone/);
   assert.match(installHook, /isAndroidPhone && !isStandalone/);
   assert.doesNotMatch(installHook, /downloads\/GENESIS-Android-1\.2\.2\.apk/);
-  assert.match(installHook, /downloads\/GENESIS-Android-Native-2\.2\.6\.apk/);
+  assert.match(installHook, /downloads\/GENESIS-Android-Native-2\.2\.7\.apk/);
   assert.doesNotMatch(calendar, /android-apk-icon-button/);
   assert.match(calendar, /nativeAndroidApkUrl=\{nativeAndroidApkUrl\}/);
   assert.match(calendar, /android-native-icon-button/);
@@ -1957,7 +1957,7 @@ test("retains the legacy TWA artifact but promotes only the signed native Androi
   // The public 1.2.2 download stays unchanged while the isolated native alpha advances.
   const nativeVersionCode = Number(androidBuild.match(/versionCode = (\d+)/)?.[1]);
   assert.ok(nativeVersionCode >= 7);
-  assert.match(androidBuild, /versionName = "2\.2\.6"/);
+  assert.match(androidBuild, /versionName = "2\.2\.7"/);
   assert.match(androidBuild, /releaseSigningReady/);
   assert.match(androidBuild, /applicationIdSuffix = "\.debug"/);
   assert.match(androidBuild, /androidx\.browser:browser:1\.10\.0/);
