@@ -4683,6 +4683,10 @@ html.project-drag-active body {
   overscroll-behavior: none;
 }
 
+html.project-drag-active {
+  scroll-behavior: auto;
+}
+
 .project-drag-handle.project-draggable-item {
   cursor: grab;
   touch-action: none;
@@ -11420,6 +11424,8 @@ button.project-drag-handle:active { cursor: grabbing; }
 
 .axis-node circle { fill: #102b2d; stroke: rgba(213, 182, 110, .58); stroke-width: 2; }
 .axis-node text { pointer-events: none; fill: #eee0ad; font: 900 11px/1 system-ui, sans-serif; letter-spacing: .09em; }
+.axis-node .theokyklos-outer-node-patron,
+.threshold-node .theokyklos-outer-node-patron { fill: #a9bdb8; font-size: 9px; font-weight: 700; letter-spacing: .01em; text-transform: none; }
 .nadir-node circle { fill: #1b2028; stroke: rgba(150, 143, 179, .66); }
 .nadir-node text { fill: #c5bfda; }
 .axis-node:hover circle,
@@ -11427,12 +11433,17 @@ button.project-drag-handle:active { cursor: grabbing; }
 .axis-node.is-selected circle { stroke-width: 5; filter: url(#theokyklos-soft-glow); }
 
 .threshold-node path { fill: rgba(213, 182, 110, .04); stroke: rgba(213, 182, 110, .55); stroke-width: 4; }
+.centered-threshold-node circle { fill: #102b2d; stroke: rgba(213, 182, 110, .58); stroke-width: 2; }
 .threshold-node text { pointer-events: none; fill: #ead7a2; font: 900 11px/1 system-ui, sans-serif; letter-spacing: .09em; }
 .exit-node path { stroke: rgba(175, 131, 160, .7); }
+.centered-threshold-node.exit-node circle { fill: #1d2027; stroke: rgba(175, 131, 160, .7); }
 .exit-node text { fill: #d8b7d0; }
 .threshold-node:hover path,
 .threshold-node:focus-visible path,
 .threshold-node.is-selected path { stroke-width: 8; filter: url(#theokyklos-soft-glow); }
+.centered-threshold-node:hover circle,
+.centered-threshold-node:focus-visible circle,
+.centered-threshold-node.is-selected circle { stroke-width: 5; filter: url(#theokyklos-soft-glow); }
 
 .theokyklos-stars { pointer-events: none; fill: #d5b66e; stroke: #d5b66e; stroke-width: 1; opacity: .48; }
 
@@ -11645,7 +11656,9 @@ button.project-drag-handle:active { cursor: grabbing; }
   .theokyklos-hero-seal { width: 62px; height: 62px; justify-self: end; margin: -3px 12px 0 0; }
   .theokyklos-hero-seal span { font-size: 34px; }
   .axis-node text,
-  .threshold-node text { font-size: 34px; letter-spacing: .045em; }
+  .threshold-node text { font-size: 22px; letter-spacing: .045em; }
+  .axis-node .theokyklos-outer-node-patron,
+  .threshold-node .theokyklos-outer-node-patron { font-size: 12px; }
   .theokyklos-incantation li { grid-template-columns: minmax(0, 1fr); gap: 5px; }
 }
 

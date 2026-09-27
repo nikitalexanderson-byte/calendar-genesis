@@ -311,6 +311,10 @@ type ProjectTouchDrag = {
   timer: number;
 };
 
+const PROJECT_DRAG_SCROLL_EDGE = 112;
+const PROJECT_DRAG_SCROLL_MIN_SPEED = 180;
+const PROJECT_DRAG_SCROLL_MAX_SPEED = 960;
+
 type TaskListDraft = {
   id: string;
   title: string;
@@ -1369,6 +1373,9 @@ export function GenesisCalendar() {
   const themeControllerRef = useRef<GenesisThemeController | null>(null);
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
   const projectTouchDragRef = useRef<ProjectTouchDrag | null>(null);
+  const projectDragPointRef = useRef<{ x: number; y: number } | null>(null);
+  const projectAutoScrollFrameRef = useRef<number | null>(null);
+  const projectAutoScrollLastFrameRef = useRef<number | null>(null);
   const habitSaveTimerRef = useRef<number | null>(null);
   const habitFeedbackTimerRef = useRef<number | null>(null);
   const workspaceRecoveryResolverRef = useRef<((accepted: boolean) => void) | null>(null);
@@ -1563,6 +1570,9 @@ export function GenesisCalendar() {
   useEffect(() => () => {
     const drag = projectTouchDragRef.current;
     if (drag) window.clearTimeout(drag.timer);
+    if (projectAutoScrollFrameRef.current !== null) window.cancelAnimationFrame(projectAutoScrollFrameRef.current);
+    projectDragPointRef.current = null;
+    projectAutoScrollLastFrameRef.current = null;
     document.documentElement.classList.remove("project-drag-active");
   }, []);
 
@@ -3213,7 +3223,62 @@ export function GenesisCalendar() {
     return element?.dataset.projectDropId ?? "";
   };
 
+  const stopProjectAutoScroll = () => {
+    if (projectAutoScrollFrameRef.current !== null) {
+      window.cancelAnimationFrame(projectAutoScrollFrameRef.current);
+      projectAutoScrollFrameRef.current = null;
+    }
+    projectDragPointRef.current = null;
+    projectAutoScrollLastFrameRef.current = null;
+  };
+
+  const projectAutoScrollStep = (timestamp: number) => {
+    projectAutoScrollFrameRef.current = null;
+    const point = projectDragPointRef.current;
+    const dragActive = Boolean(projectPointerDragRef.current?.active || projectTouchDragRef.current?.active);
+    const scrollingElement = document.scrollingElement;
+    if (!point || !dragActive || !scrollingElement) {
+      projectAutoScrollLastFrameRef.current = null;
+      return;
+    }
+
+    const edge = Math.min(PROJECT_DRAG_SCROLL_EDGE, window.innerHeight / 3);
+    const direction = point.y < edge ? -1 : point.y > window.innerHeight - edge ? 1 : 0;
+    if (!direction) {
+      projectAutoScrollLastFrameRef.current = null;
+      return;
+    }
+
+    const edgeDepth = direction < 0 ? edge - point.y : point.y - (window.innerHeight - edge);
+    const edgeRatio = Math.min(edge, edgeDepth) / edge;
+    const speed = PROJECT_DRAG_SCROLL_MIN_SPEED + edgeRatio * (PROJECT_DRAG_SCROLL_MAX_SPEED - PROJECT_DRAG_SCROLL_MIN_SPEED);
+    const previousTimestamp = projectAutoScrollLastFrameRef.current ?? timestamp - (1000 / 60);
+    const elapsedSeconds = Math.min(40, Math.max(1, timestamp - previousTimestamp)) / 1000;
+    projectAutoScrollLastFrameRef.current = timestamp;
+    const maxScrollTop = scrollingElement.scrollHeight - scrollingElement.clientHeight;
+    const nextScrollTop = Math.max(0, Math.min(maxScrollTop, scrollingElement.scrollTop + direction * speed * elapsedSeconds));
+    if (nextScrollTop === scrollingElement.scrollTop) {
+      projectAutoScrollLastFrameRef.current = null;
+      return;
+    }
+
+    window.scrollTo({ top: nextScrollTop, left: window.scrollX, behavior: "auto" });
+    setProjectDropTargetId(projectDropTargetAt(point.x, point.y));
+    projectAutoScrollFrameRef.current = window.requestAnimationFrame(projectAutoScrollStep);
+  };
+
+  const updateProjectDragPoint = (clientX: number, clientY: number) => {
+    const point = { x: clientX, y: clientY };
+    projectDragPointRef.current = point;
+    setProjectTouchPoint(point);
+    setProjectDropTargetId(projectDropTargetAt(clientX, clientY));
+    if (projectAutoScrollFrameRef.current === null) {
+      projectAutoScrollFrameRef.current = window.requestAnimationFrame(projectAutoScrollStep);
+    }
+  };
+
   const resetProjectDrag = () => {
+    stopProjectAutoScroll();
     document.documentElement.classList.remove("project-drag-active");
     setProjectDragItem(null);
     setProjectTouchPoint(null);
@@ -3273,8 +3338,7 @@ export function GenesisCalendar() {
     }
     if (!drag.active) return;
     event.preventDefault();
-    setProjectTouchPoint({ x: event.clientX, y: event.clientY });
-    setProjectDropTargetId(projectDropTargetAt(event.clientX, event.clientY));
+    updateProjectDragPoint(event.clientX, event.clientY);
   };
 
   const finishProjectPointerDrag = (event: PointerEvent<HTMLElement>, cancelled = false) => {
@@ -3312,8 +3376,7 @@ export function GenesisCalendar() {
       drag.active = true;
       document.documentElement.classList.add("project-drag-active");
       setProjectDragItem(drag.item);
-      setProjectTouchPoint({ x: drag.startX, y: drag.startY });
-      setProjectDropTargetId(projectDropTargetAt(drag.startX, drag.startY));
+      updateProjectDragPoint(drag.startX, drag.startY);
     }, 320);
     projectTouchDragRef.current = drag;
   };
@@ -3329,10 +3392,7 @@ export function GenesisCalendar() {
     }
     if (!drag.active) return;
     event.preventDefault();
-    if (touch.clientY < 88) window.scrollBy({ top: -16, behavior: "auto" });
-    if (touch.clientY > window.innerHeight - 88) window.scrollBy({ top: 16, behavior: "auto" });
-    setProjectTouchPoint({ x: touch.clientX, y: touch.clientY });
-    setProjectDropTargetId(projectDropTargetAt(touch.clientX, touch.clientY));
+    updateProjectDragPoint(touch.clientX, touch.clientY);
   };
 
   const finishProjectTouchDrag = (event: TouchEvent<HTMLElement>, cancelled = false) => {
