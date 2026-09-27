@@ -107,6 +107,11 @@ export function TheokyklosView({ language, workspace, date, calendarMode, initia
   const center = segmentsById.get("center")!;
   const entrance = segmentsById.get("entrance")!;
   const exit = segmentsById.get("exit")!;
+  const zenithPoint = { x: 450, y: 54 };
+  const nadirPoint = { x: 450, y: 786 };
+  const entrancePoint = { x: 84, y: 420 };
+  const exitPoint = { x: 816, y: 420 };
+  const outerNodeRadius = 54;
 
   return (
     <section className="theokyklos-view" aria-labelledby="theokyklos-title" data-genesis-preserve="theokyklos">
@@ -134,11 +139,11 @@ export function TheokyklosView({ language, workspace, date, calendarMode, initia
           </div>
 
           <div className="theokyklos-mandala-viewport">
-            <svg className="theokyklos-mandala" viewBox="0 0 900 880" role="img" aria-labelledby="theokyklos-svg-title theokyklos-svg-description">
+            <svg className="theokyklos-mandala" viewBox="0 0 900 840" role="img" aria-labelledby="theokyklos-svg-title theokyklos-svg-description">
               <title id="theokyklos-svg-title">{language === "en" ? "Interactive Circle of Divine Powers" : "Интерактивный Круг божественных сил"}</title>
               <desc id="theokyklos-svg-description">{language === "en"
-                ? "Eight directional sectors surround Hestia's inner ring and the central point of Dionysus and Ariadne. Zeus and Hera stand at the zenith, Hades and Persephone at the nadir, with guardians of entry and exit below."
-                : "Восемь направлений окружают внутреннее кольцо Гестии и центральную точку Диониса и Ариадны. Зевс и Гера стоят в зените, Аид и Персефона — в надире, а внизу находятся стражи входа и выхода."}</desc>
+                ? "Eight directional sectors surround Hestia's inner ring and the central point of Dionysus and Ariadne. Zeus and Hera stand at the zenith, Hades and Persephone at the nadir, with the entrance on the western axis and the exit on the eastern axis."
+                : "Восемь направлений окружают внутреннее кольцо Гестии и центральную точку Диониса и Ариадны. Зевс и Гера стоят в зените, Аид и Персефона — в надире, вход расположен на западной оси, а выход — на восточной."}</desc>
               <defs>
                 <radialGradient id="theokyklos-core-glow" cx="50%" cy="45%" r="66%">
                   <stop offset="0%" stopColor="#f1d890" stopOpacity=".94" />
@@ -165,6 +170,9 @@ export function TheokyklosView({ language, workspace, date, calendarMode, initia
 
               {directions.map((segment) => {
                 const label = polarPoint(segment.angle!, 238);
+                const patronLines = segment.id === "west"
+                  ? (language === "en" ? ["Poseidon", "and Amphitrite"] : ["Посейдон", "и Амфитрита"])
+                  : [localized(segment.patrons, language)];
                 return (
                   <g
                     {...interactiveProps(segment)}
@@ -175,7 +183,9 @@ export function TheokyklosView({ language, workspace, date, calendarMode, initia
                     <image className="theokyklos-mandala-icon theokyklos-direction-icon" href={THEOKYKLOS_SYMBOL_ART[segment.id]} x={label.x - 36} y={label.y - 58} width="72" height="72" preserveAspectRatio="xMidYMid meet" />
                     <text className="theokyklos-segment-label" x={label.x} y={label.y + 28} textAnchor="middle">
                       <tspan className="theokyklos-segment-direction" x={label.x}>{directionLabel(segment.id, language)}</tspan>
-                      <tspan className="theokyklos-segment-name" x={label.x} dy="17">{localized(segment.patrons, language)}</tspan>
+                      {patronLines.map((line, index) => (
+                        <tspan className="theokyklos-segment-name" x={label.x} dy={index === 0 ? "17" : "14"} key={line}>{line}</tspan>
+                      ))}
                     </text>
                   </g>
                 );
@@ -210,40 +220,51 @@ export function TheokyklosView({ language, workspace, date, calendarMode, initia
                 {...interactiveProps(zenith)}
                 className={`theokyklos-svg-segment axis-node zenith-node${selectedId === "zenith" ? " is-selected" : ""}`}
               >
-                <circle cx="450" cy="61" r="56" />
-                <image className="theokyklos-mandala-icon theokyklos-axis-icon" href={THEOKYKLOS_SYMBOL_ART.zenith} x="418" y="9" width="64" height="64" preserveAspectRatio="xMidYMid meet" />
-                <text x="450" y="105" textAnchor="middle">{localized(zenith.short, language)}</text>
+                <circle cx={zenithPoint.x} cy={zenithPoint.y} r={outerNodeRadius} />
+                <image className="theokyklos-mandala-icon theokyklos-axis-icon" href={THEOKYKLOS_SYMBOL_ART.zenith} x={zenithPoint.x - 26} y={zenithPoint.y - 46} width="52" height="52" preserveAspectRatio="xMidYMid meet" />
+                <text x={zenithPoint.x} y={zenithPoint.y + 25} textAnchor="middle">
+                  <tspan x={zenithPoint.x}>{localized(zenith.short, language)}</tspan>
+                  <tspan className="theokyklos-outer-node-patron" x={zenithPoint.x} dy="14">{localized(zenith.patrons, language)}</tspan>
+                </text>
               </g>
               <g
                 {...interactiveProps(nadir)}
                 className={`theokyklos-svg-segment axis-node nadir-node${selectedId === "nadir" ? " is-selected" : ""}`}
               >
-                <circle cx="450" cy="785" r="56" />
-                <image className="theokyklos-mandala-icon theokyklos-axis-icon" href={THEOKYKLOS_SYMBOL_ART.nadir} x="418" y="733" width="64" height="64" preserveAspectRatio="xMidYMid meet" />
-                <text x="450" y="829" textAnchor="middle">{localized(nadir.short, language)}</text>
+                <circle cx={nadirPoint.x} cy={nadirPoint.y} r={outerNodeRadius} />
+                <image className="theokyklos-mandala-icon theokyklos-axis-icon" href={THEOKYKLOS_SYMBOL_ART.nadir} x={nadirPoint.x - 26} y={nadirPoint.y - 46} width="52" height="52" preserveAspectRatio="xMidYMid meet" />
+                <text x={nadirPoint.x} y={nadirPoint.y + 25} textAnchor="middle">
+                  <tspan x={nadirPoint.x}>{localized(nadir.short, language)}</tspan>
+                  <tspan className="theokyklos-outer-node-patron" x={nadirPoint.x} dy="14" textLength="94" lengthAdjust="spacingAndGlyphs">{localized(nadir.patrons, language)}</tspan>
+                </text>
               </g>
 
               <g
                 {...interactiveProps(entrance)}
-                className={`theokyklos-svg-segment threshold-node entrance-node${selectedId === "entrance" ? " is-selected" : ""}`}
+                className={`theokyklos-svg-segment threshold-node entrance-node centered-threshold-node${selectedId === "entrance" ? " is-selected" : ""}`}
               >
-                <path d="M92 839V754Q92 696 154 696Q216 696 216 754V839" />
-                <image className="theokyklos-mandala-icon theokyklos-threshold-icon" href={THEOKYKLOS_SYMBOL_ART.entrance} x="118" y="703" width="72" height="72" preserveAspectRatio="xMidYMid meet" />
-                <text x="154" y="818" textAnchor="middle">{localized(entrance.short, language)}</text>
+                <circle cx={entrancePoint.x} cy={entrancePoint.y} r={outerNodeRadius} />
+                <image className="theokyklos-mandala-icon theokyklos-threshold-icon" href={THEOKYKLOS_SYMBOL_ART.entrance} x={entrancePoint.x - 26} y={entrancePoint.y - 46} width="52" height="52" preserveAspectRatio="xMidYMid meet" />
+                <text x={entrancePoint.x} y={entrancePoint.y + 25} textAnchor="middle">
+                  <tspan x={entrancePoint.x}>{localized(entrance.short, language)}</tspan>
+                  <tspan className="theokyklos-outer-node-patron" x={entrancePoint.x} dy="14">{localized(entrance.patrons, language)}</tspan>
+                </text>
               </g>
               <g
                 {...interactiveProps(exit)}
-                className={`theokyklos-svg-segment threshold-node exit-node${selectedId === "exit" ? " is-selected" : ""}`}
+                className={`theokyklos-svg-segment threshold-node exit-node centered-threshold-node${selectedId === "exit" ? " is-selected" : ""}`}
               >
-                <path d="M684 839V754Q684 696 746 696Q808 696 808 754V839" />
-                <image className="theokyklos-mandala-icon theokyklos-threshold-icon" href={THEOKYKLOS_SYMBOL_ART.exit} x="710" y="703" width="72" height="72" preserveAspectRatio="xMidYMid meet" />
-                <text x="746" y="818" textAnchor="middle">{localized(exit.short, language)}</text>
+                <circle cx={exitPoint.x} cy={exitPoint.y} r={outerNodeRadius} />
+                <image className="theokyklos-mandala-icon theokyklos-threshold-icon" href={THEOKYKLOS_SYMBOL_ART.exit} x={exitPoint.x - 26} y={exitPoint.y - 46} width="52" height="52" preserveAspectRatio="xMidYMid meet" />
+                <text x={exitPoint.x} y={exitPoint.y + 25} textAnchor="middle">
+                  <tspan x={exitPoint.x}>{localized(exit.short, language)}</tspan>
+                  <tspan className="theokyklos-outer-node-patron" x={exitPoint.x} dy="14">{localized(exit.patrons, language)}</tspan>
+                </text>
               </g>
 
               <g className="theokyklos-stars" aria-hidden="true">
                 <circle cx="93" cy="265" r="2" /><circle cx="812" cy="252" r="2" /><circle cx="92" cy="577" r="1.5" />
                 <circle cx="809" cy="588" r="1.5" /><circle cx="284" cy="64" r="1.5" /><circle cx="620" cy="62" r="2" />
-                <path d="M74 420h20M84 410v20M806 420h20M816 410v20" />
               </g>
             </svg>
           </div>
