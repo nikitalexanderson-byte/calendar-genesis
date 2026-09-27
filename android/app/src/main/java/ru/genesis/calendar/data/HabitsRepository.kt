@@ -12,12 +12,33 @@ import ru.genesis.calendar.GenesisApplication
 import ru.genesis.calendar.domain.*
 import ru.genesis.calendar.domain.habits.*
 
+data class HabitNotificationSettings(val enabled: Boolean = false, val motivational: Boolean = true,
+    val tone: String = "calm", val dailyGoalTime: String = "20:30",
+    val quietHoursStart: String = "22:00", val quietHoursEnd: String = "07:30")
+
+data class HabitFeedbackSettings(val animations: Boolean = true, val sound: Boolean = false,
+    val haptics: Boolean = false, val achievementPopups: Boolean = true,
+    val questsEnabled: Boolean = true, val gamificationWidgets: Boolean = true)
+
+private fun defaultHabitSettingsJson() = JSONObject().put("enabled", true)
+    .put("notifications", JSONObject().put("enabled", false).put("motivational", true)
+        .put("tone", "calm").put("dailyGoalTime", "20:30")
+        .put("quietHoursStart", "22:00").put("quietHoursEnd", "07:30"))
+    .put("feedback", JSONObject().put("animations", true).put("sound", false)
+        .put("haptics", false).put("achievementPopups", true).put("questsEnabled", true)
+        .put("gamificationWidgets", true)).toString()
+
+data class HabitSettings(val enabled: Boolean = true,
+    val notifications: HabitNotificationSettings = HabitNotificationSettings(),
+    val feedback: HabitFeedbackSettings = HabitFeedbackSettings(), val rawJson: String = defaultHabitSettingsJson())
+
 data class LocalHabitWorkspace(val habits: List<Habit> = emptyList(), val completions: List<HabitCompletion> = emptyList(),
     val goals: List<DailyGoalRecord> = emptyList(), val rewards: List<RewardTransaction> = emptyList(),
     val progress: UserProgress = UserProgress(), val revision: Long = 0,
     val achievementUnlocks: List<AchievementUnlock> = emptyList(),
     val streakFreezeTransactions: List<StreakFreezeTransaction> = emptyList(),
-    val quests: List<HabitQuest> = emptyList())
+    val quests: List<HabitQuest> = emptyList(), val settings: HabitSettings = HabitSettings(),
+    val hiddenDefaultTemplates: List<String> = emptyList())
 
 internal const val HABIT_LAUREL_RETENTION_COMPLETIONS = 50
 
@@ -46,15 +67,30 @@ class HabitsRepository(private val app: GenesisApplication) {
         if(record == null) LocalHabitWorkspace() else HabitDocument.decode(cipher.decrypt(record.encrypted,"$scope/habits"),record.revision)
     }.flowOn(Dispatchers.IO)
 
-    private suspend fun mutate(change: (LocalHabitWorkspace) -> LocalHabitWorkspace) = db.withTransaction {
-        val record=dao.document(scope,"habits")
-        val current=if(record==null) LocalHabitWorkspace() else HabitDocument.decode(cipher.decrypt(record.encrypted,"$scope/habits"),record.revision)
-        val next=reconcile(change(current)).copy(revision=current.revision+1)
-        dao.putDocument(DocumentRecord(scope,"habits",cipher.encrypt(HabitDocument.encode(next),"$scope/habits"),next.revision))
-        if (scope.startsWith("account-")) dao.putOutbox(OutboxRecord(scope,"habits",next.revision,UUID.randomUUID().toString()))
+    private suspend fun mutate(change: (LocalHabitWorkspace) -> LocalHabitWorkspace) {
+        db.withTransaction {
+            val record=dao.document(scope,"habits")
+            val current=if(record==null) LocalHabitWorkspace() else HabitDocument.decode(cipher.decrypt(record.encrypted,"$scope/habits"),record.revision)
+            val next=reconcile(change(current)).copy(revision=current.revision+1)
+            dao.putDocument(DocumentRecord(scope,"habits",cipher.encrypt(HabitDocument.encode(next),"$scope/habits"),next.revision))
+            if (scope.startsWith("account-")) dao.putOutbox(OutboxRecord(scope,"habits",next.revision,UUID.randomUUID().toString()))
+        }
+        app.scheduler.restoreHabitNotifications()
     }
 
     suspend fun refresh() { if(dao.document(scope,"habits") != null) mutate { it } }
+
+    suspend fun updateSettings(settings: HabitSettings) = mutate { it.copy(settings = settings) }
+
+    suspend fun restoreDefaultTemplates() = mutate { it.copy(hiddenDefaultTemplates = emptyList()) }
+
+    suspend fun resetTracking() = mutate { workspace ->
+        LocalHabitWorkspace(revision = workspace.revision, settings = workspace.settings.copy(
+            rawJson = JSONObject(workspace.settings.rawJson).apply {
+                put("dailyGoalModeChanges", JSONArray())
+                put("plannedRestDays", JSONArray())
+            }.toString()))
+    }
 
     suspend fun save(habit: Habit) = mutate { workspace ->
         require(habit.title.isNotBlank() && habit.title.length<=500) { "Введите название до 500 символов." }
@@ -192,6 +228,8 @@ internal object HabitDocument {
                 .put("startDate",q.startDate.toString()).put("endDate",q.endDate.toString())
                 .put("target",q.target).put("progress",q.progress).put("rewardLaurels",q.rewardLaurels)
                 .put("completedAt",q.completedAt ?: JSONObject.NULL) }))
+            .put("settings", settings(w.settings))
+            .put("hiddenDefaultTemplates", JSONArray(w.hiddenDefaultTemplates))
             .put("progress",JSONObject().put("lifetimeXp",p.lifetimeXp).put("laurelsBalance",p.laurelsBalance).put("currentRankId",p.currentRankId ?: JSONObject.NULL)
                 .put("hiddenHeroicPathRevealedAt",p.hiddenHeroicPathRevealedAt ?: JSONObject.NULL).put("currentStreak",p.currentStreak).put("longestStreak",p.longestStreak)
                 .put("lastQualifiedDate",p.lastQualifiedDate?.toString() ?: JSONObject.NULL).put("streakGoalMode",p.streakGoalMode).put("streakFreezeCount",p.streakFreezeCount)
@@ -214,6 +252,41 @@ internal object HabitDocument {
                 HabitQuest(entity(q),q.getString("cadence"),q.getString("kind"),q.nullable("habitId"),
                     LocalDate.parse(q.getString("startDate")),LocalDate.parse(q.getString("endDate")),
                     q.getInt("target"),q.getInt("progress"),q.getInt("rewardLaurels"),q.nullable("completedAt"))
-            } ?: emptyList()))
+            } ?: emptyList()), settings(v.optJSONObject("settings")),
+            v.optJSONArray("hiddenDefaultTemplates")?.let { array ->
+                (0 until array.length()).mapNotNull { array.optString(it).takeIf(String::isNotBlank) }
+            } ?: emptyList())
+    }
+
+    private fun settings(value: HabitSettings): JSONObject {
+        val root = runCatching { JSONObject(value.rawJson) }.getOrElse { JSONObject() }
+        root.put("enabled", value.enabled)
+        root.put("notifications", JSONObject().put("enabled", value.notifications.enabled)
+            .put("motivational", value.notifications.motivational).put("tone", value.notifications.tone)
+            .put("dailyGoalTime", value.notifications.dailyGoalTime)
+            .put("quietHoursStart", value.notifications.quietHoursStart)
+            .put("quietHoursEnd", value.notifications.quietHoursEnd))
+        root.put("feedback", JSONObject().put("animations", value.feedback.animations)
+            .put("sound", value.feedback.sound).put("haptics", value.feedback.haptics)
+            .put("achievementPopups", value.feedback.achievementPopups)
+            .put("questsEnabled", value.feedback.questsEnabled)
+            .put("gamificationWidgets", value.feedback.gamificationWidgets))
+        return root
+    }
+
+    private fun settings(value: JSONObject?): HabitSettings {
+        val root = value ?: JSONObject(defaultHabitSettingsJson())
+        val notifications = root.optJSONObject("notifications") ?: JSONObject()
+        val feedback = root.optJSONObject("feedback") ?: JSONObject()
+        fun time(name: String, fallback: String) = notifications.optString(name)
+            .takeIf { Regex("(?:[01]\\d|2[0-3]):[0-5]\\d").matches(it) } ?: fallback
+        return HabitSettings(root.optBoolean("enabled", true), HabitNotificationSettings(
+            notifications.optBoolean("enabled", false), notifications.optBoolean("motivational", true),
+            notifications.optString("tone").takeIf { it in setOf("calm", "heroic", "ironic") } ?: "calm",
+            time("dailyGoalTime", "20:30"), time("quietHoursStart", "22:00"), time("quietHoursEnd", "07:30")),
+            HabitFeedbackSettings(feedback.optBoolean("animations", true), feedback.optBoolean("sound", false),
+                feedback.optBoolean("haptics", false), feedback.optBoolean("achievementPopups", true),
+                feedback.optBoolean("questsEnabled", true), feedback.optBoolean("gamificationWidgets", true)),
+            root.toString())
     }
 }

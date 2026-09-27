@@ -18,6 +18,8 @@ class WorkspacePatchTest {
         .put("achievementUnlocks", JSONArray())
         .put("rewardTransactions", JSONArray())
         .put("streakFreezeTransactions", JSONArray())
+        .put("habitSettings", JSONObject().put("enabled", true).put("reportRange", "month"))
+        .put("hiddenDefaultTemplates", JSONArray())
         .put("userProgress", JSONObject().put("lifetimeXp", 10).put("webOnly", true))
         .put("sleepPlans", JSONArray()).put("sleepEntries", JSONArray()).put("moodEntries", JSONArray())
         .put("addictionTrackers", JSONArray().put(JSONObject().put("id", "a1")))
@@ -98,16 +100,20 @@ class WorkspacePatchTest {
         assertEquals(1, result.document.getJSONArray("addictionTrackers").length())
     }
 
-    @Test fun mapsOnlyNativeHabitFieldsAndRetainsWebSettings() {
-        val old = base().put("habitSettings", JSONObject().put("enabled", true))
+    @Test fun mapsNativeHabitSettingsAndRetainsUneditedWebFields() {
+        val old = base()
         val localHabit = JSONObject().put("habits", JSONArray()).put("completions", JSONArray())
             .put("goals", JSONArray()).put("rewards", JSONArray())
             .put("achievementUnlocks", JSONArray()).put("streakFreezeTransactions", JSONArray())
             .put("quests", JSONArray()).put("progress", JSONObject().put("lifetimeXp", 11))
+            .put("settings", JSONObject().put("enabled", false).put("reportRange", "month"))
+            .put("hiddenDefaultTemplates", JSONArray().put("daily-plan"))
         val local = WorkspacePatch.localDocument(old, null, localHabit, null)
         val result = WorkspacePatch.apply(old, local, old, setOf("habits"), 8, stamp(), "android-test")
         assertEquals(11, result.document.getJSONObject("userProgress").getInt("lifetimeXp"))
         assertTrue(result.document.getJSONObject("userProgress").getBoolean("webOnly"))
-        assertTrue(result.document.getJSONObject("habitSettings").getBoolean("enabled"))
+        assertFalse(result.document.getJSONObject("habitSettings").getBoolean("enabled"))
+        assertEquals("month", result.document.getJSONObject("habitSettings").getString("reportRange"))
+        assertEquals("daily-plan", result.document.getJSONArray("hiddenDefaultTemplates").getString(0))
     }
 }

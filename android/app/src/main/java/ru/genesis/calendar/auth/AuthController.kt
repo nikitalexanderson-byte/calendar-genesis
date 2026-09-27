@@ -2,7 +2,6 @@ package ru.genesis.calendar.auth
 
 import android.app.Activity
 import android.app.PendingIntent
-import android.accounts.Account
 import android.content.Context
 import android.content.Intent
 import android.util.Log
@@ -112,9 +111,11 @@ class AuthController private constructor(context: Context) {
             if (!client.isCurrent(generation)) throw CancellationException()
             val request = AuthorizationRequest.builder()
                 .setRequestedScopes(access.scopesForConsent().map(::Scope))
-                .setAccount(Account(identity.email, "com.google"))
                 .requestOfflineAccess(serverClientId)
-                .setPrompt(AuthorizationRequest.Prompt.CONSENT)
+                // Always make the hand-off visible. SELECT_ACCOUNT also avoids an
+                // immediate silent failure when the GENESIS session email is not
+                // currently registered as an Android account on this device.
+                .setPrompt(AuthorizationRequest.Prompt.CONSENT or AuthorizationRequest.Prompt.SELECT_ACCOUNT)
                 .build()
             val authorization = try {
                 Identity.getAuthorizationClient(activity).authorize(request).awaitResult()

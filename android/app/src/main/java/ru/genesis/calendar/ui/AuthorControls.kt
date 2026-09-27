@@ -2,7 +2,6 @@ package ru.genesis.calendar.ui
 
 import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -28,15 +27,24 @@ private val priorityColors = listOf(0xff4f9f68,0xff68ad63,0xff87b75b,0xffaebe50,
 private val priorityNames = listOf("Можно позже","Низкий","Ниже среднего","Умеренный","Средний",
     "Заметный","Высокий","Очень высокий","Срочный","Горит")
 
+internal fun priorityForPosition(x: Float, width: Int): Int =
+    ((x.coerceIn(0f, width.coerceAtLeast(1).toFloat()) / width.coerceAtLeast(1)) * 10)
+        .toInt().coerceIn(0, 9) + 1
+
 @Composable
 fun PriorityControl(value: Int, onChange: (Int) -> Unit) {
     Column(Modifier.fillMaxWidth()) {
         Text("Приоритет · ${priorityNames[value - 1]} · $value из 10")
-        Row(Modifier.fillMaxWidth().height(72.dp).testTag("priority-scale").pointerInput(onChange) {
-            fun selectAt(x: Float) {
-                onChange(((x / size.width.coerceAtLeast(1)) * 10).toInt().coerceIn(0, 9) + 1)
+        Row(Modifier.fillMaxWidth().height(72.dp).testTag("priority-scale")
+            .semantics {
+                progressBarRangeInfo = ProgressBarRangeInfo(value.toFloat(), 1f..10f, 8)
+                setProgress { requested -> onChange(requested.roundToInt().coerceIn(1, 10)); true }
             }
-            detectDragGesturesAfterLongPress(onDragStart = { selectAt(it.x) }) { change, _ ->
+            .pointerInput(onChange) {
+            fun selectAt(x: Float) {
+                onChange(priorityForPosition(x, size.width))
+            }
+            detectDragGestures(onDragStart = { selectAt(it.x) }) { change, _ ->
                 selectAt(change.position.x)
                 change.consume()
             }

@@ -71,6 +71,9 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     val structure by structureRepo.workspace.collectAsStateWithLifecycle(WorkspaceStructure())
     val prefsStore=remember(app, activeScope) { LocalPreferences(app,activeScope) }
     val prefs by prefsStore.values.collectAsStateWithLifecycle(UiPreferences())
+    val habitSettingsRepository = remember(app, activeScope) { HabitsRepository(app) }
+    val habitWorkspace by habitSettingsRepository.workspace.collectAsStateWithLifecycle(LocalHabitWorkspace())
+    val habitTrackingEnabled = habitWorkspace.settings.enabled
     val welcomePrefsStore=remember(app) { LocalPreferences(app,"welcome") }
     val welcomePrefs by welcomePrefsStore.values.collectAsStateWithLifecycle(UiPreferences())
     val authController = remember(app) { ru.genesis.calendar.auth.AuthController.get(app) }
@@ -100,6 +103,9 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     var newTaskProjectId by rememberSaveable { mutableStateOf<String?>(null) }
     var requestedTheokyklosSector by rememberSaveable { mutableStateOf<String?>(null) }
     var selected by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
+    LaunchedEffect(habitTrackingEnabled, tab) {
+        if (!habitTrackingEnabled && tab == "Привычки") tab = "Сегодня"
+    }
     LaunchedEffect(openedTask) { if(openedTask!=null) { editId=openedTask; creating=false; tab="Задачи" } }
     MaterialTheme(colorScheme=standart) {
       CompositionLocalProvider(LocalGenesisLanguage provides
@@ -135,7 +141,8 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                     else "Локальные черновики · аккаунт не подключён",Modifier.padding(horizontal=16.dp),
                     style=MaterialTheme.typography.bodySmall)
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal=8.dp)) {
-                    listOf("Сегодня","Задачи","Проекты","Календарь","Привычки","Стойхейон","Теокиклос","Настройки").forEach {
+                    listOf("Сегодня","Задачи","Проекты","Календарь","Привычки","Стойхейон","Теокиклос","Настройки")
+                        .filter { habitTrackingEnabled || it != "Привычки" }.forEach {
                         FilterChip(selected=tab==it,onClick={tab=it},label={Text(it)},modifier=Modifier.padding(3.dp))
                     }
                 }
@@ -151,7 +158,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                     "Проекты" -> ProjectsScreen(app,tasks,true,
                         onOpenTask={ taskId -> editId=taskId;creating=false;tab="Задачи" },
                         onCreateTask={ projectId -> newTaskProjectId=projectId;editId=null;creating=true })
-                    "Настройки" -> SettingsScreen(app,prefs,authState.busy,authState.user != null,authState.message) { name,value ->
+                    "Настройки" -> SettingsScreen(app,prefs,authState.busy) { name,value ->
                         if (authState.user != null) authController.updateSharedPreference(name,value)
                         else scope.launch { prefsStore.set(name,value) }
                     }
@@ -304,6 +311,7 @@ fun OriginalImage(path: String, description: String?, modifier: Modifier=Modifie
 @Composable
 private fun DayHeader(date: LocalDate,mode: CalendarMode) {
     val calendar=remember { GenesisCalendar() }
+    val solarLocation by rememberAutomaticSolarLocation(calendar.zoneId)
     val language = LocalGenesisLanguage.current
     val copy = remember(date,mode,language) { todayHeroCopy(date,mode,calendar,language) }
         Card(Modifier.fillMaxWidth().testTag("today-hero"), shape = RoundedCornerShape(20.dp),
@@ -337,6 +345,8 @@ private fun DayHeader(date: LocalDate,mode: CalendarMode) {
                         color = Color(0xffeee6d7), style = MaterialTheme.typography.bodyMedium)
                     copy.details.forEach { Text(it, color = Color(0xffeee6d7),
                         style = MaterialTheme.typography.bodySmall) }
+                    SunriseSunsetLine(date, solarLocation, calendar,
+                        accent = Color(0xfff4deb0), textColor = Color(0xffd7dfd8))
                     Text(copy.footerDate,
                         color = Color(0xffdfc17e), style = MaterialTheme.typography.labelMedium)
                 }
@@ -576,8 +586,7 @@ private fun ProjectHierarchyPicker(projects: List<GenesisProject>, selectedId: S
 }
 
 @Composable
-private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy:Boolean,signedIn:Boolean,
-    sharedStatus:String,
+private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy:Boolean,
     onSet:(String,String)->Unit) {
     var refresh by remember { mutableIntStateOf(0) }
     val request=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()){refresh++}
@@ -599,16 +608,6 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
                         style=MaterialTheme.typography.bodySmall,color = Color(0xffc8d9d4))
                 }
             }
-        }
-        SettingsSection("文", "Язык интерфейса",
-            if(signedIn) "Выбор сохраняется в аккаунте GENESIS" else "Выбор хранится на этом устройстве",
-            Color(0xfffff5df)) {
-            LanguageChips(prefs.language) { onSet("language",it) }
-            Text(if(signedIn) "Календарь, время и гадания сохраняются в аккаунте GENESIS и зеркалируются на устройстве."
-                else "До входа эти настройки сохраняются только на устройстве.",style=MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if(signedIn) Text(sharedStatus,style=MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary)
         }
         SettingsSection("◉", "Календари и время", "Отображение не меняет календарь ввода и повторений",
             Color(0xffe4efed)) {
@@ -641,6 +640,7 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
                     modifier=Modifier.testTag("stoicheion-divination-setting"))
             }
         }
+        HabitSettingsPanel(app, prefs.use24)
         SettingsSection("◷", "Системные напоминания", "Проверка разрешений и точности Android",
             Color(0xfffff1cf)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -669,7 +669,11 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
         }
         SettingsSection("G", "Аккаунт GENESIS", "Вход, синхронизация и связанные Google-аккаунты",
             Color(0xfff4e8df)) {
-            ru.genesis.calendar.auth.AuthPanel(app)
+            ru.genesis.calendar.auth.AuthPanel(app, prefs.language) { onSet("language", it) }
+        }
+        SettingsSection("↗", "Ссылки GENESIS", "Академия, поддержка и веб-версия",
+            Color(0xfffff5df)) {
+            ru.genesis.calendar.auth.GenesisLinksPanel()
         }
         Text("Версия ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",style=MaterialTheme.typography.labelSmall,
             modifier = Modifier.align(Alignment.CenterHorizontally), color = MaterialTheme.colorScheme.onSurfaceVariant)

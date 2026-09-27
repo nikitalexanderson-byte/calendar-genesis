@@ -19,7 +19,8 @@ internal object WorkspacePatch {
     private val kinds = mapOf(
         "workspace-structure" to listOf("projects", "categories", "taskListLinks"),
         "habits" to listOf("habits", "habitCompletions", "dailyGoalRecords", "quests",
-            "achievementUnlocks", "rewardTransactions", "streakFreezeTransactions", "userProgress"),
+            "achievementUnlocks", "rewardTransactions", "streakFreezeTransactions", "userProgress",
+            "habitSettings", "hiddenDefaultTemplates"),
         "trackers" to listOf("sleepPlans", "sleepEntries", "moodEntries"),
     )
 
@@ -122,7 +123,8 @@ internal object WorkspacePatch {
             mapOf("habits" to "habits", "completions" to "habitCompletions", "goals" to "dailyGoalRecords",
                 "rewards" to "rewardTransactions", "achievementUnlocks" to "achievementUnlocks",
                 "streakFreezeTransactions" to "streakFreezeTransactions", "quests" to "quests",
-                "progress" to "userProgress").forEach { (source, target) -> output.put(target, part.get(source)) }
+                "progress" to "userProgress", "settings" to "habitSettings",
+                "hiddenDefaultTemplates" to "hiddenDefaultTemplates").forEach { (source, target) -> output.put(target, part.get(source)) }
         }
         trackers?.let { part -> listOf("sleepPlans", "sleepEntries", "moodEntries").forEach { output.put(it, part.getJSONArray(it)) } }
         return output

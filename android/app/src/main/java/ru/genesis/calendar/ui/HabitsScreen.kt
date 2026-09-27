@@ -1,5 +1,8 @@
 package ru.genesis.calendar.ui
 
+import android.media.AudioManager
+import android.media.ToneGenerator
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
@@ -12,6 +15,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.Lifecycle
@@ -19,6 +24,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import java.time.*
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collect
 import ru.genesis.calendar.GenesisApplication
@@ -56,6 +62,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
     var heroPathOpen by rememberSaveable { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var today by remember { mutableStateOf(LocalDate.now()) }
+    val hapticFeedback = LocalHapticFeedback.current
     val engine=HabitEngine(GenesisCalendar())
     suspend fun runAction(action: suspend () -> Unit) {
         busy=true
@@ -64,6 +71,15 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
         catch(e: IllegalArgumentException) { error=e.message ?: "Проверьте введённые данные." }
         catch(_: Exception) { error="Не удалось сохранить привычки. Данные формы сохранены на экране." }
         finally { busy=false }
+    }
+    suspend fun completionFeedback(settings: HabitFeedbackSettings) {
+        if (settings.haptics) hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+        if (settings.sound) {
+            val tone = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 35)
+            tone.startTone(ToneGenerator.TONE_PROP_ACK, 120)
+            delay(140)
+            tone.release()
+        }
     }
     LaunchedEffect(repository) {
         try { repository.workspace.collect { workspace=it; storageError=false } }
@@ -94,7 +110,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
         } else {
             val rank=HeroProgress.rankForProgress(current.progress)
             val goal=current.goals.firstOrNull { it.date==today }
-            Surface(Modifier.fillMaxWidth().testTag("habit-daily-hero"),shape=RoundedCornerShape(24.dp),color=Color(0xff123b36)) {
+            if (current.settings.feedback.gamificationWidgets) Surface(Modifier.fillMaxWidth().testTag("habit-daily-hero"),shape=RoundedCornerShape(24.dp),color=Color(0xff123b36)) {
                 Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
                     Text("ЕЖЕДНЕВНЫЙ РИТМ",style=MaterialTheme.typography.labelMedium,color=Color(0xffdfc17e))
                     Text(if(goal==null || goal.scheduledCount==0) "Свободный день" else
@@ -126,7 +142,8 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                 OutlinedButton(enabled=!busy&&!storageError,onClick={catalogueOpen=!catalogueOpen},modifier=Modifier.weight(1f)) {
                     Text(if(catalogueOpen) "Скрыть подборку" else "Подборка") }
             }
-            if(catalogueOpen) HabitTemplateCatalog.templates.forEach { template ->
+            if(catalogueOpen) HabitTemplateCatalog.templates
+                .filterNot { it.id in current.hiddenDefaultTemplates }.forEach { template ->
                 Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(12.dp)) {
                     Text("${template.icon} ${template.title}",style=MaterialTheme.typography.titleMedium)
                     Text(template.description)
@@ -148,7 +165,11 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                 val entry=current.completions.firstOrNull { it.habitId==habit.id && it.date==today }
                 val scheduled=runCatching { engine.isScheduled(habit,today) }.getOrDefault(false)
                 if (experimental) ExperimentalHabitCard(habit, entry, scheduled, busy || storageError,
-                    onComplete={checked,quality -> scope.launch { runAction { repository.complete(habit.id,checked,quality) } }},
+                    animate = current.settings.feedback.animations,
+                    onComplete={checked,quality -> scope.launch { runAction {
+                        repository.complete(habit.id,checked,quality)
+                        if (checked) completionFeedback(current.settings.feedback)
+                    } }},
                     onEdit={edit=habit;editorOpen=true},
                     onToggle={scope.launch { runAction { repository.save(habit.copy(active=!habit.active)) } }},
                     onDelete={deleteCandidate=habit})
@@ -161,11 +182,16 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                         Text("Качество: ${quality.toInt()}")
                         Slider(value=quality,onValueChange={quality=it},enabled=!busy&&!storageError,valueRange=if(habit.scoringMode=="quality-ten") 1f..10f else -5f..5f,
                             steps=if(habit.scoringMode=="quality-ten") 8 else 9)
-                        Button(enabled=!busy&&!storageError,onClick={scope.launch { runAction { repository.complete(habit.id,true,quality.toDouble()) } }}) { Text(if(entry?.completed==true) "Обновить оценку" else "Выполнено") }
+                        Button(enabled=!busy&&!storageError,onClick={scope.launch { runAction {
+                            repository.complete(habit.id,true,quality.toDouble()); completionFeedback(current.settings.feedback)
+                        } }}) { Text(if(entry?.completed==true) "Обновить оценку" else "Выполнено") }
                         if(entry?.completed==true) TextButton(enabled=!busy&&!storageError,onClick={scope.launch { runAction { repository.complete(habit.id,false,entry.qualityValue) } }}) { Text("Снять отметку") }
                     } else Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                         Checkbox(checked=entry?.completed==true,enabled=scheduled&&!busy&&!storageError,
-                            onCheckedChange={ checked -> scope.launch { runAction { repository.complete(habit.id,checked) } } })
+                            onCheckedChange={ checked -> scope.launch { runAction {
+                                repository.complete(habit.id,checked)
+                                if (checked) completionFeedback(current.settings.feedback)
+                            } } })
                         Text(if(entry?.completed==true) "Выполнено · ${entry.score} баллов" else "Отметить выполнение",Modifier.padding(top=12.dp))
                     }
                     Row {
@@ -177,7 +203,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                     }
                 } }
             }
-            if (experimental) {
+            if (experimental && current.settings.feedback.gamificationWidgets) {
                 Surface(Modifier.fillMaxWidth().testTag("habit-hero-path-section"),
                     shape = RoundedCornerShape(22.dp), color = Color(0xff0b2b2d),
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x99dfc17e)),
@@ -227,7 +253,8 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                 if(heroPathOpen) HabitArtGallery(current, today, busy,
                     onClaimAmphora = { rankId -> scope.launch { runAction { repository.claimHeroPathAmphora(rankId) } } },
                     onRevealHiddenPath = { scope.launch { runAction { repository.revealHiddenHeroicPath() } } },
-                    onBuySpark = { scope.launch { runAction { repository.buyHestiaSpark() } } })
+                    onBuySpark = { scope.launch { runAction { repository.buyHestiaSpark() } } },
+                    showQuests = current.settings.feedback.questsEnabled)
             }
             if(current.completions.isNotEmpty()) {
                 Text("История отметок",style=MaterialTheme.typography.titleMedium)
@@ -259,14 +286,17 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
 
 @Composable
 private fun ExperimentalHabitCard(habit: Habit, entry: HabitCompletion?, scheduled: Boolean, disabled: Boolean,
-    onComplete: (Boolean, Double?) -> Unit, onEdit: () -> Unit, onToggle: () -> Unit, onDelete: () -> Unit) {
+    animate: Boolean, onComplete: (Boolean, Double?) -> Unit, onEdit: () -> Unit,
+    onToggle: () -> Unit, onDelete: () -> Unit) {
     val status = if (!habit.active) "На паузе" else if (scheduled) "Запланировано сегодня" else "Сегодня свободно"
     val calendar = when (habit.schedule.recurrence.mode) {
         "classic" -> "Григорианский ритм"
         "lunar" -> "Лунный ритм"
         else -> "Сакральный ритм"
     }
-    Card(Modifier.fillMaxWidth().testTag("habit-card-${habit.id}"), shape = RoundedCornerShape(18.dp),
+    val cardModifier = if (animate) Modifier.fillMaxWidth().animateContentSize()
+        else Modifier.fillMaxWidth()
+    Card(cardModifier.testTag("habit-card-${habit.id}"), shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xfff8f3e8))) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {

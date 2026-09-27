@@ -18,16 +18,18 @@ import ru.genesis.calendar.ui.Text
 
 /** Server-owned routing; account-scoped task edits are synchronized via the native outbox. */
 @Composable
-internal fun MultiAccountPanel(state: AuthPanelState, controller: AuthController) {
+internal fun MultiAccountPanel(state: AuthPanelState, controller: AuthController, showHeading: Boolean = true) {
     val settings = state.accountSettings ?: return
     val context = LocalContext.current
     var draft by remember { mutableStateOf(settings.routing) }
     var removeCandidate by remember { mutableStateOf<LinkedGoogleAccount?>(null) }
     LaunchedEffect(settings) { draft = settings.routing }
 
-    HorizontalDivider()
-    Text("Несколько Google-аккаунтов", style = MaterialTheme.typography.titleMedium)
-    Text("Связанные аккаунты и правила отправки задач на сайте GENESIS.", style = MaterialTheme.typography.bodySmall)
+    if (showHeading) {
+        HorizontalDivider()
+        Text("Несколько Google-аккаунтов", style = MaterialTheme.typography.titleMedium)
+        Text("Связанные аккаунты и правила отправки задач на сайте GENESIS.", style = MaterialTheme.typography.bodySmall)
+    }
     settings.accounts.forEach { account ->
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {

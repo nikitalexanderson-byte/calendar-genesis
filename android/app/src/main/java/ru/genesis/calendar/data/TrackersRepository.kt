@@ -63,6 +63,7 @@ class TrackersRepository(app: GenesisApplication) {
         val entry=MoodTracker.entry(meta,date,stamp,value.toDouble(),note=note,tags=tags)
         current.copy(moodEntries=current.moodEntries.filterNot { it.date==date }+entry)
     }
+    suspend fun resetTracking() = mutate { LocalTrackersWorkspace(revision = it.revision) }
 }
 
 internal object TrackersDocument {

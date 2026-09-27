@@ -1,0 +1,192 @@
+package ru.genesis.calendar.ui
+
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import ru.genesis.calendar.domain.CalendarMode
+import ru.genesis.calendar.domain.GenesisCalendar
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
+import java.time.temporal.ChronoUnit
+import java.util.Locale
+
+private val yearCardBackground = Color(0xff08282a)
+private val yearCardSurface = Color(0xff123638)
+private val yearCardText = Color(0xfff5edda)
+private val yearCardMuted = Color(0xffb8cac4)
+private val yearCardGold = Color(0xffe4bd64)
+
+private data class YearMetric(val value: String, val label: String)
+
+@Composable
+internal fun CalendarYearDescriptionCard(calendar: GenesisCalendar, shown: LocalDate, mode: CalendarMode) {
+    val english = LocalGenesisLanguage.current == "en"
+    fun copy(russian: String, englishText: String) = if (english) englishText else russian
+    val sacredYear = calendar.sacredDate(shown).sacredYear
+    val lunarYear = remember(sacredYear) { calendar.lunarYear(sacredYear) }
+    val lunarDays = ChronoUnit.DAYS.between(lunarYear.startDate, lunarYear.endDate).toString()
+    var detailsOpen by rememberSaveable { mutableStateOf(false) }
+
+    val title: String
+    val eyebrow: String
+    val paragraphs: List<String>
+    val metrics: List<YearMetric>
+    when (mode) {
+        CalendarMode.SACRED -> {
+            eyebrow = copy("РИТМ GENESIS", "GENESIS RHYTHM")
+            title = copy("Солнечно-лунный календарь", "Solar-lunar calendar")
+            paragraphs = listOf(
+                copy("Год GENESIS начинается в день весеннего равноденствия и раскрывается через двенадцать месяцев. Каждый месяц несёт собственный образ, цвет, стихию и смысл — не просто отрезок времени, а отдельную ступень годового пути.",
+                    "The GENESIS year begins on the spring equinox and unfolds through twelve months. Each month carries its own image, color, element, and meaning—a distinct stage of the annual path."),
+                copy("В каждом месяце ровно 30 дней. Вместо привычных недель время собрано в шесть пят: коротких пятидневных ритмов, где нечётные и чётные пяты сменяют друг друга. Так солнечная мера года соединяется с живым лунным дыханием.",
+                    "Each month has exactly 30 days, arranged into six five-day rhythms instead of ordinary weeks. The solar measure of the year meets the living breath of the Moon."),
+                copy("Равноденствия и солнцестояния образуют четыре праздничные опоры. После двенадцатого месяца наступает Апейрон — несколько дней вне обычного счёта, пространство тишины перед новым весенним началом.",
+                    "The equinoxes and solstices form four festive supports. After the twelfth month comes Apeiron: several days outside ordinary counting, a quiet space before the new spring beginning."),
+            )
+            metrics = listOf(YearMetric("12", copy("символических месяцев", "symbolic months")),
+                YearMetric("30", copy("дней в каждом месяце", "days in each month")),
+                YearMetric("6", copy("пят вместо недель", "pentads instead of weeks")),
+                YearMetric("4", copy("солнечных праздника года", "solar festivals")))
+        }
+        CalendarMode.PROFANE -> {
+            eyebrow = copy("ГРИГОРИАНСКИЙ КАЛЕНДАРЬ", "GREGORIAN CALENDAR")
+            title = copy("Григорианский календарь (профанский)", "Gregorian calendar (civil)")
+            paragraphs = listOf(
+                copy("Современный григорианский календарь — профанская гражданская система с многослойной историей. Его месяцы и счёт года унаследованы от Рима. Семидневный ритм соединил вавилонскую астрологию, иудейскую субботу и греко-римскую планетарную традицию.",
+                    "The modern Gregorian calendar is a civil system with a layered history. Its months and year count came from Rome, while its seven-day rhythm joins Babylonian astrology, the Jewish Sabbath, and Greco-Roman planetary tradition."),
+                copy("Январь связывали с Янусом, богом дверей и начал. Реформа Юлия Цезаря закрепила 1 января как гражданское начало года, а реформа папы Григория XIII в 1582 году вернула весеннее равноденствие к церковному расчёту Пасхи.",
+                    "January was linked to Janus, god of doors and beginnings. Julius Caesar's reform established January 1 as the civil opening of the year, and Pope Gregory XIII's 1582 reform restored the spring equinox to the Church's Easter reckoning."),
+                copy("В GENESIS покровителем этого летоисчисления выступает Кронос — образ времени, меры, предела и хода циклов. Суббота понимается как сакральный день покоя, восстановления тела и возвращения к внутренней тишине.",
+                    "In GENESIS, Cronus presides over this chronology as an image of time, measure, limits, and the course of cycles. Saturday becomes a sacred day of rest, bodily restoration, and return to inner quiet."),
+                copy("Касание дня открывает задачи, сакральный смысл, фазу Луны, точное время восхода и заката для региона устройства.",
+                    "Tap a day to open tasks, sacred meaning, Moon phase, and precise sunrise and sunset times for the device region."),
+            )
+            metrics = listOf(YearMetric("12", copy("месяцев", "months")),
+                YearMetric(shown.lengthOfYear().toString(), copy("дней в круге", "days in the cycle")),
+                YearMetric("3", copy("системы дат в каждом дне", "date systems per day")),
+                YearMetric("4", copy("солнечные точки", "solar points")))
+        }
+        CalendarMode.LUNAR -> {
+            eyebrow = copy("ЛУННЫЙ КАЛЕНДАРЬ", "LUNAR CALENDAR")
+            title = copy("Лунный год", "Lunar year")
+            val start = lunarYear.startDate.format(DateTimeFormatter.ofPattern(if (english) "EEEE, MMMM d, yyyy" else "EEEE, d MMMM yyyy г.",
+                if (english) Locale.ENGLISH else Locale.forLanguageTag("ru"))).replaceFirstChar { it.titlecase() }
+            paragraphs = listOf(
+                copy("Год начинается $start — в день первого точного новолуния после весеннего равноденствия — и включает ${lunarYear.monthCount} лунных месяцев по 29 или 30 суток.",
+                    "The year begins on $start, the first exact new moon after the spring equinox, and includes ${lunarYear.monthCount} lunar months of 29 or 30 days."),
+                copy("В системе GENESIS это магический «женский» год: его внутренняя ткань определяется не месяцами и неделями солнечного года, а ростом, полнотой и исходом Луны. Весеннее равноденствие служит только ежегодной точкой настройки.",
+                    "In GENESIS this is a magical feminine year, shaped by the Moon's growth, fullness, and waning rather than the months and weeks of the solar year. The spring equinox is only its annual tuning point."),
+                copy("Это современная символическая система GENESIS, а не реконструкция единого древнегреческого календаря. Её античная опора — образ Селены и полнота Луны в середине месяца; греческие лунно-солнечные календари удерживали месяцы рядом с сезонами вставочным месяцем.",
+                    "This is a modern GENESIS symbolic system, not a reconstruction of a single ancient Greek calendar. It draws on Selene and the Moon's fullness at mid-month; Greek lunisolar calendars kept months near the seasons with an intercalary month."),
+            )
+            metrics = listOf(YearMetric(lunarYear.monthCount.toString(), copy("месяцев", "months")),
+                YearMetric(lunarDays, copy("дней в круге", "days in the cycle")),
+                YearMetric("3", copy("системы дат в каждом дне", "date systems per day")),
+                YearMetric("4", copy("солнечные точки", "solar points")))
+        }
+    }
+
+    Surface(Modifier.fillMaxWidth().testTag("calendar-year-description-${mode.wireValue}"),
+        shape = RoundedCornerShape(24.dp), color = yearCardBackground,
+        border = BorderStroke(1.dp, Color(0x665f8a7d))) {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            if (mode == CalendarMode.PROFANE) OriginalImage("calendar-art/saturn-cronus.webp",
+                copy("Кронос с косой и золотой сигиллой Сатурна", "Cronus with a scythe and golden Saturn sigil"),
+                Modifier.fillMaxWidth().height(280.dp).testTag("calendar-year-cronus-art"))
+            Column(Modifier.padding(if (mode == CalendarMode.PROFANE) PaddingValues(start = 18.dp, end = 18.dp, bottom = 20.dp)
+                else PaddingValues(18.dp)), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(eyebrow, style = MaterialTheme.typography.labelMedium, color = yearCardGold)
+                Text(title, style = MaterialTheme.typography.headlineSmall, color = yearCardText)
+                paragraphs.take(if (mode == CalendarMode.SACRED) 2 else paragraphs.size).forEach {
+                    Text(it, style = MaterialTheme.typography.bodyMedium, color = yearCardMuted)
+                }
+                metrics.chunked(2).forEach { row ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        row.forEach { metric -> YearMetricTile(metric, Modifier.weight(1f)) }
+                    }
+                }
+                if (mode == CalendarMode.SACRED) {
+                    Text(paragraphs.last(), style = MaterialTheme.typography.bodyMedium, color = yearCardMuted)
+                    Button(onClick = { detailsOpen = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                        .testTag("sacred-year-details-open"),
+                        colors = ButtonDefaults.buttonColors(containerColor = yearCardGold, contentColor = yearCardBackground)) {
+                        Text("✦  " + copy("Подробнее  →", "Learn more  →"))
+                    }
+                }
+            }
+        }
+    }
+    if (detailsOpen) SacredYearDetailsDialog { detailsOpen = false }
+}
+
+@Composable
+private fun YearMetricTile(metric: YearMetric, modifier: Modifier) {
+    Surface(modifier.heightIn(min = 88.dp), shape = RoundedCornerShape(14.dp), color = yearCardSurface,
+        border = BorderStroke(1.dp, Color(0x445f8a7d))) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(metric.value, style = MaterialTheme.typography.headlineSmall, color = yearCardGold)
+            Text(metric.label.uppercase(), style = MaterialTheme.typography.labelSmall, color = yearCardMuted)
+        }
+    }
+}
+
+@Composable
+private fun SacredYearDetailsDialog(onDismiss: () -> Unit) {
+    val english = LocalGenesisLanguage.current == "en"
+    fun copy(russian: String, englishText: String) = if (english) englishText else russian
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(Modifier.fillMaxWidth().fillMaxHeight(0.92f).testTag("sacred-year-details-dialog"),
+            shape = RoundedCornerShape(24.dp), color = yearCardBackground,
+            border = BorderStroke(1.dp, Color(0x88e4bd64))) {
+            LazyColumn(contentPadding = PaddingValues(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                item {
+                    Row(verticalAlignment = Alignment.Top) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                            Text(copy("САКРАЛЬНАЯ ГЕОМЕТРИЯ ВРЕМЕНИ", "SACRED GEOMETRY OF TIME"),
+                                style = MaterialTheme.typography.labelMedium, color = yearCardGold)
+                            Text(copy("Почему наш год устроен именно так?", "Why is our year structured this way?"),
+                                style = MaterialTheme.typography.headlineSmall, color = yearCardText)
+                        }
+                        IconButton(onClick = onDismiss, modifier = Modifier.testTag("sacred-year-details-close")) {
+                            Text("×", style = MaterialTheme.typography.headlineSmall, color = yearCardGold)
+                        }
+                    }
+                }
+                item { YearDetailsSection("✦", copy("Основа", "Foundation"), listOf(
+                    copy("Почему наш год начинается в день весеннего равноденствия? Почему в месяце ровно 30 дней, разбитых на 6 «пят», а самих месяцев 12, плюс «скрытый» 13-й месяц?", "Why does the year begin on the spring equinox? Why does each month contain 30 days arranged into six pentads, with twelve months plus a hidden thirteenth?"),
+                    copy("Это классическая сакральная геометрия времени, где каждый день — шаг в эволюции духа. Рассмотрим её через оптику Пифагора, Гесиода и Гомера.", "This is sacred geometry of time, where every day is a step in the evolution of spirit. We can read it through Pythagoras, Hesiod, and Homer."))) }
+                item { YearDetailsSection("🌱", copy("Почему год начинается в весеннее равноденствие?", "Why does the year begin at the spring equinox?"), listOf(
+                    copy("20 марта — точка преодоления инерции зимы, первый день месяца Арейос. 12 месяцев — полный солярный круг, а 5–6 оставшихся дней — Апейрон, время чистого Хаоса вне времени, когда старый мир рухнул, а новый ещё не рождён.", "March 20 overcomes winter's inertia and opens Areios. Twelve months complete the solar circle; the remaining five or six days are Apeiron, pure Chaos outside time between the old world and the unborn new one."))) }
+                item { YearDetailsSection("🖐", copy("Пентада: 5 стихий и геометрия восхождения", "Pentad: five elements and the geometry of ascent"), listOf(
+                    copy("Каждая Пята — микрокосм восхождения души: Земля — Вода — Воздух — Огонь — Эфир.", "Each Pentad is a microcosm of the soul's ascent: Earth, Water, Air, Fire, and Aether."),
+                    copy("Пифагор: мир идёт от стабильного к тонкому. Гесиод: творение идёт от тяжести к сиянию. Гомер: движение всегда идёт снизу вверх. Успех дела требует пройти путь от «заземления» идеи до её «одухотворения» в эфире.", "Pythagoras moves from stability to subtlety; Hesiod from heaviness to radiance; Homer from below to above. Every undertaking moves from grounding an idea to spiritualizing it in Aether."))) }
+                item { YearDetailsSection("🎲", copy("Гексада: 6 Пят и Куб Событий", "Hexad: six Pentads and the Cube of Events"), listOf(
+                    copy("Если Пята — инструмент стихий, то Гексада — рамка времени. 6 пят образуют 30 дней месяца.", "If the Pentad is the elemental instrument, the Hexad is its frame in time. Six Pentads form a 30-day month."),
+                    copy("Для пифагорейцев 6 — первое совершенное число, число сотворения мира и шести граней куба. Шесть Пят — шесть сторон «событийного куба» месяца. У Гесиода это шесть поколений, у Гомера — шесть граней эпического пути героя.", "For the Pythagoreans, six is the first perfect number and the number of the cube's faces. Six Pentads are the six sides of the month's event cube; Hesiod sees six generations, and Homer six faces of the heroic path."))) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun YearDetailsSection(symbol: String, title: String, paragraphs: List<String>) {
+    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = Color(0xff061f21),
+        border = BorderStroke(1.dp, Color(0x445f8a7d))) {
+        Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(symbol, style = MaterialTheme.typography.headlineSmall)
+            Text(title, style = MaterialTheme.typography.titleLarge, color = Color(0xffffdda0))
+            paragraphs.forEach { Text(it, style = MaterialTheme.typography.bodyMedium, color = yearCardMuted) }
+        }
+    }
+}

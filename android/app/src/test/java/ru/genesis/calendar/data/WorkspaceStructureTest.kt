@@ -56,4 +56,16 @@ class WorkspaceStructureTest {
         assertEquals("",task.project)
         assertEquals(4,task.revision)
     }
+
+    @Test fun projectSubtreeDeletionIncludesEveryNestedDescendantOnly() {
+        val root=GenesisProject("root",null,null,"Root","",emptyList(),"active",0)
+        val child=root.copy(id="child",parentId="root",title="Child")
+        val grandchild=root.copy(id="grandchild",parentId="child",title="Grandchild")
+        val sibling=root.copy(id="sibling",title="Sibling")
+
+        assertEquals(setOf("root","child","grandchild"),
+            WorkspaceStructureCodec.projectSubtreeIds(listOf(root,child,grandchild,sibling),"root"))
+        assertEquals(emptySet<String>(),
+            WorkspaceStructureCodec.projectSubtreeIds(listOf(root),"missing"))
+    }
 }

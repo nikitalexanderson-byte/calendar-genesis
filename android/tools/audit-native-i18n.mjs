@@ -8,6 +8,9 @@ const I18N_SOURCE = path.join(SOURCE_ROOT, "ui/GenesisI18n.kt");
 const CYRILLIC = /[А-Яа-яЁё]/u;
 const SKIPPED_FILES = new Set([
   I18N_SOURCE,
+  // This component keeps every Russian string beside its reviewed English
+  // counterpart in a local copy(russian, english) helper.
+  path.join(SOURCE_ROOT, "ui/CalendarYearDescription.kt"),
 ]);
 
 function normalize(value) {

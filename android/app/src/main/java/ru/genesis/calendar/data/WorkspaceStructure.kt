@@ -106,6 +106,19 @@ object WorkspaceStructureCodec {
             .flatMap { listOf(it to depth) + children(it.id, depth + 1) }
         return children(null, 0)
     }
+
+    fun projectSubtreeIds(projects: List<GenesisProject>, rootId: String): Set<String> {
+        if (projects.none { it.id == rootId }) return emptySet()
+        val removed = mutableSetOf(rootId)
+        var changed = true
+        while (changed) {
+            changed = false
+            projects.forEach { project ->
+                if (project.parentId in removed && removed.add(project.id)) changed = true
+            }
+        }
+        return removed
+    }
 }
 
 class WorkspaceStructureRepository(private val app: GenesisApplication) {
@@ -136,9 +149,30 @@ class WorkspaceStructureRepository(private val app: GenesisApplication) {
             else current.projects + project)
     }
 
+    suspend fun deleteProject(projectId: String, expectedRevision: Long? = null) = mutate(expectedRevision) { current ->
+        val removed = WorkspaceStructureCodec.projectSubtreeIds(current.projects, projectId)
+        require(removed.isNotEmpty()) { "Проект больше не существует." }
+        current.copy(
+            projects = current.projects.filterNot { it.id in removed },
+            taskListLinks = current.taskListLinks.map { link ->
+                if (link.projectId in removed) link.copy(projectId = null) else link
+            },
+        )
+    }
+
     suspend fun saveCategory(category: GenesisCategory, expectedRevision: Long? = null) = mutate(expectedRevision) { current ->
         val existing = current.categories.any { it.id == category.id }
         current.copy(categories = if (existing) current.categories.map { if (it.id == category.id) category else it }
             else current.categories + category)
+    }
+
+    suspend fun deleteCategory(categoryId: String, expectedRevision: Long? = null) = mutate(expectedRevision) { current ->
+        require(current.categories.any { it.id == categoryId }) { "Категория больше не существует." }
+        current.copy(
+            categories = current.categories.filterNot { it.id == categoryId },
+            projects = current.projects.map { project ->
+                if (project.categoryId == categoryId) project.copy(categoryId = null) else project
+            },
+        )
     }
 }

@@ -27,13 +27,13 @@ import ru.genesis.calendar.ui.Text
 /** Persistent settings card: authentication and Google service grants are separate states. */
 @Composable
 fun GoogleServicesConnectPanel(state: AuthPanelState, controller: AuthController,
-    modifier: Modifier = Modifier, showWhenComplete: Boolean = false) {
+    modifier: Modifier = Modifier, showWhenComplete: Boolean = false, embedded: Boolean = false) {
     val access = GoogleServiceAccess.primary(state.accountSettings)
     if (state.user == null || (access.complete && !showWhenComplete)) return
     val activity = LocalContext.current.activity()
     var confirm by remember { mutableStateOf(false) }
 
-    Card(modifier.fillMaxWidth().testTag("google-services-connect")) {
+    val content: @Composable () -> Unit = {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(if (access.complete) "Google Calendar и Tasks подключены"
                 else "Подключите синхронизацию Google", style = MaterialTheme.typography.titleMedium)
@@ -49,6 +49,8 @@ fun GoogleServicesConnectPanel(state: AuthPanelState, controller: AuthController
             }
         }
     }
+    if (embedded) Column(modifier.fillMaxWidth().testTag("google-services-connect")) { content() }
+    else Card(modifier.fillMaxWidth().testTag("google-services-connect")) { content() }
 
     if (confirm) GoogleServicesConsentDialog(state, controller) { confirm = false }
 }
@@ -88,6 +90,11 @@ private fun GoogleServicesConsentDialog(state: AuthPanelState, controller: AuthC
                 Text("Google Tasks")
                 Text("GENESIS показывает и изменяет ваши списки и задачи по вашим действиям.",
                     style = MaterialTheme.typography.bodySmall)
+                state.user?.email?.let { email ->
+                    Text("В окне Google выберите тот же аккаунт: $email",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary)
+                }
                 if (attempted) Text(if (state.busy) "Открываем окно Google…" else state.message,
                     style = MaterialTheme.typography.bodySmall,
                     color = if (state.busy) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error)
