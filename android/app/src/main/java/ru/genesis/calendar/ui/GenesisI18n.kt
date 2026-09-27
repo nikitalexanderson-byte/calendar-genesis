@@ -595,6 +595,10 @@ private val nativeCopy = mapOf(
     "Разрешение Android выключено" to "Android permission is disabled",
     "Уведомления включены" to "Notifications are enabled", "Уведомления отключены" to "Notifications are disabled",
     "Поведение уведомлений" to "Notification tone", "Героический" to "Heroic", "С иронией" to "Wry",
+    "При выборе стиля сразу появится тестовое уведомление с примером формулировки." to
+        "Choosing a tone immediately shows a test notification with a sample message.",
+    "Android не разрешил показать пример уведомления." to
+        "Android did not allow the notification preview to be shown.",
     "Напоминание о дневной цели" to "Daily goal reminder", "Начало тихих часов" to "Quiet hours start",
     "Конец тихих часов" to "Quiet hours end", "Напоминания о цели и серии" to "Goal and streak reminders",
     "Показываются только пока цель достижима; не стыдят и не отнимают прогресс." to
@@ -627,6 +631,36 @@ private val nativeCopy = mapOf(
     "Дневная цель ещё достижима." to "Your daily goal is still within reach.",
     "Вас ждёт запланированная практика." to "A scheduled practice is waiting for you.",
     "Вас ждут запланированные практики:" to "Scheduled practices are waiting for you:",
+    "Героический зов: завершите практику дня и продолжите ритм." to
+        "Heroic call: complete today's practice and carry the rhythm forward.",
+    "Героический зов: запланированная практика ждёт свершения." to
+        "Heroic call: a planned practice awaits your action.",
+    "Героический зов: вас ждут практики — \$count." to
+        "Heroic call: \$count planned practices await your action.",
+    "Героический зов: вас ждут практики — " to "Heroic call: planned practices await your action — ",
+    "Дневная цель всё ещё ждёт. Кажется, терпения ей не занимать." to
+        "Your daily goal is still waiting. Apparently it has excellent patience.",
+    "Привычка заметила ваше отсутствие. Считаем это разминкой?" to
+        "Your practice noticed your absence. Shall we call that a warm-up?",
+    "Практики заметили ваше отсутствие — все \$count. Внимательная публика." to
+        "\$count practices noticed your absence. A remarkably attentive audience.",
+    "Практики заметили ваше отсутствие — все " to "Practices noticed your absence — all ",
+    "Внимательная публика." to "A remarkably attentive audience.",
+    "Спокойное напоминание: дневная цель ещё достижима." to
+        "A quiet nudge: your daily practice is still within reach.",
+    "Спокойное напоминание: вас ждёт запланированная практика." to
+        "A quiet nudge: a planned practice is waiting.",
+    "Спокойное напоминание: вас ждут практики — \$count." to
+        "A quiet nudge: \$count planned practices are waiting.",
+    "Спокойное напоминание: вас ждут практики — " to "A quiet nudge: planned practices are waiting — ",
+    "GENESIS · пример: \$label" to "GENESIS · \$label preview",
+    "GENESIS · пример: " to "GENESIS · preview: ",
+    "Новое достижение стало частью вашего пути." to
+        "A new achievement is now part of your path.",
+    "Новых достижений открыто: \$count." to
+        "\$count new achievements are now part of your path.",
+    "Новых достижений открыто: " to "New achievements unlocked: ",
+    "GENESIS · Достижение" to "GENESIS · Achievement",
     "В окне Google выберите тот же аккаунт:" to "In the Google window, choose the same account:",
 )
 

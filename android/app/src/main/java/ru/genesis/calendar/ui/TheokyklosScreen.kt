@@ -224,11 +224,12 @@ private fun TheokyklosMandala(sectors: List<TheokyklosSector>, english: Boolean,
 private fun mandalaPosition(sector: TheokyklosSector): Pair<Float, Float> {
     return when (sector.id) {
         // All four threshold nodes use the same orbit around the great circle.
-        // Entrance/exit now share the west–centre–east axis instead of falling below it.
+        // Entrance/exit share the west–centre–east axis: entrance by the east sector,
+        // exit by the west sector.
         "zenith" -> .5f to .075f
         "nadir" -> .5f to .905f
-        "entrance" -> .085f to .49f
-        "exit" -> .915f to .49f
+        "entrance" -> .915f to .49f
+        "exit" -> .085f to .49f
         "center" -> .5f to .49f
         else -> {
             val angle = Math.toRadians(requireNotNull(sector.angle).toDouble())

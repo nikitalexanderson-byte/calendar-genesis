@@ -68,6 +68,7 @@ class GregorianCalendarVisualTest {
         compose.onNodeWithText("Год").performClick()
         compose.onNodeWithText("Солнечные точки года").assertExists()
         compose.onNodeWithTag("solar-point-2026-09-23").assertExists()
+        compose.onNodeWithTag("calendar-year-cronus-art").assertDoesNotExist()
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
             .takeScreenshot(File(context.getExternalFilesDir(null), "solar-year-refined.png")))
@@ -103,7 +104,8 @@ class GregorianCalendarVisualTest {
         listOf(CalendarMode.SACRED, CalendarMode.LUNAR, CalendarMode.PROFANE).forEach { calendarMode ->
             compose.runOnIdle { mode = calendarMode }
             compose.waitForIdle()
-            compose.onNodeWithTag("calendar-task-count-$date").performScrollTo().assertIsDisplayed().performClick()
+            val badge = compose.onNodeWithTag("calendar-task-count-$date").performScrollTo().assertIsDisplayed()
+            badge.performClick()
             compose.onNodeWithTag("calendar-task-list-dialog").assertIsDisplayed()
             compose.onNodeWithText("Badge task").assertExists()
             compose.onNodeWithText("Закрыть").performClick()

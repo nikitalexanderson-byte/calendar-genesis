@@ -271,9 +271,19 @@ internal fun genesisRoman(value: Int): String {
     var rest = value
     val output = StringBuilder()
     listOf(1000 to "M", 900 to "CM", 500 to "D", 400 to "CD", 100 to "C", 90 to "XC",
-        50 to "L", 40 to "XL", 10 to "X", 9 to "IX", 5 to "V", 4 to "IIII", 1 to "I")
+        50 to "L", 40 to "XL", 10 to "X", 9 to "VIIII", 5 to "V", 4 to "IIII", 1 to "I")
         .forEach { (amount, symbol) -> while (rest >= amount) { output.append(symbol); rest -= amount } }
     return output.toString()
+}
+
+private val genesisMonthRomans = listOf(
+    "I", "II", "III", "IIII", "V", "VI", "VII", "VIII", "VIIII", "X", "XI", "XII", "O",
+)
+
+internal fun lunarSacredDateLabel(sacredDay: Int, pyata: Int, monthIndex: Int): String {
+    require(sacredDay in 1..30 && pyata in 1..6 && monthIndex in genesisMonthRomans.indices)
+    val dayInsidePyata = (sacredDay - 1) % 5 + 1
+    return "${genesisRoman(dayInsidePyata)}/$pyata/${genesisMonthRomans[monthIndex]}"
 }
 
 @Composable
@@ -286,8 +296,8 @@ private fun LunarCalendarDay(calendar: GenesisCalendar, date: LocalDate, selecte
     val locale = if (LocalGenesisLanguage.current == "en") Locale.ENGLISH else ru
     val weekday = date.dayOfWeek.getDisplayName(TextStyle.SHORT, locale).removeSuffix(".")
     val gregorian = date.format(DateTimeFormatter.ofPattern(if (LocalGenesisLanguage.current == "en") "d MMM" else "d MMM", locale))
-    val sacredLabel = "${genesisRoman(sacred.day)}·${SacredCatalog.months[sacred.monthIndex].days[sacred.day - 1].pyata}·" +
-        SacredCatalog.months[sacred.monthIndex].roman.replace("IV", "IIII")
+    val sacredLabel = lunarSacredDateLabel(sacred.day,
+        SacredCatalog.months[sacred.monthIndex].days[sacred.day - 1].pyata, sacred.monthIndex)
     val solarLabels = solarLocation?.let { solarTimeLabels(date, it, calendar) }
     val description = genesisTranslate("${lunar.day} лунный день · ${moon.phase} · $gregorian · $weekday · $sacredLabel" +
         (solarLabels?.let { " · Восход ${it.first}, закат ${it.second}" } ?: "") +
@@ -300,7 +310,7 @@ private fun LunarCalendarDay(calendar: GenesisCalendar, date: LocalDate, selecte
         color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
         border = if (!adjacent && date == LocalDate.now()) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null) {
         Box(Modifier.fillMaxWidth()) {
-            Column(Modifier.fillMaxWidth().padding(start = 4.dp, top = 6.dp, end = 30.dp, bottom = 6.dp),
+            Column(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(lunar.day.toString(), style = MaterialTheme.typography.titleSmall)
@@ -319,8 +329,8 @@ private fun LunarCalendarDay(calendar: GenesisCalendar, date: LocalDate, selecte
             }
             if (taskCount > 0 && !adjacent) {
                 val taskDescription = genesisTranslate("$taskCount задач на ${date.format(dateLabel(locale))}. Открыть список.")
-                Surface(onClick = { onTaskBadgeClick(date) }, modifier = Modifier.align(Alignment.TopEnd)
-                    .padding(top = 2.dp, end = 2.dp).sizeIn(minWidth = 24.dp, minHeight = 24.dp)
+                Surface(onClick = { onTaskBadgeClick(date) }, modifier = Modifier.align(Alignment.BottomEnd)
+                    .padding(end = 3.dp, bottom = 3.dp).sizeIn(minWidth = 24.dp, minHeight = 24.dp)
                     .testTag("calendar-task-count-$date").semantics { contentDescription = taskDescription },
                     shape = CircleShape, color = Color(0xffb63b42)) {
                     Box(contentAlignment = Alignment.Center) {

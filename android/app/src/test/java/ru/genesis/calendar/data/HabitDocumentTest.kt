@@ -73,6 +73,19 @@ class HabitDocumentTest {
             "Europe/Moscow", stamp).rewards)
     }
 
+    @Test fun disablingQuestsPreservesExistingProgressWithoutAdvancingOrPayingIt() {
+        val h = habit()
+        val initial = reconcileHabitWorkspace(LocalHabitWorkspace(habits = listOf(h)), day,
+            "Europe/Moscow", stamp)
+        assertEquals(3, initial.quests.size)
+        val entry = engine.updateCompletion(emptyList(), h, day, day, true, null, "", stamp, "quest-disabled")
+        val disabledSettings = initial.settings.copy(feedback = initial.settings.feedback.copy(questsEnabled = false))
+        val disabled = reconcileHabitWorkspace(initial.copy(completions = entry, settings = disabledSettings), day,
+            "Europe/Moscow", "2026-09-23T11:00:00.000Z")
+        assertEquals(initial.quests, disabled.quests)
+        assertFalse(disabled.rewards.any { it.reason.endsWith("quest") })
+    }
+
     @Test fun closingNewMissConsumesPurchasedSparkWithoutXpOrFalseCompletion() {
         val h = habit()
         val entries = engine.updateCompletion(emptyList(), h, day, day, true, null, "", stamp, "c-protected")

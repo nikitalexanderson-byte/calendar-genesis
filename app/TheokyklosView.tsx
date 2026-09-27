@@ -109,8 +109,8 @@ export function TheokyklosView({ language, workspace, date, calendarMode, initia
   const exit = segmentsById.get("exit")!;
   const zenithPoint = { x: 450, y: 54 };
   const nadirPoint = { x: 450, y: 786 };
-  const entrancePoint = { x: 84, y: 420 };
-  const exitPoint = { x: 816, y: 420 };
+  const entrancePoint = { x: 816, y: 420 };
+  const exitPoint = { x: 84, y: 420 };
   const outerNodeRadius = 54;
 
   return (
@@ -142,8 +142,8 @@ export function TheokyklosView({ language, workspace, date, calendarMode, initia
             <svg className="theokyklos-mandala" viewBox="0 0 900 840" role="img" aria-labelledby="theokyklos-svg-title theokyklos-svg-description">
               <title id="theokyklos-svg-title">{language === "en" ? "Interactive Circle of Divine Powers" : "Интерактивный Круг божественных сил"}</title>
               <desc id="theokyklos-svg-description">{language === "en"
-                ? "Eight directional sectors surround Hestia's inner ring and the central point of Dionysus and Ariadne. Zeus and Hera stand at the zenith, Hades and Persephone at the nadir, with the entrance on the western axis and the exit on the eastern axis."
-                : "Восемь направлений окружают внутреннее кольцо Гестии и центральную точку Диониса и Ариадны. Зевс и Гера стоят в зените, Аид и Персефона — в надире, вход расположен на западной оси, а выход — на восточной."}</desc>
+                ? "Eight directional sectors surround Hestia's inner ring and the central point of Dionysus and Ariadne. Zeus and Hera stand at the zenith, Hades and Persephone at the nadir, with the entrance on the eastern axis and the exit on the western axis."
+                : "Восемь направлений окружают внутреннее кольцо Гестии и центральную точку Диониса и Ариадны. Зевс и Гера стоят в зените, Аид и Персефона — в надире, вход расположен на восточной оси, а выход — на западной."}</desc>
               <defs>
                 <radialGradient id="theokyklos-core-glow" cx="50%" cy="45%" r="66%">
                   <stop offset="0%" stopColor="#f1d890" stopOpacity=".94" />

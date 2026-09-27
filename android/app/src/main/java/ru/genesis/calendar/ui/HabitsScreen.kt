@@ -63,6 +63,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
     var busy by remember { mutableStateOf(false) }
     var today by remember { mutableStateOf(LocalDate.now()) }
     val hapticFeedback = LocalHapticFeedback.current
+    val english = LocalGenesisLanguage.current == "en"
     val engine=HabitEngine(GenesisCalendar())
     suspend fun runAction(action: suspend () -> Unit) {
         busy=true
@@ -79,6 +80,14 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
             tone.startTone(ToneGenerator.TONE_PROP_ACK, 120)
             delay(140)
             tone.release()
+        }
+    }
+    suspend fun recordCompletion(id: String, checked: Boolean, quality: Double?, settings: HabitFeedbackSettings) {
+        val result = repository.complete(id, checked, quality)
+        if (checked) {
+            completionFeedback(settings)
+            if (settings.achievementPopups && result.newlyUnlockedAchievements > 0)
+                app.scheduler.showAchievementNotification(result.newlyUnlockedAchievements, english)
         }
     }
     LaunchedEffect(repository) {
@@ -167,13 +176,12 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                 if (experimental) ExperimentalHabitCard(habit, entry, scheduled, busy || storageError,
                     animate = current.settings.feedback.animations,
                     onComplete={checked,quality -> scope.launch { runAction {
-                        repository.complete(habit.id,checked,quality)
-                        if (checked) completionFeedback(current.settings.feedback)
+                        recordCompletion(habit.id,checked,quality,current.settings.feedback)
                     } }},
                     onEdit={edit=habit;editorOpen=true},
                     onToggle={scope.launch { runAction { repository.save(habit.copy(active=!habit.active)) } }},
                     onDelete={deleteCandidate=habit})
-                else Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
+                else Card((if (current.settings.feedback.animations) Modifier.animateContentSize() else Modifier).fillMaxWidth()) { Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
                     Text("${habit.emoji} ${habit.title}",style=MaterialTheme.typography.titleMedium)
                     if(habit.description.isNotEmpty()) Text(habit.description)
                     Text(if(!habit.active) "На паузе" else if(scheduled) "Запланировано сегодня" else "Сегодня не запланировано",style=MaterialTheme.typography.bodySmall)
@@ -183,14 +191,13 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                         Slider(value=quality,onValueChange={quality=it},enabled=!busy&&!storageError,valueRange=if(habit.scoringMode=="quality-ten") 1f..10f else -5f..5f,
                             steps=if(habit.scoringMode=="quality-ten") 8 else 9)
                         Button(enabled=!busy&&!storageError,onClick={scope.launch { runAction {
-                            repository.complete(habit.id,true,quality.toDouble()); completionFeedback(current.settings.feedback)
+                            recordCompletion(habit.id,true,quality.toDouble(),current.settings.feedback)
                         } }}) { Text(if(entry?.completed==true) "Обновить оценку" else "Выполнено") }
                         if(entry?.completed==true) TextButton(enabled=!busy&&!storageError,onClick={scope.launch { runAction { repository.complete(habit.id,false,entry.qualityValue) } }}) { Text("Снять отметку") }
                     } else Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                         Checkbox(checked=entry?.completed==true,enabled=scheduled&&!busy&&!storageError,
                             onCheckedChange={ checked -> scope.launch { runAction {
-                                repository.complete(habit.id,checked)
-                                if (checked) completionFeedback(current.settings.feedback)
+                                recordCompletion(habit.id,checked,null,current.settings.feedback)
                             } } })
                         Text(if(entry?.completed==true) "Выполнено · ${entry.score} баллов" else "Отметить выполнение",Modifier.padding(top=12.dp))
                     }
