@@ -19,6 +19,44 @@ import ru.genesis.calendar.security.WorkspaceCipher
 
 @RunWith(AndroidJUnit4::class)
 class CloudWorkspaceSyncTest {
+    @Test fun olderEncryptedWorkspaceCanSyncAnAndroidEdit() = runBlocking {
+        val scope = CloudAccountSnapshot.scopeFor("synthetic-legacy-sync")
+        val key = ByteArray(32) { (it + 9).toByte() }
+        val cipher = LocalCipher()
+        val db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), GenesisDatabase::class.java).build()
+        try {
+            val remote = WorkspacePatch.emptyDocument().put("trackerSchemaVersion", 15)
+                .put("unknownWebSection", JSONObject().put("preserved", true))
+            val base = ru.genesis.calendar.auth.CloudWorkspaceMigration.normalize(remote)
+            val structure = WorkspaceStructureCodec.encode(WorkspaceStructure(projects = listOf(
+                GenesisProject("p1", null, "work", "Phone project", "", emptyList(), "active", 0))))
+            db.dao().putDocument(DocumentRecord(scope, "cloud-base", cipher.encrypt(base.toString(), "$scope/cloud-base"), 4))
+            db.dao().putDocument(DocumentRecord(scope, "structure", cipher.encrypt(structure, "$scope/structure"), 5))
+            db.dao().putOutbox(OutboxRecord(scope, "workspace-structure", 5, "legacy-edit"))
+            val transport = object : CloudWorkspaceTransport {
+                override fun get(): JSONObject {
+                    val envelope = WorkspaceCipher.encrypt(remote.toString().toByteArray(), key)
+                    return JSONObject().put("workspace", JSONObject().put("keyMode", "account")
+                        .put("key", Base64.getEncoder().encodeToString(key))
+                        .put("envelope", JSONObject().put("version", 4)
+                            .put("ciphertext", envelope.ciphertext).put("iv", envelope.iv)))
+                }
+                override fun put(body: JSONObject): JSONObject {
+                    assertEquals(4L, body.getLong("expectedVersion"))
+                    val plain = WorkspaceCipher.decrypt(WorkspaceCipher.Envelope(body.getString("ciphertext"), body.getString("iv")), key)
+                    val saved = JSONObject(plain.toString(Charsets.UTF_8))
+                    plain.fill(0)
+                    assertEquals(16, saved.getInt("trackerSchemaVersion"))
+                    assertEquals("Phone project", saved.getJSONArray("projects").getJSONObject(0).getString("title"))
+                    assertTrue(saved.getJSONObject("unknownWebSection").getBoolean("preserved"))
+                    return JSONObject().put("workspace", JSONObject().put("version", 5))
+                }
+            }
+            assertEquals(1, CloudWorkspaceSync(db, transport).flush(scope))
+            assertTrue(db.dao().outbox(scope).isEmpty())
+        } finally { db.close() }
+    }
+
     @Test fun encryptsCasPatchWithoutLosingWebOnlySections() = runBlocking {
         val scope = CloudAccountSnapshot.scopeFor("synthetic-workspace-account")
         val key = ByteArray(32) { (it + 1).toByte() }

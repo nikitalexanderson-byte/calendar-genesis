@@ -106,6 +106,9 @@ try {
             unset($_SESSION['user_id']);
             genesisJson(['error' => 'AUTH_REQUIRED'], 401);
         }
+        // Long Google enumeration must not lock sign-in/settings requests from
+        // this device. Authentication and CSRF are already in this request's memory.
+        session_write_close();
         $tasks = [];
         $syncWarning = null;
         try {
@@ -153,6 +156,7 @@ try {
         if ($user === null) {
             genesisJson(['error' => 'AUTH_REQUIRED'], 401);
         }
+        session_write_close();
         $tasks = genesisListAllGoogleTasks($user);
         genesisJson([
             'tasks' => $tasks,

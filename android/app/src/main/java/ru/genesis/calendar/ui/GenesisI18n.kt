@@ -27,6 +27,26 @@ val LocalGenesisLanguage = compositionLocalOf { "ru" }
 
 private val nativeCopy = mapOf(
     "Настройки" to "Settings", "Задачи" to "Tasks", "Сон и настроение" to "Sleep & mood",
+    "Сакральные, григорианские и лунные даты, задачи и время Солнца" to
+        "Sacred, Gregorian and lunar dates, tasks and solar times",
+    "Все задачи, сроки, приоритеты и напоминания" to "Your tasks, due dates, priorities and reminders",
+    "СЕГОДНЯ" to "TODAY", "Дата в гражданском календаре" to "Date in the civil calendar",
+    "ДЕНЬ НЕДЕЛИ" to "DAY OF THE WEEK", "ДАТА" to "DATE", "НЕДЕЛЯ ГОДА" to "WEEK OF THE YEAR",
+    "дней в этом месяце" to "days in this month", "-й день" to " day",
+    "Ежедневные практики, цели, серии и прогресс" to "Daily practice, goals, streaks and progress",
+    "Категории, проекты и задачи внутри них" to "Categories, projects and their tasks",
+    "Двадцать четыре буквенных образа и их значения" to "Twenty-four Greek letters and their meanings",
+    "Двадцать четыре буквенных образа, карта дня и расклад девяти ликов" to
+        "Twenty-four Greek letters, the daily card and the nine-face spread",
+    "Четырнадцать сил: направления, ось, центр и врата" to "Fourteen powers: directions, axis, center and gates",
+    "Сон, восстановление и эмоциональный ритм без давления" to "Sleep, recovery and emotional rhythm without pressure",
+    "Данные аккаунта и задачи Google обновлены." to "Account data and Google tasks are up to date.",
+    "Пространство обновлено. Часть задач Google пока недоступна; сохранённые задачи остаются на устройстве." to
+        "Workspace updated. Some Google tasks are temporarily unavailable; saved tasks remain on this device.",
+    "Данные других устройств получены. Неотправленные изменения этого устройства сохранены." to
+        "Changes from your other devices have been received. Unsent changes on this device are safe.",
+    "Аккаунт открыт. Обновление задач пока не завершилось; повторим автоматически. Сохранённые записи доступны." to
+        "Your account is open. Task refresh has not finished; it will retry automatically. Saved records are available.",
     "Google Calendar и Tasks подключены" to "Google Calendar and Tasks are connected",
     "Подключите синхронизацию Google" to "Connect Google sync",
     "разрешение выдано" to "permission granted", "нужно разрешение" to "permission required",

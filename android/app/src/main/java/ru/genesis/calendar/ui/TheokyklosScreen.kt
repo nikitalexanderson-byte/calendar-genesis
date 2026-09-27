@@ -87,14 +87,10 @@ fun TheokyklosScreen(app: GenesisApplication, calendarMode: CalendarMode, onOpen
     val selected = selectedId?.let(data.byId::get)
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Surface(shape = RoundedCornerShape(16.dp), color = pine, modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp)) {
-                Text("Θεόκυκλος", color = cream, fontFamily = FontFamily.Serif,
-                    style = MaterialTheme.typography.headlineMedium)
-                Text("14 сил · направления · центр и порог", color = gold,
-                    style = MaterialTheme.typography.bodySmall)
-            }
-        }
+        GenesisPageHeader(if (english) "Theokyklos" else "Теокиклос",
+            if (english) "Fourteen powers: directions, axis, center and gates"
+            else "Четырнадцать сил: направления, ось, центр и врата", "Θ",
+            animatedMandala = true)
         Text("Круг божественных сил", style = MaterialTheme.typography.titleLarge)
         Text("Коснитесь любого направления, полюса, очага, центра или врат.",
             style = MaterialTheme.typography.bodySmall)

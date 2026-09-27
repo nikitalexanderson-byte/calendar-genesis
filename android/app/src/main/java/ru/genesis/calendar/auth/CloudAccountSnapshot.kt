@@ -13,6 +13,7 @@ internal class CloudAccountSnapshot private constructor(
     val document: JSONObject?,
     val tasks: List<JSONObject>,
     val googleSyncWarning: Boolean,
+    val tasksDeferred: Boolean,
 ) {
     companion object {
         fun scopeFor(uid: String): String {
@@ -27,13 +28,14 @@ internal class CloudAccountSnapshot private constructor(
             val mode = workspace.getString("keyMode")
             require(mode in setOf("account", "client", "new"))
             val warning = payload.optString("syncWarning").let { it.isNotBlank() && it != "null" }
+            val deferred = payload.optBoolean("tasksDeferred")
             val rows = payload.getJSONArray("tasks")
             val tasks = (0 until rows.length()).map { index ->
                 val item = rows.getJSONObject(index)
                 require(item.getString("id").isNotBlank() && item.getString("title").isNotBlank())
                 JSONObject(item.toString())
             }
-            if (workspace.isNull("envelope")) return CloudAccountSnapshot(scopeFor(uid), 0, null, tasks, warning)
+            if (workspace.isNull("envelope")) return CloudAccountSnapshot(scopeFor(uid), 0, null, tasks, warning, deferred)
             if (mode != "account") throw CloudWorkspacePreview.RecoveryRequired()
             val envelope = workspace.getJSONObject("envelope")
             val version = envelope.getLong("version")
@@ -51,7 +53,7 @@ internal class CloudAccountSnapshot private constructor(
                 document.getJSONArray(it)
             }
             document.getJSONObject("userProgress")
-            return CloudAccountSnapshot(scopeFor(uid), version, document, tasks, warning)
+            return CloudAccountSnapshot(scopeFor(uid), version, document, tasks, warning, deferred)
         }
 
         /** Keep unknown Google/web fields; native-only defaults are never written to the cloud snapshot. */

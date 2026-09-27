@@ -306,6 +306,10 @@ internal fun CalendarSelectedDayFacts(date: LocalDate, calendar: GenesisCalendar
             "${date.dayOfYear}-й из ${date.lengthOfYear()} дней года · ${date.lengthOfMonth()} дней в месяце",
             Color(0xffeef2ed), ink, mutedInk, Color(0xff407064)) {
             SunriseSunsetLine(date, solarLocation, calendar, Color(0xff255b59), mutedInk)
+            calendar.solarEvent(date)?.let { event ->
+                Text("${event.symbol} ${event.name} · ${event.instant.atZone(calendar.zoneId).format(DateTimeFormatter.ofPattern("HH:mm z", locale))}",
+                    style = MaterialTheme.typography.labelMedium, color = Color(0xff407064))
+            }
         }
         Surface(Modifier.fillMaxWidth().testTag("calendar-selected-lunar"), shape = RoundedCornerShape(16.dp),
             color = deepTeal, border = BorderStroke(1.dp, Color(0x55dfc17e))) {

@@ -26,6 +26,7 @@ class CalendarAndTodayFlowTest {
                 compose.onAllNodesWithTag("app-theme-Standart").fetchSemanticsNodes().isNotEmpty()
             }
             compose.onNodeWithTag("today-day-rhythm").assertExists()
+            compose.onNodeWithText("СЕГОДНЯ").assertExists()
             compose.onNodeWithTag("today-hero-copy", useUnmergedTree = true).assertExists()
             compose.onNodeWithTag("today-hero-description", useUnmergedTree = true).assertExists()
             val todayImage = File(app.getExternalFilesDir(null), "today-after.png")
@@ -37,6 +38,11 @@ class CalendarAndTodayFlowTest {
             }
             assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(
                 File(app.getExternalFilesDir(null), "today-profane-after.png")))
+            compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("today-gregorian-summary"))
+            compose.onNodeWithTag("today-gregorian-summary").assertIsDisplayed()
+            assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(
+                File(app.getExternalFilesDir(null), "today-gregorian-summary-after.png")))
+            compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("today-hero"))
             runBlocking { prefs.set("display", "lunar") }
             compose.waitUntil(10_000) {
                 compose.onAllNodesWithText("ЛУННЫЙ КАЛЕНДАРЬ", substring = true)
@@ -61,6 +67,10 @@ class CalendarAndTodayFlowTest {
             compose.onNodeWithTag("pyata-1").performScrollTo().performClick()
             compose.onNodeWithText("Явление идеи.", substring = true).assertExists()
             compose.onNodeWithTag("calendar-day-2026-09-23").performScrollTo().performClick()
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithText("Осеннее равноденствие", substring = true)
+                    .fetchSemanticsNodes().isNotEmpty()
+            }
             compose.onNodeWithTag("calendar-selected-day").assertExists()
             compose.onAllNodesWithText("Осеннее равноденствие", substring = true).onLast().assertExists()
             val image = File(app.getExternalFilesDir(null), "calendar-selected-day-after.png")

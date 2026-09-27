@@ -118,6 +118,54 @@ class CloudAccountImporterTest {
         } finally { db.close() }
     }
 
+    @Test fun twoDevicesReceiveRemoteTasksWhileOneHasUnsentEdits() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val firstDevice = Room.inMemoryDatabaseBuilder(context, GenesisDatabase::class.java).build()
+        val secondDevice = Room.inMemoryDatabaseBuilder(context, GenesisDatabase::class.java).build()
+        try {
+            val initial = CloudAccountSnapshot.fromBootstrap(response("Initial task", "Initial project"))
+            CloudAccountImporter(firstDevice).import(initial)
+            CloudAccountImporter(secondDevice).import(initial)
+            val original = requireNotNull(firstDevice.dao().task(initial.scope, "google-1"))
+            firstDevice.dao().putOutbox(OutboxRecord(initial.scope, "google-1", original.revision, "phone-edit"))
+            val remote = response("Changed on another device", "Updated project")
+            remote.getJSONArray("tasks").put(JSONObject().put("id", "google-2")
+                .put("title", "New task from another device").put("dueDate", ""))
+            val snapshot = CloudAccountSnapshot.fromBootstrap(remote)
+            assertEquals(CloudAccountImporter.Result.PENDING_LOCAL_CHANGES, CloudAccountImporter(firstDevice).import(snapshot))
+            assertEquals(CloudAccountImporter.Result.IMPORTED, CloudAccountImporter(secondDevice).import(snapshot))
+            assertEquals(original, firstDevice.dao().task(initial.scope, "google-1"))
+            listOf(firstDevice, secondDevice).forEach { db ->
+                assertNotNull(db.dao().task(initial.scope, "google-2"))
+                val structure = requireNotNull(db.dao().document(initial.scope, "structure"))
+                assertTrue(LocalCipher().decrypt(structure.encrypted, "${initial.scope}/structure").contains("Updated project"))
+            }
+            assertEquals(1, firstDevice.dao().outbox(initial.scope).size)
+            assertTrue(secondDevice.dao().outbox(initial.scope).isEmpty())
+        } finally { firstDevice.close(); secondDevice.close() }
+    }
+
+    @Test fun deferredGoogleLoadOpensAccountWithoutErasingTasksAndPartialLoadAddsNewRows() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, GenesisDatabase::class.java).build()
+        try {
+            val initial = CloudAccountSnapshot.fromBootstrap(response("Cached task", "Project"))
+            CloudAccountImporter(db).import(initial)
+            val deferred = response("Unused", "Workspace available immediately")
+                .put("tasks", JSONArray()).put("tasksDeferred", true)
+            assertEquals(CloudAccountImporter.Result.IMPORTED, CloudAccountImporter(db)
+                .import(CloudAccountSnapshot.fromBootstrap(deferred)))
+            assertNotNull(db.dao().task(initial.scope, "google-1"))
+            val partial = response("Unavailable", "Project", true)
+            partial.put("tasks", JSONArray().put(JSONObject().put("id", "google-2")
+                .put("title", "Available service task").put("dueDate", "")))
+            assertEquals(CloudAccountImporter.Result.IMPORTED_WITH_GOOGLE_WARNING, CloudAccountImporter(db)
+                .import(CloudAccountSnapshot.fromBootstrap(partial)))
+            assertNotNull(db.dao().task(initial.scope, "google-1"))
+            assertNotNull(db.dao().task(initial.scope, "google-2"))
+        } finally { db.close() }
+    }
+
     @Test fun webAccountWithIncompleteSleepRecordsImportsAndSyncsWithoutLosingData() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val db = Room.inMemoryDatabaseBuilder(context, GenesisDatabase::class.java).build()

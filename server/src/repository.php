@@ -31,13 +31,14 @@ function genesisEnsureWorkspaceKey(array $user): array
         return $user;
     }
     $key = base64_encode(random_bytes(32));
-    genesisDb()->prepare('UPDATE users SET workspace_key_enc = :key, updated_at = :updated_at WHERE id = :id')->execute([
+    genesisDb()->prepare("UPDATE users SET workspace_key_enc = :key, updated_at = :updated_at WHERE id = :id AND (workspace_key_enc IS NULL OR workspace_key_enc = '') AND workspace_key_mode <> 'client'")->execute([
         'key' => genesisEncrypt($key),
         'updated_at' => genesisNow(),
         'id' => (string)$user['id'],
     ]);
-    $user['workspace_key_enc'] = genesisEncrypt($key);
-    return $user;
+    // A second device may have initialized the same account in the meantime.
+    // Both requests must use the one persisted key, never their losing candidate.
+    return genesisFindUser((string)$user['id']) ?? $user;
 }
 
 function genesisLinkedGoogleAccountAsUser(array $account): array
@@ -273,6 +274,17 @@ function genesisUpsertGoogleUser(array $profile, array $tokens, bool $persistGoo
     $statement = $db->prepare('SELECT * FROM users WHERE google_sub = :sub LIMIT 1');
     $statement->execute(['sub' => $googleSub]);
     $existing = $statement->fetch();
+    if (is_array($existing) && !$persistGoogleTokens) {
+        // Identity-only login must never write a stale copy of OAuth credentials
+        // or the workspace key while another device is refreshing them.
+        $db->prepare('UPDATE users SET email = :email, display_name = :display_name, avatar_url = :avatar_url, login_count = login_count + 1, last_login_at = :now, last_seen_at = :now, updated_at = :now WHERE id = :id')->execute([
+            'email' => $email,
+            'display_name' => mb_substr((string)($profile['name'] ?? $email), 0, 160),
+            'avatar_url' => isset($profile['picture']) ? mb_substr((string)$profile['picture'], 0, 1000) : null,
+            'now' => genesisNow(), 'id' => (string)$existing['id'],
+        ]);
+        return genesisEnsureWorkspaceKey(genesisFindUser((string)$existing['id']) ?? $existing);
+    }
     if (!is_array($existing)) {
         $emailOwner = genesisFindUserByEmail($email);
         if ($emailOwner !== null) {

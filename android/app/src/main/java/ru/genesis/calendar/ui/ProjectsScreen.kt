@@ -202,12 +202,9 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Проекты", style = MaterialTheme.typography.headlineMedium)
-                Text(if (app.workspaceScope.startsWith("account-")) {
-                    if (language == "en") "Projects and tasks in your account" else "Проекты и задачи аккаунта"
-                } else if (language == "en") "Projects and tasks on this device"
-                else "Структура задач и разделов на этом устройстве", style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                GenesisPageHeader(if (language == "en") "Projects" else "Проекты",
+                    if (language == "en") "Categories, projects and their tasks"
+                    else "Категории, проекты и задачи внутри них", "▦")
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically) {
                     Text(projectSummary, Modifier.weight(1f).padding(end = 8.dp),

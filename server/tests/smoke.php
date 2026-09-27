@@ -93,6 +93,28 @@ try {
     $existingLogin = genesisUpsertGoogleUser($googleProfile, [], false);
     expect(($existingLogin['id'] ?? '') === $userId, 'Existing backend user was not resolved by Google sub.');
     expect(!empty($existingLogin['refresh_token_enc']), 'Native identity login erased an existing refresh token.');
+    // A delayed failure from device A cannot revoke the newer grant from device B.
+    genesisClearGoogleAuthorization($tasksAuthorized);
+    genesisRemoveGoogleScope($tasksAuthorized, GENESIS_GOOGLE_TASKS_SCOPE);
+    $afterStaleFailure = genesisFindUser($userId);
+    expect(($afterStaleFailure['refresh_token_enc'] ?? null) === $bothAuthorized['refresh_token_enc'],
+        'A stale request revoked the other device\'s refreshed authorization.');
+    expect(genesisGoogleAccessToken($tasksAuthorized) === 'synthetic-both-access',
+        'A request reused an old access token after another device refreshed it.');
+    try {
+        genesisHandleGoogleAuthorizationFailure($bothAuthorized, GENESIS_GOOGLE_TASKS_SCOPE,
+            new GenesisGoogleHttpException(401, 'authError', 'Synthetic expired access token'));
+        throw new LogicException('Rejected Google request unexpectedly succeeded.');
+    } catch (RuntimeException $expected) {
+        expect(str_contains($expected->getMessage(), 'retry'), 'Access-token rejection should remain retryable.');
+    }
+    expect((genesisFindUser($userId)['refresh_token_enc'] ?? null) === $bothAuthorized['refresh_token_enc'],
+        'An access-token rejection must not destroy the refresh grant.');
+    $staleKeySnapshot = $existingLogin;
+    $staleKeySnapshot['workspace_key_enc'] = null;
+    $sameKey = genesisEnsureWorkspaceKey($staleKeySnapshot);
+    expect(($sameKey['workspace_key_enc'] ?? null) === $existingLogin['workspace_key_enc'],
+        'Concurrent first-use initialization replaced the account encryption key.');
     $bothClient = genesisUserForClient($bothAuthorized);
     expect($bothClient['calendarConnected'] === true && $bothClient['googleTasksImportReady'] === true,
         'Reauthorization did not restore both Google services.');

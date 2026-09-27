@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import kotlinx.coroutines.CancellationException
 import org.json.JSONObject
+import org.json.JSONArray
 import ru.genesis.calendar.BuildConfig
 import ru.genesis.calendar.data.LocalCipher
 import java.io.ByteArrayOutputStream
@@ -24,8 +25,15 @@ internal class AuthSessionClient(context: Context) {
     private var generation = 0L
     private var loaded = false
     private var session = SessionSecret("", 0, "")
+    private val connections = mutableSetOf<HttpsURLConnection>()
 
-    fun begin(): Long = synchronized(guard) { ++generation }
+    fun begin(): Long {
+        val (next, obsolete) = synchronized(guard) { ++generation to connections.toList() }
+        // Cancel the actual socket too: a superseded slow Google pull must not
+        // hold the account's import lock until its read timeout expires.
+        obsolete.forEach { runCatching { it.disconnect() } }
+        return next
+    }
     fun currentGeneration(): Long = synchronized(guard) { generation }
     fun isCurrent(expected: Long): Boolean = synchronized(guard) { generation == expected }
 
@@ -86,6 +94,11 @@ internal class AuthSessionClient(context: Context) {
     fun putWorkspace(expected: Long, envelope: JSONObject): JSONObject =
         request(expected, "/workspace", envelope, method = "PUT")
     fun bootstrap(expected: Long): JSONObject = request(expected, "/bootstrap", null)
+    /** Account entry must not wait for Google task-list enumeration. */
+    fun accountBootstrap(expected: Long, verifiedSession: JSONObject): JSONObject =
+        JSONObject(verifiedSession.toString())
+            .put("workspace", workspace(expected).getJSONObject("workspace"))
+            .put("tasks", JSONArray()).put("tasksDeferred", true)
     fun stoicheionDraws(expected: Long): JSONObject = request(expected, "/stoicheion/draws", null)
     fun saveStoicheionDraw(expected: Long, kind: String, seed: Long): JSONObject {
         require(kind in setOf("daily", "spread"))
@@ -138,11 +151,12 @@ internal class AuthSessionClient(context: Context) {
         val current = secret ?: load(expected)
         if (body != null && (current.cookie.isBlank() || current.csrf.isBlank())) throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
         val connection = URL("$AUTH_ORIGIN/api$path").openConnection() as HttpsURLConnection
+        synchronized(guard) { check(expected); connections += connection }
         var phase = "prepare"
         try {
             connection.instanceFollowRedirects = false
             connection.connectTimeout = 15_000
-            connection.readTimeout = 30_000
+            connection.readTimeout = if (path == "/bootstrap") 120_000 else 30_000
             connection.useCaches = false
             connection.requestMethod = method
             connection.setRequestProperty("Accept", "application/json")
@@ -216,6 +230,7 @@ internal class AuthSessionClient(context: Context) {
         } catch (_: Exception) {
             throw AuthFailure(AuthFailure.Kind.PROTOCOL)
         } finally {
+            synchronized(guard) { connections -= connection }
             connection.disconnect()
         }
     }

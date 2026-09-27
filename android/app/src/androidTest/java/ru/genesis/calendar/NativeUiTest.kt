@@ -56,7 +56,13 @@ class NativeUiTest {
         compose.onNode(hasText(label,substring=true) and hasClickAction()).performScrollTo().performClick()
         compose.onNodeWithText("Сохранить").performScrollTo().performClick()
         compose.waitUntil(10_000) { compose.onAllNodesWithText("Изменить настроение").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText(label,substring=true).assertExists()
+        // The selected mood is shown in both the summary metric and its detail card.
+        compose.onAllNodesWithText(label,substring=true).onFirst().assertExists()
+        val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
+        compose.waitUntil(10_000) {
+            runBlocking { ru.genesis.calendar.data.TrackersRepository(app).workspace.first()
+                .moodEntries.any { it.date == java.time.LocalDate.now() && it.moodValue == 1 } }
+        }
     }
 
     @Test fun prioritySupportsImmediateHorizontalDragAndTap() {
@@ -119,9 +125,11 @@ class NativeUiTest {
             runBlocking { preferences.set("language", "ru") }
             compose.waitUntil(5_000) { compose.onAllNodesWithText("Настройки").fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithText("Настройки").performScrollTo().performClick()
-            compose.onNodeWithTag("language-en").performClick()
+            compose.onNodeWithTag("language-en").performScrollTo().performClick()
+            compose.waitUntil(5_000) { compose.onAllNodesWithText("Settings").fetchSemanticsNodes().isNotEmpty() }
             compose.onAllNodesWithText("Settings").onFirst().assertExists()
-            compose.onNodeWithTag("language-ru").performClick()
+            compose.onNodeWithTag("language-ru").performScrollTo().performClick()
+            compose.waitUntil(5_000) { compose.onAllNodesWithText("Настройки").fetchSemanticsNodes().isNotEmpty() }
             compose.onAllNodesWithText("Настройки").onFirst().assertExists()
         } finally {
             runBlocking { preferences.set("language", initial) }

@@ -193,10 +193,12 @@ function genesisRevokeGoogleToken(array $user): void
     }
 }
 
-function genesisGoogleAccessToken(array $user): string
+function genesisGoogleAccessToken(array $user, bool $forceRefresh = false): string
 {
+    $user = (!empty($user['_linked_account']) ? genesisFindLinkedGoogleAccount((string)$user['id'])
+        : genesisFindUser((string)$user['id'])) ?? $user;
     $current = genesisDecrypt($user['access_token_enc'] ?? null);
-    if ($current && (int)($user['token_expires_at'] ?? 0) > time() + 60) {
+    if (!$forceRefresh && $current && (int)($user['token_expires_at'] ?? 0) > time() + 60) {
         return $current;
     }
     $refresh = genesisDecrypt($user['refresh_token_enc'] ?? null);
@@ -220,11 +222,12 @@ function genesisGoogleAccessToken(array $user): string
     }
     $access = (string)$tokens['access_token'];
     $table = !empty($user['_linked_account']) ? 'linked_google_accounts' : 'users';
-    genesisDb()->prepare("UPDATE {$table} SET access_token_enc = :access, token_expires_at = :expires_at, updated_at = :updated_at WHERE id = :id")->execute([
+    genesisDb()->prepare("UPDATE {$table} SET access_token_enc = :access, token_expires_at = :expires_at, updated_at = :updated_at WHERE id = :id AND refresh_token_enc IS :expected_refresh")->execute([
         'access' => genesisEncrypt($access),
         'expires_at' => time() + genesisClampInt($tokens['expires_in'] ?? 3600, 60, 86400, 3600) - 60,
         'updated_at' => genesisNow(),
         'id' => (string)$user['id'],
+        'expected_refresh' => $user['refresh_token_enc'] ?? null,
     ]);
     genesisLogError('[AuthFlow] TOKEN_REFRESH_SUCCESS');
     return $access;
@@ -233,9 +236,11 @@ function genesisGoogleAccessToken(array $user): string
 function genesisClearGoogleAuthorization(array $user): void
 {
     $table = !empty($user['_linked_account']) ? 'linked_google_accounts' : 'users';
-    genesisDb()->prepare("UPDATE {$table} SET access_token_enc = NULL, refresh_token_enc = NULL, token_expires_at = NULL, granted_scopes = '', updated_at = :updated_at WHERE id = :id")->execute([
+    genesisDb()->prepare("UPDATE {$table} SET access_token_enc = NULL, refresh_token_enc = NULL, token_expires_at = NULL, granted_scopes = '', updated_at = :updated_at WHERE id = :id AND refresh_token_enc IS :expected_refresh AND access_token_enc IS :expected_access")->execute([
         'updated_at' => genesisNow(),
         'id' => (string)$user['id'],
+        'expected_refresh' => $user['refresh_token_enc'] ?? null,
+        'expected_access' => $user['access_token_enc'] ?? null,
     ]);
 }
 
@@ -244,18 +249,21 @@ function genesisRemoveGoogleScope(array $user, string $scope): void
     $granted = preg_split('/\s+/', trim((string)($user['granted_scopes'] ?? ''))) ?: [];
     $granted = array_values(array_filter($granted, static fn(string $value): bool => $value !== $scope));
     $table = !empty($user['_linked_account']) ? 'linked_google_accounts' : 'users';
-    genesisDb()->prepare("UPDATE {$table} SET access_token_enc = NULL, token_expires_at = NULL, granted_scopes = :scopes, updated_at = :updated_at WHERE id = :id")->execute([
+    genesisDb()->prepare("UPDATE {$table} SET access_token_enc = NULL, token_expires_at = NULL, granted_scopes = :scopes, updated_at = :updated_at WHERE id = :id AND refresh_token_enc IS :expected_refresh AND access_token_enc IS :expected_access")->execute([
         'scopes' => implode(' ', $granted),
         'updated_at' => genesisNow(),
         'id' => (string)$user['id'],
+        'expected_refresh' => $user['refresh_token_enc'] ?? null,
+        'expected_access' => $user['access_token_enc'] ?? null,
     ]);
 }
 
 function genesisHandleGoogleAuthorizationFailure(array $user, string $scope, GenesisGoogleHttpException $error): void
 {
     if ($error->status === 401) {
-        genesisClearGoogleAuthorization($user);
-        throw new RuntimeException('Google authorization must be renewed.');
+        // An expired/rejected access token is not proof that the refresh grant
+        // was revoked. Only invalid_grant from the token endpoint clears it.
+        throw new RuntimeException('Google access token was rejected; synchronization will retry.');
     }
     if ($error->status === 403 && in_array($error->googleError, ['PERMISSION_DENIED', 'insufficientPermissions', 'authError'], true)) {
         genesisRemoveGoogleScope($user, $scope);
@@ -266,6 +274,8 @@ function genesisHandleGoogleAuthorizationFailure(array $user, string $scope, Gen
 
 function genesisGoogleApi(string $method, string $path, array $user, ?array $payload = null): array
 {
+    $user = (!empty($user['_linked_account']) ? genesisFindLinkedGoogleAccount((string)$user['id'])
+        : genesisFindUser((string)$user['id'])) ?? $user;
     $headers = [
         'Authorization: Bearer ' . genesisGoogleAccessToken($user),
         'Accept: application/json',
@@ -279,12 +289,19 @@ function genesisGoogleApi(string $method, string $path, array $user, ?array $pay
     try {
         return genesisCurl('https://www.googleapis.com/calendar/v3' . $path, $options);
     } catch (GenesisGoogleHttpException $error) {
+        if ($error->status === 401) {
+            $options[CURLOPT_HTTPHEADER][0] = 'Authorization: Bearer ' . genesisGoogleAccessToken($user, true);
+            try { return genesisCurl('https://www.googleapis.com/calendar/v3' . $path, $options); }
+            catch (GenesisGoogleHttpException $retryError) { $error = $retryError; }
+        }
         genesisHandleGoogleAuthorizationFailure($user, GENESIS_GOOGLE_CALENDAR_SCOPE, $error);
     }
 }
 
 function genesisGoogleTasksApi(string $method, string $path, array $user, ?array $payload = null): array
 {
+    $user = (!empty($user['_linked_account']) ? genesisFindLinkedGoogleAccount((string)$user['id'])
+        : genesisFindUser((string)$user['id'])) ?? $user;
     $headers = [
         'Authorization: Bearer ' . genesisGoogleAccessToken($user),
         'Accept: application/json',
@@ -298,6 +315,11 @@ function genesisGoogleTasksApi(string $method, string $path, array $user, ?array
     try {
         return genesisCurl('https://tasks.googleapis.com/tasks/v1' . $path, $options);
     } catch (GenesisGoogleHttpException $error) {
+        if ($error->status === 401) {
+            $options[CURLOPT_HTTPHEADER][0] = 'Authorization: Bearer ' . genesisGoogleAccessToken($user, true);
+            try { return genesisCurl('https://tasks.googleapis.com/tasks/v1' . $path, $options); }
+            catch (GenesisGoogleHttpException $retryError) { $error = $retryError; }
+        }
         genesisHandleGoogleAuthorizationFailure($user, GENESIS_GOOGLE_TASKS_SCOPE, $error);
     }
 }
@@ -1050,7 +1072,10 @@ function genesisListAllGoogleTasks(array $owner): array
     $allTaskLists = [];
     $warnings = [];
     foreach (genesisGoogleAccountsForUser($owner) as $account) {
-        if (empty($account['refresh_token_enc'])) continue;
+        if (empty($account['refresh_token_enc'])) {
+            $warnings[] = 'Для обновления задач подключите Google Calendar и Tasks.';
+            continue;
+        }
         try {
             $accountTasks = genesisListGoogleTasks($account);
             foreach ($accountTasks as $task) {

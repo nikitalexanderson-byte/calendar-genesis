@@ -44,6 +44,8 @@ import ru.genesis.calendar.data.*
 import ru.genesis.calendar.domain.*
 import java.time.*
 import java.time.format.DateTimeFormatter
+import java.time.temporal.WeekFields
+import java.util.Locale
 
 internal val standart = lightColorScheme(primary=Color(0xff255b59),onPrimary=Color(0xfffffdf8),
     background=Color(0xffe1d9c8),onBackground=Color(0xff132426),surface=Color(0xfff8f5ed),
@@ -179,8 +181,10 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                                 onOpen = { taskId -> editId=taskId;creating=false })
                         } else {
                             item {
-                                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
-                                    Text("Все задачи",style=MaterialTheme.typography.titleLarge)
+                                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    GenesisPageHeader(if (prefs.language == "en") "Tasks" else "Задачи",
+                                        if (prefs.language == "en") "Your tasks, due dates, priorities and reminders"
+                                        else "Все задачи, сроки, приоритеты и напоминания", "✦")
                                     Button(onClick={creating=true;editId=null;newTaskProjectId=null},modifier=Modifier.testTag("create-task")) { Text("Создать") }
                                 }
                             }
@@ -203,6 +207,9 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         }
                         if(tab=="Сегодня") item {
                             DayKnowledgePanel(LocalDate.parse(selected), prefs.display)
+                        }
+                        if(tab=="Сегодня" && prefs.display == CalendarMode.PROFANE) item {
+                            GregorianTodaySummary(LocalDate.parse(selected))
                         }
                     }
                 }
@@ -322,7 +329,14 @@ private fun DayHeader(date: LocalDate,mode: CalendarMode) {
                 Box(Modifier.matchParentSize().background(Brush.verticalGradient(0f to Color(0x22040e10),
                     .32f to Color(0x44040e10), .62f to Color(0xc6071d20),
                     1f to Color(0xfa071d20))))
-                copy.badge?.let { badge ->
+                Surface(Modifier.align(Alignment.TopStart).padding(14.dp),
+                    color = Color(0xd0071d20), shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.dp, Color(0x88dfc17e))) {
+                    Text(if (language == "en") "TODAY" else "СЕГОДНЯ",
+                        Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                        color = Color(0xfffff5df), style = MaterialTheme.typography.headlineSmall)
+                }
+                copy.badge?.takeIf { mode != CalendarMode.LUNAR }?.let { badge ->
                     Surface(Modifier.align(Alignment.TopEnd).padding(14.dp),
                         color = Color(0xc2071d20), shape = RoundedCornerShape(100.dp),
                         border = BorderStroke(1.dp, Color(0x88dfc17e))) {
@@ -349,9 +363,63 @@ private fun DayHeader(date: LocalDate,mode: CalendarMode) {
                         accent = Color(0xfff4deb0), textColor = Color(0xffd7dfd8))
                     Text(copy.footerDate,
                         color = Color(0xffdfc17e), style = MaterialTheme.typography.labelMedium)
+                    copy.badge?.takeIf { mode == CalendarMode.LUNAR }?.let { badge ->
+                        Surface(shape = RoundedCornerShape(100.dp), color = Color(0xc2071d20),
+                            border = BorderStroke(1.dp, Color(0x88dfc17e))) {
+                            Text(badge, Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                color = Color(0xfff5dcaa), style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
                 }
             }
         }
+}
+
+@Composable
+private fun GregorianTodaySummary(date: LocalDate) {
+    val english = LocalGenesisLanguage.current == "en"
+    val locale = if (english) Locale.ENGLISH else Locale.forLanguageTag("ru")
+    val copy = remember(date, english) { todayHeroCopy(date, CalendarMode.PROFANE,
+        GenesisCalendar(), if (english) "en" else "ru") }
+    val month = date.month.getDisplayName(java.time.format.TextStyle.FULL_STANDALONE, locale)
+    val week = date.get(WeekFields.ISO.weekOfWeekBasedYear())
+    Card(Modifier.fillMaxWidth().testTag("today-gregorian-summary"),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xfff3efe7)),
+        border = BorderStroke(1.dp, Color(0x66b28a4a))) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(if (english) "GREGORIAN DAY" else "ГРИГОРИАНСКИЙ ДЕНЬ",
+                color = Color(0xff738789), style = MaterialTheme.typography.labelMedium)
+            Text(if (english) "Date in the civil calendar" else "Дата в гражданском календаре",
+                color = Color(0xff132426), style = MaterialTheme.typography.headlineSmall)
+            GregorianMetric(weekdayPatronMark(date).symbol,
+                if (english) "DAY OF THE WEEK" else "ДЕНЬ НЕДЕЛИ",
+                copy.title, copy.description)
+            GregorianMetric(date.dayOfMonth.toString(), if (english) "DATE" else "ДАТА",
+                "$month ${date.year}", if (english) "${date.lengthOfMonth()} days in this month"
+                    else "${date.lengthOfMonth()} дней в этом месяце")
+            GregorianMetric(week.toString(), if (english) "WEEK OF THE YEAR" else "НЕДЕЛЯ ГОДА",
+                if (english) "Day ${date.dayOfYear}" else "${date.dayOfYear}-й день",
+                if (english) "${date.dayOfYear} of ${date.lengthOfYear()} days in the year"
+                    else "${date.dayOfYear} из ${date.lengthOfYear()} дней года")
+        }
+    }
+}
+
+@Composable
+private fun GregorianMetric(symbol: String, label: String, value: String, detail: String) {
+    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp),
+        color = Color(0xfffffcf7), border = BorderStroke(1.dp, Color(0x44b28a4a))) {
+        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            Text(symbol, color = Color(0xffad563b), style = MaterialTheme.typography.headlineMedium)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(label, color = Color(0xff738789), style = MaterialTheme.typography.labelSmall)
+                Text(value, color = Color(0xff132426), style = MaterialTheme.typography.titleMedium)
+                Text(detail, color = Color(0xff526263), style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
 }
 
 @Composable
@@ -593,22 +661,9 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
     val scope=rememberCoroutineScope()
     val rows by produceState(emptyList<ReminderRecord>(),refresh) { value=withContext(Dispatchers.IO){app.database.dao().reminders(app.workspaceScope)} }
     Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(14.dp)) {
-        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), color = Color(0xff0b2b2d),
-            border = BorderStroke(1.dp, Color(0x88dfc17e)), shadowElevation = 8.dp) {
-            Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                Surface(Modifier.size(54.dp), shape = RoundedCornerShape(17.dp), color = Color(0xffdfc17e)) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text("⚙", color = Color(0xff0b2b2d), style = MaterialTheme.typography.headlineSmall)
-                    }
-                }
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text("Настройки",style=MaterialTheme.typography.headlineSmall,color = Color(0xfffff5df))
-                    Text("Календарь, время, приватность и напоминания",
-                        style=MaterialTheme.typography.bodySmall,color = Color(0xffc8d9d4))
-                }
-            }
-        }
+        GenesisPageHeader(if (prefs.language == "en") "Settings" else "Настройки",
+            if (prefs.language == "en") "Calendars, time, privacy and reminders"
+            else "Календарь, время, приватность и напоминания", "⚙")
         SettingsSection("◉", "Календари и время", "Отображение не меняет календарь ввода и повторений",
             Color(0xffe4efed)) {
             listOf("display" to "Календарь отображения","input" to "Календарь ввода и повторений").forEach{(key,label)->

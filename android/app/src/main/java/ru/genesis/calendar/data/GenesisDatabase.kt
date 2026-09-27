@@ -32,6 +32,10 @@ interface GenesisDao {
     suspend fun task(scope: String, id: String): TaskRecord?
     @Query("DELETE FROM tasks WHERE scope=:scope")
     suspend fun clearAccountTaskCache(scope: String)
+    @Query("DELETE FROM tasks WHERE scope=:scope AND id=:id")
+    suspend fun deleteCachedTask(scope: String, id: String)
+    @Query("DELETE FROM reminders WHERE scope=:scope AND taskId=:id")
+    suspend fun deleteTaskReminders(scope: String, id: String)
     @Query("SELECT * FROM tasks WHERE scope=:scope AND deleted=0")
     suspend fun accountTasks(scope: String): List<TaskRecord>
     @Upsert suspend fun putTask(task: TaskRecord)
