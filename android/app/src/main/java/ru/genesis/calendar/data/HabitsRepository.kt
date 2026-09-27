@@ -196,7 +196,7 @@ class HabitsRepository(private val app: GenesisApplication) {
 internal object HabitDocument {
     private fun JSONArray.objects()=(0 until length()).map { getJSONObject(it) }
     private fun ints(array: JSONArray)=(0 until array.length()).map { array.getInt(it) }
-    private fun JSONObject.nullable(key: String)=if(isNull(key)) null else getString(key)
+    private fun JSONObject.nullable(key: String)=if(isNull(key)) null else getString(key).takeIf(String::isNotBlank)
     private fun entity(v: JSONObject)=TrackerEntity(v.getString("id"),v.getString("createdAt"),v.getString("updatedAt"),v.getInt("version"),v.getString("syncState"))
     private fun entity(e: TrackerEntity)=JSONObject().put("id",e.id).put("createdAt",e.createdAt).put("updatedAt",e.updatedAt).put("version",e.version).put("syncState",e.syncState)
     private fun recurrence(c: RecurrenceConfig)=JSONObject().put("enabled",c.enabled).put("mode",c.mode).put("pattern",c.pattern).put("days",JSONArray(c.days))

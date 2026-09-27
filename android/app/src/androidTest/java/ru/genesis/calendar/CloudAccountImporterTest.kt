@@ -11,6 +11,8 @@ import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
 import ru.genesis.calendar.auth.CloudAccountSnapshot
+import ru.genesis.calendar.auth.CloudWorkspaceSync
+import ru.genesis.calendar.auth.CloudWorkspaceTransport
 import ru.genesis.calendar.data.*
 import ru.genesis.calendar.security.WorkspaceCipher
 
@@ -113,6 +115,72 @@ class CloudAccountImporterTest {
             assertEquals(CloudAccountImporter.Result.IMPORTED,
                 CloudAccountImporter(db).import(CloudAccountSnapshot.fromBootstrap(changed)))
             assertTrue(db.dao().taskReminders(snapshot.scope, "google-1").isEmpty())
+        } finally { db.close() }
+    }
+
+    @Test fun webAccountWithIncompleteSleepRecordsImportsAndSyncsWithoutLosingData() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, GenesisDatabase::class.java).build()
+        try {
+            val payload = response("Google task", "Cloud project")
+            val envelope = payload.getJSONObject("workspace").getJSONObject("envelope")
+            val document = JSONObject(WorkspaceCipher.decrypt(WorkspaceCipher.Envelope(
+                envelope.getString("ciphertext"), envelope.getString("iv")), key).toString(Charsets.UTF_8))
+            fun sleep(id: String, bed: String, wake: String) = JSONObject()
+                .put("id", id).put("createdAt", "2026-09-20T12:00:00Z").put("updatedAt", "2026-09-20T12:00:00Z")
+                .put("version", 1).put("syncState", "synced").put("planId", "sleep-plan")
+                .put("date", "2026-09-20").put("fellAsleepAt", bed).put("wokeAt", wake)
+                .put("durationMinutes", 0).put("quality", 7).put("deviationMinutes", 0)
+                .put("note", "Keep the web note").put("score", 0).put("webOnly", true)
+            document.put("sleepEntries", JSONArray().put(sleep("quality-only", "", ""))
+                .put(sleep("bed-only", "23:00", "")).put(sleep("wake-only", "", "07:00")))
+            var remote = document
+            var version = 1_000_000_199L
+            fun workspace(): JSONObject {
+                val encrypted = WorkspaceCipher.encrypt(remote.toString().toByteArray(), key)
+                return JSONObject().put("keyMode", "account").put("key", Base64.getEncoder().encodeToString(key))
+                    .put("envelope", JSONObject().put("ciphertext", encrypted.ciphertext)
+                        .put("iv", encrypted.iv).put("version", version))
+            }
+            payload.put("workspace", workspace())
+            val snapshot = CloudAccountSnapshot.fromBootstrap(payload)
+            assertEquals(CloudAccountImporter.Result.IMPORTED, CloudAccountImporter(db).import(snapshot))
+            val cipher = LocalCipher()
+            val row = requireNotNull(db.dao().document(snapshot.scope, "trackers"))
+            val loaded = TrackersDocument.decode(cipher.decrypt(row.encrypted, "${snapshot.scope}/trackers"), row.revision)
+            assertEquals(3, loaded.sleepEntries.size)
+            assertNull(loaded.sleepEntries.first().fellAsleepAt)
+            assertEquals(7, loaded.sleepEntries.first().quality)
+            assertNotNull(db.dao().task(snapshot.scope, "google-1"))
+            assertTrue(db.dao().outbox(snapshot.scope).isEmpty())
+            assertNull(db.dao().document(CloudAccountSnapshot.scopeFor("another-account"), "trackers"))
+
+            val edited = loaded.copy(sleepEntries = loaded.sleepEntries.mapIndexed { i, value ->
+                if (i == 0) value.copy(note = "Android note") else value
+            })
+            db.dao().putDocument(DocumentRecord(snapshot.scope, "trackers",
+                cipher.encrypt(TrackersDocument.encode(edited), "${snapshot.scope}/trackers"), version + 1))
+            db.dao().putOutbox(OutboxRecord(snapshot.scope, "trackers", version + 1, "edit-sleep-note"))
+            val transport = object : CloudWorkspaceTransport {
+                override fun get() = JSONObject().put("workspace", workspace())
+                override fun put(body: JSONObject): JSONObject {
+                    assertEquals(version, body.getLong("expectedVersion"))
+                    remote = JSONObject(WorkspaceCipher.decrypt(WorkspaceCipher.Envelope(
+                        body.getString("ciphertext"), body.getString("iv")), key).toString(Charsets.UTF_8))
+                    version++
+                    return JSONObject().put("workspace", JSONObject().put("version", version))
+                }
+            }
+            assertEquals(1, CloudWorkspaceSync(db, transport).flush(snapshot.scope))
+            assertTrue(db.dao().outbox(snapshot.scope).isEmpty())
+            assertEquals(3, remote.getJSONArray("sleepEntries").length())
+            val saved = remote.getJSONArray("sleepEntries").getJSONObject(0)
+            assertEquals("Android note", saved.getString("note"))
+            assertEquals("", saved.getString("fellAsleepAt"))
+            assertTrue(saved.getBoolean("webOnly"))
+            assertTrue(remote.getJSONObject("unknownWebSection").getBoolean("preserved"))
+            assertEquals(CloudAccountImporter.Result.IMPORTED, CloudAccountImporter(db)
+                .import(CloudAccountSnapshot.fromBootstrap(payload.put("workspace", workspace()))))
         } finally { db.close() }
     }
 }

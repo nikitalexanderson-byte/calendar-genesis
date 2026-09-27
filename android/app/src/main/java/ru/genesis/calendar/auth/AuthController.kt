@@ -179,15 +179,22 @@ class AuthController private constructor(context: Context) {
         val identity = AuthProtocol.identity(session) ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
         AuthDiagnostics.event("GENESIS_USER_RESOLVED")
         val settings = AccountSettings.fromResponse(session) ?: throw AuthFailure(AuthFailure.Kind.PROTOCOL)
-        publish(generation, AuthPanelState(busy = true, user = identity, accountSettings = settings,
+        val cachedState = mutableState.value.takeIf {
+            it.ready && it.user?.uid == identity.uid && app.workspaceScope == CloudAccountSnapshot.scopeFor(identity.uid)
+        }
+        var stage = "BOOTSTRAP"
+        publish(generation, AuthPanelState(busy = true, ready = cachedState != null,
+            user = identity, accountSettings = settings, preview = cachedState?.preview,
             checkedAt = System.currentTimeMillis(), message = "Открываем зашифрованное пространство…"))
         try {
             AuthDiagnostics.event("SYNC_STARTED")
             val payload = withContext(Dispatchers.IO) { client.bootstrap(generation) }
             val confirmed = AuthProtocol.identity(payload) ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
             if (confirmed.uid != identity.uid) throw AuthFailure(AuthFailure.Kind.PROTOCOL)
+            stage = "WORKSPACE_DECRYPT"
             val preview = withContext(Dispatchers.Default) { CloudWorkspacePreview.inspect(payload) }
             val snapshot = withContext(Dispatchers.Default) { CloudAccountSnapshot.fromBootstrap(payload) }
+            stage = "ACCOUNT_IMPORT"
             val imported = withContext(Dispatchers.IO) { CloudAccountImporter(app.database, app.scheduler).import(snapshot) }
             val stoicheionPayload = try {
                 withContext(Dispatchers.IO) { client.stoicheionDraws(generation) }
@@ -211,7 +218,10 @@ class AuthController private constructor(context: Context) {
                 false
             } catch (error: CancellationException) { throw error }
             catch (_: Exception) { true } else true
-            withContext(Dispatchers.IO) { app.scheduler.restore() }
+            // Notification permission/OEM alarm errors must not undo a completed cloud import.
+            try { withContext(Dispatchers.IO) { app.scheduler.restore() } }
+            catch (error: CancellationException) { throw error }
+            catch (error: Exception) { logCloudFailure("REMINDER_RESTORE", error) }
             AuthDiagnostics.event("SYNC_SUCCESS")
             publish(generation, AuthPanelState(ready = true, user = confirmed,
                 accountSettings = resolvedSettings, preview = preview,
@@ -229,21 +239,25 @@ class AuthController private constructor(context: Context) {
         } catch (error: AuthFailure) {
             AuthDiagnostics.event("SYNC_FAILED")
             if (error.kind in setOf(AuthFailure.Kind.UNAUTHORIZED, AuthFailure.Kind.PROTOCOL)) throw error
-            publish(generation, AuthPanelState(user = identity, accountSettings = settings,
+            publish(generation, AuthPanelState(ready = cachedState != null, preview = cachedState?.preview,
+                user = identity, accountSettings = settings,
                 checkedAt = System.currentTimeMillis(), message = "Вход выполнен, но загрузка облачных данных пока не завершилась. Локальные записи сохранены."))
         } catch (_: CloudWorkspacePreview.RecoveryRequired) {
             AuthDiagnostics.event("SYNC_FAILED")
-            publish(generation, AuthPanelState(user = identity, accountSettings = settings,
+            publish(generation, AuthPanelState(ready = cachedState != null, preview = cachedState?.preview,
+                user = identity, accountSettings = settings,
                 checkedAt = System.currentTimeMillis(), message = "Вход выполнен, но для этого пространства требуется код восстановления. Данные не перезаписаны."))
         } catch (error: CloudWorkspacePreview.Unreadable) {
             AuthDiagnostics.event("SYNC_FAILED")
-            Log.e("GenesisAuth", "Cloud workspace verification failed", error)
-            publish(generation, AuthPanelState(user = identity, accountSettings = settings,
+            logCloudFailure(stage, error)
+            publish(generation, AuthPanelState(ready = cachedState != null, preview = cachedState?.preview,
+                user = identity, accountSettings = settings,
                 checkedAt = System.currentTimeMillis(), message = "Вход выполнен, но формат облачных данных не удалось проверить (CLOUD_FORMAT). Локальные записи сохранены."))
         } catch (error: Exception) {
             AuthDiagnostics.event("SYNC_FAILED")
-            Log.e("GenesisAuth", "Cloud account import failed", error)
-            publish(generation, AuthPanelState(user = identity, accountSettings = settings,
+            logCloudFailure(stage, error)
+            publish(generation, AuthPanelState(ready = cachedState != null, preview = cachedState?.preview,
+                user = identity, accountSettings = settings,
                 checkedAt = System.currentTimeMillis(), message = "Вход выполнен, но импорт облачных данных не завершён (CLOUD_IMPORT). Локальные записи сохранены."))
         }
     }
@@ -460,6 +474,13 @@ class AuthController private constructor(context: Context) {
         } catch (_: Exception) {
             // The following getCredential call still has its own precise error path.
         }
+    }
+
+    private fun logCloudFailure(stage: String, error: Exception) {
+        // Exception messages can contain cloud record values. Keep only the stage,
+        // type and application source location for device diagnostics.
+        val location = error.stackTrace.firstOrNull { it.className.startsWith("ru.genesis.calendar.") }
+        Log.e("GenesisAuth", "$stage: ${error.javaClass.simpleName} at ${location?.fileName}:${location?.lineNumber}")
     }
 
     private suspend fun clearCurrent(generation: Long) {
