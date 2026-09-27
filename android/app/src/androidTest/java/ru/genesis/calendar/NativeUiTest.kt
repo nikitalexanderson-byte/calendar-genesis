@@ -91,6 +91,26 @@ class NativeUiTest {
         compose.onNodeWithTag("habit-feedback-settings").performScrollTo().assertIsDisplayed()
     }
 
+    @Test fun selectedCalendarHeroIsNotDuplicatedInKnowledgeCards() {
+        val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
+        val preferences = ru.genesis.calendar.data.LocalPreferences(app, app.workspaceScope)
+        val initial = runBlocking { preferences.values.first().display }
+        try {
+            runBlocking { preferences.set("display", "profane") }
+            compose.waitUntil(5_000) {
+                compose.onAllNodesWithText("ГРИГОРИАНСКИЙ КАЛЕНДАРЬ", substring = true)
+                    .fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("day-knowledge"))
+            compose.onAllNodesWithTag("gregorian-calendar-card").assertCountEquals(0)
+            compose.onAllNodesWithTag("sacred-calendar-card").assertCountEquals(1)
+            compose.onAllNodesWithTag("lunar-calendar-card").assertCountEquals(1)
+            compose.onNodeWithText("САКРАЛЬНЫЙ КАЛЕНДАРЬ · СМЫСЛ ДНЯ").assertExists()
+        } finally {
+            runBlocking { preferences.set("display", initial.wireValue) }
+        }
+    }
+
     @Test fun settingsLanguageSwitchesWithoutLeavingWorkspace() {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
         val preferences = ru.genesis.calendar.data.LocalPreferences(app, app.workspaceScope)

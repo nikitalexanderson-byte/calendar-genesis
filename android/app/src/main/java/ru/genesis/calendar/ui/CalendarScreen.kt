@@ -299,8 +299,8 @@ private fun LunarCalendarDay(calendar: GenesisCalendar, date: LocalDate, selecte
         shape = MaterialTheme.shapes.medium,
         color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
         border = if (!adjacent && date == LocalDate.now()) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null) {
-        Box {
-            Column(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp),
+        Box(Modifier.fillMaxWidth()) {
+            Column(Modifier.fillMaxWidth().padding(start = 4.dp, top = 6.dp, end = 30.dp, bottom = 6.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(lunar.day.toString(), style = MaterialTheme.typography.titleSmall)
@@ -320,7 +320,7 @@ private fun LunarCalendarDay(calendar: GenesisCalendar, date: LocalDate, selecte
             if (taskCount > 0 && !adjacent) {
                 val taskDescription = genesisTranslate("$taskCount задач на ${date.format(dateLabel(locale))}. Открыть список.")
                 Surface(onClick = { onTaskBadgeClick(date) }, modifier = Modifier.align(Alignment.TopEnd)
-                    .padding(2.dp).sizeIn(minWidth = 24.dp, minHeight = 24.dp)
+                    .padding(top = 2.dp, end = 2.dp).sizeIn(minWidth = 24.dp, minHeight = 24.dp)
                     .testTag("calendar-task-count-$date").semantics { contentDescription = taskDescription },
                     shape = CircleShape, color = Color(0xffb63b42)) {
                     Box(contentAlignment = Alignment.Center) {
@@ -365,8 +365,9 @@ private fun CalendarDay(calendar: GenesisCalendar, date: LocalDate, number: Int,
             else -> MaterialTheme.colorScheme.surface
         },
         border = if (today) BorderStroke(2.dp, patron?.accent ?: MaterialTheme.colorScheme.primary) else null) {
-        Box {
-        Column(Modifier.padding(5.dp), verticalArrangement = Arrangement.Center) {
+        Box(Modifier.fillMaxWidth()) {
+        Column(Modifier.fillMaxWidth().padding(start = 5.dp, top = 5.dp, end = 34.dp, bottom = 5.dp),
+            verticalArrangement = Arrangement.Center) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
                 Text(number.toString(), style = MaterialTheme.typography.titleSmall, color = foreground)
@@ -397,7 +398,7 @@ private fun CalendarDay(calendar: GenesisCalendar, date: LocalDate, number: Int,
         }
         if (taskCount > 0 && !adjacent) {
             Surface(onClick = { onTaskBadgeClick(date) }, modifier = Modifier.align(Alignment.TopEnd)
-                .padding(3.dp).sizeIn(minWidth = 26.dp, minHeight = 26.dp)
+                .padding(top = 3.dp, end = 3.dp).sizeIn(minWidth = 26.dp, minHeight = 26.dp)
                 .testTag("calendar-task-count-$date")
                 .semantics { contentDescription = taskDescription },
                 shape = CircleShape, color = Color(0xffb63b42), shadowElevation = 3.dp) {

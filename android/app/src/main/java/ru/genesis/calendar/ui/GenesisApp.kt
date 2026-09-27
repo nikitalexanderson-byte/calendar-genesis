@@ -202,7 +202,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                             }
                         }
                         if(tab=="Сегодня") item {
-                            DayKnowledgePanel(LocalDate.parse(selected))
+                            DayKnowledgePanel(LocalDate.parse(selected), prefs.display)
                         }
                     }
                 }

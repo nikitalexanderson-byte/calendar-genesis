@@ -60,7 +60,10 @@ private val nativeCopy = mapOf(
     "САКРАЛЬНЫЙ ДЕНЬ" to "SACRED DAY", "Открыть день и задачи" to "Open day and tasks",
     "ГРИГОРИАНСКИЙ КАЛЕНДАРЬ" to "GREGORIAN CALENDAR",
     "САКРАЛЬНЫЙ КАЛЕНДАРЬ" to "SACRED CALENDAR", "ЛУННЫЙ КАЛЕНДАРЬ" to "LUNAR CALENDAR",
-    "СМЫСЛ ДНЯ" to "MEANING OF THE DAY", "ПИФАГОРЕЙСКИЙ СМЫСЛ" to "PYTHAGOREAN MEANING",
+    "СМЫСЛ ДНЯ" to "MEANING OF THE DAY", "САКРАЛЬНЫЙ КАЛЕНДАРЬ · СМЫСЛ ДНЯ" to
+        "SACRED CALENDAR · MEANING OF THE DAY", "ПИФАГОРЕЙСКИЙ СМЫСЛ" to "PYTHAGOREAN MEANING",
+    "Пята, стихия и пифагорейский смысл выбранного сакрального дня." to
+        "The pentad, element, and Pythagorean meaning of the selected sacred day.",
     "Пространство первообразов" to "Realm of archetypes",
     "Иллюстрация сакрального дня:" to "Sacred day illustration:",
     "НОВОЛУНИЕ" to "NEW MOON", "ПОЛНОЛУНИЕ" to "FULL MOON",

@@ -1,8 +1,10 @@
 package ru.genesis.calendar.ui
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import ru.genesis.calendar.domain.CalendarMode
 import ru.genesis.calendar.domain.GenesisCalendar
 import java.time.LocalDate
 import java.time.ZoneId
@@ -28,5 +30,15 @@ class DayKnowledgePanelTest {
         val newMoon = (0L..35L).map(fullMoon::plusDays)
             .first { "новолуние" in calendar.moonInfo(it).event.lowercase() }
         assertTrue(isMoonFastingDay(calendar.moonInfo(newMoon)))
+    }
+
+    @Test
+    fun `selected hero calendar is not duplicated below it`() {
+        CalendarMode.entries.forEach { primary ->
+            val secondary = secondaryCalendarModes(primary)
+            assertEquals(2, secondary.size)
+            assertFalse(primary in secondary)
+            assertEquals(3, (secondary + primary).distinct().size)
+        }
     }
 }

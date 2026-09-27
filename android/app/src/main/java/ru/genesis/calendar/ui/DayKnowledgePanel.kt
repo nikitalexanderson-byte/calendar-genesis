@@ -93,15 +93,23 @@ private val ink = Color(0xff132426)
 private val mutedInk = Color(0xff526263)
 private val gold = Color(0xffb28a4a)
 
-/** Five independent mobile sections: three calendars, a conditional moon notice, and day rhythms. */
+internal fun secondaryCalendarModes(primary: CalendarMode): List<CalendarMode> =
+    listOf(CalendarMode.SACRED, CalendarMode.PROFANE, CalendarMode.LUNAR).filterNot { it == primary }
+
+/** The hero is the selected calendar; this panel adds only the other two, without duplication. */
 @Composable
-fun DayKnowledgePanel(date: LocalDate, calendar: GenesisCalendar = GenesisCalendar()) {
+fun DayKnowledgePanel(date: LocalDate, primaryMode: CalendarMode,
+    calendar: GenesisCalendar = GenesisCalendar()) {
     val solarLocation by rememberAutomaticSolarLocation(calendar.zoneId)
     Column(Modifier.fillMaxWidth().testTag("day-knowledge"),
         verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        SacredCalendarCard(date, calendar)
-        GregorianCalendarCard(date, calendar, solarLocation)
-        LunarCalendarCard(date, calendar)
+        secondaryCalendarModes(primaryMode).forEach { mode ->
+            when (mode) {
+                CalendarMode.SACRED -> SacredCalendarCard(date, calendar)
+                CalendarMode.PROFANE -> GregorianCalendarCard(date, calendar, solarLocation)
+                CalendarMode.LUNAR -> LunarCalendarCard(date, calendar)
+            }
+        }
         val moon = calendar.moonInfo(date)
         if (isMoonFastingDay(moon)) MoonFastingCard(moon)
         ThreeRhythmsCard(date, calendar)
@@ -245,10 +253,12 @@ private fun ThreeRhythmsCard(date: LocalDate, calendar: GenesisCalendar) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Text("СМЫСЛ ДНЯ", style = MaterialTheme.typography.labelMedium,
+                    Text("САКРАЛЬНЫЙ КАЛЕНДАРЬ · СМЫСЛ ДНЯ", style = MaterialTheme.typography.labelMedium,
                         color = mutedInk, fontWeight = FontWeight.Bold)
                     Text("Три ритма в одной точке", style = MaterialTheme.typography.headlineSmall,
                         color = ink, fontFamily = FontFamily.Serif)
+                    Text("Пята, стихия и пифагорейский смысл выбранного сакрального дня.",
+                        style = MaterialTheme.typography.bodySmall, color = mutedInk)
                 }
                 Surface(shape = CircleShape, color = parchmentSoft, border = BorderStroke(1.dp, Color(0x44b28a4a))) {
                     Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
