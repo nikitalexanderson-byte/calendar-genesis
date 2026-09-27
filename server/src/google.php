@@ -12,6 +12,8 @@ const GENESIS_GOOGLE_SERVICE_SCOPES = [
     'https://www.googleapis.com/auth/tasks',
 ];
 
+const GENESIS_GOOGLE_CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.app.created';
+
 const GENESIS_GOOGLE_SCOPES = [
     'openid',
     'email',
@@ -21,6 +23,17 @@ const GENESIS_GOOGLE_SCOPES = [
 ];
 
 const GENESIS_GOOGLE_TASKS_SCOPE = 'https://www.googleapis.com/auth/tasks';
+
+final class GenesisGoogleHttpException extends RuntimeException
+{
+    public function __construct(
+        public readonly int $status,
+        public readonly string $googleError,
+        string $message,
+    ) {
+        parent::__construct($message);
+    }
+}
 
 function genesisBase64Url(string $value): string
 {
@@ -83,10 +96,14 @@ function genesisCurl(string $url, array $options = []): array
     $body = substr((string)$raw, $headerSize);
     $decoded = json_decode($body, true);
     if ($status < 200 || $status >= 300) {
+        $errorValue = is_array($decoded) ? ($decoded['error'] ?? null) : null;
+        $errorCode = is_string($errorValue)
+            ? $errorValue
+            : (is_array($errorValue) ? (string)($errorValue['status'] ?? $errorValue['code'] ?? '') : '');
         $message = is_array($decoded)
-            ? (string)($decoded['error_description'] ?? $decoded['error']['message'] ?? $decoded['error'] ?? 'Google API error')
+            ? (string)($decoded['error_description'] ?? (is_array($errorValue) ? ($errorValue['message'] ?? null) : null) ?? $errorCode ?: 'Google API error')
             : 'Google API error';
-        throw new RuntimeException($message . ' (' . $status . ')');
+        throw new GenesisGoogleHttpException($status, mb_substr($errorCode, 0, 100), $message . ' (' . $status . ')');
     }
     return is_array($decoded) ? $decoded : [];
 }
@@ -110,6 +127,19 @@ function genesisExchangeGoogleCode(string $code, string $verifier): array
         'redirect_uri' => genesisGoogleRedirectUri(),
         'grant_type' => 'authorization_code',
         'code_verifier' => $verifier,
+    ]);
+}
+
+/** Exchange the one-time code produced by Android AuthorizationClient. */
+function genesisExchangeNativeGoogleCode(string $code): array
+{
+    $config = genesisConfig();
+    return genesisGoogleTokenRequest([
+        'code' => $code,
+        'client_id' => (string)$config['google_client_id'],
+        'client_secret' => (string)$config['google_client_secret'],
+        'redirect_uri' => '',
+        'grant_type' => 'authorization_code',
     ]);
 }
 
@@ -174,12 +204,20 @@ function genesisGoogleAccessToken(array $user): string
         throw new RuntimeException('Google Calendar authorization must be renewed.');
     }
     $config = genesisConfig();
-    $tokens = genesisGoogleTokenRequest([
-        'client_id' => (string)$config['google_client_id'],
-        'client_secret' => (string)$config['google_client_secret'],
-        'refresh_token' => $refresh,
-        'grant_type' => 'refresh_token',
-    ]);
+    try {
+        $tokens = genesisGoogleTokenRequest([
+            'client_id' => (string)$config['google_client_id'],
+            'client_secret' => (string)$config['google_client_secret'],
+            'refresh_token' => $refresh,
+            'grant_type' => 'refresh_token',
+        ]);
+    } catch (GenesisGoogleHttpException $error) {
+        if ($error->googleError === 'invalid_grant') {
+            genesisClearGoogleAuthorization($user);
+            throw new RuntimeException('Google authorization must be renewed.');
+        }
+        throw $error;
+    }
     $access = (string)$tokens['access_token'];
     $table = !empty($user['_linked_account']) ? 'linked_google_accounts' : 'users';
     genesisDb()->prepare("UPDATE {$table} SET access_token_enc = :access, token_expires_at = :expires_at, updated_at = :updated_at WHERE id = :id")->execute([
@@ -188,7 +226,42 @@ function genesisGoogleAccessToken(array $user): string
         'updated_at' => genesisNow(),
         'id' => (string)$user['id'],
     ]);
+    genesisLogError('[AuthFlow] TOKEN_REFRESH_SUCCESS');
     return $access;
+}
+
+function genesisClearGoogleAuthorization(array $user): void
+{
+    $table = !empty($user['_linked_account']) ? 'linked_google_accounts' : 'users';
+    genesisDb()->prepare("UPDATE {$table} SET access_token_enc = NULL, refresh_token_enc = NULL, token_expires_at = NULL, granted_scopes = '', updated_at = :updated_at WHERE id = :id")->execute([
+        'updated_at' => genesisNow(),
+        'id' => (string)$user['id'],
+    ]);
+}
+
+function genesisRemoveGoogleScope(array $user, string $scope): void
+{
+    $granted = preg_split('/\s+/', trim((string)($user['granted_scopes'] ?? ''))) ?: [];
+    $granted = array_values(array_filter($granted, static fn(string $value): bool => $value !== $scope));
+    $table = !empty($user['_linked_account']) ? 'linked_google_accounts' : 'users';
+    genesisDb()->prepare("UPDATE {$table} SET access_token_enc = NULL, token_expires_at = NULL, granted_scopes = :scopes, updated_at = :updated_at WHERE id = :id")->execute([
+        'scopes' => implode(' ', $granted),
+        'updated_at' => genesisNow(),
+        'id' => (string)$user['id'],
+    ]);
+}
+
+function genesisHandleGoogleAuthorizationFailure(array $user, string $scope, GenesisGoogleHttpException $error): void
+{
+    if ($error->status === 401) {
+        genesisClearGoogleAuthorization($user);
+        throw new RuntimeException('Google authorization must be renewed.');
+    }
+    if ($error->status === 403 && in_array($error->googleError, ['PERMISSION_DENIED', 'insufficientPermissions', 'authError'], true)) {
+        genesisRemoveGoogleScope($user, $scope);
+        throw new RuntimeException('Google permission must be renewed.');
+    }
+    throw $error;
 }
 
 function genesisGoogleApi(string $method, string $path, array $user, ?array $payload = null): array
@@ -203,7 +276,11 @@ function genesisGoogleApi(string $method, string $path, array $user, ?array $pay
         $options[CURLOPT_POSTFIELDS] = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
     }
     $options[CURLOPT_HTTPHEADER] = $headers;
-    return genesisCurl('https://www.googleapis.com/calendar/v3' . $path, $options);
+    try {
+        return genesisCurl('https://www.googleapis.com/calendar/v3' . $path, $options);
+    } catch (GenesisGoogleHttpException $error) {
+        genesisHandleGoogleAuthorizationFailure($user, GENESIS_GOOGLE_CALENDAR_SCOPE, $error);
+    }
 }
 
 function genesisGoogleTasksApi(string $method, string $path, array $user, ?array $payload = null): array
@@ -218,7 +295,11 @@ function genesisGoogleTasksApi(string $method, string $path, array $user, ?array
         $options[CURLOPT_POSTFIELDS] = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
     }
     $options[CURLOPT_HTTPHEADER] = $headers;
-    return genesisCurl('https://tasks.googleapis.com/tasks/v1' . $path, $options);
+    try {
+        return genesisCurl('https://tasks.googleapis.com/tasks/v1' . $path, $options);
+    } catch (GenesisGoogleHttpException $error) {
+        genesisHandleGoogleAuthorizationFailure($user, GENESIS_GOOGLE_TASKS_SCOPE, $error);
+    }
 }
 
 function genesisGoogleScopeGranted(array $user, string $scope): bool
@@ -229,6 +310,9 @@ function genesisGoogleScopeGranted(array $user, string $scope): bool
 
 function genesisEnsureGoogleCalendar(array $user): array
 {
+    if (!genesisGoogleScopeGranted($user, GENESIS_GOOGLE_CALENDAR_SCOPE)) {
+        throw new RuntimeException('Обновите доступ Google Calendar для синхронизации.');
+    }
     if (!empty($user['google_calendar_id'])) {
         return $user;
     }
@@ -1404,52 +1488,47 @@ function genesisListGoogleTasks(array $user): array
     if (empty($user['refresh_token_enc'])) {
         return [];
     }
-    $user = genesisEnsureGoogleCalendar($user);
     $tasks = [];
     $legacyDescriptionsToClean = [];
-    $pageToken = null;
-    do {
-        $query = [
-            'singleEvents' => 'false',
-            'showDeleted' => 'false',
-            'maxResults' => 2500,
-        ];
-        if (is_string($pageToken) && $pageToken !== '') {
-            $query['pageToken'] = $pageToken;
-        }
-        $result = genesisGoogleApi('GET', '/calendars/' . rawurlencode((string)$user['google_calendar_id']) . '/events?' . http_build_query($query, '', '&', PHP_QUERY_RFC3986), $user);
-        foreach ($result['items'] ?? [] as $event) {
-            if (!is_array($event)) {
-                continue;
+    if (genesisGoogleScopeGranted($user, GENESIS_GOOGLE_CALENDAR_SCOPE)) {
+        $user = genesisEnsureGoogleCalendar($user);
+        $pageToken = null;
+        do {
+            $query = [
+                'singleEvents' => 'false',
+                'showDeleted' => 'false',
+                'maxResults' => 2500,
+            ];
+            if (is_string($pageToken) && $pageToken !== '') {
+                $query['pageToken'] = $pageToken;
             }
-            if (
-                count($legacyDescriptionsToClean) < 50
-                && !empty($event['id'])
-                && empty($event['recurringEventId'])
-                && genesisHasLegacyTaskDescriptionMetadata($event['description'] ?? '')
-            ) {
-                $legacyDescriptionsToClean[] = [
-                    'eventId' => (string)$event['id'],
-                    'description' => genesisCleanTaskDescription($event['description'] ?? ''),
-                ];
+            $result = genesisGoogleApi('GET', '/calendars/' . rawurlencode((string)$user['google_calendar_id']) . '/events?' . http_build_query($query, '', '&', PHP_QUERY_RFC3986), $user);
+            foreach ($result['items'] ?? [] as $event) {
+                if (!is_array($event)) continue;
+                if (count($legacyDescriptionsToClean) < 50 && !empty($event['id'])
+                    && empty($event['recurringEventId'])
+                    && genesisHasLegacyTaskDescriptionMetadata($event['description'] ?? '')) {
+                    $legacyDescriptionsToClean[] = [
+                        'eventId' => (string)$event['id'],
+                        'description' => genesisCleanTaskDescription($event['description'] ?? ''),
+                    ];
+                }
+                $task = genesisGoogleEventForClient($event);
+                if ($task !== null) $tasks[] = $task;
             }
-            $task = genesisGoogleEventForClient($event);
-            if ($task !== null) {
-                $tasks[] = $task;
+            $pageToken = $result['nextPageToken'] ?? null;
+        } while (is_string($pageToken) && $pageToken !== '' && count($tasks) < 10_000);
+        foreach ($legacyDescriptionsToClean as $legacyEvent) {
+            try {
+                genesisGoogleApi(
+                    'PATCH',
+                    '/calendars/' . rawurlencode((string)$user['google_calendar_id']) . '/events/' . rawurlencode($legacyEvent['eventId']),
+                    $user,
+                    ['description' => $legacyEvent['description']],
+                );
+            } catch (Throwable $cleanupError) {
+                genesisLogError('[GoogleCalendarMetadataCleanup] ' . $cleanupError->getMessage(), $cleanupError);
             }
-        }
-        $pageToken = $result['nextPageToken'] ?? null;
-    } while (is_string($pageToken) && $pageToken !== '' && count($tasks) < 10_000);
-    foreach ($legacyDescriptionsToClean as $legacyEvent) {
-        try {
-            genesisGoogleApi(
-                'PATCH',
-                '/calendars/' . rawurlencode((string)$user['google_calendar_id']) . '/events/' . rawurlencode($legacyEvent['eventId']),
-                $user,
-                ['description' => $legacyEvent['description']],
-            );
-        } catch (Throwable $cleanupError) {
-            genesisLogError('[GoogleCalendarMetadataCleanup] ' . $cleanupError->getMessage(), $cleanupError);
         }
     }
     if (genesisGoogleScopeGranted($user, GENESIS_GOOGLE_TASKS_SCOPE)) {

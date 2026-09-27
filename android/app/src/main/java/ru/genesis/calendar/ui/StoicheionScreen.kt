@@ -36,11 +36,19 @@ internal data class StoicheionLetter(val id: String, val order: Int, val name: S
     val lowercase: String, val value: Int, val pythmen: Int, val tagline: String, val content: String,
     val body: String, val bodyGreek: String, val invocation: String, val accent: Color)
 
+private val stoicheionBodyEnglish = mapOf(
+    "Голова" to "Head", "Шея" to "Neck", "Плечи и руки" to "Shoulders and arms",
+    "Грудь" to "Chest", "Диафрагма" to "Diaphragm", "Спина" to "Back",
+    "Живот" to "Abdomen", "Бёдра" to "Thighs", "Колени" to "Knees",
+    "Голени" to "Lower legs", "Лодыжки" to "Ankles", "Стопы" to "Feet", "Ноги" to "Legs",
+)
+
 /** All 24 author texts are copied without abridgement from app/stoicheion-data.ts. */
 @Composable
 fun StoicheionScreen(app: GenesisApplication, divinationDisabled: Boolean,
     onOpenTheokyklosSector: (String) -> Unit = {}) {
     val context = LocalContext.current
+    val english = LocalGenesisLanguage.current == "en"
     val repository = remember(app) { StoicheionDrawRepository(app) }
     val scope = rememberCoroutineScope()
     val today by produceState(LocalDate.now()) {
@@ -53,17 +61,23 @@ fun StoicheionScreen(app: GenesisApplication, divinationDisabled: Boolean,
         while (true) { delay(1_000L); value = System.currentTimeMillis() }
     }
     val theokyklos = remember(context) { runCatching { TheokyklosCatalogSource.load(context) }.getOrNull() }
-    val letters by produceState<List<StoicheionLetter>?>(null, context) {
+    val letters by produceState<List<StoicheionLetter>?>(null, context, english) {
         value = withContext(Dispatchers.IO) {
             runCatching {
                 val raw = context.assets.open("stoicheion.json").bufferedReader().use { it.readText() }
                 val art = JSONObject(context.assets.open("stoicheion-art.json").bufferedReader().use { it.readText() })
+                val englishCatalog = if (english) JSONObject(context.assets.open("originals/i18n/stoicheion.en.json")
+                    .bufferedReader().use { it.readText() }) else null
                 JSONArray(raw).let { array -> (0 until array.length()).map { index ->
                     array.getJSONObject(index).let { item ->
-                        val image = art.getJSONObject(item.getString("id"))
-                        StoicheionLetter(item.getString("id"), item.getInt("order"), item.getString("name"),
+                        val id = item.getString("id")
+                        val image = art.getJSONObject(id)
+                        val localized = englishCatalog?.getJSONObject(id)
+                        StoicheionLetter(id, item.getInt("order"), localized?.getString("name") ?: item.getString("name"),
                             item.getString("symbol"), item.getString("lowercase"), item.getInt("value"), item.getInt("pythmen"),
-                            item.getString("tagline"), item.getString("content"), image.getString("body"),
+                            localized?.getString("tagline") ?: item.getString("tagline"),
+                            localized?.getString("content") ?: item.getString("content"),
+                            image.getString("body").let { if (english) stoicheionBodyEnglish[it] ?: it else it },
                             image.getString("bodyGreek"), image.getString("invocation"),
                             Color(android.graphics.Color.parseColor(image.getString("accent"))))
                     }
@@ -164,18 +178,22 @@ fun StoicheionScreen(app: GenesisApplication, divinationDisabled: Boolean,
                             Text("${position.direction} · сектор расклада", style = MaterialTheme.typography.titleMedium)
                             Text(position.meaning, style = MaterialTheme.typography.bodyMedium)
                             theokyklos?.byId?.get(position.id)?.let { sector ->
-                                Text("${sector.patrons.ru} · ${sector.essence.ru}",
+                                Text(if (english) "${sector.patrons.en} · ${sector.essence.en}"
+                                    else "${sector.patrons.ru} · ${sector.essence.ru}",
                                     style = MaterialTheme.typography.titleSmall)
                                 theokyklos.guidanceById[position.id]?.let { guidance ->
-                                    Text((if (reading.reversed == true) guidance.reversed else guidance.upright).ru,
+                                    val guidanceText = if (reading.reversed == true) guidance.reversed else guidance.upright
+                                    Text(if (english) guidanceText.en else guidanceText.ru,
                                         style = MaterialTheme.typography.bodyMedium)
                                 }
                                 sector.words.forEach { word ->
-                                    Text("${word.greek} · ${word.pronunciation.ru} · ${word.meaning.ru}",
+                                    Text(if (english) "${word.greek} · ${word.pronunciation.en} · ${word.meaning.en}"
+                                        else "${word.greek} · ${word.pronunciation.ru} · ${word.meaning.ru}",
                                         style = MaterialTheme.typography.bodySmall)
                                 }
                                 theokyklos.practicesFor(position.id).forEach { practice ->
-                                    Text("${practice.emoji} ${practice.title.ru} — ${practice.description.ru}",
+                                    Text(if (english) "${practice.emoji} ${practice.title.en} — ${practice.description.en}"
+                                        else "${practice.emoji} ${practice.title.ru} — ${practice.description.ru}",
                                         style = MaterialTheme.typography.bodySmall)
                                 }
                                 TextButton(onClick = { selected = null; onOpenTheokyklosSector(position.id) }) {

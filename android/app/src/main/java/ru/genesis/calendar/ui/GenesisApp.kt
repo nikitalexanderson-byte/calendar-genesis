@@ -24,6 +24,8 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -37,6 +39,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import ru.genesis.calendar.*
+import ru.genesis.calendar.auth.GoogleServicesFirstRunModal
 import ru.genesis.calendar.data.*
 import ru.genesis.calendar.domain.*
 import java.time.*
@@ -114,10 +117,18 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                     OriginalImage("icons/icon-192.png","GENESIS",Modifier.size(40.dp))
                     Text("GENESIS",Modifier.padding(start=10.dp).weight(1f),style=MaterialTheme.typography.titleLarge)
                     Text(if(BuildConfig.DEBUG) "Internal alpha" else BuildConfig.VERSION_NAME,
-                        style=MaterialTheme.typography.labelSmall)
-                }
-                if (tab == "Сегодня" && !testWorkspace) {
-                    TodaySyncPanel(authState.busy, authState.message) { authController.checkSession() }
+                        modifier = Modifier.padding(end = 6.dp), style=MaterialTheme.typography.labelSmall)
+                    if (!testWorkspace) {
+                        val refreshDescription = genesisTranslate(if (authState.busy)
+                            "Получаем изменения с сервера…" else "Обновить аккаунт")
+                        IconButton(onClick = { authController.checkSession() }, enabled = !authState.busy,
+                            modifier = Modifier.size(40.dp).testTag("today-refresh")
+                                .semantics { contentDescription = refreshDescription }) {
+                            Text(if (authState.busy) "…" else "↻",
+                                style = MaterialTheme.typography.titleLarge,
+                                color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
                 }
                 Text(if (activeScope.startsWith("account-")) "Аккаунт GENESIS · защищённая локальная копия"
                     else if(BuildConfig.DEBUG) "Изолированное тестовое пространство · только на этом устройстве"
@@ -201,8 +212,10 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                 showSelectedOccurrence=tab=="Сегодня")
             }
         }
+        if (!testWorkspace) GoogleServicesFirstRunModal(authState, authController)
       }
     }
+    LaunchedEffect(prefs.language) { app.scheduler.createChannels(prefs.language) }
 }
 
 @Composable
@@ -214,32 +227,6 @@ private fun AuthTransitionScreen(message: String) {
             Text("Открываем защищённое пространство", style = MaterialTheme.typography.titleMedium)
             Text(message, style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}
-
-@Composable
-private fun TodaySyncPanel(busy: Boolean, status: String, onRefresh: () -> Unit) {
-    Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp)
-        .testTag("today-manual-sync"), shape = RoundedCornerShape(18.dp),
-        color = Color(0xfff4ead2), border = BorderStroke(1.dp, Color(0x66b28a4a))) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Surface(Modifier.size(38.dp), shape = RoundedCornerShape(12.dp), color = Color(0xff123b36)) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text("↻", color = Color(0xfff3d68f), style = MaterialTheme.typography.titleLarge)
-                }
-            }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text("Синхронизация аккаунта", style = MaterialTheme.typography.titleSmall)
-                Text(if (busy) "Получаем изменения с сервера…" else status,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
-            }
-            OutlinedButton(onClick = onRefresh, enabled = !busy,
-                modifier = Modifier.testTag("today-refresh")) {
-                Text(if (busy) "Обновление…" else "Обновить")
-            }
         }
     }
 }
@@ -310,13 +297,15 @@ fun OriginalImage(path: String, description: String?, modifier: Modifier=Modifie
             runCatching { context.assets.open("originals/$path").use { BitmapFactory.decodeStream(it) } }.getOrNull()
         }
     }
-    bitmap?.let { Image(it.asImageBitmap(),description,modifier,contentScale=ContentScale.Crop) }
+    val localizedDescription = description?.let { genesisTranslate(it) }
+    bitmap?.let { Image(it.asImageBitmap(),localizedDescription,modifier,contentScale=ContentScale.Crop) }
 }
 
 @Composable
 private fun DayHeader(date: LocalDate,mode: CalendarMode) {
     val calendar=remember { GenesisCalendar() }
-    val copy = remember(date,mode) { todayHeroCopy(date,mode,calendar) }
+    val language = LocalGenesisLanguage.current
+    val copy = remember(date,mode,language) { todayHeroCopy(date,mode,calendar,language) }
         Card(Modifier.fillMaxWidth().testTag("today-hero"), shape = RoundedCornerShape(20.dp),
             border = BorderStroke(1.dp, Color(0x66dfc17e))) {
             Box(Modifier.fillMaxWidth().heightIn(min = if(mode==CalendarMode.PROFANE) 540.dp else 390.dp)) {
@@ -338,7 +327,8 @@ private fun DayHeader(date: LocalDate,mode: CalendarMode) {
                     .testTag("today-hero-copy"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(copy.eyebrow,
                         color = Color(0xffdfc17e), style = MaterialTheme.typography.labelMedium)
-                    Text(copy.month.uppercase(java.util.Locale.forLanguageTag("ru")),
+                    Text(copy.month.uppercase(if (LocalGenesisLanguage.current == "en") java.util.Locale.ENGLISH
+                        else java.util.Locale.forLanguageTag("ru")),
                         color = Color(0xfff0d49b), style = MaterialTheme.typography.labelLarge)
                     Text(copy.title, color = Color(0xfff9f2e2), style = MaterialTheme.typography.headlineSmall)
                     copy.subtitle?.let { Text(it, color = Color(0xfff1e5cb),

@@ -32,6 +32,7 @@ internal val pyataDescriptions = listOf(
 /** Shared native day facts from the web calendar, independent of the display/input calendar choice. */
 @Composable
 fun DayKnowledgePanel(date: LocalDate, calendar: GenesisCalendar = GenesisCalendar()) {
+    val locale = if (LocalGenesisLanguage.current == "en") Locale.ENGLISH else Locale.forLanguageTag("ru")
     val sacred = calendar.sacredDate(date)
     val month = SacredCatalog.months[sacred.monthIndex]
     val day = month.days[sacred.day - 1]
@@ -59,12 +60,12 @@ fun DayKnowledgePanel(date: LocalDate, calendar: GenesisCalendar = GenesisCalend
             if (moon.event.isNotBlank()) Text(moon.event, color = MaterialTheme.colorScheme.primary,
                 style = MaterialTheme.typography.labelLarge)
             HorizontalDivider()
-            Text("Григорианский · ${date.dayOfWeek.getDisplayName(TextStyle.FULL_STANDALONE, Locale.forLanguageTag("ru"))}, ${date.dayOfMonth}.${date.monthValue}.${date.year}",
+            Text("Григорианский · ${date.dayOfWeek.getDisplayName(TextStyle.FULL_STANDALONE, locale)}, ${date.dayOfMonth}.${date.monthValue}.${date.year}",
                 style = MaterialTheme.typography.titleSmall)
             Text("${date.dayOfYear}-й из ${date.lengthOfYear()} дней года · ${date.lengthOfMonth()} дней в месяце",
                 style = MaterialTheme.typography.bodySmall)
             calendar.solarEvent(date)?.let { event ->
-                Text("${event.symbol} ${event.name} · ${event.instant.atZone(calendar.zoneId).format(DateTimeFormatter.ofPattern("HH:mm z", Locale.forLanguageTag("ru")))}",
+                Text("${event.symbol} ${event.name} · ${event.instant.atZone(calendar.zoneId).format(DateTimeFormatter.ofPattern("HH:mm z", locale))}",
                     color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleSmall)
             }
             HorizontalDivider()

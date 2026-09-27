@@ -58,4 +58,15 @@ internal object AuthProtocol {
         require(body.getInt("expiresIn") in 1..300) { "Invalid challenge lifetime" }
         return AuthChallenge(nonce, clientId)
     }
+
+    fun serverClientId(body: JSONObject): String {
+        val clientId = body.getString("serverClientId")
+        require(clientId.matches(Regex("[A-Za-z0-9._-]+\\.apps\\.googleusercontent\\.com"))) {
+            "Invalid OAuth audience"
+        }
+        return clientId
+    }
+
+    fun googleLinkAction(body: JSONObject): String? = body.optString("googleLinkAction")
+        .takeIf { it in setOf("found", "created") }
 }

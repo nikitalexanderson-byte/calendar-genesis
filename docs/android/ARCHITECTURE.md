@@ -63,7 +63,7 @@ Task/habit/daily-goal/achievement channels созданы со стабильн�
 
 В PHP локально добавлены `server/src/native-auth.php` и routes native challenge/token в существующем API. Сохранены browser OAuth и CSRF helpers; identity проходит прежний `genesisUpsertGoogleUser`, чтобы не создавать другой binding по email. JWT RS256 проверяется OpenSSL по доверенному фиксированному Google PEM endpoint; `iss/aud/exp/iat/nonce` проверяются; challenge одноразовый. Portable PHP8.3.35: syntax/44 standalone checks PASS; independent security review и HTTP tests обязательны перед публикацией. Подробный контракт/ограничения — `AUTH_PROTOCOL.md`; console/signing действия — `MANUAL_STEPS.md`.
 
-Текущий web workspace `keyMode=account` использует server escrow: backend хранит зашифрованный ключ и выдаёт его подтверждённой сессии. Это не zero-knowledge E2EE. WorkspaceCipher совместим с AES-GCM форматом, но live bootstrap/key import ещё не выполнены. Google Calendar/Tasks grants отделены от identity и остаются серверной интеграцией; native AuthorizationClient/безопасный browser handoff пока отсутствует.
+Текущий web workspace `keyMode=account` использует server escrow: backend хранит зашифрованный ключ и выдаёт его подтверждённой сессии. Это не zero-knowledge E2EE. WorkspaceCipher совместим с AES-GCM форматом, но live bootstrap/key import ещё не выполнены. Google Calendar/Tasks grants отделены от identity и остаются серверной интеграцией; Android получает одноразовый server auth code через AuthorizationClient, а token exchange и хранение refresh token выполняет backend.
 
 ## Что ещё не является синхронизацией
 
