@@ -138,8 +138,10 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
     var selectedCategory by remember { mutableStateOf<String?>(null) }
     var selectedProject by remember { mutableStateOf<String?>(null) }
     var editing by remember { mutableStateOf<GenesisProject?>(null) }
+    var deleteCandidate by remember { mutableStateOf<GenesisProject?>(null) }
     var creating by remember { mutableStateOf(false) }
     var editingCategory by remember { mutableStateOf<GenesisCategory?>(null) }
+    var deleteCategoryCandidate by remember { mutableStateOf<GenesisCategory?>(null) }
     var categoryEditor by remember { mutableStateOf(false) }
     var categoriesExpanded by remember { mutableStateOf(false) }
     var inboxExpanded by remember { mutableStateOf(false) }
@@ -245,6 +247,9 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text(category.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
                         TextButton(onClick = { editingCategory = category; categoryEditor = true; error = null }) { Text("Изменить") }
+                        TextButton(onClick = { deleteCategoryCandidate = category },
+                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                            modifier = Modifier.testTag("delete-category-${category.id}")) { Text("Удалить") }
                     }
                 }
             }
@@ -288,6 +293,11 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
                         }
                         TextButton(onClick = { onCreateTask(project.id) }) { Text("Создать задачу в проекте") }
                         TextButton(onClick = { editing = project; creating = true; error = null }) { Text("Изменить проект") }
+                        TextButton(onClick = { deleteCandidate = project },
+                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                            modifier = Modifier.testTag("delete-project-${project.id}")) {
+                            Text("Удалить проект")
+                        }
                     }
                 }
             }
@@ -340,6 +350,65 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
             catch (e: IllegalArgumentException) { error = e.message ?: "Проверьте категорию." }
             catch (_: Exception) { error = "Не удалось сохранить категорию." }
         }
+    }
+    deleteCandidate?.let { project ->
+        AlertDialog(onDismissRequest = { deleteCandidate = null },
+            title = { Text("Удалить проект?") },
+            text = { Text("Удалить проект «${project.title}» и все его подпроекты? Задачи останутся, но перейдут в Хаос-бокс.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    deleteCandidate = null
+                    scope.launch {
+                        try {
+                            val removed = WorkspaceStructureCodec.projectSubtreeIds(structure.projects, project.id)
+                            tasks.filter { it.projectId in removed }.forEach { task ->
+                                app.repository.save(task.copy(projectId = null, categoryId = null, project = ""))
+                            }
+                            repo.deleteProject(project.id, structure.revision)
+                            if (selectedProject in removed) selectedProject = null
+                            if (editing?.id in removed) { editing = null; creating = false }
+                            error = null
+                        } catch (e: IllegalArgumentException) {
+                            error = e.message ?: "Не удалось удалить проект."
+                        } catch (_: Exception) {
+                            error = "Не удалось удалить проект. Повторите попытку."
+                        }
+                    }
+                }, modifier = Modifier.testTag("confirm-delete-project"),
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
+                    Text("Удалить")
+                }
+            },
+            dismissButton = { TextButton(onClick = { deleteCandidate = null }) { Text("Отмена") } })
+    }
+    deleteCategoryCandidate?.let { category ->
+        AlertDialog(onDismissRequest = { deleteCategoryCandidate = null },
+            title = { Text("Удалить категорию?") },
+            text = { Text("Удалить категорию «${category.name}»? Проекты и задачи останутся, но будут перенесены в раздел «Без категории».") },
+            confirmButton = {
+                TextButton(onClick = {
+                    deleteCategoryCandidate = null
+                    scope.launch {
+                        try {
+                            tasks.filter { it.categoryId == category.id }.forEach { task ->
+                                app.repository.save(task.copy(categoryId = null))
+                            }
+                            repo.deleteCategory(category.id, structure.revision)
+                            if (selectedCategory == category.id) selectedCategory = null
+                            if (editingCategory?.id == category.id) { editingCategory = null; categoryEditor = false }
+                            error = null
+                        } catch (e: IllegalArgumentException) {
+                            error = e.message ?: "Не удалось удалить категорию."
+                        } catch (_: Exception) {
+                            error = "Не удалось удалить категорию. Повторите попытку."
+                        }
+                    }
+                }, modifier = Modifier.testTag("confirm-delete-category"),
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
+                    Text("Удалить")
+                }
+            },
+            dismissButton = { TextButton(onClick = { deleteCategoryCandidate = null }) { Text("Отмена") } })
     }
 }
 

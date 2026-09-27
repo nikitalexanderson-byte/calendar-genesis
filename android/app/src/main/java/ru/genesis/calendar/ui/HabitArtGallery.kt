@@ -55,25 +55,27 @@ private fun achievementIsQualified(id: String, workspace: LocalHabitWorkspace): 
 @Composable
 fun HabitArtGallery(workspace: LocalHabitWorkspace, today: LocalDate, busy: Boolean,
     onClaimAmphora: (String) -> Unit, onRevealHiddenPath: () -> Unit,
-    onBuySpark: () -> Unit) {
+    onBuySpark: () -> Unit, showQuests: Boolean = true) {
     var galleryOpen by remember { mutableStateOf(false) }
     var rankOpen by remember { mutableStateOf(false) }
     var streakOpen by remember { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Card(Modifier.fillMaxWidth().testTag("hero-rank-path"),
             shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xffe4efe9)),
-            border = BorderStroke(1.dp, Color(0x77255b59))) {
+            colors = CardDefaults.cardColors(containerColor = Color(0xff082e2f)),
+            border = BorderStroke(1.dp, Color(0x66dfc17e))) {
             Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(Modifier.size(40.dp), shape = RoundedCornerShape(12.dp), color = Color(0xff255b59)) {
+                    Surface(Modifier.size(40.dp), shape = RoundedCornerShape(12.dp), color = Color(0xff143b39),
+                        border = BorderStroke(1.dp, Color(0x55dfc17e))) {
                         Box(contentAlignment = Alignment.Center) {
-                            Text("♜", color = Color(0xffffe4a6), style = MaterialTheme.typography.titleMedium)
+                            Text("♜", color = Color(0xffdfc17e), style = MaterialTheme.typography.titleMedium)
                         }
                     }
                     Text("Путь героических рангов", Modifier.weight(1f).padding(start = 10.dp),
-                        style = MaterialTheme.typography.titleMedium, color = Color(0xff123b36))
-                    TextButton(onClick = { rankOpen = !rankOpen }) {
+                        style = MaterialTheme.typography.titleMedium, color = Color(0xfffff5df))
+                    TextButton(onClick = { rankOpen = !rankOpen },
+                        colors = ButtonDefaults.textButtonColors(contentColor = Color(0xffdfc17e))) {
                         Text(if (rankOpen) "Свернуть" else "Все ранги")
                     }
                 }
@@ -119,7 +121,7 @@ fun HabitArtGallery(workspace: LocalHabitWorkspace, today: LocalDate, busy: Bool
                 }
             }
         }
-        HabitQuestPanel(workspace, today)
+        if (showQuests) HabitQuestPanel(workspace, today)
         Card(Modifier.fillMaxWidth().testTag("achievement-gallery"),
             shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(containerColor = Color(0xfff4e8df)),

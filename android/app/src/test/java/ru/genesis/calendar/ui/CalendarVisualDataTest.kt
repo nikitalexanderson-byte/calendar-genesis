@@ -27,4 +27,18 @@ class CalendarVisualDataTest {
             (0L..6L).map { weekdayPatronMark(sunday.plusDays(it)).symbol })
         assertEquals("Гестия, Афродита и Дионис", weekdayPatronMark(LocalDate.of(2026, 9, 25)).patrons)
     }
+
+    @Test fun lunarGridUsesReadOnlyPreviousMonthContextWithoutTrailingFill() {
+        val range = CalendarRange(LocalDate.of(2026, 4, 17), LocalDate.of(2026, 5, 15))
+        val dates = lunarGridDates(range)
+        assertEquals(LocalDate.of(2026, 4, 13), dates.first())
+        assertEquals(range.start, dates[4])
+        assertEquals(range.end, dates.last())
+    }
+
+    @Test fun additiveRomanFourMatchesGenesisNotation() {
+        assertEquals("IIII", genesisRoman(4))
+        assertEquals("XIIII", genesisRoman(14))
+        assertEquals("XXIIII", genesisRoman(24))
+    }
 }

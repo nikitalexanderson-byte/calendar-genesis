@@ -59,6 +59,26 @@ private val nativeCopy = mapOf(
     "ГРИГОРИАНСКИЙ ДЕНЬ" to "GREGORIAN DAY", "ЛУННЫЙ ДЕНЬ" to "LUNAR DAY",
     "САКРАЛЬНЫЙ ДЕНЬ" to "SACRED DAY", "Открыть день и задачи" to "Open day and tasks",
     "ГРИГОРИАНСКИЙ КАЛЕНДАРЬ" to "GREGORIAN CALENDAR",
+    "САКРАЛЬНЫЙ КАЛЕНДАРЬ" to "SACRED CALENDAR", "ЛУННЫЙ КАЛЕНДАРЬ" to "LUNAR CALENDAR",
+    "СМЫСЛ ДНЯ" to "MEANING OF THE DAY", "ПИФАГОРЕЙСКИЙ СМЫСЛ" to "PYTHAGOREAN MEANING",
+    "Пространство первообразов" to "Realm of archetypes",
+    "Иллюстрация сакрального дня:" to "Sacred day illustration:",
+    "НОВОЛУНИЕ" to "NEW MOON", "ПОЛНОЛУНИЕ" to "FULL MOON",
+    "ПОЖИЗНЕННЫЙ ПРОГРЕСС" to "LIFETIME PROGRESS", "ТЕКУЩИЙ РАНГ" to "CURRENT RANK",
+    "Каждый балл сохраняет реальное выполнение. XP не тратится, а достигнутые ранги не теряются." to
+        "Every point records real completion. XP is never spent, and achieved ranks are never lost.",
+    "XP до" to "XP to", "ВЫ ЗДЕСЬ" to "YOU ARE HERE", "ДОСТИГНУТ" to "REACHED",
+    "ВПЕРЕДИ" to "AHEAD", "ГАРАНТИРОВАННАЯ НАГРАДА" to "GUARANTEED CHECKPOINT REWARD",
+    "Восход" to "Sunrise", "закат" to "sunset", "Закат" to "Sunset",
+    "Полярный день или ночь" to "Polar day or night",
+    "Удалить проект" to "Delete project", "Удалить проект?" to "Delete project?",
+    "Удалить проект «" to "Delete project “", "» и все его подпроекты? Задачи останутся, но перейдут в Хаос-бокс." to
+        "” and all its subprojects? Tasks will be kept and moved to the Chaos box.",
+    "Не удалось удалить проект." to "Could not delete the project.",
+    "Не удалось удалить проект. Повторите попытку." to "Could not delete the project. Try again.",
+    "Категория больше не существует." to "The category no longer exists.",
+    "Удалить категорию?" to "Delete category?", "Не удалось удалить категорию." to "Could not delete the category.",
+    "Не удалось удалить категорию. Повторите попытку." to "Could not delete the category. Try again.",
     "Воскресенье" to "Sunday", "Понедельник" to "Monday", "Вторник" to "Tuesday",
     "Среда" to "Wednesday", "Четверг" to "Thursday", "Пятница" to "Friday",
     "Суббота" to "Saturday", "Части тела:" to "Body parts:",
@@ -531,6 +551,80 @@ private val nativeCopy = mapOf(
     "и все отметки будут удалены. Прогресс:" to "and all completion records will be deleted. Progress:",
     "баланс Лавров будет обнулён." to "the Laurel balance will be reset.",
     "До «" to "To “", "»:" to "”:",
+    // Account settings and cloud ownership.
+    "Защищённая учётная запись и состояние сессии" to "Protected account and session status",
+    "Облако" to "Cloud", "Что хранится в GENESIS, а что синхронизируется с Google" to
+        "What stays in GENESIS and what syncs with Google",
+    "Сайт GENESIS" to "GENESIS website", "Ожидает загрузки защищённого пространства" to
+        "Waiting for the protected workspace",
+    "Версия облака:" to "Cloud version:",
+    "Проекты, категории, привычки, отметки, сон, настроение, награды и испытания." to
+        "Projects, categories, habits, completions, sleep, mood, rewards, and quests.",
+    "Calendar и Tasks подключены" to "Calendar and Tasks are connected",
+    "Calendar и Tasks требуют подключения" to "Calendar and Tasks need to be connected",
+    "События календаря и задачи Google появятся после подключения сервисов." to
+        "Google calendar events and tasks will appear after you connect the services.",
+    "Google Calendar и Tasks" to "Google Calendar and Tasks",
+    "Разрешения и фоновая синхронизация" to "Permissions and background sync",
+    "Связанные аккаунты и правила отправки задач" to "Linked accounts and task routing rules",
+    "Академия, поддержка и веб-версия" to "Academy, support, and web version",
+    // Habit settings shared with the website.
+    "Не удалось сохранить настройки привычек." to "Could not save habit settings.",
+    "ЕЖЕДНЕВНАЯ ПРАКТИКА" to "DAILY PRACTICE", "Трекинг привычек" to "Habit tracking",
+    "Включить трекер привычек" to "Enable habit tracker",
+    "Показывает страницу «Привычки», настроение и прогресс. При отключении зашифрованные записи сохраняются." to
+        "Shows the Habits page, mood, and progress. Encrypted records remain safe when disabled.",
+    "Трекинг привычек включён" to "Habit tracking is enabled",
+    "Трекинг привычек скрыт" to "Habit tracking is hidden",
+    "Стартовые привычки" to "Starter habits", "Все стандартные предложения доступны" to
+        "All standard suggestions are available",
+    "Скрыто предложений:" to "Hidden suggestions:", "Восстановить стандартные" to "Restore defaults",
+    "Обнуление трекера" to "Reset tracker",
+    "Безвозвратно удалит привычки, сон, настроение, статистику, XP и лавры. Настройки аккаунта и календаря сохранятся." to
+        "Permanently deletes habits, sleep, mood, statistics, XP, and Laurels. Account and calendar settings remain.",
+    "Обнулить все привычки" to "Reset all habits",
+    "МОТИВАЦИЯ НА УСТРОЙСТВЕ" to "ON-DEVICE MOTIVATION",
+    "GENESIS объединяет близкие напоминания, соблюдает тихие часы и снижает частоту мотивационных сообщений после повторных пропусков." to
+        "GENESIS groups nearby reminders, respects quiet hours, and reduces motivational messages after repeated misses.",
+    "Включить уведомления на этом устройстве" to "Enable notifications on this device",
+    "Разрешение Android запрашивается только после включения этого переключателя." to
+        "Android permission is requested only after you enable this switch.",
+    "Разрешение Android выключено" to "Android permission is disabled",
+    "Уведомления включены" to "Notifications are enabled", "Уведомления отключены" to "Notifications are disabled",
+    "Поведение уведомлений" to "Notification tone", "Героический" to "Heroic", "С иронией" to "Wry",
+    "Напоминание о дневной цели" to "Daily goal reminder", "Начало тихих часов" to "Quiet hours start",
+    "Конец тихих часов" to "Quiet hours end", "Напоминания о цели и серии" to "Goal and streak reminders",
+    "Показываются только пока цель достижима; не стыдят и не отнимают прогресс." to
+        "Shown only while the goal is reachable; never shames you or removes progress.",
+    "Аналитика уведомлений не содержит названий привычек и остаётся только на этом устройстве. Настройки хранятся внутри зашифрованного пространства." to
+        "Notification analytics contains no habit names and stays on this device. Settings are stored inside the encrypted workspace.",
+    "ОТКЛИК И ДОСТУПНОСТЬ" to "FEEDBACK AND ACCESSIBILITY", "Отклик на выполнение" to "Completion feedback",
+    "Выберите, как GENESIS подтверждает выполнение привычки. Системное ограничение движения всегда имеет приоритет." to
+        "Choose how GENESIS confirms habit completion. The system reduced-motion setting always takes priority.",
+    "Короткие анимации" to "Short animations", "Плавный отклик галочки, карточки и прогресса." to
+        "Smooth feedback for the checkmark, card, and progress.",
+    "Звук выполнения" to "Completion sound", "Короткий локальный сигнал; не загружается с сервера." to
+        "A short local sound that is never downloaded from the server.",
+    "Тактильный отклик" to "Haptic feedback", "Лёгкая вибрация на поддерживаемых устройствах." to
+        "A light vibration on supported devices.",
+    "Уведомления о достижениях" to "Achievement notifications",
+    "Показывать новое достижение в уведомлении о выполнении." to
+        "Show a new achievement in the completion notification.",
+    "Создавать и показывать ежедневные, недельные и эпические испытания." to
+        "Create and show daily, weekly, and epic quests.",
+    "Игровые блоки" to "Gamification panels", "Показывать ранги, Лавры, награды серии и достижения." to
+        "Show ranks, Laurels, streak rewards, and achievements.",
+    "Включите трекинг привычек, чтобы изменить эти настройки." to
+        "Enable habit tracking to change these settings.",
+    "Обнулить трекер?" to "Reset the tracker?",
+    "Будут безвозвратно удалены привычки, отметки, сон, настроение, XP, награды и Лавры. Это действие нельзя отменить." to
+        "Habits, completions, sleep, mood, XP, rewards, and Laurels will be permanently deleted. This cannot be undone.",
+    "Не удалось обнулить трекер." to "Could not reset the tracker.", "Обнулить" to "Reset",
+    // Generic on-device habit notifications.
+    "Дневная цель ещё достижима." to "Your daily goal is still within reach.",
+    "Вас ждёт запланированная практика." to "A scheduled practice is waiting for you.",
+    "Вас ждут запланированные практики:" to "Scheduled practices are waiting for you:",
+    "В окне Google выберите тот же аккаунт:" to "In the Google window, choose the same account:",
 )
 
 private object TranslationCatalog {

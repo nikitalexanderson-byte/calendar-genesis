@@ -59,17 +59,21 @@ class NativeUiTest {
         compose.onNodeWithText(label,substring=true).assertExists()
     }
 
-    @Test fun prioritySupportsHoldAndHorizontalDrag() {
+    @Test fun prioritySupportsImmediateHorizontalDragAndTap() {
         compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("create-task"))
         compose.onNodeWithTag("create-task").performClick()
         compose.onNodeWithTag("priority-scale").performScrollTo().performTouchInput {
             down(Offset(center.x * .24f, center.y))
-            advanceEventTime(700)
+            advanceEventTime(30)
             moveTo(Offset(center.x * 1.82f, center.y))
-            advanceEventTime(100)
+            advanceEventTime(50)
             up()
         }
         compose.onNodeWithText("Приоритет · Горит · 10 из 10").assertExists()
+        compose.onNodeWithTag("priority-scale").performTouchInput {
+            click(Offset(center.x * .24f, center.y))
+        }
+        compose.onNodeWithText("Приоритет · Низкий · 2 из 10").assertExists()
         compose.onNodeWithText("Отмена").performScrollTo().performClick()
     }
 
@@ -78,6 +82,13 @@ class NativeUiTest {
         compose.onNodeWithTag("account-link-telegram").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("account-link-donate").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("account-link-web").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test fun settingsExposeWebsiteHabitControlsAsSeparateCards() {
+        compose.onNodeWithText("Настройки").performScrollTo().performClick()
+        compose.onNodeWithTag("habit-tracking-settings").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("habit-notification-settings").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("habit-feedback-settings").performScrollTo().assertIsDisplayed()
     }
 
     @Test fun settingsLanguageSwitchesWithoutLeavingWorkspace() {

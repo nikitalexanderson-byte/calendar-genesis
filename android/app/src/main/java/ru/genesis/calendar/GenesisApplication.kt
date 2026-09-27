@@ -25,6 +25,6 @@ class GenesisApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         scheduler.createChannels()
-        appScope.launch { scheduler.restore() }
+        appScope.launch { scheduler.restore(); scheduler.restoreHabitNotifications() }
     }
 }

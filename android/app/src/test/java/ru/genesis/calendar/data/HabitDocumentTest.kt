@@ -114,6 +114,27 @@ class HabitDocumentTest {
         assertThrows(IllegalArgumentException::class.java) { HabitDocument.decode("{\"localSchema\":999}",1) }
     }
 
+    @Test fun webCompatibleSettingsAndHiddenTemplatesSurviveRoundTrip() {
+        val raw = JSONObject().put("enabled", true).put("reportRange", "quarter")
+            .put("notifications", JSONObject().put("enabled", true).put("motivational", false)
+                .put("tone", "heroic").put("dailyGoalTime", "19:45")
+                .put("quietHoursStart", "23:00").put("quietHoursEnd", "06:30"))
+            .put("feedback", JSONObject().put("animations", false).put("sound", true)
+                .put("haptics", true).put("achievementPopups", false)
+                .put("questsEnabled", false).put("gamificationWidgets", false))
+        val settings = HabitSettings(true,
+            HabitNotificationSettings(true, false, "heroic", "19:45", "23:00", "06:30"),
+            HabitFeedbackSettings(false, true, true, false, false, false), raw.toString())
+        val workspace = LocalHabitWorkspace(settings = settings,
+            hiddenDefaultTemplates = listOf("daily-plan"))
+        val decoded = HabitDocument.decode(HabitDocument.encode(workspace), 0)
+        assertEquals(settings.enabled, decoded.settings.enabled)
+        assertEquals(settings.notifications, decoded.settings.notifications)
+        assertEquals(settings.feedback, decoded.settings.feedback)
+        assertEquals("quarter", JSONObject(decoded.settings.rawJson).getString("reportRange"))
+        assertEquals(listOf("daily-plan"), decoded.hiddenDefaultTemplates)
+    }
+
     @Test fun deletionRemovesHabitHistoryAndAppliesWebLaurelThreshold() {
         val h = habit()
         fun completions(count: Int) = (0 until count).map { offset ->

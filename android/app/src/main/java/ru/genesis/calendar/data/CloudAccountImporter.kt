@@ -24,6 +24,8 @@ internal class CloudAccountImporter(private val db: GenesisDatabase, private val
             .put("achievementUnlocks", document.optJSONArray("achievementUnlocks") ?: JSONArray())
             .put("streakFreezeTransactions", document.optJSONArray("streakFreezeTransactions") ?: JSONArray())
             .put("quests", document.optJSONArray("quests") ?: JSONArray())
+            .put("settings", document.optJSONObject("habitSettings") ?: JSONObject())
+            .put("hiddenDefaultTemplates", document.optJSONArray("hiddenDefaultTemplates") ?: JSONArray())
             .put("progress", document.getJSONObject("userProgress")).toString()
 
         fun trackersDocument(document: JSONObject): String = JSONObject().put("localSchema", 1)
