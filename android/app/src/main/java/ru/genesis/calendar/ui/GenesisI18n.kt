@@ -18,6 +18,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
 import org.json.JSONArray
 import org.json.JSONObject
+import android.util.Log
 import ru.genesis.calendar.domain.SacredCatalog
 import java.util.concurrent.ConcurrentHashMap
 
@@ -26,6 +27,19 @@ val LocalGenesisLanguage = compositionLocalOf { "ru" }
 
 private val nativeCopy = mapOf(
     "Настройки" to "Settings", "Задачи" to "Tasks", "Сон и настроение" to "Sleep & mood",
+    "Google Calendar и Tasks подключены" to "Google Calendar and Tasks are connected",
+    "Подключите синхронизацию Google" to "Connect Google sync",
+    "разрешение выдано" to "permission granted", "нужно разрешение" to "permission required",
+    "GENESIS запросит доступ отдельно от входа и сохранит токен фоновой синхронизации только на сервере." to
+        "GENESIS requests service access separately from sign-in and stores the background sync token only on the server.",
+    "Обновить разрешения" to "Refresh permissions", "Подключить Calendar и Tasks" to "Connect Calendar and Tasks",
+    "Разрешить синхронизацию Google?" to "Allow Google sync?",
+    "Открываем окно Google…" to "Opening Google…", "Обновить аккаунт" to "Refresh account",
+    "GENESIS создаёт отдельный календарь и синхронизирует в нём события." to
+        "GENESIS creates a separate calendar and synchronizes events in it.",
+    "GENESIS показывает и изменяет ваши списки и задачи по вашим действиям." to
+        "GENESIS displays and changes your lists and tasks when you ask it to.",
+    "Продолжить" to "Continue", "Не сейчас" to "Not now",
     "Новая привычка" to "New habit", "Обычные привычки" to "Habits",
     "Подборка" to "Suggestions", "Скрыть подборку" to "Hide suggestions",
     "Путь Героя и награды" to "Hero's path & rewards", "История отметок" to "Completion history",
@@ -246,6 +260,277 @@ private val nativeCopy = mapOf(
         "Choose one or more Google accounts when creating a task. Until the rule is saved, the previous routing remains active.",
     "ПЯТА" to "PYATA", "СТУПЕНЬ" to "STAGE", "Ступень" to "Stage", "Рекорд:" to "Record:", " · получено " to " · claimed ",
     "Сон:" to "Sleep:", " · настроение:" to " · mood:", " · награды:" to " · rewards:", " · испытания:" to " · quests:",
+    // Authentication, cloud state, validation, and failure recovery.
+    "Серверная сессия ещё не проверена." to "The server session has not been checked yet.",
+    "Проверяем серверную сессию…" to "Checking the server session…",
+    "На сервере нет активного входа." to "There is no active server sign-in.",
+    "Сессия подтверждена; зашифрованное пространство прочитано." to "Session confirmed; the encrypted workspace was read.",
+    "Готовим защищённый вход…" to "Preparing secure sign-in…",
+    "Вход подтверждён. Облачные данные расшифрованы автоматически." to "Sign-in confirmed. Cloud data was decrypted automatically.",
+    "Готовим разрешения Google Calendar и Tasks…" to "Preparing Google Calendar and Tasks permissions…",
+    "Подтвердите доступ к Google Calendar и Tasks в окне Google." to "Confirm access to Google Calendar and Tasks in the Google window.",
+    "Сохраняем разрешения Google…" to "Saving Google permissions…",
+    "Подключение Google Calendar и Tasks отменено. Данные и прежние разрешения не изменены." to
+        "Google Calendar and Tasks connection was canceled. Your data and existing permissions were not changed.",
+    "Google сохранил часть разрешений. Недостающий сервис можно подключить отдельно." to
+        "Google saved some permissions. You can connect the missing service separately.",
+    "Открываем зашифрованное пространство…" to "Opening the encrypted workspace…",
+    "Данные доступны в приложении." to "Your data is available in the app.",
+    "Пространство открыто, но Google не подтвердил обновление задач. Ранее загруженные задачи сохранены." to
+        "The workspace is open, but Google did not confirm the task refresh. Previously loaded tasks are preserved.",
+    "Есть локальные изменения аккаунта, ещё не отправленные на сервер. Облачная копия не перезаписала их." to
+        "This account has local changes that have not reached the server. The cloud copy did not overwrite them.",
+    "Выбранный язык пока не сохранён в аккаунте; повторите выбор в личном кабинете." to
+        "The selected language has not been saved to the account yet; choose it again in Settings.",
+    "Выбор карты пока не обновлён; нажмите «Обновить» при восстановлении сети." to
+        "The card selection has not been updated; tap Refresh when the connection returns.",
+    "Вход выполнен, но загрузка облачных данных пока не завершилась. Локальные записи сохранены." to
+        "You are signed in, but cloud data has not finished loading. Local records are preserved.",
+    "Вход выполнен, но для этого пространства требуется код восстановления. Данные не перезаписаны." to
+        "You are signed in, but this workspace requires a recovery code. No data was overwritten.",
+    "Вход выполнен, но формат облачных данных не удалось проверить (CLOUD_FORMAT). Локальные записи сохранены." to
+        "You are signed in, but the cloud data format could not be verified (CLOUD_FORMAT). Local records are preserved.",
+    "Вход выполнен, но импорт облачных данных не завершён (CLOUD_IMPORT). Локальные записи сохранены." to
+        "You are signed in, but cloud data import did not finish (CLOUD_IMPORT). Local records are preserved.",
+    "Сохраняем маршрутизацию аккаунтов…" to "Saving account routing…",
+    "Маршрутизация сохранена на сайте GENESIS." to "Routing was saved to your GENESIS account.",
+    "Сохраняем настройку на сервере…" to "Saving the setting to the server…",
+    "Настройка сохранена в аккаунте; локальная копия обновляется." to "The setting was saved to your account; the local copy is updating.",
+    "Отключаем дополнительный аккаунт…" to "Disconnecting the additional account…",
+    "Дополнительный аккаунт отключён; существующие события Google не удалены." to
+        "The additional account was disconnected; existing Google events were not deleted.",
+    "Закрываем серверную сессию…" to "Closing the server session…",
+    "Вход закрыт. Локальные черновики сохранены." to "Signed out. Local drafts are preserved.",
+    "Вход удалён с устройства. Отзыв серверной сессии не подтверждён; локальные черновики сохранены." to
+        "Sign-in was removed from this device. Server-session revocation was not confirmed; local drafts are preserved.",
+    "Поставщик Google недоступен для очистки состояния." to "The Google provider is unavailable for state cleanup.",
+    "Сессия аккаунта завершилась. Повторите вход и выбор карты." to "The account session ended. Sign in and choose the card again.",
+    "Слишком много запросов. Повторите выбор карты через минуту." to "Too many requests. Try choosing the card again in a minute.",
+    "Нет подтверждения от сервера. Проверьте сеть; прежний выбор карты сохранён." to
+        "The server did not confirm the request. Check your connection; the previous card selection is preserved.",
+    "Карта уже изменилась на другом устройстве. Нажмите «Обновить»." to "The card was changed on another device. Tap Refresh.",
+    "Сервер временно не сохранил карту. Повторите позже." to "The server could not save the card temporarily. Try again later.",
+    "Не удалось безопасно синхронизировать карту с аккаунтом." to "The card could not be synced securely with your account.",
+    "Конфликт зашифрованного пространства: данные устройства сохранены. Решите, какую версию оставить." to
+        "Encrypted workspace conflict: the device data is preserved. Choose which version to keep.",
+    "Для синхронизации нужен код восстановления пространства." to "A workspace recovery code is required for sync.",
+    "Изменения проектов или привычек пока не подтверждены сервером и сохранены на устройстве." to
+        "Project or habit changes have not been confirmed by the server and remain on this device.",
+    "Изменения задач пока не подтверждены Google и сохранены на устройстве." to
+        "Task changes have not been confirmed by Google and remain on this device.",
+    "Синхронизировано:" to "Synced:", "изменений пространства." to "workspace changes.",
+    "Проверка входа отменена." to "Sign-in check was canceled.",
+    "Вход отменён. Локальные записи не изменены." to "Sign-in was canceled. Local records were not changed.",
+    "Поставщик входа Google недоступен. Проверьте наличие Google Play services; локальные функции доступны." to
+        "Google sign-in is unavailable. Check Google Play services; offline features remain available.",
+    "Google не предоставил данные для входа. Проверьте аккаунт и настройки OAuth. Локальные функции доступны." to
+        "Google did not provide sign-in data. Check the account and OAuth settings; offline features remain available.",
+    "Данные сайта защищены кодом восстановления. Ничего не перезаписано; понадобится код из личного кабинета." to
+        "Website data is protected by a recovery code. Nothing was overwritten; you will need the code from your account.",
+    "Не удалось проверить зашифрованные данные сайта. Сессия и локальные записи сохранены; ничего не перезаписано." to
+        "The encrypted website data could not be verified. The session and local records are preserved; nothing was overwritten.",
+    "Google вернул ответ, который не удалось проверить. Обновите Google Play services и повторите вход." to
+        "Google returned a response that could not be verified. Update Google Play services and sign in again.",
+    "Google-вход не подтверждён. Проверьте сеть, Google Play services и OAuth-регистрацию этой Android-сборки." to
+        "Google sign-in was not confirmed. Check the connection, Google Play services, and this Android build's OAuth registration.",
+    "Google не завершил выдачу разрешений Calendar/Tasks. Повторите подключение и выберите тот же аккаунт." to
+        "Google did not finish granting Calendar/Tasks permissions. Try connecting again and choose the same account.",
+    "Нативный вход ещё не опубликован на сервере. Локальные функции доступны." to
+        "Native sign-in has not been published on the server yet. Offline features remain available.",
+    "Сессия или запрос входа отклонены. Начните вход заново." to "The session or sign-in request was rejected. Start sign-in again.",
+    "Слишком много попыток. Повторите вход через минуту." to "Too many attempts. Try signing in again in a minute.",
+    "Нет подтверждения от сервера. Проверьте сеть и повторите." to "The server did not confirm the request. Check your connection and try again.",
+    "Защищённая сессия на устройстве недоступна. Повторите вход; локальные записи не изменены." to
+        "The secure on-device session is unavailable. Sign in again; local records were not changed.",
+    "Данные изменились на другом устройстве. Обновите синхронизацию." to "Data changed on another device. Refresh sync.",
+    "Сервер временно не может подтвердить вход. Повторите позже." to "The server cannot confirm sign-in temporarily. Try again later.",
+    "Ответ сервера не прошёл проверку. Вход не подтверждён." to "The server response failed verification. Sign-in was not confirmed.",
+    "Не удалось безопасно завершить проверку. Состояние Google сброшено; повторите вход. Код:" to
+        "The check could not be completed securely. Google state was reset; sign in again. Code:",
+    "Текущая сессия и локальные записи не изменены." to "The current session and local records were not changed.",
+    "Веб-версия GENESIS" to "GENESIS web app", "Не удалось открыть ссылку в браузере." to "The link could not be opened in the browser.",
+    // Repository validation messages can surface in forms and snackbars.
+    "Введите название до 500 символов." to "Enter a name of up to 500 characters.",
+    "Введите название плана до 500 символов." to "Enter a plan name of up to 500 characters.",
+    "Привычка изменилась. Откройте её заново." to "The habit changed. Open it again.",
+    "Привычка не найдена" to "Habit not found", "Сегодня привычка не запланирована." to "This habit is not scheduled today.",
+    "Врата ещё закрыты." to "The gate is still locked.", "Неподдерживаемая версия локальных привычек" to "Unsupported local habits version",
+    "Некорректный набор раскладов." to "Invalid set of spreads.", "Серверная синхронизация доступна после входа." to "Server sync is available after sign-in.",
+    "Это не повторяющаяся задача." to "This is not a recurring task.", "Этот день не входит в серию." to "This day is not part of the series.",
+    "В выбранном периоде нет дат повторения." to "There are no recurrence dates in the selected period.",
+    "Серия может содержать не более 500 повторений." to "A series can contain no more than 500 occurrences.",
+    "Запись изменилась. Откройте её заново." to "The record changed. Open it again.",
+    "Проект не найден. Выберите его заново." to "Project not found. Choose it again.", "Категория не найдена." to "Category not found.",
+    "Задача больше недоступна." to "The task is no longer available.", "План изменился. Откройте его заново." to "The plan changed. Open it again.",
+    "План сна не найден" to "Sleep plan not found", "План сна на паузе." to "The sleep plan is paused.",
+    "Заполните запись сна." to "Complete the sleep entry.", "Выберите настроение." to "Choose a mood.",
+    "Заметка должна быть не длиннее 200 символов." to "The note must be no longer than 200 characters.",
+    "Неподдерживаемая версия трекеров" to "Unsupported tracker version",
+    "Повторяющиеся идентификаторы структуры." to "Duplicate structure identifiers.", "Цикл во вложенности проектов." to "Cycle in project nesting.",
+    "Структура проектов изменилась. Откройте форму заново." to "The project structure changed. Open the form again.",
+    // Welcome, navigation, editors, and screen-specific native copy.
+    "Добро пожаловать в GENESIS" to "Welcome to GENESIS",
+    "Календарь, проекты и ежедневные практики в гармонии со временем." to
+        "Calendar, projects, and daily practices in harmony with time.",
+    "Ваше пространство защищено" to "Your workspace is protected",
+    "Войдите через Google, чтобы открыть зашифрованные данные GENESIS и синхронизированные задачи." to
+        "Sign in with Google to open your encrypted GENESIS data and synced tasks.",
+    "Открыть веб-версию" to "Open the web app", "Проверяем аккаунт…" to "Checking your account…",
+    "Для продолжения нужен аккаунт Google" to "A Google account is required to continue",
+    "Изолированное тестовое пространство · только на этом устройстве" to "Isolated test workspace · this device only",
+    "Локальные черновики · аккаунт не подключён" to "Local drafts · no account connected",
+    "Изменить задачу" to "Edit task", "Удалить повторение?" to "Delete occurrence?",
+    "Сохранение изменит всю серию. При удалении можно выбрать только" to
+        "Saving will change the entire series. When deleting, you can choose only",
+    "Можно удалить только" to "You can delete only", "или всю серию." to "or the entire series.",
+    "Напоминание этой задачи будет отменено." to "This task's reminder will be canceled.",
+    "За" to "Before", "мин до задачи" to "min before the task", "1 час" to "1 hour",
+    "Мин" to "Min", "Дни" to "Days", "Недели" to "Weeks",
+    "Введите корректную дату, время и интервал до четырёх недель." to "Enter a valid date, time, and interval of up to four weeks.",
+    "Точная дата должна быть не позже задачи и не раньше четырёх недель до неё." to
+        "The exact date must be no later than the task and no more than four weeks before it.",
+    "Выберите корректную дату задачи." to "Choose a valid task date.",
+    "Период повторения — от даты задачи до пяти лет." to "The recurrence period runs from the task date for up to five years.",
+    "Серия должна содержать от 1 до 500 повторений." to "A series must contain 1 to 500 occurrences.",
+    "Подпроекты" to "Subprojects", "Следующий уровень" to "Next level",
+    "Календарь, время и гадания сохраняются в аккаунте GENESIS и зеркалируются на устройстве." to
+        "Calendar, time, and divination settings are saved to your GENESIS account and mirrored on this device.",
+    "До входа эти настройки сохраняются только на устройстве." to "Before sign-in, these settings are saved only on this device.",
+    "Не удалось открыть защищённые данные: ключ недоступен." to "Protected data could not be opened: the key is unavailable.",
+    "Проверьте данные задачи." to "Check the task details.", "Не удалось сохранить. Введённые данные остаются в форме." to
+        "Could not save. Your entries remain in the form.",
+    "Проверьте дату повторения." to "Check the recurrence date.", "Не удалось удалить это повторение." to "Could not delete this occurrence.",
+    "Проверьте введённые данные." to "Check the entered information.",
+    "Не удалось сохранить привычки. Данные формы сохранены на экране." to "Could not save habits. The form data remains on screen.",
+    "Защищённые привычки недоступны. Новые записи не заменят сохранённые данные." to
+        "Protected habits are unavailable. New entries will not replace saved data.",
+    "На сегодня нет запланированных привычек. Серия не изменится." to "No habits are scheduled today. Your streak will not change.",
+    "Сегодня не запланировано" to "Not scheduled today", "Обновить оценку" to "Update rating",
+    "Выполнено ·" to "Completed ·", "баллов" to "points", "Отметить выполнение" to "Mark complete",
+    "Привычка" to "Habit", "Изменить привычку" to "Edit habit",
+    "Григорианский ритм" to "Gregorian rhythm", "Лунный ритм" to "Lunar rhythm", "Сакральный ритм" to "Sacred rhythm",
+    "Ежедневно" to "Daily", "Ежемесячно" to "Monthly", "Ежегодно" to "Yearly",
+    "Без баллов" to "No points", "Выполнение · 10" to "Completion · 10", "Сохранение…" to "Saving…",
+    "Проект больше не существует." to "The project no longer exists.", "Задача больше не существует." to "The task no longer exists.",
+    "возвращена в Хаос-бокс." to "was returned to the Chaos box.", "перенесена в" to "was moved to",
+    "Не удалось перенести задачу." to "Could not move the task.", "Не удалось перенести задачу. Повторите попытку." to "Could not move the task. Try again.",
+    "Проекты и задачи аккаунта" to "Projects and tasks in your account",
+    "Структура задач и разделов на этом устройстве" to "Task and section structure on this device",
+    "Завершён" to "Completed", "Архив" to "Archived", "Свернуть список" to "Collapse list", "Показать ещё" to "Show more",
+    "Проверьте проект." to "Check the project.", "Не удалось сохранить проект. Повторите попытку." to "Could not save the project. Try again.",
+    "Проверьте категорию." to "Check the category.", "Не удалось сохранить категорию." to "Could not save the category.",
+    "В проект" to "To project", "Перенести" to "Move", "Бирюза" to "Turquoise", "Терракота" to "Terracotta",
+    "Золото" to "Gold", "Фиолетовый" to "Purple", "Синий" to "Blue", "Изменить категорию" to "Edit category",
+    "Новый проект" to "New project", "Активен" to "Active",
+    "Ручка переноса задачи" to "Drag handle for task", "Удерживайте задачу" to "Press and hold task", "и перетащите в проект" to "and drag it to a project",
+    "Одна задача · календарный ритм" to "One task · calendar rhythm", "Дни лунного месяца" to "Lunar month days",
+    "Дни сакрального месяца" to "Sacred month days",
+    "Задачи и события" to "Tasks and events", "Выберите дату" to "Choose a date", "Выбрать время" to "Choose time",
+    "Обычный календарь отображения. Дата и повторение задач выбираются отдельно." to
+        "Standard display calendar. Task dates and recurrence are chosen separately.",
+    "Иллюстрация месяца" to "Month illustration", "Иллюстрация дня недели:" to "Weekday illustration:",
+    "Иллюстрация дня" to "Day illustration", "Апейрон · вне обычного цикла" to "Apeiron · outside the ordinary cycle",
+    "Свернуть ритм суток" to "Collapse daily rhythm", "Развернуть ритм суток" to "Expand daily rhythm",
+    "ГРИГОРИАНСКИЙ КАЛЕНДАРЬ ·" to "GREGORIAN CALENDAR ·", "ГОД" to "YEAR",
+    "ЛУННЫЙ КАЛЕНДАРЬ ·" to "LUNAR CALENDAR ·", "МЕСЯЦ" to "MONTH", "лунный день" to "lunar day",
+    "Рубеж лунного месяца" to "Lunar month boundary",
+    "Защищённые записи недоступны. Сохранённые данные не будут заменены пустыми." to
+        "Protected records are unavailable. Saved data will not be replaced with empty values.",
+    "Не удалось сохранить запись. Введённые данные остаются в форме." to "Could not save the entry. Your entries remain in the form.",
+    "Длительность пока не рассчитана" to "Duration has not been calculated yet", "Качество не оценено" to "Quality not rated",
+    "Качество не выбрано" to "Quality not selected", "ч" to "hr", "мин" to "min",
+    "Сон и пробуждение" to "Sleep and waking",
+    "Не удалось обновить выбор карты с сервера. Сохранённая копия на устройстве не изменена." to
+        "Could not refresh the card selection from the server. The saved on-device copy was not changed.",
+    "Перебросить карту" to "Redraw card", "Перебросить расклад" to "Redraw spread", "Выбор закреплён до завтра" to "Selection is fixed until tomorrow",
+    "Поле движения для случайного выбора" to "Gesture area for random selection",
+    "Защищённые привычки недоступны. Практики можно читать, но изменения не сохраняются." to
+        "Protected habits are unavailable. You can read practices, but changes cannot be saved.",
+    "Не удалось сохранить практику." to "Could not save the practice.", "Рекомендуется" to "Recommended",
+    "приоритет" to "priority", "запланирована сегодня" to "scheduled today", "сегодня не запланирована" to "not scheduled today",
+    "Отметить сегодня" to "Mark today",
+    // Habit library, progress, rewards, quests, and mood values.
+    "План на день" to "Daily plan", "5 минут утром, чтобы определить главные задачи дня." to "Take 5 minutes in the morning to identify the day's main tasks.",
+    "Стакан воды после пробуждения" to "A glass of water after waking", "Начать день с простого действия." to "Start the day with a simple action.",
+    "Утренняя разминка" to "Morning stretch", "5–10 минут движения после пробуждения." to "Move for 5–10 minutes after waking.",
+    "Прогулка" to "Walk", "Минимум 20 минут движения на свежем воздухе." to "Spend at least 20 minutes moving outdoors.",
+    "Чтение" to "Reading", "20 минут чтения без отвлечений." to "Read without distractions for 20 minutes.",
+    "Фокус-сессия" to "Focus session", "Не менее 30 минут сосредоточенной работы над одной важной задачей." to
+        "Spend at least 30 focused minutes on one important task.",
+    "Медитация / дыхательная практика" to "Meditation / breathing practice",
+    "5 минут спокойного наблюдения или дыхательной практики." to "Spend 5 minutes in quiet observation or breathing practice.",
+    "10 минут порядка" to "10-minute tidy-up", "Небольшая уборка или организация пространства." to "Do a small clean-up or organize your space.",
+    "Вечерний обзор дня" to "Evening review", "Кратко вспомнить сделанное и определить главное на завтра." to
+        "Briefly review what you accomplished and choose tomorrow's main priority.",
+    "Без экрана перед сном" to "Screen-free before bed", "Отложить телефон и другие экраны минимум за 30 минут до сна." to
+        "Put away your phone and other screens at least 30 minutes before sleep.",
+    "Первый шаг" to "First Step", "Выполнить первую привычку" to "Complete your first habit",
+    "Нить ритма" to "Thread of Rhythm", "Серия три дня" to "Three-day streak",
+    "Семь восходов" to "Seven Sunrises", "Серия семь дней" to "Seven-day streak",
+    "Укреплённый ритм" to "Strengthened Rhythm", "Завершённый круг" to "Completed Circle",
+    "Первый идеальный день" to "First perfect day", "Укоренение" to "Taking Root", "Одна привычка 30 раз" to "Complete one habit 30 times",
+    "Сотня" to "One Hundred", "Одна привычка 100 раз" to "Complete one habit 100 times", "Железный ритм" to "Iron Rhythm",
+    "Пятьдесят восходов" to "Fifty Sunrises", "Стодневный путь" to "Hundred-Day Path",
+    "Идеальная неделя" to "Perfect Week", "Семь идеальных дней подряд" to "Seven perfect days in a row",
+    "Золотая череда" to "Golden Run", "30 идеальных дней подряд" to "30 perfect days in a row",
+    "Полугодовой круг" to "Half-Year Circle", "Полный оборот" to "Full Revolution",
+    "Пятьсот восходов" to "Five Hundred Sunrises", "Тысяча дней пути" to "Thousand-Day Path",
+    "Завершить путь возвращения" to "Complete the return path", "Созвездие постоянства" to "Constellation of Consistency",
+    "1000 выполнений всего" to "1,000 total completions",
+    "Все рубежи достигнуты" to "All milestones reached", "Следующий рубеж:" to "Next milestone:", "дня" to "days",
+    "Свернуть галерею" to "Collapse gallery", "Тайное достижение" to "Secret achievement", "Откроется по мере продвижения" to "Unlocks as you progress",
+    "Выполните дневную цель три раза подряд. Прежняя серия не восстанавливается." to
+        "Complete the daily goal three times in a row. The previous streak is not restored.",
+    "После разрыва серии здесь появится трёхдневный путь возвращения." to
+        "After a streak breaks, a three-day return path will appear here.",
+    "Готово" to "Done", "Завершить дневную цель" to "Complete the daily goal",
+    "Выполнить дневную цель" to "Complete the daily goal", "раз" to "times",
+    "Создать идеальных дней:" to "Create perfect days:", "Выполнить" to "Complete", "привычку" to "habit",
+    "привычек за месяц" to "habits in a month", "запланированных привычек" to "scheduled habits",
+    "Испытание дня" to "Daily quest", "Испытание недели" to "Weekly quest", "Эпическое испытание" to "Epic quest",
+    "Завершено" to "Completed", "Видимый путь пройден" to "Visible path completed", "До" to "Until",
+    "Ранг не найден." to "Rank not found.", "Путь ещё не начат" to "The path has not begun yet", "Этот рубеж ещё не достигнут." to "This milestone has not been reached yet.",
+    "Для Искры Гестии нужно" to "Hestia's Spark requires", "Запас Искр Гестии уже заполнен." to "Your Hestia's Spark stock is already full.",
+    // Hero-rank and reward titles are Android-native data, so keep their reviewed English names here.
+    "Амфора стремления" to "Amphora of Aspiration", "Амфора странствия" to "Amphora of Journey",
+    "Амфора стойкости" to "Amphora of Fortitude", "Амфора точности" to "Amphora of Precision",
+    "Амфора мастерства" to "Amphora of Mastery", "Амфора мудрости" to "Amphora of Wisdom",
+    "Амфора славы" to "Amphora of Glory", "Амфора бездны" to "Amphora of the Abyss", "Амфора не найдена." to "Amphora not found.",
+    "Аркадийская Стрела" to "Arcadian Arrow", "Бронзовое Крыло" to "Bronze Wing", "Владыка Нити" to "Master of the Thread",
+    "Владыка Потока" to "Master of the Current", "Восставший из Бездны" to "Risen from the Abyss",
+    "Голос за Стиксом" to "Voice Beyond the Styx", "Горный Укротитель" to "Mountain Tamer",
+    "Железный Возничий" to "Iron Charioteer", "Зеркальный Победитель" to "Mirror Victor",
+    "Златорогий Следопыт" to "Golden-Horned Pathfinder", "Золотой Аргонавт" to "Golden Argonaut",
+    "Икар" to "Icarus", "Копьё Афины" to "Spear of Athena", "Львиное Сердце" to "Lionheart",
+    "Многоумный Странник" to "Wise Wanderer", "Небесный Всадник" to "Sky Rider",
+    "Носитель Калидонской Славы" to "Bearer of Calydonian Glory", "Носитель Царской Чести" to "Bearer of Royal Honor",
+    "Победитель Яда" to "Conqueror of Venom", "Разгадчик Сфинкса" to "Solver of the Sphinx",
+    "Сеятель Драконьего Семени" to "Sower of Dragon's Teeth", "Сизиф" to "Sisyphus",
+    "Страж Западного Предела" to "Guardian of the Western Boundary", "Тантал" to "Tantalus",
+    "Укротитель Мощи" to "Tamer of Might", "Хранитель Золотого Сада" to "Guardian of the Golden Garden",
+    "Циклоп" to "Cyclops", "Щит Мирмидонян" to "Shield of the Myrmidons",
+    // Mood choices.
+    "Воодушевление" to "Inspired", "Восторг" to "Delighted", "Грусть" to "Sad", "Крайне тяжело" to "Very difficult",
+    "Нейтрально" to "Neutral", "Опустошённость" to "Drained", "Радость" to "Joyful", "Сосредоточенность" to "Focused",
+    "Спокойствие" to "Calm", "Тревога" to "Anxious", "Уверенность" to "Confident", "Усталость" to "Tired",
+    // Accessibility descriptions and remaining compact labels.
+    "Авторские часы: внешнее кольцо часов, внутреннее кольцо минут" to
+        "Custom clock: hours on the outer ring, minutes on the inner ring",
+    "Приоритет" to "Priority", "Ручка переноса задачи" to "Task drag handle",
+    "Живописная основа карты" to "Painted card background", "Синхронизация" to "Sync",
+    "Аккаунты для новых задач" to "Accounts for new tasks", "подключён" to "connected", "не подключён" to "not connected",
+    "включён" to "enabled", "выключен" to "disabled",
+    "ВЕСНА" to "SPRING", "ЛЕТО" to "SUMMER", "ОСЕНЬ" to "AUTUMN", "ЗИМА" to "WINTER",
+    "ВНЕ ВРЕМЕНИ" to "OUTSIDE TIME",
+    "Открываем защищённое пространство" to "Opening the protected workspace",
+    "Отложить на 10 мин" to "Snooze for 10 min",
+    "Синхронизировано:" to "Synced:", "задач," to "tasks,",
+    "За " to "Before ",
+    "и все отметки будут удалены. Рубеж в" to "and all completion records will be deleted. The milestone at",
+    "выполнений достигнут — заработанные Лавры сохранятся." to "completions was reached, so earned Laurels will be preserved.",
+    "и все отметки будут удалены. Прогресс:" to "and all completion records will be deleted. Progress:",
+    "баланс Лавров будет обнулён." to "the Laurel balance will be reset.",
+    "До «" to "To “", "»:" to "”:",
 )
 
 private object TranslationCatalog {
@@ -256,26 +541,40 @@ private object TranslationCatalog {
 
     private fun source(context: android.content.Context): Map<String, String> =
         dictionary ?: synchronized(this) {
-            dictionary ?: runCatching {
+            dictionary ?: run {
                 fun objectAsset(name: String): JSONObject = context.assets.open("originals/i18n/$name")
                     .bufferedReader().use { JSONObject(it.readText()) }
-                val web = objectAsset("translations.en.json")
-                val curated = objectAsset("curated-translations.en.json")
-                val englishDays = context.assets.open("originals/i18n/calendar-days.en.json")
-                    .bufferedReader().use { JSONArray(it.readText()) }
-                val sacredDays = SacredCatalog.months.flatMap { it.days }
-                require(englishDays.length() == sacredDays.size)
                 buildMap {
-                    web.keys().forEach { put(it, web.getString(it)) }
-                    curated.keys().forEach { put(it, curated.getString(it)) }
-                    sacredDays.forEachIndexed { index, day ->
-                        val english = englishDays.getJSONObject(index)
-                        put(day.name, english.getString("name"))
-                        put(day.description, english.getString("description"))
+                    listOf("translations.en.json", "curated-translations.en.json").forEach { name ->
+                        runCatching { objectAsset(name) }.onSuccess { catalog ->
+                            catalog.keys().forEach { put(it, catalog.getString(it)) }
+                        }.onFailure { error ->
+                            Log.e("GenesisI18n", "Could not load $name: ${error.javaClass.simpleName}")
+                        }
+                    }
+                    runCatching {
+                        val englishDays = context.assets.open("originals/i18n/calendar-days.en.json")
+                            .bufferedReader().use { JSONArray(it.readText()) }
+                        val sacredDays = SacredCatalog.months.flatMap { it.days }
+                        require(englishDays.length() == sacredDays.size)
+                        sacredDays.forEachIndexed { index, day ->
+                            val english = englishDays.getJSONObject(index)
+                            val englishName = english.getString("name")
+                            put(day.name, englishName)
+                            put(day.description, english.getString("description"))
+                            val russianParts = Regex("^(.*?)\\s*(\\([^()]+\\))$").matchEntire(day.name)
+                            val englishParts = Regex("^(.*?)\\s*(\\([^()]+\\))$").matchEntire(englishName)
+                            if (russianParts != null && englishParts != null) {
+                                put(russianParts.groupValues[1], englishParts.groupValues[1])
+                                put(russianParts.groupValues[2], englishParts.groupValues[2])
+                            }
+                        }
+                    }.onFailure { error ->
+                        Log.e("GenesisI18n", "Could not load sacred days: ${error.javaClass.simpleName}")
                     }
                 }
-            }.getOrElse { emptyMap() }.also {
-                fragments = (it + nativeCopy).entries.filter { entry -> entry.key.length in 4..180 }
+            }.also {
+                fragments = (it + nativeCopy).entries.filter { entry -> entry.key.length in 3..180 }
                     .sortedByDescending { entry -> entry.key.length }
                 dictionary = it
             }

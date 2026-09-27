@@ -73,9 +73,10 @@ private data class TaskPickup(val id: String, val title: String, val originId: S
 @Composable
 private fun TaskDragHandle(task: LocalTask) {
     val ink = MaterialTheme.colorScheme.primary
+    val dragDescription = genesisTranslate("Ручка переноса задачи ${task.title}")
     Surface(
         modifier = Modifier.size(48.dp)
-            .semantics { contentDescription = "Ручка переноса задачи ${task.title}" },
+            .semantics { contentDescription = dragDescription },
         shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.primaryContainer
     ) {
         Box(contentAlignment = Alignment.Center) {
@@ -98,8 +99,9 @@ private fun DraggableTaskRow(task: LocalTask, pickedUp: Boolean,
     val move by rememberUpdatedState(onMove)
     val finish by rememberUpdatedState(onFinish)
     val haptics = LocalHapticFeedback.current
+    val dragDescription = genesisTranslate("Удерживайте задачу ${task.title} и перетащите в проект")
     Row(Modifier.fillMaxWidth().testTag("drag-task-${task.id}")
-        .semantics { contentDescription = "Удерживайте задачу ${task.title} и перетащите в проект" }
+        .semantics { contentDescription = dragDescription }
         .onGloballyPositioned { bounds = it.boundsInRoot() }
         .pointerInput(task.id) {
             detectDragGesturesAfterLongPress(

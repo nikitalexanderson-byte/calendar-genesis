@@ -32,8 +32,8 @@ android {
         applicationId = "ru.genesis.calendar"
         minSdk = 26
         targetSdk = 37
-        versionCode = 25
-        versionName = "2.2.2"
+        versionCode = 26
+        versionName = "2.2.3"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         manifestPlaceholders["genesisHost"] = genesisUri.host
@@ -92,6 +92,7 @@ val genesisAssets = tasks.register<GenesisAssetsTask>("genesisAssets") {
     from(rootProject.file("../app/translations.en.json")) { into("i18n") }
     from(rootProject.file("../app/curated-translations.en.json")) { into("i18n") }
     from(rootProject.file("../app/calendar-days.en.json")) { into("i18n") }
+    from(rootProject.file("../app/stoicheion.en.json")) { into("i18n") }
     into(assetsDirectory.dir("originals"))
 }
 androidComponents.onVariants { variant ->
@@ -119,6 +120,7 @@ dependencies {
     implementation("androidx.credentials:credentials-play-services-auth:1.6.0")
     // 1.2.1 carries Kotlin 2.4 metadata; 1.1.1 retains compatibility with AGP's Kotlin 2.2.
     implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
+    implementation("com.google.android.gms:play-services-auth:21.6.0")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20250517")
     androidTestImplementation("androidx.test:runner:1.7.0")

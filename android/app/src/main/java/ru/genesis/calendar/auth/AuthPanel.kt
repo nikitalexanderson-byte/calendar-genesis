@@ -31,6 +31,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ru.genesis.calendar.GenesisApplication
 import ru.genesis.calendar.ui.LanguageChips
 import ru.genesis.calendar.ui.Text
+import ru.genesis.calendar.ui.genesisTranslate
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -42,6 +43,7 @@ fun AuthPanel(app: GenesisApplication) {
     val state by controller.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val activity = context.activity()
+    val openLinkError = genesisTranslate("Не удалось открыть ссылку в браузере.")
     var confirmKeepLocal by remember { mutableStateOf(false) }
     var confirmKeepRemote by remember { mutableStateOf(false) }
     Card(Modifier.fillMaxWidth().testTag("auth-panel")) {
@@ -67,6 +69,7 @@ fun AuthPanel(app: GenesisApplication) {
                     color = MaterialTheme.colorScheme.error)
                 Text("Изменения проектов и привычек синхронизируются с зашифрованным пространством, задачи — с Google. При конфликте локальная копия сохраняется.", style = MaterialTheme.typography.bodySmall)
             }
+            if (state.user != null) GoogleServicesConnectPanel(state, controller, showWhenComplete = true)
             Text(state.message, modifier = Modifier.testTag("auth-status"))
             state.checkedAt?.let { time ->
                 Text("Проверено: " + DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")
@@ -104,7 +107,7 @@ fun AuthPanel(app: GenesisApplication) {
                 OutlinedButton(onClick = {
                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     runCatching { context.startActivity(intent) }.onFailure {
-                        Toast.makeText(context, "Не удалось открыть ссылку в браузере.", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, openLinkError, Toast.LENGTH_SHORT).show()
                     }
                 }, modifier = Modifier.fillMaxWidth().testTag(tag)) { Text(label) }
             }

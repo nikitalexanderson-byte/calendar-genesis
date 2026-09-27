@@ -37,18 +37,19 @@ private val weekdayArt = listOf("weekday-0-sunday-apollo.webp", "weekday-1-monda
     "weekday-4-thursday-zeus-hera.webp", "weekday-5-friday-aphrodite-hestia-dionysus.webp",
     "weekday-6-saturday-cronus.webp")
 
-internal fun todayHeroCopy(date: LocalDate, mode: CalendarMode, calendar: GenesisCalendar): TodayHeroCopy {
-    val ru = Locale.forLanguageTag("ru")
+internal fun todayHeroCopy(date: LocalDate, mode: CalendarMode, calendar: GenesisCalendar,
+    language: String = "ru"): TodayHeroCopy {
+    val locale = if (language == "en") Locale.ENGLISH else Locale.forLanguageTag("ru")
     val sacred = calendar.sacredDate(date)
     val month = SacredCatalog.months[sacred.monthIndex]
     val day = month.days.first { it.day == sacred.day }
     val sacredArt = "day-art-v1/month-${(sacred.monthIndex + 1).toString().padStart(2, '0')}/day-${sacred.day.toString().padStart(2, '0')}.webp"
-    val gregorianDate = date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy", ru))
+    val gregorianDate = date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy", locale))
     val solar = calendar.solarEvent(date)?.let { "${it.symbol} ${it.name}" }
     return when (mode) {
         CalendarMode.SACRED -> {
             val match = Regex("^(.*?)\\s*(\\([^()]+\\))$").matchEntire(day.name)
-            TodayHeroCopy("${month.season.uppercase(ru)} · ${month.roman} МЕСЯЦ",
+            TodayHeroCopy("${month.season.uppercase(locale)} · ${month.roman} МЕСЯЦ",
                 month.name, match?.groupValues?.get(1) ?: day.name,
                 match?.groupValues?.get(2), day.description, emptyList(), gregorianDate,
                 sacredArt, solar)
@@ -65,9 +66,9 @@ internal fun todayHeroCopy(date: LocalDate, mode: CalendarMode, calendar: Genesi
             val index = date.dayOfWeek.value % 7
             val patron = weekdayPatrons[index]
             TodayHeroCopy("ГРИГОРИАНСКИЙ КАЛЕНДАРЬ · ${date.year} ГОД",
-                date.month.getDisplayName(TextStyle.FULL_STANDALONE, ru),
-                date.dayOfWeek.getDisplayName(TextStyle.FULL, ru).replaceFirstChar { it.uppercase(ru) },
-                date.format(DateTimeFormatter.ofPattern("d MMMM yyyy", ru)), patron.patronage,
+                date.month.getDisplayName(TextStyle.FULL_STANDALONE, locale),
+                date.dayOfWeek.getDisplayName(TextStyle.FULL, locale).replaceFirstChar { it.uppercase(locale) },
+                date.format(DateTimeFormatter.ofPattern("d MMMM yyyy", locale)), patron.patronage,
                 listOf(patron.deity, "Части тела: ${patron.bodyParts}"),
                 calendar.formatDate(date, CalendarMode.SACRED), "weekday-art/${weekdayArt[index]}", solar)
         }

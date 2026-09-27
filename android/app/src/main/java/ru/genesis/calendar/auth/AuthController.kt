@@ -1,7 +1,10 @@
 package ru.genesis.calendar.auth
 
 import android.app.Activity
+import android.app.PendingIntent
+import android.accounts.Account
 import android.content.Context
+import android.content.Intent
 import android.util.Log
 import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
@@ -14,6 +17,11 @@ import androidx.credentials.exceptions.NoCredentialException
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
+import com.google.android.gms.auth.api.identity.AuthorizationRequest
+import com.google.android.gms.auth.api.identity.AuthorizationResult
+import com.google.android.gms.auth.api.identity.Identity
+import com.google.android.gms.common.api.Scope
+import com.google.android.gms.tasks.Task
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,6 +29,8 @@ import org.json.JSONObject
 import ru.genesis.calendar.GenesisApplication
 import ru.genesis.calendar.data.CloudAccountImporter
 import ru.genesis.calendar.data.StoicheionDrawRepository
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 data class AuthPanelState(
     val busy: Boolean = false,
@@ -41,6 +51,7 @@ class AuthController private constructor(context: Context) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var operation: Job? = null
     private var syncJob: Job? = null
+    private var pendingServicesUserId: String? = null
     private val mutableState = MutableStateFlow(AuthPanelState())
     val state = mutableState.asStateFlow()
 
@@ -62,6 +73,7 @@ class AuthController private constructor(context: Context) {
     }
 
     fun signIn(activity: Activity, preferredLanguage: String? = null) = start("Готовим защищённый вход…") { generation ->
+        AuthDiagnostics.event("GOOGLE_AUTH_STARTED")
         // A fresh server challenge must exist before any provider UI/token request.
         withContext(Dispatchers.IO) { client.session(generation) }
         // Google Play services may retain a stale provider selection after the native
@@ -72,23 +84,104 @@ class AuthController private constructor(context: Context) {
         if (!client.isCurrent(generation)) throw CancellationException()
         val option = GetSignInWithGoogleOption.Builder(challenge.serverClientId).setNonce(challenge.nonce).build()
         val result = credentials.getCredential(activity, GetCredentialRequest.Builder().addCredentialOption(option).build())
+        AuthDiagnostics.event("GOOGLE_AUTH_SUCCESS")
         if (!client.isCurrent(generation)) throw CancellationException()
         val credential = result.credential
         if (credential !is CustomCredential || credential.type != GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL)
             throw AuthFailure(AuthFailure.Kind.PROTOCOL)
         val token = GoogleIdTokenCredential.createFrom(credential.data).idToken
+        AuthDiagnostics.event("GOOGLE_ID_TOKEN_RECEIVED")
         val payload = withContext(Dispatchers.IO) { client.authenticate(generation, token) }
+        AuthDiagnostics.event("BACKEND_AUTH_SUCCESS")
+        when (AuthProtocol.googleLinkAction(payload)) {
+            "found" -> AuthDiagnostics.event("GOOGLE_LINK_FOUND")
+            "created" -> AuthDiagnostics.event("GOOGLE_LINK_CREATED")
+        }
         completeSignedIn(generation, payload, "Вход подтверждён. Облачные данные расшифрованы автоматически.",
             preferredLanguage)
+    }
+
+    fun connectGoogleServices(activity: Activity, launchResolution: (PendingIntent) -> Unit,
+        onCompletedWithoutResolution: () -> Unit = {}) =
+        start("Готовим разрешения Google Calendar и Tasks…") { generation ->
+            val identity = mutableState.value.user ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
+            val access = GoogleServiceAccess.primary(mutableState.value.accountSettings)
+            val serverClientId = withContext(Dispatchers.IO) {
+                AuthProtocol.serverClientId(client.googleServicesConfig(generation))
+            }
+            if (!client.isCurrent(generation)) throw CancellationException()
+            val request = AuthorizationRequest.builder()
+                .setRequestedScopes(access.scopesForConsent().map(::Scope))
+                .setAccount(Account(identity.email, "com.google"))
+                .requestOfflineAccess(serverClientId)
+                .setPrompt(AuthorizationRequest.Prompt.CONSENT)
+                .build()
+            val authorization = try {
+                Identity.getAuthorizationClient(activity).authorize(request).awaitResult()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                throw GoogleServicesAuthorizationException()
+            }
+            if (!client.isCurrent(generation)) throw CancellationException()
+            if (authorization.hasResolution()) {
+                val pendingIntent = authorization.pendingIntent ?: throw GoogleServicesAuthorizationException()
+                pendingServicesUserId = identity.uid
+                publish(generation, mutableState.value.copy(busy = false,
+                    message = "Подтвердите доступ к Google Calendar и Tasks в окне Google."))
+                launchResolution(pendingIntent)
+            } else {
+                finishGoogleServicesAuthorization(generation, identity.uid, authorization)
+                onCompletedWithoutResolution()
+            }
+        }
+
+    fun completeGoogleServicesAuthorization(activity: Activity, data: Intent?) {
+        val expectedUserId = pendingServicesUserId ?: return
+        pendingServicesUserId = null
+        start("Сохраняем разрешения Google…") { generation ->
+            if (mutableState.value.user?.uid != expectedUserId || data == null) {
+                throw GoogleServicesAuthorizationException()
+            }
+            val result = try {
+                Identity.getAuthorizationClient(activity).getAuthorizationResultFromIntent(data)
+            } catch (_: Exception) {
+                throw GoogleServicesAuthorizationException()
+            }
+            finishGoogleServicesAuthorization(generation, expectedUserId, result)
+        }
+    }
+
+    fun cancelGoogleServicesAuthorization() {
+        pendingServicesUserId = null
+        mutableState.value = mutableState.value.copy(busy = false,
+            message = "Подключение Google Calendar и Tasks отменено. Данные и прежние разрешения не изменены.")
+    }
+
+    private suspend fun finishGoogleServicesAuthorization(generation: Long, expectedUserId: String,
+        authorization: AuthorizationResult) {
+        val code = authorization.serverAuthCode?.takeIf { it.isNotBlank() }
+            ?: throw GoogleServicesAuthorizationException()
+        val payload = withContext(Dispatchers.IO) { client.authorizeGoogleServices(generation, code) }
+        val identity = AuthProtocol.identity(payload) ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
+        if (identity.uid != expectedUserId) throw AuthFailure(AuthFailure.Kind.PROTOCOL)
+        val access = GoogleServiceAccess.primary(AccountSettings.fromResponse(payload))
+        if (access.calendar) AuthDiagnostics.event("CALENDAR_SCOPE_GRANTED")
+        if (access.tasks) AuthDiagnostics.event("TASKS_SCOPE_GRANTED")
+        completeSignedIn(generation, payload,
+            if (access.complete) "Google Calendar и Tasks подключены."
+            else "Google сохранил часть разрешений. Недостающий сервис можно подключить отдельно.")
     }
 
     private suspend fun completeSignedIn(generation: Long, session: JSONObject, successMessage: String,
         preferredLanguage: String? = null) {
         val identity = AuthProtocol.identity(session) ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
+        AuthDiagnostics.event("GENESIS_USER_RESOLVED")
         val settings = AccountSettings.fromResponse(session) ?: throw AuthFailure(AuthFailure.Kind.PROTOCOL)
         publish(generation, AuthPanelState(busy = true, user = identity, accountSettings = settings,
             checkedAt = System.currentTimeMillis(), message = "Открываем зашифрованное пространство…"))
         try {
+            AuthDiagnostics.event("SYNC_STARTED")
             val payload = withContext(Dispatchers.IO) { client.bootstrap(generation) }
             val confirmed = AuthProtocol.identity(payload) ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
             if (confirmed.uid != identity.uid) throw AuthFailure(AuthFailure.Kind.PROTOCOL)
@@ -118,6 +211,7 @@ class AuthController private constructor(context: Context) {
             } catch (error: CancellationException) { throw error }
             catch (_: Exception) { true } else true
             withContext(Dispatchers.IO) { app.scheduler.restore() }
+            AuthDiagnostics.event("SYNC_SUCCESS")
             publish(generation, AuthPanelState(ready = true, user = confirmed,
                 accountSettings = resolvedSettings, preview = preview,
                 checkedAt = System.currentTimeMillis(), message = (when (imported) {
@@ -129,19 +223,24 @@ class AuthController private constructor(context: Context) {
                 }) + (if (languageWarning) " Выбранный язык пока не сохранён в аккаунте; повторите выбор в личном кабинете." else "") +
                     (if (stoicheionWarning) " Выбор карты пока не обновлён; нажмите «Обновить» при восстановлении сети." else "")))
         } catch (error: CancellationException) {
+            AuthDiagnostics.event("SYNC_FAILED")
             throw error
         } catch (error: AuthFailure) {
+            AuthDiagnostics.event("SYNC_FAILED")
             if (error.kind in setOf(AuthFailure.Kind.UNAUTHORIZED, AuthFailure.Kind.PROTOCOL)) throw error
             publish(generation, AuthPanelState(user = identity, accountSettings = settings,
                 checkedAt = System.currentTimeMillis(), message = "Вход выполнен, но загрузка облачных данных пока не завершилась. Локальные записи сохранены."))
         } catch (_: CloudWorkspacePreview.RecoveryRequired) {
+            AuthDiagnostics.event("SYNC_FAILED")
             publish(generation, AuthPanelState(user = identity, accountSettings = settings,
                 checkedAt = System.currentTimeMillis(), message = "Вход выполнен, но для этого пространства требуется код восстановления. Данные не перезаписаны."))
         } catch (error: CloudWorkspacePreview.Unreadable) {
+            AuthDiagnostics.event("SYNC_FAILED")
             Log.e("GenesisAuth", "Cloud workspace verification failed", error)
             publish(generation, AuthPanelState(user = identity, accountSettings = settings,
                 checkedAt = System.currentTimeMillis(), message = "Вход выполнен, но формат облачных данных не удалось проверить (CLOUD_FORMAT). Локальные записи сохранены."))
         } catch (error: Exception) {
+            AuthDiagnostics.event("SYNC_FAILED")
             Log.e("GenesisAuth", "Cloud account import failed", error)
             publish(generation, AuthPanelState(user = identity, accountSettings = settings,
                 checkedAt = System.currentTimeMillis(), message = "Вход выполнен, но импорт облачных данных не завершён (CLOUD_IMPORT). Локальные записи сохранены."))
@@ -192,6 +291,7 @@ class AuthController private constructor(context: Context) {
     }
 
     fun logout() = start("Закрываем серверную сессию…") { generation ->
+        val previousScope = app.workspaceScope
         // begin() has already invalidated every in-flight response before touching stored credentials.
         var remoteClosed = false
         withContext(Dispatchers.IO) {
@@ -215,6 +315,7 @@ class AuthController private constructor(context: Context) {
         }
         val message = if (remoteClosed) "Вход закрыт. Локальные черновики сохранены."
             else "Вход удалён с устройства. Отзыв серверной сессии не подтверждён; локальные черновики сохранены."
+        withContext(Dispatchers.IO) { app.scheduler.deactivate(previousScope) }
         app.activateAccount(null)
         publish(generation, AuthPanelState(message = message + if (providerCleared) "" else " Поставщик Google недоступен для очистки состояния."))
     }
@@ -253,6 +354,7 @@ class AuthController private constructor(context: Context) {
         if (app.workspaceScope != accountScope || syncJob?.isActive == true) return
         val generation = client.currentGeneration()
         syncJob = scope.launch {
+            AuthDiagnostics.event("SYNC_STARTED")
             var sentTasks = 0
             var sentWorkspace = 0
             var failure: String? = null
@@ -285,6 +387,7 @@ class AuthController private constructor(context: Context) {
                 workspaceConflictPath = conflictPath, message = failure ?:
                 if (sentTasks + sentWorkspace > 0) "Синхронизировано: $sentTasks задач, $sentWorkspace изменений пространства."
                 else mutableState.value.message)
+            AuthDiagnostics.event(if (failure == null) "SYNC_SUCCESS" else "SYNC_FAILED")
         }
     }
 
@@ -326,6 +429,8 @@ class AuthController private constructor(context: Context) {
             } catch (_: GetCredentialException) {
                 resetCredentialProvider()
                 failed("Google-вход не подтверждён. Проверьте сеть, Google Play services и OAuth-регистрацию этой Android-сборки.")
+            } catch (_: GoogleServicesAuthorizationException) {
+                failed("Google не завершил выдачу разрешений Calendar/Tasks. Повторите подключение и выберите тот же аккаунт.")
             } catch (error: AuthFailure) {
                 if (error.kind in setOf(AuthFailure.Kind.UNAUTHORIZED, AuthFailure.Kind.PROTOCOL)) clearCurrent(generation)
                 failed(when (error.kind) {
@@ -373,4 +478,10 @@ class AuthController private constructor(context: Context) {
             instance ?: AuthController(context.applicationContext).also { instance = it }
         }
     }
+}
+
+private suspend fun <T> Task<T>.awaitResult(): T = suspendCancellableCoroutine { continuation ->
+    addOnSuccessListener { value -> if (continuation.isActive) continuation.resume(value) }
+    addOnFailureListener { error -> if (continuation.isActive) continuation.resumeWithException(error) }
+    addOnCanceledListener { if (continuation.isActive) continuation.cancel() }
 }

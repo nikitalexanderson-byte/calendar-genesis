@@ -44,6 +44,68 @@ try {
     expect(($user['theme'] ?? '') === 'experimental', 'Theme preference was not stored.');
     expect((int)($user['theme_revision'] ?? -1) === 1, 'Theme revision was not incremented.');
     expect((genesisUserForClient($user)['theme'] ?? '') === 'experimental', 'Theme preference was not exposed to the client.');
+
+    // Native identity and service authorization are deliberately separate. The
+    // stable Google sub binds every grant to the already authenticated user.
+    $googleProfile = [
+        'sub' => 'test-private-workspace-sub',
+        'email' => 'genesis.smoke.test@gmail.com',
+        'email_verified' => true,
+        'name' => 'Smoke Test',
+        'picture' => null,
+    ];
+    $db->prepare('UPDATE users SET google_calendar_id = :calendar_id WHERE id = :id')->execute([
+        'calendar_id' => 'existing-calendar-id', 'id' => $userId,
+    ]);
+    $calendarAuthorized = genesisPersistPrimaryGoogleAuthorization($userId, $googleProfile, [
+        'access_token' => 'synthetic-calendar-access',
+        'refresh_token' => 'synthetic-calendar-refresh',
+        'expires_in' => 3600,
+        'scope' => implode(' ', array_merge(GENESIS_GOOGLE_IDENTITY_SCOPES, [GENESIS_GOOGLE_CALENDAR_SCOPE])),
+    ]);
+    $calendarClient = genesisUserForClient($calendarAuthorized);
+    expect($calendarClient['calendarConnected'] === true, 'Calendar-only authorization was not exposed.');
+    expect($calendarClient['googleTasksImportReady'] === false, 'Calendar-only authorization falsely enabled Tasks.');
+
+    $tasksAuthorized = genesisPersistPrimaryGoogleAuthorization($userId, $googleProfile, [
+        'access_token' => 'synthetic-tasks-access',
+        'refresh_token' => 'synthetic-tasks-refresh',
+        'expires_in' => 3600,
+        'scope' => implode(' ', array_merge(GENESIS_GOOGLE_IDENTITY_SCOPES, [GENESIS_GOOGLE_TASKS_SCOPE])),
+    ]);
+    $tasksClient = genesisUserForClient($tasksAuthorized);
+    expect($tasksClient['calendarConnected'] === false, 'Tasks-only authorization falsely enabled Calendar.');
+    expect($tasksClient['googleTasksImportReady'] === true, 'Tasks-only authorization was not exposed.');
+
+    genesisClearGoogleAuthorization($tasksAuthorized);
+    $revoked = genesisFindUser($userId);
+    expect(is_array($revoked) && empty($revoked['refresh_token_enc']) && ($revoked['granted_scopes'] ?? '') === '',
+        'Revoked Google authorization was not cleared.');
+    expect(($revoked['google_calendar_id'] ?? '') === 'existing-calendar-id',
+        'Revocation must preserve the existing GENESIS calendar for reconnect.');
+
+    $bothAuthorized = genesisPersistPrimaryGoogleAuthorization($userId, $googleProfile, [
+        'access_token' => 'synthetic-both-access',
+        'refresh_token' => 'synthetic-both-refresh',
+        'expires_in' => 3600,
+        'scope' => implode(' ', GENESIS_GOOGLE_SCOPES),
+    ]);
+    $existingLogin = genesisUpsertGoogleUser($googleProfile, [], false);
+    expect(($existingLogin['id'] ?? '') === $userId, 'Existing backend user was not resolved by Google sub.');
+    expect(!empty($existingLogin['refresh_token_enc']), 'Native identity login erased an existing refresh token.');
+    $bothClient = genesisUserForClient($bothAuthorized);
+    expect($bothClient['calendarConnected'] === true && $bothClient['googleTasksImportReady'] === true,
+        'Reauthorization did not restore both Google services.');
+
+    $newGoogleUser = genesisUpsertGoogleUser([
+        'sub' => 'test-brand-new-native-sub',
+        'email' => 'genesis.brand.new@example.com',
+        'email_verified' => true,
+        'name' => 'Brand New Native User',
+    ], [], false);
+    $newClient = genesisUserForClient($newGoogleUser);
+    expect($newClient['calendarConnected'] === false && $newClient['googleTasksImportReady'] === false,
+        'A new identity was falsely marked as Google-service connected.');
     try {
         genesisUpdateAccountPreferences($userId, ['theme' => 'standart', 'expectedThemeRevision' => 0]);
         throw new RuntimeException('Stale theme revision was accepted.');

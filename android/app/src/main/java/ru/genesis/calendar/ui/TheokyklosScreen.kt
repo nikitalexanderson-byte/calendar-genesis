@@ -56,6 +56,7 @@ private val gold = Color(0xffdfc17e)
 fun TheokyklosScreen(app: GenesisApplication, calendarMode: CalendarMode, onOpenHabits: () -> Unit,
     initialSectorId: String? = null, onInitialSectorConsumed: () -> Unit = {}) {
     val context = LocalContext.current
+    val english = LocalGenesisLanguage.current == "en"
     val catalog = remember(context) { runCatching { TheokyklosCatalogSource.load(context) } }
     val repository = remember(app) { HabitsRepository(app) }
     var workspace by remember { mutableStateOf<LocalHabitWorkspace?>(null) }
@@ -97,26 +98,26 @@ fun TheokyklosScreen(app: GenesisApplication, calendarMode: CalendarMode, onOpen
         Text("Круг божественных сил", style = MaterialTheme.typography.titleLarge)
         Text("Коснитесь любого направления, полюса, очага, центра или врат.",
             style = MaterialTheme.typography.bodySmall)
-        TheokyklosMandala(data.sectors) { selectedId = it }
+        TheokyklosMandala(data.sectors, english) { selectedId = it }
         Text("Ось, врата и ядро", style = MaterialTheme.typography.titleMedium)
         listOf("zenith", "nadir", "entrance", "exit", "center", "hearth").chunked(2).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 row.forEach { id ->
                     val sector = data.byId.getValue(id)
-                    SectorCard(sector, Modifier.weight(1f)) { selectedId = id }
+                    SectorCard(sector, english, Modifier.weight(1f)) { selectedId = id }
                 }
             }
         }
         Text("Восемь направлений", style = MaterialTheme.typography.titleMedium)
         data.sectors.take(8).chunked(2).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                row.forEach { sector -> SectorCard(sector, Modifier.weight(1f)) { selectedId = sector.id } }
+                row.forEach { sector -> SectorCard(sector, english, Modifier.weight(1f)) { selectedId = sector.id } }
             }
         }
     }
     if (selected != null) {
         TheokyklosDetail(
-            sector = selected, practices = data.practicesFor(selected.id), workspace = workspace,
+            sector = selected, practices = data.practicesFor(selected.id), workspace = workspace, english = english,
             storageError = storageError, actionError = actionError, busy = busy,
             onClose = { selectedId = null; actionError = null },
             onOpenHabits = { selectedId = null; onOpenHabits() },
@@ -126,7 +127,7 @@ fun TheokyklosScreen(app: GenesisApplication, calendarMode: CalendarMode, onOpen
                     actionError = null
                     try {
                         when (action) {
-                            "begin" -> repository.save(practice.toHabit(calendarMode))
+                            "begin" -> repository.save(practice.toHabit(calendarMode, english))
                             "pause" -> repository.save(requireNotNull(existing).copy(active = false))
                             "resume" -> repository.save(requireNotNull(existing).copy(active = true))
                             "complete" -> repository.complete(requireNotNull(existing).id,
@@ -142,7 +143,7 @@ fun TheokyklosScreen(app: GenesisApplication, calendarMode: CalendarMode, onOpen
 }
 
 @Composable
-private fun SectorCard(sector: TheokyklosSector, modifier: Modifier, onClick: () -> Unit) {
+private fun SectorCard(sector: TheokyklosSector, english: Boolean, modifier: Modifier, onClick: () -> Unit) {
     Surface(onClick = onClick, modifier = modifier.heightIn(min = 82.dp)
         .testTag("theokyklos-card-${sector.id}"),
         shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surface) {
@@ -150,22 +151,24 @@ private fun SectorCard(sector: TheokyklosSector, modifier: Modifier, onClick: ()
             OriginalImage(sector.symbolArt, null, Modifier.size(36.dp))
             Spacer(Modifier.width(6.dp))
             Column {
-                Text(sector.cardTitle(), style = MaterialTheme.typography.labelMedium)
-                Text(sector.patrons.ru, style = MaterialTheme.typography.bodySmall, maxLines = 2)
+                Text(sector.cardTitle(english), style = MaterialTheme.typography.labelMedium)
+                Text(if (english) sector.patrons.en else sector.patrons.ru,
+                    style = MaterialTheme.typography.bodySmall, maxLines = 2)
             }
         }
     }
 }
 
-private fun TheokyklosSector.cardTitle(): String = when (id) {
-    "center" -> "Центр"
-    "hearth" -> "Очаг"
-    else -> title.ru.substringBefore(" · ").lowercase().replaceFirstChar { it.titlecase() }
+private fun TheokyklosSector.cardTitle(english: Boolean): String = when (id) {
+    "center" -> if (english) "Center" else "Центр"
+    "hearth" -> if (english) "Hearth" else "Очаг"
+    else -> (if (english) title.en else title.ru).substringBefore(" · ").lowercase().replaceFirstChar { it.titlecase() }
 }
 
 /** The 14 visible touch nodes preserve the website's eight directions, vertical axis and thresholds. */
 @Composable
-private fun TheokyklosMandala(sectors: List<TheokyklosSector>, onSelect: (String) -> Unit) {
+private fun TheokyklosMandala(sectors: List<TheokyklosSector>, english: Boolean, onSelect: (String) -> Unit) {
+    val hearthDescription = if (english) "Hearth, Hestia" else "Очаг, Гестия"
     BoxWithConstraints(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(16.dp))
         .background(cream).testTag("theokyklos-mandala")) {
         Canvas(Modifier.fillMaxSize()) {
@@ -190,7 +193,7 @@ private fun TheokyklosMandala(sectors: List<TheokyklosSector>, onSelect: (String
         Box(Modifier.offset(maxWidth * .5f - 64.dp, maxWidth * .49f - 64.dp)
             .size(128.dp)
             .clickable { onSelect("hearth") }
-            .semantics { role = Role.Button; contentDescription = "Очаг, Гестия" }
+            .semantics { role = Role.Button; contentDescription = hearthDescription }
             .testTag("theokyklos-sector-hearth"), contentAlignment = Alignment.Center) {
             Canvas(Modifier.fillMaxSize()) {
                 val center = Offset(size.width / 2f, size.height / 2f)
@@ -204,10 +207,12 @@ private fun TheokyklosMandala(sectors: List<TheokyklosSector>, onSelect: (String
         }
         sectors.filterNot { it.id == "hearth" }.forEach { sector ->
             val (x, y) = mandalaPosition(sector)
+            val description = if (english) "${sector.title.en}, ${sector.patrons.en}"
+                else "${sector.title.ru}, ${sector.patrons.ru}"
             Box(Modifier.offset(maxWidth * x - 32.dp, maxWidth * y - 32.dp)
                 .size(64.dp)
                 .clickable { onSelect(sector.id) }
-                .semantics { role = Role.Button; contentDescription = "${sector.title.ru}, ${sector.patrons.ru}" }
+                .semantics { role = Role.Button; contentDescription = description }
                 .testTag("theokyklos-sector-${sector.id}"),
                 contentAlignment = Alignment.Center) {
                 OriginalImage(sector.symbolArt, null, Modifier.size(52.dp))
@@ -234,7 +239,7 @@ private fun mandalaPosition(sector: TheokyklosSector): Pair<Float, Float> {
 
 @Composable
 private fun TheokyklosDetail(sector: TheokyklosSector, practices: List<TheokyklosPractice>,
-    workspace: LocalHabitWorkspace?, storageError: String?, actionError: String?, busy: Boolean,
+    workspace: LocalHabitWorkspace?, storageError: String?, actionError: String?, busy: Boolean, english: Boolean,
     onClose: () -> Unit, onOpenHabits: () -> Unit,
     onPractice: (TheokyklosPractice, Habit?, String) -> Unit) {
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
@@ -245,16 +250,21 @@ private fun TheokyklosDetail(sector: TheokyklosSector, practices: List<Theokyklo
                     verticalAlignment = Alignment.CenterVertically) {
                     OriginalImage(sector.symbolArt, null, Modifier.size(48.dp))
                     Column(Modifier.weight(1f).padding(start = 10.dp)) {
-                        Text(sector.title.ru, color = cream, style = MaterialTheme.typography.titleLarge)
-                        Text(sector.patrons.ru, color = gold, style = MaterialTheme.typography.bodyMedium)
+                        Text(if (english) sector.title.en else sector.title.ru,
+                            color = cream, style = MaterialTheme.typography.titleLarge)
+                        Text(if (english) sector.patrons.en else sector.patrons.ru,
+                            color = gold, style = MaterialTheme.typography.bodyMedium)
                     }
                     TextButton(onClick = onClose) { Text("×", color = cream, fontSize = 26.sp) }
                 }
-                OriginalImage(sector.art, "${sector.patrons.ru} — ${sector.title.ru}",
+                OriginalImage(sector.art, if (english) "${sector.patrons.en} — ${sector.title.en}"
+                    else "${sector.patrons.ru} — ${sector.title.ru}",
                     Modifier.fillMaxWidth().height(190.dp))
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(sector.essence.ru, style = MaterialTheme.typography.titleMedium)
-                    Text(sector.description.ru, style = MaterialTheme.typography.bodyMedium)
+                    Text(if (english) sector.essence.en else sector.essence.ru,
+                        style = MaterialTheme.typography.titleMedium)
+                    Text(if (english) sector.description.en else sector.description.ru,
+                        style = MaterialTheme.typography.bodyMedium)
                     HorizontalDivider()
                     Text("Заклинания Божеств", style = MaterialTheme.typography.titleMedium)
                     Text("Произносите каждое слово осознанно, переходя от смысла к звучанию.",
@@ -265,7 +275,8 @@ private fun TheokyklosDetail(sector: TheokyklosSector, practices: List<Theokyklo
                             Column {
                                 Text(word.greek, fontFamily = FontFamily.Serif,
                                     style = MaterialTheme.typography.titleMedium)
-                                Text("«${word.pronunciation.ru}» · ${word.meaning.ru}",
+                                Text(if (english) "“${word.pronunciation.en}” · ${word.meaning.en}"
+                                    else "«${word.pronunciation.ru}» · ${word.meaning.ru}",
                                     style = MaterialTheme.typography.bodySmall)
                             }
                         }
@@ -288,9 +299,12 @@ private fun TheokyklosDetail(sector: TheokyklosSector, practices: List<Theokyklo
                         } == true
                         Card(Modifier.fillMaxWidth()) {
                             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text("${practice.emoji} ${practice.title.ru}", style = MaterialTheme.typography.titleSmall)
-                                Text(practice.description.ru, style = MaterialTheme.typography.bodySmall)
-                                Text(practice.myth.ru, style = MaterialTheme.typography.bodySmall,
+                                Text("${practice.emoji} ${if (english) practice.title.en else practice.title.ru}",
+                                    style = MaterialTheme.typography.titleSmall)
+                                Text(if (english) practice.description.en else practice.description.ru,
+                                    style = MaterialTheme.typography.bodySmall)
+                                Text(if (english) practice.myth.en else practice.myth.ru,
+                                    style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Text(if (existing == null) "Рекомендуется ${practice.suggestedTime} · приоритет ${practice.priority}"
                                     else "${if (existing.active) "Активна" else "На паузе"} · " +
@@ -320,11 +334,11 @@ private fun TheokyklosDetail(sector: TheokyklosSector, practices: List<Theokyklo
     }
 }
 
-internal fun TheokyklosPractice.toHabit(mode: CalendarMode): Habit {
+internal fun TheokyklosPractice.toHabit(mode: CalendarMode, english: Boolean = false): Habit {
     val today = LocalDate.now()
     val schedule = HabitEngine(GenesisCalendar()).defaultSchedule(today, mode)
-    return Habit(TrackerEntity.create("habit"), title.ru, today, schedule,
-        description = description.ru, emoji = emoji, priority = priority,
+    return Habit(TrackerEntity.create("habit"), if (english) title.en else title.ru, today, schedule,
+        description = if (english) description.en else description.ru, emoji = emoji, priority = priority,
         color = color, sacredPracticeId = id, sacredSectorId = sectorId,
         preferredTime = suggestedTime,
         ritualId = when (suggestedTime.take(2).toIntOrNull() ?: -1) {

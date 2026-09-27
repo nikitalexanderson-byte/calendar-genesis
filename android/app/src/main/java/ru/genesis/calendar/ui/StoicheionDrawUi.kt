@@ -155,6 +155,7 @@ internal fun StoicheionMotionDialog(mode: String, busy: Boolean, onCancel: () ->
     var submitted by remember(mode) { mutableStateOf(false) }
     var pointer by remember(mode) { mutableStateOf(Offset.Unspecified) }
     val density = LocalDensity.current.density
+    val motionDescription = genesisTranslate("Поле движения для случайного выбора")
     Dialog(onDismissRequest = onCancel, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.fillMaxWidth().fillMaxHeight(.92f).padding(12.dp),
             shape = RoundedCornerShape(22.dp), color = Color(0xff071d20)) {
@@ -183,7 +184,7 @@ internal fun StoicheionMotionDialog(mode: String, busy: Boolean, onCancel: () ->
                             }
                         }
                     }
-                    .semantics { contentDescription = "Поле движения для случайного выбора" }
+                    .semantics { contentDescription = motionDescription }
                     .testTag("stoicheion-motion-field"), contentAlignment = Alignment.Center) {
                     Canvas(Modifier.matchParentSize()) {
                         val point = if (pointer.x.isFinite() && pointer.y.isFinite()) pointer

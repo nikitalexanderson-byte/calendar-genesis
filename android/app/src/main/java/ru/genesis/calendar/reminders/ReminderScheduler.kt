@@ -12,10 +12,12 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.flow.first
 import ru.genesis.calendar.GenesisApplication
 import ru.genesis.calendar.MainActivity
 import ru.genesis.calendar.R
 import ru.genesis.calendar.data.ReminderRecord
+import ru.genesis.calendar.data.LocalPreferences
 
 class ReminderScheduler(private val context: Context) {
     // The application runs in one process. Serialize the DB transition and the
@@ -30,9 +32,12 @@ class ReminderScheduler(private val context: Context) {
     fun notificationsAllowed() = NotificationManagerCompat.from(context).areNotificationsEnabled() &&
         (Build.VERSION.SDK_INT < 33 || context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED)
     fun channelAllowed() = notifications.getNotificationChannel(TASK_CHANNEL)?.importance != NotificationManager.IMPORTANCE_NONE
-    fun createChannels() {
-        listOf(TASK_CHANNEL to "Задачи и события", "genesis.habits.v1" to "Привычки",
-            "genesis.daily-goal.v1" to "Дневная цель", "genesis.achievements.v1" to "Достижения").forEach { (id, label) ->
+    fun createChannels(language: String = "ru") {
+        val labels = if (language == "en") listOf(TASK_CHANNEL to "Tasks and events", "genesis.habits.v1" to "Habits",
+            "genesis.daily-goal.v1" to "Daily goal", "genesis.achievements.v1" to "Achievements")
+        else listOf(TASK_CHANNEL to "Задачи и события", "genesis.habits.v1" to "Привычки",
+            "genesis.daily-goal.v1" to "Дневная цель", "genesis.achievements.v1" to "Достижения")
+        labels.forEach { (id, label) ->
             val channel = NotificationChannel(id, label, NotificationManager.IMPORTANCE_HIGH)
             channel.enableVibration(true)
             channel.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),
@@ -40,7 +45,7 @@ class ReminderScheduler(private val context: Context) {
             channel.lockscreenVisibility = Notification.VISIBILITY_PRIVATE
             notifications.createNotificationChannel(channel)
         }
-        notifications.createNotificationChannel(NotificationChannel("genesis.sync.v1", "Синхронизация",
+        notifications.createNotificationChannel(NotificationChannel("genesis.sync.v1", if (language == "en") "Sync" else "Синхронизация",
             NotificationManager.IMPORTANCE_LOW).apply { setSound(null, null) })
     }
     private fun intent(row: ReminderRecord, action: String, clazz: Class<*>) = Intent(context, clazz).apply {
@@ -76,6 +81,10 @@ class ReminderScheduler(private val context: Context) {
         // An overdue row remains visible in diagnostics; never replay it in a sound storm.
     }
     suspend fun restore() = withMutation { scheduleUpcomingLocked(app.workspaceScope) }
+    /** Remove account-specific system alarms/notifications when its session leaves the device. */
+    suspend fun deactivate(scope: String) = withMutation {
+        app.database.dao().reminders(scope).forEach(::cancel)
+    }
     suspend fun deliver(scope: String, id: String, revision: Long) = withMutation { deliverLocked(scope,id,revision) }
     private suspend fun deliverLocked(scope: String, id: String, revision: Long) {
         if (scope != app.workspaceScope) return
@@ -94,14 +103,15 @@ class ReminderScheduler(private val context: Context) {
         }, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         fun action(name: String) = PendingIntent.getBroadcast(context, 0,
             intent(row, name, ReminderActionReceiver::class.java), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val english = LocalPreferences(context, scope).values.first().language == "en"
         val note = NotificationCompat.Builder(context, TASK_CHANNEL)
             .setSmallIcon(R.drawable.ic_notification).setContentTitle("GENESIS")
-            .setContentText("Время запланированного действия").setContentIntent(open)
+            .setContentText(if (english) "Time for your scheduled action" else "Время запланированного действия").setContentIntent(open)
             .setCategory(NotificationCompat.CATEGORY_REMINDER).setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setAutoCancel(true).setOnlyAlertOnce(true)
-            .addAction(0, "Выполнено", action("complete"))
-            .addAction(0, "Отложить на 10 мин", action("snooze"))
-            .addAction(0, "Отключить", action("dismiss"))
+            .addAction(0, if (english) "Complete" else "Выполнено", action("complete"))
+            .addAction(0, if (english) "Snooze 10 min" else "Отложить на 10 мин", action("snooze"))
+            .addAction(0, if (english) "Dismiss" else "Отключить", action("dismiss"))
             .build()
         try { notifications.notify(scope + "/" + id, 1, note) }
         catch (_: SecurityException) { /* Permission may be revoked between check and notify. */ }

@@ -111,10 +111,12 @@ try {
         try {
             $tasks = genesisListAllGoogleTasks($user);
             $syncWarning = genesisGoogleTasksSyncWarning();
-            $user = genesisFindUser($userId) ?? $user;
         } catch (Throwable $googleError) {
             $syncWarning = $googleError->getMessage();
         }
+        // A failed Google refresh can revoke the stored authorization. Always
+        // return the post-sync connection state so clients can offer reconnect.
+        $user = genesisFindUser($userId) ?? $user;
         genesisJson([
             'user' => genesisUserForClient($user),
             'csrf' => (string)$_SESSION['csrf'],
@@ -198,6 +200,10 @@ try {
             $now,
             static function () use ($now): array { return genesisNativeGoogleCertificates($_SESSION, $now); },
         );
+        $linkAction = genesisFindUserByGoogleSub((string)$profile['sub']) !== null
+            || genesisFindLinkedGoogleAccountBySub((string)$profile['sub']) !== null
+            ? 'found'
+            : 'created';
         $user = genesisUpsertGoogleUser($profile, [], false);
         if (!session_regenerate_id(true)) {
             throw new GenesisNativeAuthException(503, 'NATIVE_AUTH_TEMPORARILY_UNAVAILABLE');
@@ -205,7 +211,53 @@ try {
         $_SESSION['user_id'] = (string)$user['id'];
         $_SESSION['csrf'] = bin2hex(random_bytes(24));
         unset($_SESSION['oauth_request']);
-        genesisJson(['user' => genesisUserForClient($user), 'csrf' => (string)$_SESSION['csrf']]);
+        genesisLogError('[AuthFlow] ' . ($linkAction === 'created' ? 'GOOGLE_LINK_CREATED' : 'GOOGLE_LINK_FOUND'));
+        genesisJson([
+            'user' => genesisUserForClient($user),
+            'csrf' => (string)$_SESSION['csrf'],
+            'googleLinkAction' => $linkAction,
+        ]);
+    }
+
+    if ($method === 'POST' && $path === 'auth/google/native/services/config') {
+        genesisRequireCsrf();
+        genesisRequireUserId();
+        $clientId = trim((string)(genesisConfig()['google_client_id'] ?? ''));
+        if ($clientId === '') throw new GenesisNativeAuthException(503, 'NATIVE_AUTH_NOT_CONFIGURED');
+        genesisJson(['serverClientId' => $clientId]);
+    }
+
+    if ($method === 'POST' && $path === 'auth/google/native/services') {
+        genesisRequireCsrf();
+        $userId = genesisRequireUserId();
+        $payload = genesisReadJson();
+        $code = is_string($payload['serverAuthCode'] ?? null) ? trim($payload['serverAuthCode']) : '';
+        if ($code === '' || strlen($code) > 8192) {
+            throw new InvalidArgumentException('Некорректный код авторизации Google.');
+        }
+        $tokens = genesisExchangeNativeGoogleCode($code);
+        if (empty($tokens['access_token'])) throw new RuntimeException('Google не вернул токен доступа.');
+        $profile = genesisGoogleUserInfo((string)$tokens['access_token']);
+        $user = genesisPersistPrimaryGoogleAuthorization($userId, $profile, $tokens);
+        $calendarWarning = null;
+        if (genesisGoogleScopeGranted($user, GENESIS_GOOGLE_CALENDAR_SCOPE)) {
+            try {
+                $user = genesisEnsureGoogleCalendar($user);
+                genesisLogError('[AuthFlow] CALENDAR_SCOPE_GRANTED');
+            } catch (Throwable $calendarError) {
+                $calendarWarning = 'Разрешение Calendar сохранено, но создание календаря пока не завершилось.';
+                genesisLogError('[AuthFlow] CALENDAR_SCOPE_GRANTED; calendar initialization pending', $calendarError);
+            }
+        }
+        if (genesisGoogleScopeGranted($user, GENESIS_GOOGLE_TASKS_SCOPE)) {
+            genesisLogError('[AuthFlow] TASKS_SCOPE_GRANTED');
+        }
+        $user = genesisFindUser($userId) ?? $user;
+        genesisJson([
+            'user' => genesisUserForClient($user),
+            'csrf' => (string)$_SESSION['csrf'],
+            'syncWarning' => $calendarWarning,
+        ]);
     }
 
     if ($method === 'GET' && $path === 'auth/google/start') {

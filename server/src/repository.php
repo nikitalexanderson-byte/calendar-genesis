@@ -96,14 +96,17 @@ function genesisMultiAccountEnabled(array $owner): bool
 function genesisAccountForClient(array $account, bool $primary): array
 {
     $grantedScopes = preg_split('/\s+/', trim((string)($account['granted_scopes'] ?? ''))) ?: [];
+    $hasRefreshToken = !empty($account['refresh_token_enc']);
     return [
         'id' => (string)$account['id'],
         'email' => (string)$account['email'],
         'displayName' => (string)$account['display_name'],
         'photoURL' => $account['avatar_url'] ?: null,
         'isPrimary' => $primary,
-        'calendarConnected' => !empty($account['google_calendar_id']) && !empty($account['refresh_token_enc']),
-        'googleTasksImportReady' => in_array('https://www.googleapis.com/auth/tasks', $grantedScopes, true),
+        'calendarConnected' => $hasRefreshToken && !empty($account['google_calendar_id'])
+            && in_array(GENESIS_GOOGLE_CALENDAR_SCOPE, $grantedScopes, true),
+        'googleTasksImportReady' => $hasRefreshToken
+            && in_array(GENESIS_GOOGLE_TASKS_SCOPE, $grantedScopes, true),
     ];
 }
 
@@ -336,6 +339,65 @@ function genesisUpsertGoogleUser(array $profile, array $tokens, bool $persistGoo
         throw new RuntimeException('User profile could not be saved.');
     }
     return genesisEnsureWorkspaceKey($user);
+}
+
+function genesisFindUserByGoogleSub(string $googleSub): ?array
+{
+    $statement = genesisDb()->prepare('SELECT * FROM users WHERE google_sub = :google_sub LIMIT 1');
+    $statement->execute(['google_sub' => $googleSub]);
+    $user = $statement->fetch();
+    return is_array($user) ? $user : null;
+}
+
+/**
+ * Persist Android service authorization only for the already authenticated primary sub.
+ * Email is profile data, never the account-linking key.
+ */
+function genesisPersistPrimaryGoogleAuthorization(string $userId, array $profile, array $tokens): array
+{
+    $user = genesisFindUser($userId);
+    if ($user === null) {
+        throw new RuntimeException('Пользователь не найден.');
+    }
+    $sub = trim((string)($profile['sub'] ?? ''));
+    $email = mb_strtolower(trim((string)($profile['email'] ?? '')));
+    $emailVerified = filter_var($profile['email_verified'] ?? false, FILTER_VALIDATE_BOOLEAN);
+    if ($sub === '' || !genesisIsValidEmail($email) || $emailVerified !== true) {
+        throw new InvalidArgumentException('Google не подтвердил профиль выбранного аккаунта.');
+    }
+    genesisAssertIdentityAllowed($sub, $email);
+    if (!hash_equals((string)$user['google_sub'], $sub)) {
+        throw new DomainException('Выбран другой Google-аккаунт. Войдите в него отдельно через выход из GENESIS.');
+    }
+    if (empty($tokens['access_token']) || !is_string($tokens['access_token'])) {
+        throw new RuntimeException('Google не вернул токен доступа.');
+    }
+    $grantedScopes = preg_split('/\s+/', trim((string)($tokens['scope'] ?? ''))) ?: [];
+    if (array_intersect(GENESIS_GOOGLE_SERVICE_SCOPES, $grantedScopes) === []) {
+        throw new DomainException('Google не предоставил доступ ни к Calendar, ни к Tasks.');
+    }
+    $refresh = !empty($tokens['refresh_token']) && is_string($tokens['refresh_token'])
+        ? genesisEncrypt($tokens['refresh_token'])
+        : ($user['refresh_token_enc'] ?? null);
+    if (empty($refresh)) {
+        throw new RuntimeException('Google не вернул токен для фоновой синхронизации. Повторите подключение и подтвердите доступ.');
+    }
+    $now = genesisNow();
+    genesisDb()->prepare('UPDATE users SET email = :email, display_name = :display_name, avatar_url = :avatar_url, access_token_enc = :access_token_enc, refresh_token_enc = :refresh_token_enc, token_expires_at = :token_expires_at, granted_scopes = :granted_scopes, last_seen_at = :last_seen_at, updated_at = :updated_at WHERE id = :id')->execute([
+        'id' => $userId,
+        'email' => $email,
+        'display_name' => mb_substr((string)($profile['name'] ?? $email), 0, 160),
+        'avatar_url' => isset($profile['picture']) ? mb_substr((string)$profile['picture'], 0, 1000) : null,
+        'access_token_enc' => genesisEncrypt((string)$tokens['access_token']),
+        'refresh_token_enc' => $refresh,
+        'token_expires_at' => time() + genesisClampInt($tokens['expires_in'] ?? 3600, 60, 86400, 3600) - 60,
+        'granted_scopes' => implode(' ', array_values(array_unique($grantedScopes))),
+        'last_seen_at' => $now,
+        'updated_at' => $now,
+    ]);
+    $saved = genesisFindUser($userId);
+    if ($saved === null) throw new RuntimeException('Google-разрешения не удалось сохранить.');
+    return $saved;
 }
 
 function genesisLinkGoogleAccount(string $ownerUserId, array $profile, array $tokens): array

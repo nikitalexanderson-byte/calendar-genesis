@@ -101,6 +101,13 @@ internal class AuthSessionClient(context: Context) {
         return request(expected, "/tasks/$id", task, method = "DELETE")
     }
     fun challenge(expected: Long): JSONObject = request(expected, "/auth/google/native/challenge", JSONObject())
+    fun googleServicesConfig(expected: Long): JSONObject =
+        request(expected, "/auth/google/native/services/config", JSONObject())
+    fun authorizeGoogleServices(expected: Long, serverAuthCode: String): JSONObject {
+        require(serverAuthCode.length in 1..8192)
+        return request(expected, "/auth/google/native/services",
+            JSONObject().put("serverAuthCode", serverAuthCode))
+    }
     fun updateRouting(expected: Long, routing: SyncRouting): JSONObject =
         request(expected, "/account/preferences", JSONObject().put("syncRouting", routing.toJson()), method = "PUT")
     fun updatePreferences(expected: Long, changes: JSONObject): JSONObject =
@@ -123,7 +130,8 @@ internal class AuthSessionClient(context: Context) {
     private fun request(expected: Long, path: String, body: JSONObject?, secret: SessionSecret? = null,
         persist: Boolean = true, method: String = if (body == null) "GET" else "POST"): JSONObject {
         require(path in setOf("/session", "/workspace", "/bootstrap", "/stoicheion/draws", "/auth/google/native/challenge",
-            "/auth/google/native", "/auth/logout", "/account/preferences") ||
+            "/auth/google/native", "/auth/google/native/services/config", "/auth/google/native/services",
+            "/auth/logout", "/account/preferences") ||
             (method in setOf("PUT", "DELETE") && path.matches(Regex("/tasks/[A-Za-z0-9_-]{1,100}"))) ||
             (method == "DELETE" && path.matches(Regex("/account/google-accounts/[A-Za-z0-9_-]{1,100}"))))
         require(method in setOf("GET", "POST", "PUT", "DELETE") && (method == "GET") == (body == null))

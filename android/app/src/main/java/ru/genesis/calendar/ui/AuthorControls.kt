@@ -42,8 +42,9 @@ fun PriorityControl(value: Int, onChange: (Int) -> Unit) {
             }
         }, verticalAlignment = Alignment.Bottom) {
             (1..10).forEach { step ->
+                val stepDescription = genesisTranslate("Приоритет $step, ${priorityNames[step - 1]}")
                 Box(Modifier.weight(1f).fillMaxHeight().clickable { onChange(step) }
-                    .semantics { contentDescription = "Приоритет $step, ${priorityNames[step - 1]}"; selected = value == step },
+                    .semantics { contentDescription = stepDescription; selected = value == step },
                     contentAlignment = Alignment.BottomCenter) {
                     Box(Modifier.padding(horizontal = 2.dp, vertical = 8.dp).fillMaxWidth()
                         .height((7 + step * 4).dp)
@@ -77,8 +78,9 @@ fun AuthorTimePicker(value: String, use24: Boolean, onChange: (String) -> Unit) 
                 }
                 var ring by remember { mutableIntStateOf(0) }
                 val ink = MaterialTheme.colorScheme.onSurface
+                val clockDescription = genesisTranslate("Авторские часы: внешнее кольцо часов, внутреннее кольцо минут")
                 Canvas(Modifier.fillMaxWidth().aspectRatio(1f)
-                    .semantics { contentDescription = "Авторские часы: внешнее кольцо часов, внутреннее кольцо минут" }
+                    .semantics { contentDescription = clockDescription }
                     .pointerInput(use24) {
                         fun update(point: Offset, chooseRing: Boolean) {
                             val scale = size.width / 244f

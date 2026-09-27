@@ -50,4 +50,15 @@ class AuthProtocolTest {
         assertEquals("a".repeat(48), AuthProtocol.csrf("a".repeat(48)))
         assertThrows(IllegalArgumentException::class.java) { AuthProtocol.csrf("bad\r\nheader") }
     }
+
+    @Test fun serviceConfigAndLinkActionAcceptOnlyExpectedValues() {
+        val clientId = "fixture.apps.googleusercontent.com"
+        assertEquals(clientId, AuthProtocol.serverClientId(JSONObject().put("serverClientId", clientId)))
+        assertThrows(IllegalArgumentException::class.java) {
+            AuthProtocol.serverClientId(JSONObject().put("serverClientId", "https://attacker.example"))
+        }
+        assertEquals("found", AuthProtocol.googleLinkAction(JSONObject().put("googleLinkAction", "found")))
+        assertEquals("created", AuthProtocol.googleLinkAction(JSONObject().put("googleLinkAction", "created")))
+        assertNull(AuthProtocol.googleLinkAction(JSONObject().put("googleLinkAction", "reassigned")))
+    }
 }

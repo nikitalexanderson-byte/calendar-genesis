@@ -157,10 +157,13 @@ nativeReject(static fn() => genesisNativeConsumeChallenge($failedSession, $now),
 
 // Keep browser flow and CSRF gates explicit. This does not replace end-to-end HTTP/session tests.
 $api = file_get_contents(dirname(__DIR__) . '/public/api/index.php');
-foreach (['auth/google/native/challenge', 'auth/google/native'] as $route) {
+foreach (['auth/google/native/challenge', 'auth/google/native', 'auth/google/native/services/config', 'auth/google/native/services'] as $route) {
     $escaped = preg_quote($route, '/');
     nativeExpect((bool)preg_match('/\$path === \'' . $escaped . '\'\) \{\s*genesisRequireCsrf\(\);/', $api), $route . ' must call existing CSRF middleware first');
 }
 nativeExpect(str_contains($api, '$path === \'auth/google/start\'') && str_contains($api, '$path === \'auth/google/callback\''), 'Browser routes must remain present');
+nativeExpect(str_contains($api, 'genesisExchangeNativeGoogleCode($code)')
+    && str_contains($api, 'genesisPersistPrimaryGoogleAuthorization($userId, $profile, $tokens)'),
+    'Native service grants must be exchanged and bound by the backend');
 echo "PASS native CSRF gates and browser routes retained (source guard)\n";
 echo "Native auth standalone tests passed; HTTP login/device tests are separate.\n";
