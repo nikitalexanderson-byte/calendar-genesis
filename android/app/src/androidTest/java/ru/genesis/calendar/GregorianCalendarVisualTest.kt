@@ -105,6 +105,16 @@ class GregorianCalendarVisualTest {
             compose.runOnIdle { mode = calendarMode }
             compose.waitForIdle()
             val badge = compose.onNodeWithTag("calendar-task-count-$date").performScrollTo().assertIsDisplayed()
+            val dayBounds = compose.onNodeWithTag("calendar-day-$date").fetchSemanticsNode().boundsInRoot
+            val badgeBounds = badge.fetchSemanticsNode().boundsInRoot
+            if (calendarMode != CalendarMode.LUNAR) {
+                assertTrue("Task badge must be at the top-right of $calendarMode",
+                    badgeBounds.right > dayBounds.right - badgeBounds.width * .35f &&
+                        badgeBounds.top < dayBounds.top + badgeBounds.height * .35f)
+            }
+            assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(
+                File(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null),
+                    "calendar-${calendarMode.name.lowercase()}-task-badge.png")))
             badge.performClick()
             compose.onNodeWithTag("calendar-task-list-dialog").assertIsDisplayed()
             compose.onNodeWithText("Badge task").assertExists()

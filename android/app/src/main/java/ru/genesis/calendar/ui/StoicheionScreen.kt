@@ -103,12 +103,14 @@ fun StoicheionScreen(app: GenesisApplication, divinationDisabled: Boolean,
     }
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Стойхейон", style = MaterialTheme.typography.headlineMedium)
+            GenesisPageHeader(if (english) "Stoicheion" else "Стойхейон",
+                if (divinationDisabled) {
+                    if (english) "Twenty-four Greek letters and their meanings"
+                    else "Двадцать четыре буквенных образа и их значения"
+                } else if (english) "Twenty-four Greek letters, the daily card and the nine-face spread"
+                else "Двадцать четыре буквенных образа, карта дня и расклад девяти ликов", "Σ")
             Text("Гно · Метэр · Басилея", style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary)
-            Text(if (divinationDisabled) "Двадцать четыре буквенных образа и их метафизические значения."
-                else "Двадцать четыре буквенных образа, карта дня и «Космический круг» — расклад девяти ликов силы.",
-                style = MaterialTheme.typography.bodyMedium)
         }
         val loaded = letters
         when {

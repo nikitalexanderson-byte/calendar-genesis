@@ -46,8 +46,8 @@ object CloudWorkspacePreview {
         val workspace = response.getJSONObject("workspace")
         val mode = workspace.getString("keyMode")
         require(mode in setOf("account", "client", "new")) { "Unknown workspace key mode" }
-        val tasks = response.optJSONArray("tasks")?.length()
-        val taskLists = response.optJSONArray("taskLists")?.length()
+        val tasks = response.optJSONArray("tasks")?.length()?.takeUnless { response.optBoolean("tasksDeferred") }
+        val taskLists = response.optJSONArray("taskLists")?.length()?.takeUnless { response.optBoolean("tasksDeferred") }
         val warning = response.optString("syncWarning").let { it.isNotBlank() && it != "null" }
         if (workspace.isNull("envelope")) {
             // No cloud blob exists. This does not authorize overwriting any local draft.

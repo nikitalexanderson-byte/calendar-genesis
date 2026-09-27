@@ -16,7 +16,9 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import java.time.*
 import ru.genesis.calendar.domain.*
@@ -34,7 +36,9 @@ internal fun priorityForPosition(x: Float, width: Int): Int =
 @Composable
 fun PriorityControl(value: Int, onChange: (Int) -> Unit) {
     Column(Modifier.fillMaxWidth()) {
-        Text("Приоритет · ${priorityNames[value - 1]} · $value из 10")
+        Text("Приоритет · ${priorityNames[value - 1]} · $value из 10",
+            modifier = Modifier.fillMaxWidth(), fontSize = 12.sp, maxLines = 1,
+            softWrap = false, overflow = TextOverflow.Ellipsis)
         Row(Modifier.fillMaxWidth().height(72.dp).testTag("priority-scale")
             .semantics {
                 progressBarRangeInfo = ProgressBarRangeInfo(value.toFloat(), 1f..10f, 8)

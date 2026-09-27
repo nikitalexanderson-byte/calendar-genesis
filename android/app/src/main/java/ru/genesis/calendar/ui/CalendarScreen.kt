@@ -60,12 +60,17 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
     val range = remember(shownDate, mode) { runCatching { calendar.monthRange(shownDate, mode) } }
 
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Календарь", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
-            FilterChip(selected = !yearView, onClick = { yearView = false }, label = { Text("Месяц") })
-            FilterChip(selected = yearView, onClick = { yearView = true }, label = { Text("Год") })
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            GenesisPageHeader(if (LocalGenesisLanguage.current == "en") "Calendar" else "Календарь",
+                if (LocalGenesisLanguage.current == "en") "Sacred, Gregorian and lunar dates, tasks and solar times"
+                else "Сакральные, григорианские и лунные даты, задачи и время Солнца", "☷")
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically) {
+                FilterChip(selected = !yearView, onClick = { yearView = false }, label = { Text("Месяц") })
+                Spacer(Modifier.width(8.dp))
+                FilterChip(selected = yearView, onClick = { yearView = true }, label = { Text("Год") })
+            }
         }
         if (yearView) CalendarYearOverview(calendar, shownDate, mode, experimental, tasks,
             onMonth = { shown = it.toString(); selected = it.toString(); yearView = false },
@@ -376,7 +381,7 @@ private fun CalendarDay(calendar: GenesisCalendar, date: LocalDate, number: Int,
         },
         border = if (today) BorderStroke(2.dp, patron?.accent ?: MaterialTheme.colorScheme.primary) else null) {
         Box(Modifier.fillMaxWidth()) {
-        Column(Modifier.fillMaxWidth().padding(start = 5.dp, top = 5.dp, end = 34.dp, bottom = 5.dp),
+        Column(Modifier.fillMaxWidth().padding(start = 4.dp, top = 4.dp, end = 4.dp, bottom = 4.dp),
             verticalArrangement = Arrangement.Center) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
@@ -407,15 +412,16 @@ private fun CalendarDay(calendar: GenesisCalendar, date: LocalDate, number: Int,
             }
         }
         if (taskCount > 0 && !adjacent) {
+            val badgeSize = if (patron != null) 20.dp else 23.dp
             Surface(onClick = { onTaskBadgeClick(date) }, modifier = Modifier.align(Alignment.TopEnd)
-                .padding(top = 3.dp, end = 3.dp).sizeIn(minWidth = 26.dp, minHeight = 26.dp)
+                .padding(top = 1.dp, end = 1.dp).size(badgeSize)
                 .testTag("calendar-task-count-$date")
                 .semantics { contentDescription = taskDescription },
                 shape = CircleShape, color = Color(0xffb63b42), shadowElevation = 3.dp) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(if (taskCount > 99) "99+" else taskCount.toString(),
-                        Modifier.padding(horizontal = 5.dp), color = Color.White,
-                        style = MaterialTheme.typography.labelSmall)
+                        color = Color.White, fontSize = if (taskCount > 99) 8.sp else 10.sp,
+                        maxLines = 1)
                 }
             }
         }

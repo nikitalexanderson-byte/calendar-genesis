@@ -54,9 +54,9 @@ fun TrackersScreen(app: GenesisApplication) {
         catch(_: Exception) { storageError=true;error="Защищённые записи недоступны. Сохранённые данные не будут заменены пустыми." }
     }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
-        Text("Сон и настроение",style=MaterialTheme.typography.headlineMedium)
-        Text("Восстановление тела и эмоциональный ритм — отдельные наблюдения без оценки и давления.",
-            style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+        GenesisPageHeader(if (LocalGenesisLanguage.current == "en") "Sleep & mood" else "Сон и настроение",
+            if (LocalGenesisLanguage.current == "en") "Sleep, recovery and emotional rhythm without pressure"
+            else "Сон, восстановление и эмоциональный ритм без давления", "☾")
         AuthorDatePicker(dateValue,prefs.input) { if(!busy)dateValue=it }
         error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
         val current=workspace

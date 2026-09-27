@@ -105,9 +105,9 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
     }
     LaunchedEffect(repository) { runAction { repository.refresh() } }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-        Text("Привычки",style=MaterialTheme.typography.headlineMedium)
-        Text("Ежедневная практика, сон и настроение в одном защищённом пространстве.",
-            style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+        GenesisPageHeader(if (english) "Habits" else "Привычки",
+            if (english) "Daily practice, goals, streaks and progress"
+            else "Ежедневные практики, цели, серии и прогресс", "◇")
         Text(if(app.workspaceScope.startsWith("account-"))
             "Защищённая копия аккаунта GENESIS · изменения синхронизируются с сайтом"
             else "Личные данные сохраняются на этом устройстве до входа в аккаунт.",

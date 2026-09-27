@@ -57,31 +57,53 @@ internal class CloudAccountImporter(private val db: GenesisDatabase, private val
         require(tasks.distinctBy { it.first.id }.size == tasks.size)
         val dao = db.dao()
         val previousReminders = dao.reminders(scope)
+        val changedTaskIds = mutableSetOf<String>()
         val update: suspend () -> Result = { db.withTransaction {
-            if (dao.outbox(scope).isNotEmpty()) return@withTransaction Result.PENDING_LOCAL_CHANGES
+            val pending = dao.outbox(scope).map { it.entityId }.toSet()
             val cached = dao.document(scope, "cloud-base")
-            if (cached != null && cached.revision > snapshot.version) return@withTransaction Result.PENDING_LOCAL_CHANGES
-            if (!snapshot.googleSyncWarning) {
-                dao.clearAccountTaskCache(scope)
-                dao.clearReminders(scope)
+            val staleWorkspace = cached != null && cached.revision > snapshot.version
+            if (!snapshot.tasksDeferred) {
+                val remoteIds = tasks.map { it.first.id }.toSet()
+                if (!snapshot.googleSyncWarning) dao.accountTasks(scope).filter {
+                    it.id !in remoteIds && it.id !in pending
+                }.forEach {
+                    dao.deleteCachedTask(scope, it.id)
+                    dao.deleteTaskReminders(scope, it.id)
+                    changedTaskIds += it.id
+                }
                 tasks.forEach { (record, task) ->
-                    dao.putTask(record)
-                    TaskReminderPlan.times(task).forEach { (occurrence, at) ->
-                        dao.putReminder(ReminderRecord(scope, task.id + ":" + occurrence, task.id,
-                            occurrence.substringBefore(':'), record.revision, at))
+                    // A partial response can add confirmed rows, but cannot erase or
+                    // replace a cached task. Local edits and deletion tombstones win.
+                    if (record.id !in pending &&
+                        (!snapshot.googleSyncWarning || dao.task(scope, record.id) == null)) {
+                        dao.putTask(record)
+                        dao.deleteTaskReminders(scope, record.id)
+                        changedTaskIds += record.id
+                        TaskReminderPlan.times(task).forEach { (occurrence, at) ->
+                            dao.putReminder(ReminderRecord(scope, task.id + ":" + occurrence, task.id,
+                                occurrence.substringBefore(':'), record.revision, at))
+                        }
                     }
                 }
             }
-            dao.putDocument(DocumentRecord(scope, "structure", cipher.encrypt(structure, "$scope/structure"), snapshot.version))
-            if (document != null) {
-                dao.putDocument(DocumentRecord(scope, "cloud-base", cipher.encrypt(document.toString(), "$scope/cloud-base"), snapshot.version))
-                dao.putDocument(DocumentRecord(scope, "habits", cipher.encrypt(requireNotNull(habits), "$scope/habits"), snapshot.version))
-                dao.putDocument(DocumentRecord(scope, "trackers", cipher.encrypt(requireNotNull(trackers), "$scope/trackers"), snapshot.version))
+            if (!staleWorkspace) {
+                if ("workspace-structure" !in pending)
+                    dao.putDocument(DocumentRecord(scope, "structure", cipher.encrypt(structure, "$scope/structure"), snapshot.version))
+                if (document != null) {
+                    // Keep the original three-way-merge base while a document has local edits.
+                    if (pending.none { it in setOf("workspace-structure", "habits", "trackers") })
+                        dao.putDocument(DocumentRecord(scope, "cloud-base", cipher.encrypt(document.toString(), "$scope/cloud-base"), snapshot.version))
+                    if ("habits" !in pending)
+                        dao.putDocument(DocumentRecord(scope, "habits", cipher.encrypt(requireNotNull(habits), "$scope/habits"), snapshot.version))
+                    if ("trackers" !in pending)
+                        dao.putDocument(DocumentRecord(scope, "trackers", cipher.encrypt(requireNotNull(trackers), "$scope/trackers"), snapshot.version))
+                }
             }
-            if (snapshot.googleSyncWarning) Result.IMPORTED_WITH_GOOGLE_WARNING else Result.IMPORTED
+            if (pending.isNotEmpty() || staleWorkspace) Result.PENDING_LOCAL_CHANGES
+            else if (snapshot.googleSyncWarning) Result.IMPORTED_WITH_GOOGLE_WARNING else Result.IMPORTED
         } }
         val result = if (scheduler == null) update() else scheduler.withMutation {
-            update().also { if (it == Result.IMPORTED) previousReminders.forEach(scheduler::cancel) }
+            update().also { previousReminders.filter { it.taskId in changedTaskIds }.forEach(scheduler::cancel) }
         }
         return result
     }

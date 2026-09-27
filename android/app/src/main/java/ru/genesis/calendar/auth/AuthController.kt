@@ -24,6 +24,8 @@ import com.google.android.gms.tasks.Task
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.json.JSONObject
 import ru.genesis.calendar.GenesisApplication
 import ru.genesis.calendar.data.CloudAccountImporter
@@ -50,6 +52,8 @@ class AuthController private constructor(context: Context) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var operation: Job? = null
     private var syncJob: Job? = null
+    private var pullJob: Job? = null
+    private val dataSyncMutex = Mutex()
     private var pendingServicesUserId: String? = null
     private val mutableState = MutableStateFlow(AuthPanelState())
     val state = mutableState.asStateFlow()
@@ -188,14 +192,16 @@ class AuthController private constructor(context: Context) {
             checkedAt = System.currentTimeMillis(), message = "Открываем зашифрованное пространство…"))
         try {
             AuthDiagnostics.event("SYNC_STARTED")
-            val payload = withContext(Dispatchers.IO) { client.bootstrap(generation) }
+            val payload = withContext(Dispatchers.IO) { client.accountBootstrap(generation, session) }
             val confirmed = AuthProtocol.identity(payload) ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
             if (confirmed.uid != identity.uid) throw AuthFailure(AuthFailure.Kind.PROTOCOL)
             stage = "WORKSPACE_DECRYPT"
             val preview = withContext(Dispatchers.Default) { CloudWorkspacePreview.inspect(payload) }
             val snapshot = withContext(Dispatchers.Default) { CloudAccountSnapshot.fromBootstrap(payload) }
             stage = "ACCOUNT_IMPORT"
-            val imported = withContext(Dispatchers.IO) { CloudAccountImporter(app.database, app.scheduler).import(snapshot) }
+            val imported = dataSyncMutex.withLock {
+                withContext(Dispatchers.IO) { CloudAccountImporter(app.database, app.scheduler).import(snapshot) }
+            }
             val stoicheionPayload = try {
                 withContext(Dispatchers.IO) { client.stoicheionDraws(generation) }
             } catch (error: CancellationException) { throw error }
@@ -337,6 +343,52 @@ class AuthController private constructor(context: Context) {
 
     fun syncPending() = syncPending(WorkspacePatch.ConflictPolicy.STOP)
 
+    /** Pull on resume and periodically while visible, so another device's changes arrive automatically. */
+    fun refreshIfReady() {
+        if (operation?.isActive == true || !mutableState.value.ready) return
+        syncPending()
+        refreshAccountData()
+    }
+
+    private fun refreshAccountData() {
+        val identity = mutableState.value.user ?: return
+        if (!mutableState.value.ready || pullJob?.isActive == true) return
+        val generation = client.currentGeneration()
+        pullJob = scope.launch {
+            syncJob?.join()
+            try {
+                dataSyncMutex.withLock {
+                    val payload = withContext(Dispatchers.IO) { client.bootstrap(generation) }
+                    if (AuthProtocol.identity(payload)?.uid != identity.uid) throw AuthFailure(AuthFailure.Kind.PROTOCOL)
+                    val snapshot = withContext(Dispatchers.Default) { CloudAccountSnapshot.fromBootstrap(payload) }
+                    val preview = withContext(Dispatchers.Default) { CloudWorkspacePreview.inspect(payload) }
+                    val imported = withContext(Dispatchers.IO) {
+                        CloudAccountImporter(app.database, app.scheduler).import(snapshot)
+                    }
+                    if (!client.isCurrent(generation)) return@withLock
+                    publish(generation, mutableState.value.copy(
+                        accountSettings = AccountSettings.fromResponse(payload) ?: mutableState.value.accountSettings,
+                        preview = preview, checkedAt = System.currentTimeMillis(),
+                        message = when (imported) {
+                            CloudAccountImporter.Result.IMPORTED -> "Данные аккаунта и задачи Google обновлены."
+                            CloudAccountImporter.Result.IMPORTED_WITH_GOOGLE_WARNING ->
+                                "Пространство обновлено. Часть задач Google пока недоступна; сохранённые задачи остаются на устройстве."
+                            CloudAccountImporter.Result.PENDING_LOCAL_CHANGES ->
+                                "Данные других устройств получены. Неотправленные изменения этого устройства сохранены."
+                        }))
+                }
+                try { withContext(Dispatchers.IO) { app.scheduler.restore() } }
+                catch (error: CancellationException) { throw error }
+                catch (error: Exception) { logCloudFailure("REMINDER_RESTORE", error) }
+            } catch (error: CancellationException) { throw error }
+            catch (error: Exception) {
+                logCloudFailure("BACKGROUND_PULL", error)
+                if (client.isCurrent(generation)) publish(generation, mutableState.value.copy(
+                    message = "Аккаунт открыт. Обновление задач пока не завершилось; повторим автоматически. Сохранённые записи доступны."))
+            }
+        }
+    }
+
     internal suspend fun loadStoicheionDraws(): JSONObject {
         val generation = client.currentGeneration()
         return try { withContext(Dispatchers.IO) { client.stoicheionDraws(generation) } }
@@ -369,6 +421,7 @@ class AuthController private constructor(context: Context) {
         if (app.workspaceScope != accountScope || syncJob?.isActive == true) return
         val generation = client.currentGeneration()
         syncJob = scope.launch {
+          dataSyncMutex.withLock {
             AuthDiagnostics.event("SYNC_STARTED")
             var sentTasks = 0
             var sentWorkspace = 0
@@ -403,6 +456,7 @@ class AuthController private constructor(context: Context) {
                 if (sentTasks + sentWorkspace > 0) "Синхронизировано: $sentTasks задач, $sentWorkspace изменений пространства."
                 else mutableState.value.message)
             AuthDiagnostics.event(if (failure == null) "SYNC_SUCCESS" else "SYNC_FAILED")
+          }
         }
     }
 
@@ -410,6 +464,7 @@ class AuthController private constructor(context: Context) {
         val generation = client.begin()
         operation?.cancel()
         syncJob?.cancel()
+        pullJob?.cancel()
         val previous = mutableState.value
         // A transient refresh/provider failure must not throw an authenticated user back to Welcome.
         // Only a verified unauthorized/protocol response below is allowed to clear that state.
@@ -462,6 +517,8 @@ class AuthController private constructor(context: Context) {
                 resetCredentialProvider()
                 val code = error.javaClass.simpleName.filter { it.isLetterOrDigit() }.take(32).ifBlank { "Unknown" }
                 failed("Не удалось безопасно завершить проверку. Состояние Google сброшено; повторите вход. Код: $code. Текущая сессия и локальные записи не изменены.")
+            } finally {
+                if (client.isCurrent(generation) && mutableState.value.ready) refreshAccountData()
             }
         }
     }

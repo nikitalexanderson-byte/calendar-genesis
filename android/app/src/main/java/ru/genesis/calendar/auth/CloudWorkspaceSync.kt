@@ -73,8 +73,8 @@ internal class CloudWorkspaceSync(private val db: GenesisDatabase, private val t
             require(version > 0)
             val plain = WorkspaceCipher.decrypt(WorkspaceCipher.Envelope(envelope.getString("ciphertext"),
                 envelope.getString("iv")), key)
-            val document = try { JSONObject(plain.toString(Charsets.UTF_8)) } finally { plain.fill(0) }
-            require(document.optInt("trackerSchemaVersion") == 16)
+            val document = try { CloudWorkspaceMigration.normalize(JSONObject(plain.toString(Charsets.UTF_8))) }
+                finally { plain.fill(0) }
             return Remote(version, document, key)
         } catch (error: Exception) {
             key.fill(0)
