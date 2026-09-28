@@ -18,6 +18,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { CalendarDayTaskCounts, CalendarYearTaskCounts } from "./CalendarTaskCounts";
 import {
   type GeminiPlan,
   type GoogleTaskList,
@@ -4609,20 +4610,12 @@ export function GenesisCalendar() {
               }
             }}
           >
-            <button
-              type="button"
-              className="calendar-day-task-count"
-              onClick={() => {
+            <CalendarDayTaskCounts tasks={cellTasks} dateLabel={formatGregorian(date, true)} language={language}
+              onOpen={() => {
                 selectCalendarDate(date);
                 setOpenDayTaskPopover(dateValue);
               }}
-              aria-label={language === "en" ? `Show tasks for ${formatGregorian(date, true)}: ${taskCount}` : `Показать задачи на ${formatGregorian(date, true)}: ${taskCount}`}
-              aria-expanded={popoverOpen}
-              aria-controls={`calendar-task-popover-${dateValue}`}
-              aria-haspopup="dialog"
-            >
-              {taskCount}
-            </button>
+              expanded={popoverOpen} controls={`calendar-task-popover-${dateValue}`} />
             {popoverOpen ? (
               <div className={`calendar-task-popover ${popoverAlignment}`} id={`calendar-task-popover-${dateValue}`} role="dialog" aria-label={language === "en" ? `Tasks for ${formatGregorian(date, true)}` : `Задачи на ${formatGregorian(date, true)}`}>
                 <header>
@@ -4814,20 +4807,12 @@ export function GenesisCalendar() {
                               }
                             }}
                           >
-                            <button
-                              type="button"
-                              className="calendar-day-task-count"
-                              onClick={() => {
+                            <CalendarDayTaskCounts tasks={cellTasks} dateLabel={formatGregorian(gregorian, true)} language={language}
+                              onOpen={() => {
                                 setSelectedDay(dayNumber);
                                 setOpenDayTaskPopover(key);
                               }}
-                              aria-label={language === "en" ? `Show tasks for ${formatGregorian(gregorian, true)}: ${taskCount}` : `Показать задачи на ${formatGregorian(gregorian, true)}: ${taskCount}`}
-                              aria-expanded={popoverOpen}
-                              aria-controls={`calendar-task-popover-${monthIndex}-${dayNumber}`}
-                              aria-haspopup="dialog"
-                            >
-                              {taskCount}
-                            </button>
+                              expanded={popoverOpen} controls={`calendar-task-popover-${monthIndex}-${dayNumber}`} />
                             {popoverOpen ? (
                               <div
                                 className={`calendar-task-popover ${popoverAlignment}`}
@@ -5652,7 +5637,8 @@ export function GenesisCalendar() {
                     <span className="mini-pyata-days">
                       {days.map((dayNumber) => {
                         const key = taskDateKey(sacredYear, month.index, dayNumber);
-                        const taskCount = tasksByDate.get(inputDate(getGregorianDate(sacredYear, month.index, dayNumber)))?.length ?? 0;
+                        const dayTasks = tasksByDate.get(inputDate(getGregorianDate(sacredYear, month.index, dayNumber))) ?? [];
+                        const taskCount = dayTasks.length;
                         const hasTask = taskCount > 0;
                         const todayDot = key === todayKey;
                         const solarDot = Boolean(getSolarEvent(sacredYear, month.index, dayNumber));
@@ -5668,7 +5654,7 @@ export function GenesisCalendar() {
                             title={`${sacredDay.name} · открыть день`}
                           >
                             <span className="mini-day-number">{(["I", "II", "III", "IIII", "V"] as const)[(dayNumber - 1) % 5]}</span>
-                            {taskCount ? <span className="mini-day-task-count" aria-hidden="true">{taskCount}</span> : null}
+                            <CalendarYearTaskCounts tasks={dayTasks} />
                           </button>
                         );
                       })}
@@ -5850,7 +5836,8 @@ export function GenesisCalendar() {
                   {Array.from({ length: leadingDays }, (_, index) => <span className="civil-mini-blank" aria-hidden="true" key={`${month.id}-blank-${index}`} />)}
                   {month.dates.map((date) => {
                     const dateValue = inputDate(date);
-                    const dayTasks = tasksByDate.get(dateValue)?.length ?? 0;
+                    const cellTasks = tasksByDate.get(dateValue) ?? [];
+                    const dayTasks = cellTasks.length;
                     const moon = getMoon(date);
                     const sacred = getSacredDate(date);
                     const sacredDay = getSacredDay(sacred.monthIndex, sacred.day);
@@ -5868,7 +5855,7 @@ export function GenesisCalendar() {
                       >
                         {mode === "lunar" ? <MoonPhaseIcon phaseStep={moon.phaseStep} size={30} className="mini-day-moon-phase" /> : null}
                         <span className="mini-day-number">{mode === "lunar" ? moon.day : date.getDate()}</span>
-                        {dayTasks ? <span className="mini-day-task-count" aria-hidden="true">{dayTasks}</span> : null}
+                        <CalendarYearTaskCounts tasks={cellTasks} />
                       </button>
                     );
                   })}

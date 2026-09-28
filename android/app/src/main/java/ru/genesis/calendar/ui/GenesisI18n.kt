@@ -146,6 +146,7 @@ private val nativeCopy = mapOf(
         "XP unlocks ranks; Laurels can protect your streak. Ranks never replace your habits.",
     // Native navigation and high-frequency actions.
     "Сегодня" to "Today", "Все задачи" to "All tasks", "Задачи дня" to "Tasks for the day",
+    "Выполнено" to "Completed", "Не выполнено" to "Incomplete",
     "Проекты" to "Projects", "Календарь" to "Calendar", "Привычки" to "Habits",
     "Стойхейон" to "Stoicheion", "Теокиклос" to "Theokyklos", "Создать" to "Create",
     "Закрыть" to "Close", "Отмена" to "Cancel", "Сохранить" to "Save", "Изменить" to "Edit",
