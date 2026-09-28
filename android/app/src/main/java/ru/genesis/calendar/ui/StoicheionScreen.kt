@@ -108,9 +108,8 @@ fun StoicheionScreen(app: GenesisApplication, divinationDisabled: Boolean,
                     if (english) "Twenty-four Greek letters and their meanings"
                     else "Двадцать четыре буквенных образа и их значения"
                 } else if (english) "Twenty-four Greek letters, the daily card and the nine-face spread"
-                else "Двадцать четыре буквенных образа, карта дня и расклад девяти ликов", "Σ")
-            Text("Гно · Метэр · Басилея", style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary)
+                else "Двадцать четыре буквенных образа, карта дня и расклад девяти ликов", "Σ",
+                subtitle = if (english) "Gno · Meter · Basileia" else "Гно · Метэр · Базилея")
         }
         val loaded = letters
         when {

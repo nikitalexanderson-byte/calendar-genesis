@@ -27,6 +27,7 @@ import ru.genesis.calendar.ui.CalendarScreen
 import ru.genesis.calendar.ui.LocalGenesisLanguage
 import ru.genesis.calendar.ui.Text
 import ru.genesis.calendar.ui.WelcomeScreen
+import ru.genesis.calendar.ui.lunarGridDates
 import ru.genesis.calendar.ui.standart
 import ru.genesis.calendar.data.LocalTask
 
@@ -72,6 +73,43 @@ class GregorianCalendarVisualTest {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
             .takeScreenshot(File(context.getExternalFilesDir(null), "solar-year-refined.png")))
+    }
+
+    @Test fun lunarMonthShowsFadingReadOnlyDaysOnBothSides() {
+        val date = LocalDate.of(2026, 4, 20)
+        val range = ru.genesis.calendar.domain.GenesisCalendar().monthRange(date, CalendarMode.LUNAR)
+        val grid = lunarGridDates(range)
+        compose.setContent {
+            MaterialTheme(colorScheme = standart) {
+                Surface(Modifier.fillMaxSize(), color = standart.background) {
+                    CalendarScreen(date, CalendarMode.LUNAR, onSelect = {}, experimental = true)
+                }
+            }
+        }
+        compose.onNodeWithTag("calendar-day-${grid.first()}").assertIsNotEnabled()
+        compose.onNodeWithTag("calendar-day-${range.start}").assertIsEnabled()
+        compose.onNodeWithTag("calendar-day-${grid.last()}").performScrollTo()
+            .assertIsDisplayed().assertIsNotEnabled()
+        assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(
+            File(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null),
+                "lunar-month-symmetrical-after.png")))
+    }
+
+    @Test fun lunarYearUsesMoonMonthCardsAndGregorianRanges() {
+        compose.setContent {
+            MaterialTheme(colorScheme = standart) {
+                Surface(Modifier.fillMaxSize(), color = standart.background) {
+                    CalendarScreen(LocalDate.of(2026, 9, 28), CalendarMode.LUNAR,
+                        onSelect = {}, experimental = true)
+                }
+            }
+        }
+        compose.onNodeWithText("Год").performClick()
+        compose.onNodeWithTag("lunar-year-month-1").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("lunar-year-range-1", useUnmergedTree = true).assertExists()
+        assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(
+            File(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null),
+                "lunar-year-refined-after.png")))
     }
 
     @Test fun websiteEnglishCopyIsAvailableOffline() {
@@ -134,9 +172,14 @@ class GregorianCalendarVisualTest {
             }
         }
         compose.onNodeWithTag("genesis-welcome").assertExists()
+        compose.onNodeWithTag("welcome-intro").assertExists()
+        compose.onNodeWithText("Календарь задач", substring = true).assertExists()
         compose.onNodeWithTag("welcome-google-sign-in").assertExists()
+        assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(
+            File(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null),
+                "welcome-2.2.9-after.png")))
         compose.onNodeWithTag("language-en").performClick()
-        compose.onNodeWithText("Welcome to GENESIS").assertExists()
+        compose.onNodeWithText("Task and project", substring = true).assertExists()
         compose.onNodeWithText("Задачи").assertDoesNotExist()
     }
 }

@@ -7,6 +7,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -19,8 +20,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowInsetsControllerCompat
 import ru.genesis.calendar.auth.AuthController
 import ru.genesis.calendar.auth.AuthPanelState
@@ -69,39 +72,73 @@ fun WelcomeScreen(state: AuthPanelState, controller: AuthController, language: S
                 LanguageChips(language, dark = true, onLanguage = onLanguage)
             }
             HorizontalDivider(color = welcomeGold.copy(alpha = 0.24f))
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(if (language == "en") "Welcome to GENESIS" else "Добро пожаловать в GENESIS",
-                    color = welcomeCream,
-                    style = MaterialTheme.typography.headlineLarge.copy(fontFamily = FontFamily.Serif))
+            Column(Modifier.testTag("welcome-intro"),
+                verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(if (language == "en") "GENESIS · CALENDAR AND PROJECT MANAGER"
+                    else "GENESIS · КАЛЕНДАРЬ И МЕНЕДЖЕР ПРОЕКТОВ",
+                    color = welcomeGold, style = MaterialTheme.typography.labelMedium)
+                Text("GENESIS", color = welcomeCream,
+                    style = MaterialTheme.typography.displayMedium.copy(
+                        fontFamily = FontFamily.Serif, letterSpacing = 5.sp))
+                Text(if (language == "en") "Task and project\ncalendar"
+                    else "Календарь задач\nи проектов",
+                    color = welcomeGold,
+                    style = MaterialTheme.typography.headlineLarge.copy(
+                        fontFamily = FontFamily.Serif, fontStyle = FontStyle.Italic))
                 Text(if (language == "en")
-                    "Calendar, projects and daily practices in harmony with time."
-                    else "Календарь, проекты и ежедневные практики в гармонии со временем.",
+                    "Plan tasks, projects and recurring practices. Keep your private workspace synchronized across the web and your devices."
+                    else "Планируйте задачи, проекты и повторяющиеся практики. Личное пространство синхронизируется с сайтом и вашими устройствами.",
                     color = welcomeMuted, style = MaterialTheme.typography.bodyLarge)
-            }
-            Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
-                border = BorderStroke(1.dp, welcomeGold.copy(alpha = 0.42f)),
-                colors = CardDefaults.cardColors(containerColor = welcomeNight)) {
-                OriginalImage("genesis-hero.png", "GENESIS", Modifier.fillMaxWidth().height(196.dp))
             }
             Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(
                 topStart = 6.dp, topEnd = 26.dp, bottomStart = 26.dp, bottomEnd = 6.dp),
                 color = welcomeCream) {
-                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                    Text(if (language == "en") "Your space, protected" else "Ваше пространство защищено",
-                        color = welcomeNight,
-                        style = MaterialTheme.typography.titleLarge.copy(fontFamily = FontFamily.Serif))
+                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Surface(Modifier.size(52.dp), shape = CircleShape, color = welcomeNight,
+                            border = BorderStroke(1.dp, welcomeGold)) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text("•", color = welcomeGold,
+                                    style = MaterialTheme.typography.displaySmall)
+                            }
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(if (language == "en") "PRIVATE WORKSPACE" else "ЛИЧНОЕ ПРОСТРАНСТВО",
+                                color = welcomeGold, style = MaterialTheme.typography.labelSmall)
+                            Text(if (language == "en") "Sign in to GENESIS" else "Войти в GENESIS",
+                                color = welcomeNight,
+                                style = MaterialTheme.typography.titleLarge.copy(fontFamily = FontFamily.Serif))
+                        }
+                    }
                     Text(if (language == "en")
                         "Sign in with Google to open your encrypted GENESIS data and synchronized tasks."
                         else "Войдите через Google, чтобы открыть зашифрованные данные GENESIS и синхронизированные задачи.",
                         color = Color(0xFF405B59), style = MaterialTheme.typography.bodyMedium)
-                    Text(if (language == "en" && state.checkedAt == null) "Checking your session…"
-                        else if (language == "en" && state.user == null) "Sign in is required to use the app."
-                        else state.message,
-                        color = if (state.user != null && state.checkedAt != null)
-                            Color(0xFF9B3434) else Color(0xFF405B59),
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.testTag("welcome-status"))
+                    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFFE8E9DE)) {
+                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(if (language == "en") "SECURE SIGN-IN THROUGH GOOGLE"
+                                else "БЕЗОПАСНЫЙ ВХОД ЧЕРЕЗ GOOGLE",
+                                color = Color(0xFF2E7770), style = MaterialTheme.typography.labelSmall)
+                            Text(if (language == "en" && state.checkedAt == null) "Checking your session…"
+                                else if (language == "en" && state.user == null) "Sign in is required to use the app."
+                                else state.message,
+                                color = if (state.user != null && state.checkedAt != null)
+                                    Color(0xFF9B3434) else Color(0xFF405B59),
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.testTag("welcome-status"))
+                        }
+                    }
                 }
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                WelcomeTrustLine("▣", if (language == "en") "Tasks stay in Google and on your device"
+                    else "Задачи остаются в Google и на вашем устройстве")
+                WelcomeTrustLine("◇", if (language == "en") "Project structure is transmitted encrypted"
+                    else "Структура проектов передаётся зашифрованной")
+                WelcomeTrustLine("◉", if (language == "en") "Private data opens only after sign-in"
+                    else "Личные данные открываются только после входа")
             }
             OutlinedButton(onClick = { openWebsite(context) }, modifier = Modifier.fillMaxWidth(),
                 border = BorderStroke(1.dp, welcomeGold.copy(alpha = 0.5f)),
@@ -133,6 +170,21 @@ fun WelcomeScreen(state: AuthPanelState, controller: AuthController, language: S
                     style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center)
             }
         }
+    }
+}
+
+@Composable
+private fun WelcomeTrustLine(symbol: String, text: String) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Surface(Modifier.size(36.dp), shape = CircleShape, color = welcomeGreen,
+            border = BorderStroke(1.dp, welcomeGold.copy(alpha = .42f))) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(symbol, color = welcomeGold, style = MaterialTheme.typography.titleMedium)
+            }
+        }
+        Text(text, Modifier.weight(1f), color = welcomeMuted,
+            style = MaterialTheme.typography.bodySmall)
     }
 }
 

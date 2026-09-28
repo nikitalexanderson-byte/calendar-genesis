@@ -324,8 +324,9 @@ private fun DayHeader(date: LocalDate,mode: CalendarMode) {
         Card(Modifier.fillMaxWidth().testTag("today-hero"), shape = RoundedCornerShape(20.dp),
             border = BorderStroke(1.dp, Color(0x66dfc17e))) {
             Box(Modifier.fillMaxWidth().heightIn(min = if(mode==CalendarMode.PROFANE) 540.dp else 390.dp)) {
-                OriginalImage(copy.imagePath, copy.title,
-                    Modifier.matchParentSize())
+                OriginalImage(if (mode == CalendarMode.LUNAR) "genesis-hero.png" else copy.imagePath,
+                    copy.title, Modifier.matchParentSize().testTag(
+                        if (mode == CalendarMode.LUNAR) "today-lunar-standard-image" else "today-calendar-image"))
                 Box(Modifier.matchParentSize().background(Brush.verticalGradient(0f to Color(0x22040e10),
                     .32f to Color(0x44040e10), .62f to Color(0xc6071d20),
                     1f to Color(0xfa071d20))))
