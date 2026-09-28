@@ -38,7 +38,8 @@ import kotlin.math.sin
 /** One native page heading, based on the existing Settings heading. */
 @Composable
 internal fun GenesisPageHeader(title: String, description: String, symbol: String,
-    modifier: Modifier = Modifier, animatedMandala: Boolean = false, subtitle: String? = null) {
+    modifier: Modifier = Modifier, animatedMandala: Boolean = false, subtitle: String? = null,
+    icon: GenesisPageIcon = genesisPageIcon(title)) {
     val night = Color(0xff0b2b2d)
     val gold = Color(0xffdfc17e)
     Surface(modifier.fillMaxWidth().testTag("genesis-page-header"),
@@ -49,9 +50,9 @@ internal fun GenesisPageHeader(title: String, description: String, symbol: Strin
                 horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 if (animatedMandala) TheokyklosHeaderMandala()
                 else Surface(Modifier.size(54.dp).clearAndSetSemantics { },
-                    shape = RoundedCornerShape(17.dp), color = gold) {
+                    shape = RoundedCornerShape(17.dp), color = Color(0xff173b38)) {
                     Box(contentAlignment = Alignment.Center) {
-                        Text(symbol, color = night, style = MaterialTheme.typography.headlineSmall)
+                        GenesisVectorIcon(icon, Modifier.size(38.dp), tint = gold, animated = true)
                     }
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {

@@ -11,6 +11,10 @@ import org.junit.Rule
 import org.junit.Test
 import androidx.test.uiautomator.UiDevice
 import ru.genesis.calendar.data.LocalPreferences
+import ru.genesis.calendar.data.HabitsRepository
+import ru.genesis.calendar.domain.*
+import ru.genesis.calendar.domain.habits.*
+import java.time.LocalDate
 
 class CalendarAndTodayFlowTest {
     @get:Rule val compose = createAndroidComposeRule<TestWorkspaceActivity>()
@@ -20,7 +24,12 @@ class CalendarAndTodayFlowTest {
         check(BuildConfig.DEBUG && app.packageName.endsWith(".debug"))
         val prefs = LocalPreferences(app, app.workspaceScope)
         val original = runBlocking { prefs.values.first() }
+        val originalHabits = runBlocking { app.database.dao().document(app.workspaceScope, "habits") }
+        val habits = HabitsRepository(app)
         try {
+            val date = LocalDate.now()
+            runBlocking { habits.save(Habit(TrackerEntity.create("habit", id = "today-reading-validation"),
+                "Чтение для проверки", date, HabitEngine(GenesisCalendar()).defaultSchedule(date, CalendarMode.PROFANE))) }
             runBlocking { prefs.set("display", "sacred") }
             compose.waitUntil(10_000) {
                 compose.onAllNodesWithTag("app-theme-Standart").fetchSemanticsNodes().isNotEmpty()
@@ -38,10 +47,16 @@ class CalendarAndTodayFlowTest {
             }
             assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(
                 File(app.getExternalFilesDir(null), "today-profane-after.png")))
-            compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("today-gregorian-summary"))
-            compose.onNodeWithTag("today-gregorian-summary").assertIsDisplayed()
+            compose.onNodeWithTag("today-gregorian-summary").assertDoesNotExist()
+            compose.onNodeWithTag("today-gregorian-year-position", useUnmergedTree = true).assertExists()
+            compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("today-tasks-section"))
+            compose.onNodeWithTag("today-habits-section").assertExists()
+            compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("today-habit-check-today-reading-validation"))
+            compose.onNodeWithTag("today-habit-check-today-reading-validation").performClick()
+            compose.waitUntil(8_000) { runBlocking { habits.workspace.first().completions.any {
+                it.habitId == "today-reading-validation" && it.completed && it.date == date } } }
             assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(
-                File(app.getExternalFilesDir(null), "today-gregorian-summary-after.png")))
+                File(app.getExternalFilesDir(null), "today-activity-after.png")))
             compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("today-hero"))
             runBlocking { prefs.set("display", "lunar") }
             compose.waitUntil(10_000) {
@@ -78,6 +93,11 @@ class CalendarAndTodayFlowTest {
             assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(image))
         } finally {
             runBlocking { prefs.set("display", original.display.wireValue) }
+            runBlocking {
+                if (originalHabits == null) app.database.dao().deleteDocument(app.workspaceScope, "habits")
+                else app.database.dao().putDocument(originalHabits)
+                app.scheduler.restoreHabitNotifications()
+            }
         }
     }
 }

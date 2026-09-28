@@ -15,6 +15,7 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "android/**/build/**",
+    "work/**", "outputs/**", "output/**", "_incoming/**", ".codex/**", ".playwright-cli/**",
     "next-env.d.ts",
   ]),
   eslint.configs.recommended,

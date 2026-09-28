@@ -380,6 +380,8 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, onDismi
     val initial=remember(existing) { existing ?: Habit(TrackerEntity.create("habit"),"",LocalDate.now(),engine.defaultSchedule(LocalDate.now(),CalendarMode.SACRED)) }
     var title by rememberSaveable(initial.id) { mutableStateOf(initial.title) }
     var description by rememberSaveable(initial.id) { mutableStateOf(initial.description) }
+    var preferredTime by rememberSaveable(initial.id) { mutableStateOf(initial.preferredTime) }
+    var reminder by remember(initial.id) { mutableStateOf(initial.reminder) }
     var priority by rememberSaveable(initial.id) { mutableIntStateOf(initial.priority) }
     var scoring by rememberSaveable(initial.id) { mutableStateOf(initial.scoringMode) }
     var start by rememberSaveable(initial.id) { mutableStateOf(initial.schedule.startDate.toString()) }
@@ -418,6 +420,7 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, onDismi
                         label={Text(if(mode==CalendarMode.SACRED&&config.pattern=="pyata-days") listOf("I","II","III","IIII","V")[day-1] else day.toString())})
                 } } }
             }
+            HabitReminderFields(preferredTime, reminder, !busy, onTime = { preferredTime = it }, onReminder = { reminder = it })
             Text("Начисление XP")
             listOf("none" to "Без баллов","binary" to "Выполнение · 10","quality-ten" to "Качество · 1–10","quality-bipolar" to "Качество · −5…+5").forEach { (value,label) ->
                 FilterChip(scoring==value,{scoring=value},enabled=!busy,label={Text(label)})
@@ -427,6 +430,7 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, onDismi
                 TextButton(enabled=!busy,onClick=onDismiss) { Text("Отмена") }
                 Button(enabled=!busy&&title.isNotBlank()&&(limit==0||config.days.isNotEmpty())&&(end.isEmpty()||end>=start),onClick={
                     onSave(initial.copy(title=title.trim(),description=description,priority=priority,scoringMode=scoring,
+                        preferredTime=preferredTime,reminder=reminder,
                         qualityScale=when(scoring){"quality-ten"->"ten";"quality-bipolar"->"bipolar";else->"none"},
                         schedule=initial.schedule.copy(startDate=LocalDate.parse(start),endDate=end.takeIf(String::isNotEmpty)?.let(LocalDate::parse),recurrence=config)))
                 }) { Text(if(busy) "Сохранение…" else "Сохранить") }

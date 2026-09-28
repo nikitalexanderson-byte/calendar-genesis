@@ -19,45 +19,8 @@ import ru.genesis.calendar.R
 import ru.genesis.calendar.data.ReminderRecord
 import ru.genesis.calendar.data.LocalPreferences
 import ru.genesis.calendar.data.HabitsRepository
-import ru.genesis.calendar.domain.GenesisCalendar
-import ru.genesis.calendar.domain.habits.HabitEngine
 import java.time.LocalDate
-import java.time.LocalDateTime
-import java.time.LocalTime
 import java.time.ZoneId
-
-internal fun habitNotificationBody(tone: String, kind: String, count: Int, english: Boolean): String {
-    val goal = kind == "goal"
-    return when (tone) {
-        "heroic" -> if (english) {
-            if (goal) "Heroic call: complete today's practice and carry the rhythm forward."
-            else if (count == 1) "Heroic call: a planned practice awaits your action."
-            else "Heroic call: $count planned practices await your action."
-        } else {
-            if (goal) "Героический зов: завершите практику дня и продолжите ритм."
-            else if (count == 1) "Героический зов: запланированная практика ждёт свершения."
-            else "Героический зов: вас ждут практики — $count."
-        }
-        "ironic" -> if (english) {
-            if (goal) "Your daily goal is still waiting. Apparently it has excellent patience."
-            else if (count == 1) "Your practice noticed your absence. Shall we call that a warm-up?"
-            else "$count practices noticed your absence. A remarkably attentive audience."
-        } else {
-            if (goal) "Дневная цель всё ещё ждёт. Кажется, терпения ей не занимать."
-            else if (count == 1) "Привычка заметила ваше отсутствие. Считаем это разминкой?"
-            else "Практики заметили ваше отсутствие — все $count. Внимательная публика."
-        }
-        else -> if (english) {
-            if (goal) "A quiet nudge: your daily practice is still within reach."
-            else if (count == 1) "A quiet nudge: a planned practice is waiting."
-            else "A quiet nudge: $count planned practices are waiting."
-        } else {
-            if (goal) "Спокойное напоминание: дневная цель ещё достижима."
-            else if (count == 1) "Спокойное напоминание: вас ждёт запланированная практика."
-            else "Спокойное напоминание: вас ждут практики — $count."
-        }
-    }
-}
 
 class ReminderScheduler(private val context: Context) {
     // The application runs in one process. Serialize the DB transition and the
@@ -100,15 +63,11 @@ class ReminderScheduler(private val context: Context) {
     fun showHabitTonePreview(tone: String, english: Boolean): Boolean {
         createChannels(if (english) "en" else "ru")
         if (!notificationsAllowed() || !channelAllowed(HABIT_CHANNEL)) return false
-        val label = when (tone) {
-            "heroic" -> if (english) "Heroic" else "Героический"
-            "ironic" -> if (english) "Wry" else "С иронией"
-            else -> if (english) "Calm" else "Спокойный"
-        }
+        val body = habitNotificationBody(tone, "habit", 1, english, System.nanoTime().toString())
         val note = NotificationCompat.Builder(context, HABIT_CHANNEL)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(if (english) "GENESIS · $label preview" else "GENESIS · пример: $label")
-            .setContentText(habitNotificationBody(tone, "habit", 1, english))
+            .setContentTitle("GENESIS")
+            .setContentText(body).setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setContentIntent(openAppIntent()).setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE).setAutoCancel(true).build()
         return try {
@@ -172,75 +131,86 @@ class ReminderScheduler(private val context: Context) {
     }
     suspend fun restore() = withMutation { scheduleUpcomingLocked(app.workspaceScope) }
 
-    /** Schedules a rolling eight-day local window from encrypted habit settings. */
+    /** System PendingIntents survive closing the UI and process recreation. */
     suspend fun restoreHabitNotifications() = withMutation {
+        val workspace = runCatching { HabitsRepository(app).workspace.first() }.getOrNull() ?: return@withMutation
+        val language = LocalPreferences(context, app.workspaceScope).values.first().language
+        val zone = ZoneId.systemDefault()
+        val plan = if (notificationsAllowed()) planHabitNotifications(workspace, LocalDate.now(zone),
+            java.time.Instant.now(), zone, language == "en") else emptyList()
         val registry = context.getSharedPreferences("genesis_habit_alarm_registry", Context.MODE_PRIVATE)
-        registry.getStringSet("alarms", emptySet()).orEmpty().forEach { raw ->
+        val scheduledUris = plan.mapTo(linkedSetOf()) { candidate ->
+            Uri.Builder().scheme("genesis").authority("habit-reminder").appendPath(app.workspaceScope)
+                .appendPath(candidate.key).build().toString()
+        }
+        fun pending(raw: String, candidate: PlannedHabitNotification? = null): PendingIntent {
             val intent = Intent(context, HabitNotificationReceiver::class.java).apply {
                 action = "ru.genesis.calendar.HABIT_NOTIFICATION"
                 data = Uri.parse(raw)
-            }
-            alarms.cancel(PendingIntent.getBroadcast(context, 0, intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
-        }
-        val workspace = runCatching { HabitsRepository(app).workspace.first() }.getOrNull()
-            ?: return@withMutation registry.edit().putStringSet("alarms", emptySet()).apply()
-        val settings = workspace.settings.notifications
-        if (!workspace.settings.enabled || !settings.enabled || !notificationsAllowed()) {
-            registry.edit().putStringSet("alarms", emptySet()).apply()
-            return@withMutation
-        }
-        val language = LocalPreferences(context, app.workspaceScope).values.first().language
-        val zone = ZoneId.systemDefault()
-        val today = LocalDate.now(zone)
-        val engine = HabitEngine(GenesisCalendar(zone))
-        val scheduledUris = linkedSetOf<String>()
-        fun inQuietHours(value: LocalTime): Boolean {
-            val start = LocalTime.parse(settings.quietHoursStart)
-            val end = LocalTime.parse(settings.quietHoursEnd)
-            if (start == end) return false
-            return if (start < end) value >= start && value < end else value >= start || value < end
-        }
-        fun schedule(date: LocalDate, time: LocalTime, kind: String, count: Int) {
-            if (inQuietHours(time)) return
-            val at = LocalDateTime.of(date, time).atZone(zone).toInstant().toEpochMilli()
-            if (at <= System.currentTimeMillis()) return
-            val uri = Uri.Builder().scheme("genesis").authority("habit-reminder")
-                .appendPath(app.workspaceScope).appendPath(date.toString()).appendPath(time.toString())
-                .appendPath(kind).build()
-            val body = habitNotificationBody(settings.tone, kind, count, language == "en")
-            val intent = Intent(context, HabitNotificationReceiver::class.java).apply {
-                action = "ru.genesis.calendar.HABIT_NOTIFICATION"
-                data = uri
                 putExtra("scope", app.workspaceScope)
-                putExtra("channel", if (kind == "goal") DAILY_GOAL_CHANNEL else HABIT_CHANNEL)
-                putExtra("body", body)
-            }
-            val pending = PendingIntent.getBroadcast(context, 0, intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-            try {
-                if (exactAllowed()) alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pending)
-                else alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pending)
-            } catch (_: SecurityException) {
-                alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pending)
-            }
-            scheduledUris += uri.toString()
-        }
-        repeat(8) { offset ->
-            val date = today.plusDays(offset.toLong())
-            workspace.habits.asSequence().filter { it.active && it.reminder.enabled }
-                .filter { runCatching { engine.isScheduled(it, date) }.getOrDefault(false) }
-                .mapNotNull { habit -> runCatching { LocalTime.parse(habit.reminder.time) }.getOrNull() }
-                .sorted().groupBy { it.toSecondOfDay() / (20 * 60) }.values.forEach { group ->
-                    schedule(date, group.minOrNull() ?: return@forEach, "habit", group.size)
+                candidate?.let {
+                    putExtra("date", it.date.toString()); putExtra("kind", it.kind)
+                    putExtra("habitId", it.habitId); putExtra("at", it.at.toEpochMilli())
                 }
-            if (settings.motivational) schedule(date, LocalTime.parse(settings.dailyGoalTime), "goal", 1)
+            }
+            return PendingIntent.getBroadcast(context, 0, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        }
+        registry.getStringSet("alarms", emptySet()).orEmpty().filterNot { it in scheduledUris }
+            .forEach { alarms.cancel(pending(it)) }
+        plan.zip(scheduledUris).forEach { (candidate, raw) ->
+            val operation = pending(raw, candidate)
+            try {
+                if (exactAllowed()) alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, candidate.at.toEpochMilli(), operation)
+                else alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, candidate.at.toEpochMilli(), operation)
+            } catch (_: SecurityException) { alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, candidate.at.toEpochMilli(), operation) }
         }
         registry.edit().putStringSet("alarms", scheduledUris).apply()
+    }
+
+    suspend fun deliverHabitNotification(intent: Intent) = withMutation {
+        if (intent.getStringExtra("scope") != app.workspaceScope || !notificationsAllowed()) return@withMutation
+        val date = runCatching { LocalDate.parse(intent.getStringExtra("date")) }.getOrNull() ?: return@withMutation
+        val at = java.time.Instant.ofEpochMilli(intent.getLongExtra("at", 0))
+        val now = java.time.Instant.now()
+        if (at > now.plusSeconds(1) || at < now.minusSeconds(15 * 60)) return@withMutation
+        val workspace = HabitsRepository(app).workspace.first()
+        val english = LocalPreferences(context, app.workspaceScope).values.first().language == "en"
+        val candidate = planHabitNotifications(workspace, date, at.minusMillis(1), ZoneId.systemDefault(), english, 1)
+            .firstOrNull { it.kind == intent.getStringExtra("kind") && it.habitId == intent.getStringExtra("habitId") && it.at == at }
+            ?: return@withMutation
+        val channel = if (candidate.kind == "goal") DAILY_GOAL_CHANNEL else HABIT_CHANNEL
+        if (!channelAllowed(channel)) return@withMutation
+        val registry = context.getSharedPreferences("genesis_habit_alarm_registry", Context.MODE_PRIVATE)
+        val key = intent.data.toString()
+        val delivered = registry.getStringSet("delivered", emptySet()).orEmpty()
+        if (key in delivered) return@withMutation
+        val notification = NotificationCompat.Builder(context, channel)
+            .setSmallIcon(R.drawable.ic_notification).setContentTitle(candidate.title)
+            .setContentText(candidate.body).setStyle(NotificationCompat.BigTextStyle().bigText(candidate.body))
+            .setContentIntent(openAppIntent()).setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE).setAutoCancel(true).build()
+        try {
+            NotificationManagerCompat.from(context).notify(key, 2, notification)
+            registry.edit().putStringSet("delivered", (delivered + key).toList().takeLast(256).toSet()).commit()
+        } catch (_: SecurityException) { /* Permission may be revoked between check and delivery. */ }
     }
     /** Remove account-specific system alarms/notifications when its session leaves the device. */
     suspend fun deactivate(scope: String) = withMutation {
         app.database.dao().reminders(scope).forEach(::cancel)
+        val registry = context.getSharedPreferences("genesis_habit_alarm_registry", Context.MODE_PRIVATE)
+        val all = registry.getStringSet("alarms", emptySet()).orEmpty()
+        val removed = all.filter { Uri.parse(it).pathSegments.firstOrNull() == scope }
+        removed.forEach { raw ->
+            val operation = PendingIntent.getBroadcast(context, 0, Intent(context, HabitNotificationReceiver::class.java).apply {
+                action = "ru.genesis.calendar.HABIT_NOTIFICATION"; data = Uri.parse(raw)
+            }, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            alarms.cancel(operation)
+        }
+        registry.edit().putStringSet("alarms", all - removed.toSet()).commit()
+        notifications.activeNotifications.filter {
+            it.tag?.let { tag -> Uri.parse(tag).authority == "habit-reminder" && Uri.parse(tag).pathSegments.firstOrNull() == scope } == true
+        }.forEach { notifications.cancel(it.tag, it.id) }
     }
     suspend fun deliver(scope: String, id: String, revision: Long) = withMutation { deliverLocked(scope,id,revision) }
     private suspend fun deliverLocked(scope: String, id: String, revision: Long) {

@@ -15,7 +15,11 @@ class GenesisApplication : Application() {
     val scopeFlow = activeScope.asStateFlow()
     val workspaceScope get() = activeScope.value
     fun activateAccount(uid: String?) {
-        activeScope.value = uid?.let(ru.genesis.calendar.auth.CloudAccountSnapshot::scopeFor) ?: localScope
+        val next = uid?.let(ru.genesis.calendar.auth.CloudAccountSnapshot::scopeFor) ?: localScope
+        // This contains only the hashed workspace key, never credentials or tokens.
+        check(getSharedPreferences("genesis.reminder.scope.v1", MODE_PRIVATE).edit()
+            .putString("workspace", next).commit())
+        activeScope.value = next
     }
     val database by lazy {
         Room.databaseBuilder(this, GenesisDatabase::class.java, "genesis.db").build()
@@ -24,7 +28,11 @@ class GenesisApplication : Application() {
     val repository get() = TaskRepository(database, LocalCipher(), workspaceScope, scheduler)
     override fun onCreate() {
         super.onCreate()
+        val saved = getSharedPreferences("genesis.reminder.scope.v1", MODE_PRIVATE).getString("workspace", localScope)
+        activeScope.value = saved?.takeIf { it == localScope || Regex("account-[a-f0-9]{32}").matches(it) } ?: localScope
         scheduler.createChannels()
+        ru.genesis.calendar.reminders.ReminderMaintenanceWorker.enqueue(this)
+        ru.genesis.calendar.auth.CloudSyncWorker.enqueue(this)
         appScope.launch { scheduler.restore(); scheduler.restoreHabitNotifications() }
     }
 }

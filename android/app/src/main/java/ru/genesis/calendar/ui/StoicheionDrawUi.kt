@@ -96,8 +96,6 @@ internal fun StoicheionDrawPanel(letters: List<StoicheionLetter>, draws: Stoiche
                     modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag("stoicheion-draw-spread")) {
                     Text("Начать расклад")
                 }
-                Text("СЗ · Север · СВ\nЗапад · Центр · Восток\nЮЗ · Юг · ЮВ",
-                    style = MaterialTheme.typography.bodySmall)
             } else {
                 val cards = StoicheionReading.spread(letters, spread.seed)
                 stoicheionPositions.chunked(3).forEachIndexed { row, positions ->

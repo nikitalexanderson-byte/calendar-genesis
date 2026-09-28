@@ -44,7 +44,6 @@ import ru.genesis.calendar.data.*
 import ru.genesis.calendar.domain.*
 import java.time.*
 import java.time.format.DateTimeFormatter
-import java.time.temporal.WeekFields
 import java.util.Locale
 
 internal val standart = lightColorScheme(primary=Color(0xff255b59),onPrimary=Color(0xfffffdf8),
@@ -94,11 +93,16 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     }
     LaunchedEffect(authState.accountSettings) {
         authState.accountSettings?.let { remote ->
-            if (remote.calendarMode in setOf("sacred", "lunar", "profane")) prefsStore.set("display", remote.calendarMode)
-            if (remote.taskCalendarMode in setOf("sacred", "lunar", "profane")) prefsStore.set("input", remote.taskCalendarMode)
-            if (remote.timeFormat in setOf("12h", "24h")) prefsStore.set("time", remote.timeFormat)
-            if (remote.language in setOf("ru", "en")) prefsStore.set("language", remote.language)
-            prefsStore.set("stoicheionDivinationDisabled", remote.divinationDisabled.toString())
+            if (remote.calendarMode in setOf("sacred", "lunar", "profane")) prefsStore.setRemote("display", remote.calendarMode)
+            if (remote.taskCalendarMode in setOf("sacred", "lunar", "profane")) prefsStore.setRemote("input", remote.taskCalendarMode)
+            if (remote.timeFormat in setOf("12h", "24h")) prefsStore.setRemote("time", remote.timeFormat)
+            if (remote.language in setOf("ru", "en")) prefsStore.setRemote("language", remote.language)
+            prefsStore.setRemote("stoicheionDivinationDisabled", remote.divinationDisabled.toString())
+        }
+    }
+    LaunchedEffect(activeScope, authState.user, authState.ready) {
+        if (!testWorkspace && activeScope.startsWith("account-") && authState.ready) {
+            prefsStore.pending.debounce(800).collectLatest { if (it.isNotEmpty()) authController.syncPending() }
         }
     }
     var tab by rememberSaveable { mutableStateOf("Сегодня") }
@@ -152,7 +156,9 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal=8.dp)) {
                     listOf("Сегодня","Задачи","Проекты","Календарь","Привычки","Стойхейон","Теокиклос","Настройки")
                         .filter { habitTrackingEnabled || it != "Привычки" }.forEach {
-                        FilterChip(selected=tab==it,onClick={tab=it},label={Text(it)},modifier=Modifier.padding(3.dp))
+                        FilterChip(selected=tab==it,onClick={tab=it},label={Text(it)},
+                            leadingIcon={ GenesisVectorIcon(genesisPageIcon(it), Modifier.size(22.dp)) },
+                            modifier=Modifier.padding(3.dp))
                     }
                 }
                 error?.let { Text(it,color=MaterialTheme.colorScheme.error,modifier=Modifier.padding(12.dp)) }
@@ -189,7 +195,10 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                             TodayTasksPanel(shown, selected, prefs.use24, structure,
                                 onCreate = { creating=true;editId=null;newTaskProjectId=null },
                                 onComplete = model::complete,
-                                onOpen = { taskId -> editId=taskId;creating=false })
+                                onOpen = { taskId -> editId=taskId;creating=false }) {
+                                if (habitTrackingEnabled) TodayHabitsContent(app, LocalDate.parse(selected),
+                                    habitWorkspace, onOpenHabits = { tab = "Привычки" })
+                            }
                         } else {
                             item {
                                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -204,7 +213,11 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                                     "Ожидаем загрузки задач аккаунта." else "Задач пока нет. Создайте первую запись.")
                             }
                             items(shown,key={it.id}) { task ->
-                                Card(Modifier.fillMaxWidth().testTag("task-${task.id}")) {
+                                Card(Modifier.fillMaxWidth().testTag("task-${task.id}"),
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = CardDefaults.cardColors(containerColor = if (task.done)
+                                        Color(0xffedf2ea) else MaterialTheme.colorScheme.surfaceContainerLowest),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
                                     Row(Modifier.padding(8.dp),verticalAlignment=Alignment.CenterVertically) {
                                         Checkbox(checked=task.done,onCheckedChange={model.complete(task)})
                                         Column(Modifier.weight(1f).clickable { editId=task.id;creating=false }.padding(8.dp)) {
@@ -221,9 +234,6 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         }
                         if(tab=="Сегодня") item {
                             DayKnowledgePanel(LocalDate.parse(selected), prefs.display)
-                        }
-                        if(tab=="Сегодня" && prefs.display == CalendarMode.PROFANE) item {
-                            GregorianTodaySummary(LocalDate.parse(selected))
                         }
                     }
                 }
@@ -262,7 +272,7 @@ private fun AuthTransitionScreen(message: String) {
 @Composable
 private fun TodayTasksPanel(tasks: List<LocalTask>, selected: String, use24: Boolean,
     structure: WorkspaceStructure, onCreate: () -> Unit, onComplete: (LocalTask) -> Unit,
-    onOpen: (String) -> Unit) {
+    onOpen: (String) -> Unit, habits: @Composable ColumnScope.() -> Unit) {
     Card(Modifier.fillMaxWidth().testTag("today-tasks-section"), shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xfffffbf2)),
         border = BorderStroke(1.dp, Color(0x55b28a4a))) {
@@ -271,7 +281,7 @@ private fun TodayTasksPanel(tasks: List<LocalTask>, selected: String, use24: Boo
                 verticalAlignment = Alignment.CenterVertically) {
                 Surface(Modifier.size(44.dp), shape = RoundedCornerShape(14.dp), color = Color(0xff123b36)) {
                     Box(contentAlignment = Alignment.Center) {
-                        Text("✓", color = Color(0xfff3d68f), style = MaterialTheme.typography.titleLarge)
+                        GenesisVectorIcon(GenesisPageIcon.TASKS, Modifier.size(28.dp), Color(0xfff3d68f), animated = true)
                     }
                 }
                 Column(Modifier.weight(1f)) {
@@ -313,6 +323,7 @@ private fun TodayTasksPanel(tasks: List<LocalTask>, selected: String, use24: Boo
                     }
                 }
             }
+            habits()
         }
     }
 }
@@ -347,9 +358,12 @@ private fun DayHeader(date: LocalDate,mode: CalendarMode) {
                 Surface(Modifier.align(Alignment.TopStart).padding(14.dp),
                     color = Color(0xd0071d20), shape = RoundedCornerShape(14.dp),
                     border = BorderStroke(1.dp, Color(0x88dfc17e))) {
-                    Text(if (language == "en") "TODAY" else "СЕГОДНЯ",
-                        Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                        color = Color(0xfffff5df), style = MaterialTheme.typography.headlineSmall)
+                    Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        GenesisVectorIcon(GenesisPageIcon.TODAY, Modifier.size(28.dp), Color(0xffdfc17e), animated = true)
+                        Text(if (language == "en") "TODAY" else "СЕГОДНЯ",
+                            color = Color(0xfffff5df), style = MaterialTheme.typography.headlineSmall)
+                    }
                 }
                 copy.badge?.takeIf { mode != CalendarMode.LUNAR }?.let { badge ->
                     Surface(Modifier.align(Alignment.TopEnd).padding(14.dp),
@@ -370,6 +384,10 @@ private fun DayHeader(date: LocalDate,mode: CalendarMode) {
                     Text(copy.title, color = Color(0xfff9f2e2), style = MaterialTheme.typography.headlineSmall)
                     copy.subtitle?.let { Text(it, color = Color(0xfff1e5cb),
                         style = MaterialTheme.typography.titleMedium) }
+                    if (mode == CalendarMode.PROFANE) {
+                        Text(gregorianYearPosition(date, language), Modifier.testTag("today-gregorian-year-position"),
+                            color = Color(0xfff4deb0), style = MaterialTheme.typography.bodySmall)
+                    }
                     Text(copy.description, Modifier.testTag("today-hero-description"),
                         color = Color(0xffeee6d7), style = MaterialTheme.typography.bodyMedium)
                     copy.details.forEach { Text(it, color = Color(0xffeee6d7),
@@ -388,53 +406,6 @@ private fun DayHeader(date: LocalDate,mode: CalendarMode) {
                 }
             }
         }
-}
-
-@Composable
-private fun GregorianTodaySummary(date: LocalDate) {
-    val english = LocalGenesisLanguage.current == "en"
-    val locale = if (english) Locale.ENGLISH else Locale.forLanguageTag("ru")
-    val copy = remember(date, english) { todayHeroCopy(date, CalendarMode.PROFANE,
-        GenesisCalendar(), if (english) "en" else "ru") }
-    val month = date.month.getDisplayName(java.time.format.TextStyle.FULL_STANDALONE, locale)
-    val week = date.get(WeekFields.ISO.weekOfWeekBasedYear())
-    Card(Modifier.fillMaxWidth().testTag("today-gregorian-summary"),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xfff3efe7)),
-        border = BorderStroke(1.dp, Color(0x66b28a4a))) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(if (english) "GREGORIAN DAY" else "ГРИГОРИАНСКИЙ ДЕНЬ",
-                color = Color(0xff738789), style = MaterialTheme.typography.labelMedium)
-            Text(if (english) "Date in the civil calendar" else "Дата в гражданском календаре",
-                color = Color(0xff132426), style = MaterialTheme.typography.headlineSmall)
-            GregorianMetric(weekdayPatronMark(date).symbol,
-                if (english) "DAY OF THE WEEK" else "ДЕНЬ НЕДЕЛИ",
-                copy.title, copy.description)
-            GregorianMetric(date.dayOfMonth.toString(), if (english) "DATE" else "ДАТА",
-                "$month ${date.year}", if (english) "${date.lengthOfMonth()} days in this month"
-                    else "${date.lengthOfMonth()} дней в этом месяце")
-            GregorianMetric(week.toString(), if (english) "WEEK OF THE YEAR" else "НЕДЕЛЯ ГОДА",
-                if (english) "Day ${date.dayOfYear}" else "${date.dayOfYear}-й день",
-                if (english) "${date.dayOfYear} of ${date.lengthOfYear()} days in the year"
-                    else "${date.dayOfYear} из ${date.lengthOfYear()} дней года")
-        }
-    }
-}
-
-@Composable
-private fun GregorianMetric(symbol: String, label: String, value: String, detail: String) {
-    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp),
-        color = Color(0xfffffcf7), border = BorderStroke(1.dp, Color(0x44b28a4a))) {
-        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            Text(symbol, color = Color(0xffad563b), style = MaterialTheme.typography.headlineMedium)
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(label, color = Color(0xff738789), style = MaterialTheme.typography.labelSmall)
-                Text(value, color = Color(0xff132426), style = MaterialTheme.typography.titleMedium)
-                Text(detail, color = Color(0xff526263), style = MaterialTheme.typography.bodySmall)
-            }
-        }
-    }
 }
 
 @Composable

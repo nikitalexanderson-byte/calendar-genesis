@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import java.util.regex.Pattern
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertFalse
 import org.junit.Rule
 import org.junit.Test
 import ru.genesis.calendar.data.HabitFeedbackSettings
@@ -113,8 +114,10 @@ class HabitSettingsFlowTest {
                 notificationManager.activeNotifications.any { it.id == 7301 }
             }
             val preview = notificationManager.activeNotifications.first { it.id == 7301 }.notification
-            val expected = if (targetTone == "heroic") "Героический" else "Привычка заметила"
-            assertTrue(preview.extras.getCharSequence("android.text").toString().contains(expected))
+            val body = preview.extras.getCharSequence("android.text").toString()
+            assertTrue(body.length > 20)
+            assertFalse(body.startsWith("Героический зов:"))
+            assertFalse(body.startsWith("Спокойное напоминание:"))
         } finally {
             notificationManager.cancel("habit-tone-preview", 7301)
             runBlocking { repository.updateSettings(initial) }

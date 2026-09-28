@@ -8,6 +8,10 @@ import ru.genesis.calendar.domain.GenesisCalendar
 import ru.genesis.calendar.domain.SacredCatalog
 
 class TodayHeroCopyTest {
+    @Test fun yearPositionUsesIsoWeekAndLeapYearLength() {
+        assertEquals("Неделя года · 40\n271 из 365 дней года", gregorianYearPosition(LocalDate.of(2026, 9, 28)))
+        assertEquals("Week of the year · 9\n60 of 366 days in the year", gregorianYearPosition(LocalDate.of(2028, 2, 29), "en"))
+    }
     private val calendar = GenesisCalendar()
     private val date = LocalDate.of(2026, 9, 24)
 

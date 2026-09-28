@@ -45,29 +45,14 @@ class HabitNotificationReceiver : BroadcastReceiver() {
         val pending = goAsync()
         val app = context.applicationContext as GenesisApplication
         app.appScope.launch {
-            try {
-                if (intent.getStringExtra("scope") != app.workspaceScope) return@launch
-                val channel = intent.getStringExtra("channel") ?: ReminderScheduler.HABIT_CHANNEL
-                if (!app.scheduler.notificationsAllowed() || !app.scheduler.channelAllowed(channel)) return@launch
-                val open = PendingIntent.getActivity(context, 0, Intent(context, MainActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                }, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-                val notification = NotificationCompat.Builder(context, channel)
-                    .setSmallIcon(R.drawable.ic_notification).setContentTitle("GENESIS")
-                    .setContentText(intent.getStringExtra("body").orEmpty()).setContentIntent(open)
-                    .setCategory(NotificationCompat.CATEGORY_REMINDER)
-                    .setVisibility(NotificationCompat.VISIBILITY_PRIVATE).setAutoCancel(true)
-                    .build()
-                try { NotificationManagerCompat.from(context).notify(
-                    intent.data?.toString().orEmpty(), intent.data?.hashCode() ?: 2, notification) }
-                catch (_: SecurityException) { /* Permission may be revoked after the initial check. */ }
-                catch (_: Exception) { /* Keep restoration available when notification delivery fails. */ }
-                app.scheduler.restoreHabitNotifications()
-            } finally { pending.finish() }
+            try { app.scheduler.deliverHabitNotification(intent) }
+            finally {
+                try { app.scheduler.restoreHabitNotifications() }
+                finally { pending.finish() }
+            }
         }
     }
 }
-
 class RestoreReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if(intent.action !in setOf(Intent.ACTION_BOOT_COMPLETED,Intent.ACTION_USER_UNLOCKED,

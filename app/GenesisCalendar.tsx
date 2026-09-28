@@ -1,4 +1,5 @@
 "use client";
+import { habitReminderTime } from "./habit-reminder-time";
 /* eslint-disable @next/next/no-img-element -- Google requires the official, unmodified sign-in asset. */
 
 import {
@@ -1648,21 +1649,28 @@ export function GenesisCalendar() {
       || (left.time || "24:00").localeCompare(right.time || "24:00")
       || right.priority - left.priority);
   const todayHabitNotificationPlan = useMemo(() => {
-    const completedHabitIds = new Set(habitWorkspace.habitCompletions
-      .filter((entry) => entry.date === todayDateValue && entry.completed)
-      .map((entry) => entry.habitId));
-    const habits = habitWorkspace.habits
+    const nextDate = new Date(today);
+    nextDate.setDate(nextDate.getDate() + 1);
+    const dates = [todayDateValue, inputDate(nextDate)];
+    const habits = dates.flatMap((date) => {
+      const completedHabitIds = new Set(habitWorkspace.habitCompletions
+        .filter((entry) => entry.date === date && entry.completed).map((entry) => entry.habitId));
+      return habitWorkspace.habits
       .filter((habit) => habit.active
         && habit.reminder.enabled
         && !completedHabitIds.has(habit.id)
-        && isHabitScheduledForDate(habit, todayDateValue, activeTaskCalendarMode))
+        && isHabitScheduledForDate(habit, date, activeTaskCalendarMode))
       .map((habit) => ({
         id: habit.id,
         title: habit.title,
         emoji: habit.emoji,
         priority: habit.priority,
-        reminderTime: habit.reminder.time,
+        reminderTime: habitReminderTime(habit),
+        minutesBefore: habit.reminder.minutesBefore,
+        allowDuringQuietHours: habit.reminder.allowDuringQuietHours,
+        date,
       }));
+    });
     const dailyGoal = dailyGoalForDate(habitWorkspace, todayDateValue, activeTaskCalendarMode, todayDateValue);
     const nextRank = nextHeroicRankForProgress(habitWorkspace.userProgress);
     return buildHabitNotificationPlan({
@@ -2308,7 +2316,7 @@ export function GenesisCalendar() {
       language === "en"
         ? "GENESIS is the source of truth for this recurrence."
         : "GENESIS является источником истины для этого повторения.",
-      habit.reminder.time ? `${language === "en" ? "Reminder time" : "Время напоминания"}: ${habit.reminder.time}` : "",
+      `${language === "en" ? "Reminder time" : "Время напоминания"}: ${habitReminderTime(habit)}`,
     ].filter(Boolean).join("\n\n");
     let googleTaskId: string | null = null;
     let googleEventId: string | null = null;
@@ -2355,7 +2363,8 @@ export function GenesisCalendar() {
         endDate: habit.schedule.endDate ?? (recurrence.rangeEnd || nextDate),
         title,
         description,
-        time: habit.reminder.time,
+        time: habitReminderTime(habit),
+        reminders: habit.reminder.enabled ? [{ kind: "relative", minutes: habit.reminder.minutesBefore ?? 0 }] : [],
         tags: ["habit"],
         recurrence: recurrence.mode !== "classic"
           ? "none"

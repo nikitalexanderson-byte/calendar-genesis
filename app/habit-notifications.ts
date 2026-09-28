@@ -1,3 +1,5 @@
+import { habitNotificationMessage, notificationCopyIndex } from "./habit-notification-message.ts";
+import { habitReminderDateTime } from "./habit-reminder-time.ts";
 export type HabitNotificationTone = "calm" | "heroic" | "ironic";
 
 export type HabitNotificationSettings = {
@@ -31,6 +33,9 @@ export type HabitNotificationPlanInput = {
     emoji: string;
     priority: number;
     reminderTime: string;
+    minutesBefore?: number;
+    allowDuringQuietHours?: boolean;
+    date?: string;
   }>;
   dailyGoal: {
     scheduled: number;
@@ -52,7 +57,6 @@ type HabitNotificationTelemetryEvent = {
 const TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 const TELEMETRY_KEY = "genesis-habit-notification-metrics-v1";
 const DELIVERED_KEY = "genesis-habit-notifications-delivered-v1";
-const GROUP_WINDOW_MINUTES = 20;
 
 export const DEFAULT_HABIT_NOTIFICATION_SETTINGS: HabitNotificationSettings = {
   enabled: false,
@@ -106,110 +110,42 @@ function notificationVariant(seed: string): HabitNotificationCandidate["variant"
 }
 
 function dailyGoalCopy(input: HabitNotificationPlanInput, remaining: number, perfectRemaining: number, variant: HabitNotificationCandidate["variant"]) {
-  const { language, settings, dailyGoal, xpToNextRank } = input;
-  if (dailyGoal.completed >= dailyGoal.target && perfectRemaining === 1) {
-    return language === "en"
-      ? { title: "Almost a Perfect Day", body: "One more step will complete every habit planned for today." }
-      : { title: "Почти идеальный день", body: "Ещё один шаг — и все запланированные привычки на сегодня будут выполнены." };
-  }
-  if (language === "en") {
-    const title = settings.tone === "heroic" ? "Today's path is not complete" : settings.tone === "ironic" ? "The plan has not vanished" : "Daily goal";
-    const base = settings.tone === "heroic"
-      ? `${remaining} step(s) remain to preserve today's rhythm.`
-      : settings.tone === "ironic"
-        ? `${remaining} small action(s) remain — still shorter than postponing them.`
-        : `${remaining} habit(s) remain to reach today's goal.`;
-    const context = dailyGoal.currentStreak > 0
-      ? ` Your current streak is ${dailyGoal.currentStreak} day(s).`
-      : xpToNextRank && xpToNextRank > 0 ? ` ${xpToNextRank} XP to the next rank.` : "";
-    return { title, body: `${base}${variant === "context" ? context : ""}` };
-  }
-  const title = settings.tone === "heroic" ? "Сегодняшний путь ещё не завершён" : settings.tone === "ironic" ? "План никуда не испарился" : "Дневная цель";
-  const base = settings.tone === "heroic"
-    ? `До сохранения сегодняшнего ритма осталось действий: ${remaining}.`
-    : settings.tone === "ironic"
-      ? `Осталось небольших действий: ${remaining}. Это всё ещё быстрее, чем откладывать.`
-      : `До дневной цели осталось привычек: ${remaining}.`;
-  const context = dailyGoal.currentStreak > 0
-    ? ` Текущая серия: ${dailyGoal.currentStreak} дн.`
-    : xpToNextRank && xpToNextRank > 0 ? ` До следующего ранга: ${xpToNextRank} XP.` : "";
-  return { title, body: `${base}${variant === "context" ? context : ""}` };
-}
-
-function habitCopy(input: HabitNotificationPlanInput, habits: HabitNotificationPlanInput["habits"], variant: HabitNotificationCandidate["variant"]) {
-  const { language, settings } = input;
-  if (habits.length > 1) {
-    const body = language === "en"
-      ? `${habits.length} actions are planned close together. GENESIS combined them into one reminder.`
-      : `Рядом по времени запланировано действий: ${habits.length}. GENESIS объединил их в одно напоминание.`;
-    return { title: language === "en" ? "Your next rhythm" : "Ближайший ритм", body };
-  }
-  const habit = habits[0];
-  if (language === "en") {
-    const title = settings.tone === "heroic" ? "One more step" : settings.tone === "ironic" ? "A brief interruption from postponing" : "Habit reminder";
-    const body = settings.tone === "heroic"
-      ? `${habit.emoji} ${habit.title}. Continue today's path.`
-      : settings.tone === "ironic"
-        ? `${habit.emoji} ${habit.title}. The reminder is shorter than the excuse.`
-        : `${habit.emoji} Time for ${habit.title}.`;
-    return { title, body: variant === "context" ? `${body} A small completed action still counts.` : body };
-  }
-  const title = settings.tone === "heroic" ? "Ещё один шаг" : settings.tone === "ironic" ? "Короткое отвлечение от откладывания" : "Напоминание о привычке";
-  const body = settings.tone === "heroic"
-    ? `${habit.emoji} ${habit.title}. Продолжите сегодняшний путь.`
-    : settings.tone === "ironic"
-      ? `${habit.emoji} ${habit.title}. Напоминание короче, чем отговорка.`
-      : `${habit.emoji} Время для привычки «${habit.title}».`;
-  return { title, body: variant === "context" ? `${body} Даже небольшое завершённое действие имеет значение.` : body };
+  const count = remaining || perfectRemaining;
+  const body = habitNotificationMessage(input.settings.tone, "goal", `${input.date}:goal`, input.language, "", count);
+  const context = variant === "context" && input.dailyGoal.currentStreak > 0
+    ? input.language === "en" ? ` Your current streak is ${input.dailyGoal.currentStreak} days.` : ` Текущая серия: ${input.dailyGoal.currentStreak} дн.` : "";
+  return { title: "GENESIS", body: body + context };
 }
 
 export function buildHabitNotificationPlan(input: HabitNotificationPlanInput): HabitNotificationCandidate[] {
   if (!input.settings.enabled) return [];
   const earliestAllowed = input.now.getTime() - 5 * 60_000;
-  const reminderHabits = input.habits
-    .filter((habit) => TIME_PATTERN.test(habit.reminderTime) && !isHabitNotificationQuietTime(habit.reminderTime, input.settings))
-    .sort((left, right) => left.reminderTime.localeCompare(right.reminderTime) || right.priority - left.priority);
-  const groups: HabitNotificationPlanInput["habits"][] = [];
-  reminderHabits.forEach((habit) => {
-    const group = groups.at(-1);
-    if (group && minutesFromTime(habit.reminderTime) - minutesFromTime(group.at(-1)!.reminderTime) <= GROUP_WINDOW_MINUTES) group.push(habit);
-    else groups.push([habit]);
+  const candidates: HabitNotificationCandidate[] = input.habits.flatMap((habit) => {
+    if (!TIME_PATTERN.test(habit.reminderTime)) return [];
+    const date = habit.date ?? input.date;
+    const scheduled = habitReminderDateTime(date, habit.reminderTime, habit.minutesBefore);
+    const time = `${String(scheduled.getHours()).padStart(2, "0")}:${String(scheduled.getMinutes()).padStart(2, "0")}`;
+    if (scheduled.getTime() < earliestAllowed || !habit.allowDuringQuietHours && isHabitNotificationQuietTime(time, input.settings)) return [];
+    const id = `notification:${date}:habit:${time}:${notificationCopyIndex(habit.id, 4294967295)}`;
+    return [{ id, kind: "habit" as const, variant: notificationVariant(id), scheduledAt: scheduled.toISOString(),
+      title: habit.title, body: habitNotificationMessage(input.settings.tone, "habit",
+        `${date}:${habit.id}:${scheduled.getTime()}`, input.language, `«${habit.title}»`) }];
   });
-  const candidates = groups.flatMap((group): HabitNotificationCandidate[] => {
-    const time = group[0].reminderTime;
-    const scheduled = localDateTime(input.date, time);
-    if (scheduled.getTime() < earliestAllowed) return [];
-    const kind = group.length > 1 ? "habit-group" as const : "habit" as const;
-    const id = `notification:${input.date}:${kind}:${time}`;
-    const variant = notificationVariant(id);
-    const copy = habitCopy(input, group, variant);
-    return [{ id, kind, variant, scheduledAt: scheduled.toISOString(), ...copy }];
-  });
-
   const remaining = Math.max(0, input.dailyGoal.target - input.dailyGoal.completed);
   const perfectRemaining = Math.max(0, input.dailyGoal.scheduled - input.dailyGoal.completed);
   const achievable = input.dailyGoal.completed + perfectRemaining >= input.dailyGoal.target;
-  const needsGoalReminder = input.settings.motivational && achievable && (remaining > 0 || (input.dailyGoal.completed >= input.dailyGoal.target && perfectRemaining === 1));
-  if (needsGoalReminder && !isHabitNotificationQuietTime(input.settings.dailyGoalTime, input.settings)) {
+  if (input.settings.motivational && achievable && (remaining > 0 || perfectRemaining === 1) &&
+      !isHabitNotificationQuietTime(input.settings.dailyGoalTime, input.settings)) {
     const scheduled = localDateTime(input.date, input.settings.dailyGoalTime);
     if (scheduled.getTime() >= earliestAllowed) {
-      const nearby = candidates.find((candidate) => Math.abs(new Date(candidate.scheduledAt).getTime() - scheduled.getTime()) <= GROUP_WINDOW_MINUTES * 60_000);
-      if (nearby) {
-        const copy = dailyGoalCopy(input, remaining, perfectRemaining, nearby.variant);
-        nearby.kind = input.dailyGoal.completed >= input.dailyGoal.target ? "perfect-day" : "daily-goal";
-        nearby.title = copy.title;
-        nearby.body = `${copy.body} ${input.language === "en" ? "Nearby habit reminders were combined." : "Близкие напоминания о привычках объединены."}`;
-      } else {
-        const kind = input.dailyGoal.completed >= input.dailyGoal.target ? "perfect-day" as const : "daily-goal" as const;
-        const id = `notification:${input.date}:${kind}:${input.settings.dailyGoalTime}`;
-        const variant = notificationVariant(id);
-        candidates.push({ id, kind, variant, scheduledAt: scheduled.toISOString(), ...dailyGoalCopy(input, remaining, perfectRemaining, variant) });
-      }
+      const kind = remaining > 0 ? "daily-goal" as const : "perfect-day" as const;
+      const id = `notification:${input.date}:${kind}:${input.settings.dailyGoalTime}`;
+      const variant = notificationVariant(id);
+      candidates.push({ id, kind, variant, scheduledAt: scheduled.toISOString(), ...dailyGoalCopy(input, remaining, perfectRemaining, variant) });
     }
   }
   return candidates.sort((left, right) => left.scheduledAt.localeCompare(right.scheduledAt));
 }
-
 function readTelemetry(): HabitNotificationTelemetryEvent[] {
   if (typeof window === "undefined") return [];
   try {

@@ -13,7 +13,8 @@ class HabitDocumentTest {
     private val stamp="2026-09-23T10:00:00.000Z"
     private val engine=HabitEngine(GenesisCalendar(ZoneId.of("Europe/Moscow")))
     private fun habit()=Habit(TrackerEntity("h1",stamp,stamp),"Тест \"кавычки\" ☀",day,engine.defaultSchedule(day,CalendarMode.PROFANE),
-        description="Строка 1\nСтрока 2",reminder=HabitReminder(googleTaskId="opaque-test-binding"))
+        description="Строка 1\nСтрока 2",reminder=HabitReminder(googleTaskId="opaque-test-binding",
+            timing="custom",minutesBefore=15,allowDuringQuietHours=true))
 
     @Test fun documentRoundTripPreservesScheduleIdentityBindingsHistoryAndLedger() {
         val habit=habit()

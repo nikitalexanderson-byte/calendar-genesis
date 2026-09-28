@@ -25,7 +25,8 @@ data class TrackerSchedule(val startDate: LocalDate, val endDate: LocalDate? = n
     val timezone: String, val recurrence: RecurrenceConfig)
 data class HabitReminder(val enabled: Boolean = false, val time: String = "09:00",
     val syncToGoogleTasks: Boolean = false, val showInGoogleCalendar: Boolean = false,
-    val googleTaskId: String? = null, val googleEventId: String? = null)
+    val googleTaskId: String? = null, val googleEventId: String? = null,
+    val timing: String = "habit", val minutesBefore: Int = 0, val allowDuringQuietHours: Boolean = false)
 data class Habit(
     val entity: TrackerEntity, val title: String, val createdDate: LocalDate, val schedule: TrackerSchedule,
     val description: String = "", val emoji: String = "✨", val priority: Int = 5,

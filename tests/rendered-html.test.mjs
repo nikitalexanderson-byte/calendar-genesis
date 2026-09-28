@@ -136,6 +136,8 @@ import {
   normalizeHabitNotificationSettings,
   suggestHabitReminderTime,
 } from "../app/habit-notifications.ts";
+import { habitNotificationMessage } from "../app/habit-notification-message.ts";
+import { habitReminderTime, habitReminderDateTime } from "../app/habit-reminder-time.ts";
 import {
   HABIT_LAUREL_RETENTION_COMPLETIONS,
   applyHabitDeletionLaurelPolicy,
@@ -521,7 +523,7 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(achievements, /reconcileAchievementUnlocks/);
   assert.match(achievements, /hidden: true/);
   assert.match(habitNotifications, /buildHabitNotificationPlan/);
-  assert.match(habitNotifications, /GROUP_WINDOW_MINUTES = 20/);
+  assert.doesNotMatch(habitNotifications, /GROUP_WINDOW_MINUTES/);
   assert.match(habitNotifications, /hasNotificationFatigue/);
   assert.doesNotMatch(habitNotifications, /fetch\(|\/api\//);
   assert.match(habits, /applyHabitDeletionLaurelPolicy/);
@@ -1411,7 +1413,7 @@ test("achievement artwork uses PNG icons and places hidden achievements after pu
   await Promise.all(ACHIEVEMENTS.map(({ artwork }) => access(new URL(`../public${artwork}`, import.meta.url))));
 });
 
-test("habit notifications combine nearby reminders, respect quiet hours and stay achievable", () => {
+test("habit notifications preserve personal times, respect quiet hours and keep the goal separate", () => {
   const settings = normalizeHabitNotificationSettings({
     enabled: true,
     motivational: true,
@@ -1437,10 +1439,11 @@ test("habit notifications combine nearby reminders, respect quiet hours and stay
     dailyGoal: { scheduled: 3, completed: 0, target: 2, currentStreak: 7 },
     xpToNextRank: 80,
   });
-  assert.equal(plan.length, 2);
-  assert.equal(plan[0].kind, "habit-group");
-  assert.match(plan[0].body, /объединил/);
-  assert.equal(plan[1].kind, "daily-goal");
+  assert.equal(plan.length, 3);
+  assert.equal(plan[0].kind, "habit");
+  assert.match(plan[0].body, /Вода/);
+  assert.equal(new Date(plan[1].scheduledAt).getMinutes(), 15);
+  assert.equal(plan[2].kind, "daily-goal");
   assert.doesNotMatch(plan.map((candidate) => candidate.scheduledAt).join(" "), /23:00/);
   assert.ok(plan.every((candidate) => !candidate.id.includes("water") && !candidate.id.includes("reading")), "telemetry identifiers must not contain habit content");
 
@@ -1463,6 +1466,36 @@ test("habit notifications combine nearby reminders, respect quiet hours and stay
   ], "18:00");
   assert.equal(suggestion?.time, "21:30");
   assert.equal(suggestion?.sampleSize, 4);
+});
+
+test("notification styles vary without labels and personal timing can cross midnight", () => {
+  for (const language of ["ru", "en"]) {
+    for (const tone of ["calm", "heroic", "ironic"]) {
+      const samples = Array.from({ length: 100 }, (_, index) =>
+        habitNotificationMessage(tone, "habit", `2026-09-${index}:reading`, language, "«Reading»"));
+      assert.ok(new Set(samples).size >= 8);
+      assert.ok(samples.every((message) => message.includes("Reading")));
+      assert.ok(samples.every((message) => !/^(Спокойное напоминание|Героический зов|Calm reminder|Heroic call):/i.test(message)));
+    }
+  }
+  const habit = { preferredTime: "00:10", reminder: { timing: "habit", time: "12:00" } };
+  assert.equal(habitReminderTime(habit), "00:10");
+  assert.equal(habitReminderTime({ ...habit, reminder: { ...habit.reminder, timing: "custom" } }), "12:00");
+  const at = habitReminderDateTime("2026-09-29", "00:10", 20);
+  assert.equal(at.getDate(), 28);
+  assert.equal(at.getHours(), 23);
+  assert.equal(at.getMinutes(), 50);
+  const settings = { ...DEFAULT_HABIT_NOTIFICATION_SETTINGS, enabled: true, dailyGoalTime: "20:30" };
+  const input = { date: "2026-09-28", now: new Date(2026, 8, 28, 8, 0), language: "ru", settings,
+    dailyGoal: { scheduled: 1, completed: 0, target: 1, currentStreak: 0 },
+    habits: [{ id: "read", title: "Чтение", emoji: "📚", priority: 5, reminderTime: "20:30" }] };
+  assert.deepEqual(buildHabitNotificationPlan(input).map(({ kind }) => kind), ["habit", "daily-goal"]);
+  const night = { ...input, settings: { ...settings, motivational: false },
+    habits: [{ ...input.habits[0], date: "2026-09-29", reminderTime: "00:10", minutesBefore: 20 }] };
+  assert.equal(buildHabitNotificationPlan(night).length, 0);
+  const allowed = buildHabitNotificationPlan({ ...night, habits: [{ ...night.habits[0], allowDuringQuietHours: true }] });
+  assert.equal(allowed.length, 1);
+  assert.equal(new Date(allowed[0].scheduledAt).getTime(), at.getTime());
 });
 
 test("Hestia Sparks use idempotent ledgers and protect only the global streak", () => {
@@ -1945,7 +1978,7 @@ test("retains the legacy TWA artifact but promotes only the signed native Androi
   assert.match(installHook, /window\.location\.hostname[\s\S]*device[\s\S]*android-phone/);
   assert.match(installHook, /isAndroidPhone && !isStandalone/);
   assert.doesNotMatch(installHook, /downloads\/GENESIS-Android-1\.2\.2\.apk/);
-  assert.match(installHook, /downloads\/GENESIS-Android-Native-2\.3\.2\.apk/);
+  assert.match(installHook, /downloads\/GENESIS-Android-Native-2\.3\.3\.apk/);
   assert.doesNotMatch(installHook, /GENESIS-Android-Native-2\.2\.7\.apk/);
   assert.doesNotMatch(calendar, /android-apk-icon-button/);
   assert.match(calendar, /nativeAndroidApkUrl=\{nativeAndroidApkUrl\}/);
@@ -1958,7 +1991,7 @@ test("retains the legacy TWA artifact but promotes only the signed native Androi
   // The public 1.2.2 download stays unchanged while the isolated native alpha advances.
   const nativeVersionCode = Number(androidBuild.match(/versionCode = (\d+)/)?.[1]);
   assert.ok(nativeVersionCode >= 7);
-  assert.match(androidBuild, /versionName = "2\.3\.2"/);
+  assert.match(androidBuild, /versionName = "2\.3\.3"/);
   assert.match(androidBuild, /releaseSigningReady/);
   assert.match(androidBuild, /applicationIdSuffix = "\.debug"/);
   assert.match(androidBuild, /androidx\.browser:browser:1\.10\.0/);

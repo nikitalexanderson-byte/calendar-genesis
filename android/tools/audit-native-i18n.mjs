@@ -11,6 +11,8 @@ const SKIPPED_FILES = new Set([
   // This component keeps every Russian string beside its reviewed English
   // counterpart in a local copy(russian, english) helper.
   path.join(SOURCE_ROOT, "ui/CalendarYearDescription.kt"),
+  // Generated RU/EN pairs; export-notification-copy.mjs --check verifies both platforms.
+  path.join(SOURCE_ROOT, "reminders/HabitNotificationMessages.kt"),
 ]);
 
 function normalize(value) {

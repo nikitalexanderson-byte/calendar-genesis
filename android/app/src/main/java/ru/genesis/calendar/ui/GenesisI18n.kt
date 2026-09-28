@@ -26,6 +26,23 @@ import java.util.concurrent.ConcurrentHashMap
 val LocalGenesisLanguage = compositionLocalOf { "ru" }
 
 private val nativeCopy = mapOf(
+    "Открыта защищённая локальная копия. Проверяем связь с облаком…" to "Your protected local copy is open. Checking the cloud connection…",
+    "Настройки сохранены на устройстве и ожидают синхронизации." to "Settings are saved on this device and waiting to sync.",
+    "Практика дня" to "Daily practice", "Точное время привычки" to "Habit's exact time",
+    "Выполнять в определённое время" to "Practice at a specific time",
+    "Персональное напоминание" to "Personal reminder",
+    "Действует отдельно от напоминания о дневной цели." to "Separate from the daily goal reminder.",
+    "В точное время привычки" to "At the habit's scheduled time", "В отдельное время" to "At a separate time",
+    "Время напоминания" to "Reminder time", "За сколько минут" to "Minutes before",
+    "Разрешить это напоминание в тихие часы" to "Allow this reminder during quiet hours",
+    "Каждая привычка напоминает о себе в выбранное время. Дневная цель настраивается отдельно; тихие часы можно переопределить для отдельной привычки." to
+        "Each habit has its own reminder time. The daily goal is separate; quiet hours can be overridden for individual habits.",
+    "Неделя года ·" to "Week of the year ·",
+    "Трекер привычек" to "Habit tracker", "Привычки дня" to "Habits for the day",
+    "На этот день привычек нет." to "There are no habits for this day.",
+    "Открыть привычки" to "Open habits",
+    "Не удалось сохранить отметку привычки. Повторите попытку." to "Could not save habit completion. Try again.",
+    "Зима" to "Winter", "Весна" to "Spring", "Лето" to "Summer", "Осень" to "Autumn",
     "Загружаем задачи аккаунта…" to "Loading account tasks…",
     "Ожидаем загрузки задач аккаунта." to "Waiting for account tasks to load.",
     "Часть записей не удалось прочитать. Остальные задачи загружены; сохранённые записи не удалены." to

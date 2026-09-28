@@ -5,9 +5,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Density
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
 import java.io.File
@@ -26,8 +28,17 @@ import ru.genesis.calendar.ui.standart
 class CalendarMobileLayoutTest {
     @get:Rule val compose = createAndroidComposeRule<StoicheionGestureActivity>()
     private val requestedWidth = InstrumentationRegistry.getArguments().getString("genesisWidth")?.toIntOrNull()
-    private fun viewportModifier() = Modifier.safeDrawingPadding().then(
+    private fun viewportModifier() = Modifier.safeDrawingPadding().heightIn(max = 760.dp).then(
         requestedWidth?.let { Modifier.width(it.dp) } ?: Modifier)
+    private fun setViewportContent(content: @Composable () -> Unit) {
+        compose.setContent {
+            val originalDensity = LocalDensity.current
+            val viewportDensity = requestedWidth?.let {
+                Density(compose.activity.resources.displayMetrics.widthPixels.toFloat() / it, originalDensity.fontScale)
+            } ?: originalDensity
+            CompositionLocalProvider(LocalDensity provides viewportDensity) { content() }
+        }
+    }
 
     private fun capture(name: String) {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -36,13 +47,13 @@ class CalendarMobileLayoutTest {
         device.waitForIdle(2_000)
         assertTrue(device.takeScreenshot(
             File(instrumentation.targetContext.getExternalFilesDir(null),
-                "2.3.0-${requestedWidth?.let { "${it}dp-" } ?: ""}$name.png")))
+                "2.3.3-${requestedWidth?.let { "${it}dp-" } ?: ""}$name.png")))
     }
 
     @Test fun viewSwitchPrecedesScrollingMonthAndYearHeadingsInEveryCalendar() {
         var mode by mutableStateOf(CalendarMode.SACRED)
         val date = LocalDate.of(2026, 9, 28)
-        compose.setContent {
+        setViewportContent {
             MaterialTheme(colorScheme = standart) {
                 Surface(Modifier.fillMaxSize(), color = standart.background) {
                     Column(viewportModifier()) {
@@ -60,7 +71,9 @@ class CalendarMobileLayoutTest {
             assertTrue("View controls must precede the heading", switch.bottom <= header.top)
             capture("${nextMode.name.lowercase()}-month-top")
             compose.onNodeWithTag("calendar-selected-day").performScrollTo()
-            compose.onNodeWithText("Календарь - месяц").assertIsNotDisplayed()
+            if ((requestedWidth ?: 360) < 768) {
+                compose.onNodeWithText("Календарь - месяц").assertIsNotDisplayed()
+            }
             compose.onNodeWithTag("calendar-view-switch").assertIsDisplayed()
             capture("${nextMode.name.lowercase()}-month-scrolled")
             compose.onNodeWithText("Год").performClick()
@@ -78,18 +91,20 @@ class CalendarMobileLayoutTest {
             val lastTag = when (nextMode) {
                 CalendarMode.SACRED -> "sacred-year-month-12"
                 CalendarMode.LUNAR -> "lunar-year-month-12"
-                CalendarMode.PROFANE -> "calendar-year-month-2026-12-01"
+                CalendarMode.PROFANE -> "calendar-year-month-2026-11-01"
             }
             compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag(lastTag))
-            compose.onNodeWithTag("genesis-page-header").assertDoesNotExist()
+            if ((requestedWidth ?: 360) < 768) {
+                compose.onNodeWithTag("genesis-page-header").assertDoesNotExist()
+            }
             compose.onNodeWithTag("calendar-view-switch").assertIsDisplayed()
             compose.onNodeWithTag(lastTag).performClick()
             compose.onNodeWithText("Календарь - месяц").assertIsDisplayed()
         }
     }
 
-    @Test fun gregorianYearShowsMonthNumberNameInclusiveDatesAndLeapDayCount() {
-        compose.setContent {
+    @Test fun gregorianYearShowsSeasonsDayAndTaskCountsWithoutDuplicateHeadings() {
+        setViewportContent {
             MaterialTheme(colorScheme = standart) {
                 Surface(Modifier.fillMaxSize(), color = standart.background) {
                     Column(viewportModifier()) {
@@ -101,17 +116,42 @@ class CalendarMobileLayoutTest {
         compose.onNodeWithText("Год").performClick()
         compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag("calendar-year-month-2028-02-01"))
         compose.onNodeWithTag("gregorian-year-number-2", useUnmergedTree = true).assert(hasText("2"))
-        compose.onNodeWithTag("gregorian-year-start-2", useUnmergedTree = true).assert(hasText("Начало · 1 февраля 2028"))
-        compose.onNodeWithTag("gregorian-year-end-2", useUnmergedTree = true).assert(hasText("Конец · 29 февраля 2028"))
+        compose.onNodeWithTag("gregorian-year-start-2", useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithTag("gregorian-year-end-2", useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithText("ГРИГОРИАНСКИЙ МЕСЯЦ 2").assertDoesNotExist()
+        compose.onNodeWithTag("calendar-year-task-count-2", useUnmergedTree = true).assert(hasText("0 задач"))
+        compose.onNodeWithTag("gregorian-season-winter").assertExists()
         compose.onNodeWithTag("calendar-year-days-2", useUnmergedTree = true).assert(hasText("29 дней"))
         capture("gregorian-leap-year")
         compose.onNodeWithTag("calendar-year-month-2028-02-01").performClick()
         compose.onNodeWithTag("calendar-day-2028-02-29").performScrollTo().assertIsEnabled()
     }
 
+    @Test fun choosingADayStopsAtItsFirstIllustratedBlockInEachCalendar() {
+        var mode by mutableStateOf(CalendarMode.PROFANE)
+        val date = LocalDate.of(2026, 9, 28)
+        setViewportContent {
+            MaterialTheme(colorScheme = standart) {
+                Surface(Modifier.fillMaxSize(), color = standart.background) {
+                    Column(viewportModifier()) { CalendarScreen(date, mode, onSelect = {}, experimental = true) }
+                }
+            }
+        }
+        CalendarMode.entries.forEach { next ->
+            compose.runOnIdle { mode = next }
+            compose.onNodeWithTag("calendar-day-2026-09-26").performScrollTo().performClick()
+            compose.waitUntil(10_000) {
+                val card = compose.onNodeWithTag("calendar-selected-day").fetchSemanticsNode().boundsInRoot
+                val viewport = compose.onNodeWithTag("calendar-month").fetchSemanticsNode().boundsInRoot
+                card.top >= viewport.top - 3 && card.top <= viewport.top + 12
+            }
+            capture("${next.name.lowercase()}-selected-day-start")
+        }
+    }
+
     @Test fun gregorianBadgeHasLargerVisibleDiscAndFullFingerTarget() {
         val date = LocalDate.of(2026, 9, 26)
-        compose.setContent {
+        setViewportContent {
             MaterialTheme(colorScheme = standart) {
                 Surface(Modifier.fillMaxSize(), color = standart.background) {
                     Column(viewportModifier()) {
@@ -133,7 +173,7 @@ class CalendarMobileLayoutTest {
 
     @Test fun stoicheionHeaderScrollsWithOriginalLetterCards() {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
-        compose.setContent {
+        setViewportContent {
             MaterialTheme(colorScheme = standart) {
                 Surface(Modifier.fillMaxSize(), color = standart.background) {
                     Column(viewportModifier()) { StoicheionScreen(app, divinationDisabled = true) }
@@ -150,7 +190,7 @@ class CalendarMobileLayoutTest {
     }
 
     @Test fun englishYearHeadingAndGregorianDatesStayLocalized() {
-        compose.setContent {
+        setViewportContent {
             CompositionLocalProvider(LocalGenesisLanguage provides "en") {
                 MaterialTheme(colorScheme = standart) {
                     Surface(Modifier.fillMaxSize(), color = standart.background) {
@@ -165,8 +205,9 @@ class CalendarMobileLayoutTest {
         compose.onNodeWithText("Year").performClick()
         compose.onNodeWithText("Calendar - year").assertIsDisplayed()
         compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag("calendar-year-month-2026-01-01"))
-        compose.onNodeWithTag("gregorian-year-start-1", useUnmergedTree = true).assert(hasText("Start · 1 January 2026"))
-        compose.onNodeWithTag("gregorian-year-end-1", useUnmergedTree = true).assert(hasText("End · 31 January 2026"))
+        compose.onNodeWithTag("gregorian-year-start-1", useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithTag("gregorian-year-end-1", useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithText("Winter").assertExists()
         capture("gregorian-english-year")
     }
 }
