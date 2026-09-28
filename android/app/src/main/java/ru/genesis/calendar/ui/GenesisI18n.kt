@@ -26,6 +26,12 @@ import java.util.concurrent.ConcurrentHashMap
 val LocalGenesisLanguage = compositionLocalOf { "ru" }
 
 private val nativeCopy = mapOf(
+    "Календарь - месяц" to "Calendar - month", "Календарь - год" to "Calendar - year",
+    "На этот день задач больше нет." to "There are no more tasks for this day.",
+    "Вернуть в работу" to "Mark as incomplete", "Выполнить задачу" to "Complete task",
+    "Редактировать" to "Edit",
+    "ГРИГОРИАНСКИЙ МЕСЯЦ" to "GREGORIAN MONTH", "САКРАЛЬНЫЙ МЕСЯЦ" to "SACRED MONTH",
+    "ВНЕ ВРЕМЕНИ" to "OUTSIDE TIME", "Начало ·" to "Start ·", "Конец ·" to "End ·",
     "Настройки" to "Settings", "Задачи" to "Tasks", "Сон и настроение" to "Sleep & mood",
     "Сакральные, григорианские и лунные даты, задачи и время Солнца" to
         "Sacred, Gregorian and lunar dates, tasks and solar times",

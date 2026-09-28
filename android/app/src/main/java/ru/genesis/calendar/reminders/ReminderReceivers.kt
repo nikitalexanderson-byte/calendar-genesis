@@ -58,8 +58,10 @@ class HabitNotificationReceiver : BroadcastReceiver() {
                     .setCategory(NotificationCompat.CATEGORY_REMINDER)
                     .setVisibility(NotificationCompat.VISIBILITY_PRIVATE).setAutoCancel(true)
                     .build()
-                runCatching { NotificationManagerCompat.from(context).notify(
+                try { NotificationManagerCompat.from(context).notify(
                     intent.data?.toString().orEmpty(), intent.data?.hashCode() ?: 2, notification) }
+                catch (_: SecurityException) { /* Permission may be revoked after the initial check. */ }
+                catch (_: Exception) { /* Keep restoration available when notification delivery fails. */ }
                 app.scheduler.restoreHabitNotifications()
             } finally { pending.finish() }
         }

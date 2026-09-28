@@ -111,9 +111,10 @@ class ReminderScheduler(private val context: Context) {
             .setContentText(habitNotificationBody(tone, "habit", 1, english))
             .setContentIntent(openAppIntent()).setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE).setAutoCancel(true).build()
-        return runCatching {
+        return try {
             NotificationManagerCompat.from(context).notify("habit-tone-preview", 7301, note); true
-        }.getOrDefault(false)
+        } catch (_: SecurityException) { false }
+        catch (_: Exception) { false }
     }
     fun showAchievementNotification(count: Int, english: Boolean): Boolean {
         if (count <= 0) return false
@@ -132,9 +133,10 @@ class ReminderScheduler(private val context: Context) {
             .setContentText(body).setContentIntent(openAppIntent())
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE).setAutoCancel(true).build()
-        return runCatching {
+        return try {
             NotificationManagerCompat.from(context).notify("habit-achievement", 7302, note); true
-        }.getOrDefault(false)
+        } catch (_: SecurityException) { false }
+        catch (_: Exception) { false }
     }
     private fun intent(row: ReminderRecord, action: String, clazz: Class<*>) = Intent(context, clazz).apply {
         this.action = action

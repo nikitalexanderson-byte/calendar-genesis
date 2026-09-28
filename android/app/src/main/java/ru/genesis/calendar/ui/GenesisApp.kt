@@ -166,7 +166,11 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                     }
                     "Календарь" -> CalendarScreen(LocalDate.parse(selected),prefs.display,
                         onSelect={selected=it.toString();tab="Сегодня"},
-                        experimental=true, tasks=tasks)
+                        experimental=true, tasks=tasks, use24=prefs.use24,
+                        onCompleteTask=model::complete,
+                        onEditTask={ task, date -> selected=date.toString();editId=task.id;creating=false },
+                        onDeleteTask=model::delete,
+                        onDeleteOccurrence={ task, date -> model.excludeOccurrence(task,date.toString()) {} })
                     else -> LazyColumn(Modifier.weight(1f).testTag("today-list"),contentPadding=PaddingValues(16.dp),
                         verticalArrangement=Arrangement.spacedBy(12.dp)) {
                         if(tab=="Сегодня") item { DayHeader(LocalDate.parse(selected),prefs.display) }
@@ -223,7 +227,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                 onDeleteOccurrence=existing?.takeIf { it.recurrence.enabled }?.let { series ->
                     { date -> model.excludeOccurrence(series,date) { creating=false;editId=null } }
                 },
-                showSelectedOccurrence=tab=="Сегодня")
+                showSelectedOccurrence=tab=="Сегодня" || tab=="Календарь")
             }
         }
         if (!testWorkspace) GoogleServicesFirstRunModal(authState, authController)
