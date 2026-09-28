@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -231,8 +232,8 @@ private fun SevenDayGrid(calendar: GenesisCalendar, range: CalendarRange, mode: 
                 else if (mode == CalendarMode.LUNAR) {
                     val absoluteIndex = weekIndex * 7 + dayIndex
                     val adjacent = date !in range.start..range.end
-                    val adjacentAlpha = if (!adjacent || leading == 0) 1f
-                        else 0.2f + 0.24f * ((absoluteIndex + 1f) / leading.toFloat())
+                    val adjacentAlpha = lunarAdjacentAlpha(absoluteIndex, leading,
+                        range.dates().size, days.size)
                     LunarCalendarDay(calendar, date, date == selected, onChoose, Modifier.weight(1f),
                         if (experimental && !adjacent) tasksByDate[date.toString()].orEmpty().size else 0,
                         adjacent, adjacentAlpha, onOpenTaskList,
@@ -265,10 +266,28 @@ internal fun gregorianGridDates(range: CalendarRange): List<LocalDate> {
         (1..trailing).map { range.end.plusDays(it.toLong()) }
 }
 
-/** Lunar leading cells show the closing days of the previous month as read-only context. */
+/** Lunar rows are symmetrical: both neighbouring months are read-only fading context. */
 internal fun lunarGridDates(range: CalendarRange): List<LocalDate> {
     val leading = weekLeadingOffset(range.start, CalendarMode.LUNAR)
-    return (leading downTo 1).map { range.start.minusDays(it.toLong()) } + range.dates()
+    val trailing = (7 - (leading + range.dates().size) % 7) % 7
+    return (leading downTo 1).map { range.start.minusDays(it.toLong()) } + range.dates() +
+        (1..trailing).map { range.end.plusDays(it.toLong()) }
+}
+
+internal fun lunarAdjacentAlpha(index: Int, leading: Int, currentDays: Int, totalDays: Int): Float {
+    val firstCurrent = leading
+    val firstTrailing = leading + currentDays
+    return when {
+        index in firstCurrent until firstTrailing -> 1f
+        index < firstCurrent && leading > 0 ->
+            (0.18f + 0.28f * ((index + 1f) / leading.toFloat())).coerceIn(.18f, .46f)
+        index >= firstTrailing -> {
+            val trailing = (totalDays - firstTrailing).coerceAtLeast(1)
+            val position = index - firstTrailing
+            (0.46f - 0.28f * ((position + 1f) / trailing.toFloat())).coerceIn(.18f, .46f)
+        }
+        else -> 1f
+    }
 }
 
 internal fun genesisRoman(value: Int): String {
@@ -719,9 +738,11 @@ private fun CalendarYearOverview(calendar: GenesisCalendar, shown: LocalDate, mo
                 }
             }
         }
-        items(months, key = { it.first.toString() }) { (start, name, title) ->
+        itemsIndexed(months, key = { _, entry -> entry.first.toString() }) { ordinal, (start, name, title) ->
             val index = if (mode == CalendarMode.SACRED) calendar.sacredDate(start).monthIndex else -1
-            Card(onClick = { onMonth(start) },
+            if (mode == CalendarMode.LUNAR) LunarYearMonthCard(calendar, start, ordinal + 1,
+                name, title, tasks, onMonth, locale)
+            else Card(onClick = { onMonth(start) },
                 modifier = Modifier.fillMaxWidth().testTag(if (index >= 0) "sacred-year-month-$index"
                     else "calendar-year-month-$start")) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -751,6 +772,56 @@ private fun CalendarYearOverview(calendar: GenesisCalendar, shown: LocalDate, mo
         }
         item { CalendarYearDescriptionCard(calendar, shown, mode) }
         item { Spacer(Modifier.height(16.dp)) }
+    }
+}
+
+@Composable
+private fun LunarYearMonthCard(calendar: GenesisCalendar, start: LocalDate, ordinal: Int,
+    name: String, title: String, tasks: List<LocalTask>, onMonth: (LocalDate) -> Unit,
+    locale: Locale) {
+    val english = LocalGenesisLanguage.current == "en"
+    val range = calendar.monthRange(start, CalendarMode.LUNAR)
+    val rangeLabel = if (range.start.year == range.end.year) {
+        "${range.start.format(DateTimeFormatter.ofPattern("d MMMM", locale))} — " +
+            range.end.format(DateTimeFormatter.ofPattern("d MMMM yyyy", locale))
+    } else {
+        "${range.start.format(DateTimeFormatter.ofPattern("d MMMM yyyy", locale))} — " +
+            range.end.format(DateTimeFormatter.ofPattern("d MMMM yyyy", locale))
+    }
+    val count = TaskOccurrences.countInRange(tasks, range.start, range.end)
+    Card(onClick = { onMonth(start) }, modifier = Modifier.fillMaxWidth()
+        .testTag("lunar-year-month-$ordinal"), shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xfff5f0e6)),
+        border = BorderStroke(1.dp, Color(0x668b6727))) {
+        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            Box(Modifier.size(74.dp), contentAlignment = Alignment.Center) {
+                MoonPhaseIcon(11, size = 70.dp)
+                Surface(shape = CircleShape, color = Color(0xdff5f0e6),
+                    border = BorderStroke(1.dp, Color(0xff8b6727))) {
+                    Text(ordinal.toString(), Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+                        color = Color(0xff0b2b2d), style = MaterialTheme.typography.titleMedium)
+                }
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(if (english) "LUNAR MONTH $ordinal" else "ЛУННЫЙ МЕСЯЦ $ordinal",
+                    color = Color(0xff8b6727), style = MaterialTheme.typography.labelSmall)
+                Text(name, color = Color(0xff102b2c), style = MaterialTheme.typography.titleLarge)
+                Text(title, color = Color(0xff405b59), style = MaterialTheme.typography.bodySmall,
+                    maxLines = 2)
+                Text(rangeLabel, color = Color(0xff102b2c),
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.testTag("lunar-year-range-$ordinal"))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text(if (english) "${range.dates().size} days" else "${range.dates().size} дней",
+                        color = Color(0xff657a77), style = MaterialTheme.typography.labelSmall)
+                    if (count > 0) Text(if (english) "$count tasks" else "$count задач",
+                        color = Color(0xffad563b), style = MaterialTheme.typography.labelSmall)
+                }
+            }
+            Text("›", color = Color(0xff8b6727), style = MaterialTheme.typography.titleLarge)
+        }
     }
 }
 

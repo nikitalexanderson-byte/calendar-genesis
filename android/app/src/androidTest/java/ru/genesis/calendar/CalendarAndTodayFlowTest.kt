@@ -48,6 +48,7 @@ class CalendarAndTodayFlowTest {
                 compose.onAllNodesWithText("ЛУННЫЙ КАЛЕНДАРЬ", substring = true)
                     .fetchSemanticsNodes().isNotEmpty()
             }
+            compose.onNodeWithTag("today-lunar-standard-image", useUnmergedTree = true).assertExists()
             assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(
                 File(app.getExternalFilesDir(null), "today-lunar-after.png")))
             runBlocking { prefs.set("display", "sacred") }

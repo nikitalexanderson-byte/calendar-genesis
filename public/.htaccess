@@ -60,3 +60,11 @@ RewriteRule . index.html [L]
     Header set Cache-Control "public, max-age=300, must-revalidate"
   </IfModule>
 </FilesMatch>
+
+<FilesMatch "^GENESIS-Android-Native-2\.2\.9\.apk$">
+  ForceType application/vnd.android.package-archive
+  <IfModule mod_headers.c>
+    Header set Content-Disposition "attachment; filename=GENESIS-Android-Native-2.2.9.apk"
+    Header set Cache-Control "public, max-age=300, must-revalidate"
+  </IfModule>
+</FilesMatch>

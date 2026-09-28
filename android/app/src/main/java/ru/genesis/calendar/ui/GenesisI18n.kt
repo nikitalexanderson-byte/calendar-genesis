@@ -87,6 +87,12 @@ private val nativeCopy = mapOf(
     "Пространство первообразов" to "Realm of archetypes",
     "Иллюстрация сакрального дня:" to "Sacred day illustration:",
     "НОВОЛУНИЕ" to "NEW MOON", "ПОЛНОЛУНИЕ" to "FULL MOON",
+    "ЛУННЫЙ МЕСЯЦ" to "LUNAR MONTH", "Гно · Метэр · Базилея" to "Gno · Meter · Basileia",
+    "Планируйте задачи, проекты и повторяющиеся практики. Личное пространство синхронизируется с сайтом и вашими устройствами." to
+        "Plan tasks, projects and recurring practices. Keep your private workspace synchronized across the web and your devices.",
+    "БЕЗОПАСНЫЙ ВХОД ЧЕРЕЗ GOOGLE" to "SECURE SIGN-IN THROUGH GOOGLE",
+    "Задачи остаются в Google и на вашем устройстве" to "Tasks stay in Google and on your device",
+    "Личные данные открываются только после входа" to "Private data opens only after sign-in",
     "ПОЖИЗНЕННЫЙ ПРОГРЕСС" to "LIFETIME PROGRESS", "ТЕКУЩИЙ РАНГ" to "CURRENT RANK",
     "Каждый балл сохраняет реальное выполнение. XP не тратится, а достигнутые ранги не теряются." to
         "Every point records real completion. XP is never spent, and achieved ranks are never lost.",
