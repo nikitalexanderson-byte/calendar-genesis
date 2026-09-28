@@ -51,7 +51,11 @@ internal fun sacredMonthArtPath(index: Int): String {
 /** The display calendar controls this screen only; task input and recurrence remain independent. */
 @Composable
 fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) -> Unit,
-    experimental: Boolean = false, tasks: List<LocalTask> = emptyList()) {
+    experimental: Boolean = false, tasks: List<LocalTask> = emptyList(), use24: Boolean = true,
+    onCompleteTask: (LocalTask) -> Unit = {},
+    onEditTask: (LocalTask, LocalDate) -> Unit = { _, _ -> },
+    onDeleteTask: (LocalTask) -> Unit = {},
+    onDeleteOccurrence: ((LocalTask, LocalDate) -> Unit)? = null) {
     val calendar = remember { GenesisCalendar() }
     var shown by rememberSaveable(mode, date) { mutableStateOf(date.toString()) }
     var selected by rememberSaveable(mode, date) { mutableStateOf(date.toString()) }
@@ -61,23 +65,22 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
     val range = remember(shownDate, mode) { runCatching { calendar.monthRange(shownDate, mode) } }
 
     Column(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            GenesisPageHeader(if (LocalGenesisLanguage.current == "en") "Calendar" else "Календарь",
-                if (LocalGenesisLanguage.current == "en") "Sacred, Gregorian and lunar dates, tasks and solar times"
-                else "Сакральные, григорианские и лунные даты, задачи и время Солнца", "☷")
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically) {
-                FilterChip(selected = !yearView, onClick = { yearView = false }, label = { Text("Месяц") })
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp).testTag("calendar-view-switch"),
+            horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                FilterChip(selected = !yearView, onClick = { yearView = false }, label = { Text("Месяц") },
+                    modifier = Modifier.heightIn(min = 48.dp))
                 Spacer(Modifier.width(8.dp))
-                FilterChip(selected = yearView, onClick = { yearView = true }, label = { Text("Год") })
-            }
+                FilterChip(selected = yearView, onClick = { yearView = true }, label = { Text("Год") },
+                    modifier = Modifier.heightIn(min = 48.dp))
         }
         if (yearView) CalendarYearOverview(calendar, shownDate, mode, experimental, tasks,
             onMonth = { shown = it.toString(); selected = it.toString(); yearView = false },
             onYear = { shown = it.toString() })
-        else if (range.isFailure) Text("Этот период вне диапазона офлайн-календаря.",
-            Modifier.padding(16.dp), color = MaterialTheme.colorScheme.error)
+        else if (range.isFailure) Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            CalendarPageHeader(false)
+            Text("Этот период вне диапазона офлайн-календаря.", color = MaterialTheme.colorScheme.error)
+        }
         else CalendarMonthContent(calendar, range.getOrThrow(), mode, LocalDate.parse(selected), experimental, tasks,
             onNavigate = { shown = it.toString(); selected = it.toString() },
             onChoose = { selected = it.toString() }, onOpenDay = onSelect,
@@ -88,11 +91,23 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
         val dayTasks = remember(tasks, rawDate) {
             TaskOccurrences.byDate(tasks, taskDate, taskDate)[rawDate].orEmpty()
         }
-        CalendarTaskListDialog(taskDate, dayTasks, onDismiss = { taskListDate = null }) {
-            taskListDate = null
-            onSelect(taskDate)
-        }
+        CalendarTaskListDialog(taskDate, dayTasks, use24, onDismiss = { taskListDate = null },
+            onComplete = onCompleteTask,
+            onEdit = { task -> taskListDate = null; onEditTask(task, taskDate) },
+            onDelete = onDeleteTask,
+            onDeleteOccurrence = onDeleteOccurrence?.let { callback -> { task -> callback(task, taskDate) } },
+            onOpenDay = { taskListDate = null; onSelect(taskDate) })
     }
+}
+
+@Composable
+private fun CalendarPageHeader(yearView: Boolean, modifier: Modifier = Modifier) {
+    val english = LocalGenesisLanguage.current == "en"
+    GenesisPageHeader(if (english) {
+        if (yearView) "Calendar - year" else "Calendar - month"
+    } else if (yearView) "Календарь - год" else "Календарь - месяц",
+        if (english) "Sacred, Gregorian and lunar dates, tasks and solar times"
+        else "Сакральные, григорианские и лунные даты, задачи и время Солнца", "☷", modifier)
 }
 
 @Composable
@@ -110,8 +125,9 @@ private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange
         if (previewRequested) scroll.animateScrollTo(scroll.maxValue)
     }
     val choose: (LocalDate) -> Unit = { day -> previewRequested = true; onChoose(day) }
-    Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(horizontal = 8.dp),
+    Column(Modifier.fillMaxSize().testTag("calendar-month").verticalScroll(scroll).padding(horizontal = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        CalendarPageHeader(false, Modifier.padding(horizontal = 8.dp, vertical = 8.dp))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = { onNavigate(range.start.minusDays(1)) },
                 modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)) { Text("←") }
@@ -305,7 +321,10 @@ private val genesisMonthRomans = listOf(
 )
 
 internal fun lunarSacredDateLabel(sacredDay: Int, pyata: Int, monthIndex: Int): String {
-    require(sacredDay in 1..30 && pyata in 1..6 && monthIndex in genesisMonthRomans.indices)
+    require(sacredDay in 1..30 && monthIndex in genesisMonthRomans.indices &&
+        (pyata in 1..6 || (monthIndex == 12 && pyata == 0)))
+    // Apeiron stands outside the pentads; its real catalog uses pyata = 0.
+    if (monthIndex == 12 && pyata == 0) return "${genesisRoman(sacredDay)}/O"
     val dayInsidePyata = (sacredDay - 1) % 5 + 1
     return "${genesisRoman(dayInsidePyata)}/$pyata/${genesisMonthRomans[monthIndex]}"
 }
@@ -431,9 +450,21 @@ private fun CalendarDay(calendar: GenesisCalendar, date: LocalDate, number: Int,
             }
         }
         if (taskCount > 0 && !adjacent) {
-            val badgeSize = if (patron != null) 20.dp else 23.dp
-            Surface(onClick = { onTaskBadgeClick(date) }, modifier = Modifier.align(Alignment.TopEnd)
-                .padding(top = 1.dp, end = 1.dp).size(badgeSize)
+            if (patron != null) IconButton(onClick = { onTaskBadgeClick(date) },
+                modifier = Modifier.align(Alignment.TopEnd).size(48.dp)
+                    .testTag("calendar-task-count-$date").semantics { contentDescription = taskDescription }) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopEnd) {
+                    Surface(Modifier.padding(top = 1.dp, end = 1.dp).size(28.dp)
+                        .testTag("calendar-task-count-disc-$date"),
+                        shape = CircleShape, color = Color(0xffb63b42), shadowElevation = 3.dp) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(if (taskCount > 99) "99+" else taskCount.toString(), color = Color.White,
+                                fontSize = if (taskCount > 99) 9.sp else 12.sp, maxLines = 1)
+                        }
+                    }
+                }
+            } else Surface(onClick = { onTaskBadgeClick(date) }, modifier = Modifier.align(Alignment.TopEnd)
+                .padding(top = 1.dp, end = 1.dp).size(23.dp)
                 .testTag("calendar-task-count-$date")
                 .semantics { contentDescription = taskDescription },
                 shape = CircleShape, color = Color(0xffb63b42), shadowElevation = 3.dp) {
@@ -449,9 +480,11 @@ private fun CalendarDay(calendar: GenesisCalendar, date: LocalDate, number: Int,
 }
 
 @Composable
-private fun CalendarTaskListDialog(date: LocalDate, tasks: List<LocalTask>, onDismiss: () -> Unit,
-    onOpenDay: () -> Unit) {
+private fun CalendarTaskListDialog(date: LocalDate, tasks: List<LocalTask>, use24: Boolean,
+    onDismiss: () -> Unit, onComplete: (LocalTask) -> Unit, onEdit: (LocalTask) -> Unit,
+    onDelete: (LocalTask) -> Unit, onDeleteOccurrence: ((LocalTask) -> Unit)?, onOpenDay: () -> Unit) {
     val locale = if (LocalGenesisLanguage.current == "en") Locale.ENGLISH else ru
+    var deletingId by rememberSaveable(date) { mutableStateOf<String?>(null) }
     Dialog(onDismissRequest = onDismiss) {
         Surface(Modifier.fillMaxWidth().heightIn(max = 560.dp).testTag("calendar-task-list-dialog"),
             shape = RoundedCornerShape(24.dp), color = Color(0xfffffbf2),
@@ -476,23 +509,47 @@ private fun CalendarTaskListDialog(date: LocalDate, tasks: List<LocalTask>, onDi
                 }
                 HorizontalDivider(color = Color(0x44b28a4a))
                 LazyColumn(Modifier.weight(1f, fill = false), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (tasks.isEmpty()) item {
+                        Text("На этот день задач больше нет.", Modifier.padding(vertical = 12.dp),
+                            style = MaterialTheme.typography.bodyMedium)
+                    }
                     items(tasks, key = { it.id }) { task ->
-                        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp),
+                        val completionDescription = genesisTranslate(if (task.done)
+                            "Вернуть в работу" else "Выполнить задачу") + ": " + task.title
+                        Surface(Modifier.fillMaxWidth().testTag("calendar-task-${task.id}"), shape = RoundedCornerShape(14.dp),
                             color = if (task.done) Color(0xffe8f0ea) else Color(0xfff4ecdc)) {
-                            Row(Modifier.fillMaxWidth().padding(12.dp),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            Column {
+                            Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 12.dp, top = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
                                 verticalAlignment = Alignment.CenterVertically) {
-                                Text(if (task.done) "✓" else "○", color = if (task.done)
-                                    Color(0xff255b59) else Color(0xffb63b42),
-                                    style = MaterialTheme.typography.titleMedium)
+                                Checkbox(checked = task.done, onCheckedChange = { onComplete(task) },
+                                    modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                                        .testTag("calendar-task-complete-${task.id}").semantics {
+                                            contentDescription = completionDescription
+                                        })
                                 Column(Modifier.weight(1f)) {
                                     androidx.compose.material3.Text(task.title,
                                         style = MaterialTheme.typography.titleSmall, maxLines = 2)
-                                    Text(listOfNotNull(task.time.takeIf { it.isNotBlank() },
+                                    Text(listOfNotNull(task.time.takeIf { it.isNotBlank() }?.let { timeLabel(it, use24) },
                                         task.project.takeIf { it.isNotBlank() }).joinToString(" · ").ifBlank { "Без времени" },
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                         color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(if (task.done) "Выполнено" else "Выполнить задачу",
+                                        style = MaterialTheme.typography.labelSmall, color = Color(0xff255b59))
                                 }
+                            }
+                            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                TextButton(onClick = { onEdit(task) }, modifier = Modifier.weight(1f)
+                                    .heightIn(min = 48.dp).testTag("calendar-task-edit-${task.id}")) {
+                                    Text("Редактировать")
+                                }
+                                TextButton(onClick = { deletingId = task.id }, modifier = Modifier.weight(1f)
+                                    .heightIn(min = 48.dp).testTag("calendar-task-delete-${task.id}"),
+                                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
+                                    Text("Удалить")
+                                }
+                            }
                             }
                         }
                     }
@@ -502,6 +559,27 @@ private fun CalendarTaskListDialog(date: LocalDate, tasks: List<LocalTask>, onDi
                 }
             }
         }
+    }
+    tasks.firstOrNull { it.id == deletingId }?.let { task ->
+        val recurring = task.recurrence.enabled && onDeleteOccurrence != null
+        AlertDialog(onDismissRequest = { deletingId = null },
+            title = { Text(if (recurring) "Удалить повторение?" else "Удалить задачу?") },
+            text = { Text(if (recurring) "Можно удалить только ${date} или всю серию."
+                else "Напоминание этой задачи будет отменено.") },
+            confirmButton = {
+                Column {
+                    if (recurring) TextButton(onClick = { onDeleteOccurrence?.invoke(task); deletingId = null },
+                        modifier = Modifier.heightIn(min = 48.dp).testTag("calendar-delete-occurrence")) {
+                        Text("Только этот день")
+                    }
+                    TextButton(onClick = { onDelete(task); deletingId = null },
+                        modifier = Modifier.heightIn(min = 48.dp).testTag("calendar-delete-confirm")) {
+                        Text(if (recurring) "Вся серия" else "Удалить")
+                    }
+                }
+            },
+            dismissButton = { TextButton(onClick = { deletingId = null },
+                modifier = Modifier.heightIn(min = 48.dp)) { Text("Отмена") } })
     }
 }
 
@@ -688,7 +766,7 @@ private fun CalendarYearOverview(calendar: GenesisCalendar, shown: LocalDate, mo
     val locale = if (LocalGenesisLanguage.current == "en") Locale.ENGLISH else ru
     val sacredYear = calendar.sacredDate(shown).sacredYear
     val yearLabel = if (mode == CalendarMode.PROFANE) shown.year.toString() else sacredYear.toString()
-    val entries = remember(shown, mode) { runCatching {
+    val entries = remember(shown, mode, locale) { runCatching {
         when (mode) {
             CalendarMode.SACRED -> SacredCatalog.months.map { month ->
                 Triple(calendar.gregorianDate(sacredYear, month.index, 1), month.name, month.title)
@@ -706,14 +784,18 @@ private fun CalendarYearOverview(calendar: GenesisCalendar, shown: LocalDate, mo
         }
     } }
     if (entries.isFailure) {
-        Text("Этот год вне диапазона офлайн-календаря.", Modifier.padding(16.dp),
-            color = MaterialTheme.colorScheme.error)
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            CalendarPageHeader(true)
+            Text("Этот год вне диапазона офлайн-календаря.", color = MaterialTheme.colorScheme.error)
+        }
         return
     }
     val months = entries.getOrThrow()
     LazyColumn(Modifier.fillMaxSize().testTag("calendar-year"),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        item { CalendarPageHeader(true) }
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = { onYear(if (mode == CalendarMode.PROFANE) shown.minusYears(1)
@@ -739,36 +821,7 @@ private fun CalendarYearOverview(calendar: GenesisCalendar, shown: LocalDate, mo
             }
         }
         itemsIndexed(months, key = { _, entry -> entry.first.toString() }) { ordinal, (start, name, title) ->
-            val index = if (mode == CalendarMode.SACRED) calendar.sacredDate(start).monthIndex else -1
-            if (mode == CalendarMode.LUNAR) LunarYearMonthCard(calendar, start, ordinal + 1,
-                name, title, tasks, onMonth, locale)
-            else Card(onClick = { onMonth(start) },
-                modifier = Modifier.fillMaxWidth().testTag(if (index >= 0) "sacred-year-month-$index"
-                    else "calendar-year-month-$start")) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (index >= 0) OriginalImage(sacredMonthArtPath(index), "Иллюстрация месяца $name",
-                        Modifier.width(76.dp).height(112.dp))
-                    Column(Modifier.weight(1f).padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(name, style = MaterialTheme.typography.titleMedium)
-                        Text(title, style = MaterialTheme.typography.bodySmall, maxLines = 3)
-                        Text(start.format(dateLabel(locale)), style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        if (experimental) {
-                            if (mode == CalendarMode.LUNAR) Row(verticalAlignment = Alignment.CenterVertically) {
-                                MoonPhaseIcon(calendar.moonInfo(start).phaseStep, size = 22.dp)
-                                Text(" ${calendar.lunarDate(start).monthLength} дней",
-                                    style = MaterialTheme.typography.labelSmall)
-                            }
-                            val monthRange = calendar.monthRange(start, mode)
-                            val count = TaskOccurrences.countInRange(tasks, monthRange.start, monthRange.end)
-                            if (count > 0) Text("$count задач", style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary)
-                        }
-                    }
-                    Text("›", Modifier.padding(end = 12.dp), style = MaterialTheme.typography.titleLarge)
-                }
-            }
+            CalendarYearMonthCard(calendar, start, mode, ordinal + 1, name, title, tasks, onMonth, locale)
         }
         item { CalendarYearDescriptionCard(calendar, shown, mode) }
         item { Spacer(Modifier.height(16.dp)) }
@@ -776,11 +829,17 @@ private fun CalendarYearOverview(calendar: GenesisCalendar, shown: LocalDate, mo
 }
 
 @Composable
-private fun LunarYearMonthCard(calendar: GenesisCalendar, start: LocalDate, ordinal: Int,
+private fun CalendarYearMonthCard(calendar: GenesisCalendar, start: LocalDate, mode: CalendarMode, ordinal: Int,
     name: String, title: String, tasks: List<LocalTask>, onMonth: (LocalDate) -> Unit,
     locale: Locale) {
     val english = LocalGenesisLanguage.current == "en"
-    val range = calendar.monthRange(start, CalendarMode.LUNAR)
+    val range = calendar.monthRange(start, mode)
+    val sacredIndex = if (mode == CalendarMode.SACRED) calendar.sacredDate(start).monthIndex else -1
+    val monthTag = when (mode) {
+        CalendarMode.SACRED -> "sacred-year-month-$sacredIndex"
+        CalendarMode.PROFANE -> "calendar-year-month-$start"
+        CalendarMode.LUNAR -> "lunar-year-month-$ordinal"
+    }
     val rangeLabel = if (range.start.year == range.end.year) {
         "${range.start.format(DateTimeFormatter.ofPattern("d MMMM", locale))} — " +
             range.end.format(DateTimeFormatter.ofPattern("d MMMM yyyy", locale))
@@ -790,12 +849,23 @@ private fun LunarYearMonthCard(calendar: GenesisCalendar, start: LocalDate, ordi
     }
     val count = TaskOccurrences.countInRange(tasks, range.start, range.end)
     Card(onClick = { onMonth(start) }, modifier = Modifier.fillMaxWidth()
-        .testTag("lunar-year-month-$ordinal"), shape = RoundedCornerShape(22.dp),
+        .testTag(monthTag), shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xfff5f0e6)),
         border = BorderStroke(1.dp, Color(0x668b6727))) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            Box(Modifier.size(74.dp), contentAlignment = Alignment.Center) {
+            when (mode) {
+            CalendarMode.SACRED -> OriginalImage(sacredMonthArtPath(sacredIndex), "Иллюстрация месяца $name",
+                Modifier.width(76.dp).height(112.dp))
+            CalendarMode.PROFANE -> Surface(Modifier.size(74.dp), shape = RoundedCornerShape(17.dp),
+                color = Color(0xffefe3c7), border = BorderStroke(1.dp, Color(0xff8b6727))) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(ordinal.toString(), color = Color(0xff0b2b2d),
+                        style = MaterialTheme.typography.headlineMedium,
+                        modifier = Modifier.testTag("gregorian-year-number-$ordinal"))
+                }
+            }
+            CalendarMode.LUNAR -> Box(Modifier.size(74.dp), contentAlignment = Alignment.Center) {
                 MoonPhaseIcon(11, size = 70.dp)
                 Surface(shape = CircleShape, color = Color(0xdff5f0e6),
                     border = BorderStroke(1.dp, Color(0xff8b6727))) {
@@ -803,19 +873,36 @@ private fun LunarYearMonthCard(calendar: GenesisCalendar, start: LocalDate, ordi
                         color = Color(0xff0b2b2d), style = MaterialTheme.typography.titleMedium)
                 }
             }
+            }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(if (english) "LUNAR MONTH $ordinal" else "ЛУННЫЙ МЕСЯЦ $ordinal",
+                Text(when (mode) {
+                    CalendarMode.LUNAR -> if (english) "LUNAR MONTH $ordinal" else "ЛУННЫЙ МЕСЯЦ $ordinal"
+                    CalendarMode.PROFANE -> if (english) "GREGORIAN MONTH $ordinal" else "ГРИГОРИАНСКИЙ МЕСЯЦ $ordinal"
+                    CalendarMode.SACRED -> SacredCatalog.months[sacredIndex].let { month ->
+                        if (sacredIndex == 12) { if (english) "OUTSIDE TIME" else "ВНЕ ВРЕМЕНИ" }
+                        else if (english) "SACRED MONTH ${month.roman}" else "САКРАЛЬНЫЙ МЕСЯЦ ${month.roman}"
+                    }
+                },
                     color = Color(0xff8b6727), style = MaterialTheme.typography.labelSmall)
                 Text(name, color = Color(0xff102b2c), style = MaterialTheme.typography.titleLarge)
-                Text(title, color = Color(0xff405b59), style = MaterialTheme.typography.bodySmall,
+                if (title.isNotBlank()) Text(title, color = Color(0xff405b59), style = MaterialTheme.typography.bodySmall,
                     maxLines = 2)
-                Text(rangeLabel, color = Color(0xff102b2c),
-                    style = MaterialTheme.typography.labelMedium,
-                    modifier = Modifier.testTag("lunar-year-range-$ordinal"))
+                if (mode == CalendarMode.PROFANE) {
+                    val formatter = DateTimeFormatter.ofPattern("d MMMM yyyy", locale)
+                    Text((if (english) "Start · " else "Начало · ") + range.start.format(formatter),
+                        color = Color(0xff102b2c), style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.testTag("gregorian-year-start-$ordinal"))
+                    Text((if (english) "End · " else "Конец · ") + range.end.format(formatter),
+                        color = Color(0xff102b2c), style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.testTag("gregorian-year-end-$ordinal"))
+                } else Text(rangeLabel, color = Color(0xff102b2c), style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.testTag(if (mode == CalendarMode.LUNAR) "lunar-year-range-$ordinal"
+                        else "sacred-year-range-$sacredIndex"))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     Text(if (english) "${range.dates().size} days" else "${range.dates().size} дней",
-                        color = Color(0xff657a77), style = MaterialTheme.typography.labelSmall)
+                        color = Color(0xff405b59), style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.testTag("calendar-year-days-$ordinal"))
                     if (count > 0) Text(if (english) "$count tasks" else "$count задач",
                         color = Color(0xffad563b), style = MaterialTheme.typography.labelSmall)
                 }

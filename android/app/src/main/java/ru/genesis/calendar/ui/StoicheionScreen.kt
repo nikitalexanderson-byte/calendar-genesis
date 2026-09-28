@@ -101,26 +101,31 @@ fun StoicheionScreen(app: GenesisApplication, divinationDisabled: Boolean,
     val beginMotion: (String) -> Unit = { mode ->
         if (!saving && !divinationDisabled) { drawError = null; motionMode = mode }
     }
-    Column(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    LazyVerticalGrid(columns = GridCells.Fixed(2), modifier = Modifier.fillMaxSize().testTag("stoicheion-grid"),
+        contentPadding = PaddingValues(12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        item(span = { GridItemSpan(maxLineSpan) }) {
             GenesisPageHeader(if (english) "Stoicheion" else "Стойхейон",
                 if (divinationDisabled) {
                     if (english) "Twenty-four Greek letters and their meanings"
                     else "Двадцать четыре буквенных образа и их значения"
                 } else if (english) "Twenty-four Greek letters, the daily card and the nine-face spread"
                 else "Двадцать четыре буквенных образа, карта дня и расклад девяти ликов", "Σ",
+                modifier = Modifier.padding(4.dp),
                 subtitle = if (english) "Gno · Meter · Basileia" else "Гно · Метэр · Базилея")
         }
         val loaded = letters
         when {
-            loaded == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
+            loaded == null -> item(span = { GridItemSpan(maxLineSpan) }) {
+                Box(Modifier.fillMaxWidth().height(120.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
             }
-            loaded.size != 24 -> Text("Не удалось открыть авторские карты. Данные не заменены.",
-                Modifier.padding(16.dp), color = MaterialTheme.colorScheme.error)
-            else -> LazyVerticalGrid(columns = GridCells.Fixed(2), modifier = Modifier.fillMaxSize().testTag("stoicheion-grid"),
-                contentPadding = PaddingValues(12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            loaded.size != 24 -> item(span = { GridItemSpan(maxLineSpan) }) {
+                Text("Не удалось открыть авторские карты. Данные не заменены.",
+                    Modifier.padding(16.dp), color = MaterialTheme.colorScheme.error)
+            }
+            else -> {
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         if (divinationDisabled) Card(Modifier.fillMaxWidth()) {
