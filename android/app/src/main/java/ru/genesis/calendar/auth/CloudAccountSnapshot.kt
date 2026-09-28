@@ -14,6 +14,7 @@ internal class CloudAccountSnapshot private constructor(
     val tasks: List<JSONObject>,
     val googleSyncWarning: Boolean,
     val tasksDeferred: Boolean,
+    val unreadableTaskCount: Int,
 ) {
     companion object {
         fun scopeFor(uid: String): String {
@@ -30,12 +31,14 @@ internal class CloudAccountSnapshot private constructor(
             val warning = payload.optString("syncWarning").let { it.isNotBlank() && it != "null" }
             val deferred = payload.optBoolean("tasksDeferred")
             val rows = payload.getJSONArray("tasks")
-            val tasks = (0 until rows.length()).map { index ->
-                val item = rows.getJSONObject(index)
-                require(item.getString("id").isNotBlank() && item.getString("title").isNotBlank())
-                JSONObject(item.toString())
+            // A bad Google row must not prevent the rest of an account from loading.
+            // Individual task validation belongs to the importer; count non-object
+            // rows too so an incomplete response can never erase cached tasks.
+            val tasks = (0 until rows.length()).mapNotNull { index ->
+                rows.optJSONObject(index)?.let { JSONObject(it.toString()) }
             }
-            if (workspace.isNull("envelope")) return CloudAccountSnapshot(scopeFor(uid), 0, null, tasks, warning, deferred)
+            val unreadable = rows.length() - tasks.size
+            if (workspace.isNull("envelope")) return CloudAccountSnapshot(scopeFor(uid), 0, null, tasks, warning, deferred, unreadable)
             if (mode != "account") throw CloudWorkspacePreview.RecoveryRequired()
             val envelope = workspace.getJSONObject("envelope")
             val version = envelope.getLong("version")
@@ -53,17 +56,23 @@ internal class CloudAccountSnapshot private constructor(
                 document.getJSONArray(it)
             }
             document.getJSONObject("userProgress")
-            return CloudAccountSnapshot(scopeFor(uid), version, document, tasks, warning, deferred)
+            return CloudAccountSnapshot(scopeFor(uid), version, document, tasks, warning, deferred, unreadable)
         }
 
         /** Keep unknown Google/web fields; native-only defaults are never written to the cloud snapshot. */
         fun nativeTaskJson(source: JSONObject): JSONObject {
             val row = JSONObject(source.toString())
-            val date = row.optString("dueDate")
+            CloudTaskIdentity.requireImportedId(row.getString("id"))
+            // Calendar events can legitimately have an empty/missing summary.
+            val title = if (row.isNull("title")) "" else row.optString("title")
+            row.put("title", title.takeIf { it.isNotBlank() } ?: "Без названия")
+            val date = if (row.isNull("dueDate")) "" else row.optString("dueDate")
             require(date.isBlank() || runCatching { LocalDate.parse(date) }.isSuccess)
-            row.put("dueDate", date)
-                .put("zoneId", row.optString("zoneId").takeIf { it.isNotBlank() } ?: ZoneId.systemDefault().id)
+            row.put("dueDate", date.takeUnless { it.isBlank() } ?: "")
+                .put("zoneId", row.optString("zoneId").takeIf { !row.isNull("zoneId") && it.isNotBlank() }
+                    ?: ZoneId.systemDefault().id)
                 .put("priority", row.optInt("priority", 5).coerceIn(1, 10))
+            if (row.isNull("time")) row.put("time", "")
             if (!row.has("reminderAt")) row.put("reminderAt", JSONObject.NULL)
             return row
         }

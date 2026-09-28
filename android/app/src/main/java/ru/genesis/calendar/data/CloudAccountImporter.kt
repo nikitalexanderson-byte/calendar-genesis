@@ -3,12 +3,16 @@ package ru.genesis.calendar.data
 import androidx.room.withTransaction
 import org.json.JSONArray
 import org.json.JSONObject
+import org.json.JSONException
+import java.time.DateTimeException
 import ru.genesis.calendar.auth.CloudAccountSnapshot
 import ru.genesis.calendar.reminders.ReminderScheduler
 
 /** Pulls verified server data into an account-only encrypted cache; never touches isolated drafts. */
 internal class CloudAccountImporter(private val db: GenesisDatabase, private val scheduler: ReminderScheduler? = null) {
-    enum class Result { IMPORTED, IMPORTED_WITH_GOOGLE_WARNING, PENDING_LOCAL_CHANGES }
+    enum class Result { IMPORTED, IMPORTED_WITH_GOOGLE_WARNING, IMPORTED_WITH_TASK_WARNING, PENDING_LOCAL_CHANGES }
+
+    private data class ImportedTask(val record: TaskRecord, val reminders: List<Pair<String, Long>>)
 
     companion object {
         fun structureDocument(document: JSONObject): String = JSONObject()
@@ -45,16 +49,26 @@ internal class CloudAccountImporter(private val db: GenesisDatabase, private val
         if (habits != null) HabitDocument.decode(habits, snapshot.version)
         val trackers = document?.let(::trackersDocument)
         if (trackers != null) TrackersDocument.decode(trackers, snapshot.version)
-        val tasks = snapshot.tasks.map { source ->
-            val value = CloudAccountSnapshot.nativeTaskJson(source)
-            val id = value.getString("id")
-            require(id.isNotBlank() && id.length <= 100)
-            val revision = value.optLong("updatedAt", 1).coerceAtLeast(1)
-            val json = value.toString()
-            val record = TaskRecord(scope, id, cipher.encrypt(json, "$scope/$id"), revision, value.optBoolean("done"))
-            record to LocalTask.from(record, json)
+        var unreadable = snapshot.unreadableTaskCount
+        val seenIds = mutableSetOf<String>()
+        val tasks = snapshot.tasks.mapNotNull { source ->
+            val decoded = try {
+                val value = CloudAccountSnapshot.nativeTaskJson(source)
+                val id = value.getString("id")
+                require(seenIds.add(id))
+                val revision = value.optLong("updatedAt", 1).coerceAtLeast(1)
+                val json = value.toString()
+                val record = TaskRecord(scope, id, "", revision, value.optBoolean("done"))
+                Triple(record, json, TaskReminderPlan.times(LocalTask.from(record, json)))
+            } catch (_: JSONException) { unreadable++; null }
+              catch (_: IllegalArgumentException) { unreadable++; null }
+              catch (_: DateTimeException) { unreadable++; null }
+            decoded?.let { (record, json, reminders) ->
+                // Storage/Keystore failures still abort the transaction. They are
+                // not malformed remote rows and must never be silently ignored.
+                ImportedTask(record.copy(encrypted = cipher.encrypt(json, "$scope/${record.id}")), reminders)
+            }
         }
-        require(tasks.distinctBy { it.first.id }.size == tasks.size)
         val dao = db.dao()
         val previousReminders = dao.reminders(scope)
         val changedTaskIds = mutableSetOf<String>()
@@ -63,15 +77,15 @@ internal class CloudAccountImporter(private val db: GenesisDatabase, private val
             val cached = dao.document(scope, "cloud-base")
             val staleWorkspace = cached != null && cached.revision > snapshot.version
             if (!snapshot.tasksDeferred) {
-                val remoteIds = tasks.map { it.first.id }.toSet()
-                if (!snapshot.googleSyncWarning) dao.accountTasks(scope).filter {
+                val remoteIds = tasks.map { it.record.id }.toSet()
+                if (!snapshot.googleSyncWarning && unreadable == 0) dao.accountTasks(scope).filter {
                     it.id !in remoteIds && it.id !in pending
                 }.forEach {
                     dao.deleteCachedTask(scope, it.id)
                     dao.deleteTaskReminders(scope, it.id)
                     changedTaskIds += it.id
                 }
-                tasks.forEach { (record, task) ->
+                tasks.forEach { (record, reminders) ->
                     // A partial response can add confirmed rows, but cannot erase or
                     // replace a cached task. Local edits and deletion tombstones win.
                     if (record.id !in pending &&
@@ -79,8 +93,8 @@ internal class CloudAccountImporter(private val db: GenesisDatabase, private val
                         dao.putTask(record)
                         dao.deleteTaskReminders(scope, record.id)
                         changedTaskIds += record.id
-                        TaskReminderPlan.times(task).forEach { (occurrence, at) ->
-                            dao.putReminder(ReminderRecord(scope, task.id + ":" + occurrence, task.id,
+                        reminders.forEach { (occurrence, at) ->
+                            dao.putReminder(ReminderRecord(scope, record.id + ":" + occurrence, record.id,
                                 occurrence.substringBefore(':'), record.revision, at))
                         }
                     }
@@ -99,7 +113,8 @@ internal class CloudAccountImporter(private val db: GenesisDatabase, private val
                         dao.putDocument(DocumentRecord(scope, "trackers", cipher.encrypt(requireNotNull(trackers), "$scope/trackers"), snapshot.version))
                 }
             }
-            if (pending.isNotEmpty() || staleWorkspace) Result.PENDING_LOCAL_CHANGES
+            if (unreadable > 0) Result.IMPORTED_WITH_TASK_WARNING
+            else if (pending.isNotEmpty() || staleWorkspace) Result.PENDING_LOCAL_CHANGES
             else if (snapshot.googleSyncWarning) Result.IMPORTED_WITH_GOOGLE_WARNING else Result.IMPORTED
         } }
         val result = if (scheduler == null) update() else scheduler.withMutation {

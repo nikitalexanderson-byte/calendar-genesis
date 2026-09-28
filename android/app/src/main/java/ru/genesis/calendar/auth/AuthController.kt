@@ -57,6 +57,8 @@ class AuthController private constructor(context: Context) {
     private var pendingServicesUserId: String? = null
     private val mutableState = MutableStateFlow(AuthPanelState())
     val state = mutableState.asStateFlow()
+    private val mutableTaskSync = MutableStateFlow(AccountTaskSyncState())
+    val taskSync = mutableTaskSync.asStateFlow()
 
     /** Process-start check only. Recomposition and configuration changes must not restart auth. */
     fun ensureSession() {
@@ -232,9 +234,12 @@ class AuthController private constructor(context: Context) {
             publish(generation, AuthPanelState(ready = true, user = confirmed,
                 accountSettings = resolvedSettings, preview = preview,
                 checkedAt = System.currentTimeMillis(), message = (when (imported) {
-                    CloudAccountImporter.Result.IMPORTED -> "$successMessage Данные доступны в приложении."
+                    CloudAccountImporter.Result.IMPORTED -> if (snapshot.tasksDeferred)
+                        "$successMessage Загружаем задачи аккаунта…" else "$successMessage Данные доступны в приложении."
                     CloudAccountImporter.Result.IMPORTED_WITH_GOOGLE_WARNING ->
                         "Пространство открыто, но Google не подтвердил обновление задач. Ранее загруженные задачи сохранены."
+                    CloudAccountImporter.Result.IMPORTED_WITH_TASK_WARNING ->
+                        "Часть записей не удалось прочитать. Остальные задачи загружены; сохранённые записи не удалены."
                     CloudAccountImporter.Result.PENDING_LOCAL_CHANGES ->
                         "Есть локальные изменения аккаунта, ещё не отправленные на сервер. Облачная копия не перезаписала их."
                 }) + (if (languageWarning) " Выбранный язык пока не сохранён в аккаунте; повторите выбор в личном кабинете." else "") +
@@ -343,6 +348,11 @@ class AuthController private constructor(context: Context) {
 
     fun syncPending() = syncPending(WorkspacePatch.ConflictPolicy.STOP)
 
+    /** A manual sync includes downloading tasks, and never cancels a pull already in progress. */
+    fun refresh() {
+        if (mutableState.value.ready) refreshIfReady() else checkSession()
+    }
+
     /** Pull on resume and periodically while visible, so another device's changes arrive automatically. */
     fun refreshIfReady() {
         if (operation?.isActive == true || !mutableState.value.ready) return
@@ -354,9 +364,12 @@ class AuthController private constructor(context: Context) {
         val identity = mutableState.value.user ?: return
         if (!mutableState.value.ready || pullJob?.isActive == true) return
         val generation = client.currentGeneration()
+        val accountScope = CloudAccountSnapshot.scopeFor(identity.uid)
+        val previous = mutableTaskSync.value.takeIf { it.scope == accountScope } ?: AccountTaskSyncState(accountScope)
+        mutableTaskSync.value = previous.copy(loading = true)
         pullJob = scope.launch {
-            syncJob?.join()
             try {
+                syncJob?.join()
                 dataSyncMutex.withLock {
                     val payload = withContext(Dispatchers.IO) { client.bootstrap(generation) }
                     if (AuthProtocol.identity(payload)?.uid != identity.uid) throw AuthFailure(AuthFailure.Kind.PROTOCOL)
@@ -365,7 +378,17 @@ class AuthController private constructor(context: Context) {
                     val imported = withContext(Dispatchers.IO) {
                         CloudAccountImporter(app.database, app.scheduler).import(snapshot)
                     }
+                    val available = withContext(Dispatchers.IO) { app.database.dao().accountTasks(accountScope).size }
                     if (!client.isCurrent(generation)) return@withLock
+                    val issue = when {
+                        imported == CloudAccountImporter.Result.IMPORTED_WITH_TASK_WARNING ->
+                            "Часть записей не удалось прочитать. Остальные задачи загружены; сохранённые записи не удалены."
+                        snapshot.googleSyncWarning ->
+                            "Google не подтвердил полную загрузку задач. Проверьте подключение Calendar и Tasks в настройках."
+                        else -> null
+                    }
+                    mutableTaskSync.value = AccountTaskSyncState(accountScope, confirmed = issue == null,
+                        issue = issue, received = snapshot.tasks.size + snapshot.unreadableTaskCount, available = available)
                     publish(generation, mutableState.value.copy(
                         accountSettings = AccountSettings.fromResponse(payload) ?: mutableState.value.accountSettings,
                         preview = preview, checkedAt = System.currentTimeMillis(),
@@ -373,6 +396,8 @@ class AuthController private constructor(context: Context) {
                             CloudAccountImporter.Result.IMPORTED -> "Данные аккаунта и задачи Google обновлены."
                             CloudAccountImporter.Result.IMPORTED_WITH_GOOGLE_WARNING ->
                                 "Пространство обновлено. Часть задач Google пока недоступна; сохранённые задачи остаются на устройстве."
+                            CloudAccountImporter.Result.IMPORTED_WITH_TASK_WARNING ->
+                                "Часть записей не удалось прочитать. Остальные задачи загружены; сохранённые записи не удалены."
                             CloudAccountImporter.Result.PENDING_LOCAL_CHANGES ->
                                 "Данные других устройств получены. Неотправленные изменения этого устройства сохранены."
                         }))
@@ -383,8 +408,14 @@ class AuthController private constructor(context: Context) {
             } catch (error: CancellationException) { throw error }
             catch (error: Exception) {
                 logCloudFailure("BACKGROUND_PULL", error)
-                if (client.isCurrent(generation)) publish(generation, mutableState.value.copy(
-                    message = "Аккаунт открыт. Обновление задач пока не завершилось; повторим автоматически. Сохранённые записи доступны."))
+                if (client.isCurrent(generation)) {
+                    mutableTaskSync.value = previous.copy(loading = false,
+                        issue = "Не удалось загрузить задачи аккаунта. Нажмите «Обновить» для повторной попытки.")
+                    publish(generation, mutableState.value.copy(
+                        message = "Аккаунт открыт. Обновление задач пока не завершилось; повторим автоматически. Сохранённые записи доступны."))
+                }
+            } finally {
+                if (client.isCurrent(generation)) mutableTaskSync.value = mutableTaskSync.value.copy(loading = false)
             }
         }
     }

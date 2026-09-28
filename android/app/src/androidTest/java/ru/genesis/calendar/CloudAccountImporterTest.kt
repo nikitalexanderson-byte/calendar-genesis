@@ -92,6 +92,103 @@ class CloudAccountImporterTest {
         } finally { db.close() }
     }
 
+    @Test fun firstSignInImportsNamedAndUntitledTasksIntoTheCalendarWithoutExistingCache() = runBlocking {
+        val db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), GenesisDatabase::class.java).build()
+        try {
+            val payload = response("Existing website task", "Project")
+            payload.getJSONArray("tasks").put(JSONObject().put("id", "untitled-event")
+                .put("title", "").put("dueDate", "2026-09-25").put("googleEventId", "event-1"))
+            val snapshot = CloudAccountSnapshot.fromBootstrap(payload)
+            assertTrue(db.dao().accountTasks(snapshot.scope).isEmpty())
+            assertEquals(CloudAccountImporter.Result.IMPORTED, CloudAccountImporter(db).import(snapshot))
+            val cipher = LocalCipher()
+            val tasks = db.dao().accountTasks(snapshot.scope).map {
+                LocalTask.from(it, cipher.decrypt(it.encrypted, "${snapshot.scope}/${it.id}"))
+            }
+            assertEquals(setOf("Existing website task", "Без названия"), tasks.map { it.title }.toSet())
+            val date = java.time.LocalDate.parse("2026-09-25")
+            assertEquals(2, TaskOccurrences.byDate(tasks, date, date)[date.toString()]?.size)
+            assertTrue(db.dao().accountTasks(CloudAccountSnapshot.scopeFor("another-account")).isEmpty())
+            assertTrue(db.dao().outbox(snapshot.scope).isEmpty())
+        } finally { db.close() }
+    }
+
+    @Test fun malformedRowsDoNotBlockValidTasksOrEraseCachedTasksAndPendingChanges() = runBlocking {
+        val db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), GenesisDatabase::class.java).build()
+        try {
+            val initial = CloudAccountSnapshot.fromBootstrap(response("Cached task", "Project"))
+            CloudAccountImporter(db).import(initial)
+            val original = requireNotNull(db.dao().task(initial.scope, "google-1"))
+            db.dao().putOutbox(OutboxRecord(initial.scope, original.id, original.revision, "pending-edit"))
+            val remote = response("Unused", "Project").put("tasks", JSONArray()
+                .put(JSONObject().put("id", "new-task").put("title", "New website task").put("dueDate", "2026-09-25"))
+                .put(JSONObject().put("id", "bad-date").put("title", "Bad date").put("dueDate", "not-a-date"))
+                .put(JSONObject().put("title", "Missing id").put("dueDate", "2026-09-25"))
+                .put(JSONObject.NULL))
+            val snapshot = CloudAccountSnapshot.fromBootstrap(remote)
+            assertEquals(CloudAccountImporter.Result.IMPORTED_WITH_TASK_WARNING, CloudAccountImporter(db).import(snapshot))
+            assertEquals(original, db.dao().task(initial.scope, "google-1"))
+            assertNotNull(db.dao().task(initial.scope, "new-task"))
+            assertEquals(2, db.dao().accountTasks(initial.scope).size)
+            assertEquals(1, db.dao().outbox(initial.scope).size)
+            // Even an entirely unreadable response is not an authoritative empty list.
+            remote.put("tasks", JSONArray().put(JSONObject.NULL))
+            assertEquals(CloudAccountImporter.Result.IMPORTED_WITH_TASK_WARNING,
+                CloudAccountImporter(db).import(CloudAccountSnapshot.fromBootstrap(remote)))
+            assertEquals(2, db.dao().accountTasks(initial.scope).size)
+        } finally { db.close() }
+    }
+
+    @Test fun invalidReminderMetadataCannotRollBackOtherTasks() = runBlocking {
+        val db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), GenesisDatabase::class.java).build()
+        try {
+            val payload = response("Valid task", "Project")
+            payload.getJSONArray("tasks").put(JSONObject().put("id", "invalid-reminder")
+                .put("title", "Invalid reminder").put("dueDate", "2026-09-25").put("time", "not-a-time")
+                .put("reminders", JSONArray().put(JSONObject().put("kind", "relative").put("minutes", 10))))
+            val snapshot = CloudAccountSnapshot.fromBootstrap(payload)
+            assertEquals(CloudAccountImporter.Result.IMPORTED_WITH_TASK_WARNING, CloudAccountImporter(db).import(snapshot))
+            assertNotNull(db.dao().task(snapshot.scope, "google-1"))
+            assertNull(db.dao().task(snapshot.scope, "invalid-reminder"))
+            assertTrue(db.dao().outbox(snapshot.scope).isEmpty())
+        } finally { db.close() }
+    }
+
+    @Test fun all39TasksIncludingThreeLongAccountIdentifiersAreImportedOnFirstSignIn() = runBlocking {
+        val db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), GenesisDatabase::class.java).build()
+        try {
+            val rows = JSONArray()
+            repeat(39) { index ->
+                val id = if (index < 3) "account-0123456789-" + "x".repeat(98) + index.toString().padStart(2, '0')
+                    else "ordinary-task-$index"
+                rows.put(JSONObject().put("id", id).put("title", "Fixture task $index")
+                    .put("dueDate", "2026-09-28").put("done", index >= 7))
+            }
+            val snapshot = CloudAccountSnapshot.fromBootstrap(response("Unused", "Project").put("tasks", rows))
+            assertEquals(CloudAccountImporter.Result.IMPORTED, CloudAccountImporter(db).import(snapshot))
+            val records = db.dao().accountTasks(snapshot.scope)
+            assertEquals(39, records.size)
+            assertEquals(7, records.count { !it.done })
+            assertEquals(3, records.count { it.id.length == 119 })
+            assertTrue(db.dao().outbox(snapshot.scope).isEmpty())
+        } finally { db.close() }
+    }
+
+    @Test fun redactedServerTaskShapesImportCompletelyWhenProvided() = runBlocking {
+        org.junit.Assume.assumeTrue(androidx.test.platform.app.InstrumentationRegistry.getArguments()
+            .getString("redactedTaskFixture") == "true")
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val fixture = JSONObject(java.io.File(context.getExternalFilesDir(null), "task-shape.json").readText())
+        val db = Room.inMemoryDatabaseBuilder(context, GenesisDatabase::class.java).build()
+        try {
+            val snapshot = CloudAccountSnapshot.fromBootstrap(response("Unused", "Project")
+                .put("tasks", fixture.getJSONArray("tasks")))
+            assertEquals(CloudAccountImporter.Result.IMPORTED, CloudAccountImporter(db).import(snapshot))
+            assertEquals(fixture.getJSONObject("report").getInt("totalRows"), db.dao().accountTasks(snapshot.scope).size)
+            assertTrue(db.dao().outbox(snapshot.scope).isEmpty())
+        } finally { db.close() }
+    }
+
     @Test fun importedWebRemindersAreScheduledAndRefreshedWithoutLocalOutbox() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val db = Room.inMemoryDatabaseBuilder(context, GenesisDatabase::class.java).build()

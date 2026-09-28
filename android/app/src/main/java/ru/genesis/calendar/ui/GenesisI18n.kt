@@ -26,6 +26,15 @@ import java.util.concurrent.ConcurrentHashMap
 val LocalGenesisLanguage = compositionLocalOf { "ru" }
 
 private val nativeCopy = mapOf(
+    "Загружаем задачи аккаунта…" to "Loading account tasks…",
+    "Ожидаем загрузки задач аккаунта." to "Waiting for account tasks to load.",
+    "Часть записей не удалось прочитать. Остальные задачи загружены; сохранённые записи не удалены." to
+        "Some records could not be read. Other tasks were loaded; saved records have been preserved.",
+    "Google не подтвердил полную загрузку задач. Проверьте подключение Calendar и Tasks в настройках." to
+        "Google could not confirm a complete task download. Check Calendar and Tasks connections in settings.",
+    "Не удалось загрузить задачи аккаунта. Нажмите «Обновить» для повторной попытки." to
+        "Account tasks could not be loaded. Tap Refresh to try again.",
+    "Получено с сервера:" to "Received from server:", "Задач на устройстве:" to "Tasks on this device:",
     "Календарь - месяц" to "Calendar - month", "Календарь - год" to "Calendar - year",
     "На этот день задач больше нет." to "There are no more tasks for this day.",
     "Вернуть в работу" to "Mark as incomplete", "Выполнить задачу" to "Complete task",
