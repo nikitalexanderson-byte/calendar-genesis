@@ -1,0 +1,736 @@
+diff --git a/app/GenesisCalendar.tsx b/app/GenesisCalendar.tsx
+index a908127..606cf44 100644
+--- a/app/GenesisCalendar.tsx
++++ b/app/GenesisCalendar.tsx
+@@ -6019,6 +6045,78 @@ export function GenesisCalendar() {
+       </aside>
+ 
+       <section className="app-stage" data-exp-layout="stage">
++        {androidAppMode ? (
++          <header className="android-app-bar" data-genesis-preserve="android-app-bar">
++            <button
++              type="button"
++              className="android-app-bar-button android-menu-button"
++              onClick={() => setAndroidNavigationOpen(true)}
++              aria-label="Открыть меню GENESIS"
++              aria-haspopup="dialog"
++              aria-expanded={androidNavigationOpen}
++            >
++              <span aria-hidden="true" />
++              <span aria-hidden="true" />
++              <span aria-hidden="true" />
++            </button>
++            <button className="android-app-title" type="button" onClick={selectToday} aria-label="GENESIS — перейти на сегодня">
++              <span
++                className="android-app-icon"
++                style={{ backgroundImage: `url("${APP_BASE}/icons/icon-192.png")` }}
++                aria-hidden="true"
++              />
++              <span>
++                <strong>{androidViewTitle}</strong>
++                <small>{view === "theokyklos" ? "Θεόκυκλος · полный круг" : CALENDAR_MODE_META[activeCalendarMode].label}</small>
++              </span>
++            </button>
++            <div className="android-app-actions">
++              <button
++                type="button"
++                className="android-app-bar-button android-create-button"
++                onClick={() => {
++                  setExperimentalTodayTab("create");
++                  navigateTo("today");
++                }}
++                title="Создать задачу"
++                aria-label="Создать задачу"
++              >
++                <span aria-hidden="true">＋</span>
++              </button>
++              <button
++                type="button"
++                className={`android-app-bar-button android-voice-button${voiceLaunchAnimating ? " is-activating" : ""}`}
++                onClick={openVoiceAssistant}
++                title="Открыть GENESIS Voice"
++                aria-label="Открыть голосового помощника GENESIS Voice"
++                aria-busy={voiceLaunchAnimating}
++              >
++                <svg className="android-voice-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
++                  <rect x="8.7" y="2.8" width="6.6" height="11.2" rx="3.3" />
++                  <path d="M5.9 10.4v.9a6.1 6.1 0 0 0 12.2 0v-.9M12 17.4v3.35M8.9 20.75h6.2" />
++                </svg>
++              </button>
++              <button
++                type="button"
++                className="android-account-button"
++                onClick={() => cloudUser ? setAccountOpen(true) : void handleGoogleSignIn()}
++                aria-label={cloudUser ? "Открыть личный кабинет" : "Войти через Google"}
++              >
++                {cloudUser ? (
++                  <span
++                    className="android-account-avatar"
++                    style={cloudUser.photoURL ? { backgroundImage: `url(${cloudUser.photoURL})` } : undefined}
++                    aria-hidden="true"
++                  >
++                    {cloudUser.photoURL ? "" : "G"}
++                  </span>
++                ) : (
++                  <img className="android-google-account-icon" src={`${APP_BASE}/google-signin-light-square.svg`} alt="" aria-hidden="true" />
++                )}
++              </button>
++            </div>
++          </header>
++        ) : null}
+         <header className="topbar" data-exp-ui="topbar">
+           <div>
+             <span className="topbar-kicker">{view === "theokyklos" ? "Теокиклос" : view === "habits" ? (language === "en" ? "Habit tracker" : "Трекер привычек") : CALENDAR_MODE_META[activeCalendarMode].label}</span>
+@@ -6232,6 +6330,88 @@ export function GenesisCalendar() {
+         </div>
+       </section>
+ 
++      {androidAppMode && androidNavigationOpen ? (
++        <div className="android-navigation-layer">
++          <button type="button" className="android-navigation-backdrop" onClick={() => setAndroidNavigationOpen(false)} aria-label="Закрыть меню" />
++          <aside
++            ref={androidNavigationDialogRef}
++            className="android-navigation-drawer"
++            role="dialog"
++            aria-modal="true"
++            aria-labelledby="android-navigation-title"
++            tabIndex={-1}
++          >
++            <header className="android-navigation-brand">
++              <span
++                className="android-navigation-brand-icon"
++                style={{ backgroundImage: `url("${APP_BASE}/icons/icon-192.png")` }}
++                aria-hidden="true"
++              />
++              <span>
++                <strong id="android-navigation-title">GENESIS</strong>
++                <small>ἡμερολόγιον</small>
++              </span>
++              <button type="button" onClick={() => setAndroidNavigationOpen(false)} aria-label="Закрыть меню">×</button>
++            </header>
++
++            <nav className="android-navigation-list" aria-label="Разделы GENESIS">
++              {navigation.map((item) => (
++                <button
++                  type="button"
++                  key={item.id}
++                  className={view === item.id ? "active" : ""}
++                  onClick={() => activateNavigation(item.id)}
++                  aria-current={view === item.id ? "page" : undefined}
++                >
++                  <span aria-hidden="true">{item.symbol}</span>
++                  <strong>{item.label}</strong>
++                </button>
++              ))}
++            </nav>
++
++            <section className="android-month-section" aria-labelledby="android-month-title">
++              <div>
++                <strong id="android-month-title">{calendarRailTitle}</strong>
++                <small>{CALENDAR_MODE_META[activeCalendarMode].label}</small>
++              </div>
++              <div className="android-month-grid">
++                {calendarRailItems.map((month) => (
++                  <button
++                    type="button"
++                    key={month.id}
++                    className={month.active ? "active" : ""}
++                    onClick={() => {
++                      selectCalendarDate(month.date);
++                      navigateTo("calendar");
++                    }}
++                    title={month.name}
++                    aria-label={month.name}
++                    style={{ "--month-accent": month.color } as CSSProperties}
++                  >
++                    <i aria-hidden="true">{month.symbol}</i>
++                    <small>{month.name}</small>
++                  </button>
++                ))}
++              </div>
++            </section>
++
++            <div className="android-navigation-utilities">
++              <button type="button" onClick={selectToday}><span aria-hidden="true">⌖</span><strong>К сегодняшнему дню</strong></button>
++              <button type="button" onClick={exportCalendar} disabled={!tasks.length}><span aria-hidden="true">⇩</span><strong>Экспорт календаря .ics</strong></button>
++              <button type="button" onClick={() => { setAndroidNavigationOpen(false); setAccountOpen(true); }}><span aria-hidden="true">○</span><strong>Личный кабинет</strong></button>
++            </div>
++
++            <footer className={`android-navigation-sync sync-${syncStatus}`} title={syncError || syncLabel}>
++              <span className="sync-dot" aria-hidden="true" />
++              <span>
++                <strong>{cloudUser ? "Google-синхронизация" : "Локальное хранение"}</strong>
++                <small>{cloudUser?.email ?? syncLabel}</small>
++              </span>
++            </footer>
++          </aside>
++        </div>
++      ) : null}
++
+       {habitFeedback ? <HabitCompletionFeedback event={habitFeedback} language={language} showGamification={habitWorkspace.habitSettings.feedback.gamificationWidgets} /> : null}
+       <nav className="mobile-nav" aria-label="Мобильная навигация" data-exp-ui="mobile-nav">
+         {navigation.map((item) => (
+diff --git a/app/experimental-theme.css b/app/experimental-theme.css
+index 5a11a65..5907a10 100644
+--- a/app/experimental-theme.css
++++ b/app/experimental-theme.css
+@@ -61,6 +61,539 @@ html[data-genesis-theme="experimental"] {
+   --gx-row-pad: 16px;
+ }
+ 
++/* Android application shell. The APK opts into this surface with ?android=1.
++   It mirrors the approved Figma top-app-bar/navigation pattern while every
++   existing GENESIS view and authored image remains the original live content. */
++html[data-genesis-theme="experimental"] .genesis-app.android-shell {
++  --gx-size-content-max: 1440px;
++  min-height: 100dvh;
++  display: block;
++  padding: 0;
++  background: var(--gx-color-bg);
++}
++
++html[data-genesis-theme="experimental"] .genesis-app.android-shell > .app-sidebar[data-exp-ui="navigation"],
++html[data-genesis-theme="experimental"] .genesis-app.android-shell .topbar[data-exp-ui="topbar"],
++html[data-genesis-theme="experimental"] .genesis-app.android-shell > .mobile-nav[data-exp-ui="mobile-nav"] {
++  display: none;
++}
++
++html[data-genesis-theme="experimental"] .android-shell .app-stage {
++  width: 100%;
++  min-height: 100dvh;
++  grid-column: 1;
++  overflow: visible;
++}
++
++html[data-genesis-theme="experimental"] .android-shell .android-app-bar {
++  position: sticky;
++  top: 0;
++  z-index: 75;
++  box-sizing: border-box;
++  min-height: calc(64px + env(safe-area-inset-top, 0px));
++  display: grid;
++  grid-template-columns: 48px minmax(0, 1fr) auto;
++  align-items: center;
++  gap: 4px;
++  padding: env(safe-area-inset-top, 0px) max(8px, env(safe-area-inset-right, 0px)) 0 max(8px, env(safe-area-inset-left, 0px));
++  color: var(--gx-color-on-dark);
++  background:
++    radial-gradient(circle at 82% -110%, rgba(223, 193, 126, 0.24), transparent 58%),
++    var(--gx-color-nav);
++  border-bottom: 1px solid rgba(223, 193, 126, 0.25);
++  box-shadow: 0 8px 30px rgba(7, 29, 32, 0.22);
++}
++
++html[data-genesis-theme="experimental"] .android-app-bar :where(button) {
++  appearance: none;
++  font: inherit;
++  cursor: pointer;
++}
++
++html[data-genesis-theme="experimental"] .android-app-bar-button,
++html[data-genesis-theme="experimental"] .android-account-button {
++  width: 48px;
++  height: 48px;
++  display: grid;
++  flex: 0 0 48px;
++  place-items: center;
++  padding: 0;
++  color: var(--gx-color-on-dark);
++  background: transparent;
++  border: 1px solid transparent;
++  border-radius: 14px;
++  transition: background-color var(--gx-motion-fast) ease, border-color var(--gx-motion-fast) ease, transform var(--gx-motion-fast) ease;
++}
++
++html[data-genesis-theme="experimental"] .android-app-bar-button:hover,
++html[data-genesis-theme="experimental"] .android-app-bar-button:focus-visible,
++html[data-genesis-theme="experimental"] .android-account-button:hover,
++html[data-genesis-theme="experimental"] .android-account-button:focus-visible {
++  background-color: rgba(255, 255, 255, 0.09);
++  border-color: rgba(223, 193, 126, 0.34);
++  outline: 0;
++}
++
++html[data-genesis-theme="experimental"] .android-app-bar-button:active,
++html[data-genesis-theme="experimental"] .android-account-button:active {
++  transform: scale(0.94);
++}
++
++html[data-genesis-theme="experimental"] .android-menu-button {
++  align-content: center;
++  gap: 4px;
++}
++
++html[data-genesis-theme="experimental"] .android-menu-button > span {
++  width: 21px;
++  height: 2px;
++  display: block;
++  background: currentColor;
++  border-radius: 99px;
++}
++
++html[data-genesis-theme="experimental"] .android-app-title {
++  min-width: 0;
++  min-height: 52px;
++  display: flex;
++  align-items: center;
++  gap: 10px;
++  padding: 4px 7px;
++  overflow: hidden;
++  color: inherit;
++  text-align: left;
++  background: transparent;
++  border: 0;
++  border-radius: 12px;
++}
++
++html[data-genesis-theme="experimental"] .android-app-title:focus-visible {
++  outline: 2px solid var(--gx-color-gold);
++  outline-offset: -2px;
++}
++
++html[data-genesis-theme="experimental"] .android-app-icon,
++html[data-genesis-theme="experimental"] .android-navigation-brand-icon {
++  width: 36px;
++  height: 36px;
++  flex: 0 0 36px;
++  background-position: center;
++  background-repeat: no-repeat;
++  background-size: cover;
++  border: 1px solid rgba(223, 193, 126, 0.44);
++  border-radius: 50%;
++  box-shadow: 0 0 0 4px rgba(223, 193, 126, 0.07);
++}
++
++html[data-genesis-theme="experimental"] .android-app-title > span:last-child {
++  min-width: 0;
++  display: grid;
++  gap: 2px;
++}
++
++html[data-genesis-theme="experimental"] .android-app-title strong,
++html[data-genesis-theme="experimental"] .android-app-title small {
++  display: block;
++  overflow: hidden;
++  text-overflow: ellipsis;
++  white-space: nowrap;
++}
++
++html[data-genesis-theme="experimental"] .android-app-title strong {
++  color: var(--gx-color-on-dark);
++  font: 600 18px/1.1 var(--gx-font-display);
++}
++
++html[data-genesis-theme="experimental"] .android-app-title small {
++  color: var(--gx-color-on-dark-muted);
++  font: 700 9px/1.2 var(--gx-font-ui);
++  letter-spacing: 0.08em;
++  text-transform: uppercase;
++}
++
++html[data-genesis-theme="experimental"] .android-app-actions {
++  display: flex;
++  align-items: center;
++  gap: 1px;
++}
++
++html[data-genesis-theme="experimental"] .android-create-button > span {
++  color: var(--gx-color-gold);
++  font: 300 31px/1 var(--gx-font-ui);
++}
++
++html[data-genesis-theme="experimental"] .android-voice-icon {
++  width: 23px;
++  height: 23px;
++  stroke: currentColor;
++  stroke-width: 1.7;
++  stroke-linecap: round;
++  stroke-linejoin: round;
++}
++
++html[data-genesis-theme="experimental"] .android-voice-button.is-activating .android-voice-icon {
++  color: var(--gx-color-gold);
++  animation: androidVoicePulse 520ms ease-in-out infinite alternate;
++}
++
++html[data-genesis-theme="experimental"] .android-account-avatar,
++html[data-genesis-theme="experimental"] .android-google-account-icon {
++  width: 32px;
++  height: 32px;
++  display: grid;
++  place-items: center;
++  color: var(--gx-color-nav);
++  background-color: var(--gx-color-gold);
++  background-position: center;
++  background-size: cover;
++  border: 1px solid rgba(255, 255, 255, 0.45);
++  border-radius: 50%;
++  font-weight: 900;
++}
++
++html[data-genesis-theme="experimental"] .android-shell [data-exp-layout="content"] {
++  box-sizing: border-box;
++  min-height: calc(100dvh - 64px - env(safe-area-inset-top, 0px));
++  padding-top: clamp(14px, 3vw, 28px);
++  padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
++}
++
++html[data-genesis-theme="experimental"] .android-navigation-layer {
++  position: fixed;
++  z-index: 240;
++  inset: 0;
++  display: flex;
++  align-items: stretch;
++}
++
++html[data-genesis-theme="experimental"] .android-navigation-backdrop {
++  position: absolute;
++  inset: 0;
++  width: 100%;
++  height: 100%;
++  padding: 0;
++  background: rgba(3, 14, 16, 0.66);
++  border: 0;
++  backdrop-filter: blur(3px);
++  cursor: pointer;
++  animation: androidBackdropIn 180ms ease-out both;
++}
++
++html[data-genesis-theme="experimental"] .android-navigation-drawer {
++  position: relative;
++  box-sizing: border-box;
++  width: min(348px, calc(100vw - 38px));
++  height: 100dvh;
++  display: flex;
++  flex-direction: column;
++  padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px);
++  overflow: hidden;
++  color: var(--gx-color-on-dark);
++  background:
++    radial-gradient(circle at 0 0, rgba(223, 193, 126, 0.12), transparent 26rem),
++    var(--gx-color-nav);
++  border-right: 1px solid rgba(223, 193, 126, 0.28);
++  box-shadow: 28px 0 80px rgba(0, 0, 0, 0.36);
++  outline: 0;
++  animation: androidDrawerIn 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
++}
++
++html[data-genesis-theme="experimental"] .android-navigation-brand {
++  min-height: 78px;
++  display: grid;
++  grid-template-columns: 42px minmax(0, 1fr) 48px;
++  align-items: center;
++  gap: 10px;
++  padding: 10px 12px 10px 18px;
++  border-bottom: 1px solid rgba(223, 193, 126, 0.2);
++}
++
++html[data-genesis-theme="experimental"] .android-navigation-brand > span:nth-child(2) {
++  min-width: 0;
++  display: grid;
++}
++
++html[data-genesis-theme="experimental"] .android-navigation-brand strong {
++  font: 600 18px/1.15 var(--gx-font-display);
++  letter-spacing: 0.12em;
++}
++
++html[data-genesis-theme="experimental"] .android-navigation-brand small {
++  color: var(--gx-color-on-dark-muted);
++  font: 400 11px/1.4 var(--gx-font-display);
++  letter-spacing: 0.08em;
++}
++
++html[data-genesis-theme="experimental"] .android-navigation-brand > button {
++  width: 48px;
++  height: 48px;
++  color: var(--gx-color-on-dark-muted);
++  background: transparent;
++  border: 0;
++  border-radius: 14px;
++  font: 300 28px/1 var(--gx-font-ui);
++  cursor: pointer;
++}
++
++html[data-genesis-theme="experimental"] .android-navigation-list,
++html[data-genesis-theme="experimental"] .android-month-section,
++html[data-genesis-theme="experimental"] .android-navigation-utilities {
++  flex: 0 0 auto;
++}
++
++html[data-genesis-theme="experimental"] .android-navigation-list {
++  display: grid;
++  grid-template-columns: repeat(2, minmax(0, 1fr));
++  gap: 6px;
++  padding: 14px 12px;
++}
++
++html[data-genesis-theme="experimental"] .android-navigation-list button,
++html[data-genesis-theme="experimental"] .android-navigation-utilities button {
++  min-width: 0;
++  min-height: 48px;
++  display: flex;
++  align-items: center;
++  gap: 10px;
++  padding: 8px 11px;
++  color: var(--gx-color-on-dark-muted);
++  text-align: left;
++  background: transparent;
++  border: 1px solid transparent;
++  border-radius: 12px;
++  cursor: pointer;
++}
++
++html[data-genesis-theme="experimental"] .android-navigation-list button > span,
++html[data-genesis-theme="experimental"] .android-navigation-utilities button > span {
++  width: 25px;
++  flex: 0 0 25px;
++  color: var(--gx-color-gold);
++  font: 400 19px/1 var(--gx-font-display);
++  text-align: center;
++}
++
++html[data-genesis-theme="experimental"] .android-navigation-list button strong,
++html[data-genesis-theme="experimental"] .android-navigation-utilities button strong {
++  min-width: 0;
++  overflow: hidden;
++  font: 750 12px/1.25 var(--gx-font-ui);
++  text-overflow: ellipsis;
++  white-space: nowrap;
++}
++
++html[data-genesis-theme="experimental"] .android-navigation-list button:hover,
++html[data-genesis-theme="experimental"] .android-navigation-list button:focus-visible,
++html[data-genesis-theme="experimental"] .android-navigation-utilities button:hover,
++html[data-genesis-theme="experimental"] .android-navigation-utilities button:focus-visible,
++html[data-genesis-theme="experimental"] .android-navigation-list button.active {
++  color: var(--gx-color-on-dark);
++  background-color: rgba(255, 255, 255, 0.07);
++  border-color: rgba(223, 193, 126, 0.24);
++  outline: 0;
++}
++
++html[data-genesis-theme="experimental"] .android-navigation-list button.active {
++  background-color: rgba(223, 193, 126, 0.14);
++  box-shadow: inset 3px 0 0 var(--gx-color-gold);
++}
++
++html[data-genesis-theme="experimental"] .android-month-section {
++  min-height: 0;
++  padding: 14px 12px;
++  overflow-y: auto;
++  border-block: 1px solid rgba(223, 193, 126, 0.16);
++}
++
++html[data-genesis-theme="experimental"] .android-month-section > div:first-child {
++  display: grid;
++  gap: 3px;
++  margin: 0 4px 11px;
++}
++
++html[data-genesis-theme="experimental"] .android-month-section > div:first-child strong {
++  color: var(--gx-color-on-dark);
++  font: 700 11px/1.35 var(--gx-font-ui);
++  letter-spacing: 0.06em;
++  text-transform: uppercase;
++}
++
++html[data-genesis-theme="experimental"] .android-month-section > div:first-child small {
++  color: var(--gx-color-on-dark-muted);
++  font: 500 10px/1.3 var(--gx-font-ui);
++}
++
++html[data-genesis-theme="experimental"] .android-month-grid {
++  display: grid;
++  grid-template-columns: repeat(3, minmax(0, 1fr));
++  gap: 6px;
++}
++
++html[data-genesis-theme="experimental"] .android-month-grid button {
++  min-width: 0;
++  min-height: 50px;
++  display: grid;
++  place-items: center;
++  align-content: center;
++  gap: 4px;
++  padding: 5px 3px;
++  overflow: hidden;
++  color: #829793;
++  background: rgba(255, 255, 255, 0.025);
++  border: 1px solid rgba(255, 255, 255, 0.08);
++  border-radius: 11px;
++  cursor: pointer;
++}
++
++html[data-genesis-theme="experimental"] .android-month-grid button i {
++  color: color-mix(in srgb, var(--month-accent) 75%, var(--gx-color-gold));
++  font: 400 17px/1 var(--gx-font-display);
++  font-style: normal;
++}
++
++html[data-genesis-theme="experimental"] .android-month-grid button small {
++  max-width: 100%;
++  overflow: hidden;
++  color: inherit;
++  font: 750 7px/1.15 var(--gx-font-ui);
++  text-overflow: ellipsis;
++  text-transform: uppercase;
++  white-space: nowrap;
++}
++
++html[data-genesis-theme="experimental"] .android-month-grid button.active {
++  color: var(--gx-color-on-dark);
++  background: color-mix(in srgb, var(--month-accent) 26%, rgba(223, 193, 126, 0.08));
++  border-color: color-mix(in srgb, var(--month-accent) 65%, var(--gx-color-gold));
++  box-shadow: inset 0 -3px 0 var(--month-accent);
++}
++
++html[data-genesis-theme="experimental"] .android-navigation-utilities {
++  display: grid;
++  padding: 9px 12px;
++}
++
++html[data-genesis-theme="experimental"] .android-navigation-utilities button:disabled {
++  cursor: not-allowed;
++  opacity: 0.45;
++}
++
++html[data-genesis-theme="experimental"] .android-navigation-sync {
++  min-height: 62px;
++  display: flex;
++  align-items: center;
++  gap: 11px;
++  margin-top: auto;
++  padding: 10px 18px;
++  color: var(--gx-color-on-dark-muted);
++  border-top: 1px solid rgba(223, 193, 126, 0.16);
++}
++
++html[data-genesis-theme="experimental"] .android-navigation-sync > span:last-child {
++  min-width: 0;
++  display: grid;
++  gap: 2px;
++}
++
++html[data-genesis-theme="experimental"] .android-navigation-sync strong,
++html[data-genesis-theme="experimental"] .android-navigation-sync small {
++  overflow: hidden;
++  text-overflow: ellipsis;
++  white-space: nowrap;
++}
++
++html[data-genesis-theme="experimental"] .android-navigation-sync strong {
++  color: var(--gx-color-on-dark);
++  font: 700 11px/1.3 var(--gx-font-ui);
++}
++
++html[data-genesis-theme="experimental"] .android-navigation-sync small {
++  font: 500 9px/1.3 var(--gx-font-ui);
++}
++
++@keyframes androidDrawerIn {
++  from { transform: translateX(-102%); }
++  to { transform: translateX(0); }
++}
++
++@keyframes androidBackdropIn {
++  from { opacity: 0; }
++  to { opacity: 1; }
++}
++
++@keyframes androidVoicePulse {
++  from { transform: scale(0.92); opacity: 0.7; }
++  to { transform: scale(1.08); opacity: 1; }
++}
++
++@media (max-width: 520px) {
++  html[data-genesis-theme="experimental"] .android-shell .content-column {
++    padding-inline: 12px;
++  }
++
++  html[data-genesis-theme="experimental"] .android-app-bar {
++    gap: 0;
++    padding-inline: max(4px, env(safe-area-inset-left, 0px)) max(4px, env(safe-area-inset-right, 0px));
++  }
++
++  html[data-genesis-theme="experimental"] .android-app-title {
++    gap: 7px;
++    padding-inline: 3px;
++  }
++
++  html[data-genesis-theme="experimental"] .android-app-icon {
++    width: 31px;
++    height: 31px;
++    flex-basis: 31px;
++  }
++
++  html[data-genesis-theme="experimental"] .android-app-title strong {
++    font-size: 16px;
++  }
++
++  html[data-genesis-theme="experimental"] .android-app-title small {
++    font-size: 8px;
++  }
++}
++
++@media (max-width: 390px) {
++  html[data-genesis-theme="experimental"] .android-app-bar {
++    grid-template-columns: 46px minmax(0, 1fr) auto;
++  }
++
++  html[data-genesis-theme="experimental"] .android-app-bar-button,
++  html[data-genesis-theme="experimental"] .android-account-button {
++    width: 44px;
++    height: 48px;
++    flex-basis: 44px;
++  }
++
++  html[data-genesis-theme="experimental"] .android-app-icon {
++    display: none;
++  }
++
++  html[data-genesis-theme="experimental"] .android-app-title small {
++    max-width: 104px;
++  }
++
++  html[data-genesis-theme="experimental"] .android-navigation-list {
++    padding-block: 10px;
++  }
++}
++
++@media (prefers-reduced-motion: reduce) {
++  html[data-genesis-theme="experimental"] .android-navigation-backdrop,
++  html[data-genesis-theme="experimental"] .android-navigation-drawer,
++  html[data-genesis-theme="experimental"] .android-voice-button.is-activating .android-voice-icon {
++    animation: none;
++  }
++
++  html[data-genesis-theme="experimental"] .android-app-bar-button,
++  html[data-genesis-theme="experimental"] .android-account-button {
++    transition-duration: 0s;
++  }
++}
++
+ html[data-genesis-theme="experimental"] body {
+   background-color: var(--gx-color-bg);
+ }
+diff --git a/app/i18n.ts b/app/i18n.ts
+index 7b919b4..014b1c3 100644
+--- a/app/i18n.ts
++++ b/app/i18n.ts
+@@ -69,6 +69,15 @@ const curatedTranslations: Record<string, string> = {
+   "Календарь постановки задач": "Task scheduling calendar",
+   "Основной календарь не изменится; выбор дат, повторений и календарные подписи новых задач будут работать по выбранной системе.": "The primary calendar will not change; date selection, recurrences, and calendar labels for new tasks will use the selected system.",
+   "Создать задачу": "Create task",
++  "Открыть меню GENESIS": "Open the GENESIS menu",
++  "GENESIS — перейти на сегодня": "GENESIS — go to Today",
++  "Θεόκυκλος · полный круг": "Theokyklos · complete circle",
++  "Открыть GENESIS Voice": "Open GENESIS Voice",
++  "Открыть голосового помощника GENESIS Voice": "Open the GENESIS Voice assistant",
++  "Открыть личный кабинет": "Open account settings",
++  "Закрыть меню": "Close menu",
++  "Разделы GENESIS": "GENESIS sections",
++  "Экспорт календаря .ics": "Export calendar .ics",
+   "Новая задача на выбранный день": "New task for the selected day",
+   "Дата задачи": "Task date",
+   "Дата уже выбрана. При необходимости её можно изменить в форме.": "The date is already selected. You can change it in the form if needed.",

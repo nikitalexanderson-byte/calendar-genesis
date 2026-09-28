@@ -1722,6 +1722,9 @@ test("tracker scoring and time math preserve the specified invariants", () => {
   assert.equal(calculateSleepDuration("2026-09-14", "21:00", "23:00", "Europe/Moscow"), 120);
   assert.equal(calculateSleepDuration("2026-09-14", "23:30", "07:30", "Europe/Moscow"), 480);
   assert.equal(calculateSleepDuration("2026-03-07", "23:30", "03:30", "America/New_York"), 180);
+  assert.equal(calculateSleepDuration("2026-03-28", "23:00", "07:00", "Europe/Berlin"), 420);
+  assert.equal(calculateSleepDuration("2026-10-24", "23:00", "07:00", "Europe/Berlin"), 540);
+  assert.equal(calculateSleepDuration("2026-10-31", "23:00", "07:00", "America/New_York"), 540);
   assert.equal(scoreSleepRules(true, [
     { field: "bedtime", operator: "on-or-before", threshold: "23:00", points: 10 },
     { field: "wake", operator: "after", threshold: "08:00", points: -5 },

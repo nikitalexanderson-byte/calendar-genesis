@@ -1,0 +1,83 @@
+async page => {
+  const themes = ["standart", "experimental"];
+  const sizes = [
+    { width: 360, height: 800 },
+    { width: 390, height: 844 },
+    { width: 768, height: 1024 },
+    { width: 1440, height: 1000 },
+  ];
+
+  const navigate = async (view) => {
+    await page.evaluate((nextView) => {
+      const url = new URL(location.href);
+      url.hash = nextView;
+      history.pushState({ genesisView: nextView }, "", url);
+      dispatchEvent(new PopStateEvent("popstate"));
+    }, view);
+    await page.waitForTimeout(view === "theokyklos" ? 700 : 350);
+  };
+
+  for (const theme of themes) {
+    await page.evaluate((nextTheme) => {
+      const user = JSON.parse(localStorage.getItem("genesis-last-user-v2") || "{}");
+      user.theme = nextTheme;
+      user.themeRevision = Number(user.themeRevision || 0) + 1;
+      localStorage.setItem("genesis-last-user-v2", JSON.stringify(user));
+    }, theme);
+    await page.reload();
+    await page.waitForSelector(".genesis-app", { timeout: 20000 });
+    await page.waitForFunction(
+      (nextTheme) => document.documentElement.getAttribute("data-genesis-theme") === nextTheme,
+      theme,
+    );
+
+    for (const size of sizes) {
+      await page.setViewportSize(size);
+      await navigate("habits");
+      if (theme === "experimental") {
+        await page.locator('[data-experimental-habit-tab="modules"]').click();
+      }
+
+      const sacred = page.locator(".sacred-habit-library");
+      await sacred.waitFor({ state: "visible" });
+      await sacred.scrollIntoViewIfNeeded();
+      if (await sacred.locator(".sacred-compass-grid > button").count() !== 9) throw new Error(`${theme} ${size.width}: compass structure changed`);
+      if (await sacred.locator(".sacred-axis-grid > button").count() !== 3) throw new Error(`${theme} ${size.width}: sacred axis structure changed`);
+      if (await sacred.locator(".sacred-threshold-grid > button").count() !== 2) throw new Error(`${theme} ${size.width}: threshold structure changed`);
+      if (await page.getByText("Открыть в Теокиклосе", { exact: true }).count()) throw new Error(`${theme} ${size.width}: legacy navigation action is still visible`);
+      const habitOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      if (habitOverflow > 2) throw new Error(`${theme} ${size.width}: habits overflow by ${habitOverflow}px`);
+      await sacred.screenshot({ path: `output/playwright/habit-details-after-${theme}-structure-${size.width}.png` });
+
+      await sacred.getByRole("button", { name: "Восток: Гермес и Пейто" }).click();
+      const pickerDialog = page.locator(".sacred-sector-modal");
+      await pickerDialog.waitFor({ state: "visible" });
+      const openDescription = pickerDialog.getByRole("button", { name: "Открыть описание" });
+      const closePicker = pickerDialog.getByRole("button", { name: "Закрыть", exact: true }).last();
+      if (await openDescription.locator("svg").count() !== 1) throw new Error(`${theme} ${size.width}: description action has no SVG icon`);
+      if (await closePicker.locator("svg").count() !== 1) throw new Error(`${theme} ${size.width}: close action has no SVG icon`);
+      await page.screenshot({ path: `output/playwright/habit-details-after-${theme}-picker-${size.width}.png` });
+
+      await openDescription.click();
+      const details = page.locator(".theokyklos-details");
+      await details.waitFor({ state: "visible" });
+      if (!page.url().endsWith("#habits")) throw new Error(`${theme} ${size.width}: description navigated away from Habits`);
+      await details.getByRole("heading", { name: "Восток · Рассвет и Интеллект" }).waitFor();
+      await details.getByRole("heading", { name: "Сакральные привычки" }).waitFor();
+      await page.screenshot({ path: `output/playwright/habit-details-after-${theme}-description-${size.width}.png` });
+      await page.keyboard.press("Escape");
+      await details.waitFor({ state: "detached" });
+
+      await navigate("theokyklos");
+      const theokyklos = page.locator(".theokyklos-view");
+      await theokyklos.waitFor({ state: "visible" });
+      await theokyklos.scrollIntoViewIfNeeded();
+      if (await page.locator(".theokyklos-segment-index").count()) throw new Error(`${theme} ${size.width}: duplicate segment index remains`);
+      if (await page.locator(".theokyklos-mandala .theokyklos-svg-segment").count() !== 14) throw new Error(`${theme} ${size.width}: main circle lost a segment`);
+      const circleOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      if (circleOverflow > 2) throw new Error(`${theme} ${size.width}: Theokyklos overflows by ${circleOverflow}px`);
+      await page.screenshot({ path: `output/playwright/habit-details-after-${theme}-theokyklos-${size.width}.png` });
+      await page.locator(".theokyklos-mandala-viewport").screenshot({ path: `output/playwright/habit-details-after-${theme}-circle-${size.width}.png` });
+    }
+  }
+}

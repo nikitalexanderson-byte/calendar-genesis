@@ -1,0 +1,51 @@
+async page => {
+  const themes = ["standart", "experimental"];
+  const sizes = [
+    { width: 360, height: 800 },
+    { width: 390, height: 844 },
+    { width: 768, height: 1024 },
+    { width: 1440, height: 1000 },
+  ];
+  const views = ["all-tasks", "projects", "habits", "calendar", "year", "stoicheion", "theokyklos"];
+
+  for (const theme of themes) {
+    await page.evaluate((nextTheme) => {
+      const user = JSON.parse(localStorage.getItem("genesis-last-user-v2") || "{}");
+      user.theme = nextTheme;
+      user.themeRevision = Number(user.themeRevision || 0) + 1;
+      localStorage.setItem("genesis-last-user-v2", JSON.stringify(user));
+    }, theme);
+    await page.reload();
+    await page.waitForSelector(".genesis-app");
+    await page.waitForFunction(
+      (nextTheme) => document.documentElement.getAttribute("data-genesis-theme") === nextTheme,
+      theme,
+    );
+
+    for (const size of sizes) {
+      await page.setViewportSize(size);
+      for (const view of views) {
+        await page.evaluate((nextView) => {
+          const url = new URL(location.href);
+          url.hash = nextView;
+          history.pushState({ genesisView: nextView }, "", url);
+          dispatchEvent(new PopStateEvent("popstate"));
+        }, view);
+        await page.waitForTimeout(view === "stoicheion" || view === "theokyklos" ? 900 : 350);
+        await page.screenshot({ path: `output/playwright/phase2-after-${theme}-${view}-${size.width}.png` });
+      }
+
+      await page.evaluate(() => {
+        const url = new URL(location.href);
+        url.hash = "all-tasks";
+        history.pushState({ genesisView: "all-tasks" }, "", url);
+        dispatchEvent(new PopStateEvent("popstate"));
+      });
+      await page.locator(".account-chip > button").click();
+      await page.getByRole("menuitem", { name: "Личный кабинет" }).click();
+      await page.waitForSelector(".account-panel");
+      await page.screenshot({ path: `output/playwright/phase2-after-${theme}-account-${size.width}.png` });
+      await page.keyboard.press("Escape");
+    }
+  }
+}

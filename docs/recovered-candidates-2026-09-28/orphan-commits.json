@@ -1,0 +1,42 @@
+[
+  {
+    "sha": "4c822605f90fe2036dd664dee08f1b449a814e40",
+    "subject": "On fix-pnpm-workspace-packages: codex-preserve-api-router-comments",
+    "decision": "Obsolete stash: API publication already restored in master by 4aa68c0; current workflow assembles and deploys the same API with stronger checks."
+  },
+  {
+    "sha": "91c7b60fa9c551f622867b2261f37711efb78405",
+    "subject": "index on fix-pnpm-workspace-packages",
+    "decision": "Empty index snapshot; no unique code."
+  },
+  {
+    "sha": "ae9565eed05c9fbba7f3a1f3ea84bf41f50408c6",
+    "subject": "On master: cline checkpoint",
+    "decision": "Old checkpoint of already published features (Stoicheion draws, timezone, tags, month descriptions/art). Early plain selects and blanket task merge superseded; no candidate to restore."
+  },
+  {
+    "sha": "f0c42f32cb19c8379dba3b6a191d6a612e79fb85",
+    "subject": "Show Gregorian dates in sacred date picker",
+    "decision": "git cherry origin/master: patch-equivalent to a published commit; no unique candidate."
+  },
+  {
+    "sha": "9988395de11bae35aa167c596ba09c59b68e698d",
+    "subject": "Fix Android Google service authorization and English UI",
+    "decision": "git cherry origin/master: patch-equivalent to a published commit; no unique candidate."
+  },
+  {
+    "sha": "741924e6421291e2221fe45b83cdb66927e096d5",
+    "subject": "Add isolated native alpha with local records and reminders",
+    "decision": "git cherry origin/master: patch-equivalent to a published commit; no unique candidate."
+  },
+  {
+    "sha": "59e3d6849419629b35de0bec3b1f81578393c7d3",
+    "subject": "Add free local voice task assistant",
+    "decision": "git cherry origin/master: patch-equivalent to a published commit; no unique candidate."
+  },
+  {
+    "sha": "f4e706a46686ad7297836c03ef2d91fb18ede873",
+    "subject": "Bind validation report to source commit",
+    "decision": "git cherry origin/master: patch-equivalent to a published commit; no unique candidate."
+  }
+]

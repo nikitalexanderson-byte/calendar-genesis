@@ -1,0 +1,2049 @@
+{
+  "date": "2026-09-28",
+  "deployedMaster": "6f61f237eb51d84497ea3ecd60c5a8ea42fe4874",
+  "origin": "https://github.com/nikitalexanderson-byte/calendar-genesis",
+  "localBranches": 177,
+  "remoteBranches": 163,
+  "refs": [
+    {
+      "ref": "refs/heads/codex/account-deletion-purge",
+      "sha": "db3f8dde0e11f3a43240fba3eec036d02c71b7c7",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/account-time-format",
+      "sha": "9793be1d83bf7254759e7b8a84a369556ef546e7",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/achievement-18-year-mosaic-responsive",
+      "sha": "d13d60ae85fbb9da88a0dd306f010e623386f7eb",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/add-english-localization",
+      "sha": "a7e74afd3246dc3a4f15947d9aadf79f652386ad",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/add-local-voice-assistant",
+      "sha": "51371d2ae686c9f84daac23da8a19dad9fc7aaf6",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/adjacent-month-watermarks",
+      "sha": "55da4f31a255b79a627158cbf837a70b2d43f90b",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/android-1.2.2-custom-tab",
+      "sha": "48c0b152391afd7d682f9c04057b32d3c10d05ae",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/android-2-2-9",
+      "sha": "ac80ee6c77c895e69fa7698fc3f86a2fb15a1e8e",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/android-apk-headers",
+      "sha": "eca2323f9dee29933eb5ad631c3488ce21896772",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/android-apk-versioned-url",
+      "sha": "35ce19e780c384229e96dfc3215ee3a63ba03486",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/android-deploy-sdk",
+      "sha": "9e05a2abfc32a59314bc709e3a0fb8bc9d160522",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/android-deploy-wrapper",
+      "sha": "57f314e26fd70cb8ff1984e9fdd4f1271175a541",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/android-genesis-redesign",
+      "sha": "30257ff78dcf7fed4b43030fc00158bc1f6b54ed",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/android-metrics-guard",
+      "sha": "76758a586fb1a6ed5c07a80bb71b98938eae989a",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/android-mvp-v21",
+      "sha": "eb469755f18457b4f71a28a662d26ed1e21e548e",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/android-native-bootstrap",
+      "sha": "8df27d412c790284f9f51598986d5c01499cabeb",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/android-test-apk",
+      "sha": "f98a4be447b4b1b90dcb60428d60030455327902",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/apeiron-month-guide",
+      "sha": "398afcea9b750642673f3c7d47d7d2c003f4cc38",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/automatic-solar-times-darker-pages",
+      "sha": "63399dd964c9ec3700e977661e7717ae44c090a3",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/backend-smoke-qa05",
+      "sha": "d42a72b3753c785a16427af303516b3b3e48b7ff",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/bust-stoicheion-frame-cache",
+      "sha": "fbe4f761f0f18feb5899354e2c55eb3208471cb6",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/chaos-box-delete-task",
+      "sha": "87652c30098341fb0431d66ab6f3c3a2a780354b",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/collapsible-day-rhythm",
+      "sha": "7ab4e3b2c8857fceeb5090422d11efae268d89a0",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/complete-english-translation",
+      "sha": "296f3e2962a5c79ba8965a1ed81d670362743ca7",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/daily-sacred-art",
+      "sha": "4246c3ce0ca659130e550f008b8ca80f39e8f673",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/darken-saturdays-year-view",
+      "sha": "3ffca144b42a6503f3a6dd65de05df8c0e4da271",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/day-modal-tasks-hierarchy-contrast",
+      "sha": "0fd0c02b6a5bff7b2767997a2a439afb7ec6a81a",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/day-rhythm-system",
+      "sha": "932cc2f5be1186d55ac71884d0ef4b089372cb3c",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/default-task-list-visibility",
+      "sha": "d505215afe9cf75a8e52f96f269f6bb9a2b4580a",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/disable-gemini-temporarily",
+      "sha": "6b3af469b0ad181d19f2e52e56e2161171ef5bf0",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/exact-greek-key-frame",
+      "sha": "7ad159c1f98a6adcd917b74eeb5ce9d7464b3d26",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/experimental-complete-design",
+      "sha": "2c7cec403ac62445ddbdcf0d388f9d61ea900b4a",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/experimental-theme-1-1",
+      "sha": "fd530fb659a7f0f9b3278d9701a692086f72c569",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/experimental-theme-complete",
+      "sha": "74c89e1013ed90f08b912ec863eca02f56a0cf54",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/experimental-theme-fixes",
+      "sha": "2ee19cf901b0b241cacaf19d2065d4d4d64c90dc",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/experimental-theme-runtime-fix",
+      "sha": "31628e7b668ac179a0637bd10bedd3cd5e27a6a1",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/final-production-qa",
+      "sha": "1e499f92353ddb0ff6a99f524d1c1a2162d847a4",
+      "reachableFromDeployedMaster": false,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/fix-gemini-and-localization",
+      "sha": "c1f81fbd00f33ab1bdb6b75161255b366e8f9b08",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/fix-habit-calendar-picker",
+      "sha": "6fb1ce5819c457fbfc55dce5a4d9fbca093b795d",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/fix-habit-weekday-persistence",
+      "sha": "8d4fe206a7bdb17ae9a4b78376e857cf31ff69f1",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/fix-project-sync-habit-ui-encryption",
+      "sha": "5aa8c66f4ec891b95dc8ae83695afb6d5615cf70",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/fix-reminder-menu-clipping",
+      "sha": "3e23a25c12627270aec9b4008acd50b4bf9b41a9",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/fix-sacred-month-recurrence",
+      "sha": "22c952f3a5e0fb7c105e2a79367a9460b90897a3",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/fix-theokyklos-habit-art",
+      "sha": "7129ff64702546c8811870c7eab6ae8779a72c69",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/flexible-recurrence",
+      "sha": "2d3550ebf965d68ca0df10b573d48116d820bafb",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/friend-cloud-bootstrap",
+      "sha": "866fdc2182e98189e92b3fdc54fa214cb30a8eb3",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/full-calendar-modes",
+      "sha": "ba66da1926ffa06ac3b7d3029289c0e1cdc6e584",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/gemini-voice-assistant",
+      "sha": "0d6d182775e6635a82bbacc96e56f66a2e4b4c80",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/genesis-git-sync",
+      "sha": "62e6b6a35bb587c2558d6e97374a5f40288ac5aa",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/genesis-visuals-tasks-hierarchy",
+      "sha": "e410972a20fd3cc36bb5b5f82b42afd37c96da12",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/gigachat-voice-assistant",
+      "sha": "1baaece3a0797bda200e54ef0cbe8e0415e30b6b",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/global-calendar-multi-account",
+      "sha": "5e02892efa3c19ab00857006f0852319ed91d8c8",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/google-auth-sync-fix",
+      "sha": "89e56468d3f3442244a3aa62fbc447010933055b",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/google-oauth-readiness",
+      "sha": "3f1bf0251d3fa51c980ddfacdad0dc8b4609faf4",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/gregorian-adjacent-days",
+      "sha": "e017aeadc47728fb0866506ef5cc73d3886f9c32",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/gregorian-calendar-history",
+      "sha": "0981dafce936d2e35a8fd359331304617cc978df",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/gregorian-calendar-layout-colors",
+      "sha": "d22ac3fd209b99a837905db4ea3af993dafc7e1d",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/gregorian-calendar-sickle",
+      "sha": "9c781094c127f0032ccb00678c20d05a0af8f93d",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/gregorian-recurrence-sickle",
+      "sha": "fb64be5525371b084147cc481668e2855f4d474e",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/gregorian-solar-contrast",
+      "sha": "cb42f511cbcf2739b0038239af4f5041917985d9",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/gregorian-weekday-deities",
+      "sha": "8380c25a2539c9fd0df85ea438ef2a6a12680347",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/gregorian-weekday-guidance",
+      "sha": "1c18c51c25bb688e3c4ec2d0c066d81adab82c72",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/gregorian-weekday-selection-colors",
+      "sha": "3b7b725b4b442d606b7412513756257a362aebca",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/habit-30-days-js-bundle-qa04",
+      "sha": "5f69f51d3fbc4eee48a18831460e3a528207a1cd",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/habit-hero-responsive-dnd",
+      "sha": "99a69c1290b145559628946661728cc4fbfa3dce",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/habit-reminder-rollover",
+      "sha": "48c31ed18f80f26ae12edd0ab39c223b645345cf",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/habit-sections-dialog-qa02",
+      "sha": "b04ee9322dbc0181324de6302a155ea8dddf8f5d",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/habit-sections-grid-order",
+      "sha": "fe8d56f3babb483c3137208cc88cbc6c1e7ed4a8",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/habit-tracker",
+      "sha": "00a476fa09253090c9352f74c6df56827e6490fd",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/habits-achievements-recovery-dialog",
+      "sha": "25e8bb6e03912fd2911e45e00d030cb1e5921666",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/habits-calendar-date-modes",
+      "sha": "ee2171bbd955fb9b117daf7abae8c2eed9c2c1a8",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/habits-editable-settings-locked-scoring",
+      "sha": "695464cdcc5b1641a01182859dbe3d631ebef7b1",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/habits-guidance-rituals-quests",
+      "sha": "833ea4d8aaf208bb3aa44c44f5f21c199b1bb57b",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/habits-hero-path-admin-moderation",
+      "sha": "c4dedc575952dd6834ac7a0081666ee6cc0a1867",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/habits-hestia-comeback",
+      "sha": "ce667c7c868d3035bcb71be22decfec707c77c3a",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/habits-hidden-path-reveal",
+      "sha": "085555e6f576988f53eba1fdb5876e540ffa7131",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/habits-laurel-mastery-retention",
+      "sha": "25e5512a649d55f0cb46332b4035310dd5f3953b",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/habits-notifications-adaptive-nav",
+      "sha": "abe59a2044e0ce116cf96441847c58d64710711d",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/habits-offline-e2ee-sync",
+      "sha": "69464251272cfad4003bd187b89c0236d14dd4bf",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/habits-phase-a-starter-templates",
+      "sha": "d5cee05d30fd4d7899f530905dbcdad08733b1ba",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/habits-phase-b-lifetime-xp",
+      "sha": "46e642761c5b707182dd8fc8c292a5c06e7264cd",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/habits-phase-c-daily-goal-streak",
+      "sha": "d71637effdedc0b1bbb465b0a6f3a2e5b1cc79c6",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/habits-phase-d-laurels-rewards",
+      "sha": "a75a86f5da74998efe9ffa3ef5cdf611779e2a2c",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/habits-phase-e-integrity-priority-icons",
+      "sha": "949029d2d3d9df5c9ac6b692571d76fe9708afd4",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/habits-phase-f-sacred-practices",
+      "sha": "239e3a0998ff0508a9b36313bb0c25de7d251da6",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/habits-phase-g-dynamic-metric-sigils",
+      "sha": "c6cc1b24fe2ffb751e280ee63271c02aa4221006",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/habits-phase-h-full-sacred-ranks",
+      "sha": "fe62f774c3d5aa1be774e2b4d9906c5ec9327c1c",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/habits-phase-i-sector-compass-sigils",
+      "sha": "050abe4bf316a8f753e62b9cbe395e502c4dcd04",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/habits-phase-j-daily-panel-order",
+      "sha": "57d5de9be77b94b98d338d136608b646ac9c873d",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/habits-phase-k-analytics-bottom",
+      "sha": "eebfe4cdaa0eecf1d3dd65d6c2a591fd3396f350",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/habits-phase-k-insights-records",
+      "sha": "ba2ecd618217b964cdf43a48e82712efce4e972d",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/habits-phase-l-feedback-accessibility",
+      "sha": "92cf022d2c242e3930828fdb3d0429db06af0fc5",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/habits-phase-l-reset-all",
+      "sha": "1a95d6b24d8548b6212ab48270c95e9fa6393374",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/habits-quests-today-tasks",
+      "sha": "7dc32014472406f28417bd5b98c5daa225c0029b",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/habits-sacred-picker-editor-ux",
+      "sha": "54dff5f04fbc519dbf936e0f0f30213fa87564fc",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/hero-path-glowing-button",
+      "sha": "629c9c072398cb614e0d8d3d8698f811e6aed0bf",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/hero-path-icons",
+      "sha": "fc1c41d61aaf80daeac68a4371859569f34b04ad",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/hero-path-icons-merge",
+      "sha": "9be998c2cf86dab19ed7f7ac3c2f8cb5aeb248a0",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/hero-path-tone-mobile-nav-qa03",
+      "sha": "a209c4048cfc2b284ade54473a45bac892a7e759",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/homepage-block-order",
+      "sha": "f4aeee4b53dc2410ce05950586829ac4c61288d4",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/live-day-rhythm",
+      "sha": "91ebceda5e33fcf3dccf89adeff8e0963912c92b",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/lunar-calendar-structure",
+      "sha": "863d5e4ede64cedee681b75c5d925ff01d378f32",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/lunar-mobile-two-column",
+      "sha": "fa0ab542f3b64ce24874b2e322f70be315a1826e",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/lunar-solar-dates-highlight",
+      "sha": "b6178c95d7343e02ae3b21889d63fdda96dd466f",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/lunar-year-layout-phases",
+      "sha": "896f5f2dc3df982cc49f66cb934138c8aa42657a",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/mobile-auth-stability-20260926",
+      "sha": "8d1cf047e207929f196f7608096fcfaea4ed3133",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/mobile-calendar-blocks",
+      "sha": "1f828f3498b9b8834ba979fb5c88328374bca3df",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/mobile-day-modal-drag",
+      "sha": "f888e01fdf0f817942fd868a1707049c7c0cb2cc",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/mobile-gregorian-calendar",
+      "sha": "71567f99959cd4522d134d0b2e287b97785f9f5a",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/mobile-polish-20260926",
+      "sha": "baeba63584757911acc7521e47743c781d8dc37e",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/mobile-unified-sections",
+      "sha": "d41cb3e4f459f2176c182e3e051b0b7f0f12ad07",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/modular-tracker",
+      "sha": "63a4c607dbaa488370edaf301288d22d82babfc2",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/monochrome-athena-symbol",
+      "sha": "27a7b8ccfba4c74b3ecb591f6419e14e6606975c",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/month-task-interactions",
+      "sha": "c007097400fc6c82f0130c0434f5bd1ba59798c6",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/moon-task-range-layout",
+      "sha": "353921dde85741ef2e69d37e95c94ff28b6375fe",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/multi-account-for-all",
+      "sha": "f34614a16768db231d61c87dd2799dd469a0e07a",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/multiple-reminders",
+      "sha": "361afc893c408bde03a7356f8de5a310117f602a",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/native-auth-server",
+      "sha": "6b9d6cdc47eda9973c2828e5ea506c1b6ccf7017",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/native-recurring-tasks",
+      "sha": "b9b8e9c489d44b463a81c36286f96defce892874",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/plain-alternative-calendar-months",
+      "sha": "19a2e9e3f5aeae74a42ed2ee08707558553df9c2",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/profane-cronus-sunday",
+      "sha": "a5146879e74ce1435ded6fe7c01f0f80185ea9e4",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/projects-task-separation",
+      "sha": "5e7dc3cc2872de337975dff5f6f1ec896244a3f9",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/qa-continuation",
+      "sha": "6afab7dbff6f71dba341ae80dfdc61fedf29698b",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/quinta-descriptions",
+      "sha": "d5971a6ec8140871797ffec98c9739301a700965",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/quinta-translation",
+      "sha": "aa02566fa5ee4a41ada77baa8290c7911d4122c2",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/recurrence-cycle-builder",
+      "sha": "76a8cd757cbf96bfa4865c1a05777e1a860a0517",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/redesign-voice-microphone",
+      "sha": "d3b674cd190a900ec4bacb8e6f38e3b89a061c51",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/refine-day-rhythm-controls",
+      "sha": "47c9ef103c9c0aff8decf7ef2d16dc94aa198fe6",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/refine-saturday-calendar-notes",
+      "sha": "acbb040a505b4db93c5c31a5710f26f6e3be0e4b",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/refine-stoicheion-card-art",
+      "sha": "68c87ea04188b948be56fd16bc02fddd0b9f4da9",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/refine-today-and-clock",
+      "sha": "4c2a222e4a5f8291929c76fc536159842608921f",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/refine-year-task-today-markers",
+      "sha": "c5fbeaaf6d20d2f7fb1e2cddafa458cdd9848050",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/reliable-automatic-solar-times",
+      "sha": "6170782518a27894ac9905c5a734a329b311d211",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/reminder-toggle-svg",
+      "sha": "e6334dfd7f2de3f0d312ff9e6c871b88f1ecee87",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/remove-gregorian-hero-duplicate",
+      "sha": "fbc940ae95686e33006c3d510af97134bd27be04",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/remove-lunar-month-banner",
+      "sha": "42f6e84a075c438ea972c7d466178880d315062e",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/remove-saturn-disclaimer",
+      "sha": "dca41b1b30763921a3163e43a16ce417f17486c8",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/replace-genesis-visual-assets",
+      "sha": "e9c3a69e5e36efd2c9bc2b56be1e5e5abb26f37f",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/restore-stoicheion-invocations",
+      "sha": "c500006fcd25fbaf357ca0a07f66943965df68a3",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/sacred-toggle-offline-qa01",
+      "sha": "1ed1d42f72cfbf36a01d43fb1341102b369909e6",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/sacred-year-details",
+      "sha": "ea8139af942c7a99724af56ab3ffca2ba8ee8488",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/samsung-google-auth-fix",
+      "sha": "cb197483a71aafc15d2ade063cfe0fe37c01475e",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/saturday-cronus-hades-poseidon",
+      "sha": "2115668364adbed9608d6aa5458006a099eb8630",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/saturday-three-patrons",
+      "sha": "15345678cab9362d0620dec779e08f9c7e95e25d",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/show-gregorian-in-sacred-picker",
+      "sha": "bbc906242af55f8c04c3bb7e0135d38f98d491ae",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/standart-theme-toggle",
+      "sha": "53f55e1c7d31f0978d68d2b984b5f01959551cd7",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/stoicheion-card-deck",
+      "sha": "f977f969c820fa69178fcfa52e102d8cf5703091",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/stoicheion-card-frame",
+      "sha": "8dc75479604f39d36bbdfba27826588d938a736a",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/stoicheion-divination-toggle",
+      "sha": "4ff5c2907c1cc6f63e2354d2db4cd632d8daa199",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/task-date-mode-day-create",
+      "sha": "150e0b03f64f646d645456b806bfba319a240d37",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/task-list-edit-delete",
+      "sha": "100c8687aa1ea189ed2d56afcbb76016f80b7865",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/task-priority-slider",
+      "sha": "d25ce74fa8584aeb5f5877878198725ab4ae23f6",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/task-series-habits-merge",
+      "sha": "69f3632a0580c7b621349cec3506ae96a3392920",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/task-series-habits-seasons",
+      "sha": "7d20a252321677da9dcd68f17330147eab774bdb",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/task-workflow-layout",
+      "sha": "bd5b4740eb13e3b78e5cd95d170a1e0698da1ac6",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/theokyklos",
+      "sha": "f60f4b3b4a226d0d91c3c0ad41b4a8e7786a666d",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/theokyklos-centered",
+      "sha": "79ea9294e997de09b135c4090ebb60a40a2476d7",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/theokyklos-desktop-qa",
+      "sha": "6b0d2bbbaa38be508661fce2e77cc5e865df416b",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/theokyklos-modal",
+      "sha": "bf4a3cfddd1b6bf89802ba0ffb47b9981ec4afa3",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/theokyklos-png-icons",
+      "sha": "7f3956606d000363bec8f5833c8fc790f96cac49",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/theokyklos-polish",
+      "sha": "f0a754d03c417726e6556c1890da6c1ef066945f",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/theokyklos-sacred-words",
+      "sha": "6726d0c20dc2fe31735452b1e569c30400ec8342",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/theokyklos-sector-art",
+      "sha": "5bacc2dfc135c02df2348f084959fc0e24258ee5",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/today-calendar-modes",
+      "sha": "a3ea36604e3b9c94b4d41464a32212b5739e8d08",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/today-projects-mobile-updates",
+      "sha": "36df68028f24ed839a74a3e155a9d36651484934",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/twelve-moods-single-row",
+      "sha": "86d30dc4fb11f1be3eef8cf095d014b80eea7d79",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/unify-secret-achievements",
+      "sha": "19f8be220282bc7eb25d8b07271737ae7723663c",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/universal-account-auth-fix",
+      "sha": "6e202432da07bc48602eddd453b7c4a85c52a6e5",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/web-theokyklos-dnd-fix",
+      "sha": "9d4ec592a902352812d3114125b8eaf17e409ff4",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/weekday-guidance-titles",
+      "sha": "69aa92a679e210d895d65ce8f21d89b2d6b8407f",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/codex/year-solar-form-layout",
+      "sha": "891b2bd8780126eed0817df65a8f7dff5df671fc",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/fix-deploy-action-version",
+      "sha": "17ab30fb6a3f7045fd3d4a0c416fd1b97bee81c9",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/fix-pnpm-cache",
+      "sha": "f23314d336d06dde249aa45b114093b1a4185540",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/fix-pnpm-setup",
+      "sha": "b6f88f71423c1415dd793f2a74763b21bad8dc7b",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/fix-pnpm-workspace-packages",
+      "sha": "c46a1e2217f85e9199f4adeb7c2e9b60c9dfb128",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/heads/master",
+      "sha": "30257ff78dcf7fed4b43030fc00158bc1f6b54ed",
+      "reachableFromDeployedMaster": true,
+      "decision": "keep"
+    },
+    {
+      "ref": "refs/heads/setup-ci-deploy",
+      "sha": "bf865d680281eefd7f738f7c088c84d81417b91a",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/account-deletion-purge",
+      "sha": "db3f8dde0e11f3a43240fba3eec036d02c71b7c7",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/account-time-format",
+      "sha": "9793be1d83bf7254759e7b8a84a369556ef546e7",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/achievement-18-year-mosaic-responsive",
+      "sha": "d13d60ae85fbb9da88a0dd306f010e623386f7eb",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/add-english-localization",
+      "sha": "a7e74afd3246dc3a4f15947d9aadf79f652386ad",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/add-local-voice-assistant",
+      "sha": "51371d2ae686c9f84daac23da8a19dad9fc7aaf6",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/adjacent-month-watermarks",
+      "sha": "55da4f31a255b79a627158cbf837a70b2d43f90b",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/android-1.2.2-custom-tab",
+      "sha": "48c0b152391afd7d682f9c04057b32d3c10d05ae",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/android-apk-headers",
+      "sha": "eca2323f9dee29933eb5ad631c3488ce21896772",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/android-apk-versioned-url",
+      "sha": "35ce19e780c384229e96dfc3215ee3a63ba03486",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/android-deploy-sdk",
+      "sha": "9e05a2abfc32a59314bc709e3a0fb8bc9d160522",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/android-deploy-wrapper",
+      "sha": "57f314e26fd70cb8ff1984e9fdd4f1271175a541",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/android-metrics-guard",
+      "sha": "76758a586fb1a6ed5c07a80bb71b98938eae989a",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/android-mvp-v21",
+      "sha": "eb469755f18457b4f71a28a662d26ed1e21e548e",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/android-native-bootstrap",
+      "sha": "8df27d412c790284f9f51598986d5c01499cabeb",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/android-test-apk",
+      "sha": "f98a4be447b4b1b90dcb60428d60030455327902",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/apeiron-month-guide",
+      "sha": "398afcea9b750642673f3c7d47d7d2c003f4cc38",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/automatic-solar-times-darker-pages",
+      "sha": "63399dd964c9ec3700e977661e7717ae44c090a3",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/bust-stoicheion-frame-cache",
+      "sha": "fbe4f761f0f18feb5899354e2c55eb3208471cb6",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/collapsible-day-rhythm",
+      "sha": "7ab4e3b2c8857fceeb5090422d11efae268d89a0",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/complete-english-translation",
+      "sha": "296f3e2962a5c79ba8965a1ed81d670362743ca7",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/daily-sacred-art",
+      "sha": "4246c3ce0ca659130e550f008b8ca80f39e8f673",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/darken-saturdays-year-view",
+      "sha": "3ffca144b42a6503f3a6dd65de05df8c0e4da271",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/day-modal-tasks-hierarchy-contrast",
+      "sha": "0fd0c02b6a5bff7b2767997a2a439afb7ec6a81a",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/day-rhythm-system",
+      "sha": "932cc2f5be1186d55ac71884d0ef4b089372cb3c",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/default-task-list-visibility",
+      "sha": "d505215afe9cf75a8e52f96f269f6bb9a2b4580a",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/disable-gemini-temporarily",
+      "sha": "6b3af469b0ad181d19f2e52e56e2161171ef5bf0",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/exact-greek-key-frame",
+      "sha": "7ad159c1f98a6adcd917b74eeb5ce9d7464b3d26",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/experimental-complete-design",
+      "sha": "2c7cec403ac62445ddbdcf0d388f9d61ea900b4a",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/experimental-theme-1-1",
+      "sha": "fd530fb659a7f0f9b3278d9701a692086f72c569",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/experimental-theme-complete",
+      "sha": "74c89e1013ed90f08b912ec863eca02f56a0cf54",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/experimental-theme-fixes",
+      "sha": "2ee19cf901b0b241cacaf19d2065d4d4d64c90dc",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/final-production-qa",
+      "sha": "1e499f92353ddb0ff6a99f524d1c1a2162d847a4",
+      "reachableFromDeployedMaster": false,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/fix-gemini-and-localization",
+      "sha": "c1f81fbd00f33ab1bdb6b75161255b366e8f9b08",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/fix-habit-calendar-picker",
+      "sha": "6fb1ce5819c457fbfc55dce5a4d9fbca093b795d",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/fix-project-sync-habit-ui-encryption",
+      "sha": "5aa8c66f4ec891b95dc8ae83695afb6d5615cf70",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/fix-reminder-menu-clipping",
+      "sha": "3e23a25c12627270aec9b4008acd50b4bf9b41a9",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/fix-sacred-month-recurrence",
+      "sha": "22c952f3a5e0fb7c105e2a79367a9460b90897a3",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/fix-theokyklos-habit-art",
+      "sha": "7129ff64702546c8811870c7eab6ae8779a72c69",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/flexible-recurrence",
+      "sha": "2d3550ebf965d68ca0df10b573d48116d820bafb",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/full-calendar-modes",
+      "sha": "ba66da1926ffa06ac3b7d3029289c0e1cdc6e584",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/gemini-voice-assistant",
+      "sha": "0d6d182775e6635a82bbacc96e56f66a2e4b4c80",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/genesis-git-sync",
+      "sha": "62e6b6a35bb587c2558d6e97374a5f40288ac5aa",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/genesis-visuals-tasks-hierarchy",
+      "sha": "e410972a20fd3cc36bb5b5f82b42afd37c96da12",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/gigachat-voice-assistant",
+      "sha": "1baaece3a0797bda200e54ef0cbe8e0415e30b6b",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/global-calendar-multi-account",
+      "sha": "5e02892efa3c19ab00857006f0852319ed91d8c8",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/google-auth-sync-fix",
+      "sha": "89e56468d3f3442244a3aa62fbc447010933055b",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/google-oauth-readiness",
+      "sha": "3f1bf0251d3fa51c980ddfacdad0dc8b4609faf4",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/gregorian-adjacent-days",
+      "sha": "e017aeadc47728fb0866506ef5cc73d3886f9c32",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/gregorian-calendar-history",
+      "sha": "0981dafce936d2e35a8fd359331304617cc978df",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/gregorian-calendar-layout-colors",
+      "sha": "d22ac3fd209b99a837905db4ea3af993dafc7e1d",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/gregorian-calendar-sickle",
+      "sha": "9c781094c127f0032ccb00678c20d05a0af8f93d",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/gregorian-recurrence-sickle",
+      "sha": "fb64be5525371b084147cc481668e2855f4d474e",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/gregorian-solar-contrast",
+      "sha": "cb42f511cbcf2739b0038239af4f5041917985d9",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/gregorian-weekday-deities",
+      "sha": "8380c25a2539c9fd0df85ea438ef2a6a12680347",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/gregorian-weekday-guidance",
+      "sha": "1c18c51c25bb688e3c4ec2d0c066d81adab82c72",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/gregorian-weekday-selection-colors",
+      "sha": "3b7b725b4b442d606b7412513756257a362aebca",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/habit-30-days-js-bundle-qa04",
+      "sha": "5f69f51d3fbc4eee48a18831460e3a528207a1cd",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/habit-hero-responsive-dnd",
+      "sha": "99a69c1290b145559628946661728cc4fbfa3dce",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/habit-reminder-rollover",
+      "sha": "48c31ed18f80f26ae12edd0ab39c223b645345cf",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/habit-sections-dialog-qa02",
+      "sha": "b04ee9322dbc0181324de6302a155ea8dddf8f5d",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/habit-sections-grid-order",
+      "sha": "fe8d56f3babb483c3137208cc88cbc6c1e7ed4a8",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/habit-tracker",
+      "sha": "00a476fa09253090c9352f74c6df56827e6490fd",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/habits-achievements-recovery-dialog",
+      "sha": "25e8bb6e03912fd2911e45e00d030cb1e5921666",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/habits-calendar-date-modes",
+      "sha": "ee2171bbd955fb9b117daf7abae8c2eed9c2c1a8",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/habits-editable-settings-locked-scoring",
+      "sha": "695464cdcc5b1641a01182859dbe3d631ebef7b1",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/habits-guidance-rituals-quests",
+      "sha": "833ea4d8aaf208bb3aa44c44f5f21c199b1bb57b",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/habits-hestia-comeback",
+      "sha": "ce667c7c868d3035bcb71be22decfec707c77c3a",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/habits-laurel-mastery-retention",
+      "sha": "25e5512a649d55f0cb46332b4035310dd5f3953b",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/habits-notifications-adaptive-nav",
+      "sha": "abe59a2044e0ce116cf96441847c58d64710711d",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/habits-offline-e2ee-sync",
+      "sha": "69464251272cfad4003bd187b89c0236d14dd4bf",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/habits-phase-a-starter-templates",
+      "sha": "d5cee05d30fd4d7899f530905dbcdad08733b1ba",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/habits-phase-b-lifetime-xp",
+      "sha": "46e642761c5b707182dd8fc8c292a5c06e7264cd",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/habits-phase-c-daily-goal-streak",
+      "sha": "d71637effdedc0b1bbb465b0a6f3a2e5b1cc79c6",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/habits-phase-d-laurels-rewards",
+      "sha": "a75a86f5da74998efe9ffa3ef5cdf611779e2a2c",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/habits-phase-e-integrity-priority-icons",
+      "sha": "949029d2d3d9df5c9ac6b692571d76fe9708afd4",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/habits-phase-f-sacred-practices",
+      "sha": "239e3a0998ff0508a9b36313bb0c25de7d251da6",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/habits-phase-g-dynamic-metric-sigils",
+      "sha": "c6cc1b24fe2ffb751e280ee63271c02aa4221006",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/habits-phase-h-full-sacred-ranks",
+      "sha": "fe62f774c3d5aa1be774e2b4d9906c5ec9327c1c",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/habits-phase-i-sector-compass-sigils",
+      "sha": "050abe4bf316a8f753e62b9cbe395e502c4dcd04",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/habits-phase-j-daily-panel-order",
+      "sha": "57d5de9be77b94b98d338d136608b646ac9c873d",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/habits-phase-k-analytics-bottom",
+      "sha": "eebfe4cdaa0eecf1d3dd65d6c2a591fd3396f350",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/habits-phase-k-insights-records",
+      "sha": "ba2ecd618217b964cdf43a48e82712efce4e972d",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/habits-phase-l-feedback-accessibility",
+      "sha": "92cf022d2c242e3930828fdb3d0429db06af0fc5",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/habits-phase-l-reset-all",
+      "sha": "1a95d6b24d8548b6212ab48270c95e9fa6393374",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/habits-quests-today-tasks",
+      "sha": "7dc32014472406f28417bd5b98c5daa225c0029b",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/habits-sacred-picker-editor-ux",
+      "sha": "54dff5f04fbc519dbf936e0f0f30213fa87564fc",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/hero-path-glowing-button",
+      "sha": "629c9c072398cb614e0d8d3d8698f811e6aed0bf",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/hero-path-icons",
+      "sha": "fc1c41d61aaf80daeac68a4371859569f34b04ad",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/hero-path-tone-mobile-nav-qa03",
+      "sha": "a209c4048cfc2b284ade54473a45bac892a7e759",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/homepage-block-order",
+      "sha": "f4aeee4b53dc2410ce05950586829ac4c61288d4",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/live-day-rhythm",
+      "sha": "91ebceda5e33fcf3dccf89adeff8e0963912c92b",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/lunar-calendar-structure",
+      "sha": "863d5e4ede64cedee681b75c5d925ff01d378f32",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/lunar-mobile-two-column",
+      "sha": "fa0ab542f3b64ce24874b2e322f70be315a1826e",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/lunar-solar-dates-highlight",
+      "sha": "b6178c95d7343e02ae3b21889d63fdda96dd466f",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/lunar-year-layout-phases",
+      "sha": "896f5f2dc3df982cc49f66cb934138c8aa42657a",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/mobile-auth-stability-20260926",
+      "sha": "8d1cf047e207929f196f7608096fcfaea4ed3133",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/mobile-calendar-blocks",
+      "sha": "1f828f3498b9b8834ba979fb5c88328374bca3df",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/mobile-day-modal-drag",
+      "sha": "f888e01fdf0f817942fd868a1707049c7c0cb2cc",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/mobile-gregorian-calendar",
+      "sha": "71567f99959cd4522d134d0b2e287b97785f9f5a",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/mobile-unified-sections",
+      "sha": "d41cb3e4f459f2176c182e3e051b0b7f0f12ad07",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/modular-tracker",
+      "sha": "63a4c607dbaa488370edaf301288d22d82babfc2",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/monochrome-athena-symbol",
+      "sha": "27a7b8ccfba4c74b3ecb591f6419e14e6606975c",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/month-task-interactions",
+      "sha": "c007097400fc6c82f0130c0434f5bd1ba59798c6",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/moon-task-range-layout",
+      "sha": "353921dde85741ef2e69d37e95c94ff28b6375fe",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/multi-account-for-all",
+      "sha": "f34614a16768db231d61c87dd2799dd469a0e07a",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/multiple-reminders",
+      "sha": "361afc893c408bde03a7356f8de5a310117f602a",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/native-auth-server",
+      "sha": "6b9d6cdc47eda9973c2828e5ea506c1b6ccf7017",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/native-recurring-tasks",
+      "sha": "b9b8e9c489d44b463a81c36286f96defce892874",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/plain-alternative-calendar-months",
+      "sha": "19a2e9e3f5aeae74a42ed2ee08707558553df9c2",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/profane-cronus-sunday",
+      "sha": "a5146879e74ce1435ded6fe7c01f0f80185ea9e4",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/projects-task-separation",
+      "sha": "5e7dc3cc2872de337975dff5f6f1ec896244a3f9",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/qa-continuation",
+      "sha": "6afab7dbff6f71dba341ae80dfdc61fedf29698b",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/quinta-descriptions",
+      "sha": "d5971a6ec8140871797ffec98c9739301a700965",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/quinta-translation",
+      "sha": "aa02566fa5ee4a41ada77baa8290c7911d4122c2",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/recurrence-cycle-builder",
+      "sha": "76a8cd757cbf96bfa4865c1a05777e1a860a0517",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/redesign-voice-microphone",
+      "sha": "d3b674cd190a900ec4bacb8e6f38e3b89a061c51",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/refine-day-rhythm-controls",
+      "sha": "47c9ef103c9c0aff8decf7ef2d16dc94aa198fe6",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/refine-saturday-calendar-notes",
+      "sha": "acbb040a505b4db93c5c31a5710f26f6e3be0e4b",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/refine-stoicheion-card-art",
+      "sha": "68c87ea04188b948be56fd16bc02fddd0b9f4da9",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/refine-today-and-clock",
+      "sha": "4c2a222e4a5f8291929c76fc536159842608921f",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/refine-year-task-today-markers",
+      "sha": "c5fbeaaf6d20d2f7fb1e2cddafa458cdd9848050",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/reliable-automatic-solar-times",
+      "sha": "6170782518a27894ac9905c5a734a329b311d211",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/reminder-toggle-svg",
+      "sha": "e6334dfd7f2de3f0d312ff9e6c871b88f1ecee87",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/remove-gregorian-hero-duplicate",
+      "sha": "fbc940ae95686e33006c3d510af97134bd27be04",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/remove-lunar-month-banner",
+      "sha": "42f6e84a075c438ea972c7d466178880d315062e",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/remove-saturn-disclaimer",
+      "sha": "dca41b1b30763921a3163e43a16ce417f17486c8",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/replace-genesis-visual-assets",
+      "sha": "e9c3a69e5e36efd2c9bc2b56be1e5e5abb26f37f",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/restore-stoicheion-invocations",
+      "sha": "c500006fcd25fbaf357ca0a07f66943965df68a3",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/sacred-toggle-offline-qa01",
+      "sha": "1ed1d42f72cfbf36a01d43fb1341102b369909e6",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/sacred-year-details",
+      "sha": "ea8139af942c7a99724af56ab3ffca2ba8ee8488",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/saturday-cronus-hades-poseidon",
+      "sha": "2115668364adbed9608d6aa5458006a099eb8630",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/saturday-three-patrons",
+      "sha": "15345678cab9362d0620dec779e08f9c7e95e25d",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/show-gregorian-in-sacred-picker",
+      "sha": "bbc906242af55f8c04c3bb7e0135d38f98d491ae",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/standart-theme-toggle",
+      "sha": "53f55e1c7d31f0978d68d2b984b5f01959551cd7",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/stoicheion-card-deck",
+      "sha": "f977f969c820fa69178fcfa52e102d8cf5703091",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/stoicheion-card-frame",
+      "sha": "8dc75479604f39d36bbdfba27826588d938a736a",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/stoicheion-divination-toggle",
+      "sha": "4ff5c2907c1cc6f63e2354d2db4cd632d8daa199",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/task-date-mode-day-create",
+      "sha": "150e0b03f64f646d645456b806bfba319a240d37",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/task-list-edit-delete",
+      "sha": "100c8687aa1ea189ed2d56afcbb76016f80b7865",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/task-priority-slider",
+      "sha": "d25ce74fa8584aeb5f5877878198725ab4ae23f6",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/task-series-habits-seasons",
+      "sha": "7d20a252321677da9dcd68f17330147eab774bdb",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/task-workflow-layout",
+      "sha": "bd5b4740eb13e3b78e5cd95d170a1e0698da1ac6",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/theokyklos",
+      "sha": "f60f4b3b4a226d0d91c3c0ad41b4a8e7786a666d",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/theokyklos-centered",
+      "sha": "79ea9294e997de09b135c4090ebb60a40a2476d7",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/theokyklos-desktop-qa",
+      "sha": "6b0d2bbbaa38be508661fce2e77cc5e865df416b",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/theokyklos-modal",
+      "sha": "bf4a3cfddd1b6bf89802ba0ffb47b9981ec4afa3",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/theokyklos-png-icons",
+      "sha": "7f3956606d000363bec8f5833c8fc790f96cac49",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/theokyklos-polish",
+      "sha": "f0a754d03c417726e6556c1890da6c1ef066945f",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/theokyklos-sacred-words",
+      "sha": "6726d0c20dc2fe31735452b1e569c30400ec8342",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/theokyklos-sector-art",
+      "sha": "5bacc2dfc135c02df2348f084959fc0e24258ee5",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/today-calendar-modes",
+      "sha": "a3ea36604e3b9c94b4d41464a32212b5739e8d08",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/today-projects-mobile-updates",
+      "sha": "36df68028f24ed839a74a3e155a9d36651484934",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/twelve-moods-single-row",
+      "sha": "86d30dc4fb11f1be3eef8cf095d014b80eea7d79",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/unify-secret-achievements",
+      "sha": "19f8be220282bc7eb25d8b07271737ae7723663c",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/universal-account-auth-fix",
+      "sha": "6e202432da07bc48602eddd453b7c4a85c52a6e5",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/weekday-guidance-titles",
+      "sha": "69aa92a679e210d895d65ce8f21d89b2d6b8407f",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/codex/year-solar-form-layout",
+      "sha": "891b2bd8780126eed0817df65a8f7dff5df671fc",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/fix-deploy-action-version",
+      "sha": "17ab30fb6a3f7045fd3d4a0c416fd1b97bee81c9",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/fix-pnpm-cache",
+      "sha": "f23314d336d06dde249aa45b114093b1a4185540",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/fix-pnpm-setup",
+      "sha": "b6f88f71423c1415dd793f2a74763b21bad8dc7b",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/fix-pnpm-workspace-packages",
+      "sha": "c46a1e2217f85e9199f4adeb7c2e9b60c9dfb128",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    },
+    {
+      "ref": "refs/remotes/origin/master",
+      "sha": "6f61f237eb51d84497ea3ecd60c5a8ea42fe4874",
+      "reachableFromDeployedMaster": true,
+      "decision": "keep"
+    },
+    {
+      "ref": "refs/remotes/origin/setup-ci-deploy",
+      "sha": "bf865d680281eefd7f738f7c088c84d81417b91a",
+      "reachableFromDeployedMaster": true,
+      "decision": "delete-after-candidate-preservation"
+    }
+  ]
+}
