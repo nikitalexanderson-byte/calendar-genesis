@@ -38,6 +38,7 @@ import java.time.format.DateTimeFormatter
 fun AuthPanel(app: GenesisApplication, localLanguage: String, onLanguage: (String) -> Unit) {
     val controller = remember(app) { AuthController.get(app) }
     val state by controller.state.collectAsStateWithLifecycle()
+    val taskSync by controller.taskSync.collectAsStateWithLifecycle()
     val activity = LocalContext.current.activity()
     var confirmKeepLocal by remember { mutableStateOf(false) }
     var confirmKeepRemote by remember { mutableStateOf(false) }
@@ -92,13 +93,29 @@ fun AuthPanel(app: GenesisApplication, localLanguage: String, onLanguage: (Strin
                 if (access.complete) "Calendar и Tasks подключены" else "Calendar и Tasks требуют подключения",
                 if (cloud?.tasks == null) "События календаря и задачи Google появятся после подключения сервисов."
                 else "Задачи Google: ${cloud.tasks} · списки: ${cloud.taskLists ?: 0}")
+            if (taskSync.scope == app.workspaceScope) {
+                AccountTaskSyncNotice(taskSync)
+                taskSync.received?.let { count ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("Получено с сервера:", style = MaterialTheme.typography.bodySmall)
+                        Text(count.toString(), style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                taskSync.available?.let { count ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("Задач на устройстве:", style = MaterialTheme.typography.bodySmall)
+                        Text(count.toString(), style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
             if (cloud?.hasGoogleSyncWarning == true) {
                 Text("Google Tasks сообщил о неполной загрузке. Объединение пока недоступно.",
                     color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             }
             Text("Изменения проектов и привычек синхронизируются с зашифрованным пространством, задачи — с Google. При конфликте локальная копия сохраняется.",
                 style = MaterialTheme.typography.bodySmall)
-            if (state.user != null) OutlinedButton(onClick = controller::syncPending,
+            if (state.user != null) OutlinedButton(onClick = controller::refresh,
+                enabled = !state.busy && !taskSync.loading,
                 modifier = Modifier.fillMaxWidth().testTag("auth-sync-retry")) { Text("Повторить синхронизацию") }
             if (state.workspaceConflictPath != null) {
                 Text("Одно и то же поле изменено на сайте и на телефоне. Обычная синхронизация остановлена; обе копии сохранены.",
@@ -134,6 +151,17 @@ fun AuthPanel(app: GenesisApplication, localLanguage: String, onLanguage: (Strin
         confirmButton = { TextButton(onClick = { confirmKeepRemote = false; controller.keepRemoteWorkspaceChanges() }) {
             Text("Оставить на сайте") } },
         dismissButton = { TextButton(onClick = { confirmKeepRemote = false }) { Text("Отмена") } })
+}
+
+@Composable
+fun AccountTaskSyncNotice(state: AccountTaskSyncState, modifier: Modifier = Modifier) {
+    val notice = state.notice ?: return
+    Column(modifier.fillMaxWidth().testTag("account-task-sync-status"),
+        verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
+        Text(notice, style = MaterialTheme.typography.bodySmall,
+            color = if (state.issue == null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error)
+    }
 }
 
 /** Permanent project links are intentionally outside the account and sync section. */

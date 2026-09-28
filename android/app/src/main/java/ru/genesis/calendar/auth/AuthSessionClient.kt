@@ -106,12 +106,12 @@ internal class AuthSessionClient(context: Context) {
         return request(expected, "/stoicheion/draws", JSONObject().put("kind", kind).put("seed", seed))
     }
     fun putTask(expected: Long, id: String, task: JSONObject): JSONObject {
-        require(id.matches(Regex("[A-Za-z0-9_-]{1,100}")))
-        return request(expected, "/tasks/$id", task, method = "PUT")
+        val mutation = CloudTaskIdentity.mutation(id, task)
+        return mutation.confirmed(request(expected, "/tasks/${mutation.remoteId}", mutation.body, method = "PUT"))
     }
     fun deleteTask(expected: Long, id: String, task: JSONObject): JSONObject {
-        require(id.matches(Regex("[A-Za-z0-9_-]{1,100}")))
-        return request(expected, "/tasks/$id", task, method = "DELETE")
+        val mutation = CloudTaskIdentity.mutation(id, task)
+        return request(expected, "/tasks/${mutation.remoteId}", mutation.body, method = "DELETE")
     }
     fun challenge(expected: Long): JSONObject = request(expected, "/auth/google/native/challenge", JSONObject())
     fun googleServicesConfig(expected: Long): JSONObject =

@@ -80,6 +80,8 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     val welcomePrefs by welcomePrefsStore.values.collectAsStateWithLifecycle(UiPreferences())
     val authController = remember(app) { ru.genesis.calendar.auth.AuthController.get(app) }
     val authState by authController.state.collectAsStateWithLifecycle()
+    val taskSync by authController.taskSync.collectAsStateWithLifecycle()
+    val accountTaskSync = taskSync.takeIf { it.scope == activeScope }
     val scope=rememberCoroutineScope()
     var preferredWelcomeLanguage by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(authController, testWorkspace) { if (!testWorkspace) authController.ensureSession() }
@@ -127,12 +129,13 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                     Text(if(BuildConfig.DEBUG) "Internal alpha" else BuildConfig.VERSION_NAME,
                         modifier = Modifier.padding(end = 6.dp), style=MaterialTheme.typography.labelSmall)
                     if (!testWorkspace) {
-                        val refreshDescription = genesisTranslate(if (authState.busy)
+                        val refreshBusy = authState.busy || accountTaskSync?.loading == true
+                        val refreshDescription = genesisTranslate(if (refreshBusy)
                             "Получаем изменения с сервера…" else "Обновить аккаунт")
-                        IconButton(onClick = { authController.checkSession() }, enabled = !authState.busy,
+                        IconButton(onClick = authController::refresh, enabled = !refreshBusy,
                             modifier = Modifier.size(40.dp).testTag("today-refresh")
                                 .semantics { contentDescription = refreshDescription }) {
-                            Text(if (authState.busy) "…" else "↻",
+                            Text(if (refreshBusy) "…" else "↻",
                                 style = MaterialTheme.typography.titleLarge,
                                 color = MaterialTheme.colorScheme.primary)
                         }
@@ -142,6 +145,10 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                     else if(BuildConfig.DEBUG) "Изолированное тестовое пространство · только на этом устройстве"
                     else "Локальные черновики · аккаунт не подключён",Modifier.padding(horizontal=16.dp),
                     style=MaterialTheme.typography.bodySmall)
+                if (!testWorkspace && accountTaskSync != null) {
+                    ru.genesis.calendar.auth.AccountTaskSyncNotice(accountTaskSync,
+                        Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+                }
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal=8.dp)) {
                     listOf("Сегодня","Задачи","Проекты","Календарь","Привычки","Стойхейон","Теокиклос","Настройки")
                         .filter { habitTrackingEnabled || it != "Привычки" }.forEach {
@@ -192,7 +199,10 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                                     Button(onClick={creating=true;editId=null;newTaskProjectId=null},modifier=Modifier.testTag("create-task")) { Text("Создать") }
                                 }
                             }
-                            if(shown.isEmpty()) item { Text("Задач пока нет. Создайте первую запись.") }
+                            if(shown.isEmpty()) item {
+                                Text(if (!testWorkspace && accountTaskSync?.confirmed == false)
+                                    "Ожидаем загрузки задач аккаунта." else "Задач пока нет. Создайте первую запись.")
+                            }
                             items(shown,key={it.id}) { task ->
                                 Card(Modifier.fillMaxWidth().testTag("task-${task.id}")) {
                                     Row(Modifier.padding(8.dp),verticalAlignment=Alignment.CenterVertically) {

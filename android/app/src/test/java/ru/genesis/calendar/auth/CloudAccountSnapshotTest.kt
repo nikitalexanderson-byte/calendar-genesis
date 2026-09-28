@@ -56,6 +56,40 @@ class CloudAccountSnapshotTest {
         assertNotEquals("internal-validation-v1", first)
     }
 
+    @Test fun untitledGoogleCalendarEventDoesNotHideOtherAccountTasks() {
+        val response = payload(null)
+        response.getJSONArray("tasks").put(JSONObject().put("id", "untitled-google-event")
+            .put("title", "").put("dueDate", "2026-09-25").put("googleEventId", "event-1"))
+        val snapshot = CloudAccountSnapshot.fromBootstrap(response)
+        assertEquals(2, snapshot.tasks.size)
+        val event = CloudAccountSnapshot.nativeTaskJson(snapshot.tasks.last())
+        assertEquals("Без названия", event.getString("title"))
+        assertEquals("event-1", event.getString("googleEventId"))
+        assertEquals("", response.getJSONArray("tasks").getJSONObject(1).getString("title"))
+    }
+
+    @Test fun missingAndNullGoogleFieldsUseNativeDisplayDefaultsWithoutChangingTheResponse() {
+        for (title in listOf(null, JSONObject.NULL, "  ")) {
+            val source = JSONObject().put("id", "google-event").put("title", title)
+                .put("dueDate", JSONObject.NULL).put("time", JSONObject.NULL).put("zoneId", JSONObject.NULL)
+            val normalized = CloudAccountSnapshot.nativeTaskJson(source)
+            assertEquals("Без названия", normalized.getString("title"))
+            assertEquals("", normalized.getString("dueDate"))
+            assertEquals("", normalized.getString("time"))
+            assertEquals(java.time.ZoneId.systemDefault().id, normalized.getString("zoneId"))
+            assertTrue(source.isNull("dueDate"))
+        }
+    }
+
+    @Test fun unreadableRowsAreReportedInsteadOfAbortingAccountSnapshot() {
+        val response = payload(null)
+        response.getJSONArray("tasks").put(JSONObject.NULL).put("invalid row")
+        val snapshot = CloudAccountSnapshot.fromBootstrap(response)
+        assertEquals(1, snapshot.tasks.size)
+        assertEquals(2, snapshot.unreadableTaskCount)
+        assertEquals("google-1", snapshot.tasks.single().getString("id"))
+    }
+
     @Test fun warningAndMissingEnvelopeNeverInventRemoteDocument() {
         val snapshot = CloudAccountSnapshot.fromBootstrap(payload(null, warning = true))
         assertNull(snapshot.document)
