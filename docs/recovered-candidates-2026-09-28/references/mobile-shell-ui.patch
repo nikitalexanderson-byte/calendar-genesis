@@ -2,10 +2,7 @@ diff --git a/app/GenesisCalendar.tsx b/app/GenesisCalendar.tsx
 index a908127..606cf44 100644
 --- a/app/GenesisCalendar.tsx
 +++ b/app/GenesisCalendar.tsx
-@@ -6019,6 +6045,78 @@ export function GenesisCalendar() {
-       </aside>
- 
-       <section className="app-stage" data-exp-layout="stage">
+@@ -6021,0 +6048,72 @@ export function GenesisCalendar() {
 +        {androidAppMode ? (
 +          <header className="android-app-bar" data-genesis-preserve="android-app-bar">
 +            <button
@@ -78,13 +75,7 @@ index a908127..606cf44 100644
 +            </div>
 +          </header>
 +        ) : null}
-         <header className="topbar" data-exp-ui="topbar">
-           <div>
-             <span className="topbar-kicker">{view === "theokyklos" ? "Теокиклос" : view === "habits" ? (language === "en" ? "Habit tracker" : "Трекер привычек") : CALENDAR_MODE_META[activeCalendarMode].label}</span>
-@@ -6232,6 +6330,88 @@ export function GenesisCalendar() {
-         </div>
-       </section>
- 
+@@ -6234,0 +6333,82 @@ export function GenesisCalendar() {
 +      {androidAppMode && androidNavigationOpen ? (
 +        <div className="android-navigation-layer">
 +          <button type="button" className="android-navigation-backdrop" onClick={() => setAndroidNavigationOpen(false)} aria-label="Закрыть меню" />
@@ -167,17 +158,11 @@ index a908127..606cf44 100644
 +        </div>
 +      ) : null}
 +
-       {habitFeedback ? <HabitCompletionFeedback event={habitFeedback} language={language} showGamification={habitWorkspace.habitSettings.feedback.gamificationWidgets} /> : null}
-       <nav className="mobile-nav" aria-label="Мобильная навигация" data-exp-ui="mobile-nav">
-         {navigation.map((item) => (
 diff --git a/app/experimental-theme.css b/app/experimental-theme.css
 index 5a11a65..5907a10 100644
 --- a/app/experimental-theme.css
 +++ b/app/experimental-theme.css
-@@ -61,6 +61,539 @@ html[data-genesis-theme="experimental"] {
-   --gx-row-pad: 16px;
- }
- 
+@@ -63,0 +64,533 @@ html[data-genesis-theme="experimental"] {
 +/* Android application shell. The APK opts into this surface with ?android=1.
 +   It mirrors the approved Figma top-app-bar/navigation pattern while every
 +   existing GENESIS view and authored image remains the original live content. */
@@ -711,17 +696,11 @@ index 5a11a65..5907a10 100644
 +  }
 +}
 +
- html[data-genesis-theme="experimental"] body {
-   background-color: var(--gx-color-bg);
- }
 diff --git a/app/i18n.ts b/app/i18n.ts
 index 7b919b4..014b1c3 100644
 --- a/app/i18n.ts
 +++ b/app/i18n.ts
-@@ -69,6 +69,15 @@ const curatedTranslations: Record<string, string> = {
-   "Календарь постановки задач": "Task scheduling calendar",
-   "Основной календарь не изменится; выбор дат, повторений и календарные подписи новых задач будут работать по выбранной системе.": "The primary calendar will not change; date selection, recurrences, and calendar labels for new tasks will use the selected system.",
-   "Создать задачу": "Create task",
+@@ -71,0 +72,9 @@ const curatedTranslations: Record<string, string> = {
 +  "Открыть меню GENESIS": "Open the GENESIS menu",
 +  "GENESIS — перейти на сегодня": "GENESIS — go to Today",
 +  "Θεόκυκλος · полный круг": "Theokyklos · complete circle",
@@ -731,6 +710,3 @@ index 7b919b4..014b1c3 100644
 +  "Закрыть меню": "Close menu",
 +  "Разделы GENESIS": "GENESIS sections",
 +  "Экспорт календаря .ics": "Export calendar .ics",
-   "Новая задача на выбранный день": "New task for the selected day",
-   "Дата задачи": "Task date",
-   "Дата уже выбрана. При необходимости её можно изменить в форме.": "The date is already selected. You can change it in the form if needed.",
