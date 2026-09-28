@@ -1945,7 +1945,7 @@ test("retains the legacy TWA artifact but promotes only the signed native Androi
   assert.match(installHook, /window\.location\.hostname[\s\S]*device[\s\S]*android-phone/);
   assert.match(installHook, /isAndroidPhone && !isStandalone/);
   assert.doesNotMatch(installHook, /downloads\/GENESIS-Android-1\.2\.2\.apk/);
-  assert.match(installHook, /downloads\/GENESIS-Android-Native-2\.3\.1\.apk/);
+  assert.match(installHook, /downloads\/GENESIS-Android-Native-2\.3\.2\.apk/);
   assert.doesNotMatch(installHook, /GENESIS-Android-Native-2\.2\.7\.apk/);
   assert.doesNotMatch(calendar, /android-apk-icon-button/);
   assert.match(calendar, /nativeAndroidApkUrl=\{nativeAndroidApkUrl\}/);
@@ -1958,7 +1958,7 @@ test("retains the legacy TWA artifact but promotes only the signed native Androi
   // The public 1.2.2 download stays unchanged while the isolated native alpha advances.
   const nativeVersionCode = Number(androidBuild.match(/versionCode = (\d+)/)?.[1]);
   assert.ok(nativeVersionCode >= 7);
-  assert.match(androidBuild, /versionName = "2\.3\.1"/);
+  assert.match(androidBuild, /versionName = "2\.3\.2"/);
   assert.match(androidBuild, /releaseSigningReady/);
   assert.match(androidBuild, /applicationIdSuffix = "\.debug"/);
   assert.match(androidBuild, /androidx\.browser:browser:1\.10\.0/);
@@ -2200,11 +2200,11 @@ test("mobile Gregorian calendar fits all seven weekdays without horizontal scrol
   assert.match(mobileRules, /\.calendar-mode-calendar\.mode-profane \.calendar-mode-primary > small \{[^}]*display:none;/);
   assert.match(mobileRules, /\.calendar-mode-calendar\.mode-profane \.calendar-cross-date\.lunar-date \{[\s\S]*position:absolute;[\s\S]*width:17px;/);
   assert.match(mobileRules, /\.calendar-mode-calendar\.mode-profane \.calendar-solar-mark \{[\s\S]*display:inline-flex;[\s\S]*width:17px;/);
-  assert.match(mobileRules, /\.calendar-mode-calendar\.mode-profane \.calendar-day-task-control \{[\s\S]*display:block;/);
+  assert.match(mobileRules, /\.calendar-mode-calendar\.mode-profane \.calendar-day-task-control \{[\s\S]*display:flex;/);
   assert.match(mobileRules, /\.calendar-mode-calendar\.mode-profane \.calendar-day-task-count \{[\s\S]*min-width:14px;/);
   assert.match(calendar, /className="profane-weekday-deity">\{weekdayPatron\.guidancePatrons\}/);
   assert.match(calendar, /className="calendar-lunar-day-label"/);
-  assert.match(calendar, /className="calendar-day-task-count"/);
+  assert.match(await readFile(new URL("../app/CalendarTaskCounts.tsx", import.meta.url), "utf8"), /className="calendar-day-task-count"/);
   assert.match(calendar, /onClick=\{\(\) => openCalendarDate\(date, "calendar"\)\}/);
 });
 
@@ -2895,12 +2895,13 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /onPointerMove/);
   assert.match(calendar, /StoicheionView/);
   assert.match(calendar, /Стойхейон/);
-  assert.match(calendar, /calendar-day-task-count/);
+  assert.match(calendar, /CalendarDayTaskCounts/);
   assert.doesNotMatch(calendar, /calendar-day-task-preview/);
   assert.match(calendar, /calendar-day-task-control/);
   assert.match(calendar, /calendar-task-popover/);
   assert.match(calendar, /event\.pointerType === "mouse"/);
-  assert.match(calendar, /aria-expanded=\{popoverOpen\}/);
+  assert.match(calendar, /expanded=\{popoverOpen\}/);
+  assert.match(await readFile(new URL("../app/CalendarTaskCounts.tsx", import.meta.url), "utf8"), /aria-expanded=\{expanded\}/);
   assert.match(calendar, /selectedDayTasks/);
   assert.match(calendar, /day-details-tasks/);
   assert.match(calendar, /day-details-celestial/);
@@ -3011,7 +3012,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /day-details-modal/);
   assert.match(calendar, /onPointerDown=\{\(event\) => \{ if \(event\.target === event\.currentTarget\) setDayDetailsOpen\(false\)/);
   assert.match(calendar, /window\.history\.pushState/);
-  assert.match(calendar, /mini-day-task-count/);
+  assert.match(calendar, /CalendarYearTaskCounts/);
   assert.doesNotMatch(calendar, /mini-day-task-dot/);
   assert.match(calendar, /const isYearSaturday = getGregorianDate\([\s\S]*\.getDay\(\) === 6/);
   assert.match(calendar, /isYearSaturday \? " saturday"/);
