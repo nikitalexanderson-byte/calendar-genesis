@@ -1,11 +1,5 @@
 package ru.genesis.calendar.ui
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -72,12 +66,10 @@ internal fun GenesisPageHeader(title: String, description: String, symbol: Strin
 /** Small native interpretation of the site's living SVG mandala; no WebView is needed. */
 @Composable
 private fun TheokyklosHeaderMandala() {
-    val turn = rememberInfiniteTransition(label = "theokyklos-heading")
-    val angle = turn.animateFloat(0f, 360f,
-        infiniteRepeatable(tween(18_000, easing = LinearEasing), RepeatMode.Restart),
-        label = "mandala-orbit")
+    val angle = rememberIconPhase("theokyklos-heading", 18_000) * 360f
+    val pulse = rememberIconPhase("theokyklos-rays", 1_800)
     val gold = Color(0xffdfc17e)
-    Canvas(Modifier.size(54.dp).clearAndSetSemantics { }) {
+    Canvas(Modifier.size(54.dp).testTag("genesis-theokyklos-mandala").clearAndSetSemantics { }) {
         val center = Offset(size.width / 2f, size.height / 2f)
         val radius = size.minDimension * .39f
         drawCircle(Color(0xff173b38), radius = size.minDimension * .49f)
@@ -88,9 +80,16 @@ private fun TheokyklosHeaderMandala() {
             val point = center + Offset((cos(radians) * radius).toFloat(),
                 (sin(radians) * radius).toFloat())
             drawLine(gold.copy(alpha = .35f), center, point, strokeWidth = 1.dp.toPx())
+            if (pulse > 0f) {
+                val direction = point - center
+                val tail = (pulse - .14f).coerceAtLeast(0f)
+                drawLine(gold.copy(alpha = sin(pulse * PI).toFloat() * .8f),
+                    center + direction * tail, center + direction * pulse,
+                    strokeWidth = 1.1.dp.toPx(), cap = StrokeCap.Round)
+            }
             drawCircle(gold, radius = 2.dp.toPx(), center = point)
         }
-        drawArc(gold, startAngle = angle.value, sweepAngle = 80f, useCenter = false,
+        drawArc(gold, startAngle = angle, sweepAngle = 80f, useCenter = false,
             topLeft = Offset(center.x - radius, center.y - radius),
             size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2),
             style = Stroke(width = 2.4.dp.toPx(), cap = StrokeCap.Round))

@@ -1,5 +1,6 @@
 package ru.genesis.calendar.ui
 
+import android.animation.ValueAnimator
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.material3.LocalContentColor
@@ -32,14 +33,27 @@ internal fun genesisPageIcon(title: String): GenesisPageIcon = when (title.trim(
     else -> GenesisPageIcon.SETTINGS
 }
 
+@Composable
+internal fun rememberIconPhase(label: String, durationMillis: Int, animated: Boolean = true): Float {
+    if (!animated || !ValueAnimator.areAnimatorsEnabled()) return 0f
+    return rememberInfiniteTransition(label = label).animateFloat(0f, 1f,
+        infiniteRepeatable(tween(durationMillis, easing = LinearEasing)), label = "$label-motion").value
+}
+
+private fun inkProgress(phase: Float, index: Int = 0): Float {
+    val drawStart = index * .13f
+    val eraseStart = .62f + index * .12f
+    return minOf(((phase - drawStart) / .18f).coerceIn(0f, 1f),
+        (1f - (phase - eraseStart) / .13f).coerceIn(0f, 1f))
+}
+
 /** Original vector paths on a 24-unit grid. Buttons and headings share the same geometry. */
 @Composable
 internal fun GenesisVectorIcon(icon: GenesisPageIcon, modifier: Modifier = Modifier,
     tint: Color = LocalContentColor.current, animated: Boolean = false) {
-    val phase = if (animated) {
-        rememberInfiniteTransition(label = "genesis-icon-${icon.name}").animateFloat(0f, 1f,
-            infiniteRepeatable(tween(12_000, easing = LinearEasing)), label = "icon-motion").value
-    } else 0f
+    val moving = animated && ValueAnimator.areAnimatorsEnabled()
+    val phase = rememberIconPhase("genesis-icon-${icon.name}",
+        if (icon == GenesisPageIcon.TASKS || icon == GenesisPageIcon.PROJECTS) 7_200 else 12_000, moving)
     Canvas(modifier.testTag("genesis-icon-${icon.name.lowercase()}-${if (animated) "animated" else "static"}")
         .clearAndSetSemantics { }) {
         val stroke = Stroke(1.55f, cap = StrokeCap.Round, join = StrokeJoin.Round)
@@ -53,6 +67,22 @@ internal fun GenesisVectorIcon(icon: GenesisPageIcon, modifier: Modifier = Modif
             fun orbit(radius: Float, angle: Float, dot: Float = 1.1f) {
                 val radians = angle * PI / 180
                 drawCircle(tint, dot, Offset(12 + cos(radians).toFloat() * radius, 12 + sin(radians).toFloat() * radius))
+            }
+            fun inkPath(points: List<Offset>, progress: Float) {
+                if (progress <= 0f) return
+                var remaining = points.zipWithNext().sumOf { (a, b) -> (b - a).getDistance().toDouble() }
+                    .toFloat() * progress.coerceAtMost(1f)
+                val ink = Path().apply {
+                    moveTo(points.first().x, points.first().y)
+                    for ((a, b) in points.zipWithNext()) {
+                        if (remaining <= 0f) break
+                        val length = (b - a).getDistance()
+                        val end = a + (b - a) * minOf(1f, remaining / length)
+                        lineTo(end.x, end.y)
+                        remaining -= length
+                    }
+                }
+                drawPath(ink, tint, style = stroke)
             }
             when (icon) {
                 GenesisPageIcon.TODAY -> {
@@ -68,18 +98,23 @@ internal fun GenesisVectorIcon(icon: GenesisPageIcon, modifier: Modifier = Modif
                 GenesisPageIcon.TASKS -> {
                     drawRoundRect(tint, Offset(3.5f, 3f), Size(17f, 18f), androidx.compose.ui.geometry.CornerRadius(2.6f), style = stroke)
                     listOf(7f, 12f, 17f).forEachIndexed { i, y ->
-                        path(Offset(6f, y), Offset(7.2f, y + 1.2f), Offset(9.5f, y - 1.4f),
-                            color = tint.copy(alpha = if (animated && i == 2) .5f + .5f * sin(phase * PI).toFloat() else 1f))
+                        inkPath(listOf(Offset(6f, y), Offset(7.2f, y + 1.2f), Offset(9.5f, y - 1.4f)),
+                            if (moving) inkProgress(phase, i) else 1f)
                         line(Offset(12f, y), Offset(17.8f, y))
                     }
                 }
                 GenesisPageIcon.PROJECTS -> {
-                    path(Offset(3f, 9f), Offset(3f, 5f), Offset(9f, 5f), Offset(11f, 7f), Offset(21f, 7f), Offset(21f, 19f), Offset(3f, 19f), Offset(3f, 9f), Offset(21f, 9f))
-                    line(Offset(12f, 10.7f), Offset(12f, 13.6f))
-                    line(Offset(7f, 13.6f), Offset(17f, 13.6f))
-                    listOf(7f, 12f, 17f).forEachIndexed { i, x ->
-                        line(Offset(x, 13.6f), Offset(x, 16.6f))
-                        drawCircle(tint.copy(alpha = if (animated) .65f + .35f * sin(phase * 2 * PI + i).toFloat().let { abs(it) } else 1f), 1f, Offset(x, 16.6f))
+                    path(Offset(3f, 19f), Offset(3f, 5f), Offset(9f, 5f), Offset(11f, 7f),
+                        Offset(21f, 7f), Offset(21f, 19f), Offset(3f, 19f))
+                    val tree = if (moving) inkProgress(phase) else 1f
+                    inkPath(listOf(Offset(12f, 10.7f), Offset(12f, 13.6f)), (tree * 3).coerceIn(0f, 1f))
+                    listOf(7f, 17f).forEach { x ->
+                        inkPath(listOf(Offset(12f, 13.6f), Offset(x, 13.6f)), (tree * 3 - 1).coerceIn(0f, 1f))
+                    }
+                    listOf(7f, 12f, 17f).forEach { x ->
+                        val branch = (tree * 3 - 2).coerceIn(0f, 1f)
+                        inkPath(listOf(Offset(x, 13.6f), Offset(x, 16.6f)), branch)
+                        if (branch > .8f) drawCircle(tint.copy(alpha = (branch - .8f) * 5), 1f, Offset(x, 16.6f))
                     }
                 }
                 GenesisPageIcon.CALENDAR, GenesisPageIcon.MONTH -> {
@@ -102,13 +137,17 @@ internal fun GenesisVectorIcon(icon: GenesisPageIcon, modifier: Modifier = Modif
                     if (animated) orbit(9.1f, phase * 360f - 90f)
                 }
                 GenesisPageIcon.HABITS -> {
-                    drawArc(tint.copy(alpha = .65f), 40f + phase * 12, 280f, false, Offset(2f, 2f), Size(20f, 20f), style = stroke)
+                    drawCircle(tint.copy(alpha = .65f), 10f, Offset(12f, 12f), style = stroke)
+                    // Even at the largest breath, the smaller plant has space inside the ring.
+                    val leafScale = (1f / 1.5f) * if (moving) 1f + .08f * sin(phase * 4 * PI).toFloat() else 1f
+                    scale(leafScale, leafScale, Offset(12f, 12f)) {
                     path(Offset(11.7f, 19f), Offset(11.7f, 10f), Offset(15.9f, 5.9f))
                     val leaf = Path().apply { moveTo(12f, 11f); cubicTo(12f, 6f, 16f, 5f, 18f, 6f); cubicTo(18f, 10f, 15f, 12f, 12f, 11f) }
                     drawPath(leaf, tint.copy(alpha = .13f)); drawPath(leaf, tint, style = stroke)
                     val lower = Path().apply { moveTo(11.6f, 15f); cubicTo(6f, 15f, 5f, 11f, 6f, 9.5f); cubicTo(10.5f, 9.5f, 12f, 12f, 11.6f, 15f) }
                     drawPath(lower, tint, style = stroke)
-                    if (animated) orbit(10f, 40f + phase * 360f, .9f)
+                    }
+                    orbit(10f, phase * 360f - 90f, .9f)
                 }
                 GenesisPageIcon.STOICHEION -> {
                     rotate(if (animated) sin(phase * 2 * PI).toFloat() * 3 else 0f, Offset(12f, 12f)) {

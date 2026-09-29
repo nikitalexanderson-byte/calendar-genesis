@@ -161,8 +161,24 @@ private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange
             TextButton(onClick = { onNavigate(range.end.plusDays(1)) },
                 modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)) { Text("→") }
         }
-        if (mode == CalendarMode.SACRED) SacredMonthHero(sacredMonth, firstSacred.sacredYear)
-        else Card(Modifier.fillMaxWidth().testTag("calendar-month-description"),
+        val tasksByDate = remember(tasks, range) { TaskOccurrences.byDate(tasks, range.start, range.end) }
+        if (mode == CalendarMode.SACRED) {
+            Card(Modifier.fillMaxWidth().testTag("sacred-month-pyatas"),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xfffffbf2)),
+                border = BorderStroke(1.dp, Color(0xffbda66f))) {
+                SacredMonthHero(sacredMonth, firstSacred.sacredYear)
+                Column(Modifier.padding(horizontal = 10.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("${range.start.format(dateLabel(locale))} — ${range.end.format(dateLabel(locale))}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    SacredDayGrid(calendar, range, selected, choose, experimental,
+                        tasksByDate, onOpenTaskList, solarLocation)
+                }
+            }
+        } else {
+          Card(Modifier.fillMaxWidth().testTag("calendar-month-description"),
             shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(containerColor = if (mode == CalendarMode.LUNAR)
                 Color(0xff082e2f) else MaterialTheme.colorScheme.surface),
@@ -181,11 +197,9 @@ private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange
         Text("${range.start.format(dateLabel(locale))} — ${range.end.format(dateLabel(locale))}",
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
-        val tasksByDate = remember(tasks, range) { TaskOccurrences.byDate(tasks, range.start, range.end) }
-        if (mode == CalendarMode.SACRED) SacredDayGrid(calendar, range, selected, choose, experimental,
-            tasksByDate, onOpenTaskList, solarLocation)
-        else SevenDayGrid(calendar, range, mode, selected, choose, experimental, tasksByDate,
+          SevenDayGrid(calendar, range, mode, selected, choose, experimental, tasksByDate,
             onOpenTaskList, solarLocation)
+        }
         Box(Modifier.fillMaxWidth().onGloballyPositioned {
             selectedDayTop = it.positionInParent().y.roundToInt(); selectedDayHeight = it.size.height
         }) {
@@ -199,19 +213,17 @@ private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange
 
 @Composable
 private fun SacredMonthHero(month: SacredMonth, year: Int) {
-    Card(Modifier.fillMaxWidth().testTag("sacred-month-hero")) {
-        Row(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth().testTag("sacred-month-hero").background(Color(0xff082e2f))) {
             OriginalImage(sacredMonthArtPath(month.index), "Иллюстрация месяца ${month.name}",
                 Modifier.width(120.dp).height(190.dp))
             Column(Modifier.weight(1f).padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text("${month.season} · ${month.roman} месяц · $year", style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary)
-                Text(month.name, style = MaterialTheme.typography.titleLarge)
-                Text(month.title, style = MaterialTheme.typography.titleSmall)
-                Text(month.description, style = MaterialTheme.typography.bodySmall)
+                    color = Color(0xffdfc17e))
+                Text(month.name, style = MaterialTheme.typography.titleLarge, color = Color(0xfffff5df))
+                Text(month.title, style = MaterialTheme.typography.titleSmall, color = Color(0xffffe9b5))
+                Text(month.description, style = MaterialTheme.typography.bodySmall, color = Color(0xffd5e5df))
             }
         }
-    }
 }
 
 @Composable
@@ -558,7 +570,7 @@ private fun CalendarTaskListDialog(date: LocalDate, tasks: List<LocalTask>, use2
                         val completionDescription = genesisTranslate(if (task.done)
                             "Вернуть в работу" else "Выполнить задачу") + ": " + task.title
                         Surface(Modifier.fillMaxWidth().testTag("calendar-task-${task.id}"), shape = RoundedCornerShape(14.dp),
-                            color = if (task.done) Color(0xffe8f0ea) else Color(0xfff4ecdc)) {
+                            color = if (task.done) completedTaskSurface else Color(0xfff4ecdc)) {
                             Column {
                             Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 12.dp, top = 8.dp),
                                 horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -569,7 +581,7 @@ private fun CalendarTaskListDialog(date: LocalDate, tasks: List<LocalTask>, use2
                                             contentDescription = completionDescription
                                         })
                                 Column(Modifier.weight(1f)) {
-                                    androidx.compose.material3.Text(task.title,
+                                    TaskTitle(task,
                                         style = MaterialTheme.typography.titleSmall, maxLines = 2,
                                         color = if (task.done) calendarCompletedColor else calendarIncompleteColor)
                                     Text(listOfNotNull(task.time.takeIf { it.isNotBlank() }?.let { timeLabel(it, use24) },
@@ -707,7 +719,7 @@ private fun SelectedDayCard(calendar: GenesisCalendar, date: LocalDate, mode: Ca
                 }
                 HorizontalDivider()
                 Text("Задачи дня · ${tasks.size}", style = MaterialTheme.typography.titleSmall)
-                tasks.take(5).forEach { task -> Text("${if (task.done) "✓" else "○"} ${task.title}",
+                tasks.take(5).forEach { task -> TaskTitle(task, label = "${if (task.done) "✓" else "○"} ${task.title}",
                     style = MaterialTheme.typography.bodySmall, maxLines = 1,
                     color = if (task.done) calendarCompletedColor else calendarIncompleteColor) }
                 if (tasks.size > 5) Text("И ещё ${tasks.size - 5}…", style = MaterialTheme.typography.labelSmall)
@@ -790,7 +802,7 @@ private fun ExperimentalSelectedDayCard(calendar: GenesisCalendar, date: LocalDa
                         if (tasks.isEmpty()) Text("На этот день задач нет.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        tasks.take(5).forEach { task -> Text("${if (task.done) "✓" else "○"} ${task.title}",
+                        tasks.take(5).forEach { task -> TaskTitle(task, label = "${if (task.done) "✓" else "○"} ${task.title}",
                             style = MaterialTheme.typography.bodySmall, maxLines = 1,
                             color = if (task.done) calendarCompletedColor else calendarIncompleteColor) }
                         if (tasks.size > 5) Text("И ещё ${tasks.size - 5}…", style = MaterialTheme.typography.labelSmall)
