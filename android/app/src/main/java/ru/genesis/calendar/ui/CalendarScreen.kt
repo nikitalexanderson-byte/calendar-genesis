@@ -179,7 +179,10 @@ private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         CalendarPageHeader(false, Modifier.padding(horizontal = 8.dp, vertical = 8.dp))
         val tasksByDate = remember(tasks, range) { TaskOccurrences.byDate(tasks, range.start, range.end) }
-        CalendarPeriodPager(range, { onNavigate(range.start.minusDays(1)) },
+        CalendarPeriodPager(range,
+            remember(range, mode) { runCatching { calendar.monthRange(range.start.minusDays(1), mode) }.getOrNull() },
+            remember(range, mode) { runCatching { calendar.monthRange(range.end.plusDays(1), mode) }.getOrNull() },
+            { onNavigate(range.start.minusDays(1)) },
             { onNavigate(range.end.plusDays(1)) }, Modifier.fillMaxWidth()) { page, previous, next ->
             val sacred = calendar.sacredDate(page.start)
             val month = SacredCatalog.months[sacred.monthIndex]
@@ -842,7 +845,9 @@ private fun CalendarYearOverview(calendar: GenesisCalendar, shown: LocalDate, mo
         else LocalDate.of(sacredYear, 3, 20)
     Column(Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        CalendarPeriodPager(period, { onYear(period.minusYears(1)) }, { onYear(period.plusYears(1)) },
+        CalendarPageHeader(true, Modifier.padding(horizontal = 8.dp))
+        CalendarPeriodPager(period, period.minusYears(1), period.plusYears(1),
+            { onYear(period.minusYears(1)) }, { onYear(period.plusYears(1)) },
             Modifier.weight(1f).fillMaxWidth(), fillHeight = true) { page, previous, next ->
             Card(Modifier.fillMaxSize().testTag("calendar-year-panel"), shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
@@ -889,7 +894,6 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
     LazyColumn(Modifier.fillMaxSize().testTag("calendar-year"),
         contentPadding = PaddingValues(bottom = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item { CalendarPageHeader(true, Modifier.padding(8.dp)) }
         item { CalendarPeriodNavigation(yearLabel, true, onPrevious, onNext) }
         if (experimental) item {
             val events = calendar.solarEvents(if (mode == CalendarMode.PROFANE) shown.year else sacredYear)

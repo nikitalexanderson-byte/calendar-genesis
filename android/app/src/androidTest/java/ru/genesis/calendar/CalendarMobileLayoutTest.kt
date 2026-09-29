@@ -94,9 +94,7 @@ class CalendarMobileLayoutTest {
                 CalendarMode.PROFANE -> "calendar-year-month-2026-11-01"
             }
             compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag(lastTag))
-            if ((requestedWidth ?: 360) < 768) {
-                compose.onNodeWithTag("genesis-page-header").assertDoesNotExist()
-            }
+            compose.onNodeWithTag("genesis-page-header").assertIsDisplayed()
             compose.onNodeWithTag("calendar-view-switch").assertIsDisplayed()
             compose.onNodeWithTag(lastTag).performClick()
             compose.onNodeWithText("Календарь - месяц").assertIsDisplayed()

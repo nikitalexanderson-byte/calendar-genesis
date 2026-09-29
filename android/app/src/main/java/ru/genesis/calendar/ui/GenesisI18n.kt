@@ -26,6 +26,15 @@ import java.util.concurrent.ConcurrentHashMap
 val LocalGenesisLanguage = compositionLocalOf { "ru" }
 
 private val nativeCopy = mapOf(
+    "Смахните влево или вправо" to "Swipe left or right",
+    "Цвет" to "Colour",
+    "Цвет HEX" to "HEX colour",
+    "Формат: #RRGGBB" to "Format: #RRGGBB",
+    "Палитра" to "Palette",
+    "Свой цвет" to "Custom colour",
+    "Оттенок" to "Hue",
+    "Насыщенность" to "Saturation",
+    "Яркость" to "Brightness",
     "Просрочено" to "Overdue",
     "Три ритма соединяются в центре" to "Three rhythms meet at the centre",
     "Не удалось удалить задачу. Повторите попытку." to "Could not delete the task. Try again.",
