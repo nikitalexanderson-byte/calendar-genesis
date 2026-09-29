@@ -47,7 +47,7 @@ class CalendarMobileLayoutTest {
         device.waitForIdle(2_000)
         assertTrue(device.takeScreenshot(
             File(instrumentation.targetContext.getExternalFilesDir(null),
-                "2.3.3-${requestedWidth?.let { "${it}dp-" } ?: ""}$name.png")))
+                "${BuildConfig.VERSION_NAME}-${requestedWidth?.let { "${it}dp-" } ?: ""}$name.png")))
     }
 
     @Test fun viewSwitchPrecedesScrollingMonthAndYearHeadingsInEveryCalendar() {

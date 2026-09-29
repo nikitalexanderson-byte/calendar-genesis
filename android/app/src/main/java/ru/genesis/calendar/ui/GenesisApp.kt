@@ -216,12 +216,15 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                                 Card(Modifier.fillMaxWidth().testTag("task-${task.id}"),
                                     shape = RoundedCornerShape(16.dp),
                                     colors = CardDefaults.cardColors(containerColor = if (task.done)
-                                        Color(0xffedf2ea) else MaterialTheme.colorScheme.surfaceContainerLowest),
+                                        completedTaskSurface else MaterialTheme.colorScheme.surfaceContainerLowest,
+                                        contentColor = if (task.done) completedTaskInk else MaterialTheme.colorScheme.onSurface),
                                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
                                     Row(Modifier.padding(8.dp),verticalAlignment=Alignment.CenterVertically) {
-                                        Checkbox(checked=task.done,onCheckedChange={model.complete(task)})
+                                        Checkbox(checked=task.done,onCheckedChange={model.complete(task)},
+                                            colors = CheckboxDefaults.colors(checkedColor = completedTaskInk))
                                         Column(Modifier.weight(1f).clickable { editId=task.id;creating=false }.padding(8.dp)) {
-                                            androidx.compose.material3.Text(task.title,style=MaterialTheme.typography.titleMedium)
+                                            TaskTitle(task, Modifier.testTag("task-title-${task.id}"),
+                                                style=MaterialTheme.typography.titleMedium)
                                             Text("${task.date} ${timeLabel(task.time,prefs.use24)} · Приоритет ${task.priority}" +
                                                 if (task.recurrence.enabled) " · Повторяется" else "",style=MaterialTheme.typography.bodySmall)
                                             if(task.projectId!=null) Text(structure.projects.firstOrNull { it.id==task.projectId }?.title
@@ -302,13 +305,16 @@ private fun TodayTasksPanel(tasks: List<LocalTask>, selected: String, use24: Boo
                 }
             } else tasks.forEach { task ->
                 Surface(Modifier.fillMaxWidth().testTag("task-${task.id}"), shape = RoundedCornerShape(14.dp),
-                    color = if (task.done) Color(0xffedf2ea) else Color(0xfff7f1e5),
-                    border = BorderStroke(1.dp, if (task.done) Color(0x55255b59) else Color(0x44b28a4a))) {
+                    color = if (task.done) completedTaskSurface else Color(0xfff7f1e5),
+                    contentColor = if (task.done) completedTaskInk else MaterialTheme.colorScheme.onSurface,
+                    border = BorderStroke(1.dp, if (task.done) Color(0xffc8ccc6) else Color(0x44b28a4a))) {
                     Row(Modifier.fillMaxWidth().padding(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(checked = task.done, onCheckedChange = { onComplete(task) })
+                        Checkbox(checked = task.done, onCheckedChange = { onComplete(task) },
+                            colors = CheckboxDefaults.colors(checkedColor = completedTaskInk))
                         Column(Modifier.weight(1f).clickable { onOpen(task.id) }.padding(8.dp),
                             verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                            androidx.compose.material3.Text(task.title, style = MaterialTheme.typography.titleMedium)
+                            TaskTitle(task, Modifier.testTag("task-title-${task.id}"),
+                                style = MaterialTheme.typography.titleMedium)
                             Text("$selected ${timeLabel(task.time, use24)} · Приоритет ${task.priority}" +
                                 if (task.recurrence.enabled) " · Повторяется" else "",
                                 style = MaterialTheme.typography.bodySmall,
@@ -317,7 +323,7 @@ private fun TodayTasksPanel(tasks: List<LocalTask>, selected: String, use24: Boo
                                 Text(structure.projects.firstOrNull { it.id == projectId }?.title
                                     ?: task.project.ifBlank { "Проект" },
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary)
+                                    color = if (task.done) completedTaskInk else MaterialTheme.colorScheme.primary)
                             }
                         }
                     }
@@ -446,10 +452,12 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
         else task?.date ?: selected
     Dialog(onDismissRequest=onDismiss,properties=androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth=false)) {
         Surface(Modifier.fillMaxWidth().padding(12.dp),shape=RoundedCornerShape(20.dp)) {
-            Column(Modifier.padding(16.dp).imePadding().verticalScroll(rememberScrollState())
+            Column(Modifier.padding(16.dp).imePadding()) {
+                EditorDialogHeader(if(task==null) "Новая задача" else "Изменить задачу",
+                    "close-task-editor", onDismiss)
+              Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())
                 .testTag("task-editor-scroll"),
                 verticalArrangement=Arrangement.spacedBy(8.dp)) {
-                Text(if(task==null) "Новая задача" else "Изменить задачу",style=MaterialTheme.typography.titleLarge)
                 OutlinedTextField(title,{title=it},label={Text("Название")},modifier=Modifier.fillMaxWidth().testTag("task-title"))
                 OutlinedTextField(description,{description=it},label={Text("Описание")},modifier=Modifier.fillMaxWidth())
                 ProjectHierarchyPicker(structure.projects, projectId) { projectId = it }
@@ -563,6 +571,7 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                     },modifier=Modifier.testTag("save-task")){Text("Сохранить")}
                 }
                 onDelete?.let { TextButton(onClick={confirmDelete=true}){Text("Удалить задачу")} }
+              }
             }
         }
     }

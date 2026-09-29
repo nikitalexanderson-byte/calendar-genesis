@@ -42,7 +42,7 @@ class CalendarTaskStatusTest {
         compose.waitForIdle()
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         assertTrue(UiDevice.getInstance(instrumentation).takeScreenshot(
-            File(instrumentation.targetContext.getExternalFilesDir(null), "2.3.2-$name.png")))
+            File(instrumentation.targetContext.getExternalFilesDir(null), "${BuildConfig.VERSION_NAME}-$name.png")))
     }
 
     @Test fun everyCalendarSeparatesStatusesAndUpdatesCountersAfterCompletionAndDeletion() {

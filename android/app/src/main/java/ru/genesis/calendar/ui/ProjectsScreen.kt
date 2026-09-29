@@ -268,7 +268,7 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
         if (visible.isEmpty()) item { Text("В этом разделе пока нет проектов.") }
         items(visible, key = { it.first.id }) { (project, depth) ->
             val count = tasksByProject[project.id].orEmpty().size
-            Surface(onClick = { selectedProject = project.id },
+            Surface(onClick = { selectedProject = if (selectedProject == project.id) null else project.id },
                 color = if (experimental && selectedProject == project.id) Color(0xffe4eeea)
                 else MaterialTheme.colorScheme.surface, shape = MaterialTheme.shapes.medium,
                 modifier = Modifier.fillMaxWidth().testTag("project-drop-${project.id}"),
@@ -310,11 +310,11 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
                                 if (experimental) {
                                     TaskDragHandle(task)
                                     TextButton(onClick = { onOpenTask(task.id) }, modifier = Modifier.weight(1f)) {
-                                        androidx.compose.material3.Text(task.title)
+                                        TaskTitle(task)
                                     }
                                     TaskDestinationMenu(task, structure.projects, moveTask)
                                 } else {
-                                    TextButton(onClick = { onOpenTask(task.id) }) { androidx.compose.material3.Text(task.title) }
+                                    TextButton(onClick = { onOpenTask(task.id) }) { TaskTitle(task) }
                                 }
                             }
                         }
@@ -339,7 +339,7 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
                     if (selectedProject == null) {
                         inbox.take(if (inboxExpanded) inbox.size else 1).forEach { task ->
                             DraggableTaskRow(task, pickup?.id == task.id, onPickup, onDrag, onRelease) {
-                                TextButton(onClick = { onOpenTask(task.id) }) { androidx.compose.material3.Text(task.title) }
+                                TextButton(onClick = { onOpenTask(task.id) }) { TaskTitle(task) }
                             }
                         }
                         if (inbox.size > 1) TextButton(onClick = { inboxExpanded = !inboxExpanded }) {
@@ -475,7 +475,8 @@ private fun InboxProjectCard(inbox: List<LocalTask>, projects: List<GenesisProje
                         TaskDragHandle(task)
                         TextButton(onClick = { onOpenTask(task.id) }, modifier = Modifier.weight(1f),
                             colors = ButtonDefaults.textButtonColors(contentColor = foreground)) {
-                            androidx.compose.material3.Text(task.title, maxLines = 2)
+                            TaskTitle(task, maxLines = 2,
+                                completedColor = if (experimental) Color(0xffaab3b0) else completedTaskInk)
                         }
                         TaskDestinationMenu(task, projects, onMoveTask, foreground)
                     }
@@ -690,9 +691,11 @@ private fun ProjectEditor(structure: WorkspaceStructure, existing: GenesisProjec
     }
     Dialog(onDismissRequest = onDismiss) {
         Surface(shape = MaterialTheme.shapes.large) {
-            Column(Modifier.fillMaxWidth().padding(16.dp).verticalScroll(rememberScrollState()),
+            Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                EditorDialogHeader(if (existing == null) "Новый проект" else "Изменить проект",
+                    "close-project-editor", onDismiss)
+              Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(if (existing == null) "Новый проект" else "Изменить проект", style = MaterialTheme.typography.titleLarge)
                 OutlinedTextField(title, { title = it }, label = { Text("Название") }, singleLine = true,
                     modifier = Modifier.fillMaxWidth().testTag("project-title"))
                 OutlinedTextField(description, { description = it }, label = { Text("Описание") },
@@ -733,6 +736,7 @@ private fun ProjectEditor(structure: WorkspaceStructure, existing: GenesisProjec
                             existing?.position ?: structure.projects.size), expectedRevision)
                     }, modifier = Modifier.testTag("save-project")) { Text("Сохранить") }
                 }
+              }
             }
         }
     }

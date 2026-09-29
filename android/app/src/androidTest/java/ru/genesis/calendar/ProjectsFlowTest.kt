@@ -12,10 +12,17 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
+import org.junit.Before
 import ru.genesis.calendar.data.*
 
 class ProjectsFlowTest {
     @get:Rule val compose = createAndroidComposeRule<TestWorkspaceActivity>()
+
+    @Before fun selectIsolatedWorkspace() {
+        val app = compose.activity.application as GenesisApplication
+        check(BuildConfig.DEBUG && app.packageName.endsWith(".debug"))
+        app.activateAccount(null)
+    }
 
     @Test fun projectAndTaskAssignmentPersistEncrypted() = runBlocking {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
@@ -53,9 +60,14 @@ class ProjectsFlowTest {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
         val projectTitle = "Проект UI-проверки"
         val alreadyCreated = runBlocking {
-            WorkspaceStructureRepository(app).workspace.first().projects.any { it.title == projectTitle }
+            val repo = WorkspaceStructureRepository(app)
+            if (repo.workspace.first().categories.none { it.id == "work" }) {
+                repo.saveCategory(GenesisCategory("work", "Работа", "#2d6c68", 0))
+            }
+            repo.workspace.first().projects.any { it.title == projectTitle }
         }
         compose.onNodeWithText("Проекты").performScrollTo().performClick()
+        compose.waitUntil(10_000) { compose.onAllNodesWithTag("projects-screen").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("projects-screen").assertExists()
         compose.onNodeWithTag("create-project").performClick()
         if (alreadyCreated) {
@@ -63,7 +75,7 @@ class ProjectsFlowTest {
             compose.onNodeWithText("Отмена").performScrollTo().performClick()
         } else {
             compose.onNodeWithTag("project-title").performTextInput(projectTitle)
-            compose.onNodeWithTag("project-category-work").performClick()
+            compose.onNodeWithTag("project-category-work").performScrollTo().performClick()
             compose.onNodeWithTag("save-project").performScrollTo().performClick()
         }
         compose.waitUntil(10_000) { compose.onAllNodesWithTag("project-title").fetchSemanticsNodes().isEmpty() }
@@ -144,6 +156,7 @@ class ProjectsFlowTest {
             compose.onNodeWithTag("drag-overlay").assertExists()
             val preview = File(app.getExternalFilesDir(null), "projects-drag-preview-after.png")
             assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(preview))
+            compose.onNodeWithTag("drag-overlay-target-$projectId").performScrollTo()
             val targetPoint = compose.onNodeWithTag("drag-overlay-target-$projectId")
                 .fetchSemanticsNode().boundsInRoot.center
             source.performTouchInput {
@@ -182,6 +195,7 @@ class ProjectsFlowTest {
                 val sourceBounds = source.fetchSemanticsNode().boundsInRoot
                 source.performTouchInput { down(center); advanceEventTime(700); moveBy(Offset(0f, 4f)) }
                 compose.onNodeWithTag("drag-overlay").assertExists()
+                compose.onNodeWithTag("drag-overlay-target-$targetId").performScrollTo()
                 val point = compose.onNodeWithTag("drag-overlay-target-$targetId")
                     .fetchSemanticsNode().boundsInRoot.center
                 source.performTouchInput {
