@@ -9,10 +9,12 @@ import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 import ru.genesis.calendar.data.*
 import ru.genesis.calendar.domain.*
 import ru.genesis.calendar.domain.habits.*
+import ru.genesis.calendar.reminders.habitNotificationOpenIntent
 import java.time.*
 
 class HabitReminderRecoveryTest {
@@ -20,7 +22,8 @@ class HabitReminderRecoveryTest {
         val app=InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
         check(BuildConfig.DEBUG && app.packageName.endsWith(".debug"))
         app.activateAccount(null)
-        assertTrue(app.scheduler.notificationsAllowed())
+        assumeTrue("Notification permission is required for delivery verification",
+            app.scheduler.notificationsAllowed())
         val repo=HabitsRepository(app)
         val original=repo.workspace.first().settings
         val date=LocalDate.now()
@@ -43,6 +46,11 @@ class HabitReminderRecoveryTest {
             app.scheduler.deliverHabitNotification(intent)
             val delivered=manager.activeNotifications.single {it.tag==key.toString()}
             assertEquals(habit.title,delivered.notification.extras.getString(Notification.EXTRA_TITLE))
+            assertFalse(delivered.notification.extras.getString(Notification.EXTRA_TEXT).orEmpty()
+                .contains(Regex("\\(\\d+\\)")))
+            val openIntent = habitNotificationOpenIntent(app, app.workspaceScope)
+            assertEquals("habits", requestedSection(openIntent, app.workspaceScope))
+            assertNotNull(delivered.notification.contentIntent)
             app.scheduler.deliverHabitNotification(intent)
             assertEquals(delivered.postTime,manager.activeNotifications.single {it.tag==key.toString()}.postTime)
             repo.complete(id,true)

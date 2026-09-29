@@ -9,18 +9,20 @@ import ru.genesis.calendar.domain.CalendarMode
 private val Context.genesisPreferences by preferencesDataStore("genesis_preferences")
 data class UiPreferences(val display: CalendarMode = CalendarMode.SACRED,
     val input: CalendarMode = CalendarMode.SACRED, val use24: Boolean = true,
-    val divinationDisabled: Boolean = false, val language: String = "ru")
+    val divinationDisabled: Boolean = false, val language: String = "ru",
+    val weekStartsOnSunday: Boolean = true, val wideNavigationOnLeft: Boolean = true)
 class LocalPreferences(private val context: Context, private val scope: String) {
     private fun key(name: String) = stringPreferencesKey("$scope:$name")
     private fun pendingKey(name: String) = stringPreferencesKey("$scope:pending:$name")
-    private val names = setOf("display", "input", "time", "language", "stoicheionDivinationDisabled")
+    private val names = setOf("display", "input", "time", "weekStart", "language", "stoicheionDivinationDisabled")
     val pending = context.genesisPreferences.data.map { values -> names.mapNotNull { name ->
         values[pendingKey(name)]?.let { name to it }
     }.toMap() }
     val values = context.genesisPreferences.data.map {
         UiPreferences(CalendarMode.fromWire(it[key("display")] ?: "sacred"), CalendarMode.fromWire(it[key("input")] ?: "sacred"),
             it[key("time")] != "12h", it[key("stoicheionDivinationDisabled")] == "true",
-            it[key("language")].takeIf { value -> value == "en" } ?: "ru")
+            it[key("language")].takeIf { value -> value == "en" } ?: "ru",
+            it[key("weekStart")] != "monday", it[key("wideNavigation")] != "top")
     }
     suspend fun set(name: String, value: String) { context.genesisPreferences.edit { it[key(name)] = value } }
     suspend fun setPending(name: String, value: String) {

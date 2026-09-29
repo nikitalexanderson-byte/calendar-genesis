@@ -33,7 +33,7 @@ class EveningAndMonthFlowTest {
     private val dark = InstrumentationRegistry.getArguments().getString("genesisEvening") == "true"
     private fun capture(name: String) {
         compose.waitForIdle()
-        File(app.getExternalFilesDir(null), "2.3.6-${width}dp-${if(dark) "evening" else "light"}-$name.png")
+        File(app.getExternalFilesDir(null), "2.3.7-${width}dp-${if(dark) "evening" else "light"}-$name.png")
             .outputStream().use { assertTrue(compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG,100,it)) }
     }
     private fun content(block: @Composable () -> Unit) {

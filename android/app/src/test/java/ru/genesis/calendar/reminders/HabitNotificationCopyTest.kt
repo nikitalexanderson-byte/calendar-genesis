@@ -17,10 +17,10 @@ class HabitNotificationCopyTest {
         assertNotEquals(english[1], english[2])
     }
 
-    @Test fun toneAlsoChangesDailyGoalAndPluralHabitMessages() {
+    @Test fun dailyGoalKeepsMeaningfulCountButPracticeLabelHasNoCounterSuffix() {
         assertTrue(habitNotificationBody("heroic", "goal", 1, false).contains("1"))
-        assertTrue(habitNotificationBody("ironic", "habit", 3, false).contains("3"))
-        assertTrue(habitNotificationBody("calm", "habit", 3, true).contains("3"))
+        assertTrue(!habitNotificationBody("ironic", "habit", 3, false).contains("(3)"))
+        assertTrue(!habitNotificationBody("calm", "habit", 3, true).contains("(3)"))
     }
 
     @Test fun eachToneVariesAcrossDaysWithoutTonePrefixes() {

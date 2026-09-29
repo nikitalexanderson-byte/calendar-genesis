@@ -207,11 +207,7 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
         dropBounds.clear()
     }
 
-    Column(Modifier.fillMaxSize()) {
-    ConnectedSubmenu(listOf(SubmenuItem("all", "Все")) + structure.categories.sortedBy { it.position }.map {
-        SubmenuItem(it.id, it.name, categoryAccent(it.color), "category-filter-${it.id}")
-    }, selectedCategory ?: "all", { selectedCategory = it.takeUnless { id -> id == "all" } })
-    Box(Modifier.weight(1f).fillMaxWidth().onGloballyPositioned { workspaceBounds = it.boundsInRoot() }) {
+    Box(Modifier.fillMaxSize().onGloballyPositioned { workspaceBounds = it.boundsInRoot() }) {
     LazyColumn(Modifier.fillMaxSize().testTag("projects-screen"), contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
@@ -235,26 +231,66 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
                 onPickup, onDrag, onRelease, onOpenTask, onCreateTask, moveTask)
         }
         item {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically) {
-                Text("Категории жизни", style = MaterialTheme.typography.titleMedium)
-                TextButton(onClick = { categoriesExpanded = !categoriesExpanded }) {
-                    Text(if (categoriesExpanded) "Свернуть" else "Управлять")
-                }
-            }
-            if (categoriesExpanded) {
-                TextButton(onClick = { editingCategory = null; categoryEditor = true; error = null },
-                    modifier = Modifier.testTag("create-category")) { Text("Добавить категорию") }
-                structure.categories.sortedBy { it.position }.forEach { category ->
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        androidx.compose.material3.Surface(Modifier.padding(end = 10.dp).size(16.dp), color = categoryAccent(category.color),
-                            shape = RoundedCornerShape(50)) {}
-                        Text(category.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                        TextButton(onClick = { editingCategory = category; categoryEditor = true; error = null },
-                            modifier = Modifier.testTag("edit-category-${category.id}")) { Text("Изменить") }
-                        TextButton(onClick = { deleteCategoryCandidate = category },
-                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                            modifier = Modifier.testTag("delete-category-${category.id}")) { Text("Удалить") }
+            Card(Modifier.fillMaxWidth().testTag("life-categories-card"), shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+                Column {
+                    Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 10.dp, top = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f).padding(end = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text("Категории жизни", style = MaterialTheme.typography.titleMedium)
+                            Text(genesisTranslate("Выберите категорию, чтобы отфильтровать проекты."),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        TextButton(onClick = { categoriesExpanded = !categoriesExpanded },
+                            modifier = Modifier.heightIn(min = 48.dp).testTag("manage-categories")) {
+                            Text(if (categoriesExpanded) "Свернуть" else "Управлять")
+                        }
+                    }
+                    ConnectedSubmenu(listOf(SubmenuItem("all", "Все")) +
+                        structure.categories.sortedBy { it.position }.map {
+                            SubmenuItem(it.id, it.name, categoryAccent(it.color), "category-filter-${it.id}")
+                        }, selectedCategory ?: "all",
+                        { selectedCategory = it.takeUnless { id -> id == "all" } },
+                        Modifier.testTag("life-category-filters"))
+                    if (categoriesExpanded) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(onClick = {
+                                editingCategory = null; categoryEditor = true; error = null
+                            }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                .testTag("create-category")) {
+                                Text("Добавить категорию")
+                            }
+                            structure.categories.sortedBy { it.position }.forEach { category ->
+                                Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp),
+                                    color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+                                    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
+                                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                            androidx.compose.material3.Surface(Modifier.padding(end = 10.dp).size(16.dp),
+                                                color = categoryAccent(category.color), shape = CircleShape) {}
+                                            Text(category.name, Modifier.weight(1f),
+                                                style = MaterialTheme.typography.titleSmall)
+                                        }
+                                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                                            TextButton(onClick = {
+                                                editingCategory = category; categoryEditor = true; error = null
+                                            }, modifier = Modifier.heightIn(min = 48.dp)
+                                                .testTag("edit-category-${category.id}")) { Text("Изменить") }
+                                            TextButton(onClick = { deleteCategoryCandidate = category },
+                                                colors = ButtonDefaults.textButtonColors(
+                                                    contentColor = MaterialTheme.colorScheme.error),
+                                                modifier = Modifier.heightIn(min = 48.dp)
+                                                    .testTag("delete-category-${category.id}")) { Text("Удалить") }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -354,7 +390,6 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
 
     pickup?.let { held ->
         ProjectDropOverlay(held, structure.projects, experimental, workspaceBounds, dropBounds)
-    }
     }
     }
 

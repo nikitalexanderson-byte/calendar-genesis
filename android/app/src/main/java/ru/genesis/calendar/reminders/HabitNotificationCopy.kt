@@ -11,6 +11,6 @@ internal fun habitNotificationBody(tone: String, kind: String, count: Int, engli
     val pool = habitNotificationMessages["$tone/${if (kind == "goal") "goal" else "habit"}"]
         ?: habitNotificationMessages.getValue("calm/habit")
     val pair = pool[notificationCopyIndex(seed, pool.size)]
-    val name = subject ?: if (english) "your practice ($count)" else "«Практика дня» ($count)"
+    val name = subject ?: if (english) "your daily practice" else "«Практика дня»"
     return (if (english) pair.second else pair.first).replace("{subject}", name).replace("{count}", count.toString())
 }

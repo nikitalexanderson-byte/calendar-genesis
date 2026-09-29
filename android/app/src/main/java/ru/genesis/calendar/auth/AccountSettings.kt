@@ -43,6 +43,7 @@ data class AccountSettings(
     val timeFormat: String,
     val divinationDisabled: Boolean,
     val language: String,
+    val weekStart: String = "sunday",
 ) {
     companion object {
         fun fromResponse(response: JSONObject): AccountSettings? {
@@ -78,7 +79,7 @@ data class AccountSettings(
                 user.optString("theme", "standart"), user.optInt("themeRevision", 0),
                 user.optString("calendarMode", "sacred"), user.optString("taskCalendarMode", "sacred"),
                 user.optString("timeFormat", "24h"), user.optBoolean("stoicheionDivinationDisabled"),
-                user.optString("language", "ru"))
+                user.optString("language", "ru"), user.optString("weekStart", "sunday"))
         }
     }
 }

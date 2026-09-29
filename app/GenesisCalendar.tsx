@@ -128,6 +128,7 @@ import {
   lunarMonthIndex,
   normalizeCalendarDateNote,
 } from "./calendar-data";
+import { gregorianWeekdayOffset } from "./calendar-layout";
 import {
   type AutomaticSolarLocation,
   type DeviceLocation,
@@ -1595,6 +1596,7 @@ export function GenesisCalendar() {
   const activeCalendarMode: CalendarMode = cloudUser?.calendarMode ?? "sacred";
   const activeTaskCalendarMode: CalendarMode = cloudUser?.taskCalendarMode ?? "sacred";
   const activeTimeFormat = normalizeTimeFormat(cloudUser?.timeFormat);
+  const activeWeekStart = cloudUser?.weekStart === "monday" ? "monday" : "sunday";
   const googleAccounts = cloudUser?.googleAccounts ?? [];
   const defaultSyncAccountIds = cloudUser?.syncRouting?.defaultAccountIds?.length
     ? cloudUser.syncRouting.defaultAccountIds
@@ -4989,9 +4991,11 @@ export function GenesisCalendar() {
       ? `${profaneMonthName(selectedDate)} · ${dates.length} дней`
       : `${lunarDefinition.title} · ${formatDateRange(firstDate, lastDate)}`;
     const monthDescription = mode === "profane"
-      ? "Григорианский календарный месяц с неделями с воскресенья по субботу. В каждом дне дополнительно показаны покровители дня, сакральная дата, лунные сутки, рассвет и закат."
+      ? activeWeekStart === "monday"
+        ? "Григорианский календарный месяц с неделями с понедельника по воскресенье. В каждом дне дополнительно показаны покровители дня, сакральная дата, лунные сутки, рассвет и закат."
+        : "Григорианский календарный месяц с неделями с воскресенья по субботу. В каждом дне дополнительно показаны покровители дня, сакральная дата, лунные сутки, рассвет и закат."
       : lunarDefinition.description;
-    const leadingDays = mode === "profane" ? firstDate.getDay() : 0;
+    const leadingDays = mode === "profane" ? gregorianWeekdayOffset(firstDate, activeWeekStart) : 0;
     const trailingDays = mode === "profane" ? (7 - ((leadingDays + dates.length) % 7)) % 7 : 0;
     const previousMonthDates = mode === "profane"
       ? Array.from({ length: leadingDays }, (_, index) => new Date(
@@ -5015,7 +5019,7 @@ export function GenesisCalendar() {
       return position === "previous" ? 0.24 + (progress * 0.3) : 0.54 - (progress * 0.3);
     };
     const weekdayLabels = Array.from({ length: 7 }, (_, index) => {
-      const day = new Date(2024, 0, 7 + index, 12);
+      const day = new Date(2024, 0, (activeWeekStart === "monday" ? 8 : 7) + index, 12);
       return new Intl.DateTimeFormat(runtimeLocale(), { weekday: "short" }).format(day).replace(/\.$/u, "");
     });
     const moveMonth = (delta: number) => {
@@ -5786,7 +5790,7 @@ export function GenesisCalendar() {
           ? `The year begins on ${formatGregorian(lunarYear.startDate, true)} — the day of the first exact new moon after the spring equinox — and includes ${lunarYear.monthCount} lunar months of 29 or 30 days.`
           : `Год начинается ${formatGregorian(lunarYear.startDate, true)} — в день первого точного новолуния после весеннего равноденствия — и включает ${lunarYear.monthCount} лунных месяцев по 29 или 30 суток.`);
     const profaneWeekdayLabels = Array.from({ length: 7 }, (_, index) => {
-      const day = new Date(2024, 0, 7 + index, 12);
+      const day = new Date(2024, 0, (activeWeekStart === "monday" ? 8 : 7) + index, 12);
       return new Intl.DateTimeFormat(runtimeLocale(), { weekday: "short" }).format(day).replace(/\.$/u, "");
     });
     const changeYear = (delta: number) => {
@@ -5834,7 +5838,9 @@ export function GenesisCalendar() {
             const monthTaskCount = datesTaskCount(tasksByDate, month.dates);
             const containsToday = month.dates.some((date) => inputDate(date) === todayDateValue);
             const containsSelectedMonth = month.dates.some((date) => inputDate(date) === selectedDateValue);
-            const leadingDays = mode === "profane" ? (month.dates[0]?.getDay() ?? 0) : 0;
+            const leadingDays = mode === "profane" && month.dates[0]
+              ? gregorianWeekdayOffset(month.dates[0], activeWeekStart)
+              : 0;
             const openMonth = () => {
               const todayInMonth = month.dates.find((date) => inputDate(date) === todayDateValue);
               selectCalendarDate(todayInMonth ?? month.dates[0]);
