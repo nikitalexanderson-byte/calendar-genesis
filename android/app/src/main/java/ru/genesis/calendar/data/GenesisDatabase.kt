@@ -55,6 +55,8 @@ interface GenesisDao {
     suspend fun cancelReminders(scope: String, task: String)
     @Query("UPDATE reminders SET state=:state, deliveredAt=:now WHERE scope=:scope AND id=:id AND revision=:revision AND state='pending'")
     suspend fun claimReminder(scope: String, id: String, revision: Long, state: String, now: Long): Int
+    @Query("UPDATE reminders SET state='pending', deliveredAt=NULL WHERE scope=:scope AND id=:id AND revision=:revision AND state='delivered'")
+    suspend fun releaseFailedReminder(scope: String, id: String, revision: Long): Int
     @Query("UPDATE reminders SET state='cancelled' WHERE scope=:scope AND id=:id AND revision=:revision AND state='delivered'")
     suspend fun closeDeliveredReminder(scope: String, id: String, revision: Long): Int
     @Query("SELECT * FROM outbox WHERE scope=:scope")

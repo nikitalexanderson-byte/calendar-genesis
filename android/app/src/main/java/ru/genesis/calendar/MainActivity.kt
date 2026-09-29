@@ -43,7 +43,7 @@ class MainActivity : ComponentActivity() {
         // immediately, even when no habit or account data changed.
         lifecycleScope.launch {
             val app = application as GenesisApplication
-            app.scheduler.restore(); app.scheduler.restoreHabitNotifications()
+            app.scheduler.restore(recoverOverdue = true); app.scheduler.restoreHabitNotifications()
         }
     }
     private fun acceptIntent(intent: Intent) {

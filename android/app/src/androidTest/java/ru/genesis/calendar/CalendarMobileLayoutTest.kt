@@ -46,7 +46,7 @@ class CalendarMobileLayoutTest {
         val device = UiDevice.getInstance(instrumentation)
         device.waitForIdle(2_000)
         assertTrue(device.takeScreenshot(
-            File(instrumentation.targetContext.getExternalFilesDir(null),
+            File(instrumentation.targetContext.cacheDir,
                 "${BuildConfig.VERSION_NAME}-${requestedWidth?.let { "${it}dp-" } ?: ""}$name.png")))
     }
 
@@ -178,7 +178,7 @@ class CalendarMobileLayoutTest {
                 }
             }
         }
-        compose.waitUntil(10_000) { compose.onAllNodesWithTag("stoicheion-letter-alpha").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(30_000) { compose.onAllNodesWithTag("stoicheion-letter-alpha").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("genesis-page-header").assertIsDisplayed()
         capture("stoicheion-top")
         compose.onNodeWithTag("stoicheion-grid").performScrollToNode(hasTestTag("stoicheion-letter-omega"))

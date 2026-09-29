@@ -45,7 +45,7 @@ class CalendarAndTodayFlowTest {
             compose.onNodeWithTag("today-day-details").performScrollTo()
             compose.onNodeWithTag("day-knowledge").assertExists()
             compose.onNodeWithTag("today-day-details-toggle").assertTextContains("Скрыть подробности")
-            val todayImage = File(app.getExternalFilesDir(null), "today-after.png")
+            val todayImage = File(app.cacheDir, "today-after.png")
             assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(todayImage))
             runBlocking { prefs.set("display", "profane") }
             compose.waitUntil(10_000) {
@@ -53,7 +53,7 @@ class CalendarAndTodayFlowTest {
                     .fetchSemanticsNodes().isNotEmpty()
             }
             assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(
-                File(app.getExternalFilesDir(null), "today-profane-after.png")))
+                File(app.cacheDir, "today-profane-after.png")))
             compose.onNodeWithTag("today-gregorian-summary").assertDoesNotExist()
             compose.onNodeWithTag("today-gregorian-year-position", useUnmergedTree = true).assertExists()
             compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("today-day-rhythm"))
@@ -65,7 +65,7 @@ class CalendarAndTodayFlowTest {
             compose.waitUntil(8_000) { runBlocking { habits.workspace.first().completions.any {
                 it.habitId == "today-reading-validation" && it.completed && it.date == date } } }
             assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(
-                File(app.getExternalFilesDir(null), "today-activity-after.png")))
+                File(app.cacheDir, "today-activity-after.png")))
             compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("today-hero"))
             runBlocking { prefs.set("display", "lunar") }
             compose.waitUntil(10_000) {
@@ -74,15 +74,15 @@ class CalendarAndTodayFlowTest {
             }
             compose.onNodeWithTag("today-lunar-standard-image", useUnmergedTree = true).assertExists()
             assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(
-                File(app.getExternalFilesDir(null), "today-lunar-after.png")))
+                File(app.cacheDir, "today-lunar-after.png")))
             runBlocking { prefs.set("display", "sacred") }
             compose.waitUntil(10_000) {
                 compose.onAllNodesWithText("МЕСЯЦ", substring = true)
                     .fetchSemanticsNodes().isNotEmpty()
             }
-            compose.onNodeWithTag("day-rhythm-expand").performScrollTo()
+            compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("day-rhythm-expand"))
             compose.onNodeWithTag("day-rhythm-expand").assertExists()
-            compose.onNodeWithTag("today-day-details").performScrollTo()
+            compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("today-day-details"))
             compose.onNodeWithTag("day-knowledge").assertExists()
             compose.onNodeWithText("Календарь").performScrollTo().performClick()
             compose.onNodeWithTag("pyata-1").performScrollTo().performClick()
@@ -94,7 +94,7 @@ class CalendarAndTodayFlowTest {
             }
             compose.onNodeWithTag("calendar-selected-day").assertExists()
             compose.onAllNodesWithText("Осеннее равноденствие", substring = true).onLast().assertExists()
-            val image = File(app.getExternalFilesDir(null), "calendar-selected-day-after.png")
+            val image = File(app.cacheDir, "calendar-selected-day-after.png")
             assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(image))
         } finally {
             runBlocking { prefs.set("display", original.display.wireValue) }
