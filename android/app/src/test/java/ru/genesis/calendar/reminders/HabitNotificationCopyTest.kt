@@ -18,8 +18,19 @@ class HabitNotificationCopyTest {
     }
 
     @Test fun toneAlsoChangesDailyGoalAndPluralHabitMessages() {
-        assertTrue(habitNotificationBody("heroic", "goal", 1, false).contains("Героический"))
+        assertTrue(habitNotificationBody("heroic", "goal", 1, false).contains("1"))
         assertTrue(habitNotificationBody("ironic", "habit", 3, false).contains("3"))
         assertTrue(habitNotificationBody("calm", "habit", 3, true).contains("3"))
+    }
+
+    @Test fun eachToneVariesAcrossDaysWithoutTonePrefixes() {
+        listOf("calm", "heroic", "ironic").forEach { tone ->
+            listOf(false, true).forEach { english ->
+                val messages = (1..100).map { habitNotificationBody(tone, "habit", 1, english, "day-$it", "Reading") }
+                assertTrue(messages.distinct().size >= 8)
+                assertTrue(messages.all { !it.contains("Героический зов:") && !it.contains("Спокойное напоминание:") && !it.contains("Heroic call:") })
+                assertTrue(messages.all { it.contains("Reading") })
+            }
+        }
     }
 }

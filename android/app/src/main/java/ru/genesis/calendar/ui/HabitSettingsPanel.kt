@@ -78,7 +78,7 @@ internal fun HabitSettingsPanel(app: GenesisApplication, use24: Boolean) {
         }
 
         HabitPreferenceCard("МОТИВАЦИЯ НА УСТРОЙСТВЕ", "Уведомления привычек", "habit-notification-settings") {
-            Text("GENESIS объединяет близкие напоминания, соблюдает тихие часы и снижает частоту мотивационных сообщений после повторных пропусков.",
+            Text("Каждая привычка напоминает о себе в выбранное время. Дневная цель настраивается отдельно; тихие часы можно переопределить для отдельной привычки.",
                 style = MaterialTheme.typography.bodySmall)
             val notificationsAllowed = app.scheduler.notificationsAllowed()
             PreferenceSwitchRow("Включить уведомления на этом устройстве",

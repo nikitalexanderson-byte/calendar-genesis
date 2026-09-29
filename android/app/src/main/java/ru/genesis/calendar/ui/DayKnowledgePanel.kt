@@ -94,7 +94,11 @@ private val mutedInk = Color(0xff526263)
 private val gold = Color(0xffb28a4a)
 
 internal fun secondaryCalendarModes(primary: CalendarMode): List<CalendarMode> =
-    listOf(CalendarMode.SACRED, CalendarMode.PROFANE, CalendarMode.LUNAR).filterNot { it == primary }
+    when (primary) {
+        CalendarMode.SACRED -> listOf(CalendarMode.LUNAR, CalendarMode.PROFANE)
+        CalendarMode.PROFANE -> listOf(CalendarMode.SACRED, CalendarMode.LUNAR)
+        CalendarMode.LUNAR -> listOf(CalendarMode.SACRED, CalendarMode.PROFANE)
+    }
 
 /** The hero is the selected calendar; this panel adds only the other two, without duplication. */
 @Composable
@@ -103,6 +107,7 @@ fun DayKnowledgePanel(date: LocalDate, primaryMode: CalendarMode,
     val solarLocation by rememberAutomaticSolarLocation(calendar.zoneId)
     Column(Modifier.fillMaxWidth().testTag("day-knowledge"),
         verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        if (primaryMode == CalendarMode.SACRED) ThreeRhythmsCard(date, calendar)
         secondaryCalendarModes(primaryMode).forEach { mode ->
             when (mode) {
                 CalendarMode.SACRED -> SacredCalendarCard(date, calendar)
@@ -112,7 +117,6 @@ fun DayKnowledgePanel(date: LocalDate, primaryMode: CalendarMode,
         }
         val moon = calendar.moonInfo(date)
         if (isMoonFastingDay(moon)) MoonFastingCard(moon)
-        ThreeRhythmsCard(date, calendar)
     }
 }
 
@@ -120,7 +124,8 @@ fun DayKnowledgePanel(date: LocalDate, primaryMode: CalendarMode,
 private fun SacredCalendarCard(date: LocalDate, calendar: GenesisCalendar) {
     val copy = todayHeroCopy(date, CalendarMode.SACRED, calendar, LocalGenesisLanguage.current)
     Card(Modifier.fillMaxWidth().testTag("sacred-calendar-card"),
-        shape = RoundedCornerShape(24.dp), border = BorderStroke(1.dp, Color(0x66dfc17e))) {
+        shape = RoundedCornerShape(24.dp), border = BorderStroke(1.dp, Color(0x66dfc17e)),
+        colors = CardDefaults.cardColors(containerColor = parchment)) {
         Box(Modifier.fillMaxWidth().heightIn(min = 350.dp)) {
             OriginalImage(copy.imagePath, "Иллюстрация сакрального дня: ${copy.title}", Modifier.matchParentSize())
             Box(Modifier.matchParentSize().background(Brush.verticalGradient(
@@ -136,6 +141,7 @@ private fun SacredCalendarCard(date: LocalDate, calendar: GenesisCalendar) {
                 Text(copy.description, style = MaterialTheme.typography.bodyMedium, color = Color(0xfff1eadc))
             }
         }
+        ThreeRhythmsContent(date, calendar)
     }
 }
 
@@ -250,7 +256,13 @@ private fun ThreeRhythmsCard(date: LocalDate, calendar: GenesisCalendar) {
     Card(Modifier.fillMaxWidth().testTag("three-rhythms-card"), shape = RoundedCornerShape(24.dp),
         border = BorderStroke(1.dp, Color(0x33b28a4a)),
         colors = CardDefaults.cardColors(containerColor = parchment)) {
-        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        ThreeRhythmsContent(date, calendar)
+    }
+}
+
+@Composable
+private fun ThreeRhythmsContent(date: LocalDate, calendar: GenesisCalendar) {
+        Column(Modifier.padding(18.dp).testTag("three-rhythms-content"), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                     Text("САКРАЛЬНЫЙ КАЛЕНДАРЬ · СМЫСЛ ДНЯ", style = MaterialTheme.typography.labelMedium,
@@ -268,7 +280,6 @@ private fun ThreeRhythmsCard(date: LocalDate, calendar: GenesisCalendar) {
             }
             dayRhythmFacts(date, calendar).forEach { fact -> RhythmFactCard(fact) }
         }
-    }
 }
 
 @Composable
@@ -289,7 +300,8 @@ private fun RhythmFactCard(fact: DayRhythmFact) {
 
 /** Compact semantic cards used under the selected day in Calendar → Month. */
 @Composable
-internal fun CalendarSelectedDayFacts(date: LocalDate, calendar: GenesisCalendar, solarLocation: SolarLocation) {
+internal fun CalendarSelectedDayFacts(date: LocalDate, calendar: GenesisCalendar, solarLocation: SolarLocation,
+    primaryMode: CalendarMode = CalendarMode.SACRED) {
     val sacred = calendar.sacredDate(date)
     val month = SacredCatalog.months[sacred.monthIndex]
     val day = month.days[sacred.day - 1]
@@ -298,10 +310,12 @@ internal fun CalendarSelectedDayFacts(date: LocalDate, calendar: GenesisCalendar
     val locale = genesisLocale()
     Column(Modifier.fillMaxWidth().testTag("calendar-selected-fact-blocks"),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        CalendarFactCard("calendar-selected-sacred", month.symbol, "Сакральный календарь",
+      (listOf(primaryMode) + secondaryCalendarModes(primaryMode)).forEach { mode ->
+        when (mode) {
+        CalendarMode.SACRED -> CalendarFactCard("calendar-selected-sacred", month.symbol, "Сакральный календарь",
             "${sacred.day} · ${month.name} (${month.roman})", "${day.name}. ${day.description}",
             parchmentSoft, ink, mutedInk, gold)
-        CalendarFactCard("calendar-selected-gregorian", "☼", "Григорианский календарь",
+        CalendarMode.PROFANE -> CalendarFactCard("calendar-selected-gregorian", "☼", "Григорианский календарь",
             date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy", locale)).replaceFirstChar { it.titlecase(locale) },
             "${date.dayOfYear}-й из ${date.lengthOfYear()} дней года · ${date.lengthOfMonth()} дней в месяце",
             Color(0xffeef2ed), ink, mutedInk, Color(0xff407064)) {
@@ -311,7 +325,7 @@ internal fun CalendarSelectedDayFacts(date: LocalDate, calendar: GenesisCalendar
                     style = MaterialTheme.typography.labelMedium, color = Color(0xff407064))
             }
         }
-        Surface(Modifier.fillMaxWidth().testTag("calendar-selected-lunar"), shape = RoundedCornerShape(16.dp),
+        CalendarMode.LUNAR -> Surface(Modifier.fillMaxWidth().testTag("calendar-selected-lunar"), shape = RoundedCornerShape(16.dp),
             color = deepTeal, border = BorderStroke(1.dp, Color(0x55dfc17e))) {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically,
@@ -332,6 +346,8 @@ internal fun CalendarSelectedDayFacts(date: LocalDate, calendar: GenesisCalendar
                     color = moonGold, fontWeight = FontWeight.Bold)
             }
         }
+        }
+      }
     }
 }
 

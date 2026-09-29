@@ -26,6 +26,8 @@ interface GenesisDao {
     @Query("SELECT * FROM documents WHERE scope=:scope AND kind=:kind")
     suspend fun document(scope: String, kind: String): DocumentRecord?
     @Upsert suspend fun putDocument(document: DocumentRecord)
+    @Query("DELETE FROM documents WHERE scope=:scope AND kind=:kind")
+    suspend fun deleteDocument(scope: String, kind: String)
     @Query("SELECT * FROM tasks WHERE scope=:scope AND deleted=0")
     fun observeTasks(scope: String): Flow<List<TaskRecord>>
     @Query("SELECT * FROM tasks WHERE scope=:scope AND id=:id")

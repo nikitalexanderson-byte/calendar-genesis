@@ -30,6 +30,8 @@ import org.json.JSONObject
 import ru.genesis.calendar.GenesisApplication
 import ru.genesis.calendar.data.CloudAccountImporter
 import ru.genesis.calendar.data.StoicheionDrawRepository
+import ru.genesis.calendar.data.LocalPreferences
+import kotlinx.coroutines.flow.first
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -67,9 +69,16 @@ class AuthController private constructor(context: Context) {
     }
 
     fun checkSession() = start("Проверяем серверную сессию…") { generation ->
+        if (mutableState.value.user == null) {
+            val cached = withContext(Dispatchers.IO) { CachedAccountEntry(app).read(app.workspaceScope) }
+            if (cached != null) publish(generation, AuthPanelState(busy = true, ready = true,
+                user = cached.identity, accountSettings = cached.settings,
+                message = "Открыта защищённая локальная копия. Проверяем связь с облаком…"))
+        }
         val payload = withContext(Dispatchers.IO) { client.session(generation) }
         val identity = AuthProtocol.identity(payload)
         if (identity == null) {
+            withContext(Dispatchers.IO) { CachedAccountEntry(app).clear(app.workspaceScope); app.scheduler.deactivate(app.workspaceScope) }
             app.activateAccount(null)
             publish(generation, AuthPanelState(checkedAt = System.currentTimeMillis(),
                 message = "На сервере нет активного входа."))
@@ -227,10 +236,11 @@ class AuthController private constructor(context: Context) {
             } catch (error: CancellationException) { throw error }
             catch (_: Exception) { true } else true
             // Notification permission/OEM alarm errors must not undo a completed cloud import.
-            try { withContext(Dispatchers.IO) { app.scheduler.restore() } }
+            try { withContext(Dispatchers.IO) { app.scheduler.restore(); app.scheduler.restoreHabitNotifications() } }
             catch (error: CancellationException) { throw error }
             catch (error: Exception) { logCloudFailure("REMINDER_RESTORE", error) }
             AuthDiagnostics.event("SYNC_SUCCESS")
+            withContext(Dispatchers.IO) { CachedAccountEntry(app).save(confirmed, resolvedSettings) }
             publish(generation, AuthPanelState(ready = true, user = confirmed,
                 accountSettings = resolvedSettings, preview = preview,
                 checkedAt = System.currentTimeMillis(), message = (when (imported) {
@@ -298,7 +308,10 @@ class AuthController private constructor(context: Context) {
             }
             else -> throw AuthFailure(AuthFailure.Kind.PROTOCOL)
         }
-        val payload = withContext(Dispatchers.IO) { client.updatePreferences(generation, changes) }
+        val preferences = LocalPreferences(app, app.workspaceScope)
+        preferences.setPending(name, value)
+        val payload = flushPendingPreferences(generation, previous.user?.uid ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED))
+            ?: throw AuthFailure(AuthFailure.Kind.PROTOCOL)
         val settings = AccountSettings.fromResponse(payload) ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
         val identity = AuthProtocol.identity(payload) ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
         publish(generation, AuthPanelState(ready = previous.ready, user = identity, accountSettings = settings, preview = previous.preview,
@@ -341,7 +354,7 @@ class AuthController private constructor(context: Context) {
         }
         val message = if (remoteClosed) "Вход закрыт. Локальные черновики сохранены."
             else "Вход удалён с устройства. Отзыв серверной сессии не подтверждён; локальные черновики сохранены."
-        withContext(Dispatchers.IO) { app.scheduler.deactivate(previousScope) }
+        withContext(Dispatchers.IO) { CachedAccountEntry(app).clear(previousScope); app.scheduler.deactivate(previousScope) }
         app.activateAccount(null)
         publish(generation, AuthPanelState(message = message + if (providerCleared) "" else " Поставщик Google недоступен для очистки состояния."))
     }
@@ -402,7 +415,7 @@ class AuthController private constructor(context: Context) {
                                 "Данные других устройств получены. Неотправленные изменения этого устройства сохранены."
                         }))
                 }
-                try { withContext(Dispatchers.IO) { app.scheduler.restore() } }
+                try { withContext(Dispatchers.IO) { app.scheduler.restore(); app.scheduler.restoreHabitNotifications() } }
                 catch (error: CancellationException) { throw error }
                 catch (error: Exception) { logCloudFailure("REMINDER_RESTORE", error) }
             } catch (error: CancellationException) { throw error }
@@ -458,6 +471,9 @@ class AuthController private constructor(context: Context) {
             var sentWorkspace = 0
             var failure: String? = null
             var conflictPath: String? = null
+            try { flushPendingPreferences(generation, identity.uid) }
+            catch (e: CancellationException) { throw e }
+            catch (_: Exception) { failure = "Настройки сохранены на устройстве и ожидают синхронизации." }
             try {
                 sentWorkspace = withContext(Dispatchers.IO) {
                     CloudWorkspaceSync(app.database, object : CloudWorkspaceTransport {
@@ -491,6 +507,40 @@ class AuthController private constructor(context: Context) {
         }
     }
 
+    private suspend fun flushPendingPreferences(generation: Long, uid: String): JSONObject? {
+        val accountScope = CloudAccountSnapshot.scopeFor(uid)
+        if (app.workspaceScope != accountScope) return null
+        val preferences = LocalPreferences(app, accountScope)
+        val changes = preferences.pending.first()
+        if (changes.isEmpty()) return null
+        val body = JSONObject()
+        changes.forEach { (name, value) -> when (name) {
+            "display" -> body.put("calendarMode", value)
+            "input" -> body.put("taskCalendarMode", value)
+            "time" -> body.put("timeFormat", value)
+            "language" -> body.put("language", value)
+            "stoicheionDivinationDisabled" -> body.put(name, value.toBoolean())
+        } }
+        val payload = withContext(Dispatchers.IO) { client.updatePreferences(generation, body) }
+        if (AuthProtocol.identity(payload)?.uid != uid || !client.isCurrent(generation)) throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
+        val settings = AccountSettings.fromResponse(payload) ?: throw AuthFailure(AuthFailure.Kind.PROTOCOL)
+        preferences.acknowledge(changes)
+        publish(generation, mutableState.value.copy(accountSettings = settings))
+        return payload
+    }
+
+    /** Uses the same guarded session, CAS merge and outbox path as the foreground UI. */
+    internal suspend fun synchronizeInBackground(): Boolean = withContext(Dispatchers.Main.immediate) {
+        if (!app.workspaceScope.startsWith("account-")) return@withContext true
+        if (operation?.isActive != true) checkSession()
+        operation?.join()
+        if (!mutableState.value.ready) return@withContext false
+        syncPending()
+        syncJob?.join()
+        app.database.dao().observeOutbox(app.workspaceScope).first().isEmpty() &&
+            LocalPreferences(app, app.workspaceScope).pending.first().isEmpty()
+    }
+
     private fun start(message: String, block: suspend (Long) -> Unit) {
         val generation = client.begin()
         operation?.cancel()
@@ -504,12 +554,16 @@ class AuthController private constructor(context: Context) {
             workspaceConflictPath = previous.workspaceConflictPath,
             checkedAt = previous.checkedAt, message = message)
         operation = scope.launch {
-            fun failed(message: String, retainIdentity: Boolean = true) = publish(generation,
-                AuthPanelState(ready = previous.ready && retainIdentity,
-                    user = previous.user.takeIf { retainIdentity },
-                    accountSettings = previous.accountSettings.takeIf { retainIdentity },
-                    preview = previous.preview.takeIf { retainIdentity },
-                    checkedAt = previous.checkedAt.takeIf { retainIdentity }, message = message))
+            fun failed(message: String, retainIdentity: Boolean = true) {
+                // Cold startup may have opened the validated local cache after this operation began.
+                // A network failure must retain that account as well as an already visible account.
+                val retained = mutableState.value.takeIf { it.ready && it.user != null } ?: previous
+                publish(generation, AuthPanelState(ready = retained.ready && retainIdentity,
+                    user = retained.user.takeIf { retainIdentity },
+                    accountSettings = retained.accountSettings.takeIf { retainIdentity },
+                    preview = retained.preview.takeIf { retainIdentity },
+                    checkedAt = retained.checkedAt.takeIf { retainIdentity }, message = message))
+            }
             try {
                 block(generation)
             } catch (error: CancellationException) {
@@ -573,13 +627,29 @@ class AuthController private constructor(context: Context) {
 
     private suspend fun clearCurrent(generation: Long) {
         withContext(Dispatchers.IO) {
-            if (client.isCurrent(generation)) try { client.clear(generation) } catch (_: Exception) { /* fail closed in UI */ }
+            if (client.isCurrent(generation)) {
+                try { CachedAccountEntry(app).clear(app.workspaceScope); app.scheduler.deactivate(app.workspaceScope) }
+                catch (error: CancellationException) { throw error }
+                catch (_: Exception) { /* The active scope is still revoked below. */ }
+                try { client.clear(generation) } catch (_: Exception) { /* fail closed in UI */ }
+            }
         }
         if (client.isCurrent(generation)) app.activateAccount(null)
     }
 
     private fun publish(generation: Long, value: AuthPanelState) {
-        if (client.isCurrent(generation)) mutableState.value = value
+        if (client.isCurrent(generation)) {
+            mutableState.value = value
+            if (value.ready && value.user != null && value.accountSettings != null) scope.launch {
+                dataSyncMutex.withLock {
+                    if (client.isCurrent(generation) && app.workspaceScope == CloudAccountSnapshot.scopeFor(value.user.uid)) {
+                        try { withContext(Dispatchers.IO) { CachedAccountEntry(app).save(value.user, value.accountSettings) } }
+                        catch (error: CancellationException) { throw error }
+                        catch (_: Exception) { /* Cached entry from the last successful import remains intact. */ }
+                    }
+                }
+            }
+        }
     }
 
     companion object {

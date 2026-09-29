@@ -25,7 +25,18 @@ internal object CloudWorkspaceMigration {
 
     fun normalize(source: JSONObject): JSONObject {
         val schema = source.optInt("trackerSchemaVersion", 0)
-        require(schema in 1..CURRENT_SCHEMA) { "Unsupported cloud workspace schema" }
+        if (source.has("trackerSchemaVersion") && !source.isNull("trackerSchemaVersion")) {
+            val declared = source.get("trackerSchemaVersion")
+            require(declared is Number && declared.toDouble() == schema.toDouble()) { "Invalid cloud workspace schema" }
+        }
+        require(schema in 0..CURRENT_SCHEMA) { "Unsupported cloud workspace schema" }
+        if (schema == 0) {
+            // Before the tracker existed, the website saved projects/categories without a tracker schema.
+            // Recognize that document shape explicitly; never reinterpret an unknown object as empty data.
+            require(source.optJSONArray("projects") != null && source.optJSONArray("categories") != null) {
+                "Unrecognized pre-tracker workspace"
+            }
+        }
         val document = JSONObject(source.toString())
         if (schema == CURRENT_SCHEMA) return document
 

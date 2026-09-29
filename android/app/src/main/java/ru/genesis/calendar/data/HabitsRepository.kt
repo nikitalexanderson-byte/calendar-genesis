@@ -210,6 +210,8 @@ internal object HabitDocument {
         .put("schedule",JSONObject().put("startDate",h.schedule.startDate.toString()).put("endDate",h.schedule.endDate?.toString() ?: JSONObject.NULL)
             .put("timezone",h.schedule.timezone).put("recurrence",recurrence(h.schedule.recurrence)))
         .put("reminder",JSONObject().put("enabled",h.reminder.enabled).put("time",h.reminder.time).put("syncToGoogleTasks",h.reminder.syncToGoogleTasks)
+            .put("timing",h.reminder.timing).put("minutesBefore",h.reminder.minutesBefore)
+            .put("allowDuringQuietHours",h.reminder.allowDuringQuietHours)
             .put("showInGoogleCalendar",h.reminder.showInGoogleCalendar).put("googleTaskId",h.reminder.googleTaskId ?: JSONObject.NULL).put("googleEventId",h.reminder.googleEventId ?: JSONObject.NULL))
     private fun habit(v: JSONObject): Habit {
         val s=v.getJSONObject("schedule"); val r=v.getJSONObject("reminder")
@@ -217,7 +219,10 @@ internal object HabitDocument {
             TrackerSchedule(LocalDate.parse(s.getString("startDate")),s.nullable("endDate")?.let(LocalDate::parse),s.getString("timezone"),recurrence(s.getJSONObject("recurrence"))),
             v.getString("description"),v.getString("emoji"),v.getInt("priority"),v.getBoolean("isKeyHabit"),v.getString("ritualId"),v.getString("ritualName"),v.getString("color"),
             v.getBoolean("active"),v.nullable("sourceTemplateId"),v.nullable("sacredPracticeId"),v.nullable("sacredSectorId"),v.getString("preferredTime"),v.getString("scoringMode"),v.getString("qualityScale"),
-            HabitReminder(r.getBoolean("enabled"),r.getString("time"),r.getBoolean("syncToGoogleTasks"),r.getBoolean("showInGoogleCalendar"),r.nullable("googleTaskId"),r.nullable("googleEventId")))
+            HabitReminder(r.getBoolean("enabled"),r.getString("time"),r.getBoolean("syncToGoogleTasks"),r.getBoolean("showInGoogleCalendar"),r.nullable("googleTaskId"),r.nullable("googleEventId"),
+                r.optString("timing").takeIf { it in setOf("habit", "custom") } ?: if (v.getString("preferredTime").isNotBlank() &&
+                    r.getString("time") != v.getString("preferredTime")) "custom" else "habit",
+                r.optInt("minutesBefore",0).coerceIn(0,1440),r.optBoolean("allowDuringQuietHours",false)))
     }
     fun encode(w: LocalHabitWorkspace): String {
         val p=w.progress

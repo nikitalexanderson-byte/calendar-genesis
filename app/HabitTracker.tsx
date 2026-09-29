@@ -1012,7 +1012,7 @@ function HabitTemplateSetup({ template, date, language, calendarMode, googleTask
 
         <div className="habit-template-quick-settings">
           <article><span>{isEnglish ? "Recommended rhythm" : "Рекомендуемый ритм"}</span><strong>{isEnglish ? template.frequencyEn : template.frequency}</strong><small>{calendarLabel}</small></article>
-          <HabitStrictTimeField value={draft.preferredTime} fallbackTime={draft.reminder.time} language={language} onChange={(preferredTime) => setDraft((current) => ({ ...current, preferredTime, reminder: preferredTime ? { ...current.reminder, time: preferredTime } : current.reminder }))} />
+          <HabitStrictTimeField value={draft.preferredTime} fallbackTime={draft.reminder.time} language={language} onChange={(preferredTime) => setDraft((current) => ({ ...current, preferredTime }))} />
         </div>
         <HabitEmojiField value={draft.emoji} language={language} onChange={(emoji) => setDraft((current) => ({ ...current, emoji }))} />
         <HabitPriorityControl value={draft.priority} language={language} onChange={(priority) => setDraft((current) => ({ ...current, priority }))} />
@@ -1020,7 +1020,7 @@ function HabitTemplateSetup({ template, date, language, calendarMode, googleTask
 
         <label className="habit-switch"><span><strong>{isEnglish ? "Enable reminder" : "Добавить напоминание"}</strong><small>{isEnglish ? "The habit works without a notification" : "Привычка работает и без уведомления"}</small></span><input type="checkbox" role="switch" aria-label={isEnglish ? "Enable reminder" : "Добавить напоминание"} checked={draft.reminder.enabled} onChange={(event) => setDraft((current) => ({ ...current, reminder: { ...current.reminder, enabled: event.target.checked } }))} /><i /></label>
         <fieldset className="habit-reminder-fields habit-template-reminder" disabled={!draft.reminder.enabled}>
-          <label><span>{isEnglish ? "Reminder time" : "Время напоминания"}</span><input type="time" value={draft.reminder.time} onChange={(event) => setDraft((current) => ({ ...current, reminder: { ...current.reminder, time: event.target.value } }))} /></label>
+          <HabitReminderTimingFields habit={draft} language={language} onChange={(reminder) => setDraft((current) => ({ ...current, reminder }))} />
           <label className="habit-google-check"><input type="checkbox" aria-label="Google Tasks" checked={draft.reminder.syncToGoogleTasks} disabled={!googleTasksReady} onChange={(event) => setDraft((current) => ({ ...current, reminder: { ...current.reminder, syncToGoogleTasks: event.target.checked } }))} /><span><strong>Google Tasks</strong><small>{googleTasksReady ? (isEnglish ? "Create a rolling task reminder" : "Создать переносимое напоминание-задачу") : (isEnglish ? "Connect Google Tasks first" : "Сначала подключите Google Tasks")}</small></span></label>
         </fieldset>
 
@@ -1092,7 +1092,7 @@ function HabitEditor({ habit, isExisting, language, calendarMode, googleTasksRea
           <label className="habit-switch"><span><strong>{isEnglish ? "Enable reminder" : "Добавить напоминание"}</strong><small>{isEnglish ? "GENESIS remains the source of truth" : "GENESIS остаётся источником истины"}</small></span><input type="checkbox" role="switch" aria-label={isEnglish ? "Enable reminder" : "Добавить напоминание"} checked={draft.reminder.enabled} onChange={(event) => setDraft((current) => ({ ...current, reminder: { ...current.reminder, enabled: event.target.checked } }))} /><i /></label>
           <fieldset className="habit-reminder-fields" disabled={!draft.reminder.enabled}>
             <div className="habit-editor-grid">
-              <label><span>{isEnglish ? "Time" : "Время"}</span><input type="time" value={draft.reminder.time} onChange={(event) => setDraft((current) => ({ ...current, reminder: { ...current.reminder, time: event.target.value } }))} /></label>
+              <HabitReminderTimingFields habit={draft} language={language} onChange={(reminder) => setDraft((current) => ({ ...current, reminder }))} />
               <label className="habit-google-check"><input type="checkbox" aria-label="Google Tasks" checked={draft.reminder.syncToGoogleTasks} disabled={!googleTasksReady} onChange={(event) => setDraft((current) => ({ ...current, reminder: { ...current.reminder, syncToGoogleTasks: event.target.checked } }))} /><span><strong>Google Tasks</strong><small>{isEnglish ? "One task rolls to the next occurrence" : "Одна задача переносится на следующее повторение"}</small></span></label>
               <label className="habit-google-check"><input type="checkbox" aria-label={isEnglish ? "Show in Google Calendar" : "Показывать эту привычку в Google Calendar"} checked={draft.reminder.showInGoogleCalendar} onChange={(event) => setDraft((current) => ({ ...current, reminder: { ...current.reminder, showInGoogleCalendar: event.target.checked } }))} /><span><strong>{isEnglish ? "Show in Google Calendar" : "Показывать эту привычку в Google Calendar"}</strong><small>{isEnglish ? "Only when explicitly enabled" : "Только по вашему явному выбору"}</small></span></label>
             </div>
@@ -1102,6 +1102,32 @@ function HabitEditor({ habit, isExisting, language, calendarMode, googleTasksRea
       </form>
     </div>
   );
+}
+
+function HabitReminderTimingFields({ habit, language, onChange }: {
+  habit: Habit; language: Language; onChange: (reminder: Habit["reminder"]) => void;
+}) {
+  const english = language === "en";
+  const timing = habit.reminder.timing ?? "habit";
+  return <div className="habit-reminder-timing">
+    <p>{english ? "Personal reminders are separate from the daily goal reminder." : "Персональное напоминание действует отдельно от напоминания о дневной цели."}</p>
+    <label><span>{english ? "When to remind" : "Когда напоминать"}</span>
+      <select value={timing} onChange={(event) => onChange({ ...habit.reminder, timing: event.target.value as "habit" | "custom" })}>
+        <option value="habit">{english ? "At the habit's scheduled time" : "В точное время привычки"}</option>
+        <option value="custom">{english ? "At a separate time" : "В отдельное время"}</option>
+      </select>
+    </label>
+    {timing === "custom" || !habit.preferredTime ? <label><span>{english ? "Reminder time" : "Время напоминания"}</span>
+      <input type="time" value={habit.reminder.time} onChange={(event) => onChange({ ...habit.reminder, time: event.target.value })} />
+    </label> : <p>{english ? "Habit time" : "Время привычки"}: {habit.preferredTime}</p>}
+    <label><span>{english ? "Minutes before" : "За сколько минут"}</span>
+      <input type="number" min="0" max="1440" step="1" value={habit.reminder.minutesBefore ?? 0}
+        onChange={(event) => onChange({ ...habit.reminder, minutesBefore: Math.max(0, Math.min(1440, Math.trunc(Number(event.target.value) || 0))) })} />
+    </label>
+    <label className="habit-google-check"><input type="checkbox" checked={habit.reminder.allowDuringQuietHours ?? false}
+      onChange={(event) => onChange({ ...habit.reminder, allowDuringQuietHours: event.target.checked })} />
+      <span>{english ? "Allow this reminder during quiet hours" : "Разрешить это напоминание в тихие часы"}</span></label>
+  </div>;
 }
 
 function SleepEditor({ plan, language, calendarMode, allowCalendarModeChange = false, onSave, onClose }: { plan: SleepPlan; language: Language; calendarMode: CalendarMode; allowCalendarModeChange?: boolean; onSave: (plan: SleepPlan) => void; onClose: () => void }) {

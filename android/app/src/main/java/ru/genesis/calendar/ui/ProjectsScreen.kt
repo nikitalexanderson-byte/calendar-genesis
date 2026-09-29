@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -42,6 +43,9 @@ import ru.genesis.calendar.GenesisApplication
 import ru.genesis.calendar.data.*
 
 private const val inboxDropId = "__genesis_inbox__"
+
+private fun categoryAccent(value: String): Color =
+    runCatching { Color(android.graphics.Color.parseColor(value)) }.getOrDefault(Color(0xff2d6c68))
 
 internal fun russianCount(value: Int, one: String, few: String, many: String): String =
     if (value % 100 in 11..14) many else when (value % 10) {
@@ -219,8 +223,16 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(selected = selectedCategory == null, onClick = { selectedCategory = null }, label = { Text("Все") })
                 structure.categories.sortedBy { it.position }.forEach { category ->
+                    val accent = categoryAccent(category.color)
                     FilterChip(selected = selectedCategory == category.id,
                         onClick = { selectedCategory = category.id }, label = { Text(category.name) },
+                        leadingIcon = { Surface(Modifier.size(12.dp), color = accent,
+                            shape = RoundedCornerShape(50)) {} },
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = androidx.compose.ui.graphics.lerp(MaterialTheme.colorScheme.surface, accent, .12f),
+                            selectedContainerColor = androidx.compose.ui.graphics.lerp(MaterialTheme.colorScheme.surface, accent, .25f),
+                            labelColor = MaterialTheme.colorScheme.onSurface,
+                            selectedLabelColor = MaterialTheme.colorScheme.onSurface),
                         modifier = Modifier.testTag("category-filter-${category.id}"))
                 }
             }
@@ -242,6 +254,8 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
                 TextButton(onClick = { editingCategory = null; categoryEditor = true; error = null }) { Text("Добавить категорию") }
                 structure.categories.sortedBy { it.position }.forEach { category ->
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Surface(Modifier.padding(end = 10.dp).size(16.dp), color = categoryAccent(category.color),
+                            shape = RoundedCornerShape(50)) {}
                         Text(category.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
                         TextButton(onClick = { editingCategory = category; categoryEditor = true; error = null }) { Text("Изменить") }
                         TextButton(onClick = { deleteCategoryCandidate = category },
@@ -269,9 +283,25 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
                         Text("$count", style = MaterialTheme.typography.labelLarge)
                     }
                     val category = structure.categories.firstOrNull { it.id == project.categoryId }
-                    Text(listOfNotNull(category?.name, project.status.takeIf { it != "active" }?.let {
+                    category?.let {
+                        val accent = categoryAccent(it.color)
+                        Surface(shape = RoundedCornerShape(50),
+                            color = androidx.compose.ui.graphics.lerp(MaterialTheme.colorScheme.surface, accent, .15f),
+                            border = BorderStroke(1.dp, accent.copy(alpha = .45f)),
+                            modifier = Modifier.testTag("project-category-color-${project.id}")) {
+                            Row(Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically) {
+                                Surface(Modifier.size(10.dp), color = accent, shape = RoundedCornerShape(50)) {}
+                                Text(it.name, style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurface)
+                            }
+                        }
+                    }
+                    val projectStatus = project.status.takeIf { it != "active" }?.let {
                         if (it == "completed") "Завершён" else "Архив"
-                    }).joinToString(" · ").ifBlank { "Без категории" },
+                    }
+                    if (category == null || projectStatus != null) Text(projectStatus ?: "Без категории",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (selectedProject == project.id) {
                         if (project.description.isNotBlank()) Text(project.description, style = MaterialTheme.typography.bodyMedium)

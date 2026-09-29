@@ -167,6 +167,9 @@ export type HabitReportRange = "week" | "days-30" | "month" | "quarter" | "year"
 export type HabitReminder = {
   enabled: boolean;
   time: string;
+  timing?: "habit" | "custom";
+  minutesBefore?: number;
+  allowDuringQuietHours?: boolean;
   syncToGoogleTasks: boolean;
   showInGoogleCalendar: boolean;
   googleTaskId: string | null;
@@ -398,10 +401,13 @@ function legacySchedule(value: LegacyHabitSchedule | TrackerSchedule | undefined
   };
 }
 
-function normalizeReminder(value: LegacyHabit["reminder"]): HabitReminder {
+function normalizeReminder(value: LegacyHabit["reminder"], preferredTime = ""): HabitReminder {
   return {
     enabled: value?.enabled === true,
     time: typeof value?.time === "string" ? value.time : "09:00",
+    timing: value?.timing === "custom" || (!value?.timing && preferredTime && value?.time && value.time !== preferredTime) ? "custom" : "habit",
+    minutesBefore: Math.min(1440, Math.max(0, Math.trunc(Number(value?.minutesBefore) || 0))),
+    allowDuringQuietHours: value?.allowDuringQuietHours === true,
     syncToGoogleTasks: value?.syncToGoogleTasks === true || value?.syncToGoogle === true,
     showInGoogleCalendar: value?.showInGoogleCalendar === true,
     googleTaskId: typeof value?.googleTaskId === "string" && value.googleTaskId ? value.googleTaskId : null,
@@ -457,7 +463,7 @@ function normalizeHabit(value: LegacyHabit, fallbackDate: string, calendarMode: 
     schedule,
     scoringMode,
     qualityScale,
-    reminder: normalizeReminder(value.reminder),
+    reminder: normalizeReminder(value.reminder, value.preferredTime),
   };
 }
 
@@ -1136,6 +1142,7 @@ export function defaultHabit(date: string, calendarMode: CalendarMode): Habit {
     reminder: {
       enabled: false,
       time: "09:00",
+      timing: "habit",
       syncToGoogleTasks: false,
       showInGoogleCalendar: false,
       googleTaskId: null,
@@ -1170,6 +1177,7 @@ export function createHabitFromTemplate(
     reminder: {
       enabled: false,
       time: template.suggestedTime,
+      timing: "habit",
       syncToGoogleTasks: false,
       showInGoogleCalendar: false,
       googleTaskId: null,
@@ -1198,6 +1206,7 @@ export function createHabitFromSacredPractice(
     reminder: {
       enabled: false,
       time: practice.suggestedTime,
+      timing: "habit",
       syncToGoogleTasks: false,
       showInGoogleCalendar: false,
       googleTaskId: null,

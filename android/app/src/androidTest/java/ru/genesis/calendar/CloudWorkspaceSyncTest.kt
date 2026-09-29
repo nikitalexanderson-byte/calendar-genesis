@@ -20,12 +20,15 @@ import ru.genesis.calendar.security.WorkspaceCipher
 @RunWith(AndroidJUnit4::class)
 class CloudWorkspaceSyncTest {
     @Test fun olderEncryptedWorkspaceCanSyncAnAndroidEdit() = runBlocking {
-        val scope = CloudAccountSnapshot.scopeFor("synthetic-legacy-sync")
+      for (schema in listOf(0, 15)) {
+        val scope = CloudAccountSnapshot.scopeFor("synthetic-legacy-sync-$schema")
         val key = ByteArray(32) { (it + 9).toByte() }
         val cipher = LocalCipher()
         val db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), GenesisDatabase::class.java).build()
         try {
-            val remote = WorkspacePatch.emptyDocument().put("trackerSchemaVersion", 15)
+            val remote = (if (schema == 0) JSONObject().put("projects", org.json.JSONArray())
+                .put("categories", org.json.JSONArray())
+                else WorkspacePatch.emptyDocument().put("trackerSchemaVersion", schema))
                 .put("unknownWebSection", JSONObject().put("preserved", true))
             val base = ru.genesis.calendar.auth.CloudWorkspaceMigration.normalize(remote)
             val structure = WorkspaceStructureCodec.encode(WorkspaceStructure(projects = listOf(
@@ -55,6 +58,7 @@ class CloudWorkspaceSyncTest {
             assertEquals(1, CloudWorkspaceSync(db, transport).flush(scope))
             assertTrue(db.dao().outbox(scope).isEmpty())
         } finally { db.close() }
+      }
     }
 
     @Test fun encryptsCasPatchWithoutLosingWebOnlySections() = runBlocking {

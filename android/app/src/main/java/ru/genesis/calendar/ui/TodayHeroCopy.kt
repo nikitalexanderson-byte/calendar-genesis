@@ -3,6 +3,7 @@ package ru.genesis.calendar.ui
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
+import java.time.temporal.WeekFields
 import java.util.Locale
 import ru.genesis.calendar.domain.CalendarMode
 import ru.genesis.calendar.domain.GenesisCalendar
@@ -11,6 +12,12 @@ import ru.genesis.calendar.domain.SacredCatalog
 internal data class TodayHeroCopy(val eyebrow: String, val month: String, val title: String,
     val subtitle: String?, val description: String, val details: List<String>,
     val footerDate: String, val imagePath: String, val badge: String?)
+
+internal fun gregorianYearPosition(date: LocalDate, language: String = "ru"): String {
+    val week = date.get(WeekFields.ISO.weekOfWeekBasedYear())
+    return if (language == "en") "Week of the year · $week\n${date.dayOfYear} of ${date.lengthOfYear()} days in the year"
+        else "Неделя года · $week\n${date.dayOfYear} из ${date.lengthOfYear()} дней года"
+}
 
 private data class WeekdayPatron(val patronage: String, val deity: String, val bodyParts: String)
 
