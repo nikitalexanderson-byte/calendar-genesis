@@ -59,13 +59,14 @@ fun AuthPanel(app: GenesisApplication, localLanguage: String, onLanguage: (Strin
                     .format(Instant.ofEpochMilli(time).atZone(ZoneId.systemDefault())),
                     style = MaterialTheme.typography.labelSmall)
             }
-            if (state.user == null) {
+            if (state.user == null || state.requiresSignIn) {
                 Button(onClick = { activity?.let { controller.signIn(it, localLanguage) } },
                     enabled = !state.busy && activity != null,
                     modifier = Modifier.fillMaxWidth().testTag("auth-google-sign-in")) {
-                    Text("Войти через Google")
+                    Text(if (state.requiresSignIn) "Продолжить вход через Google" else "Войти через Google")
                 }
-            } else {
+            }
+            if (state.user != null) {
                 OutlinedButton(onClick = controller::logout,
                     modifier = Modifier.fillMaxWidth().testTag("auth-logout")) { Text("Выйти") }
             }

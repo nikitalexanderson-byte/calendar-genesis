@@ -86,6 +86,10 @@ class HabitsRepository(private val app: GenesisApplication) {
     suspend fun refresh() { if(dao.document(scope,"habits") != null) mutate { it } }
 
     suspend fun updateSettings(settings: HabitSettings) = mutate { it.copy(settings = settings) }
+    suspend fun updateAppearance(value: JSONObject) = mutate { workspace ->
+        workspace.copy(settings = workspace.settings.copy(rawJson = JSONObject(workspace.settings.rawJson)
+            .put("nativeAppearance", value).toString()))
+    }
 
     suspend fun restoreDefaultTemplates() = mutate { it.copy(hiddenDefaultTemplates = emptyList()) }
 
@@ -113,14 +117,16 @@ class HabitsRepository(private val app: GenesisApplication) {
         app.scheduler.restore()
     }
 
-    suspend fun complete(id: String, completed: Boolean, quality: Double? = null): HabitCompletionResult {
+    suspend fun complete(id: String, completed: Boolean, quality: Double? = null,
+        date: LocalDate = LocalDate.now()): HabitCompletionResult {
         val (before, after) = mutate { workspace ->
             val habit=workspace.habits.firstOrNull { it.id==id } ?: error("Привычка не найдена")
             val today=LocalDate.now()
-            require(engine().isScheduled(habit,today)) { "Сегодня привычка не запланирована." }
-            val existing=workspace.completions.firstOrNull { it.habitId==id && it.date==today }
+            require(date == today) { "Отметьте привычку в день выполнения." }
+            require(engine().isScheduled(habit,date)) { "На этот день привычка не запланирована." }
+            val existing=workspace.completions.firstOrNull { it.habitId==id && it.date==date }
             val entries=if(existing!=null && existing.completed==completed && existing.qualityValue==quality) workspace.completions else
-                engine().updateCompletion(workspace.completions,habit,today,today,completed,quality,existing?.note ?: "")
+                engine().updateCompletion(workspace.completions,habit,date,today,completed,quality,existing?.note ?: "")
             workspace.copy(completions=entries)
         }
         val known = before.achievementUnlocks.mapTo(hashSetOf()) { it.achievementId }

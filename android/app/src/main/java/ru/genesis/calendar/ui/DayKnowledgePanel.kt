@@ -1,6 +1,7 @@
 package ru.genesis.calendar.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -12,6 +13,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -263,37 +268,56 @@ private fun ThreeRhythmsCard(date: LocalDate, calendar: GenesisCalendar) {
 @Composable
 private fun ThreeRhythmsContent(date: LocalDate, calendar: GenesisCalendar) {
         Column(Modifier.padding(18.dp).testTag("three-rhythms-content"), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            val dark=LocalEveningTheme.current
+            val headerInk=if(dark) MaterialTheme.colorScheme.onPrimaryContainer else Color(0xfff9f2e2)
+            val headerAccent=if(dark) MaterialTheme.colorScheme.onSecondaryContainer else Color(0xffdfc17e)
+            Surface(Modifier.fillMaxWidth().testTag("three-rhythms-heading"),shape=RoundedCornerShape(18.dp),
+                color=if(dark) MaterialTheme.colorScheme.primaryContainer else Color(0xff123b36),
+                border=BorderStroke(1.dp,headerAccent.copy(alpha=.35f))) {
+            Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement=Arrangement.spacedBy(10.dp)) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                     Text("САКРАЛЬНЫЙ КАЛЕНДАРЬ · СМЫСЛ ДНЯ", style = MaterialTheme.typography.labelMedium,
-                        color = mutedInk, fontWeight = FontWeight.Bold)
+                        color = headerAccent, fontWeight = FontWeight.Bold)
                     Text("Три ритма в одной точке", style = MaterialTheme.typography.headlineSmall,
-                        color = ink, fontFamily = FontFamily.Serif)
+                        color = headerInk, fontFamily = FontFamily.Serif)
                     Text("Пята, стихия и пифагорейский смысл выбранного сакрального дня.",
-                        style = MaterialTheme.typography.bodySmall, color = mutedInk)
+                        style = MaterialTheme.typography.bodySmall, color = headerInk)
                 }
-                Surface(shape = CircleShape, color = parchmentSoft, border = BorderStroke(1.dp, Color(0x44b28a4a))) {
-                    Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
-                        Text("✣", style = MaterialTheme.typography.titleLarge, color = gold)
-                    }
-                }
+                ThreeRhythmsIcon(headerAccent)
+            }
             }
             dayRhythmFacts(date, calendar).forEach { fact -> RhythmFactCard(fact) }
         }
 }
 
+@Composable private fun ThreeRhythmsIcon(ink: Color) {
+    val description=genesisTranslate("Три ритма соединяются в центре")
+    Canvas(Modifier.size(44.dp).testTag("three-rhythms-icon").semantics { contentDescription=description }) {
+        for(angle in listOf(-90.0,30.0,150.0)) {
+            val radians=Math.toRadians(angle)
+            val point=Offset(center.x + kotlin.math.cos(radians).toFloat()*size.minDimension*.34f,
+                center.y + kotlin.math.sin(radians).toFloat()*size.minDimension*.34f)
+            drawLine(ink,point,center,strokeWidth=1.6.dp.toPx(),cap=StrokeCap.Round)
+            drawCircle(ink,radius=size.minDimension*.075f,center=point)
+        }
+    }
+}
+
 @Composable
 private fun RhythmFactCard(fact: DayRhythmFact) {
-    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = parchmentSoft,
-        border = BorderStroke(1.dp, Color(0x26b28a4a))) {
+    val dark=LocalEveningTheme.current
+    Surface(Modifier.fillMaxWidth().testTag("rhythm-fact-${fact.label}"), shape = RoundedCornerShape(18.dp),
+        color = if(dark) MaterialTheme.colorScheme.surfaceContainerLowest else parchmentSoft,
+        border = BorderStroke(1.dp, if(dark) MaterialTheme.colorScheme.secondary.copy(alpha=.5f) else Color(0x26b28a4a))) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(fact.symbol, style = MaterialTheme.typography.headlineMedium, color = gold,
+            Text(fact.symbol, style = MaterialTheme.typography.headlineMedium, color = if(dark) MaterialTheme.colorScheme.secondary else gold,
                 fontFamily = FontFamily.Serif)
-            Text(fact.label, style = MaterialTheme.typography.labelSmall, color = mutedInk,
+            Text(fact.label, style = MaterialTheme.typography.labelSmall, color = if(dark) MaterialTheme.colorScheme.onSurfaceVariant else mutedInk,
                 fontWeight = FontWeight.Bold)
-            Text(fact.title, style = MaterialTheme.typography.titleLarge, color = ink,
+            Text(fact.title, style = MaterialTheme.typography.titleLarge, color = if(dark) MaterialTheme.colorScheme.onSurface else ink,
                 fontFamily = FontFamily.Serif)
-            Text(fact.meaning, style = MaterialTheme.typography.bodySmall, color = mutedInk)
+            Text(fact.meaning, style = MaterialTheme.typography.bodySmall, color = if(dark) MaterialTheme.colorScheme.onSurfaceVariant else mutedInk)
         }
     }
 }

@@ -4,9 +4,12 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.PowerManager
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import ru.genesis.calendar.GenesisApplication
 import ru.genesis.calendar.MainActivity
 import ru.genesis.calendar.R
@@ -44,11 +47,17 @@ class HabitNotificationReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val pending = goAsync()
         val app = context.applicationContext as GenesisApplication
+        val wakeLock = context.getSystemService(PowerManager::class.java)
+            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "GENESIS:habit-delivery").apply { acquire(10_000) }
         app.appScope.launch {
-            try { app.scheduler.deliverHabitNotification(intent) }
+            try { withTimeout(9_000) {
+                app.scheduler.deliverHabitNotification(intent)
+                app.scheduler.restoreHabitNotifications()
+            } }
+            catch (error: Exception) { Log.e("GenesisReminders", "Delivery: ${error.javaClass.simpleName}") }
             finally {
-                try { app.scheduler.restoreHabitNotifications() }
-                finally { pending.finish() }
+                if (wakeLock.isHeld) wakeLock.release()
+                pending.finish()
             }
         }
     }

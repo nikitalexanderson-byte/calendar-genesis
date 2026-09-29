@@ -54,8 +54,10 @@ internal fun GenesisVectorIcon(icon: GenesisPageIcon, modifier: Modifier = Modif
     val moving = animated && ValueAnimator.areAnimatorsEnabled()
     val phase = rememberIconPhase("genesis-icon-${icon.name}",
         if (icon == GenesisPageIcon.TASKS || icon == GenesisPageIcon.PROJECTS) 7_200 else 12_000, moving)
+    val ink = eveningInk(tint)
     Canvas(modifier.testTag("genesis-icon-${icon.name.lowercase()}-${if (animated) "animated" else "static"}")
         .clearAndSetSemantics { }) {
+        val tint = ink
         val stroke = Stroke(1.55f, cap = StrokeCap.Round, join = StrokeJoin.Round)
         withTransform({ scale(size.width / 24f, size.height / 24f, Offset.Zero) }) {
             fun line(a: Offset, b: Offset, color: Color = tint) = drawLine(color, a, b, 1.55f, StrokeCap.Round)

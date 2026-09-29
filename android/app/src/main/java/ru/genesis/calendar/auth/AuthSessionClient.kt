@@ -113,6 +113,10 @@ internal class AuthSessionClient(context: Context) {
         val mutation = CloudTaskIdentity.mutation(id, task)
         return request(expected, "/tasks/${mutation.remoteId}", mutation.body, method = "DELETE")
     }
+    fun createTaskList(expected: Long, title: String, accountId: String): JSONObject {
+        require(title.trim().length in 1..300 && accountId.matches(Regex("[A-Za-z0-9_-]{1,100}")))
+        return request(expected, "/task-lists", JSONObject().put("title", title.trim()).put("accountId", accountId))
+    }
     fun challenge(expected: Long): JSONObject = request(expected, "/auth/google/native/challenge", JSONObject())
     fun googleServicesConfig(expected: Long): JSONObject =
         request(expected, "/auth/google/native/services/config", JSONObject())
@@ -144,7 +148,7 @@ internal class AuthSessionClient(context: Context) {
         persist: Boolean = true, method: String = if (body == null) "GET" else "POST"): JSONObject {
         require(path in setOf("/session", "/workspace", "/bootstrap", "/stoicheion/draws", "/auth/google/native/challenge",
             "/auth/google/native", "/auth/google/native/services/config", "/auth/google/native/services",
-            "/auth/logout", "/account/preferences") ||
+            "/auth/logout", "/account/preferences") || (path == "/task-lists" && method == "POST") ||
             (method in setOf("PUT", "DELETE") && path.matches(Regex("/tasks/[A-Za-z0-9_-]{1,100}"))) ||
             (method == "DELETE" && path.matches(Regex("/account/google-accounts/[A-Za-z0-9_-]{1,100}"))))
         require(method in setOf("GET", "POST", "PUT", "DELETE") && (method == "GET") == (body == null))

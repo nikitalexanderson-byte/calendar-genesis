@@ -14,7 +14,7 @@ internal data class PlannedHabitNotification(val date: LocalDate, val at: Instan
 internal fun planHabitNotifications(workspace: LocalHabitWorkspace, today: LocalDate, now: Instant,
     zone: ZoneId, english: Boolean, days: Int = 8): List<PlannedHabitNotification> {
     val settings = workspace.settings.notifications
-    if (!workspace.settings.enabled || !settings.enabled) return emptyList()
+    if (!workspace.settings.enabled) return emptyList()
     val engine = HabitEngine(GenesisCalendar(zone))
     val start = LocalTime.parse(settings.quietHoursStart)
     val end = LocalTime.parse(settings.quietHoursEnd)
@@ -37,7 +37,7 @@ internal fun planHabitNotifications(workspace: LocalHabitWorkspace, today: Local
         val target = workspace.goals.firstOrNull { it.date == date }?.targetCount ?: planned.size
         val remaining = (target - completedCount).coerceAtLeast(0)
         val perfectRemaining = planned.size - completedCount
-        if (settings.motivational && target > 0 && (remaining > 0 || perfectRemaining == 1)) {
+        if (settings.enabled && settings.motivational && target > 0 && (remaining > 0 || perfectRemaining == 1)) {
             val at = date.atTime(LocalTime.parse(settings.dailyGoalTime)).atZone(zone).toInstant()
             if (at > now && !quiet(at)) candidates += PlannedHabitNotification(date, at, "goal", null,
                 "GENESIS", habitNotificationBody(settings.tone, "goal", maxOf(remaining, perfectRemaining.takeIf { remaining == 0 } ?: 0),

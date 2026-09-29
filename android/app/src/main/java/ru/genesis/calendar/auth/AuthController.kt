@@ -38,6 +38,7 @@ import kotlin.coroutines.resumeWithException
 data class AuthPanelState(
     val busy: Boolean = false,
     val ready: Boolean = false,
+    val requiresSignIn: Boolean = false,
     val user: ServerIdentity? = null,
     val accountSettings: AccountSettings? = null,
     val preview: CloudWorkspacePreview.Summary? = null,
@@ -78,10 +79,7 @@ class AuthController private constructor(context: Context) {
         val payload = withContext(Dispatchers.IO) { client.session(generation) }
         val identity = AuthProtocol.identity(payload)
         if (identity == null) {
-            withContext(Dispatchers.IO) { CachedAccountEntry(app).clear(app.workspaceScope); app.scheduler.deactivate(app.workspaceScope) }
-            app.activateAccount(null)
-            publish(generation, AuthPanelState(checkedAt = System.currentTimeMillis(),
-                message = "На сервере нет активного входа."))
+            requireSignIn(generation)
         }
         else completeSignedIn(generation, payload, "Сессия подтверждена; зашифрованное пространство прочитано.")
     }
@@ -229,6 +227,9 @@ class AuthController private constructor(context: Context) {
                 } catch (error: CancellationException) { throw error }
                 catch (_: Exception) { languageWarning = true }
             }
+            if (app.workspaceScope != CloudAccountSnapshot.scopeFor(confirmed.uid)) {
+                withContext(Dispatchers.IO) { app.scheduler.deactivate(app.workspaceScope) }
+            }
             app.activateAccount(confirmed.uid)
             val stoicheionWarning = if (stoicheionPayload != null) try {
                 withContext(Dispatchers.IO) { StoicheionDrawRepository(app).replaceFromServer(stoicheionPayload) }
@@ -363,19 +364,19 @@ class AuthController private constructor(context: Context) {
 
     /** A manual sync includes downloading tasks, and never cancels a pull already in progress. */
     fun refresh() {
-        if (mutableState.value.ready) refreshIfReady() else checkSession()
+        if (mutableState.value.ready && !mutableState.value.requiresSignIn) refreshIfReady() else checkSession()
     }
 
     /** Pull on resume and periodically while visible, so another device's changes arrive automatically. */
     fun refreshIfReady() {
-        if (operation?.isActive == true || !mutableState.value.ready) return
+        if (operation?.isActive == true || !mutableState.value.ready || mutableState.value.requiresSignIn) return
         syncPending()
         refreshAccountData()
     }
 
     private fun refreshAccountData() {
         val identity = mutableState.value.user ?: return
-        if (!mutableState.value.ready || pullJob?.isActive == true) return
+        if (!mutableState.value.ready || mutableState.value.requiresSignIn || pullJob?.isActive == true) return
         val generation = client.currentGeneration()
         val accountScope = CloudAccountSnapshot.scopeFor(identity.uid)
         val previous = mutableTaskSync.value.takeIf { it.scope == accountScope } ?: AccountTaskSyncState(accountScope)
@@ -391,6 +392,7 @@ class AuthController private constructor(context: Context) {
                     val imported = withContext(Dispatchers.IO) {
                         CloudAccountImporter(app.database, app.scheduler).import(snapshot)
                     }
+                    withContext(Dispatchers.IO) { ru.genesis.calendar.data.TaskListsRepository.cacheBootstrap(app.database, accountScope, payload) }
                     val available = withContext(Dispatchers.IO) { app.database.dao().accountTasks(accountScope).size }
                     if (!client.isCurrent(generation)) return@withLock
                     val issue = when {
@@ -421,6 +423,7 @@ class AuthController private constructor(context: Context) {
             } catch (error: CancellationException) { throw error }
             catch (error: Exception) {
                 logCloudFailure("BACKGROUND_PULL", error)
+                if (error is AuthFailure && error.kind == AuthFailure.Kind.UNAUTHORIZED) requireSignIn(generation)
                 if (client.isCurrent(generation)) {
                     mutableTaskSync.value = previous.copy(loading = false,
                         issue = "Не удалось загрузить задачи аккаунта. Нажмите «Обновить» для повторной попытки.")
@@ -430,6 +433,31 @@ class AuthController private constructor(context: Context) {
             } finally {
                 if (client.isCurrent(generation)) mutableTaskSync.value = mutableTaskSync.value.copy(loading = false)
             }
+        }
+    }
+
+    internal suspend fun createTaskList(title: String, accountId: String): ru.genesis.calendar.data.GoogleTaskList {
+        val value = mutableState.value
+        val uid = value.user?.uid
+        require(uid != null && value.ready && !value.requiresSignIn) { "Для создания списка повторите вход через Google." }
+        require(value.accountSettings?.accounts?.any { it.id == accountId && it.tasksConnected } == true) {
+            "Подключите Google Tasks для выбранного аккаунта в настройках."
+        }
+        val accountScope = CloudAccountSnapshot.scopeFor(uid)
+        require(app.workspaceScope == accountScope)
+        val generation = client.currentGeneration()
+        try {
+            return dataSyncMutex.withLock {
+                val response = withContext(Dispatchers.IO) { client.createTaskList(generation, title, accountId) }
+                if(!client.isCurrent(generation) || app.workspaceScope != accountScope) throw CancellationException()
+                val list = ru.genesis.calendar.data.GoogleTaskList.from(response.getJSONObject("taskList"))
+                require(list.accountId == accountId)
+                withContext(Dispatchers.IO) { ru.genesis.calendar.data.TaskListsRepository(app, accountScope).rememberCreated(list) }
+                list
+            }
+        } catch(error: AuthFailure) {
+            if(error.kind == AuthFailure.Kind.UNAUTHORIZED) requireSignIn(generation)
+            throw error
         }
     }
 
@@ -462,7 +490,7 @@ class AuthController private constructor(context: Context) {
     private fun syncPending(conflictPolicy: WorkspacePatch.ConflictPolicy) {
         val identity = mutableState.value.user ?: return
         val accountScope = CloudAccountSnapshot.scopeFor(identity.uid)
-        if (app.workspaceScope != accountScope || syncJob?.isActive == true) return
+        if (app.workspaceScope != accountScope || mutableState.value.requiresSignIn || syncJob?.isActive == true) return
         val generation = client.currentGeneration()
         syncJob = scope.launch {
           dataSyncMutex.withLock {
@@ -473,7 +501,10 @@ class AuthController private constructor(context: Context) {
             var conflictPath: String? = null
             try { flushPendingPreferences(generation, identity.uid) }
             catch (e: CancellationException) { throw e }
-            catch (_: Exception) { failure = "Настройки сохранены на устройстве и ожидают синхронизации." }
+            catch (error: Exception) {
+                if (error is AuthFailure && error.kind == AuthFailure.Kind.UNAUTHORIZED) requireSignIn(generation)
+                failure = "Настройки сохранены на устройстве и ожидают синхронизации."
+            }
             try {
                 sentWorkspace = withContext(Dispatchers.IO) {
                     CloudWorkspaceSync(app.database, object : CloudWorkspaceTransport {
@@ -487,7 +518,10 @@ class AuthController private constructor(context: Context) {
                 failure = "Конфликт зашифрованного пространства: данные устройства сохранены. Решите, какую версию оставить."
             }
             catch (_: CloudWorkspacePreview.RecoveryRequired) { failure = "Для синхронизации нужен код восстановления пространства." }
-            catch (_: Exception) { failure = "Изменения проектов или привычек пока не подтверждены сервером и сохранены на устройстве." }
+            catch (error: Exception) {
+                if (error is AuthFailure && error.kind == AuthFailure.Kind.UNAUTHORIZED) requireSignIn(generation)
+                failure = "Изменения проектов или привычек пока не подтверждены сервером и сохранены на устройстве."
+            }
             try {
                 sentTasks = withContext(Dispatchers.IO) {
                     CloudTaskSync(app.database, object : CloudTaskTransport {
@@ -496,8 +530,11 @@ class AuthController private constructor(context: Context) {
                     }).flush(accountScope)
                 }
             } catch (error: CancellationException) { throw error }
-            catch (_: Exception) { failure = listOfNotNull(failure,
-                "Изменения задач пока не подтверждены Google и сохранены на устройстве.").joinToString(" ") }
+            catch (error: Exception) {
+                if (error is AuthFailure && error.kind == AuthFailure.Kind.UNAUTHORIZED) requireSignIn(generation)
+                failure = listOfNotNull(failure,
+                    "Изменения задач пока не подтверждены Google и сохранены на устройстве.").joinToString(" ")
+            }
             if (client.isCurrent(generation)) mutableState.value = mutableState.value.copy(
                 workspaceConflictPath = conflictPath, message = failure ?:
                 if (sentTasks + sentWorkspace > 0) "Синхронизировано: $sentTasks задач, $sentWorkspace изменений пространства."
@@ -534,6 +571,7 @@ class AuthController private constructor(context: Context) {
         if (!app.workspaceScope.startsWith("account-")) return@withContext true
         if (operation?.isActive != true) checkSession()
         operation?.join()
+        if (mutableState.value.requiresSignIn) return@withContext true
         if (!mutableState.value.ready) return@withContext false
         syncPending()
         syncJob?.join()
@@ -548,8 +586,9 @@ class AuthController private constructor(context: Context) {
         pullJob?.cancel()
         val previous = mutableState.value
         // A transient refresh/provider failure must not throw an authenticated user back to Welcome.
-        // Only a verified unauthorized/protocol response below is allowed to clear that state.
+        // Server credentials and the device's encrypted workspace have independent lifetimes.
         mutableState.value = AuthPanelState(busy = true, ready = previous.ready, user = previous.user,
+            requiresSignIn = previous.requiresSignIn,
             accountSettings = previous.accountSettings, preview = previous.preview,
             workspaceConflictPath = previous.workspaceConflictPath,
             checkedAt = previous.checkedAt, message = message)
@@ -559,6 +598,7 @@ class AuthController private constructor(context: Context) {
                 // A network failure must retain that account as well as an already visible account.
                 val retained = mutableState.value.takeIf { it.ready && it.user != null } ?: previous
                 publish(generation, AuthPanelState(ready = retained.ready && retainIdentity,
+                    requiresSignIn = retained.requiresSignIn,
                     user = retained.user.takeIf { retainIdentity },
                     accountSettings = retained.accountSettings.takeIf { retainIdentity },
                     preview = retained.preview.takeIf { retainIdentity },
@@ -587,17 +627,17 @@ class AuthController private constructor(context: Context) {
             } catch (_: GoogleServicesAuthorizationException) {
                 failed("Google не завершил выдачу разрешений Calendar/Tasks. Повторите подключение и выберите тот же аккаунт.")
             } catch (error: AuthFailure) {
-                if (error.kind in setOf(AuthFailure.Kind.UNAUTHORIZED, AuthFailure.Kind.PROTOCOL)) clearCurrent(generation)
+                if (error.kind == AuthFailure.Kind.UNAUTHORIZED) requireSignIn(generation)
                 failed(when (error.kind) {
                     AuthFailure.Kind.NOT_DEPLOYED -> "Нативный вход ещё не опубликован на сервере. Локальные функции доступны."
-                    AuthFailure.Kind.UNAUTHORIZED -> "Сессия или запрос входа отклонены. Начните вход заново."
+                    AuthFailure.Kind.UNAUTHORIZED -> "Повторите вход через Google для синхронизации. Данные и напоминания сохранены на устройстве."
                     AuthFailure.Kind.RATE_LIMIT -> "Слишком много попыток. Повторите вход через минуту."
                     AuthFailure.Kind.NETWORK -> "Нет подтверждения от сервера. Проверьте сеть и повторите."
                     AuthFailure.Kind.STORAGE -> "Защищённая сессия на устройстве недоступна. Повторите вход; локальные записи не изменены."
                     AuthFailure.Kind.CONFLICT -> "Данные изменились на другом устройстве. Обновите синхронизацию."
                     AuthFailure.Kind.SERVER -> "Сервер временно не может подтвердить вход. Повторите позже."
                     AuthFailure.Kind.PROTOCOL -> "Ответ сервера не прошёл проверку. Вход не подтверждён."
-                }, retainIdentity = error.kind !in setOf(AuthFailure.Kind.UNAUTHORIZED, AuthFailure.Kind.PROTOCOL))
+                })
             } catch (error: Exception) {
                 resetCredentialProvider()
                 val code = error.javaClass.simpleName.filter { it.isLetterOrDigit() }.take(32).ifBlank { "Unknown" }
@@ -625,16 +665,17 @@ class AuthController private constructor(context: Context) {
         Log.e("GenesisAuth", "$stage: ${error.javaClass.simpleName} at ${location?.fileName}:${location?.lineNumber}")
     }
 
-    private suspend fun clearCurrent(generation: Long) {
-        withContext(Dispatchers.IO) {
-            if (client.isCurrent(generation)) {
-                try { CachedAccountEntry(app).clear(app.workspaceScope); app.scheduler.deactivate(app.workspaceScope) }
-                catch (error: CancellationException) { throw error }
-                catch (_: Exception) { /* The active scope is still revoked below. */ }
-                try { client.clear(generation) } catch (_: Exception) { /* fail closed in UI */ }
-            }
-        }
-        if (client.isCurrent(generation)) app.activateAccount(null)
+    private suspend fun requireSignIn(generation: Long) {
+        if (!client.isCurrent(generation)) return
+        val cached = withContext(Dispatchers.IO) { CachedAccountEntry(app).read(app.workspaceScope) }
+        // A cached identity opens only this device's encrypted copy. Every cloud operation
+        // still requires fresh server authentication; explicit logout revokes local access.
+        publish(generation, AuthPanelState(ready = cached != null, requiresSignIn = cached != null,
+            user = cached?.identity, accountSettings = cached?.settings,
+            checkedAt = System.currentTimeMillis(),
+            message = if (cached != null)
+                "Локальная копия открыта. Повторите вход через Google для синхронизации; напоминания продолжают работать."
+            else "На сервере нет активного входа."))
     }
 
     private fun publish(generation: Long, value: AuthPanelState) {

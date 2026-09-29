@@ -20,6 +20,7 @@ internal fun HabitReminderFields(preferredTime: String, reminder: HabitReminder,
     val app = LocalContext.current.applicationContext as GenesisApplication
     val preferences = remember(app) { LocalPreferences(app, app.workspaceScope) }
     val prefs by preferences.values.collectAsStateWithLifecycle(UiPreferences())
+    val requestAccess = rememberRequestNotificationAccess(app)
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Точное время привычки", style = MaterialTheme.typography.titleMedium)
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -29,13 +30,14 @@ internal fun HabitReminderFields(preferredTime: String, reminder: HabitReminder,
         if (preferredTime.isNotEmpty()) AuthorTimePicker(preferredTime, prefs.use24) { if (enabled) onTime(it) }
         HorizontalDivider()
         Text("Персональное напоминание", style = MaterialTheme.typography.titleMedium)
-        Text("Действует отдельно от напоминания о дневной цели.", style = MaterialTheme.typography.bodySmall)
+        Text("Действует независимо от общего напоминания о дневной цели. Для доставки нужно разрешение Android.", style = MaterialTheme.typography.bodySmall)
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Switch(reminder.enabled, { onReminder(reminder.copy(enabled = it)) }, enabled = enabled,
+            Switch(reminder.enabled, { onReminder(reminder.copy(enabled = it)); if(it) requestAccess() }, enabled = enabled,
                 modifier = Modifier.testTag("habit-personal-reminder-enabled"))
             Text("Добавить напоминание", Modifier.padding(start = 8.dp))
         }
         if (reminder.enabled) {
+            HabitNotificationAccessNotice(app, true)
             listOf("habit" to "В точное время привычки", "custom" to "В отдельное время").forEach { (value, label) ->
                 FilterChip(selected = reminder.timing == value, enabled = enabled,
                     onClick = { onReminder(reminder.copy(timing = value)) }, label = { Text(label) },

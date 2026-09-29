@@ -116,7 +116,7 @@ internal fun CalendarYearDescriptionCard(calendar: GenesisCalendar, shown: Local
                     Text(paragraphs.last(), style = MaterialTheme.typography.bodyMedium, color = yearCardMuted)
                     Button(onClick = { detailsOpen = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
                         .testTag("sacred-year-details-open"),
-                        colors = ButtonDefaults.buttonColors(containerColor = yearCardGold, contentColor = yearCardBackground)) {
+                        colors = ButtonDefaults.buttonColors(containerColor = eveningSurface(yearCardGold), contentColor = eveningInk(yearCardBackground))) {
                         Text("✦  " + copy("Подробнее  →", "Learn more  →"))
                     }
                 }

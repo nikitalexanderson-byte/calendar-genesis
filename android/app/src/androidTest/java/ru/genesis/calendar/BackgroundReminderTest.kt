@@ -41,12 +41,13 @@ class BackgroundReminderTest {
         val repo = HabitsRepository(app)
         val current = repo.workspace.first()
         repo.updateSettings(current.settings.copy(notifications = current.settings.notifications.copy(
-            enabled = true, motivational = false, tone = "heroic", quietHoursStart = "00:00", quietHoursEnd = "00:00")))
-        val existing = repo.workspace.first().habits.firstOrNull { it.id == "background-reading" }
-        val habit = Habit(existing?.entity ?: TrackerEntity.create("habit", id = "background-reading"),
+            enabled = false, motivational = false, tone = "heroic", quietHoursStart = "00:00", quietHoursEnd = "00:00")))
+        repo.delete("background-reading")
+        val habit = Habit(TrackerEntity.create("habit", id = "background-reading"),
             "Проверка чтения", at.toLocalDate(), HabitEngine(GenesisCalendar()).defaultSchedule(at.toLocalDate(), CalendarMode.PROFANE),
             preferredTime = at.toLocalTime().toString(), reminder = HabitReminder(enabled = true))
         repo.save(habit)
+        assertFalse("A personal reminder must work with the general reminder disabled", repo.workspace.first().settings.notifications.enabled)
         val prefs = LocalPreferences(app, app.workspaceScope)
         prefs.setPending("display", "lunar")
         prefs.setRemote("display", "sacred")
@@ -66,7 +67,7 @@ class BackgroundReminderTest {
             assertEquals(uid, CachedAccountEntry(app).read(app.workspaceScope)?.identity?.uid)
             val repo = HabitsRepository(app)
             assertEquals("Проверка чтения", repo.workspace.first().habits.single { it.id == "background-reading" }.title)
-            assertTrue(repo.workspace.first().settings.notifications.enabled)
+            assertFalse(repo.workspace.first().settings.notifications.enabled)
             val prefs = LocalPreferences(app, app.workspaceScope)
             assertEquals(CalendarMode.LUNAR, prefs.values.first().display)
             assertEquals(false, prefs.values.first().use24)
@@ -74,6 +75,9 @@ class BackgroundReminderTest {
             val notification = app.getSystemService(NotificationManager::class.java).activeNotifications
                 .single { it.notification.extras.getString(Notification.EXTRA_TITLE) == "Проверка чтения" }
             assertTrue(notification.postTime >= fixture.getLong("expectedAt", Long.MAX_VALUE))
+            val verificationStartedAt = InstrumentationRegistry.getArguments().getString("verificationStartedAt")?.toLong()
+            if (verificationStartedAt != null) assertTrue("The OS must deliver before the app/test is relaunched",
+                notification.postTime < verificationStartedAt)
             val body = notification.notification.extras.getCharSequence(Notification.EXTRA_TEXT).toString()
             assertTrue(body.contains("Проверка чтения"))
             assertFalse(body.contains("Героический зов:"))

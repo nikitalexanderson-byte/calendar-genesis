@@ -13,10 +13,15 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
@@ -26,6 +31,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -40,6 +49,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import ru.genesis.calendar.*
 import ru.genesis.calendar.auth.GoogleServicesFirstRunModal
+import ru.genesis.calendar.auth.activity
 import ru.genesis.calendar.data.*
 import ru.genesis.calendar.domain.*
 import java.time.*
@@ -70,6 +80,9 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     val error by model.error.collectAsStateWithLifecycle()
     val structureRepo = remember(app, activeScope) { WorkspaceStructureRepository(app) }
     val structure by structureRepo.workspace.collectAsStateWithLifecycle(WorkspaceStructure())
+    val taskListsRepo = remember(app, activeScope) { TaskListsRepository(app) }
+    val cachedTaskLists by taskListsRepo.lists.collectAsStateWithLifecycle(emptyList())
+    val taskLists = remember(cachedTaskLists,tasks) { taskListsForTasks(cachedTaskLists,tasks) }
     val prefsStore=remember(app, activeScope) { LocalPreferences(app,activeScope) }
     val prefs by prefsStore.values.collectAsStateWithLifecycle(UiPreferences())
     val habitSettingsRepository = remember(app, activeScope) { HabitsRepository(app) }
@@ -109,16 +122,24 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     var editId by rememberSaveable { mutableStateOf<String?>(null) }
     var creating by rememberSaveable { mutableStateOf(false) }
     var newTaskProjectId by rememberSaveable { mutableStateOf<String?>(null) }
+    var newTaskListId by rememberSaveable { mutableStateOf<String?>(null) }
+    var creatingTaskList by rememberSaveable { mutableStateOf(false) }
     var requestedTheokyklosSector by rememberSaveable { mutableStateOf<String?>(null) }
     var selected by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
     LaunchedEffect(habitTrackingEnabled, tab) {
         if (!habitTrackingEnabled && tab == "Привычки") tab = "Сегодня"
     }
     LaunchedEffect(openedTask) { if(openedTask!=null) { editId=openedTask; creating=false; tab="Задачи" } }
-    MaterialTheme(colorScheme=standart) {
+    val eveningTheme = rememberEveningTheme(AppearanceSettings.read(habitWorkspace.settings.rawJson))
+    val window = LocalContext.current.activity()?.window
+    SideEffect { window?.let { WindowInsetsControllerCompat(it,it.decorView).apply {
+        isAppearanceLightStatusBars = !eveningTheme; isAppearanceLightNavigationBars = !eveningTheme
+    } } }
+    MaterialTheme(colorScheme=if (eveningTheme) evening else standart) {
+      CompositionLocalProvider(LocalEveningTheme provides eveningTheme) {
       CompositionLocalProvider(LocalGenesisLanguage provides
           (if(testWorkspace || activeScope.startsWith("account-")) prefs.language else welcomePrefs.language)) {
-        Surface(Modifier.fillMaxSize().testTag("app-theme-Standart"),color=MaterialTheme.colorScheme.background) {
+        Surface(Modifier.fillMaxSize().testTag(if (eveningTheme) "app-theme-Evening" else "app-theme-Standart"),color=MaterialTheme.colorScheme.background) {
             if (!testWorkspace && (!activeScope.startsWith("account-") || authState.user == null || !authState.ready)) {
                 if (authState.busy && authState.user != null) AuthTransitionScreen(authState.message)
                 else WelcomeScreen(authState,authController,welcomePrefs.language,preferredWelcomeLanguage) { language ->
@@ -126,9 +147,14 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         scope.launch { welcomePrefsStore.set("language",language) }
                     }
             } else {
+            NavigationConnectionScope(tab) {
             Column(Modifier.safeDrawingPadding().imePadding()) {
                 Row(Modifier.fillMaxWidth().padding(12.dp),verticalAlignment=Alignment.CenterVertically) {
-                    OriginalImage("icons/icon-192.png","GENESIS",Modifier.size(40.dp))
+                    Box(Modifier.size(42.dp).shadow(3.dp, CircleShape).clip(CircleShape)
+                        .background(Color(0xff172624)).testTag("genesis-round-logo")) {
+                        OriginalImage("icons/icon-192.png","GENESIS",Modifier.fillMaxSize()
+                            .graphicsLayer { scaleX = 1.20f; scaleY = 1.20f })
+                    }
                     Text("GENESIS",Modifier.padding(start=10.dp).weight(1f),style=MaterialTheme.typography.titleLarge)
                     Text(if(BuildConfig.DEBUG) "Internal alpha" else BuildConfig.VERSION_NAME,
                         modifier = Modifier.padding(end = 6.dp), style=MaterialTheme.typography.labelSmall)
@@ -149,16 +175,36 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                     else if(BuildConfig.DEBUG) "Изолированное тестовое пространство · только на этом устройстве"
                     else "Локальные черновики · аккаунт не подключён",Modifier.padding(horizontal=16.dp),
                     style=MaterialTheme.typography.bodySmall)
+                if(!testWorkspace && authState.requiresSignIn) {
+                    Text("Для синхронизации повторите вход. Данные и напоминания доступны на устройстве.",
+                        Modifier.padding(horizontal=16.dp),style=MaterialTheme.typography.bodySmall)
+                    TextButton(onClick={authController.checkSession();tab="Настройки"},
+                        modifier=Modifier.padding(horizontal=8.dp)) { Text("Открыть вход через Google") }
+                }
+                HabitNotificationAccessNotice(app,habitTrackingEnabled &&
+                    habitWorkspace.habits.any { it.reminder.enabled })
                 if (!testWorkspace && accountTaskSync != null) {
                     ru.genesis.calendar.auth.AccountTaskSyncNotice(accountTaskSync,
                         Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
                 }
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal=8.dp)) {
+                Row(Modifier.fillMaxWidth().then(navigationViewportAnchor()).testTag("main-navigation-scroll")
+                    .horizontalScroll(rememberScrollState()).padding(horizontal=8.dp)) {
                     listOf("Сегодня","Задачи","Проекты","Календарь","Привычки","Стойхейон","Теокиклос","Настройки")
                         .filter { habitTrackingEnabled || it != "Привычки" }.forEach {
-                        FilterChip(selected=tab==it,onClick={tab=it},label={Text(it)},
-                            leadingIcon={ GenesisVectorIcon(genesisPageIcon(it), Modifier.size(22.dp)) },
-                            modifier=Modifier.padding(3.dp))
+                        Surface(onClick={tab=it}, shape=RoundedCornerShape(16.dp),
+                            color=if(tab==it) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                            contentColor=if(tab==it) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                            border=BorderStroke(if(tab==it) 1.5.dp else 1.dp,
+                                if(tab==it) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
+                            shadowElevation=if(tab==it) 3.dp else 1.dp,
+                            modifier=Modifier.padding(4.dp).heightIn(min=48.dp).testTag("navigation-$it")
+                                .semantics { this.selected=tab==it; role=Role.Tab }.then(navigationParentAnchor(it))) {
+                            Row(Modifier.padding(horizontal=14.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically,
+                                horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                                GenesisVectorIcon(genesisPageIcon(it), Modifier.size(24.dp))
+                                Text(it,style=MaterialTheme.typography.labelLarge)
+                            }
+                        }
                     }
                 }
                 error?.let { Text(it,color=MaterialTheme.colorScheme.error,modifier=Modifier.padding(12.dp)) }
@@ -172,7 +218,13 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                     })
                     "Проекты" -> ProjectsScreen(app,tasks,true,
                         onOpenTask={ taskId -> editId=taskId;creating=false;tab="Задачи" },
-                        onCreateTask={ projectId -> newTaskProjectId=projectId;editId=null;creating=true })
+                        onCreateTask={ projectId -> newTaskProjectId=projectId;newTaskListId=null;editId=null;creating=true })
+                    "Задачи" -> TasksScreen(tasks,taskLists,structure,prefs.use24,
+                        confirmed = testWorkspace || accountTaskSync?.confirmed != false,
+                        onCreateTask = { list -> newTaskListId=list?.id; newTaskProjectId=list?.let {
+                            structure.taskListLinks.firstOrNull { link -> link.taskListId == it.id }?.projectId
+                        }; editId=null; creating=true }, onCreateList={creatingTaskList=true},
+                        onComplete=model::complete,onOpen={editId=it;creating=false})
                     "Настройки" -> SettingsScreen(app,prefs,authState.busy) { name,value ->
                         if (authState.user != null) authController.updateSharedPreference(name,value)
                         else scope.launch { prefsStore.set(name,value) }
@@ -183,7 +235,9 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         onCompleteTask=model::complete,
                         onEditTask={ task, date -> selected=date.toString();editId=task.id;creating=false },
                         onDeleteTask=model::delete,
-                        onDeleteOccurrence={ task, date -> model.excludeOccurrence(task,date.toString()) {} })
+                        onDeleteOccurrence={ task, date -> model.excludeOccurrence(task,date.toString()) {} },
+                        dayHabits={ date -> if(habitTrackingEnabled) TodayHabitsContent(app,date,habitWorkspace,
+                            onOpenHabits={tab="Привычки"}) })
                     else -> LazyColumn(Modifier.weight(1f).testTag("today-list"),contentPadding=PaddingValues(16.dp),
                         verticalArrangement=Arrangement.spacedBy(12.dp)) {
                         if(tab=="Сегодня") item { DayHeader(LocalDate.parse(selected),prefs.display) }
@@ -193,46 +247,11 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         val shown=tasks.filter { tab!="Сегодня" || TaskOccurrences.occursOn(it,LocalDate.parse(selected)) }
                         if (tab == "Сегодня") item {
                             TodayTasksPanel(shown, selected, prefs.use24, structure,
-                                onCreate = { creating=true;editId=null;newTaskProjectId=null },
+                                onCreate = { creating=true;editId=null;newTaskProjectId=null;newTaskListId=null },
                                 onComplete = model::complete,
                                 onOpen = { taskId -> editId=taskId;creating=false }) {
                                 if (habitTrackingEnabled) TodayHabitsContent(app, LocalDate.parse(selected),
                                     habitWorkspace, onOpenHabits = { tab = "Привычки" })
-                            }
-                        } else {
-                            item {
-                                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                    GenesisPageHeader(if (prefs.language == "en") "Tasks" else "Задачи",
-                                        if (prefs.language == "en") "Your tasks, due dates, priorities and reminders"
-                                        else "Все задачи, сроки, приоритеты и напоминания", "✦")
-                                    Button(onClick={creating=true;editId=null;newTaskProjectId=null},modifier=Modifier.testTag("create-task")) { Text("Создать") }
-                                }
-                            }
-                            if(shown.isEmpty()) item {
-                                Text(if (!testWorkspace && accountTaskSync?.confirmed == false)
-                                    "Ожидаем загрузки задач аккаунта." else "Задач пока нет. Создайте первую запись.")
-                            }
-                            items(shown,key={it.id}) { task ->
-                                Card(Modifier.fillMaxWidth().testTag("task-${task.id}"),
-                                    shape = RoundedCornerShape(16.dp),
-                                    colors = CardDefaults.cardColors(containerColor = if (task.done)
-                                        completedTaskSurface else MaterialTheme.colorScheme.surfaceContainerLowest,
-                                        contentColor = if (task.done) completedTaskInk else MaterialTheme.colorScheme.onSurface),
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
-                                    Row(Modifier.padding(8.dp),verticalAlignment=Alignment.CenterVertically) {
-                                        Checkbox(checked=task.done,onCheckedChange={model.complete(task)},
-                                            colors = CheckboxDefaults.colors(checkedColor = completedTaskInk))
-                                        Column(Modifier.weight(1f).clickable { editId=task.id;creating=false }.padding(8.dp)) {
-                                            TaskTitle(task, Modifier.testTag("task-title-${task.id}"),
-                                                style=MaterialTheme.typography.titleMedium)
-                                            Text("${task.date} ${timeLabel(task.time,prefs.use24)} · Приоритет ${task.priority}" +
-                                                if (task.recurrence.enabled) " · Повторяется" else "",style=MaterialTheme.typography.bodySmall)
-                                            if(task.projectId!=null) Text(structure.projects.firstOrNull { it.id==task.projectId }?.title
-                                                ?: task.project.ifBlank { "Проект" },style=MaterialTheme.typography.labelSmall)
-                                            Text("Сохранено на устройстве",style=MaterialTheme.typography.labelSmall)
-                                        }
-                                    }
-                                }
                             }
                         }
                         if(tab=="Сегодня") item {
@@ -243,7 +262,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
             }
             val existing=tasks.find { it.id==editId }
             if(creating || existing!=null) TaskEditor(existing,selected,prefs,structure,newTaskProjectId,
-                authState.accountSettings,
+                authState.accountSettings,taskLists,newTaskListId,
                 onDismiss={creating=false;editId=null},
                 onSave={draft -> model.save(draft){creating=false;editId=null}},
                 onDelete=existing?.let{{model.delete(it);creating=false;editId=null}},
@@ -251,9 +270,18 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                     { date -> model.excludeOccurrence(series,date) { creating=false;editId=null } }
                 },
                 showSelectedOccurrence=tab=="Сегодня" || tab=="Календарь")
+            if(creatingTaskList) TaskListEditor(structure,authState.accountSettings,prefs,
+                canCreate=authState.ready && !authState.requiresSignIn && authState.user!=null,
+                onDismiss={creatingTaskList=false},onCreate=authController::createTaskList,
+                onSaveTasks={list,projectId,date,rows ->
+                    require(app.workspaceScope==activeScope) { "Аккаунт изменился. Откройте форму заново." }
+                    saveListDraftTasks(app,list,projectId,date,prefs.input,rows);authController.syncPending()
+                })
             }
         }
+        }
         if (!testWorkspace) GoogleServicesFirstRunModal(authState, authController)
+      }
       }
     }
     LaunchedEffect(prefs.language) { app.scheduler.createChannels(prefs.language) }
@@ -277,14 +305,18 @@ private fun TodayTasksPanel(tasks: List<LocalTask>, selected: String, use24: Boo
     structure: WorkspaceStructure, onCreate: () -> Unit, onComplete: (LocalTask) -> Unit,
     onOpen: (String) -> Unit, habits: @Composable ColumnScope.() -> Unit) {
     Card(Modifier.fillMaxWidth().testTag("today-tasks-section"), shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xfffffbf2)),
-        border = BorderStroke(1.dp, Color(0x55b28a4a))) {
+        colors = CardDefaults.cardColors(containerColor = if(LocalEveningTheme.current)
+            MaterialTheme.colorScheme.primaryContainer else Color(0xfffffbf2)),
+        border = BorderStroke(1.dp, if(LocalEveningTheme.current) MaterialTheme.colorScheme.primary.copy(alpha=.6f)
+            else Color(0x55b28a4a))) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                Surface(Modifier.size(44.dp), shape = RoundedCornerShape(14.dp), color = Color(0xff123b36)) {
+                Surface(Modifier.size(44.dp), shape = RoundedCornerShape(14.dp), color = if(LocalEveningTheme.current)
+                    MaterialTheme.colorScheme.secondaryContainer else Color(0xff123b36)) {
                     Box(contentAlignment = Alignment.Center) {
-                        GenesisVectorIcon(GenesisPageIcon.TASKS, Modifier.size(28.dp), Color(0xfff3d68f), animated = true)
+                        GenesisVectorIcon(GenesisPageIcon.TASKS, Modifier.size(28.dp), if(LocalEveningTheme.current)
+                            MaterialTheme.colorScheme.onSecondaryContainer else Color(0xfff3d68f), animated = true)
                     }
                 }
                 Column(Modifier.weight(1f)) {
@@ -305,7 +337,8 @@ private fun TodayTasksPanel(tasks: List<LocalTask>, selected: String, use24: Boo
                 }
             } else tasks.forEach { task ->
                 Surface(Modifier.fillMaxWidth().testTag("task-${task.id}"), shape = RoundedCornerShape(14.dp),
-                    color = if (task.done) completedTaskSurface else Color(0xfff7f1e5),
+                    color = if (task.done) completedTaskSurface else if(LocalEveningTheme.current)
+                        MaterialTheme.colorScheme.surfaceContainerLowest else Color(0xfff7f1e5),
                     contentColor = if (task.done) completedTaskInk else MaterialTheme.colorScheme.onSurface,
                     border = BorderStroke(1.dp, if (task.done) Color(0xffc8ccc6) else Color(0x44b28a4a))) {
                     Row(Modifier.fillMaxWidth().padding(6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -314,7 +347,7 @@ private fun TodayTasksPanel(tasks: List<LocalTask>, selected: String, use24: Boo
                         Column(Modifier.weight(1f).clickable { onOpen(task.id) }.padding(8.dp),
                             verticalArrangement = Arrangement.spacedBy(3.dp)) {
                             TaskTitle(task, Modifier.testTag("task-title-${task.id}"),
-                                style = MaterialTheme.typography.titleMedium)
+                                style = MaterialTheme.typography.titleMedium,occurrenceDate=LocalDate.parse(selected))
                             Text("$selected ${timeLabel(task.time, use24)} · Приоритет ${task.priority}" +
                                 if (task.recurrence.enabled) " · Повторяется" else "",
                                 style = MaterialTheme.typography.bodySmall,
@@ -343,7 +376,8 @@ fun OriginalImage(path: String, description: String?, modifier: Modifier=Modifie
         }
     }
     val localizedDescription = description?.let { genesisTranslate(it) }
-    bitmap?.let { Image(it.asImageBitmap(),localizedDescription,modifier,contentScale=ContentScale.Crop) }
+    bitmap?.let { Image(it.asImageBitmap(),localizedDescription,
+        if(LocalEveningTheme.current) modifier.alpha(.86f) else modifier,contentScale=ContentScale.Crop) }
 }
 
 @Composable
@@ -416,7 +450,7 @@ private fun DayHeader(date: LocalDate,mode: CalendarMode) {
 
 @Composable
 private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,structure:WorkspaceStructure,initialProjectId:String?,
-    accountSettings:ru.genesis.calendar.auth.AccountSettings?,onDismiss:()->Unit,
+    accountSettings:ru.genesis.calendar.auth.AccountSettings?, taskLists:List<GoogleTaskList>, initialTaskListId:String?, onDismiss:()->Unit,
     onSave:(LocalTask)->Unit,onDelete:(()->Unit)?,onDeleteOccurrence:((String)->Unit)?,showSelectedOccurrence:Boolean) {
     var title by rememberSaveable(task?.id) { mutableStateOf(task?.title ?: "") }
     var description by rememberSaveable(task?.id) { mutableStateOf(task?.description ?: "") }
@@ -425,6 +459,8 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
     var priority by rememberSaveable(task?.id) { mutableIntStateOf(task?.priority ?: 5) }
     var recurrence by remember(task?.id) { mutableStateOf(task?.recurrence ?: defaultTaskRecurrence(task?.date ?: selected, prefs.input)) }
     var projectId by rememberSaveable(task?.id,initialProjectId) { mutableStateOf(task?.projectId ?: initialProjectId) }
+    var listId by rememberSaveable(task?.id,initialTaskListId) { mutableStateOf(task?.taskListId() ?: initialTaskListId) }
+    val selectedList = taskLists.firstOrNull { it.id==listId }
     val routing=accountSettings?.routing
     val originalTargets=remember(task?.id,accountSettings) {
         task?.sourceFieldsJson?.let { raw -> runCatching { JSONObject(raw).optJSONArray("syncAccountIds") }.getOrNull() }
@@ -440,7 +476,7 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
     var customUnit by remember { mutableIntStateOf(60) }
     var absoluteDate by rememberSaveable { mutableStateOf(date) }
     var absoluteTime by rememberSaveable { mutableStateOf(time.ifBlank { "09:00" }) }
-    val googleTaskBacked = task?.sourceFieldsJson?.let { raw ->
+    val googleTaskBacked = listId!=null || task?.sourceFieldsJson?.let { raw ->
         runCatching { JSONObject(raw).optString("googleTaskId") }.getOrNull()?.let {
             it.isNotBlank() && it != "null"
         } ?: false
@@ -461,6 +497,21 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                 OutlinedTextField(title,{title=it},label={Text("Название")},modifier=Modifier.fillMaxWidth().testTag("task-title"))
                 OutlinedTextField(description,{description=it},label={Text("Описание")},modifier=Modifier.fillMaxWidth())
                 ProjectHierarchyPicker(structure.projects, projectId) { projectId = it }
+                if(taskLists.isNotEmpty() && task==null) {
+                    var choosingList by remember { mutableStateOf(false) }
+                    Box {
+                        OutlinedButton({choosingList=true},Modifier.fillMaxWidth().testTag("task-list-picker")) {
+                            Text(selectedList?.title ?: "Без списка Google Tasks")
+                        }
+                        DropdownMenu(choosingList,{choosingList=false}) {
+                            DropdownMenuItem(text={Text("Без списка Google Tasks")},onClick={listId=null;choosingList=false})
+                            taskLists.forEach { list -> DropdownMenuItem(text={Text(list.title)},onClick={
+                                listId=list.id;reminders=emptyList();recurrence=recurrence.copy(enabled=false);choosingList=false
+                                projectId=structure.taskListLinks.firstOrNull{it.taskListId==list.id}?.projectId
+                            }) }
+                        }
+                    }
+                }
                 if(accountSettings?.multiAccountEnabled==true && accountSettings.accounts.size>1 && routing?.mode=="choose") {
                     Text("Отправить в Google-аккаунты",style=MaterialTheme.typography.titleMedium)
                     Text("Выберите один или несколько аккаунтов для этой задачи.",
@@ -475,7 +526,7 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                         }
                     }
                 }
-                Text("Дата задачи · ${prefs.input.wireValue}")
+                Text("Дата задачи · ${calendarModeLabel(prefs.input)}")
                 AuthorDatePicker(date,prefs.input){date=it}
                 AuthorTimePicker(time,prefs.use24){time=it}
                 PriorityControl(priority){priority=it}
@@ -483,7 +534,7 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                     "Сохранение изменит всю серию. При удалении можно выбрать только $occurrenceDate.",
                     style=MaterialTheme.typography.bodySmall,
                     color=MaterialTheme.colorScheme.onSurfaceVariant)
-                val occurrenceCount = TaskRecurrenceEditor(recurrence,date,prefs.input) { recurrence=it;validation=null }
+                val occurrenceCount = if(googleTaskBacked) 1 else TaskRecurrenceEditor(recurrence,date,prefs.input) { recurrence=it;validation=null }
                 Text("Напомнить · ${reminders.size}/5",style=MaterialTheme.typography.titleMedium)
                 if(googleTaskBacked) Text("Для задачи из списка Google Tasks напоминания здесь недоступны; они поддерживаются для событий Google Calendar.",
                     style=MaterialTheme.typography.bodySmall)
@@ -517,7 +568,7 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                             }
                         }
                     } else {
-                        Text("Дата напоминания · ${prefs.input.wireValue}")
+                        Text("Дата напоминания · ${calendarModeLabel(prefs.input)}")
                         AuthorDatePicker(absoluteDate,prefs.input){absoluteDate=it}
                         AuthorTimePicker(absoluteTime,prefs.use24){absoluteTime=it}
                     }
@@ -557,14 +608,17 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                             else -> null
                         }
                         val source = JSONObject(task?.sourceFieldsJson ?: "{}")
-                        if(routing?.mode=="choose" && accountSettings?.multiAccountEnabled==true && accountSettings.accounts.size>1)
+                        if(task==null && selectedList!=null) {
+                            val listFields=listTaskFields(selectedList,prefs.input)
+                            listFields.keys().forEach { field -> source.put(field,listFields.get(field)) }
+                        } else if(routing?.mode=="choose" && accountSettings?.multiAccountEnabled==true && accountSettings.accounts.size>1)
                             source.put("syncAccountIds",JSONArray(syncTargets))
                         else if(task==null || task.categoryId!=structure.projects.firstOrNull{it.id==projectId}?.categoryId)
                             source.remove("syncAccountIds")
                         if (validation == null) onSave((task ?: LocalTask(title=title)).copy(title=title.trim(),description=description,date=date,time=time,priority=priority,
                             reminderAt=reminders.firstOrNull{it.kind=="absolute"}?.at,reminders=reminders,
                             projectId=projectId,categoryId=structure.projects.firstOrNull{it.id==projectId}?.categoryId,
-                            recurrence=if (recurrence.enabled) RecurrenceEngine(GenesisCalendar()).resolve(date,recurrence.copy(rangeStart=date))
+                            recurrence=if (recurrence.enabled && !googleTaskBacked) RecurrenceEngine(GenesisCalendar()).resolve(date,recurrence.copy(rangeStart=date))
                                 else recurrence.copy(enabled=false,rangeStart="",rangeEnd=""),
                             recurrenceExcludedDates=if(recurrence.enabled) task?.recurrenceExcludedDates ?: emptyList() else emptyList(),
                             sourceFieldsJson=source.toString()))
@@ -603,7 +657,7 @@ private fun projectPath(projects: List<GenesisProject>, selectedId: String?): Li
 }
 
 @Composable
-private fun ProjectHierarchyPicker(projects: List<GenesisProject>, selectedId: String?,
+internal fun ProjectHierarchyPicker(projects: List<GenesisProject>, selectedId: String?,
     onSelect: (String?) -> Unit) {
     val sorted = remember(projects) {
         projects.groupBy { it.parentId }.mapValues { (_, values) ->
@@ -654,11 +708,14 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
     var refresh by remember { mutableIntStateOf(0) }
     val request=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()){refresh++}
     val scope=rememberCoroutineScope()
+    val habits = remember(app, app.workspaceScope) { HabitsRepository(app) }
+    val workspace by habits.workspace.collectAsStateWithLifecycle(LocalHabitWorkspace())
     val rows by produceState(emptyList<ReminderRecord>(),refresh) { value=withContext(Dispatchers.IO){app.database.dao().reminders(app.workspaceScope)} }
     Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(14.dp)) {
         GenesisPageHeader(if (prefs.language == "en") "Settings" else "Настройки",
             if (prefs.language == "en") "Calendars, time, privacy and reminders"
             else "Календарь, время, приватность и напоминания", "⚙")
+        AppearancePanel(app, workspace, prefs.use24)
         SettingsSection("◉", "Календари и время", "Отображение не меняет календарь ввода и повторений",
             Color(0xffe4efed)) {
             listOf("display" to "Календарь отображения","input" to "Календарь ввода и повторений").forEach{(key,label)->
@@ -711,9 +768,9 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
             if(Build.VERSION.SDK_INT>=33 && !app.scheduler.exactAllowed())
                 Text("Android может задерживать сигналы. Проверьте разрешения GENESIS в настройках устройства.",
                     style=MaterialTheme.typography.bodySmall,color = Color(0xff7a5521))
-            Text("После перезагрузки расписание восстанавливается после разблокировки; просроченные сигналы не повторяются.",
+            Text("После перезагрузки и возврата из настроек Android напоминания восстанавливаются автоматически.",
                 style = MaterialTheme.typography.bodySmall)
-            OutlinedButton(onClick={scope.launch{app.scheduler.restore();refresh++}},
+            OutlinedButton(onClick={scope.launch{app.scheduler.restore();app.scheduler.restoreHabitNotifications();refresh++}},
                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)){Text("Проверить расписание")}
             rows.sortedBy{it.at}.takeLast(8).forEach{Text("Напоминание · ${it.state} · ${Instant.ofEpochMilli(it.at).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("dd.MM HH:mm"))}",style=MaterialTheme.typography.bodySmall)}
         }
@@ -734,7 +791,7 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
 private fun SettingsSection(symbol: String, title: String, subtitle: String, color: Color,
     content: @Composable ColumnScope.() -> Unit) {
     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = color),
+        colors = CardDefaults.cardColors(containerColor = eveningSurface(color)),
         border = BorderStroke(1.dp, Color(0x55b28a4a))) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically,

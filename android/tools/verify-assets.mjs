@@ -124,10 +124,26 @@ check(originals.length>0,'No selected original files');
 for(const pattern of includes)check(originals.some((p)=>pattern.endsWith('/**')?p.startsWith(pattern.slice(0,-2)):p===pattern),`Empty source include: ${pattern}`);
 const apk=existsSync(apkPath)?apkReader(apkPath):null;
 const sourceSet=new Set(originals);
+// These reviewed text catalogs are declared separately from public images in Gradle.
+// Verify their bytes as well, while still rejecting any undeclared extra APK entry.
+const catalogs=Array.from(gradle.matchAll(/from\(rootProject\.file\("\.\.\/(app\/[^"/]+\.json)"\)\)\s*\{\s*into\("i18n"\)\s*\}/g),
+  (match)=>({source:match[1],asset:`i18n/${match[1].split('/').at(-1)}`}));
+const catalogPaths=new Set(catalogs.map((entry)=>entry.asset));
 const generatedFiles=existsSync(generatedRoot)?walk(generatedRoot):[];
-const extraGenerated=generatedFiles.filter((p)=>!sourceSet.has(p));
-const extraApk=apk?apk.entryNames.filter((p)=>p.startsWith('assets/originals/') && !p.endsWith('/') && !sourceSet.has(p.slice('assets/originals/'.length))):[];
+const extraGenerated=generatedFiles.filter((p)=>!sourceSet.has(p) && !catalogPaths.has(p));
+const extraApk=apk?apk.entryNames.filter((p)=>p.startsWith('assets/originals/') && !p.endsWith('/') &&
+  !sourceSet.has(p.slice('assets/originals/'.length)) && !catalogPaths.has(p.slice('assets/originals/'.length))):[];
 const failures=[];
+const catalogVerification=catalogs.map(({source,asset})=>{
+  const bytes=readFileSync(resolve(root,source)), hash=sha(bytes);
+  const generated=resolve(generatedRoot,asset);
+  const generatedPass=existsSync(generated) && sha(readFileSync(generated))===hash;
+  let apkPass=null;
+  try { if(apk) apkPass=sha(apk.read(`assets/originals/${asset}`,bytes.length).bytes)===hash; }
+  catch { apkPass=false; }
+  if(!generatedPass || apkPass===false) failures.push(`Declared text catalog missing/mismatch: ${asset}`);
+  return {source,asset,sha256:hash,generatedPass,apkPass};
+});
 const entries=originals.map((path)=>{
   const bytes=readFileSync(resolve(publicRoot,path));
   const hash=sha(bytes), family=path.includes('/')?path.split('/')[0]:path;
@@ -162,7 +178,7 @@ const report={schemaVersion:1,generatedAt:new Date().toISOString(),command:'node
   generatedRoot:localPath(generatedRoot),apk:apk?{path:apk.path,size:apk.size,sha256:apk.sha256}:null,
   summary:{files:entries.length,originalBytes:entries.reduce((sum,e)=>sum+e.bytes,0),generatedPassed:entries.filter((e)=>e.generated.status==='PASS').length,
     apkPassed:entries.filter((e)=>e.apk.status==='PASS').length,byteParity:failures.length?'FAIL':apk?'PASS':'PENDING_APK',visualParity:'NOT_RUN',omittedPublicMedia:omitted.length},
-  families,entries,extraGenerated,extraApk,omitted,failures,
+  families,entries,catalogVerification,extraGenerated,extraApk,omitted,failures,
   limitations:['Byte parity is not proof of UI placement, visual parity, image decoding, licensing, or APK signature validity.',
     'Only public originals selected by actual Gradle includes are hashed. No server/private data or non-public artwork source is read.',
     'Native OriginalImage currently uses BitmapFactory: copied SVG frames are not a working SVG renderer.',

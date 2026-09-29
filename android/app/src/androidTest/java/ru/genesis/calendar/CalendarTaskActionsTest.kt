@@ -44,7 +44,7 @@ class CalendarTaskActionsTest {
             compose.waitUntil(10_000) { runBlocking { app.repository.get(task.id)?.title == "Mobile task edited" } }
             assertEquals(date.toString(), runBlocking { app.repository.get(task.id) }!!.date)
             compose.onNodeWithTag("calendar-task-count-$date").performScrollTo().performClick()
-            compose.onNodeWithText("Mobile task edited").assertExists()
+            compose.onNode(hasText("Mobile task edited") and hasAnyAncestor(hasTestTag("calendar-task-list-dialog"))).assertExists()
             compose.onNodeWithTag("calendar-task-delete-${task.id}").performClick()
             compose.onNodeWithText("Отмена").performClick()
             assertNotNull(runBlocking { app.repository.get(task.id) })

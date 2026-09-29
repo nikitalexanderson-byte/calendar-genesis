@@ -149,6 +149,12 @@ class WorkspaceStructureRepository(private val app: GenesisApplication) {
             else current.projects + project)
     }
 
+    suspend fun linkTaskList(taskListId: String, projectId: String?) = mutate(null) { current ->
+        require(projectId == null || current.projects.any { it.id == projectId }) { "Проект не найден. Выберите его заново." }
+        current.copy(taskListLinks = current.taskListLinks.filterNot { it.taskListId == taskListId } +
+            TaskListProjectLink(taskListId, projectId))
+    }
+
     suspend fun deleteProject(projectId: String, expectedRevision: Long? = null) = mutate(expectedRevision) { current ->
         val removed = WorkspaceStructureCodec.projectSubtreeIds(current.projects, projectId)
         require(removed.isNotEmpty()) { "Проект больше не существует." }
