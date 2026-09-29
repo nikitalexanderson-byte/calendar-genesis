@@ -305,6 +305,26 @@ private val nativeCopy = mapOf(
     "Уведомления" to "Notifications", "Включены" to "On", "Выключены" to "Off",
     "Доставка" to "Delivery", "Точная" to "Exact", "Приблизительная" to "Approximate",
     "Канал задач" to "Task channel", "Настроить уведомления" to "Configure notifications",
+    "Резерв" to "Backup", "событий" to "events", "Батарея" to "Battery",
+    "Без оптимизации" to "Unrestricted", "Системный режим" to "System mode",
+    "Каналы:" to "Channels:", "задачи" to "tasks", "привычки" to "habits",
+    "включены" to "on", "выключены" to "off",
+    "Точные системные сигналы дополнены резервной доставкой WorkManager. После перезагрузки, обновления и возврата из настроек расписание восстанавливается автоматически." to
+        "Exact system alarms have a WorkManager delivery backup. The schedule is restored automatically after a reboot, update, or return from system settings.",
+    "Последнее восстановление расписания ·" to "Last schedule recovery ·",
+    "Проверить уведомление через 1 минуту" to "Test a notification in 1 minute",
+    "Последняя проверка доставлена ·" to "Last test delivered ·",
+    "Проверка назначена ·" to "Test scheduled ·",
+    "Открыть системные настройки батареи" to "Open system battery settings",
+    "Samsung: никогда не спящие приложения" to "Samsung: Never sleeping apps",
+    "One UI может снова перенести редко используемое приложение в сон. После обновления Samsung проверьте, что GENESIS остаётся в списке «Никогда не спящие приложения»." to
+        "One UI may put an infrequently used app to sleep again. After a Samsung update, check that GENESIS remains in Never sleeping apps.",
+    "Принудительную остановку приложения Android не разрешает обходить. После неё откройте GENESIS один раз — расписание восстановится." to
+        "Android does not allow apps to bypass Force stop. Open GENESIS once afterwards to restore the schedule.",
+    "Работает" to "Working", "Требует внимания" to "Needs attention",
+    "Системная доставка работает. GENESIS сможет напоминать при закрытом приложении." to
+        "System delivery works. GENESIS can send reminders while the app is closed.",
+    "GENESIS · Проверка уведомлений" to "GENESIS · Notification test",
     "Проверить расписание" to "Check schedule", "Вход, синхронизация и связанные Google-аккаунты" to
         "Sign-in, sync, and linked Google accounts", "Версия" to "Version",
     // Theokyklos and shared units.

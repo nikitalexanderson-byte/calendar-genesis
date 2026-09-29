@@ -42,10 +42,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.stateDescription
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -806,6 +809,13 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
     val habits = remember(app, app.workspaceScope) { HabitsRepository(app) }
     val workspace by habits.workspace.collectAsStateWithLifecycle(LocalHabitWorkspace())
     val rows by produceState(emptyList<ReminderRecord>(),refresh) { value=withContext(Dispatchers.IO){app.database.dao().reminders(app.workspaceScope)} }
+    val notificationsAllowed = rememberNotificationsAllowed(app)
+    val batteryUnrestricted = app.scheduler.batteryOptimizationsIgnored()
+    val diagnosticScheduledAt = app.scheduler.lastDiagnosticScheduledAt()
+    val diagnosticDeliveredAt = app.scheduler.lastDiagnosticDeliveredAt()
+    val futureTaskAlarms = rows.count { it.state == "pending" && it.at > System.currentTimeMillis() }
+    fun diagnosticTime(value: Long) = Instant.ofEpochMilli(value).atZone(ZoneId.systemDefault())
+        .format(DateTimeFormatter.ofPattern("dd.MM HH:mm"))
     Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(14.dp)) {
         GenesisPageHeader(if (prefs.language == "en") "Settings" else "Настройки",
             if (prefs.language == "en") "Calendars, time, privacy and reminders"
@@ -884,12 +894,18 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
         SettingsSection("◷", "Системные напоминания", "Проверка разрешений и точности Android",
             Color(0xfffff1cf)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SettingsStatusTile("Уведомления", if(app.scheduler.notificationsAllowed()) "Включены" else "Выключены",
-                    app.scheduler.notificationsAllowed(), Modifier.weight(1f))
+                SettingsStatusTile("Уведомления", if(notificationsAllowed) "Включены" else "Выключены",
+                    notificationsAllowed, Modifier.weight(1f))
                 SettingsStatusTile("Доставка", if(app.scheduler.exactAllowed()) "Точная" else "Приблизительная",
                     app.scheduler.exactAllowed(), Modifier.weight(1f))
             }
-            Text("Канал задач · ${if(app.scheduler.channelAllowed()) "включён" else "выключен"}",
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SettingsStatusTile("Резерв", "${app.scheduler.scheduledHabitAlarmCount() + futureTaskAlarms} событий",
+                    notificationsAllowed, Modifier.weight(1f))
+                SettingsStatusTile("Батарея", if(batteryUnrestricted) "Без оптимизации" else "Системный режим",
+                    batteryUnrestricted, Modifier.weight(1f))
+            }
+            Text("Каналы: задачи · ${if(app.scheduler.channelAllowed()) "включён" else "выключен"}; привычки · ${if(app.scheduler.channelAllowed(ru.genesis.calendar.reminders.ReminderScheduler.HABIT_CHANNEL)) "включены" else "выключены"}",
                 style = MaterialTheme.typography.bodyMedium)
             Button(onClick={
                 if(Build.VERSION.SDK_INT>=33 && !app.scheduler.notificationsAllowed()) request.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -901,10 +917,44 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
             if(Build.VERSION.SDK_INT>=33 && !app.scheduler.exactAllowed())
                 Text("Android может задерживать сигналы. Проверьте разрешения GENESIS в настройках устройства.",
                     style=MaterialTheme.typography.bodySmall,color = Color(0xff7a5521))
-            Text("После перезагрузки и возврата из настроек Android напоминания восстанавливаются автоматически.",
+            Text("Точные системные сигналы дополнены резервной доставкой WorkManager. После перезагрузки, обновления и возврата из настроек расписание восстанавливается автоматически.",
                 style = MaterialTheme.typography.bodySmall)
-            OutlinedButton(onClick={scope.launch{app.scheduler.restore();app.scheduler.restoreHabitNotifications();refresh++}},
+            app.scheduler.lastRecoveryAt().takeIf { it > 0 }?.let {
+                Text("Последнее восстановление расписания · ${diagnosticTime(it)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.testTag("notification-last-recovery"))
+            }
+            OutlinedButton(onClick={scope.launch{app.scheduler.restore(recoverOverdue = true);app.scheduler.restoreHabitNotifications();refresh++}},
                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)){Text("Проверить расписание")}
+            OutlinedButton(onClick={app.scheduler.scheduleDiagnosticNotification();refresh++},
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("notification-diagnostic-schedule")) {
+                Text("Проверить уведомление через 1 минуту")
+            }
+            if (diagnosticScheduledAt > 0) {
+                Text(if (diagnosticDeliveredAt >= diagnosticScheduledAt)
+                    "Последняя проверка доставлена · ${diagnosticTime(diagnosticDeliveredAt)}"
+                else "Проверка назначена · ${diagnosticTime(diagnosticScheduledAt)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (diagnosticDeliveredAt >= diagnosticScheduledAt) Color(0xff255b59) else Color(0xff7a5521),
+                    modifier = Modifier.testTag("notification-diagnostic-status"))
+            }
+            OutlinedButton(onClick={app.startActivity(appBatterySettingsIntent(app.packageName))},
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("notification-battery-settings")) {
+                Text("Открыть системные настройки батареи")
+            }
+            samsungNeverSleepingAppsIntent()?.let { samsungIntent ->
+                OutlinedButton(onClick={
+                    if (runCatching { app.startActivity(samsungIntent); true }.getOrDefault(false).not())
+                        app.startActivity(appBatterySettingsIntent(app.packageName))
+                }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                    .testTag("notification-samsung-never-sleeping")) {
+                    Text("Samsung: никогда не спящие приложения")
+                }
+                Text("One UI может снова перенести редко используемое приложение в сон. После обновления Samsung проверьте, что GENESIS остаётся в списке «Никогда не спящие приложения».",
+                    style = MaterialTheme.typography.bodySmall)
+            }
+            Text("Принудительную остановку приложения Android не разрешает обходить. После неё откройте GENESIS один раз — расписание восстановится.",
+                style = MaterialTheme.typography.bodySmall)
             rows.sortedBy{it.at}.takeLast(8).forEach{Text("Напоминание · ${it.state} · ${Instant.ofEpochMilli(it.at).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("dd.MM HH:mm"))}",style=MaterialTheme.typography.bodySmall)}
         }
         SettingsSection("G", "Аккаунт GENESIS", "Вход, синхронизация и связанные Google-аккаунты",
@@ -929,13 +979,14 @@ private fun SettingsSection(symbol: String, title: String, subtitle: String, col
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Surface(Modifier.size(46.dp), shape = RoundedCornerShape(14.dp), color = Color(0xff123b36)) {
+                Surface(Modifier.size(46.dp).clearAndSetSemantics { }, shape = RoundedCornerShape(14.dp), color = Color(0xff123b36)) {
                     Box(contentAlignment = Alignment.Center) {
                         Text(symbol, color = Color(0xffffe4a6), style = MaterialTheme.typography.titleLarge)
                     }
                 }
                 Column(Modifier.weight(1f)) {
-                    Text(title, style = MaterialTheme.typography.titleLarge, color = Color(0xff132426))
+                    Text(title, Modifier.semantics { heading() }, style = MaterialTheme.typography.titleLarge,
+                        color = Color(0xff132426))
                     Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Color(0xff596665))
                 }
             }
@@ -947,7 +998,13 @@ private fun SettingsSection(symbol: String, title: String, subtitle: String, col
 
 @Composable
 private fun SettingsStatusTile(label: String, value: String, active: Boolean, modifier: Modifier = Modifier) {
-    Surface(modifier, shape = RoundedCornerShape(14.dp),
+    val accessibleLabel = genesisTranslate(label)
+    val accessibleValue = genesisTranslate(value)
+    val accessibleState = genesisTranslate(if (active) "Работает" else "Требует внимания")
+    Surface(modifier.semantics(mergeDescendants = true) {
+        contentDescription = "$accessibleLabel: $accessibleValue"
+        stateDescription = accessibleState
+    }, shape = RoundedCornerShape(14.dp),
         color = if(active) Color(0xffe4efe9) else Color(0xffffe0d6),
         border = BorderStroke(1.dp, if(active) Color(0x66255b59) else Color(0x66a5543f))) {
         Column(Modifier.padding(11.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {

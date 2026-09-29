@@ -8,6 +8,7 @@ import android.media.AudioAttributes
 import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import kotlinx.coroutines.sync.Mutex
@@ -21,6 +22,7 @@ import ru.genesis.calendar.data.LocalPreferences
 import ru.genesis.calendar.data.HabitsRepository
 import java.time.LocalDate
 import java.time.ZoneId
+import java.util.Locale
 
 class ReminderScheduler(private val context: Context) {
     // The application runs in one process. Serialize the DB transition and the
@@ -33,15 +35,25 @@ class ReminderScheduler(private val context: Context) {
         const val DAILY_GOAL_CHANNEL = "genesis.daily-goal.v1"
         const val ACHIEVEMENT_CHANNEL = "genesis.achievements.v1"
         internal const val HABIT_LATE_WINDOW_SECONDS = 6L * 60 * 60
+        internal const val TASK_LATE_WINDOW_MILLIS = 6L * 60 * 60 * 1000
+        internal const val DIAGNOSTIC_ACTION = "ru.genesis.calendar.NOTIFICATION_DIAGNOSTIC"
     }
     private val app get() = context.applicationContext as GenesisApplication
     private val alarms get() = context.getSystemService(AlarmManager::class.java)
     private val notifications get() = context.getSystemService(NotificationManager::class.java)
+    private val diagnosticStore get() = context.getSharedPreferences("genesis.notification.diagnostics.v1", Context.MODE_PRIVATE)
     fun exactAllowed() = Build.VERSION.SDK_INT < 31 || alarms.canScheduleExactAlarms()
     fun notificationsAllowed() = NotificationManagerCompat.from(context).areNotificationsEnabled() &&
         (Build.VERSION.SDK_INT < 33 || context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED)
     fun channelAllowed() = notifications.getNotificationChannel(TASK_CHANNEL)?.importance != NotificationManager.IMPORTANCE_NONE
     fun channelAllowed(channel: String) = notifications.getNotificationChannel(channel)?.importance != NotificationManager.IMPORTANCE_NONE
+    fun batteryOptimizationsIgnored() = context.getSystemService(PowerManager::class.java)
+        .isIgnoringBatteryOptimizations(context.packageName)
+    fun scheduledHabitAlarmCount() = context.getSharedPreferences("genesis_habit_alarm_registry", Context.MODE_PRIVATE)
+        .getStringSet("alarms", emptySet()).orEmpty().size
+    fun lastDiagnosticScheduledAt() = diagnosticStore.getLong("scheduledAt", 0)
+    fun lastDiagnosticDeliveredAt() = diagnosticStore.getLong("deliveredAt", 0)
+    fun lastRecoveryAt() = diagnosticStore.getLong("lastRecoveryAt", 0)
     fun createChannels(language: String = "ru") {
         val labels = if (language == "en") listOf(TASK_CHANNEL to "Tasks and events", HABIT_CHANNEL to "Habits",
             DAILY_GOAL_CHANNEL to "Daily goal", ACHIEVEMENT_CHANNEL to "Achievements")
@@ -98,6 +110,49 @@ class ReminderScheduler(private val context: Context) {
         } catch (_: SecurityException) { false }
         catch (_: Exception) { false }
     }
+    private fun diagnosticIntent(at: Long) = Intent(context, DiagnosticNotificationReceiver::class.java).apply {
+        action = DIAGNOSTIC_ACTION
+        data = Uri.Builder().scheme("genesis").authority("notification-diagnostic").appendPath(at.toString()).build()
+        putExtra("at", at)
+    }
+    private fun diagnosticPending(at: Long) = PendingIntent.getBroadcast(context, 7380,
+        diagnosticIntent(at), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+    fun scheduleDiagnosticNotification(delayMillis: Long = 60_000): Long? {
+        createChannels()
+        if (!notificationsAllowed() || !channelAllowed(HABIT_CHANNEL)) return null
+        lastDiagnosticScheduledAt().takeIf { it > 0 }?.let { old -> alarms.cancel(diagnosticPending(old)) }
+        val at = System.currentTimeMillis() + delayMillis.coerceAtLeast(1_000)
+        diagnosticStore.edit().putLong("scheduledAt", at).remove("deliveredAt").commit()
+        val pending = diagnosticPending(at)
+        try {
+            if (exactAllowed()) alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pending)
+            else alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pending)
+        } catch (_: SecurityException) {
+            alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pending)
+        }
+        return at
+    }
+    fun deliverDiagnosticNotification(intent: Intent): Boolean {
+        val at = intent.getLongExtra("at", 0)
+        if (intent.action != DIAGNOSTIC_ACTION || at <= 0 || !notificationsAllowed() ||
+            !channelAllowed(HABIT_CHANNEL)) return false
+        // Keep the alarm receiver synchronous and independent of DataStore startup. This path is
+        // also the user's test of whether Android can cold-start notification delivery.
+        val english = Locale.getDefault().language == "en"
+        val body = if (english) "System delivery works. GENESIS can send reminders while the app is closed."
+            else "Системная доставка работает. GENESIS сможет напоминать при закрытом приложении."
+        val note = NotificationCompat.Builder(context, HABIT_CHANNEL)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(if (english) "GENESIS · Notification test" else "GENESIS · Проверка уведомлений")
+            .setContentText(body).setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setContentIntent(openHabitsIntent()).setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE).setAutoCancel(true).build()
+        return try {
+            NotificationManagerCompat.from(context).notify("notification-diagnostic", 7303, note)
+            diagnosticStore.edit().putLong("deliveredAt", System.currentTimeMillis()).commit()
+            true
+        } catch (_: SecurityException) { false }
+    }
     private fun intent(row: ReminderRecord, action: String, clazz: Class<*>) = Intent(context, clazz).apply {
         this.action = action
         data = Uri.Builder().scheme("genesis").authority("reminder").appendPath(row.scope).appendPath(row.id).appendPath(action).build()
@@ -125,12 +180,25 @@ class ReminderScheduler(private val context: Context) {
     suspend fun scheduleUpcomingLocked(scope: String) {
         if (scope != app.workspaceScope) return
         val now = System.currentTimeMillis()
-        app.database.dao().reminders(scope).asSequence()
+        val upcoming = app.database.dao().reminders(scope).asSequence()
             .filter { it.state == "pending" && it.at > now }
-            .sortedBy { it.at }.take(100).forEach(::schedule)
-        // An overdue row remains visible in diagnostics; never replay it in a sound storm.
+            .sortedBy { it.at }.take(100).toList()
+        upcoming.forEach(::schedule)
+        ReminderRecoveryWorker.scheduleTasks(context, upcoming.firstOrNull()?.at)
+        // Recovery can replay at most four recent rows; older overdue rows remain visible in diagnostics.
     }
-    suspend fun restore() = withMutation { scheduleUpcomingLocked(app.workspaceScope) }
+    suspend fun restore(recoverOverdue: Boolean = false) = withMutation {
+        val scope = app.workspaceScope
+        if (recoverOverdue) {
+            val now = System.currentTimeMillis()
+            app.database.dao().reminders(scope).asSequence()
+                .filter { it.state == "pending" && it.at in (now - TASK_LATE_WINDOW_MILLIS)..now }
+                .sortedBy { it.at }.toList().takeLast(4)
+                .forEach { deliverLocked(scope, it.id, it.revision, scheduleNext = false) }
+        }
+        scheduleUpcomingLocked(scope)
+        diagnosticStore.edit().putLong("lastRecoveryAt", System.currentTimeMillis()).apply()
+    }
 
     /** System PendingIntents survive closing the UI and process recreation. */
     suspend fun restoreHabitNotifications() = withMutation {
@@ -143,8 +211,13 @@ class ReminderScheduler(private val context: Context) {
         val now = java.time.Instant.now()
         val from = now.minusSeconds(HABIT_LATE_WINDOW_SECONDS)
         val delivered = registry.getStringSet("delivered", emptySet()).orEmpty()
-        val plan = if (notificationsAllowed()) planHabitNotifications(workspace, from.atZone(zone).toLocalDate(),
+        val fullPlan = if (notificationsAllowed()) planHabitNotifications(workspace, from.atZone(zone).toLocalDate(),
             from, zone, language == "en", 9).filterNot { habitUri(it, scope) in delivered }.take(128) else emptyList()
+        fullPlan.filter { !it.at.isAfter(now) }.takeLast(4).forEach { candidate ->
+            postHabitNotification(candidate, scope, habitUri(candidate, scope), registry)
+        }
+        val deliveredAfterRecovery = registry.getStringSet("delivered", emptySet()).orEmpty()
+        val plan = fullPlan.filter { it.at.isAfter(now) && habitUri(it, scope) !in deliveredAfterRecovery }
         val scheduledUris = plan.mapTo(linkedSetOf()) { candidate ->
             habitUri(candidate, scope)
         }
@@ -165,15 +238,15 @@ class ReminderScheduler(private val context: Context) {
             .forEach(::cancelHabitAlarm)
         plan.zip(scheduledUris).forEach { (candidate, raw) ->
             val operation = pending(raw, candidate)
-            // Reconcile overdue alarms after Doze, a reboot or a permission change.
-            // Retain their original occurrence/time; validation and delivered keys prevent replay.
-            val deliveryAt = maxOf(candidate.at.toEpochMilli(), now.toEpochMilli() + 1_000)
+            val deliveryAt = candidate.at.toEpochMilli()
             try {
                 if (exactAllowed()) alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, deliveryAt, operation)
                 else alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, deliveryAt, operation)
             } catch (_: SecurityException) { alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, deliveryAt, operation) }
         }
         registry.edit().putStringSet("alarms", scheduledUris).commit()
+        ReminderRecoveryWorker.scheduleHabits(context, plan.firstOrNull()?.at?.toEpochMilli())
+        diagnosticStore.edit().putLong("lastRecoveryAt", System.currentTimeMillis()).apply()
     }
 
     private fun habitUri(candidate: PlannedHabitNotification, scope: String) = Uri.Builder().scheme("genesis")
@@ -200,22 +273,30 @@ class ReminderScheduler(private val context: Context) {
         val candidate = planHabitNotifications(workspace, date, at.minusMillis(1), ZoneId.systemDefault(), english, 1)
             .firstOrNull { it.kind == intent.getStringExtra("kind") && it.habitId == intent.getStringExtra("habitId") && it.at == at }
             ?: return@withMutation
-        val channel = if (candidate.kind == "goal") DAILY_GOAL_CHANNEL else HABIT_CHANNEL
-        if (!channelAllowed(channel)) return@withMutation
         val registry = context.getSharedPreferences("genesis_habit_alarm_registry", Context.MODE_PRIVATE)
         val key = intent.data.toString()
         if (scope != app.workspaceScope) return@withMutation
+        postHabitNotification(candidate, scope, key, registry)
+    }
+
+    private fun postHabitNotification(candidate: PlannedHabitNotification, scope: String, key: String,
+        registry: android.content.SharedPreferences): Boolean {
+        if (scope != app.workspaceScope || !notificationsAllowed()) return false
+        val channel = if (candidate.kind == "goal") DAILY_GOAL_CHANNEL else HABIT_CHANNEL
+        if (!channelAllowed(channel)) return false
         val delivered = registry.getStringSet("delivered", emptySet()).orEmpty()
-        if (key in delivered) return@withMutation
+        if (key in delivered) return false
         val notification = NotificationCompat.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_notification).setContentTitle(candidate.title)
             .setContentText(candidate.body).setStyle(NotificationCompat.BigTextStyle().bigText(candidate.body))
             .setContentIntent(openHabitsIntent()).setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE).setAutoCancel(true).build()
-        try {
+        return try {
             NotificationManagerCompat.from(context).notify(key, 2, notification)
             registry.edit().putStringSet("delivered", (delivered + key).toList().takeLast(256).toSet()).commit()
-        } catch (_: SecurityException) { /* Permission may be revoked between check and delivery. */ }
+            diagnosticStore.edit().putLong("lastDeliveryAt", System.currentTimeMillis()).apply()
+            true
+        } catch (_: SecurityException) { false }
     }
     /** Remove account-specific system alarms/notifications when its session leaves the device. */
     suspend fun deactivate(scope: String) = withMutation {
@@ -230,7 +311,7 @@ class ReminderScheduler(private val context: Context) {
         }.forEach { notifications.cancel(it.tag, it.id) }
     }
     suspend fun deliver(scope: String, id: String, revision: Long) = withMutation { deliverLocked(scope,id,revision) }
-    private suspend fun deliverLocked(scope: String, id: String, revision: Long) {
+    private suspend fun deliverLocked(scope: String, id: String, revision: Long, scheduleNext: Boolean = true) {
         if (scope != app.workspaceScope) return
         val dao = app.database.dao()
         val row = dao.reminder(scope, id) ?: return
@@ -238,8 +319,10 @@ class ReminderScheduler(private val context: Context) {
         val task = dao.task(scope, row.taskId) ?: return
         if (task.done || task.deleted || task.revision != revision) return
         val permitted = notificationsAllowed() && channelAllowed()
-        if (dao.claimReminder(scope, id, revision, if (permitted) "delivered" else "blocked", System.currentTimeMillis()) != 1) return
-        if (!permitted) { scheduleUpcomingLocked(scope); return }
+        // Keep the row pending while Android blocks notifications. Recovery can deliver it after
+        // the user restores permission instead of permanently losing a transiently blocked alarm.
+        if (!permitted) { if (scheduleNext) scheduleUpcomingLocked(scope); return }
+        if (dao.claimReminder(scope, id, revision, "delivered", System.currentTimeMillis()) != 1) return
         val open = PendingIntent.getActivity(context, 0, Intent(context, MainActivity::class.java).apply {
             data = Uri.Builder().scheme("genesis").authority("task").appendPath(scope).appendPath(row.taskId).build()
             putExtra("scope", scope); putExtra("taskId", row.taskId)
@@ -257,9 +340,16 @@ class ReminderScheduler(private val context: Context) {
             .addAction(0, if (english) "Snooze 10 min" else "Отложить на 10 мин", action("snooze"))
             .addAction(0, if (english) "Dismiss" else "Отключить", action("dismiss"))
             .build()
-        try { notifications.notify(scope + "/" + id, 1, note) }
-        catch (_: SecurityException) { /* Permission may be revoked between check and notify. */ }
-        scheduleUpcomingLocked(scope)
+        try {
+            notifications.notify(scope + "/" + id, 1, note)
+            diagnosticStore.edit().putLong("lastDeliveryAt", System.currentTimeMillis()).apply()
+        }
+        catch (_: Exception) {
+            // Notification permission/channel state can change between the check and notify().
+            // Put the claimed row back so the periodic recovery path can try again.
+            dao.releaseFailedReminder(scope, id, revision)
+        }
+        if (scheduleNext) scheduleUpcomingLocked(scope)
     }
 }
 

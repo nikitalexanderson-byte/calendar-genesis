@@ -47,6 +47,7 @@
 
         <receiver android:name=".reminders.ReminderReceiver" android:exported="false" />
         <receiver android:name=".reminders.HabitNotificationReceiver" android:exported="false" />
+        <receiver android:name=".reminders.DiagnosticNotificationReceiver" android:exported="false" />
         <receiver android:name=".reminders.ReminderActionReceiver" android:exported="false" />
         <receiver android:name=".reminders.RestoreReceiver" android:exported="false">
             <intent-filter>

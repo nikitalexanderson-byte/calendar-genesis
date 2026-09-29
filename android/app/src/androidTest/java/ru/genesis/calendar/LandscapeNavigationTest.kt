@@ -33,8 +33,8 @@ class LandscapeNavigationTest {
             val content = compose.onNodeWithTag("main-content").assertIsDisplayed()
                 .fetchSemanticsNode().boundsInRoot
             assertTrue("Primary menu must be to the left of content", rail.right <= content.left + 1f)
-            assertTrue(device.takeScreenshot(File(app.getExternalFilesDir(null),
-                "landscape-navigation-left-2.3.7.png")))
+            assertTrue(device.takeScreenshot(File(app.cacheDir,
+                "landscape-navigation-left-2.3.8.png")))
 
             compose.onNodeWithTag("navigation-Настройки").performScrollTo().performClick()
             compose.waitUntil(5_000) {
@@ -45,8 +45,8 @@ class LandscapeNavigationTest {
                 compose.onAllNodesWithTag("main-navigation-scroll").fetchSemanticsNodes().isNotEmpty()
             }
             compose.onNodeWithTag("main-navigation-scroll").assertIsDisplayed()
-            assertTrue(device.takeScreenshot(File(app.getExternalFilesDir(null),
-                "landscape-navigation-top-2.3.7.png")))
+            assertTrue(device.takeScreenshot(File(app.cacheDir,
+                "landscape-navigation-top-2.3.8.png")))
         } finally {
             runBlocking { preferences.set("wideNavigation", if (original) "left" else "top") }
             device.setOrientationNatural()

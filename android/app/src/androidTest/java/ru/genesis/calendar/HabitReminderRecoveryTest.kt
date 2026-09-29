@@ -57,6 +57,10 @@ class HabitReminderRecoveryTest {
             manager.cancel(key.toString(),2)
             registry.edit().putStringSet("delivered",registry.getStringSet("delivered",emptySet()).orEmpty()-key.toString()).commit()
             app.scheduler.deliverHabitNotification(intent)
+            for (attempt in 0 until 40) {
+                if (manager.activeNotifications.none { it.tag == key.toString() }) break
+                Thread.sleep(50)
+            }
             assertTrue(manager.activeNotifications.none {it.tag==key.toString()})
             assertFalse(registry.getStringSet("alarms",emptySet()).orEmpty().contains(key.toString()))
         } finally {

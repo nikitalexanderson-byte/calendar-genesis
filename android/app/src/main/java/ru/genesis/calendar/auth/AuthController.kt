@@ -237,7 +237,7 @@ class AuthController private constructor(context: Context) {
             } catch (error: CancellationException) { throw error }
             catch (_: Exception) { true } else true
             // Notification permission/OEM alarm errors must not undo a completed cloud import.
-            try { withContext(Dispatchers.IO) { app.scheduler.restore(); app.scheduler.restoreHabitNotifications() } }
+            try { withContext(Dispatchers.IO) { app.scheduler.restore(recoverOverdue = true); app.scheduler.restoreHabitNotifications() } }
             catch (error: CancellationException) { throw error }
             catch (error: Exception) { logCloudFailure("REMINDER_RESTORE", error) }
             AuthDiagnostics.event("SYNC_SUCCESS")
@@ -418,7 +418,7 @@ class AuthController private constructor(context: Context) {
                                 "Данные других устройств получены. Неотправленные изменения этого устройства сохранены."
                         }))
                 }
-                try { withContext(Dispatchers.IO) { app.scheduler.restore(); app.scheduler.restoreHabitNotifications() } }
+                try { withContext(Dispatchers.IO) { app.scheduler.restore(recoverOverdue = true); app.scheduler.restoreHabitNotifications() } }
                 catch (error: CancellationException) { throw error }
                 catch (error: Exception) { logCloudFailure("REMINDER_RESTORE", error) }
             } catch (error: CancellationException) { throw error }

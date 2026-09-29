@@ -33,6 +33,6 @@ class GenesisApplication : Application() {
         scheduler.createChannels()
         ru.genesis.calendar.reminders.ReminderMaintenanceWorker.enqueue(this)
         ru.genesis.calendar.auth.CloudSyncWorker.enqueue(this)
-        appScope.launch { scheduler.restore(); scheduler.restoreHabitNotifications() }
+        appScope.launch { scheduler.restore(recoverOverdue = true); scheduler.restoreHabitNotifications() }
     }
 }

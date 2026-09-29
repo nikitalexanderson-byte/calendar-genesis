@@ -18,10 +18,19 @@ class ReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val pending = goAsync()
         val app = context.applicationContext as GenesisApplication
+        val wakeLock = context.getSystemService(PowerManager::class.java)
+            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "GENESIS:task-delivery").apply { acquire(10_000) }
         app.appScope.launch {
-            try { app.scheduler.deliver(intent.getStringExtra("scope") ?: return@launch,
-                intent.getStringExtra("id") ?: return@launch, intent.getLongExtra("revision", -1)) }
-            finally { pending.finish() }
+            try { withTimeout(9_000) {
+                app.scheduler.deliver(intent.getStringExtra("scope") ?: return@withTimeout,
+                    intent.getStringExtra("id") ?: return@withTimeout, intent.getLongExtra("revision", -1))
+            } }
+            catch (error: Exception) { Log.e("GenesisReminders", "Task delivery: ${error.javaClass.simpleName}") }
+            finally {
+                ReminderMaintenanceWorker.enqueueImmediate(context)
+                if (wakeLock.isHeld) wakeLock.release()
+                pending.finish()
+            }
         }
     }
 }
@@ -56,10 +65,17 @@ class HabitNotificationReceiver : BroadcastReceiver() {
             } }
             catch (error: Exception) { Log.e("GenesisReminders", "Delivery: ${error.javaClass.simpleName}") }
             finally {
+                ReminderMaintenanceWorker.enqueueImmediate(context)
                 if (wakeLock.isHeld) wakeLock.release()
                 pending.finish()
             }
         }
+    }
+}
+class DiagnosticNotificationReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        val app = context.applicationContext as GenesisApplication
+        app.scheduler.deliverDiagnosticNotification(intent)
     }
 }
 class RestoreReceiver : BroadcastReceiver() {
@@ -69,8 +85,9 @@ class RestoreReceiver : BroadcastReceiver() {
             android.app.AlarmManager.ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED)) return
         val pending = goAsync()
         val app = context.applicationContext as GenesisApplication
+        ReminderMaintenanceWorker.enqueueImmediate(context)
         app.appScope.launch {
-            try { app.scheduler.restore(); app.scheduler.restoreHabitNotifications() }
+            try { app.scheduler.restore(recoverOverdue = true); app.scheduler.restoreHabitNotifications() }
             finally { pending.finish() }
         }
     }
