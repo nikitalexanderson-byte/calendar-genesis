@@ -37,7 +37,8 @@ private class NavigationAnchors(val page: String) {
 private val LocalNavigationAnchors = staticCompositionLocalOf<NavigationAnchors?> { null }
 
 /** Coordinates follow layout and horizontal scrolling; the spring gently follows the parent. */
-@Composable internal fun NavigationConnectionScope(page: String, content: @Composable () -> Unit) {
+@Composable internal fun NavigationConnectionScope(page: String, showConnections: Boolean = true,
+    content: @Composable () -> Unit) {
     val anchors = remember(page) { NavigationAnchors(page) }
     val target = if (anchors.viewport.width > 16f)
         anchors.parent.center.x.coerceIn(anchors.viewport.left + 8f, anchors.viewport.right - 8f) else 0f
@@ -46,7 +47,7 @@ private val LocalNavigationAnchors = staticCompositionLocalOf<NavigationAnchors?
     Box(Modifier.fillMaxSize().onGloballyPositioned { anchors.origin = it.positionInRoot() }
         .drawWithContent {
             drawContent()
-            if (anchors.parent == Rect.Zero) return@drawWithContent
+            if (!showConnections || anchors.parent == Rect.Zero) return@drawWithContent
             val startY = anchors.parent.bottom - anchors.origin.y + 2.dp.toPx()
             anchors.children.values.forEach { child ->
                 val endY = child.top - anchors.origin.y - 2.dp.toPx()

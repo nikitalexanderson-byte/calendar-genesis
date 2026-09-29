@@ -20,6 +20,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
@@ -29,45 +30,91 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 
 /** Horizontal touch slop leaves vertical scrolling and taps to the calendar's children. */
 @Composable
-internal fun <T> CalendarPeriodPager(period: T, onPrevious: () -> Unit, onNext: () -> Unit,
+internal fun <T : Any> CalendarPeriodPager(period: T, previousPeriod: T?, nextPeriod: T?,
+    onPrevious: () -> Unit, onNext: () -> Unit,
     modifier: Modifier = Modifier, fillHeight: Boolean = false,
     content: @Composable (T, () -> Unit, () -> Unit) -> Unit) {
-    var direction by remember { mutableIntStateOf(1) }
-    var dragging by remember { mutableStateOf(false) }
-    var dragPixels by remember { mutableFloatStateOf(0f) }
+    var dragPixels by remember(period) { mutableFloatStateOf(0f) }
+    var incoming by remember(period) { mutableStateOf<Pair<T, Int>?>(null) }
+    var width by remember { mutableIntStateOf(0) }
+    var settling by remember { mutableStateOf(false) }
+    var motionJob by remember { mutableStateOf<Job?>(null) }
+    val scope = rememberCoroutineScope()
     val threshold = with(LocalDensity.current) { 64.dp.toPx() }
     val previous by rememberUpdatedState(onPrevious)
     val next by rememberUpdatedState(onNext)
-    val offset by animateFloatAsState(dragPixels,
-        if (dragging) snap() else spring(stiffness = Spring.StiffnessMediumLow), label = "period-drag")
-    val navigate: (Int) -> Unit = { step ->
-        direction = step; dragging = false; dragPixels = 0f
-        if (step < 0) previous() else next()
+    val previousPage by rememberUpdatedState(previousPeriod)
+    val nextPage by rememberUpdatedState(nextPeriod)
+    DisposableEffect(period) {
+        onDispose { motionJob?.cancel(); settling = false }
     }
-    Box(modifier.clip(RoundedCornerShape(24.dp)).pointerInput(period, threshold) {
+    val finish: (Int) -> Unit = { step ->
+        settling = true
+        motionJob = scope.launch {
+            try {
+                val destination = -step * width.toFloat()
+                val duration = (abs(destination - dragPixels) / width.coerceAtLeast(1) * 420)
+                    .roundToInt().coerceIn(180, 420)
+                Animatable(dragPixels).animateTo(destination,
+                    if (step == 0) spring(dampingRatio = 1f, stiffness = 240f)
+                    else tween(duration, easing = CubicBezierEasing(.22f, .8f, .22f, 1f))) {
+                    dragPixels = value
+                }
+                if (step < 0) previous() else if (step > 0) next()
+            } finally {
+                dragPixels = 0f; incoming = null; settling = false
+            }
+        }
+    }
+    val navigate: (Int) -> Unit = { step ->
+        if (!settling) {
+            val page = if (step < 0) previousPage else nextPage
+            if (page == null || width == 0) {
+                if (step < 0) previous() else next()
+            } else {
+                incoming = page to step
+                finish(step)
+            }
+        }
+    }
+    Box(modifier.clip(RoundedCornerShape(24.dp)).onSizeChanged { width = it.width }
+        .animateContentSize(tween(320, easing = CubicBezierEasing(.22f, .8f, .22f, 1f)))
+        .pointerInput(period, threshold) {
         detectHorizontalDragGestures(
-            onDragStart = { dragging = true },
-            onDragCancel = { dragging = false; dragPixels = 0f },
+            onDragCancel = { if (!settling) finish(0) },
             onDragEnd = {
-                if (abs(dragPixels) >= threshold) navigate(if (dragPixels < 0) 1 else -1)
-                else { dragging = false; dragPixels = 0f }
+                if (!settling) {
+                    if (abs(dragPixels) >= threshold) navigate(if (dragPixels < 0) 1 else -1)
+                    else finish(0)
+                }
             },
             onHorizontalDrag = { change, amount ->
-                change.consume()
-                dragPixels = (dragPixels + amount).coerceIn(-size.width * .45f, size.width * .45f)
+                if (!settling) {
+                    change.consume()
+                    dragPixels = (dragPixels + amount).coerceIn(-size.width * .85f, size.width * .85f)
+                    incoming = if (dragPixels < 0) nextPage?.let { it to 1 }
+                        else previousPage?.let { it to -1 }
+                }
             })
     }) {
-        AnimatedContent(period,
-            modifier = (if (fillHeight) Modifier.fillMaxSize() else Modifier.fillMaxWidth())
-                .offset { IntOffset(offset.roundToInt(), 0) },
-            transitionSpec = {
-                (slideInHorizontally(tween(340, easing = FastOutSlowInEasing)) { it * direction } + fadeIn(tween(220)))
-                    .togetherWith(slideOutHorizontally(tween(340, easing = FastOutSlowInEasing)) { -it * direction } + fadeOut(tween(180)))
-                    .using(SizeTransform(clip = true))
-            }, label = "calendar-period") { page -> content(page, { navigate(-1) }, { navigate(1) }) }
+        val pageModifier = if (fillHeight) Modifier.fillMaxSize() else Modifier.fillMaxWidth()
+        key(period) {
+            Box(pageModifier.offset { IntOffset(dragPixels.roundToInt(), 0) }) {
+                content(period, { navigate(-1) }, { navigate(1) })
+            }
+        }
+        incoming?.let { (page, step) ->
+            key(page) {
+                Box(pageModifier.offset { IntOffset((dragPixels + step * width).roundToInt(), 0) }) {
+                    content(page, { navigate(-1) }, { navigate(1) })
+                }
+            }
+        }
     }
 }
 
@@ -76,9 +123,10 @@ internal fun CalendarPeriodNavigation(title: String, year: Boolean,
     onPrevious: () -> Unit, onNext: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     val english = LocalGenesisLanguage.current == "en"
-    Row(Modifier.fillMaxWidth().testTag(if (year) "calendar-year-navigation" else "calendar-month-navigation")
+    Column(Modifier.fillMaxWidth().testTag(if (year) "calendar-year-navigation" else "calendar-month-navigation")
         .background(Brush.verticalGradient(listOf(colors.primaryContainer, colors.surfaceContainerLow)))
-        .padding(horizontal = 8.dp, vertical = 10.dp),
+        .padding(horizontal = 8.dp, vertical = 10.dp)) {
+        Row(Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         PeriodArrow(-1, if (year) "year" else "month", onPrevious)
         Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally,
@@ -89,6 +137,24 @@ internal fun CalendarPeriodNavigation(title: String, year: Boolean,
                 color = colors.onSurface, style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
         }
         PeriodArrow(1, if (year) "year" else "month", onNext)
+        }
+        Row(Modifier.fillMaxWidth().padding(top = 5.dp)
+            .testTag(if (year) "calendar-year-swipe-hint" else "calendar-month-swipe-hint"),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+            val ink = colors.onSurfaceVariant
+            Canvas(Modifier.size(28.dp).padding(end = 6.dp)) {
+                val middle = size.height / 2
+                drawLine(ink, Offset(2.dp.toPx(), middle), Offset(size.width - 2.dp.toPx(), middle), 1.dp.toPx(), StrokeCap.Round)
+                for (side in listOf(-1, 1)) {
+                    val tip = if (side < 0) 2.dp.toPx() else size.width - 2.dp.toPx()
+                    val tail = tip - side * 4.dp.toPx()
+                    drawLine(ink, Offset(tail, middle - 3.dp.toPx()), Offset(tip, middle), 1.dp.toPx(), StrokeCap.Round)
+                    drawLine(ink, Offset(tip, middle), Offset(tail, middle + 3.dp.toPx()), 1.dp.toPx(), StrokeCap.Round)
+                }
+            }
+            Text(if (english) "Swipe left or right" else "Смахните влево или вправо",
+                style = MaterialTheme.typography.labelSmall, color = ink)
+        }
     }
 }
 
@@ -105,7 +171,8 @@ private fun PeriodArrow(direction: Int, period: String, onClick: () -> Unit) {
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = .35f))) {
         IconButton(onClick, Modifier.size(48.dp).testTag("calendar-$period-${if (direction < 0) "previous" else "next"}")
             .semantics { contentDescription = label }, interactionSource = interaction) {
-            Canvas(Modifier.size(24.dp).offset(x = shift.dp)) {
+            val density = LocalDensity.current
+            Canvas(Modifier.size(24.dp).offset { IntOffset(with(density) { shift.dp.roundToPx() }, 0) }) {
                 val tip = size.width * if (direction < 0) .32f else .68f
                 val tail = size.width * if (direction < 0) .66f else .34f
                 drawLine(ink, Offset(tail, size.height * .24f), Offset(tip, size.height * .5f), 2.dp.toPx(), StrokeCap.Round)

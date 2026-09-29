@@ -147,7 +147,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         scope.launch { welcomePrefsStore.set("language",language) }
                     }
             } else {
-            NavigationConnectionScope(tab) {
+            NavigationConnectionScope(tab, showConnections = tab != "Проекты") {
             Column(Modifier.safeDrawingPadding().imePadding()) {
                 Row(Modifier.fillMaxWidth().padding(12.dp),verticalAlignment=Alignment.CenterVertically) {
                     Box(Modifier.size(42.dp).shadow(3.dp, CircleShape).clip(CircleShape)

@@ -243,13 +243,15 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
                 }
             }
             if (categoriesExpanded) {
-                TextButton(onClick = { editingCategory = null; categoryEditor = true; error = null }) { Text("Добавить категорию") }
+                TextButton(onClick = { editingCategory = null; categoryEditor = true; error = null },
+                    modifier = Modifier.testTag("create-category")) { Text("Добавить категорию") }
                 structure.categories.sortedBy { it.position }.forEach { category ->
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         androidx.compose.material3.Surface(Modifier.padding(end = 10.dp).size(16.dp), color = categoryAccent(category.color),
                             shape = RoundedCornerShape(50)) {}
                         Text(category.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                        TextButton(onClick = { editingCategory = category; categoryEditor = true; error = null }) { Text("Изменить") }
+                        TextButton(onClick = { editingCategory = category; categoryEditor = true; error = null },
+                            modifier = Modifier.testTag("edit-category-${category.id}")) { Text("Изменить") }
                         TextButton(onClick = { deleteCategoryCandidate = category },
                             colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
                             modifier = Modifier.testTag("delete-category-${category.id}")) { Text("Удалить") }
@@ -631,29 +633,17 @@ private fun CategoryEditor(existing: GenesisCategory?, position: Int, revision: 
     val expectedRevision = remember(existing?.id) { revision }
     var name by remember(existing?.id) { mutableStateOf(existing?.name ?: "") }
     var color by remember(existing?.id) { mutableStateOf(existing?.color ?: "#2d6c68") }
-    val palette = listOf("#2d6c68" to "Бирюза", "#a5543f" to "Терракота",
-        "#b18b48" to "Золото", "#665c88" to "Фиолетовый", "#54718a" to "Синий")
     AlertDialog(onDismissRequest = onDismiss, title = { Text(if (existing == null) "Новая категория" else "Изменить категорию") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(name, { name = it }, label = { Text("Название") }, singleLine = true)
-                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    palette.forEach { (swatch, label) ->
-                        FilterChip(selected = color == swatch, onClick = { color = swatch },
-                            label = {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Surface(color = Color(android.graphics.Color.parseColor(swatch)),
-                                        shape = CircleShape, modifier = Modifier.size(16.dp)) {}
-                                    Spacer(Modifier.width(6.dp))
-                                    Text(label)
-                                }
-                            })
-                    }
-                }
+            Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(name, { name = it }, Modifier.testTag("category-name"), label = { Text("Название") }, singleLine = true)
+                CategoryColorPicker(color) { color = it }
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
-        }, confirmButton = { TextButton(enabled = name.trim().isNotBlank(), onClick = {
-            onSave(GenesisCategory(existing?.id ?: UUID.randomUUID().toString(), name.trim(), color,
+        }, confirmButton = { TextButton(enabled = name.trim().isNotBlank() && validCategoryColor(color),
+            modifier = Modifier.testTag("save-category"), onClick = {
+            onSave(GenesisCategory(existing?.id ?: UUID.randomUUID().toString(), name.trim(), color.uppercase(java.util.Locale.ROOT),
                 existing?.position ?: position), expectedRevision)
         }) { Text("Сохранить") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } })
 }

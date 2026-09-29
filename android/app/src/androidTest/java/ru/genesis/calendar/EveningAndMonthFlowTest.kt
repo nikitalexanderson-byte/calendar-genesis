@@ -7,6 +7,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.unit.Density
@@ -32,7 +33,7 @@ class EveningAndMonthFlowTest {
     private val dark = InstrumentationRegistry.getArguments().getString("genesisEvening") == "true"
     private fun capture(name: String) {
         compose.waitForIdle()
-        File(app.getExternalFilesDir(null), "2.3.5-${width}dp-${if(dark) "evening" else "light"}-$name.png")
+        File(app.getExternalFilesDir(null), "2.3.6-${width}dp-${if(dark) "evening" else "light"}-$name.png")
             .outputStream().use { assertTrue(compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG,100,it)) }
     }
     private fun content(block: @Composable () -> Unit) {
@@ -110,11 +111,17 @@ class EveningAndMonthFlowTest {
             compose.onNodeWithText("Месяц").performClick()
             val panel=if(calendarMode==CalendarMode.SACRED) "sacred-month-pyatas" else "calendar-month-panel-${calendarMode.wireValue}"
             compose.onNodeWithTag("calendar-month-navigation").performScrollTo().assert(hasAnyAncestor(hasTestTag(panel)))
+            compose.onNodeWithTag("calendar-month-swipe-hint").assertIsDisplayed()
             val before=compose.onNodeWithTag("calendar-month-period").fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.Text].single().text
             compose.onNodeWithTag("calendar-month-navigation").performTouchInput { swipeLeft() }
             compose.waitForIdle()
             compose.onNodeWithTag("calendar-month-period").assert(!hasText(before))
             compose.onNodeWithTag("calendar-month-navigation").performTouchInput { swipeRight() }
+            compose.waitForIdle()
+            compose.onNodeWithTag("calendar-month-period").assertTextEquals(before)
+            compose.onNodeWithTag("calendar-month-navigation").performTouchInput {
+                swipe(center, center.copy(x = center.x - 32f), 200)
+            }
             compose.waitForIdle()
             compose.onNodeWithTag("calendar-month-period").assertTextEquals(before)
             compose.onNodeWithTag("calendar-month-next").performClick()
@@ -123,6 +130,11 @@ class EveningAndMonthFlowTest {
             compose.waitForIdle()
             compose.onNodeWithTag("calendar-month-period").assertTextEquals(before)
             compose.onNodeWithText("Год").performClick()
+            compose.onNodeWithTag("genesis-page-header").assert(!hasAnyAncestor(hasTestTag("calendar-year-panel")))
+            val header=compose.onNodeWithTag("genesis-page-header").fetchSemanticsNode().boundsInRoot
+            val yearPanel=compose.onNodeWithTag("calendar-year-panel").fetchSemanticsNode().boundsInRoot
+            assertTrue("Year heading must precede the slider panel",header.bottom<=yearPanel.top)
+            compose.onNodeWithTag("calendar-year-swipe-hint").assertIsDisplayed()
             compose.onNodeWithTag("calendar-year-navigation").assert(hasAnyAncestor(hasTestTag("calendar-year-panel")))
             compose.onNodeWithTag("calendar-year-solar-points").assert(hasAnyAncestor(hasTestTag("calendar-year-panel")))
             val year=compose.onNodeWithTag("calendar-year-period").fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.Text].single().text
