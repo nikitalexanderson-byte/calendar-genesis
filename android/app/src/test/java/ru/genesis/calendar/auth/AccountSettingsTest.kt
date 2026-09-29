@@ -15,7 +15,7 @@ class AccountSettingsTest {
         "syncRouting": {"mode":"category","defaultAccountIds":["owner-1"],
           "categoryAccountIds":{"work":["linked-2"]}},
         "multiAccountEnabled":true,"theme":"experimental","themeRevision":3,
-        "calendarMode":"lunar","taskCalendarMode":"profane","timeFormat":"12h",
+        "calendarMode":"lunar","taskCalendarMode":"profane","timeFormat":"12h","weekStart":"monday",
         "stoicheionDivinationDisabled":false,"language":"ru"
       }
     }""")
@@ -27,6 +27,7 @@ class AccountSettingsTest {
         assertEquals("experimental", settings.theme)
         assertEquals("lunar", settings.calendarMode)
         assertEquals("12h", settings.timeFormat)
+        assertEquals("monday", settings.weekStart)
         assertEquals("linked-2", settings.routing.toJson().getJSONObject("categoryAccountIds")
             .getJSONArray("work").getString(0))
     }

@@ -80,6 +80,7 @@ internal fun sacredMonthArtPath(index: Int): String {
 @Composable
 fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) -> Unit,
     experimental: Boolean = false, tasks: List<LocalTask> = emptyList(), use24: Boolean = true,
+    weekStartsOnSunday: Boolean = true,
     onCompleteTask: (LocalTask) -> Unit = {},
     onEditTask: (LocalTask, LocalDate) -> Unit = { _, _ -> },
     onDeleteTask: (LocalTask) -> Unit = {},
@@ -107,6 +108,7 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
             Text("Этот период вне диапазона офлайн-календаря.", color = MaterialTheme.colorScheme.error)
         }
         else CalendarMonthContent(calendar, range.getOrThrow(), mode, LocalDate.parse(selected), experimental, tasks,
+            weekStartsOnSunday,
             onNavigate = { shown = it.toString(); selected = it.toString() },
             onChoose = { selected = it.toString() }, onOpenDay = onSelect,
             onOpenTaskList = { taskListDate = it.toString() },
@@ -159,6 +161,7 @@ private fun CalendarPageHeader(yearView: Boolean, modifier: Modifier = Modifier)
 @Composable
 private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange, mode: CalendarMode,
     selected: LocalDate, experimental: Boolean, tasks: List<LocalTask>,
+    weekStartsOnSunday: Boolean,
     onNavigate: (LocalDate) -> Unit, onChoose: (LocalDate) -> Unit,
     onOpenDay: (LocalDate) -> Unit, onOpenTaskList: (LocalDate) -> Unit,
     dayActions: @Composable (LocalDate) -> Unit) {
@@ -216,7 +219,7 @@ private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange
                     if (mode == CalendarMode.SACRED) SacredDayGrid(calendar, page, selected, choose, experimental,
                         pageTasks, onOpenTaskList, solarLocation)
                     else SevenDayGrid(calendar, page, mode, selected, choose, experimental, pageTasks,
-                        onOpenTaskList, solarLocation)
+                        onOpenTaskList, solarLocation, weekStartsOnSunday)
                 }
             }
         }
@@ -289,8 +292,8 @@ private fun SacredDayGrid(calendar: GenesisCalendar, range: CalendarRange, selec
 private fun SevenDayGrid(calendar: GenesisCalendar, range: CalendarRange, mode: CalendarMode,
     selected: LocalDate, onChoose: (LocalDate) -> Unit, experimental: Boolean,
     tasksByDate: Map<String, List<LocalTask>>, onOpenTaskList: (LocalDate) -> Unit,
-    solarLocation: SolarLocation) {
-    val sundayFirst = mode == CalendarMode.PROFANE
+    solarLocation: SolarLocation, weekStartsOnSunday: Boolean) {
+    val sundayFirst = mode == CalendarMode.PROFANE && weekStartsOnSunday
     val english = LocalGenesisLanguage.current == "en"
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
         (if (sundayFirst && english) listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
@@ -300,9 +303,9 @@ private fun SevenDayGrid(calendar: GenesisCalendar, range: CalendarRange, mode: 
             Text(it, Modifier.weight(1f), style = MaterialTheme.typography.labelSmall)
         }
     }
-    val leading = weekLeadingOffset(range.start, mode)
+    val leading = weekLeadingOffset(range.start, mode, weekStartsOnSunday)
     val days: List<LocalDate?> = when (mode) {
-        CalendarMode.PROFANE -> gregorianGridDates(range)
+        CalendarMode.PROFANE -> gregorianGridDates(range, weekStartsOnSunday)
         CalendarMode.LUNAR -> lunarGridDates(range)
         CalendarMode.SACRED -> List(leading) { null } + range.dates()
     }
@@ -339,12 +342,14 @@ private fun SevenDayGrid(calendar: GenesisCalendar, range: CalendarRange, mode: 
     }
 }
 
-internal fun weekLeadingOffset(date: LocalDate, mode: CalendarMode): Int =
-    if (mode == CalendarMode.PROFANE) date.dayOfWeek.value % 7 else date.dayOfWeek.value - 1
+internal fun weekLeadingOffset(date: LocalDate, mode: CalendarMode,
+    weekStartsOnSunday: Boolean = true): Int =
+    if (mode == CalendarMode.PROFANE && weekStartsOnSunday) date.dayOfWeek.value % 7
+    else date.dayOfWeek.value - 1
 
 /** Gregorian rows include the previous/next month's dates as read-only, fading context. */
-internal fun gregorianGridDates(range: CalendarRange): List<LocalDate> {
-    val leading = weekLeadingOffset(range.start, CalendarMode.PROFANE)
+internal fun gregorianGridDates(range: CalendarRange, weekStartsOnSunday: Boolean = true): List<LocalDate> {
+    val leading = weekLeadingOffset(range.start, CalendarMode.PROFANE, weekStartsOnSunday)
     val trailing = (7 - (leading + range.dates().size) % 7) % 7
     return (leading downTo 1).map { range.start.minusDays(it.toLong()) } + range.dates() +
         (1..trailing).map { range.end.plusDays(it.toLong()) }

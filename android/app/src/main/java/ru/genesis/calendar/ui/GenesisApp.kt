@@ -1,6 +1,7 @@
 package ru.genesis.calendar.ui
 
 import android.Manifest
+import android.content.res.Configuration
 import android.content.Intent
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -8,6 +9,14 @@ import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -23,11 +32,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -65,16 +77,17 @@ internal val standart = lightColorScheme(primary=Color(0xff255b59),onPrimary=Col
     surfaceContainerLowest=Color(0xfffffdf8),surfaceContainerHigh=Color(0xffefe8d9),surfaceContainerHighest=Color(0xffe9e1d0),
     outline=Color(0xff9c927e),outlineVariant=Color(0xffd5cab4))
 @Composable
-fun GenesisApp(app: GenesisApplication, openedTask: String?, testWorkspace: Boolean = false) {
+fun GenesisApp(app: GenesisApplication, openedTask: String?, openedSection: String? = null,
+    testWorkspace: Boolean = false) {
     require(!testWorkspace || BuildConfig.DEBUG)
     val activeScope by app.scopeFlow.collectAsStateWithLifecycle()
-    key(activeScope) { GenesisWorkspaceContent(app, openedTask, activeScope, testWorkspace) }
+    key(activeScope) { GenesisWorkspaceContent(app, openedTask, openedSection, activeScope, testWorkspace) }
 }
 
 @OptIn(FlowPreview::class)
 @Composable
-private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?, activeScope: String,
-    testWorkspace: Boolean) {
+private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?, openedSection: String?,
+    activeScope: String, testWorkspace: Boolean) {
     val model: GenesisViewModel = viewModel(key = "genesis-$activeScope")
     val tasks by model.tasks.collectAsStateWithLifecycle()
     val error by model.error.collectAsStateWithLifecycle()
@@ -109,6 +122,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
             if (remote.calendarMode in setOf("sacred", "lunar", "profane")) prefsStore.setRemote("display", remote.calendarMode)
             if (remote.taskCalendarMode in setOf("sacred", "lunar", "profane")) prefsStore.setRemote("input", remote.taskCalendarMode)
             if (remote.timeFormat in setOf("12h", "24h")) prefsStore.setRemote("time", remote.timeFormat)
+            if (remote.weekStart in setOf("sunday", "monday")) prefsStore.setRemote("weekStart", remote.weekStart)
             if (remote.language in setOf("ru", "en")) prefsStore.setRemote("language", remote.language)
             prefsStore.setRemote("stoicheionDivinationDisabled", remote.divinationDisabled.toString())
         }
@@ -126,10 +140,17 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     var creatingTaskList by rememberSaveable { mutableStateOf(false) }
     var requestedTheokyklosSector by rememberSaveable { mutableStateOf<String?>(null) }
     var selected by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
+    var dayDetailsExpanded by rememberSaveable(selected) { mutableStateOf(false) }
     LaunchedEffect(habitTrackingEnabled, tab) {
         if (!habitTrackingEnabled && tab == "Привычки") tab = "Сегодня"
     }
     LaunchedEffect(openedTask) { if(openedTask!=null) { editId=openedTask; creating=false; tab="Задачи" } }
+    LaunchedEffect(openedSection) {
+        if (openedSection?.substringBefore('#') == "habits" && habitTrackingEnabled) tab = "Привычки"
+    }
+    val configuration = LocalConfiguration.current
+    val navigationOnLeft = shouldUseNavigationRail(configuration.screenWidthDp,
+        configuration.orientation == Configuration.ORIENTATION_LANDSCAPE, prefs.wideNavigationOnLeft)
     val eveningTheme = rememberEveningTheme(AppearanceSettings.read(habitWorkspace.settings.rawJson))
     val window = LocalContext.current.activity()?.window
     SideEffect { window?.let { WindowInsetsControllerCompat(it,it.decorView).apply {
@@ -187,28 +208,10 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                     ru.genesis.calendar.auth.AccountTaskSyncNotice(accountTaskSync,
                         Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
                 }
-                Row(Modifier.fillMaxWidth().then(navigationViewportAnchor()).testTag("main-navigation-scroll")
-                    .horizontalScroll(rememberScrollState()).padding(horizontal=8.dp)) {
-                    listOf("Сегодня","Задачи","Проекты","Календарь","Привычки","Стойхейон","Теокиклос","Настройки")
-                        .filter { habitTrackingEnabled || it != "Привычки" }.forEach {
-                        Surface(onClick={tab=it}, shape=RoundedCornerShape(16.dp),
-                            color=if(tab==it) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
-                            contentColor=if(tab==it) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-                            border=BorderStroke(if(tab==it) 1.5.dp else 1.dp,
-                                if(tab==it) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
-                            shadowElevation=if(tab==it) 3.dp else 1.dp,
-                            modifier=Modifier.padding(4.dp).heightIn(min=48.dp).testTag("navigation-$it")
-                                .semantics { this.selected=tab==it; role=Role.Tab }.then(navigationParentAnchor(it))) {
-                            Row(Modifier.padding(horizontal=14.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically,
-                                horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                                GenesisVectorIcon(genesisPageIcon(it), Modifier.size(24.dp))
-                                Text(it,style=MaterialTheme.typography.labelLarge)
-                            }
-                        }
-                    }
-                }
-                error?.let { Text(it,color=MaterialTheme.colorScheme.error,modifier=Modifier.padding(12.dp)) }
-                when(tab) {
+                val pageContent: @Composable () -> Unit = {
+                  Column(Modifier.fillMaxSize()) {
+                  error?.let { Text(it,color=MaterialTheme.colorScheme.error,modifier=Modifier.padding(12.dp)) }
+                  when(tab) {
                     "Привычки" -> HabitsScreen(app,true)
                     "Теокиклос" -> TheokyklosScreen(app,prefs.input,onOpenHabits={tab="Привычки"},
                         initialSectorId=requestedTheokyklosSector,
@@ -225,22 +228,38 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                             structure.taskListLinks.firstOrNull { link -> link.taskListId == it.id }?.projectId
                         }; editId=null; creating=true }, onCreateList={creatingTaskList=true},
                         onComplete=model::complete,onOpen={editId=it;creating=false})
-                    "Настройки" -> SettingsScreen(app,prefs,authState.busy) { name,value ->
-                        if (authState.user != null) authController.updateSharedPreference(name,value)
-                        else scope.launch { prefsStore.set(name,value) }
-                    }
+                    "Настройки" -> SettingsScreen(app, prefs, authState.busy && !testWorkspace,
+                        onSet = { name, value ->
+                            if (!testWorkspace && authState.user != null) authController.updateSharedPreference(name, value)
+                            else scope.launch { prefsStore.set(name, value) }
+                        }, onSetLocal = { name, value -> scope.launch { prefsStore.set(name, value) } })
                     "Календарь" -> CalendarScreen(LocalDate.parse(selected),prefs.display,
                         onSelect={selected=it.toString();tab="Сегодня"},
                         experimental=true, tasks=tasks, use24=prefs.use24,
+                        weekStartsOnSunday=prefs.weekStartsOnSunday,
                         onCompleteTask=model::complete,
                         onEditTask={ task, date -> selected=date.toString();editId=task.id;creating=false },
                         onDeleteTask=model::delete,
                         onDeleteOccurrence={ task, date -> model.excludeOccurrence(task,date.toString()) {} },
                         dayHabits={ date -> if(habitTrackingEnabled) TodayHabitsContent(app,date,habitWorkspace,
                             onOpenHabits={tab="Привычки"}) })
-                    else -> LazyColumn(Modifier.weight(1f).testTag("today-list"),contentPadding=PaddingValues(16.dp),
+                    else -> LazyColumn(Modifier.fillMaxSize().testTag("today-list"),contentPadding=PaddingValues(16.dp),
                         verticalArrangement=Arrangement.spacedBy(12.dp)) {
-                        if(tab=="Сегодня") item { DayHeader(LocalDate.parse(selected),prefs.display) }
+                        if(tab=="Сегодня") item {
+                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                DayHeader(LocalDate.parse(selected), prefs.display, dayDetailsExpanded) {
+                                    dayDetailsExpanded = !dayDetailsExpanded
+                                }
+                                AnimatedVisibility(visible = dayDetailsExpanded,
+                                    modifier = Modifier.testTag("today-day-details"),
+                                    enter = expandVertically(tween(320, easing = CubicBezierEasing(.16f, 1f, .3f, 1f)),
+                                        expandFrom = Alignment.Top) + fadeIn(tween(190)),
+                                    exit = shrinkVertically(tween(220, easing = CubicBezierEasing(.4f, 0f, 1f, 1f)),
+                                        shrinkTowards = Alignment.Top) + fadeOut(tween(140))) {
+                                    DayKnowledgePanel(LocalDate.parse(selected), prefs.display)
+                                }
+                            }
+                        }
                         if(tab=="Сегодня") item {
                             DayRhythmPanel(prefs.use24)
                         }
@@ -254,10 +273,19 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                                     habitWorkspace, onOpenHabits = { tab = "Привычки" })
                             }
                         }
-                        if(tab=="Сегодня") item {
-                            DayKnowledgePanel(LocalDate.parse(selected), prefs.display)
-                        }
                     }
+                  }
+                  }
+                }
+                if (navigationOnLeft) {
+                    Row(Modifier.fillMaxWidth().weight(1f).testTag("wide-navigation-layout")) {
+                        PrimaryNavigation(tab, habitTrackingEnabled, vertical = true,
+                            onSelect = { tab = it }, modifier = Modifier.width(196.dp).fillMaxHeight())
+                        Box(Modifier.weight(1f).fillMaxHeight().testTag("main-content")) { pageContent() }
+                    }
+                } else {
+                    PrimaryNavigation(tab, habitTrackingEnabled, vertical = false, onSelect = { tab = it })
+                    Box(Modifier.fillMaxWidth().weight(1f).testTag("main-content")) { pageContent() }
                 }
             }
             val existing=tasks.find { it.id==editId }
@@ -285,6 +313,51 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
       }
     }
     LaunchedEffect(prefs.language) { app.scheduler.createChannels(prefs.language) }
+}
+
+internal fun shouldUseNavigationRail(screenWidthDp: Int, landscape: Boolean,
+    wideNavigationOnLeft: Boolean): Boolean = wideNavigationOnLeft && (landscape || screenWidthDp >= 600)
+
+@Composable
+private fun PrimaryNavigation(selectedPage: String, habitTrackingEnabled: Boolean, vertical: Boolean,
+    onSelect: (String) -> Unit, modifier: Modifier = Modifier) {
+    val pages = listOf("Сегодня","Задачи","Проекты","Календарь","Привычки","Стойхейон","Теокиклос","Настройки")
+        .filter { habitTrackingEnabled || it != "Привычки" }
+    if (vertical) {
+        Surface(modifier.then(navigationViewportAnchor()).testTag("main-navigation-rail"),
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                pages.forEach { page -> PrimaryNavigationItem(page, selectedPage == page, true) { onSelect(page) } }
+            }
+        }
+    } else {
+        Row(modifier.fillMaxWidth().then(navigationViewportAnchor()).testTag("main-navigation-scroll")
+            .horizontalScroll(rememberScrollState()).padding(horizontal=8.dp)) {
+            pages.forEach { page -> PrimaryNavigationItem(page, selectedPage == page, false) { onSelect(page) } }
+        }
+    }
+}
+
+@Composable
+private fun PrimaryNavigationItem(page: String, selectedPage: Boolean, fillWidth: Boolean,
+    onSelect: () -> Unit) {
+    Surface(onClick=onSelect, shape=RoundedCornerShape(16.dp),
+        color=if(selectedPage) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+        contentColor=if(selectedPage) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+        border=BorderStroke(if(selectedPage) 1.5.dp else 1.dp,
+            if(selectedPage) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
+        shadowElevation=if(selectedPage) 3.dp else 1.dp,
+        modifier=(if (fillWidth) Modifier.fillMaxWidth() else Modifier).padding(4.dp).heightIn(min=48.dp)
+            .testTag("navigation-$page").semantics { selected=selectedPage; role=Role.Tab }
+            .then(navigationParentAnchor(page))) {
+        Row(Modifier.padding(horizontal=14.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically,
+            horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+            GenesisVectorIcon(genesisPageIcon(page), Modifier.size(24.dp))
+            Text(page,style=MaterialTheme.typography.labelLarge)
+        }
+    }
 }
 
 @Composable
@@ -381,71 +454,93 @@ fun OriginalImage(path: String, description: String?, modifier: Modifier=Modifie
 }
 
 @Composable
-private fun DayHeader(date: LocalDate,mode: CalendarMode) {
+private fun DayHeader(date: LocalDate, mode: CalendarMode, detailsExpanded: Boolean,
+    onToggleDetails: () -> Unit) {
     val calendar=remember { GenesisCalendar() }
     val solarLocation by rememberAutomaticSolarLocation(calendar.zoneId)
     val language = LocalGenesisLanguage.current
     val copy = remember(date,mode,language) { todayHeroCopy(date,mode,calendar,language) }
-        Card(Modifier.fillMaxWidth().testTag("today-hero"), shape = RoundedCornerShape(20.dp),
-            border = BorderStroke(1.dp, Color(0x66dfc17e))) {
-            Box(Modifier.fillMaxWidth().heightIn(min = if(mode==CalendarMode.PROFANE) 540.dp else 390.dp)) {
-                OriginalImage(if (mode == CalendarMode.LUNAR) "genesis-hero.png" else copy.imagePath,
-                    copy.title, Modifier.matchParentSize().testTag(
-                        if (mode == CalendarMode.LUNAR) "today-lunar-standard-image" else "today-calendar-image"))
-                Box(Modifier.matchParentSize().background(Brush.verticalGradient(0f to Color(0x22040e10),
-                    .32f to Color(0x44040e10), .62f to Color(0xc6071d20),
-                    1f to Color(0xfa071d20))))
-                Surface(Modifier.align(Alignment.TopStart).padding(14.dp),
-                    color = Color(0xd0071d20), shape = RoundedCornerShape(14.dp),
-                    border = BorderStroke(1.dp, Color(0x88dfc17e))) {
-                    Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        GenesisVectorIcon(GenesisPageIcon.TODAY, Modifier.size(28.dp), Color(0xffdfc17e), animated = true)
-                        Text(if (language == "en") "TODAY" else "СЕГОДНЯ",
-                            color = Color(0xfffff5df), style = MaterialTheme.typography.headlineSmall)
-                    }
+    val detailsArrowRotation by animateFloatAsState(if (detailsExpanded) 180f else 0f,
+        tween(220, easing = CubicBezierEasing(.16f, 1f, .3f, 1f)), label = "day-details-arrow")
+    Card(Modifier.fillMaxWidth().testTag("today-hero"), shape = RoundedCornerShape(20.dp),
+        border = BorderStroke(1.dp, Color(0x66dfc17e))) {
+        Box(Modifier.fillMaxWidth().heightIn(min = if(mode==CalendarMode.PROFANE) 540.dp else 390.dp)) {
+            OriginalImage(if (mode == CalendarMode.LUNAR) "genesis-hero.png" else copy.imagePath,
+                copy.title, Modifier.matchParentSize().testTag(
+                    if (mode == CalendarMode.LUNAR) "today-lunar-standard-image" else "today-calendar-image"))
+            Box(Modifier.matchParentSize().background(Brush.verticalGradient(0f to Color(0x22040e10),
+                .32f to Color(0x44040e10), .62f to Color(0xc6071d20),
+                1f to Color(0xfa071d20))))
+            Surface(Modifier.align(Alignment.TopStart).padding(14.dp),
+                color = Color(0xd0071d20), shape = RoundedCornerShape(14.dp),
+                border = BorderStroke(1.dp, Color(0x88dfc17e))) {
+                Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    GenesisVectorIcon(GenesisPageIcon.TODAY, Modifier.size(28.dp), Color(0xffdfc17e), animated = true)
+                    Text(if (language == "en") "TODAY" else "СЕГОДНЯ",
+                        color = Color(0xfffff5df), style = MaterialTheme.typography.headlineSmall)
                 }
-                copy.badge?.takeIf { mode != CalendarMode.LUNAR }?.let { badge ->
-                    Surface(Modifier.align(Alignment.TopEnd).padding(14.dp),
-                        color = Color(0xc2071d20), shape = RoundedCornerShape(100.dp),
+            }
+            copy.badge?.takeIf { mode != CalendarMode.LUNAR }?.let { badge ->
+                Surface(Modifier.align(Alignment.TopEnd).padding(14.dp),
+                    color = Color(0xc2071d20), shape = RoundedCornerShape(100.dp),
+                    border = BorderStroke(1.dp, Color(0x88dfc17e))) {
+                    Text(badge, Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        color = Color(0xfff5dcaa), style = MaterialTheme.typography.labelSmall)
+                }
+            }
+            Column(Modifier.align(Alignment.BottomStart).fillMaxWidth()
+                .padding(start = 18.dp, end = 18.dp, top = 148.dp, bottom = 20.dp)
+                .testTag("today-hero-copy"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(copy.eyebrow,
+                    color = Color(0xffdfc17e), style = MaterialTheme.typography.labelMedium)
+                Text(copy.month.uppercase(if (LocalGenesisLanguage.current == "en") java.util.Locale.ENGLISH
+                    else java.util.Locale.forLanguageTag("ru")),
+                    color = Color(0xfff0d49b), style = MaterialTheme.typography.labelLarge)
+                Text(copy.title, color = Color(0xfff9f2e2), style = MaterialTheme.typography.headlineSmall)
+                copy.subtitle?.let { Text(it, color = Color(0xfff1e5cb),
+                    style = MaterialTheme.typography.titleMedium) }
+                if (mode == CalendarMode.PROFANE) {
+                    Text(gregorianYearPosition(date, language), Modifier.testTag("today-gregorian-year-position"),
+                        color = Color(0xfff4deb0), style = MaterialTheme.typography.bodySmall)
+                }
+                Text(copy.description, Modifier.testTag("today-hero-description"),
+                    color = Color(0xffeee6d7), style = MaterialTheme.typography.bodyMedium)
+                copy.details.forEach { Text(it, color = Color(0xffeee6d7),
+                    style = MaterialTheme.typography.bodySmall) }
+                SunriseSunsetLine(date, solarLocation, calendar,
+                    accent = Color(0xfff4deb0), textColor = Color(0xffd7dfd8))
+                Text(copy.footerDate,
+                    color = Color(0xffdfc17e), style = MaterialTheme.typography.labelMedium)
+                copy.badge?.takeIf { mode == CalendarMode.LUNAR }?.let { badge ->
+                    Surface(shape = RoundedCornerShape(100.dp), color = Color(0xc2071d20),
                         border = BorderStroke(1.dp, Color(0x88dfc17e))) {
                         Text(badge, Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                             color = Color(0xfff5dcaa), style = MaterialTheme.typography.labelSmall)
                     }
                 }
-                Column(Modifier.align(Alignment.BottomStart).fillMaxWidth()
-                    .padding(start = 18.dp, end = 18.dp, top = 148.dp, bottom = 20.dp)
-                    .testTag("today-hero-copy"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(copy.eyebrow,
-                        color = Color(0xffdfc17e), style = MaterialTheme.typography.labelMedium)
-                    Text(copy.month.uppercase(if (LocalGenesisLanguage.current == "en") java.util.Locale.ENGLISH
-                        else java.util.Locale.forLanguageTag("ru")),
-                        color = Color(0xfff0d49b), style = MaterialTheme.typography.labelLarge)
-                    Text(copy.title, color = Color(0xfff9f2e2), style = MaterialTheme.typography.headlineSmall)
-                    copy.subtitle?.let { Text(it, color = Color(0xfff1e5cb),
-                        style = MaterialTheme.typography.titleMedium) }
-                    if (mode == CalendarMode.PROFANE) {
-                        Text(gregorianYearPosition(date, language), Modifier.testTag("today-gregorian-year-position"),
-                            color = Color(0xfff4deb0), style = MaterialTheme.typography.bodySmall)
-                    }
-                    Text(copy.description, Modifier.testTag("today-hero-description"),
-                        color = Color(0xffeee6d7), style = MaterialTheme.typography.bodyMedium)
-                    copy.details.forEach { Text(it, color = Color(0xffeee6d7),
-                        style = MaterialTheme.typography.bodySmall) }
-                    SunriseSunsetLine(date, solarLocation, calendar,
-                        accent = Color(0xfff4deb0), textColor = Color(0xffd7dfd8))
-                    Text(copy.footerDate,
-                        color = Color(0xffdfc17e), style = MaterialTheme.typography.labelMedium)
-                    copy.badge?.takeIf { mode == CalendarMode.LUNAR }?.let { badge ->
-                        Surface(shape = RoundedCornerShape(100.dp), color = Color(0xc2071d20),
-                            border = BorderStroke(1.dp, Color(0x88dfc17e))) {
-                            Text(badge, Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                                color = Color(0xfff5dcaa), style = MaterialTheme.typography.labelSmall)
-                        }
+                Button(onClick = onToggleDetails,
+                    modifier = Modifier.align(Alignment.End).heightIn(min = 48.dp)
+                        .testTag("today-day-details-toggle"),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xe0193937),
+                        contentColor = Color(0xffffe2a7)),
+                    border = BorderStroke(1.dp, Color(0x99dfc17e)),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)) {
+                    Text(genesisTranslate(if (detailsExpanded) "Скрыть подробности" else "Подробнее о дне"),
+                        style = MaterialTheme.typography.labelLarge)
+                    Spacer(Modifier.width(9.dp))
+                    Canvas(Modifier.size(18.dp).graphicsLayer { rotationZ = detailsArrowRotation }) {
+                        val stroke = 1.8.dp.toPx()
+                        drawLine(Color(0xffffe2a7), Offset(size.width * .22f, size.height * .38f),
+                            Offset(size.width * .5f, size.height * .66f), stroke, StrokeCap.Round)
+                        drawLine(Color(0xffffe2a7), Offset(size.width * .5f, size.height * .66f),
+                            Offset(size.width * .78f, size.height * .38f), stroke, StrokeCap.Round)
                     }
                 }
             }
         }
+    }
 }
 
 @Composable
@@ -704,7 +799,7 @@ internal fun ProjectHierarchyPicker(projects: List<GenesisProject>, selectedId: 
 
 @Composable
 private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy:Boolean,
-    onSet:(String,String)->Unit) {
+    onSet:(String,String)->Unit, onSetLocal:(String,String)->Unit) {
     var refresh by remember { mutableIntStateOf(0) }
     val request=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()){refresh++}
     val scope=rememberCoroutineScope()
@@ -716,6 +811,23 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
             if (prefs.language == "en") "Calendars, time, privacy and reminders"
             else "Календарь, время, приватность и напоминания", "⚙")
         AppearancePanel(app, workspace, prefs.use24)
+        SettingsSection("☷", "Навигация на широком экране", "Альбомный режим телефона и планшеты",
+            Color(0xffe9ede5)) {
+            Text("Расположение меню первого уровня", style = MaterialTheme.typography.titleSmall)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected = prefs.wideNavigationOnLeft,
+                    onClick = { onSetLocal("wideNavigation", "left") },
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("wide-navigation-left"),
+                    label = { Text("Слева") })
+                FilterChip(selected = !prefs.wideNavigationOnLeft,
+                    onClick = { onSetLocal("wideNavigation", "top") },
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("wide-navigation-top"),
+                    label = { Text("Сверху") })
+            }
+            Text("Настройка применяется автоматически при повороте экрана и на планшете.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         SettingsSection("◉", "Календари и время", "Отображение не меняет календарь ввода и повторений",
             Color(0xffe4efed)) {
             listOf("display" to "Календарь отображения","input" to "Календарь ввода и повторений").forEach{(key,label)->
@@ -724,8 +836,29 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
                     horizontalArrangement = Arrangement.spacedBy(6.dp)) { CalendarMode.entries.forEach { mode->
                     FilterChip(selected=(if(key=="display") prefs.display else prefs.input)==mode,onClick={onSet(key,mode.wireValue)},
                         enabled=!sharedBusy,
+                        modifier = Modifier.testTag("$key-calendar-${mode.wireValue}"),
                         label={Text(when(mode){CalendarMode.SACRED->"Сакральный";CalendarMode.LUNAR->"Лунный";else->"Григорианский"})})
                 } }
+            }
+            AnimatedVisibility(prefs.display == CalendarMode.PROFANE) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.testTag("gregorian-week-start-setting")) {
+                    Text(genesisTranslate("Начало недели"), style = MaterialTheme.typography.titleSmall)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(selected = !prefs.weekStartsOnSunday,
+                            onClick = { onSet("weekStart", "monday") },
+                            enabled = !sharedBusy,
+                            modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                                .testTag("week-start-monday"),
+                            label = { Text(genesisTranslate("Понедельник")) })
+                        FilterChip(selected = prefs.weekStartsOnSunday,
+                            onClick = { onSet("weekStart", "sunday") },
+                            enabled = !sharedBusy,
+                            modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                                .testTag("week-start-sunday"),
+                            label = { Text(genesisTranslate("Воскресенье")) })
+                    }
+                }
             }
             Text("Формат времени", style = MaterialTheme.typography.titleSmall)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("24h","12h").forEach {

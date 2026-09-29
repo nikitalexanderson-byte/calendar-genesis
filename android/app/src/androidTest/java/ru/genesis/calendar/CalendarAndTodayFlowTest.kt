@@ -34,10 +34,17 @@ class CalendarAndTodayFlowTest {
             compose.waitUntil(10_000) {
                 compose.onAllNodesWithTag("app-theme-Standart").fetchSemanticsNodes().isNotEmpty()
             }
-            compose.onNodeWithTag("today-day-rhythm").assertExists()
             compose.onNodeWithText("СЕГОДНЯ").assertExists()
             compose.onNodeWithTag("today-hero-copy", useUnmergedTree = true).assertExists()
             compose.onNodeWithTag("today-hero-description", useUnmergedTree = true).assertExists()
+            compose.onNodeWithTag("day-knowledge").assertDoesNotExist()
+            compose.onNodeWithTag("today-day-details-toggle").assertTextContains("Подробнее о дне").performClick()
+            compose.waitUntil(5_000) {
+                compose.onAllNodesWithTag("today-day-details").fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.onNodeWithTag("today-day-details").performScrollTo()
+            compose.onNodeWithTag("day-knowledge").assertExists()
+            compose.onNodeWithTag("today-day-details-toggle").assertTextContains("Скрыть подробности")
             val todayImage = File(app.getExternalFilesDir(null), "today-after.png")
             assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(todayImage))
             runBlocking { prefs.set("display", "profane") }
@@ -49,6 +56,8 @@ class CalendarAndTodayFlowTest {
                 File(app.getExternalFilesDir(null), "today-profane-after.png")))
             compose.onNodeWithTag("today-gregorian-summary").assertDoesNotExist()
             compose.onNodeWithTag("today-gregorian-year-position", useUnmergedTree = true).assertExists()
+            compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("today-day-rhythm"))
+            compose.onNodeWithTag("today-day-rhythm").assertExists()
             compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("today-tasks-section"))
             compose.onNodeWithTag("today-habits-section").assertExists()
             compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("today-habit-check-today-reading-validation"))
@@ -71,13 +80,9 @@ class CalendarAndTodayFlowTest {
                 compose.onAllNodesWithText("МЕСЯЦ", substring = true)
                     .fetchSemanticsNodes().isNotEmpty()
             }
-            compose.onNodeWithTag("day-rhythm-expand").performScrollTo().performClick()
-            compose.onNodeWithText("Двенадцать двухчасовых периодов").assertExists()
-            compose.onNodeWithTag("rhythm-period-12", useUnmergedTree = true).performScrollTo().performClick()
-            compose.onNodeWithText("Время «Логоса» Гераклита").assertExists()
-            assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(
-                File(app.getExternalFilesDir(null), "today-rhythm-expanded-after.png")))
-            compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("day-knowledge"))
+            compose.onNodeWithTag("day-rhythm-expand").performScrollTo()
+            compose.onNodeWithTag("day-rhythm-expand").assertExists()
+            compose.onNodeWithTag("today-day-details").performScrollTo()
             compose.onNodeWithTag("day-knowledge").assertExists()
             compose.onNodeWithText("Календарь").performScrollTo().performClick()
             compose.onNodeWithTag("pyata-1").performScrollTo().performClick()

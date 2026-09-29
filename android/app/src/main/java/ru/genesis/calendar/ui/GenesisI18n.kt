@@ -26,6 +26,16 @@ import java.util.concurrent.ConcurrentHashMap
 val LocalGenesisLanguage = compositionLocalOf { "ru" }
 
 private val nativeCopy = mapOf(
+    "Подробнее о дне" to "More about the day",
+    "Скрыть подробности" to "Hide details",
+    "Выберите категорию, чтобы отфильтровать проекты." to "Choose a category to filter projects.",
+    "Начало недели" to "Start of week",
+    "Навигация на широком экране" to "Wide-screen navigation",
+    "Альбомный режим телефона и планшеты" to "Landscape phones and tablets",
+    "Расположение меню первого уровня" to "Primary menu position",
+    "Слева" to "Left", "Сверху" to "Top",
+    "Настройка применяется автоматически при повороте экрана и на планшете." to
+        "This setting applies automatically when the screen rotates and on tablets.",
     "Смахните влево или вправо" to "Swipe left or right",
     "Цвет" to "Colour",
     "Цвет HEX" to "HEX colour",

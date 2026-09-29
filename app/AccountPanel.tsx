@@ -182,6 +182,23 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
     }
   };
 
+  const changeWeekStart = async (weekStart: "sunday" | "monday") => {
+    if ((user.weekStart ?? "sunday") === weekStart) return;
+    setPreferenceBusy(true);
+    setMessage("");
+    try {
+      const result = await updateAccountPreferences({ weekStart });
+      onUserChange(result.user);
+      setMessage(weekStart === "monday"
+        ? "Григорианская неделя начинается с понедельника."
+        : "Григорианская неделя начинается с воскресенья.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Не удалось изменить начало недели.");
+    } finally {
+      setPreferenceBusy(false);
+    }
+  };
+
   const themeStatusMessage = themeState.status === "saving"
     ? (user.language === "en" ? "Saving the account preference…" : "Сохраняем выбор в аккаунте…")
     : themeState.status === "error"
@@ -433,6 +450,32 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
             ))}
           </div>
         </section>
+
+        {(user.calendarMode ?? "sacred") === "profane" ? (
+          <section className="account-preferences week-start-preference" aria-labelledby="week-start-title" data-exp-ui="panel">
+            <div>
+              <span className="eyebrow">Григорианский календарь</span>
+              <h3 id="week-start-title">Начало недели</h3>
+              <p>Выберите, с какого дня строить недели в разделах «Месяц» и «Круг года».</p>
+            </div>
+            <div className="language-choice week-start-choice" role="radiogroup" aria-label="Начало недели">
+              {(["monday", "sunday"] as const).map((weekStart) => (
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={(user.weekStart ?? "sunday") === weekStart}
+                  className={(user.weekStart ?? "sunday") === weekStart ? "active" : ""}
+                  disabled={preferenceBusy}
+                  onClick={() => void changeWeekStart(weekStart)}
+                  key={weekStart}
+                >
+                  <strong>{weekStart === "monday" ? "Понедельник" : "Воскресенье"}</strong>
+                  <small>{weekStart === "monday" ? "Пн — Вс" : "Вс — Сб"}</small>
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         <section className="account-preferences task-calendar-mode-preference" aria-labelledby="task-calendar-mode-title" data-exp-ui="panel">
           <div>

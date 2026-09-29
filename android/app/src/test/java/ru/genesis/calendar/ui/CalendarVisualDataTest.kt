@@ -28,6 +28,17 @@ class CalendarVisualDataTest {
         assertEquals(35, dates.size)
     }
 
+    @Test fun gregorianGridCanStartWithMonday() {
+        val dates = gregorianGridDates(
+            CalendarRange(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31)),
+            weekStartsOnSunday = false,
+        )
+        assertEquals(LocalDate.of(2025, 12, 29), dates.first())
+        assertEquals(LocalDate.of(2026, 1, 1), dates[3])
+        assertEquals(LocalDate.of(2026, 2, 1), dates.last())
+        assertEquals(35, dates.size)
+    }
+
     @Test fun gregorianGridFillsNextMonthWithoutInventingSixthRow() {
         val dates = gregorianGridDates(CalendarRange(LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30)))
         assertEquals(LocalDate.of(2026, 8, 30), dates.first())

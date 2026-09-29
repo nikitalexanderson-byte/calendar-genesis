@@ -157,6 +157,9 @@ function genesisUserForClient(array $user): array
     $timeFormat = in_array($user['time_format'] ?? '', ['24h', '12h'], true)
         ? (string)$user['time_format']
         : '24h';
+    $weekStart = in_array($user['week_start'] ?? '', ['sunday', 'monday'], true)
+        ? (string)$user['week_start']
+        : 'sunday';
     $theme = in_array($user['theme'] ?? '', ['standart', 'experimental'], true)
         ? (string)$user['theme']
         : 'standart';
@@ -196,6 +199,7 @@ function genesisUserForClient(array $user): array
         'calendarMode' => $calendarMode,
         'taskCalendarMode' => $taskCalendarMode,
         'timeFormat' => $timeFormat,
+        'weekStart' => $weekStart,
         'theme' => $theme,
         'themeRevision' => max(0, (int)($user['theme_revision'] ?? 0)),
         'language' => $language,
@@ -827,6 +831,14 @@ function genesisUpdateAccountPreferences(string $userId, array $payload): array
         }
         $updates[] = 'time_format = :time_format';
         $values['time_format'] = $timeFormat;
+    }
+    if (array_key_exists('weekStart', $payload)) {
+        $weekStart = trim((string)$payload['weekStart']);
+        if (!in_array($weekStart, ['sunday', 'monday'], true)) {
+            throw new InvalidArgumentException('Неизвестное начало недели.');
+        }
+        $updates[] = 'week_start = :week_start';
+        $values['week_start'] = $weekStart;
     }
     if ($hasThemePreference) {
         $theme = trim((string)$payload['theme']);

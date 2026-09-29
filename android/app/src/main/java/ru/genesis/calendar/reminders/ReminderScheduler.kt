@@ -58,9 +58,9 @@ class ReminderScheduler(private val context: Context) {
         notifications.createNotificationChannel(NotificationChannel("genesis.sync.v1", if (language == "en") "Sync" else "Синхронизация",
             NotificationManager.IMPORTANCE_LOW).apply { setSound(null, null) })
     }
-    private fun openAppIntent() = PendingIntent.getActivity(context, 0, Intent(context, MainActivity::class.java).apply {
-        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-    }, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+    private fun openHabitsIntent() = PendingIntent.getActivity(context, 7300,
+        habitNotificationOpenIntent(context, app.workspaceScope),
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     fun showHabitTonePreview(tone: String, english: Boolean): Boolean {
         createChannels(if (english) "en" else "ru")
         if (!notificationsAllowed() || !channelAllowed(HABIT_CHANNEL)) return false
@@ -69,7 +69,7 @@ class ReminderScheduler(private val context: Context) {
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("GENESIS")
             .setContentText(body).setStyle(NotificationCompat.BigTextStyle().bigText(body))
-            .setContentIntent(openAppIntent()).setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setContentIntent(openHabitsIntent()).setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE).setAutoCancel(true).build()
         return try {
             NotificationManagerCompat.from(context).notify("habit-tone-preview", 7301, note); true
@@ -90,7 +90,7 @@ class ReminderScheduler(private val context: Context) {
         val note = NotificationCompat.Builder(context, ACHIEVEMENT_CHANNEL)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(if (english) "GENESIS · Achievement" else "GENESIS · Достижение")
-            .setContentText(body).setContentIntent(openAppIntent())
+            .setContentText(body).setContentIntent(openHabitsIntent())
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE).setAutoCancel(true).build()
         return try {
@@ -210,7 +210,7 @@ class ReminderScheduler(private val context: Context) {
         val notification = NotificationCompat.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_notification).setContentTitle(candidate.title)
             .setContentText(candidate.body).setStyle(NotificationCompat.BigTextStyle().bigText(candidate.body))
-            .setContentIntent(openAppIntent()).setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setContentIntent(openHabitsIntent()).setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE).setAutoCancel(true).build()
         try {
             NotificationManagerCompat.from(context).notify(key, 2, notification)
@@ -262,3 +262,11 @@ class ReminderScheduler(private val context: Context) {
         scheduleUpcomingLocked(scope)
     }
 }
+
+internal fun habitNotificationOpenIntent(context: Context, scope: String) =
+    Intent(context, MainActivity::class.java).apply {
+        data = Uri.Builder().scheme("genesis").authority("section").appendPath("habits").build()
+        putExtra("scope", scope)
+        putExtra("openSection", "habits")
+        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+    }

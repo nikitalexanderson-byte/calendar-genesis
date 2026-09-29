@@ -97,6 +97,30 @@ class NativeUiTest {
         compose.onNodeWithTag("habit-feedback-settings").performScrollTo().assertIsDisplayed()
     }
 
+    @Test fun weekStartSettingAppearsOnlyForGregorianDisplayAndPersists() {
+        val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
+        val preferences = ru.genesis.calendar.data.LocalPreferences(app, app.workspaceScope)
+        val initial = runBlocking { preferences.values.first() }
+        try {
+            runBlocking { preferences.set("display", "sacred") }
+            compose.onNodeWithText("Настройки").performScrollTo().performClick()
+            compose.onNodeWithTag("gregorian-week-start-setting").assertDoesNotExist()
+            runBlocking { preferences.set("display", "profane") }
+            compose.waitUntil(5_000) {
+                compose.onAllNodesWithTag("gregorian-week-start-setting").fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.onNodeWithTag("gregorian-week-start-setting").performScrollTo().assertIsDisplayed()
+            compose.onNodeWithTag("week-start-monday").performClick()
+            compose.waitUntil(5_000) { !runBlocking { preferences.values.first().weekStartsOnSunday } }
+            compose.onNodeWithTag("week-start-monday").assertIsSelected()
+        } finally {
+            runBlocking {
+                preferences.set("display", initial.display.wireValue)
+                preferences.set("weekStart", if (initial.weekStartsOnSunday) "sunday" else "monday")
+            }
+        }
+    }
+
     @Test fun selectedCalendarHeroIsNotDuplicatedInKnowledgeCards() {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
         val preferences = ru.genesis.calendar.data.LocalPreferences(app, app.workspaceScope)
@@ -107,7 +131,11 @@ class NativeUiTest {
                 compose.onAllNodesWithText("ГРИГОРИАНСКИЙ КАЛЕНДАРЬ", substring = true)
                     .fetchSemanticsNodes().isNotEmpty()
             }
-            compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("day-knowledge"))
+            compose.onNodeWithTag("today-day-details-toggle").performClick()
+            compose.waitUntil(5_000) {
+                compose.onAllNodesWithTag("today-day-details").fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.onNodeWithTag("today-day-details").performScrollTo()
             compose.onAllNodesWithTag("gregorian-calendar-card").assertCountEquals(0)
             compose.onAllNodesWithTag("sacred-calendar-card").assertCountEquals(1)
             compose.onAllNodesWithTag("lunar-calendar-card").assertCountEquals(1)

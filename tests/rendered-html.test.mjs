@@ -154,6 +154,15 @@ import {
   normalizeHabitCollapsedSections,
   normalizeHabitSectionOrder,
 } from "../app/habit-section-state.ts";
+import { gregorianWeekdayOffset } from "../app/calendar-layout.ts";
+
+test("Gregorian calendar offsets support Sunday-first and Monday-first weeks", () => {
+  const thursday = new Date(2026, 0, 1, 12);
+  assert.equal(gregorianWeekdayOffset(thursday, "sunday"), 4);
+  assert.equal(gregorianWeekdayOffset(thursday, "monday"), 3);
+  assert.equal(gregorianWeekdayOffset(new Date(2026, 0, 4, 12), "sunday"), 0);
+  assert.equal(gregorianWeekdayOffset(new Date(2026, 0, 4, 12), "monday"), 6);
+});
 
 function syncClock(version, updatedAt, deviceId) {
   return { version, updatedAt, deviceId };
@@ -1978,7 +1987,7 @@ test("retains the legacy TWA artifact but promotes only the signed native Androi
   assert.match(installHook, /window\.location\.hostname[\s\S]*device[\s\S]*android-phone/);
   assert.match(installHook, /isAndroidPhone && !isStandalone/);
   assert.doesNotMatch(installHook, /downloads\/GENESIS-Android-1\.2\.2\.apk/);
-  assert.match(installHook, /downloads\/GENESIS-Android-Native-2\.3\.6\.apk/);
+  assert.match(installHook, /downloads\/GENESIS-Android-Native-2\.3\.7\.apk/);
   assert.doesNotMatch(installHook, /GENESIS-Android-Native-2\.2\.7\.apk/);
   assert.doesNotMatch(calendar, /android-apk-icon-button/);
   assert.match(calendar, /nativeAndroidApkUrl=\{nativeAndroidApkUrl\}/);
@@ -1991,7 +2000,7 @@ test("retains the legacy TWA artifact but promotes only the signed native Androi
   // The public 1.2.2 download stays unchanged while the isolated native alpha advances.
   const nativeVersionCode = Number(androidBuild.match(/versionCode = (\d+)/)?.[1]);
   assert.ok(nativeVersionCode >= 7);
-  assert.match(androidBuild, /versionName = "2\.3\.6"/);
+  assert.match(androidBuild, /versionName = "2\.3\.7"/);
   assert.match(androidBuild, /releaseSigningReady/);
   assert.match(androidBuild, /applicationIdSuffix = "\.debug"/);
   assert.match(androidBuild, /androidx\.browser:browser:1\.10\.0/);
@@ -2843,13 +2852,17 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /папа Григорий XIII[\s\S]*церковному расчёту Пасхи/);
   assert.match(calendar, /вавилонско-иудейское[\s\S]*христианско-церковное наследие/);
   assert.equal((calendar.match(/профанск/giu) ?? []).length, 2);
-  assert.match(calendar, /const leadingDays = mode === "profane" \? firstDate\.getDay\(\) : 0/);
+  assert.match(calendar, /const leadingDays = mode === "profane" \? gregorianWeekdayOffset\(firstDate, activeWeekStart\) : 0/);
   assert.match(calendar, /const trailingDays = mode === "profane" \? \(7 - \(\(leadingDays \+ dates\.length\) % 7\)\) % 7 : 0/);
   assert.match(calendar, /previousMonthDates\.map/);
   assert.match(calendar, /nextMonthDates\.map/);
   assert.match(calendar, /isAdjacentMonth \? null : \(/);
-  assert.match(calendar, /month\.dates\[0\]\?\.getDay\(\) \?\? 0/);
-  assert.match(calendar, /new Date\(2024, 0, 7 \+ index, 12\)/);
+  assert.match(calendar, /gregorianWeekdayOffset\(month\.dates\[0\], activeWeekStart\)/);
+  assert.match(calendar, /activeWeekStart === "monday" \? 8 : 7/);
+  assert.match(accountPanel, /changeWeekStart/);
+  assert.match(accountPanel, /user\.calendarMode \?\? "sacred"\) === "profane"/);
+  assert.match(cloudSync, /weekStart\?: "sunday" \| "monday"/);
+  assert.match(repository, /week_start = :week_start/);
   assert.match(calendar, /<CronusSickleIcon size=\{35\}/);
   assert.match(calendar, /<CronusSickleIcon size=\{27\}/);
   assert.match(calendar, /profane-weekday-patron/);
