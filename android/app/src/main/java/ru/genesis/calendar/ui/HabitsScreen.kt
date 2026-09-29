@@ -36,12 +36,8 @@ import ru.genesis.calendar.domain.habits.*
 fun HabitsScreen(app: GenesisApplication, experimental: Boolean) {
     var section by rememberSaveable { mutableStateOf("Привычки") }
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("Привычки", "Сон и настроение").forEach { title ->
-                FilterChip(selected = section == title, onClick = { section = title }, label = { Text(title) })
-            }
-        }
+        ConnectedSubmenu(listOf(SubmenuItem("Привычки", "Привычки"), SubmenuItem("Сон и настроение", "Сон и настроение")),
+            section, { section = it })
         Box(Modifier.weight(1f)) {
             if (section == "Привычки") HabitWorkspaceContent(app, experimental) else TrackersScreen(app)
         }
@@ -251,8 +247,8 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                         }
                         FilledTonalButton(onClick={heroPathOpen=!heroPathOpen},
                             modifier=Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("habit-hero-path-toggle"),
-                            colors = ButtonDefaults.filledTonalButtonColors(containerColor = Color(0xffdfc17e),
-                                contentColor = Color(0xff0b2b2d))) {
+                            colors = ButtonDefaults.filledTonalButtonColors(containerColor = eveningSurface(Color(0xffdfc17e)),
+                                contentColor = eveningInk(Color(0xff0b2b2d)))) {
                             Text(if(heroPathOpen) "Свернуть путь" else "Открыть путь и награды")
                         }
                     }

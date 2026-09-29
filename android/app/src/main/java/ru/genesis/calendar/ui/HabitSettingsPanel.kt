@@ -48,8 +48,8 @@ internal fun HabitSettingsPanel(app: GenesisApplication, use24: Boolean) {
         }
     }
     val english = LocalGenesisLanguage.current == "en"
-    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        save(workspace.settings.copy(notifications = workspace.settings.notifications.copy(enabled = granted)))
+    val requestAccess = rememberRequestNotificationAccess(app) { granted ->
+        if(granted) save(workspace.settings.copy(notifications = workspace.settings.notifications.copy(enabled = true)))
     }
     val settings = workspace.settings
 
@@ -80,21 +80,24 @@ internal fun HabitSettingsPanel(app: GenesisApplication, use24: Boolean) {
         HabitPreferenceCard("МОТИВАЦИЯ НА УСТРОЙСТВЕ", "Уведомления привычек", "habit-notification-settings") {
             Text("Каждая привычка напоминает о себе в выбранное время. Дневная цель настраивается отдельно; тихие часы можно переопределить для отдельной привычки.",
                 style = MaterialTheme.typography.bodySmall)
-            val notificationsAllowed = app.scheduler.notificationsAllowed()
-            PreferenceSwitchRow("Включить уведомления на этом устройстве",
-                "Разрешение Android запрашивается только после включения этого переключателя.",
+            val notificationsAllowed = rememberNotificationsAllowed(app)
+            val personalEnabled = workspace.habits.any { it.reminder.enabled }
+            HabitNotificationAccessNotice(app,personalEnabled)
+            PreferenceSwitchRow("Общие напоминания о дневной цели",
+                "Личные напоминания включаются внутри каждой привычки и работают независимо от этого переключателя.",
                 settings.notifications.enabled && notificationsAllowed, !busy, "habit-notifications-enabled") { enabled ->
                 if (!enabled) save(settings.copy(notifications = settings.notifications.copy(enabled = false)))
-                else if (Build.VERSION.SDK_INT >= 33 && !notificationsAllowed)
-                    permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                else if (!notificationsAllowed) context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                    .putExtra(Settings.EXTRA_APP_PACKAGE, app.packageName).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                else if (!notificationsAllowed) {
+                    save(settings.copy(notifications = settings.notifications.copy(enabled = true)))
+                    requestAccess()
+                }
                 else save(settings.copy(notifications = settings.notifications.copy(enabled = true)))
             }
             Text(when {
                 !notificationsAllowed -> "Разрешение Android выключено"
-                settings.notifications.enabled -> "Уведомления включены"
-                else -> "Уведомления отключены"
+                settings.notifications.enabled -> "Общие напоминания включены"
+                personalEnabled -> "Личные напоминания включены · общие выключены"
+                else -> "Напоминания не включены"
             }, style = MaterialTheme.typography.labelMedium,
                 color = if (settings.notifications.enabled && notificationsAllowed) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.onSurfaceVariant)
@@ -109,7 +112,7 @@ internal fun HabitSettingsPanel(app: GenesisApplication, use24: Boolean) {
                                     error = "Android не разрешил показать пример уведомления."
                             }
                         },
-                        enabled = settings.notifications.enabled && notificationsAllowed && !busy,
+                        enabled = notificationsAllowed && !busy,
                         label = { Text(label) }, modifier = Modifier.heightIn(min = 48.dp)
                             .testTag("habit-notification-tone-$value"))
                 }
@@ -118,15 +121,15 @@ internal fun HabitSettingsPanel(app: GenesisApplication, use24: Boolean) {
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             TimePreference("Напоминание о дневной цели", settings.notifications.dailyGoalTime,
-                use24, settings.notifications.enabled && notificationsAllowed && !busy) {
+                use24, notificationsAllowed && !busy) {
                 save(settings.copy(notifications = settings.notifications.copy(dailyGoalTime = it)))
             }
             TimePreference("Начало тихих часов", settings.notifications.quietHoursStart,
-                use24, settings.notifications.enabled && notificationsAllowed && !busy) {
+                use24, notificationsAllowed && !busy) {
                 save(settings.copy(notifications = settings.notifications.copy(quietHoursStart = it)))
             }
             TimePreference("Конец тихих часов", settings.notifications.quietHoursEnd,
-                use24, settings.notifications.enabled && notificationsAllowed && !busy) {
+                use24, notificationsAllowed && !busy) {
                 save(settings.copy(notifications = settings.notifications.copy(quietHoursEnd = it)))
             }
             PreferenceSwitchRow("Напоминания о цели и серии",
@@ -137,6 +140,18 @@ internal fun HabitSettingsPanel(app: GenesisApplication, use24: Boolean) {
             }
             Text("Аналитика уведомлений не содержит названий привычек и остаётся только на этом устройстве. Настройки хранятся внутри зашифрованного пространства.",
                 style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if(Build.MANUFACTURER.equals("samsung", ignoreCase=true)) {
+                Text("На Samsung добавьте GENESIS в «Никогда не спящие приложения», если включено автоматическое ограничение фоновой работы.",
+                    style=MaterialTheme.typography.bodySmall)
+                OutlinedButton(onClick={
+                    val intent=Intent("com.samsung.android.sm.ACTION_OPEN_CHECKABLE_LISTACTIVITY")
+                        .putExtra("activity_type", 2).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    runCatching { context.startActivity(intent) }.onFailure {
+                        context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                            android.net.Uri.parse("package:${app.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    }
+                },modifier=Modifier.fillMaxWidth().testTag("habit-samsung-background-settings")) { Text("Фоновая работа Samsung") }
+            }
         }
 
         HabitPreferenceCard("ОТКЛИК И ДОСТУПНОСТЬ", "Отклик на выполнение", "habit-feedback-settings") {
@@ -229,10 +244,12 @@ private fun PreferenceActionRow(title: String, description: String, action: Stri
 private fun TimePreference(label: String, value: String, use24: Boolean, enabled: Boolean,
     onValue: (String) -> Unit) {
     val context = LocalContext.current
+    val dialogTheme = if(LocalEveningTheme.current) android.R.style.Theme_DeviceDefault_Dialog else
+        android.R.style.Theme_DeviceDefault_Light_Dialog
     val time = runCatching { LocalTime.parse(value) }.getOrDefault(LocalTime.NOON)
     val display = time.format(DateTimeFormatter.ofPattern(if (use24) "HH:mm" else "hh:mm a", Locale.ENGLISH))
     OutlinedButton(onClick = {
-        TimePickerDialog(context, { _, hour, minute -> onValue("%02d:%02d".format(hour, minute)) },
+        TimePickerDialog(context, dialogTheme, { _, hour, minute -> onValue("%02d:%02d".format(hour, minute)) },
             time.hour, time.minute, use24).show()
     }, enabled = enabled, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

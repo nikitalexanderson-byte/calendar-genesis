@@ -36,6 +36,15 @@ class MainActivity : ComponentActivity() {
         setIntent(intent)
         acceptIntent(intent)
     }
+    override fun onResume() {
+        super.onResume()
+        // Returning from Android permission/battery settings must restore the schedule
+        // immediately, even when no habit or account data changed.
+        lifecycleScope.launch {
+            val app = application as GenesisApplication
+            app.scheduler.restore(); app.scheduler.restoreHabitNotifications()
+        }
+    }
     private fun acceptIntent(intent: Intent) {
         val app = application as GenesisApplication
         if (intent.getStringExtra("scope") == app.workspaceScope)

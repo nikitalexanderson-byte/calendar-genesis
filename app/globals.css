@@ -7994,6 +7994,23 @@ button.project-drag-handle:active { cursor: grabbing; }
   border-left: 3px solid rgba(157, 171, 167, 0.5);
 }
 
+.task-overdue-badge {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  padding: 3px 8px;
+  border: 1px solid #b6424e;
+  border-radius: 8px;
+  background: #542c31;
+  color: #ffd4d6;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 650;
+  line-height: 1.4;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
 .all-task-row .task-check {
   margin-top: 2px;
 }

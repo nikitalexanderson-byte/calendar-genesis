@@ -96,6 +96,7 @@ import {
 } from "./habit-notifications";
 
 import { resetHabitWorkspace } from "./habit-reset";
+import { isTaskOverdue } from "./task-overdue";
 import { changedTrackerDates, ensureTrackerAnalytics, refreshTrackerAnalytics } from "./tracker-analytics";
 import { clearTrackerAnalyticsCache, loadTrackerAnalyticsCache, saveTrackerAnalyticsCache } from "./tracker-cache";
 import type { SacredPracticeSectorId } from "./sacred-practices";
@@ -1615,6 +1616,14 @@ export function GenesisCalendar() {
   const selectedLunarMonthIndex = lunarMonthIndex(selectedDate);
   const selectedLunarMonthOrdinal = selectedLunarMonthIndex - selectedLunarYear.startMonthIndex + 1;
   const todayDateValue = inputDate(today);
+  const overdueDeadline = (task: Task, occurrence?: string) => {
+    if (occurrence) return occurrence;
+    const repeating = !task.googleTaskListId && !task.recurrenceSeriesId &&
+      ((task.recurrenceMode && task.recurrenceMode !== "none") || (task.recurrence && task.recurrence !== "none"));
+    return repeating ? recurrenceDatesForTask(task).at(-1) ?? "" : task.endDate || task.dueDate;
+  };
+  const renderOverdueBadge = (task: Task, occurrence?: string) => isTaskOverdue(task, today, overdueDeadline(task, occurrence))
+    ? <span className="task-overdue-badge" data-no-translate>{language === "en" ? "Overdue" : "Просрочено"}</span> : null;
   const selectedDateValue = inputDate(selectedDate);
   const newTaskDueDate = taskDueDate || (view === "today" || view === "all-tasks" ? todayDateValue : selectedDateValue);
   const newTaskEndDate = taskEndDate || newTaskDueDate;
@@ -3933,6 +3942,7 @@ export function GenesisCalendar() {
                             <button type="button" className="task-check" onClick={() => toggleTask(task.id)} aria-label={task.done ? `Вернуть задачу «${task.title}»` : `Завершить задачу «${task.title}»`}>{task.done ? "✓" : ""}</button>
                             <button type="button" className="task-list-item-open" onClick={() => openTaskEditor(task)}>
                               <strong data-no-translate>{task.title}</strong>
+                              {renderOverdueBadge(task)}
                               <small>{taskRangeLabel(task, activeTaskCalendarMode, activeTimeFormat)}</small>
                             </button>
                             <label className="task-list-move-select">
@@ -4350,6 +4360,7 @@ export function GenesisCalendar() {
                   </button>
                   <button type="button" className="today-task-open" onClick={() => openTaskEditor(task, todayDateValue)}>
                     <strong data-no-translate>{task.title}</strong>
+                    {renderOverdueBadge(task, todayDateValue)}
                     <span>
                       <time>{task.time ? formatTimeValue(task.time, activeTimeFormat) : (isEnglish ? "All day" : "Весь день")}</time>
                       <em>{resolvedTaskProjectTitle(task) || (isEnglish ? "No project" : "Без проекта")}</em>
@@ -4640,6 +4651,7 @@ export function GenesisCalendar() {
                       }}>
                         <time>{task.time ? formatTimeValue(task.time, activeTimeFormat) : "Весь день"}</time>
                         <span data-no-translate>{task.title}</span>
+                        {renderOverdueBadge(task, dateValue)}
                       </button>
                     </li>
                   ))}
@@ -4842,6 +4854,7 @@ export function GenesisCalendar() {
                                       }}>
                                         <time>{task.time ? formatTimeValue(task.time, activeTimeFormat) : "Весь день"}</time>
                                         <span data-no-translate>{task.title}</span>
+                                        {renderOverdueBadge(task, inputDate(gregorian))}
                                       </button>
                                     </li>
                                   ))}
@@ -5197,6 +5210,7 @@ export function GenesisCalendar() {
                           if (!suppressProjectItemClickRef.current) openTaskEditor(task);
                         }}>
                           <strong data-no-translate>{task.title}</strong>
+                          {renderOverdueBadge(task)}
                           <small>{taskRangeLabel(task, activeTaskCalendarMode, activeTimeFormat)}</small>
                         </button>
                         <button
@@ -5275,7 +5289,7 @@ export function GenesisCalendar() {
                               <span className="project-drag-handle" aria-hidden="true">⋮⋮</span>
                               <button type="button" className="project-assigned-task-open" onClick={() => {
                                 if (!suppressProjectItemClickRef.current) openTaskEditor(task);
-                              }}><strong data-no-translate>{task.title}</strong><small>{taskRangeLabel(task, activeTaskCalendarMode, activeTimeFormat)}</small></button>
+                              }}><strong data-no-translate>{task.title}</strong>{renderOverdueBadge(task)}<small>{taskRangeLabel(task, activeTaskCalendarMode, activeTimeFormat)}</small></button>
                             </article>
                           );
                         })}
@@ -5493,8 +5507,7 @@ export function GenesisCalendar() {
           {sortedTasks.length ? sortedTasks.map((task) => {
             const project = resolvedTaskProject(task);
             const category = categories.find((item) => item.id === (task.categoryId ?? project?.categoryId));
-            const lastOccurrenceDate = recurrenceDatesForTask(task).at(-1) ?? task.endDate ?? task.dueDate;
-            const isOverdue = !task.done && lastOccurrenceDate < todayDateValue;
+            const overdue = isTaskOverdue(task, today, overdueDeadline(task));
             const source = taskOriginMeta(task.createdIn);
             const tags = safeTaskTags(task);
             const syncAccountIds = safeSyncAccountIds(task);
@@ -5502,7 +5515,7 @@ export function GenesisCalendar() {
               .map((dependencyId) => tasks.find((item) => item.id === dependencyId)?.title)
               .filter((title): title is string => Boolean(title));
             return (
-              <article className={`all-task-row${task.done ? " done" : ""}${isOverdue ? " past" : ""}`} key={task.id}>
+              <article className={`all-task-row${task.done ? " done" : ""}${overdue ? " past" : ""}`} key={task.id}>
                 <button type="button" className="task-check" onClick={() => toggleTask(task.id)} aria-label={task.done ? `Вернуть задачу «${task.title}»` : `Завершить задачу «${task.title}»`}>
                   {task.done ? "✓" : ""}
                 </button>
@@ -5510,6 +5523,7 @@ export function GenesisCalendar() {
                   <div className="all-task-title-row">
                     <strong data-no-translate>{task.title}</strong>
                     <span className="all-task-priority" title="Приоритет">⚑{task.priority}</span>
+                    {renderOverdueBadge(task)}
                   </div>
                   <div className="all-task-meta">
                     <span>{taskRangeLabel(task, activeTaskCalendarMode, activeTimeFormat)}</span>
@@ -6480,6 +6494,7 @@ export function GenesisCalendar() {
                         }}>
                           <span><time>{task.time ? formatTimeValue(task.time, activeTimeFormat) : "Весь день"}</time>{task.priority ? <em>Приоритет {task.priority}</em> : null}</span>
                           <strong data-no-translate>{task.title}</strong>
+                          {renderOverdueBadge(task, selectedDateValue)}
                           {task.description || projectTitle || task.googleTaskListTitle ? (
                             <small data-no-translate>{task.description || projectTitle || task.googleTaskListTitle}</small>
                           ) : null}

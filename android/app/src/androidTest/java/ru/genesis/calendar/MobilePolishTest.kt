@@ -48,12 +48,12 @@ class MobilePolishTest {
                 date = LocalDate.now().toString(), revision = old?.revision ?: 0))
         }
         try {
-            compose.onNodeWithText("Задачи").performScrollTo().performClick()
-            compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("task-$taskId"))
+            compose.onNodeWithTag("navigation-Задачи").performScrollTo().performClick()
+            compose.onNodeWithTag("tasks-screen").performScrollToNode(hasTestTag("task-$taskId"))
             val checkbox = compose.onNode(isToggleable() and hasAnyAncestor(hasTestTag("task-$taskId")), useUnmergedTree = true)
             checkbox.assertIsOff().performClick()
             compose.waitUntil(10_000) { runBlocking { app.repository.get(taskId)?.done == true } }
-            compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("task-$taskId"))
+            compose.onNodeWithTag("tasks-screen").performScrollToNode(hasTestTag("task-$taskId"))
             checkbox.assertIsDisplayed().assertIsOn()
             val layouts = mutableListOf<TextLayoutResult>()
             compose.onNodeWithTag("task-title-$taskId", useUnmergedTree = true)
@@ -63,7 +63,7 @@ class MobilePolishTest {
             capture("completed-task")
             checkbox.performClick()
             compose.waitUntil(10_000) { runBlocking { app.repository.get(taskId)?.done == false } }
-            compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("task-$taskId"))
+            compose.onNodeWithTag("tasks-screen").performScrollToNode(hasTestTag("task-$taskId"))
             layouts.clear()
             compose.onNodeWithTag("task-title-$taskId", useUnmergedTree = true)
                 .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
@@ -73,8 +73,9 @@ class MobilePolishTest {
 
     @Test fun taskCloseRemainsAtTopRightAfterScrollingAndDoesNotSaveDraft() {
         val draft = "Несохранённая задача полировки"
-        compose.onNodeWithText("Задачи").performScrollTo().performClick()
+        compose.onNodeWithTag("navigation-Задачи").performScrollTo().performClick()
         compose.onNodeWithTag("create-task").performClick()
+        compose.onNodeWithTag("create-task-choice").performClick()
         compose.onNodeWithTag("task-title").performTextInput(draft)
         UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()
         val close = compose.onNodeWithTag("close-task-editor")

@@ -61,7 +61,9 @@ fun PriorityControl(value: Int, onChange: (Int) -> Unit) {
                     Box(Modifier.padding(horizontal = 2.dp, vertical = 8.dp).fillMaxWidth()
                         .height((7 + step * 4).dp)
                         .border(if (step == value) 2.dp else 0.dp, MaterialTheme.colorScheme.onSurface, RoundedCornerShape(3.dp))
-                        .background(priorityColors[step - 1].copy(alpha = if (step <= value) 1f else .35f), RoundedCornerShape(3.dp)))
+                        .background((if(LocalEveningTheme.current) priorityColors[step - 1].let {
+                            Color(it.red*.72f,it.green*.72f,it.blue*.72f) } else priorityColors[step - 1])
+                            .copy(alpha = if (step <= value) 1f else .35f), RoundedCornerShape(3.dp)))
                 }
             }
         }

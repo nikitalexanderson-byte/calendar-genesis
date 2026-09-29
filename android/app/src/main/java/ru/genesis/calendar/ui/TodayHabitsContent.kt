@@ -9,6 +9,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
@@ -44,7 +45,7 @@ internal fun TodayHabitsContent(app: GenesisApplication, date: LocalDate,
         busy = true
         scope.launch {
             try {
-                val result = repository.complete(habit.id, checked, quality)
+                val result = repository.complete(habit.id, checked, quality, date)
                 error = null
                 if (checked) {
                     val feedback = workspace.settings.feedback
@@ -66,9 +67,21 @@ internal fun TodayHabitsContent(app: GenesisApplication, date: LocalDate,
     Column(Modifier.fillMaxWidth().testTag("today-habits-section"),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        Text("Трекер привычек", style = MaterialTheme.typography.titleLarge)
-        Text("$completed из ${scheduled.size} выполнено", style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(12.dp),verticalAlignment=Alignment.CenterVertically) {
+            Surface(Modifier.size(44.dp),shape=RoundedCornerShape(14.dp),color=if(LocalEveningTheme.current)
+                MaterialTheme.colorScheme.secondaryContainer else Color(0xff123b36)) {
+                Box(contentAlignment=Alignment.Center) {
+                    GenesisVectorIcon(GenesisPageIcon.HABITS,Modifier.size(28.dp),if(LocalEveningTheme.current)
+                        MaterialTheme.colorScheme.onSecondaryContainer else Color(0xfff3d68f),animated=true)
+                }
+            }
+            Column(Modifier.weight(1f)) {
+                Text("Трекер привычек", style = MaterialTheme.typography.titleLarge)
+                Text("$completed из ${scheduled.size} выполнено", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Button(onClick=onOpenHabits,modifier=Modifier.heightIn(min=48.dp).testTag("today-habits-open")) { Text("Открыть") }
+        }
         if (scheduled.isNotEmpty()) LinearProgressIndicator(
             progress = { completed.toFloat() / scheduled.size }, modifier = Modifier.fillMaxWidth())
         Text("Привычки дня", style = MaterialTheme.typography.titleMedium)
@@ -95,7 +108,8 @@ internal fun TodayHabitsContent(app: GenesisApplication, date: LocalDate,
                 }
             }
         }
-        TextButton(onClick = onOpenHabits, modifier = Modifier.heightIn(min = 48.dp)) { Text("Открыть привычки") }
+        if(date != LocalDate.now()) Text("Отметки выполнения доступны в день практики.",
+            style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     }
     ratingHabit?.let { habit ->
         var quality by remember(habit.id) { mutableFloatStateOf(

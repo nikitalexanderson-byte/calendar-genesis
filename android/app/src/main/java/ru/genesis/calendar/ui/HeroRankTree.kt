@@ -90,7 +90,7 @@ internal fun HeroRankTree(workspace: LocalHabitWorkspace, busy: Boolean,
             Button(onClick = onRevealHiddenPath, enabled = !busy,
                 modifier = Modifier.fillMaxWidth().padding(start = 24.dp).heightIn(min = 48.dp)
                     .testTag("reveal-hidden-hero-path"),
-                colors = ButtonDefaults.buttonColors(containerColor = heroGold, contentColor = heroNight)) {
+                colors = ButtonDefaults.buttonColors(containerColor = eveningSurface(heroGold), contentColor = eveningInk(heroNight))) {
                 Text("Открыть продолжение пути")
             }
         } else {

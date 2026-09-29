@@ -166,7 +166,7 @@ private fun TheokyklosSector.cardTitle(english: Boolean): String = when (id) {
 private fun TheokyklosMandala(sectors: List<TheokyklosSector>, english: Boolean, onSelect: (String) -> Unit) {
     val hearthDescription = if (english) "Hearth, Hestia" else "Очаг, Гестия"
     BoxWithConstraints(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(16.dp))
-        .background(cream).testTag("theokyklos-mandala")) {
+        .background(eveningSurface(cream)).testTag("theokyklos-mandala")) {
         Canvas(Modifier.fillMaxSize()) {
             val unit = size.width
             val center = Offset(unit * .5f, unit * .49f)

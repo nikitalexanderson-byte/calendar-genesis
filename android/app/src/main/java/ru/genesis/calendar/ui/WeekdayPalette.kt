@@ -33,3 +33,9 @@ private val weekdayPatronMarks = listOf(
 
 internal fun weekdayPatronMark(date: LocalDate): WeekdayPatronMark =
     weekdayPatronMarks[date.dayOfWeek.value % 7]
+
+/** Warm/cool hues stay recognisable without using bright day-mode backgrounds at night. */
+internal fun weekdayEveningWash(date: LocalDate): Color = listOf(
+    Color(0xff4b4026), Color(0xff3b4844), Color(0xff50342f), Color(0xff2e4b39),
+    Color(0xff2e445b), Color(0xff473652), Color(0xff2e3d36),
+)[date.dayOfWeek.value % 7]

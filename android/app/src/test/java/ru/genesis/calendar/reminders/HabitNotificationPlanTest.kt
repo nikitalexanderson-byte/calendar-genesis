@@ -42,4 +42,11 @@ class HabitNotificationPlanTest {
         val enabled = w.copy(settings=w.settings.copy(notifications=w.settings.notifications.copy(motivational=true)))
         assertEquals(listOf("habit", "goal"),planHabitNotifications(enabled,date,now,zone,false,1).map { it.kind })
     }
+    @Test fun personalRemindersWorkWhenTheGeneralReminderIsDisabled() {
+        val w=workspace(habit("reading","20:30"))
+        val personalOnly=w.copy(settings=w.settings.copy(notifications=w.settings.notifications.copy(enabled=false,motivational=true)))
+        assertEquals(listOf("habit"),planHabitNotifications(personalOnly,date,now,zone,false,1).map {it.kind})
+        assertTrue(planHabitNotifications(personalOnly.copy(habits=personalOnly.habits.map {
+            it.copy(reminder=it.reminder.copy(enabled=false)) }),date,now,zone,false,1).isEmpty())
+    }
 }
