@@ -319,7 +319,7 @@ class AuthController private constructor(context: Context) {
             "time" -> { require(value in setOf("12h", "24h")); changes.put("timeFormat", value) }
             "weekStart" -> { require(value in setOf("sunday", "monday")); changes.put("weekStart", value) }
             "gregorianYearStart" -> { require(value in setOf("january", "march")); changes.put("gregorianYearStart", value) }
-            "language" -> { require(value in setOf("ru", "en", "el", "de", "fr", "es", "it", "pt")); changes.put("language", value) }
+            "language" -> { require(value in setOf("ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja")); changes.put("language", value) }
             "stoicheionDivinationDisabled" -> {
                 require(value in setOf("true", "false")); changes.put("stoicheionDivinationDisabled", value.toBoolean())
             }

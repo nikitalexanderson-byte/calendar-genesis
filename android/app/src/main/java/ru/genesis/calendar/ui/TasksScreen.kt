@@ -27,8 +27,10 @@ import ru.genesis.calendar.data.*
 @Composable internal fun TasksScreen(tasks: List<LocalTask>, lists: List<GoogleTaskList>,
     structure: WorkspaceStructure, use24: Boolean, confirmed: Boolean,
     onCreateTask: (GoogleTaskList?) -> Unit, onCreateList: () -> Unit,
-    onComplete: (LocalTask) -> Unit, onOpen: (String) -> Unit) {
-    var section by rememberSaveable { mutableStateOf("tasks") }
+    onComplete: (LocalTask) -> Unit, onOpen: (String) -> Unit,
+    menuSwipeState: MenuSwipeState? = null) {
+    var localSection by rememberSaveable { mutableStateOf("tasks") }
+    val section = menuSwipeState?.tasks ?: localSection
     var expanded by rememberSaveable { mutableStateOf<String?>(null) }
     val knownLists = remember(lists, tasks) { taskListsForTasks(lists,tasks) }
     val english = LocalGenesisLanguage.current == "en"
@@ -36,7 +38,7 @@ import ru.genesis.calendar.data.*
     val active = tasks.count { !it.done }
     Column(Modifier.fillMaxSize()) {
         ConnectedSubmenu(listOf(SubmenuItem("tasks", "Задачи"), SubmenuItem("lists", "Списки задач")),
-            section, { section = it })
+            section, { localSection = it; menuSwipeState?.tasks = it })
         LazyColumn(Modifier.weight(1f).testTag("tasks-screen"), contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
@@ -122,6 +124,7 @@ import ru.genesis.calendar.data.*
     val connected = accounts?.accounts.orEmpty().filter { it.tasksConnected }
     var accountId by rememberSaveable { mutableStateOf(connected.firstOrNull { it.id in accounts?.routing?.defaultAccountIds.orEmpty() }?.id ?: connected.firstOrNull()?.id.orEmpty()) }
     var date by rememberSaveable { mutableStateOf(java.time.LocalDate.now().toString()) }
+    var formCalendarMode by rememberSaveable { mutableStateOf(prefs.input) }
     var rowsText by rememberSaveable { mutableStateOf("") }
     var rowIds by rememberSaveable { mutableStateOf(listOf<String>()) }
     var createdJson by rememberSaveable { mutableStateOf<String?>(null) }
@@ -148,8 +151,10 @@ import ru.genesis.calendar.data.*
                     Text("Задачи списка · по одной в строке",style=MaterialTheme.typography.titleSmall)
                     OutlinedTextField(rowsText,{rowsText=it},enabled=!busy && created==null,label={Text("Задачи списка")},minLines=3,
                         modifier=Modifier.fillMaxWidth().testTag("task-list-drafts"))
-                    Text("Дата задач · ${calendarModeLabel(prefs.input)}")
-                    AuthorDatePicker(date,prefs.input) { if(!busy && created==null) date=it }
+                    EditorCalendarModePicker(formCalendarMode, { formCalendarMode=it },
+                        enabled=!busy && created==null, tag="task-list-form-calendar")
+                    Text("Дата задач · ${calendarModeLabel(formCalendarMode)}")
+                    AuthorDatePicker(date,formCalendarMode) { if(!busy && created==null) date=it }
                     error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
                     Button(enabled=canCreate && connected.any { it.id==accountId } && title.trim().length in 1..300 && !busy,
                         modifier=Modifier.fillMaxWidth().testTag("save-task-list"),onClick={

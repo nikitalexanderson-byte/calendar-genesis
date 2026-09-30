@@ -9,6 +9,7 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <queries>
         <intent>
@@ -47,6 +48,7 @@
 
         <receiver android:name=".reminders.ReminderReceiver" android:exported="false" />
         <receiver android:name=".reminders.HabitNotificationReceiver" android:exported="false" />
+        <receiver android:name=".reminders.MoonReminderReceiver" android:exported="false" />
         <receiver android:name=".reminders.DiagnosticNotificationReceiver" android:exported="false" />
         <receiver android:name=".reminders.ReminderActionReceiver" android:exported="false" />
         <receiver android:name=".reminders.RestoreReceiver" android:exported="false">

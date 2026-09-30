@@ -31,7 +31,8 @@ const tests = resolve(root, 'android/app/src/test/java/ru/genesis/calendar/domai
 const checkOnly = process.argv.includes('--check');
 function output(path, content) {
   if (checkOnly) {
-    if (readFileSync(path, 'utf8') !== content) throw Error(`Generated data drift: ${path}`);
+    if (readFileSync(path, 'utf8').replaceAll('\r\n', '\n') !== content.replaceAll('\r\n', '\n'))
+      throw Error(`Generated data drift: ${path}`);
   } else writeFileSync(path, content);
 }
 mkdirSync(domain, { recursive: true });
@@ -47,10 +48,14 @@ const cycle = 29.53058867 * 86400000;
 const firstIndex = Math.floor((Date.UTC(1898, 0, 1) - epoch) / cycle);
 const lastIndex = Math.ceil((Date.UTC(2103, 0, 1) - epoch) / cycle);
 const moments = [];
+const fullMoments = [];
 for (let index = firstIndex; index <= lastIndex; index++) {
   const found = astro.SearchMoonPhase(0, new Date(epoch + index * cycle - 2.5 * 86400000), 5);
   if (!found) throw Error(`No new moon ${index}`);
   moments.push(found.date.getTime());
+  const full = astro.SearchMoonPhase(180, new Date(found.date.getTime() + 10 * 86400000), 10);
+  if (!full) throw Error(`No full moon ${index}`);
+  fullMoments.push(full.date.getTime());
 }
 const years = [];
 for (let year = 1899; year <= 2102; year++) {
@@ -60,7 +65,9 @@ for (let year = 1899; year <= 2102; year++) {
 }
 const chunks = [];
 for (let i = 0; i < moments.length; i += 100) chunks.push(str(moments.slice(i, i + 100).join(',')));
-output(resolve(domain, 'LunarEphemeris.kt'), header + `/** astronomy-engine 2.1.19, exact SearchMoonPhase and Seasons, UTC milliseconds. */\ninternal object LunarEphemeris {\n    const val firstIndex = ${firstIndex}\n    const val firstYear = 1899\n    val newMoons: LongArray by lazy { listOf(\n${chunks.map((s) => `        ${s}`).join(',\n')}\n    ).flatMap { it.split(',') }.map { it.toLong() }.toLongArray() }\n    val yearStartIndices = intArrayOf(${years.join(',')})\n}\n`);
+const fullChunks = [];
+for (let i = 0; i < fullMoments.length; i += 100) fullChunks.push(str(fullMoments.slice(i, i + 100).join(',')));
+output(resolve(domain, 'LunarEphemeris.kt'), header + `/** astronomy-engine 2.1.19, exact SearchMoonPhase and Seasons, UTC milliseconds. */\ninternal object LunarEphemeris {\n    const val firstIndex = ${firstIndex}\n    const val firstYear = 1899\n    val newMoons: LongArray by lazy { listOf(\n${chunks.map((s) => `        ${s}`).join(',\n')}\n    ).flatMap { it.split(',') }.map { it.toLong() }.toLongArray() }\n    val fullMoons: LongArray by lazy { listOf(\n${fullChunks.map((s) => `        ${s}`).join(',\n')}\n    ).flatMap { it.split(',') }.map { it.toLong() }.toLongArray() }\n    val yearStartIndices = intArrayOf(${years.join(',')})\n}\n`);
 
 const solarMoments = [];
 for (let year = 1900; year <= 2100; year++) {

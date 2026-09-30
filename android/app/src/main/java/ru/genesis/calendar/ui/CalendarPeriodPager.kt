@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,6 +34,8 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
+internal val LocalCalendarPeriodSwipeEnabled = staticCompositionLocalOf { true }
+
 /** Horizontal touch slop leaves vertical scrolling and taps to the calendar's children. */
 @Composable
 internal fun <T : Any> CalendarPeriodPager(period: T, previousPeriod: T?, nextPeriod: T?,
@@ -50,6 +53,7 @@ internal fun <T : Any> CalendarPeriodPager(period: T, previousPeriod: T?, nextPe
     val next by rememberUpdatedState(onNext)
     val previousPage by rememberUpdatedState(previousPeriod)
     val nextPage by rememberUpdatedState(nextPeriod)
+    val swipeEnabled = LocalCalendarPeriodSwipeEnabled.current
     DisposableEffect(period) {
         onDispose { motionJob?.cancel(); settling = false }
     }
@@ -82,9 +86,7 @@ internal fun <T : Any> CalendarPeriodPager(period: T, previousPeriod: T?, nextPe
             }
         }
     }
-    Box(modifier.clip(RoundedCornerShape(24.dp)).onSizeChanged { width = it.width }
-        .animateContentSize(tween(320, easing = CubicBezierEasing(.22f, .8f, .22f, 1f)))
-        .pointerInput(period, threshold) {
+    val swipeModifier = if (swipeEnabled) Modifier.pointerInput(period, threshold) {
         detectHorizontalDragGestures(
             onDragCancel = { if (!settling) finish(0) },
             onDragEnd = {
@@ -101,7 +103,10 @@ internal fun <T : Any> CalendarPeriodPager(period: T, previousPeriod: T?, nextPe
                         else previousPage?.let { it to -1 }
                 }
             })
-    }) {
+    } else Modifier
+    Box(modifier.clip(RoundedCornerShape(24.dp)).onSizeChanged { width = it.width }
+        .animateContentSize(tween(320, easing = CubicBezierEasing(.22f, .8f, .22f, 1f)))
+        .then(swipeModifier)) {
         val pageModifier = if (fillHeight) Modifier.fillMaxSize() else Modifier.fillMaxWidth()
         key(period) {
             Box(pageModifier.offset { IntOffset(dragPixels.roundToInt(), 0) }) {
@@ -152,7 +157,9 @@ internal fun CalendarPeriodNavigation(title: String, year: Boolean,
                     drawLine(ink, Offset(tip, middle), Offset(tail, middle + 3.dp.toPx()), 1.dp.toPx(), StrokeCap.Round)
                 }
             }
-            Text(if (english) "Swipe left or right" else "Смахните влево или вправо",
+            Text(if (LocalCalendarPeriodSwipeEnabled.current) {
+                if (english) "Swipe left or right" else "Смахните влево или вправо"
+            } else if (english) "Use the arrows" else "Переключайте стрелками",
                 style = MaterialTheme.typography.labelSmall, color = ink)
         }
     }

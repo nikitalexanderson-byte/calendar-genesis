@@ -108,6 +108,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     val taskLists = remember(cachedTaskLists,tasks) { taskListsForTasks(cachedTaskLists,tasks) }
     val prefsStore=remember(app, activeScope) { LocalPreferences(app,activeScope) }
     val prefs by prefsStore.values.collectAsStateWithLifecycle(UiPreferences())
+    val menuSwipeState = remember(activeScope) { MenuSwipeState() }
     val habitSettingsRepository = remember(app, activeScope) { HabitsRepository(app) }
     val habitWorkspace by habitSettingsRepository.workspace.collectAsStateWithLifecycle(LocalHabitWorkspace())
     val habitTrackingEnabled = habitWorkspace.settings.enabled
@@ -119,6 +120,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     val taskSync by authController.taskSync.collectAsStateWithLifecycle()
     val accountTaskSync = taskSync.takeIf { it.scope == activeScope }
     val scope=rememberCoroutineScope()
+    LaunchedEffect(activeScope) { ru.genesis.calendar.reminders.MoonReminderScheduler.restore(app) }
     var preferredWelcomeLanguage by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(authController, testWorkspace) { if (!testWorkspace) authController.ensureSession() }
     LaunchedEffect(activeScope, authState.user, authState.busy) {
@@ -167,6 +169,17 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     val navigationOnLeft = shouldUseNavigationRail(configuration.screenWidthDp,
         isLandscape, prefs.wideNavigationOnLeft)
     val portraitAutoScroll = !isLandscape && prefs.navigationLabels && prefs.navigationAutoScroll
+    val portraitMenuSwipe = !isLandscape && prefs.menuSwipeEnabled
+    val menuSwipeModifier = rememberMenuSwipeModifier(portraitMenuSwipe) { step ->
+        val sequence = menuSwipeSequence(prefs.menuSwipeSubmenus, habitTrackingEnabled,
+            structure.categories.sortedBy { it.position }.map { it.id })
+        val destination = nextMenuSwipeDestination(sequence, tab,
+            if (prefs.menuSwipeSubmenus) menuSwipeState.section(tab) else null, step)
+        if (destination != null) {
+            destination.section?.let { menuSwipeState.select(destination.page, it) }
+            tab = destination.page
+        }
+    }
     val eveningTheme = rememberEveningTheme(AppearanceSettings.read(habitWorkspace.settings.rawJson))
     val window = LocalContext.current.activity()?.window
     SideEffect { window?.let { WindowInsetsControllerCompat(it,it.decorView).apply {
@@ -242,7 +255,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                   Column(Modifier.fillMaxSize()) {
                   error?.let { Text(it,color=MaterialTheme.colorScheme.error,modifier=Modifier.padding(12.dp)) }
                   when(tab) {
-                    "Привычки" -> HabitsScreen(app,true)
+                    "Привычки" -> HabitsScreen(app,true,prefs.input,menuSwipeState)
                     "Теокиклос" -> TheokyklosScreen(app,prefs.input,onOpenHabits={tab="Привычки"},
                         initialSectorId=requestedTheokyklosSector,
                         onInitialSectorConsumed={requestedTheokyklosSector=null})
@@ -251,13 +264,15 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                     })
                     "Проекты" -> ProjectsScreen(app,tasks,true,
                         onOpenTask={ taskId -> editId=taskId;creating=false;tab="Задачи" },
-                        onCreateTask={ projectId -> newTaskProjectId=projectId;newTaskListId=null;editId=null;creating=true })
+                        onCreateTask={ projectId -> newTaskProjectId=projectId;newTaskListId=null;editId=null;creating=true },
+                        menuSwipeState=menuSwipeState)
                     "Задачи" -> TasksScreen(tasks,taskLists,structure,prefs.use24,
                         confirmed = testWorkspace || accountTaskSync?.confirmed != false,
                         onCreateTask = { list -> newTaskListId=list?.id; newTaskProjectId=list?.let {
                             structure.taskListLinks.firstOrNull { link -> link.taskListId == it.id }?.projectId
                         }; editId=null; creating=true }, onCreateList={creatingTaskList=true},
-                        onComplete=model::complete,onOpen={editId=it;creating=false})
+                        onComplete=model::complete,onOpen={editId=it;creating=false},
+                        menuSwipeState=menuSwipeState)
                     "Настройки" -> SettingsScreen(app, prefs, authState.busy && !testWorkspace,
                         canOpenAdmin = !testWorkspace && authState.ready && !authState.requiresSignIn &&
                             authState.user != null && authState.accountSettings?.isAdmin == true,
@@ -269,6 +284,10 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         }, onSetLocal = { name, value -> scope.launch { prefsStore.set(name, value) } })
                     "Календарь" -> CalendarScreen(LocalDate.parse(selected),prefs.display,
                         onSelect={selected=it.toString();tab="Сегодня"},
+                        onModeChange={ next ->
+                            if (!testWorkspace && authState.user != null) authController.updateSharedPreference("display", next.wireValue)
+                            else scope.launch { prefsStore.set("display", next.wireValue) }
+                        },
                         experimental=true, tasks=tasks, use24=prefs.use24,
                         weekStartsOnSunday=prefs.weekStartsOnSunday,
                         gregorianYearStartsInMarch=prefs.gregorianYearStartsInMarch,
@@ -279,14 +298,19 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         onDeleteTask=model::delete,
                         onDeleteOccurrence={ task, date -> model.excludeOccurrence(task,date.toString()) {} },
                         dayHabits={ date -> if(habitTrackingEnabled) TodayHabitsContent(app,date,habitWorkspace,
-                            onOpenHabits={tab="Привычки"}) })
+                            onOpenHabits={tab="Привычки"}) },
+                        menuSwipeState=menuSwipeState,
+                        periodSwipeEnabled=!portraitMenuSwipe)
                     else -> LazyColumn(Modifier.fillMaxSize().testTag("today-list"),contentPadding=PaddingValues(16.dp),
                         verticalArrangement=Arrangement.spacedBy(12.dp)) {
                         if(tab=="Сегодня") item {
                             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                DayHeader(LocalDate.parse(selected), prefs.display, dayDetailsExpanded) {
-                                    dayDetailsExpanded = !dayDetailsExpanded
-                                }
+                                DayHeader(LocalDate.parse(selected), prefs.display, dayDetailsExpanded,
+                                    onToggleDetails = { dayDetailsExpanded = !dayDetailsExpanded },
+                                    onModeChange = { next ->
+                                        if (!testWorkspace && authState.user != null) authController.updateSharedPreference("display", next.wireValue)
+                                        else scope.launch { prefsStore.set("display", next.wireValue) }
+                                    })
                                 AnimatedVisibility(visible = dayDetailsExpanded,
                                     modifier = Modifier.testTag("today-day-details"),
                                     enter = expandVertically(tween(320, easing = CubicBezierEasing(.16f, 1f, .3f, 1f)),
@@ -302,9 +326,13 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         }
                         val shown=tasks.filter { tab!="Сегодня" || TaskOccurrences.occursOn(it,LocalDate.parse(selected)) }
                         if (tab == "Сегодня") item {
-                            TodayTasksPanel(shown, selected, prefs.use24, structure,
+                            val todayDate=LocalDate.now()
+                            val missed=if (prefs.showMissedTasksToday && selected == todayDate.toString())
+                                missedTasksForToday(tasks,todayDate) else emptyList()
+                            TodayTasksPanel(shown, missed, selected, prefs.use24, structure,
                                 onCreate = { creating=true;editId=null;newTaskProjectId=null;newTaskListId=null },
                                 onComplete = model::complete,
+                                onMoveToToday = { task -> model.save(task.copy(date=todayDate.toString())) {} },
                                 onOpen = { taskId -> editId=taskId;creating=false }) {
                                 if (habitTrackingEnabled) TodayHabitsContent(app, LocalDate.parse(selected),
                                     habitWorkspace, onOpenHabits = { tab = "Привычки" })
@@ -320,7 +348,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                             showLabels = prefs.navigationLabels, autoScroll = false,
                             onSelect = { tab = it }, modifier = Modifier
                                 .width(if (prefs.navigationLabels) 132.dp else 64.dp).wrapContentHeight())
-                        Box(Modifier.weight(1f).fillMaxHeight().testTag("main-content")) {
+                        Box(Modifier.weight(1f).fillMaxHeight().then(menuSwipeModifier).testTag("main-content")) {
                             CompositionLocalProvider(LocalCompactSubmenus provides true) { pageContent() }
                         }
                     }
@@ -328,7 +356,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                     PrimaryNavigation(tab, habitTrackingEnabled, vertical = false,
                         showLabels = prefs.navigationLabels, autoScroll = portraitAutoScroll,
                         onSelect = { tab = it })
-                    Box(Modifier.fillMaxWidth().weight(1f).testTag("main-content")) {
+                    Box(Modifier.fillMaxWidth().weight(1f).then(menuSwipeModifier).testTag("main-content")) {
                         CompositionLocalProvider(LocalCompactSubmenus provides isLandscape) { pageContent() }
                     }
                 }
@@ -354,6 +382,8 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
         }
         }
         if (!testWorkspace) GoogleServicesFirstRunModal(authState, authController)
+        AndroidUpdatePrompt(app, authState.checkedAt,
+            !testWorkspace && authState.ready && authState.user != null)
       }
       }
     }
@@ -469,9 +499,10 @@ private fun AuthTransitionScreen(message: String) {
 }
 
 @Composable
-private fun TodayTasksPanel(tasks: List<LocalTask>, selected: String, use24: Boolean,
+private fun TodayTasksPanel(tasks: List<LocalTask>, missedTasks: List<LocalTask>, selected: String, use24: Boolean,
     structure: WorkspaceStructure, onCreate: () -> Unit, onComplete: (LocalTask) -> Unit,
-    onOpen: (String) -> Unit, habits: @Composable ColumnScope.() -> Unit) {
+    onMoveToToday: (LocalTask) -> Unit, onOpen: (String) -> Unit,
+    habits: @Composable ColumnScope.() -> Unit) {
     Card(Modifier.fillMaxWidth().testTag("today-tasks-section"), shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = if(LocalEveningTheme.current)
             MaterialTheme.colorScheme.primaryContainer else Color(0xfffffbf2)),
@@ -530,6 +561,7 @@ private fun TodayTasksPanel(tasks: List<LocalTask>, selected: String, use24: Boo
                     }
                 }
             }
+            TodayMissedTasksCard(missedTasks, onComplete, onMoveToToday)
             habits()
         }
     }
@@ -550,7 +582,7 @@ fun OriginalImage(path: String, description: String?, modifier: Modifier=Modifie
 
 @Composable
 private fun DayHeader(date: LocalDate, mode: CalendarMode, detailsExpanded: Boolean,
-    onToggleDetails: () -> Unit) {
+    onToggleDetails: () -> Unit, onModeChange: (CalendarMode) -> Unit) {
     val calendar=remember { GenesisCalendar() }
     val solarLocation by rememberAutomaticSolarLocation(calendar.zoneId)
     val language = LocalGenesisLanguage.current
@@ -571,7 +603,7 @@ private fun DayHeader(date: LocalDate, mode: CalendarMode, detailsExpanded: Bool
                 border = BorderStroke(1.dp, Color(0x88dfc17e))) {
                 Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    GenesisVectorIcon(GenesisPageIcon.TODAY, Modifier.size(28.dp), Color(0xffdfc17e), animated = true)
+                    CalendarModeSwitcher(mode, { onModeChange(nextCalendarMode(mode)) }, size = 42.dp)
                     Text(if (language == "en") "TODAY" else "СЕГОДНЯ",
                         color = Color(0xfffff5df), style = MaterialTheme.typography.headlineSmall)
                 }
@@ -600,6 +632,8 @@ private fun DayHeader(date: LocalDate, mode: CalendarMode, detailsExpanded: Bool
                 }
                 Text(copy.description, Modifier.testTag("today-hero-description"),
                     color = Color(0xffeee6d7), style = MaterialTheme.typography.bodyMedium)
+                Text(genesisTranslate("Нажмите на иконку, чтобы сменить календарь"),
+                    color = Color(0xffdfc17e), style = MaterialTheme.typography.labelSmall)
                 copy.details.forEach { Text(it, color = Color(0xffeee6d7),
                     style = MaterialTheme.typography.bodySmall) }
                 SunriseSunsetLine(date, solarLocation, calendar,
@@ -644,6 +678,7 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
     var title by rememberSaveable(task?.id) { mutableStateOf(task?.title ?: "") }
     var description by rememberSaveable(task?.id) { mutableStateOf(task?.description ?: "") }
     var date by rememberSaveable(task?.id) { mutableStateOf(task?.date ?: selected) }
+    var formCalendarMode by rememberSaveable(task?.id) { mutableStateOf(prefs.input) }
     var time by rememberSaveable(task?.id) { mutableStateOf(task?.time ?: "") }
     var priority by rememberSaveable(task?.id) { mutableIntStateOf(task?.priority ?: 5) }
     var recurrence by remember(task?.id) { mutableStateOf(task?.recurrence ?: defaultTaskRecurrence(task?.date ?: selected, prefs.input)) }
@@ -665,6 +700,7 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
     var customUnit by remember { mutableIntStateOf(60) }
     var absoluteDate by rememberSaveable { mutableStateOf(date) }
     var absoluteTime by rememberSaveable { mutableStateOf(time.ifBlank { "09:00" }) }
+    var absoluteCalendarMode by rememberSaveable(task?.id) { mutableStateOf(prefs.input) }
     val googleTaskBacked = listId!=null || task?.sourceFieldsJson?.let { raw ->
         runCatching { JSONObject(raw).optString("googleTaskId") }.getOrNull()?.let {
             it.isNotBlank() && it != "null"
@@ -695,7 +731,8 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                         DropdownMenu(choosingList,{choosingList=false}) {
                             DropdownMenuItem(text={Text("Без списка Google Tasks")},onClick={listId=null;choosingList=false})
                             taskLists.forEach { list -> DropdownMenuItem(text={Text(list.title)},onClick={
-                                listId=list.id;reminders=emptyList();recurrence=recurrence.copy(enabled=false);choosingList=false
+                                listId=list.id;reminders=emptyList();customReminder=false
+                                recurrence=recurrence.copy(enabled=false);choosingList=false
                                 projectId=structure.taskListLinks.firstOrNull{it.taskListId==list.id}?.projectId
                             }) }
                         }
@@ -715,8 +752,9 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                         }
                     }
                 }
-                Text("Дата задачи · ${calendarModeLabel(prefs.input)}")
-                AuthorDatePicker(date,prefs.input){date=it}
+                EditorCalendarModePicker(formCalendarMode, { formCalendarMode=it }, tag="task-form-calendar")
+                Text("Дата задачи · ${calendarModeLabel(formCalendarMode)}")
+                AuthorDatePicker(date,formCalendarMode){date=it}
                 AuthorTimePicker(time,prefs.use24){time=it}
                 PriorityControl(priority){priority=it}
                 if(task?.recurrence?.enabled==true) Text(
@@ -745,8 +783,12 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                                     else reminders+spec },label={Text(label)})
                     }
                 }
-                OutlinedButton(enabled=!googleTaskBacked && reminders.size<5,onClick={customReminder=true}) { Text("+ Своё напоминание") }
-                if(customReminder) {
+                OutlinedButton(enabled=customReminder || (!googleTaskBacked && reminders.size<5),
+                    onClick={customReminder=!customReminder},
+                    modifier=Modifier.testTag("custom-reminder-toggle")) {
+                    Text(if(customReminder) "Свернуть" else "+ Своё напоминание")
+                }
+                if(customReminder && !googleTaskBacked) {
                     Row { FilterChip(selected=customRelative,onClick={customRelative=true},label={Text("За время до задачи")})
                         FilterChip(selected=!customRelative,onClick={customRelative=false},label={Text("Точная дата и время")}) }
                     if(customRelative) {
@@ -757,8 +799,10 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                             }
                         }
                     } else {
-                        Text("Дата напоминания · ${calendarModeLabel(prefs.input)}")
-                        AuthorDatePicker(absoluteDate,prefs.input){absoluteDate=it}
+                        EditorCalendarModePicker(absoluteCalendarMode,
+                            { absoluteCalendarMode=it }, tag="reminder-form-calendar")
+                        Text("Дата напоминания · ${calendarModeLabel(absoluteCalendarMode)}")
+                        AuthorDatePicker(absoluteDate,absoluteCalendarMode){absoluteDate=it}
                         AuthorTimePicker(absoluteTime,prefs.use24){absoluteTime=it}
                     }
                     Row {
@@ -961,6 +1005,28 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
             Text("Настройка применяется автоматически при повороте экрана и на планшете.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Переход между вкладками в портретном режиме",
+                style = MaterialTheme.typography.titleSmall)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected = !prefs.menuSwipeEnabled,
+                    onClick = { onSetLocal("menuSwipeEnabled", "false") },
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("menu-swipe-off"),
+                    label = { Text("Кнопки меню") })
+                FilterChip(selected = prefs.menuSwipeEnabled,
+                    onClick = { onSetLocal("menuSwipeEnabled", "true") },
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("menu-swipe-on"),
+                    label = { Text("Общий свайп") })
+            }
+            Text("Смахивайте содержимое экрана влево или вправо для перехода между разделами.",
+                style = MaterialTheme.typography.bodySmall)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(checked = prefs.menuSwipeSubmenus, enabled = prefs.menuSwipeEnabled,
+                    onCheckedChange = { onSetLocal("menuSwipeSubmenus", it.toString()) },
+                    modifier = Modifier.testTag("menu-swipe-submenus"))
+                Text("Включать подменю в общий свайп", style = MaterialTheme.typography.bodyMedium)
+            }
+            Text("При общем свайпе месяцы и годы переключаются стрелками.",
+                style = MaterialTheme.typography.bodySmall)
         }
         SettingsSection("◉", "Календари и время", "Отображение не меняет календарь ввода и повторений",
             Color(0xffe4efed), modifier = Modifier.testTag("calendar-settings-section")) {
@@ -1065,6 +1131,20 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
             }
         }
         HabitSettingsPanel(app, prefs.use24)
+        SettingsSection("!", "Пропущенные задачи", "Напоминание внутри раздела «Сегодня»",
+            Color(0xffffebe4)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Напоминать о пропущенных задачах", style = MaterialTheme.typography.titleSmall)
+                    Text("Показывать невыполненные задачи прошлых дней с возможностью перенести их на сегодня.",
+                        style = MaterialTheme.typography.bodySmall)
+                }
+                Switch(checked = prefs.showMissedTasksToday,
+                    onCheckedChange = { onSetLocal("showMissedTasksToday", it.toString()) },
+                    modifier = Modifier.testTag("show-missed-tasks-today"))
+            }
+        }
+        MoonReminderSettings(app, prefs, onSetLocal)
         SettingsSection("◷", "Системные напоминания", "Проверка разрешений и точности Android",
             Color(0xfffff1cf)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

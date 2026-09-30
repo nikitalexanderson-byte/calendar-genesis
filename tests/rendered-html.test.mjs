@@ -1999,8 +1999,8 @@ test("retains the legacy TWA artifact but promotes only the signed native Androi
   assert.match(styles, /\.ux-android-robot/);
   // The legacy 1.2.2 asset remains available while the current native release advances.
   const nativeVersionCode = Number(androidBuild.match(/versionCode = (\d+)/)?.[1]);
-  assert.ok(nativeVersionCode >= 7);
-  assert.match(androidBuild, /versionName = "2\.4\.0"/);
+  assert.ok(nativeVersionCode >= 47);
+  assert.match(androidBuild, /versionName = "2\.4\.1"/);
   assert.match(androidBuild, /releaseSigningReady/);
   assert.match(androidBuild, /applicationIdSuffix = "\.debug"/);
   assert.match(androidBuild, /androidx\.browser:browser:1\.10\.0/);
@@ -2434,6 +2434,7 @@ test("QA-01 precaches the complete cold-install shell before activating the work
   assert.match(begetEntry, /registration\.update\(\)/);
   assert.match(htaccess, /\^\(\?:sw\|precache-manifest\)\\\.js\$/);
   assert.match(htaccess, /\^\(\?:index\\\.html\|deploy-meta\\\.json\)\$/);
+  assert.ok(htaccess.includes('<FilesMatch "^android-update\\.json$">'));
   assert.match(htaccess, /no-cache, no-store, must-revalidate/);
   assert.match(cloud, /const API_TIMEOUT_MS = 20_000/);
   assert.match(cloud, /if \(polling\) return;/);

@@ -13,6 +13,7 @@ class ReminderMaintenanceWorker(context: Context, parameters: WorkerParameters) 
         return try {
             app.scheduler.restore(recoverOverdue = true)
             app.scheduler.restoreHabitNotifications()
+            MoonReminderScheduler.restore(app)
             Result.success()
         } catch (e: CancellationException) { throw e }
         catch (_: Exception) { Result.retry() }
@@ -52,6 +53,7 @@ class ReminderRecoveryWorker(context: Context, parameters: WorkerParameters) : C
                 else -> {
                     app.scheduler.restore(recoverOverdue = true)
                     app.scheduler.restoreHabitNotifications()
+                    MoonReminderScheduler.restore(app)
                 }
             }
             Result.success()

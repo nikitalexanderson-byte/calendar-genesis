@@ -86,6 +86,7 @@ internal fun sacredMonthArtPath(index: Int): String {
 /** The display calendar controls this screen only; task input and recurrence remain independent. */
 @Composable
 fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) -> Unit,
+    onModeChange: (CalendarMode) -> Unit = {},
     experimental: Boolean = false, tasks: List<LocalTask> = emptyList(), use24: Boolean = true,
     weekStartsOnSunday: Boolean = true,
     gregorianYearStartsInMarch: Boolean = false, regionalSeasonArt: Boolean = false,
@@ -94,30 +95,39 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
     onEditTask: (LocalTask, LocalDate) -> Unit = { _, _ -> },
     onDeleteTask: (LocalTask) -> Unit = {},
     onDeleteOccurrence: ((LocalTask, LocalDate) -> Unit)? = null,
-    dayHabits: @Composable (LocalDate) -> Unit = {}) {
+    dayHabits: @Composable (LocalDate) -> Unit = {},
+    menuSwipeState: MenuSwipeState? = null, periodSwipeEnabled: Boolean = true) {
     val calendar = remember { GenesisCalendar() }
     var shown by rememberSaveable(mode, date) { mutableStateOf(date.toString()) }
     var selected by rememberSaveable(mode, date) { mutableStateOf(date.toString()) }
-    var yearView by rememberSaveable { mutableStateOf(false) }
+    var localYearView by rememberSaveable { mutableStateOf(false) }
+    val yearView = menuSwipeState?.calendar == "year" || menuSwipeState == null && localYearView
     var taskListDate by rememberSaveable { mutableStateOf<String?>(null) }
     var deletingTaskId by rememberSaveable { mutableStateOf<String?>(null) }
     var deletingDate by rememberSaveable { mutableStateOf(date.toString()) }
     val shownDate = LocalDate.parse(shown)
     val range = remember(shownDate, mode) { runCatching { calendar.monthRange(shownDate, mode) } }
 
+    CompositionLocalProvider(LocalCalendarPeriodSwipeEnabled provides periodSwipeEnabled) {
     Column(Modifier.fillMaxSize()) {
         ConnectedSubmenu(listOf(SubmenuItem("month", "Месяц"), SubmenuItem("year", "Год")),
-            if (yearView) "year" else "month", { yearView = it == "year" }, Modifier.testTag("calendar-view-switch"))
-        if (yearView) CalendarYearOverview(calendar, shownDate, mode, experimental, tasks,
+            if (yearView) "year" else "month", {
+                localYearView = it == "year"; menuSwipeState?.calendar = it
+            }, Modifier.testTag("calendar-view-switch"))
+        if (yearView) CalendarYearOverview(calendar, shownDate, mode, onModeChange, experimental, tasks,
             gregorianYearStartsInMarch, regionalSeasonArt, seasonRegionZone,
-            onMonth = { shown = it.toString(); selected = it.toString(); yearView = false },
+            onMonth = {
+                shown = it.toString(); selected = it.toString(); localYearView = false
+                menuSwipeState?.calendar = "month"
+            },
             onYear = { shown = it.toString() })
         else if (range.isFailure) Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            CalendarPageHeader(false)
+            CalendarPageHeader(false, mode, onModeChange)
             Text("Этот период вне диапазона офлайн-календаря.", color = MaterialTheme.colorScheme.error)
         }
-        else CalendarMonthContent(calendar, range.getOrThrow(), mode, LocalDate.parse(selected), experimental, tasks,
+        else CalendarMonthContent(calendar, range.getOrThrow(), mode, onModeChange,
+            LocalDate.parse(selected), experimental, tasks,
             weekStartsOnSunday,
             onNavigate = { shown = it.toString(); selected = it.toString() },
             onChoose = { selected = it.toString() }, onOpenDay = onSelect,
@@ -129,6 +139,7 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
                     onDelete = { deletingTaskId = it.id; deletingDate = day.toString() })
                 dayHabits(day)
             })
+    }
     }
     tasks.firstOrNull { it.id == deletingTaskId }?.let { task ->
         val occurrenceDate = LocalDate.parse(deletingDate)
@@ -159,18 +170,21 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
 }
 
 @Composable
-private fun CalendarPageHeader(yearView: Boolean, modifier: Modifier = Modifier) {
+private fun CalendarPageHeader(yearView: Boolean, mode: CalendarMode,
+    onModeChange: (CalendarMode) -> Unit, modifier: Modifier = Modifier) {
     val english = LocalGenesisLanguage.current == "en"
     GenesisPageHeader(if (english) {
         if (yearView) "Calendar - year" else "Calendar - month"
     } else if (yearView) "Календарь - год" else "Календарь - месяц",
         if (english) "Sacred, Gregorian and lunar dates, tasks and solar times"
-        else "Сакральные, григорианские и лунные даты, задачи и время Солнца", "☷", modifier)
+        else "Сакральные, григорианские и лунные даты, задачи и время Солнца", "☷",
+        modifier.heightIn(min = 138.dp),
+        calendarMode = mode, onCalendarModeClick = { onModeChange(nextCalendarMode(mode)) })
 }
 
 @Composable
 private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange, mode: CalendarMode,
-    selected: LocalDate, experimental: Boolean, tasks: List<LocalTask>,
+    onModeChange: (CalendarMode) -> Unit, selected: LocalDate, experimental: Boolean, tasks: List<LocalTask>,
     weekStartsOnSunday: Boolean,
     onNavigate: (LocalDate) -> Unit, onChoose: (LocalDate) -> Unit,
     onOpenDay: (LocalDate) -> Unit, onOpenTaskList: (LocalDate) -> Unit,
@@ -190,7 +204,8 @@ private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange
     Column(Modifier.fillMaxSize().onSizeChanged { viewportHeight = it.height }
         .testTag("calendar-month").verticalScroll(scroll).padding(horizontal = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        CalendarPageHeader(false, Modifier.padding(horizontal = 8.dp, vertical = 8.dp))
+        CalendarPageHeader(false, mode, onModeChange,
+            Modifier.padding(horizontal = 8.dp, vertical = 8.dp))
         val tasksByDate = remember(tasks, range) { TaskOccurrences.byDate(tasks, range.start, range.end) }
         CalendarPeriodPager(range,
             remember(range, mode) { runCatching { calendar.monthRange(range.start.minusDays(1), mode) }.getOrNull() },
@@ -853,6 +868,7 @@ private fun ExperimentalSelectedDayCard(calendar: GenesisCalendar, date: LocalDa
 
 @Composable
 private fun CalendarYearOverview(calendar: GenesisCalendar, shown: LocalDate, mode: CalendarMode,
+    onModeChange: (CalendarMode) -> Unit,
     experimental: Boolean, tasks: List<LocalTask>,
     gregorianYearStartsInMarch: Boolean, regionalSeasonArt: Boolean, seasonRegionZone: ZoneId,
     onMonth: (LocalDate) -> Unit, onYear: (LocalDate) -> Unit) {
@@ -861,14 +877,18 @@ private fun CalendarYearOverview(calendar: GenesisCalendar, shown: LocalDate, mo
         shown.year - if (gregorianYearStartsInMarch && shown.monthValue < 3) 1 else 0,
         if (gregorianYearStartsInMarch) 3 else 1, 1)
         else LocalDate.of(sacredYear, 3, 20)
-    Column(Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 8.dp),
+    Column(Modifier.fillMaxSize().testTag("calendar-year").verticalScroll(rememberScrollState())
+        .padding(horizontal = 8.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        CalendarPageHeader(true, mode, onModeChange,
+            Modifier.padding(horizontal = 8.dp, vertical = 8.dp))
         CalendarPeriodPager(period, period.minusYears(1), period.plusYears(1),
             { onYear(period.minusYears(1)) }, { onYear(period.plusYears(1)) },
-            Modifier.weight(1f).fillMaxWidth(), fillHeight = true) { page, previous, next ->
+            Modifier.fillMaxWidth()) { page, previous, next ->
             CalendarYearPanel(calendar, page, mode, experimental, tasks,
                 gregorianYearStartsInMarch, regionalSeasonArt, seasonRegionZone, onMonth, previous, next)
         }
+        Spacer(Modifier.height(80.dp))
     }
 }
 
@@ -901,9 +921,8 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
         }
     } }
     if (entries.isFailure) {
-        Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp),
+        Column(Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            CalendarPageHeader(true)
             CalendarPeriodNavigation(yearLabel, true, onPrevious, onNext)
             Text("Этот год вне диапазона офлайн-календаря.", color = MaterialTheme.colorScheme.error)
         }
@@ -920,19 +939,15 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
         }
         groups
     }
-    LazyColumn(Modifier.fillMaxSize().testTag("calendar-year"),
-        contentPadding = PaddingValues(bottom = 96.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item(key = "year-heading") { CalendarPageHeader(true, Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) }
-        item {
-            Card(Modifier.fillMaxWidth().padding(horizontal = 10.dp).testTag("calendar-year-panel"),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = .45f))) {
+    Column(Modifier.fillMaxWidth()) {
+        Card(Modifier.fillMaxWidth().padding(horizontal = 10.dp).testTag("calendar-year-panel"),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = .45f))) {
+            Column(Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 CalendarPeriodNavigation(yearLabel, true, onPrevious, onNext)
-            }
-        }
-        if (experimental) item {
+        if (experimental) {
             val events = calendar.solarEvents(if (mode == CalendarMode.PROFANE) shown.year else sacredYear)
             Column(Modifier.padding(horizontal = 12.dp).testTag("calendar-year-solar-points"),
                 verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -948,17 +963,16 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
         }
         if (mode == CalendarMode.PROFANE) {
             yearSeasonGroups.forEachIndexed { groupIndex, (season, seasonMonths) ->
-                item(key = "season-${season.name}-$groupIndex") {
                     CompositionLocalProvider(LocalPreserveCalendarColors provides true) {
                     Card(Modifier.fillMaxWidth().padding(horizontal = 10.dp).testTag(
                         "gregorian-season-${season.name.lowercase()}${if (groupIndex > 0 && season == GregorianSeason.WINTER) "-end" else ""}"),
                         shape = RoundedCornerShape(22.dp),
-                        colors = CardDefaults.cardColors(containerColor = seasonSurface(season)),
+                        colors = CardDefaults.cardColors(containerColor = seasonSurface(season).copy(alpha = .78f)),
                         border = BorderStroke(1.dp, seasonAccent(season).copy(alpha = .3f))) {
                         Box {
                         OriginalImage(gregorianSeasonArtPath(season.name.lowercase(), seasonRegionZone,
                             regionalSeasonArt), null,
-                            Modifier.matchParentSize().alpha((if (LocalEveningTheme.current) .11f else .16f) * 1.4f)
+                            Modifier.matchParentSize().alpha(if (LocalEveningTheme.current) .30f else .39f)
                                 .testTag("gregorian-season-art-${season.name.lowercase()}"))
                         Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(if (LocalGenesisLanguage.current == "en") season.englishTitle else season.title,
@@ -973,16 +987,17 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
                         }
                     }
                     }
-                }
             }
-        } else itemsIndexed(months, key = { _, entry -> entry.first.toString() }) { ordinal, (start, name, title) ->
+        } else months.forEachIndexed { ordinal, (start, name, title) ->
             Box(Modifier.padding(horizontal = 10.dp)) {
                 CalendarYearMonthCard(calendar, start, mode, ordinal + 1, name, title, tasks, onMonth, locale)
             }
         }
-        item { Box(Modifier.padding(horizontal = 10.dp)) {
-            CalendarYearDescriptionCard(calendar, shown, mode, gregorianYearStartsInMarch) } }
-        item { Spacer(Modifier.height(16.dp)) }
+        Box(Modifier.padding(horizontal = 10.dp)) {
+            CalendarYearDescriptionCard(calendar, shown, mode, gregorianYearStartsInMarch)
+        }
+            }
+        }
     }
 }
 
