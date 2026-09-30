@@ -175,7 +175,7 @@ private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange
     onNavigate: (LocalDate) -> Unit, onChoose: (LocalDate) -> Unit,
     onOpenDay: (LocalDate) -> Unit, onOpenTaskList: (LocalDate) -> Unit,
     dayActions: @Composable (LocalDate) -> Unit) {
-    val locale = if (LocalGenesisLanguage.current == "en") Locale.ENGLISH else ru
+    val locale = Locale.forLanguageTag(LocalGenesisLanguage.current).takeIf { it.language.isNotBlank() } ?: ru
     val solarLocation by rememberAutomaticSolarLocation(calendar.zoneId)
     val scroll = rememberScrollState()
     var previewRequested by remember(range.start) { mutableStateOf(false) }
@@ -420,7 +420,7 @@ private fun LunarCalendarDay(calendar: GenesisCalendar, date: LocalDate, selecte
     val lunar = calendar.lunarDate(date)
     val moon = calendar.moonInfo(date)
     val sacred = calendar.sacredDate(date)
-    val locale = if (LocalGenesisLanguage.current == "en") Locale.ENGLISH else ru
+    val locale = Locale.forLanguageTag(LocalGenesisLanguage.current)
     val weekday = date.dayOfWeek.getDisplayName(TextStyle.SHORT, locale).removeSuffix(".")
     val gregorian = date.format(DateTimeFormatter.ofPattern(if (LocalGenesisLanguage.current == "en") "d MMM" else "d MMM", locale))
     val sacredLabel = lunarSacredDateLabel(sacred.day,
@@ -472,7 +472,7 @@ private fun CalendarDay(calendar: GenesisCalendar, date: LocalDate, number: Int,
     onTaskBadgeClick: (LocalDate) -> Unit = {}, solarLocation: SolarLocation? = null,
     completedTaskCount: Int = 0) {
     val today = !adjacent && date == LocalDate.now()
-    val locale = if (LocalGenesisLanguage.current == "en") Locale.ENGLISH else ru
+    val locale = Locale.forLanguageTag(LocalGenesisLanguage.current)
     val solarLabels = solarLocation?.let { solarTimeLabels(date, it, calendar) }
     val dayDescription = genesisTranslate("$number · $fullName · ${date.format(dateLabel(locale))}" +
         (patron?.let { " · ${it.symbol} ${it.patrons}" } ?: "") +
@@ -544,7 +544,7 @@ private fun CalendarDay(calendar: GenesisCalendar, date: LocalDate, number: Int,
 @Composable
 private fun CalendarTaskBadge(date: LocalDate, total: Int, completed: Int, size: androidx.compose.ui.unit.Dp,
     modifier: Modifier, alignment: Alignment, onClick: (LocalDate) -> Unit) {
-    val locale = if (LocalGenesisLanguage.current == "en") Locale.ENGLISH else ru
+    val locale = Locale.forLanguageTag(LocalGenesisLanguage.current)
     val description = genesisTranslate("$total задач на ${date.format(dateLabel(locale))}. Открыть список.")
     Box(modifier.size(48.dp).testTag("calendar-task-count-$date")
         .clickable { onClick(date) }.semantics { contentDescription = description }) {
@@ -584,7 +584,7 @@ private fun CalendarTaskStatusDiscs(total: Int, completed: Int, size: androidx.c
 private fun CalendarTaskListDialog(date: LocalDate, tasks: List<LocalTask>, use24: Boolean,
     onDismiss: () -> Unit, onComplete: (LocalTask) -> Unit, onEdit: (LocalTask) -> Unit,
     onDelete: (LocalTask) -> Unit, onDeleteOccurrence: ((LocalTask) -> Unit)?, onOpenDay: () -> Unit) {
-    val locale = if (LocalGenesisLanguage.current == "en") Locale.ENGLISH else ru
+    val locale = Locale.forLanguageTag(LocalGenesisLanguage.current)
     var deletingId by rememberSaveable(date) { mutableStateOf<String?>(null) }
     Dialog(onDismissRequest = onDismiss) {
         Surface(Modifier.fillMaxWidth().heightIn(max = 560.dp).testTag("calendar-task-list-dialog"),
@@ -694,7 +694,7 @@ private fun SelectedDayCard(calendar: GenesisCalendar, date: LocalDate, mode: Ca
     val sacred = calendar.sacredDate(date)
     val month = SacredCatalog.months[sacred.monthIndex]
     val day = month.days[sacred.day - 1]
-    val locale = if (LocalGenesisLanguage.current == "en") Locale.ENGLISH else ru
+    val locale = Locale.forLanguageTag(LocalGenesisLanguage.current)
     val weekday = if (mode == CalendarMode.PROFANE) todayHeroCopy(date, mode, calendar,
         LocalGenesisLanguage.current) else null
     Card(Modifier.fillMaxWidth().testTag("calendar-selected-day")) {
@@ -783,7 +783,7 @@ private fun ExperimentalSelectedDayCard(calendar: GenesisCalendar, date: LocalDa
     val month = SacredCatalog.months[sacred.monthIndex]
     val day = month.days[sacred.day - 1]
     val lunar = calendar.lunarDate(date)
-    val locale = if (LocalGenesisLanguage.current == "en") Locale.ENGLISH else ru
+    val locale = Locale.forLanguageTag(LocalGenesisLanguage.current)
     val weekday = if (mode == CalendarMode.PROFANE) todayHeroCopy(date, mode, calendar,
         LocalGenesisLanguage.current) else null
     val primaryDate = when (mode) {
@@ -882,7 +882,7 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
     gregorianYearStartsInMarch: Boolean, regionalSeasonArt: Boolean, seasonRegionZone: ZoneId,
     onMonth: (LocalDate) -> Unit,
     onPrevious: () -> Unit, onNext: () -> Unit) {
-    val locale = if (LocalGenesisLanguage.current == "en") Locale.ENGLISH else ru
+    val locale = Locale.forLanguageTag(LocalGenesisLanguage.current)
     val sacredYear = calendar.sacredDate(shown).sacredYear
     val yearLabel = if (mode == CalendarMode.PROFANE && gregorianYearStartsInMarch)
         "${shown.year}–${shown.year + 1}" else if (mode == CalendarMode.PROFANE) shown.year.toString() else sacredYear.toString()
@@ -1076,7 +1076,7 @@ private fun CalendarYearMonthCard(calendar: GenesisCalendar, start: LocalDate, m
 @Composable
 private fun SolarPointTile(event: SolarEvent, calendar: GenesisCalendar,
     onMonth: (LocalDate) -> Unit, modifier: Modifier = Modifier) {
-    val locale = if (LocalGenesisLanguage.current == "en") Locale.ENGLISH else ru
+    val locale = Locale.forLanguageTag(LocalGenesisLanguage.current)
     Surface(onClick = { onMonth(event.date) }, modifier = modifier.heightIn(min = 126.dp)
         .testTag("solar-point-${event.date}"), shape = MaterialTheme.shapes.medium,
         color = Color(0xfff5ecd6), border = BorderStroke(1.dp, Color(0xffd7bd79))) {

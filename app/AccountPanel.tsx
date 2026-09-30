@@ -5,7 +5,8 @@ import { useEffect, useRef, useState } from "react";
 import type { CalendarMode } from "./calendar-data";
 import type { GenesisCategory, GenesisUser, SyncRouting } from "./cloud-sync";
 import { deleteGenesisAccount, disconnectGoogleServices, removeAdditionalGoogleAccount, updateAccountPreferences } from "./cloud-sync";
-import { localizeCategoryName, runtimeLocale, translateText, type Language } from "./i18n";
+import { LANGUAGES, LANGUAGE_LABELS, localizeCategoryName, runtimeLocale, translateText, type Language } from "./i18n";
+
 import type { TimeFormat } from "./time-format";
 import type { HabitNotificationPermission, HabitNotificationSettings } from "./habit-notifications";
 import type { HabitFeedbackSettings } from "./habit-feedback";
@@ -16,6 +17,21 @@ import {
   type GenesisTheme,
   type ThemeControllerState,
 } from "./theme-controller";
+
+const COLOR_MODE_NAMES: Record<Language, { light: string; dark: string; group: string }> = {
+  ru: { light: "Светлая", dark: "Тёмная", group: "Цветовая схема сайта" },
+  en: { light: "Light", dark: "Dark", group: "Website color scheme" },
+  el: { light: "Φωτεινή", dark: "Σκοτεινή", group: "Χρωματικό θέμα ιστότοπου" },
+  de: { light: "Hell", dark: "Dunkel", group: "Farbschema der Website" },
+  fr: { light: "Clair", dark: "Sombre", group: "Thème de couleurs du site" },
+  es: { light: "Claro", dark: "Oscuro", group: "Tema de color del sitio" },
+  it: { light: "Chiaro", dark: "Scuro", group: "Tema colori del sito" },
+  pt: { light: "Claro", dark: "Escuro", group: "Tema de cores do site" },
+};
+const CURRENT_THEME_LABEL: Record<Language, string> = {
+  ru: "Текущая тема", en: "Current theme", el: "Τρέχον θέμα", de: "Aktuelles Design",
+  fr: "Thème actuel", es: "Tema actual", it: "Tema attuale", pt: "Tema atual",
+};
 
 type AccountPanelProps = {
   user: GenesisUser;
@@ -159,7 +175,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
       const result = await updateAccountPreferences({ language });
       onUserChange(result.user);
       onLanguageChange(language);
-      setMessage(language === "en" ? "Language changed to English." : "Язык переключён на русский.");
+      setMessage(language === "ru" ? "Язык переключён на русский." : `Language changed to ${LANGUAGE_LABELS[language].name}.`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Не удалось переключить язык.");
     } finally {
@@ -228,9 +244,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
           ? (user.language === "en" ? "The account theme could not be loaded. Standart remains active." : "Не удалось загрузить тему аккаунта. Продолжает работать Standart.")
         : themeState.status === "loading"
             ? (user.language === "en" ? "Loading the account preference…" : "Загружаем настройку аккаунта…")
-            : user.language === "en"
-              ? `Current theme: ${GENESIS_THEME_LABEL[themeState.theme]}.`
-              : `Текущая тема: ${GENESIS_THEME_LABEL[themeState.theme]}.`;
+        : `${CURRENT_THEME_LABEL[user.language]}: ${GENESIS_THEME_LABEL[themeState.theme]}.`;
 
   const toggleHabitNotifications = async (enabled: boolean) => {
     if (!enabled) {
@@ -391,7 +405,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
               type="checkbox"
               role="switch"
               data-exp-ui="switch"
-              checked={themeState.theme === GENESIS_THEME.EXPERIMENTAL}
+              checked={themeState.theme !== GENESIS_THEME.STANDART}
               disabled={!themeState.available || ["signed-out", "loading", "load-error"].includes(themeState.status)}
               aria-label={user.language === "en" ? "Experimental theme" : "Тема Experimental"}
               aria-busy={themeState.pending}
@@ -399,8 +413,22 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
             />
             <i aria-hidden="true" />
           </label>
+          {themeState.theme !== GENESIS_THEME.STANDART ? (
+            <div className="language-choice experimental-color-choice" role="radiogroup" aria-label={COLOR_MODE_NAMES[user.language].group}>
+              <button type="button" role="radio" aria-checked={themeState.theme === GENESIS_THEME.EXPERIMENTAL}
+                className={themeState.theme === GENESIS_THEME.EXPERIMENTAL ? "active" : ""}
+                disabled={themeState.pending} onClick={() => onThemeChange(GENESIS_THEME.EXPERIMENTAL)}>
+                <span aria-hidden="true">☀</span><strong data-no-translate>{COLOR_MODE_NAMES[user.language].light}</strong>
+              </button>
+              <button type="button" role="radio" aria-checked={themeState.theme === GENESIS_THEME.EXPERIMENTAL_DARK}
+                className={themeState.theme === GENESIS_THEME.EXPERIMENTAL_DARK ? "active" : ""}
+                disabled={themeState.pending} onClick={() => onThemeChange(GENESIS_THEME.EXPERIMENTAL_DARK)}>
+                <span aria-hidden="true">☾</span><strong data-no-translate>{COLOR_MODE_NAMES[user.language].dark}</strong>
+              </button>
+            </div>
+          ) : null}
           <p className="account-preference-status" role="status" aria-live="polite" data-exp-ui="notice" data-exp-tone={themeState.status === "error" || themeState.status === "load-error" ? "error" : undefined}>
-            {themeStatusMessage}
+            {translateText(themeStatusMessage, user.language)}
           </p>
         </section>
 
@@ -411,12 +439,14 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
             <p>Выбор сохраняется в аккаунте и применяется на всех ваших устройствах.</p>
           </div>
           <div className="language-choice" role="radiogroup" aria-label="Язык интерфейса">
-            <button type="button" role="radio" aria-checked={user.language !== "en"} className={user.language !== "en" ? "active" : ""} disabled={preferenceBusy} onClick={() => void changeLanguage("ru")}>
-              <span className="language-flag" aria-hidden="true">🇷🇺</span><strong>Русский</strong>
-            </button>
-            <button type="button" role="radio" aria-checked={user.language === "en"} className={user.language === "en" ? "active" : ""} disabled={preferenceBusy} onClick={() => void changeLanguage("en")}>
-              <span className="language-flag" aria-hidden="true">🇺🇸</span><strong>English</strong>
-            </button>
+            {LANGUAGES.map((code) => (
+              <button key={code} type="button" role="radio" aria-checked={user.language === code}
+                className={user.language === code ? "active" : ""} disabled={preferenceBusy}
+                onClick={() => void changeLanguage(code)} data-no-translate>
+                <span className="language-flag" aria-hidden="true">{LANGUAGE_LABELS[code].flag}</span>
+                <strong>{LANGUAGE_LABELS[code].name}</strong>
+              </button>
+            ))}
           </div>
         </section>
 

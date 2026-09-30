@@ -163,10 +163,10 @@ function genesisUserForClient(array $user): array
     $gregorianYearStart = in_array($user['gregorian_year_start'] ?? '', ['january', 'march'], true)
         ? (string)$user['gregorian_year_start']
         : 'january';
-    $theme = in_array($user['theme'] ?? '', ['standart', 'experimental'], true)
+    $theme = in_array($user['theme'] ?? '', ['standart', 'experimental', 'experimental-dark'], true)
         ? (string)$user['theme']
         : 'standart';
-    $language = in_array($user['language'] ?? '', ['ru', 'en'], true)
+    $language = in_array($user['language'] ?? '', ['ru', 'en', 'el', 'de', 'fr', 'es', 'it', 'pt'], true)
         ? (string)$user['language']
         : 'ru';
     $syncRoutingMode = in_array($user['sync_routing_mode'] ?? '', ['fixed', 'choose', 'category'], true)
@@ -914,7 +914,7 @@ function genesisUpdateAccountPreferences(string $userId, array $payload): array
     }
     if ($hasThemePreference) {
         $theme = trim((string)$payload['theme']);
-        if (!in_array($theme, ['standart', 'experimental'], true)) {
+        if (!in_array($theme, ['standart', 'experimental', 'experimental-dark'], true)) {
             throw new InvalidArgumentException('Неизвестная тема интерфейса.');
         }
         $expectedThemeRevision = filter_var($payload['expectedThemeRevision'] ?? null, FILTER_VALIDATE_INT);
@@ -933,7 +933,7 @@ function genesisUpdateAccountPreferences(string $userId, array $payload): array
     }
     if (array_key_exists('language', $payload)) {
         $language = trim((string)$payload['language']);
-        if (!in_array($language, ['ru', 'en'], true)) {
+        if (!in_array($language, ['ru', 'en', 'el', 'de', 'fr', 'es', 'it', 'pt'], true)) {
             throw new InvalidArgumentException('Неизвестный язык интерфейса.');
         }
         $updates[] = 'language = :language';

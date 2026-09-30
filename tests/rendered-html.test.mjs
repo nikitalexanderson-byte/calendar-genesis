@@ -2000,7 +2000,7 @@ test("retains the legacy TWA artifact but promotes only the signed native Androi
   // The public 1.2.2 download stays unchanged while the isolated native alpha advances.
   const nativeVersionCode = Number(androidBuild.match(/versionCode = (\d+)/)?.[1]);
   assert.ok(nativeVersionCode >= 7);
-  assert.match(androidBuild, /versionName = "2\.3\.11"/);
+  assert.match(androidBuild, /versionName = "2\.3\.12"/);
   assert.match(androidBuild, /releaseSigningReady/);
   assert.match(androidBuild, /applicationIdSuffix = "\.debug"/);
   assert.match(androidBuild, /androidx\.browser:browser:1\.10\.0/);
@@ -2286,13 +2286,13 @@ test("ships an isolated account-owned Experimental theme while preserving author
   assert.match(cloud, /"\/account\/preferences"/);
   assert.match(repository, /theme_revision = :expected_theme_revision/);
   assert.match(repository, /\$statement->rowCount\(\) !== 1/);
-  assert.match(repository, /\['standart', 'experimental'\]/);
+  assert.match(repository, /\['standart', 'experimental', 'experimental-dark'\]/);
   assert.match(migration, /DEFAULT 'standart'/);
   assert.match(controller, /ThemeConflictError/);
   assert.match(controller, /root\.setAttribute\(GENESIS_THEME_ATTRIBUTE/);
   assert.match(layout, /import "\.\/experimental-theme\.css"/);
   assert.match(begetEntry, /import "\.\.\/app\/experimental-theme\.css"/);
-  assert.match(styles, /html\[data-genesis-theme="experimental"\]/);
+  assert.match(styles, /html\[data-genesis-theme\^="experimental"\]/);
   assert.match(styles, /\[hidden\], \[hidden\] \*/);
   assert.doesNotMatch(styles, /(^|\n)\s*(button|input|img|svg|\.card)\s*[{,]/m);
   assert.doesNotMatch(styles, /!important|all\s*:/);
@@ -2696,8 +2696,10 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.doesNotMatch(accountPanel, /Закрытая функция администратора/);
   assert.doesNotMatch(accountPanel, /user\.multiAccountEnabled \? \(/);
   assert.match(accountPanel, /language-preference/);
-  assert.match(accountPanel, /🇷🇺/);
-  assert.match(accountPanel, /🇺🇸/);
+  assert.match(accountPanel, /LANGUAGES\.map/);
+  assert.match(i18n, /🇷🇺/);
+  assert.match(i18n, /🇬🇷/);
+  assert.match(i18n, /🇵🇹/);
   assert.match(accountPanel, /time-format-preference/);
   assert.match(accountPanel, /user\.timeFormat \?\? "24h"/);
   assert.match(cloudSync, /timeFormat: TimeFormat/);

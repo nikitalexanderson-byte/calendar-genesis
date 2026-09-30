@@ -46,7 +46,7 @@ private val weekdayArt = listOf("weekday-0-sunday-apollo.webp", "weekday-1-monda
 
 internal fun todayHeroCopy(date: LocalDate, mode: CalendarMode, calendar: GenesisCalendar,
     language: String = "ru"): TodayHeroCopy {
-    val locale = if (language == "en") Locale.ENGLISH else Locale.forLanguageTag("ru")
+    val locale = Locale.forLanguageTag(language)
     val sacred = calendar.sacredDate(date)
     val month = SacredCatalog.months[sacred.monthIndex]
     val day = month.days.first { it.day == sacred.day }

@@ -398,4 +398,4 @@ private fun CalendarFactCard(tag: String, symbol: String, heading: String, title
 
 @Composable
 private fun genesisLocale(): Locale =
-    if (LocalGenesisLanguage.current == "en") Locale.ENGLISH else Locale.forLanguageTag("ru")
+    Locale.forLanguageTag(LocalGenesisLanguage.current)

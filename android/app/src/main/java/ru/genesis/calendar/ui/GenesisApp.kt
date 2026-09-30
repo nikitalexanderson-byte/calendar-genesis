@@ -135,7 +135,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
             if (remote.weekStart in setOf("sunday", "monday")) prefsStore.setRemote("weekStart", remote.weekStart)
             if (remote.gregorianYearStart in setOf("january", "march"))
                 prefsStore.setRemote("gregorianYearStart", remote.gregorianYearStart)
-            if (remote.language in setOf("ru", "en")) prefsStore.setRemote("language", remote.language)
+            if (remote.language in setOf("ru", "en", "el", "de", "fr", "es", "it", "pt")) prefsStore.setRemote("language", remote.language)
             prefsStore.setRemote("stoicheionDivinationDisabled", remote.divinationDisabled.toString())
         }
     }
@@ -584,8 +584,7 @@ private fun DayHeader(date: LocalDate, mode: CalendarMode, detailsExpanded: Bool
                 .testTag("today-hero-copy"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(copy.eyebrow,
                     color = Color(0xffdfc17e), style = MaterialTheme.typography.labelMedium)
-                Text(copy.month.uppercase(if (LocalGenesisLanguage.current == "en") java.util.Locale.ENGLISH
-                    else java.util.Locale.forLanguageTag("ru")),
+                Text(copy.month.uppercase(java.util.Locale.forLanguageTag(LocalGenesisLanguage.current)),
                     color = Color(0xfff0d49b), style = MaterialTheme.typography.labelLarge)
                 Text(copy.title, color = Color(0xfff9f2e2), style = MaterialTheme.typography.headlineSmall)
                 copy.subtitle?.let { Text(it, color = Color(0xfff1e5cb),

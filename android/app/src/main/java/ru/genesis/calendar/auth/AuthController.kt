@@ -217,7 +217,7 @@ class AuthController private constructor(context: Context) {
             catch (_: Exception) { null }
             var resolvedSettings = AccountSettings.fromResponse(payload) ?: settings
             var languageWarning = false
-            if (preferredLanguage in setOf("ru", "en") && resolvedSettings.language != preferredLanguage) {
+            if (preferredLanguage in setOf("ru", "en", "el", "de", "fr", "es", "it", "pt") && resolvedSettings.language != preferredLanguage) {
                 try {
                     val updated = withContext(Dispatchers.IO) {
                         client.updatePreferences(generation, JSONObject().put("language", preferredLanguage))
@@ -305,7 +305,7 @@ class AuthController private constructor(context: Context) {
             "time" -> { require(value in setOf("12h", "24h")); changes.put("timeFormat", value) }
             "weekStart" -> { require(value in setOf("sunday", "monday")); changes.put("weekStart", value) }
             "gregorianYearStart" -> { require(value in setOf("january", "march")); changes.put("gregorianYearStart", value) }
-            "language" -> { require(value in setOf("ru", "en")); changes.put("language", value) }
+            "language" -> { require(value in setOf("ru", "en", "el", "de", "fr", "es", "it", "pt")); changes.put("language", value) }
             "stoicheionDivinationDisabled" -> {
                 require(value in setOf("true", "false")); changes.put("stoicheionDivinationDisabled", value.toBoolean())
             }

@@ -1,6 +1,7 @@
 export const GENESIS_THEME = Object.freeze({
   STANDART: "standart",
   EXPERIMENTAL: "experimental",
+  EXPERIMENTAL_DARK: "experimental-dark",
 } as const);
 
 export type GenesisTheme = (typeof GENESIS_THEME)[keyof typeof GENESIS_THEME];
@@ -65,11 +66,13 @@ export type GenesisThemeController = Readonly<{
 export const GENESIS_THEME_LABEL: Readonly<Record<GenesisTheme, string>> = Object.freeze({
   standart: "Standart",
   experimental: "Experimental",
+  "experimental-dark": "Experimental · Dark",
 });
 
 export const GENESIS_THEME_ATTRIBUTE = "data-genesis-theme";
 
 export function normalizeGenesisTheme(value: unknown): GenesisTheme {
+  if (value === GENESIS_THEME.EXPERIMENTAL_DARK) return GENESIS_THEME.EXPERIMENTAL_DARK;
   return value === GENESIS_THEME.EXPERIMENTAL
     ? GENESIS_THEME.EXPERIMENTAL
     : GENESIS_THEME.STANDART;
@@ -303,7 +306,7 @@ export function createGenesisThemeController({
     },
     setTheme(value) {
       assertAlive();
-      if (value !== GENESIS_THEME.STANDART && value !== GENESIS_THEME.EXPERIMENTAL) {
+      if (value !== GENESIS_THEME.STANDART && value !== GENESIS_THEME.EXPERIMENTAL && value !== GENESIS_THEME.EXPERIMENTAL_DARK) {
         throw new TypeError("Unknown GENESIS theme");
       }
       if (!allowed) throw new Error("Experimental theme is unavailable in this build");

@@ -49,6 +49,11 @@ export default defineConfig({
       output: {
         codeSplitting: {
           groups: [
+            ...["el.a", "el.b", "de", "fr", "es", "it", "pt"].map((locale) => ({
+              name: `locale-${locale}`,
+              test: new RegExp(`translations\\.${locale}\\.json$`),
+              priority: 40,
+            })),
             {
               name: "react-vendor",
               test: /node_modules[\\/](?:react|react-dom|scheduler)[\\/]/,

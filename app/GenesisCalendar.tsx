@@ -141,6 +141,7 @@ import {
   LANGUAGE_LOGIN_PENDING_KEY,
   browserLanguage,
   getRuntimeLanguage,
+  isLanguage,
   localizeCategoryName,
   normalizeLanguage,
   runtimeLocale,
@@ -167,6 +168,7 @@ import { cleanTaskDescription } from "./task-description";
 import { cleanGenesisAppUrl } from "./app-url";
 import {
   GENESIS_THEME,
+  GENESIS_THEME_LABEL,
   createGenesisThemeController,
   normalizeGenesisTheme,
   type GenesisTheme,
@@ -1303,6 +1305,7 @@ export function GenesisCalendar() {
   const [accountOpen, setAccountOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [experimentalThemeWarningOpen, setExperimentalThemeWarningOpen] = useState(false);
+  const pendingExperimentalThemeRef = useRef<GenesisTheme>(GENESIS_THEME.EXPERIMENTAL);
   const [experimentalTodayTab, setExperimentalTodayTab] = useState<"tasks" | "create">("tasks");
   const experimentalTodayTabsRef = useRef<HTMLDivElement>(null);
   const [experimentalTaskCreateTab, setExperimentalTaskCreateTab] = useState<"task" | "list">("task");
@@ -1472,16 +1475,17 @@ export function GenesisCalendar() {
   }, []);
 
   const requestGenesisThemeChange = useCallback((theme: GenesisTheme) => {
-    if (theme === GENESIS_THEME.EXPERIMENTAL) {
+    if (theme !== GENESIS_THEME.STANDART && themeState.theme === GENESIS_THEME.STANDART) {
+      pendingExperimentalThemeRef.current = theme;
       setExperimentalThemeWarningOpen(true);
       return;
     }
-    changeGenesisTheme(GENESIS_THEME.STANDART);
-  }, [changeGenesisTheme]);
+    changeGenesisTheme(theme);
+  }, [changeGenesisTheme, themeState.theme]);
 
   const confirmExperimentalTheme = useCallback(() => {
     setExperimentalThemeWarningOpen(false);
-    changeGenesisTheme(GENESIS_THEME.EXPERIMENTAL);
+    changeGenesisTheme(pendingExperimentalThemeRef.current);
   }, [changeGenesisTheme]);
 
   useEffect(() => {
@@ -1688,7 +1692,7 @@ export function GenesisCalendar() {
     return buildHabitNotificationPlan({
       date: todayDateValue,
       now: today,
-      language,
+      language: language === "ru" ? "ru" : "en",
       settings: habitWorkspace.habitSettings.notifications,
       habits,
       dailyGoal: {
@@ -1948,7 +1952,7 @@ export function GenesisCalendar() {
       }
       const serverLanguage = normalizeLanguage(user.language);
       const pendingLanguageValue = localStorage.getItem(LANGUAGE_LOGIN_PENDING_KEY);
-      const pendingLanguage = pendingLanguageValue === "ru" || pendingLanguageValue === "en" ? pendingLanguageValue : null;
+      const pendingLanguage = isLanguage(pendingLanguageValue) ? pendingLanguageValue : null;
       const effectiveLanguage = pendingLanguage ?? serverLanguage;
       const effectiveUser = { ...user, language: effectiveLanguage };
       setLanguage(effectiveLanguage);
@@ -4193,7 +4197,7 @@ export function GenesisCalendar() {
   };
 
   const renderToday = () => {
-    const experimentalThemeActive = themeState.available && themeState.theme === GENESIS_THEME.EXPERIMENTAL;
+    const experimentalThemeActive = themeState.available && themeState.theme !== GENESIS_THEME.STANDART;
     const isEnglish = language === "en";
     const info = todayInfo;
     const month = MONTHS[info.monthIndex];
@@ -5396,7 +5400,7 @@ export function GenesisCalendar() {
   };
 
   const renderAllTasks = () => {
-    const experimentalThemeActive = themeState.available && themeState.theme === GENESIS_THEME.EXPERIMENTAL;
+    const experimentalThemeActive = themeState.available && themeState.theme !== GENESIS_THEME.STANDART;
     const isEnglish = language === "en";
     const safeTaskTags = (task: Task) => Array.isArray(task.tags) ? task.tags : [];
     const safeDependencyIds = (task: Task) => Array.isArray(task.dependsOnIds) ? task.dependsOnIds : [];
@@ -6107,7 +6111,7 @@ export function GenesisCalendar() {
           </div>
           <div className="topbar-actions">
             {nativeAndroidApkUrl ? (
-              <a className="icon-button ux-action-button android-native-icon-button" href={nativeAndroidApkUrl} download="GENESIS-Android-Native-2.3.11.apk" data-tooltip={language === "en" ? "Native Android app · remove the old TWA first" : "Нативное приложение · сначала удалите прежнюю TWA"} title={language === "en" ? "Native GENESIS APK; old TWA must be removed first" : "Нативный GENESIS APK; прежнюю TWA необходимо сначала удалить"} aria-label={language === "en" ? "Download native GENESIS for Android; remove the old TWA first" : "Скачать нативный GENESIS для Android; сначала удалите старую TWA"}>
+              <a className="icon-button ux-action-button android-native-icon-button" href={nativeAndroidApkUrl} download="GENESIS-Android-Native-2.3.12.apk" data-tooltip={language === "en" ? "Native Android app · remove the old TWA first" : "Нативное приложение · сначала удалите прежнюю TWA"} title={language === "en" ? "Native GENESIS APK; old TWA must be removed first" : "Нативный GENESIS APK; прежнюю TWA необходимо сначала удалить"} aria-label={language === "en" ? "Download native GENESIS for Android; remove the old TWA first" : "Скачать нативный GENESIS для Android; сначала удалите старую TWA"}>
                 <svg className="ux-android-robot" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M5.5 9h13v8.5a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2V9ZM5.5 9a6.5 6.5 0 0 1 13 0M4 11v5M20 11v5M9 19.5V22M15 19.5V22M7 3 5.5 1M17 3 18.5 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><circle cx="9.3" cy="7" r=".8" fill="currentColor"/><circle cx="14.7" cy="7" r=".8" fill="currentColor"/></svg>
               </a>
             ) : null}
@@ -6153,13 +6157,13 @@ export function GenesisCalendar() {
                     <div className="account-menu-theme" role="none">
                       <span>
                         <strong>{language === "en" ? "Interface theme" : "Тема интерфейса"}</strong>
-                        <small>{themeState.theme === GENESIS_THEME.EXPERIMENTAL ? "Experimental" : "Standart"}</small>
+                        <small>{GENESIS_THEME_LABEL[themeState.theme]}</small>
                       </span>
                       <label className="account-menu-theme-switch">
                         <input
                           type="checkbox"
                           role="switch"
-                          checked={themeState.theme === GENESIS_THEME.EXPERIMENTAL}
+                          checked={themeState.theme !== GENESIS_THEME.STANDART}
                           disabled={!themeState.available || ["signed-out", "loading", "load-error"].includes(themeState.status)}
                           aria-label={language === "en" ? "Experimental theme" : "Тема Experimental"}
                           aria-busy={themeState.pending}
@@ -6205,7 +6209,7 @@ export function GenesisCalendar() {
           <div className="content-column" data-exp-layout="stack">
             {authError ? <p className="oauth-callback-error" role="alert">{authError}</p> : null}
             {cloudUser && (!cloudUser.calendarConnected || !cloudUser.googleTasksImportReady) ? (
-              themeState.available && themeState.theme === GENESIS_THEME.EXPERIMENTAL ? (
+              themeState.available && themeState.theme !== GENESIS_THEME.STANDART ? (
                 <details className="google-connect-banner experimental-google-connect">
                   <summary>
                     <span className="experimental-google-connect-mark" aria-hidden="true">↗</span>
@@ -6261,7 +6265,7 @@ export function GenesisCalendar() {
                     timeFormat={activeTimeFormat}
                     calendarMode={activeTaskCalendarMode}
                     googleTasksReady={Boolean(cloudUser?.googleTasksImportReady)}
-                    experimentalThemeActive={themeState.available && themeState.theme === GENESIS_THEME.EXPERIMENTAL}
+                    experimentalThemeActive={themeState.available && themeState.theme !== GENESIS_THEME.STANDART}
                     onChange={updateHabitWorkspace}
                     onReminderRequested={createHabitGoogleReminder}
                     onReminderRemoved={async (habit) => {

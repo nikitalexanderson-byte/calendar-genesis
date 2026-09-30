@@ -899,6 +899,9 @@ private val nativeCopy = mapOf(
 private object TranslationCatalog {
     @Volatile private var dictionary: Map<String, String>? = null
     @Volatile private var fragments: List<Map.Entry<String, String>> = emptyList()
+    @Volatile private var englishReverse: Map<String, String> = emptyMap()
+    private val foreignDictionaries = ConcurrentHashMap<String, Map<String, String>>()
+    private val foreignFragments = ConcurrentHashMap<String, List<Map.Entry<String, String>>>()
     private val resolved = ConcurrentHashMap<String, String>()
     private val cyrillic = Regex("[А-Яа-яЁё]")
 
@@ -939,29 +942,59 @@ private object TranslationCatalog {
             }.also {
                 fragments = (it + nativeCopy).entries.filter { entry -> entry.key.length in 3..180 }
                     .sortedByDescending { entry -> entry.key.length }
+                englishReverse = (it + nativeCopy).entries.associate { entry -> entry.value to entry.key }
                 dictionary = it
             }
         }
 
-    fun translate(context: android.content.Context, text: String): String = resolved.getOrPut(text) {
-        val translations = source(context)
+    fun translate(context: android.content.Context, text: String, language: String): String =
+        resolved.getOrPut("$language\u0000$text") {
+        val english = source(context)
         val normalized = text.trim()
-        (nativeCopy[normalized] ?: translations[normalized])?.let { return@getOrPut it }
+        if (language == "en") {
+            (nativeCopy[normalized] ?: english[normalized])?.let { return@getOrPut it }
+        }
+        val translations = if (language == "en") english else foreignDictionaries.getOrPut(language) {
+            runCatching {
+                val names = if (language == "el") listOf("translations.el.a.json", "translations.el.b.json")
+                    else listOf("translations.$language.json")
+                buildMap {
+                    names.forEach { name ->
+                        context.assets.open("originals/i18n/$name").bufferedReader().use { reader ->
+                            JSONObject(reader.readText()).let { json ->
+                                json.keys().forEach { put(it, json.getString(it)) }
+                            }
+                        }
+                    }
+                }
+            }.getOrElse { error ->
+                Log.e("GenesisI18n", "Could not load $language: ${error.javaClass.simpleName}")
+                emptyMap()
+            }
+        }
+        val russianKey = if (cyrillic.containsMatchIn(normalized)) normalized else englishReverse[normalized]
+        russianKey?.let { translations[it] }?.let { return@getOrPut it }
         if (!cyrillic.containsMatchIn(normalized)) return@getOrPut text
         var result = normalized
-        for ((russian, english) in fragments) {
-            if (!result.contains(russian)) continue
-            result = result.replace(russian, english)
+        val candidateFragments = if (language == "en") fragments else foreignFragments.getOrPut(language) {
+            translations.entries.filter { it.key.length in 3..180 }
+                .sortedByDescending { it.key.length }
         }
-        if (!cyrillic.containsMatchIn(result)) result else text
+        for ((russian, translated) in candidateFragments) {
+            if (!result.contains(russian)) continue
+            result = result.replace(russian, translated)
+        }
+        if (!cyrillic.containsMatchIn(result)) result else
+            (nativeCopy[normalized] ?: english[normalized] ?: text)
     }
 }
 
 @Composable
 fun genesisTranslate(source: String): String {
-    if (LocalGenesisLanguage.current != "en") return source
+    val language = LocalGenesisLanguage.current
+    if (language == "ru") return source
     val context = LocalContext.current
-    return remember(source, context) { TranslationCatalog.translate(context, source) }
+    return remember(source, context, language) { TranslationCatalog.translate(context, source, language) }
 }
 
 /** Local Text facade keeps the Android screens in step with the bundled web translation catalog. */

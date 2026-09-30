@@ -63,14 +63,14 @@ fun WelcomeScreen(state: AuthPanelState, controller: AuthController, language: S
         .safeDrawingPadding().imePadding().testTag("genesis-welcome")) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())
             .padding(start = 20.dp, top = 16.dp, end = 20.dp, bottom = 108.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)) {
+            verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 OriginalImage("icons/icon-192.png", "GENESIS", Modifier.size(44.dp))
-                Text("GENESIS", Modifier.padding(start = 10.dp).weight(1f),
+                Text("GENESIS", Modifier.padding(start = 10.dp),
                     color = welcomeCream,
                     style = MaterialTheme.typography.titleLarge.copy(fontFamily = FontFamily.Serif))
-                LanguageChips(language, dark = true, onLanguage = onLanguage)
             }
+            LanguageChips(language, dark = true, onLanguage = onLanguage)
             HorizontalDivider(color = welcomeGold.copy(alpha = 0.24f))
             Column(Modifier.testTag("welcome-intro"),
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -190,15 +190,19 @@ private fun WelcomeTrustLine(symbol: String, text: String) {
 
 @Composable
 fun LanguageChips(language: String, dark: Boolean = false, onLanguage: (String) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        listOf(Triple("ru", "🇷🇺", "RU"), Triple("en", "🇺🇸", "EN"))
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        listOf(Triple("ru", "🇷🇺", "Русский"), Triple("en", "🇬🇧", "English"),
+            Triple("el", "🇬🇷", "Ελληνικά"), Triple("de", "🇩🇪", "Deutsch"),
+            Triple("fr", "🇫🇷", "Français"), Triple("es", "🇪🇸", "Español"),
+            Triple("it", "🇮🇹", "Italiano"), Triple("pt", "🇵🇹", "Português"))
             .forEach { (value, flag, label) ->
                 FilterChip(selected = language == value, onClick = { onLanguage(value) },
                     label = {
                         Row(verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(flag)
-                            Text(label)
+                            androidx.compose.material3.Text(flag)
+                            androidx.compose.material3.Text(label)
                         }
                     },
                     colors = if (dark) FilterChipDefaults.filterChipColors(

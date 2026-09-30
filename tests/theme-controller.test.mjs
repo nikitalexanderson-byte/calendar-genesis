@@ -133,20 +133,20 @@ test("logout, account switches and the kill switch always paint Standart safely"
   assert.equal(pageRoot.attributes["data-genesis-theme"], "standart");
 });
 
-test("all 36 theme/calendar/time combinations preserve non-theme preferences", async () => {
+test("all 54 theme/calendar/time combinations preserve non-theme preferences", async () => {
   const calendarModes = ["sacred", "lunar", "profane"];
   const timeFormats = ["24h", "12h"];
   let checked = 0;
   for (const displayCalendar of calendarModes) {
     for (const taskCalendar of calendarModes) {
       for (const timeFormat of timeFormats) {
-        for (const theme of ["standart", "experimental"]) {
+        for (const theme of ["standart", "experimental", "experimental-dark"]) {
           const preferences = { displayCalendar, taskCalendar, timeFormat };
           const before = structuredClone(preferences);
           const adapter = memoryAdapter();
           const controller = createGenesisThemeController({ root: root(), adapter });
           await controller.bindAccount(`matrix-${checked}`);
-          if (theme === "experimental") {
+          if (theme !== "standart") {
             controller.setTheme(theme);
             await waitFor(() => !controller.getState().pending);
           }
@@ -158,5 +158,5 @@ test("all 36 theme/calendar/time combinations preserve non-theme preferences", a
       }
     }
   }
-  assert.equal(checked, 36);
+  assert.equal(checked, 54);
 });

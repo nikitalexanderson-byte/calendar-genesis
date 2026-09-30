@@ -48,6 +48,12 @@ try {
     expect(($user['theme'] ?? '') === 'experimental', 'Theme preference was not stored.');
     expect((int)($user['theme_revision'] ?? -1) === 1, 'Theme revision was not incremented.');
     expect((genesisUserForClient($user)['theme'] ?? '') === 'experimental', 'Theme preference was not exposed to the client.');
+    $user = genesisUpdateAccountPreferences($userId, ['theme' => 'experimental-dark', 'expectedThemeRevision' => 1]);
+    expect((genesisUserForClient($user)['theme'] ?? '') === 'experimental-dark', 'Dark theme was not exposed to the client.');
+    foreach (['el', 'de', 'fr', 'es', 'it', 'pt'] as $locale) {
+        $user = genesisUpdateAccountPreferences($userId, ['language' => $locale]);
+        expect((genesisUserForClient($user)['language'] ?? '') === $locale, "Language $locale was not saved.");
+    }
 
     // Native identity and service authorization are deliberately separate. The
     // stable Google sub binds every grant to the already authenticated user.

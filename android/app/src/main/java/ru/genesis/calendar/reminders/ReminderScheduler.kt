@@ -55,10 +55,17 @@ class ReminderScheduler(private val context: Context) {
     fun lastDiagnosticDeliveredAt() = diagnosticStore.getLong("deliveredAt", 0)
     fun lastRecoveryAt() = diagnosticStore.getLong("lastRecoveryAt", 0)
     fun createChannels(language: String = "ru") {
-        val labels = if (language == "en") listOf(TASK_CHANNEL to "Tasks and events", HABIT_CHANNEL to "Habits",
-            DAILY_GOAL_CHANNEL to "Daily goal", ACHIEVEMENT_CHANNEL to "Achievements")
-        else listOf(TASK_CHANNEL to "Задачи и события", HABIT_CHANNEL to "Привычки",
-            DAILY_GOAL_CHANNEL to "Дневная цель", ACHIEVEMENT_CHANNEL to "Достижения")
+        val names = mapOf(
+            "ru" to listOf("Задачи и события", "Привычки", "Дневная цель", "Достижения", "Синхронизация"),
+            "en" to listOf("Tasks and events", "Habits", "Daily goal", "Achievements", "Sync"),
+            "el" to listOf("Εργασίες και συμβάντα", "Συνήθειες", "Ημερήσιος στόχος", "Επιτεύγματα", "Συγχρονισμός"),
+            "de" to listOf("Aufgaben und Ereignisse", "Gewohnheiten", "Tagesziel", "Erfolge", "Synchronisierung"),
+            "fr" to listOf("Tâches et événements", "Habitudes", "Objectif quotidien", "Réussites", "Synchronisation"),
+            "es" to listOf("Tareas y eventos", "Hábitos", "Objetivo diario", "Logros", "Sincronización"),
+            "it" to listOf("Attività ed eventi", "Abitudini", "Obiettivo giornaliero", "Risultati", "Sincronizzazione"),
+            "pt" to listOf("Tarefas e eventos", "Hábitos", "Objetivo diário", "Conquistas", "Sincronização"),
+        )[language] ?: listOf("Tasks and events", "Habits", "Daily goal", "Achievements", "Sync")
+        val labels = listOf(TASK_CHANNEL, HABIT_CHANNEL, DAILY_GOAL_CHANNEL, ACHIEVEMENT_CHANNEL).zip(names)
         labels.forEach { (id, label) ->
             val channel = NotificationChannel(id, label, NotificationManager.IMPORTANCE_HIGH)
             channel.enableVibration(true)
@@ -67,7 +74,7 @@ class ReminderScheduler(private val context: Context) {
             channel.lockscreenVisibility = Notification.VISIBILITY_PRIVATE
             notifications.createNotificationChannel(channel)
         }
-        notifications.createNotificationChannel(NotificationChannel("genesis.sync.v1", if (language == "en") "Sync" else "Синхронизация",
+        notifications.createNotificationChannel(NotificationChannel("genesis.sync.v1", names[4],
             NotificationManager.IMPORTANCE_LOW).apply { setSound(null, null) })
     }
     private fun openHabitsIntent() = PendingIntent.getActivity(context, 7300,
@@ -212,7 +219,7 @@ class ReminderScheduler(private val context: Context) {
         val from = now.minusSeconds(HABIT_LATE_WINDOW_SECONDS)
         val delivered = registry.getStringSet("delivered", emptySet()).orEmpty()
         val fullPlan = if (notificationsAllowed()) planHabitNotifications(workspace, from.atZone(zone).toLocalDate(),
-            from, zone, language == "en", 9).filterNot { habitUri(it, scope) in delivered }.take(128) else emptyList()
+            from, zone, language != "ru", 9).filterNot { habitUri(it, scope) in delivered }.take(128) else emptyList()
         fullPlan.filter { !it.at.isAfter(now) }.takeLast(4).forEach { candidate ->
             postHabitNotification(candidate, scope, habitUri(candidate, scope), registry)
         }
@@ -269,7 +276,7 @@ class ReminderScheduler(private val context: Context) {
         val now = java.time.Instant.now()
         if (at > now.plusSeconds(1) || at < now.minusSeconds(HABIT_LATE_WINDOW_SECONDS)) return@withMutation
         val workspace = HabitsRepository(app).workspace.first()
-        val english = LocalPreferences(context, app.workspaceScope).values.first().language == "en"
+        val english = LocalPreferences(context, app.workspaceScope).values.first().language != "ru"
         val candidate = planHabitNotifications(workspace, date, at.minusMillis(1), ZoneId.systemDefault(), english, 1)
             .firstOrNull { it.kind == intent.getStringExtra("kind") && it.habitId == intent.getStringExtra("habitId") && it.at == at }
             ?: return@withMutation
