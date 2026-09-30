@@ -206,7 +206,7 @@ private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange
         .testTag("calendar-month").verticalScroll(scroll).padding(horizontal = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         CalendarPageHeader(false, mode, onModeChange,
-            Modifier.padding(horizontal = 8.dp, vertical = 8.dp))
+            Modifier.padding(vertical = 8.dp))
         val tasksByDate = remember(tasks, range) { TaskOccurrences.byDate(tasks, range.start, range.end) }
         CalendarPeriodPager(range,
             remember(range, mode) { runCatching { calendar.monthRange(range.start.minusDays(1), mode) }.getOrNull() },
@@ -882,7 +882,7 @@ private fun CalendarYearOverview(calendar: GenesisCalendar, shown: LocalDate, mo
         .padding(horizontal = 8.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         CalendarPageHeader(true, mode, onModeChange,
-            Modifier.padding(horizontal = 8.dp, vertical = 8.dp))
+            Modifier.padding(vertical = 8.dp))
         CalendarPeriodPager(period, period.minusYears(1), period.plusYears(1),
             { onYear(period.minusYears(1)) }, { onYear(period.plusYears(1)) },
             Modifier.fillMaxWidth()) { page, previous, next ->
@@ -941,7 +941,7 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
         groups
     }
     Column(Modifier.fillMaxWidth()) {
-        Card(Modifier.fillMaxWidth().padding(horizontal = 10.dp).testTag("calendar-year-panel"),
+        Card(Modifier.fillMaxWidth().testTag("calendar-year-panel"),
             shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = .45f))) {

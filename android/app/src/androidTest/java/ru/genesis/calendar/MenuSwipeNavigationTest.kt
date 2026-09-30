@@ -40,19 +40,25 @@ class MenuSwipeNavigationTest {
 
             compose.onNodeWithTag("navigation-Сегодня").performClick()
             compose.onNodeWithTag("main-content").performTouchInput { swipeLeft() }
+            compose.waitForIdle()
             compose.onNodeWithTag("tasks-screen").assertExists()
             compose.onNodeWithTag("main-content").performTouchInput { swipeLeft() }
+            compose.waitForIdle()
             compose.onNodeWithTag("submenu-lists").assertIsSelected()
             compose.onNodeWithTag("main-content").performTouchInput { swipeLeft() }
+            compose.waitForIdle()
             compose.onNodeWithTag("projects-screen").assertExists()
             compose.onNodeWithTag("main-content").performTouchInput { swipeLeft() }
+            compose.waitForIdle()
             compose.onNodeWithTag("calendar-month").assertExists()
             compose.onNodeWithTag("main-content").performTouchInput { swipeRight() }
+            compose.waitForIdle()
             compose.onNodeWithTag("projects-screen").assertExists()
 
             compose.onNodeWithTag("navigation-Календарь").performClick()
             compose.onNodeWithTag("calendar-month").assertExists()
             compose.onNodeWithTag("calendar-month-navigation").performTouchInput { swipeLeft() }
+            compose.waitForIdle()
             compose.onNodeWithTag("calendar-year-panel").assertExists()
             val before = compose.onNodeWithTag("calendar-year-period").fetchSemanticsNode()
                 .config[androidx.compose.ui.semantics.SemanticsProperties.Text].toString()
