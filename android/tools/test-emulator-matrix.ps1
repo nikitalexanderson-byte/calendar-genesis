@@ -18,7 +18,7 @@ $emulator = "$sdk/emulator/emulator.exe"
 $avdManager = "$sdk/cmdline-tools/latest/bin/avdmanager.bat"
 $package = "ru.genesis.calendar.debug"
 $runner = "$package.test/androidx.test.runner.AndroidJUnitRunner"
-$reportDir = "$PSScriptRoot/../build/reports/emulator-matrix-2.3.10"
+$reportDir = "$PSScriptRoot/../build/reports/emulator-matrix-2.3.11"
 New-Item -ItemType Directory -Force -Path $reportDir | Out-Null
 
 foreach ($required in @($adb, $emulator, $avdManager, $Apk, $TestApk)) {
@@ -145,7 +145,7 @@ function Test-Phone([int]$Api, [string]$Device) {
         Write-Host "$name already passed"
         return
     }
-    Set-Content -LiteralPath $log -Value "GENESIS 2.3.10 phone matrix: API $Api, device $Device"
+    Set-Content -LiteralPath $log -Value "GENESIS 2.3.11 phone matrix: API $Api, device $Device"
     $process = $null
     try {
         $process = Start-MatrixAvd $name $Api $Device
@@ -181,7 +181,7 @@ function Test-Tablet([string]$Device) {
         Write-Host "$name already passed"
         return
     }
-    Set-Content -LiteralPath $log -Value "GENESIS 2.3.10 tablet matrix: API 35, device $Device"
+    Set-Content -LiteralPath $log -Value "GENESIS 2.3.11 tablet matrix: API 35, device $Device"
     $process = $null
     try {
         # Keep the already initialized Android system between tablet reruns. Clearing

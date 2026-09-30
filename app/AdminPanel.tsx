@@ -10,6 +10,15 @@ function formatActivity(value: string | null) {
   return new Intl.DateTimeFormat(runtimeLocale(), { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 }
 
+function syncStatusLabel(status: string | null, labels: {
+  syncOk: string; syncWarning: string; disconnected: string; syncUnknown: string; staleSync: string;
+}, lastSyncAt: string | null) {
+  const lastSync = lastSyncAt ? Date.parse(lastSyncAt) : NaN;
+  if (status === "ok" && Number.isFinite(lastSync) && Date.now() - lastSync > 7 * 86_400_000) return labels.staleSync;
+  return status === "ok" ? labels.syncOk : status === "warning" ? labels.syncWarning
+    : status === "disconnected" ? labels.disconnected : labels.syncUnknown;
+}
+
 export function AdminPanel() {
   const isEnglish = runtimeLocale().startsWith("en");
   const copy = isEnglish ? {
@@ -17,6 +26,8 @@ export function AdminPanel() {
     adminOnly: "Administrators only", title: "GENESIS activity", intro: "Habit titles, notes and history remain encrypted. The panel receives aggregate counts only.", refresh: "Refresh",
     users: "users", habits: "habits", tasks: "tasks", projects: "projects", blocked: "blacklisted",
     user: "User", activity: "Last activity", logins: "Logins", google: "Google", moderation: "Moderation", admin: "administrator", aggregate: "encrypted aggregate", open: "open", completed: "completed", events: "events", connected: "Connected", no: "No", protected: "Protected", remove: "Delete",
+    androidTitle: "Android downloads and sync", androidIntro: "Download requests are attributed only when a user is signed in on this site. Direct and anonymous APK downloads cannot be tied to an account. An app version appears only after that installation contacts the server; it does not prove the app is still installed.",
+    trackedDownloads: "account download requests", reportingUsers: "users with an app report", download: "Download", version: "App version", googleServices: "Google services", server: "Server", noDownload: "No attributed request", first: "First", last: "Last", requested: "requested", devices: "installations", lastContact: "Last contact", noReport: "No report yet", authorized: "Authorized", disconnected: "Disconnected", syncOk: "OK", syncWarning: "Needs attention", syncUnknown: "Not checked", staleSync: "Not checked recently", lastSync: "Last sync", calendarSync: "Calendar",
     irreversible: "Irreversible action", deleteTitle: "Delete user?", deleteLead: "The account, encrypted workspace, habits, statistics, tasks and all related server data will be permanently deleted for",
     blacklistAria: "Add user to blacklist", blacklistTitle: "Add to blacklist after deletion", blacklistHelp: "Future sign-in with the same Google ID or email will be blocked. Only irreversible cryptographic fingerprints remain on the server.",
     confirmLabel: "Enter the user's email to confirm", cancel: "Cancel", deleting: "Deleting…", deleteAndBlock: "Delete and block", deleteUser: "Delete user",
@@ -25,6 +36,8 @@ export function AdminPanel() {
     adminOnly: "Только для администратора", title: "Активность GENESIS", intro: "Названия, заметки и история привычек остаются зашифрованными. Панель получает только агрегированные количества.", refresh: "Обновить",
     users: "пользователей", habits: "привычек", tasks: "задач", projects: "проектов", blocked: "в чёрном списке",
     user: "Пользователь", activity: "Последняя активность", logins: "Входы", google: "Google", moderation: "Модерация", admin: "администратор", aggregate: "зашифрованный агрегат", open: "открыто", completed: "завершено", events: "событий", connected: "Подключён", no: "Нет", protected: "Защищён", remove: "Удалить",
+    androidTitle: "Android: загрузки и синхронизация", androidIntro: "Считаются запросы на загрузку из авторизованного аккаунта на сайте. Анонимную или прямую загрузку APK нельзя связать с пользователем. Версия появляется после обращения приложения к серверу и не подтверждает, что оно установлено сейчас.",
+    trackedDownloads: "запросов из аккаунтов", reportingUsers: "пользователей с откликом приложения", download: "Загрузка", version: "Версия приложения", googleServices: "Сервисы Google", server: "Сервер", noDownload: "Нет учтённых запросов", first: "Первый", last: "Последний", requested: "запрошена", devices: "установок", lastContact: "Последняя связь", noReport: "Пока нет данных", authorized: "Авторизован", disconnected: "Не подключён", syncOk: "В порядке", syncWarning: "Нужна проверка", syncUnknown: "Не проверено", staleSync: "Давно не проверялось", lastSync: "Последняя синхронизация", calendarSync: "Календарь",
     irreversible: "Необратимое действие", deleteTitle: "Удалить пользователя?", deleteLead: "Будут окончательно удалены аккаунт, зашифрованное пространство, привычки, статистика, задачи и все связанные серверные данные пользователя",
     blacklistAria: "Добавить пользователя в чёрный список", blacklistTitle: "Добавить в чёрный список после удаления", blacklistHelp: "Повторный вход с тем же Google ID или e-mail будет заблокирован. На сервере сохранятся только необратимые криптографические отпечатки.",
     confirmLabel: "Для подтверждения введите e-mail пользователя", cancel: "Отмена", deleting: "Удаляем…", deleteAndBlock: "Удалить и заблокировать", deleteUser: "Удалить пользователя",
@@ -117,6 +130,33 @@ export function AdminPanel() {
             ))}</tbody>
           </table>
         </div>
+        <section className="admin-android" aria-labelledby="admin-android-title">
+          <h2 id="admin-android-title">{copy.androidTitle}</h2>
+          <p>{copy.androidIntro}</p>
+          <div className="admin-android-summary">
+            <span><strong>{stats.totals.androidDownloadRequests}</strong> {copy.trackedDownloads}</span>
+            <span><strong>{stats.totals.androidReportingUsers}</strong> {copy.reportingUsers}</span>
+          </div>
+          <div className="admin-table-wrap">
+            <table className="admin-table admin-android-table">
+              <thead><tr><th>{copy.user}</th><th>{copy.download}</th><th>{copy.version}</th><th>{copy.googleServices}</th><th>{copy.server}</th></tr></thead>
+              <tbody>{stats.users.map((user) => (
+                <tr key={user.id}>
+                  <td data-label={copy.user}><strong>{user.email}</strong><small>{user.displayName}</small></td>
+                  <td data-label={copy.download}><strong>{user.androidDownloadCount > 0 ? user.androidDownloadCount : copy.noDownload}</strong>
+                    {user.androidDownloadCount > 0 ? <small>{copy.first}: {formatActivity(user.androidFirstDownloadAt)}<br />{copy.last}: {formatActivity(user.androidLastDownloadAt)} · {user.androidLastDownloadVersion} {copy.requested}</small> : null}</td>
+                  <td data-label={copy.version}><strong>{user.androidReportedVersion ?? copy.noReport}</strong>
+                    <small>{user.androidDeviceCount} {copy.devices} · {copy.lastContact}: {formatActivity(user.androidLastSeenAt)}</small></td>
+                  <td data-label={copy.googleServices}><strong>{user.googleAuthConnected ? copy.authorized : copy.disconnected}</strong>
+                    <small>{syncStatusLabel(user.androidGoogleSyncStatus, copy, user.androidLastServerSyncAt)} · {copy.lastSync}: {formatActivity(user.androidLastServerSyncAt)}
+                      {user.lastGoogleCalendarSyncAt ? <><br />{copy.calendarSync}: {formatActivity(user.lastGoogleCalendarSyncAt)}</> : null}</small></td>
+                  <td data-label={copy.server}><strong>{syncStatusLabel(user.androidServerSyncStatus, copy, user.androidLastServerSyncAt)}</strong>
+                    <small>{copy.lastSync}: {formatActivity(user.androidLastServerSyncAt)}</small></td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        </section>
       </> : null}
       {deleteTarget ? <div className="modal-backdrop admin-delete-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeDeleteDialog(); }}>
         <section ref={deleteDialogRef} className="admin-delete-dialog" role="dialog" aria-modal="true" aria-labelledby="admin-delete-title" tabIndex={-1}>

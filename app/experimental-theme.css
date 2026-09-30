@@ -1034,6 +1034,106 @@ html[data-genesis-theme="experimental"] .admin-table th {
   text-transform: uppercase;
 }
 
+html[data-genesis-theme="experimental"] .admin-android {
+  margin-top: var(--gx-space-8);
+  padding: clamp(16px, 2vw, 28px);
+  border: 1px solid var(--gx-color-border);
+  border-radius: var(--gx-radius-card);
+  background: var(--gx-color-surface);
+}
+
+html[data-genesis-theme="experimental"] .admin-android h2 {
+  margin: 0 0 8px;
+  font: 400 clamp(22px, 2vw, 30px)/1.2 var(--gx-font-display);
+}
+
+html[data-genesis-theme="experimental"] .admin-android > p {
+  max-width: 76ch;
+  margin: 0 0 18px;
+  color: var(--gx-color-muted);
+  line-height: 1.5;
+}
+
+html[data-genesis-theme="experimental"] .admin-android-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 24px;
+  margin-bottom: 18px;
+  color: var(--gx-color-muted);
+}
+
+html[data-genesis-theme="experimental"] .admin-android-summary strong {
+  color: var(--gx-color-accent);
+  font-size: 1.3em;
+}
+
+html[data-genesis-theme="experimental"] .admin-android-table td small {
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+html[data-genesis-theme="experimental"] .admin-android-table td {
+  font-size: 12px;
+}
+
+@media (max-width: 700px) {
+  html[data-genesis-theme="experimental"] .admin-android-table,
+  html[data-genesis-theme="experimental"] .admin-android-table tbody {
+    display: block;
+    width: 100%;
+  }
+
+  html[data-genesis-theme="experimental"] .admin-android-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  html[data-genesis-theme="experimental"] .admin-android-table tr {
+    display: block;
+    margin: 12px;
+    padding: 10px 14px;
+    border: 1px solid var(--gx-color-border);
+    border-radius: var(--gx-radius-control);
+    background: var(--gx-color-surface);
+  }
+
+  html[data-genesis-theme="experimental"] .admin-android-table td,
+  html[data-genesis-theme="experimental"] .admin-android-table td:first-child {
+    display: grid;
+    grid-template-columns: minmax(86px, 38%) minmax(0, 1fr);
+    gap: 2px 10px;
+    width: 100%;
+    min-width: 0;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--gx-color-border);
+    overflow-wrap: anywhere;
+  }
+
+  html[data-genesis-theme="experimental"] .admin-android-table td:last-child {
+    border-bottom: 0;
+  }
+
+  html[data-genesis-theme="experimental"] .admin-android-table td::before {
+    content: attr(data-label);
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    align-self: start;
+    color: var(--gx-color-muted);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  html[data-genesis-theme="experimental"] .admin-android-table td :where(strong, small) {
+    grid-column: 2;
+    margin: 0;
+  }
+}
+
 html[data-genesis-theme="experimental"] :where(.auth-error, .form-error, .account-message.danger):not(:where([data-genesis-preserve], [data-genesis-preserve] *)) {
   padding: 12px 16px;
   color: var(--gx-color-danger);

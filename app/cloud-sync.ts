@@ -245,6 +245,8 @@ export type AdminUserStats = {
   loginCount: number;
   passwordEnabled: boolean;
   calendarConnected: boolean;
+  googleAuthConnected: boolean;
+  lastGoogleCalendarSyncAt: string | null;
   projectCount: number;
   taskCount: number;
   openTaskCount: number;
@@ -253,11 +255,21 @@ export type AdminUserStats = {
   habitCount: number;
   isAdmin: boolean;
   metricsUpdatedAt: string | null;
+  androidDownloadCount: number;
+  androidFirstDownloadAt: string | null;
+  androidLastDownloadAt: string | null;
+  androidLastDownloadVersion: string | null;
+  androidDeviceCount: number;
+  androidReportedVersion: string | null;
+  androidLastSeenAt: string | null;
+  androidLastServerSyncAt: string | null;
+  androidServerSyncStatus: "ok" | "warning" | null;
+  androidGoogleSyncStatus: "ok" | "warning" | "disconnected" | null;
 };
 
 export type AdminStats = {
   users: AdminUserStats[];
-  totals: { users: number; projects: number; tasks: number; completedTasks: number; habits: number; blockedIdentities: number };
+  totals: { users: number; projects: number; tasks: number; completedTasks: number; habits: number; blockedIdentities: number; androidDownloadRequests: number; androidReportingUsers: number };
 };
 
 export type StoicheionDrawKind = "daily" | "spread";

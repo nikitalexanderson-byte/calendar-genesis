@@ -10,6 +10,7 @@ import ru.genesis.calendar.data.LocalCipher
 import java.io.ByteArrayOutputStream
 import java.net.URL
 import java.util.TimeZone
+import java.util.UUID
 import javax.net.ssl.HttpsURLConnection
 
 internal class AuthFailure(val kind: Kind) : Exception("Authentication request failed") {
@@ -19,6 +20,12 @@ internal class AuthFailure(val kind: Kind) : Exception("Authentication request f
 /** A dedicated, encrypted native cookie jar; never shared with Custom Tabs or the local drafts DB. */
 internal class AuthSessionClient(context: Context) {
     private val preferences = context.getSharedPreferences("genesis.native.auth.v1", Context.MODE_PRIVATE)
+    private val installationId: String by lazy {
+        val install = context.getSharedPreferences("genesis.native.install.v1", Context.MODE_PRIVATE)
+        install.getString("id", null) ?: UUID.randomUUID().toString().also {
+            install.edit().putString("id", it).apply()
+        }
+    }
     private val cipher = LocalCipher()
     private val aad = "genesis.native.auth.v1|$AUTH_ORIGIN"
     private val guard = Any()
@@ -166,6 +173,8 @@ internal class AuthSessionClient(context: Context) {
             connection.setRequestProperty("Accept", "application/json")
             connection.setRequestProperty("Cache-Control", "no-store")
             connection.setRequestProperty("X-Genesis-Time-Zone", TimeZone.getDefault().id)
+            connection.setRequestProperty("X-Genesis-App-Version", BuildConfig.VERSION_NAME)
+            connection.setRequestProperty("X-Genesis-Installation-Id", installationId)
             if (current.cookie.isNotBlank()) connection.setRequestProperty("Cookie", "$SESSION_COOKIE=${current.cookie}")
             if (body != null) {
                 connection.setRequestProperty("X-CSRF-Token", current.csrf)
