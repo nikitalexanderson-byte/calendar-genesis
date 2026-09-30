@@ -36,6 +36,22 @@ class LanguageAndIpTest {
         } finally { runBlocking { prefs.set("language", original) } }
     }
 
+    @Test fun taskReminderCountHintExplainsGoogleLimitInJapaneseAndTurkish() {
+        val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
+        val prefs = LocalPreferences(app, app.workspaceScope)
+        val original = runBlocking { prefs.values.first().language }
+        try {
+            compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("create-task"))
+            compose.onNodeWithTag("create-task").performClick()
+            runBlocking { prefs.set("language", "ja") }
+            compose.onNodeWithText("この数字は追加した通知の数です。Google カレンダーでは、予定ごとに最大5件まで設定できます。")
+                .performScrollTo().assertExists()
+            runBlocking { prefs.set("language", "tr") }
+            compose.onNodeWithText("Sayı, eklenen hatırlatıcıların sayısını gösterir. Google Takvim bir etkinlik için en fazla beş hatırlatıcıya izin verir.")
+                .performScrollTo().assertExists()
+        } finally { runBlocking { prefs.set("language", original) } }
+    }
+
     @Test fun ipRegionReturnsNamedIanaZoneOnEmulatorNetwork() {
         val region = runBlocking { withContext(Dispatchers.IO) { resolveSeasonZoneByIp() } }
         assertEquals(region.zone, ZoneId.of(region.zone.id))

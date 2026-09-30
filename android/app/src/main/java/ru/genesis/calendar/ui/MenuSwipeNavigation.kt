@@ -39,14 +39,13 @@ class MenuSwipeState {
     }
 }
 
-internal fun menuSwipeSequence(includeSubmenus: Boolean, habitsEnabled: Boolean,
-    categoryIds: List<String>): List<SwipeDestination> {
+internal fun menuSwipeSequence(includeSubmenus: Boolean, habitsEnabled: Boolean): List<SwipeDestination> {
     val pages = listOf("Сегодня", "Задачи", "Проекты", "Календарь", "Привычки", "Стойхейон", "Теокиклос", "Настройки")
         .filter { habitsEnabled || it != "Привычки" }
     if (!includeSubmenus) return pages.map { SwipeDestination(it) }
     return pages.flatMap { page -> when (page) {
         "Задачи" -> listOf("tasks", "lists").map { SwipeDestination(page, it) }
-        "Проекты" -> (listOf("all") + categoryIds.distinct()).map { SwipeDestination(page, it) }
+        "Проекты" -> listOf(SwipeDestination(page))
         "Календарь" -> listOf("month", "year").map { SwipeDestination(page, it) }
         "Привычки" -> listOf("Привычки", "Сон и настроение").map { SwipeDestination(page, it) }
         else -> listOf(SwipeDestination(page))

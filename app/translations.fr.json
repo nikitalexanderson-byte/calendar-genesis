@@ -604,7 +604,7 @@
   "Прорицание по девяти картам": "Divination à neuf cartes",
   "Пространство проекта": "Espace projet",
   "Григорианская": "grégorien",
-  "Григорианский": "grégorien",
+  "Григорианский": "Grégorien",
   "Григорианский календарь": "calendrier grégorien",
   "Профиль, зашифрованная структура и OAuth-токены хранятся, пока существует аккаунт GENESIS. Агрегированная статистика неактивного пользователя удаляется после двух лет бездействия. После самостоятельного удаления аккаунта серверные данные удаляются сразу; запрос через поддержку выполняется после подтверждения владения аккаунтом в срок до 30 дней.": "Le profil, la structure chiffrée et les jetons OAuth sont stockés tant que le compte GENESIS existe. Les statistiques globales d'un utilisateur inactif sont supprimées après deux ans d'inactivité. Lorsque vous supprimez le compte vous-même, les données du serveur sont immédiatement supprimées ; une demande d'assistance est complétée dans les 30 jours suivant la vérification de la propriété du compte.",
   "Прочитать о букве": "Lire à propos de la lettre",
@@ -2464,7 +2464,7 @@
   "Уведомления отключены": "Les notifications sont désactivées",
   "Поведение уведомлений": "Tonalité de notification",
   "Героический": "Héroïque",
-  "С иронией": "Wry",
+  "С иронией": "Avec ironie",
   "При выборе стиля сразу появится тестовое уведомление с примером формулировки.": "Le choix d'une tonalité affiche immédiatement une notification de test avec un exemple de message.",
   "Android не разрешил показать пример уведомления.": "Android n'autorisait pas l'affichage de l'aperçu des notifications.",
   "Напоминание о дневной цели": "Rappel d'objectif quotidien",
@@ -2607,5 +2607,10 @@
   "Смахивайте содержимое экрана влево или вправо для перехода между разделами.": "Balayez l’écran vers la gauche ou la droite pour changer de section.",
   "Включать подменю в общий свайп": "Inclure les sous-menus dans le balayage",
   "При общем свайпе месяцы и годы переключаются стрелками.": "Quand le balayage est activé, changez de mois et d’année avec les flèches.",
-  "Переключайте стрелками": "Utilisez les flèches"
+  "Переключайте стрелками": "Utilisez les flèches",
+  "Число показывает, сколько напоминаний добавлено. Для события Google Calendar доступно не более пяти.": "Le nombre indique les rappels ajoutés. Google Agenda autorise jusqu’à cinq rappels par événement.",
+  "За 1 сутки": "1 j avant",
+  "За 2 суток": "2 j avant",
+  "За 3 суток": "3 j avant",
+  "Уведомления привычек": "Notifications des habitudes"
 }

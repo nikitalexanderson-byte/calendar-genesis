@@ -1242,7 +1242,7 @@
   "Привычки": "Abitudini",
   "Привычки GENESIS": "Abitudini della GENESIS",
   "Фоновый": "Sfondo",
-  "Спокойный": "Gentile",
+  "Спокойный": "Calmo",
   "Важный": "Importante",
   "Ключевой": "Essenziale",
   "Дата создания · изменить нельзя": "Data di creazione · non può essere modificata",
@@ -2464,7 +2464,7 @@
   "Уведомления отключены": "Le notifiche sono disabilitate",
   "Поведение уведомлений": "Tono di notifica",
   "Героический": "Eroico",
-  "С иронией": "Scherzo",
+  "С иронией": "Con ironia",
   "При выборе стиля сразу появится тестовое уведомление с примером формулировки.": "Scegliendo un tono viene immediatamente visualizzata una notifica di prova con un messaggio di esempio.",
   "Android не разрешил показать пример уведомления.": "Android non consentiva la visualizzazione dell'anteprima della notifica.",
   "Напоминание о дневной цели": "Promemoria obiettivo giornaliero",
@@ -2607,5 +2607,10 @@
   "Смахивайте содержимое экрана влево или вправо для перехода между разделами.": "Scorri lo schermo a sinistra o a destra per cambiare sezione.",
   "Включать подменю в общий свайп": "Includi i sottomenu nello scorrimento",
   "При общем свайпе месяцы и годы переключаются стрелками.": "Con lo scorrimento attivo, cambia mese e anno con le frecce.",
-  "Переключайте стрелками": "Usa le frecce"
+  "Переключайте стрелками": "Usa le frecce",
+  "Число показывает, сколько напоминаний добавлено. Для события Google Calendar доступно не более пяти.": "Il numero indica i promemoria aggiunti. Google Calendar ne consente fino a cinque per evento.",
+  "За 1 сутки": "1 g prima",
+  "За 2 суток": "2 g prima",
+  "За 3 суток": "3 g prima",
+  "Уведомления привычек": "Notifiche delle abitudini"
 }

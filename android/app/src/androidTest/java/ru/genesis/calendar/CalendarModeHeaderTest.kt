@@ -9,11 +9,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
 import java.io.File
 import java.time.LocalDate
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import ru.genesis.calendar.domain.CalendarMode
@@ -47,6 +49,15 @@ class CalendarModeHeaderTest {
         compose.onNodeWithText("Год").performClick()
         compose.onNodeWithTag("calendar-year-panel").assertExists()
         compose.onNodeWithTag("calendar-year-solar-points").assertExists()
+        val solarTiles = compose.onAllNodes(SemanticsMatcher("solar point tiles") { node ->
+            runCatching { node.config[SemanticsProperties.TestTag] }.getOrNull()
+                ?.startsWith("solar-point-") == true
+        }).fetchSemanticsNodes()
+        assertEquals(4, solarTiles.size)
+        assertTrue(solarTiles.map { it.boundsInRoot.width }.max() -
+            solarTiles.map { it.boundsInRoot.width }.min() < 2f)
+        assertTrue(solarTiles.map { it.boundsInRoot.height }.max() -
+            solarTiles.map { it.boundsInRoot.height }.min() < 2f)
         compose.onNodeWithTag("genesis-page-header").assertExists()
         assertTrue(device.takeScreenshot(File(context.getExternalFilesDir(null), "calendar-year-after.png")))
         compose.onNodeWithTag("genesis-page-header").performTouchInput { swipeLeft() }

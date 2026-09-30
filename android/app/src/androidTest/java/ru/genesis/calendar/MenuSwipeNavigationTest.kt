@@ -45,6 +45,10 @@ class MenuSwipeNavigationTest {
             compose.onNodeWithTag("submenu-lists").assertIsSelected()
             compose.onNodeWithTag("main-content").performTouchInput { swipeLeft() }
             compose.onNodeWithTag("projects-screen").assertExists()
+            compose.onNodeWithTag("main-content").performTouchInput { swipeLeft() }
+            compose.onNodeWithTag("calendar-month").assertExists()
+            compose.onNodeWithTag("main-content").performTouchInput { swipeRight() }
+            compose.onNodeWithTag("projects-screen").assertExists()
 
             compose.onNodeWithTag("navigation-Календарь").performClick()
             compose.onNodeWithTag("calendar-month").assertExists()

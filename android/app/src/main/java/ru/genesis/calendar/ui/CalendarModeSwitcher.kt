@@ -36,6 +36,7 @@ import ru.genesis.calendar.domain.CalendarMode
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.math.pow
 
 internal fun nextCalendarMode(mode: CalendarMode): CalendarMode = when (mode) {
     CalendarMode.PROFANE -> CalendarMode.SACRED
@@ -63,7 +64,7 @@ internal fun CalendarModeSwitcher(mode: CalendarMode, onNext: () -> Unit,
         if (!running) scope.launch {
             running = true
             click.snapTo(0f)
-            click.animateTo(1f, tween(620))
+            click.animateTo(1f, tween(if (mode == CalendarMode.LUNAR) 1050 else 760))
             onNext()
             running = false
         }
@@ -77,11 +78,11 @@ internal fun CalendarModeSwitcher(mode: CalendarMode, onNext: () -> Unit,
             val stroke = 2.dp.toPx()
             when (mode) {
                 CalendarMode.SACRED -> {
-                    val turn = click.value * PI * 2.7 + ambient * .07
+                    val turn = -click.value * PI * 4
                     drawCircle(gold.copy(alpha = .13f + ambient * .08f), radius * 1.32f, center)
                     repeat(12) { ray ->
                         val angle = ray * PI / 6 + turn
-                        val bend = click.value * .8
+                        val bend = -sin(click.value * PI).pow(2) * .8
                         val start = center + Offset((cos(angle) * radius * .64).toFloat(),
                             (sin(angle) * radius * .64).toFloat())
                         val control = center + Offset((cos(angle + bend) * radius * .98).toFloat(),
@@ -98,30 +99,35 @@ internal fun CalendarModeSwitcher(mode: CalendarMode, onNext: () -> Unit,
                 }
                 CalendarMode.LUNAR -> {
                     val phase = click.value * PI * 2
-                    val shadowOffset = if (click.value == 0f) radius * .68f
-                        else (cos(phase) * radius * 1.65f).toFloat()
+                    val orbit = radius * (.68f + .97f * sin(phase / 2).pow(2).toFloat())
+                    val shadowOffset = Offset((cos(phase) * orbit).toFloat(),
+                        (sin(phase) * orbit * .72f).toFloat())
                     val disc = Path().apply { addOval(Rect(center.x - radius, center.y - radius,
                         center.x + radius, center.y + radius)) }
                     drawCircle(Color(0xffe6d8b4).copy(alpha = .25f + ambient * .1f), radius * 1.17f, center)
                     clipPath(disc) {
                         drawCircle(Color(0xffeee6ca), radius, center)
                         drawCircle(Color(0xff365052), radius * 1.07f,
-                            center + Offset(shadowOffset, 0f))
+                            center + shadowOffset)
                     }
                     drawCircle(gold, radius, center, style = Stroke(1.2.dp.toPx()))
                 }
                 CalendarMode.PROFANE -> {
-                    val spread = click.value * radius * .65f
+                    val raised = sin(click.value * PI).pow(2)
+                    val tilt = (1 - raised) * .78
+                    val shaftLength = radius * 1.42f
                     drawCircle(gold.copy(alpha = .1f + ambient * .07f), radius * 1.2f, center)
                     listOf(-1f, 1f).forEach { side ->
-                        val head = center + Offset(side * (radius * .55f + spread), -radius * .55f)
-                        val end = center + Offset(-side * (radius * .63f + spread), radius * .67f)
+                        val head = center + Offset(side * radius * .48f, -radius * .55f)
+                        val direction = Offset((-side * sin(tilt)).toFloat(), cos(tilt).toFloat())
+                        val end = head + direction * shaftLength
+                        val toothDirection = Offset(direction.y, -direction.x) * (side * radius)
                         drawLine(gold, head, end, stroke, cap = StrokeCap.Round)
                         drawCircle(gold, radius * .28f, head, style = Stroke(stroke))
-                        drawLine(gold, end, end + Offset(side * radius * .30f, 0f), stroke,
+                        drawLine(gold, end, end + toothDirection * .30f, stroke,
                             cap = StrokeCap.Round)
-                        drawLine(gold, end + Offset(0f, -radius * .14f),
-                            end + Offset(side * radius * .22f, -radius * .14f), stroke,
+                        drawLine(gold, end - direction * (radius * .14f),
+                            end - direction * (radius * .14f) + toothDirection * .22f, stroke,
                             cap = StrokeCap.Round)
                     }
                 }

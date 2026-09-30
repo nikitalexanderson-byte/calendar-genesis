@@ -85,6 +85,18 @@ class HabitSettingsFlowTest {
                     }
                 }
             }
+            compose.onNodeWithTag("habit-notification-tone-ironic").performScrollTo()
+            val cardBounds = compose.onNodeWithTag("habit-notification-settings").fetchSemanticsNode().boundsInRoot
+            val toneBounds = listOf("calm", "heroic", "ironic").map { tone ->
+                compose.onNodeWithTag("habit-notification-tone-$tone").fetchSemanticsNode().boundsInRoot
+            }
+            assertTrue(toneBounds.first().left >= cardBounds.left)
+            assertTrue(toneBounds.last().right <= cardBounds.right)
+            assertTrue(toneBounds.zipWithNext().all { (left, right) -> left.right <= right.left })
+            compose.onNodeWithText("При выборе стиля сразу появится тестовое уведомление с примером формулировки.")
+                .performScrollTo()
+            assertTrue(UiDevice.getInstance(instrumentation).takeScreenshot(
+                java.io.File(app.getExternalFilesDir(null), "habit-tone-settings.png")))
             if (!app.scheduler.notificationsAllowed()) {
                 compose.onNodeWithTag("habit-notifications-enabled")
                     .performScrollTo().assertIsEnabled().performClick()

@@ -618,7 +618,7 @@
   "Работа": "Trabalho",
   "работа, дом, ритуал": "trabalho, casa, ritual",
   "Рабочий стол": "Espaço de trabalho",
-  "Равноденствие": "Equinox",
+  "Равноденствие": "Equinócio",
   "Равноденствия и солнцестояния образуют четыре праздничные опоры. После завершения двенадцатого месяца наступает Апейрон — несколько дней вне обычного счёта, пространство тишины перед новым весенним началом.": "Os equinócios e solstícios formam quatro suportes festivos. Após o duodécimo mês vem Aperon: vários dias fora da contagem ordinária, um espaço tranquilo antes do início da nova primavera.",
   "Разделение · Текучесть · Выбор пути": "Separação · Fluidez · Escolher um caminho",
   "Разделяйте большие замыслы на подпроекты и конкретные действия. Связи, повторения и сроки остаются видимыми в плане дня.": "Quebre as principais intenções em subprojectos e acções concretas. Links, recorrências e datas permanecem visíveis no plano diário.",
@@ -2464,7 +2464,7 @@
   "Уведомления отключены": "As notificações estão desactivadas",
   "Поведение уведомлений": "Tons de notificação",
   "Героический": "Heroico",
-  "С иронией": "Wry",
+  "С иронией": "Com ironia",
   "При выборе стиля сразу появится тестовое уведомление с примером формулировки.": "A escolha de um tom mostra imediatamente uma notificação de teste com uma mensagem de amostra.",
   "Android не разрешил показать пример уведомления.": "O Android não permitiu que a visualização da notificação fosse mostrada.",
   "Напоминание о дневной цели": "Lembrete diário do objetivo",
@@ -2607,5 +2607,10 @@
   "Смахивайте содержимое экрана влево или вправо для перехода между разделами.": "Deslize a tela para a esquerda ou direita para mudar de seção.",
   "Включать подменю в общий свайп": "Incluir submenus ao deslizar",
   "При общем свайпе месяцы и годы переключаются стрелками.": "Com o gesto entre abas ativado, mude meses e anos pelas setas.",
-  "Переключайте стрелками": "Use as setas"
+  "Переключайте стрелками": "Use as setas",
+  "Число показывает, сколько напоминаний добавлено. Для события Google Calendar доступно не более пяти.": "O número indica quantos lembretes foram adicionados. O Google Calendar permite até cinco por evento.",
+  "За 1 сутки": "1 dia antes",
+  "За 2 суток": "2 dias antes",
+  "За 3 суток": "3 dias antes",
+  "Уведомления привычек": "Notificações de hábitos"
 }
