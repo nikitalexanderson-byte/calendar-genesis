@@ -18,7 +18,7 @@ class TheokyklosFlowTest {
     @Test fun allFourAxisAndThresholdMarkersOpenNativeDetails() {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
         check(BuildConfig.DEBUG && app.packageName.endsWith(".debug"))
-        compose.onNodeWithText("Теокиклос").performScrollTo().performClick()
+        compose.onNodeWithTag("navigation-Теокиклос").performClick()
         compose.onNodeWithTag("theokyklos-mandala").assertIsDisplayed()
         val entranceCenter = compose.onNodeWithTag("theokyklos-sector-entrance")
             .fetchSemanticsNode().boundsInRoot.center

@@ -35,6 +35,7 @@ private class NavigationAnchors(val page: String) {
     val children = mutableStateMapOf<String, Rect>()
 }
 private val LocalNavigationAnchors = staticCompositionLocalOf<NavigationAnchors?> { null }
+internal val LocalCompactSubmenus = staticCompositionLocalOf { false }
 
 /** Coordinates follow layout and horizontal scrolling; the spring gently follows the parent. */
 @Composable internal fun NavigationConnectionScope(page: String, showConnections: Boolean = true,
@@ -86,9 +87,11 @@ internal data class SubmenuItem(val id: String, val title: String, val accent: C
 @Composable internal fun ConnectedSubmenu(items: List<SubmenuItem>, selectedId: String,
     onSelect: (String) -> Unit, modifier: Modifier = Modifier) {
     val anchors = LocalNavigationAnchors.current
+    val compact = LocalCompactSubmenus.current
     DisposableEffect(anchors) { onDispose { anchors?.children?.clear() } }
-    Column(modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier.fillMaxWidth().padding(horizontal = if (compact) 8.dp else 12.dp,
+        vertical = if (compact) 3.dp else 5.dp),
+        verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 6.dp)) {
         items.chunked(if(items.size in 1..4) items.size else 3).forEach { row ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 row.forEach { item ->
@@ -98,17 +101,19 @@ internal data class SubmenuItem(val id: String, val title: String, val accent: C
                             ?: if (picked) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
                         border = BorderStroke(1.dp, item.accent?.copy(alpha=if(picked) .9f else .55f)
                             ?: if (picked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
-                        modifier = Modifier.weight(1f).height(56.dp).testTag(item.tag ?: "submenu-${item.id}")
+                        modifier = Modifier.weight(1f).height(if (compact) 44.dp else 48.dp)
+                            .testTag(item.tag ?: "submenu-${item.id}")
                             .semantics { selected = picked; role = Role.Tab }
                             .onGloballyPositioned { anchors?.children?.set(item.id, it.boundsInRoot()) }) {
-                        Row(Modifier.padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically,
+                        Row(Modifier.padding(horizontal = 5.dp), verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center) {
                             item.accent?.let { accent ->
                                 androidx.compose.material3.Surface(Modifier.size(8.dp), color = accent,
                                     shape = RoundedCornerShape(50)) {}
                                 Spacer(Modifier.width(5.dp))
                             }
-                            Text(item.title, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center,
+                            Text(item.title, style = if (compact) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelLarge,
+                                textAlign = TextAlign.Center,
                                 maxLines = 2, overflow = TextOverflow.Ellipsis,
                                 color = if (picked) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface)
                         }

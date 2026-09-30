@@ -20,9 +20,12 @@ class LandscapeNavigationTest {
         val app = instrumentation.targetContext.applicationContext as GenesisApplication
         val device = UiDevice.getInstance(instrumentation)
         val preferences = LocalPreferences(app, app.workspaceScope)
-        val original = runBlocking { preferences.values.first().wideNavigationOnLeft }
+        val original = runBlocking { preferences.values.first() }
         try {
-            runBlocking { preferences.set("wideNavigation", "left") }
+            runBlocking {
+                preferences.set("wideNavigation", "left")
+                preferences.set("navigationLabels", "text")
+            }
             device.setOrientationLeft()
             device.waitForIdle()
             compose.waitUntil(10_000) {
@@ -33,8 +36,14 @@ class LandscapeNavigationTest {
             val content = compose.onNodeWithTag("main-content").assertIsDisplayed()
                 .fetchSemanticsNode().boundsInRoot
             assertTrue("Primary menu must be to the left of content", rail.right <= content.left + 1f)
+            val density = compose.activity.resources.displayMetrics.density
+            assertTrue("Compact rail must be at most 132dp", rail.width <= 133f * density)
+            val header = compose.onNodeWithTag("app-header").fetchSemanticsNode().boundsInRoot
+            val account = compose.onNodeWithTag("app-account-status").fetchSemanticsNode().boundsInRoot
+            assertTrue("Landscape account status must share the compact header row",
+                account.top >= header.top && account.bottom <= header.bottom)
             assertTrue(device.takeScreenshot(File(app.cacheDir,
-                "landscape-navigation-left-2.3.8.png")))
+                "landscape-navigation-left-2.3.9.png")))
 
             compose.onNodeWithTag("navigation-Настройки").performScrollTo().performClick()
             compose.waitUntil(5_000) {
@@ -46,9 +55,12 @@ class LandscapeNavigationTest {
             }
             compose.onNodeWithTag("main-navigation-scroll").assertIsDisplayed()
             assertTrue(device.takeScreenshot(File(app.cacheDir,
-                "landscape-navigation-top-2.3.8.png")))
+                "landscape-navigation-top-2.3.9.png")))
         } finally {
-            runBlocking { preferences.set("wideNavigation", if (original) "left" else "top") }
+            runBlocking {
+                preferences.set("wideNavigation", if (original.wideNavigationOnLeft) "left" else "top")
+                preferences.set("navigationLabels", if (original.navigationLabels) "text" else "icons")
+            }
             device.setOrientationNatural()
             device.unfreezeRotation()
         }

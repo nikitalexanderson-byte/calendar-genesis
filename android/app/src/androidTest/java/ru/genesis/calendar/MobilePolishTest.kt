@@ -48,7 +48,7 @@ class MobilePolishTest {
                 date = LocalDate.now().toString(), revision = old?.revision ?: 0))
         }
         try {
-            compose.onNodeWithTag("navigation-Задачи").performScrollTo().performClick()
+            compose.onNodeWithTag("navigation-Задачи").performClick()
             compose.onNodeWithTag("tasks-screen").performScrollToNode(hasTestTag("task-$taskId"))
             val checkbox = compose.onNode(isToggleable() and hasAnyAncestor(hasTestTag("task-$taskId")), useUnmergedTree = true)
             checkbox.assertIsOff().performClick()
@@ -73,7 +73,7 @@ class MobilePolishTest {
 
     @Test fun taskCloseRemainsAtTopRightAfterScrollingAndDoesNotSaveDraft() {
         val draft = "Несохранённая задача полировки"
-        compose.onNodeWithTag("navigation-Задачи").performScrollTo().performClick()
+        compose.onNodeWithTag("navigation-Задачи").performClick()
         compose.onNodeWithTag("create-task").performClick()
         compose.onNodeWithTag("create-task-choice").performClick()
         compose.onNodeWithTag("task-title").performTextInput(draft)
@@ -98,7 +98,7 @@ class MobilePolishTest {
         val projectTitle = "A Проект проверки сворачивания"
         runBlocking { WorkspaceStructureRepository(app).saveProject(
             GenesisProject(projectId, null, null, projectTitle, "Описание раскрытого проекта", emptyList(), "active", 0)) }
-        compose.onNodeWithText("Проекты").performScrollTo().performClick()
+        compose.onNodeWithTag("navigation-Проекты").performClick()
         compose.onNodeWithTag("create-project").performClick()
         compose.onNodeWithTag("project-title").performTextInput("Несохранённый проект полировки")
         UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()

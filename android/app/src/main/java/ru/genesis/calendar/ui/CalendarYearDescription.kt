@@ -1,6 +1,12 @@
 package ru.genesis.calendar.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -9,7 +15,11 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -114,16 +124,47 @@ internal fun CalendarYearDescriptionCard(calendar: GenesisCalendar, shown: Local
                 }
                 if (mode == CalendarMode.SACRED) {
                     Text(paragraphs.last(), style = MaterialTheme.typography.bodyMedium, color = yearCardMuted)
-                    Button(onClick = { detailsOpen = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
-                        .testTag("sacred-year-details-open"),
-                        colors = ButtonDefaults.buttonColors(containerColor = eveningSurface(yearCardGold), contentColor = eveningInk(yearCardBackground))) {
-                        Text("✦  " + copy("Подробнее  →", "Learn more  →"))
-                    }
+                    SacredYearDetailsButton(copy("Подробнее", "Learn more"),
+                        copy("Сакральная геометрия времени", "Sacred geometry of time")) { detailsOpen = true }
                 }
             }
         }
     }
     if (detailsOpen) SacredYearDetailsDialog { detailsOpen = false }
+}
+
+@Composable
+private fun SacredYearDetailsButton(title: String, subtitle: String, onClick: () -> Unit) {
+    val motion = rememberInfiniteTransition(label = "sacred-details-glow")
+    val pulse by motion.animateFloat(initialValue = 0f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1_600), RepeatMode.Reverse), label = "pulse")
+    val shape = RoundedCornerShape(18.dp)
+    Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp)
+        .shadow((5 + pulse * 5).dp, shape).clip(shape)
+        .background(Brush.horizontalGradient(listOf(Color(0xfff1dda4),
+            Color(0xffd1a24e), Color(0xfff1dda4)))).testTag("sacred-year-details-open"),
+        shape = shape, color = Color.Transparent,
+        border = BorderStroke(1.dp, Color.White.copy(alpha = .42f + pulse * .24f))) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            Surface(Modifier.size(34.dp).graphicsLayer {
+                scaleX = .96f + pulse * .08f
+                scaleY = .96f + pulse * .08f
+                rotationZ = pulse * 8f
+            }, shape = RoundedCornerShape(50), color = yearCardBackground) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text("✦", color = Color(0xffffe7ae), style = MaterialTheme.typography.titleMedium)
+                }
+            }
+            Column(Modifier.padding(start = 11.dp).weight(1f)) {
+                Text(title.uppercase(), color = yearCardBackground, style = MaterialTheme.typography.labelLarge)
+                Text(subtitle, color = yearCardBackground.copy(alpha = .76f),
+                    style = MaterialTheme.typography.labelSmall)
+            }
+            Text("→", Modifier.offset(x = (pulse * 3).dp), color = yearCardBackground,
+                style = MaterialTheme.typography.titleLarge)
+        }
+    }
 }
 
 @Composable
