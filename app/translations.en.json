@@ -1421,5 +1421,10 @@
   "Смахивайте содержимое экрана влево или вправо для перехода между разделами.": "Swipe the screen left or right to move between sections.",
   "Включать подменю в общий свайп": "Include submenus in tab swipes",
   "При общем свайпе месяцы и годы переключаются стрелками.": "With tab swipes on, use the arrows to change months and years.",
-  "Переключайте стрелками": "Use the arrows"
+  "Переключайте стрелками": "Use the arrows",
+  "Число показывает, сколько напоминаний добавлено. Для события Google Calendar доступно не более пяти.": "The number shows how many reminders you've added. Google Calendar allows up to five per event.",
+  "За 1 сутки": "1 day before",
+  "За 2 суток": "2 days before",
+  "За 3 суток": "3 days before",
+  "Уведомления привычек": "Habit notifications"
 }

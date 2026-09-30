@@ -317,7 +317,7 @@
   "Лунные месяцы": "Mondmonate",
   "Лунные месяцы и дни": "Mondmonate und -tage",
   "лунные сутки": "Mondtage",
-  "Лунный": "Mond",
+  "Лунный": "Mondkalender",
   "лунный день ·": "Mondtag ·",
   "Лунный день:": "Mondtag:",
   "лунный календарь": "Mondkalender",
@@ -657,7 +657,7 @@
   "Сакральные месяцы": "Heilige Monate",
   "сакральные месяцы и пяты": "heilige Monate und Quintas",
   "Сакральные месяцы, пяты и дни 360-дневного круга.": "Heilige Monate, Quintas und Tage des 360-Tage-Zyklus.",
-  "Сакральный": "Heilig",
+  "Сакральный": "Sakral",
   "Сакральный календарь": "Sakraler Kalender",
   "Сакральный месяц": "Heiliger Monat",
   "Самоограничение": "Selbstbeschränkung",
@@ -2607,5 +2607,10 @@
   "Смахивайте содержимое экрана влево или вправо для перехода между разделами.": "Wischen Sie nach links oder rechts, um zwischen Bereichen zu wechseln.",
   "Включать подменю в общий свайп": "Untermenüs beim Wischen einschließen",
   "При общем свайпе месяцы и годы переключаются стрелками.": "Bei aktivierter Wischsteuerung wechseln Sie Monate und Jahre mit den Pfeilen.",
-  "Переключайте стрелками": "Mit den Pfeilen wechseln"
+  "Переключайте стрелками": "Mit den Pfeilen wechseln",
+  "Число показывает, сколько напоминаний добавлено. Для события Google Calendar доступно не более пяти.": "Die Zahl zeigt, wie viele Erinnerungen hinzugefügt wurden. Google Kalender erlaubt bis zu fünf pro Termin.",
+  "За 1 сутки": "1 Tag vorher",
+  "За 2 суток": "2 Tage vorher",
+  "За 3 суток": "3 Tage vorher",
+  "Уведомления привычек": "Gewohnheitsbenachrichtigungen"
 }

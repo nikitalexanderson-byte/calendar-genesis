@@ -1,18 +1,24 @@
 package ru.genesis.calendar.ui
 
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material3.FilterChip
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import ru.genesis.calendar.GenesisApplication
 import ru.genesis.calendar.data.UiPreferences
@@ -25,7 +31,7 @@ internal fun MoonReminderSettings(app: GenesisApplication, prefs: UiPreferences,
         MoonReminderScheduler.restore(app)
     }
     SettingsSection("☾", "Лунные напоминания", "Отдельное напоминание о каждой фазе",
-        Color(0xffe7e9f3)) {
+        Color(0xffe7e9f3), modifier = Modifier.testTag("moon-reminder-settings")) {
         Text("Полнолуние", style = MaterialTheme.typography.titleSmall)
         MoonLeadChoices("full", prefs.fullMoonLeadDays) { onSetLocal("fullMoonLeadDays", it.toString()) }
         Text("Новолуние", style = MaterialTheme.typography.titleSmall)
@@ -37,12 +43,24 @@ internal fun MoonReminderSettings(app: GenesisApplication, prefs: UiPreferences,
 
 @Composable
 private fun MoonLeadChoices(kind: String, selected: Int, onSelect: (Int) -> Unit) {
-    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         (0..3).forEach { days ->
-            FilterChip(selected = selected == days, onClick = { onSelect(days) },
-                label = { Text(if (days == 0) "Выключено" else "За $days ${if (days == 1) "сутки" else "суток"}") },
-                modifier = Modifier.heightIn(min = 48.dp).testTag("moon-$kind-lead-$days"))
+            val active = selected == days
+            Surface(onClick = { onSelect(days) },
+                modifier = Modifier.weight(1f).height(48.dp).testTag("moon-$kind-lead-$days")
+                    .semantics { this.selected = active },
+                shape = RoundedCornerShape(12.dp),
+                color = if (active) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+                Box(Modifier.fillMaxSize().padding(horizontal = 2.dp), contentAlignment = Alignment.Center) {
+                    CompactChoiceLabel(when (days) {
+                        0 -> "Выключено"
+                        1 -> "За 1 сутки"
+                        2 -> "За 2 суток"
+                        else -> "За 3 суток"
+                    })
+                }
+            }
         }
     }
 }

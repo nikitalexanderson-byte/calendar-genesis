@@ -1,6 +1,7 @@
 package ru.genesis.calendar.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -1095,21 +1096,22 @@ private fun CalendarYearMonthCard(calendar: GenesisCalendar, start: LocalDate, m
 private fun SolarPointTile(event: SolarEvent, calendar: GenesisCalendar,
     onMonth: (LocalDate) -> Unit, modifier: Modifier = Modifier) {
     val locale = Locale.forLanguageTag(LocalGenesisLanguage.current)
-    Surface(onClick = { onMonth(event.date) }, modifier = modifier.heightIn(min = 126.dp)
+    val tileHeight = (148f * maxOf(1f, LocalDensity.current.fontScale)).dp
+    Surface(onClick = { onMonth(event.date) }, modifier = modifier.height(tileHeight)
         .testTag("solar-point-${event.date}"), shape = MaterialTheme.shapes.medium,
         color = Color(0xfff5ecd6), border = BorderStroke(1.dp, Color(0xffd7bd79))) {
-        Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(9.dp),
-            verticalAlignment = Alignment.Top) {
+        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(event.symbol, style = MaterialTheme.typography.titleLarge, color = Color(0xff8b6727))
-            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(event.shortName, style = MaterialTheme.typography.labelMedium, color = Color(0xff715923))
-                Text(event.date.dayOfWeek.getDisplayName(TextStyle.FULL, locale),
-                    style = MaterialTheme.typography.bodySmall)
-                Text(event.date.format(DateTimeFormatter.ofPattern("d MMMM yyyy", locale)),
-                    style = MaterialTheme.typography.titleSmall)
-                Text(event.instant.atZone(calendar.zoneId).format(DateTimeFormatter.ofPattern("HH:mm z", locale)),
-                    style = MaterialTheme.typography.labelSmall, color = Color(0xff715923))
-            }
+            androidx.compose.foundation.text.BasicText(genesisTranslate(event.shortName),
+                style = MaterialTheme.typography.labelMedium.copy(color = Color(0xff715923)),
+                maxLines = 1, softWrap = false,
+                autoSize = TextAutoSize.StepBased(minFontSize = 9.sp, maxFontSize = 12.sp))
+            Text(event.date.dayOfWeek.getDisplayName(TextStyle.FULL, locale),
+                style = MaterialTheme.typography.bodySmall)
+            Text(event.date.format(DateTimeFormatter.ofPattern("d MMMM yyyy", locale)),
+                style = MaterialTheme.typography.titleSmall)
+            Text(event.instant.atZone(calendar.zoneId).format(DateTimeFormatter.ofPattern("HH:mm z", locale)),
+                style = MaterialTheme.typography.labelSmall, color = Color(0xff715923))
         }
     }
 }

@@ -171,8 +171,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     val portraitAutoScroll = !isLandscape && prefs.navigationLabels && prefs.navigationAutoScroll
     val portraitMenuSwipe = !isLandscape && prefs.menuSwipeEnabled
     val menuSwipeModifier = rememberMenuSwipeModifier(portraitMenuSwipe) { step ->
-        val sequence = menuSwipeSequence(prefs.menuSwipeSubmenus, habitTrackingEnabled,
-            structure.categories.sortedBy { it.position }.map { it.id })
+        val sequence = menuSwipeSequence(prefs.menuSwipeSubmenus, habitTrackingEnabled)
         val destination = nextMenuSwipeDestination(sequence, tab,
             if (prefs.menuSwipeSubmenus) menuSwipeState.section(tab) else null, step)
         if (destination != null) {
@@ -763,6 +762,9 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                     color=MaterialTheme.colorScheme.onSurfaceVariant)
                 val occurrenceCount = if(googleTaskBacked) 1 else TaskRecurrenceEditor(recurrence,date,prefs.input) { recurrence=it;validation=null }
                 Text("Напомнить · ${reminders.size}/5",style=MaterialTheme.typography.titleMedium)
+                Text("Число показывает, сколько напоминаний добавлено. Для события Google Calendar доступно не более пяти.",
+                    style=MaterialTheme.typography.bodySmall,
+                    color=MaterialTheme.colorScheme.onSurfaceVariant)
                 if(googleTaskBacked) Text("Для задачи из списка Google Tasks напоминания здесь недоступны; они поддерживаются для событий Google Calendar.",
                     style=MaterialTheme.typography.bodySmall)
                 if(reminders.isEmpty()) Text("Без напоминания",style=MaterialTheme.typography.bodySmall)
@@ -1047,19 +1049,19 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
                             contentColor = MaterialTheme.colorScheme.onSurface),
                         border = BorderStroke(1.dp, accent.copy(alpha = .82f)),
                         contentPadding = PaddingValues(horizontal = 3.dp, vertical = 7.dp)) {
-                        Text(label, style = MaterialTheme.typography.labelSmall, maxLines = 2,
-                            textAlign = TextAlign.Center, softWrap = true)
+                        CompactChoiceLabel(label)
                     }
                 }
             }
             listOf("display" to "Календарь отображения","input" to "Календарь ввода и повторений").forEach{(key,label)->
                 Text(label, style = MaterialTheme.typography.titleSmall)
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                Row(Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)) { CalendarMode.entries.forEach { mode->
                     FilterChip(selected=(if(key=="display") prefs.display else prefs.input)==mode,onClick={onSet(key,mode.wireValue)},
                         enabled=!sharedBusy,
-                        modifier = Modifier.testTag("$key-calendar-${mode.wireValue}"),
-                        label={Text(when(mode){CalendarMode.SACRED->"Сакральный";CalendarMode.LUNAR->"Лунный";else->"Григорианский"})})
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                            .testTag("$key-calendar-${mode.wireValue}"),
+                        label={CompactChoiceLabel(when(mode){CalendarMode.SACRED->"Сакральный";CalendarMode.LUNAR->"Лунный";else->"Григорианский"})})
                 } }
             }
             AnimatedVisibility(prefs.display == CalendarMode.PROFANE) {

@@ -317,7 +317,7 @@
   "Лунные месяцы": "Meses lunares",
   "Лунные месяцы и дни": "Meses y días lunares.",
   "лунные сутки": "dias lunares",
-  "Лунный": "luna",
+  "Лунный": "Lunar",
   "лунный день ·": "día lunar ·",
   "Лунный день:": "Día lunar:",
   "лунный календарь": "calendario lunar",
@@ -1242,7 +1242,7 @@
   "Привычки": "Hábitos",
   "Привычки GENESIS": "GENESIS Hábitos",
   "Фоновый": "Antecedentes",
-  "Спокойный": "gentil",
+  "Спокойный": "Tranquilo",
   "Важный": "importante",
   "Ключевой": "Esencial",
   "Дата создания · изменить нельзя": "Fecha de creación · no se puede cambiar",
@@ -2463,7 +2463,7 @@
   "Уведомления включены": "Las notificaciones están habilitadas.",
   "Уведомления отключены": "Las notificaciones están deshabilitadas",
   "Поведение уведомлений": "Tono de notificación",
-  "Героический": "heroico",
+  "Героический": "Heroico",
   "С иронией": "irónico",
   "При выборе стиля сразу появится тестовое уведомление с примером формулировки.": "Al elegir un tono, se muestra inmediatamente una notificación de prueba con un mensaje de muestra.",
   "Android не разрешил показать пример уведомления.": "Android no permitía mostrar la vista previa de notificaciones.",
@@ -2607,5 +2607,10 @@
   "Смахивайте содержимое экрана влево или вправо для перехода между разделами.": "Desliza la pantalla a la izquierda o derecha para cambiar de sección.",
   "Включать подменю в общий свайп": "Incluir submenús al deslizar",
   "При общем свайпе месяцы и годы переключаются стрелками.": "Al deslizar entre pestañas, cambia los meses y años con las flechas.",
-  "Переключайте стрелками": "Usa las flechas"
+  "Переключайте стрелками": "Usa las flechas",
+  "Число показывает, сколько напоминаний добавлено. Для события Google Calendar доступно не более пяти.": "El número indica cuántos recordatorios has añadido. Google Calendar permite hasta cinco por evento.",
+  "За 1 сутки": "1 día antes",
+  "За 2 суток": "2 días antes",
+  "За 3 суток": "3 días antes",
+  "Уведомления привычек": "Avisos de hábitos"
 }

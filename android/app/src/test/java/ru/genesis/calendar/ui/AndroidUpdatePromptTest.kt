@@ -6,9 +6,9 @@ import org.junit.Test
 
 class AndroidUpdatePromptTest {
     @Test fun offersOnlyNewerWellFormedReleases() {
-        val body = """{"versionCode":47,"versionName":"2.4.1"}"""
-        assertEquals(AndroidRelease(47, "2.4.1"), newerAndroidRelease(body, 46))
-        assertNull(newerAndroidRelease(body, 47))
-        assertNull(newerAndroidRelease("""{"versionCode":48,"versionName":"../unsafe"}""", 47))
+        val body = """{"versionCode":48,"versionName":"2.4.2"}"""
+        assertEquals(AndroidRelease(48, "2.4.2"), newerAndroidRelease(body, 47))
+        assertNull(newerAndroidRelease(body, 48))
+        assertNull(newerAndroidRelease("""{"versionCode":49,"versionName":"../unsafe"}""", 48))
     }
 }

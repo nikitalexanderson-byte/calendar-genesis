@@ -19,6 +19,15 @@ for (const language of languages) {
   for (const [key, value] of Object.entries(catalog)) {
     const wrongScript = !["sr", "uk"].includes(language) && /[А-Яа-яЁё]/u.test(value);
     if (typeof value !== "string" || !value.trim() || wrongScript || /GENESISS/u.test(value)) missing.push(`${language}: invalid ${key}`);
+    if (language === "tr" && key.length < 30 && value.length > Math.max(40, key.length * 3))
+      missing.push(`${language}: suspiciously repeated short label ${key}`);
+  }
+  for (const key of ["Григорианский", "Сакральный", "Лунный", "Равноденствие", "Солнцестояние",
+    "Спокойный", "Героический", "С иронией", "Уведомления привычек",
+    "Число показывает, сколько напоминаний добавлено. Для события Google Calendar доступно не более пяти.",
+    "За 1 сутки", "За 2 суток", "За 3 суток"]) {
+    if (!catalog[key] || (language === "ja" && catalog[key] === "ログイン"))
+      missing.push(`${language}: invalid calendar or reminder label ${key}`);
   }
   for (const key of welcomeParagraphs) {
     if (!catalog[key]) missing.push(`${language}: missing exact welcome paragraph`);

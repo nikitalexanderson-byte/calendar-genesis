@@ -103,7 +103,7 @@ internal fun HabitSettingsPanel(app: GenesisApplication, use24: Boolean) {
                 color = if (settings.notifications.enabled && notificationsAllowed) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.onSurfaceVariant)
             Text("Поведение уведомлений", style = MaterialTheme.typography.titleSmall)
-            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            Row(Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 listOf("calm" to "Спокойный", "heroic" to "Героический", "ironic" to "С иронией").forEach { (value, label) ->
                     FilterChip(selected = settings.notifications.tone == value,
@@ -114,7 +114,7 @@ internal fun HabitSettingsPanel(app: GenesisApplication, use24: Boolean) {
                             }
                         },
                         enabled = notificationsAllowed && !busy,
-                        label = { Text(label) }, modifier = Modifier.heightIn(min = 48.dp)
+                        label = { CompactChoiceLabel(label) }, modifier = Modifier.weight(1f).heightIn(min = 48.dp)
                             .testTag("habit-notification-tone-$value"))
                 }
             }
