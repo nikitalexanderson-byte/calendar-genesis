@@ -2587,6 +2587,7 @@
   "Доступна новая версия GENESIS": "GENESIS’in yeni bir sürümü mevcut",
   "Не удалось скачать обновление. Проверьте соединение и попробуйте снова.": "Güncelleme indirilemedi. Bağlantınızı kontrol edip yeniden deneyin.",
   "Обновление скачано. Установите его через системный установщик Android.": "Güncelleme indirildi. Android sistem yükleyicisiyle yükleyin.",
+  "Не удалось открыть установщик Android. Попробуйте ещё раз.": "Android yükleyicisi açılamadı. Lütfen tekrar deneyin.",
   "Скачиваем обновление…": "Güncelleme indiriliyor…",
   "После синхронизации доступно обновление приложения. Скачайте его прямо здесь.": "Eşitlemeden sonra bir uygulama güncellemesi mevcut. Buradan indirin.",
   "Обновление приложения": "Uygulama güncellemesi",

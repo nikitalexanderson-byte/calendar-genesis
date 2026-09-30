@@ -33,6 +33,16 @@
         android:theme="@style/Theme.Genesis.Launcher"
         android:usesCleartextTraffic="false">
 
+        <provider
+            android:name=".ui.GenesisUpdateFileProvider"
+            android:authorities="${applicationId}.updates"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/android_update_paths" />
+        </provider>
+
         <activity
             android:name=".MainActivity"
             android:configChanges="orientation|screenSize|smallestScreenSize"

@@ -1401,6 +1401,7 @@
   "Доступна новая версия GENESIS": "A new version of GENESIS is available",
   "Не удалось скачать обновление. Проверьте соединение и попробуйте снова.": "Could not download the update. Check your connection and try again.",
   "Обновление скачано. Установите его через системный установщик Android.": "Update downloaded. Install it with the Android system installer.",
+  "Не удалось открыть установщик Android. Попробуйте ещё раз.": "Could not open the Android installer. Try again.",
   "Скачиваем обновление…": "Downloading update…",
   "После синхронизации доступно обновление приложения. Скачайте его прямо здесь.": "An app update is available after syncing. Download it here.",
   "Обновление приложения": "App update",
