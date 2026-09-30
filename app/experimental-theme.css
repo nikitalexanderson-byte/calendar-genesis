@@ -61,6 +61,24 @@ html[data-genesis-theme^="experimental"] {
   --gx-row-pad: 16px;
 }
 
+html[data-genesis-theme^="experimental"] .solar-place-search,
+html[data-genesis-theme^="experimental"] .solar-place-results {
+  display: grid;
+  gap: 8px;
+}
+
+html[data-genesis-theme^="experimental"] .solar-place-search input,
+html[data-genesis-theme^="experimental"] .solar-place-results button {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--gx-color-border);
+  border-radius: 12px;
+  background: var(--gx-color-surface);
+  color: var(--gx-color-ink);
+  padding: 8px 12px;
+  text-align: start;
+}
+
 /* The dark palette is available only inside the account-selected Experimental theme. */
 html[data-genesis-theme="experimental-dark"] {
   color-scheme: dark;

@@ -14,6 +14,18 @@ type WelcomeScreenProps = {
 };
 
 const APP_BASE = (process.env.NEXT_PUBLIC_GENESIS_BASE_PATH?.trim() || "").replace(/\/$/, "");
+const FLAG_COUNTRIES: Record<Language, string> = {
+  ru: "ru", en: "gb", el: "gr", de: "de", fr: "fr", es: "es", it: "it", pt: "pt",
+  pl: "pl", sr: "rs", uk: "ua", zh: "cn", tr: "tr", ja: "jp",
+};
+const WELCOME_TITLES: Partial<Record<Language, string>> = {
+  el: "Ημερολόγιο εργασιών και έργων", de: "Aufgaben- und Projektkalender",
+  fr: "Calendrier des tâches et des projets", es: "Calendario de tareas y proyectos",
+  it: "Calendario di attività e progetti", pt: "Calendário de tarefas e projetos",
+  pl: "Kalendarz zadań i projektów", sr: "Календар задатака и пројеката",
+  uk: "Календар завдань і проєктів", zh: "任务与项目日历",
+  tr: "Görev ve Proje Takvimi", ja: "タスクとプロジェクトのカレンダー",
+};
 
 export function WelcomeScreen({ nativeAndroidApkUrl, busy, error, language, onLanguageChange, onGoogle }: WelcomeScreenProps) {
   const copy = language === "en" ? {
@@ -35,14 +47,14 @@ export function WelcomeScreen({ nativeAndroidApkUrl, busy, error, language, onLa
     privateSpace: "PRIVATE WORKSPACE",
     signInTitle: "Sign in to GENESIS",
     signInDescription: "You will be redirected to the official Google page. During sign-in, GENESIS receives only basic profile information. Calendar and Tasks access is requested separately, in context, and only when you choose to connect it.",
-    chooseLanguage: "Choose language",
+    chooseLanguage: "Choose a language",
     languageGroup: "Registration and interface language",
     russian: "Russian",
     googleLabel: "Sign in with Google",
     secureSignIn: "Secure Google sign-in",
     passwordNote: "GENESIS never asks for your Google password. Authentication takes place only on the secure accounts.google.com page.",
     downloadNative: "Native Android app",
-    downloadNativeNote: "GENESIS 2.3.12 · native APK",
+    downloadNativeNote: "GENESIS 2.4.0 · native APK",
     androidMigration: "Replacing the old TWA? Its signing key is different: uninstall the TWA before installing this app. Unsynced local TWA data will be lost; your website and Google data will return after sign-in.",
     androidInstallCaution: "On some devices Play Protect may block a direct APK download until the developer is verified. Do not disable Play Protect. The previous TWA cannot be updated in place with this differently signed app.",
     agreement: <>By continuing, you accept the <a href="/terms">Terms of Service</a> and acknowledge the <a href="/privacy">Privacy Policy</a>.</>,
@@ -66,14 +78,14 @@ export function WelcomeScreen({ nativeAndroidApkUrl, busy, error, language, onLa
     privateSpace: "ЛИЧНОЕ ПРОСТРАНСТВО",
     signInTitle: "Войти в GENESIS",
     signInDescription: "Для входа вы будете перенаправлены на официальную страницу Google. На этапе входа GENESIS получает только основные данные профиля. Доступ к Calendar и Tasks запрашивается отдельно, в понятном контексте и только по вашему действию.",
-    chooseLanguage: "Выберите язык",
+    chooseLanguage: "Выбор языка",
     languageGroup: "Язык регистрации и интерфейса",
     russian: "Русский",
     googleLabel: "Войти через Google",
     secureSignIn: "Безопасный вход через Google",
     passwordNote: "GENESIS никогда не запрашивает пароль от Google. Авторизация выполняется только на защищённой странице accounts.google.com.",
     downloadNative: "Нативное Android-приложение",
-    downloadNativeNote: "GENESIS 2.3.12 · нативный APK",
+    downloadNativeNote: "GENESIS 2.4.0 · нативный APK",
     androidMigration: "Заменяете старую TWA? У неё другая подпись: перед установкой удалите TWA. Несинхронизированные локальные данные TWA будут потеряны; данные сайта и Google вернутся после входа.",
     androidInstallCaution: "На некоторых устройствах Play Защита может блокировать APK, загруженный напрямую, до проверки разработчика. Не отключайте Play Защиту. Прежняя TWA не обновится этим приложением из-за другой подписи.",
     agreement: <>Продолжая, вы принимаете <a href="/terms">пользовательское соглашение</a> и подтверждаете ознакомление с <a href="/privacy">политикой конфиденциальности</a>.</>,
@@ -99,7 +111,7 @@ export function WelcomeScreen({ nativeAndroidApkUrl, busy, error, language, onLa
       <section className="welcome-grid">
         <div className="welcome-copy">
           <span className="welcome-kicker">{copy.kicker}</span>
-          <h1><span>GENESIS</span><em>{copy.title}</em></h1>
+          <h1><span>GENESIS</span><em data-no-translate>{WELCOME_TITLES[language] ?? copy.title}</em></h1>
           <p className="welcome-purpose">{copy.purpose}</p>
           <section className="google-data-purpose" aria-labelledby="google-purpose-title">
             <h2 id="google-purpose-title">{copy.googlePurposeTitle}</h2>
@@ -129,12 +141,14 @@ export function WelcomeScreen({ nativeAndroidApkUrl, busy, error, language, onLa
 
           <div className="welcome-language-picker">
             <span>{copy.chooseLanguage}</span>
-            <div className="language-choice" role="radiogroup" aria-label={copy.languageGroup}>
+            <div className="language-choice welcome-language-flags" role="radiogroup" aria-label={copy.languageGroup}>
               {LANGUAGES.map((code) => (
                 <button key={code} type="button" role="radio" aria-checked={language === code}
-                  className={language === code ? "active" : ""} onClick={() => onLanguageChange(code)} data-no-translate>
-                  <span className="language-flag" aria-hidden="true">{LANGUAGE_LABELS[code].flag}</span>
-                  <strong>{LANGUAGE_LABELS[code].name}</strong>
+                  className={language === code ? "active" : ""} onClick={() => onLanguageChange(code)}
+                  aria-label={LANGUAGE_LABELS[code].name} title={LANGUAGE_LABELS[code].name} data-no-translate>
+                  <span className="language-flag" aria-hidden="true">
+                    <img src={`${APP_BASE}/language-flags/${FLAG_COUNTRIES[code]}.svg`} alt="" />
+                  </span>
                 </button>
               ))}
             </div>
@@ -146,7 +160,7 @@ export function WelcomeScreen({ nativeAndroidApkUrl, busy, error, language, onLa
 
           {nativeAndroidApkUrl ? (
             <>
-              <a className="android-download-button android-native-download-button" href={nativeAndroidApkUrl} download="GENESIS-Android-Native-2.3.12.apk">
+              <a className="android-download-button android-native-download-button" href={nativeAndroidApkUrl} download="GENESIS-Android-Native-2.4.0.apk">
                 <span className="android-download-mark" aria-hidden="true"><svg className="ux-android-robot" viewBox="0 0 24 24" fill="none"><path d="M5.5 9h13v8.5a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2V9ZM5.5 9a6.5 6.5 0 0 1 13 0M4 11v5M20 11v5M9 19.5V22M15 19.5V22M7 3 5.5 1M17 3 18.5 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><circle cx="9.3" cy="7" r=".8" fill="currentColor"/><circle cx="14.7" cy="7" r=".8" fill="currentColor"/></svg></span>
                 <span><strong>{copy.downloadNative}</strong><small>{copy.downloadNativeNote}</small></span>
               </a>

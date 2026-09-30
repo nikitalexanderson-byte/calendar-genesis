@@ -9,14 +9,27 @@ import frenchTranslations from "./translations.fr.json";
 import spanishTranslations from "./translations.es.json";
 import italianTranslations from "./translations.it.json";
 import portugueseTranslations from "./translations.pt.json";
+import polishTranslations from "./translations.pl.json";
+import serbianTranslationsA from "./translations.sr.a.json";
+import serbianTranslationsB from "./translations.sr.b.json";
+import ukrainianTranslationsA from "./translations.uk.a.json";
+import ukrainianTranslationsB from "./translations.uk.b.json";
+import chineseTranslations from "./translations.zh.json";
+import turkishTranslations from "./translations.tr.json";
+import japaneseTranslations from "./translations.ja.json";
+import { languageForRegion, REGION_LANGUAGES, type RegionLanguage } from "./region-language";
 
-export const LANGUAGES = ["ru", "en", "el", "de", "fr", "es", "it", "pt"] as const;
-export type Language = (typeof LANGUAGES)[number];
+export const LANGUAGES = REGION_LANGUAGES;
+export type Language = RegionLanguage;
 export const LANGUAGE_LABELS: Record<Language, { name: string; flag: string }> = {
   ru: { name: "Русский", flag: "🇷🇺" }, en: { name: "English", flag: "🇬🇧" },
   el: { name: "Ελληνικά", flag: "🇬🇷" }, de: { name: "Deutsch", flag: "🇩🇪" },
   fr: { name: "Français", flag: "🇫🇷" }, es: { name: "Español", flag: "🇪🇸" },
   it: { name: "Italiano", flag: "🇮🇹" }, pt: { name: "Português", flag: "🇵🇹" },
+  pl: { name: "Polski", flag: "🇵🇱" }, sr: { name: "Српски", flag: "🇷🇸" },
+  uk: { name: "Українська", flag: "🇺🇦" },
+  zh: { name: "简体中文", flag: "🇨🇳" }, tr: { name: "Türkçe", flag: "🇹🇷" },
+  ja: { name: "日本語", flag: "🇯🇵" },
 };
 
 export const LANGUAGE_STORAGE_KEY = "genesis-language-v1";
@@ -34,6 +47,12 @@ const PAGE_TITLES: Record<Language, string> = {
   es: "GENESIS — Calendario de tareas y gestión de proyectos",
   it: "GENESIS — Calendario delle attività e gestione progetti",
   pt: "GENESIS — Calendário de tarefas e gestão de projetos",
+  pl: "GENESIS — Kalendarz zadań i zarządzanie projektami",
+  sr: "GENESIS — Календар задатака и управљање пројектима",
+  uk: "GENESIS — Календар завдань і керування проєктами",
+  zh: "GENESIS — 任务日历与项目管理",
+  tr: "GENESIS — Görev Takvimi ve Proje Yönetimi",
+  ja: "GENESIS — タスクカレンダーとプロジェクト管理",
 };
 const APP_BASE = (process.env.NEXT_PUBLIC_GENESIS_BASE_PATH?.trim() || "").replace(/\/$/, "");
 
@@ -225,6 +244,47 @@ const curatedTranslations: Record<string, string> = {
   "Пятница": "Friday",
   "Суббота": "Saturday",
   "Клик по дню открывает задачи, сакральное значение, фазу Луны, точное время рассвета и заката для региона устройства.": "Select a day to open its tasks, sacred meaning, Moon phase, and regional sunrise and sunset times.",
+  "Выбор языка": "Choose a language",
+  "Админ-панель": "Admin panel",
+  "Закрыть админ-панель": "Close admin panel",
+  "Не удалось загрузить данные": "Could not load data",
+  "Пользователей:": "Users:",
+  "Задач:": "Tasks:",
+  "Проектов:": "Projects:",
+  "Загрузок Android:": "Android downloads:",
+  "Устройств с отчётом:": "Reporting devices:",
+  "Скачиваний:": "Downloads:",
+  "Устройств:": "Devices:",
+  "Удалить пользователя": "Delete user",
+  "Удалить пользователя?": "Delete user?",
+  "Данные пользователя будут удалены без возможности восстановления.": "The user's data will be deleted permanently.",
+  "Заблокировать повторный вход": "Block future sign-in",
+  "Не удалось удалить пользователя": "Could not delete user",
+  "Место для восхода и заката": "Sunrise and sunset location",
+  "Страна и город определяют координаты и местное время": "Country and city determine coordinates and local time",
+  "Город не выбран. Время с символом ≈ рассчитано приблизительно по часовому поясу.": "No city selected. Times marked ≈ are approximate estimates based on the time zone.",
+  "Город, страна": "City, country",
+  "Город не найден. Уточните название и страну.": "City not found. Specify the city and country.",
+  "Не удалось найти город. Проверьте подключение.": "Could not find the city. Check your connection.",
+  "Ищем…": "Searching…",
+  "Найти город": "Find city",
+  "Сбросить выбор города": "Reset city selection",
+  "Рассвет и закат ·": "Sunrise and sunset ·",
+  "время выбранного города": "selected city's local time",
+  "время устройства": "device time",
+  "Координаты выбранного города": "Selected city's coordinates",
+  "координаты выбранного города": "selected city's coordinates",
+  "Приблизительный расчёт по часовому поясу устройства": "Approximate estimate based on the device time zone",
+  "приблизительный расчёт для региона устройства": "approximate estimate for the device region",
+  "Восход и закат": "Sunrise and sunset",
+  "Местоположение": "Location",
+  "Выберите страну и город. Время будет рассчитано для его координат и местного часового пояса.": "Choose a country and city. Times are calculated for its coordinates and local time zone.",
+  "Выбрано:": "Selected:",
+  "Город не выбран: время с символом ≈ приблизительно.": "No city selected: times marked ≈ are approximate.",
+  "Найденные города": "Found cities",
+  "Сбросить город": "Reset city",
+  "Календар задатака и пројеката": "Task and project calendar",
+  "Календар завдань і проєктів": "Task and project calendar",
 };
 
 const englishCatalog: Record<string, string> = {
@@ -235,6 +295,9 @@ const englishCatalog: Record<string, string> = {
 const catalogs: Record<Exclude<Language, "ru">, Record<string, string>> = {
   en: englishCatalog, el: { ...greekTranslationsA, ...greekTranslationsB }, de: germanTranslations,
   fr: frenchTranslations, es: spanishTranslations, it: italianTranslations, pt: portugueseTranslations,
+  pl: polishTranslations, sr: { ...serbianTranslationsA, ...serbianTranslationsB },
+  uk: { ...ukrainianTranslationsA, ...ukrainianTranslationsB },
+  zh: chineseTranslations, tr: turkishTranslations, ja: japaneseTranslations,
 };
 const englishToRussian = new Map(Object.entries(englishCatalog).map(([ru, en]) => [en, ru]));
 const partialTranslations = Object.fromEntries(Object.entries(catalogs).map(([language, catalog]) => [
@@ -281,11 +344,11 @@ export function browserLanguage(): Language {
   if (requested && (LANGUAGES as readonly string[]).includes(requested)) return requested as Language;
   const stored = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
   if (stored && (LANGUAGES as readonly string[]).includes(stored)) return stored as Language;
-  for (const locale of window.navigator.languages) {
-    const code = locale.toLowerCase().split("-")[0];
-    if ((LANGUAGES as readonly string[]).includes(code)) return code as Language;
-  }
-  return "en";
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const country = window.navigator.languages
+    .map((locale) => locale.split("-").at(-1))
+    .find((region) => region?.length === 2);
+  return languageForRegion(timeZone, country);
 }
 
 export function storeLanguage(language: Language) {
@@ -307,7 +370,7 @@ export function localizeCategoryName(category: { id: string; name: string }, lan
 }
 
 export function runtimeLocale() {
-  return ({ ru: "ru-RU", en: "en-US", el: "el-GR", de: "de-DE", fr: "fr-FR", es: "es-ES", it: "it-IT", pt: "pt-PT" })[runtimeLanguage];
+  return ({ ru: "ru-RU", en: "en-US", el: "el-GR", de: "de-DE", fr: "fr-FR", es: "es-ES", it: "it-IT", pt: "pt-PT", pl: "pl-PL", sr: "sr-RS", uk: "uk-UA", zh: "zh-CN", tr: "tr-TR", ja: "ja-JP" })[runtimeLanguage];
 }
 
 export function translateText(source: string, language: Language = runtimeLanguage, allowPartial = false) {

@@ -5726,6 +5726,10 @@ html[data-language="en"] .inbox-card.drop-target::after {
 .welcome-language-picker > span { color: #657371; font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .welcome-language-picker .language-choice button { min-height: 44px; background: rgba(255,255,255,.72); }
 .welcome-language-picker .language-choice button.active { background: linear-gradient(135deg, #1d514d, #2e7770); }
+.welcome-language-picker .welcome-language-flags { grid-template-columns: repeat(auto-fit, minmax(42px, 1fr)); }
+.welcome-language-picker .welcome-language-flags button { min-width: 42px; padding: 6px; font-size: 24px; }
+.welcome-language-picker .welcome-language-flags .language-flag { display: grid; place-items: center; }
+.welcome-language-picker .welcome-language-flags .language-flag img { display: block; width: 28px; height: 21px; object-fit: cover; border-radius: 2px; box-shadow: 0 0 0 1px rgba(25, 40, 42, .15); }
 
 .google-login-primary {
   display: flex;

@@ -112,7 +112,8 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     val habitWorkspace by habitSettingsRepository.workspace.collectAsStateWithLifecycle(LocalHabitWorkspace())
     val habitTrackingEnabled = habitWorkspace.settings.enabled
     val welcomePrefsStore=remember(app) { LocalPreferences(app,"welcome") }
-    val welcomePrefs by welcomePrefsStore.values.collectAsStateWithLifecycle(UiPreferences())
+    val welcomePrefs by welcomePrefsStore.values.collectAsStateWithLifecycle(
+        UiPreferences(language = regionalLanguageForDevice()))
     val authController = remember(app) { ru.genesis.calendar.auth.AuthController.get(app) }
     val authState by authController.state.collectAsStateWithLifecycle()
     val taskSync by authController.taskSync.collectAsStateWithLifecycle()
@@ -135,7 +136,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
             if (remote.weekStart in setOf("sunday", "monday")) prefsStore.setRemote("weekStart", remote.weekStart)
             if (remote.gregorianYearStart in setOf("january", "march"))
                 prefsStore.setRemote("gregorianYearStart", remote.gregorianYearStart)
-            if (remote.language in setOf("ru", "en", "el", "de", "fr", "es", "it", "pt")) prefsStore.setRemote("language", remote.language)
+            if (remote.language in setOf("ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja")) prefsStore.setRemote("language", remote.language)
             prefsStore.setRemote("stoicheionDivinationDisabled", remote.divinationDisabled.toString())
         }
     }
@@ -258,6 +259,10 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         }; editId=null; creating=true }, onCreateList={creatingTaskList=true},
                         onComplete=model::complete,onOpen={editId=it;creating=false})
                     "Настройки" -> SettingsScreen(app, prefs, authState.busy && !testWorkspace,
+                        canOpenAdmin = !testWorkspace && authState.ready && !authState.requiresSignIn &&
+                            authState.user != null && authState.accountSettings?.isAdmin == true,
+                        adminLoad = authController::adminStats,
+                        adminDelete = authController::deleteAdminUser,
                         onSet = { name, value ->
                             if (!testWorkspace && authState.user != null) authController.updateSharedPreference(name, value)
                             else scope.launch { prefsStore.set(name, value) }
@@ -888,9 +893,12 @@ internal fun ProjectHierarchyPicker(projects: List<GenesisProject>, selectedId: 
 
 @Composable
 private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy:Boolean,
+    canOpenAdmin: Boolean, adminLoad: suspend () -> JSONObject,
+    adminDelete: suspend (String, Boolean) -> JSONObject,
     onSet:(String,String)->Unit, onSetLocal:(String,String)->Unit) {
     var refresh by remember { mutableIntStateOf(0) }
     var calendarReference by rememberSaveable { mutableStateOf<String?>(null) }
+    var adminOpen by rememberSaveable { mutableStateOf(false) }
     val request=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()){refresh++}
     val scope=rememberCoroutineScope()
     val habits = remember(app, app.workspaceScope) { HabitsRepository(app) }
@@ -910,6 +918,7 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
             else "Календарь, время, приватность и напоминания", "⚙")
         AppearancePanel(app, workspace, prefs.use24)
         SeasonRegionSettings(prefs, onSetLocal)
+        SolarPlaceSettings()
         SettingsSection("☷", "Отображение меню", "Кнопки телефона, альбомного режима и планшета",
             Color(0xffe9ede5)) {
             Text("Кнопки меню первого уровня", style = MaterialTheme.typography.titleSmall)
@@ -1125,6 +1134,10 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
         SettingsSection("G", "Аккаунт GENESIS", "Вход, синхронизация и связанные Google-аккаунты",
             Color(0xfff4e8df)) {
             ru.genesis.calendar.auth.AuthPanel(app, prefs.language) { onSet("language", it) }
+            if (canOpenAdmin) OutlinedButton(onClick = { adminOpen = true },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("open-native-admin")) {
+                Text("Админ-панель")
+            }
         }
         SettingsSection("↗", "Ссылки GENESIS", "Академия, поддержка и веб-версия",
             Color(0xfffff5df)) {
@@ -1136,6 +1149,8 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
     calendarReference?.let { value ->
         CalendarReferenceDialog(CalendarMode.fromWire(value)) { calendarReference = null }
     }
+    if (adminOpen && canOpenAdmin) NativeAdminPanel(onClose = { adminOpen = false },
+        load = adminLoad, deleteUser = adminDelete)
 }
 
 @Composable

@@ -13,6 +13,8 @@ const SKIPPED_FILES = new Set([
   path.join(SOURCE_ROOT, "ui/CalendarYearDescription.kt"),
   // Generated RU/EN pairs; export-notification-copy.mjs --check verifies both platforms.
   path.join(SOURCE_ROOT, "reminders/HabitNotificationMessages.kt"),
+  path.join(SOURCE_ROOT, "reminders/HabitNotificationCopy.kt"),
+  path.join(SOURCE_ROOT, "reminders/NotificationAuxCopy.kt"),
 ]);
 
 function normalize(value) {
@@ -127,6 +129,7 @@ const fragments = Object.entries(translations)
 
 function isCovered(source) {
   const normalized = normalize(source);
+  if (normalized === "Српски" || normalized === "Українська") return true;
   if (!CYRILLIC.test(normalized)) return true;
   const exact = translations[normalized];
   if (exact && !CYRILLIC.test(exact)) return true;

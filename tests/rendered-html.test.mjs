@@ -1997,10 +1997,10 @@ test("retains the legacy TWA artifact but promotes only the signed native Androi
   assert.match(welcome, /androidMigration/);
   assert.match(styles, /\.android-download-button/);
   assert.match(styles, /\.ux-android-robot/);
-  // The public 1.2.2 download stays unchanged while the isolated native alpha advances.
+  // The legacy 1.2.2 asset remains available while the current native release advances.
   const nativeVersionCode = Number(androidBuild.match(/versionCode = (\d+)/)?.[1]);
   assert.ok(nativeVersionCode >= 7);
-  assert.match(androidBuild, /versionName = "2\.3\.12"/);
+  assert.match(androidBuild, /versionName = "2\.4\.0"/);
   assert.match(androidBuild, /releaseSigningReady/);
   assert.match(androidBuild, /applicationIdSuffix = "\.debug"/);
   assert.match(androidBuild, /androidx\.browser:browser:1\.10\.0/);
@@ -3131,7 +3131,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.doesNotMatch(calendar, /navigator\.geolocation/);
   assert.doesNotMatch(calendar, /requestDeviceLocation/);
   assert.match(calendar, /getAutomaticSolarLocation/);
-  assert.match(calendar, /Расчёт выполнен по часовому поясу устройства/);
+  assert.match(calendar, /Приблизительный расчёт по часовому поясу устройства/);
   assert.doesNotMatch(calendar, /Рассвет и закат временно недоступны/);
   assert.doesNotMatch(calendar, /Не удалось связаться с сервисом определения региона/);
   assert.match(solarTimes, /getSunriseSunset/);
@@ -3140,7 +3140,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(solarTimes, /getAutomaticSolarLocation/);
   assert.match(solarTimes, /getTimezoneFallbackLocation/);
   assert.match(solarTimes, /TIMEZONE_REFERENCE_LOCATIONS/);
-  assert.match(solarTimes, /Promise\.any/);
+  assert.match(solarTimes, /return await getIpLocation\(signal\)/);
   assert.match(solarTimes, /LOCATION_REQUEST_TIMEOUT_MS/);
   assert.match(solarTimes, /SUNRISE_ALTITUDE/);
   assert.match(solarTimes, /formatDeviceSolarTime/);

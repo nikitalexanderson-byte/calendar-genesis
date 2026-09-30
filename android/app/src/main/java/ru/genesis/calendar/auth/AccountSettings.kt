@@ -43,6 +43,7 @@ data class AccountSettings(
     val timeFormat: String,
     val divinationDisabled: Boolean,
     val language: String,
+    val isAdmin: Boolean = false,
     val weekStart: String = "sunday",
     val gregorianYearStart: String = "january",
 ) {
@@ -80,7 +81,7 @@ data class AccountSettings(
                 user.optString("theme", "standart"), user.optInt("themeRevision", 0),
                 user.optString("calendarMode", "sacred"), user.optString("taskCalendarMode", "sacred"),
                 user.optString("timeFormat", "24h"), user.optBoolean("stoicheionDivinationDisabled"),
-                user.optString("language", "ru"), user.optString("weekStart", "sunday"),
+                user.optString("language", "ru"), user.optBoolean("isAdmin"), user.optString("weekStart", "sunday"),
                 user.optString("gregorianYearStart", "january"))
         }
     }

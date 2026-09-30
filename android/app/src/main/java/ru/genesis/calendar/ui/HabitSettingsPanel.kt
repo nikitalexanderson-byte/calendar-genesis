@@ -47,7 +47,8 @@ internal fun HabitSettingsPanel(app: GenesisApplication, use24: Boolean) {
             busy = false
         }
     }
-    val english = LocalGenesisLanguage.current == "en"
+    val language = LocalGenesisLanguage.current
+    val english = language == "en"
     val requestAccess = rememberRequestNotificationAccess(app) { granted ->
         if(granted) save(workspace.settings.copy(notifications = workspace.settings.notifications.copy(enabled = true)))
     }
@@ -108,7 +109,7 @@ internal fun HabitSettingsPanel(app: GenesisApplication, use24: Boolean) {
                     FilterChip(selected = settings.notifications.tone == value,
                         onClick = {
                             save(settings.copy(notifications = settings.notifications.copy(tone = value))) {
-                                if (!app.scheduler.showHabitTonePreview(value, english))
+                                if (!app.scheduler.showHabitTonePreview(value, language))
                                     error = "Android не разрешил показать пример уведомления."
                             }
                         },

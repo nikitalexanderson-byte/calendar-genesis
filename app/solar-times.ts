@@ -45,10 +45,11 @@ const TIMEZONE_REFERENCE_LOCATIONS: Record<string, DeviceLocation> = {
 export type DeviceLocation = {
   latitude: number;
   longitude: number;
+  timeZone?: string;
 };
 
 export type AutomaticSolarLocation = DeviceLocation & {
-  source: "network" | "timezone-network" | "timezone-fallback";
+  source: "network" | "timezone-network" | "timezone-fallback" | "selected-city";
 };
 
 export type SunriseSunset = {
@@ -59,6 +60,7 @@ export type SunriseSunset = {
 type NetworkLocationResponse = {
   latitude?: string | number;
   longitude?: string | number;
+  timezone?: string;
 };
 
 type TimezoneLocationResponse = {
@@ -103,7 +105,15 @@ async function requestJson(url: string, signal?: AbortSignal) {
 
 async function getIpLocation(signal?: AbortSignal): Promise<AutomaticSolarLocation> {
   const data = await requestJson(NETWORK_LOCATION_ENDPOINT, signal) as NetworkLocationResponse;
-  return { ...validateLocation(data), source: "network" };
+  const coordinates = validateLocation(data);
+  let timeZone: string | undefined;
+  if (data.timezone) {
+    try {
+      new Intl.DateTimeFormat("en", { timeZone: data.timezone });
+      timeZone = data.timezone;
+    } catch { /* The device zone remains the fallback for an invalid API zone. */ }
+  }
+  return { ...coordinates, timeZone, source: "network" };
 }
 
 async function getTimezoneNetworkLocation(timeZone: string, signal?: AbortSignal): Promise<AutomaticSolarLocation> {
@@ -116,11 +126,11 @@ async function getTimezoneNetworkLocation(timeZone: string, signal?: AbortSignal
   const data = await requestJson(url.toString(), signal) as TimezoneLocationResponse;
   const result = data.results?.find((location) => location.timezone === timeZone) ?? data.results?.[0];
   if (!result) throw new Error("Timezone location was not found");
-  return { ...validateLocation(result), source: "timezone-network" };
+  return { ...validateLocation(result), timeZone: result.timezone, source: "timezone-network" };
 }
 
-function timezoneOffsetHours(timeZone: string) {
-  const probe = new Date();
+function timezoneOffsetHours(timeZone: string, date = new Date()) {
+  const probe = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 12));
   probe.setUTCSeconds(0, 0);
   try {
     const values = Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
@@ -147,7 +157,7 @@ function timezoneOffsetHours(timeZone: string) {
 
 export function getTimezoneFallbackLocation(timeZone: string): AutomaticSolarLocation {
   const reference = TIMEZONE_REFERENCE_LOCATIONS[timeZone];
-  if (reference) return { ...reference, source: "timezone-fallback" };
+  if (reference) return { ...reference, timeZone, source: "timezone-fallback" };
 
   const latitude = timeZone.startsWith("Australia/")
     || timeZone.startsWith("Indian/")
@@ -165,18 +175,19 @@ export function getTimezoneFallbackLocation(timeZone: string): AutomaticSolarLoc
   return {
     latitude,
     longitude: timezoneOffsetHours(timeZone) * 15,
+    timeZone,
     source: "timezone-fallback",
   };
 }
 
 export async function getAutomaticSolarLocation(timeZone: string, signal?: AbortSignal): Promise<AutomaticSolarLocation> {
   try {
-    return await Promise.any([
-      getIpLocation(signal),
-      getTimezoneNetworkLocation(timeZone, signal),
-    ]);
+    // An IP-derived city takes precedence over the canonical city named by a time zone.
+    // A single zone can cover hundreds of kilometres and cannot identify a user's city.
+    return await getIpLocation(signal);
   } catch {
-    return getTimezoneFallbackLocation(timeZone);
+    try { return await getTimezoneNetworkLocation(timeZone, signal); }
+    catch { return getTimezoneFallbackLocation(timeZone); }
   }
 }
 
@@ -209,7 +220,11 @@ function solarTransitJulian(approximateTransit: number, meanAnomaly: number, lon
 export function getSunriseSunset(date: Date, location: DeviceLocation): SunriseSunset | null {
   const latitude = location.latitude * Math.PI / 180;
   const longitudeWest = -location.longitude * Math.PI / 180;
-  const days = toJulian(date) - JULIAN_2000;
+  const solarDate = location.timeZone
+    ? new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 12)
+      - timezoneOffsetHours(location.timeZone, date) * 3_600_000)
+    : date;
+  const days = toJulian(solarDate) - JULIAN_2000;
   const cycle = Math.round(days - SOLAR_TRANSIT_OFFSET - longitudeWest / (2 * Math.PI));
   const approximateTransit = SOLAR_TRANSIT_OFFSET + (longitudeWest / (2 * Math.PI)) + cycle;
   const meanAnomaly = solarMeanAnomaly(approximateTransit);

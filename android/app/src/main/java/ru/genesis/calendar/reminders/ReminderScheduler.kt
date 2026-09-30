@@ -55,16 +55,9 @@ class ReminderScheduler(private val context: Context) {
     fun lastDiagnosticDeliveredAt() = diagnosticStore.getLong("deliveredAt", 0)
     fun lastRecoveryAt() = diagnosticStore.getLong("lastRecoveryAt", 0)
     fun createChannels(language: String = "ru") {
-        val names = mapOf(
-            "ru" to listOf("Задачи и события", "Привычки", "Дневная цель", "Достижения", "Синхронизация"),
-            "en" to listOf("Tasks and events", "Habits", "Daily goal", "Achievements", "Sync"),
-            "el" to listOf("Εργασίες και συμβάντα", "Συνήθειες", "Ημερήσιος στόχος", "Επιτεύγματα", "Συγχρονισμός"),
-            "de" to listOf("Aufgaben und Ereignisse", "Gewohnheiten", "Tagesziel", "Erfolge", "Synchronisierung"),
-            "fr" to listOf("Tâches et événements", "Habitudes", "Objectif quotidien", "Réussites", "Synchronisation"),
-            "es" to listOf("Tareas y eventos", "Hábitos", "Objetivo diario", "Logros", "Sincronización"),
-            "it" to listOf("Attività ed eventi", "Abitudini", "Obiettivo giornaliero", "Risultati", "Sincronizzazione"),
-            "pt" to listOf("Tarefas e eventos", "Hábitos", "Objetivo diário", "Conquistas", "Sincronização"),
-        )[language] ?: listOf("Tasks and events", "Habits", "Daily goal", "Achievements", "Sync")
+        context.getSharedPreferences("genesis.notification.locale.v1", Context.MODE_PRIVATE)
+            .edit().putString("language", language).apply()
+        val names = notificationChannelNames(language)
         val labels = listOf(TASK_CHANNEL, HABIT_CHANNEL, DAILY_GOAL_CHANNEL, ACHIEVEMENT_CHANNEL).zip(names)
         labels.forEach { (id, label) ->
             val channel = NotificationChannel(id, label, NotificationManager.IMPORTANCE_HIGH)
@@ -80,10 +73,10 @@ class ReminderScheduler(private val context: Context) {
     private fun openHabitsIntent() = PendingIntent.getActivity(context, 7300,
         habitNotificationOpenIntent(context, app.workspaceScope),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-    fun showHabitTonePreview(tone: String, english: Boolean): Boolean {
-        createChannels(if (english) "en" else "ru")
+    fun showHabitTonePreview(tone: String, language: String): Boolean {
+        createChannels(language)
         if (!notificationsAllowed() || !channelAllowed(HABIT_CHANNEL)) return false
-        val body = habitNotificationBody(tone, "habit", 1, english, System.nanoTime().toString())
+        val body = habitNotificationBody(tone, "habit", 1, language, System.nanoTime().toString())
         val note = NotificationCompat.Builder(context, HABIT_CHANNEL)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("GENESIS")
@@ -95,20 +88,17 @@ class ReminderScheduler(private val context: Context) {
         } catch (_: SecurityException) { false }
         catch (_: Exception) { false }
     }
-    fun showAchievementNotification(count: Int, english: Boolean): Boolean {
+    fun showHabitTonePreview(tone: String, english: Boolean): Boolean =
+        showHabitTonePreview(tone, if (english) "en" else "ru")
+
+    fun showAchievementNotification(count: Int, language: String): Boolean {
         if (count <= 0) return false
-        createChannels(if (english) "en" else "ru")
+        createChannels(language)
         if (!notificationsAllowed() || !channelAllowed(ACHIEVEMENT_CHANNEL)) return false
-        val body = if (english) {
-            if (count == 1) "A new achievement is now part of your path."
-            else "$count new achievements are now part of your path."
-        } else {
-            if (count == 1) "Новое достижение стало частью вашего пути."
-            else "Новых достижений открыто: $count."
-        }
+        val body = achievementNotificationBody(language, count)
         val note = NotificationCompat.Builder(context, ACHIEVEMENT_CHANNEL)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(if (english) "GENESIS · Achievement" else "GENESIS · Достижение")
+            .setContentTitle("GENESIS · ${notificationAuxCopy(language).achievementTitle}")
             .setContentText(body).setContentIntent(openHabitsIntent())
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE).setAutoCancel(true).build()
@@ -117,6 +107,8 @@ class ReminderScheduler(private val context: Context) {
         } catch (_: SecurityException) { false }
         catch (_: Exception) { false }
     }
+    fun showAchievementNotification(count: Int, english: Boolean): Boolean =
+        showAchievementNotification(count, if (english) "en" else "ru")
     private fun diagnosticIntent(at: Long) = Intent(context, DiagnosticNotificationReceiver::class.java).apply {
         action = DIAGNOSTIC_ACTION
         data = Uri.Builder().scheme("genesis").authority("notification-diagnostic").appendPath(at.toString()).build()
@@ -125,7 +117,8 @@ class ReminderScheduler(private val context: Context) {
     private fun diagnosticPending(at: Long) = PendingIntent.getBroadcast(context, 7380,
         diagnosticIntent(at), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     fun scheduleDiagnosticNotification(delayMillis: Long = 60_000): Long? {
-        createChannels()
+        createChannels(context.getSharedPreferences("genesis.notification.locale.v1", Context.MODE_PRIVATE)
+            .getString("language", "ru") ?: "ru")
         if (!notificationsAllowed() || !channelAllowed(HABIT_CHANNEL)) return null
         lastDiagnosticScheduledAt().takeIf { it > 0 }?.let { old -> alarms.cancel(diagnosticPending(old)) }
         val at = System.currentTimeMillis() + delayMillis.coerceAtLeast(1_000)
@@ -145,12 +138,13 @@ class ReminderScheduler(private val context: Context) {
             !channelAllowed(HABIT_CHANNEL)) return false
         // Keep the alarm receiver synchronous and independent of DataStore startup. This path is
         // also the user's test of whether Android can cold-start notification delivery.
-        val english = Locale.getDefault().language == "en"
-        val body = if (english) "System delivery works. GENESIS can send reminders while the app is closed."
-            else "Системная доставка работает. GENESIS сможет напоминать при закрытом приложении."
+        val language = context.getSharedPreferences("genesis.notification.locale.v1", Context.MODE_PRIVATE)
+            .getString("language", Locale.getDefault().language) ?: "en"
+        val copy = notificationAuxCopy(language)
+        val body = copy.diagnosticBody
         val note = NotificationCompat.Builder(context, HABIT_CHANNEL)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(if (english) "GENESIS · Notification test" else "GENESIS · Проверка уведомлений")
+            .setContentTitle("GENESIS · ${copy.diagnosticTitle}")
             .setContentText(body).setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setContentIntent(openHabitsIntent()).setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE).setAutoCancel(true).build()
@@ -219,7 +213,7 @@ class ReminderScheduler(private val context: Context) {
         val from = now.minusSeconds(HABIT_LATE_WINDOW_SECONDS)
         val delivered = registry.getStringSet("delivered", emptySet()).orEmpty()
         val fullPlan = if (notificationsAllowed()) planHabitNotifications(workspace, from.atZone(zone).toLocalDate(),
-            from, zone, language != "ru", 9).filterNot { habitUri(it, scope) in delivered }.take(128) else emptyList()
+            from, zone, language, 9).filterNot { habitUri(it, scope) in delivered }.take(128) else emptyList()
         fullPlan.filter { !it.at.isAfter(now) }.takeLast(4).forEach { candidate ->
             postHabitNotification(candidate, scope, habitUri(candidate, scope), registry)
         }
@@ -276,8 +270,8 @@ class ReminderScheduler(private val context: Context) {
         val now = java.time.Instant.now()
         if (at > now.plusSeconds(1) || at < now.minusSeconds(HABIT_LATE_WINDOW_SECONDS)) return@withMutation
         val workspace = HabitsRepository(app).workspace.first()
-        val english = LocalPreferences(context, app.workspaceScope).values.first().language != "ru"
-        val candidate = planHabitNotifications(workspace, date, at.minusMillis(1), ZoneId.systemDefault(), english, 1)
+        val language = LocalPreferences(context, app.workspaceScope).values.first().language
+        val candidate = planHabitNotifications(workspace, date, at.minusMillis(1), ZoneId.systemDefault(), language, 1)
             .firstOrNull { it.kind == intent.getStringExtra("kind") && it.habitId == intent.getStringExtra("habitId") && it.at == at }
             ?: return@withMutation
         val registry = context.getSharedPreferences("genesis_habit_alarm_registry", Context.MODE_PRIVATE)
@@ -337,15 +331,15 @@ class ReminderScheduler(private val context: Context) {
         }, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         fun action(name: String) = PendingIntent.getBroadcast(context, 0,
             intent(row, name, ReminderActionReceiver::class.java), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        val english = LocalPreferences(context, scope).values.first().language == "en"
+        val taskCopy = taskNotificationCopy(LocalPreferences(context, scope).values.first().language)
         val note = NotificationCompat.Builder(context, TASK_CHANNEL)
             .setSmallIcon(R.drawable.ic_notification).setContentTitle("GENESIS")
-            .setContentText(if (english) "Time for your scheduled action" else "Время запланированного действия").setContentIntent(open)
+            .setContentText(taskCopy[0]).setContentIntent(open)
             .setCategory(NotificationCompat.CATEGORY_REMINDER).setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setAutoCancel(true).setOnlyAlertOnce(true)
-            .addAction(0, if (english) "Complete" else "Выполнено", action("complete"))
-            .addAction(0, if (english) "Snooze 10 min" else "Отложить на 10 мин", action("snooze"))
-            .addAction(0, if (english) "Dismiss" else "Отключить", action("dismiss"))
+            .addAction(0, taskCopy[1], action("complete"))
+            .addAction(0, taskCopy[2], action("snooze"))
+            .addAction(0, taskCopy[3], action("dismiss"))
             .build()
         try {
             notifications.notify(scope + "/" + id, 1, note)

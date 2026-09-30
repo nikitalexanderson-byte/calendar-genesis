@@ -59,7 +59,8 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
     var busy by remember { mutableStateOf(false) }
     var today by remember { mutableStateOf(LocalDate.now()) }
     val hapticFeedback = LocalHapticFeedback.current
-    val english = LocalGenesisLanguage.current == "en"
+    val language = LocalGenesisLanguage.current
+    val english = language == "en"
     val engine=HabitEngine(GenesisCalendar())
     suspend fun runAction(action: suspend () -> Unit) {
         busy=true
@@ -83,7 +84,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
         if (checked) {
             completionFeedback(settings)
             if (settings.achievementPopups && result.newlyUnlockedAchievements > 0)
-                app.scheduler.showAchievementNotification(result.newlyUnlockedAchievements, english)
+                app.scheduler.showAchievementNotification(result.newlyUnlockedAchievements, language)
         }
     }
     LaunchedEffect(repository) {

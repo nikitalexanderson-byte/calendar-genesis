@@ -12,7 +12,7 @@ internal data class PlannedHabitNotification(val date: LocalDate, val at: Instan
 }
 
 internal fun planHabitNotifications(workspace: LocalHabitWorkspace, today: LocalDate, now: Instant,
-    zone: ZoneId, english: Boolean, days: Int = 8): List<PlannedHabitNotification> {
+    zone: ZoneId, language: String, days: Int = 8): List<PlannedHabitNotification> {
     val settings = workspace.settings.notifications
     if (!workspace.settings.enabled) return emptyList()
     val engine = HabitEngine(GenesisCalendar(zone))
@@ -30,7 +30,7 @@ internal fun planHabitNotifications(workspace: LocalHabitWorkspace, today: Local
             val at = habitReminderAt(habit, date)?.toInstant() ?: return@mapNotNull null
             if (at <= now || !habit.reminder.allowDuringQuietHours && quiet(at)) return@mapNotNull null
             PlannedHabitNotification(date, at, "habit", habit.id, habit.title,
-                habitNotificationBody(settings.tone, "habit", 1, english,
+                habitNotificationBody(settings.tone, "habit", 1, language,
                     "$date:${habit.id}:${at.toEpochMilli()}", "«${habit.title}»"))
         }.toMutableList()
         val completedCount = planned.count { it.id in completed }
@@ -41,8 +41,12 @@ internal fun planHabitNotifications(workspace: LocalHabitWorkspace, today: Local
             val at = date.atTime(LocalTime.parse(settings.dailyGoalTime)).atZone(zone).toInstant()
             if (at > now && !quiet(at)) candidates += PlannedHabitNotification(date, at, "goal", null,
                 "GENESIS", habitNotificationBody(settings.tone, "goal", maxOf(remaining, perfectRemaining.takeIf { remaining == 0 } ?: 0),
-                    english, "$date:goal"))
+                    language, "$date:goal"))
         }
         candidates
     }.sortedBy { it.at }
 }
+
+internal fun planHabitNotifications(workspace: LocalHabitWorkspace, today: LocalDate, now: Instant,
+    zone: ZoneId, english: Boolean, days: Int = 8): List<PlannedHabitNotification> =
+    planHabitNotifications(workspace, today, now, zone, if (english) "en" else "ru", days)

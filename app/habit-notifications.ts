@@ -1,5 +1,6 @@
 import { habitNotificationMessage, notificationCopyIndex } from "./habit-notification-message.ts";
 import { habitReminderDateTime } from "./habit-reminder-time.ts";
+import type { Language } from "./i18n";
 export type HabitNotificationTone = "calm" | "heroic" | "ironic";
 
 export type HabitNotificationSettings = {
@@ -25,7 +26,7 @@ export type HabitNotificationCandidate = {
 export type HabitNotificationPlanInput = {
   date: string;
   now: Date;
-  language: "ru" | "en";
+  language: Language;
   settings: HabitNotificationSettings;
   habits: Array<{
     id: string;
@@ -112,7 +113,8 @@ function notificationVariant(seed: string): HabitNotificationCandidate["variant"
 function dailyGoalCopy(input: HabitNotificationPlanInput, remaining: number, perfectRemaining: number, variant: HabitNotificationCandidate["variant"]) {
   const count = remaining || perfectRemaining;
   const body = habitNotificationMessage(input.settings.tone, "goal", `${input.date}:goal`, input.language, "", count);
-  const context = variant === "context" && input.dailyGoal.currentStreak > 0
+  const context = variant === "context" && input.dailyGoal.currentStreak > 0 &&
+    (input.language === "ru" || input.language === "en")
     ? input.language === "en" ? ` Your current streak is ${input.dailyGoal.currentStreak} days.` : ` Текущая серия: ${input.dailyGoal.currentStreak} дн.` : "";
   return { title: "GENESIS", body: body + context };
 }

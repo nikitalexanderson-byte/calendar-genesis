@@ -99,10 +99,10 @@ try {
     if ($method === 'GET' && $path === 'android/download') {
         $userId = genesisCurrentUserId();
         if ($userId !== null && genesisFindUser($userId) !== null) {
-            genesisObserveAndroid(static fn() => genesisRecordAndroidDownload($userId, '2.3.12'));
+            genesisObserveAndroid(static fn() => genesisRecordAndroidDownload($userId, '2.4.0'));
         }
         header('Cache-Control: no-store');
-        header('Location: /downloads/GENESIS-Android-Native-2.3.12.apk', true, 302);
+        header('Location: /downloads/GENESIS-Android-Native-2.4.0.apk', true, 302);
         exit;
     }
 

@@ -130,13 +130,13 @@ class EveningAndMonthFlowTest {
             compose.waitForIdle()
             compose.onNodeWithTag("calendar-month-period").assertTextEquals(before)
             compose.onNodeWithText("Год").performClick()
-            compose.onNodeWithTag("genesis-page-header").assert(hasAnyAncestor(hasTestTag("calendar-year-panel")))
+            compose.onNodeWithTag("genesis-page-header").assert(!hasAnyAncestor(hasTestTag("calendar-year-panel")))
             val header=compose.onNodeWithTag("genesis-page-header").fetchSemanticsNode().boundsInRoot
             val navigation=compose.onNodeWithTag("calendar-year-navigation").fetchSemanticsNode().boundsInRoot
             assertTrue("Year heading must precede year navigation",header.bottom<=navigation.top)
             compose.onNodeWithTag("calendar-year-swipe-hint").assertIsDisplayed()
             compose.onNodeWithTag("calendar-year-navigation").assert(hasAnyAncestor(hasTestTag("calendar-year-panel")))
-            compose.onNodeWithTag("calendar-year-solar-points").assert(hasAnyAncestor(hasTestTag("calendar-year-panel")))
+            compose.onNodeWithTag("calendar-year-solar-points").assert(!hasAnyAncestor(hasTestTag("calendar-year-panel")))
             val year=compose.onNodeWithTag("calendar-year-period").fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.Text].single().text
             compose.onNodeWithTag("calendar-year-navigation").performTouchInput { swipeLeft() }
             compose.waitForIdle()
@@ -151,7 +151,7 @@ class EveningAndMonthFlowTest {
                 CalendarMode.LUNAR -> "lunar-year-month-1"
             }
             compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag(first))
-            compose.onNodeWithTag(first).assert(hasAnyAncestor(hasTestTag("calendar-year-panel")))
+            compose.onNodeWithTag(first).assert(!hasAnyAncestor(hasTestTag("calendar-year-panel")))
             capture("${calendarMode.wireValue}-year-months")
             if(calendarMode==CalendarMode.PROFANE) {
                 compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag("gregorian-season-spring"))

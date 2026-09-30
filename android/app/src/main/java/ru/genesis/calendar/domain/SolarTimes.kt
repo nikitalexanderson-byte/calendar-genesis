@@ -10,7 +10,9 @@ import kotlin.math.cos
 import kotlin.math.round
 import kotlin.math.sin
 
-data class SolarLocation(val latitude: Double, val longitude: Double)
+data class SolarLocation(val latitude: Double, val longitude: Double,
+    val timeZoneId: String? = null, val placeName: String? = null,
+    val approximate: Boolean = true)
 data class SolarDayTimes(val sunrise: Instant, val sunset: Instant)
 
 /** Same offline astronomy used by the web app, with the device time-zone as its safe fallback region. */
@@ -25,6 +27,7 @@ object SolarTimes {
     private val timezoneReferences = mapOf(
         "Etc/UTC" to SolarLocation(51.4769, 0.0),
         "UTC" to SolarLocation(51.4769, 0.0),
+        "America/Los_Angeles" to SolarLocation(34.0522, -118.2437),
         "Europe/Kaliningrad" to SolarLocation(54.7104, 20.4522),
         "Europe/Moscow" to SolarLocation(55.7558, 37.6173),
         "Europe/Simferopol" to SolarLocation(44.9521, 34.1024),

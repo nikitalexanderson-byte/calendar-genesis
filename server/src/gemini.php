@@ -147,14 +147,16 @@ function genesisAssistantTaskTitle(mixed $value): string
 function genesisGeminiLanguageInstruction(string $language): string
 {
     $names = ['ru' => 'Russian', 'en' => 'English', 'el' => 'Greek', 'de' => 'German',
-        'fr' => 'French', 'es' => 'Spanish', 'it' => 'Italian', 'pt' => 'Portuguese'];
+        'fr' => 'French', 'es' => 'Spanish', 'it' => 'Italian', 'pt' => 'Portuguese',
+        'pl' => 'Polish', 'sr' => 'Serbian', 'uk' => 'Ukrainian', 'zh' => 'Simplified Chinese',
+        'tr' => 'Turkish', 'ja' => 'Japanese'];
     return 'Write request and summary in ' . ($names[$language] ?? 'Russian') . '.';
 }
 
 function genesisGeminiContext(mixed $value): array
 {
     $context = is_array($value) ? $value : [];
-    $language = in_array($context['language'] ?? '', ['ru', 'en', 'el', 'de', 'fr', 'es', 'it', 'pt'], true)
+    $language = in_array($context['language'] ?? '', ['ru', 'en', 'el', 'de', 'fr', 'es', 'it', 'pt', 'pl', 'sr', 'uk', 'zh', 'tr', 'ja'], true)
         ? (string)$context['language'] : 'ru';
     $calendarMode = in_array($context['calendarMode'] ?? '', ['profane', 'sacred', 'lunar'], true)
         ? (string)$context['calendarMode']

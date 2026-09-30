@@ -19,6 +19,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextAlign
@@ -70,7 +72,8 @@ fun WelcomeScreen(state: AuthPanelState, controller: AuthController, language: S
                     color = welcomeCream,
                     style = MaterialTheme.typography.titleLarge.copy(fontFamily = FontFamily.Serif))
             }
-            LanguageChips(language, dark = true, onLanguage = onLanguage)
+            Text("Выбор языка", color = welcomeMuted, style = MaterialTheme.typography.labelMedium)
+            LanguageChips(language, dark = true, flagsOnly = true, onLanguage = onLanguage)
             HorizontalDivider(color = welcomeGold.copy(alpha = 0.24f))
             Column(Modifier.testTag("welcome-intro"),
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -189,20 +192,24 @@ private fun WelcomeTrustLine(symbol: String, text: String) {
 }
 
 @Composable
-fun LanguageChips(language: String, dark: Boolean = false, onLanguage: (String) -> Unit) {
+fun LanguageChips(language: String, dark: Boolean = false, flagsOnly: Boolean = false,
+    onLanguage: (String) -> Unit) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp)) {
         listOf(Triple("ru", "🇷🇺", "Русский"), Triple("en", "🇬🇧", "English"),
             Triple("el", "🇬🇷", "Ελληνικά"), Triple("de", "🇩🇪", "Deutsch"),
             Triple("fr", "🇫🇷", "Français"), Triple("es", "🇪🇸", "Español"),
-            Triple("it", "🇮🇹", "Italiano"), Triple("pt", "🇵🇹", "Português"))
+            Triple("it", "🇮🇹", "Italiano"), Triple("pt", "🇵🇹", "Português"),
+            Triple("pl", "🇵🇱", "Polski"), Triple("sr", "🇷🇸", "Српски"),
+            Triple("uk", "🇺🇦", "Українська"), Triple("zh", "🇨🇳", "简体中文"),
+            Triple("tr", "🇹🇷", "Türkçe"), Triple("ja", "🇯🇵", "日本語"))
             .forEach { (value, flag, label) ->
                 FilterChip(selected = language == value, onClick = { onLanguage(value) },
                     label = {
                         Row(verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             androidx.compose.material3.Text(flag)
-                            androidx.compose.material3.Text(label)
+                            if (!flagsOnly) androidx.compose.material3.Text(label)
                         }
                     },
                     colors = if (dark) FilterChipDefaults.filterChipColors(
@@ -210,7 +217,8 @@ fun LanguageChips(language: String, dark: Boolean = false, onLanguage: (String) 
                         labelColor = welcomeCream,
                         selectedContainerColor = Color(0xFF2E7770),
                         selectedLabelColor = Color.White) else FilterChipDefaults.filterChipColors(),
-                    modifier = Modifier.heightIn(min = 48.dp).testTag("language-$value"))
+                    modifier = Modifier.heightIn(min = 48.dp).testTag("language-$value")
+                        .semantics { contentDescription = label })
             }
     }
 }

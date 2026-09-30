@@ -36,7 +36,8 @@ internal fun TodayHabitsContent(app: GenesisApplication, date: LocalDate,
     val completed = scheduled.count { entries[it.id]?.completed == true }
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
-    val english = LocalGenesisLanguage.current == "en"
+    val language = LocalGenesisLanguage.current
+    val english = language == "en"
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var ratingHabit by remember(date) { mutableStateOf<Habit?>(null) }
@@ -56,7 +57,7 @@ internal fun TodayHabitsContent(app: GenesisApplication, date: LocalDate,
                         finally { tone.release() }
                     }
                     if (feedback.achievementPopups && result.newlyUnlockedAchievements > 0)
-                        app.scheduler.showAchievementNotification(result.newlyUnlockedAchievements, english)
+                        app.scheduler.showAchievementNotification(result.newlyUnlockedAchievements, language)
                 }
             } catch (e: CancellationException) { throw e }
             catch (e: IllegalArgumentException) { error = e.message }
