@@ -2,7 +2,7 @@
 /* eslint-disable @next/next/no-html-link-for-pages */
 /* eslint-disable @next/next/no-img-element -- Google requires the official, unmodified sign-in asset. */
 
-import type { Language } from "./i18n";
+import { LANGUAGES, LANGUAGE_LABELS, type Language } from "./i18n";
 
 type WelcomeScreenProps = {
   nativeAndroidApkUrl: string | null;
@@ -42,7 +42,7 @@ export function WelcomeScreen({ nativeAndroidApkUrl, busy, error, language, onLa
     secureSignIn: "Secure Google sign-in",
     passwordNote: "GENESIS never asks for your Google password. Authentication takes place only on the secure accounts.google.com page.",
     downloadNative: "Native Android app",
-    downloadNativeNote: "GENESIS 2.2.9 · native APK",
+    downloadNativeNote: "GENESIS 2.3.12 · native APK",
     androidMigration: "Replacing the old TWA? Its signing key is different: uninstall the TWA before installing this app. Unsynced local TWA data will be lost; your website and Google data will return after sign-in.",
     androidInstallCaution: "On some devices Play Protect may block a direct APK download until the developer is verified. Do not disable Play Protect. The previous TWA cannot be updated in place with this differently signed app.",
     agreement: <>By continuing, you accept the <a href="/terms">Terms of Service</a> and acknowledge the <a href="/privacy">Privacy Policy</a>.</>,
@@ -73,7 +73,7 @@ export function WelcomeScreen({ nativeAndroidApkUrl, busy, error, language, onLa
     secureSignIn: "Безопасный вход через Google",
     passwordNote: "GENESIS никогда не запрашивает пароль от Google. Авторизация выполняется только на защищённой странице accounts.google.com.",
     downloadNative: "Нативное Android-приложение",
-    downloadNativeNote: "GENESIS 2.2.9 · нативный APK",
+    downloadNativeNote: "GENESIS 2.3.12 · нативный APK",
     androidMigration: "Заменяете старую TWA? У неё другая подпись: перед установкой удалите TWA. Несинхронизированные локальные данные TWA будут потеряны; данные сайта и Google вернутся после входа.",
     androidInstallCaution: "На некоторых устройствах Play Защита может блокировать APK, загруженный напрямую, до проверки разработчика. Не отключайте Play Защиту. Прежняя TWA не обновится этим приложением из-за другой подписи.",
     agreement: <>Продолжая, вы принимаете <a href="/terms">пользовательское соглашение</a> и подтверждаете ознакомление с <a href="/privacy">политикой конфиденциальности</a>.</>,
@@ -130,12 +130,13 @@ export function WelcomeScreen({ nativeAndroidApkUrl, busy, error, language, onLa
           <div className="welcome-language-picker">
             <span>{copy.chooseLanguage}</span>
             <div className="language-choice" role="radiogroup" aria-label={copy.languageGroup}>
-              <button type="button" role="radio" aria-checked={language === "ru"} className={language === "ru" ? "active" : ""} onClick={() => onLanguageChange("ru")}>
-                <span className="language-flag" aria-hidden="true">🇷🇺</span><strong>{copy.russian}</strong>
-              </button>
-              <button type="button" role="radio" aria-checked={language === "en"} className={language === "en" ? "active" : ""} onClick={() => onLanguageChange("en")}>
-                <span className="language-flag" aria-hidden="true">🇺🇸</span><strong>English</strong>
-              </button>
+              {LANGUAGES.map((code) => (
+                <button key={code} type="button" role="radio" aria-checked={language === code}
+                  className={language === code ? "active" : ""} onClick={() => onLanguageChange(code)} data-no-translate>
+                  <span className="language-flag" aria-hidden="true">{LANGUAGE_LABELS[code].flag}</span>
+                  <strong>{LANGUAGE_LABELS[code].name}</strong>
+                </button>
+              ))}
             </div>
           </div>
 
@@ -145,7 +146,7 @@ export function WelcomeScreen({ nativeAndroidApkUrl, busy, error, language, onLa
 
           {nativeAndroidApkUrl ? (
             <>
-              <a className="android-download-button android-native-download-button" href={nativeAndroidApkUrl} download="GENESIS-Android-Native-2.3.11.apk">
+              <a className="android-download-button android-native-download-button" href={nativeAndroidApkUrl} download="GENESIS-Android-Native-2.3.12.apk">
                 <span className="android-download-mark" aria-hidden="true"><svg className="ux-android-robot" viewBox="0 0 24 24" fill="none"><path d="M5.5 9h13v8.5a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2V9ZM5.5 9a6.5 6.5 0 0 1 13 0M4 11v5M20 11v5M9 19.5V22M15 19.5V22M7 3 5.5 1M17 3 18.5 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><circle cx="9.3" cy="7" r=".8" fill="currentColor"/><circle cx="14.7" cy="7" r=".8" fill="currentColor"/></svg></span>
                 <span><strong>{copy.downloadNative}</strong><small>{copy.downloadNativeNote}</small></span>
               </a>

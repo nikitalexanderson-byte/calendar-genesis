@@ -2,8 +2,22 @@
 
 import { useEffect, useSyncExternalStore } from "react";
 import englishTranslations from "./translations.en.json";
+import greekTranslationsA from "./translations.el.a.json";
+import greekTranslationsB from "./translations.el.b.json";
+import germanTranslations from "./translations.de.json";
+import frenchTranslations from "./translations.fr.json";
+import spanishTranslations from "./translations.es.json";
+import italianTranslations from "./translations.it.json";
+import portugueseTranslations from "./translations.pt.json";
 
-export type Language = "ru" | "en";
+export const LANGUAGES = ["ru", "en", "el", "de", "fr", "es", "it", "pt"] as const;
+export type Language = (typeof LANGUAGES)[number];
+export const LANGUAGE_LABELS: Record<Language, { name: string; flag: string }> = {
+  ru: { name: "Русский", flag: "🇷🇺" }, en: { name: "English", flag: "🇬🇧" },
+  el: { name: "Ελληνικά", flag: "🇬🇷" }, de: { name: "Deutsch", flag: "🇩🇪" },
+  fr: { name: "Français", flag: "🇫🇷" }, es: { name: "Español", flag: "🇪🇸" },
+  it: { name: "Italiano", flag: "🇮🇹" }, pt: { name: "Português", flag: "🇵🇹" },
+};
 
 export const LANGUAGE_STORAGE_KEY = "genesis-language-v1";
 export const LANGUAGE_LOGIN_PENDING_KEY = "genesis-language-login-pending-v1";
@@ -11,6 +25,16 @@ export const LANGUAGE_LOGIN_PENDING_KEY = "genesis-language-login-pending-v1";
 const CYRILLIC = /[А-Яа-яЁё]/;
 const TRANSLATABLE_ATTRIBUTES = ["aria-label", "placeholder", "title", "alt", "data-tooltip"] as const;
 const ENGLISH_DESCRIPTION = "GENESIS is a task calendar and project manager with daily planning, reminders, and optional Google Calendar and Google Tasks synchronization.";
+const PAGE_TITLES: Record<Language, string> = {
+  ru: "GENESIS — календарь задач и менеджер проектов",
+  en: "GENESIS — Task Calendar and Project Manager",
+  el: "GENESIS — Ημερολόγιο εργασιών και διαχείριση έργων",
+  de: "GENESIS — Aufgabenkalender und Projektverwaltung",
+  fr: "GENESIS — Calendrier des tâches et gestion de projets",
+  es: "GENESIS — Calendario de tareas y gestión de proyectos",
+  it: "GENESIS — Calendario delle attività e gestione progetti",
+  pt: "GENESIS — Calendário de tarefas e gestão de projetos",
+};
 const APP_BASE = (process.env.NEXT_PUBLIC_GENESIS_BASE_PATH?.trim() || "").replace(/\/$/, "");
 
 const curatedTranslations: Record<string, string> = {
@@ -51,6 +75,10 @@ const curatedTranslations: Record<string, string> = {
   "Русский": "Russian",
   "Английский": "English",
   "Язык": "Language",
+  "Светлая": "Light",
+  "Тёмная": "Dark",
+  "Цветовая схема сайта": "Website color scheme",
+  "Текущая тема": "Current theme",
   "Интерфейс и справочные тексты": "Interface and reference texts",
   "Формат времени": "Time format",
   "Начало недели": "Start of week",
@@ -199,14 +227,22 @@ const curatedTranslations: Record<string, string> = {
   "Клик по дню открывает задачи, сакральное значение, фазу Луны, точное время рассвета и заката для региона устройства.": "Select a day to open its tasks, sacred meaning, Moon phase, and regional sunrise and sunset times.",
 };
 
-const translations: Record<string, string> = {
+const englishCatalog: Record<string, string> = {
   ...(englishTranslations as Record<string, string>),
   ...curatedTranslations,
 };
 
-const partialTranslations = Object.entries(translations)
-  .filter(([source, translated]) => source.length >= 4 && source.length <= 180 && source !== translated)
-  .sort(([left], [right]) => right.length - left.length);
+const catalogs: Record<Exclude<Language, "ru">, Record<string, string>> = {
+  en: englishCatalog, el: { ...greekTranslationsA, ...greekTranslationsB }, de: germanTranslations,
+  fr: frenchTranslations, es: spanishTranslations, it: italianTranslations, pt: portugueseTranslations,
+};
+const englishToRussian = new Map(Object.entries(englishCatalog).map(([ru, en]) => [en, ru]));
+const partialTranslations = Object.fromEntries(Object.entries(catalogs).map(([language, catalog]) => [
+  language,
+  Object.entries(catalog)
+    .filter(([source, translated]) => source.length >= 4 && source.length <= 180 && source !== translated)
+    .sort(([left], [right]) => right.length - left.length),
+])) as Record<Exclude<Language, "ru">, [string, string][]>;
 
 let runtimeLanguage: Language = "ru";
 const subscribeHydration = () => () => undefined;
@@ -232,16 +268,24 @@ function preserveOuterWhitespace(source: string, translated: string) {
 }
 
 export function normalizeLanguage(value: unknown): Language {
-  return value === "en" ? "en" : "ru";
+  return isLanguage(value) ? value : "ru";
+}
+
+export function isLanguage(value: unknown): value is Language {
+  return typeof value === "string" && (LANGUAGES as readonly string[]).includes(value);
 }
 
 export function browserLanguage(): Language {
   if (typeof window === "undefined") return "ru";
   const requested = new URLSearchParams(window.location.search).get("lang");
-  if (requested === "ru" || requested === "en") return requested;
+  if (requested && (LANGUAGES as readonly string[]).includes(requested)) return requested as Language;
   const stored = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
-  if (stored === "ru" || stored === "en") return stored;
-  return window.navigator.languages.some((locale) => locale.toLocaleLowerCase().startsWith("ru")) ? "ru" : "en";
+  if (stored && (LANGUAGES as readonly string[]).includes(stored)) return stored as Language;
+  for (const locale of window.navigator.languages) {
+    const code = locale.toLowerCase().split("-")[0];
+    if ((LANGUAGES as readonly string[]).includes(code)) return code as Language;
+  }
+  return "en";
 }
 
 export function storeLanguage(language: Language) {
@@ -259,24 +303,25 @@ export function getRuntimeLanguage() {
 export function localizeCategoryName(category: { id: string; name: string }, language: Language = runtimeLanguage) {
   const builtInNames = BUILT_IN_CATEGORY_NAMES[category.id];
   if (!builtInNames || !Object.values(builtInNames).includes(category.name)) return category.name;
-  return builtInNames[language];
+  return language === "ru" ? builtInNames.ru : catalogs[language][builtInNames.ru] ?? builtInNames.en;
 }
 
 export function runtimeLocale() {
-  return runtimeLanguage === "en" ? "en-US" : "ru-RU";
+  return ({ ru: "ru-RU", en: "en-US", el: "el-GR", de: "de-DE", fr: "fr-FR", es: "es-ES", it: "it-IT", pt: "pt-PT" })[runtimeLanguage];
 }
 
 export function translateText(source: string, language: Language = runtimeLanguage, allowPartial = false) {
   if (language === "ru") return source;
-  if (!CYRILLIC.test(source)) return source;
   const normalized = normalizedText(source);
-  const exact = translations[normalized];
+  const catalog = catalogs[language];
+  const russianSource = CYRILLIC.test(normalized) ? normalized : englishToRussian.get(normalized);
+  const exact = russianSource ? catalog[russianSource] : undefined;
   if (exact) return preserveOuterWhitespace(source, exact);
-  if (!allowPartial) return source;
+  if (!allowPartial || !CYRILLIC.test(normalized)) return source;
 
   let translated = normalized;
   let changed = false;
-  for (const [fragment, replacement] of partialTranslations) {
+  for (const [fragment, replacement] of partialTranslations[language]) {
     if (!translated.includes(fragment)) continue;
     translated = translated.replaceAll(fragment, replacement);
     changed = true;
@@ -338,15 +383,15 @@ export function useDocumentLanguage(language: Language) {
     document.documentElement.dataset.language = language;
     localizeTree(document.body, language);
     const headTimer = window.setTimeout(() => {
-      document.title = language === "en" ? "GENESIS — Task Calendar and Project Manager" : "GENESIS — календарь задач и менеджер проектов";
+      document.title = PAGE_TITLES[language];
       const description = document.querySelector<HTMLMetaElement>('meta[name="description"]');
       if (description) {
-        description.content = language === "en"
-          ? ENGLISH_DESCRIPTION
-          : "GENESIS — календарь задач и менеджер проектов с планом дня, напоминаниями и необязательной синхронизацией Google Calendar и Google Tasks.";
+        description.content = language === "ru"
+          ? "GENESIS — календарь задач и менеджер проектов с планом дня, напоминаниями и необязательной синхронизацией Google Calendar и Google Tasks."
+          : language === "en" ? ENGLISH_DESCRIPTION : PAGE_TITLES[language];
       }
       const manifest = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
-      if (manifest) manifest.href = `${APP_BASE}/${language === "en" ? "manifest.en.webmanifest" : "manifest.webmanifest"}`;
+      if (manifest) manifest.href = `${APP_BASE}/${language === "ru" ? "manifest.webmanifest" : "manifest.en.webmanifest"}`;
     }, 100);
 
     const observer = new MutationObserver((mutations) => {

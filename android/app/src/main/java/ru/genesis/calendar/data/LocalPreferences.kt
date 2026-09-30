@@ -26,7 +26,7 @@ class LocalPreferences(private val context: Context, private val scope: String) 
     val values = context.genesisPreferences.data.map {
         UiPreferences(CalendarMode.fromWire(it[key("display")] ?: "sacred"), CalendarMode.fromWire(it[key("input")] ?: "sacred"),
             it[key("time")] != "12h", it[key("stoicheionDivinationDisabled")] == "true",
-            it[key("language")].takeIf { value -> value == "en" } ?: "ru",
+            it[key("language")].takeIf { value -> value in setOf("ru", "en", "el", "de", "fr", "es", "it", "pt") } ?: "ru",
             it[key("weekStart")] != "monday", it[key("wideNavigation")] != "top",
             it[key("navigationLabels")] == "text", it[key("navigationAutoScroll")] == "true",
             it[key("gregorianYearStart")] == "march", it[key("seasonArtMode")] == "regional",

@@ -91,8 +91,9 @@ internal fun CalendarYearDescriptionCard(calendar: GenesisCalendar, shown: Local
         CalendarMode.LUNAR -> {
             eyebrow = copy("ЛУННЫЙ КАЛЕНДАРЬ", "LUNAR CALENDAR")
             title = copy("Лунный год", "Lunar year")
-            val start = lunarYear.startDate.format(DateTimeFormatter.ofPattern(if (english) "EEEE, MMMM d, yyyy" else "EEEE, d MMMM yyyy г.",
-                if (english) Locale.ENGLISH else Locale.forLanguageTag("ru"))).replaceFirstChar { it.titlecase() }
+            val start = lunarYear.startDate.format(DateTimeFormatter.ofPattern(
+                if (LocalGenesisLanguage.current == "ru") "EEEE, d MMMM yyyy г." else "EEEE, d MMMM yyyy",
+                Locale.forLanguageTag(LocalGenesisLanguage.current))).replaceFirstChar { it.titlecase() }
             paragraphs = listOf(
                 copy("Год начинается $start — в день первого точного новолуния после весеннего равноденствия — и включает ${lunarYear.monthCount} лунных месяцев по 29 или 30 суток.",
                     "The year begins on $start, the first exact new moon after the spring equinox, and includes ${lunarYear.monthCount} lunar months of 29 or 30 days."),

@@ -384,7 +384,7 @@ function genesisTaskOrigin(mixed $value, string $fallback = 'genesis'): string
 
 function genesisGoogleLanguage(array $source): string
 {
-    return ($source['_language'] ?? $source['language'] ?? 'ru') === 'en' ? 'en' : 'ru';
+    return ($source['_language'] ?? $source['language'] ?? 'ru') === 'ru' ? 'ru' : 'en';
 }
 
 function genesisNormalizeTaskReminders(mixed $value, mixed $legacyReminderMinutes = null): array

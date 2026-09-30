@@ -144,10 +144,18 @@ function genesisAssistantTaskTitle(mixed $value): string
     return trim((string)(preg_replace('/^[«“"\s]+|[»”"\s.,!?]+$/u', '', $title) ?? $title));
 }
 
+function genesisGeminiLanguageInstruction(string $language): string
+{
+    $names = ['ru' => 'Russian', 'en' => 'English', 'el' => 'Greek', 'de' => 'German',
+        'fr' => 'French', 'es' => 'Spanish', 'it' => 'Italian', 'pt' => 'Portuguese'];
+    return 'Write request and summary in ' . ($names[$language] ?? 'Russian') . '.';
+}
+
 function genesisGeminiContext(mixed $value): array
 {
     $context = is_array($value) ? $value : [];
-    $language = ($context['language'] ?? '') === 'en' ? 'en' : 'ru';
+    $language = in_array($context['language'] ?? '', ['ru', 'en', 'el', 'de', 'fr', 'es', 'it', 'pt'], true)
+        ? (string)$context['language'] : 'ru';
     $calendarMode = in_array($context['calendarMode'] ?? '', ['profane', 'sacred', 'lunar'], true)
         ? (string)$context['calendarMode']
         : 'sacred';
@@ -392,9 +400,7 @@ function genesisCreateGeminiPlan(array $payload): array
 
     genesisGeminiRateLimit();
 
-    $languageInstruction = $context['language'] === 'en'
-        ? 'Write request and summary in English.'
-        : 'Write request and summary in Russian.';
+    $languageInstruction = genesisGeminiLanguageInstruction($context['language']);
     $systemInstruction = <<<PROMPT
 You are the planning parser for the GENESIS calendar. Convert the user's written or spoken request into a draft only. Never execute actions and never invent goals the user did not request.
 
@@ -656,9 +662,7 @@ function genesisGigaChatOutputText(array $response): string
 
 function genesisAssistantSystemInstruction(array $context): string
 {
-    $languageInstruction = $context['language'] === 'en'
-        ? 'Write request and summary in English.'
-        : 'Write request and summary in Russian.';
+    $languageInstruction = genesisGeminiLanguageInstruction($context['language']);
     return <<<PROMPT
 You are the planning parser for the GENESIS calendar. Convert the user's written or spoken request into a draft only. Never execute actions and never invent goals the user did not request.
 
