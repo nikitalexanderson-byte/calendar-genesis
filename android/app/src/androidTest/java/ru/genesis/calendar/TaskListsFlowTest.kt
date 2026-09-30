@@ -115,6 +115,8 @@ class TaskListsFlowTest {
             compose.onNodeWithTag("task-list-title").performTextInput("План чтения")
             compose.onNodeWithTag("task-list-drafts").performTextInput("Прочитать главу\nЗаписать мысли")
             UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()
+            compose.onNodeWithTag("task-list-form-calendar-lunar").performScrollTo().performClick()
+            compose.onNodeWithTag("task-list-form-calendar-lunar").assertIsSelected()
             compose.onNodeWithTag("save-task-list").performScrollTo().performClick()
             compose.waitUntil(10_000) { saves==1 }
             compose.onNodeWithTag("save-task-list").performScrollTo().performClick()

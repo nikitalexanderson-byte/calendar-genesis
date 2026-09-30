@@ -87,7 +87,11 @@ class RestoreReceiver : BroadcastReceiver() {
         val app = context.applicationContext as GenesisApplication
         ReminderMaintenanceWorker.enqueueImmediate(context)
         app.appScope.launch {
-            try { app.scheduler.restore(recoverOverdue = true); app.scheduler.restoreHabitNotifications() }
+            try {
+                app.scheduler.restore(recoverOverdue = true)
+                app.scheduler.restoreHabitNotifications()
+                MoonReminderScheduler.restore(app)
+            }
             finally { pending.finish() }
         }
     }

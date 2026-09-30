@@ -51,9 +51,17 @@ internal fun selectedSeasonZone(prefs: UiPreferences): ZoneId = when (prefs.regi
     else -> ZoneId.systemDefault()
 }
 
+internal data class IpSeasonRegion(val zone: ZoneId, val label: String)
+
 /** Called only after the user selects IP detection or explicitly refreshes it. */
-internal fun resolveSeasonZoneByIp(): ZoneId {
-    val connection = URL("https://ipapi.co/json/").openConnection() as HttpURLConnection
+internal fun resolveSeasonZoneByIp(): IpSeasonRegion {
+    // GeoJS already powers the solar location. Use a second provider when its route fails.
+    return runCatching { requestSeasonRegion("https://get.geojs.io/v1/ip/geo.json") }
+        .getOrElse { requestSeasonRegion("https://ipwho.is/") }
+}
+
+private fun requestSeasonRegion(endpoint: String): IpSeasonRegion {
+    val connection = URL(endpoint).openConnection() as HttpURLConnection
     connection.connectTimeout = 5_000
     connection.readTimeout = 5_000
     connection.setRequestProperty("Accept", "application/json")
@@ -62,8 +70,13 @@ internal fun resolveSeasonZoneByIp(): ZoneId {
         val body = connection.inputStream.bufferedReader().use { it.readText() }
         require(body.length < 32_768) { "Unexpected IP response" }
         val response = JSONObject(body)
-        require(!response.optBoolean("error")) { "IP lookup failed" }
-        return ZoneId.of(response.getString("timezone"))
+        require(!response.optBoolean("error") && response.optBoolean("success", true)) { "IP lookup failed" }
+        val timeZone = response.opt("timezone")
+        val zoneName = if (timeZone is JSONObject) timeZone.getString("id") else response.getString("timezone")
+        val zone = ZoneId.of(zoneName)
+        val label = listOf(response.optString("city"), response.optString("region"),
+            response.optString("country")).filter(String::isNotBlank).distinct().joinToString(", ")
+        return IpSeasonRegion(zone, label.ifBlank { zone.id })
     } finally {
         connection.disconnect()
     }
@@ -81,10 +94,16 @@ internal fun SeasonRegionSettings(prefs: UiPreferences, onSetLocal: (String, Str
             resolvingIp = true
             ipError = false
             val result = runCatching { withContext(Dispatchers.IO) { resolveSeasonZoneByIp() } }
-            result.onSuccess { onSetLocal("ipRegionZone", it.id) }
+            result.onSuccess {
+                onSetLocal("ipRegionZone", it.zone.id)
+                onSetLocal("ipRegionLabel", it.label)
+            }
                 .onFailure { ipError = true }
             resolvingIp = false
         }
+    }
+    LaunchedEffect(prefs.regionSource) {
+        if (prefs.regionSource == "ip" && prefs.ipRegionZone.isBlank()) refreshIp()
     }
     SettingsSection("◉", "Регион", "Для изображений и времён года григорианского календаря",
         Color(0xffe2eee6)) {
@@ -102,7 +121,9 @@ internal fun SeasonRegionSettings(prefs: UiPreferences, onSetLocal: (String, Str
                             .testTag("region-source-$source"), label = { Text(title, maxLines = 1) })
                 }
         }
-        Text("Выбран: ${seasonRegionChoices.firstOrNull { it.zoneId == selectedSeasonZone(prefs).id }?.label ?: selectedSeasonZone(prefs).id}",
+        Text("Выбран: ${if (prefs.regionSource == "ip" && prefs.ipRegionZone.isNotBlank())
+            prefs.ipRegionLabel.ifBlank { prefs.ipRegionZone } else
+            seasonRegionChoices.firstOrNull { it.zoneId == selectedSeasonZone(prefs).id }?.label ?: selectedSeasonZone(prefs).id}",
             style = MaterialTheme.typography.bodySmall)
         if (prefs.regionSource == "manual") {
             OutlinedButton(onClick = { showManual = true },
@@ -111,7 +132,7 @@ internal fun SeasonRegionSettings(prefs: UiPreferences, onSetLocal: (String, Str
             }
         }
         if (prefs.regionSource == "ip") {
-            Text("При определении по IP запрос отправляется сервису ipapi.co. Местоположение может быть неточным, особенно с VPN. Если сохранённого результата нет, используется регион устройства.",
+            Text("При определении по IP запрос отправляется сервису GeoJS / ipwho.is. Местоположение может быть неточным, особенно с VPN. Если сохранённого результата нет, используется регион устройства.",
                 style = MaterialTheme.typography.bodySmall)
             OutlinedButton(onClick = ::refreshIp, enabled = !resolvingIp,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("region-ip-refresh")) {

@@ -36,5 +36,8 @@ class HabitsVisualTest {
         compose.onNodeWithTag("habit-hero-path-toggle").assertExists()
         assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
             .takeScreenshot(File(app.getExternalFilesDir(null), "habits-refined.png")))
+        compose.onNodeWithText("Новая привычка").performScrollTo().performClick()
+        compose.onNodeWithTag("habit-form-calendar-lunar").performScrollTo().performClick()
+        compose.onNodeWithTag("habit-form-calendar-lunar").assertIsSelected()
     }
 }

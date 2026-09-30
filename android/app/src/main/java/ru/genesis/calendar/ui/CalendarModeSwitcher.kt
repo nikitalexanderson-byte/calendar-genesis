@@ -1,0 +1,131 @@
+package ru.genesis.calendar.ui
+
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
+import ru.genesis.calendar.domain.CalendarMode
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
+
+internal fun nextCalendarMode(mode: CalendarMode): CalendarMode = when (mode) {
+    CalendarMode.PROFANE -> CalendarMode.SACRED
+    CalendarMode.SACRED -> CalendarMode.LUNAR
+    CalendarMode.LUNAR -> CalendarMode.PROFANE
+}
+
+/** The same accessible, animated calendar selector is used on Today, Month and Year. */
+@Composable
+internal fun CalendarModeSwitcher(mode: CalendarMode, onNext: () -> Unit,
+    modifier: Modifier = Modifier, size: Dp = 54.dp) {
+    val scope = rememberCoroutineScope()
+    val click = remember { Animatable(0f) }
+    var running by remember { mutableStateOf(false) }
+    val ambient by rememberInfiniteTransition(label = "calendar-icon-ambient").animateFloat(
+        0f, 1f, infiniteRepeatable(tween(4600), RepeatMode.Reverse), label = "calendar-icon-glow")
+    val name = when (mode) {
+        CalendarMode.PROFANE -> "Григорианский"
+        CalendarMode.SACRED -> "Сакральный"
+        CalendarMode.LUNAR -> "Лунный"
+    }
+    val clickHint = genesisTranslate("Нажмите на иконку, чтобы сменить календарь")
+    val gold = Color(0xffdfc17e)
+    Surface(onClick = {
+        if (!running) scope.launch {
+            running = true
+            click.snapTo(0f)
+            click.animateTo(1f, tween(620))
+            onNext()
+            running = false
+        }
+    }, modifier = modifier.size(size).testTag("calendar-mode-icon-${mode.wireValue}")
+        .semantics { contentDescription = "$name. $clickHint" },
+        shape = RoundedCornerShape(17.dp), color = Color(0xff173b38),
+        border = BorderStroke(1.dp, gold.copy(alpha = .42f + ambient * .24f))) {
+        Canvas(Modifier.padding(7.dp)) {
+            val center = Offset(this.size.width / 2f, this.size.height / 2f)
+            val radius = this.size.minDimension * .34f
+            val stroke = 2.dp.toPx()
+            when (mode) {
+                CalendarMode.SACRED -> {
+                    val turn = click.value * PI * 2.7 + ambient * .07
+                    drawCircle(gold.copy(alpha = .13f + ambient * .08f), radius * 1.32f, center)
+                    repeat(12) { ray ->
+                        val angle = ray * PI / 6 + turn
+                        val bend = click.value * .8
+                        val start = center + Offset((cos(angle) * radius * .64).toFloat(),
+                            (sin(angle) * radius * .64).toFloat())
+                        val control = center + Offset((cos(angle + bend) * radius * .98).toFloat(),
+                            (sin(angle + bend) * radius * .98).toFloat())
+                        val end = center + Offset((cos(angle + bend * 1.65) * radius * 1.36).toFloat(),
+                            (sin(angle + bend * 1.65) * radius * 1.36).toFloat())
+                        drawPath(Path().apply {
+                            moveTo(start.x, start.y)
+                            quadraticTo(control.x, control.y, end.x, end.y)
+                        }, gold, style = Stroke(stroke, cap = StrokeCap.Round))
+                    }
+                    drawCircle(gold, radius * .57f, center)
+                    drawCircle(Color(0xff173b38), radius * .28f, center)
+                }
+                CalendarMode.LUNAR -> {
+                    val phase = click.value * PI * 2
+                    val shadowOffset = if (click.value == 0f) radius * .68f
+                        else (cos(phase) * radius * 1.65f).toFloat()
+                    val disc = Path().apply { addOval(Rect(center.x - radius, center.y - radius,
+                        center.x + radius, center.y + radius)) }
+                    drawCircle(Color(0xffe6d8b4).copy(alpha = .25f + ambient * .1f), radius * 1.17f, center)
+                    clipPath(disc) {
+                        drawCircle(Color(0xffeee6ca), radius, center)
+                        drawCircle(Color(0xff365052), radius * 1.07f,
+                            center + Offset(shadowOffset, 0f))
+                    }
+                    drawCircle(gold, radius, center, style = Stroke(1.2.dp.toPx()))
+                }
+                CalendarMode.PROFANE -> {
+                    val spread = click.value * radius * .65f
+                    drawCircle(gold.copy(alpha = .1f + ambient * .07f), radius * 1.2f, center)
+                    listOf(-1f, 1f).forEach { side ->
+                        val head = center + Offset(side * (radius * .55f + spread), -radius * .55f)
+                        val end = center + Offset(-side * (radius * .63f + spread), radius * .67f)
+                        drawLine(gold, head, end, stroke, cap = StrokeCap.Round)
+                        drawCircle(gold, radius * .28f, head, style = Stroke(stroke))
+                        drawLine(gold, end, end + Offset(side * radius * .30f, 0f), stroke,
+                            cap = StrokeCap.Round)
+                        drawLine(gold, end + Offset(0f, -radius * .14f),
+                            end + Offset(side * radius * .22f, -radius * .14f), stroke,
+                            cap = StrokeCap.Round)
+                    }
+                }
+            }
+        }
+    }
+}

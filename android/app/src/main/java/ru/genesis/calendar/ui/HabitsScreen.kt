@@ -33,19 +33,21 @@ import ru.genesis.calendar.domain.*
 import ru.genesis.calendar.domain.habits.*
 
 @Composable
-fun HabitsScreen(app: GenesisApplication, experimental: Boolean) {
-    var section by rememberSaveable { mutableStateOf("Привычки") }
+fun HabitsScreen(app: GenesisApplication, experimental: Boolean, inputCalendarMode: CalendarMode = CalendarMode.SACRED,
+    menuSwipeState: MenuSwipeState? = null) {
+    var localSection by rememberSaveable { mutableStateOf("Привычки") }
+    val section = menuSwipeState?.habits ?: localSection
     Column(Modifier.fillMaxSize()) {
         ConnectedSubmenu(listOf(SubmenuItem("Привычки", "Привычки"), SubmenuItem("Сон и настроение", "Сон и настроение")),
-            section, { section = it })
+            section, { localSection = it; menuSwipeState?.habits = it })
         Box(Modifier.weight(1f)) {
-            if (section == "Привычки") HabitWorkspaceContent(app, experimental) else TrackersScreen(app)
+            if (section == "Привычки") HabitWorkspaceContent(app, experimental, inputCalendarMode) else TrackersScreen(app)
         }
     }
 }
 
 @Composable
-private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean) {
+private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean, inputCalendarMode: CalendarMode) {
     val repository=remember(app) { HabitsRepository(app) }
     val scope=rememberCoroutineScope()
     var workspace by remember { mutableStateOf<LocalHabitWorkspace?>(null) }
@@ -269,7 +271,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
             }
         }
     }
-    if(editorOpen) HabitEditor(edit,busy,error,onDismiss={if(!busy) editorOpen=false},onSave={ habit ->
+    if(editorOpen) HabitEditor(edit,busy,error,inputCalendarMode,onDismiss={if(!busy) editorOpen=false},onSave={ habit ->
         scope.launch { runAction { repository.save(habit); editorOpen=false } }
     })
     deleteCandidate?.let { habit ->
@@ -372,7 +374,8 @@ private fun ExperimentalHabitCard(habit: Habit, entry: HabitCompletion?, schedul
 }
 
 @Composable
-private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, onDismiss: () -> Unit, onSave: (Habit) -> Unit) {
+private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCalendarMode: CalendarMode,
+    onDismiss: () -> Unit, onSave: (Habit) -> Unit) {
     val engine=remember { HabitEngine(GenesisCalendar()) }
     val initial=remember(existing) { existing ?: Habit(TrackerEntity.create("habit"),"",LocalDate.now(),engine.defaultSchedule(LocalDate.now(),CalendarMode.SACRED)) }
     var title by rememberSaveable(initial.id) { mutableStateOf(initial.title) }
@@ -383,6 +386,7 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, onDismi
     var scoring by rememberSaveable(initial.id) { mutableStateOf(initial.scoringMode) }
     var start by rememberSaveable(initial.id) { mutableStateOf(initial.schedule.startDate.toString()) }
     var end by rememberSaveable(initial.id) { mutableStateOf(initial.schedule.endDate?.toString() ?: "") }
+    var formCalendarMode by rememberSaveable(initial.id) { mutableStateOf(inputCalendarMode) }
     var config by remember(initial.id) { mutableStateOf(initial.schedule.recurrence) }
     val mode=when(config.mode) { "classic"->CalendarMode.PROFANE;"lunar"->CalendarMode.LUNAR;else->CalendarMode.SACRED }
     Dialog(onDismissRequest=onDismiss) { Surface(shape=MaterialTheme.shapes.large) {
@@ -397,9 +401,11 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, onDismi
                     FilterChip(selected=mode==option,enabled=!busy,onClick={config=engine.defaultSchedule(LocalDate.parse(start),option).recurrence},label={Text(label)})
                 }
             }
-            Text("Начало"); AuthorDatePicker(start,mode) { if(!busy) start=it }
+            EditorCalendarModePicker(formCalendarMode, { formCalendarMode=it }, enabled=!busy,
+                tag="habit-form-calendar")
+            Text("Начало"); AuthorDatePicker(start,formCalendarMode) { if(!busy) start=it }
             Row { Checkbox(checked=end.isNotEmpty(),enabled=!busy,onCheckedChange={end=if(it) start else ""}); Text("Ограничить срок",Modifier.padding(top=12.dp)) }
-            if(end.isNotEmpty()) AuthorDatePicker(end,mode) { if(!busy) end=it }
+            if(end.isNotEmpty()) AuthorDatePicker(end,formCalendarMode) { if(!busy) end=it }
             if(mode==CalendarMode.PROFANE) Row(Modifier.horizontalScroll(rememberScrollState())) {
                 listOf("daily" to "Ежедневно","weekdays" to "Дни недели","monthly" to "Ежемесячно","yearly" to "Ежегодно").forEach { (pattern,label) ->
                     FilterChip(config.pattern==pattern,{config=config.copy(pattern=pattern)},enabled=!busy,label={Text(label)})

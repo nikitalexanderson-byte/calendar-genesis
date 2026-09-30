@@ -37,6 +37,14 @@ RewriteRule . index.html [L]
   </IfModule>
 </FilesMatch>
 
+<FilesMatch "^android-update\.json$">
+  <IfModule mod_headers.c>
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+  </IfModule>
+</FilesMatch>
+
 <FilesMatch "^GENESIS-Android-1\.2\.2\.apk$">
   ForceType application/vnd.android.package-archive
   <IfModule mod_headers.c>

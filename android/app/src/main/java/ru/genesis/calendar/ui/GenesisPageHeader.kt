@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,12 +27,14 @@ import androidx.compose.ui.unit.dp
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
+import ru.genesis.calendar.domain.CalendarMode
 
 /** One native page heading, based on the existing Settings heading. */
 @Composable
 internal fun GenesisPageHeader(title: String, description: String, symbol: String,
     modifier: Modifier = Modifier, animatedMandala: Boolean = false, subtitle: String? = null,
-    icon: GenesisPageIcon = genesisPageIcon(title)) {
+    icon: GenesisPageIcon = genesisPageIcon(title), calendarMode: CalendarMode? = null,
+    onCalendarModeClick: (() -> Unit)? = null) {
     val night = Color(0xff0b2b2d)
     val gold = Color(0xffdfc17e)
     Surface(modifier.fillMaxWidth().testTag("genesis-page-header"),
@@ -42,7 +43,9 @@ internal fun GenesisPageHeader(title: String, description: String, symbol: Strin
         Box(Modifier.background(Brush.linearGradient(listOf(night, Color(0xff123b36))))) {
             Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                if (animatedMandala) TheokyklosHeaderMandala()
+                if (calendarMode != null && onCalendarModeClick != null)
+                    CalendarModeSwitcher(calendarMode, onCalendarModeClick)
+                else if (animatedMandala) TheokyklosHeaderMandala()
                 else Surface(Modifier.size(54.dp).clearAndSetSemantics { },
                     shape = RoundedCornerShape(17.dp), color = Color(0xff173b38)) {
                     Box(contentAlignment = Alignment.Center) {
@@ -57,6 +60,9 @@ internal fun GenesisPageHeader(title: String, description: String, symbol: Strin
                     }
                     Text(description, color = Color(0xffc8d9d4),
                         style = MaterialTheme.typography.bodySmall)
+                    if (calendarMode != null) Text(
+                        genesisTranslate("Нажмите на иконку, чтобы сменить календарь"),
+                        color = gold, style = MaterialTheme.typography.labelSmall)
                 }
             }
         }

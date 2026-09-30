@@ -132,7 +132,8 @@ private fun DraggableTaskRow(task: LocalTask, pickedUp: Boolean,
 /** One native screen adapted from the web Projects workspace. Standart uses its existing Material roles. */
 @Composable
 fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental: Boolean,
-    onOpenTask: (String) -> Unit, onCreateTask: (String?) -> Unit) {
+    onOpenTask: (String) -> Unit, onCreateTask: (String?) -> Unit,
+    menuSwipeState: MenuSwipeState? = null) {
     val repo = remember(app) { WorkspaceStructureRepository(app) }
     val loadedStructure by produceState<WorkspaceStructure?>(null, repo) {
         repo.workspace.collect { value = it }
@@ -145,7 +146,13 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
     }
     val structure = loadedStructure!!
     val scope = rememberCoroutineScope()
-    var selectedCategory by remember { mutableStateOf<String?>(null) }
+    var localSelectedCategory by remember { mutableStateOf<String?>(null) }
+    val selectedCategory = if (menuSwipeState == null) localSelectedCategory
+        else menuSwipeState.projects.takeUnless { it == "all" }
+    fun selectCategory(id: String?) {
+        localSelectedCategory = id
+        menuSwipeState?.projects = id ?: "all"
+    }
     var selectedProject by remember { mutableStateOf<String?>(null) }
     var editing by remember { mutableStateOf<GenesisProject?>(null) }
     var deleteCandidate by remember { mutableStateOf<GenesisProject?>(null) }
@@ -254,7 +261,7 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
                         structure.categories.sortedBy { it.position }.map {
                             SubmenuItem(it.id, it.name, categoryAccent(it.color), "category-filter-${it.id}")
                         }, selectedCategory ?: "all",
-                        { selectedCategory = it.takeUnless { id -> id == "all" } },
+                        { selectCategory(it.takeUnless { id -> id == "all" }) },
                         Modifier.testTag("life-category-filters"))
                     if (categoriesExpanded) {
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -451,7 +458,7 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
                                 app.repository.save(task.copy(categoryId = null))
                             }
                             repo.deleteCategory(category.id, structure.revision)
-                            if (selectedCategory == category.id) selectedCategory = null
+                            if (selectedCategory == category.id) selectCategory(null)
                             if (editingCategory?.id == category.id) { editingCategory = null; categoryEditor = false }
                             error = null
                         } catch (e: IllegalArgumentException) {

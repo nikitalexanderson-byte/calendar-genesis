@@ -4,6 +4,7 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
+import java.io.File
 import java.time.LocalDate
 import java.util.UUID
 import kotlinx.coroutines.flow.first
@@ -24,6 +25,24 @@ class TaskRecurrenceFlowTest {
         compose.onNodeWithTag("create-task").performClick()
         compose.onNodeWithTag("task-title").performTextInput(title)
         UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()
+        compose.onNodeWithTag("task-form-calendar-lunar").performScrollTo().performClick()
+        compose.onNodeWithTag("task-form-calendar-lunar").assertIsSelected()
+        compose.onNodeWithTag("custom-reminder-toggle").performScrollTo().performClick()
+        compose.onNodeWithText("За время до задачи").assertExists()
+        compose.onNodeWithTag("custom-reminder-toggle").performScrollTo().performClick()
+        compose.onNodeWithText("За время до задачи").assertDoesNotExist()
+        compose.onNodeWithTag("custom-reminder-toggle").performScrollTo().performClick()
+        compose.onNodeWithText("Точная дата и время").performScrollTo().performClick()
+        compose.onNodeWithTag("task-editor-scroll")
+            .performScrollToNode(hasTestTag("reminder-form-calendar-profane"))
+        compose.onNodeWithTag("task-editor-scroll").performTouchInput { swipeUp() }
+        compose.onNodeWithTag("reminder-form-calendar-profane").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag("reminder-form-calendar-profane").assertIsSelected()
+        assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(
+            File(app.getExternalFilesDir(null), "task-reminder-mode.png")))
+        compose.onNodeWithTag("task-form-calendar-lunar").performScrollTo().assertIsSelected()
+        compose.onNodeWithTag("custom-reminder-toggle").performScrollTo().performClick()
         compose.onNodeWithTag("recurrence-enabled").performScrollTo().performClick()
         compose.onNodeWithTag("recurrence-enabled").assertIsOn()
         compose.onNodeWithText("По какое").performScrollTo()
