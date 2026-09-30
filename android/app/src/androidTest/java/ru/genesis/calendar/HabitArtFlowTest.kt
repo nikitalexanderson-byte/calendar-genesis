@@ -4,17 +4,22 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import androidx.test.uiautomator.UiDevice
+import ru.genesis.calendar.data.HabitsRepository
 
 class HabitArtFlowTest {
     @get:Rule val compose = createAndroidComposeRule<TestWorkspaceActivity>()
 
     @Test fun originalRanksAchievementsAndRewardsHaveNativeSlots() {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
+        val habits = HabitsRepository(app)
+        val originalSettings = runBlocking { habits.workspace.first().settings }
         check(BuildConfig.DEBUG && app.packageName.endsWith(".debug"))
         val originals = app.assets.list("originals/achievement-art").orEmpty()
             .filter { it.endsWith(".webp") }
@@ -26,10 +31,17 @@ class HabitArtFlowTest {
             "hero-path/256/01_tantal.webp", "hero-path/256/16_risen_from_the_abyss.webp").forEach { path ->
             app.assets.open("originals/$path").use { assertTrue(it.read() >= 0) }
         }
-        compose.waitUntil(10_000) {
-            compose.onAllNodesWithTag("app-theme-Standart").fetchSemanticsNodes().isNotEmpty()
-        }
-            compose.onNodeWithText("Привычки").performScrollTo().performClick()
+        try {
+            val deterministicSettings = originalSettings.copy(enabled = true,
+                feedback = originalSettings.feedback.copy(questsEnabled = true, gamificationWidgets = true))
+            if (deterministicSettings != originalSettings) runBlocking {
+                habits.updateSettings(deterministicSettings)
+            }
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithTag("navigation-Привычки").fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.onNodeWithTag("navigation-Привычки").performClick()
+            compose.onNodeWithTag("habit-hero-path-toggle").performScrollTo().performClick()
             compose.waitUntil(10_000) {
                 compose.onAllNodesWithTag("achievement-gallery").fetchSemanticsNodes().isNotEmpty()
             }
@@ -63,5 +75,10 @@ class HabitArtFlowTest {
             compose.onNodeWithTag("comeback-card", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
             assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(
                 File(app.getExternalFilesDir(null), "habits-resilience-after.png")))
+        } finally {
+            if (runBlocking { habits.workspace.first().settings } != originalSettings) {
+                runBlocking { habits.updateSettings(originalSettings) }
+            }
+        }
     }
 }

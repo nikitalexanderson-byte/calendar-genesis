@@ -18,6 +18,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.*
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -38,6 +39,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
@@ -51,13 +53,17 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.stateDescription
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -152,8 +158,10 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
         if (openedSection?.substringBefore('#') == "habits" && habitTrackingEnabled) tab = "Привычки"
     }
     val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     val navigationOnLeft = shouldUseNavigationRail(configuration.screenWidthDp,
-        configuration.orientation == Configuration.ORIENTATION_LANDSCAPE, prefs.wideNavigationOnLeft)
+        isLandscape, prefs.wideNavigationOnLeft)
+    val portraitAutoScroll = !isLandscape && prefs.navigationLabels && prefs.navigationAutoScroll
     val eveningTheme = rememberEveningTheme(AppearanceSettings.read(habitWorkspace.settings.rawJson))
     val window = LocalContext.current.activity()?.window
     SideEffect { window?.let { WindowInsetsControllerCompat(it,it.decorView).apply {
@@ -171,23 +179,37 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         scope.launch { welcomePrefsStore.set("language",language) }
                     }
             } else {
-            NavigationConnectionScope(tab, showConnections = tab != "Проекты") {
+            NavigationConnectionScope(tab, showConnections = tab != "Проекты" && !portraitAutoScroll) {
             Column(Modifier.safeDrawingPadding().imePadding()) {
-                Row(Modifier.fillMaxWidth().padding(12.dp),verticalAlignment=Alignment.CenterVertically) {
-                    Box(Modifier.size(42.dp).shadow(3.dp, CircleShape).clip(CircleShape)
+                val accountStatus = if (activeScope.startsWith("account-"))
+                    "Аккаунт GENESIS · защищённая локальная копия"
+                else if(BuildConfig.DEBUG) "Изолированное тестовое пространство · только на этом устройстве"
+                else "Локальные черновики · аккаунт не подключён"
+                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = if (isLandscape) 4.dp else 10.dp)
+                    .testTag("app-header"),
+                    verticalAlignment=Alignment.CenterVertically) {
+                    Box(Modifier.size(if (isLandscape) 30.dp else 42.dp).shadow(3.dp, CircleShape).clip(CircleShape)
                         .background(Color(0xff172624)).testTag("genesis-round-logo")) {
                         OriginalImage("icons/icon-192.png","GENESIS",Modifier.fillMaxSize()
                             .graphicsLayer { scaleX = 1.20f; scaleY = 1.20f })
                     }
-                    Text("GENESIS",Modifier.padding(start=10.dp).weight(1f),style=MaterialTheme.typography.titleLarge)
+                    if (isLandscape) {
+                        Text("GENESIS", Modifier.padding(start = 8.dp), style = MaterialTheme.typography.titleMedium)
+                        Text(accountStatus, Modifier.padding(start = 10.dp).weight(1f).testTag("app-account-status"),
+                            style = MaterialTheme.typography.labelSmall, maxLines = 1,
+                            overflow = TextOverflow.Ellipsis)
+                    } else {
+                        Text("GENESIS",Modifier.padding(start=10.dp).weight(1f),style=MaterialTheme.typography.titleLarge)
+                    }
                     Text(if(BuildConfig.DEBUG) "Internal alpha" else BuildConfig.VERSION_NAME,
-                        modifier = Modifier.padding(end = 6.dp), style=MaterialTheme.typography.labelSmall)
+                        modifier = Modifier.padding(horizontal = 6.dp), style=MaterialTheme.typography.labelSmall,
+                        maxLines = 1)
                     if (!testWorkspace) {
                         val refreshBusy = authState.busy || accountTaskSync?.loading == true
                         val refreshDescription = genesisTranslate(if (refreshBusy)
                             "Получаем изменения с сервера…" else "Обновить аккаунт")
                         IconButton(onClick = authController::refresh, enabled = !refreshBusy,
-                            modifier = Modifier.size(40.dp).testTag("today-refresh")
+                            modifier = Modifier.size(if (isLandscape) 34.dp else 40.dp).testTag("today-refresh")
                                 .semantics { contentDescription = refreshDescription }) {
                             Text(if (refreshBusy) "…" else "↻",
                                 style = MaterialTheme.typography.titleLarge,
@@ -195,9 +217,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         }
                     }
                 }
-                Text(if (activeScope.startsWith("account-")) "Аккаунт GENESIS · защищённая локальная копия"
-                    else if(BuildConfig.DEBUG) "Изолированное тестовое пространство · только на этом устройстве"
-                    else "Локальные черновики · аккаунт не подключён",Modifier.padding(horizontal=16.dp),
+                if (!isLandscape) Text(accountStatus,Modifier.padding(horizontal=16.dp).testTag("app-account-status"),
                     style=MaterialTheme.typography.bodySmall)
                 if(!testWorkspace && authState.requiresSignIn) {
                     Text("Для синхронизации повторите вход. Данные и напоминания доступны на устройстве.",
@@ -283,12 +303,20 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                 if (navigationOnLeft) {
                     Row(Modifier.fillMaxWidth().weight(1f).testTag("wide-navigation-layout")) {
                         PrimaryNavigation(tab, habitTrackingEnabled, vertical = true,
-                            onSelect = { tab = it }, modifier = Modifier.width(196.dp).fillMaxHeight())
-                        Box(Modifier.weight(1f).fillMaxHeight().testTag("main-content")) { pageContent() }
+                            showLabels = prefs.navigationLabels, autoScroll = false,
+                            onSelect = { tab = it }, modifier = Modifier
+                                .width(if (prefs.navigationLabels) 132.dp else 64.dp).wrapContentHeight())
+                        Box(Modifier.weight(1f).fillMaxHeight().testTag("main-content")) {
+                            CompositionLocalProvider(LocalCompactSubmenus provides true) { pageContent() }
+                        }
                     }
                 } else {
-                    PrimaryNavigation(tab, habitTrackingEnabled, vertical = false, onSelect = { tab = it })
-                    Box(Modifier.fillMaxWidth().weight(1f).testTag("main-content")) { pageContent() }
+                    PrimaryNavigation(tab, habitTrackingEnabled, vertical = false,
+                        showLabels = prefs.navigationLabels, autoScroll = portraitAutoScroll,
+                        onSelect = { tab = it })
+                    Box(Modifier.fillMaxWidth().weight(1f).testTag("main-content")) {
+                        CompositionLocalProvider(LocalCompactSubmenus provides isLandscape) { pageContent() }
+                    }
                 }
             }
             val existing=tasks.find { it.id==editId }
@@ -323,42 +351,86 @@ internal fun shouldUseNavigationRail(screenWidthDp: Int, landscape: Boolean,
 
 @Composable
 private fun PrimaryNavigation(selectedPage: String, habitTrackingEnabled: Boolean, vertical: Boolean,
-    onSelect: (String) -> Unit, modifier: Modifier = Modifier) {
+    showLabels: Boolean, autoScroll: Boolean, onSelect: (String) -> Unit, modifier: Modifier = Modifier) {
     val pages = listOf("Сегодня","Задачи","Проекты","Календарь","Привычки","Стойхейон","Теокиклос","Настройки")
         .filter { habitTrackingEnabled || it != "Привычки" }
     if (vertical) {
         Surface(modifier.then(navigationViewportAnchor()).testTag("main-navigation-rail"),
             color = MaterialTheme.colorScheme.surfaceContainerLow,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
-            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                pages.forEach { page -> PrimaryNavigationItem(page, selectedPage == page, true) { onSelect(page) } }
+            Column(Modifier.verticalScroll(rememberScrollState()).padding(4.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                pages.forEach { page -> PrimaryNavigationItem(page, selectedPage == page, true,
+                    showLabels = showLabels, compact = true) { onSelect(page) } }
+            }
+        }
+    } else if (!showLabels) {
+        Row(modifier.fillMaxWidth().then(navigationViewportAnchor()).testTag("main-navigation-icons")
+            .padding(horizontal = 2.dp)) {
+            pages.forEach { page ->
+                Box(Modifier.weight(1f)) {
+                    PrimaryNavigationItem(page, selectedPage == page, true, showLabels = false,
+                        compact = true) { onSelect(page) }
+                }
             }
         }
     } else {
+        val scrollState = rememberScrollState()
+        var cycleWidth by remember { mutableIntStateOf(0) }
+        var touching by remember { mutableStateOf(false) }
+        LaunchedEffect(autoScroll, touching, cycleWidth) {
+            if (!autoScroll || touching || cycleWidth <= 0) return@LaunchedEffect
+            while (isActive) {
+                delay(20)
+                scrollState.scrollBy(.55f)
+                if (scrollState.value >= cycleWidth) scrollState.scrollTo(scrollState.value - cycleWidth)
+            }
+        }
         Row(modifier.fillMaxWidth().then(navigationViewportAnchor()).testTag("main-navigation-scroll")
-            .horizontalScroll(rememberScrollState()).padding(horizontal=8.dp)) {
-            pages.forEach { page -> PrimaryNavigationItem(page, selectedPage == page, false) { onSelect(page) } }
+            .horizontalScroll(scrollState)
+            .pointerInput(autoScroll) {
+                awaitPointerEventScope {
+                    while (true) touching = awaitPointerEvent().changes.any { it.pressed }
+                }
+            }.padding(horizontal=4.dp)) {
+            Row(Modifier.onSizeChanged { cycleWidth = it.width }) {
+                pages.forEach { page -> PrimaryNavigationItem(page, selectedPage == page, false,
+                    showLabels = true, compact = false) { onSelect(page) } }
+            }
+            if (autoScroll) Row {
+                pages.forEach { page -> PrimaryNavigationItem(page, selectedPage == page, false,
+                    showLabels = true, compact = false, loopCopy = true) { onSelect(page) } }
+            }
         }
     }
 }
 
 @Composable
 private fun PrimaryNavigationItem(page: String, selectedPage: Boolean, fillWidth: Boolean,
-    onSelect: () -> Unit) {
+    showLabels: Boolean, compact: Boolean, loopCopy: Boolean = false, onSelect: () -> Unit) {
+    val accessiblePage = genesisTranslate(page)
     Surface(onClick=onSelect, shape=RoundedCornerShape(16.dp),
         color=if(selectedPage) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
         contentColor=if(selectedPage) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
         border=BorderStroke(if(selectedPage) 1.5.dp else 1.dp,
             if(selectedPage) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
         shadowElevation=if(selectedPage) 3.dp else 1.dp,
-        modifier=(if (fillWidth) Modifier.fillMaxWidth() else Modifier).padding(4.dp).heightIn(min=48.dp)
-            .testTag("navigation-$page").semantics { selected=selectedPage; role=Role.Tab }
-            .then(navigationParentAnchor(page))) {
-        Row(Modifier.padding(horizontal=14.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically,
-            horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-            GenesisVectorIcon(genesisPageIcon(page), Modifier.size(24.dp))
-            Text(page,style=MaterialTheme.typography.labelLarge)
+        modifier=(if (fillWidth) Modifier.fillMaxWidth() else Modifier).padding(if (compact) 2.dp else 3.dp)
+            .heightIn(min=if (compact) 44.dp else 48.dp)
+            .testTag(if (loopCopy) "navigation-loop-$page" else "navigation-$page")
+            .semantics {
+                selected=selectedPage; role=Role.Tab
+                if (!showLabels) contentDescription = accessiblePage
+            }.then(if (loopCopy) Modifier else navigationParentAnchor(page))) {
+        Row(Modifier.fillMaxWidth().padding(horizontal=if(showLabels) 10.dp else 0.dp,
+            vertical=if(compact) 6.dp else 8.dp),verticalAlignment=Alignment.CenterVertically,
+            horizontalArrangement=Arrangement.Center) {
+            GenesisVectorIcon(genesisPageIcon(page), Modifier.size(if(compact) 22.dp else 24.dp))
+            if (showLabels) {
+                Spacer(Modifier.width(7.dp))
+                Text(page,style=if(compact) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelLarge,
+                    maxLines = 1)
+            }
         }
     }
 }
@@ -804,6 +876,7 @@ internal fun ProjectHierarchyPicker(projects: List<GenesisProject>, selectedId: 
 private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy:Boolean,
     onSet:(String,String)->Unit, onSetLocal:(String,String)->Unit) {
     var refresh by remember { mutableIntStateOf(0) }
+    var calendarReference by rememberSaveable { mutableStateOf<String?>(null) }
     val request=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()){refresh++}
     val scope=rememberCoroutineScope()
     val habits = remember(app, app.workspaceScope) { HabitsRepository(app) }
@@ -816,13 +889,40 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
     val futureTaskAlarms = rows.count { it.state == "pending" && it.at > System.currentTimeMillis() }
     fun diagnosticTime(value: Long) = Instant.ofEpochMilli(value).atZone(ZoneId.systemDefault())
         .format(DateTimeFormatter.ofPattern("dd.MM HH:mm"))
-    Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(14.dp)) {
+    Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()),
+        verticalArrangement=Arrangement.spacedBy(14.dp)) {
         GenesisPageHeader(if (prefs.language == "en") "Settings" else "Настройки",
             if (prefs.language == "en") "Calendars, time, privacy and reminders"
             else "Календарь, время, приватность и напоминания", "⚙")
         AppearancePanel(app, workspace, prefs.use24)
-        SettingsSection("☷", "Навигация на широком экране", "Альбомный режим телефона и планшеты",
+        SettingsSection("☷", "Отображение меню", "Кнопки телефона, альбомного режима и планшета",
             Color(0xffe9ede5)) {
+            Text("Кнопки меню первого уровня", style = MaterialTheme.typography.titleSmall)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected = !prefs.navigationLabels,
+                    onClick = { onSetLocal("navigationLabels", "icons") },
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("navigation-icons-only"),
+                    leadingIcon = { GenesisVectorIcon(GenesisPageIcon.TODAY, Modifier.size(20.dp)) },
+                    label = { Text("Иконки") })
+                FilterChip(selected = prefs.navigationLabels,
+                    onClick = { onSetLocal("navigationLabels", "text") },
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("navigation-with-text"),
+                    label = { Text("С текстом") })
+            }
+            AnimatedVisibility(prefs.navigationLabels) {
+                Row(Modifier.fillMaxWidth().testTag("navigation-auto-scroll-setting"),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Автопрокрутка в портретном режиме", style = MaterialTheme.typography.titleSmall)
+                        Text("Медленное движение справа налево; удержание пальцем ставит его на паузу.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Switch(checked = prefs.navigationAutoScroll,
+                        onCheckedChange = { onSetLocal("navigationAutoScroll", it.toString()) },
+                        modifier = Modifier.testTag("navigation-auto-scroll"))
+                }
+            }
             Text("Расположение меню первого уровня", style = MaterialTheme.typography.titleSmall)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(selected = prefs.wideNavigationOnLeft,
@@ -839,7 +939,18 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         SettingsSection("◉", "Календари и время", "Отображение не меняет календарь ввода и повторений",
-            Color(0xffe4efed)) {
+            Color(0xffe4efed), modifier = Modifier.testTag("calendar-settings-section")) {
+            Text("Справочная информация", style = MaterialTheme.typography.titleSmall)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf(CalendarMode.PROFANE to "Григорианский", CalendarMode.SACRED to "Сакральный",
+                    CalendarMode.LUNAR to "Лунный").forEach { (mode, label) ->
+                    OutlinedButton(onClick = { calendarReference = mode.wireValue },
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                            .testTag("calendar-reference-${mode.wireValue}")) {
+                        Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+                    }
+                }
+            }
             listOf("display" to "Календарь отображения","input" to "Календарь ввода и повторений").forEach{(key,label)->
                 Text(label, style = MaterialTheme.typography.titleSmall)
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -968,12 +1079,16 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
         Text("Версия ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",style=MaterialTheme.typography.labelSmall,
             modifier = Modifier.align(Alignment.CenterHorizontally), color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
+    calendarReference?.let { value ->
+        CalendarReferenceDialog(CalendarMode.fromWire(value)) { calendarReference = null }
+    }
 }
 
 @Composable
 private fun SettingsSection(symbol: String, title: String, subtitle: String, color: Color,
+    modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit) {
-    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp),
+    Card(modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = eveningSurface(color)),
         border = BorderStroke(1.dp, Color(0x55b28a4a))) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {

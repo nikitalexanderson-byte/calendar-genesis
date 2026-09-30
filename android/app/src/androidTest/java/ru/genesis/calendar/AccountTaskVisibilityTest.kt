@@ -67,13 +67,13 @@ class AccountTaskVisibilityTest {
             }
             compose.runOnUiThread { app.activateAccount(uid) }
             compose.setContent { GenesisApp(app, null, testWorkspace = true) }
-            compose.onNodeWithText("Задачи").performScrollTo().performClick()
+            compose.onNodeWithTag("navigation-Задачи").performClick()
             compose.onNodeWithTag("task-website-task").performScrollTo().assertIsDisplayed()
             compose.onNodeWithTag("task-untitled-event").performScrollTo().assertIsDisplayed()
             compose.onNodeWithText("Без названия").assertIsDisplayed()
             compose.onNodeWithTag("task-$longId").performScrollTo().assertIsDisplayed()
             capture("imported-task-list")
-            compose.onNodeWithText("Календарь").performScrollTo().performClick()
+            compose.onNodeWithTag("navigation-Календарь").performClick()
             compose.onNodeWithTag("calendar-task-count-$date").performScrollTo().performClick()
             compose.onNodeWithText("Задача с сайта").assertIsDisplayed()
             compose.onNodeWithText("Без названия").assertIsDisplayed()

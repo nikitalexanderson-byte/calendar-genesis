@@ -38,7 +38,7 @@ class NativeUiTest {
     }
 
     @Test fun nativeHabitFormPersistsEntry() {
-        compose.onNodeWithText("Привычки").performScrollTo().performClick()
+        compose.onNodeWithTag("navigation-Привычки").performClick()
         compose.onNodeWithText("Новая привычка").performScrollTo().performClick()
         compose.onAllNodes(hasSetTextAction()).onFirst().performTextInput("UI synthetic habit")
         compose.onNodeWithText("Сохранить").performScrollTo().performClick()
@@ -49,7 +49,7 @@ class NativeUiTest {
     }
 
     @Test fun nativeMoodFormPersistsSelection() {
-        compose.onNodeWithText("Привычки").performScrollTo().performClick()
+        compose.onNodeWithTag("navigation-Привычки").performClick()
         compose.onNodeWithText("Сон и настроение").performClick()
         val label=ru.genesis.calendar.domain.trackers.MoodTracker.option(1.0).label
         compose.onNode(hasText("Выбрать настроение") or hasText("Изменить настроение")).performScrollTo().performClick()
@@ -84,14 +84,14 @@ class NativeUiTest {
     }
 
     @Test fun accountSettingsAlwaysShowThreeExternalLinks() {
-        compose.onNodeWithText("Настройки").performScrollTo().performClick()
+        compose.onNodeWithTag("navigation-Настройки").performClick()
         compose.onNodeWithTag("account-link-telegram").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("account-link-donate").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("account-link-web").performScrollTo().assertIsDisplayed()
     }
 
     @Test fun settingsExposeWebsiteHabitControlsAsSeparateCards() {
-        compose.onNodeWithText("Настройки").performScrollTo().performClick()
+        compose.onNodeWithTag("navigation-Настройки").performClick()
         compose.onNodeWithTag("habit-tracking-settings").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("habit-notification-settings").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("habit-feedback-settings").performScrollTo().assertIsDisplayed()
@@ -103,7 +103,7 @@ class NativeUiTest {
         val initial = runBlocking { preferences.values.first() }
         try {
             runBlocking { preferences.set("display", "sacred") }
-            compose.onNodeWithText("Настройки").performScrollTo().performClick()
+            compose.onNodeWithTag("navigation-Настройки").performClick()
             compose.onNodeWithTag("gregorian-week-start-setting").assertDoesNotExist()
             runBlocking { preferences.set("display", "profane") }
             compose.waitUntil(5_000) {
@@ -151,8 +151,8 @@ class NativeUiTest {
         val initial = runBlocking { preferences.values.first().language }
         try {
             runBlocking { preferences.set("language", "ru") }
-            compose.waitUntil(5_000) { compose.onAllNodesWithText("Настройки").fetchSemanticsNodes().isNotEmpty() }
-            compose.onNodeWithText("Настройки").performScrollTo().performClick()
+            compose.waitUntil(5_000) { compose.onAllNodesWithTag("navigation-Настройки").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithTag("navigation-Настройки").performClick()
             compose.onNodeWithTag("language-en").performScrollTo().performClick()
             compose.waitUntil(5_000) { compose.onAllNodesWithText("Settings").fetchSemanticsNodes().isNotEmpty() }
             compose.onAllNodesWithText("Settings").onFirst().assertExists()

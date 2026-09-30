@@ -36,7 +36,7 @@ class StoicheionFlowTest {
                 assertTrue(it.read() >= 0)
             }
         }
-        compose.onNodeWithText("Стойхейон").performScrollTo().performClick()
+        compose.onNodeWithTag("navigation-Стойхейон").performClick()
         compose.waitUntil(10_000) {
             compose.onAllNodesWithTag("stoicheion-grid", useUnmergedTree = true)
                 .fetchSemanticsNodes().isNotEmpty()
@@ -61,7 +61,7 @@ class StoicheionFlowTest {
         val repository = StoicheionDrawRepository(app)
         try {
             runBlocking { preferences.set("stoicheionDivinationDisabled", "false") }
-            compose.onNodeWithText("Стойхейон").performScrollTo().performClick()
+            compose.onNodeWithTag("navigation-Стойхейон").performClick()
             if (runBlocking { repository.today.first().daily } == null) {
                 compose.onNodeWithTag("stoicheion-draw-daily").performClick()
                 compose.onNodeWithTag("stoicheion-accessible-draw").performClick()

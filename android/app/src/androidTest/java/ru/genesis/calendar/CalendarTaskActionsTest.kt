@@ -28,7 +28,7 @@ class CalendarTaskActionsTest {
         val task = LocalTask(id = UUID.randomUUID().toString(), title = "Mobile task actions", date = date.toString(), time = "18:30")
         try {
             runBlocking { preferences.set("display", "profane"); preferences.set("time", "12h"); app.repository.save(task) }
-            compose.onNodeWithText("Календарь").performScrollTo().performClick()
+            compose.onNodeWithTag("navigation-Календарь").performClick()
             compose.onNodeWithTag("calendar-task-count-$date").performScrollTo().performClick()
             compose.onNodeWithText("6:30 PM", substring = true).assertExists()
             compose.onNodeWithTag("calendar-task-complete-${task.id}").assertIsOff().performClick()
@@ -72,7 +72,7 @@ class CalendarTaskActionsTest {
                 rangeStart = date.toString(), rangeEnd = date.plusDays(2).toString()))
         try {
             runBlocking { preferences.set("display", "profane"); app.repository.save(task) }
-            compose.onNodeWithText("Календарь").performScrollTo().performClick()
+            compose.onNodeWithTag("navigation-Календарь").performClick()
             compose.onNodeWithTag("calendar-task-count-$date").performScrollTo().performClick()
             compose.onNodeWithTag("calendar-task-delete-${task.id}").performClick()
             compose.onNodeWithTag("calendar-delete-occurrence").performClick()

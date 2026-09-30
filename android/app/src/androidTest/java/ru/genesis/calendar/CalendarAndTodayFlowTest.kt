@@ -84,7 +84,7 @@ class CalendarAndTodayFlowTest {
             compose.onNodeWithTag("day-rhythm-expand").assertExists()
             compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("today-day-details"))
             compose.onNodeWithTag("day-knowledge").assertExists()
-            compose.onNodeWithText("Календарь").performScrollTo().performClick()
+            compose.onNodeWithTag("navigation-Календарь").performClick()
             compose.onNodeWithTag("pyata-1").performScrollTo().performClick()
             compose.onNodeWithText("Явление идеи.", substring = true).assertExists()
             compose.onNodeWithTag("calendar-day-2026-09-23").performScrollTo().performClick()

@@ -26,12 +26,95 @@ import java.util.concurrent.ConcurrentHashMap
 val LocalGenesisLanguage = compositionLocalOf { "ru" }
 
 private val nativeCopy = mapOf(
+    // Calendar reference dialogs.
+    "Григорианский календарь" to
+        "Gregorian calendar",
+    "Сакральный календарь" to
+        "Sacred calendar",
+    "Лунный календарь" to
+        "Lunar calendar",
+    "Гражданская система времени" to
+        "Civil system of time",
+    "Современный григорианский календарь — профанская гражданская система с многослойной историей. Его месяцы и счёт года унаследованы от Рима." to
+        "The modern Gregorian calendar is a civil system with a layered history. Its months and year count came from Rome.",
+    "Предпосылки семидневной недели восходят к Древнему Вавилону: вавилонская астрология придала особое значение семи видимым небесным светилам. В Рим семидневный ритм пришёл по двум линиям — иудейской субботней и греко-римской планетарной. Дни недели получили небесных покровителей — Солнце, Луну, Марс, Меркурий, Юпитер, Венеру и Сатурн." to
+        "The seven-day week reaches back to Babylonian astrology and its seven visible heavenly bodies. Rome received that rhythm through the Jewish Sabbath and Greco-Roman planetary tradition, giving the weekdays their celestial patrons.",
+    "Почему год начинается 1 января" to
+        "Why the year begins on January 1",
+    "Январь связывали с Янусом, богом дверей, переходов и начал. В 153 году до н. э. вступление консулов в должность перенесли на 1 января; поскольку годы называли именами консулов, этот день стал гражданским началом года. Реформа Юлия Цезаря закрепила традицию." to
+        "January was linked to Janus, god of doors, transitions, and beginnings. In 153 BCE the consuls began office on January 1; because years were named for them, that day became the civil opening of the year. Julius Caesar's reform established the tradition.",
+    "В 1582 году папа Григорий XIII ввёл названную его именем реформу, чтобы исправить накопившееся смещение юлианского календаря и вернуть весеннее равноденствие к церковному расчёту Пасхи." to
+        "In 1582 Pope Gregory XIII introduced the reform that bears his name to correct the Julian drift and restore the spring equinox used in the Church's Easter calculation.",
+    "Смысл в системе GENESIS" to
+        "Meaning in GENESIS",
+    "В символической системе GENESIS покровителем этого летоисчисления выступает Кронос — образ времени, меры, предела и неумолимого хода циклов." to
+        "In GENESIS, Cronus presides over this chronology as an image of time, measure, limits, and the course of cycles.",
+    "Суббота понимается как сакральный день обязательного покоя: время прекращать обычный труд, восстанавливать тело и возвращаться к внутренней тишине. Эта практика созвучна иудейскому Шаббату — седьмому дню, посвящённому Богу и свободному от работы." to
+        "Saturday is a sacred day of rest: a time to stop ordinary work, restore the body, and return to inner quiet, resonating with the Jewish Sabbath.",
+    "Живой ритм Луны" to
+        "The living rhythm of the Moon",
+    "Лунный год начинается в день первого точного новолуния после весеннего равноденствия и включает 12 или 13 лунных месяцев по 29 или 30 суток." to
+        "The lunar year begins at the first exact new moon after the spring equinox and contains 12 or 13 lunar months of 29 or 30 days.",
+    "В системе GENESIS это магический «женский» год: его внутренняя ткань определяется не месяцами и неделями солнечного года, а ростом, полнотой и исходом Луны. Весеннее равноденствие служит ежегодной точкой настройки; условия для практик рождаются внутри самих лунных месяцев." to
+        "In GENESIS this is a magical feminine year, shaped by the Moon's growth, fullness, and waning rather than the months and weeks of the solar year. The spring equinox is its annual tuning point.",
+    "Месяцы и сезоны" to
+        "Months and seasons",
+    "Каждый месяц начинается в точный момент новолуния. Его сутки следуют фазам Луны, а вставочный тринадцатый месяц при необходимости удерживает лунный круг рядом с солнечными сезонами." to
+        "Each month begins at the exact new moon. Its days follow the Moon's phases, while an intercalary thirteenth month keeps the lunar cycle near the solar seasons when needed.",
+    "Это современная символическая система GENESIS, а не реконструкция единого древнегреческого календаря. Её античная опора — образ Селены как небесного знака для людей и полнота Луны в середине месяца в Гомеровом гимне; греческие лунно-солнечные календари действительно удерживали месяцы рядом с сезонами при помощи вставочного месяца." to
+        "This is a modern GENESIS symbolic system, not a reconstruction of a single ancient Greek calendar. It draws on Selene and the Moon's fullness at mid-month; Greek lunisolar calendars kept months near the seasons with an intercalary month.",
+    "Солнечно-лунный календарь" to
+        "Solar-lunar calendar",
+    "Год GENESIS начинается в день весеннего равноденствия и раскрывается через двенадцать месяцев. Каждый месяц несёт собственный образ, цвет, стихию и смысл — не просто отрезок времени, а отдельную ступень годового пути." to
+        "The GENESIS year begins on the spring equinox and unfolds through twelve months. Each month carries its own image, color, element, and meaning—a distinct stage of the annual path.",
+    "В каждом месяце ровно 30 дней. Вместо привычных недель время собрано в шесть пят: коротких пятидневных ритмов, где нечётные и чётные пяты сменяют друг друга. Так солнечная мера года соединяется с живым лунным дыханием." to
+        "Each month has exactly 30 days, arranged into six five-day rhythms instead of ordinary weeks. The solar measure of the year meets the living breath of the Moon.",
+    "Равноденствия и солнцестояния образуют четыре праздничные опоры. После завершения двенадцатого месяца наступает Апейрон — несколько дней вне обычного счёта, пространство тишины перед новым весенним началом." to
+        "The equinoxes and solstices form four festive supports. After the twelfth month comes Apeiron: several days outside ordinary counting, a quiet space before the new spring beginning.",
+    "Сакральная геометрия времени" to
+        "Sacred geometry of time",
+    "Почему наш год начинается в день весеннего равноденствия? Почему в месяце ровно 30 дней, разбитых на 6 «пят» (пятидневок), а самих месяцев 12, плюс «скрытый» 13-й месяц?" to
+        "Why does the year begin on the spring equinox? Why does each month contain 30 days arranged into six pentads, with twelve months plus a hidden thirteenth?",
+    "Это не случайность. Это классическая сакральная геометрия времени, где каждый день — шаг в процессе эволюции духа. Разберём эту структуру через оптику античной теологии Пифагора, Гесиода и Гомера." to
+        "This is sacred geometry of time, where every day is a step in the evolution of spirit. We can read it through Pythagoras, Hesiod, and Homer.",
+    "Почему год начинается в весеннее равноденствие?" to
+        "Why does the year begin at the spring equinox?",
+    "20 марта — это точка преодоления инерции зимы. Это первый день месяца Арейос (Арес), время прорыва, отделения бытия от небытия и победы света над тьмой. 12 месяцев — полный солярный круг, совершенный цикл развития идеи от её зарождения весной до полного растворения в пустоте (Зофос) в конце зимы. Оставшиеся 5–6 дней года — Апейрон, время чистого Хаоса вне времени, когда старый мир рухнул, а новый ещё не рождён." to
+        "March 20 overcomes winter's inertia and opens Areios. Twelve months complete the solar circle; the remaining five or six days are Apeiron, pure Chaos outside time between the old world and the unborn new one.",
+    "Пентада: 5 стихий и геометрия восхождения" to
+        "Pentad: five elements and the geometry of ascent",
+    "Каждая Пята (5 дней) — микрокосм, отражающий процесс «Анабасиса», восхождения души от плотной материи к чистому свету. Дни идут в строгом порядке: Земля — Вода — Воздух — Огонь — Эфир." to
+        "Each Pentad is a microcosm of the soul's ascent from dense matter to pure light: Earth, Water, Air, Fire, and Aether.",
+    "Пифагор — геометрия плотности. Мир строится от стабильного к тонкому. Земля — статика (куб), Вода — текучесть, Воздух — форма. Огонь стоит выше Воздуха, потому что он активен и трансформирует элементы. Эфир — квинтэссенция, венец творения." to
+        "Pythagoras gives a geometry of density: the world rises from stable Earth through Water and Air to transforming Fire and the quintessence of Aether.",
+    "Гесиод — хронология творения. В «Теогонии» путь идёт от тяжести к сиянию: сначала Хаос и твёрдая Земля, затем Вода, Небо и чистый Свет. Огонь — инструмент богов, стоящий над стихиями." to
+        "Hesiod gives a chronology of creation, moving from Chaos and solid Earth through Water and Sky to pure Light; Fire is the gods' transforming instrument.",
+    "Гомер — раздел мира. Аид получил недра, Посейдон — море, Зевс — высокое небо. Движение всегда идёт снизу вверх. Успех любого дела требует пройти эти пять шагов: от «заземления» идеи до её «одухотворения» в эфире." to
+        "Homer divides the world among the underworld, sea, and high sky. Every undertaking must pass these five steps, from grounding an idea to spiritualizing it in Aether.",
+    "Гексада: 6 Пят и Куб Событий" to
+        "Hexad: six Pentads and the Cube of Events",
+    "Если Пята — инструмент стихий, то Гексада (число 6) — рамка времени, в которой этот инструмент действует. Шесть пят образуют 30 дней месяца." to
+        "If the Pentad is the elemental instrument, the Hexad is its frame in time. Six Pentads form a 30-day month.",
+    "Для пифагорейцев 6 — первое совершенное число (1 + 2 + 3 = 6), число сотворения мира и гармонии. Это также число граней куба, самой устойчивой фигуры. Шесть Пят — шесть сторон «событийного куба» месяца. Пока не пройдёшь все шесть, не увидишь объёмную картину." to
+        "For the Pythagoreans, six is the first perfect number and the number of the cube's faces. Six Pentads are the six sides of the month's event cube; only the complete passage reveals the whole.",
+    "У Гесиода это шесть поколений теогонии и веков творения. У Гомера — шесть граней эпического «Агона», пути героя." to
+        "Hesiod sees six generations and ages of creation; Homer gives six faces to the heroic path.",
+    "СПРАВОЧНАЯ ИНФОРМАЦИЯ" to
+        "REFERENCE",
     "Подробнее о дне" to "More about the day",
     "Скрыть подробности" to "Hide details",
     "Выберите категорию, чтобы отфильтровать проекты." to "Choose a category to filter projects.",
     "Начало недели" to "Start of week",
     "Навигация на широком экране" to "Wide-screen navigation",
     "Альбомный режим телефона и планшеты" to "Landscape phones and tablets",
+    "Отображение меню" to "Menu display",
+    "Кнопки телефона, альбомного режима и планшета" to "Phone, landscape, and tablet controls",
+    "Кнопки меню первого уровня" to "Primary menu buttons",
+    "Иконки" to "Icons", "С текстом" to "With text",
+    "Автопрокрутка в портретном режиме" to "Auto-scroll in portrait mode",
+    "Медленное движение справа налево; удержание пальцем ставит его на паузу." to
+        "Slow right-to-left motion; hold a finger on the menu to pause it.",
+    "Справочная информация" to "Reference information",
     "Расположение меню первого уровня" to "Primary menu position",
     "Слева" to "Left", "Сверху" to "Top",
     "Настройка применяется автоматически при повороте экрана и на планшете." to

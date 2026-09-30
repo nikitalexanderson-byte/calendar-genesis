@@ -34,13 +34,13 @@ class TalkBackAccessibilityTest {
         // Enabling TalkBack on a freshly wiped emulator can trigger one late Activity
         // recreation while the accessibility service finishes connecting.
         waitForNode("navigation-Проекты")
-        compose.onNodeWithTag("navigation-Проекты").performScrollTo().performClick()
+        compose.onNodeWithTag("navigation-Проекты").performClick()
         waitForNode("projects-screen")
         compose.onNodeWithTag("projects-screen").assertExists()
         compose.onRoot().tryPerformAccessibilityChecks()
 
         waitForNode("navigation-Настройки")
-        compose.onNodeWithTag("navigation-Настройки").performScrollTo().performClick()
+        compose.onNodeWithTag("navigation-Настройки").performClick()
         compose.onNodeWithText("Системные напоминания").performScrollTo().assertIsDisplayed()
         compose.onRoot().tryPerformAccessibilityChecks()
     }

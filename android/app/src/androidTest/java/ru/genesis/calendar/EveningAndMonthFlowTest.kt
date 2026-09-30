@@ -33,7 +33,7 @@ class EveningAndMonthFlowTest {
     private val dark = InstrumentationRegistry.getArguments().getString("genesisEvening") == "true"
     private fun capture(name: String) {
         compose.waitForIdle()
-        File(app.getExternalFilesDir(null), "2.3.8-${width}dp-${if(dark) "evening" else "light"}-$name.png")
+        File(app.getExternalFilesDir(null), "2.3.9-${width}dp-${if(dark) "evening" else "light"}-$name.png")
             .outputStream().use { assertTrue(compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG,100,it)) }
     }
     private fun content(block: @Composable () -> Unit) {
@@ -157,6 +157,14 @@ class EveningAndMonthFlowTest {
                 compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag("gregorian-season-spring"))
                 capture("profane-year-seasons")
             }
+            if(calendarMode==CalendarMode.SACRED) {
+                compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag("sacred-year-details-open"))
+                compose.onNodeWithTag("sacred-year-details-open").assertIsDisplayed()
+                capture("sacred-year-details-dynamic-button")
+                compose.onNodeWithTag("sacred-year-details-open").assertIsDisplayed().performClick()
+                compose.onNodeWithTag("sacred-year-details-dialog").assertIsDisplayed()
+                compose.onNodeWithTag("sacred-year-details-close").performClick()
+            }
         }
     }
 
@@ -164,6 +172,8 @@ class EveningAndMonthFlowTest {
         app.activateAccount(null)
         val repo=HabitsRepository(app)
         val original=runBlocking { repo.workspace.first().settings }
+        val preferences=LocalPreferences(app,app.workspaceScope)
+        val originalPreferences=runBlocking { preferences.values.first() }
         val today=LocalDate.now()
         val fixture="theme-preview-${UUID.randomUUID()}"
         runBlocking {
@@ -171,17 +181,22 @@ class EveningAndMonthFlowTest {
             repo.save(Habit(TrackerEntity.create("habit",id=fixture),"Ежедневная прогулка",today,
                 HabitEngine(GenesisCalendar()).defaultSchedule(today,CalendarMode.PROFANE)))
         }
-        runBlocking { repo.updateAppearance(AppearanceSettings(mode=if(dark) "evening" else "light").json()) }
+        runBlocking {
+            repo.updateAppearance(AppearanceSettings(mode=if(dark) "evening" else "light").json())
+            preferences.set("display", CalendarMode.SACRED.wireValue)
+        }
         content { GenesisApp(app,null,testWorkspace=true) }
         try {
             val tag=if(dark) "app-theme-Evening" else "app-theme-Standart"
             compose.waitUntil(10_000) { compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
             for(page in listOf("Сегодня","Задачи","Проекты","Календарь","Привычки","Стойхейон","Теокиклос","Настройки")) {
-                compose.onNodeWithTag("navigation-$page").performScrollTo().performClick()
+                compose.onNodeWithTag("navigation-$page").performClick()
                 capture("page-$page")
                 if(page=="Сегодня") {
                     compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("today-tasks-section"))
                     capture("today-practice-panel")
+                    compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("today-day-details-toggle"))
+                    compose.onNodeWithTag("today-day-details-toggle").performClick()
                     compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("three-rhythms-heading"))
                     capture("today-three-rhythms")
                     compose.onAllNodes(SemanticsMatcher("Rhythm fact") {
@@ -202,6 +217,9 @@ class EveningAndMonthFlowTest {
             compose.onNodeWithTag("appearance-scheduled").performScrollTo().performClick()
             compose.waitUntil(10_000) { compose.onAllNodesWithTag("appearance-light-time").fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithTag("appearance-dark-time").assertExists()
-        } finally { runBlocking { repo.updateSettings(original); repo.delete(fixture);app.repository.delete(fixture) } }
+        } finally { runBlocking {
+            preferences.set("display", originalPreferences.display.wireValue)
+            repo.updateSettings(original); repo.delete(fixture);app.repository.delete(fixture)
+        } }
     }
 }

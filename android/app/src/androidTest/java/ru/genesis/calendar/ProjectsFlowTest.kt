@@ -66,7 +66,7 @@ class ProjectsFlowTest {
             }
             repo.workspace.first().projects.any { it.title == projectTitle }
         }
-        compose.onNodeWithText("Проекты").performScrollTo().performClick()
+        compose.onNodeWithTag("navigation-Проекты").performClick()
         compose.waitUntil(10_000) { compose.onAllNodesWithTag("projects-screen").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("projects-screen").assertExists()
         compose.onNodeWithTag("create-project").performClick()
@@ -110,7 +110,7 @@ class ProjectsFlowTest {
             compose.waitUntil(10_000) {
                 compose.onAllNodesWithTag("app-theme-Standart").fetchSemanticsNodes().isNotEmpty()
             }
-            compose.onNodeWithText("Проекты").performScrollTo().performClick()
+            compose.onNodeWithTag("navigation-Проекты").performClick()
             compose.onNodeWithTag("project-inbox").assertExists()
             compose.onNodeWithText("Открыть").performClick()
             compose.onNodeWithTag("drag-task-$taskId", useUnmergedTree = true)
@@ -144,7 +144,7 @@ class ProjectsFlowTest {
             compose.waitUntil(10_000) {
                 compose.onAllNodesWithTag("app-theme-Standart").fetchSemanticsNodes().isNotEmpty()
             }
-            compose.onNodeWithText("Проекты").performScrollTo().performClick()
+            compose.onNodeWithTag("navigation-Проекты").performClick()
             compose.onNodeWithText("Открыть").performClick()
             val source = compose.onNodeWithTag("drag-task-$taskId", useUnmergedTree = true)
             source.performScrollTo()
@@ -186,7 +186,7 @@ class ProjectsFlowTest {
             compose.waitUntil(10_000) {
                 compose.onAllNodesWithTag("app-theme-Standart").fetchSemanticsNodes().isNotEmpty()
             }
-            compose.onNodeWithText("Проекты").performScrollTo().performClick()
+            compose.onNodeWithTag("navigation-Проекты").performClick()
             compose.waitUntil(10_000) {
                 compose.onAllNodesWithTag("projects-screen").fetchSemanticsNodes().isNotEmpty()
             }
@@ -241,7 +241,7 @@ class ProjectsFlowTest {
         compose.waitUntil(10_000) {
             compose.onAllNodesWithTag("app-theme-Standart").fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithText("Проекты").performScrollTo().performClick()
+        compose.onNodeWithTag("navigation-Проекты").performClick()
         compose.onNodeWithTag("projects-screen").performScrollToNode(hasTestTag("project-drop-$originId"))
         compose.onNodeWithTag("project-drop-$originId").performClick()
         val source = compose.onNodeWithTag("drag-task-$taskId", useUnmergedTree = true)
