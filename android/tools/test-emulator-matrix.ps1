@@ -18,7 +18,7 @@ $emulator = "$sdk/emulator/emulator.exe"
 $avdManager = "$sdk/cmdline-tools/latest/bin/avdmanager.bat"
 $package = "ru.genesis.calendar.debug"
 $runner = "$package.test/androidx.test.runner.AndroidJUnitRunner"
-$reportDir = "$PSScriptRoot/../build/reports/emulator-matrix-2.3.9"
+$reportDir = "$PSScriptRoot/../build/reports/emulator-matrix-2.3.10"
 New-Item -ItemType Directory -Force -Path $reportDir | Out-Null
 
 foreach ($required in @($adb, $emulator, $avdManager, $Apk, $TestApk)) {
@@ -68,10 +68,11 @@ function Wait-For-Boot($Process) {
     Invoke-Adb shell input keyevent 82 | Out-Null
 }
 
-function Start-MatrixAvd([string]$Name, [int]$Api, [string]$Device, [bool]$WipeData = $true) {
+function Start-MatrixAvd([string]$Name, [int]$Api, [string]$Device,
+    [bool]$WipeData = $true, [string]$Gpu = "software") {
     Ensure-Avd $Name $Api $Device
     $arguments = @("-avd", $Name, "-no-window", "-no-audio", "-no-boot-anim", "-no-snapshot",
-        "-memory", "4096", "-cores", "4", "-gpu", "host")
+        "-memory", "4096", "-cores", "4", "-gpu", $Gpu)
     if ($WipeData) { $arguments += "-wipe-data" }
     $process = Start-Process -FilePath $emulator -ArgumentList $arguments -WindowStyle Hidden -PassThru
     try { Wait-For-Boot $process } catch { if (!$process.HasExited) { $process.Kill() }; throw }
@@ -109,6 +110,10 @@ function Stop-MatrixAvd($Process) {
 
 function Add-FailureDiagnostics([string]$Log) {
     try {
+        if ((& $adb devices 2>&1 | Out-String) -notmatch "emulator-\d+\s+device") {
+            Add-Content -LiteralPath $Log -Value "Emulator disconnected before logcat could be captured"
+            return
+        }
         Add-Content -LiteralPath $Log -Value "`n=== device logcat after failure ==="
         Add-Content -LiteralPath $Log -Value (Invoke-Adb logcat -d -t 500)
     } catch {
@@ -140,7 +145,7 @@ function Test-Phone([int]$Api, [string]$Device) {
         Write-Host "$name already passed"
         return
     }
-    Set-Content -LiteralPath $log -Value "GENESIS 2.3.9 phone matrix: API $Api, device $Device"
+    Set-Content -LiteralPath $log -Value "GENESIS 2.3.10 phone matrix: API $Api, device $Device"
     $process = $null
     try {
         $process = Start-MatrixAvd $name $Api $Device
@@ -176,13 +181,13 @@ function Test-Tablet([string]$Device) {
         Write-Host "$name already passed"
         return
     }
-    Set-Content -LiteralPath $log -Value "GENESIS 2.3.9 tablet matrix: API 35, device $Device"
+    Set-Content -LiteralPath $log -Value "GENESIS 2.3.10 tablet matrix: API 35, device $Device"
     $process = $null
     try {
         # Keep the already initialized Android system between tablet reruns. Clearing
         # app data preserves the package UID and avoids stale scoped-storage ownership
         # on emulator images that are reused for multiple instrumentation runs.
-        $process = Start-MatrixAvd $name 35 $Device $false
+        $process = Start-MatrixAvd $name 35 $Device $false "host"
         if ((& $adb shell pm path $package 2>$null | Out-String).Trim()) {
             Invoke-Adb shell pm clear $package | Out-Null
         }

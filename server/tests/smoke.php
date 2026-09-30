@@ -30,7 +30,7 @@ try {
 
     $user = genesisFindUser($userId);
     expect(is_array($user), 'Test user was not created.');
-    $user = genesisUpdateAccountPreferences($userId, ['calendarMode' => 'sacred', 'taskCalendarMode' => 'lunar', 'timeFormat' => '12h', 'weekStart' => 'monday', 'language' => 'en']);
+    $user = genesisUpdateAccountPreferences($userId, ['calendarMode' => 'sacred', 'taskCalendarMode' => 'lunar', 'timeFormat' => '12h', 'weekStart' => 'monday', 'gregorianYearStart' => 'march', 'language' => 'en']);
     expect(($user['calendar_mode'] ?? '') === 'sacred', 'Calendar preference was not stored.');
     expect((genesisUserForClient($user)['calendarMode'] ?? '') === 'sacred', 'Calendar preference was not exposed to the client.');
     expect(($user['task_calendar_mode'] ?? '') === 'lunar', 'Task calendar preference was not stored.');
@@ -38,6 +38,8 @@ try {
     expect(($user['time_format'] ?? '') === '12h', 'Time format preference was not stored.');
     expect(($user['week_start'] ?? '') === 'monday', 'Week start preference was not stored.');
     expect((genesisUserForClient($user)['weekStart'] ?? '') === 'monday', 'Week start preference was not exposed to the client.');
+    expect(($user['gregorian_year_start'] ?? '') === 'march', 'Gregorian year start preference was not stored.');
+    expect((genesisUserForClient($user)['gregorianYearStart'] ?? '') === 'march', 'Gregorian year start preference was not exposed to the client.');
     expect((genesisUserForClient($user)['timeFormat'] ?? '') === '12h', 'Time format preference was not exposed to the client.');
     expect(($user['language'] ?? '') === 'en', 'Language preference was not stored.');
     expect((genesisUserForClient($user)['language'] ?? '') === 'en', 'Language preference was not exposed to the client.');

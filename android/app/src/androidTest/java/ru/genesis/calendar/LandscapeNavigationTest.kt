@@ -40,10 +40,10 @@ class LandscapeNavigationTest {
             assertTrue("Compact rail must be at most 132dp", rail.width <= 133f * density)
             val header = compose.onNodeWithTag("app-header").fetchSemanticsNode().boundsInRoot
             val account = compose.onNodeWithTag("app-account-status").fetchSemanticsNode().boundsInRoot
-            assertTrue("Landscape account status must share the compact header row",
-                account.top >= header.top && account.bottom <= header.bottom)
             assertTrue(device.takeScreenshot(File(app.cacheDir,
-                "landscape-navigation-left-2.3.9.png")))
+                "landscape-navigation-left-2.3.10.png")))
+            assertTrue("Landscape account status must share the compact header row: header=$header account=$account",
+                account.top >= header.top && account.bottom <= header.bottom)
 
             compose.onNodeWithTag("navigation-Настройки").performScrollTo().performClick()
             compose.waitUntil(5_000) {
@@ -55,7 +55,7 @@ class LandscapeNavigationTest {
             }
             compose.onNodeWithTag("main-navigation-scroll").assertIsDisplayed()
             assertTrue(device.takeScreenshot(File(app.cacheDir,
-                "landscape-navigation-top-2.3.9.png")))
+                "landscape-navigation-top-2.3.10.png")))
         } finally {
             runBlocking {
                 preferences.set("wideNavigation", if (original.wideNavigationOnLeft) "left" else "top")

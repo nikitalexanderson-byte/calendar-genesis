@@ -197,13 +197,15 @@ internal fun StoicheionMotionDialog(mode: String, busy: Boolean, onCancel: () ->
                     }
                     BoxWithConstraints(Modifier.matchParentSize()) {
                         val orbit = min(maxWidth.value, maxHeight.value) * .34f
-                        val symbols = listOf("Α", "Β", "Γ", "Δ", "Ε", "Ζ", "Η", "Θ", "Ι", "Κ", "Λ", "Μ")
+                        val symbols = listOf("Α", "Β", "Γ", "Δ", "Ε", "Ζ", "Η", "Θ", "Ι", "Κ", "Λ", "Μ",
+                            "Ν", "Ξ", "Ο", "Π", "Ρ", "Σ", "Τ", "Υ", "Φ", "Χ", "Ψ", "Ω")
                         symbols.forEachIndexed { index, symbol ->
                             val angle = index * Math.PI * 2 / symbols.size - Math.PI / 2 + travel / 240f
                             Text(symbol, Modifier.offset(
-                                x = (maxWidth.value / 2 + cos(angle).toFloat() * orbit - 14).dp,
-                                y = (maxHeight.value / 2 + sin(angle).toFloat() * orbit - 18).dp),
-                                color = Color(0xffdfc17e), style = MaterialTheme.typography.headlineMedium)
+                                x = (maxWidth.value / 2 + cos(angle).toFloat() * orbit - 7).dp,
+                                y = (maxHeight.value / 2 + sin(angle).toFloat() * orbit - 9).dp)
+                                .testTag("stoicheion-orbit-$index"),
+                                color = Color(0xffdfc17e), style = MaterialTheme.typography.labelLarge)
                         }
                     }
                     Surface(shape = RoundedCornerShape(100.dp), color = Color(0xd9071d20)) {

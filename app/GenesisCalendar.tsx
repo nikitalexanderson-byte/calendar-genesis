@@ -1597,6 +1597,7 @@ export function GenesisCalendar() {
   const activeTaskCalendarMode: CalendarMode = cloudUser?.taskCalendarMode ?? "sacred";
   const activeTimeFormat = normalizeTimeFormat(cloudUser?.timeFormat);
   const activeWeekStart = cloudUser?.weekStart === "monday" ? "monday" : "sunday";
+  const gregorianYearStartsInMarch = cloudUser?.gregorianYearStart === "march";
   const googleAccounts = cloudUser?.googleAccounts ?? [];
   const defaultSyncAccountIds = cloudUser?.syncRouting?.defaultAccountIds?.length
     ? cloudUser.syncRouting.defaultAccountIds
@@ -5740,17 +5741,21 @@ export function GenesisCalendar() {
   );
 
   const renderAlternativeYear = (mode: Exclude<CalendarMode, "sacred">) => {
-    const profaneYear = selectedDate.getFullYear();
+    const profaneYear = selectedDate.getFullYear() - (gregorianYearStartsInMarch && selectedDate.getMonth() < 2 ? 1 : 0);
+    const profaneStartMonth = gregorianYearStartsInMarch ? 2 : 0;
+    const profaneYearStart = new Date(profaneYear, profaneStartMonth, 1, 12);
+    const profaneYearEnd = new Date(profaneYear + 1, profaneStartMonth, 1, 12);
+    const profaneYearLabel = gregorianYearStartsInMarch ? `${profaneYear}–${profaneYear + 1}` : String(profaneYear);
     const lunarYear = selectedLunarYear;
     const yearMonths: AlternativeYearMonth[] = mode === "profane"
       ? Array.from({ length: 12 }, (_, month) => {
-          const dates = profaneMonthDates(new Date(profaneYear, month, 1, 12));
+          const dates = profaneMonthDates(new Date(profaneYear, profaneStartMonth + month, 1, 12));
           const representative = dates[Math.floor(dates.length / 2)];
           const accentMonth = MONTHS[getSacredDate(representative).monthIndex];
           return {
-            id: `profane-${profaneYear}-${month}`,
+            id: `profane-${representative.getFullYear()}-${representative.getMonth()}`,
             title: profaneMonthName(representative),
-            subtitle: language === "en" ? `${dates.length} days · ${profaneYear}` : `${dates.length} дней · ${profaneYear} год`,
+            subtitle: language === "en" ? `${dates.length} days · ${representative.getFullYear()}` : `${dates.length} дней · ${representative.getFullYear()} год`,
             ordinal: String(month + 1).padStart(2, "0"),
             symbol: "",
             dates,
@@ -5773,16 +5778,16 @@ export function GenesisCalendar() {
             accentMonth,
           };
         });
-    const yearValue = mode === "profane" ? profaneYear : lunarYear.sacredYear;
     const yearSolarEvents = mode === "profane"
-      ? getSolarEvents(yearValue)
+      ? [...getSolarEvents(profaneYear), ...getSolarEvents(profaneYear + 1)]
+          .filter((event) => event.date >= profaneYearStart && event.date < profaneYearEnd)
       : [...getSolarEvents(lunarYear.sacredYear), ...getSolarEvents(lunarYear.sacredYear + 1)]
           .filter((event) => event.date >= lunarYear.startDate && event.date < lunarYear.endDate);
     const yearDayCount = mode === "profane"
-      ? Math.round((Date.UTC(profaneYear + 1, 0, 1) - Date.UTC(profaneYear, 0, 1)) / 86_400_000)
+      ? Math.round((Date.UTC(profaneYear + 1, profaneStartMonth, 1) - Date.UTC(profaneYear, profaneStartMonth, 1)) / 86_400_000)
       : Math.round((Date.UTC(lunarYear.endDate.getFullYear(), lunarYear.endDate.getMonth(), lunarYear.endDate.getDate()) - Date.UTC(lunarYear.startDate.getFullYear(), lunarYear.startDate.getMonth(), lunarYear.startDate.getDate())) / 86_400_000);
     const yearTitle = mode === "profane"
-      ? (language === "en" ? `Gregorian year ${profaneYear}` : `Григорианский год ${profaneYear}`)
+      ? (language === "en" ? `Gregorian year ${profaneYearLabel}` : `Григорианский год ${profaneYearLabel}`)
       : (language === "en" ? `Lunar year ${lunarYear.sacredYear}–${lunarYear.sacredYear + 1}` : `Лунный год ${lunarYear.sacredYear}–${lunarYear.sacredYear + 1}`);
     const yearDescription = mode === "profane"
       ? "Современный григорианский календарь — профанская гражданская система с многослойной историей. Его месяцы и счёт года унаследованы от Рима. Предпосылки семидневной недели восходят к Древнему Вавилону: вавилонская астрология придала особое значение семи видимым небесным светилам. В Рим семидневный ритм пришёл по двум линиям — иудейской субботней и греко-римской планетарной. В античном мире дни недели получили небесных покровителей — Солнце, Луну, Марс, Меркурий, Юпитер, Венеру и Сатурн, — и так ещё в древности сложился сакральный образ каждого дня. Традиция отмечать Новый год 1 января тоже пришла из Рима и не была изобретена одним человеком. Январь связывали с Янусом, богом дверей, переходов и начал. В 153 году до н. э. вступление консулов в должность перенесли на этот день, чтобы они раньше отправились на войну в Испании; поскольку годы называли именами консулов, 1 января стало гражданским началом года, а реформа Юлия Цезаря закрепила эту традицию. В 1582 году папа Григорий XIII ввёл названную его именем реформу, чтобы исправить накопившееся смещение юлианского календаря и вернуть весеннее равноденствие к церковному расчёту Пасхи. Поэтому современный календарь соединяет вавилонско-иудейское, греко-римское, римское гражданское и христианско-церковное наследие. В символической системе GENESIS покровителем этого летоисчисления выступает Кронос — образ времени, меры, предела и неумолимого хода циклов. Суббота здесь понимается как сакральный день обязательного покоя: время прекращать обычный труд, восстанавливать тело и возвращаться к внутренней тишине. Эта практика созвучна иудейскому Шаббату — седьмому дню, когда предписано воздерживаться от работы и посвящать день Богу."
@@ -5795,7 +5800,7 @@ export function GenesisCalendar() {
     });
     const changeYear = (delta: number) => {
       if (mode === "profane") {
-        const targetYear = profaneYear + delta;
+        const targetYear = selectedDate.getFullYear() + delta;
         const targetDay = Math.min(selectedDate.getDate(), new Date(targetYear, selectedDate.getMonth() + 1, 0).getDate());
         selectCalendarDate(new Date(targetYear, selectedDate.getMonth(), targetDay, 12));
         return;
@@ -5815,7 +5820,7 @@ export function GenesisCalendar() {
           </div>
           <div className="year-switcher">
             <button type="button" onClick={() => changeYear(-1)} aria-label="Предыдущий год">←</button>
-            <strong>{mode === "profane" ? profaneYear : `${lunarYear.sacredYear}–${lunarYear.sacredYear + 1}`}</strong>
+            <strong>{mode === "profane" ? profaneYearLabel : `${lunarYear.sacredYear}–${lunarYear.sacredYear + 1}`}</strong>
             <button type="button" onClick={() => changeYear(1)} aria-label="Следующий год">→</button>
           </div>
         </header>

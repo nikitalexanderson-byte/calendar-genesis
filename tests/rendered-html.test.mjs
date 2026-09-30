@@ -1987,7 +1987,7 @@ test("retains the legacy TWA artifact but promotes only the signed native Androi
   assert.match(installHook, /window\.location\.hostname[\s\S]*device[\s\S]*android-phone/);
   assert.match(installHook, /isAndroidPhone && !isStandalone/);
   assert.doesNotMatch(installHook, /downloads\/GENESIS-Android-1\.2\.2\.apk/);
-  assert.match(installHook, /downloads\/GENESIS-Android-Native-2\.3\.9\.apk/);
+  assert.match(installHook, /downloads\/GENESIS-Android-Native-2\.3\.10\.apk/);
   assert.doesNotMatch(installHook, /GENESIS-Android-Native-2\.2\.7\.apk/);
   assert.doesNotMatch(calendar, /android-apk-icon-button/);
   assert.match(calendar, /nativeAndroidApkUrl=\{nativeAndroidApkUrl\}/);
@@ -2000,7 +2000,7 @@ test("retains the legacy TWA artifact but promotes only the signed native Androi
   // The public 1.2.2 download stays unchanged while the isolated native alpha advances.
   const nativeVersionCode = Number(androidBuild.match(/versionCode = (\d+)/)?.[1]);
   assert.ok(nativeVersionCode >= 7);
-  assert.match(androidBuild, /versionName = "2\.3\.9"/);
+  assert.match(androidBuild, /versionName = "2\.3\.10"/);
   assert.match(androidBuild, /releaseSigningReady/);
   assert.match(androidBuild, /applicationIdSuffix = "\.debug"/);
   assert.match(androidBuild, /androidx\.browser:browser:1\.10\.0/);
@@ -2811,7 +2811,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /activeCalendarMode === "lunar"/);
   assert.doesNotMatch(calendar, /Новолуние открывает месяц|lunar-month-rule/);
   assert.doesNotMatch(styles, /\.lunar-month-rule/);
-  assert.match(calendar, /Григорианский год \$\{profaneYear\}/);
+  assert.match(calendar, /Григорианский год \$\{profaneYearLabel\}/);
+  assert.match(calendar, /gregorianYearStart === "march"/);
   assert.match(calendar, /mode === "lunar" \? <p>\{yearDescription\}<\/p> : null/);
   assert.match(calendar, /первого точного новолуния после весеннего равноденствия/);
   assert.match(calendar, /"Лунный год"/);

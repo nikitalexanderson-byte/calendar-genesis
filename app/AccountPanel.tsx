@@ -199,6 +199,23 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
     }
   };
 
+  const changeGregorianYearStart = async (gregorianYearStart: "january" | "march") => {
+    if ((user.gregorianYearStart ?? "january") === gregorianYearStart) return;
+    setPreferenceBusy(true);
+    setMessage("");
+    try {
+      const result = await updateAccountPreferences({ gregorianYearStart });
+      onUserChange(result.user);
+      setMessage(gregorianYearStart === "march"
+        ? "Григорианский год теперь показывается с марта по февраль."
+        : "Григорианский год теперь показывается с января по декабрь.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Не удалось изменить начало года.");
+    } finally {
+      setPreferenceBusy(false);
+    }
+  };
+
   const themeStatusMessage = themeState.status === "saving"
     ? (user.language === "en" ? "Saving the account preference…" : "Сохраняем выбор в аккаунте…")
     : themeState.status === "error"
@@ -450,6 +467,28 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
             ))}
           </div>
         </section>
+
+        {(user.calendarMode ?? "sacred") === "profane" ? (
+          <section className="account-preferences gregorian-year-preference" aria-labelledby="gregorian-year-start-title" data-exp-ui="panel">
+            <div>
+              <span className="eyebrow">Григорианский календарь</span>
+              <h3 id="gregorian-year-start-title">Начало года</h3>
+              <p>Выберите порядок месяцев в разделе «Круг года». Даты задач и повторений не меняются.</p>
+            </div>
+            <div className="language-choice gregorian-year-choice" role="radiogroup" aria-label="Начало григорианского года">
+              {(["january", "march"] as const).map((yearStart) => (
+                <button type="button" role="radio" key={yearStart}
+                  aria-checked={(user.gregorianYearStart ?? "january") === yearStart}
+                  className={(user.gregorianYearStart ?? "january") === yearStart ? "active" : ""}
+                  disabled={preferenceBusy} onClick={() => void changeGregorianYearStart(yearStart)}>
+                  <strong>{yearStart === "march" ? "С марта" : "С января"}</strong>
+                  <small>{yearStart === "march" ? "Март — февраль" : "Январь — декабрь"}</small>
+                </button>
+              ))}
+            </div>
+            <p>Март был первым месяцем древнеримского года: сентябрь означал «седьмой», октябрь — «восьмой». Январь назван в честь Януса, римского божества начал и переходов.</p>
+          </section>
+        ) : null}
 
         {(user.calendarMode ?? "sacred") === "profane" ? (
           <section className="account-preferences week-start-preference" aria-labelledby="week-start-title" data-exp-ui="panel">

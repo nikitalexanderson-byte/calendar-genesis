@@ -33,7 +33,7 @@ class CategoryPaletteFlowTest {
     private fun capture(name: String) {
         compose.waitForIdle()
         assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(
-            File(app.getExternalFilesDir(null), "2.3.9-${width}dp-${if(dark) "evening" else "light"}-$name.png")))
+            File(app.getExternalFilesDir(null), "2.3.10-${width}dp-${if(dark) "evening" else "light"}-$name.png")))
     }
 
     @Test fun createAndEditAnyColourWithoutLosingExactHex() {

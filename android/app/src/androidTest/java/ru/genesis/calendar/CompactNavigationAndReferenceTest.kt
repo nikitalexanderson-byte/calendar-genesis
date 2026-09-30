@@ -38,9 +38,17 @@ class CompactNavigationAndReferenceTest {
             assertEquals(1, bounds.map { it.top }.distinct().size)
             assertTrue(bounds.zipWithNext().all { (left, right) -> left.right <= right.left + 1f })
             assertTrue(device.takeScreenshot(File(app.getExternalFilesDir(null),
-                "2.3.9-portrait-icon-menu.png")))
+                "2.3.10-portrait-icon-menu.png")))
 
             compose.onNodeWithTag("navigation-Настройки").performClick()
+            compose.onNodeWithTag("region-source-manual").performScrollTo().performClick()
+            compose.onNodeWithTag("region-manual-list")
+                .performScrollToNode(hasTestTag("region-choice-Australia-Sydney"))
+            compose.onNodeWithTag("region-choice-Australia-Sydney").performClick()
+            compose.waitUntil(5_000) { runBlocking {
+                preferences.values.first().manualRegionZone == "Australia/Sydney"
+            } }
+            assertTrue(runBlocking { preferences.values.first().regionSource == "manual" })
             compose.onNodeWithTag("navigation-with-text").performScrollTo().performClick()
             compose.waitUntil(5_000) {
                 compose.onAllNodesWithTag("navigation-auto-scroll-setting").fetchSemanticsNodes().isNotEmpty()
@@ -51,6 +59,12 @@ class CompactNavigationAndReferenceTest {
             compose.waitUntil(5_000) { !runBlocking { preferences.values.first().navigationAutoScroll } }
 
             compose.onNodeWithTag("calendar-settings-section").performScrollTo()
+            listOf("profane" to "Григорианский", "sacred" to "Сакральный",
+                "lunar" to "Лунный").forEach { (mode, label) ->
+                compose.onNodeWithTag("calendar-reference-$mode").assertTextEquals(label)
+            }
+            assertTrue(device.takeScreenshot(File(app.getExternalFilesDir(null),
+                "2.3.10-calendar-reference-buttons.png")))
             compose.onNodeWithTag("calendar-reference-profane").performClick()
             compose.waitUntil(5_000) {
                 compose.onAllNodesWithText("Григорианский календарь", useUnmergedTree = true)
@@ -60,7 +74,7 @@ class CompactNavigationAndReferenceTest {
             compose.waitForIdle()
             device.waitForIdle(1_000)
             assertTrue(device.takeScreenshot(File(app.getExternalFilesDir(null),
-                "2.3.9-calendar-reference-profane.png")))
+                "2.3.10-calendar-reference-profane.png")))
             compose.onNodeWithTag("calendar-reference-close", useUnmergedTree = true).performClick()
             compose.onNodeWithTag("calendar-reference-sacred").performScrollTo().performClick()
             compose.waitUntil(5_000) {
@@ -80,6 +94,8 @@ class CompactNavigationAndReferenceTest {
                 preferences.set("navigationLabels", if (original.navigationLabels) "text" else "icons")
                 preferences.set("navigationAutoScroll", original.navigationAutoScroll.toString())
                 preferences.set("language", original.language)
+                preferences.set("regionSource", original.regionSource)
+                preferences.set("manualRegionZone", original.manualRegionZone)
             }
         }
     }

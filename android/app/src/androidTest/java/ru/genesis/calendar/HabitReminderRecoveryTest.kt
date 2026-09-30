@@ -8,6 +8,7 @@ import android.net.Uri
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.delay
 import org.junit.Assert.*
 import org.junit.Assume.assumeTrue
 import org.junit.Test
@@ -15,6 +16,8 @@ import ru.genesis.calendar.data.*
 import ru.genesis.calendar.domain.*
 import ru.genesis.calendar.domain.habits.*
 import ru.genesis.calendar.reminders.habitNotificationOpenIntent
+import ru.genesis.calendar.reminders.planHabitNotifications
+import ru.genesis.calendar.reminders.ReminderScheduler
 import java.time.*
 
 class HabitReminderRecoveryTest {
@@ -41,10 +44,29 @@ class HabitReminderRecoveryTest {
             .putExtra("kind","habit").putExtra("habitId",id).putExtra("at",at.toEpochMilli())
         val registry=app.getSharedPreferences("genesis_habit_alarm_registry",Context.MODE_PRIVATE)
         registry.edit().putStringSet("delivered",registry.getStringSet("delivered",emptySet()).orEmpty()-key.toString()).commit()
+        manager.cancel(key.toString(),2)
+        suspend fun awaitNotification(): android.service.notification.StatusBarNotification {
+            repeat(50) {
+                manager.activeNotifications.firstOrNull { it.tag==key.toString() }?.let { note -> return note }
+                delay(100)
+            }
+            error("Habit notification was not posted within five seconds; delivered=" +
+                registry.getStringSet("delivered", emptySet()).orEmpty().contains(key.toString()) +
+                ", active=" + manager.activeNotifications.map { "${it.tag}/${it.id}" } +
+                ", channel=" + manager.getNotificationChannel(ReminderScheduler.HABIT_CHANNEL)?.importance)
+        }
         try {
             repo.save(habit)
+            val planned = planHabitNotifications(repo.workspace.first(), date, at.minusMillis(1),
+                ZoneId.systemDefault(), false, 1)
+            assertTrue("Expected the saved habit to have a matching planned reminder: $planned",
+                planned.any { it.kind == "habit" && it.habitId == id && it.at == at })
+            assertNotNull("Habits notification channel must exist",
+                manager.getNotificationChannel(ReminderScheduler.HABIT_CHANNEL))
+            assertTrue("Habits notification channel must be enabled",
+                app.scheduler.channelAllowed(ReminderScheduler.HABIT_CHANNEL))
             app.scheduler.deliverHabitNotification(intent)
-            val delivered=manager.activeNotifications.single {it.tag==key.toString()}
+            val delivered=awaitNotification()
             assertEquals(habit.title,delivered.notification.extras.getString(Notification.EXTRA_TITLE))
             assertFalse(delivered.notification.extras.getString(Notification.EXTRA_TEXT).orEmpty()
                 .contains(Regex("\\(\\d+\\)")))
@@ -52,7 +74,7 @@ class HabitReminderRecoveryTest {
             assertEquals("habits", requestedSection(openIntent, app.workspaceScope))
             assertNotNull(delivered.notification.contentIntent)
             app.scheduler.deliverHabitNotification(intent)
-            assertEquals(delivered.postTime,manager.activeNotifications.single {it.tag==key.toString()}.postTime)
+            assertEquals(delivered.postTime,awaitNotification().postTime)
             repo.complete(id,true)
             manager.cancel(key.toString(),2)
             registry.edit().putStringSet("delivered",registry.getStringSet("delivered",emptySet()).orEmpty()-key.toString()).commit()

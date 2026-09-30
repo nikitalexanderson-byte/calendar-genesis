@@ -17,11 +17,12 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import kotlin.math.*
 
-internal enum class GenesisPageIcon { TODAY, TASKS, PROJECTS, CALENDAR, MONTH, YEAR, HABITS, STOICHEION, THEOKYKLOS, SETTINGS, TRACKERS }
+internal enum class GenesisPageIcon { TODAY, TASKS, TASK_LISTS, PROJECTS, CALENDAR, MONTH, YEAR, HABITS, STOICHEION, THEOKYKLOS, SETTINGS, TRACKERS }
 
 internal fun genesisPageIcon(title: String): GenesisPageIcon = when (title.trim()) {
     "Сегодня", "Today" -> GenesisPageIcon.TODAY
     "Задачи", "Tasks" -> GenesisPageIcon.TASKS
+    "Списки задач", "Task lists" -> GenesisPageIcon.TASK_LISTS
     "Проекты", "Projects" -> GenesisPageIcon.PROJECTS
     "Календарь", "Calendar" -> GenesisPageIcon.CALENDAR
     "Календарь - месяц", "Calendar - month" -> GenesisPageIcon.MONTH
@@ -53,7 +54,7 @@ internal fun GenesisVectorIcon(icon: GenesisPageIcon, modifier: Modifier = Modif
     tint: Color = LocalContentColor.current, animated: Boolean = false) {
     val moving = animated && ValueAnimator.areAnimatorsEnabled()
     val phase = rememberIconPhase("genesis-icon-${icon.name}",
-        if (icon == GenesisPageIcon.TASKS || icon == GenesisPageIcon.PROJECTS) 7_200 else 12_000, moving)
+        if (icon == GenesisPageIcon.TASKS || icon == GenesisPageIcon.TASK_LISTS || icon == GenesisPageIcon.PROJECTS) 7_200 else 12_000, moving)
     val ink = eveningInk(tint)
     Canvas(modifier.testTag("genesis-icon-${icon.name.lowercase()}-${if (animated) "animated" else "static"}")
         .clearAndSetSemantics { }) {
@@ -103,6 +104,13 @@ internal fun GenesisVectorIcon(icon: GenesisPageIcon, modifier: Modifier = Modif
                         inkPath(listOf(Offset(6f, y), Offset(7.2f, y + 1.2f), Offset(9.5f, y - 1.4f)),
                             if (moving) inkProgress(phase, i) else 1f)
                         line(Offset(12f, y), Offset(17.8f, y))
+                    }
+                }
+                GenesisPageIcon.TASK_LISTS -> {
+                    listOf(6.5f, 12f, 17.5f).forEachIndexed { index, y ->
+                        drawCircle(tint, .9f, Offset(4.8f, y))
+                        val progress = if (moving) inkProgress(phase, index) else 1f
+                        inkPath(listOf(Offset(8f, y), Offset(20f, y)), progress)
                     }
                 }
                 GenesisPageIcon.PROJECTS -> {

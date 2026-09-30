@@ -82,7 +82,7 @@ class TaskListsFlowTest {
         } finally { db.close() }
     }
 
-    @Test fun createMenuPrioritizesTaskAndRetryDoesNotDuplicateListOrDraftTasks() {
+    @Test fun createButtonFollowsSelectedSectionAndRetryDoesNotDuplicateListOrDraftTasks() {
         check(BuildConfig.DEBUG)
         app.activateAccount(null)
         val id=UUID.randomUUID().toString()
@@ -107,11 +107,11 @@ class TaskListsFlowTest {
         } }
         try {
             compose.onNodeWithTag("create-task").performClick()
-            assertTrue(compose.onNodeWithTag("create-task-choice").fetchSemanticsNode().boundsInRoot.top <
-                compose.onNodeWithTag("create-task-list-choice").fetchSemanticsNode().boundsInRoot.top)
-            compose.onNodeWithTag("create-task-choice").performClick();assertTrue(taskRequested)
+            assertTrue(taskRequested)
+            compose.onNodeWithTag("submenu-lists").performClick()
+            compose.onAllNodesWithText("Списки задач").assertCountEquals(2)
+            compose.onNodeWithTag("genesis-icon-task_lists-animated", useUnmergedTree = true).assertExists()
             compose.onNodeWithTag("create-task").performClick()
-            compose.onNodeWithTag("create-task-list-choice").performClick()
             compose.onNodeWithTag("task-list-title").performTextInput("План чтения")
             compose.onNodeWithTag("task-list-drafts").performTextInput("Прочитать главу\nЗаписать мысли")
             UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()
