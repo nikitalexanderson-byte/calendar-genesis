@@ -136,6 +136,11 @@ internal class AuthSessionClient(context: Context) {
         request(expected, "/account/preferences", JSONObject().put("syncRouting", routing.toJson()), method = "PUT")
     fun updatePreferences(expected: Long, changes: JSONObject): JSONObject =
         request(expected, "/account/preferences", changes, method = "PUT")
+    fun adminStats(expected: Long): JSONObject = request(expected, "/admin/stats", null)
+    fun deleteAdminUser(expected: Long, userId: String, blacklist: Boolean): JSONObject {
+        require(userId.matches(Regex("[A-Za-z0-9_-]{1,100}")))
+        return request(expected, "/admin/users/$userId", JSONObject().put("blacklist", blacklist), method = "DELETE")
+    }
     fun removeLinkedAccount(expected: Long, accountId: String): JSONObject {
         require(accountId.matches(Regex("[A-Za-z0-9_-]{1,100}")))
         return request(expected, "/account/google-accounts/$accountId", JSONObject(), method = "DELETE")
@@ -155,8 +160,9 @@ internal class AuthSessionClient(context: Context) {
         persist: Boolean = true, method: String = if (body == null) "GET" else "POST"): JSONObject {
         require(path in setOf("/session", "/workspace", "/bootstrap", "/stoicheion/draws", "/auth/google/native/challenge",
             "/auth/google/native", "/auth/google/native/services/config", "/auth/google/native/services",
-            "/auth/logout", "/account/preferences") || (path == "/task-lists" && method == "POST") ||
+            "/auth/logout", "/account/preferences", "/admin/stats") || (path == "/task-lists" && method == "POST") ||
             (method in setOf("PUT", "DELETE") && path.matches(Regex("/tasks/[A-Za-z0-9_-]{1,100}"))) ||
+            (method == "DELETE" && path.matches(Regex("/admin/users/[A-Za-z0-9_-]{1,100}"))) ||
             (method == "DELETE" && path.matches(Regex("/account/google-accounts/[A-Za-z0-9_-]{1,100}"))))
         require(method in setOf("GET", "POST", "PUT", "DELETE") && (method == "GET") == (body == null))
         val current = secret ?: load(expected)
@@ -211,6 +217,7 @@ internal class AuthSessionClient(context: Context) {
                     val maximumBytes = when (path) {
                         "/workspace" -> 11_000_000
                         "/bootstrap" -> 24_000_000
+                        "/admin/stats" -> 4_000_000
                         else -> 131_072
                     }
                     if (output.size() + read > maximumBytes) throw AuthFailure(AuthFailure.Kind.PROTOCOL)

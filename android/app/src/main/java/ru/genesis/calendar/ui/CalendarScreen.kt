@@ -866,12 +866,8 @@ private fun CalendarYearOverview(calendar: GenesisCalendar, shown: LocalDate, mo
         CalendarPeriodPager(period, period.minusYears(1), period.plusYears(1),
             { onYear(period.minusYears(1)) }, { onYear(period.plusYears(1)) },
             Modifier.weight(1f).fillMaxWidth(), fillHeight = true) { page, previous, next ->
-            Card(Modifier.fillMaxSize().testTag("calendar-year-panel"), shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = .45f))) {
-                CalendarYearPanel(calendar, page, mode, experimental, tasks,
-                    gregorianYearStartsInMarch, regionalSeasonArt, seasonRegionZone, onMonth, previous, next)
-            }
+            CalendarYearPanel(calendar, page, mode, experimental, tasks,
+                gregorianYearStartsInMarch, regionalSeasonArt, seasonRegionZone, onMonth, previous, next)
         }
     }
 }
@@ -928,7 +924,14 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
         contentPadding = PaddingValues(bottom = 96.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item(key = "year-heading") { CalendarPageHeader(true, Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) }
-        item { CalendarPeriodNavigation(yearLabel, true, onPrevious, onNext) }
+        item {
+            Card(Modifier.fillMaxWidth().padding(horizontal = 10.dp).testTag("calendar-year-panel"),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = .45f))) {
+                CalendarPeriodNavigation(yearLabel, true, onPrevious, onNext)
+            }
+        }
         if (experimental) item {
             val events = calendar.solarEvents(if (mode == CalendarMode.PROFANE) shown.year else sacredYear)
             Column(Modifier.padding(horizontal = 12.dp).testTag("calendar-year-solar-points"),
@@ -955,7 +958,7 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
                         Box {
                         OriginalImage(gregorianSeasonArtPath(season.name.lowercase(), seasonRegionZone,
                             regionalSeasonArt), null,
-                            Modifier.matchParentSize().alpha(if (LocalEveningTheme.current) .11f else .16f)
+                            Modifier.matchParentSize().alpha((if (LocalEveningTheme.current) .11f else .16f) * 1.4f)
                                 .testTag("gregorian-season-art-${season.name.lowercase()}"))
                         Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(if (LocalGenesisLanguage.current == "en") season.englishTitle else season.title,

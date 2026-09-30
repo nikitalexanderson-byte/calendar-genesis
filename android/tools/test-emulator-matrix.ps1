@@ -18,7 +18,7 @@ $emulator = "$sdk/emulator/emulator.exe"
 $avdManager = "$sdk/cmdline-tools/latest/bin/avdmanager.bat"
 $package = "ru.genesis.calendar.debug"
 $runner = "$package.test/androidx.test.runner.AndroidJUnitRunner"
-$reportDir = "$PSScriptRoot/../build/reports/emulator-matrix-2.3.12"
+$reportDir = "$PSScriptRoot/../build/reports/emulator-matrix-2.4.0"
 New-Item -ItemType Directory -Force -Path $reportDir | Out-Null
 
 foreach ($required in @($adb, $emulator, $avdManager, $Apk, $TestApk)) {
@@ -27,7 +27,11 @@ foreach ($required in @($adb, $emulator, $avdManager, $Apk, $TestApk)) {
 
 function Invoke-Adb {
     $Arguments = @($args)
-    $output = & $adb @Arguments 2>&1 | Out-String
+    $output = if ($Arguments[0] -eq "devices") {
+        & $adb @Arguments 2>&1 | Out-String
+    } else {
+        & $adb -e @Arguments 2>&1 | Out-String
+    }
     if ($LASTEXITCODE -ne 0) { throw "adb $($Arguments -join ' ') failed:`n$output" }
     return $output.Trim()
 }
@@ -62,7 +66,7 @@ function Wait-For-Boot($Process) {
     $deadline = (Get-Date).AddMinutes(5)
     do {
         Start-Sleep -Seconds 2
-        $ready = (& $adb shell getprop sys.boot_completed 2>$null | Out-String).Trim()
+        $ready = (& $adb -e shell getprop sys.boot_completed 2>$null | Out-String).Trim()
     } until ($ready -eq "1" -or (Get-Date) -ge $deadline)
     if ($ready -ne "1") { throw "Emulator did not boot within five minutes" }
     Invoke-Adb shell input keyevent 82 | Out-Null
@@ -145,7 +149,7 @@ function Test-Phone([int]$Api, [string]$Device) {
         Write-Host "$name already passed"
         return
     }
-    Set-Content -LiteralPath $log -Value "GENESIS 2.3.12 phone matrix: API $Api, device $Device"
+    Set-Content -LiteralPath $log -Value "GENESIS 2.4.0 phone matrix: API $Api, device $Device"
     $process = $null
     try {
         $process = Start-MatrixAvd $name $Api $Device
@@ -181,14 +185,14 @@ function Test-Tablet([string]$Device) {
         Write-Host "$name already passed"
         return
     }
-    Set-Content -LiteralPath $log -Value "GENESIS 2.3.12 tablet matrix: API 35, device $Device"
+    Set-Content -LiteralPath $log -Value "GENESIS 2.4.0 tablet matrix: API 35, device $Device"
     $process = $null
     try {
         # Keep the already initialized Android system between tablet reruns. Clearing
         # app data preserves the package UID and avoids stale scoped-storage ownership
         # on emulator images that are reused for multiple instrumentation runs.
         $process = Start-MatrixAvd $name 35 $Device $false "host"
-        if ((& $adb shell pm path $package 2>$null | Out-String).Trim()) {
+        if ((& $adb -e shell pm path $package 2>$null | Out-String).Trim()) {
             Invoke-Adb shell pm clear $package | Out-Null
         }
         Install-TestPackages 35

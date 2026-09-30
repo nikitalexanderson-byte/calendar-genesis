@@ -136,6 +136,7 @@ import {
   getAutomaticSolarLocation,
   getSunriseSunset,
 } from "./solar-times";
+import { readSolarPlace, SOLAR_PLACE_CHANGED } from "./solar-place";
 import { usePwaInstall } from "./use-pwa-install";
 import {
   LANGUAGE_LOGIN_PENDING_KEY,
@@ -1559,20 +1560,34 @@ export function GenesisCalendar() {
     () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
     [],
   );
+  const solarTimeZone = deviceLocation?.timeZone ?? deviceTimeZone;
+  const displaySolarTime = (date: Date) =>
+    `${solarLocationSource === "selected-city" ? "" : "≈"}${formatDeviceSolarTime(date, solarTimeZone)}`;
 
   useEffect(() => {
     const controller = new AbortController();
 
     const synchronizeSolarLocation = async () => {
+      const saved = readSolarPlace();
+      if (saved) {
+        setDeviceLocation(saved);
+        setSolarLocationSource("selected-city");
+        setSolarLocationStatus("ready");
+        return;
+      }
       const location = await getAutomaticSolarLocation(deviceTimeZone, controller.signal);
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted || readSolarPlace()) return;
       setDeviceLocation(location);
       setSolarLocationSource(location.source);
       setSolarLocationStatus("ready");
     };
 
     void synchronizeSolarLocation();
-    return () => controller.abort();
+    window.addEventListener(SOLAR_PLACE_CHANGED, synchronizeSolarLocation);
+    return () => {
+      controller.abort();
+      window.removeEventListener(SOLAR_PLACE_CHANGED, synchronizeSolarLocation);
+    };
   }, [deviceTimeZone]);
 
   useEffect(() => () => {
@@ -1717,10 +1732,10 @@ export function GenesisCalendar() {
   useEffect(() => scheduleHabitNotifications(todayHabitNotificationPlan, APP_BASE), [todayHabitNotificationPlan]);
   const selectedSunriseSunset = deviceLocation ? getSunriseSunset(selectedDate, deviceLocation) : null;
   const selectedSunrise = selectedSunriseSunset
-    ? formatDeviceSolarTime(selectedSunriseSunset.sunrise, deviceTimeZone)
+    ? displaySolarTime(selectedSunriseSunset.sunrise)
     : solarLocationStatus === "ready" ? "нет" : "…";
   const selectedSunset = selectedSunriseSunset
-    ? formatDeviceSolarTime(selectedSunriseSunset.sunset, deviceTimeZone)
+    ? displaySolarTime(selectedSunriseSunset.sunset)
     : solarLocationStatus === "ready" ? "нет" : "…";
   const solarEvents = useMemo(() => getSolarEvents(sacredYear), [sacredYear]);
   const todayKey = taskDateKey(
@@ -4549,8 +4564,8 @@ export function GenesisCalendar() {
     const isSaturday = weekdayIndex === 6;
     const sunriseSunset = deviceLocation ? getSunriseSunset(date, deviceLocation) : null;
     const solarTimePlaceholder = solarLocationStatus === "ready" ? "нет" : "…";
-    const sunrise = sunriseSunset ? formatDeviceSolarTime(sunriseSunset.sunrise, deviceTimeZone) : solarTimePlaceholder;
-    const sunset = sunriseSunset ? formatDeviceSolarTime(sunriseSunset.sunset, deviceTimeZone) : solarTimePlaceholder;
+    const sunrise = sunriseSunset ? displaySolarTime(sunriseSunset.sunrise) : solarTimePlaceholder;
+    const sunset = sunriseSunset ? displaySolarTime(sunriseSunset.sunset) : solarTimePlaceholder;
     const popoverOpen = !isAdjacentMonth && openDayTaskPopover === dateValue;
     const columnCount = mode === "profane" ? 7 : 6;
     const column = layoutIndex % columnCount;
@@ -4699,15 +4714,17 @@ export function GenesisCalendar() {
               <div>
                 <span aria-hidden="true">☀</span>
                 <strong>{solarLocationStatus === "ready"
-                  ? "Рассвет и закат · время устройства"
+                  ? `Рассвет и закат · ${solarLocationSource === "selected-city" ? "время выбранного города" : "время устройства"}`
                   : "Синхронизируем рассвет и закат…"}</strong>
               </div>
               <small>{solarLocationStatus === "ready"
-                ? `${solarLocationSource === "network"
+                ? `${solarLocationSource === "selected-city"
+                  ? "Координаты выбранного города"
+                  : solarLocationSource === "network"
                   ? "Регион приблизительно определён по сети"
                   : solarLocationSource === "timezone-network"
                   ? "Регион определён по часовому поясу через сеть"
-                  : "Расчёт выполнен по часовому поясу устройства"} · ${deviceTimeZone}`
+                  : "Приблизительный расчёт по часовому поясу устройства"} · ${solarTimeZone}`
                 : "Определяем регион автоматически, без запроса геопозиции"}</small>
             </div>
           </div>
@@ -4772,8 +4789,8 @@ export function GenesisCalendar() {
                     const solarEvent = getSolarEvent(sacredYear, monthIndex, dayNumber);
                     const sunriseSunset = deviceLocation ? getSunriseSunset(gregorian, deviceLocation) : null;
                     const solarTimePlaceholder = solarLocationStatus === "ready" ? "нет" : "…";
-                    const sunrise = sunriseSunset ? formatDeviceSolarTime(sunriseSunset.sunrise, deviceTimeZone) : solarTimePlaceholder;
-                    const sunset = sunriseSunset ? formatDeviceSolarTime(sunriseSunset.sunset, deviceTimeZone) : solarTimePlaceholder;
+                    const sunrise = sunriseSunset ? displaySolarTime(sunriseSunset.sunrise) : solarTimePlaceholder;
+                    const sunset = sunriseSunset ? displaySolarTime(sunriseSunset.sunset) : solarTimePlaceholder;
                     const popoverOpen = openDayTaskPopover === key;
                     const popoverAlignment = dayColumn < 2 ? "align-left" : dayColumn > 2 ? "align-right" : "align-center";
                     return (
@@ -5049,8 +5066,8 @@ export function GenesisCalendar() {
             <p className="calendar-title">{monthSubtitle}</p>
             <p>{monthDescription}</p>
             <div className={`calendar-solar-control status-${solarLocationStatus}`} aria-live="polite">
-              <div><span aria-hidden="true">☀</span><strong>{solarLocationStatus === "ready" ? "Рассвет и закат · время устройства" : "Синхронизируем рассвет и закат…"}</strong></div>
-              <small>{solarLocationStatus === "ready" ? `${deviceTimeZone} · автоматический расчёт для региона устройства` : "Определяем регион автоматически, без запроса геопозиции"}</small>
+              <div><span aria-hidden="true">☀</span><strong>{solarLocationStatus === "ready" ? `Рассвет и закат · ${solarLocationSource === "selected-city" ? "время выбранного города" : "время устройства"}` : "Синхронизируем рассвет и закат…"}</strong></div>
+              <small>{solarLocationStatus === "ready" ? `${solarTimeZone} · ${solarLocationSource === "selected-city" ? "координаты выбранного города" : "приблизительный расчёт для региона устройства"}` : "Определяем регион автоматически, без запроса геопозиции"}</small>
             </div>
           </div>
           <div className="month-switcher" aria-label={mode === "profane" ? "Переключение календарных месяцев" : "Переключение лунных месяцев"}>
@@ -6111,7 +6128,7 @@ export function GenesisCalendar() {
           </div>
           <div className="topbar-actions">
             {nativeAndroidApkUrl ? (
-              <a className="icon-button ux-action-button android-native-icon-button" href={nativeAndroidApkUrl} download="GENESIS-Android-Native-2.3.12.apk" data-tooltip={language === "en" ? "Native Android app · remove the old TWA first" : "Нативное приложение · сначала удалите прежнюю TWA"} title={language === "en" ? "Native GENESIS APK; old TWA must be removed first" : "Нативный GENESIS APK; прежнюю TWA необходимо сначала удалить"} aria-label={language === "en" ? "Download native GENESIS for Android; remove the old TWA first" : "Скачать нативный GENESIS для Android; сначала удалите старую TWA"}>
+              <a className="icon-button ux-action-button android-native-icon-button" href={nativeAndroidApkUrl} download="GENESIS-Android-Native-2.4.0.apk" data-tooltip={language === "en" ? "Native Android app · remove the old TWA first" : "Нативное приложение · сначала удалите прежнюю TWA"} title={language === "en" ? "Native GENESIS APK; old TWA must be removed first" : "Нативный GENESIS APK; прежнюю TWA необходимо сначала удалить"} aria-label={language === "en" ? "Download native GENESIS for Android; remove the old TWA first" : "Скачать нативный GENESIS для Android; сначала удалите старую TWA"}>
                 <svg className="ux-android-robot" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M5.5 9h13v8.5a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2V9ZM5.5 9a6.5 6.5 0 0 1 13 0M4 11v5M20 11v5M9 19.5V22M15 19.5V22M7 3 5.5 1M17 3 18.5 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><circle cx="9.3" cy="7" r=".8" fill="currentColor"/><circle cx="14.7" cy="7" r=".8" fill="currentColor"/></svg>
               </a>
             ) : null}

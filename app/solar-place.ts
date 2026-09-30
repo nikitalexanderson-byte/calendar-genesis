@@ -1,0 +1,59 @@
+import type { DeviceLocation } from "./solar-times";
+
+export const SOLAR_PLACE_KEY = "genesis-solar-place-v1";
+export const SOLAR_PLACE_CHANGED = "genesis-solar-place-changed";
+
+export type SolarPlace = DeviceLocation & {
+  name: string;
+  country: string;
+  region: string;
+  timeZone: string;
+};
+
+export function solarPlaceLabel(place: SolarPlace) {
+  return Array.from(new Set([place.name, place.region, place.country].filter(Boolean))).join(", ");
+}
+
+export function readSolarPlace(): SolarPlace | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const value = window.localStorage.getItem(SOLAR_PLACE_KEY);
+    if (!value) return null;
+    const place = JSON.parse(value) as SolarPlace;
+    if (!place.name || !place.country || !place.timeZone ||
+      !Number.isFinite(place.latitude) || place.latitude < -90 || place.latitude > 90 ||
+      !Number.isFinite(place.longitude) || place.longitude < -180 || place.longitude > 180) return null;
+    new Intl.DateTimeFormat("en", { timeZone: place.timeZone });
+    return place;
+  } catch { return null; }
+}
+
+export function saveSolarPlace(place: SolarPlace | null) {
+  if (place) window.localStorage.setItem(SOLAR_PLACE_KEY, JSON.stringify(place));
+  else window.localStorage.removeItem(SOLAR_PLACE_KEY);
+  window.dispatchEvent(new Event(SOLAR_PLACE_CHANGED));
+}
+
+type GeocodingResult = Partial<SolarPlace> & { timezone?: string; admin1?: string };
+
+export async function searchSolarPlaces(query: string, signal?: AbortSignal): Promise<SolarPlace[]> {
+  const name = query.trim().slice(0, 120);
+  if (name.length < 2) return [];
+  const url = new URL("https://geocoding-api.open-meteo.com/v1/search");
+  url.searchParams.set("name", name);
+  url.searchParams.set("count", "10");
+  url.searchParams.set("format", "json");
+  const response = await fetch(url, { signal, headers: { Accept: "application/json" } });
+  if (!response.ok) throw new Error(`Location lookup failed: ${response.status}`);
+  const data = await response.json() as { results?: GeocodingResult[] };
+  return (data.results ?? []).flatMap((result) => {
+    const latitude = Number(result.latitude);
+    const longitude = Number(result.longitude);
+    const timeZone = result.timezone;
+    if (!result.name || !result.country || !timeZone || !Number.isFinite(latitude) ||
+      !Number.isFinite(longitude) || latitude < -90 || latitude > 90 ||
+      longitude < -180 || longitude > 180) return [];
+    return [{ name: result.name, country: result.country, region: result.admin1 ?? "",
+      latitude, longitude, timeZone }];
+  });
+}

@@ -1,5 +1,7 @@
 import messages from "./habit-notification-copy.json" with { type: "json" };
+import localized from "./habit-notification-l10n.json" with { type: "json" };
 import type { HabitNotificationTone } from "./habit-notifications";
+import type { Language } from "./i18n";
 
 export function notificationCopyIndex(seed: string, length: number): number {
   let hash = 2166136261;
@@ -8,8 +10,11 @@ export function notificationCopyIndex(seed: string, length: number): number {
 }
 
 export function habitNotificationMessage(tone: HabitNotificationTone, kind: "habit" | "goal",
-  seed: string, language: "ru" | "en", subject: string, count = 1): string {
+  seed: string, language: Language, subject: string, count = 1): string {
   const pool = messages[tone][kind];
-  return pool[notificationCopyIndex(seed, pool.length)][language === "en" ? 1 : 0]
+  const template = language === "ru" || language === "en"
+    ? pool[notificationCopyIndex(seed, pool.length)][language === "en" ? 1 : 0]
+    : localized[tone][kind][language];
+  return template
     .replaceAll("{subject}", subject).replaceAll("{count}", String(count));
 }

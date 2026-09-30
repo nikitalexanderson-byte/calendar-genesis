@@ -11,6 +11,7 @@ import type { TimeFormat } from "./time-format";
 import type { HabitNotificationPermission, HabitNotificationSettings } from "./habit-notifications";
 import type { HabitFeedbackSettings } from "./habit-feedback";
 import { useDialogAccessibility } from "./use-dialog-accessibility";
+import { SolarPlaceSettings } from "./SolarPlaceSettings";
 import {
   GENESIS_THEME,
   GENESIS_THEME_LABEL,
@@ -27,10 +28,18 @@ const COLOR_MODE_NAMES: Record<Language, { light: string; dark: string; group: s
   es: { light: "Claro", dark: "Oscuro", group: "Tema de color del sitio" },
   it: { light: "Chiaro", dark: "Scuro", group: "Tema colori del sito" },
   pt: { light: "Claro", dark: "Escuro", group: "Tema de cores do site" },
+  pl: { light: "Jasny", dark: "Ciemny", group: "Motyw kolorystyczny strony" },
+  sr: { light: "Светла", dark: "Тамна", group: "Шема боја сајта" },
+  uk: { light: "Світла", dark: "Темна", group: "Колірна схема сайту" },
+  zh: { light: "浅色", dark: "深色", group: "网站配色" },
+  tr: { light: "Açık", dark: "Koyu", group: "Web sitesi renk teması" },
+  ja: { light: "ライト", dark: "ダーク", group: "サイトの配色" },
 };
 const CURRENT_THEME_LABEL: Record<Language, string> = {
   ru: "Текущая тема", en: "Current theme", el: "Τρέχον θέμα", de: "Aktuelles Design",
   fr: "Thème actuel", es: "Tema actual", it: "Tema attuale", pt: "Tema atual",
+  pl: "Bieżący motyw", sr: "Тренутна тема", uk: "Поточна тема",
+  zh: "当前主题", tr: "Geçerli tema", ja: "現在のテーマ",
 };
 
 type AccountPanelProps = {
@@ -545,6 +554,8 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
             </div>
           </section>
         ) : null}
+
+        <SolarPlaceSettings />
 
         <section className="account-preferences task-calendar-mode-preference" aria-labelledby="task-calendar-mode-title" data-exp-ui="panel">
           <div>

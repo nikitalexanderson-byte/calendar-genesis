@@ -53,12 +53,14 @@ function readCuratedTranslations(sourceText) {
   return entries;
 }
 
-const [catalogText, i18nText] = await Promise.all([
+const [catalogText, curatedText, i18nText] = await Promise.all([
   readFile(path.join(APP_DIR, "translations.en.json"), "utf8"),
+  readFile(path.join(APP_DIR, "curated-translations.en.json"), "utf8"),
   readFile(path.join(APP_DIR, "i18n.ts"), "utf8"),
 ]);
 const translations = {
   ...JSON.parse(catalogText),
+  ...JSON.parse(curatedText),
   ...readCuratedTranslations(i18nText),
 };
 const partialTranslations = Object.entries(translations)
@@ -78,6 +80,11 @@ function isCovered(source) {
 
 function isNonUiString(node) {
   const parent = node.parent;
+  let owner = parent;
+  while (owner) {
+    if (ts.isVariableDeclaration(owner) && ["COLOR_MODE_NAMES", "CURRENT_THEME_LABEL"].includes(owner.name.getText())) return true;
+    owner = owner.parent;
+  }
   if (ts.isImportDeclaration(parent) || ts.isExportDeclaration(parent)) return true;
   if ((ts.isPropertyAssignment(parent) || ts.isMethodDeclaration(parent)) && parent.name === node) return true;
   if (ts.isElementAccessExpression(parent) && parent.argumentExpression === node) return true;

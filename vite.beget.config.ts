@@ -49,7 +49,7 @@ export default defineConfig({
       output: {
         codeSplitting: {
           groups: [
-            ...["el.a", "el.b", "de", "fr", "es", "it", "pt"].map((locale) => ({
+            ...["el.a", "el.b", "de", "fr", "es", "it", "pt", "pl", "sr.a", "sr.b", "uk.a", "uk.b", "zh", "tr", "ja"].map((locale) => ({
               name: `locale-${locale}`,
               test: new RegExp(`translations\\.${locale}\\.json$`),
               priority: 40,

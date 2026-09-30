@@ -956,7 +956,8 @@ private object TranslationCatalog {
         }
         val translations = if (language == "en") english else foreignDictionaries.getOrPut(language) {
             runCatching {
-                val names = if (language == "el") listOf("translations.el.a.json", "translations.el.b.json")
+                val names = if (language in setOf("el", "sr", "uk"))
+                    listOf("translations.$language.a.json", "translations.$language.b.json")
                     else listOf("translations.$language.json")
                 buildMap {
                     names.forEach { name ->

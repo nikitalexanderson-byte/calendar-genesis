@@ -166,7 +166,7 @@ function genesisUserForClient(array $user): array
     $theme = in_array($user['theme'] ?? '', ['standart', 'experimental', 'experimental-dark'], true)
         ? (string)$user['theme']
         : 'standart';
-    $language = in_array($user['language'] ?? '', ['ru', 'en', 'el', 'de', 'fr', 'es', 'it', 'pt'], true)
+    $language = in_array($user['language'] ?? '', ['ru', 'en', 'el', 'de', 'fr', 'es', 'it', 'pt', 'pl', 'sr', 'uk', 'zh', 'tr', 'ja'], true)
         ? (string)$user['language']
         : 'ru';
     $syncRoutingMode = in_array($user['sync_routing_mode'] ?? '', ['fixed', 'choose', 'category'], true)
@@ -933,7 +933,7 @@ function genesisUpdateAccountPreferences(string $userId, array $payload): array
     }
     if (array_key_exists('language', $payload)) {
         $language = trim((string)$payload['language']);
-        if (!in_array($language, ['ru', 'en', 'el', 'de', 'fr', 'es', 'it', 'pt'], true)) {
+        if (!in_array($language, ['ru', 'en', 'el', 'de', 'fr', 'es', 'it', 'pt', 'pl', 'sr', 'uk', 'zh', 'tr', 'ja'], true)) {
             throw new InvalidArgumentException('Неизвестный язык интерфейса.');
         }
         $updates[] = 'language = :language';

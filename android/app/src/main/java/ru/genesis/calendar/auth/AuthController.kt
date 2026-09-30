@@ -63,6 +63,20 @@ class AuthController private constructor(context: Context) {
     private val mutableTaskSync = MutableStateFlow(AccountTaskSyncState())
     val taskSync = mutableTaskSync.asStateFlow()
 
+    suspend fun adminStats(): JSONObject {
+        val snapshot = mutableState.value
+        check(snapshot.ready && !snapshot.requiresSignIn && snapshot.user != null && snapshot.accountSettings?.isAdmin == true)
+        val generation = client.currentGeneration()
+        return withContext(Dispatchers.IO) { client.adminStats(generation) }
+    }
+
+    suspend fun deleteAdminUser(userId: String, blacklist: Boolean): JSONObject {
+        val snapshot = mutableState.value
+        check(snapshot.ready && !snapshot.requiresSignIn && snapshot.user != null && snapshot.accountSettings?.isAdmin == true)
+        val generation = client.currentGeneration()
+        return withContext(Dispatchers.IO) { client.deleteAdminUser(generation, userId, blacklist) }
+    }
+
     /** Process-start check only. Recomposition and configuration changes must not restart auth. */
     fun ensureSession() {
         if (mutableState.value.checkedAt != null || operation?.isActive == true) return
@@ -217,7 +231,7 @@ class AuthController private constructor(context: Context) {
             catch (_: Exception) { null }
             var resolvedSettings = AccountSettings.fromResponse(payload) ?: settings
             var languageWarning = false
-            if (preferredLanguage in setOf("ru", "en", "el", "de", "fr", "es", "it", "pt") && resolvedSettings.language != preferredLanguage) {
+            if (preferredLanguage in setOf("ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja") && resolvedSettings.language != preferredLanguage) {
                 try {
                     val updated = withContext(Dispatchers.IO) {
                         client.updatePreferences(generation, JSONObject().put("language", preferredLanguage))
