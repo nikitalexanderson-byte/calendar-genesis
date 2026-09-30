@@ -155,7 +155,7 @@ class GregorianCalendarVisualTest {
                     "calendar-${calendarMode.name.lowercase()}-task-badge.png")))
             badge.performClick()
             compose.onNodeWithTag("calendar-task-list-dialog").assertIsDisplayed()
-            compose.onNodeWithText("Badge task").assertExists()
+            compose.onAllNodesWithText("Badge task").assertCountEquals(2)
             compose.onNodeWithText("Закрыть").performClick()
         }
     }

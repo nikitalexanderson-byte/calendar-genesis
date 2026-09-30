@@ -160,6 +160,9 @@ function genesisUserForClient(array $user): array
     $weekStart = in_array($user['week_start'] ?? '', ['sunday', 'monday'], true)
         ? (string)$user['week_start']
         : 'sunday';
+    $gregorianYearStart = in_array($user['gregorian_year_start'] ?? '', ['january', 'march'], true)
+        ? (string)$user['gregorian_year_start']
+        : 'january';
     $theme = in_array($user['theme'] ?? '', ['standart', 'experimental'], true)
         ? (string)$user['theme']
         : 'standart';
@@ -200,6 +203,7 @@ function genesisUserForClient(array $user): array
         'taskCalendarMode' => $taskCalendarMode,
         'timeFormat' => $timeFormat,
         'weekStart' => $weekStart,
+        'gregorianYearStart' => $gregorianYearStart,
         'theme' => $theme,
         'themeRevision' => max(0, (int)($user['theme_revision'] ?? 0)),
         'language' => $language,
@@ -839,6 +843,14 @@ function genesisUpdateAccountPreferences(string $userId, array $payload): array
         }
         $updates[] = 'week_start = :week_start';
         $values['week_start'] = $weekStart;
+    }
+    if (array_key_exists('gregorianYearStart', $payload)) {
+        $yearStart = trim((string)$payload['gregorianYearStart']);
+        if (!in_array($yearStart, ['january', 'march'], true)) {
+            throw new InvalidArgumentException('Неизвестное начало григорианского года.');
+        }
+        $updates[] = 'gregorian_year_start = :gregorian_year_start';
+        $values['gregorian_year_start'] = $yearStart;
     }
     if ($hasThemePreference) {
         $theme = trim((string)$payload['theme']);

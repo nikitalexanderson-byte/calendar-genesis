@@ -129,6 +129,7 @@ export type GenesisUser = {
   taskCalendarMode?: CalendarMode;
   timeFormat?: TimeFormat;
   weekStart?: "sunday" | "monday";
+  gregorianYearStart?: "january" | "march";
   theme?: GenesisTheme;
   themeRevision?: number;
   language: Language;
@@ -1152,6 +1153,7 @@ export async function updateAccountPreferences(preferences: Partial<{
   taskCalendarMode: CalendarMode;
   timeFormat: TimeFormat;
   weekStart: "sunday" | "monday";
+  gregorianYearStart: "january" | "march";
   theme: GenesisTheme;
   expectedThemeRevision: number;
   language: Language;

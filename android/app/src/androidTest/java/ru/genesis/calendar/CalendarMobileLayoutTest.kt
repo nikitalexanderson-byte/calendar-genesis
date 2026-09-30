@@ -14,6 +14,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
 import java.io.File
 import java.time.LocalDate
+import java.time.ZoneId
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -94,7 +95,7 @@ class CalendarMobileLayoutTest {
                 CalendarMode.PROFANE -> "calendar-year-month-2026-11-01"
             }
             compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag(lastTag))
-            compose.onNodeWithTag("genesis-page-header").assertIsDisplayed()
+            compose.onNodeWithTag("genesis-page-header").assertDoesNotExist()
             compose.onNodeWithTag("calendar-view-switch").assertIsDisplayed()
             compose.onNodeWithTag(lastTag).performClick()
             compose.onNodeWithText("Календарь - месяц").assertIsDisplayed()
@@ -123,6 +124,31 @@ class CalendarMobileLayoutTest {
         capture("gregorian-leap-year")
         compose.onNodeWithTag("calendar-year-month-2028-02-01").performClick()
         compose.onNodeWithTag("calendar-day-2028-02-29").performScrollTo().assertIsEnabled()
+    }
+
+    @Test fun marchYearInAustraliaStartsWithAutumnAndEndsWithSummer() {
+        setViewportContent {
+            MaterialTheme(colorScheme = standart) {
+                Surface(Modifier.fillMaxSize(), color = standart.background) {
+                    Column(viewportModifier()) {
+                        CalendarScreen(LocalDate.of(2027, 1, 10), CalendarMode.PROFANE,
+                            onSelect = {}, experimental = true, gregorianYearStartsInMarch = true,
+                            regionalSeasonArt = true, seasonRegionZone = ZoneId.of("Australia/Sydney"))
+                    }
+                }
+            }
+        }
+        compose.onNodeWithText("Год").performClick()
+        compose.onNodeWithTag("calendar-year")
+            .performScrollToNode(hasTestTag("calendar-year-month-2026-03-01"))
+        compose.onNodeWithTag("gregorian-season-autumn").assertExists()
+        compose.onNodeWithTag("gregorian-season-art-autumn", useUnmergedTree = true).assertExists()
+        capture("australia-march-year-autumn")
+        compose.onNodeWithTag("calendar-year")
+            .performScrollToNode(hasTestTag("calendar-year-month-2027-02-01"))
+        compose.onNodeWithTag("gregorian-season-summer").assertExists()
+        compose.onNodeWithTag("gregorian-season-art-summer", useUnmergedTree = true).assertExists()
+        capture("australia-march-year-summer")
     }
 
     @Test fun choosingADayStopsAtItsFirstIllustratedBlockInEachCalendar() {

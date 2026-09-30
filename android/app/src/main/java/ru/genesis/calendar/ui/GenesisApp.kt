@@ -55,6 +55,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -132,6 +133,8 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
             if (remote.taskCalendarMode in setOf("sacred", "lunar", "profane")) prefsStore.setRemote("input", remote.taskCalendarMode)
             if (remote.timeFormat in setOf("12h", "24h")) prefsStore.setRemote("time", remote.timeFormat)
             if (remote.weekStart in setOf("sunday", "monday")) prefsStore.setRemote("weekStart", remote.weekStart)
+            if (remote.gregorianYearStart in setOf("january", "march"))
+                prefsStore.setRemote("gregorianYearStart", remote.gregorianYearStart)
             if (remote.language in setOf("ru", "en")) prefsStore.setRemote("language", remote.language)
             prefsStore.setRemote("stoicheionDivinationDisabled", remote.divinationDisabled.toString())
         }
@@ -159,6 +162,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     }
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val compactHeader = isLandscape || configuration.screenWidthDp >= 600
     val navigationOnLeft = shouldUseNavigationRail(configuration.screenWidthDp,
         isLandscape, prefs.wideNavigationOnLeft)
     val portraitAutoScroll = !isLandscape && prefs.navigationLabels && prefs.navigationAutoScroll
@@ -179,21 +183,23 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         scope.launch { welcomePrefsStore.set("language",language) }
                     }
             } else {
-            NavigationConnectionScope(tab, showConnections = tab != "Проекты" && !portraitAutoScroll) {
+            NavigationConnectionScope(tab,
+                showConnections = prefs.navigationLabels && tab != "Проекты" && !portraitAutoScroll,
+                iconGlow = !prefs.navigationLabels) {
             Column(Modifier.safeDrawingPadding().imePadding()) {
                 val accountStatus = if (activeScope.startsWith("account-"))
                     "Аккаунт GENESIS · защищённая локальная копия"
                 else if(BuildConfig.DEBUG) "Изолированное тестовое пространство · только на этом устройстве"
                 else "Локальные черновики · аккаунт не подключён"
-                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = if (isLandscape) 4.dp else 10.dp)
+                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = if (compactHeader) 4.dp else 10.dp)
                     .testTag("app-header"),
                     verticalAlignment=Alignment.CenterVertically) {
-                    Box(Modifier.size(if (isLandscape) 30.dp else 42.dp).shadow(3.dp, CircleShape).clip(CircleShape)
+                    Box(Modifier.size(if (compactHeader) 30.dp else 42.dp).shadow(3.dp, CircleShape).clip(CircleShape)
                         .background(Color(0xff172624)).testTag("genesis-round-logo")) {
                         OriginalImage("icons/icon-192.png","GENESIS",Modifier.fillMaxSize()
                             .graphicsLayer { scaleX = 1.20f; scaleY = 1.20f })
                     }
-                    if (isLandscape) {
+                    if (compactHeader) {
                         Text("GENESIS", Modifier.padding(start = 8.dp), style = MaterialTheme.typography.titleMedium)
                         Text(accountStatus, Modifier.padding(start = 10.dp).weight(1f).testTag("app-account-status"),
                             style = MaterialTheme.typography.labelSmall, maxLines = 1,
@@ -209,7 +215,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         val refreshDescription = genesisTranslate(if (refreshBusy)
                             "Получаем изменения с сервера…" else "Обновить аккаунт")
                         IconButton(onClick = authController::refresh, enabled = !refreshBusy,
-                            modifier = Modifier.size(if (isLandscape) 34.dp else 40.dp).testTag("today-refresh")
+                            modifier = Modifier.size(if (compactHeader) 34.dp else 40.dp).testTag("today-refresh")
                                 .semantics { contentDescription = refreshDescription }) {
                             Text(if (refreshBusy) "…" else "↻",
                                 style = MaterialTheme.typography.titleLarge,
@@ -217,7 +223,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         }
                     }
                 }
-                if (!isLandscape) Text(accountStatus,Modifier.padding(horizontal=16.dp).testTag("app-account-status"),
+                if (!compactHeader) Text(accountStatus,Modifier.padding(horizontal=16.dp).testTag("app-account-status"),
                     style=MaterialTheme.typography.bodySmall)
                 if(!testWorkspace && authState.requiresSignIn) {
                     Text("Для синхронизации повторите вход. Данные и напоминания доступны на устройстве.",
@@ -260,6 +266,9 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         onSelect={selected=it.toString();tab="Сегодня"},
                         experimental=true, tasks=tasks, use24=prefs.use24,
                         weekStartsOnSunday=prefs.weekStartsOnSunday,
+                        gregorianYearStartsInMarch=prefs.gregorianYearStartsInMarch,
+                        regionalSeasonArt=prefs.regionalSeasonArt,
+                        seasonRegionZone=selectedSeasonZone(prefs),
                         onCompleteTask=model::complete,
                         onEditTask={ task, date -> selected=date.toString();editId=task.id;creating=false },
                         onDeleteTask=model::delete,
@@ -409,10 +418,16 @@ private fun PrimaryNavigation(selectedPage: String, habitTrackingEnabled: Boolea
 private fun PrimaryNavigationItem(page: String, selectedPage: Boolean, fillWidth: Boolean,
     showLabels: Boolean, compact: Boolean, loopCopy: Boolean = false, onSelect: () -> Unit) {
     val accessiblePage = genesisTranslate(page)
+    val glowPhase = LocalNavigationGlowPhase.current
+    val glow = if (!showLabels && selectedPage && glowPhase >= 0f)
+        navigationGlowColor(glowPhase, LocalEveningTheme.current) else null
     Surface(onClick=onSelect, shape=RoundedCornerShape(16.dp),
         color=if(selectedPage) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
         contentColor=if(selectedPage) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-        border=BorderStroke(if(selectedPage) 1.5.dp else 1.dp,
+        border=if (glow != null) BorderStroke(1.5.dp, Brush.horizontalGradient(listOf(
+            glow.copy(alpha = .55f), navigationGlowColor((glowPhase + .16f) % 1f,
+                LocalEveningTheme.current).copy(alpha = .83f), glow.copy(alpha = .55f))))
+        else BorderStroke(if(selectedPage) 1.5.dp else 1.dp,
             if(selectedPage) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
         shadowElevation=if(selectedPage) 3.dp else 1.dp,
         modifier=(if (fillWidth) Modifier.fillMaxWidth() else Modifier).padding(if (compact) 2.dp else 3.dp)
@@ -895,6 +910,7 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
             if (prefs.language == "en") "Calendars, time, privacy and reminders"
             else "Календарь, время, приватность и напоминания", "⚙")
         AppearancePanel(app, workspace, prefs.use24)
+        SeasonRegionSettings(prefs, onSetLocal)
         SettingsSection("☷", "Отображение меню", "Кнопки телефона, альбомного режима и планшета",
             Color(0xffe9ede5)) {
             Text("Кнопки меню первого уровня", style = MaterialTheme.typography.titleSmall)
@@ -944,10 +960,21 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 listOf(CalendarMode.PROFANE to "Григорианский", CalendarMode.SACRED to "Сакральный",
                     CalendarMode.LUNAR to "Лунный").forEach { (mode, label) ->
+                    val accent = when (mode) {
+                        CalendarMode.PROFANE -> if (LocalEveningTheme.current) Color(0xff73b8aa) else Color(0xff2d7065)
+                        CalendarMode.SACRED -> if (LocalEveningTheme.current) Color(0xffe4bd64) else Color(0xff92621d)
+                        CalendarMode.LUNAR -> if (LocalEveningTheme.current) Color(0xffb6a5df) else Color(0xff68539d)
+                    }
                     OutlinedButton(onClick = { calendarReference = mode.wireValue },
-                        modifier = Modifier.weight(1f).heightIn(min = 48.dp)
-                            .testTag("calendar-reference-${mode.wireValue}")) {
-                        Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+                        modifier = Modifier.weight(1f).heightIn(min = 52.dp)
+                            .testTag("calendar-reference-${mode.wireValue}"),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = accent.copy(alpha = if (LocalEveningTheme.current) .16f else .12f),
+                            contentColor = MaterialTheme.colorScheme.onSurface),
+                        border = BorderStroke(1.dp, accent.copy(alpha = .82f)),
+                        contentPadding = PaddingValues(horizontal = 3.dp, vertical = 7.dp)) {
+                        Text(label, style = MaterialTheme.typography.labelSmall, maxLines = 2,
+                            textAlign = TextAlign.Center, softWrap = true)
                     }
                 }
             }
@@ -979,6 +1006,34 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
                                 .testTag("week-start-sunday"),
                             label = { Text(genesisTranslate("Воскресенье")) })
                     }
+                    Text("Начало григорианского года", style = MaterialTheme.typography.titleSmall)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(selected = !prefs.gregorianYearStartsInMarch,
+                            onClick = { onSet("gregorianYearStart", "january") }, enabled = !sharedBusy,
+                            modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("year-start-january"),
+                            label = { Text("С января") })
+                        FilterChip(selected = prefs.gregorianYearStartsInMarch,
+                            onClick = { onSet("gregorianYearStart", "march") }, enabled = !sharedBusy,
+                            modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("year-start-march"),
+                            label = { Text("С марта") })
+                    }
+                    Text("Март был первым месяцем древнеримского года: сентябрь означал «седьмой», октябрь — «восьмой». Январь назван в честь Януса, божества начал и переходов.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Фон сезонов", style = MaterialTheme.typography.titleSmall)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(selected = !prefs.regionalSeasonArt,
+                            onClick = { onSetLocal("seasonArtMode", "static") },
+                            modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("season-art-static"),
+                            label = { Text("Статичные") })
+                        FilterChip(selected = prefs.regionalSeasonArt,
+                            onClick = { onSetLocal("seasonArtMode", "regional") },
+                            modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("season-art-regional"),
+                            label = { Text("По региону") })
+                    }
+                    Text("Выберите источник региона в разделе «Регион» выше. Для Южного полушария времена года и цвета меняются местами.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             Text("Формат времени", style = MaterialTheme.typography.titleSmall)
@@ -1085,7 +1140,7 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
 }
 
 @Composable
-private fun SettingsSection(symbol: String, title: String, subtitle: String, color: Color,
+internal fun SettingsSection(symbol: String, title: String, subtitle: String, color: Color,
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit) {
     Card(modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp),

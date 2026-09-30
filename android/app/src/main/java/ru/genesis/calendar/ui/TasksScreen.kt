@@ -41,14 +41,21 @@ import ru.genesis.calendar.data.*
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    GenesisPageHeader(if(english) "Tasks" else "Задачи",
-                        if(english) "Your tasks, due dates, priorities and reminders" else "Все задачи, сроки, приоритеты и напоминания", "✦")
+                    GenesisPageHeader(if (section == "lists") {
+                        if (english) "Task lists" else "Списки задач"
+                    } else if (english) "Tasks" else "Задачи",
+                        if (section == "lists") {
+                            if (english) "Organize tasks by list" else "Организуйте задачи по спискам"
+                        } else if (english) "Your tasks, due dates, priorities and reminders"
+                        else "Все задачи, сроки, приоритеты и напоминания", "✦",
+                        icon = if (section == "lists") GenesisPageIcon.TASK_LISTS else GenesisPageIcon.TASKS)
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text(if(english) "$total tasks · $active active · ${knownLists.size} lists" else
                             "$total ${russianCount(total,"задача","задачи","задач")} · $active ${russianCount(active,"активная","активные","активных")} · " +
                             "${knownLists.size} ${russianCount(knownLists.size,"список","списка","списков")}",
                             Modifier.weight(1f).padding(end = 8.dp).testTag("tasks-summary"), style = MaterialTheme.typography.labelLarge)
-                        TaskCreateButton({ onCreateTask(null) }, onCreateList)
+                        Button(onClick = if (section == "lists") onCreateList else ({ onCreateTask(null) }),
+                            modifier = Modifier.heightIn(min = 48.dp).testTag("create-task")) { Text("Создать") }
                     }
                 }
             }
@@ -84,19 +91,6 @@ import ru.genesis.calendar.data.*
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable private fun TaskCreateButton(onTask: () -> Unit, onList: () -> Unit) {
-    var opened by remember { mutableStateOf(false) }
-    Box {
-        Button({ opened = true }, Modifier.heightIn(min=48.dp).testTag("create-task")) { Text("Создать") }
-        DropdownMenu(opened, { opened = false }) {
-            DropdownMenuItem(text = { Text("Задачу") }, onClick = { opened = false; onTask() },
-                leadingIcon = { GenesisVectorIcon(GenesisPageIcon.TASKS,Modifier.size(24.dp)) }, modifier = Modifier.testTag("create-task-choice"))
-            DropdownMenuItem(text = { Text("Список задач") }, onClick = { opened = false; onList() },
-                modifier = Modifier.testTag("create-task-list-choice"))
         }
     }
 }

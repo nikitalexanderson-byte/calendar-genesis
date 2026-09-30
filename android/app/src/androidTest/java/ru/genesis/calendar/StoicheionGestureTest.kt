@@ -24,6 +24,9 @@ class StoicheionGestureTest {
                 onFinish = { chosen = it; open = false })
         }
         compose.waitForIdle()
+        "ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩ".forEachIndexed { index, letter ->
+            compose.onNodeWithTag("stoicheion-orbit-$index").assertTextEquals(letter.toString())
+        }
         UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).waitForIdle()
         val app = InstrumentationRegistry.getInstrumentation().targetContext
         assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(

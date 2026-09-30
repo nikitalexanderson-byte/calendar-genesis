@@ -304,6 +304,7 @@ class AuthController private constructor(context: Context) {
             "input" -> { require(value in setOf("sacred", "lunar", "profane")); changes.put("taskCalendarMode", value) }
             "time" -> { require(value in setOf("12h", "24h")); changes.put("timeFormat", value) }
             "weekStart" -> { require(value in setOf("sunday", "monday")); changes.put("weekStart", value) }
+            "gregorianYearStart" -> { require(value in setOf("january", "march")); changes.put("gregorianYearStart", value) }
             "language" -> { require(value in setOf("ru", "en")); changes.put("language", value) }
             "stoicheionDivinationDisabled" -> {
                 require(value in setOf("true", "false")); changes.put("stoicheionDivinationDisabled", value.toBoolean())
@@ -557,6 +558,7 @@ class AuthController private constructor(context: Context) {
             "input" -> body.put("taskCalendarMode", value)
             "time" -> body.put("timeFormat", value)
             "weekStart" -> body.put("weekStart", value)
+            "gregorianYearStart" -> body.put("gregorianYearStart", value)
             "language" -> body.put("language", value)
             "stoicheionDivinationDisabled" -> body.put(name, value.toBoolean())
         } }

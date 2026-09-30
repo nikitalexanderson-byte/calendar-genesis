@@ -15,11 +15,10 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -40,7 +39,8 @@ private val yearCardGold = Color(0xffe4bd64)
 private data class YearMetric(val value: String, val label: String)
 
 @Composable
-internal fun CalendarYearDescriptionCard(calendar: GenesisCalendar, shown: LocalDate, mode: CalendarMode) {
+internal fun CalendarYearDescriptionCard(calendar: GenesisCalendar, shown: LocalDate, mode: CalendarMode,
+    gregorianYearStartsInMarch: Boolean = false) {
     val english = LocalGenesisLanguage.current == "en"
     fun copy(russian: String, englishText: String) = if (english) englishText else russian
     val sacredYear = calendar.sacredDate(shown).sacredYear
@@ -83,7 +83,8 @@ internal fun CalendarYearDescriptionCard(calendar: GenesisCalendar, shown: Local
                     "Tap a day to open tasks, sacred meaning, Moon phase, and precise sunrise and sunset times for the device region."),
             )
             metrics = listOf(YearMetric("12", copy("месяцев", "months")),
-                YearMetric(shown.lengthOfYear().toString(), copy("дней в круге", "days in the cycle")),
+                YearMetric((if (gregorianYearStartsInMarch) ChronoUnit.DAYS.between(shown, shown.plusYears(1)).toInt()
+                    else shown.lengthOfYear()).toString(), copy("дней в круге", "days in the cycle")),
                 YearMetric("3", copy("системы дат в каждом дне", "date systems per day")),
                 YearMetric("4", copy("солнечные точки", "solar points")))
         }
@@ -135,34 +136,36 @@ internal fun CalendarYearDescriptionCard(calendar: GenesisCalendar, shown: Local
 
 @Composable
 private fun SacredYearDetailsButton(title: String, subtitle: String, onClick: () -> Unit) {
+    val evening = LocalEveningTheme.current
     val motion = rememberInfiniteTransition(label = "sacred-details-glow")
     val pulse by motion.animateFloat(initialValue = 0f, targetValue = 1f,
         animationSpec = infiniteRepeatable(tween(1_600), RepeatMode.Reverse), label = "pulse")
     val shape = RoundedCornerShape(18.dp)
+    val base = if (evening) Color(0xff123b39) else Color(0xffeddbb1)
+    val accent = if (evening) Color(0xff377067) else Color(0xffd7b46b)
+    val ink = if (evening) Color(0xfffff1cf) else Color(0xff18332f)
     Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp)
-        .shadow((5 + pulse * 5).dp, shape).clip(shape)
-        .background(Brush.horizontalGradient(listOf(Color(0xfff1dda4),
-            Color(0xffd1a24e), Color(0xfff1dda4)))).testTag("sacred-year-details-open"),
-        shape = shape, color = Color.Transparent,
-        border = BorderStroke(1.dp, Color.White.copy(alpha = .42f + pulse * .24f))) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+        .testTag("sacred-year-details-open"), shape = shape, color = base,
+        shadowElevation = (5 + pulse * 4).dp,
+        border = BorderStroke(1.5.dp, yearCardGold.copy(alpha = .58f + pulse * .28f))) {
+        Row(Modifier.fillMaxWidth().background(Brush.horizontalGradient(listOf(base,
+            lerp(base, accent, .28f + pulse * .18f), base)))
+            .padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically) {
             Surface(Modifier.size(34.dp).graphicsLayer {
                 scaleX = .96f + pulse * .08f
                 scaleY = .96f + pulse * .08f
                 rotationZ = pulse * 8f
-            }, shape = RoundedCornerShape(50), color = yearCardBackground) {
+            }, shape = RoundedCornerShape(50), color = if (evening) Color(0xff08282a) else Color(0xff20433d)) {
                 Box(contentAlignment = Alignment.Center) {
                     Text("✦", color = Color(0xffffe7ae), style = MaterialTheme.typography.titleMedium)
                 }
             }
             Column(Modifier.padding(start = 11.dp).weight(1f)) {
-                Text(title.uppercase(), color = yearCardBackground, style = MaterialTheme.typography.labelLarge)
-                Text(subtitle, color = yearCardBackground.copy(alpha = .76f),
+                Text(title.uppercase(), color = ink, style = MaterialTheme.typography.labelLarge)
+                Text(subtitle, color = ink.copy(alpha = .82f),
                     style = MaterialTheme.typography.labelSmall)
             }
-            Text("→", Modifier.offset(x = (pulse * 3).dp), color = yearCardBackground,
-                style = MaterialTheme.typography.titleLarge)
         }
     }
 }

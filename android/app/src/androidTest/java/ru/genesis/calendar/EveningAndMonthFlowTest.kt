@@ -33,7 +33,7 @@ class EveningAndMonthFlowTest {
     private val dark = InstrumentationRegistry.getArguments().getString("genesisEvening") == "true"
     private fun capture(name: String) {
         compose.waitForIdle()
-        File(app.getExternalFilesDir(null), "2.3.9-${width}dp-${if(dark) "evening" else "light"}-$name.png")
+        File(app.getExternalFilesDir(null), "2.3.10-${width}dp-${if(dark) "evening" else "light"}-$name.png")
             .outputStream().use { assertTrue(compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG,100,it)) }
     }
     private fun content(block: @Composable () -> Unit) {
@@ -130,10 +130,10 @@ class EveningAndMonthFlowTest {
             compose.waitForIdle()
             compose.onNodeWithTag("calendar-month-period").assertTextEquals(before)
             compose.onNodeWithText("Год").performClick()
-            compose.onNodeWithTag("genesis-page-header").assert(!hasAnyAncestor(hasTestTag("calendar-year-panel")))
+            compose.onNodeWithTag("genesis-page-header").assert(hasAnyAncestor(hasTestTag("calendar-year-panel")))
             val header=compose.onNodeWithTag("genesis-page-header").fetchSemanticsNode().boundsInRoot
-            val yearPanel=compose.onNodeWithTag("calendar-year-panel").fetchSemanticsNode().boundsInRoot
-            assertTrue("Year heading must precede the slider panel",header.bottom<=yearPanel.top)
+            val navigation=compose.onNodeWithTag("calendar-year-navigation").fetchSemanticsNode().boundsInRoot
+            assertTrue("Year heading must precede year navigation",header.bottom<=navigation.top)
             compose.onNodeWithTag("calendar-year-swipe-hint").assertIsDisplayed()
             compose.onNodeWithTag("calendar-year-navigation").assert(hasAnyAncestor(hasTestTag("calendar-year-panel")))
             compose.onNodeWithTag("calendar-year-solar-points").assert(hasAnyAncestor(hasTestTag("calendar-year-panel")))
@@ -159,6 +159,7 @@ class EveningAndMonthFlowTest {
             }
             if(calendarMode==CalendarMode.SACRED) {
                 compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag("sacred-year-details-open"))
+                compose.onNodeWithTag("calendar-year").performTouchInput { swipeUp() }
                 compose.onNodeWithTag("sacred-year-details-open").assertIsDisplayed()
                 capture("sacred-year-details-dynamic-button")
                 compose.onNodeWithTag("sacred-year-details-open").assertIsDisplayed().performClick()
