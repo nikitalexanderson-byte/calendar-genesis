@@ -82,9 +82,28 @@ function genesisOAuthRedirect(string $returnTo, ?string $error = null): never
     exit;
 }
 
+function genesisObserveAndroid(callable $record): void
+{
+    try {
+        $record();
+    } catch (Throwable $error) {
+        genesisLogError('Android activity observation failed.', $error);
+    }
+}
+
 try {
     if ($method === 'GET' && $path === 'health') {
         genesisJson(['ok' => true, 'service' => 'GENESIS', 'privacyModel' => 2, 'time' => genesisNow()]);
+    }
+
+    if ($method === 'GET' && $path === 'android/download') {
+        $userId = genesisCurrentUserId();
+        if ($userId !== null && genesisFindUser($userId) !== null) {
+            genesisObserveAndroid(static fn() => genesisRecordAndroidDownload($userId, '2.3.11'));
+        }
+        header('Cache-Control: no-store');
+        header('Location: /downloads/GENESIS-Android-Native-2.3.11.apk', true, 302);
+        exit;
     }
 
     if ($method === 'GET' && $path === 'session') {
@@ -93,6 +112,7 @@ try {
         if ($userId && $user === null) {
             unset($_SESSION['user_id']);
         }
+        if ($user !== null) genesisObserveAndroid(static fn() => genesisReportAndroidClient((string)$user['id']));
         genesisJson([
             'user' => $user ? genesisUserForClient($user) : null,
             'csrf' => (string)$_SESSION['csrf'],
@@ -120,14 +140,19 @@ try {
         // A failed Google refresh can revoke the stored authorization. Always
         // return the post-sync connection state so clients can offer reconnect.
         $user = genesisFindUser($userId) ?? $user;
-        genesisJson([
-            'user' => genesisUserForClient($user),
+        $clientUser = genesisUserForClient($user);
+        $response = [
+            'user' => $clientUser,
             'csrf' => (string)$_SESSION['csrf'],
             'tasks' => $tasks,
             'taskLists' => genesisGoogleTaskListsForClient(),
             'workspace' => genesisWorkspaceForClient($user),
             'syncWarning' => $syncWarning,
-        ]);
+        ];
+        genesisObserveAndroid(static fn() => genesisReportAndroidClient($userId, 'ok', $syncWarning !== null ? 'warning'
+            : (!empty($clientUser['googleTasksImportReady']) || !empty($clientUser['calendarConnected'])
+                ? 'ok' : 'disconnected')));
+        genesisJson($response);
     }
 
     if ($method === 'GET' && $path === 'assistant/status') {
@@ -215,6 +240,7 @@ try {
         $_SESSION['user_id'] = (string)$user['id'];
         $_SESSION['csrf'] = bin2hex(random_bytes(24));
         unset($_SESSION['oauth_request']);
+        genesisObserveAndroid(static fn() => genesisReportAndroidClient((string)$user['id']));
         genesisLogError('[AuthFlow] ' . ($linkAction === 'created' ? 'GOOGLE_LINK_CREATED' : 'GOOGLE_LINK_FOUND'));
         genesisJson([
             'user' => genesisUserForClient($user),

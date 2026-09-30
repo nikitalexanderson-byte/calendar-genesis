@@ -644,9 +644,55 @@ function genesisRequireAdmin(array $user): void
     }
 }
 
+function genesisRecordAndroidDownload(string $userId, string $version): void
+{
+    $now = genesisNow();
+    genesisDb()->prepare('INSERT INTO android_download_activity (user_id, request_count, first_requested_at, last_requested_at, last_requested_version) VALUES (:user_id, 1, :first_requested_at, :last_requested_at, :last_requested_version) ON CONFLICT(user_id) DO UPDATE SET request_count = android_download_activity.request_count + 1, last_requested_at = excluded.last_requested_at, last_requested_version = excluded.last_requested_version')->execute([
+        'user_id' => $userId,
+        'first_requested_at' => $now,
+        'last_requested_at' => $now,
+        'last_requested_version' => $version,
+    ]);
+}
+
+function genesisAndroidClientHeader(): ?array
+{
+    $version = trim((string)($_SERVER['HTTP_X_GENESIS_APP_VERSION'] ?? ''));
+    $installationId = trim((string)($_SERVER['HTTP_X_GENESIS_INSTALLATION_ID'] ?? ''));
+    if (!preg_match('/^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$/D', $version)
+        || !preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iD', $installationId)) {
+        return null;
+    }
+    return [$version, strtolower($installationId)];
+}
+
+function genesisReportAndroidClient(string $userId, ?string $serverSyncStatus = null,
+    ?string $googleSyncStatus = null): void
+{
+    $header = genesisAndroidClientHeader();
+    if ($header === null) return;
+    $now = genesisNow();
+    $hasSync = $serverSyncStatus !== null;
+    $serverSyncStatus = in_array($serverSyncStatus, ['ok', 'warning'], true) ? $serverSyncStatus : 'unknown';
+    $googleSyncStatus = in_array($googleSyncStatus, ['ok', 'warning', 'disconnected'], true)
+        ? $googleSyncStatus : 'unknown';
+    genesisDb()->prepare('INSERT INTO android_client_reports (user_id, installation_id, app_version, first_seen_at, last_seen_at, last_server_sync_at, server_sync_status, google_sync_status) VALUES (:user_id, :installation_id, :app_version, :first_seen_at, :last_seen_at, :last_server_sync_at, :server_sync_status, :google_sync_status) ON CONFLICT(user_id, installation_id) DO UPDATE SET app_version = excluded.app_version, last_seen_at = excluded.last_seen_at, last_server_sync_at = COALESCE(excluded.last_server_sync_at, android_client_reports.last_server_sync_at), server_sync_status = CASE WHEN excluded.last_server_sync_at IS NULL THEN android_client_reports.server_sync_status ELSE excluded.server_sync_status END, google_sync_status = CASE WHEN excluded.last_server_sync_at IS NULL THEN android_client_reports.google_sync_status ELSE excluded.google_sync_status END')->execute([
+        'user_id' => $userId,
+        'installation_id' => $header[1],
+        'app_version' => $header[0],
+        'first_seen_at' => $now,
+        'last_seen_at' => $now,
+        'last_server_sync_at' => $hasSync ? $now : null,
+        'server_sync_status' => $serverSyncStatus,
+        'google_sync_status' => $googleSyncStatus,
+    ]);
+}
+
 function genesisAdminStats(): array
 {
-    $rows = genesisDb()->query('SELECT u.id, u.email, u.display_name, u.created_at, u.last_login_at, u.last_seen_at, u.login_count, u.password_hash IS NOT NULL AS password_enabled, u.google_calendar_id IS NOT NULL AS calendar_connected, COALESCE(m.project_count, 0) AS project_count, COALESCE(m.task_count, 0) AS task_count, COALESCE(m.open_task_count, 0) AS open_task_count, COALESCE(m.completed_task_count, 0) AS completed_task_count, COALESCE(m.google_synced_count, 0) AS google_synced_count, COALESCE(m.habit_count, 0) AS habit_count, m.updated_at AS metrics_updated_at FROM users u LEFT JOIN user_metrics m ON m.user_id = u.id ORDER BY COALESCE(u.last_seen_at, u.created_at) DESC')->fetchAll();
+    $rows = genesisDb()->query('SELECT u.id, u.email, u.display_name, u.created_at, u.last_login_at, u.last_seen_at, u.login_count, u.password_hash IS NOT NULL AS password_enabled, u.refresh_token_enc IS NOT NULL AS google_auth_connected, u.refresh_token_enc IS NOT NULL AND u.google_calendar_id IS NOT NULL AS calendar_connected, u.last_calendar_sync_at, COALESCE(m.project_count, 0) AS project_count, COALESCE(m.task_count, 0) AS task_count, COALESCE(m.open_task_count, 0) AS open_task_count, COALESCE(m.completed_task_count, 0) AS completed_task_count, COALESCE(m.google_synced_count, 0) AS google_synced_count, COALESCE(m.habit_count, 0) AS habit_count, m.updated_at AS metrics_updated_at, COALESCE(d.request_count, 0) AS android_download_count, d.first_requested_at AS android_first_download_at, d.last_requested_at AS android_last_download_at, d.last_requested_version AS android_last_download_version, (SELECT COUNT(*) FROM android_client_reports r WHERE r.user_id = u.id) AS android_device_count, (SELECT r.app_version FROM android_client_reports r WHERE r.user_id = u.id ORDER BY r.last_seen_at DESC LIMIT 1) AS android_reported_version, (SELECT r.last_seen_at FROM android_client_reports r WHERE r.user_id = u.id ORDER BY r.last_seen_at DESC LIMIT 1) AS android_last_seen_at, (SELECT r.last_server_sync_at FROM android_client_reports r WHERE r.user_id = u.id AND r.last_server_sync_at IS NOT NULL ORDER BY r.last_server_sync_at DESC LIMIT 1) AS android_last_server_sync_at, (SELECT r.server_sync_status FROM android_client_reports r WHERE r.user_id = u.id AND r.last_server_sync_at IS NOT NULL ORDER BY r.last_server_sync_at DESC LIMIT 1) AS android_server_sync_status, (SELECT r.google_sync_status FROM android_client_reports r WHERE r.user_id = u.id AND r.last_server_sync_at IS NOT NULL ORDER BY r.last_server_sync_at DESC LIMIT 1) AS android_google_sync_status FROM users u LEFT JOIN user_metrics m ON m.user_id = u.id LEFT JOIN android_download_activity d ON d.user_id = u.id ORDER BY COALESCE(u.last_seen_at, u.created_at) DESC')->fetchAll();
+    $linkedAuthIds = array_fill_keys(genesisDb()->query('SELECT DISTINCT owner_user_id FROM linked_google_accounts WHERE refresh_token_enc IS NOT NULL')->fetchAll(PDO::FETCH_COLUMN), true);
+    $linkedCalendarIds = array_fill_keys(genesisDb()->query('SELECT DISTINCT owner_user_id FROM linked_google_accounts WHERE refresh_token_enc IS NOT NULL AND google_calendar_id IS NOT NULL')->fetchAll(PDO::FETCH_COLUMN), true);
     return [
         'users' => array_map(static fn(array $row): array => [
             'id' => (string)$row['id'],
@@ -657,7 +703,9 @@ function genesisAdminStats(): array
             'lastSeenAt' => $row['last_seen_at'] ?: null,
             'loginCount' => (int)$row['login_count'],
             'passwordEnabled' => (bool)$row['password_enabled'],
-            'calendarConnected' => (bool)$row['calendar_connected'],
+            'calendarConnected' => (bool)$row['calendar_connected'] || isset($linkedCalendarIds[$row['id']]),
+            'googleAuthConnected' => (bool)$row['google_auth_connected'] || isset($linkedAuthIds[$row['id']]),
+            'lastGoogleCalendarSyncAt' => $row['last_calendar_sync_at'] ?: null,
             'projectCount' => (int)$row['project_count'],
             'taskCount' => (int)$row['task_count'],
             'openTaskCount' => (int)$row['open_task_count'],
@@ -666,6 +714,16 @@ function genesisAdminStats(): array
             'habitCount' => (int)$row['habit_count'],
             'isAdmin' => mb_strtolower((string)$row['email']) === genesisAdminEmail(),
             'metricsUpdatedAt' => $row['metrics_updated_at'] ?: null,
+            'androidDownloadCount' => (int)$row['android_download_count'],
+            'androidFirstDownloadAt' => $row['android_first_download_at'] ?: null,
+            'androidLastDownloadAt' => $row['android_last_download_at'] ?: null,
+            'androidLastDownloadVersion' => $row['android_last_download_version'] ?: null,
+            'androidDeviceCount' => (int)$row['android_device_count'],
+            'androidReportedVersion' => $row['android_reported_version'] ?: null,
+            'androidLastSeenAt' => $row['android_last_seen_at'] ?: null,
+            'androidLastServerSyncAt' => $row['android_last_server_sync_at'] ?: null,
+            'androidServerSyncStatus' => $row['android_server_sync_status'] ?: null,
+            'androidGoogleSyncStatus' => $row['android_google_sync_status'] ?: null,
         ], $rows),
         'totals' => [
             'users' => count($rows),
@@ -674,6 +732,8 @@ function genesisAdminStats(): array
             'completedTasks' => array_sum(array_map(static fn(array $row): int => (int)$row['completed_task_count'], $rows)),
             'habits' => array_sum(array_map(static fn(array $row): int => (int)$row['habit_count'], $rows)),
             'blockedIdentities' => (int)genesisDb()->query('SELECT COUNT(*) FROM blocked_identities')->fetchColumn(),
+            'androidDownloadRequests' => array_sum(array_map(static fn(array $row): int => (int)$row['android_download_count'], $rows)),
+            'androidReportingUsers' => count(array_filter($rows, static fn(array $row): bool => (int)$row['android_device_count'] > 0)),
         ],
     ];
 }
@@ -938,6 +998,8 @@ function genesisAccountDataLocations(): array
         'task_links' => 'user_id',
         'workspace_blobs' => 'user_id',
         'user_metrics' => 'user_id',
+        'android_download_activity' => 'user_id',
+        'android_client_reports' => 'user_id',
         'stoicheion_draws' => 'user_id',
         'linked_google_accounts' => 'owner_user_id',
         'users' => 'id',

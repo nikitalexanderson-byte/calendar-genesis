@@ -397,6 +397,18 @@ try {
         'created_at' => $now,
     ]);
 
+    genesisRecordAndroidDownload($userId, '2.3.11');
+    genesisRecordAndroidDownload($userId, '2.3.11');
+    $_SERVER['HTTP_X_GENESIS_APP_VERSION'] = '2.3.11';
+    $_SERVER['HTTP_X_GENESIS_INSTALLATION_ID'] = '123e4567-e89b-42d3-a456-426614174000';
+    genesisReportAndroidClient($userId, 'ok', 'warning');
+    unset($_SERVER['HTTP_X_GENESIS_APP_VERSION'], $_SERVER['HTTP_X_GENESIS_INSTALLATION_ID']);
+    $adminStats = genesisAdminStats();
+    $androidRow = array_values(array_filter($adminStats['users'], static fn (array $row): bool => $row['id'] === $userId))[0] ?? null;
+    expect($androidRow !== null && $androidRow['androidDownloadCount'] === 2, 'Android download requests were not counted per user.');
+    expect($androidRow['androidReportedVersion'] === '2.3.11' && $androidRow['androidDeviceCount'] === 1, 'Android installation version was not reported.');
+    expect($androidRow['androidServerSyncStatus'] === 'ok' && $androidRow['androidGoogleSyncStatus'] === 'warning', 'Android sync status was not recorded.');
+
     $beforeDeletion = genesisAccountDataCounts($userId);
     expect(count(array_filter($beforeDeletion, static fn (int $count): bool => $count > 0)) === count(genesisAccountDataLocations()), 'Deletion fixture did not cover every user-owned table.');
     $admin = genesisFindUserByEmail(genesisAdminEmail());
