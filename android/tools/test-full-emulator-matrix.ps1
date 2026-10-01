@@ -3,6 +3,7 @@ param(
     [int]$Port = 5580,
     [string[]]$TestClasses = @(),
     [switch]$SkipReminders,
+    [switch]$SkipAccessibility,
     [string]$ReportName = 'full-emulator-matrix-2.4.5'
 )
 $ErrorActionPreference = 'Stop'
@@ -78,7 +79,22 @@ foreach ($avd in $Avds) {
             $results | ConvertTo-Json -Depth 5 | Set-Content "$report/results-$Port.json" -Encoding UTF8
             Write-Output "$avd $class $passed"
             if (!$passed -or $class -in @('LanguageGridTest','CalendarModeHeaderTest','ResponsiveWorkspaceTest')) {
-                & $adb -s $serial pull "/sdcard/Android/data/$package/files/" "$dir/screenshots-$class" 2>$null | Out-Null
+                $exportLog = & $adb -s $serial pull "/sdcard/Android/data/$package/files/" "$dir/screenshots-$class" 2>&1 | Out-String
+                $exportFailed = $LASTEXITCODE -ne 0
+                # Android 11 emulator images can deny shell access to external app files.
+                if ($exportFailed -and $api -eq 30 -and $exportLog -match 'Permission denied') {
+                    try {
+                        Adb root | Out-Null
+                        Adb wait-for-device | Out-Null
+                        $exportLog += & $adb -s $serial pull "/sdcard/Android/data/$package/files/" "$dir/screenshots-$class" 2>&1 | Out-String
+                        $exportFailed = $LASTEXITCODE -ne 0
+                    } finally {
+                        Adb unroot | Out-Null
+                        Adb wait-for-device | Out-Null
+                    }
+                }
+                Set-Content -LiteralPath "$dir/screenshots-$class-export.txt" -Value $exportLog -Encoding UTF8
+                if ($exportFailed) { Write-Warning "Screenshot export failed: $avd $class; see export log" }
             }
         }
         if (!$SkipReminders) {
@@ -117,7 +133,7 @@ foreach ($avd in $Avds) {
         } else { $results.Add([pscustomobject]@{avd=$avd; api=$api; test='BackgroundReminderTest'; passed=$false}) }
         }
         $talkback = (& $adb -s $serial shell pm path com.google.android.marvin.talkback 2>$null | Out-String).Trim()
-        if ($talkback -and $api -ge 34) {
+        if (!$SkipAccessibility -and $talkback -and $api -ge 34) {
             Adb shell settings put secure enabled_accessibility_services com.google.android.marvin.talkback/com.google.android.marvin.talkback.TalkBackService | Out-Null
             Adb shell settings put secure accessibility_enabled 1 | Out-Null
             try {
@@ -127,7 +143,7 @@ foreach ($avd in $Avds) {
                 Adb shell settings delete secure enabled_accessibility_services | Out-Null
                 Adb shell settings put secure accessibility_enabled 0 | Out-Null
             }
-        } else { Set-Content "$dir/TalkBackAccessibilityTest.txt" 'SKIP: requires API 34+ and an installed TalkBack service' }
+        } else { Set-Content "$dir/TalkBackAccessibilityTest.txt" 'SKIP: omitted in focused retry, or requires API 34+ and an installed TalkBack service' }
     } catch {
         $results.Add([pscustomobject]@{avd=$avd; test='runner'; passed=$false; error=$_.Exception.Message})
         Write-Output "ERROR $avd $($_.Exception.Message)"

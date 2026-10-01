@@ -52,6 +52,7 @@ class TheokyklosFlowTest {
         assertTrue(device.takeScreenshot(File(app.getExternalFilesDir(null), "theokyklos-directions-after.png")))
         compose.onNodeWithTag("theokyklos-mandala").performScrollTo()
         for (id in listOf("zenith", "nadir", "entrance", "exit", "center", "hearth")) {
+            compose.onNodeWithTag("theokyklos-sector-$id").performScrollTo().assertIsDisplayed()
             if (id == "hearth") compose.onNodeWithTag("theokyklos-sector-hearth")
                 .performTouchInput { click(Offset(width / 2f, height * .16f)) }
             else compose.onNodeWithTag("theokyklos-sector-$id").performClick()

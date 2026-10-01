@@ -12,7 +12,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -29,7 +28,6 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.view.WindowInsetsControllerCompat
 import ru.genesis.calendar.auth.AuthController
 import ru.genesis.calendar.auth.AuthPanelState
 import ru.genesis.calendar.auth.activity
@@ -47,22 +45,6 @@ fun WelcomeScreen(state: AuthPanelState, controller: AuthController, language: S
     onLanguage: (String) -> Unit) {
     val context = LocalContext.current
     val activity = context.activity()
-    DisposableEffect(activity) {
-        activity?.let {
-            WindowInsetsControllerCompat(it.window, it.window.decorView).apply {
-                isAppearanceLightStatusBars = false
-                isAppearanceLightNavigationBars = false
-            }
-        }
-        onDispose {
-            activity?.let {
-                WindowInsetsControllerCompat(it.window, it.window.decorView).apply {
-                    isAppearanceLightStatusBars = true
-                    isAppearanceLightNavigationBars = true
-                }
-            }
-        }
-    }
     BoxWithConstraints(Modifier.fillMaxSize().background(Brush.verticalGradient(
         listOf(welcomeNight, welcomeGreen, welcomeNight)))
         .safeDrawingPadding().imePadding().testTag("genesis-welcome")) {

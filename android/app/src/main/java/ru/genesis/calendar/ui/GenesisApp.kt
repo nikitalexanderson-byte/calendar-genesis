@@ -175,16 +175,19 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     val currentSwipeDestination = SwipeDestination(tab,
         if (prefs.menuSwipeSubmenus) menuSwipeState.section(tab) else null)
     val eveningTheme = rememberEveningTheme(AppearanceSettings.read(habitWorkspace.settings.rawJson))
+    val accountGate = !testWorkspace && (!activeScope.startsWith("account-") || authState.user == null || !authState.ready)
+    val welcomeVisible = accountGate && !(authState.busy && authState.user != null)
     val window = LocalContext.current.activity()?.window
     SideEffect { window?.let { WindowInsetsControllerCompat(it,it.decorView).apply {
-        isAppearanceLightStatusBars = !eveningTheme; isAppearanceLightNavigationBars = !eveningTheme
+        isAppearanceLightStatusBars = !eveningTheme && !welcomeVisible
+        isAppearanceLightNavigationBars = !eveningTheme && !welcomeVisible
     } } }
     MaterialTheme(colorScheme=if (eveningTheme) evening else standart) {
       CompositionLocalProvider(LocalEveningTheme provides eveningTheme) {
       CompositionLocalProvider(LocalGenesisLanguage provides
           (if(testWorkspace || activeScope.startsWith("account-")) prefs.language else welcomePrefs.language)) {
         Surface(Modifier.fillMaxSize().testTag(if (eveningTheme) "app-theme-Evening" else "app-theme-Standart"),color=MaterialTheme.colorScheme.background) {
-            if (!testWorkspace && (!activeScope.startsWith("account-") || authState.user == null || !authState.ready)) {
+            if (accountGate) {
                 if (authState.busy && authState.user != null) AuthTransitionScreen(authState.message)
                 else WelcomeScreen(authState,authController,welcomePrefs.language,preferredWelcomeLanguage) { language ->
                         preferredWelcomeLanguage = language

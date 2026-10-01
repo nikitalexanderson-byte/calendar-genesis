@@ -205,11 +205,11 @@ class CalendarMobileLayoutTest {
                 }
             }
         }
-        compose.waitUntil(30_000) { compose.onAllNodesWithTag("stoicheion-grid").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(30_000) { compose.onAllNodesWithTag("stoicheion-letter-alpha").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("genesis-page-header").assertIsDisplayed()
+        compose.onNodeWithTag("genesis-page-header").assert(hasAnyAncestor(hasTestTag("stoicheion-grid")))
         capture("stoicheion-top")
         compose.onNodeWithTag("stoicheion-grid").performScrollToNode(hasTestTag("stoicheion-letter-omega"))
-        compose.onNodeWithTag("genesis-page-header").assert(hasAnyAncestor(hasTestTag("stoicheion-grid")))
         compose.onNodeWithTag("stoicheion-letter-omega").assertIsDisplayed()
         capture("stoicheion-scrolled")
     }

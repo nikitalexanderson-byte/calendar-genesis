@@ -101,6 +101,11 @@ class EveningAndMonthFlowTest {
             compose.onNodeWithTag("today-habit-check-$id").performScrollTo().assertIsOff().performClick()
             compose.waitForIdle()
             compose.waitUntil(10_000) { runBlocking { repo.workspace.first().completions.any {it.habitId==id && it.completed} } }
+            compose.waitUntil(10_000) {
+                compose.onNodeWithTag("today-habit-check-$id").fetchSemanticsNode().config
+                    .getOrNull(androidx.compose.ui.semantics.SemanticsProperties.ToggleableState) ==
+                    androidx.compose.ui.state.ToggleableState.On
+            }
             compose.onNodeWithTag("today-habit-check-$id").assertIsOn()
             capture("month-actions-and-habits")
             compose.onNodeWithTag("calendar-inline-delete-inline-check").performScrollTo().performClick()
