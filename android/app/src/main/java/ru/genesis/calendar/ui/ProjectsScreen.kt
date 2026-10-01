@@ -175,11 +175,7 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
     val language = LocalGenesisLanguage.current
     val projectCount = structure.projects.size
     val activeCount = tasks.count { !it.done }
-    val projectSummary = if (language == "en")
-        "$projectCount ${if (projectCount == 1) "project" else "projects"} · " +
-            "$activeCount active ${if (activeCount == 1) "task" else "tasks"}"
-    else "$projectCount ${russianCount(projectCount, "проект", "проекта", "проектов")} · " +
-        "$activeCount ${russianCount(activeCount, "активная задача", "активные задачи", "активных задач")}"
+    val projectSummary = mobileCalendarCopy(language).projectSummary(projectCount, activeCount)
     val moveTask: (String, String) -> Unit = { taskId, targetId ->
         scope.launch {
             try {
@@ -291,7 +287,7 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
                     else "Категории, проекты и задачи внутри них", "▦")
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically) {
-                    Text(projectSummary, Modifier.weight(1f).padding(end = 8.dp),
+                    androidx.compose.material3.Text(projectSummary, Modifier.weight(1f).padding(end = 8.dp),
                         style = MaterialTheme.typography.labelLarge)
                     Button(onClick = { creating = true; editing = null; error = null }, modifier = Modifier.testTag("create-project")) {
                         Text("Создать")

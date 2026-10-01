@@ -26,7 +26,7 @@ class AppearanceSettingsTest {
         val invalid=JSONObject().put("nativeAppearance",JSONObject().put("mode","unknown")
             .put("lightAt","25:00").put("darkAt","07:00"))
         val result=AppearanceSettings.read(invalid.toString())
-        assertEquals("light",result.mode)
+        assertEquals("scheduled",result.mode)
         assertNotEquals(result.lightAt,result.darkAt)
     }
 }

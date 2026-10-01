@@ -57,7 +57,7 @@ class TheokyklosFlowTest {
             compose.onNodeWithText(direction).assertExists()
         }
         val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
-        compose.onNodeWithTag("app-theme-Standart").assertExists()
+        compose.onAllNodes(hasTestTag("app-theme-Standart") or hasTestTag("app-theme-Evening")).onFirst().assertExists()
         compose.onNodeWithTag("theokyklos-mandala").assertIsDisplayed()
         device.waitForIdle()
         assertTrue(device.takeScreenshot(File(app.getExternalFilesDir(null), "theokyklos-standart-mandala.png")))

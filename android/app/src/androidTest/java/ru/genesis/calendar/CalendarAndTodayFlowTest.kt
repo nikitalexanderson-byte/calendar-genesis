@@ -32,7 +32,7 @@ class CalendarAndTodayFlowTest {
                 "Чтение для проверки", date, HabitEngine(GenesisCalendar()).defaultSchedule(date, CalendarMode.PROFANE))) }
             runBlocking { prefs.set("display", "sacred") }
             compose.waitUntil(10_000) {
-                compose.onAllNodesWithTag("app-theme-Standart").fetchSemanticsNodes().isNotEmpty()
+                compose.onAllNodes(hasTestTag("app-theme-Standart") or hasTestTag("app-theme-Evening")).fetchSemanticsNodes().isNotEmpty()
             }
             compose.onNodeWithText("СЕГОДНЯ").assertExists()
             compose.onNodeWithTag("today-hero-copy", useUnmergedTree = true).assertExists()

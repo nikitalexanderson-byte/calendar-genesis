@@ -1,5 +1,6 @@
 "use client";
 import { habitReminderTime } from "./habit-reminder-time";
+import ukrainianSynthemaNames from "./weekday-synthema.uk.json";
 /* eslint-disable @next/next/no-img-element -- Google requires the official, unmodified sign-in asset. */
 
 import {
@@ -466,21 +467,33 @@ const PROFANE_WEEKDAY_PATRONS = [
   },
 ] as const;
 
+const SYNTHEMA_SELF_NAMES: Record<string, string> = {
+  "Φάος. Λύκειος.": "Phaos. Lykeios.",
+  "Ἁγνή. Τρίοδος.": "Hagne. Triodos.",
+  "Ὁρμή. Κραταιά.": "Horme. Krataia.",
+  "Λόγος. Ἔννοια.": "Logos. Ennoia.",
+  "Τάξις. Βασιλεία.": "Taxis. Basileia.",
+  "Ἕδρα. Μυστήριον.": "Hedra. Mysterion.",
+  "Βάθος. Αἰώνια.": "Bathos. Aionia.",
+};
+
 function localizeWeekdayPatron(patron: (typeof PROFANE_WEEKDAY_PATRONS)[number], language: Language) {
-  if (language === "ru") return patron;
+  const synthema = language === "el" ? patron.synthema
+    : language === "uk" ? ukrainianSynthemaNames[patron.synthema]
+    : SYNTHEMA_SELF_NAMES[patron.synthema];
   return {
-    weekday: translateText(patron.weekday, "en"),
+    weekday: translateText(patron.weekday, language),
     symbol: patron.symbol,
-    patronage: translateText(patron.patronage, "en"),
-    guidancePatrons: translateText(patron.guidancePatrons, "en"),
-    guidanceTitle: translateText(patron.guidanceTitle, "en"),
-    guidance: translateText(patron.guidance, "en"),
-    synthema: patron.synthema,
-    pronunciation: translateText(patron.pronunciation, "en"),
-    alternatePronunciation: translateText(patron.alternatePronunciation, "en"),
-    meaning: translateText(patron.meaning, "en"),
-    deity: translateText(patron.deity, "en"),
-    bodyParts: translateText(patron.bodyParts, "en"),
+    patronage: translateText(patron.patronage, language),
+    guidancePatrons: translateText(patron.guidancePatrons, language),
+    guidanceTitle: translateText(patron.guidanceTitle, language),
+    guidance: translateText(patron.guidance, language),
+    synthema,
+    pronunciation: translateText(patron.pronunciation, language),
+    alternatePronunciation: translateText(patron.alternatePronunciation, language),
+    meaning: translateText(patron.meaning, language),
+    deity: translateText(patron.deity, language),
+    bodyParts: translateText(patron.bodyParts, language),
   };
 }
 
@@ -1129,12 +1142,17 @@ function DeviceClock({ timeFormat }: { timeFormat: TimeFormat }) {
   );
 }
 
-function DayRhythmPanel({ now, timeFormat }: { now: Date; timeFormat: TimeFormat }) {
+function DayRhythmPanel({ timeFormat }: { timeFormat: TimeFormat }) {
   const clock = useDeviceClock();
-  const liveNow = clock?.now ?? now;
-  const moment = getDayRhythmMoment(liveNow);
   const [expanded, setExpanded] = useState(false);
   const [exploredPeriodId, setExploredPeriodId] = useState<DayRhythmPeriodId | null>(null);
+  if (!clock) return (
+    <section className="day-rhythm-panel is-collapsed" aria-labelledby="day-rhythm-title">
+      <header className="day-rhythm-heading"><h2 id="day-rhythm-title">Ритм суток · время устройства</h2></header>
+    </section>
+  );
+  const liveNow = clock.now;
+  const moment = getDayRhythmMoment(liveNow);
   const exploredPeriod = DAY_RHYTHM_PERIODS.find((period) => period.id === exploredPeriodId) ?? moment.period;
   const isEnglish = getRuntimeLanguage() === "en";
   const toggleLabel = expanded
@@ -1297,6 +1315,9 @@ export function GenesisCalendar() {
   const [hydrated, setHydrated] = useState(false);
   const [authResolved, setAuthResolved] = useState(!isGoogleSyncConfigured);
   const [cloudUser, setCloudUser] = useState<GenesisUser | null>(null);
+  const [springYearSuggestionDismissed, setSpringYearSuggestionDismissed] = useState(false);
+  const [springYearSuggestionBusy, setSpringYearSuggestionBusy] = useState(false);
+  const [springYearSuggestionError, setSpringYearSuggestionError] = useState(false);
   const [themeState, setThemeState] = useState<ThemeControllerState>({
     accountId: null,
     theme: GENESIS_THEME.STANDART,
@@ -1913,6 +1934,8 @@ export function GenesisCalendar() {
       setTaskLists(initialState.taskLists);
       setTaskListLinks(initialState.taskListLinks);
       setHabitWorkspace(normalizeHabitWorkspace(initialState));
+      try { setSpringYearSuggestionDismissed(localStorage.getItem("genesis.spring-year-suggestion-dismissed") === "1"); }
+      catch { /* The dismiss button still works for this session. */ }
       setNewProjectCategory(initialState.categories[0]?.id ?? "");
       setHydrated(true);
       setSyncStatus(isGoogleSyncConfigured ? "loading" : "setup");
@@ -4318,7 +4341,7 @@ export function GenesisCalendar() {
 
         {cloudUser ? <TodayAdBlock key={`${cloudUser.uid}:${language}`} language={language} userId={cloudUser.uid} /> : null}
 
-        <DayRhythmPanel now={today} timeFormat={activeTimeFormat} />
+        <DayRhythmPanel timeFormat={activeTimeFormat} />
 
         {experimentalThemeActive ? (
           <div
@@ -5860,6 +5883,31 @@ export function GenesisCalendar() {
             );
           })}
         </section>
+        {mode === "profane" && !gregorianYearStartsInMarch && !springYearSuggestionDismissed ? (
+          <aside className="spring-year-suggestion" aria-label={translateText("Начните год весной", language)}>
+            <div>
+              <strong>{translateText("Начните год весной", language)}</strong>
+              <p>{translateText("Природа пробуждается в марте. Можно начинать отображаемый григорианский год с этого месяца.", language)}</p>
+              {springYearSuggestionError ? <small role="alert">{translateText("Не удалось сохранить выбор. Повторите попытку.", language)}</small> : null}
+            </div>
+            <button type="button" className="spring-year-action" disabled={springYearSuggestionBusy}
+              onClick={() => {
+                setSpringYearSuggestionBusy(true);
+                setSpringYearSuggestionError(false);
+                void updateAccountPreferences({ gregorianYearStart: "march" })
+                  .then(({ user }) => setCloudUser(user))
+                  .catch(() => setSpringYearSuggestionError(true))
+                  .finally(() => setSpringYearSuggestionBusy(false));
+              }}>{translateText("Начинать с марта", language)}</button>
+            <button type="button" className="spring-year-dismiss"
+              aria-label={translateText("Закрыть предложение", language)}
+              onClick={() => {
+                setSpringYearSuggestionDismissed(true);
+                try { localStorage.setItem("genesis.spring-year-suggestion-dismissed", "1"); }
+                catch { /* Session dismissal still works. */ }
+              }}>×</button>
+          </aside>
+        ) : null}
         <section className="year-grid" aria-label={mode === "profane"
           ? (language === "en" ? "Twelve calendar months" : "Двенадцать календарных месяцев")
           : (language === "en" ? "Lunar months of the year" : "Лунные месяцы года")}>
@@ -6131,7 +6179,7 @@ export function GenesisCalendar() {
           </div>
           <div className="topbar-actions">
             {nativeAndroidApkUrl ? (
-              <a className="icon-button ux-action-button android-native-icon-button" href={nativeAndroidApkUrl} download="GENESIS-Android-Native-2.4.6.apk" data-tooltip={language === "en" ? "Native Android app · remove the old TWA first" : "Нативное приложение · сначала удалите прежнюю TWA"} title={language === "en" ? "Native GENESIS APK; old TWA must be removed first" : "Нативный GENESIS APK; прежнюю TWA необходимо сначала удалить"} aria-label={language === "en" ? "Download native GENESIS for Android; remove the old TWA first" : "Скачать нативный GENESIS для Android; сначала удалите старую TWA"}>
+              <a className="icon-button ux-action-button android-native-icon-button" href={nativeAndroidApkUrl} download="GENESIS-Android-Native-2.4.7.apk" data-tooltip={language === "en" ? "Native Android app · remove the old TWA first" : "Нативное приложение · сначала удалите прежнюю TWA"} title={language === "en" ? "Native GENESIS APK; old TWA must be removed first" : "Нативный GENESIS APK; прежнюю TWA необходимо сначала удалить"} aria-label={language === "en" ? "Download native GENESIS for Android; remove the old TWA first" : "Скачать нативный GENESIS для Android; сначала удалите старую TWA"}>
                 <svg className="ux-android-robot" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M5.5 9h13v8.5a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2V9ZM5.5 9a6.5 6.5 0 0 1 13 0M4 11v5M20 11v5M9 19.5V22M15 19.5V22M7 3 5.5 1M17 3 18.5 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><circle cx="9.3" cy="7" r=".8" fill="currentColor"/><circle cx="14.7" cy="7" r=".8" fill="currentColor"/></svg>
               </a>
             ) : null}
@@ -6471,8 +6519,7 @@ export function GenesisCalendar() {
                   <div>
                     <dt>{language === "en" ? "Synthema" : "Синтема"}</dt>
                     <dd>
-                      <strong lang="grc">{selectedWeekdayPatron.synthema}</strong>
-                      <small>«{selectedWeekdayPatron.pronunciation}»{selectedWeekdayPatron.alternatePronunciation ? ` · ${selectedWeekdayPatron.alternatePronunciation}` : ""}</small>
+                      <strong lang={language === "el" ? "grc" : language === "uk" ? "uk" : "grc-Latn"}>{selectedWeekdayPatron.synthema}</strong>
                     </dd>
                   </div>
                   <div>

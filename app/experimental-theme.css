@@ -2618,6 +2618,44 @@ html[data-genesis-theme^="experimental"] :where([data-exp-layout="view"], [data-
   }
 
   html[data-genesis-theme^="experimental"] .mobile-nav[data-exp-ui="mobile-nav"] {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
+
+html[data-genesis-theme^="experimental"] .habit-completion-calendar {
+  display: grid;
+  gap: 15px;
+  padding: clamp(14px, 2vw, 22px);
+  color: #f5ead2;
+  border: 1px solid rgba(223, 193, 126, .42);
+  border-radius: 18px;
+  background: linear-gradient(145deg, #092729, #123a36);
+}
+html[data-genesis-theme^="experimental"] .habit-completion-calendar > header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+}
+html[data-genesis-theme^="experimental"] .habit-completion-calendar h3 { margin: 3px 0; font: 500 clamp(20px, 2.2vw, 28px)/1.1 Georgia, serif; }
+html[data-genesis-theme^="experimental"] .habit-completion-calendar p,
+html[data-genesis-theme^="experimental"] .habit-completion-calendar small { color: #b9d0c5; }
+html[data-genesis-theme^="experimental"] .habit-completion-modes { display: flex; flex-wrap: wrap; align-content: start; gap: 5px; }
+html[data-genesis-theme^="experimental"] .habit-completion-modes button {
+  min-height: 36px; padding: 7px 10px; color: #f5ead2; border: 1px solid #708f80;
+  border-radius: 8px; background: transparent; cursor: pointer;
+}
+html[data-genesis-theme^="experimental"] .habit-completion-modes button.active { color: #122c2c; background: #dfc17e; border-color: #dfc17e; }
+html[data-genesis-theme^="experimental"] .habit-completion-modes button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+html[data-genesis-theme^="experimental"] .habit-completion-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 10px; }
+html[data-genesis-theme^="experimental"] .habit-completion-list article { display: grid; gap: 10px; min-width: 0; padding: 12px; border: 1px solid #42665d; border-radius: 12px; background: #153a37; }
+html[data-genesis-theme^="experimental"] .habit-completion-list article > div:first-child { display: flex; justify-content: space-between; gap: 8px; }
+html[data-genesis-theme^="experimental"] .habit-completion-list strong { overflow-wrap: anywhere; }
+html[data-genesis-theme^="experimental"] .habit-completion-days { display: grid; grid-template-columns: repeat(var(--habit-day-columns), minmax(0, 1fr)); gap: 4px; }
+html[data-genesis-theme^="experimental"] .habit-completion-days span { min-height: 22px; border-radius: 5px; background: #254640; }
+html[data-genesis-theme^="experimental"] .habit-completion-days span.done,
+html[data-genesis-theme^="experimental"] .habit-completion-calendar footer i.done { background: #dfc17e; }
+html[data-genesis-theme^="experimental"] .habit-completion-days span.planned,
+html[data-genesis-theme^="experimental"] .habit-completion-calendar footer i.planned { background: #5a9e86; }
+html[data-genesis-theme^="experimental"] .habit-completion-calendar footer { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; color: #b9d0c5; }
+html[data-genesis-theme^="experimental"] .habit-completion-calendar footer i { width: 13px; height: 13px; border-radius: 3px; background: #254640; }

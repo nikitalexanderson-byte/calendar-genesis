@@ -147,12 +147,12 @@ jobs:
           "$ANDROID_HOME/build-tools/37.0.0/apksigner" verify --verbose --print-certs "$APK" \
             | grep -qi 'certificate SHA-1 digest: 9a28ae70b1933d86ff3a4ef931e924f81a4426bc'
           "$ANDROID_HOME/build-tools/37.0.0/aapt" dump badging "$APK" \
-            | grep -q "package: name='ru.genesis.calendar' versionCode='52' versionName='2.4.6'"
-          cp "$APK" dist-beget/public_html/downloads/GENESIS-Android-Native-2.4.6.apk
-          APK_SHA="$(sha256sum dist-beget/public_html/downloads/GENESIS-Android-Native-2.4.6.apk | cut -d' ' -f1)"
-          printf '{"versionCode":52,"versionName":"2.4.6","sha256":"%s"}\n' "$APK_SHA" \
+            | grep -q "package: name='ru.genesis.calendar' versionCode='53' versionName='2.4.7'"
+          cp "$APK" dist-beget/public_html/downloads/GENESIS-Android-Native-2.4.7.apk
+          APK_SHA="$(sha256sum dist-beget/public_html/downloads/GENESIS-Android-Native-2.4.7.apk | cut -d' ' -f1)"
+          printf '{"versionCode":53,"versionName":"2.4.7","sha256":"%s"}\n' "$APK_SHA" \
             > dist-beget/public_html/android-update.json
-          sha256sum dist-beget/public_html/downloads/GENESIS-Android-Native-2.4.6.apk
+          sha256sum dist-beget/public_html/downloads/GENESIS-Android-Native-2.4.7.apk
 
       # PHP-роутер должен физически лежать в public_html/api. Добавляем его в
       # единый public artifact, чтобы rsync --delete не создавал окно с 404.
@@ -236,10 +236,10 @@ jobs:
       - name: Verify public native APK
         run: |
           set -euo pipefail
-          EXPECTED="$(sha256sum dist-beget/public_html/downloads/GENESIS-Android-Native-2.4.6.apk | cut -d' ' -f1)"
+          EXPECTED="$(sha256sum dist-beget/public_html/downloads/GENESIS-Android-Native-2.4.7.apk | cut -d' ' -f1)"
           curl -fsSL --retry 3 "https://genesiscalendar.ru/android-update.json" \
-            | jq -e --arg sha "$EXPECTED" '.versionCode == 52 and .versionName == "2.4.6" and .sha256 == $sha' >/dev/null
-          curl -fsSL --retry 3 "https://genesiscalendar.ru/downloads/GENESIS-Android-Native-2.4.6.apk" \
+            | jq -e --arg sha "$EXPECTED" '.versionCode == 53 and .versionName == "2.4.7" and .sha256 == $sha' >/dev/null
+          curl -fsSL --retry 3 "https://genesiscalendar.ru/downloads/GENESIS-Android-Native-2.4.7.apk" \
             | sha256sum \
             | awk -v expected="$EXPECTED" '$1 == expected { found = 1 } END { exit !found }'
 

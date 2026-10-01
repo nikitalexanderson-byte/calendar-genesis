@@ -12379,6 +12379,16 @@ button.project-drag-handle:active { cursor: grabbing; }
 .sacred-sector-summary small { color: #738c86; font-size: 6px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
 .sacred-sector-summary strong { color: #e3ca87; font-size: 10px; }
 .sacred-practice-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.spring-year-suggestion { display:flex; align-items:center; gap:16px; margin:14px 0; padding:16px 18px; color:#153333; background:#f4efe1; border:1px solid #b99a5b; border-radius:16px; }
+.spring-year-suggestion > div { flex:1; min-width:0; }
+.spring-year-suggestion strong { display:block; font:500 20px/1.2 Georgia,serif; }
+.spring-year-suggestion p { margin:5px 0 0; font-size:13px; line-height:1.45; }
+.spring-year-suggestion small { display:block; margin-top:6px; color:#a23532; }
+.spring-year-suggestion button { flex:0 0 auto; cursor:pointer; }
+.spring-year-action { min-height:40px; padding:8px 14px; color:#fffaf0; background:#235852; border:0; border-radius:10px; font-weight:700; }
+.spring-year-action:disabled { opacity:.55; cursor:wait; }
+.spring-year-dismiss { display:grid; width:36px; height:36px; place-items:center; color:#405c58; background:transparent; border:1px solid #9ea9a3; border-radius:50%; font-size:25px; line-height:1; }
+@media (max-width:760px) { .spring-year-suggestion { align-items:flex-start; flex-wrap:wrap; gap:10px; padding:14px; }.spring-year-suggestion > div { flex-basis:calc(100% - 46px); }.spring-year-action { order:3; }.spring-year-dismiss { order:2; } }
 .sacred-practice-grid > article { display: grid; grid-template-rows: auto auto 1fr auto; gap: 9px; min-height: 220px; padding: 16px; color: #123032; background: color-mix(in srgb, var(--habit-color) 5%, #f8f5ed); border: 1px solid color-mix(in srgb, var(--habit-color) 26%, rgba(213,182,110,.18)); border-top: 3px solid var(--habit-color); border-radius: 4px 15px 4px 15px; }
 .sacred-practice-grid > article.paused { filter: saturate(.55); opacity: .7; }
 .sacred-practice-grid article > header { display: grid; grid-template-columns: 43px minmax(0,1fr) auto; align-items: center; gap: 10px; }
@@ -13247,6 +13257,9 @@ button.project-drag-handle:active { cursor: grabbing; }
 .today-workspace .genesis-page-footer { order: 10; }
 
 .admin-ads { display: grid; gap: 14px; padding: clamp(16px, 2vw, 24px); background: var(--surface); border: 1px solid var(--line); border-radius: 18px; }
+.admin-header-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.admin-header-actions > a { display: inline-flex; align-items: center; text-decoration: none; }
+.admin-ads h2 { scroll-margin-top: 24px; }
 .admin-ads h2, .admin-ads h3 { margin: 0; }
 .admin-ads > p, .admin-ads-form > p { margin: 0; color: var(--ink-soft); line-height: 1.5; }
 .admin-ads-list { display: grid; gap: 8px; }

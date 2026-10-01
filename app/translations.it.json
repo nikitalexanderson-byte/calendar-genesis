@@ -2613,5 +2613,19 @@
   "За 1 сутки": "1 g prima",
   "За 2 суток": "2 g prima",
   "За 3 суток": "3 g prima",
-  "Уведомления привычек": "Notifiche delle abitudini"
+  "Уведомления привычек": "Notifiche delle abitudini",
+  "Выберите день для просмотра записей": "Scegli un giorno per vedere le registrazioni",
+  "Календарь просмотра": "Calendario di visualizzazione",
+  "Календарь выполнения привычек": "Calendario delle abitudini completate",
+  "Создайте привычку, чтобы увидеть её историю.": "Crea un’abitudine per vederne la cronologia.",
+  "Золотой — выполнено · зелёный — запланировано": "Oro: completato · verde: programmato",
+  "Древо рангов, награды и полная статистика привычек. Накопленный XP не тратится.": "Albero dei ranghi, ricompense e statistiche complete delle abitudini. Gli XP guadagnati non si spendono.",
+  "Начните год весной": "Inizia l’anno in primavera",
+  "Природа пробуждается в марте. Можно начинать отображаемый григорианский год с этого месяца.": "La natura si risveglia a marzo. Puoi iniziare da lì l’anno gregoriano visualizzato.",
+  "Начинать с марта": "Inizia a marzo",
+  "Закрыть предложение": "Chiudi suggerimento",
+  "Не удалось сохранить выбор. Повторите попытку.": "Impossibile salvare la scelta. Riprova.",
+  "Наблюдение привычек": "Monitoraggio delle abitudini",
+  "Запланировано": "Pianificato",
+  "Отдых": "Riposo"
 }

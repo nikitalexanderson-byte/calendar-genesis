@@ -34,6 +34,7 @@ import ru.genesis.calendar.domain.habits.*
 
 @Composable
 fun HabitsScreen(app: GenesisApplication, experimental: Boolean, inputCalendarMode: CalendarMode = CalendarMode.SACRED,
+    displayCalendarMode: CalendarMode = CalendarMode.SACRED,
     menuSwipeState: MenuSwipeState? = null) {
     var localSection by rememberSaveable { mutableStateOf("Привычки") }
     val section = menuSwipeState?.habits ?: localSection
@@ -41,13 +42,14 @@ fun HabitsScreen(app: GenesisApplication, experimental: Boolean, inputCalendarMo
         ConnectedSubmenu(listOf(SubmenuItem("Привычки", "Привычки"), SubmenuItem("Сон и настроение", "Сон и настроение")),
             section, { localSection = it; menuSwipeState?.habits = it })
         Box(Modifier.weight(1f)) {
-            if (section == "Привычки") HabitWorkspaceContent(app, experimental, inputCalendarMode) else TrackersScreen(app)
+            if (section == "Привычки") HabitWorkspaceContent(app, experimental, inputCalendarMode, displayCalendarMode) else TrackersScreen(app)
         }
     }
 }
 
 @Composable
-private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean, inputCalendarMode: CalendarMode) {
+private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean, inputCalendarMode: CalendarMode,
+    displayCalendarMode: CalendarMode) {
     val repository=remember(app) { HabitsRepository(app) }
     val scope=rememberCoroutineScope()
     var workspace by remember { mutableStateOf<LocalHabitWorkspace?>(null) }
@@ -104,22 +106,15 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
     }
     LaunchedEffect(repository) { runAction { repository.refresh() } }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+        val current=workspace
         GenesisPageHeader(if (english) "Habits" else "Привычки",
             if (english) "Daily practice, goals, streaks and progress"
-            else "Ежедневные практики, цели, серии и прогресс", "◇")
-        Text(if(app.workspaceScope.startsWith("account-"))
-            "Защищённая копия аккаунта GENESIS · изменения синхронизируются с сайтом"
-            else "Личные данные сохраняются на этом устройстве до входа в аккаунт.",
-            style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-        error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
-        val current=workspace
-        if(current==null) {
-            if(!storageError) CircularProgressIndicator()
-        } else {
-            val rank=HeroProgress.rankForProgress(current.progress)
-            val goal=current.goals.firstOrNull { it.date==today }
-            if (current.settings.feedback.gamificationWidgets) Surface(Modifier.fillMaxWidth().testTag("habit-daily-hero"),shape=RoundedCornerShape(24.dp),color=Color(0xff123b36)) {
-                Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+            else "Ежедневные практики, цели, серии и прогресс", "◇",
+            footer = if (current != null && current.settings.feedback.gamificationWidgets) {{
+                val rank=HeroProgress.rankForProgress(current.progress)
+                val goal=current.goals.firstOrNull { it.date==today }
+                Column(Modifier.testTag("habit-daily-hero"),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+                    HorizontalDivider(color=Color(0xff46645e))
                     Text("ЕЖЕДНЕВНЫЙ РИТМ",style=MaterialTheme.typography.labelMedium,color=Color(0xffdfc17e))
                     Text(if(goal==null || goal.scheduledCount==0) "Свободный день" else
                         "Сегодня · ${goal.completedCount} из ${goal.scheduledCount}",
@@ -144,7 +139,11 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                     Text("Ритм ${current.progress.rhythmScore}%  ·  ${current.progress.laurelsBalance} лавров",
                         style=MaterialTheme.typography.labelMedium,color=Color(0xffdfc17e))
                 }
-            }
+            }} else null)
+        error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
+        if(current==null) {
+            if(!storageError) CircularProgressIndicator()
+        } else {
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 Button(enabled=!busy&&!storageError,onClick={edit=null;editorOpen=true},modifier=Modifier.weight(1f)) { Text("Новая привычка") }
                 OutlinedButton(enabled=!busy&&!storageError,onClick={catalogueOpen=!catalogueOpen},modifier=Modifier.weight(1f)) {
@@ -227,7 +226,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                 Text("Путь Героя и награды",style=MaterialTheme.typography.titleLarge,
                                     color = Color(0xfffff6e2))
-                                Text("Древо рангов, достижения и защита серии. Накопленный XP не тратится.",
+                                Text("Древо рангов, награды и полная статистика привычек. Накопленный XP не тратится.",
                                     style=MaterialTheme.typography.bodySmall,color=Color(0xffc8d9d4))
                             }
                         }
@@ -256,11 +255,14 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                         }
                     }
                 }
-                if(heroPathOpen) HabitArtGallery(current, today, busy,
+                if(heroPathOpen) {
+                    HabitCompletionCalendar(current, today, displayCalendarMode)
+                    HabitArtGallery(current, today, busy,
                     onClaimAmphora = { rankId -> scope.launch { runAction { repository.claimHeroPathAmphora(rankId) } } },
                     onRevealHiddenPath = { scope.launch { runAction { repository.revealHiddenHeroicPath() } } },
                     onBuySpark = { scope.launch { runAction { repository.buyHestiaSpark() } } },
                     showQuests = current.settings.feedback.questsEnabled)
+                }
             }
             if(current.completions.isNotEmpty()) {
                 Text("История отметок",style=MaterialTheme.typography.titleMedium)

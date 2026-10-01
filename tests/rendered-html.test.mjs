@@ -2000,7 +2000,7 @@ test("retains the legacy TWA artifact but promotes only the signed native Androi
   // The legacy 1.2.2 asset remains available while the current native release advances.
   const nativeVersionCode = Number(androidBuild.match(/versionCode = (\d+)/)?.[1]);
   assert.ok(nativeVersionCode >= 52);
-  assert.match(androidBuild, /versionName = "2\.4\.6"/);
+  assert.match(androidBuild, /versionName = "2\.4\.7"/);
   assert.match(androidBuild, /releaseSigningReady/);
   assert.match(androidBuild, /applicationIdSuffix = "\.debug"/);
   assert.match(androidBuild, /androidx\.browser:browser:1\.10\.0/);
@@ -2838,7 +2838,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /synthema: "Φάος\. Λύκειος\."/);
   assert.match(calendar, /synthema: "Βάθος\. Αἰώνια\."/);
   assert.match(calendar, /profane-day-guidance/);
-  assert.match(calendar, /selectedWeekdayPatron\.alternatePronunciation/);
+  assert.match(calendar, /ukrainianSynthemaNames\[patron\.synthema\]/);
+  assert.match(calendar, /SYNTHEMA_SELF_NAMES\[patron\.synthema\]/);
   assert.match(i18n, /"День Света и Прозрения": "Day of Light and Insight"/);
   assert.match(i18n, /"День Памяти, Времени и Денег": "Day of Memory, Time, and Money"/);
   assert.match(styles, /\.profane-day-guidance/);
@@ -3022,10 +3023,11 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.doesNotMatch(calendar, /renderTaskListCreateForm\("projects"\)/);
   assert.match(calendar, /DeviceClock/);
   assert.match(calendar, /<div className="hero-number" aria-hidden="true">[\s\S]*?<\/div>\s*<DeviceClock timeFormat=\{activeTimeFormat\} \/>/);
-  assert.match(calendar, /<DayRhythmPanel now=\{today\} timeFormat=\{activeTimeFormat\} \/>/);
+  assert.match(calendar, /<DayRhythmPanel timeFormat=\{activeTimeFormat\} \/>/);
   assert.match(calendar, /useSyncExternalStore\(subscribeDeviceClock, getDeviceClockSnapshot, getServerDeviceClockSnapshot\)/);
   assert.match(calendar, /1000 - \(Date\.now\(\) % 1000\)/);
-  assert.match(calendar, /const liveNow = clock\?\.now \?\? now/);
+  assert.match(calendar, /if \(!clock\) return \(/);
+  assert.match(calendar, /const liveNow = clock\.now/);
   assert.doesNotMatch(calendar, /const currentTime = formatClockTime\(liveNow, timeFormat\)/);
   assert.doesNotMatch(calendar, /<time dateTime=\{liveNow\.toISOString\(\)\}>/);
   assert.match(calendar, /moment\.remainingSeconds % 60/);

@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.layout.onSizeChanged
@@ -91,6 +92,7 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
     experimental: Boolean = false, tasks: List<LocalTask> = emptyList(), use24: Boolean = true,
     weekStartsOnSunday: Boolean = true,
     gregorianYearStartsInMarch: Boolean = false, regionalSeasonArt: Boolean = false,
+    onStartGregorianYearInMarch: () -> Unit = {},
     seasonRegionZone: ZoneId = ZoneId.systemDefault(),
     onCompleteTask: (LocalTask) -> Unit = {},
     onEditTask: (LocalTask, LocalDate) -> Unit = { _, _ -> },
@@ -117,6 +119,7 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
             }, Modifier.testTag("calendar-view-switch"))
         if (yearView) CalendarYearOverview(calendar, shownDate, mode, onModeChange, experimental, tasks,
             gregorianYearStartsInMarch, regionalSeasonArt, seasonRegionZone,
+            onStartGregorianYearInMarch,
             onMonth = {
                 shown = it.toString(); selected = it.toString(); localYearView = false
                 menuSwipeState?.calendar = "month"
@@ -173,12 +176,9 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
 @Composable
 private fun CalendarPageHeader(yearView: Boolean, mode: CalendarMode,
     onModeChange: (CalendarMode) -> Unit, modifier: Modifier = Modifier) {
-    val english = LocalGenesisLanguage.current == "en"
-    GenesisPageHeader(if (english) {
-        if (yearView) "Calendar - year" else "Calendar - month"
-    } else if (yearView) "Календарь - год" else "Календарь - месяц",
-        if (english) "Sacred, Gregorian and lunar dates, tasks and solar times"
-        else "Сакральные, григорианские и лунные даты, задачи и время Солнца", "☷",
+    val copy = mobileCalendarCopy(LocalGenesisLanguage.current)
+    GenesisPageHeader(if (yearView) "Календарь - год" else "Календарь - месяц",
+        copy.calendarName(mode), "☷",
         modifier.heightIn(min = if (compactWindowHeight()) 88.dp else 138.dp),
         calendarMode = mode, onCalendarModeClick = { onModeChange(nextCalendarMode(mode)) })
 }
@@ -896,12 +896,16 @@ private fun CalendarYearOverview(calendar: GenesisCalendar, shown: LocalDate, mo
     onModeChange: (CalendarMode) -> Unit,
     experimental: Boolean, tasks: List<LocalTask>,
     gregorianYearStartsInMarch: Boolean, regionalSeasonArt: Boolean, seasonRegionZone: ZoneId,
+    onStartGregorianYearInMarch: () -> Unit,
     onMonth: (LocalDate) -> Unit, onYear: (LocalDate) -> Unit) {
     val sacredYear = calendar.sacredDate(shown).sacredYear
     val period = if (mode == CalendarMode.PROFANE) LocalDate.of(
         shown.year - if (gregorianYearStartsInMarch && shown.monthValue < 3) 1 else 0,
         if (gregorianYearStartsInMarch) 3 else 1, 1)
         else LocalDate.of(sacredYear, 3, 20)
+    val context = LocalContext.current
+    val suggestionPrefs = remember(context) { context.getSharedPreferences("genesis.calendar-suggestions", android.content.Context.MODE_PRIVATE) }
+    var springSuggestionDismissed by remember { mutableStateOf(suggestionPrefs.getBoolean("spring-year-dismissed", false)) }
     Column(Modifier.fillMaxSize().testTag("calendar-year").verticalScroll(rememberScrollState())
         .padding(horizontal = 8.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -911,7 +915,10 @@ private fun CalendarYearOverview(calendar: GenesisCalendar, shown: LocalDate, mo
             { onYear(period.minusYears(1)) }, { onYear(period.plusYears(1)) },
             Modifier.fillMaxWidth()) { page, previous, next ->
             CalendarYearPanel(calendar, page, mode, experimental, tasks,
-                gregorianYearStartsInMarch, regionalSeasonArt, seasonRegionZone, onMonth, previous, next)
+                gregorianYearStartsInMarch, regionalSeasonArt, seasonRegionZone,
+                springSuggestionDismissed, onStartGregorianYearInMarch,
+                { springSuggestionDismissed = true; suggestionPrefs.edit().putBoolean("spring-year-dismissed", true).apply() },
+                onMonth, previous, next)
         }
         Spacer(Modifier.height(80.dp))
     }
@@ -921,6 +928,8 @@ private fun CalendarYearOverview(calendar: GenesisCalendar, shown: LocalDate, mo
 private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode: CalendarMode,
     experimental: Boolean, tasks: List<LocalTask>,
     gregorianYearStartsInMarch: Boolean, regionalSeasonArt: Boolean, seasonRegionZone: ZoneId,
+    springSuggestionDismissed: Boolean, onStartGregorianYearInMarch: () -> Unit,
+    onDismissSpringSuggestion: () -> Unit,
     onMonth: (LocalDate) -> Unit,
     onPrevious: () -> Unit, onNext: () -> Unit) {
     val locale = Locale.forLanguageTag(LocalGenesisLanguage.current)
@@ -987,6 +996,34 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
                 }
             }
         }
+        if (mode == CalendarMode.PROFANE && !gregorianYearStartsInMarch && !springSuggestionDismissed) {
+            val copy = springYearCopy(LocalGenesisLanguage.current)
+            Card(Modifier.fillMaxWidth().padding(horizontal = 10.dp).testTag("spring-year-suggestion"),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xff173b38)),
+                border = BorderStroke(1.dp, Color(0xffdfc17e).copy(alpha = .65f))) {
+                Row(Modifier.fillMaxWidth().padding(12.dp),
+                    verticalAlignment = Alignment.Top,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        androidx.compose.material3.Text(copy.title, color = Color(0xfffff5df),
+                            style = MaterialTheme.typography.titleMedium)
+                        androidx.compose.material3.Text(copy.body, color = Color(0xffc8d9d4),
+                            style = MaterialTheme.typography.bodySmall)
+                        TextButton(onClick = onStartGregorianYearInMarch,
+                            modifier = Modifier.testTag("spring-year-switch")) {
+                            androidx.compose.material3.Text(copy.action, color = Color(0xffdfc17e))
+                        }
+                    }
+                    IconButton(onClick = onDismissSpringSuggestion,
+                        modifier = Modifier.size(40.dp).testTag("spring-year-dismiss")) {
+                        androidx.compose.material3.Text("×", color = Color(0xffdfc17e),
+                            style = MaterialTheme.typography.headlineSmall,
+                            modifier = Modifier.semantics { contentDescription = copy.dismiss })
+                    }
+                }
+            }
+        }
         if (mode == CalendarMode.PROFANE) {
             yearSeasonGroups.withIndex().toList().chunked(yearColumns).forEach { row ->
               Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -998,12 +1035,12 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
                         "gregorian-season-${season.name.lowercase()}${if (groupIndex > 0 && season == GregorianSeason.WINTER) "-end" else ""}"),
                         shape = RoundedCornerShape(22.dp),
                         colors = CardDefaults.cardColors(containerColor = seasonSurface(season)
-                            .copy(alpha = if (LocalEveningTheme.current) .42f else .78f)),
+                            .copy(alpha = if (LocalEveningTheme.current) .22f else .78f)),
                         border = BorderStroke(1.dp, seasonAccent(season).copy(alpha = .3f))) {
                         Box {
                         OriginalImage(gregorianSeasonArtPath(season.name.lowercase(), seasonRegionZone,
                             regionalSeasonArt), null,
-                            Modifier.matchParentSize().alpha(if (LocalEveningTheme.current) .56f else .39f)
+                            Modifier.matchParentSize().alpha(if (LocalEveningTheme.current) .78f else .39f)
                                 .testTag("gregorian-season-art-${season.name.lowercase()}"))
                         Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(if (LocalGenesisLanguage.current == "en") season.englishTitle else season.title,
@@ -1137,22 +1174,25 @@ private fun SolarPointTile(event: SolarEvent, calendar: GenesisCalendar,
     onMonth: (LocalDate) -> Unit, modifier: Modifier = Modifier) {
     val locale = Locale.forLanguageTag(LocalGenesisLanguage.current)
     val tileHeight = (148f * maxOf(1f, LocalDensity.current.fontScale)).dp
-    val solarAccent = if (LocalEveningTheme.current) Color(0xffd7bd79) else Color(0xff715923)
+    val evening = LocalEveningTheme.current
+    val solarAccent = if (evening) Color(0xffdfc17e) else Color(0xff715923)
+    val solarInk = if (evening) Color(0xfffff5df) else Color(0xff253a36)
     Surface(onClick = { onMonth(event.date) }, modifier = modifier.height(tileHeight)
         .testTag("solar-point-${event.date}"), shape = MaterialTheme.shapes.medium,
-        color = Color(0xfff5ecd6), border = BorderStroke(1.dp, Color(0xffd7bd79))) {
+        color = if (evening) Color(0xff183432) else Color(0xfff5ecd6),
+        border = BorderStroke(1.dp, Color(0xffd7bd79))) {
         Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(event.symbol, style = MaterialTheme.typography.titleLarge, color = Color(0xff8b6727))
+            Text(event.symbol, style = MaterialTheme.typography.titleLarge, color = solarAccent)
             androidx.compose.foundation.text.BasicText(genesisTranslate(event.shortName),
                 style = MaterialTheme.typography.labelMedium.copy(color = solarAccent),
                 maxLines = 1, softWrap = false,
                 autoSize = TextAutoSize.StepBased(minFontSize = 9.sp, maxFontSize = 12.sp))
             Text(event.date.dayOfWeek.getDisplayName(TextStyle.FULL, locale),
-                style = MaterialTheme.typography.bodySmall)
+                style = MaterialTheme.typography.bodySmall, color = solarInk)
             Text(event.date.format(DateTimeFormatter.ofPattern("d MMMM yyyy", locale)),
-                style = MaterialTheme.typography.titleSmall)
+                style = MaterialTheme.typography.titleSmall, color = solarInk)
             Text(event.instant.atZone(calendar.zoneId).format(DateTimeFormatter.ofPattern("HH:mm z", locale)),
-                style = MaterialTheme.typography.labelSmall, color = Color(0xff715923))
+                style = MaterialTheme.typography.labelSmall, color = solarAccent)
         }
     }
 }

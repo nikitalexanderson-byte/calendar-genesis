@@ -13,6 +13,8 @@ const SKIPPED_FILES = new Set([
   path.join(SOURCE_ROOT, "ui/CalendarYearDescription.kt"),
   // Explicit grammar tables contain Russian, Ukrainian and Serbian forms beside all other locales.
   path.join(SOURCE_ROOT, "ui/TaskCountCopy.kt"),
+  // This compact header copy is defined explicitly for all 14 supported languages.
+  path.join(SOURCE_ROOT, "ui/MobileCalendarCopy.kt"),
   // Release notes contain a complete reviewed table for all 14 shipped locales.
   path.join(SOURCE_ROOT, "ui/ReleaseNotes.kt"),
   // The update banner contains a complete 14-locale copy table.

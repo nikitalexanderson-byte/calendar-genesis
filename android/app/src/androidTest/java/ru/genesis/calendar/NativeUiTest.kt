@@ -130,7 +130,7 @@ class NativeUiTest {
             compose.onNodeWithTag("navigation-Сегодня").performClick()
             compose.scrollToTodayNode(hasTestTag("today-hero"))
             compose.waitUntil(5_000) {
-                compose.onAllNodesWithTag("calendar-mode-icon-profane")
+                compose.onAllNodesWithTag("calendar-mode-icon-profane", useUnmergedTree = true)
                     .fetchSemanticsNodes().isNotEmpty()
             }
             compose.scrollToTodayNode(hasTestTag("today-day-details-toggle"))

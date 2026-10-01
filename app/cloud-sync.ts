@@ -6,6 +6,7 @@ import type { TimeFormat } from "./time-format";
 import { ThemeConflictError, type GenesisTheme } from "./theme-controller";
 import { cleanTaskDescription } from "./task-description";
 import { cleanGenesisAppUrl } from "./app-url";
+import { shouldSeedRemoteWorkspace } from "./workspace-import-policy";
 import {
   EMPTY_HABIT_WORKSPACE,
   normalizeHabitWorkspace,
@@ -1286,20 +1287,13 @@ export async function mergeLocalWorkspace(
   const remote = await loadGenesisWorkspace();
   if (readPending().some((mutation) => mutation.key === "workspace")) {
     await flushPendingMutations();
-  } else if (!remote.hasRemoteStructure && (local.projects.length || local.categories.length || local.taskListLinks.length || local.habits?.length)) {
+  } else if (shouldSeedRemoteWorkspace(remote.hasRemoteStructure,
+    local.projects.length + local.categories.length + local.taskListLinks.length + (local.habits?.length ?? 0))) {
     await saveWorkspaceStructure(
       local.projects,
       local.categories,
       local.taskListLinks,
       metricsFor(local.tasks, local.projects, local.habits?.length ?? 0),
-      normalizeHabitWorkspace(local),
-    );
-  } else if (remote.hasRemoteStructure && !remote.habits.length && local.habits?.length) {
-    await saveWorkspaceStructure(
-      remote.projects,
-      remote.categories,
-      remote.taskListLinks,
-      metricsFor(local.tasks, remote.projects, local.habits?.length ?? 0),
       normalizeHabitWorkspace(local),
     );
   }

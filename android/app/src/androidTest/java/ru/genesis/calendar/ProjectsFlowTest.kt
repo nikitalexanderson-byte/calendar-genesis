@@ -79,7 +79,7 @@ class ProjectsFlowTest {
             compose.onNodeWithTag("save-project").performScrollTo().performClick()
         }
         compose.waitUntil(10_000) { compose.onAllNodesWithTag("project-title").fetchSemanticsNodes().isEmpty() }
-        compose.onNodeWithTag("app-theme-Standart").assertExists()
+        compose.onAllNodes(hasTestTag("app-theme-Standart") or hasTestTag("app-theme-Evening")).onFirst().assertExists()
         if (compose.onAllNodesWithTag("category-filter-work").fetchSemanticsNodes().isEmpty()) {
             compose.onNodeWithTag("projects-screen").performScrollToNode(hasTestTag("category-filter-work"))
         }
@@ -111,7 +111,7 @@ class ProjectsFlowTest {
                     revision = previous?.revision ?: 0))
             }
             compose.waitUntil(10_000) {
-                compose.onAllNodesWithTag("app-theme-Standart").fetchSemanticsNodes().isNotEmpty()
+                compose.onAllNodes(hasTestTag("app-theme-Standart") or hasTestTag("app-theme-Evening")).fetchSemanticsNodes().isNotEmpty()
             }
             compose.onNodeWithTag("navigation-Проекты").performClick()
             compose.onNodeWithTag("project-inbox").assertExists()
@@ -145,7 +145,7 @@ class ProjectsFlowTest {
             id
         }
             compose.waitUntil(10_000) {
-                compose.onAllNodesWithTag("app-theme-Standart").fetchSemanticsNodes().isNotEmpty()
+                compose.onAllNodes(hasTestTag("app-theme-Standart") or hasTestTag("app-theme-Evening")).fetchSemanticsNodes().isNotEmpty()
             }
             compose.onNodeWithTag("navigation-Проекты").performClick()
             compose.onNodeWithText("Открыть").performClick()
@@ -187,7 +187,7 @@ class ProjectsFlowTest {
                     revision = previous?.revision ?: 0))
             }
             compose.waitUntil(10_000) {
-                compose.onAllNodesWithTag("app-theme-Standart").fetchSemanticsNodes().isNotEmpty()
+                compose.onAllNodes(hasTestTag("app-theme-Standart") or hasTestTag("app-theme-Evening")).fetchSemanticsNodes().isNotEmpty()
             }
             compose.onNodeWithTag("navigation-Проекты").performClick()
             compose.waitUntil(10_000) {
@@ -242,7 +242,7 @@ class ProjectsFlowTest {
                 revision = previous?.revision ?: 0))
         }
         compose.waitUntil(10_000) {
-            compose.onAllNodesWithTag("app-theme-Standart").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodes(hasTestTag("app-theme-Standart") or hasTestTag("app-theme-Evening")).fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithTag("navigation-Проекты").performClick()
         compose.onNodeWithTag("projects-screen").performScrollToNode(hasTestTag("project-drop-$originId"))

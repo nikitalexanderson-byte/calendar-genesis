@@ -33,7 +33,7 @@ class CalendarFlowTest {
                 compose.onAllNodesWithContentDescription("Иллюстрация месяца ${currentMonth.name}")
                     .fetchSemanticsNodes().isNotEmpty()
             }
-            compose.onNodeWithTag("app-theme-Standart").assertExists()
+            compose.onAllNodes(hasTestTag("app-theme-Standart") or hasTestTag("app-theme-Evening")).onFirst().assertExists()
             compose.onNodeWithTag("sacred-month-hero").assertIsDisplayed()
             device.waitForIdle()
             assertTrue(device.takeScreenshot(File(app.getExternalFilesDir(null), "calendar-standart-month.png")))

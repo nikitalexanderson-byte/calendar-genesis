@@ -261,3 +261,60 @@ html[data-genesis-theme$="-dark"] :is(.hestia-spark-inventory i:not(.filled),
   .laurel-ledger > div > div, .laurel-ledger code) {
   background: var(--dark-control); border-color: var(--line); color: var(--ink-soft);
 }
+
+/* Day details and suggested practices need their own dark surfaces in both themes. */
+html[data-genesis-theme$="-dark"] .profane-day-guidance {
+  color: var(--ink);
+  background: radial-gradient(circle at 5% 0%, var(--guidance-wash), transparent 42%), var(--surface);
+  border-color: color-mix(in srgb, var(--guidance-accent) 38%, var(--line));
+}
+html[data-genesis-theme$="-dark"] .profane-day-guidance :is(.eyebrow, header small, dt) {
+  color: var(--gold);
+}
+html[data-genesis-theme$="-dark"] .profane-day-guidance :is(h3, dd, dd strong) {
+  color: var(--ink);
+}
+html[data-genesis-theme$="-dark"] .profane-day-guidance > p,
+html[data-genesis-theme$="-dark"] .profane-day-guidance dd small {
+  color: var(--ink-soft);
+}
+html[data-genesis-theme$="-dark"] .profane-day-guidance > dl > div {
+  background: var(--dark-control);
+  border-color: var(--line);
+}
+html[data-genesis-theme$="-dark"] .profane-day-guidance-symbol {
+  color: var(--gold);
+  background: var(--dark-control);
+  border-color: var(--line);
+}
+html[data-genesis-theme$="-dark"] .sacred-practice-grid > article {
+  color: var(--ink);
+  background: var(--surface);
+  border-color: var(--line);
+  border-top-color: var(--habit-color);
+}
+html[data-genesis-theme$="-dark"] .sacred-practice-grid :is(h3, article > p, blockquote) {
+  color: var(--ink);
+}
+html[data-genesis-theme$="-dark"] .sacred-practice-grid :is(article > header small, article > header em) {
+  color: var(--gold);
+}
+html[data-genesis-theme$="-dark"] .sacred-practice-grid blockquote {
+  background: var(--dark-control);
+}
+html[data-genesis-theme$="-dark"] .sacred-practice-grid footer small {
+  color: var(--ink-soft);
+}
+html[data-genesis-theme$="-dark"] .spring-year-suggestion {
+  color: var(--ink);
+  background: var(--surface);
+  border-color: var(--gold);
+}
+html[data-genesis-theme$="-dark"] .spring-year-action {
+  color: var(--dark-on-accent);
+  background: var(--teal);
+}
+html[data-genesis-theme$="-dark"] .spring-year-dismiss {
+  color: var(--ink);
+  border-color: var(--line);
+}
