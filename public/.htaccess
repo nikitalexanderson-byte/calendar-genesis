@@ -14,7 +14,7 @@ RewriteRule . index.html [L]
   Header always set Referrer-Policy "strict-origin-when-cross-origin"
   Header always set Permissions-Policy "camera=(), microphone=(self), on-device-speech-recognition=(self), geolocation=()"
   Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
-  Header always set Content-Security-Policy "default-src 'self'; base-uri 'self'; form-action 'self' https://accounts.google.com; frame-ancestors 'none'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.googleusercontent.com; connect-src 'self' https://get.geojs.io https://geocoding-api.open-meteo.com; font-src 'self' data:; manifest-src 'self'; worker-src 'self'"
+  Header always set Content-Security-Policy "default-src 'self'; base-uri 'self'; form-action 'self' https://accounts.google.com; frame-ancestors 'none'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://get.geojs.io https://geocoding-api.open-meteo.com; font-src 'self' data:; manifest-src 'self'; worker-src 'self'"
 </IfModule>
 
 <FilesMatch "\.(?:js|css|png|ico|webp|svg|woff2)$">

@@ -60,9 +60,20 @@ fun GoogleServicesConnectPanel(state: AuthPanelState, controller: AuthController
 fun GoogleServicesFirstRunModal(state: AuthPanelState, controller: AuthController) {
     val userId = state.user?.uid
     val access = GoogleServiceAccess.primary(state.accountSettings)
-    var handledUserId by remember { mutableStateOf<String?>(null) }
-    if (state.ready && userId != null && !access.complete && handledUserId != userId) {
-        GoogleServicesConsentDialog(state, controller) { handledUserId = userId }
+    val context = LocalContext.current
+    val offers = remember(context) { context.getSharedPreferences("genesis.google.service-offer", 0) }
+    var show by remember(userId) { mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(state.ready, state.offerGoogleServices, userId, access.complete) {
+        if (access.complete) show = false
+        if (state.ready && state.offerGoogleServices && userId != null && !access.complete &&
+            !offers.getBoolean(userId, false)) {
+            // Record the offer before displaying it, including when the process is recreated.
+            offers.edit().putBoolean(userId, true).apply()
+            show = true
+        }
+    }
+    if (show && userId != null) {
+        GoogleServicesConsentDialog(state, controller) { show = false }
     }
 }
 

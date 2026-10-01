@@ -45,13 +45,28 @@ object TheokyklosCatalogSource {
     val ids = listOf("north", "northeast", "east", "southeast", "south", "southwest", "west", "northwest",
         "zenith", "nadir", "hearth", "center", "entrance", "exit")
 
-    fun load(context: Context): TheokyklosCatalog = context.assets.open("catalogs/theokyklos.json")
-        .bufferedReader(Charsets.UTF_8).use { parse(it.readText()) }
+    fun load(context: Context): TheokyklosCatalog = load(context, "ru")
 
-    fun parse(raw: String): TheokyklosCatalog {
+    fun load(context: Context, language: String): TheokyklosCatalog {
+        val locale = if (language == "ru") null else
+            JSONObject(context.assets.open("originals/i18n/catalog-translations/$language.json")
+                .bufferedReader(Charsets.UTF_8).use { it.readText() })
+        val translated = if (language == "en") null else locale?.getJSONObject("theokyklos")
+        val words = locale?.getJSONObject("theokyklosWords")
+        return context.assets.open("catalogs/theokyklos.json")
+            .bufferedReader(Charsets.UTF_8).use { parse(it.readText(), translated, words) }
+    }
+
+    fun parse(raw: String): TheokyklosCatalog = parse(raw, null, null)
+
+    fun parse(raw: String, translated: JSONObject?, localizedWords: JSONObject?): TheokyklosCatalog {
         val document = JSONObject(raw)
         require(document.getInt("schemaVersion") == 1) { "Unsupported Theokyklos catalog" }
-        fun text(value: JSONObject) = TheokyklosText(value.getString("ru"), value.getString("en"))
+        fun text(value: JSONObject): TheokyklosText {
+            val russian = value.getString("ru")
+            val english = value.getString("en")
+            return TheokyklosText(if (translated == null) russian else translated.getString(russian), english)
+        }
         val segments = document.getJSONArray("segments")
         val sectors = (0 until segments.length()).map { index ->
             val value = segments.getJSONObject(index)
@@ -64,7 +79,8 @@ object TheokyklosCatalogSource {
                 essence = text(value.getJSONObject("essence")), description = text(value.getJSONObject("description")),
                 words = (0 until words.length()).map { wordIndex ->
                     val word = words.getJSONObject(wordIndex)
-                    TheokyklosWord(word.getString("greek"), text(word.getJSONObject("pronunciation")),
+                    val greek = word.getString("greek")
+                    TheokyklosWord(localizedWords?.getString(greek) ?: greek, text(word.getJSONObject("pronunciation")),
                         text(word.getJSONObject("meaning")))
                 },
                 art = value.getString("art"), symbolArt = value.getString("symbolArt"),

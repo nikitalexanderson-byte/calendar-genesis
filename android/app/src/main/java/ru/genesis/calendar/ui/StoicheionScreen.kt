@@ -36,19 +36,13 @@ internal data class StoicheionLetter(val id: String, val order: Int, val name: S
     val lowercase: String, val value: Int, val pythmen: Int, val tagline: String, val content: String,
     val body: String, val bodyGreek: String, val invocation: String, val accent: Color)
 
-private val stoicheionBodyEnglish = mapOf(
-    "Голова" to "Head", "Шея" to "Neck", "Плечи и руки" to "Shoulders and arms",
-    "Грудь" to "Chest", "Диафрагма" to "Diaphragm", "Спина" to "Back",
-    "Живот" to "Abdomen", "Бёдра" to "Thighs", "Колени" to "Knees",
-    "Голени" to "Lower legs", "Лодыжки" to "Ankles", "Стопы" to "Feet", "Ноги" to "Legs",
-)
-
 /** All 24 author texts are copied without abridgement from app/stoicheion-data.ts. */
 @Composable
 fun StoicheionScreen(app: GenesisApplication, divinationDisabled: Boolean,
     onOpenTheokyklosSector: (String) -> Unit = {}) {
     val context = LocalContext.current
-    val english = LocalGenesisLanguage.current == "en"
+    val language = LocalGenesisLanguage.current
+    val english = language == "en"
     val repository = remember(app) { StoicheionDrawRepository(app) }
     val scope = rememberCoroutineScope()
     val today by produceState(LocalDate.now()) {
@@ -60,25 +54,30 @@ fun StoicheionScreen(app: GenesisApplication, divinationDisabled: Boolean,
     val now by produceState(System.currentTimeMillis()) {
         while (true) { delay(1_000L); value = System.currentTimeMillis() }
     }
-    val theokyklos = remember(context) { runCatching { TheokyklosCatalogSource.load(context) }.getOrNull() }
-    val letters by produceState<List<StoicheionLetter>?>(null, context, english) {
+    val theokyklos = remember(context, language) { runCatching { TheokyklosCatalogSource.load(context, language) }.getOrNull() }
+    val letters by produceState<List<StoicheionLetter>?>(null, context, language) {
         value = withContext(Dispatchers.IO) {
             runCatching {
                 val raw = context.assets.open("stoicheion.json").bufferedReader().use { it.readText() }
                 val art = JSONObject(context.assets.open("stoicheion-art.json").bufferedReader().use { it.readText() })
-                val englishCatalog = if (english) JSONObject(context.assets.open("originals/i18n/stoicheion.en.json")
-                    .bufferedReader().use { it.readText() }) else null
+                val translated = if (language == "ru") null else
+                    JSONObject(context.assets.open("originals/i18n/catalog-translations/$language.json")
+                        .bufferedReader().use { it.readText() })
+                val letterCatalog = translated?.getJSONObject("stoicheion")
+                val artworkCatalog = translated?.getJSONObject("stoicheionArt")
                 JSONArray(raw).let { array -> (0 until array.length()).map { index ->
                     array.getJSONObject(index).let { item ->
                         val id = item.getString("id")
                         val image = art.getJSONObject(id)
-                        val localized = englishCatalog?.getJSONObject(id)
+                        val localized = letterCatalog?.getJSONObject(id)
+                        val artCopy = artworkCatalog?.getJSONObject(id)
                         StoicheionLetter(id, item.getInt("order"), localized?.getString("name") ?: item.getString("name"),
                             item.getString("symbol"), item.getString("lowercase"), item.getInt("value"), item.getInt("pythmen"),
                             localized?.getString("tagline") ?: item.getString("tagline"),
                             localized?.getString("content") ?: item.getString("content"),
-                            image.getString("body").let { if (english) stoicheionBodyEnglish[it] ?: it else it },
-                            image.getString("bodyGreek"), image.getString("invocation"),
+                            artCopy?.getString("body") ?: image.getString("body"),
+                            artCopy?.getString("bodyGreek") ?: image.getString("bodyGreek"),
+                            artCopy?.getString("invocation") ?: image.getString("invocation"),
                             Color(android.graphics.Color.parseColor(image.getString("accent"))))
                     }
                 } }

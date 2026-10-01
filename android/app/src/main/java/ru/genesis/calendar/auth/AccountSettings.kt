@@ -44,7 +44,7 @@ data class AccountSettings(
     val divinationDisabled: Boolean,
     val language: String,
     val isAdmin: Boolean = false,
-    val weekStart: String = "sunday",
+    val weekStart: String = "monday",
     val gregorianYearStart: String = "january",
 ) {
     companion object {
@@ -79,9 +79,9 @@ data class AccountSettings(
             require(accounts.isNotEmpty() && routing.validFor(accounts)) { "Invalid account routing" }
             return AccountSettings(accounts, routing, user.optBoolean("multiAccountEnabled"),
                 user.optString("theme", "standart"), user.optInt("themeRevision", 0),
-                user.optString("calendarMode", "sacred"), user.optString("taskCalendarMode", "sacred"),
+                user.optString("calendarMode", "profane"), user.optString("taskCalendarMode", "profane"),
                 user.optString("timeFormat", "24h"), user.optBoolean("stoicheionDivinationDisabled"),
-                user.optString("language", "ru"), user.optBoolean("isAdmin"), user.optString("weekStart", "sunday"),
+                user.optString("language", "ru"), user.optBoolean("isAdmin"), user.optString("weekStart", "monday"),
                 user.optString("gregorianYearStart", "january"))
         }
     }

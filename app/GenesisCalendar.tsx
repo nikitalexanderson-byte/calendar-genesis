@@ -20,6 +20,8 @@ import {
   useSyncExternalStore,
 } from "react";
 import { CalendarDayTaskCounts, CalendarYearTaskCounts } from "./CalendarTaskCounts";
+import { TodayAdBlock } from "./TodayAdBlock";
+import { formatTaskCount, formatTaskListCount, TASK_SUMMARY_LABELS } from "./task-count-i18n";
 import {
   type GeminiPlan,
   type GoogleTaskList,
@@ -143,6 +145,7 @@ import {
   browserLanguage,
   getRuntimeLanguage,
   isLanguage,
+  lunarYearStartText,
   localizeCategoryName,
   normalizeLanguage,
   runtimeLocale,
@@ -4313,6 +4316,8 @@ export function GenesisCalendar() {
           <DeviceClock timeFormat={activeTimeFormat} />
         </section>
 
+        {cloudUser ? <TodayAdBlock key={`${cloudUser.uid}:${language}`} language={language} userId={cloudUser.uid} /> : null}
+
         <DayRhythmPanel now={today} timeFormat={activeTimeFormat} />
 
         {experimentalThemeActive ? (
@@ -5223,7 +5228,7 @@ export function GenesisCalendar() {
                     return (
                       <article className="inbox-list-item project-draggable-item" key={taskList.id} aria-label={`Перетащить список «${taskList.title}»`} {...projectDragProps(item)}>
                         <span className="project-drag-handle" aria-hidden="true">⋮⋮</span>
-                        <span><strong data-no-translate>{taskList.title}</strong><small>Список · {taskCount} задач</small></span>
+                        <span><strong data-no-translate>{taskList.title}</strong><small data-no-translate>{formatTaskListCount(taskCount, language)}</small></span>
                       </article>
                     );
                   })}
@@ -5299,7 +5304,7 @@ export function GenesisCalendar() {
                           return (
                             <div className="project-assigned-list project-draggable-item" key={taskList.id} aria-label={`Перетащить список «${taskList.title}»`} {...projectDragProps(item)}>
                               <span className="project-drag-handle" aria-hidden="true">⋮⋮</span>
-                              <span><strong data-no-translate>{taskList.title}</strong><small>Список · {taskCount} задач</small></span>
+                              <span><strong data-no-translate>{taskList.title}</strong><small data-no-translate>{formatTaskListCount(taskCount, language)}</small></span>
                             </div>
                           );
                         })}
@@ -5451,9 +5456,9 @@ export function GenesisCalendar() {
             <p>Каждая задача из GENESIS, Google Calendar и Google Tasks в одном списке — со сроками, проектами, тегами, приоритетом и связями.</p>
           </div>
           <div className="all-tasks-summary" aria-label="Сводка задач">
-            <span><strong>{tasks.length}</strong> всего</span>
-            <span><strong>{activeCount}</strong> активных</span>
-            <span><strong>{doneCount}</strong> завершено</span>
+            <span data-no-translate><strong>{tasks.length}</strong> {TASK_SUMMARY_LABELS[language].total}</span>
+            <span data-no-translate><strong>{activeCount}</strong> {TASK_SUMMARY_LABELS[language].active}</span>
+            <span data-no-translate><strong>{doneCount}</strong> {TASK_SUMMARY_LABELS[language].completed}</span>
           </div>
         </header>
 
@@ -5699,7 +5704,7 @@ export function GenesisCalendar() {
                             className={`mini-day${hasTask ? " has-task" : ""}${todayDot ? " today" : ""}${solarDot ? " solar" : ""}${isYearSaturday ? " saturday" : ""}`}
                             key={dayNumber}
                             onClick={() => openDay(dayNumber)}
-                            aria-label={`${month.name}, день ${dayNumber}: ${sacredDay.name}${taskCount ? `, задач: ${taskCount}` : ""}`}
+                            aria-label={`${month.name}, день ${dayNumber}: ${sacredDay.name}${taskCount ? `, ${formatTaskCount(taskCount, language)}` : ""}`}
                             title={`${sacredDay.name} · открыть день`}
                           >
                             <span className="mini-day-number">{(["I", "II", "III", "IIII", "V"] as const)[(dayNumber - 1) % 5]}</span>
@@ -5714,7 +5719,7 @@ export function GenesisCalendar() {
               <footer className="year-month-footer">
                 <span className="year-month-meta">
                   <em>{month.season}</em>
-                  {monthTaskCount ? <i>{monthTaskCount} задач</i> : null}
+                  {monthTaskCount ? <i data-no-translate>{formatTaskCount(monthTaskCount, language)}</i> : null}
                 </span>
                 <button
                   type="button"
@@ -5812,9 +5817,7 @@ export function GenesisCalendar() {
       : (language === "en" ? `Lunar year ${lunarYear.sacredYear}–${lunarYear.sacredYear + 1}` : `Лунный год ${lunarYear.sacredYear}–${lunarYear.sacredYear + 1}`);
     const yearDescription = mode === "profane"
       ? "Современный григорианский календарь — профанская гражданская система с многослойной историей. Его месяцы и счёт года унаследованы от Рима. Предпосылки семидневной недели восходят к Древнему Вавилону: вавилонская астрология придала особое значение семи видимым небесным светилам. В Рим семидневный ритм пришёл по двум линиям — иудейской субботней и греко-римской планетарной. В античном мире дни недели получили небесных покровителей — Солнце, Луну, Марс, Меркурий, Юпитер, Венеру и Сатурн, — и так ещё в древности сложился сакральный образ каждого дня. Традиция отмечать Новый год 1 января тоже пришла из Рима и не была изобретена одним человеком. Январь связывали с Янусом, богом дверей, переходов и начал. В 153 году до н. э. вступление консулов в должность перенесли на этот день, чтобы они раньше отправились на войну в Испании; поскольку годы называли именами консулов, 1 января стало гражданским началом года, а реформа Юлия Цезаря закрепила эту традицию. В 1582 году папа Григорий XIII ввёл названную его именем реформу, чтобы исправить накопившееся смещение юлианского календаря и вернуть весеннее равноденствие к церковному расчёту Пасхи. Поэтому современный календарь соединяет вавилонско-иудейское, греко-римское, римское гражданское и христианско-церковное наследие. В символической системе GENESIS покровителем этого летоисчисления выступает Кронос — образ времени, меры, предела и неумолимого хода циклов. Суббота здесь понимается как сакральный день обязательного покоя: время прекращать обычный труд, восстанавливать тело и возвращаться к внутренней тишине. Эта практика созвучна иудейскому Шаббату — седьмому дню, когда предписано воздерживаться от работы и посвящать день Богу."
-      : (language === "en"
-          ? `The year begins on ${formatGregorian(lunarYear.startDate, true)} — the day of the first exact new moon after the spring equinox — and includes ${lunarYear.monthCount} lunar months of 29 or 30 days.`
-          : `Год начинается ${formatGregorian(lunarYear.startDate, true)} — в день первого точного новолуния после весеннего равноденствия — и включает ${lunarYear.monthCount} лунных месяцев по 29 или 30 суток.`);
+      : lunarYearStartText(formatGregorian(lunarYear.startDate, true), lunarYear.monthCount, language);
     const profaneWeekdayLabels = Array.from({ length: 7 }, (_, index) => {
       const day = new Date(2024, 0, (activeWeekStart === "monday" ? 8 : 7) + index, 12);
       return new Intl.DateTimeFormat(runtimeLocale(), { weekday: "short" }).format(day).replace(/\.$/u, "");
@@ -5837,7 +5840,7 @@ export function GenesisCalendar() {
           <div>
             <span className="eyebrow">{yearDayCount} {language === "en" ? "days" : "дней"} · {yearMonths.length} {language === "en" ? "months" : "месяцев"}</span>
             <h1>{yearTitle}</h1>
-            {mode === "lunar" ? <p>{yearDescription}</p> : null}
+            {mode === "lunar" ? <p data-no-translate>{yearDescription}</p> : null}
           </div>
           <div className="year-switcher">
             <button type="button" onClick={() => changeYear(-1)} aria-label="Предыдущий год">←</button>
@@ -5905,7 +5908,7 @@ export function GenesisCalendar() {
                         className={`mini-day${dayTasks ? " has-task" : ""}${dateValue === todayDateValue ? " today" : ""}${solar ? " solar" : ""}${isSaturday ? " saturday" : ""}`}
                         key={dateValue}
                         onClick={() => openCalendarDate(date, "year")}
-                        aria-label={`${formatCalendarDate(date, mode, true)}${mode === "profane" ? `; ${weekdayPatron.weekday}, ${weekdayPatron.patronage}` : ""}; ${sacredDay.name}; ${moon.day} ${language === "en" ? "lunar day" : "лунный день"}${dayTasks ? `; задач: ${dayTasks}` : ""}`}
+                        aria-label={`${formatCalendarDate(date, mode, true)}${mode === "profane" ? `; ${weekdayPatron.weekday}, ${weekdayPatron.patronage}` : ""}; ${sacredDay.name}; ${moon.day} ${language === "en" ? "lunar day" : "лунный день"}${dayTasks ? `; ${formatTaskCount(dayTasks, language)}` : ""}`}
                         title={`${formatGregorian(date, true)}${mode === "profane" ? ` · ${weekdayPatron.patronage}` : ""} · ${formatCalendarDate(date, "sacred")} · ${moon.day} ${language === "en" ? "lunar day" : "лунный день"}`}
                       >
                         {mode === "lunar" ? <MoonPhaseIcon phaseStep={moon.phaseStep} size={30} className="mini-day-moon-phase" /> : null}
@@ -5916,7 +5919,7 @@ export function GenesisCalendar() {
                   })}
                 </div>
                 <footer className="year-month-footer">
-                  <span className="year-month-meta"><em>{mode === "profane" ? "Григорианский месяц" : `${month.dates.length} лунных суток`}</em>{monthTaskCount ? <i>{monthTaskCount} задач</i> : null}</span>
+                  <span className="year-month-meta"><em>{mode === "profane" ? "Григорианский месяц" : `${month.dates.length} лунных суток`}</em>{monthTaskCount ? <i data-no-translate>{formatTaskCount(monthTaskCount, language)}</i> : null}</span>
                   <button type="button" className="year-open-button" onClick={openMonth}><span>Открыть месяц</span><i aria-hidden="true" /></button>
                 </footer>
               </article>
@@ -5933,7 +5936,7 @@ export function GenesisCalendar() {
             ) : null}
             <span className="eyebrow">{CALENDAR_MODE_META[mode].label}</span>
             <h2 id="calendar-mode-year-description">{mode === "profane" ? "Григорианский календарь (профанский)" : "Лунный год"}</h2>
-            <p>{yearDescription}</p>
+            <p data-no-translate>{mode === "profane" ? translateText(yearDescription, language) : yearDescription}</p>
             <dl>
               <div><dt>{yearMonths.length}</dt><dd>{language === "en" ? "months" : "месяцев"}</dd></div>
               <div><dt>{yearDayCount}</dt><dd>{language === "en" ? "days in the cycle" : "дней в круге"}</dd></div>
@@ -6128,7 +6131,7 @@ export function GenesisCalendar() {
           </div>
           <div className="topbar-actions">
             {nativeAndroidApkUrl ? (
-              <a className="icon-button ux-action-button android-native-icon-button" href={nativeAndroidApkUrl} download="GENESIS-Android-Native-2.4.5.apk" data-tooltip={language === "en" ? "Native Android app · remove the old TWA first" : "Нативное приложение · сначала удалите прежнюю TWA"} title={language === "en" ? "Native GENESIS APK; old TWA must be removed first" : "Нативный GENESIS APK; прежнюю TWA необходимо сначала удалить"} aria-label={language === "en" ? "Download native GENESIS for Android; remove the old TWA first" : "Скачать нативный GENESIS для Android; сначала удалите старую TWA"}>
+              <a className="icon-button ux-action-button android-native-icon-button" href={nativeAndroidApkUrl} download="GENESIS-Android-Native-2.4.6.apk" data-tooltip={language === "en" ? "Native Android app · remove the old TWA first" : "Нативное приложение · сначала удалите прежнюю TWA"} title={language === "en" ? "Native GENESIS APK; old TWA must be removed first" : "Нативный GENESIS APK; прежнюю TWA необходимо сначала удалить"} aria-label={language === "en" ? "Download native GENESIS for Android; remove the old TWA first" : "Скачать нативный GENESIS для Android; сначала удалите старую TWA"}>
                 <svg className="ux-android-robot" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M5.5 9h13v8.5a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2V9ZM5.5 9a6.5 6.5 0 0 1 13 0M4 11v5M20 11v5M9 19.5V22M15 19.5V22M7 3 5.5 1M17 3 18.5 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><circle cx="9.3" cy="7" r=".8" fill="currentColor"/><circle cx="14.7" cy="7" r=".8" fill="currentColor"/></svg>
               </a>
             ) : null}

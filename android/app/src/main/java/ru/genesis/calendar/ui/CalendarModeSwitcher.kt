@@ -8,11 +8,13 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,7 +49,8 @@ internal fun nextCalendarMode(mode: CalendarMode): CalendarMode = when (mode) {
 /** The same accessible, animated calendar selector is used on Today, Month and Year. */
 @Composable
 internal fun CalendarModeSwitcher(mode: CalendarMode, onNext: () -> Unit,
-    modifier: Modifier = Modifier, size: Dp = 54.dp) {
+    modifier: Modifier = Modifier, size: Dp = 54.dp,
+    interactive: Boolean = true, animationTrigger: Int = 0) {
     val scope = rememberCoroutineScope()
     val click = remember { Animatable(0f) }
     var running by remember { mutableStateOf(false) }
@@ -60,7 +63,16 @@ internal fun CalendarModeSwitcher(mode: CalendarMode, onNext: () -> Unit,
     }
     val clickHint = genesisTranslate("Нажмите на иконку, чтобы сменить календарь")
     val gold = Color(0xffdfc17e)
-    Surface(onClick = {
+    LaunchedEffect(animationTrigger) {
+        if (animationTrigger > 0) {
+            click.snapTo(0f)
+            click.animateTo(1f, tween(if (mode == CalendarMode.LUNAR) 1050 else 760))
+        }
+    }
+    val iconModifier = modifier.size(size).testTag("calendar-mode-icon-${mode.wireValue}")
+        .let { if (interactive) it.semantics { contentDescription = "$name. $clickHint" }
+            else it }
+    Surface(modifier = if (interactive) iconModifier.clickable {
         if (!running) scope.launch {
             running = true
             click.snapTo(0f)
@@ -68,8 +80,7 @@ internal fun CalendarModeSwitcher(mode: CalendarMode, onNext: () -> Unit,
             onNext()
             running = false
         }
-    }, modifier = modifier.size(size).testTag("calendar-mode-icon-${mode.wireValue}")
-        .semantics { contentDescription = "$name. $clickHint" },
+    } else iconModifier,
         shape = RoundedCornerShape(17.dp), color = Color(0xff173b38),
         border = BorderStroke(1.dp, gold.copy(alpha = .42f + ambient * .24f))) {
         Canvas(Modifier.padding(7.dp)) {

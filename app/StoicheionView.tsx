@@ -15,6 +15,7 @@ import {
   type StoicheionLetter,
 } from "./stoicheion-data";
 import { getStoicheionCardArt } from "./stoicheion-card-art";
+import { catalogText, sacredWordCopy, stoicheionArtCopy } from "./catalog-i18n";
 import {
   isGoogleSyncConfigured,
   loadStoicheionDraws,
@@ -22,7 +23,7 @@ import {
   type StoicheionDrawKind,
   type StoicheionDrawRecord,
 } from "./cloud-sync";
-import { getRuntimeLanguage, runtimeLocale, translateText } from "./i18n";
+import { getRuntimeLanguage, runtimeLocale } from "./i18n";
 import { THEOKYKLOS_SEGMENTS } from "./theokyklos-data";
 import {
   sacredPracticesForSector,
@@ -34,6 +35,9 @@ import { useDialogAccessibility } from "./use-dialog-accessibility";
 const LOCAL_DRAW_STORAGE_PREFIX = "genesis-stoicheion-draws-v2:";
 const STOICHEION_CARD_ART_VERSION = "20260906-anatomy-glow";
 const INITIAL_ENTROPY = 0x9e3779b9;
+const CARD_LABEL = { ru: "Карта", en: "Card", el: "Κάρτα", de: "Karte", fr: "Carte",
+  es: "Carta", it: "Carta", pt: "Carta", pl: "Karta", sr: "Карта", uk: "Картка",
+  zh: "卡牌", tr: "Kart", ja: "カード" } as const;
 
 type ClientDrawRecord = StoicheionDrawRecord & { localDeadline: number };
 
@@ -295,9 +299,12 @@ function StoicheionCardFace({
   variant: StoicheionCardVariant;
 }) {
   const art = getStoicheionCardArt(letter);
-  const cardLabel = getRuntimeLanguage() === "en"
-    ? `Card ${letter.name}: ${letter.symbol}, ${translateText(art.body)}, ${art.bodyGreek}`
-    : `Карта ${letter.name}: ${letter.symbol}, ${art.body}, ${art.bodyGreek}`;
+  const language = getRuntimeLanguage();
+  const localizedArt = stoicheionArtCopy(letter.id, language);
+  const body = localizedArt?.body ?? art.body;
+  const bodyGreek = localizedArt?.bodyGreek ?? art.bodyGreek;
+  const invocation = localizedArt?.invocation ?? art.invocation;
+  const cardLabel = `${CARD_LABEL[language]} ${letter.name}: ${letter.symbol}, ${body}, ${bodyGreek}`;
 
   return (
     <span
@@ -323,7 +330,7 @@ function StoicheionCardFace({
       {/* The shared SVG is a decorative overlay, not content that benefits from image optimization. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img className="stoicheion-card-frame" src="/stoicheion-cards/frame-greek-key.svg" alt="" draggable={false} aria-hidden="true" />
-      <span className="stoicheion-card-title">
+      <span className="stoicheion-card-title" data-no-translate>
         <small>{String(letter.order).padStart(2, "0")}</small>
         <strong>{letter.name}</strong>
       </span>
@@ -331,10 +338,10 @@ function StoicheionCardFace({
         <strong>{letter.symbol}</strong>
         <small>{letter.lowercase}</small>
       </span>
-      <span className="stoicheion-card-caption">
-        <strong>{art.body}</strong>
-        <small lang="el">{art.bodyGreek}</small>
-        <i lang="el">{art.invocation}</i>
+      <span className="stoicheion-card-caption" data-no-translate>
+        <strong>{body}</strong>
+        <small lang={language}>{bodyGreek}</small>
+        <i lang={language}>{invocation}</i>
       </span>
     </span>
   );
@@ -381,8 +388,8 @@ function LetterDetails({
           <StoicheionCardFace letter={letter} reversed={Boolean(reversed)} variant="dialog" />
           <div>
             <span className="eyebrow">{String(letter.order).padStart(2, "0")} · значение {letter.value} · Пифмен {letter.pythmen}</span>
-            <h2 id={`letter-${letter.id}-title`}>{letter.name}</h2>
-            <p>{letter.tagline}</p>
+            <h2 id={`letter-${letter.id}-title`} data-no-translate>{letter.name}</h2>
+            <p data-no-translate>{letter.tagline}</p>
             {reversed !== null ? (
               <mark className={`stoicheion-dialog-orientation${reversed ? " is-reversed" : ""}`}>
                 {orientationLabel(reversed)}
@@ -395,8 +402,8 @@ function LetterDetails({
             const section = splitContentBlock(block);
             return (
               <section key={`${letter.id}-${index}`}>
-                {section.heading ? <h3>{section.heading}</h3> : null}
-                <p>{section.body}</p>
+                {section.heading ? <h3 data-no-translate>{section.heading}</h3> : null}
+                <p data-no-translate>{section.body}</p>
               </section>
             );
           })}
@@ -404,16 +411,16 @@ function LetterDetails({
             <section className={`stoicheion-sector-practice${reversed ? " is-reversed" : ""}`}>
               <header>
                 <span aria-hidden="true">{sector.symbol}</span>
-                <div><small>{language === "en" ? "Practice of the spread sector" : "Практика сектора расклада"}</small><h3>{position.direction} · {sector.patrons[language]}</h3></div>
+                <div><small>{language === "en" ? "Practice of the spread sector" : "Практика сектора расклада"}</small><h3>{position.direction} · <span data-no-translate>{catalogText(sector.patrons, language)}</span></h3></div>
               </header>
-              <p>{guidance[reversed ? "reversed" : "upright"][language]}</p>
+              <p data-no-translate>{catalogText(guidance[reversed ? "reversed" : "upright"], language)}</p>
               <div className="stoicheion-sector-words">
                 <small>{language === "en" ? "Sacred words" : "Священные слова"}</small>
-                <div>{sector.words.map((word) => <span key={word.greek}><b lang="grc">{word.greek}</b><em>{word.pronunciation[language]}</em></span>)}</div>
+                <div>{sector.words.map((word) => <span key={word.greek} data-no-translate><b lang={language === "ru" || language === "el" ? "grc" : language}>{sacredWordCopy(word.greek, language)}</b><em>{catalogText(word.pronunciation, language)}</em></span>)}</div>
               </div>
               <div className="stoicheion-sector-habits">
                 <small>{language === "en" ? "Suggested embodied practices" : "Предлагаемые воплощённые практики"}</small>
-                {practices.map((practice) => <article key={practice.id}><span aria-hidden="true">{practice.emoji}</span><div><strong>{practice.title[language]}</strong><p>{practice.description[language]}</p></div></article>)}
+                {practices.map((practice) => <article key={practice.id}><span aria-hidden="true">{practice.emoji}</span><div data-no-translate><strong>{catalogText(practice.title, language)}</strong><p>{catalogText(practice.description, language)}</p></div></article>)}
               </div>
               {onOpenTheokyklosSector ? <button type="button" onClick={() => { onClose(); onOpenTheokyklosSector(position.id); }}>{language === "en" ? "Open the Theokyklos sector" : "Открыть сектор Теокиклоса"} →</button> : null}
             </section>
@@ -432,7 +439,8 @@ type StoicheionViewProps = {
 
 export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSector }: StoicheionViewProps) {
   const locale = runtimeLocale();
-  const letters = useMemo(() => getStoicheionLetters(locale === "en-US"), [locale]);
+  const language = getRuntimeLanguage();
+  const letters = useMemo(() => getStoicheionLetters(language), [language]);
   const entropy = useRef(INITIAL_ENTROPY);
   const motionTracker = useRef<MotionTracker | null>(null);
   const motionField = useRef<HTMLButtonElement | null>(null);

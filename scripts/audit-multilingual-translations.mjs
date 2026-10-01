@@ -80,6 +80,12 @@ const namedTermsInPhrases = {
   "Апейрон": ["Apeiron", "Апейрон"], "Стойхейон": ["Stoicheion", "Стойхейон"],
   "Теокиклос": ["Theokyklos", "Теокіклос"],
 };
+const greekTermsInPhrases = {
+  "Арес": "Άρης", "Афродит": "Αφροδίτη", "Гермес": "Ερμής",
+  "Аполлон": "Απόλλων", "Деметр": "Δήμητρα", "Гефест": "Ήφαιστος",
+  "Афин": "Αθηνά", "Гест": "Εστία", "Апейрон": "Ἄπειρον",
+  "Стойхейон": "Στοιχεῖον", "Теокиклос": "Θεόκυκλος",
+};
 const ukrainianNamedTermsInPhrases = {
   "Пентад": "Пентас", "Тетрад": "Тетрас", "Диад": "Діад", "Эфир": "Ефір",
 };
@@ -99,19 +105,23 @@ for (const language of languages) {
       missing.push(`${language}: suspiciously repeated short label ${key}`);
   }
   for (const [key, expected] of Object.entries(language === "uk" ? ukrainianNameLabels : ancientNameLabels)) {
-    if (catalog[key] !== expected) missing.push(`${language}: changed ancient name ${key}`);
+    if (language === "el") {
+      if (!catalog[key] || /[A-Za-zА-Яа-яЁё]/u.test(catalog[key])) missing.push(`el: ancient name must use Greek letters in ${key}`);
+    } else if (catalog[key] !== expected) missing.push(`${language}: changed ancient name ${key}`);
   }
   for (const key of stoicheionPhrases) {
-    if (!catalog[key]?.includes(language === "uk" ? "Стойхейон" : "Stoicheion"))
+    if (!catalog[key]?.includes(language === "uk" ? "Стойхейон" : language === "el" ? "Στοιχεῖον" : "Stoicheion"))
       missing.push(`${language}: Stoicheion name lost in ${key}`);
   }
   for (const [key, [latin, ukrainian]] of Object.entries(greekCompoundNames)) {
-    if (!catalog[key]?.startsWith(`${language === "uk" ? ukrainian : latin} · `))
+    if (language === "el") {
+      if (!catalog[key] || /[A-Za-zА-Яа-яЁё]/u.test(catalog[key])) missing.push(`el: Greek compound name changed in ${key}`);
+    } else if (!catalog[key]?.startsWith(`${language === "uk" ? ukrainian : latin} · `))
       missing.push(`${language}: changed ancient name in ${key}`);
   }
   for (const [source, [latin, ukrainian]] of Object.entries(namedTermsInPhrases)) {
     for (const [key, value] of Object.entries(catalog)) {
-      if (key.includes(source) && !value.includes(language === "uk" ? ukrainian : latin))
+      if (key.includes(source) && !value.includes(language === "uk" ? ukrainian : language === "el" ? greekTermsInPhrases[source] : latin))
         missing.push(`${language}: ancient name missing in ${key}`);
     }
   }

@@ -66,7 +66,7 @@ internal fun updateInstallIntent(context: Context, apk: Uri): Intent =
         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
 
-private fun fetchAndroidRelease(): AndroidRelease? {
+internal fun fetchAndroidRelease(): AndroidRelease? {
     val connection = URL("https://genesiscalendar.ru/android-update.json").openConnection() as HttpURLConnection
     connection.connectTimeout = 5_000
     connection.readTimeout = 5_000
@@ -99,7 +99,7 @@ internal fun AndroidUpdatePrompt(context: Context, synchronizedAt: Long?, enable
 }
 
 @Composable
-private fun AndroidUpdateDialog(context: Context, release: AndroidRelease, onDismiss: () -> Unit) {
+internal fun AndroidUpdateDialog(context: Context, release: AndroidRelease, onDismiss: () -> Unit) {
     val downloads = remember(context) { context.getSystemService(DownloadManager::class.java) }
     var downloadId by remember(release) { mutableLongStateOf(0L) }
     var destination by remember(release) { mutableStateOf<File?>(null) }

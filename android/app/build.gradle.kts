@@ -32,8 +32,8 @@ android {
         applicationId = "ru.genesis.calendar"
         minSdk = 26
         targetSdk = 37
-        versionCode = 51
-        versionName = "2.4.5"
+        versionCode = 52
+        versionName = "2.4.6"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         manifestPlaceholders["genesisHost"] = genesisUri.host
@@ -101,6 +101,14 @@ val genesisAssets = tasks.register<GenesisAssetsTask>("genesisAssets") {
     from(rootProject.file("../app/curated-translations.en.json")) { into("i18n") }
     from(rootProject.file("../app/calendar-days.en.json")) { into("i18n") }
     from(rootProject.file("../app/stoicheion.en.json")) { into("i18n") }
+    from(rootProject.file("../app/catalog-translations")) {
+        include("*.json")
+        into("i18n/catalog-translations")
+    }
+    from(rootProject.file("../app/year-translations")) {
+        include("*.json")
+        into("i18n/year-translations")
+    }
     into(assetsDirectory.dir("originals"))
 }
 androidComponents.onVariants { variant ->

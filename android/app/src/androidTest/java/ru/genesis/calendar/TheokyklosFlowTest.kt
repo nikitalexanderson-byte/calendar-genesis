@@ -8,12 +8,30 @@ import androidx.test.uiautomator.UiDevice
 import java.io.File
 import kotlin.math.abs
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertEquals
+import org.json.JSONObject
 import org.junit.Rule
 import org.junit.Test
 import ru.genesis.calendar.domain.TheokyklosCatalogSource
 
 class TheokyklosFlowTest {
     @get:Rule val compose = createAndroidComposeRule<TestWorkspaceActivity>()
+
+    @Test fun everyLanguageHasBundledTheokyklosStoicheionAndYearCopy() {
+        val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
+        val languages = listOf("en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja")
+        languages.forEach { language ->
+            val catalog = TheokyklosCatalogSource.load(app, language)
+            assertEquals(language, 14, catalog.sectors.size)
+            assertTrue(language, catalog.sectors.all { it.title.ru.isNotBlank() && it.description.ru.isNotBlank() })
+            val letterCopy = JSONObject(app.assets.open("originals/i18n/catalog-translations/$language.json")
+                .bufferedReader().use { it.readText() }).getJSONObject("stoicheion")
+            assertEquals(language, 24, letterCopy.length())
+            val yearCopy = JSONObject(app.assets.open("originals/i18n/year-translations/$language.json")
+                .bufferedReader().use { it.readText() })
+            assertTrue(language, yearCopy.length() >= 46)
+        }
+    }
 
     @Test fun allFourAxisAndThresholdMarkersOpenNativeDetails() {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication

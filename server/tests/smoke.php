@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/src/bootstrap.php';
 require dirname(__DIR__) . '/src/repository.php';
+require dirname(__DIR__) . '/src/ads.php';
 require dirname(__DIR__) . '/src/google.php';
 require dirname(__DIR__) . '/src/gemini.php';
 
@@ -139,8 +140,37 @@ try {
         'name' => 'Brand New Native User',
     ], [], false);
     $newClient = genesisUserForClient($newGoogleUser);
+    expect($newClient['calendarMode'] === 'profane' && $newClient['taskCalendarMode'] === 'profane'
+        && $newClient['weekStart'] === 'monday',
+        'A new Google account did not receive the Gregorian and Monday defaults.');
     expect($newClient['calendarConnected'] === false && $newClient['googleTasksImportReady'] === false,
         'A new identity was falsely marked as Google-service connected.');
+    $ad = genesisSaveAd([
+        'title' => 'Test announcement', 'description' => 'A targeted test announcement.',
+        'imageUrl' => 'https://example.com/image.png', 'linkUrl' => 'https://example.com/',
+        'languages' => ['ru'], 'countries' => ['RU'], 'platforms' => ['android'],
+        'repeatHours' => 24, 'enabled' => false,
+    ]);
+    expect(genesisTodayAds('ru', 'RU', 'android') === [], 'Draft advertisement became public.');
+    $future = (new DateTimeImmutable('+1 day', new DateTimeZone('UTC')))->format('Y-m-d\\TH:i:s\\Z');
+    genesisSaveAd([
+        'title' => 'Test announcement', 'description' => 'A targeted test announcement.',
+        'imageUrl' => 'https://example.com/image.png', 'linkUrl' => 'https://example.com/',
+        'languages' => ['ru'], 'countries' => ['RU'], 'platforms' => ['android'],
+        'startsAt' => $future, 'repeatHours' => 24, 'enabled' => true,
+    ], $ad['id']);
+    expect(genesisTodayAds('ru', 'RU', 'android') === [], 'Future advertisement became public early.');
+    $ad = genesisSaveAd([
+        'title' => 'Test announcement', 'description' => 'A targeted test announcement.',
+        'imageUrl' => 'https://example.com/image.png', 'linkUrl' => 'https://example.com/',
+        'languages' => ['ru'], 'countries' => ['RU'], 'platforms' => ['android'],
+        'repeatHours' => 24, 'enabled' => true,
+    ], $ad['id']);
+    expect(count(genesisTodayAds('ru', 'RU', 'android')) === 1, 'Eligible advertisement was not shown.');
+    expect(genesisTodayAds('en', 'RU', 'android') === [] && genesisTodayAds('ru', 'US', 'android') === []
+        && genesisTodayAds('ru', 'RU', 'web') === [], 'Advertisement audience filter failed.');
+    genesisDeleteAd($ad['id']);
+    expect(genesisTodayAds('ru', 'RU', 'android') === [], 'Deleted advertisement remained visible.');
     try {
         genesisUpdateAccountPreferences($userId, ['theme' => 'standart', 'expectedThemeRevision' => 0]);
         throw new RuntimeException('Stale theme revision was accepted.');
