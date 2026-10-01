@@ -11,6 +11,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -55,6 +56,9 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -306,6 +310,8 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                                         if (!testWorkspace && authState.user != null) authController.updateSharedPreference("display", next.wireValue)
                                         else scope.launch { prefsStore.set("display", next.wireValue) }
                                     })
+                                if (!testWorkspace && authState.ready)
+                                    TodayAdPanel(authController, authState.user?.uid, prefs.language)
                                 AnimatedVisibility(visible = dayDetailsExpanded,
                                     modifier = Modifier.testTag("today-day-details"),
                                     enter = expandVertically(tween(320, easing = CubicBezierEasing(.16f, 1f, .3f, 1f)),
@@ -390,6 +396,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
         }
         }
         if (!testWorkspace) GoogleServicesFirstRunModal(authState, authController)
+        ReleaseNotesAutoDialog(!testWorkspace && !accountGate && !authState.offerGoogleServices)
         AndroidUpdatePrompt(app, authState.checkedAt,
             !testWorkspace && authState.ready && authState.user != null)
       }
@@ -596,6 +603,16 @@ private fun DayHeader(date: LocalDate, mode: CalendarMode, detailsExpanded: Bool
     val solarLocation by rememberAutomaticSolarLocation(calendar.zoneId)
     val language = LocalGenesisLanguage.current
     val copy = remember(date,mode,language) { todayHeroCopy(date,mode,calendar,language) }
+    val todayLabel = genesisTranslate("Сегодня").uppercase(Locale.forLanguageTag(language))
+    val calendarSwitchHint = genesisTranslate("Нажмите на иконку, чтобы сменить календарь")
+    var switchCount by remember { mutableIntStateOf(0) }
+    var highlightedLetter by remember { mutableIntStateOf(-1) }
+    LaunchedEffect(switchCount) {
+        if (switchCount > 0) {
+            todayLabel.indices.forEach { highlightedLetter = it; delay(65) }
+            highlightedLetter = -1
+        }
+    }
     val detailsArrowRotation by animateFloatAsState(if (detailsExpanded) 180f else 0f,
         tween(220, easing = CubicBezierEasing(.16f, 1f, .3f, 1f)), label = "day-details-arrow")
     Card(Modifier.fillMaxWidth().testTag("today-hero"), shape = RoundedCornerShape(20.dp),
@@ -607,14 +624,28 @@ private fun DayHeader(date: LocalDate, mode: CalendarMode, detailsExpanded: Bool
             Box(Modifier.matchParentSize().background(Brush.verticalGradient(0f to Color(0x22040e10),
                 .32f to Color(0x44040e10), .62f to Color(0xc6071d20),
                 1f to Color(0xfa071d20))))
-            Surface(Modifier.align(Alignment.TopStart).padding(14.dp),
+            Surface(onClick = {
+                switchCount++
+                onModeChange(nextCalendarMode(mode))
+            }, modifier = Modifier.align(Alignment.TopStart).padding(14.dp)
+                .testTag("today-calendar-plaque")
+                .semantics { contentDescription = "$todayLabel. $calendarSwitchHint" },
                 color = Color(0xd0071d20), shape = RoundedCornerShape(14.dp),
                 border = BorderStroke(1.dp, Color(0x88dfc17e))) {
                 Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    CalendarModeSwitcher(mode, { onModeChange(nextCalendarMode(mode)) }, size = 42.dp)
-                    Text(if (language == "en") "TODAY" else "СЕГОДНЯ",
-                        color = Color(0xfffff5df), style = MaterialTheme.typography.headlineSmall)
+                    CalendarModeSwitcher(mode, {}, size = 42.dp,
+                        interactive = false, animationTrigger = switchCount)
+                    Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                        androidx.compose.material3.Text(buildAnnotatedString {
+                            todayLabel.forEachIndexed { index, letter ->
+                                withStyle(SpanStyle(color = if (index == highlightedLetter)
+                                    Color(0xffffe6a8) else Color(0xfffff5df))) { append(letter) }
+                            }
+                        }, style = MaterialTheme.typography.headlineSmall)
+                        Text(calendarSwitchHint,
+                            color = Color(0xffdfc17e), style = MaterialTheme.typography.labelSmall)
+                    }
                 }
             }
             copy.badge?.takeIf { mode != CalendarMode.LUNAR }?.let { badge ->
@@ -641,8 +672,6 @@ private fun DayHeader(date: LocalDate, mode: CalendarMode, detailsExpanded: Bool
                 }
                 Text(copy.description, Modifier.testTag("today-hero-description"),
                     color = Color(0xffeee6d7), style = MaterialTheme.typography.bodyMedium)
-                Text(genesisTranslate("Нажмите на иконку, чтобы сменить календарь"),
-                    color = Color(0xffdfc17e), style = MaterialTheme.typography.labelSmall)
                 copy.details.forEach { Text(it, color = Color(0xffeee6d7),
                     style = MaterialTheme.typography.bodySmall) }
                 SunriseSunsetLine(date, solarLocation, calendar,
@@ -955,6 +984,7 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
     var refresh by remember { mutableIntStateOf(0) }
     var calendarReference by rememberSaveable { mutableStateOf<String?>(null) }
     var adminOpen by rememberSaveable { mutableStateOf(false) }
+    var releaseNotesOpen by rememberSaveable { mutableStateOf(false) }
     val request=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()){refresh++}
     val scope=rememberCoroutineScope()
     val habits = remember(app, app.workspaceScope) { HabitsRepository(app) }
@@ -971,6 +1001,7 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
         GenesisPageHeader(if (prefs.language == "en") "Settings" else "Настройки",
             if (prefs.language == "en") "Calendars, time, privacy and reminders"
             else "Календарь, время, приватность и напоминания", "⚙")
+        AndroidUpdateBanner()
         AppearancePanel(app, workspace, prefs.use24)
         SeasonRegionSettings(prefs, onSetLocal)
         SolarPlaceSettings()
@@ -1234,14 +1265,18 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
             Color(0xfffff5df)) {
             ru.genesis.calendar.auth.GenesisLinksPanel()
         }
-        Text("Версия ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",style=MaterialTheme.typography.labelSmall,
-            modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        TextButton(onClick = { releaseNotesOpen = true },
+            modifier = Modifier.fillMaxWidth().testTag("open-release-notes")) {
+            Text("${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · ${releaseNotesTitle()}",
+                style = MaterialTheme.typography.labelSmall)
+        }
     }
     calendarReference?.let { value ->
         CalendarReferenceDialog(CalendarMode.fromWire(value)) { calendarReference = null }
     }
     if (adminOpen && canOpenAdmin) NativeAdminPanel(onClose = { adminOpen = false },
         load = adminLoad, deleteUser = adminDelete)
+    if (releaseNotesOpen) ReleaseNotesDialog { releaseNotesOpen = false }
 }
 
 @Composable

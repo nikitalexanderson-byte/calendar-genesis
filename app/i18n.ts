@@ -17,6 +17,19 @@ import ukrainianTranslationsB from "./translations.uk.b.json";
 import chineseTranslations from "./translations.zh.json";
 import turkishTranslations from "./translations.tr.json";
 import japaneseTranslations from "./translations.ja.json";
+import englishYear from "./year-translations/en.json";
+import greekYear from "./year-translations/el.json";
+import germanYear from "./year-translations/de.json";
+import frenchYear from "./year-translations/fr.json";
+import spanishYear from "./year-translations/es.json";
+import italianYear from "./year-translations/it.json";
+import portugueseYear from "./year-translations/pt.json";
+import polishYear from "./year-translations/pl.json";
+import serbianYear from "./year-translations/sr.json";
+import ukrainianYear from "./year-translations/uk.json";
+import chineseYear from "./year-translations/zh.json";
+import turkishYear from "./year-translations/tr.json";
+import japaneseYear from "./year-translations/ja.json";
 import { languageForRegion, REGION_LANGUAGES, type RegionLanguage } from "./region-language";
 
 export const LANGUAGES = REGION_LANGUAGES;
@@ -290,15 +303,28 @@ const curatedTranslations: Record<string, string> = {
 const englishCatalog: Record<string, string> = {
   ...(englishTranslations as Record<string, string>),
   ...curatedTranslations,
+  ...englishYear,
 };
 
 const catalogs: Record<Exclude<Language, "ru">, Record<string, string>> = {
-  en: englishCatalog, el: { ...greekTranslationsA, ...greekTranslationsB }, de: germanTranslations,
-  fr: frenchTranslations, es: spanishTranslations, it: italianTranslations, pt: portugueseTranslations,
-  pl: polishTranslations, sr: { ...serbianTranslationsA, ...serbianTranslationsB },
-  uk: { ...ukrainianTranslationsA, ...ukrainianTranslationsB },
-  zh: chineseTranslations, tr: turkishTranslations, ja: japaneseTranslations,
+  en: englishCatalog, el: { ...greekTranslationsA, ...greekTranslationsB, ...greekYear }, de: { ...germanTranslations, ...germanYear },
+  fr: { ...frenchTranslations, ...frenchYear }, es: { ...spanishTranslations, ...spanishYear }, it: { ...italianTranslations, ...italianYear }, pt: { ...portugueseTranslations, ...portugueseYear },
+  pl: { ...polishTranslations, ...polishYear }, sr: { ...serbianTranslationsA, ...serbianTranslationsB, ...serbianYear },
+  uk: { ...ukrainianTranslationsA, ...ukrainianTranslationsB, ...ukrainianYear },
+  zh: { ...chineseTranslations, ...chineseYear }, tr: { ...turkishTranslations, ...turkishYear }, ja: { ...japaneseTranslations, ...japaneseYear },
 };
+const yearCatalogs: Record<Exclude<Language, "ru">, Record<string, string>> = {
+  en: englishYear, el: greekYear, de: germanYear, fr: frenchYear, es: spanishYear,
+  it: italianYear, pt: portugueseYear, pl: polishYear, sr: serbianYear,
+  uk: ukrainianYear, zh: chineseYear, tr: turkishYear, ja: japaneseYear,
+};
+
+export function lunarYearStartText(date: string, months: number, language: Language): string {
+  const template = language === "ru"
+    ? "Год начинается {date} — в день первого точного новолуния после весеннего равноденствия — и включает {months} лунных месяцев по 29 или 30 суток."
+    : yearCatalogs[language].__lunarStartTemplate;
+  return template.replace("{date}", date).replace("{months}", String(months));
+}
 const englishToRussian = new Map(Object.entries(englishCatalog).map(([ru, en]) => [en, ru]));
 const partialTranslations = Object.fromEntries(Object.entries(catalogs).map(([language, catalog]) => [
   language,

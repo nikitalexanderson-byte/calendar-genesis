@@ -21,6 +21,8 @@ data class HabitFeedbackSettings(val animations: Boolean = true, val sound: Bool
     val questsEnabled: Boolean = true, val gamificationWidgets: Boolean = true)
 
 private fun defaultHabitSettingsJson() = JSONObject().put("enabled", true)
+    .put("nativeAppearance", JSONObject().put("mode", "scheduled")
+        .put("lightAt", "07:00").put("darkAt", "21:00"))
     .put("notifications", JSONObject().put("enabled", false).put("motivational", true)
         .put("tone", "calm").put("dailyGoalTime", "20:30")
         .put("quietHoursStart", "22:00").put("quietHoursEnd", "07:30"))

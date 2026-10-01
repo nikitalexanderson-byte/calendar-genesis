@@ -3,6 +3,7 @@
 import { useEffect, type CSSProperties } from "react";
 import type { CalendarMode } from "./calendar-data";
 import type { Language } from "./i18n";
+import { catalogText, sacredWordCopy } from "./catalog-i18n";
 import {
   createHabitFromSacredPractice,
   habitDateKey,
@@ -17,7 +18,7 @@ import { markTrackerEntityChanged } from "./tracker-core";
 import { useDialogAccessibility } from "./use-dialog-accessibility";
 
 function localized(copy: TheokyklosLocalizedText, language: Language) {
-  return copy[language];
+  return catalogText(copy, language);
 }
 
 function groupLabel(segment: TheokyklosSegment, language: Language) {
@@ -93,8 +94,8 @@ export function TheokyklosDetailsDialog({ segment, language, workspace, date, ca
             decoding="async"
           />
         </figure>
-        <p className="theokyklos-essence">{localized(segment.essence, language)}</p>
-        <p className="theokyklos-description">{localized(segment.description, language)}</p>
+        <p className="theokyklos-essence" data-no-translate>{localized(segment.essence, language)}</p>
+        <p className="theokyklos-description" data-no-translate>{localized(segment.description, language)}</p>
         <section className="theokyklos-incantation" aria-labelledby="theokyklos-incantation-title">
           <div>
             <span className="eyebrow">{language === "en" ? "Sacred utterance" : "Священные слова"}</span>
@@ -106,8 +107,8 @@ export function TheokyklosDetailsDialog({ segment, language, workspace, date, ca
           <ol>
             {segment.words.map((sacredWord) => (
               <li key={sacredWord.greek}>
-                <span lang="grc">{sacredWord.greek}</span>
-                <div>
+                <span lang={language === "ru" || language === "el" ? "grc" : language} data-no-translate>{sacredWordCopy(sacredWord.greek, language)}</span>
+                <div data-no-translate>
                   <strong>«{localized(sacredWord.pronunciation, language)}»</strong>
                   <small>{localized(sacredWord.meaning, language)}</small>
                 </div>
@@ -139,7 +140,7 @@ export function TheokyklosDetailsDialog({ segment, language, workspace, date, ca
                   return (
                     <article className={`${habit ? "started" : "suggested"}${habit && !habit.active ? " paused" : ""}`} style={{ "--practice-color": habit?.color ?? practice!.color } as CSSProperties} key={habit?.id ?? practice!.id}>
                       <span aria-hidden="true">{habit?.emoji ?? practice!.emoji}</span>
-                      <div><small>{habit ? (habit.active ? (language === "en" ? "Active practice" : "Активная практика") : (language === "en" ? "Paused" : "На паузе")) : (language === "en" ? "Suggested practice" : "Предлагаемая практика")}</small><strong data-no-translate={habit ? true : undefined}>{habit?.title ?? practice!.title[language]}</strong><p data-no-translate={habit ? true : undefined}>{habit?.description ?? practice!.description[language]}</p><blockquote>{practice!.myth[language]}</blockquote></div>
+                      <div><small>{habit ? (habit.active ? (language === "en" ? "Active practice" : "Активная практика") : (language === "en" ? "Paused" : "На паузе")) : (language === "en" ? "Suggested practice" : "Предлагаемая практика")}</small><strong data-no-translate>{habit?.title ?? catalogText(practice!.title, language)}</strong><p data-no-translate>{habit?.description ?? catalogText(practice!.description, language)}</p><blockquote data-no-translate>{catalogText(practice!.myth, language)}</blockquote></div>
                       {habit ? (
                         habit.active ? <div className="theokyklos-practice-actions"><button type="button" className={completion?.completed ? "completed" : ""} disabled={!canTrack} onClick={() => onChange(updateHabitCompletion(workspace, habit, date, { completed: !completion?.completed }))}>{completion?.completed ? `✓ ${language === "en" ? "Done" : "Выполнено"}` : (language === "en" ? "Mark today" : "Отметить сегодня")}</button><button type="button" className="disable" onClick={() => onChange({ ...workspace, habits: workspace.habits.map((item) => item.id === habit.id ? markTrackerEntityChanged({ ...item, active: false }) : item) })}>{language === "en" ? "Disable" : "Отключить"}</button></div>
                           : <button type="button" disabled={!workspace.habitSettings.enabled} onClick={() => onChange({ ...workspace, habits: workspace.habits.map((item) => item.id === habit.id ? markTrackerEntityChanged({ ...item, active: true }) : item) })}>{language === "en" ? "Enable again" : "Включить снова"}</button>

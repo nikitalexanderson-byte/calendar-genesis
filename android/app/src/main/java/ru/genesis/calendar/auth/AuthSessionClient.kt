@@ -137,6 +137,10 @@ internal class AuthSessionClient(context: Context) {
     fun updatePreferences(expected: Long, changes: JSONObject): JSONObject =
         request(expected, "/account/preferences", changes, method = "PUT")
     fun adminStats(expected: Long): JSONObject = request(expected, "/admin/stats", null)
+    fun todayAds(expected: Long, language: String, country: String): JSONObject {
+        require(language.matches(Regex("[a-z]{2}")) && country.matches(Regex("[A-Z]{0,2}")))
+        return request(expected, "/ads/today?language=$language&country=$country&platform=android", null)
+    }
     fun deleteAdminUser(expected: Long, userId: String, blacklist: Boolean): JSONObject {
         require(userId.matches(Regex("[A-Za-z0-9_-]{1,100}")))
         return request(expected, "/admin/users/$userId", JSONObject().put("blacklist", blacklist), method = "DELETE")

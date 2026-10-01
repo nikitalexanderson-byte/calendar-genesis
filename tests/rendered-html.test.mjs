@@ -1999,8 +1999,8 @@ test("retains the legacy TWA artifact but promotes only the signed native Androi
   assert.match(styles, /\.ux-android-robot/);
   // The legacy 1.2.2 asset remains available while the current native release advances.
   const nativeVersionCode = Number(androidBuild.match(/versionCode = (\d+)/)?.[1]);
-  assert.ok(nativeVersionCode >= 51);
-  assert.match(androidBuild, /versionName = "2\.4\.5"/);
+  assert.ok(nativeVersionCode >= 52);
+  assert.match(androidBuild, /versionName = "2\.4\.6"/);
   assert.match(androidBuild, /releaseSigningReady/);
   assert.match(androidBuild, /applicationIdSuffix = "\.debug"/);
   assert.match(androidBuild, /androidx\.browser:browser:1\.10\.0/);
@@ -2816,8 +2816,9 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.doesNotMatch(styles, /\.lunar-month-rule/);
   assert.match(calendar, /Григорианский год \$\{profaneYearLabel\}/);
   assert.match(calendar, /gregorianYearStart === "march"/);
-  assert.match(calendar, /mode === "lunar" \? <p>\{yearDescription\}<\/p> : null/);
-  assert.match(calendar, /первого точного новолуния после весеннего равноденствия/);
+  assert.match(calendar, /mode === "lunar" \? <p data-no-translate>\{yearDescription\}<\/p> : null/);
+  assert.match(calendar, /lunarYearStartText\(formatGregorian\(lunarYear\.startDate/);
+  assert.match(i18n, /первого точного новолуния после весеннего равноденствия/);
   assert.match(calendar, /"Лунный год"/);
   assert.doesNotMatch(calendar, /Магический женский год Луны/);
   assert.match(calendar, /современная символическая система GENESIS/);
@@ -3406,7 +3407,7 @@ test("ships complete English sacred-day and Stoicheion datasets", async () => {
   assert.match(calendarData, /calendar-days\.en\.json/);
   assert.match(calendarDatePicker, /getSacredDay\(sacredMonth, day\.day\)/);
   assert.match(stoicheionData, /getStoicheionLetters/);
-  assert.match(stoicheionView, /getStoicheionLetters\(locale === "en-US"\)/);
+  assert.match(stoicheionView, /getStoicheionLetters\(language\)/);
   assert.match(stoicheionView, /Upright position/);
 });
 
@@ -3467,7 +3468,7 @@ test("ships the complete illustrated Stoicheion deck with exact Greek typography
   assert.match(frame, /M0 0V35H40 M10 0V15H30V35 M40 5H20V25H0/);
   assert.match(frame, /<rect x="32" y="32" width="20" height="20"\/>/);
   assert.doesNotMatch(frame, /linked-key|meander-|M60 76|M256 62/);
-  assert.match(view, /<i lang="el">\{art\.invocation\}<\/i>/);
+  assert.match(view, /<i lang=\{language\}>\{invocation\}<\/i>/);
 });
 
 test("keeps Google OAuth consent, account binding, and token handling hardened", async () => {

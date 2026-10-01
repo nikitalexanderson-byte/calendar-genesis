@@ -1,5 +1,7 @@
 package ru.genesis.calendar.ui
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -10,6 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -22,6 +25,7 @@ import org.json.JSONObject
 @Composable
 internal fun NativeAdminPanel(onClose: () -> Unit, load: suspend () -> JSONObject,
     deleteUser: suspend (String, Boolean) -> JSONObject) {
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var payload by remember { mutableStateOf<JSONObject?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -52,6 +56,11 @@ internal fun NativeAdminPanel(onClose: () -> Unit, load: suspend () -> JSONObjec
                         .semantics { contentDescription = "Закрыть админ-панель" }) {
                         Text("×", style = MaterialTheme.typography.headlineSmall)
                     }
+                }
+                OutlinedButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW,
+                    Uri.parse("https://genesiscalendar.ru/#admin"))) },
+                    modifier = Modifier.fillMaxWidth().testTag("admin-manage-ads")) {
+                    Text(manageAdsLabel())
                 }
                 val totals = payload?.optJSONObject("totals")
                 if (totals != null) {

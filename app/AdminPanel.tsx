@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { deleteAdminUser, type AdminStats, type AdminUserStats, loadAdminStats } from "./cloud-sync";
 import { runtimeLocale } from "./i18n";
 import { useDialogAccessibility } from "./use-dialog-accessibility";
+import { AdminAdsPanel } from "./AdminAdsPanel";
 
 function formatActivity(value: string | null) {
   if (!value) return "—";
@@ -106,6 +107,7 @@ export function AdminPanel() {
       {error ? <p className="auth-error" role="alert">{error}</p> : null}
       {message ? <p className="admin-success" role="status">{message}</p> : null}
       {stats ? <>
+        <AdminAdsPanel />
         <div className="admin-totals">
           <article><strong>{stats.totals.users}</strong><span>{copy.users}</span></article>
           <article><strong>{stats.totals.habits}</strong><span>{copy.habits}</span></article>

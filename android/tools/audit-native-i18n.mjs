@@ -11,6 +11,14 @@ const SKIPPED_FILES = new Set([
   // This component keeps every Russian string beside its reviewed English
   // counterpart in a local copy(russian, english) helper.
   path.join(SOURCE_ROOT, "ui/CalendarYearDescription.kt"),
+  // Explicit grammar tables contain Russian, Ukrainian and Serbian forms beside all other locales.
+  path.join(SOURCE_ROOT, "ui/TaskCountCopy.kt"),
+  // Release notes contain a complete reviewed table for all 14 shipped locales.
+  path.join(SOURCE_ROOT, "ui/ReleaseNotes.kt"),
+  // The update banner contains a complete 14-locale copy table.
+  path.join(SOURCE_ROOT, "ui/AndroidUpdateBanner.kt"),
+  // Advertisement labels are defined for every shipped locale in this component.
+  path.join(SOURCE_ROOT, "ui/TodayAdPanel.kt"),
   // Generated RU/EN pairs; export-notification-copy.mjs --check verifies both platforms.
   path.join(SOURCE_ROOT, "reminders/HabitNotificationMessages.kt"),
   path.join(SOURCE_ROOT, "reminders/HabitNotificationCopy.kt"),

@@ -55,9 +55,8 @@ import ru.genesis.calendar.data.*
                         else "Все задачи, сроки, приоритеты и напоминания", "✦",
                         icon = if (section == "lists") GenesisPageIcon.TASK_LISTS else GenesisPageIcon.TASKS)
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text(if(english) "$total tasks · $active active · ${knownLists.size} lists" else
-                            "$total ${russianCount(total,"задача","задачи","задач")} · $active ${russianCount(active,"активная","активные","активных")} · " +
-                            "${knownLists.size} ${russianCount(knownLists.size,"список","списка","списков")}",
+                        androidx.compose.material3.Text(taskSummaryCopy(total, active, knownLists.size,
+                            LocalGenesisLanguage.current),
                             Modifier.weight(1f).padding(end = 8.dp).testTag("tasks-summary"), style = MaterialTheme.typography.labelLarge)
                         Button(onClick = if (section == "lists") onCreateList else ({ onCreateTask(null) }),
                             modifier = Modifier.heightIn(min = 48.dp).testTag("create-task")) { Text("Создать") }

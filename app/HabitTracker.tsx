@@ -20,6 +20,7 @@ import {
   type CalendarMode,
 } from "./calendar-data";
 import type { Language } from "./i18n";
+import { catalogText } from "./catalog-i18n";
 import { formatTimeValue, type TimeFormat } from "./time-format";
 import { CalendarDatePicker } from "./CalendarDatePicker";
 import { RecurrenceBuilder } from "./RecurrenceBuilder";
@@ -1295,7 +1296,7 @@ function SacredHabitLibrary({
     return (
       <button
         type="button"
-        aria-label={`${sectorName}: ${item.patrons[language]}`}
+        aria-label={`${sectorName}: ${catalogText(item.patrons, language)}`}
         aria-haspopup="dialog"
         className={selectedSectorId === sectorId ? "active" : ""}
         data-sector-id={sectorId}
@@ -1305,7 +1306,7 @@ function SacredHabitLibrary({
       >
         <SacredSectorSigil sectorId={sectorId} active={selectedSectorId === sectorId} compact />
         <strong>{sectorName}</strong>
-        <small>{started ? `${started}/${sacredPracticesForSector(sectorId).length}` : item.patrons[language]}</small>
+        <small>{started ? `${started}/${sacredPracticesForSector(sectorId).length}` : catalogText(item.patrons, language)}</small>
       </button>
     );
   };
@@ -1346,7 +1347,7 @@ function SacredHabitLibrary({
             <button type="button" className="modal-close sacred-sector-header-close" onClick={closeSectorDialog} aria-label={isEnglish ? "Close" : "Закрыть"}><SacredDialogActionIcon variant="close" /></button>
           </header>
           <div className="sacred-sector-summary">
-            <div><SacredSectorSigil sectorId={selectedSectorId} active /><p><small>{SACRED_SECTOR_NAMES[selectedSectorId][language]} · {isEnglish ? "patron deity" : "божество-покровитель"}</small><strong>{sector.patrons[language]}</strong></p></div>
+            <div><SacredSectorSigil sectorId={selectedSectorId} active /><p><small>{catalogText(SACRED_SECTOR_NAMES[selectedSectorId], language)} · {isEnglish ? "patron deity" : "божество-покровитель"}</small><strong data-no-translate>{catalogText(sector.patrons, language)}</strong></p></div>
             <p>{sector.essence[language]}</p>
           </div>
           <div className="sacred-practice-grid">
@@ -1359,9 +1360,9 @@ function SacredHabitLibrary({
             : `${isEnglish ? "Suggested" : "Рекомендуется"} ${practice.suggestedTime}`;
           return (
             <article className={`${habit ? "started" : ""}${habit && !habit.active ? " paused" : ""}`} style={{ "--habit-color": habit?.color ?? practice.color } as CSSProperties} key={practice.id}>
-              <header><span aria-hidden="true">{habit?.emoji ?? practice.emoji}</span><div><small>{sector.patrons[language]}</small><h3 data-no-translate={habit ? true : undefined}>{habit?.title ?? practice.title[language]}</h3></div>{habit ? <em>{habit.active ? (isEnglish ? "Active" : "Активна") : (isEnglish ? "Paused" : "На паузе")}</em> : null}</header>
-              <p data-no-translate={habit ? true : undefined}>{habit?.description ?? practice.description[language]}</p>
-              <blockquote>{practice.myth[language]}</blockquote>
+              <header><span aria-hidden="true">{habit?.emoji ?? practice.emoji}</span><div><small data-no-translate>{catalogText(sector.patrons, language)}</small><h3 data-no-translate>{habit?.title ?? catalogText(practice.title, language)}</h3></div>{habit ? <em>{habit.active ? (isEnglish ? "Active" : "Активна") : (isEnglish ? "Paused" : "На паузе")}</em> : null}</header>
+              <p data-no-translate>{habit?.description ?? catalogText(practice.description, language)}</p>
+              <blockquote data-no-translate>{catalogText(practice.myth, language)}</blockquote>
               <footer>
                 {habit ? (
                   <div className="sacred-practice-actions">

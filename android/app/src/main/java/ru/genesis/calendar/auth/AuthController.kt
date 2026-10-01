@@ -44,6 +44,7 @@ data class AuthPanelState(
     val preview: CloudWorkspacePreview.Summary? = null,
     val workspaceConflictPath: String? = null,
     val checkedAt: Long? = null,
+    val offerGoogleServices: Boolean = false,
     val message: String = "Серверная сессия ещё не проверена.",
 )
 
@@ -68,6 +69,13 @@ class AuthController private constructor(context: Context) {
         check(snapshot.ready && !snapshot.requiresSignIn && snapshot.user != null && snapshot.accountSettings?.isAdmin == true)
         val generation = client.currentGeneration()
         return withContext(Dispatchers.IO) { client.adminStats(generation) }
+    }
+
+    suspend fun todayAds(language: String, country: String): JSONObject {
+        val snapshot = mutableState.value
+        check(snapshot.ready && !snapshot.requiresSignIn && snapshot.user != null)
+        val generation = client.currentGeneration()
+        return withContext(Dispatchers.IO) { client.todayAds(generation, language, country) }
     }
 
     suspend fun deleteAdminUser(userId: String, blacklist: Boolean): JSONObject {
@@ -119,12 +127,13 @@ class AuthController private constructor(context: Context) {
         AuthDiagnostics.event("GOOGLE_ID_TOKEN_RECEIVED")
         val payload = withContext(Dispatchers.IO) { client.authenticate(generation, token) }
         AuthDiagnostics.event("BACKEND_AUTH_SUCCESS")
+        val newAccount = AuthProtocol.googleLinkAction(payload) == "created"
         when (AuthProtocol.googleLinkAction(payload)) {
             "found" -> AuthDiagnostics.event("GOOGLE_LINK_FOUND")
             "created" -> AuthDiagnostics.event("GOOGLE_LINK_CREATED")
         }
         completeSignedIn(generation, payload, "Вход подтверждён. Облачные данные расшифрованы автоматически.",
-            preferredLanguage)
+            preferredLanguage, newAccount)
     }
 
     fun connectGoogleServices(activity: Activity, launchResolution: (PendingIntent) -> Unit,
@@ -202,7 +211,7 @@ class AuthController private constructor(context: Context) {
     }
 
     private suspend fun completeSignedIn(generation: Long, session: JSONObject, successMessage: String,
-        preferredLanguage: String? = null) {
+        preferredLanguage: String? = null, newAccount: Boolean = false) {
         val identity = AuthProtocol.identity(session) ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
         AuthDiagnostics.event("GENESIS_USER_RESOLVED")
         val settings = AccountSettings.fromResponse(session) ?: throw AuthFailure(AuthFailure.Kind.PROTOCOL)
@@ -245,6 +254,9 @@ class AuthController private constructor(context: Context) {
                 withContext(Dispatchers.IO) { app.scheduler.deactivate(app.workspaceScope) }
             }
             app.activateAccount(confirmed.uid)
+            if (newAccount) withContext(Dispatchers.IO) {
+                LocalPreferences(app, app.workspaceScope).initializeNewAccount()
+            }
             val stoicheionWarning = if (stoicheionPayload != null) try {
                 withContext(Dispatchers.IO) { StoicheionDrawRepository(app).replaceFromServer(stoicheionPayload) }
                 false
@@ -257,6 +269,7 @@ class AuthController private constructor(context: Context) {
             AuthDiagnostics.event("SYNC_SUCCESS")
             withContext(Dispatchers.IO) { CachedAccountEntry(app).save(confirmed, resolvedSettings) }
             publish(generation, AuthPanelState(ready = true, user = confirmed,
+                offerGoogleServices = newAccount,
                 accountSettings = resolvedSettings, preview = preview,
                 checkedAt = System.currentTimeMillis(), message = (when (imported) {
                     CloudAccountImporter.Result.IMPORTED -> if (snapshot.tasksDeferred)

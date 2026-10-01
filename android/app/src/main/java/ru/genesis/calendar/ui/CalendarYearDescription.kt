@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
+import androidx.compose.material3.Text as MaterialText
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -20,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import ru.genesis.calendar.domain.CalendarMode
@@ -41,8 +43,13 @@ private data class YearMetric(val value: String, val label: String)
 @Composable
 internal fun CalendarYearDescriptionCard(calendar: GenesisCalendar, shown: LocalDate, mode: CalendarMode,
     gregorianYearStartsInMarch: Boolean = false) {
-    val english = LocalGenesisLanguage.current == "en"
-    fun copy(russian: String, englishText: String) = if (english) englishText else russian
+    val language = LocalGenesisLanguage.current
+    val context = LocalContext.current
+    fun copy(russian: String, englishText: String) = when (language) {
+        "ru" -> russian
+        "en" -> englishText
+        else -> translateGenesisText(context, russian, language)
+    }
     val sacredYear = calendar.sacredDate(shown).sacredYear
     val lunarYear = remember(sacredYear) { calendar.lunarYear(sacredYear) }
     val lunarDays = ChronoUnit.DAYS.between(lunarYear.startDate, lunarYear.endDate).toString()
@@ -95,8 +102,10 @@ internal fun CalendarYearDescriptionCard(calendar: GenesisCalendar, shown: Local
                 if (LocalGenesisLanguage.current == "ru") "EEEE, d MMMM yyyy г." else "EEEE, d MMMM yyyy",
                 Locale.forLanguageTag(LocalGenesisLanguage.current))).replaceFirstChar { it.titlecase() }
             paragraphs = listOf(
-                copy("Год начинается $start — в день первого точного новолуния после весеннего равноденствия — и включает ${lunarYear.monthCount} лунных месяцев по 29 или 30 суток.",
-                    "The year begins on $start, the first exact new moon after the spring equinox, and includes ${lunarYear.monthCount} lunar months of 29 or 30 days."),
+                (if (language == "ru") "Год начинается {date} — в день первого точного новолуния после весеннего равноденствия — и включает {months} лунных месяцев по 29 или 30 суток."
+                    else if (language == "en") "The year begins on {date}, the first exact new moon after the spring equinox, and includes {months} lunar months of 29 or 30 days."
+                    else translateGenesisText(context, "__lunarStartTemplate", language))
+                    .replace("{date}", start).replace("{months}", lunarYear.monthCount.toString()),
                 copy("В системе GENESIS это магический «женский» год: его внутренняя ткань определяется не месяцами и неделями солнечного года, а ростом, полнотой и исходом Луны. Весеннее равноденствие служит только ежегодной точкой настройки.",
                     "In GENESIS this is a magical feminine year, shaped by the Moon's growth, fullness, and waning rather than the months and weeks of the solar year. The spring equinox is only its annual tuning point."),
                 copy("Это современная символическая система GENESIS, а не реконструкция единого древнегреческого календаря. Её античная опора — образ Селены и полнота Луны в середине месяца; греческие лунно-солнечные календари удерживали месяцы рядом с сезонами вставочным месяцем.",
@@ -114,10 +123,10 @@ internal fun CalendarYearDescriptionCard(calendar: GenesisCalendar, shown: Local
         border = BorderStroke(1.dp, Color(0x665f8a7d))) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(eyebrow, style = MaterialTheme.typography.labelMedium, color = yearCardGold)
-                Text(title, style = MaterialTheme.typography.headlineSmall, color = yearCardText)
+                MaterialText(eyebrow, style = MaterialTheme.typography.labelMedium, color = yearCardGold)
+                MaterialText(title, style = MaterialTheme.typography.headlineSmall, color = yearCardText)
                 paragraphs.take(if (mode == CalendarMode.SACRED) 2 else paragraphs.size).forEach {
-                    Text(it, style = MaterialTheme.typography.bodyMedium, color = yearCardMuted)
+                    MaterialText(it, style = MaterialTheme.typography.bodyMedium, color = yearCardMuted)
                 }
                 metrics.chunked(2).forEach { row ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -125,7 +134,7 @@ internal fun CalendarYearDescriptionCard(calendar: GenesisCalendar, shown: Local
                     }
                 }
                 if (mode == CalendarMode.SACRED) {
-                    Text(paragraphs.last(), style = MaterialTheme.typography.bodyMedium, color = yearCardMuted)
+                    MaterialText(paragraphs.last(), style = MaterialTheme.typography.bodyMedium, color = yearCardMuted)
                     SacredYearDetailsButton(copy("Подробнее", "Learn more"),
                         copy("Сакральная геометрия времени", "Sacred geometry of time")) { detailsOpen = true }
                 }
@@ -159,12 +168,12 @@ private fun SacredYearDetailsButton(title: String, subtitle: String, onClick: ()
                 rotationZ = pulse * 8f
             }, shape = RoundedCornerShape(50), color = if (evening) Color(0xff08282a) else Color(0xff20433d)) {
                 Box(contentAlignment = Alignment.Center) {
-                    Text("✦", color = Color(0xffffe7ae), style = MaterialTheme.typography.titleMedium)
+                    MaterialText("✦", color = Color(0xffffe7ae), style = MaterialTheme.typography.titleMedium)
                 }
             }
             Column(Modifier.padding(start = 11.dp).weight(1f)) {
-                Text(title.uppercase(), color = ink, style = MaterialTheme.typography.labelLarge)
-                Text(subtitle, color = ink.copy(alpha = .82f),
+                MaterialText(title.uppercase(), color = ink, style = MaterialTheme.typography.labelLarge)
+                MaterialText(subtitle, color = ink.copy(alpha = .82f),
                     style = MaterialTheme.typography.labelSmall)
             }
         }
@@ -176,16 +185,21 @@ private fun YearMetricTile(metric: YearMetric, modifier: Modifier) {
     Surface(modifier.heightIn(min = 88.dp), shape = RoundedCornerShape(14.dp), color = yearCardSurface,
         border = BorderStroke(1.dp, Color(0x445f8a7d))) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(metric.value, style = MaterialTheme.typography.headlineSmall, color = yearCardGold)
-            Text(metric.label.uppercase(), style = MaterialTheme.typography.labelSmall, color = yearCardMuted)
+            MaterialText(metric.value, style = MaterialTheme.typography.headlineSmall, color = yearCardGold)
+            MaterialText(metric.label.uppercase(), style = MaterialTheme.typography.labelSmall, color = yearCardMuted)
         }
     }
 }
 
 @Composable
 private fun SacredYearDetailsDialog(onDismiss: () -> Unit) {
-    val english = LocalGenesisLanguage.current == "en"
-    fun copy(russian: String, englishText: String) = if (english) englishText else russian
+    val language = LocalGenesisLanguage.current
+    val context = LocalContext.current
+    fun copy(russian: String, englishText: String) = when (language) {
+        "ru" -> russian
+        "en" -> englishText
+        else -> translateGenesisText(context, russian, language)
+    }
     Dialog(onDismissRequest = onDismiss) {
         Surface(Modifier.fillMaxWidth().fillMaxHeight(0.92f).testTag("sacred-year-details-dialog"),
             shape = RoundedCornerShape(24.dp), color = yearCardBackground,
@@ -194,13 +208,13 @@ private fun SacredYearDetailsDialog(onDismiss: () -> Unit) {
                 item {
                     Row(verticalAlignment = Alignment.Top) {
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                            Text(copy("САКРАЛЬНАЯ ГЕОМЕТРИЯ ВРЕМЕНИ", "SACRED GEOMETRY OF TIME"),
+                            MaterialText(copy("САКРАЛЬНАЯ ГЕОМЕТРИЯ ВРЕМЕНИ", "SACRED GEOMETRY OF TIME"),
                                 style = MaterialTheme.typography.labelMedium, color = yearCardGold)
-                            Text(copy("Почему наш год устроен именно так?", "Why is our year structured this way?"),
+                            MaterialText(copy("Почему наш год устроен именно так?", "Why is our year structured this way?"),
                                 style = MaterialTheme.typography.headlineSmall, color = yearCardText)
                         }
                         IconButton(onClick = onDismiss, modifier = Modifier.testTag("sacred-year-details-close")) {
-                            Text("×", style = MaterialTheme.typography.headlineSmall, color = yearCardGold)
+                            MaterialText("×", style = MaterialTheme.typography.headlineSmall, color = yearCardGold)
                         }
                     }
                 }
@@ -225,9 +239,9 @@ private fun YearDetailsSection(symbol: String, title: String, paragraphs: List<S
     Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), color = Color(0xff061f21),
         border = BorderStroke(1.dp, Color(0x445f8a7d))) {
         Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(symbol, style = MaterialTheme.typography.headlineSmall)
-            Text(title, style = MaterialTheme.typography.titleLarge, color = Color(0xffffdda0))
-            paragraphs.forEach { Text(it, style = MaterialTheme.typography.bodyMedium, color = yearCardMuted) }
+            MaterialText(symbol, style = MaterialTheme.typography.headlineSmall)
+            MaterialText(title, style = MaterialTheme.typography.titleLarge, color = Color(0xffffdda0))
+            paragraphs.forEach { MaterialText(it, style = MaterialTheme.typography.bodyMedium, color = yearCardMuted) }
         }
     }
 }

@@ -56,8 +56,9 @@ private val gold = Color(0xffdfc17e)
 fun TheokyklosScreen(app: GenesisApplication, calendarMode: CalendarMode, onOpenHabits: () -> Unit,
     initialSectorId: String? = null, onInitialSectorConsumed: () -> Unit = {}) {
     val context = LocalContext.current
-    val english = LocalGenesisLanguage.current == "en"
-    val catalog = remember(context) { runCatching { TheokyklosCatalogSource.load(context) } }
+    val language = LocalGenesisLanguage.current
+    val english = language == "en"
+    val catalog = remember(context, language) { runCatching { TheokyklosCatalogSource.load(context, language) } }
     val repository = remember(app) { HabitsRepository(app) }
     var workspace by remember { mutableStateOf<LocalHabitWorkspace?>(null) }
     var storageError by remember { mutableStateOf<String?>(null) }

@@ -351,7 +351,7 @@ function genesisUpsertGoogleUser(array $profile, array $tokens, bool $persistGoo
             'updated_at' => $values['updated_at'],
         ]);
     } else {
-        $db->prepare('INSERT INTO users (id, google_sub, email, display_name, avatar_url, access_token_enc, refresh_token_enc, token_expires_at, granted_scopes, workspace_key_enc, workspace_key_mode, login_count, last_login_at, last_seen_at, created_at, updated_at) VALUES (:id, :sub, :email, :display_name, :avatar_url, :access_token_enc, :refresh_token_enc, :token_expires_at, :granted_scopes, :workspace_key_enc, :workspace_key_mode, 1, :last_login_at, :last_seen_at, :created_at, :updated_at)')->execute($values);
+        $db->prepare("INSERT INTO users (id, google_sub, email, display_name, avatar_url, access_token_enc, refresh_token_enc, token_expires_at, granted_scopes, workspace_key_enc, workspace_key_mode, calendar_mode, task_calendar_mode, week_start, login_count, last_login_at, last_seen_at, created_at, updated_at) VALUES (:id, :sub, :email, :display_name, :avatar_url, :access_token_enc, :refresh_token_enc, :token_expires_at, :granted_scopes, :workspace_key_enc, :workspace_key_mode, 'profane', 'profane', 'monday', 1, :last_login_at, :last_seen_at, :created_at, :updated_at)")->execute($values);
     }
 
     $user = genesisFindUser($id);

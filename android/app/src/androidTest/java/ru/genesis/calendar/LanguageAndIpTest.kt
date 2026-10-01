@@ -65,11 +65,11 @@ class LanguageAndIpTest {
         try {
             runBlocking { prefs.set("display", "sacred") }
             compose.waitUntil(10_000) {
-                compose.onAllNodesWithTag("calendar-mode-icon-sacred").fetchSemanticsNodes().isNotEmpty()
+                compose.onAllNodesWithTag("today-calendar-plaque").fetchSemanticsNodes().isNotEmpty()
             }
-            compose.onNodeWithTag("calendar-mode-icon-sacred").performClick()
+            compose.onNodeWithTag("today-calendar-plaque").performClick()
             compose.waitUntil(10_000) {
-                compose.onAllNodesWithTag("calendar-mode-icon-lunar").fetchSemanticsNodes().isNotEmpty()
+                compose.onAllNodesWithTag("calendar-mode-icon-lunar", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
             }
             assertEquals(CalendarMode.LUNAR, runBlocking { prefs.values.first().display })
             assertEquals(original.input, runBlocking { prefs.values.first().input })

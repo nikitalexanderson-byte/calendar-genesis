@@ -911,7 +911,7 @@ private object TranslationCatalog {
                 fun objectAsset(name: String): JSONObject = context.assets.open("originals/i18n/$name")
                     .bufferedReader().use { JSONObject(it.readText()) }
                 buildMap {
-                    listOf("translations.en.json", "curated-translations.en.json").forEach { name ->
+                    listOf("translations.en.json", "curated-translations.en.json", "year-translations/en.json").forEach { name ->
                         runCatching { objectAsset(name) }.onSuccess { catalog ->
                             catalog.keys().forEach { put(it, catalog.getString(it)) }
                         }.onFailure { error ->
@@ -967,12 +967,19 @@ private object TranslationCatalog {
                             }
                         }
                     }
+                    context.assets.open("originals/i18n/year-translations/$language.json")
+                        .bufferedReader().use { reader ->
+                            JSONObject(reader.readText()).let { json ->
+                                json.keys().forEach { put(it, json.getString(it)) }
+                            }
+                        }
                 }
             }.getOrElse { error ->
                 Log.e("GenesisI18n", "Could not load $language: ${error.javaClass.simpleName}")
                 emptyMap()
             }
         }
+        translations[normalized]?.let { return@getOrPut it }
         val russianKey = if (cyrillic.containsMatchIn(normalized)) normalized else englishReverse[normalized]
         russianKey?.let { translations[it] }?.let { return@getOrPut it }
         if (!cyrillic.containsMatchIn(normalized)) return@getOrPut text
@@ -989,6 +996,9 @@ private object TranslationCatalog {
             (nativeCopy[normalized] ?: english[normalized] ?: text)
     }
 }
+
+internal fun translateGenesisText(context: android.content.Context, source: String, language: String): String =
+    TranslationCatalog.translate(context, source, language)
 
 @Composable
 fun genesisTranslate(source: String): String {

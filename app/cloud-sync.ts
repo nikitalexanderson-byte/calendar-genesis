@@ -267,6 +267,27 @@ export type AdminUserStats = {
   androidGoogleSyncStatus: "ok" | "warning" | "disconnected" | null;
 };
 
+export type TodayAd = {
+  id: string;
+  title: string;
+  description: string;
+  imageUrl: string;
+  linkUrl: string;
+  repeatHours: number;
+};
+
+export type AdminAd = TodayAd & {
+  languages: string[];
+  countries: string[];
+  platforms: string[];
+  startsAt: string | null;
+  endsAt: string | null;
+  priority: number;
+  enabled: boolean;
+};
+
+export type AdminAdInput = Omit<AdminAd, "id"> & { imageData?: string };
+
 export type AdminStats = {
   users: AdminUserStats[];
   totals: { users: number; projects: number; tasks: number; completedTasks: number; habits: number; blockedIdentities: number; androidDownloadRequests: number; androidReportingUsers: number };
@@ -1380,6 +1401,24 @@ export async function saveMetrics(metrics: GenesisMetrics) {
 
 export async function loadAdminStats() {
   return api<AdminStats>("/admin/stats");
+}
+
+export async function loadTodayAds(language: string, country: string, platform: "web" | "android") {
+  return api<{ ads: TodayAd[] }>(`/ads/today?language=${encodeURIComponent(language)}&country=${encodeURIComponent(country)}&platform=${platform}`);
+}
+
+export async function loadAdminAds() {
+  return api<{ ads: AdminAd[] }>("/admin/ads");
+}
+
+export async function saveAdminAd(input: AdminAdInput, id?: string) {
+  return api<{ ad: AdminAd }>(id ? `/admin/ads/${encodeURIComponent(id)}` : "/admin/ads", {
+    method: id ? "PUT" : "POST", body: JSON.stringify(input),
+  });
+}
+
+export async function deleteAdminAd(id: string) {
+  return api<{ deleted: true }>(`/admin/ads/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 
 export async function deleteAdminUser(userId: string, blacklist: boolean) {

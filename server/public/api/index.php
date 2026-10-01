@@ -22,6 +22,7 @@ if ($serverRoot === '') {
 }
 require $serverRoot . '/src/bootstrap.php';
 require $serverRoot . '/src/repository.php';
+require $serverRoot . '/src/ads.php';
 require $serverRoot . '/src/google.php';
 require $serverRoot . '/src/native-auth.php';
 require $serverRoot . '/src/gemini.php';
@@ -96,13 +97,21 @@ try {
         genesisJson(['ok' => true, 'service' => 'GENESIS', 'privacyModel' => 2, 'time' => genesisNow()]);
     }
 
+    if ($method === 'GET' && $path === 'ads/today') {
+        genesisRequireUserId();
+        $language = substr((string)($_GET['language'] ?? 'ru'), 0, 2);
+        $country = strtoupper(substr((string)($_GET['country'] ?? ''), 0, 2));
+        $platform = (string)($_GET['platform'] ?? 'web');
+        genesisJson(['ads' => genesisTodayAds($language, $country, $platform)]);
+    }
+
     if ($method === 'GET' && $path === 'android/download') {
         $userId = genesisCurrentUserId();
         if ($userId !== null && genesisFindUser($userId) !== null) {
-            genesisObserveAndroid(static fn() => genesisRecordAndroidDownload($userId, '2.4.5'));
+            genesisObserveAndroid(static fn() => genesisRecordAndroidDownload($userId, '2.4.6'));
         }
         header('Cache-Control: no-store');
-        header('Location: /downloads/GENESIS-Android-Native-2.4.5.apk', true, 302);
+        header('Location: /downloads/GENESIS-Android-Native-2.4.6.apk', true, 302);
         exit;
     }
 
@@ -482,6 +491,25 @@ try {
         }
         genesisRequireAdmin($user);
         genesisJson(genesisAdminStats());
+    }
+
+    if ($path === 'admin/ads' || (count($segments) === 3 && $segments[0] === 'admin'
+        && $segments[1] === 'ads')) {
+        $userId = genesisRequireUserId();
+        $user = genesisFindUser($userId);
+        if ($user === null) genesisJson(['error' => 'AUTH_REQUIRED'], 401);
+        genesisRequireAdmin($user);
+        if ($method === 'GET' && $path === 'admin/ads') genesisJson(['ads' => genesisAdList()]);
+        genesisRequireCsrf();
+        if ($method === 'POST' && $path === 'admin/ads') genesisJson(['ad' => genesisSaveAd(genesisReadJson())], 201);
+        if (count($segments) === 3 && preg_match('/^[a-f0-9-]{36}$/', $segments[2])) {
+            if ($method === 'PUT') genesisJson(['ad' => genesisSaveAd(genesisReadJson(), $segments[2])]);
+            if ($method === 'DELETE') {
+                genesisDeleteAd($segments[2]);
+                genesisJson(['deleted' => true]);
+            }
+        }
+        genesisJson(['error' => 'NOT_FOUND'], 404);
     }
 
     if ($method === 'DELETE' && count($segments) === 3 && $segments[0] === 'admin' && $segments[1] === 'users') {

@@ -20,6 +20,10 @@ const SKIPPED_FILES = new Set([
   "mood-tracker.ts",
   "sleep-tracker.ts",
   "addiction-tracker.ts",
+  "task-count-i18n.ts",
+  "CalendarTaskCounts.tsx",
+  // Fourteen explicit locale labels; checked with the ad copy coverage test.
+  "TodayAdBlock.tsx",
 ]);
 
 function normalize(value) {
@@ -82,7 +86,7 @@ function isNonUiString(node) {
   const parent = node.parent;
   let owner = parent;
   while (owner) {
-    if (ts.isVariableDeclaration(owner) && ["COLOR_MODE_NAMES", "CURRENT_THEME_LABEL"].includes(owner.name.getText())) return true;
+    if (ts.isVariableDeclaration(owner) && ["COLOR_MODE_NAMES", "CURRENT_THEME_LABEL", "CARD_LABEL"].includes(owner.name.getText())) return true;
     owner = owner.parent;
   }
   if (ts.isImportDeclaration(parent) || ts.isExportDeclaration(parent)) return true;

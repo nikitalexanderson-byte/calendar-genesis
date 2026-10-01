@@ -9,6 +9,7 @@ import {
   type TheokyklosSegmentId,
 } from "./theokyklos-data";
 import type { Language } from "./i18n";
+import { catalogText } from "./catalog-i18n";
 import type { CalendarMode } from "./calendar-data";
 import type { HabitWorkspace } from "./habits";
 import type { SacredPracticeSectorId } from "./sacred-practices";
@@ -20,7 +21,7 @@ type Point = { x: number; y: number };
 const CENTER: Point = { x: 450, y: 420 };
 
 function localized(copy: TheokyklosLocalizedText, language: Language) {
-  return copy[language];
+  return catalogText(copy, language);
 }
 
 function polarPoint(angle: number, radius: number): Point {

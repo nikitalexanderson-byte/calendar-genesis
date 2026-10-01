@@ -1,4 +1,6 @@
 import type { CalendarMode } from "./calendar-data";
+import { catalogText } from "./catalog-i18n";
+import type { Language } from "./i18n";
 import {
   normalizeAddictionEntry,
   normalizeAddictionTracker,
@@ -1161,7 +1163,7 @@ export function createHabitFromTemplate(
   template: HabitTemplate,
   startDate: string,
   calendarMode: CalendarMode,
-  language: "ru" | "en" = "ru",
+  language: Language = "ru",
 ): Habit {
   const schedule = templateSchedule(template, startDate, calendarMode);
   return {
@@ -1197,8 +1199,8 @@ export function createHabitFromSacredPractice(
     sacredPracticeId: practice.id,
     sacredSectorId: practice.sectorId,
     emoji: normalizeHabitEmoji(practice.emoji),
-    title: practice.title[language],
-    description: practice.description[language],
+    title: catalogText(practice.title, language),
+    description: catalogText(practice.description, language),
     color: practice.color,
     priority: normalizeHabitPriority(practice.priority),
     preferredTime: practice.suggestedTime,
