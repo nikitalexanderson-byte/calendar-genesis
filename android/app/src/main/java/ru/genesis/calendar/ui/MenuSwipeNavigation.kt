@@ -1,17 +1,34 @@
 package ru.genesis.calendar.ui
 
+import android.animation.ValueAnimator
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.util.VelocityTracker
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.offset
+import kotlinx.coroutines.launch
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 internal data class SwipeDestination(val page: String, val section: String? = null)
 
@@ -61,15 +78,25 @@ internal fun nextMenuSwipeDestination(sequence: List<SwipeDestination>, page: St
     return sequence.getOrNull(current + step)
 }
 
-/** Reads horizontal gestures before nested scrollers, while leaving vertical scroll and taps intact. */
+/** Follows the finger, then settles the adjacent destination into place. */
 @Composable
-internal fun rememberMenuSwipeModifier(enabled: Boolean, onSwipe: (Int) -> Unit): Modifier {
-    val latest by rememberUpdatedState(onSwipe)
-    if (!enabled) return Modifier
-    return Modifier.pointerInput(enabled) {
-        val threshold = 72.dp.toPx()
+internal fun MenuSwipePager(current: SwipeDestination, sequence: List<SwipeDestination>,
+    enabled: Boolean, onNavigate: (SwipeDestination) -> Unit,
+    modifier: Modifier = Modifier, content: @Composable (SwipeDestination) -> Unit) {
+    var width by remember { mutableIntStateOf(0) }
+    var offset by remember { mutableFloatStateOf(0f) }
+    var incoming by remember { mutableStateOf<SwipeDestination?>(null) }
+    var settling by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val previous = nextMenuSwipeDestination(sequence, current.page, current.section, -1)
+    val next = nextMenuSwipeDestination(sequence, current.page, current.section, 1)
+    val gesture = if (!enabled) Modifier else Modifier.pointerInput(current, previous, next, width) {
+        val threshold = minOf(72.dp.toPx(), width * .22f)
+        val flingVelocity = 1_100.dp.toPx()
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            if (settling) return@awaitEachGesture
+            val velocity = VelocityTracker().apply { addPosition(down.uptimeMillis, down.position) }
             var dx = 0f
             var dy = 0f
             var horizontal = false
@@ -80,14 +107,59 @@ internal fun rememberMenuSwipeModifier(enabled: Boolean, onSwipe: (Int) -> Unit)
                 val delta = change.position - change.previousPosition
                 dx += delta.x
                 dy += delta.y
+                velocity.addPosition(change.uptimeMillis, change.position)
                 if (!horizontal && !vertical) {
                     horizontal = abs(dx) > viewConfiguration.touchSlop && abs(dx) > abs(dy) * 1.2f
                     vertical = abs(dy) > viewConfiguration.touchSlop && abs(dy) > abs(dx)
                 }
-                if (horizontal) change.consume()
+                if (horizontal) {
+                    change.consume()
+                    incoming = if (dx < 0) next else previous
+                    offset = if (incoming == null) dx * .16f
+                        else dx.coerceIn(-width.toFloat(), width.toFloat())
+                }
                 if (!change.pressed || vertical) break
             } while (true)
-            if (horizontal && abs(dx) >= threshold) latest(if (dx < 0) 1 else -1)
+            if (horizontal) {
+                val destination = incoming?.takeIf {
+                    abs(offset) >= threshold ||
+                        abs(velocity.calculateVelocity().x) >= flingVelocity && abs(offset) >= 24.dp.toPx()
+                }
+                val target = if (destination == null) 0f else if (offset < 0) -width.toFloat() else width.toFloat()
+                val start = offset
+                settling = true
+                scope.launch {
+                    try {
+                        if (ValueAnimator.areAnimatorsEnabled()) {
+                            val duration = (260f * abs(target - start) / width.coerceAtLeast(1))
+                                .roundToInt().coerceIn(120, 320)
+                            Animatable(start).animateTo(target,
+                                tween(duration, easing = CubicBezierEasing(.16f, 1f, .3f, 1f))) {
+                                offset = value
+                            }
+                        }
+                        if (destination != null) onNavigate(destination)
+                    } finally {
+                        offset = 0f
+                        incoming = null
+                        settling = false
+                    }
+                }
+            }
+        }
+    }
+    Box(modifier.fillMaxSize().clipToBounds().onSizeChanged { width = it.width }.then(gesture)) {
+        incoming?.let { destination ->
+            key(destination) {
+                Box(Modifier.fillMaxSize().offset {
+                    IntOffset((offset + if (offset < 0) width else -width).roundToInt(), 0)
+                }) { content(destination) }
+            }
+        }
+        key(current) {
+            Box(Modifier.fillMaxSize().offset { IntOffset(offset.roundToInt(), 0) }) {
+                content(current)
+            }
         }
     }
 }

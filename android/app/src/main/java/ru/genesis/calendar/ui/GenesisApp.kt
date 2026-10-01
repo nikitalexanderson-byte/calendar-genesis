@@ -170,15 +170,9 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
         isLandscape, prefs.wideNavigationOnLeft)
     val portraitAutoScroll = !isLandscape && prefs.navigationLabels && prefs.navigationAutoScroll
     val portraitMenuSwipe = !isLandscape && prefs.menuSwipeEnabled
-    val menuSwipeModifier = rememberMenuSwipeModifier(portraitMenuSwipe) { step ->
-        val sequence = menuSwipeSequence(prefs.menuSwipeSubmenus, habitTrackingEnabled)
-        val destination = nextMenuSwipeDestination(sequence, tab,
-            if (prefs.menuSwipeSubmenus) menuSwipeState.section(tab) else null, step)
-        if (destination != null) {
-            destination.section?.let { menuSwipeState.select(destination.page, it) }
-            tab = destination.page
-        }
-    }
+    val swipeSequence = menuSwipeSequence(prefs.menuSwipeSubmenus, habitTrackingEnabled)
+    val currentSwipeDestination = SwipeDestination(tab,
+        if (prefs.menuSwipeSubmenus) menuSwipeState.section(tab) else null)
     val eveningTheme = rememberEveningTheme(AppearanceSettings.read(habitWorkspace.settings.rawJson))
     val window = LocalContext.current.activity()?.window
     SideEffect { window?.let { WindowInsetsControllerCompat(it,it.decorView).apply {
@@ -250,11 +244,11 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                     ru.genesis.calendar.auth.AccountTaskSyncNotice(accountTaskSync,
                         Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
                 }
-                val pageContent: @Composable () -> Unit = {
+                val pageContent: @Composable (String, MenuSwipeState) -> Unit = { visibleTab, visibleSwipeState ->
                   Column(Modifier.fillMaxSize()) {
                   error?.let { Text(it,color=MaterialTheme.colorScheme.error,modifier=Modifier.padding(12.dp)) }
-                  when(tab) {
-                    "Привычки" -> HabitsScreen(app,true,prefs.input,menuSwipeState)
+                  when(visibleTab) {
+                    "Привычки" -> HabitsScreen(app,true,prefs.input,visibleSwipeState)
                     "Теокиклос" -> TheokyklosScreen(app,prefs.input,onOpenHabits={tab="Привычки"},
                         initialSectorId=requestedTheokyklosSector,
                         onInitialSectorConsumed={requestedTheokyklosSector=null})
@@ -264,14 +258,14 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                     "Проекты" -> ProjectsScreen(app,tasks,true,
                         onOpenTask={ taskId -> editId=taskId;creating=false;tab="Задачи" },
                         onCreateTask={ projectId -> newTaskProjectId=projectId;newTaskListId=null;editId=null;creating=true },
-                        menuSwipeState=menuSwipeState)
+                        menuSwipeState=visibleSwipeState)
                     "Задачи" -> TasksScreen(tasks,taskLists,structure,prefs.use24,
                         confirmed = testWorkspace || accountTaskSync?.confirmed != false,
                         onCreateTask = { list -> newTaskListId=list?.id; newTaskProjectId=list?.let {
                             structure.taskListLinks.firstOrNull { link -> link.taskListId == it.id }?.projectId
                         }; editId=null; creating=true }, onCreateList={creatingTaskList=true},
                         onComplete=model::complete,onOpen={editId=it;creating=false},
-                        menuSwipeState=menuSwipeState)
+                        menuSwipeState=visibleSwipeState)
                     "Настройки" -> SettingsScreen(app, prefs, authState.busy && !testWorkspace,
                         canOpenAdmin = !testWorkspace && authState.ready && !authState.requiresSignIn &&
                             authState.user != null && authState.accountSettings?.isAdmin == true,
@@ -298,11 +292,11 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         onDeleteOccurrence={ task, date -> model.excludeOccurrence(task,date.toString()) {} },
                         dayHabits={ date -> if(habitTrackingEnabled) TodayHabitsContent(app,date,habitWorkspace,
                             onOpenHabits={tab="Привычки"}) },
-                        menuSwipeState=menuSwipeState,
+                        menuSwipeState=visibleSwipeState,
                         periodSwipeEnabled=!portraitMenuSwipe)
                     else -> LazyColumn(Modifier.fillMaxSize().testTag("today-list"),contentPadding=PaddingValues(16.dp),
                         verticalArrangement=Arrangement.spacedBy(12.dp)) {
-                        if(tab=="Сегодня") item {
+                        if(visibleTab=="Сегодня") item {
                             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                 DayHeader(LocalDate.parse(selected), prefs.display, dayDetailsExpanded,
                                     onToggleDetails = { dayDetailsExpanded = !dayDetailsExpanded },
@@ -320,11 +314,11 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                                 }
                             }
                         }
-                        if(tab=="Сегодня") item {
+                        if(visibleTab=="Сегодня") item {
                             DayRhythmPanel(prefs.use24)
                         }
-                        val shown=tasks.filter { tab!="Сегодня" || TaskOccurrences.occursOn(it,LocalDate.parse(selected)) }
-                        if (tab == "Сегодня") item {
+                        val shown=tasks.filter { visibleTab!="Сегодня" || TaskOccurrences.occursOn(it,LocalDate.parse(selected)) }
+                        if (visibleTab == "Сегодня") item {
                             val todayDate=LocalDate.now()
                             val missed=if (prefs.showMissedTasksToday && selected == todayDate.toString())
                                 missedTasksForToday(tasks,todayDate) else emptyList()
@@ -347,16 +341,35 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                             showLabels = prefs.navigationLabels, autoScroll = false,
                             onSelect = { tab = it }, modifier = Modifier
                                 .width(if (prefs.navigationLabels) 132.dp else 64.dp).wrapContentHeight())
-                        Box(Modifier.weight(1f).fillMaxHeight().then(menuSwipeModifier).testTag("main-content")) {
-                            CompositionLocalProvider(LocalCompactSubmenus provides true) { pageContent() }
+                        Box(Modifier.weight(1f).fillMaxHeight().testTag("main-content")) {
+                            CompositionLocalProvider(LocalCompactSubmenus provides true) {
+                                pageContent(tab, menuSwipeState)
+                            }
                         }
                     }
                 } else {
                     PrimaryNavigation(tab, habitTrackingEnabled, vertical = false,
                         showLabels = prefs.navigationLabels, autoScroll = portraitAutoScroll,
                         onSelect = { tab = it })
-                    Box(Modifier.fillMaxWidth().weight(1f).then(menuSwipeModifier).testTag("main-content")) {
-                        CompositionLocalProvider(LocalCompactSubmenus provides isLandscape) { pageContent() }
+                    MenuSwipePager(currentSwipeDestination, swipeSequence, portraitMenuSwipe,
+                        onNavigate = { destination ->
+                            destination.section?.let { menuSwipeState.select(destination.page, it) }
+                            tab = destination.page
+                        }, modifier = Modifier.fillMaxWidth().weight(1f).testTag("main-content")) { destination ->
+                        val visibleSwipeState = if (destination == currentSwipeDestination) menuSwipeState
+                            else remember(destination, menuSwipeState.tasks, menuSwipeState.projects,
+                                menuSwipeState.calendar, menuSwipeState.habits) {
+                                MenuSwipeState().also { preview ->
+                                    preview.tasks = menuSwipeState.tasks
+                                    preview.projects = menuSwipeState.projects
+                                    preview.calendar = menuSwipeState.calendar
+                                    preview.habits = menuSwipeState.habits
+                                    destination.section?.let { preview.select(destination.page, it) }
+                                }
+                            }
+                        CompositionLocalProvider(LocalCompactSubmenus provides isLandscape) {
+                            pageContent(destination.page, visibleSwipeState)
+                        }
                     }
                 }
             }
