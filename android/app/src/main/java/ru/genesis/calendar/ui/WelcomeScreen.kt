@@ -21,6 +21,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextAlign
@@ -60,12 +63,10 @@ fun WelcomeScreen(state: AuthPanelState, controller: AuthController, language: S
             }
         }
     }
-    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(
+    BoxWithConstraints(Modifier.fillMaxSize().background(Brush.verticalGradient(
         listOf(welcomeNight, welcomeGreen, welcomeNight)))
         .safeDrawingPadding().imePadding().testTag("genesis-welcome")) {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-            .padding(start = 20.dp, top = 16.dp, end = 20.dp, bottom = 108.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        val intro: @Composable () -> Unit = {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 OriginalImage("icons/icon-192.png", "GENESIS", Modifier.size(44.dp))
                 Text("GENESIS", Modifier.padding(start = 10.dp),
@@ -93,6 +94,8 @@ fun WelcomeScreen(state: AuthPanelState, controller: AuthController, language: S
                     else "Планируйте задачи, проекты и повторяющиеся практики. Личное пространство синхронизируется с сайтом и вашими устройствами.",
                     color = welcomeMuted, style = MaterialTheme.typography.bodyLarge)
             }
+        }
+        val details: @Composable () -> Unit = {
             Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(
                 topStart = 6.dp, topEnd = 26.dp, bottomStart = 26.dp, bottomEnd = 6.dp),
                 color = welcomeCream) {
@@ -149,7 +152,17 @@ fun WelcomeScreen(state: AuthPanelState, controller: AuthController, language: S
                 Text(if (language == "en") "Open the web version" else "Открыть веб-версию")
             }
         }
-        Surface(Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
+        if (maxWidth >= 760.dp) {
+            Row(Modifier.fillMaxSize().padding(horizontal = 28.dp), horizontalArrangement = Arrangement.spacedBy(32.dp)) {
+                Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())
+                    .padding(top = 24.dp, bottom = 108.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) { intro() }
+                Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())
+                    .padding(top = 24.dp, bottom = 108.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) { details() }
+            }
+        } else Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(start = 20.dp, top = 16.dp, end = 20.dp, bottom = 108.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)) { intro(); details() }
+        Surface(Modifier.align(Alignment.BottomCenter).widthIn(max = 720.dp).fillMaxWidth(),
             color = welcomeNight, shadowElevation = 12.dp) {
             Column(Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -194,16 +207,45 @@ private fun WelcomeTrustLine(symbol: String, text: String) {
 @Composable
 fun LanguageChips(language: String, dark: Boolean = false, flagsOnly: Boolean = false,
     onLanguage: (String) -> Unit) {
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        listOf(Triple("ru", "🇷🇺", "Русский"), Triple("en", "🇬🇧", "English"),
+    val languages = listOf(Triple("ru", "🇷🇺", "Русский"), Triple("en", "🇬🇧", "English"),
             Triple("el", "🇬🇷", "Ελληνικά"), Triple("de", "🇩🇪", "Deutsch"),
             Triple("fr", "🇫🇷", "Français"), Triple("es", "🇪🇸", "Español"),
             Triple("it", "🇮🇹", "Italiano"), Triple("pt", "🇵🇹", "Português"),
             Triple("pl", "🇵🇱", "Polski"), Triple("sr", "🇷🇸", "Српски"),
             Triple("uk", "🇺🇦", "Українська"), Triple("zh", "🇨🇳", "简体中文"),
             Triple("tr", "🇹🇷", "Türkçe"), Triple("ja", "🇯🇵", "日本語"))
-            .forEach { (value, flag, label) ->
+    if (flagsOnly) {
+        BoxWithConstraints(Modifier.fillMaxWidth().testTag("welcome-language-grid")) {
+            // Keep complete rows as languages are added; compact cells still have a 48 dp height.
+            val columns = balancedLanguageColumns(languages.size, ((maxWidth.value + 2f) / 46f).toInt())
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                languages.chunked(columns).forEach { row ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                        row.forEach { (value, flag, label) ->
+                            val active = language == value
+                            Surface(onClick = { onLanguage(value) },
+                                modifier = Modifier.weight(1f).height(48.dp).testTag("language-$value")
+                                    .semantics {
+                                        contentDescription = label
+                                        role = Role.RadioButton
+                                        selected = active
+                                    },
+                                shape = RoundedCornerShape(10.dp),
+                                color = if (active) Color(0xFF2E7770) else welcomeGreen,
+                                border = BorderStroke(1.dp, if (active) welcomeGold else welcomeMuted)) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    androidx.compose.material3.Text(flag, fontSize = 20.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    } else {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        languages.forEach { (value, flag, label) ->
                 FilterChip(selected = language == value, onClick = { onLanguage(value) },
                     label = {
                         Row(verticalAlignment = Alignment.CenterVertically,
@@ -221,7 +263,11 @@ fun LanguageChips(language: String, dark: Boolean = false, flagsOnly: Boolean = 
                         .semantics { contentDescription = label })
             }
     }
+    }
 }
+
+internal fun balancedLanguageColumns(count: Int, availableColumns: Int): Int =
+    (minOf(count, availableColumns.coerceAtLeast(1), 7) downTo 1).first { count % it == 0 }
 
 private fun openWebsite(context: Context) {
     runCatching { context.startActivity(Intent(Intent.ACTION_VIEW,

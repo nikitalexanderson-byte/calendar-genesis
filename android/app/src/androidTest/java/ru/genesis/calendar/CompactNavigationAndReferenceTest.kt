@@ -23,6 +23,7 @@ class CompactNavigationAndReferenceTest {
         val original = runBlocking { preferences.values.first() }
         try {
             runBlocking {
+                preferences.set("wideNavigation", "top")
                 preferences.set("navigationLabels", "icons")
                 preferences.set("navigationAutoScroll", "false")
                 preferences.set("language", "ru")
@@ -48,7 +49,7 @@ class CompactNavigationAndReferenceTest {
             compose.waitUntil(5_000) { runBlocking {
                 preferences.values.first().manualRegionZone == "Australia/Sydney"
             } }
-            assertTrue(runBlocking { preferences.values.first().regionSource == "manual" })
+            compose.waitUntil(5_000) { runBlocking { preferences.values.first().regionSource == "manual" } }
             compose.onNodeWithTag("navigation-with-text").performScrollTo().performClick()
             compose.waitUntil(5_000) {
                 compose.onAllNodesWithTag("navigation-auto-scroll-setting").fetchSemanticsNodes().isNotEmpty()
@@ -94,6 +95,7 @@ class CompactNavigationAndReferenceTest {
                 preferences.set("navigationLabels", if (original.navigationLabels) "text" else "icons")
                 preferences.set("navigationAutoScroll", original.navigationAutoScroll.toString())
                 preferences.set("language", original.language)
+                preferences.set("wideNavigation", if (original.wideNavigationOnLeft) "left" else "top")
                 preferences.set("regionSource", original.regionSource)
                 preferences.set("manualRegionZone", original.manualRegionZone)
             }

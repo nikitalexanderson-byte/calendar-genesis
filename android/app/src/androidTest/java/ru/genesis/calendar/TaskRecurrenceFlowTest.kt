@@ -21,7 +21,7 @@ class TaskRecurrenceFlowTest {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
         check(BuildConfig.DEBUG && app.packageName.endsWith(".debug"))
         val title = "UI серия ${UUID.randomUUID()}"
-        compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("create-task"))
+        compose.scrollToTodayNode(hasTestTag("create-task"))
         compose.onNodeWithTag("create-task").performClick()
         compose.onNodeWithTag("task-title").performTextInput(title)
         UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()
@@ -60,7 +60,7 @@ class TaskRecurrenceFlowTest {
         assertEquals("daily", stored.recurrence.pattern)
         assertTrue(TaskOccurrences.occursOn(stored, LocalDate.parse(stored.date).plusDays(1)))
         assertEquals(1, runBlocking { app.repository.tasks.first().count { it.title == title } })
-        compose.onNodeWithTag("today-list").performScrollToNode(hasText(title))
+        compose.scrollToTodayNode(hasText(title))
         compose.onNodeWithText(title).performClick()
         compose.onNodeWithText("Удалить задачу").performScrollTo().performClick()
         compose.onNodeWithTag("delete-occurrence").assertExists().performClick()

@@ -53,8 +53,11 @@ class CategoryPaletteFlowTest {
         }
         try {
             compose.waitUntil(10_000) { compose.onAllNodesWithTag("projects-screen").fetchSemanticsNodes().isNotEmpty() }
-            compose.onNodeWithText("Управлять").performScrollTo().performClick()
+            if (compose.onAllNodesWithTag("manage-categories").fetchSemanticsNodes().isEmpty())
+                compose.onNodeWithTag("projects-screen").performScrollToNode(hasTestTag("manage-categories"))
+            compose.onNodeWithTag("manage-categories").performScrollTo().performClick()
             compose.onNodeWithTag("create-category").performScrollTo().performClick()
+            compose.waitUntil(10_000) { compose.onAllNodesWithTag("category-name").fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithTag("category-name").performTextInput(name)
             UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()
             assertEquals(60, compose.onAllNodes(SemanticsMatcher("Colour swatch") {

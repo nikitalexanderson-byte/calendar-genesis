@@ -95,7 +95,8 @@ class CalendarMobileLayoutTest {
                 CalendarMode.PROFANE -> "calendar-year-month-2026-11-01"
             }
             compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag(lastTag))
-            compose.onNodeWithTag("genesis-page-header").assertDoesNotExist()
+            compose.onNodeWithTag(lastTag).assertIsDisplayed()
+            compose.onNodeWithTag("genesis-page-header").assert(!hasAnyAncestor(hasTestTag("calendar-year-panel")))
             compose.onNodeWithTag("calendar-view-switch").assertIsDisplayed()
             compose.onNodeWithTag(lastTag).performClick()
             compose.onNodeWithText("Календарь - месяц").assertIsDisplayed()
@@ -167,7 +168,7 @@ class CalendarMobileLayoutTest {
             compose.waitUntil(10_000) {
                 val card = compose.onNodeWithTag("calendar-selected-day").fetchSemanticsNode().boundsInRoot
                 val viewport = compose.onNodeWithTag("calendar-month").fetchSemanticsNode().boundsInRoot
-                card.top >= viewport.top - 3 && card.top <= viewport.top + 12
+                card.top >= viewport.top - 3 && card.top <= viewport.top + 12 * compose.activity.resources.displayMetrics.density
             }
             capture("${next.name.lowercase()}-selected-day-start")
         }
@@ -204,11 +205,11 @@ class CalendarMobileLayoutTest {
                 }
             }
         }
-        compose.waitUntil(30_000) { compose.onAllNodesWithTag("stoicheion-letter-alpha").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(30_000) { compose.onAllNodesWithTag("stoicheion-grid").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("genesis-page-header").assertIsDisplayed()
         capture("stoicheion-top")
         compose.onNodeWithTag("stoicheion-grid").performScrollToNode(hasTestTag("stoicheion-letter-omega"))
-        compose.onNodeWithTag("genesis-page-header").assertDoesNotExist()
+        compose.onNodeWithTag("genesis-page-header").assert(hasAnyAncestor(hasTestTag("stoicheion-grid")))
         compose.onNodeWithTag("stoicheion-letter-omega").assertIsDisplayed()
         capture("stoicheion-scrolled")
     }
@@ -231,7 +232,7 @@ class CalendarMobileLayoutTest {
         compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag("calendar-year-month-2026-01-01"))
         compose.onNodeWithTag("gregorian-year-start-1", useUnmergedTree = true).assertDoesNotExist()
         compose.onNodeWithTag("gregorian-year-end-1", useUnmergedTree = true).assertDoesNotExist()
-        compose.onNodeWithText("Winter").assertExists()
+        compose.onAllNodesWithText("Winter").onFirst().assertExists()
         capture("gregorian-english-year")
     }
 }

@@ -75,7 +75,6 @@ class MobilePolishTest {
         val draft = "Несохранённая задача полировки"
         compose.onNodeWithTag("navigation-Задачи").performClick()
         compose.onNodeWithTag("create-task").performClick()
-        compose.onNodeWithTag("create-task-choice").performClick()
         compose.onNodeWithTag("task-title").performTextInput(draft)
         UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()
         val close = compose.onNodeWithTag("close-task-editor")

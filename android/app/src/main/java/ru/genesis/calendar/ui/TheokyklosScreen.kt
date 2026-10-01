@@ -85,8 +85,8 @@ fun TheokyklosScreen(app: GenesisApplication, calendarMode: CalendarMode, onOpen
         return
     }
     val selected = selectedId?.let(data.byId::get)
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val diagram: @Composable () -> Unit = {
         GenesisPageHeader(if (english) "Theokyklos" else "Теокиклос",
             if (english) "Fourteen powers: directions, axis, center and gates"
             else "Четырнадцать сил: направления, ось, центр и врата", "Θ",
@@ -95,6 +95,8 @@ fun TheokyklosScreen(app: GenesisApplication, calendarMode: CalendarMode, onOpen
         Text("Коснитесь любого направления, полюса, очага, центра или врат.",
             style = MaterialTheme.typography.bodySmall)
         TheokyklosMandala(data.sectors, english) { selectedId = it }
+        }
+        val sectors: @Composable () -> Unit = {
         Text("Ось, врата и ядро", style = MaterialTheme.typography.titleMedium)
         listOf("zenith", "nadir", "entrance", "exit", "center", "hearth").chunked(2).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -110,6 +112,12 @@ fun TheokyklosScreen(app: GenesisApplication, calendarMode: CalendarMode, onOpen
                 row.forEach { sector -> SectorCard(sector, english, Modifier.weight(1f)) { selectedId = sector.id } }
             }
         }
+        }
+        if (maxWidth >= 840.dp) Row(Modifier.fillMaxSize().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+            Column(Modifier.weight(1.2f).fillMaxHeight().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) { diagram() }
+            Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) { sectors() }
+        } else Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)) { diagram(); sectors() }
     }
     if (selected != null) {
         TheokyklosDetail(
@@ -240,7 +248,7 @@ private fun TheokyklosDetail(sector: TheokyklosSector, practices: List<Theokyklo
     onClose: () -> Unit, onOpenHabits: () -> Unit,
     onPractice: (TheokyklosPractice, Habit?, String) -> Unit) {
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(Modifier.fillMaxWidth().fillMaxHeight(.92f).padding(12.dp), shape = RoundedCornerShape(20.dp),
+        Surface(Modifier.widthIn(max = 840.dp).fillMaxWidth().fillMaxHeight(.92f).padding(12.dp), shape = RoundedCornerShape(20.dp),
             color = MaterialTheme.colorScheme.surface) {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Row(Modifier.fillMaxWidth().background(night).padding(12.dp),

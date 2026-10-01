@@ -56,17 +56,17 @@ class CalendarAndTodayFlowTest {
                 File(app.cacheDir, "today-profane-after.png")))
             compose.onNodeWithTag("today-gregorian-summary").assertDoesNotExist()
             compose.onNodeWithTag("today-gregorian-year-position", useUnmergedTree = true).assertExists()
-            compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("today-day-rhythm"))
+            compose.scrollToTodayNode(hasTestTag("today-day-rhythm"))
             compose.onNodeWithTag("today-day-rhythm").assertExists()
-            compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("today-tasks-section"))
+            compose.scrollToTodayNode(hasTestTag("today-tasks-section"))
             compose.onNodeWithTag("today-habits-section").assertExists()
-            compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("today-habit-check-today-reading-validation"))
+            compose.scrollToTodayNode(hasTestTag("today-habit-check-today-reading-validation"))
             compose.onNodeWithTag("today-habit-check-today-reading-validation").performClick()
             compose.waitUntil(8_000) { runBlocking { habits.workspace.first().completions.any {
                 it.habitId == "today-reading-validation" && it.completed && it.date == date } } }
             assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(
                 File(app.cacheDir, "today-activity-after.png")))
-            compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("today-hero"))
+            compose.scrollToTodayNode(hasTestTag("today-hero"))
             runBlocking { prefs.set("display", "lunar") }
             compose.waitUntil(10_000) {
                 compose.onAllNodesWithText("ЛУННЫЙ КАЛЕНДАРЬ", substring = true)
@@ -80,9 +80,9 @@ class CalendarAndTodayFlowTest {
                 compose.onAllNodesWithText("МЕСЯЦ", substring = true)
                     .fetchSemanticsNodes().isNotEmpty()
             }
-            compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("day-rhythm-expand"))
+            compose.scrollToTodayNode(hasTestTag("day-rhythm-expand"))
             compose.onNodeWithTag("day-rhythm-expand").assertExists()
-            compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("today-day-details"))
+            compose.scrollToTodayNode(hasTestTag("today-day-details"))
             compose.onNodeWithTag("day-knowledge").assertExists()
             compose.onNodeWithTag("navigation-Календарь").performClick()
             compose.onNodeWithTag("pyata-1").performScrollTo().performClick()

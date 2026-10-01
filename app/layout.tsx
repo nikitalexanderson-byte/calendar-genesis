@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import "./globals.css";
 import "./experimental-theme.css";
+import "./dark-theme.css";
+import "./tablet-layout.css";
 import { AppUrlCleaner } from "./AppUrlCleaner";
 
 export async function generateMetadata(): Promise<Metadata> {

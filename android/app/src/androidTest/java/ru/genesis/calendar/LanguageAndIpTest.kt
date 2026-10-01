@@ -41,7 +41,7 @@ class LanguageAndIpTest {
         val prefs = LocalPreferences(app, app.workspaceScope)
         val original = runBlocking { prefs.values.first().language }
         try {
-            compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("create-task"))
+            compose.scrollToTodayNode(hasTestTag("create-task"))
             compose.onNodeWithTag("create-task").performClick()
             runBlocking { prefs.set("language", "ja") }
             compose.onNodeWithText("この数字は追加した通知の数です。Google カレンダーでは、予定ごとに最大5件まで設定できます。")

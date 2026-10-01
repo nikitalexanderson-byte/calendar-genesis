@@ -67,8 +67,8 @@ class CalendarModeHeaderTest {
         assertEquals(4, solarTiles.size)
         assertTrue(solarTiles.map { it.boundsInRoot.width }.max() -
             solarTiles.map { it.boundsInRoot.width }.min() < 2f)
-        assertTrue(solarTiles.map { it.boundsInRoot.height }.max() -
-            solarTiles.map { it.boundsInRoot.height }.min() < 2f)
+        assertTrue(solarTiles.map { it.size.height }.max() -
+            solarTiles.map { it.size.height }.min() < 2)
         compose.onNodeWithTag("genesis-page-header").assertExists()
         val yearWidth = compose.onNodeWithTag("calendar-year-panel")
             .fetchSemanticsNode().boundsInRoot.width
@@ -76,8 +76,10 @@ class CalendarModeHeaderTest {
             .fetchSemanticsNode().boundsInRoot.width
         assertTrue("year header=$yearHeaderWidth panel=$yearWidth",
             kotlin.math.abs(yearHeaderWidth - yearWidth) < 2f)
-        assertTrue("year panel=$yearWidth month panel=$monthWidth",
-            kotlin.math.abs(yearWidth - monthWidth) < 2f)
+        if (compose.activity.resources.configuration.screenWidthDp < 840) {
+            assertTrue("year panel=$yearWidth month panel=$monthWidth",
+                kotlin.math.abs(yearWidth - monthWidth) < 2f)
+        }
         assertTrue(device.takeScreenshot(File(context.getExternalFilesDir(null), "calendar-year-after.png")))
         compose.onNodeWithTag("genesis-page-header").performTouchInput { swipeLeft() }
         compose.onNodeWithTag("calendar-year-period").assertTextContains("2026")
@@ -86,7 +88,8 @@ class CalendarModeHeaderTest {
             compose.onAllNodesWithText("2027").fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag("gregorian-season-summer"))
-        compose.onNodeWithTag("genesis-page-header").assertIsNotDisplayed()
+        compose.onNodeWithTag("gregorian-season-summer").assertIsDisplayed()
+        compose.onNodeWithTag("genesis-page-header").assert(!hasAnyAncestor(hasTestTag("calendar-year-panel")))
     }
 
     @Test fun monthAndYearKeepTheSameWidthInEveningTheme() {
@@ -118,8 +121,10 @@ class CalendarModeHeaderTest {
             .fetchSemanticsNode().boundsInRoot.width
         assertTrue("evening year header=$yearHeaderWidth panel=$yearWidth",
             kotlin.math.abs(yearHeaderWidth - yearWidth) < 2f)
-        assertTrue("evening year panel=$yearWidth month panel=$monthWidth",
-            kotlin.math.abs(yearWidth - monthWidth) < 2f)
+        if (compose.activity.resources.configuration.screenWidthDp < 840) {
+            assertTrue("evening year panel=$yearWidth month panel=$monthWidth",
+                kotlin.math.abs(yearWidth - monthWidth) < 2f)
+        }
         assertTrue(device.takeScreenshot(File(context.getExternalFilesDir(null), "calendar-year-evening.png")))
     }
 }

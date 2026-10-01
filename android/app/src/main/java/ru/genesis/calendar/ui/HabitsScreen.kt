@@ -169,7 +169,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
             Text("Мои привычки",style=MaterialTheme.typography.titleLarge)
             if(current.habits.isEmpty()) Text("Здесь появятся ваши практики. Выберите идею из подборки или создайте свою.",
                 style=MaterialTheme.typography.bodyMedium)
-            current.habits.sortedByDescending { it.priority }.forEach { habit ->
+            AdaptiveCardGrid(current.habits.sortedByDescending { it.priority }, { it.id }) { habit ->
                 val entry=current.completions.firstOrNull { it.habitId==habit.id && it.date==today }
                 val scheduled=runCatching { engine.isScheduled(habit,today) }.getOrDefault(false)
                 if (experimental) ExperimentalHabitCard(habit, entry, scheduled, busy || storageError,
@@ -389,7 +389,7 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
     var formCalendarMode by rememberSaveable(initial.id) { mutableStateOf(inputCalendarMode) }
     var config by remember(initial.id) { mutableStateOf(initial.schedule.recurrence) }
     val mode=when(config.mode) { "classic"->CalendarMode.PROFANE;"lunar"->CalendarMode.LUNAR;else->CalendarMode.SACRED }
-    Dialog(onDismissRequest=onDismiss) { Surface(shape=MaterialTheme.shapes.large) {
+    Dialog(onDismissRequest=onDismiss, properties=androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth=false)) { Surface(Modifier.widthIn(max=720.dp).fillMaxWidth().padding(12.dp),shape=MaterialTheme.shapes.large) {
         Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)) {
             Text(if(existing==null) "Новая привычка" else "Изменить привычку",style=MaterialTheme.typography.titleLarge)
             OutlinedTextField(title,{title=it},label={Text("Название")},modifier=Modifier.fillMaxWidth(),enabled=!busy)

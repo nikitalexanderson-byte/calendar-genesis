@@ -80,7 +80,10 @@ class ProjectsFlowTest {
         }
         compose.waitUntil(10_000) { compose.onAllNodesWithTag("project-title").fetchSemanticsNodes().isEmpty() }
         compose.onNodeWithTag("app-theme-Standart").assertExists()
-        compose.onNodeWithTag("projects-screen").performScrollToNode(hasTestTag("category-filter-work"))
+        if (compose.onAllNodesWithTag("category-filter-work").fetchSemanticsNodes().isEmpty()) {
+            compose.onNodeWithTag("projects-screen").performScrollToNode(hasTestTag("category-filter-work"))
+        }
+        compose.onNodeWithTag("category-filter-work").performScrollTo()
         compose.onNodeWithTag("category-filter-work")
             .assert(hasAnyAncestor(hasTestTag("life-categories-card")))
         compose.onNodeWithTag("category-filter-work").performClick()

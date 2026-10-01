@@ -101,7 +101,7 @@ fun StoicheionScreen(app: GenesisApplication, divinationDisabled: Boolean,
     val beginMotion: (String) -> Unit = { mode ->
         if (!saving && !divinationDisabled) { drawError = null; motionMode = mode }
     }
-    LazyVerticalGrid(columns = GridCells.Fixed(2), modifier = Modifier.fillMaxSize().testTag("stoicheion-grid"),
+    LazyVerticalGrid(columns = GridCells.Adaptive(140.dp), modifier = Modifier.fillMaxSize().testTag("stoicheion-grid"),
         contentPadding = PaddingValues(12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item(span = { GridItemSpan(maxLineSpan) }) {
@@ -156,7 +156,7 @@ fun StoicheionScreen(app: GenesisApplication, divinationDisabled: Boolean,
         val letter = reading.letter
         Dialog(onDismissRequest = { selected = null },
             properties = DialogProperties(usePlatformDefaultWidth = false)) {
-            Surface(Modifier.fillMaxWidth().fillMaxHeight(.94f).padding(horizontal = 12.dp),
+            Surface(Modifier.widthIn(max = 840.dp).fillMaxWidth().fillMaxHeight(.94f).padding(horizontal = 12.dp),
                 shape = MaterialTheme.shapes.large) {
                 Column(Modifier.fillMaxSize()) {
                     Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 8.dp),

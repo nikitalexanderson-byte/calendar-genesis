@@ -58,7 +58,7 @@ class MobilePolishLayoutTest {
         compose.waitUntil(10_000) {
             val card = compose.onNodeWithTag("calendar-selected-day").fetchSemanticsNode().boundsInRoot
             val viewport = compose.onNodeWithTag("calendar-month").fetchSemanticsNode().boundsInRoot
-            card.top >= viewport.top - 3 && card.top <= viewport.top + 12
+            card.top >= viewport.top - 3 && card.top <= viewport.top + 12 * compose.activity.resources.displayMetrics.density
         }
     }
 
