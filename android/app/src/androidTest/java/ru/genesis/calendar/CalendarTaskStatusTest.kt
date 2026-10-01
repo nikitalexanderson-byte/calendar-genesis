@@ -31,11 +31,17 @@ class CalendarTaskStatusTest {
         "calendar-task-${if (done) "done" else "open"}-count-$date", useUnmergedTree = true)
 
     private fun assertColor(date: LocalDate, done: Boolean) {
-        val image = disc(date, done).captureToImage().asAndroidBitmap()
+        disc(date, done).performScrollTo().assertIsDisplayed()
+        compose.mainClock.advanceTimeBy(400)
+        compose.waitForIdle()
         val expected = Color(if (done) 0xff255b59 else 0xffb63b42).toArgb()
-        assertTrue("Counter must use its status color", (0 until image.width).any { x ->
-            (0 until image.height).any { y -> image.getPixel(x, y) == expected }
-        })
+        // Dialog dimming belongs to the Android window and can outlast Compose idleness.
+        compose.waitUntil(5_000) {
+            val image = disc(date, done).captureToImage().asAndroidBitmap()
+            (0 until image.width).any { x ->
+                (0 until image.height).any { y -> image.getPixel(x, y) == expected }
+            }
+        }
     }
 
     private fun capture(name: String) {

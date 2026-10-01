@@ -50,6 +50,9 @@ try {
     expect((genesisUserForClient($user)['theme'] ?? '') === 'experimental', 'Theme preference was not exposed to the client.');
     $user = genesisUpdateAccountPreferences($userId, ['theme' => 'experimental-dark', 'expectedThemeRevision' => 1]);
     expect((genesisUserForClient($user)['theme'] ?? '') === 'experimental-dark', 'Dark theme was not exposed to the client.');
+    $user = genesisUpdateAccountPreferences($userId, ['theme' => 'standart-dark', 'expectedThemeRevision' => 2]);
+    expect((genesisUserForClient($user)['theme'] ?? '') === 'standart-dark', 'Standart dark theme was not exposed to the client.');
+    expect((int)$user['theme_revision'] === 3, 'Standart dark theme revision was not incremented.');
     foreach (['el', 'de', 'fr', 'es', 'it', 'pt', 'pl', 'sr', 'uk', 'zh', 'tr', 'ja'] as $locale) {
         $user = genesisUpdateAccountPreferences($userId, ['language' => $locale]);
         expect((genesisUserForClient($user)['language'] ?? '') === $locale, "Language $locale was not saved.");

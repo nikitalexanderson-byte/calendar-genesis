@@ -1476,7 +1476,7 @@ export function GenesisCalendar() {
   }, []);
 
   const requestGenesisThemeChange = useCallback((theme: GenesisTheme) => {
-    if (theme !== GENESIS_THEME.STANDART && themeState.theme === GENESIS_THEME.STANDART) {
+    if (theme.startsWith("experimental") && !themeState.theme.startsWith("experimental")) {
       pendingExperimentalThemeRef.current = theme;
       setExperimentalThemeWarningOpen(true);
       return;
@@ -4212,7 +4212,7 @@ export function GenesisCalendar() {
   };
 
   const renderToday = () => {
-    const experimentalThemeActive = themeState.available && themeState.theme !== GENESIS_THEME.STANDART;
+    const experimentalThemeActive = themeState.available && themeState.theme.startsWith("experimental");
     const isEnglish = language === "en";
     const info = todayInfo;
     const month = MONTHS[info.monthIndex];
@@ -5417,7 +5417,7 @@ export function GenesisCalendar() {
   };
 
   const renderAllTasks = () => {
-    const experimentalThemeActive = themeState.available && themeState.theme !== GENESIS_THEME.STANDART;
+    const experimentalThemeActive = themeState.available && themeState.theme.startsWith("experimental");
     const isEnglish = language === "en";
     const safeTaskTags = (task: Task) => Array.isArray(task.tags) ? task.tags : [];
     const safeDependencyIds = (task: Task) => Array.isArray(task.dependsOnIds) ? task.dependsOnIds : [];
@@ -6128,7 +6128,7 @@ export function GenesisCalendar() {
           </div>
           <div className="topbar-actions">
             {nativeAndroidApkUrl ? (
-              <a className="icon-button ux-action-button android-native-icon-button" href={nativeAndroidApkUrl} download="GENESIS-Android-Native-2.4.4.apk" data-tooltip={language === "en" ? "Native Android app · remove the old TWA first" : "Нативное приложение · сначала удалите прежнюю TWA"} title={language === "en" ? "Native GENESIS APK; old TWA must be removed first" : "Нативный GENESIS APK; прежнюю TWA необходимо сначала удалить"} aria-label={language === "en" ? "Download native GENESIS for Android; remove the old TWA first" : "Скачать нативный GENESIS для Android; сначала удалите старую TWA"}>
+              <a className="icon-button ux-action-button android-native-icon-button" href={nativeAndroidApkUrl} download="GENESIS-Android-Native-2.4.5.apk" data-tooltip={language === "en" ? "Native Android app · remove the old TWA first" : "Нативное приложение · сначала удалите прежнюю TWA"} title={language === "en" ? "Native GENESIS APK; old TWA must be removed first" : "Нативный GENESIS APK; прежнюю TWA необходимо сначала удалить"} aria-label={language === "en" ? "Download native GENESIS for Android; remove the old TWA first" : "Скачать нативный GENESIS для Android; сначала удалите старую TWA"}>
                 <svg className="ux-android-robot" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M5.5 9h13v8.5a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2V9ZM5.5 9a6.5 6.5 0 0 1 13 0M4 11v5M20 11v5M9 19.5V22M15 19.5V22M7 3 5.5 1M17 3 18.5 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><circle cx="9.3" cy="7" r=".8" fill="currentColor"/><circle cx="14.7" cy="7" r=".8" fill="currentColor"/></svg>
               </a>
             ) : null}
@@ -6180,11 +6180,13 @@ export function GenesisCalendar() {
                         <input
                           type="checkbox"
                           role="switch"
-                          checked={themeState.theme !== GENESIS_THEME.STANDART}
+                          checked={themeState.theme.startsWith("experimental")}
                           disabled={!themeState.available || ["signed-out", "loading", "load-error"].includes(themeState.status)}
                           aria-label={language === "en" ? "Experimental theme" : "Тема Experimental"}
                           aria-busy={themeState.pending}
-                          onChange={(event) => requestGenesisThemeChange(event.target.checked ? GENESIS_THEME.EXPERIMENTAL : GENESIS_THEME.STANDART)}
+                          onChange={(event) => requestGenesisThemeChange(event.target.checked
+                            ? (themeState.theme.endsWith("-dark") ? GENESIS_THEME.EXPERIMENTAL_DARK : GENESIS_THEME.EXPERIMENTAL)
+                            : (themeState.theme.endsWith("-dark") ? GENESIS_THEME.STANDART_DARK : GENESIS_THEME.STANDART))}
                         />
                         <i aria-hidden="true" />
                       </label>
@@ -6226,7 +6228,7 @@ export function GenesisCalendar() {
           <div className="content-column" data-exp-layout="stack">
             {authError ? <p className="oauth-callback-error" role="alert">{authError}</p> : null}
             {cloudUser && (!cloudUser.calendarConnected || !cloudUser.googleTasksImportReady) ? (
-              themeState.available && themeState.theme !== GENESIS_THEME.STANDART ? (
+              themeState.available && themeState.theme.startsWith("experimental") ? (
                 <details className="google-connect-banner experimental-google-connect">
                   <summary>
                     <span className="experimental-google-connect-mark" aria-hidden="true">↗</span>
@@ -6282,7 +6284,7 @@ export function GenesisCalendar() {
                     timeFormat={activeTimeFormat}
                     calendarMode={activeTaskCalendarMode}
                     googleTasksReady={Boolean(cloudUser?.googleTasksImportReady)}
-                    experimentalThemeActive={themeState.available && themeState.theme !== GENESIS_THEME.STANDART}
+                    experimentalThemeActive={themeState.available && themeState.theme.startsWith("experimental")}
                     onChange={updateHabitWorkspace}
                     onReminderRequested={createHabitGoogleReminder}
                     onReminderRemoved={async (habit) => {

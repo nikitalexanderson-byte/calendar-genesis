@@ -163,7 +163,7 @@ function genesisUserForClient(array $user): array
     $gregorianYearStart = in_array($user['gregorian_year_start'] ?? '', ['january', 'march'], true)
         ? (string)$user['gregorian_year_start']
         : 'january';
-    $theme = in_array($user['theme'] ?? '', ['standart', 'experimental', 'experimental-dark'], true)
+    $theme = in_array($user['theme'] ?? '', ['standart', 'standart-dark', 'experimental', 'experimental-dark'], true)
         ? (string)$user['theme']
         : 'standart';
     $language = in_array($user['language'] ?? '', ['ru', 'en', 'el', 'de', 'fr', 'es', 'it', 'pt', 'pl', 'sr', 'uk', 'zh', 'tr', 'ja'], true)
@@ -914,7 +914,7 @@ function genesisUpdateAccountPreferences(string $userId, array $payload): array
     }
     if ($hasThemePreference) {
         $theme = trim((string)$payload['theme']);
-        if (!in_array($theme, ['standart', 'experimental', 'experimental-dark'], true)) {
+        if (!in_array($theme, ['standart', 'standart-dark', 'experimental', 'experimental-dark'], true)) {
             throw new InvalidArgumentException('Неизвестная тема интерфейса.');
         }
         $expectedThemeRevision = filter_var($payload['expectedThemeRevision'] ?? null, FILTER_VALIDATE_INT);

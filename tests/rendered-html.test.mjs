@@ -1999,8 +1999,8 @@ test("retains the legacy TWA artifact but promotes only the signed native Androi
   assert.match(styles, /\.ux-android-robot/);
   // The legacy 1.2.2 asset remains available while the current native release advances.
   const nativeVersionCode = Number(androidBuild.match(/versionCode = (\d+)/)?.[1]);
-  assert.ok(nativeVersionCode >= 50);
-  assert.match(androidBuild, /versionName = "2\.4\.4"/);
+  assert.ok(nativeVersionCode >= 51);
+  assert.match(androidBuild, /versionName = "2\.4\.5"/);
   assert.match(androidBuild, /releaseSigningReady/);
   assert.match(androidBuild, /applicationIdSuffix = "\.debug"/);
   assert.match(androidBuild, /androidx\.browser:browser:1\.10\.0/);
@@ -2286,7 +2286,7 @@ test("ships an isolated account-owned Experimental theme while preserving author
   assert.match(cloud, /"\/account\/preferences"/);
   assert.match(repository, /theme_revision = :expected_theme_revision/);
   assert.match(repository, /\$statement->rowCount\(\) !== 1/);
-  assert.match(repository, /\['standart', 'experimental', 'experimental-dark'\]/);
+  assert.match(repository, /\['standart', 'standart-dark', 'experimental', 'experimental-dark'\]/);
   assert.match(migration, /DEFAULT 'standart'/);
   assert.match(controller, /ThemeConflictError/);
   assert.match(controller, /root\.setAttribute\(GENESIS_THEME_ATTRIBUTE/);

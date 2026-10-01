@@ -68,7 +68,7 @@ class EveningAndMonthFlowTest {
             compose.waitUntil(10_000) {
                 val card=compose.onNodeWithTag("calendar-selected-day").fetchSemanticsNode().boundsInRoot
                 val viewport=compose.onNodeWithTag("calendar-month").fetchSemanticsNode().boundsInRoot
-                card.top>=viewport.top-3 && card.top<=viewport.top+12
+                card.top>=viewport.top-3 && card.top<=viewport.top+12*compose.activity.resources.displayMetrics.density
             }
             capture("${calendarMode.wireValue}-selected-hero")
         }
@@ -84,16 +84,28 @@ class EveningAndMonthFlowTest {
         var edited=""
         var tasks by mutableStateOf(listOf(LocalTask("inline-check","Задача месяца",date=date.toString())))
         content {
-            val workspace by repo.workspace.collectAsState(LocalHabitWorkspace())
+            val workspace = repo.workspace.collectAsState(LocalHabitWorkspace()).value
             CalendarScreen(date,CalendarMode.PROFANE,{},experimental=true,tasks=tasks,
                 onEditTask={task,_->edited=task.id},onDeleteTask={task->tasks=tasks.filterNot {it.id==task.id}},
-                dayHabits={TodayHabitsContent(app,it,workspace,{})})
+                dayHabits={day -> TodayHabitsContent(app,day,workspace,{}) })
         }
         try {
             compose.onNodeWithTag("calendar-inline-edit-inline-check").performScrollTo().performClick()
             assertEquals("inline-check",edited)
+            val stored = runBlocking { repo.workspace.first().habits.single { it.id == id } }
+            assertTrue("Fixture must be scheduled today", HabitEngine(GenesisCalendar()).isScheduled(stored, date))
+            compose.onNodeWithTag("today-habits-section").performScrollTo()
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithTag("today-habit-check-$id").fetchSemanticsNodes().isNotEmpty()
+            }
             compose.onNodeWithTag("today-habit-check-$id").performScrollTo().assertIsOff().performClick()
+            compose.waitForIdle()
             compose.waitUntil(10_000) { runBlocking { repo.workspace.first().completions.any {it.habitId==id && it.completed} } }
+            compose.waitUntil(10_000) {
+                compose.onNodeWithTag("today-habit-check-$id").fetchSemanticsNode().config
+                    .getOrNull(androidx.compose.ui.semantics.SemanticsProperties.ToggleableState) ==
+                    androidx.compose.ui.state.ToggleableState.On
+            }
             compose.onNodeWithTag("today-habit-check-$id").assertIsOn()
             capture("month-actions-and-habits")
             compose.onNodeWithTag("calendar-inline-delete-inline-check").performScrollTo().performClick()
@@ -136,7 +148,7 @@ class EveningAndMonthFlowTest {
             assertTrue("Year heading must precede year navigation",header.bottom<=navigation.top)
             compose.onNodeWithTag("calendar-year-swipe-hint").assertIsDisplayed()
             compose.onNodeWithTag("calendar-year-navigation").assert(hasAnyAncestor(hasTestTag("calendar-year-panel")))
-            compose.onNodeWithTag("calendar-year-solar-points").assert(!hasAnyAncestor(hasTestTag("calendar-year-panel")))
+            compose.onNodeWithTag("calendar-year-solar-points").assert(hasAnyAncestor(hasTestTag("calendar-year-panel")))
             val year=compose.onNodeWithTag("calendar-year-period").fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.Text].single().text
             compose.onNodeWithTag("calendar-year-navigation").performTouchInput { swipeLeft() }
             compose.waitForIdle()
@@ -151,7 +163,7 @@ class EveningAndMonthFlowTest {
                 CalendarMode.LUNAR -> "lunar-year-month-1"
             }
             compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag(first))
-            compose.onNodeWithTag(first).assert(!hasAnyAncestor(hasTestTag("calendar-year-panel")))
+            compose.onNodeWithTag(first).assert(hasAnyAncestor(hasTestTag("calendar-year-panel")))
             capture("${calendarMode.wireValue}-year-months")
             if(calendarMode==CalendarMode.PROFANE) {
                 compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag("gregorian-season-spring"))
@@ -194,11 +206,11 @@ class EveningAndMonthFlowTest {
                 compose.onNodeWithTag("navigation-$page").performClick()
                 capture("page-$page")
                 if(page=="Сегодня") {
-                    compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("today-tasks-section"))
+                    compose.scrollToTodayNode(hasTestTag("today-tasks-section"))
                     capture("today-practice-panel")
-                    compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("today-day-details-toggle"))
+                    compose.scrollToTodayNode(hasTestTag("today-day-details-toggle"))
                     compose.onNodeWithTag("today-day-details-toggle").performClick()
-                    compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("three-rhythms-heading"))
+                    compose.scrollToTodayNode(hasTestTag("three-rhythms-heading"))
                     capture("today-three-rhythms")
                     compose.onAllNodes(SemanticsMatcher("Rhythm fact") {
                         it.config.getOrNull(androidx.compose.ui.semantics.SemanticsProperties.TestTag)?.startsWith("rhythm-fact-")==true

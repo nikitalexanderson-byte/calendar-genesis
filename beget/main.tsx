@@ -4,6 +4,8 @@ import { GenesisCalendar } from "../app/GenesisCalendar";
 import { AppUrlCleaner } from "../app/AppUrlCleaner";
 import "../app/globals.css";
 import "../app/experimental-theme.css";
+import "../app/dark-theme.css";
+import "../app/tablet-layout.css";
 
 const PRELOAD_RECOVERY_KEY = "genesis-preload-recovery-at";
 const APP_BASE = (process.env.NEXT_PUBLIC_GENESIS_BASE_PATH?.trim() || "").replace(/\/$/, "");

@@ -414,28 +414,30 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
               type="checkbox"
               role="switch"
               data-exp-ui="switch"
-              checked={themeState.theme !== GENESIS_THEME.STANDART}
+              checked={themeState.theme.startsWith("experimental")}
               disabled={!themeState.available || ["signed-out", "loading", "load-error"].includes(themeState.status)}
               aria-label={user.language === "en" ? "Experimental theme" : "Тема Experimental"}
               aria-busy={themeState.pending}
-              onChange={(event) => onThemeChange(event.target.checked ? GENESIS_THEME.EXPERIMENTAL : GENESIS_THEME.STANDART)}
+              onChange={(event) => onThemeChange(event.target.checked
+                ? (themeState.theme.endsWith("-dark") ? GENESIS_THEME.EXPERIMENTAL_DARK : GENESIS_THEME.EXPERIMENTAL)
+                : (themeState.theme.endsWith("-dark") ? GENESIS_THEME.STANDART_DARK : GENESIS_THEME.STANDART))}
             />
             <i aria-hidden="true" />
           </label>
-          {themeState.theme !== GENESIS_THEME.STANDART ? (
             <div className="language-choice experimental-color-choice" role="radiogroup" aria-label={COLOR_MODE_NAMES[user.language].group}>
-              <button type="button" role="radio" aria-checked={themeState.theme === GENESIS_THEME.EXPERIMENTAL}
-                className={themeState.theme === GENESIS_THEME.EXPERIMENTAL ? "active" : ""}
-                disabled={themeState.pending} onClick={() => onThemeChange(GENESIS_THEME.EXPERIMENTAL)}>
+              <button type="button" role="radio" aria-checked={!themeState.theme.endsWith("-dark")}
+                aria-label={COLOR_MODE_NAMES[user.language].light}
+                className={!themeState.theme.endsWith("-dark") ? "active" : ""}
+                disabled={!themeState.available || themeState.pending || ["signed-out", "loading", "load-error"].includes(themeState.status)} onClick={() => onThemeChange(themeState.theme.startsWith("experimental") ? GENESIS_THEME.EXPERIMENTAL : GENESIS_THEME.STANDART)}>
                 <span aria-hidden="true">☀</span><strong data-no-translate>{COLOR_MODE_NAMES[user.language].light}</strong>
               </button>
-              <button type="button" role="radio" aria-checked={themeState.theme === GENESIS_THEME.EXPERIMENTAL_DARK}
-                className={themeState.theme === GENESIS_THEME.EXPERIMENTAL_DARK ? "active" : ""}
-                disabled={themeState.pending} onClick={() => onThemeChange(GENESIS_THEME.EXPERIMENTAL_DARK)}>
+              <button type="button" role="radio" aria-checked={themeState.theme.endsWith("-dark")}
+                aria-label={COLOR_MODE_NAMES[user.language].dark}
+                className={themeState.theme.endsWith("-dark") ? "active" : ""}
+                disabled={!themeState.available || themeState.pending || ["signed-out", "loading", "load-error"].includes(themeState.status)} onClick={() => onThemeChange(themeState.theme.startsWith("experimental") ? GENESIS_THEME.EXPERIMENTAL_DARK : GENESIS_THEME.STANDART_DARK)}>
                 <span aria-hidden="true">☾</span><strong data-no-translate>{COLOR_MODE_NAMES[user.language].dark}</strong>
               </button>
             </div>
-          ) : null}
           <p className="account-preference-status" role="status" aria-live="polite" data-exp-ui="notice" data-exp-tone={themeState.status === "error" || themeState.status === "load-error" ? "error" : undefined}>
             {translateText(themeStatusMessage, user.language)}
           </p>
@@ -450,6 +452,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
           <div className="language-choice" role="radiogroup" aria-label="Язык интерфейса">
             {LANGUAGES.map((code) => (
               <button key={code} type="button" role="radio" aria-checked={user.language === code}
+                aria-label={LANGUAGE_LABELS[code].name}
                 className={user.language === code ? "active" : ""} disabled={preferenceBusy}
                 onClick={() => void changeLanguage(code)} data-no-translate>
                 <span className="language-flag" aria-hidden="true">{LANGUAGE_LABELS[code].flag}</span>

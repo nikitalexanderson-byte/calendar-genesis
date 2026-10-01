@@ -3,8 +3,10 @@ package ru.genesis.calendar.ui
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -39,9 +41,10 @@ import ru.genesis.calendar.data.*
     Column(Modifier.fillMaxSize()) {
         ConnectedSubmenu(listOf(SubmenuItem("tasks", "Задачи"), SubmenuItem("lists", "Списки задач")),
             section, { localSection = it; menuSwipeState?.tasks = it })
-        LazyColumn(Modifier.weight(1f).testTag("tasks-screen"), contentPadding = PaddingValues(16.dp),
+        LazyVerticalGrid(columns = GridCells.Adaptive(360.dp), modifier = Modifier.weight(1f).testTag("tasks-screen"), contentPadding = PaddingValues(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            item {
+            item(span = { GridItemSpan(maxLineSpan) }) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     GenesisPageHeader(if (section == "lists") {
                         if (english) "Task lists" else "Списки задач"
@@ -133,7 +136,7 @@ import ru.genesis.calendar.data.*
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     Dialog({ if(!busy) onDismiss() }, properties=DialogProperties(usePlatformDefaultWidth=false)) {
-        Surface(Modifier.fillMaxWidth().padding(12.dp),shape=RoundedCornerShape(20.dp)) {
+        Surface(Modifier.widthIn(max = 840.dp).fillMaxWidth().padding(12.dp),shape=RoundedCornerShape(20.dp)) {
             Column(Modifier.padding(16.dp).imePadding()) {
                 EditorDialogHeader("Новый список задач", "close-task-list-editor", { if(!busy) onDismiss() })
                 Column(Modifier.weight(1f,fill=false).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(10.dp)) {

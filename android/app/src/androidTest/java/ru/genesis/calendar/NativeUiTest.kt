@@ -23,7 +23,7 @@ class NativeUiTest {
         val title = "UI synthetic validation ${UUID.randomUUID()}"
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
         compose.runOnUiThread { compose.activity.window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
-        compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("create-task"))
+        compose.scrollToTodayNode(hasTestTag("create-task"))
         compose.onNodeWithTag("create-task").performClick()
         compose.onNodeWithTag("task-title").performTextInput(title)
         UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()
@@ -31,7 +31,7 @@ class NativeUiTest {
         compose.waitUntil(10_000) {
             runBlocking { app.repository.tasks.first().any { it.title == title } }
         }
-        compose.onNodeWithTag("today-list").performScrollToNode(hasText(title))
+        compose.scrollToTodayNode(hasText(title))
         compose.onNodeWithText(title).assertIsDisplayed()
         UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(
             File(compose.activity.getExternalFilesDir(null),"native-ui-validation.png"))
@@ -66,7 +66,7 @@ class NativeUiTest {
     }
 
     @Test fun prioritySupportsImmediateHorizontalDragAndTap() {
-        compose.onNodeWithTag("today-list").performScrollToNode(hasTestTag("create-task"))
+        compose.scrollToTodayNode(hasTestTag("create-task"))
         compose.onNodeWithTag("create-task").performClick()
         compose.onNodeWithTag("priority-scale").performScrollTo().performTouchInput {
             down(Offset(center.x * .24f, center.y))
@@ -127,10 +127,13 @@ class NativeUiTest {
         val initial = runBlocking { preferences.values.first().display }
         try {
             runBlocking { preferences.set("display", "profane") }
+            compose.onNodeWithTag("navigation-Сегодня").performClick()
+            compose.scrollToTodayNode(hasTestTag("today-hero"))
             compose.waitUntil(5_000) {
-                compose.onAllNodesWithText("ГРИГОРИАНСКИЙ КАЛЕНДАРЬ", substring = true)
+                compose.onAllNodesWithTag("calendar-mode-icon-profane")
                     .fetchSemanticsNodes().isNotEmpty()
             }
+            compose.scrollToTodayNode(hasTestTag("today-day-details-toggle"))
             compose.onNodeWithTag("today-day-details-toggle").performClick()
             compose.waitUntil(5_000) {
                 compose.onAllNodesWithTag("today-day-details").fetchSemanticsNodes().isNotEmpty()

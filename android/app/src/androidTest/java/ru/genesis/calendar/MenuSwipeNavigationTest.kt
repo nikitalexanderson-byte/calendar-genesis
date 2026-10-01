@@ -18,7 +18,13 @@ class MenuSwipeNavigationTest {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
         val preferences = LocalPreferences(app, app.workspaceScope)
         val original = runBlocking { preferences.values.first() }
+        val device = androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
         try {
+            val naturalLandscape = compose.activity.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+            if (naturalLandscape) device.setOrientationLeft() else device.setOrientationNatural()
+            compose.waitUntil(10_000) {
+                compose.activity.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT
+            }
             runBlocking {
                 preferences.set("menuSwipeEnabled", "false")
                 preferences.set("menuSwipeSubmenus", "false")
@@ -68,6 +74,8 @@ class MenuSwipeNavigationTest {
                     .config[androidx.compose.ui.semantics.SemanticsProperties.Text].toString() != before
             }
         } finally {
+            device.setOrientationNatural()
+            device.unfreezeRotation()
             runBlocking {
                 preferences.set("menuSwipeEnabled", original.menuSwipeEnabled.toString())
                 preferences.set("menuSwipeSubmenus", original.menuSwipeSubmenus.toString())

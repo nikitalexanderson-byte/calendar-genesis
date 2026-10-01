@@ -35,13 +35,14 @@ internal fun GenesisPageHeader(title: String, description: String, symbol: Strin
     modifier: Modifier = Modifier, animatedMandala: Boolean = false, subtitle: String? = null,
     icon: GenesisPageIcon = genesisPageIcon(title), calendarMode: CalendarMode? = null,
     onCalendarModeClick: (() -> Unit)? = null) {
+    val compact = compactWindowHeight()
     val night = Color(0xff0b2b2d)
     val gold = Color(0xffdfc17e)
     Surface(modifier.fillMaxWidth().testTag("genesis-page-header"),
         shape = RoundedCornerShape(24.dp), color = night,
         border = BorderStroke(1.dp, gold.copy(alpha = .55f)), shadowElevation = 8.dp) {
         Box(Modifier.background(Brush.linearGradient(listOf(night, Color(0xff123b36))))) {
-            Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically,
+            Row(Modifier.padding(if (compact) 10.dp else 18.dp), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 if (calendarMode != null && onCalendarModeClick != null)
                     CalendarModeSwitcher(calendarMode, onCalendarModeClick)
@@ -53,7 +54,7 @@ internal fun GenesisPageHeader(title: String, description: String, symbol: Strin
                     }
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text(title, color = Color(0xfffff5df), style = MaterialTheme.typography.headlineSmall)
+                    Text(title, color = Color(0xfffff5df), style = if (compact) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineSmall)
                     subtitle?.let {
                         Text(it, color = gold, style = MaterialTheme.typography.labelMedium,
                             modifier = Modifier.testTag("genesis-page-subtitle"))

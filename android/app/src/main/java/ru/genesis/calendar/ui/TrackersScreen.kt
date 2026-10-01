@@ -148,7 +148,7 @@ fun TrackersScreen(app: GenesisApplication) {
                         Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
                 }
             }
-            current.sleepPlans.forEach { plan ->
+            AdaptiveCardGrid(current.sleepPlans, { it.id }) { plan ->
                 val entry=current.sleepEntries.firstOrNull { it.planId==plan.id&&it.date==date }
                 Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp),
                     colors = CardDefaults.cardColors(containerColor = Color(0xffe4efed)),

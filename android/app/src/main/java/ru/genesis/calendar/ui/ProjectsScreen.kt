@@ -214,30 +214,9 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
         dropBounds.clear()
     }
 
-    Box(Modifier.fillMaxSize().onGloballyPositioned { workspaceBounds = it.boundsInRoot() }) {
-    LazyColumn(Modifier.fillMaxSize().testTag("projects-screen"), contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                GenesisPageHeader(if (language == "en") "Projects" else "Проекты",
-                    if (language == "en") "Categories, projects and their tasks"
-                    else "Категории, проекты и задачи внутри них", "▦")
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Text(projectSummary, Modifier.weight(1f).padding(end = 8.dp),
-                        style = MaterialTheme.typography.labelLarge)
-                    Button(onClick = { creating = true; editing = null; error = null }, modifier = Modifier.testTag("create-project")) {
-                        Text("Создать")
-                    }
-                }
-            }
-        }
-        if (experimental) item {
-            InboxProjectCard(inbox, structure.projects, true, inboxExpanded,
-                { inboxExpanded = !inboxExpanded }, pickup?.id,
-                onPickup, onDrag, onRelease, onOpenTask, onCreateTask, moveTask)
-        }
-        item {
+    BoxWithConstraints(Modifier.fillMaxSize().onGloballyPositioned { workspaceBounds = it.boundsInRoot() }) {
+    val wide = maxWidth >= 840.dp
+    val categoriesContent: @Composable () -> Unit = {
             Card(Modifier.fillMaxWidth().testTag("life-categories-card"), shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
@@ -301,7 +280,31 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
                     }
                 }
             }
+    }
+    Row(Modifier.fillMaxSize()) {
+    LazyColumn(Modifier.weight(if (wide) 1.4f else 1f).fillMaxHeight().testTag("projects-screen"), contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                GenesisPageHeader(if (language == "en") "Projects" else "Проекты",
+                    if (language == "en") "Categories, projects and their tasks"
+                    else "Категории, проекты и задачи внутри них", "▦")
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text(projectSummary, Modifier.weight(1f).padding(end = 8.dp),
+                        style = MaterialTheme.typography.labelLarge)
+                    Button(onClick = { creating = true; editing = null; error = null }, modifier = Modifier.testTag("create-project")) {
+                        Text("Создать")
+                    }
+                }
+            }
         }
+        if (experimental && !wide) item {
+            InboxProjectCard(inbox, structure.projects, true, inboxExpanded,
+                { inboxExpanded = !inboxExpanded }, pickup?.id,
+                onPickup, onDrag, onRelease, onOpenTask, onCreateTask, moveTask)
+        }
+        if (!wide) item { categoriesContent() }
         if (visible.isEmpty()) item { Text("В этом разделе пока нет проектов.") }
         items(visible, key = { it.first.id }) { (project, depth) ->
             val count = tasksByProject[project.id].orEmpty().size
@@ -395,6 +398,15 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
         }
     }
 
+    if (wide) Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())
+        .padding(top = 16.dp, end = 16.dp, bottom = 16.dp).testTag("project-tools-pane"),
+        verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (experimental) InboxProjectCard(inbox, structure.projects, true, inboxExpanded,
+            { inboxExpanded = !inboxExpanded }, pickup?.id,
+            onPickup, onDrag, onRelease, onOpenTask, onCreateTask, moveTask)
+        categoriesContent()
+    }
+    }
     pickup?.let { held ->
         ProjectDropOverlay(held, structure.projects, experimental, workspaceBounds, dropBounds)
     }

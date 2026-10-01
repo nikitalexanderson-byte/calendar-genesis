@@ -14,6 +14,8 @@ import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
 import ru.genesis.calendar.data.*
+import ru.genesis.calendar.auth.*
+import androidx.work.WorkManager
 
 /** These synthetic records exist only in androidTest and the .debug validation scope. */
 @RunWith(AndroidJUnit4::class)
@@ -68,6 +70,19 @@ class ReminderFlowTest {
         check(!app.getSystemService(android.app.KeyguardManager::class.java).isKeyguardLocked) {
             "Unlock device manually before the notification-opening test"
         }
+        // Notification entry uses the same account gate as the release launcher.
+        val fixture = app.getSharedPreferences("genesis.validation.v1", Context.MODE_PRIVATE)
+        fixture.edit().putBoolean("isolated", true).commit()
+        WorkManager.getInstance(app).cancelUniqueWork("genesis-cloud-sync-v1").result.get()
+        val uid = "notification-open-validation-v1"
+        app.activateAccount(uid)
+        val validationScope = app.workspaceScope
+        CachedAccountEntry(app).save(ServerIdentity(uid, "Validation", "validation@example.invalid"),
+            AccountSettings(listOf(LinkedGoogleAccount("validation", "validation@example.invalid", "Validation", true, false, false)),
+                SyncRouting("fixed", listOf("validation"), emptyMap()), false,
+                "standart", 0, "sacred", "profane", "24h", false, "ru"))
+        assertNotNull("The synthetic account cache must be valid", CachedAccountEntry(app).read(validationScope))
+        try {
         // This tests system-notification navigation, not delayed AlarmManager delivery.
         // Keep it independent of the screen-off test and its completed fixture.
         val openId="internal-open-validation-v1"
@@ -89,9 +104,24 @@ class ReminderFlowTest {
         val visible=device.wait(Until.findObject(By.text("Время запланированного действия")),5000)
         assertNotNull("The actual system notification is visible",visible)
         visible.click()
-        assertTrue("Notification opens the exact record",device.wait(Until.hasObject(By.text("Изолированный тест открытия")),10_000))
+        // A synthetic account has not accepted the optional Google services offer.
+        // Dismiss it through the same control available to an offline user.
+        device.wait(Until.findObject(By.text("Не сейчас").enabled(true)), 5_000)?.click()
+        val opened = device.wait(Until.hasObject(By.text("Изолированный тест открытия")),10_000)
+        if (!opened) {
+            device.takeScreenshot(java.io.File(app.getExternalFilesDir(null), "notification-open-failure.png"))
+            device.dumpWindowHierarchy(java.io.File(app.getExternalFilesDir(null), "notification-open-failure.xml"))
+        }
+        val auth = AuthController.get(app).state.value
+        assertTrue("Notification opens the exact record; ready=${auth.ready}, busy=${auth.busy}, cachedUser=${auth.user != null}, app=${device.currentPackageName}", opened)
         assertTrue(device.hasObject(By.text("Изменить задачу")))
         app.repository.complete(openId)
+        } finally {
+            app.scheduler.deactivate(validationScope)
+            CachedAccountEntry(app).clear(validationScope)
+            app.activateAccount(null)
+            fixture.edit().remove("isolated").commit()
+        }
     }
 
     @Test fun notificationChannelDiagnostics() = runBlocking {

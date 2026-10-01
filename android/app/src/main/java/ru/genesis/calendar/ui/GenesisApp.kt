@@ -165,6 +165,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     }
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val shortWindow = compactWindowHeight()
     val compactHeader = isLandscape || configuration.screenWidthDp >= 600
     val navigationOnLeft = shouldUseNavigationRail(configuration.screenWidthDp,
         isLandscape, prefs.wideNavigationOnLeft)
@@ -174,16 +175,19 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     val currentSwipeDestination = SwipeDestination(tab,
         if (prefs.menuSwipeSubmenus) menuSwipeState.section(tab) else null)
     val eveningTheme = rememberEveningTheme(AppearanceSettings.read(habitWorkspace.settings.rawJson))
+    val accountGate = !testWorkspace && (!activeScope.startsWith("account-") || authState.user == null || !authState.ready)
+    val welcomeVisible = accountGate && !(authState.busy && authState.user != null)
     val window = LocalContext.current.activity()?.window
     SideEffect { window?.let { WindowInsetsControllerCompat(it,it.decorView).apply {
-        isAppearanceLightStatusBars = !eveningTheme; isAppearanceLightNavigationBars = !eveningTheme
+        isAppearanceLightStatusBars = !eveningTheme && !welcomeVisible
+        isAppearanceLightNavigationBars = !eveningTheme && !welcomeVisible
     } } }
     MaterialTheme(colorScheme=if (eveningTheme) evening else standart) {
       CompositionLocalProvider(LocalEveningTheme provides eveningTheme) {
       CompositionLocalProvider(LocalGenesisLanguage provides
           (if(testWorkspace || activeScope.startsWith("account-")) prefs.language else welcomePrefs.language)) {
         Surface(Modifier.fillMaxSize().testTag(if (eveningTheme) "app-theme-Evening" else "app-theme-Standart"),color=MaterialTheme.colorScheme.background) {
-            if (!testWorkspace && (!activeScope.startsWith("account-") || authState.user == null || !authState.ready)) {
+            if (accountGate) {
                 if (authState.busy && authState.user != null) AuthTransitionScreen(authState.message)
                 else WelcomeScreen(authState,authController,welcomePrefs.language,preferredWelcomeLanguage) { language ->
                         preferredWelcomeLanguage = language
@@ -294,9 +298,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                             onOpenHabits={tab="Привычки"}) },
                         menuSwipeState=visibleSwipeState,
                         periodSwipeEnabled=!portraitMenuSwipe)
-                    else -> LazyColumn(Modifier.fillMaxSize().testTag("today-list"),contentPadding=PaddingValues(16.dp),
-                        verticalArrangement=Arrangement.spacedBy(12.dp)) {
-                        if(visibleTab=="Сегодня") item {
+                    else -> TodayWorkspace(header = {
                             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                 DayHeader(LocalDate.parse(selected), prefs.display, dayDetailsExpanded,
                                     onToggleDetails = { dayDetailsExpanded = !dayDetailsExpanded },
@@ -313,12 +315,8 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                                     DayKnowledgePanel(LocalDate.parse(selected), prefs.display)
                                 }
                             }
-                        }
-                        if(visibleTab=="Сегодня") item {
-                            DayRhythmPanel(prefs.use24)
-                        }
-                        val shown=tasks.filter { visibleTab!="Сегодня" || TaskOccurrences.occursOn(it,LocalDate.parse(selected)) }
-                        if (visibleTab == "Сегодня") item {
+                    }, rhythm = { DayRhythmPanel(prefs.use24) }, tasks = {
+                        val shown = tasks.filter { TaskOccurrences.occursOn(it, LocalDate.parse(selected)) }
                             val todayDate=LocalDate.now()
                             val missed=if (prefs.showMissedTasksToday && selected == todayDate.toString())
                                 missedTasksForToday(tasks,todayDate) else emptyList()
@@ -330,32 +328,16 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                                 if (habitTrackingEnabled) TodayHabitsContent(app, LocalDate.parse(selected),
                                     habitWorkspace, onOpenHabits = { tab = "Привычки" })
                             }
-                        }
-                    }
+                    })
                   }
                   }
                 }
-                if (navigationOnLeft) {
-                    Row(Modifier.fillMaxWidth().weight(1f).testTag("wide-navigation-layout")) {
-                        PrimaryNavigation(tab, habitTrackingEnabled, vertical = true,
-                            showLabels = prefs.navigationLabels, autoScroll = false,
-                            onSelect = { tab = it }, modifier = Modifier
-                                .width(if (prefs.navigationLabels) 132.dp else 64.dp).wrapContentHeight())
-                        Box(Modifier.weight(1f).fillMaxHeight().testTag("main-content")) {
-                            CompositionLocalProvider(LocalCompactSubmenus provides true) {
-                                pageContent(tab, menuSwipeState)
-                            }
-                        }
-                    }
-                } else {
-                    PrimaryNavigation(tab, habitTrackingEnabled, vertical = false,
-                        showLabels = prefs.navigationLabels, autoScroll = portraitAutoScroll,
-                        onSelect = { tab = it })
+                val workspacePager: @Composable (Modifier) -> Unit = { pagerModifier ->
                     MenuSwipePager(currentSwipeDestination, swipeSequence, portraitMenuSwipe,
                         onNavigate = { destination ->
                             destination.section?.let { menuSwipeState.select(destination.page, it) }
                             tab = destination.page
-                        }, modifier = Modifier.fillMaxWidth().weight(1f).testTag("main-content")) { destination ->
+                        }, modifier = pagerModifier) { destination ->
                         val visibleSwipeState = if (destination == currentSwipeDestination) menuSwipeState
                             else remember(destination, menuSwipeState.tasks, menuSwipeState.projects,
                                 menuSwipeState.calendar, menuSwipeState.habits) {
@@ -367,10 +349,24 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                                     destination.section?.let { preview.select(destination.page, it) }
                                 }
                             }
-                        CompositionLocalProvider(LocalCompactSubmenus provides isLandscape) {
+                        CompositionLocalProvider(LocalCompactSubmenus provides (navigationOnLeft || isLandscape)) {
                             pageContent(destination.page, visibleSwipeState)
                         }
                     }
+                }
+                if (navigationOnLeft) {
+                    Row(Modifier.fillMaxWidth().weight(1f).testTag("wide-navigation-layout")) {
+                        PrimaryNavigation(tab, habitTrackingEnabled, vertical = true,
+                            showLabels = prefs.navigationLabels && !shortWindow, autoScroll = false,
+                            onSelect = { tab = it }, modifier = Modifier
+                                .width(if (prefs.navigationLabels && !shortWindow) 132.dp else 64.dp).fillMaxHeight())
+                        workspacePager(Modifier.weight(1f).fillMaxHeight().testTag("main-content"))
+                    }
+                } else {
+                    PrimaryNavigation(tab, habitTrackingEnabled, vertical = false,
+                        showLabels = prefs.navigationLabels, autoScroll = portraitAutoScroll,
+                        onSelect = { tab = it })
+                    workspacePager(Modifier.fillMaxWidth().weight(1f).testTag("main-content"))
                 }
             }
             val existing=tasks.find { it.id==editId }
@@ -408,6 +404,7 @@ internal fun shouldUseNavigationRail(screenWidthDp: Int, landscape: Boolean,
 @Composable
 private fun PrimaryNavigation(selectedPage: String, habitTrackingEnabled: Boolean, vertical: Boolean,
     showLabels: Boolean, autoScroll: Boolean, onSelect: (String) -> Unit, modifier: Modifier = Modifier) {
+    val compact = compactWindowHeight()
     val pages = listOf("Сегодня","Задачи","Проекты","Календарь","Привычки","Стойхейон","Теокиклос","Настройки")
         .filter { habitTrackingEnabled || it != "Привычки" }
     if (vertical) {
@@ -451,11 +448,11 @@ private fun PrimaryNavigation(selectedPage: String, habitTrackingEnabled: Boolea
             }.padding(horizontal=4.dp)) {
             Row(Modifier.onSizeChanged { cycleWidth = it.width }) {
                 pages.forEach { page -> PrimaryNavigationItem(page, selectedPage == page, false,
-                    showLabels = true, compact = false) { onSelect(page) } }
+                    showLabels = true, compact = compact) { onSelect(page) } }
             }
             if (autoScroll) Row {
                 pages.forEach { page -> PrimaryNavigationItem(page, selectedPage == page, false,
-                    showLabels = true, compact = false, loopCopy = true) { onSelect(page) } }
+                    showLabels = true, compact = compact, loopCopy = true) { onSelect(page) } }
             }
         }
     }
@@ -724,7 +721,7 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
         runCatching { TaskOccurrences.occursOn(task,LocalDate.parse(selected)) }.getOrDefault(false)) selected
         else task?.date ?: selected
     Dialog(onDismissRequest=onDismiss,properties=androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth=false)) {
-        Surface(Modifier.fillMaxWidth().padding(12.dp),shape=RoundedCornerShape(20.dp)) {
+        Surface(Modifier.widthIn(max = 840.dp).fillMaxWidth().padding(12.dp),shape=RoundedCornerShape(20.dp)) {
             Column(Modifier.padding(16.dp).imePadding()) {
                 EditorDialogHeader(if(task==null) "Новая задача" else "Изменить задачу",
                     "close-task-editor", onDismiss)
@@ -970,8 +967,7 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
     val futureTaskAlarms = rows.count { it.state == "pending" && it.at > System.currentTimeMillis() }
     fun diagnosticTime(value: Long) = Instant.ofEpochMilli(value).atZone(ZoneId.systemDefault())
         .format(DateTimeFormatter.ofPattern("dd.MM HH:mm"))
-    Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()),
-        verticalArrangement=Arrangement.spacedBy(14.dp)) {
+    AdaptiveSettingsSections {
         GenesisPageHeader(if (prefs.language == "en") "Settings" else "Настройки",
             if (prefs.language == "en") "Calendars, time, privacy and reminders"
             else "Календарь, время, приватность и напоминания", "⚙")
@@ -1239,7 +1235,7 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
             ru.genesis.calendar.auth.GenesisLinksPanel()
         }
         Text("Версия ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",style=MaterialTheme.typography.labelSmall,
-            modifier = Modifier.align(Alignment.CenterHorizontally), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
     calendarReference?.let { value ->
         CalendarReferenceDialog(CalendarMode.fromWire(value)) { calendarReference = null }
