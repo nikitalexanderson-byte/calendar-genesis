@@ -36,10 +36,16 @@ fun TrackersScreen(app: GenesisApplication) {
     var storageError by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var dateValue by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
+    var selectedViewMode by rememberSaveable { mutableStateOf<CalendarMode?>(null) }
     var planEditor by remember { mutableStateOf<SleepPlan?>(null) }
     var sleepEditor by remember { mutableStateOf<Pair<SleepPlan,SleepEntry?>?>(null) }
     var moodEditor by remember { mutableStateOf(false) }
     val date=LocalDate.parse(dateValue)
+    val viewMode = selectedViewMode ?: prefs.display
+    val current=workspace
+    val mood=current?.moodEntries?.firstOrNull { it.date==date }
+    val averageMinutes=current?.sleepEntries?.filter { it.date==date }
+        ?.mapNotNull { it.durationMinutes }?.takeIf { it.isNotEmpty() }?.average()?.toInt()
     suspend fun action(block: suspend () -> Unit) {
         busy=true
         try { block();error=null }
@@ -56,34 +62,36 @@ fun TrackersScreen(app: GenesisApplication) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
         GenesisPageHeader(if (LocalGenesisLanguage.current == "en") "Sleep & mood" else "Сон и настроение",
             if (LocalGenesisLanguage.current == "en") "Sleep, recovery and emotional rhythm without pressure"
-            else "Сон, восстановление и эмоциональный ритм без давления", "☾")
-        AuthorDatePicker(dateValue,prefs.input) { if(!busy)dateValue=it }
-        error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
-        val current=workspace
-        if(current==null) { if(!storageError)CircularProgressIndicator() }
-        else {
-            val mood=current.moodEntries.firstOrNull { it.date==date }
-            val selectedSleepEntries = current.sleepEntries.filter { it.date == date }
-            val averageMinutes = selectedSleepEntries.mapNotNull { it.durationMinutes }.takeIf { it.isNotEmpty() }
-                ?.average()?.toInt()
-            Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), color = Color(0xff0b2b2d),
-                border = BorderStroke(1.dp, Color(0x88dfc17e)), shadowElevation = 8.dp) {
-                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Surface(Modifier.size(54.dp), shape = CircleShape, color = Color(0xffdfc17e)) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text("☾", color = Color(0xff0b2b2d), style = MaterialTheme.typography.headlineSmall)
-                            }
+            else "Сон, восстановление и эмоциональный ритм без давления", "☾",
+            footer = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    HorizontalDivider(color=Color(0xff46645e))
+                    Text("Выберите день для просмотра записей", color=Color(0xffdfc17e),
+                        style=MaterialTheme.typography.labelMedium)
+                    Row(Modifier.fillMaxWidth(), verticalAlignment=Alignment.CenterVertically,
+                        horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                        Box(Modifier.weight(1f)) {
+                            AuthorDatePicker(dateValue,viewMode) { if(!busy)dateValue=it }
                         }
-                        Column(Modifier.weight(1f)) {
-                            Text("Ритм восстановления", color = Color(0xfffff5df),
-                                style = MaterialTheme.typography.titleLarge)
-                            Text(date.toString(), color = Color(0xffc8d9d4),
-                                style = MaterialTheme.typography.bodySmall)
+                        TextButton(onClick={dateValue=LocalDate.now().toString()}, enabled=!busy) {
+                            Text("Сегодня", color=Color(0xffdfc17e))
                         }
                     }
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment=Alignment.CenterVertically,
+                        horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+                        CalendarModeSwitcher(viewMode, { selectedViewMode=nextCalendarMode(viewMode) },
+                            size=42.dp)
+                        Column {
+                            Text("Календарь просмотра", color=Color(0xffc8d9d4),
+                                style=MaterialTheme.typography.labelSmall)
+                            Text(mobileCalendarCopy(LocalGenesisLanguage.current).calendarName(viewMode),
+                                color=Color(0xfffff5df),style=MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                    HorizontalDivider(color=Color(0xff46645e))
+                    Text("Ритм восстановления", color=Color(0xfffff5df),
+                        style=MaterialTheme.typography.titleLarge)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                         TrackerMetric("☾", "Сон", averageMinutes?.let { "${it/60} ч ${it%60} мин" } ?: "Нет записи",
                             Modifier.weight(1f))
                         TrackerMetric("♥", "Настроение", mood?.let {
@@ -91,7 +99,10 @@ fun TrackersScreen(app: GenesisApplication) {
                         } ?: "Не выбрано", Modifier.weight(1f))
                     }
                 }
-            }
+            })
+        error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
+        if(current==null) { if(!storageError)CircularProgressIndicator() }
+        else {
             Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(containerColor = Color(0xfff4e7e0)),
                 border = BorderStroke(1.dp, Color(0x778e5b62))) {

@@ -5,6 +5,7 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.dp
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
@@ -31,7 +32,7 @@ class MobilePolishTest {
         check(app.workspaceScope == "internal-validation-v1")
         compose.runOnUiThread { compose.activity.window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
         runBlocking { LocalPreferences(app, app.workspaceScope).set("language", "ru") }
-        compose.waitUntil(10_000) { compose.onAllNodesWithTag("app-theme-Standart").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(10_000) { compose.onAllNodes(hasTestTag("app-theme-Standart") or hasTestTag("app-theme-Evening")).fetchSemanticsNodes().isNotEmpty() }
     }
 
     private fun capture(name: String) {
@@ -59,7 +60,11 @@ class MobilePolishTest {
             compose.onNodeWithTag("task-title-$taskId", useUnmergedTree = true)
                 .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
             assertEquals(TextDecoration.LineThrough, layouts.single().layoutInput.style.textDecoration)
-            assertEquals(completedTaskInk, layouts.single().layoutInput.style.color)
+            val completedColor = layouts.single().layoutInput.style.color
+            if (compose.onAllNodesWithTag("app-theme-Evening").fetchSemanticsNodes().isNotEmpty()) {
+                assertTrue("Completed title must remain readable in the evening theme",
+                    completedColor.luminance() > .35f)
+            } else assertEquals(completedTaskInk, completedColor)
             capture("completed-task")
             checkbox.performClick()
             compose.waitUntil(10_000) { runBlocking { app.repository.get(taskId)?.done == false } }

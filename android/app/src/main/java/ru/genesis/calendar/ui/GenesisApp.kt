@@ -256,7 +256,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                   Column(Modifier.fillMaxSize()) {
                   error?.let { Text(it,color=MaterialTheme.colorScheme.error,modifier=Modifier.padding(12.dp)) }
                   when(visibleTab) {
-                    "Привычки" -> HabitsScreen(app,true,prefs.input,visibleSwipeState)
+                    "Привычки" -> HabitsScreen(app,true,prefs.input,prefs.display,visibleSwipeState)
                     "Теокиклос" -> TheokyklosScreen(app,prefs.input,onOpenHabits={tab="Привычки"},
                         initialSectorId=requestedTheokyklosSector,
                         onInitialSectorConsumed={requestedTheokyklosSector=null})
@@ -292,6 +292,11 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         experimental=true, tasks=tasks, use24=prefs.use24,
                         weekStartsOnSunday=prefs.weekStartsOnSunday,
                         gregorianYearStartsInMarch=prefs.gregorianYearStartsInMarch,
+                        onStartGregorianYearInMarch={
+                            if (!testWorkspace && authState.user != null)
+                                authController.updateSharedPreference("gregorianYearStart", "march")
+                            else scope.launch { prefsStore.set("gregorianYearStart", "march") }
+                        },
                         regionalSeasonArt=prefs.regionalSeasonArt,
                         seasonRegionZone=selectedSeasonZone(prefs),
                         onCompleteTask=model::complete,
@@ -604,15 +609,8 @@ private fun DayHeader(date: LocalDate, mode: CalendarMode, detailsExpanded: Bool
     val language = LocalGenesisLanguage.current
     val copy = remember(date,mode,language) { todayHeroCopy(date,mode,calendar,language) }
     val todayLabel = genesisTranslate("Сегодня").uppercase(Locale.forLanguageTag(language))
-    val calendarSwitchHint = genesisTranslate("Нажмите на иконку, чтобы сменить календарь")
+    val calendarSwitchHint = mobileCalendarCopy(language).switchHint
     var switchCount by remember { mutableIntStateOf(0) }
-    var highlightedLetter by remember { mutableIntStateOf(-1) }
-    LaunchedEffect(switchCount) {
-        if (switchCount > 0) {
-            todayLabel.indices.forEach { highlightedLetter = it; delay(65) }
-            highlightedLetter = -1
-        }
-    }
     val detailsArrowRotation by animateFloatAsState(if (detailsExpanded) 180f else 0f,
         tween(220, easing = CubicBezierEasing(.16f, 1f, .3f, 1f)), label = "day-details-arrow")
     Card(Modifier.fillMaxWidth().testTag("today-hero"), shape = RoundedCornerShape(20.dp),
@@ -632,20 +630,19 @@ private fun DayHeader(date: LocalDate, mode: CalendarMode, detailsExpanded: Bool
                 .semantics { contentDescription = "$todayLabel. $calendarSwitchHint" },
                 color = Color(0xd0071d20), shape = RoundedCornerShape(14.dp),
                 border = BorderStroke(1.dp, Color(0x88dfc17e))) {
+                Box {
+                CalendarPlaqueWave(switchCount)
                 Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     CalendarModeSwitcher(mode, {}, size = 42.dp,
                         interactive = false, animationTrigger = switchCount)
                     Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                        androidx.compose.material3.Text(buildAnnotatedString {
-                            todayLabel.forEachIndexed { index, letter ->
-                                withStyle(SpanStyle(color = if (index == highlightedLetter)
-                                    Color(0xffffe6a8) else Color(0xfffff5df))) { append(letter) }
-                            }
-                        }, style = MaterialTheme.typography.headlineSmall)
+                        androidx.compose.material3.Text(todayLabel,
+                            color = Color(0xfffff5df), style = MaterialTheme.typography.headlineSmall)
                         Text(calendarSwitchHint,
                             color = Color(0xffdfc17e), style = MaterialTheme.typography.labelSmall)
                     }
+                }
                 }
             }
             copy.badge?.takeIf { mode != CalendarMode.LUNAR }?.let { badge ->

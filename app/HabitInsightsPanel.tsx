@@ -3,14 +3,15 @@
 import { useId, useMemo, useState, type CSSProperties } from "react";
 import {
   calendarMonthKey,
+  calendarMonthRange,
   calendarYearRange,
   calendarYearLabel,
   formatCalendarDateValue,
   formatCalendarMonthValue,
   type CalendarMode,
 } from "./calendar-data";
-import type { Language } from "./i18n";
-import { isHabitScheduledForDate, type HabitWorkspace } from "./habits";
+import { translateText, type Language } from "./i18n";
+import { dateValuesBetween, isHabitScheduledForDate, type HabitWorkspace } from "./habits";
 import {
   buildHabitPersonalRecord,
   buildHabitYearMosaic,
@@ -22,6 +23,7 @@ type HabitInsightsPanelProps = {
   date: string;
   language: Language;
   calendarMode: CalendarMode;
+  showCompletionCalendar?: boolean;
 };
 
 function rhythmLabel(score: number, isEnglish: boolean) {
@@ -39,9 +41,10 @@ function comparisonCopy(current: number, previous: number, change: number, isEng
   return isEnglish ? `${value} vs last week` : `${value} к прошлой неделе`;
 }
 
-export function HabitInsightsPanel({ workspace, date, language, calendarMode }: HabitInsightsPanelProps) {
+export function HabitInsightsPanel({ workspace, date, language, calendarMode, showCompletionCalendar = false }: HabitInsightsPanelProps) {
   const isEnglish = language === "en";
   const [mosaicOpen, setMosaicOpen] = useState(false);
+  const [completionCalendarMode, setCompletionCalendarMode] = useState<CalendarMode>(calendarMode);
   const mosaicBodyId = useId();
   const weekly = useMemo(() => buildWeeklyHabitSummary(workspace, date), [date, workspace]);
   const mosaicRange = useMemo(() => calendarYearRange(date, calendarMode), [calendarMode, date]);
@@ -60,9 +63,37 @@ export function HabitInsightsPanel({ workspace, date, language, calendarMode }: 
   const qualifiedDays = mosaic.filter((cell) => cell.status === "qualified" || cell.status === "perfect").length;
   const yearLabel = calendarYearLabel(date, calendarMode);
   const mosaicWeeks = Math.max(1, ...mosaic.map((cell) => cell.week));
+  const completionRange = useMemo(() => calendarMonthRange(date, completionCalendarMode), [date, completionCalendarMode]);
+  const completionDates = useMemo(() => dateValuesBetween(completionRange.start, completionRange.end), [completionRange]);
+  const completionCalendarOptions: { mode: CalendarMode; ru: string }[] = [
+    { mode: "profane", ru: "Григорианский" },
+    { mode: "sacred", ru: "Сакральный" },
+    { mode: "lunar", ru: "Лунный" },
+  ];
+  const localized = (value: string) => translateText(value, language);
 
   return (
     <div className="habit-phase-k-insights">
+      {showCompletionCalendar ? <section className="habit-completion-calendar" aria-labelledby="habit-completion-calendar-title">
+        <header>
+          <div><span className="eyebrow">{localized("Наблюдение привычек")}</span><h3 id="habit-completion-calendar-title">{localized("Календарь выполнения привычек")}</h3><p>{formatCalendarDateValue(completionRange.start, completionCalendarMode)} — {formatCalendarDateValue(completionRange.end, completionCalendarMode)}</p></div>
+          <div className="habit-completion-modes" role="group" aria-label={localized("Календарь просмотра")}>
+            {completionCalendarOptions.map((option) => <button type="button" key={option.mode} className={completionCalendarMode === option.mode ? "active" : ""} aria-pressed={completionCalendarMode === option.mode} onClick={() => setCompletionCalendarMode(option.mode)}>{localized(option.ru)}</button>)}
+          </div>
+        </header>
+        {workspace.habits.length ? <div className="habit-completion-list">{workspace.habits.map((habit) => {
+          const marks = new Set(workspace.habitCompletions.filter((entry) => entry.habitId === habit.id && entry.completed).map((entry) => entry.date));
+          const scheduled = completionDates.filter((value) => value <= date && habit.active && isHabitScheduledForDate(habit, value, completionCalendarMode)).length;
+          const completed = completionDates.filter((value) => value <= date && marks.has(value)).length;
+          return <article key={habit.id} style={{ "--habit-color": habit.color } as CSSProperties}>
+            <div><strong data-no-translate>{habit.emoji} {habit.title}</strong><small>{completed}/{scheduled} · {scheduled ? Math.round(completed / scheduled * 100) : 0}%</small></div>
+            <div className="habit-completion-days" style={{ "--habit-day-columns": completionCalendarMode === "sacred" ? 5 : 7 } as CSSProperties}>
+              {completionDates.map((value) => { const done = marks.has(value); const planned = value <= date && habit.active && isHabitScheduledForDate(habit, value, completionCalendarMode); const status = localized(done ? "Выполнено" : planned ? "Запланировано" : "Отдых"); return <span key={value} className={done ? "done" : planned ? "planned" : "rest"} title={`${formatCalendarDateValue(value, completionCalendarMode, true)} · ${status}`} aria-label={`${formatCalendarDateValue(value, completionCalendarMode, true)}: ${status}`} />; })}
+            </div>
+          </article>;
+        })}</div> : <p>{localized("Создайте привычку, чтобы увидеть её историю.")}</p>}
+        <footer><i className="done" />{localized("Выполнено")}<i className="planned" />{localized("Запланировано")}<i className="rest" />{localized("Отдых")}</footer>
+      </section> : null}
       <section className="habit-weekly-summary" aria-labelledby="habit-weekly-summary-title">
         <header>
           <div><span className="eyebrow">{isEnglish ? "Seven-day perspective" : "Перспектива семи дней"}</span><h3 id="habit-weekly-summary-title">{isEnglish ? "Weekly summary" : "Итоги недели"}</h3><p>{formatCalendarDateValue(weekly.startDate, calendarMode)} — {formatCalendarDateValue(weekly.endDate, calendarMode)}</p></div>

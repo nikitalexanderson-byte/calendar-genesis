@@ -102,12 +102,15 @@ export function AdminPanel() {
     <section className="admin-view" data-exp-layout="view" aria-labelledby="admin-title">
       <header className="projects-header">
         <div><span className="eyebrow">{copy.adminOnly}</span><h1 id="admin-title">{copy.title}</h1><p>{copy.intro}</p></div>
-        <button type="button" className="secondary-button" onClick={() => void refresh()}>{copy.refresh}</button>
+        <div className="admin-header-actions">
+          <a className="secondary-button" href="#admin-ads-title">{isEnglish ? "Advertisements" : "Реклама"}</a>
+          <button type="button" className="secondary-button" onClick={() => void refresh()}>{copy.refresh}</button>
+        </div>
       </header>
       {error ? <p className="auth-error" role="alert">{error}</p> : null}
       {message ? <p className="admin-success" role="status">{message}</p> : null}
+      <AdminAdsPanel />
       {stats ? <>
-        <AdminAdsPanel />
         <div className="admin-totals">
           <article><strong>{stats.totals.users}</strong><span>{copy.users}</span></article>
           <article><strong>{stats.totals.habits}</strong><span>{copy.habits}</span></article>

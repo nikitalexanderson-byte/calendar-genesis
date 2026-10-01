@@ -24,7 +24,7 @@ import ru.genesis.calendar.data.LocalHabitWorkspace
 internal val LocalEveningTheme = staticCompositionLocalOf { false }
 internal val LocalPreserveCalendarColors = staticCompositionLocalOf { false }
 
-internal data class AppearanceSettings(val mode: String = "light", val lightAt: String = "07:00",
+internal data class AppearanceSettings(val mode: String = "scheduled", val lightAt: String = "07:00",
     val darkAt: String = "21:00") {
     fun isEvening(time: LocalTime, systemDark: Boolean): Boolean = when (mode) {
         "evening" -> true
@@ -45,7 +45,7 @@ internal data class AppearanceSettings(val mode: String = "light", val lightAt: 
             val light = time("lightAt", "07:00")
             val dark = time("darkAt", "21:00").takeUnless { it == light } ?: if (light == "21:00") "22:00" else "21:00"
             return AppearanceSettings(value?.optString("mode")?.takeIf {
-                it in setOf("light", "evening", "system", "scheduled") } ?: "light", light, dark)
+                it in setOf("light", "evening", "system", "scheduled") } ?: "scheduled", light, dark)
         }
     }
 }

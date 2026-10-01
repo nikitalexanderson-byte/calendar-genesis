@@ -70,6 +70,23 @@ private val finalChange = mapOf(
     "ja" to "設定に更新通知を表示します。広告は管理者が公開した場合にのみ表示されます。",
 )
 
+private val currentReleaseChanges = mapOf(
+    "ru" to listOf("Плашки «Сегодня», месяца и года переключают календарь целиком с мягкой световой волной. В годовом календаре появилась закрываемая подсказка о начале года в марте.", "Сон, настроение и привычки получили единые блоки, выбор дня и календарь выполнения привычек.", "Исправлено повторное появление удалённых привычек после синхронизации; улучшены переводы и контраст экранов."),
+    "en" to listOf("Today, Month and Year cards now switch calendars with a gentle light wave. The Year view offers a dismissible March-start suggestion.", "Sleep, mood and habits now have unified panels, day selection and a habit completion calendar.", "Deleted habits no longer return after sync; translations and screen contrast have improved."),
+    "el" to listOf("Οι κάρτες Σήμερα, Μήνας και Έτος αλλάζουν ημερολόγιο με απαλό φωτισμό. Η ετήσια προβολή προτείνει προαιρετική αρχή τον Μάρτιο.", "Ύπνος, διάθεση και συνήθειες έχουν ενιαίες ενότητες, επιλογή ημέρας και ημερολόγιο ολοκλήρωσης.", "Οι διαγραμμένες συνήθειες δεν επιστρέφουν μετά τον συγχρονισμό· βελτιώθηκαν οι μεταφράσεις και η αντίθεση."),
+    "de" to listOf("Die Felder Heute, Monat und Jahr wechseln den Kalender mit sanftem Licht. Die Jahresansicht schlägt optional einen Beginn im März vor.", "Schlaf, Stimmung und Gewohnheiten haben gemeinsame Bereiche, Tagesauswahl und einen Erfüllungskalender.", "Gelöschte Gewohnheiten kehren nach der Synchronisierung nicht zurück; Übersetzungen und Kontrast wurden verbessert."),
+    "fr" to listOf("Les cartes Aujourd’hui, Mois et Année changent de calendrier avec une douce lumière. Une suggestion facultative propose mars comme début d’année.", "Sommeil, humeur et habitudes réunissent leurs panneaux, le choix du jour et un calendrier de suivi.", "Les habitudes supprimées ne reviennent plus après synchronisation ; traductions et contraste ont été améliorés."),
+    "es" to listOf("Las tarjetas Hoy, Mes y Año cambian de calendario con una suave luz. La vista anual propone opcionalmente empezar en marzo.", "Sueño, ánimo y hábitos tienen paneles unificados, selección del día y un calendario de seguimiento.", "Los hábitos eliminados ya no reaparecen tras sincronizar; mejoraron las traducciones y el contraste."),
+    "it" to listOf("Le schede Oggi, Mese e Anno cambiano calendario con una luce delicata. La vista annuale propone facoltativamente marzo come inizio.", "Sonno, umore e abitudini hanno pannelli unificati, scelta del giorno e un calendario dei completamenti.", "Le abitudini eliminate non tornano dopo la sincronizzazione; traduzioni e contrasto sono migliorati."),
+    "pt" to listOf("Os cartões Hoje, Mês e Ano mudam de calendário com uma luz suave. A vista anual sugere opcionalmente março como início.", "Sono, humor e hábitos têm painéis unificados, seleção do dia e calendário de conclusão.", "Hábitos eliminados não regressam após sincronizar; traduções e contraste foram melhorados."),
+    "pl" to listOf("Karty Dzisiaj, Miesiąc i Rok zmieniają kalendarz z delikatną falą światła. Widok roku opcjonalnie sugeruje początek w marcu.", "Sen, nastrój i nawyki mają połączone panele, wybór dnia i kalendarz wykonania.", "Usunięte nawyki nie wracają po synchronizacji; poprawiono tłumaczenia i kontrast."),
+    "sr" to listOf("Kartice Danas, Mesec i Godina menjaju kalendar uz blagi talas svetlosti. Godišnji prikaz opciono predlaže početak u martu.", "San, raspoloženje i navike imaju objedinjene celine, izbor dana i kalendar ispunjavanja.", "Obrisane navike se više ne vraćaju posle sinhronizacije; poboljšani su prevodi i kontrast."),
+    "uk" to listOf("Блоки Сьогодні, Місяць і Рік перемикають календар із м’якою світловою хвилею. Річний вигляд пропонує початок у березні.", "Сон, настрій і звички мають об’єднані блоки, вибір дня та календар виконання.", "Видалені звички не повертаються після синхронізації; покращено переклади й контраст."),
+    "zh" to listOf("“今天”“月”和“年”卡片现在可通过柔和光效切换日历。年视图可选择从三月开始。", "睡眠、心情和习惯采用统一面板，支持选择日期并查看习惯完成日历。", "已删除的习惯不会在同步后再次出现；翻译和对比度也已改善。"),
+    "tr" to listOf("Bugün, Ay ve Yıl kartları yumuşak bir ışıkla takvimi değiştirir. Yıl görünümü isteğe bağlı olarak martta başlamayı önerir.", "Uyku, ruh hâli ve alışkanlıklar birleşik paneller, gün seçimi ve tamamlama takvimi içerir.", "Silinen alışkanlıklar eşitlemeden sonra geri gelmez; çeviriler ve kontrast iyileştirildi."),
+    "ja" to listOf("「今日」「月」「年」のカード全体で、柔らかな光とともに暦を切り替えられます。年表示では3月開始を選べます。", "睡眠・気分・習慣の表示をまとめ、日付選択と習慣達成カレンダーを追加しました。", "削除した習慣が同期後に戻る問題を修正し、翻訳と画面の見やすさを改善しました。"),
+)
+
 @Composable
 internal fun releaseNotesTitle(): String = notes[LocalGenesisLanguage.current]?.title ?: notes.getValue("ru").title
 
@@ -81,7 +98,7 @@ internal fun ReleaseNotesDialog(onDismiss: () -> Unit) {
         title = { Text("${copy.title} · ${BuildConfig.VERSION_NAME}") },
         text = { Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            (copy.changes + (finalChange[LocalGenesisLanguage.current] ?: finalChange.getValue("ru"))).forEach {
+            (currentReleaseChanges[LocalGenesisLanguage.current] ?: currentReleaseChanges.getValue("ru")).forEach {
                 Text("• $it", style = MaterialTheme.typography.bodyMedium)
             }
         } },

@@ -40,7 +40,7 @@ class CalendarModeHeaderTest {
         }
         val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        compose.onNodeWithTag("calendar-mode-icon-profane").assertExists()
+        compose.onNodeWithTag("calendar-mode-icon-profane", useUnmergedTree = true).assertExists()
         compose.waitForIdle()
         val monthWidth = compose.onNodeWithTag("calendar-month-panel-profane")
             .fetchSemanticsNode().boundsInRoot.width
@@ -49,13 +49,13 @@ class CalendarModeHeaderTest {
         assertTrue("month header=$monthHeaderWidth panel=$monthWidth",
             kotlin.math.abs(monthHeaderWidth - monthWidth) < 2f)
         assertTrue(device.takeScreenshot(File(context.getExternalFilesDir(null), "calendar-month-before-click.png")))
-        compose.onNodeWithTag("calendar-mode-icon-profane").performClick()
-        compose.waitUntil(5_000) { compose.onAllNodesWithTag("calendar-mode-icon-sacred").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("genesis-page-header").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("calendar-mode-icon-sacred", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
         assertTrue(device.takeScreenshot(File(context.getExternalFilesDir(null), "calendar-month-after-click.png")))
-        compose.onNodeWithTag("calendar-mode-icon-sacred").performClick()
-        compose.waitUntil(5_000) { compose.onAllNodesWithTag("calendar-mode-icon-lunar").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithTag("calendar-mode-icon-lunar").performClick()
-        compose.waitUntil(5_000) { compose.onAllNodesWithTag("calendar-mode-icon-profane").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("genesis-page-header").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("calendar-mode-icon-lunar", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("genesis-page-header").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("calendar-mode-icon-profane", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Год").performClick()
         compose.onNodeWithTag("calendar-year-panel").assertExists()
         compose.waitForIdle()
@@ -85,10 +85,11 @@ class CalendarModeHeaderTest {
         compose.onNodeWithTag("calendar-year-period").assertTextContains("2026")
         compose.onNodeWithTag("calendar-year-navigation").performTouchInput { swipeLeft() }
         compose.waitUntil(5_000) {
-            compose.onAllNodesWithText("2027").fetchSemanticsNodes().isNotEmpty()
+            runCatching { compose.onNodeWithTag("calendar-year-period").assertTextContains("2027") }.isSuccess
         }
-        compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag("gregorian-season-summer"))
-        compose.onNodeWithTag("gregorian-season-summer").assertIsDisplayed()
+        compose.onNodeWithTag("calendar-mode-icon-profane", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag("gregorian-season-summer", useUnmergedTree = true).performScrollTo()
+        compose.onNodeWithTag("gregorian-season-summer", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithTag("genesis-page-header").assert(!hasAnyAncestor(hasTestTag("calendar-year-panel")))
     }
 
@@ -126,5 +127,37 @@ class CalendarModeHeaderTest {
                 kotlin.math.abs(yearWidth - monthWidth) < 2f)
         }
         assertTrue(device.takeScreenshot(File(context.getExternalFilesDir(null), "calendar-year-evening.png")))
+    }
+
+    @Test fun springYearSuggestionCanBeDismissed() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val preferences = context.getSharedPreferences("genesis.calendar-suggestions", android.content.Context.MODE_PRIVATE)
+        preferences.edit().remove("spring-year-dismissed").commit()
+        compose.setContent { MaterialTheme(colorScheme = standart) {
+            CalendarScreen(LocalDate.of(2026, 9, 30), CalendarMode.PROFANE,
+                onSelect = {}, experimental = true)
+        } }
+        compose.onNodeWithText("Год").performClick()
+        compose.onNodeWithTag("spring-year-suggestion").assertExists()
+        compose.onNodeWithTag("spring-year-dismiss").performClick()
+        compose.onNodeWithTag("spring-year-suggestion").assertDoesNotExist()
+        assertTrue(preferences.getBoolean("spring-year-dismissed", false))
+    }
+
+    @Test fun springYearSuggestionSwitchesDisplayToMarch() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        context.getSharedPreferences("genesis.calendar-suggestions", android.content.Context.MODE_PRIVATE)
+            .edit().remove("spring-year-dismissed").commit()
+        var startsInMarch by mutableStateOf(false)
+        compose.setContent { MaterialTheme(colorScheme = standart) {
+            CalendarScreen(LocalDate.of(2026, 9, 30), CalendarMode.PROFANE,
+                onSelect = {}, experimental = true,
+                gregorianYearStartsInMarch = startsInMarch,
+                onStartGregorianYearInMarch = { startsInMarch = true })
+        } }
+        compose.onNodeWithText("Год").performClick()
+        compose.onNodeWithTag("spring-year-switch").performClick()
+        compose.onNodeWithTag("spring-year-suggestion").assertDoesNotExist()
+        compose.onNodeWithTag("calendar-year-period").assertTextContains("2026–2027")
     }
 }

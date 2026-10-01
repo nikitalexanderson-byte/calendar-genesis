@@ -45,7 +45,8 @@ class LocalPreferences(private val context: Context, private val scope: String) 
     suspend fun set(name: String, value: String) { context.genesisPreferences.edit { it[key(name)] = value } }
     suspend fun initializeNewAccount() {
         context.genesisPreferences.edit { prefs ->
-            mapOf("navigationLabels" to "icons", "menuSwipeEnabled" to "true",
+            mapOf("display" to "profane", "input" to "profane", "weekStart" to "monday",
+                "navigationLabels" to "icons", "menuSwipeEnabled" to "true",
                 "menuSwipeSubmenus" to "true", "regionSource" to "device").forEach { (name, value) ->
                 if (prefs[key(name)] == null) prefs[key(name)] = value
             }
