@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -26,12 +27,17 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ru.genesis.calendar.GenesisApplication
+import ru.genesis.calendar.BuildConfig
 import ru.genesis.calendar.ui.LanguageChips
 import ru.genesis.calendar.ui.Text
 import ru.genesis.calendar.ui.genesisTranslate
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import com.yandex.authsdk.YandexAuthLoginOptions
+import com.yandex.authsdk.YandexAuthOptions
+import com.yandex.authsdk.YandexAuthResult
+import com.yandex.authsdk.YandexAuthSdk
 
 /** Native account and sync settings, grouped by user intent instead of one long card. */
 @Composable
@@ -40,13 +46,27 @@ fun AuthPanel(app: GenesisApplication, localLanguage: String, onLanguage: (Strin
     val state by controller.state.collectAsStateWithLifecycle()
     val taskSync by controller.taskSync.collectAsStateWithLifecycle()
     val activity = LocalContext.current.activity()
+    val yandexSignInError = genesisTranslate("Вход через Яндекс не завершён")
+    val privacyOpenError = genesisTranslate("Не удалось открыть политику конфиденциальности")
+    var yandexAvailable by remember { mutableStateOf(false) }
+    LaunchedEffect(app, state.ready) { yandexAvailable = controller.yandexAvailable() }
+    val yandexSdk = remember(app) {
+        if (BuildConfig.YANDEX_CLIENT_ID.isNotBlank()) YandexAuthSdk.create(YandexAuthOptions(app)) else null
+    }
+    val yandexLauncher = if (yandexSdk != null) rememberLauncherForActivityResult(yandexSdk.contract) { result ->
+        when (result) {
+            is YandexAuthResult.Success -> controller.signInWithYandex(result.token.value, localLanguage)
+            is YandexAuthResult.Failure -> Toast.makeText(app, yandexSignInError, Toast.LENGTH_SHORT).show()
+            YandexAuthResult.Cancelled -> Unit
+        }
+    } else null
     var confirmKeepLocal by remember { mutableStateOf(false) }
     var confirmKeepRemote by remember { mutableStateOf(false) }
 
     Column(Modifier.fillMaxWidth().testTag("auth-panel"), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        AccountSubsection("auth-sign-in-block", "G", "Вход в GENESIS",
+        AccountSubsection("auth-sign-in-block", "◎", "Вход в GENESIS",
             "Защищённая учётная запись и состояние сессии") {
-            Text("После Google-входа данные сайта и задачи Google открываются в отдельной защищённой копии. Локальные черновики не перезаписываются.",
+            Text("После входа данные сайта открываются в отдельной защищённой копии. Локальные черновики не перезаписываются.",
                 style = MaterialTheme.typography.bodySmall)
             if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
             state.user?.let { identity ->
@@ -65,10 +85,32 @@ fun AuthPanel(app: GenesisApplication, localLanguage: String, onLanguage: (Strin
                     modifier = Modifier.fillMaxWidth().testTag("auth-google-sign-in")) {
                     Text(if (state.requiresSignIn) "Продолжить вход через Google" else "Войти через Google")
                 }
+                if (yandexAvailable) Text("Рекомендуется пользователям за пределами России",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (yandexAvailable && yandexLauncher != null) {
+                    OutlinedButton(onClick = { yandexLauncher.launch(YandexAuthLoginOptions()) },
+                        enabled = !state.busy,
+                        modifier = Modifier.fillMaxWidth().testTag("auth-yandex-sign-in")) {
+                        Text("Войти через Яндекс")
+                    }
+                    Text("Рекомендуется пользователям в России",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
             if (state.user != null) {
                 OutlinedButton(onClick = controller::logout,
                     modifier = Modifier.fillMaxWidth().testTag("auth-logout")) { Text("Выйти") }
+            }
+            TextButton(onClick = {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://genesiscalendar.ru/privacy"))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                runCatching { app.startActivity(intent) }.onFailure {
+                    Toast.makeText(app, privacyOpenError, Toast.LENGTH_SHORT).show()
+                }
+            }, modifier = Modifier.testTag("auth-privacy-policy")) {
+                Text("Политика конфиденциальности")
             }
         }
 
@@ -82,18 +124,21 @@ fun AuthPanel(app: GenesisApplication, localLanguage: String, onLanguage: (Strin
         }
 
         AccountSubsection("auth-cloud-block", "☁", "Облако",
-            "Что хранится в GENESIS, а что синхронизируется с Google") {
+            if (state.accountSettings?.authProvider == "yandex") "Защищённое пространство GENESIS"
+            else "Что хранится в GENESIS, а что синхронизируется с Google") {
             val cloud = state.preview
             CloudDestination("Сайт GENESIS",
                 if (cloud == null) "Ожидает загрузки защищённого пространства" else "Версия облака: ${cloud.version}",
                 if (cloud == null) "Проекты, категории, привычки, отметки, сон, настроение, награды и испытания."
                 else "${cloud.projects} проектов · ${cloud.categories} категорий · ${cloud.habits} привычек · ${cloud.completions} отметок\n" +
                     "Сон: ${cloud.sleepEntries} · настроение: ${cloud.moodEntries} · награды: ${cloud.rewards} · испытания: ${cloud.quests}")
-            val access = GoogleServiceAccess.primary(state.accountSettings)
-            CloudDestination("Google-аккаунт",
-                if (access.complete) "Calendar и Tasks подключены" else "Calendar и Tasks требуют подключения",
-                if (cloud?.tasks == null) "События календаря и задачи Google появятся после подключения сервисов."
-                else "Задачи Google: ${cloud.tasks} · списки: ${cloud.taskLists ?: 0}")
+            if (state.accountSettings?.authProvider == "google") {
+                val access = GoogleServiceAccess.primary(state.accountSettings)
+                CloudDestination("Google-аккаунт",
+                    if (access.complete) "Calendar и Tasks подключены" else "Calendar и Tasks требуют подключения",
+                    if (cloud?.tasks == null) "События календаря и задачи Google появятся после подключения сервисов."
+                    else "Задачи Google: ${cloud.tasks} · списки: ${cloud.taskLists ?: 0}")
+            }
             if (taskSync.scope == app.workspaceScope) {
                 AccountTaskSyncNotice(taskSync)
                 taskSync.received?.let { count ->
@@ -113,7 +158,9 @@ fun AuthPanel(app: GenesisApplication, localLanguage: String, onLanguage: (Strin
                 Text("Google Tasks сообщил о неполной загрузке. Объединение пока недоступно.",
                     color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             }
-            Text("Изменения проектов и привычек синхронизируются с зашифрованным пространством, задачи — с Google. При конфликте локальная копия сохраняется.",
+            Text(if (state.accountSettings?.authProvider == "yandex")
+                "Проекты и привычки хранятся в защищённом пространстве GENESIS. Подключение Яндекс Календаря будет доступно отдельно."
+                else "Изменения проектов и привычек синхронизируются с зашифрованным пространством, задачи — с Google. При конфликте локальная копия сохраняется.",
                 style = MaterialTheme.typography.bodySmall)
             if (state.user != null) OutlinedButton(onClick = controller::refresh,
                 enabled = !state.busy && !taskSync.loading,
@@ -128,7 +175,7 @@ fun AuthPanel(app: GenesisApplication, localLanguage: String, onLanguage: (Strin
             }
         }
 
-        if (state.user != null) {
+        if (state.user != null && state.accountSettings?.authProvider == "google") {
             AccountSubsection("auth-google-services-block", "↻", "Google Calendar и Tasks",
                 "Разрешения и фоновая синхронизация") {
                 GoogleServicesConnectPanel(state, controller, showWhenComplete = true, embedded = true)

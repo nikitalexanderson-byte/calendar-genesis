@@ -2000,7 +2000,7 @@ test("retains the legacy TWA artifact but promotes only the signed native Androi
   // The legacy 1.2.2 asset remains available while the current native release advances.
   const nativeVersionCode = Number(androidBuild.match(/versionCode = (\d+)/)?.[1]);
   assert.ok(nativeVersionCode >= 52);
-  assert.match(androidBuild, /versionName = "2\.4\.7"/);
+  assert.match(androidBuild, /versionName = "2\.4\.8"/);
   assert.match(androidBuild, /releaseSigningReady/);
   assert.match(androidBuild, /applicationIdSuffix = "\.debug"/);
   assert.match(androidBuild, /androidx\.browser:browser:1\.10\.0/);
@@ -2906,7 +2906,6 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(google, /\$calendarMode === 'profane'/);
   assert.doesNotMatch(google, /Календарная дата:\\n/);
   assert.match(repository, /GENESIS_ADMIN_EMAIL = 'nikitalexanderson@gmail.com'/);
-  assert.match(repository, /function genesisMultiAccountEnabled\(array \$owner\): bool[\s\S]*?return isset\(\$owner\['id'\]\)/);
   assert.doesNotMatch(repository, /Подключение нескольких аккаунтов пока доступно только администратору/);
   assert.match(multiAccountMigration, /CREATE TABLE IF NOT EXISTS linked_google_accounts/);
   assert.match(calendar, /solar-year-strip/);

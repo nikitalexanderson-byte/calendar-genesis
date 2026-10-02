@@ -1,4 +1,11 @@
 {
+  "Как GENESIS использует Google и Яндекс": "Como o GENESIS utiliza Google e Yandex",
+  "Вы выбираете способ входа. Google и Яндекс передают основные данные профиля. Проекты и привычки хранятся в защищённом пространстве GENESIS. Синхронизация Google Calendar и Tasks подключается отдельно; при входе через Яндекс задачи и списки пока остаются на устройстве.": "Escolhe como iniciar sessão. Google e Yandex fornecem dados básicos do perfil. Projetos e hábitos ficam no espaço protegido do GENESIS. A sincronização com Google Calendar e Tasks é ligada separadamente; com Yandex, tarefas e listas ficam por enquanto neste dispositivo.",
+  "Задачи остаются в Google или на вашем устройстве — в зависимости от способа входа": "As tarefas ficam no Google ou no dispositivo, conforme o início de sessão",
+  "Выберите вход через Google или Яндекс. GENESIS получит основные данные профиля от выбранного сервиса. Подключение календаря выполняется отдельно.": "Escolha Google ou Yandex para iniciar sessão. O GENESIS recebe dados básicos do perfil do serviço escolhido. O acesso ao calendário é ligado separadamente.",
+  "GENESIS не запрашивает пароль от Google или Яндекса. Вход выполняется через выбранный вами сервис.": "O GENESIS nunca pede a sua palavra-passe Google ou Yandex. O início de sessão ocorre no serviço escolhido.",
+  "Задачи на устройстве": "Tarefas neste dispositivo",
+  "? Это действие нельзя отменить.": "? Esta ação não pode ser desfeita.",
   ", день": ", dia",
   ", задач:": ", tarefas:",
   ", закат": ", pôr do sol",
@@ -2627,5 +2634,15 @@
   "Не удалось сохранить выбор. Повторите попытку.": "Não foi possível guardar a escolha. Tente novamente.",
   "Наблюдение привычек": "Acompanhamento de hábitos",
   "Запланировано": "Planeado",
-  "Отдых": "Descanso"
+  "Отдых": "Descanso",
+  "Войти через Яндекс": "Entrar com Yandex",
+  "Рекомендуется пользователям за пределами России": "Recomendado para utilizadores fora da Rússia",
+  "Рекомендуется пользователям в России": "Recomendado para utilizadores na Rússia",
+  "Не удалось войти через Яндекс": "Não foi possível entrar com Yandex",
+  "Яндекс не завершил авторизацию. Попробуйте ещё раз.": "O Yandex não concluiu o início de sessão. Tente novamente.",
+  "Вы отменили вход через Яндекс. Доступ к данным не был предоставлен.": "Cancelou o início de sessão com Yandex. Não foi concedido acesso aos dados.",
+  "Защитная проверка входа через Яндекс истекла. Начните вход заново.": "A verificação de segurança do início de sessão com Yandex expirou. Comece novamente.",
+  "Этот адрес уже используется другим аккаунтом GENESIS. Войдите прежним способом или обратитесь в поддержку.": "Este endereço já é utilizado por outra conta GENESIS. Entre pelo método original ou contacte o apoio.",
+  "Вход выполняется через официальный Яндекс ID. GENESIS не получает ваш пароль Яндекса. Синхронизация с Яндекс Календарём пока не подключена.": "O início de sessão utiliza o serviço oficial Yandex ID. O GENESIS não recebe a sua palavra-passe do Yandex. A sincronização com o Yandex Calendar ainda não está ligada.",
+  "Безвозвратно удалит профиль и связанные с ним данные GENESIS. Доступ к GENESIS можно также отозвать в Яндекс ID.": "Elimina permanentemente o seu perfil e os dados GENESIS associados. Também pode revogar o acesso do GENESIS no Yandex ID."
 }

@@ -17,6 +17,10 @@ val releaseStore = providers.environmentVariable("GENESIS_ANDROID_SIGNING_STORE"
 val releaseStorePassword = providers.environmentVariable("GENESIS_ANDROID_SIGNING_STORE_PASSWORD").orNull
 val releaseKeyAlias = providers.environmentVariable("GENESIS_ANDROID_SIGNING_KEY_ALIAS").orNull
 val releaseKeyPassword = providers.environmentVariable("GENESIS_ANDROID_SIGNING_KEY_PASSWORD").orNull
+val yandexClientId = providers.environmentVariable("GENESIS_YANDEX_CLIENT_ID").orElse("").get().trim()
+require(yandexClientId.isEmpty() || yandexClientId.matches(Regex("[A-Za-z0-9_-]{16,128}"))) {
+    "GENESIS_YANDEX_CLIENT_ID has an invalid format"
+}
 val releaseSigningReady = listOf(releaseStore, releaseStorePassword, releaseKeyAlias, releaseKeyPassword)
     .all { !it.isNullOrBlank() }
 
@@ -32,11 +36,13 @@ android {
         applicationId = "ru.genesis.calendar"
         minSdk = 26
         targetSdk = 37
-        versionCode = 53
-        versionName = "2.4.7"
+        versionCode = 54
+        versionName = "2.4.8"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         manifestPlaceholders["genesisHost"] = genesisUri.host
+        manifestPlaceholders["YANDEX_CLIENT_ID"] = yandexClientId
+        buildConfigField("String", "YANDEX_CLIENT_ID", "\"$yandexClientId\"")
         resValue("string", "launch_url", genesisUrl)
         resValue("string", "app_name", "GENESIS")
     }
@@ -138,6 +144,7 @@ dependencies {
     // 1.2.1 carries Kotlin 2.4 metadata; 1.1.1 retains compatibility with AGP's Kotlin 2.2.
     implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
     implementation("com.google.android.gms:play-services-auth:21.6.0")
+    implementation("com.yandex.android:authsdk:3.1.3")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20250517")
     androidTestImplementation("androidx.test:runner:1.7.0")
