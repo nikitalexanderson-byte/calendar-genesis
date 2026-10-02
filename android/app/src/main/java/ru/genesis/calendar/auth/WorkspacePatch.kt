@@ -10,14 +10,14 @@ internal object WorkspacePatch {
     data class Result(val document: JSONObject, val changed: Boolean)
 
     private val collectionIds = mapOf(
-        "projects" to "id", "categories" to "id", "taskListLinks" to "taskListId",
+        "projects" to "id", "categories" to "id", "taskListLinks" to "taskListId", "taskLists" to "id",
         "habits" to "id", "habitCompletions" to "id", "sleepPlans" to "id",
         "sleepEntries" to "id", "moodEntries" to "id", "dailyGoalRecords" to "date",
         "quests" to "id", "achievementUnlocks" to "achievementId",
         "rewardTransactions" to "idempotencyKey", "streakFreezeTransactions" to "idempotencyKey",
     )
     private val kinds = mapOf(
-        "workspace-structure" to listOf("projects", "categories", "taskListLinks"),
+        "workspace-structure" to listOf("projects", "categories", "taskListLinks", "taskLists"),
         "habits" to listOf("habits", "habitCompletions", "dailyGoalRecords", "quests",
             "achievementUnlocks", "rewardTransactions", "streakFreezeTransactions", "userProgress",
             "habitSettings", "hiddenDefaultTemplates"),
@@ -25,7 +25,7 @@ internal object WorkspacePatch {
     )
 
     fun emptyDocument(): JSONObject = JSONObject().put("trackerSchemaVersion", 16)
-        .put("projects", JSONArray()).put("categories", JSONArray()).put("taskListLinks", JSONArray())
+        .put("projects", JSONArray()).put("categories", JSONArray()).put("taskListLinks", JSONArray()).put("taskLists", JSONArray())
         .put("habits", JSONArray()).put("habitCompletions", JSONArray())
         .put("sleepPlans", JSONArray()).put("sleepEntries", JSONArray()).put("moodEntries", JSONArray())
         .put("addictionTrackers", JSONArray()).put("addictionEntries", JSONArray())
@@ -55,7 +55,9 @@ internal object WorkspacePatch {
             if (key in collectionIds) {
                 val idField = collectionIds.getValue(key)
                 val baseRows = indexed(base.optJSONArray(key) ?: JSONArray(), idField, key)
-                val localRows = indexed(local.getJSONArray(key), idField, key)
+                // Older encrypted workspaces have no taskLists field. Absence means
+                // unchanged, while an explicit empty array means the user removed lists.
+                val localRows = indexed(local.optJSONArray(key) ?: base.optJSONArray(key) ?: JSONArray(), idField, key)
                 val remoteRows = indexed(output.optJSONArray(key) ?: JSONArray(), idField, key)
                 val result = LinkedHashMap(remoteRows)
                 val revisions = JSONObject(entities.optJSONObject(key)?.toString() ?: "{}")
@@ -118,7 +120,7 @@ internal object WorkspacePatch {
 
     fun localDocument(base: JSONObject, structure: JSONObject?, habits: JSONObject?, trackers: JSONObject?): JSONObject {
         val output = JSONObject(base.toString())
-        structure?.let { part -> listOf("projects", "categories", "taskListLinks").forEach { output.put(it, part.getJSONArray(it)) } }
+        structure?.let { part -> listOf("projects", "categories", "taskListLinks", "taskLists").forEach { output.put(it, part.getJSONArray(it)) } }
         habits?.let { part ->
             mapOf("habits" to "habits", "completions" to "habitCompletions", "goals" to "dailyGoalRecords",
                 "rewards" to "rewardTransactions", "achievementUnlocks" to "achievementUnlocks",

@@ -974,6 +974,7 @@ private object TranslationCatalog {
             runCatching {
                 val names = if (language in setOf("el", "sr", "uk"))
                     listOf("translations.$language.a.json", "translations.$language.b.json")
+                    else if (language == "ja") listOf("translations.ja.json", "translations.ja.b.json")
                     else listOf("translations.$language.json")
                 buildMap {
                     names.forEach { name ->

@@ -17,6 +17,7 @@ import ukrainianTranslationsB from "./translations.uk.b.json";
 import chineseTranslations from "./translations.zh.json";
 import turkishTranslations from "./translations.tr.json";
 import japaneseTranslations from "./translations.ja.json";
+import japaneseYandexTranslations from "./translations.ja.b.json";
 import englishYear from "./year-translations/en.json";
 import greekYear from "./year-translations/el.json";
 import germanYear from "./year-translations/de.json";
@@ -311,7 +312,7 @@ const catalogs: Record<Exclude<Language, "ru">, Record<string, string>> = {
   fr: { ...frenchTranslations, ...frenchYear }, es: { ...spanishTranslations, ...spanishYear }, it: { ...italianTranslations, ...italianYear }, pt: { ...portugueseTranslations, ...portugueseYear },
   pl: { ...polishTranslations, ...polishYear }, sr: { ...serbianTranslationsA, ...serbianTranslationsB, ...serbianYear },
   uk: { ...ukrainianTranslationsA, ...ukrainianTranslationsB, ...ukrainianYear },
-  zh: { ...chineseTranslations, ...chineseYear }, tr: { ...turkishTranslations, ...turkishYear }, ja: { ...japaneseTranslations, ...japaneseYear },
+  zh: { ...chineseTranslations, ...chineseYear }, tr: { ...turkishTranslations, ...turkishYear }, ja: { ...japaneseTranslations, ...japaneseYandexTranslations, ...japaneseYear },
 };
 const yearCatalogs: Record<Exclude<Language, "ru">, Record<string, string>> = {
   en: englishYear, el: greekYear, de: germanYear, fr: frenchYear, es: spanishYear,

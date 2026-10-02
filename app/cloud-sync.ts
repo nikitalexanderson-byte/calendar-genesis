@@ -113,6 +113,15 @@ export type GenesisTask = {
   googleTaskListId: string | null;
   googleTaskListTitle: string;
   googleReadOnly: boolean;
+  yandexEntryType?: "task" | "meeting";
+  yandexEndTime?: string;
+  yandexLocation?: string;
+  yandexTelemostUrl?: string;
+  yandexAttendees?: string[];
+  yandexOptionalAttendees?: string[];
+  yandexBusy?: boolean;
+  yandexVisibility?: "private" | "public";
+  yandexReminders?: number[];
   updatedAt: number;
 };
 
@@ -315,7 +324,10 @@ export type WorkspaceEnvelope = {
   updatedAt: string;
 };
 
-export type EncryptedWorkspaceStructure = Pick<GenesisWorkspace, "projects" | "categories" | "taskListLinks"> & HabitWorkspace;
+export type EncryptedWorkspaceStructure = Pick<GenesisWorkspace, "projects" | "categories" | "taskListLinks"> & HabitWorkspace & {
+  /** Yandex accounts keep list metadata in the end-to-end encrypted workspace. */
+  taskLists: GoogleTaskList[];
+};
 
 type WorkspaceSaveResponse = {
   ok: boolean;
@@ -589,7 +601,6 @@ function normalizeTask(task: Partial<GenesisTask> & Pick<GenesisTask, "id" | "ti
     day: 1,
     dueDate,
     endDate: typeof task.endDate === "string" && task.endDate ? task.endDate : dueDate,
-    description: "",
     time: "",
     project: "",
     projectId: null,
@@ -628,6 +639,16 @@ function normalizeTask(task: Partial<GenesisTask> & Pick<GenesisTask, "id" | "ti
     googleAccountId: typeof task.googleAccountId === "string" && task.googleAccountId ? task.googleAccountId : null,
     googleAccountEmail: typeof task.googleAccountEmail === "string" ? task.googleAccountEmail : "",
     googleTaskListTitle: typeof task.googleTaskListTitle === "string" ? task.googleTaskListTitle : "",
+    yandexEntryType: task.yandexEntryType === "meeting" ? "meeting" : "task",
+    yandexEndTime: typeof task.yandexEndTime === "string" ? task.yandexEndTime : "",
+    yandexLocation: typeof task.yandexLocation === "string" ? task.yandexLocation : "",
+    yandexTelemostUrl: typeof task.yandexTelemostUrl === "string" ? task.yandexTelemostUrl : "",
+    yandexAttendees: Array.isArray(task.yandexAttendees) ? task.yandexAttendees.filter((item): item is string => typeof item === "string") : [],
+    yandexOptionalAttendees: Array.isArray(task.yandexOptionalAttendees) ? task.yandexOptionalAttendees.filter((item): item is string => typeof item === "string") : [],
+    yandexBusy: Boolean(task.yandexBusy),
+    yandexVisibility: task.yandexVisibility === "public" ? "public" : "private",
+    yandexReminders: Array.isArray(task.yandexReminders) ? task.yandexReminders.filter((item): item is number =>
+      Number.isInteger(item) && item >= 0 && item <= 40_320).slice(0, 5) : [],
   };
 }
 
@@ -677,6 +698,7 @@ function workspaceDocument(structure: EncryptedWorkspaceStructure, metadata = wo
     projects: structure.projects,
     categories: structure.categories,
     taskListLinks: structure.taskListLinks,
+    taskLists: structure.taskLists,
     trackerSchemaVersion: structure.trackerSchemaVersion,
     userProgress: structure.userProgress,
     habits: structure.habits,
@@ -704,6 +726,7 @@ function structureFromDocument(document: SyncableWorkspaceDocument): EncryptedWo
     projects: Array.isArray(document.projects) ? document.projects as GenesisProject[] : [],
     categories: Array.isArray(document.categories) ? document.categories as GenesisCategory[] : [],
     taskListLinks: Array.isArray(document.taskListLinks) ? document.taskListLinks as TaskListProjectLink[] : [],
+    taskLists: Array.isArray(document.taskLists) ? document.taskLists as GoogleTaskList[] : [],
     ...normalized,
   };
 }
@@ -877,7 +900,7 @@ async function decryptWorkspace(envelope: WorkspaceEnvelope | null): Promise<Enc
     workspaceSyncMetadata = normalizeWorkspaceSyncMetadata(null, syncFallback(1));
     workspaceBaseMetadata = workspaceSyncMetadata;
     encryptedHabitWorkspace = normalizeHabitWorkspace(EMPTY_HABIT_WORKSPACE);
-    workspaceBase = { projects: [], categories: [], taskListLinks: [], ...encryptedHabitWorkspace };
+    workspaceBase = { projects: [], categories: [], taskListLinks: [], taskLists: [], ...encryptedHabitWorkspace };
     persistWorkspaceSyncCache();
     return workspaceBase;
   }
@@ -896,9 +919,11 @@ async function encryptWorkspace(
   categories: GenesisCategory[],
   taskListLinks: TaskListProjectLink[],
   habitWorkspace?: HabitWorkspace,
+  taskLists?: GoogleTaskList[],
 ) {
   if (habitWorkspace) encryptedHabitWorkspace = normalizeHabitWorkspace(habitWorkspace);
-  const current: EncryptedWorkspaceStructure = { projects, categories, taskListLinks, ...encryptedHabitWorkspace };
+  const current: EncryptedWorkspaceStructure = { projects, categories, taskListLinks,
+    taskLists: taskLists ?? workspaceBase?.taskLists ?? [], ...encryptedHabitWorkspace };
   const timestamp = new Date().toISOString();
   const prepared = prepareWorkspaceForSync({
     current: workspaceDocument(current),
@@ -1038,7 +1063,8 @@ export async function loadGenesisWorkspace(): Promise<GenesisWorkspace> {
     tasks: payload.tasks.map((task) => normalizeTask(task)),
     projects: structure.projects,
     categories: structure.categories,
-    taskLists: Array.isArray(payload.taskLists) ? payload.taskLists : [],
+    taskLists: payload.user.authProvider === "yandex" ? structure.taskLists
+      : Array.isArray(payload.taskLists) ? payload.taskLists : [],
     taskListLinks: structure.taskListLinks,
     trackerSchemaVersion: structure.trackerSchemaVersion,
     userProgress: structure.userProgress,
@@ -1203,6 +1229,20 @@ export function disconnectGoogleServices() {
   });
 }
 
+export function connectYandexCalendar(login: string, appPassword: string) {
+  return api<{ user: GenesisUser }>("/account/yandex-calendar/connect", {
+    method: "POST",
+    body: JSON.stringify({ login, appPassword }),
+  });
+}
+
+export function disconnectYandexCalendar() {
+  return api<{ user: GenesisUser }>("/account/yandex-calendar/disconnect", {
+    method: "POST",
+    body: "{}",
+  });
+}
+
 export async function updateAccountPreferences(preferences: Partial<{
   stoicheionDivinationDisabled: boolean;
   calendarMode: CalendarMode;
@@ -1304,20 +1344,26 @@ export function observeCloudWorkspace(onError?: (error: Error) => void) {
 
 export async function mergeLocalWorkspace(
   _uid: string,
-  local: Pick<GenesisWorkspace, "tasks" | "projects" | "categories" | "taskListLinks"> & Partial<HabitWorkspace>,
+  local: Pick<GenesisWorkspace, "tasks" | "projects" | "categories" | "taskListLinks" | "taskLists"> & Partial<HabitWorkspace>,
 ) {
   const remote = await loadGenesisWorkspace();
   if (readPending().some((mutation) => mutation.key === "workspace")) {
     await flushPendingMutations();
   } else if (shouldSeedRemoteWorkspace(remote.hasRemoteStructure,
-    local.projects.length + local.categories.length + local.taskListLinks.length + (local.habits?.length ?? 0))) {
+    local.projects.length + local.categories.length + local.taskListLinks.length
+      + (remote.user.authProvider === "yandex" ? local.taskLists.length : 0) + (local.habits?.length ?? 0))) {
     await saveWorkspaceStructure(
       local.projects,
       local.categories,
       local.taskListLinks,
       metricsFor(local.tasks, local.projects, local.habits?.length ?? 0),
       normalizeHabitWorkspace(local),
+      remote.user.authProvider === "yandex" ? local.taskLists : undefined,
     );
+  } else if (remote.user.authProvider === "yandex" && remote.taskLists.length === 0 && local.taskLists.length > 0) {
+    await saveWorkspaceStructure(remote.projects, remote.categories, remote.taskListLinks,
+      metricsFor(remote.tasks, remote.projects, remote.habits.length),
+      normalizeHabitWorkspace(remote), local.taskLists);
   }
   if (!remote.user.calendarConnected) return;
   const remoteById = new Map(remote.tasks.map((task) => [task.id, task]));
@@ -1333,13 +1379,11 @@ export async function mergeLocalWorkspace(
 }
 
 export async function saveCloudTask(_uid: string, task: GenesisTask) {
-  // Yandex task/calendar synchronization is introduced separately. Keep edits on this device.
-  if (activeAuthProvider === "yandex") return normalizeTask({ ...task, syncToGoogle: false });
   const path = `/tasks/${encodeURIComponent(task.id)}`;
   const body = JSON.stringify({
     ...task,
     recurrenceDates: recurrenceDatesForTask(task),
-    syncToGoogle: true,
+    syncToGoogle: activeAuthProvider === "google",
   });
   queueMutation({ key: `task:${task.id}`, path, method: "PUT", body });
   const result = await api<{ task: GenesisTask }>(path, { method: "PUT", body });
@@ -1348,7 +1392,6 @@ export async function saveCloudTask(_uid: string, task: GenesisTask) {
 }
 
 export async function removeCloudTask(_uid: string, task: GenesisTask) {
-  if (activeAuthProvider === "yandex") return;
   const path = `/tasks/${encodeURIComponent(task.id)}`;
   const body = JSON.stringify({
     googleEventId: task.googleEventId,
@@ -1378,9 +1421,10 @@ export async function saveWorkspaceStructure(
   taskListLinks: TaskListProjectLink[],
   metrics: GenesisMetrics,
   habitWorkspace?: HabitWorkspace,
+  taskLists?: GoogleTaskList[],
 ) {
   return withWorkspaceMutationLock(async () => {
-    const encrypted = await encryptWorkspace(projects, categories, taskListLinks, habitWorkspace);
+    const encrypted = await encryptWorkspace(projects, categories, taskListLinks, habitWorkspace, taskLists);
     const request: WorkspaceEnvelopeRequest = { ...encrypted.envelope, metrics };
     const body = JSON.stringify(request);
     queueMutation({ key: "workspace", path: "/workspace", method: "PUT", body });

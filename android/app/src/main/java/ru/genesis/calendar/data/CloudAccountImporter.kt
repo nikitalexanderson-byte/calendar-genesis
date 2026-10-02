@@ -18,7 +18,8 @@ internal class CloudAccountImporter(private val db: GenesisDatabase, private val
         fun structureDocument(document: JSONObject): String = JSONObject()
             .put("projects", document.getJSONArray("projects"))
             .put("categories", document.getJSONArray("categories"))
-            .put("taskListLinks", document.getJSONArray("taskListLinks")).toString()
+            .put("taskListLinks", document.getJSONArray("taskListLinks"))
+            .put("taskLists", document.optJSONArray("taskLists") ?: JSONArray()).toString()
 
         fun habitsDocument(document: JSONObject): String = JSONObject().put("localSchema", 1)
             .put("habits", document.getJSONArray("habits"))
@@ -104,6 +105,12 @@ internal class CloudAccountImporter(private val db: GenesisDatabase, private val
                 if ("workspace-structure" !in pending)
                     dao.putDocument(DocumentRecord(scope, "structure", cipher.encrypt(structure, "$scope/structure"), snapshot.version))
                 if (document != null) {
+                    if (snapshot.authProvider == "yandex" && document.optJSONArray("taskLists") != null && "workspace-structure" !in pending) {
+                        val listRows = document.getJSONArray("taskLists")
+                        val validLists = (0 until listRows.length()).map { GoogleTaskList.from(listRows.getJSONObject(it)) }
+                        val listDocument = JSONArray().apply { validLists.forEach { put(it.json()) } }.toString()
+                        dao.putDocument(DocumentRecord(scope, "task-lists", cipher.encrypt(listDocument, "$scope/task-lists"), snapshot.version))
+                    }
                     // Keep the original three-way-merge base while a document has local edits.
                     if (pending.none { it in setOf("workspace-structure", "habits", "trackers") })
                         dao.putDocument(DocumentRecord(scope, "cloud-base", cipher.encrypt(document.toString(), "$scope/cloud-base"), snapshot.version))

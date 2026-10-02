@@ -5,6 +5,8 @@ require dirname(__DIR__) . '/src/bootstrap.php';
 require dirname(__DIR__) . '/src/repository.php';
 require dirname(__DIR__) . '/src/ads.php';
 require dirname(__DIR__) . '/src/google.php';
+require dirname(__DIR__) . '/src/yandex.php';
+require dirname(__DIR__) . '/src/yandex-calendar.php';
 require dirname(__DIR__) . '/src/gemini.php';
 
 function expect(bool $condition, string $message): void
@@ -455,6 +457,41 @@ try {
         'depends_on_task_id' => 'test-deletion-dependency',
         'created_at' => $now,
     ]);
+    $db->prepare('INSERT INTO yandex_calendar_connections
+        (user_id, login_enc, app_password_enc, calendar_path_enc, connected_at, updated_at)
+        VALUES (:id, :login, :password, :path, :now, :now)')->execute([
+        'id' => $userId, 'login' => genesisEncrypt('smoke@yandex.ru'),
+        'password' => genesisEncrypt('smoke-password'),
+        'path' => genesisEncrypt('/calendars/smoke@yandex.ru/events-default/'), 'now' => $now,
+    ]);
+    $db->prepare('INSERT INTO yandex_calendar_tasks
+        (user_id, task_id, payload_enc, event_path_enc, updated_at)
+        VALUES (:id, :task_id, :payload, :path, :now)')->execute([
+        'id' => $userId, 'task_id' => 'smoke-yandex-task',
+        'payload' => genesisEncrypt('{"title":"Smoke"}'),
+        'path' => genesisEncrypt('/calendars/smoke@yandex.ru/events-default/genesis-'
+            . str_repeat('a', 40) . '.ics'),
+        'now' => $now,
+    ]);
+    $_SERVER['HTTP_X_GENESIS_TIME_ZONE'] = 'Europe/Moscow';
+    $calendarIcs = genesisYandexIcsDocument('smoke-yandex-task', [
+        'title' => 'Встреча, GENESIS', 'description' => "Строка\nописания",
+        'dueDate' => '2026-10-02', 'endDate' => '2026-10-02', 'time' => '09:30',
+        'yandexEntryType' => 'meeting', 'yandexEndTime' => '10:00',
+        'yandexAttendees' => ['guest@example.com'], 'yandexReminders' => [0, 60],
+    ], 'smoke@yandex.ru');
+    expect(str_contains($calendarIcs, 'DTSTART:20261002T063000Z')
+        && str_contains($calendarIcs, 'DTEND:20261002T070000Z'),
+        'Yandex meeting did not use the device time zone.');
+    expect(substr_count($calendarIcs, 'BEGIN:VALARM') === 2
+        && str_contains($calendarIcs, 'ATTENDEE;ROLE=REQ-PARTICIPANT'),
+        'Yandex meeting lost its attendees or reminders.');
+    expect(genesisYandexIcsValue($calendarIcs, 'SUMMARY') === 'Встреча, GENESIS',
+        'Yandex event text did not survive iCalendar escaping.');
+    expect(genesisYandexIcsDateTime("DTSTART;TZID=Europe/Moscow:20261002T093000\r\n", 'DTSTART')
+        === ['date' => '2026-10-02', 'time' => '09:30'],
+        'Yandex local-time calendar events were not decoded.');
+    unset($_SERVER['HTTP_X_GENESIS_TIME_ZONE']);
 
     genesisRecordAndroidDownload($userId, '2.3.11');
     genesisRecordAndroidDownload($userId, '2.3.11');

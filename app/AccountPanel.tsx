@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { CalendarMode } from "./calendar-data";
 import type { GenesisCategory, GenesisUser, SyncRouting } from "./cloud-sync";
-import { deleteGenesisAccount, disconnectGoogleServices, removeAdditionalGoogleAccount, updateAccountPreferences } from "./cloud-sync";
+import { connectYandexCalendar, deleteGenesisAccount, disconnectGoogleServices, disconnectYandexCalendar, removeAdditionalGoogleAccount, updateAccountPreferences } from "./cloud-sync";
 import { LANGUAGES, LANGUAGE_LABELS, localizeCategoryName, runtimeLocale, translateText, type Language } from "./i18n";
 
 import type { TimeFormat } from "./time-format";
@@ -105,6 +105,8 @@ function createHabitResetChallenge(): HabitResetChallenge {
 export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditionalGoogle, onLanguageChange, onUserChange, themeState, onThemeChange, habitTrackingEnabled, onHabitTrackingChange, habitNotificationSettings, notificationPermission, onHabitNotificationSettingsChange, habitFeedbackSettings, onHabitFeedbackSettingsChange, onRequestHabitNotifications, hiddenHabitTemplateCount, onRestoreHabitTemplates, onResetHabitTracking, categories }: AccountPanelProps) {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [yandexLogin, setYandexLogin] = useState(user.email ?? "");
+  const [yandexAppPassword, setYandexAppPassword] = useState("");
   const [preferenceBusy, setPreferenceBusy] = useState(false);
   const [notificationBusy, setNotificationBusy] = useState(false);
   const [habitResetChallenge, setHabitResetChallenge] = useState<HabitResetChallenge | null>(null);
@@ -315,7 +317,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
 
   const removeAccount = async () => {
     const confirmation = user.authProvider === "yandex"
-      ? "Безвозвратно удалить аккаунт GENESIS и его данные с сервера? Локальные задачи и списки останутся на этом устройстве; доступ к GENESIS можно отдельно отозвать в Яндекс ID."
+      ? "Безвозвратно удалить аккаунт GENESIS, задачи и списки с сервера? События, уже созданные в Яндекс.Календаре, останутся там; доступ к GENESIS можно отдельно отозвать в Яндекс ID."
       : "Безвозвратно удалить аккаунт GENESIS и все относящиеся к нему данные с сервера? Будут удалены профиль, зашифрованное пространство, привычки, статистика, расклады и привязки аккаунтов. Разрешения Google будут отозваны. Уже созданные события и списки задач останутся в вашем Google-аккаунте.";
     if (!window.confirm(translateText(confirmation, undefined, true))) return;
     setBusy(true);
@@ -337,6 +339,36 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
       window.location.reload();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Не удалось отключить Google Calendar и Tasks.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const connectCalendar = async () => {
+    setBusy(true);
+    setMessage("");
+    try {
+      const result = await connectYandexCalendar(yandexLogin.trim(), yandexAppPassword);
+      setYandexAppPassword("");
+      onUserChange(result.user);
+      window.location.reload();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Не удалось подключить Яндекс.Календарь.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const disconnectCalendar = async () => {
+    if (!window.confirm("Отключить Яндекс.Календарь? Уже созданные события останутся в вашем календаре.")) return;
+    setBusy(true);
+    setMessage("");
+    try {
+      const result = await disconnectYandexCalendar();
+      onUserChange(result.user);
+      window.location.reload();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Не удалось отключить Яндекс.Календарь.");
     } finally {
       setBusy(false);
     }
@@ -388,7 +420,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
 
         <div className="account-security-grid">
           {user.authProvider === "yandex"
-            ? <article><span>Яндекс ID</span><strong>Подключён</strong><small>Вход через Яндекс. Задачи и списки пока сохраняются на этом устройстве.</small></article>
+            ? <article><span>Яндекс ID</span><strong>Подключён</strong><small>{user.calendarConnected ? "Яндекс.Календарь подключён. Задачи синхронизируются как события; списки хранятся в зашифрованном пространстве GENESIS." : "Вход через Яндекс. Подключите календарь отдельно."}</small></article>
             : <article><span>Google-сервисы</span><strong>{user.calendarConnected && user.googleTasksImportReady ? "Подключены" : "По желанию"}</strong><small>Calendar и Tasks подключаются отдельным согласием после входа.</small></article>}
           <article><span>Личные данные</span><strong>Зашифрованы</strong><small>AES-GCM в браузере; ключ хранится на сервере отдельно и зашифрован для автоматического входа.</small></article>
           <article><span>Офлайн-копия</span><strong>На устройстве</strong><small>Доступна без сети после входа на этом устройстве.</small></article>
@@ -403,6 +435,22 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
             <button type="button" onClick={onReconnectGoogle}>Подключить</button>
           </section>
         ) : null}
+
+        {user.authProvider === "yandex" ? <section className="account-preferences yandex-calendar-preference" aria-labelledby="yandex-calendar-title" data-exp-ui="panel">
+          <div>
+            <span className="eyebrow">Яндекс</span>
+            <h3 id="yandex-calendar-title">Яндекс.Календарь</h3>
+            <p>{user.calendarConnected ? "Подключён. Задачи GENESIS появляются как события в основном календаре Яндекса." : "Для синхронизации задач создайте в Яндекс ID отдельный пароль приложения типа «Календарь». Обычный пароль от аккаунта здесь не нужен."}</p>
+            <p><a href="https://yandex.ru/support/id/ru/authorization/app-passwords" target="_blank" rel="noopener noreferrer">Как создать пароль приложения в Яндекс ID</a></p>
+            <small>Пароль приложения сохраняется на сервере GENESIS в зашифрованном виде. Яндекс может активировать новый пароль через 2–3 часа.</small>
+          </div>
+          {user.calendarConnected ? <button type="button" className="text-button" disabled={busy} onClick={() => void disconnectCalendar()}>Отключить календарь</button>
+            : <form className="yandex-calendar-form" onSubmit={(event) => { event.preventDefault(); void connectCalendar(); }}>
+              <label>Логин Яндекса<input type="text" value={yandexLogin} onChange={(event) => setYandexLogin(event.target.value)} autoComplete="username" required maxLength={254} /></label>
+              <label>Пароль приложения «Календарь»<input type="password" value={yandexAppPassword} onChange={(event) => setYandexAppPassword(event.target.value)} autoComplete="new-password" required minLength={8} maxLength={256} /></label>
+              <button type="submit" className="primary-button" disabled={busy}>Подключить Яндекс.Календарь</button>
+            </form>}
+        </section> : null}
 
         <section className="account-preferences theme-preference" aria-labelledby="theme-title" data-exp-ui="panel">
           <div>
@@ -856,7 +904,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
         <section className="account-oauth-note" aria-label="Безопасность входа">
           <h3>Безопасный вход</h3>
           {user.authProvider === "yandex" ? (
-            <p>Вход выполняется через официальный Яндекс ID. GENESIS не получает ваш пароль Яндекса. Синхронизация с Яндекс Календарём пока не подключена.</p>
+            <p>Вход выполняется через официальный Яндекс ID. Для календаря используется отдельный пароль приложения, который можно отозвать в Яндекс ID.</p>
           ) : <>
             <p>Авторизация выполняется только через официальный OAuth Google. GENESIS не получает, не запрашивает и не хранит пароль. Токены доступа шифруются на сервере, а при удалении аккаунта разрешение отзывается у Google.</p>
             <p><a href="/privacy">Подробнее об использовании данных Google</a></p>

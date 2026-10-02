@@ -17,6 +17,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -138,7 +139,15 @@ internal fun MenuSwipePager(current: SwipeDestination, sequence: List<SwipeDesti
                                 offset = value
                             }
                         }
-                        if (destination != null) onNavigate(destination)
+                        if (destination != null) {
+                            // Keep the fully visible incoming composition on screen while the
+                            // destination becomes the current page. Clearing it in this same
+                            // frame forces two heavyweight screens to compose at once and
+                            // exposes a one-frame jump on slower phones.
+                            onNavigate(destination)
+                            withFrameNanos { }
+                            withFrameNanos { }
+                        }
                     } finally {
                         offset = 0f
                         incoming = null

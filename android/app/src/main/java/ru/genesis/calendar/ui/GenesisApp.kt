@@ -391,7 +391,8 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                 },
                 showSelectedOccurrence=tab=="Сегодня" || tab=="Календарь")
             if(creatingTaskList) TaskListEditor(structure,authState.accountSettings,prefs,
-                canCreate=authState.ready && !authState.requiresSignIn && authState.user!=null,
+                canCreate=authState.ready && !authState.requiresSignIn && authState.user!=null &&
+                    (authState.accountSettings?.authProvider != "yandex" || authState.accountSettings?.calendarConnected == true),
                 onDismiss={creatingTaskList=false},onCreate=authController::createTaskList,
                 onSaveTasks={list,projectId,date,rows ->
                     require(app.workspaceScope==activeScope) { "Аккаунт изменился. Откройте форму заново." }
@@ -736,11 +737,26 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
     var absoluteDate by rememberSaveable { mutableStateOf(date) }
     var absoluteTime by rememberSaveable { mutableStateOf(time.ifBlank { "09:00" }) }
     var absoluteCalendarMode by rememberSaveable(task?.id) { mutableStateOf(prefs.input) }
-    val googleTaskBacked = listId!=null || task?.sourceFieldsJson?.let { raw ->
+    val yandex = accountSettings?.authProvider == "yandex"
+    val yandexFields = remember(task?.id) { JSONObject(task?.sourceFieldsJson ?: "{}") }
+    var yandexEntryType by rememberSaveable(task?.id) { mutableStateOf(yandexFields.optString("yandexEntryType", "task")) }
+    var yandexEndDate by rememberSaveable(task?.id) { mutableStateOf(yandexFields.optString("endDate").takeIf { it.matches(Regex("\\d{4}-\\d{2}-\\d{2}")) } ?: date) }
+    var yandexEndTime by rememberSaveable(task?.id) { mutableStateOf(yandexFields.optString("yandexEndTime")) }
+    var yandexLocation by rememberSaveable(task?.id) { mutableStateOf(yandexFields.optString("yandexLocation")) }
+    var yandexTelemost by rememberSaveable(task?.id) { mutableStateOf(yandexFields.optString("yandexTelemostUrl")) }
+    var yandexAttendees by rememberSaveable(task?.id) { mutableStateOf(yandexFields.optJSONArray("yandexAttendees")?.let { rows ->
+        (0 until rows.length()).joinToString(", ") { rows.optString(it) } } ?: "") }
+    var yandexOptionalAttendees by rememberSaveable(task?.id) { mutableStateOf(yandexFields.optJSONArray("yandexOptionalAttendees")?.let { rows ->
+        (0 until rows.length()).joinToString(", ") { rows.optString(it) } } ?: "") }
+    var yandexBusy by rememberSaveable(task?.id) { mutableStateOf(yandexFields.optBoolean("yandexBusy", true)) }
+    var yandexVisibility by rememberSaveable(task?.id) { mutableStateOf(yandexFields.optString("yandexVisibility", "private")) }
+    var yandexReminders by remember(task?.id) { mutableStateOf<List<Int>>(yandexFields.optJSONArray("yandexReminders")?.let { rows ->
+        (0 until rows.length()).map { rows.optInt(it) } } ?: emptyList()) }
+    val googleTaskBacked = accountSettings?.authProvider != "yandex" && (listId!=null || task?.sourceFieldsJson?.let { raw ->
         runCatching { JSONObject(raw).optString("googleTaskId") }.getOrNull()?.let {
             it.isNotBlank() && it != "null"
         } ?: false
-    } ?: false
+    } ?: false)
     var confirmDelete by remember { mutableStateOf(false) }
     var validation by remember { mutableStateOf<String?>(null) }
     val occurrenceDate = if (task?.recurrence?.enabled == true && showSelectedOccurrence &&
@@ -749,25 +765,34 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
     Dialog(onDismissRequest=onDismiss,properties=androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth=false)) {
         Surface(Modifier.widthIn(max = 840.dp).fillMaxWidth().padding(12.dp),shape=RoundedCornerShape(20.dp)) {
             Column(Modifier.padding(16.dp).imePadding()) {
-                EditorDialogHeader(if(task==null) "Новая задача" else "Изменить задачу",
+                EditorDialogHeader(if (yandex) (if(task==null) "Новая запись Яндекс.Календаря" else "Изменить запись Яндекс.Календаря")
+                    else if(task==null) "Новая задача" else "Изменить задачу",
                     "close-task-editor", onDismiss)
               Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())
                 .testTag("task-editor-scroll"),
                 verticalArrangement=Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(title,{title=it},label={Text("Название")},modifier=Modifier.fillMaxWidth().testTag("task-title"))
                 OutlinedTextField(description,{description=it},label={Text("Описание")},modifier=Modifier.fillMaxWidth())
+                if (yandex) {
+                    Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+                        FilterChip(yandexEntryType=="task", { yandexEntryType="task" }, label={Text("Задача")})
+                        FilterChip(yandexEntryType=="meeting", { yandexEntryType="meeting" }, label={Text("Встреча")})
+                    }
+                }
                 ProjectHierarchyPicker(structure.projects, projectId) { projectId = it }
                 if(taskLists.isNotEmpty() && task==null) {
                     var choosingList by remember { mutableStateOf(false) }
                     Box {
                         OutlinedButton({choosingList=true},Modifier.fillMaxWidth().testTag("task-list-picker")) {
-                            Text(selectedList?.title ?: "Без списка Google Tasks")
+                            Text(selectedList?.title ?: if (accountSettings?.authProvider == "yandex") "Без списка GENESIS" else "Без списка Google Tasks")
                         }
                         DropdownMenu(choosingList,{choosingList=false}) {
-                            DropdownMenuItem(text={Text("Без списка Google Tasks")},onClick={listId=null;choosingList=false})
+                            DropdownMenuItem(text={Text(if (accountSettings?.authProvider == "yandex") "Без списка GENESIS" else "Без списка Google Tasks")},onClick={listId=null;choosingList=false})
                             taskLists.forEach { list -> DropdownMenuItem(text={Text(list.title)},onClick={
-                                listId=list.id;reminders=emptyList();customReminder=false
-                                recurrence=recurrence.copy(enabled=false);choosingList=false
+                                listId=list.id
+                                if (accountSettings?.authProvider != "yandex") { reminders=emptyList();customReminder=false }
+                                if (accountSettings?.authProvider != "yandex") recurrence=recurrence.copy(enabled=false)
+                                choosingList=false
                                 projectId=structure.taskListLinks.firstOrNull{it.taskListId==list.id}?.projectId
                             }) }
                         }
@@ -790,15 +815,52 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                 EditorCalendarModePicker(formCalendarMode, { formCalendarMode=it }, tag="task-form-calendar")
                 Text("Дата задачи · ${calendarModeLabel(formCalendarMode)}")
                 AuthorDatePicker(date,formCalendarMode){date=it}
-                AuthorTimePicker(time,prefs.use24){time=it}
+                if (yandex) Row(verticalAlignment=Alignment.CenterVertically) {
+                    Checkbox(checked=time.isBlank(),onCheckedChange={ allDay ->
+                        time=if(allDay) "" else "09:00"
+                        yandexEndTime=if(allDay) "" else "09:30"
+                    })
+                    Text("Весь день")
+                }
+                if (!yandex || time.isNotBlank()) AuthorTimePicker(time,prefs.use24){time=it}
+                if (yandex) {
+                    if (yandexEntryType == "meeting") {
+                        Text("Окончание встречи")
+                        AuthorDatePicker(yandexEndDate, formCalendarMode) { yandexEndDate=it }
+                        if (time.isNotBlank()) AuthorTimePicker(yandexEndTime, prefs.use24) { yandexEndTime=it }
+                        OutlinedTextField(yandexAttendees,{yandexAttendees=it},label={Text("Участники · адреса через запятую")},modifier=Modifier.fillMaxWidth())
+                        OutlinedTextField(yandexOptionalAttendees,{yandexOptionalAttendees=it},label={Text("Необязательные участники")},modifier=Modifier.fillMaxWidth())
+                        OutlinedTextField(yandexLocation,{yandexLocation=it},label={Text("Место")},modifier=Modifier.fillMaxWidth())
+                        OutlinedTextField(yandexTelemost,{yandexTelemost=it},label={Text("Ссылка на Телемост")},modifier=Modifier.fillMaxWidth())
+                    }
+                    Text("Занятость")
+                    Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+                        FilterChip(yandexBusy,{yandexBusy=true},label={Text("Занят")})
+                        FilterChip(!yandexBusy,{yandexBusy=false},label={Text("Свободен")})
+                    }
+                    Text("Видимость")
+                    Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+                        FilterChip(yandexVisibility=="private",{yandexVisibility="private"},label={Text("Только участники")})
+                        FilterChip(yandexVisibility=="public",{yandexVisibility="public"},label={Text("Все")})
+                    }
+                    Text("Напоминания Яндекс.Календаря",style=MaterialTheme.typography.titleMedium)
+                    Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+                        listOf(0 to "В момент",10 to "10 мин",30 to "30 мин",60 to "1 час",1440 to "1 день").forEach { (minutes,label) ->
+                            FilterChip(minutes in yandexReminders,{ yandexReminders=if(minutes in yandexReminders)
+                                yandexReminders.filterNot { it==minutes } else (yandexReminders+minutes).take(5) },label={Text(label)})
+                        }
+                    }
+                    Text("Выбранные даты преобразуются в григорианские по часовому поясу устройства.",style=MaterialTheme.typography.bodySmall)
+                }
                 PriorityControl(priority){priority=it}
                 if(task?.recurrence?.enabled==true) Text(
                     "Сохранение изменит всю серию. При удалении можно выбрать только $occurrenceDate.",
                     style=MaterialTheme.typography.bodySmall,
                     color=MaterialTheme.colorScheme.onSurfaceVariant)
                 val occurrenceCount = if(googleTaskBacked) 1 else TaskRecurrenceEditor(recurrence,date,prefs.input) { recurrence=it;validation=null }
-                Text("Напомнить · ${reminders.size}/5",style=MaterialTheme.typography.titleMedium)
-                Text("Число показывает, сколько напоминаний добавлено. Для события Google Calendar доступно не более пяти.",
+                Text((if (yandex) "Дополнительные напоминания GENESIS" else "Напомнить") + " · ${reminders.size}/5",style=MaterialTheme.typography.titleMedium)
+                Text(if (yandex) "Эти напоминания показываются самим GENESIS на устройстве; настройки выше отправляются в Яндекс.Календарь."
+                    else "Число показывает, сколько напоминаний добавлено. Для события Google Calendar доступно не более пяти.",
                     style=MaterialTheme.typography.bodySmall,
                     color=MaterialTheme.colorScheme.onSurfaceVariant)
                 if(googleTaskBacked) Text("Для задачи из списка Google Tasks напоминания здесь недоступны; они поддерживаются для событий Google Calendar.",
@@ -872,6 +934,19 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                         val end = runCatching { LocalDate.parse(recurrence.rangeEnd) }.getOrNull()
                         validation = when {
                             start == null -> "Выберите корректную дату задачи."
+                            yandex && yandexEntryType == "meeting" && time.isNotBlank() &&
+                                (runCatching { LocalDateTime.parse("${yandexEndDate}T${yandexEndTime}") }.getOrNull()
+                                    ?.isAfter(runCatching { LocalDateTime.parse("${date}T${time}") }.getOrNull()) != true) ->
+                                "Окончание встречи должно быть позже её начала."
+                            yandex && yandexEntryType == "meeting" && yandexEndDate < date ->
+                                "Окончание встречи должно быть позже её начала."
+                            yandex && yandexEntryType == "meeting" &&
+                                (yandexAttendees + "," + yandexOptionalAttendees).split(',', ';', '\n')
+                                    .map(String::trim).filter(String::isNotBlank).any { !android.util.Patterns.EMAIL_ADDRESS.matcher(it).matches() } ->
+                                "Проверьте адреса участников встречи."
+                            yandex && yandexTelemost.isNotBlank() &&
+                                !Regex("https://telemost\\.yandex\\.[a-z.]+/[A-Za-z0-9/_?=&%-]+").matches(yandexTelemost.trim()) ->
+                                "Укажите корректную ссылку Яндекс Телемоста."
                             recurrence.enabled && (end == null || end < start || end > start.plusYears(5).minusDays(1)) ->
                                 "Период повторения — от даты задачи до пяти лет."
                             recurrence.enabled && occurrenceCount !in 1..500 ->
@@ -879,6 +954,16 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                             else -> null
                         }
                         val source = JSONObject(task?.sourceFieldsJson ?: "{}")
+                        if (yandex) {
+                            source.put("yandexEntryType", yandexEntryType)
+                                .put("yandexEndTime", yandexEndTime).put("yandexLocation", yandexLocation.trim())
+                                .put("yandexTelemostUrl", yandexTelemost.trim())
+                                .put("yandexBusy", yandexBusy).put("yandexVisibility", yandexVisibility)
+                                .put("yandexReminders", JSONArray(yandexReminders))
+                                .put("yandexAttendees", JSONArray(yandexAttendees.split(',', ';', '\n').map(String::trim).filter(String::isNotBlank)))
+                                .put("yandexOptionalAttendees", JSONArray(yandexOptionalAttendees.split(',', ';', '\n').map(String::trim).filter(String::isNotBlank)))
+                                .put("dueDate", date).put("endDate", if (yandexEntryType == "meeting") yandexEndDate else date)
+                        }
                         if(task==null && selectedList!=null) {
                             val listFields=listTaskFields(selectedList,prefs.input)
                             listFields.keys().forEach { field -> source.put(field,listFields.get(field)) }

@@ -92,7 +92,8 @@ const ukrainianNamedTermsInPhrases = {
 const latinAncientNames = /\b(?:Apeiron|Ares|Aphrodite|Hermes|Apollo|Demeter|Hephaestus|Athena|Hestia|Pythagoras|Poseidon|Zeus|Hades|Stoicheion|Theokyklos|Anabasis|Dionysus|Gaia|Uranus|Aether|Chronos|Cronus|Selene|Logos|Pneuma|Nyx|Erebus|Tartaros|Phanes|Eros|Monas|Pentas|Dyad|Tetras|Trias|Areios|Zophos|Hesiod|Homer)\b/u;
 
 for (const language of languages) {
-  const files = ["el", "sr", "uk"].includes(language) ? [`${language}.a`, `${language}.b`] : [language];
+  const files = ["el", "sr", "uk"].includes(language) ? [`${language}.a`, `${language}.b`]
+    : language === "ja" ? ["ja", "ja.b"] : [language];
   const catalog = Object.assign({}, ...await Promise.all(files.map(async (name) =>
     JSON.parse(await readFile(new URL(`../app/translations.${name}.json`, import.meta.url), "utf8")))));
   for (const key of Object.keys(english)) {

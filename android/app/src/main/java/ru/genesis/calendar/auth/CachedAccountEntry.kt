@@ -33,7 +33,8 @@ internal class CachedAccountEntry(private val app: GenesisApplication) {
             .put("calendarMode", settings.calendarMode).put("taskCalendarMode", settings.taskCalendarMode)
             .put("timeFormat", settings.timeFormat).put("weekStart", settings.weekStart)
             .put("stoicheionDivinationDisabled", settings.divinationDisabled)
-            .put("language", settings.language)
+            .put("language", settings.language).put("authProvider", settings.authProvider)
+            .put("calendarConnected", settings.calendarConnected)
         val encoded = LocalCipher().encrypt(JSONObject().put("user", user).toString(), "$scope/$kind")
         app.database.dao().putDocument(DocumentRecord(scope, kind, encoded, System.currentTimeMillis()))
     }

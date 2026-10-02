@@ -53,6 +53,7 @@ class TaskListsRepository(private val app: GenesisApplication, private val accou
         /** Deferred, incomplete or malformed pulls never erase the phone's known lists. */
         internal suspend fun cacheBootstrap(db: GenesisDatabase, scope: String, payload: JSONObject) {
             require(scope.matches(Regex("account-[a-f0-9]{32}")))
+            if (payload.optJSONObject("user")?.optString("authProvider") == "yandex") return
             if(payload.optBoolean("tasksDeferred")) return
             val rows = payload.optJSONArray("taskLists") ?: return
             val incoming = (0 until rows.length()).mapNotNull { index ->

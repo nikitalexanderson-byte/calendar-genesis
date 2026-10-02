@@ -36,8 +36,8 @@ android {
         applicationId = "ru.genesis.calendar"
         minSdk = 26
         targetSdk = 37
-        versionCode = 54
-        versionName = "2.4.8"
+        versionCode = 55
+        versionName = "2.4.9"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         manifestPlaceholders["genesisHost"] = genesisUri.host
@@ -101,7 +101,7 @@ val genesisAssets = tasks.register<GenesisAssetsTask>("genesisAssets") {
             "translations.es.json", "translations.it.json", "translations.pt.json",
             "translations.pl.json", "translations.sr.a.json", "translations.sr.b.json",
             "translations.uk.a.json", "translations.uk.b.json",
-            "translations.zh.json", "translations.tr.json", "translations.ja.json")
+            "translations.zh.json", "translations.tr.json", "translations.ja.json", "translations.ja.b.json")
         into("i18n")
     }
     from(rootProject.file("../app/curated-translations.en.json")) { into("i18n") }

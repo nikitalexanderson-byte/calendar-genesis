@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ru.genesis.calendar.GenesisApplication
@@ -61,6 +62,8 @@ fun AuthPanel(app: GenesisApplication, localLanguage: String, onLanguage: (Strin
     } else null
     var confirmKeepLocal by remember { mutableStateOf(false) }
     var confirmKeepRemote by remember { mutableStateOf(false) }
+    var yandexCalendarLogin by remember(state.user?.uid) { mutableStateOf(state.user?.email.orEmpty()) }
+    var yandexCalendarPassword by remember(state.user?.uid) { mutableStateOf("") }
 
     Column(Modifier.fillMaxWidth().testTag("auth-panel"), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         AccountSubsection("auth-sign-in-block", "◎", "Вход в GENESIS",
@@ -154,7 +157,7 @@ fun AuthPanel(app: GenesisApplication, localLanguage: String, onLanguage: (Strin
                     color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             }
             Text(if (state.accountSettings?.authProvider == "yandex")
-                "Проекты и привычки хранятся в защищённом пространстве GENESIS. Подключение Яндекс Календаря будет доступно отдельно."
+                "Проекты, привычки и списки задач хранятся в зашифрованном пространстве GENESIS. Задачи синхронизируются с Яндекс.Календарем после подключения."
                 else "Изменения проектов и привычек синхронизируются с зашифрованным пространством, задачи — с Google. При конфликте локальная копия сохраняется.",
                 style = MaterialTheme.typography.bodySmall)
             if (state.user != null) OutlinedButton(onClick = controller::refresh,
@@ -167,6 +170,43 @@ fun AuthPanel(app: GenesisApplication, localLanguage: String, onLanguage: (Strin
                     modifier = Modifier.fillMaxWidth().testTag("auth-resolve-keep-local")) { Text("Оставить изменения телефона") }
                 OutlinedButton(onClick = { confirmKeepRemote = true },
                     modifier = Modifier.fillMaxWidth().testTag("auth-resolve-keep-remote")) { Text("Оставить изменения сайта") }
+            }
+        }
+
+        if (state.user != null && state.accountSettings?.authProvider == "yandex") {
+            AccountSubsection("auth-yandex-calendar-block", "▦", "Яндекс.Календарь",
+                "Только для этого Яндекс-аккаунта") {
+                Text(if (state.accountSettings?.calendarConnected == true)
+                    "Подключён. Задачи GENESIS отображаются в Яндекс.Календаре как события."
+                else "Создайте в Яндекс ID отдельный пароль приложения для Календаря. Обычный пароль аккаунта вводить не нужно.",
+                    style = MaterialTheme.typography.bodySmall)
+                if (state.accountSettings?.calendarConnected == true) {
+                    OutlinedButton(onClick = controller::disconnectYandexCalendar, enabled = !state.busy,
+                        modifier = Modifier.fillMaxWidth().testTag("disconnect-yandex-calendar")) {
+                        Text("Отключить календарь")
+                    }
+                } else {
+                    OutlinedTextField(yandexCalendarLogin, { yandexCalendarLogin = it },
+                        label = { Text("Логин или почта Яндекса") }, singleLine = true,
+                        modifier = Modifier.fillMaxWidth().testTag("yandex-calendar-login"))
+                    OutlinedTextField(yandexCalendarPassword, { yandexCalendarPassword = it },
+                        label = { Text("Пароль приложения Календарь") },
+                        visualTransformation = PasswordVisualTransformation(), singleLine = true,
+                        modifier = Modifier.fillMaxWidth().testTag("yandex-calendar-password"))
+                    Button(onClick = {
+                        controller.connectYandexCalendar(yandexCalendarLogin, yandexCalendarPassword)
+                        yandexCalendarPassword = ""
+                    }, enabled = !state.busy && yandexCalendarLogin.isNotBlank() && yandexCalendarPassword.length >= 8,
+                        modifier = Modifier.fillMaxWidth().testTag("connect-yandex-calendar")) {
+                        Text("Подключить календарь")
+                    }
+                    TextButton(onClick = {
+                        val intent = Intent(Intent.ACTION_VIEW,
+                            Uri.parse("https://yandex.ru/support/id/ru/authorization/app-passwords"))
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        app.startActivity(intent)
+                    }) { Text("Как создать пароль приложения") }
+                }
             }
         }
 
