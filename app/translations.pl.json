@@ -2723,5 +2723,7 @@
   "Войдите в аккаунт и подключите календарь в настройках.": "Zaloguj się na swoje konto i podłącz kalendarz w ustawieniach.",
   "Задачи синхронизируются через выбранный календарь после подключения": "Po podłączeniu zadania są synchronizowane za pośrednictwem wybranego kalendarza",
   "Даты сакрального и лунного календарей преобразуются в григорианские по часовому поясу устройства перед отправкой в Яндекс.": "Daty sakralne i księżycowe są przeliczane na gregoriańskie w strefie czasowej urządzenia przed wysłaniem do Yandex.",
-  "Выбранные даты преобразуются в григорианские по часовому поясу устройства.": "Wybrane daty są przeliczane na gregoriańskie w strefie czasowej urządzenia."
+  "Выбранные даты преобразуются в григорианские по часовому поясу устройства.": "Wybrane daty są przeliczane na gregoriańskie w strefie czasowej urządzenia.",
+  "В Яндекс ID откройте «Пароли приложений» → «Календарь». Название можно придумать, а сам пароль выдаёт Яндекс. Скопируйте его сюда.": "W Yandex ID otwórz „Hasła aplikacji” → „Kalendarz”. Nazwę możesz wybrać samodzielnie, ale hasło generuje Yandex. Skopiuj je tutaj.",
+  "Открыть создание пароля Календаря в Яндекс ID": "Utwórz hasło Kalendarza w Yandex ID"
 }

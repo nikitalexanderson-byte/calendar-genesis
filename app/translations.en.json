@@ -1570,5 +1570,7 @@
   "Войдите в аккаунт и подключите календарь в настройках.": "Log in to your account and connect the calendar in settings.",
   "Задачи синхронизируются через выбранный календарь после подключения": "Tasks are synchronized via the selected calendar once connected",
   "Даты сакрального и лунного календарей преобразуются в григорианские по часовому поясу устройства перед отправкой в Яндекс.": "Sacred and lunar dates are converted to Gregorian dates in the device time zone before they are sent to Yandex.",
-  "Выбранные даты преобразуются в григорианские по часовому поясу устройства.": "Selected dates are converted to Gregorian dates using the device time zone."
+  "Выбранные даты преобразуются в григорианские по часовому поясу устройства.": "Selected dates are converted to Gregorian dates using the device time zone.",
+  "В Яндекс ID откройте «Пароли приложений» → «Календарь». Название можно придумать, а сам пароль выдаёт Яндекс. Скопируйте его сюда.": "In Yandex ID, open “App passwords” → “Calendar”. You can choose a name, but Yandex generates the password. Copy it here.",
+  "Открыть создание пароля Календаря в Яндекс ID": "Create a Calendar app password in Yandex ID"
 }

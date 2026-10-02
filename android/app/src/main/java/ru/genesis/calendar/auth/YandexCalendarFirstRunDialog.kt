@@ -63,7 +63,7 @@ fun YandexCalendarFirstRunDialog(state: AuthPanelState, controller: AuthControll
         text = {
             Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Создайте в Яндекс ID отдельный пароль приложения для Календаря. Обычный пароль аккаунта вводить не нужно.",
+                Text("В Яндекс ID откройте «Пароли приложений» → «Календарь». Название можно придумать, а сам пароль выдаёт Яндекс. Скопируйте его сюда.",
                     style = MaterialTheme.typography.bodyMedium)
                 OutlinedTextField(login, { login = it },
                     label = { Text("Логин или почта Яндекса") }, singleLine = true,
@@ -74,9 +74,9 @@ fun YandexCalendarFirstRunDialog(state: AuthPanelState, controller: AuthControll
                     modifier = Modifier.fillMaxWidth().testTag("yandex-first-run-password"))
                 TextButton(onClick = {
                     context.startActivity(Intent(Intent.ACTION_VIEW,
-                        Uri.parse("https://yandex.ru/support/id/ru/authorization/app-passwords"))
+                        Uri.parse("https://id.yandex.ru/security/app-passwords"))
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                }) { Text("Как создать пароль приложения") }
+                }) { Text("Открыть создание пароля Календаря в Яндекс ID") }
                 if (attempted) Text(state.message, style = MaterialTheme.typography.bodySmall,
                     color = if (state.busy) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error)
             }

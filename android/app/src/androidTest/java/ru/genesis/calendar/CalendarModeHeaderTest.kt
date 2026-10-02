@@ -127,6 +127,37 @@ class CalendarModeHeaderTest {
                 kotlin.math.abs(yearWidth - monthWidth) < 2f)
         }
         assertTrue(device.takeScreenshot(File(context.getExternalFilesDir(null), "calendar-year-evening.png")))
+        for (season in listOf("winter", "spring", "summer", "autumn")) {
+            compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag("gregorian-season-$season"))
+            compose.waitForIdle()
+            assertTrue(device.takeScreenshot(File(context.getExternalFilesDir(null), "calendar-year-evening-$season.png")))
+        }
+    }
+
+    @Test fun yearDescriptionEndsWithoutLargeBlankSpace() {
+        compose.setContent {
+            MaterialTheme(colorScheme = evening) {
+                CompositionLocalProvider(LocalEveningTheme provides true) {
+                    Surface(Modifier.fillMaxSize()) {
+                        CalendarScreen(LocalDate.of(2026, 9, 30), CalendarMode.PROFANE,
+                            onSelect = {}, experimental = true)
+                    }
+                }
+            }
+        }
+        compose.onNodeWithText("Год").performClick()
+        val year = compose.onNodeWithTag("calendar-year")
+        year.performScrollToNode(hasTestTag("calendar-year-description-profane"))
+        year.performTouchInput { swipeUp() }
+        compose.waitForIdle()
+        val descriptionBottom = compose.onNodeWithTag("calendar-year-description-profane")
+            .fetchSemanticsNode().boundsInRoot.bottom
+        val viewportBottom = year.fetchSemanticsNode().boundsInRoot.bottom
+        val gapDp = (viewportBottom - descriptionBottom) / compose.activity.resources.displayMetrics.density
+        assertTrue("year trailing space=$gapDp dp", gapDp in 0f..32f)
+        val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        assertTrue(device.takeScreenshot(File(context.getExternalFilesDir(null), "calendar-year-bottom-251.png")))
     }
 
     @Test fun springYearSuggestionCanBeDismissed() {

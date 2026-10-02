@@ -2723,5 +2723,7 @@
   "Войдите в аккаунт и подключите календарь в настройках.": "Hesabınızda oturum açın ve ayarlara giderek takvimi bağlayın.",
   "Задачи синхронизируются через выбранный календарь после подключения": "Görevler bağlandıktan sonra seçilen takvim aracılığıyla senkronize edilir",
   "Даты сакрального и лунного календарей преобразуются в григорианские по часовому поясу устройства перед отправкой в Яндекс.": "Kutsal ve ay takvimi tarihleri, Yandex'e gönderilmeden önce cihazın saat dilimine göre Gregoryen tarihlere dönüştürülür.",
-  "Выбранные даты преобразуются в григорианские по часовому поясу устройства.": "Seçilen tarihler, cihazın saat dilimine göre Gregoryen tarihlere dönüştürülür."
+  "Выбранные даты преобразуются в григорианские по часовому поясу устройства.": "Seçilen tarihler, cihazın saat dilimine göre Gregoryen tarihlere dönüştürülür.",
+  "В Яндекс ID откройте «Пароли приложений» → «Календарь». Название можно придумать, а сам пароль выдаёт Яндекс. Скопируйте его сюда.": "Yandex ID’de “Uygulama parolaları” → “Takvim” bölümünü açın. Adı siz seçebilirsiniz; parolayı Yandex oluşturur. Buraya kopyalayın.",
+  "Открыть создание пароля Календаря в Яндекс ID": "Yandex ID’de Takvim uygulama parolası oluştur"
 }

@@ -18,6 +18,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.platform.testTag
@@ -920,7 +922,6 @@ private fun CalendarYearOverview(calendar: GenesisCalendar, shown: LocalDate, mo
                 { springSuggestionDismissed = true; suggestionPrefs.edit().putBoolean("spring-year-dismissed", true).apply() },
                 onMonth, previous, next)
         }
-        Spacer(Modifier.height(80.dp))
     }
 }
 
@@ -1044,11 +1045,11 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
                                 .testTag("gregorian-season-art-${season.name.lowercase()}"))
                         Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(if (LocalGenesisLanguage.current == "en") season.englishTitle else season.title,
-                                Modifier.padding(start = 8.dp, top = 6.dp, bottom = 4.dp)
-                                    .then(if (LocalEveningTheme.current) Modifier.background(
-                                        Color(0xfff3ecdb).copy(alpha = .9f), RoundedCornerShape(7.dp))
-                                        .padding(horizontal = 7.dp, vertical = 2.dp) else Modifier),
-                                style = MaterialTheme.typography.titleLarge,
+                                Modifier.padding(start = 8.dp, top = 6.dp, bottom = 4.dp),
+                                style = MaterialTheme.typography.titleLarge.copy(
+                                    shadow = if (LocalEveningTheme.current) Shadow(
+                                        color = Color(0xfff3ecdb).copy(alpha = .8f),
+                                        offset = Offset.Zero, blurRadius = 5f) else null),
                                 color = if (LocalEveningTheme.current) Color(0xff172623) else seasonAccent(season))
                             seasonMonths.forEachIndexed { index, (start, name, title) ->
                                 if (index > 0) HorizontalDivider(color = seasonAccent(season).copy(alpha = .18f))
