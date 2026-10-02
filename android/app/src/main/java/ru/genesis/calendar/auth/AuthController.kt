@@ -363,6 +363,28 @@ class AuthController private constructor(context: Context) {
             checkedAt = System.currentTimeMillis(), message = "Настройка сохранена в аккаунте; локальная копия обновляется."))
     }
 
+    fun connectYandexCalendar(login: String, appPassword: String) = start("Подключаем Яндекс.Календарь…") { generation ->
+        val previous = mutableState.value
+        require(previous.user != null && previous.accountSettings?.authProvider == "yandex")
+        val payload = withContext(Dispatchers.IO) { client.connectYandexCalendar(generation, login.trim(), appPassword) }
+        val settings = AccountSettings.fromResponse(payload) ?: throw AuthFailure(AuthFailure.Kind.PROTOCOL)
+        val identity = AuthProtocol.identity(payload) ?: throw AuthFailure(AuthFailure.Kind.PROTOCOL)
+        publish(generation, previous.copy(busy = false, user = identity, accountSettings = settings,
+            message = "Яндекс.Календарь подключён. Задачи синхронизируются как события."))
+        refreshAccountData()
+        syncPending()
+    }
+
+    fun disconnectYandexCalendar() = start("Отключаем Яндекс.Календарь…") { generation ->
+        val previous = mutableState.value
+        require(previous.user != null && previous.accountSettings?.authProvider == "yandex")
+        val payload = withContext(Dispatchers.IO) { client.disconnectYandexCalendar(generation) }
+        val settings = AccountSettings.fromResponse(payload) ?: throw AuthFailure(AuthFailure.Kind.PROTOCOL)
+        val identity = AuthProtocol.identity(payload) ?: throw AuthFailure(AuthFailure.Kind.PROTOCOL)
+        publish(generation, previous.copy(busy = false, user = identity, accountSettings = settings,
+            message = "Яндекс.Календарь отключён. Существующие события остались в вашем календаре."))
+    }
+
     fun removeLinkedAccount(accountId: String) = start("Отключаем дополнительный аккаунт…") { generation ->
         val previous = mutableState.value
         val account = previous.accountSettings?.accounts?.find { it.id == accountId }
@@ -443,7 +465,9 @@ class AuthController private constructor(context: Context) {
                         imported == CloudAccountImporter.Result.IMPORTED_WITH_TASK_WARNING ->
                             "Часть записей не удалось прочитать. Остальные задачи загружены; сохранённые записи не удалены."
                         snapshot.googleSyncWarning ->
-                            "Google не подтвердил полную загрузку задач. Проверьте подключение Calendar и Tasks в настройках."
+                            if (mutableState.value.accountSettings?.authProvider == "yandex")
+                                "Яндекс.Календарь не подтвердил полную загрузку. Повторите синхронизацию."
+                            else "Google не подтвердил полную загрузку задач. Проверьте подключение Calendar и Tasks в настройках."
                         else -> null
                     }
                     mutableTaskSync.value = AccountTaskSyncState(accountScope, confirmed = issue == null,
@@ -485,7 +509,17 @@ class AuthController private constructor(context: Context) {
     internal suspend fun createTaskList(title: String, accountId: String): ru.genesis.calendar.data.GoogleTaskList {
         val value = mutableState.value
         val uid = value.user?.uid
-        require(uid != null && value.ready && !value.requiresSignIn) { "Для создания списка повторите вход через Google." }
+        require(uid != null && value.ready && !value.requiresSignIn) { "Для создания списка повторите вход." }
+        if (value.accountSettings?.authProvider == "yandex") {
+            val accountScope = CloudAccountSnapshot.scopeFor(uid)
+            require(app.workspaceScope == accountScope)
+            val list = ru.genesis.calendar.data.GoogleTaskList("local:${java.util.UUID.randomUUID()}", title.trim())
+            withContext(Dispatchers.IO) {
+                ru.genesis.calendar.data.TaskListsRepository(app, accountScope).rememberCreated(list)
+                ru.genesis.calendar.data.WorkspaceStructureRepository(app).saveTaskList(list)
+            }
+            return list
+        }
         require(value.accountSettings?.accounts?.any { it.id == accountId && it.tasksConnected } == true) {
             "Подключите Google Tasks для выбранного аккаунта в настройках."
         }
@@ -568,7 +602,8 @@ class AuthController private constructor(context: Context) {
                 if (error is AuthFailure && error.kind == AuthFailure.Kind.UNAUTHORIZED) requireSignIn(generation)
                 failure = "Изменения проектов или привычек пока не подтверждены сервером и сохранены на устройстве."
             }
-            if (mutableState.value.accountSettings?.authProvider == "google") {
+            if (mutableState.value.accountSettings?.let { it.authProvider == "google" ||
+                it.authProvider == "yandex" && it.calendarConnected } == true) {
                 try {
                     sentTasks = withContext(Dispatchers.IO) {
                         CloudTaskSync(app.database, object : CloudTaskTransport {
@@ -580,7 +615,7 @@ class AuthController private constructor(context: Context) {
                 catch (error: Exception) {
                     if (error is AuthFailure && error.kind == AuthFailure.Kind.UNAUTHORIZED) requireSignIn(generation)
                     failure = listOfNotNull(failure,
-                        "Изменения задач пока не подтверждены Google и сохранены на устройстве.").joinToString(" ")
+                        "Изменения задач пока не подтверждены календарём и сохранены на устройстве.").joinToString(" ")
                 }
             }
             if (client.isCurrent(generation)) mutableState.value = mutableState.value.copy(

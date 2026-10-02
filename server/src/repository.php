@@ -200,7 +200,9 @@ function genesisUserForClient(array $user): array
             static fn(string $id): bool => in_array($id, $validAccountIds, true),
         ));
     }
-    $anyCalendarConnected = count(array_filter($accounts, static fn(array $account): bool => !empty($account['calendarConnected']))) > 0;
+    $anyCalendarConnected = genesisUserProvider($user) === 'yandex'
+        ? genesisYandexCalendarConnection((string)$user['id']) !== null
+        : count(array_filter($accounts, static fn(array $account): bool => !empty($account['calendarConnected']))) > 0;
     $anyTasksConnected = count(array_filter($accounts, static fn(array $account): bool => !empty($account['googleTasksImportReady']))) > 0;
     return [
         'uid' => (string)$user['id'],
@@ -1071,6 +1073,8 @@ function genesisAccountDataLocations(): array
         'android_client_reports' => 'user_id',
         'stoicheion_draws' => 'user_id',
         'linked_google_accounts' => 'owner_user_id',
+        'yandex_calendar_connections' => 'user_id',
+        'yandex_calendar_tasks' => 'user_id',
         'users' => 'id',
     ];
 }

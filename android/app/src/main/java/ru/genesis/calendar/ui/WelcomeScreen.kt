@@ -150,7 +150,7 @@ fun WelcomeScreen(state: AuthPanelState, controller: AuthController, language: S
             }
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 WelcomeTrustLine("▣", if (showYandex)
-                    "Задачи остаются в Google или на вашем устройстве — в зависимости от способа входа"
+                    "Задачи синхронизируются через выбранный календарь после подключения"
                     else if (language == "en") "Tasks stay in Google and on your device"
                     else "Задачи остаются в Google и на вашем устройстве")
                 WelcomeTrustLine("◇", if (language == "en") "Project structure is transmitted encrypted"

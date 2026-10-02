@@ -1044,8 +1044,12 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
                                 .testTag("gregorian-season-art-${season.name.lowercase()}"))
                         Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(if (LocalGenesisLanguage.current == "en") season.englishTitle else season.title,
-                                Modifier.padding(start = 8.dp, top = 6.dp, bottom = 4.dp),
-                                style = MaterialTheme.typography.titleLarge, color = seasonAccent(season))
+                                Modifier.padding(start = 8.dp, top = 6.dp, bottom = 4.dp)
+                                    .then(if (LocalEveningTheme.current) Modifier.background(
+                                        Color(0xfff3ecdb).copy(alpha = .9f), RoundedCornerShape(7.dp))
+                                        .padding(horizontal = 7.dp, vertical = 2.dp) else Modifier),
+                                style = MaterialTheme.typography.titleLarge,
+                                color = if (LocalEveningTheme.current) Color(0xff172623) else seasonAccent(season))
                             seasonMonths.forEachIndexed { index, (start, name, title) ->
                                 if (index > 0) HorizontalDivider(color = seasonAccent(season).copy(alpha = .18f))
                                 CalendarYearMonthCard(calendar, start, mode, start.monthValue, name, title,

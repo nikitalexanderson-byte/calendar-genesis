@@ -16,7 +16,7 @@ data class GenesisProject(val id: String, val parentId: String?, val categoryId:
 data class TaskListProjectLink(val taskListId: String, val projectId: String?)
 data class WorkspaceStructure(val projects: List<GenesisProject> = emptyList(),
     val categories: List<GenesisCategory> = defaultCategories, val taskListLinks: List<TaskListProjectLink> = emptyList(),
-    val revision: Long = 0) {
+    val revision: Long = 0, val taskLists: List<GoogleTaskList> = emptyList()) {
     companion object {
         val defaultCategories = listOf(
             GenesisCategory("personal", "Личное", "#a5543f", 0),
@@ -46,7 +46,10 @@ object WorkspaceStructureCodec {
             val item = rows.getJSONObject(index)
             TaskListProjectLink(item.getString("taskListId"), item.nullable("projectId"))
         } }
-        return WorkspaceStructure(projects, categories, links, revision).also(::validate)
+        val taskLists = root.optJSONArray("taskLists")?.let { rows -> (0 until rows.length()).map {
+            GoogleTaskList.from(rows.getJSONObject(it))
+        } } ?: emptyList()
+        return WorkspaceStructure(projects, categories, links, revision, taskLists).also(::validate)
     }
 
     fun encode(value: WorkspaceStructure): String {
@@ -61,7 +64,8 @@ object WorkspaceStructureCodec {
         val links = JSONArray().apply { value.taskListLinks.forEach { item -> put(JSONObject()
             .put("taskListId", item.taskListId).put("projectId", item.projectId ?: JSONObject.NULL)) } }
         return JSONObject().put("projects", projects).put("categories", categories)
-            .put("taskListLinks", links).toString()
+            .put("taskListLinks", links)
+            .put("taskLists", JSONArray().apply { value.taskLists.forEach { put(it.json()) } }).toString()
     }
 
     /** Staging helper for a future authenticated CAS merge. Keeps every unrelated cloud section intact. */
@@ -71,6 +75,7 @@ object WorkspaceStructureCodec {
         cloud.put("projects", fragment.getJSONArray("projects"))
             .put("categories", fragment.getJSONArray("categories"))
             .put("taskListLinks", fragment.getJSONArray("taskListLinks"))
+            .put("taskLists", fragment.getJSONArray("taskLists"))
         return cloud.toString()
     }
 
@@ -96,6 +101,7 @@ object WorkspaceStructureCodec {
             }
         }
         require(value.taskListLinks.distinctBy { it.taskListId }.size == value.taskListLinks.size)
+        require(value.taskLists.distinctBy { it.id }.size == value.taskLists.size)
         value.taskListLinks.forEach { require(it.taskListId.isNotBlank() && (it.projectId == null || it.projectId in projects)) }
     }
 
@@ -153,6 +159,10 @@ class WorkspaceStructureRepository(private val app: GenesisApplication) {
         require(projectId == null || current.projects.any { it.id == projectId }) { "Проект не найден. Выберите его заново." }
         current.copy(taskListLinks = current.taskListLinks.filterNot { it.taskListId == taskListId } +
             TaskListProjectLink(taskListId, projectId))
+    }
+
+    suspend fun saveTaskList(list: GoogleTaskList) = mutate(null) { current ->
+        current.copy(taskLists = current.taskLists.filterNot { it.id == list.id } + list)
     }
 
     suspend fun deleteProject(projectId: String, expectedRevision: Long? = null) = mutate(expectedRevision) { current ->

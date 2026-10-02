@@ -7778,6 +7778,31 @@ button.project-drag-handle:active { cursor: grabbing; }
 .account-sync-upgrade div { display: grid; gap: 4px; }
 .account-sync-upgrade small { color: var(--ink-soft); font-size: 9px; line-height: 1.45; }
 .account-sync-upgrade button { flex: 0 0 auto; padding: 9px 13px; color: #fff; background: var(--teal); border: 0; border-radius: 999px; cursor: pointer; }
+.yandex-calendar-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+.yandex-calendar-form label { display: grid; min-width: 0; gap: 6px; color: var(--ink); font-size: 12px; }
+.yandex-calendar-form input { width: 100%; min-width: 0; padding: 11px 12px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; font: inherit; }
+.yandex-calendar-form input:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+.yandex-calendar-form button { grid-column: 1 / -1; justify-self: start; }
+@media (max-width: 600px) { .yandex-calendar-form { grid-template-columns: 1fr; } .yandex-calendar-form button { width: 100%; } }
+
+.yandex-all-day { display: inline-flex; align-items: center; gap: 0.45rem; align-self: end; min-height: 44px; }
+.yandex-all-day input { width: 18px; height: 18px; flex: 0 0 auto; }
+.yandex-task-fields fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.8rem;
+  min-width: 0;
+  padding: 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+}
+.yandex-task-fields fieldset label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  white-space: normal;
+}
 
 .plan-manager-modal { width: min(900px, 100%); }
 .plan-date-picker { max-width: 260px; }

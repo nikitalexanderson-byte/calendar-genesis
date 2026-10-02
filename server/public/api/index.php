@@ -25,6 +25,7 @@ require $serverRoot . '/src/repository.php';
 require $serverRoot . '/src/ads.php';
 require $serverRoot . '/src/google.php';
 require $serverRoot . '/src/yandex.php';
+require $serverRoot . '/src/yandex-calendar.php';
 require $serverRoot . '/src/native-auth.php';
 require $serverRoot . '/src/gemini.php';
 
@@ -102,6 +103,15 @@ function genesisRequireGoogleUser(string $userId): array
     return $user;
 }
 
+function genesisRequireYandexUser(string $userId): array
+{
+    $user = genesisFindUser($userId);
+    if ($user === null || genesisUserProvider($user) !== 'yandex') {
+        genesisJson(['error' => 'YANDEX_ACCOUNT_REQUIRED'], 403);
+    }
+    return $user;
+}
+
 try {
     if ($method === 'GET' && $path === 'health') {
         genesisJson(['ok' => true, 'service' => 'GENESIS', 'privacyModel' => 2, 'time' => genesisNow()]);
@@ -122,10 +132,10 @@ try {
     if ($method === 'GET' && $path === 'android/download') {
         $userId = genesisCurrentUserId();
         if ($userId !== null && genesisFindUser($userId) !== null) {
-            genesisObserveAndroid(static fn() => genesisRecordAndroidDownload($userId, '2.4.8'));
+            genesisObserveAndroid(static fn() => genesisRecordAndroidDownload($userId, '2.4.9'));
         }
         header('Cache-Control: no-store');
-        header('Location: /downloads/GENESIS-Android-Native-2.4.8.apk', true, 302);
+        header('Location: /downloads/GENESIS-Android-Native-2.4.9.apk', true, 302);
         exit;
     }
 
@@ -155,8 +165,12 @@ try {
         $tasks = [];
         $syncWarning = null;
         try {
-            $tasks = genesisListAllGoogleTasks($user);
-            $syncWarning = genesisGoogleTasksSyncWarning();
+            if (genesisUserProvider($user) === 'yandex') {
+                $tasks = genesisYandexCalendarTasksForClient($userId);
+            } else {
+                $tasks = genesisListAllGoogleTasks($user);
+                $syncWarning = genesisGoogleTasksSyncWarning();
+            }
         } catch (Throwable $googleError) {
             $syncWarning = $googleError->getMessage();
         }
@@ -168,7 +182,8 @@ try {
             'user' => $clientUser,
             'csrf' => (string)$_SESSION['csrf'],
             'tasks' => $tasks,
-            'tasksDeferred' => genesisUserProvider($user) === 'yandex',
+            'tasksDeferred' => genesisUserProvider($user) === 'yandex'
+                && genesisYandexCalendarConnection($userId) === null,
             'taskLists' => genesisGoogleTaskListsForClient(),
             'workspace' => genesisWorkspaceForClient($user),
             'syncWarning' => $syncWarning,
@@ -206,12 +221,13 @@ try {
             genesisJson(['error' => 'AUTH_REQUIRED'], 401);
         }
         session_write_close();
-        $tasks = genesisListAllGoogleTasks($user);
+        $yandex = genesisUserProvider($user) === 'yandex';
+        $tasks = $yandex ? genesisYandexCalendarTasksForClient($userId) : genesisListAllGoogleTasks($user);
         genesisJson([
             'tasks' => $tasks,
-            'taskLists' => genesisGoogleTaskListsForClient(),
+            'taskLists' => $yandex ? [] : genesisGoogleTaskListsForClient(),
             'syncedAt' => genesisNow(),
-            'syncWarning' => genesisGoogleTasksSyncWarning(),
+            'syncWarning' => $yandex ? null : genesisGoogleTasksSyncWarning(),
         ]);
     }
 
@@ -631,6 +647,24 @@ try {
         genesisJson(['user' => genesisUserForClient($user)]);
     }
 
+    if ($method === 'POST' && $path === 'account/yandex-calendar/connect') {
+        $userId = genesisRequireUserId();
+        $user = genesisRequireYandexUser($userId);
+        genesisRequireCsrf();
+        $payload = genesisReadJson();
+        genesisYandexCalendarConnect($userId, (string)($payload['login'] ?? $user['email']),
+            (string)($payload['appPassword'] ?? ''));
+        genesisJson(['user' => genesisUserForClient($user)]);
+    }
+
+    if ($method === 'POST' && $path === 'account/yandex-calendar/disconnect') {
+        $userId = genesisRequireUserId();
+        $user = genesisRequireYandexUser($userId);
+        genesisRequireCsrf();
+        genesisYandexCalendarDisconnect($userId);
+        genesisJson(['user' => genesisUserForClient($user)]);
+    }
+
     if ($method === 'DELETE' && count($segments) === 3 && $segments[0] === 'account' && $segments[1] === 'google-accounts') {
         $userId = genesisRequireUserId();
         genesisRequireGoogleUser($userId);
@@ -666,17 +700,21 @@ try {
 
     if (count($segments) === 2 && $segments[0] === 'tasks') {
         $userId = genesisRequireUserId();
-        genesisRequireGoogleUser($userId);
+        $user = genesisFindUser($userId);
+        if ($user === null) genesisJson(['error' => 'AUTH_REQUIRED'], 401);
         genesisRequireCsrf();
         $id = mb_substr((string)$segments[1], 0, 100);
         if ($id === '') {
             throw new InvalidArgumentException('Task identifier is required.');
         }
         if ($method === 'PUT') {
-            genesisJson(['task' => genesisSyncTaskToGoogle($userId, $id, genesisReadJson())]);
+            genesisJson(['task' => genesisUserProvider($user) === 'yandex'
+                ? genesisSyncTaskToYandex($userId, $id, genesisReadJson())
+                : genesisSyncTaskToGoogle($userId, $id, genesisReadJson())]);
         }
         if ($method === 'DELETE') {
-            genesisDeleteGoogleTaskEvent($userId, $id, genesisReadJson());
+            if (genesisUserProvider($user) === 'yandex') genesisDeleteYandexCalendarTask($userId, $id);
+            else genesisDeleteGoogleTaskEvent($userId, $id, genesisReadJson());
             genesisJson(['ok' => true]);
         }
     }

@@ -71,20 +71,20 @@ private val finalChange = mapOf(
 )
 
 private val currentReleaseChanges = mapOf(
-    "ru" to listOf("Добавлен вход через Яндекс ID на сайте и Android. Аккаунты Google и Яндекса разделены.", "При входе через Яндекс проекты и привычки синхронизируются с GENESIS; задачи и списки пока остаются на устройстве."),
-    "en" to listOf("Yandex ID sign-in is now available on the website and Android. Google and Yandex accounts remain separate.", "With Yandex sign-in, projects and habits sync with GENESIS; tasks and lists stay on this device for now."),
-    "el" to listOf("Η σύνδεση με Yandex ID είναι διαθέσιμη στον ιστότοπο και στο Android. Οι λογαριασμοί Google και Yandex παραμένουν ξεχωριστοί.", "Με σύνδεση Yandex, τα έργα και οι συνήθειες συγχρονίζονται με το GENESIS· οι εργασίες και οι λίστες μένουν προς το παρόν στη συσκευή."),
-    "de" to listOf("Die Anmeldung mit Yandex ID ist jetzt auf der Website und unter Android verfügbar. Google- und Yandex-Konten bleiben getrennt.", "Bei Anmeldung mit Yandex werden Projekte und Gewohnheiten mit GENESIS synchronisiert; Aufgaben und Listen bleiben vorerst auf diesem Gerät."),
-    "fr" to listOf("La connexion avec Yandex ID est disponible sur le site et Android. Les comptes Google et Yandex restent séparés.", "Avec Yandex, projets et habitudes se synchronisent avec GENESIS ; tâches et listes restent pour le moment sur cet appareil."),
-    "es" to listOf("Ya puedes iniciar sesión con Yandex ID en la web y Android. Las cuentas de Google y Yandex permanecen separadas.", "Con Yandex, los proyectos y hábitos se sincronizan con GENESIS; las tareas y listas permanecen por ahora en este dispositivo."),
-    "it" to listOf("L'accesso con Yandex ID è disponibile sul sito e su Android. Gli account Google e Yandex restano separati.", "Con Yandex, progetti e abitudini si sincronizzano con GENESIS; attività ed elenchi restano per ora su questo dispositivo."),
-    "pt" to listOf("O início de sessão com Yandex ID está disponível no site e no Android. As contas Google e Yandex permanecem separadas.", "Com Yandex, projetos e hábitos sincronizam com o GENESIS; tarefas e listas ficam por enquanto neste dispositivo."),
-    "pl" to listOf("Logowanie przez Yandex ID jest dostępne w witrynie i na Androidzie. Konta Google i Yandex pozostają oddzielne.", "Po zalogowaniu przez Yandex projekty i nawyki synchronizują się z GENESIS; zadania i listy na razie pozostają na tym urządzeniu."),
-    "sr" to listOf("Prijavljivanje preko Yandex ID-a dostupno je na sajtu i Androidu. Google i Yandex nalozi ostaju odvojeni.", "Uz Yandex prijavu, projekti i navike se sinhronizuju sa GENESIS-om; zadaci i liste za sada ostaju na ovom uređaju."),
-    "uk" to listOf("Вхід через Yandex ID доступний на сайті й Android. Облікові записи Google і Yandex залишаються окремими.", "За входу через Yandex проєкти та звички синхронізуються з GENESIS; завдання й списки поки залишаються на цьому пристрої."),
-    "zh" to listOf("网站和 Android 现已支持 Yandex ID 登录。Google 与 Yandex 账户保持独立。", "使用 Yandex 登录时，项目和习惯会与 GENESIS 同步；任务和清单暂时仅保存在此设备上。"),
-    "tr" to listOf("Yandex ID ile giriş artık web sitesinde ve Android'de kullanılabilir. Google ve Yandex hesapları ayrı kalır.", "Yandex ile girişte projeler ve alışkanlıklar GENESIS ile eşitlenir; görevler ve listeler şimdilik bu cihazda kalır."),
-    "ja" to listOf("ウェブサイトと Android で Yandex ID ログインが利用できます。Google と Yandex のアカウントは別々に管理されます。", "Yandex でログインすると、プロジェクトと習慣は GENESIS と同期します。タスクとリストは当面この端末に保存されます。"),
+    "ru" to listOf("Яндекс.Календарь подключается отдельно: задачи и встречи появляются как события, а списки хранятся в зашифрованном пространстве GENESIS.", "Общий свайп стал плавнее; названия сезонов в вечерней теме читаются поверх изображений."),
+    "en" to listOf("Connect Yandex Calendar separately: tasks and meetings appear as events, while lists stay in the encrypted GENESIS workspace.", "Shared swiping is smoother, and season titles remain readable over images in the evening theme."),
+    "el" to listOf("Το Ημερολόγιο Yandex συνδέεται ξεχωριστά: εργασίες και συναντήσεις εμφανίζονται ως συμβάντα, ενώ οι λίστες φυλάσσονται στον κρυπτογραφημένο χώρο GENESIS.", "Η κοινή σάρωση έγινε ομαλότερη και οι τίτλοι των εποχών διαβάζονται πάνω στις εικόνες του βραδινού θέματος."),
+    "de" to listOf("Yandex Calendar wird separat verbunden: Aufgaben und Treffen erscheinen als Ereignisse, Listen bleiben im verschlüsselten GENESIS-Bereich.", "Das gemeinsame Wischen läuft flüssiger; Jahreszeitentitel bleiben im Abenddesign über Bildern lesbar."),
+    "fr" to listOf("Connectez Yandex Calendar séparément : tâches et réunions deviennent des événements, tandis que les listes restent dans l’espace GENESIS chiffré.", "Le balayage commun est plus fluide et les titres des saisons restent lisibles sur les images du thème du soir."),
+    "es" to listOf("Conecta Yandex Calendar por separado: tareas y reuniones aparecen como eventos; las listas permanecen en el espacio cifrado de GENESIS.", "El deslizamiento general es más fluido y los títulos de las estaciones se leen mejor sobre las imágenes del tema nocturno."),
+    "it" to listOf("Collega Yandex Calendar separatamente: attività e riunioni compaiono come eventi, mentre gli elenchi restano nello spazio GENESIS cifrato.", "Lo scorrimento generale è più fluido e i titoli delle stagioni si leggono sulle immagini del tema serale."),
+    "pt" to listOf("Ligue o Yandex Calendar separadamente: tarefas e reuniões aparecem como eventos, e as listas ficam no espaço GENESIS encriptado.", "O deslize geral ficou mais fluido e os títulos das estações continuam legíveis sobre as imagens no tema noturno."),
+    "pl" to listOf("Kalendarz Yandex podłącza się osobno: zadania i spotkania pojawiają się jako wydarzenia, a listy pozostają w zaszyfrowanej przestrzeni GENESIS.", "Wspólne przesuwanie jest płynniejsze, a nazwy pór roku są czytelne na obrazach w motywie wieczornym."),
+    "sr" to listOf("Yandex kalendar se povezuje odvojeno: zadaci i sastanci pojavljuju se kao događaji, a liste ostaju u šifrovanom prostoru GENESIS-a.", "Zajedničko prevlačenje je glađe, a nazivi godišnjih doba čitljivi su preko slika u večernjoj temi."),
+    "uk" to listOf("Яндекс.Календар підключається окремо: завдання й зустрічі з’являються як події, а списки зберігаються в зашифрованому просторі GENESIS.", "Спільний свайп став плавнішим; назви пір року добре читаються поверх зображень у вечірній темі."),
+    "zh" to listOf("可单独连接 Yandex Calendar：任务和会议显示为日历事件，清单保存在加密的 GENESIS 空间中。", "通用滑动更加流畅；夜间主题中的季节标题在图片上更清晰。"),
+    "tr" to listOf("Yandex Calendar ayrı bağlanır: görevler ve toplantılar etkinlik olarak görünür, listeler ise şifreli GENESIS alanında tutulur.", "Ortak kaydırma daha akıcı; akşam temasında mevsim başlıkları görsellerin üzerinde okunaklıdır."),
+    "ja" to listOf("Yandex Calendar を別途接続できます。タスクと会議は予定として表示され、リストは暗号化された GENESIS 領域に保存されます。", "共通スワイプがより滑らかになり、夕方テーマの季節名も画像の上で読みやすくなりました。"),
 )
 
 @Composable

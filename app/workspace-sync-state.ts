@@ -4,6 +4,7 @@ export const WORKSPACE_SYNC_COLLECTIONS = [
   "projects",
   "categories",
   "taskListLinks",
+  "taskLists",
   "habits",
   "habitCompletions",
   "sleepPlans",

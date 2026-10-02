@@ -15,6 +15,7 @@ internal class CloudAccountSnapshot private constructor(
     val googleSyncWarning: Boolean,
     val tasksDeferred: Boolean,
     val unreadableTaskCount: Int,
+    val authProvider: String,
 ) {
     companion object {
         fun scopeFor(uid: String): String {
@@ -25,6 +26,7 @@ internal class CloudAccountSnapshot private constructor(
 
         fun fromBootstrap(payload: JSONObject): CloudAccountSnapshot {
             val uid = AuthProtocol.identity(payload)?.uid ?: throw CloudWorkspacePreview.Unreadable()
+            val authProvider = payload.optJSONObject("user")?.optString("authProvider") ?: "google"
             val workspace = payload.getJSONObject("workspace")
             val mode = workspace.getString("keyMode")
             require(mode in setOf("account", "client", "new"))
@@ -38,7 +40,7 @@ internal class CloudAccountSnapshot private constructor(
                 rows.optJSONObject(index)?.let { JSONObject(it.toString()) }
             }
             val unreadable = rows.length() - tasks.size
-            if (workspace.isNull("envelope")) return CloudAccountSnapshot(scopeFor(uid), 0, null, tasks, warning, deferred, unreadable)
+            if (workspace.isNull("envelope")) return CloudAccountSnapshot(scopeFor(uid), 0, null, tasks, warning, deferred, unreadable, authProvider)
             if (mode != "account") throw CloudWorkspacePreview.RecoveryRequired()
             val envelope = workspace.getJSONObject("envelope")
             val version = envelope.getLong("version")
@@ -56,7 +58,7 @@ internal class CloudAccountSnapshot private constructor(
                 document.getJSONArray(it)
             }
             document.getJSONObject("userProgress")
-            return CloudAccountSnapshot(scopeFor(uid), version, document, tasks, warning, deferred, unreadable)
+            return CloudAccountSnapshot(scopeFor(uid), version, document, tasks, warning, deferred, unreadable, authProvider)
         }
 
         /** Keep unknown Google/web fields; native-only defaults are never written to the cloud snapshot. */
