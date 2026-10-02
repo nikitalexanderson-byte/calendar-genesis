@@ -9,13 +9,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.key
+import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
@@ -24,9 +25,8 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.graphics.graphicsLayer
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -89,6 +89,13 @@ internal fun MenuSwipePager(current: SwipeDestination, sequence: List<SwipeDesti
     var incoming by remember { mutableStateOf<SwipeDestination?>(null) }
     var settling by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val latestContent = rememberUpdatedState(content)
+    // Keep each page's composition (including image and scroll state) when it
+    // moves from the incoming slot to the active slot after the swipe.
+    val pages = remember { mutableMapOf<SwipeDestination, @Composable () -> Unit>() }
+    val pageContent: @Composable (SwipeDestination) -> Unit = { destination ->
+        pages.getOrPut(destination) { movableContentOf { latestContent.value(destination) } }()
+    }
     val previous = nextMenuSwipeDestination(sequence, current.page, current.section, -1)
     val next = nextMenuSwipeDestination(sequence, current.page, current.section, 1)
     val gesture = if (!enabled) Modifier else Modifier.pointerInput(current, previous, next, width) {
@@ -115,9 +122,12 @@ internal fun MenuSwipePager(current: SwipeDestination, sequence: List<SwipeDesti
                 }
                 if (horizontal) {
                     change.consume()
-                    incoming = if (dx < 0) next else previous
-                    offset = if (incoming == null) dx * .16f
-                        else dx.coerceIn(-width.toFloat(), width.toFloat())
+                    if (incoming == null) incoming = if (dx < 0) next else previous
+                    offset = when {
+                        incoming == null -> dx * .16f
+                        incoming == next -> dx.coerceIn(-width.toFloat(), 0f)
+                        else -> dx.coerceIn(0f, width.toFloat())
+                    }
                 }
                 if (!change.pressed || vertical) break
             } while (true)
@@ -140,10 +150,8 @@ internal fun MenuSwipePager(current: SwipeDestination, sequence: List<SwipeDesti
                             }
                         }
                         if (destination != null) {
-                            // Keep the fully visible incoming composition on screen while the
-                            // destination becomes the current page. Clearing it in this same
-                            // frame forces two heavyweight screens to compose at once and
-                            // exposes a one-frame jump on slower phones.
+                            // The incoming composition stays visible at x=0 while navigation
+                            // updates the selected tab. It moves into the active slot below.
                             onNavigate(destination)
                             withFrameNanos { }
                             withFrameNanos { }
@@ -159,15 +167,13 @@ internal fun MenuSwipePager(current: SwipeDestination, sequence: List<SwipeDesti
     }
     Box(modifier.fillMaxSize().clipToBounds().onSizeChanged { width = it.width }.then(gesture)) {
         incoming?.let { destination ->
-            key(destination) {
-                Box(Modifier.fillMaxSize().offset {
-                    IntOffset((offset + if (offset < 0) width else -width).roundToInt(), 0)
-                }) { content(destination) }
-            }
+            Box(Modifier.fillMaxSize().graphicsLayer {
+                translationX = offset + if (offset < 0) width else -width
+            }) { pageContent(destination) }
         }
-        key(current) {
-            Box(Modifier.fillMaxSize().offset { IntOffset(offset.roundToInt(), 0) }) {
-                content(current)
+        if (current != incoming) {
+            Box(Modifier.fillMaxSize().graphicsLayer { translationX = offset }) {
+                pageContent(current)
             }
         }
     }

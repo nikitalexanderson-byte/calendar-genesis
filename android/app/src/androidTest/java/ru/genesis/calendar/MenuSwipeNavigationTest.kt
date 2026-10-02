@@ -45,6 +45,9 @@ class MenuSwipeNavigationTest {
                 File(app.getExternalFilesDir(null), "menu-swipe-settings.png")))
 
             compose.onNodeWithTag("navigation-Сегодня").performClick()
+            compose.onNodeWithTag("main-content").performTouchInput { swipeRight() }
+            compose.waitForIdle()
+            compose.onNodeWithTag("today-list").assertExists()
             compose.onNodeWithTag("main-content").performTouchInput { swipeLeft() }
             compose.waitForIdle()
             compose.onNodeWithTag("tasks-screen").assertExists()

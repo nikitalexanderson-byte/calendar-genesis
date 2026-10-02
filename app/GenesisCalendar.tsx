@@ -73,6 +73,7 @@ import { CronusSickleIcon } from "./CronusSickleIcon";
 import { MoonPhaseIcon } from "./MoonPhaseIcon";
 import { RecurrenceBuilder } from "./RecurrenceBuilder";
 import { WelcomeScreen } from "./WelcomeScreen";
+import { YandexCalendarConnectDialog } from "./YandexCalendarConnectDialog";
 import { HabitCompletionFeedback } from "./HabitCompletionFeedback";
 import { WorkspaceRecoveryDialog } from "./WorkspaceRecoveryDialog";
 import { useDialogAccessibility } from "./use-dialog-accessibility";
@@ -1331,6 +1332,7 @@ export function GenesisCalendar() {
     error: null,
   });
   const [accountOpen, setAccountOpen] = useState(false);
+  const [yandexConnectPromptUserId, setYandexConnectPromptUserId] = useState<string | null>(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [experimentalThemeWarningOpen, setExperimentalThemeWarningOpen] = useState(false);
   const pendingExperimentalThemeRef = useRef<GenesisTheme>(GENESIS_THEME.EXPERIMENTAL);
@@ -1976,6 +1978,19 @@ export function GenesisCalendar() {
     const key = cloudUser ? `${GENESIS_USER_WORKSPACE_STORAGE_PREFIX}${cloudUser.uid}` : GENESIS_LEGACY_WORKSPACE_STORAGE_KEY;
     localStorage.setItem(key, JSON.stringify({ tasks, projects, categories, taskLists, taskListLinks, ...habitWorkspace }));
   }, [hydrated, cloudUser, tasks, projects, categories, taskLists, taskListLinks, habitWorkspace]);
+
+  useEffect(() => {
+    if (!hydrated || !authResolved || !cloudUser || cloudUser.authProvider !== "yandex" || cloudUser.calendarConnected || !navigator.onLine) return;
+    const key = `genesis.yandex-calendar-offer.v1.${cloudUser.uid}`;
+    try {
+      if (localStorage.getItem(key)) return;
+    } catch { /* The offer can still appear once in this session. */ }
+    const timer = window.setTimeout(() => {
+      try { localStorage.setItem(key, "1"); } catch { /* Storage may be unavailable. */ }
+      setYandexConnectPromptUserId(cloudUser.uid);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [hydrated, authResolved, cloudUser]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -6362,7 +6377,7 @@ export function GenesisCalendar() {
           </div>
           <div className="topbar-actions">
             {nativeAndroidApkUrl ? (
-              <a className="icon-button ux-action-button android-native-icon-button" href={nativeAndroidApkUrl} download="GENESIS-Android-Native-2.4.9.apk" data-tooltip={language === "en" ? "Native Android app · remove the old TWA first" : "Нативное приложение · сначала удалите прежнюю TWA"} title={language === "en" ? "Native GENESIS APK; old TWA must be removed first" : "Нативный GENESIS APK; прежнюю TWA необходимо сначала удалить"} aria-label={language === "en" ? "Download native GENESIS for Android; remove the old TWA first" : "Скачать нативный GENESIS для Android; сначала удалите старую TWA"}>
+              <a className="icon-button ux-action-button android-native-icon-button" href={nativeAndroidApkUrl} download="GENESIS-Android-Native-2.5.0.apk" data-tooltip={language === "en" ? "Native Android app · remove the old TWA first" : "Нативное приложение · сначала удалите прежнюю TWA"} title={language === "en" ? "Native GENESIS APK; old TWA must be removed first" : "Нативный GENESIS APK; прежнюю TWA необходимо сначала удалить"} aria-label={language === "en" ? "Download native GENESIS for Android; remove the old TWA first" : "Скачать нативный GENESIS для Android; сначала удалите старую TWA"}>
                 <svg className="ux-android-robot" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M5.5 9h13v8.5a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2V9ZM5.5 9a6.5 6.5 0 0 1 13 0M4 11v5M20 11v5M9 19.5V22M15 19.5V22M7 3 5.5 1M17 3 18.5 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><circle cx="9.3" cy="7" r=".8" fill="currentColor"/><circle cx="14.7" cy="7" r=".8" fill="currentColor"/></svg>
               </a>
             ) : null}
@@ -7184,6 +7199,18 @@ export function GenesisCalendar() {
             }}
           />
         </Suspense>
+      ) : null}
+      {cloudUser?.authProvider === "yandex" && !cloudUser.calendarConnected && !workspaceRecoveryRequest && !accountOpen && yandexConnectPromptUserId === cloudUser.uid ? (
+        <YandexCalendarConnectDialog
+          user={cloudUser}
+          onClose={() => setYandexConnectPromptUserId(null)}
+          onConnected={(user) => {
+            setCloudUser(user);
+            localStorage.setItem(LAST_USER_KEY, JSON.stringify(user));
+            setYandexConnectPromptUserId(null);
+            window.location.reload();
+          }}
+        />
       ) : null}
       {voiceAssistantOpen ? (
         <Suspense fallback={<DeferredDialogFallback label={language === "en" ? "Opening voice assistant…" : "Открываем голосового помощника…"} />}><LocalVoiceAssistant
