@@ -240,6 +240,9 @@ jobs:
           EXPECTED="$(sha256sum dist-beget/public_html/downloads/GENESIS-Android-Native-2.5.1.apk | cut -d' ' -f1)"
           curl -fsSL --retry 3 "https://genesiscalendar.ru/android-update.json" \
             | jq -e --arg sha "$EXPECTED" '.versionCode == 57 and .versionName == "2.5.1" and .sha256 == $sha' >/dev/null
+          DOWNLOAD_REDIRECT="$(curl -sS -o /dev/null -w '%{http_code} %{redirect_url}' \
+            "https://genesiscalendar.ru/api/android/download")"
+          test "$DOWNLOAD_REDIRECT" = "302 https://genesiscalendar.ru/downloads/GENESIS-Android-Native-2.5.1.apk"
           curl -fsSL --retry 3 "https://genesiscalendar.ru/downloads/GENESIS-Android-Native-2.5.1.apk" \
             | sha256sum \
             | awk -v expected="$EXPECTED" '$1 == expected { found = 1 } END { exit !found }'

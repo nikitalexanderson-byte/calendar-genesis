@@ -130,12 +130,23 @@ try {
     }
 
     if ($method === 'GET' && $path === 'android/download') {
+        $publicRoot = dirname(__DIR__);
+        $manifest = @file_get_contents($publicRoot . '/android-update.json');
+        $release = $manifest === false ? null : json_decode($manifest, true);
+        $version = is_array($release) ? ($release['versionName'] ?? null) : null;
+        if (!is_string($version) || !preg_match('/\A[0-9]+(?:\.[0-9]+){1,3}\z/', $version)) {
+            genesisJson(['error' => 'ANDROID_RELEASE_UNAVAILABLE'], 503);
+        }
+        $apkUrl = '/downloads/GENESIS-Android-Native-' . $version . '.apk';
+        if (!is_file($publicRoot . $apkUrl)) {
+            genesisJson(['error' => 'ANDROID_RELEASE_UNAVAILABLE'], 503);
+        }
         $userId = genesisCurrentUserId();
         if ($userId !== null && genesisFindUser($userId) !== null) {
-            genesisObserveAndroid(static fn() => genesisRecordAndroidDownload($userId, '2.4.9'));
+            genesisObserveAndroid(static fn() => genesisRecordAndroidDownload($userId, $version));
         }
         header('Cache-Control: no-store');
-        header('Location: /downloads/GENESIS-Android-Native-2.4.9.apk', true, 302);
+        header('Location: ' . $apkUrl, true, 302);
         exit;
     }
 
