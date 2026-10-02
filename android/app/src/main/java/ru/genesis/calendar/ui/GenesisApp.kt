@@ -75,6 +75,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import ru.genesis.calendar.*
 import ru.genesis.calendar.auth.GoogleServicesFirstRunModal
+import ru.genesis.calendar.auth.YandexCalendarFirstRunDialog
 import ru.genesis.calendar.auth.activity
 import ru.genesis.calendar.data.*
 import ru.genesis.calendar.domain.*
@@ -402,6 +403,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
         }
         }
         if (!testWorkspace) GoogleServicesFirstRunModal(authState, authController)
+        if (!testWorkspace && !accountGate) YandexCalendarFirstRunDialog(authState, authController)
         ReleaseNotesAutoDialog(!testWorkspace && !accountGate && !authState.offerGoogleServices)
         AndroidUpdatePrompt(app, authState.checkedAt,
             !testWorkspace && authState.ready && authState.user != null)

@@ -70,21 +70,21 @@ private val finalChange = mapOf(
     "ja" to "設定に更新通知を表示します。広告は管理者が公開した場合にのみ表示されます。",
 )
 
-private val currentReleaseChanges = mapOf(
-    "ru" to listOf("Яндекс.Календарь подключается отдельно: задачи и встречи появляются как события, а списки хранятся в зашифрованном пространстве GENESIS.", "Общий свайп стал плавнее; названия сезонов в вечерней теме читаются поверх изображений."),
-    "en" to listOf("Connect Yandex Calendar separately: tasks and meetings appear as events, while lists stay in the encrypted GENESIS workspace.", "Shared swiping is smoother, and season titles remain readable over images in the evening theme."),
-    "el" to listOf("Το Ημερολόγιο Yandex συνδέεται ξεχωριστά: εργασίες και συναντήσεις εμφανίζονται ως συμβάντα, ενώ οι λίστες φυλάσσονται στον κρυπτογραφημένο χώρο GENESIS.", "Η κοινή σάρωση έγινε ομαλότερη και οι τίτλοι των εποχών διαβάζονται πάνω στις εικόνες του βραδινού θέματος."),
-    "de" to listOf("Yandex Calendar wird separat verbunden: Aufgaben und Treffen erscheinen als Ereignisse, Listen bleiben im verschlüsselten GENESIS-Bereich.", "Das gemeinsame Wischen läuft flüssiger; Jahreszeitentitel bleiben im Abenddesign über Bildern lesbar."),
-    "fr" to listOf("Connectez Yandex Calendar séparément : tâches et réunions deviennent des événements, tandis que les listes restent dans l’espace GENESIS chiffré.", "Le balayage commun est plus fluide et les titres des saisons restent lisibles sur les images du thème du soir."),
-    "es" to listOf("Conecta Yandex Calendar por separado: tareas y reuniones aparecen como eventos; las listas permanecen en el espacio cifrado de GENESIS.", "El deslizamiento general es más fluido y los títulos de las estaciones se leen mejor sobre las imágenes del tema nocturno."),
-    "it" to listOf("Collega Yandex Calendar separatamente: attività e riunioni compaiono come eventi, mentre gli elenchi restano nello spazio GENESIS cifrato.", "Lo scorrimento generale è più fluido e i titoli delle stagioni si leggono sulle immagini del tema serale."),
-    "pt" to listOf("Ligue o Yandex Calendar separadamente: tarefas e reuniões aparecem como eventos, e as listas ficam no espaço GENESIS encriptado.", "O deslize geral ficou mais fluido e os títulos das estações continuam legíveis sobre as imagens no tema noturno."),
-    "pl" to listOf("Kalendarz Yandex podłącza się osobno: zadania i spotkania pojawiają się jako wydarzenia, a listy pozostają w zaszyfrowanej przestrzeni GENESIS.", "Wspólne przesuwanie jest płynniejsze, a nazwy pór roku są czytelne na obrazach w motywie wieczornym."),
-    "sr" to listOf("Yandex kalendar se povezuje odvojeno: zadaci i sastanci pojavljuju se kao događaji, a liste ostaju u šifrovanom prostoru GENESIS-a.", "Zajedničko prevlačenje je glađe, a nazivi godišnjih doba čitljivi su preko slika u večernjoj temi."),
-    "uk" to listOf("Яндекс.Календар підключається окремо: завдання й зустрічі з’являються як події, а списки зберігаються в зашифрованому просторі GENESIS.", "Спільний свайп став плавнішим; назви пір року добре читаються поверх зображень у вечірній темі."),
-    "zh" to listOf("可单独连接 Yandex Calendar：任务和会议显示为日历事件，清单保存在加密的 GENESIS 空间中。", "通用滑动更加流畅；夜间主题中的季节标题在图片上更清晰。"),
-    "tr" to listOf("Yandex Calendar ayrı bağlanır: görevler ve toplantılar etkinlik olarak görünür, listeler ise şifreli GENESIS alanında tutulur.", "Ortak kaydırma daha akıcı; akşam temasında mevsim başlıkları görsellerin üzerinde okunaklıdır."),
-    "ja" to listOf("Yandex Calendar を別途接続できます。タスクと会議は予定として表示され、リストは暗号化された GENESIS 領域に保存されます。", "共通スワイプがより滑らかになり、夕方テーマの季節名も画像の上で読みやすくなりました。"),
+private val release250Changes = mapOf(
+    "ru" to listOf("После входа через Яндекс GENESIS предложит подключить Яндекс.Календарь отдельным паролем приложения. Форму можно открыть и позже в настройках аккаунта.", "Перелистывание экранов стало ровнее: содержимое соседнего экрана сохраняется при переходе, без повторной загрузки и мерцания."),
+    "en" to listOf("After Yandex sign-in, GENESIS offers to connect Yandex Calendar with a separate app password. The form also remains in account settings.", "Page swiping is smoother: the incoming page keeps its content during the transition, without a visible reload."),
+    "el" to listOf("Μετά τη σύνδεση μέσω Yandex, το GENESIS προτείνει σύνδεση του Yandex Calendar με ξεχωριστό κωδικό εφαρμογής. Η φόρμα υπάρχει και στις ρυθμίσεις λογαριασμού.", "Η σάρωση σελίδων είναι πιο ομαλή: το περιεχόμενο παραμένει στη θέση του χωρίς ορατή επαναφόρτωση."),
+    "de" to listOf("Nach der Anmeldung mit Yandex bietet GENESIS die Verbindung zum Yandex-Kalender mit einem eigenen App-Passwort an. Das Formular bleibt in den Kontoeinstellungen verfügbar.", "Das Wischen zwischen Seiten läuft ruhiger: Der Inhalt der nächsten Seite bleibt beim Übergang erhalten."),
+    "fr" to listOf("Après la connexion avec Yandex, GENESIS propose de relier Yandex Calendar avec un mot de passe d’application distinct. Le formulaire reste accessible dans les paramètres du compte.", "Le passage entre les pages est plus fluide : le contenu de la page suivante reste en place pendant la transition."),
+    "es" to listOf("Tras iniciar sesión con Yandex, GENESIS ofrece conectar Yandex Calendar con una contraseña de aplicación independiente. El formulario sigue disponible en los ajustes de la cuenta.", "El deslizamiento entre pantallas es más fluido: el contenido de la pantalla siguiente se conserva durante la transición."),
+    "it" to listOf("Dopo l’accesso con Yandex, GENESIS propone di collegare Yandex Calendar con una password per app separata. Il modulo resta nelle impostazioni dell’account.", "Lo scorrimento tra schermate è più fluido: il contenuto della schermata successiva resta stabile durante il passaggio."),
+    "pt" to listOf("Depois de entrar com Yandex, o GENESIS oferece a ligação ao Yandex Calendar com uma palavra-passe de aplicação separada. O formulário continua nas definições da conta.", "A passagem entre ecrãs está mais suave: o conteúdo do ecrã seguinte mantém-se durante a transição."),
+    "pl" to listOf("Po zalogowaniu przez Yandex GENESIS zaproponuje połączenie z Kalendarzem Yandex za pomocą osobnego hasła aplikacji. Formularz pozostaje w ustawieniach konta.", "Przesuwanie ekranów jest płynniejsze: zawartość kolejnego ekranu nie ładuje się ponownie podczas przejścia."),
+    "sr" to listOf("После пријаве преко Yandex-а, GENESIS нуди повезивање Yandex календара засебном лозинком апликације. Образац остаје доступан у подешавањима налога.", "Прелазак између екрана је мирнији: садржај следећег екрана остаје сачуван током превлачења."),
+    "uk" to listOf("Після входу через Яндекс GENESIS запропонує підключити Яндекс.Календар окремим паролем застосунку. Форма також доступна в налаштуваннях облікового запису.", "Гортання екранів стало плавнішим: вміст наступного екрана зберігається під час переходу без повторного завантаження."),
+    "zh" to listOf("通过 Yandex 登录后，GENESIS 会提示使用单独的应用密码连接 Yandex Calendar。该表单也可在账户设置中打开。", "页面切换更加流畅：下一页内容在切换时会保持，不再出现明显的重新加载。"),
+    "tr" to listOf("Yandex ile girişten sonra GENESIS, ayrı bir uygulama parolasıyla Yandex Calendar bağlantısı önerir. Form hesap ayarlarında da bulunur.", "Ekranlar arası kaydırma daha akıcıdır: sonraki ekranın içeriği geçiş boyunca korunur."),
+    "ja" to listOf("Yandex でログインすると、GENESIS は専用のアプリパスワードを使った Yandex Calendar の接続を案内します。フォームはアカウント設定からも開けます。", "画面の切り替えがより滑らかになり、次の画面の内容を切り替え中も保持します。"),
 )
 
 @Composable
@@ -98,7 +98,7 @@ internal fun ReleaseNotesDialog(onDismiss: () -> Unit) {
         title = { Text("${copy.title} · ${BuildConfig.VERSION_NAME}") },
         text = { Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            (currentReleaseChanges[LocalGenesisLanguage.current] ?: currentReleaseChanges.getValue("ru")).forEach {
+            (release250Changes[LocalGenesisLanguage.current] ?: release250Changes.getValue("ru")).forEach {
                 Text("• $it", style = MaterialTheme.typography.bodyMedium)
             }
         } },
