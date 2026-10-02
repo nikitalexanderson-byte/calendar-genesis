@@ -440,8 +440,9 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
           <div>
             <span className="eyebrow">Яндекс</span>
             <h3 id="yandex-calendar-title">Яндекс.Календарь</h3>
-            <p>{user.calendarConnected ? "Подключён. Задачи GENESIS появляются как события в основном календаре Яндекса." : "Для синхронизации задач создайте в Яндекс ID отдельный пароль приложения типа «Календарь». Обычный пароль от аккаунта здесь не нужен."}</p>
-            <p><a href="https://yandex.ru/support/id/ru/authorization/app-passwords" target="_blank" rel="noopener noreferrer">Как создать пароль приложения в Яндекс ID</a></p>
+            {user.calendarConnected ? <p>Подключён. Задачи GENESIS появляются как события в основном календаре Яндекса.</p> : null}
+            {!user.calendarConnected ? <p>В Яндекс ID откройте «Пароли приложений» → «Календарь». Название можно придумать, а сам пароль выдаёт Яндекс. Скопируйте его сюда.</p> : null}
+            <p><a href="https://id.yandex.ru/security/app-passwords" target="_blank" rel="noopener noreferrer">Открыть создание пароля Календаря в Яндекс ID</a></p>
             <small>Пароль приложения сохраняется на сервере GENESIS в зашифрованном виде. Яндекс может активировать новый пароль через 2–3 часа.</small>
           </div>
           {user.calendarConnected ? <button type="button" className="text-button" disabled={busy} onClick={() => void disconnectCalendar()}>Отключить календарь</button>

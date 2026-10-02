@@ -87,6 +87,23 @@ private val release250Changes = mapOf(
     "ja" to listOf("Yandex でログインすると、GENESIS は専用のアプリパスワードを使った Yandex Calendar の接続を案内します。フォームはアカウント設定からも開けます。", "画面の切り替えがより滑らかになり、次の画面の内容を切り替え中も保持します。"),
 )
 
+private val release251Changes = mapOf(
+    "ru" to listOf("В окне подключения Яндекс.Календаря и настройках аккаунта появилась прямая ссылка на создание пароля приложения в Яндекс ID.", "В вечерней теме названия сезонов григорианского календаря читаются на изображениях без светлых плашек."),
+    "en" to listOf("Yandex Calendar setup and account settings now link directly to app password creation in Yandex ID.", "Gregorian season names remain legible on their images in the evening theme without light badges."),
+    "el" to listOf("Η σύνδεση του Yandex Calendar και οι ρυθμίσεις λογαριασμού οδηγούν απευθείας στη δημιουργία κωδικού εφαρμογής στο Yandex ID.", "Τα ονόματα των εποχών στο Γρηγοριανό ημερολόγιο διαβάζονται πάνω στις εικόνες χωρίς φωτεινά πλαίσια στο βραδινό θέμα."),
+    "de" to listOf("Die Verbindung mit Yandex Calendar und die Kontoeinstellungen führen direkt zur Erstellung eines App-Passworts in Yandex ID.", "Die Namen der gregorianischen Jahreszeiten sind im Abenddesign ohne helle Plaketten auf den Bildern lesbar."),
+    "fr" to listOf("La connexion à Yandex Calendar et les paramètres du compte mènent directement à la création du mot de passe d’application dans Yandex ID.", "Les noms des saisons grégoriennes restent lisibles sur les images sans étiquette claire dans le thème du soir."),
+    "es" to listOf("La conexión de Yandex Calendar y los ajustes de la cuenta enlazan directamente con la creación de contraseñas de aplicación en Yandex ID.", "Los nombres de las estaciones gregorianas se leen sobre las imágenes sin placas claras en el tema nocturno."),
+    "it" to listOf("La connessione a Yandex Calendar e le impostazioni dell'account aprono direttamente la creazione della password per app in Yandex ID.", "I nomi delle stagioni gregoriane restano leggibili sulle immagini senza riquadri chiari nel tema serale."),
+    "pt" to listOf("A ligação ao Yandex Calendar e as definições da conta abrem diretamente a criação da palavra-passe de aplicação no Yandex ID.", "Os nomes das estações gregorianas mantêm-se legíveis nas imagens sem placas claras no tema noturno."),
+    "pl" to listOf("Łączenie z Kalendarzem Yandex i ustawienia konta prowadzą bezpośrednio do utworzenia hasła aplikacji w Yandex ID.", "Nazwy gregoriańskich pór roku pozostają czytelne na obrazach bez jasnych plakietek w motywie wieczornym."),
+    "sr" to listOf("Повезивање Yandex календара и подешавања налога воде директно до прављења лозинке апликације у Yandex ID.", "Називи грегоријанских годишњих доба читљиви су на сликама без светлих плашки у вечерњој теми."),
+    "uk" to listOf("Підключення Яндекс.Календаря та налаштування облікового запису ведуть прямо до створення пароля застосунку в Яндекс ID.", "Назви григоріанських сезонів читаються на зображеннях без світлих плашок у вечірній темі."),
+    "zh" to listOf("Yandex 日历连接窗口和账户设置现在可直接打开 Yandex ID 的应用密码创建页面。", "夜间主题中的公历季节名称直接显示在图片上，无需浅色标签也清晰可见。"),
+    "tr" to listOf("Yandex Takvim bağlantısı ve hesap ayarları artık Yandex ID uygulama parolası oluşturma sayfasını doğrudan açıyor.", "Gregoryen mevsim adları akşam temasında açık renkli etiketler olmadan görseller üzerinde okunabiliyor."),
+    "ja" to listOf("Yandex カレンダーの接続画面とアカウント設定から、Yandex ID のアプリパスワード作成画面を直接開けます。", "夕方のテーマでは、グレゴリオ暦の季節名を明るい札なしで画像上に読みやすく表示します。"),
+)
+
 @Composable
 internal fun releaseNotesTitle(): String = notes[LocalGenesisLanguage.current]?.title ?: notes.getValue("ru").title
 
@@ -98,7 +115,7 @@ internal fun ReleaseNotesDialog(onDismiss: () -> Unit) {
         title = { Text("${copy.title} · ${BuildConfig.VERSION_NAME}") },
         text = { Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            (release250Changes[LocalGenesisLanguage.current] ?: release250Changes.getValue("ru")).forEach {
+            (release251Changes[LocalGenesisLanguage.current] ?: release251Changes.getValue("ru")).forEach {
                 Text("• $it", style = MaterialTheme.typography.bodyMedium)
             }
         } },

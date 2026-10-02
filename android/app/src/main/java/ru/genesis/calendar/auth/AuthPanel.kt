@@ -64,6 +64,9 @@ fun AuthPanel(app: GenesisApplication, localLanguage: String, onLanguage: (Strin
     var confirmKeepRemote by remember { mutableStateOf(false) }
     var yandexCalendarLogin by remember(state.user?.uid) { mutableStateOf(state.user?.email.orEmpty()) }
     var yandexCalendarPassword by remember(state.user?.uid) { mutableStateOf("") }
+    LaunchedEffect(state.user?.uid, state.accountSettings?.calendarConnected) {
+        if (state.accountSettings?.calendarConnected == true) yandexCalendarPassword = ""
+    }
 
     Column(Modifier.fillMaxWidth().testTag("auth-panel"), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         AccountSubsection("auth-sign-in-block", "◎", "Вход в GENESIS",
@@ -176,16 +179,16 @@ fun AuthPanel(app: GenesisApplication, localLanguage: String, onLanguage: (Strin
         if (state.user != null && state.accountSettings?.authProvider == "yandex") {
             AccountSubsection("auth-yandex-calendar-block", "▦", "Яндекс.Календарь",
                 "Только для этого Яндекс-аккаунта") {
-                Text(if (state.accountSettings?.calendarConnected == true)
-                    "Подключён. Задачи GENESIS отображаются в Яндекс.Календаре как события."
-                else "Создайте в Яндекс ID отдельный пароль приложения для Календаря. Обычный пароль аккаунта вводить не нужно.",
-                    style = MaterialTheme.typography.bodySmall)
                 if (state.accountSettings?.calendarConnected == true) {
+                    Text("Подключён. Задачи GENESIS отображаются в Яндекс.Календаре как события.",
+                        style = MaterialTheme.typography.bodySmall)
                     OutlinedButton(onClick = controller::disconnectYandexCalendar, enabled = !state.busy,
                         modifier = Modifier.fillMaxWidth().testTag("disconnect-yandex-calendar")) {
                         Text("Отключить календарь")
                     }
                 } else {
+                    Text("В Яндекс ID откройте «Пароли приложений» → «Календарь». Название можно придумать, а сам пароль выдаёт Яндекс. Скопируйте его сюда.",
+                        style = MaterialTheme.typography.bodySmall)
                     OutlinedTextField(yandexCalendarLogin, { yandexCalendarLogin = it },
                         label = { Text("Логин или почта Яндекса") }, singleLine = true,
                         modifier = Modifier.fillMaxWidth().testTag("yandex-calendar-login"))
@@ -195,18 +198,17 @@ fun AuthPanel(app: GenesisApplication, localLanguage: String, onLanguage: (Strin
                         modifier = Modifier.fillMaxWidth().testTag("yandex-calendar-password"))
                     Button(onClick = {
                         controller.connectYandexCalendar(yandexCalendarLogin, yandexCalendarPassword)
-                        yandexCalendarPassword = ""
                     }, enabled = !state.busy && yandexCalendarLogin.isNotBlank() && yandexCalendarPassword.length >= 8,
                         modifier = Modifier.fillMaxWidth().testTag("connect-yandex-calendar")) {
                         Text("Подключить календарь")
                     }
-                    TextButton(onClick = {
-                        val intent = Intent(Intent.ACTION_VIEW,
-                            Uri.parse("https://yandex.ru/support/id/ru/authorization/app-passwords"))
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        app.startActivity(intent)
-                    }) { Text("Как создать пароль приложения") }
                 }
+                TextButton(onClick = {
+                    val intent = Intent(Intent.ACTION_VIEW,
+                        Uri.parse("https://id.yandex.ru/security/app-passwords"))
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    app.startActivity(intent)
+                }) { Text("Открыть создание пароля Календаря в Яндекс ID") }
             }
         }
 
