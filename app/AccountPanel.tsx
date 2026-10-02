@@ -314,7 +314,10 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
   };
 
   const removeAccount = async () => {
-    if (!window.confirm(translateText("Безвозвратно удалить аккаунт GENESIS и все относящиеся к нему данные с сервера? Будут удалены профиль, зашифрованное пространство, привычки, статистика, расклады и привязки аккаунтов. Разрешения Google будут отозваны. Уже созданные события и списки задач останутся в вашем Google-аккаунте.", undefined, true))) return;
+    const confirmation = user.authProvider === "yandex"
+      ? "Безвозвратно удалить аккаунт GENESIS и его данные с сервера? Локальные задачи и списки останутся на этом устройстве; доступ к GENESIS можно отдельно отозвать в Яндекс ID."
+      : "Безвозвратно удалить аккаунт GENESIS и все относящиеся к нему данные с сервера? Будут удалены профиль, зашифрованное пространство, привычки, статистика, расклады и привязки аккаунтов. Разрешения Google будут отозваны. Уже созданные события и списки задач останутся в вашем Google-аккаунте.";
+    if (!window.confirm(translateText(confirmation, undefined, true))) return;
     setBusy(true);
     try {
       await deleteGenesisAccount(user.uid);
@@ -384,12 +387,14 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
         <p className="account-email">{user.email}</p>
 
         <div className="account-security-grid">
-          <article><span>Google-сервисы</span><strong>{user.calendarConnected && user.googleTasksImportReady ? "Подключены" : "По желанию"}</strong><small>Calendar и Tasks подключаются отдельным согласием после входа.</small></article>
+          {user.authProvider === "yandex"
+            ? <article><span>Яндекс ID</span><strong>Подключён</strong><small>Вход через Яндекс. Задачи и списки пока сохраняются на этом устройстве.</small></article>
+            : <article><span>Google-сервисы</span><strong>{user.calendarConnected && user.googleTasksImportReady ? "Подключены" : "По желанию"}</strong><small>Calendar и Tasks подключаются отдельным согласием после входа.</small></article>}
           <article><span>Личные данные</span><strong>Зашифрованы</strong><small>AES-GCM в браузере; ключ хранится на сервере отдельно и зашифрован для автоматического входа.</small></article>
           <article><span>Офлайн-копия</span><strong>На устройстве</strong><small>Доступна без сети после входа на этом устройстве.</small></article>
         </div>
 
-        {!user.googleTasksImportReady ? (
+        {user.authProvider !== "yandex" && !user.googleTasksImportReady ? (
           <section className="account-sync-upgrade" aria-label="Синхронизация Google Tasks">
             <div>
               <strong>Подключите Google Calendar и Google Tasks</strong>

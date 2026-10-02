@@ -168,6 +168,7 @@ export function WelcomeScreen({ nativeAndroidApkUrl, busy, error, language, onLa
                 {translateText("Войти через Яндекс", language)}
               </button>
               <p className="auth-provider-region-hint">{translateText("Рекомендуется пользователям в России", language)}</p>
+              <p className="auth-provider-law-note">{translateText("Для пользователей, находящихся в России, закон РФ предусматривает российские способы входа (149-ФЗ, ст. 8).", language)}</p>
             </>
           ) : null}
 
