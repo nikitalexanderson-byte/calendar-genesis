@@ -145,6 +145,8 @@ dependencies {
     implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
     implementation("com.google.android.gms:play-services-auth:21.6.0")
     implementation("com.yandex.android:authsdk:3.1.3")
+    // YandexAuthLoginOptions references this annotation; R8 needs it in release builds.
+    implementation("org.jetbrains.kotlin:kotlin-parcelize-runtime:2.2.10")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20250517")
     androidTestImplementation("androidx.test:runner:1.7.0")
