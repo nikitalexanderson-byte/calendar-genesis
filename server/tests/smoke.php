@@ -31,6 +31,26 @@ try {
 
     $user = genesisFindUser($userId);
     expect(is_array($user), 'Test user was not created.');
+    $yandexProfile = [
+        'id' => 'genesis-yandex-smoke',
+        'email' => 'yandex.smoke@example.org',
+        'name' => 'Yandex Smoke',
+        'picture' => null,
+    ];
+    $yandexUser = genesisUpsertYandexUser($yandexProfile);
+    expect(genesisFindUserByYandexUid($yandexProfile['id'])['id'] === $yandexUser['id'], 'Yandex identity lookup failed.');
+    expect(genesisUserProvider($yandexUser) === 'yandex', 'Yandex identity was not isolated.');
+    expect((genesisUserForClient($yandexUser)['authProvider'] ?? '') === 'yandex', 'Yandex provider was not exposed.');
+    expect(genesisGoogleAccountsForUser($yandexUser) === [], 'Yandex identity was offered Google accounts.');
+    expect(!genesisIsAdminUser($yandexUser), 'Yandex identity received Google administrator privileges.');
+    expect(genesisUpsertYandexUser($yandexProfile)['id'] === $yandexUser['id'], 'Yandex repeat login duplicated the account.');
+    try {
+        genesisUpsertYandexUser(['id' => 'another-yandex-identity', 'email' => 'genesis.smoke.test@gmail.com']);
+        throw new RuntimeException('Yandex account was merged with a Google account by email.');
+    } catch (DomainException $expected) {
+        expect(str_contains($expected->getMessage(), 'другим аккаунтом'), 'Provider conflict had an unexpected result.');
+    }
+    $db->prepare('DELETE FROM users WHERE id = :id')->execute(['id' => (string)$yandexUser['id']]);
     $user = genesisUpdateAccountPreferences($userId, ['calendarMode' => 'sacred', 'taskCalendarMode' => 'lunar', 'timeFormat' => '12h', 'weekStart' => 'monday', 'gregorianYearStart' => 'march', 'language' => 'en']);
     expect(($user['calendar_mode'] ?? '') === 'sacred', 'Calendar preference was not stored.');
     expect((genesisUserForClient($user)['calendarMode'] ?? '') === 'sacred', 'Calendar preference was not exposed to the client.');

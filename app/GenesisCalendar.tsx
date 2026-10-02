@@ -41,6 +41,7 @@ import {
   createGoogleTaskList,
   removeGoogleTaskList,
   isGoogleSyncConfigured,
+  loadAuthProviders,
   loadAssistantStatus,
   loadGenesisSession,
   type AssistantProvider,
@@ -58,6 +59,7 @@ import {
   saveWorkspaceStructure,
   restoreOfflineWorkspaceSession,
   signInWithGoogle,
+  signInWithYandex,
   signOutFromGoogle,
   updateAccountPreferences,
   updateGoogleTaskList,
@@ -1315,6 +1317,7 @@ export function GenesisCalendar() {
   const [hydrated, setHydrated] = useState(false);
   const [authResolved, setAuthResolved] = useState(!isGoogleSyncConfigured);
   const [cloudUser, setCloudUser] = useState<GenesisUser | null>(null);
+  const [yandexAvailable, setYandexAvailable] = useState(false);
   const [springYearSuggestionDismissed, setSpringYearSuggestionDismissed] = useState(false);
   const [springYearSuggestionBusy, setSpringYearSuggestionBusy] = useState(false);
   const [springYearSuggestionError, setSpringYearSuggestionError] = useState(false);
@@ -1558,6 +1561,14 @@ export function GenesisCalendar() {
   useEffect(() => {
     const timer = window.setTimeout(() => setAuthError(consumeGoogleAuthError()), 0);
     return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void loadAuthProviders().then((providers) => {
+      if (active) setYandexAvailable(providers.yandex);
+    }).catch(() => undefined);
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {
@@ -2065,7 +2076,7 @@ export function GenesisCalendar() {
           setTasks(nextTasks);
           setProjects(nextProjects);
           setCategories(nextCategories);
-          setTaskLists(workspace.taskLists);
+          setTaskLists(workspace.user.authProvider === "yandex" ? local.taskLists : workspace.taskLists);
           setTaskListLinks(nextTaskListLinks);
           setHabitWorkspace(ensureTrackerAnalytics(
             normalizeHabitWorkspace(workspace.hasRemoteStructure ? workspace : local, workspace.user.taskCalendarMode ?? "sacred"),
@@ -2113,7 +2124,7 @@ export function GenesisCalendar() {
       try {
         const cached = JSON.parse(localStorage.getItem(LAST_USER_KEY) || "null") as GenesisUser | null;
         if (cached?.uid) {
-          restoreOfflineWorkspaceSession(cached.uid);
+          restoreOfflineWorkspaceSession(cached.uid, cached.authProvider === "yandex" ? "yandex" : "google");
           const cachedLanguage = normalizeLanguage(cached.language);
           const local = readStoredState(`${GENESIS_USER_WORKSPACE_STORAGE_PREFIX}${cached.uid}`);
           tasksRef.current = local.tasks;
@@ -2214,6 +2225,20 @@ export function GenesisCalendar() {
       await signInWithGoogle();
     } catch (error) {
       setSyncError(error instanceof Error ? error.message : "Не удалось войти");
+      setSyncStatus("error");
+    }
+  };
+
+  const handleYandexSignIn = async () => {
+    setAuthError("");
+    setSyncError("");
+    setSyncStatus("syncing");
+    storeLanguage(language);
+    localStorage.setItem(LANGUAGE_LOGIN_PENDING_KEY, language);
+    try {
+      await signInWithYandex();
+    } catch (error) {
+      setSyncError(error instanceof Error ? error.message : "Не удалось войти через Яндекс");
       setSyncStatus("error");
     }
   };
@@ -2344,7 +2369,7 @@ export function GenesisCalendar() {
       recurrenceSeriesId: null,
       calendarMode: activeTaskCalendarMode,
       calendarNote: calendarDateNote(dueDate, activeTaskCalendarMode),
-      syncToGoogle: true,
+      syncToGoogle: cloudUser?.authProvider !== "yandex",
       syncAccountIds: taskList.accountId ? [taskList.accountId] : defaultSyncAccountIds,
       googleLinks: {},
       googleAccountId: taskList.accountId ?? null,
@@ -2599,7 +2624,7 @@ export function GenesisCalendar() {
       recurrenceSeriesId: null,
       calendarMode: activeTaskCalendarMode,
       calendarNote: calendarDateNote(dueDate, activeTaskCalendarMode),
-      syncToGoogle: true,
+      syncToGoogle: cloudUser?.authProvider !== "yandex",
       syncAccountIds: syncAccountIdsForTask(selectedProject?.categoryId ?? null, selectedTaskList),
       googleLinks: {},
       googleAccountId: selectedTaskList?.accountId ?? null,
@@ -3243,7 +3268,9 @@ export function GenesisCalendar() {
     }
     const listTaskCount = tasks.filter((task) => task.googleTaskListId === taskList.id).length;
     const taskCountLabel = listTaskCount === 1 ? "1 задачей" : `${listTaskCount} задачами`;
-    if (!window.confirm(translateText(`Удалить список «${taskList.title}» вместе с ${taskCountLabel}? Он будет удалён из Google Tasks. Это действие нельзя отменить.`, undefined, true))) return;
+    if (!window.confirm(translateText(cloudUser?.authProvider === "yandex"
+      ? `Удалить список «${taskList.title}» вместе с ${taskCountLabel}? Это действие нельзя отменить.`
+      : `Удалить список «${taskList.title}» вместе с ${taskCountLabel}? Он будет удалён из Google Tasks. Это действие нельзя отменить.`, undefined, true))) return;
     setSyncStatus("syncing");
     try {
       await removeGoogleTaskList(taskList.id, taskList.accountId);
@@ -3678,7 +3705,7 @@ export function GenesisCalendar() {
         recurrenceSeriesId: null,
         calendarMode: activeTaskCalendarMode,
         calendarNote: calendarDateNote(start, activeTaskCalendarMode),
-        syncToGoogle: true,
+        syncToGoogle: cloudUser?.authProvider !== "yandex",
         syncAccountIds: syncAccountIdsForTask(project?.categoryId ?? null, taskList),
         googleLinks: {},
         googleAccountId: taskList?.accountId ?? null,
@@ -4135,8 +4162,8 @@ export function GenesisCalendar() {
                 setTaskReminders([]);
               }
             }}>
-              <option value="">Google Calendar</option>
-              {taskLists.map((taskList) => <option value={taskList.id} key={`${taskList.accountId ?? "primary"}-${taskList.id}`}>Google Tasks · {taskList.title}{taskList.accountEmail ? ` · ${taskList.accountEmail}` : ""}</option>)}
+              <option value="">{cloudUser?.authProvider === "yandex" ? "Задачи на устройстве" : "Google Calendar"}</option>
+              {taskLists.map((taskList) => <option value={taskList.id} key={`${taskList.accountId ?? "primary"}-${taskList.id}`}>{cloudUser?.authProvider === "yandex" ? "Список GENESIS" : "Google Tasks"} · {taskList.title}{taskList.accountEmail ? ` · ${taskList.accountEmail}` : ""}</option>)}
               <option value={CREATE_NEW_TASK_LIST_ID}>＋ Начать новый список задач</option>
             </select>
           </label>
@@ -6095,6 +6122,8 @@ export function GenesisCalendar() {
         language={language}
         onLanguageChange={selectLanguage}
         onGoogle={() => void handleGoogleSignIn()}
+        onYandex={() => void handleYandexSignIn()}
+        yandexAvailable={yandexAvailable}
       />
     );
   }
@@ -6179,7 +6208,7 @@ export function GenesisCalendar() {
           </div>
           <div className="topbar-actions">
             {nativeAndroidApkUrl ? (
-              <a className="icon-button ux-action-button android-native-icon-button" href={nativeAndroidApkUrl} download="GENESIS-Android-Native-2.4.7.apk" data-tooltip={language === "en" ? "Native Android app · remove the old TWA first" : "Нативное приложение · сначала удалите прежнюю TWA"} title={language === "en" ? "Native GENESIS APK; old TWA must be removed first" : "Нативный GENESIS APK; прежнюю TWA необходимо сначала удалить"} aria-label={language === "en" ? "Download native GENESIS for Android; remove the old TWA first" : "Скачать нативный GENESIS для Android; сначала удалите старую TWA"}>
+              <a className="icon-button ux-action-button android-native-icon-button" href={nativeAndroidApkUrl} download="GENESIS-Android-Native-2.4.8.apk" data-tooltip={language === "en" ? "Native Android app · remove the old TWA first" : "Нативное приложение · сначала удалите прежнюю TWA"} title={language === "en" ? "Native GENESIS APK; old TWA must be removed first" : "Нативный GENESIS APK; прежнюю TWA необходимо сначала удалить"} aria-label={language === "en" ? "Download native GENESIS for Android; remove the old TWA first" : "Скачать нативный GENESIS для Android; сначала удалите старую TWA"}>
                 <svg className="ux-android-robot" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M5.5 9h13v8.5a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2V9ZM5.5 9a6.5 6.5 0 0 1 13 0M4 11v5M20 11v5M9 19.5V22M15 19.5V22M7 3 5.5 1M17 3 18.5 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><circle cx="9.3" cy="7" r=".8" fill="currentColor"/><circle cx="14.7" cy="7" r=".8" fill="currentColor"/></svg>
               </a>
             ) : null}
@@ -6278,7 +6307,7 @@ export function GenesisCalendar() {
         <div className={`workspace workspace-full${view === "today" ? " today-workspace" : ""}`} id="main-content" data-exp-layout="content">
           <div className="content-column" data-exp-layout="stack">
             {authError ? <p className="oauth-callback-error" role="alert">{authError}</p> : null}
-            {cloudUser && (!cloudUser.calendarConnected || !cloudUser.googleTasksImportReady) ? (
+            {cloudUser && cloudUser.authProvider !== "yandex" && (!cloudUser.calendarConnected || !cloudUser.googleTasksImportReady) ? (
               themeState.available && themeState.theme.startsWith("experimental") ? (
                 <details className="google-connect-banner experimental-google-connect">
                   <summary>

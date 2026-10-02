@@ -584,7 +584,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
           </div>
         </section>
 
-        <section className="account-preferences multi-account-preference" aria-labelledby="multi-account-title">
+        {user.authProvider !== "yandex" ? <section className="account-preferences multi-account-preference" aria-labelledby="multi-account-title">
             <div className="multi-account-heading">
               <div>
                 <span className="eyebrow">Доступно всем пользователям</span>
@@ -670,7 +670,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
                 <button type="button" className="primary-button" disabled={preferenceBusy || routing.defaultAccountIds.length === 0} onClick={() => void saveRouting()}>Сохранить маршрутизацию</button>
               </div>
             ) : null}
-          </section>
+          </section> : null}
 
         <section className="account-preferences" aria-labelledby="account-habits-title">
           <div>
@@ -818,7 +818,9 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
             <span className="eyebrow">Encrypted workspace</span>
             <h3 id="account-e2ee-title">{user.language === "en" ? "Encrypted personal data" : "Шифрование личных данных"}</h3>
           </div>
-          <p>{user.language === "en" ? "Projects and tracker data are encrypted before storage. After Google sign-in, an authenticated GENESIS session unlocks them automatically on every device—no recovery code is required." : "Проекты и данные трекеров шифруются перед сохранением. После входа через Google защищённая сессия GENESIS автоматически открывает их на любом устройстве — код восстановления не нужен."}</p>
+          <p>{user.authProvider === "yandex"
+            ? (user.language === "en" ? "Projects and tracker data are encrypted before storage and available after Yandex sign-in. Task and calendar sync will be connected separately." : "Проекты и данные трекеров шифруются перед сохранением и доступны после входа через Яндекс. Синхронизация задач и календаря подключается отдельно.")
+            : (user.language === "en" ? "Projects and tracker data are encrypted before storage. After Google sign-in, an authenticated GENESIS session unlocks them automatically on every device—no recovery code is required." : "Проекты и данные трекеров шифруются перед сохранением. После входа через Google защищённая сессия GENESIS автоматически открывает их на любом устройстве — код восстановления не нужен.")}</p>
         </section>
 
         <section className="account-preferences" aria-labelledby="account-preferences-title">
@@ -848,18 +850,22 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
 
         <section className="account-oauth-note" aria-label="Безопасность входа">
           <h3>Безопасный вход</h3>
-          <p>Авторизация выполняется только через официальный OAuth Google. GENESIS не получает, не запрашивает и не хранит пароль. Токены доступа шифруются на сервере, а при удалении аккаунта разрешение отзывается у Google.</p>
-          <p><a href="/privacy">Подробнее об использовании данных Google</a></p>
-          <button type="button" className="text-button" onClick={onReconnectGoogle}>Обновить разрешения Calendar и Tasks</button>
-          {user.calendarConnected || user.googleTasksImportReady ? (
-            <button type="button" className="text-button" onClick={() => void disconnectServices()} disabled={busy}>Отключить Calendar и Tasks</button>
-          ) : null}
+          {user.authProvider === "yandex" ? (
+            <p>Вход выполняется через официальный Яндекс ID. GENESIS не получает ваш пароль Яндекса. Синхронизация с Яндекс Календарём пока не подключена.</p>
+          ) : <>
+            <p>Авторизация выполняется только через официальный OAuth Google. GENESIS не получает, не запрашивает и не хранит пароль. Токены доступа шифруются на сервере, а при удалении аккаунта разрешение отзывается у Google.</p>
+            <p><a href="/privacy">Подробнее об использовании данных Google</a></p>
+            <button type="button" className="text-button" onClick={onReconnectGoogle}>Обновить разрешения Calendar и Tasks</button>
+            {user.calendarConnected || user.googleTasksImportReady ? (
+              <button type="button" className="text-button" onClick={() => void disconnectServices()} disabled={busy}>Отключить Calendar и Tasks</button>
+            ) : null}
+          </>}
         </section>
 
         {message ? <p className="account-message" role="status">{message}</p> : null}
 
         <div className="account-danger">
-          <div><strong>Удаление аккаунта</strong><small>Безвозвратно удалит только ваш профиль и все связанные с ним данные с сервера GENESIS, локальные копии на этом устройстве и отзовёт разрешения Google.</small></div>
+          <div><strong>Удаление аккаунта</strong><small>{user.authProvider === "yandex" ? "Безвозвратно удалит профиль и связанные с ним данные GENESIS. Доступ к GENESIS можно также отозвать в Яндекс ID." : "Безвозвратно удалит только ваш профиль и все связанные с ним данные с сервера GENESIS, локальные копии на этом устройстве и отзовёт разрешения Google."}</small></div>
           <button type="button" onClick={() => void removeAccount()} disabled={busy}>Удалить</button>
         </div>
       </section>

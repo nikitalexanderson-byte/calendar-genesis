@@ -16,6 +16,17 @@ function genesisAdminEmail(): string
     return mb_strtolower(trim((string)(genesisConfig()['admin_email'] ?? GENESIS_ADMIN_EMAIL)));
 }
 
+function genesisUserProvider(array $user): string
+{
+    return ($user['auth_provider'] ?? 'google') === 'yandex' ? 'yandex' : 'google';
+}
+
+function genesisIsAdminUser(array $user): bool
+{
+    return genesisUserProvider($user) === 'google'
+        && mb_strtolower((string)($user['email'] ?? '')) === genesisAdminEmail();
+}
+
 function genesisIsValidEmail(string $email): bool
 {
     $clean = trim($email);
@@ -73,13 +84,14 @@ function genesisFindLinkedGoogleAccountBySub(string $googleSub): ?array
 
 function genesisGoogleAccountsForUser(array $owner): array
 {
+    if (genesisUserProvider($owner) !== 'google') return [];
     return array_merge([$owner], genesisLinkedGoogleAccounts((string)$owner['id']));
 }
 
 function genesisGoogleAccountForUser(string $ownerUserId, string $accountId): ?array
 {
     $owner = genesisFindUser($ownerUserId);
-    if ($owner === null) {
+    if ($owner === null || genesisUserProvider($owner) !== 'google') {
         return null;
     }
     if (hash_equals((string)$owner['id'], $accountId)) {
@@ -91,7 +103,8 @@ function genesisGoogleAccountForUser(string $ownerUserId, string $accountId): ?a
 
 function genesisMultiAccountEnabled(array $owner): bool
 {
-    return isset($owner['id']) && trim((string)$owner['id']) !== '';
+    return genesisUserProvider($owner) === 'google'
+        && isset($owner['id']) && trim((string)$owner['id']) !== '';
 }
 
 function genesisAccountForClient(array $account, bool $primary): array
@@ -191,6 +204,7 @@ function genesisUserForClient(array $user): array
     $anyTasksConnected = count(array_filter($accounts, static fn(array $account): bool => !empty($account['googleTasksImportReady']))) > 0;
     return [
         'uid' => (string)$user['id'],
+        'authProvider' => genesisUserProvider($user),
         'displayName' => (string)$user['display_name'],
         'email' => (string)$user['email'],
         'photoURL' => $user['avatar_url'] ?: null,
@@ -198,7 +212,7 @@ function genesisUserForClient(array $user): array
         'googleTasksImportReady' => $anyTasksConnected,
         'passwordEnabled' => !empty($user['password_hash']),
         'stoicheionDivinationDisabled' => !empty($user['stoicheion_divination_disabled']),
-        'isAdmin' => mb_strtolower((string)$user['email']) === genesisAdminEmail(),
+        'isAdmin' => genesisIsAdminUser($user),
         'calendarMode' => $calendarMode,
         'taskCalendarMode' => $taskCalendarMode,
         'timeFormat' => $timeFormat,
@@ -367,6 +381,61 @@ function genesisFindUserByGoogleSub(string $googleSub): ?array
     $statement->execute(['google_sub' => $googleSub]);
     $user = $statement->fetch();
     return is_array($user) ? $user : null;
+}
+
+/** Yandex identities are never matched or merged by email with Google accounts. */
+function genesisFindUserByYandexUid(string $uid): ?array
+{
+    $statement = genesisDb()->prepare('SELECT * FROM users WHERE yandex_uid = :uid LIMIT 1');
+    $statement->execute(['uid' => $uid]);
+    $user = $statement->fetch();
+    return is_array($user) ? $user : null;
+}
+
+/** Yandex identities are never matched or merged by email with Google accounts. */
+function genesisUpsertYandexUser(array $profile): array
+{
+    $uid = trim((string)($profile['id'] ?? ''));
+    $email = mb_strtolower(trim((string)($profile['email'] ?? '')));
+    if ($uid === '' || strlen($uid) > 128 || !genesisIsValidEmail($email)) {
+        throw new InvalidArgumentException('Яндекс не подтвердил данные аккаунта.');
+    }
+    $internalSub = 'yandex:' . hash('sha256', $uid);
+    genesisAssertIdentityAllowed($internalSub, $email);
+    $db = genesisDb();
+    $existing = genesisFindUserByYandexUid($uid);
+    if (is_array($existing) && genesisUserProvider($existing) !== 'yandex') {
+        throw new DomainException('Аккаунт Яндекса связан с другим способом входа.');
+    }
+    $emailOwner = genesisFindUserByEmail($email);
+    if ($emailOwner !== null && (!is_array($existing) || $emailOwner['id'] !== $existing['id'])) {
+        throw new DomainException('Этот адрес уже используется другим аккаунтом GENESIS. Войдите прежним способом или обратитесь в поддержку.');
+    }
+    $now = genesisNow();
+    $name = mb_substr(trim((string)($profile['name'] ?? '')) ?: $email, 0, 160);
+    $avatar = isset($profile['picture']) && is_string($profile['picture'])
+        ? mb_substr($profile['picture'], 0, 1000) : null;
+    if (is_array($existing)) {
+        $db->prepare('UPDATE users SET email = :email, display_name = :name, avatar_url = :avatar,
+            login_count = login_count + 1, last_login_at = :now, last_seen_at = :now, updated_at = :now
+            WHERE id = :id')->execute([
+                'email' => $email, 'name' => $name, 'avatar' => $avatar,
+                'now' => $now, 'id' => (string)$existing['id'],
+            ]);
+        return genesisEnsureWorkspaceKey(genesisFindUser((string)$existing['id']) ?? $existing);
+    }
+    $id = genesisUuid();
+    $db->prepare("INSERT INTO users (id, google_sub, auth_provider, yandex_uid, email,
+        display_name, avatar_url, workspace_key_mode, calendar_mode, task_calendar_mode,
+        week_start, login_count, last_login_at, last_seen_at, created_at, updated_at)
+        VALUES (:id, :sub, 'yandex', :uid, :email, :name, :avatar, 'account',
+        'profane', 'profane', 'monday', 1, :now, :now, :now, :now)")->execute([
+            'id' => $id, 'sub' => $internalSub, 'uid' => $uid, 'email' => $email,
+            'name' => $name, 'avatar' => $avatar, 'now' => $now,
+        ]);
+    $user = genesisFindUser($id);
+    if ($user === null) throw new RuntimeException('Yandex profile could not be saved.');
+    return genesisEnsureWorkspaceKey($user);
 }
 
 /**
@@ -639,7 +708,7 @@ function genesisSaveMetrics(string $userId, array $payload): void
 
 function genesisRequireAdmin(array $user): void
 {
-    if (mb_strtolower((string)$user['email']) !== genesisAdminEmail()) {
+    if (!genesisIsAdminUser($user)) {
         genesisJson(['error' => 'FORBIDDEN'], 403);
     }
 }
@@ -690,7 +759,7 @@ function genesisReportAndroidClient(string $userId, ?string $serverSyncStatus = 
 
 function genesisAdminStats(): array
 {
-    $rows = genesisDb()->query('SELECT u.id, u.email, u.display_name, u.created_at, u.last_login_at, u.last_seen_at, u.login_count, u.password_hash IS NOT NULL AS password_enabled, u.refresh_token_enc IS NOT NULL AS google_auth_connected, u.refresh_token_enc IS NOT NULL AND u.google_calendar_id IS NOT NULL AS calendar_connected, u.last_calendar_sync_at, COALESCE(m.project_count, 0) AS project_count, COALESCE(m.task_count, 0) AS task_count, COALESCE(m.open_task_count, 0) AS open_task_count, COALESCE(m.completed_task_count, 0) AS completed_task_count, COALESCE(m.google_synced_count, 0) AS google_synced_count, COALESCE(m.habit_count, 0) AS habit_count, m.updated_at AS metrics_updated_at, COALESCE(d.request_count, 0) AS android_download_count, d.first_requested_at AS android_first_download_at, d.last_requested_at AS android_last_download_at, d.last_requested_version AS android_last_download_version, (SELECT COUNT(*) FROM android_client_reports r WHERE r.user_id = u.id) AS android_device_count, (SELECT r.app_version FROM android_client_reports r WHERE r.user_id = u.id ORDER BY r.last_seen_at DESC LIMIT 1) AS android_reported_version, (SELECT r.last_seen_at FROM android_client_reports r WHERE r.user_id = u.id ORDER BY r.last_seen_at DESC LIMIT 1) AS android_last_seen_at, (SELECT r.last_server_sync_at FROM android_client_reports r WHERE r.user_id = u.id AND r.last_server_sync_at IS NOT NULL ORDER BY r.last_server_sync_at DESC LIMIT 1) AS android_last_server_sync_at, (SELECT r.server_sync_status FROM android_client_reports r WHERE r.user_id = u.id AND r.last_server_sync_at IS NOT NULL ORDER BY r.last_server_sync_at DESC LIMIT 1) AS android_server_sync_status, (SELECT r.google_sync_status FROM android_client_reports r WHERE r.user_id = u.id AND r.last_server_sync_at IS NOT NULL ORDER BY r.last_server_sync_at DESC LIMIT 1) AS android_google_sync_status FROM users u LEFT JOIN user_metrics m ON m.user_id = u.id LEFT JOIN android_download_activity d ON d.user_id = u.id ORDER BY COALESCE(u.last_seen_at, u.created_at) DESC')->fetchAll();
+    $rows = genesisDb()->query('SELECT u.id, u.auth_provider, u.email, u.display_name, u.created_at, u.last_login_at, u.last_seen_at, u.login_count, u.password_hash IS NOT NULL AS password_enabled, u.refresh_token_enc IS NOT NULL AS google_auth_connected, u.refresh_token_enc IS NOT NULL AND u.google_calendar_id IS NOT NULL AS calendar_connected, u.last_calendar_sync_at, COALESCE(m.project_count, 0) AS project_count, COALESCE(m.task_count, 0) AS task_count, COALESCE(m.open_task_count, 0) AS open_task_count, COALESCE(m.completed_task_count, 0) AS completed_task_count, COALESCE(m.google_synced_count, 0) AS google_synced_count, COALESCE(m.habit_count, 0) AS habit_count, m.updated_at AS metrics_updated_at, COALESCE(d.request_count, 0) AS android_download_count, d.first_requested_at AS android_first_download_at, d.last_requested_at AS android_last_download_at, d.last_requested_version AS android_last_download_version, (SELECT COUNT(*) FROM android_client_reports r WHERE r.user_id = u.id) AS android_device_count, (SELECT r.app_version FROM android_client_reports r WHERE r.user_id = u.id ORDER BY r.last_seen_at DESC LIMIT 1) AS android_reported_version, (SELECT r.last_seen_at FROM android_client_reports r WHERE r.user_id = u.id ORDER BY r.last_seen_at DESC LIMIT 1) AS android_last_seen_at, (SELECT r.last_server_sync_at FROM android_client_reports r WHERE r.user_id = u.id AND r.last_server_sync_at IS NOT NULL ORDER BY r.last_server_sync_at DESC LIMIT 1) AS android_last_server_sync_at, (SELECT r.server_sync_status FROM android_client_reports r WHERE r.user_id = u.id AND r.last_server_sync_at IS NOT NULL ORDER BY r.last_server_sync_at DESC LIMIT 1) AS android_server_sync_status, (SELECT r.google_sync_status FROM android_client_reports r WHERE r.user_id = u.id AND r.last_server_sync_at IS NOT NULL ORDER BY r.last_server_sync_at DESC LIMIT 1) AS android_google_sync_status FROM users u LEFT JOIN user_metrics m ON m.user_id = u.id LEFT JOIN android_download_activity d ON d.user_id = u.id ORDER BY COALESCE(u.last_seen_at, u.created_at) DESC')->fetchAll();
     $linkedAuthIds = array_fill_keys(genesisDb()->query('SELECT DISTINCT owner_user_id FROM linked_google_accounts WHERE refresh_token_enc IS NOT NULL')->fetchAll(PDO::FETCH_COLUMN), true);
     $linkedCalendarIds = array_fill_keys(genesisDb()->query('SELECT DISTINCT owner_user_id FROM linked_google_accounts WHERE refresh_token_enc IS NOT NULL AND google_calendar_id IS NOT NULL')->fetchAll(PDO::FETCH_COLUMN), true);
     return [
@@ -712,7 +781,7 @@ function genesisAdminStats(): array
             'completedTaskCount' => (int)$row['completed_task_count'],
             'googleSyncedCount' => (int)$row['google_synced_count'],
             'habitCount' => (int)$row['habit_count'],
-            'isAdmin' => mb_strtolower((string)$row['email']) === genesisAdminEmail(),
+            'isAdmin' => genesisIsAdminUser($row),
             'metricsUpdatedAt' => $row['metrics_updated_at'] ?: null,
             'androidDownloadCount' => (int)$row['android_download_count'],
             'androidFirstDownloadAt' => $row['android_first_download_at'] ?: null,
@@ -1078,13 +1147,13 @@ function genesisAdminDeleteUser(string $adminUserId, string $targetUserId, bool 
 {
     $admin = genesisFindUser($adminUserId);
     $target = genesisFindUser($targetUserId);
-    if ($admin === null || mb_strtolower((string)$admin['email']) !== genesisAdminEmail()) {
+    if ($admin === null || !genesisIsAdminUser($admin)) {
         throw new DomainException('Недостаточно прав для удаления пользователя.');
     }
     if ($target === null) {
         throw new DomainException('Пользователь не найден или уже удалён.');
     }
-    if ($adminUserId === $targetUserId || mb_strtolower((string)$target['email']) === genesisAdminEmail()) {
+    if ($adminUserId === $targetUserId || genesisIsAdminUser($target)) {
         throw new DomainException('Администратор не может удалить собственный аккаунт через панель модерации.');
     }
 

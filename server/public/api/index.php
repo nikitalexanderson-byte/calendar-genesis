@@ -24,6 +24,7 @@ require $serverRoot . '/src/bootstrap.php';
 require $serverRoot . '/src/repository.php';
 require $serverRoot . '/src/ads.php';
 require $serverRoot . '/src/google.php';
+require $serverRoot . '/src/yandex.php';
 require $serverRoot . '/src/native-auth.php';
 require $serverRoot . '/src/gemini.php';
 
@@ -92,9 +93,22 @@ function genesisObserveAndroid(callable $record): void
     }
 }
 
+function genesisRequireGoogleUser(string $userId): array
+{
+    $user = genesisFindUser($userId);
+    if ($user === null || genesisUserProvider($user) !== 'google') {
+        genesisJson(['error' => 'GOOGLE_ACCOUNT_REQUIRED'], 403);
+    }
+    return $user;
+}
+
 try {
     if ($method === 'GET' && $path === 'health') {
         genesisJson(['ok' => true, 'service' => 'GENESIS', 'privacyModel' => 2, 'time' => genesisNow()]);
+    }
+
+    if ($method === 'GET' && $path === 'auth/providers') {
+        genesisJson(['google' => true, 'yandex' => genesisYandexConfigured()]);
     }
 
     if ($method === 'GET' && $path === 'ads/today') {
@@ -108,10 +122,10 @@ try {
     if ($method === 'GET' && $path === 'android/download') {
         $userId = genesisCurrentUserId();
         if ($userId !== null && genesisFindUser($userId) !== null) {
-            genesisObserveAndroid(static fn() => genesisRecordAndroidDownload($userId, '2.4.7'));
+            genesisObserveAndroid(static fn() => genesisRecordAndroidDownload($userId, '2.4.8'));
         }
         header('Cache-Control: no-store');
-        header('Location: /downloads/GENESIS-Android-Native-2.4.7.apk', true, 302);
+        header('Location: /downloads/GENESIS-Android-Native-2.4.8.apk', true, 302);
         exit;
     }
 
@@ -154,6 +168,7 @@ try {
             'user' => $clientUser,
             'csrf' => (string)$_SESSION['csrf'],
             'tasks' => $tasks,
+            'tasksDeferred' => genesisUserProvider($user) === 'yandex',
             'taskLists' => genesisGoogleTaskListsForClient(),
             'workspace' => genesisWorkspaceForClient($user),
             'syncWarning' => $syncWarning,
@@ -260,7 +275,7 @@ try {
 
     if ($method === 'POST' && $path === 'auth/google/native/services/config') {
         genesisRequireCsrf();
-        genesisRequireUserId();
+        genesisRequireGoogleUser(genesisRequireUserId());
         $clientId = trim((string)(genesisConfig()['google_client_id'] ?? ''));
         if ($clientId === '') throw new GenesisNativeAuthException(503, 'NATIVE_AUTH_NOT_CONFIGURED');
         genesisJson(['serverClientId' => $clientId]);
@@ -269,6 +284,7 @@ try {
     if ($method === 'POST' && $path === 'auth/google/native/services') {
         genesisRequireCsrf();
         $userId = genesisRequireUserId();
+        genesisRequireGoogleUser($userId);
         $payload = genesisReadJson();
         $code = is_string($payload['serverAuthCode'] ?? null) ? trim($payload['serverAuthCode']) : '';
         if ($code === '' || strlen($code) > 8192) {
@@ -299,6 +315,75 @@ try {
         ]);
     }
 
+    if ($method === 'GET' && $path === 'auth/yandex/start') {
+        if (!genesisYandexConfigured()) genesisJson(['error' => 'YANDEX_NOT_CONFIGURED'], 503);
+        $returnTo = genesisSafeReturnTo((string)($_GET['return_to'] ?? '/'));
+        $state = genesisBase64Url(random_bytes(32));
+        $verifier = genesisBase64Url(random_bytes(64));
+        $_SESSION['yandex_oauth_request'] = [
+            'state' => $state,
+            'verifier' => $verifier,
+            'return_to' => $returnTo,
+            'issued_at' => time(),
+        ];
+        header('Cache-Control: no-store');
+        header('Location: ' . genesisYandexAuthUrl(
+            $state, genesisBase64Url(hash('sha256', $verifier, true)),
+        ), true, 302);
+        exit;
+    }
+
+    if ($method === 'POST' && $path === 'auth/yandex/native') {
+        genesisRequireCsrf();
+        if (!genesisYandexConfigured()) genesisJson(['error' => 'YANDEX_NOT_CONFIGURED'], 503);
+        $payload = genesisReadJson();
+        $token = is_string($payload['accessToken'] ?? null) ? trim($payload['accessToken']) : '';
+        if ($token === '' || strlen($token) > 16384) genesisJson(['error' => 'INVALID_TOKEN'], 400);
+        try {
+            $profile = genesisYandexUserInfo($token);
+            $newAccount = genesisFindUserByYandexUid((string)$profile['id']) === null;
+            $user = genesisUpsertYandexUser($profile);
+        } catch (DomainException $error) {
+            genesisJson(['error' => 'ACCOUNT_CONFLICT'], 409);
+        }
+        if (!session_regenerate_id(true)) genesisJson(['error' => 'SESSION_UNAVAILABLE'], 503);
+        $_SESSION['user_id'] = (string)$user['id'];
+        $_SESSION['csrf'] = bin2hex(random_bytes(24));
+        genesisObserveAndroid(static fn() => genesisReportAndroidClient((string)$user['id']));
+        genesisJson(['user' => genesisUserForClient($user), 'csrf' => (string)$_SESSION['csrf'],
+            'newAccount' => $newAccount]);
+    }
+
+    if ($method === 'GET' && $path === 'auth/yandex/callback') {
+        $request = $_SESSION['yandex_oauth_request'] ?? null;
+        unset($_SESSION['yandex_oauth_request']);
+        $state = (string)($_GET['state'] ?? '');
+        if (!is_array($request) || $state === '' || !hash_equals((string)($request['state'] ?? ''), $state)
+            || (int)($request['issued_at'] ?? 0) < time() - 600) {
+            genesisOAuthRedirect('/', 'yandex_invalid_state');
+        }
+        $returnTo = genesisSafeReturnTo((string)($request['return_to'] ?? '/'));
+        if (trim((string)($_GET['error'] ?? '')) !== '') {
+            genesisOAuthRedirect($returnTo, ($_GET['error'] ?? '') === 'access_denied' ? 'yandex_access_denied' : 'yandex_oauth_failed');
+        }
+        $code = trim((string)($_GET['code'] ?? ''));
+        if ($code === '' || strlen($code) > 8192) genesisOAuthRedirect($returnTo, 'yandex_oauth_failed');
+        try {
+            $tokens = genesisExchangeYandexCode($code, (string)($request['verifier'] ?? ''));
+            $user = genesisUpsertYandexUser(genesisYandexUserInfo((string)($tokens['access_token'] ?? '')));
+            if (!session_regenerate_id(true)) throw new RuntimeException('Session could not be renewed.');
+            $_SESSION['user_id'] = (string)$user['id'];
+            $_SESSION['csrf'] = bin2hex(random_bytes(24));
+        } catch (DomainException $error) {
+            genesisLogError('Yandex account conflict.', $error);
+            genesisOAuthRedirect($returnTo, 'account_conflict');
+        } catch (Throwable $error) {
+            genesisLogError('Yandex OAuth callback failed.', $error);
+            genesisOAuthRedirect($returnTo, 'yandex_oauth_failed');
+        }
+        genesisOAuthRedirect($returnTo);
+    }
+
     if ($method === 'GET' && $path === 'auth/google/start') {
         $requestedPurpose = (string)($_GET['purpose'] ?? 'login');
         $purpose = in_array($requestedPurpose, ['services', 'link'], true) ? $requestedPurpose : 'login';
@@ -312,6 +397,7 @@ try {
                 unset($_SESSION['user_id']);
                 genesisOAuthRedirect($returnTo, 'session_expired');
             }
+            if (genesisUserProvider($requestUser) !== 'google') genesisOAuthRedirect($returnTo, 'account_mismatch');
             if ($purpose === 'services') {
                 $loginHint = (string)$requestUser['email'];
             }
@@ -460,6 +546,7 @@ try {
 
     if ($method === 'POST' && $path === 'task-lists') {
         $userId = genesisRequireUserId();
+        genesisRequireGoogleUser($userId);
         genesisRequireCsrf();
         $payload = genesisReadJson();
         genesisJson(['taskList' => genesisCreateGoogleTaskList($userId, (string)($payload['title'] ?? ''), isset($payload['accountId']) ? (string)$payload['accountId'] : null)]);
@@ -467,6 +554,7 @@ try {
 
     if (count($segments) === 2 && $segments[0] === 'task-lists') {
         $userId = genesisRequireUserId();
+        genesisRequireGoogleUser($userId);
         genesisRequireCsrf();
         $id = mb_substr(trim((string)$segments[1]), 0, 500);
         if ($id === '') {
@@ -537,6 +625,7 @@ try {
 
     if ($method === 'POST' && $path === 'account/google-services/disconnect') {
         $userId = genesisRequireUserId();
+        genesisRequireGoogleUser($userId);
         genesisRequireCsrf();
         $user = genesisDisconnectGoogleServices($userId);
         genesisJson(['user' => genesisUserForClient($user)]);
@@ -544,6 +633,7 @@ try {
 
     if ($method === 'DELETE' && count($segments) === 3 && $segments[0] === 'account' && $segments[1] === 'google-accounts') {
         $userId = genesisRequireUserId();
+        genesisRequireGoogleUser($userId);
         genesisRequireCsrf();
         genesisRemoveLinkedGoogleAccount($userId, mb_substr(trim((string)$segments[2]), 0, 100));
         $user = genesisFindUser($userId);
@@ -576,6 +666,7 @@ try {
 
     if (count($segments) === 2 && $segments[0] === 'tasks') {
         $userId = genesisRequireUserId();
+        genesisRequireGoogleUser($userId);
         genesisRequireCsrf();
         $id = mb_substr((string)$segments[1], 0, 100);
         if ($id === '') {

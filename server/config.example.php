@@ -5,6 +5,10 @@ return [
     'app_url' => 'https://genesiscalendar.ru',
     'google_client_id' => '',
     'google_client_secret' => '',
+    // Yandex ID sign-in remains unavailable until both values are configured.
+    // Keep the secret only in the private server/config.php file.
+    'yandex_client_id' => '',
+    'yandex_client_secret' => '',
     // Recommended neural provider for Russian hosting. Create one GigaChat API
     // project, paste its Authorization Key here once, and token renewal will be
     // handled automatically by GENESIS.

@@ -97,6 +97,7 @@ internal class AuthSessionClient(context: Context) {
     }
 
     fun session(expected: Long): JSONObject = request(expected, "/session", null)
+    fun providers(expected: Long): JSONObject = request(expected, "/auth/providers", null)
     fun workspace(expected: Long): JSONObject = request(expected, "/workspace", null)
     fun putWorkspace(expected: Long, envelope: JSONObject): JSONObject =
         request(expected, "/workspace", envelope, method = "PUT")
@@ -153,6 +154,10 @@ internal class AuthSessionClient(context: Context) {
         require(idToken.length in 1..16384)
         return request(expected, "/auth/google/native", JSONObject().put("idToken", idToken))
     }
+    fun authenticateYandex(expected: Long, accessToken: String): JSONObject {
+        require(accessToken.length in 1..16384)
+        return request(expected, "/auth/yandex/native", JSONObject().put("accessToken", accessToken))
+    }
 
     fun revoke(expected: Long, old: SessionSecret) {
         if (old.cookie.isBlank() || old.csrf.isBlank()) return
@@ -162,7 +167,8 @@ internal class AuthSessionClient(context: Context) {
     /** Blocking; the controller always calls on Dispatchers.IO. Default platform TLS verification. */
     private fun request(expected: Long, path: String, body: JSONObject?, secret: SessionSecret? = null,
         persist: Boolean = true, method: String = if (body == null) "GET" else "POST"): JSONObject {
-        require(path in setOf("/session", "/workspace", "/bootstrap", "/stoicheion/draws", "/auth/google/native/challenge",
+        require(path in setOf("/session", "/auth/providers", "/workspace", "/bootstrap", "/stoicheion/draws", "/auth/google/native/challenge",
+            "/auth/yandex/native",
             "/auth/google/native", "/auth/google/native/services/config", "/auth/google/native/services",
             "/auth/logout", "/account/preferences", "/admin/stats") || (path == "/task-lists" && method == "POST") ||
             (method in setOf("PUT", "DELETE") && path.matches(Regex("/tasks/[A-Za-z0-9_-]{1,100}"))) ||

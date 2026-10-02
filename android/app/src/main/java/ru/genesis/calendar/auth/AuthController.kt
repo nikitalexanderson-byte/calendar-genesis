@@ -64,6 +64,10 @@ class AuthController private constructor(context: Context) {
     private val mutableTaskSync = MutableStateFlow(AccountTaskSyncState())
     val taskSync = mutableTaskSync.asStateFlow()
 
+    suspend fun yandexAvailable(): Boolean = withContext(Dispatchers.IO) {
+        runCatching { client.providers(client.currentGeneration()).optBoolean("yandex") }.getOrDefault(false)
+    }
+
     suspend fun adminStats(): JSONObject {
         val snapshot = mutableState.value
         check(snapshot.ready && !snapshot.requiresSignIn && snapshot.user != null && snapshot.accountSettings?.isAdmin == true)
@@ -135,6 +139,15 @@ class AuthController private constructor(context: Context) {
         completeSignedIn(generation, payload, "Вход подтверждён. Облачные данные расшифрованы автоматически.",
             preferredLanguage, newAccount)
     }
+
+    fun signInWithYandex(accessToken: String, preferredLanguage: String? = null) =
+        start("Проверяем вход через Яндекс…") { generation ->
+            withContext(Dispatchers.IO) { client.session(generation) }
+            val payload = withContext(Dispatchers.IO) { client.authenticateYandex(generation, accessToken) }
+            completeSignedIn(generation, payload,
+                "Вход через Яндекс подтверждён. Защищённое пространство открыто.", preferredLanguage,
+                payload.optBoolean("newAccount"))
+        }
 
     fun connectGoogleServices(activity: Activity, launchResolution: (PendingIntent) -> Unit,
         onCompletedWithoutResolution: () -> Unit = {}) =
@@ -269,11 +282,13 @@ class AuthController private constructor(context: Context) {
             AuthDiagnostics.event("SYNC_SUCCESS")
             withContext(Dispatchers.IO) { CachedAccountEntry(app).save(confirmed, resolvedSettings) }
             publish(generation, AuthPanelState(ready = true, user = confirmed,
-                offerGoogleServices = newAccount,
+                offerGoogleServices = newAccount && resolvedSettings.authProvider == "google",
                 accountSettings = resolvedSettings, preview = preview,
                 checkedAt = System.currentTimeMillis(), message = (when (imported) {
-                    CloudAccountImporter.Result.IMPORTED -> if (snapshot.tasksDeferred)
-                        "$successMessage Загружаем задачи аккаунта…" else "$successMessage Данные доступны в приложении."
+                    CloudAccountImporter.Result.IMPORTED -> if (resolvedSettings.authProvider == "yandex")
+                        "$successMessage Задачи и списки пока остаются на этом устройстве."
+                        else if (snapshot.tasksDeferred) "$successMessage Загружаем задачи аккаунта…"
+                        else "$successMessage Данные доступны в приложении."
                     CloudAccountImporter.Result.IMPORTED_WITH_GOOGLE_WARNING ->
                         "Пространство открыто, но Google не подтвердил обновление задач. Ранее загруженные задачи сохранены."
                     CloudAccountImporter.Result.IMPORTED_WITH_TASK_WARNING ->
@@ -437,7 +452,9 @@ class AuthController private constructor(context: Context) {
                         accountSettings = AccountSettings.fromResponse(payload) ?: mutableState.value.accountSettings,
                         preview = preview, checkedAt = System.currentTimeMillis(),
                         message = when (imported) {
-                            CloudAccountImporter.Result.IMPORTED -> "Данные аккаунта и задачи Google обновлены."
+                            CloudAccountImporter.Result.IMPORTED -> if (mutableState.value.accountSettings?.authProvider == "yandex")
+                                "Защищённые данные GENESIS обновлены. Задачи остаются на устройстве."
+                                else "Данные аккаунта и задачи Google обновлены."
                             CloudAccountImporter.Result.IMPORTED_WITH_GOOGLE_WARNING ->
                                 "Пространство обновлено. Часть задач Google пока недоступна; сохранённые задачи остаются на устройстве."
                             CloudAccountImporter.Result.IMPORTED_WITH_TASK_WARNING ->
@@ -551,18 +568,20 @@ class AuthController private constructor(context: Context) {
                 if (error is AuthFailure && error.kind == AuthFailure.Kind.UNAUTHORIZED) requireSignIn(generation)
                 failure = "Изменения проектов или привычек пока не подтверждены сервером и сохранены на устройстве."
             }
-            try {
-                sentTasks = withContext(Dispatchers.IO) {
-                    CloudTaskSync(app.database, object : CloudTaskTransport {
-                        override fun put(id: String, task: JSONObject) = client.putTask(generation, id, task)
-                        override fun delete(id: String, task: JSONObject) = client.deleteTask(generation, id, task)
-                    }).flush(accountScope)
+            if (mutableState.value.accountSettings?.authProvider == "google") {
+                try {
+                    sentTasks = withContext(Dispatchers.IO) {
+                        CloudTaskSync(app.database, object : CloudTaskTransport {
+                            override fun put(id: String, task: JSONObject) = client.putTask(generation, id, task)
+                            override fun delete(id: String, task: JSONObject) = client.deleteTask(generation, id, task)
+                        }).flush(accountScope)
+                    }
+                } catch (error: CancellationException) { throw error }
+                catch (error: Exception) {
+                    if (error is AuthFailure && error.kind == AuthFailure.Kind.UNAUTHORIZED) requireSignIn(generation)
+                    failure = listOfNotNull(failure,
+                        "Изменения задач пока не подтверждены Google и сохранены на устройстве.").joinToString(" ")
                 }
-            } catch (error: CancellationException) { throw error }
-            catch (error: Exception) {
-                if (error is AuthFailure && error.kind == AuthFailure.Kind.UNAUTHORIZED) requireSignIn(generation)
-                failure = listOfNotNull(failure,
-                    "Изменения задач пока не подтверждены Google и сохранены на устройстве.").joinToString(" ")
             }
             if (client.isCurrent(generation)) mutableState.value = mutableState.value.copy(
                 workspaceConflictPath = conflictPath, message = failure ?:

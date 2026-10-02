@@ -1,4 +1,11 @@
 {
+  "Как GENESIS использует Google и Яндекс": "How GENESIS uses Google and Yandex",
+  "Вы выбираете способ входа. Google и Яндекс передают основные данные профиля. Проекты и привычки хранятся в защищённом пространстве GENESIS. Синхронизация Google Calendar и Tasks подключается отдельно; при входе через Яндекс задачи и списки пока остаются на устройстве.": "You choose how to sign in. Google and Yandex provide basic profile information. Projects and habits live in your protected GENESIS workspace. Google Calendar and Tasks sync is connected separately; with Yandex sign-in, tasks and lists stay on this device for now.",
+  "Задачи остаются в Google или на вашем устройстве — в зависимости от способа входа": "Tasks stay in Google or on your device, depending on how you sign in",
+  "Выберите вход через Google или Яндекс. GENESIS получит основные данные профиля от выбранного сервиса. Подключение календаря выполняется отдельно.": "Choose Google or Yandex to sign in. GENESIS receives basic profile information from the selected provider. Calendar access is connected separately.",
+  "GENESIS не запрашивает пароль от Google или Яндекса. Вход выполняется через выбранный вами сервис.": "GENESIS never asks for your Google or Yandex password. Sign-in happens through the provider you choose.",
+  "Задачи на устройстве": "Tasks on this device",
+  "? Это действие нельзя отменить.": "? This action cannot be undone.",
   ", день": ", day",
   ", задач:": ", tasks:",
   ", закат": ", sunset",
@@ -1472,5 +1479,15 @@
   "Аид, Посейдон и Кронос": "Hades, Poseidon and Cronus",
   "День Памяти, Времени и Денег": "Day of Memory, Time and Money",
   "День тишины, покоя и связи с предками. Работа с энергией Сатурна — временем и материальными ресурсами.": "A day of quiet, rest and connection with ancestors. Work with Saturn's themes: time and material resources.",
-  "Бездна и Вечная.": "The Abyss and the Eternal One."
+  "Бездна и Вечная.": "The Abyss and the Eternal One.",
+  "Войти через Яндекс": "Sign in with Yandex",
+  "Рекомендуется пользователям за пределами России": "Recommended for users outside Russia",
+  "Рекомендуется пользователям в России": "Recommended for users in Russia",
+  "Не удалось войти через Яндекс": "Could not sign in with Yandex",
+  "Яндекс не завершил авторизацию. Попробуйте ещё раз.": "Yandex could not complete sign-in. Please try again.",
+  "Вы отменили вход через Яндекс. Доступ к данным не был предоставлен.": "You cancelled Yandex sign-in. No access was granted.",
+  "Защитная проверка входа через Яндекс истекла. Начните вход заново.": "The Yandex sign-in security check expired. Start again.",
+  "Этот адрес уже используется другим аккаунтом GENESIS. Войдите прежним способом или обратитесь в поддержку.": "This email address is already used by another GENESIS account. Sign in with the original provider or contact support.",
+  "Вход выполняется через официальный Яндекс ID. GENESIS не получает ваш пароль Яндекса. Синхронизация с Яндекс Календарём пока не подключена.": "Sign-in uses the official Yandex ID service. GENESIS never receives your Yandex password. Yandex Calendar sync is not connected yet.",
+  "Безвозвратно удалит профиль и связанные с ним данные GENESIS. Доступ к GENESIS можно также отозвать в Яндекс ID.": "Permanently deletes your profile and associated GENESIS data. You can also revoke GENESIS access in Yandex ID."
 }

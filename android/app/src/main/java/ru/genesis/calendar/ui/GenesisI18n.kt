@@ -588,6 +588,22 @@ private val nativeCopy = mapOf(
         "Google returned a response that could not be verified. Update Google Play services and sign in again.",
     "Google-вход не подтверждён. Проверьте сеть, Google Play services и OAuth-регистрацию этой Android-сборки." to
         "Google sign-in was not confirmed. Check the connection, Google Play services, and this Android build's OAuth registration.",
+    "Проверяем вход через Яндекс…" to "Checking Yandex sign-in…",
+    "Вход через Яндекс подтверждён. Защищённое пространство открыто." to
+        "Yandex sign-in confirmed. Your protected workspace is open.",
+    "Вход через Яндекс не завершён" to "Yandex sign-in was not completed",
+    "Рекомендуется пользователям за пределами России" to "Recommended for users outside Russia",
+    "Рекомендуется пользователям в России" to "Recommended for users in Russia",
+    "После входа данные сайта открываются в отдельной защищённой копии. Локальные черновики не перезаписываются." to
+        "After sign-in, website data opens in a separate protected copy. Local drafts are preserved.",
+    "Защищённое пространство GENESIS" to "Protected GENESIS workspace",
+    "Политика конфиденциальности" to "Privacy Policy",
+    "Не удалось открыть политику конфиденциальности" to "Could not open the Privacy Policy",
+    "Задачи и списки пока остаются на этом устройстве." to "Tasks and lists stay on this device for now.",
+    "Проекты и привычки хранятся в защищённом пространстве GENESIS. Подключение Яндекс Календаря будет доступно отдельно." to
+        "Projects and habits are stored in your protected GENESIS workspace. Yandex Calendar connection will be available separately.",
+    "Защищённые данные GENESIS обновлены. Задачи остаются на устройстве." to
+        "Protected GENESIS data was updated. Tasks remain on this device.",
     "Google не завершил выдачу разрешений Calendar/Tasks. Повторите подключение и выберите тот же аккаунт." to
         "Google did not finish granting Calendar/Tasks permissions. Try connecting again and choose the same account.",
     "Нативный вход ещё не опубликован на сервере. Локальные функции доступны." to

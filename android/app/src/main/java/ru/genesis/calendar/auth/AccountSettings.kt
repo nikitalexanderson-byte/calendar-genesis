@@ -46,6 +46,7 @@ data class AccountSettings(
     val isAdmin: Boolean = false,
     val weekStart: String = "monday",
     val gregorianYearStart: String = "january",
+    val authProvider: String = "google",
 ) {
     companion object {
         fun fromResponse(response: JSONObject): AccountSettings? {
@@ -82,7 +83,8 @@ data class AccountSettings(
                 user.optString("calendarMode", "profane"), user.optString("taskCalendarMode", "profane"),
                 user.optString("timeFormat", "24h"), user.optBoolean("stoicheionDivinationDisabled"),
                 user.optString("language", "ru"), user.optBoolean("isAdmin"), user.optString("weekStart", "monday"),
-                user.optString("gregorianYearStart", "january"))
+                user.optString("gregorianYearStart", "january"),
+                user.optString("authProvider", "google"))
         }
     }
 }
