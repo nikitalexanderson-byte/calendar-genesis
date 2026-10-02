@@ -48,10 +48,9 @@ fun AuthPanel(app: GenesisApplication, localLanguage: String, onLanguage: (Strin
     val activity = LocalContext.current.activity()
     val yandexSignInError = genesisTranslate("Вход через Яндекс не завершён")
     val privacyOpenError = genesisTranslate("Не удалось открыть политику конфиденциальности")
-    var yandexAvailable by remember { mutableStateOf(false) }
-    LaunchedEffect(app, state.ready) { yandexAvailable = controller.yandexAvailable() }
-    val yandexSdk = remember(app) {
-        if (BuildConfig.YANDEX_CLIENT_ID.isNotBlank()) YandexAuthSdk.create(YandexAuthOptions(app)) else null
+    val yandexSdk = remember(app, state.accountSettings?.authProvider) {
+        if (state.accountSettings?.authProvider == "yandex" && BuildConfig.YANDEX_CLIENT_ID.isNotBlank())
+            YandexAuthSdk.create(YandexAuthOptions(app)) else null
     }
     val yandexLauncher = if (yandexSdk != null) rememberLauncherForActivityResult(yandexSdk.contract) { result ->
         when (result) {
@@ -79,24 +78,20 @@ fun AuthPanel(app: GenesisApplication, localLanguage: String, onLanguage: (Strin
                     .format(Instant.ofEpochMilli(time).atZone(ZoneId.systemDefault())),
                     style = MaterialTheme.typography.labelSmall)
             }
-            if (state.user == null || state.requiresSignIn) {
+            if (state.requiresSignIn && state.accountSettings?.authProvider == "google") {
                 Button(onClick = { activity?.let { controller.signIn(it, localLanguage) } },
                     enabled = !state.busy && activity != null,
                     modifier = Modifier.fillMaxWidth().testTag("auth-google-sign-in")) {
-                    Text(if (state.requiresSignIn) "Продолжить вход через Google" else "Войти через Google")
+                    Text("Продолжить вход через Google")
                 }
-                if (yandexAvailable) Text("Рекомендуется пользователям за пределами России",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (yandexAvailable && yandexLauncher != null) {
+            }
+            if (state.requiresSignIn && state.accountSettings?.authProvider == "yandex") {
+                if (yandexLauncher != null) {
                     OutlinedButton(onClick = { yandexLauncher.launch(YandexAuthLoginOptions()) },
                         enabled = !state.busy,
                         modifier = Modifier.fillMaxWidth().testTag("auth-yandex-sign-in")) {
                         Text("Войти через Яндекс")
                     }
-                    Text("Рекомендуется пользователям в России",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             if (state.user != null) {
@@ -189,13 +184,13 @@ fun AuthPanel(app: GenesisApplication, localLanguage: String, onLanguage: (Strin
 
     if (confirmKeepLocal) AlertDialog(onDismissRequest = { confirmKeepLocal = false },
         title = { Text("Оставить версию телефона?") },
-        text = { Text("Совпавшее поле на сайте будет заменено вашей локальной версией. Остальные изменения сайта сохранятся. Задачи Google это действие не затрагивает.") },
+        text = { Text("Совпавшее поле на сайте будет заменено вашей локальной версией. Остальные изменения сайта сохранятся. Задачи это действие не затрагивает.") },
         confirmButton = { TextButton(onClick = { confirmKeepLocal = false; controller.keepLocalWorkspaceChanges() }) {
             Text("Оставить на телефоне") } },
         dismissButton = { TextButton(onClick = { confirmKeepLocal = false }) { Text("Отмена") } })
     if (confirmKeepRemote) AlertDialog(onDismissRequest = { confirmKeepRemote = false },
         title = { Text("Оставить версию сайта?") },
-        text = { Text("Только совпавшие изменения телефона будут заменены версией сайта. Остальные ваши изменения и задачи Google сохранятся.") },
+        text = { Text("Только совпавшие изменения телефона будут заменены версией сайта. Остальные ваши изменения и задачи сохранятся.") },
         confirmButton = { TextButton(onClick = { confirmKeepRemote = false; controller.keepRemoteWorkspaceChanges() }) {
             Text("Оставить на сайте") } },
         dismissButton = { TextButton(onClick = { confirmKeepRemote = false }) { Text("Отмена") } })
