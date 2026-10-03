@@ -1294,6 +1294,12 @@ button:disabled {
   box-shadow: 0 16px 40px rgba(42, 55, 50, 0.04);
 }
 
+.year-grid > .year-month {
+  /* Keep dates interactive while deferring layout and paint for distant months. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 620px;
+}
+
 .meaning-panel {
   padding: 24px;
   border-radius: 24px;

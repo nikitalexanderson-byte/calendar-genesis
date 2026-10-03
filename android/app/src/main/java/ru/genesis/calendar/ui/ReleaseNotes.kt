@@ -24,6 +24,17 @@ import ru.genesis.calendar.ui.Text
 
 internal data class Notes(val title: String, val close: String, val changes: List<String>)
 
+private val release254Changes = mapOf(
+    "ru" to listOf(
+        "Прокрутка календаря года стала легче: месяцы загружаются по мере появления на экране.",
+        "Иллюстрации сохраняют исходное качество и декодируются под размер экрана.",
+        "При новой установке общий свайп по иконкам и подменю включены по умолчанию."),
+    "en" to listOf(
+        "Year calendar scrolling is lighter: months appear as you reach them.",
+        "Illustrations keep their original quality and decode at screen size.",
+        "On new installs, icon swiping includes submenus by default."),
+)
+
 internal val notes = mapOf(
     "ru" to Notes("Что нового", "Понятно", listOf(
         "Переведены карты Стойхейона, сектора Теокиклоса, описания календарей и задачи на все языки приложения.",
@@ -115,7 +126,8 @@ internal fun ReleaseNotesDialog(onDismiss: () -> Unit) {
         title = { Text("${copy.title} · ${BuildConfig.VERSION_NAME}") },
         text = { Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            (release251Changes[LocalGenesisLanguage.current] ?: release251Changes.getValue("ru")).forEach {
+            (release254Changes[LocalGenesisLanguage.current]
+                ?: release254Changes[if (LocalGenesisLanguage.current == "ru") "ru" else "en"]!!).forEach {
                 Text("• $it", style = MaterialTheme.typography.bodyMedium)
             }
         } },

@@ -88,7 +88,7 @@ class CalendarModeHeaderTest {
             runCatching { compose.onNodeWithTag("calendar-year-period").assertTextContains("2027") }.isSuccess
         }
         compose.onNodeWithTag("calendar-mode-icon-profane", useUnmergedTree = true).assertExists()
-        compose.onNodeWithTag("gregorian-season-summer", useUnmergedTree = true).performScrollTo()
+        compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag("gregorian-season-summer"))
         compose.onNodeWithTag("gregorian-season-summer", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithTag("genesis-page-header").assert(!hasAnyAncestor(hasTestTag("calendar-year-panel")))
     }
