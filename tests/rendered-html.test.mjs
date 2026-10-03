@@ -399,6 +399,9 @@ test("admin moderation exposes only aggregate habit counts and can optionally bl
   assert.match(cloud, /deleteAdminUser\(userId: string, blacklist: boolean\)/);
   assert.match(adminPanel, /stats\.totals\.habits/);
   assert.match(adminPanel, /user\.habitCount/);
+  assert.match(adminPanel, /user\.yandexCalendarConnected/);
+  assert.match(adminPanel, /user\.yandexSyncedCount/);
+  assert.match(adminPanel, /admin-android-note/);
   assert.match(adminPanel, /Добавить в чёрный список после удаления/);
   assert.match(adminPanel, /confirmation\.trim\(\)\.toLowerCase\(\) !== deleteTarget\.email\.toLowerCase\(\)/);
   assert.match(styles, /\.admin-totals \{[^}]*grid-template-columns: repeat\(5, minmax\(0, 1fr\)\)/);
@@ -2427,10 +2430,12 @@ test("QA-01 precaches the complete cold-install shell before activating the work
   assert.match(verifier, /calendar-art\/saturn-cronus\.webp/);
   assert.match(serviceWorker, /THEOKYKLOS_ART/);
   assert.match(serviceWorker, /THEOKYKLOS_SYMBOL_ART/);
-  assert.match(serviceWorker, /await cache\.addAll\([\s\S]*await self\.skipWaiting\(\)/);
+  assert.match(serviceWorker, /await cache\.addAll\(/);
+  assert.doesNotMatch(serviceWorker, /skipWaiting\(/);
+  assert.match(serviceWorker, /cache\.match\(request\)/);
   assert.match(serviceWorker, /key\.startsWith\(CACHE_PREFIX\) && key !== CACHE/);
   assert.match(installHook, /updateViaCache: "none"/);
-  assert.match(begetEntry, /serviceWorker\.addEventListener\("controllerchange"/);
+  assert.doesNotMatch(begetEntry, /controllerchange|window\.location\.reload\(\)/);
   assert.match(begetEntry, /registration\.update\(\)/);
   assert.match(htaccess, /\^\(\?:sw\|precache-manifest\)\\\.js\$/);
   assert.match(htaccess, /\^\(\?:index\\\.html\|deploy-meta\\\.json\)\$/);
@@ -2528,8 +2533,8 @@ test("QA-04 splits heavy views and keeps regularity on an exact thirty-day windo
   assert.match(viteConfig, /maxSize: 300_000/);
   assert.match(bundleVerifier, /MAX_PRODUCTION_JS_CHUNK_BYTES = 350_000/);
   assert.match(bundleVerifier, /Production JavaScript chunk budget exceeded/);
-  assert.match(begetEntry, /vite:preloadError/);
-  assert.match(begetEntry, /window\.location\.reload\(\)/);
+  assert.match(calendar, /<ViewErrorBoundary resetKey=\{view\}>/);
+  assert.doesNotMatch(begetEntry, /vite:preloadError/);
 
   assert.match(tracker, /Last 30 days/);
   assert.match(tracker, /addHabitDays\(date, -29\)/);

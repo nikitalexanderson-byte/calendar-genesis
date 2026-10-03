@@ -1331,6 +1331,7 @@ button:disabled {
   border: 1px solid rgba(178, 138, 74, 0.28);
   border-radius: 50%;
 }
+.ornament .three-rhythms-icon { width: 24px; height: 24px; }
 
 .meaning-grid {
   display: grid;
@@ -4351,21 +4352,25 @@ button.pyata-row-label:focus-visible {
   }
 
   .pyata-row {
-    display: block;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
     width: 100%;
     min-width: 0;
   }
 
   .pyata-row-label {
     min-height: auto;
-    margin-bottom: 7px;
+    margin-bottom: 0;
   }
 
   .pyata-row-description {
-    margin-top: 7px;
+    order: 1;
+    margin-top: 0;
   }
 
   .pyata-days {
+    order: 2;
     width: 100%;
     max-width: 100%;
     grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -5984,6 +5989,30 @@ html[data-language="en"] .inbox-card.drop-target::after {
 .account-email { margin: 0 0 28px; color: var(--ink-soft); font-size: 12px; }
 .account-preferences { margin-top: 18px; padding: 18px; background: rgba(178, 138, 74, .07); border: 1px solid rgba(178, 138, 74, .23); border-radius: 10px; }
 .account-preferences h3 { margin: 5px 0 14px; font: 400 23px/1.2 Georgia, serif; }
+.solar-place-preference { display: grid; gap: 16px; min-width: 0; }
+.solar-place-intro h3 { margin-bottom: 8px; }
+.solar-place-intro p { max-width: 62ch; margin: 0; color: var(--ink-soft); line-height: 1.5; }
+.solar-place-selected { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 3px 16px; align-items: center; padding: 14px 16px; color: var(--ink); background: color-mix(in srgb, var(--teal) 8%, var(--surface)); border: 1px solid color-mix(in srgb, var(--teal) 32%, var(--line)); border-radius: 12px; }
+.solar-place-selected span { grid-column: 1; color: var(--ink-soft); font-size: 12px; font-weight: 700; }
+.solar-place-selected strong { grid-column: 1; font-size: 16px; overflow-wrap: anywhere; }
+.solar-place-selected small { grid-column: 1; color: var(--ink-soft); }
+.solar-place-selected button { grid-column: 2; grid-row: 1 / span 3; min-height: 44px; padding: 9px 15px; color: var(--teal); background: var(--surface); border: 1px solid var(--line); border-radius: 9px; cursor: pointer; font-weight: 700; }
+.solar-place-unselected { margin: 0; padding: 11px 14px; color: var(--ink-soft); background: color-mix(in srgb, var(--teal) 5%, var(--surface)); border: 1px solid var(--line); border-radius: 10px; }
+.solar-place-combobox { position: relative; display: grid; gap: 7px; min-width: 0; }
+.solar-place-combobox > label { color: var(--ink); font-size: 13px; font-weight: 800; }
+.solar-place-combobox > small { color: var(--ink-soft); line-height: 1.4; }
+.solar-place-input-wrap { position: relative; }
+.solar-place-input-wrap > svg { position: absolute; top: 50%; left: 14px; width: 19px; height: 19px; transform: translateY(-50%); fill: none; stroke: var(--ink-soft); stroke-width: 1.8; pointer-events: none; }
+.solar-place-input-wrap input { width: 100%; min-height: 48px; padding: 11px 14px 11px 42px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; font: inherit; }
+.solar-place-input-wrap input:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+.solar-place-popover { position: absolute; z-index: 50; top: calc(100% - 24px); left: 0; right: 0; max-height: 288px; overflow-y: auto; padding: 5px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 16px 36px rgba(13,35,34,.18); }
+.solar-place-popover p { margin: 0; padding: 12px; color: var(--ink-soft); }
+.solar-place-popover ul { margin: 0; padding: 0; list-style: none; }
+.solar-place-popover button { display: grid; width: 100%; min-height: 48px; gap: 2px; padding: 9px 12px; color: var(--ink); background: transparent; border: 0; border-radius: 8px; cursor: pointer; text-align: left; }
+.solar-place-popover button span { color: var(--ink-soft); font-size: 12px; }
+.solar-place-popover button:is(:hover,[aria-selected="true"]) { background: color-mix(in srgb, var(--teal) 10%, var(--surface)); }
+.solar-place-popover button:focus-visible,.solar-place-selected button:focus-visible { outline: 2px solid var(--teal); outline-offset: -2px; }
+@media (max-width: 480px) { .solar-place-selected { grid-template-columns: minmax(0,1fr); }.solar-place-selected button { grid-column: 1; grid-row: auto; justify-self: start; margin-top: 8px; } }
 .account-switch-row { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 50px; align-items: center; gap: 18px; cursor: pointer; }
 .account-switch-row > span { display: grid; gap: 5px; }
 .account-switch-row strong { font-size: 11px; }
@@ -9978,9 +10007,10 @@ button.project-drag-handle:active { cursor: grabbing; }
   color: #435a56;
 }
 
-.month-calendar .calendar-day.today .calendar-weekday {
+html:not([data-genesis-theme$="-dark"]) .month-calendar .calendar-day.today .calendar-weekday {
   color: #102a27;
   font-weight: 950;
+  text-shadow: none;
 }
 
 .month-calendar .calendar-day.today > strong {
@@ -12307,6 +12337,12 @@ button.project-drag-handle:active { cursor: grabbing; }
 .mood-options button small { min-width:0; overflow-wrap:anywhere; font-size:clamp(6px,.48vw,7px); text-align:center; }
 .mood-options button em { color: var(--mood-color); font-size: 7px; font-style: normal; font-weight: 700; }
 .mood-options button.selected { color: var(--ink); border-color: var(--mood-color); background: color-mix(in srgb, var(--mood-color) 17%, #fffdf8); box-shadow: inset 0 -2px 0 var(--mood-color); }
+html[data-genesis-theme^="standart"] .mood-tracker { margin-top: 14px; padding: 16px; background: color-mix(in srgb, var(--teal) 5%, var(--surface)); border: 1px solid color-mix(in srgb, var(--teal) 24%, var(--line)); border-radius: 13px; }
+html[data-genesis-theme^="standart"] .mood-summary { min-height: 48px; gap: 8px 16px; font-size: 13px; font-weight: 800; }
+html[data-genesis-theme^="standart"] .mood-summary strong { color: var(--ink) !important; font: 600 15px/1.3 Georgia, serif; }
+html[data-genesis-theme^="standart"] .mood-summary-action { min-height: 44px; padding: 10px 14px; color: #fffdf8; background: var(--teal); border-color: var(--teal); border-radius: 10px; font-size: 11px; }
+html[data-genesis-theme^="standart"] .mood-summary:hover .mood-summary-action { background: #184846; }
+html[data-genesis-theme^="standart"] .mood-summary:focus-visible { outline: 2px solid var(--teal); outline-offset: 4px; border-radius: 6px; }
 .mood-custom { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 12px; margin-top: 10px; color: var(--ink-soft); font-size: 8px; }
 .mood-custom input { min-height: 36px; padding: 0 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--white); }
 .mood-no-score { display: block; margin-top: 8px; color: var(--ink-soft); font-size: 8px; }
@@ -13342,3 +13378,112 @@ button.project-drag-handle:active { cursor: grabbing; }
 .admin-ads-preview { width: min(100%, 350px); max-height: 180px; object-fit: cover; border-radius: 8px; }
 .admin-ads-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 @media (max-width: 600px) { .admin-ads-fields { grid-template-columns: 1fr; } }
+
+.account-chip.is-compact { width: 46px; min-width: 0; }
+.account-chip.is-compact > .account-open { grid-template-columns: 30px; }
+.account-chip.is-compact .account-open > .account-avatar { display: grid; }
+@media (max-width: 760px) {
+  .account-chip.is-expanded { width: min(190px, calc(100vw - 132px)); min-width: 0; }
+  .account-chip.is-expanded > .account-open { grid-template-columns: 30px minmax(0,1fr); }
+  .account-chip.is-expanded .account-open > span:last-child { display: grid; }
+}
+
+/* Shared roles in Standart: creation, saved records and supporting information. */
+html[data-genesis-theme="standart"] {
+  --st-create-bg: #e7f1ea;
+  --st-create-border: #83ac99;
+  --st-record-bg: #fffdf8;
+  --st-record-border: #bdccc4;
+  --st-info-bg: #edf1ef;
+  --st-info-border: #b9c9c9;
+}
+html[data-genesis-theme="standart"] :is(.project-tree-panel .project-form, .today-create-panel, .all-tasks-create, .task-list-create, .quick-category-form) {
+  background: var(--st-create-bg);
+  border-color: var(--st-create-border);
+}
+html[data-genesis-theme="standart"] :is(.project-tree-panel .project-row, .project-tree-panel .project-assigned-task,
+  .project-tree-panel .project-assigned-list, .project-tree-panel .inbox-card-items > article,
+  .all-task-row, .today-task-list > article, .task-list-column-items > article) {
+  background: var(--st-record-bg);
+  border-color: var(--st-record-border);
+}
+html[data-genesis-theme="standart"] :is(.project-tree-panel .project-drop-field, .task-empty,
+  .daily-plan-card, .meaning-card, .project-tree-workspace > .inbox-card) {
+  background: var(--st-info-bg);
+  border-color: var(--st-info-border);
+}
+html[data-genesis-theme^="standart"] :is(.primary-button, .secondary-button) { min-height: 44px; font-size: 12px; font-weight: 800; }
+html[data-genesis-theme="standart"] .primary-button:disabled { color: #53645b; background: #dbe5dc; opacity: 1; }
+
+html[data-genesis-theme^="standart"] .admin-android { display: grid; gap: 14px; min-width: 0; }
+html[data-genesis-theme^="standart"] .admin-android h2 { margin: 0; }
+html[data-genesis-theme^="standart"] .admin-android-note {
+  max-width: 80ch;
+  margin: 0;
+  padding: 16px 18px;
+  color: var(--ink);
+  background: var(--st-info-bg);
+  border: 1px solid var(--st-info-border);
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+html[data-genesis-theme^="standart"] .admin-android-summary { display: flex; flex-wrap: wrap; gap: 10px; }
+html[data-genesis-theme^="standart"] .admin-android-summary > span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 10px 14px;
+  color: var(--ink);
+  background: var(--st-info-bg);
+  border: 1px solid var(--st-info-border);
+  border-radius: 10px;
+  font-size: 13px;
+}
+html[data-genesis-theme^="standart"] .admin-android-summary strong { color: var(--teal); font-size: 18px; }
+html[data-genesis-theme^="standart"] .admin-table { font-size: 13px; }
+html[data-genesis-theme^="standart"] .admin-table th { font-size: 10px; }
+html[data-genesis-theme^="standart"] .admin-table td small { font-size: 11px; line-height: 1.4; }
+@media (max-width: 700px) {
+  html[data-genesis-theme^="standart"] .admin-table-wrap { overflow: visible; background: transparent; border: 0; }
+  html[data-genesis-theme^="standart"] .admin-table,
+  html[data-genesis-theme^="standart"] .admin-table tbody { display: block; width: 100%; }
+  html[data-genesis-theme^="standart"] .admin-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  html[data-genesis-theme^="standart"] .admin-table tr {
+    display: block;
+    margin: 0 0 12px;
+    padding: 8px 14px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+  }
+  html[data-genesis-theme^="standart"] .admin-table td,
+  html[data-genesis-theme^="standart"] .admin-table td:first-child {
+    display: grid;
+    grid-template-columns: minmax(88px, 36%) minmax(0, 1fr);
+    gap: 3px 10px;
+    width: 100%;
+    min-width: 0;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
+    overflow-wrap: anywhere;
+  }
+  html[data-genesis-theme^="standart"] .admin-table td:last-child { border-bottom: 0; }
+  html[data-genesis-theme^="standart"] .admin-table td::before {
+    content: attr(data-label);
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    color: var(--ink-soft);
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+  html[data-genesis-theme^="standart"] .admin-table td :is(strong, small) { grid-column: 2; }
+}

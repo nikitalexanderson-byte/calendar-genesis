@@ -256,6 +256,30 @@ html[data-genesis-theme$="-dark"] :is(.recurrence-range legend, .recurrence-rang
   .recurrence-field-heading > span, .recurrence-selection-hint,
   .recurrence-interval > span, .recurrence-summary > span, .recurrence-sync-note) { color: var(--ink-soft); }
 html[data-genesis-theme$="-dark"] .habit-scoring-lock-note { color: var(--gold); }
+
+html[data-genesis-theme="standart-dark"] .habit-collapsible-toggle,
+html[data-genesis-theme="standart-dark"] .habit-collapsible-block.collapsed .habit-collapsible-toggle {
+  color: var(--ink);
+  border-color: var(--line);
+  background: #23363b;
+  box-shadow: 0 8px 22px #0003;
+}
+
+html[data-genesis-theme="standart-dark"] .habit-collapsible-toggle:hover {
+  border-color: var(--teal);
+  background: #2d4448;
+  box-shadow: 0 11px 26px #0005;
+}
+
+html[data-genesis-theme="standart-dark"] .habit-collapsible-toggle:focus-visible {
+  outline-color: var(--gold);
+}
+
+html[data-genesis-theme="standart-dark"] .habit-collapsible-toolbar .disclosure-chevron {
+  color: var(--ink);
+  border-color: var(--line);
+  background: #30484a;
+}
 html[data-genesis-theme$="-dark"] :is(.hestia-spark-inventory i:not(.filled),
   .comeback-progress i:not(.done), .hestia-spark-icon, .comeback-mark,
   .laurel-ledger > div > div, .laurel-ledger code) {
@@ -317,4 +341,120 @@ html[data-genesis-theme$="-dark"] .spring-year-action {
 html[data-genesis-theme$="-dark"] .spring-year-dismiss {
   color: var(--ink);
   border-color: var(--line);
+}
+
+html[data-genesis-theme="standart-dark"] .mood-tracker {
+  background: #1c3034;
+  border-color: #496663;
+}
+html[data-genesis-theme="standart-dark"] .mood-summary-action {
+  color: #f4f2e9;
+  background: #2d5954;
+  border-color: #5b8d83;
+}
+html[data-genesis-theme="standart-dark"] .mood-summary:hover .mood-summary-action {
+  color: #fffdf8;
+  background: #396c64;
+}
+
+html[data-genesis-theme$="-dark"] .day-details-modal .modal-close,
+html[data-genesis-theme$="-dark"] .theokyklos-details-close {
+  color: var(--ink);
+  background: var(--dark-control);
+  border-color: var(--line);
+}
+html[data-genesis-theme$="-dark"] .day-details-modal .modal-close:is(:hover,:focus-visible),
+html[data-genesis-theme$="-dark"] .theokyklos-details-close:is(:hover,:focus-visible) {
+  color: #fffdf8;
+  background: #31514f;
+  border-color: var(--teal);
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+html[data-genesis-theme$="-dark"] .theokyklos-details {
+  --detail-contrast: color-mix(in srgb, var(--detail-accent) 48%, #e8e9dc);
+}
+html[data-genesis-theme$="-dark"] .theokyklos-details :is(.eyebrow, header strong, .theokyklos-essence,
+  .theokyklos-incantation li > span, .theokyklos-sacred-practices article small) { color: var(--detail-contrast); }
+html[data-genesis-theme$="-dark"] .theokyklos-details :is(.theokyklos-description,
+  .theokyklos-incantation > p, .theokyklos-incantation li small,
+  .theokyklos-sacred-practices > p, .theokyklos-sacred-practices article p,
+  .theokyklos-sacred-practices article blockquote) { color: var(--ink-soft); }
+html[data-genesis-theme$="-dark"] .theokyklos-incantation li,
+html[data-genesis-theme$="-dark"] .theokyklos-sacred-practices article {
+  color: var(--ink);
+  background: var(--dark-control);
+  border-color: var(--line);
+}
+html[data-genesis-theme$="-dark"] .theokyklos-incantation li strong,
+html[data-genesis-theme$="-dark"] .theokyklos-sacred-practices article strong { color: var(--ink); }
+html[data-genesis-theme$="-dark"] .theokyklos-sacred-practices article > span {
+  background: var(--surface);
+  border-color: var(--line);
+}
+html[data-genesis-theme$="-dark"] .theokyklos-sacred-practices > header button {
+  color: #f6f2e8;
+  background: #305b54;
+  border-color: #6da99b;
+}
+html[data-genesis-theme$="-dark"] .theokyklos-sacred-practices > header button:hover {
+  color: #fffdf8;
+  background: #3c7065;
+}
+html[data-genesis-theme$="-dark"] .theokyklos-sacred-practices > header button:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+html[data-genesis-theme$="-dark"] .theokyklos-sacred-practices :is(article > button, .theokyklos-practice-actions button):not(.completed, .disable) {
+  color: #f6f2e8;
+  background: #305b54;
+  border: 1px solid #6da99b;
+}
+html[data-genesis-theme$="-dark"] .theokyklos-practice-actions button.completed {
+  color: #c9eadc;
+  background: #24423d;
+  border-color: #56796f;
+}
+html[data-genesis-theme$="-dark"] .theokyklos-practice-actions button.disable {
+  color: #e5c3b4;
+  background: #392f30;
+  border-color: #846662;
+}
+html[data-genesis-theme$="-dark"] .theokyklos-sacred-practices :is(article > button, .theokyklos-practice-actions button):focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+html[data-genesis-theme="standart-dark"] {
+  --st-create-bg: #1d3835;
+  --st-create-border: #649b86;
+  --st-record-bg: #1a2a2e;
+  --st-record-border: #496166;
+  --st-info-bg: #23323a;
+  --st-info-border: #59717a;
+}
+html[data-genesis-theme="standart-dark"] :is(.project-tree-panel .project-form, .today-create-panel, .all-tasks-create, .task-list-create, .quick-category-form) {
+  color: var(--ink);
+  background: var(--st-create-bg);
+  border-color: var(--st-create-border);
+}
+html[data-genesis-theme="standart-dark"] :is(.project-tree-panel .project-row, .project-tree-panel .project-assigned-task,
+  .project-tree-panel .project-assigned-list, .project-tree-panel .inbox-card-items > article,
+  .all-task-row, .today-task-list > article, .task-list-column-items > article) {
+  color: var(--ink);
+  background: var(--st-record-bg);
+  border-color: var(--st-record-border);
+}
+html[data-genesis-theme="standart-dark"] :is(.project-tree-panel .project-drop-field, .task-empty,
+  .daily-plan-card, .meaning-card, .project-tree-workspace > .inbox-card) {
+  color: var(--ink);
+  background: var(--st-info-bg);
+  border-color: var(--st-info-border);
+}
+html[data-genesis-theme="standart-dark"] .primary-button:disabled {
+  color: #d3dfd8;
+  background: #38504b;
+  border: 1px solid #58766c;
+  opacity: 1;
 }

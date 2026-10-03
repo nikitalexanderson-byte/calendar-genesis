@@ -7,19 +7,12 @@ import "../app/experimental-theme.css";
 import "../app/dark-theme.css";
 import "../app/tablet-layout.css";
 
-const PRELOAD_RECOVERY_KEY = "genesis-preload-recovery-at";
 const APP_BASE = (process.env.NEXT_PUBLIC_GENESIS_BASE_PATH?.trim() || "").replace(/\/$/, "");
 
 function registerProductionServiceWorker() {
   const isLocalPreview = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
   if (process.env.NODE_ENV !== "production" || isLocalPreview || !("serviceWorker" in navigator)) return;
 
-  let reloadingForUpdate = false;
-  navigator.serviceWorker.addEventListener("controllerchange", () => {
-    if (reloadingForUpdate) return;
-    reloadingForUpdate = true;
-    window.location.reload();
-  });
   void navigator.serviceWorker.register(`${APP_BASE}/sw.js`, {
     scope: `${APP_BASE || ""}/`,
     updateViaCache: "none",
@@ -27,14 +20,6 @@ function registerProductionServiceWorker() {
 }
 
 registerProductionServiceWorker();
-
-window.addEventListener("vite:preloadError", (event) => {
-  event.preventDefault();
-  const previousRecovery = Number(sessionStorage.getItem(PRELOAD_RECOVERY_KEY)) || 0;
-  if (Date.now() - previousRecovery < 30_000) return;
-  sessionStorage.setItem(PRELOAD_RECOVERY_KEY, String(Date.now()));
-  window.location.reload();
-});
 
 const root = document.getElementById("root");
 

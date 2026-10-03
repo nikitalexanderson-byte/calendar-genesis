@@ -24,9 +24,9 @@ export function AdminPanel() {
   const isEnglish = runtimeLocale().startsWith("en");
   const copy = isEnglish ? {
     loadError: "Could not load statistics.", deleteError: "Could not delete the user.", loading: "Loading anonymized statistics…",
-    adminOnly: "Administrators only", title: "GENESIS activity", intro: "Habit titles, notes and history remain encrypted. The panel receives aggregate counts only.", refresh: "Refresh",
+    adminOnly: "Administrators only", title: "GENESIS activity", intro: "Habit titles, notes and history remain encrypted. The panel receives aggregate counts only.",
     users: "users", habits: "habits", tasks: "tasks", projects: "projects", blocked: "blacklisted",
-    user: "User", activity: "Last activity", logins: "Logins", google: "Google", moderation: "Moderation", admin: "administrator", aggregate: "encrypted aggregate", open: "open", completed: "completed", events: "events", connected: "Connected", no: "No", protected: "Protected", remove: "Delete",
+    user: "User", activity: "Last activity", logins: "Logins", google: "Google", yandexCalendar: "Yandex Calendar", moderation: "Moderation", admin: "administrator", aggregate: "encrypted aggregate", open: "open", completed: "completed", events: "events", connected: "Connected", no: "No", lastCheck: "Last check", protected: "Protected", remove: "Delete",
     androidTitle: "Android downloads and sync", androidIntro: "Download requests are attributed only when a user is signed in on this site. Direct and anonymous APK downloads cannot be tied to an account. An app version appears only after that installation contacts the server; it does not prove the app is still installed.",
     trackedDownloads: "account download requests", reportingUsers: "users with an app report", download: "Download", version: "App version", googleServices: "Google services", server: "Server", noDownload: "No attributed request", first: "First", last: "Last", requested: "requested", devices: "installations", lastContact: "Last contact", noReport: "No report yet", authorized: "Authorized", disconnected: "Disconnected", syncOk: "OK", syncWarning: "Needs attention", syncUnknown: "Not checked", staleSync: "Not checked recently", lastSync: "Last sync", calendarSync: "Calendar",
     irreversible: "Irreversible action", deleteTitle: "Delete user?", deleteLead: "The account, encrypted workspace, habits, statistics, tasks and all related server data will be permanently deleted for",
@@ -34,9 +34,9 @@ export function AdminPanel() {
     confirmLabel: "Enter the user's email to confirm", cancel: "Cancel", deleting: "Deleting…", deleteAndBlock: "Delete and block", deleteUser: "Delete user",
   } : {
     loadError: "Не удалось загрузить статистику.", deleteError: "Не удалось удалить пользователя.", loading: "Загружаем обезличенную статистику…",
-    adminOnly: "Только для администратора", title: "Активность GENESIS", intro: "Названия, заметки и история привычек остаются зашифрованными. Панель получает только агрегированные количества.", refresh: "Обновить",
+    adminOnly: "Только для администратора", title: "Активность GENESIS", intro: "Названия, заметки и история привычек остаются зашифрованными. Панель получает только агрегированные количества.",
     users: "пользователей", habits: "привычек", tasks: "задач", projects: "проектов", blocked: "в чёрном списке",
-    user: "Пользователь", activity: "Последняя активность", logins: "Входы", google: "Google", moderation: "Модерация", admin: "администратор", aggregate: "зашифрованный агрегат", open: "открыто", completed: "завершено", events: "событий", connected: "Подключён", no: "Нет", protected: "Защищён", remove: "Удалить",
+    user: "Пользователь", activity: "Последняя активность", logins: "Входы", google: "Google", yandexCalendar: "Яндекс.Календарь", moderation: "Модерация", admin: "администратор", aggregate: "зашифрованный агрегат", open: "открыто", completed: "завершено", events: "событий", connected: "Подключён", no: "Нет", lastCheck: "Последняя проверка", protected: "Защищён", remove: "Удалить",
     androidTitle: "Android: загрузки и синхронизация", androidIntro: "Считаются запросы на загрузку из авторизованного аккаунта на сайте. Анонимную или прямую загрузку APK нельзя связать с пользователем. Версия появляется после обращения приложения к серверу и не подтверждает, что оно установлено сейчас.",
     trackedDownloads: "запросов из аккаунтов", reportingUsers: "пользователей с откликом приложения", download: "Загрузка", version: "Версия приложения", googleServices: "Сервисы Google", server: "Сервер", noDownload: "Нет учтённых запросов", first: "Первый", last: "Последний", requested: "запрошена", devices: "установок", lastContact: "Последняя связь", noReport: "Пока нет данных", authorized: "Авторизован", disconnected: "Не подключён", syncOk: "В порядке", syncWarning: "Нужна проверка", syncUnknown: "Не проверено", staleSync: "Давно не проверялось", lastSync: "Последняя синхронизация", calendarSync: "Календарь",
     irreversible: "Необратимое действие", deleteTitle: "Удалить пользователя?", deleteLead: "Будут окончательно удалены аккаунт, зашифрованное пространство, привычки, статистика, задачи и все связанные серверные данные пользователя",
@@ -102,10 +102,6 @@ export function AdminPanel() {
     <section className="admin-view" data-exp-layout="view" aria-labelledby="admin-title">
       <header className="projects-header">
         <div><span className="eyebrow">{copy.adminOnly}</span><h1 id="admin-title">{copy.title}</h1><p>{copy.intro}</p></div>
-        <div className="admin-header-actions">
-          <a className="secondary-button" href="#admin-ads-title">{isEnglish ? "Advertisements" : "Реклама"}</a>
-          <button type="button" className="secondary-button" onClick={() => void refresh()}>{copy.refresh}</button>
-        </div>
       </header>
       {error ? <p className="auth-error" role="alert">{error}</p> : null}
       {message ? <p className="admin-success" role="status">{message}</p> : null}
@@ -120,24 +116,25 @@ export function AdminPanel() {
         </div>
         <div className="admin-table-wrap">
           <table className="admin-table">
-            <thead><tr><th>{copy.user}</th><th>{copy.activity}</th><th>{copy.logins}</th><th>{copy.habits}</th><th>{copy.projects}</th><th>{copy.tasks}</th><th>{copy.google}</th><th>{copy.moderation}</th></tr></thead>
+            <thead><tr><th>{copy.user}</th><th>{copy.activity}</th><th>{copy.logins}</th><th>{copy.habits}</th><th>{copy.projects}</th><th>{copy.tasks}</th><th>{copy.google}</th><th>{copy.yandexCalendar}</th><th>{copy.moderation}</th></tr></thead>
             <tbody>{stats.users.map((user) => (
               <tr key={user.id}>
-                <td><strong>{user.email}</strong><small>{user.displayName}{user.isAdmin ? ` · ${copy.admin}` : ""}</small></td>
-                <td>{formatActivity(user.lastSeenAt)}</td>
-                <td>{user.loginCount}</td>
-                <td><strong>{user.habitCount}</strong><small>{copy.aggregate}</small></td>
-                <td>{user.projectCount}</td>
-                <td>{user.taskCount}<small>{user.openTaskCount} {copy.open} · {user.completedTaskCount} {copy.completed}</small></td>
-                <td>{user.calendarConnected ? copy.connected : copy.no}<small>{user.googleSyncedCount} {copy.events}</small></td>
-                <td>{user.isAdmin ? <span className="admin-protected">{copy.protected}</span> : <button type="button" className="admin-delete-user" onClick={() => { setDeleteTarget(user); setMessage(""); }}>{copy.remove}</button>}</td>
+                <td data-label={copy.user}><strong>{user.email}</strong><small>{user.displayName}{user.isAdmin ? ` · ${copy.admin}` : ""}</small></td>
+                <td data-label={copy.activity}>{formatActivity(user.lastSeenAt)}</td>
+                <td data-label={copy.logins}>{user.loginCount}</td>
+                <td data-label={copy.habits}><strong>{user.habitCount}</strong><small>{copy.aggregate}</small></td>
+                <td data-label={copy.projects}>{user.projectCount}</td>
+                <td data-label={copy.tasks}>{user.taskCount}<small>{user.openTaskCount} {copy.open} · {user.completedTaskCount} {copy.completed}</small></td>
+                <td data-label={copy.google}>{user.calendarConnected ? copy.connected : copy.no}<small>{user.googleSyncedCount} {copy.events}</small></td>
+                <td data-label={isEnglish ? "Yandex" : "Яндекс"}>{user.yandexCalendarConnected ? copy.connected : copy.no}<small>{user.yandexSyncedCount} {copy.events}{user.lastYandexCalendarCheckAt ? <><br />{copy.lastCheck}: {formatActivity(user.lastYandexCalendarCheckAt)}</> : null}</small></td>
+                <td data-label={copy.moderation}>{user.isAdmin ? <span className="admin-protected">{copy.protected}</span> : <button type="button" className="admin-delete-user" onClick={() => { setDeleteTarget(user); setMessage(""); }}>{copy.remove}</button>}</td>
               </tr>
             ))}</tbody>
           </table>
         </div>
         <section className="admin-android" aria-labelledby="admin-android-title">
           <h2 id="admin-android-title">{copy.androidTitle}</h2>
-          <p>{copy.androidIntro}</p>
+          <p className="admin-android-note">{copy.androidIntro}</p>
           <div className="admin-android-summary">
             <span><strong>{stats.totals.androidDownloadRequests}</strong> {copy.trackedDownloads}</span>
             <span><strong>{stats.totals.androidReportingUsers}</strong> {copy.reportingUsers}</span>

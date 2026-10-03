@@ -61,24 +61,6 @@ html[data-genesis-theme^="experimental"] {
   --gx-row-pad: 16px;
 }
 
-html[data-genesis-theme^="experimental"] .solar-place-search,
-html[data-genesis-theme^="experimental"] .solar-place-results {
-  display: grid;
-  gap: 8px;
-}
-
-html[data-genesis-theme^="experimental"] .solar-place-search input,
-html[data-genesis-theme^="experimental"] .solar-place-results button {
-  width: 100%;
-  min-height: 44px;
-  border: 1px solid var(--gx-color-border);
-  border-radius: 12px;
-  background: var(--gx-color-surface);
-  color: var(--gx-color-ink);
-  padding: 8px 12px;
-  text-align: start;
-}
-
 /* The dark palette is available only inside the account-selected Experimental theme. */
 html[data-genesis-theme="experimental-dark"] {
   color-scheme: dark;
@@ -1114,6 +1096,17 @@ html[data-genesis-theme^="experimental"] .admin-android > p {
   line-height: 1.5;
 }
 
+html[data-genesis-theme^="experimental"] .admin-android > .admin-android-note {
+  margin: 14px 0 18px;
+  padding: 16px 18px;
+  border: 1px solid var(--gx-color-border);
+  border-radius: var(--gx-radius-control);
+  background: var(--gx-color-subtle);
+  color: var(--gx-color-ink);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
 html[data-genesis-theme^="experimental"] .admin-android-summary {
   display: flex;
   flex-wrap: wrap;
@@ -1122,9 +1115,23 @@ html[data-genesis-theme^="experimental"] .admin-android-summary {
   color: var(--gx-color-muted);
 }
 
+html[data-genesis-theme^="experimental"] .admin-android-summary > span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 9px 13px;
+  border: 1px solid var(--gx-color-border);
+  border-radius: var(--gx-radius-control);
+  background: var(--gx-color-subtle);
+}
+
 html[data-genesis-theme^="experimental"] .admin-android-summary strong {
   color: var(--gx-color-accent);
   font-size: 1.3em;
+}
+
+html[data-genesis-theme^="experimental"] .solar-place-input-wrap input[type="search"] {
+  padding-left: 42px;
 }
 
 html[data-genesis-theme^="experimental"] .admin-android-table td small {
@@ -1137,13 +1144,13 @@ html[data-genesis-theme^="experimental"] .admin-android-table td {
 }
 
 @media (max-width: 700px) {
-  html[data-genesis-theme^="experimental"] .admin-android-table,
-  html[data-genesis-theme^="experimental"] .admin-android-table tbody {
+  html[data-genesis-theme^="experimental"] .admin-table,
+  html[data-genesis-theme^="experimental"] .admin-table tbody {
     display: block;
     width: 100%;
   }
 
-  html[data-genesis-theme^="experimental"] .admin-android-table thead {
+  html[data-genesis-theme^="experimental"] .admin-table thead {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -1152,7 +1159,7 @@ html[data-genesis-theme^="experimental"] .admin-android-table td {
     white-space: nowrap;
   }
 
-  html[data-genesis-theme^="experimental"] .admin-android-table tr {
+  html[data-genesis-theme^="experimental"] .admin-table tr {
     display: block;
     margin: 12px;
     padding: 10px 14px;
@@ -1161,8 +1168,8 @@ html[data-genesis-theme^="experimental"] .admin-android-table td {
     background: var(--gx-color-surface);
   }
 
-  html[data-genesis-theme^="experimental"] .admin-android-table td,
-  html[data-genesis-theme^="experimental"] .admin-android-table td:first-child {
+  html[data-genesis-theme^="experimental"] .admin-table td,
+  html[data-genesis-theme^="experimental"] .admin-table td:first-child {
     display: grid;
     grid-template-columns: minmax(86px, 38%) minmax(0, 1fr);
     gap: 2px 10px;
@@ -1173,11 +1180,11 @@ html[data-genesis-theme^="experimental"] .admin-android-table td {
     overflow-wrap: anywhere;
   }
 
-  html[data-genesis-theme^="experimental"] .admin-android-table td:last-child {
+  html[data-genesis-theme^="experimental"] .admin-table td:last-child {
     border-bottom: 0;
   }
 
-  html[data-genesis-theme^="experimental"] .admin-android-table td::before {
+  html[data-genesis-theme^="experimental"] .admin-table td::before {
     content: attr(data-label);
     grid-column: 1;
     grid-row: 1 / span 2;
@@ -1188,7 +1195,7 @@ html[data-genesis-theme^="experimental"] .admin-android-table td {
     text-transform: uppercase;
   }
 
-  html[data-genesis-theme^="experimental"] .admin-android-table td :where(strong, small) {
+  html[data-genesis-theme^="experimental"] .admin-table td :where(strong, small) {
     grid-column: 2;
     margin: 0;
   }

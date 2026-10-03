@@ -612,7 +612,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
           </section>
         ) : null}
 
-        <SolarPlaceSettings />
+        <SolarPlaceSettings language={user.language} />
 
         <section className="account-preferences task-calendar-mode-preference" aria-labelledby="task-calendar-mode-title" data-exp-ui="panel">
           <div>

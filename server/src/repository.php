@@ -764,6 +764,14 @@ function genesisAdminStats(): array
     $rows = genesisDb()->query('SELECT u.id, u.auth_provider, u.email, u.display_name, u.created_at, u.last_login_at, u.last_seen_at, u.login_count, u.password_hash IS NOT NULL AS password_enabled, u.refresh_token_enc IS NOT NULL AS google_auth_connected, u.refresh_token_enc IS NOT NULL AND u.google_calendar_id IS NOT NULL AS calendar_connected, u.last_calendar_sync_at, COALESCE(m.project_count, 0) AS project_count, COALESCE(m.task_count, 0) AS task_count, COALESCE(m.open_task_count, 0) AS open_task_count, COALESCE(m.completed_task_count, 0) AS completed_task_count, COALESCE(m.google_synced_count, 0) AS google_synced_count, COALESCE(m.habit_count, 0) AS habit_count, m.updated_at AS metrics_updated_at, COALESCE(d.request_count, 0) AS android_download_count, d.first_requested_at AS android_first_download_at, d.last_requested_at AS android_last_download_at, d.last_requested_version AS android_last_download_version, (SELECT COUNT(*) FROM android_client_reports r WHERE r.user_id = u.id) AS android_device_count, (SELECT r.app_version FROM android_client_reports r WHERE r.user_id = u.id ORDER BY r.last_seen_at DESC LIMIT 1) AS android_reported_version, (SELECT r.last_seen_at FROM android_client_reports r WHERE r.user_id = u.id ORDER BY r.last_seen_at DESC LIMIT 1) AS android_last_seen_at, (SELECT r.last_server_sync_at FROM android_client_reports r WHERE r.user_id = u.id AND r.last_server_sync_at IS NOT NULL ORDER BY r.last_server_sync_at DESC LIMIT 1) AS android_last_server_sync_at, (SELECT r.server_sync_status FROM android_client_reports r WHERE r.user_id = u.id AND r.last_server_sync_at IS NOT NULL ORDER BY r.last_server_sync_at DESC LIMIT 1) AS android_server_sync_status, (SELECT r.google_sync_status FROM android_client_reports r WHERE r.user_id = u.id AND r.last_server_sync_at IS NOT NULL ORDER BY r.last_server_sync_at DESC LIMIT 1) AS android_google_sync_status FROM users u LEFT JOIN user_metrics m ON m.user_id = u.id LEFT JOIN android_download_activity d ON d.user_id = u.id ORDER BY COALESCE(u.last_seen_at, u.created_at) DESC')->fetchAll();
     $linkedAuthIds = array_fill_keys(genesisDb()->query('SELECT DISTINCT owner_user_id FROM linked_google_accounts WHERE refresh_token_enc IS NOT NULL')->fetchAll(PDO::FETCH_COLUMN), true);
     $linkedCalendarIds = array_fill_keys(genesisDb()->query('SELECT DISTINCT owner_user_id FROM linked_google_accounts WHERE refresh_token_enc IS NOT NULL AND google_calendar_id IS NOT NULL')->fetchAll(PDO::FETCH_COLUMN), true);
+    $yandexConnections = [];
+    foreach (genesisDb()->query('SELECT user_id, last_checked_at FROM yandex_calendar_connections') as $connection) {
+        $yandexConnections[(string)$connection['user_id']] = $connection['last_checked_at'] ?: null;
+    }
+    $yandexEventCounts = [];
+    foreach (genesisDb()->query('SELECT user_id, COUNT(*) AS event_count FROM yandex_calendar_tasks GROUP BY user_id') as $count) {
+        $yandexEventCounts[(string)$count['user_id']] = (int)$count['event_count'];
+    }
     return [
         'users' => array_map(static fn(array $row): array => [
             'id' => (string)$row['id'],
@@ -777,6 +785,9 @@ function genesisAdminStats(): array
             'calendarConnected' => (bool)$row['calendar_connected'] || isset($linkedCalendarIds[$row['id']]),
             'googleAuthConnected' => (bool)$row['google_auth_connected'] || isset($linkedAuthIds[$row['id']]),
             'lastGoogleCalendarSyncAt' => $row['last_calendar_sync_at'] ?: null,
+            'yandexCalendarConnected' => array_key_exists($row['id'], $yandexConnections),
+            'yandexSyncedCount' => $yandexEventCounts[$row['id']] ?? 0,
+            'lastYandexCalendarCheckAt' => $yandexConnections[$row['id']] ?? null,
             'projectCount' => (int)$row['project_count'],
             'taskCount' => (int)$row['task_count'],
             'openTaskCount' => (int)$row['open_task_count'],

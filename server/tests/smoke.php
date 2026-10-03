@@ -458,8 +458,8 @@ try {
         'created_at' => $now,
     ]);
     $db->prepare('INSERT INTO yandex_calendar_connections
-        (user_id, login_enc, app_password_enc, calendar_path_enc, connected_at, updated_at)
-        VALUES (:id, :login, :password, :path, :now, :now)')->execute([
+        (user_id, login_enc, app_password_enc, calendar_path_enc, last_checked_at, connected_at, updated_at)
+        VALUES (:id, :login, :password, :path, :now, :now, :now)')->execute([
         'id' => $userId, 'login' => genesisEncrypt('smoke@yandex.ru'),
         'password' => genesisEncrypt('smoke-password'),
         'path' => genesisEncrypt('/calendars/smoke@yandex.ru/events-default/'), 'now' => $now,
@@ -504,6 +504,9 @@ try {
     expect($androidRow !== null && $androidRow['androidDownloadCount'] === 2, 'Android download requests were not counted per user.');
     expect($androidRow['androidReportedVersion'] === '2.3.11' && $androidRow['androidDeviceCount'] === 1, 'Android installation version was not reported.');
     expect($androidRow['androidServerSyncStatus'] === 'ok' && $androidRow['androidGoogleSyncStatus'] === 'warning', 'Android sync status was not recorded.');
+    expect($androidRow['yandexCalendarConnected'] === true && $androidRow['yandexSyncedCount'] === 1
+        && $androidRow['lastYandexCalendarCheckAt'] === $now,
+        'Yandex Calendar aggregate status was not exposed to the administrator.');
 
     $beforeDeletion = genesisAccountDataCounts($userId);
     expect(count(array_filter($beforeDeletion, static fn (int $count): bool => $count > 0)) === count(genesisAccountDataLocations()), 'Deletion fixture did not cover every user-owned table.');
