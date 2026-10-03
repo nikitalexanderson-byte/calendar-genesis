@@ -1,4 +1,13 @@
 {
+  "Защитная проверка входа через VK ID истекла. Начните вход заново.": "The VK ID sign-in security check expired. Start again.",
+  "Вы отменили вход через VK ID. Доступ к данным не был предоставлен.": "You cancelled VK ID sign-in. No data access was granted.",
+  "VK ID не завершил авторизацию. Попробуйте ещё раз.": "VK ID did not complete sign-in. Try again.",
+  "Не удалось войти через VK ID": "Could not sign in with VK ID",
+  "Задача будет зашифрована на сервере GENESIS и синхронизирована между вашими устройствами.": "This task will be encrypted on the GENESIS server and synced across your devices.",
+  "Синхронизировано с GENESIS": "Synced with GENESIS",
+  "GENESIS · зашифрованные задачи": "GENESIS · encrypted tasks",
+  "Данные в GENESIS": "Data in GENESIS",
+  "Изменения синхронизируются с зашифрованной копией GENESIS.": "Changes sync with the encrypted GENESIS copy.",
   "Как GENESIS использует Google и Яндекс": "GENESIS での Google と Yandex の利用",
   "Вы выбираете способ входа. Google и Яндекс передают основные данные профиля. Проекты и привычки хранятся в защищённом пространстве GENESIS. Синхронизация Google Calendar и Tasks подключается отдельно; при входе через Яндекс задачи и списки пока остаются на устройстве.": "ログイン方法を選択できます。Google と Yandex から基本的なプロフィール情報を受け取ります。プロジェクトと習慣は保護された GENESIS スペースに保存されます。Google Calendar と Tasks の同期は別途接続します。Yandex でログインした場合、タスクとリストは当面この端末に保存されます。",
   "Задачи остаются в Google или на вашем устройстве — в зависимости от способа входа": "タスクはログイン方法に応じて Google またはこの端末に保存されます",

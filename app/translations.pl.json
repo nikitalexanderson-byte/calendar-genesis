@@ -1,4 +1,13 @@
 {
+  "Защитная проверка входа через VK ID истекла. Начните вход заново.": "The VK ID sign-in security check expired. Start again.",
+  "Вы отменили вход через VK ID. Доступ к данным не был предоставлен.": "You cancelled VK ID sign-in. No data access was granted.",
+  "VK ID не завершил авторизацию. Попробуйте ещё раз.": "VK ID did not complete sign-in. Try again.",
+  "Не удалось войти через VK ID": "Could not sign in with VK ID",
+  "Задача будет зашифрована на сервере GENESIS и синхронизирована между вашими устройствами.": "This task will be encrypted on the GENESIS server and synced across your devices.",
+  "Синхронизировано с GENESIS": "Synced with GENESIS",
+  "GENESIS · зашифрованные задачи": "GENESIS · encrypted tasks",
+  "Данные в GENESIS": "Data in GENESIS",
+  "Изменения синхронизируются с зашифрованной копией GENESIS.": "Changes sync with the encrypted GENESIS copy.",
   "Яндекс.Календарь подключён": "Kalendarz Yandex połączony",
   "По проекту списка GENESIS": "Projekt listy GENESIS",
   "Запись будет синхронизирована с Яндекс.Календарём по времени устройства.": "Wpis zsynchronizuje się z Kalendarzem Yandex w strefie czasowej urządzenia.",

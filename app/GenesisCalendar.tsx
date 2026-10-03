@@ -60,6 +60,7 @@ import {
   restoreOfflineWorkspaceSession,
   signInWithGoogle,
   signInWithYandex,
+  signInWithVk,
   signOutFromGoogle,
   updateAccountPreferences,
   updateGoogleTaskList,
@@ -72,7 +73,6 @@ import { TaskReminderPicker } from "./TaskReminderPicker";
 import { CronusSickleIcon } from "./CronusSickleIcon";
 import { MoonPhaseIcon } from "./MoonPhaseIcon";
 import { RecurrenceBuilder } from "./RecurrenceBuilder";
-import { WelcomeScreen } from "./WelcomeScreen";
 import { YandexCalendarConnectDialog } from "./YandexCalendarConnectDialog";
 import { HabitCompletionFeedback } from "./HabitCompletionFeedback";
 import { WorkspaceRecoveryDialog } from "./WorkspaceRecoveryDialog";
@@ -191,6 +191,7 @@ import {
 } from "./day-rhythm";
 
 const AccountPanel = lazy(() => import("./AccountPanel").then((module) => ({ default: module.AccountPanel })));
+const WelcomeScreen = lazy(() => import("./WelcomeScreen").then((module) => ({ default: module.WelcomeScreen })));
 const AdminPanel = lazy(() => import("./AdminPanel").then((module) => ({ default: module.AdminPanel })));
 const GeminiAssistant = lazy(() => import("./GeminiAssistant").then((module) => ({ default: module.GeminiAssistant })));
 const HabitDailyPanel = lazy(() => import("./HabitTracker").then((module) => ({ default: module.HabitDailyPanel })));
@@ -1319,6 +1320,7 @@ export function GenesisCalendar() {
   const [authResolved, setAuthResolved] = useState(!isGoogleSyncConfigured);
   const [cloudUser, setCloudUser] = useState<GenesisUser | null>(null);
   const [yandexAvailable, setYandexAvailable] = useState(false);
+  const [vkAvailable, setVkAvailable] = useState(false);
   const [springYearSuggestionDismissed, setSpringYearSuggestionDismissed] = useState(false);
   const [springYearSuggestionBusy, setSpringYearSuggestionBusy] = useState(false);
   const [springYearSuggestionError, setSpringYearSuggestionError] = useState(false);
@@ -1579,7 +1581,10 @@ export function GenesisCalendar() {
   useEffect(() => {
     let active = true;
     void loadAuthProviders().then((providers) => {
-      if (active) setYandexAvailable(providers.yandex);
+      if (active) {
+        setYandexAvailable(providers.yandex);
+        setVkAvailable(Boolean(providers.vk));
+      }
     }).catch(() => undefined);
     return () => { active = false; };
   }, []);
@@ -2034,7 +2039,7 @@ export function GenesisCalendar() {
             : reconciledTasks;
           tasksRef.current = visibleTasks;
           setTasks(visibleTasks);
-          if (user.authProvider !== "yandex") setTaskLists(cloudTaskLists);
+          if (user.authProvider === "google") setTaskLists(cloudTaskLists);
           setSyncError(warning ?? "");
           setSyncStatus(warning ? "error" : fromCache ? "offline" : "synced");
         },
@@ -2085,7 +2090,7 @@ export function GenesisCalendar() {
         }
       }
       if (loadedUserId === user.uid) {
-        if (!loadedCalendarConnected && user.calendarConnected) {
+        if (!loadedCalendarConnected && (user.calendarConnected || user.authProvider === "vk")) {
           loadedCalendarConnected = true;
           setSyncStatus("syncing");
           void mergeLocalWorkspace(user.uid, {
@@ -2099,7 +2104,7 @@ export function GenesisCalendar() {
             setSyncError(error.message);
             setSyncStatus(navigator.onLine ? "error" : "offline");
           });
-        } else if (loadedCalendarConnected && !user.calendarConnected) {
+        } else if (loadedCalendarConnected && !user.calendarConnected && user.authProvider !== "vk") {
           loadedCalendarConnected = false;
           stopTasks?.();
           stopTasks = undefined;
@@ -2111,7 +2116,7 @@ export function GenesisCalendar() {
       stopWorkspace?.();
       stopWorkspace = undefined;
       loadedUserId = user.uid;
-      loadedCalendarConnected = user.calendarConnected;
+      loadedCalendarConnected = user.calendarConnected || user.authProvider === "vk";
 
       const userKey = `${GENESIS_USER_WORKSPACE_STORAGE_PREFIX}${user.uid}`;
       const local = readStoredState(localStorage.getItem(userKey) ? userKey : GENESIS_LEGACY_WORKSPACE_STORAGE_KEY);
@@ -2167,13 +2172,13 @@ export function GenesisCalendar() {
           ));
           setNewProjectCategory(nextCategories[0]?.id ?? "");
           setSyncError(workspace.syncWarning ?? "");
-          setSyncStatus(workspace.user.calendarConnected ? (workspace.syncWarning ? "offline" : "synced") : "local");
+          setSyncStatus(workspace.user.calendarConnected || workspace.user.authProvider === "vk" ? (workspace.syncWarning ? "offline" : "synced") : "local");
           stopWorkspace = observeCloudWorkspace((error) => {
             if (!active) return;
             setSyncError(error.message);
             setSyncStatus(navigator.onLine ? "error" : "offline");
           });
-          if (workspace.user.calendarConnected) startCloudTasks(user);
+          if (workspace.user.calendarConnected || workspace.user.authProvider === "vk") startCloudTasks(user);
         })
         .catch((error: Error) => {
           if (!active) return;
@@ -2186,7 +2191,8 @@ export function GenesisCalendar() {
       try {
         const cached = JSON.parse(localStorage.getItem(LAST_USER_KEY) || "null") as GenesisUser | null;
         if (cached?.uid) {
-          restoreOfflineWorkspaceSession(cached.uid, cached.authProvider === "yandex" ? "yandex" : "google");
+          restoreOfflineWorkspaceSession(cached.uid,
+            cached.authProvider === "yandex" ? "yandex" : cached.authProvider === "vk" ? "vk" : "google");
           const cachedLanguage = normalizeLanguage(cached.language);
           const local = readStoredState(`${GENESIS_USER_WORKSPACE_STORAGE_PREFIX}${cached.uid}`);
           tasksRef.current = local.tasks;
@@ -2231,7 +2237,7 @@ export function GenesisCalendar() {
       setProjects(workspace.projects);
       setCategories(workspace.categories);
       setTaskListLinks(workspace.taskListLinks);
-      if (cloudUser.authProvider === "yandex") {
+      if (cloudUser.authProvider !== "google") {
         setTaskLists(workspace.taskLists);
         taskListsRef.current = workspace.taskLists;
       }
@@ -2249,7 +2255,7 @@ export function GenesisCalendar() {
   }, [cloudUser, activeTaskCalendarMode]);
 
   const saveTask = (task: Task) => {
-    if (!cloudUser?.calendarConnected) return;
+    if (!cloudUser || (!cloudUser.calendarConnected && cloudUser.authProvider !== "vk")) return;
     setSyncStatus("syncing");
     void saveCloudTask(cloudUser.uid, task)
       .then((saved) => {
@@ -2263,7 +2269,7 @@ export function GenesisCalendar() {
   };
 
   const saveTaskSeries = (series: Task[]) => {
-    if (!cloudUser?.calendarConnected || !series.length) return;
+    if (!cloudUser || (!cloudUser.calendarConnected && cloudUser.authProvider !== "vk") || !series.length) return;
     setSyncStatus("syncing");
     void (async () => {
       const savedTasks: Task[] = [];
@@ -2305,6 +2311,20 @@ export function GenesisCalendar() {
       await signInWithYandex();
     } catch (error) {
       setSyncError(error instanceof Error ? error.message : "Не удалось войти через Яндекс");
+      setSyncStatus("error");
+    }
+  };
+
+  const handleVkSignIn = async () => {
+    setAuthError("");
+    setSyncError("");
+    setSyncStatus("syncing");
+    storeLanguage(language);
+    localStorage.setItem(LANGUAGE_LOGIN_PENDING_KEY, language);
+    try {
+      await signInWithVk();
+    } catch (error) {
+      setSyncError(error instanceof Error ? error.message : "Не удалось войти через VK ID");
       setSyncStatus("error");
     }
   };
@@ -2435,7 +2455,7 @@ export function GenesisCalendar() {
       recurrenceSeriesId: null,
       calendarMode: activeTaskCalendarMode,
       calendarNote: calendarDateNote(dueDate, activeTaskCalendarMode),
-      syncToGoogle: cloudUser?.authProvider !== "yandex",
+      syncToGoogle: cloudUser?.authProvider === "google",
       syncAccountIds: taskList.accountId ? [taskList.accountId] : defaultSyncAccountIds,
       googleLinks: {},
       googleAccountId: taskList.accountId ?? null,
@@ -2709,7 +2729,7 @@ export function GenesisCalendar() {
       recurrenceSeriesId: null,
       calendarMode: activeTaskCalendarMode,
       calendarNote: calendarDateNote(dueDate, activeTaskCalendarMode),
-      syncToGoogle: cloudUser?.authProvider !== "yandex",
+      syncToGoogle: cloudUser?.authProvider === "google",
       syncAccountIds: syncAccountIdsForTask(selectedProject?.categoryId ?? null, selectedTaskList),
       googleLinks: {},
       googleAccountId: selectedTaskList?.accountId ?? null,
@@ -2935,7 +2955,7 @@ export function GenesisCalendar() {
         occurrenceTask,
       ]);
       if (remainingSeries) saveTask(remainingSeries);
-      else if (cloudUser?.calendarConnected) void removeCloudTask(cloudUser.uid, original);
+      else if (cloudUser && (cloudUser.calendarConnected || cloudUser.authProvider === "vk")) void removeCloudTask(cloudUser.uid, original);
       saveTask(occurrenceTask);
       setEditingTask(null);
       return;
@@ -2995,7 +3015,7 @@ export function GenesisCalendar() {
       const consolidated = buildTaskSeries(consolidatedDraft, recurrenceConfig)[0] ?? consolidatedDraft;
       const memberIds = new Set(seriesMembers.map((task) => task.id));
       setTasks((current) => [...current.filter((task) => !memberIds.has(task.id)), consolidated]);
-      if (cloudUser?.calendarConnected) {
+      if (cloudUser && (cloudUser.calendarConnected || cloudUser.authProvider === "vk")) {
         setSyncStatus("syncing");
         void (async () => {
           await Promise.all(seriesMembers.map((task) => removeCloudTask(cloudUser.uid, task)));
@@ -3109,7 +3129,7 @@ export function GenesisCalendar() {
   const removeTasks = (tasksToDelete: Task[]) => {
     const ids = new Set(tasksToDelete.map((task) => task.id));
     setTasks((current) => current.filter((task) => !ids.has(task.id)));
-    if (cloudUser?.calendarConnected && tasksToDelete.length) {
+    if (cloudUser && (cloudUser.calendarConnected || cloudUser.authProvider === "vk") && tasksToDelete.length) {
       setSyncStatus("syncing");
       void Promise.all(tasksToDelete.map((task) => removeCloudTask(cloudUser.uid, task)))
         .then(() => setSyncStatus("synced"))
@@ -3250,7 +3270,7 @@ export function GenesisCalendar() {
         taskListLinksRef.current,
         metricsFor(tasksRef.current, projectsRef.current, normalized.habits.length),
         normalized,
-        cloudUser.authProvider === "yandex" ? taskLists : undefined,
+        cloudUser.authProvider !== "google" ? taskLists : undefined,
       )
         .then(() => setSyncStatus("synced"))
         .catch((error: Error) => {
@@ -3288,7 +3308,7 @@ export function GenesisCalendar() {
         taskListLinksRef.current,
         metricsFor(remainingTasks, projectsRef.current, 0),
         clearedWorkspace,
-        cloudUser.authProvider === "yandex" ? taskLists : undefined,
+        cloudUser.authProvider !== "google" ? taskLists : undefined,
       );
       tasksRef.current = remainingTasks;
       habitWorkspaceRef.current = clearedWorkspace;
@@ -3319,7 +3339,7 @@ export function GenesisCalendar() {
     setSyncStatus("syncing");
     return saveWorkspaceStructure(nextProjects, nextCategories, nextTaskListLinks,
       metricsFor(tasks, nextProjects, habitWorkspace.habits.length), habitWorkspace,
-      cloudUser.authProvider === "yandex" ? nextTaskLists : undefined)
+      cloudUser.authProvider !== "google" ? nextTaskLists : undefined)
       .then(() => setSyncStatus("synced"))
       .catch((error: Error) => {
         setSyncError(error.message);
@@ -3381,7 +3401,7 @@ export function GenesisCalendar() {
         ? { ...task, googleTaskListTitle: taskList.title }
         : task));
       setEditingTaskList(null);
-      if (cloudUser?.authProvider === "yandex") {
+      if (cloudUser?.authProvider !== "google") {
         await persistStructure(projects, categories, taskListLinks,
           taskLists.map((item) => item.id === taskList.id ? taskList : item));
       }
@@ -3399,11 +3419,15 @@ export function GenesisCalendar() {
     }
     const listTaskCount = tasks.filter((task) => task.googleTaskListId === taskList.id).length;
     const taskCountLabel = listTaskCount === 1 ? "1 задачей" : `${listTaskCount} задачами`;
-    if (!window.confirm(translateText(cloudUser?.authProvider === "yandex"
+    if (!window.confirm(translateText(cloudUser?.authProvider !== "google"
       ? `Удалить список «${taskList.title}» вместе с ${taskCountLabel}? Это действие нельзя отменить.`
       : `Удалить список «${taskList.title}» вместе с ${taskCountLabel}? Он будет удалён из Google Tasks. Это действие нельзя отменить.`, undefined, true))) return;
     setSyncStatus("syncing");
     try {
+      if (cloudUser?.authProvider === "vk") {
+        await Promise.all(tasks.filter((task) => task.googleTaskListId === taskList.id)
+          .map((task) => removeCloudTask(cloudUser.uid, task)));
+      }
       await removeGoogleTaskList(taskList.id, taskList.accountId);
       const nextTasks = tasks.filter((task) => task.googleTaskListId !== taskList.id);
       const nextLinks = taskListLinks.filter((link) => link.taskListId !== taskList.id);
@@ -3772,7 +3796,7 @@ export function GenesisCalendar() {
       }
     }
     const needsNewTaskLists = plan.taskLists.some((planned) => !taskLists.some((existing) => nameKey(existing.title) === nameKey(planned.title)));
-    if (needsNewTaskLists && !cloudUser?.calendarConnected) {
+    if (needsNewTaskLists && !cloudUser?.calendarConnected && cloudUser?.authProvider !== "vk") {
       throw new Error(language === "en" ? "Connect Google Calendar and Tasks before creating a task list." : "Подключите Google Calendar и Tasks перед созданием списка задач.");
     }
 
@@ -3837,7 +3861,7 @@ export function GenesisCalendar() {
         recurrenceSeriesId: null,
         calendarMode: activeTaskCalendarMode,
         calendarNote: calendarDateNote(start, activeTaskCalendarMode),
-        syncToGoogle: cloudUser?.authProvider !== "yandex",
+        syncToGoogle: cloudUser?.authProvider === "google",
         syncAccountIds: syncAccountIdsForTask(project?.categoryId ?? null, taskList),
         googleLinks: {},
         googleAccountId: taskList?.accountId ?? null,
@@ -4276,7 +4300,7 @@ export function GenesisCalendar() {
           </label>
           <label htmlFor={`${context}-new-task-time-hour`}>
             <span>Время</span>
-            <TimeClockPicker id={`${context}-new-task-time-hour`} value={taskTime} timeFormat={activeTimeFormat} disabled={Boolean(taskTaskListId) && cloudUser?.authProvider !== "yandex"} onChange={setTaskTime} />
+            <TimeClockPicker id={`${context}-new-task-time-hour`} value={taskTime} timeFormat={activeTimeFormat} disabled={Boolean(taskTaskListId) && cloudUser?.authProvider === "google"} onChange={setTaskTime} />
           </label>
           {cloudUser?.authProvider === "yandex" ? <label className="yandex-all-day"><input type="checkbox" checked={!taskTime}
             onChange={(event) => {
@@ -4324,13 +4348,13 @@ export function GenesisCalendar() {
               const nextTaskListId = event.target.value;
               setTaskTaskListId(nextTaskListId);
               if (nextTaskListId !== CREATE_NEW_TASK_LIST_ID) setTaskNewListTitle("");
-              if (nextTaskListId && cloudUser?.authProvider !== "yandex") {
+              if (nextTaskListId && cloudUser?.authProvider === "google") {
                 setTaskTime("");
                 setTaskReminders([]);
               }
             }}>
-              <option value="">{cloudUser?.authProvider === "yandex" ? "Яндекс.Календарь" : "Google Calendar"}</option>
-              {taskLists.map((taskList) => <option value={taskList.id} key={`${taskList.accountId ?? "primary"}-${taskList.id}`}>{cloudUser?.authProvider === "yandex" ? "Список GENESIS" : "Google Tasks"} · {taskList.title}{taskList.accountEmail ? ` · ${taskList.accountEmail}` : ""}</option>)}
+              <option value="">{cloudUser?.authProvider === "yandex" ? "Яндекс.Календарь" : cloudUser?.authProvider === "vk" ? "Задачи GENESIS" : "Google Calendar"}</option>
+              {taskLists.map((taskList) => <option value={taskList.id} key={`${taskList.accountId ?? "primary"}-${taskList.id}`}>{cloudUser?.authProvider !== "google" ? "Список GENESIS" : "Google Tasks"} · {taskList.title}{taskList.accountEmail ? ` · ${taskList.accountEmail}` : ""}</option>)}
               <option value={CREATE_NEW_TASK_LIST_ID}>＋ Начать новый список задач</option>
             </select>
           </label>
@@ -4355,7 +4379,7 @@ export function GenesisCalendar() {
           value={taskRecurrenceConfig}
           onChange={setTaskRecurrenceConfig}
           startDate={newTaskDueDate}
-          destination={taskTaskListId && cloudUser?.authProvider !== "yandex" ? "tasks" : "calendar"}
+          destination={taskTaskListId && cloudUser?.authProvider === "google" ? "tasks" : "calendar"}
           calendarMode={activeTaskCalendarMode}
         />
         <div className="task-form-section task-form-settings" aria-label="Настройки задачи">
@@ -4367,7 +4391,7 @@ export function GenesisCalendar() {
             taskTime={taskTime}
             calendarMode={activeTaskCalendarMode}
             timeFormat={activeTimeFormat}
-            disabled={Boolean(taskTaskListId) && cloudUser?.authProvider !== "yandex"}
+            disabled={Boolean(taskTaskListId) && cloudUser?.authProvider === "google"}
           />
           <div className="task-form-field task-form-priority">
             <span>Приоритет</span>
@@ -4411,7 +4435,9 @@ export function GenesisCalendar() {
         ) : null}
         <div className="sync-checkbox sync-always-on">
           <span aria-hidden="true">✓</span>
-          <span>{cloudUser?.authProvider === "yandex"
+          <span>{cloudUser?.authProvider === "vk"
+            ? "Задача будет зашифрована на сервере GENESIS и синхронизирована между вашими устройствами."
+            : cloudUser?.authProvider === "yandex"
             ? translateText("Запись будет синхронизирована с Яндекс.Календарём по времени устройства.", language)
             : createsTaskList
             ? taskRecurrenceConfig.enabled
@@ -6215,7 +6241,9 @@ export function GenesisCalendar() {
       : syncStatus === "syncing"
         ? "Синхронизация…"
         : syncStatus === "synced"
-          ? cloudUser?.authProvider === "yandex"
+          ? cloudUser?.authProvider === "vk"
+            ? "Синхронизировано с GENESIS"
+            : cloudUser?.authProvider === "yandex"
             ? (cloudUser.calendarConnected ? "Яндекс.Календарь подключён" : "Сохранено на устройстве")
             : "Синхронизировано с Google"
           : syncStatus === "offline"
@@ -6223,7 +6251,7 @@ export function GenesisCalendar() {
             : syncStatus === "error"
               ? "Ошибка синхронизации"
               : syncStatus === "setup"
-                ? cloudUser?.authProvider === "yandex" ? "Синхронизация…" : "Google-синхронизация готовится"
+                ? cloudUser?.authProvider !== "google" ? "Синхронизация…" : "Google-синхронизация готовится"
                 : "Сохранено на устройстве";
 
   const visibleNavigation = habitWorkspace.habitSettings.enabled ? NAVIGATION : NAVIGATION.filter((item) => item.id !== "habits");
@@ -6292,6 +6320,7 @@ export function GenesisCalendar() {
 
   if (isGoogleSyncConfigured && !cloudUser) {
     return (
+      <Suspense fallback={<main className="welcome-shell" aria-busy="true" />}>
       <WelcomeScreen
         nativeAndroidApkUrl={nativeAndroidApkUrl}
         busy={syncStatus === "syncing"}
@@ -6300,8 +6329,11 @@ export function GenesisCalendar() {
         onLanguageChange={selectLanguage}
         onGoogle={() => void handleGoogleSignIn()}
         onYandex={() => void handleYandexSignIn()}
+        onVk={() => void handleVkSignIn()}
         yandexAvailable={yandexAvailable}
+        vkAvailable={vkAvailable}
       />
+      </Suspense>
     );
   }
 
@@ -6370,7 +6402,7 @@ export function GenesisCalendar() {
         <div className={`sidebar-foot sync-${syncStatus}`} title={syncError || syncLabel}>
           <span className="sync-dot" aria-hidden="true" />
           <span>
-            {cloudUser ? (cloudUser.authProvider === "yandex" ? "Яндекс.Календарь" : "Google-синхронизация") : "Локальное хранение"}
+            {cloudUser ? (cloudUser.authProvider === "vk" ? "GENESIS · зашифрованные задачи" : cloudUser.authProvider === "yandex" ? "Яндекс.Календарь" : "Google-синхронизация") : "Локальное хранение"}
             <br />
             {cloudUser?.email ?? (isStandalone ? "Приложение установлено" : "Веб-приложение")}
           </span>
@@ -6385,7 +6417,7 @@ export function GenesisCalendar() {
           </div>
           <div className="topbar-actions">
             {nativeAndroidApkUrl ? (
-              <a className="icon-button ux-action-button android-native-icon-button" href={nativeAndroidApkUrl} download="GENESIS-Android-Native-2.5.1.apk" data-tooltip={language === "en" ? "Native Android app · remove the old TWA first" : "Нативное приложение · сначала удалите прежнюю TWA"} title={language === "en" ? "Native GENESIS APK; old TWA must be removed first" : "Нативный GENESIS APK; прежнюю TWA необходимо сначала удалить"} aria-label={language === "en" ? "Download native GENESIS for Android; remove the old TWA first" : "Скачать нативный GENESIS для Android; сначала удалите старую TWA"}>
+              <a className="icon-button ux-action-button android-native-icon-button" href={nativeAndroidApkUrl} download="GENESIS-Android-Native-2.5.2.apk" data-tooltip={language === "en" ? "Native Android app · remove the old TWA first" : "Нативное приложение · сначала удалите прежнюю TWA"} title={language === "en" ? "Native GENESIS APK; old TWA must be removed first" : "Нативный GENESIS APK; прежнюю TWA необходимо сначала удалить"} aria-label={language === "en" ? "Download native GENESIS for Android; remove the old TWA first" : "Скачать нативный GENESIS для Android; сначала удалите старую TWA"}>
                 <svg className="ux-android-robot" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M5.5 9h13v8.5a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2V9ZM5.5 9a6.5 6.5 0 0 1 13 0M4 11v5M20 11v5M9 19.5V22M15 19.5V22M7 3 5.5 1M17 3 18.5 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><circle cx="9.3" cy="7" r=".8" fill="currentColor"/><circle cx="14.7" cy="7" r=".8" fill="currentColor"/></svg>
               </a>
             ) : null}
@@ -6422,13 +6454,13 @@ export function GenesisCalendar() {
                     style={cloudUser.photoURL ? { backgroundImage: `url(${cloudUser.photoURL})` } : undefined}
                     aria-hidden="true"
                   >
-                    {cloudUser.photoURL ? "" : "G"}
+                    {cloudUser.photoURL ? "" : cloudUser.authProvider === "vk" ? "VK" : cloudUser.authProvider === "yandex" ? "Y" : "G"}
                   </span>
                   {accountIdentityExpanded ? <span>
-                    <strong>{cloudUser.displayName || "Google"}</strong>
+                    <strong>{cloudUser.displayName || (cloudUser.authProvider === "vk" ? "VK ID" : cloudUser.authProvider === "yandex" ? "Яндекс" : "Google")}</strong>
                     <small>{cloudUser.calendarConnected
                       ? (cloudUser.authProvider === "yandex" ? "Яндекс.Календарь подключён" : "Google Calendar подключён")
-                      : "личный кабинет"}</small>
+                      : cloudUser.authProvider === "vk" ? "Данные в GENESIS" : "личный кабинет"}</small>
                   </span> : null}
                 </button>
                 {accountMenuOpen ? (
@@ -6884,7 +6916,8 @@ export function GenesisCalendar() {
             <h2 id="task-editor-title">{cloudUser?.authProvider === "yandex" ? "Запись Яндекс.Календаря" : "Задача и её контекст"}</h2>
             <p className="editor-source-note">
               {taskOriginMeta(editingTask.createdIn).label}.
-              {cloudUser?.authProvider === "yandex" ? " Изменения синхронизируются с Яндекс.Календарём."
+              {cloudUser?.authProvider === "vk" ? " Изменения синхронизируются с зашифрованной копией GENESIS."
+                : cloudUser?.authProvider === "yandex" ? " Изменения синхронизируются с Яндекс.Календарём."
                 : editingTask.googleTaskListTitle ? ` Список Google Tasks: «${editingTask.googleTaskListTitle}».` : " Изменения синхронизируются с Google Calendar."}
             </p>
             {cloudUser?.authProvider === "yandex" ? <label><span>Тип записи</span>
@@ -6925,7 +6958,7 @@ export function GenesisCalendar() {
                   id="edit-task-time-hour"
                   value={editingTask.time}
                   timeFormat={activeTimeFormat}
-                  disabled={Boolean(editingTask.googleTaskId) && cloudUser?.authProvider !== "yandex"}
+                  disabled={Boolean(editingTask.googleTaskId) && cloudUser?.authProvider === "google"}
                   onChange={(value) => setEditingTask((current) => current ? { ...current, time: value } : current)}
                 />
               </label>
@@ -6987,23 +7020,23 @@ export function GenesisCalendar() {
                     googleAccountId: destination?.accountId ?? null,
                     googleAccountEmail: destination?.accountEmail ?? "",
                     syncAccountIds: destination?.accountId ? [destination.accountId] : current.syncAccountIds,
-                    time: nextListId && cloudUser?.authProvider !== "yandex" ? "" : current.time,
-                    reminders: nextListId && cloudUser?.authProvider !== "yandex" ? [] : current.reminders,
-                    reminderMinutes: nextListId && cloudUser?.authProvider !== "yandex" ? null : current.reminderMinutes,
-                    recurrence: nextListId && cloudUser?.authProvider !== "yandex" ? "none" : current.recurrence,
-                    recurrenceInterval: nextListId && cloudUser?.authProvider !== "yandex" ? 1 : current.recurrenceInterval,
-                    recurrenceMode: nextListId && cloudUser?.authProvider !== "yandex" ? "none" : current.recurrenceMode,
-                    recurrencePattern: nextListId && cloudUser?.authProvider !== "yandex" ? "none" : current.recurrencePattern,
-                    recurrenceDays: nextListId && cloudUser?.authProvider !== "yandex" ? [] : current.recurrenceDays,
-                    recurrenceStartDate: nextListId && cloudUser?.authProvider !== "yandex" ? null : current.recurrenceStartDate,
-                    recurrenceEndDate: nextListId && cloudUser?.authProvider !== "yandex" ? null : current.recurrenceEndDate,
-                    recurrenceMonths: nextListId && cloudUser?.authProvider !== "yandex" ? [] : current.recurrenceMonths,
-                    recurrencePyatas: nextListId && cloudUser?.authProvider !== "yandex" ? [] : current.recurrencePyatas,
-                    recurrenceExcludedDates: nextListId && cloudUser?.authProvider !== "yandex" ? [] : current.recurrenceExcludedDates,
-                    recurrenceSeriesId: nextListId && cloudUser?.authProvider !== "yandex" ? null : current.recurrenceSeriesId,
+                    time: nextListId && cloudUser?.authProvider === "google" ? "" : current.time,
+                    reminders: nextListId && cloudUser?.authProvider === "google" ? [] : current.reminders,
+                    reminderMinutes: nextListId && cloudUser?.authProvider === "google" ? null : current.reminderMinutes,
+                    recurrence: nextListId && cloudUser?.authProvider === "google" ? "none" : current.recurrence,
+                    recurrenceInterval: nextListId && cloudUser?.authProvider === "google" ? 1 : current.recurrenceInterval,
+                    recurrenceMode: nextListId && cloudUser?.authProvider === "google" ? "none" : current.recurrenceMode,
+                    recurrencePattern: nextListId && cloudUser?.authProvider === "google" ? "none" : current.recurrencePattern,
+                    recurrenceDays: nextListId && cloudUser?.authProvider === "google" ? [] : current.recurrenceDays,
+                    recurrenceStartDate: nextListId && cloudUser?.authProvider === "google" ? null : current.recurrenceStartDate,
+                    recurrenceEndDate: nextListId && cloudUser?.authProvider === "google" ? null : current.recurrenceEndDate,
+                    recurrenceMonths: nextListId && cloudUser?.authProvider === "google" ? [] : current.recurrenceMonths,
+                    recurrencePyatas: nextListId && cloudUser?.authProvider === "google" ? [] : current.recurrencePyatas,
+                    recurrenceExcludedDates: nextListId && cloudUser?.authProvider === "google" ? [] : current.recurrenceExcludedDates,
+                    recurrenceSeriesId: nextListId && cloudUser?.authProvider === "google" ? null : current.recurrenceSeriesId,
                   } : current);
                 }}>
-                  <option value="">{cloudUser?.authProvider === "yandex" ? "Яндекс.Календарь" : "Google Calendar"}</option>
+                  <option value="">{cloudUser?.authProvider === "vk" ? "Задачи GENESIS" : cloudUser?.authProvider === "yandex" ? "Яндекс.Календарь" : "Google Calendar"}</option>
                   {taskLists.map((taskList) => <option value={taskList.id} key={`${taskList.accountId ?? "primary"}-${taskList.id}`}>Список · {taskList.title}{taskList.accountEmail ? ` · ${taskList.accountEmail}` : ""}</option>)}
                 </select>
               </label>

@@ -9,6 +9,9 @@ return [
     // Keep the secret only in the private server/config.php file.
     'yandex_client_id' => '',
     'yandex_client_secret' => '',
+    // Public VK ID web application ID. No VK secret is bundled into the APK.
+    // Leave empty until the redirect URI has been registered and tested.
+    'vk_client_id' => '',
     // Recommended neural provider for Russian hosting. Create one GigaChat API
     // project, paste its Authorization Key here once, and token renewal will be
     // handled automatically by GENESIS.

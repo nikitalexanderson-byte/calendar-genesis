@@ -419,14 +419,16 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
         <p className="account-email">{user.email}</p>
 
         <div className="account-security-grid">
-          {user.authProvider === "yandex"
+          {user.authProvider === "vk"
+            ? <article><span>VK ID</span><strong>{user.language === "en" ? "Connected" : "Подключён"}</strong><small>{user.language === "en" ? "Tasks are encrypted on the GENESIS server and synced between your devices. There is no VK calendar backup. Recovery depends more on GENESIS than with a connected Google or Yandex calendar." : "Задачи зашифрованы на сервере GENESIS и синхронизируются между вашими устройствами. Копии в VK-календаре нет. Восстановление сильнее зависит от GENESIS, чем при подключённом Google или Яндекс календаре."} <a href="/privacy">{user.language === "en" ? "Privacy policy" : "Политика конфиденциальности"}</a></small></article>
+            : user.authProvider === "yandex"
             ? <article><span>Яндекс ID</span><strong>Подключён</strong><small>{user.calendarConnected ? "Яндекс.Календарь подключён. Задачи синхронизируются как события; списки хранятся в зашифрованном пространстве GENESIS." : "Вход через Яндекс. Подключите календарь отдельно."}</small></article>
             : <article><span>Google-сервисы</span><strong>{user.calendarConnected && user.googleTasksImportReady ? "Подключены" : "По желанию"}</strong><small>Calendar и Tasks подключаются отдельным согласием после входа.</small></article>}
           <article><span>Личные данные</span><strong>Зашифрованы</strong><small>AES-GCM в браузере; ключ хранится на сервере отдельно и зашифрован для автоматического входа.</small></article>
           <article><span>Офлайн-копия</span><strong>На устройстве</strong><small>Доступна без сети после входа на этом устройстве.</small></article>
         </div>
 
-        {user.authProvider !== "yandex" && !user.googleTasksImportReady ? (
+        {user.authProvider === "google" && !user.googleTasksImportReady ? (
           <section className="account-sync-upgrade" aria-label="Синхронизация Google Tasks">
             <div>
               <strong>Подключите Google Calendar и Google Tasks</strong>

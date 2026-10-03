@@ -80,6 +80,12 @@ private fun seasonForGregorianMonth(month: Int, southern: Boolean): GregorianSea
     GregorianSeason.SUMMER -> Color(0xffadc8d4)
     GregorianSeason.AUTUMN -> Color(0xffddb2a7)
 }
+private fun seasonHeaderTone(season: GregorianSeason): Color = when (season) {
+    GregorianSeason.WINTER -> Color(0xff223b40)
+    GregorianSeason.SPRING -> Color(0xff204a36)
+    GregorianSeason.SUMMER -> Color(0xff17445b)
+    GregorianSeason.AUTUMN -> Color(0xff613b35)
+}
 private fun dateLabel(locale: Locale) = DateTimeFormatter.ofPattern("d MMM yyyy", locale)
 
 internal fun sacredMonthArtPath(index: Int): String {
@@ -1043,18 +1049,27 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
                             regionalSeasonArt), null,
                             Modifier.matchParentSize().alpha(if (LocalEveningTheme.current) .78f else .39f)
                                 .testTag("gregorian-season-art-${season.name.lowercase()}"))
-                        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Box(Modifier.fillMaxWidth().height(92.dp).background(
+                                Brush.verticalGradient(listOf(
+                                    seasonHeaderTone(season).copy(alpha = .97f),
+                                    seasonHeaderTone(season).copy(alpha = .84f),
+                                    seasonHeaderTone(season).copy(alpha = .20f))))) {
                             Text(if (LocalGenesisLanguage.current == "en") season.englishTitle else season.title,
-                                Modifier.padding(start = 8.dp, top = 6.dp, bottom = 4.dp),
+                                Modifier.padding(start = 18.dp, top = 16.dp)
+                                    .testTag("gregorian-season-heading-${season.name.lowercase()}"),
                                 style = MaterialTheme.typography.titleLarge.copy(
-                                    shadow = if (LocalEveningTheme.current) Shadow(
-                                        color = Color(0xfff3ecdb).copy(alpha = .8f),
-                                        offset = Offset.Zero, blurRadius = 5f) else null),
-                                color = if (LocalEveningTheme.current) Color(0xff172623) else seasonAccent(season))
+                                    shadow = Shadow(color = Color.Black.copy(alpha = .65f),
+                                        offset = Offset(0f, 2f), blurRadius = 6f)),
+                                color = Color(0xfffff9ed))
+                            }
+                            Column(Modifier.padding(start = 10.dp, end = 10.dp, bottom = 10.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             seasonMonths.forEachIndexed { index, (start, name, title) ->
                                 if (index > 0) HorizontalDivider(color = seasonAccent(season).copy(alpha = .18f))
                                 CalendarYearMonthCard(calendar, start, mode, start.monthValue, name, title,
                                     tasks, onMonth, locale)
+                            }
                             }
                         }
                         }

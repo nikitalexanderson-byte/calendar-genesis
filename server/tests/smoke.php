@@ -7,6 +7,7 @@ require dirname(__DIR__) . '/src/ads.php';
 require dirname(__DIR__) . '/src/google.php';
 require dirname(__DIR__) . '/src/yandex.php';
 require dirname(__DIR__) . '/src/yandex-calendar.php';
+require dirname(__DIR__) . '/src/vk.php';
 require dirname(__DIR__) . '/src/gemini.php';
 
 function expect(bool $condition, string $message): void
@@ -53,6 +54,41 @@ try {
         expect(str_contains($expected->getMessage(), 'другим аккаунтом'), 'Provider conflict had an unexpected result.');
     }
     $db->prepare('DELETE FROM users WHERE id = :id')->execute(['id' => (string)$yandexUser['id']]);
+    $vkProfile = [
+        'id' => 'genesis-vk-smoke', 'email' => 'vk.smoke@example.org',
+        'name' => 'VK Smoke', 'picture' => null,
+    ];
+    $vkUser = genesisUpsertVkUser($vkProfile);
+    expect(genesisFindUserByVkUid($vkProfile['id'])['id'] === $vkUser['id'], 'VK identity lookup failed.');
+    expect(genesisUserProvider($vkUser) === 'vk', 'VK identity was not isolated.');
+    expect((genesisUserForClient($vkUser)['authProvider'] ?? '') === 'vk', 'VK provider was not exposed.');
+    expect(!genesisIsAdminUser($vkUser), 'VK identity received administrator privileges.');
+    expect(genesisUpsertVkUser($vkProfile)['id'] === $vkUser['id'], 'VK repeat login duplicated the account.');
+    try {
+        genesisUpsertVkUser(['id' => 'another-vk-identity', 'email' => 'genesis.smoke.test@gmail.com',
+            'name' => 'Conflict', 'picture' => null]);
+        throw new RuntimeException('VK account was merged with a Google account by email.');
+    } catch (DomainException $expected) {
+        expect(str_contains($expected->getMessage(), 'another GENESIS account'), 'VK account conflict had an unexpected result.');
+    }
+    $vkTask = genesisSyncTaskToVk((string)$vkUser['id'], 'vk-smoke-task',
+        ['title' => 'Private VK task', 'status' => 'active']);
+    expect(($vkTask['title'] ?? '') === 'Private VK task', 'VK task was not created.');
+    $encrypted = $db->prepare('SELECT payload_enc FROM vk_tasks WHERE user_id = :id AND task_id = :task');
+    $encrypted->execute(['id' => (string)$vkUser['id'], 'task' => 'vk-smoke-task']);
+    expect(!str_contains((string)$encrypted->fetchColumn(), 'Private VK task'), 'VK task was saved in plaintext.');
+    expect(count(genesisVkTasksForClient((string)$vkUser['id'])) === 1, 'VK task was not decrypted for its owner.');
+    $db->prepare('UPDATE vk_tasks SET payload_enc = :bad WHERE user_id = :id AND task_id = :task')
+        ->execute(['bad' => 'corrupt', 'id' => (string)$vkUser['id'], 'task' => 'vk-smoke-task']);
+    try {
+        genesisVkTasksForClient((string)$vkUser['id']);
+        throw new RuntimeException('A corrupted VK task was silently omitted.');
+    } catch (RuntimeException $expected) {
+        expect(str_contains($expected->getMessage(), 'could not be decrypted'), 'Corrupted VK task had an unexpected result.');
+    }
+    genesisDeleteVkTask((string)$vkUser['id'], 'vk-smoke-task');
+    expect(genesisVkTasksForClient((string)$vkUser['id']) === [], 'VK task deletion failed.');
+    $db->prepare('DELETE FROM users WHERE id = :id')->execute(['id' => (string)$vkUser['id']]);
     $user = genesisUpdateAccountPreferences($userId, ['calendarMode' => 'sacred', 'taskCalendarMode' => 'lunar', 'timeFormat' => '12h', 'weekStart' => 'monday', 'gregorianYearStart' => 'march', 'language' => 'en']);
     expect(($user['calendar_mode'] ?? '') === 'sacred', 'Calendar preference was not stored.');
     expect((genesisUserForClient($user)['calendarMode'] ?? '') === 'sacred', 'Calendar preference was not exposed to the client.');
