@@ -27,6 +27,7 @@ require $serverRoot . '/src/google.php';
 require $serverRoot . '/src/yandex.php';
 require $serverRoot . '/src/yandex-calendar.php';
 require $serverRoot . '/src/vk.php';
+require $serverRoot . '/src/local-accounts.php';
 require $serverRoot . '/src/native-auth.php';
 require $serverRoot . '/src/gemini.php';
 
@@ -186,10 +187,8 @@ try {
         $tasks = [];
         $syncWarning = null;
         try {
-            if (genesisUserProvider($user) === 'vk') {
-                $tasks = genesisVkTasksForClient($userId);
-            } elseif (genesisUserProvider($user) === 'yandex') {
-                $tasks = genesisYandexCalendarTasksForClient($userId);
+            if (genesisUserProvider($user) !== 'google') {
+                $tasks = genesisLocalTasksForClient($user);
             } else {
                 $tasks = genesisListAllGoogleTasks($user);
                 $syncWarning = genesisGoogleTasksSyncWarning();
@@ -206,7 +205,8 @@ try {
             'csrf' => (string)$_SESSION['csrf'],
             'tasks' => $tasks,
             'tasksDeferred' => genesisUserProvider($user) === 'yandex'
-                && genesisYandexCalendarConnection($userId) === null,
+                && !array_reduce(genesisLocalAccountMembers($user),
+                    static fn(bool $found, array $account): bool => $found || !empty($account['tasksConnected']), false),
             'taskLists' => genesisGoogleTaskListsForClient(),
             'workspace' => genesisWorkspaceForClient($user),
             'syncWarning' => $syncWarning,
@@ -246,9 +246,7 @@ try {
         session_write_close();
         $provider = genesisUserProvider($user);
         $local = $provider !== 'google';
-        $tasks = $provider === 'vk' ? genesisVkTasksForClient($userId)
-            : ($provider === 'yandex' ? genesisYandexCalendarTasksForClient($userId)
-                : genesisListAllGoogleTasks($user));
+        $tasks = $local ? genesisLocalTasksForClient($user) : genesisListAllGoogleTasks($user);
         genesisJson([
             'tasks' => $tasks,
             'taskLists' => $local ? [] : genesisGoogleTaskListsForClient(),
@@ -363,12 +361,23 @@ try {
         if ($flow !== '' && !preg_match('/\A[A-Za-z0-9_-]{43}\z/D', $flow)) {
             genesisJson(['error' => 'INVALID_NATIVE_FLOW'], 400);
         }
+        $purpose = (string)($_GET['purpose'] ?? 'login') === 'link' ? 'link' : 'login';
+        $linkOwner = null;
+        if ($purpose === 'link') {
+            if ($flow !== '') genesisJson(['error' => 'INVALID_LINK_FLOW'], 400);
+            $linkOwner = genesisRequireUserId();
+            $owner = genesisFindUser($linkOwner);
+            if ($owner === null || genesisUserProvider($owner) === 'google') {
+                genesisJson(['error' => 'LOCAL_ACCOUNT_REQUIRED'], 403);
+            }
+        }
         $state = genesisBase64Url(random_bytes(32));
         $verifier = genesisBase64Url(random_bytes(64));
         $_SESSION['vk_oauth_request'] = [
             'state' => $state, 'verifier' => $verifier,
             'return_to' => genesisSafeReturnTo((string)($_GET['return_to'] ?? '/')),
-            'native_flow' => $flow, 'issued_at' => time(),
+            'native_flow' => $flow, 'purpose' => $purpose,
+            'owner_id' => $linkOwner, 'issued_at' => time(),
         ];
         header('Cache-Control: no-store');
         header('Location: ' . genesisVkAuthUrl(
@@ -404,6 +413,14 @@ try {
         try {
             $tokens = genesisVkExchangeCode($code, $deviceId, (string)$request['verifier'], $state);
             $profile = genesisVkUserInfo($tokens);
+            if (($request['purpose'] ?? 'login') === 'link') {
+                $ownerId = (string)($request['owner_id'] ?? '');
+                if ($ownerId === '' || genesisCurrentUserId() !== $ownerId) {
+                    genesisOAuthRedirect($returnTo, 'session_expired');
+                }
+                genesisBeginLocalLink($ownerId, 'vk', $profile);
+                genesisOAuthRedirect($returnTo);
+            }
             $newAccount = genesisFindUserByVkUid((string)$profile['id']) === null;
             $user = genesisUpsertVkUser($profile);
             if ($flow !== '') $ticket = genesisVkIssueNativeTicket((string)$user['id'], $flow, $newAccount);
@@ -430,7 +447,7 @@ try {
         $flow = is_string($payload['flow'] ?? null) ? trim($payload['flow']) : '';
         $resolved = genesisVkConsumeNativeTicket($ticket, $flow);
         $user = genesisFindUser($resolved['userId']);
-        if ($user === null || genesisUserProvider($user) !== 'vk') genesisJson(['error' => 'AUTH_REQUIRED'], 401);
+        if ($user === null || genesisUserProvider($user) === 'google') genesisJson(['error' => 'AUTH_REQUIRED'], 401);
         if (!session_regenerate_id(true)) genesisJson(['error' => 'SESSION_UNAVAILABLE'], 503);
         $_SESSION['user_id'] = (string)$user['id'];
         $_SESSION['csrf'] = bin2hex(random_bytes(24));
@@ -441,6 +458,15 @@ try {
 
     if ($method === 'GET' && $path === 'auth/yandex/start') {
         if (!genesisYandexConfigured()) genesisJson(['error' => 'YANDEX_NOT_CONFIGURED'], 503);
+        $purpose = (string)($_GET['purpose'] ?? 'login') === 'link' ? 'link' : 'login';
+        $linkOwner = null;
+        if ($purpose === 'link') {
+            $linkOwner = genesisRequireUserId();
+            $owner = genesisFindUser($linkOwner);
+            if ($owner === null || genesisUserProvider($owner) === 'google') {
+                genesisJson(['error' => 'LOCAL_ACCOUNT_REQUIRED'], 403);
+            }
+        }
         $returnTo = genesisSafeReturnTo((string)($_GET['return_to'] ?? '/'));
         $state = genesisBase64Url(random_bytes(32));
         $verifier = genesisBase64Url(random_bytes(64));
@@ -448,6 +474,8 @@ try {
             'state' => $state,
             'verifier' => $verifier,
             'return_to' => $returnTo,
+            'purpose' => $purpose,
+            'owner_id' => $linkOwner,
             'issued_at' => time(),
         ];
         header('Cache-Control: no-store');
@@ -494,7 +522,16 @@ try {
         if ($code === '' || strlen($code) > 8192) genesisOAuthRedirect($returnTo, 'yandex_oauth_failed');
         try {
             $tokens = genesisExchangeYandexCode($code, (string)($request['verifier'] ?? ''));
-            $user = genesisUpsertYandexUser(genesisYandexUserInfo((string)($tokens['access_token'] ?? '')));
+            $profile = genesisYandexUserInfo((string)($tokens['access_token'] ?? ''));
+            if (($request['purpose'] ?? 'login') === 'link') {
+                $ownerId = (string)($request['owner_id'] ?? '');
+                if ($ownerId === '' || genesisCurrentUserId() !== $ownerId) {
+                    genesisOAuthRedirect($returnTo, 'session_expired');
+                }
+                genesisBeginLocalLink($ownerId, 'yandex', $profile);
+                genesisOAuthRedirect($returnTo);
+            }
+            $user = genesisUpsertYandexUser($profile);
             if (!session_regenerate_id(true)) throw new RuntimeException('Session could not be renewed.');
             $_SESSION['user_id'] = (string)$user['id'];
             $_SESSION['csrf'] = bin2hex(random_bytes(24));
@@ -747,6 +784,25 @@ try {
         genesisFinishSession(['ok' => true, 'deleted' => true]);
     }
 
+    if ($method === 'GET' && $path === 'account/local-link/pending') {
+        $userId = genesisRequireUserId();
+        header('Cache-Control: no-store');
+        genesisJson(['pending' => genesisPendingLocalLink($userId)]);
+    }
+
+    if ($method === 'POST' && $path === 'account/local-link/commit') {
+        $userId = genesisRequireUserId();
+        genesisRequireCsrf();
+        genesisJson(['user' => genesisUserForClient(genesisCommitLocalLink($userId, genesisReadJson()))]);
+    }
+
+    if ($method === 'POST' && $path === 'account/local-link/cancel') {
+        genesisRequireUserId();
+        genesisRequireCsrf();
+        unset($_SESSION['pending_local_link']);
+        genesisJson(['ok' => true]);
+    }
+
     if ($method === 'POST' && $path === 'account/google-services/disconnect') {
         $userId = genesisRequireUserId();
         genesisRequireGoogleUser($userId);
@@ -757,19 +813,28 @@ try {
 
     if ($method === 'POST' && $path === 'account/yandex-calendar/connect') {
         $userId = genesisRequireUserId();
-        $user = genesisRequireYandexUser($userId);
+        $user = genesisFindUser($userId);
+        if ($user === null || genesisUserProvider($user) === 'google') genesisJson(['error' => 'LOCAL_ACCOUNT_REQUIRED'], 403);
         genesisRequireCsrf();
         $payload = genesisReadJson();
-        genesisYandexCalendarConnect($userId, (string)($payload['login'] ?? $user['email']),
+        $accountId = trim((string)($payload['accountId'] ?? $userId));
+        $member = genesisLocalMemberForOwner($userId, $accountId);
+        if ($member === null || $member['provider'] !== 'yandex') genesisJson(['error' => 'YANDEX_ACCOUNT_REQUIRED'], 403);
+        genesisYandexCalendarConnect($accountId, (string)($payload['login'] ?? $member['email']),
             (string)($payload['appPassword'] ?? ''));
         genesisJson(['user' => genesisUserForClient($user)]);
     }
 
     if ($method === 'POST' && $path === 'account/yandex-calendar/disconnect') {
         $userId = genesisRequireUserId();
-        $user = genesisRequireYandexUser($userId);
+        $user = genesisFindUser($userId);
+        if ($user === null || genesisUserProvider($user) === 'google') genesisJson(['error' => 'LOCAL_ACCOUNT_REQUIRED'], 403);
         genesisRequireCsrf();
-        genesisYandexCalendarDisconnect($userId);
+        $payload = genesisReadJson();
+        $accountId = trim((string)($payload['accountId'] ?? $userId));
+        $member = genesisLocalMemberForOwner($userId, $accountId);
+        if ($member === null || $member['provider'] !== 'yandex') genesisJson(['error' => 'YANDEX_ACCOUNT_REQUIRED'], 403);
+        genesisYandexCalendarDisconnect($accountId);
         genesisJson(['user' => genesisUserForClient($user)]);
     }
 
@@ -817,16 +882,13 @@ try {
         }
         if ($method === 'PUT') {
             $task = genesisReadJson();
-            genesisJson(['task' => match (genesisUserProvider($user)) {
-                'vk' => genesisSyncTaskToVk($userId, $id, $task),
-                'yandex' => genesisSyncTaskToYandex($userId, $id, $task),
-                default => genesisSyncTaskToGoogle($userId, $id, $task),
-            }]);
+            genesisJson(['task' => genesisUserProvider($user) === 'google'
+                ? genesisSyncTaskToGoogle($userId, $id, $task)
+                : genesisSyncTaskToLocalGroup($user, $id, $task)]);
         }
         if ($method === 'DELETE') {
-            if (genesisUserProvider($user) === 'vk') genesisDeleteVkTask($userId, $id);
-            elseif (genesisUserProvider($user) === 'yandex') genesisDeleteYandexCalendarTask($userId, $id);
-            else genesisDeleteGoogleTaskEvent($userId, $id, genesisReadJson());
+            if (genesisUserProvider($user) === 'google') genesisDeleteGoogleTaskEvent($userId, $id, genesisReadJson());
+            else genesisDeleteTaskFromLocalGroup($user, $id);
             genesisJson(['ok' => true]);
         }
     }

@@ -8,6 +8,7 @@ require dirname(__DIR__) . '/src/google.php';
 require dirname(__DIR__) . '/src/yandex.php';
 require dirname(__DIR__) . '/src/yandex-calendar.php';
 require dirname(__DIR__) . '/src/vk.php';
+require dirname(__DIR__) . '/src/local-accounts.php';
 require dirname(__DIR__) . '/src/gemini.php';
 
 function expect(bool $condition, string $message): void
@@ -89,6 +90,42 @@ try {
     genesisDeleteVkTask((string)$vkUser['id'], 'vk-smoke-task');
     expect(genesisVkTasksForClient((string)$vkUser['id']) === [], 'VK task deletion failed.');
     $db->prepare('DELETE FROM users WHERE id = :id')->execute(['id' => (string)$vkUser['id']]);
+    $linkOwner = genesisUpsertYandexUser([
+        'id' => 'genesis-link-yandex-smoke', 'email' => 'link-yandex.smoke@example.org',
+        'name' => 'Link Owner', 'picture' => null,
+    ]);
+    $linkOwnerId = (string)$linkOwner['id'];
+    $newVkProfile = [
+        'id' => 'genesis-link-new-vk-smoke', 'email' => 'link-vk.smoke@example.org',
+        'name' => 'New VK Identity', 'picture' => null,
+    ];
+    expect(genesisBeginLocalLink($linkOwnerId, 'vk', $newVkProfile) === 'linked',
+        'Fresh VK identity was not linked after verified sign-in.');
+    expect(genesisUpsertVkUser($newVkProfile)['id'] === $linkOwnerId,
+        'Linked VK sign-in did not open the Yandex workspace.');
+    expect(count(genesisLocalAccountMembers($linkOwner)) === 2, 'Linked local account was not exposed.');
+    try {
+        genesisBeginLocalLink($userId, 'vk', $newVkProfile);
+        throw new RuntimeException('Google account was linked to VK.');
+    } catch (DomainException $expected) {
+        expect(str_contains($expected->getMessage(), 'cannot be linked'), 'Google isolation error was unexpected.');
+    }
+    $existingYandexProfile = [
+        'id' => 'genesis-link-second-yandex-smoke', 'email' => 'second-yandex.smoke@example.org',
+        'name' => 'Second Yandex', 'picture' => null,
+    ];
+    $separate = genesisUpsertYandexUser($existingYandexProfile);
+    expect(genesisBeginLocalLink($linkOwnerId, 'yandex', $existingYandexProfile) === 'pending',
+        'Existing workspace did not require an explicit merge decision.');
+    expect(genesisPendingLocalLink($linkOwnerId)['memberId'] === $separate['id'],
+        'Pending merge selected the wrong account.');
+    genesisCommitLocalLink($linkOwnerId, ['sourceVersion' => 0]);
+    expect(genesisUpsertYandexUser($existingYandexProfile)['id'] === $linkOwnerId,
+        'Merged Yandex sign-in did not open the shared workspace.');
+    expect(count(genesisLocalAccountMembers($linkOwner)) === 3, 'Three linked identities were not exposed.');
+    genesisDeleteAccount($linkOwnerId);
+    expect(genesisFindUser((string)$separate['id']) === null,
+        'Deleting the local account group left a merged member behind.');
     $user = genesisUpdateAccountPreferences($userId, ['calendarMode' => 'sacred', 'taskCalendarMode' => 'lunar', 'timeFormat' => '12h', 'weekStart' => 'monday', 'gregorianYearStart' => 'march', 'language' => 'en']);
     expect(($user['calendar_mode'] ?? '') === 'sacred', 'Calendar preference was not stored.');
     expect((genesisUserForClient($user)['calendarMode'] ?? '') === 'sacred', 'Calendar preference was not exposed to the client.');

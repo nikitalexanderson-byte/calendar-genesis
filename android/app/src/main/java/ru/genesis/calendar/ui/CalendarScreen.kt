@@ -86,6 +86,11 @@ private fun seasonHeaderTone(season: GregorianSeason): Color = when (season) {
     GregorianSeason.SUMMER -> Color(0xff17445b)
     GregorianSeason.AUTUMN -> Color(0xff613b35)
 }
+private data class YearSeasonGroup(
+    val season: GregorianSeason?,
+    val months: List<Triple<LocalDate, String, String>>,
+    val firstOrdinal: Int,
+)
 private fun dateLabel(locale: Locale) = DateTimeFormatter.ofPattern("d MMM yyyy", locale)
 
 internal fun sacredMonthArtPath(index: Int): String {
@@ -970,7 +975,18 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
         return
     }
     val months = entries.getOrThrow()
-    val yearSeasonGroups = remember(months, seasonRegionZone) {
+    val yearSeasonGroups = remember(months, mode, seasonRegionZone) {
+        if (mode == CalendarMode.SACRED) {
+            months.chunked(3).mapIndexed { index, group ->
+                YearSeasonGroup(when (index) {
+                        0 -> GregorianSeason.SPRING
+                        1 -> GregorianSeason.SUMMER
+                        2 -> GregorianSeason.AUTUMN
+                        3 -> GregorianSeason.WINTER
+                        else -> null
+                    }, group, index * 3)
+            }
+        } else {
         val southern = isSouthernSeasonRegion(seasonRegionZone)
         val groups = mutableListOf<Pair<GregorianSeason, MutableList<Triple<LocalDate, String, String>>>>()
         months.forEach { entry ->
@@ -978,7 +994,8 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
             if (groups.lastOrNull()?.first != season) groups.add(season to mutableListOf())
             groups.last().second.add(entry)
         }
-        groups
+        groups.map { (season, entries) -> YearSeasonGroup(season, entries, 0) }
+        }
     }
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val yearColumns = if (maxWidth >= 780.dp) 2 else 1
@@ -1031,33 +1048,39 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
                 }
             }
         }
-        if (mode == CalendarMode.PROFANE) {
+        if (mode == CalendarMode.PROFANE || mode == CalendarMode.SACRED) {
             yearSeasonGroups.withIndex().toList().chunked(yearColumns).forEach { row ->
               Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 row.forEach { (groupIndex, group) ->
-                  val (season, seasonMonths) = group
+                  val season = group.season
+                  val apeiron = season == null
+                  val seasonKey = season?.name?.lowercase() ?: "apeiron"
+                  val prefix = if (mode == CalendarMode.SACRED) "sacred" else "gregorian"
+                  val accent = if (apeiron) Color(0xffc9a5e8) else seasonAccent(season!!)
                   Box(Modifier.weight(1f)) {
                     CompositionLocalProvider(LocalPreserveCalendarColors provides true) {
                     Card(Modifier.fillMaxWidth().testTag(
-                        "gregorian-season-${season.name.lowercase()}${if (groupIndex > 0 && season == GregorianSeason.WINTER) "-end" else ""}"),
+                        "$prefix-season-$seasonKey${if (mode == CalendarMode.PROFANE && groupIndex > 0 && season == GregorianSeason.WINTER) "-end" else ""}"),
                         shape = RoundedCornerShape(22.dp),
-                        colors = CardDefaults.cardColors(containerColor = seasonSurface(season)
-                            .copy(alpha = if (LocalEveningTheme.current) .22f else .78f)),
-                        border = BorderStroke(1.dp, seasonAccent(season).copy(alpha = .3f))) {
+                        colors = CardDefaults.cardColors(containerColor = if (apeiron) Color(0xff372452)
+                            else seasonSurface(season!!).copy(alpha = if (LocalEveningTheme.current) .22f else .78f)),
+                        border = BorderStroke(1.dp, accent.copy(alpha = .48f))) {
                         Box {
-                        OriginalImage(gregorianSeasonArtPath(season.name.lowercase(), seasonRegionZone,
-                            regionalSeasonArt), null,
-                            Modifier.matchParentSize().alpha(if (LocalEveningTheme.current) .78f else .39f)
-                                .testTag("gregorian-season-art-${season.name.lowercase()}"))
+                        OriginalImage(if (apeiron) "gregorian-seasons/apeiron.png"
+                            else gregorianSeasonArtPath(seasonKey, seasonRegionZone, regionalSeasonArt), null,
+                            Modifier.matchParentSize().alpha(if (apeiron) .76f else if (LocalEveningTheme.current) .78f else .39f)
+                                .testTag("$prefix-season-art-$seasonKey"))
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Box(Modifier.fillMaxWidth().height(92.dp).background(
                                 Brush.verticalGradient(listOf(
-                                    seasonHeaderTone(season).copy(alpha = .97f),
-                                    seasonHeaderTone(season).copy(alpha = .84f),
-                                    seasonHeaderTone(season).copy(alpha = .20f))))) {
-                            Text(if (LocalGenesisLanguage.current == "en") season.englishTitle else season.title,
+                                    (if (apeiron) Color(0xff281740) else seasonHeaderTone(season!!)).copy(alpha = .97f),
+                                    (if (apeiron) Color(0xff281740) else seasonHeaderTone(season!!)).copy(alpha = .84f),
+                                    (if (apeiron) Color(0xff281740) else seasonHeaderTone(season!!)).copy(alpha = .20f))))) {
+                            Text(if (apeiron) {
+                                if (LocalGenesisLanguage.current == "en") "Timelessness" else "Безвременье"
+                            } else if (LocalGenesisLanguage.current == "en") season!!.englishTitle else season!!.title,
                                 Modifier.padding(start = 18.dp, top = 16.dp)
-                                    .testTag("gregorian-season-heading-${season.name.lowercase()}"),
+                                    .testTag("$prefix-season-heading-$seasonKey"),
                                 style = MaterialTheme.typography.titleLarge.copy(
                                     shadow = Shadow(color = Color.Black.copy(alpha = .65f),
                                         offset = Offset(0f, 2f), blurRadius = 6f)),
@@ -1065,9 +1088,11 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
                             }
                             Column(Modifier.padding(start = 10.dp, end = 10.dp, bottom = 10.dp),
                                 verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            seasonMonths.forEachIndexed { index, (start, name, title) ->
-                                if (index > 0) HorizontalDivider(color = seasonAccent(season).copy(alpha = .18f))
-                                CalendarYearMonthCard(calendar, start, mode, start.monthValue, name, title,
+                            group.months.forEachIndexed { index, (start, name, title) ->
+                                if (index > 0) HorizontalDivider(color = accent.copy(alpha = .28f))
+                                CalendarYearMonthCard(calendar, start, mode,
+                                    if (mode == CalendarMode.SACRED) group.firstOrdinal + index + 1 else start.monthValue,
+                                    name, title,
                                     tasks, onMonth, locale)
                             }
                             }

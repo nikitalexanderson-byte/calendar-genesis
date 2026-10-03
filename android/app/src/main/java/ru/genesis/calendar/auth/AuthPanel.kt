@@ -64,6 +64,12 @@ fun AuthPanel(app: GenesisApplication, localLanguage: String, onLanguage: (Strin
     var confirmKeepRemote by remember { mutableStateOf(false) }
     var yandexCalendarLogin by remember(state.user?.uid) { mutableStateOf(state.user?.email.orEmpty()) }
     var yandexCalendarPassword by remember(state.user?.uid) { mutableStateOf("") }
+    val yandexAccounts = state.accountSettings?.accounts.orEmpty().filter { it.provider == "yandex" }
+    var selectedYandexId by remember(state.user?.uid) { mutableStateOf(yandexAccounts.firstOrNull()?.id.orEmpty()) }
+    LaunchedEffect(yandexAccounts) {
+        if (yandexAccounts.none { it.id == selectedYandexId }) selectedYandexId = yandexAccounts.firstOrNull()?.id.orEmpty()
+    }
+    val selectedYandex = yandexAccounts.firstOrNull { it.id == selectedYandexId }
     LaunchedEffect(state.user?.uid, state.accountSettings?.calendarConnected) {
         if (state.accountSettings?.calendarConnected == true) yandexCalendarPassword = ""
     }
@@ -185,13 +191,20 @@ fun AuthPanel(app: GenesisApplication, localLanguage: String, onLanguage: (Strin
             }
         }
 
-        if (state.user != null && state.accountSettings?.authProvider == "yandex") {
+        if (state.user != null && selectedYandex != null) {
             AccountSubsection("auth-yandex-calendar-block", "▦", "Яндекс.Календарь",
-                "Только для этого Яндекс-аккаунта") {
-                if (state.accountSettings?.calendarConnected == true) {
+                "Подключение для выбранного Яндекс-аккаунта") {
+                if (yandexAccounts.size > 1) yandexAccounts.forEach { account ->
+                    FilterChip(selected = selectedYandexId == account.id, onClick = {
+                        selectedYandexId = account.id
+                        yandexCalendarLogin = account.email
+                    }, label = { Text(account.email) }, enabled = !state.busy,
+                        modifier = Modifier.fillMaxWidth().testTag("yandex-calendar-account-${account.id}"))
+                }
+                if (selectedYandex.calendarConnected) {
                     Text("Подключён. Задачи GENESIS отображаются в Яндекс.Календаре как события.",
                         style = MaterialTheme.typography.bodySmall)
-                    OutlinedButton(onClick = controller::disconnectYandexCalendar, enabled = !state.busy,
+                    OutlinedButton(onClick = { controller.disconnectYandexCalendar(selectedYandexId) }, enabled = !state.busy,
                         modifier = Modifier.fillMaxWidth().testTag("disconnect-yandex-calendar")) {
                         Text("Отключить календарь")
                     }
@@ -206,7 +219,7 @@ fun AuthPanel(app: GenesisApplication, localLanguage: String, onLanguage: (Strin
                         visualTransformation = PasswordVisualTransformation(), singleLine = true,
                         modifier = Modifier.fillMaxWidth().testTag("yandex-calendar-password"))
                     Button(onClick = {
-                        controller.connectYandexCalendar(yandexCalendarLogin, yandexCalendarPassword)
+                        controller.connectYandexCalendar(yandexCalendarLogin, yandexCalendarPassword, selectedYandexId)
                     }, enabled = !state.busy && yandexCalendarLogin.isNotBlank() && yandexCalendarPassword.length >= 8,
                         modifier = Modifier.fillMaxWidth().testTag("connect-yandex-calendar")) {
                         Text("Подключить календарь")
@@ -218,6 +231,13 @@ fun AuthPanel(app: GenesisApplication, localLanguage: String, onLanguage: (Strin
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     app.startActivity(intent)
                 }) { Text("Открыть создание пароля Календаря в Яндекс ID") }
+            }
+        }
+
+        if (state.user != null && state.accountSettings?.authProvider != "google") {
+            AccountSubsection("auth-local-multi-account-block", "◉", "Несколько аккаунтов",
+                "Связанные способы входа и правила отправки задач") {
+                MultiAccountPanel(state, controller, showHeading = false)
             }
         }
 

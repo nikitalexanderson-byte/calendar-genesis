@@ -21,14 +21,15 @@ import ru.genesis.calendar.ui.Text
 internal fun MultiAccountPanel(state: AuthPanelState, controller: AuthController, showHeading: Boolean = true) {
     val settings = state.accountSettings ?: return
     val context = LocalContext.current
+    val local = settings.authProvider != "google"
     var draft by remember { mutableStateOf(settings.routing) }
     var removeCandidate by remember { mutableStateOf<LinkedGoogleAccount?>(null) }
     LaunchedEffect(settings) { draft = settings.routing }
 
     if (showHeading) {
         HorizontalDivider()
-        Text("Несколько Google-аккаунтов", style = MaterialTheme.typography.titleMedium)
-        Text("Связанные аккаунты и правила отправки задач на сайте GENESIS.", style = MaterialTheme.typography.bodySmall)
+        Text(if (local) "Связанные аккаунты" else "Несколько Google-аккаунтов", style = MaterialTheme.typography.titleMedium)
+        Text("Связанные аккаунты и правила отправки задач в GENESIS.", style = MaterialTheme.typography.bodySmall)
     }
     settings.accounts.forEach { account ->
         Card(Modifier.fillMaxWidth()) {
@@ -37,20 +38,24 @@ internal fun MultiAccountPanel(state: AuthPanelState, controller: AuthController
                 Text(account.email, style = MaterialTheme.typography.bodySmall)
                 Text(buildString {
                     append(if (account.isPrimary) "Основной" else "Дополнительный")
-                    append(" · Calendar: ")
-                    append(if (account.calendarConnected) "подключён" else "не подключён")
-                    append(" · Tasks: ")
-                    append(if (account.tasksConnected) "подключён" else "не подключён")
+                    append(" · ")
+                    append(if (local) account.provider.uppercase() else "Google")
+                    if (account.provider == "vk") append(" · Задачи в GENESIS")
+                    else {
+                        append(" · Calendar: ")
+                        append(if (account.calendarConnected) "подключён" else "не подключён")
+                    }
                 }, style = MaterialTheme.typography.labelSmall)
-                if (!account.isPrimary) TextButton(onClick = { removeCandidate = account }, enabled = !state.busy,
+                if (!local && !account.isPrimary) TextButton(onClick = { removeCandidate = account }, enabled = !state.busy,
                     modifier = Modifier.testTag("linked-account-remove")) { Text("Отключить") }
             }
         }
     }
-    Text("Дополнительные Google-аккаунты подключаются через защищённый веб-поток. В браузере войдите в тот же кабинет GENESIS, затем вернитесь в приложение.",
+    Text(if (local) "Дополнительные аккаунты подключаются в кабинете сайта. Если у них уже есть данные GENESIS, сайт попросит подтвердить объединение. Google остаётся отдельным."
+        else "Дополнительные Google-аккаунты подключаются через защищённый веб-поток. В браузере войдите в тот же кабинет GENESIS, затем вернитесь в приложение.",
         style = MaterialTheme.typography.bodySmall)
     OutlinedButton(onClick = {
-        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://genesiscalendar.ru/")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://genesiscalendar.ru/?account_link=1#settings")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }, modifier = Modifier.fillMaxWidth().testTag("linked-account-open-site")) { Text("Открыть подключение на сайте") }
     OutlinedButton(onClick = controller::checkSession, enabled = !state.busy,
         modifier = Modifier.fillMaxWidth().testTag("linked-account-refresh")) { Text("Обновить аккаунты") }
@@ -66,7 +71,8 @@ internal fun MultiAccountPanel(state: AuthPanelState, controller: AuthController
             FilterChip(selected = draft.mode == mode, onClick = { draft = draft.copy(mode = mode) },
                 label = { Text(label) }, enabled = !state.busy, modifier = Modifier.fillMaxWidth().testTag("routing-mode-$mode"))
         }
-        if (draft.mode == "choose") Text("При создании задачи выберите один или несколько Google-аккаунтов. Пока правило не сохранено, используется прежняя маршрутизация.",
+        if (draft.mode == "choose") Text(if (local) "При создании задачи выберите один или несколько связанных аккаунтов. Пока правило не сохранено, используется прежняя маршрутизация."
+            else "При создании задачи выберите один или несколько Google-аккаунтов. Пока правило не сохранено, используется прежняя маршрутизация.",
             style = MaterialTheme.typography.bodySmall)
         Text(if (draft.mode == "fixed") "Аккаунты для новых задач" else "Аккаунты по умолчанию",
             style = MaterialTheme.typography.titleSmall)
@@ -110,7 +116,8 @@ internal fun MultiAccountPanel(state: AuthPanelState, controller: AuthController
         Button(onClick = { controller.saveRouting(draft) },
             enabled = !state.busy && draft != settings.routing && draft.validFor(settings.accounts),
             modifier = Modifier.fillMaxWidth().testTag("routing-save")) { Text("Сохранить маршрутизацию") }
-        Text("Правила сохраняются в аккаунте сайта. Изменения задач Android отправляются в Google через GENESIS; если сеть недоступна, они остаются в защищённой очереди на устройстве.",
+        Text(if (local) "Правила сохраняются в GENESIS. Напоминания устройства остаются локальными; выбранный Яндекс.Календарь доставляет свои календарные уведомления. Аккаунты без календаря хранят задачи в GENESIS."
+            else "Правила сохраняются в аккаунте сайта. Изменения задач Android отправляются в Google через GENESIS; если сеть недоступна, они остаются в защищённой очереди на устройстве.",
             style = MaterialTheme.typography.bodySmall)
     }
 

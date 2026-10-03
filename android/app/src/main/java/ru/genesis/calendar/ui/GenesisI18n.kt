@@ -26,6 +26,23 @@ import java.util.concurrent.ConcurrentHashMap
 val LocalGenesisLanguage = compositionLocalOf { "ru" }
 
 private val nativeCopy = mapOf(
+    "Подключение для выбранного Яндекс-аккаунта" to "Connection for the selected Yandex account",
+    "Несколько аккаунтов" to "Multiple accounts",
+    "Связанные способы входа и правила отправки задач" to "Linked sign-in methods and task routing rules",
+    "Связанные аккаунты" to "Linked accounts",
+    "Задачи в GENESIS" to "Tasks in GENESIS",
+    "Связанные аккаунты и правила отправки задач в GENESIS." to "Linked accounts and task routing rules in GENESIS.",
+    "Дополнительные аккаунты подключаются в кабинете сайта. Если у них уже есть данные GENESIS, сайт попросит подтвердить объединение. Google остаётся отдельным." to
+        "Add accounts in the website account panel. If they already have GENESIS data, the site will ask you to confirm the merge. Google stays separate.",
+    "При создании задачи выберите один или несколько связанных аккаунтов. Пока правило не сохранено, используется прежняя маршрутизация." to
+        "Choose one or more linked accounts when creating a task. The previous routing remains active until you save this rule.",
+    "Правила сохраняются в GENESIS. Напоминания устройства остаются локальными; выбранный Яндекс.Календарь доставляет свои календарные уведомления. Аккаунты без календаря хранят задачи в GENESIS." to
+        "Rules are saved in GENESIS. Device reminders stay local; the selected Yandex Calendar sends its own notifications. Accounts without a calendar store tasks in GENESIS.",
+    "Безвременье" to "Timelessness",
+    "Иллюстрации времён года" to "Season illustrations",
+    "Выбор действует для григорианского и сакрального календарей. У Апейрона одна космическая иллюстрация для всех регионов. Источник региона выбирается выше; в григорианском календаре Южного полушария сезоны меняются местами." to
+        "The choice applies to Gregorian and sacred calendars. Apeiron uses one cosmic illustration in every region. Choose the region source above; Gregorian seasons are reversed in the Southern Hemisphere.",
+    "ВОЙТИ ЧЕРЕЗ:" to "SIGN IN WITH:",
     "Готовим вход через VK ID…" to "Preparing VK ID sign-in…",
     "Завершите вход на официальной странице VK ID и вернитесь в GENESIS." to
         "Finish signing in on the official VK ID page, then return to GENESIS.",

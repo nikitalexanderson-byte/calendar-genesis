@@ -27,6 +27,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -131,13 +132,16 @@ fun WelcomeScreen(state: AuthPanelState, controller: AuthController, language: S
                         "Choose Google, Yandex or VK ID. Calendar access is connected separately."
                         else if (showVk)
                             "Выберите вход через Google, Яндекс или VK ID. Доступный календарь подключается отдельно."
+                        else if (showYandex && language == "en")
+                            "Choose Google or Yandex sign-in. GENESIS receives basic profile data from your chosen provider. Connect the calendar separately."
                         else if (showYandex)
-                        "Выберите вход через Google или Яндекс. GENESIS получит основные данные профиля от выбранного сервиса. Подключение календаря выполняется отдельно."
+                            "Выберите вход через Google или Яндекс. GENESIS получит основные данные профиля от выбранного сервиса. Подключение календаря выполняется отдельно."
                         else if (language == "en")
                             "Sign in with Google to open your encrypted GENESIS data and synchronized tasks."
                         else "Войдите через Google, чтобы открыть зашифрованные данные GENESIS и синхронизированные задачи.",
                         color = Color(0xFF405B59), style = MaterialTheme.typography.bodyMedium)
-                    if (showYandex) Text("Для пользователей, находящихся в России, закон РФ предусматривает российские способы входа (149-ФЗ, ст. 8).",
+                    if (showYandex) Text(if (language == "en") "Russian law provides local sign-in methods for users in Russia (Federal Law 149-FZ, Article 8)."
+                        else "Для пользователей, находящихся в России, закон РФ предусматривает российские способы входа (149-ФЗ, ст. 8).",
                         color = Color(0xFF405B59), style = MaterialTheme.typography.bodySmall)
                     if (showVk) Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp),
                         color = Color(0xFFDDEBE6)) {
@@ -172,8 +176,12 @@ fun WelcomeScreen(state: AuthPanelState, controller: AuthController, language: S
                 }
             }
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                WelcomeTrustLine("▣", if (showVk)
+                WelcomeTrustLine("▣", if (showVk && language == "en")
+                    "Task storage depends on your sign-in and calendar connection"
+                    else if (showVk)
                     "Место хранения задач зависит от способа входа и подключения календаря"
+                    else if (showYandex && language == "en")
+                    "Tasks sync through the selected calendar after connection"
                     else if (showYandex)
                     "Задачи синхронизируются через выбранный календарь после подключения"
                     else if (language == "en") "Tasks stay in Google and on your device"
@@ -183,24 +191,19 @@ fun WelcomeScreen(state: AuthPanelState, controller: AuthController, language: S
                 WelcomeTrustLine("◉", if (language == "en") "Private data opens only after sign-in"
                     else "Личные данные открываются только после входа")
             }
-            OutlinedButton(onClick = { openWebsite(context) }, modifier = Modifier.fillMaxWidth(),
-                border = BorderStroke(1.dp, welcomeGold.copy(alpha = 0.5f)),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = welcomeCream)) {
-                Text(if (language == "en") "Open the web version" else "Открыть веб-версию")
-            }
         }
         if (maxWidth >= 760.dp) {
             Row(Modifier.fillMaxSize().padding(horizontal = 28.dp), horizontalArrangement = Arrangement.spacedBy(32.dp)) {
                 Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())
-                    .padding(top = 24.dp, bottom = if (showVk) 215.dp else if (showYandex) 150.dp else 108.dp),
+                    .padding(top = 24.dp, bottom = 150.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)) { intro() }
                 Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())
-                    .padding(top = 24.dp, bottom = if (showVk) 215.dp else if (showYandex) 150.dp else 108.dp),
+                    .padding(top = 24.dp, bottom = 150.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)) { details() }
             }
         } else Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())
             .padding(start = 20.dp, top = 16.dp, end = 20.dp,
-                bottom = if (showVk) 215.dp else if (showYandex) 150.dp else 108.dp),
+                bottom = 150.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)) { intro(); details() }
         Surface(Modifier.align(Alignment.BottomCenter).widthIn(max = 720.dp).fillMaxWidth(),
             color = welcomeNight, shadowElevation = 12.dp) {
@@ -208,62 +211,57 @@ fun WelcomeScreen(state: AuthPanelState, controller: AuthController, language: S
                 verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth(),
                     color = welcomeGold, trackColor = welcomeGreen)
-                if (showYandex && state.user == null) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Button(onClick = { activity?.let { controller.signIn(it, preferredLanguage) } },
-                                enabled = !state.busy && activity != null,
-                                colors = ButtonDefaults.buttonColors(containerColor = welcomeGold,
-                                    contentColor = welcomeNight),
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
-                                    .testTag("welcome-google-sign-in")) {
-                                Text("Войти через Google", maxLines = 2, textAlign = TextAlign.Center)
-                            }
-                            Text("Рекомендуется пользователям за пределами России",
-                                Modifier.fillMaxWidth(), color = welcomeMuted,
-                                style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center)
-                        }
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            OutlinedButton(onClick = { yandexLauncher?.launch(YandexAuthLoginOptions()) },
-                                enabled = !state.busy,
-                                border = BorderStroke(1.dp, welcomeGold),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = welcomeCream),
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
-                                    .testTag("welcome-yandex-sign-in")) {
-                                Text("Войти через Яндекс", maxLines = 2, textAlign = TextAlign.Center)
-                            }
-                            Text("Рекомендуется пользователям в России",
-                                Modifier.fillMaxWidth(), color = welcomeMuted,
-                                style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center)
-                        }
+                if (state.user == null) {
+                    Text(if (language == "en") "SIGN IN WITH:" else "ВОЙТИ ЧЕРЕЗ:",
+                        Modifier.fillMaxWidth(), color = welcomeMuted,
+                        style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        ProviderSignInIcon("G", Color.White, Color(0xFF4285F4),
+                            if (language == "en") "Sign in with Google" else "Войти через Google",
+                            "welcome-google-sign-in", !state.busy && activity != null,
+                            Modifier.weight(1f)) { activity?.let { controller.signIn(it, preferredLanguage) } }
+                        if (showYandex) ProviderSignInIcon("Я", Color(0xFFFFF7F4), Color(0xFFE32924),
+                            if (language == "en") "Sign in with Yandex" else "Войти через Яндекс",
+                            "welcome-yandex-sign-in", !state.busy,
+                            Modifier.weight(1f)) { yandexLauncher?.launch(YandexAuthLoginOptions()) }
+                        if (showVk) ProviderSignInIcon("ᴠκ", Color(0xFF1277E1), Color.White,
+                            if (language == "en") "Sign in with VK ID" else "Войти через VK ID",
+                            "welcome-vk-sign-in", !state.busy && activity != null,
+                            Modifier.weight(1f)) { activity?.let(controller::signInWithVk) }
                     }
                 } else {
-                    Button(onClick = { if (state.user == null) activity?.let { controller.signIn(it, preferredLanguage) }
-                        else controller.checkSession() }, enabled = !state.busy && (state.user != null || activity != null),
+                    Button(onClick = controller::checkSession, enabled = !state.busy,
                         colors = ButtonDefaults.buttonColors(containerColor = welcomeGold,
                             contentColor = welcomeNight, disabledContainerColor = Color(0xFF615C4E),
                             disabledContentColor = welcomeCream),
                         modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("welcome-google-sign-in")) {
                         Text(if (state.busy) {
                             if (language == "en") "Checking account…" else "Проверяем аккаунт…"
-                        } else if (state.user != null) {
-                            if (language == "en") "Retry synchronization" else "Повторить синхронизацию"
-                        } else if (language == "en") "Sign in with Google" else "Войти через Google")
+                        } else if (language == "en") "Retry synchronization" else "Повторить синхронизацию")
                     }
-                    if (!showYandex) Text(if (language == "en") "Google account required to continue"
-                        else "Для продолжения нужен аккаунт Google",
-                        Modifier.fillMaxWidth(), color = welcomeMuted,
-                        style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center)
                 }
-                if (showVk) OutlinedButton(onClick = { activity?.let(controller::signInWithVk) },
-                    enabled = !state.busy && activity != null,
-                    border = BorderStroke(1.dp, welcomeMuted),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = welcomeCream),
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("welcome-vk-sign-in")) {
-                    Text(if (language == "en") "Sign in with VK ID" else "Войти через VK ID")
+                TextButton(onClick = { openWebsite(context) }, modifier = Modifier.fillMaxWidth()
+                    .testTag("welcome-open-web")) {
+                    Text(if (language == "en") "Open the web version" else "Открыть веб-версию",
+                        color = welcomeMuted, style = MaterialTheme.typography.labelMedium)
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ProviderSignInIcon(mark: String, background: Color, foreground: Color,
+    description: String, tag: String, enabled: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    Button(onClick = onClick, enabled = enabled,
+        modifier = modifier.heightIn(min = 56.dp).testTag(tag)
+            .semantics { contentDescription = description },
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, welcomeGold.copy(alpha = .42f)),
+        colors = ButtonDefaults.buttonColors(containerColor = background, contentColor = foreground)) {
+        androidx.compose.material3.Text(mark, color = foreground,
+            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+            maxLines = 1)
     }
 }
 
