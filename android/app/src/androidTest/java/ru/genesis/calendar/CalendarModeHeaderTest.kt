@@ -28,7 +28,7 @@ import ru.genesis.calendar.ui.LocalEveningTheme
 class CalendarModeHeaderTest {
     @get:Rule val compose = createAndroidComposeRule<StoicheionGestureActivity>()
 
-    @Test fun monthAndYearIconsCycleModesAndYearHeaderStaysOutsideSwipe() {
+    @Test fun monthAndYearIconsCycleModesAndYearHeaderScrollsWithContent() {
         var mode by mutableStateOf(CalendarMode.PROFANE)
         compose.setContent {
             MaterialTheme(colorScheme = standart) {
@@ -81,8 +81,6 @@ class CalendarModeHeaderTest {
                 kotlin.math.abs(yearWidth - monthWidth) < 2f)
         }
         assertTrue(device.takeScreenshot(File(context.getExternalFilesDir(null), "calendar-year-after.png")))
-        compose.onNodeWithTag("genesis-page-header").performTouchInput { swipeLeft() }
-        compose.onNodeWithTag("calendar-year-period").assertTextContains("2026")
         compose.onNodeWithTag("calendar-year-navigation").performTouchInput { swipeLeft() }
         compose.waitUntil(5_000) {
             runCatching { compose.onNodeWithTag("calendar-year-period").assertTextContains("2027") }.isSuccess
@@ -90,7 +88,17 @@ class CalendarModeHeaderTest {
         compose.onNodeWithTag("calendar-mode-icon-profane", useUnmergedTree = true).assertExists()
         compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag("gregorian-season-summer"))
         compose.onNodeWithTag("gregorian-season-summer", useUnmergedTree = true).assertIsDisplayed()
-        compose.onNodeWithTag("genesis-page-header").assert(!hasAnyAncestor(hasTestTag("calendar-year-panel")))
+        compose.onNodeWithTag("genesis-page-header").assertDoesNotExist()
+        assertTrue(device.takeScreenshot(File(context.getExternalFilesDir(null), "calendar-year-header-scrolled-away.png")))
+        compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag("genesis-page-header"))
+        compose.onNodeWithTag("genesis-page-header").assertIsDisplayed()
+        compose.onNodeWithTag("genesis-page-header").performClick()
+        compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag("sacred-season-summer"))
+        compose.onNodeWithTag("genesis-page-header").assertDoesNotExist()
+        compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag("genesis-page-header"))
+        compose.onNodeWithTag("genesis-page-header").performClick()
+        compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag("lunar-year-month-5"))
+        compose.onNodeWithTag("genesis-page-header").assertDoesNotExist()
     }
 
     @Test fun monthAndYearKeepTheSameWidthInEveningTheme() {

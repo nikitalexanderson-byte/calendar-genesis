@@ -921,14 +921,11 @@ private fun CalendarYearOverview(calendar: GenesisCalendar, shown: LocalDate, mo
     val context = LocalContext.current
     val suggestionPrefs = remember(context) { context.getSharedPreferences("genesis.calendar-suggestions", android.content.Context.MODE_PRIVATE) }
     var springSuggestionDismissed by remember { mutableStateOf(suggestionPrefs.getBoolean("spring-year-dismissed", false)) }
-    Column(Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        CalendarPageHeader(true, mode, onModeChange,
-            Modifier.padding(vertical = 8.dp))
+    Box(Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 8.dp)) {
         CalendarPeriodPager(period, period.minusYears(1), period.plusYears(1),
             { onYear(period.minusYears(1)) }, { onYear(period.plusYears(1)) },
-            Modifier.fillMaxWidth().weight(1f), fillHeight = true) { page, previous, next ->
-            CalendarYearPanel(calendar, page, mode, experimental, tasks,
+            Modifier.fillMaxSize(), fillHeight = true) { page, previous, next ->
+            CalendarYearPanel(calendar, page, mode, onModeChange, experimental, tasks,
                 gregorianYearStartsInMarch, regionalSeasonArt, seasonRegionZone,
                 springSuggestionDismissed, onStartGregorianYearInMarch,
                 { springSuggestionDismissed = true; suggestionPrefs.edit().putBoolean("spring-year-dismissed", true).apply() },
@@ -939,7 +936,7 @@ private fun CalendarYearOverview(calendar: GenesisCalendar, shown: LocalDate, mo
 
 @Composable
 private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode: CalendarMode,
-    experimental: Boolean, tasks: List<LocalTask>,
+    onModeChange: (CalendarMode) -> Unit, experimental: Boolean, tasks: List<LocalTask>,
     gregorianYearStartsInMarch: Boolean, regionalSeasonArt: Boolean, seasonRegionZone: ZoneId,
     springSuggestionDismissed: Boolean, onStartGregorianYearInMarch: () -> Unit,
     onDismissSpringSuggestion: () -> Unit,
@@ -970,6 +967,7 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
     if (entries.isFailure) {
         Column(Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            CalendarPageHeader(true, mode, onModeChange, Modifier.padding(vertical = 8.dp))
             CalendarPeriodNavigation(yearLabel, true, onPrevious, onNext)
             Text("Этот год вне диапазона офлайн-календаря.", color = MaterialTheme.colorScheme.error)
         }
@@ -1017,6 +1015,9 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
             LazyColumn(Modifier.fillMaxSize().testTag("calendar-year"), state = yearListState,
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(bottom = 12.dp)) {
+                item(key = "year-header") {
+                    CalendarPageHeader(true, mode, onModeChange, Modifier.padding(vertical = 8.dp))
+                }
                 item(key = "year-navigation") {
                 CalendarPeriodNavigation(yearLabel, true, onPrevious, onNext)
                 }
