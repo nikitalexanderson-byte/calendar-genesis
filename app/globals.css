@@ -6174,7 +6174,6 @@ html[data-language="en"] .inbox-card.drop-target::after {
   .welcome-auth { width: min(480px, 100%); margin: 0 auto; }
   .welcome-footer { justify-content: center; flex-wrap: wrap; padding: 20px 0; text-align: center; }
   .welcome-footer span:nth-child(2) { display: none; }
-  .account-security-grid { grid-template-columns: 1fr 1fr; }
   .google-connect-banner { align-items: stretch; flex-direction: column; }
   .google-connect-banner button { width: 100%; }
 }
