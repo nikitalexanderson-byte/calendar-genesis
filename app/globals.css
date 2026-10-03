@@ -8753,6 +8753,10 @@ button.project-drag-handle:active { cursor: grabbing; }
   color: #f4eee3;
 }
 
+html[data-genesis-theme$="-dark"] .month-calendar .calendar-day.saturday .calendar-weekday {
+  color: #e9dcc6;
+}
+
 .month-calendar .calendar-day.mode-profane.weekday-0 {
   --weekday-card-tint: rgba(214, 166, 39, .09);
   --weekday-card-tint-hover: rgba(214, 166, 39, .12);
@@ -13510,4 +13514,26 @@ html[data-genesis-theme^="standart"] .admin-table td small { font-size: 11px; li
     text-transform: uppercase;
   }
   html[data-genesis-theme^="standart"] .admin-table td :is(strong, small) { grid-column: 2; }
+}
+
+@media (min-width: 761px) and (max-width: 1060px) {
+  .pyata-row {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    width: 100%;
+    min-width: 0;
+  }
+  .pyata-row-label { min-height: auto; margin-bottom: 0; }
+  .pyata-row-description { order: 1; margin-top: 0; }
+  .pyata-days {
+    order: 2;
+    width: 100%;
+    max-width: 100%;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 8px;
+    overflow-x: visible;
+  }
+  .calendar-weekday-full { display: none; }
+  .calendar-weekday-short { display: inline; }
 }
