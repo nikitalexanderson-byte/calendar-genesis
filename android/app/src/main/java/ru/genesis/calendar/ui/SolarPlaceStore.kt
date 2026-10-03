@@ -9,9 +9,10 @@ import java.net.URL
 import java.net.URLEncoder
 import java.io.ByteArrayOutputStream
 import java.time.ZoneId
+import java.util.Locale
 
 internal data class SolarPlace(val name: String, val country: String, val region: String,
-    val latitude: Double, val longitude: Double, val timeZoneId: String) {
+    val latitude: Double, val longitude: Double, val timeZoneId: String, val id: Long? = null) {
     val displayName: String get() = listOf(name, region, country).filter(String::isNotBlank).distinct().joinToString(", ")
     fun location() = SolarLocation(latitude, longitude, timeZoneId, displayName, approximate = false)
 }
@@ -43,9 +44,12 @@ internal object SolarPlaceStore {
     }.getOrNull()
 
     fun save(prefs: SharedPreferences, place: SolarPlace) {
-        prefs.edit().putString(KEY, JSONObject()
+        val data = JSONObject()
             .put("latitude", place.latitude).put("longitude", place.longitude)
-            .put("timeZoneId", place.timeZoneId).put("name", place.displayName).toString()).apply()
+            .put("timeZoneId", place.timeZoneId).put("name", place.displayName)
+            .put("city", place.name).put("region", place.region).put("country", place.country)
+        if (place.id != null) data.put("id", place.id)
+        prefs.edit().putString(KEY, data.toString()).apply()
     }
 
     fun clear(prefs: SharedPreferences) { prefs.edit().remove(KEY).apply() }
@@ -89,42 +93,99 @@ internal object SolarPlaceStore {
         } catch (_: Exception) { /* Keep the previous region or the marked time-zone fallback. */ }
     }
 
+    private fun geoLanguage(language: String) = language.lowercase(Locale.ROOT)
+        .take(2).takeIf { it.matches(Regex("[a-z]{2}")) } ?: "en"
+
     /** City coordinates and IANA zone are public geocoding data; no account or position is sent. */
-    fun search(query: String): List<SolarPlace> {
+    fun search(query: String, language: String = "ru"): List<SolarPlace> {
         val term = query.trim().take(120)
         if (term.length < 2) return emptyList()
+        val locale = geoLanguage(language)
+        val localized = searchInLanguage(term, locale)
+        if (localized.isNotEmpty()) return localized
+        val inputLanguage = when {
+            term.any { it in 'А'..'я' || it == 'Ё' || it == 'ё' } -> "ru"
+            term.any { it in 'A'..'Z' || it in 'a'..'z' } -> "en"
+            else -> return emptyList()
+        }
+        if (inputLanguage == locale) return emptyList()
+        return searchInLanguage(term, inputLanguage).take(8).map { place ->
+            runCatching { localize(place, locale) }.getOrDefault(place)
+        }
+    }
+
+    private fun searchInLanguage(term: String, language: String): List<SolarPlace> {
         val encoded = URLEncoder.encode(term, "UTF-8")
-        val connection = URL("https://geocoding-api.open-meteo.com/v1/search?name=$encoded&count=10&format=json")
-            .openConnection() as HttpURLConnection
+        val data = readGeoJson("https://geocoding-api.open-meteo.com/v1/search?name=$encoded&count=8&format=json&language=$language")
+            ?: return emptyList()
+        val rows = data.optJSONArray("results") ?: return emptyList()
+        return (0 until rows.length()).mapNotNull { index -> parsePlace(rows.optJSONObject(index)) }
+    }
+
+    private fun parsePlace(row: JSONObject?): SolarPlace? {
+        if (row == null) return null
+        val latitude = row.optDouble("latitude", Double.NaN)
+        val longitude = row.optDouble("longitude", Double.NaN)
+        val zone = row.optString("timezone")
+        val name = row.optString("name")
+        val country = row.optString("country")
+        if (name.isBlank() || country.isBlank() || !latitude.isFinite() || latitude !in -90.0..90.0 ||
+            !longitude.isFinite() || longitude !in -180.0..180.0 ||
+            runCatching { ZoneId.of(zone) }.isFailure) return null
+        return SolarPlace(name, country, row.optString("admin1"), latitude, longitude, zone,
+            row.optLong("id").takeIf { row.has("id") && it > 0 })
+    }
+
+    private fun localize(place: SolarPlace, language: String): SolarPlace {
+        val id = place.id ?: return place
+        val data = readGeoJson("https://geocoding-api.open-meteo.com/v1/get?id=$id&language=$language")
+            ?: return place
+        return parsePlace(data) ?: place
+    }
+
+    /** Preserve the chosen coordinates while refreshing the displayed name for the current language. */
+    fun localizeSelected(prefs: SharedPreferences, language: String): SolarLocation? {
+        val previous = readSelected(prefs) ?: return null
+        val stored = runCatching { JSONObject(prefs.getString(KEY, null) ?: return previous) }.getOrNull()
+            ?: return previous
+        val id = stored.optLong("id").takeIf { stored.has("id") && it > 0 }
+        val match = if (id != null) {
+            localize(SolarPlace(stored.optString("city"), stored.optString("country"),
+                stored.optString("region"), previous.latitude, previous.longitude,
+                previous.timeZoneId ?: return previous, id), geoLanguage(language))
+        } else {
+            search(previous.placeName.orEmpty().substringBefore(','), language).firstOrNull {
+                kotlin.math.abs(it.latitude - previous.latitude) < .0001 &&
+                    kotlin.math.abs(it.longitude - previous.longitude) < .0001
+            }
+        }
+        if (match != null && kotlin.math.abs(match.latitude - previous.latitude) < .0001 &&
+            kotlin.math.abs(match.longitude - previous.longitude) < .0001 &&
+            readSelected(prefs)?.let { it.latitude == previous.latitude && it.longitude == previous.longitude } == true) {
+            save(prefs, match)
+        }
+        return readSelected(prefs)
+    }
+
+    private fun readGeoJson(url: String): JSONObject? {
+        val connection = URL(url).openConnection() as HttpURLConnection
         try {
             connection.connectTimeout = 5_000
             connection.readTimeout = 5_000
             connection.setRequestProperty("Accept", "application/json")
-            if (connection.responseCode != 200) return emptyList()
+            if (connection.responseCode != 200) return null
             val bytes = connection.inputStream.use { input ->
                 val output = ByteArrayOutputStream()
                 val buffer = ByteArray(4096)
                 while (true) {
                     val count = input.read(buffer)
                     if (count < 0) break
-                    if (output.size() + count > 200_000) return emptyList()
+                    if (output.size() + count > 200_000) return null
                     output.write(buffer, 0, count)
                 }
                 output.toByteArray()
             }
-            if (bytes.size > 200_000) return emptyList()
-            val rows = JSONObject(String(bytes, Charsets.UTF_8)).optJSONArray("results") ?: return emptyList()
-            return (0 until rows.length()).mapNotNull { index ->
-                val row = rows.optJSONObject(index) ?: return@mapNotNull null
-                val latitude = row.optDouble("latitude", Double.NaN)
-                val longitude = row.optDouble("longitude", Double.NaN)
-                val zone = row.optString("timezone")
-                if (!latitude.isFinite() || latitude !in -90.0..90.0 ||
-                    !longitude.isFinite() || longitude !in -180.0..180.0 ||
-                    runCatching { ZoneId.of(zone) }.isFailure) return@mapNotNull null
-                SolarPlace(row.optString("name"), row.optString("country"),
-                    row.optString("admin1"), latitude, longitude, zone)
-            }
+            return JSONObject(String(bytes, Charsets.UTF_8))
         } finally { connection.disconnect() }
     }
 }

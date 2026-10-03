@@ -53,8 +53,12 @@ fun WelcomeScreen(state: AuthPanelState, controller: AuthController, language: S
     val context = LocalContext.current
     val activity = context.activity()
     var yandexAvailable by remember { mutableStateOf(false) }
+    var vkAvailable by remember { mutableStateOf(false) }
     LaunchedEffect(controller, state.ready, state.busy) {
-        if (!state.busy) yandexAvailable = controller.yandexAvailable()
+        if (!state.busy) {
+            yandexAvailable = controller.yandexAvailable()
+            vkAvailable = controller.vkAvailable()
+        }
     }
     val yandexSdk = remember(context) {
         if (BuildConfig.YANDEX_CLIENT_ID.isNotBlank()) YandexAuthSdk.create(YandexAuthOptions(context)) else null
@@ -68,6 +72,7 @@ fun WelcomeScreen(state: AuthPanelState, controller: AuthController, language: S
         }
     } else null
     val showYandex = yandexAvailable && yandexLauncher != null
+    val showVk = vkAvailable && state.user == null
     BoxWithConstraints(Modifier.fillMaxSize().background(Brush.verticalGradient(
         listOf(welcomeNight, welcomeGreen, welcomeNight)))
         .safeDrawingPadding().imePadding().testTag("genesis-welcome")) {
@@ -122,7 +127,11 @@ fun WelcomeScreen(state: AuthPanelState, controller: AuthController, language: S
                                 style = MaterialTheme.typography.titleLarge.copy(fontFamily = FontFamily.Serif))
                         }
                     }
-                    Text(if (showYandex)
+                    Text(if (showVk && language == "en")
+                        "Choose Google, Yandex or VK ID. Calendar access is connected separately."
+                        else if (showVk)
+                            "Выберите вход через Google, Яндекс или VK ID. Доступный календарь подключается отдельно."
+                        else if (showYandex)
                         "Выберите вход через Google или Яндекс. GENESIS получит основные данные профиля от выбранного сервиса. Подключение календаря выполняется отдельно."
                         else if (language == "en")
                             "Sign in with Google to open your encrypted GENESIS data and synchronized tasks."
@@ -130,6 +139,20 @@ fun WelcomeScreen(state: AuthPanelState, controller: AuthController, language: S
                         color = Color(0xFF405B59), style = MaterialTheme.typography.bodyMedium)
                     if (showYandex) Text("Для пользователей, находящихся в России, закон РФ предусматривает российские способы входа (149-ФЗ, ст. 8).",
                         color = Color(0xFF405B59), style = MaterialTheme.typography.bodySmall)
+                    if (showVk) Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFFDDEBE6)) {
+                        Column(Modifier.padding(12.dp)) {
+                            Text(if (language == "en")
+                                "VK ID: tasks are encrypted on the GENESIS server and synced across devices. There is no VK calendar backup; recovery depends more on GENESIS than with a connected Google or Yandex calendar."
+                                else "VK ID: задачи хранятся на сервере GENESIS в зашифрованном виде и синхронизируются между устройствами. Копии в VK-календаре нет; восстановление сильнее зависит от GENESIS, чем при подключённом календаре Google или Яндекса.",
+                                color = Color(0xFF173A38), style = MaterialTheme.typography.bodySmall)
+                            TextButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW,
+                                Uri.parse("https://genesiscalendar.ru/privacy"))) }) {
+                                Text(if (language == "en") "Read the privacy policy"
+                                    else "Подробнее в политике конфиденциальности")
+                            }
+                        }
+                    }
                     Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp),
                         color = Color(0xFFE8E9DE)) {
                         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -149,7 +172,9 @@ fun WelcomeScreen(state: AuthPanelState, controller: AuthController, language: S
                 }
             }
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                WelcomeTrustLine("▣", if (showYandex)
+                WelcomeTrustLine("▣", if (showVk)
+                    "Место хранения задач зависит от способа входа и подключения календаря"
+                    else if (showYandex)
                     "Задачи синхронизируются через выбранный календарь после подключения"
                     else if (language == "en") "Tasks stay in Google and on your device"
                     else "Задачи остаются в Google и на вашем устройстве")
@@ -167,15 +192,15 @@ fun WelcomeScreen(state: AuthPanelState, controller: AuthController, language: S
         if (maxWidth >= 760.dp) {
             Row(Modifier.fillMaxSize().padding(horizontal = 28.dp), horizontalArrangement = Arrangement.spacedBy(32.dp)) {
                 Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())
-                    .padding(top = 24.dp, bottom = if (showYandex) 150.dp else 108.dp),
+                    .padding(top = 24.dp, bottom = if (showVk) 215.dp else if (showYandex) 150.dp else 108.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)) { intro() }
                 Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())
-                    .padding(top = 24.dp, bottom = if (showYandex) 150.dp else 108.dp),
+                    .padding(top = 24.dp, bottom = if (showVk) 215.dp else if (showYandex) 150.dp else 108.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)) { details() }
             }
         } else Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())
             .padding(start = 20.dp, top = 16.dp, end = 20.dp,
-                bottom = if (showYandex) 150.dp else 108.dp),
+                bottom = if (showVk) 215.dp else if (showYandex) 150.dp else 108.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)) { intro(); details() }
         Surface(Modifier.align(Alignment.BottomCenter).widthIn(max = 720.dp).fillMaxWidth(),
             color = welcomeNight, shadowElevation = 12.dp) {
@@ -229,6 +254,13 @@ fun WelcomeScreen(state: AuthPanelState, controller: AuthController, language: S
                         else "Для продолжения нужен аккаунт Google",
                         Modifier.fillMaxWidth(), color = welcomeMuted,
                         style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center)
+                }
+                if (showVk) OutlinedButton(onClick = { activity?.let(controller::signInWithVk) },
+                    enabled = !state.busy && activity != null,
+                    border = BorderStroke(1.dp, welcomeMuted),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = welcomeCream),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("welcome-vk-sign-in")) {
+                    Text(if (language == "en") "Sign in with VK ID" else "Войти через VK ID")
                 }
             }
         }

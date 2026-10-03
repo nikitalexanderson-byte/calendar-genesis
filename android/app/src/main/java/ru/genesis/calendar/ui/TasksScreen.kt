@@ -124,6 +124,7 @@ import ru.genesis.calendar.data.*
     var title by rememberSaveable { mutableStateOf("") }
     var projectId by rememberSaveable { mutableStateOf<String?>(null) }
     val connected = accounts?.accounts.orEmpty().filter { it.tasksConnected }
+    val localList = accounts?.authProvider != "google"
     val yandex = accounts?.authProvider == "yandex"
     var accountId by rememberSaveable { mutableStateOf(connected.firstOrNull { it.id in accounts?.routing?.defaultAccountIds.orEmpty() }?.id ?: connected.firstOrNull()?.id.orEmpty()) }
     var date by rememberSaveable { mutableStateOf(java.time.LocalDate.now().toString()) }
@@ -140,12 +141,13 @@ import ru.genesis.calendar.data.*
             Column(Modifier.padding(16.dp).imePadding()) {
                 EditorDialogHeader("Новый список задач", "close-task-list-editor", { if(!busy) onDismiss() })
                 Column(Modifier.weight(1f,fill=false).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(10.dp)) {
-                    Text(if (yandex) "Список хранится в зашифрованном пространстве GENESIS; задачи отображаются в Яндекс.Календаре."
+                    Text(if (accounts?.authProvider == "vk") "Список хранится в зашифрованном пространстве GENESIS; задачи синхронизируются через сервер GENESIS."
+                        else if (yandex) "Список хранится в зашифрованном пространстве GENESIS; задачи отображаются в Яндекс.Календаре."
                         else "Список хранится в Google Tasks и доступен на сайте и смартфоне.",style=MaterialTheme.typography.bodySmall)
                     OutlinedTextField(title,{title=it},label={Text("Название списка")},enabled=!busy && created==null,
                         singleLine=true,modifier=Modifier.fillMaxWidth().testTag("task-list-title"))
-                    if(!canCreate || !yandex && connected.isEmpty()) Text("Войдите в аккаунт и подключите календарь в настройках.", color=MaterialTheme.colorScheme.error)
-                    else if (!yandex) connected.forEach { account ->
+                    if(!canCreate || !localList && connected.isEmpty()) Text("Войдите в аккаунт и подключите календарь в настройках.", color=MaterialTheme.colorScheme.error)
+                    else if (!localList) connected.forEach { account ->
                         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
                             RadioButton(accountId==account.id,{accountId=account.id},enabled=!busy && created==null)
                             Text(account.email,style=MaterialTheme.typography.bodyMedium)
@@ -160,7 +162,7 @@ import ru.genesis.calendar.data.*
                     Text("Дата задач · ${calendarModeLabel(formCalendarMode)}")
                     AuthorDatePicker(date,formCalendarMode) { if(!busy && created==null) date=it }
                     error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
-                    Button(enabled=canCreate && (yandex || connected.any { it.id==accountId }) && title.trim().length in 1..300 && !busy,
+                    Button(enabled=canCreate && (localList || connected.any { it.id==accountId }) && title.trim().length in 1..300 && !busy,
                         modifier=Modifier.fillMaxWidth().testTag("save-task-list"),onClick={
                             val rows=rowsText.lines().map(String::trim).filter(String::isNotBlank)
                             if(rows.size>100 || rows.any { it.length>500 }) { error="Добавьте до 100 задач, до 500 символов каждая."; return@Button }

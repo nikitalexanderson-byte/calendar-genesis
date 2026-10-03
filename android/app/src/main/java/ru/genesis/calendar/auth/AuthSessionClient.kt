@@ -158,6 +158,11 @@ internal class AuthSessionClient(context: Context) {
         require(accessToken.length in 1..16384)
         return request(expected, "/auth/yandex/native", JSONObject().put("accessToken", accessToken))
     }
+    fun authenticateVkTicket(expected: Long, ticket: String, flow: String): JSONObject {
+        require(ticket.matches(Regex("[A-Za-z0-9_-]{43}")) && flow.matches(Regex("[A-Za-z0-9_-]{43}")))
+        return request(expected, "/auth/vk/native/complete",
+            JSONObject().put("ticket", ticket).put("flow", flow))
+    }
     fun connectYandexCalendar(expected: Long, login: String, appPassword: String): JSONObject =
         request(expected, "/account/yandex-calendar/connect",
             JSONObject().put("login", login).put("appPassword", appPassword))
@@ -172,7 +177,7 @@ internal class AuthSessionClient(context: Context) {
     /** Blocking; the controller always calls on Dispatchers.IO. Default platform TLS verification. */
     private fun request(expected: Long, path: String, body: JSONObject?, secret: SessionSecret? = null,
         persist: Boolean = true, method: String = if (body == null) "GET" else "POST"): JSONObject {
-        require(path in setOf("/session", "/auth/providers", "/workspace", "/bootstrap", "/stoicheion/draws", "/auth/google/native/challenge",
+        require(path in setOf("/session", "/auth/providers", "/workspace", "/bootstrap", "/stoicheion/draws", "/auth/google/native/challenge", "/auth/vk/native/complete",
             "/auth/yandex/native",
             "/account/yandex-calendar/connect", "/account/yandex-calendar/disconnect",
             "/auth/google/native", "/auth/google/native/services/config", "/auth/google/native/services",

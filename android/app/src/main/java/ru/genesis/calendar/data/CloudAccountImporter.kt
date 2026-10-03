@@ -105,7 +105,7 @@ internal class CloudAccountImporter(private val db: GenesisDatabase, private val
                 if ("workspace-structure" !in pending)
                     dao.putDocument(DocumentRecord(scope, "structure", cipher.encrypt(structure, "$scope/structure"), snapshot.version))
                 if (document != null) {
-                    if (snapshot.authProvider == "yandex" && document.optJSONArray("taskLists") != null && "workspace-structure" !in pending) {
+                    if (snapshot.authProvider != "google" && document.optJSONArray("taskLists") != null && "workspace-structure" !in pending) {
                         val listRows = document.getJSONArray("taskLists")
                         val validLists = (0 until listRows.length()).map { GoogleTaskList.from(listRows.getJSONObject(it)) }
                         val listDocument = JSONArray().apply { validLists.forEach { put(it.json()) } }.toString()

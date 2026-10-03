@@ -100,6 +100,13 @@ fun AuthPanel(app: GenesisApplication, localLanguage: String, onLanguage: (Strin
                     }
                 }
             }
+            if (state.requiresSignIn && state.accountSettings?.authProvider == "vk") {
+                OutlinedButton(onClick = { activity?.let(controller::signInWithVk) },
+                    enabled = !state.busy && activity != null,
+                    modifier = Modifier.fillMaxWidth().testTag("auth-vk-sign-in")) {
+                    Text("Продолжить вход через VK ID")
+                }
+            }
             if (state.user != null) {
                 OutlinedButton(onClick = controller::logout,
                     modifier = Modifier.fillMaxWidth().testTag("auth-logout")) { Text("Выйти") }
@@ -125,7 +132,7 @@ fun AuthPanel(app: GenesisApplication, localLanguage: String, onLanguage: (Strin
         }
 
         AccountSubsection("auth-cloud-block", "☁", "Облако",
-            if (state.accountSettings?.authProvider == "yandex") "Защищённое пространство GENESIS"
+            if (state.accountSettings?.authProvider != "google") "Защищённое пространство GENESIS"
             else "Что хранится в GENESIS, а что синхронизируется с Google") {
             val cloud = state.preview
             CloudDestination("Сайт GENESIS",
@@ -159,7 +166,9 @@ fun AuthPanel(app: GenesisApplication, localLanguage: String, onLanguage: (Strin
                 Text("Google Tasks сообщил о неполной загрузке. Объединение пока недоступно.",
                     color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             }
-            Text(if (state.accountSettings?.authProvider == "yandex")
+            Text(if (state.accountSettings?.authProvider == "vk")
+                "Задачи хранятся на сервере GENESIS в зашифрованном виде и синхронизируются между устройствами. Копии в VK-календаре нет, поэтому восстановление сильнее зависит от GENESIS, чем при подключённом Google или Яндекс календаре."
+                else if (state.accountSettings?.authProvider == "yandex")
                 "Проекты, привычки и списки задач хранятся в зашифрованном пространстве GENESIS. Задачи синхронизируются с Яндекс.Календарем после подключения."
                 else "Изменения проектов и привычек синхронизируются с зашифрованным пространством, задачи — с Google. При конфликте локальная копия сохраняется.",
                 style = MaterialTheme.typography.bodySmall)

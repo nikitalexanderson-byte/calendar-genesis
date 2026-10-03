@@ -127,7 +127,7 @@ export type GenesisTask = {
 
 export type GenesisUser = {
   uid: string;
-  authProvider?: "google" | "yandex";
+  authProvider?: "google" | "yandex" | "vk";
   displayName: string | null;
   email: string | null;
   photoURL: string | null;
@@ -382,7 +382,7 @@ function deviceTimeZone() {
 }
 
 let csrfToken = "";
-let activeAuthProvider: "google" | "yandex" = "google";
+let activeAuthProvider: "google" | "yandex" | "vk" = "google";
 let workspaceKey = "";
 let workspaceUserId = "";
 let workspaceVersion = 0;
@@ -774,7 +774,7 @@ function restoreWorkspaceSyncCache() {
   if (cached.base) encryptedHabitWorkspace = normalizeHabitWorkspace(cached.base);
 }
 
-export function restoreOfflineWorkspaceSession(userId: string, provider: "google" | "yandex" = "google") {
+export function restoreOfflineWorkspaceSession(userId: string, provider: "google" | "yandex" | "vk" = "google") {
   activeAuthProvider = provider;
   workspaceUserId = userId;
   workspaceDeviceId = deviceWorkspaceId(userId);
@@ -1044,7 +1044,8 @@ async function refreshWorkspaceFromCloud() {
 
 export async function loadGenesisWorkspace(): Promise<GenesisWorkspace> {
   const payload = await api<BootstrapPayload>("/bootstrap");
-  activeAuthProvider = payload.user.authProvider === "yandex" ? "yandex" : "google";
+  activeAuthProvider = payload.user.authProvider === "yandex" ? "yandex"
+    : payload.user.authProvider === "vk" ? "vk" : "google";
   csrfToken = payload.csrf;
   await resolveWorkspaceKey(payload);
   let structure: Awaited<ReturnType<typeof decryptWorkspace>>;
@@ -1066,7 +1067,7 @@ export async function loadGenesisWorkspace(): Promise<GenesisWorkspace> {
     tasks: payload.tasks.map((task) => normalizeTask(task)),
     projects: structure.projects,
     categories: structure.categories,
-    taskLists: payload.user.authProvider === "yandex" ? structure.taskLists
+    taskLists: payload.user.authProvider !== "google" ? structure.taskLists
       : Array.isArray(payload.taskLists) ? payload.taskLists : [],
     taskListLinks: structure.taskListLinks,
     trackerSchemaVersion: structure.trackerSchemaVersion,
@@ -1125,7 +1126,8 @@ export function observeGenesisUser(
 export async function loadGenesisSession(signal?: AbortSignal) {
   const result = await api<{ user: GenesisUser | null; csrf: string }>("/session", { signal });
   csrfToken = result.csrf;
-  activeAuthProvider = result.user?.authProvider === "yandex" ? "yandex" : "google";
+  activeAuthProvider = result.user?.authProvider === "yandex" ? "yandex"
+    : result.user?.authProvider === "vk" ? "vk" : "google";
   return result.user;
 }
 
@@ -1136,15 +1138,22 @@ export function signInWithGoogle() {
   return Promise.resolve();
 }
 
-export async function loadAuthProviders(): Promise<{ google: boolean; yandex: boolean }> {
-  if (!API_BASE) return { google: false, yandex: false };
-  return api<{ google: boolean; yandex: boolean }>("/auth/providers");
+export async function loadAuthProviders(): Promise<{ google: boolean; yandex: boolean; vk: boolean }> {
+  if (!API_BASE) return { google: false, yandex: false, vk: false };
+  return api<{ google: boolean; yandex: boolean; vk: boolean }>("/auth/providers");
 }
 
 export function signInWithYandex() {
   if (!API_BASE) throw new Error("Сервер GENESIS ещё не подключён");
   const returnTo = cleanGenesisAppUrl(window.location.href);
   window.location.assign(`${API_BASE}/auth/yandex/start?return_to=${encodeURIComponent(returnTo)}`);
+  return Promise.resolve();
+}
+
+export function signInWithVk() {
+  if (!API_BASE) throw new Error("Сервер GENESIS ещё не подключён");
+  const returnTo = cleanGenesisAppUrl(window.location.href);
+  window.location.assign(`${API_BASE}/auth/vk/start?return_to=${encodeURIComponent(returnTo)}`);
   return Promise.resolve();
 }
 
@@ -1179,6 +1188,9 @@ export function consumeGoogleAuthError() {
     yandex_invalid_state: "Защитная проверка входа через Яндекс истекла. Начните вход заново.",
     yandex_access_denied: "Вы отменили вход через Яндекс. Доступ к данным не был предоставлен.",
     yandex_oauth_failed: "Яндекс не завершил авторизацию. Попробуйте ещё раз.",
+    vk_invalid_state: "Защитная проверка входа через VK ID истекла. Начните вход заново.",
+    vk_access_denied: "Вы отменили вход через VK ID. Доступ к данным не был предоставлен.",
+    vk_oauth_failed: "VK ID не завершил авторизацию. Попробуйте ещё раз.",
     oauth_failed: "Google не завершил авторизацию. Попробуйте ещё раз или обратитесь в поддержку.",
   };
   return messages[code] ?? messages.oauth_failed;
@@ -1354,21 +1366,21 @@ export async function mergeLocalWorkspace(
     await flushPendingMutations();
   } else if (shouldSeedRemoteWorkspace(remote.hasRemoteStructure,
     local.projects.length + local.categories.length + local.taskListLinks.length
-      + (remote.user.authProvider === "yandex" ? local.taskLists.length : 0) + (local.habits?.length ?? 0))) {
+      + (remote.user.authProvider !== "google" ? local.taskLists.length : 0) + (local.habits?.length ?? 0))) {
     await saveWorkspaceStructure(
       local.projects,
       local.categories,
       local.taskListLinks,
       metricsFor(local.tasks, local.projects, local.habits?.length ?? 0),
       normalizeHabitWorkspace(local),
-      remote.user.authProvider === "yandex" ? local.taskLists : undefined,
+      remote.user.authProvider !== "google" ? local.taskLists : undefined,
     );
-  } else if (remote.user.authProvider === "yandex" && remote.taskLists.length === 0 && local.taskLists.length > 0) {
+  } else if (remote.user.authProvider !== "google" && remote.taskLists.length === 0 && local.taskLists.length > 0) {
     await saveWorkspaceStructure(remote.projects, remote.categories, remote.taskListLinks,
       metricsFor(remote.tasks, remote.projects, remote.habits.length),
       normalizeHabitWorkspace(remote), local.taskLists);
   }
-  if (!remote.user.calendarConnected) return;
+  if (!remote.user.calendarConnected && remote.user.authProvider !== "vk") return;
   const remoteById = new Map(remote.tasks.map((task) => [task.id, task]));
   const tasksToUpload = local.tasks.filter((task) => {
     if (task.googleTaskId) return false;
@@ -1441,7 +1453,7 @@ export async function saveWorkspaceStructure(
 }
 
 export async function createGoogleTaskList(title: string, accountId?: string) {
-  if (activeAuthProvider === "yandex") return {
+  if (activeAuthProvider !== "google") return {
     taskList: { id: `local:${crypto.randomUUID()}`, title, updatedAt: new Date().toISOString() },
   };
   return api<{ taskList: GoogleTaskList }>("/task-lists", {
@@ -1451,7 +1463,7 @@ export async function createGoogleTaskList(title: string, accountId?: string) {
 }
 
 export async function updateGoogleTaskList(taskListId: string, title: string, accountId?: string) {
-  if (activeAuthProvider === "yandex") return {
+  if (activeAuthProvider !== "google") return {
     taskList: { id: taskListId, title, updatedAt: new Date().toISOString() },
   };
   return api<{ taskList: GoogleTaskList }>(`/task-lists/${encodeURIComponent(taskListId)}`, {
@@ -1461,7 +1473,7 @@ export async function updateGoogleTaskList(taskListId: string, title: string, ac
 }
 
 export async function removeGoogleTaskList(taskListId: string, accountId?: string) {
-  if (activeAuthProvider === "yandex") return { ok: true };
+  if (activeAuthProvider !== "google") return { ok: true };
   return api<{ ok: boolean }>(`/task-lists/${encodeURIComponent(taskListId)}`, {
     method: "DELETE",
     body: JSON.stringify({ accountId }),

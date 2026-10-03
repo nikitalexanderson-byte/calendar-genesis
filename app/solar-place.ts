@@ -49,9 +49,7 @@ function parseSolarPlace(result: GeocodingResult): SolarPlace | null {
     latitude, longitude, timeZone };
 }
 
-export async function searchSolarPlaces(query: string, language = "ru", signal?: AbortSignal): Promise<SolarPlace[]> {
-  const name = query.trim().slice(0, 120);
-  if (name.length < 2) return [];
+async function searchSolarPlacesInLanguage(name: string, language: string, signal?: AbortSignal): Promise<SolarPlace[]> {
   const url = new URL("https://geocoding-api.open-meteo.com/v1/search");
   url.searchParams.set("name", name);
   url.searchParams.set("count", "8");
@@ -61,6 +59,24 @@ export async function searchSolarPlaces(query: string, language = "ru", signal?:
   if (!response.ok) throw new Error(`Location lookup failed: ${response.status}`);
   const data = await response.json() as { results?: GeocodingResult[] };
   return (data.results ?? []).flatMap((result) => parseSolarPlace(result) ?? []);
+}
+
+export async function searchSolarPlaces(query: string, language = "ru", signal?: AbortSignal): Promise<SolarPlace[]> {
+  const name = query.trim().slice(0, 120);
+  if (name.length < 2) return [];
+  const locale = language.toLowerCase();
+  const localized = await searchSolarPlacesInLanguage(name, locale, signal);
+  if (localized.length) return localized;
+
+  // Some indexed aliases only match in their own language. Keep the suggestions
+  // in the interface language even when the query was entered in another one.
+  const inputLanguage = /[а-яё]/i.test(name) ? "ru" : /[a-z]/i.test(name) ? "en" : "";
+  if (!inputLanguage || inputLanguage === locale) return [];
+  const fallback = await searchSolarPlacesInLanguage(name, inputLanguage, signal);
+  return Promise.all(fallback.map(async (place) => {
+    try { return await localizedSolarPlace(place, locale, signal); }
+    catch (error) { if (signal?.aborted) throw error; return place; }
+  }));
 }
 
 export async function localizedSolarPlace(place: SolarPlace, language: string, signal?: AbortSignal): Promise<SolarPlace> {

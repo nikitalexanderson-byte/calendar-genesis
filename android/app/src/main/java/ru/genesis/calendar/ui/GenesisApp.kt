@@ -754,7 +754,7 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
     var yandexVisibility by rememberSaveable(task?.id) { mutableStateOf(yandexFields.optString("yandexVisibility", "private")) }
     var yandexReminders by remember(task?.id) { mutableStateOf<List<Int>>(yandexFields.optJSONArray("yandexReminders")?.let { rows ->
         (0 until rows.length()).map { rows.optInt(it) } } ?: emptyList()) }
-    val googleTaskBacked = accountSettings?.authProvider != "yandex" && (listId!=null || task?.sourceFieldsJson?.let { raw ->
+    val googleTaskBacked = accountSettings?.authProvider == "google" && (listId!=null || task?.sourceFieldsJson?.let { raw ->
         runCatching { JSONObject(raw).optString("googleTaskId") }.getOrNull()?.let {
             it.isNotBlank() && it != "null"
         } ?: false
@@ -786,14 +786,14 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                     var choosingList by remember { mutableStateOf(false) }
                     Box {
                         OutlinedButton({choosingList=true},Modifier.fillMaxWidth().testTag("task-list-picker")) {
-                            Text(selectedList?.title ?: if (accountSettings?.authProvider == "yandex") "Без списка GENESIS" else "Без списка Google Tasks")
+                            Text(selectedList?.title ?: if (accountSettings?.authProvider != "google") "Без списка GENESIS" else "Без списка Google Tasks")
                         }
                         DropdownMenu(choosingList,{choosingList=false}) {
-                            DropdownMenuItem(text={Text(if (accountSettings?.authProvider == "yandex") "Без списка GENESIS" else "Без списка Google Tasks")},onClick={listId=null;choosingList=false})
+                            DropdownMenuItem(text={Text(if (accountSettings?.authProvider != "google") "Без списка GENESIS" else "Без списка Google Tasks")},onClick={listId=null;choosingList=false})
                             taskLists.forEach { list -> DropdownMenuItem(text={Text(list.title)},onClick={
                                 listId=list.id
-                                if (accountSettings?.authProvider != "yandex") { reminders=emptyList();customReminder=false }
-                                if (accountSettings?.authProvider != "yandex") recurrence=recurrence.copy(enabled=false)
+                                if (accountSettings?.authProvider == "google") { reminders=emptyList();customReminder=false }
+                                if (accountSettings?.authProvider == "google") recurrence=recurrence.copy(enabled=false)
                                 choosingList=false
                                 projectId=structure.taskListLinks.firstOrNull{it.taskListId==list.id}?.projectId
                             }) }
