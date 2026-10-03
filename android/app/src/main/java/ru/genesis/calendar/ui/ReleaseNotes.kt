@@ -24,12 +24,14 @@ import ru.genesis.calendar.ui.Text
 
 internal data class Notes(val title: String, val close: String, val changes: List<String>)
 
-private val release254Changes = mapOf(
+private val release255Changes = mapOf(
     "ru" to listOf(
+        "Заголовок календаря года прокручивается вместе с содержимым года.",
         "Прокрутка календаря года стала легче: месяцы загружаются по мере появления на экране.",
         "Иллюстрации сохраняют исходное качество и декодируются под размер экрана.",
         "При новой установке общий свайп по иконкам и подменю включены по умолчанию."),
     "en" to listOf(
+        "The year calendar header now scrolls with the year's content.",
         "Year calendar scrolling is lighter: months appear as you reach them.",
         "Illustrations keep their original quality and decode at screen size.",
         "On new installs, icon swiping includes submenus by default."),
@@ -126,8 +128,8 @@ internal fun ReleaseNotesDialog(onDismiss: () -> Unit) {
         title = { Text("${copy.title} · ${BuildConfig.VERSION_NAME}") },
         text = { Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            (release254Changes[LocalGenesisLanguage.current]
-                ?: release254Changes[if (LocalGenesisLanguage.current == "ru") "ru" else "en"]!!).forEach {
+            (release255Changes[LocalGenesisLanguage.current]
+                ?: release255Changes[if (LocalGenesisLanguage.current == "ru") "ru" else "en"]!!).forEach {
                 Text("• $it", style = MaterialTheme.typography.bodyMedium)
             }
         } },
