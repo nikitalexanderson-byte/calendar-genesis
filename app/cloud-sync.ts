@@ -258,6 +258,9 @@ export type AdminUserStats = {
   calendarConnected: boolean;
   googleAuthConnected: boolean;
   lastGoogleCalendarSyncAt: string | null;
+  yandexCalendarConnected: boolean;
+  yandexSyncedCount: number;
+  lastYandexCalendarCheckAt: string | null;
   projectCount: number;
   taskCount: number;
   openTaskCount: number;

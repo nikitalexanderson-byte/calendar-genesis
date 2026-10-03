@@ -1332,6 +1332,7 @@ export function GenesisCalendar() {
     error: null,
   });
   const [accountOpen, setAccountOpen] = useState(false);
+  const [accountIdentityExpanded, setAccountIdentityExpanded] = useState(false);
   const [yandexConnectPromptUserId, setYandexConnectPromptUserId] = useState<string | null>(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [experimentalThemeWarningOpen, setExperimentalThemeWarningOpen] = useState(false);
@@ -1891,12 +1892,18 @@ export function GenesisCalendar() {
   }, []);
 
   useEffect(() => {
-    if (!accountMenuOpen) return;
+    if (!accountMenuOpen && !accountIdentityExpanded) return;
     const closeOutside = (event: globalThis.PointerEvent) => {
-      if (!accountMenuRef.current?.contains(event.target as Node)) setAccountMenuOpen(false);
+      if (!accountMenuRef.current?.contains(event.target as Node)) {
+        setAccountMenuOpen(false);
+        setAccountIdentityExpanded(false);
+      }
     };
     const closeWithEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setAccountMenuOpen(false);
+      if (event.key === "Escape") {
+        setAccountMenuOpen(false);
+        setAccountIdentityExpanded(false);
+      }
     };
     document.addEventListener("pointerdown", closeOutside);
     window.addEventListener("keydown", closeWithEscape);
@@ -1904,7 +1911,7 @@ export function GenesisCalendar() {
       document.removeEventListener("pointerdown", closeOutside);
       window.removeEventListener("keydown", closeWithEscape);
     };
-  }, [accountMenuOpen]);
+  }, [accountMenuOpen, accountIdentityExpanded]);
 
   useEffect(() => {
     if (!dayDetailsOpen && !dayTaskCreatorOpen) return;
@@ -4671,7 +4678,7 @@ export function GenesisCalendar() {
                      ? (isEnglish ? "Date in the civil calendar" : "Дата в гражданском календаре")
                      : "Три ритма в одной точке"}</h2>
               </div>
-              <span className="ornament" aria-hidden="true">{activeCalendarMode === "lunar" ? "☾" : activeCalendarMode === "profane" ? <CronusSickleIcon size={24} /> : "✣"}</span>
+              <span className="ornament" aria-hidden="true">{activeCalendarMode === "lunar" ? "☾" : activeCalendarMode === "profane" ? <CronusSickleIcon size={24} /> : <svg className="three-rhythms-icon" viewBox="0 0 44 44" fill="none"><path d="M22 22V7.04M22 22l12.96 7.48M22 22 9.04 29.48" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/><circle cx="22" cy="7.04" r="3.3" fill="currentColor"/><circle cx="34.96" cy="29.48" r="3.3" fill="currentColor"/><circle cx="9.04" cy="29.48" r="3.3" fill="currentColor"/></svg>}</span>
             </div>
             <div className="meaning-grid">
               {activeCalendarMode === "lunar" ? (
@@ -5679,64 +5686,6 @@ export function GenesisCalendar() {
           </div>
         </header>
 
-        {experimentalThemeActive ? (
-          <div
-            ref={experimentalTaskCreateTabsRef}
-            className="experimental-workspace-tabs experimental-create-tabs"
-            role="tablist"
-            tabIndex={-1}
-            aria-label={isEnglish ? "Create in tasks" : "Создание в задачах"}
-            onKeyDown={(event) => {
-              if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
-              event.preventDefault();
-              const nextTab = event.key === "ArrowLeft" || event.key === "Home" ? "task" : "list";
-              setExperimentalTaskCreateTab(nextTab);
-              window.requestAnimationFrame(() => experimentalTaskCreateTabsRef.current
-                ?.querySelector<HTMLButtonElement>(`[data-experimental-create-tab="${nextTab}"]`)
-                ?.focus());
-            }}
-          >
-            <button id="experimental-create-tab-task" data-experimental-create-tab="task" type="button" role="tab" tabIndex={experimentalTaskCreateTab === "task" ? 0 : -1} aria-selected={experimentalTaskCreateTab === "task"} aria-controls="experimental-create-task" onClick={() => setExperimentalTaskCreateTab("task")}>
-              <span>{isEnglish ? "Task" : "Задача"}</span>
-              <strong aria-hidden="true">＋</strong>
-            </button>
-            <button id="experimental-create-tab-list" data-experimental-create-tab="list" type="button" role="tab" tabIndex={experimentalTaskCreateTab === "list" ? 0 : -1} aria-selected={experimentalTaskCreateTab === "list"} aria-controls="experimental-create-list" onClick={() => setExperimentalTaskCreateTab("list")}>
-              <span>{isEnglish ? "Task list" : "Список задач"}</span>
-              <strong aria-hidden="true">☷</strong>
-            </button>
-          </div>
-        ) : null}
-
-        <div className="all-tasks-create-grid">
-          {experimentalThemeActive ? (
-            <>
-              <section id="experimental-create-task" className="experimental-create-panel" role="tabpanel" aria-labelledby="experimental-create-tab-task" tabIndex={0} hidden={experimentalTaskCreateTab !== "task"}>
-                <details className="all-tasks-create">
-                  <summary><span aria-hidden="true">＋</span> Добавить задачу</summary>
-                  {renderTaskCreateForm("all-tasks")}
-                </details>
-              </section>
-              <section id="experimental-create-list" className="experimental-create-panel" role="tabpanel" aria-labelledby="experimental-create-tab-list" tabIndex={0} hidden={experimentalTaskCreateTab !== "list"}>
-                <details className="task-list-create">
-                  <summary><span aria-hidden="true">☷</span> Создать список задач</summary>
-                  {renderTaskListCreateForm("all-tasks")}
-                </details>
-              </section>
-            </>
-          ) : (
-            <>
-              <details className="all-tasks-create" open>
-                <summary><span aria-hidden="true">＋</span> Добавить задачу</summary>
-                {renderTaskCreateForm("all-tasks")}
-              </details>
-              <details className="task-list-create">
-                <summary><span aria-hidden="true">☷</span> Создать список задач</summary>
-                {renderTaskListCreateForm("all-tasks")}
-              </details>
-            </>
-          )}
-        </div>
-
         <div className="all-tasks-toolbar">
           <label className="tag-search">
             <span aria-hidden="true">⌕</span>
@@ -5811,6 +5760,65 @@ export function GenesisCalendar() {
             </div>
           )}
         </div>
+
+        {experimentalThemeActive ? (
+          <div
+            ref={experimentalTaskCreateTabsRef}
+            className="experimental-workspace-tabs experimental-create-tabs"
+            role="tablist"
+            tabIndex={-1}
+            aria-label={isEnglish ? "Create in tasks" : "Создание в задачах"}
+            onKeyDown={(event) => {
+              if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+              event.preventDefault();
+              const nextTab = event.key === "ArrowLeft" || event.key === "Home" ? "task" : "list";
+              setExperimentalTaskCreateTab(nextTab);
+              window.requestAnimationFrame(() => experimentalTaskCreateTabsRef.current
+                ?.querySelector<HTMLButtonElement>(`[data-experimental-create-tab="${nextTab}"]`)
+                ?.focus());
+            }}
+          >
+            <button id="experimental-create-tab-task" data-experimental-create-tab="task" type="button" role="tab" tabIndex={experimentalTaskCreateTab === "task" ? 0 : -1} aria-selected={experimentalTaskCreateTab === "task"} aria-controls="experimental-create-task" onClick={() => setExperimentalTaskCreateTab("task")}>
+              <span>{isEnglish ? "Task" : "Задача"}</span>
+              <strong aria-hidden="true">＋</strong>
+            </button>
+            <button id="experimental-create-tab-list" data-experimental-create-tab="list" type="button" role="tab" tabIndex={experimentalTaskCreateTab === "list" ? 0 : -1} aria-selected={experimentalTaskCreateTab === "list"} aria-controls="experimental-create-list" onClick={() => setExperimentalTaskCreateTab("list")}>
+              <span>{isEnglish ? "Task list" : "Список задач"}</span>
+              <strong aria-hidden="true">☷</strong>
+            </button>
+          </div>
+        ) : null}
+
+        <div className="all-tasks-create-grid">
+          {experimentalThemeActive ? (
+            <>
+              <section id="experimental-create-task" className="experimental-create-panel" role="tabpanel" aria-labelledby="experimental-create-tab-task" tabIndex={0} hidden={experimentalTaskCreateTab !== "task"}>
+                <details className="all-tasks-create">
+                  <summary><span aria-hidden="true">＋</span> Добавить задачу</summary>
+                  {renderTaskCreateForm("all-tasks")}
+                </details>
+              </section>
+              <section id="experimental-create-list" className="experimental-create-panel" role="tabpanel" aria-labelledby="experimental-create-tab-list" tabIndex={0} hidden={experimentalTaskCreateTab !== "list"}>
+                <details className="task-list-create">
+                  <summary><span aria-hidden="true">☷</span> Создать список задач</summary>
+                  {renderTaskListCreateForm("all-tasks")}
+                </details>
+              </section>
+            </>
+          ) : (
+            <>
+              <details className="all-tasks-create" open>
+                <summary><span aria-hidden="true">＋</span> Добавить задачу</summary>
+                {renderTaskCreateForm("all-tasks")}
+              </details>
+              <details className="task-list-create">
+                <summary><span aria-hidden="true">☷</span> Создать список задач</summary>
+                {renderTaskListCreateForm("all-tasks")}
+              </details>
+            </>
+          )}
+        </div>
+
       </div>
     );
   };
@@ -6396,12 +6404,15 @@ export function GenesisCalendar() {
               </svg>
             </button>
             {cloudUser ? (
-              <div className="account-chip" ref={accountMenuRef}>
+              <div className={`account-chip${accountIdentityExpanded ? " is-expanded" : " is-compact"}`} ref={accountMenuRef}>
                 <button
                   type="button"
                   className="account-open"
-                  onClick={() => setAccountMenuOpen((current) => !current)}
-                  aria-label="Открыть меню аккаунта"
+                  onClick={() => {
+                    if (!accountIdentityExpanded) setAccountIdentityExpanded(true);
+                    else setAccountMenuOpen((current) => !current);
+                  }}
+                  aria-label={accountIdentityExpanded ? "Открыть меню аккаунта" : "Показать имя аккаунта"}
                   aria-haspopup="menu"
                   aria-expanded={accountMenuOpen}
                 >
@@ -6413,12 +6424,12 @@ export function GenesisCalendar() {
                   >
                     {cloudUser.photoURL ? "" : "G"}
                   </span>
-                  <span>
+                  {accountIdentityExpanded ? <span>
                     <strong>{cloudUser.displayName || "Google"}</strong>
                     <small>{cloudUser.calendarConnected
                       ? (cloudUser.authProvider === "yandex" ? "Яндекс.Календарь подключён" : "Google Calendar подключён")
                       : "личный кабинет"}</small>
-                  </span>
+                  </span> : null}
                 </button>
                 {accountMenuOpen ? (
                   <div className="account-menu" role="menu">

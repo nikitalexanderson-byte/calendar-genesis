@@ -1,4 +1,5 @@
 const SCOPE = self.registration.scope;
+const ASSETS_PATH = new URL("./assets/", SCOPE).pathname;
 try {
   importScripts(new URL("./precache-manifest.js", SCOPE).href);
 } catch {
@@ -115,7 +116,6 @@ self.addEventListener("install", (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE);
     await cache.addAll(REQUIRED_SHELL.map((url) => new Request(url, { cache: "reload" })));
-    await self.skipWaiting();
   })());
 });
 
@@ -135,6 +135,23 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return;
   if (url.pathname.includes("/api/")) return;
   if (url.pathname.includes("/downloads/")) return;
+
+  // Versioned bundles are immutable. Keep serving the current page's cached
+  // modules while a newer worker waits for all open tabs to close.
+  if (url.pathname.startsWith(ASSETS_PATH)) {
+    event.respondWith(
+      caches.open(CACHE).then(async (cache) => {
+        const cached = await cache.match(request);
+        if (cached) return cached;
+        const response = await fetch(request);
+        if (response.ok && !response.headers.get("Content-Type")?.includes("text/html")) {
+          void cache.put(request, response.clone());
+        }
+        return response;
+      }),
+    );
+    return;
+  }
 
   if (request.mode === "navigate") {
     event.respondWith(
