@@ -10,6 +10,7 @@ data class LinkedGoogleAccount(
     val isPrimary: Boolean,
     val calendarConnected: Boolean,
     val tasksConnected: Boolean,
+    val provider: String = "google",
 )
 
 data class SyncRouting(
@@ -53,7 +54,9 @@ data class AccountSettings(
         fun fromResponse(response: JSONObject): AccountSettings? {
             if (response.isNull("user")) return null
             val user = response.getJSONObject("user")
-            val array = user.getJSONArray("googleAccounts")
+            val provider = user.optString("authProvider", "google")
+            val array = if (provider == "google") user.getJSONArray("googleAccounts")
+                else user.optJSONArray("linkedAccounts") ?: user.getJSONArray("googleAccounts")
             val accounts = (0 until array.length()).map { index ->
                 val item = array.getJSONObject(index)
                 LinkedGoogleAccount(
@@ -62,7 +65,8 @@ data class AccountSettings(
                     displayName = item.optString("displayName"),
                     isPrimary = item.optBoolean("isPrimary"),
                     calendarConnected = item.optBoolean("calendarConnected"),
-                    tasksConnected = item.optBoolean("googleTasksImportReady"),
+                    tasksConnected = item.optBoolean(if (provider == "google") "googleTasksImportReady" else "tasksConnected"),
+                    provider = item.optString("provider", provider),
                 )
             }
             val route = user.getJSONObject("syncRouting")

@@ -403,10 +403,12 @@ class AuthController private constructor(context: Context) {
             checkedAt = System.currentTimeMillis(), message = "Настройка сохранена в аккаунте; локальная копия обновляется."))
     }
 
-    fun connectYandexCalendar(login: String, appPassword: String) = start("Подключаем Яндекс.Календарь…") { generation ->
+    fun connectYandexCalendar(login: String, appPassword: String, accountId: String? = null) = start("Подключаем Яндекс.Календарь…") { generation ->
         val previous = mutableState.value
-        require(previous.user != null && previous.accountSettings?.authProvider == "yandex")
-        val payload = withContext(Dispatchers.IO) { client.connectYandexCalendar(generation, login.trim(), appPassword) }
+        require(previous.user != null && previous.accountSettings?.authProvider != "google")
+        val selected = accountId ?: previous.user.uid
+        require(previous.accountSettings?.accounts?.any { it.id == selected && it.provider == "yandex" } == true)
+        val payload = withContext(Dispatchers.IO) { client.connectYandexCalendar(generation, login.trim(), appPassword, selected) }
         val settings = AccountSettings.fromResponse(payload) ?: throw AuthFailure(AuthFailure.Kind.PROTOCOL)
         val identity = AuthProtocol.identity(payload) ?: throw AuthFailure(AuthFailure.Kind.PROTOCOL)
         publish(generation, previous.copy(busy = false, user = identity, accountSettings = settings,
@@ -415,10 +417,12 @@ class AuthController private constructor(context: Context) {
         syncPending()
     }
 
-    fun disconnectYandexCalendar() = start("Отключаем Яндекс.Календарь…") { generation ->
+    fun disconnectYandexCalendar(accountId: String? = null) = start("Отключаем Яндекс.Календарь…") { generation ->
         val previous = mutableState.value
-        require(previous.user != null && previous.accountSettings?.authProvider == "yandex")
-        val payload = withContext(Dispatchers.IO) { client.disconnectYandexCalendar(generation) }
+        require(previous.user != null && previous.accountSettings?.authProvider != "google")
+        val selected = accountId ?: previous.user.uid
+        require(previous.accountSettings?.accounts?.any { it.id == selected && it.provider == "yandex" } == true)
+        val payload = withContext(Dispatchers.IO) { client.disconnectYandexCalendar(generation, selected) }
         val settings = AccountSettings.fromResponse(payload) ?: throw AuthFailure(AuthFailure.Kind.PROTOCOL)
         val identity = AuthProtocol.identity(payload) ?: throw AuthFailure(AuthFailure.Kind.PROTOCOL)
         publish(generation, previous.copy(busy = false, user = identity, accountSettings = settings,

@@ -15,6 +15,7 @@ import {
 import { clearTrackerAnalyticsCache } from "./tracker-cache";
 import {
   mergeWorkspaceDocuments,
+  mergeIndependentWorkspaceDocuments,
   normalizeWorkspaceSyncMetadata,
   prepareWorkspaceForSync,
   type SyncableWorkspaceDocument,
@@ -48,6 +49,17 @@ export type GoogleAccount = {
   isPrimary: boolean;
   calendarConnected: boolean;
   googleTasksImportReady: boolean;
+};
+
+export type LinkedLocalAccount = {
+  id: string;
+  provider: "yandex" | "vk";
+  email: string;
+  displayName: string;
+  photoURL: string | null;
+  isPrimary: boolean;
+  calendarConnected: boolean;
+  tasksConnected: boolean;
 };
 
 export type SyncRouting = {
@@ -146,6 +158,7 @@ export type GenesisUser = {
   language: Language;
   multiAccountEnabled: boolean;
   googleAccounts: GoogleAccount[];
+  linkedAccounts?: LinkedLocalAccount[];
   syncRouting: SyncRouting;
 };
 
@@ -1157,6 +1170,67 @@ export function signInWithVk() {
   return Promise.resolve();
 }
 
+export function connectLocalAccount(provider: "yandex" | "vk") {
+  if (!API_BASE) throw new Error("Сервер GENESIS ещё не подключён");
+  const url = new URL(window.location.href);
+  url.searchParams.set("account_link", "1");
+  const returnTo = cleanGenesisAppUrl(url);
+  window.location.assign(`${API_BASE}/auth/${provider}/start?purpose=link&return_to=${encodeURIComponent(returnTo)}`);
+}
+
+export type PendingLocalAccountLink = {
+  provider: "yandex" | "vk";
+  memberId: string;
+  email: string;
+  displayName: string;
+  sourceWorkspace: {
+    key: string;
+    keyMode: "account";
+    envelope: WorkspaceEnvelope | null;
+  };
+};
+
+export async function getPendingLocalAccountLink() {
+  return (await api<{ pending: PendingLocalAccountLink | null }>("/account/local-link/pending")).pending;
+}
+
+export async function cancelPendingLocalAccountLink() {
+  await api<{ ok: true }>("/account/local-link/cancel", { method: "POST", body: "{}" });
+}
+
+export async function mergePendingLocalAccountLink(pending: PendingLocalAccountLink) {
+  if (!workspaceKey || !workspaceUserId) throw new Error("Сначала откройте защищённое пространство GENESIS.");
+  const source = pending.sourceWorkspace.envelope;
+  const target = await fetchWorkspaceEnvelope();
+  let mergedWorkspace: Awaited<ReturnType<typeof encryptWorkspaceDocument>> | undefined;
+  if (source) {
+    if (!pending.sourceWorkspace.key) throw new Error("Ключ второго пространства недоступен.");
+    const sourceKey = await crypto.subtle.importKey("raw", base64ToBytes(pending.sourceWorkspace.key),
+      "AES-GCM", false, ["decrypt"]);
+    const plaintext = await crypto.subtle.decrypt({ name: "AES-GCM", iv: base64ToBytes(source.iv) },
+      sourceKey, base64ToBytes(source.ciphertext));
+    const sourceDocument = JSON.parse(new TextDecoder().decode(plaintext)) as SyncableWorkspaceDocument;
+    const decodedTarget = target ? await decryptWorkspaceEnvelope(target) : null;
+    const targetDocument = decodedTarget
+      ? workspaceDocument(decodedTarget.structure, decodedTarget.metadata)
+      : workspaceDocument({ projects: [], categories: [], taskListLinks: [], taskLists: [],
+          ...normalizeHabitWorkspace(EMPTY_HABIT_WORKSPACE) });
+    const merged = mergeIndependentWorkspaceDocuments({
+      primary: targetDocument,
+      secondary: sourceDocument,
+      defaults: workspaceDocument({ projects: [], categories: [], taskListLinks: [], taskLists: [],
+        ...normalizeHabitWorkspace(EMPTY_HABIT_WORKSPACE) }),
+      clock: syncFallback(target?.version ?? 0, target?.updatedAt, workspaceDeviceId),
+    });
+    const structure = structureFromDocument(merged.document);
+    mergedWorkspace = await encryptWorkspaceDocument(structure, merged.metadata, target?.version ?? 0);
+  }
+  return api<{ user: GenesisUser }>("/account/local-link/commit", {
+    method: "POST",
+    body: JSON.stringify({ sourceVersion: source?.version ?? 0, mergedWorkspace }),
+  });
+}
+
 export function connectGoogleServices() {
   if (!API_BASE) throw new Error("Сервер GENESIS ещё не подключён");
   const returnTo = cleanGenesisAppUrl(window.location.href);
@@ -1244,17 +1318,17 @@ export function disconnectGoogleServices() {
   });
 }
 
-export function connectYandexCalendar(login: string, appPassword: string) {
+export function connectYandexCalendar(login: string, appPassword: string, accountId?: string) {
   return api<{ user: GenesisUser }>("/account/yandex-calendar/connect", {
     method: "POST",
-    body: JSON.stringify({ login, appPassword }),
+    body: JSON.stringify({ login, appPassword, accountId }),
   });
 }
 
-export function disconnectYandexCalendar() {
+export function disconnectYandexCalendar(accountId?: string) {
   return api<{ user: GenesisUser }>("/account/yandex-calendar/disconnect", {
     method: "POST",
-    body: "{}",
+    body: JSON.stringify({ accountId }),
   });
 }
 

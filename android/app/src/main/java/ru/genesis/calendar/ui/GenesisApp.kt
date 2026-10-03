@@ -1220,7 +1220,7 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
                     Text("Март был первым месяцем древнеримского года: сентябрь означал «седьмой», октябрь — «восьмой». Январь назван в честь Януса, божества начал и переходов.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("Фон сезонов", style = MaterialTheme.typography.titleSmall)
+                    Text("Иллюстрации времён года", style = MaterialTheme.typography.titleSmall)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(selected = !prefs.regionalSeasonArt,
                             onClick = { onSetLocal("seasonArtMode", "static") },
@@ -1231,7 +1231,7 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
                             modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("season-art-regional"),
                             label = { Text("По региону") })
                     }
-                    Text("Выберите источник региона в разделе «Регион» выше. Для Южного полушария времена года и цвета меняются местами.",
+                    Text("Выбор действует для григорианского и сакрального календарей. У Апейрона одна космическая иллюстрация для всех регионов. Источник региона выбирается выше; в григорианском календаре Южного полушария сезоны меняются местами.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }

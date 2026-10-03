@@ -163,11 +163,11 @@ internal class AuthSessionClient(context: Context) {
         return request(expected, "/auth/vk/native/complete",
             JSONObject().put("ticket", ticket).put("flow", flow))
     }
-    fun connectYandexCalendar(expected: Long, login: String, appPassword: String): JSONObject =
+    fun connectYandexCalendar(expected: Long, login: String, appPassword: String, accountId: String? = null): JSONObject =
         request(expected, "/account/yandex-calendar/connect",
-            JSONObject().put("login", login).put("appPassword", appPassword))
-    fun disconnectYandexCalendar(expected: Long): JSONObject =
-        request(expected, "/account/yandex-calendar/disconnect", JSONObject())
+            JSONObject().put("login", login).put("appPassword", appPassword).put("accountId", accountId))
+    fun disconnectYandexCalendar(expected: Long, accountId: String? = null): JSONObject =
+        request(expected, "/account/yandex-calendar/disconnect", JSONObject().put("accountId", accountId))
 
     fun revoke(expected: Long, old: SessionSecret) {
         if (old.cookie.isBlank() || old.csrf.isBlank()) return

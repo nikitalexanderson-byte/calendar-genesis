@@ -109,6 +109,7 @@ import {
 } from "../app/streak-protection.ts";
 import {
   mergeWorkspaceDocuments,
+  mergeIndependentWorkspaceDocuments,
   prepareWorkspaceForSync,
 } from "../app/workspace-sync-state.ts";
 import {
@@ -228,6 +229,26 @@ test("encrypted workspace sync merges concurrent entities and preserves deletion
   }).document;
   assert.deepEqual(merged.projects.map((item) => item.id), ["project-remote"], "a tombstone must beat a stale copy without deleting a concurrent addition");
   assert.deepEqual(merged.habitCompletions.map((item) => item.id), ["completion-left", "completion-right"]);
+});
+
+test("independent account merge keeps both collections and rejects conflicting records", () => {
+  const defaults = { projects: [], categories: [], trackerSchemaVersion: 16,
+    userProgress: { xp: 0 }, habitSettings: { enabled: true }, hiddenDefaultTemplates: [] };
+  const clock = syncClock(1, "2026-10-03T00:00:00.000Z", "merge-test");
+  const primary = { ...defaults, projects: [{ id: "primary", title: "First" }],
+    syncMetadata: { schemaVersion: 1, entities: {}, fields: {},
+      tombstones: [{ collection: "projects", id: "secondary", ...clock }] } };
+  const secondary = { ...defaults, projects: [{ id: "secondary", title: "Second" }] };
+  const merged = mergeIndependentWorkspaceDocuments({ primary, secondary, defaults, clock });
+  assert.deepEqual(merged.document.projects.map((item) => item.id), ["primary", "secondary"]);
+  assert.deepEqual(merged.metadata.tombstones, []);
+  assert.throws(() => mergeIndependentWorkspaceDocuments({
+    primary, secondary: { ...secondary, projects: [{ id: "primary", title: "Different" }] }, defaults, clock,
+  }), /одинаковым ID/);
+  assert.throws(() => mergeIndependentWorkspaceDocuments({
+    primary: { ...primary, userProgress: { xp: 5 } },
+    secondary: { ...secondary, userProgress: { xp: 10 } }, defaults, clock,
+  }), /прогресс/);
 });
 
 test("workspace merge deduplicates reward ledger entries by idempotency key", () => {
@@ -357,10 +378,10 @@ test("account deletion atomically purges only the authenticated user's server an
   assert.match(deletion, /array_sum\(\$remaining\) !== 0/);
   assert.match(deletion, /\$db->rollBack\(\)/);
 
-  const accountRoute = apiRouter.slice(apiRouter.indexOf("if ($method === 'DELETE' && $path === 'account')"));
+  const accountRoute = apiRouter.match(/if \(\$method === 'DELETE' && \$path === 'account'\) \{[\s\S]*?\r?\n {4}\}/)?.[0] ?? "";
   assert.match(accountRoute, /\$userId = genesisRequireUserId\(\);[\s\S]*genesisRequireCsrf\(\);[\s\S]*genesisDeleteAccount\(\$userId\)/);
   assert.match(accountRoute, /'deleted' => true/);
-  assert.doesNotMatch(accountRoute.slice(0, accountRoute.indexOf("if ($method === 'POST' && $path === 'account/google-services/disconnect')")), /genesisReadJson\(\)/);
+  assert.doesNotMatch(accountRoute, /genesisReadJson\(\)/);
 
   assert.match(cloud, /deleteGenesisAccount\(userId\?: string\)/);
   assert.match(cloud, /GENESIS_USER_WORKSPACE_STORAGE_PREFIX/);
@@ -2003,7 +2024,7 @@ test("retains the legacy TWA artifact but promotes only the signed native Androi
   // The legacy 1.2.2 asset remains available while the current native release advances.
   const nativeVersionCode = Number(androidBuild.match(/versionCode = (\d+)/)?.[1]);
   assert.ok(nativeVersionCode >= 57);
-  assert.match(androidBuild, /versionName = "2\.5\.2"/);
+  assert.match(androidBuild, /versionName = "2\.5\.3"/);
   assert.match(androidBuild, /releaseSigningReady/);
   assert.match(androidBuild, /applicationIdSuffix = "\.debug"/);
   assert.match(androidBuild, /androidx\.browser:browser:1\.10\.0/);

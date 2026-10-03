@@ -376,3 +376,44 @@ export function mergeWorkspaceDocuments(input: {
   merged.syncMetadata = mergedMetadata;
   return { document: merged, metadata: mergedMetadata };
 }
+
+/** Import two formerly independent accounts without applying either account's tombstones. */
+export function mergeIndependentWorkspaceDocuments(input: {
+  primary: SyncableWorkspaceDocument;
+  secondary: SyncableWorkspaceDocument;
+  defaults: SyncableWorkspaceDocument;
+  clock: WorkspaceClock;
+}) {
+  const combined: SyncableWorkspaceDocument = {};
+  WORKSPACE_SYNC_COLLECTIONS.forEach((collection) => {
+    const primary = collectionMap(input.primary, collection);
+    const secondary = collectionMap(input.secondary, collection);
+    secondary.forEach((item, id) => {
+      const existing = primary.get(id);
+      if (existing && canonical(existing) !== canonical(item)) {
+        throw new Error("Обнаружены разные записи с одинаковым ID. Оба аккаунта оставлены отдельно.");
+      }
+      primary.set(id, item);
+    });
+    combined[collection] = Array.from(primary.values());
+  });
+  WORKSPACE_SYNC_FIELDS.forEach((field) => {
+    const primary = input.primary[field];
+    const secondary = input.secondary[field];
+    if (field === "trackerSchemaVersion") {
+      combined[field] = Math.max(Number(primary) || 0, Number(secondary) || 0);
+    } else if (field === "hiddenDefaultTemplates") {
+      combined[field] = Array.from(new Set([
+        ...(Array.isArray(primary) ? primary : []),
+        ...(Array.isArray(secondary) ? secondary : []),
+      ]));
+    } else if (canonical(primary) === canonical(secondary) || canonical(secondary) === canonical(input.defaults[field])) {
+      combined[field] = primary;
+    } else if (canonical(primary) === canonical(input.defaults[field])) {
+      combined[field] = secondary;
+    } else {
+      throw new Error("Настройки и прогресс двух аккаунтов различаются. Оба аккаунта оставлены отдельно.");
+    }
+  });
+  return prepareWorkspaceForSync({ current: combined, clock: input.clock });
+}

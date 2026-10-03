@@ -104,8 +104,11 @@ function genesisGoogleAccountForUser(string $ownerUserId, string $accountId): ?a
 
 function genesisMultiAccountEnabled(array $owner): bool
 {
-    return genesisUserProvider($owner) === 'google'
-        && isset($owner['id']) && trim((string)$owner['id']) !== '';
+    if (genesisUserProvider($owner) === 'google') {
+        return isset($owner['id']) && trim((string)$owner['id']) !== '';
+    }
+    return function_exists('genesisLocalAccountMembers')
+        && count(genesisLocalAccountMembers($owner)) > 1;
 }
 
 function genesisAccountForClient(array $account, bool $primary): array
@@ -156,6 +159,8 @@ function genesisCategorySyncMap(mixed $value): array
 function genesisUserForClient(array $user): array
 {
     $multiAccountEnabled = genesisMultiAccountEnabled($user);
+    $localAccounts = genesisUserProvider($user) !== 'google'
+        && function_exists('genesisLocalAccountMembers') ? genesisLocalAccountMembers($user) : [];
     $accounts = [genesisAccountForClient($user, true)];
     if ($multiAccountEnabled) {
         foreach (genesisLinkedGoogleAccounts((string)$user['id']) as $account) {
@@ -186,7 +191,8 @@ function genesisUserForClient(array $user): array
     $syncRoutingMode = in_array($user['sync_routing_mode'] ?? '', ['fixed', 'choose', 'category'], true)
         ? (string)$user['sync_routing_mode']
         : 'fixed';
-    $validAccountIds = array_map(static fn(array $account): string => (string)$account['id'], $accounts);
+    $validAccountIds = array_map(static fn(array $account): string => (string)$account['id'],
+        $localAccounts !== [] ? $localAccounts : $accounts);
     $defaultAccountIds = array_values(array_filter(
         genesisDecodeStringListJson($user['sync_target_account_ids'] ?? '[]'),
         static fn(string $id): bool => in_array($id, $validAccountIds, true),
@@ -201,8 +207,8 @@ function genesisUserForClient(array $user): array
             static fn(string $id): bool => in_array($id, $validAccountIds, true),
         ));
     }
-    $anyCalendarConnected = genesisUserProvider($user) === 'yandex'
-        ? genesisYandexCalendarConnection((string)$user['id']) !== null
+    $anyCalendarConnected = $localAccounts !== []
+        ? count(array_filter($localAccounts, static fn(array $account): bool => !empty($account['calendarConnected']))) > 0
         : count(array_filter($accounts, static fn(array $account): bool => !empty($account['calendarConnected']))) > 0;
     $anyTasksConnected = count(array_filter($accounts, static fn(array $account): bool => !empty($account['googleTasksImportReady']))) > 0;
     return [
@@ -226,6 +232,7 @@ function genesisUserForClient(array $user): array
         'language' => $language,
         'multiAccountEnabled' => $multiAccountEnabled,
         'googleAccounts' => $accounts,
+        'linkedAccounts' => $localAccounts,
         'syncRouting' => [
             'mode' => $syncRoutingMode,
             'defaultAccountIds' => $defaultAccountIds,
@@ -405,6 +412,13 @@ function genesisUpsertYandexUser(array $profile): array
     }
     $internalSub = 'yandex:' . hash('sha256', $uid);
     genesisAssertIdentityAllowed($internalSub, $email);
+    if (function_exists('genesisLinkedLocalOwner')) {
+        $linkedOwner = genesisLinkedLocalOwner('yandex', $uid);
+        if ($linkedOwner !== null) {
+            genesisTouchUser((string)$linkedOwner['id'], true);
+            return genesisEnsureWorkspaceKey($linkedOwner);
+        }
+    }
     $db = genesisDb();
     $existing = genesisFindUserByYandexUid($uid);
     if (is_array($existing) && genesisUserProvider($existing) !== 'yandex') {
@@ -460,6 +474,13 @@ function genesisUpsertVkUser(array $profile): array
     }
     $internalSub = 'vk:' . hash('sha256', $uid);
     genesisAssertIdentityAllowed($internalSub, $email);
+    if (function_exists('genesisLinkedLocalOwner')) {
+        $linkedOwner = genesisLinkedLocalOwner('vk', $uid);
+        if ($linkedOwner !== null) {
+            genesisTouchUser((string)$linkedOwner['id'], true);
+            return genesisEnsureWorkspaceKey($linkedOwner);
+        }
+    }
     $db = genesisDb();
     $existing = genesisFindUserByVkUid($uid);
     if ($existing !== null && genesisUserProvider($existing) !== 'vk') {
@@ -1086,7 +1107,9 @@ function genesisUpdateAccountPreferences(string $userId, array $payload): array
         if (!in_array($mode, ['fixed', 'choose', 'category'], true)) {
             throw new InvalidArgumentException('Неизвестный режим синхронизации.');
         }
-        $validAccountIds = array_map(static fn(array $account): string => (string)$account['id'], genesisGoogleAccountsForUser($user));
+        $availableAccounts = genesisUserProvider($user) === 'google'
+            ? genesisGoogleAccountsForUser($user) : genesisLocalAccountMembers($user);
+        $validAccountIds = array_map(static fn(array $account): string => (string)$account['id'], $availableAccounts);
         $targets = array_values(array_filter(
             genesisDecodeStringListJson($routing['defaultAccountIds'] ?? []),
             static fn(string $id): bool => in_array($id, $validAccountIds, true),
@@ -1200,6 +1223,11 @@ function genesisDeleteAccount(string $userId): array
         $db->beginTransaction();
     }
     try {
+        if (genesisUserProvider($user) !== 'google' && function_exists('genesisLocalAccountMembers')) {
+            foreach (genesisLocalAccountMembers($user) as $member) {
+                if (!$member['isPrimary']) genesisDeleteAccountRows($member['id']);
+            }
+        }
         $purged = genesisDeleteAccountRows($userId);
         if ($ownsTransaction) {
             $db->commit();
@@ -1228,6 +1256,8 @@ function genesisAdminDeleteUser(string $adminUserId, string $targetUserId, bool 
     }
 
     $linkedIdentities = genesisLinkedGoogleAccounts($targetUserId);
+    $linkedLocalMembers = genesisUserProvider($target) !== 'google'
+        && function_exists('genesisLocalAccountMembers') ? genesisLocalAccountMembers($target) : [];
     genesisRevokeAccountTokens($target);
     $db = genesisDb();
     $ownsTransaction = !$db->inTransaction();
@@ -1239,6 +1269,16 @@ function genesisAdminDeleteUser(string $adminUserId, string $targetUserId, bool 
             genesisBlockUserIdentity($target);
             foreach ($linkedIdentities as $linkedIdentity) {
                 genesisBlockUserIdentity($linkedIdentity);
+            }
+            foreach ($linkedLocalMembers as $member) {
+                if ($member['isPrimary']) continue;
+                $linkedUser = genesisFindUser($member['id']);
+                if ($linkedUser !== null) genesisBlockUserIdentity($linkedUser);
+            }
+        }
+        if (genesisUserProvider($target) !== 'google' && function_exists('genesisLocalAccountMembers')) {
+            foreach (genesisLocalAccountMembers($target) as $member) {
+                if (!$member['isPrimary']) genesisDeleteAccountRows($member['id']);
             }
         }
         $purged = genesisDeleteAccountRows($targetUserId);
