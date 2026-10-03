@@ -176,9 +176,11 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
         isLandscape, prefs.wideNavigationOnLeft)
     val portraitAutoScroll = !isLandscape && prefs.navigationLabels && prefs.navigationAutoScroll
     val portraitMenuSwipe = !isLandscape && prefs.menuSwipeEnabled
-    val swipeSequence = menuSwipeSequence(prefs.menuSwipeSubmenus, habitTrackingEnabled)
-    val currentSwipeDestination = SwipeDestination(tab,
-        if (prefs.menuSwipeSubmenus) menuSwipeState.section(tab) else null)
+    val swipeSequence = remember(prefs.menuSwipeSubmenus, habitTrackingEnabled) {
+        menuSwipeSequence(prefs.menuSwipeSubmenus, habitTrackingEnabled)
+    }
+    val swipeSection = if (prefs.menuSwipeSubmenus) menuSwipeState.section(tab) else null
+    val currentSwipeDestination = remember(tab, swipeSection) { SwipeDestination(tab, swipeSection) }
     val eveningTheme = rememberEveningTheme(AppearanceSettings.read(habitWorkspace.settings.rawJson))
     val accountGate = !testWorkspace && (!activeScope.startsWith("account-") || authState.user == null || !authState.ready)
     val welcomeVisible = accountGate && !(authState.busy && authState.user != null)
@@ -594,14 +596,26 @@ private fun TodayTasksPanel(tasks: List<LocalTask>, missedTasks: List<LocalTask>
 @Composable
 fun OriginalImage(path: String, description: String?, modifier: Modifier=Modifier) {
     val context=LocalContext.current
-    val bitmap by produceState<android.graphics.Bitmap?>(null,path) {
-        value=withContext(Dispatchers.IO) {
-            runCatching { context.assets.open("originals/$path").use { BitmapFactory.decodeStream(it) } }.getOrNull()
+    var imageWidth by remember(path) { mutableIntStateOf(0) }
+    var imageHeight by remember(path) { mutableIntStateOf(0) }
+    // Buckets avoid restarting a decode on small layout changes while scrolling.
+    val bucketWidth = ((imageWidth + 127) / 128) * 128
+    val bucketHeight = ((imageHeight + 127) / 128) * 128
+    var bitmap by remember(path,bucketWidth,bucketHeight) {
+        mutableStateOf(OriginalImageLoader.cached(path, bucketWidth, bucketHeight))
+    }
+    LaunchedEffect(path,bucketWidth,bucketHeight) {
+        if (bitmap == null) bitmap=withContext(Dispatchers.IO) {
+            runCatching { OriginalImageLoader.load(context.assets, path, bucketWidth, bucketHeight) }.getOrNull()
         }
     }
     val localizedDescription = description?.let { genesisTranslate(it) }
-    bitmap?.let { Image(it.asImageBitmap(),localizedDescription,
-        if(LocalEveningTheme.current) modifier.alpha(.86f) else modifier,contentScale=ContentScale.Crop) }
+    Box((if(LocalEveningTheme.current) modifier.alpha(.86f) else modifier).onSizeChanged {
+        imageWidth = it.width; imageHeight = it.height
+    }) {
+        bitmap?.let { Image(it.asImageBitmap(),localizedDescription,
+            Modifier.fillMaxSize(),contentScale=ContentScale.Crop) }
+    }
 }
 
 @Composable

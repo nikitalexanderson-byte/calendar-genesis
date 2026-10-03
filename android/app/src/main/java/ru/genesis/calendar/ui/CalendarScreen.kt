@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -91,6 +92,7 @@ private data class YearSeasonGroup(
     val months: List<Triple<LocalDate, String, String>>,
     val firstOrdinal: Int,
 )
+private data class YearTaskCount(val total: Int, val completed: Int)
 private fun dateLabel(locale: Locale) = DateTimeFormatter.ofPattern("d MMM yyyy", locale)
 
 internal fun sacredMonthArtPath(index: Int): String {
@@ -919,14 +921,13 @@ private fun CalendarYearOverview(calendar: GenesisCalendar, shown: LocalDate, mo
     val context = LocalContext.current
     val suggestionPrefs = remember(context) { context.getSharedPreferences("genesis.calendar-suggestions", android.content.Context.MODE_PRIVATE) }
     var springSuggestionDismissed by remember { mutableStateOf(suggestionPrefs.getBoolean("spring-year-dismissed", false)) }
-    Column(Modifier.fillMaxSize().testTag("calendar-year").verticalScroll(rememberScrollState())
-        .padding(horizontal = 8.dp, vertical = 8.dp),
+    Column(Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         CalendarPageHeader(true, mode, onModeChange,
             Modifier.padding(vertical = 8.dp))
         CalendarPeriodPager(period, period.minusYears(1), period.plusYears(1),
             { onYear(period.minusYears(1)) }, { onYear(period.plusYears(1)) },
-            Modifier.fillMaxWidth()) { page, previous, next ->
+            Modifier.fillMaxWidth().weight(1f), fillHeight = true) { page, previous, next ->
             CalendarYearPanel(calendar, page, mode, experimental, tasks,
                 gregorianYearStartsInMarch, regionalSeasonArt, seasonRegionZone,
                 springSuggestionDismissed, onStartGregorianYearInMarch,
@@ -975,6 +976,15 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
         return
     }
     val months = entries.getOrThrow()
+    // Recurrences are expanded once per year, rather than once for every month card.
+    val taskCounts = remember(tasks, months, mode) {
+        val ranges = months.map { calendar.monthRange(it.first, mode) }
+        val occurrences = TaskOccurrences.byDate(tasks, ranges.first().start, ranges.last().end)
+        months.zip(ranges).associate { (entry, range) ->
+            val monthTasks = range.dates().flatMap { occurrences[it.toString()].orEmpty() }
+            entry.first to YearTaskCount(monthTasks.size, monthTasks.count { it.done })
+        }
+    }
     val yearSeasonGroups = remember(months, mode, seasonRegionZone) {
         if (mode == CalendarMode.SACRED) {
             months.chunked(3).mapIndexed { index, group ->
@@ -997,17 +1007,24 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
         groups.map { (season, entries) -> YearSeasonGroup(season, entries, 0) }
         }
     }
-    BoxWithConstraints(Modifier.fillMaxWidth()) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
         val yearColumns = if (maxWidth >= 780.dp) 2 else 1
-        Card(Modifier.fillMaxWidth().testTag("calendar-year-panel"),
+        val yearListState = rememberLazyListState()
+        Card(Modifier.fillMaxSize().testTag("calendar-year-panel"),
             shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = .45f))) {
-            Column(Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            LazyColumn(Modifier.fillMaxSize().testTag("calendar-year"), state = yearListState,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(bottom = 12.dp)) {
+                item(key = "year-navigation") {
                 CalendarPeriodNavigation(yearLabel, true, onPrevious, onNext)
+                }
         if (experimental) {
-            val events = calendar.solarEvents(if (mode == CalendarMode.PROFANE) shown.year else sacredYear)
+            item(key = "year-solar-points") {
+            val events = remember(shown, mode, sacredYear) {
+                calendar.solarEvents(if (mode == CalendarMode.PROFANE) shown.year else sacredYear)
+            }
             Column(Modifier.padding(horizontal = 12.dp).testTag("calendar-year-solar-points"),
                 verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("Солнечные точки года", style = MaterialTheme.typography.titleMedium)
@@ -1019,8 +1036,10 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
                     }
                 }
             }
+            }
         }
         if (mode == CalendarMode.PROFANE && !gregorianYearStartsInMarch && !springSuggestionDismissed) {
+            item(key = "year-spring-suggestion") {
             val copy = springYearCopy(LocalGenesisLanguage.current)
             Card(Modifier.fillMaxWidth().padding(horizontal = 10.dp).testTag("spring-year-suggestion"),
                 shape = RoundedCornerShape(18.dp),
@@ -1047,9 +1066,11 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
                     }
                 }
             }
+            }
         }
         if (mode == CalendarMode.PROFANE || mode == CalendarMode.SACRED) {
-            yearSeasonGroups.withIndex().toList().chunked(yearColumns).forEach { row ->
+            yearSeasonGroups.withIndex().toList().chunked(yearColumns).forEachIndexed { rowIndex, row ->
+              item(key = "year-season-$rowIndex") {
               Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 row.forEach { (groupIndex, group) ->
                   val season = group.season
@@ -1093,7 +1114,7 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
                                 CalendarYearMonthCard(calendar, start, mode,
                                     if (mode == CalendarMode.SACRED) group.firstOrdinal + index + 1 else start.monthValue,
                                     name, title,
-                                    tasks, onMonth, locale)
+                                    taskCounts[start] ?: YearTaskCount(0, 0), onMonth, locale)
                             }
                             }
                         }
@@ -1104,20 +1125,26 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
                 }
                 if (row.size < yearColumns) Spacer(Modifier.weight(1f))
               }
+              }
             }
-        } else months.withIndex().toList().chunked(yearColumns).forEach { row ->
+        } else months.withIndex().toList().chunked(yearColumns).forEachIndexed { rowIndex, row ->
+            item(key = "year-lunar-$rowIndex") {
             Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 row.forEach { (ordinal, entry) ->
                     val (start, name, title) = entry
                     Box(Modifier.weight(1f)) {
-                        CalendarYearMonthCard(calendar, start, mode, ordinal + 1, name, title, tasks, onMonth, locale)
+                        CalendarYearMonthCard(calendar, start, mode, ordinal + 1, name, title,
+                            taskCounts[start] ?: YearTaskCount(0, 0), onMonth, locale)
                     }
                 }
                 if (row.size < yearColumns) Spacer(Modifier.weight(1f))
             }
+            }
         }
+        item(key = "year-description") {
         Box(Modifier.padding(horizontal = 10.dp)) {
             CalendarYearDescriptionCard(calendar, shown, mode, gregorianYearStartsInMarch)
+        }
         }
             }
         }
@@ -1126,7 +1153,7 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
 
 @Composable
 private fun CalendarYearMonthCard(calendar: GenesisCalendar, start: LocalDate, mode: CalendarMode, ordinal: Int,
-    name: String, title: String, tasks: List<LocalTask>, onMonth: (LocalDate) -> Unit,
+    name: String, title: String, taskCount: YearTaskCount, onMonth: (LocalDate) -> Unit,
     locale: Locale) {
     val english = LocalGenesisLanguage.current == "en"
     val range = calendar.monthRange(start, mode)
@@ -1143,7 +1170,7 @@ private fun CalendarYearMonthCard(calendar: GenesisCalendar, start: LocalDate, m
         "${range.start.format(DateTimeFormatter.ofPattern("d MMMM yyyy", locale))} — " +
             range.end.format(DateTimeFormatter.ofPattern("d MMMM yyyy", locale))
     }
-    val count = TaskOccurrences.countInRange(tasks, range.start, range.end)
+    val count = taskCount.total
     val season = GregorianSeason.entries.first { start.monthValue in it.months }
     val mainInk = if(mode == CalendarMode.PROFANE && LocalEveningTheme.current) MaterialTheme.colorScheme.onSurface else Color(0xff102b2c)
     val detailInk = if(mode == CalendarMode.PROFANE && LocalEveningTheme.current) MaterialTheme.colorScheme.onSurfaceVariant else Color(0xff405b59)
@@ -1200,7 +1227,7 @@ private fun CalendarYearMonthCard(calendar: GenesisCalendar, start: LocalDate, m
                     color = detailInk, style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier.testTag("calendar-year-task-count-$ordinal"))
                     if (count > 0) {
-                        val completed = TaskOccurrences.countInRange(tasks.filter { it.done }, range.start, range.end)
+                        val completed = taskCount.completed
                         Column {
                             if (count > completed) Text(genesisTranslate("Не выполнено") + ": ${count - completed}",
                                 color = if(LocalEveningTheme.current) Color(0xffed7b7e) else calendarIncompleteColor, style = MaterialTheme.typography.labelSmall)
