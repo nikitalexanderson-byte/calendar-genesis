@@ -25,6 +25,8 @@ export type SleepPlan = TrackerEntity & {
   qualityEnabled: boolean;
   scoringEnabled: boolean;
   rules: SleepRule[];
+  reminderEnabled: boolean;
+  reminderMinutesBefore: number;
 };
 
 export type SleepEntry = TrackerEntity & {
@@ -71,6 +73,8 @@ export function defaultSleepPlan(date: string, calendarMode: CalendarMode): Slee
     qualityEnabled: true,
     scoringEnabled: false,
     rules: [],
+    reminderEnabled: false,
+    reminderMinutesBefore: 15,
   };
 }
 
@@ -85,6 +89,9 @@ export function normalizeSleepPlan(value: Record<string, unknown>, fallbackDate:
     targetWakeTime: typeof value.targetWakeTime === "string" ? value.targetWakeTime : "07:00",
     qualityEnabled: value.qualityEnabled !== false,
     scoringEnabled: value.scoringEnabled === true,
+    reminderEnabled: value.reminderEnabled === true,
+    reminderMinutesBefore: typeof value.reminderMinutesBefore === "number" && Number.isFinite(value.reminderMinutesBefore)
+      ? Math.max(0, Math.min(180, Math.round(value.reminderMinutesBefore))) : 15,
     rules: Array.isArray(value.rules)
       ? value.rules.filter((rule): rule is SleepRule => Boolean(rule && typeof rule === "object" && typeof (rule as SleepRule).id === "string"))
       : [],

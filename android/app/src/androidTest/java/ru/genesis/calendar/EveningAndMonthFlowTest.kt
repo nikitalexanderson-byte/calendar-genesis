@@ -142,7 +142,9 @@ class EveningAndMonthFlowTest {
             compose.waitForIdle()
             compose.onNodeWithTag("calendar-month-period").assertTextEquals(before)
             compose.onNodeWithText("Год").performClick()
-            compose.onNodeWithTag("genesis-page-header").assert(!hasAnyAncestor(hasTestTag("calendar-year-panel")))
+            compose.onNodeWithTag("genesis-page-header")
+                .assert(!hasAnyAncestor(hasTestTag("calendar-year-navigation-card")))
+            compose.onNodeWithTag("calendar-year-navigation-card").assertExists()
             val header=compose.onNodeWithTag("genesis-page-header").fetchSemanticsNode().boundsInRoot
             val navigation=compose.onNodeWithTag("calendar-year-navigation").fetchSemanticsNode().boundsInRoot
             assertTrue("Year heading must precede year navigation",header.bottom<=navigation.top)

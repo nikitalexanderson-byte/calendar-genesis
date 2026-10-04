@@ -96,7 +96,7 @@ class CalendarMobileLayoutTest {
             }
             compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag(lastTag))
             compose.onNodeWithTag(lastTag).assertIsDisplayed()
-            compose.onNodeWithTag("genesis-page-header").assert(!hasAnyAncestor(hasTestTag("calendar-year-panel")))
+            compose.onNodeWithTag("genesis-page-header").assertDoesNotExist()
             compose.onNodeWithTag("calendar-view-switch").assertIsDisplayed()
             compose.onNodeWithTag(lastTag).performClick()
             compose.onNodeWithText("Календарь - месяц").assertIsDisplayed()

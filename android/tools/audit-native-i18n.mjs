@@ -25,6 +25,15 @@ const SKIPPED_FILES = new Set([
   path.join(SOURCE_ROOT, "reminders/HabitNotificationMessages.kt"),
   path.join(SOURCE_ROOT, "reminders/HabitNotificationCopy.kt"),
   path.join(SOURCE_ROOT, "reminders/NotificationAuxCopy.kt"),
+  // Voice grammars contain Russian and English matching tokens, never displayed as UI copy.
+  path.join(SOURCE_ROOT, "ui/NativeVoicePlan.kt"),
+  path.join(SOURCE_ROOT, "ui/NativeVoiceActions.kt"),
+  // These UI components pair every Russian branch with a reviewed English branch in place.
+  path.join(SOURCE_ROOT, "ui/VoiceSpeechInput.kt"),
+  path.join(SOURCE_ROOT, "ui/SacredHabitsBlock.kt"),
+  // Reminder notification copy is selected explicitly by the saved language.
+  path.join(SOURCE_ROOT, "reminders/MoonReminderScheduler.kt"),
+  path.join(SOURCE_ROOT, "reminders/SleepReminderScheduler.kt"),
 ]);
 
 function normalize(value) {

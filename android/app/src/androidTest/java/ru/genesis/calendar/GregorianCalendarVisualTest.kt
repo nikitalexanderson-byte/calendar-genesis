@@ -86,6 +86,12 @@ class GregorianCalendarVisualTest {
                 }
             }
         }
+        compose.onNodeWithTag("lunar-layout-decades").assertIsSelected()
+        compose.onNodeWithTag("lunar-decade-1").assertExists()
+        compose.onNodeWithTag("lunar-decade-2").assertExists()
+        compose.onNodeWithTag("lunar-decade-3").assertExists()
+        compose.onNodeWithTag("calendar-day-${grid.first()}").assertDoesNotExist()
+        compose.onNodeWithTag("lunar-layout-weekdays").performClick()
         compose.onNodeWithTag("calendar-day-${grid.first()}").assertIsNotEnabled()
         compose.onNodeWithTag("calendar-day-${range.start}").assertIsEnabled()
         compose.onNodeWithTag("calendar-day-${grid.last()}").performScrollTo()
@@ -93,6 +99,11 @@ class GregorianCalendarVisualTest {
         assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(
             File(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null),
                 "lunar-month-symmetrical-after.png")))
+        compose.onNodeWithTag("calendar-day-${range.start}").performScrollTo().performClick()
+        compose.onNodeWithTag("calendar-selected-lunar").assertDoesNotExist()
+        compose.onNodeWithTag("calendar-selected-sacred").assertExists()
+        compose.onNodeWithTag("calendar-selected-gregorian").assertExists()
+        compose.onNodeWithTag("calendar-weekday-art", useUnmergedTree = true).assertExists()
     }
 
     @Test fun lunarYearUsesMoonMonthCardsAndGregorianRanges() {

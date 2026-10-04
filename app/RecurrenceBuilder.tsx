@@ -1,6 +1,6 @@
 "use client";
 
-import { formatCalendarDateValue, MONTHS, type CalendarMode } from "./calendar-data";
+import { formatCalendarDateValue, getSacredDate, MONTHS, type CalendarMode } from "./calendar-data";
 import {
   buildRecurrenceDates,
   alignRecurrenceConfigWithCalendar,
@@ -94,6 +94,14 @@ export function RecurrenceBuilder({
   const monthValues = value.mode === "lunar" ? lunarMonths.map((month) => month.value) : SACRED_MONTHS;
   const selectedMonths = effectiveSelection(value.months, monthValues);
   const selectedPyatas = effectiveSelection(value.pyatas, ALL_PYATAS);
+  const trackerSacred = destination === "tracker" && value.mode === "genesis";
+  const sacredCadence = value.pattern === "month-days"
+    ? value.months.length === 1 ? "yearly" : "monthly"
+    : sameNumbers(value.days, [1, 2, 3, 4, 5]) && sameNumbers(value.pyatas, ODD_PYATAS) ||
+      sameNumbers(value.days, [1, 2, 3, 4, 5]) && sameNumbers(value.pyatas, EVEN_PYATAS)
+      ? "parity"
+      : sameNumbers(value.days, [1, 2, 3, 4, 5]) && !value.pyatas.length && !value.months.length
+        ? "daily" : "pyata-days";
   const occurrenceCount = value.enabled ? buildRecurrenceDates(startDate, { ...value, rangeStart, rangeEnd }).length : 1;
   const tooManyOccurrences = occurrenceCount > MAX_RECURRENCE_OCCURRENCES;
 
@@ -107,6 +115,10 @@ export function RecurrenceBuilder({
   };
 
   const toggleDay = (day: number) => {
+    if (trackerSacred && (sacredCadence === "monthly" || sacredCadence === "yearly")) {
+      onChange({ ...value, days: [day] });
+      return;
+    }
     const selected = value.days.includes(day);
     if (selected && value.days.length === 1) return;
     onChange({
@@ -118,6 +130,17 @@ export function RecurrenceBuilder({
   const changeCalendarMode = (nextMode: CalendarMode) => {
     if (nextMode === displayCalendarMode) return;
     onChange(convertTrackerRecurrenceCalendar(value, nextMode, rangeStart));
+  };
+
+  const setSacredCadence = (cadence: string) => {
+    const sacred = getSacredDate(new Date(`${rangeStart}T12:00:00`));
+    const day = sacred.monthIndex < 12 ? sacred.day : 1;
+    onChange({ ...value,
+      pattern: cadence === "monthly" || cadence === "yearly" ? "month-days" : "pyata-days",
+      days: cadence === "daily" || cadence === "parity" ? ALL_PYATAS.slice(0, 5) : [cadence === "monthly" || cadence === "yearly" ? day : 1],
+      months: cadence === "yearly" ? [sacred.monthIndex < 12 ? sacred.monthIndex + 1 : 1] : [],
+      pyatas: cadence === "parity" ? ODD_PYATAS : [], interval: 1,
+    });
   };
 
   const setWeekdayPreset = (days: number[]) => onChange({ ...value, days: [...days] });
@@ -162,10 +185,10 @@ export function RecurrenceBuilder({
               </div>
               <div className="recurrence-calendar-options" role="radiogroup" aria-label={isEnglish ? "Habit recurrence calendar" : "Календарь повторения привычки"}>
                 {([
-                  { id: "profane" as const, label: isEnglish ? "Gregorian" : "Григорианский" },
                   { id: "sacred" as const, label: isEnglish ? "GENESIS" : "Сакральный" },
+                  { id: "profane" as const, label: isEnglish ? "Gregorian" : "Григорианский" },
                   { id: "lunar" as const, label: isEnglish ? "Lunar" : "Лунный" },
-                ]).map((option) => (
+                ].sort((left, right) => Number(right.id === calendarMode) - Number(left.id === calendarMode))).map((option) => (
                   <label key={option.id}>
                     <input type="radio" name={`tracker-calendar-${startDate}`} value={option.id} checked={displayCalendarMode === option.id} onChange={() => changeCalendarMode(option.id)} />
                     <span>{option.label}</span>
@@ -244,7 +267,30 @@ export function RecurrenceBuilder({
             </>
           ) : null}
 
-          {value.mode === "genesis" ? (
+          {trackerSacred ? (
+            <>
+              <div className="recurrence-pattern-toggle wrap" role="group" aria-label={isEnglish ? "Sacred habit rhythm" : "Ритм сакральной привычки"}>
+                {([
+                  ["daily", isEnglish ? "Daily" : "Ежедневно"],
+                  ["pyata-days", isEnglish ? "Pyata days" : "Дни пяты"],
+                  ["parity", isEnglish ? "Odd/even pyatas" : "Чётная/нечётная"],
+                  ["monthly", isEnglish ? "Monthly" : "Ежемесячно"],
+                  ["yearly", isEnglish ? "Yearly" : "Ежегодно"],
+                ] as const).map(([cadence, label]) => <button type="button" key={cadence} className={sacredCadence === cadence ? "active" : ""} aria-pressed={sacredCadence === cadence} onClick={() => setSacredCadence(cadence)}>{label}</button>)}
+              </div>
+              {sacredCadence === "parity" ? <div className="recurrence-preset-row" role="group" aria-label={isEnglish ? "Pyata parity" : "Чётность пят"}>
+                <button type="button" className={sameNumbers(value.pyatas, ODD_PYATAS) ? "active" : ""} onClick={() => onChange({ ...value, pyatas: ODD_PYATAS })}>{isEnglish ? "Odd pyatas" : "Нечётные пяты"}</button>
+                <button type="button" className={sameNumbers(value.pyatas, EVEN_PYATAS) ? "active" : ""} onClick={() => onChange({ ...value, pyatas: EVEN_PYATAS })}>{isEnglish ? "Even pyatas" : "Чётные пяты"}</button>
+              </div> : null}
+              {sacredCadence === "yearly" ? <div className="recurrence-day-field">
+                <span>{isEnglish ? "Sacred month" : "Сакральный месяц"}</span>
+                <div className="recurrence-month-grid sacred" role="group" aria-label={isEnglish ? "Sacred month" : "Сакральный месяц"}>
+                  {MONTHS.slice(0, 12).map((month, index) => <button type="button" key={month.name} className={value.months.includes(index + 1) ? "selected" : ""} aria-pressed={value.months.includes(index + 1)} onClick={() => onChange({ ...value, months: [index + 1] })}><strong>{month.roman}</strong><span>{month.name}</span></button>)}
+                </div>
+              </div> : null}
+              {sacredCadence === "monthly" || sacredCadence === "yearly" ? <small className="recurrence-selection-hint">{isEnglish ? "Apeiron days are excluded from this rhythm." : "Дни Апейрона исключены из этого ритма."}</small> : null}
+            </>
+          ) : value.mode === "genesis" ? (
             <>
               <div className="recurrence-pattern-toggle" role="group" aria-label="Ритм сакрального календаря">
                 <button type="button" className={value.pattern === "pyata-days" ? "active" : ""} aria-pressed={value.pattern === "pyata-days"} onClick={() => setPattern("pyata-days")}>По пятам</button>
@@ -310,6 +356,7 @@ export function RecurrenceBuilder({
 
           {value.mode !== "classic" || value.pattern === "weekdays" ? (
             value.mode === "classic" ? null : (
+              trackerSacred && (sacredCadence === "daily" || sacredCadence === "parity") ? null :
               <div className="recurrence-day-field">
                 <span>{value.mode === "lunar" ? "В какие дни лунного месяца" : value.pattern === "pyata-days" ? "Какие дни внутри пяты" : "Какие дни сакрального месяца"}</span>
                 <div className={`recurrence-day-grid${value.mode === "genesis" && value.pattern === "pyata-days" ? "" : " dense"}`} role="group" aria-label="Дни повторения">

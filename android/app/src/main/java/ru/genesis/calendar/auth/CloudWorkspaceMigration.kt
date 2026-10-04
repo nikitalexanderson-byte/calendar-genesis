@@ -266,6 +266,8 @@ internal object CloudWorkspaceMigration {
             .put("targetWakeTime", validTime(source.optString("targetWakeTime"), "07:00"))
             .put("qualityEnabled", if (source.has("qualityEnabled")) source.optBoolean("qualityEnabled") else true)
             .put("scoringEnabled", source.optBoolean("scoringEnabled"))
+            .put("reminderEnabled", source.optBoolean("reminderEnabled",false))
+            .put("reminderMinutesBefore", source.optInt("reminderMinutesBefore",15).coerceIn(0,180))
             .put("rules", jsonArray(source.optJSONArray("rules")?.objects().orEmpty().mapNotNull { rule ->
                 val ruleId = rule.optString("id").takeIf(String::isNotBlank) ?: return@mapNotNull null
                 JSONObject(rule.toString()).put("id", ruleId)

@@ -109,6 +109,9 @@ class HabitsRepository(private val app: GenesisApplication) {
         require(habit.scoringMode in setOf("none","binary","quality-ten","quality-bipolar"))
         val previous=workspace.habits.firstOrNull { it.id==habit.id }
         require(previous==null || previous.entity.version==habit.entity.version) { "Привычка изменилась. Откройте её заново." }
+        require(previous==null || (previous.scoringMode==habit.scoringMode && previous.qualityScale==habit.qualityScale)) {
+            "Начисление XP фиксируется при создании привычки. Для другой формулы создайте новую привычку."
+        }
         val saved=habit.copy(entity=habit.entity.changed(Instant.now().toString()),
             createdDate=previous?.createdDate ?: LocalDate.now(),schedule=engine().normalizeSchedule(habit.schedule))
         workspace.copy(habits=workspace.habits.filterNot { it.id==habit.id }+saved)

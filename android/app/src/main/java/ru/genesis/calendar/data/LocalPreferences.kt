@@ -15,10 +15,12 @@ data class UiPreferences(val display: CalendarMode = CalendarMode.SACRED,
     val gregorianYearStartsInMarch: Boolean = false, val regionalSeasonArt: Boolean = false,
     val regionSource: String = "device", val manualRegionZone: String = "",
     val ipRegionZone: String = "", val ipRegionLabel: String = "",
-    val fullMoonLeadDays: Int = 0, val newMoonLeadDays: Int = 0,
+    val fullMoonLeadDays: Set<Int> = emptySet(), val newMoonLeadDays: Set<Int> = emptySet(),
     val showMissedTasksToday: Boolean = true,
     val menuSwipeEnabled: Boolean = true, val menuSwipeSubmenus: Boolean = true)
 class LocalPreferences(private val context: Context, private val scope: String) {
+    private fun moonLeadDays(value: String?): Set<Int> = value.orEmpty().split(',')
+        .mapNotNull { it.trim().toIntOrNull()?.takeIf { day -> day in 1..3 } }.toSet()
     private fun key(name: String) = stringPreferencesKey("$scope:$name")
     private fun pendingKey(name: String) = stringPreferencesKey("$scope:pending:$name")
     private val names = setOf("display", "input", "time", "weekStart", "gregorianYearStart",
@@ -37,8 +39,7 @@ class LocalPreferences(private val context: Context, private val scope: String) 
             it[key("regionSource")].takeIf { value -> value in setOf("device", "ip", "manual") } ?: "device",
             it[key("manualRegionZone")] ?: "", it[key("ipRegionZone")] ?: "",
             it[key("ipRegionLabel")] ?: "",
-            it[key("fullMoonLeadDays")]?.toIntOrNull()?.takeIf { days -> days in 1..3 } ?: 0,
-            it[key("newMoonLeadDays")]?.toIntOrNull()?.takeIf { days -> days in 1..3 } ?: 0,
+            moonLeadDays(it[key("fullMoonLeadDays")]), moonLeadDays(it[key("newMoonLeadDays")]),
             it[key("showMissedTasksToday")] != "false",
             it[key("menuSwipeEnabled")] != "false", it[key("menuSwipeSubmenus")] != "false")
     }

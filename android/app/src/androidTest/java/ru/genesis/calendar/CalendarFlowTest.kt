@@ -59,9 +59,9 @@ class CalendarFlowTest {
             assertTrue(device.takeScreenshot(File(app.getExternalFilesDir(null), "calendar-apeiron-month.png")))
             compose.onNodeWithTag("calendar-day-$apeironStart").performClick()
             compose.onNodeWithTag("calendar-selected-day").assertExists()
-            compose.onNodeWithText("Открыть день и задачи").performScrollTo().performClick()
-            compose.scrollToTodayNode(hasText("Задачи дня"))
-            compose.onNodeWithText("Задачи дня").assertExists()
+            compose.onNodeWithText("Открыть день и задачи").assertDoesNotExist()
+            compose.onNodeWithTag("calendar-inline-tasks").performScrollTo().assertExists()
+            compose.onNodeWithTag("calendar-create-task").assertExists()
         } finally {
             runBlocking {
                 preferences.set("display", original.display.wireValue)

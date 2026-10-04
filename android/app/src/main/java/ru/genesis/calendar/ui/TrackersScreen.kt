@@ -13,12 +13,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.time.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import java.util.UUID
 import ru.genesis.calendar.GenesisApplication
 import ru.genesis.calendar.data.*
 import ru.genesis.calendar.domain.*
@@ -58,6 +60,9 @@ fun TrackersScreen(app: GenesisApplication) {
         try { repository.workspace.collect { workspace=it;storageError=false } }
         catch(e: CancellationException) { throw e }
         catch(_: Exception) { storageError=true;error="Защищённые записи недоступны. Сохранённые данные не будут заменены пустыми." }
+    }
+    LaunchedEffect(current?.revision) {
+        if (current != null) runCatching { ru.genesis.calendar.reminders.SleepReminderScheduler.restore(app) }
     }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
         GenesisPageHeader(if (LocalGenesisLanguage.current == "en") "Sleep & mood" else "Сон и настроение",
@@ -114,7 +119,7 @@ fun TrackersScreen(app: GenesisApplication) {
                         Surface(Modifier.size(48.dp), shape = CircleShape, color = moodColor.copy(alpha = .16f),
                             border = BorderStroke(1.dp, moodColor.copy(alpha = .55f))) {
                             Box(contentAlignment = Alignment.Center) {
-                                Text(mood?.let { MoodTracker.option(it.moodValue.toDouble()).symbol } ?: "♡",
+                                Text(mood?.let { moodEmoji(it.moodValue) } ?: "😊",
                                     color = moodColor, style = MaterialTheme.typography.headlineSmall)
                             }
                         }
@@ -146,7 +151,10 @@ fun TrackersScreen(app: GenesisApplication) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 FilledTonalButton(enabled=!busy&&!storageError,onClick={
-                    val schedule=HabitEngine(GenesisCalendar()).defaultSchedule(date,prefs.input)
+                    val schedule=HabitEngine(GenesisCalendar()).defaultSchedule(date,prefs.input).let { base ->
+                        base.copy(recurrence=RecurrenceConfig(enabled=true,mode="classic",pattern="daily",
+                            days=listOf(1),rangeStart=date.toString()))
+                    }
                     planEditor=SleepPlan(TrackerEntity.create("sleep-plan"),schedule)
                 }) { Text("＋ План") }
             }
@@ -223,9 +231,11 @@ fun TrackersScreen(app: GenesisApplication) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("История наблюдений",style=MaterialTheme.typography.titleMedium)
                     (current.sleepEntries.map { it.date }+current.moodEntries.map { it.date }).distinct().sortedDescending().take(90).forEach { historyDate ->
+                        val historyMood=current.moodEntries.firstOrNull { it.date==historyDate }
+                        val moodLabel=historyMood?.let { moodOptionLabel(it.moodValue) } ?: "—"
                         TextButton(onClick={dateValue=historyDate.toString()},enabled=!busy,
                             modifier = Modifier.fillMaxWidth()) {
-                            Text("$historyDate · ☾ ${current.sleepEntries.count { it.date==historyDate }} · ♥ ${if(current.moodEntries.any { it.date==historyDate })"есть" else "—"}",
+                            Text("$historyDate · ☾ ${current.sleepEntries.count { it.date==historyDate }} · ${historyMood?.let { moodEmoji(it.moodValue) } ?: "—"} $moodLabel",
                                 Modifier.fillMaxWidth())
                         }
                     }
@@ -242,10 +252,24 @@ fun TrackersScreen(app: GenesisApplication) {
     } }
     if(moodEditor) {
         val existing=workspace?.moodEntries?.firstOrNull { it.date==date }
-        MoodObservationEditor(existing,date,busy,error,onDismiss={if(!busy)moodEditor=false}) { value,note ->
-            scope.launch { action { repository.saveMood(date,value,note,existing?.tags ?: emptyList(),existing?.entity?.version ?: 0);moodEditor=false } }
+        MoodObservationEditor(workspace?.moodEntries.orEmpty(),if(existing!=null)date else LocalDate.now(),viewMode,busy,error,
+            onDismiss={if(!busy)moodEditor=false}) { chosenDate,value,note ->
+            val target=workspace?.moodEntries?.firstOrNull { it.date==chosenDate }
+            scope.launch { action {
+                repository.saveMood(chosenDate,value,note,target?.tags ?: emptyList(),target?.entity?.version ?: 0)
+                dateValue=chosenDate.toString();moodEditor=false
+            } }
         }
     }
+}
+
+private fun moodEmoji(value: Int) =
+    listOf("😣", "😔", "😢", "😰", "😴", "😐", "😌", "🧠", "🙂", "😊", "🤩", "🥳")[value.coerceIn(-5,6)+5]
+
+@Composable
+private fun moodOptionLabel(value: Int): String {
+    val option=MoodTracker.option(value.toDouble())
+    return if(LocalGenesisLanguage.current=="en") option.labelEn else option.label
 }
 
 @Composable
@@ -278,22 +302,89 @@ private fun SleepPlanEditor(plan: SleepPlan,use24: Boolean,busy: Boolean,error: 
     var zone by rememberSaveable(plan.id) { mutableStateOf(plan.schedule.timezone) }
     var active by rememberSaveable(plan.id) { mutableStateOf(plan.active) }
     var qualityEnabled by rememberSaveable(plan.id) { mutableStateOf(plan.qualityEnabled) }
+    var scoringEnabled by rememberSaveable(plan.id) { mutableStateOf(plan.scoringEnabled) }
+    var reminderEnabled by rememberSaveable(plan.id) { mutableStateOf(plan.reminderEnabled) }
+    var reminderMinutesBefore by rememberSaveable(plan.id) { mutableIntStateOf(plan.reminderMinutesBefore) }
+    var rules by remember(plan.id) { mutableStateOf(plan.rules) }
     Dialog(onDismissRequest=onDismiss) { Surface(shape=MaterialTheme.shapes.large) {
         Column(Modifier.padding(16.dp).imePadding().verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-            Text("План сна",style=MaterialTheme.typography.titleLarge)
+            Row(Modifier.fillMaxWidth(), verticalAlignment=Alignment.CenterVertically) {
+                Text("План сна",Modifier.weight(1f),style=MaterialTheme.typography.titleLarge)
+                IconButton(onClick=onDismiss,enabled=!busy,modifier=Modifier.testTag("sleep-plan-close")) {
+                    Text("×",style=MaterialTheme.typography.headlineSmall)
+                }
+            }
             OutlinedTextField(title,{title=it},label={Text("Название")},enabled=!busy,modifier=Modifier.fillMaxWidth())
             Text("Планируемое засыпание");AuthorTimePicker(bed,use24) { if(!busy)bed=it }
             Text("Планируемое пробуждение");AuthorTimePicker(wake,use24) { if(!busy)wake=it }
             OutlinedTextField(zone,{zone=it},label={Text("Часовой пояс · Europe/Moscow")},enabled=!busy,modifier=Modifier.fillMaxWidth())
             Row { Checkbox(active,{active=it},enabled=!busy);Text("План активен",Modifier.padding(top=12.dp)) }
             Row { Checkbox(qualityEnabled,{qualityEnabled=it},enabled=!busy);Text("Оценивать качество",Modifier.padding(top=12.dp)) }
-            Text("Уведомления и редактор правил баллов для сна пока не подключены.",style=MaterialTheme.typography.bodySmall)
+            HorizontalDivider()
+            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+                Text("Напоминать о времени сна",Modifier.weight(1f))
+                Switch(reminderEnabled,{reminderEnabled=it},enabled=!busy)
+            }
+            if(reminderEnabled) {
+                Text("Когда уведомить",style=MaterialTheme.typography.labelLarge)
+                listOf(0,15,30,60).chunked(2).forEach { options ->
+                    Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) { options.forEach { minutes ->
+                        FilterChip(reminderMinutesBefore==minutes,{reminderMinutesBefore=minutes},enabled=!busy,
+                            label={Text(if(minutes==0)"В момент сна" else "За $minutes мин")})
+                    } }
+                }
+                Text("Уведомления приходят по расписанию плана, если они разрешены в Android.",
+                    style=MaterialTheme.typography.bodySmall)
+            }
+            HorizontalDivider()
+            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+                Text("Баллы за сон",Modifier.weight(1f),style=MaterialTheme.typography.titleMedium)
+                Switch(scoringEnabled,{scoringEnabled=it},enabled=!busy)
+            }
+            if(scoringEnabled) {
+                Text("Баллы начисляются за выполненные условия. Это аналитика сна, без XP и Лавров.",
+                    style=MaterialTheme.typography.bodySmall)
+                rules.forEach { rule ->
+                    Card(Modifier.fillMaxWidth(),shape=RoundedCornerShape(12.dp)) {
+                        Column(Modifier.padding(10.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
+                            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+                                Text("Правило",Modifier.weight(1f),style=MaterialTheme.typography.labelLarge)
+                                IconButton(onClick={rules=rules.filterNot { it.id==rule.id }},enabled=!busy) { Text("×") }
+                            }
+                            Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+                                FilterChip(rule.field=="bedtime",{rules=rules.map { if(it.id==rule.id)it.copy(field="bedtime") else it }},
+                                    enabled=!busy,label={Text("Засыпание")})
+                                FilterChip(rule.field=="wake",{rules=rules.map { if(it.id==rule.id)it.copy(field="wake") else it }},
+                                    enabled=!busy,label={Text("Пробуждение")})
+                            }
+                            Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+                                FilterChip(rule.operator=="on-or-before",{rules=rules.map { if(it.id==rule.id)it.copy(operator="on-or-before") else it }},
+                                    enabled=!busy,label={Text("Не позже")})
+                                FilterChip(rule.operator=="after",{rules=rules.map { if(it.id==rule.id)it.copy(operator="after") else it }},
+                                    enabled=!busy,label={Text("Позже")})
+                            }
+                            AuthorTimePicker(rule.threshold.toString(),use24) { time ->
+                                if(!busy) rules=rules.map { if(it.id==rule.id)it.copy(threshold=LocalTime.parse(time)) else it }
+                            }
+                            OutlinedTextField(rule.points.toInt().toString(),{ input ->
+                                val amount=input.toIntOrNull()
+                                if(amount!=null && amount in -100..100) rules=rules.map { if(it.id==rule.id)it.copy(points=amount.toDouble()) else it }
+                            },label={Text("Баллы от −100 до 100")},enabled=!busy,modifier=Modifier.fillMaxWidth())
+                        }
+                    }
+                }
+                OutlinedButton(onClick={rules=rules+SleepRule(UUID.randomUUID().toString(),"bedtime","on-or-before",
+                    runCatching { LocalTime.parse(bed) }.getOrDefault(LocalTime.of(23,0)),10.0)},
+                    enabled=!busy&&rules.size<20) { Text("＋ Добавить правило") }
+            }
             error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
             Row {
                 TextButton(onClick=onDismiss,enabled=!busy) { Text("Отмена") }
                 Button(enabled=!busy&&title.isNotBlank()&&bed.isNotBlank()&&wake.isNotBlank()&&runCatching { ZoneId.of(zone) }.isSuccess,onClick={
                     onSave(plan.copy(title=title.trim(),targetBedtime=LocalTime.parse(bed),targetWakeTime=LocalTime.parse(wake),
-                        schedule=plan.schedule.copy(timezone=zone),active=active,qualityEnabled=qualityEnabled))
+                        schedule=plan.schedule.copy(timezone=zone),active=active,qualityEnabled=qualityEnabled,
+                        scoringEnabled=scoringEnabled,rules=rules,reminderEnabled=reminderEnabled,
+                        reminderMinutesBefore=reminderMinutesBefore))
                 }) { Text("Сохранить план") }
             }
         }
@@ -343,20 +434,32 @@ private fun SleepObservationEditor(plan: SleepPlan,entry: SleepEntry?,date: Loca
 }
 
 @Composable
-private fun MoodObservationEditor(entry: MoodEntry?,date: LocalDate,busy: Boolean,error: String?,onDismiss: () -> Unit,onSave: (Int,String) -> Unit) {
-    var selected by rememberSaveable(date.toString()) { mutableStateOf(entry?.moodValue) }
-    var note by rememberSaveable(date.toString()) { mutableStateOf(entry?.note ?: "") }
+private fun MoodObservationEditor(entries: List<MoodEntry>,initialDate: LocalDate,mode: CalendarMode,busy: Boolean,error: String?,
+    onDismiss: () -> Unit,onSave: (LocalDate,Int,String) -> Unit) {
+    var dateValue by rememberSaveable(initialDate.toString()) { mutableStateOf(initialDate.toString()) }
+    val date=LocalDate.parse(dateValue)
+    val entry=entries.firstOrNull { it.date==date }
+    var selected by rememberSaveable(dateValue) { mutableStateOf(entry?.moodValue) }
+    var note by rememberSaveable(dateValue) { mutableStateOf(entry?.note ?: "") }
     Dialog(onDismissRequest=onDismiss) { Surface(shape=MaterialTheme.shapes.large) {
         Column(Modifier.padding(16.dp).imePadding().verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-            Text("Настроение · $date",style=MaterialTheme.typography.titleLarge)
+            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+                Text("Настроение дня",Modifier.weight(1f),style=MaterialTheme.typography.titleLarge)
+                IconButton(onClick=onDismiss,enabled=!busy,modifier=Modifier.testTag("mood-editor-close")) {
+                    Text("×",style=MaterialTheme.typography.headlineSmall)
+                }
+            }
+            Text("Дата настроения",style=MaterialTheme.typography.labelLarge)
+            AuthorDatePicker(dateValue,mode) { if(!busy) dateValue=it }
+            TextButton(onClick={dateValue=LocalDate.now().toString()},enabled=!busy) { Text("Сегодня") }
             MoodCatalog.options.forEach { option -> FilterChip(selected==option.value,{selected=option.value},enabled=!busy,
-                label={Text("${option.symbol} ${option.label} · ${if(option.value>0)"+" else ""}${option.value}")},modifier=Modifier.fillMaxWidth()) }
+                label={Text("${moodEmoji(option.value)} ${moodOptionLabel(option.value)}")},modifier=Modifier.fillMaxWidth()) }
             OutlinedTextField(note,{if(it.length<=200)note=it},label={Text("Заметка и контекст")},enabled=!busy,modifier=Modifier.fillMaxWidth())
             Text("Не влияет на баллы. Без выбора запись не создаётся.",style=MaterialTheme.typography.bodySmall)
             error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
             Row {
                 TextButton(onClick=onDismiss,enabled=!busy) { Text("Отмена") }
-                Button(enabled=!busy&&selected!=null,onClick={selected?.let { onSave(it,note) }}) { Text("Сохранить") }
+                Button(enabled=!busy&&selected!=null,onClick={selected?.let { onSave(date,it,note) }}) { Text("Сохранить") }
             }
         }
     } }

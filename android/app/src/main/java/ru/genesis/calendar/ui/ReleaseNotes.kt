@@ -24,17 +24,19 @@ import ru.genesis.calendar.ui.Text
 
 internal data class Notes(val title: String, val close: String, val changes: List<String>)
 
-private val release255Changes = mapOf(
+private val release256Changes = mapOf(
     "ru" to listOf(
-        "Заголовок календаря года прокручивается вместе с содержимым года.",
-        "Прокрутка календаря года стала легче: месяцы загружаются по мере появления на экране.",
-        "Иллюстрации сохраняют исходное качество и декодируются под размер экрана.",
-        "При новой установке общий свайп по иконкам и подменю включены по умолчанию."),
+        "Календарь открывает выбранный месяц и день с его задачами. Раздел «Сегодня» всегда показывает сегодняшний день.",
+        "Лунный месяц по умолчанию разделён на декады; при желании можно включить недели.",
+        "В привычках появились сакральные практики, настройки баллов и уведомлений сна, выбор даты и цветные эмодзи настроения.",
+        "В списках задач доступны переименование и удаление; служебные списки Google скрыты.",
+        "В верхней панели появился голосовой помощник: запись завершается кнопкой, действия проверяются перед выполнением."),
     "en" to listOf(
-        "The year calendar header now scrolls with the year's content.",
-        "Year calendar scrolling is lighter: months appear as you reach them.",
-        "Illustrations keep their original quality and decode at screen size.",
-        "On new installs, icon swiping includes submenus by default."),
+        "The calendar opens the selected month and day with its tasks. Today always shows the current date.",
+        "Lunar months show three decades by default, with an optional weekday grid.",
+        "Habits now include sacred practices, sleep reminders and scoring, dated mood entries and colorful mood emoji.",
+        "Task lists can be renamed and deleted; technical Google lists are hidden.",
+        "The top bar now opens a voice assistant: finish recording with a button and review actions before applying them."),
 )
 
 internal val notes = mapOf(
@@ -128,8 +130,8 @@ internal fun ReleaseNotesDialog(onDismiss: () -> Unit) {
         title = { Text("${copy.title} · ${BuildConfig.VERSION_NAME}") },
         text = { Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            (release255Changes[LocalGenesisLanguage.current]
-                ?: release255Changes[if (LocalGenesisLanguage.current == "ru") "ru" else "en"]!!).forEach {
+            (release256Changes[LocalGenesisLanguage.current]
+                ?: release256Changes[if (LocalGenesisLanguage.current == "ru") "ru" else "en"]!!).forEach {
                 Text("• $it", style = MaterialTheme.typography.bodyMedium)
             }
         } },

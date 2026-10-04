@@ -44,6 +44,7 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             val app = application as GenesisApplication
             app.scheduler.restore(recoverOverdue = true); app.scheduler.restoreHabitNotifications()
+            runCatching { ru.genesis.calendar.reminders.SleepReminderScheduler.restore(app) }
         }
     }
     private fun acceptIntent(intent: Intent) {

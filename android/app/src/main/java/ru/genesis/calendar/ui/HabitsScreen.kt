@@ -33,23 +33,27 @@ import ru.genesis.calendar.domain.*
 import ru.genesis.calendar.domain.habits.*
 
 @Composable
-fun HabitsScreen(app: GenesisApplication, experimental: Boolean, inputCalendarMode: CalendarMode = CalendarMode.SACRED,
+internal fun HabitsScreen(app: GenesisApplication, experimental: Boolean, inputCalendarMode: CalendarMode = CalendarMode.SACRED,
     displayCalendarMode: CalendarMode = CalendarMode.SACRED,
-    menuSwipeState: MenuSwipeState? = null) {
+    menuSwipeState: MenuSwipeState? = null, openSacredHabits: Boolean = false,
+    onSacredHabitsOpened: () -> Unit = {}, voiceRequest: NativeVoiceAction? = null,
+    onVoiceRequestConsumed: () -> Unit = {}) {
     var localSection by rememberSaveable { mutableStateOf("Привычки") }
     val section = menuSwipeState?.habits ?: localSection
     Column(Modifier.fillMaxSize()) {
         ConnectedSubmenu(listOf(SubmenuItem("Привычки", "Привычки"), SubmenuItem("Сон и настроение", "Сон и настроение")),
             section, { localSection = it; menuSwipeState?.habits = it })
         Box(Modifier.weight(1f)) {
-            if (section == "Привычки") HabitWorkspaceContent(app, experimental, inputCalendarMode, displayCalendarMode) else TrackersScreen(app)
+            if (section == "Привычки") HabitWorkspaceContent(app, experimental, inputCalendarMode, displayCalendarMode,
+                openSacredHabits,onSacredHabitsOpened,voiceRequest,onVoiceRequestConsumed) else TrackersScreen(app)
         }
     }
 }
 
 @Composable
 private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean, inputCalendarMode: CalendarMode,
-    displayCalendarMode: CalendarMode) {
+    displayCalendarMode: CalendarMode, openSacredHabits: Boolean, onSacredHabitsOpened: () -> Unit,
+    voiceRequest: NativeVoiceAction?, onVoiceRequestConsumed: () -> Unit) {
     val repository=remember(app) { HabitsRepository(app) }
     val scope=rememberCoroutineScope()
     var workspace by remember { mutableStateOf<LocalHabitWorkspace?>(null) }
@@ -58,6 +62,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
     var edit by remember { mutableStateOf<Habit?>(null) }
     var deleteCandidate by remember { mutableStateOf<Habit?>(null) }
     var editorOpen by remember { mutableStateOf(false) }
+    var voiceDraftTitle by remember { mutableStateOf("") }
     var catalogueOpen by rememberSaveable { mutableStateOf(false) }
     var heroPathOpen by rememberSaveable { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
@@ -105,6 +110,21 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
         onDispose { lifecycle.removeObserver(observer) }
     }
     LaunchedEffect(repository) { runAction { repository.refresh() } }
+    LaunchedEffect(voiceRequest,workspace) {
+        if(workspace!=null && voiceRequest!=null) {
+            when(voiceRequest) {
+                is NativeVoiceAction.CreateHabit -> { edit=null;voiceDraftTitle=voiceRequest.title;editorOpen=true }
+                is NativeVoiceAction.EditHabit -> {
+                    workspace?.habits?.firstOrNull { it.id==voiceRequest.id }?.let { edit=it;editorOpen=true }
+                }
+                is NativeVoiceAction.DeleteHabit -> {
+                    workspace?.habits?.firstOrNull { it.id==voiceRequest.id }?.let { deleteCandidate=it }
+                }
+                else -> Unit
+            }
+            onVoiceRequestConsumed()
+        }
+    }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
         val current=workspace
         GenesisPageHeader(if (english) "Habits" else "Привычки",
@@ -132,11 +152,11 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                             Modifier.size(56.dp)) }
                         Column(verticalArrangement=Arrangement.spacedBy(2.dp)) {
                             Text("Путь Героя · ${rank.title}",style=MaterialTheme.typography.titleMedium,color=Color(0xfff8f3e8))
-                            Text("${current.progress.lifetimeXp} XP · серия ${current.progress.currentStreak} дн.",
+                            Text("✦ ${current.progress.lifetimeXp} XP  ·  🔥 ${current.progress.currentStreak} дн.",
                                 style=MaterialTheme.typography.bodySmall,color=Color(0xffd8e7df))
                         }
                     }
-                    Text("Ритм ${current.progress.rhythmScore}%  ·  ${current.progress.laurelsBalance} лавров",
+                    Text("Ритм ${current.progress.rhythmScore}%  ·  🌿 ${current.progress.laurelsBalance} лавров",
                         style=MaterialTheme.typography.labelMedium,color=Color(0xffdfc17e))
                 }
             }} else null)
@@ -232,13 +252,14 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                         }
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             listOf(
-                                "XP" to current.progress.lifetimeXp.toString(),
-                                "Серия" to "${current.progress.currentStreak} дн.",
-                                "Лавры" to current.progress.laurelsBalance.toString(),
-                            ).forEach { (label, value) ->
+                                Triple("XP",current.progress.lifetimeXp.toString(),"✦"),
+                                Triple("Серия","${current.progress.currentStreak} дн.","🔥"),
+                                Triple("Лавры",current.progress.laurelsBalance.toString(),"🌿"),
+                            ).forEach { (label, value, icon) ->
                                 Surface(Modifier.weight(1f), shape = RoundedCornerShape(12.dp),
                                     color = Color(0xff143b39)) {
                                     Column(Modifier.padding(9.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(icon,style=MaterialTheme.typography.titleMedium)
                                         Text(value, color = Color(0xffffe4a6),
                                             style = MaterialTheme.typography.titleSmall)
                                         Text(label, color = Color(0xffb8ccc5),
@@ -264,6 +285,14 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                     showQuests = current.settings.feedback.questsEnabled)
                 }
             }
+            SacredHabitsBlock(current,today,displayCalendarMode,busy || storageError,openSacredHabits,
+                onRequestedOpenConsumed=onSacredHabitsOpened,
+                onStart={ practice -> scope.launch { runAction { repository.save(practice.toHabit(displayCalendarMode,english)) } } },
+                onEdit={ habit -> edit=habit;editorOpen=true },
+                onComplete={ habit,checked -> scope.launch { runAction {
+                    recordCompletion(habit.id,checked,null,current.settings.feedback)
+                } } },
+                onToggle={ habit -> scope.launch { runAction { repository.save(habit.copy(active=!habit.active)) } } })
             if(current.completions.isNotEmpty()) {
                 Text("История отметок",style=MaterialTheme.typography.titleMedium)
                 current.completions.sortedByDescending { it.date }.take(30).forEach { c ->
@@ -273,8 +302,9 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
             }
         }
     }
-    if(editorOpen) HabitEditor(edit,busy,error,inputCalendarMode,onDismiss={if(!busy) editorOpen=false},onSave={ habit ->
-        scope.launch { runAction { repository.save(habit); editorOpen=false } }
+    if(editorOpen) HabitEditor(edit,busy,error,displayCalendarMode,voiceDraftTitle,
+        onDismiss={if(!busy) { editorOpen=false;voiceDraftTitle="" }},onSave={ habit ->
+        scope.launch { runAction { repository.save(habit); editorOpen=false; voiceDraftTitle="" } }
     })
     deleteCandidate?.let { habit ->
         val completionCount = workspace?.let { habitCompletionCount(it.completions, habit.id) } ?: 0
@@ -375,11 +405,21 @@ private fun ExperimentalHabitCard(habit: Habit, entry: HabitCompletion?, schedul
     }
 }
 
+private fun sacredHabitCadence(config: ru.genesis.calendar.domain.RecurrenceConfig): String = when {
+    config.pattern == "month-days" && config.months.size == 1 -> "yearly"
+    config.pattern == "month-days" -> "monthly"
+    config.pyatas == listOf(1, 3, 5) || config.pyatas == listOf(2, 4, 6) -> "parity"
+    config.days.sorted() == listOf(1, 2, 3, 4, 5) && config.pyatas.isEmpty() && config.months.isEmpty() -> "daily"
+    else -> "pyata-days"
+}
+
 @Composable
 private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCalendarMode: CalendarMode,
+    initialTitle: String = "",
     onDismiss: () -> Unit, onSave: (Habit) -> Unit) {
-    val engine=remember { HabitEngine(GenesisCalendar()) }
-    val initial=remember(existing) { existing ?: Habit(TrackerEntity.create("habit"),"",LocalDate.now(),engine.defaultSchedule(LocalDate.now(),CalendarMode.SACRED)) }
+    val engineCalendar=remember { GenesisCalendar() }
+    val engine=remember(engineCalendar) { HabitEngine(engineCalendar) }
+    val initial=remember(existing,initialTitle) { existing ?: Habit(TrackerEntity.create("habit"),initialTitle,LocalDate.now(),engine.defaultSchedule(LocalDate.now(),inputCalendarMode)) }
     var title by rememberSaveable(initial.id) { mutableStateOf(initial.title) }
     var description by rememberSaveable(initial.id) { mutableStateOf(initial.description) }
     var preferredTime by rememberSaveable(initial.id) { mutableStateOf(initial.preferredTime) }
@@ -390,20 +430,33 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
     var end by rememberSaveable(initial.id) { mutableStateOf(initial.schedule.endDate?.toString() ?: "") }
     var formCalendarMode by rememberSaveable(initial.id) { mutableStateOf(inputCalendarMode) }
     var config by remember(initial.id) { mutableStateOf(initial.schedule.recurrence) }
+    var sacredCadence by remember(initial.id) { mutableStateOf(sacredHabitCadence(initial.schedule.recurrence)) }
     val mode=when(config.mode) { "classic"->CalendarMode.PROFANE;"lunar"->CalendarMode.LUNAR;else->CalendarMode.SACRED }
     Dialog(onDismissRequest=onDismiss, properties=androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth=false)) { Surface(Modifier.widthIn(max=720.dp).fillMaxWidth().padding(12.dp),shape=MaterialTheme.shapes.large) {
         Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-            Text(if(existing==null) "Новая привычка" else "Изменить привычку",style=MaterialTheme.typography.titleLarge)
+            Row(Modifier.fillMaxWidth(), verticalAlignment=Alignment.CenterVertically) {
+                Text(if(existing==null) "Новая привычка" else "Изменить привычку",
+                    modifier=Modifier.weight(1f),style=MaterialTheme.typography.titleLarge)
+                IconButton(onClick=onDismiss,enabled=!busy,modifier=Modifier.testTag("habit-editor-close")) {
+                    Text("×",style=MaterialTheme.typography.headlineSmall)
+                }
+            }
             OutlinedTextField(title,{title=it},label={Text("Название")},modifier=Modifier.fillMaxWidth(),enabled=!busy)
             OutlinedTextField(description,{description=it},label={Text("Описание")},modifier=Modifier.fillMaxWidth(),enabled=!busy)
             PriorityControl(priority) { if(!busy) priority=it }
             Text("Календарь расписания")
             Row(Modifier.horizontalScroll(rememberScrollState())) {
-                listOf(CalendarMode.SACRED to "Сакральный",CalendarMode.PROFANE to "Григорианский",CalendarMode.LUNAR to "Лунный").forEach { (option,label) ->
-                    FilterChip(selected=mode==option,enabled=!busy,onClick={config=engine.defaultSchedule(LocalDate.parse(start),option).recurrence},label={Text(label)})
+                (listOf(inputCalendarMode) + listOf(CalendarMode.SACRED,CalendarMode.PROFANE,CalendarMode.LUNAR)
+                    .filterNot { it==inputCalendarMode }).forEach { option ->
+                    val label=when(option) {CalendarMode.SACRED->"Сакральный";CalendarMode.PROFANE->"Григорианский";CalendarMode.LUNAR->"Лунный"}
+                    FilterChip(selected=mode==option,enabled=!busy,onClick={
+                        config=engine.defaultSchedule(LocalDate.parse(start),option).recurrence
+                        if(option==CalendarMode.SACRED) sacredCadence="pyata-days"
+                    },label={Text(label)})
                 }
             }
-            EditorCalendarModePicker(formCalendarMode, { formCalendarMode=it }, enabled=!busy,
+            EditorCalendarModePicker(formCalendarMode, { formCalendarMode=it }, enabled=!busy, compact=true,
+                preferredMode=inputCalendarMode,
                 tag="habit-form-calendar")
             Text("Начало"); AuthorDatePicker(start,formCalendarMode) { if(!busy) start=it }
             Row { Checkbox(checked=end.isNotEmpty(),enabled=!busy,onCheckedChange={end=if(it) start else ""}); Text("Ограничить срок",Modifier.padding(top=12.dp)) }
@@ -413,23 +466,58 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
                     FilterChip(config.pattern==pattern,{config=config.copy(pattern=pattern)},enabled=!busy,label={Text(label)})
                 }
             }
-            val limit=when { mode==CalendarMode.SACRED -> if(config.pattern=="month-days") 30 else 5; mode==CalendarMode.LUNAR -> 30;config.pattern=="weekdays" -> 7;else -> 0 }
-            if(mode==CalendarMode.SACRED) Row {
-                FilterChip(config.pattern=="pyata-days",{config=config.copy(pattern="pyata-days",days=listOf(1))},enabled=!busy,label={Text("Дни пяты")})
-                FilterChip(config.pattern=="month-days",{config=config.copy(pattern="month-days",days=listOf(1))},enabled=!busy,label={Text("Дни месяца")})
+            if(mode==CalendarMode.SACRED) {
+                Text("Повторение по сакральному календарю")
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+                    listOf("daily" to "Ежедневно", "pyata-days" to "Дни пяты",
+                        "parity" to "Чётная/нечётная", "monthly" to "Ежемесячно",
+                        "yearly" to "Ежегодно").forEach { (cadence,label) ->
+                        FilterChip(sacredCadence==cadence,onClick={
+                            sacredCadence=cadence
+                            val sacred=engineCalendar.sacredDate(LocalDate.parse(start))
+                            val day=if(sacred.monthIndex<12) sacred.day else 1
+                            config=when(cadence) {
+                                "daily" -> config.copy(pattern="pyata-days",days=(1..5).toList(),months=emptyList(),pyatas=emptyList())
+                                "pyata-days" -> config.copy(pattern="pyata-days",days=listOf(1),months=emptyList(),pyatas=emptyList())
+                                "parity" -> config.copy(pattern="pyata-days",days=(1..5).toList(),months=emptyList(),pyatas=listOf(1,3,5))
+                                "monthly" -> config.copy(pattern="month-days",days=listOf(day),months=emptyList(),pyatas=emptyList())
+                                else -> config.copy(pattern="month-days",days=listOf(day),months=listOf(if(sacred.monthIndex<12) sacred.monthIndex+1 else 1),pyatas=emptyList())
+                            }
+                        },enabled=!busy,label={Text(label)})
+                    }
+                }
+                if(sacredCadence=="parity") Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+                    FilterChip(config.pyatas==listOf(1,3,5),onClick={config=config.copy(pyatas=listOf(1,3,5))},enabled=!busy,label={Text("Нечётные пяты")})
+                    FilterChip(config.pyatas==listOf(2,4,6),onClick={config=config.copy(pyatas=listOf(2,4,6))},enabled=!busy,label={Text("Чётные пяты")})
+                }
+                if(sacredCadence=="yearly") {
+                    Text("Сакральный месяц")
+                    (1..12).chunked(4).forEach { row -> Row(horizontalArrangement=Arrangement.spacedBy(4.dp)) {
+                        row.forEach { month -> FilterChip(month in config.months,onClick={config=config.copy(months=listOf(month))},enabled=!busy,label={Text(month.toString())}) }
+                    } }
+                }
+                if(sacredCadence=="monthly" || sacredCadence=="yearly") Text("Апейрон исключён из расписания")
             }
+            val limit=when { mode==CalendarMode.SACRED -> when(sacredCadence) {"pyata-days"->5;"monthly","yearly"->30;else->0}; mode==CalendarMode.LUNAR -> 30;config.pattern=="weekdays" -> 7;else -> 0 }
             if(limit>0) {
-                Text("Дни расписания")
+                Text(if(mode==CalendarMode.SACRED && sacredCadence=="pyata-days") "Дни внутри пяты" else "Дни расписания")
                 (1..limit).chunked(5).forEach { row -> Row(horizontalArrangement=Arrangement.spacedBy(4.dp)) { row.forEach { day ->
-                    FilterChip(day in config.days,{config=config.copy(days=if(day in config.days) config.days.filterNot { it==day } else config.days+day)},enabled=!busy,
-                        label={Text(if(mode==CalendarMode.SACRED&&config.pattern=="pyata-days") listOf("I","II","III","IIII","V")[day-1] else day.toString())})
+                    FilterChip(day in config.days,onClick={
+                        if(mode==CalendarMode.SACRED && sacredCadence in setOf("monthly","yearly")) config=config.copy(days=listOf(day))
+                        else if(day !in config.days || config.days.size>1) config=config.copy(days=if(day in config.days) config.days.filterNot { it==day } else config.days+day)
+                    },enabled=!busy,
+                        label={Text(if(mode==CalendarMode.SACRED&&sacredCadence=="pyata-days") listOf("I","II","III","IIII","V")[day-1] else day.toString())})
                 } } }
             }
-            HabitReminderFields(preferredTime, reminder, !busy, onTime = { preferredTime = it }, onReminder = { reminder = it })
+            HabitReminderFields(preferredTime, reminder, !busy, onTime = {
+                preferredTime = it
+                if(it.isEmpty() && reminder.timing=="habit") reminder=reminder.copy(timing="custom")
+            }, onReminder = { reminder = it })
             Text("Начисление XP")
-            listOf("none" to "Без баллов","binary" to "Выполнение · 10","quality-ten" to "Качество · 1–10","quality-bipolar" to "Качество · −5…+5").forEach { (value,label) ->
+            if(existing!=null) Text("🔒 Начисление XP зафиксировано при создании. Для другой формулы удалите привычку и создайте новую.",style=MaterialTheme.typography.bodySmall)
+            if(existing==null) listOf("none" to "Без баллов","binary" to "Выполнение · 10","quality-ten" to "Качество · 1–10","quality-bipolar" to "Качество · −5…+5").forEach { (value,label) ->
                 FilterChip(scoring==value,{scoring=value},enabled=!busy,label={Text(label)})
-            }
+            } else Text(when(scoring) {"none"->"Без баллов";"quality-ten"->"Качество · 1–10";"quality-bipolar"->"Качество · −5…+5";else->"Выполнение · 10"})
             error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 TextButton(enabled=!busy,onClick=onDismiss) { Text("Отмена") }
