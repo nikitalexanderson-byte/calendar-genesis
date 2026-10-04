@@ -115,7 +115,8 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
     onDeleteOccurrence: ((LocalTask, LocalDate) -> Unit)? = null,
     onCreateTask: (LocalDate) -> Unit = {},
     dayHabits: (@Composable (LocalDate) -> Unit)? = null,
-    menuSwipeState: MenuSwipeState? = null, periodSwipeEnabled: Boolean = true) {
+    menuSwipeState: MenuSwipeState? = null, periodSwipeEnabled: Boolean = true,
+    voiceRequest: NativeVoiceAction? = null, onVoiceRequestConsumed: () -> Unit = {}) {
     val calendar = remember { GenesisCalendar() }
     var shown by rememberSaveable(mode, date) { mutableStateOf(date.toString()) }
     var selected by rememberSaveable(mode, date) { mutableStateOf(date.toString()) }
@@ -126,8 +127,66 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
     var focusDayRequest by rememberSaveable { mutableIntStateOf(0) }
     var deletingTaskId by rememberSaveable { mutableStateOf<String?>(null) }
     var deletingDate by rememberSaveable { mutableStateOf(date.toString()) }
+    var voiceScrollToken by remember { mutableIntStateOf(0) }
+    var voiceScrollDirection by remember { mutableStateOf("down") }
     val shownDate = LocalDate.parse(shown)
     val range = remember(shownDate, mode) { runCatching { calendar.monthRange(shownDate, mode) } }
+
+    LaunchedEffect(voiceRequest) {
+        when(val action=voiceRequest) {
+            is NativeVoiceAction.CalendarModeChange -> onModeChange(action.mode)
+            is NativeVoiceAction.CalendarView -> {
+                localYearView=action.year; menuSwipeState?.calendar=if(action.year) "year" else "month"
+            }
+            is NativeVoiceAction.CalendarStep -> {
+                val target=runCatching {
+                    val current=LocalDate.parse(shown)
+                    if(action.year) current.plusYears(action.step.toLong()) else {
+                        val period=calendar.monthRange(current,mode)
+                        if(action.step>0) period.end.plusDays(1) else period.start.minusDays(1)
+                    }
+                }.getOrNull()
+                if(target!=null) { shown=target.toString();selected=target.toString();onSelect(target) }
+                localYearView=action.year;menuSwipeState?.calendar=if(action.year) "year" else "month"
+            }
+            is NativeVoiceAction.CalendarSwipe -> {
+                val current=LocalDate.parse(shown)
+                val target=runCatching {
+                    if(yearView) current.plusYears(action.step.toLong()) else calendar.monthRange(current,mode).let {
+                        if(action.step>0) it.end.plusDays(1) else it.start.minusDays(1)
+                    }
+                }.getOrNull()
+                if(target!=null) { shown=target.toString();selected=target.toString();onSelect(target) }
+            }
+            is NativeVoiceAction.CalendarDate -> {
+                val target=runCatching { LocalDate.of(action.year,action.month,action.day) }.getOrNull()
+                if(target!=null) {
+                    shown=target.toString();selected=target.toString();onSelect(target)
+                    localYearView=false;menuSwipeState?.calendar="month"
+                }
+            }
+            is NativeVoiceAction.CalendarMonth -> {
+                val current=LocalDate.parse(shown)
+                val target=runCatching { when(mode) {
+                    CalendarMode.SACRED -> calendar.gregorianDate(calendar.sacredDate(current).sacredYear,action.ordinal-1,1)
+                    CalendarMode.PROFANE -> current.withMonth(action.ordinal).withDayOfMonth(1)
+                    CalendarMode.LUNAR -> calendar.lunarDate(current).year.let { year ->
+                        require(action.ordinal in 1..year.monthCount)
+                        calendar.lunarMonthStart(year.startMonthIndex+action.ordinal-1)
+                    }
+                } }.getOrNull()
+                if(target!=null) {
+                    shown=target.toString();selected=target.toString();onSelect(target)
+                    localYearView=false;menuSwipeState?.calendar="month"
+                }
+            }
+            is NativeVoiceAction.Scroll -> {
+                voiceScrollDirection=action.direction;voiceScrollToken++
+            }
+            else -> Unit
+        }
+        if(voiceRequest!=null) onVoiceRequestConsumed()
+    }
 
     CompositionLocalProvider(LocalCalendarPeriodSwipeEnabled provides periodSwipeEnabled) {
     Column(Modifier.fillMaxSize()) {
@@ -137,7 +196,7 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
             }, Modifier.testTag("calendar-view-switch"))
         if (yearView) CalendarYearOverview(calendar, shownDate, mode, onModeChange, experimental, tasks,
             gregorianYearStartsInMarch, regionalSeasonArt, seasonRegionZone,
-            onStartGregorianYearInMarch,
+            onStartGregorianYearInMarch,voiceScrollToken,voiceScrollDirection,
             onMonth = {
                 shown = it.toString(); selected = it.toString(); localYearView = false
                 menuSwipeState?.calendar = "month"
@@ -151,6 +210,7 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
         }
         else CalendarMonthContent(calendar, range.getOrThrow(), mode, onModeChange,
             LocalDate.parse(selected), experimental, tasks, focusDayRequest,
+            voiceScrollToken,voiceScrollDirection,
             weekStartsOnSunday, lunarByDecade, onLunarLayoutChange={ lunarByDecade=it },
             onNavigate = { shown = it.toString(); selected = it.toString(); onSelect(it) },
             onChoose = { selected = it.toString(); onSelect(it) },
@@ -215,7 +275,8 @@ private fun CalendarPageHeader(yearView: Boolean, mode: CalendarMode,
 @Composable
 private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange, mode: CalendarMode,
     onModeChange: (CalendarMode) -> Unit, selected: LocalDate, experimental: Boolean, tasks: List<LocalTask>,
-    focusDayRequest: Int, weekStartsOnSunday: Boolean, lunarByDecade: Boolean,
+    focusDayRequest: Int, voiceScrollToken: Int, voiceScrollDirection: String,
+    weekStartsOnSunday: Boolean, lunarByDecade: Boolean,
     onLunarLayoutChange: (Boolean) -> Unit,
     onNavigate: (LocalDate) -> Unit, onChoose: (LocalDate) -> Unit, onToday: () -> Unit,
     onOpenTaskList: (LocalDate) -> Unit,
@@ -224,6 +285,14 @@ private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange
     val locale = Locale.forLanguageTag(LocalGenesisLanguage.current).takeIf { it.language.isNotBlank() } ?: ru
     val solarLocation by rememberAutomaticSolarLocation(calendar.zoneId)
     val scroll = rememberScrollState()
+    LaunchedEffect(voiceScrollToken) {
+        if(voiceScrollToken>0) scroll.animateScrollTo(when(voiceScrollDirection) {
+            "top" -> 0
+            "bottom" -> scroll.maxValue
+            "up" -> (scroll.value-600).coerceAtLeast(0)
+            else -> (scroll.value+600).coerceAtMost(scroll.maxValue)
+        })
+    }
     var previewRequested by remember(range.start) { mutableStateOf(false) }
     var selectedDayTop by remember(range.start) { mutableIntStateOf(-1) }
     var selectedDayHeight by remember(range.start) { mutableIntStateOf(0) }
@@ -958,6 +1027,7 @@ private fun CalendarYearOverview(calendar: GenesisCalendar, shown: LocalDate, mo
     experimental: Boolean, tasks: List<LocalTask>,
     gregorianYearStartsInMarch: Boolean, regionalSeasonArt: Boolean, seasonRegionZone: ZoneId,
     onStartGregorianYearInMarch: () -> Unit,
+    voiceScrollToken: Int, voiceScrollDirection: String,
     onMonth: (LocalDate) -> Unit, onYear: (LocalDate) -> Unit) {
     val sacredYear = calendar.sacredDate(shown).sacredYear
     val period = if (mode == CalendarMode.PROFANE) LocalDate.of(
@@ -975,7 +1045,7 @@ private fun CalendarYearOverview(calendar: GenesisCalendar, shown: LocalDate, mo
                 gregorianYearStartsInMarch, regionalSeasonArt, seasonRegionZone,
                 springSuggestionDismissed, onStartGregorianYearInMarch,
                 { springSuggestionDismissed = true; suggestionPrefs.edit().putBoolean("spring-year-dismissed", true).apply() },
-                onMonth, previous, next)
+                onMonth, previous, next,voiceScrollToken,voiceScrollDirection,page==period)
         }
     }
 }
@@ -987,7 +1057,8 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
     springSuggestionDismissed: Boolean, onStartGregorianYearInMarch: () -> Unit,
     onDismissSpringSuggestion: () -> Unit,
     onMonth: (LocalDate) -> Unit,
-    onPrevious: () -> Unit, onNext: () -> Unit) {
+    onPrevious: () -> Unit, onNext: () -> Unit,
+    voiceScrollToken: Int, voiceScrollDirection: String, activePage: Boolean) {
     val locale = Locale.forLanguageTag(LocalGenesisLanguage.current)
     val sacredYear = calendar.sacredDate(shown).sacredYear
     val yearLabel = if (mode == CalendarMode.PROFANE && gregorianYearStartsInMarch)
@@ -1054,6 +1125,17 @@ private fun CalendarYearPanel(calendar: GenesisCalendar, shown: LocalDate, mode:
     BoxWithConstraints(Modifier.fillMaxSize().testTag("calendar-year-panel")) {
         val yearColumns = if (maxWidth >= 780.dp) 2 else 1
         val yearListState = rememberLazyListState()
+        LaunchedEffect(voiceScrollToken,activePage) {
+            if(voiceScrollToken>0 && activePage) {
+                val target=when(voiceScrollDirection) {
+                    "top" -> 0
+                    "bottom" -> yearListState.layoutInfo.totalItemsCount-1
+                    "up" -> yearListState.firstVisibleItemIndex-3
+                    else -> yearListState.firstVisibleItemIndex+3
+                }.coerceIn(0,(yearListState.layoutInfo.totalItemsCount-1).coerceAtLeast(0))
+                yearListState.animateScrollToItem(target)
+            }
+        }
             LazyColumn(Modifier.fillMaxSize().testTag("calendar-year"), state = yearListState,
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(bottom = 12.dp)) {

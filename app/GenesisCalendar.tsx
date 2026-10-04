@@ -3895,7 +3895,8 @@ export function GenesisCalendar() {
   const executeWebVoiceCommand = async (command: string): Promise<string> => {
     const { runWebVoiceCommand } = await import("./web-voice-executor");
     return runWebVoiceCommand(command, {
-      language, calendarMode: activeTaskCalendarMode, today: todayDateValue, timeZone: deviceTimeZone,
+      language, calendarMode: activeTaskCalendarMode, currentView: view,
+      today: todayDateValue, timeZone: deviceTimeZone,
       categories, projects, taskLists, accounts: googleAccounts.map((account) => ({ email: account.email })),
       tasks, workspace: habitWorkspace,
     }, {
@@ -3907,6 +3908,51 @@ export function GenesisCalendar() {
       openProject: openProjectEditor,
       toggleTask,
       changeTask: persistTaskChange,
+      changeDisplayCalendar: async (mode) => {
+        if (!cloudUser) throw new Error(language === "en" ? "Sign in to change calendar settings." : "Войдите, чтобы изменить календарь.");
+        if (cloudUser.calendarMode === mode) return;
+        const result = await updateAccountPreferences({ calendarMode: mode });
+        setCloudUser(result.user);
+      },
+      stepCalendar: (unit, step) => {
+        if (activeCalendarMode === "sacred") {
+          if (unit === "year") changeSacredYear(sacredYear + step);
+          else selectMonth(monthIndex + step);
+        } else if (activeCalendarMode === "profane") {
+          selectCalendarDate(new Date(selectedDate.getFullYear() + (unit === "year" ? step : 0),
+            selectedDate.getMonth() + (unit === "month" ? step : 0), 1, 12));
+        } else if (unit === "month") {
+          selectCalendarDate(getLunarMonthStart(selectedLunarMonthIndex + step));
+        } else {
+          const target = getLunarYear(selectedLunarYear.sacredYear + step);
+          selectCalendarDate(getLunarMonthStart(target.startMonthIndex +
+            Math.min(selectedLunarMonthOrdinal - 1, target.monthCount - 1)));
+        }
+      },
+      chooseCalendarMonth: (ordinal) => {
+        if (activeCalendarMode === "sacred") {
+          if (ordinal < 1 || ordinal > 13) return false;
+          selectCalendarDate(getGregorianDate(sacredYear, ordinal - 1, 1));
+        } else if (activeCalendarMode === "profane") {
+          if (ordinal < 1 || ordinal > 12) return false;
+          selectCalendarDate(new Date(selectedDate.getFullYear(), ordinal - 1, 1, 12));
+        } else {
+          if (ordinal < 1 || ordinal > selectedLunarYear.monthCount) return false;
+          selectCalendarDate(getLunarMonthStart(selectedLunarYear.startMonthIndex + ordinal - 1));
+        }
+        return true;
+      },
+      chooseCalendarDate: selectCalendarDate,
+      scrollPage: (direction) => {
+        const scrollable = [document.querySelector<HTMLElement>(".app-stage"),
+          document.querySelector<HTMLElement>(".workspace"), document.scrollingElement]
+          .find((element) => element && element.scrollHeight > element.clientHeight + 8);
+        if (!scrollable) return false;
+        const top = direction === "top" ? 0 : direction === "bottom" ? scrollable.scrollHeight
+          : scrollable.scrollTop + (direction === "down" ? 1 : -1) * Math.max(320, scrollable.clientHeight * 0.8);
+        scrollable.scrollTo({ top, behavior: "smooth" });
+        return true;
+      },
     });
   };
   const openProjectEditor = (project: GenesisProject) => {

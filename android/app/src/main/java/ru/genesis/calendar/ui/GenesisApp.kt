@@ -244,6 +244,46 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     val welcomeVisible = accountGate && !(authState.busy && authState.user != null)
     val window = LocalContext.current.activity()?.window
     fun executeVoiceAction(action: NativeVoiceAction): String = when(action) {
+        is NativeVoiceAction.CalendarModeChange -> {
+            voiceScreenRequest=action;tab="Календарь";"Календарь переключён."
+        }
+        is NativeVoiceAction.CalendarView -> {
+            menuSwipeState.calendar=if(action.year) "year" else "month"
+            tab="Календарь";if(action.year) "Открыт год." else "Открыт месяц."
+        }
+        is NativeVoiceAction.CalendarStep -> {
+            voiceScreenRequest=action;tab="Календарь";"Период выбран в календаре."
+        }
+        is NativeVoiceAction.CalendarDate -> {
+            val valid=runCatching { LocalDate.of(action.year,action.month,action.day) }
+                .getOrNull()?.year?.let { it in 1900..2100 } == true
+            if(!valid) "Проверьте дату: такой даты нет или она вне диапазона календаря."
+            else { voiceScreenRequest=action;tab="Календарь";"Дата выбрана в календаре." }
+        }
+        is NativeVoiceAction.CalendarMonth -> {
+            val max=runCatching { when(prefs.display) {
+                CalendarMode.SACRED -> 13
+                CalendarMode.PROFANE -> 12
+                CalendarMode.LUNAR -> GenesisCalendar().lunarDate(LocalDate.parse(selected)).year.monthCount
+            } }.getOrDefault(0)
+            if(action.ordinal !in 1..max) "В этом году нет такого месяца."
+            else { voiceScreenRequest=action;tab="Календарь";"Месяц выбран." }
+        }
+        is NativeVoiceAction.CalendarSwipe -> {
+            if(tab=="Календарь" && !portraitMenuSwipe) {
+                voiceScreenRequest=action;"Период переключён."
+            } else {
+                val destination=nextMenuSwipeDestination(swipeSequence,tab,swipeSection,action.step)
+                if(destination==null) "Больше разделов в этом направлении нет." else {
+                    destination.section?.let { menuSwipeState.select(destination.page,it) }
+                    tab=destination.page;"Раздел открыт."
+                }
+            }
+        }
+        is NativeVoiceAction.Scroll -> {
+            if(tab!="Календарь") "Прокрутка голосом пока доступна в календаре."
+            else { voiceScreenRequest=action;"Прокручено." }
+        }
         is NativeVoiceAction.Navigate -> {
             when(action.section) {
                 "Списки задач" -> { menuSwipeState.tasks="lists";tab="Задачи" }
@@ -292,6 +332,19 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
         val action=parseNativeVoiceAction(command,tasks,structure.projects,habitWorkspace.habits)
         if(action!=null) {
             require(app.workspaceScope==activeScope)
+            if(action is NativeVoiceAction.CalendarDate) {
+                val valid=runCatching { LocalDate.of(action.year,action.month,action.day) }
+                    .getOrNull()?.year?.let { it in 1900..2100 } == true
+                if(!valid) return "Проверьте дату: такой даты нет или она вне диапазона календаря."
+            }
+            if(action is NativeVoiceAction.CalendarMonth) {
+                val max=runCatching { when(prefs.display) {
+                    CalendarMode.SACRED -> 13
+                    CalendarMode.PROFANE -> 12
+                    CalendarMode.LUNAR -> GenesisCalendar().lunarDate(LocalDate.parse(selected)).year.monthCount
+                } }.getOrDefault(0)
+                if(action.ordinal !in 1..max) return "В этом году нет такого месяца."
+            }
             when(action) {
                 is NativeVoiceAction.SetTaskDone -> {
                     val task=app.repository.get(action.id) ?: return "Задача больше не найдена."
@@ -437,7 +490,10 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         onSacredHabitsOpened={requestedSacredHabits=false},
                         openHeroPath=requestedHeroPath,
                         onHeroPathOpened={requestedHeroPath=false},
-                        voiceRequest=voiceScreenRequest,
+                        voiceRequest=voiceScreenRequest.takeIf {
+                            it is NativeVoiceAction.CreateHabit || it is NativeVoiceAction.EditHabit ||
+                                it is NativeVoiceAction.DeleteHabit || it is NativeVoiceAction.SetHabitDone
+                        },
                         onVoiceRequestConsumed={voiceScreenRequest=null})
                     "Теокиклос" -> TheokyklosScreen(app,prefs.input,onOpenHabits={requestedSacredHabits=true;tab="Привычки"},
                         initialSectorId=requestedTheokyklosSector,
@@ -449,7 +505,9 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         onOpenTask={ taskId -> editId=taskId;creating=false },
                         onCreateTask={ projectId -> newTaskProjectId=projectId;newTaskListId=null;editId=null;creating=true },
                         onDeleteTask=model::delete,
-                        menuSwipeState=visibleSwipeState,voiceRequest=voiceScreenRequest,
+                        menuSwipeState=visibleSwipeState,voiceRequest=voiceScreenRequest.takeIf {
+                            it is NativeVoiceAction.CreateProject || it is NativeVoiceAction.EditProject
+                        },
                         onVoiceRequestConsumed={voiceScreenRequest=null})
                     "Задачи" -> TasksScreen(tasks,taskLists,structure,prefs.use24,
                         confirmed = testWorkspace || accountTaskSync?.confirmed != false,
@@ -512,7 +570,13 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         dayHabits=if(habitTrackingEnabled) { { date -> TodayHabitsContent(app,date,habitWorkspace,
                             onOpenHabits={tab="Привычки"}, showTopDivider=false) } } else null,
                         menuSwipeState=visibleSwipeState,
-                        periodSwipeEnabled=!portraitMenuSwipe)
+                        periodSwipeEnabled=!portraitMenuSwipe,
+                        voiceRequest=voiceScreenRequest.takeIf {
+                            it is NativeVoiceAction.CalendarModeChange || it is NativeVoiceAction.CalendarStep ||
+                                it is NativeVoiceAction.CalendarSwipe || it is NativeVoiceAction.CalendarDate ||
+                                it is NativeVoiceAction.CalendarMonth || it is NativeVoiceAction.Scroll
+                        },
+                        onVoiceRequestConsumed={voiceScreenRequest=null})
                     else -> TodayWorkspace(header = {
                             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                 DayHeader(LocalDate.parse(todayPageDate), prefs.display, dayDetailsExpanded,

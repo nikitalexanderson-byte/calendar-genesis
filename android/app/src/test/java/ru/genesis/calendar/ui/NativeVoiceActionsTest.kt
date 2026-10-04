@@ -42,4 +42,20 @@ class NativeVoiceActionsTest {
         assertTrue(isVoiceTaskCreationCommand("создай задачу Проверить почту"))
         assertFalse(isVoiceTaskCreationCommand("создай проект Проверить почту"))
     }
+
+    @Test fun calendarCommandsRecognizeAlternativePhrasings() {
+        fun parse(value: String)=parseNativeVoiceAction(value,listOf(task),listOf(project),listOf(habit))
+        assertEquals(NativeVoiceAction.CalendarModeChange(CalendarMode.LUNAR),parse("переключи календарь на лунный"))
+        assertEquals(NativeVoiceAction.CalendarModeChange(CalendarMode.LUNAR),parse("Генезис, пожалуйста, переключи календарь на лунный!"))
+        assertEquals(NativeVoiceAction.CalendarModeChange(CalendarMode.PROFANE),parse("покажи григорианский календарь"))
+        assertEquals(NativeVoiceAction.CalendarView(true),parse("открой год"))
+        assertEquals(NativeVoiceAction.CalendarView(false),parse("покажи месяц"))
+        assertEquals(NativeVoiceAction.CalendarStep(false,1),parse("следующий месяц"))
+        assertEquals(NativeVoiceAction.CalendarStep(true,-1),parse("год назад"))
+        assertEquals(NativeVoiceAction.CalendarSwipe(1),parse("свайпни влево"))
+        assertEquals(NativeVoiceAction.Scroll("up"),parse("прокрути экран вверх"))
+        assertEquals(NativeVoiceAction.CalendarDate(2026,10,12),parse("покажи 12 октября 2026"))
+        assertEquals(NativeVoiceAction.CalendarDate(2026,5,3),parse("покажи 3 мая 2026"))
+        assertEquals(NativeVoiceAction.CalendarMonth(5),parse("открой месяц 5"))
+    }
 }

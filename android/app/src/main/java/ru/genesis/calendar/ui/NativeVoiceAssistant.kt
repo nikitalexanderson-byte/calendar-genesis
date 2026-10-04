@@ -97,6 +97,18 @@ internal fun NativeVoiceAssistantDialog(app: GenesisApplication, structure: Work
                     HorizontalDivider()
                     Text(when(preview) {
                         is NativeVoiceAction.Navigate -> "Открыть раздел: ${preview.section}"
+                        is NativeVoiceAction.CalendarModeChange -> "Переключить календарь: ${preview.mode.wireValue}"
+                        is NativeVoiceAction.CalendarView -> if(preview.year) "Открыть год" else "Открыть месяц"
+                        is NativeVoiceAction.CalendarStep -> when {
+                            preview.year && preview.step>0 -> "Следующий год"
+                            preview.year -> "Предыдущий год"
+                            preview.step>0 -> "Следующий месяц"
+                            else -> "Предыдущий месяц"
+                        }
+                        is NativeVoiceAction.CalendarSwipe -> if(preview.step>0) "Свайп влево" else "Свайп вправо"
+                        is NativeVoiceAction.CalendarDate -> "Выбрать дату: ${preview.day}.${preview.month}.${preview.year}"
+                        is NativeVoiceAction.CalendarMonth -> "Выбрать месяц: ${preview.ordinal}"
+                        is NativeVoiceAction.Scroll -> "Прокрутить: ${preview.direction}"
                         is NativeVoiceAction.CreateProject -> "Создать проект: ${preview.title}"
                         is NativeVoiceAction.CreateTaskList -> "Создать список задач: ${preview.title}"
                         is NativeVoiceAction.EditProject -> "Изменить проект: ${preview.title}"

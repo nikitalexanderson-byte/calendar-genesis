@@ -5,10 +5,11 @@ import { createLocalVoicePlan } from "./local-voice-plan";
 import { parseWebVoiceAction } from "./web-voice-actions";
 import type { CalendarMode } from "./calendar-data";
 
-type View = "today" | "calendar" | "all-tasks" | "projects" | "habits" | "theokyklos" | "stoicheion" | "admin";
+type View = "today" | "calendar" | "year" | "all-tasks" | "projects" | "habits" | "theokyklos" | "stoicheion" | "admin";
 type Request = { kind: "edit" | "delete" | "section"; id?: string; section?: string };
 export type WebVoiceContext = {
-  language: Language; calendarMode: CalendarMode; today: string; timeZone: string;
+  language: Language; calendarMode: CalendarMode; currentView: View;
+  today: string; timeZone: string;
   categories: GenesisCategory[]; projects: GenesisProject[]; taskLists: GoogleTaskList[];
   accounts: { email: string }[]; tasks: GenesisTask[]; workspace: HabitWorkspace;
 };
@@ -21,15 +22,57 @@ export type WebVoiceEffects = {
   openProject: (project: GenesisProject) => void;
   toggleTask: (id: string) => void;
   changeTask: (original: GenesisTask, changed: GenesisTask) => void;
+  changeDisplayCalendar: (mode: CalendarMode) => Promise<void>;
+  stepCalendar: (unit: "month" | "year", step: -1 | 1) => void;
+  chooseCalendarMonth: (ordinal: number) => boolean;
+  chooseCalendarDate: (date: Date) => void;
+  scrollPage: (direction: "up" | "down" | "top" | "bottom") => boolean;
 };
 
 export async function runWebVoiceCommand(command: string, context: WebVoiceContext, effects: WebVoiceEffects): Promise<string> {
-  const { language, calendarMode, today, timeZone, categories, projects, taskLists, accounts, tasks, workspace } = context;
-  const { navigate, requestHabit, applyPlan, updateWorkspace, openTask, openProject, toggleTask, changeTask } = effects;
+  const { language, calendarMode, currentView, today, timeZone, categories, projects, taskLists, accounts, tasks, workspace } = context;
+  const { navigate, requestHabit, applyPlan, updateWorkspace, openTask, openProject, toggleTask, changeTask,
+    changeDisplayCalendar, stepCalendar, chooseCalendarMonth, chooseCalendarDate, scrollPage } = effects;
   const action = parseWebVoiceAction(command, tasks, projects, workspace.habits, language);
   const reply = (ru: string, en: string) => language === "en" ? en : ru;
   if (!action) return reply("Пока не умею это делать. Попробуйте открыть раздел или назвать задачу, проект, список либо привычку.",
     "I cannot do that yet. Try opening a section or naming a task, project, list or habit.");
+  if (action.kind === "calendar-mode") {
+    await changeDisplayCalendar(action.mode);
+    navigate("calendar");
+    return reply("Календарь переключён.", "Calendar switched.");
+  }
+  if (action.kind === "calendar-view") {
+    navigate(action.view);
+    return reply(action.view === "year" ? "Открыт год." : "Открыт месяц.", action.view === "year" ? "Year opened." : "Month opened.");
+  }
+  if (action.kind === "calendar-step" || action.kind === "calendar-swipe") {
+    if (action.kind === "calendar-swipe" && currentView !== "calendar" && currentView !== "year") {
+      return reply("Свайп голосом доступен в календаре. Назовите нужный раздел.", "Voice swipe is available in the calendar. Name a section.");
+    }
+    const unit = action.kind === "calendar-step" ? action.unit : currentView === "year" ? "year" : "month";
+    stepCalendar(unit, action.step);
+    navigate(unit === "year" ? "year" : "calendar");
+    return reply(unit === "year" ? "Год переключён." : "Месяц переключён.", unit === "year" ? "Year changed." : "Month changed.");
+  }
+  if (action.kind === "calendar-date") {
+    const date = new Date(action.year, action.month - 1, action.day, 12);
+    if (date.getFullYear() !== action.year || date.getMonth() !== action.month - 1 || date.getDate() !== action.day || action.year < 1900 || action.year > 2100) {
+      return reply("Проверьте дату: такой даты нет или она вне диапазона календаря.", "Check the date: it does not exist or is outside the calendar range.");
+    }
+    chooseCalendarDate(date);
+    navigate("calendar");
+    return reply("Дата выбрана в календаре.", "Date selected in the calendar.");
+  }
+  if (action.kind === "calendar-month") {
+    if (!chooseCalendarMonth(action.ordinal)) return reply("В этом году нет такого месяца.", "There is no such month in this year.");
+    navigate("calendar");
+    return reply("Месяц выбран.", "Month selected.");
+  }
+  if (action.kind === "scroll") {
+    return scrollPage(action.direction) ? reply("Прокручено.", "Scrolled.")
+      : reply("На этом экране нечего прокручивать.", "There is nothing to scroll on this screen.");
+  }
   if (action.kind === "navigate") {
     navigate(action.section);
     if (action.section === "habits") {
