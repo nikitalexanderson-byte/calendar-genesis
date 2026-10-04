@@ -777,26 +777,37 @@ private fun ProjectEditor(structure: WorkspaceStructure, existing: GenesisProjec
             }
         }.map { it.id }.toSet()
     }
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(shape = MaterialTheme.shapes.large) {
-            Column(Modifier.fillMaxWidth().padding(16.dp)) {
+    Dialog(onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(Modifier.fillMaxWidth().widthIn(max = 720.dp).padding(12.dp),
+            shape = RoundedCornerShape(20.dp)) {
+            Column(Modifier.fillMaxWidth().padding(16.dp).imePadding()) {
                 EditorDialogHeader(if (existing == null) "Новый проект" else "Изменить проект",
                     "close-project-editor", onDismiss)
               Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                EditorSection("Основное") {
                 OutlinedTextField(title, { title = it }, label = { Text("Название") }, singleLine = true,
                     modifier = Modifier.fillMaxWidth().testTag("project-title"))
                 OutlinedTextField(description, { description = it }, label = { Text("Описание") },
                     modifier = Modifier.fillMaxWidth())
-                Text("Категория", style = MaterialTheme.typography.titleSmall)
+                }
+                EditorSection("Категория") {
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     FilterChip(selected = categoryId == null, onClick = { categoryId = null }, label = { Text("Без категории") })
                     structure.categories.sortedBy { it.position }.forEach { category ->
+                        val accent = categoryAccent(category.color)
                         FilterChip(selected = categoryId == category.id, onClick = { categoryId = category.id },
-                            label = { Text(category.name) }, modifier = Modifier.testTag("project-category-${category.id}"))
+                            label = { Text(category.name) }, modifier = Modifier.testTag("project-category-${category.id}"),
+                            border = BorderStroke(1.dp,accent),
+                            colors = FilterChipDefaults.filterChipColors(
+                                containerColor = accent.copy(alpha = .12f),
+                                selectedContainerColor = accent.copy(alpha = .28f),
+                                labelColor = accent, selectedLabelColor = accent))
                     }
                 }
-                Text("Родительский проект", style = MaterialTheme.typography.titleSmall)
+                }
+                EditorSection("Родительский проект") {
                 Column {
                     FilterChip(selected = parentId == null, onClick = { parentId = null }, label = { Text("Корневой") })
                     WorkspaceStructureCodec.ordered(structure).filter { it.first.id !in invalidParents }.forEach { (project, depth) ->
@@ -804,15 +815,19 @@ private fun ProjectEditor(structure: WorkspaceStructure, existing: GenesisProjec
                             label = { Text("  ".repeat(depth) + projectTreeLabel(project.title, depth)) })
                     }
                 }
+                }
+                EditorSection("Метки") {
                 OutlinedTextField(tags, { tags = it }, label = { Text("Метки через запятую") },
                     modifier = Modifier.fillMaxWidth())
+                }
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 if (existing != null) {
-                    Text("Состояние", style = MaterialTheme.typography.titleSmall)
+                    EditorSection("Состояние") {
                     Row(Modifier.horizontalScroll(rememberScrollState())) {
                         listOf("active" to "Активен", "completed" to "Завершён", "archived" to "Архив").forEach { (key, label) ->
                             FilterChip(selected = status == key, onClick = { status = key }, label = { Text(label) })
                         }
+                    }
                     }
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {

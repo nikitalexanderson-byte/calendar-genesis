@@ -41,6 +41,24 @@ class MobilePolishTest {
             File(app.getExternalFilesDir(null), "2.3.4-$name.png")))
     }
 
+    @Test fun todayDetailsButtonUsesFullCardWidth() {
+        compose.onNodeWithTag("navigation-Сегодня").performClick()
+        compose.onNodeWithTag("today-day-details-toggle").assertWidthIsAtLeast(300.dp)
+        capture("today-full-width-details")
+    }
+
+    @Test fun voiceControlModeStaysInlineAndCanBeTurnedOff() {
+        compose.onNodeWithTag("voice-assistant-open").performClick()
+        compose.onNodeWithTag("voice-control-enable").performClick()
+        compose.onNodeWithTag("voice-control-bar").assertExists()
+        compose.onNodeWithTag("voice-assistant-close").assertDoesNotExist()
+        UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).waitForIdle()
+        android.os.SystemClock.sleep(400)
+        capture("voice-control-inline")
+        compose.onNodeWithTag("voice-control-stop").performClick()
+        compose.onNodeWithTag("voice-control-bar").assertDoesNotExist()
+    }
+
     @Test fun completionIsGreyAndStruckThroughAndCanBeUndone() {
         val taskId = "mobile-polish-completion-${UUID.randomUUID()}"
         runBlocking {

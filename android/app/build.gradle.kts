@@ -40,8 +40,8 @@ android {
         applicationId = "ru.genesis.calendar"
         minSdk = 26
         targetSdk = 37
-        versionCode = 64
-        versionName = "2.5.8"
+        versionCode = 65
+        versionName = "2.5.9"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         manifestPlaceholders["genesisHost"] = genesisUri.host

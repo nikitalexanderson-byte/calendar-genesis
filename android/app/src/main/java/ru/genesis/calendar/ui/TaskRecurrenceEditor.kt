@@ -1,8 +1,10 @@
 package ru.genesis.calendar.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -76,8 +78,10 @@ internal fun TaskRecurrenceEditor(value: RecurrenceConfig, startDate: String, in
         else runCatching { engine.buildDates(startDate, value.copy(rangeStart = startDate, rangeEnd = end)) }.getOrDefault(emptyList())
     }
     val count = if (value.enabled) dates.size else 1
-    Column(Modifier.fillMaxWidth().testTag("task-recurrence-editor"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        HorizontalDivider()
+    Surface(Modifier.fillMaxWidth().testTag("task-recurrence-editor"),
+        shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainerLow,
+        border = BorderStroke(1.dp,MaterialTheme.colorScheme.outlineVariant)) {
+    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Column(Modifier.weight(1f)) {
                 Text("Повторение", style = MaterialTheme.typography.titleMedium)
@@ -190,6 +194,7 @@ internal fun TaskRecurrenceEditor(value: RecurrenceConfig, startDate: String, in
         if (count == 0) Text("В выбранном периоде нет дат для этого правила.", color = MaterialTheme.colorScheme.error)
         if (count > 500) Text("Максимум 500 повторений. Сократите период или выберите меньше дат.",
             color = MaterialTheme.colorScheme.error)
+    }
     }
     return count
 }

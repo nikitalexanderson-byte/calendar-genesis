@@ -29,4 +29,17 @@ class NativeVoiceActionsTest {
         assertEquals(NativeVoiceAction.DeleteHabit(habit.id,habit.title),
             parseNativeVoiceAction("удали привычку Читать утром",listOf(task),listOf(project),listOf(habit)))
     }
+
+    @Test fun backgroundCommandsNavigateAndMarkItemsComplete() {
+        assertEquals(NativeVoiceAction.Navigate("Сакральные привычки"),
+            parseNativeVoiceAction("открой сакральные привычки",listOf(task),listOf(project),listOf(habit)))
+        assertEquals(NativeVoiceAction.Navigate("Путь героя"),
+            parseNativeVoiceAction("покажи путь героя",listOf(task),listOf(project),listOf(habit)))
+        assertEquals(NativeVoiceAction.SetTaskDone(task.id,task.title,true),
+            parseNativeVoiceAction("выполни задачу Отправить отчёт",listOf(task),listOf(project),listOf(habit)))
+        assertEquals(NativeVoiceAction.SetHabitDone(habit.id,habit.title,false),
+            parseNativeVoiceAction("сними отметку привычки Читать утром",listOf(task),listOf(project),listOf(habit)))
+        assertTrue(isVoiceTaskCreationCommand("создай задачу Проверить почту"))
+        assertFalse(isVoiceTaskCreationCommand("создай проект Проверить почту"))
+    }
 }

@@ -85,6 +85,10 @@ import ru.genesis.calendar.domain.*
 import java.time.*
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import java.util.UUID
+import ru.genesis.calendar.domain.habits.Habit
+import ru.genesis.calendar.domain.habits.HabitEngine
+import ru.genesis.calendar.domain.habits.TrackerEntity
 
 internal val standart = lightColorScheme(primary=Color(0xff255b59),onPrimary=Color(0xfffffdf8),
     background=Color(0xffe1d9c8),onBackground=Color(0xff132426),surface=Color(0xfff8f5ed),
@@ -191,9 +195,11 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     }
     var tab by rememberSaveable { mutableStateOf("Сегодня") }
     var voiceOpen by rememberSaveable { mutableStateOf(false) }
+    var voiceControlActive by remember { mutableStateOf(false) }
     var voiceScreenRequest by remember { mutableStateOf<NativeVoiceAction?>(null) }
     var voiceListTitle by rememberSaveable { mutableStateOf("") }
     var requestedSacredHabits by rememberSaveable { mutableStateOf(false) }
+    var requestedHeroPath by rememberSaveable { mutableStateOf(false) }
     var editId by rememberSaveable { mutableStateOf<String?>(null) }
     var creating by rememberSaveable { mutableStateOf(false) }
     var newTaskProjectId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -237,6 +243,120 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     val accountGate = !testWorkspace && (!activeScope.startsWith("account-") || authState.user == null || !authState.ready)
     val welcomeVisible = accountGate && !(authState.busy && authState.user != null)
     val window = LocalContext.current.activity()?.window
+    fun executeVoiceAction(action: NativeVoiceAction): String = when(action) {
+        is NativeVoiceAction.Navigate -> {
+            when(action.section) {
+                "Списки задач" -> { menuSwipeState.tasks="lists";tab="Задачи" }
+                "Сон и настроение" -> { menuSwipeState.habits="Сон и настроение";tab="Привычки" }
+                "Сакральные привычки" -> { menuSwipeState.habits="Привычки";requestedSacredHabits=true;tab="Привычки" }
+                "Путь героя" -> { menuSwipeState.habits="Привычки";requestedHeroPath=true;tab="Привычки" }
+                else -> tab=action.section
+            }
+            "Раздел открыт."
+        }
+        is NativeVoiceAction.EditTask -> { editId=action.id;creating=false;tab="Задачи";"Задача открыта." }
+        is NativeVoiceAction.SetTaskDone -> {
+            val task=tasks.firstOrNull { it.id==action.id }
+            if(task==null) "Задача больше не найдена." else {
+                if(task.done!=action.done) model.complete(task)
+                if(action.done) "Задача отмечена выполненной." else "Отметка выполнения снята."
+            }
+        }
+        is NativeVoiceAction.SetHabitDone -> {
+            menuSwipeState.habits="Привычки";voiceScreenRequest=action;tab="Привычки"
+            "Отмечаю привычку."
+        }
+        is NativeVoiceAction.MoveTask -> {
+            val task=tasks.firstOrNull { it.id==action.id }
+            val target=structure.projects.firstOrNull { it.id==action.projectId }
+            if(task==null) "Задача больше не найдена." else {
+                model.save(task.copy(projectId=target?.id,categoryId=target?.categoryId,
+                    project=target?.title.orEmpty())) {}
+                tab="Проекты"
+                "Перемещаю задачу."
+            }
+        }
+        is NativeVoiceAction.CreateProject,is NativeVoiceAction.EditProject -> {
+            voiceScreenRequest=action;tab="Проекты";"Открыта форма проекта."
+        }
+        is NativeVoiceAction.CreateTaskList -> {
+            voiceListTitle=action.title;creatingTaskList=true;tab="Задачи";"Открыта форма списка задач."
+        }
+        is NativeVoiceAction.CreateHabit,is NativeVoiceAction.EditHabit,
+        is NativeVoiceAction.DeleteHabit -> {
+            menuSwipeState.habits="Привычки";voiceScreenRequest=action;tab="Привычки"
+            "Открыты привычки."
+        }
+    }
+    suspend fun executeVoiceCommand(command: String): String {
+        val action=parseNativeVoiceAction(command,tasks,structure.projects,habitWorkspace.habits)
+        if(action!=null) {
+            require(app.workspaceScope==activeScope)
+            when(action) {
+                is NativeVoiceAction.SetTaskDone -> {
+                    val task=app.repository.get(action.id) ?: return "Задача больше не найдена."
+                    if(task.done!=action.done) app.repository.save(task.copy(done=action.done))
+                    tab="Задачи"
+                    return if(action.done) "Задача отмечена выполненной." else "Отметка выполнения снята."
+                }
+                is NativeVoiceAction.SetHabitDone -> {
+                    habitSettingsRepository.complete(action.id,action.done)
+                    menuSwipeState.habits="Привычки";tab="Привычки"
+                    return if(action.done) "Привычка отмечена выполненной." else "Отметка привычки снята."
+                }
+                is NativeVoiceAction.MoveTask -> {
+                    val task=app.repository.get(action.id) ?: return "Задача больше не найдена."
+                    val target=structure.projects.firstOrNull { it.id==action.projectId }
+                    app.repository.save(task.copy(projectId=target?.id,categoryId=target?.categoryId,
+                        project=target?.title.orEmpty()))
+                    tab="Проекты"
+                    return "Задача перемещена."
+                }
+                is NativeVoiceAction.CreateProject -> {
+                    structureRepo.saveProject(GenesisProject(UUID.randomUUID().toString(),null,null,
+                        action.title,"",emptyList(),"active",structure.projects.size))
+                    tab="Проекты"
+                    return "Проект создан."
+                }
+                is NativeVoiceAction.CreateHabit -> {
+                    val date=LocalDate.now()
+                    habitSettingsRepository.save(Habit(TrackerEntity.create("habit"),action.title,date,
+                        HabitEngine(GenesisCalendar()).defaultSchedule(date,prefs.input)))
+                    menuSwipeState.habits="Привычки";tab="Привычки"
+                    return "Привычка создана."
+                }
+                is NativeVoiceAction.CreateTaskList -> {
+                    val accounts=authState.accountSettings?.accounts.orEmpty().filter { it.tasksConnected }
+                    val local=authState.accountSettings?.authProvider!="google"
+                    if(!local && accounts.size!=1) return "Выберите аккаунт для списка в форме создания."
+                    authController.createTaskList(action.title,if(local) "" else accounts.single().id)
+                    menuSwipeState.tasks="lists";tab="Задачи"
+                    return "Список задач создан."
+                }
+                else -> return executeVoiceAction(action)
+            }
+        }
+        if(isVoiceTaskCreationCommand(command)) {
+            val drafts=parseNativeVoicePlan(command,LocalDate.now(),structure.projects,taskLists)
+            require(drafts.isNotEmpty()) { "Не удалось определить название задачи." }
+            require(drafts.size==1) { "Несколько задач создайте в режиме голосового набора." }
+            drafts.forEach { draft ->
+                require(app.workspaceScope==activeScope)
+                val list=taskLists.firstOrNull { it.id==draft.taskListId }
+                val projectId=draft.projectId ?: structure.taskListLinks.firstOrNull { it.taskListId==list?.id }?.projectId
+                val source=(list?.let { listTaskFields(it,prefs.input) } ?: JSONObject())
+                    .put("tags",JSONArray(draft.tags))
+                app.repository.save(LocalTask(title=draft.title,date=draft.date.toString(),time=draft.time,
+                    zoneId=ZoneId.systemDefault().id,priority=draft.priority,projectId=projectId,
+                    categoryId=structure.projects.firstOrNull { it.id==projectId }?.categoryId,
+                    sourceFieldsJson=source.toString(),reminders=if(draft.time.isNotBlank() && draft.reminderMinutes>0)
+                        listOf(TaskReminder.relative(draft.reminderMinutes)) else emptyList()))
+            }
+            tab="Задачи"
+            return "Задачи созданы."
+        }
+        return "Пока не умею это делать. Попробуйте открыть раздел, создать задачу, проект, список или привычку."
+    }
     SideEffect { window?.let { WindowInsetsControllerCompat(it,it.decorView).apply {
         isAppearanceLightStatusBars = !eveningTheme && !welcomeVisible
         isAppearanceLightNavigationBars = !eveningTheme && !welcomeVisible
@@ -290,8 +410,10 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                             compactHeader,"today-refresh",authController::refresh)
                     }
                     HeaderActionButton("mic",genesisTranslate("Голосовой помощник"),true,
-                        compactHeader,"voice-assistant-open") { voiceOpen=true }
+                        compactHeader,"voice-assistant-open") { voiceControlActive=false;voiceOpen=true }
                 }
+                if (voiceControlActive) VoiceControlBar(prefs.language=="en",
+                    onCommand=::executeVoiceCommand,onStop={voiceControlActive=false})
                 if (!compactHeader) Text(accountStatus,Modifier.padding(horizontal=16.dp).testTag("app-account-status"),
                     style=MaterialTheme.typography.bodySmall)
                 if(!testWorkspace && authState.requiresSignIn) {
@@ -313,6 +435,8 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                     "Привычки" -> HabitsScreen(app,true,prefs.input,prefs.display,visibleSwipeState,
                         openSacredHabits=requestedSacredHabits,
                         onSacredHabitsOpened={requestedSacredHabits=false},
+                        openHeroPath=requestedHeroPath,
+                        onHeroPathOpened={requestedHeroPath=false},
                         voiceRequest=voiceScreenRequest,
                         onVoiceRequestConsumed={voiceScreenRequest=null})
                     "Теокиклос" -> TheokyklosScreen(app,prefs.input,onOpenHabits={requestedSacredHabits=true;tab="Привычки"},
@@ -485,32 +609,8 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                 onDismiss={voiceOpen=false},onSaved={voiceOpen=false;tab="Задачи"},
                 onAction={ action ->
                     voiceOpen=false
-                    when(action) {
-                        is NativeVoiceAction.Navigate -> when(action.section) {
-                            "Списки задач" -> { menuSwipeState.tasks="lists";tab="Задачи" }
-                            "Сон и настроение" -> { menuSwipeState.habits="Сон и настроение";tab="Привычки" }
-                            else -> tab=action.section
-                        }
-                        is NativeVoiceAction.EditTask -> { editId=action.id;creating=false;tab="Задачи" }
-                        is NativeVoiceAction.MoveTask -> {
-                            val task=tasks.firstOrNull { it.id==action.id }
-                            val target=structure.projects.firstOrNull { it.id==action.projectId }
-                            if(task!=null) model.save(task.copy(projectId=target?.id,
-                                categoryId=target?.categoryId,project=target?.title.orEmpty())) {}
-                            tab="Проекты"
-                        }
-                        is NativeVoiceAction.CreateProject,is NativeVoiceAction.EditProject -> {
-                            voiceScreenRequest=action;tab="Проекты"
-                        }
-                        is NativeVoiceAction.CreateTaskList -> {
-                            voiceListTitle=action.title;creatingTaskList=true;tab="Задачи"
-                        }
-                        is NativeVoiceAction.CreateHabit,is NativeVoiceAction.EditHabit,
-                        is NativeVoiceAction.DeleteHabit -> {
-                            menuSwipeState.habits="Привычки";voiceScreenRequest=action;tab="Привычки"
-                        }
-                    }
-                })
+                    executeVoiceAction(action)
+                },onStartControl={voiceOpen=false;voiceControlActive=true})
             }
         }
         }
@@ -810,7 +910,7 @@ private fun DayHeader(date: LocalDate, mode: CalendarMode, detailsExpanded: Bool
                     }
                 }
                 Button(onClick = onToggleDetails,
-                    modifier = Modifier.align(Alignment.End).heightIn(min = 48.dp)
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                         .testTag("today-day-details-toggle"),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xe0193937),
@@ -897,23 +997,26 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
               Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())
                 .testTag("task-editor-scroll"),
                 verticalArrangement=Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(title,{title=it},label={Text("Название")},modifier=Modifier.fillMaxWidth().testTag("task-title"))
-                OutlinedTextField(description,{description=it},label={Text("Описание")},modifier=Modifier.fillMaxWidth())
-                if (yandex) {
-                    Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) {
-                        FilterChip(yandexEntryType=="task", { yandexEntryType="task" }, label={Text("Задача")})
-                        FilterChip(yandexEntryType=="meeting", { yandexEntryType="meeting" }, label={Text("Встреча")})
+                EditorSection("Основное") {
+                    OutlinedTextField(title,{title=it},label={Text("Название")},modifier=Modifier.fillMaxWidth().testTag("task-title"))
+                    OutlinedTextField(description,{description=it},label={Text("Описание")},modifier=Modifier.fillMaxWidth())
+                    if (yandex) {
+                        Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+                            FilterChip(yandexEntryType=="task", { yandexEntryType="task" }, label={Text("Задача")})
+                            FilterChip(yandexEntryType=="meeting", { yandexEntryType="meeting" }, label={Text("Встреча")})
+                        }
                     }
                 }
                 ProjectHierarchyPicker(structure.projects, projectId) { projectId = it }
                 if(taskLists.isNotEmpty() && task==null) {
+                    EditorSection("Список задач") {
                     var choosingList by remember { mutableStateOf(false) }
                     Box {
                         OutlinedButton({choosingList=true},Modifier.fillMaxWidth().testTag("task-list-picker")) {
-                            Text(selectedList?.title ?: if (accountSettings?.authProvider != "google") "Без списка GENESIS" else "Без списка Google Tasks")
+                            Text(selectedList?.title ?: "Не добавлять в список задач")
                         }
                         DropdownMenu(choosingList,{choosingList=false}) {
-                            DropdownMenuItem(text={Text(if (accountSettings?.authProvider != "google") "Без списка GENESIS" else "Без списка Google Tasks")},onClick={listId=null;choosingList=false})
+                            DropdownMenuItem(text={Text("Не добавлять в список задач")},onClick={listId=null;choosingList=false})
                             taskLists.forEach { list -> DropdownMenuItem(text={Text(list.title)},onClick={
                                 listId=list.id
                                 if (accountSettings?.authProvider == "google") { reminders=emptyList();customReminder=false }
@@ -923,9 +1026,12 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                             }) }
                         }
                     }
+                    Text("Выберите список, если задача должна находиться среди его задач.",
+                        style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
                 if(accountSettings?.multiAccountEnabled==true && accountSettings.accounts.size>1 && routing?.mode=="choose") {
-                    Text("Отправить в Google-аккаунты",style=MaterialTheme.typography.titleMedium)
+                    EditorSection("Аккаунты для размещения",Modifier.testTag("task-account-section")) {
                     Text("Выберите один или несколько аккаунтов для этой задачи.",
                         style=MaterialTheme.typography.bodySmall)
                     accountSettings.accounts.forEach { account ->
@@ -937,7 +1043,9 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                             Text(account.email,style=MaterialTheme.typography.bodyMedium)
                         }
                     }
+                    }
                 }
+                EditorSection("Дата и время") {
                 EditorCalendarModePicker(formCalendarMode, { formCalendarMode=it }, tag="task-form-calendar")
                 Text("Дата задачи · ${calendarModeLabel(formCalendarMode)}")
                 AuthorDatePicker(date,formCalendarMode){date=it}
@@ -949,8 +1057,10 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                     Text("Весь день")
                 }
                 if (!yandex || time.isNotBlank()) AuthorTimePicker(time,prefs.use24){time=it}
+                }
                 if (yandex) {
                     if (yandexEntryType == "meeting") {
+                        EditorSection("Детали встречи") {
                         Text("Окончание встречи")
                         AuthorDatePicker(yandexEndDate, formCalendarMode) { yandexEndDate=it }
                         if (time.isNotBlank()) AuthorTimePicker(yandexEndTime, prefs.use24) { yandexEndTime=it }
@@ -958,7 +1068,9 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                         OutlinedTextField(yandexOptionalAttendees,{yandexOptionalAttendees=it},label={Text("Необязательные участники")},modifier=Modifier.fillMaxWidth())
                         OutlinedTextField(yandexLocation,{yandexLocation=it},label={Text("Место")},modifier=Modifier.fillMaxWidth())
                         OutlinedTextField(yandexTelemost,{yandexTelemost=it},label={Text("Ссылка на Телемост")},modifier=Modifier.fillMaxWidth())
+                        }
                     }
+                    EditorSection("Настройки Яндекс.Календаря") {
                     Text("Занятость")
                     Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) {
                         FilterChip(yandexBusy,{yandexBusy=true},label={Text("Занят")})
@@ -977,13 +1089,15 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                         }
                     }
                     Text("Выбранные даты преобразуются в григорианские по часовому поясу устройства.",style=MaterialTheme.typography.bodySmall)
+                    }
                 }
-                PriorityControl(priority){priority=it}
+                EditorSection("Приоритет") { PriorityControl(priority){priority=it} }
                 if(task?.recurrence?.enabled==true) Text(
                     "Сохранение изменит всю серию. При удалении можно выбрать только $occurrenceDate.",
                     style=MaterialTheme.typography.bodySmall,
                     color=MaterialTheme.colorScheme.onSurfaceVariant)
                 val occurrenceCount = if(googleTaskBacked) 1 else TaskRecurrenceEditor(recurrence,date,prefs.input) { recurrence=it;validation=null }
+                EditorSection("Напоминания") {
                 Text((if (yandex) "Дополнительные напоминания GENESIS" else "Напомнить") + " · ${reminders.size}/5",style=MaterialTheme.typography.titleMedium)
                 Text(if (yandex) "Эти напоминания показываются самим GENESIS на устройстве; настройки выше отправляются в Яндекс.Календарь."
                     else "Число показывает, сколько напоминаний добавлено. Для события Google Calendar доступно не более пяти.",
@@ -1050,6 +1164,7 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                             if(validation==null && spec!=null) { reminders=reminders+spec;customReminder=false }
                         }) { Text("Добавить") }
                     }
+                }
                 }
                 validation?.let { Text(it,color=MaterialTheme.colorScheme.error) }
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
@@ -1147,7 +1262,7 @@ internal fun ProjectHierarchyPicker(projects: List<GenesisProject>, selectedId: 
         }
     }
     val path = remember(projects, selectedId) { projectPath(projects, selectedId) }
-    Text("Проект", style = MaterialTheme.typography.titleMedium)
+    EditorSection("Проект", Modifier.testTag("project-picker-section")) {
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         FilterChip(selected = selectedId == null || selectedId == "__genesis_inbox__",
@@ -1181,6 +1296,7 @@ internal fun ProjectHierarchyPicker(projects: List<GenesisProject>, selectedId: 
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onPrimaryContainer)
         }
+    }
     }
 }
 

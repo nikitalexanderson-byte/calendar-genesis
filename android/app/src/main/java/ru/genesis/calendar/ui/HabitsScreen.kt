@@ -50,7 +50,8 @@ internal fun HabitsScreen(app: GenesisApplication, experimental: Boolean, inputC
     displayCalendarMode: CalendarMode = CalendarMode.SACRED,
     menuSwipeState: MenuSwipeState? = null, openSacredHabits: Boolean = false,
     onSacredHabitsOpened: () -> Unit = {}, voiceRequest: NativeVoiceAction? = null,
-    onVoiceRequestConsumed: () -> Unit = {}) {
+    onVoiceRequestConsumed: () -> Unit = {}, openHeroPath: Boolean = false,
+    onHeroPathOpened: () -> Unit = {}) {
     var localSection by rememberSaveable { mutableStateOf("Привычки") }
     val section = menuSwipeState?.habits ?: localSection
     Column(Modifier.fillMaxSize()) {
@@ -58,7 +59,8 @@ internal fun HabitsScreen(app: GenesisApplication, experimental: Boolean, inputC
             section, { localSection = it; menuSwipeState?.habits = it })
         Box(Modifier.weight(1f)) {
             if (section == "Привычки") HabitWorkspaceContent(app, experimental, inputCalendarMode, displayCalendarMode,
-                openSacredHabits,onSacredHabitsOpened,voiceRequest,onVoiceRequestConsumed) else TrackersScreen(app, experimental)
+                openSacredHabits,onSacredHabitsOpened,voiceRequest,onVoiceRequestConsumed,
+                openHeroPath,onHeroPathOpened) else TrackersScreen(app, experimental)
         }
     }
 }
@@ -66,7 +68,8 @@ internal fun HabitsScreen(app: GenesisApplication, experimental: Boolean, inputC
 @Composable
 private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean, inputCalendarMode: CalendarMode,
     displayCalendarMode: CalendarMode, openSacredHabits: Boolean, onSacredHabitsOpened: () -> Unit,
-    voiceRequest: NativeVoiceAction?, onVoiceRequestConsumed: () -> Unit) {
+    voiceRequest: NativeVoiceAction?, onVoiceRequestConsumed: () -> Unit,
+    openHeroPath: Boolean, onHeroPathOpened: () -> Unit) {
     val repository=remember(app) { HabitsRepository(app) }
     val scope=rememberCoroutineScope()
     var workspace by remember { mutableStateOf<LocalHabitWorkspace?>(null) }
@@ -78,6 +81,9 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
     var voiceDraftTitle by remember { mutableStateOf("") }
     var catalogueOpen by rememberSaveable { mutableStateOf(false) }
     var heroPathOpen by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(openHeroPath) {
+        if (openHeroPath) { heroPathOpen=true;onHeroPathOpened() }
+    }
     var busy by remember { mutableStateOf(false) }
     var today by remember { mutableStateOf(LocalDate.now()) }
     val hapticFeedback = LocalHapticFeedback.current
@@ -132,6 +138,14 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                 }
                 is NativeVoiceAction.DeleteHabit -> {
                     workspace?.habits?.firstOrNull { it.id==voiceRequest.id }?.let { deleteCandidate=it }
+                }
+                is NativeVoiceAction.SetHabitDone -> {
+                    workspace?.habits?.firstOrNull { it.id==voiceRequest.id }?.let { habit ->
+                        scope.launch { runAction {
+                            recordCompletion(habit.id,voiceRequest.done,null,
+                                requireNotNull(workspace).settings.feedback)
+                        } }
+                    }
                 }
                 else -> Unit
             }
