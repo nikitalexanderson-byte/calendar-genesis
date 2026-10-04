@@ -13,6 +13,8 @@ internal sealed interface NativeVoiceAction {
     data class EditHabit(val id: String, val title: String): NativeVoiceAction
     data class DeleteHabit(val id: String, val title: String): NativeVoiceAction
     data class EditTask(val id: String, val title: String): NativeVoiceAction
+    data class SetTaskDone(val id: String, val title: String, val done: Boolean): NativeVoiceAction
+    data class SetHabitDone(val id: String, val title: String, val done: Boolean): NativeVoiceAction
     data class MoveTask(val id: String, val title: String, val projectId: String?): NativeVoiceAction
 }
 
@@ -30,7 +32,7 @@ internal fun parseNativeVoiceAction(raw: String, tasks: List<LocalTask>, project
         require(found.size==1) { if(found.isEmpty()) "Не найдено: $name" else "Найдено несколько совпадений: $name. Уточните название." }
         return found.single()
     }
-    subject("(?:открой|покажи|перейди в|open|show)\\s+(сегодня|календарь|задачи|списки задач|проекты|привычки|настройки|сон и настроение|today|calendar|tasks|task lists|projects|habits|settings|sleep and mood)")?.let {
+    subject("(?:открой|покажи|перейди в|open|show)\\s+(сегодня|календарь|задачи|списки задач|проекты|привычки|сакральные привычки|путь героя|путь героических рангов|настройки|сон и настроение|теокиклос|стойхейон|today|calendar|tasks|task lists|projects|habits|sacred habits|hero path|settings|sleep and mood|theokyklos|stoicheion)")?.let {
         val tab=when(it.lowercase()) {
             "сегодня","today" -> "Сегодня"
             "календарь","calendar" -> "Календарь"
@@ -38,7 +40,11 @@ internal fun parseNativeVoiceAction(raw: String, tasks: List<LocalTask>, project
             "списки задач","task lists" -> "Списки задач"
             "проекты","projects" -> "Проекты"
             "привычки","habits" -> "Привычки"
+            "сакральные привычки","sacred habits" -> "Сакральные привычки"
+            "путь героя","путь героических рангов","hero path" -> "Путь героя"
             "настройки","settings" -> "Настройки"
+            "теокиклос","theokyklos" -> "Теокиклос"
+            "стойхейон","stoicheion" -> "Стойхейон"
             else -> "Сон и настроение"
         }
         return NativeVoiceAction.Navigate(tab)
@@ -55,6 +61,22 @@ internal fun parseNativeVoiceAction(raw: String, tasks: List<LocalTask>, project
     subject("(?:отредактируй|отредактировать|редактировать|изменить|измени|edit)\\s+(?:задачу|задача|task)\\s+(.+)")?.let {
         val task=resolve(it,tasks,LocalTask::title)
         return NativeVoiceAction.EditTask(task.id,task.title)
+    }
+    subject("(?:выполни|заверши|отметь|пометь|complete)\\s+(?:задачу|задача|task)\\s+(.+)")?.let {
+        val task=resolve(it,tasks,LocalTask::title)
+        return NativeVoiceAction.SetTaskDone(task.id,task.title,true)
+    }
+    subject("(?:сними выполнение|отмени выполнение|uncomplete)\\s+(?:задачи|задачу|task)\\s+(.+)")?.let {
+        val task=resolve(it,tasks,LocalTask::title)
+        return NativeVoiceAction.SetTaskDone(task.id,task.title,false)
+    }
+    subject("(?:выполни|отметь|пометь|complete)\\s+(?:привычку|привычка|habit)\\s+(.+)")?.let {
+        val habit=resolve(it,habits,Habit::title)
+        return NativeVoiceAction.SetHabitDone(habit.id,habit.title,true)
+    }
+    subject("(?:сними отметку|отмени выполнение|uncomplete)\\s+(?:привычки|привычку|habit)\\s+(.+)")?.let {
+        val habit=resolve(it,habits,Habit::title)
+        return NativeVoiceAction.SetHabitDone(habit.id,habit.title,false)
     }
     subject("(?:отредактируй|отредактировать|редактировать|изменить|измени|edit)\\s+(?:привычку|привычка|habit)\\s+(.+)")?.let {
         val habit=resolve(it,habits,Habit::title)
@@ -88,4 +110,8 @@ internal fun looksLikeUnsupportedVoiceAction(command: String): Boolean =
     Regex("(?iu)^(?:(?:хочу|пожалуйста|please|i want to)\\s+)?(?:удали|удалить|delete|remove|редактируй|отредактируй|отредактировать|редактировать|измени|изменить|edit|перемести|перенеси|move|открой|покажи|перейди|open|show|убери|исключи)(?=\\s|$)")
         .containsMatchIn(command.trim()) ||
     Regex("(?iu)^(?:создай|создать|добавь|добавить|create|add)\\s+(?:новый|новую|new)?\\s*(?:проект|привычк[а-яё]*|список|project|habit|task list)(?=\\s|$)")
+        .containsMatchIn(command.trim())
+
+internal fun isVoiceTaskCreationCommand(command: String): Boolean =
+    Regex("(?iu)^(создай|создать|добавь|добавить|create|add)\\s+(?:новую?\\s+)?(?:задачу|задачи|task|tasks)(?=\\s|$)")
         .containsMatchIn(command.trim())

@@ -19,10 +19,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 
 /** Keeps collecting recognition chunks until the user taps Finish. Speech services may still end each chunk. */
 @Composable
 internal fun VoiceSpeechInput(english: Boolean, enabled: Boolean, modifier: Modifier = Modifier,
+    autoStart: Boolean = false, controlMode: Boolean = false,
     onTranscript: (String) -> Unit, onFailure: (String) -> Unit) {
     val context=LocalContext.current
     val transcriptCallback by rememberUpdatedState(onTranscript)
@@ -56,6 +60,32 @@ internal fun VoiceSpeechInput(english: Boolean, enabled: Boolean, modifier: Modi
         } else failureCallback(if(english)"Allow microphone access in Android settings to dictate commands."
             else "Разрешите доступ к микрофону в настройках Android, чтобы диктовать команды.")
     }
+    LaunchedEffect(autoStart, recognizer) {
+        if (autoStart && !SpeechRecognizer.isRecognitionAvailable(context)) {
+            failureCallback(if(english)"Speech recognition is unavailable on this device."
+                else "Распознавание речи недоступно на устройстве.")
+        }
+        if (autoStart && enabled && recognizer != null && !listening) {
+            if (ContextCompat.checkSelfPermission(context,Manifest.permission.RECORD_AUDIO)
+                == PackageManager.PERMISSION_GRANTED) {
+                listening=true;finishRequested=false;partial="";launchChunk()
+            } else permission.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+    val lifecycle=LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(lifecycle,controlMode) {
+        val observer=LifecycleEventObserver { _,event ->
+            if(controlMode && event==Lifecycle.Event.ON_STOP) {
+                listening=false;processing=false;recognizer?.cancel()
+            } else if(controlMode && autoStart && event==Lifecycle.Event.ON_RESUME &&
+                ContextCompat.checkSelfPermission(context,Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED &&
+                !listening && recognizer != null) {
+                listening=true;finishRequested=false;launchChunk()
+            }
+        }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
+    }
     DisposableEffect(context,english) {
         if(SpeechRecognizer.isRecognitionAvailable(context)) {
             val speech=SpeechRecognizer.createSpeechRecognizer(context)
@@ -79,6 +109,7 @@ internal fun VoiceSpeechInput(english: Boolean, enabled: Boolean, modifier: Modi
                 }
                 override fun onError(error: Int) {
                     processing=false
+                    if(!listening && !finishRequested) return
                     if(finishRequested) {
                         if(partial.isNotBlank()) transcriptCallback(partial.trim())
                         partial="";listening=false;finishRequested=false
@@ -107,7 +138,8 @@ internal fun VoiceSpeechInput(english: Boolean, enabled: Boolean, modifier: Modi
             finishRequested=true;processing=true
             recognizer?.stopListening()
         },enabled=enabled&&!finishRequested,modifier=Modifier.fillMaxWidth().testTag("voice-finish")) {
-            Text(if(english)"■ Finish and recognize" else "■ Завершить и распознать")
+            Text(if(controlMode) (if(english)"■ Pause listening" else "■ Приостановить")
+                else if(english)"■ Finish and recognize" else "■ Завершить и распознать")
         }
         if(processing) Text(if(english)"Recognizing…" else "Распознаём…",
             style=MaterialTheme.typography.labelSmall)
@@ -122,7 +154,8 @@ internal fun VoiceSpeechInput(english: Boolean, enabled: Boolean, modifier: Modi
                 listening=true;finishRequested=false;partial="";launchChunk()
             } else permission.launch(Manifest.permission.RECORD_AUDIO)
         },enabled=enabled,modifier=modifier.testTag("voice-start")) {
-            Text(if(english)"🎙 Start recording" else "🎙 Начать запись")
+            Text(if(controlMode) (if(english)"🎙 Resume listening" else "🎙 Продолжить слушать")
+                else if(english)"🎙 Start recording" else "🎙 Начать запись")
         }
     }
 }

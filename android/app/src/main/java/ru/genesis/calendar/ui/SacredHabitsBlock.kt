@@ -97,11 +97,11 @@ internal fun SacredHabitsBlock(workspace: LocalHabitWorkspace, today: LocalDate,
                     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                         pair.forEach { sector ->
                             val started=workspace.habits.count { it.sacredSectorId==sector.id }
-                            OutlinedCard(onClick={selectedId=sector.id},modifier=Modifier.weight(1f).heightIn(min=92.dp)
+                            OutlinedCard(onClick={selectedId=sector.id},modifier=Modifier.weight(1f).heightIn(min=106.dp)
                                 .testTag("sacred-sector-${sector.id}"),enabled=!disabled) {
                                 Column(Modifier.padding(10.dp),verticalArrangement=Arrangement.spacedBy(3.dp)) {
                                     OriginalImage(sector.symbolArt,null,Modifier.size(28.dp))
-                                    Text(if(english)sector.short.en else sector.short.ru,
+                                    Text((if(english)sector.title.en else sector.title.ru).substringBefore(" · "),
                                         style=MaterialTheme.typography.titleSmall,maxLines=2)
                                     Text(if(started>0)"$started/${catalog.practicesFor(sector.id).size}"
                                         else if(english)sector.patrons.en else sector.patrons.ru,

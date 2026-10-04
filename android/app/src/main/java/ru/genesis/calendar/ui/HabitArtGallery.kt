@@ -74,11 +74,11 @@ fun HabitArtGallery(workspace: LocalHabitWorkspace, today: LocalDate, busy: Bool
                     }
                     Text("Путь героических рангов", Modifier.weight(1f).padding(start = 10.dp),
                         style = MaterialTheme.typography.titleMedium, color = Color(0xfffff5df))
-                    TextButton(onClick = { rankOpen = !rankOpen },
-                        colors = ButtonDefaults.textButtonColors(contentColor = Color(0xffdfc17e))) {
-                        Text(if (rankOpen) "Свернуть" else "Все ранги")
-                    }
                 }
+                HabitsFeatureActionButton(if (rankOpen) "Свернуть ранги" else "Все ранги",
+                    onClick = { rankOpen = !rankOpen }, containerColor = Color(0xffdfc17e),
+                    contentColor = Color(0xff0b2b2d), borderColor = Color(0xffffe4a6),
+                    modifier = Modifier.testTag("all-hero-ranks"))
                 if (rankOpen) HeroRankTree(workspace, busy, onClaimAmphora, onRevealHiddenPath)
             }
         }
@@ -95,10 +95,11 @@ fun HabitArtGallery(workspace: LocalHabitWorkspace, today: LocalDate, busy: Bool
                     }
                     Text("Награды за серию", Modifier.weight(1f).padding(start = 10.dp),
                         style = MaterialTheme.typography.titleMedium, color = Color(0xff4d3a18))
-                    TextButton(onClick = { streakOpen = !streakOpen }) {
-                        Text(if (streakOpen) "Свернуть" else "Все рубежи")
-                    }
                 }
+                HabitsFeatureActionButton(if (streakOpen) "Свернуть рубежи" else "Все рубежи",
+                    onClick = { streakOpen = !streakOpen }, containerColor = Color(0xffe7ca8d),
+                    contentColor = Color(0xff4d3a18), borderColor = Color(0xffad8445),
+                    modifier = Modifier.testTag("all-streak-milestones"))
                 val claimed = workspace.rewards.filter { it.reason == "streak-milestone" }
                     .mapNotNull { it.sourceId.toIntOrNull() }.toSet()
                 val next = StreakRewards.milestones.firstOrNull { it.days !in claimed }
@@ -141,9 +142,10 @@ fun HabitArtGallery(workspace: LocalHabitWorkspace, today: LocalDate, busy: Bool
                 Text("Достигнутые рубежи сохраняются. Достижения не изменяют опыт ранга.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-                TextButton(onClick = { galleryOpen = !galleryOpen }) {
-                    Text(if (galleryOpen) "Свернуть галерею" else "Открыть всю галерею")
-                }
+                HabitsFeatureActionButton(if (galleryOpen) "Свернуть достижения" else "Все достижения",
+                    onClick = { galleryOpen = !galleryOpen }, containerColor = Color(0xff8e5b48),
+                    contentColor = Color.White, borderColor = Color(0xffb98771),
+                    modifier = Modifier.testTag("all-achievements"))
                 if (galleryOpen) achievements.chunked(2).forEach { pair ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         pair.forEach { achievement ->

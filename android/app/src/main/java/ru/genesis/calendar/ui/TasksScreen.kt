@@ -197,25 +197,34 @@ import ru.genesis.calendar.data.*
                 Column(Modifier.weight(1f,fill=false).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(10.dp)) {
                     Text(if (yandex) "Список хранится в зашифрованном пространстве GENESIS; задачи отображаются в Яндекс.Календаре."
                         else "Список хранится в Google Tasks и доступен на сайте и смартфоне.",style=MaterialTheme.typography.bodySmall)
-                    OutlinedTextField(title,{title=it},label={Text("Название списка")},enabled=!busy && created==null,
-                        singleLine=true,modifier=Modifier.fillMaxWidth().testTag("task-list-title"))
+                    EditorSection("Список задач") {
+                        OutlinedTextField(title,{title=it},label={Text("Название списка")},enabled=!busy && created==null,
+                            singleLine=true,modifier=Modifier.fillMaxWidth().testTag("task-list-title"))
+                    }
                     if(!canCreate || !localList && connected.isEmpty()) Text("Войдите в аккаунт и подключите календарь в настройках.", color=MaterialTheme.colorScheme.error)
-                    else if (!localList) connected.forEach { account ->
+                    else if (!localList) EditorSection("Аккаунт для размещения",Modifier.testTag("task-list-account-section")) {
+                        connected.forEach { account ->
                         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
                             RadioButton(accountId==account.id,{accountId=account.id},enabled=!busy && created==null)
                             Text(account.email,style=MaterialTheme.typography.bodyMedium)
                         }
+                        }
                     }
                     ProjectHierarchyPicker(structure.projects,projectId) { if(!busy && created==null) projectId=it }
+                    EditorSection("Задачи списка") {
                     Text("Задачи списка · по одной в строке",style=MaterialTheme.typography.titleSmall)
                     OutlinedTextField(rowsText,{rowsText=it},enabled=!busy && created==null,label={Text("Задачи списка")},minLines=3,
                         modifier=Modifier.fillMaxWidth().testTag("task-list-drafts"))
                     Text("В Google Tasks список хранит название; заметки и дата сохраняются в задачах. Время и напоминание применяются GENESIS и подключённым календарём.",
                         style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    EditorSection("Дата задач") {
                     EditorCalendarModePicker(formCalendarMode, { formCalendarMode=it },
                         enabled=!busy && created==null, tag="task-list-form-calendar")
                     Text("Дата задач · ${calendarModeLabel(formCalendarMode)}")
                     AuthorDatePicker(date,formCalendarMode) { if(!busy && created==null) date=it }
+                    }
+                    EditorSection("Дополнительные настройки задач") {
                     Text("Дополнительные поля для новых задач",style=MaterialTheme.typography.titleSmall)
                     OutlinedTextField(notes,{notes=it.take(8192)},enabled=!busy&&created==null,
                         label={Text("Заметка к задачам · Google Tasks")},minLines=2,
@@ -230,6 +239,7 @@ import ru.genesis.calendar.data.*
                                     enabled=!busy&&created==null,label={Text(if(minutes==0)"Нет" else "$minutes мин")})
                             }
                         }
+                    }
                     }
                     error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
                     Button(enabled=canCreate && (localList || connected.any { it.id==accountId }) && title.trim().length in 1..300 && !busy,

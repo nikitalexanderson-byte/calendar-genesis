@@ -33,7 +33,8 @@ import ru.genesis.calendar.domain.CalendarMode
 internal fun NativeVoiceAssistantDialog(app: GenesisApplication, structure: WorkspaceStructure,
     taskLists: List<GoogleTaskList>, tasks: List<LocalTask>, habits: List<Habit>,
     calendarMode: CalendarMode, use24: Boolean, language: String,
-    onDismiss: () -> Unit, onSaved: () -> Unit, onAction: (NativeVoiceAction) -> Unit) {
+    onDismiss: () -> Unit, onSaved: () -> Unit, onAction: (NativeVoiceAction) -> Unit,
+    onStartControl: () -> Unit) {
     val english=language=="en"
     val scope=rememberCoroutineScope()
     val ownerScope=remember(app) { app.workspaceScope }
@@ -52,6 +53,12 @@ internal fun NativeVoiceAssistantDialog(app: GenesisApplication, structure: Work
                     IconButton(onClick=onDismiss,enabled=!busy,modifier=Modifier.testTag("voice-assistant-close")) {
                         Text("×",style=MaterialTheme.typography.headlineSmall)
                     }
+                }
+                Text(if(english)"Mode: voice dictation" else "Режим: голосовой набор",
+                    style=MaterialTheme.typography.labelMedium)
+                OutlinedButton(onClick=onStartControl,modifier=Modifier.fillMaxWidth()
+                    .testTag("voice-control-enable")) {
+                    Text(if(english)"Switch to app control" else "Включить управление приложением")
                 }
                 Text(if(english)"Dictate or type a command. Create tasks, projects and habits; open items to edit; move tasks; navigate sections. Check the preview before applying."
                     else "Продиктуйте или напишите команду: создать задачу, проект или привычку, открыть редактирование, перенести задачу или перейти в раздел. Проверьте результат перед выполнением.",
@@ -97,6 +104,8 @@ internal fun NativeVoiceAssistantDialog(app: GenesisApplication, structure: Work
                         is NativeVoiceAction.EditHabit -> "Изменить привычку: ${preview.title}"
                         is NativeVoiceAction.DeleteHabit -> "Открыть подтверждение удаления привычки: ${preview.title}"
                         is NativeVoiceAction.EditTask -> "Открыть задачу для редактирования: ${preview.title}"
+                        is NativeVoiceAction.SetTaskDone -> "${if(preview.done)"Выполнить задачу" else "Снять отметку задачи"}: ${preview.title}"
+                        is NativeVoiceAction.SetHabitDone -> "${if(preview.done)"Выполнить привычку" else "Снять отметку привычки"}: ${preview.title}"
                         is NativeVoiceAction.MoveTask -> "Перенести задачу: ${preview.title}"
                     },style=MaterialTheme.typography.titleMedium)
                     Button(onClick={onAction(preview)},enabled=!busy,
