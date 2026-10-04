@@ -65,6 +65,51 @@ class NativeUiTest {
         }
     }
 
+    @Test fun customMoodNameAndEmojiCanBeSavedFromEmulator() {
+        compose.onNodeWithTag("navigation-Привычки").performClick()
+        compose.onNodeWithText("Сон и настроение").performClick()
+        compose.onNode(hasText("Выбрать настроение") or hasText("Изменить настроение")).performScrollTo().performClick()
+        compose.onNodeWithTag("custom-mood-choice").performScrollTo().performClick()
+        compose.onNodeWithTag("custom-mood-label").performTextClearance()
+        compose.onNodeWithTag("custom-mood-label").performTextInput("Вдохновение")
+        compose.onNodeWithTag("custom-mood-emoji").performTextClearance()
+        compose.onNodeWithTag("custom-mood-emoji").performTextInput("🌅")
+        UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()
+        compose.onNodeWithText("Сохранить").performScrollTo().performClick()
+        compose.waitUntil(10_000) { compose.onAllNodesWithTag("custom-mood-choice").fetchSemanticsNodes().isEmpty() }
+        val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
+        compose.waitUntil(10_000) {
+            runBlocking { ru.genesis.calendar.data.TrackersRepository(app).workspace.first()
+                .moodEntries.any { it.customLabel == "Вдохновение" && it.customEmoji == "🌅" } }
+        }
+        UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(
+            File(app.getExternalFilesDir(null),"mood-custom-2.6.0.png"))
+    }
+
+    @Test fun monthReturnTodayButtonKeepsCalendarMonthOpen() {
+        compose.onNodeWithTag("navigation-Календарь").performClick()
+        compose.onNodeWithTag("calendar-month-next").performScrollTo().performClick()
+        compose.onNodeWithTag("calendar-month-today").performScrollTo().performClick()
+        compose.onNodeWithTag("calendar-month").assertExists()
+        compose.onNodeWithTag("calendar-view-switch").assertExists()
+        compose.onNodeWithTag("calendar-month-today").performScrollTo().assertIsDisplayed()
+        UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(
+            File(compose.activity.getExternalFilesDir(null),"calendar-month-today-2.6.0.png"))
+    }
+
+    @Test fun lunarHabitEditorShowsNewCadencesAndFramedFields() {
+        compose.onNodeWithTag("navigation-Привычки").performClick()
+        compose.onNodeWithText("Новая привычка").performScrollTo().performClick()
+        compose.onNodeWithText("Календарь и срок").assertExists()
+        compose.onNodeWithText("Повторение").assertExists()
+        compose.onNodeWithTag("habit-calendar-lunar").performScrollTo().performClick()
+        compose.onNodeWithText("Повторение по лунному календарю").assertExists()
+        compose.onNodeWithTag("habit-lunar-cadence-lunar-phases").performScrollTo().performClick()
+        compose.onNodeWithText("Полнолуние").assertExists()
+        UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(
+            File(compose.activity.getExternalFilesDir(null),"habit-lunar-editor-2.6.0.png"))
+    }
+
     @Test fun prioritySupportsImmediateHorizontalDragAndTap() {
         compose.scrollToTodayNode(hasTestTag("create-task"))
         compose.onNodeWithTag("create-task").performClick()

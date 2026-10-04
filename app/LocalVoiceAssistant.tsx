@@ -50,6 +50,7 @@ type LocalVoiceAssistantProps = {
   neuralAvailable: boolean;
   neuralProvider: AssistantProvider;
   onApply: (plan: GeminiPlan) => Promise<string>;
+  onStartControl: () => void;
   onClose: () => void;
 };
 
@@ -95,7 +96,7 @@ function settleWithin<T>(promise: Promise<T>, timeoutMs: number, fallback: T) {
   });
 }
 
-export function LocalVoiceAssistant({ language, context, neuralAvailable, neuralProvider, onApply, onClose }: LocalVoiceAssistantProps) {
+export function LocalVoiceAssistant({ language, context, neuralAvailable, neuralProvider, onApply, onStartControl, onClose }: LocalVoiceAssistantProps) {
   const [command, setCommand] = useState("");
   const [interim, setInterim] = useState("");
   const [starting, setStarting] = useState(false);
@@ -354,6 +355,9 @@ export function LocalVoiceAssistant({ language, context, neuralAvailable, neural
         </header>
 
         <p className="gemini-intro">{labels.intro}</p>
+        <button type="button" className="secondary-button" onClick={onStartControl} disabled={busy || starting}>
+          {language === "en" ? "Start background voice control" : "Включить фоновое управление голосом"}
+        </button>
 
         <div className={`gemini-recorder${listening ? " recording" : ""}`}>
           <button type="button" className="gemini-record-button" onClick={() => void (listening ? stopListening() : startListening())} disabled={busy || starting}>

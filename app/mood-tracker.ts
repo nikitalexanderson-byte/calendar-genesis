@@ -9,6 +9,8 @@ export type MoodEntry = TrackerEntity & {
   moodValue: MoodValue;
   note: string;
   tags: string[];
+  customLabel?: string;
+  customEmoji?: string;
 };
 
 export const MOOD_SCALE = [
@@ -75,6 +77,8 @@ export function normalizeMoodEntry(value: Record<string, unknown>, index = 0): M
     moodValue,
     note,
     tags: Array.isArray(value.tags) ? value.tags.filter((tag): tag is string => typeof tag === "string").slice(0, 20) : [],
+    customLabel: typeof value.customLabel === "string" ? value.customLabel.trim().slice(0, 40) : "",
+    customEmoji: typeof value.customEmoji === "string" ? value.customEmoji.trim().slice(0, 16) : "",
   };
 }
 

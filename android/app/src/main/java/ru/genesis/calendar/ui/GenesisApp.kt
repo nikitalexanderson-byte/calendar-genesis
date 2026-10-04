@@ -1008,7 +1008,7 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                     }
                 }
                 ProjectHierarchyPicker(structure.projects, projectId) { projectId = it }
-                if(taskLists.isNotEmpty() && task==null) {
+                if(userTaskLists(taskLists).isNotEmpty() && task==null) {
                     EditorSection("Список задач") {
                     var choosingList by remember { mutableStateOf(false) }
                     Box {
@@ -1017,7 +1017,7 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                         }
                         DropdownMenu(choosingList,{choosingList=false}) {
                             DropdownMenuItem(text={Text("Не добавлять в список задач")},onClick={listId=null;choosingList=false})
-                            taskLists.forEach { list -> DropdownMenuItem(text={Text(list.title)},onClick={
+                            userTaskLists(taskLists).forEach { list -> DropdownMenuItem(text={Text(list.title)},onClick={
                                 listId=list.id
                                 if (accountSettings?.authProvider == "google") { reminders=emptyList();customReminder=false }
                                 if (accountSettings?.authProvider == "google") recurrence=recurrence.copy(enabled=false)

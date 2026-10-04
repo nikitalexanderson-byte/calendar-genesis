@@ -18,6 +18,7 @@ type GeminiAssistantProps = {
   context: GeminiAssistantContext;
   provider: Exclude<AssistantProvider, "local">;
   onApply: (plan: GeminiPlan) => Promise<string>;
+  onStartControl: () => void;
   onClose: () => void;
 };
 
@@ -84,7 +85,7 @@ function assistantError(error: unknown, language: Language, provider: Exclude<As
   return message || (language === "en" ? `${providerName} could not prepare the plan.` : `${providerName} не смог подготовить план.`);
 }
 
-export function GeminiAssistant({ language, context, provider, onApply, onClose }: GeminiAssistantProps) {
+export function GeminiAssistant({ language, context, provider, onApply, onStartControl, onClose }: GeminiAssistantProps) {
   const [command, setCommand] = useState("");
   const [audio, setAudio] = useState<{ data: string; mimeType: string; bytes: number } | null>(null);
   const [recording, setRecording] = useState(false);
@@ -290,6 +291,9 @@ export function GeminiAssistant({ language, context, provider, onApply, onClose 
         </header>
 
         <p className="gemini-intro">{labels.intro}</p>
+        <button type="button" className="secondary-button" onClick={onStartControl} disabled={busy || recording}>
+          {language === "en" ? "Start background voice control" : "Включить фоновое управление голосом"}
+        </button>
 
         <div className={`gemini-recorder${recording ? " recording" : ""}`}>
           <button type="button" className="gemini-record-button" onClick={() => void (recording ? stopRecording() : startRecording())} disabled={busy}>

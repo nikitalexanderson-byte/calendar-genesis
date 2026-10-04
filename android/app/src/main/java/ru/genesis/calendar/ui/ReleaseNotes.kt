@@ -39,6 +39,19 @@ private val release256Changes = mapOf(
         "The top bar now opens a voice assistant: finish recording with a button and review actions before applying them."),
 )
 
+private val release260Changes = mapOf(
+    "ru" to listOf(
+        "В лунных привычках появились декады, дни декады, новолуние, полнолуние и ежегодный повтор с выбором 13-го месяца.",
+        "Теперь можно сохранить своё настроение с названием и смайликом.",
+        "В месячном календаре есть возврат к сегодняшнему дню без перехода из раздела «Месяц».",
+        "При создании задачи служебные списки Google скрыты, а эмблемы достижений помещаются в карточках целиком."),
+    "en" to listOf(
+        "Lunar habits now support decades, decade days, new and full moons, and yearly recurrence including month 13.",
+        "You can save a custom mood with its own name and emoji.",
+        "The Month calendar can return to today without leaving Month.",
+        "Technical Google lists are hidden when creating tasks, and achievement emblems fit inside their cards."),
+)
+
 internal val notes = mapOf(
     "ru" to Notes("Что нового", "Понятно", listOf(
         "Переведены карты Стойхейона, сектора Теокиклоса, описания календарей и задачи на все языки приложения.",
@@ -130,8 +143,8 @@ internal fun ReleaseNotesDialog(onDismiss: () -> Unit) {
         title = { Text("${copy.title} · ${BuildConfig.VERSION_NAME}") },
         text = { Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            (release256Changes[LocalGenesisLanguage.current]
-                ?: release256Changes[if (LocalGenesisLanguage.current == "ru") "ru" else "en"]!!).forEach {
+            (release260Changes[LocalGenesisLanguage.current]
+                ?: release260Changes[if (LocalGenesisLanguage.current == "ru") "ru" else "en"]!!).forEach {
                 Text("• $it", style = MaterialTheme.typography.bodyMedium)
             }
         } },

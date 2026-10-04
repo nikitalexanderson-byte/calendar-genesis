@@ -387,6 +387,12 @@ export function getLunarMonthStart(index: number) {
   return new Date(moment.getFullYear(), moment.getMonth(), moment.getDate(), 12);
 }
 
+export function isLunarFullMoon(date: Date) {
+  const fullMoon = SearchMoonPhase(180, getNewMoonMoment(lunarMonthIndex(date)), 30);
+  return Boolean(fullMoon && fullMoon.date.getFullYear() === date.getFullYear()
+    && fullMoon.date.getMonth() === date.getMonth() && fullMoon.date.getDate() === date.getDate());
+}
+
 function firstLunarMonthAfterSpringEquinox(sacredYear: number) {
   const springEquinox = Seasons(sacredYear).mar_equinox.date;
   const firstNewMoon = SearchMoonPhase(0, springEquinox, 40);

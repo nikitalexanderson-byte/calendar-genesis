@@ -152,9 +152,12 @@ fun HabitArtGallery(workspace: LocalHabitWorkspace, today: LocalDate, busy: Bool
                             val qualified = achievementIsQualified(achievement.id, workspace)
                             Card(Modifier.weight(1f).testTag("achievement-${achievement.id}")) {
                                 Column(Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    OriginalImage("achievement-art/${achievement.id}.webp", achievement.title,
-                                        Modifier.fillMaxWidth().height(110.dp)
-                                            .graphicsLayer { alpha = if (achievement.hidden && !qualified) .45f else 1f })
+                                    Box(Modifier.fillMaxWidth().height(84.dp), contentAlignment = Alignment.Center) {
+                                        OriginalImage("achievement-art/${achievement.id}.webp", achievement.title,
+                                            Modifier.size(76.dp).graphicsLayer {
+                                                alpha = if (achievement.hidden && !qualified) .45f else 1f
+                                            })
+                                    }
                                     Text(if (achievement.hidden && !qualified) "Тайное достижение" else achievement.title,
                                         style = MaterialTheme.typography.titleSmall)
                                     Text(if (achievement.hidden && !qualified) "Откроется по мере продвижения"

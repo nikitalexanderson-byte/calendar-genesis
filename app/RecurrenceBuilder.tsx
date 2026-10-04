@@ -1,6 +1,6 @@
 "use client";
 
-import { formatCalendarDateValue, getSacredDate, MONTHS, type CalendarMode } from "./calendar-data";
+import { formatCalendarDateValue, getLunarDate, getSacredDate, MONTHS, type CalendarMode } from "./calendar-data";
 import {
   buildRecurrenceDates,
   alignRecurrenceConfigWithCalendar,
@@ -91,10 +91,14 @@ export function RecurrenceBuilder({
     ? value.rangeEnd <= maximumEnd ? value.rangeEnd : maximumEnd
     : recurrenceDefaultEndDate(rangeStart);
   const lunarMonths = lunarMonthOptions(rangeStart, rangeEnd);
-  const monthValues = value.mode === "lunar" ? lunarMonths.map((month) => month.value) : SACRED_MONTHS;
+  const monthValues = value.pattern === "lunar-yearly" ? Array.from({ length: 13 }, (_, index) => index + 1)
+    : value.mode === "lunar" ? lunarMonths.map((month) => month.value) : SACRED_MONTHS;
   const selectedMonths = effectiveSelection(value.months, monthValues);
   const selectedPyatas = effectiveSelection(value.pyatas, ALL_PYATAS);
   const trackerSacred = destination === "tracker" && value.mode === "genesis";
+  const trackerLunar = destination === "tracker" && value.mode === "lunar";
+  const lunarDaily = trackerLunar && value.pattern === "lunar-days" && !value.months.length
+    && value.days.length === 30 && value.days.every((day, index) => day === index + 1);
   const sacredCadence = value.pattern === "month-days"
     ? value.months.length === 1 ? "yearly" : "monthly"
     : sameNumbers(value.days, [1, 2, 3, 4, 5]) && sameNumbers(value.pyatas, ODD_PYATAS) ||
@@ -140,6 +144,19 @@ export function RecurrenceBuilder({
       days: cadence === "daily" || cadence === "parity" ? ALL_PYATAS.slice(0, 5) : [cadence === "monthly" || cadence === "yearly" ? day : 1],
       months: cadence === "yearly" ? [sacred.monthIndex < 12 ? sacred.monthIndex + 1 : 1] : [],
       pyatas: cadence === "parity" ? ODD_PYATAS : [], interval: 1,
+    });
+  };
+
+  const setLunarCadence = (cadence: string) => {
+    const lunar = getLunarDate(new Date(`${rangeStart}T12:00:00`));
+    onChange({ ...value,
+      pattern: cadence === "daily" ? "lunar-days" : cadence as RecurrenceConfig["pattern"],
+      days: cadence === "daily" ? Array.from({ length: 30 }, (_, index) => index + 1)
+        : cadence === "lunar-decades" ? [Math.floor((lunar.day - 1) / 10) + 1]
+        : cadence === "lunar-decade-days" ? [((lunar.day - 1) % 10) + 1]
+        : cadence === "lunar-phases" ? [1] : [lunar.day],
+      months: cadence === "lunar-yearly" ? [lunar.monthOrdinal] : [],
+      pyatas: cadence === "lunar-decade-days" ? [Math.floor((lunar.day - 1) / 10) + 1] : [], interval: 1,
     });
   };
 
@@ -212,7 +229,7 @@ export function RecurrenceBuilder({
               <span>С какого</span>
               <CalendarDatePicker id="recurrence-range-start" mode={displayCalendarMode} min={startDate} value={rangeStart} showGregorianReference={destination !== "tracker"} onChange={(nextStart) => {
                 const nextEnd = rangeEnd < nextStart ? recurrenceDefaultEndDate(nextStart) : rangeEnd;
-                onChange({ ...value, rangeStart: nextStart, rangeEnd: nextEnd, months: value.mode === "lunar" ? [] : value.months });
+                onChange({ ...value, rangeStart: nextStart, rangeEnd: nextEnd, months: value.mode === "lunar" && value.pattern !== "lunar-yearly" ? [] : value.months });
               }} />
             </label>}
             <label htmlFor="recurrence-range-end">
@@ -221,7 +238,7 @@ export function RecurrenceBuilder({
                 ...value,
                 rangeStart,
                 rangeEnd: nextEnd,
-                months: value.mode === "lunar" ? [] : value.months,
+                months: value.mode === "lunar" && value.pattern !== "lunar-yearly" ? [] : value.months,
               })} />
             </label>
             <small>Можно запланировать серию на срок до пяти лет.</small>
@@ -334,7 +351,34 @@ export function RecurrenceBuilder({
             </>
           ) : null}
 
-          {value.mode === "lunar" ? (
+          {trackerLunar ? <div className="recurrence-pattern-toggle wrap" role="group" aria-label="Ритм лунной привычки">
+            {([ ["daily", "Ежедневно"], ["lunar-days", "Дни месяца"], ["lunar-decades", "Декады"],
+              ["lunar-decade-days", "Дни декады"], ["lunar-phases", "Новолуние / полнолуние"],
+              ["lunar-yearly", "Ежегодно"] ] as const).map(([cadence, label]) =>
+              <button type="button" key={cadence} className={(cadence === "daily" ? lunarDaily : !lunarDaily && value.pattern === cadence) ? "active" : ""}
+                aria-pressed={cadence === "daily" ? lunarDaily : !lunarDaily && value.pattern === cadence}
+                onClick={() => setLunarCadence(cadence)}>{label}</button>)}</div> : null}
+
+          {trackerLunar && value.pattern === "lunar-decade-days" ? <div className="recurrence-day-field">
+            <span>В каких декадах месяца</span><div className="recurrence-day-grid" role="group" aria-label="Декады месяца">
+              {[1, 2, 3].map((decade) => <button type="button" key={decade} className={value.pyatas.includes(decade) ? "selected" : ""}
+                aria-pressed={value.pyatas.includes(decade)} onClick={() => {
+                  const next = value.pyatas.includes(decade) ? value.pyatas.filter((item) => item !== decade) : [...value.pyatas, decade];
+                  if (next.length) onChange({ ...value, pyatas: next });
+                }}>{decade} декада</button>)}</div></div> : null}
+          {trackerLunar && value.pattern === "lunar-phases" ? <div className="recurrence-day-field">
+            <span>Лунные события</span><div className="recurrence-day-grid" role="group" aria-label="Лунные события">
+              {([[1, "Новолуние"], [2, "Полнолуние"]] as const).map(([phase, label]) => <button type="button" key={phase}
+                className={value.days.includes(phase) ? "selected" : ""} aria-pressed={value.days.includes(phase)} onClick={() => toggleDay(phase)}>{label}</button>)}</div>
+          </div> : null}
+          {trackerLunar && value.pattern === "lunar-yearly" ? <div className="recurrence-day-field">
+            <span>Лунный месяц года · 13-й бывает не каждый год</span>
+            <div className="recurrence-day-grid dense" role="group" aria-label="Лунный месяц года">
+              {Array.from({ length: 13 }, (_, index) => index + 1).map((month) => <button type="button" key={month}
+                className={value.months.includes(month) ? "selected" : ""} aria-pressed={value.months.includes(month)}
+                onClick={() => onChange({ ...value, months: [month] })}>{month}</button>)}
+            </div></div> : null}
+          {value.mode === "lunar" && value.pattern === "lunar-days" && !lunarDaily ? (
             <div className="recurrence-day-field">
               <div className="recurrence-field-heading">
                 <span>В какие лунные месяцы</span>
@@ -356,11 +400,12 @@ export function RecurrenceBuilder({
 
           {value.mode !== "classic" || value.pattern === "weekdays" ? (
             value.mode === "classic" ? null : (
-              trackerSacred && (sacredCadence === "daily" || sacredCadence === "parity") ? null :
+              trackerSacred && (sacredCadence === "daily" || sacredCadence === "parity") ||
+              trackerLunar && (lunarDaily || value.pattern === "lunar-phases") ? null :
               <div className="recurrence-day-field">
-                <span>{value.mode === "lunar" ? "В какие дни лунного месяца" : value.pattern === "pyata-days" ? "Какие дни внутри пяты" : "Какие дни сакрального месяца"}</span>
+                <span>{value.mode === "lunar" ? value.pattern === "lunar-decades" ? "Декады месяца" : value.pattern === "lunar-decade-days" ? "Дни внутри выбранных декад" : "В какие дни лунного месяца" : value.pattern === "pyata-days" ? "Какие дни внутри пяты" : "Какие дни сакрального месяца"}</span>
                 <div className={`recurrence-day-grid${value.mode === "genesis" && value.pattern === "pyata-days" ? "" : " dense"}`} role="group" aria-label="Дни повторения">
-                  {(value.mode === "genesis" && value.pattern === "pyata-days" ? PYATA_DAY_LABELS : Array.from({ length: 30 }, (_, index) => String(index + 1))).map((label, index) => {
+                  {(value.mode === "genesis" && value.pattern === "pyata-days" ? PYATA_DAY_LABELS : Array.from({ length: value.pattern === "lunar-decades" ? 3 : value.pattern === "lunar-decade-days" ? 10 : 30 }, (_, index) => String(index + 1))).map((label, index) => {
                     const day = index + 1;
                     const selected = value.days.includes(day);
                     return <button type="button" key={day} className={selected ? "selected" : ""} aria-pressed={selected} onClick={() => toggleDay(day)}>{label}</button>;

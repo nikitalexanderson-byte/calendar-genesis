@@ -21,14 +21,22 @@ class RecurrenceEngine(private val calendar: GenesisCalendar) {
         require(raw.mode in setOf("classic", "genesis", "lunar")) { "Unknown recurrence mode" }
         val pattern = when(raw.mode) {
             "classic" -> raw.pattern.takeIf { it in setOf("daily","weekdays","monthly","yearly") } ?: "weekdays"
-            "lunar" -> "lunar-days"
+            "lunar" -> raw.pattern.takeIf { it in setOf("lunar-days", "lunar-decades", "lunar-decade-days", "lunar-phases", "lunar-yearly") } ?: "lunar-days"
             else -> if (raw.pattern == "month-days") "month-days" else "pyata-days"
         }
-        val dayLimit = if (raw.mode == "classic") 7 else if (raw.mode == "genesis" && pattern == "pyata-days") 5 else 30
+        val dayLimit = when {
+            raw.mode == "classic" -> 7
+            raw.mode == "genesis" && pattern == "pyata-days" -> 5
+            pattern == "lunar-decades" -> 3
+            pattern == "lunar-decade-days" -> 10
+            pattern == "lunar-phases" -> 2
+            else -> 30
+        }
         return raw.copy(pattern=pattern, days=raw.days.filter { it in 1..dayLimit }.distinct().sorted().ifEmpty { listOf(1) },
             interval=raw.interval.coerceIn(1,99), rangeStart=raw.rangeStart.takeIf { parse(it) != null } ?: "",
             rangeEnd=raw.rangeEnd.takeIf { parse(it) != null } ?: "",
-            months=raw.months.filter { it in 1..72 }.distinct().sorted(), pyatas=raw.pyatas.filter { it in 1..6 }.distinct().sorted())
+            months=raw.months.filter { it in 1..(if(pattern == "lunar-yearly") 13 else 72) }.distinct().sorted(),
+            pyatas=raw.pyatas.filter { it in 1..(if(pattern == "lunar-decade-days") 3 else 6) }.distinct().sorted())
     }
 
     fun resolve(startDate: String, raw: RecurrenceConfig): RecurrenceConfig {
@@ -65,7 +73,14 @@ class RecurrenceEngine(private val calendar: GenesisCalendar) {
             }
             else -> {
                 val lunar = calendar.lunarDate(date)
-                lunar.day in config.days && (config.months.isEmpty() || lunar.monthIndex-calendar.lunarMonthIndex(anchor)+1 in config.months)
+                val matchingDay = when(config.pattern) {
+                    "lunar-decades" -> (lunar.day-1)/10+1 in config.days
+                    "lunar-decade-days" -> (config.pyatas.isEmpty() || (lunar.day-1)/10+1 in config.pyatas) && (lunar.day-1)%10+1 in config.days
+                    "lunar-phases" -> (1 in config.days && lunar.day == 1) || (2 in config.days && calendar.isLunarFullMoon(date))
+                    else -> lunar.day in config.days
+                }
+                matchingDay && if(config.pattern == "lunar-yearly") lunar.monthOrdinal in config.months
+                    else config.months.isEmpty() || lunar.monthIndex-calendar.lunarMonthIndex(anchor)+1 in config.months
             }
         }
     }

@@ -1,4 +1,4 @@
-import { getMoon, getSacredDate, type CalendarMode } from "./calendar-data";
+import { getLunarDate, getMoon, getSacredDate, isLunarFullMoon, type CalendarMode } from "./calendar-data";
 
 export type RecurrenceMode = "none" | "genesis" | "classic" | "lunar";
 export type RecurrencePattern =
@@ -9,7 +9,11 @@ export type RecurrencePattern =
   | "yearly"
   | "pyata-days"
   | "month-days"
-  | "lunar-days";
+  | "lunar-days"
+  | "lunar-decades"
+  | "lunar-decade-days"
+  | "lunar-phases"
+  | "lunar-yearly";
 
 export type RecurrenceConfig = {
   enabled: boolean;
@@ -155,6 +159,9 @@ function normalizeIntegerList(values: number[], minimum: number, maximum: number
 function recurrenceDayLimit(config: RecurrenceConfig) {
   if (config.mode === "classic") return 7;
   if (config.mode === "genesis" && config.pattern === "pyata-days") return 5;
+  if (config.pattern === "lunar-decades") return 3;
+  if (config.pattern === "lunar-decade-days") return 10;
+  if (config.pattern === "lunar-phases") return 2;
   return 30;
 }
 
@@ -164,7 +171,8 @@ function expectedPattern(config: RecurrenceConfig): RecurrenceConfig["pattern"] 
       ? config.pattern
       : "weekdays";
   }
-  if (config.mode === "lunar") return "lunar-days";
+  if (config.mode === "lunar") return ["lunar-days", "lunar-decades", "lunar-decade-days", "lunar-phases", "lunar-yearly"].includes(config.pattern)
+    ? config.pattern : "lunar-days";
   return config.pattern === "month-days" ? "month-days" : "pyata-days";
 }
 
@@ -196,8 +204,8 @@ export function normalizeRecurrenceConfig(config: RecurrenceConfig): RecurrenceC
     interval: Math.min(99, Math.max(1, Math.round(Number(config.interval)) || 1)),
     rangeStart: parseInputDate(config.rangeStart) ? config.rangeStart : "",
     rangeEnd: parseInputDate(config.rangeEnd) ? config.rangeEnd : "",
-    months: normalizeIntegerList(config.months, 1, 72),
-    pyatas: normalizeIntegerList(config.pyatas, 1, 6),
+    months: normalizeIntegerList(config.months, 1, pattern === "lunar-yearly" ? 13 : 72),
+    pyatas: normalizeIntegerList(config.pyatas, 1, pattern === "lunar-decade-days" ? 3 : 6),
   };
 }
 
@@ -227,7 +235,13 @@ export function suggestedRecurrenceDays(
 ) {
   const date = parseInputDate(startDate) ?? new Date();
   if (mode === "classic") return [calendarDayNumber(date)];
-  if (mode === "lunar") return [getMoon(date).day];
+  if (mode === "lunar") {
+    const lunarDay = getLunarDate(date).day;
+    if (pattern === "lunar-decades") return [Math.floor((lunarDay - 1) / 10) + 1];
+    if (pattern === "lunar-decade-days") return [((lunarDay - 1) % 10) + 1];
+    if (pattern === "lunar-phases") return [1];
+    return [lunarDay];
+  }
   const sacred = getSacredDate(date);
   return [pattern === "month-days" ? Math.min(30, sacred.day) : ((sacred.day - 1) % 5) + 1];
 }
@@ -310,8 +324,14 @@ export function recurrenceMatchesDate(
     return selectedDays.has(sacred.day);
   }
 
-  const lunarDay = getMoon(candidate).day;
-  if (!selectedDays.has(lunarDay)) return false;
+  const lunar = getLunarDate(candidate);
+  const lunarDay = lunar.day;
+  const matchesDay = config.pattern === "lunar-decades" ? selectedDays.has(Math.floor((lunarDay - 1) / 10) + 1)
+    : config.pattern === "lunar-decade-days" ? (!selectedPyatas.size || selectedPyatas.has(Math.floor((lunarDay - 1) / 10) + 1)) && selectedDays.has(((lunarDay - 1) % 10) + 1)
+    : config.pattern === "lunar-phases" ? (selectedDays.has(1) && lunarDay === 1) || (selectedDays.has(2) && isLunarFullMoon(candidate))
+    : selectedDays.has(lunarDay);
+  if (!matchesDay) return false;
+  if (config.pattern === "lunar-yearly") return selectedMonths.has(lunar.monthOrdinal);
   if (!selectedMonths.size) return true;
   let lunarMonth = 1;
   let previousDay = getMoon(anchor).day;
@@ -361,7 +381,13 @@ export function buildRecurrenceDates(startDate: string, rawConfig: RecurrenceCon
       const lunarDay = getMoon(cursor).day;
       if (cursor > range.start && lunarDay < previousLunarDay) lunarMonth += 1;
       previousLunarDay = lunarDay;
-      matches = (selectedMonths.size === 0 || selectedMonths.has(lunarMonth)) && selectedDays.has(lunarDay);
+      const lunar = getLunarDate(cursor);
+      const matchesDay = config.pattern === "lunar-decades" ? selectedDays.has(Math.floor((lunar.day - 1) / 10) + 1)
+        : config.pattern === "lunar-decade-days" ? (!selectedPyatas.size || selectedPyatas.has(Math.floor((lunar.day - 1) / 10) + 1)) && selectedDays.has(((lunar.day - 1) % 10) + 1)
+        : config.pattern === "lunar-phases" ? (selectedDays.has(1) && lunar.day === 1) || (selectedDays.has(2) && isLunarFullMoon(cursor))
+        : selectedDays.has(lunar.day);
+      matches = matchesDay && (config.pattern === "lunar-yearly"
+        ? selectedMonths.has(lunar.monthOrdinal) : selectedMonths.size === 0 || selectedMonths.has(lunarMonth));
     } else {
       const sacred = getSacredDate(cursor);
       if (sacred.monthIndex < 12 && (selectedMonths.size === 0 || selectedMonths.has(sacred.monthIndex + 1))) {

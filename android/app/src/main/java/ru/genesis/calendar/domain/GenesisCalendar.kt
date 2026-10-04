@@ -49,6 +49,11 @@ data class CalendarRange(val start: LocalDate, val end: LocalDate) {
  * Public offline ephemeris supports 1900..2100 inclusive; out-of-range calls fail explicitly.
  */
 class GenesisCalendar(val zoneId: ZoneId = ZoneId.systemDefault()) {
+    private val fullMoonDates by lazy {
+        LunarEphemeris.fullMoons.map { Instant.ofEpochMilli(it).atZone(zoneId).toLocalDate() }.toSet()
+    }
+
+    fun isLunarFullMoon(date: LocalDate): Boolean = date in fullMoonDates
     fun solarEvents(year: Int): List<SolarEvent> {
         require(year in 1900..2100) { "Offline solar ephemeris supports 1900–2100" }
         val offset = (year - SolarEphemeris.firstYear) * 4

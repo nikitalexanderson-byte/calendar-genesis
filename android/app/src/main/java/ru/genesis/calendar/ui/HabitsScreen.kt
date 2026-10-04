@@ -483,6 +483,14 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
     var config by remember(initial.id) { mutableStateOf(initial.schedule.recurrence) }
     var sacredCadence by remember(initial.id) { mutableStateOf(sacredHabitCadence(initial.schedule.recurrence)) }
     val mode=formCalendarMode
+    val lunarDaily = config.pattern == "lunar-days" && config.days == (1..30).toList() && config.months.isEmpty()
+    val limit=when {
+        mode==CalendarMode.SACRED -> when(sacredCadence) {"pyata-days"->5;"monthly","yearly"->30;else->0}
+        mode==CalendarMode.LUNAR -> when(config.pattern) {"lunar-decades"->3;"lunar-decade-days"->10;"lunar-phases"->0
+            else -> if(lunarDaily) 0 else 30}
+        config.pattern=="weekdays" -> 7
+        else -> 0
+    }
     Dialog(onDismissRequest=onDismiss, properties=androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth=false)) { Surface(Modifier.widthIn(max=720.dp).fillMaxWidth().padding(12.dp),shape=MaterialTheme.shapes.large) {
         Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment=Alignment.CenterVertically) {
@@ -492,9 +500,12 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
                     Text("×",style=MaterialTheme.typography.headlineSmall)
                 }
             }
+            EditorSection("Основное") {
             OutlinedTextField(title,{title=it},label={Text("Название")},modifier=Modifier.fillMaxWidth(),enabled=!busy)
             OutlinedTextField(description,{description=it},label={Text("Описание")},modifier=Modifier.fillMaxWidth(),enabled=!busy)
             PriorityControl(priority) { if(!busy) priority=it }
+            }
+            EditorSection("Календарь и срок") {
             Text("Календарь привычки", style=MaterialTheme.typography.titleSmall)
             Text("Определяет повторение и вид дат этой привычки.",
                 style=MaterialTheme.typography.bodySmall,
@@ -513,6 +524,8 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
             Text("Начало"); AuthorDatePicker(start,formCalendarMode) { if(!busy) start=it }
             Row { Checkbox(checked=end.isNotEmpty(),enabled=!busy,onCheckedChange={end=if(it) start else ""}); Text("Ограничить срок",Modifier.padding(top=12.dp)) }
             if(end.isNotEmpty()) AuthorDatePicker(end,formCalendarMode) { if(!busy) end=it }
+            }
+            EditorSection("Повторение") {
             if(mode==CalendarMode.PROFANE) Row(Modifier.horizontalScroll(rememberScrollState())) {
                 listOf("daily" to "Ежедневно","weekdays" to "Дни недели","monthly" to "Ежемесячно","yearly" to "Ежегодно").forEach { (pattern,label) ->
                     FilterChip(config.pattern==pattern,{config=config.copy(pattern=pattern)},enabled=!busy,label={Text(label)})
@@ -550,9 +563,60 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
                 }
                 if(sacredCadence=="monthly" || sacredCadence=="yearly") Text("Апейрон исключён из расписания")
             }
-            val limit=when { mode==CalendarMode.SACRED -> when(sacredCadence) {"pyata-days"->5;"monthly","yearly"->30;else->0}; mode==CalendarMode.LUNAR -> 30;config.pattern=="weekdays" -> 7;else -> 0 }
+            if(mode==CalendarMode.LUNAR) {
+                Text("Повторение по лунному календарю")
+                Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+                    listOf("daily" to "Ежедневно", "lunar-days" to "Дни месяца",
+                        "lunar-decades" to "Декады", "lunar-decade-days" to "Дни декады",
+                        "lunar-phases" to "Новолуние / полнолуние", "lunar-yearly" to "Ежегодно").forEach { (cadence,label) ->
+                        FilterChip(if(cadence=="daily") lunarDaily else !lunarDaily&&config.pattern==cadence,
+                            onClick={
+                                val lunar=engineCalendar.lunarDate(LocalDate.parse(start))
+                                config=when(cadence) {
+                                    "daily" -> config.copy(pattern="lunar-days",days=(1..30).toList(),months=emptyList(),pyatas=emptyList())
+                                    "lunar-decades" -> config.copy(pattern=cadence,days=listOf((lunar.day-1)/10+1),months=emptyList(),pyatas=emptyList())
+                                    "lunar-decade-days" -> config.copy(pattern=cadence,days=listOf((lunar.day-1)%10+1),months=emptyList(),pyatas=listOf((lunar.day-1)/10+1))
+                                    "lunar-phases" -> config.copy(pattern=cadence,days=listOf(1),months=emptyList(),pyatas=emptyList())
+                                    "lunar-yearly" -> config.copy(pattern=cadence,days=listOf(lunar.day),months=listOf(lunar.monthOrdinal),pyatas=emptyList())
+                                    else -> config.copy(pattern="lunar-days",days=listOf(lunar.day),months=emptyList(),pyatas=emptyList())
+                                }
+                            },enabled=!busy,modifier=Modifier.testTag("habit-lunar-cadence-$cadence"),label={Text(label)})
+                    }
+                }
+                if(config.pattern=="lunar-decade-days") {
+                    Text("В каких декадах месяца")
+                    Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) { (1..3).forEach { decade ->
+                        FilterChip(decade in config.pyatas,onClick={
+                            val next=if(decade in config.pyatas) config.pyatas.filterNot { it==decade } else config.pyatas+decade
+                            if(next.isNotEmpty()) config=config.copy(pyatas=next)
+                        },enabled=!busy,label={Text("$decade декада")})
+                    } }
+                }
+                if(config.pattern=="lunar-phases") {
+                    Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+                        listOf(1 to "Новолуние",2 to "Полнолуние").forEach { (phase,label) ->
+                            FilterChip(phase in config.days,onClick={
+                                val next=if(phase in config.days) config.days.filterNot { it==phase } else config.days+phase
+                                if(next.isNotEmpty()) config=config.copy(days=next)
+                            },enabled=!busy,label={Text(label)})
+                        }
+                    }
+                }
+                if(config.pattern=="lunar-yearly") {
+                    Text("Лунный месяц года · 13-й бывает не каждый год")
+                    (1..13).chunked(5).forEach { row -> Row(horizontalArrangement=Arrangement.spacedBy(4.dp)) {
+                        row.forEach { month -> FilterChip(month in config.months,onClick={config=config.copy(months=listOf(month))},
+                            enabled=!busy,label={Text(month.toString())}) }
+                    } }
+                }
+            }
             if(limit>0) {
-                Text(if(mode==CalendarMode.SACRED && sacredCadence=="pyata-days") "Дни внутри пяты" else "Дни расписания")
+                Text(when {
+                    mode==CalendarMode.SACRED && sacredCadence=="pyata-days" -> "Дни внутри пяты"
+                    mode==CalendarMode.LUNAR && config.pattern=="lunar-decades" -> "Декады месяца"
+                    mode==CalendarMode.LUNAR && config.pattern=="lunar-decade-days" -> "Дни внутри выбранных декад"
+                    else -> "Дни расписания"
+                })
                 (1..limit).chunked(5).forEach { row -> Row(horizontalArrangement=Arrangement.spacedBy(4.dp)) { row.forEach { day ->
                     FilterChip(day in config.days,onClick={
                         if(mode==CalendarMode.SACRED && sacredCadence in setOf("monthly","yearly")) config=config.copy(days=listOf(day))
@@ -561,15 +625,20 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
                         label={Text(if(mode==CalendarMode.SACRED&&sacredCadence=="pyata-days") listOf("I","II","III","IIII","V")[day-1] else day.toString())})
                 } } }
             }
+            }
+            EditorSection("Время и напоминание") {
             HabitReminderFields(preferredTime, reminder, !busy, onTime = {
                 preferredTime = it
                 if(it.isEmpty() && reminder.timing=="habit") reminder=reminder.copy(timing="custom")
             }, onReminder = { reminder = it })
+            }
+            EditorSection("Начисление XP") {
             Text("Начисление XP")
             if(existing!=null) Text("🔒 Начисление XP зафиксировано при создании. Для другой формулы удалите привычку и создайте новую.",style=MaterialTheme.typography.bodySmall)
             if(existing==null) listOf("none" to "Без баллов","binary" to "Выполнение · 10","quality-ten" to "Качество · 1–10","quality-bipolar" to "Качество · −5…+5").forEach { (value,label) ->
                 FilterChip(scoring==value,{scoring=value},enabled=!busy,label={Text(label)})
             } else Text(when(scoring) {"none"->"Без баллов";"quality-ten"->"Качество · 1–10";"quality-bipolar"->"Качество · −5…+5";else->"Выполнение · 10"})
+            }
             error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 TextButton(enabled=!busy,onClick=onDismiss) { Text("Отмена") }
