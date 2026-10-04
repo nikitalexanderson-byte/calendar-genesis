@@ -58,7 +58,7 @@ internal fun NativeAdminPanel(onClose: () -> Unit, load: suspend () -> JSONObjec
                     }
                 }
                 OutlinedButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW,
-                    Uri.parse("https://genesiscalendar.ru/#admin"))) },
+                    Uri.parse("${ru.genesis.calendar.auth.AUTH_ORIGIN}/#admin"))) },
                     modifier = Modifier.fillMaxWidth().testTag("admin-manage-ads")) {
                     Text(manageAdsLabel())
                 }

@@ -40,11 +40,8 @@ internal fun MultiAccountPanel(state: AuthPanelState, controller: AuthController
                     append(if (account.isPrimary) "Основной" else "Дополнительный")
                     append(" · ")
                     append(if (local) account.provider.uppercase() else "Google")
-                    if (account.provider == "vk") append(" · Задачи в GENESIS")
-                    else {
-                        append(" · Calendar: ")
-                        append(if (account.calendarConnected) "подключён" else "не подключён")
-                    }
+                    append(" · Calendar: ")
+                    append(if (account.calendarConnected) "подключён" else "не подключён")
                 }, style = MaterialTheme.typography.labelSmall)
                 if (!local && !account.isPrimary) TextButton(onClick = { removeCandidate = account }, enabled = !state.busy,
                     modifier = Modifier.testTag("linked-account-remove")) { Text("Отключить") }
@@ -55,7 +52,7 @@ internal fun MultiAccountPanel(state: AuthPanelState, controller: AuthController
         else "Дополнительные Google-аккаунты подключаются через защищённый веб-поток. В браузере войдите в тот же кабинет GENESIS, затем вернитесь в приложение.",
         style = MaterialTheme.typography.bodySmall)
     OutlinedButton(onClick = {
-        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://genesiscalendar.ru/?account_link=1#settings")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("${AUTH_ORIGIN}/?account_link=1#settings")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }, modifier = Modifier.fillMaxWidth().testTag("linked-account-open-site")) { Text("Открыть подключение на сайте") }
     OutlinedButton(onClick = controller::checkSession, enabled = !state.busy,
         modifier = Modifier.fillMaxWidth().testTag("linked-account-refresh")) { Text("Обновить аккаунты") }

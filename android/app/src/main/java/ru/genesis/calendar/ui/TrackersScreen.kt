@@ -28,7 +28,7 @@ import ru.genesis.calendar.domain.habits.*
 import ru.genesis.calendar.domain.trackers.*
 
 @Composable
-fun TrackersScreen(app: GenesisApplication) {
+fun TrackersScreen(app: GenesisApplication, experimental: Boolean = false) {
     val repository=remember(app) { TrackersRepository(app) }
     val preferences=remember(app) { LocalPreferences(app,app.workspaceScope) }
     val prefs by preferences.values.collectAsStateWithLifecycle(initialValue=UiPreferences())
@@ -143,20 +143,44 @@ fun TrackersScreen(app: GenesisApplication) {
                     }
                 }
             }
-            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically) {
-                Column {
-                    Text("Сон",style=MaterialTheme.typography.titleLarge)
-                    Text("Планы и фактическое восстановление", style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+            val createSleepPlan = {
+                val schedule=HabitEngine(GenesisCalendar()).defaultSchedule(date,prefs.input).let { base ->
+                    base.copy(recurrence=RecurrenceConfig(enabled=true,mode="classic",pattern="daily",
+                        days=listOf(1),rangeStart=date.toString()))
                 }
-                FilledTonalButton(enabled=!busy&&!storageError,onClick={
-                    val schedule=HabitEngine(GenesisCalendar()).defaultSchedule(date,prefs.input).let { base ->
-                        base.copy(recurrence=RecurrenceConfig(enabled=true,mode="classic",pattern="daily",
-                            days=listOf(1),rangeStart=date.toString()))
+                planEditor=SleepPlan(TrackerEntity.create("sleep-plan"),schedule)
+            }
+            SleepTrackerGroup(experimental) {
+            if (experimental) {
+                Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,
+                    horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+                    Surface(Modifier.size(48.dp), shape=CircleShape,
+                        color=Color(0xff255b59).copy(alpha=.16f),
+                        border=BorderStroke(1.dp,Color(0xff255b59).copy(alpha=.55f))) {
+                        Box(contentAlignment=Alignment.Center) {
+                            Text("☾", color=Color(0xff255b59),
+                                style=MaterialTheme.typography.headlineSmall)
+                        }
                     }
-                    planEditor=SleepPlan(TrackerEntity.create("sleep-plan"),schedule)
-                }) { Text("＋ План") }
+                    Column(Modifier.weight(1f)) {
+                        Text("Сон",style=MaterialTheme.typography.titleLarge,
+                            color=Color(0xff123b36))
+                        Text("Планы и фактическое восстановление", style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                FilledTonalButton(enabled=!busy&&!storageError,onClick=createSleepPlan,
+                    modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)) { Text("＋ Создать план сна") }
+            } else {
+                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,
+                    verticalAlignment=Alignment.CenterVertically) {
+                    Column {
+                        Text("Сон",style=MaterialTheme.typography.titleLarge)
+                        Text("Планы и фактическое восстановление", style=MaterialTheme.typography.bodySmall,
+                            color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    FilledTonalButton(enabled=!busy&&!storageError,onClick=createSleepPlan) { Text("＋ План") }
+                }
             }
             if(current.sleepPlans.isEmpty()) Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp),
                 color = Color(0xffe5efed), border = BorderStroke(1.dp, Color(0x66255b59))) {
@@ -219,6 +243,7 @@ fun TrackersScreen(app: GenesisApplication) {
                     }
                 } }
             }
+            }
             Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), color = Color(0xfffff3d8)) {
                 Text("ⓘ Сон и настроение — личные наблюдения без XP и Лавров. Это не медицинская оценка.",
                     Modifier.padding(14.dp), style=MaterialTheme.typography.bodySmall,
@@ -261,6 +286,16 @@ fun TrackersScreen(app: GenesisApplication) {
             } }
         }
     }
+}
+
+@Composable
+private fun SleepTrackerGroup(experimental: Boolean, content: @Composable ColumnScope.() -> Unit) {
+    if (experimental) Card(Modifier.fillMaxWidth().testTag("sleep-tracker-group"),
+        shape=RoundedCornerShape(20.dp),
+        colors=CardDefaults.cardColors(containerColor=Color(0xffe5efed)),
+        border=BorderStroke(1.dp,Color(0x77255b59))) {
+        Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(14.dp),content=content)
+    } else Column(verticalArrangement=Arrangement.spacedBy(14.dp),content=content)
 }
 
 private fun moodEmoji(value: Int) =

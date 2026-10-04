@@ -3,6 +3,15 @@ package ru.genesis.calendar.ui
 import android.media.AudioManager
 import android.media.ToneGenerator
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
@@ -14,6 +23,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -45,7 +58,7 @@ internal fun HabitsScreen(app: GenesisApplication, experimental: Boolean, inputC
             section, { localSection = it; menuSwipeState?.habits = it })
         Box(Modifier.weight(1f)) {
             if (section == "Привычки") HabitWorkspaceContent(app, experimental, inputCalendarMode, displayCalendarMode,
-                openSacredHabits,onSacredHabitsOpened,voiceRequest,onVoiceRequestConsumed) else TrackersScreen(app)
+                openSacredHabits,onSacredHabitsOpened,voiceRequest,onVoiceRequestConsumed) else TrackersScreen(app, experimental)
         }
     }
 }
@@ -146,18 +159,20 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                     if(goal!=null && goal.scheduledCount>0) LinearProgressIndicator(
                         progress={ (goal.completedCount.toFloat()/goal.scheduledCount).coerceIn(0f,1f) },
                         modifier=Modifier.fillMaxWidth(),color=Color(0xffdfc17e),trackColor=Color(0xff46645e))
-                    HorizontalDivider(color=Color(0xff46645e))
-                    Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
-                        heroRankThumbnailPath(rank)?.let { OriginalImage(it,rank.title,
-                            Modifier.size(56.dp)) }
-                        Column(verticalArrangement=Arrangement.spacedBy(2.dp)) {
-                            Text("Путь Героя · ${rank.title}",style=MaterialTheme.typography.titleMedium,color=Color(0xfff8f3e8))
-                            Text("✦ ${current.progress.lifetimeXp} XP  ·  🔥 ${current.progress.currentStreak} дн.",
-                                style=MaterialTheme.typography.bodySmall,color=Color(0xffd8e7df))
+                    if (!experimental) {
+                        HorizontalDivider(color=Color(0xff46645e))
+                        Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+                            heroRankThumbnailPath(rank)?.let { OriginalImage(it,rank.title,
+                                Modifier.size(56.dp)) }
+                            Column(verticalArrangement=Arrangement.spacedBy(2.dp)) {
+                                Text("Путь Героя · ${rank.title}",style=MaterialTheme.typography.titleMedium,color=Color(0xfff8f3e8))
+                                Text("✦ ${current.progress.lifetimeXp} XP  ·  🔥 ${current.progress.currentStreak} дн.",
+                                    style=MaterialTheme.typography.bodySmall,color=Color(0xffd8e7df))
+                            }
                         }
+                        Text("Ритм ${current.progress.rhythmScore}%  ·  🌿 ${current.progress.laurelsBalance} лавров",
+                            style=MaterialTheme.typography.labelMedium,color=Color(0xffdfc17e))
                     }
-                    Text("Ритм ${current.progress.rhythmScore}%  ·  🌿 ${current.progress.laurelsBalance} лавров",
-                        style=MaterialTheme.typography.labelMedium,color=Color(0xffdfc17e))
                 }
             }} else null)
         error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
@@ -229,19 +244,31 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                 } }
             }
             if (experimental && current.settings.feedback.gamificationWidgets) {
+                val motionEnabled = current.settings.feedback.animations
+                val iconScale by animateFloatAsState(if (heroPathOpen) 1.09f else 1f,
+                    label = "hero-path-icon-scale")
+                val iconGlow = rememberIconPhase("hero-path-card-glow", 3_800, motionEnabled)
                 Surface(Modifier.fillMaxWidth().testTag("habit-hero-path-section"),
                     shape = RoundedCornerShape(22.dp), color = Color(0xff0b2b2d),
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x99dfc17e)),
                     shadowElevation = 8.dp) {
                     Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically,
+                        Row(Modifier.fillMaxWidth().clickable(role = Role.Button,
+                            onClickLabel = if (heroPathOpen) "Свернуть путь и награды" else "Открыть путь и награды") {
+                                heroPathOpen = !heroPathOpen
+                            }.testTag("habit-hero-path-heading"),
+                            verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Surface(Modifier.size(52.dp), shape = RoundedCornerShape(16.dp),
-                                color = Color(0xffdfc17e)) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Text("✦", color = Color(0xff0b2b2d),
-                                        style = MaterialTheme.typography.headlineSmall)
-                                }
+                            Surface(Modifier.size(68.dp).graphicsLayer {
+                                val pulse = if (motionEnabled) kotlin.math.sin(iconGlow * 2f * Math.PI).toFloat() else 0f
+                                scaleX = iconScale + pulse * .025f
+                                scaleY = iconScale + pulse * .025f
+                            }, shape = RoundedCornerShape(18.dp),
+                                color = Color(0xff163d3a),
+                                border = androidx.compose.foundation.BorderStroke(1.dp,
+                                    Color(0xffdfc17e).copy(alpha = .45f + iconGlow * .3f))) {
+                                OriginalImage("hero-path/256/07_golden_horn_pathfinder.webp", null,
+                                    Modifier.fillMaxSize().semantics { contentDescription = "Путь героя" })
                             }
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                 Text("Путь Героя и награды",style=MaterialTheme.typography.titleLarge,
@@ -276,16 +303,21 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                         }
                     }
                 }
-                if(heroPathOpen) {
+                AnimatedVisibility(visible=heroPathOpen,
+                    enter=if (current.settings.feedback.animations) fadeIn() + expandVertically() else EnterTransition.None,
+                    exit=if (current.settings.feedback.animations) fadeOut() + shrinkVertically() else ExitTransition.None) {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     HabitCompletionCalendar(current, today, displayCalendarMode)
                     HabitArtGallery(current, today, busy,
                     onClaimAmphora = { rankId -> scope.launch { runAction { repository.claimHeroPathAmphora(rankId) } } },
                     onRevealHiddenPath = { scope.launch { runAction { repository.revealHiddenHeroicPath() } } },
                     onBuySpark = { scope.launch { runAction { repository.buyHestiaSpark() } } },
                     showQuests = current.settings.feedback.questsEnabled)
+                    }
                 }
             }
             SacredHabitsBlock(current,today,displayCalendarMode,busy || storageError,openSacredHabits,
+                experimental = experimental,
                 onRequestedOpenConsumed=onSacredHabitsOpened,
                 onStart={ practice -> scope.launch { runAction { repository.save(practice.toHabit(displayCalendarMode,english)) } } },
                 onEdit={ habit -> edit=habit;editorOpen=true },

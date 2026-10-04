@@ -24,7 +24,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ru.genesis.calendar.GenesisApplication
@@ -62,17 +61,20 @@ fun AuthPanel(app: GenesisApplication, localLanguage: String, onLanguage: (Strin
     } else null
     var confirmKeepLocal by remember { mutableStateOf(false) }
     var confirmKeepRemote by remember { mutableStateOf(false) }
-    var yandexCalendarLogin by remember(state.user?.uid) { mutableStateOf(state.user?.email.orEmpty()) }
-    var yandexCalendarPassword by remember(state.user?.uid) { mutableStateOf("") }
     val yandexAccounts = state.accountSettings?.accounts.orEmpty().filter { it.provider == "yandex" }
     var selectedYandexId by remember(state.user?.uid) { mutableStateOf(yandexAccounts.firstOrNull()?.id.orEmpty()) }
+    val yandexCalendarLauncher = if (yandexSdk != null) rememberLauncherForActivityResult(yandexSdk.contract) { result ->
+        when (result) {
+            is YandexAuthResult.Success -> controller.connectYandexCalendar(result.token.value,
+                result.token.expiresIn, selectedYandexId)
+            is YandexAuthResult.Failure -> Toast.makeText(app, yandexSignInError, Toast.LENGTH_SHORT).show()
+            YandexAuthResult.Cancelled -> Unit
+        }
+    } else null
     LaunchedEffect(yandexAccounts) {
         if (yandexAccounts.none { it.id == selectedYandexId }) selectedYandexId = yandexAccounts.firstOrNull()?.id.orEmpty()
     }
     val selectedYandex = yandexAccounts.firstOrNull { it.id == selectedYandexId }
-    LaunchedEffect(state.user?.uid, state.accountSettings?.calendarConnected) {
-        if (state.accountSettings?.calendarConnected == true) yandexCalendarPassword = ""
-    }
 
     Column(Modifier.fillMaxWidth().testTag("auth-panel"), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         AccountSubsection("auth-sign-in-block", "◎", "Вход в GENESIS",
@@ -106,19 +108,12 @@ fun AuthPanel(app: GenesisApplication, localLanguage: String, onLanguage: (Strin
                     }
                 }
             }
-            if (state.requiresSignIn && state.accountSettings?.authProvider == "vk") {
-                OutlinedButton(onClick = { activity?.let(controller::signInWithVk) },
-                    enabled = !state.busy && activity != null,
-                    modifier = Modifier.fillMaxWidth().testTag("auth-vk-sign-in")) {
-                    Text("Продолжить вход через VK ID")
-                }
-            }
             if (state.user != null) {
                 OutlinedButton(onClick = controller::logout,
                     modifier = Modifier.fillMaxWidth().testTag("auth-logout")) { Text("Выйти") }
             }
             TextButton(onClick = {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://genesiscalendar.ru/privacy"))
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("${AUTH_ORIGIN}/privacy"))
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 runCatching { app.startActivity(intent) }.onFailure {
                     Toast.makeText(app, privacyOpenError, Toast.LENGTH_SHORT).show()
@@ -172,9 +167,7 @@ fun AuthPanel(app: GenesisApplication, localLanguage: String, onLanguage: (Strin
                 Text("Google Tasks сообщил о неполной загрузке. Объединение пока недоступно.",
                     color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             }
-            Text(if (state.accountSettings?.authProvider == "vk")
-                "Задачи хранятся на сервере GENESIS в зашифрованном виде и синхронизируются между устройствами. Копии в VK-календаре нет, поэтому восстановление сильнее зависит от GENESIS, чем при подключённом Google или Яндекс календаре."
-                else if (state.accountSettings?.authProvider == "yandex")
+            Text(if (state.accountSettings?.authProvider == "yandex")
                 "Проекты, привычки и списки задач хранятся в зашифрованном пространстве GENESIS. Задачи синхронизируются с Яндекс.Календарем после подключения."
                 else "Изменения проектов и привычек синхронизируются с зашифрованным пространством, задачи — с Google. При конфликте локальная копия сохраняется.",
                 style = MaterialTheme.typography.bodySmall)
@@ -197,7 +190,6 @@ fun AuthPanel(app: GenesisApplication, localLanguage: String, onLanguage: (Strin
                 if (yandexAccounts.size > 1) yandexAccounts.forEach { account ->
                     FilterChip(selected = selectedYandexId == account.id, onClick = {
                         selectedYandexId = account.id
-                        yandexCalendarLogin = account.email
                     }, label = { Text(account.email) }, enabled = !state.busy,
                         modifier = Modifier.fillMaxWidth().testTag("yandex-calendar-account-${account.id}"))
                 }
@@ -209,28 +201,14 @@ fun AuthPanel(app: GenesisApplication, localLanguage: String, onLanguage: (Strin
                         Text("Отключить календарь")
                     }
                 } else {
-                    Text("В Яндекс ID откройте «Пароли приложений» → «Календарь». Название можно придумать, а сам пароль выдаёт Яндекс. Скопируйте его сюда.",
+                    Text("Подтвердите доступ к Календарю через Яндекс ID. Отдельный пароль не требуется.",
                         style = MaterialTheme.typography.bodySmall)
-                    OutlinedTextField(yandexCalendarLogin, { yandexCalendarLogin = it },
-                        label = { Text("Логин или почта Яндекса") }, singleLine = true,
-                        modifier = Modifier.fillMaxWidth().testTag("yandex-calendar-login"))
-                    OutlinedTextField(yandexCalendarPassword, { yandexCalendarPassword = it },
-                        label = { Text("Пароль приложения Календарь") },
-                        visualTransformation = PasswordVisualTransformation(), singleLine = true,
-                        modifier = Modifier.fillMaxWidth().testTag("yandex-calendar-password"))
-                    Button(onClick = {
-                        controller.connectYandexCalendar(yandexCalendarLogin, yandexCalendarPassword, selectedYandexId)
-                    }, enabled = !state.busy && yandexCalendarLogin.isNotBlank() && yandexCalendarPassword.length >= 8,
+                    Button(onClick = { yandexCalendarLauncher?.launch(YandexAuthLoginOptions()) },
+                        enabled = !state.busy && yandexCalendarLauncher != null,
                         modifier = Modifier.fillMaxWidth().testTag("connect-yandex-calendar")) {
                         Text("Подключить календарь")
                     }
                 }
-                TextButton(onClick = {
-                    val intent = Intent(Intent.ACTION_VIEW,
-                        Uri.parse("https://id.yandex.ru/security/app-passwords"))
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    app.startActivity(intent)
-                }) { Text("Открыть создание пароля Календаря в Яндекс ID") }
             }
         }
 
@@ -287,7 +265,7 @@ fun GenesisLinksPanel() {
         listOf(
             Triple("Академия Генезис · Telegram", "https://t.me/genesisbasilea", "account-link-telegram"),
             Triple("Поддержать проект · Donate.Stream", "https://donate.stream/genesiscalendar", "account-link-donate"),
-            Triple("Веб-версия GENESIS", "https://genesiscalendar.ru/", "account-link-web"),
+            Triple("Веб-версия GENESIS", "${AUTH_ORIGIN}/", "account-link-web"),
         ).forEach { (label, url, tag) ->
             OutlinedButton(onClick = {
                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

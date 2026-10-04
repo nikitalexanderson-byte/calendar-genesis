@@ -27,7 +27,9 @@ internal class AuthSessionClient(context: Context) {
         }
     }
     private val cipher = LocalCipher()
-    private val aad = "genesis.native.auth.v1|$AUTH_ORIGIN"
+    // The encryption context stays stable when the service moves to another domain.
+    private val aad = "genesis.native.auth.v2"
+    private val legacyAad = "genesis.native.auth.v1|https://genesiscalendar.ru"
     private val guard = Any()
     private var generation = 0L
     private var loaded = false
@@ -53,7 +55,9 @@ internal class AuthSessionClient(context: Context) {
         if (!loaded) {
             try {
                 preferences.getString("session", null)?.let {
-                    val saved = JSONObject(cipher.decrypt(it, aad))
+                    val plain = runCatching { cipher.decrypt(it, aad) }
+                        .getOrElse { _ -> cipher.decrypt(it, legacyAad) }
+                    val saved = JSONObject(plain)
                     val value = saved.getString("cookie")
                     require(value.matches(Regex("[A-Za-z0-9,-]{16,256}")))
                     session = SessionSecret(value, saved.getLong("expiresAt"), AuthProtocol.csrf(saved.getString("csrf")))
@@ -168,14 +172,9 @@ internal class AuthSessionClient(context: Context) {
         require(accessToken.length in 1..16384)
         return request(expected, "/auth/yandex/native", JSONObject().put("accessToken", accessToken))
     }
-    fun authenticateVkTicket(expected: Long, ticket: String, flow: String): JSONObject {
-        require(ticket.matches(Regex("[A-Za-z0-9_-]{43}")) && flow.matches(Regex("[A-Za-z0-9_-]{43}")))
-        return request(expected, "/auth/vk/native/complete",
-            JSONObject().put("ticket", ticket).put("flow", flow))
-    }
-    fun connectYandexCalendar(expected: Long, login: String, appPassword: String, accountId: String? = null): JSONObject =
+    fun connectYandexCalendar(expected: Long, accessToken: String, expiresIn: Long, accountId: String? = null): JSONObject =
         request(expected, "/account/yandex-calendar/connect",
-            JSONObject().put("login", login).put("appPassword", appPassword).put("accountId", accountId))
+            JSONObject().put("accessToken", accessToken).put("expiresIn", expiresIn).put("accountId", accountId))
     fun disconnectYandexCalendar(expected: Long, accountId: String? = null): JSONObject =
         request(expected, "/account/yandex-calendar/disconnect", JSONObject().put("accountId", accountId))
 
@@ -187,7 +186,7 @@ internal class AuthSessionClient(context: Context) {
     /** Blocking; the controller always calls on Dispatchers.IO. Default platform TLS verification. */
     private fun request(expected: Long, path: String, body: JSONObject?, secret: SessionSecret? = null,
         persist: Boolean = true, method: String = if (body == null) "GET" else "POST"): JSONObject {
-        require(path in setOf("/session", "/auth/providers", "/workspace", "/bootstrap", "/stoicheion/draws", "/auth/google/native/challenge", "/auth/vk/native/complete",
+        require(path in setOf("/session", "/auth/providers", "/workspace", "/bootstrap", "/stoicheion/draws", "/auth/google/native/challenge",
             "/auth/yandex/native",
             "/account/yandex-calendar/connect", "/account/yandex-calendar/disconnect",
             "/auth/google/native", "/auth/google/native/services/config", "/auth/google/native/services",

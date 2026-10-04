@@ -4,8 +4,6 @@ import android.app.Activity
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
-import android.util.Base64
 import android.util.Log
 import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
@@ -36,7 +34,6 @@ import ru.genesis.calendar.data.LocalPreferences
 import kotlinx.coroutines.flow.first
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
-import java.security.SecureRandom
 
 data class AuthPanelState(
     val busy: Boolean = false,
@@ -55,7 +52,6 @@ data class AuthPanelState(
 class AuthController private constructor(context: Context) {
     private val app = context.applicationContext as GenesisApplication
     private val client = AuthSessionClient(context.applicationContext)
-    private val vkFlowPreferences = context.applicationContext.getSharedPreferences("genesis.vk.flow.v1", Context.MODE_PRIVATE)
     private val credentials = CredentialManager.create(context.applicationContext)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var operation: Job? = null
@@ -70,10 +66,6 @@ class AuthController private constructor(context: Context) {
 
     suspend fun yandexAvailable(): Boolean = withContext(Dispatchers.IO) {
         runCatching { client.providers(client.currentGeneration()).optBoolean("yandex") }.getOrDefault(false)
-    }
-
-    suspend fun vkAvailable(): Boolean = withContext(Dispatchers.IO) {
-        runCatching { client.providers(client.currentGeneration()).optBoolean("vk") }.getOrDefault(false)
     }
 
     suspend fun adminStats(): JSONObject {
@@ -156,36 +148,6 @@ class AuthController private constructor(context: Context) {
                 "Вход через Яндекс подтверждён. Защищённое пространство открыто.", preferredLanguage,
                 payload.optBoolean("newAccount"))
         }
-
-    fun signInWithVk(activity: Activity) = start("Готовим вход через VK ID…") { generation ->
-        withContext(Dispatchers.IO) { client.session(generation) }
-        val random = ByteArray(32).also { SecureRandom().nextBytes(it) }
-        val flow = Base64.encodeToString(random, Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
-        check(vkFlowPreferences.edit().putString("flow", flow)
-            .putLong("expiresAt", System.currentTimeMillis() + 600_000).commit())
-        val url = Uri.parse("https://genesiscalendar.ru/api/auth/vk/start")
-            .buildUpon().appendQueryParameter("native_flow", flow).build()
-        activity.startActivity(Intent(Intent.ACTION_VIEW, url).addCategory(Intent.CATEGORY_BROWSABLE))
-        publish(generation, mutableState.value.copy(busy = false,
-            message = "Завершите вход на официальной странице VK ID и вернитесь в GENESIS."))
-    }
-
-    fun completeVkSignIn(ticket: String) = start("Подтверждаем вход через VK ID…") { generation ->
-        val flow = vkFlowPreferences.getString("flow", null)
-        val expiresAt = vkFlowPreferences.getLong("expiresAt", 0)
-        vkFlowPreferences.edit().clear().commit()
-        if (flow == null || expiresAt < System.currentTimeMillis()) throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
-        withContext(Dispatchers.IO) { client.session(generation) }
-        val payload = withContext(Dispatchers.IO) { client.authenticateVkTicket(generation, ticket, flow) }
-        completeSignedIn(generation, payload, "Вход через VK ID подтверждён. Данные GENESIS открыты.",
-            newAccount = payload.optBoolean("newAccount"))
-    }
-
-    fun reportVkSignInError() {
-        vkFlowPreferences.edit().clear().apply()
-        mutableState.value = mutableState.value.copy(busy = false,
-            message = "Вход через VK ID не завершён. Повторите попытку; локальные данные сохранены.")
-    }
 
     fun connectGoogleServices(activity: Activity, launchResolution: (PendingIntent) -> Unit,
         onCompletedWithoutResolution: () -> Unit = {}) =
@@ -325,8 +287,6 @@ class AuthController private constructor(context: Context) {
                 checkedAt = System.currentTimeMillis(), message = (when (imported) {
                     CloudAccountImporter.Result.IMPORTED -> if (resolvedSettings.authProvider == "yandex")
                         "$successMessage Задачи и списки пока остаются на этом устройстве."
-                        else if (resolvedSettings.authProvider == "vk")
-                            "$successMessage Задачи синхронизируются через сервер GENESIS."
                         else if (snapshot.tasksDeferred) "$successMessage Загружаем задачи аккаунта…"
                         else "$successMessage Данные доступны в приложении."
                     CloudAccountImporter.Result.IMPORTED_WITH_GOOGLE_WARNING ->
@@ -403,12 +363,12 @@ class AuthController private constructor(context: Context) {
             checkedAt = System.currentTimeMillis(), message = "Настройка сохранена в аккаунте; локальная копия обновляется."))
     }
 
-    fun connectYandexCalendar(login: String, appPassword: String, accountId: String? = null) = start("Подключаем Яндекс.Календарь…") { generation ->
+    fun connectYandexCalendar(accessToken: String, expiresIn: Long, accountId: String? = null) = start("Подключаем Яндекс.Календарь…") { generation ->
         val previous = mutableState.value
         require(previous.user != null && previous.accountSettings?.authProvider != "google")
         val selected = accountId ?: previous.user.uid
         require(previous.accountSettings?.accounts?.any { it.id == selected && it.provider == "yandex" } == true)
-        val payload = withContext(Dispatchers.IO) { client.connectYandexCalendar(generation, login.trim(), appPassword, selected) }
+        val payload = withContext(Dispatchers.IO) { client.connectYandexCalendar(generation, accessToken, expiresIn, selected) }
         val settings = AccountSettings.fromResponse(payload) ?: throw AuthFailure(AuthFailure.Kind.PROTOCOL)
         val identity = AuthProtocol.identity(payload) ?: throw AuthFailure(AuthFailure.Kind.PROTOCOL)
         publish(generation, previous.copy(busy = false, user = identity, accountSettings = settings,
@@ -522,8 +482,6 @@ class AuthController private constructor(context: Context) {
                         message = when (imported) {
                             CloudAccountImporter.Result.IMPORTED -> if (mutableState.value.accountSettings?.authProvider == "yandex")
                                 "Защищённые данные GENESIS обновлены. Задачи остаются на устройстве."
-                                else if (mutableState.value.accountSettings?.authProvider == "vk")
-                                    "Защищённые данные и задачи GENESIS обновлены."
                                 else "Данные аккаунта и задачи Google обновлены."
                             CloudAccountImporter.Result.IMPORTED_WITH_GOOGLE_WARNING ->
                                 "Пространство обновлено. Часть задач Google пока недоступна; сохранённые задачи остаются на устройстве."
@@ -693,7 +651,7 @@ class AuthController private constructor(context: Context) {
                 failure = "Изменения проектов или привычек пока не подтверждены сервером и сохранены на устройстве."
             }
             if (mutableState.value.accountSettings?.let { it.authProvider == "google" ||
-                it.authProvider == "vk" || it.authProvider == "yandex" && it.calendarConnected } == true) {
+                it.authProvider == "yandex" && it.calendarConnected } == true) {
                 try {
                     sentTasks = withContext(Dispatchers.IO) {
                         CloudTaskSync(app.database, object : CloudTaskTransport {

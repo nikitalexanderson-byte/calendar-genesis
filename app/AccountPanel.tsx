@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { CalendarMode } from "./calendar-data";
 import type { GenesisCategory, GenesisUser, PendingLocalAccountLink, SyncRouting } from "./cloud-sync";
-import { cancelPendingLocalAccountLink, connectLocalAccount, connectYandexCalendar, deleteGenesisAccount, disconnectGoogleServices, disconnectYandexCalendar, getPendingLocalAccountLink, loadAuthProviders, mergePendingLocalAccountLink, removeAdditionalGoogleAccount, updateAccountPreferences } from "./cloud-sync";
+import { cancelPendingLocalAccountLink, connectLocalAccount, connectYandexCalendar, deleteGenesisAccount, disconnectGoogleServices, disconnectYandexCalendar, getPendingLocalAccountLink, mergePendingLocalAccountLink, removeAdditionalGoogleAccount, updateAccountPreferences } from "./cloud-sync";
 import { LANGUAGES, LANGUAGE_LABELS, localizeCategoryName, runtimeLocale, translateText, type Language } from "./i18n";
 
 import type { TimeFormat } from "./time-format";
@@ -105,10 +105,7 @@ function createHabitResetChallenge(): HabitResetChallenge {
 export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditionalGoogle, onLanguageChange, onUserChange, themeState, onThemeChange, habitTrackingEnabled, onHabitTrackingChange, habitNotificationSettings, notificationPermission, onHabitNotificationSettingsChange, habitFeedbackSettings, onHabitFeedbackSettingsChange, onRequestHabitNotifications, hiddenHabitTemplateCount, onRestoreHabitTemplates, onResetHabitTracking, categories }: AccountPanelProps) {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
-  const [yandexLogin, setYandexLogin] = useState(user.email ?? "");
-  const [yandexAppPassword, setYandexAppPassword] = useState("");
   const [yandexAccountId, setYandexAccountId] = useState(() => user.linkedAccounts?.find((account) => account.provider === "yandex")?.id ?? user.uid);
-  const [vkAvailable, setVkAvailable] = useState(false);
   const [pendingLocalLink, setPendingLocalLink] = useState<PendingLocalAccountLink | null>(null);
   const [preferenceBusy, setPreferenceBusy] = useState(false);
   const [notificationBusy, setNotificationBusy] = useState(false);
@@ -131,7 +128,6 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
 
   useEffect(() => {
     if (user.authProvider === "google") return;
-    void loadAuthProviders().then((providers) => setVkAvailable(providers.vk)).catch(() => {});
     void getPendingLocalAccountLink().then(setPendingLocalLink).catch((error) => {
       setMessage(error instanceof Error ? error.message : "Не удалось проверить объединение аккаунтов.");
     });
@@ -300,8 +296,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
       setRouting(result.user.syncRouting);
       setMessage(user.authProvider === "google"
         ? "Маршрутизация задач по Google-аккаунтам сохранена."
-        : vkAvailable ? "Маршрутизация задач по Яндекс и VK-аккаунтам сохранена."
-          : "Маршрутизация задач по аккаунтам Яндекса сохранена.");
+        : "Маршрутизация задач по аккаунтам Яндекса сохранена.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Не удалось сохранить маршрутизацию.");
     } finally {
@@ -358,14 +353,11 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
     }
   };
 
-  const connectCalendar = async () => {
+  const connectCalendar = () => {
     setBusy(true);
     setMessage("");
     try {
-      const result = await connectYandexCalendar(yandexLogin.trim(), yandexAppPassword, yandexAccountId);
-      setYandexAppPassword("");
-      onUserChange(result.user);
-      window.location.reload();
+      connectYandexCalendar(yandexAccountId);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Не удалось подключить Яндекс.Календарь.");
     } finally {
@@ -463,9 +455,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
         <p className="account-email">{user.email}</p>
 
         <div className="account-security-grid">
-          {user.authProvider === "vk"
-            ? <article><span>VK ID</span><strong>{user.language === "en" ? "Connected" : "Подключён"}</strong><small>{user.language === "en" ? "Tasks are encrypted on the GENESIS server and synced between your devices. There is no VK calendar backup. Recovery depends more on GENESIS than with a connected Google or Yandex calendar." : "Задачи зашифрованы на сервере GENESIS и синхронизируются между вашими устройствами. Копии в VK-календаре нет. Восстановление сильнее зависит от GENESIS, чем при подключённом Google или Яндекс календаре."} <a href="/privacy">{user.language === "en" ? "Privacy policy" : "Политика конфиденциальности"}</a></small></article>
-            : user.authProvider === "yandex"
+          {user.authProvider === "yandex"
             ? <article><span>Яндекс ID</span><strong>Подключён</strong><small>{user.calendarConnected ? "Яндекс.Календарь подключён. Задачи синхронизируются как события; списки хранятся в зашифрованном пространстве GENESIS." : "Вход через Яндекс. Подключите календарь отдельно."}</small></article>
             : <article><span>Google-сервисы</span><strong>{user.calendarConnected && user.googleTasksImportReady ? "Подключены" : "По желанию"}</strong><small>Calendar и Tasks подключаются отдельным согласием после входа.</small></article>}
           <article><span>Личные данные</span><strong>Зашифрованы</strong><small>AES-GCM в браузере; ключ хранится на сервере отдельно и зашифрован для автоматического входа.</small></article>
@@ -475,19 +465,18 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
         {user.authProvider !== "google" ? (
           <section className="account-preferences multi-account-preference" aria-labelledby="local-accounts-title">
             <div>
-              <span className="eyebrow">{vkAvailable ? "Яндекс ID и VK ID" : "Яндекс ID"}</span>
+              <span className="eyebrow">Яндекс ID</span>
               <h3 id="local-accounts-title">Связанные способы входа</h3>
               <p>Войдите через любой подключённый аккаунт и работайте в одном пространстве GENESIS. Google остаётся отдельным.</p>
               <div className="multi-account-actions">
                 <button type="button" className="primary-button" disabled={busy} onClick={() => connectLocalAccount("yandex")}>＋ Подключить Яндекс ID</button>
-                {vkAvailable ? <button type="button" className="primary-button" disabled={busy} onClick={() => connectLocalAccount("vk")}>＋ Подключить VK ID</button> : null}
               </div>
             </div>
             <div className="google-account-list">
               {(user.linkedAccounts ?? []).map((account) => (
                 <article key={account.id}>
-                  {account.photoURL ? <img src={account.photoURL} alt="" referrerPolicy="no-referrer" /> : <span className="account-avatar-fallback" aria-hidden="true">{account.provider === "vk" ? "VK" : "Я"}</span>}
-                  <div><strong>{account.displayName || account.email}</strong><small>{account.provider === "vk" ? "VK ID" : "Яндекс ID"} · {account.email}</small></div>
+                  {account.photoURL ? <img src={account.photoURL} alt="" referrerPolicy="no-referrer" /> : <span className="account-avatar-fallback" aria-hidden="true">Я</span>}
+                  <div><strong>{account.displayName || account.email}</strong><small>Яндекс ID · {account.email}</small></div>
                   <em>{account.isPrimary ? "Основной" : "Дополнительный"}</em>
                 </article>
               ))}
@@ -495,7 +484,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
             {pendingLocalLink ? <div className="account-sync-upgrade" role="alert">
               <div>
                 <strong>Объединить два пространства GENESIS?</strong>
-                <small>Подтверждён вход в {pendingLocalLink.provider === "vk" ? "VK ID" : "Яндекс ID"}: {pendingLocalLink.email}. Его проекты, привычки и списки будут добавлены в текущее пространство. Задачи останутся привязаны к своим календарям или серверному хранилищу. После объединения оба способа входа откроют один кабинет. Google не затрагивается.</small>
+                <small>Подтверждён вход в Яндекс ID: {pendingLocalLink.email}. Его проекты, привычки и списки будут добавлены в текущее пространство. Задачи останутся привязаны к своим календарям. После объединения оба аккаунта Яндекса откроют один кабинет. Google не затрагивается.</small>
               </div>
               <button type="button" className="primary-button" disabled={busy} onClick={() => void confirmLocalMerge()}>Да, объединить</button>
               <button type="button" className="text-button" disabled={busy} onClick={() => void cancelLocalMerge()}>Оставить отдельно</button>
@@ -511,7 +500,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
                 {(user.linkedAccounts ?? []).map((account) => <label key={account.id}>
                   <input type="checkbox" checked={routing.defaultAccountIds.includes(account.id)} onChange={(event) => setRouting((current) => ({ ...current,
                     defaultAccountIds: event.target.checked ? Array.from(new Set([...current.defaultAccountIds, account.id])) : current.defaultAccountIds.filter((id) => id !== account.id),
-                  }))} /><span>{account.provider === "vk" ? "VK ID" : "Яндекс"} · {account.email}</span>
+                  }))} /><span>Яндекс · {account.email}</span>
                 </label>)}
               </fieldset>
               {routing.mode === "category" ? <div className="category-routing-grid"><strong>Категории и аккаунты</strong>
@@ -523,9 +512,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
                 </fieldset>)}
               </div> : null}
               <button type="button" className="primary-button" disabled={preferenceBusy || routing.defaultAccountIds.length === 0} onClick={() => void saveRouting()}>Сохранить маршрутизацию</button>
-      <small>{vkAvailable
-        ? "Напоминания GENESIS на устройстве остаются локальными. Календарные уведомления Яндекса доставляет соответствующий подключённый Яндекс.Календарь; VK ID отдельного календаря не предоставляет."
-        : "Напоминания GENESIS на устройстве остаются локальными. Календарные уведомления доставляет соответствующий подключённый Яндекс.Календарь."}</small>
+      <small>Напоминания GENESIS на устройстве остаются локальными. Календарные уведомления доставляет соответствующий подключённый Яндекс.Календарь.</small>
             </div> : null}
           </section>
         ) : null}
@@ -544,20 +531,14 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
           <div>
             <span className="eyebrow">Яндекс</span>
             <h3 id="yandex-calendar-title">Яндекс.Календарь</h3>
-            {(user.linkedAccounts ?? []).filter((account) => account.provider === "yandex").length > 1 ? <label>Аккаунт Яндекса<select value={yandexAccountId} onChange={(event) => { setYandexAccountId(event.target.value); setYandexLogin(user.linkedAccounts?.find((account) => account.id === event.target.value)?.email ?? ""); }}>
+            {(user.linkedAccounts ?? []).filter((account) => account.provider === "yandex").length > 1 ? <label>Аккаунт Яндекса<select value={yandexAccountId} onChange={(event) => setYandexAccountId(event.target.value)}>
               {(user.linkedAccounts ?? []).filter((account) => account.provider === "yandex").map((account) => <option key={account.id} value={account.id}>{account.email}</option>)}
             </select></label> : null}
             {selectedYandexAccount.calendarConnected ? <p>Подключён. Задачи GENESIS появляются как события в календаре {selectedYandexAccount.email}.</p> : null}
-            {!selectedYandexAccount.calendarConnected ? <p>В Яндекс ID откройте «Пароли приложений» → «Календарь». Название можно придумать, а сам пароль выдаёт Яндекс. Скопируйте его сюда.</p> : null}
-            <p><a href="https://id.yandex.ru/security/app-passwords" target="_blank" rel="noopener noreferrer">Открыть создание пароля Календаря в Яндекс ID</a></p>
-            <small>Пароль приложения сохраняется на сервере GENESIS в зашифрованном виде. Яндекс может активировать новый пароль через 2–3 часа.</small>
+            {!selectedYandexAccount.calendarConnected ? <p>Подтвердите доступ к Календарю на официальной странице Яндекс ID. Отдельный пароль не требуется.</p> : null}
           </div>
           {selectedYandexAccount.calendarConnected ? <button type="button" className="text-button" disabled={busy} onClick={() => void disconnectCalendar()}>Отключить календарь</button>
-            : <form className="yandex-calendar-form" onSubmit={(event) => { event.preventDefault(); void connectCalendar(); }}>
-              <label>Логин Яндекса<input type="text" value={yandexLogin} onChange={(event) => setYandexLogin(event.target.value)} autoComplete="username" required maxLength={254} /></label>
-              <label>Пароль приложения «Календарь»<input type="password" value={yandexAppPassword} onChange={(event) => setYandexAppPassword(event.target.value)} autoComplete="new-password" required minLength={8} maxLength={256} /></label>
-              <button type="submit" className="primary-button" disabled={busy}>Подключить Яндекс.Календарь</button>
-            </form>}
+            : <button type="button" className="primary-button" disabled={busy} onClick={connectCalendar}>Подключить Яндекс.Календарь</button>}
         </section> : null}
 
         <section className="account-preferences theme-preference" aria-labelledby="theme-title" data-exp-ui="panel">

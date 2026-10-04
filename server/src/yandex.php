@@ -13,7 +13,7 @@ function genesisYandexRedirectUri(): string
     return rtrim((string)genesisConfig()['app_url'], '/') . '/api/auth/yandex/callback';
 }
 
-function genesisYandexAuthUrl(string $state, string $challenge): string
+function genesisYandexAuthUrl(string $state, string $challenge, bool $calendar = false): string
 {
     if (!genesisYandexConfigured()) {
         throw new RuntimeException('Yandex sign-in is not configured.');
@@ -22,7 +22,7 @@ function genesisYandexAuthUrl(string $state, string $challenge): string
         'response_type' => 'code',
         'client_id' => (string)genesisConfig()['yandex_client_id'],
         'redirect_uri' => genesisYandexRedirectUri(),
-        'scope' => 'login:info login:email login:avatar',
+        'scope' => 'login:info login:email login:avatar' . ($calendar ? ' calendar:all' : ''),
         'state' => $state,
         'code_challenge' => $challenge,
         'code_challenge_method' => 'S256',
@@ -79,6 +79,20 @@ function genesisExchangeYandexCode(string $code, string $verifier): array
         'client_id' => (string)genesisConfig()['yandex_client_id'],
         'client_secret' => (string)genesisConfig()['yandex_client_secret'],
         'code_verifier' => $verifier,
+    ]);
+}
+
+/** @return array<string, mixed> */
+function genesisRefreshYandexToken(string $refreshToken): array
+{
+    if (!genesisYandexConfigured() || $refreshToken === '') {
+        throw new RuntimeException('Yandex calendar authorization is unavailable.');
+    }
+    return genesisYandexJsonRequest('https://oauth.yandex.ru/token', [
+        'grant_type' => 'refresh_token',
+        'refresh_token' => $refreshToken,
+        'client_id' => (string)genesisConfig()['yandex_client_id'],
+        'client_secret' => (string)genesisConfig()['yandex_client_secret'],
     ]);
 }
 

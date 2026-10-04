@@ -13,6 +13,10 @@ val genesisUri = URI(genesisUrl)
 require(genesisUri.scheme == "https" && !genesisUri.host.isNullOrBlank()) {
     "-PgenesisUrl must be an absolute HTTPS URL"
 }
+require(genesisUri.rawPath in listOf("", "/") && genesisUri.rawQuery == null && genesisUri.rawFragment == null && genesisUri.userInfo == null) {
+    "-PgenesisUrl must be an HTTPS origin without a path, query, or credentials"
+}
+val genesisOrigin = "https://${genesisUri.authority}"
 val releaseStore = providers.environmentVariable("GENESIS_ANDROID_SIGNING_STORE").orNull
 val releaseStorePassword = providers.environmentVariable("GENESIS_ANDROID_SIGNING_STORE_PASSWORD").orNull
 val releaseKeyAlias = providers.environmentVariable("GENESIS_ANDROID_SIGNING_KEY_ALIAS").orNull
@@ -36,13 +40,15 @@ android {
         applicationId = "ru.genesis.calendar"
         minSdk = 26
         targetSdk = 37
-        versionCode = 62
-        versionName = "2.5.6"
+        versionCode = 63
+        versionName = "2.5.7"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         manifestPlaceholders["genesisHost"] = genesisUri.host
         manifestPlaceholders["YANDEX_CLIENT_ID"] = yandexClientId
         buildConfigField("String", "YANDEX_CLIENT_ID", "\"$yandexClientId\"")
+        buildConfigField("String", "GENESIS_ORIGIN", "\"$genesisOrigin\"")
+        buildConfigField("String", "GENESIS_HOST", "\"${genesisUri.host}\"")
         resValue("string", "launch_url", genesisUrl)
         resValue("string", "app_name", "GENESIS")
     }

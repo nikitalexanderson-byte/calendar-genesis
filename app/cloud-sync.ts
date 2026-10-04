@@ -53,7 +53,7 @@ export type GoogleAccount = {
 
 export type LinkedLocalAccount = {
   id: string;
-  provider: "yandex" | "vk";
+  provider: "yandex";
   email: string;
   displayName: string;
   photoURL: string | null;
@@ -139,7 +139,7 @@ export type GenesisTask = {
 
 export type GenesisUser = {
   uid: string;
-  authProvider?: "google" | "yandex" | "vk";
+  authProvider?: "google" | "yandex";
   displayName: string | null;
   email: string | null;
   photoURL: string | null;
@@ -395,7 +395,7 @@ function deviceTimeZone() {
 }
 
 let csrfToken = "";
-let activeAuthProvider: "google" | "yandex" | "vk" = "google";
+let activeAuthProvider: "google" | "yandex" = "google";
 let workspaceKey = "";
 let workspaceUserId = "";
 let workspaceVersion = 0;
@@ -787,7 +787,7 @@ function restoreWorkspaceSyncCache() {
   if (cached.base) encryptedHabitWorkspace = normalizeHabitWorkspace(cached.base);
 }
 
-export function restoreOfflineWorkspaceSession(userId: string, provider: "google" | "yandex" | "vk" = "google") {
+export function restoreOfflineWorkspaceSession(userId: string, provider: "google" | "yandex" = "google") {
   activeAuthProvider = provider;
   workspaceUserId = userId;
   workspaceDeviceId = deviceWorkspaceId(userId);
@@ -1057,8 +1057,7 @@ async function refreshWorkspaceFromCloud() {
 
 export async function loadGenesisWorkspace(): Promise<GenesisWorkspace> {
   const payload = await api<BootstrapPayload>("/bootstrap");
-  activeAuthProvider = payload.user.authProvider === "yandex" ? "yandex"
-    : payload.user.authProvider === "vk" ? "vk" : "google";
+  activeAuthProvider = payload.user.authProvider === "yandex" ? "yandex" : "google";
   csrfToken = payload.csrf;
   await resolveWorkspaceKey(payload);
   let structure: Awaited<ReturnType<typeof decryptWorkspace>>;
@@ -1139,8 +1138,7 @@ export function observeGenesisUser(
 export async function loadGenesisSession(signal?: AbortSignal) {
   const result = await api<{ user: GenesisUser | null; csrf: string }>("/session", { signal });
   csrfToken = result.csrf;
-  activeAuthProvider = result.user?.authProvider === "yandex" ? "yandex"
-    : result.user?.authProvider === "vk" ? "vk" : "google";
+  activeAuthProvider = result.user?.authProvider === "yandex" ? "yandex" : "google";
   return result.user;
 }
 
@@ -1151,9 +1149,9 @@ export function signInWithGoogle() {
   return Promise.resolve();
 }
 
-export async function loadAuthProviders(): Promise<{ google: boolean; yandex: boolean; vk: boolean }> {
-  if (!API_BASE) return { google: false, yandex: false, vk: false };
-  return api<{ google: boolean; yandex: boolean; vk: boolean }>("/auth/providers");
+export async function loadAuthProviders(): Promise<{ google: boolean; yandex: boolean }> {
+  if (!API_BASE) return { google: false, yandex: false };
+  return api<{ google: boolean; yandex: boolean }>("/auth/providers");
 }
 
 export function signInWithYandex() {
@@ -1163,14 +1161,7 @@ export function signInWithYandex() {
   return Promise.resolve();
 }
 
-export function signInWithVk() {
-  if (!API_BASE) throw new Error("Сервер GENESIS ещё не подключён");
-  const returnTo = cleanGenesisAppUrl(window.location.href);
-  window.location.assign(`${API_BASE}/auth/vk/start?return_to=${encodeURIComponent(returnTo)}`);
-  return Promise.resolve();
-}
-
-export function connectLocalAccount(provider: "yandex" | "vk") {
+export function connectLocalAccount(provider: "yandex") {
   if (!API_BASE) throw new Error("Сервер GENESIS ещё не подключён");
   const url = new URL(window.location.href);
   url.searchParams.set("account_link", "1");
@@ -1179,7 +1170,7 @@ export function connectLocalAccount(provider: "yandex" | "vk") {
 }
 
 export type PendingLocalAccountLink = {
-  provider: "yandex" | "vk";
+  provider: "yandex";
   memberId: string;
   email: string;
   displayName: string;
@@ -1262,9 +1253,7 @@ export function consumeGoogleAuthError() {
     yandex_invalid_state: "Защитная проверка входа через Яндекс истекла. Начните вход заново.",
     yandex_access_denied: "Вы отменили вход через Яндекс. Доступ к данным не был предоставлен.",
     yandex_oauth_failed: "Яндекс не завершил авторизацию. Попробуйте ещё раз.",
-    vk_invalid_state: "Защитная проверка входа через VK ID истекла. Начните вход заново.",
-    vk_access_denied: "Вы отменили вход через VK ID. Доступ к данным не был предоставлен.",
-    vk_oauth_failed: "VK ID не завершил авторизацию. Попробуйте ещё раз.",
+    yandex_calendar_failed: "Не удалось подключить Яндекс.Календарь. Проверьте разрешения приложения в Яндекс ID.",
     oauth_failed: "Google не завершил авторизацию. Попробуйте ещё раз или обратитесь в поддержку.",
   };
   return messages[code] ?? messages.oauth_failed;
@@ -1318,11 +1307,10 @@ export function disconnectGoogleServices() {
   });
 }
 
-export function connectYandexCalendar(login: string, appPassword: string, accountId?: string) {
-  return api<{ user: GenesisUser }>("/account/yandex-calendar/connect", {
-    method: "POST",
-    body: JSON.stringify({ login, appPassword, accountId }),
-  });
+export function connectYandexCalendar(accountId: string) {
+  if (!API_BASE) throw new Error("Сервер GENESIS ещё не подключён");
+  const returnTo = cleanGenesisAppUrl(window.location.href);
+  window.location.assign(`${API_BASE}/auth/yandex/calendar/start?account_id=${encodeURIComponent(accountId)}&return_to=${encodeURIComponent(returnTo)}`);
 }
 
 export function disconnectYandexCalendar(accountId?: string) {
@@ -1454,7 +1442,7 @@ export async function mergeLocalWorkspace(
       metricsFor(remote.tasks, remote.projects, remote.habits.length),
       normalizeHabitWorkspace(remote), local.taskLists);
   }
-  if (!remote.user.calendarConnected && remote.user.authProvider !== "vk") return;
+  if (!remote.user.calendarConnected) return;
   const remoteById = new Map(remote.tasks.map((task) => [task.id, task]));
   const tasksToUpload = local.tasks.filter((task) => {
     if (task.googleTaskId) return false;

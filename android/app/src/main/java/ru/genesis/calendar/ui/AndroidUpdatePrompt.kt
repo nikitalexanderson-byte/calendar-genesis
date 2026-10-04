@@ -67,7 +67,7 @@ internal fun updateInstallIntent(context: Context, apk: Uri): Intent =
     }
 
 internal fun fetchAndroidRelease(): AndroidRelease? {
-    val connection = URL("https://genesiscalendar.ru/android-update.json").openConnection() as HttpURLConnection
+    val connection = URL("${ru.genesis.calendar.auth.AUTH_ORIGIN}/android-update.json").openConnection() as HttpURLConnection
     connection.connectTimeout = 5_000
     connection.readTimeout = 5_000
     connection.useCaches = false
@@ -180,7 +180,7 @@ internal fun AndroidUpdateDialog(context: Context, release: AndroidRelease, onDi
                         val directory = requireNotNull(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS))
                         val file = File(directory, name)
                         val request = DownloadManager.Request(Uri.parse(
-                            "https://genesiscalendar.ru/downloads/GENESIS-Android-Native-${release.versionName}.apk"))
+                            "${ru.genesis.calendar.auth.AUTH_ORIGIN}/downloads/GENESIS-Android-Native-${release.versionName}.apk"))
                             .setTitle("GENESIS ${release.versionName}")
                             .setDescription("Обновление приложения")
                             .setMimeType("application/vnd.android.package-archive")

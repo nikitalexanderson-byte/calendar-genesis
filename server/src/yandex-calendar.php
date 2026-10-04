@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-/** CalDAV is separate from Yandex ID: personal calendars require an app password. */
+/** Existing app-password connections remain readable; new connections use Yandex OAuth. */
 function genesisYandexCalendarConnection(string $userId): ?array
 {
     $query = genesisDb()->prepare('SELECT * FROM yandex_calendar_connections WHERE user_id = :id');
@@ -20,8 +20,8 @@ function genesisYandexCalendarPath(string $login): string
 }
 
 /** @return array{status:int, body:string, etag:?string} */
-function genesisYandexDavRequest(string $login, string $password, string $method, string $path,
-    ?string $body = null, array $extraHeaders = []): array
+function genesisYandexDavRequest(string $login, string $credential, string $method, string $path,
+    ?string $body = null, array $extraHeaders = [], bool $oauth = false): array
 {
     if (!preg_match('~^/calendars/[A-Za-z0-9._%+@-]+/events-default/(?:genesis-[a-f0-9]{40}\.ics)?$~D', $path)
         || str_contains($path, '..') || !in_array($method, ['PROPFIND', 'REPORT', 'GET', 'PUT', 'DELETE'], true)) {
@@ -30,18 +30,22 @@ function genesisYandexDavRequest(string $login, string $password, string $method
     $handle = curl_init('https://caldav.yandex.ru' . $path);
     if ($handle === false) throw new RuntimeException('Не удалось открыть соединение с календарём.');
     $headers = array_merge(['Accept: application/xml, text/calendar', 'Expect:'], $extraHeaders);
-    curl_setopt_array($handle, [
+    if ($oauth) $headers[] = 'Authorization: OAuth ' . $credential;
+    $options = [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_HEADER => true,
         CURLOPT_CUSTOMREQUEST => $method,
-        CURLOPT_USERPWD => $login . ':' . $password,
-        CURLOPT_HTTPAUTH => CURLAUTH_BASIC,
         CURLOPT_FOLLOWLOCATION => false,
         CURLOPT_CONNECTTIMEOUT => 5,
         CURLOPT_TIMEOUT => 20,
         CURLOPT_HTTPHEADER => $headers,
         CURLOPT_USERAGENT => 'GENESIS-Calendar/2.4.9',
-    ]);
+    ];
+    if (!$oauth) {
+        $options[CURLOPT_USERPWD] = $login . ':' . $credential;
+        $options[CURLOPT_HTTPAUTH] = CURLAUTH_BASIC;
+    }
+    curl_setopt_array($handle, $options);
     if ($body !== null) curl_setopt($handle, CURLOPT_POSTFIELDS, $body);
     try {
         $raw = curl_exec($handle);
@@ -56,6 +60,69 @@ function genesisYandexDavRequest(string $login, string $password, string $method
     $responseHeaders = substr($raw, 0, $headerSize);
     $etag = preg_match('/^ETag:\s*(.+)$/mi', $responseHeaders, $match) ? trim($match[1]) : null;
     return ['status' => $status, 'body' => substr($raw, $headerSize), 'etag' => $etag];
+}
+
+/** @return array{credential:string,oauth:bool} */
+function genesisYandexCalendarCredential(array $connection): array
+{
+    $access = genesisDecrypt((string)($connection['access_token_enc'] ?? ''));
+    if (is_string($access) && $access !== '') {
+        $expires = (int)($connection['token_expires_at'] ?? 0);
+        $refresh = genesisDecrypt((string)($connection['refresh_token_enc'] ?? ''));
+        $stale = (int)strtotime((string)$connection['updated_at']) < time() - 90 * 86400;
+        if (is_string($refresh) && $refresh !== '' && (($expires > 0 && $expires < time() + 300) || $stale)) {
+            $tokens = genesisRefreshYandexToken($refresh);
+            $access = trim((string)($tokens['access_token'] ?? ''));
+            $refresh = trim((string)($tokens['refresh_token'] ?? $refresh));
+            if ($access === '' || $refresh === '') throw new RuntimeException('Повторно подключите Яндекс.Календарь.');
+            $lifetime = max(0, (int)($tokens['expires_in'] ?? 0));
+            genesisDb()->prepare('UPDATE yandex_calendar_connections SET access_token_enc = :access,
+                refresh_token_enc = :refresh, token_expires_at = :expires, updated_at = :now WHERE user_id = :id')
+                ->execute(['access' => genesisEncrypt($access), 'refresh' => genesisEncrypt($refresh),
+                    'expires' => $lifetime > 0 ? time() + $lifetime : null,
+                    'now' => genesisNow(), 'id' => $connection['user_id']]);
+        } elseif ($expires > 0 && $expires < time() + 300) {
+            throw new RuntimeException('Повторно подключите Яндекс.Календарь.');
+        }
+        return ['credential' => $access, 'oauth' => true];
+    }
+    $password = genesisDecrypt((string)$connection['app_password_enc']);
+    if (!is_string($password) || $password === '') throw new RuntimeException('Подключение календаря повреждено.');
+    return ['credential' => $password, 'oauth' => false];
+}
+
+/** @param array<string,mixed> $tokens */
+function genesisYandexCalendarConnectOauth(string $userId, array $tokens): void
+{
+    $user = genesisFindUser($userId);
+    if ($user === null || genesisUserProvider($user) !== 'yandex') throw new DomainException('YANDEX_ACCOUNT_REQUIRED');
+    $access = trim((string)($tokens['access_token'] ?? ''));
+    if ($access === '' || strlen($access) > 16384) throw new InvalidArgumentException('Некорректный токен Яндекса.');
+    $profile = genesisYandexUserInfo($access);
+    if (!hash_equals((string)$user['yandex_uid'], (string)$profile['id'])) {
+        throw new DomainException('Подтвердите доступ для выбранного Яндекс-аккаунта.');
+    }
+    $login = (string)$profile['email'];
+    $path = genesisYandexCalendarPath($login);
+    $result = genesisYandexDavRequest($login, $access, 'PROPFIND', $path,
+        '<?xml version="1.0"?><d:propfind xmlns:d="DAV:"><d:prop><d:displayname/></d:prop></d:propfind>',
+        ['Depth: 0', 'Content-Type: application/xml; charset=utf-8'], true);
+    if ($result['status'] !== 207) throw new DomainException('Яндекс не подтвердил доступ к календарю. Разрешите доступ к Календарю в Яндекс ID.');
+    $refresh = trim((string)($tokens['refresh_token'] ?? ''));
+    $lifetime = max(0, (int)($tokens['expires_in'] ?? 0));
+    $now = genesisNow();
+    genesisDb()->prepare('INSERT INTO yandex_calendar_connections
+        (user_id, login_enc, app_password_enc, calendar_path_enc, access_token_enc, refresh_token_enc,
+         token_expires_at, connected_at, updated_at)
+        VALUES (:id, :login, :password, :path, :access, :refresh, :expires, :now, :now)
+        ON CONFLICT(user_id) DO UPDATE SET login_enc = excluded.login_enc, app_password_enc = excluded.app_password_enc,
+        calendar_path_enc = excluded.calendar_path_enc, access_token_enc = excluded.access_token_enc,
+        refresh_token_enc = excluded.refresh_token_enc, token_expires_at = excluded.token_expires_at,
+        last_checked_at = NULL, updated_at = excluded.updated_at')->execute([
+        'id' => $userId, 'login' => genesisEncrypt($login), 'password' => '', 'path' => genesisEncrypt($path),
+        'access' => genesisEncrypt($access), 'refresh' => genesisEncrypt($refresh),
+        'expires' => $lifetime > 0 ? time() + $lifetime : null, 'now' => $now,
+    ]);
 }
 
 function genesisYandexCalendarConnect(string $userId, string $login, string $appPassword): void
@@ -237,9 +304,9 @@ function genesisRefreshYandexCalendarTasks(string $userId): void
     if ($connection === null || (!empty($connection['last_checked_at'])
         && strtotime((string)$connection['last_checked_at']) > time() - 120)) return;
     $login = genesisDecrypt((string)$connection['login_enc']);
-    $password = genesisDecrypt((string)$connection['app_password_enc']);
+    $auth = genesisYandexCalendarCredential($connection);
     $calendarPath = genesisDecrypt((string)$connection['calendar_path_enc']);
-    if (!$login || !$password || !$calendarPath) return;
+    if (!$login || !$calendarPath) return;
     $query = genesisDb()->prepare('SELECT task_id, payload_enc, event_path_enc, event_etag
         FROM yandex_calendar_tasks WHERE user_id = :id');
     $query->execute(['id' => $userId]);
@@ -255,8 +322,8 @@ function genesisRefreshYandexCalendarTasks(string $userId): void
                 $xml .= '<d:href>' . htmlspecialchars($eventPath, ENT_XML1 | ENT_QUOTES, 'UTF-8') . '</d:href>';
             }
             $xml .= '</c:calendar-multiget>';
-            $response = genesisYandexDavRequest($login, $password, 'REPORT', $calendarPath, $xml,
-                ['Depth: 1', 'Content-Type: application/xml; charset=utf-8']);
+            $response = genesisYandexDavRequest($login, $auth['credential'], 'REPORT', $calendarPath, $xml,
+                ['Depth: 1', 'Content-Type: application/xml; charset=utf-8'], $auth['oauth']);
             if ($response['status'] !== 207) throw new RuntimeException('YANDEX_CALDAV_REPORT_FAILED');
             $document = new DOMDocument();
             if (!@$document->loadXML($response['body'], LIBXML_NONET)) {
@@ -408,9 +475,9 @@ function genesisSyncTaskToYandex(string $userId, string $taskId, array $task): a
     $task['createdIn'] = 'genesis';
     $task['updatedAt'] = max((int)($task['updatedAt'] ?? 0), (int)round(microtime(true) * 1000));
     $login = genesisDecrypt((string)$connection['login_enc']);
-    $password = genesisDecrypt((string)$connection['app_password_enc']);
+    $auth = genesisYandexCalendarCredential($connection);
     $calendarPath = genesisDecrypt((string)$connection['calendar_path_enc']);
-    if (!$login || !$password || !$calendarPath) throw new RuntimeException('Подключение календаря повреждено.');
+    if (!$login || !$calendarPath) throw new RuntimeException('Подключение календаря повреждено.');
     $document = genesisYandexIcsDocument($taskId, $task, $login);
     $eventPath = $calendarPath . 'genesis-' . hash('sha1', $userId . ':' . $taskId) . '.ics';
     $prior = genesisDb()->prepare('SELECT event_etag FROM yandex_calendar_tasks WHERE user_id = :user_id AND task_id = :task_id');
@@ -420,12 +487,12 @@ function genesisSyncTaskToYandex(string $userId, string $taskId, array $task): a
     if (is_array($priorRow)) {
         if (!empty($priorRow['event_etag'])) $headers[] = 'If-Match: ' . $priorRow['event_etag'];
     } else $headers[] = 'If-None-Match: *';
-    $result = genesisYandexDavRequest($login, $password, 'PUT', $eventPath, $document, $headers);
+    $result = genesisYandexDavRequest($login, $auth['credential'], 'PUT', $eventPath, $document, $headers, $auth['oauth']);
     if ($result['status'] === 412) throw new DomainException('Событие изменилось в Яндекс.Календаре. Обновите данные перед сохранением.');
     if (!in_array($result['status'], [200, 201, 204], true)) throw new RuntimeException('Яндекс.Календарь не сохранил событие.');
     $etag = $result['etag'];
     if ($etag === null) {
-        $confirmed = genesisYandexDavRequest($login, $password, 'GET', $eventPath);
+        $confirmed = genesisYandexDavRequest($login, $auth['credential'], 'GET', $eventPath, null, [], $auth['oauth']);
         if ($confirmed['status'] === 200) $etag = $confirmed['etag'];
     }
     genesisDb()->prepare('INSERT INTO yandex_calendar_tasks
@@ -449,12 +516,12 @@ function genesisDeleteYandexCalendarTask(string $userId, string $taskId): void
     $connection = genesisYandexCalendarConnection($userId);
     if ($connection !== null) {
         $login = genesisDecrypt((string)$connection['login_enc']);
-        $password = genesisDecrypt((string)$connection['app_password_enc']);
-        if (!$login || !$password) throw new RuntimeException('Подключение календаря повреждено.');
+        $auth = genesisYandexCalendarCredential($connection);
+        if (!$login) throw new RuntimeException('Подключение календаря повреждено.');
         $headers = !empty($row['event_etag']) ? ['If-Match: ' . $row['event_etag']] : [];
         $eventPath = genesisDecrypt((string)$row['event_path_enc']);
         if (!is_string($eventPath)) throw new RuntimeException('Адрес события повреждён.');
-        $result = genesisYandexDavRequest($login, $password, 'DELETE', $eventPath, null, $headers);
+        $result = genesisYandexDavRequest($login, $auth['credential'], 'DELETE', $eventPath, null, $headers, $auth['oauth']);
         if (!in_array($result['status'], [200, 204, 404], true)) {
             throw new RuntimeException('Не удалось удалить событие из Яндекс.Календаря.');
         }

@@ -195,8 +195,7 @@ import ru.genesis.calendar.data.*
             Column(Modifier.padding(16.dp).imePadding()) {
                 EditorDialogHeader("Новый список задач", "close-task-list-editor", { if(!busy) onDismiss() })
                 Column(Modifier.weight(1f,fill=false).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(10.dp)) {
-                    Text(if (accounts?.authProvider == "vk") "Список хранится в зашифрованном пространстве GENESIS; задачи синхронизируются через сервер GENESIS."
-                        else if (yandex) "Список хранится в зашифрованном пространстве GENESIS; задачи отображаются в Яндекс.Календаре."
+                    Text(if (yandex) "Список хранится в зашифрованном пространстве GENESIS; задачи отображаются в Яндекс.Календаре."
                         else "Список хранится в Google Tasks и доступен на сайте и смартфоне.",style=MaterialTheme.typography.bodySmall)
                     OutlinedTextField(title,{title=it},label={Text("Название списка")},enabled=!busy && created==null,
                         singleLine=true,modifier=Modifier.fillMaxWidth().testTag("task-list-title"))
