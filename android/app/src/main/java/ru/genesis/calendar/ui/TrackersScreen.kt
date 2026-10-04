@@ -70,6 +70,10 @@ fun TrackersScreen(app: GenesisApplication, experimental: Boolean = false) {
             else "Сон, восстановление и эмоциональный ритм без давления", "☾",
             footer = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (experimental) Text(
+                        "ⓘ Сон и настроение — личные наблюдения без XP и Лавров. Это не медицинская оценка.",
+                        color=Color(0xffc8d9d4), style=MaterialTheme.typography.bodySmall,
+                        modifier=Modifier.testTag("trackers-observation-note"))
                     HorizontalDivider(color=Color(0xff46645e))
                     Text("Выберите день для просмотра записей", color=Color(0xffdfc17e),
                         style=MaterialTheme.typography.labelMedium)
@@ -136,7 +140,12 @@ fun TrackersScreen(app: GenesisApplication, experimental: Boolean = false) {
                     if(mood?.note?.isNotEmpty()==true)Text(mood.note)
                     Text("Отметка помогает увидеть закономерности и не влияет на XP или Лавры.",
                         style=MaterialTheme.typography.bodySmall,color=Color(0xff6c5559))
-                    Button(enabled=!busy&&!storageError,onClick={moodEditor=true},
+                    if (experimental) HabitsFeatureActionButton(
+                        label=if(mood==null) "Выбрать настроение" else "Изменить настроение",
+                        onClick={moodEditor=true}, enabled=!busy&&!storageError,
+                        containerColor=Color(0xff8e5b62), contentColor=Color.White,
+                        borderColor=Color(0xffb98b91))
+                    else Button(enabled=!busy&&!storageError,onClick={moodEditor=true},
                         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xff8e5b62))) {
                         Text(if(mood==null)"Выбрать настроение" else "Изменить настроение")
@@ -169,8 +178,10 @@ fun TrackersScreen(app: GenesisApplication, experimental: Boolean = false) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
-                FilledTonalButton(enabled=!busy&&!storageError,onClick=createSleepPlan,
-                    modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)) { Text("＋ Создать план сна") }
+                HabitsFeatureActionButton(label="＋ Создать план сна", onClick=createSleepPlan,
+                    enabled=!busy&&!storageError,
+                    containerColor=Color(0xff255b59), contentColor=Color.White,
+                    borderColor=Color(0xff679b94))
             } else {
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,
                     verticalAlignment=Alignment.CenterVertically) {
@@ -244,7 +255,7 @@ fun TrackersScreen(app: GenesisApplication, experimental: Boolean = false) {
                 } }
             }
             }
-            Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), color = Color(0xfffff3d8)) {
+            if (!experimental) Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), color = Color(0xfffff3d8)) {
                 Text("ⓘ Сон и настроение — личные наблюдения без XP и Лавров. Это не медицинская оценка.",
                     Modifier.padding(14.dp), style=MaterialTheme.typography.bodySmall,
                     color = Color(0xff5f4c28))

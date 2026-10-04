@@ -13,11 +13,14 @@ import androidx.compose.ui.unit.Density
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
 import java.io.File
+import java.time.LocalDate
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import ru.genesis.calendar.ui.HabitsScreen
 import ru.genesis.calendar.ui.standart
+import ru.genesis.calendar.domain.CalendarMode
+import ru.genesis.calendar.domain.GenesisCalendar
 
 class HabitsVisualTest {
     @get:Rule val compose = createAndroidComposeRule<StoicheionGestureActivity>()
@@ -67,7 +70,13 @@ class HabitsVisualTest {
             compose.onNodeWithText("Привычки").performClick()
         }
         compose.onNodeWithText("Новая привычка").performScrollTo().performClick()
-        compose.onNodeWithTag("habit-form-calendar-lunar").performScrollTo().performClick()
-        compose.onNodeWithTag("habit-form-calendar-lunar").assertIsSelected()
+        compose.onNodeWithText("Календарь привычки").assertExists()
+        compose.onNodeWithText("Отображение дат в этой форме").assertDoesNotExist()
+        compose.onNodeWithTag("habit-calendar-lunar").performScrollTo().performClick()
+        compose.onNodeWithTag("habit-calendar-lunar").assertIsSelected()
+        compose.onNodeWithText("Дни расписания").assertExists()
+        compose.onNodeWithText(GenesisCalendar().formatDate(LocalDate.now(),CalendarMode.LUNAR)).assertExists()
+        assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+            .takeScreenshot(File(app.getExternalFilesDir(null),"habits-editor-lunar-${width ?: 390}.png")))
     }
 }

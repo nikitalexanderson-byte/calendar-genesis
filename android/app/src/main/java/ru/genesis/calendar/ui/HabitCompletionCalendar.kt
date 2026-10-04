@@ -23,6 +23,7 @@ internal fun HabitCompletionCalendar(workspace: LocalHabitWorkspace, today: Loca
     val calendar = remember { GenesisCalendar() }
     val engine = remember(calendar) { HabitEngine(calendar) }
     var selectedMode by rememberSaveable { mutableStateOf<CalendarMode?>(null) }
+    LaunchedEffect(initialMode) { selectedMode = null }
     var anchorValue by rememberSaveable { mutableStateOf(today.toString()) }
     val mode = selectedMode ?: initialMode
     val range = remember(anchorValue, mode) { calendar.monthRange(LocalDate.parse(anchorValue), mode) }
