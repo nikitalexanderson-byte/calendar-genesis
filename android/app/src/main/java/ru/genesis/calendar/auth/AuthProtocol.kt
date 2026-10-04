@@ -2,9 +2,10 @@ package ru.genesis.calendar.auth
 
 import java.net.HttpCookie
 import org.json.JSONObject
+import ru.genesis.calendar.BuildConfig
 
-internal const val AUTH_ORIGIN = "https://genesiscalendar.ru"
-internal const val AUTH_HOST = "genesiscalendar.ru"
+internal val AUTH_ORIGIN = BuildConfig.GENESIS_ORIGIN
+internal val AUTH_HOST = BuildConfig.GENESIS_HOST
 internal const val SESSION_COOKIE = "GENESISSESSID"
 
 class ServerIdentity(val uid: String, val displayName: String, val email: String) {

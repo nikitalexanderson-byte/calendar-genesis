@@ -49,18 +49,6 @@ class MainActivity : ComponentActivity() {
     }
     private fun acceptIntent(intent: Intent) {
         val app = application as GenesisApplication
-        val callback = intent.data
-        if (intent.action == Intent.ACTION_VIEW && callback?.scheme == "genesis" && callback.host == "vk-auth") {
-            val controller = AuthController.get(applicationContext)
-            val ticket = callback.getQueryParameter("ticket")
-            if (ticket != null && ticket.matches(Regex("[A-Za-z0-9_-]{43}"))) {
-                controller.completeVkSignIn(ticket)
-            } else {
-                controller.reportVkSignInError()
-            }
-            intent.data = null
-            return
-        }
         if (intent.getStringExtra("scope") == app.workspaceScope) {
             openedTask.value = intent.getStringExtra("taskId")
             requestedSection(intent, app.workspaceScope)?.let { section ->

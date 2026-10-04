@@ -1,6 +1,9 @@
 package ru.genesis.calendar.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -10,6 +13,9 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -28,6 +34,7 @@ import ru.genesis.calendar.domain.habits.HabitEngine
 @Composable
 internal fun SacredHabitsBlock(workspace: LocalHabitWorkspace, today: LocalDate, calendarMode: CalendarMode,
     disabled: Boolean, requestedOpen: Boolean, onRequestedOpenConsumed: () -> Unit,
+    experimental: Boolean = false,
     onStart: (TheokyklosPractice) -> Unit, onEdit: (Habit) -> Unit,
     onComplete: (Habit,Boolean) -> Unit, onToggle: (Habit) -> Unit) {
     val context=LocalContext.current
@@ -36,20 +43,56 @@ internal fun SacredHabitsBlock(workspace: LocalHabitWorkspace, today: LocalDate,
         runCatching { TheokyklosCatalogSource.load(context,if(english)"en" else "ru") }.getOrNull()
     }
     var open by rememberSaveable { mutableStateOf(false) }
+    val arrowRotation by animateFloatAsState(if (open) 180f else 0f,
+        label = "sacred-habits-arrow")
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(requestedOpen) {
         if(requestedOpen) { open=true;onRequestedOpenConsumed() }
     }
-    Surface(Modifier.fillMaxWidth().testTag("sacred-habits-block"),shape=RoundedCornerShape(20.dp),
-        color=MaterialTheme.colorScheme.surfaceContainerHigh,
-        border=BorderStroke(1.dp,MaterialTheme.colorScheme.outlineVariant)) {
+    Surface((if (experimental) Modifier.animateContentSize() else Modifier).fillMaxWidth()
+        .testTag("sacred-habits-block"),shape=RoundedCornerShape(20.dp),
+        color=if (experimental) Color(0xff103330) else MaterialTheme.colorScheme.surfaceContainerHigh,
+        border=BorderStroke(1.dp,if (experimental) Color(0x99dfc17e) else MaterialTheme.colorScheme.outlineVariant),
+        shadowElevation=if (experimental) 7.dp else 0.dp) {
         Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
-            FilledTonalButton(onClick={open=!open},modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)
+            if (experimental) {
+                Row(Modifier.fillMaxWidth().clickable(role=Role.Button,
+                    onClickLabel=if (english) "Open sacred habits" else "Открыть сакральные привычки") {
+                    open=!open
+                }.testTag("sacred-habits-heading"),
+                    verticalAlignment=Alignment.CenterVertically,
+                    horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+                    Surface(Modifier.size(68.dp),shape=RoundedCornerShape(18.dp),
+                        color=Color(0xff244136),border=BorderStroke(1.dp,Color(0x99dfc17e))) {
+                        OriginalImage("theokyklos-symbols/hearth-hestia.png",null,Modifier.fillMaxSize())
+                    }
+                    Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(4.dp)) {
+                        Text(if (english) "Sacred habits" else "Сакральные привычки",
+                            style=MaterialTheme.typography.titleLarge,color=Color(0xfffff6e2))
+                        Text(if (english) "Myth inspired daily practices from the Theokyklos."
+                            else "Практики Теокиклоса: мифы и божества в ежедневном ритме.",
+                            style=MaterialTheme.typography.bodySmall,color=Color(0xffc8d9d4))
+                    }
+                }
+                OutlinedButton(onClick={open=!open},modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)
+                    .testTag("sacred-habits-toggle"),
+                    border=BorderStroke(1.dp,Color(0xffdfc17e)),
+                    colors=ButtonDefaults.outlinedButtonColors(contentColor=Color(0xffffe4a6))) {
+                    Text(if (open) {
+                        if (english) "Hide sacred practices" else "Свернуть сакральные практики"
+                    } else {
+                        if (english) "Explore sacred practices" else "Открыть сакральные практики"
+                    })
+                    Spacer(Modifier.width(8.dp))
+                    Text("⌄",Modifier.graphicsLayer { rotationZ=arrowRotation },
+                        style=MaterialTheme.typography.titleMedium)
+                }
+            } else FilledTonalButton(onClick={open=!open},modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)
                 .testTag("sacred-habits-toggle")) {
                 Text(if(open)"⌃  ${if(english)"Hide sacred habits" else "Скрыть сакральные привычки"}"
                     else "⌄  ${if(english)"Sacred habits" else "Сакральные привычки"}")
             }
-            if(open) {
+            if(open) SacredHabitsExpandedGroup(experimental) {
                 Text(if(english)"THEOKYKLOS · EMBODIED MYTH" else "ТЕОКИКЛОС · ВОПЛОЩЁННЫЙ МИФ",
                     style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.primary)
                 Text(if(english)"Each practice is a trackable everyday action inspired by a myth and patron deity."
@@ -159,4 +202,11 @@ internal fun SacredHabitsBlock(workspace: LocalHabitWorkspace, today: LocalDate,
             }
         }
     }
+}
+
+@Composable
+private fun SacredHabitsExpandedGroup(experimental: Boolean, content: @Composable ColumnScope.() -> Unit) {
+    if (experimental) Surface(shape=RoundedCornerShape(16.dp),color=Color(0xfff8f4e9)) {
+        Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp),content=content)
+    } else Column(verticalArrangement=Arrangement.spacedBy(10.dp),content=content)
 }

@@ -1,0 +1,99 @@
+name: Prepare GENESIS relocation package
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_origin:
+        description: HTTPS origin for the future site, for example https://example.org
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      TARGET_ORIGIN: ${{ inputs.target_origin }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Validate target origin
+        run: |
+          node -e 'const value = process.env.TARGET_ORIGIN; const url = new URL(value); if (url.protocol !== "https:" || url.username || url.password || url.pathname !== "/" || url.search || url.hash || url.origin !== value) throw new Error("Expected a bare HTTPS origin");'
+      - uses: pnpm/action-setup@v6
+        with:
+          version: "11.19.0"
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22.13"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: find server -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+      - run: pnpm test
+      - name: Build portable web client
+        env:
+          GENESIS_API_URL: /api
+        run: pnpm build:beget
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - name: Build signed Android app for target origin
+        env:
+          SIGNING_KEYSTORE_B64: ${{ secrets.GENESIS_ANDROID_RELEASE_KEYSTORE_B64 }}
+          GENESIS_ANDROID_SIGNING_STORE_PASSWORD: ${{ secrets.GENESIS_ANDROID_RELEASE_STORE_PASSWORD }}
+          GENESIS_ANDROID_SIGNING_KEY_ALIAS: ${{ secrets.GENESIS_ANDROID_RELEASE_KEY_ALIAS }}
+          GENESIS_ANDROID_SIGNING_KEY_PASSWORD: ${{ secrets.GENESIS_ANDROID_RELEASE_KEY_PASSWORD }}
+          GENESIS_YANDEX_CLIENT_ID: ${{ secrets.GENESIS_YANDEX_CLIENT_ID }}
+        run: |
+          set -euo pipefail
+          test -n "$SIGNING_KEYSTORE_B64"
+          test -n "$GENESIS_ANDROID_SIGNING_STORE_PASSWORD"
+          test -n "$GENESIS_ANDROID_SIGNING_KEY_ALIAS"
+          test -n "$GENESIS_ANDROID_SIGNING_KEY_PASSWORD"
+          sdkmanager "platforms;android-37.2" "build-tools;37.0.0"
+          umask 077
+          mkdir -p "$RUNNER_TEMP/genesis-signing" relocation/public_html/downloads relocation/server
+          export GENESIS_ANDROID_SIGNING_STORE="$RUNNER_TEMP/genesis-signing/release.jks"
+          printf '%s' "$SIGNING_KEYSTORE_B64" | base64 -d > "$GENESIS_ANDROID_SIGNING_STORE"
+          (cd android && bash ./gradlew :app:assembleRelease -PgenesisUrl="$TARGET_ORIGIN/" --no-daemon --console=plain)
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          test -s "$APK"
+          "$ANDROID_HOME/build-tools/37.0.0/apksigner" verify --verbose --print-certs "$APK" \
+            | grep -qi 'certificate SHA-256 digest: 1e161d36f574b0560d808c7ee95e1abe98165b3385336d0276fb381dfd901cb8'
+          BADGING="$("$ANDROID_HOME/build-tools/37.0.0/aapt" dump badging "$APK" | head -1)"
+          VERSION_CODE="$(sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p" <<< "$BADGING")"
+          VERSION_NAME="$(sed -n "s/.*versionName='\([0-9.]*\)'.*/\1/p" <<< "$BADGING")"
+          test -n "$VERSION_CODE"
+          test -n "$VERSION_NAME"
+          APK_NAME="GENESIS-Android-Native-$VERSION_NAME.apk"
+          cp "$APK" "relocation/public_html/downloads/$APK_NAME"
+          APK_SHA="$(sha256sum "relocation/public_html/downloads/$APK_NAME" | cut -d' ' -f1)"
+          printf '{"versionCode":%s,"versionName":"%s","sha256":"%s"}\n' \
+            "$VERSION_CODE" "$VERSION_NAME" "$APK_SHA" > relocation/public_html/android-update.json
+      - name: Assemble portable server and public files
+        run: |
+          set -euo pipefail
+          test ! -e server/config.php
+          test ! -e server/var
+          cp -a dist-beget/public_html/. relocation/public_html/
+          cp -a server/public/api/. relocation/public_html/api/
+          rsync -a --exclude 'config.php' --exclude 'var/' server/ relocation/server/
+          printf '{"commit":"%s","targetOrigin":"%s"}\n' "$GITHUB_SHA" "$TARGET_ORIGIN" \
+            > relocation/public_html/deploy-meta.json
+          cp docs/hosting-relocation.md relocation/README.md
+          test ! -e relocation/server/config.php
+          test ! -e relocation/server/var
+      - uses: actions/upload-artifact@v4
+        with:
+          name: genesis-relocation-package
+          path: relocation/
+          include-hidden-files: true
+          retention-days: 7

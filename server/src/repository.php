@@ -19,7 +19,7 @@ function genesisAdminEmail(): string
 function genesisUserProvider(array $user): string
 {
     $provider = (string)($user['auth_provider'] ?? 'google');
-    return in_array($provider, ['google', 'yandex', 'vk'], true) ? $provider : 'google';
+    return in_array($provider, ['google', 'yandex'], true) ? $provider : 'unsupported';
 }
 
 function genesisIsAdminUser(array $user): bool
@@ -452,67 +452,6 @@ function genesisUpsertYandexUser(array $profile): array
         ]);
     $user = genesisFindUser($id);
     if ($user === null) throw new RuntimeException('Yandex profile could not be saved.');
-    return genesisEnsureWorkspaceKey($user);
-}
-
-/** VK ID and all other providers retain separate workspaces, even with the same email. */
-function genesisFindUserByVkUid(string $uid): ?array
-{
-    $statement = genesisDb()->prepare('SELECT * FROM users WHERE vk_uid = :uid LIMIT 1');
-    $statement->execute(['uid' => $uid]);
-    $user = $statement->fetch();
-    return is_array($user) ? $user : null;
-}
-
-/** @param array{id: string, email: string, name: string, picture: ?string} $profile */
-function genesisUpsertVkUser(array $profile): array
-{
-    $uid = trim($profile['id']);
-    $email = mb_strtolower(trim($profile['email']));
-    if ($uid === '' || strlen($uid) > 128 || !genesisIsValidEmail($email)) {
-        throw new InvalidArgumentException('VK ID did not confirm this account.');
-    }
-    $internalSub = 'vk:' . hash('sha256', $uid);
-    genesisAssertIdentityAllowed($internalSub, $email);
-    if (function_exists('genesisLinkedLocalOwner')) {
-        $linkedOwner = genesisLinkedLocalOwner('vk', $uid);
-        if ($linkedOwner !== null) {
-            genesisTouchUser((string)$linkedOwner['id'], true);
-            return genesisEnsureWorkspaceKey($linkedOwner);
-        }
-    }
-    $db = genesisDb();
-    $existing = genesisFindUserByVkUid($uid);
-    if ($existing !== null && genesisUserProvider($existing) !== 'vk') {
-        throw new DomainException('VK ID is linked to another sign-in provider.');
-    }
-    $emailOwner = genesisFindUserByEmail($email);
-    if ($emailOwner !== null && ($existing === null || $emailOwner['id'] !== $existing['id'])) {
-        throw new DomainException('This email already belongs to another GENESIS account. Sign in with that provider.');
-    }
-    $now = genesisNow();
-    $name = mb_substr(trim($profile['name']) ?: 'VK ID', 0, 160);
-    $avatar = $profile['picture'] !== null ? mb_substr($profile['picture'], 0, 1000) : null;
-    if ($existing !== null) {
-        $db->prepare('UPDATE users SET email = :email, display_name = :name, avatar_url = :avatar,
-            login_count = login_count + 1, last_login_at = :now, last_seen_at = :now, updated_at = :now
-            WHERE id = :id')->execute([
-                'email' => $email, 'name' => $name, 'avatar' => $avatar,
-                'now' => $now, 'id' => (string)$existing['id'],
-            ]);
-        return genesisEnsureWorkspaceKey(genesisFindUser((string)$existing['id']) ?? $existing);
-    }
-    $id = genesisUuid();
-    $db->prepare("INSERT INTO users (id, google_sub, auth_provider, vk_uid, email,
-        display_name, avatar_url, workspace_key_mode, calendar_mode, task_calendar_mode,
-        week_start, login_count, last_login_at, last_seen_at, created_at, updated_at)
-        VALUES (:id, :sub, 'vk', :uid, :email, :name, :avatar, 'account',
-        'profane', 'profane', 'monday', 1, :now, :now, :now, :now)")->execute([
-            'id' => $id, 'sub' => $internalSub, 'uid' => $uid, 'email' => $email,
-            'name' => $name, 'avatar' => $avatar, 'now' => $now,
-        ]);
-    $user = genesisFindUser($id);
-    if ($user === null) throw new RuntimeException('VK ID profile could not be saved.');
     return genesisEnsureWorkspaceKey($user);
 }
 

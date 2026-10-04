@@ -105,31 +105,15 @@ private val nativeCopy = mapOf(
     "Выбор действует для григорианского и сакрального календарей. У Апейрона одна космическая иллюстрация для всех регионов. Источник региона выбирается выше; в григорианском календаре Южного полушария сезоны меняются местами." to
         "The choice applies to Gregorian and sacred calendars. Apeiron uses one cosmic illustration in every region. Choose the region source above; Gregorian seasons are reversed in the Southern Hemisphere.",
     "ВОЙТИ ЧЕРЕЗ:" to "SIGN IN WITH:",
-    "Готовим вход через VK ID…" to "Preparing VK ID sign-in…",
-    "Завершите вход на официальной странице VK ID и вернитесь в GENESIS." to
-        "Finish signing in on the official VK ID page, then return to GENESIS.",
-    "Подтверждаем вход через VK ID…" to "Confirming VK ID sign-in…",
-    "Вход через VK ID подтверждён. Данные GENESIS открыты." to
-        "VK ID sign-in confirmed. Your GENESIS data is open.",
-    "Вход через VK ID не завершён. Повторите попытку; локальные данные сохранены." to
-        "VK ID sign-in was not completed. Try again; local data is safe.",
     "Задачи синхронизируются через сервер GENESIS." to "Tasks sync through the GENESIS server.",
     "Защищённые данные и задачи GENESIS обновлены." to "Protected GENESIS data and tasks are up to date.",
     "Изменения задач пока не подтверждены сервером и сохранены на устройстве." to
         "Task changes are still waiting for the server and remain on this device.",
-    "Продолжить вход через VK ID" to "Continue with VK ID",
-    "Задачи хранятся на сервере GENESIS в зашифрованном виде и синхронизируются между устройствами. Копии в VK-календаре нет, поэтому восстановление сильнее зависит от GENESIS, чем при подключённом Google или Яндекс календаре." to
-        "Tasks are encrypted on the GENESIS server and synced across devices. There is no VK calendar backup, so recovery depends more on GENESIS than with a connected Google or Yandex calendar.",
     "Список хранится в зашифрованном пространстве GENESIS; задачи синхронизируются через сервер GENESIS." to
         "The list is stored in the encrypted GENESIS workspace; tasks sync through GENESIS.",
-    "Выберите вход через Google, Яндекс или VK ID. Доступный календарь подключается отдельно." to
-        "Choose Google, Yandex or VK ID. Supported calendars connect separately.",
-    "VK ID: задачи хранятся на сервере GENESIS в зашифрованном виде и синхронизируются между устройствами. Копии в VK-календаре нет; восстановление сильнее зависит от GENESIS, чем при подключённом календаре Google или Яндекса." to
-        "VK ID: tasks are encrypted on the GENESIS server and synced across devices. There is no VK calendar backup; recovery depends more on GENESIS than with a connected Google or Yandex calendar.",
     "Подробнее в политике конфиденциальности" to "Read the privacy policy",
     "Место хранения задач зависит от способа входа и подключения календаря" to
         "Task storage depends on your sign-in and calendar connection",
-    "Войти через VK ID" to "Sign in with VK ID",
     "Выберите город для точного времени по его часовому поясу." to
         "Choose a city for accurate times in its local time zone.",
     "Введите минимум 2 буквы на своём языке или на английском и выберите город из подсказок." to
@@ -525,6 +509,7 @@ private val nativeCopy = mapOf(
     "лавров" to "Laurels", " из " to " of ",
     // Remaining native-only copy. Longer fragments also cover interpolated counters and dates.
     "+ Своё напоминание" to "+ Custom reminder", "＋ План" to "＋ Plan",
+    "＋ Создать план сна" to "＋ Create sleep plan",
     "◷ План ·" to "◷ Plan ·", "Лавров" to "Laurels", " проектов" to " projects",
     " категорий" to " categories", " привычек" to " habits", " отметок" to " completions",
     " задач в Хаос-боксе" to " tasks in the Chaos box", " повторений одной задачи" to " recurrences of one task",
@@ -599,6 +584,9 @@ private val nativeCopy = mapOf(
     "Проведите пальцем несколько раз. Движение создаёт зерно расклада." to "Swipe several times. Your movement creates the spread seed.",
     "Проверено:" to "Checked:", "Произносите каждое слово осознанно, переходя от смысла к звучанию." to "Speak each word consciously, moving from meaning to sound.",
     "РИТМ СУТОК · ВРЕМЯ УСТРОЙСТВА" to "DAILY RHYTHM · DEVICE TIME", "Сакральные привычки" to "Sacred habits",
+    "Подтвердите доступ к Календарю через Яндекс ID. Отдельный пароль не требуется." to
+        "Approve Calendar access through Yandex ID. No separate password is needed.",
+    "Свернуть путь и награды" to "Collapse the path and rewards", "Путь героя" to "Hero's path",
     "Связанные аккаунты и правила отправки задач на сайте GENESIS." to "Linked accounts and task routing rules on the GENESIS website.",
     "СЗ · Север · СВ\nЗапад · Центр · Восток\nЮЗ · Юг · ЮВ" to "NW · North · NE\nWest · Center · East\nSW · South · SE",
     "Создать задачу без проекта" to "Create unassigned task", "Солнечные точки года" to "Solar points of the year",

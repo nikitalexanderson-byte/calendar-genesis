@@ -7,7 +7,6 @@ require dirname(__DIR__) . '/src/ads.php';
 require dirname(__DIR__) . '/src/google.php';
 require dirname(__DIR__) . '/src/yandex.php';
 require dirname(__DIR__) . '/src/yandex-calendar.php';
-require dirname(__DIR__) . '/src/vk.php';
 require dirname(__DIR__) . '/src/local-accounts.php';
 require dirname(__DIR__) . '/src/gemini.php';
 
@@ -55,58 +54,23 @@ try {
         expect(str_contains($expected->getMessage(), 'другим аккаунтом'), 'Provider conflict had an unexpected result.');
     }
     $db->prepare('DELETE FROM users WHERE id = :id')->execute(['id' => (string)$yandexUser['id']]);
-    $vkProfile = [
-        'id' => 'genesis-vk-smoke', 'email' => 'vk.smoke@example.org',
-        'name' => 'VK Smoke', 'picture' => null,
-    ];
-    $vkUser = genesisUpsertVkUser($vkProfile);
-    expect(genesisFindUserByVkUid($vkProfile['id'])['id'] === $vkUser['id'], 'VK identity lookup failed.');
-    expect(genesisUserProvider($vkUser) === 'vk', 'VK identity was not isolated.');
-    expect((genesisUserForClient($vkUser)['authProvider'] ?? '') === 'vk', 'VK provider was not exposed.');
-    expect(!genesisIsAdminUser($vkUser), 'VK identity received administrator privileges.');
-    expect(genesisUpsertVkUser($vkProfile)['id'] === $vkUser['id'], 'VK repeat login duplicated the account.');
-    try {
-        genesisUpsertVkUser(['id' => 'another-vk-identity', 'email' => 'genesis.smoke.test@gmail.com',
-            'name' => 'Conflict', 'picture' => null]);
-        throw new RuntimeException('VK account was merged with a Google account by email.');
-    } catch (DomainException $expected) {
-        expect(str_contains($expected->getMessage(), 'another GENESIS account'), 'VK account conflict had an unexpected result.');
-    }
-    $vkTask = genesisSyncTaskToVk((string)$vkUser['id'], 'vk-smoke-task',
-        ['title' => 'Private VK task', 'status' => 'active']);
-    expect(($vkTask['title'] ?? '') === 'Private VK task', 'VK task was not created.');
-    $encrypted = $db->prepare('SELECT payload_enc FROM vk_tasks WHERE user_id = :id AND task_id = :task');
-    $encrypted->execute(['id' => (string)$vkUser['id'], 'task' => 'vk-smoke-task']);
-    expect(!str_contains((string)$encrypted->fetchColumn(), 'Private VK task'), 'VK task was saved in plaintext.');
-    expect(count(genesisVkTasksForClient((string)$vkUser['id'])) === 1, 'VK task was not decrypted for its owner.');
-    $db->prepare('UPDATE vk_tasks SET payload_enc = :bad WHERE user_id = :id AND task_id = :task')
-        ->execute(['bad' => 'corrupt', 'id' => (string)$vkUser['id'], 'task' => 'vk-smoke-task']);
-    try {
-        genesisVkTasksForClient((string)$vkUser['id']);
-        throw new RuntimeException('A corrupted VK task was silently omitted.');
-    } catch (RuntimeException $expected) {
-        expect(str_contains($expected->getMessage(), 'could not be decrypted'), 'Corrupted VK task had an unexpected result.');
-    }
-    genesisDeleteVkTask((string)$vkUser['id'], 'vk-smoke-task');
-    expect(genesisVkTasksForClient((string)$vkUser['id']) === [], 'VK task deletion failed.');
-    $db->prepare('DELETE FROM users WHERE id = :id')->execute(['id' => (string)$vkUser['id']]);
     $linkOwner = genesisUpsertYandexUser([
         'id' => 'genesis-link-yandex-smoke', 'email' => 'link-yandex.smoke@example.org',
         'name' => 'Link Owner', 'picture' => null,
     ]);
     $linkOwnerId = (string)$linkOwner['id'];
-    $newVkProfile = [
-        'id' => 'genesis-link-new-vk-smoke', 'email' => 'link-vk.smoke@example.org',
-        'name' => 'New VK Identity', 'picture' => null,
+    $newYandexProfile = [
+        'id' => 'genesis-link-new-yandex-smoke', 'email' => 'link-new-yandex.smoke@example.org',
+        'name' => 'New Yandex Identity', 'picture' => null,
     ];
-    expect(genesisBeginLocalLink($linkOwnerId, 'vk', $newVkProfile) === 'linked',
-        'Fresh VK identity was not linked after verified sign-in.');
-    expect(genesisUpsertVkUser($newVkProfile)['id'] === $linkOwnerId,
-        'Linked VK sign-in did not open the Yandex workspace.');
+    expect(genesisBeginLocalLink($linkOwnerId, 'yandex', $newYandexProfile) === 'linked',
+        'Fresh Yandex identity was not linked after verified sign-in.');
+    expect(genesisUpsertYandexUser($newYandexProfile)['id'] === $linkOwnerId,
+        'Linked Yandex sign-in did not open the Yandex workspace.');
     expect(count(genesisLocalAccountMembers($linkOwner)) === 2, 'Linked local account was not exposed.');
     try {
-        genesisBeginLocalLink($userId, 'vk', $newVkProfile);
-        throw new RuntimeException('Google account was linked to VK.');
+        genesisBeginLocalLink($userId, 'yandex', $newYandexProfile);
+        throw new RuntimeException('Google account was linked to Yandex.');
     } catch (DomainException $expected) {
         expect(str_contains($expected->getMessage(), 'cannot be linked'), 'Google isolation error was unexpected.');
     }
@@ -537,6 +501,18 @@ try {
         'password' => genesisEncrypt('smoke-password'),
         'path' => genesisEncrypt('/calendars/smoke@yandex.ru/events-default/'), 'now' => $now,
     ]);
+    $legacyCalendar = genesisYandexCalendarConnection($userId);
+    expect($legacyCalendar !== null && genesisYandexCalendarCredential($legacyCalendar)
+        === ['credential' => 'smoke-password', 'oauth' => false],
+        'Existing Yandex Calendar app-password connections remain usable');
+    $db->prepare('UPDATE yandex_calendar_connections SET app_password_enc = :empty,
+        access_token_enc = :token WHERE user_id = :id')->execute([
+        'empty' => '', 'token' => genesisEncrypt('smoke-oauth-token'), 'id' => $userId,
+    ]);
+    $oauthCalendar = genesisYandexCalendarConnection($userId);
+    expect($oauthCalendar !== null && genesisYandexCalendarCredential($oauthCalendar)
+        === ['credential' => 'smoke-oauth-token', 'oauth' => true],
+        'Yandex Calendar OAuth connections use the encrypted access token');
     $db->prepare('INSERT INTO yandex_calendar_tasks
         (user_id, task_id, payload_enc, event_path_enc, updated_at)
         VALUES (:id, :task_id, :payload, :path, :now)')->execute([

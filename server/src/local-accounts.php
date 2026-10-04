@@ -1,10 +1,10 @@
 <?php
 declare(strict_types=1);
 
-/** Only Yandex ID and VK ID may share this account group. Google is never a member. */
+/** Yandex ID accounts can share a workspace. Google remains separate. */
 function genesisLocalAccountMembers(array $owner): array
 {
-    if (genesisUserProvider($owner) === 'google') return [];
+    if (genesisUserProvider($owner) !== 'yandex') return [];
     $members = [[
         'id' => (string)$owner['id'], 'provider' => genesisUserProvider($owner),
         'email' => (string)$owner['email'], 'displayName' => (string)$owner['display_name'],
@@ -14,6 +14,7 @@ function genesisLocalAccountMembers(array $owner): array
         FROM linked_local_accounts WHERE owner_user_id = :owner ORDER BY position, created_at');
     $query->execute(['owner' => (string)$owner['id']]);
     foreach ($query->fetchAll() as $row) {
+        if ($row['provider'] !== 'yandex') continue;
         $members[] = [
             'id' => (string)$row['member_user_id'], 'provider' => (string)$row['provider'],
             'email' => (string)$row['email'], 'displayName' => (string)$row['display_name'],
@@ -23,7 +24,7 @@ function genesisLocalAccountMembers(array $owner): array
     foreach ($members as &$member) {
         $member['calendarConnected'] = $member['provider'] === 'yandex'
             && genesisYandexCalendarConnection($member['id']) !== null;
-        $member['tasksConnected'] = $member['provider'] === 'vk' || $member['calendarConnected'];
+        $member['tasksConnected'] = $member['calendarConnected'];
     }
     unset($member);
     return $members;
@@ -41,7 +42,7 @@ function genesisLinkedLocalOwner(string $provider, string $uid): ?array
 function genesisLocalMemberForOwner(string $ownerId, string $memberId): ?array
 {
     $owner = genesisFindUser($ownerId);
-    if ($owner === null || genesisUserProvider($owner) === 'google') return null;
+    if ($owner === null || genesisUserProvider($owner) !== 'yandex') return null;
     foreach (genesisLocalAccountMembers($owner) as $member) {
         if (hash_equals($member['id'], $memberId)) return $member;
     }
@@ -50,7 +51,7 @@ function genesisLocalMemberForOwner(string $ownerId, string $memberId): ?array
 
 function genesisLocalProfileUid(string $provider, array $profile): string
 {
-    if (!in_array($provider, ['yandex', 'vk'], true)) throw new DomainException('Google remains separate.');
+    if ($provider !== 'yandex') throw new DomainException('Only Yandex accounts can be linked.');
     $uid = trim((string)($profile['id'] ?? ''));
     if ($uid === '' || strlen($uid) > 128) throw new InvalidArgumentException('Provider identity is incomplete.');
     return $uid;
@@ -64,7 +65,7 @@ function genesisCreateLocalMember(string $provider, array $profile): array
     $now = genesisNow();
     $syntheticEmail = 'linked-' . str_replace('-', '', $id) . '@internal.genesis.invalid';
     $sub = $provider . ':' . hash('sha256', $uid);
-    $uidColumn = $provider === 'yandex' ? 'yandex_uid' : 'vk_uid';
+    $uidColumn = 'yandex_uid';
     genesisDb()->prepare("INSERT INTO users (id, google_sub, auth_provider, $uidColumn, email,
         display_name, avatar_url, workspace_key_mode, calendar_mode, task_calendar_mode,
         week_start, login_count, last_login_at, last_seen_at, created_at, updated_at)
@@ -103,21 +104,21 @@ function genesisAttachLocalMember(string $ownerId, array $member, string $provid
 function genesisBeginLocalLink(string $ownerId, string $provider, array $profile): string
 {
     $owner = genesisFindUser($ownerId);
-    if ($owner === null || genesisUserProvider($owner) === 'google') {
-        throw new DomainException('Google and Yandex/VK accounts cannot be linked.');
+    if ($owner === null || genesisUserProvider($owner) !== 'yandex') {
+        throw new DomainException('Google and Yandex accounts cannot be linked.');
     }
     $uid = genesisLocalProfileUid($provider, $profile);
     $email = mb_strtolower(trim((string)($profile['email'] ?? '')));
     if (!genesisIsValidEmail($email)) throw new InvalidArgumentException('Provider email is invalid.');
     genesisAssertIdentityAllowed($provider . ':' . hash('sha256', $uid), $email);
-    $primaryUid = $provider === 'yandex' ? (string)($owner['yandex_uid'] ?? '') : (string)($owner['vk_uid'] ?? '');
+    $primaryUid = (string)($owner['yandex_uid'] ?? '');
     if ($primaryUid !== '' && hash_equals($primaryUid, $uid)) return 'already';
     $linkedOwner = genesisLinkedLocalOwner($provider, $uid);
     if ($linkedOwner !== null) {
         if (hash_equals((string)$linkedOwner['id'], $ownerId)) return 'already';
         throw new DomainException('Этот аккаунт уже подключён к другому пространству GENESIS.');
     }
-    $member = $provider === 'yandex' ? genesisFindUserByYandexUid($uid) : genesisFindUserByVkUid($uid);
+    $member = genesisFindUserByYandexUid($uid);
     if ($member === null) {
         $db = genesisDb();
         $ownsTransaction = !$db->inTransaction();
@@ -149,7 +150,8 @@ function genesisBeginLocalLink(string $ownerId, string $provider, array $profile
 function genesisPendingLocalLink(string $ownerId): ?array
 {
     $pending = $_SESSION['pending_local_link'] ?? null;
-    if (!is_array($pending) || (string)($pending['owner'] ?? '') !== $ownerId
+    if (!is_array($pending) || (string)($pending['provider'] ?? '') !== 'yandex'
+        || (string)($pending['owner'] ?? '') !== $ownerId
         || (int)($pending['issuedAt'] ?? 0) < time() - 600) {
         unset($_SESSION['pending_local_link']);
         return null;
@@ -211,9 +213,7 @@ function genesisLocalTasksForClient(array $owner): array
 {
     $tasks = [];
     foreach (genesisLocalAccountMembers($owner) as $member) {
-        $items = $member['provider'] === 'vk'
-            ? genesisVkTasksForClient($member['id'])
-            : genesisYandexCalendarTasksForClient($member['id']);
+        $items = genesisYandexCalendarTasksForClient($member['id']);
         foreach ($items as $item) {
             $id = (string)($item['id'] ?? '');
             if ($id === '') continue;
@@ -268,15 +268,12 @@ function genesisSyncTaskToLocalGroup(array $owner, string $taskId, array $task):
         }
     }
     foreach ($targets as $member) {
-        $saved = $member['provider'] === 'vk'
-            ? genesisSyncTaskToVk($member['id'], $taskId, $task)
-            : genesisSyncTaskToYandex($member['id'], $taskId, $task);
+        $saved = genesisSyncTaskToYandex($member['id'], $taskId, $task);
     }
     $targetIds = array_column($targets, 'id');
     foreach (genesisLocalAccountMembers($owner) as $member) {
         if (in_array($member['id'], $targetIds, true)) continue;
-        if ($member['provider'] === 'vk') genesisDeleteVkTask($member['id'], $taskId);
-        else genesisDeleteYandexCalendarTask($member['id'], $taskId);
+        genesisDeleteYandexCalendarTask($member['id'], $taskId);
     }
     $saved['syncAccountIds'] = $targetIds;
     return $saved;
@@ -285,7 +282,6 @@ function genesisSyncTaskToLocalGroup(array $owner, string $taskId, array $task):
 function genesisDeleteTaskFromLocalGroup(array $owner, string $taskId): void
 {
     foreach (genesisLocalAccountMembers($owner) as $member) {
-        if ($member['provider'] === 'vk') genesisDeleteVkTask($member['id'], $taskId);
-        else genesisDeleteYandexCalendarTask($member['id'], $taskId);
+        genesisDeleteYandexCalendarTask($member['id'], $taskId);
     }
 }

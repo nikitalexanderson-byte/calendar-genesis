@@ -54,11 +54,9 @@ fun WelcomeScreen(state: AuthPanelState, controller: AuthController, language: S
     val context = LocalContext.current
     val activity = context.activity()
     var yandexAvailable by remember { mutableStateOf(false) }
-    var vkAvailable by remember { mutableStateOf(false) }
     LaunchedEffect(controller, state.ready, state.busy) {
         if (!state.busy) {
             yandexAvailable = controller.yandexAvailable()
-            vkAvailable = controller.vkAvailable()
         }
     }
     val yandexSdk = remember(context) {
@@ -73,7 +71,6 @@ fun WelcomeScreen(state: AuthPanelState, controller: AuthController, language: S
         }
     } else null
     val showYandex = yandexAvailable && yandexLauncher != null
-    val showVk = vkAvailable && state.user == null
     BoxWithConstraints(Modifier.fillMaxSize().background(Brush.verticalGradient(
         listOf(welcomeNight, welcomeGreen, welcomeNight)))
         .safeDrawingPadding().imePadding().testTag("genesis-welcome")) {
@@ -128,11 +125,7 @@ fun WelcomeScreen(state: AuthPanelState, controller: AuthController, language: S
                                 style = MaterialTheme.typography.titleLarge.copy(fontFamily = FontFamily.Serif))
                         }
                     }
-                    Text(if (showVk && language == "en")
-                        "Choose Google, Yandex or VK ID. Calendar access is connected separately."
-                        else if (showVk)
-                            "Выберите вход через Google, Яндекс или VK ID. Доступный календарь подключается отдельно."
-                        else if (showYandex && language == "en")
+                    Text(if (showYandex && language == "en")
                             "Choose Google or Yandex sign-in. GENESIS receives basic profile data from your chosen provider. Connect the calendar separately."
                         else if (showYandex)
                             "Выберите вход через Google или Яндекс. GENESIS получит основные данные профиля от выбранного сервиса. Подключение календаря выполняется отдельно."
@@ -143,20 +136,6 @@ fun WelcomeScreen(state: AuthPanelState, controller: AuthController, language: S
                     if (showYandex) Text(if (language == "en") "Russian law provides local sign-in methods for users in Russia (Federal Law 149-FZ, Article 8)."
                         else "Для пользователей, находящихся в России, закон РФ предусматривает российские способы входа (149-ФЗ, ст. 8).",
                         color = Color(0xFF405B59), style = MaterialTheme.typography.bodySmall)
-                    if (showVk) Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp),
-                        color = Color(0xFFDDEBE6)) {
-                        Column(Modifier.padding(12.dp)) {
-                            Text(if (language == "en")
-                                "VK ID: tasks are encrypted on the GENESIS server and synced across devices. There is no VK calendar backup; recovery depends more on GENESIS than with a connected Google or Yandex calendar."
-                                else "VK ID: задачи хранятся на сервере GENESIS в зашифрованном виде и синхронизируются между устройствами. Копии в VK-календаре нет; восстановление сильнее зависит от GENESIS, чем при подключённом календаре Google или Яндекса.",
-                                color = Color(0xFF173A38), style = MaterialTheme.typography.bodySmall)
-                            TextButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW,
-                                Uri.parse("https://genesiscalendar.ru/privacy"))) }) {
-                                Text(if (language == "en") "Read the privacy policy"
-                                    else "Подробнее в политике конфиденциальности")
-                            }
-                        }
-                    }
                     Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp),
                         color = Color(0xFFE8E9DE)) {
                         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -176,11 +155,7 @@ fun WelcomeScreen(state: AuthPanelState, controller: AuthController, language: S
                 }
             }
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                WelcomeTrustLine("▣", if (showVk && language == "en")
-                    "Task storage depends on your sign-in and calendar connection"
-                    else if (showVk)
-                    "Место хранения задач зависит от способа входа и подключения календаря"
-                    else if (showYandex && language == "en")
+                WelcomeTrustLine("▣", if (showYandex && language == "en")
                     "Tasks sync through the selected calendar after connection"
                     else if (showYandex)
                     "Задачи синхронизируются через выбранный календарь после подключения"
@@ -224,10 +199,6 @@ fun WelcomeScreen(state: AuthPanelState, controller: AuthController, language: S
                             if (language == "en") "Sign in with Yandex" else "Войти через Яндекс",
                             "welcome-yandex-sign-in", !state.busy,
                             Modifier.weight(1f)) { yandexLauncher?.launch(YandexAuthLoginOptions()) }
-                        if (showVk) ProviderSignInIcon("ᴠκ", Color(0xFF1277E1), Color.White,
-                            if (language == "en") "Sign in with VK ID" else "Войти через VK ID",
-                            "welcome-vk-sign-in", !state.busy && activity != null,
-                            Modifier.weight(1f)) { activity?.let(controller::signInWithVk) }
                     }
                 } else {
                     Button(onClick = controller::checkSession, enabled = !state.busy,
@@ -347,5 +318,5 @@ internal fun balancedLanguageColumns(count: Int, availableColumns: Int): Int =
 
 private fun openWebsite(context: Context) {
     runCatching { context.startActivity(Intent(Intent.ACTION_VIEW,
-        Uri.parse("https://genesiscalendar.ru/")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        Uri.parse("${ru.genesis.calendar.auth.AUTH_ORIGIN}/")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
 }

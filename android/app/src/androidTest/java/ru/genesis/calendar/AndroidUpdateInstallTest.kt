@@ -86,11 +86,11 @@ class AndroidUpdateInstallTest {
         assumeTrue(InstrumentationRegistry.getArguments().getString("genesisManualDownload") == "true")
         val context = instrumentation.targetContext
         val release = requireNotNull(newerAndroidRelease(
-            URL("https://genesiscalendar.ru/android-update.json").readText(), 0))
+            URL("${BuildConfig.GENESIS_ORIGIN}/android-update.json").readText(), 0))
         val directory = requireNotNull(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS))
         val apk = File(directory, "GENESIS-network-fixture-${release.versionName}.apk")
         val manager = context.getSystemService(DownloadManager::class.java)
-        val url = "https://genesiscalendar.ru/downloads/GENESIS-Android-Native-${release.versionName}.apk"
+        val url = "${BuildConfig.GENESIS_ORIGIN}/downloads/GENESIS-Android-Native-${release.versionName}.apk"
         val request = DownloadManager.Request(Uri.parse(url))
             .setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, apk.name)
         val id = manager.enqueue(request)
