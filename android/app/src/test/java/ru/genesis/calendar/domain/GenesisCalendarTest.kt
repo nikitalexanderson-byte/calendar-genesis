@@ -36,6 +36,31 @@ class GenesisCalendarTest {
         }
     }
 
+    @Test fun lunarHabitCadencesFollowActualLunarMonthsAndThirteenthMonth() {
+        val calendar = GenesisCalendar(ZoneId.of("Europe/Moscow"))
+        val engine = RecurrenceEngine(calendar)
+        val start = "2026-04-01"
+        val end = "2026-08-01"
+        fun config(pattern: String, days: List<Int>, months: List<Int> = emptyList(), pyatas: List<Int> = emptyList()) =
+            RecurrenceConfig(true,"lunar",pattern,days,rangeEnd=end,months=months,pyatas=pyatas)
+        val decades = engine.buildDates(start, config("lunar-decades", listOf(2)))
+        assertTrue(decades.isNotEmpty())
+        assertTrue(decades.all { calendar.lunarDate(LocalDate.parse(it)).day in 11..20 })
+        val decadeDays = engine.buildDates(start, config("lunar-decade-days", listOf(3),pyatas=listOf(2)))
+        assertTrue(decadeDays.isNotEmpty())
+        assertTrue(decadeDays.all { calendar.lunarDate(LocalDate.parse(it)).day == 13 })
+        val phases = engine.buildDates(start, config("lunar-phases", listOf(1,2)))
+        assertTrue(phases.any { calendar.lunarDate(LocalDate.parse(it)).day == 1 })
+        assertTrue(phases.any { calendar.isLunarFullMoon(LocalDate.parse(it)) })
+        assertTrue(phases.all { calendar.lunarDate(LocalDate.parse(it)).day == 1 || calendar.isLunarFullMoon(LocalDate.parse(it)) })
+        val intercalaryYear = (2020..2035).first { calendar.lunarYear(it).monthCount == 13 }
+        val lunarYear = calendar.lunarYear(intercalaryYear)
+        val thirteenth = engine.buildDates(lunarYear.startDate.toString(),
+            config("lunar-yearly",listOf(1),months=listOf(13)).copy(rangeEnd=lunarYear.endDate.minusDays(1).toString()))
+        assertEquals(1, thirteenth.size)
+        assertEquals(13, calendar.lunarDate(LocalDate.parse(thirteenth.single())).monthOrdinal)
+    }
+
     @Test fun monthlyDoesNotInventFebruary31AndYearlyPreservesLeapDay() {
         val engine = RecurrenceEngine(GenesisCalendar())
         assertFalse(engine.matches("2024-01-31", RecurrenceConfig(true,"classic","monthly"),"2024-02-29"))

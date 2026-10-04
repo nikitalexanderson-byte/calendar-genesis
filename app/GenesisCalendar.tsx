@@ -250,6 +250,8 @@ class ViewErrorBoundary extends Component<{
 
 type ViewName = "today" | "calendar" | "projects" | "year" | "all-tasks" | "habits" | "stoicheion" | "theokyklos" | "admin";
 
+const WebVoiceControl = lazy(() => import("./WebVoiceControl").then((module) => ({ default: module.WebVoiceControl })));
+
 type StoredState = {
   tasks: Task[];
   projects: GenesisProject[];
@@ -1350,6 +1352,8 @@ export function GenesisCalendar() {
   const [experimentalTaskCreateTab, setExperimentalTaskCreateTab] = useState<"task" | "list">("task");
   const experimentalTaskCreateTabsRef = useRef<HTMLDivElement>(null);
   const [voiceAssistantOpen, setVoiceAssistantOpen] = useState(false);
+  const [voiceControlActive, setVoiceControlActive] = useState(false);
+  const [voiceHabitRequest, setVoiceHabitRequest] = useState<{ token: number; kind: "edit" | "delete" | "section"; id?: string; section?: string } | null>(null);
   const [voiceLaunchAnimating, setVoiceLaunchAnimating] = useState(false);
   const [geminiOpen, setGeminiOpen] = useState(false);
   const [assistantStatus, setAssistantStatus] = useState<{ available: boolean; provider: AssistantProvider; audioAvailable: boolean }>({
@@ -1605,6 +1609,7 @@ export function GenesisCalendar() {
   }, [assistantStatus.audioAvailable, voiceLaunchAnimating]);
 
   const openVoiceAssistant = () => {
+    setVoiceControlActive(false);
     if (voiceLaunchAnimating) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       if (assistantStatus.audioAvailable) setGeminiOpen(true);
@@ -3887,6 +3892,23 @@ export function GenesisCalendar() {
       : `Создано: проектов — ${createdProjects.length}, списков — ${createdTaskListCount}, задач — ${createdTasks.length}.`;
   };
 
+  const executeWebVoiceCommand = async (command: string): Promise<string> => {
+    const { runWebVoiceCommand } = await import("./web-voice-executor");
+    return runWebVoiceCommand(command, {
+      language, calendarMode: activeTaskCalendarMode, today: todayDateValue, timeZone: deviceTimeZone,
+      categories, projects, taskLists, accounts: googleAccounts.map((account) => ({ email: account.email })),
+      tasks, workspace: habitWorkspace,
+    }, {
+      navigate: navigateTo,
+      requestHabit: (request) => setVoiceHabitRequest((current) => ({ ...request, token: (current?.token ?? 0) + 1 })),
+      applyPlan: applyAssistantPlan,
+      updateWorkspace: updateHabitWorkspace,
+      openTask: openTaskEditor,
+      openProject: openProjectEditor,
+      toggleTask,
+      changeTask: persistTaskChange,
+    });
+  };
   const openProjectEditor = (project: GenesisProject) => {
     setEditingProject({ ...project, tags: [...project.tags] });
     setEditingProjectTags(project.tags.join(", "));
@@ -4343,7 +4365,7 @@ export function GenesisCalendar() {
               }
             }}>
               <option value="">{cloudUser?.authProvider === "yandex" ? "Яндекс.Календарь" : "Google Calendar"}</option>
-              {taskLists.map((taskList) => <option value={taskList.id} key={`${taskList.accountId ?? "primary"}-${taskList.id}`}>{cloudUser?.authProvider !== "google" ? "Список GENESIS" : "Google Tasks"} · {taskList.title}{taskList.accountEmail ? ` · ${taskList.accountEmail}` : ""}</option>)}
+              {taskLists.filter((taskList) => !taskList.isDefault && (taskList.accountId == null || !["мои задачи", "my tasks", "привычки genesis"].includes(taskList.title.trim().toLocaleLowerCase()))).map((taskList) => <option value={taskList.id} key={`${taskList.accountId ?? "primary"}-${taskList.id}`}>{cloudUser?.authProvider !== "google" ? "Список GENESIS" : "Google Tasks"} · {taskList.title}{taskList.accountEmail ? ` · ${taskList.accountEmail}` : ""}</option>)}
               <option value={CREATE_NEW_TASK_LIST_ID}>＋ Начать новый список задач</option>
             </select>
           </label>
@@ -5362,9 +5384,12 @@ export function GenesisCalendar() {
     );
   };
 
-  const renderCalendar = () => activeCalendarMode === "sacred"
-    ? renderSacredCalendar()
-    : renderAlternativeCalendar(activeCalendarMode);
+  const renderCalendar = () => <>
+    {activeCalendarMode === "sacred" ? renderSacredCalendar() : renderAlternativeCalendar(activeCalendarMode)}
+    <button type="button" className="ghost-button" onClick={() => selectCalendarDate(new Date())}>
+      {language === "en" ? "Back to today in Month" : "К сегодняшнему дню в месяце"}
+    </button>
+  </>;
 
   const renderProjects = () => {
     const searchTerms = tagSearch
@@ -6562,6 +6587,8 @@ export function GenesisCalendar() {
                     calendarMode={activeCalendarMode}
                     googleTasksReady={Boolean(cloudUser?.googleTasksImportReady)}
                     experimentalThemeActive={themeState.available && themeState.theme.startsWith("experimental")}
+                    voiceRequest={voiceHabitRequest}
+                    onVoiceRequestConsumed={() => setVoiceHabitRequest(null)}
                     onChange={updateHabitWorkspace}
                     onReminderRequested={createHabitGoogleReminder}
                     onReminderRemoved={async (habit) => {
@@ -7261,6 +7288,7 @@ export function GenesisCalendar() {
             accounts: googleAccounts.map((account) => ({ email: account.email })),
           }}
           onApply={applyAssistantPlan}
+          onStartControl={() => { setVoiceAssistantOpen(false); setVoiceControlActive(true); }}
           onClose={() => setVoiceAssistantOpen(false)}
         /></Suspense>
       ) : null}
@@ -7286,9 +7314,11 @@ export function GenesisCalendar() {
             accounts: googleAccounts.map((account) => ({ email: account.email })),
           }}
           onApply={applyAssistantPlan}
+          onStartControl={() => { setGeminiOpen(false); setVoiceControlActive(true); }}
           onClose={() => setGeminiOpen(false)}
         /></Suspense>
       ) : null}
+      {voiceControlActive ? <Suspense fallback={null}><WebVoiceControl language={language} onCommand={executeWebVoiceCommand} onStop={() => setVoiceControlActive(false)} /></Suspense> : null}
     </main>
   );
 }

@@ -38,6 +38,13 @@ class TrackersDocumentTest {
         assertEquals("Осознанно выбрано",data.moodEntries.first().note)
     }
 
+    @Test fun customMoodNameAndEmojiSurviveLocalRoundTrip() {
+        val custom=MoodTracker.entry(meta.copy(id="custom-mood"),date,meta.updatedAt,2.0,
+            customLabel="Вдохновение",customEmoji="🌅")
+        val restored=TrackersDocument.decode(TrackersDocument.encode(LocalTrackersWorkspace(moodEntries=listOf(custom))),0)
+        assertEquals(custom,restored.moodEntries.single())
+    }
+
     @Test fun planRulesAndObservedValuesRoundTripWithoutAddingRewardFields() {
         val rule=SleepRule("rule1","wake","after",LocalTime.of(8,0),-1.5)
         val plan=SleepPlan(meta,schedule,active=false,scoringEnabled=true,rules=listOf(rule),

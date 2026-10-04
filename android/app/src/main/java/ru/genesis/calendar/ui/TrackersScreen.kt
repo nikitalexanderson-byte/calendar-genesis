@@ -104,7 +104,7 @@ fun TrackersScreen(app: GenesisApplication, experimental: Boolean = false) {
                         TrackerMetric("☾", "Сон", averageMinutes?.let { "${it/60} ч ${it%60} мин" } ?: "Нет записи",
                             Modifier.weight(1f))
                         TrackerMetric("♥", "Настроение", mood?.let {
-                            MoodTracker.option(it.moodValue.toDouble()).label
+                            it.customLabel.ifBlank { MoodTracker.option(it.moodValue.toDouble()).label }
                         } ?: "Не выбрано", Modifier.weight(1f))
                     }
                 }
@@ -123,7 +123,7 @@ fun TrackersScreen(app: GenesisApplication, experimental: Boolean = false) {
                         Surface(Modifier.size(48.dp), shape = CircleShape, color = moodColor.copy(alpha = .16f),
                             border = BorderStroke(1.dp, moodColor.copy(alpha = .55f))) {
                             Box(contentAlignment = Alignment.Center) {
-                                Text(mood?.let { moodEmoji(it.moodValue) } ?: "😊",
+                                Text(mood?.let { it.customEmoji.ifBlank { moodEmoji(it.moodValue) } } ?: "😊",
                                     color = moodColor, style = MaterialTheme.typography.headlineSmall)
                             }
                         }
@@ -132,7 +132,7 @@ fun TrackersScreen(app: GenesisApplication, experimental: Boolean = false) {
                                 color = Color(0xff553238))
                             if(mood==null) Text("Пока не выбрано", color = Color(0xff765b60)) else {
                                 val option=MoodTracker.option(mood.moodValue.toDouble())
-                                Text(option.label,color=Color(android.graphics.Color.parseColor(option.color)),
+                                Text(mood.customLabel.ifBlank { option.label },color=Color(android.graphics.Color.parseColor(option.color)),
                                     style = MaterialTheme.typography.titleMedium)
                             }
                         }
@@ -268,10 +268,10 @@ fun TrackersScreen(app: GenesisApplication, experimental: Boolean = false) {
                     Text("История наблюдений",style=MaterialTheme.typography.titleMedium)
                     (current.sleepEntries.map { it.date }+current.moodEntries.map { it.date }).distinct().sortedDescending().take(90).forEach { historyDate ->
                         val historyMood=current.moodEntries.firstOrNull { it.date==historyDate }
-                        val moodLabel=historyMood?.let { moodOptionLabel(it.moodValue) } ?: "—"
+                        val moodLabel=historyMood?.let { it.customLabel.ifBlank { moodOptionLabel(it.moodValue) } } ?: "—"
                         TextButton(onClick={dateValue=historyDate.toString()},enabled=!busy,
                             modifier = Modifier.fillMaxWidth()) {
-                            Text("$historyDate · ☾ ${current.sleepEntries.count { it.date==historyDate }} · ${historyMood?.let { moodEmoji(it.moodValue) } ?: "—"} $moodLabel",
+                            Text("$historyDate · ☾ ${current.sleepEntries.count { it.date==historyDate }} · ${historyMood?.let { it.customEmoji.ifBlank { moodEmoji(it.moodValue) } } ?: "—"} $moodLabel",
                                 Modifier.fillMaxWidth())
                         }
                     }
@@ -289,10 +289,11 @@ fun TrackersScreen(app: GenesisApplication, experimental: Boolean = false) {
     if(moodEditor) {
         val existing=workspace?.moodEntries?.firstOrNull { it.date==date }
         MoodObservationEditor(workspace?.moodEntries.orEmpty(),if(existing!=null)date else LocalDate.now(),viewMode,busy,error,
-            onDismiss={if(!busy)moodEditor=false}) { chosenDate,value,note ->
+            onDismiss={if(!busy)moodEditor=false}) { chosenDate,value,note,customLabel,customEmoji ->
             val target=workspace?.moodEntries?.firstOrNull { it.date==chosenDate }
             scope.launch { action {
-                repository.saveMood(chosenDate,value,note,target?.tags ?: emptyList(),target?.entity?.version ?: 0)
+                repository.saveMood(chosenDate,value,note,target?.tags ?: emptyList(),target?.entity?.version ?: 0,
+                    customLabel,customEmoji)
                 dateValue=chosenDate.toString();moodEditor=false
             } }
         }
@@ -481,12 +482,15 @@ private fun SleepObservationEditor(plan: SleepPlan,entry: SleepEntry?,date: Loca
 
 @Composable
 private fun MoodObservationEditor(entries: List<MoodEntry>,initialDate: LocalDate,mode: CalendarMode,busy: Boolean,error: String?,
-    onDismiss: () -> Unit,onSave: (LocalDate,Int,String) -> Unit) {
+    onDismiss: () -> Unit,onSave: (LocalDate,Int,String,String,String) -> Unit) {
     var dateValue by rememberSaveable(initialDate.toString()) { mutableStateOf(initialDate.toString()) }
     val date=LocalDate.parse(dateValue)
     val entry=entries.firstOrNull { it.date==date }
     var selected by rememberSaveable(dateValue) { mutableStateOf(entry?.moodValue) }
     var note by rememberSaveable(dateValue) { mutableStateOf(entry?.note ?: "") }
+    var custom by rememberSaveable(dateValue) { mutableStateOf(entry?.customLabel?.isNotBlank() == true) }
+    var customLabel by rememberSaveable(dateValue) { mutableStateOf(entry?.customLabel ?: "") }
+    var customEmoji by rememberSaveable(dateValue) { mutableStateOf(entry?.customEmoji ?: "") }
     Dialog(onDismissRequest=onDismiss) { Surface(shape=MaterialTheme.shapes.large) {
         Column(Modifier.padding(16.dp).imePadding().verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
@@ -498,14 +502,34 @@ private fun MoodObservationEditor(entries: List<MoodEntry>,initialDate: LocalDat
             Text("Дата настроения",style=MaterialTheme.typography.labelLarge)
             AuthorDatePicker(dateValue,mode) { if(!busy) dateValue=it }
             TextButton(onClick={dateValue=LocalDate.now().toString()},enabled=!busy) { Text("Сегодня") }
-            MoodCatalog.options.forEach { option -> FilterChip(selected==option.value,{selected=option.value},enabled=!busy,
+            MoodCatalog.options.forEach { option -> FilterChip(!custom&&selected==option.value,{
+                selected=option.value;custom=false
+            },enabled=!busy,
                 label={Text("${moodEmoji(option.value)} ${moodOptionLabel(option.value)}")},modifier=Modifier.fillMaxWidth()) }
+            FilterChip(custom,onClick={custom=true;if(selected==null)selected=0},enabled=!busy,
+                label={Text("✨ Своё настроение")},modifier=Modifier.fillMaxWidth().testTag("custom-mood-choice"))
+            if(custom) {
+                OutlinedTextField(customLabel,{if(it.length<=40)customLabel=it},label={Text("Название настроения")},
+                    enabled=!busy,modifier=Modifier.fillMaxWidth().testTag("custom-mood-label"))
+                OutlinedTextField(customEmoji,{if(it.length<=16)customEmoji=it},label={Text("Свой смайлик")},
+                    enabled=!busy,modifier=Modifier.fillMaxWidth().testTag("custom-mood-emoji"))
+                Text("Для аналитики используется выбранная оценка настроения; по умолчанию — нейтральная.",
+                    style=MaterialTheme.typography.bodySmall)
+                entries.filter { it.customLabel.isNotBlank() && it.customEmoji.isNotBlank() }
+                    .distinctBy { it.customLabel to it.customEmoji }.takeLast(6).forEach { saved ->
+                        TextButton(onClick={customLabel=saved.customLabel;customEmoji=saved.customEmoji;selected=saved.moodValue},
+                            enabled=!busy) { Text("${saved.customEmoji} ${saved.customLabel}") }
+                    }
+            }
             OutlinedTextField(note,{if(it.length<=200)note=it},label={Text("Заметка и контекст")},enabled=!busy,modifier=Modifier.fillMaxWidth())
             Text("Не влияет на баллы. Без выбора запись не создаётся.",style=MaterialTheme.typography.bodySmall)
             error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
             Row {
                 TextButton(onClick=onDismiss,enabled=!busy) { Text("Отмена") }
-                Button(enabled=!busy&&selected!=null,onClick={selected?.let { onSave(date,it,note) }}) { Text("Сохранить") }
+                Button(enabled=!busy&&selected!=null&&(!custom||(customLabel.isNotBlank()&&customEmoji.isNotBlank())),
+                    onClick={selected?.let { onSave(date,it,note,if(custom)customLabel else "",if(custom)customEmoji else "") }}) {
+                    Text("Сохранить")
+                }
             }
         }
     } }

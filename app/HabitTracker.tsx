@@ -145,6 +145,8 @@ type DailyPanelProps = {
 type HabitTrackerPageProps = DailyPanelProps & {
   googleTasksReady: boolean;
   experimentalThemeActive?: boolean;
+  voiceRequest?: { token: number; kind: "edit" | "delete" | "section"; id?: string; section?: string } | null;
+  onVoiceRequestConsumed?: () => void;
   onReminderRequested?: (habit: Habit) => Promise<{ googleTaskId: string | null; googleEventId: string | null }>;
   onReminderRemoved?: (habit: Habit) => Promise<void>;
 };
@@ -788,7 +790,7 @@ function MoodTracker({ workspace, date, language, onChange }: Pick<DailyPanelPro
       <button type="button" className="mood-summary" aria-expanded={isOpen} onClick={() => setIsOpen((current) => !current)}>
         <span>{isEnglish ? "Mood of the day" : "Настроение дня"}</span>
         <strong style={{ color: mood ? moodColor(mood.moodValue) : undefined }}>
-          {selected ? (isEnglish ? selected.labelEn : selected.label) : (isEnglish ? "Not selected" : "Не выбрано")}
+          {mood?.customLabel ? `${mood.customEmoji || "✨"} ${mood.customLabel}` : selected ? (isEnglish ? selected.labelEn : selected.label) : (isEnglish ? "Not selected" : "Не выбрано")}
         </strong>
         <span className="mood-summary-action">
           {isEnglish ? "Choose" : "Выбрать"}
@@ -801,10 +803,10 @@ function MoodTracker({ workspace, date, language, onChange }: Pick<DailyPanelPro
           <button
             type="button"
             role="option"
-            aria-selected={mood?.moodValue === option.value}
-            className={mood?.moodValue === option.value ? "selected" : ""}
+            aria-selected={mood?.moodValue === option.value && !mood.customLabel}
+            className={mood?.moodValue === option.value && !mood.customLabel ? "selected" : ""}
             style={{ "--mood-color": moodColor(option.value) } as CSSProperties}
-            onClick={() => onChange(replaceMood(workspace, date, { moodValue: option.value as MoodValue }))}
+            onClick={() => onChange(replaceMood(workspace, date, { moodValue: option.value as MoodValue, customLabel: "", customEmoji: "" }))}
             title={isEnglish ? option.labelEn : option.label}
             key={option.value}
           >
@@ -813,6 +815,22 @@ function MoodTracker({ workspace, date, language, onChange }: Pick<DailyPanelPro
             <em>{option.value > 0 ? `+${option.value}` : option.value}</em>
           </button>
         ))}
+      </div>
+      <div className="mood-custom">
+        <label><span>{isEnglish ? "Your mood" : "Своё настроение"}</span>
+          <input maxLength={40} value={mood?.customLabel ?? ""} placeholder={isEnglish ? "Name your mood" : "Название настроения"}
+            onChange={(event) => onChange(replaceMood(workspace, date, { customLabel: event.target.value }))} />
+        </label>
+        <label><span>{isEnglish ? "Emoji" : "Смайлик"}</span>
+          <input maxLength={16} value={mood?.customEmoji ?? ""} placeholder="✨"
+            onChange={(event) => onChange(replaceMood(workspace, date, { customEmoji: event.target.value }))} />
+        </label>
+        {Array.from(new Map(workspace.moodEntries.filter((entry) => entry.customLabel && entry.customEmoji)
+          .map((entry) => [`${entry.customLabel}|${entry.customEmoji}`, entry])).values()).slice(-6).map((entry) => (
+            <button type="button" key={`${entry.customLabel}|${entry.customEmoji}`} onClick={() => onChange(replaceMood(workspace, date, {
+              moodValue: entry.moodValue, customLabel: entry.customLabel, customEmoji: entry.customEmoji,
+            }))}>{entry.customEmoji} {entry.customLabel}</button>
+          ))}
       </div>
       <label className="mood-custom">
         <span>{isEnglish ? "Note and context" : "Заметка и контекст"}</span>
@@ -1397,7 +1415,7 @@ function SacredHabitLibrary({
   );
 }
 
-export function HabitTrackerPage({ workspace, date, language, timeFormat, calendarMode, googleTasksReady, experimentalThemeActive = false, onChange, onReminderRequested, onReminderRemoved }: HabitTrackerPageProps) {
+export function HabitTrackerPage({ workspace, date, language, timeFormat, calendarMode, googleTasksReady, experimentalThemeActive = false, voiceRequest, onVoiceRequestConsumed, onChange, onReminderRequested, onReminderRemoved }: HabitTrackerPageProps) {
   const isEnglish = language === "en";
   const workspaceRef = useRef(workspace);
   useEffect(() => {
@@ -1472,6 +1490,26 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
       : (isEnglish ? "Habit deleted before the mastery milestone. The Laurels balance was reset to zero." : "Привычка удалена до рубежа мастерства. Баланс Лавров обнулён."));
     if ((habit.reminder.googleTaskId || habit.reminder.googleEventId) && onReminderRemoved) void onReminderRemoved(habit).catch((error: Error) => setMessage(error.message));
   };
+
+  useEffect(() => {
+    if (!voiceRequest) return;
+    queueMicrotask(() => {
+      if (voiceRequest.kind === "section") {
+        if (voiceRequest.section === "modules" || voiceRequest.section === "progress" || voiceRequest.section === "library") {
+          setExperimentalHabitTab(voiceRequest.section);
+        }
+        onVoiceRequestConsumed?.();
+        return;
+      }
+      const habit = workspaceRef.current.habits.find((item) => item.id === voiceRequest.id);
+      if (!habit) return;
+      if (voiceRequest.kind === "edit") setEditingHabit(habit);
+      else removeHabit(habit);
+      onVoiceRequestConsumed?.();
+    });
+  // The request token represents one spoken command. Workspace updates must not replay it.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [voiceRequest?.token]);
 
   const hideStarterTemplate = (template: HabitTemplate) => {
     onChange({ ...workspace, hiddenDefaultTemplates: Array.from(new Set([...workspace.hiddenDefaultTemplates, template.id])) });

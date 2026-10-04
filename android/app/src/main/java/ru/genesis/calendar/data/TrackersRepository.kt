@@ -58,14 +58,20 @@ class TrackersRepository(app: GenesisApplication) {
         current.copy(sleepEntries=current.sleepEntries.filterNot { it.planId==planId&&it.date==date }+entry)
     }
     /** Mirrors web replaceMood: one visible entry per civil date, existing ID retained. */
-    suspend fun saveMood(date: LocalDate,value: Int,note: String,tags: List<String>,expectedVersion: Int) = mutate { current ->
+    suspend fun saveMood(date: LocalDate,value: Int,note: String,tags: List<String>,expectedVersion: Int,
+        customLabel: String = "", customEmoji: String = "") = mutate { current ->
         require(value in -5..6) { "Выберите настроение." }
         require(note.length<=200) { "Заметка должна быть не длиннее 200 символов." }
+        require(customLabel.length<=40 && customEmoji.length<=16) { "Название или смайлик слишком длинные." }
+        require((customLabel.isBlank() && customEmoji.isBlank()) || (customLabel.isNotBlank() && customEmoji.isNotBlank())) {
+            "Укажите название и смайлик своего настроения."
+        }
         val existing=current.moodEntries.firstOrNull { it.date==date }
         require((existing?.entity?.version ?: 0)==expectedVersion) { "Запись изменилась. Откройте её заново." }
         val stamp=Instant.now().toString()
         val meta=(existing?.entity ?: TrackerEntity.create("mood",stamp)).changed(stamp)
-        val entry=MoodTracker.entry(meta,date,stamp,value.toDouble(),note=note,tags=tags)
+        val entry=MoodTracker.entry(meta,date,stamp,value.toDouble(),note=note,tags=tags,
+            customLabel=customLabel,customEmoji=customEmoji)
         current.copy(moodEntries=current.moodEntries.filterNot { it.date==date }+entry)
     }
     suspend fun resetTracking() = mutate { LocalTrackersWorkspace(revision = it.revision) }
@@ -100,7 +106,7 @@ internal object TrackersDocument {
             .put("wokeAt",e.wokeAt?.toString() ?: "").put("durationMinutes",e.durationMinutes ?: JSONObject.NULL).put("quality",e.quality ?: JSONObject.NULL)
             .put("deviationMinutes",e.deviationMinutes ?: JSONObject.NULL).put("note",e.note).put("score",e.score) }))
         .put("moodEntries",JSONArray(w.moodEntries.map { e -> entity(e.entity).put("date",e.date.toString()).put("recordedAt",e.recordedAt).put("moodValue",e.moodValue)
-            .put("note",e.note).put("tags",JSONArray(e.tags)) })).toString()
+            .put("note",e.note).put("tags",JSONArray(e.tags)).put("customLabel",e.customLabel).put("customEmoji",e.customEmoji) })).toString()
     fun decode(json: String,revision: Long): LocalTrackersWorkspace {
         val v=JSONObject(json); require(v.getInt("localSchema")==1) { "Неподдерживаемая версия трекеров" }
         return LocalTrackersWorkspace(
@@ -112,6 +118,7 @@ internal object TrackersDocument {
                 e.nullable("wokeAt")?.let(LocalTime::parse),if(e.isNull("durationMinutes"))null else e.getInt("durationMinutes"),if(e.isNull("quality"))null else e.getInt("quality"),
                 if(e.isNull("deviationMinutes"))null else e.getInt("deviationMinutes"),e.getString("note"),e.getDouble("score")) },
             v.getJSONArray("moodEntries").objects().map { e -> val tags=e.getJSONArray("tags")
-                MoodEntry(entity(e),LocalDate.parse(e.getString("date")),e.getString("recordedAt"),e.getInt("moodValue"),e.getString("note"),(0 until tags.length()).map(tags::getString)) },revision)
+                MoodEntry(entity(e),LocalDate.parse(e.getString("date")),e.getString("recordedAt"),e.getInt("moodValue"),e.getString("note"),
+                    (0 until tags.length()).map(tags::getString),e.optString("customLabel"),e.optString("customEmoji")) },revision)
     }
 }

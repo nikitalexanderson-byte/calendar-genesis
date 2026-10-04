@@ -301,6 +301,8 @@ internal object CloudWorkspaceMigration {
             .put("moodValue", mood.coerceIn(-5, 6))
             .put("note", source.optString("note").takeUnless { it == "null" } ?: source.optString("custom"))
             .put("tags", source.optJSONArray("tags") ?: JSONArray())
+            .put("customLabel", source.optString("customLabel").take(40))
+            .put("customEmoji", source.optString("customEmoji").take(16))
     }.distinctBy { it.getString("id") })
 
     private fun normalizeQuests(rows: JSONArray?, habitIds: Set<String>) = jsonArray(rows?.objects().orEmpty().mapNotNull { source ->

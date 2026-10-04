@@ -154,6 +154,10 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
             weekStartsOnSunday, lunarByDecade, onLunarLayoutChange={ lunarByDecade=it },
             onNavigate = { shown = it.toString(); selected = it.toString(); onSelect(it) },
             onChoose = { selected = it.toString(); onSelect(it) },
+            onToday = {
+                val today = LocalDate.now()
+                shown = today.toString(); selected = today.toString(); onSelect(today)
+            },
             onOpenTaskList = { taskListDate = it.toString() },
             taskActions = { day ->
                 val dayTasks = TaskOccurrences.byDate(tasks, day, day)[day.toString()].orEmpty()
@@ -213,7 +217,7 @@ private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange
     onModeChange: (CalendarMode) -> Unit, selected: LocalDate, experimental: Boolean, tasks: List<LocalTask>,
     focusDayRequest: Int, weekStartsOnSunday: Boolean, lunarByDecade: Boolean,
     onLunarLayoutChange: (Boolean) -> Unit,
-    onNavigate: (LocalDate) -> Unit, onChoose: (LocalDate) -> Unit,
+    onNavigate: (LocalDate) -> Unit, onChoose: (LocalDate) -> Unit, onToday: () -> Unit,
     onOpenTaskList: (LocalDate) -> Unit,
     taskActions: @Composable (LocalDate) -> Unit,
     habitActions: (@Composable (LocalDate) -> Unit)?) {
@@ -308,6 +312,9 @@ private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange
                 Column(Modifier.weight(1.55f).fillMaxHeight().verticalScroll(scroll),
                     verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     monthContent()
+                    OutlinedButton(onClick = onToday, modifier = Modifier.fillMaxWidth().testTag("calendar-month-today")) {
+                        Text("К сегодняшнему дню")
+                    }
                     Spacer(Modifier.height(16.dp))
                 }
                 Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())
@@ -325,6 +332,9 @@ private fun CalendarMonthContent(calendar: GenesisCalendar, range: CalendarRange
                 Box(Modifier.fillMaxWidth().onGloballyPositioned {
                     selectedDayTop = it.positionInParent().y.roundToInt(); selectedDayHeight = it.size.height
                 }) { dayContent() }
+                OutlinedButton(onClick = onToday, modifier = Modifier.fillMaxWidth().testTag("calendar-month-today")) {
+                    Text("К сегодняшнему дню")
+                }
                 Spacer(Modifier.height(maxOf(16.dp, with(density) {
                     (viewportHeight - selectedDayHeight).coerceAtLeast(0).toDp()
                 })))

@@ -90,6 +90,12 @@ internal fun taskListsForTasks(lists: List<GoogleTaskList>, tasks: List<LocalTas
             raw.optString("googleAccountId").takeUnless { raw.isNull("googleAccountId") || it.isBlank() }, raw.optString("googleAccountEmail"))
     }.getOrNull() }).distinctBy { it.accountId to it.id }
 
+/** Only lists a person created are offered when placing a new task. */
+internal fun userTaskLists(lists: List<GoogleTaskList>): List<GoogleTaskList> = lists.filterNot { list ->
+    list.isDefault || (list.accountId != null && list.title.trim().lowercase() in
+        setOf("мои задачи", "my tasks", "привычки genesis"))
+}
+
 /** Route new list tasks to that list's account, retaining the website's field meanings. */
 internal fun listTaskFields(list: GoogleTaskList, mode: CalendarMode) = JSONObject()
     .put("googleTaskListId", list.id).put("googleTaskListTitle", list.title)
