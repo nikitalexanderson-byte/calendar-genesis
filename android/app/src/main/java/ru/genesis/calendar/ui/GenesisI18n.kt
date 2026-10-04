@@ -550,6 +550,7 @@ private val nativeCopy = mapOf(
         "Project and habit changes sync with the encrypted workspace; tasks sync with Google. The local copy is preserved during conflicts.",
     "Каждая награда начисляется один раз. Разрыв серии её не отнимает." to "Each reward is granted once. Breaking a streak does not remove it.",
     "Календарь повторения" to "Recurrence calendar", "Календарь расписания" to "Schedule calendar",
+    "Календарь привычки" to "Habit calendar",
     "Карта дня и расклад скрыты настройкой. Буквы и значения остаются доступными." to
         "The daily card and spread are hidden in settings. Letters and meanings remain available.",
     "Карты дня и расклад можно скрыть; буквы и значения останутся доступны." to "Daily cards and spreads can be hidden; letters and meanings remain available.",
@@ -565,6 +566,7 @@ private val nativeCopy = mapOf(
     "Не удалось открыть каталог Теокиклоса." to "Could not open the Theokyklos catalog.",
     "Облако · версия" to "Cloud · version", "Обновить аккаунты" to "Refresh accounts", "Ограничить срок" to "Set an end date",
     "Один из 24 авторских образов на сегодня. Выбор сохраняется на этом устройстве." to "One of 24 original images for today. Your choice is saved on this device.",
+    "Определяет повторение и вид дат этой привычки." to "Sets this habit's recurrence and date display.",
     "Опыт ранга сохраняется навсегда и не тратится." to "Rank XP is permanent and is never spent.",
     "Ось, врата и ядро" to "Axis, gates, and core", "Отклонение от плана ·" to "Difference from plan ·",
     "Отключить аккаунт?" to "Disconnect account?", "Откройте метафизический профиль, прямое и перевёрнутое положение, практику и число." to

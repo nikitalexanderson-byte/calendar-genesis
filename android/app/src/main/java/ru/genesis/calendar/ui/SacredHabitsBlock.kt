@@ -3,7 +3,6 @@ package ru.genesis.calendar.ui
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -14,7 +13,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -43,8 +41,6 @@ internal fun SacredHabitsBlock(workspace: LocalHabitWorkspace, today: LocalDate,
         runCatching { TheokyklosCatalogSource.load(context,if(english)"en" else "ru") }.getOrNull()
     }
     var open by rememberSaveable { mutableStateOf(false) }
-    val arrowRotation by animateFloatAsState(if (open) 180f else 0f,
-        label = "sacred-habits-arrow")
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(requestedOpen) {
         if(requestedOpen) { open=true;onRequestedOpenConsumed() }
@@ -74,19 +70,16 @@ internal fun SacredHabitsBlock(workspace: LocalHabitWorkspace, today: LocalDate,
                             style=MaterialTheme.typography.bodySmall,color=Color(0xffc8d9d4))
                     }
                 }
-                OutlinedButton(onClick={open=!open},modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)
-                    .testTag("sacred-habits-toggle"),
-                    border=BorderStroke(1.dp,Color(0xffdfc17e)),
-                    colors=ButtonDefaults.outlinedButtonColors(contentColor=Color(0xffffe4a6))) {
-                    Text(if (open) {
+                HabitsFeatureActionButton(
+                    label=if (open) {
                         if (english) "Hide sacred practices" else "Свернуть сакральные практики"
                     } else {
                         if (english) "Explore sacred practices" else "Открыть сакральные практики"
-                    })
-                    Spacer(Modifier.width(8.dp))
-                    Text("⌄",Modifier.graphicsLayer { rotationZ=arrowRotation },
-                        style=MaterialTheme.typography.titleMedium)
-                }
+                    },
+                    onClick={open=!open},
+                    containerColor=Color(0xffdfc17e), contentColor=Color(0xff0b2b2d),
+                    borderColor=Color(0xffffe4a6),
+                    modifier=Modifier.testTag("sacred-habits-toggle"))
             } else FilledTonalButton(onClick={open=!open},modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)
                 .testTag("sacred-habits-toggle")) {
                 Text(if(open)"⌃  ${if(english)"Hide sacred habits" else "Скрыть сакральные привычки"}"

@@ -295,12 +295,12 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                                 }
                             }
                         }
-                        FilledTonalButton(onClick={heroPathOpen=!heroPathOpen},
-                            modifier=Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("habit-hero-path-toggle"),
-                            colors = ButtonDefaults.filledTonalButtonColors(containerColor = eveningSurface(Color(0xffdfc17e)),
-                                contentColor = eveningInk(Color(0xff0b2b2d)))) {
-                            Text(if(heroPathOpen) "Свернуть путь" else "Открыть путь и награды")
-                        }
+                        HabitsFeatureActionButton(
+                            label=if(heroPathOpen) "Свернуть путь" else "Открыть путь и награды",
+                            onClick={heroPathOpen=!heroPathOpen},
+                            containerColor=Color(0xffdfc17e), contentColor=Color(0xff0b2b2d),
+                            borderColor=Color(0xffffe4a6),
+                            modifier=Modifier.testTag("habit-hero-path-toggle"))
                     }
                 }
                 AnimatedVisibility(visible=heroPathOpen,
@@ -334,7 +334,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
             }
         }
     }
-    if(editorOpen) HabitEditor(edit,busy,error,displayCalendarMode,voiceDraftTitle,
+    if(editorOpen) HabitEditor(edit,busy,error,inputCalendarMode,voiceDraftTitle,
         onDismiss={if(!busy) { editorOpen=false;voiceDraftTitle="" }},onSave={ habit ->
         scope.launch { runAction { repository.save(habit); editorOpen=false; voiceDraftTitle="" } }
     })
@@ -460,10 +460,15 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
     var scoring by rememberSaveable(initial.id) { mutableStateOf(initial.scoringMode) }
     var start by rememberSaveable(initial.id) { mutableStateOf(initial.schedule.startDate.toString()) }
     var end by rememberSaveable(initial.id) { mutableStateOf(initial.schedule.endDate?.toString() ?: "") }
-    var formCalendarMode by rememberSaveable(initial.id) { mutableStateOf(inputCalendarMode) }
+    var formCalendarMode by rememberSaveable(initial.id) { mutableStateOf(
+        if (existing == null) inputCalendarMode else when(initial.schedule.recurrence.mode) {
+            "classic" -> CalendarMode.PROFANE
+            "lunar" -> CalendarMode.LUNAR
+            else -> CalendarMode.SACRED
+        }) }
     var config by remember(initial.id) { mutableStateOf(initial.schedule.recurrence) }
     var sacredCadence by remember(initial.id) { mutableStateOf(sacredHabitCadence(initial.schedule.recurrence)) }
-    val mode=when(config.mode) { "classic"->CalendarMode.PROFANE;"lunar"->CalendarMode.LUNAR;else->CalendarMode.SACRED }
+    val mode=formCalendarMode
     Dialog(onDismissRequest=onDismiss, properties=androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth=false)) { Surface(Modifier.widthIn(max=720.dp).fillMaxWidth().padding(12.dp),shape=MaterialTheme.shapes.large) {
         Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment=Alignment.CenterVertically) {
@@ -476,20 +481,21 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
             OutlinedTextField(title,{title=it},label={Text("Название")},modifier=Modifier.fillMaxWidth(),enabled=!busy)
             OutlinedTextField(description,{description=it},label={Text("Описание")},modifier=Modifier.fillMaxWidth(),enabled=!busy)
             PriorityControl(priority) { if(!busy) priority=it }
-            Text("Календарь расписания")
+            Text("Календарь привычки", style=MaterialTheme.typography.titleSmall)
+            Text("Определяет повторение и вид дат этой привычки.",
+                style=MaterialTheme.typography.bodySmall,
+                color=MaterialTheme.colorScheme.onSurfaceVariant)
             Row(Modifier.horizontalScroll(rememberScrollState())) {
                 (listOf(inputCalendarMode) + listOf(CalendarMode.SACRED,CalendarMode.PROFANE,CalendarMode.LUNAR)
                     .filterNot { it==inputCalendarMode }).forEach { option ->
                     val label=when(option) {CalendarMode.SACRED->"Сакральный";CalendarMode.PROFANE->"Григорианский";CalendarMode.LUNAR->"Лунный"}
                     FilterChip(selected=mode==option,enabled=!busy,onClick={
                         config=engine.defaultSchedule(LocalDate.parse(start),option).recurrence
+                        formCalendarMode=option
                         if(option==CalendarMode.SACRED) sacredCadence="pyata-days"
-                    },label={Text(label)})
+                    },modifier=Modifier.testTag("habit-calendar-${option.wireValue}"),label={Text(label)})
                 }
             }
-            EditorCalendarModePicker(formCalendarMode, { formCalendarMode=it }, enabled=!busy, compact=true,
-                preferredMode=inputCalendarMode,
-                tag="habit-form-calendar")
             Text("Начало"); AuthorDatePicker(start,formCalendarMode) { if(!busy) start=it }
             Row { Checkbox(checked=end.isNotEmpty(),enabled=!busy,onCheckedChange={end=if(it) start else ""}); Text("Ограничить срок",Modifier.padding(top=12.dp)) }
             if(end.isNotEmpty()) AuthorDatePicker(end,formCalendarMode) { if(!busy) end=it }
