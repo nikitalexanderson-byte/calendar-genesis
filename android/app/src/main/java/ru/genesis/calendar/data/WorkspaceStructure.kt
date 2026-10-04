@@ -165,6 +165,11 @@ class WorkspaceStructureRepository(private val app: GenesisApplication) {
         current.copy(taskLists = current.taskLists.filterNot { it.id == list.id } + list)
     }
 
+    suspend fun removeTaskList(listId: String) = mutate(null) { current ->
+        current.copy(taskLists = current.taskLists.filterNot { it.id == listId },
+            taskListLinks = current.taskListLinks.filterNot { it.taskListId == listId })
+    }
+
     suspend fun deleteProject(projectId: String, expectedRevision: Long? = null) = mutate(expectedRevision) { current ->
         val removed = WorkspaceStructureCodec.projectSubtreeIds(current.projects, projectId)
         require(removed.isNotEmpty()) { "Проект больше не существует." }

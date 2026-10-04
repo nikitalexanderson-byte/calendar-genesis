@@ -10610,18 +10610,19 @@ html:not([data-genesis-theme$="-dark"]) .month-calendar .calendar-day.today .cal
 .civil-mini-calendar.mode-lunar .mini-day-number {
   position: absolute;
   z-index: 2;
-  right: 3px;
-  bottom: 3px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   display: grid;
-  min-width: 12px;
-  height: 12px;
-  padding: 0 2px;
+  width: 24px;
+  height: 24px;
   place-items: center;
-  color: #16312e;
-  font: 800 6px/1 Inter, sans-serif;
-  background: rgba(255, 253, 248, .88);
-  border: 1px solid color-mix(in srgb, var(--month-accent) 35%, transparent);
+  color: #fffaf0;
+  font: 800 12px/1 Inter, sans-serif;
+  background: rgba(8, 28, 29, .84);
+  border: 1px solid rgba(255, 250, 240, .78);
   border-radius: 999px;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, .3);
 }
 
 .civil-mini-weekday {

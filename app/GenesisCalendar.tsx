@@ -1810,9 +1810,7 @@ export function GenesisCalendar() {
     taskListId ? taskListLinks.find((link) => link.taskListId === taskListId)?.projectId ?? null : null
   );
   const taskListsForWorkspace = taskLists.filter((taskList) => (
-    !taskList.isDefault
-    || tasks.some((task) => task.googleTaskListId === taskList.id)
-    || Boolean(linkedProjectId(taskList.id))
+    !taskList.isDefault && (taskList.accountId == null || taskList.title !== "Привычки GENESIS")
   ));
   const resolvedTaskProjectId = (task: Task) => (
     task.projectId === TASK_INBOX_PROJECT_ID ? null : task.projectId ?? linkedProjectId(task.googleTaskListId)
@@ -6427,7 +6425,7 @@ export function GenesisCalendar() {
           </div>
           <div className="topbar-actions">
             {nativeAndroidApkUrl ? (
-              <a className="icon-button ux-action-button android-native-icon-button" href={nativeAndroidApkUrl} download="GENESIS-Android-Native-2.5.5.apk" data-tooltip={language === "en" ? "Native Android app · remove the old TWA first" : "Нативное приложение · сначала удалите прежнюю TWA"} title={language === "en" ? "Native GENESIS APK; old TWA must be removed first" : "Нативный GENESIS APK; прежнюю TWA необходимо сначала удалить"} aria-label={language === "en" ? "Download native GENESIS for Android; remove the old TWA first" : "Скачать нативный GENESIS для Android; сначала удалите старую TWA"}>
+              <a className="icon-button ux-action-button android-native-icon-button" href={nativeAndroidApkUrl} download="GENESIS-Android-Native-2.5.6.apk" data-tooltip={language === "en" ? "Native Android app · remove the old TWA first" : "Нативное приложение · сначала удалите прежнюю TWA"} title={language === "en" ? "Native GENESIS APK; old TWA must be removed first" : "Нативный GENESIS APK; прежнюю TWA необходимо сначала удалить"} aria-label={language === "en" ? "Download native GENESIS for Android; remove the old TWA first" : "Скачать нативный GENESIS для Android; сначала удалите старую TWA"}>
                 <svg className="ux-android-robot" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M5.5 9h13v8.5a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2V9ZM5.5 9a6.5 6.5 0 0 1 13 0M4 11v5M20 11v5M9 19.5V22M15 19.5V22M7 3 5.5 1M17 3 18.5 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><circle cx="9.3" cy="7" r=".8" fill="currentColor"/><circle cx="14.7" cy="7" r=".8" fill="currentColor"/></svg>
               </a>
             ) : null}
@@ -6586,7 +6584,7 @@ export function GenesisCalendar() {
                     date={todayDateValue}
                     language={language}
                     timeFormat={activeTimeFormat}
-                    calendarMode={activeTaskCalendarMode}
+                    calendarMode={activeCalendarMode}
                     googleTasksReady={Boolean(cloudUser?.googleTasksImportReady)}
                     experimentalThemeActive={themeState.available && themeState.theme.startsWith("experimental")}
                     onChange={updateHabitWorkspace}

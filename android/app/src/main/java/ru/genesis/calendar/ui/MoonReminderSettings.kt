@@ -33,20 +33,20 @@ internal fun MoonReminderSettings(app: GenesisApplication, prefs: UiPreferences,
     SettingsSection("☾", "Лунные напоминания", "Отдельное напоминание о каждой фазе",
         Color(0xffe7e9f3), modifier = Modifier.testTag("moon-reminder-settings")) {
         Text("Полнолуние", style = MaterialTheme.typography.titleSmall)
-        MoonLeadChoices("full", prefs.fullMoonLeadDays) { onSetLocal("fullMoonLeadDays", it.toString()) }
+        MoonLeadChoices("full", prefs.fullMoonLeadDays) { onSetLocal("fullMoonLeadDays", it.sorted().joinToString(",")) }
         Text("Новолуние", style = MaterialTheme.typography.titleSmall)
-        MoonLeadChoices("new", prefs.newMoonLeadDays) { onSetLocal("newMoonLeadDays", it.toString()) }
-        Text("Уведомление приходит в 09:00 по времени устройства за выбранное число суток до фазы.",
+        MoonLeadChoices("new", prefs.newMoonLeadDays) { onSetLocal("newMoonLeadDays", it.sorted().joinToString(",")) }
+        Text("Выберите один или несколько сроков. Каждое уведомление приходит в 09:00 по времени устройства.",
             style = MaterialTheme.typography.bodySmall)
     }
 }
 
 @Composable
-private fun MoonLeadChoices(kind: String, selected: Int, onSelect: (Int) -> Unit) {
+private fun MoonLeadChoices(kind: String, selected: Set<Int>, onSelect: (Set<Int>) -> Unit) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         (0..3).forEach { days ->
-            val active = selected == days
-            Surface(onClick = { onSelect(days) },
+            val active = if(days==0) selected.isEmpty() else days in selected
+            Surface(onClick = { onSelect(if(days==0) emptySet() else if(active) selected-days else selected+days) },
                 modifier = Modifier.weight(1f).height(48.dp).testTag("moon-$kind-lead-$days")
                     .semantics { this.selected = active },
                 shape = RoundedCornerShape(12.dp),

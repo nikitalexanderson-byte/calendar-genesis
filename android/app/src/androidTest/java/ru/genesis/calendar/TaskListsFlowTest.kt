@@ -3,11 +3,15 @@ package ru.genesis.calendar
 import androidx.room.Room
 import androidx.room.withTransaction
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
 import androidx.compose.runtime.*
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
+import java.io.File
 import java.io.IOException
 import java.time.LocalDate
 import java.util.UUID
@@ -31,7 +35,9 @@ class TaskListsFlowTest {
         val db=Room.inMemoryDatabaseBuilder(app,GenesisDatabase::class.java).build()
         val a=CloudAccountSnapshot.scopeFor("list-account-a")
         val b=CloudAccountSnapshot.scopeFor("list-account-b")
-        fun payload(vararg titles: String) = JSONObject().put("taskLists",JSONArray().apply {
+        fun payload(vararg titles: String) = JSONObject()
+            .put("user",JSONObject().put("authProvider","google"))
+            .put("taskLists",JSONArray().apply {
             titles.forEach { put(GoogleTaskList(it,it,"google-a").json()) }
         })
         try {
@@ -44,7 +50,7 @@ class TaskListsFlowTest {
             val partial=requireNotNull(db.dao().document(a,"task-lists"))
             val raw=LocalCipher().decrypt(partial.encrypted,"$a/task-lists")
             assertTrue(raw.contains("Original list")); assertTrue(raw.contains("Partial list"))
-            TaskListsRepository.cacheBootstrap(db,a,JSONObject().put("taskLists",JSONArray().put("bad row")))
+            TaskListsRepository.cacheBootstrap(db,a,payload().put("taskLists",JSONArray().put("bad row")))
             TaskListsRepository.cacheBootstrap(db,a,payload().put("tasksDeferred",true))
             assertEquals(raw,LocalCipher().decrypt(requireNotNull(db.dao().document(a,"task-lists")).encrypted,"$a/task-lists"))
             assertEquals(beforeB,db.dao().document(b,"task-lists"))
@@ -100,8 +106,8 @@ class TaskListsFlowTest {
             TasksScreen(emptyList(),emptyList(),original,true,true,{taskRequested=true},{showEditor=true},{},{})
             if(showEditor) TaskListEditor(original,accounts,UiPreferences(),true,
                 onDismiss={showEditor=false;closed=true},onCreate={_,account->listRequests++;assertEquals("fixture-google",account);fakeList},
-                onSaveTasks={list,project,date,rows->
-                    saveListDraftTasks(app,list,project,date,CalendarMode.PROFANE,rows)
+                onSaveTasks={list,project,date,rows,options->
+                    saveListDraftTasks(app,list,project,date,CalendarMode.PROFANE,rows,options)
                     saves++;if(saves==1) throw IOException("Injected local failure after the first save")
                 })
         } }
@@ -141,5 +147,38 @@ class TaskListsFlowTest {
                 }
             }
         }
+    }
+
+    @Test fun visibleListActionsRenameAndDeleteOnlyTheSelectedList() {
+        val editable=GoogleTaskList("editable","План чтения","account-b")
+        var visibleLists by mutableStateOf(listOf(
+            GoogleTaskList("default","My Tasks","account-a",isDefault=true),
+            GoogleTaskList("technical","Привычки GENESIS","account-a"), editable))
+        val structure=WorkspaceStructure()
+        compose.setContent { MaterialTheme(colorScheme=standart) { Surface(Modifier.fillMaxSize()) {
+            TasksScreen(emptyList(),visibleLists,structure,true,true,{},{},{},{},
+                onUpdateList={ list,title -> visibleLists=visibleLists.map {
+                    if(it.id==list.id)it.copy(title=title) else it
+                } },
+                onDeleteList={ list -> visibleLists=visibleLists.filterNot { it.id==list.id } })
+        } } }
+        compose.onNodeWithTag("submenu-lists").performClick()
+        compose.onNodeWithText("План чтения").assertExists()
+        compose.onNodeWithText("My Tasks").assertDoesNotExist()
+        compose.onNodeWithText("Привычки GENESIS").assertDoesNotExist()
+        assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(
+            File(app.getExternalFilesDir(null),"task-lists-edit-delete.png")))
+        compose.onNodeWithTag("edit-task-list-editable").assertIsDisplayed().performClick()
+        compose.onNodeWithText("Изменить список задач").assertExists()
+        compose.onNodeWithTag("edit-task-list-title").performTextClearance()
+        compose.onNodeWithTag("edit-task-list-title").performTextInput("Новый план")
+        compose.onNodeWithTag("save-task-list-edit").performClick()
+        compose.waitUntil(5_000) { visibleLists.any { it.id==editable.id && it.title=="Новый план" } }
+        compose.onNodeWithText("Новый план").assertExists()
+        compose.onNodeWithTag("delete-task-list-editable").assertIsDisplayed().performClick()
+        compose.onNodeWithText("Удалить список задач?").assertExists()
+        compose.onNodeWithTag("confirm-delete-task-list").performClick()
+        compose.waitUntil(5_000) { visibleLists.none { it.id==editable.id } }
+        compose.onNodeWithText("Новый план").assertDoesNotExist()
     }
 }

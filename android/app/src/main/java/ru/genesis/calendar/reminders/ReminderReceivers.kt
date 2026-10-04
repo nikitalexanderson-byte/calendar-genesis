@@ -91,6 +91,7 @@ class RestoreReceiver : BroadcastReceiver() {
                 app.scheduler.restore(recoverOverdue = true)
                 app.scheduler.restoreHabitNotifications()
                 MoonReminderScheduler.restore(app)
+                runCatching { SleepReminderScheduler.restore(app) }
             }
             finally { pending.finish() }
         }

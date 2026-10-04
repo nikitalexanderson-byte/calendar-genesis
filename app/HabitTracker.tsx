@@ -1109,16 +1109,16 @@ function HabitReminderTimingFields({ habit, language, onChange }: {
   habit: Habit; language: Language; onChange: (reminder: Habit["reminder"]) => void;
 }) {
   const english = language === "en";
-  const timing = habit.reminder.timing ?? "habit";
+  const timing = habit.preferredTime ? habit.reminder.timing ?? "habit" : "custom";
   return <div className="habit-reminder-timing">
     <p>{english ? "Personal reminders are separate from the daily goal reminder." : "Персональное напоминание действует отдельно от напоминания о дневной цели."}</p>
     <label><span>{english ? "When to remind" : "Когда напоминать"}</span>
       <select value={timing} onChange={(event) => onChange({ ...habit.reminder, timing: event.target.value as "habit" | "custom" })}>
-        <option value="habit">{english ? "At the habit's scheduled time" : "В точное время привычки"}</option>
+        <option value="habit" disabled={!habit.preferredTime}>{english ? "At the habit's scheduled time" : "В точное время привычки"}</option>
         <option value="custom">{english ? "At a separate time" : "В отдельное время"}</option>
       </select>
     </label>
-    {timing === "custom" || !habit.preferredTime ? <label><span>{english ? "Reminder time" : "Время напоминания"}</span>
+    {timing === "custom" ? <label><span>{english ? "Reminder time" : "Время напоминания"}</span>
       <input type="time" value={habit.reminder.time} onChange={(event) => onChange({ ...habit.reminder, time: event.target.value })} />
     </label> : <p>{english ? "Habit time" : "Время привычки"}: {habit.preferredTime}</p>}
     <label><span>{english ? "Minutes before" : "За сколько минут"}</span>
@@ -1627,8 +1627,8 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
           onEdit={setEditingHabit}
         /></CollapsibleHabitBlock>
       {heroPathOpen ? <HeroPathPanel workspace={workspace} language={language} onClaimCheckpoint={(rankId) => { const next = claimHeroPathAmphora(workspace, rankId); onChange(next); if (next !== workspace) setMessage(isEnglish ? "The amphora is open. Laurels were added to your ledger." : "Амфора открыта. Лавры добавлены в журнал наград."); }} onRevealHiddenPath={() => { const next = revealHiddenHeroicPath(workspace); onChange(next); if (next !== workspace) setMessage(isEnglish ? "The second path has been revealed." : "Второй путь открыт."); }} onClose={() => setHeroPathOpen(false)} /> : null}
-      {activatingTemplate ? <HabitTemplateSetup template={activatingTemplate} date={creationDate} language={language} calendarMode={calendarMode} googleTasksReady={googleTasksReady} allowCalendarModeChange={experimentalThemeActive} onSave={(habit) => { setActivatingTemplate(null); saveHabit(habit); }} onClose={() => setActivatingTemplate(null)} /> : null}
-      {editingHabit ? <HabitEditor habit={editingHabit} isExisting={workspace.habits.some((habit) => habit.id === editingHabit.id)} language={language} calendarMode={calendarMode} googleTasksReady={googleTasksReady} allowCalendarModeChange={experimentalThemeActive} onSave={saveHabit} onClose={() => setEditingHabit(null)} /> : null}
+      {activatingTemplate ? <HabitTemplateSetup template={activatingTemplate} date={creationDate} language={language} calendarMode={calendarMode} googleTasksReady={googleTasksReady} allowCalendarModeChange onSave={(habit) => { setActivatingTemplate(null); saveHabit(habit); }} onClose={() => setActivatingTemplate(null)} /> : null}
+      {editingHabit ? <HabitEditor habit={editingHabit} isExisting={workspace.habits.some((habit) => habit.id === editingHabit.id)} language={language} calendarMode={calendarMode} googleTasksReady={googleTasksReady} allowCalendarModeChange onSave={saveHabit} onClose={() => setEditingHabit(null)} /> : null}
       {editingSleep ? <SleepEditor plan={editingSleep} language={language} calendarMode={calendarMode} allowCalendarModeChange={experimentalThemeActive} onSave={(plan) => { onChange({ ...workspace, sleepPlans: workspace.sleepPlans.some((item) => item.id === plan.id) ? workspace.sleepPlans.map((item) => item.id === plan.id ? plan : item) : [...workspace.sleepPlans, plan] }); setEditingSleep(null); }} onClose={() => setEditingSleep(null)} /> : null}
       {editingAddiction ? <AddictionEditor tracker={editingAddiction} language={language} calendarMode={calendarMode} allowCalendarModeChange={experimentalThemeActive} onSave={(tracker) => { onChange({ ...workspace, addictionTrackers: workspace.addictionTrackers.some((item) => item.id === tracker.id) ? workspace.addictionTrackers.map((item) => item.id === tracker.id ? tracker : item) : [...workspace.addictionTrackers, tracker] }); setEditingAddiction(null); }} onClose={() => setEditingAddiction(null)} /> : null}
     </div>

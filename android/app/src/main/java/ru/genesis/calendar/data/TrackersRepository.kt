@@ -36,6 +36,11 @@ class TrackersRepository(app: GenesisApplication) {
     suspend fun savePlan(plan: SleepPlan) = mutate { current ->
         require(plan.title.isNotBlank()&&plan.title.length<=500) { "Введите название плана до 500 символов." }
         ZoneId.of(plan.schedule.timezone)
+        require(plan.reminderMinutesBefore in 0..180) { "Выберите время уведомления до сна." }
+        require(plan.rules.size <= 20 && plan.rules.all { it.field in setOf("bedtime", "wake") &&
+            it.operator in setOf("on-or-before", "after") && it.points.isFinite() && it.points in -100.0..100.0 }) {
+            "Проверьте правила баллов для сна."
+        }
         val previous=current.sleepPlans.firstOrNull { it.id==plan.id }
         require(previous==null||previous.entity.version==plan.entity.version) { "План изменился. Откройте его заново." }
         val next=plan.copy(entity=plan.entity.changed(Instant.now().toString()))
@@ -89,6 +94,7 @@ internal object TrackersDocument {
     fun encode(w: LocalTrackersWorkspace): String = JSONObject().put("localSchema",1)
         .put("sleepPlans",JSONArray(w.sleepPlans.map { p -> entity(p.entity).put("title",p.title).put("active",p.active).put("schedule",schedule(p.schedule))
             .put("targetBedtime",p.targetBedtime.toString()).put("targetWakeTime",p.targetWakeTime.toString()).put("qualityEnabled",p.qualityEnabled).put("scoringEnabled",p.scoringEnabled)
+            .put("reminderEnabled",p.reminderEnabled).put("reminderMinutesBefore",p.reminderMinutesBefore)
             .put("rules",JSONArray(p.rules.map { r -> JSONObject().put("id",r.id).put("field",r.field).put("operator",r.operator).put("threshold",r.threshold.toString()).put("points",r.points) })) }))
         .put("sleepEntries",JSONArray(w.sleepEntries.map { e -> entity(e.entity).put("planId",e.planId).put("date",e.date.toString()).put("fellAsleepAt",e.fellAsleepAt?.toString() ?: "")
             .put("wokeAt",e.wokeAt?.toString() ?: "").put("durationMinutes",e.durationMinutes ?: JSONObject.NULL).put("quality",e.quality ?: JSONObject.NULL)
@@ -100,7 +106,8 @@ internal object TrackersDocument {
         return LocalTrackersWorkspace(
             v.getJSONArray("sleepPlans").objects().map { p -> SleepPlan(entity(p),schedule(p.getJSONObject("schedule")),p.getString("title"),p.getBoolean("active"),
                 LocalTime.parse(p.getString("targetBedtime")),LocalTime.parse(p.getString("targetWakeTime")),p.getBoolean("qualityEnabled"),p.getBoolean("scoringEnabled"),
-                p.getJSONArray("rules").objects().map { r -> SleepRule(r.getString("id"),r.getString("field"),r.getString("operator"),LocalTime.parse(r.getString("threshold")),r.getDouble("points")) }) },
+                p.getJSONArray("rules").objects().map { r -> SleepRule(r.getString("id"),r.getString("field"),r.getString("operator"),LocalTime.parse(r.getString("threshold")),r.getDouble("points")) },
+                p.optBoolean("reminderEnabled",false),p.optInt("reminderMinutesBefore",15).coerceIn(0,180)) },
             v.getJSONArray("sleepEntries").objects().map { e -> SleepEntry(entity(e),e.getString("planId"),LocalDate.parse(e.getString("date")),e.nullable("fellAsleepAt")?.let(LocalTime::parse),
                 e.nullable("wokeAt")?.let(LocalTime::parse),if(e.isNull("durationMinutes"))null else e.getInt("durationMinutes"),if(e.isNull("quality"))null else e.getInt("quality"),
                 if(e.isNull("deviationMinutes"))null else e.getInt("deviationMinutes"),e.getString("note"),e.getDouble("score")) },

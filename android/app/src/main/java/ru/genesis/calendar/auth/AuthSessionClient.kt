@@ -125,6 +125,16 @@ internal class AuthSessionClient(context: Context) {
         require(title.trim().length in 1..300 && accountId.matches(Regex("[A-Za-z0-9_-]{1,100}")))
         return request(expected, "/task-lists", JSONObject().put("title", title.trim()).put("accountId", accountId))
     }
+    fun updateTaskList(expected: Long, id: String, title: String, accountId: String): JSONObject {
+        require(id.isNotBlank() && id.length <= 500 && title.trim().length in 1..300)
+        return request(expected, "/task-lists/${android.net.Uri.encode(id)}",
+            JSONObject().put("title",title.trim()).put("accountId",accountId),method="PATCH")
+    }
+    fun deleteTaskList(expected: Long, id: String, accountId: String): JSONObject {
+        require(id.isNotBlank() && id.length <= 500)
+        return request(expected, "/task-lists/${android.net.Uri.encode(id)}",
+            JSONObject().put("accountId",accountId),method="DELETE")
+    }
     fun challenge(expected: Long): JSONObject = request(expected, "/auth/google/native/challenge", JSONObject())
     fun googleServicesConfig(expected: Long): JSONObject =
         request(expected, "/auth/google/native/services/config", JSONObject())

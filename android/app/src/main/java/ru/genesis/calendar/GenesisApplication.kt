@@ -37,6 +37,7 @@ class GenesisApplication : Application() {
             scheduler.restore(recoverOverdue = true)
             scheduler.restoreHabitNotifications()
             ru.genesis.calendar.reminders.MoonReminderScheduler.restore(this@GenesisApplication)
+            runCatching { ru.genesis.calendar.reminders.SleepReminderScheduler.restore(this@GenesisApplication) }
         }
     }
 }

@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.key
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -20,6 +21,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import ru.genesis.calendar.domain.CalendarMode
+import ru.genesis.calendar.domain.GenesisCalendar
 import ru.genesis.calendar.ui.CalendarScreen
 import ru.genesis.calendar.ui.standart
 import ru.genesis.calendar.ui.evening
@@ -27,6 +29,33 @@ import ru.genesis.calendar.ui.LocalEveningTheme
 
 class CalendarModeHeaderTest {
     @get:Rule val compose = createAndroidComposeRule<StoicheionGestureActivity>()
+
+    @Test fun selectingMonthFromYearSurvivesScreenRecreationInEveryCalendar() {
+        var mode by mutableStateOf(CalendarMode.PROFANE)
+        var selected by mutableStateOf(LocalDate.of(2026, 10, 4))
+        compose.setContent {
+            key(mode, selected) {
+                MaterialTheme(colorScheme = standart) {
+                    CalendarScreen(selected, mode, onSelect = { selected = it }, experimental = true)
+                }
+            }
+        }
+        val sacredYear = GenesisCalendar().sacredDate(LocalDate.of(2026, 10, 4)).sacredYear
+        val cases = listOf(
+            Triple(CalendarMode.PROFANE, "calendar-year-month-2026-01-01", LocalDate.of(2026, 1, 1)),
+            Triple(CalendarMode.SACRED, "sacred-year-month-0", GenesisCalendar().gregorianDate(sacredYear, 0, 1)),
+            Triple(CalendarMode.LUNAR, "lunar-year-month-1", GenesisCalendar().lunarYear(sacredYear).startDate),
+        )
+        cases.forEach { (calendarMode, monthTag, monthStart) ->
+            compose.runOnIdle { mode = calendarMode; selected = LocalDate.of(2026, 10, 4) }
+            compose.onNodeWithText("Год").performClick()
+            compose.onNodeWithTag("calendar-year").performScrollToNode(hasTestTag(monthTag))
+            compose.onNodeWithTag(monthTag).performClick()
+            compose.onNodeWithText("Календарь - месяц").assertExists()
+            assertEquals(monthStart, selected)
+            compose.onNodeWithTag("calendar-day-$monthStart").assertExists()
+        }
+    }
 
     @Test fun monthAndYearIconsCycleModesAndYearHeaderScrollsWithContent() {
         var mode by mutableStateOf(CalendarMode.PROFANE)

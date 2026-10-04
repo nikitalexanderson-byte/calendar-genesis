@@ -9,7 +9,8 @@ import ru.genesis.calendar.domain.habits.jsRound
 data class SleepRule(val id: String, val field: String, val operator: String, val threshold: LocalTime, val points: Double)
 data class SleepPlan(val entity: TrackerEntity, val schedule: TrackerSchedule, val title: String = "Сон и пробуждение",
     val active: Boolean = true, val targetBedtime: LocalTime = LocalTime.of(23,0), val targetWakeTime: LocalTime = LocalTime.of(7,0),
-    val qualityEnabled: Boolean = true, val scoringEnabled: Boolean = false, val rules: List<SleepRule> = emptyList()) {
+    val qualityEnabled: Boolean = true, val scoringEnabled: Boolean = false, val rules: List<SleepRule> = emptyList(),
+    val reminderEnabled: Boolean = false, val reminderMinutesBefore: Int = 15) {
     val id: String get() = entity.id
 }
 data class SleepEntry(val entity: TrackerEntity, val planId: String, val date: LocalDate,

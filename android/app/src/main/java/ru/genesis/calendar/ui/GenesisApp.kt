@@ -35,9 +35,12 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
@@ -91,6 +94,37 @@ internal val standart = lightColorScheme(primary=Color(0xff255b59),onPrimary=Col
     surfaceVariant=Color(0xffe9e1d0),surfaceContainer=Color(0xfff8f5ed),surfaceContainerLow=Color(0xfff8f5ed),
     surfaceContainerLowest=Color(0xfffffdf8),surfaceContainerHigh=Color(0xffefe8d9),surfaceContainerHighest=Color(0xffe9e1d0),
     outline=Color(0xff9c927e),outlineVariant=Color(0xffd5cab4))
+
+@Composable
+private fun HeaderActionButton(kind: String, description: String, enabled: Boolean, compact: Boolean,
+    tag: String, onClick: () -> Unit) {
+    val accent=MaterialTheme.colorScheme.primary
+    IconButton(onClick=onClick,enabled=enabled,modifier=Modifier.padding(start=6.dp)
+        .size(if(compact) 38.dp else 44.dp).clip(CircleShape)
+        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha=.45f))
+        .border(1.dp,accent.copy(alpha=.35f),CircleShape).testTag(tag)
+        .semantics { contentDescription=description }) {
+        if (!enabled) CircularProgressIndicator(Modifier.size(19.dp),strokeWidth=2.dp,color=accent)
+        else Canvas(Modifier.size(21.dp)) {
+            val stroke=2.dp.toPx()
+            if(kind=="mic") {
+                drawRoundRect(accent,topLeft=Offset(size.width*.38f,size.height*.1f),
+                    size=Size(size.width*.24f,size.height*.48f),
+                    cornerRadius=CornerRadius(size.width*.12f),style=Stroke(stroke))
+                drawArc(accent,0f,180f,false,topLeft=Offset(size.width*.22f,size.height*.18f),
+                    size=Size(size.width*.56f,size.height*.58f),style=Stroke(stroke,cap=StrokeCap.Round))
+                drawLine(accent,Offset(size.width*.5f,size.height*.77f),Offset(size.width*.5f,size.height*.94f),stroke,StrokeCap.Round)
+                drawLine(accent,Offset(size.width*.31f,size.height*.94f),Offset(size.width*.69f,size.height*.94f),stroke,StrokeCap.Round)
+            } else {
+                drawArc(accent,44f,286f,false,topLeft=Offset(size.width*.13f,size.height*.13f),
+                    size=Size(size.width*.74f,size.height*.74f),style=Stroke(stroke,cap=StrokeCap.Round))
+                drawLine(accent,Offset(size.width*.81f,size.height*.29f),Offset(size.width*.82f,size.height*.09f),stroke,StrokeCap.Round)
+                drawLine(accent,Offset(size.width*.81f,size.height*.29f),Offset(size.width*.61f,size.height*.25f),stroke,StrokeCap.Round)
+            }
+        }
+    }
+}
+
 @Composable
 fun GenesisApp(app: GenesisApplication, openedTask: String?, openedSection: String? = null,
     testWorkspace: Boolean = false) {
@@ -125,7 +159,10 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     val taskSync by authController.taskSync.collectAsStateWithLifecycle()
     val accountTaskSync = taskSync.takeIf { it.scope == activeScope }
     val scope=rememberCoroutineScope()
-    LaunchedEffect(activeScope) { ru.genesis.calendar.reminders.MoonReminderScheduler.restore(app) }
+    LaunchedEffect(activeScope) {
+        ru.genesis.calendar.reminders.MoonReminderScheduler.restore(app)
+        runCatching { ru.genesis.calendar.reminders.SleepReminderScheduler.restore(app) }
+    }
     var preferredWelcomeLanguage by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(authController, testWorkspace) { if (!testWorkspace) authController.ensureSession() }
     LaunchedEffect(activeScope, authState.user, authState.busy) {
@@ -153,20 +190,35 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
         }
     }
     var tab by rememberSaveable { mutableStateOf("Сегодня") }
+    var voiceOpen by rememberSaveable { mutableStateOf(false) }
+    var voiceScreenRequest by remember { mutableStateOf<NativeVoiceAction?>(null) }
+    var voiceListTitle by rememberSaveable { mutableStateOf("") }
+    var requestedSacredHabits by rememberSaveable { mutableStateOf(false) }
     var editId by rememberSaveable { mutableStateOf<String?>(null) }
     var creating by rememberSaveable { mutableStateOf(false) }
     var newTaskProjectId by rememberSaveable { mutableStateOf<String?>(null) }
     var newTaskListId by rememberSaveable { mutableStateOf<String?>(null) }
     var creatingTaskList by rememberSaveable { mutableStateOf(false) }
     var requestedTheokyklosSector by rememberSaveable { mutableStateOf<String?>(null) }
+    var todayPageDate by remember { mutableStateOf(LocalDate.now().toString()) }
+    LaunchedEffect(Unit) {
+        while (isActive) {
+            todayPageDate = LocalDate.now().toString()
+            delay(60_000)
+        }
+    }
     var selected by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
-    var dayDetailsExpanded by rememberSaveable(selected) { mutableStateOf(false) }
+    var dayDetailsExpanded by rememberSaveable(todayPageDate) { mutableStateOf(false) }
     LaunchedEffect(habitTrackingEnabled, tab) {
         if (!habitTrackingEnabled && tab == "Привычки") tab = "Сегодня"
     }
     LaunchedEffect(openedTask) { if(openedTask!=null) { editId=openedTask; creating=false; tab="Задачи" } }
     LaunchedEffect(openedSection) {
         if (openedSection?.substringBefore('#') == "habits" && habitTrackingEnabled) tab = "Привычки"
+        if (openedSection?.substringBefore('#') == "sleep" && habitTrackingEnabled) {
+            menuSwipeState.habits = "Сон и настроение"
+            tab = "Привычки"
+        }
     }
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -219,27 +271,26 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                     }
                     if (compactHeader) {
                         Text("GENESIS", Modifier.padding(start = 8.dp), style = MaterialTheme.typography.titleMedium)
+                        Text(BuildConfig.VERSION_NAME, Modifier.padding(start = 7.dp),
+                            style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(accountStatus, Modifier.padding(start = 10.dp).weight(1f).testTag("app-account-status"),
                             style = MaterialTheme.typography.labelSmall, maxLines = 1,
                             overflow = TextOverflow.Ellipsis)
                     } else {
-                        Text("GENESIS",Modifier.padding(start=10.dp).weight(1f),style=MaterialTheme.typography.titleLarge)
+                        Text("GENESIS",Modifier.padding(start=10.dp),style=MaterialTheme.typography.titleLarge)
+                        Text(BuildConfig.VERSION_NAME,Modifier.padding(start=8.dp),
+                            style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.weight(1f))
                     }
-                    Text(if(BuildConfig.DEBUG) "Internal alpha" else BuildConfig.VERSION_NAME,
-                        modifier = Modifier.padding(horizontal = 6.dp), style=MaterialTheme.typography.labelSmall,
-                        maxLines = 1)
                     if (!testWorkspace) {
                         val refreshBusy = authState.busy || accountTaskSync?.loading == true
                         val refreshDescription = genesisTranslate(if (refreshBusy)
                             "Получаем изменения с сервера…" else "Обновить аккаунт")
-                        IconButton(onClick = authController::refresh, enabled = !refreshBusy,
-                            modifier = Modifier.size(if (compactHeader) 34.dp else 40.dp).testTag("today-refresh")
-                                .semantics { contentDescription = refreshDescription }) {
-                            Text(if (refreshBusy) "…" else "↻",
-                                style = MaterialTheme.typography.titleLarge,
-                                color = MaterialTheme.colorScheme.primary)
-                        }
+                        HeaderActionButton("refresh",refreshDescription,!refreshBusy,
+                            compactHeader,"today-refresh",authController::refresh)
                     }
+                    HeaderActionButton("mic",genesisTranslate("Голосовой помощник"),true,
+                        compactHeader,"voice-assistant-open") { voiceOpen=true }
                 }
                 if (!compactHeader) Text(accountStatus,Modifier.padding(horizontal=16.dp).testTag("app-account-status"),
                     style=MaterialTheme.typography.bodySmall)
@@ -259,23 +310,47 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                   Column(Modifier.fillMaxSize()) {
                   error?.let { Text(it,color=MaterialTheme.colorScheme.error,modifier=Modifier.padding(12.dp)) }
                   when(visibleTab) {
-                    "Привычки" -> HabitsScreen(app,true,prefs.input,prefs.display,visibleSwipeState)
-                    "Теокиклос" -> TheokyklosScreen(app,prefs.input,onOpenHabits={tab="Привычки"},
+                    "Привычки" -> HabitsScreen(app,true,prefs.input,prefs.display,visibleSwipeState,
+                        openSacredHabits=requestedSacredHabits,
+                        onSacredHabitsOpened={requestedSacredHabits=false},
+                        voiceRequest=voiceScreenRequest,
+                        onVoiceRequestConsumed={voiceScreenRequest=null})
+                    "Теокиклос" -> TheokyklosScreen(app,prefs.input,onOpenHabits={requestedSacredHabits=true;tab="Привычки"},
                         initialSectorId=requestedTheokyklosSector,
                         onInitialSectorConsumed={requestedTheokyklosSector=null})
                     "Стойхейон" -> StoicheionScreen(app,prefs.divinationDisabled, onOpenTheokyklosSector={ sectorId ->
                         requestedTheokyklosSector=sectorId; tab="Теокиклос"
                     })
                     "Проекты" -> ProjectsScreen(app,tasks,true,
-                        onOpenTask={ taskId -> editId=taskId;creating=false;tab="Задачи" },
+                        onOpenTask={ taskId -> editId=taskId;creating=false },
                         onCreateTask={ projectId -> newTaskProjectId=projectId;newTaskListId=null;editId=null;creating=true },
-                        menuSwipeState=visibleSwipeState)
+                        onDeleteTask=model::delete,
+                        menuSwipeState=visibleSwipeState,voiceRequest=voiceScreenRequest,
+                        onVoiceRequestConsumed={voiceScreenRequest=null})
                     "Задачи" -> TasksScreen(tasks,taskLists,structure,prefs.use24,
                         confirmed = testWorkspace || accountTaskSync?.confirmed != false,
                         onCreateTask = { list -> newTaskListId=list?.id; newTaskProjectId=list?.let {
                             structure.taskListLinks.firstOrNull { link -> link.taskListId == it.id }?.projectId
                         }; editId=null; creating=true }, onCreateList={creatingTaskList=true},
                         onComplete=model::complete,onOpen={editId=it;creating=false},
+                        onUpdateList={ list,title ->
+                            val updated=authController.updateTaskList(list,title)
+                            tasks.filter { it.taskListId()==list.id }.forEach { task ->
+                                val fields=org.json.JSONObject(task.sourceFieldsJson)
+                                if(list.accountId==null || fields.optString("googleAccountId")==list.accountId)
+                                    app.repository.save(task.copy(sourceFieldsJson=fields.put("googleTaskListTitle",updated.title).toString()))
+                            }
+                            authController.syncPending()
+                        },
+                        onDeleteList={ list ->
+                            authController.deleteTaskList(list)
+                            tasks.filter { it.taskListId()==list.id }.forEach { task ->
+                                val fields=org.json.JSONObject(task.sourceFieldsJson)
+                                if(list.accountId==null || fields.optString("googleAccountId")==list.accountId)
+                                    app.repository.delete(task.id)
+                            }
+                            authController.syncPending()
+                        },
                         menuSwipeState=visibleSwipeState)
                     "Настройки" -> SettingsScreen(app, prefs, authState.busy && !testWorkspace,
                         canOpenAdmin = !testWorkspace && authState.ready && !authState.requiresSignIn &&
@@ -287,7 +362,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                             else scope.launch { prefsStore.set(name, value) }
                         }, onSetLocal = { name, value -> scope.launch { prefsStore.set(name, value) } })
                     "Календарь" -> CalendarScreen(LocalDate.parse(selected),prefs.display,
-                        onSelect={selected=it.toString();tab="Сегодня"},
+                        onSelect={selected=it.toString()},
                         onModeChange={ next ->
                             if (!testWorkspace && authState.user != null) authController.updateSharedPreference("display", next.wireValue)
                             else scope.launch { prefsStore.set("display", next.wireValue) }
@@ -303,16 +378,20 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         regionalSeasonArt=prefs.regionalSeasonArt,
                         seasonRegionZone=selectedSeasonZone(prefs),
                         onCompleteTask=model::complete,
+                        onCreateTask={ date ->
+                            selected=date.toString(); editId=null; creating=true
+                            newTaskProjectId=null; newTaskListId=null
+                        },
                         onEditTask={ task, date -> selected=date.toString();editId=task.id;creating=false },
                         onDeleteTask=model::delete,
                         onDeleteOccurrence={ task, date -> model.excludeOccurrence(task,date.toString()) {} },
-                        dayHabits={ date -> if(habitTrackingEnabled) TodayHabitsContent(app,date,habitWorkspace,
-                            onOpenHabits={tab="Привычки"}) },
+                        dayHabits=if(habitTrackingEnabled) { { date -> TodayHabitsContent(app,date,habitWorkspace,
+                            onOpenHabits={tab="Привычки"}, showTopDivider=false) } } else null,
                         menuSwipeState=visibleSwipeState,
                         periodSwipeEnabled=!portraitMenuSwipe)
                     else -> TodayWorkspace(header = {
                             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                DayHeader(LocalDate.parse(selected), prefs.display, dayDetailsExpanded,
+                                DayHeader(LocalDate.parse(todayPageDate), prefs.display, dayDetailsExpanded,
                                     onToggleDetails = { dayDetailsExpanded = !dayDetailsExpanded },
                                     onModeChange = { next ->
                                         if (!testWorkspace && authState.user != null) authController.updateSharedPreference("display", next.wireValue)
@@ -326,20 +405,20 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                                         expandFrom = Alignment.Top) + fadeIn(tween(190)),
                                     exit = shrinkVertically(tween(220, easing = CubicBezierEasing(.4f, 0f, 1f, 1f)),
                                         shrinkTowards = Alignment.Top) + fadeOut(tween(140))) {
-                                    DayKnowledgePanel(LocalDate.parse(selected), prefs.display)
+                                    DayKnowledgePanel(LocalDate.parse(todayPageDate), prefs.display)
                                 }
                             }
                     }, rhythm = { DayRhythmPanel(prefs.use24) }, tasks = {
-                        val shown = tasks.filter { TaskOccurrences.occursOn(it, LocalDate.parse(selected)) }
-                            val todayDate=LocalDate.now()
-                            val missed=if (prefs.showMissedTasksToday && selected == todayDate.toString())
+                        val todayDate=LocalDate.parse(todayPageDate)
+                        val shown = tasks.filter { TaskOccurrences.occursOn(it, todayDate) }
+                            val missed=if (prefs.showMissedTasksToday)
                                 missedTasksForToday(tasks,todayDate) else emptyList()
-                            TodayTasksPanel(shown, missed, selected, prefs.use24, structure,
-                                onCreate = { creating=true;editId=null;newTaskProjectId=null;newTaskListId=null },
+                            TodayTasksPanel(shown, missed, todayPageDate, prefs.use24, structure,
+                                onCreate = { selected=todayPageDate;creating=true;editId=null;newTaskProjectId=null;newTaskListId=null },
                                 onComplete = model::complete,
                                 onMoveToToday = { task -> model.save(task.copy(date=todayDate.toString())) {} },
-                                onOpen = { taskId -> editId=taskId;creating=false }) {
-                                if (habitTrackingEnabled) TodayHabitsContent(app, LocalDate.parse(selected),
+                                onOpen = { taskId -> selected=todayPageDate;editId=taskId;creating=false }) {
+                                if (habitTrackingEnabled) TodayHabitsContent(app, todayDate,
                                     habitWorkspace, onOpenHabits = { tab = "Привычки" })
                             }
                     })
@@ -396,10 +475,41 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
             if(creatingTaskList) TaskListEditor(structure,authState.accountSettings,prefs,
                 canCreate=authState.ready && !authState.requiresSignIn && authState.user!=null &&
                     (authState.accountSettings?.authProvider != "yandex" || authState.accountSettings?.calendarConnected == true),
-                onDismiss={creatingTaskList=false},onCreate=authController::createTaskList,
-                onSaveTasks={list,projectId,date,rows ->
+                initialTitle=voiceListTitle,onDismiss={creatingTaskList=false;voiceListTitle=""},onCreate=authController::createTaskList,
+                onSaveTasks={list,projectId,date,rows,options ->
                     require(app.workspaceScope==activeScope) { "Аккаунт изменился. Откройте форму заново." }
-                    saveListDraftTasks(app,list,projectId,date,prefs.input,rows);authController.syncPending()
+                    saveListDraftTasks(app,list,projectId,date,prefs.input,rows,options);authController.syncPending()
+                })
+            if(voiceOpen) NativeVoiceAssistantDialog(app,structure,taskLists,tasks,habitWorkspace.habits,
+                prefs.input,prefs.use24,prefs.language,
+                onDismiss={voiceOpen=false},onSaved={voiceOpen=false;tab="Задачи"},
+                onAction={ action ->
+                    voiceOpen=false
+                    when(action) {
+                        is NativeVoiceAction.Navigate -> when(action.section) {
+                            "Списки задач" -> { menuSwipeState.tasks="lists";tab="Задачи" }
+                            "Сон и настроение" -> { menuSwipeState.habits="Сон и настроение";tab="Привычки" }
+                            else -> tab=action.section
+                        }
+                        is NativeVoiceAction.EditTask -> { editId=action.id;creating=false;tab="Задачи" }
+                        is NativeVoiceAction.MoveTask -> {
+                            val task=tasks.firstOrNull { it.id==action.id }
+                            val target=structure.projects.firstOrNull { it.id==action.projectId }
+                            if(task!=null) model.save(task.copy(projectId=target?.id,
+                                categoryId=target?.categoryId,project=target?.title.orEmpty())) {}
+                            tab="Проекты"
+                        }
+                        is NativeVoiceAction.CreateProject,is NativeVoiceAction.EditProject -> {
+                            voiceScreenRequest=action;tab="Проекты"
+                        }
+                        is NativeVoiceAction.CreateTaskList -> {
+                            voiceListTitle=action.title;creatingTaskList=true;tab="Задачи"
+                        }
+                        is NativeVoiceAction.CreateHabit,is NativeVoiceAction.EditHabit,
+                        is NativeVoiceAction.DeleteHabit -> {
+                            menuSwipeState.habits="Привычки";voiceScreenRequest=action;tab="Привычки"
+                        }
+                    }
                 })
             }
         }
@@ -690,7 +800,7 @@ private fun DayHeader(date: LocalDate, mode: CalendarMode, detailsExpanded: Bool
                     style = MaterialTheme.typography.bodySmall) }
                 SunriseSunsetLine(date, solarLocation, calendar,
                     accent = Color(0xfff4deb0), textColor = Color(0xffd7dfd8))
-                Text(copy.footerDate,
+                Text(copy.footerDate, Modifier.testTag("today-hero-date"),
                     color = Color(0xffdfc17e), style = MaterialTheme.typography.labelMedium)
                 copy.badge?.takeIf { mode == CalendarMode.LUNAR }?.let { badge ->
                     Surface(shape = RoundedCornerShape(100.dp), color = Color(0xc2071d20),

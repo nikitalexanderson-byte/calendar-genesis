@@ -36,7 +36,7 @@ internal object MoonReminderScheduler {
     private fun registry(context: Context) = context.getSharedPreferences("genesis_moon_alarm_registry", Context.MODE_PRIVATE)
     private fun uri(scope: String, plan: PlannedMoonReminder) = Uri.Builder().scheme("genesis")
         .authority("moon-reminder").appendPath(scope).appendPath(plan.kind)
-        .appendPath(plan.eventDate.toString()).build()
+        .appendPath(plan.eventDate.toString()).appendPath(plan.leadDays.toString()).build()
     private fun intent(context: Context, raw: Uri) = Intent(context, MoonReminderReceiver::class.java).apply {
         action = ACTION
         data = raw
@@ -83,13 +83,14 @@ internal object MoonReminderScheduler {
         val raw = received.data ?: return@withLock
         if (received.action != ACTION || raw.scheme != "genesis" || raw.authority != "moon-reminder") return@withLock
         val parts = raw.pathSegments
-        if (parts.size != 3 || parts[0] != app.workspaceScope || parts[1] !in setOf("full", "new")) return@withLock
+        if (parts.size != 4 || parts[0] != app.workspaceScope || parts[1] !in setOf("full", "new")) return@withLock
         val eventDate = runCatching { LocalDate.parse(parts[2]) }.getOrNull() ?: return@withLock
+        val leadDays = parts[3].toIntOrNull()?.takeIf { it in 1..3 } ?: return@withLock
         val prefs = LocalPreferences(context, app.workspaceScope).values.first()
         val now = Instant.now()
         val candidate = planMoonReminders(now.minusSeconds(LATE_SECONDS), ZoneId.systemDefault(),
             prefs.fullMoonLeadDays, prefs.newMoonLeadDays, 7)
-            .firstOrNull { it.kind == parts[1] && it.eventDate == eventDate && it.at <= now }
+            .firstOrNull { it.kind == parts[1] && it.eventDate == eventDate && it.leadDays == leadDays && it.at <= now }
             ?: return@withLock
         post(context, app.workspaceScope, candidate, raw.toString(), registry(context))
     }
@@ -108,7 +109,8 @@ internal object MoonReminderScheduler {
             if (english) "Full moon" else "Полнолуние"
         } else if (english) "New moon" else "Новолуние"
         val date = candidate.eventDate.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
-        val body = if (english) "$title on $date" else "$title $date"
+        val body = if (english) "$title on $date · in ${candidate.leadDays} day${if(candidate.leadDays==1) "" else "s"}"
+            else "$title $date · за ${candidate.leadDays} ${if(candidate.leadDays==1) "сутки" else "суток"}"
         val notifications = context.getSystemService(NotificationManager::class.java)
         notifications.createNotificationChannel(NotificationChannel(CHANNEL,
             if (english) "Lunar events" else "Лунные события", NotificationManager.IMPORTANCE_DEFAULT).apply {

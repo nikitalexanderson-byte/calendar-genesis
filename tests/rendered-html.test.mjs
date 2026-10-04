@@ -2024,7 +2024,7 @@ test("retains the legacy TWA artifact but promotes only the signed native Androi
   // The legacy 1.2.2 asset remains available while the current native release advances.
   const nativeVersionCode = Number(androidBuild.match(/versionCode = (\d+)/)?.[1]);
   assert.ok(nativeVersionCode >= 57);
-  assert.match(androidBuild, /versionName = "2\.5\.5"/);
+  assert.match(androidBuild, /versionName = "2\.5\.6"/);
   assert.match(androidBuild, /releaseSigningReady/);
   assert.match(androidBuild, /applicationIdSuffix = "\.debug"/);
   assert.match(androidBuild, /androidx\.browser:browser:1\.10\.0/);
@@ -2377,7 +2377,9 @@ test("Experimental applies one design system across ordinary views and adds safe
   assert.match(habits, /experimental-habit-section-modules/);
   assert.match(habits, /experimental-habit-section-progress/);
   assert.match(habits, /allowCalendarModeChange=\{experimentalThemeActive\}/);
-  assert.equal((habits.match(/allowCalendarModeChange=\{experimentalThemeActive\}/g) ?? []).length, 4);
+  assert.equal((habits.match(/allowCalendarModeChange=\{experimentalThemeActive\}/g) ?? []).length, 2);
+  assert.match(habits, /<HabitTemplateSetup .* allowCalendarModeChange onSave=/);
+  assert.match(habits, /<HabitEditor .* allowCalendarModeChange onSave=/);
   assert.match(account, /data-exp-layout="view" data-exp-ui="dialog"/);
   assert.match(admin, /className="admin-view" data-exp-layout="view"/);
   assert.match(assistant, /data-exp-ui="dialog"/);

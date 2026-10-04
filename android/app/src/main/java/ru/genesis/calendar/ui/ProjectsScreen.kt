@@ -99,6 +99,16 @@ private fun TaskDragHandle(task: LocalTask) {
     }
 }
 
+@Composable
+private fun ProjectTaskDeleteButton(task: LocalTask, onClick: () -> Unit) {
+    IconButton(onClick = onClick, modifier = Modifier.size(48.dp)
+        .testTag("project-delete-task-${task.id}")
+        .semantics { contentDescription = "Удалить задачу ${task.title}" }) {
+        Text("×", style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.error)
+    }
+}
+
 /** Pick-up-and-move stays inside the Projects workspace and gives the finger a visible task preview. */
 @Composable
 private fun DraggableTaskRow(task: LocalTask, pickedUp: Boolean,
@@ -131,9 +141,11 @@ private fun DraggableTaskRow(task: LocalTask, pickedUp: Boolean,
 
 /** One native screen adapted from the web Projects workspace. Standart uses its existing Material roles. */
 @Composable
-fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental: Boolean,
+internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental: Boolean,
     onOpenTask: (String) -> Unit, onCreateTask: (String?) -> Unit,
-    menuSwipeState: MenuSwipeState? = null) {
+    onDeleteTask: (LocalTask) -> Unit = {},
+    menuSwipeState: MenuSwipeState? = null, voiceRequest: NativeVoiceAction? = null,
+    onVoiceRequestConsumed: () -> Unit = {}) {
     val repo = remember(app) { WorkspaceStructureRepository(app) }
     val loadedStructure by produceState<WorkspaceStructure?>(null, repo) {
         repo.workspace.collect { value = it }
@@ -156,13 +168,31 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
     var selectedProject by remember { mutableStateOf<String?>(null) }
     var editing by remember { mutableStateOf<GenesisProject?>(null) }
     var deleteCandidate by remember { mutableStateOf<GenesisProject?>(null) }
+    var deleteTaskCandidate by remember { mutableStateOf<LocalTask?>(null) }
     var creating by remember { mutableStateOf(false) }
+    var voiceDraftTitle by remember { mutableStateOf("") }
     var editingCategory by remember { mutableStateOf<GenesisCategory?>(null) }
     var deleteCategoryCandidate by remember { mutableStateOf<GenesisCategory?>(null) }
     var categoryEditor by remember { mutableStateOf(false) }
     var categoriesExpanded by remember { mutableStateOf(false) }
     var inboxExpanded by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(voiceRequest,structure.revision) {
+        if(voiceRequest!=null) {
+            when(voiceRequest) {
+                is NativeVoiceAction.CreateProject -> {
+                    editing=null;voiceDraftTitle=voiceRequest.title;creating=true
+                }
+                is NativeVoiceAction.EditProject -> {
+                    structure.projects.firstOrNull { it.id==voiceRequest.id }?.let {
+                        editing=it;voiceDraftTitle="";creating=true
+                    }
+                }
+                else -> Unit
+            }
+            onVoiceRequestConsumed()
+        }
+    }
     var moveAnnouncement by remember { mutableStateOf<String?>(null) }
     var pickup by remember { mutableStateOf<TaskPickup?>(null) }
     var workspaceBounds by remember { mutableStateOf(Rect.Zero) }
@@ -298,7 +328,8 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
         if (experimental && !wide) item {
             InboxProjectCard(inbox, structure.projects, true, inboxExpanded,
                 { inboxExpanded = !inboxExpanded }, pickup?.id,
-                onPickup, onDrag, onRelease, onOpenTask, onCreateTask, moveTask)
+                onPickup, onDrag, onRelease, onOpenTask, onCreateTask, moveTask,
+                onDeleteClick = { deleteTaskCandidate = it })
         }
         if (!wide) item { categoriesContent() }
         if (visible.isEmpty()) item { Text("В этом разделе пока нет проектов.") }
@@ -349,8 +380,12 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
                                         TaskTitle(task)
                                     }
                                     TaskDestinationMenu(task, structure.projects, moveTask)
+                                    ProjectTaskDeleteButton(task) { deleteTaskCandidate = task }
                                 } else {
-                                    TextButton(onClick = { onOpenTask(task.id) }) { TaskTitle(task) }
+                                    TextButton(onClick = { onOpenTask(task.id) }, modifier = Modifier.weight(1f)) {
+                                        TaskTitle(task)
+                                    }
+                                    ProjectTaskDeleteButton(task) { deleteTaskCandidate = task }
                                 }
                             }
                         }
@@ -375,7 +410,10 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
                     if (selectedProject == null) {
                         inbox.take(if (inboxExpanded) inbox.size else 1).forEach { task ->
                             DraggableTaskRow(task, pickup?.id == task.id, onPickup, onDrag, onRelease) {
-                                TextButton(onClick = { onOpenTask(task.id) }) { TaskTitle(task) }
+                                TextButton(onClick = { onOpenTask(task.id) }, modifier = Modifier.weight(1f)) {
+                                    TaskTitle(task)
+                                }
+                                ProjectTaskDeleteButton(task) { deleteTaskCandidate = task }
                             }
                         }
                         if (inbox.size > 1) TextButton(onClick = { inboxExpanded = !inboxExpanded }) {
@@ -399,7 +437,8 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (experimental) InboxProjectCard(inbox, structure.projects, true, inboxExpanded,
             { inboxExpanded = !inboxExpanded }, pickup?.id,
-            onPickup, onDrag, onRelease, onOpenTask, onCreateTask, moveTask)
+            onPickup, onDrag, onRelease, onOpenTask, onCreateTask, moveTask,
+            onDeleteClick = { deleteTaskCandidate = it })
         categoriesContent()
     }
     }
@@ -408,7 +447,8 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
     }
     }
 
-    if (creating) ProjectEditor(structure, editing, error, onDismiss = { creating = false }) { draft, expectedRevision ->
+    if (creating) ProjectEditor(structure, editing, error, voiceDraftTitle,
+        onDismiss = { creating = false;voiceDraftTitle="" }) { draft, expectedRevision ->
         scope.launch {
             try { repo.saveProject(draft, expectedRevision); selectedProject = draft.id; error = null; creating = false }
             catch (e: IllegalArgumentException) { error = e.message ?: "Проверьте проект." }
@@ -453,6 +493,19 @@ fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental
             },
             dismissButton = { TextButton(onClick = { deleteCandidate = null }) { Text("Отмена") } })
     }
+    deleteTaskCandidate?.let { task ->
+        AlertDialog(onDismissRequest = { deleteTaskCandidate = null },
+            title = { Text("Удалить задачу?") },
+            text = { Text("«${task.title}» будет удалена из проекта и всех разделов. Если задача повторяется, удалится вся серия.") },
+            confirmButton = {
+                TextButton(onClick = { deleteTaskCandidate = null; onDeleteTask(task) },
+                    modifier = Modifier.testTag("confirm-project-task-delete"),
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
+                    Text("Удалить")
+                }
+            },
+            dismissButton = { TextButton(onClick = { deleteTaskCandidate = null }) { Text("Отмена") } })
+    }
     deleteCategoryCandidate?.let { category ->
         AlertDialog(onDismissRequest = { deleteCategoryCandidate = null },
             title = { Text("Удалить категорию?") },
@@ -489,7 +542,7 @@ private fun InboxProjectCard(inbox: List<LocalTask>, projects: List<GenesisProje
     expanded: Boolean, onToggleExpand: () -> Unit, pickedUpId: String?,
     onPickup: (LocalTask, Offset) -> Unit, onDrag: (Offset) -> Unit, onRelease: (Boolean) -> Unit,
     onOpenTask: (String) -> Unit, onCreateTask: (String?) -> Unit,
-    onMoveTask: (String, String) -> Unit) {
+    onMoveTask: (String, String) -> Unit, onDeleteClick: (LocalTask) -> Unit) {
     val background = if (experimental) Color(0xff103632) else MaterialTheme.colorScheme.surface
     val foreground = if (experimental) Color(0xfff8f3e8) else MaterialTheme.colorScheme.onSurface
     val secondary = if (experimental) Color(0xffb8ccc5) else MaterialTheme.colorScheme.onSurfaceVariant
@@ -524,6 +577,7 @@ private fun InboxProjectCard(inbox: List<LocalTask>, projects: List<GenesisProje
                                 completedColor = if (experimental) Color(0xffaab3b0) else completedTaskInk)
                         }
                         TaskDestinationMenu(task, projects, onMoveTask, foreground)
+                        ProjectTaskDeleteButton(task) { onDeleteClick(task) }
                     }
                 }
                 TextButton(onClick = { onCreateTask(null) },
@@ -700,9 +754,10 @@ private fun CategoryEditor(existing: GenesisCategory?, position: Int, revision: 
 
 @Composable
 private fun ProjectEditor(structure: WorkspaceStructure, existing: GenesisProject?, error: String?,
+    initialTitle: String = "",
     onDismiss: () -> Unit, onSave: (GenesisProject, Long) -> Unit) {
     val expectedRevision = remember(existing?.id) { structure.revision }
-    var title by remember(existing?.id) { mutableStateOf(existing?.title ?: "") }
+    var title by remember(existing?.id,initialTitle) { mutableStateOf(existing?.title ?: initialTitle) }
     var description by remember(existing?.id) { mutableStateOf(existing?.description ?: "") }
     var categoryId by remember(existing?.id) { mutableStateOf(existing?.categoryId) }
     var parentId by remember(existing?.id) { mutableStateOf(existing?.parentId) }

@@ -587,6 +587,50 @@ class AuthController private constructor(context: Context) {
         }
     }
 
+    internal suspend fun updateTaskList(list: ru.genesis.calendar.data.GoogleTaskList, title: String): ru.genesis.calendar.data.GoogleTaskList {
+        val value = mutableState.value
+        val uid = value.user?.uid
+        require(uid != null && value.ready && !value.requiresSignIn) { "Для изменения списка повторите вход." }
+        val accountScope = CloudAccountSnapshot.scopeFor(uid)
+        require(app.workspaceScope == accountScope)
+        val updated = if (value.accountSettings?.authProvider == "google") {
+            require(!list.isDefault) { "Основной список Google Tasks нельзя изменять в GENESIS." }
+            val accountId = requireNotNull(list.accountId)
+            val generation = client.currentGeneration()
+            dataSyncMutex.withLock {
+                val response = withContext(Dispatchers.IO) { client.updateTaskList(generation,list.id,title,accountId) }
+                require(client.isCurrent(generation) && app.workspaceScope == accountScope)
+                ru.genesis.calendar.data.GoogleTaskList.from(response.getJSONObject("taskList"))
+            }
+        } else list.copy(title=title.trim())
+        withContext(Dispatchers.IO) {
+            ru.genesis.calendar.data.TaskListsRepository(app,accountScope).rememberCreated(updated)
+            ru.genesis.calendar.data.WorkspaceStructureRepository(app).saveTaskList(updated)
+        }
+        return updated
+    }
+
+    internal suspend fun deleteTaskList(list: ru.genesis.calendar.data.GoogleTaskList) {
+        val value = mutableState.value
+        val uid = value.user?.uid
+        require(uid != null && value.ready && !value.requiresSignIn) { "Для удаления списка повторите вход." }
+        require(!list.isDefault) { "Основной список Google Tasks удалить нельзя." }
+        val accountScope = CloudAccountSnapshot.scopeFor(uid)
+        require(app.workspaceScope == accountScope)
+        if (value.accountSettings?.authProvider == "google") {
+            val accountId = requireNotNull(list.accountId)
+            val generation = client.currentGeneration()
+            dataSyncMutex.withLock {
+                withContext(Dispatchers.IO) { client.deleteTaskList(generation,list.id,accountId) }
+                require(client.isCurrent(generation) && app.workspaceScope == accountScope)
+            }
+        }
+        withContext(Dispatchers.IO) {
+            ru.genesis.calendar.data.TaskListsRepository(app,accountScope).rememberRemoved(list)
+            ru.genesis.calendar.data.WorkspaceStructureRepository(app).removeTaskList(list.id)
+        }
+    }
+
     internal suspend fun loadStoicheionDraws(): JSONObject {
         val generation = client.currentGeneration()
         return try { withContext(Dispatchers.IO) { client.stoicheionDraws(generation) } }

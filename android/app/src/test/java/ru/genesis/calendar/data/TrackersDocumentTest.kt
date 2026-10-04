@@ -40,12 +40,14 @@ class TrackersDocumentTest {
 
     @Test fun planRulesAndObservedValuesRoundTripWithoutAddingRewardFields() {
         val rule=SleepRule("rule1","wake","after",LocalTime.of(8,0),-1.5)
-        val plan=SleepPlan(meta,schedule,active=false,scoringEnabled=true,rules=listOf(rule))
+        val plan=SleepPlan(meta,schedule,active=false,scoringEnabled=true,rules=listOf(rule),
+            reminderEnabled=true,reminderMinutesBefore=30)
         val entry=SleepTracker.entry(meta.copy(id="e1"),plan,date,LocalTime.of(23,0),LocalTime.of(9,0),null,"Тест \"заметки\"\nновая строка")
         val data=LocalTrackersWorkspace(listOf(plan),listOf(entry))
         val json=TrackersDocument.encode(data)
         assertEquals(data,TrackersDocument.decode(json,0))
         assertEquals(-1.5,entry.score,0.0)
+        assertEquals(30,TrackersDocument.decode(json,0).sleepPlans.single().reminderMinutesBefore)
         assertFalse(json.contains("xpAwarded"));assertFalse(json.contains("laurelsBalance"))
     }
 

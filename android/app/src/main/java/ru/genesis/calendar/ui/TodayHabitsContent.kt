@@ -28,7 +28,8 @@ import ru.genesis.calendar.domain.habits.HabitEngine
 /** Uses each habit's saved schedule, independently of the display calendar. */
 @Composable
 internal fun TodayHabitsContent(app: GenesisApplication, date: LocalDate,
-    workspace: LocalHabitWorkspace, onOpenHabits: () -> Unit) {
+    workspace: LocalHabitWorkspace, onOpenHabits: () -> Unit,
+    showTopDivider: Boolean = true) {
     val repository = remember(app) { HabitsRepository(app) }
     val engine = remember { HabitEngine(GenesisCalendar()) }
     val scheduled = remember(workspace.habits, date) { workspace.habits.filter { engine.isScheduled(it, date) } }
@@ -67,7 +68,7 @@ internal fun TodayHabitsContent(app: GenesisApplication, date: LocalDate,
     }
     Column(Modifier.fillMaxWidth().testTag("today-habits-section"),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        if (showTopDivider) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(12.dp),verticalAlignment=Alignment.CenterVertically) {
             Surface(Modifier.size(44.dp),shape=RoundedCornerShape(14.dp),color=if(LocalEveningTheme.current)
                 MaterialTheme.colorScheme.secondaryContainer else Color(0xff123b36)) {

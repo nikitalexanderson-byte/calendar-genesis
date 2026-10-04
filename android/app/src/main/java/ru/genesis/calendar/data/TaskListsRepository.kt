@@ -2,6 +2,7 @@ package ru.genesis.calendar.data
 
 import androidx.room.withTransaction
 import java.time.LocalDate
+import java.time.LocalTime
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
@@ -39,6 +40,13 @@ class TaskListsRepository(private val app: GenesisApplication, private val accou
         val previous = row?.let { decode(cipher.decrypt(it.encrypted, "$accountScope/$kind")) }.orEmpty()
         store(app.database, accountScope, previous.filterNot { it.id == list.id && it.accountId == list.accountId } + list,
             (row?.revision ?: 0) + 1)
+    }
+    suspend fun rememberRemoved(list: GoogleTaskList) = app.database.withTransaction {
+        require(app.workspaceScope == accountScope) { "Аккаунт изменился. Откройте форму заново." }
+        val row = app.database.dao().document(accountScope, kind) ?: return@withTransaction
+        val previous = decode(cipher.decrypt(row.encrypted, "$accountScope/$kind"))
+        store(app.database, accountScope, previous.filterNot { it.id == list.id && it.accountId == list.accountId },
+            row.revision + 1)
     }
 
     companion object {
@@ -91,9 +99,16 @@ internal fun listTaskFields(list: GoogleTaskList, mode: CalendarMode) = JSONObje
     .put("createdIn", "genesis").put("syncToGoogle", true).put("calendarMode", mode.wireValue)
     .put("tags", JSONArray()).put("dependsOnIds", JSONArray()).put("googleReadOnly", false)
 
+internal data class TaskListDraftOptions(val notes: String = "", val time: String = "",
+    val reminderMinutes: Int = 0)
+
 internal suspend fun saveListDraftTasks(app: GenesisApplication, list: GoogleTaskList, projectId: String?,
-    date: String, mode: CalendarMode, rows: List<Pair<String, String>>) {
+    date: String, mode: CalendarMode, rows: List<Pair<String, String>>,
+    options: TaskListDraftOptions = TaskListDraftOptions()) {
     LocalDate.parse(date)
+    require(options.notes.length <= 8_192)
+    require(options.time.isBlank() || runCatching { LocalTime.parse(options.time) }.isSuccess)
+    require(options.reminderMinutes in 0..40_320 && (options.reminderMinutes == 0 || options.time.isNotBlank()))
     val ownerScope = app.workspaceScope
     val structureRepository = WorkspaceStructureRepository(app)
     val repository = app.repository
@@ -101,7 +116,10 @@ internal suspend fun saveListDraftTasks(app: GenesisApplication, list: GoogleTas
     rows.filter { it.second.isNotBlank() }.forEach { (id, title) ->
         // Stable draft IDs make a retry after a partial local save safe.
         require(app.workspaceScope == ownerScope) { "Аккаунт изменился. Откройте форму заново." }
-        if(repository.get(id) == null) repository.save(LocalTask(id = id, title = title.trim(), date = date,
-            projectId = projectId, sourceFieldsJson = listTaskFields(list, mode).toString(), reminders = emptyList()))
+        if(repository.get(id) == null) repository.save(LocalTask(id = id, title = title.trim(),
+            description = options.notes.trim(), date = date, time = options.time,
+            projectId = projectId, sourceFieldsJson = listTaskFields(list, mode).toString(),
+            reminders = if(options.reminderMinutes>0)
+                listOf(TaskReminder.relative(options.reminderMinutes)) else emptyList()))
     }
 }

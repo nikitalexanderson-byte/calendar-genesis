@@ -16,14 +16,15 @@ import ru.genesis.calendar.domain.CalendarMode
 /** Changes only the date-picker presentation in the open editor. */
 @Composable
 internal fun EditorCalendarModePicker(mode: CalendarMode, onModeChange: (CalendarMode) -> Unit,
-    enabled: Boolean = true, tag: String) {
+    enabled: Boolean = true, compact: Boolean = false, preferredMode: CalendarMode = mode, tag: String) {
     Text("Отображение дат в этой форме", style = MaterialTheme.typography.titleSmall)
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp),
         modifier = Modifier.horizontalScroll(rememberScrollState())) {
-        CalendarMode.entries.forEach { option ->
+        (listOf(preferredMode) + listOf(CalendarMode.SACRED, CalendarMode.PROFANE, CalendarMode.LUNAR)
+            .filterNot { it == preferredMode }).forEach { option ->
             FilterChip(selected = mode == option, enabled = enabled,
                 onClick = { onModeChange(option) },
-                modifier = Modifier.heightIn(min = 48.dp).testTag("$tag-${option.wireValue}"),
+                modifier = Modifier.heightIn(min = if (compact) 32.dp else 48.dp).testTag("$tag-${option.wireValue}"),
                 label = { Text(calendarModeLabel(option)) })
         }
     }
