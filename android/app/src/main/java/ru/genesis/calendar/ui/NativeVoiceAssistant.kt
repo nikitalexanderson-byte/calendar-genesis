@@ -113,6 +113,9 @@ internal fun NativeVoiceAssistantDialog(app: GenesisApplication, structure: Work
                             .option(preview.value.toDouble()).let { option ->
                                 if(english) "Record mood: ${option.labelEn}" else "Отметить настроение: ${option.label}"
                             }
+                        is NativeVoiceAction.RenameTask -> if(english)
+                            "Rename task: ${preview.title} → ${preview.newTitle}"
+                            else "Переименование задачи: ${preview.title} → ${preview.newTitle}"
                         is NativeVoiceAction.CreateProject -> "Создать проект: ${preview.title}"
                         is NativeVoiceAction.CreateCategory -> "Создать категорию: ${preview.title}"
                         is NativeVoiceAction.CreateTaskList -> "Создать список задач: ${preview.title}"

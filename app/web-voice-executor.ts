@@ -140,6 +140,13 @@ export async function runWebVoiceCommand(command: string, context: WebVoiceConte
     navigate("projects");
     return reply("Категория создана.", "Category created.");
   }
+  if (action.kind === "rename-task") {
+    const task = tasks.find((item) => item.id === action.id);
+    if (!task) return reply("Задача больше не найдена.", "Task was not found.");
+    changeTask(task, { ...task, title: action.newTitle, updatedAt: Date.now() });
+    navigate("all-tasks");
+    return reply("Название задачи изменено.", "Task renamed.");
+  }
   if (action.kind === "edit-task") {
     const task = tasks.find((item) => item.id === action.id);
     if (!task) return reply("Задача больше не найдена.", "Task was not found.");

@@ -79,6 +79,8 @@ private val nativeCopy = mapOf(
     "Не удалось сохранить настроение." to "Could not save the mood.",
     "Записываю настроение." to "Recording mood.",
     "Отметить настроение:" to "Record mood:",
+    "Название задачи изменено." to "Task renamed.",
+    "Переименование задачи:" to "Rename task:",
     "Задача перемещена." to "Task moved.",
     "Проект создан." to "Project created.",
     "Привычка создана." to "Habit created.",

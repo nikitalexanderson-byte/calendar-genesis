@@ -17,6 +17,7 @@ sealed interface NativeVoiceAction {
     data class CalendarMonth(val ordinal: Int): NativeVoiceAction
     data class Scroll(val direction: String): NativeVoiceAction
     data class SetMood(val value: Int): NativeVoiceAction
+    data class RenameTask(val id: String, val title: String, val newTitle: String): NativeVoiceAction
     data class CreateProject(val title: String): NativeVoiceAction
     data class CreateCategory(val title: String): NativeVoiceAction
     data class CreateTaskList(val title: String): NativeVoiceAction
@@ -158,6 +159,21 @@ internal fun parseNativeVoiceAction(raw: String, tasks: List<LocalTask>, project
     subject("(?:создай|создать|добавь|добавить|create|add)\\s+(?:новый\\s+)?(?:список задач|task list)\\s+(.+)")?.let {
         spokenName(it).take(300).takeIf(String::isNotBlank)?.let { title -> return NativeVoiceAction.CreateTaskList(title) }
     }
+    subject("(?:переименуй|переименовать|rename)\\s+(?:задачу|задача|task)\\s+(.+)")?.let { rest ->
+        val matches=tasks.mapNotNull { task ->
+            if(!rest.startsWith(task.title,true)) return@mapNotNull null
+            val suffix=Regex("""(?iu)^\s+(?:в|на|to|as)\s+(.+)$""")
+                .matchEntire(rest.substring(task.title.length))?.groupValues?.get(1)
+                ?: return@mapNotNull null
+            val title=spokenName(suffix.trim(' ','«','»','"','.',',','!','?'))
+            if(title.isBlank() || title.length>300) null else NativeVoiceAction.RenameTask(task.id,task.title,title)
+        }
+        require(matches.size==1) {
+            if(matches.isEmpty()) "Назовите существующую задачу точно и укажите новое название."
+            else "Несколько задач имеют такое название. Уточните задачу."
+        }
+        return matches.single()
+    }
     subject("(?:отредактируй|отредактировать|редактировать|изменить|измени|edit)\\s+(?:задачу|задача|task)\\s+(.+)")?.let {
         val task=resolve(it,tasks,LocalTask::title)
         return NativeVoiceAction.EditTask(task.id,task.title)
@@ -233,7 +249,7 @@ internal fun parseNativeVoiceAction(raw: String, tasks: List<LocalTask>, project
 }
 
 internal fun looksLikeUnsupportedVoiceAction(command: String): Boolean =
-    Regex("(?iu)^(?:(?:хочу|пожалуйста|please|i want to)\\s+)?(?:удали|удалить|delete|remove|редактируй|отредактируй|отредактировать|редактировать|измени|изменить|edit|перемести|перенеси|move|открой|покажи|перейди|open|show|убери|исключи|прокрути|пролистай|листай|скролль|свайпни|поменяй|переключи|установи|выбери|scroll|swipe|switch|select)(?=\\s|$)")
+    Regex("(?iu)^(?:(?:хочу|пожалуйста|please|i want to)\\s+)?(?:удали|удалить|delete|remove|редактируй|отредактируй|отредактировать|редактировать|измени|изменить|edit|переименуй|переименовать|rename|перемести|перенеси|move|открой|покажи|перейди|open|show|убери|исключи|прокрути|пролистай|листай|скролль|свайпни|поменяй|переключи|установи|выбери|scroll|swipe|switch|select)(?=\\s|$)")
         .containsMatchIn(command.trim()) ||
     Regex("(?iu)^(?:создай|создать|добавь|добавить|create|add)\\s+(?:новый|новую|new)?\\s*(?:проект|категори[а-яё]*|привычк[а-яё]*|список|project|category|habit|task list)(?=\\s|$)")
         .containsMatchIn(command.trim()) ||

@@ -77,3 +77,13 @@ test("mood commands recognize Russian and English values without guessing unknow
   assert.deepEqual(parse("log my mood as drained"), { kind: "set-mood", value: -4 });
   assert.equal(parse("отметь настроение серебристое"), null);
 });
+
+test("task renaming requires one exact source title and removes naming instructions", () => {
+  const parse = (phrase, records = tasks) => parseWebVoiceAction(phrase, records, projects, habits);
+  assert.deepEqual(parse("переименуй задачу Позвонить врачу в Звонок врачу"),
+    { kind: "rename-task", id: "task-1", title: "Позвонить врачу", newTitle: "Звонок врачу" });
+  assert.deepEqual(parse("rename task Позвонить врачу to named Call the doctor"),
+    { kind: "rename-task", id: "task-1", title: "Позвонить врачу", newTitle: "Call the doctor" });
+  assert.throws(() => parse("переименуй задачу Позвонить в Звонок"), /точно/);
+  assert.throws(() => parse("переименуй задачу Позвонить врачу в Звонок", [...tasks, { id: "task-3", title: "Позвонить врачу" }]), /Несколько/);
+});

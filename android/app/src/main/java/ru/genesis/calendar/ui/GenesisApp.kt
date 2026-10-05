@@ -313,6 +313,14 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
             }
             "Записываю настроение."
         }
+        is NativeVoiceAction.RenameTask -> {
+            val task = tasks.firstOrNull { it.id == action.id }
+            if (task == null) "Задача больше не найдена." else {
+                model.save(task.copy(title = action.newTitle)) {}
+                tab = "Задачи"
+                "Название задачи изменено."
+            }
+        }
         is NativeVoiceAction.Navigate -> {
             when(action.section) {
                 "Списки задач" -> { menuSwipeState.tasks="lists";tab="Задачи" }
@@ -397,6 +405,12 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                     val result = recordVoiceMood(action.value)
                     menuSwipeState.habits = "Сон и настроение"; tab = "Привычки"
                     return result
+                }
+                is NativeVoiceAction.RenameTask -> {
+                    val task = app.repository.get(action.id) ?: return "Задача больше не найдена."
+                    app.repository.save(task.copy(title = action.newTitle))
+                    tab = "Задачи"
+                    return "Название задачи изменено."
                 }
                 is NativeVoiceAction.SetTaskDone -> {
                     val task=app.repository.get(action.id) ?: return "Задача больше не найдена."

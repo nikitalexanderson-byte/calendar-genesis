@@ -106,4 +106,17 @@ class NativeVoiceActionsTest {
         assertNull(parse("отметь настроение серебристое"))
         assertTrue(looksLikeUnsupportedVoiceAction("отметь настроение серебристое"))
     }
+
+    @Test fun taskRenamingRequiresOneExactSourceTitle() {
+        fun parse(value: String, records: List<LocalTask> = listOf(task)) =
+            parseNativeVoiceAction(value,records,listOf(project),listOf(habit))
+        assertEquals(NativeVoiceAction.RenameTask(task.id,task.title,"Новый отчёт"),
+            parse("переименуй задачу Отправить отчёт в Новый отчёт"))
+        assertEquals(NativeVoiceAction.RenameTask(task.id,task.title,"Final report"),
+            parse("rename task Отправить отчёт to named Final report"))
+        assertThrows(IllegalArgumentException::class.java) { parse("переименуй задачу Отправить в Новый отчёт") }
+        assertThrows(IllegalArgumentException::class.java) {
+            parse("переименуй задачу Отправить отчёт в Новый отчёт",listOf(task,task.copy(id="task-2")))
+        }
+    }
 }

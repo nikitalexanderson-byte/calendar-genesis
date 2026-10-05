@@ -10,6 +10,7 @@ export type WebVoiceAction =
   | { kind: "calendar-month"; ordinal: number }
   | { kind: "scroll"; direction: "up" | "down" | "top" | "bottom" }
   | { kind: "set-mood"; value: MoodValue }
+  | { kind: "rename-task"; id: string; title: string; newTitle: string }
   | { kind: "create-project" | "create-list" | "create-habit" | "create-task" | "create-category"; title: string }
   | { kind: "edit-task" | "delete-task" | "edit-list" | "delete-list" | "edit-project" | "delete-project" | "edit-category" | "delete-category" | "edit-habit" | "delete-habit" | "complete-task" | "uncomplete-task" | "complete-habit" | "uncomplete-habit"; id: string; title: string }
   | { kind: "move-task"; id: string; title: string; projectId: string | null };
@@ -108,6 +109,20 @@ export function parseWebVoiceAction(raw: string, tasks: Named[], projects: Named
     "стойхейон": "stoicheion", stoicheion: "stoicheion", "настройки": "admin", settings: "admin",
   };
   if (destination && sections[destination]) return { kind: "navigate", section: sections[destination] };
+  const renameTask = command.match(/^(?:переименуй|переименовать|rename)\s+(?:задачу|задача|task)\s+(.+)$/iu);
+  if (renameTask) {
+    const matches = tasks.flatMap((task) => {
+      const prefix = task.title.toLocaleLowerCase();
+      const rest = renameTask[1];
+      if (!rest.toLocaleLowerCase().startsWith(prefix)) return [];
+      const suffix = rest.slice(task.title.length).match(/^\s+(?:в|на|to|as)\s+(.+)$/iu);
+      return suffix ? [{ task, newTitle: spokenName(suffix[1].replace(/^[«"\s]+|[»".!?\s]+$/gu, "")) }] : [];
+    }).filter((match) => match.newTitle.length > 0 && match.newTitle.length <= 300);
+    if (matches.length !== 1) throw new Error(matches.length
+      ? english ? "Multiple tasks have that title. Be more specific." : "Несколько задач имеют такое название. Уточните задачу."
+      : english ? "Name an existing task exactly and give its new title." : "Назовите существующую задачу точно и укажите новое название.");
+    return { kind: "rename-task", id: matches[0].task.id, title: matches[0].task.title, newTitle: matches[0].newTitle };
+  }
   for (const [kind, pattern] of [
     ["create-project", /^(?:создай|создать|добавь|добавить|create|add)\s+(?:новый\s+)?(?:проект|project)\s+(.+)$/i],
     ["create-category", /^(?:создай|создать|добавь|добавить|create|add)\s+(?:новую\s+)?(?:категорию(?: жизни)?|life category|category)\s+(.+)$/i],
