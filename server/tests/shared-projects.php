@@ -109,10 +109,17 @@ try {
     sharedExpect(genesisSharedSetGoogleSettings($a, $project['id'],
         ['tasksEnabled' => false, 'calendarEnabled' => false])['tasksEnabled'] === false,
         'Member could not keep Google copies disabled.');
+    sharedExpect(genesisSharedSyncGoogleCron()['projectsChecked'] === 0,
+        'Background sync touched a project without member consent.');
     genesisDb()->prepare('UPDATE shared_google_preferences SET tasks_enabled = 1, calendar_enabled = 1
         WHERE project_id = :project AND user_id = :user')->execute([
         'project' => $project['id'], 'user' => $a,
     ]);
+    $failedProjection = genesisSharedSyncGoogleCron();
+    sharedExpect($failedProjection['projectsChecked'] === 1 && $failedProjection['failures'] === 1,
+        'Background sync did not isolate missing Google permission.');
+    sharedExpect(genesisSharedSyncGoogleCron()['projectsChecked'] === 0,
+        'A failed Google projection was not rate-limited.');
     $disabledGoogle = genesisSharedSetGoogleSettings($a, $project['id'],
         ['tasksEnabled' => false, 'calendarEnabled' => false]);
     sharedExpect(!$disabledGoogle['tasksEnabled'] && !$disabledGoogle['calendarEnabled'],

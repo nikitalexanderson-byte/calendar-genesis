@@ -38,7 +38,7 @@ function genesisSharedSetGoogleSettings(string $userId, string $projectId, array
         VALUES (:project, :user, :tasks, :calendar, :now)
         ON CONFLICT(project_id, user_id) DO UPDATE SET
         tasks_enabled = excluded.tasks_enabled, calendar_enabled = excluded.calendar_enabled,
-        updated_at = excluded.updated_at')->execute([
+        last_sync_attempt_at = NULL, updated_at = excluded.updated_at')->execute([
         'project' => $projectId, 'user' => $userId, 'tasks' => $tasks ? 1 : 0,
         'calendar' => $calendar ? 1 : 0, 'now' => genesisNow(),
     ]);
@@ -135,7 +135,7 @@ function genesisSharedExistingGoogleTasks(array $user, string $listId): array
 }
 
 /** A bounded user-initiated batch avoids sharing through another member's Google account. */
-function genesisSharedSyncGoogle(string $userId, string $projectId): array
+function genesisSharedSyncGoogle(string $userId, string $projectId, int $batchSize = 20): array
 {
     $settings = genesisSharedGoogleSettings($userId, $projectId);
     if (!$settings['tasksEnabled'] && !$settings['calendarEnabled']) {
@@ -148,6 +148,11 @@ function genesisSharedSyncGoogle(string $userId, string $projectId): array
     $user = genesisFindUser($userId);
     $project = genesisSharedProjectAccess($projectId, $userId);
     $db = genesisDb();
+    $batchSize = max(1, min(20, $batchSize));
+    $db->prepare('UPDATE shared_google_preferences SET last_sync_attempt_at = :now
+        WHERE project_id = :project AND user_id = :user')->execute([
+        'now' => genesisNow(), 'project' => $projectId, 'user' => $userId,
+    ]);
     $listId = $settings['tasksEnabled'] ? genesisSharedGoogleTaskList($user, $projectId, (string)$project['title']) : '';
     if ($settings['calendarEnabled']) $user = genesisEnsureGoogleCalendar($user);
     $query = $db->prepare('SELECT t.id, t.title, t.description, t.due_date, t.completed_at, t.revision,
@@ -160,7 +165,7 @@ function genesisSharedSyncGoogle(string $userId, string $projectId): array
         ((:tasks_on = 1 AND COALESCE(lt.synced_revision, 0) < t.revision)
           OR (:calendar_on = 1 AND COALESCE(lc.synced_revision, 0) < t.revision
               AND (t.due_date IS NOT NULL OR lc.google_id <> \'\')))
-        ORDER BY t.updated_at, t.id LIMIT 21');
+        ORDER BY t.updated_at, t.id LIMIT ' . ($batchSize + 1));
     $query->execute(['tasks_user' => $userId, 'calendar_user' => $userId, 'project' => $projectId,
         'tasks_on' => $settings['tasksEnabled'] ? 1 : 0,
         'calendar_on' => $settings['calendarEnabled'] ? 1 : 0]);
@@ -174,7 +179,7 @@ function genesisSharedSyncGoogle(string $userId, string $projectId): array
         $eventStale = $settings['calendarEnabled'] && (int)($task['event_revision'] ?? 0) < (int)$task['revision']
             && ($task['due_date'] !== null || !empty($task['event_google_id']));
         if (!$taskStale && !$eventStale) continue;
-        if ($synced >= 20) { $pending++; continue; }
+        if ($synced >= $batchSize) { $pending++; continue; }
         if ($taskStale) {
             $id = (string)($task['task_google_id'] ?: ($existingTasks[$task['id']] ?? ''));
             $path = '/lists/' . rawurlencode($listId) . '/tasks';
@@ -221,4 +226,34 @@ function genesisSharedSyncGoogle(string $userId, string $projectId): array
         $synced++;
     }
     return ['synced' => $synced, 'pending' => $pending];
+}
+
+/** Existing Beget cron processes only consented member/project pairs, in small rotating batches. */
+function genesisSharedSyncGoogleCron(): array
+{
+    $before = gmdate('Y-m-d\TH:i:s\Z', time() - 3600);
+    $query = genesisDb()->prepare('SELECT p.project_id, p.user_id FROM shared_google_preferences p
+        JOIN shared_project_members m ON m.project_id = p.project_id AND m.user_id = p.user_id
+        JOIN shared_projects sp ON sp.id = p.project_id AND sp.archived_at IS NULL
+        JOIN users u ON u.id = p.user_id AND u.shared_projects_enabled = 1
+        WHERE (p.tasks_enabled = 1 OR p.calendar_enabled = 1)
+          AND (p.last_sync_attempt_at IS NULL OR p.last_sync_attempt_at < :before)
+        ORDER BY COALESCE(p.last_sync_attempt_at, \'\'), p.updated_at LIMIT 5');
+    $query->execute(['before' => $before]);
+    $processed = 0; $copied = 0; $failed = 0;
+    foreach ($query->fetchAll() as $row) {
+        genesisDb()->prepare('UPDATE shared_google_preferences SET last_sync_attempt_at = :now
+            WHERE project_id = :project AND user_id = :user')->execute([
+            'now' => genesisNow(), 'project' => $row['project_id'], 'user' => $row['user_id'],
+        ]);
+        try {
+            $result = genesisSharedSyncGoogle((string)$row['user_id'], (string)$row['project_id'], 3);
+            $copied += $result['synced'];
+        } catch (Throwable $error) {
+            $failed++;
+            genesisLogError('[SharedGoogleCron] ' . get_class($error));
+        }
+        $processed++;
+    }
+    return ['projectsChecked' => $processed, 'tasksCopied' => $copied, 'failures' => $failed];
 }

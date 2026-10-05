@@ -30,7 +30,6 @@ export function SharedProjects({ userId, language }: Props) {
   const [archivedProjects, setArchivedProjects] = useState<SharedProject[]>([]);
   const [projectId, setProjectId] = useState("");
   const projectIdRef = useRef(projectId);
-  projectIdRef.current = projectId;
   const [viewOverride, setViewOverride] = useState<"list" | "board" | "calendar" | null>(null);
   const [calendarMonth, setCalendarMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1, 12));
   const [calendarDay, setCalendarDay] = useState(() => localDateKey(new Date()));
@@ -72,6 +71,8 @@ export function SharedProjects({ userId, language }: Props) {
   const taskDetailRef = useRef<HTMLElement>(null);
   const createDialogRef = useRef<HTMLDialogElement>(null);
   const [createModal, setCreateModal] = useState<"space" | "project" | "task" | "status" | "category" | "invite" | null>(null);
+
+  useEffect(() => { projectIdRef.current = projectId; }, [projectId]);
 
   useEffect(() => {
     const dialog = createDialogRef.current;
