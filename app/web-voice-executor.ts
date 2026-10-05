@@ -5,6 +5,7 @@ import { createLocalVoicePlan } from "./local-voice-plan";
 import { parseWebVoiceAction } from "./web-voice-actions";
 import type { CalendarMode } from "./calendar-data";
 import { moodOption, type MoodEntry } from "./mood-tracker";
+import { defaultSleepPlan, scoreSleepEntry, sleepDeviationMinutes, sleepDurationMinutes, type SleepEntry } from "./sleep-tracker";
 import { markTrackerEntityChanged, newTrackerEntity, trackerTimestamp } from "./tracker-core";
 import type { SacredPracticeSectorId } from "./sacred-practices";
 
@@ -14,6 +15,7 @@ export type WebVoiceContext = {
   language: Language; calendarMode: CalendarMode; currentView: View;
   today: string; timeZone: string;
   persistentWorkspace: boolean;
+  divinationDisabled?: boolean;
   categories: GenesisCategory[]; projects: GenesisProject[]; taskLists: GoogleTaskList[];
   accounts: { email: string }[]; tasks: GenesisTask[]; workspace: HabitWorkspace;
 };
@@ -40,6 +42,7 @@ export type WebVoiceEffects = {
   scrollPage: (direction: "up" | "down" | "top" | "bottom") => boolean;
   openTheokyklosSector: (sectorId: SacredPracticeSectorId) => void;
   openStoicheionCard: (cardId: string) => void;
+  requestStoicheionDraw: (kind: "daily" | "spread") => void;
 };
 
 export async function runWebVoiceCommand(command: string, context: WebVoiceContext, effects: WebVoiceEffects): Promise<string> {
@@ -48,7 +51,7 @@ export async function runWebVoiceCommand(command: string, context: WebVoiceConte
   const { navigate, requestHabit, applyPlan, updateWorkspace, openTask, confirmTaskDelete, openList, deleteList,
     openProject, deleteProject, createCategory, openCategory, deleteCategory, toggleTask, changeTask,
     changeDisplayCalendar, stepCalendar, chooseCalendarMonth, chooseCalendarDate, scrollPage,
-    openTheokyklosSector, openStoicheionCard } = effects;
+    openTheokyklosSector, openStoicheionCard, requestStoicheionDraw } = effects;
   const voiceLists = taskLists.filter((list) => !list.isDefault && list.title !== "Привычки GENESIS");
   const action = parseWebVoiceAction(command, tasks, projects, workspace.habits, language, voiceLists,
     categories.map((category) => ({ id: category.id, title: localizeCategoryName(category, language) })));
@@ -147,6 +150,46 @@ export async function runWebVoiceCommand(command: string, context: WebVoiceConte
     if (!persistentWorkspace) return reply("Настроение выбрано для этой сессии. Войдите, чтобы сохранить.",
       "Mood selected for this session. Sign in to save it.");
     return reply(`Настроение отмечено: ${option.label}.`, `Mood recorded: ${option.labelEn}.`);
+  }
+  if (action.kind === "stoicheion-draw") {
+    if (context.divinationDisabled) return reply("Гадания отключены в настройках Стойхейона.", "Card draws are disabled in Stoicheion settings.");
+    requestStoicheionDraw(action.drawKind);
+    navigate("stoicheion");
+    return reply(action.drawKind === "daily" ? "Открываю карту дня." : "Выбираю девять карт.",
+      action.drawKind === "daily" ? "Opening the daily card." : "Drawing nine cards.");
+  }
+  if (action.kind === "set-sleep" || action.kind === "set-sleep-plan") {
+    const plan = workspace.sleepPlans.find((item) => item.active)
+      ?? (workspace.sleepPlans.length ? null : defaultSleepPlan(today, calendarMode));
+    if (!plan) return reply("План сна на паузе. Включите его в разделе сна.", "Sleep plan is paused. Enable it in Sleep settings.");
+    const plans = workspace.sleepPlans.some((item) => item.id === plan.id) ? workspace.sleepPlans : [...workspace.sleepPlans, plan];
+    if (action.kind === "set-sleep-plan") {
+      const changed = markTrackerEntityChanged({ ...plan,
+        targetBedtime: action.bedtime ?? plan.targetBedtime,
+        targetWakeTime: action.wakeTime ?? plan.targetWakeTime,
+        reminderEnabled: action.reminderEnabled ?? plan.reminderEnabled,
+        reminderMinutesBefore: action.reminderMinutesBefore ?? plan.reminderMinutesBefore,
+      });
+      updateWorkspace({ ...workspace, sleepPlans: plans.map((item) => item.id === plan.id ? changed : item) });
+      navigate("habits"); requestHabit({ kind: "section", section: "modules" });
+      return persistentWorkspace ? reply("План сна обновлён.", "Sleep plan updated.")
+        : reply("План сна изменён в этой сессии. Войдите, чтобы сохранить.", "Sleep plan changed for this session. Sign in to save it.");
+    }
+    const current = workspace.sleepEntries.find((item) => item.planId === plan.id && item.date === today);
+    const bedtime = action.bedtime ?? current?.fellAsleepAt ?? "";
+    const wakeTime = action.wakeTime ?? current?.wokeAt ?? "";
+    const draft = { fellAsleepAt: bedtime, wokeAt: wakeTime };
+    const entry = markTrackerEntityChanged<SleepEntry>({
+      ...(current ?? { ...newTrackerEntity("sleep-entry"), planId: plan.id, date: today, note: "" }),
+      ...draft, quality: action.quality ?? current?.quality ?? null,
+      durationMinutes: sleepDurationMinutes(today, bedtime, wakeTime, plan.schedule.timezone || timeZone),
+      deviationMinutes: sleepDeviationMinutes(plan, draft), score: scoreSleepEntry(plan, draft),
+    });
+    updateWorkspace({ ...workspace, sleepPlans: plans,
+      sleepEntries: [...workspace.sleepEntries.filter((item) => item.planId !== plan.id || item.date !== today), entry] });
+    navigate("habits"); requestHabit({ kind: "section", section: "modules" });
+    return persistentWorkspace ? reply("Сон записан.", "Sleep recorded.")
+      : reply("Сон записан для этой сессии. Войдите, чтобы сохранить.", "Sleep recorded for this session. Sign in to save it.");
   }
   if (action.kind === "create-category") {
     createCategory(action.title);

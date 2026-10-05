@@ -6,6 +6,7 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -19,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -35,6 +37,7 @@ import ru.genesis.calendar.auth.AuthController
 import ru.genesis.calendar.auth.AuthPanelState
 import ru.genesis.calendar.auth.activity
 import ru.genesis.calendar.BuildConfig
+import ru.genesis.calendar.R
 import com.yandex.authsdk.YandexAuthLoginOptions
 import com.yandex.authsdk.YandexAuthOptions
 import com.yandex.authsdk.YandexAuthResult
@@ -170,15 +173,15 @@ fun WelcomeScreen(state: AuthPanelState, controller: AuthController, language: S
         if (maxWidth >= 760.dp) {
             Row(Modifier.fillMaxSize().padding(horizontal = 28.dp), horizontalArrangement = Arrangement.spacedBy(32.dp)) {
                 Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())
-                    .padding(top = 24.dp, bottom = 150.dp),
+                    .padding(top = 24.dp, bottom = if (showYandex) 210.dp else 150.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)) { intro() }
                 Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())
-                    .padding(top = 24.dp, bottom = 150.dp),
+                    .padding(top = 24.dp, bottom = if (showYandex) 210.dp else 150.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)) { details() }
             }
         } else Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())
             .padding(start = 20.dp, top = 16.dp, end = 20.dp,
-                bottom = 150.dp),
+                bottom = if (showYandex) 210.dp else 150.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)) { intro(); details() }
         Surface(Modifier.align(Alignment.BottomCenter).widthIn(max = 720.dp).fillMaxWidth(),
             color = welcomeNight, shadowElevation = 12.dp) {
@@ -191,14 +194,25 @@ fun WelcomeScreen(state: AuthPanelState, controller: AuthController, language: S
                         Modifier.fillMaxWidth(), color = welcomeMuted,
                         style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        ProviderSignInIcon("G", Color.White, Color(0xFF4285F4),
+                        ProviderSignInIcon("google", Color.White, Color(0xFF202124),
                             if (language == "en") "Sign in with Google" else "Войти через Google",
                             "welcome-google-sign-in", !state.busy && activity != null,
                             Modifier.weight(1f)) { activity?.let { controller.signIn(it, preferredLanguage) } }
-                        if (showYandex) ProviderSignInIcon("Я", Color(0xFFFFF7F4), Color(0xFFE32924),
+                        if (showYandex) ProviderSignInIcon("yandex", Color(0xFFFFF7F4), Color(0xFF202124),
                             if (language == "en") "Sign in with Yandex" else "Войти через Яндекс",
                             "welcome-yandex-sign-in", !state.busy,
                             Modifier.weight(1f)) { yandexLauncher?.launch(YandexAuthLoginOptions()) }
+                    }
+                    if (showYandex) Row(Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(if (language == "en") "Recommended for users who are not Russian citizens"
+                            else "Рекомендуется тем, кто не является гражданином России",
+                            Modifier.weight(1f), color = welcomeMuted,
+                            style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center)
+                        Text(if (language == "en") "Recommended for Russian citizens"
+                            else "Рекомендуется гражданам России",
+                            Modifier.weight(1f), color = welcomeMuted,
+                            style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center)
                     }
                 } else {
                     Button(onClick = controller::checkSession, enabled = !state.busy,
@@ -222,17 +236,27 @@ fun WelcomeScreen(state: AuthPanelState, controller: AuthController, language: S
 }
 
 @Composable
-private fun ProviderSignInIcon(mark: String, background: Color, foreground: Color,
+private fun ProviderSignInIcon(provider: String, background: Color, foreground: Color,
     description: String, tag: String, enabled: Boolean, modifier: Modifier, onClick: () -> Unit) {
     Button(onClick = onClick, enabled = enabled,
         modifier = modifier.heightIn(min = 56.dp).testTag(tag)
             .semantics { contentDescription = description },
         shape = RoundedCornerShape(18.dp),
         border = BorderStroke(1.dp, welcomeGold.copy(alpha = .42f)),
+        contentPadding = PaddingValues(horizontal = 8.dp),
         colors = ButtonDefaults.buttonColors(containerColor = background, contentColor = foreground)) {
-        androidx.compose.material3.Text(mark, color = foreground,
-            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-            maxLines = 1)
+        if (provider == "google") Image(painterResource(R.drawable.google_signin_mark), null,
+            Modifier.size(30.dp))
+        else Surface(Modifier.size(30.dp), shape = CircleShape, color = Color(0xFFE32924)) {
+            Box(contentAlignment = Alignment.Center) {
+                Text("Я", color = Color.White,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+            }
+        }
+        Spacer(Modifier.width(5.dp))
+        Text(description, color = foreground,
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+            textAlign = TextAlign.Start, maxLines = 2)
     }
 }
 

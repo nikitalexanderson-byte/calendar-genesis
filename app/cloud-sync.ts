@@ -1351,7 +1351,8 @@ export async function updateAccountPreferences(preferences: Partial<{
 
 export type SharedSpace = { id: string; title: string; role: "owner" | "admin" | "member" | "guest"; updatedAt: string };
 export type SharedProject = { id: string; spaceId: string; parentId: string | null; title: string;
-  description: string; layout: "list" | "board"; isInbox?: number; revision: number; role: string; spaceRole?: string; updatedAt: string };
+  description: string; layout: "list" | "board"; isInbox?: number; taskCount?: number;
+  revision: number; role: string; spaceRole?: string; updatedAt: string };
 export type SharedStatus = { id: string; title: string; position: number; isDone: number; revision: number };
 export type SharedCategory = { id: string; title: string; color: string; position: number; revision: number };
 export type SharedTask = { id: string; projectId: string; statusId: string; title: string;
@@ -1383,6 +1384,23 @@ export async function createSharedProject(spaceId: string, input: { title: strin
   return (await api<{ project: SharedProject }>(`/shared/spaces/${encodeURIComponent(spaceId)}/projects`, {
     method: "POST", body: JSON.stringify(input),
   })).project;
+}
+export type SharedProjectImport = {
+  transferId: string;
+  mode: "copy" | "move";
+  projects: { sourceId: string; parentSourceId: string | null; title: string;
+    description: string; layout: "list" | "board" }[];
+  categories: { sourceId: string; projectSourceId: string; title: string; color: string }[];
+  tasks: { sourceId: string; projectSourceId: string; categorySourceId: string | null;
+    title: string; description: string; dueDate: string | null; done: boolean }[];
+};
+export type SharedProjectImportReceipt = { rootProjectId: string; projectIds: Record<string, string>;
+  taskIds: Record<string, string>; taskCount: number; mode: "copy" | "move" };
+export async function importSharedProject(spaceId: string, input: SharedProjectImport) {
+  return (await api<{ receipt: SharedProjectImportReceipt }>(
+    `/shared/spaces/${encodeURIComponent(spaceId)}/import-project`,
+    { method: "POST", body: JSON.stringify(input) },
+  )).receipt;
 }
 export async function loadSharedProject(projectId: string) {
   return api<SharedProjectSnapshot>(`/shared/projects/${encodeURIComponent(projectId)}`);

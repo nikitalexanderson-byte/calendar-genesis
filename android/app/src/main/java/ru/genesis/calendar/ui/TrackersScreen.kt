@@ -3,6 +3,7 @@ package ru.genesis.calendar.ui
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -33,6 +34,7 @@ fun TrackersScreen(app: GenesisApplication, experimental: Boolean = false) {
     val preferences=remember(app) { LocalPreferences(app,app.workspaceScope) }
     val prefs by preferences.values.collectAsStateWithLifecycle(initialValue=UiPreferences())
     val scope=rememberCoroutineScope()
+    val emojiCategories=remember(app) { fullEmojiCatalog(app) }
     var workspace by remember { mutableStateOf<LocalTrackersWorkspace?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var storageError by remember { mutableStateOf(false) }
@@ -288,7 +290,8 @@ fun TrackersScreen(app: GenesisApplication, experimental: Boolean = false) {
     } }
     if(moodEditor) {
         val existing=workspace?.moodEntries?.firstOrNull { it.date==date }
-        MoodObservationEditor(workspace?.moodEntries.orEmpty(),if(existing!=null)date else LocalDate.now(),viewMode,busy,error,
+        MoodObservationEditor(workspace?.moodEntries.orEmpty(),if(existing!=null)date else LocalDate.now(),viewMode,
+            prefs.language,emojiCategories,busy,error,
             onDismiss={if(!busy)moodEditor=false}) { chosenDate,value,note,customLabel,customEmoji ->
             val target=workspace?.moodEntries?.firstOrNull { it.date==chosenDate }
             scope.launch { action {
@@ -481,7 +484,8 @@ private fun SleepObservationEditor(plan: SleepPlan,entry: SleepEntry?,date: Loca
 }
 
 @Composable
-private fun MoodObservationEditor(entries: List<MoodEntry>,initialDate: LocalDate,mode: CalendarMode,busy: Boolean,error: String?,
+private fun MoodObservationEditor(entries: List<MoodEntry>,initialDate: LocalDate,mode: CalendarMode,
+    language: String,emojiCategories: List<FullEmojiCategory>,busy: Boolean,error: String?,
     onDismiss: () -> Unit,onSave: (LocalDate,Int,String,String,String) -> Unit) {
     var dateValue by rememberSaveable(initialDate.toString()) { mutableStateOf(initialDate.toString()) }
     val date=LocalDate.parse(dateValue)
@@ -491,6 +495,8 @@ private fun MoodObservationEditor(entries: List<MoodEntry>,initialDate: LocalDat
     var custom by rememberSaveable(dateValue) { mutableStateOf(entry?.customLabel?.isNotBlank() == true) }
     var customLabel by rememberSaveable(dateValue) { mutableStateOf(entry?.customLabel ?: "") }
     var customEmoji by rememberSaveable(dateValue) { mutableStateOf(entry?.customEmoji ?: "") }
+    var emojiCategory by rememberSaveable(dateValue) { mutableStateOf("smileys-emotion") }
+    var visibleEmojiCount by rememberSaveable(dateValue) { mutableIntStateOf(120) }
     Dialog(onDismissRequest=onDismiss) { Surface(shape=MaterialTheme.shapes.large) {
         Column(Modifier.padding(16.dp).imePadding().verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
@@ -511,8 +517,31 @@ private fun MoodObservationEditor(entries: List<MoodEntry>,initialDate: LocalDat
             if(custom) {
                 OutlinedTextField(customLabel,{if(it.length<=40)customLabel=it},label={Text("Название настроения")},
                     enabled=!busy,modifier=Modifier.fillMaxWidth().testTag("custom-mood-label"))
-                OutlinedTextField(customEmoji,{if(it.length<=16)customEmoji=it},label={Text("Свой смайлик")},
-                    enabled=!busy,modifier=Modifier.fillMaxWidth().testTag("custom-mood-emoji"))
+                Text(if(language=="en") "Choose an emoji" else "Выберите эмодзи",
+                    style=MaterialTheme.typography.titleSmall)
+                Text(customEmoji.ifBlank { "✨" },style=MaterialTheme.typography.headlineMedium,
+                    modifier=Modifier.testTag("custom-mood-emoji"))
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+                    emojiCategories.forEach { category ->
+                        FilterChip(emojiCategory==category.id,onClick={emojiCategory=category.id;visibleEmojiCount=120},enabled=!busy,
+                            label={Text(if(language=="en") category.labelEn else category.label)})
+                    }
+                }
+                emojiCategories.firstOrNull { it.id==emojiCategory }?.let { category ->
+                    FlowRow(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(4.dp),
+                        verticalArrangement=Arrangement.spacedBy(4.dp)) {
+                        category.emojis.take(visibleEmojiCount).forEach { emoji ->
+                            FilterChip(customEmoji==emoji,onClick={customEmoji=emoji},enabled=!busy,
+                                label={Text(emoji)},modifier=Modifier.testTag("mood-emoji-$emoji"))
+                        }
+                    }
+                    if(visibleEmojiCount<category.emojis.size) TextButton(
+                        onClick={visibleEmojiCount+=120},enabled=!busy,
+                        modifier=Modifier.testTag("mood-emoji-more")) {
+                        Text(if(language=="en") "Show more emoji" else "Показать ещё эмодзи")
+                    }
+                }
                 Text("Для аналитики используется выбранная оценка настроения; по умолчанию — нейтральная.",
                     style=MaterialTheme.typography.bodySmall)
                 entries.filter { it.customLabel.isNotBlank() && it.customEmoji.isNotBlank() }

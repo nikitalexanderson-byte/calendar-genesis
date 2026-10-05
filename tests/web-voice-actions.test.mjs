@@ -68,6 +68,31 @@ test("creation phrases use naming words as instructions and preserve the actual 
   assert.deepEqual(parse("create habit called Morning walk"), { kind: "create-habit", title: "Morning walk" });
 });
 
+test("sleep commands separate observations, plan times, and bedtime reminders", () => {
+  const parse = (phrase) => parseWebVoiceAction(phrase, tasks, projects, habits);
+  assert.deepEqual(parse("запиши сон с 23:30 до 07:00"),
+    { kind: "set-sleep", bedtime: "23:30", wakeTime: "07:00" });
+  assert.deepEqual(parse("I fell asleep at 11 pm and woke up at 7 am"),
+    { kind: "set-sleep", bedtime: "23:00", wakeTime: "07:00" });
+  assert.deepEqual(parse("качество сна 8 из 10"), { kind: "set-sleep", quality: 8 });
+  assert.deepEqual(parse("set sleep schedule from 10:45 pm to 6:30 am"),
+    { kind: "set-sleep-plan", bedtime: "22:45", wakeTime: "06:30" });
+  assert.deepEqual(parse("включи напоминание о сне за 30 минут"),
+    { kind: "set-sleep-plan", reminderEnabled: true, reminderMinutesBefore: 30 });
+  assert.deepEqual(parse("disable sleep reminder"),
+    { kind: "set-sleep-plan", reminderEnabled: false, reminderMinutesBefore: undefined });
+  assert.equal(parse("качество сна 11"), null);
+  assert.equal(parse("запиши сон с 25:00 до 07:00"), null);
+});
+
+test("Stoicheion voice commands distinguish a catalog card from a new spread", () => {
+  const parse = (phrase) => parseWebVoiceAction(phrase, tasks, projects, habits);
+  assert.deepEqual(parse("выбери 9 карт"), { kind: "stoicheion-draw", drawKind: "spread" });
+  assert.deepEqual(parse("draw nine-card spread"), { kind: "stoicheion-draw", drawKind: "spread" });
+  assert.deepEqual(parse("вытяни карту дня"), { kind: "stoicheion-draw", drawKind: "daily" });
+  assert.deepEqual(parse("открой карту альфа"), { kind: "stoicheion-card", cardId: "alpha" });
+});
+
 test("mood commands recognize Russian and English values without guessing unknown moods", () => {
   const parse = (phrase) => parseWebVoiceAction(phrase, tasks, projects, habits);
   assert.deepEqual(parse("отметь настроение дня как радость"), { kind: "set-mood", value: 4 });

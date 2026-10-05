@@ -22,6 +22,7 @@ import {
 } from "react";
 import { CalendarDayTaskCounts, CalendarYearTaskCounts } from "./CalendarTaskCounts";
 import { TodayAdBlock } from "./TodayAdBlock";
+import { ProjectsHeroMark } from "./ProjectsHeroMark";
 import { formatTaskCount, formatTaskListCount, TASK_SUMMARY_LABELS } from "./task-count-i18n";
 import {
   type GeminiPlan,
@@ -54,6 +55,7 @@ import {
   observeGenesisUser,
   registerWorkspaceRecoveryRequestHandler,
   removeCloudTask,
+  removeCloudTaskForTransfer,
   saveCloudTask,
   saveMetrics,
   saveWorkspaceStructure,
@@ -192,6 +194,7 @@ import {
 const AccountPanel = lazy(() => import("./AccountPanel").then((module) => ({ default: module.AccountPanel })));
 const SharedProjects = lazy(() => import("./SharedProjects").then((module) => ({ default: module.SharedProjects })));
 const PersonalTaskTransfer = lazy(() => import("./PersonalTaskTransfer").then((module) => ({ default: module.PersonalTaskTransfer })));
+const PersonalProjectTransfer = lazy(() => import("./PersonalProjectTransfer").then((module) => ({ default: module.PersonalProjectTransfer })));
 const WelcomeScreen = lazy(() => import("./WelcomeScreen").then((module) => ({ default: module.WelcomeScreen })));
 const AdminPanel = lazy(() => import("./AdminPanel").then((module) => ({ default: module.AdminPanel })));
 const GeminiAssistant = lazy(() => import("./GeminiAssistant").then((module) => ({ default: module.GeminiAssistant })));
@@ -1300,6 +1303,7 @@ export function GenesisCalendar() {
   const [requestedTheokyklosSector, setRequestedTheokyklosSector] = useState<SacredPracticeSectorId | null>(null);
   const clearRequestedTheokyklosSector = useCallback(() => setRequestedTheokyklosSector(null), []);
   const [requestedStoicheionCard, setRequestedStoicheionCard] = useState<string | null>(null);
+  const [requestedStoicheionDraw, setRequestedStoicheionDraw] = useState<"daily" | "spread" | null>(null);
   const [sacredYear, setSacredYear] = useState(initial.sacredYear);
   const [monthIndex, setMonthIndex] = useState(initial.monthIndex);
   const [selectedDay, setSelectedDay] = useState(initial.day);
@@ -1419,6 +1423,7 @@ export function GenesisCalendar() {
   const [editingProjectTags, setEditingProjectTags] = useState("");
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [transferTask, setTransferTask] = useState<Task | null>(null);
+  const [transferProject, setTransferProject] = useState<GenesisProject | null>(null);
   const [editingTaskTags, setEditingTaskTags] = useState("");
   const [editingTaskScope, setEditingTaskScope] = useState<TaskSeriesScope>("occurrence");
   const [editingOccurrenceDate, setEditingOccurrenceDate] = useState("");
@@ -3918,6 +3923,7 @@ export function GenesisCalendar() {
       language, calendarMode: activeTaskCalendarMode, currentView: view,
       today: todayDateValue, timeZone: deviceTimeZone,
       persistentWorkspace: Boolean(cloudUser) || !isGoogleSyncConfigured,
+      divinationDisabled: Boolean(cloudUser?.stoicheionDivinationDisabled),
       categories, projects, taskLists, accounts: googleAccounts.map((account) => ({ email: account.email })),
       tasks, workspace: habitWorkspace,
     }, {
@@ -3983,6 +3989,7 @@ export function GenesisCalendar() {
       },
       openTheokyklosSector,
       openStoicheionCard: setRequestedStoicheionCard,
+      requestStoicheionDraw: setRequestedStoicheionDraw,
     });
   };
   const openProjectEditor = (project: GenesisProject) => {
@@ -4130,6 +4137,28 @@ export function GenesisCalendar() {
     setTaskListLinks(nextTaskListLinks);
     await persistStructure(nextProjects, categories, nextTaskListLinks);
     return true;
+  };
+
+  const finishProjectTransfer = async (projectIds: string[], taskIds: string[]) => {
+    if (!cloudUser) throw new Error(language === "en" ? "Sign in to move the project." : "Войдите в аккаунт для переноса проекта.");
+    const removedProjects = new Set(projectIds);
+    const removedTasks = new Set(taskIds);
+    const toRemove = tasks.filter((task) => removedTasks.has(task.id));
+    for (const task of toRemove) await removeCloudTaskForTransfer(task);
+    const nextTasks = tasks.filter((task) => !removedTasks.has(task.id));
+    const nextProjects = projects.filter((project) => !removedProjects.has(project.id));
+    const nextLinks = taskListLinks.filter((link) => !link.projectId || !removedProjects.has(link.projectId));
+    await saveWorkspaceStructure(nextProjects, categories, nextLinks,
+      metricsFor(nextTasks, nextProjects, habitWorkspace.habits.length), habitWorkspace,
+      cloudUser.authProvider !== "google" ? taskLists : undefined);
+    tasksRef.current = nextTasks;
+    projectsRef.current = nextProjects;
+    taskListLinksRef.current = nextLinks;
+    setTasks(nextTasks);
+    setProjects(nextProjects);
+    setTaskListLinks(nextLinks);
+    setTaskProject((current) => removedProjects.has(current) ? "" : current);
+    setSyncStatus("synced");
   };
 
   const exportCalendar = () => {
@@ -5506,10 +5535,13 @@ export function GenesisCalendar() {
     return (
       <div className="projects-view" data-exp-layout="view">
         <header className="projects-header" data-exp-ui="panel">
-          <div>
-            <span className="eyebrow">Система порядка</span>
-            <h1>Проекты и направления</h1>
-            <p>Разделяйте большие замыслы на подпроекты и конкретные действия. Связи, повторения и сроки остаются видимыми в плане дня.</p>
+          <div className="projects-hero-content">
+            <ProjectsHeroMark />
+            <div>
+              <span className="eyebrow">Система порядка</span>
+              <h1>{language === "en" ? "Projects - personal" : "Проекты - личные"}</h1>
+              <p>Разделяйте большие замыслы на подпроекты и конкретные действия. Связи, повторения и сроки остаются видимыми в плане дня.</p>
+            </div>
           </div>
           <div className="projects-summary" aria-label="Сводка проектов">
             <span><strong>{activeProjects}</strong> активных</span>
@@ -5633,6 +5665,10 @@ export function GenesisCalendar() {
                       </div>
                     </button>
                     <button type="button" className="project-edit" onClick={() => openProjectEditor(project)} aria-label={`Редактировать проект «${project.title}»`}>✎</button>
+                    {cloudUser?.sharedProjectsEnabled ? <button type="button" className="project-transfer"
+                      onClick={() => setTransferProject(project)}
+                      aria-label={`${language === "en" ? "Move to shared" : "Переместить в общие"}: ${project.title}`}>
+                      ↗</button> : null}
                     <button type="button" className="project-delete" onClick={() => void deleteProject(project.id)} aria-label={`Удалить проект «${project.title}»`}>×</button>
                     <div className="project-drop-field">
                       <div className="project-drop-heading">
@@ -6702,6 +6738,8 @@ export function GenesisCalendar() {
                     onOpenTheokyklosSector={openTheokyklosSector}
                     initialCardId={requestedStoicheionCard}
                     onInitialCardOpened={() => setRequestedStoicheionCard(null)}
+                    voiceDrawKind={requestedStoicheionDraw}
+                    onVoiceDrawHandled={() => setRequestedStoicheionDraw(null)}
                   />
                 </Suspense>
               ) : null}
@@ -7219,6 +7257,13 @@ export function GenesisCalendar() {
         task={transferTask} language={language} personalCalendarConnected={cloudUser.calendarConnected}
         onClose={() => setTransferTask(null)}
         onMoved={(taskId) => setTasks((current) => current.filter((task) => task.id !== taskId))}
+      /></Suspense> : null}
+      {transferProject && cloudUser?.sharedProjectsEnabled ? <Suspense fallback={null}><PersonalProjectTransfer
+        root={transferProject} projects={projects} categories={categories} language={language}
+        tasks={tasks.map((task) => ({ ...task, projectId: resolvedTaskProjectId(task) }))}
+        linkedListCount={taskListLinks.filter((link) => link.projectId &&
+          (link.projectId === transferProject.id || projectIsDescendant(projects, link.projectId, transferProject.id))).length}
+        onClose={() => setTransferProject(null)} onMoved={finishProjectTransfer}
       /></Suspense> : null}
       {editingTaskList ? (
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditingTaskList(null); }}>

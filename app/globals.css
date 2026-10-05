@@ -5758,7 +5758,10 @@ html[data-language="en"] .inbox-card.drop-target::after {
 .google-login-primary img { display: block; width: 180px; height: 40px; }
 .google-login-primary:disabled { cursor: wait; opacity: .58; }
 .yandex-login-primary {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   width: 180px;
   min-height: 40px;
   margin: 10px auto 0;
@@ -7235,11 +7238,59 @@ html[data-language="en"] .inbox-card.drop-target::after {
   box-shadow: 0 12px 28px rgba(37, 91, 89, .14);
   transform: translateY(-1px);
 }
+.yandex-signin-mark {
+  display: grid;
+  place-items: center;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #e32924;
+  color: #fff;
+  font: 700 17px/1 Arial, sans-serif;
+}
+
+.projects-hero-content { display: flex; align-items: center; gap: 1rem; min-width: 0; }
+.projects-hero-content > div { min-width: 0; }
+.projects-hero-mark {
+  flex: 0 0 4.5rem;
+  display: grid;
+  place-items: center;
+  width: 4.5rem;
+  height: 4.5rem;
+  border: 1px solid rgba(223,193,126,.55);
+  border-radius: 1rem;
+  color: #dfc17e;
+  background: rgba(23,59,56,.9);
+}
+.projects-hero-mark svg { width: 3rem; height: 3rem; overflow: visible; }
+.projects-hero-mark path { stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.projects-hero-mark circle { fill: currentColor; }
+.projects-hero-mark:not(.projects-hero-mark-shared) .projects-mark-tree:last-of-type { animation: projects-personal-tree 6s ease-in-out infinite; }
+.projects-hero-mark-shared .projects-mark-tree-left { animation: projects-tree-left 5s ease-in-out infinite; }
+.projects-hero-mark-shared .projects-mark-tree-right { animation: projects-tree-right 5s ease-in-out infinite; }
+.projects-hero-mark-shared .projects-mark-join { animation: projects-tree-join 5s ease-in-out infinite; transform-origin: center; }
+@keyframes projects-tree-left { 50% { transform: translateX(1px); } }
+@keyframes projects-tree-right { 50% { transform: translateX(-1px); } }
+@keyframes projects-tree-join { 50% { transform: scale(1.3); opacity: .65; } }
+@keyframes projects-personal-tree { 50% { opacity: .58; } }
+@media (prefers-reduced-motion: reduce) {
+  .projects-hero-mark :is(.projects-mark-tree, .projects-mark-join) { animation: none; }
+}
+@media (max-width: 600px) {
+  .projects-hero-content { align-items: flex-start; gap: .75rem; }
+  .projects-hero-mark { flex-basis: 3rem; width: 3rem; height: 3rem; }
+  .projects-hero-mark svg { width: 2.1rem; height: 2.1rem; }
+}
+.project-row:has(.project-transfer) { grid-template-columns: 26px minmax(0, 1fr) 22px 22px 22px; }
 .project-open p { margin: 4px 0 0; overflow: hidden; color: #637572; font-size: 8px; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
 .project-edit,
+.project-transfer,
 .project-delete { width: 22px; height: 22px; padding: 0; background: transparent; border: 0; border-radius: 50%; cursor: pointer; }
 .project-edit { color: var(--teal); }
 .project-edit:hover { color: white; background: var(--teal); }
+.project-transfer { color: var(--teal); }
+.project-transfer:hover { color: white; background: var(--teal); }
 .project-drop-field {
   display: grid;
   grid-column: 1 / -1;
@@ -13399,6 +13450,37 @@ html[data-genesis-theme^="standart"] .mood-summary:focus-visible { outline: 2px 
 }
 
 /* Shared roles in Standart: creation, saved records and supporting information. */
+.shared-projects-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .5rem;
+  width: 100%;
+  max-width: 34rem;
+  margin: 0 0 1rem;
+}
+.shared-projects-switch button {
+  min-width: 0;
+  min-height: 2.75rem;
+  padding: .55rem .8rem;
+  border: 1px solid var(--line, #d4c9b0);
+  border-radius: .8rem;
+  background: var(--surface, #fffdf7);
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+}
+.shared-projects-switch button[aria-current="page"] {
+  border-color: #2d6c68;
+  background: #255b59;
+  color: #fffdf8;
+  font-weight: 700;
+}
+.shared-projects-switch button:focus-visible {
+  outline: 3px solid #a77738;
+  outline-offset: 2px;
+}
 html[data-genesis-theme="standart"] {
   --st-create-bg: #e7f1ea;
   --st-create-border: #83ac99;

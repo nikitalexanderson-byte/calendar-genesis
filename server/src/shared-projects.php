@@ -127,7 +127,8 @@ function genesisSharedProjects(string $userId, string $spaceId): array
     genesisSharedRequireEnabled($userId);
     genesisSharedSpaceAccess($spaceId, $userId);
     $query = genesisDb()->prepare('SELECT p.id, p.space_id AS spaceId, p.parent_id AS parentId,
-        p.title, p.description, p.layout, p.is_inbox AS isInbox, p.revision, p.updated_at AS updatedAt, m.role
+        p.title, p.description, p.layout, p.is_inbox AS isInbox, p.revision, p.updated_at AS updatedAt, m.role,
+        (SELECT COUNT(*) FROM shared_tasks t WHERE t.project_id = p.id) AS taskCount
         FROM shared_projects p JOIN shared_project_members m ON m.project_id = p.id
         WHERE p.space_id = :space AND m.user_id = :user AND p.archived_at IS NULL
         ORDER BY p.updated_at DESC LIMIT 100');
@@ -191,7 +192,7 @@ function genesisSharedCreateStatus(string $userId, string $projectId, array $inp
     $db = genesisDb();
     $db->beginTransaction();
     try {
-        genesisSharedProjectAccess($projectId, $userId, 'manage');
+        genesisSharedProjectAccess($projectId, $userId, 'write');
         $query = $db->prepare('SELECT COUNT(*) AS count, COALESCE(MAX(position), -1) AS lastPosition
             FROM shared_project_statuses WHERE project_id = :project');
         $query->execute(['project' => $projectId]);
@@ -430,6 +431,193 @@ function genesisSharedCreateProject(string $userId, string $spaceId, array $inpu
     }
     return ['id' => $id, 'spaceId' => $spaceId, 'parentId' => $parentId, 'title' => $title,
         'description' => $description, 'layout' => $layout, 'revision' => 1, 'role' => 'owner', 'updatedAt' => $now];
+}
+
+/** The shared copy commits as one unit; private cleanup is a separate client step. */
+function genesisSharedImportProjectTree(string $userId, string $spaceId, array $input): array
+{
+    genesisSharedRequireEnabled($userId);
+    $transferId = $input['transferId'] ?? null;
+    $mode = $input['mode'] ?? null;
+    $projects = $input['projects'] ?? null;
+    $categories = $input['categories'] ?? null;
+    $tasks = $input['tasks'] ?? null;
+    if (!is_string($transferId) || !preg_match('/\A[a-zA-Z0-9-]{8,100}\z/', $transferId)
+        || !in_array($mode, ['copy', 'move'], true)
+        || !is_array($projects) || !array_is_list($projects) || count($projects) < 1 || count($projects) > 50
+        || !is_array($categories) || !array_is_list($categories) || count($categories) > 200
+        || !is_array($tasks) || !array_is_list($tasks) || count($tasks) > 500) {
+        throw new InvalidArgumentException('INVALID_PROJECT_IMPORT');
+    }
+    $sourceId = static function (mixed $value): string {
+        if (!is_string($value) || !preg_match('/\A[^\x00-\x1f]{1,100}\z/u', $value)) {
+            throw new InvalidArgumentException('INVALID_IMPORT_SOURCE_ID');
+        }
+        return $value;
+    };
+    $normalizedProjects = [];
+    foreach ($projects as $index => $project) {
+        if (!is_array($project)) throw new InvalidArgumentException('INVALID_PROJECT_IMPORT');
+        $source = $sourceId($project['sourceId'] ?? null);
+        $parent = $project['parentSourceId'] ?? null;
+        if ($index === 0 && $parent !== null || $index > 0 && (!is_string($parent) || !isset($normalizedProjects[$parent]))
+            || isset($normalizedProjects[$source])) throw new InvalidArgumentException('INVALID_IMPORT_TREE');
+        $layout = $project['layout'] ?? 'list';
+        if (!in_array($layout, ['list', 'board'], true)) throw new InvalidArgumentException('INVALID_LAYOUT');
+        $normalizedProjects[$source] = [
+            'parent' => $parent, 'title' => genesisSharedTitle($project['title'] ?? null),
+            'description' => genesisSharedText($project['description'] ?? '', 5000), 'layout' => $layout,
+        ];
+    }
+    $normalizedCategories = [];
+    foreach ($categories as $category) {
+        if (!is_array($category)) throw new InvalidArgumentException('INVALID_IMPORT_CATEGORY');
+        $projectSource = $sourceId($category['projectSourceId'] ?? null);
+        $source = $sourceId($category['sourceId'] ?? null);
+        $color = $category['color'] ?? null;
+        if (!isset($normalizedProjects[$projectSource]) || !is_string($color)
+            || !preg_match('/\A#[0-9a-fA-F]{6}\z/', $color)
+            || isset($normalizedCategories[$projectSource][$source])) throw new InvalidArgumentException('INVALID_IMPORT_CATEGORY');
+        $normalizedCategories[$projectSource][$source] = [
+            'title' => genesisSharedTitle($category['title'] ?? null), 'color' => strtolower($color),
+        ];
+    }
+    $normalizedTasks = [];
+    foreach ($tasks as $task) {
+        if (!is_array($task)) throw new InvalidArgumentException('INVALID_IMPORT_TASK');
+        $source = $sourceId($task['sourceId'] ?? null);
+        $projectSource = $sourceId($task['projectSourceId'] ?? null);
+        $categorySource = $task['categorySourceId'] ?? null;
+        $due = $task['dueDate'] ?? null;
+        if (!isset($normalizedProjects[$projectSource]) || isset($normalizedTasks[$source])
+            || $categorySource !== null && (!is_string($categorySource)
+                || !isset($normalizedCategories[$projectSource][$categorySource]))
+            || !is_bool($task['done'] ?? null)
+            || $due !== null && (!is_string($due) || !preg_match('/\A\d{4}-\d{2}-\d{2}\z/', $due)
+                || !checkdate((int)substr($due, 5, 2), (int)substr($due, 8, 2), (int)substr($due, 0, 4)))) {
+            throw new InvalidArgumentException('INVALID_IMPORT_TASK');
+        }
+        $normalizedTasks[$source] = [
+            'projectSource' => $projectSource, 'categorySource' => $categorySource,
+            'title' => genesisSharedTitle($task['title'] ?? null),
+            'description' => genesisSharedText($task['description'] ?? '', 20000),
+            'due' => $due, 'done' => $task['done'],
+        ];
+    }
+    $payloadHash = hash('sha256', json_encode([$spaceId, $mode, $normalizedProjects, $normalizedCategories, $normalizedTasks],
+        JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+    $db = genesisDb();
+    $db->beginTransaction();
+    try {
+        $space = genesisSharedSpaceAccess($spaceId, $userId);
+        if (!in_array($space['member_role'], ['owner', 'admin', 'member'], true)) {
+            throw new GenesisSharedAccessException('SHARED_SPACE_FORBIDDEN', 403);
+        }
+        $existing = $db->prepare('SELECT payload_hash, receipt_json FROM shared_project_imports
+            WHERE source_user_id = :user AND transfer_id = :transfer');
+        $existing->execute(['user' => $userId, 'transfer' => $transferId]);
+        $saved = $existing->fetch();
+        if ($saved) {
+            if (!hash_equals((string)$saved['payload_hash'], $payloadHash)) {
+                throw new GenesisSharedAccessException('SHARED_IMPORT_CONFLICT', 409);
+            }
+            $db->commit();
+            return json_decode((string)$saved['receipt_json'], true, 16, JSON_THROW_ON_ERROR);
+        }
+        if ($mode === 'move') {
+            $transferred = $db->prepare('SELECT 1 FROM shared_task_transfers
+                WHERE source_user_id = :user AND source_task_id = :source LIMIT 1');
+            foreach (array_keys($normalizedTasks) as $source) {
+                $transferred->execute(['user' => $userId, 'source' => $source]);
+                if ($transferred->fetchColumn()) {
+                    throw new GenesisSharedAccessException('SHARED_TASK_ALREADY_TRANSFERRED', 409);
+                }
+            }
+        }
+        $now = genesisNow();
+        $projectIds = []; $statusIds = []; $categoryIds = []; $taskIds = [];
+        $insertProject = $db->prepare('INSERT INTO shared_projects
+            (id, space_id, parent_id, title, description, layout, created_by, created_at, updated_at)
+            VALUES (:id, :space, :parent, :title, :description, :layout, :user, :now, :now)');
+        $insertMember = $db->prepare("INSERT INTO shared_project_members
+            (project_id, user_id, role, joined_at) VALUES (:project, :user, :role, :now)");
+        $spaceMembers = $db->prepare('SELECT user_id, role FROM shared_space_members WHERE space_id = :space');
+        $spaceMembers->execute(['space' => $spaceId]);
+        $members = $spaceMembers->fetchAll();
+        $insertStatus = $db->prepare('INSERT INTO shared_project_statuses
+            (id, project_id, title, position, is_done) VALUES (:id, :project, :title, :position, :done)');
+        foreach ($normalizedProjects as $source => $project) {
+            $id = genesisUuid();
+            $projectIds[$source] = $id;
+            $insertProject->execute(['id' => $id, 'space' => $spaceId,
+                'parent' => $project['parent'] === null ? null : $projectIds[$project['parent']],
+                'title' => $project['title'], 'description' => $project['description'],
+                'layout' => $project['layout'], 'user' => $userId, 'now' => $now]);
+            foreach ($members as $member) {
+                $role = $member['user_id'] === $userId ? 'owner' : match ($member['role']) {
+                    'owner', 'admin' => 'manager', 'member' => 'member', default => 'viewer',
+                };
+                $insertMember->execute(['project' => $id, 'user' => $member['user_id'],
+                    'role' => $role, 'now' => $now]);
+            }
+            foreach ([['К выполнению', 0], ['В работе', 0], ['Готово', 1]] as $position => [$title, $done]) {
+                $statusId = genesisUuid();
+                $insertStatus->execute(['id' => $statusId, 'project' => $id, 'title' => $title,
+                    'position' => $position, 'done' => $done]);
+                $statusIds[$source][$done ? 'done' : ($position === 0 ? 'open' : 'progress')] = $statusId;
+            }
+            genesisSharedAudit($id, $userId, 'project.imported', $id);
+        }
+        $insertCategory = $db->prepare('INSERT INTO shared_project_categories
+            (id, project_id, title, color, position) VALUES (:id, :project, :title, :color, :position)');
+        foreach ($normalizedCategories as $projectSource => $group) {
+            foreach ($group as $categorySource => $category) {
+                $id = genesisUuid();
+                $categoryIds[$projectSource][$categorySource] = $id;
+                $insertCategory->execute(['id' => $id, 'project' => $projectIds[$projectSource],
+                    'title' => $category['title'], 'color' => $category['color'],
+                    'position' => count($categoryIds[$projectSource]) - 1]);
+            }
+        }
+        $insertTask = $db->prepare('INSERT INTO shared_tasks
+            (id, project_id, status_id, category_id, title, description, due_date,
+            created_by, updated_by, completed_by, completed_at, created_at, updated_at)
+            VALUES (:id, :project, :status, :category, :title, :description, :due,
+            :user, :user, :completed_by, :completed_at, :now, :now)');
+        foreach ($normalizedTasks as $source => $task) {
+            $id = genesisUuid();
+            $taskIds[$source] = $id;
+            $projectSource = $task['projectSource'];
+            $insertTask->execute(['id' => $id, 'project' => $projectIds[$projectSource],
+                'status' => $statusIds[$projectSource][$task['done'] ? 'done' : 'open'],
+                'category' => $task['categorySource'] === null ? null
+                    : $categoryIds[$projectSource][$task['categorySource']],
+                'title' => $task['title'], 'description' => $task['description'],
+                'due' => $task['due'], 'user' => $userId,
+                'completed_by' => $task['done'] ? $userId : null,
+                'completed_at' => $task['done'] ? $now : null, 'now' => $now]);
+            if ($mode === 'move') {
+                $db->prepare('INSERT INTO shared_task_transfers
+                    (source_user_id, source_task_id, target_project_id, target_task_id, created_at)
+                    VALUES (:user, :source, :project, :task, :now)')->execute([
+                    'user' => $userId, 'source' => $source,
+                    'project' => $projectIds[$projectSource], 'task' => $id, 'now' => $now]);
+            }
+        }
+        $receipt = ['rootProjectId' => reset($projectIds), 'projectIds' => $projectIds,
+            'taskIds' => $taskIds, 'taskCount' => count($taskIds), 'mode' => $mode];
+        $db->prepare('INSERT INTO shared_project_imports
+            (source_user_id, transfer_id, payload_hash, root_project_id, receipt_json, created_at)
+            VALUES (:user, :transfer, :hash, :root, :receipt, :now)')->execute([
+            'user' => $userId, 'transfer' => $transferId, 'hash' => $payloadHash,
+            'root' => $receipt['rootProjectId'],
+            'receipt' => json_encode($receipt, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), 'now' => $now]);
+        $db->commit();
+        return $receipt;
+    } catch (Throwable $error) {
+        $db->rollBack();
+        throw $error;
+    }
 }
 
 function genesisSharedUpdateProject(string $userId, string $projectId, array $input): array

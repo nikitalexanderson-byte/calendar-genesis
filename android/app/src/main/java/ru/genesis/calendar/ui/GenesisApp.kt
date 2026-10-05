@@ -92,6 +92,7 @@ import ru.genesis.calendar.domain.habits.Habit
 import ru.genesis.calendar.domain.habits.HabitEngine
 import ru.genesis.calendar.domain.habits.TrackerEntity
 import ru.genesis.calendar.domain.trackers.MoodTracker
+import ru.genesis.calendar.domain.trackers.SleepPlan
 
 internal val standart = lightColorScheme(primary=Color(0xff255b59),onPrimary=Color(0xfffffdf8),
     background=Color(0xffe1d9c8),onBackground=Color(0xff132426),surface=Color(0xfff8f5ed),
@@ -154,6 +155,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     val taskLists = remember(cachedTaskLists,tasks) { taskListsForTasks(cachedTaskLists,tasks) }
     val prefsStore=remember(app, activeScope) { LocalPreferences(app,activeScope) }
     val prefs by prefsStore.values.collectAsStateWithLifecycle(UiPreferences())
+    val pendingPreferences by prefsStore.pending.collectAsStateWithLifecycle(emptyMap())
     val menuSwipeState = remember(activeScope) { MenuSwipeState() }
     val habitSettingsRepository = remember(app, activeScope) { HabitsRepository(app) }
     val trackersRepository = remember(app, activeScope) { TrackersRepository(app) }
@@ -214,7 +216,6 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     var transferTask by remember { mutableStateOf<LocalTask?>(null) }
     var creating by rememberSaveable { mutableStateOf(false) }
     var newTaskProjectId by rememberSaveable { mutableStateOf<String?>(null) }
-    var projectsArea by rememberSaveable { mutableStateOf("personal") }
     var newTaskListId by rememberSaveable { mutableStateOf<String?>(null) }
     var creatingTaskList by rememberSaveable { mutableStateOf(false) }
     var requestedTheokyklosSector by rememberSaveable { mutableStateOf<String?>(null) }
@@ -247,10 +248,16 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
         isLandscape, prefs.wideNavigationOnLeft)
     val portraitAutoScroll = !isLandscape && prefs.navigationLabels && prefs.navigationAutoScroll
     val portraitMenuSwipe = !isLandscape && prefs.menuSwipeEnabled
-    val swipeSequence = remember(prefs.menuSwipeSubmenus, habitTrackingEnabled) {
-        menuSwipeSequence(prefs.menuSwipeSubmenus, habitTrackingEnabled)
+    val sharedProjectsEnabled = !testWorkspace && pendingPreferences["sharedProjectsEnabled"] != "false" &&
+        authState.accountSettings?.sharedProjectsEnabled == true
+    LaunchedEffect(sharedProjectsEnabled) {
+        if (!sharedProjectsEnabled) menuSwipeState.projectArea = "personal"
     }
-    val swipeSection = if (prefs.menuSwipeSubmenus) menuSwipeState.section(tab) else null
+    val swipeSequence = remember(prefs.menuSwipeSubmenus, habitTrackingEnabled, sharedProjectsEnabled) {
+        menuSwipeSequence(prefs.menuSwipeSubmenus, habitTrackingEnabled, sharedProjectsEnabled)
+    }
+    val swipeSection = if (prefs.menuSwipeSubmenus && (tab != "Проекты" || sharedProjectsEnabled))
+        menuSwipeState.section(tab) else null
     val currentSwipeDestination = remember(tab, swipeSection) { SwipeDestination(tab, swipeSection) }
     val eveningTheme = rememberEveningTheme(AppearanceSettings.read(habitWorkspace.settings.rawJson))
     val accountGate = !testWorkspace && (!activeScope.startsWith("account-") || authState.user == null || !authState.ready)
@@ -264,6 +271,43 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
             previous?.entity?.version ?: 0)
         val option = MoodTracker.option(value.toDouble())
         return if (prefs.language == "en") "Mood recorded: ${option.labelEn}." else "Настроение отмечено: ${option.label}."
+    }
+    suspend fun voiceSleepPlan(): SleepPlan? {
+        val plans=trackersRepository.workspace.first().sleepPlans
+        val active=plans.firstOrNull { it.active }
+        if(active!=null || plans.isNotEmpty()) return active
+        val date=LocalDate.now()
+        val schedule=HabitEngine(GenesisCalendar()).defaultSchedule(date,prefs.input).let { base ->
+            base.copy(recurrence=RecurrenceConfig(enabled=true,mode="classic",pattern="daily",
+                days=listOf(1),rangeStart=date.toString()))
+        }
+        trackersRepository.savePlan(SleepPlan(TrackerEntity.create("sleep-plan"),schedule))
+        return trackersRepository.workspace.first().sleepPlans.firstOrNull { it.active }
+    }
+    suspend fun recordVoiceSleep(action: NativeVoiceAction): String {
+        require(app.workspaceScope==activeScope) { "Аккаунт изменился. Повторите команду." }
+        val plan=voiceSleepPlan() ?: return if(prefs.language=="en")
+            "Sleep plan is paused. Enable it in Sleep settings." else "План сна на паузе. Включите его в разделе сна."
+        if(action is NativeVoiceAction.SetSleepPlan) {
+            trackersRepository.savePlan(plan.copy(
+                targetBedtime=action.bedtime?.let(LocalTime::parse) ?: plan.targetBedtime,
+                targetWakeTime=action.wakeTime?.let(LocalTime::parse) ?: plan.targetWakeTime,
+                reminderEnabled=action.reminderEnabled ?: plan.reminderEnabled,
+                reminderMinutesBefore=action.reminderMinutesBefore ?: plan.reminderMinutesBefore))
+            ru.genesis.calendar.reminders.SleepReminderScheduler.restore(app)
+            menuSwipeState.habits="Сон и настроение";tab="Привычки"
+            return if(prefs.language=="en") "Sleep plan updated." else "План сна обновлён."
+        }
+        action as NativeVoiceAction.SetSleep
+        val date=LocalDate.now()
+        val current=trackersRepository.workspace.first().sleepEntries.firstOrNull { it.planId==plan.id && it.date==date }
+        trackersRepository.saveSleep(plan.id,date,
+            action.bedtime?.let(LocalTime::parse) ?: current?.fellAsleepAt,
+            action.wakeTime?.let(LocalTime::parse) ?: current?.wokeAt,
+            action.quality?.toDouble() ?: current?.quality?.toDouble(),current?.note.orEmpty(),
+            current?.entity?.version ?: 0)
+        menuSwipeState.habits="Сон и настроение";tab="Привычки"
+        return if(prefs.language=="en") "Sleep recorded." else "Сон записан."
     }
     fun executeVoiceAction(action: NativeVoiceAction): String = when(action) {
         is NativeVoiceAction.CalendarModeChange -> {
@@ -325,6 +369,14 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                 catch(e: Exception) { voiceActionError = e.message ?: "Не удалось сохранить настроение." }
             }
             "Записываю настроение."
+        }
+        is NativeVoiceAction.StoicheionDraw -> {
+            tab="Стойхейон"
+            "Открываю Стойхейон."
+        }
+        is NativeVoiceAction.SetSleep,is NativeVoiceAction.SetSleepPlan -> {
+            menuSwipeState.habits="Сон и настроение";tab="Привычки"
+            "Открываю сон и настроение."
         }
         is NativeVoiceAction.RenameTask -> {
             val task = tasks.firstOrNull { it.id == action.id }
@@ -418,6 +470,19 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                     val result = recordVoiceMood(action.value)
                     menuSwipeState.habits = "Сон и настроение"; tab = "Привычки"
                     return result
+                }
+                is NativeVoiceAction.SetSleep,is NativeVoiceAction.SetSleepPlan -> return recordVoiceSleep(action)
+                is NativeVoiceAction.StoicheionDraw -> {
+                    if(prefs.divinationDisabled) return if(prefs.language=="en")
+                        "Card draws are disabled in Stoicheion settings." else "Гадания отключены в настройках Стойхейона."
+                    val repository=StoicheionDrawRepository(app)
+                    val draws=if(activeScope.startsWith("account-")) repository.refreshFromServer() else repository.today.first()
+                    val existing=if(action.drawKind=="daily") draws.daily else draws.spread
+                    if(existing==null) repository.save(action.drawKind)
+                    tab="Стойхейон"
+                    return if(prefs.language=="en")
+                        if(action.drawKind=="spread") "Nine-card spread opened." else "Daily card opened."
+                    else if(action.drawKind=="spread") "Расклад девяти карт открыт." else "Карта дня открыта."
                 }
                 is NativeVoiceAction.RenameTask -> {
                     val task = app.repository.get(action.id) ?: return "Задача больше не найдена."
@@ -585,15 +650,12 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         requestedTheokyklosSector=sectorId; tab="Теокиклос"
                     })
                     "Проекты" -> Column(Modifier.fillMaxSize()) {
-                        val sharedEnabled = !testWorkspace && authState.accountSettings?.sharedProjectsEnabled == true
-                        if (sharedEnabled) Row(Modifier.fillMaxWidth().padding(horizontal=12.dp),
-                            horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                            FilterChip(selected=projectsArea=="personal",onClick={projectsArea="personal"},
-                                label={Text(if(prefs.language=="en") "Personal" else "Личные")})
-                            FilterChip(selected=projectsArea=="shared",onClick={projectsArea="shared"},
-                                label={Text(if(prefs.language=="en") "Shared" else "Общие")})
-                        }
-                        if(sharedEnabled && projectsArea=="shared") SharedProjectsScreen(authController,prefs.language)
+                        if (sharedProjectsEnabled) ConnectedSubmenu(listOf(
+                            SubmenuItem("personal", if(prefs.language=="en") "Personal" else "Личные"),
+                            SubmenuItem("shared", if(prefs.language=="en") "Shared" else "Общие")),
+                            visibleSwipeState.projectArea, { menuSwipeState.projectArea = it },
+                            Modifier.testTag("projects-area-switch"))
+                        if(sharedProjectsEnabled && visibleSwipeState.projectArea=="shared") SharedProjectsScreen(authController,prefs.language)
                         else ProjectsScreen(app,tasks,true,
                             onOpenTask={ taskId -> editId=taskId;creating=false },
                             onCreateTask={ projectId -> newTaskProjectId=projectId;newTaskListId=null;editId=null;creating=true },
@@ -634,7 +696,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                             it is NativeVoiceAction.EditTaskList || it is NativeVoiceAction.DeleteTaskList
                         },onVoiceRequestConsumed={voiceScreenRequest=null})
                     "Настройки" -> SettingsScreen(app, prefs, authState.busy && !testWorkspace,
-                        authState.accountSettings,
+                        authState.accountSettings, sharedProjectsEnabled,
                         canOpenAdmin = !testWorkspace && authState.ready && !authState.requiresSignIn &&
                             authState.user != null && authState.accountSettings?.isAdmin == true,
                         adminLoad = authController::adminStats,
@@ -721,10 +783,12 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         }, modifier = pagerModifier) { destination ->
                         val visibleSwipeState = if (destination == currentSwipeDestination) menuSwipeState
                             else remember(destination, menuSwipeState.tasks, menuSwipeState.projects,
+                                menuSwipeState.projectArea,
                                 menuSwipeState.calendar, menuSwipeState.habits) {
                                 MenuSwipeState().also { preview ->
                                     preview.tasks = menuSwipeState.tasks
                                     preview.projects = menuSwipeState.projects
+                                    preview.projectArea = menuSwipeState.projectArea
                                     preview.calendar = menuSwipeState.calendar
                                     preview.habits = menuSwipeState.habits
                                     destination.section?.let { preview.select(destination.page, it) }
@@ -755,7 +819,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                 authState.accountSettings,taskLists,newTaskListId,
                 onDismiss={creating=false;editId=null;voiceDeleteTaskId=null},
                 onSave={draft -> model.save(draft){creating=false;editId=null;voiceDeleteTaskId=null}},
-                onTransfer=existing?.takeIf { authState.accountSettings?.sharedProjectsEnabled==true }?.let { selectedTask ->
+                onTransfer=existing?.takeIf { sharedProjectsEnabled }?.let { selectedTask ->
                     { transferTask=selectedTask;creating=false;editId=null;voiceDeleteTaskId=null }
                 },
                 onDelete=existing?.let{{model.delete(it);creating=false;editId=null;voiceDeleteTaskId=null}},
@@ -1483,6 +1547,7 @@ internal fun ProjectHierarchyPicker(projects: List<GenesisProject>, selectedId: 
 @Composable
 private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy:Boolean,
     accountSettings:ru.genesis.calendar.auth.AccountSettings?,
+    sharedProjectsEnabled:Boolean,
     canOpenAdmin: Boolean, adminLoad: suspend () -> JSONObject,
     adminDelete: suspend (String, Boolean) -> JSONObject,
     onSet:(String,String)->Unit, onSetLocal:(String,String)->Unit) {
@@ -1516,7 +1581,7 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
                         "Пожизненный бесплатный открытый доступ к функциям «Общие проекты»."
                         else "Доступно в платной версии.",style=MaterialTheme.typography.bodySmall)
                 }
-                Switch(checked=accountSettings?.sharedProjectsEnabled==true,
+                Switch(checked=sharedProjectsEnabled,
                     enabled=accountSettings?.sharedProjectsEligible==true && !sharedBusy,
                     onCheckedChange={onSet("sharedProjectsEnabled",it.toString())},
                     modifier=Modifier.testTag("shared-projects-toggle"))

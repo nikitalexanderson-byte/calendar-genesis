@@ -40,8 +40,8 @@ android {
         applicationId = "ru.genesis.calendar"
         minSdk = 26
         targetSdk = 37
-        versionCode = 67
-        versionName = "2.6.1"
+        versionCode = 68
+        versionName = "2.6.2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         manifestPlaceholders["genesisHost"] = genesisUri.host
@@ -111,6 +111,8 @@ val genesisAssets = tasks.register<GenesisAssetsTask>("genesisAssets") {
         into("i18n")
     }
     from(rootProject.file("../app/curated-translations.en.json")) { into("i18n") }
+    from(rootProject.file("../app/emoji-catalog.json")) { into("i18n") }
+    from(rootProject.file("../app/emoji-full-catalog.json")) { into("i18n") }
     from(rootProject.file("../app/calendar-days.en.json")) { into("i18n") }
     from(rootProject.file("../app/stoicheion.en.json")) { into("i18n") }
     from(rootProject.file("../app/catalog-translations")) {

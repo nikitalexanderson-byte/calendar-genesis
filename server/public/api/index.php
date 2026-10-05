@@ -616,6 +616,10 @@ try {
             if ($method === 'GET') genesisJson(['projects' => genesisSharedProjects($userId, $segments[2])]);
             if ($method === 'POST') genesisJson(['project' => genesisSharedCreateProject($userId, $segments[2], genesisReadJson())], 201);
         }
+        if (count($segments) === 4 && $segments[1] === 'spaces' && $segments[3] === 'import-project'
+            && $method === 'POST') {
+            genesisJson(['receipt' => genesisSharedImportProjectTree($userId, $segments[2], genesisReadJson())], 201);
+        }
         if (count($segments) === 4 && $segments[1] === 'spaces' && $segments[3] === 'archived-projects'
             && $method === 'GET') {
             genesisJson(['projects' => genesisSharedArchivedProjects($userId, $segments[2])]);

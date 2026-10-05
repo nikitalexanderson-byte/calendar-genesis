@@ -18,7 +18,11 @@ sealed interface NativeVoiceAction {
     data class Scroll(val direction: String): NativeVoiceAction
     data class TheokyklosSector(val sectorId: String): NativeVoiceAction
     data class StoicheionCard(val cardId: String): NativeVoiceAction
+    data class StoicheionDraw(val drawKind: String): NativeVoiceAction
     data class SetMood(val value: Int): NativeVoiceAction
+    data class SetSleep(val bedtime: String? = null, val wakeTime: String? = null, val quality: Int? = null): NativeVoiceAction
+    data class SetSleepPlan(val bedtime: String? = null, val wakeTime: String? = null,
+        val reminderEnabled: Boolean? = null, val reminderMinutesBefore: Int? = null): NativeVoiceAction
     data class RenameTask(val id: String, val title: String, val newTitle: String): NativeVoiceAction
     data class CreateProject(val title: String): NativeVoiceAction
     data class CreateCategory(val title: String): NativeVoiceAction
@@ -109,6 +113,48 @@ private fun voiceMoodValue(raw: String): Int? {
     return voiceMoodNames.firstOrNull { it.second.matches(value) }?.first
 }
 
+private fun voiceClock(raw: String): String? {
+    val match=Regex("""(?iu)^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$""").matchEntire(raw.trim()) ?: return null
+    var hour=match.groupValues[1].toInt()
+    val minute=match.groupValues[2].toIntOrNull() ?: 0
+    val meridiem=match.groupValues[3].lowercase()
+    if(minute>59 || meridiem.isNotEmpty() && hour !in 1..12 || meridiem.isEmpty() && hour>23) return null
+    if(meridiem.isNotEmpty()) hour=hour%12 + if(meridiem=="pm") 12 else 0
+    return "%02d:%02d".format(java.util.Locale.ROOT,hour,minute)
+}
+
+private fun voiceSleep(command: String): NativeVoiceAction? {
+    val clock="""(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)"""
+    Regex("""(?iu)^(включи|отключи|enable|disable|turn on|turn off)\s+(?:напоминание о сне|напоминания о сне|sleep reminders?)(?:\s+(?:за|in)\s+(\d{1,3})\s*(?:минут[а-я]*|minutes?)(?:\s+(?:до сна|before bed))?)?$""")
+        .matchEntire(command)?.let { match ->
+            val lead=match.groupValues[2].toIntOrNull()
+            if(lead!=null && lead>180) return null
+            return NativeVoiceAction.SetSleepPlan(reminderEnabled=match.groupValues[1].lowercase() in
+                setOf("включи","enable","turn on"),reminderMinutesBefore=lead)
+        }
+    Regex("(?iu)^(?:установи|поставь|настрой|set|change)\\s+(?:план сна|расписание сна|время сна|sleep plan|sleep schedule)\\s+(?:с|from)\\s+$clock\\s+(?:до|to)\\s+$clock$")
+        .matchEntire(command)?.let { match ->
+            val bed=voiceClock(match.groupValues[1]);val wake=voiceClock(match.groupValues[2])
+            if(bed!=null && wake!=null) return NativeVoiceAction.SetSleepPlan(bed,wake)
+        }
+    Regex("(?iu)^(?:(?:отметь|запиши|record|log)\\s+)?(?:сон|мой сон|sleep|my sleep)\\s+(?:с|from)\\s+$clock\\s+(?:до|to)\\s+$clock$")
+        .matchEntire(command)?.let { match ->
+            val bed=voiceClock(match.groupValues[1]);val wake=voiceClock(match.groupValues[2])
+            if(bed!=null && wake!=null) return NativeVoiceAction.SetSleep(bed,wake)
+        }
+    Regex("(?iu)^(?:я\\s+)?(?:уснул[а]?|лег спать|легла спать|i fell asleep|i went to bed)\\s+(?:в|at)\\s+$clock\\s+(?:(?:и|and)\\s+)?(?:проснулся|проснулась|woke up)\\s+(?:в|at)\\s+$clock$")
+        .matchEntire(command)?.let { match ->
+            val bed=voiceClock(match.groupValues[1]);val wake=voiceClock(match.groupValues[2])
+            if(bed!=null && wake!=null) return NativeVoiceAction.SetSleep(bed,wake)
+        }
+    Regex("""(?iu)^(?:(?:отметь|запиши|поставь|set|record|log)\s+)?(?:качество сна|sleep quality)\s+(?:(?:на|как|as|to)\s+)?(\d{1,2})(?:\s+из\s+10)?$""")
+        .matchEntire(command)?.let { match ->
+            val quality=match.groupValues[1].toInt()
+            if(quality in 1..10) return NativeVoiceAction.SetSleep(quality=quality)
+        }
+    return null
+}
+
 /** Explicit commands only: unknown or ambiguous titles never mutate user data. */
 internal fun parseNativeVoiceAction(raw: String, tasks: List<LocalTask>, projects: List<GenesisProject>,
     habits: List<Habit>, lists: List<GoogleTaskList> = emptyList(),
@@ -126,6 +172,7 @@ internal fun parseNativeVoiceAction(raw: String, tasks: List<LocalTask>, project
         .matchEntire(command)?.let { match ->
             voiceMoodValue(match.groupValues[1])?.let { return NativeVoiceAction.SetMood(it) }
         }
+    voiceSleep(command)?.let { return it }
     fun <T> resolve(name: String, records: List<T>, title: (T)->String): T {
         val exact=records.filter { title(it).equals(name,true) }
         val found=if(exact.isNotEmpty()) exact else records.filter { title(it).contains(name,true) }
@@ -163,6 +210,10 @@ internal fun parseNativeVoiceAction(raw: String, tasks: List<LocalTask>, project
     }
     voiceSector(command)?.let { return NativeVoiceAction.TheokyklosSector(it) }
     voiceStoicheionCard(command)?.let { return NativeVoiceAction.StoicheionCard(it) }
+    if(Regex("""(?iu)^(?:выбери|вытяни|открой|покажи|draw|pick|select|show)\s+(?:карту дня|daily card|card of the day)$""").matches(command))
+        return NativeVoiceAction.StoicheionDraw("daily")
+    if(Regex("""(?iu)^(?:выбери|вытяни|открой|покажи|сделай|draw|pick|select|show|make)\s+(?:расклад(?: из)? (?:девяти|9) карт|(?:девять|9) карт(?: стойхейона)?|nine cards?|nine-card spread|9-card spread)$""").matches(command))
+        return NativeVoiceAction.StoicheionDraw("spread")
     Regex("(?iu)(?:покажи|открой|выбери|перейди\\s+на|show|open|select)\\s+(?:(?:дату|день|date|day)\\s+)?(\\d{4})-(\\d{1,2})-(\\d{1,2})")
         .matchEntire(command)?.let { return NativeVoiceAction.CalendarDate(it.groupValues[1].toInt(),it.groupValues[2].toInt(),it.groupValues[3].toInt()) }
     Regex("(?iu)(?:покажи|открой|выбери|перейди\\s+на|show|open|select)\\s+(?:(?:дату|день|date|day)\\s+)?(\\d{1,2})\\s+([а-яёa-z]+)\\s+(\\d{4})(?:\\s+года)?")

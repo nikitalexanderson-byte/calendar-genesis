@@ -330,7 +330,7 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                GenesisPageHeader(if (language == "en") "Projects" else "Проекты",
+                GenesisPageHeader(if (language == "en") "Projects - personal" else "Проекты - личные",
                     if (language == "en") "Categories, projects and their tasks"
                     else "Категории, проекты и задачи внутри них", "▦")
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,

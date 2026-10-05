@@ -113,6 +113,11 @@ internal fun NativeVoiceAssistantDialog(app: GenesisApplication, structure: Work
                             "Open Theokyklos sector: ${preview.sectorId}" else "Открыть сектор Теокиклоса: ${preview.sectorId}"
                         is NativeVoiceAction.StoicheionCard -> if(english)
                             "Open Stoicheion card: ${preview.cardId}" else "Открыть карту Стойхейона: ${preview.cardId}"
+                        is NativeVoiceAction.StoicheionDraw -> if(english)
+                            if(preview.drawKind=="spread") "Draw nine cards" else "Draw the daily card"
+                            else if(preview.drawKind=="spread") "Выбрать девять карт" else "Выбрать карту дня"
+                        is NativeVoiceAction.SetSleep -> if(english) "Record sleep" else "Записать сон"
+                        is NativeVoiceAction.SetSleepPlan -> if(english) "Update sleep plan" else "Изменить план сна"
                         is NativeVoiceAction.SetMood -> ru.genesis.calendar.domain.trackers.MoodTracker
                             .option(preview.value.toDouble()).let { option ->
                                 if(english) "Record mood: ${option.labelEn}" else "Отметить настроение: ${option.label}"

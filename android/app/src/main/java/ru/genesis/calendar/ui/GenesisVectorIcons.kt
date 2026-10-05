@@ -17,13 +17,15 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import kotlin.math.*
 
-internal enum class GenesisPageIcon { TODAY, TASKS, TASK_LISTS, PROJECTS, CALENDAR, MONTH, YEAR, HABITS, STOICHEION, THEOKYKLOS, SETTINGS, TRACKERS }
+internal enum class GenesisPageIcon { TODAY, TASKS, TASK_LISTS, PROJECTS, PROJECTS_SHARED, CALENDAR, MONTH, YEAR, HABITS, STOICHEION, THEOKYKLOS, SETTINGS, TRACKERS }
 
 internal fun genesisPageIcon(title: String): GenesisPageIcon = when (title.trim()) {
     "Сегодня", "Today" -> GenesisPageIcon.TODAY
     "Задачи", "Tasks" -> GenesisPageIcon.TASKS
     "Списки задач", "Task lists" -> GenesisPageIcon.TASK_LISTS
     "Проекты", "Projects" -> GenesisPageIcon.PROJECTS
+    "Проекты - личные", "Projects - personal" -> GenesisPageIcon.PROJECTS
+    "Проекты - общие", "Projects - shared" -> GenesisPageIcon.PROJECTS_SHARED
     "Календарь", "Calendar" -> GenesisPageIcon.CALENDAR
     "Календарь - месяц", "Calendar - month" -> GenesisPageIcon.MONTH
     "Календарь - год", "Calendar - year" -> GenesisPageIcon.YEAR
@@ -54,7 +56,8 @@ internal fun GenesisVectorIcon(icon: GenesisPageIcon, modifier: Modifier = Modif
     tint: Color = LocalContentColor.current, animated: Boolean = false) {
     val moving = animated && ValueAnimator.areAnimatorsEnabled()
     val phase = rememberIconPhase("genesis-icon-${icon.name}",
-        if (icon == GenesisPageIcon.TASKS || icon == GenesisPageIcon.TASK_LISTS || icon == GenesisPageIcon.PROJECTS) 7_200 else 12_000, moving)
+        if (icon == GenesisPageIcon.TASKS || icon == GenesisPageIcon.TASK_LISTS ||
+            icon == GenesisPageIcon.PROJECTS || icon == GenesisPageIcon.PROJECTS_SHARED) 7_200 else 12_000, moving)
     val ink = eveningInk(tint)
     Canvas(modifier.testTag("genesis-icon-${icon.name.lowercase()}-${if (animated) "animated" else "static"}")
         .clearAndSetSemantics { }) {
@@ -126,6 +129,25 @@ internal fun GenesisVectorIcon(icon: GenesisPageIcon, modifier: Modifier = Modif
                         inkPath(listOf(Offset(x, 13.6f), Offset(x, 16.6f)), branch)
                         if (branch > .8f) drawCircle(tint.copy(alpha = (branch - .8f) * 5), 1f, Offset(x, 16.6f))
                     }
+                }
+                GenesisPageIcon.PROJECTS_SHARED -> {
+                    // The same project folder contains two trees that meet at one shared node.
+                    path(Offset(3f, 19f), Offset(3f, 5f), Offset(9f, 5f), Offset(11f, 7f),
+                        Offset(21f, 7f), Offset(21f, 19f), Offset(3f, 19f))
+                    val joined = if (moving) .65f + .35f * sin(phase * 2 * PI).toFloat() else 1f
+                    listOf(7f, 17f).forEach { x ->
+                        line(Offset(x, 10f), Offset(x, 16.7f))
+                        drawCircle(tint, .65f, Offset(x, 10f))
+                        drawCircle(tint, .65f, Offset(x, 16.7f))
+                    }
+                    line(Offset(7f, 10f), Offset(10f, 11.8f))
+                    line(Offset(7f, 16.7f), Offset(10f, 15f))
+                    line(Offset(17f, 10f), Offset(14f, 11.8f))
+                    line(Offset(17f, 16.7f), Offset(14f, 15f))
+                    inkPath(listOf(Offset(7f, 13.4f), Offset(12f, 13.4f)), joined)
+                    inkPath(listOf(Offset(17f, 13.4f), Offset(12f, 13.4f)), joined)
+                    drawCircle(tint.copy(alpha = if (moving) .65f + .35f * joined else 1f),
+                        1.2f, Offset(12f, 13.4f))
                 }
                 GenesisPageIcon.CALENDAR, GenesisPageIcon.MONTH -> {
                     drawRoundRect(tint, Offset(3f, 4.5f), Size(18f, 16.5f), androidx.compose.ui.geometry.CornerRadius(2.7f), style = stroke)

@@ -41,6 +41,10 @@ class NativeUiTest {
         compose.onNodeWithTag("navigation-Привычки").performClick()
         compose.onNodeWithText("Новая привычка").performScrollTo().performClick()
         compose.onAllNodes(hasSetTextAction()).onFirst().performTextInput("UI synthetic habit")
+        compose.onNodeWithTag("habit-emoji-picker-open").performScrollTo().performClick()
+        compose.onNodeWithText("Животные и природа").performScrollTo().performClick()
+        compose.onNodeWithTag("habit-emoji-choice-🦋").performScrollTo().performClick()
+        compose.onNodeWithTag("habit-emoji").assertTextContains("🦋")
         compose.onNodeWithText("Сохранить").performScrollTo().performClick()
         compose.waitUntil(10_000) {
             compose.onAllNodesWithText("UI synthetic habit",substring=true).fetchSemanticsNodes().isNotEmpty()
@@ -65,25 +69,24 @@ class NativeUiTest {
         }
     }
 
-    @Test fun customMoodNameAndEmojiCanBeSavedFromEmulator() {
+    @Test fun customMoodNameAndEmojiCanBePickedOnDevice() {
         compose.onNodeWithTag("navigation-Привычки").performClick()
         compose.onNodeWithText("Сон и настроение").performClick()
         compose.onNode(hasText("Выбрать настроение") or hasText("Изменить настроение")).performScrollTo().performClick()
         compose.onNodeWithTag("custom-mood-choice").performScrollTo().performClick()
         compose.onNodeWithTag("custom-mood-label").performTextClearance()
         compose.onNodeWithTag("custom-mood-label").performTextInput("Вдохновение")
-        compose.onNodeWithTag("custom-mood-emoji").performTextClearance()
-        compose.onNodeWithTag("custom-mood-emoji").performTextInput("🌅")
+        compose.onNodeWithTag("mood-emoji-😌").performScrollTo().performClick()
         UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()
         compose.onNodeWithText("Сохранить").performScrollTo().performClick()
         compose.waitUntil(10_000) { compose.onAllNodesWithTag("custom-mood-choice").fetchSemanticsNodes().isEmpty() }
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
         compose.waitUntil(10_000) {
             runBlocking { ru.genesis.calendar.data.TrackersRepository(app).workspace.first()
-                .moodEntries.any { it.customLabel == "Вдохновение" && it.customEmoji == "🌅" } }
+                .moodEntries.any { it.customLabel == "Вдохновение" && it.customEmoji == "😌" } }
         }
         UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(
-            File(app.getExternalFilesDir(null),"mood-custom-2.6.0.png"))
+            File(app.getExternalFilesDir(null),"mood-custom-2.6.2.png"))
     }
 
     @Test fun monthReturnTodayButtonKeepsCalendarMonthOpen() {

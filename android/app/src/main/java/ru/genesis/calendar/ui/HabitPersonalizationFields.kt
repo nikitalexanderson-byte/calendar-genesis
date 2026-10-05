@@ -2,18 +2,23 @@ package ru.genesis.calendar.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 
 internal val habitColors = listOf(
     "#bb8f4a", "#2d7771", "#5271a8", "#8b5f83", "#9b5d4a", "#668b55", "#b06779",
@@ -47,12 +52,55 @@ internal fun HabitPersonalizationFields(emoji: String, color: String, isKeyHabit
     ritualId: String, ritualName: String, enabled: Boolean,
     onEmoji: (String) -> Unit, onColor: (String) -> Unit, onKeyHabit: (Boolean) -> Unit,
     onRitual: (String) -> Unit, onRitualName: (String) -> Unit) {
+    val context = LocalContext.current
+    val emojiCategories = remember(context) { fullEmojiCatalog(context) }
+    val english = LocalGenesisLanguage.current == "en"
+    var emojiPickerOpen by rememberSaveable { mutableStateOf(false) }
+    var emojiCategory by rememberSaveable { mutableStateOf("smileys-emotion") }
+    var visibleEmojiCount by rememberSaveable { mutableIntStateOf(120) }
     Text("Эмодзи привычки", style = MaterialTheme.typography.titleSmall)
     Row(Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         habitEmojis.forEach { option ->
             FilterChip(selected = emoji == option, onClick = { onEmoji(option) }, enabled = enabled,
                 label = { Text(option) })
+        }
+    }
+    TextButton(onClick = { emojiPickerOpen = true }, enabled = enabled,
+        modifier = Modifier.testTag("habit-emoji-picker-open")) {
+        Text(if (english) "Choose from all emoji" else "Выбрать из полного набора эмодзи")
+    }
+    if (emojiPickerOpen) Dialog(onDismissRequest = { emojiPickerOpen = false }) {
+        Surface(shape = MaterialTheme.shapes.large) {
+            Column(Modifier.fillMaxWidth().heightIn(max = 560.dp).verticalScroll(
+                androidx.compose.foundation.rememberScrollState()).padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(if (english) "Habit emoji" else "Эмодзи привычки",
+                    style = MaterialTheme.typography.titleLarge)
+                Row(Modifier.fillMaxWidth().horizontalScroll(androidx.compose.foundation.rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    emojiCategories.forEach { category -> FilterChip(emojiCategory == category.id,
+                        onClick = { emojiCategory = category.id; visibleEmojiCount = 120 },
+                        label = { Text(if (english) category.labelEn else category.label) }) }
+                }
+                emojiCategories.firstOrNull { it.id == emojiCategory }?.let { category ->
+                    FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        category.emojis.take(visibleEmojiCount).forEach { option ->
+                            FilterChip(emoji == option, onClick = { onEmoji(option); emojiPickerOpen = false },
+                                label = { Text(option) }, modifier = Modifier.testTag("habit-emoji-choice-$option"))
+                        }
+                    }
+                    if (visibleEmojiCount < category.emojis.size) TextButton(
+                        onClick = { visibleEmojiCount += 120 },
+                        modifier = Modifier.testTag("habit-emoji-more")) {
+                        Text(if (english) "Show more emoji" else "Показать ещё эмодзи")
+                    }
+                }
+                TextButton(onClick = { emojiPickerOpen = false }) {
+                    Text(if (english) "Close" else "Закрыть")
+                }
+            }
         }
     }
     OutlinedTextField(emoji, onEmoji, enabled = enabled, singleLine = true,

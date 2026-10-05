@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import {
   acceptSharedInvitation, addSharedComment, changeSharedMemberRole, changeSharedSpaceRole,
   createSharedProject, createSharedStatus, createSharedCategory, deleteSharedCategory,
@@ -12,6 +12,8 @@ import {
   type SharedSpace, type SharedTask,
 } from "./cloud-sync";
 import "./shared-projects.css";
+import "./shared-projects-layout.css";
+import { ProjectsHeroMark } from "./ProjectsHeroMark";
 
 type Props = { userId: string; language: string };
 
@@ -38,7 +40,11 @@ export function SharedProjects({ userId, language }: Props) {
   const [projectLayout, setProjectLayout] = useState<"list" | "board">("list");
   const [parentId, setParentId] = useState("");
   const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [newTaskDescription, setNewTaskDescription] = useState("");
+  const [newTaskDueDate, setNewTaskDueDate] = useState("");
+  const [newTaskStatusId, setNewTaskStatusId] = useState("");
   const [newTaskCategoryId, setNewTaskCategoryId] = useState("");
+  const [newTaskAssigneeId, setNewTaskAssigneeId] = useState("");
   const [newCategoryTitle, setNewCategoryTitle] = useState("");
   const [newCategoryColor, setNewCategoryColor] = useState("#2d6c68");
   const [newStatusTitle, setNewStatusTitle] = useState("");
@@ -57,6 +63,16 @@ export function SharedProjects({ userId, language }: Props) {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
+  const taskDetailRef = useRef<HTMLElement>(null);
+  const createDialogRef = useRef<HTMLDialogElement>(null);
+  const [createModal, setCreateModal] = useState<"space" | "project" | "task" | "status" | "category" | "invite" | null>(null);
+
+  useEffect(() => {
+    const dialog = createDialogRef.current;
+    if (!dialog) return;
+    if (createModal && !dialog.open) dialog.showModal();
+    if (!createModal && dialog.open) dialog.close();
+  }, [createModal]);
 
   const refreshSpaces = useCallback(async () => {
     const items = await listSharedSpaces();
@@ -93,7 +109,11 @@ export function SharedProjects({ userId, language }: Props) {
     const timer = window.setTimeout(() => {
       void refreshProjects(spaceId).catch((error: unknown) => setMessage(error instanceof Error ? error.message : String(error)));
     }, 0);
-    return () => window.clearTimeout(timer);
+    const poll = window.setInterval(() => {
+      if (document.visibilityState === "visible" && navigator.onLine)
+        void refreshProjects(spaceId).catch(() => undefined);
+    }, 5000);
+    return () => { window.clearTimeout(timer); window.clearInterval(poll); };
   }, [spaceId, refreshProjects]);
   useEffect(() => {
     if (!projectId) return;
@@ -112,6 +132,13 @@ export function SharedProjects({ userId, language }: Props) {
     void listSharedComments(projectId, taskId).then(setComments)
       .catch((error: unknown) => setMessage(error instanceof Error ? error.message : String(error)));
   }, [projectId, taskId]);
+  useEffect(() => {
+    if (!taskId || !window.matchMedia("(max-width: 700px)").matches) return;
+    window.requestAnimationFrame(() => taskDetailRef.current?.scrollIntoView({
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
+      block: "start",
+    }));
+  }, [taskId]);
 
   const run = async (action: () => Promise<void>) => {
     setBusy(true);
@@ -127,6 +154,7 @@ export function SharedProjects({ userId, language }: Props) {
       setSpaceTitle("");
       await refreshSpaces();
       setSpaceId(space.id);
+      setCreateModal(null);
       setMessage(english ? "Workspace created." : "Пространство создано.");
     });
   };
@@ -141,6 +169,7 @@ export function SharedProjects({ userId, language }: Props) {
       setProjectTitle(""); setProjectDescription(""); setParentId("");
       await refreshProjects(spaceId);
       setProjectId(project.id);
+      setCreateModal(null);
       setMessage(english ? "Project created." : "Проект создан.");
     });
   };
@@ -149,11 +178,16 @@ export function SharedProjects({ userId, language }: Props) {
     if (!snapshot) return;
     void run(async () => {
       await createSharedTask(snapshot.project.id, {
-        title: newTaskTitle, statusId: snapshot.statuses[0].id,
+        title: newTaskTitle.trim(), description: newTaskDescription.trim(),
+        dueDate: newTaskDueDate || null,
+        statusId: newTaskStatusId || snapshot.statuses[0].id,
         categoryId: newTaskCategoryId || null,
+        assigneeId: newTaskAssigneeId || null,
       });
-      setNewTaskTitle("");
+      setNewTaskTitle(""); setNewTaskDescription(""); setNewTaskDueDate("");
+      setNewTaskStatusId(""); setNewTaskCategoryId(""); setNewTaskAssigneeId("");
       await refreshProject(snapshot.project.id);
+      setCreateModal(null);
       setMessage(english ? "Task saved for the team." : "Задача сохранена для команды.");
     });
   };
@@ -181,6 +215,7 @@ export function SharedProjects({ userId, language }: Props) {
       const url = new URL(window.location.href);
       url.searchParams.set("shared_invite", invitation.token);
       setInviteLink(url.toString());
+      setCreateModal(null);
       setMessage(english ? "Invitation link ready. Share it privately with the named person." : "Ссылка готова. Передайте её указанному человеку лично.");
     });
   };
@@ -229,6 +264,7 @@ export function SharedProjects({ userId, language }: Props) {
       await createSharedStatus(snapshot.project.id, newStatusTitle.trim(), newStatusDone);
       setNewStatusTitle(""); setNewStatusDone(false);
       await refreshProject(snapshot.project.id);
+      setCreateModal(null);
     });
   };
   const renameStatus = (event: FormEvent<HTMLFormElement>, statusId: string, revision: number) => {
@@ -259,6 +295,7 @@ export function SharedProjects({ userId, language }: Props) {
       await createSharedCategory(snapshot.project.id, newCategoryTitle.trim(), newCategoryColor);
       setNewCategoryTitle("");
       await refreshProject(snapshot.project.id);
+      setCreateModal(null);
     });
   };
   const renameCategory = (event: FormEvent<HTMLFormElement>, categoryId: string, revision: number) => {
@@ -348,6 +385,7 @@ export function SharedProjects({ userId, language }: Props) {
     guest: english ? "Guest" : "Гость",
   })[role as "owner" | "manager" | "member" | "commenter" | "viewer" | "admin" | "guest"] ?? role;
   const selectedTask = snapshot?.tasks.find((task) => task.id === taskId);
+  const inboxProject = projects.find((project) => Boolean(project.isInbox));
   const activeView = viewOverride ?? snapshot?.project.layout ?? "list";
   const calendarOffset = (calendarMonth.getDay() + 6) % 7;
   const calendarDays = Array.from({ length: Math.ceil((calendarOffset + new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 0).getDate()) / 7) * 7 },
@@ -365,61 +403,52 @@ export function SharedProjects({ userId, language }: Props) {
 
   return <div className="shared-projects" data-exp-layout="view">
     <header className="shared-projects-hero" data-exp-ui="panel">
-      <span className="shared-projects-mark" aria-hidden="true"><i /><i /><i /></span>
+      <ProjectsHeroMark shared />
       <div>
         <span className="eyebrow">GENESIS · {english ? "Together" : "Вместе"}</span>
-        <h1>{snapshot?.project.isInbox && english ? "Shared inbox" : snapshot?.project.title ?? (english ? "Shared projects" : "Общие проекты")}</h1>
-        <p>{snapshot?.project.isInbox && english ? "Team tasks without a separate project" : snapshot?.project.description || (english
+        <h1>{english ? "Projects - shared" : "Проекты - общие"}</h1>
+        <p>{english
           ? "Plan together while keeping personal tasks, habits and calendars private."
-          : "Планируйте вместе. Личные задачи, привычки и календарь остаются вашими.")}</p>
+          : "Планируйте вместе. Личные задачи, привычки и календарь остаются вашими."}</p>
       </div>
     </header>
+    {inboxProject ? <section className="shared-projects-inbox-card" aria-labelledby="shared-projects-inbox-title">
+      <div>
+        <span className="eyebrow">{english ? "Unsorted team tasks" : "Общие задачи без проекта"}</span>
+        <h2 id="shared-projects-inbox-title">{english ? "Shared inbox" : "Хаос-бокс"}</h2>
+        <p>{english ? "Keep new tasks here, then place them in a team project." : "Собирайте новые задачи здесь, затем распределяйте их по проектам команды."}</p>
+        <button type="button" onClick={() => { setProjectId(inboxProject.id); setSnapshot(null); setTaskId(""); }}
+          disabled={projectId === inboxProject.id}>{english ? "Open shared inbox" : "Открыть хаос-бокс"}</button>
+      </div>
+      <strong aria-label={english ? `${inboxProject.taskCount ?? 0} tasks` : `Задач: ${inboxProject.taskCount ?? 0}`}>{inboxProject.taskCount ?? 0}</strong>
+    </section> : null}
     <p className="shared-projects-privacy">{english
       ? "Project content is visible to invited members and processed on the GENESIS server."
       : "Содержимое общего проекта видно приглашённым участникам и обрабатывается сервером GENESIS."}</p>
     {message ? <p className="shared-projects-message" role="status">{message}</p> : null}
     {loading ? <p role="status">{english ? "Loading projects…" : "Загружаем проекты…"}</p> : null}
 
-    <form className="shared-projects-invite-accept" onSubmit={acceptInvite}>
-      <label>{english ? "Invitation token" : "Код приглашения"}<input value={inviteToken} onChange={(event) => setInviteToken(event.target.value)} placeholder={english ? "Paste an invitation token" : "Вставьте код приглашения"} /></label>
-      <button type="submit" disabled={busy || !inviteToken.trim()}>{english ? "Join project" : "Вступить в проект"}</button>
-    </form>
-
-    <div className="shared-projects-toolbar">
-      <label>{english ? "Workspace" : "Пространство"}<select value={spaceId} onChange={(event) => { setSpaceId(event.target.value); setSnapshot(null); setProjectId(""); setTaskId(""); setComments([]); }} disabled={!spaces.length}>
+    <div className="shared-projects-shell">
+    <aside className="shared-projects-sidebar" aria-label={english ? "Shared project navigation" : "Навигация по общим проектам"}>
+      <label className="shared-projects-space-picker">{english ? "Workspace" : "Пространство"}<select value={spaceId} onChange={(event) => { setSpaceId(event.target.value); setSnapshot(null); setProjectId(""); setTaskId(""); setComments([]); }} disabled={!spaces.length}>
         {!spaces.length ? <option value="">{english ? "No workspaces" : "Нет пространств"}</option> : null}
         {spaces.map((space) => <option key={space.id} value={space.id}>{space.title}</option>)}
       </select></label>
-      <label>{english ? "Project" : "Проект"}<select value={projectId} onChange={(event) => { setProjectId(event.target.value); setSnapshot(null); setTaskId(""); setComments([]); setViewOverride(null); }} disabled={!projects.length}>
-        {!projects.length ? <option value="">{english ? "No projects" : "Нет проектов"}</option> : null}
-        {projects.map((project) => <option key={project.id} value={project.id}>{project.isInbox && english ? "Shared inbox" : project.title}</option>)}
-      </select></label>
-    </div>
+      {projects.length ? <nav className="shared-projects-project-nav" aria-label={english ? "Projects in workspace" : "Проекты пространства"}>
+        <h2>{english ? "Team projects" : "Проекты команды"}</h2>
+        {projects.map((project) => <button key={project.id} type="button" className="shared-projects-project-link"
+          aria-current={projectId === project.id ? "page" : undefined}
+          onClick={() => { setProjectId(project.id); setSnapshot(null); setTaskId(""); setComments([]); setViewOverride(null); }}>
+          <span>{project.isInbox && english ? "Shared inbox" : project.title}</span>
+        </button>)}
+      </nav> : null}
 
-    <details className="shared-projects-create" open={!spaces.length}>
-      <summary>{spaces.length ? (english ? "Create another workspace" : "Создать ещё пространство") : (english ? "Start with a workspace" : "Начните с пространства")}</summary>
-      <form onSubmit={submitSpace}>
-      <p>{english ? "A workspace brings your collaborators together. Create a project after this step." : "Пространство объединяет команду. После него создайте проект."}</p>
-      <label>{english ? "Name" : "Название"}<input value={spaceTitle} maxLength={160} required onChange={(event) => setSpaceTitle(event.target.value)} /></label>
-      <button type="submit" className="primary-button" disabled={busy}>{english ? "Create workspace" : "Создать пространство"}</button>
-      </form>
-    </details>
-
-    {spaceId ? <details className="shared-projects-create" open={!projects.length}>
-      <summary>{english ? "Create a shared project" : "Создать общий проект"}</summary>
-      <form onSubmit={submitProject}>
-        <label>{english ? "Name" : "Название"}<input value={projectTitle} maxLength={160} required onChange={(event) => setProjectTitle(event.target.value)} /></label>
-        <label>{english ? "Description" : "Описание"}<textarea value={projectDescription} maxLength={5000} onChange={(event) => setProjectDescription(event.target.value)} /></label>
-        <label>{english ? "Layout" : "Вид"}<select value={projectLayout} onChange={(event) => setProjectLayout(event.target.value as "list" | "board")}>
-          <option value="list">{english ? "Task container" : "Контейнер задач"}</option><option value="board">{english ? "Board" : "Доска"}</option>
-        </select></label>
-        <label>{english ? "Parent project" : "Родительский проект"}<select value={parentId} onChange={(event) => setParentId(event.target.value)}>
-          <option value="">{english ? "Top level" : "Верхний уровень"}</option>
-          {projects.filter((project) => !project.isInbox).map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}
-        </select></label>
-        <button type="submit" className="primary-button" disabled={busy}>{english ? "Create project" : "Создать проект"}</button>
-      </form>
-    </details> : null}
+    <button type="button" className="shared-projects-open-modal" onClick={() => setCreateModal("space")}>
+      {spaces.length ? (english ? "Create another workspace" : "Создать ещё пространство") : (english ? "Create a workspace" : "Создать пространство")}
+    </button>
+    {spaceId ? <button type="button" className="shared-projects-open-modal" onClick={() => setCreateModal("project")}>
+      {english ? "Create a shared project" : "Создать общий проект"}
+    </button> : null}
     {archivedProjects.length ? <details className="shared-projects-create">
       <summary>{english ? "Archived projects" : "Архив проектов"} · {archivedProjects.length}</summary>
       <div className="shared-projects-members">{archivedProjects.map((project) => <div key={project.id} className="shared-projects-member">
@@ -427,9 +456,28 @@ export function SharedProjects({ userId, language }: Props) {
         {project.role === "owner" ? <button type="button" disabled={busy} onClick={() => restoreProject(project.id)}>{english ? "Restore" : "Восстановить"}</button> : null}
       </div>)}</div>
     </details> : null}
+    <details className="shared-projects-invite-accept" open={Boolean(inviteToken)}>
+      <summary>{english ? "Join by invitation" : "Вступить по приглашению"}</summary>
+      <form onSubmit={acceptInvite}>
+        <label>{english ? "Invitation token" : "Код приглашения"}<input value={inviteToken} onChange={(event) => setInviteToken(event.target.value)} placeholder={english ? "Paste an invitation token" : "Вставьте код приглашения"} /></label>
+        <button type="submit" disabled={busy || !inviteToken.trim()}>{english ? "Join project" : "Вступить в проект"}</button>
+      </form>
+    </details>
+    </aside>
+
+    <main className="shared-projects-main">
 
     {snapshot ? <>
-      <div className="shared-projects-meta"><span>{english ? "Your role" : "Ваша роль"}: {roleLabel(snapshot.project.role)}</span><span>{snapshot.members.length} {english ? "members" : "участников"}</span></div>
+      <header className="shared-projects-context">
+        <div>
+          <h2>{snapshot.project.isInbox ? (english ? "Team tasks" : "Задачи команды") : snapshot.project.title}</h2>
+          {!snapshot.project.isInbox && snapshot.project.description ? <p>{snapshot.project.description}</p> : null}
+        </div>
+        <div className="shared-projects-meta"><span>{english ? "Your role" : "Ваша роль"}: {roleLabel(snapshot.project.role)}</span><span>{snapshot.members.length} {english ? "members" : "участников"}</span></div>
+      </header>
+      <details className="shared-projects-management">
+        <summary>{english ? "Project and team settings" : "Проект и команда"}</summary>
+        <div className="shared-projects-management-content">
       {canInvite && !snapshot.project.isInbox ? <details className="shared-projects-create">
         <summary>{english ? "Project settings" : "Настройки проекта"}</summary>
         <form key={`${snapshot.project.id}:${snapshot.project.revision}`} onSubmit={submitProjectEdit}>
@@ -463,11 +511,6 @@ export function SharedProjects({ userId, language }: Props) {
             <button type="button" disabled={busy || !destinationId || isLastDone} onClick={() => removeStatus(status.id, status.revision, destinationId)}>{english ? "Delete status" : "Удалить статус"}</button>
           </div>;
         })}</div>
-        <form onSubmit={submitStatus}>
-          <label>{english ? "New status" : "Новый статус"}<input value={newStatusTitle} maxLength={80} required onChange={(event) => setNewStatusTitle(event.target.value)} /></label>
-          <label className="shared-projects-checkbox"><input type="checkbox" checked={newStatusDone} onChange={(event) => setNewStatusDone(event.target.checked)} />{english ? "Completion status" : "Статус завершения"}</label>
-          <button type="submit" disabled={busy}>{english ? "Add status" : "Добавить статус"}</button>
-        </form>
       </details> : null}
       {canInvite ? <details className="shared-projects-create">
         <summary>{english ? "Project categories" : "Категории проекта"}</summary>
@@ -479,11 +522,9 @@ export function SharedProjects({ userId, language }: Props) {
           </form>
           <button type="button" disabled={busy} onClick={() => removeCategory(category.id, category.revision)}>{english ? "Delete" : "Удалить"}</button>
         </div>)}</div>
-        <form onSubmit={submitCategory}>
-          <label>{english ? "New category" : "Новая категория"}<input value={newCategoryTitle} maxLength={80} required onChange={(event) => setNewCategoryTitle(event.target.value)} /></label>
-          <label>{english ? "Color" : "Цвет"}<input type="color" value={newCategoryColor} onChange={(event) => setNewCategoryColor(event.target.value)} /></label>
-          <button type="submit" disabled={busy || snapshot.categories.length >= 50}>{english ? "Add category" : "Добавить категорию"}</button>
-        </form>
+        <button type="button" disabled={busy || snapshot.categories.length >= 50} onClick={() => setCreateModal("category")}>
+          {english ? "Create category" : "Создать категорию"}
+        </button>
       </details> : null}
       <details className="shared-projects-invite">
         <summary>{english ? "Participants and roles" : "Участники и роли"}</summary>
@@ -502,24 +543,27 @@ export function SharedProjects({ userId, language }: Props) {
       </details>
       {canInvite ? <details className="shared-projects-invite">
         <summary>{english ? "Invite a participant" : "Пригласить участника"}</summary>
-        <form onSubmit={submitInvite}>
-          <label>Email<input type="email" required value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} /></label>
-          <label>{english ? "Role" : "Роль"}<select value={inviteRole} onChange={(event) => setInviteRole(event.target.value)}>
-            <option value="manager">{english ? "Manager" : "Менеджер"}</option><option value="member">{english ? "Member" : "Участник"}</option>
-            <option value="commenter">{english ? "Commenter" : "Комментатор"}</option><option value="viewer">{english ? "Viewer" : "Читатель"}</option>
-          </select></label>
-          <button type="submit" disabled={busy}>{english ? "Create invitation" : "Создать приглашение"}</button>
-        </form>
+        <button type="button" disabled={busy} onClick={() => setCreateModal("invite")}>
+          {english ? "Create invitation" : "Создать приглашение"}
+        </button>
         {inviteLink ? <label>{english ? "Private invitation link" : "Личная ссылка приглашения"}<input readOnly value={inviteLink} onFocus={(event) => event.currentTarget.select()} /></label> : null}
       </details> : null}
-      {canWrite ? <form className="shared-projects-create-task" onSubmit={submitTask}>
-        <label>{english ? "New team task" : "Новая задача команды"}<input maxLength={160} required value={newTaskTitle} onChange={(event) => setNewTaskTitle(event.target.value)} /></label>
-        <label>{english ? "Category" : "Категория"}<select value={newTaskCategoryId} onChange={(event) => setNewTaskCategoryId(event.target.value)}>
-          <option value="">{english ? "No category" : "Без категории"}</option>
-          {snapshot.categories.map((category) => <option key={category.id} value={category.id}>{category.title}</option>)}
-        </select></label>
-        <button type="submit" disabled={busy}>{english ? "Add task" : "Добавить задачу"}</button>
-      </form> : null}
+        </div>
+      </details>
+      <section className="shared-projects-planning" aria-label={english ? "Tasks and views" : "Задачи и виды проекта"}>
+        <h3>{english ? "Tasks" : "Задачи проекта"}</h3>
+      {canWrite ? <div className="shared-projects-create-actions">
+        <button type="button" className="shared-projects-open-modal" onClick={() => {
+          setNewTaskStatusId(snapshot.statuses[0]?.id ?? "");
+          setNewTaskCategoryId(""); setNewTaskAssigneeId(""); setCreateModal("task");
+        }}>
+          {english ? "Create team task" : "Создать задачу команды"}
+        </button>
+        <button type="button" className="shared-projects-open-modal" disabled={busy || snapshot.statuses.length >= 20}
+          onClick={() => setCreateModal("status")}>
+          {english ? "Create task list" : "Создать список задач"}
+        </button>
+      </div> : null}
       <div className="shared-projects-view-switch" role="group" aria-label={english ? "Project view" : "Вид проекта"}>
         {(["list", "board", "calendar"] as const).map((item) => <button key={item} type="button"
           aria-pressed={activeView === item} onClick={() => setViewOverride(item)}>{item === "list"
@@ -529,6 +573,8 @@ export function SharedProjects({ userId, language }: Props) {
       {activeView === "board" ? <p className="shared-projects-board-hint">{english
         ? "Swipe across the board to view all statuses."
         : "Проведите по доске, чтобы увидеть все статусы."}</p> : null}
+      </section>
+      <div className={`shared-projects-workspace${selectedTask ? " shared-projects-workspace-with-detail" : ""}`}>
       {activeView === "calendar" ? <section className="shared-projects-calendar" aria-label={english ? "Project calendar" : "Календарь проекта"}>
         {snapshot.tasks.length >= 500 ? <p role="status">{english ? "This project has at least 500 tasks. The calendar may omit later tasks until full loading is available." : "В проекте не менее 500 задач. Календарь может не показывать задачи за пределами загруженной части."}</p> : null}
         <div className="shared-projects-calendar-head">
@@ -576,7 +622,7 @@ export function SharedProjects({ userId, language }: Props) {
           </article>)}
         </section>)}
       </div>}
-      {selectedTask ? <section className="shared-projects-detail" aria-label={english ? "Task details" : "Карточка задачи"}>
+      {selectedTask ? <section ref={taskDetailRef} className="shared-projects-detail" aria-label={english ? "Task details" : "Карточка задачи"}>
         <button type="button" className="shared-projects-close" onClick={() => { setTaskId(""); setComments([]); }} aria-label={english ? "Close task" : "Закрыть задачу"}>×</button>
         <h2>{selectedTask.title}</h2>
         {canWrite ? <form onSubmit={submitTaskEdit}>
@@ -600,6 +646,82 @@ export function SharedProjects({ userId, language }: Props) {
         {canComment ? <form onSubmit={submitComment}><label>{english ? "Comment" : "Комментарий"}<textarea value={commentBody} maxLength={5000} required onChange={(event) => setCommentBody(event.target.value)} /></label>
           <button type="submit" disabled={busy}>{english ? "Send" : "Отправить"}</button></form> : null}
       </section> : null}
-    </> : null}
+      </div>
+    </> : !loading ? <section className="shared-projects-empty">
+      <h2>{!spaces.length ? (english ? "Your team starts here" : "Начните общую работу") :
+        (english ? "Choose or create a project" : "Выберите или создайте проект")}</h2>
+      <p>{!spaces.length ? (english ? "Create a workspace, then invite people and add a project." : "Создайте пространство, затем добавьте проект и пригласите участников.") :
+        (english ? "Projects in this workspace appear on the left." : "Проекты этого пространства появятся слева.")}</p>
+    </section> : null}
+    </main>
+    </div>
+    <dialog ref={createDialogRef} className="shared-projects-modal" aria-labelledby="shared-projects-modal-title"
+      onClose={() => setCreateModal(null)}>
+      {createModal ? <>
+        <header><h2 id="shared-projects-modal-title">{({
+          space: english ? "New workspace" : "Новое пространство",
+          project: english ? "New shared project" : "Новый общий проект",
+          task: english ? "New team task" : "Новая задача команды",
+          status: english ? "New task list / board column" : "Новый список задач / колонка доски",
+          category: english ? "New category" : "Новая категория",
+          invite: english ? "Invite a participant" : "Пригласить участника",
+        })[createModal]}</h2>
+          <button type="button" className="shared-projects-close" onClick={() => setCreateModal(null)}
+            aria-label={english ? "Close" : "Закрыть"}>×</button>
+        </header>
+        {createModal === "space" ? <form onSubmit={submitSpace}>
+          <p>{english ? "A workspace brings your collaborators together." : "Пространство объединяет участников команды."}</p>
+          <label>{english ? "Name" : "Название"}<input value={spaceTitle} maxLength={160} required onChange={(event) => setSpaceTitle(event.target.value)} /></label>
+          <button type="submit" className="primary-button" disabled={busy}>{english ? "Create workspace" : "Создать пространство"}</button>
+        </form> : null}
+        {createModal === "project" ? <form onSubmit={submitProject}>
+          <label>{english ? "Name" : "Название"}<input value={projectTitle} maxLength={160} required onChange={(event) => setProjectTitle(event.target.value)} /></label>
+          <label>{english ? "Description" : "Описание"}<textarea value={projectDescription} maxLength={5000} onChange={(event) => setProjectDescription(event.target.value)} /></label>
+          <label>{english ? "Layout" : "Вид"}<select value={projectLayout} onChange={(event) => setProjectLayout(event.target.value as "list" | "board")}>
+            <option value="list">{english ? "Task container" : "Контейнер задач"}</option><option value="board">{english ? "Board" : "Доска"}</option>
+          </select></label>
+          <label>{english ? "Parent project" : "Родительский проект"}<select value={parentId} onChange={(event) => setParentId(event.target.value)}>
+            <option value="">{english ? "Top level" : "Верхний уровень"}</option>
+            {projects.filter((project) => !project.isInbox).map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}
+          </select></label>
+          <button type="submit" className="primary-button" disabled={busy}>{english ? "Create project" : "Создать проект"}</button>
+        </form> : null}
+        {createModal === "task" && snapshot ? <form onSubmit={submitTask}>
+          <label>{english ? "Name" : "Название"}<input maxLength={160} required value={newTaskTitle} onChange={(event) => setNewTaskTitle(event.target.value)} /></label>
+          <label>{english ? "Description" : "Описание"}<textarea maxLength={20000} value={newTaskDescription} onChange={(event) => setNewTaskDescription(event.target.value)} /></label>
+          <label>{english ? "Due date" : "Срок"}<input type="date" value={newTaskDueDate} onChange={(event) => setNewTaskDueDate(event.target.value)} /></label>
+          <label>{english ? "Task list / status" : "Список задач / статус"}<select value={newTaskStatusId || snapshot.statuses[0]?.id || ""} onChange={(event) => setNewTaskStatusId(event.target.value)}>
+            {snapshot.statuses.map((status) => <option key={status.id} value={status.id}>{statusLabel(status.title)}</option>)}
+          </select></label>
+          <label>{english ? "Category" : "Категория"}<select value={newTaskCategoryId} onChange={(event) => setNewTaskCategoryId(event.target.value)}>
+            <option value="">{english ? "No category" : "Без категории"}</option>
+            {snapshot.categories.map((category) => <option key={category.id} value={category.id}>{category.title}</option>)}
+          </select></label>
+          <label>{english ? "Assigned to" : "Исполнитель"}<select value={newTaskAssigneeId} onChange={(event) => setNewTaskAssigneeId(event.target.value)}>
+            <option value="">{english ? "Unassigned" : "Не назначен"}</option>
+            {snapshot.members.map((member) => <option key={member.userId} value={member.userId}>{member.displayName}</option>)}
+          </select></label>
+          <button type="submit" className="primary-button" disabled={busy || !snapshot.statuses.length}>{english ? "Create task" : "Создать задачу"}</button>
+        </form> : null}
+        {createModal === "status" ? <form onSubmit={submitStatus}>
+          <label>{english ? "Name" : "Название"}<input value={newStatusTitle} maxLength={80} required onChange={(event) => setNewStatusTitle(event.target.value)} /></label>
+          <label className="shared-projects-checkbox"><input type="checkbox" checked={newStatusDone} onChange={(event) => setNewStatusDone(event.target.checked)} />{english ? "Completion list" : "Список завершённых задач"}</label>
+          <button type="submit" className="primary-button" disabled={busy}>{english ? "Create list" : "Создать список"}</button>
+        </form> : null}
+        {createModal === "category" ? <form onSubmit={submitCategory}>
+          <label>{english ? "Name" : "Название"}<input value={newCategoryTitle} maxLength={80} required onChange={(event) => setNewCategoryTitle(event.target.value)} /></label>
+          <label>{english ? "Color" : "Цвет"}<input type="color" value={newCategoryColor} onChange={(event) => setNewCategoryColor(event.target.value)} /></label>
+          <button type="submit" className="primary-button" disabled={busy}>{english ? "Create category" : "Создать категорию"}</button>
+        </form> : null}
+        {createModal === "invite" ? <form onSubmit={submitInvite}>
+          <label>Email<input type="email" required value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} /></label>
+          <label>{english ? "Role" : "Роль"}<select value={inviteRole} onChange={(event) => setInviteRole(event.target.value)}>
+            <option value="manager">{english ? "Manager" : "Менеджер"}</option><option value="member">{english ? "Member" : "Участник"}</option>
+            <option value="commenter">{english ? "Commenter" : "Комментатор"}</option><option value="viewer">{english ? "Viewer" : "Читатель"}</option>
+          </select></label>
+          <button type="submit" className="primary-button" disabled={busy}>{english ? "Create invitation" : "Создать приглашение"}</button>
+        </form> : null}
+      </> : null}
+    </dialog>
   </div>;
 }
