@@ -33,9 +33,10 @@ import ru.genesis.calendar.data.*
     onUpdateList: suspend (GoogleTaskList,String) -> Unit = { _,_ -> },
     onDeleteList: suspend (GoogleTaskList) -> Unit = {},
     menuSwipeState: MenuSwipeState? = null, voiceRequest: NativeVoiceAction? = null,
-    onVoiceRequestConsumed: () -> Unit = {}) {
+    onVoiceRequestConsumed: () -> Unit = {}, hiddenSubmenus: Set<String> = emptySet()) {
     var localSection by rememberSaveable { mutableStateOf("tasks") }
-    val section = menuSwipeState?.tasks ?: localSection
+    val section = (menuSwipeState?.tasks ?: localSection).takeIf { "tasks.$it" !in hiddenSubmenus }
+        ?: if ("tasks.tasks" !in hiddenSubmenus) "tasks" else "lists"
     var expanded by rememberSaveable { mutableStateOf<String?>(null) }
     val knownLists = remember(lists, tasks) { taskListsForTasks(lists,tasks).filterNot { list ->
         list.accountId != null && (list.isDefault || list.title == "Привычки GENESIS")
@@ -69,7 +70,9 @@ import ru.genesis.calendar.data.*
     val total = tasks.size
     val active = tasks.count { !it.done }
     Column(Modifier.fillMaxSize()) {
-        ConnectedSubmenu(listOf(SubmenuItem("tasks", "Задачи"), SubmenuItem("lists", "Списки задач")),
+        val submenuItems = listOf(SubmenuItem("tasks", "Задачи"), SubmenuItem("lists", "Списки задач"))
+            .filter { "tasks.${it.id}" !in hiddenSubmenus }
+        if (submenuItems.size > 1) ConnectedSubmenu(submenuItems,
             section, { localSection = it; menuSwipeState?.tasks = it })
         LazyVerticalGrid(columns = GridCells.Adaptive(360.dp), modifier = Modifier.weight(1f).testTag("tasks-screen"), contentPadding = PaddingValues(16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),

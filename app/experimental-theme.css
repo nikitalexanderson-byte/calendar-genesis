@@ -1,4 +1,72 @@
 /* Experimental is an additive, account-selected layer. Standart has no rules here. */
+html[data-genesis-theme^="experimental"] .calendar-shared-task-count {
+  display: grid;
+  place-items: center;
+  width: 27px;
+  min-height: 27px;
+  padding: 0;
+  border: 2px solid #e1b45e;
+  border-radius: 50%;
+  background: #167c91;
+  color: white;
+  font-size: 11px;
+  font-weight: 800;
+  box-shadow: 0 0 0 2px #0b5362, 0 3px 9px #08394355;
+  cursor: pointer;
+}
+html[data-genesis-theme^="experimental"] .mini-day-shared-count {
+  position: absolute;
+  z-index: 3;
+  bottom: -6px;
+  right: -6px;
+  display: grid;
+  place-items: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 2px;
+  border: 2px solid #e1b45e;
+  border-radius: 50%;
+  background: #167c91;
+  color: white;
+  font: 800 8px/1 Arial, sans-serif;
+  box-shadow: 0 0 0 1px #0b5362;
+}
+html[data-genesis-theme^="experimental"] .day-details-shared-tasks article {
+  border-left: 3px solid #167c91;
+}
+html[data-genesis-theme^="experimental"] .tasks-area-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: fit-content;
+  margin: 16px 0;
+  padding: 5px;
+  border: 1px solid var(--gx-color-border);
+  border-radius: 14px;
+  background: var(--gx-color-surface);
+}
+html[data-genesis-theme^="experimental"] .tasks-area-switch button {
+  min-height: 42px;
+  padding: 8px 16px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--gx-color-ink);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+html[data-genesis-theme^="experimental"] .tasks-area-switch button[aria-current="page"] {
+  background: var(--gx-color-accent);
+  color: var(--gx-color-white);
+}
+html[data-genesis-theme^="experimental"] .task-lists-page {
+  min-width: 0;
+}
+html[data-genesis-theme^="experimental"] .shared-invitation-card.unread {
+  border-left: 4px solid #167c91;
+  background: var(--gx-color-accent-soft);
+}
 html[data-genesis-theme^="experimental"] {
   --gx-color-bg: #f3efe6;
   --gx-color-surface: #fffcf6;
@@ -2666,3 +2734,31 @@ html[data-genesis-theme^="experimental"] .habit-completion-days span.planned,
 html[data-genesis-theme^="experimental"] .habit-completion-calendar footer i.planned { background: #5a9e86; }
 html[data-genesis-theme^="experimental"] .habit-completion-calendar footer { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; color: #b9d0c5; }
 html[data-genesis-theme^="experimental"] .habit-completion-calendar footer i { width: 13px; height: 13px; border-radius: 3px; background: #254640; }
+html[data-genesis-theme^="experimental"] .shared-invitation-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  margin-top: 12px;
+  border: 1px solid var(--exp-line, rgba(120, 145, 133, .35));
+  border-radius: 14px;
+}
+html[data-genesis-theme^="experimental"] .shared-invitation-card p { margin: 0; }
+html[data-genesis-theme^="experimental"] .shared-invitation-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+html[data-genesis-theme^="experimental"] .navigation-preference-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+  gap: 14px;
+}
+html[data-genesis-theme^="experimental"] .navigation-preference-grid fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 10px;
+  border: 1px solid var(--exp-line, rgba(120, 145, 133, .35));
+  border-radius: 14px;
+}
+html[data-genesis-theme^="experimental"] .navigation-preference-grid legend { padding: 0 5px; font-weight: 700; }
+@media (max-width: 760px) {
+  html[data-genesis-theme^="experimental"] .mobile-nav[data-exp-ui="mobile-nav"] {
+    grid-template-columns: repeat(auto-fit, minmax(56px, 1fr));
+  }
+}

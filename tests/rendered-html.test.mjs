@@ -2028,9 +2028,9 @@ test("retains the legacy TWA artifact but promotes only the signed native Androi
   // The legacy 1.2.2 asset remains available while the current native release advances.
   const nativeVersionCode = Number(androidBuild.match(/versionCode = (\d+)/)?.[1]);
   assert.ok(nativeVersionCode >= 57);
-  assert.match(androidBuild, /versionName = "2\.6\.2"/);
-  assert.match(deployWorkflow, /versionCode='68' versionName='2\.6\.2'/);
-  assert.match(deployWorkflow, /GENESIS-Android-Native-2\.6\.2\.apk/);
+  assert.match(androidBuild, /versionName = "2\.6\.3"/);
+  assert.match(deployWorkflow, /versionCode='69' versionName='2\.6\.3'/);
+  assert.match(deployWorkflow, /GENESIS-Android-Native-2\.6\.3\.apk/);
   assert.match(androidBuild, /releaseSigningReady/);
   assert.match(androidBuild, /applicationIdSuffix = "\.debug"/);
   assert.match(androidBuild, /androidx\.browser:browser:1\.10\.0/);
@@ -2387,15 +2387,16 @@ test("Experimental applies one design system across ordinary views and adds safe
   assert.match(calendar, /ref=\{experimentalTodayTabsRef\}/);
   assert.match(calendar, /data-experimental-today-tab="tasks"[^>]+tabIndex=\{experimentalTodayTab === "tasks" \? 0 : -1\}/);
   assert.match(calendar, /\["ArrowLeft", "ArrowRight", "Home", "End"\]/);
-  assert.match(calendar, /role=\{experimentalThemeActive \? "tabpanel" : undefined\}/);
-  assert.match(calendar, /hidden=\{experimentalThemeActive && experimentalTodayTab !== "create"\}/);
-  assert.match(calendar, /id="experimental-create-list"[^>]+role="tabpanel"[^>]+hidden=\{experimentalTaskCreateTab !== "list"\}/);
-  assert.match(calendar, /const renderAllTasks = \(\) => \{\s+const experimentalThemeActive[^\n]+\s+const isEnglish = language === "en";/);
+  assert.match(calendar, /role=\{experimentalThemeActive && showToday\("tasks"\) \? "tabpanel" : undefined\}/);
+  assert.match(calendar, /hidden=\{experimentalThemeActive && showToday\("tasks"\) && todayTab !== "create"\}/);
+  assert.match(calendar, /className="tasks-area-switch"/);
+  assert.match(calendar, /activeTasksArea === "tasks"/);
+  assert.match(calendar, /const renderAllTasks = \(\) => \{\s+const isEnglish = language === "en";/);
   assert.match(calendar, /const safeTaskTags = \(task: Task\) => Array\.isArray\(task\.tags\)/);
   assert.match(calendar, /<ViewErrorBoundary resetKey=\{view\}>/);
   assert.match(habits, /data-exp-layout="view"/);
   assert.match(habits, /className="experimental-habit-tabs" role="tablist"/);
-  assert.match(habits, /experimental-habit-tab-\$\{experimentalHabitTab\}/);
+  assert.match(habits, /experimental-habit-tab-\$\{activeHabitTab\}/);
   assert.match(habits, /experimental-habit-section-today/);
   assert.match(habits, /experimental-habit-section-library/);
   assert.match(habits, /experimental-habit-section-modules/);

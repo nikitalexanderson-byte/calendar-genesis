@@ -13601,3 +13601,37 @@ html[data-genesis-theme^="standart"] .admin-table td small { font-size: 11px; li
   .calendar-weekday-full { display: none; }
   .calendar-weekday-short { display: inline; }
 }
+.task-scope-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem;
+  margin-bottom: .8rem;
+  padding: .3rem;
+  border: 1px solid var(--line, #d4c9b0);
+  border-radius: .85rem;
+  background: var(--surface, #fffdf7);
+}
+.task-scope-switch button {
+  flex: 1 1 9rem;
+  min-height: 2.75rem;
+  border: 1px solid transparent;
+  border-radius: .65rem;
+  background: transparent;
+  color: inherit;
+  font-weight: 700;
+}
+.task-scope-switch button[aria-pressed="true"] {
+  border-color: #2d6c68;
+  background: color-mix(in srgb, var(--surface, #fffdf7) 77%, #2d6c68);
+}
+.shared-task-create .shared-projects-date-field { display: grid; gap: .4rem; }
+.shared-task-create .shared-projects-date-field > span { font-weight: 700; }
+.shared-task-create .shared-projects-date-field .calendar-date-trigger { width: 100%; text-align: left; }
+.shared-task-create .shared-projects-date-field > button:not(.calendar-date-trigger) {
+  justify-self: start;
+  border: 1px solid var(--line, #d4c9b0);
+  border-radius: .65rem;
+  background: transparent;
+  color: inherit;
+  padding: .5rem .8rem;
+}

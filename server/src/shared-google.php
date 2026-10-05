@@ -68,10 +68,6 @@ function genesisSharedGoogleTaskList(array $user, string $projectId, string $pro
         WHERE project_id = :project AND user_id = :user')->execute([
         'list' => $id, 'now' => genesisNow(), 'project' => $projectId, 'user' => $user['id'],
     ]);
-    $db->prepare("DELETE FROM shared_google_projection_links WHERE user_id = :user AND destination = 'tasks'
-        AND task_id IN (SELECT id FROM shared_tasks WHERE project_id = :project)")->execute([
-        'user' => $user['id'], 'project' => $projectId,
-    ]);
     return $id;
 }
 
@@ -99,16 +95,17 @@ function genesisSharedGoogleCalendarPayload(array $task): array
     ];
 }
 
-function genesisSharedGoogleLink(string $taskId, string $userId, string $destination, string $googleId, int $revision): void
+function genesisSharedGoogleLink(string $taskId, string $userId, string $destination, string $googleId,
+    int $revision, ?string $listId = null): void
 {
     genesisDb()->prepare('INSERT INTO shared_google_projection_links
-        (task_id, user_id, destination, google_id, synced_revision, synced_at)
-        VALUES (:task, :user, :destination, :google, :revision, :now)
+        (task_id, user_id, destination, google_id, synced_revision, synced_at, google_list_id)
+        VALUES (:task, :user, :destination, :google, :revision, :now, :list)
         ON CONFLICT(task_id, user_id, destination) DO UPDATE SET
         google_id = excluded.google_id, synced_revision = excluded.synced_revision,
-        synced_at = excluded.synced_at')->execute([
+        synced_at = excluded.synced_at, google_list_id = excluded.google_list_id')->execute([
         'task' => $taskId, 'user' => $userId, 'destination' => $destination,
-        'google' => $googleId, 'revision' => $revision, 'now' => genesisNow(),
+        'google' => $googleId, 'revision' => $revision, 'now' => genesisNow(), 'list' => $listId,
     ]);
 }
 
@@ -136,6 +133,7 @@ function genesisSharedExistingGoogleTasks(array $user, string $listId): array
 function genesisSharedSyncGoogle(string $userId, string $projectId, int $batchSize = 20): array
 {
     $settings = genesisSharedGoogleSettings($userId, $projectId);
+    genesisSharedCleanGoogleCopies($userId, 5);
     if (!$settings['tasksEnabled'] && !$settings['calendarEnabled']) {
         return ['synced' => 0, 'pending' => 0];
     }
@@ -154,7 +152,7 @@ function genesisSharedSyncGoogle(string $userId, string $projectId, int $batchSi
     $listId = $settings['tasksEnabled'] ? genesisSharedGoogleTaskList($user, $projectId, (string)$project['title']) : '';
     if ($settings['calendarEnabled']) $user = genesisEnsureGoogleCalendar($user);
     $query = $db->prepare('SELECT t.id, t.title, t.description, t.due_date, t.completed_at, t.revision,
-        lt.google_id AS task_google_id, lt.synced_revision AS task_revision,
+        lt.google_id AS task_google_id, lt.google_list_id AS task_list_id, lt.synced_revision AS task_revision,
         lc.google_id AS event_google_id, lc.synced_revision AS event_revision
         FROM shared_tasks t
         LEFT JOIN shared_google_projection_links lt ON lt.task_id = t.id AND lt.user_id = :tasks_user AND lt.destination = \'tasks\'
@@ -170,7 +168,8 @@ function genesisSharedSyncGoogle(string $userId, string $projectId, int $batchSi
     $synced = 0; $pending = 0;
     $rows = $query->fetchAll();
     $existingTasks = $settings['tasksEnabled'] && array_filter($rows,
-        static fn(array $row): bool => empty($row['task_google_id']))
+        static fn(array $row): bool => empty($row['task_google_id'])
+            || !empty($row['task_list_id']) && $row['task_list_id'] !== $listId)
         ? genesisSharedExistingGoogleTasks($user, $listId) : [];
     foreach ($rows as $task) {
         $taskStale = $settings['tasksEnabled'] && (int)($task['task_revision'] ?? 0) < (int)$task['revision'];
@@ -182,6 +181,17 @@ function genesisSharedSyncGoogle(string $userId, string $projectId, int $batchSi
             $id = (string)($task['task_google_id'] ?: ($existingTasks[$task['id']] ?? ''));
             $path = '/lists/' . rawurlencode($listId) . '/tasks';
             $payload = genesisSharedGoogleTaskPayload($task);
+            $sourceList = (string)($task['task_list_id'] ?? '');
+            if ($id !== '' && $sourceList !== '' && $sourceList !== $listId) {
+                try {
+                    $moved = genesisGoogleTasksApi('POST', '/lists/' . rawurlencode($sourceList)
+                        . '/tasks/' . rawurlencode($id) . '/move?destinationTasklist=' . rawurlencode($listId), $user);
+                    $id = (string)($moved['id'] ?? $id);
+                } catch (GenesisGoogleHttpException $error) {
+                    if (!in_array($error->status, [404, 410], true)) throw $error;
+                    $id = (string)($existingTasks[$task['id']] ?? '');
+                }
+            }
             try {
                 $saved = $id !== ''
                     ? genesisGoogleTasksApi('PATCH', $path . '/' . rawurlencode($id), $user, $payload)
@@ -192,7 +202,7 @@ function genesisSharedSyncGoogle(string $userId, string $projectId, int $batchSi
             }
             $googleId = (string)($saved['id'] ?? '');
             if ($googleId === '') throw new RuntimeException('GOOGLE_SHARED_TASK_NOT_SAVED');
-            genesisSharedGoogleLink($task['id'], $userId, 'tasks', $googleId, (int)$task['revision']);
+            genesisSharedGoogleLink($task['id'], $userId, 'tasks', $googleId, (int)$task['revision'], $listId);
         }
         if ($eventStale && $task['due_date'] === null) {
             $eventId = (string)$task['event_google_id'];
@@ -226,9 +236,54 @@ function genesisSharedSyncGoogle(string $userId, string $projectId, int $batchSi
     return ['synced' => $synced, 'pending' => $pending];
 }
 
+/** Copies from projects the member cannot sync are deleted with that member's own Google grant. */
+function genesisSharedCleanGoogleCopies(?string $userId = null, int $limit = 10): array
+{
+    $db = genesisDb();
+    $sql = 'SELECT id, user_id, destination, google_id, google_list_id
+        FROM shared_google_projection_cleanup';
+    if ($userId !== null) $sql .= ' WHERE user_id = :user';
+    $sql .= ' ORDER BY created_at, id LIMIT ' . max(1, min(20, $limit));
+    $query = $db->prepare($sql);
+    $query->execute($userId !== null ? ['user' => $userId] : []);
+    $cleaned = 0; $failed = 0;
+    foreach ($query->fetchAll() as $row) {
+        try {
+            $user = genesisFindUser((string)$row['user_id']);
+            if (!$user) throw new RuntimeException('SHARED_GOOGLE_USER_NOT_FOUND');
+            if ($row['destination'] === 'tasks') {
+                $listId = (string)($row['google_list_id'] ?? '');
+                if ($listId === '') throw new RuntimeException('SHARED_GOOGLE_LIST_NOT_FOUND');
+                genesisGoogleTasksApi('DELETE', '/lists/' . rawurlencode($listId)
+                    . '/tasks/' . rawurlencode((string)$row['google_id']), $user);
+            } else {
+                $user = genesisEnsureGoogleCalendar($user);
+                genesisGoogleApi('DELETE', '/calendars/' . rawurlencode((string)$user['google_calendar_id'])
+                    . '/events/' . rawurlencode((string)$row['google_id']), $user);
+            }
+        } catch (GenesisGoogleHttpException $error) {
+            if (!in_array($error->status, [404, 410], true)) {
+                $failed++;
+                $db->prepare('UPDATE shared_google_projection_cleanup SET attempt_count = attempt_count + 1
+                    WHERE id = :id')->execute(['id' => $row['id']]);
+                continue;
+            }
+        } catch (Throwable $error) {
+            $failed++;
+            $db->prepare('UPDATE shared_google_projection_cleanup SET attempt_count = attempt_count + 1
+                WHERE id = :id')->execute(['id' => $row['id']]);
+            continue;
+        }
+        $db->prepare('DELETE FROM shared_google_projection_cleanup WHERE id = :id')->execute(['id' => $row['id']]);
+        $cleaned++;
+    }
+    return ['cleaned' => $cleaned, 'failed' => $failed];
+}
+
 /** Existing Beget cron processes only consented member/project pairs, in small rotating batches. */
 function genesisSharedSyncGoogleCron(): array
 {
+    $cleanup = genesisSharedCleanGoogleCopies(null, 10);
     $before = gmdate('Y-m-d\TH:i:s\Z', time() - 3600);
     $query = genesisDb()->prepare('SELECT p.project_id, p.user_id FROM shared_google_preferences p
         JOIN shared_project_members m ON m.project_id = p.project_id AND m.user_id = p.user_id
@@ -253,5 +308,6 @@ function genesisSharedSyncGoogleCron(): array
         }
         $processed++;
     }
-    return ['projectsChecked' => $processed, 'tasksCopied' => $copied, 'failures' => $failed];
+    return ['projectsChecked' => $processed, 'tasksCopied' => $copied,
+        'copiesRemoved' => $cleanup['cleaned'], 'failures' => $failed + $cleanup['failed']];
 }

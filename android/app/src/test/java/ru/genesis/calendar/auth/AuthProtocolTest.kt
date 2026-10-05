@@ -9,6 +9,20 @@ class AuthProtocolTest {
     private val now = 1_800_000_000_000L
     private fun header(extra: String = "") = "$SESSION_COOKIE=$sessionId; Path=/; Secure; HttpOnly$extra"
 
+    @Test fun sharedRoutesAllowInvitationsCalendarMovesAndGoogleSettings() {
+        val id = "01234567-89ab-cdef-0123-456789abcdef"
+        assertTrue(allowedSharedRoute("GET", "/shared/invitations"))
+        assertTrue(allowedSharedRoute("POST", "/shared/invitations/$id"))
+        assertTrue(allowedSharedRoute("GET", "/shared/calendar/tasks?from=2026-01-01&to=2026-12-31"))
+        assertTrue(allowedSharedRoute("POST", "/shared/projects/$id/tasks/$id/move"))
+        assertTrue(allowedSharedRoute("GET", "/shared/projects/$id/google"))
+        assertTrue(allowedSharedRoute("POST", "/shared/projects/$id/google"))
+        assertTrue(allowedSharedRoute("GET", "/shared/notifications"))
+        assertTrue(allowedSharedRoute("POST", "/shared/notifications/read"))
+        assertFalse(allowedSharedRoute("POST", "/shared/calendar/tasks?from=2026-01-01&to=2026-12-31"))
+        assertFalse(allowedSharedRoute("GET", "/shared/projects/../../other"))
+    }
+
     @Test fun nativeCookieAcceptsSecureSameOriginAndHonorsBoundedExpiry() {
         val cookie = AuthProtocol.cookie(listOf(header("; Max-Age=120")), now)
         assertTrue(cookie.present)

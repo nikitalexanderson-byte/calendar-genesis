@@ -25,7 +25,9 @@ internal fun HabitCompletionCalendar(workspace: LocalHabitWorkspace, today: Loca
     var selectedMode by rememberSaveable { mutableStateOf<CalendarMode?>(null) }
     LaunchedEffect(initialMode) { selectedMode = null }
     var anchorValue by rememberSaveable { mutableStateOf(today.toString()) }
-    val mode = selectedMode ?: initialMode
+    val enabledCalendars = LocalEnabledCalendars.current
+    val mode = (selectedMode ?: initialMode).takeIf { it in enabledCalendars }
+        ?: enabledCalendars.firstOrNull() ?: initialMode
     val range = remember(anchorValue, mode) { calendar.monthRange(LocalDate.parse(anchorValue), mode) }
     val days = remember(range) { range.dates() }
     val columns = if (mode == CalendarMode.SACRED) 5 else 7
@@ -43,7 +45,7 @@ internal fun HabitCompletionCalendar(workspace: LocalHabitWorkspace, today: Loca
                 style=MaterialTheme.typography.titleLarge)
             Row(verticalAlignment=Alignment.CenterVertically,
                 horizontalArrangement=Arrangement.spacedBy(9.dp)) {
-                CalendarModeSwitcher(mode, { selectedMode=nextCalendarMode(mode) }, size=42.dp)
+                CalendarModeSwitcher(mode, { selectedMode=nextAvailableCalendarMode(mode, enabledCalendars) }, size=42.dp)
                 Text(mobileCalendarCopy(LocalGenesisLanguage.current).calendarName(mode),
                     Modifier.weight(1f), color=Color(0xffc8d9d4),
                     style=MaterialTheme.typography.bodySmall)

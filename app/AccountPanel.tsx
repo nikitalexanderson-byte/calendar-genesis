@@ -3,8 +3,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { CalendarMode } from "./calendar-data";
-import type { GenesisCategory, GenesisUser, PendingLocalAccountLink, SyncRouting } from "./cloud-sync";
-import { cancelPendingLocalAccountLink, connectLocalAccount, connectYandexCalendar, deleteGenesisAccount, disconnectGoogleServices, disconnectYandexCalendar, getPendingLocalAccountLink, mergePendingLocalAccountLink, removeAdditionalGoogleAccount, updateAccountPreferences } from "./cloud-sync";
+import type { GenesisCategory, GenesisUser, PendingLocalAccountLink, SharedInvitation, SharedNotification, SyncRouting } from "./cloud-sync";
+import { acceptSharedInvitation, cancelPendingLocalAccountLink, connectLocalAccount, connectYandexCalendar, deleteGenesisAccount, disconnectGoogleServices, disconnectYandexCalendar, getPendingLocalAccountLink, listSharedInvitations, listSharedNotifications, mergePendingLocalAccountLink, readSharedNotifications, rejectSharedInvitation, removeAdditionalGoogleAccount, updateAccountPreferences } from "./cloud-sync";
 import { LANGUAGES, LANGUAGE_LABELS, localizeCategoryName, runtimeLocale, translateText, type Language } from "./i18n";
 
 import type { TimeFormat } from "./time-format";
@@ -12,6 +12,7 @@ import type { HabitNotificationPermission, HabitNotificationSettings } from "./h
 import type { HabitFeedbackSettings } from "./habit-feedback";
 import { useDialogAccessibility } from "./use-dialog-accessibility";
 import { SolarPlaceSettings } from "./SolarPlaceSettings";
+import { uiVisibility, type UiVisibility } from "./ui-visibility";
 import {
   GENESIS_THEME,
   GENESIS_THEME_LABEL,
@@ -41,6 +42,22 @@ const CURRENT_THEME_LABEL: Record<Language, string> = {
   pl: "Bieżący motyw", sr: "Тренутна тема", uk: "Поточна тема",
   zh: "当前主题", tr: "Geçerli tema", ja: "現在のテーマ",
 };
+const MENU_SETTINGS = [
+  ["tasks", "Задачи", "Tasks"], ["projects", "Проекты", "Projects"],
+  ["calendar", "Календарь", "Calendar"], ["habits", "Привычки", "Habits"],
+  ["stoicheion", "Стойхейон", "Stoicheion"], ["theokyklos", "Теокиклос", "Theokyklos"],
+] as const;
+const SUBMENU_SETTINGS = [
+  ["tasks.tasks", "Задачи", "Tasks"], ["tasks.lists", "Списки задач", "Task lists"],
+  ["projects.personal", "Личные проекты", "Personal projects"], ["projects.shared", "Общие проекты", "Shared projects"],
+  ["calendar.month", "Месяц", "Month"], ["calendar.year", "Год", "Year"],
+  ["habits.habits", "Привычки", "Habits"], ["habits.sleep", "Сон и настроение", "Sleep and mood"],
+] as const;
+const TODAY_SETTINGS = [
+  ["rhythm", "Ритм дня", "Daily rhythm"], ["quickCreate", "Быстрое создание", "Quick create"],
+  ["tasks", "Задачи на сегодня", "Today's tasks"], ["habits", "Привычки дня", "Daily habits"],
+  ["details", "Подробности дня", "Day details"],
+] as const;
 
 type AccountPanelProps = {
   user: GenesisUser;
@@ -109,6 +126,11 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
   const [pendingLocalLink, setPendingLocalLink] = useState<PendingLocalAccountLink | null>(null);
   const [preferenceBusy, setPreferenceBusy] = useState(false);
   const [notificationBusy, setNotificationBusy] = useState(false);
+  const [invitations, setInvitations] = useState<SharedInvitation[]>([]);
+  const [teamNotifications, setTeamNotifications] = useState<SharedNotification[]>([]);
+  const [teamReadBusy, setTeamReadBusy] = useState(false);
+  const [invitationBusy, setInvitationBusy] = useState("");
+  const [invitationMessage, setInvitationMessage] = useState("");
   const [habitResetChallenge, setHabitResetChallenge] = useState<HabitResetChallenge | null>(null);
   const [habitResetAnswer, setHabitResetAnswer] = useState("");
   const [habitResetBusy, setHabitResetBusy] = useState(false);
@@ -119,6 +141,64 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
     defaultAccountIds: [user.uid],
     categoryAccountIds: {},
   });
+
+  useEffect(() => {
+    if (!user.sharedProjectsEnabled) { return; }
+    let live = true;
+    const refresh = () => { void listSharedInvitations().then((rows) => {
+      if (live) setInvitations(rows);
+    }).catch((error: unknown) => {
+      if (live) setInvitationMessage(error instanceof Error ? error.message : String(error));
+    }); };
+    const refreshTeam = () => { void listSharedNotifications().then((rows) => {
+      if (live) setTeamNotifications(rows);
+    }).catch(() => undefined); };
+    refresh();
+    refreshTeam();
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") { refresh(); refreshTeam(); }
+    }, 30000);
+    return () => { live = false; window.clearInterval(timer); };
+  }, [user.sharedProjectsEnabled]);
+
+  const respondToInvitation = async (id: string, accept: boolean) => {
+    setInvitationBusy(id); setInvitationMessage("");
+    try {
+      if (accept) await acceptSharedInvitation(id);
+      else await rejectSharedInvitation(id);
+      setInvitations((rows) => rows.filter((item) => item.id !== id));
+      setInvitationMessage(user.language === "en"
+        ? (accept ? "Invitation accepted." : "Invitation declined.")
+        : (accept ? "Приглашение принято." : "Приглашение отклонено."));
+    } catch (error) {
+      setInvitationMessage(error instanceof Error ? error.message : String(error));
+    } finally { setInvitationBusy(""); }
+  };
+  const markTeamRead = async (ids: string[]) => {
+    setTeamReadBusy(true);
+    try {
+      await readSharedNotifications(ids);
+      setTeamNotifications((rows) => rows.map((item) => ids.includes(item.id) ? { ...item, isRead: 1 } : item));
+    } catch (error) { setMessage(error instanceof Error ? error.message : String(error)); }
+    finally { setTeamReadBusy(false); }
+  };
+  const visibility = uiVisibility(user.uiVisibility);
+  const updateVisibility = async (next: UiVisibility) => {
+    setPreferenceBusy(true); setMessage("");
+    try {
+      const result = await updateAccountPreferences({ uiVisibility: next });
+      onUserChange(result.user);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : String(error));
+    } finally { setPreferenceBusy(false); }
+  };
+  const toggleVisibilityItem = (field: "hiddenMenuItems" | "hiddenSubmenus" | "hiddenTodayBlocks",
+    id: string, visible: boolean) => {
+    const next = { ...visibility, [field]: visible
+      ? visibility[field].filter((item) => item !== id)
+      : [...visibility[field], id] };
+    void updateVisibility(next);
+  };
 
   useEffect(() => {
     if (!habitResetChallenge) return;
@@ -615,6 +695,98 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
           </label>
         </section>
 
+        {user.sharedProjectsEnabled ? <section className="account-preferences shared-invitations-preference" aria-labelledby="shared-invitations-title" data-exp-ui="panel">
+          <div>
+            <span className="eyebrow">GENESIS · {user.language === "en" ? "Together" : "Вместе"}</span>
+            <h3 id="shared-invitations-title">{user.language === "en" ? "Invitations" : "Приглашения"}</h3>
+            {!invitations.length ? <p>{user.language === "en" ? "You have no pending invitations." : "Новых приглашений нет."}</p> : null}
+          </div>
+          {invitations.map((invitation) => <div key={invitation.id} className="shared-invitation-card" data-exp-ui="row">
+            <p>{user.language === "en"
+              ? `${invitation.inviterName} invites you to workspace «${invitation.spaceTitle}», project «${invitation.projectTitle}».`
+              : `Вас ${invitation.inviterName} приглашает присоединиться к пространству «${invitation.spaceTitle}», проекту «${invitation.projectTitle}».`}</p>
+            <div className="shared-invitation-actions">
+              <button type="button" disabled={Boolean(invitationBusy)} onClick={() => void respondToInvitation(invitation.id, true)}>
+                {user.language === "en" ? "Accept" : "Принять"}</button>
+              <button type="button" disabled={Boolean(invitationBusy)} onClick={() => void respondToInvitation(invitation.id, false)}>
+                {user.language === "en" ? "Decline" : "Отклонить"}</button>
+            </div>
+          </div>)}
+          {invitationMessage ? <p role="status" className="account-preference-status">{invitationMessage}</p> : null}
+        </section> : null}
+
+        {user.sharedProjectsEnabled ? <section className="account-preferences shared-invitations-preference" aria-labelledby="shared-team-activity-title" data-exp-ui="panel">
+          <div><span className="eyebrow">GENESIS · {user.language === "en" ? "Together" : "Вместе"}</span>
+            <h3 id="shared-team-activity-title">{user.language === "en" ? "Team updates" : "События команды"}</h3>
+            {!teamNotifications.length ? <p>{user.language === "en" ? "No team updates yet." : "Новых событий команды пока нет."}</p> : null}
+          </div>
+          {teamNotifications.some((item) => !item.isRead) ? <button type="button" className="text-button"
+            disabled={teamReadBusy} onClick={() => void markTeamRead(teamNotifications.filter((item) => !item.isRead).map((item) => item.id))}>
+            {user.language === "en" ? "Mark all as read" : "Отметить всё прочитанным"}
+          </button> : null}
+          {teamNotifications.slice(0, 12).map((item) => <div key={item.id}
+            className={`shared-invitation-card${item.isRead ? "" : " unread"}`} data-exp-ui="row">
+            <p><strong data-no-translate>{item.actorName}</strong> · {item.action.startsWith("task.")
+              ? (user.language === "en" ? "updated a task" : "изменил(а) задачу")
+              : item.action === "comment.created" ? (user.language === "en" ? "added a comment" : "добавил(а) комментарий")
+                : (user.language === "en" ? "updated the project" : "обновил(а) проект")}
+              {item.taskTitle ? <> · <span data-no-translate>{item.taskTitle}</span></> : null}
+              {" · "}<span data-no-translate>{item.projectTitle}</span></p>
+            {!item.isRead ? <button type="button" disabled={teamReadBusy} onClick={() => void markTeamRead([item.id])}>
+              {user.language === "en" ? "Read" : "Прочитано"}</button> : null}
+          </div>)}
+        </section> : null}
+
+        <section className="account-preferences navigation-preference" aria-labelledby="navigation-preference-title" data-exp-ui="panel">
+          <div>
+            <span className="eyebrow">GENESIS · {user.language === "en" ? "Layout" : "Вид"}</span>
+            <h3 id="navigation-preference-title">{user.language === "en" ? "Menu and Today" : "Меню и экран «Сегодня»"}</h3>
+            <p>{user.language === "en" ? "Choose the sections that appear in the app. Today and Settings always remain available." : "Выберите разделы приложения. «Сегодня» и «Настройки» всегда остаются доступными."}</p>
+          </div>
+          <div className="navigation-preference-grid">
+            <fieldset><legend>{user.language === "en" ? "Main menu" : "Главное меню"}</legend>
+              {MENU_SETTINGS.map(([id, ru, en]) => <label key={id} className="account-switch-row" data-exp-ui="row">
+                {user.language === "en" ? en : ru}
+                <input type="checkbox" role="switch" checked={!visibility.hiddenMenuItems.includes(id)} disabled={preferenceBusy}
+                  onChange={(event) => toggleVisibilityItem("hiddenMenuItems", id, event.target.checked)} />
+              </label>)}
+            </fieldset>
+            <fieldset><legend>{user.language === "en" ? "Submenus" : "Подменю"}</legend>
+              {SUBMENU_SETTINGS.map(([id, ru, en]) => {
+                const group = id.split(".")[0];
+                const visibleSiblings = SUBMENU_SETTINGS.filter(([candidate]) => candidate.startsWith(`${group}.`) && !visibility.hiddenSubmenus.includes(candidate));
+                const lastVisible = !visibility.hiddenSubmenus.includes(id) && visibleSiblings.length === 1;
+                const personalRequired = id === "projects.personal" && !user.sharedProjectsEnabled;
+                return <label key={id} className="account-switch-row" data-exp-ui="row">
+                  {user.language === "en" ? en : ru}
+                  <input type="checkbox" role="switch" checked={!visibility.hiddenSubmenus.includes(id)}
+                    disabled={preferenceBusy || lastVisible || personalRequired}
+                    onChange={(event) => toggleVisibilityItem("hiddenSubmenus", id, event.target.checked)} />
+                </label>;
+              })}
+            </fieldset>
+            <fieldset><legend>{user.language === "en" ? "Today" : "Экран «Сегодня»"}</legend>
+              {TODAY_SETTINGS.map(([id, ru, en]) => <label key={id} className="account-switch-row" data-exp-ui="row">
+                {user.language === "en" ? en : ru}
+                <input type="checkbox" role="switch" checked={!visibility.hiddenTodayBlocks.includes(id)} disabled={preferenceBusy}
+                  onChange={(event) => toggleVisibilityItem("hiddenTodayBlocks", id, event.target.checked)} />
+              </label>)}
+            </fieldset>
+            <fieldset><legend>{user.language === "en" ? "Available calendars" : "Доступные календари"}</legend>
+              {(["profane", "sacred", "lunar"] as CalendarMode[]).map((mode) => <label key={mode} className="account-switch-row" data-exp-ui="row">
+                {mode === "profane" ? (user.language === "en" ? "Gregorian" : "Григорианский")
+                  : mode === "sacred" ? (user.language === "en" ? "Sacred" : "Сакральный")
+                    : (user.language === "en" ? "Lunar" : "Лунный")}
+                <input type="checkbox" role="switch" checked={visibility.enabledCalendars.includes(mode)}
+                  disabled={preferenceBusy || (visibility.enabledCalendars.length === 1 && visibility.enabledCalendars.includes(mode))}
+                  onChange={(event) => void updateVisibility({ ...visibility,
+                    enabledCalendars: event.target.checked ? [...visibility.enabledCalendars, mode]
+                      : visibility.enabledCalendars.filter((item) => item !== mode) })} />
+              </label>)}
+            </fieldset>
+          </div>
+        </section>
+
         <section className="account-preferences language-preference" aria-labelledby="language-title" data-exp-ui="panel">
           <div>
             <span className="eyebrow">Язык</span>
@@ -665,7 +837,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
             <p>Выбор полностью переключает разделы «Месяц» и «Круг года». Сакральный календарь используется по умолчанию; систему постановки задач можно выбрать отдельно для любого режима.</p>
           </div>
           <div className="calendar-mode-segment" role="radiogroup" aria-label="Система дат">
-            {CALENDAR_MODES.map((mode) => (
+            {CALENDAR_MODES.filter((mode) => visibility.enabledCalendars.includes(mode.id)).map((mode) => (
               <button
                 type="button"
                 role="radio"
@@ -739,7 +911,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
             <p>Основной календарь не изменится; выбор дат, повторений и календарные подписи новых задач будут работать по выбранной системе.</p>
           </div>
           <div className="calendar-mode-segment" role="radiogroup" aria-label="Календарь постановки задач">
-            {CALENDAR_MODES.map((mode) => (
+            {CALENDAR_MODES.filter((mode) => visibility.enabledCalendars.includes(mode.id)).map((mode) => (
               <button
                 type="button"
                 role="radio"

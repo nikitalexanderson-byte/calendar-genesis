@@ -168,6 +168,36 @@ function genesisCategorySyncMap(mixed $value): array
     return $result;
 }
 
+function genesisUiVisibility(mixed $value): array
+{
+    $decoded = is_string($value) ? json_decode($value, true) : $value;
+    if (!is_array($decoded)) $decoded = [];
+    $allowed = [
+        'hiddenMenuItems' => ['tasks', 'projects', 'calendar', 'habits', 'stoicheion', 'theokyklos'],
+        'hiddenSubmenus' => ['tasks.tasks', 'tasks.lists', 'projects.personal', 'projects.shared',
+            'calendar.month', 'calendar.year', 'habits.habits', 'habits.sleep'],
+        'hiddenTodayBlocks' => ['rhythm', 'quickCreate', 'tasks', 'habits', 'details'],
+        'enabledCalendars' => ['profane', 'sacred', 'lunar'],
+    ];
+    $result = [];
+    foreach ($allowed as $name => $options) {
+        $items = $decoded[$name] ?? ($name === 'enabledCalendars' ? $options : []);
+        if (!is_array($items) || !array_is_list($items) ||
+            array_filter($items, static fn(mixed $item): bool => !is_string($item) || !in_array($item, $options, true))) {
+            throw new InvalidArgumentException('INVALID_UI_VISIBILITY');
+        }
+        $result[$name] = array_values(array_unique($items));
+    }
+    if ($result['enabledCalendars'] === []) throw new InvalidArgumentException('AT_LEAST_ONE_CALENDAR_REQUIRED');
+    foreach ([['tasks.tasks', 'tasks.lists'], ['calendar.month', 'calendar.year'],
+        ['projects.personal', 'projects.shared'], ['habits.habits', 'habits.sleep']] as $pair) {
+        if (count(array_intersect($pair, $result['hiddenSubmenus'])) === 2) {
+            throw new InvalidArgumentException('AT_LEAST_ONE_SUBMENU_REQUIRED');
+        }
+    }
+    return $result;
+}
+
 function genesisUserForClient(array $user): array
 {
     $multiAccountEnabled = genesisMultiAccountEnabled($user);
@@ -236,6 +266,7 @@ function genesisUserForClient(array $user): array
         'isAdmin' => genesisIsAdminUser($user),
         'sharedProjectsEligible' => genesisSharedTester($user),
         'sharedProjectsEnabled' => genesisSharedTester($user) && !empty($user['shared_projects_enabled']),
+        'uiVisibility' => genesisUiVisibility($user['ui_visibility_json'] ?? '{}'),
         'calendarMode' => $calendarMode,
         'taskCalendarMode' => $taskCalendarMode,
         'timeFormat' => $timeFormat,
@@ -986,6 +1017,23 @@ function genesisUpdateAccountPreferences(string $userId, array $payload): array
         $updates[] = 'shared_projects_enabled = :shared_projects_enabled';
         $values['shared_projects_enabled'] = $payload['sharedProjectsEnabled'] ? 1 : 0;
     }
+    $visibility = genesisUiVisibility($payload['uiVisibility'] ?? ($user['ui_visibility_json'] ?? '{}'));
+    if (array_key_exists('uiVisibility', $payload)) {
+        if (in_array('projects.personal', $visibility['hiddenSubmenus'], true)
+            && !(genesisSharedTester($user) && !empty($user['shared_projects_enabled']))) {
+            throw new InvalidArgumentException('PERSONAL_PROJECTS_REQUIRED');
+        }
+        $updates[] = 'ui_visibility_json = :ui_visibility_json';
+        $values['ui_visibility_json'] = json_encode($visibility, JSON_THROW_ON_ERROR);
+        $enabled = $visibility['enabledCalendars'];
+        foreach (['calendar_mode' => 'calendarMode', 'task_calendar_mode' => 'taskCalendarMode'] as $column => $field) {
+            $selected = (string)($payload[$field] ?? $user[$column] ?? 'profane');
+            if (!in_array($selected, $enabled, true)) {
+                $updates[] = "$column = :$column";
+                $values[$column] = $enabled[0];
+            }
+        }
+    }
     if (array_key_exists('stoicheionDivinationDisabled', $payload)) {
         if (!is_bool($payload['stoicheionDivinationDisabled'])) {
             throw new InvalidArgumentException('Настройка гаданий указана неверно.');
@@ -995,7 +1043,7 @@ function genesisUpdateAccountPreferences(string $userId, array $payload): array
     }
     if (array_key_exists('calendarMode', $payload)) {
         $calendarMode = trim((string)$payload['calendarMode']);
-        if (!in_array($calendarMode, ['profane', 'sacred', 'lunar'], true)) {
+        if (!in_array($calendarMode, $visibility['enabledCalendars'], true)) {
             throw new InvalidArgumentException('Неизвестный режим календаря.');
         }
         $updates[] = 'calendar_mode = :calendar_mode';
@@ -1003,7 +1051,7 @@ function genesisUpdateAccountPreferences(string $userId, array $payload): array
     }
     if (array_key_exists('taskCalendarMode', $payload)) {
         $taskCalendarMode = trim((string)$payload['taskCalendarMode']);
-        if (!in_array($taskCalendarMode, ['profane', 'sacred', 'lunar'], true)) {
+        if (!in_array($taskCalendarMode, $visibility['enabledCalendars'], true)) {
             throw new InvalidArgumentException('Неизвестный календарь постановки задач.');
         }
         $updates[] = 'task_calendar_mode = :task_calendar_mode';

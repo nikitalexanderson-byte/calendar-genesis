@@ -20,6 +20,21 @@ import ru.genesis.calendar.domain.RecurrenceConfig
 class CalendarTaskActionsTest {
     @get:Rule val compose = createAndroidComposeRule<TestWorkspaceActivity>()
 
+    @Test fun creatingTaskFromTasksAndMonthNeverOpensDeleteConfirmation() {
+        compose.onNodeWithTag("navigation-Задачи").performClick()
+        compose.onNodeWithTag("create-task").performClick()
+        compose.onNodeWithTag("task-title").assertExists()
+        compose.onNodeWithTag("delete-series").assertDoesNotExist()
+        compose.onNodeWithText("Напоминание этой задачи будет отменено.").assertDoesNotExist()
+        compose.onNodeWithTag("close-task-editor").performClick()
+
+        compose.onNodeWithTag("navigation-Календарь").performClick()
+        compose.onNodeWithTag("calendar-create-task").performScrollTo().performClick()
+        compose.onNodeWithTag("task-title").assertExists()
+        compose.onNodeWithTag("delete-series").assertDoesNotExist()
+        compose.onNodeWithText("Напоминание этой задачи будет отменено.").assertDoesNotExist()
+    }
+
     @Test fun dayDialogCompletesEditsAndDeletesTheStoredTask() {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
         val preferences = LocalPreferences(app, app.workspaceScope)

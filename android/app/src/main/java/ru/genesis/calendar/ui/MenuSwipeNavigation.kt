@@ -45,18 +45,30 @@ class MenuSwipeState {
 }
 
 internal fun menuSwipeSequence(includeSubmenus: Boolean, habitsEnabled: Boolean,
-    sharedProjectsEnabled: Boolean = false): List<SwipeDestination> {
+    sharedProjectsEnabled: Boolean = false, hiddenMenuItems: Set<String> = emptySet(),
+    hiddenSubmenus: Set<String> = emptySet()): List<SwipeDestination> {
     val pages = listOf("Сегодня", "Задачи", "Проекты", "Календарь", "Привычки", "Стойхейон", "Теокиклос", "Настройки")
-        .filter { habitsEnabled || it != "Привычки" }
+        .filter { (habitsEnabled || it != "Привычки") && menuVisibilityId(it) !in hiddenMenuItems }
     if (!includeSubmenus) return pages.map { SwipeDestination(it) }
     return pages.flatMap { page -> when (page) {
-        "Задачи" -> listOf("tasks", "lists").map { SwipeDestination(page, it) }
+        "Задачи" -> listOf("tasks", "lists").filter { "tasks.$it" !in hiddenSubmenus }
+            .map { SwipeDestination(page, it) }
         "Проекты" -> if (sharedProjectsEnabled) listOf("personal", "shared")
-            .map { SwipeDestination(page, it) } else listOf(SwipeDestination(page))
-        "Календарь" -> listOf("month", "year").map { SwipeDestination(page, it) }
-        "Привычки" -> listOf("Привычки", "Сон и настроение").map { SwipeDestination(page, it) }
+            .filter { "projects.$it" !in hiddenSubmenus }.map { SwipeDestination(page, it) }
+            else listOf(SwipeDestination(page))
+        "Календарь" -> listOf("month", "year").filter { "calendar.$it" !in hiddenSubmenus }
+            .map { SwipeDestination(page, it) }
+        "Привычки" -> listOf("Привычки", "Сон и настроение")
+            .filter { (if (it == "Привычки") "habits.habits" else "habits.sleep") !in hiddenSubmenus }
+            .map { SwipeDestination(page, it) }
         else -> listOf(SwipeDestination(page))
     } }
+}
+
+internal fun menuVisibilityId(page: String): String = when (page) {
+    "Задачи" -> "tasks"; "Проекты" -> "projects"; "Календарь" -> "calendar"
+    "Привычки" -> "habits"; "Стойхейон" -> "stoicheion"; "Теокиклос" -> "theokyklos"
+    else -> ""
 }
 
 internal fun nextMenuSwipeDestination(sequence: List<SwipeDestination>, page: String,

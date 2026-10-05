@@ -71,6 +71,18 @@ const PAGE_TITLES: Record<Language, string> = {
 const APP_BASE = (process.env.NEXT_PUBLIC_GENESIS_BASE_PATH?.trim() || "").replace(/\/$/, "");
 
 const curatedTranslations: Record<string, string> = {
+  "Календарь": "Calendar",
+  "Списки задач": "Task lists",
+  "Личные проекты": "Personal projects",
+  "Общие проекты": "Shared projects",
+  "Год": "Year",
+  "Сон и настроение": "Sleep and mood",
+  "Ритм дня": "Daily rhythm",
+  "Быстрое создание": "Quick create",
+  "Задачи на сегодня": "Today's tasks",
+  "Привычки дня": "Daily habits",
+  "Подробности дня": "Day details",
+  "общих задач": "shared tasks",
   "Рекомендуется тем, кто не является гражданином России": "Recommended for users who are not Russian citizens",
   "Рекомендуется гражданам России": "Recommended for Russian citizens",
   "Проекты - личные": "Projects - personal",

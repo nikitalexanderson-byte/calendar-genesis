@@ -55,6 +55,9 @@ import kotlin.math.roundToInt
 private val ru = Locale.forLanguageTag("ru")
 private val calendarIncompleteColor = Color(0xffb63b42)
 private val calendarCompletedColor = Color(0xff255b59)
+data class SharedCalendarEntry(val id: String, val title: String, val dueDate: String,
+    val projectTitle: String, val completed: Boolean)
+private val LocalSharedCalendarTasks = compositionLocalOf<Map<String, List<SharedCalendarEntry>>> { emptyMap() }
 
 private enum class GregorianSeason(val title: String, val englishTitle: String,
     val months: List<Int>, val background: Color, val accent: Color) {
@@ -116,13 +119,18 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
     onCreateTask: (LocalDate) -> Unit = {},
     dayHabits: (@Composable (LocalDate) -> Unit)? = null,
     menuSwipeState: MenuSwipeState? = null, periodSwipeEnabled: Boolean = true,
-    voiceRequest: NativeVoiceAction? = null, onVoiceRequestConsumed: () -> Unit = {}) {
+    voiceRequest: NativeVoiceAction? = null, onVoiceRequestConsumed: () -> Unit = {},
+    hiddenSubmenus: Set<String> = emptySet(),
+    sharedTasks: List<SharedCalendarEntry> = emptyList(),
+    onOpenSharedProjects: () -> Unit = {}) {
     val calendar = remember { GenesisCalendar() }
     var shown by rememberSaveable(mode, date) { mutableStateOf(date.toString()) }
     var selected by rememberSaveable(mode, date) { mutableStateOf(date.toString()) }
     var localYearView by rememberSaveable { mutableStateOf(false) }
     var lunarByDecade by rememberSaveable { mutableStateOf(true) }
-    val yearView = menuSwipeState?.calendar == "year" || menuSwipeState == null && localYearView
+    val yearView = if ("calendar.month" in hiddenSubmenus) true
+        else if ("calendar.year" in hiddenSubmenus) false
+        else menuSwipeState?.calendar == "year" || menuSwipeState == null && localYearView
     var taskListDate by rememberSaveable { mutableStateOf<String?>(null) }
     var focusDayRequest by rememberSaveable { mutableIntStateOf(0) }
     var deletingTaskId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -188,9 +196,13 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
         if(voiceRequest!=null) onVoiceRequestConsumed()
     }
 
-    CompositionLocalProvider(LocalCalendarPeriodSwipeEnabled provides periodSwipeEnabled) {
+    val sharedTasksByDate = remember(sharedTasks) { sharedTasks.groupBy { it.dueDate } }
+    CompositionLocalProvider(LocalCalendarPeriodSwipeEnabled provides periodSwipeEnabled,
+        LocalSharedCalendarTasks provides sharedTasksByDate) {
     Column(Modifier.fillMaxSize()) {
-        ConnectedSubmenu(listOf(SubmenuItem("month", "Месяц"), SubmenuItem("year", "Год")),
+        val submenuItems = listOf(SubmenuItem("month", "Месяц"), SubmenuItem("year", "Год"))
+            .filter { "calendar.${it.id}" !in hiddenSubmenus }
+        if (submenuItems.size > 1) ConnectedSubmenu(submenuItems,
             if (yearView) "year" else "month", {
                 localYearView = it == "year"; menuSwipeState?.calendar = it
             }, Modifier.testTag("calendar-view-switch"))
@@ -198,9 +210,11 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
             gregorianYearStartsInMarch, regionalSeasonArt, seasonRegionZone,
             onStartGregorianYearInMarch,voiceScrollToken,voiceScrollDirection,
             onMonth = {
-                shown = it.toString(); selected = it.toString(); localYearView = false
-                menuSwipeState?.calendar = "month"
-                onSelect(it)
+                if ("calendar.month" !in hiddenSubmenus) {
+                    shown = it.toString(); selected = it.toString(); localYearView = false
+                    menuSwipeState?.calendar = "month"
+                    onSelect(it)
+                }
             },
             onYear = { shown = it.toString(); onSelect(it) })
         else if (range.isFailure) Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp),
@@ -225,6 +239,20 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
                     onCreate = { onCreateTask(day) },
                     onEdit = { onEditTask(it, day) },
                     onDelete = { deletingTaskId = it.id; deletingDate = day.toString() })
+                sharedTasksByDate[day.toString()]?.takeIf { it.isNotEmpty() }?.let { shared ->
+                    Card(Modifier.fillMaxWidth().testTag("calendar-shared-tasks-$day"),
+                        border = BorderStroke(2.dp, Color(0xff167c91))) {
+                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(if (LocalGenesisLanguage.current == "en") "Shared tasks · ${shared.size}"
+                                else "Общие задачи · ${shared.size}", style = MaterialTheme.typography.titleSmall)
+                            shared.forEach { entry -> Text("${if (entry.completed) "✓ " else ""}${entry.title} · ${entry.projectTitle}",
+                                style = MaterialTheme.typography.bodySmall) }
+                            TextButton(onClick = onOpenSharedProjects) {
+                                Text(if (LocalGenesisLanguage.current == "en") "Open shared projects" else "Открыть общие проекты")
+                            }
+                        }
+                    }
+                }
             }, habitActions = dayHabits)
     }
     }
@@ -266,10 +294,11 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
 private fun CalendarPageHeader(yearView: Boolean, mode: CalendarMode,
     onModeChange: (CalendarMode) -> Unit, modifier: Modifier = Modifier) {
     val copy = mobileCalendarCopy(LocalGenesisLanguage.current)
+    val enabledCalendars = LocalEnabledCalendars.current
     GenesisPageHeader(if (yearView) "Календарь - год" else "Календарь - месяц",
         copy.calendarName(mode), "☷",
         modifier.heightIn(min = if (compactWindowHeight()) 88.dp else 138.dp),
-        calendarMode = mode, onCalendarModeClick = { onModeChange(nextCalendarMode(mode)) })
+        calendarMode = mode, onCalendarModeClick = { onModeChange(nextAvailableCalendarMode(mode, enabledCalendars)) })
 }
 
 @Composable
@@ -654,6 +683,7 @@ private fun LunarCalendarDay(calendar: GenesisCalendar, date: LocalDate, selecte
                     Modifier.align(Alignment.BottomEnd).padding(end = 3.dp, bottom = 3.dp),
                     Alignment.BottomEnd, onTaskBadgeClick)
             }
+            if (!adjacent) CalendarSharedBadge(date, Modifier.align(Alignment.BottomStart))
         }
     }
 }
@@ -730,8 +760,25 @@ private fun CalendarDay(calendar: GenesisCalendar, date: LocalDate, number: Int,
             CalendarTaskBadge(date, taskCount, completedTaskCount, if (patron != null) 28.dp else 23.dp,
                 Modifier.align(Alignment.TopEnd), Alignment.TopEnd, onTaskBadgeClick)
         }
+        if (!adjacent) CalendarSharedBadge(date, Modifier.align(Alignment.BottomStart))
         }
     }
+    }
+}
+
+@Composable
+private fun CalendarSharedBadge(date: LocalDate, modifier: Modifier = Modifier) {
+    val count = LocalSharedCalendarTasks.current[date.toString()]?.size ?: 0
+    if (count == 0) return
+    val label = if (LocalGenesisLanguage.current == "en") "shared tasks" else "общих задач"
+    Surface(modifier.padding(3.dp).size(23.dp)
+        .testTag("calendar-shared-count-$date")
+        .semantics { contentDescription = "$count $label" },
+        shape = CircleShape, color = Color(0xff167c91),
+        border = BorderStroke(2.dp, Color(0xffe1b45e)), shadowElevation = 3.dp) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(if (count > 99) "99+" else count.toString(), color = Color.White, fontSize = 9.sp)
+        }
     }
 }
 
@@ -1307,6 +1354,9 @@ private fun CalendarYearMonthCard(calendar: GenesisCalendar, start: LocalDate, m
             range.end.format(DateTimeFormatter.ofPattern("d MMMM yyyy", locale))
     }
     val count = taskCount.total
+    val sharedCount = LocalSharedCalendarTasks.current.let { byDate ->
+        range.dates().sumOf { byDate[it.toString()]?.size ?: 0 }
+    }
     val season = GregorianSeason.entries.first { start.monthValue in it.months }
     val mainInk = if(mode == CalendarMode.PROFANE && LocalEveningTheme.current) MaterialTheme.colorScheme.onSurface else Color(0xff102b2c)
     val detailInk = if(mode == CalendarMode.PROFANE && LocalEveningTheme.current) MaterialTheme.colorScheme.onSurfaceVariant else Color(0xff405b59)
@@ -1362,6 +1412,9 @@ private fun CalendarYearMonthCard(calendar: GenesisCalendar, start: LocalDate, m
                 if (mode == CalendarMode.PROFANE) Text(if (english) "$count tasks" else "$count задач",
                     color = detailInk, style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier.testTag("calendar-year-task-count-$ordinal"))
+                if (sharedCount > 0) Text(if (english) "$sharedCount shared tasks" else "$sharedCount общих задач",
+                    color = Color(0xff167c91), style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.testTag("calendar-year-shared-count-$ordinal"))
                     if (count > 0) {
                         val completed = taskCount.completed
                         Column {

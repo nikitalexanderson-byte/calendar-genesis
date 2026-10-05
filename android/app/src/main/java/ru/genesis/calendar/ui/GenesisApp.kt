@@ -215,6 +215,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     var voiceDeleteTaskId by rememberSaveable { mutableStateOf<String?>(null) }
     var transferTask by remember { mutableStateOf<LocalTask?>(null) }
     var creating by rememberSaveable { mutableStateOf(false) }
+    var creatingSharedTask by rememberSaveable { mutableStateOf(false) }
     var newTaskProjectId by rememberSaveable { mutableStateOf<String?>(null) }
     var newTaskListId by rememberSaveable { mutableStateOf<String?>(null) }
     var creatingTaskList by rememberSaveable { mutableStateOf(false) }
@@ -250,11 +251,51 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     val portraitMenuSwipe = !isLandscape && prefs.menuSwipeEnabled
     val sharedProjectsEnabled = !testWorkspace && pendingPreferences["sharedProjectsEnabled"] != "false" &&
         authState.accountSettings?.sharedProjectsEnabled == true
+    var sharedCalendarEntries by remember { mutableStateOf<List<SharedCalendarEntry>>(emptyList()) }
+    val sharedCalendarYear = selected.take(4)
+    LaunchedEffect(sharedProjectsEnabled, tab, sharedCalendarYear, authState.user) {
+        if (!sharedProjectsEnabled || tab != "Календарь") {
+            if (!sharedProjectsEnabled) sharedCalendarEntries = emptyList()
+            return@LaunchedEffect
+        }
+        val year = sharedCalendarYear.toIntOrNull() ?: LocalDate.now().year
+        while (isActive) {
+            runCatching {
+                val result = authController.sharedCalendarTasks("${year - 1}-01-01", "${year + 1}-12-31")
+                result.getJSONArray("tasks")
+            }.onSuccess { rows ->
+                sharedCalendarEntries = (0 until rows.length()).map { index ->
+                    rows.getJSONObject(index).let { row ->
+                        SharedCalendarEntry(row.optString("id"), row.optString("title"),
+                            row.optString("dueDate"), row.optString("projectTitle"),
+                            row.optString("completedAt").isNotBlank())
+                    }
+                }
+            }
+            delay(30_000)
+        }
+    }
+    val uiVisibility = authState.accountSettings?.uiVisibility ?: ru.genesis.calendar.auth.UiVisibility()
+    val visiblePages = listOf("Сегодня", "Задачи", "Проекты", "Календарь", "Привычки", "Стойхейон", "Теокиклос", "Настройки")
+        .filter { (habitTrackingEnabled || it != "Привычки") && menuVisibilityId(it) !in uiVisibility.hiddenMenuItems }
     LaunchedEffect(sharedProjectsEnabled) {
         if (!sharedProjectsEnabled) menuSwipeState.projectArea = "personal"
     }
-    val swipeSequence = remember(prefs.menuSwipeSubmenus, habitTrackingEnabled, sharedProjectsEnabled) {
-        menuSwipeSequence(prefs.menuSwipeSubmenus, habitTrackingEnabled, sharedProjectsEnabled)
+    LaunchedEffect(visiblePages, uiVisibility.hiddenSubmenus, sharedProjectsEnabled) {
+        if (tab !in visiblePages) tab = "Сегодня"
+        if ("tasks.${menuSwipeState.tasks}" in uiVisibility.hiddenSubmenus)
+            menuSwipeState.tasks = if (menuSwipeState.tasks == "tasks") "lists" else "tasks"
+        if ("calendar.${menuSwipeState.calendar}" in uiVisibility.hiddenSubmenus)
+            menuSwipeState.calendar = if (menuSwipeState.calendar == "month") "year" else "month"
+        if ("projects.${menuSwipeState.projectArea}" in uiVisibility.hiddenSubmenus)
+            menuSwipeState.projectArea = if (menuSwipeState.projectArea == "personal") "shared" else "personal"
+        if ((if (menuSwipeState.habits == "Привычки") "habits.habits" else "habits.sleep") in uiVisibility.hiddenSubmenus)
+            menuSwipeState.habits = if (menuSwipeState.habits == "Привычки") "Сон и настроение" else "Привычки"
+    }
+    val swipeSequence = remember(prefs.menuSwipeSubmenus, habitTrackingEnabled, sharedProjectsEnabled,
+        uiVisibility.hiddenMenuItems, uiVisibility.hiddenSubmenus) {
+        menuSwipeSequence(prefs.menuSwipeSubmenus, habitTrackingEnabled, sharedProjectsEnabled,
+            uiVisibility.hiddenMenuItems, uiVisibility.hiddenSubmenus)
     }
     val swipeSection = if (prefs.menuSwipeSubmenus && (tab != "Проекты" || sharedProjectsEnabled))
         menuSwipeState.section(tab) else null
@@ -561,7 +602,9 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     MaterialTheme(colorScheme=if (eveningTheme) evening else standart) {
       CompositionLocalProvider(LocalEveningTheme provides eveningTheme) {
       CompositionLocalProvider(LocalGenesisLanguage provides
-          (if(testWorkspace || activeScope.startsWith("account-")) prefs.language else welcomePrefs.language)) {
+          (if(testWorkspace || activeScope.startsWith("account-")) prefs.language else welcomePrefs.language),
+          LocalEnabledCalendars provides CalendarMode.entries
+              .filter { it.wireValue in uiVisibility.enabledCalendars }.toSet()) {
         Surface(Modifier.fillMaxSize().testTag(if (eveningTheme) "app-theme-Evening" else "app-theme-Standart"),color=MaterialTheme.colorScheme.background) {
             if (accountGate) {
                 if (authState.busy && authState.user != null) AuthTransitionScreen(authState.message)
@@ -639,7 +682,8 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                             it is NativeVoiceAction.CreateHabit || it is NativeVoiceAction.EditHabit ||
                                 it is NativeVoiceAction.DeleteHabit || it is NativeVoiceAction.SetHabitDone
                         },
-                        onVoiceRequestConsumed={voiceScreenRequest=null})
+                        onVoiceRequestConsumed={voiceScreenRequest=null},
+                        hiddenSubmenus=uiVisibility.hiddenSubmenus)
                     "Теокиклос" -> TheokyklosScreen(app,prefs.input,onOpenHabits={requestedSacredHabits=true;tab="Привычки"},
                         initialSectorId=requestedTheokyklosSector,
                         onInitialSectorConsumed={requestedTheokyklosSector=null})
@@ -650,9 +694,11 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         requestedTheokyklosSector=sectorId; tab="Теокиклос"
                     })
                     "Проекты" -> Column(Modifier.fillMaxSize()) {
-                        if (sharedProjectsEnabled) ConnectedSubmenu(listOf(
+                        val projectSubmenus = listOf(
                             SubmenuItem("personal", if(prefs.language=="en") "Personal" else "Личные"),
-                            SubmenuItem("shared", if(prefs.language=="en") "Shared" else "Общие")),
+                            SubmenuItem("shared", if(prefs.language=="en") "Shared" else "Общие"))
+                            .filter { "projects.${it.id}" !in uiVisibility.hiddenSubmenus }
+                        if (sharedProjectsEnabled && projectSubmenus.size > 1) ConnectedSubmenu(projectSubmenus,
                             visibleSwipeState.projectArea, { menuSwipeState.projectArea = it },
                             Modifier.testTag("projects-area-switch"))
                         if(sharedProjectsEnabled && visibleSwipeState.projectArea=="shared") SharedProjectsScreen(authController,prefs.language)
@@ -696,13 +742,16 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         menuSwipeState=visibleSwipeState,
                         voiceRequest=voiceScreenRequest.takeIf {
                             it is NativeVoiceAction.EditTaskList || it is NativeVoiceAction.DeleteTaskList
-                        },onVoiceRequestConsumed={voiceScreenRequest=null})
+                        },onVoiceRequestConsumed={voiceScreenRequest=null},
+                        hiddenSubmenus=uiVisibility.hiddenSubmenus)
                     "Настройки" -> SettingsScreen(app, prefs, authState.busy && !testWorkspace,
                         authState.accountSettings, sharedProjectsEnabled,
+                        authController.takeIf { sharedProjectsEnabled },
                         canOpenAdmin = !testWorkspace && authState.ready && !authState.requiresSignIn &&
                             authState.user != null && authState.accountSettings?.isAdmin == true,
                         adminLoad = authController::adminStats,
                         adminDelete = authController::deleteAdminUser,
+                        onSetVisibility = authController::updateUiVisibility,
                         onSet = { name, value ->
                             if (!testWorkspace && authState.user != null) authController.updateSharedPreference(name, value)
                             else scope.launch { prefsStore.set(name, value) }
@@ -714,6 +763,8 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                             else scope.launch { prefsStore.set("display", next.wireValue) }
                         },
                         experimental=true, tasks=tasks, use24=prefs.use24,
+                        sharedTasks=sharedCalendarEntries,
+                        onOpenSharedProjects={ menuSwipeState.projectArea="shared"; tab="Проекты" },
                         weekStartsOnSunday=prefs.weekStartsOnSunday,
                         gregorianYearStartsInMarch=prefs.gregorianYearStartsInMarch,
                         onStartGregorianYearInMarch={
@@ -740,7 +791,8 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                                 it is NativeVoiceAction.CalendarSwipe || it is NativeVoiceAction.CalendarDate ||
                                 it is NativeVoiceAction.CalendarMonth || it is NativeVoiceAction.Scroll
                         },
-                        onVoiceRequestConsumed={voiceScreenRequest=null})
+                        onVoiceRequestConsumed={voiceScreenRequest=null},
+                        hiddenSubmenus=uiVisibility.hiddenSubmenus)
                     else -> TodayWorkspace(header = {
                             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                 DayHeader(LocalDate.parse(todayPageDate), prefs.display, dayDetailsExpanded,
@@ -748,10 +800,10 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                                     onModeChange = { next ->
                                         if (!testWorkspace && authState.user != null) authController.updateSharedPreference("display", next.wireValue)
                                         else scope.launch { prefsStore.set("display", next.wireValue) }
-                                    })
+                                    }, showDetails = "details" !in uiVisibility.hiddenTodayBlocks)
                                 if (!testWorkspace && authState.ready)
                                     TodayAdPanel(authController, authState.user?.uid, prefs.language)
-                                AnimatedVisibility(visible = dayDetailsExpanded,
+                                AnimatedVisibility(visible = dayDetailsExpanded && "details" !in uiVisibility.hiddenTodayBlocks,
                                     modifier = Modifier.testTag("today-day-details"),
                                     enter = expandVertically(tween(320, easing = CubicBezierEasing(.16f, 1f, .3f, 1f)),
                                         expandFrom = Alignment.Top) + fadeIn(tween(190)),
@@ -759,20 +811,29 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                                         shrinkTowards = Alignment.Top) + fadeOut(tween(140))) {
                                     DayKnowledgePanel(LocalDate.parse(todayPageDate), prefs.display)
                                 }
+                                if ("tasks" in uiVisibility.hiddenTodayBlocks && "quickCreate" !in uiVisibility.hiddenTodayBlocks)
+                                    Button(onClick = { selected=todayPageDate; creating=true; editId=null;
+                                        newTaskProjectId=null; newTaskListId=null }) {
+                                        Text(if (prefs.language == "en") "Create today's task" else "Создать задачу на сегодня")
+                                    }
                             }
-                    }, rhythm = { DayRhythmPanel(prefs.use24) }, tasks = {
+                    }, rhythm = { if ("rhythm" !in uiVisibility.hiddenTodayBlocks) DayRhythmPanel(prefs.use24) }, tasks = {
                         val todayDate=LocalDate.parse(todayPageDate)
                         val shown = tasks.filter { TaskOccurrences.occursOn(it, todayDate) }
                             val missed=if (prefs.showMissedTasksToday)
                                 missedTasksForToday(tasks,todayDate) else emptyList()
-                            TodayTasksPanel(shown, missed, todayPageDate, prefs.use24, structure,
+                            if ("tasks" !in uiVisibility.hiddenTodayBlocks) TodayTasksPanel(shown, missed, todayPageDate, prefs.use24, structure,
                                 onCreate = { selected=todayPageDate;creating=true;editId=null;newTaskProjectId=null;newTaskListId=null },
                                 onComplete = model::complete,
                                 onMoveToToday = { task -> model.save(task.copy(date=todayDate.toString())) {} },
-                                onOpen = { taskId -> selected=todayPageDate;editId=taskId;creating=false }) {
-                                if (habitTrackingEnabled) TodayHabitsContent(app, todayDate,
+                                onOpen = { taskId -> selected=todayPageDate;editId=taskId;creating=false },
+                                showCreate = "quickCreate" !in uiVisibility.hiddenTodayBlocks) {
+                                if (habitTrackingEnabled && "habits" !in uiVisibility.hiddenTodayBlocks) TodayHabitsContent(app, todayDate,
                                     habitWorkspace, onOpenHabits = { tab = "Привычки" })
                             }
+                            else if (habitTrackingEnabled && "habits" !in uiVisibility.hiddenTodayBlocks)
+                                TodayHabitsContent(app, todayDate, habitWorkspace,
+                                    onOpenHabits = { tab = "Привычки" })
                     })
                   }
                   }
@@ -803,14 +864,14 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                 }
                 if (navigationOnLeft) {
                     Row(Modifier.fillMaxWidth().weight(1f).testTag("wide-navigation-layout")) {
-                        PrimaryNavigation(tab, habitTrackingEnabled, vertical = true,
+                        PrimaryNavigation(tab, visiblePages, vertical = true,
                             showLabels = prefs.navigationLabels && !shortWindow, autoScroll = false,
                             onSelect = { tab = it }, modifier = Modifier
                                 .width(if (prefs.navigationLabels && !shortWindow) 132.dp else 64.dp).fillMaxHeight())
                         workspacePager(Modifier.weight(1f).fillMaxHeight().testTag("main-content"))
                     }
                 } else {
-                    PrimaryNavigation(tab, habitTrackingEnabled, vertical = false,
+                    PrimaryNavigation(tab, visiblePages, vertical = false,
                         showLabels = prefs.navigationLabels, autoScroll = portraitAutoScroll,
                         onSelect = { tab = it })
                     workspacePager(Modifier.fillMaxWidth().weight(1f).testTag("main-content"))
@@ -821,6 +882,9 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                 authState.accountSettings,taskLists,newTaskListId,
                 onDismiss={creating=false;editId=null;voiceDeleteTaskId=null},
                 onSave={draft -> model.save(draft){creating=false;editId=null;voiceDeleteTaskId=null}},
+                onSwitchToShared=if(existing==null && tab=="Задачи" && sharedProjectsEnabled) ({
+                    creating=false; creatingSharedTask=true
+                }) else null,
                 onTransfer=existing?.takeIf { sharedProjectsEnabled }?.let { selectedTask ->
                     { transferTask=selectedTask;creating=false;editId=null;voiceDeleteTaskId=null }
                 },
@@ -829,7 +893,9 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                     { date -> model.excludeOccurrence(series,date) { creating=false;editId=null;voiceDeleteTaskId=null } }
                 },
                 showSelectedOccurrence=tab=="Сегодня" || tab=="Календарь",
-                startDeleteConfirmation=existing?.id==voiceDeleteTaskId)
+                startDeleteConfirmation=existing != null && existing.id == voiceDeleteTaskId)
+            if (creatingSharedTask && sharedProjectsEnabled) SharedTaskCreateDialog(authController,prefs.language,
+                onDismiss={creatingSharedTask=false}, onSwitchToPersonal={creatingSharedTask=false;creating=true})
             transferTask?.let { privateTask ->
                 PersonalTaskTransferDialog(privateTask,authController,authState.accountSettings,prefs.language,
                     onDismiss={transferTask=null},onMoved={ task ->
@@ -870,11 +936,9 @@ internal fun shouldUseNavigationRail(screenWidthDp: Int, landscape: Boolean,
     wideNavigationOnLeft: Boolean): Boolean = wideNavigationOnLeft && (landscape || screenWidthDp >= 600)
 
 @Composable
-private fun PrimaryNavigation(selectedPage: String, habitTrackingEnabled: Boolean, vertical: Boolean,
+private fun PrimaryNavigation(selectedPage: String, pages: List<String>, vertical: Boolean,
     showLabels: Boolean, autoScroll: Boolean, onSelect: (String) -> Unit, modifier: Modifier = Modifier) {
     val compact = compactWindowHeight()
-    val pages = listOf("Сегодня","Задачи","Проекты","Календарь","Привычки","Стойхейон","Теокиклос","Настройки")
-        .filter { habitTrackingEnabled || it != "Привычки" }
     if (vertical) {
         Surface(modifier.then(navigationViewportAnchor()).testTag("main-navigation-rail"),
             color = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -894,6 +958,14 @@ private fun PrimaryNavigation(selectedPage: String, habitTrackingEnabled: Boolea
                         compact = true) { onSelect(page) }
                 }
             }
+        }
+    } else if (pages.size <= 4) {
+        Row(modifier.fillMaxWidth().then(navigationViewportAnchor()).testTag("main-navigation-compact")
+            .padding(horizontal = 2.dp)) {
+            pages.forEach { page -> Box(Modifier.weight(1f)) {
+                PrimaryNavigationItem(page, selectedPage == page, true,
+                    showLabels = true, compact = true) { onSelect(page) }
+            } }
         }
     } else {
         val scrollState = rememberScrollState()
@@ -979,6 +1051,7 @@ private fun AuthTransitionScreen(message: String) {
 private fun TodayTasksPanel(tasks: List<LocalTask>, missedTasks: List<LocalTask>, selected: String, use24: Boolean,
     structure: WorkspaceStructure, onCreate: () -> Unit, onComplete: (LocalTask) -> Unit,
     onMoveToToday: (LocalTask) -> Unit, onOpen: (String) -> Unit,
+    showCreate: Boolean = true,
     habits: @Composable ColumnScope.() -> Unit) {
     Card(Modifier.fillMaxWidth().testTag("today-tasks-section"), shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = if(LocalEveningTheme.current)
@@ -1002,7 +1075,7 @@ private fun TodayTasksPanel(tasks: List<LocalTask>, missedTasks: List<LocalTask>
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Button(onClick = onCreate, modifier = Modifier.heightIn(min = 48.dp).testTag("create-task")) {
+                if (showCreate) Button(onClick = onCreate, modifier = Modifier.heightIn(min = 48.dp).testTag("create-task")) {
                     Text("Создать")
                 }
             }
@@ -1071,13 +1144,14 @@ fun OriginalImage(path: String, description: String?, modifier: Modifier=Modifie
 
 @Composable
 private fun DayHeader(date: LocalDate, mode: CalendarMode, detailsExpanded: Boolean,
-    onToggleDetails: () -> Unit, onModeChange: (CalendarMode) -> Unit) {
+    onToggleDetails: () -> Unit, onModeChange: (CalendarMode) -> Unit, showDetails: Boolean = true) {
     val calendar=remember { GenesisCalendar() }
     val solarLocation by rememberAutomaticSolarLocation(calendar.zoneId)
     val language = LocalGenesisLanguage.current
     val copy = remember(date,mode,language) { todayHeroCopy(date,mode,calendar,language) }
     val todayLabel = genesisTranslate("Сегодня").uppercase(Locale.forLanguageTag(language))
     val calendarSwitchHint = mobileCalendarCopy(language).switchHint
+    val enabledCalendars = LocalEnabledCalendars.current
     var switchCount by remember { mutableIntStateOf(0) }
     val detailsArrowRotation by animateFloatAsState(if (detailsExpanded) 180f else 0f,
         tween(220, easing = CubicBezierEasing(.16f, 1f, .3f, 1f)), label = "day-details-arrow")
@@ -1092,7 +1166,7 @@ private fun DayHeader(date: LocalDate, mode: CalendarMode, detailsExpanded: Bool
                 1f to Color(0xfa071d20))))
             Surface(onClick = {
                 switchCount++
-                onModeChange(nextCalendarMode(mode))
+                onModeChange(nextAvailableCalendarMode(mode, enabledCalendars))
             }, modifier = Modifier.align(Alignment.TopStart).padding(14.dp)
                 .testTag("today-calendar-plaque")
                 .semantics { contentDescription = "$todayLabel. $calendarSwitchHint" },
@@ -1150,7 +1224,7 @@ private fun DayHeader(date: LocalDate, mode: CalendarMode, detailsExpanded: Bool
                             color = Color(0xfff5dcaa), style = MaterialTheme.typography.labelSmall)
                     }
                 }
-                Button(onClick = onToggleDetails,
+                if (showDetails) Button(onClick = onToggleDetails,
                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                         .testTag("today-day-details-toggle"),
                     shape = RoundedCornerShape(14.dp),
@@ -1177,7 +1251,7 @@ private fun DayHeader(date: LocalDate, mode: CalendarMode, detailsExpanded: Bool
 @Composable
 private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,structure:WorkspaceStructure,initialProjectId:String?,
     accountSettings:ru.genesis.calendar.auth.AccountSettings?, taskLists:List<GoogleTaskList>, initialTaskListId:String?, onDismiss:()->Unit,
-    onSave:(LocalTask)->Unit,onTransfer:(()->Unit)?,onDelete:(()->Unit)?,onDeleteOccurrence:((String)->Unit)?,showSelectedOccurrence:Boolean,
+    onSave:(LocalTask)->Unit,onSwitchToShared:(()->Unit)?=null,onTransfer:(()->Unit)?,onDelete:(()->Unit)?,onDeleteOccurrence:((String)->Unit)?,showSelectedOccurrence:Boolean,
     startDeleteConfirmation:Boolean=false) {
     var title by rememberSaveable(task?.id) { mutableStateOf(task?.title ?: "") }
     var description by rememberSaveable(task?.id) { mutableStateOf(task?.description ?: "") }
@@ -1227,7 +1301,7 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
             it.isNotBlank() && it != "null"
         } ?: false
     } ?: false)
-    var confirmDelete by remember(task?.id) { mutableStateOf(startDeleteConfirmation) }
+    var confirmDelete by remember(task?.id) { mutableStateOf(task != null && startDeleteConfirmation) }
     var validation by remember { mutableStateOf<String?>(null) }
     val occurrenceDate = if (task?.recurrence?.enabled == true && showSelectedOccurrence &&
         runCatching { TaskOccurrences.occursOn(task,LocalDate.parse(selected)) }.getOrDefault(false)) selected
@@ -1241,6 +1315,12 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
               Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())
                 .testTag("task-editor-scroll"),
                 verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                if (task == null && onSwitchToShared != null) Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                    FilterChip(selected=true,onClick={},label={Text(if(prefs.language=="en") "Personal task" else "Личная задача")})
+                    FilterChip(selected=false,onClick=onSwitchToShared,
+                        label={Text(if(prefs.language=="en") "Team task" else "Общая задача")},
+                        modifier=Modifier.testTag("create-shared-task-switch"))
+                }
                 EditorSection("Основное") {
                     OutlinedTextField(title,{title=it},label={Text("Название")},modifier=Modifier.fillMaxWidth().testTag("task-title"))
                     OutlinedTextField(description,{description=it},label={Text("Описание")},modifier=Modifier.fillMaxWidth())
@@ -1472,7 +1552,7 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
             }
         }
     }
-    if(confirmDelete) AlertDialog(onDismissRequest={confirmDelete=false},
+    if(confirmDelete && task != null && onDelete != null) AlertDialog(onDismissRequest={confirmDelete=false},
         title={Text(if(onDeleteOccurrence!=null) "Удалить повторение?" else "Удалить задачу?")},
         text={Text(if(onDeleteOccurrence!=null) "Можно удалить только $occurrenceDate или всю серию."
             else "Напоминание этой задачи будет отменено.")},
@@ -1550,8 +1630,10 @@ internal fun ProjectHierarchyPicker(projects: List<GenesisProject>, selectedId: 
 private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy:Boolean,
     accountSettings:ru.genesis.calendar.auth.AccountSettings?,
     sharedProjectsEnabled:Boolean,
+    sharedController:ru.genesis.calendar.auth.AuthController?,
     canOpenAdmin: Boolean, adminLoad: suspend () -> JSONObject,
     adminDelete: suspend (String, Boolean) -> JSONObject,
+    onSetVisibility:(ru.genesis.calendar.auth.UiVisibility)->Unit,
     onSet:(String,String)->Unit, onSetLocal:(String,String)->Unit) {
     var refresh by remember { mutableIntStateOf(0) }
     var calendarReference by rememberSaveable { mutableStateOf<String?>(null) }
@@ -1567,6 +1649,7 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
     val diagnosticScheduledAt = app.scheduler.lastDiagnosticScheduledAt()
     val diagnosticDeliveredAt = app.scheduler.lastDiagnosticDeliveredAt()
     val futureTaskAlarms = rows.count { it.state == "pending" && it.at > System.currentTimeMillis() }
+    val visibility = accountSettings?.uiVisibility ?: ru.genesis.calendar.auth.UiVisibility()
     fun diagnosticTime(value: Long) = Instant.ofEpochMilli(value).atZone(ZoneId.systemDefault())
         .format(DateTimeFormatter.ofPattern("dd.MM HH:mm"))
     AdaptiveSettingsSections {
@@ -1587,6 +1670,78 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
                     enabled=accountSettings?.sharedProjectsEligible==true && !sharedBusy,
                     onCheckedChange={onSet("sharedProjectsEnabled",it.toString())},
                     modifier=Modifier.testTag("shared-projects-toggle"))
+            }
+        }
+        if (sharedController != null) SharedInvitationInbox(sharedController, prefs.language)
+        SettingsSection("☷", if (prefs.language == "en") "Menu and Today" else "Меню и экран «Сегодня»",
+            if (prefs.language == "en") "Choose the sections you use" else "Выберите нужные вам разделы",
+            Color(0xffe9ede5)) {
+            Text(if (prefs.language == "en") "Today and Settings always remain available."
+                else "«Сегодня» и «Настройки» всегда доступны.", style = MaterialTheme.typography.bodySmall)
+            Text(if (prefs.language == "en") "Main menu" else "Главное меню", style = MaterialTheme.typography.titleSmall)
+            listOf("Задачи" to "tasks", "Проекты" to "projects", "Календарь" to "calendar",
+                "Привычки" to "habits", "Стойхейон" to "stoicheion", "Теокиклос" to "theokyklos")
+                .forEach { (label, id) ->
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(genesisTranslate(label), Modifier.weight(1f))
+                        Switch(checked = id !in visibility.hiddenMenuItems,
+                            enabled = accountSettings != null && !sharedBusy,
+                            onCheckedChange = { checked -> onSetVisibility(visibility.copy(
+                                hiddenMenuItems = if (checked) visibility.hiddenMenuItems - id
+                                    else visibility.hiddenMenuItems + id)) },
+                            modifier = Modifier.testTag("menu-visibility-$id"))
+                    }
+                }
+            Text(if (prefs.language == "en") "Submenus" else "Подменю", style = MaterialTheme.typography.titleSmall)
+            listOf("Задачи" to "tasks.tasks", "Списки задач" to "tasks.lists",
+                "Личные проекты" to "projects.personal", "Общие проекты" to "projects.shared",
+                "Месяц" to "calendar.month", "Год" to "calendar.year",
+                "Привычки" to "habits.habits", "Сон и настроение" to "habits.sleep")
+                .forEach { (label, id) ->
+                    val group = id.substringBefore('.')
+                    val visibleCount = listOf("tasks.tasks", "tasks.lists", "projects.personal", "projects.shared",
+                        "calendar.month", "calendar.year", "habits.habits", "habits.sleep")
+                        .count { it.startsWith("$group.") && it !in visibility.hiddenSubmenus }
+                    val lastVisible = id !in visibility.hiddenSubmenus && visibleCount == 1
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(genesisTranslate(label), Modifier.weight(1f))
+                        Switch(checked = id !in visibility.hiddenSubmenus,
+                            enabled = accountSettings != null && !sharedBusy && !lastVisible &&
+                                !(id == "projects.personal" && !sharedProjectsEnabled),
+                            onCheckedChange = { checked -> onSetVisibility(visibility.copy(
+                                hiddenSubmenus = if (checked) visibility.hiddenSubmenus - id
+                                    else visibility.hiddenSubmenus + id)) },
+                            modifier = Modifier.testTag("submenu-visibility-$id"))
+                    }
+                }
+            Text(if (prefs.language == "en") "Today" else "Экран «Сегодня»", style = MaterialTheme.typography.titleSmall)
+            listOf("Ритм дня" to "rhythm", "Быстрое создание" to "quickCreate",
+                "Задачи дня" to "tasks", "Привычки дня" to "habits", "Подробности дня" to "details")
+                .forEach { (label, id) ->
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(genesisTranslate(label), Modifier.weight(1f))
+                        Switch(checked = id !in visibility.hiddenTodayBlocks,
+                            enabled = accountSettings != null && !sharedBusy,
+                            onCheckedChange = { checked -> onSetVisibility(visibility.copy(
+                                hiddenTodayBlocks = if (checked) visibility.hiddenTodayBlocks - id
+                                    else visibility.hiddenTodayBlocks + id)) },
+                            modifier = Modifier.testTag("today-visibility-$id"))
+                    }
+                }
+            Text(if (prefs.language == "en") "Available calendars" else "Доступные календари",
+                style = MaterialTheme.typography.titleSmall)
+            listOf(CalendarMode.PROFANE to "Григорианский", CalendarMode.SACRED to "Сакральный",
+                CalendarMode.LUNAR to "Лунный").forEach { (mode, label) ->
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(genesisTranslate(label), Modifier.weight(1f))
+                    Switch(checked = mode.wireValue in visibility.enabledCalendars,
+                        enabled = accountSettings != null && !sharedBusy &&
+                            !(visibility.enabledCalendars.size == 1 && mode.wireValue in visibility.enabledCalendars),
+                        onCheckedChange = { checked -> onSetVisibility(visibility.copy(
+                            enabledCalendars = if (checked) visibility.enabledCalendars + mode.wireValue
+                                else visibility.enabledCalendars - mode.wireValue)) },
+                        modifier = Modifier.testTag("calendar-visibility-${mode.wireValue}"))
+                }
             }
         }
         SeasonRegionSettings(prefs, onSetLocal)
@@ -1661,7 +1816,7 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
             Text("Справочная информация", style = MaterialTheme.typography.titleSmall)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 listOf(CalendarMode.PROFANE to "Григорианский", CalendarMode.SACRED to "Сакральный",
-                    CalendarMode.LUNAR to "Лунный").forEach { (mode, label) ->
+                    CalendarMode.LUNAR to "Лунный").filter { it.first.wireValue in visibility.enabledCalendars }.forEach { (mode, label) ->
                     val accent = when (mode) {
                         CalendarMode.PROFANE -> if (LocalEveningTheme.current) Color(0xff73b8aa) else Color(0xff2d7065)
                         CalendarMode.SACRED -> if (LocalEveningTheme.current) Color(0xffe4bd64) else Color(0xff92621d)
@@ -1682,7 +1837,8 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
             listOf("display" to "Календарь отображения","input" to "Календарь ввода и повторений").forEach{(key,label)->
                 Text(label, style = MaterialTheme.typography.titleSmall)
                 Row(Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)) { CalendarMode.entries.forEach { mode->
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)) { CalendarMode.entries
+                        .filter { it.wireValue in visibility.enabledCalendars }.forEach { mode->
                     FilterChip(selected=(if(key=="display") prefs.display else prefs.input)==mode,onClick={onSet(key,mode.wireValue)},
                         enabled=!sharedBusy,
                         modifier = Modifier.weight(1f).heightIn(min = 48.dp)

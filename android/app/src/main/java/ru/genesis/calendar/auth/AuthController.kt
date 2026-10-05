@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.json.JSONObject
+import org.json.JSONArray
 import ru.genesis.calendar.GenesisApplication
 import ru.genesis.calendar.data.CloudAccountImporter
 import ru.genesis.calendar.data.StoicheionDrawRepository
@@ -91,6 +92,8 @@ class AuthController private constructor(context: Context) {
     }
 
     suspend fun sharedSpaces(): JSONObject = sharedCall { api, generation -> api.sharedSpaces(generation) }
+    suspend fun sharedCalendarTasks(from: String, to: String): JSONObject =
+        sharedCall { api, generation -> api.sharedCalendarTasks(generation, from, to) }
     suspend fun createSharedSpace(title: String): JSONObject = sharedCall { api, generation ->
         api.createSharedSpace(generation, JSONObject().put("title", title))
     }
@@ -137,8 +140,9 @@ class AuthController private constructor(context: Context) {
             JSONObject().put("expectedRevision", revision)) }
     suspend fun changeSharedMemberRole(projectId: String, userId: String, role: String): JSONObject =
         sharedCall { api, generation -> api.changeSharedMemberRole(generation, projectId, userId, role) }
-    suspend fun changeSharedSpaceRole(spaceId: String, userId: String, role: String): JSONObject =
-        sharedCall { api, generation -> api.changeSharedSpaceRole(generation, spaceId, userId, role) }
+    suspend fun changeSharedSpaceRole(spaceId: String, userId: String, role: String,
+        canOrganizeTasks: Boolean? = null): JSONObject =
+        sharedCall { api, generation -> api.changeSharedSpaceRole(generation, spaceId, userId, role, canOrganizeTasks) }
     suspend fun removeSharedMember(projectId: String, userId: String): JSONObject =
         sharedCall { api, generation -> api.removeSharedMember(generation, projectId, userId) }
     suspend fun createSharedTask(projectId: String, title: String, statusId: String,
@@ -151,11 +155,21 @@ class AuthController private constructor(context: Context) {
         sharedCall { api, generation -> api.createSharedTask(generation, projectId, fields) }
     suspend fun updateSharedTask(projectId: String, taskId: String, changes: JSONObject): JSONObject =
         sharedCall { api, generation -> api.updateSharedTask(generation, projectId, taskId, changes) }
+    suspend fun moveSharedTask(projectId: String, taskId: String, changes: JSONObject): JSONObject =
+        sharedCall { api, generation -> api.moveSharedTask(generation, projectId, taskId, changes) }
     suspend fun inviteSharedMember(projectId: String, email: String, role: String): JSONObject =
         sharedCall { api, generation -> api.inviteSharedMember(generation, projectId,
             JSONObject().put("email", email).put("role", role)) }
-    suspend fun acceptSharedInvitation(token: String): JSONObject =
-        sharedCall { api, generation -> api.acceptSharedInvitation(generation, JSONObject().put("token", token)) }
+    suspend fun sharedInvitations(): JSONObject =
+        sharedCall { api, generation -> api.sharedInvitations(generation) }
+    suspend fun sharedNotifications(): JSONObject = sharedCall { api, generation -> api.sharedNotifications(generation) }
+    suspend fun readSharedNotifications(ids: List<String>): JSONObject = sharedCall { api, generation ->
+        api.readSharedNotifications(generation, JSONArray(ids))
+    }
+    suspend fun acceptSharedInvitation(id: String): JSONObject =
+        sharedCall { api, generation -> api.acceptSharedInvitation(generation, JSONObject().put("id", id)) }
+    suspend fun rejectSharedInvitation(id: String): JSONObject =
+        sharedCall { api, generation -> api.rejectSharedInvitation(generation, id) }
     suspend fun sharedComments(projectId: String, taskId: String): JSONObject =
         sharedCall { api, generation -> api.sharedComments(generation, projectId, taskId) }
     suspend fun addSharedComment(projectId: String, taskId: String, body: String): JSONObject =
@@ -445,6 +459,18 @@ class AuthController private constructor(context: Context) {
         val identity = AuthProtocol.identity(payload) ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
         publish(generation, AuthPanelState(ready = previous.ready, user = identity, accountSettings = settings, preview = previous.preview,
             checkedAt = System.currentTimeMillis(), message = "Настройка сохранена в аккаунте; локальная копия обновляется."))
+    }
+
+    fun updateUiVisibility(visibility: UiVisibility) = start("Сохраняем вид приложения…") { generation ->
+        val previous = mutableState.value
+        previous.accountSettings ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
+        require(visibility.enabledCalendars.isNotEmpty())
+        val payload = withContext(Dispatchers.IO) { client.updatePreferences(generation,
+            JSONObject().put("uiVisibility", visibility.toJson())) }
+        val settings = AccountSettings.fromResponse(payload) ?: throw AuthFailure(AuthFailure.Kind.PROTOCOL)
+        val identity = AuthProtocol.identity(payload) ?: throw AuthFailure(AuthFailure.Kind.PROTOCOL)
+        publish(generation, previous.copy(busy = false, user = identity, accountSettings = settings,
+            message = "Вид приложения сохранён в аккаунте."))
     }
 
     fun connectYandexCalendar(accessToken: String, expiresIn: Long, accountId: String? = null) = start("Подключаем Яндекс.Календарь…") { generation ->

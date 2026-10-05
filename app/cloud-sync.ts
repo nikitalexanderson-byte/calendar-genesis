@@ -150,6 +150,7 @@ export type GenesisUser = {
   isAdmin: boolean;
   sharedProjectsEligible?: boolean;
   sharedProjectsEnabled?: boolean;
+  uiVisibility?: import("./ui-visibility").UiVisibility;
   calendarMode: CalendarMode;
   taskCalendarMode?: CalendarMode;
   timeFormat?: TimeFormat;
@@ -1324,6 +1325,7 @@ export function disconnectYandexCalendar(accountId?: string) {
 
 export async function updateAccountPreferences(preferences: Partial<{
   sharedProjectsEnabled: boolean;
+  uiVisibility: import("./ui-visibility").UiVisibility;
   stoicheionDivinationDisabled: boolean;
   calendarMode: CalendarMode;
   taskCalendarMode: CalendarMode;
@@ -1352,14 +1354,16 @@ export async function updateAccountPreferences(preferences: Partial<{
 export type SharedSpace = { id: string; title: string; role: "owner" | "admin" | "member" | "guest"; updatedAt: string };
 export type SharedProject = { id: string; spaceId: string; parentId: string | null; title: string;
   description: string; layout: "list" | "board"; isInbox?: number; taskCount?: number;
-  revision: number; role: string; spaceRole?: string; updatedAt: string };
+  revision: number; role: string; spaceRole?: string; canOrganizeTasks?: boolean; updatedAt: string };
 export type SharedStatus = { id: string; title: string; position: number; isDone: number; revision: number };
 export type SharedCategory = { id: string; title: string; color: string; position: number; revision: number };
 export type SharedTask = { id: string; projectId: string; statusId: string; title: string;
   categoryId: string | null; description: string; dueDate: string | null;
   assigneeId: string | null; createdBy?: string | null;
-  completedBy?: string | null; completedAt?: string | null; revision: number; updatedAt: string };
-export type SharedMember = { userId: string; role: string; spaceRole: string; displayName: string };
+  completedBy?: string | null; completedAt?: string | null; position: number;
+  revision: number; updatedAt: string };
+export type SharedMember = { userId: string; role: string; spaceRole: string;
+  canOrganizeTasks: number; displayName: string };
 export type SharedProjectSnapshot = { project: SharedProject; statuses: SharedStatus[]; categories: SharedCategory[];
   tasks: SharedTask[]; members: SharedMember[] };
 export type SharedComment = { id: string; body: string; authorId: string; authorName: string; createdAt: string };
@@ -1473,9 +1477,10 @@ export async function changeSharedMemberRole(projectId: string, userId: string, 
     method: "PATCH", body: JSON.stringify({ role }),
   });
 }
-export async function changeSharedSpaceRole(spaceId: string, userId: string, role: string) {
+export async function changeSharedSpaceRole(spaceId: string, userId: string, role: string,
+  canOrganizeTasks?: boolean) {
   return api<{ ok: true }>(`/shared/spaces/${encodeURIComponent(spaceId)}/members/${encodeURIComponent(userId)}`, {
-    method: "PATCH", body: JSON.stringify({ role }),
+    method: "PATCH", body: JSON.stringify({ role, ...(canOrganizeTasks === undefined ? {} : { canOrganizeTasks }) }),
   });
 }
 export async function removeSharedMember(projectId: string, userId: string) {
@@ -1495,16 +1500,57 @@ export async function updateSharedTask(projectId: string, taskId: string, input:
     method: "PATCH", body: JSON.stringify(input),
   })).task;
 }
+export async function moveSharedTask(projectId: string, taskId: string, input: {
+  destinationProjectId: string; statusId: string; expectedRevision: number; position: number;
+}) {
+  return (await api<{ task: Pick<SharedTask, "id" | "projectId" | "statusId" | "revision"> }>(
+    `/shared/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}/move`, {
+      method: "POST", body: JSON.stringify(input),
+    })).task;
+}
 export async function inviteSharedMember(projectId: string, email: string, role: string) {
-  return (await api<{ invitation: { id: string; token: string; expiresAt: string } }>(
+  return (await api<{ invitation: { id: string; expiresAt: string } }>(
     `/shared/projects/${encodeURIComponent(projectId)}/invitations`, {
       method: "POST", body: JSON.stringify({ email, role }),
     })).invitation;
 }
-export async function acceptSharedInvitation(token: string) {
-  return api<{ projectId: string; spaceId: string }>("/shared/invitations/accept", {
-    method: "POST", body: JSON.stringify({ token }),
+export type SharedInvitation = {
+  id: string; inviterName: string; spaceTitle: string; projectTitle: string;
+  role: string; expiresAt: string;
+};
+export async function listSharedInvitations() {
+  return (await api<{ invitations: SharedInvitation[] }>("/shared/invitations")).invitations;
+}
+export type SharedNotification = {
+  id: string; action: string; objectId: string; createdAt: string;
+  projectId: string; projectTitle: string; spaceId: string;
+  actorName: string; taskTitle: string | null; isRead: number;
+};
+export async function listSharedNotifications() {
+  return (await api<{ notifications: SharedNotification[] }>("/shared/notifications")).notifications;
+}
+export async function readSharedNotifications(eventIds: string[]) {
+  return api<{ ok: boolean }>("/shared/notifications/read", {
+    method: "POST", body: JSON.stringify({ eventIds }),
   });
+}
+export async function acceptSharedInvitation(id: string) {
+  return api<{ projectId: string; spaceId: string }>("/shared/invitations/accept", {
+    method: "POST", body: JSON.stringify({ id }),
+  });
+}
+export async function rejectSharedInvitation(id: string) {
+  return api<{ ok: boolean }>(`/shared/invitations/${encodeURIComponent(id)}`, {
+    method: "POST", body: "{}",
+  });
+}
+export type SharedCalendarTask = {
+  id: string; title: string; dueDate: string; completedAt: string | null;
+  projectId: string; projectTitle: string; spaceId: string; isInbox: number;
+};
+export async function listSharedCalendarTasks(from: string, to: string) {
+  return (await api<{ tasks: SharedCalendarTask[] }>(
+    `/shared/calendar/tasks?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`)).tasks;
 }
 export async function listSharedComments(projectId: string, taskId: string) {
   return (await api<{ comments: SharedComment[] }>(

@@ -98,6 +98,9 @@ try {
         ]]));
     sharedExpect(count(genesisSharedProjects($a, $importSpace['id'])) === 3,
         'Invalid project import left a partial tree.');
+    $memberOwned = genesisSharedCreateProject($b, $importSpace['id'], ['title' => 'Проект участника']);
+    sharedExpect(genesisSharedProjectSnapshot($a, $memberOwned['id'])['project']['canOrganizeTasks'],
+        'Workspace owner cannot organize a project created by a member.');
     $project = genesisSharedCreateProject($a, $space['id'], ['title' => 'Общий план', 'layout' => 'board']);
     $googleSample = ['id' => 'shared-test-task', 'title' => 'Общее дело',
         'description' => 'Личная заметка и имена участников', 'due_date' => '2026-10-12',
@@ -192,25 +195,61 @@ try {
     ]), 409);
     sharedReject(static fn() => genesisSharedProjectSnapshot($b, $project['id']), 404);
     sharedReject(static fn() => genesisSharedProjectSnapshot($outsider, $project['id']), 403);
+    sharedReject(static fn() => genesisSharedInvite($a, $project['id'], [
+        'email' => 'shared-outsider@example.org', 'role' => 'member',
+    ]), 403);
+    sharedExpect(count(genesisSharedInvitations($b)) === 0, 'Rejected recipient received an invitation.');
     $invitation = genesisSharedInvite($a, $project['id'], ['email' => 'mechrahod@gmail.com', 'role' => 'member']);
     $stored = genesisDb()->query('SELECT token_hash FROM shared_invitations LIMIT 1')->fetchColumn();
-    sharedExpect($stored !== $invitation['token'], 'Invitation token was stored in plaintext.');
-    sharedReject(static fn() => genesisSharedAcceptInvite($viewer, ['token' => $invitation['token']]), 404);
-    genesisSharedAcceptInvite($b, ['token' => $invitation['token']]);
-    sharedReject(static fn() => genesisSharedAcceptInvite($b, ['token' => $invitation['token']]), 404);
+    sharedExpect(!isset($invitation['token']) && is_string($stored), 'Invitation secret was exposed to the client.');
+    $pending = genesisSharedInvitations($b);
+    sharedExpect(count($pending) === 1 && $pending[0]['id'] === $invitation['id']
+        && $pending[0]['projectTitle'] === 'Обновлённый план' && $pending[0]['spaceTitle'] === 'Космос',
+        'Invitation was not delivered to the recipient account.');
+    sharedReject(static fn() => genesisSharedAcceptInvite($viewer, ['id' => $invitation['id']]), 404);
+    genesisSharedAcceptInvite($b, ['id' => $invitation['id']]);
+    sharedReject(static fn() => genesisSharedAcceptInvite($b, ['id' => $invitation['id']]), 404);
+    sharedExpect(count(genesisSharedInvitations($b)) === 0, 'Accepted invitation remained visible.');
     sharedExpect(count(genesisSharedProjects($b, $space['id'])) === 1,
         'Project guest unexpectedly saw the shared inbox.');
     sharedReject(static fn() => genesisSharedCreateProject($b, $space['id'], ['title' => 'Forbidden']), 403);
     $task = genesisSharedTask($a, $project['id'], [
         'title' => 'Задача 1', 'statusId' => $snapshot['statuses'][0]['id'],
-        'categoryId' => $category['id'],
+        'categoryId' => $category['id'], 'dueDate' => '2026-10-12',
     ]);
+    sharedExpect(count(array_filter(genesisSharedCalendarTasks($b, '2026-01-01', '2026-12-31'),
+        static fn(array $item): bool => $item['id'] === $task['id'])) === 1,
+        'Invited member cannot see shared calendar task.');
+    sharedReject(static fn() => genesisSharedCalendarTasks($outsider, '2026-01-01', '2026-12-31'), 403);
+    $activity = genesisSharedNotifications($b);
+    $taskNotice = array_values(array_filter($activity,
+        static fn(array $item): bool => $item['action'] === 'task.created' && $item['objectId'] === $task['id']));
+    sharedExpect(count($taskNotice) === 1 && (int)$taskNotice[0]['isRead'] === 0,
+        'Member did not receive team activity.');
+    genesisSharedReadNotifications($b, ['eventIds' => [$taskNotice[0]['id']]]);
+    sharedExpect((int)array_values(array_filter(genesisSharedNotifications($b),
+        static fn(array $item): bool => $item['id'] === $taskNotice[0]['id']))[0]['isRead'] === 1,
+        'Team activity read state was not saved.');
+    sharedReject(static fn() => genesisSharedReadNotifications($outsider,
+        ['eventIds' => [$taskNotice[0]['id']]]), 403);
     $listedProject = array_values(array_filter(genesisSharedProjects($a, $space['id']),
         static fn(array $item): bool => $item['id'] === $project['id']))[0];
     sharedExpect((int)$listedProject['taskCount'] === 1, 'Project list did not expose the current task count.');
     sharedExpect(count(genesisSharedProjectSnapshot($b, $project['id'])['tasks']) === 1, 'Second user cannot see the task.');
     sharedExpect(genesisSharedProjectSnapshot($b, $project['id'])['tasks'][0]['categoryId'] === $category['id'],
         'Team category did not reach the second user.');
+    sharedReject(static fn() => genesisSharedTask($b, $project['id'], [
+        'statusId' => $snapshot['statuses'][1]['id'], 'expectedRevision' => 1,
+    ], $task['id']), 403);
+    sharedReject(static fn() => genesisSharedMoveTask($b, $project['id'], $task['id'], [
+        'destinationProjectId' => $project['id'], 'statusId' => $snapshot['statuses'][1]['id'],
+        'expectedRevision' => 1, 'position' => 0,
+    ]), 403);
+    genesisSharedSetSpaceRole($a, $space['id'], $b, [
+        'role' => 'guest', 'canOrganizeTasks' => true,
+    ]);
+    sharedExpect(genesisSharedProjectSnapshot($b, $project['id'])['project']['canOrganizeTasks'],
+        'Delegated organizer access was not exposed to the member.');
     $updated = genesisSharedTask($b, $project['id'], [
         'statusId' => $snapshot['statuses'][1]['id'], 'expectedRevision' => 1,
     ], $task['id']);
@@ -238,8 +277,45 @@ try {
     ], $task['id']), 409);
     genesisSharedAddComment($b, $project['id'], $task['id'], ['body' => 'Сделаю сегодня']);
     sharedExpect(count(genesisSharedComments($a, $project['id'], $task['id'])) === 1, 'Comment did not persist.');
+    genesisDb()->prepare('INSERT INTO shared_google_preferences
+        (project_id, user_id, tasks_enabled, calendar_enabled, updated_at)
+        VALUES (:project, :user, 1, 0, :now)')->execute([
+        'project' => $otherProject['id'], 'user' => $a, 'now' => genesisNow(),
+    ]);
+    genesisDb()->prepare("INSERT INTO shared_google_projection_links
+        (task_id, user_id, destination, google_id, google_list_id, synced_revision, synced_at)
+        VALUES (:task, :user, 'tasks', 'google-task-copy', 'old-google-list', 1, :now)")->execute([
+        'task' => $task['id'], 'user' => $a, 'now' => genesisNow(),
+    ]);
+    $beforeMove = genesisSharedProjectSnapshot($a, $project['id'])['tasks'][0];
+    $moved = genesisSharedMoveTask($a, $project['id'], $task['id'], [
+        'destinationProjectId' => $otherProject['id'],
+        'statusId' => $otherSnapshot['statuses'][0]['id'],
+        'expectedRevision' => (int)$beforeMove['revision'], 'position' => 0,
+    ]);
+    sharedExpect($moved['projectId'] === $otherProject['id']
+        && count(genesisSharedProjectSnapshot($a, $project['id'])['tasks']) === 0,
+        'Task was not moved atomically to the second project.');
+    sharedExpect(genesisDb()->query("SELECT google_list_id FROM shared_google_projection_links
+        WHERE google_id = 'google-task-copy'")->fetchColumn() === 'old-google-list',
+        'A consented member lost the Google copy before it could move between lists.');
+    $movedBack = genesisSharedMoveTask($a, $otherProject['id'], $task['id'], [
+        'destinationProjectId' => $project['id'], 'statusId' => $snapshot['statuses'][0]['id'],
+        'expectedRevision' => $moved['revision'], 'position' => 0,
+    ]);
+    sharedExpect($movedBack['projectId'] === $project['id']
+        && count(genesisSharedComments($a, $project['id'], $task['id'])) === 1,
+        'Moving a task back lost its identity or discussion.');
+    sharedExpect((int)genesisDb()->query("SELECT COUNT(*) FROM shared_google_projection_cleanup
+        WHERE google_id = 'google-task-copy' AND google_list_id = 'old-google-list'")->fetchColumn() === 1,
+        'A copy without destination consent was not queued for deletion.');
     $viewerInvite = genesisSharedInvite($a, $project['id'], ['email' => 'eagbread@gmail.com', 'role' => 'viewer']);
-    genesisSharedAcceptInvite($viewer, ['token' => $viewerInvite['token']]);
+    $declined = genesisSharedInvite($a, $otherProject['id'], ['email' => 'eagbread@gmail.com', 'role' => 'viewer']);
+    sharedReject(static fn() => genesisSharedRejectInvite($b, $declined['id']), 404);
+    genesisSharedRejectInvite($viewer, $declined['id']);
+    sharedExpect(count(genesisSharedInvitations($viewer)) === 1, 'Declined invitation remained visible.');
+    sharedReject(static fn() => genesisSharedAcceptInvite($viewer, ['id' => $declined['id']]), 404);
+    genesisSharedAcceptInvite($viewer, ['id' => $viewerInvite['id']]);
     sharedExpect(count(genesisSharedProjects($viewer, $space['id'])) === 1,
         'Viewer unexpectedly saw another shared project.');
     sharedExpect(count(genesisSharedProjectSnapshot($viewer, $project['id'])['tasks']) === 1, 'Viewer cannot read.');
@@ -276,10 +352,10 @@ try {
     sharedExpect(count(genesisSharedProjects($b, $space['id'])) === 1,
         'Removing a project role also removed promoted space membership.');
     $returnInvite = genesisSharedInvite($a, $project['id'], ['email' => 'mechrahod@gmail.com', 'role' => 'manager']);
-    genesisSharedAcceptInvite($b, ['token' => $returnInvite['token']]);
+    genesisSharedAcceptInvite($b, ['id' => $returnInvite['id']]);
     $viewerArchive = genesisSharedCreateProject($a, $space['id'], ['title' => 'Архив гостя']);
     $archiveInvite = genesisSharedInvite($a, $viewerArchive['id'], ['email' => 'eagbread@gmail.com']);
-    genesisSharedAcceptInvite($viewer, ['token' => $archiveInvite['token']]);
+    genesisSharedAcceptInvite($viewer, ['id' => $archiveInvite['id']]);
     genesisSharedSetArchived($a, $viewerArchive['id'], true);
     genesisSharedRemoveMember($a, $project['id'], $viewer);
     sharedExpect(count(genesisSharedArchivedProjects($viewer, $space['id'])) === 1,
@@ -291,7 +367,7 @@ try {
     $guestSpace = genesisSharedCreateSpace($a, ['title' => 'Второе пространство']);
     $guestProject = genesisSharedCreateProject($a, $guestSpace['id'], ['title' => 'Только гости']);
     $guestInvite = genesisSharedInvite($a, $guestProject['id'], ['email' => 'eagbread@gmail.com']);
-    genesisSharedAcceptInvite($viewer, ['token' => $guestInvite['token']]);
+    genesisSharedAcceptInvite($viewer, ['id' => $guestInvite['id']]);
     sharedExpect(count(genesisSharedProjects($viewer, $guestSpace['id'])) === 1,
         'Guest inherited the shared inbox before ownership transfer.');
     genesisUpdateAccountPreferences($b, ['sharedProjectsEnabled' => false]);

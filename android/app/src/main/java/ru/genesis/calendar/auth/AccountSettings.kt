@@ -33,6 +33,29 @@ data class SyncRouting(
     }
 }
 
+data class UiVisibility(
+    val hiddenMenuItems: Set<String> = emptySet(),
+    val hiddenSubmenus: Set<String> = emptySet(),
+    val hiddenTodayBlocks: Set<String> = emptySet(),
+    val enabledCalendars: Set<String> = setOf("profane", "sacred", "lunar"),
+) {
+    fun toJson(): JSONObject = JSONObject()
+        .put("hiddenMenuItems", JSONArray(hiddenMenuItems.toList()))
+        .put("hiddenSubmenus", JSONArray(hiddenSubmenus.toList()))
+        .put("hiddenTodayBlocks", JSONArray(hiddenTodayBlocks.toList()))
+        .put("enabledCalendars", JSONArray(enabledCalendars.toList()))
+
+    companion object {
+        fun fromJson(value: JSONObject?): UiVisibility {
+            if (value == null) return UiVisibility()
+            fun entries(key: String): Set<String> = value.optJSONArray(key)?.strings()?.toSet() ?: emptySet()
+            return UiVisibility(entries("hiddenMenuItems"), entries("hiddenSubmenus"),
+                entries("hiddenTodayBlocks"), value.optJSONArray("enabledCalendars")?.strings()?.toSet()
+                    ?.takeIf { it.isNotEmpty() } ?: setOf("profane", "sacred", "lunar"))
+        }
+    }
+}
+
 data class AccountSettings(
     val accounts: List<LinkedGoogleAccount>,
     val routing: SyncRouting,
@@ -51,6 +74,7 @@ data class AccountSettings(
     val calendarConnected: Boolean = false,
     val sharedProjectsEligible: Boolean = false,
     val sharedProjectsEnabled: Boolean = false,
+    val uiVisibility: UiVisibility = UiVisibility(),
 ) {
     companion object {
         fun fromResponse(response: JSONObject): AccountSettings? {
@@ -92,7 +116,8 @@ data class AccountSettings(
                 user.optString("language", "ru"), user.optBoolean("isAdmin"), user.optString("weekStart", "monday"),
                 user.optString("gregorianYearStart", "january"),
                 user.optString("authProvider", "google"), user.optBoolean("calendarConnected"),
-                user.optBoolean("sharedProjectsEligible"), user.optBoolean("sharedProjectsEnabled"))
+                user.optBoolean("sharedProjectsEligible"), user.optBoolean("sharedProjectsEnabled"),
+                UiVisibility.fromJson(user.optJSONObject("uiVisibility")))
         }
     }
 }

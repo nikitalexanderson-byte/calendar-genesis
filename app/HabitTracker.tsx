@@ -148,6 +148,7 @@ type HabitTrackerPageProps = DailyPanelProps & {
   googleTasksReady: boolean;
   googleCalendarReady: boolean;
   experimentalThemeActive?: boolean;
+  hiddenSubmenus?: string[];
   voiceRequest?: { token: number; kind: "edit" | "delete" | "section"; id?: string; section?: string } | null;
   onVoiceRequestConsumed?: () => void;
   onReminderRequested?: (habit: Habit) => Promise<{ googleTaskId: string | null; googleEventId: string | null }>;
@@ -1444,7 +1445,7 @@ function SacredHabitLibrary({
   );
 }
 
-export function HabitTrackerPage({ workspace, date, language, timeFormat, calendarMode, googleTasksReady, googleCalendarReady, experimentalThemeActive = false, voiceRequest, onVoiceRequestConsumed, onChange, onReminderRequested, onReminderRemoved }: HabitTrackerPageProps) {
+export function HabitTrackerPage({ workspace, date, language, timeFormat, calendarMode, googleTasksReady, googleCalendarReady, experimentalThemeActive = false, hiddenSubmenus = [], voiceRequest, onVoiceRequestConsumed, onChange, onReminderRequested, onReminderRemoved }: HabitTrackerPageProps) {
   const isEnglish = language === "en";
   const workspaceRef = useRef(workspace);
   useEffect(() => {
@@ -1457,6 +1458,9 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
   const [message, setMessage] = useState("");
   const [heroPathOpen, setHeroPathOpen] = useState(false);
   const [experimentalHabitTab, setExperimentalHabitTab] = useState<"today" | "library" | "modules" | "progress">("today");
+  const habitTabs = (["today", "library", "modules", "progress"] as const).filter((tab) =>
+    tab === "modules" ? !hiddenSubmenus.includes("habits.sleep") : !hiddenSubmenus.includes("habits.habits"));
+  const activeHabitTab = habitTabs.includes(experimentalHabitTab) ? experimentalHabitTab : habitTabs[0] ?? "today";
   const experimentalHabitTabsRef = useRef<HTMLDivElement>(null);
   const range = reportDateRange(workspace.habitSettings, date, reportCalendarStarts(date, calendarMode));
   const total = calculateHabitTotal(workspace);
@@ -1598,7 +1602,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
     },
   });
   return (
-    <div className={`habits-view${workspace.habitSettings.feedback.gamificationWidgets ? "" : " gamification-hidden"}${experimentalThemeActive ? ` experimental-habit-tab-${experimentalHabitTab}` : ""}`} data-exp-layout="view">
+    <div className={`habits-view${workspace.habitSettings.feedback.gamificationWidgets ? "" : " gamification-hidden"}${experimentalThemeActive ? ` experimental-habit-tab-${activeHabitTab}` : ""}`} data-exp-layout="view">
       <header className="habits-hero">
         <div><span className="eyebrow">{isEnglish ? "Encrypted personal tracker" : "Зашифрованный личный трекер"}</span><h1>{isEnglish ? "Trackers" : "Привычки"}</h1><p>{isEnglish ? "Habits, sleep, mood and abstinence are independent modules over one secure tracker core." : "Привычки, сон, настроение и воздержание — независимые модули поверх единого защищённого ядра."}</p><p className="habits-hero-layout-hint">{experimentalThemeActive
           ? (isEnglish ? "Use the workspace tabs to keep today's rhythm, your library, modules and progress separate." : "Переходите по вкладкам: сегодняшний ритм, библиотека, модули и прогресс больше не смешиваются в одной ленте.")
@@ -1614,19 +1618,19 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
         </div>
       </header>
       {experimentalThemeActive ? <div ref={experimentalHabitTabsRef} className="experimental-habit-tabs" role="tablist" tabIndex={-1} aria-label={isEnglish ? "Habit workspace" : "Рабочая зона привычек"} onKeyDown={(event) => {
-        const tabs = ["today", "library", "modules", "progress"] as const;
+        const tabs = habitTabs;
         if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
         event.preventDefault();
-        const currentIndex = tabs.indexOf(experimentalHabitTab);
+        const currentIndex = tabs.indexOf(activeHabitTab);
         const nextIndex = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : event.key === "ArrowLeft" ? (currentIndex - 1 + tabs.length) % tabs.length : (currentIndex + 1) % tabs.length;
         const nextTab = tabs[nextIndex];
         setExperimentalHabitTab(nextTab);
         window.requestAnimationFrame(() => experimentalHabitTabsRef.current?.querySelector<HTMLButtonElement>(`[data-experimental-habit-tab="${nextTab}"]`)?.focus());
       }}>
-        <button data-experimental-habit-tab="today" type="button" role="tab" tabIndex={experimentalHabitTab === "today" ? 0 : -1} aria-selected={experimentalHabitTab === "today"} onClick={() => setExperimentalHabitTab("today")}><span aria-hidden="true">☉</span><strong>{isEnglish ? "Today" : "Сегодня"}</strong><small>{isEnglish ? "Rhythm and trials" : "Ритм и испытания"}</small></button>
-        <button data-experimental-habit-tab="library" type="button" role="tab" tabIndex={experimentalHabitTab === "library" ? 0 : -1} aria-selected={experimentalHabitTab === "library"} onClick={() => setExperimentalHabitTab("library")}><span aria-hidden="true">✦</span><strong>{isEnglish ? "Habits" : "Привычки"}</strong><small>{isEnglish ? "Library and templates" : "Библиотека и шаблоны"}</small></button>
-        <button data-experimental-habit-tab="modules" type="button" role="tab" tabIndex={experimentalHabitTab === "modules" ? 0 : -1} aria-selected={experimentalHabitTab === "modules"} onClick={() => setExperimentalHabitTab("modules")}><span aria-hidden="true">◇</span><strong>{isEnglish ? "Modules" : "Модули"}</strong><small>{isEnglish ? "Sleep and sacred" : "Сон и сакральное"}</small></button>
-        <button data-experimental-habit-tab="progress" type="button" role="tab" tabIndex={experimentalHabitTab === "progress" ? 0 : -1} aria-selected={experimentalHabitTab === "progress"} onClick={() => setExperimentalHabitTab("progress")}><span aria-hidden="true">↗</span><strong>{isEnglish ? "Progress" : "Прогресс"}</strong><small>{isEnglish ? "Stats and awards" : "Статистика и награды"}</small></button>
+        {habitTabs.includes("today") ? <button data-experimental-habit-tab="today" type="button" role="tab" tabIndex={activeHabitTab === "today" ? 0 : -1} aria-selected={activeHabitTab === "today"} onClick={() => setExperimentalHabitTab("today")}><span aria-hidden="true">☉</span><strong>{isEnglish ? "Today" : "Сегодня"}</strong><small>{isEnglish ? "Rhythm and trials" : "Ритм и испытания"}</small></button> : null}
+        {habitTabs.includes("library") ? <button data-experimental-habit-tab="library" type="button" role="tab" tabIndex={activeHabitTab === "library" ? 0 : -1} aria-selected={activeHabitTab === "library"} onClick={() => setExperimentalHabitTab("library")}><span aria-hidden="true">✦</span><strong>{isEnglish ? "Habits" : "Привычки"}</strong><small>{isEnglish ? "Library and templates" : "Библиотека и шаблоны"}</small></button> : null}
+        {habitTabs.includes("modules") ? <button data-experimental-habit-tab="modules" type="button" role="tab" tabIndex={activeHabitTab === "modules" ? 0 : -1} aria-selected={activeHabitTab === "modules"} onClick={() => setExperimentalHabitTab("modules")}><span aria-hidden="true">◇</span><strong>{isEnglish ? "Modules" : "Модули"}</strong><small>{isEnglish ? "Sleep and sacred" : "Сон и сакральное"}</small></button> : null}
+        {habitTabs.includes("progress") ? <button data-experimental-habit-tab="progress" type="button" role="tab" tabIndex={activeHabitTab === "progress" ? 0 : -1} aria-selected={activeHabitTab === "progress"} onClick={() => setExperimentalHabitTab("progress")}><span aria-hidden="true">↗</span><strong>{isEnglish ? "Progress" : "Прогресс"}</strong><small>{isEnglish ? "Stats and awards" : "Статистика и награды"}</small></button> : null}
       </div> : null}
       {hasHabits && workspace.habitSettings.feedback.gamificationWidgets ? <CollapsibleHabitBlock className="experimental-habit-section experimental-habit-section-today" label={isEnglish ? "Streak protection and comeback" : "Защита серии и возвращение"} language={language} {...disclosureProps("streak-resilience")}><section className="streak-resilience" aria-label={isEnglish ? "Streak protection and comeback" : "Защита серии и возвращение"}>
         <article className="hestia-spark-card">

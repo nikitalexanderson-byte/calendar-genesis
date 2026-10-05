@@ -50,4 +50,15 @@ class MenuSwipeNavigationTest {
         assertEquals(SwipeDestination("Проекты", "personal"),
             nextMenuSwipeDestination(pages, "Проекты", "shared", -1))
     }
+
+    @Test fun hiddenSectionsAreSkippedWithoutBlankSwipePages() {
+        val pages = menuSwipeSequence(true, true, true,
+            hiddenMenuItems = setOf("stoicheion", "theokyklos"),
+            hiddenSubmenus = setOf("tasks.lists", "projects.personal", "calendar.month", "habits.sleep"))
+        assertEquals(listOf(SwipeDestination("Сегодня"), SwipeDestination("Задачи", "tasks"),
+            SwipeDestination("Проекты", "shared"), SwipeDestination("Календарь", "year"),
+            SwipeDestination("Привычки", "Привычки"), SwipeDestination("Настройки")), pages)
+        assertEquals(SwipeDestination("Настройки"),
+            nextMenuSwipeDestination(pages, "Привычки", "Привычки", 1))
+    }
 }

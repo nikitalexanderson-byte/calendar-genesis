@@ -103,6 +103,22 @@ try {
     expect((genesisUserForClient($user)['timeFormat'] ?? '') === '12h', 'Time format preference was not exposed to the client.');
     expect(($user['language'] ?? '') === 'en', 'Language preference was not stored.');
     expect((genesisUserForClient($user)['language'] ?? '') === 'en', 'Language preference was not exposed to the client.');
+    $visibility = [
+        'hiddenMenuItems' => ['stoicheion'], 'hiddenSubmenus' => ['calendar.year'],
+        'hiddenTodayBlocks' => ['rhythm'], 'enabledCalendars' => ['profane'],
+    ];
+    $user = genesisUpdateAccountPreferences($userId, ['uiVisibility' => $visibility]);
+    expect(genesisUserForClient($user)['uiVisibility'] === $visibility, 'Navigation visibility did not round-trip.');
+    expect($user['calendar_mode'] === 'profane' && $user['task_calendar_mode'] === 'profane',
+        'Disabled calendars remained selected.');
+    foreach ([['enabledCalendars' => []], ['hiddenSubmenus' => ['calendar.month', 'calendar.year']]] as $invalid) {
+        try {
+            genesisUpdateAccountPreferences($userId, ['uiVisibility' => [...$visibility, ...$invalid]]);
+            throw new RuntimeException('Invalid navigation visibility was accepted.');
+        } catch (InvalidArgumentException $expected) { /* Rejected before write. */ }
+    }
+    $user = genesisUpdateAccountPreferences($userId, ['uiVisibility' => genesisUiVisibility([]),
+        'calendarMode' => 'sacred', 'taskCalendarMode' => 'lunar']);
     expect((genesisUserForClient($user)['theme'] ?? '') === 'standart', 'Theme must default safely to Standart.');
     $user = genesisUpdateAccountPreferences($userId, ['theme' => 'experimental', 'expectedThemeRevision' => 0]);
     expect(($user['theme'] ?? '') === 'experimental', 'Theme preference was not stored.');
