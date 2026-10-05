@@ -67,3 +67,13 @@ test("creation phrases use naming words as instructions and preserve the actual 
   assert.deepEqual(parse("создай проект с названием Проект номер 1"), { kind: "create-project", title: "Проект номер 1" });
   assert.deepEqual(parse("create habit called Morning walk"), { kind: "create-habit", title: "Morning walk" });
 });
+
+test("mood commands recognize Russian and English values without guessing unknown moods", () => {
+  const parse = (phrase) => parseWebVoiceAction(phrase, tasks, projects, habits);
+  assert.deepEqual(parse("отметь настроение дня как радость"), { kind: "set-mood", value: 4 });
+  assert.deepEqual(parse("сегодня у меня настроение минус три"), { kind: "set-mood", value: -3 });
+  assert.deepEqual(parse("запиши настроение плюс четыре"), { kind: "set-mood", value: 4 });
+  assert.deepEqual(parse("I feel calm today"), { kind: "set-mood", value: 1 });
+  assert.deepEqual(parse("log my mood as drained"), { kind: "set-mood", value: -4 });
+  assert.equal(parse("отметь настроение серебристое"), null);
+});

@@ -16,6 +16,7 @@ sealed interface NativeVoiceAction {
     data class CalendarDate(val year: Int, val month: Int, val day: Int): NativeVoiceAction
     data class CalendarMonth(val ordinal: Int): NativeVoiceAction
     data class Scroll(val direction: String): NativeVoiceAction
+    data class SetMood(val value: Int): NativeVoiceAction
     data class CreateProject(val title: String): NativeVoiceAction
     data class CreateCategory(val title: String): NativeVoiceAction
     data class CreateTaskList(val title: String): NativeVoiceAction
@@ -35,6 +36,33 @@ sealed interface NativeVoiceAction {
     data class MoveTask(val id: String, val title: String, val projectId: String?): NativeVoiceAction
 }
 
+private val voiceMoodNames = listOf(
+    -5 to Regex("""(?iu)^(?:крайне тяжело|очень плохо|terrible|very bad)$"""),
+    -4 to Regex("""(?iu)^(?:опустошённость|опустошенность|пусто|drained)$"""),
+    -3 to Regex("""(?iu)^(?:грусть|грустно|печально|sad)$"""),
+    -2 to Regex("""(?iu)^(?:тревога|тревожно|anxious)$"""),
+    -1 to Regex("""(?iu)^(?:усталость|устал|устала|tired)$"""),
+    0 to Regex("""(?iu)^(?:нейтрально|нормально|neutral|okay|fine)$"""),
+    1 to Regex("""(?iu)^(?:спокойствие|спокойно|calm)$"""),
+    2 to Regex("""(?iu)^(?:сосредоточенность|сосредоточен|сосредоточена|focused)$"""),
+    3 to Regex("""(?iu)^(?:уверенность|уверенно|confident)$"""),
+    4 to Regex("""(?iu)^(?:радость|радостно|happy|joyful)$"""),
+    5 to Regex("""(?iu)^(?:воодушевление|воодушевлён|воодушевлен|inspired)$"""),
+    6 to Regex("""(?iu)^(?:восторг|в восторге|delighted|ecstatic)$"""),
+)
+
+private fun voiceMoodValue(raw: String): Int? {
+    val value=raw.trim().trim('«','»','"','\'','.',',','!','?')
+        .replace(Regex("""(?iu)\s+(?:сегодня|today)$"""),"").trim()
+    val digit=Regex("""(?iu)^(минус|minus|плюс|plus|[-+])?\s*(0|1|2|3|4|5|6|ноль|один|одна|два|две|три|четыре|пять|шесть|zero|one|two|three|four|five|six)$""").matchEntire(value)
+    val words=mapOf("ноль" to 0,"один" to 1,"одна" to 1,"два" to 2,"две" to 2,"три" to 3,
+        "четыре" to 4,"пять" to 5,"шесть" to 6,"zero" to 0,"one" to 1,"two" to 2,
+        "three" to 3,"four" to 4,"five" to 5,"six" to 6)
+    if(digit!=null) return (words[digit.groupValues[2].lowercase()] ?: digit.groupValues[2].toInt()) *
+        if(digit.groupValues[1].matches(Regex("""(?iu)^(?:минус|minus|-)$"""))) -1 else 1
+    return voiceMoodNames.firstOrNull { it.second.matches(value) }?.first
+}
+
 /** Explicit commands only: unknown or ambiguous titles never mutate user data. */
 internal fun parseNativeVoiceAction(raw: String, tasks: List<LocalTask>, projects: List<GenesisProject>,
     habits: List<Habit>, lists: List<GoogleTaskList> = emptyList(),
@@ -48,6 +76,10 @@ internal fun parseNativeVoiceAction(raw: String, tasks: List<LocalTask>, project
     fun subject(pattern: String): String? = Regex(pattern,RegexOption.IGNORE_CASE).matchEntire(command)
         ?.groupValues?.get(1)?.trim(' ','«','»','"','.',',','!','?')?.takeIf(String::isNotBlank)
     fun spokenName(value: String) = value.replaceFirst(Regex("(?iu)^(?:(?:под|с)\\s+названием|по\\s+имени|назови\\s+(?:её|его)|named|called|with\\s+the\\s+title)\\s+"),"").trim()
+    Regex("""(?iu)^(?:(?:(?:отметь|запиши|поставь|укажи|выбери|set|log|record|mark)\s+)?(?:(?:моё|мое|my|сегодняшнее)\s+)?(?:настроение|mood)(?:\s+(?:дня|сегодня|today))?\s+(?:(?:как|на|as|to|is)\s+)?|(?:у\s+меня\s+сегодня\s+настроение|сегодня\s+у\s+меня\s+настроение|today\s+my\s+mood\s+is|i\s+feel|i'm\s+feeling|i\s+am\s+feeling)\s+)(.+)$""")
+        .matchEntire(command)?.let { match ->
+            voiceMoodValue(match.groupValues[1])?.let { return NativeVoiceAction.SetMood(it) }
+        }
     fun <T> resolve(name: String, records: List<T>, title: (T)->String): T {
         val exact=records.filter { title(it).equals(name,true) }
         val found=if(exact.isNotEmpty()) exact else records.filter { title(it).contains(name,true) }
@@ -204,6 +236,8 @@ internal fun looksLikeUnsupportedVoiceAction(command: String): Boolean =
     Regex("(?iu)^(?:(?:хочу|пожалуйста|please|i want to)\\s+)?(?:удали|удалить|delete|remove|редактируй|отредактируй|отредактировать|редактировать|измени|изменить|edit|перемести|перенеси|move|открой|покажи|перейди|open|show|убери|исключи|прокрути|пролистай|листай|скролль|свайпни|поменяй|переключи|установи|выбери|scroll|swipe|switch|select)(?=\\s|$)")
         .containsMatchIn(command.trim()) ||
     Regex("(?iu)^(?:создай|создать|добавь|добавить|create|add)\\s+(?:новый|новую|new)?\\s*(?:проект|категори[а-яё]*|привычк[а-яё]*|список|project|category|habit|task list)(?=\\s|$)")
+        .containsMatchIn(command.trim()) ||
+    Regex("""(?iu)^(?:(?:отметь|запиши|поставь|укажи|выбери|set|log|record|mark)\s+)?(?:(?:моё|мое|my|сегодняшнее)\s+)?(?:настроение|mood)(?=\s|$)""")
         .containsMatchIn(command.trim())
 
 internal fun isVoiceTaskCreationCommand(command: String): Boolean =

@@ -3912,6 +3912,7 @@ export function GenesisCalendar() {
     return runWebVoiceCommand(command, {
       language, calendarMode: activeTaskCalendarMode, currentView: view,
       today: todayDateValue, timeZone: deviceTimeZone,
+      persistentWorkspace: Boolean(cloudUser) || !isGoogleSyncConfigured,
       categories, projects, taskLists, accounts: googleAccounts.map((account) => ({ email: account.email })),
       tasks, workspace: habitWorkspace,
     }, {

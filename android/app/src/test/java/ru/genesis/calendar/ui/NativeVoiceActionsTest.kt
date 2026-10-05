@@ -95,4 +95,15 @@ class NativeVoiceActionsTest {
         assertEquals(NativeVoiceAction.CreateTaskList("Покупки"),
             parse("создай список задач с названием Покупки"))
     }
+
+    @Test fun moodCommandsRecognizeBothLanguagesWithoutGuessing() {
+        fun parse(value: String)=parseNativeVoiceAction(value,listOf(task),listOf(project),listOf(habit))
+        assertEquals(NativeVoiceAction.SetMood(4),parse("отметь настроение дня как радость"))
+        assertEquals(NativeVoiceAction.SetMood(-3),parse("сегодня у меня настроение минус три"))
+        assertEquals(NativeVoiceAction.SetMood(4),parse("запиши настроение плюс четыре"))
+        assertEquals(NativeVoiceAction.SetMood(1),parse("I feel calm today"))
+        assertEquals(NativeVoiceAction.SetMood(-4),parse("log my mood as drained"))
+        assertNull(parse("отметь настроение серебристое"))
+        assertTrue(looksLikeUnsupportedVoiceAction("отметь настроение серебристое"))
+    }
 }

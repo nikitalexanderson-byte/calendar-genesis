@@ -4,12 +4,15 @@ import { localizeCategoryName, type Language } from "./i18n";
 import { createLocalVoicePlan } from "./local-voice-plan";
 import { parseWebVoiceAction } from "./web-voice-actions";
 import type { CalendarMode } from "./calendar-data";
+import { moodOption, type MoodEntry } from "./mood-tracker";
+import { markTrackerEntityChanged, newTrackerEntity, trackerTimestamp } from "./tracker-core";
 
 type View = "today" | "calendar" | "year" | "all-tasks" | "projects" | "habits" | "theokyklos" | "stoicheion" | "admin";
 type Request = { kind: "edit" | "delete" | "section"; id?: string; section?: string };
 export type WebVoiceContext = {
   language: Language; calendarMode: CalendarMode; currentView: View;
   today: string; timeZone: string;
+  persistentWorkspace: boolean;
   categories: GenesisCategory[]; projects: GenesisProject[]; taskLists: GoogleTaskList[];
   accounts: { email: string }[]; tasks: GenesisTask[]; workspace: HabitWorkspace;
 };
@@ -37,7 +40,8 @@ export type WebVoiceEffects = {
 };
 
 export async function runWebVoiceCommand(command: string, context: WebVoiceContext, effects: WebVoiceEffects): Promise<string> {
-  const { language, calendarMode, currentView, today, timeZone, categories, projects, taskLists, accounts, tasks, workspace } = context;
+  const { language, calendarMode, currentView, today, timeZone, persistentWorkspace,
+    categories, projects, taskLists, accounts, tasks, workspace } = context;
   const { navigate, requestHabit, applyPlan, updateWorkspace, openTask, confirmTaskDelete, openList, deleteList,
     openProject, deleteProject, createCategory, openCategory, deleteCategory, toggleTask, changeTask,
     changeDisplayCalendar, stepCalendar, chooseCalendarMonth, chooseCalendarDate, scrollPage } = effects;
@@ -116,6 +120,20 @@ export async function runWebVoiceCommand(command: string, context: WebVoiceConte
     updateWorkspace({ ...workspace, habits: [...workspace.habits, habit] });
     navigate("habits");
     return reply("Привычка создана.", "Habit created.");
+  }
+  if (action.kind === "set-mood") {
+    const current = workspace.moodEntries.find((entry) => entry.date === today);
+    const entry = markTrackerEntityChanged<MoodEntry>({
+      ...(current ?? { ...newTrackerEntity("mood"), date: today, note: "", tags: [] }),
+      recordedAt: trackerTimestamp(), moodValue: action.value, customLabel: "", customEmoji: "",
+    });
+    updateWorkspace({ ...workspace, moodEntries: [...workspace.moodEntries.filter((item) => item.date !== today), entry] });
+    navigate("habits");
+    requestHabit({ kind: "section", section: "modules" });
+    const option = moodOption(action.value);
+    if (!persistentWorkspace) return reply("Настроение выбрано для этой сессии. Войдите, чтобы сохранить.",
+      "Mood selected for this session. Sign in to save it.");
+    return reply(`Настроение отмечено: ${option.label}.`, `Mood recorded: ${option.labelEn}.`);
   }
   if (action.kind === "create-category") {
     createCategory(action.title);

@@ -112,6 +112,8 @@ const curatedTranslations: Record<string, string> = {
   "Привычка выполнена.": "Habit completed.",
   "Отметка привычки снята.": "Habit completion cleared.",
   "Задача перемещена.": "Task moved.",
+  "Настроение отмечено:": "Mood recorded:",
+  "Настроение выбрано для этой сессии. Войдите, чтобы сохранить.": "Mood selected for this session. Sign in to save it.",
   "Пока не умею это делать.": "I cannot do that yet.",
   "Показать имя аккаунта": "Show account name",
   "Город не найден. Уточните название.": "No places found. Try a different name.",

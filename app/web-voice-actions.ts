@@ -1,3 +1,5 @@
+import type { MoodValue } from "./mood-tracker";
+
 export type WebVoiceAction =
   | { kind: "navigate"; section: "today" | "calendar" | "year" | "all-tasks" | "projects" | "habits" | "theokyklos" | "stoicheion" | "admin" }
   | { kind: "calendar-mode"; mode: "sacred" | "lunar" | "profane" }
@@ -7,11 +9,39 @@ export type WebVoiceAction =
   | { kind: "calendar-date"; year: number; month: number; day: number }
   | { kind: "calendar-month"; ordinal: number }
   | { kind: "scroll"; direction: "up" | "down" | "top" | "bottom" }
+  | { kind: "set-mood"; value: MoodValue }
   | { kind: "create-project" | "create-list" | "create-habit" | "create-task" | "create-category"; title: string }
   | { kind: "edit-task" | "delete-task" | "edit-list" | "delete-list" | "edit-project" | "delete-project" | "edit-category" | "delete-category" | "edit-habit" | "delete-habit" | "complete-task" | "uncomplete-task" | "complete-habit" | "uncomplete-habit"; id: string; title: string }
   | { kind: "move-task"; id: string; title: string; projectId: string | null };
 
 type Named = { id: string; title: string };
+
+const MOOD_NAMES: ReadonlyArray<readonly [MoodValue, RegExp]> = [
+  [-5, /^(?:крайне тяжело|очень плохо|terrible|very bad)$/iu],
+  [-4, /^(?:опустошённость|опустошенность|пусто|drained)$/iu],
+  [-3, /^(?:грусть|грустно|печально|sad)$/iu],
+  [-2, /^(?:тревога|тревожно|anxious)$/iu],
+  [-1, /^(?:усталость|устал|устала|tired)$/iu],
+  [0, /^(?:нейтрально|нормально|neutral|okay|fine)$/iu],
+  [1, /^(?:спокойствие|спокойно|calm)$/iu],
+  [2, /^(?:сосредоточенность|сосредоточен|сосредоточена|focused)$/iu],
+  [3, /^(?:уверенность|уверенно|confident)$/iu],
+  [4, /^(?:радость|радостно|happy|joyful)$/iu],
+  [5, /^(?:воодушевление|воодушевлён|воодушевлен|inspired)$/iu],
+  [6, /^(?:восторг|в восторге|delighted|ecstatic)$/iu],
+];
+
+function voiceMoodValue(raw: string): MoodValue | null {
+  const value = raw.trim().replace(/^[«"']+|[»"'.!?]+$/gu, "").replace(/\s+(?:сегодня|today)$/iu, "").trim();
+  const digit = value.match(/^(минус|minus|плюс|plus|[-+])?\s*(0|1|2|3|4|5|6|ноль|один|одна|два|две|три|четыре|пять|шесть|zero|one|two|three|four|five|six)$/iu);
+  if (digit) {
+    const words: Record<string, number> = { ноль: 0, один: 1, одна: 1, два: 2, две: 2, три: 3, четыре: 4,
+      пять: 5, шесть: 6, zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6 };
+    const magnitude = words[digit[2].toLocaleLowerCase()] ?? Number(digit[2]);
+    return (/^(?:минус|minus|-)$/iu.test(digit[1] ?? "") ? -magnitude : magnitude) as MoodValue;
+  }
+  return MOOD_NAMES.find(([, pattern]) => pattern.test(value))?.[0] ?? null;
+}
 
 function spokenName(value: string) {
   return value.replace(/^(?:(?:под|с)\s+названием|по\s+имени|назови\s+(?:её|его)|named|called|with\s+the\s+title)\s+/iu, "")
@@ -36,6 +66,11 @@ export function parseWebVoiceAction(raw: string, tasks: Named[], projects: Named
     .replace(/[,\s]+(?:пожалуйста|please)[.!?]*$/iu, "").replace(/[.!?]+$/u, "").trim();
   if (!command || /[;\n]/.test(raw)) return null;
   const named = (pattern: RegExp) => command.match(pattern)?.[1]?.trim().replace(/^[«"\s]+|[»".,!?\s]+$/g, "") || "";
+  const mood = command.match(/^(?:(?:(?:отметь|запиши|поставь|укажи|выбери|set|log|record|mark)\s+)?(?:(?:моё|мое|my|сегодняшнее)\s+)?(?:настроение|mood)(?:\s+(?:дня|сегодня|today))?\s+(?:(?:как|на|as|to|is)\s+)?|(?:у\s+меня\s+сегодня\s+настроение|сегодня\s+у\s+меня\s+настроение|today\s+my\s+mood\s+is|i\s+feel|i'm\s+feeling|i\s+am\s+feeling)\s+)(.+)$/iu);
+  if (mood) {
+    const value = voiceMoodValue(mood[1]);
+    if (value !== null) return { kind: "set-mood", value };
+  }
   const calendarMode = command.match(/^(?:(?:переключи|переключить|поменяй|выбери|установи|включи|покажи|открой|switch(?: to)?|select|use|show|open)\s+)?(?:календарь\s+)?(?:на\s+|в\s+)?(лунн[а-яё]*|сакральн[а-яё]*|григорианск[а-яё]*|профанск[а-яё]*|lunar|sacred|gregorian)(?:\s+календарь)?$/iu);
   if (calendarMode) return { kind: "calendar-mode", mode: /^(?:лун|lunar)/iu.test(calendarMode[1]) ? "lunar"
     : /^(?:сакрал|sacred)/iu.test(calendarMode[1]) ? "sacred" : "profane" };

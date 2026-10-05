@@ -67,10 +67,12 @@ import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -89,6 +91,7 @@ import java.util.UUID
 import ru.genesis.calendar.domain.habits.Habit
 import ru.genesis.calendar.domain.habits.HabitEngine
 import ru.genesis.calendar.domain.habits.TrackerEntity
+import ru.genesis.calendar.domain.trackers.MoodTracker
 
 internal val standart = lightColorScheme(primary=Color(0xff255b59),onPrimary=Color(0xfffffdf8),
     background=Color(0xffe1d9c8),onBackground=Color(0xff132426),surface=Color(0xfff8f5ed),
@@ -153,6 +156,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     val prefs by prefsStore.values.collectAsStateWithLifecycle(UiPreferences())
     val menuSwipeState = remember(activeScope) { MenuSwipeState() }
     val habitSettingsRepository = remember(app, activeScope) { HabitsRepository(app) }
+    val trackersRepository = remember(app, activeScope) { TrackersRepository(app) }
     val habitWorkspace by habitSettingsRepository.workspace.collectAsStateWithLifecycle(LocalHabitWorkspace())
     val habitTrackingEnabled = habitWorkspace.settings.enabled
     val welcomePrefsStore=remember(app) { LocalPreferences(app,"welcome") }
@@ -201,6 +205,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
         if (!voiceLanguageEnabled) { voiceOpen = false; voiceControlActive = false }
     }
     var voiceScreenRequest by remember { mutableStateOf<NativeVoiceAction?>(null) }
+    var voiceActionError by remember { mutableStateOf<String?>(null) }
     var voiceListTitle by rememberSaveable { mutableStateOf("") }
     var requestedSacredHabits by rememberSaveable { mutableStateOf(false) }
     var requestedHeroPath by rememberSaveable { mutableStateOf(false) }
@@ -248,6 +253,15 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     val accountGate = !testWorkspace && (!activeScope.startsWith("account-") || authState.user == null || !authState.ready)
     val welcomeVisible = accountGate && !(authState.busy && authState.user != null)
     val window = LocalContext.current.activity()?.window
+    suspend fun recordVoiceMood(value: Int): String {
+        require(app.workspaceScope == activeScope) { "Аккаунт изменился. Повторите команду." }
+        val date = LocalDate.now()
+        val previous = trackersRepository.workspace.first().moodEntries.firstOrNull { it.date == date }
+        trackersRepository.saveMood(date, value, previous?.note.orEmpty(), previous?.tags.orEmpty(),
+            previous?.entity?.version ?: 0)
+        val option = MoodTracker.option(value.toDouble())
+        return if (prefs.language == "en") "Mood recorded: ${option.labelEn}." else "Настроение отмечено: ${option.label}."
+    }
     fun executeVoiceAction(action: NativeVoiceAction): String = when(action) {
         is NativeVoiceAction.CalendarModeChange -> {
             voiceScreenRequest=action;tab="Календарь";"Календарь переключён."
@@ -288,6 +302,16 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
         is NativeVoiceAction.Scroll -> {
             if(tab!="Календарь") "Прокрутка голосом пока доступна в календаре."
             else { voiceScreenRequest=action;"Прокручено." }
+        }
+        is NativeVoiceAction.SetMood -> {
+            menuSwipeState.habits = "Сон и настроение"; tab = "Привычки"
+            voiceActionError = null
+            scope.launch {
+                try { recordVoiceMood(action.value) }
+                catch(e: CancellationException) { throw e }
+                catch(e: Exception) { voiceActionError = e.message ?: "Не удалось сохранить настроение." }
+            }
+            "Записываю настроение."
         }
         is NativeVoiceAction.Navigate -> {
             when(action.section) {
@@ -369,6 +393,11 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                 if(action.ordinal !in 1..max) return "В этом году нет такого месяца."
             }
             when(action) {
+                is NativeVoiceAction.SetMood -> {
+                    val result = recordVoiceMood(action.value)
+                    menuSwipeState.habits = "Сон и настроение"; tab = "Привычки"
+                    return result
+                }
                 is NativeVoiceAction.SetTaskDone -> {
                     val task=app.repository.get(action.id) ?: return "Задача больше не найдена."
                     if(task.done!=action.done) app.repository.save(task.copy(done=action.done))
@@ -507,6 +536,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                 val pageContent: @Composable (String, MenuSwipeState) -> Unit = { visibleTab, visibleSwipeState ->
                   Column(Modifier.fillMaxSize()) {
                   error?.let { Text(it,color=MaterialTheme.colorScheme.error,modifier=Modifier.padding(12.dp)) }
+                  voiceActionError?.let { Text(it,color=MaterialTheme.colorScheme.error,modifier=Modifier.padding(12.dp)) }
                   when(visibleTab) {
                     "Привычки" -> HabitsScreen(app,true,prefs.input,prefs.display,authState.accountSettings,taskLists,visibleSwipeState,
                         openSacredHabits=requestedSacredHabits,
