@@ -435,9 +435,12 @@ function LetterDetails({
 type StoicheionViewProps = {
   divinationDisabled?: boolean;
   onOpenTheokyklosSector?: (sectorId: StoicheionPracticeSectorId) => void;
+  initialCardId?: string | null;
+  onInitialCardOpened?: () => void;
 };
 
-export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSector }: StoicheionViewProps) {
+export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSector,
+  initialCardId = null, onInitialCardOpened }: StoicheionViewProps) {
   const locale = runtimeLocale();
   const language = getRuntimeLanguage();
   const letters = useMemo(() => getStoicheionLetters(language), [language]);
@@ -449,6 +452,18 @@ export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSec
   const [spreadDraw, setSpreadDraw] = useState<ClientDrawRecord | null>(null);
   const [motion, setMotion] = useState<{ mode: MotionMode; progress: number } | null>(null);
   const [selectedReading, setSelectedReading] = useState<SelectedReading | null>(null);
+  useEffect(() => {
+    if (!initialCardId) return;
+    const letter = letters.find((candidate) => candidate.id === initialCardId);
+    if (!letter) return;
+    let active = true;
+    queueMicrotask(() => {
+      if (!active) return;
+      setSelectedReading({ letter, reversed: null, position: null });
+      onInitialCardOpened?.();
+    });
+    return () => { active = false; };
+  }, [initialCardId, letters, onInitialCardOpened]);
   const [drawsReady, setDrawsReady] = useState(false);
   const [savingKind, setSavingKind] = useState<MotionMode | null>(null);
   const [drawError, setDrawError] = useState("");

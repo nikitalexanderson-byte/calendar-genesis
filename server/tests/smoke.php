@@ -368,6 +368,10 @@ try {
     ]);
     expect(count($assistantPlan['projects']) === 1 && count($assistantPlan['tasks']) === 1, 'Gemini plan normalization lost valid actions.');
     expect($assistantPlan['tasks'][0]['title'] === 'Prepare brief', 'Assistant command words leaked into the task title.');
+    expect(genesisAssistantTaskTitle('создай задачу под названием Задача номер 1') === 'Задача номер 1',
+        'Russian naming instruction leaked into the task title.');
+    expect(genesisAssistantTaskTitle('create a task named Task number 1') === 'Task number 1',
+        'English naming instruction leaked into the task title.');
     expect($assistantPlan['tasks'][0]['priority'] === 10, 'Gemini task priority was not clamped.');
     expect($assistantPlan['tasks'][0]['reminderMinutes'] === 0, 'Gemini reminder was not clamped.');
     expect($assistantPlan['projects'][0]['tags'] === ['release'], 'Gemini plan tags were not normalized.');

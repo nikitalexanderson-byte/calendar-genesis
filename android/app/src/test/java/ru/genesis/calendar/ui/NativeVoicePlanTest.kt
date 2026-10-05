@@ -30,4 +30,21 @@ class NativeVoicePlanTest {
             parseNativeVoicePlan("создай задачу",today,emptyList(),emptyList())
         }
     }
+
+    @Test fun namingPhrasesDoNotBecomePartOfRussianOrEnglishTaskTitles() {
+        val russian=listOf("создай задачу под названием Задача номер 1",
+            "добавь задачу с названием Задача номер 1",
+            "создай задачу, назови её Задача номер 1")
+        russian.forEach { phrase ->
+            assertEquals(phrase,"Задача номер 1",
+                parseNativeVoicePlan(phrase,today,emptyList(),emptyList()).single().title)
+        }
+        val english=listOf("create a task named Task number 1",
+            "add a task called Task number 1",
+            "make a task with the title Task number 1")
+        english.forEach { phrase ->
+            assertEquals(phrase,"Task number 1",
+                parseNativeVoicePlan(phrase,today,emptyList(),emptyList()).single().title)
+        }
+    }
 }

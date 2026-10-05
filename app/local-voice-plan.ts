@@ -197,13 +197,11 @@ function extractKnownName(source: string, marker: RegExp, names: string[]): Extr
 
 function cleanTitle(source: string) {
   let title = normalizeSpaces(source);
-  const russianCommandPrefix = /^(?:(?:ну|пожалуйста)\s*[,—–-]?\s*)*(?:(?:мне\s+)?(?:нужно|надо)\s+)?(?:(?:создай|создать|добавь|добавить|запиши|записать|запланируй|запланировать|поставь|поставить)(?:\s+мне)?(?:\s+(?:новую?\s+)?(?:задач[а-яё]*|напоминан[а-яё]*))?|напомни(?:\s+мне)?|(?:задач[а-яё]*|напоминан[а-яё]*))\s*[.:;—–,-]?\s*/iu;
-  const englishCommandPrefix = /^(?:please\s+)?(?:(?:create|add|schedule|plan|make)(?:\s+me)?(?:\s+(?:a\s+)?(?:new\s+)?(?:task|reminder))?|remind\s+me(?:\s+to)?|(?:task|reminder))\s*[.:;—–,-]?\s*/i;
-  for (let pass = 0; pass < 3; pass += 1) {
-    const cleaned = title.replace(russianCommandPrefix, "").replace(englishCommandPrefix, "");
-    if (cleaned === title) break;
-    title = normalizeSpaces(cleaned);
-  }
+  const russianCommandPrefix = /^(?:(?:ну|пожалуйста)\s*[,—–-]?\s*)*(?:(?:мне\s+)?(?:нужно|надо)\s+)?(?:(?:создай|создать|добавь|добавить|запиши|записать|запланируй|запланировать|поставь|поставить)(?:\s+мне)?(?:\s+(?:новую?\s+)?(?:задач[а-яё]*|напоминан[а-яё]*))?|напомни(?:\s+мне)?|задачу)\s*[.:;—–,-]?\s*/iu;
+  const englishCommandPrefix = /^(?:please\s+)?(?:(?:create|add|schedule|plan|make)(?:\s+me)?(?:\s+(?:a\s+)?(?:new\s+)?(?:task|reminder))?|remind\s+me(?:\s+to)?)\s*[.:;—–,-]?\s*/i;
+  title = normalizeSpaces(title.replace(russianCommandPrefix, "").replace(englishCommandPrefix, ""));
+  title = normalizeSpaces(title.replace(/^(?:задач[а-яё]*|напоминан[а-яё]*|task|reminder)\s*[:—–-]\s*/iu, ""));
+  title = normalizeSpaces(title.replace(/^(?:(?:под|с)\s+названием|по\s+имени|(?:назови|назвать)(?:\s+(?:е[её]|задачу))?|которую\s+назови|название(?:\s+задачи)?|которая\s+называется|with\s+(?:the\s+)?(?:title|name)|named|called)\s*[:—–,-]?\s*/iu, ""));
   return title
     .replace(/\s+(?:размести(?:ть)?|помести(?:ть)?|привяжи|добавь|добавить|перенеси(?:ть)?|assign|put|place|move)\s*$/i, "")
     .replace(/\s+(?:пожалуйста|please)$/i, "")

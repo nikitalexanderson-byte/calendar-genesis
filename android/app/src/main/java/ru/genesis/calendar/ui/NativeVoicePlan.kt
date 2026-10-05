@@ -102,6 +102,8 @@ internal fun parseNativeVoicePlan(command: String, today: LocalDate, projects: L
             runCatching { LocalTime.of(hour,minute).toString() }.getOrNull()
         } ?: ""
         val title=text.replace(Regex("(?iu)^(?:(?:ну|пожалуйста|please)\\s*[,—-]?\\s*)*(?:(?:мне\\s+)?(?:нужно|надо)\\s+)?(?:создай|создать|добавь|добавить|запиши|записать|запланируй|запланировать|поставь|напомни|create|add|schedule|plan|make|remind)(?:\\s+мне)?(?:\\s+(?:новую?\\s+)?(?:задач[а-яё]*|напоминан[а-яё]*|a\\s+task|task|reminder))?\\s*[,.:;—-]?\\s*"),"")
+            .replace(Regex("(?iu)^(?:задач[а-яё]*|напоминан[а-яё]*|task|reminder)\\s*[:—-]\\s*"),"")
+            .replace(Regex("(?iu)^(?:(?:под|с)\\s+названием|по\\s+имени|(?:назови|назвать)(?:\\s+(?:е[её]|задачу))?|которую\\s+назови|название(?:\\s+задачи)?|которая\\s+называется|with\\s+(?:the\\s+)?(?:title|name)|named|called)\\s*[:—,-]?\\s*"),"")
             .trim(' ','«','»','"','.',',','!','?')
         require(title.isNotBlank() && title.lowercase(Locale.ROOT) !in setOf("задача","task","напоминание","reminder")) {
             "Произнесите или напишите название задачи."

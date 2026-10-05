@@ -18,6 +18,7 @@ import ru.genesis.calendar.domain.habits.HabitReminder
 
 @Composable
 internal fun HabitReminderFields(preferredTime: String, reminder: HabitReminder, enabled: Boolean,
+    googleTasksReady: Boolean = false, googleCalendarReady: Boolean = false,
     onTime: (String) -> Unit, onReminder: (HabitReminder) -> Unit) {
     val app = LocalContext.current.applicationContext as GenesisApplication
     val preferences = remember(app) { LocalPreferences(app, app.workspaceScope) }
@@ -66,6 +67,28 @@ internal fun HabitReminderFields(preferredTime: String, reminder: HabitReminder,
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(reminder.allowDuringQuietHours, { onReminder(reminder.copy(allowDuringQuietHours = it)) }, enabled = enabled)
                 Text("Разрешить это напоминание в тихие часы", Modifier.weight(1f))
+            }
+            HorizontalDivider()
+            Text("Синхронизация с Google", style = MaterialTheme.typography.titleSmall)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(reminder.syncToGoogleTasks,
+                    { onReminder(reminder.copy(syncToGoogleTasks = it)) },
+                    enabled = enabled && (googleTasksReady || reminder.syncToGoogleTasks),
+                    modifier = Modifier.testTag("habit-google-tasks"))
+                Column { Text("Google Tasks")
+                    Text(if (googleTasksReady) "Переносимая задача для следующего выполнения"
+                        else "Сначала подключите Google Tasks в настройках аккаунта",
+                        style = MaterialTheme.typography.bodySmall) }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(reminder.showInGoogleCalendar,
+                    { onReminder(reminder.copy(showInGoogleCalendar = it)) },
+                    enabled = enabled && (googleCalendarReady || reminder.showInGoogleCalendar),
+                    modifier = Modifier.testTag("habit-google-calendar"))
+                Column { Text("Показывать в Google Calendar")
+                    Text(if (googleCalendarReady) "Событие создаётся только по вашему выбору"
+                        else "Сначала подключите Google Calendar в настройках аккаунта",
+                        style = MaterialTheme.typography.bodySmall) }
             }
         }
     }

@@ -44,10 +44,13 @@ import ru.genesis.calendar.GenesisApplication
 import ru.genesis.calendar.data.*
 import ru.genesis.calendar.domain.*
 import ru.genesis.calendar.domain.habits.*
+import ru.genesis.calendar.auth.AccountSettings
+import ru.genesis.calendar.auth.AuthController
 
 @Composable
 internal fun HabitsScreen(app: GenesisApplication, experimental: Boolean, inputCalendarMode: CalendarMode = CalendarMode.SACRED,
     displayCalendarMode: CalendarMode = CalendarMode.SACRED,
+    accountSettings: AccountSettings? = null, taskLists: List<GoogleTaskList> = emptyList(),
     menuSwipeState: MenuSwipeState? = null, openSacredHabits: Boolean = false,
     onSacredHabitsOpened: () -> Unit = {}, voiceRequest: NativeVoiceAction? = null,
     onVoiceRequestConsumed: () -> Unit = {}, openHeroPath: Boolean = false,
@@ -59,6 +62,7 @@ internal fun HabitsScreen(app: GenesisApplication, experimental: Boolean, inputC
             section, { localSection = it; menuSwipeState?.habits = it })
         Box(Modifier.weight(1f)) {
             if (section == "Привычки") HabitWorkspaceContent(app, experimental, inputCalendarMode, displayCalendarMode,
+                accountSettings,taskLists,
                 openSacredHabits,onSacredHabitsOpened,voiceRequest,onVoiceRequestConsumed,
                 openHeroPath,onHeroPathOpened) else TrackersScreen(app, experimental)
         }
@@ -67,10 +71,12 @@ internal fun HabitsScreen(app: GenesisApplication, experimental: Boolean, inputC
 
 @Composable
 private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean, inputCalendarMode: CalendarMode,
-    displayCalendarMode: CalendarMode, openSacredHabits: Boolean, onSacredHabitsOpened: () -> Unit,
+    displayCalendarMode: CalendarMode, accountSettings: AccountSettings?, taskLists: List<GoogleTaskList>,
+    openSacredHabits: Boolean, onSacredHabitsOpened: () -> Unit,
     voiceRequest: NativeVoiceAction?, onVoiceRequestConsumed: () -> Unit,
     openHeroPath: Boolean, onHeroPathOpened: () -> Unit) {
     val repository=remember(app) { HabitsRepository(app) }
+    val externalSync=remember(app) { HabitExternalSync(app,AuthController.get(app)) }
     val scope=rememberCoroutineScope()
     var workspace by remember { mutableStateOf<LocalHabitWorkspace?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -110,6 +116,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
     suspend fun recordCompletion(id: String, checked: Boolean, quality: Double?, settings: HabitFeedbackSettings) {
         val result = repository.complete(id, checked, quality)
         if (checked) {
+            workspace?.habits?.firstOrNull { it.id==id }?.let { externalSync.advanceTaskAfterCompletion(it,LocalDate.now()) }
             completionFeedback(settings)
             if (settings.achievementPopups && result.newlyUnlockedAchievements > 0)
                 app.scheduler.showAchievementNotification(result.newlyUnlockedAchievements, language)
@@ -348,9 +355,23 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
             }
         }
     }
-    if(editorOpen) HabitEditor(edit,busy,error,inputCalendarMode,voiceDraftTitle,
+    if(editorOpen) HabitEditor(edit,busy,error,inputCalendarMode,accountSettings,voiceDraftTitle,
         onDismiss={if(!busy) { editorOpen=false;voiceDraftTitle="" }},onSave={ habit ->
-        scope.launch { runAction { repository.save(habit); editorOpen=false; voiceDraftTitle="" } }
+        scope.launch { runAction {
+            val previous=edit
+            val saved=repository.save(habit).second.habits.first { it.id==habit.id }
+            edit=saved
+            try {
+                val synced=externalSync.apply(saved,previous,accountSettings,taskLists,inputCalendarMode)
+                if(synced.reminder!=saved.reminder) {
+                    edit=repository.save(synced).second.habits.first { it.id==habit.id }
+                }
+            } catch(e: CancellationException) { throw e }
+            catch(_: Exception) {
+                throw IllegalArgumentException("Привычка сохранена на устройстве. Синхронизация Google пока не завершена — повторите сохранение.")
+            }
+            editorOpen=false; voiceDraftTitle=""
+        } }
     })
     deleteCandidate?.let { habit ->
         val completionCount = workspace?.let { habitCompletionCount(it.completions, habit.id) } ?: 0
@@ -361,7 +382,11 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                 "«${habit.title}» и все отметки будут удалены. Рубеж в $HABIT_LAUREL_RETENTION_COMPLETIONS выполнений достигнут — заработанные Лавры сохранятся."
                 else "«${habit.title}» и все отметки будут удалены. Прогресс: $completionCount/$HABIT_LAUREL_RETENTION_COMPLETIONS; баланс Лавров будет обнулён.")},
             confirmButton={TextButton(enabled=!busy,onClick={scope.launch {
-                runAction { repository.delete(habit.id); deleteCandidate=null; if(edit?.id==habit.id) editorOpen=false }
+                runAction {
+                    repository.delete(habit.id)
+                    externalSync.remove(habit)
+                    deleteCandidate=null; if(edit?.id==habit.id) editorOpen=false
+                }
             }},modifier=Modifier.testTag("confirm-delete-habit"),
                 colors=ButtonDefaults.textButtonColors(contentColor=MaterialTheme.colorScheme.error)) { Text("Удалить") }},
             dismissButton={TextButton(enabled=!busy,onClick={deleteCandidate=null}) { Text("Отмена") }})
@@ -461,6 +486,7 @@ private fun sacredHabitCadence(config: ru.genesis.calendar.domain.RecurrenceConf
 
 @Composable
 private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCalendarMode: CalendarMode,
+    accountSettings: AccountSettings?,
     initialTitle: String = "",
     onDismiss: () -> Unit, onSave: (Habit) -> Unit) {
     val engineCalendar=remember { GenesisCalendar() }
@@ -468,6 +494,11 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
     val initial=remember(existing,initialTitle) { existing ?: Habit(TrackerEntity.create("habit"),initialTitle,LocalDate.now(),engine.defaultSchedule(LocalDate.now(),inputCalendarMode)) }
     var title by rememberSaveable(initial.id) { mutableStateOf(initial.title) }
     var description by rememberSaveable(initial.id) { mutableStateOf(initial.description) }
+    var emoji by rememberSaveable(initial.id) { mutableStateOf(initial.emoji) }
+    var color by rememberSaveable(initial.id) { mutableStateOf(initial.color) }
+    var isKeyHabit by rememberSaveable(initial.id) { mutableStateOf(initial.isKeyHabit) }
+    var ritualId by rememberSaveable(initial.id) { mutableStateOf(initial.ritualId) }
+    var ritualName by rememberSaveable(initial.id) { mutableStateOf(initial.ritualName) }
     var preferredTime by rememberSaveable(initial.id) { mutableStateOf(initial.preferredTime) }
     var reminder by remember(initial.id) { mutableStateOf(initial.reminder) }
     var priority by rememberSaveable(initial.id) { mutableIntStateOf(initial.priority) }
@@ -503,6 +534,11 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
             EditorSection("Основное") {
             OutlinedTextField(title,{title=it},label={Text("Название")},modifier=Modifier.fillMaxWidth(),enabled=!busy)
             OutlinedTextField(description,{description=it},label={Text("Описание")},modifier=Modifier.fillMaxWidth(),enabled=!busy)
+            HabitPersonalizationFields(emoji,color,isKeyHabit,ritualId,ritualName,!busy,
+                onEmoji={ emoji=it.take(32) },onColor={ color=it.take(7) },
+                onKeyHabit={ isKeyHabit=it },
+                onRitual={ ritualId=it; if(it!="custom") ritualName="" },
+                onRitualName={ ritualName=it.take(60) })
             PriorityControl(priority) { if(!busy) priority=it }
             }
             EditorSection("Календарь и срок") {
@@ -627,7 +663,10 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
             }
             }
             EditorSection("Время и напоминание") {
-            HabitReminderFields(preferredTime, reminder, !busy, onTime = {
+            HabitReminderFields(preferredTime, reminder, !busy,
+                googleTasksReady=accountSettings?.authProvider=="google" && accountSettings.accounts.any { it.tasksConnected },
+                googleCalendarReady=accountSettings?.authProvider=="google" && accountSettings.accounts.any { it.calendarConnected },
+                onTime = {
                 preferredTime = it
                 if(it.isEmpty() && reminder.timing=="habit") reminder=reminder.copy(timing="custom")
             }, onReminder = { reminder = it })
@@ -642,8 +681,12 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
             error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 TextButton(enabled=!busy,onClick=onDismiss) { Text("Отмена") }
-                Button(enabled=!busy&&title.isNotBlank()&&(limit==0||config.days.isNotEmpty())&&(end.isEmpty()||end>=start),onClick={
+                Button(enabled=!busy&&title.isNotBlank()&&normalizedHabitColor(color)!=null&&normalizedHabitEmoji(emoji)!=null&&
+                    (ritualId!="custom"||ritualName.isNotBlank())&&
+                    (limit==0||config.days.isNotEmpty())&&(end.isEmpty()||end>=start),onClick={
                     onSave(initial.copy(title=title.trim(),description=description,priority=priority,scoringMode=scoring,
+                        emoji=requireNotNull(normalizedHabitEmoji(emoji)),color=requireNotNull(normalizedHabitColor(color)),
+                        isKeyHabit=isKeyHabit,ritualId=ritualId,ritualName=if(ritualId=="custom") ritualName.trim() else "",
                         preferredTime=preferredTime,reminder=reminder,
                         qualityScale=when(scoring){"quality-ten"->"ten";"quality-bipolar"->"bipolar";else->"none"},
                         schedule=initial.schedule.copy(startDate=LocalDate.parse(start),endDate=end.takeIf(String::isNotEmpty)?.let(LocalDate::parse),recurrence=config)))

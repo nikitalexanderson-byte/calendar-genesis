@@ -22,6 +22,8 @@ const SKIPPED_FILES = new Set([
   "addiction-tracker.ts",
   "task-count-i18n.ts",
   "CalendarTaskCounts.tsx",
+  // Command grammar literals are recognition tokens, not user-facing copy.
+  "web-voice-actions.ts",
   // Published legal documents are maintained in Russian independently of the app UI catalog.
   "LegalPage.tsx",
   // Fourteen explicit locale labels; checked with the ad copy coverage test.
