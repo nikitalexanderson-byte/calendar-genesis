@@ -16,6 +16,8 @@ sealed interface NativeVoiceAction {
     data class CalendarDate(val year: Int, val month: Int, val day: Int): NativeVoiceAction
     data class CalendarMonth(val ordinal: Int): NativeVoiceAction
     data class Scroll(val direction: String): NativeVoiceAction
+    data class TheokyklosSector(val sectorId: String): NativeVoiceAction
+    data class StoicheionCard(val cardId: String): NativeVoiceAction
     data class SetMood(val value: Int): NativeVoiceAction
     data class RenameTask(val id: String, val title: String, val newTitle: String): NativeVoiceAction
     data class CreateProject(val title: String): NativeVoiceAction
@@ -51,6 +53,49 @@ private val voiceMoodNames = listOf(
     5 to Regex("""(?iu)^(?:воодушевление|воодушевлён|воодушевлен|inspired)$"""),
     6 to Regex("""(?iu)^(?:восторг|в восторге|delighted|ecstatic)$"""),
 )
+
+private val voiceSectorAliases = mapOf(
+    "north" to listOf("север","северный","north","northern"),
+    "northeast" to listOf("северо-восток","северо-восточный","northeast","north east","north-eastern","northeastern"),
+    "east" to listOf("восток","восточный","east","eastern"),
+    "southeast" to listOf("юго-восток","юго-восточный","southeast","south east","south-eastern","southeastern"),
+    "south" to listOf("юг","южный","south","southern"),
+    "southwest" to listOf("юго-запад","юго-западный","southwest","south west","south-western","southwestern"),
+    "west" to listOf("запад","западный","west","western"),
+    "northwest" to listOf("северо-запад","северо-западный","northwest","north west","north-western","northwestern"),
+    "zenith" to listOf("зенит","zenith"), "nadir" to listOf("надир","nadir"),
+    "hearth" to listOf("очаг","hearth"),
+    "center" to listOf("центр","центральный","center","centre","central"),
+    "entrance" to listOf("вход","entrance"), "exit" to listOf("выход","exit"),
+)
+
+private val voiceStoicheionNames = listOf(
+    Triple("alpha","альфа","alpha"), Triple("beta","бета","beta"), Triple("gamma","гамма","gamma"),
+    Triple("delta","дельта","delta"), Triple("epsilon","эпсилон","epsilon"), Triple("zeta","дзета","zeta"),
+    Triple("eta","эта","eta"), Triple("theta","тэта","theta"), Triple("iota","йота","iota"),
+    Triple("kappa","каппа","kappa"), Triple("lambda","лямбда","lambda"), Triple("mu","мю","mu"),
+    Triple("nu","ню","nu"), Triple("xi","кси","xi"), Triple("omicron","омикрон","omicron"),
+    Triple("pi","пи","pi"), Triple("rho","ро","rho"), Triple("sigma","сигма","sigma"),
+    Triple("tau","тау","tau"), Triple("upsilon","ипсилон","upsilon"), Triple("phi","фи","phi"),
+    Triple("chi","хи","chi"), Triple("psi","пси","psi"), Triple("omega","омега","omega"),
+)
+
+private fun voiceStoicheionCard(command: String): String? {
+    val name=Regex("""(?iu)^(?:открой|покажи|выбери|open|show|select)\s+(?:(?:карту|букву)(?:\s+стойхейона)?|(?:(?:stoicheion\s+)?(?:card|letter)))\s+([а-яёa-z]+)$""")
+        .matchEntire(command)?.groupValues?.get(1)?.lowercase()?.replace('ё','е') ?: return null
+    return voiceStoicheionNames.firstOrNull { name==it.second || name==it.third }?.first
+}
+
+private fun voiceSector(command: String): String? {
+    val match=Regex("""(?iu)^(?:открой|покажи|выбери|перейди\s+(?:в|на|к)|open|show|select|go\s+to)\s+(.+)$""")
+        .matchEntire(command) ?: return null
+    val query=match.groupValues[1].lowercase().replace('ё','е')
+        .replace(Regex("""(?iu)\s+(?:в\s+теокиклосе|in\s+(?:the\s+)?theokyklos)$"""),"")
+        .replace(Regex("""(?iu)^(?:сектор\s+(?:теокиклоса\s+)?|theokyklos\s+(?:sector\s+)?)"""),"")
+        .replace(Regex("""(?iu)\s+(?:сектор(?:\s+теокиклоса)?|sector(?:\s+(?:of\s+)?(?:the\s+)?theokyklos)?)$"""),"")
+        .trim()
+    return voiceSectorAliases.entries.firstOrNull { query in it.value }?.key
+}
 
 private fun voiceMoodValue(raw: String): Int? {
     val value=raw.trim().trim('«','»','"','\'','.',',','!','?')
@@ -116,6 +161,8 @@ internal fun parseNativeVoiceAction(raw: String, tasks: List<LocalTask>, project
             else -> "down"
         })
     }
+    voiceSector(command)?.let { return NativeVoiceAction.TheokyklosSector(it) }
+    voiceStoicheionCard(command)?.let { return NativeVoiceAction.StoicheionCard(it) }
     Regex("(?iu)(?:покажи|открой|выбери|перейди\\s+на|show|open|select)\\s+(?:(?:дату|день|date|day)\\s+)?(\\d{4})-(\\d{1,2})-(\\d{1,2})")
         .matchEntire(command)?.let { return NativeVoiceAction.CalendarDate(it.groupValues[1].toInt(),it.groupValues[2].toInt(),it.groupValues[3].toInt()) }
     Regex("(?iu)(?:покажи|открой|выбери|перейди\\s+на|show|open|select)\\s+(?:(?:дату|день|date|day)\\s+)?(\\d{1,2})\\s+([а-яёa-z]+)\\s+(\\d{4})(?:\\s+года)?")

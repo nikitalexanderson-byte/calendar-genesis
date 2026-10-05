@@ -109,6 +109,10 @@ internal fun NativeVoiceAssistantDialog(app: GenesisApplication, structure: Work
                         is NativeVoiceAction.CalendarDate -> "Выбрать дату: ${preview.day}.${preview.month}.${preview.year}"
                         is NativeVoiceAction.CalendarMonth -> "Выбрать месяц: ${preview.ordinal}"
                         is NativeVoiceAction.Scroll -> "Прокрутить: ${preview.direction}"
+                        is NativeVoiceAction.TheokyklosSector -> if(english)
+                            "Open Theokyklos sector: ${preview.sectorId}" else "Открыть сектор Теокиклоса: ${preview.sectorId}"
+                        is NativeVoiceAction.StoicheionCard -> if(english)
+                            "Open Stoicheion card: ${preview.cardId}" else "Открыть карту Стойхейона: ${preview.cardId}"
                         is NativeVoiceAction.SetMood -> ru.genesis.calendar.domain.trackers.MoodTracker
                             .option(preview.value.toDouble()).let { option ->
                                 if(english) "Record mood: ${option.labelEn}" else "Отметить настроение: ${option.label}"

@@ -216,6 +216,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     var newTaskListId by rememberSaveable { mutableStateOf<String?>(null) }
     var creatingTaskList by rememberSaveable { mutableStateOf(false) }
     var requestedTheokyklosSector by rememberSaveable { mutableStateOf<String?>(null) }
+    var requestedStoicheionCard by rememberSaveable { mutableStateOf<String?>(null) }
     var todayPageDate by remember { mutableStateOf(LocalDate.now().toString()) }
     LaunchedEffect(Unit) {
         while (isActive) {
@@ -302,6 +303,16 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
         is NativeVoiceAction.Scroll -> {
             if(tab!="Календарь") "Прокрутка голосом пока доступна в календаре."
             else { voiceScreenRequest=action;"Прокручено." }
+        }
+        is NativeVoiceAction.TheokyklosSector -> {
+            requestedTheokyklosSector = action.sectorId
+            tab = "Теокиклос"
+            "Сектор Теокиклоса открыт."
+        }
+        is NativeVoiceAction.StoicheionCard -> {
+            requestedStoicheionCard = action.cardId
+            tab = "Стойхейон"
+            "Карта Стойхейона открыта."
         }
         is NativeVoiceAction.SetMood -> {
             menuSwipeState.habits = "Сон и настроение"; tab = "Привычки"
@@ -565,7 +576,10 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                     "Теокиклос" -> TheokyklosScreen(app,prefs.input,onOpenHabits={requestedSacredHabits=true;tab="Привычки"},
                         initialSectorId=requestedTheokyklosSector,
                         onInitialSectorConsumed={requestedTheokyklosSector=null})
-                    "Стойхейон" -> StoicheionScreen(app,prefs.divinationDisabled, onOpenTheokyklosSector={ sectorId ->
+                    "Стойхейон" -> StoicheionScreen(app,prefs.divinationDisabled,
+                        initialCardId=requestedStoicheionCard,
+                        onInitialCardOpened={requestedStoicheionCard=null},
+                        onOpenTheokyklosSector={ sectorId ->
                         requestedTheokyklosSector=sectorId; tab="Теокиклос"
                     })
                     "Проекты" -> ProjectsScreen(app,tasks,true,

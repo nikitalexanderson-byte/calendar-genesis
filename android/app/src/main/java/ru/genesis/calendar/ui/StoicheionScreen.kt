@@ -39,7 +39,8 @@ internal data class StoicheionLetter(val id: String, val order: Int, val name: S
 /** All 24 author texts are copied without abridgement from app/stoicheion-data.ts. */
 @Composable
 fun StoicheionScreen(app: GenesisApplication, divinationDisabled: Boolean,
-    onOpenTheokyklosSector: (String) -> Unit = {}) {
+    onOpenTheokyklosSector: (String) -> Unit = {}, initialCardId: String? = null,
+    onInitialCardOpened: () -> Unit = {}) {
     val context = LocalContext.current
     val language = LocalGenesisLanguage.current
     val english = language == "en"
@@ -85,6 +86,12 @@ fun StoicheionScreen(app: GenesisApplication, divinationDisabled: Boolean,
         }
     }
     var selected by remember { mutableStateOf<StoicheionSelection?>(null) }
+    LaunchedEffect(initialCardId, letters) {
+        if(initialCardId!=null) letters?.firstOrNull { it.id==initialCardId }?.let { letter ->
+            selected=StoicheionSelection(letter)
+            onInitialCardOpened()
+        }
+    }
     var motionMode by remember { mutableStateOf<String?>(null) }
     var saving by remember { mutableStateOf(false) }
     var drawError by remember { mutableStateOf<String?>(null) }

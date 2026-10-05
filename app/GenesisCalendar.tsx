@@ -1297,6 +1297,7 @@ export function GenesisCalendar() {
   const [view, setView] = useState<ViewName>("today");
   const [requestedTheokyklosSector, setRequestedTheokyklosSector] = useState<SacredPracticeSectorId | null>(null);
   const clearRequestedTheokyklosSector = useCallback(() => setRequestedTheokyklosSector(null), []);
+  const [requestedStoicheionCard, setRequestedStoicheionCard] = useState<string | null>(null);
   const [sacredYear, setSacredYear] = useState(initial.sacredYear);
   const [monthIndex, setMonthIndex] = useState(initial.monthIndex);
   const [selectedDay, setSelectedDay] = useState(initial.day);
@@ -1885,9 +1886,9 @@ export function GenesisCalendar() {
       window.history.pushState(state, "", cleanUrl);
     }
     window.requestAnimationFrame(() => {
-      window.scrollTo({ top: 0, behavior: "auto" });
-      document.querySelector<HTMLElement>(".app-stage")?.scrollTo({ top: 0, behavior: "auto" });
-      document.querySelector<HTMLElement>(".workspace")?.scrollTo({ top: 0, behavior: "auto" });
+      window.scrollTo(0, 0);
+      document.querySelector<HTMLElement>(".app-stage")?.scrollTo(0, 0);
+      document.querySelector<HTMLElement>(".workspace")?.scrollTo(0, 0);
     });
   };
 
@@ -3976,6 +3977,8 @@ export function GenesisCalendar() {
         scrollable.scrollTo({ top, behavior: "smooth" });
         return true;
       },
+      openTheokyklosSector,
+      openStoicheionCard: setRequestedStoicheionCard,
     });
   };
   const openProjectEditor = (project: GenesisProject) => {
@@ -6685,6 +6688,8 @@ export function GenesisCalendar() {
                     key={cloudUser?.stoicheionDivinationDisabled ? "divination-disabled" : "divination-enabled"}
                     divinationDisabled={Boolean(cloudUser?.stoicheionDivinationDisabled)}
                     onOpenTheokyklosSector={openTheokyklosSector}
+                    initialCardId={requestedStoicheionCard}
+                    onInitialCardOpened={() => setRequestedStoicheionCard(null)}
                   />
                 </Suspense>
               ) : null}

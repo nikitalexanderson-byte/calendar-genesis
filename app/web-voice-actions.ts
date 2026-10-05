@@ -1,4 +1,5 @@
 import type { MoodValue } from "./mood-tracker";
+import type { SacredPracticeSectorId } from "./sacred-practices";
 
 export type WebVoiceAction =
   | { kind: "navigate"; section: "today" | "calendar" | "year" | "all-tasks" | "projects" | "habits" | "theokyklos" | "stoicheion" | "admin" }
@@ -9,6 +10,8 @@ export type WebVoiceAction =
   | { kind: "calendar-date"; year: number; month: number; day: number }
   | { kind: "calendar-month"; ordinal: number }
   | { kind: "scroll"; direction: "up" | "down" | "top" | "bottom" }
+  | { kind: "theokyklos-sector"; sectorId: SacredPracticeSectorId }
+  | { kind: "stoicheion-card"; cardId: string }
   | { kind: "set-mood"; value: MoodValue }
   | { kind: "rename-task"; id: string; title: string; newTitle: string }
   | { kind: "create-project" | "create-list" | "create-habit" | "create-task" | "create-category"; title: string }
@@ -31,6 +34,48 @@ const MOOD_NAMES: ReadonlyArray<readonly [MoodValue, RegExp]> = [
   [5, /^(?:воодушевление|воодушевлён|воодушевлен|inspired)$/iu],
   [6, /^(?:восторг|в восторге|delighted|ecstatic)$/iu],
 ];
+
+const SECTOR_ALIASES: ReadonlyArray<readonly [SacredPracticeSectorId, string[]]> = [
+  ["north", ["север", "северный", "north", "northern"]],
+  ["northeast", ["северо-восток", "северо-восточный", "northeast", "north east", "north-eastern", "northeastern"]],
+  ["east", ["восток", "восточный", "east", "eastern"]],
+  ["southeast", ["юго-восток", "юго-восточный", "southeast", "south east", "south-eastern", "southeastern"]],
+  ["south", ["юг", "южный", "south", "southern"]],
+  ["southwest", ["юго-запад", "юго-западный", "southwest", "south west", "south-western", "southwestern"]],
+  ["west", ["запад", "западный", "west", "western"]],
+  ["northwest", ["северо-запад", "северо-западный", "northwest", "north west", "north-western", "northwestern"]],
+  ["zenith", ["зенит", "zenith"]], ["nadir", ["надир", "nadir"]],
+  ["hearth", ["очаг", "hearth"]], ["center", ["центр", "центральный", "center", "centre", "central"]],
+  ["entrance", ["вход", "entrance"]], ["exit", ["выход", "exit"]],
+];
+
+const STOICHEION_CARD_NAMES: ReadonlyArray<readonly [string, string, string]> = [
+  ["alpha", "альфа", "alpha"], ["beta", "бета", "beta"], ["gamma", "гамма", "gamma"],
+  ["delta", "дельта", "delta"], ["epsilon", "эпсилон", "epsilon"], ["zeta", "дзета", "zeta"],
+  ["eta", "эта", "eta"], ["theta", "тэта", "theta"], ["iota", "йота", "iota"],
+  ["kappa", "каппа", "kappa"], ["lambda", "лямбда", "lambda"], ["mu", "мю", "mu"],
+  ["nu", "ню", "nu"], ["xi", "кси", "xi"], ["omicron", "омикрон", "omicron"],
+  ["pi", "пи", "pi"], ["rho", "ро", "rho"], ["sigma", "сигма", "sigma"],
+  ["tau", "тау", "tau"], ["upsilon", "ипсилон", "upsilon"], ["phi", "фи", "phi"],
+  ["chi", "хи", "chi"], ["psi", "пси", "psi"], ["omega", "омега", "omega"],
+];
+
+function voiceStoicheionCard(command: string): string | null {
+  const match = command.match(/^(?:открой|покажи|выбери|open|show|select)\s+(?:(?:карту|букву)(?:\s+стойхейона)?|(?:(?:stoicheion\s+)?(?:card|letter)))\s+([а-яёa-z]+)$/iu);
+  const name = match?.[1]?.toLocaleLowerCase().replace(/ё/gu, "е");
+  return name ? STOICHEION_CARD_NAMES.find(([, ru, en]) => name === ru || name === en)?.[0] ?? null : null;
+}
+
+function voiceSector(command: string): SacredPracticeSectorId | null {
+  const match = command.match(/^(?:открой|покажи|выбери|перейди\s+(?:в|на|к)|open|show|select|go\s+to)\s+(.+)$/iu);
+  if (!match) return null;
+  const query = match[1].toLocaleLowerCase().replace(/ё/gu, "е")
+    .replace(/\s+(?:в\s+теокиклосе|in\s+(?:the\s+)?theokyklos)$/iu, "")
+    .replace(/^(?:сектор\s+(?:теокиклоса\s+)?|theokyklos\s+(?:sector\s+)?|theokyklos\s+sector\s+)/iu, "")
+    .replace(/\s+(?:сектор(?:\s+теокиклоса)?|sector(?:\s+(?:of\s+)?(?:the\s+)?theokyklos)?)$/iu, "")
+    .trim();
+  return SECTOR_ALIASES.find(([, aliases]) => aliases.includes(query))?.[0] ?? null;
+}
 
 function voiceMoodValue(raw: string): MoodValue | null {
   const value = raw.trim().replace(/^[«"']+|[»"'.!?]+$/gu, "").replace(/\s+(?:сегодня|today)$/iu, "").trim();
@@ -86,6 +131,10 @@ export function parseWebVoiceAction(raw: string, tasks: Named[], projects: Named
   if (scroll) return { kind: "scroll", direction: /^(?:в\s+начало|наверх|top)/iu.test(scroll[1]) ? "top"
     : /^(?:в\s+конец|bottom)/iu.test(scroll[1]) ? "bottom"
       : /^(?:вверх|up)/iu.test(scroll[1]) ? "up" : "down" };
+  const sectorId = voiceSector(command);
+  if (sectorId) return { kind: "theokyklos-sector", sectorId };
+  const cardId = voiceStoicheionCard(command);
+  if (cardId) return { kind: "stoicheion-card", cardId };
   const date = command.match(/^(?:покажи|открой|выбери|перейди\s+на|show|open|select)\s+(?:(?:дату|день|date|day)\s+)?(\d{4})-(\d{1,2})-(\d{1,2})$/iu);
   if (date) return { kind: "calendar-date", year: Number(date[1]), month: Number(date[2]), day: Number(date[3]) };
   const spokenDate = command.match(/^(?:покажи|открой|выбери|перейди\s+на|show|open|select)\s+(?:(?:дату|день|date|day)\s+)?(\d{1,2})\s+([а-яёa-z]+)\s+(\d{4})(?:\s+года)?$/iu);

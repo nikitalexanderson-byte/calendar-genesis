@@ -6,6 +6,7 @@ import { parseWebVoiceAction } from "./web-voice-actions";
 import type { CalendarMode } from "./calendar-data";
 import { moodOption, type MoodEntry } from "./mood-tracker";
 import { markTrackerEntityChanged, newTrackerEntity, trackerTimestamp } from "./tracker-core";
+import type { SacredPracticeSectorId } from "./sacred-practices";
 
 type View = "today" | "calendar" | "year" | "all-tasks" | "projects" | "habits" | "theokyklos" | "stoicheion" | "admin";
 type Request = { kind: "edit" | "delete" | "section"; id?: string; section?: string };
@@ -37,6 +38,8 @@ export type WebVoiceEffects = {
   chooseCalendarMonth: (ordinal: number) => boolean;
   chooseCalendarDate: (date: Date) => void;
   scrollPage: (direction: "up" | "down" | "top" | "bottom") => boolean;
+  openTheokyklosSector: (sectorId: SacredPracticeSectorId) => void;
+  openStoicheionCard: (cardId: string) => void;
 };
 
 export async function runWebVoiceCommand(command: string, context: WebVoiceContext, effects: WebVoiceEffects): Promise<string> {
@@ -44,7 +47,8 @@ export async function runWebVoiceCommand(command: string, context: WebVoiceConte
     categories, projects, taskLists, accounts, tasks, workspace } = context;
   const { navigate, requestHabit, applyPlan, updateWorkspace, openTask, confirmTaskDelete, openList, deleteList,
     openProject, deleteProject, createCategory, openCategory, deleteCategory, toggleTask, changeTask,
-    changeDisplayCalendar, stepCalendar, chooseCalendarMonth, chooseCalendarDate, scrollPage } = effects;
+    changeDisplayCalendar, stepCalendar, chooseCalendarMonth, chooseCalendarDate, scrollPage,
+    openTheokyklosSector, openStoicheionCard } = effects;
   const voiceLists = taskLists.filter((list) => !list.isDefault && list.title !== "Привычки GENESIS");
   const action = parseWebVoiceAction(command, tasks, projects, workspace.habits, language, voiceLists,
     categories.map((category) => ({ id: category.id, title: localizeCategoryName(category, language) })));
@@ -86,6 +90,15 @@ export async function runWebVoiceCommand(command: string, context: WebVoiceConte
   if (action.kind === "scroll") {
     return scrollPage(action.direction) ? reply("Прокручено.", "Scrolled.")
       : reply("На этом экране нечего прокручивать.", "There is nothing to scroll on this screen.");
+  }
+  if (action.kind === "theokyklos-sector") {
+    openTheokyklosSector(action.sectorId);
+    return reply("Сектор Теокиклоса открыт.", "Theokyklos sector opened.");
+  }
+  if (action.kind === "stoicheion-card") {
+    openStoicheionCard(action.cardId);
+    navigate("stoicheion");
+    return reply("Карта Стойхейона открыта.", "Stoicheion card opened.");
   }
   if (action.kind === "navigate") {
     navigate(action.section);

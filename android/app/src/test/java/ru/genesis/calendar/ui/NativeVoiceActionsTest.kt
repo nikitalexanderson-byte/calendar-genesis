@@ -119,4 +119,21 @@ class NativeVoiceActionsTest {
             parse("переименуй задачу Отправить отчёт в Новый отчёт",listOf(task,task.copy(id="task-2")))
         }
     }
+
+    @Test fun theokyklosSectorsResolveBilingualNamesWithoutGuessing() {
+        fun parse(value: String)=parseNativeVoiceAction(value,listOf(task),listOf(project),listOf(habit))
+        assertEquals(NativeVoiceAction.TheokyklosSector("northeast"),parse("открой северо-восточный сектор"))
+        assertEquals(NativeVoiceAction.TheokyklosSector("hearth"),parse("покажи сектор Очаг в Теокиклосе"))
+        assertEquals(NativeVoiceAction.TheokyklosSector("northwest"),parse("open theokyklos north west sector"))
+        assertEquals(NativeVoiceAction.TheokyklosSector("entrance"),parse("show entrance sector"))
+        assertNull(parse("открой неизвестный сектор"))
+    }
+
+    @Test fun stoicheionCardCommandsOpenNamedCatalogCards() {
+        fun parse(value: String)=parseNativeVoiceAction(value,listOf(task),listOf(project),listOf(habit))
+        assertEquals(NativeVoiceAction.StoicheionCard("alpha"),parse("открой карту Стойхейона Альфа"))
+        assertEquals(NativeVoiceAction.StoicheionCard("omega"),parse("выбери букву Омега"))
+        assertEquals(NativeVoiceAction.StoicheionCard("theta"),parse("open stoicheion card theta"))
+        assertNull(parse("открой карту Неизвестная"))
+    }
 }

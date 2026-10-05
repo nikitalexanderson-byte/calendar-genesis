@@ -87,3 +87,20 @@ test("task renaming requires one exact source title and removes naming instructi
   assert.throws(() => parse("переименуй задачу Позвонить в Звонок"), /точно/);
   assert.throws(() => parse("переименуй задачу Позвонить врачу в Звонок", [...tasks, { id: "task-3", title: "Позвонить врачу" }]), /Несколько/);
 });
+
+test("Theokyklos sector commands use exact Russian and English sector names", () => {
+  const parse = (phrase) => parseWebVoiceAction(phrase, tasks, projects, habits);
+  assert.deepEqual(parse("открой северо-восточный сектор"), { kind: "theokyklos-sector", sectorId: "northeast" });
+  assert.deepEqual(parse("покажи сектор Очаг в Теокиклосе"), { kind: "theokyklos-sector", sectorId: "hearth" });
+  assert.deepEqual(parse("open theokyklos north west sector"), { kind: "theokyklos-sector", sectorId: "northwest" });
+  assert.deepEqual(parse("show entrance sector"), { kind: "theokyklos-sector", sectorId: "entrance" });
+  assert.equal(parse("открой неизвестный сектор"), null);
+});
+
+test("Stoicheion card commands open a named catalog card without starting a draw", () => {
+  const parse = (phrase) => parseWebVoiceAction(phrase, tasks, projects, habits);
+  assert.deepEqual(parse("открой карту Стойхейона Альфа"), { kind: "stoicheion-card", cardId: "alpha" });
+  assert.deepEqual(parse("выбери букву Омега"), { kind: "stoicheion-card", cardId: "omega" });
+  assert.deepEqual(parse("open stoicheion card theta"), { kind: "stoicheion-card", cardId: "theta" });
+  assert.equal(parse("открой карту Неизвестная"), null);
+});

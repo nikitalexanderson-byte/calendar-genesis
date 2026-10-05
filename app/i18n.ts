@@ -73,6 +73,8 @@ const APP_BASE = (process.env.NEXT_PUBLIC_GENESIS_BASE_PATH?.trim() || "").repla
 const curatedTranslations: Record<string, string> = {
   "Пока не умею это делать. Попробуйте открыть раздел или назвать задачу, проект, список либо привычку.": "I cannot do that yet. Try opening a section or naming a task, project, list or habit.",
   "Раздел открыт.": "Section opened.",
+  "Сектор Теокиклоса открыт.": "Theokyklos sector opened.",
+  "Карта Стойхейона открыта.": "Stoicheion card opened.",
   "Календарь переключён.": "Calendar switched.",
   "Открыт год.": "Year opened.",
   "Открыт месяц.": "Month opened.",
