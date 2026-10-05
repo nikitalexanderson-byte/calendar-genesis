@@ -106,15 +106,23 @@ class HabitsRepository(private val app: GenesisApplication) {
     suspend fun save(habit: Habit) = mutate { workspace ->
         require(habit.title.isNotBlank() && habit.title.length<=500) { "Введите название до 500 символов." }
         require(habit.priority in 1..10)
+        require(habit.emoji.isNotBlank() && habit.emoji.length<=32)
+        require(habit.color.matches(Regex("#[0-9a-fA-F]{6}")))
+        require(habit.ritualId in setOf("none","morning","day","evening","custom"))
+        require(habit.ritualName.length<=60 && (habit.ritualId!="custom" || habit.ritualName.isNotBlank()))
         require(habit.scoringMode in setOf("none","binary","quality-ten","quality-bipolar"))
         val previous=workspace.habits.firstOrNull { it.id==habit.id }
         require(previous==null || previous.entity.version==habit.entity.version) { "Привычка изменилась. Откройте её заново." }
         require(previous==null || (previous.scoringMode==habit.scoringMode && previous.qualityScale==habit.qualityScale)) {
             "Начисление XP фиксируется при создании привычки. Для другой формулы создайте новую привычку."
         }
-        val saved=habit.copy(entity=habit.entity.changed(Instant.now().toString()),
+        val now=Instant.now().toString()
+        val saved=habit.copy(entity=habit.entity.changed(now),
             createdDate=previous?.createdDate ?: LocalDate.now(),schedule=engine().normalizeSchedule(habit.schedule))
-        workspace.copy(habits=workspace.habits.filterNot { it.id==habit.id }+saved)
+        val others=workspace.habits.filterNot { it.id==habit.id }.map { other ->
+            if(saved.isKeyHabit && other.isKeyHabit) other.copy(isKeyHabit=false,entity=other.entity.changed(now)) else other
+        }
+        workspace.copy(habits=others+saved)
     }
 
     suspend fun delete(id: String) {

@@ -144,6 +144,7 @@ type DailyPanelProps = {
 
 type HabitTrackerPageProps = DailyPanelProps & {
   googleTasksReady: boolean;
+  googleCalendarReady: boolean;
   experimentalThemeActive?: boolean;
   voiceRequest?: { token: number; kind: "edit" | "delete" | "section"; id?: string; section?: string } | null;
   onVoiceRequestConsumed?: () => void;
@@ -1009,7 +1010,7 @@ export function HabitDailyPanel({ workspace, date, language, timeFormat, calenda
   );
 }
 
-function HabitTemplateSetup({ template, date, language, calendarMode, googleTasksReady, allowCalendarModeChange = false, onSave, onClose }: { template: HabitTemplate; date: string; language: Language; calendarMode: CalendarMode; googleTasksReady: boolean; allowCalendarModeChange?: boolean; onSave: (habit: Habit) => void; onClose: () => void }) {
+function HabitTemplateSetup({ template, date, language, calendarMode, googleTasksReady, googleCalendarReady, allowCalendarModeChange = false, onSave, onClose }: { template: HabitTemplate; date: string; language: Language; calendarMode: CalendarMode; googleTasksReady: boolean; googleCalendarReady: boolean; allowCalendarModeChange?: boolean; onSave: (habit: Habit) => void; onClose: () => void }) {
   const isEnglish = language === "en";
   const [draft, setDraft] = useState(() => createHabitFromTemplate(template, date, calendarMode, language));
   const dialogRef = useDialogAccessibility<HTMLFormElement>(onClose);
@@ -1040,7 +1041,8 @@ function HabitTemplateSetup({ template, date, language, calendarMode, googleTask
         <label className="habit-switch"><span><strong>{isEnglish ? "Enable reminder" : "Добавить напоминание"}</strong><small>{isEnglish ? "The habit works without a notification" : "Привычка работает и без уведомления"}</small></span><input type="checkbox" role="switch" aria-label={isEnglish ? "Enable reminder" : "Добавить напоминание"} checked={draft.reminder.enabled} onChange={(event) => setDraft((current) => ({ ...current, reminder: { ...current.reminder, enabled: event.target.checked } }))} /><i /></label>
         <fieldset className="habit-reminder-fields habit-template-reminder" disabled={!draft.reminder.enabled}>
           <HabitReminderTimingFields habit={draft} language={language} onChange={(reminder) => setDraft((current) => ({ ...current, reminder }))} />
-          <label className="habit-google-check"><input type="checkbox" aria-label="Google Tasks" checked={draft.reminder.syncToGoogleTasks} disabled={!googleTasksReady} onChange={(event) => setDraft((current) => ({ ...current, reminder: { ...current.reminder, syncToGoogleTasks: event.target.checked } }))} /><span><strong>Google Tasks</strong><small>{googleTasksReady ? (isEnglish ? "Create a rolling task reminder" : "Создать переносимое напоминание-задачу") : (isEnglish ? "Connect Google Tasks first" : "Сначала подключите Google Tasks")}</small></span></label>
+          <label className="habit-google-check"><input type="checkbox" aria-label="Google Tasks" checked={draft.reminder.syncToGoogleTasks} disabled={!googleTasksReady && !draft.reminder.syncToGoogleTasks} onChange={(event) => setDraft((current) => ({ ...current, reminder: { ...current.reminder, syncToGoogleTasks: event.target.checked } }))} /><span><strong>Google Tasks</strong><small>{googleTasksReady ? (isEnglish ? "Create a rolling task reminder" : "Создать переносимое напоминание-задачу") : (isEnglish ? "Connect Google Tasks first" : "Сначала подключите Google Tasks")}</small></span></label>
+          <label className="habit-google-check"><input type="checkbox" aria-label={isEnglish ? "Show in Google Calendar" : "Показывать эту привычку в Google Calendar"} checked={draft.reminder.showInGoogleCalendar} disabled={!googleCalendarReady && !draft.reminder.showInGoogleCalendar} onChange={(event) => setDraft((current) => ({ ...current, reminder: { ...current.reminder, showInGoogleCalendar: event.target.checked } }))} /><span><strong>{isEnglish ? "Show in Google Calendar" : "Показывать эту привычку в Google Calendar"}</strong><small>{googleCalendarReady ? (isEnglish ? "Only when explicitly enabled" : "Только по вашему явному выбору") : (isEnglish ? "Connect Google Calendar first" : "Сначала подключите Google Calendar")}</small></span></label>
         </fieldset>
 
         <details className="habit-template-advanced">
@@ -1054,7 +1056,7 @@ function HabitTemplateSetup({ template, date, language, calendarMode, googleTask
   );
 }
 
-function HabitEditor({ habit, isExisting, language, calendarMode, googleTasksReady, allowCalendarModeChange = false, onSave, onClose }: { habit: Habit; isExisting: boolean; language: Language; calendarMode: CalendarMode; googleTasksReady: boolean; allowCalendarModeChange?: boolean; onSave: (habit: Habit) => void; onClose: () => void }) {
+function HabitEditor({ habit, isExisting, language, calendarMode, googleTasksReady, googleCalendarReady, allowCalendarModeChange = false, onSave, onClose }: { habit: Habit; isExisting: boolean; language: Language; calendarMode: CalendarMode; googleTasksReady: boolean; googleCalendarReady: boolean; allowCalendarModeChange?: boolean; onSave: (habit: Habit) => void; onClose: () => void }) {
   const isEnglish = language === "en";
   const [draft, setDraft] = useState(habit);
   const [forever, setForever] = useState(habit.schedule.endDate === null);
@@ -1112,8 +1114,8 @@ function HabitEditor({ habit, isExisting, language, calendarMode, googleTasksRea
           <fieldset className="habit-reminder-fields" disabled={!draft.reminder.enabled}>
             <div className="habit-editor-grid">
               <HabitReminderTimingFields habit={draft} language={language} onChange={(reminder) => setDraft((current) => ({ ...current, reminder }))} />
-              <label className="habit-google-check"><input type="checkbox" aria-label="Google Tasks" checked={draft.reminder.syncToGoogleTasks} disabled={!googleTasksReady} onChange={(event) => setDraft((current) => ({ ...current, reminder: { ...current.reminder, syncToGoogleTasks: event.target.checked } }))} /><span><strong>Google Tasks</strong><small>{isEnglish ? "One task rolls to the next occurrence" : "Одна задача переносится на следующее повторение"}</small></span></label>
-              <label className="habit-google-check"><input type="checkbox" aria-label={isEnglish ? "Show in Google Calendar" : "Показывать эту привычку в Google Calendar"} checked={draft.reminder.showInGoogleCalendar} onChange={(event) => setDraft((current) => ({ ...current, reminder: { ...current.reminder, showInGoogleCalendar: event.target.checked } }))} /><span><strong>{isEnglish ? "Show in Google Calendar" : "Показывать эту привычку в Google Calendar"}</strong><small>{isEnglish ? "Only when explicitly enabled" : "Только по вашему явному выбору"}</small></span></label>
+              <label className="habit-google-check"><input type="checkbox" aria-label="Google Tasks" checked={draft.reminder.syncToGoogleTasks} disabled={!googleTasksReady && !draft.reminder.syncToGoogleTasks} onChange={(event) => setDraft((current) => ({ ...current, reminder: { ...current.reminder, syncToGoogleTasks: event.target.checked } }))} /><span><strong>Google Tasks</strong><small>{googleTasksReady ? (isEnglish ? "One task rolls to the next occurrence" : "Одна задача переносится на следующее повторение") : (isEnglish ? "Connect Google Tasks first" : "Сначала подключите Google Tasks")}</small></span></label>
+              <label className="habit-google-check"><input type="checkbox" aria-label={isEnglish ? "Show in Google Calendar" : "Показывать эту привычку в Google Calendar"} checked={draft.reminder.showInGoogleCalendar} disabled={!googleCalendarReady && !draft.reminder.showInGoogleCalendar} onChange={(event) => setDraft((current) => ({ ...current, reminder: { ...current.reminder, showInGoogleCalendar: event.target.checked } }))} /><span><strong>{isEnglish ? "Show in Google Calendar" : "Показывать эту привычку в Google Calendar"}</strong><small>{googleCalendarReady ? (isEnglish ? "Only when explicitly enabled" : "Только по вашему явному выбору") : (isEnglish ? "Connect Google Calendar first" : "Сначала подключите Google Calendar")}</small></span></label>
             </div>
           </fieldset>
         </fieldset>
@@ -1415,7 +1417,7 @@ function SacredHabitLibrary({
   );
 }
 
-export function HabitTrackerPage({ workspace, date, language, timeFormat, calendarMode, googleTasksReady, experimentalThemeActive = false, voiceRequest, onVoiceRequestConsumed, onChange, onReminderRequested, onReminderRemoved }: HabitTrackerPageProps) {
+export function HabitTrackerPage({ workspace, date, language, timeFormat, calendarMode, googleTasksReady, googleCalendarReady, experimentalThemeActive = false, voiceRequest, onVoiceRequestConsumed, onChange, onReminderRequested, onReminderRemoved }: HabitTrackerPageProps) {
   const isEnglish = language === "en";
   const workspaceRef = useRef(workspace);
   useEffect(() => {
@@ -1665,8 +1667,8 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
           onEdit={setEditingHabit}
         /></CollapsibleHabitBlock>
       {heroPathOpen ? <HeroPathPanel workspace={workspace} language={language} onClaimCheckpoint={(rankId) => { const next = claimHeroPathAmphora(workspace, rankId); onChange(next); if (next !== workspace) setMessage(isEnglish ? "The amphora is open. Laurels were added to your ledger." : "Амфора открыта. Лавры добавлены в журнал наград."); }} onRevealHiddenPath={() => { const next = revealHiddenHeroicPath(workspace); onChange(next); if (next !== workspace) setMessage(isEnglish ? "The second path has been revealed." : "Второй путь открыт."); }} onClose={() => setHeroPathOpen(false)} /> : null}
-      {activatingTemplate ? <HabitTemplateSetup template={activatingTemplate} date={creationDate} language={language} calendarMode={calendarMode} googleTasksReady={googleTasksReady} allowCalendarModeChange onSave={(habit) => { setActivatingTemplate(null); saveHabit(habit); }} onClose={() => setActivatingTemplate(null)} /> : null}
-      {editingHabit ? <HabitEditor habit={editingHabit} isExisting={workspace.habits.some((habit) => habit.id === editingHabit.id)} language={language} calendarMode={calendarMode} googleTasksReady={googleTasksReady} allowCalendarModeChange onSave={saveHabit} onClose={() => setEditingHabit(null)} /> : null}
+      {activatingTemplate ? <HabitTemplateSetup template={activatingTemplate} date={creationDate} language={language} calendarMode={calendarMode} googleTasksReady={googleTasksReady} googleCalendarReady={googleCalendarReady} allowCalendarModeChange onSave={(habit) => { setActivatingTemplate(null); saveHabit(habit); }} onClose={() => setActivatingTemplate(null)} /> : null}
+      {editingHabit ? <HabitEditor habit={editingHabit} isExisting={workspace.habits.some((habit) => habit.id === editingHabit.id)} language={language} calendarMode={calendarMode} googleTasksReady={googleTasksReady} googleCalendarReady={googleCalendarReady} allowCalendarModeChange onSave={saveHabit} onClose={() => setEditingHabit(null)} /> : null}
       {editingSleep ? <SleepEditor plan={editingSleep} language={language} calendarMode={calendarMode} allowCalendarModeChange={experimentalThemeActive} onSave={(plan) => { onChange({ ...workspace, sleepPlans: workspace.sleepPlans.some((item) => item.id === plan.id) ? workspace.sleepPlans.map((item) => item.id === plan.id ? plan : item) : [...workspace.sleepPlans, plan] }); setEditingSleep(null); }} onClose={() => setEditingSleep(null)} /> : null}
       {editingAddiction ? <AddictionEditor tracker={editingAddiction} language={language} calendarMode={calendarMode} allowCalendarModeChange={experimentalThemeActive} onSave={(tracker) => { onChange({ ...workspace, addictionTrackers: workspace.addictionTrackers.some((item) => item.id === tracker.id) ? workspace.addictionTrackers.map((item) => item.id === tracker.id ? tracker : item) : [...workspace.addictionTrackers, tracker] }); setEditingAddiction(null); }} onClose={() => setEditingAddiction(null)} /> : null}
     </div>

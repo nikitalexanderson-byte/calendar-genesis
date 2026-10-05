@@ -132,15 +132,12 @@ function genesisGeminiStringList(mixed $value, int $itemLimit, int $countLimit):
 function genesisAssistantTaskTitle(mixed $value): string
 {
     $title = genesisGeminiString($value, 300);
-    $patterns = [
-        '/^(?:(?:ну|пожалуйста)\s*[,—–-]?\s*)*(?:(?:мне\s+)?(?:нужно|надо)\s+)?(?:(?:создай|создать|добавь|добавить|запиши|записать|запланируй|запланировать|поставь|поставить)(?:\s+мне)?(?:\s+(?:новую?\s+)?(?:задач[а-яё]*|напоминан[а-яё]*))?|напомни(?:\s+мне)?|(?:задач[а-яё]*|напоминан[а-яё]*))\s*[.:;—–,-]?\s*/iu',
-        '/^(?:please\s+)?(?:(?:create|add|schedule|plan|make)(?:\s+me)?(?:\s+(?:a\s+)?(?:new\s+)?(?:task|reminder))?|remind\s+me(?:\s+to)?|(?:task|reminder))\s*[.:;—–,-]?\s*/i',
-    ];
-    for ($pass = 0; $pass < 3; $pass++) {
-        $cleaned = preg_replace($patterns, '', $title);
-        if (!is_string($cleaned) || $cleaned === $title) break;
-        $title = trim(preg_replace('/\s+/u', ' ', $cleaned) ?? $cleaned);
-    }
+    $title = preg_replace([
+        '/^(?:(?:ну|пожалуйста)\s*[,—–-]?\s*)*(?:(?:мне\s+)?(?:нужно|надо)\s+)?(?:(?:создай|создать|добавь|добавить|запиши|записать|запланируй|запланировать|поставь|поставить)(?:\s+мне)?(?:\s+(?:новую?\s+)?(?:задач[а-яё]*|напоминан[а-яё]*))?|напомни(?:\s+мне)?|задачу)\s*[.:;—–,-]?\s*/iu',
+        '/^(?:please\s+)?(?:(?:create|add|schedule|plan|make)(?:\s+me)?(?:\s+(?:a\s+)?(?:new\s+)?(?:task|reminder))?|remind\s+me(?:\s+to)?)\s*[.:;—–,-]?\s*/i',
+    ], '', $title) ?? $title;
+    $title = preg_replace('/^(?:задач[а-яё]*|напоминан[а-яё]*|task|reminder)\s*[:—–-]\s*/iu', '', $title) ?? $title;
+    $title = preg_replace('/^(?:(?:под|с)\s+названием|по\s+имени|(?:назови|назвать)(?:\s+(?:е[её]|задачу))?|которую\s+назови|название(?:\s+задачи)?|которая\s+называется|with\s+(?:the\s+)?(?:title|name)|named|called)\s*[:—–,-]?\s*/iu', '', $title) ?? $title;
     return trim((string)(preg_replace('/^[«“"\s]+|[»”"\s.,!?]+$/u', '', $title) ?? $title));
 }
 
@@ -418,6 +415,7 @@ Rules:
 - Add an item to projects or taskLists only when the user explicitly asks to create it. A task may reference an existing item without recreating it.
 - A taskLists item means a Google Tasks list. Use accountEmail only when the user selected a connected account.
 - Keep titles concise. Preserve meaningful wording from the user. Use empty strings and empty arrays for omitted optional details.
+- Treat "под названием", "с названием", "назови её", "named", "called", and "with the title" as instructions about the title field. For "создай задачу под названием Задача номер 1", output title exactly "Задача номер 1"; keep the word "Задача" when it is part of the requested name.
 - priority is 1 to 10 (10 is highest); default to 5. reminderMinutes is 0 when no reminder was requested.
 - If the request is not about creating projects, Google Tasks lists, or tasks, return empty action arrays and explain briefly in summary.
 PROMPT;
@@ -680,6 +678,7 @@ Rules:
 - Add an item to projects or taskLists only when the user explicitly asks to create it. A task may reference an existing item without recreating it.
 - A taskLists item means a Google Tasks list. Use accountEmail only when the user selected a connected account.
 - Keep titles concise. Preserve meaningful wording from the user. Use empty strings and empty arrays for omitted optional details.
+- Treat "под названием", "с названием", "назови её", "named", "called", and "with the title" as instructions about the title field. For "создай задачу под названием Задача номер 1", output title exactly "Задача номер 1"; keep the word "Задача" when it is part of the requested name.
 - priority is 1 to 10 (10 is highest); default to 5. reminderMinutes is 0 when no reminder was requested.
 - If the request is not about creating projects, Google Tasks lists, or tasks, return empty action arrays and explain briefly in summary.
 PROMPT;

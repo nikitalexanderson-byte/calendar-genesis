@@ -35,6 +35,16 @@ class HabitDocumentTest {
         assertEquals(w,HabitDocument.decode(HabitDocument.encode(w),0))
     }
 
+    @Test fun websiteHabitPersonalizationAndGoogleChoicesSurviveRoundTrip() {
+        val configured = habit().copy(emoji="🧘",color="#2d7771",isKeyHabit=true,
+            ritualId="custom",ritualName="Восстановление",
+            reminder=HabitReminder(enabled=true,time="07:30",syncToGoogleTasks=true,
+                showInGoogleCalendar=true,googleTaskId="habit-task",googleEventId="habit-event"))
+        val restored=HabitDocument.decode(HabitDocument.encode(LocalHabitWorkspace(habits=listOf(configured))),0)
+            .habits.single()
+        assertEquals(configured,restored)
+    }
+
     @Test fun achievementUnlockPersistsAfterCompletionIsRemovedAndLegacyDocumentDecodes() {
         val h = habit()
         val entries = engine.updateCompletion(emptyList(), h, day, day, true, null, "", stamp, "unlock-1")

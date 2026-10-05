@@ -151,6 +151,51 @@ internal class AuthSessionClient(context: Context) {
         request(expected, "/account/preferences", JSONObject().put("syncRouting", routing.toJson()), method = "PUT")
     fun updatePreferences(expected: Long, changes: JSONObject): JSONObject =
         request(expected, "/account/preferences", changes, method = "PUT")
+    fun sharedSpaces(expected: Long): JSONObject = request(expected, "/shared/spaces", null)
+    fun createSharedSpace(expected: Long, body: JSONObject): JSONObject =
+        request(expected, "/shared/spaces", body)
+    fun sharedProjects(expected: Long, spaceId: String): JSONObject =
+        request(expected, "/shared/spaces/$spaceId/projects", null)
+    fun archivedSharedProjects(expected: Long, spaceId: String): JSONObject =
+        request(expected, "/shared/spaces/$spaceId/archived-projects", null)
+    fun createSharedProject(expected: Long, spaceId: String, body: JSONObject): JSONObject =
+        request(expected, "/shared/spaces/$spaceId/projects", body)
+    fun sharedProject(expected: Long, projectId: String): JSONObject =
+        request(expected, "/shared/projects/$projectId", null)
+    fun updateSharedProject(expected: Long, projectId: String, body: JSONObject): JSONObject =
+        request(expected, "/shared/projects/$projectId", body)
+    fun setSharedProjectArchived(expected: Long, projectId: String, archived: Boolean): JSONObject =
+        request(expected, "/shared/projects/$projectId/${if (archived) "archive" else "restore"}", JSONObject())
+    fun createSharedStatus(expected: Long, projectId: String, body: JSONObject): JSONObject =
+        request(expected, "/shared/projects/$projectId/statuses", body)
+    fun updateSharedStatus(expected: Long, projectId: String, statusId: String, body: JSONObject): JSONObject =
+        request(expected, "/shared/projects/$projectId/statuses/$statusId", body)
+    fun deleteSharedStatus(expected: Long, projectId: String, statusId: String, body: JSONObject): JSONObject =
+        request(expected, "/shared/projects/$projectId/statuses/$statusId", body, method = "DELETE")
+    fun createSharedCategory(expected: Long, projectId: String, body: JSONObject): JSONObject =
+        request(expected, "/shared/projects/$projectId/categories", body)
+    fun updateSharedCategory(expected: Long, projectId: String, categoryId: String, body: JSONObject): JSONObject =
+        request(expected, "/shared/projects/$projectId/categories/$categoryId", body)
+    fun deleteSharedCategory(expected: Long, projectId: String, categoryId: String, body: JSONObject): JSONObject =
+        request(expected, "/shared/projects/$projectId/categories/$categoryId", body, method = "DELETE")
+    fun changeSharedMemberRole(expected: Long, projectId: String, userId: String, role: String): JSONObject =
+        request(expected, "/shared/projects/$projectId/members/$userId", JSONObject().put("role", role))
+    fun changeSharedSpaceRole(expected: Long, spaceId: String, userId: String, role: String): JSONObject =
+        request(expected, "/shared/spaces/$spaceId/members/$userId", JSONObject().put("role", role))
+    fun removeSharedMember(expected: Long, projectId: String, userId: String): JSONObject =
+        request(expected, "/shared/projects/$projectId/members/$userId", JSONObject(), method = "DELETE")
+    fun createSharedTask(expected: Long, projectId: String, body: JSONObject): JSONObject =
+        request(expected, "/shared/projects/$projectId/tasks", body)
+    fun updateSharedTask(expected: Long, projectId: String, taskId: String, body: JSONObject): JSONObject =
+        request(expected, "/shared/projects/$projectId/tasks/$taskId", body)
+    fun inviteSharedMember(expected: Long, projectId: String, body: JSONObject): JSONObject =
+        request(expected, "/shared/projects/$projectId/invitations", body)
+    fun acceptSharedInvitation(expected: Long, body: JSONObject): JSONObject =
+        request(expected, "/shared/invitations/accept", body)
+    fun sharedComments(expected: Long, projectId: String, taskId: String): JSONObject =
+        request(expected, "/shared/projects/$projectId/tasks/$taskId/comments", null)
+    fun addSharedComment(expected: Long, projectId: String, taskId: String, body: JSONObject): JSONObject =
+        request(expected, "/shared/projects/$projectId/tasks/$taskId/comments", body)
     fun adminStats(expected: Long): JSONObject = request(expected, "/admin/stats", null)
     fun todayAds(expected: Long, language: String, country: String): JSONObject {
         require(language.matches(Regex("[a-z]{2}")) && country.matches(Regex("[A-Z]{0,2}")))
@@ -193,7 +238,21 @@ internal class AuthSessionClient(context: Context) {
             "/auth/logout", "/account/preferences", "/admin/stats") || (path == "/task-lists" && method == "POST") ||
             (method in setOf("PUT", "DELETE") && path.matches(Regex("/tasks/[A-Za-z0-9_-]{1,100}"))) ||
             (method == "DELETE" && path.matches(Regex("/admin/users/[A-Za-z0-9_-]{1,100}"))) ||
-            (method == "DELETE" && path.matches(Regex("/account/google-accounts/[A-Za-z0-9_-]{1,100}"))))
+            (method == "DELETE" && path.matches(Regex("/account/google-accounts/[A-Za-z0-9_-]{1,100}"))) ||
+            (path in setOf("/shared/spaces", "/shared/invitations/accept") && method in setOf("GET", "POST")) ||
+            (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/projects")) && method in setOf("GET", "POST")) ||
+            (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/archived-projects")) && method == "GET") ||
+            (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/members/[A-Za-z0-9_-]{1,100}")) && method == "POST") ||
+            (path.matches(Regex("/shared/projects/[a-f0-9-]{36}")) && method in setOf("GET", "POST")) ||
+            (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/(archive|restore)")) && method == "POST") ||
+            (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/statuses")) && method == "POST") ||
+            (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/statuses/[a-f0-9-]{36}")) && method in setOf("POST", "DELETE")) ||
+            (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/categories")) && method == "POST") ||
+            (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/categories/[a-f0-9-]{36}")) && method in setOf("POST", "DELETE")) ||
+            (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/members/[A-Za-z0-9_-]{1,100}")) && method in setOf("POST", "DELETE")) ||
+            (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/(tasks|invitations)")) && method == "POST") ||
+            (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/tasks/[a-f0-9-]{36}")) && method == "POST") ||
+            (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/tasks/[a-f0-9-]{36}/comments")) && method in setOf("GET", "POST")))
         require(method in setOf("GET", "POST", "PUT", "DELETE") && (method == "GET") == (body == null))
         val current = secret ?: load(expected)
         if (body != null && (current.cookie.isBlank() || current.csrf.isBlank())) throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)

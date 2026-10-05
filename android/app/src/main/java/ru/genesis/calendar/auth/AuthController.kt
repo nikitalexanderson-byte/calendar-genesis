@@ -82,6 +82,75 @@ class AuthController private constructor(context: Context) {
         return withContext(Dispatchers.IO) { client.todayAds(generation, language, country) }
     }
 
+    private suspend fun sharedCall(action: (AuthSessionClient, Long) -> JSONObject): JSONObject {
+        val snapshot = mutableState.value
+        check(snapshot.ready && !snapshot.requiresSignIn && snapshot.user != null &&
+            snapshot.accountSettings?.sharedProjectsEnabled == true)
+        val generation = client.currentGeneration()
+        return withContext(Dispatchers.IO) { action(client, generation) }
+    }
+
+    suspend fun sharedSpaces(): JSONObject = sharedCall { api, generation -> api.sharedSpaces(generation) }
+    suspend fun createSharedSpace(title: String): JSONObject = sharedCall { api, generation ->
+        api.createSharedSpace(generation, JSONObject().put("title", title))
+    }
+    suspend fun sharedProjects(spaceId: String): JSONObject = sharedCall { api, generation -> api.sharedProjects(generation, spaceId) }
+    suspend fun archivedSharedProjects(spaceId: String): JSONObject =
+        sharedCall { api, generation -> api.archivedSharedProjects(generation, spaceId) }
+    suspend fun createSharedProject(spaceId: String, title: String, description: String, layout: String,
+        parentId: String? = null): JSONObject =
+        sharedCall { api, generation -> api.createSharedProject(generation, spaceId,
+            JSONObject().put("title", title).put("description", description).put("layout", layout)
+                .put("parentId", parentId ?: JSONObject.NULL)) }
+    suspend fun sharedProject(projectId: String): JSONObject = sharedCall { api, generation -> api.sharedProject(generation, projectId) }
+    suspend fun updateSharedProject(projectId: String, changes: JSONObject): JSONObject =
+        sharedCall { api, generation -> api.updateSharedProject(generation, projectId, changes) }
+    suspend fun setSharedProjectArchived(projectId: String, archived: Boolean): JSONObject =
+        sharedCall { api, generation -> api.setSharedProjectArchived(generation, projectId, archived) }
+    suspend fun createSharedStatus(projectId: String, title: String, isDone: Boolean): JSONObject =
+        sharedCall { api, generation -> api.createSharedStatus(generation, projectId,
+            JSONObject().put("title", title).put("isDone", isDone)) }
+    suspend fun updateSharedStatus(projectId: String, statusId: String, title: String, revision: Int): JSONObject =
+        sharedCall { api, generation -> api.updateSharedStatus(generation, projectId, statusId,
+            JSONObject().put("title", title).put("expectedRevision", revision)) }
+    suspend fun deleteSharedStatus(projectId: String, statusId: String, destinationId: String, revision: Int): JSONObject =
+        sharedCall { api, generation -> api.deleteSharedStatus(generation, projectId, statusId,
+            JSONObject().put("destinationStatusId", destinationId).put("expectedRevision", revision)) }
+    suspend fun createSharedCategory(projectId: String, title: String, color: String): JSONObject =
+        sharedCall { api, generation -> api.createSharedCategory(generation, projectId,
+            JSONObject().put("title", title).put("color", color)) }
+    suspend fun updateSharedCategory(projectId: String, categoryId: String,
+        title: String, color: String, revision: Int): JSONObject =
+        sharedCall { api, generation -> api.updateSharedCategory(generation, projectId, categoryId,
+            JSONObject().put("title", title).put("color", color).put("expectedRevision", revision)) }
+    suspend fun deleteSharedCategory(projectId: String, categoryId: String, revision: Int): JSONObject =
+        sharedCall { api, generation -> api.deleteSharedCategory(generation, projectId, categoryId,
+            JSONObject().put("expectedRevision", revision)) }
+    suspend fun changeSharedMemberRole(projectId: String, userId: String, role: String): JSONObject =
+        sharedCall { api, generation -> api.changeSharedMemberRole(generation, projectId, userId, role) }
+    suspend fun changeSharedSpaceRole(spaceId: String, userId: String, role: String): JSONObject =
+        sharedCall { api, generation -> api.changeSharedSpaceRole(generation, spaceId, userId, role) }
+    suspend fun removeSharedMember(projectId: String, userId: String): JSONObject =
+        sharedCall { api, generation -> api.removeSharedMember(generation, projectId, userId) }
+    suspend fun createSharedTask(projectId: String, title: String, statusId: String,
+        categoryId: String? = null): JSONObject =
+        sharedCall { api, generation -> api.createSharedTask(generation, projectId,
+            JSONObject().put("title", title).put("statusId", statusId).put("categoryId", categoryId ?: JSONObject.NULL)) }
+    suspend fun publishPrivateTask(projectId: String, fields: JSONObject): JSONObject =
+        sharedCall { api, generation -> api.createSharedTask(generation, projectId, fields) }
+    suspend fun updateSharedTask(projectId: String, taskId: String, changes: JSONObject): JSONObject =
+        sharedCall { api, generation -> api.updateSharedTask(generation, projectId, taskId, changes) }
+    suspend fun inviteSharedMember(projectId: String, email: String, role: String): JSONObject =
+        sharedCall { api, generation -> api.inviteSharedMember(generation, projectId,
+            JSONObject().put("email", email).put("role", role)) }
+    suspend fun acceptSharedInvitation(token: String): JSONObject =
+        sharedCall { api, generation -> api.acceptSharedInvitation(generation, JSONObject().put("token", token)) }
+    suspend fun sharedComments(projectId: String, taskId: String): JSONObject =
+        sharedCall { api, generation -> api.sharedComments(generation, projectId, taskId) }
+    suspend fun addSharedComment(projectId: String, taskId: String, body: String): JSONObject =
+        sharedCall { api, generation -> api.addSharedComment(generation, projectId, taskId,
+            JSONObject().put("body", body)) }
+
     suspend fun deleteAdminUser(userId: String, blacklist: Boolean): JSONObject {
         val snapshot = mutableState.value
         check(snapshot.ready && !snapshot.requiresSignIn && snapshot.user != null && snapshot.accountSettings?.isAdmin == true)
@@ -350,6 +419,10 @@ class AuthController private constructor(context: Context) {
             "language" -> { require(value in setOf("ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja")); changes.put("language", value) }
             "stoicheionDivinationDisabled" -> {
                 require(value in setOf("true", "false")); changes.put("stoicheionDivinationDisabled", value.toBoolean())
+            }
+            "sharedProjectsEnabled" -> {
+                require(value in setOf("true", "false") && (value == "false" || previous.accountSettings.sharedProjectsEligible))
+                changes.put("sharedProjectsEnabled", value.toBoolean())
             }
             else -> throw AuthFailure(AuthFailure.Kind.PROTOCOL)
         }
@@ -690,6 +763,7 @@ class AuthController private constructor(context: Context) {
             "gregorianYearStart" -> body.put("gregorianYearStart", value)
             "language" -> body.put("language", value)
             "stoicheionDivinationDisabled" -> body.put(name, value.toBoolean())
+            "sharedProjectsEnabled" -> body.put(name, value.toBoolean())
         } }
         val payload = withContext(Dispatchers.IO) { client.updatePreferences(generation, body) }
         if (AuthProtocol.identity(payload)?.uid != uid || !client.isCurrent(generation)) throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)

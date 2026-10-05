@@ -2,6 +2,7 @@
 /* eslint-disable @next/next/no-html-link-for-pages */
 /* eslint-disable @next/next/no-img-element -- Google requires the official, unmodified sign-in asset. */
 
+import { useEffect, useState } from "react";
 import { LANGUAGES, LANGUAGE_LABELS, translateText, type Language } from "./i18n";
 
 type WelcomeScreenProps = {
@@ -30,6 +31,21 @@ const WELCOME_TITLES: Partial<Record<Language, string>> = {
 };
 
 export function WelcomeScreen({ nativeAndroidApkUrl, busy, error, language, onLanguageChange, onGoogle, onYandex, yandexAvailable }: WelcomeScreenProps) {
+  const [nativeAndroidVersion, setNativeAndroidVersion] = useState<string | null>(null);
+  useEffect(() => {
+    if (!nativeAndroidApkUrl) return;
+    const controller = new AbortController();
+    void fetch(`${APP_BASE}/android-update.json`, { cache: "no-store", signal: controller.signal })
+      .then((response) => response.ok ? response.json() : null)
+      .then((release: unknown) => {
+        if (release && typeof release === "object" && "versionName" in release &&
+            typeof release.versionName === "string" && /^\d+\.\d+\.\d+$/.test(release.versionName)) {
+          setNativeAndroidVersion(release.versionName);
+        }
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [nativeAndroidApkUrl]);
   const languageColumns = [7, 6, 5, 4, 3, 2, 1].find((count) => LANGUAGES.length % count === 0) ?? 1;
   const copy = language === "en" ? {
     home: "GENESIS — home",
@@ -57,7 +73,7 @@ export function WelcomeScreen({ nativeAndroidApkUrl, busy, error, language, onLa
     secureSignIn: yandexAvailable ? "Secure sign-in" : "Secure Google sign-in",
     passwordNote: yandexAvailable ? "GENESIS never asks for your Google or Yandex password. Sign-in happens through the provider you choose." : "GENESIS never asks for your Google password. Authentication takes place only on the secure accounts.google.com page.",
     downloadNative: "Native Android app",
-    downloadNativeNote: "GENESIS 2.5.7 · native APK",
+    downloadNativeNote: `GENESIS${nativeAndroidVersion ? ` ${nativeAndroidVersion}` : ""} · native APK`,
     androidMigration: "Replacing the old TWA? Its signing key is different: uninstall the TWA before installing this app. Unsynced local TWA data will be lost; your website and Google data will return after sign-in.",
     androidInstallCaution: "Android may warn about an APK downloaded outside Google Play or ask to allow installation from this source. Keep Play Protect on. The previous TWA cannot be updated in place with this differently signed app.",
     agreement: <>By continuing, you accept the <a href="/terms">Terms of Service</a> and acknowledge the <a href="/privacy">Privacy Policy</a>.</>,
@@ -88,7 +104,7 @@ export function WelcomeScreen({ nativeAndroidApkUrl, busy, error, language, onLa
     secureSignIn: yandexAvailable ? "Безопасный вход" : "Безопасный вход через Google",
     passwordNote: yandexAvailable ? "GENESIS не запрашивает пароль от Google или Яндекса. Вход выполняется через выбранный вами сервис." : "GENESIS никогда не запрашивает пароль от Google. Авторизация выполняется только на защищённой странице accounts.google.com.",
     downloadNative: "Нативное Android-приложение",
-    downloadNativeNote: "GENESIS 2.5.7 · нативный APK",
+    downloadNativeNote: `GENESIS${nativeAndroidVersion ? ` ${nativeAndroidVersion}` : ""} · нативный APK`,
     androidMigration: "Заменяете старую TWA? У неё другая подпись: перед установкой удалите TWA. Несинхронизированные локальные данные TWA будут потеряны; данные сайта и Google вернутся после входа.",
     androidInstallCaution: "Android может предупредить об APK вне Google Play или попросить разрешить установку из этого источника. Не отключайте Play Защиту. Прежняя TWA не обновится этим приложением из-за другой подписи.",
     agreement: <>Продолжая, вы принимаете <a href="/terms">пользовательское соглашение</a> и подтверждаете ознакомление с <a href="/privacy">политикой конфиденциальности</a>.</>,
@@ -173,7 +189,7 @@ export function WelcomeScreen({ nativeAndroidApkUrl, busy, error, language, onLa
           ) : null}
           {nativeAndroidApkUrl ? (
             <>
-              <a className="android-download-button android-native-download-button" href={nativeAndroidApkUrl} download="GENESIS-Android-Native-2.5.7.apk">
+              <a className="android-download-button android-native-download-button" href={nativeAndroidApkUrl}>
                 <span className="android-download-mark" aria-hidden="true"><svg className="ux-android-robot" viewBox="0 0 24 24" fill="none"><path d="M5.5 9h13v8.5a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2V9ZM5.5 9a6.5 6.5 0 0 1 13 0M4 11v5M20 11v5M9 19.5V22M15 19.5V22M7 3 5.5 1M17 3 18.5 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><circle cx="9.3" cy="7" r=".8" fill="currentColor"/><circle cx="14.7" cy="7" r=".8" fill="currentColor"/></svg></span>
                 <span><strong>{copy.downloadNative}</strong><small>{copy.downloadNativeNote}</small></span>
               </a>

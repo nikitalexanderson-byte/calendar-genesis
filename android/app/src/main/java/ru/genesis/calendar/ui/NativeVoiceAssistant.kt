@@ -74,7 +74,7 @@ internal fun NativeVoiceAssistantDialog(app: GenesisApplication, structure: Work
                     Button(onClick={
                         error=null
                         runCatching {
-                            val intent=parseNativeVoiceAction(command,tasks,structure.projects,habits)
+                            val intent=parseNativeVoiceAction(command,tasks,structure.projects,habits,taskLists,structure.categories)
                             if(intent!=null) { action=intent;drafts=emptyList() }
                             else {
                                 require(!looksLikeUnsupportedVoiceAction(command)) {
@@ -97,13 +97,43 @@ internal fun NativeVoiceAssistantDialog(app: GenesisApplication, structure: Work
                     HorizontalDivider()
                     Text(when(preview) {
                         is NativeVoiceAction.Navigate -> "Открыть раздел: ${preview.section}"
+                        is NativeVoiceAction.CalendarModeChange -> "Переключить календарь: ${preview.mode.wireValue}"
+                        is NativeVoiceAction.CalendarView -> if(preview.year) "Открыть год" else "Открыть месяц"
+                        is NativeVoiceAction.CalendarStep -> when {
+                            preview.year && preview.step>0 -> "Следующий год"
+                            preview.year -> "Предыдущий год"
+                            preview.step>0 -> "Следующий месяц"
+                            else -> "Предыдущий месяц"
+                        }
+                        is NativeVoiceAction.CalendarSwipe -> if(preview.step>0) "Свайп влево" else "Свайп вправо"
+                        is NativeVoiceAction.CalendarDate -> "Выбрать дату: ${preview.day}.${preview.month}.${preview.year}"
+                        is NativeVoiceAction.CalendarMonth -> "Выбрать месяц: ${preview.ordinal}"
+                        is NativeVoiceAction.Scroll -> "Прокрутить: ${preview.direction}"
+                        is NativeVoiceAction.TheokyklosSector -> if(english)
+                            "Open Theokyklos sector: ${preview.sectorId}" else "Открыть сектор Теокиклоса: ${preview.sectorId}"
+                        is NativeVoiceAction.StoicheionCard -> if(english)
+                            "Open Stoicheion card: ${preview.cardId}" else "Открыть карту Стойхейона: ${preview.cardId}"
+                        is NativeVoiceAction.SetMood -> ru.genesis.calendar.domain.trackers.MoodTracker
+                            .option(preview.value.toDouble()).let { option ->
+                                if(english) "Record mood: ${option.labelEn}" else "Отметить настроение: ${option.label}"
+                            }
+                        is NativeVoiceAction.RenameTask -> if(english)
+                            "Rename task: ${preview.title} → ${preview.newTitle}"
+                            else "Переименование задачи: ${preview.title} → ${preview.newTitle}"
                         is NativeVoiceAction.CreateProject -> "Создать проект: ${preview.title}"
+                        is NativeVoiceAction.CreateCategory -> "Создать категорию: ${preview.title}"
                         is NativeVoiceAction.CreateTaskList -> "Создать список задач: ${preview.title}"
                         is NativeVoiceAction.EditProject -> "Изменить проект: ${preview.title}"
+                        is NativeVoiceAction.DeleteProject -> "Открыть подтверждение удаления проекта: ${preview.title}"
+                        is NativeVoiceAction.EditCategory -> "Изменить категорию: ${preview.title}"
+                        is NativeVoiceAction.DeleteCategory -> "Открыть подтверждение удаления категории: ${preview.title}"
                         is NativeVoiceAction.CreateHabit -> "Создать привычку: ${preview.title}"
                         is NativeVoiceAction.EditHabit -> "Изменить привычку: ${preview.title}"
                         is NativeVoiceAction.DeleteHabit -> "Открыть подтверждение удаления привычки: ${preview.title}"
                         is NativeVoiceAction.EditTask -> "Открыть задачу для редактирования: ${preview.title}"
+                        is NativeVoiceAction.DeleteTask -> "Открыть подтверждение удаления задачи: ${preview.title}"
+                        is NativeVoiceAction.EditTaskList -> "Изменить список задач: ${preview.title}"
+                        is NativeVoiceAction.DeleteTaskList -> "Открыть подтверждение удаления списка: ${preview.title}"
                         is NativeVoiceAction.SetTaskDone -> "${if(preview.done)"Выполнить задачу" else "Снять отметку задачи"}: ${preview.title}"
                         is NativeVoiceAction.SetHabitDone -> "${if(preview.done)"Выполнить привычку" else "Снять отметку привычки"}: ${preview.title}"
                         is NativeVoiceAction.MoveTask -> "Перенести задачу: ${preview.title}"

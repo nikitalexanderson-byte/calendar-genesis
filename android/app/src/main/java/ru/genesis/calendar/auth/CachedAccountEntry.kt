@@ -39,6 +39,8 @@ internal class CachedAccountEntry(private val app: GenesisApplication) {
             .put("stoicheionDivinationDisabled", settings.divinationDisabled)
             .put("language", settings.language).put("authProvider", settings.authProvider)
             .put("calendarConnected", settings.calendarConnected)
+            .put("sharedProjectsEligible", settings.sharedProjectsEligible)
+            .put("sharedProjectsEnabled", settings.sharedProjectsEnabled)
         val encoded = LocalCipher().encrypt(JSONObject().put("user", user).toString(), "$scope/$kind")
         app.database.dao().putDocument(DocumentRecord(scope, kind, encoded, System.currentTimeMillis()))
     }

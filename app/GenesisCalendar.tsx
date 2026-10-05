@@ -190,6 +190,8 @@ import {
 } from "./day-rhythm";
 
 const AccountPanel = lazy(() => import("./AccountPanel").then((module) => ({ default: module.AccountPanel })));
+const SharedProjects = lazy(() => import("./SharedProjects").then((module) => ({ default: module.SharedProjects })));
+const PersonalTaskTransfer = lazy(() => import("./PersonalTaskTransfer").then((module) => ({ default: module.PersonalTaskTransfer })));
 const WelcomeScreen = lazy(() => import("./WelcomeScreen").then((module) => ({ default: module.WelcomeScreen })));
 const AdminPanel = lazy(() => import("./AdminPanel").then((module) => ({ default: module.AdminPanel })));
 const GeminiAssistant = lazy(() => import("./GeminiAssistant").then((module) => ({ default: module.GeminiAssistant })));
@@ -1297,6 +1299,7 @@ export function GenesisCalendar() {
   const [view, setView] = useState<ViewName>("today");
   const [requestedTheokyklosSector, setRequestedTheokyklosSector] = useState<SacredPracticeSectorId | null>(null);
   const clearRequestedTheokyklosSector = useCallback(() => setRequestedTheokyklosSector(null), []);
+  const [requestedStoicheionCard, setRequestedStoicheionCard] = useState<string | null>(null);
   const [sacredYear, setSacredYear] = useState(initial.sacredYear);
   const [monthIndex, setMonthIndex] = useState(initial.monthIndex);
   const [selectedDay, setSelectedDay] = useState(initial.day);
@@ -1318,6 +1321,7 @@ export function GenesisCalendar() {
   const [habitFeedback, setHabitFeedback] = useState<HabitFeedbackEvent | null>(null);
   const [habitNotificationPermissionState, setHabitNotificationPermissionState] = useState<HabitNotificationPermission>("unsupported");
   const [hydrated, setHydrated] = useState(false);
+  const voiceLanguageEnabled = hydrated && (language === "ru" || language === "en");
   const [authResolved, setAuthResolved] = useState(!isGoogleSyncConfigured);
   const [cloudUser, setCloudUser] = useState<GenesisUser | null>(null);
   const [yandexAvailable, setYandexAvailable] = useState(false);
@@ -1334,6 +1338,7 @@ export function GenesisCalendar() {
     error: null,
   });
   const [accountOpen, setAccountOpen] = useState(false);
+  const [projectsArea, setProjectsArea] = useState<"personal" | "shared">("personal");
   useEffect(() => {
     const url = new URL(window.location.href);
     if (url.searchParams.get("account_link") !== "1") return;
@@ -1413,6 +1418,7 @@ export function GenesisCalendar() {
   const [editingProject, setEditingProject] = useState<GenesisProject | null>(null);
   const [editingProjectTags, setEditingProjectTags] = useState("");
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [transferTask, setTransferTask] = useState<Task | null>(null);
   const [editingTaskTags, setEditingTaskTags] = useState("");
   const [editingTaskScope, setEditingTaskScope] = useState<TaskSeriesScope>("occurrence");
   const [editingOccurrenceDate, setEditingOccurrenceDate] = useState("");
@@ -1599,6 +1605,17 @@ export function GenesisCalendar() {
   }, []);
 
   useEffect(() => {
+    if (voiceLanguageEnabled) return;
+    const timer = window.setTimeout(() => {
+      setVoiceLaunchAnimating(false);
+      setVoiceAssistantOpen(false);
+      setGeminiOpen(false);
+      setVoiceControlActive(false);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [voiceLanguageEnabled]);
+
+  useEffect(() => {
     if (!voiceLaunchAnimating) return;
     const timer = window.setTimeout(() => {
       setVoiceLaunchAnimating(false);
@@ -1609,6 +1626,7 @@ export function GenesisCalendar() {
   }, [assistantStatus.audioAvailable, voiceLaunchAnimating]);
 
   const openVoiceAssistant = () => {
+    if (!voiceLanguageEnabled) return;
     setVoiceControlActive(false);
     if (voiceLaunchAnimating) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -1872,9 +1890,9 @@ export function GenesisCalendar() {
       window.history.pushState(state, "", cleanUrl);
     }
     window.requestAnimationFrame(() => {
-      window.scrollTo({ top: 0, behavior: "auto" });
-      document.querySelector<HTMLElement>(".app-stage")?.scrollTo({ top: 0, behavior: "auto" });
-      document.querySelector<HTMLElement>(".workspace")?.scrollTo({ top: 0, behavior: "auto" });
+      window.scrollTo(0, 0);
+      document.querySelector<HTMLElement>(".app-stage")?.scrollTo(0, 0);
+      document.querySelector<HTMLElement>(".workspace")?.scrollTo(0, 0);
     });
   };
 
@@ -3411,13 +3429,13 @@ export function GenesisCalendar() {
   const deleteTaskList = async (taskList: GoogleTaskList) => {
     if (taskList.isDefault) {
       setSyncError("Основной список Google Tasks нельзя удалить. Пока он пуст и не привязан к проекту, GENESIS скрывает его автоматически.");
-      return;
+      return false;
     }
     const listTaskCount = tasks.filter((task) => task.googleTaskListId === taskList.id).length;
     const taskCountLabel = listTaskCount === 1 ? "1 задачей" : `${listTaskCount} задачами`;
     if (!window.confirm(translateText(cloudUser?.authProvider !== "google"
       ? `Удалить список «${taskList.title}» вместе с ${taskCountLabel}? Это действие нельзя отменить.`
-      : `Удалить список «${taskList.title}» вместе с ${taskCountLabel}? Он будет удалён из Google Tasks. Это действие нельзя отменить.`, undefined, true))) return;
+      : `Удалить список «${taskList.title}» вместе с ${taskCountLabel}? Он будет удалён из Google Tasks. Это действие нельзя отменить.`, undefined, true))) return false;
     setSyncStatus("syncing");
     try {
       await removeGoogleTaskList(taskList.id, taskList.accountId);
@@ -3441,9 +3459,11 @@ export function GenesisCalendar() {
       if (editingTaskList?.id === taskList.id) setEditingTaskList(null);
       persistStructure(projects, categories, nextLinks,
         taskLists.filter((item) => item.id !== taskList.id));
+      return true;
     } catch (error) {
       setSyncError(error instanceof Error ? error.message : "Не удалось удалить список Google Tasks");
       setSyncStatus(navigator.onLine ? "error" : "offline");
+      return false;
     }
   };
 
@@ -3559,7 +3579,7 @@ export function GenesisCalendar() {
   };
 
   const beginProjectPointerDrag = (event: PointerEvent<HTMLElement>, item: ProjectDragItem) => {
-    if (event.pointerType !== "mouse" || event.button !== 0) return;
+    if (event.pointerType !== "mouse" || event.button !== 0 || !(event.target as Element).closest(".project-drag-handle")) return;
     event.currentTarget.setPointerCapture(event.pointerId);
     projectPointerDragRef.current = {
       item,
@@ -3895,7 +3915,9 @@ export function GenesisCalendar() {
   const executeWebVoiceCommand = async (command: string): Promise<string> => {
     const { runWebVoiceCommand } = await import("./web-voice-executor");
     return runWebVoiceCommand(command, {
-      language, calendarMode: activeTaskCalendarMode, today: todayDateValue, timeZone: deviceTimeZone,
+      language, calendarMode: activeTaskCalendarMode, currentView: view,
+      today: todayDateValue, timeZone: deviceTimeZone,
+      persistentWorkspace: Boolean(cloudUser) || !isGoogleSyncConfigured,
       categories, projects, taskLists, accounts: googleAccounts.map((account) => ({ email: account.email })),
       tasks, workspace: habitWorkspace,
     }, {
@@ -3904,9 +3926,63 @@ export function GenesisCalendar() {
       applyPlan: applyAssistantPlan,
       updateWorkspace: updateHabitWorkspace,
       openTask: openTaskEditor,
+      confirmTaskDelete: (task) => setPendingTaskDeletion({ taskId: task.id, occurrenceDate: task.dueDate }),
+      openList: setEditingTaskList,
+      deleteList: deleteTaskList,
       openProject: openProjectEditor,
+      deleteProject: (project) => deleteProject(project.id),
+      createCategory,
+      openCategory: beginCategoryEdit,
+      deleteCategory: (category) => deleteCategory(category.id),
       toggleTask,
       changeTask: persistTaskChange,
+      changeDisplayCalendar: async (mode) => {
+        if (!cloudUser) throw new Error(language === "en" ? "Sign in to change calendar settings." : "Войдите, чтобы изменить календарь.");
+        if (cloudUser.calendarMode === mode) return;
+        const result = await updateAccountPreferences({ calendarMode: mode });
+        setCloudUser(result.user);
+      },
+      stepCalendar: (unit, step) => {
+        if (activeCalendarMode === "sacred") {
+          if (unit === "year") changeSacredYear(sacredYear + step);
+          else selectMonth(monthIndex + step);
+        } else if (activeCalendarMode === "profane") {
+          selectCalendarDate(new Date(selectedDate.getFullYear() + (unit === "year" ? step : 0),
+            selectedDate.getMonth() + (unit === "month" ? step : 0), 1, 12));
+        } else if (unit === "month") {
+          selectCalendarDate(getLunarMonthStart(selectedLunarMonthIndex + step));
+        } else {
+          const target = getLunarYear(selectedLunarYear.sacredYear + step);
+          selectCalendarDate(getLunarMonthStart(target.startMonthIndex +
+            Math.min(selectedLunarMonthOrdinal - 1, target.monthCount - 1)));
+        }
+      },
+      chooseCalendarMonth: (ordinal) => {
+        if (activeCalendarMode === "sacred") {
+          if (ordinal < 1 || ordinal > 13) return false;
+          selectCalendarDate(getGregorianDate(sacredYear, ordinal - 1, 1));
+        } else if (activeCalendarMode === "profane") {
+          if (ordinal < 1 || ordinal > 12) return false;
+          selectCalendarDate(new Date(selectedDate.getFullYear(), ordinal - 1, 1, 12));
+        } else {
+          if (ordinal < 1 || ordinal > selectedLunarYear.monthCount) return false;
+          selectCalendarDate(getLunarMonthStart(selectedLunarYear.startMonthIndex + ordinal - 1));
+        }
+        return true;
+      },
+      chooseCalendarDate: selectCalendarDate,
+      scrollPage: (direction) => {
+        const scrollable = [document.querySelector<HTMLElement>(".app-stage"),
+          document.querySelector<HTMLElement>(".workspace"), document.scrollingElement]
+          .find((element) => element && element.scrollHeight > element.clientHeight + 8);
+        if (!scrollable) return false;
+        const top = direction === "top" ? 0 : direction === "bottom" ? scrollable.scrollHeight
+          : scrollable.scrollTop + (direction === "down" ? 1 : -1) * Math.max(320, scrollable.clientHeight * 0.8);
+        scrollable.scrollTo({ top, behavior: "smooth" });
+        return true;
+      },
+      openTheokyklosSector,
+      openStoicheionCard: setRequestedStoicheionCard,
     });
   };
   const openProjectEditor = (project: GenesisProject) => {
@@ -3942,9 +4018,8 @@ export function GenesisCalendar() {
     setEditingProject(null);
   };
 
-  const addCategory = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const name = newCategoryTitle.trim();
+  const createCategory = (title: string) => {
+    const name = title.trim();
     if (!name) return;
     const palette = ["#2d6c68", "#a5543f", "#b18b48", "#665c88", "#54718a"];
     const category: GenesisCategory = {
@@ -3957,6 +4032,11 @@ export function GenesisCalendar() {
     setCategories(nextCategories);
     persistStructure(projects, nextCategories);
     setNewCategoryTitle("");
+  };
+
+  const addCategory = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    createCategory(newCategoryTitle);
   };
 
   const beginCategoryEdit = (category: GenesisCategory) => {
@@ -3977,9 +4057,9 @@ export function GenesisCalendar() {
     setEditingCategoryId("");
   };
 
-  const deleteCategory = (id: string) => {
+  const deleteCategory = (id: string): boolean => {
     const category = categories.find((item) => item.id === id);
-    if (!category || !window.confirm(translateText(`Удалить категорию «${category.name}»? Проекты и задачи останутся, но будут перенесены в раздел «Без категории».`, undefined, true))) return;
+    if (!category || !window.confirm(translateText(`Удалить категорию «${category.name}»? Проекты и задачи останутся, но будут перенесены в раздел «Без категории».`, undefined, true))) return false;
     const nextCategories = categories.filter((item) => item.id !== id);
     const nextProjects = projects.map((project) => project.categoryId === id ? { ...project, categoryId: null } : project);
     const changedTasks = tasks.filter((task) => task.categoryId === id).map((task) => ({
@@ -3997,6 +4077,7 @@ export function GenesisCalendar() {
     setNewProjectCategory((current) => current === id ? (nextCategories[0]?.id ?? "") : current);
     if (editingCategoryId === id) setEditingCategoryId("");
     persistStructure(nextProjects, nextCategories);
+    return true;
   };
 
   const toggleProject = (id: string) => {
@@ -4011,9 +4092,9 @@ export function GenesisCalendar() {
     persistStructure(nextProjects, categories);
   };
 
-  const deleteProject = async (id: string) => {
+  const deleteProject = async (id: string): Promise<boolean> => {
     const project = projects.find((item) => item.id === id);
-    if (!project || !window.confirm(translateText(`Удалить проект «${project.title}» и все его подпроекты? Задачи останутся, но перейдут в раздел без проекта.`, undefined, true))) return;
+    if (!project || !window.confirm(translateText(`Удалить проект «${project.title}» и все его подпроекты? Задачи останутся, но перейдут в раздел без проекта.`, undefined, true))) return false;
     const removed = new Set<string>([id]);
     let changed = true;
     while (changed) {
@@ -4048,6 +4129,7 @@ export function GenesisCalendar() {
     setNewTaskListProject((current) => removed.has(current) ? "" : current);
     setTaskListLinks(nextTaskListLinks);
     await persistStructure(nextProjects, categories, nextTaskListLinks);
+    return true;
   };
 
   const exportCalendar = () => {
@@ -6313,6 +6395,8 @@ export function GenesisCalendar() {
     : activeCalendarMode === "profane"
       ? (language === "en" ? `Months of ${selectedDate.getFullYear()}` : `Месяцы ${selectedDate.getFullYear()} года`)
       : `Лунные месяцы ${selectedLunarYear.sacredYear}–${selectedLunarYear.sacredYear + 1}`;
+  const pendingDeletionTask = tasks.find((task) => task.id === pendingTaskDeletion?.taskId);
+  const pendingDeletionHasSeries = pendingDeletionTask ? taskHasSeries(pendingDeletionTask) : false;
 
   if (legalPage) {
     return <LegalPage page={legalPage} />;
@@ -6425,7 +6509,7 @@ export function GenesisCalendar() {
           </div>
           <div className="topbar-actions">
             {nativeAndroidApkUrl ? (
-              <a className="icon-button ux-action-button android-native-icon-button" href={nativeAndroidApkUrl} download="GENESIS-Android-Native-2.5.7.apk" data-tooltip={language === "en" ? "Native Android app · remove the old TWA first" : "Нативное приложение · сначала удалите прежнюю TWA"} title={language === "en" ? "Native GENESIS APK; old TWA must be removed first" : "Нативный GENESIS APK; прежнюю TWA необходимо сначала удалить"} aria-label={language === "en" ? "Download native GENESIS for Android; remove the old TWA first" : "Скачать нативный GENESIS для Android; сначала удалите старую TWA"}>
+              <a className="icon-button ux-action-button android-native-icon-button" href={nativeAndroidApkUrl} data-tooltip={language === "en" ? "Native Android app · remove the old TWA first" : "Нативное приложение · сначала удалите прежнюю TWA"} title={language === "en" ? "Native GENESIS APK; old TWA must be removed first" : "Нативный GENESIS APK; прежнюю TWA необходимо сначала удалить"} aria-label={language === "en" ? "Download native GENESIS for Android; remove the old TWA first" : "Скачать нативный GENESIS для Android; сначала удалите старую TWA"}>
                 <svg className="ux-android-robot" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M5.5 9h13v8.5a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2V9ZM5.5 9a6.5 6.5 0 0 1 13 0M4 11v5M20 11v5M9 19.5V22M15 19.5V22M7 3 5.5 1M17 3 18.5 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><circle cx="9.3" cy="7" r=".8" fill="currentColor"/><circle cx="14.7" cy="7" r=".8" fill="currentColor"/></svg>
               </a>
             ) : null}
@@ -6434,7 +6518,7 @@ export function GenesisCalendar() {
                 <span className="ux-install-icon" aria-hidden="true" />
               </button>
             ) : null}
-            <button type="button" className={`voice-open-button${voiceLaunchAnimating ? " is-activating" : ""}`} onClick={openVoiceAssistant} title={language === "en" ? "Open the free GENESIS Voice assistant" : "Открыть бесплатного голосового помощника GENESIS Voice"} aria-label={language === "en" ? "Open the free GENESIS Voice assistant" : "Открыть бесплатного голосового помощника GENESIS Voice"} aria-busy={voiceLaunchAnimating}>
+            {voiceLanguageEnabled ? <button type="button" className={`voice-open-button${voiceLaunchAnimating ? " is-activating" : ""}`} onClick={openVoiceAssistant} title={language === "en" ? "Open the free GENESIS Voice assistant" : "Открыть бесплатного голосового помощника GENESIS Voice"} aria-label={language === "en" ? "Open the free GENESIS Voice assistant" : "Открыть бесплатного голосового помощника GENESIS Voice"} aria-busy={voiceLaunchAnimating}>
               <svg className="voice-microphone-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
                 <rect className="voice-microphone-capsule" x="8.7" y="2.8" width="6.6" height="11.2" rx="3.3" />
                 <path className="voice-microphone-grille" d="M10.55 6.2h2.9M10.55 8.45h2.9" />
@@ -6442,7 +6526,7 @@ export function GenesisCalendar() {
                 <path className="voice-microphone-stand" d="M12 17.4v3.35M8.9 20.75h6.2" />
                 <circle className="voice-microphone-spark" cx="18.7" cy="5.2" r="1.15" />
               </svg>
-            </button>
+            </button> : null}
             {cloudUser ? (
               <div className={`account-chip${accountIdentityExpanded ? " is-expanded" : " is-compact"}`} ref={accountMenuRef}>
                 <button
@@ -6574,7 +6658,15 @@ export function GenesisCalendar() {
             <ViewErrorBoundary resetKey={view}>
               {view === "today" ? renderToday() : null}
               {view === "calendar" ? renderCalendar() : null}
-              {view === "projects" ? renderProjects() : null}
+              {view === "projects" ? cloudUser?.sharedProjectsEnabled ? <>
+                <nav className="shared-projects-switch" aria-label={language === "en" ? "Project sections" : "Разделы проектов"}>
+                  <button type="button" aria-current={projectsArea === "personal" ? "page" : undefined} onClick={() => setProjectsArea("personal")}>{language === "en" ? "Personal" : "Личные"}</button>
+                  <button type="button" aria-current={projectsArea === "shared" ? "page" : undefined} onClick={() => setProjectsArea("shared")}>{language === "en" ? "Shared" : "Общие"}</button>
+                </nav>
+                {projectsArea === "personal" ? renderProjects() : <Suspense fallback={<DeferredViewFallback label={language === "en" ? "Opening shared projects…" : "Открываем общие проекты…"} />}>
+                  <SharedProjects userId={cloudUser.uid} language={language} />
+                </Suspense>}
+              </> : renderProjects() : null}
               {view === "year" ? renderYear() : null}
               {view === "all-tasks" ? renderAllTasks() : null}
               {view === "habits" && habitWorkspace.habitSettings.enabled ? (
@@ -6586,6 +6678,7 @@ export function GenesisCalendar() {
                     timeFormat={activeTimeFormat}
                     calendarMode={activeCalendarMode}
                     googleTasksReady={Boolean(cloudUser?.googleTasksImportReady)}
+                    googleCalendarReady={Boolean(cloudUser?.authProvider === "google" && cloudUser.calendarConnected)}
                     experimentalThemeActive={themeState.available && themeState.theme.startsWith("experimental")}
                     voiceRequest={voiceHabitRequest}
                     onVoiceRequestConsumed={() => setVoiceHabitRequest(null)}
@@ -6607,6 +6700,8 @@ export function GenesisCalendar() {
                     key={cloudUser?.stoicheionDivinationDisabled ? "divination-disabled" : "divination-enabled"}
                     divinationDisabled={Boolean(cloudUser?.stoicheionDivinationDisabled)}
                     onOpenTheokyklosSector={openTheokyklosSector}
+                    initialCardId={requestedStoicheionCard}
+                    onInitialCardOpened={() => setRequestedStoicheionCard(null)}
                   />
                 </Suspense>
               ) : null}
@@ -6907,13 +7002,13 @@ export function GenesisCalendar() {
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setPendingTaskDeletion(null); }}>
           <section ref={taskDeleteDialogRef} className="editor-modal task-series-delete-modal" data-exp-ui="dialog" role="dialog" aria-modal="true" aria-labelledby="task-series-delete-title" tabIndex={-1}>
             <button type="button" className="modal-close" onClick={() => setPendingTaskDeletion(null)} aria-label="Закрыть">×</button>
-            <span className="eyebrow">Удаление повторяющейся задачи</span>
-            <h2 id="task-series-delete-title">Что удалить?</h2>
-            <p>Можно убрать только выбранный день или всю серию вместе со всеми её повторениями.</p>
+            <span className="eyebrow">{pendingDeletionHasSeries ? "Удаление повторяющейся задачи" : "Удалить задачу?"}</span>
+            <h2 id="task-series-delete-title">{pendingDeletionHasSeries ? "Что удалить?" : pendingDeletionTask?.title}</h2>
+            <p>{pendingDeletionHasSeries ? "Можно убрать только выбранный день или всю серию вместе со всеми её повторениями." : "Задача и её напоминания будут удалены."}</p>
             <div className="task-series-delete-actions">
               <button type="button" className="text-button" onClick={() => setPendingTaskDeletion(null)}>Отмена</button>
-              <button type="button" onClick={deletePendingTaskOccurrence}>Только этот день</button>
-              <button type="button" className="danger-button" onClick={deletePendingTaskSeries}>Всю серию</button>
+              {pendingDeletionHasSeries ? <button type="button" onClick={deletePendingTaskOccurrence}>Только этот день</button> : null}
+              <button type="button" className="danger-button" onClick={deletePendingTaskSeries}>{pendingDeletionHasSeries ? "Всю серию" : "Удалить"}</button>
             </div>
           </section>
         </div>
@@ -7113,12 +7208,18 @@ export function GenesisCalendar() {
             ) : null}
             <div className="editor-actions">
               <button type="button" className="danger-button" onClick={() => { const id = editingTask.id; const occurrence = editingOccurrenceDate || editingTask.dueDate; setEditingTask(null); deleteTask(id, occurrence); }}>Удалить</button>
+              {cloudUser?.sharedProjectsEnabled ? <button type="button" className="text-button" onClick={() => { setTransferTask(tasks.find((task) => task.id === editingTask.id) ?? editingTask); setEditingTask(null); }}>{language === "en" ? "Move to shared" : "Переместить в общие"}</button> : null}
               <button type="button" className="text-button" onClick={() => setEditingTask(null)}>Отмена</button>
               <button type="submit" className="primary-button" disabled={!editingTask.title.trim()}>Сохранить задачу</button>
             </div>
           </form>
         </div>
       ) : null}
+      {transferTask && cloudUser?.sharedProjectsEnabled ? <Suspense fallback={null}><PersonalTaskTransfer
+        task={transferTask} language={language} personalCalendarConnected={cloudUser.calendarConnected}
+        onClose={() => setTransferTask(null)}
+        onMoved={(taskId) => setTasks((current) => current.filter((task) => task.id !== taskId))}
+      /></Suspense> : null}
       {editingTaskList ? (
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditingTaskList(null); }}>
           <form ref={taskListEditorDialogRef} className="editor-modal task-list-editor" data-exp-ui="dialog" role="dialog" aria-modal="true" aria-labelledby="task-list-editor-title" tabIndex={-1} onSubmit={saveTaskListEdit}>
@@ -7265,7 +7366,7 @@ export function GenesisCalendar() {
           }}
         />
       ) : null}
-      {voiceAssistantOpen ? (
+      {voiceLanguageEnabled && voiceAssistantOpen ? (
         <Suspense fallback={<DeferredDialogFallback label={language === "en" ? "Opening voice assistant…" : "Открываем голосового помощника…"} />}><LocalVoiceAssistant
           language={language}
           neuralAvailable={assistantStatus.available}
@@ -7292,7 +7393,7 @@ export function GenesisCalendar() {
           onClose={() => setVoiceAssistantOpen(false)}
         /></Suspense>
       ) : null}
-      {geminiOpen && assistantStatus.audioAvailable ? (
+      {voiceLanguageEnabled && geminiOpen && assistantStatus.audioAvailable ? (
         <Suspense fallback={<DeferredDialogFallback label={language === "en" ? "Opening assistant…" : "Открываем помощника…"} />}><GeminiAssistant
           language={language}
           provider={assistantStatus.provider === "gemini" ? "gemini" : "gigachat"}
@@ -7318,7 +7419,7 @@ export function GenesisCalendar() {
           onClose={() => setGeminiOpen(false)}
         /></Suspense>
       ) : null}
-      {voiceControlActive ? <Suspense fallback={null}><WebVoiceControl language={language} onCommand={executeWebVoiceCommand} onStop={() => setVoiceControlActive(false)} /></Suspense> : null}
+      {voiceLanguageEnabled && voiceControlActive ? <Suspense fallback={null}><WebVoiceControl language={language} onCommand={executeWebVoiceCommand} onStop={() => setVoiceControlActive(false)} /></Suspense> : null}
     </main>
   );
 }
