@@ -1,7 +1,9 @@
 package ru.genesis.calendar.ui
 
 import ru.genesis.calendar.data.GenesisProject
+import ru.genesis.calendar.data.GenesisCategory
 import ru.genesis.calendar.data.LocalTask
+import ru.genesis.calendar.data.GoogleTaskList
 import ru.genesis.calendar.domain.habits.Habit
 import ru.genesis.calendar.domain.CalendarMode
 
@@ -15,12 +17,19 @@ sealed interface NativeVoiceAction {
     data class CalendarMonth(val ordinal: Int): NativeVoiceAction
     data class Scroll(val direction: String): NativeVoiceAction
     data class CreateProject(val title: String): NativeVoiceAction
+    data class CreateCategory(val title: String): NativeVoiceAction
     data class CreateTaskList(val title: String): NativeVoiceAction
     data class EditProject(val id: String, val title: String): NativeVoiceAction
+    data class DeleteProject(val id: String, val title: String): NativeVoiceAction
+    data class EditCategory(val id: String, val title: String): NativeVoiceAction
+    data class DeleteCategory(val id: String, val title: String): NativeVoiceAction
     data class CreateHabit(val title: String): NativeVoiceAction
     data class EditHabit(val id: String, val title: String): NativeVoiceAction
     data class DeleteHabit(val id: String, val title: String): NativeVoiceAction
     data class EditTask(val id: String, val title: String): NativeVoiceAction
+    data class DeleteTask(val id: String, val title: String): NativeVoiceAction
+    data class EditTaskList(val id: String, val title: String): NativeVoiceAction
+    data class DeleteTaskList(val id: String, val title: String): NativeVoiceAction
     data class SetTaskDone(val id: String, val title: String, val done: Boolean): NativeVoiceAction
     data class SetHabitDone(val id: String, val title: String, val done: Boolean): NativeVoiceAction
     data class MoveTask(val id: String, val title: String, val projectId: String?): NativeVoiceAction
@@ -28,7 +37,8 @@ sealed interface NativeVoiceAction {
 
 /** Explicit commands only: unknown or ambiguous titles never mutate user data. */
 internal fun parseNativeVoiceAction(raw: String, tasks: List<LocalTask>, projects: List<GenesisProject>,
-    habits: List<Habit>): NativeVoiceAction? {
+    habits: List<Habit>, lists: List<GoogleTaskList> = emptyList(),
+    categories: List<GenesisCategory> = emptyList()): NativeVoiceAction? {
     val command=raw.trim().replace(Regex("\\s+")," ")
         .replace(Regex("(?iu)^(?:генезис|genesis)[,\\s]+"),"")
         .replace(Regex("(?iu)^(?:(?:хочу|пожалуйста|please|i want to|можешь|could you)[,\\s]+)+"),"")
@@ -106,6 +116,9 @@ internal fun parseNativeVoiceAction(raw: String, tasks: List<LocalTask>, project
     subject("(?:создай|создать|добавь|добавить|create|add)\\s+(?:новый\\s+)?(?:проект|project)\\s+(.+)")?.let {
         return NativeVoiceAction.CreateProject(it.take(500))
     }
+    subject("(?:создай|создать|добавь|добавить|create|add)\\s+(?:новую\\s+)?(?:категорию(?: жизни)?|life category|category)\\s+(.+)")?.let {
+        return NativeVoiceAction.CreateCategory(it.take(300))
+    }
     subject("(?:создай|создать|добавь|добавить|create|add)\\s+(?:новую\\s+)?(?:привычку|привычка|habit)\\s+(.+)")?.let {
         return NativeVoiceAction.CreateHabit(it.take(300))
     }
@@ -115,6 +128,28 @@ internal fun parseNativeVoiceAction(raw: String, tasks: List<LocalTask>, project
     subject("(?:отредактируй|отредактировать|редактировать|изменить|измени|edit)\\s+(?:задачу|задача|task)\\s+(.+)")?.let {
         val task=resolve(it,tasks,LocalTask::title)
         return NativeVoiceAction.EditTask(task.id,task.title)
+    }
+    subject("(?:удали|удалить|delete|remove)\\s+(?:задачу|задача|task)\\s+(.+)")?.let {
+        val task=resolve(it,tasks,LocalTask::title)
+        return NativeVoiceAction.DeleteTask(task.id,task.title)
+    }
+    subject("(?:отредактируй|отредактировать|редактировать|изменить|измени|edit|переименуй|rename)\\s+(?:список задач|список|task list)\\s+(.+)")?.let {
+        val list=resolve(it,lists.filterNot { list -> list.accountId!=null && (list.isDefault || list.title=="Привычки GENESIS") },GoogleTaskList::title)
+        return NativeVoiceAction.EditTaskList(list.id,list.title)
+    }
+    subject("(?:удали|удалить|delete|remove)\\s+(?:список задач|список|task list)\\s+(.+)")?.let {
+        val list=resolve(it,lists,GoogleTaskList::title)
+        require(!list.isDefault) { "Основной список Google Tasks удалить нельзя." }
+        require(list.title!="Привычки GENESIS") { "Служебный список привычек удалить нельзя." }
+        return NativeVoiceAction.DeleteTaskList(list.id,list.title)
+    }
+    subject("(?:отредактируй|отредактировать|редактировать|изменить|измени|edit|переименуй|rename)\\s+(?:категорию(?: жизни)?|life category|category)\\s+(.+)")?.let {
+        val category=resolve(it,categories,GenesisCategory::name)
+        return NativeVoiceAction.EditCategory(category.id,category.name)
+    }
+    subject("(?:удали|удалить|delete|remove)\\s+(?:категорию(?: жизни)?|life category|category)\\s+(.+)")?.let {
+        val category=resolve(it,categories,GenesisCategory::name)
+        return NativeVoiceAction.DeleteCategory(category.id,category.name)
     }
     subject("(?:выполни|заверши|отметь|пометь|complete)\\s+(?:задачу|задача|task)\\s+(.+)")?.let {
         val task=resolve(it,tasks,LocalTask::title)
@@ -144,6 +179,10 @@ internal fun parseNativeVoiceAction(raw: String, tasks: List<LocalTask>, project
         val project=resolve(it,projects,GenesisProject::title)
         return NativeVoiceAction.EditProject(project.id,project.title)
     }
+    subject("(?:удали|удалить|delete|remove)\\s+(?:проект|project)\\s+(.+)")?.let {
+        val project=resolve(it,projects,GenesisProject::title)
+        return NativeVoiceAction.DeleteProject(project.id,project.title)
+    }
     val move=Regex("(?iu)(?:перемести|перенеси|move)\\s+(?:задачу|задача|task)\\s+(.+?)\\s+(?:в|into|to)\\s+(?:проект|project)\\s+(.+)")
         .matchEntire(command)
     if(move!=null) {
@@ -163,7 +202,7 @@ internal fun parseNativeVoiceAction(raw: String, tasks: List<LocalTask>, project
 internal fun looksLikeUnsupportedVoiceAction(command: String): Boolean =
     Regex("(?iu)^(?:(?:хочу|пожалуйста|please|i want to)\\s+)?(?:удали|удалить|delete|remove|редактируй|отредактируй|отредактировать|редактировать|измени|изменить|edit|перемести|перенеси|move|открой|покажи|перейди|open|show|убери|исключи|прокрути|пролистай|листай|скролль|свайпни|поменяй|переключи|установи|выбери|scroll|swipe|switch|select)(?=\\s|$)")
         .containsMatchIn(command.trim()) ||
-    Regex("(?iu)^(?:создай|создать|добавь|добавить|create|add)\\s+(?:новый|новую|new)?\\s*(?:проект|привычк[а-яё]*|список|project|habit|task list)(?=\\s|$)")
+    Regex("(?iu)^(?:создай|создать|добавь|добавить|create|add)\\s+(?:новый|новую|new)?\\s*(?:проект|категори[а-яё]*|привычк[а-яё]*|список|project|category|habit|task list)(?=\\s|$)")
         .containsMatchIn(command.trim())
 
 internal fun isVoiceTaskCreationCommand(command: String): Boolean =

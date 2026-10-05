@@ -201,6 +201,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     var requestedSacredHabits by rememberSaveable { mutableStateOf(false) }
     var requestedHeroPath by rememberSaveable { mutableStateOf(false) }
     var editId by rememberSaveable { mutableStateOf<String?>(null) }
+    var voiceDeleteTaskId by rememberSaveable { mutableStateOf<String?>(null) }
     var creating by rememberSaveable { mutableStateOf(false) }
     var newTaskProjectId by rememberSaveable { mutableStateOf<String?>(null) }
     var newTaskListId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -295,6 +296,15 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
             "Раздел открыт."
         }
         is NativeVoiceAction.EditTask -> { editId=action.id;creating=false;tab="Задачи";"Задача открыта." }
+        is NativeVoiceAction.DeleteTask -> {
+            voiceDeleteTaskId=action.id;editId=action.id;creating=false;tab="Задачи"
+            "Проверьте подтверждение удаления задачи."
+        }
+        is NativeVoiceAction.EditTaskList,is NativeVoiceAction.DeleteTaskList -> {
+            menuSwipeState.tasks="lists";voiceScreenRequest=action;tab="Задачи"
+            if(action is NativeVoiceAction.EditTaskList) "Открыта форма списка задач."
+            else "Проверьте подтверждение удаления списка."
+        }
         is NativeVoiceAction.SetTaskDone -> {
             val task=tasks.firstOrNull { it.id==action.id }
             if(task==null) "Задача больше не найдена." else {
@@ -316,8 +326,17 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                 "Перемещаю задачу."
             }
         }
-        is NativeVoiceAction.CreateProject,is NativeVoiceAction.EditProject -> {
-            voiceScreenRequest=action;tab="Проекты";"Открыта форма проекта."
+        is NativeVoiceAction.CreateProject,is NativeVoiceAction.EditProject,
+        is NativeVoiceAction.DeleteProject,is NativeVoiceAction.CreateCategory,
+        is NativeVoiceAction.EditCategory,is NativeVoiceAction.DeleteCategory -> {
+            voiceScreenRequest=action;tab="Проекты"
+            when(action) {
+                is NativeVoiceAction.DeleteProject,is NativeVoiceAction.DeleteCategory ->
+                    "Проверьте подтверждение удаления."
+                is NativeVoiceAction.CreateCategory,is NativeVoiceAction.EditCategory ->
+                    "Открыта форма категории."
+                else -> "Открыта форма проекта."
+            }
         }
         is NativeVoiceAction.CreateTaskList -> {
             voiceListTitle=action.title;creatingTaskList=true;tab="Задачи";"Открыта форма списка задач."
@@ -329,7 +348,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
         }
     }
     suspend fun executeVoiceCommand(command: String): String {
-        val action=parseNativeVoiceAction(command,tasks,structure.projects,habitWorkspace.habits)
+        val action=parseNativeVoiceAction(command,tasks,structure.projects,habitWorkspace.habits,taskLists,structure.categories)
         if(action!=null) {
             require(app.workspaceScope==activeScope)
             if(action is NativeVoiceAction.CalendarDate) {
@@ -506,7 +525,9 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         onCreateTask={ projectId -> newTaskProjectId=projectId;newTaskListId=null;editId=null;creating=true },
                         onDeleteTask=model::delete,
                         menuSwipeState=visibleSwipeState,voiceRequest=voiceScreenRequest.takeIf {
-                            it is NativeVoiceAction.CreateProject || it is NativeVoiceAction.EditProject
+                            it is NativeVoiceAction.CreateProject || it is NativeVoiceAction.EditProject ||
+                                it is NativeVoiceAction.DeleteProject || it is NativeVoiceAction.CreateCategory ||
+                                it is NativeVoiceAction.EditCategory || it is NativeVoiceAction.DeleteCategory
                         },
                         onVoiceRequestConsumed={voiceScreenRequest=null})
                     "Задачи" -> TasksScreen(tasks,taskLists,structure,prefs.use24,
@@ -533,7 +554,10 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                             }
                             authController.syncPending()
                         },
-                        menuSwipeState=visibleSwipeState)
+                        menuSwipeState=visibleSwipeState,
+                        voiceRequest=voiceScreenRequest.takeIf {
+                            it is NativeVoiceAction.EditTaskList || it is NativeVoiceAction.DeleteTaskList
+                        },onVoiceRequestConsumed={voiceScreenRequest=null})
                     "Настройки" -> SettingsScreen(app, prefs, authState.busy && !testWorkspace,
                         canOpenAdmin = !testWorkspace && authState.ready && !authState.requiresSignIn &&
                             authState.user != null && authState.accountSettings?.isAdmin == true,
@@ -653,13 +677,14 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
             val existing=tasks.find { it.id==editId }
             if(creating || existing!=null) TaskEditor(existing,selected,prefs,structure,newTaskProjectId,
                 authState.accountSettings,taskLists,newTaskListId,
-                onDismiss={creating=false;editId=null},
-                onSave={draft -> model.save(draft){creating=false;editId=null}},
-                onDelete=existing?.let{{model.delete(it);creating=false;editId=null}},
+                onDismiss={creating=false;editId=null;voiceDeleteTaskId=null},
+                onSave={draft -> model.save(draft){creating=false;editId=null;voiceDeleteTaskId=null}},
+                onDelete=existing?.let{{model.delete(it);creating=false;editId=null;voiceDeleteTaskId=null}},
                 onDeleteOccurrence=existing?.takeIf { it.recurrence.enabled }?.let { series ->
-                    { date -> model.excludeOccurrence(series,date) { creating=false;editId=null } }
+                    { date -> model.excludeOccurrence(series,date) { creating=false;editId=null;voiceDeleteTaskId=null } }
                 },
-                showSelectedOccurrence=tab=="Сегодня" || tab=="Календарь")
+                showSelectedOccurrence=tab=="Сегодня" || tab=="Календарь",
+                startDeleteConfirmation=existing?.id==voiceDeleteTaskId)
             if(creatingTaskList) TaskListEditor(structure,authState.accountSettings,prefs,
                 canCreate=authState.ready && !authState.requiresSignIn && authState.user!=null &&
                     (authState.accountSettings?.authProvider != "yandex" || authState.accountSettings?.calendarConnected == true),
@@ -1000,7 +1025,8 @@ private fun DayHeader(date: LocalDate, mode: CalendarMode, detailsExpanded: Bool
 @Composable
 private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,structure:WorkspaceStructure,initialProjectId:String?,
     accountSettings:ru.genesis.calendar.auth.AccountSettings?, taskLists:List<GoogleTaskList>, initialTaskListId:String?, onDismiss:()->Unit,
-    onSave:(LocalTask)->Unit,onDelete:(()->Unit)?,onDeleteOccurrence:((String)->Unit)?,showSelectedOccurrence:Boolean) {
+    onSave:(LocalTask)->Unit,onDelete:(()->Unit)?,onDeleteOccurrence:((String)->Unit)?,showSelectedOccurrence:Boolean,
+    startDeleteConfirmation:Boolean=false) {
     var title by rememberSaveable(task?.id) { mutableStateOf(task?.title ?: "") }
     var description by rememberSaveable(task?.id) { mutableStateOf(task?.description ?: "") }
     var date by rememberSaveable(task?.id) { mutableStateOf(task?.date ?: selected) }
@@ -1047,7 +1073,7 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
             it.isNotBlank() && it != "null"
         } ?: false
     } ?: false)
-    var confirmDelete by remember { mutableStateOf(false) }
+    var confirmDelete by remember(task?.id) { mutableStateOf(startDeleteConfirmation) }
     var validation by remember { mutableStateOf<String?>(null) }
     val occurrenceDate = if (task?.recurrence?.enabled == true && showSelectedOccurrence &&
         runCatching { TaskOccurrences.occursOn(task,LocalDate.parse(selected)) }.getOrDefault(false)) selected

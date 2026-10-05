@@ -171,6 +171,7 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
     var deleteTaskCandidate by remember { mutableStateOf<LocalTask?>(null) }
     var creating by remember { mutableStateOf(false) }
     var voiceDraftTitle by remember { mutableStateOf("") }
+    var voiceDraftCategoryTitle by remember { mutableStateOf("") }
     var editingCategory by remember { mutableStateOf<GenesisCategory?>(null) }
     var deleteCategoryCandidate by remember { mutableStateOf<GenesisCategory?>(null) }
     var categoryEditor by remember { mutableStateOf(false) }
@@ -187,6 +188,23 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
                     structure.projects.firstOrNull { it.id==voiceRequest.id }?.let {
                         editing=it;voiceDraftTitle="";creating=true
                     }
+                }
+                is NativeVoiceAction.DeleteProject -> {
+                    deleteCandidate=structure.projects.firstOrNull { it.id==voiceRequest.id }
+                }
+                is NativeVoiceAction.CreateCategory -> {
+                    editingCategory=null;voiceDraftCategoryTitle=voiceRequest.title
+                    categoryEditor=true;categoriesExpanded=true
+                }
+                is NativeVoiceAction.EditCategory -> {
+                    structure.categories.firstOrNull { it.id==voiceRequest.id }?.let {
+                        editingCategory=it;voiceDraftCategoryTitle=""
+                        categoryEditor=true;categoriesExpanded=true
+                    }
+                }
+                is NativeVoiceAction.DeleteCategory -> {
+                    deleteCategoryCandidate=structure.categories.firstOrNull { it.id==voiceRequest.id }
+                    categoriesExpanded=true
                 }
                 else -> Unit
             }
@@ -456,9 +474,10 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
         }
     }
     if (categoryEditor) CategoryEditor(editingCategory,structure.categories.size,structure.revision,error,
-        onDismiss = { categoryEditor = false }) { draft, expectedRevision ->
+        initialTitle=voiceDraftCategoryTitle,
+        onDismiss = { categoryEditor = false;voiceDraftCategoryTitle="" }) { draft, expectedRevision ->
         scope.launch {
-            try { repo.saveCategory(draft, expectedRevision); error = null; categoryEditor = false }
+            try { repo.saveCategory(draft, expectedRevision); error = null; categoryEditor = false;voiceDraftCategoryTitle="" }
             catch (e: IllegalArgumentException) { error = e.message ?: "Проверьте категорию." }
             catch (_: Exception) { error = "Не удалось сохранить категорию." }
         }
@@ -733,9 +752,9 @@ private fun BoxScope.ProjectDropOverlay(held: TaskPickup, projects: List<Genesis
 
 @Composable
 private fun CategoryEditor(existing: GenesisCategory?, position: Int, revision: Long, error: String?, onDismiss: () -> Unit,
-    onSave: (GenesisCategory, Long) -> Unit) {
+    initialTitle: String = "", onSave: (GenesisCategory, Long) -> Unit) {
     val expectedRevision = remember(existing?.id) { revision }
-    var name by remember(existing?.id) { mutableStateOf(existing?.name ?: "") }
+    var name by remember(existing?.id,initialTitle) { mutableStateOf(existing?.name ?: initialTitle) }
     var color by remember(existing?.id) { mutableStateOf(existing?.color ?: "#2d6c68") }
     AlertDialog(onDismissRequest = onDismiss, title = { Text(if (existing == null) "Новая категория" else "Изменить категорию") },
         text = {

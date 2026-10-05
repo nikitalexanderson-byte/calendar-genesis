@@ -32,7 +32,8 @@ import ru.genesis.calendar.data.*
     onComplete: (LocalTask) -> Unit, onOpen: (String) -> Unit,
     onUpdateList: suspend (GoogleTaskList,String) -> Unit = { _,_ -> },
     onDeleteList: suspend (GoogleTaskList) -> Unit = {},
-    menuSwipeState: MenuSwipeState? = null) {
+    menuSwipeState: MenuSwipeState? = null, voiceRequest: NativeVoiceAction? = null,
+    onVoiceRequestConsumed: () -> Unit = {}) {
     var localSection by rememberSaveable { mutableStateOf("tasks") }
     val section = menuSwipeState?.tasks ?: localSection
     var expanded by rememberSaveable { mutableStateOf<String?>(null) }
@@ -44,6 +45,25 @@ import ru.genesis.calendar.data.*
     var listTitle by remember { mutableStateOf("") }
     var listBusy by remember { mutableStateOf(false) }
     var listError by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(voiceRequest, knownLists) {
+        when (val request = voiceRequest) {
+            is NativeVoiceAction.EditTaskList -> {
+                knownLists.firstOrNull { it.id == request.id }?.let { list ->
+                    localSection = "lists"; menuSwipeState?.tasks = "lists"
+                    listTitle = list.title; listError = null; editingList = list
+                }
+                onVoiceRequestConsumed()
+            }
+            is NativeVoiceAction.DeleteTaskList -> {
+                knownLists.firstOrNull { it.id == request.id }?.let { list ->
+                    localSection = "lists"; menuSwipeState?.tasks = "lists"
+                    listError = null; deletingList = list
+                }
+                onVoiceRequestConsumed()
+            }
+            else -> Unit
+        }
+    }
     val listScope = rememberCoroutineScope()
     val english = LocalGenesisLanguage.current == "en"
     val total = tasks.size

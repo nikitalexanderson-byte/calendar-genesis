@@ -4,7 +4,9 @@ import java.time.LocalDate
 import org.junit.Assert.*
 import org.junit.Test
 import ru.genesis.calendar.data.GenesisProject
+import ru.genesis.calendar.data.GenesisCategory
 import ru.genesis.calendar.data.LocalTask
+import ru.genesis.calendar.data.GoogleTaskList
 import ru.genesis.calendar.domain.GenesisCalendar
 import ru.genesis.calendar.domain.habits.Habit
 import ru.genesis.calendar.domain.habits.HabitEngine
@@ -13,7 +15,9 @@ import ru.genesis.calendar.domain.CalendarMode
 
 class NativeVoiceActionsTest {
     private val project=GenesisProject("project-1",null,"work","Работа","",emptyList(),"active",0)
+    private val category=GenesisCategory("category-1","Здоровье","#2D6C68",0)
     private val task=LocalTask(id="task-1",title="Отправить отчёт")
+    private val list=GoogleTaskList("list-1","Покупки")
     private val habit=Habit(TrackerEntity.create("habit"),"Читать утром",LocalDate.of(2026,10,4),
         HabitEngine(GenesisCalendar()).defaultSchedule(LocalDate.of(2026,10,4),CalendarMode.SACRED))
 
@@ -57,5 +61,28 @@ class NativeVoiceActionsTest {
         assertEquals(NativeVoiceAction.CalendarDate(2026,10,12),parse("покажи 12 октября 2026"))
         assertEquals(NativeVoiceAction.CalendarDate(2026,5,3),parse("покажи 3 мая 2026"))
         assertEquals(NativeVoiceAction.CalendarMonth(5),parse("открой месяц 5"))
+    }
+
+    @Test fun taskAndListActionsResolveNamesBeforeOpeningEditorsOrConfirmation() {
+        fun parse(value: String)=parseNativeVoiceAction(value,listOf(task),listOf(project),listOf(habit),listOf(list))
+        assertEquals(NativeVoiceAction.DeleteTask(task.id,task.title),
+            parse("Генезис, удали задачу Отправить отчёт"))
+        assertEquals(NativeVoiceAction.EditTaskList(list.id,list.title),
+            parse("переименуй список Покупки"))
+        assertEquals(NativeVoiceAction.DeleteTaskList(list.id,list.title),
+            parse("удали список задач Покупки"))
+        assertThrows(IllegalArgumentException::class.java) {
+            parseNativeVoiceAction("удали список задач Основной",listOf(task),listOf(project),listOf(habit),
+                listOf(GoogleTaskList("default","Основной",isDefault=true)))
+        }
+    }
+
+    @Test fun projectAndCategoryActionsResolveNamesBeforeOpeningEditorsOrConfirmation() {
+        fun parse(value: String)=parseNativeVoiceAction(value,listOf(task),listOf(project),listOf(habit),
+            listOf(list),listOf(category))
+        assertEquals(NativeVoiceAction.DeleteProject(project.id,project.title),parse("удали проект Работа"))
+        assertEquals(NativeVoiceAction.CreateCategory("Творчество"),parse("создай категорию жизни Творчество"))
+        assertEquals(NativeVoiceAction.EditCategory(category.id,category.name),parse("измени категорию Здоровье"))
+        assertEquals(NativeVoiceAction.DeleteCategory(category.id,category.name),parse("удали категорию жизни Здоровье"))
     }
 }

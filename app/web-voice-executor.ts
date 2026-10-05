@@ -19,7 +19,14 @@ export type WebVoiceEffects = {
   applyPlan: (plan: GeminiPlan) => Promise<string>;
   updateWorkspace: (workspace: HabitWorkspace) => void;
   openTask: (task: GenesisTask) => void;
+  confirmTaskDelete: (task: GenesisTask) => void;
+  openList: (list: GoogleTaskList) => void;
+  deleteList: (list: GoogleTaskList) => Promise<boolean>;
   openProject: (project: GenesisProject) => void;
+  deleteProject: (project: GenesisProject) => Promise<boolean>;
+  createCategory: (title: string) => void;
+  openCategory: (category: GenesisCategory) => void;
+  deleteCategory: (category: GenesisCategory) => boolean;
   toggleTask: (id: string) => void;
   changeTask: (original: GenesisTask, changed: GenesisTask) => void;
   changeDisplayCalendar: (mode: CalendarMode) => Promise<void>;
@@ -31,9 +38,12 @@ export type WebVoiceEffects = {
 
 export async function runWebVoiceCommand(command: string, context: WebVoiceContext, effects: WebVoiceEffects): Promise<string> {
   const { language, calendarMode, currentView, today, timeZone, categories, projects, taskLists, accounts, tasks, workspace } = context;
-  const { navigate, requestHabit, applyPlan, updateWorkspace, openTask, openProject, toggleTask, changeTask,
+  const { navigate, requestHabit, applyPlan, updateWorkspace, openTask, confirmTaskDelete, openList, deleteList,
+    openProject, deleteProject, createCategory, openCategory, deleteCategory, toggleTask, changeTask,
     changeDisplayCalendar, stepCalendar, chooseCalendarMonth, chooseCalendarDate, scrollPage } = effects;
-  const action = parseWebVoiceAction(command, tasks, projects, workspace.habits, language);
+  const voiceLists = taskLists.filter((list) => !list.isDefault && list.title !== "Привычки GENESIS");
+  const action = parseWebVoiceAction(command, tasks, projects, workspace.habits, language, voiceLists,
+    categories.map((category) => ({ id: category.id, title: localizeCategoryName(category, language) })));
   const reply = (ru: string, en: string) => language === "en" ? en : ru;
   if (!action) return reply("Пока не умею это делать. Попробуйте открыть раздел или назвать задачу, проект, список либо привычку.",
     "I cannot do that yet. Try opening a section or naming a task, project, list or habit.");
@@ -107,11 +117,35 @@ export async function runWebVoiceCommand(command: string, context: WebVoiceConte
     navigate("habits");
     return reply("Привычка создана.", "Habit created.");
   }
+  if (action.kind === "create-category") {
+    createCategory(action.title);
+    navigate("projects");
+    return reply("Категория создана.", "Category created.");
+  }
   if (action.kind === "edit-task") {
     const task = tasks.find((item) => item.id === action.id);
     if (!task) return reply("Задача больше не найдена.", "Task was not found.");
     openTask(task);
     return reply("Открыта форма задачи.", "Task editor opened.");
+  }
+  if (action.kind === "delete-task") {
+    const task = tasks.find((item) => item.id === action.id);
+    if (!task) return reply("Задача больше не найдена.", "Task was not found.");
+    navigate("all-tasks");
+    confirmTaskDelete(task);
+    return reply("Проверьте подтверждение удаления задачи.", "Confirm task deletion.");
+  }
+  if (action.kind === "edit-list" || action.kind === "delete-list") {
+    const list = taskLists.find((item) => item.id === action.id);
+    if (!list) return reply("Список больше не найден.", "Task list was not found.");
+    if (action.kind === "edit-list") {
+      navigate("all-tasks");
+      openList(list);
+      return reply("Открыта форма списка задач.", "Task list editor opened.");
+    }
+    return await deleteList(list)
+      ? reply("Список удалён.", "Task list deleted.")
+      : reply("Удаление списка отменено или не выполнено.", "Task list deletion was cancelled or failed.");
   }
   if (action.kind === "edit-project") {
     const project = projects.find((item) => item.id === action.id);
@@ -119,6 +153,25 @@ export async function runWebVoiceCommand(command: string, context: WebVoiceConte
     navigate("projects");
     openProject(project);
     return reply("Открыта форма проекта.", "Project editor opened.");
+  }
+  if (action.kind === "delete-project") {
+    const project = projects.find((item) => item.id === action.id);
+    if (!project) return reply("Проект больше не найден.", "Project was not found.");
+    return await deleteProject(project)
+      ? reply("Проект удалён.", "Project deleted.")
+      : reply("Удаление проекта отменено или не выполнено.", "Project deletion was cancelled or failed.");
+  }
+  if (action.kind === "edit-category" || action.kind === "delete-category") {
+    const category = categories.find((item) => item.id === action.id);
+    if (!category) return reply("Категория больше не найдена.", "Category was not found.");
+    if (action.kind === "edit-category") {
+      navigate("projects");
+      openCategory(category);
+      return reply("Открыта форма категории.", "Category editor opened.");
+    }
+    return deleteCategory(category)
+      ? reply("Категория удалена.", "Category deleted.")
+      : reply("Удаление категории отменено.", "Category deletion was cancelled.");
   }
   if (action.kind === "edit-habit" || action.kind === "delete-habit") {
     navigate("habits");

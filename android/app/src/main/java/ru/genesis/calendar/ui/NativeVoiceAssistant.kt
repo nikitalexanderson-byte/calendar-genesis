@@ -74,7 +74,7 @@ internal fun NativeVoiceAssistantDialog(app: GenesisApplication, structure: Work
                     Button(onClick={
                         error=null
                         runCatching {
-                            val intent=parseNativeVoiceAction(command,tasks,structure.projects,habits)
+                            val intent=parseNativeVoiceAction(command,tasks,structure.projects,habits,taskLists,structure.categories)
                             if(intent!=null) { action=intent;drafts=emptyList() }
                             else {
                                 require(!looksLikeUnsupportedVoiceAction(command)) {
@@ -110,12 +110,19 @@ internal fun NativeVoiceAssistantDialog(app: GenesisApplication, structure: Work
                         is NativeVoiceAction.CalendarMonth -> "Выбрать месяц: ${preview.ordinal}"
                         is NativeVoiceAction.Scroll -> "Прокрутить: ${preview.direction}"
                         is NativeVoiceAction.CreateProject -> "Создать проект: ${preview.title}"
+                        is NativeVoiceAction.CreateCategory -> "Создать категорию: ${preview.title}"
                         is NativeVoiceAction.CreateTaskList -> "Создать список задач: ${preview.title}"
                         is NativeVoiceAction.EditProject -> "Изменить проект: ${preview.title}"
+                        is NativeVoiceAction.DeleteProject -> "Открыть подтверждение удаления проекта: ${preview.title}"
+                        is NativeVoiceAction.EditCategory -> "Изменить категорию: ${preview.title}"
+                        is NativeVoiceAction.DeleteCategory -> "Открыть подтверждение удаления категории: ${preview.title}"
                         is NativeVoiceAction.CreateHabit -> "Создать привычку: ${preview.title}"
                         is NativeVoiceAction.EditHabit -> "Изменить привычку: ${preview.title}"
                         is NativeVoiceAction.DeleteHabit -> "Открыть подтверждение удаления привычки: ${preview.title}"
                         is NativeVoiceAction.EditTask -> "Открыть задачу для редактирования: ${preview.title}"
+                        is NativeVoiceAction.DeleteTask -> "Открыть подтверждение удаления задачи: ${preview.title}"
+                        is NativeVoiceAction.EditTaskList -> "Изменить список задач: ${preview.title}"
+                        is NativeVoiceAction.DeleteTaskList -> "Открыть подтверждение удаления списка: ${preview.title}"
                         is NativeVoiceAction.SetTaskDone -> "${if(preview.done)"Выполнить задачу" else "Снять отметку задачи"}: ${preview.title}"
                         is NativeVoiceAction.SetHabitDone -> "${if(preview.done)"Выполнить привычку" else "Снять отметку привычки"}: ${preview.title}"
                         is NativeVoiceAction.MoveTask -> "Перенести задачу: ${preview.title}"

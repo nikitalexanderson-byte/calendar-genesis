@@ -7,8 +7,8 @@ export type WebVoiceAction =
   | { kind: "calendar-date"; year: number; month: number; day: number }
   | { kind: "calendar-month"; ordinal: number }
   | { kind: "scroll"; direction: "up" | "down" | "top" | "bottom" }
-  | { kind: "create-project" | "create-list" | "create-habit" | "create-task"; title: string }
-  | { kind: "edit-task" | "edit-project" | "edit-habit" | "delete-habit" | "complete-task" | "uncomplete-task" | "complete-habit" | "uncomplete-habit"; id: string; title: string }
+  | { kind: "create-project" | "create-list" | "create-habit" | "create-task" | "create-category"; title: string }
+  | { kind: "edit-task" | "delete-task" | "edit-list" | "delete-list" | "edit-project" | "delete-project" | "edit-category" | "delete-category" | "edit-habit" | "delete-habit" | "complete-task" | "uncomplete-task" | "complete-habit" | "uncomplete-habit"; id: string; title: string }
   | { kind: "move-task"; id: string; title: string; projectId: string | null };
 
 type Named = { id: string; title: string };
@@ -23,7 +23,7 @@ function resolveName(name: string, records: Named[], english: boolean): Named {
   return matches[0];
 }
 
-export function parseWebVoiceAction(raw: string, tasks: Named[], projects: Named[], habits: Named[], language = "ru"): WebVoiceAction | null {
+export function parseWebVoiceAction(raw: string, tasks: Named[], projects: Named[], habits: Named[], language = "ru", lists: Named[] = [], categories: Named[] = []): WebVoiceAction | null {
   const english = language === "en";
   const command = raw.trim().replace(/\s+/g, " ")
     .replace(/^(?:генезис|genesis)[,\s]+/iu, "")
@@ -70,6 +70,7 @@ export function parseWebVoiceAction(raw: string, tasks: Named[], projects: Named
   if (destination && sections[destination]) return { kind: "navigate", section: sections[destination] };
   for (const [kind, pattern] of [
     ["create-project", /^(?:создай|создать|добавь|добавить|create|add)\s+(?:новый\s+)?(?:проект|project)\s+(.+)$/i],
+    ["create-category", /^(?:создай|создать|добавь|добавить|create|add)\s+(?:новую\s+)?(?:категорию(?: жизни)?|life category|category)\s+(.+)$/i],
     ["create-list", /^(?:создай|создать|добавь|добавить|create|add)\s+(?:новый\s+)?(?:список задач|task list)\s+(.+)$/i],
     ["create-habit", /^(?:создай|создать|добавь|добавить|create|add)\s+(?:новую\s+)?(?:привычку|привычка|habit)\s+(.+)$/i],
     ["create-task", /^(?:создай|создать|добавь|добавить|create|add)\s+(?:новую\s+)?(?:задачу|задача|task)\s+(.+)$/i],
@@ -91,6 +92,11 @@ export function parseWebVoiceAction(raw: string, tasks: Named[], projects: Named
   }
   for (const [kind, pattern, records] of [
     ["edit-task", /^(?:отредактируй|отредактировать|редактировать|изменить|измени|edit)\s+(?:задачу|задача|task)\s+(.+)$/i, tasks],
+    ["delete-task", /^(?:удали|удалить|delete|remove)\s+(?:задачу|задача|task)\s+(.+)$/i, tasks],
+    ["edit-list", /^(?:отредактируй|отредактировать|редактировать|изменить|измени|edit|переименуй|rename)\s+(?:список задач|список|task list)\s+(.+)$/i, lists],
+    ["delete-list", /^(?:удали|удалить|delete|remove)\s+(?:список задач|список|task list)\s+(.+)$/i, lists],
+    ["edit-category", /^(?:отредактируй|отредактировать|редактировать|изменить|измени|edit|переименуй|rename)\s+(?:категорию(?: жизни)?|life category|category)\s+(.+)$/i, categories],
+    ["delete-category", /^(?:удали|удалить|delete|remove)\s+(?:категорию(?: жизни)?|life category|category)\s+(.+)$/i, categories],
     ["complete-task", /^(?:выполни|заверши|отметь|пометь|complete)\s+(?:задачу|задача|task)\s+(.+)$/i, tasks],
     ["uncomplete-task", /^(?:сними выполнение|отмени выполнение|uncomplete)\s+(?:задачи|задачу|task)\s+(.+)$/i, tasks],
     ["edit-habit", /^(?:отредактируй|отредактировать|редактировать|изменить|измени|edit)\s+(?:привычку|привычка|habit)\s+(.+)$/i, habits],
@@ -98,6 +104,7 @@ export function parseWebVoiceAction(raw: string, tasks: Named[], projects: Named
     ["complete-habit", /^(?:выполни|отметь|пометь|complete)\s+(?:привычку|привычка|habit)\s+(.+)$/i, habits],
     ["uncomplete-habit", /^(?:сними отметку|отмени выполнение|uncomplete)\s+(?:привычки|привычку|habit)\s+(.+)$/i, habits],
     ["edit-project", /^(?:отредактируй|отредактировать|редактировать|изменить|измени|edit)\s+(?:проект|project)\s+(.+)$/i, projects],
+    ["delete-project", /^(?:удали|удалить|delete|remove)\s+(?:проект|project)\s+(.+)$/i, projects],
   ] as const) {
     const name = named(pattern);
     if (name) {

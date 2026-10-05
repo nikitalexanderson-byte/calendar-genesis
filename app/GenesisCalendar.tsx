@@ -3411,13 +3411,13 @@ export function GenesisCalendar() {
   const deleteTaskList = async (taskList: GoogleTaskList) => {
     if (taskList.isDefault) {
       setSyncError("Основной список Google Tasks нельзя удалить. Пока он пуст и не привязан к проекту, GENESIS скрывает его автоматически.");
-      return;
+      return false;
     }
     const listTaskCount = tasks.filter((task) => task.googleTaskListId === taskList.id).length;
     const taskCountLabel = listTaskCount === 1 ? "1 задачей" : `${listTaskCount} задачами`;
     if (!window.confirm(translateText(cloudUser?.authProvider !== "google"
       ? `Удалить список «${taskList.title}» вместе с ${taskCountLabel}? Это действие нельзя отменить.`
-      : `Удалить список «${taskList.title}» вместе с ${taskCountLabel}? Он будет удалён из Google Tasks. Это действие нельзя отменить.`, undefined, true))) return;
+      : `Удалить список «${taskList.title}» вместе с ${taskCountLabel}? Он будет удалён из Google Tasks. Это действие нельзя отменить.`, undefined, true))) return false;
     setSyncStatus("syncing");
     try {
       await removeGoogleTaskList(taskList.id, taskList.accountId);
@@ -3441,9 +3441,11 @@ export function GenesisCalendar() {
       if (editingTaskList?.id === taskList.id) setEditingTaskList(null);
       persistStructure(projects, categories, nextLinks,
         taskLists.filter((item) => item.id !== taskList.id));
+      return true;
     } catch (error) {
       setSyncError(error instanceof Error ? error.message : "Не удалось удалить список Google Tasks");
       setSyncStatus(navigator.onLine ? "error" : "offline");
+      return false;
     }
   };
 
@@ -3905,7 +3907,14 @@ export function GenesisCalendar() {
       applyPlan: applyAssistantPlan,
       updateWorkspace: updateHabitWorkspace,
       openTask: openTaskEditor,
+      confirmTaskDelete: (task) => setPendingTaskDeletion({ taskId: task.id, occurrenceDate: task.dueDate }),
+      openList: setEditingTaskList,
+      deleteList: deleteTaskList,
       openProject: openProjectEditor,
+      deleteProject: (project) => deleteProject(project.id),
+      createCategory,
+      openCategory: beginCategoryEdit,
+      deleteCategory: (category) => deleteCategory(category.id),
       toggleTask,
       changeTask: persistTaskChange,
       changeDisplayCalendar: async (mode) => {
@@ -3988,9 +3997,8 @@ export function GenesisCalendar() {
     setEditingProject(null);
   };
 
-  const addCategory = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const name = newCategoryTitle.trim();
+  const createCategory = (title: string) => {
+    const name = title.trim();
     if (!name) return;
     const palette = ["#2d6c68", "#a5543f", "#b18b48", "#665c88", "#54718a"];
     const category: GenesisCategory = {
@@ -4003,6 +4011,11 @@ export function GenesisCalendar() {
     setCategories(nextCategories);
     persistStructure(projects, nextCategories);
     setNewCategoryTitle("");
+  };
+
+  const addCategory = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    createCategory(newCategoryTitle);
   };
 
   const beginCategoryEdit = (category: GenesisCategory) => {
@@ -4023,9 +4036,9 @@ export function GenesisCalendar() {
     setEditingCategoryId("");
   };
 
-  const deleteCategory = (id: string) => {
+  const deleteCategory = (id: string): boolean => {
     const category = categories.find((item) => item.id === id);
-    if (!category || !window.confirm(translateText(`Удалить категорию «${category.name}»? Проекты и задачи останутся, но будут перенесены в раздел «Без категории».`, undefined, true))) return;
+    if (!category || !window.confirm(translateText(`Удалить категорию «${category.name}»? Проекты и задачи останутся, но будут перенесены в раздел «Без категории».`, undefined, true))) return false;
     const nextCategories = categories.filter((item) => item.id !== id);
     const nextProjects = projects.map((project) => project.categoryId === id ? { ...project, categoryId: null } : project);
     const changedTasks = tasks.filter((task) => task.categoryId === id).map((task) => ({
@@ -4043,6 +4056,7 @@ export function GenesisCalendar() {
     setNewProjectCategory((current) => current === id ? (nextCategories[0]?.id ?? "") : current);
     if (editingCategoryId === id) setEditingCategoryId("");
     persistStructure(nextProjects, nextCategories);
+    return true;
   };
 
   const toggleProject = (id: string) => {
@@ -4057,9 +4071,9 @@ export function GenesisCalendar() {
     persistStructure(nextProjects, categories);
   };
 
-  const deleteProject = async (id: string) => {
+  const deleteProject = async (id: string): Promise<boolean> => {
     const project = projects.find((item) => item.id === id);
-    if (!project || !window.confirm(translateText(`Удалить проект «${project.title}» и все его подпроекты? Задачи останутся, но перейдут в раздел без проекта.`, undefined, true))) return;
+    if (!project || !window.confirm(translateText(`Удалить проект «${project.title}» и все его подпроекты? Задачи останутся, но перейдут в раздел без проекта.`, undefined, true))) return false;
     const removed = new Set<string>([id]);
     let changed = true;
     while (changed) {
@@ -4094,6 +4108,7 @@ export function GenesisCalendar() {
     setNewTaskListProject((current) => removed.has(current) ? "" : current);
     setTaskListLinks(nextTaskListLinks);
     await persistStructure(nextProjects, categories, nextTaskListLinks);
+    return true;
   };
 
   const exportCalendar = () => {
@@ -6359,6 +6374,8 @@ export function GenesisCalendar() {
     : activeCalendarMode === "profane"
       ? (language === "en" ? `Months of ${selectedDate.getFullYear()}` : `Месяцы ${selectedDate.getFullYear()} года`)
       : `Лунные месяцы ${selectedLunarYear.sacredYear}–${selectedLunarYear.sacredYear + 1}`;
+  const pendingDeletionTask = tasks.find((task) => task.id === pendingTaskDeletion?.taskId);
+  const pendingDeletionHasSeries = pendingDeletionTask ? taskHasSeries(pendingDeletionTask) : false;
 
   if (legalPage) {
     return <LegalPage page={legalPage} />;
@@ -6953,13 +6970,13 @@ export function GenesisCalendar() {
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setPendingTaskDeletion(null); }}>
           <section ref={taskDeleteDialogRef} className="editor-modal task-series-delete-modal" data-exp-ui="dialog" role="dialog" aria-modal="true" aria-labelledby="task-series-delete-title" tabIndex={-1}>
             <button type="button" className="modal-close" onClick={() => setPendingTaskDeletion(null)} aria-label="Закрыть">×</button>
-            <span className="eyebrow">Удаление повторяющейся задачи</span>
-            <h2 id="task-series-delete-title">Что удалить?</h2>
-            <p>Можно убрать только выбранный день или всю серию вместе со всеми её повторениями.</p>
+            <span className="eyebrow">{pendingDeletionHasSeries ? "Удаление повторяющейся задачи" : "Удалить задачу?"}</span>
+            <h2 id="task-series-delete-title">{pendingDeletionHasSeries ? "Что удалить?" : pendingDeletionTask?.title}</h2>
+            <p>{pendingDeletionHasSeries ? "Можно убрать только выбранный день или всю серию вместе со всеми её повторениями." : "Задача и её напоминания будут удалены."}</p>
             <div className="task-series-delete-actions">
               <button type="button" className="text-button" onClick={() => setPendingTaskDeletion(null)}>Отмена</button>
-              <button type="button" onClick={deletePendingTaskOccurrence}>Только этот день</button>
-              <button type="button" className="danger-button" onClick={deletePendingTaskSeries}>Всю серию</button>
+              {pendingDeletionHasSeries ? <button type="button" onClick={deletePendingTaskOccurrence}>Только этот день</button> : null}
+              <button type="button" className="danger-button" onClick={deletePendingTaskSeries}>{pendingDeletionHasSeries ? "Всю серию" : "Удалить"}</button>
             </div>
           </section>
         </div>
