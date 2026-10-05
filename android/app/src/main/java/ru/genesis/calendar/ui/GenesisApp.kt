@@ -665,7 +665,9 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                                     it is NativeVoiceAction.DeleteProject || it is NativeVoiceAction.CreateCategory ||
                                     it is NativeVoiceAction.EditCategory || it is NativeVoiceAction.DeleteCategory
                             },
-                            onVoiceRequestConsumed={voiceScreenRequest=null})
+                            onVoiceRequestConsumed={voiceScreenRequest=null},
+                            sharedController=authController.takeIf { sharedProjectsEnabled },
+                            sharedAccount=authState.accountSettings)
                     }
                     "Задачи" -> TasksScreen(tasks,taskLists,structure,prefs.use24,
                         confirmed = testWorkspace || accountTaskSync?.confirmed != false,

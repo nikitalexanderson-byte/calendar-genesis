@@ -102,6 +102,8 @@ class AuthController private constructor(context: Context) {
         sharedCall { api, generation -> api.createSharedProject(generation, spaceId,
             JSONObject().put("title", title).put("description", description).put("layout", layout)
                 .put("parentId", parentId ?: JSONObject.NULL)) }
+    suspend fun importSharedProject(spaceId: String, body: JSONObject): JSONObject =
+        sharedCall { api, generation -> api.importSharedProject(generation, spaceId, body) }
     suspend fun sharedProject(projectId: String): JSONObject = sharedCall { api, generation -> api.sharedProject(generation, projectId) }
     suspend fun sharedGoogleSettings(projectId: String): JSONObject =
         sharedCall { api, generation -> api.sharedGoogleSettings(generation, projectId) }

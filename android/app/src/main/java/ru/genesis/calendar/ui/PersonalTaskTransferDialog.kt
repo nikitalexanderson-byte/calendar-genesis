@@ -17,13 +17,13 @@ import ru.genesis.calendar.data.LocalTask
 
 private fun JSONArray.projectRows(): List<JSONObject> = (0 until length()).map(::getJSONObject)
 
-private fun privateMoveRestriction(task: LocalTask, account: AccountSettings?): Boolean {
+internal fun privateMoveRestriction(task: LocalTask, account: AccountSettings?, allowCategory: Boolean = false): Boolean {
     val source = runCatching { JSONObject(task.sourceFieldsJson) }.getOrDefault(JSONObject())
     fun hasText(key: String) = !source.isNull(key) && source.optString(key).let { it.isNotBlank() && it != "null" }
     fun hasItems(key: String) = (source.optJSONArray(key)?.length() ?: 0) > 0
     if (task.title != task.title.trim().replace(Regex("\\s+"), " ") || task.description != task.description.trim()) return true
     if (account?.calendarConnected != false || task.done || task.time.isNotBlank() || task.priority != 5 ||
-        task.categoryId != null || task.recurrence.enabled || task.reminderAt != null || task.reminders.orEmpty().isNotEmpty()) return true
+        (!allowCategory && task.categoryId != null) || task.recurrence.enabled || task.reminderAt != null || task.reminders.orEmpty().isNotEmpty()) return true
     if (source.optString("calendarMode") != "profane" || hasText("calendarNote") ||
         source.optString("endDate").let { it.isNotBlank() && it != "null" && it != task.date }) return true
     if (hasText("googleEventId") || hasText("googleTaskId") || hasText("googleTaskListId") ||
