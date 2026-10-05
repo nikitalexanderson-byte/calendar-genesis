@@ -1989,7 +1989,7 @@ test("covers every Theokyklos sector with sacred habits while keeping Stoicheion
 });
 
 test("retains the legacy TWA artifact but promotes only the signed native Android release", async () => {
-  const [installHook, calendar, welcome, styles, androidBuild, androidManifest, androidLauncher, androidBaseStyles, androidApi27Styles, assetLinks, htaccess, serviceWorker] = await Promise.all([
+  const [installHook, calendar, welcome, styles, androidBuild, androidManifest, androidLauncher, androidBaseStyles, androidApi27Styles, assetLinks, htaccess, serviceWorker, deployWorkflow] = await Promise.all([
     readFile(new URL("../app/use-pwa-install.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/WelcomeScreen.tsx", import.meta.url), "utf8"),
@@ -2002,6 +2002,7 @@ test("retains the legacy TWA artifact but promotes only the signed native Androi
     readFile(new URL("../public/.well-known/assetlinks.json", import.meta.url), "utf8"),
     readFile(new URL("../public/.htaccess", import.meta.url), "utf8"),
     readFile(new URL("../public/sw.js", import.meta.url), "utf8"),
+    readFile(new URL("../.github/workflows/deploy.yml", import.meta.url), "utf8"),
   ]);
   const association = JSON.parse(assetLinks)[0];
   const apk = await stat(new URL("../public/downloads/GENESIS-Android-1.2.2.apk", import.meta.url));
@@ -2019,12 +2020,17 @@ test("retains the legacy TWA artifact but promotes only the signed native Androi
   assert.match(welcome, /android-download-button/);
   assert.match(welcome, /Нативное Android-приложение/);
   assert.match(welcome, /androidMigration/);
+  assert.match(welcome, /android-update\.json/);
+  assert.doesNotMatch(welcome, /download="GENESIS-Android-Native-/);
+  assert.doesNotMatch(calendar, /download="GENESIS-Android-Native-/);
   assert.match(styles, /\.android-download-button/);
   assert.match(styles, /\.ux-android-robot/);
   // The legacy 1.2.2 asset remains available while the current native release advances.
   const nativeVersionCode = Number(androidBuild.match(/versionCode = (\d+)/)?.[1]);
   assert.ok(nativeVersionCode >= 57);
-  assert.match(androidBuild, /versionName = "2\.6\.0"/);
+  assert.match(androidBuild, /versionName = "2\.6\.1"/);
+  assert.match(deployWorkflow, /versionCode='67' versionName='2\.6\.1'/);
+  assert.match(deployWorkflow, /GENESIS-Android-Native-2\.6\.1\.apk/);
   assert.match(androidBuild, /releaseSigningReady/);
   assert.match(androidBuild, /applicationIdSuffix = "\.debug"/);
   assert.match(androidBuild, /androidx\.browser:browser:1\.10\.0/);

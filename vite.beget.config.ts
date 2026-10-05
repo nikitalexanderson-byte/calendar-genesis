@@ -71,6 +71,11 @@ export default defineConfig({
               priority: 15,
             },
             {
+              name: "task-form-controls",
+              test: /app[\\/](?:TimeClockPicker|CalendarDatePicker|TaskReminderPicker|RecurrenceBuilder)\.tsx$/,
+              priority: 14,
+            },
+            {
               name: "tracker-engine",
               test: /app[\\/](?:habits|habit-[^\\/]+|tracker-(?:analytics|core|math)|daily-goal|rewards|achievements|streak-(?:protection|rewards)|mood-tracker|sleep-tracker|addiction-tracker|sacred-practices)\.ts$/,
               priority: 14,
