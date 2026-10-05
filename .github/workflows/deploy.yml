@@ -104,6 +104,7 @@ jobs:
           '
 
           php server/tests/smoke.php
+          php server/tests/shared-projects.php
 
       - name: Test
         run: pnpm test

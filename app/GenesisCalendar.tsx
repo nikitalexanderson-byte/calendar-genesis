@@ -190,6 +190,8 @@ import {
 } from "./day-rhythm";
 
 const AccountPanel = lazy(() => import("./AccountPanel").then((module) => ({ default: module.AccountPanel })));
+const SharedProjects = lazy(() => import("./SharedProjects").then((module) => ({ default: module.SharedProjects })));
+const PersonalTaskTransfer = lazy(() => import("./PersonalTaskTransfer").then((module) => ({ default: module.PersonalTaskTransfer })));
 const WelcomeScreen = lazy(() => import("./WelcomeScreen").then((module) => ({ default: module.WelcomeScreen })));
 const AdminPanel = lazy(() => import("./AdminPanel").then((module) => ({ default: module.AdminPanel })));
 const GeminiAssistant = lazy(() => import("./GeminiAssistant").then((module) => ({ default: module.GeminiAssistant })));
@@ -1336,6 +1338,7 @@ export function GenesisCalendar() {
     error: null,
   });
   const [accountOpen, setAccountOpen] = useState(false);
+  const [projectsArea, setProjectsArea] = useState<"personal" | "shared">("personal");
   useEffect(() => {
     const url = new URL(window.location.href);
     if (url.searchParams.get("account_link") !== "1") return;
@@ -1415,6 +1418,7 @@ export function GenesisCalendar() {
   const [editingProject, setEditingProject] = useState<GenesisProject | null>(null);
   const [editingProjectTags, setEditingProjectTags] = useState("");
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [transferTask, setTransferTask] = useState<Task | null>(null);
   const [editingTaskTags, setEditingTaskTags] = useState("");
   const [editingTaskScope, setEditingTaskScope] = useState<TaskSeriesScope>("occurrence");
   const [editingOccurrenceDate, setEditingOccurrenceDate] = useState("");
@@ -3575,7 +3579,7 @@ export function GenesisCalendar() {
   };
 
   const beginProjectPointerDrag = (event: PointerEvent<HTMLElement>, item: ProjectDragItem) => {
-    if (event.pointerType !== "mouse" || event.button !== 0) return;
+    if (event.pointerType !== "mouse" || event.button !== 0 || !(event.target as Element).closest(".project-drag-handle")) return;
     event.currentTarget.setPointerCapture(event.pointerId);
     projectPointerDragRef.current = {
       item,
@@ -6654,7 +6658,15 @@ export function GenesisCalendar() {
             <ViewErrorBoundary resetKey={view}>
               {view === "today" ? renderToday() : null}
               {view === "calendar" ? renderCalendar() : null}
-              {view === "projects" ? renderProjects() : null}
+              {view === "projects" ? cloudUser?.sharedProjectsEnabled ? <>
+                <nav className="shared-projects-switch" aria-label={language === "en" ? "Project sections" : "Разделы проектов"}>
+                  <button type="button" aria-current={projectsArea === "personal" ? "page" : undefined} onClick={() => setProjectsArea("personal")}>{language === "en" ? "Personal" : "Личные"}</button>
+                  <button type="button" aria-current={projectsArea === "shared" ? "page" : undefined} onClick={() => setProjectsArea("shared")}>{language === "en" ? "Shared" : "Общие"}</button>
+                </nav>
+                {projectsArea === "personal" ? renderProjects() : <Suspense fallback={<DeferredViewFallback label={language === "en" ? "Opening shared projects…" : "Открываем общие проекты…"} />}>
+                  <SharedProjects userId={cloudUser.uid} language={language} />
+                </Suspense>}
+              </> : renderProjects() : null}
               {view === "year" ? renderYear() : null}
               {view === "all-tasks" ? renderAllTasks() : null}
               {view === "habits" && habitWorkspace.habitSettings.enabled ? (
@@ -7196,12 +7208,18 @@ export function GenesisCalendar() {
             ) : null}
             <div className="editor-actions">
               <button type="button" className="danger-button" onClick={() => { const id = editingTask.id; const occurrence = editingOccurrenceDate || editingTask.dueDate; setEditingTask(null); deleteTask(id, occurrence); }}>Удалить</button>
+              {cloudUser?.sharedProjectsEnabled ? <button type="button" className="text-button" onClick={() => { setTransferTask(tasks.find((task) => task.id === editingTask.id) ?? editingTask); setEditingTask(null); }}>{language === "en" ? "Move to shared" : "Переместить в общие"}</button> : null}
               <button type="button" className="text-button" onClick={() => setEditingTask(null)}>Отмена</button>
               <button type="submit" className="primary-button" disabled={!editingTask.title.trim()}>Сохранить задачу</button>
             </div>
           </form>
         </div>
       ) : null}
+      {transferTask && cloudUser?.sharedProjectsEnabled ? <Suspense fallback={null}><PersonalTaskTransfer
+        task={transferTask} language={language} personalCalendarConnected={cloudUser.calendarConnected}
+        onClose={() => setTransferTask(null)}
+        onMoved={(taskId) => setTasks((current) => current.filter((task) => task.id !== taskId))}
+      /></Suspense> : null}
       {editingTaskList ? (
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditingTaskList(null); }}>
           <form ref={taskListEditorDialogRef} className="editor-modal task-list-editor" data-exp-ui="dialog" role="dialog" aria-modal="true" aria-labelledby="task-list-editor-title" tabIndex={-1} onSubmit={saveTaskListEdit}>

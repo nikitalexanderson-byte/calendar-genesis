@@ -211,8 +211,10 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     var requestedHeroPath by rememberSaveable { mutableStateOf(false) }
     var editId by rememberSaveable { mutableStateOf<String?>(null) }
     var voiceDeleteTaskId by rememberSaveable { mutableStateOf<String?>(null) }
+    var transferTask by remember { mutableStateOf<LocalTask?>(null) }
     var creating by rememberSaveable { mutableStateOf(false) }
     var newTaskProjectId by rememberSaveable { mutableStateOf<String?>(null) }
+    var projectsArea by rememberSaveable { mutableStateOf("personal") }
     var newTaskListId by rememberSaveable { mutableStateOf<String?>(null) }
     var creatingTaskList by rememberSaveable { mutableStateOf(false) }
     var requestedTheokyklosSector by rememberSaveable { mutableStateOf<String?>(null) }
@@ -582,16 +584,27 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         onOpenTheokyklosSector={ sectorId ->
                         requestedTheokyklosSector=sectorId; tab="Теокиклос"
                     })
-                    "Проекты" -> ProjectsScreen(app,tasks,true,
-                        onOpenTask={ taskId -> editId=taskId;creating=false },
-                        onCreateTask={ projectId -> newTaskProjectId=projectId;newTaskListId=null;editId=null;creating=true },
-                        onDeleteTask=model::delete,
-                        menuSwipeState=visibleSwipeState,voiceRequest=voiceScreenRequest.takeIf {
-                            it is NativeVoiceAction.CreateProject || it is NativeVoiceAction.EditProject ||
-                                it is NativeVoiceAction.DeleteProject || it is NativeVoiceAction.CreateCategory ||
-                                it is NativeVoiceAction.EditCategory || it is NativeVoiceAction.DeleteCategory
-                        },
-                        onVoiceRequestConsumed={voiceScreenRequest=null})
+                    "Проекты" -> Column(Modifier.fillMaxSize()) {
+                        val sharedEnabled = !testWorkspace && authState.accountSettings?.sharedProjectsEnabled == true
+                        if (sharedEnabled) Row(Modifier.fillMaxWidth().padding(horizontal=12.dp),
+                            horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                            FilterChip(selected=projectsArea=="personal",onClick={projectsArea="personal"},
+                                label={Text(if(prefs.language=="en") "Personal" else "Личные")})
+                            FilterChip(selected=projectsArea=="shared",onClick={projectsArea="shared"},
+                                label={Text(if(prefs.language=="en") "Shared" else "Общие")})
+                        }
+                        if(sharedEnabled && projectsArea=="shared") SharedProjectsScreen(authController,prefs.language)
+                        else ProjectsScreen(app,tasks,true,
+                            onOpenTask={ taskId -> editId=taskId;creating=false },
+                            onCreateTask={ projectId -> newTaskProjectId=projectId;newTaskListId=null;editId=null;creating=true },
+                            onDeleteTask=model::delete,
+                            menuSwipeState=visibleSwipeState,voiceRequest=voiceScreenRequest.takeIf {
+                                it is NativeVoiceAction.CreateProject || it is NativeVoiceAction.EditProject ||
+                                    it is NativeVoiceAction.DeleteProject || it is NativeVoiceAction.CreateCategory ||
+                                    it is NativeVoiceAction.EditCategory || it is NativeVoiceAction.DeleteCategory
+                            },
+                            onVoiceRequestConsumed={voiceScreenRequest=null})
+                    }
                     "Задачи" -> TasksScreen(tasks,taskLists,structure,prefs.use24,
                         confirmed = testWorkspace || accountTaskSync?.confirmed != false,
                         onCreateTask = { list -> newTaskListId=list?.id; newTaskProjectId=list?.let {
@@ -621,6 +634,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                             it is NativeVoiceAction.EditTaskList || it is NativeVoiceAction.DeleteTaskList
                         },onVoiceRequestConsumed={voiceScreenRequest=null})
                     "Настройки" -> SettingsScreen(app, prefs, authState.busy && !testWorkspace,
+                        authState.accountSettings,
                         canOpenAdmin = !testWorkspace && authState.ready && !authState.requiresSignIn &&
                             authState.user != null && authState.accountSettings?.isAdmin == true,
                         adminLoad = authController::adminStats,
@@ -741,12 +755,22 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                 authState.accountSettings,taskLists,newTaskListId,
                 onDismiss={creating=false;editId=null;voiceDeleteTaskId=null},
                 onSave={draft -> model.save(draft){creating=false;editId=null;voiceDeleteTaskId=null}},
+                onTransfer=existing?.takeIf { authState.accountSettings?.sharedProjectsEnabled==true }?.let { selectedTask ->
+                    { transferTask=selectedTask;creating=false;editId=null;voiceDeleteTaskId=null }
+                },
                 onDelete=existing?.let{{model.delete(it);creating=false;editId=null;voiceDeleteTaskId=null}},
                 onDeleteOccurrence=existing?.takeIf { it.recurrence.enabled }?.let { series ->
                     { date -> model.excludeOccurrence(series,date) { creating=false;editId=null;voiceDeleteTaskId=null } }
                 },
                 showSelectedOccurrence=tab=="Сегодня" || tab=="Календарь",
                 startDeleteConfirmation=existing?.id==voiceDeleteTaskId)
+            transferTask?.let { privateTask ->
+                PersonalTaskTransferDialog(privateTask,authController,authState.accountSettings,prefs.language,
+                    onDismiss={transferTask=null},onMoved={ task ->
+                        require(app.workspaceScope==activeScope) { "Аккаунт изменился. Откройте форму заново." }
+                        app.repository.delete(task.id,task.revision)
+                    })
+            }
             if(creatingTaskList) TaskListEditor(structure,authState.accountSettings,prefs,
                 canCreate=authState.ready && !authState.requiresSignIn && authState.user!=null &&
                     (authState.accountSettings?.authProvider != "yandex" || authState.accountSettings?.calendarConnected == true),
@@ -1087,12 +1111,14 @@ private fun DayHeader(date: LocalDate, mode: CalendarMode, detailsExpanded: Bool
 @Composable
 private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,structure:WorkspaceStructure,initialProjectId:String?,
     accountSettings:ru.genesis.calendar.auth.AccountSettings?, taskLists:List<GoogleTaskList>, initialTaskListId:String?, onDismiss:()->Unit,
-    onSave:(LocalTask)->Unit,onDelete:(()->Unit)?,onDeleteOccurrence:((String)->Unit)?,showSelectedOccurrence:Boolean,
+    onSave:(LocalTask)->Unit,onTransfer:(()->Unit)?,onDelete:(()->Unit)?,onDeleteOccurrence:((String)->Unit)?,showSelectedOccurrence:Boolean,
     startDeleteConfirmation:Boolean=false) {
     var title by rememberSaveable(task?.id) { mutableStateOf(task?.title ?: "") }
     var description by rememberSaveable(task?.id) { mutableStateOf(task?.description ?: "") }
     var date by rememberSaveable(task?.id) { mutableStateOf(task?.date ?: selected) }
-    var formCalendarMode by rememberSaveable(task?.id) { mutableStateOf(prefs.input) }
+    var formCalendarMode by rememberSaveable(task?.id) { mutableStateOf(
+        task?.sourceFieldsJson?.let { raw -> runCatching { JSONObject(raw).optString("calendarMode") }.getOrNull() }
+            ?.takeIf { it in setOf("profane", "sacred", "lunar") }?.let(CalendarMode::fromWire) ?: prefs.input) }
     var time by rememberSaveable(task?.id) { mutableStateOf(task?.time ?: "") }
     var priority by rememberSaveable(task?.id) { mutableIntStateOf(task?.priority ?: 5) }
     var recurrence by remember(task?.id) { mutableStateOf(task?.recurrence ?: defaultTaskRecurrence(task?.date ?: selected, prefs.input)) }
@@ -1347,6 +1373,7 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                             else -> null
                         }
                         val source = JSONObject(task?.sourceFieldsJson ?: "{}")
+                        source.put("calendarMode",formCalendarMode.wireValue)
                         if (yandex) {
                             source.put("yandexEntryType", yandexEntryType)
                                 .put("yandexEndTime", yandexEndTime).put("yandexLocation", yandexLocation.trim())
@@ -1374,6 +1401,7 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                     },modifier=Modifier.testTag("save-task")){Text("Сохранить")}
                 }
                 onDelete?.let { TextButton(onClick={confirmDelete=true}){Text("Удалить задачу")} }
+                onTransfer?.let { TextButton(onClick=it){Text(if(prefs.language=="en") "Move to shared" else "Переместить в общие")} }
               }
             }
         }
@@ -1454,6 +1482,7 @@ internal fun ProjectHierarchyPicker(projects: List<GenesisProject>, selectedId: 
 
 @Composable
 private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy:Boolean,
+    accountSettings:ru.genesis.calendar.auth.AccountSettings?,
     canOpenAdmin: Boolean, adminLoad: suspend () -> JSONObject,
     adminDelete: suspend (String, Boolean) -> JSONObject,
     onSet:(String,String)->Unit, onSetLocal:(String,String)->Unit) {
@@ -1479,6 +1508,20 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
             else "Календарь, время, приватность и напоминания", "⚙")
         AndroidUpdateBanner()
         AppearancePanel(app, workspace, prefs.use24)
+        SettingsSection("◈", "Общие проекты", "Совместная работа в GENESIS", Color(0xffe9ede5)) {
+            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Общие проекты",style=MaterialTheme.typography.titleSmall)
+                    Text(if(accountSettings?.sharedProjectsEligible==true)
+                        "Пожизненный бесплатный открытый доступ к функциям «Общие проекты»."
+                        else "Доступно в платной версии.",style=MaterialTheme.typography.bodySmall)
+                }
+                Switch(checked=accountSettings?.sharedProjectsEnabled==true,
+                    enabled=accountSettings?.sharedProjectsEligible==true && !sharedBusy,
+                    onCheckedChange={onSet("sharedProjectsEnabled",it.toString())},
+                    modifier=Modifier.testTag("shared-projects-toggle"))
+            }
+        }
         SeasonRegionSettings(prefs, onSetLocal)
         SolarPlaceSettings()
         SettingsSection("☷", "Отображение меню", "Кнопки телефона, альбомного режима и планшета",

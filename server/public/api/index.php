@@ -29,6 +29,7 @@ require $serverRoot . '/src/yandex-calendar.php';
 require $serverRoot . '/src/local-accounts.php';
 require $serverRoot . '/src/native-auth.php';
 require $serverRoot . '/src/gemini.php';
+require $serverRoot . '/src/shared-projects.php';
 
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
@@ -599,6 +600,97 @@ try {
         genesisFinishSession();
     }
 
+    if (($segments[0] ?? null) === 'shared') {
+        $userId = genesisRequireUserId();
+        if ($method !== 'GET') genesisRequireCsrf();
+        if ($method === 'GET' && $path === 'shared/spaces') {
+            genesisJson(['spaces' => genesisSharedSpaces($userId)]);
+        }
+        if ($method === 'POST' && $path === 'shared/spaces') {
+            genesisJson(['space' => genesisSharedCreateSpace($userId, genesisReadJson())], 201);
+        }
+        if ($method === 'POST' && $path === 'shared/invitations/accept') {
+            genesisJson(genesisSharedAcceptInvite($userId, genesisReadJson()));
+        }
+        if (count($segments) === 4 && $segments[1] === 'spaces' && $segments[3] === 'projects') {
+            if ($method === 'GET') genesisJson(['projects' => genesisSharedProjects($userId, $segments[2])]);
+            if ($method === 'POST') genesisJson(['project' => genesisSharedCreateProject($userId, $segments[2], genesisReadJson())], 201);
+        }
+        if (count($segments) === 4 && $segments[1] === 'spaces' && $segments[3] === 'archived-projects'
+            && $method === 'GET') {
+            genesisJson(['projects' => genesisSharedArchivedProjects($userId, $segments[2])]);
+        }
+        if (count($segments) === 5 && $segments[1] === 'spaces' && $segments[3] === 'members'
+            && in_array($method, ['PATCH', 'POST'], true)) {
+            genesisSharedSetSpaceRole($userId, $segments[2], $segments[4], genesisReadJson());
+            genesisJson(['ok' => true]);
+        }
+        if (count($segments) === 3 && $segments[1] === 'projects' && $method === 'GET') {
+            genesisJson(genesisSharedProjectSnapshot($userId, $segments[2]));
+        }
+        if (count($segments) === 3 && $segments[1] === 'projects' && in_array($method, ['PATCH', 'POST'], true)) {
+            genesisJson(['project' => genesisSharedUpdateProject($userId, $segments[2], genesisReadJson())]);
+        }
+        if (count($segments) === 4 && $segments[1] === 'projects'
+            && in_array($segments[3], ['archive', 'restore'], true) && $method === 'POST') {
+            genesisSharedSetArchived($userId, $segments[2], $segments[3] === 'archive');
+            genesisJson(['ok' => true]);
+        }
+        if (count($segments) === 4 && $segments[1] === 'projects' && $segments[3] === 'statuses'
+            && $method === 'POST') {
+            genesisJson(['status' => genesisSharedCreateStatus($userId, $segments[2], genesisReadJson())], 201);
+        }
+        if (count($segments) === 5 && $segments[1] === 'projects' && $segments[3] === 'statuses') {
+            if (in_array($method, ['PATCH', 'POST'], true)) {
+                genesisJson(['status' => genesisSharedUpdateStatus($userId, $segments[2], $segments[4], genesisReadJson())]);
+            }
+            if ($method === 'DELETE') {
+                genesisSharedDeleteStatus($userId, $segments[2], $segments[4], genesisReadJson());
+                genesisJson(['ok' => true]);
+            }
+        }
+        if (count($segments) === 4 && $segments[1] === 'projects' && $segments[3] === 'categories'
+            && $method === 'POST') {
+            genesisJson(['category' => genesisSharedCreateCategory($userId, $segments[2], genesisReadJson())], 201);
+        }
+        if (count($segments) === 5 && $segments[1] === 'projects' && $segments[3] === 'categories') {
+            if (in_array($method, ['PATCH', 'POST'], true)) {
+                genesisJson(['category' => genesisSharedUpdateCategory($userId, $segments[2], $segments[4], genesisReadJson())]);
+            }
+            if ($method === 'DELETE') {
+                genesisSharedDeleteCategory($userId, $segments[2], $segments[4], genesisReadJson());
+                genesisJson(['ok' => true]);
+            }
+        }
+        if (count($segments) === 5 && $segments[1] === 'projects' && $segments[3] === 'members') {
+            if (in_array($method, ['PATCH', 'POST'], true)) {
+                genesisSharedSetMemberRole($userId, $segments[2], $segments[4], genesisReadJson());
+                genesisJson(['ok' => true]);
+            }
+            if ($method === 'DELETE') {
+                genesisSharedRemoveMember($userId, $segments[2], $segments[4]);
+                genesisJson(['ok' => true]);
+            }
+        }
+        if (count($segments) === 4 && $segments[1] === 'projects' && $segments[3] === 'invitations'
+            && $method === 'POST') {
+            genesisJson(['invitation' => genesisSharedInvite($userId, $segments[2], genesisReadJson())], 201);
+        }
+        if (count($segments) === 4 && $segments[1] === 'projects' && $segments[3] === 'tasks'
+            && $method === 'POST') {
+            genesisJson(['task' => genesisSharedTask($userId, $segments[2], genesisReadJson())], 201);
+        }
+        if (count($segments) === 5 && $segments[1] === 'projects' && $segments[3] === 'tasks'
+            && in_array($method, ['PATCH', 'POST'], true)) {
+            genesisJson(['task' => genesisSharedTask($userId, $segments[2], genesisReadJson(), $segments[4])]);
+        }
+        if (count($segments) === 6 && $segments[1] === 'projects' && $segments[3] === 'tasks'
+            && $segments[5] === 'comments') {
+            if ($method === 'GET') genesisJson(['comments' => genesisSharedComments($userId, $segments[2], $segments[4])]);
+            if ($method === 'POST') genesisJson(['comment' => genesisSharedAddComment($userId, $segments[2], $segments[4], genesisReadJson())], 201);
+        }
+    }
+
     if ($method === 'GET' && $path === 'workspace') {
         $userId = genesisRequireUserId();
         $user = genesisFindUser($userId);
@@ -825,6 +917,8 @@ try {
     }
 
     genesisJson(['error' => 'NOT_FOUND'], 404);
+} catch (GenesisSharedAccessException $error) {
+    genesisJson(['error' => $error->getMessage()], $error->status);
 } catch (GenesisNativeAuthException $error) {
     header('Cache-Control: no-store');
     if ($error->status === 429) {

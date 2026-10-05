@@ -149,6 +149,20 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
     }
   };
 
+  const changeSharedProjectsPreference = async (enabled: boolean) => {
+    setPreferenceBusy(true);
+    setMessage("");
+    try {
+      const result = await updateAccountPreferences({ sharedProjectsEnabled: enabled });
+      onUserChange(result.user);
+      setMessage(user.language === "en" ? "Shared projects setting saved." : "Настройка общих проектов сохранена.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : user.language === "en" ? "Could not save setting." : "Не удалось сохранить настройку.");
+    } finally {
+      setPreferenceBusy(false);
+    }
+  };
+
   const changeCalendarMode = async (calendarMode: CalendarMode) => {
     setPreferenceBusy(true);
     setMessage("");
@@ -583,6 +597,22 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
           <p className="account-preference-status" role="status" aria-live="polite" data-exp-ui="notice" data-exp-tone={themeState.status === "error" || themeState.status === "load-error" ? "error" : undefined}>
             {translateText(themeStatusMessage, user.language)}
           </p>
+        </section>
+
+        <section className="account-preferences shared-projects-preference" aria-labelledby="shared-projects-preference-title" data-exp-ui="panel">
+          <div>
+            <span className="eyebrow">GENESIS · {user.language === "en" ? "Together" : "Вместе"}</span>
+            <h3 id="shared-projects-preference-title">{user.language === "en" ? "Shared projects" : "Общие проекты"}</h3>
+            <p>{user.language === "en" ? "Create projects with other GENESIS accounts. Personal data stays private." : "Создавайте проекты с другими аккаунтами GENESIS. Личные данные остаются приватными."}</p>
+            {user.sharedProjectsEligible ? <small>{user.language === "en" ? "Lifetime free access to Shared projects." : "Пожизненный бесплатный открытый доступ к функциям «Общие проекты»."}</small>
+              : <small>{user.language === "en" ? "Available in the paid version." : "Доступно в платной версии."}</small>}
+          </div>
+          <label htmlFor="shared-projects-toggle" className="account-switch-row" data-exp-ui="row">
+            {user.language === "en" ? "Enable shared projects" : "Включить общие проекты"}
+            <input id="shared-projects-toggle" type="checkbox" role="switch" data-exp-ui="switch" checked={Boolean(user.sharedProjectsEnabled)}
+              disabled={!user.sharedProjectsEligible || preferenceBusy}
+              onChange={(event) => void changeSharedProjectsPreference(event.target.checked)} />
+          </label>
         </section>
 
         <section className="account-preferences language-preference" aria-labelledby="language-title" data-exp-ui="panel">
