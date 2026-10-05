@@ -190,6 +190,7 @@ import {
 } from "./day-rhythm";
 
 const AccountPanel = lazy(() => import("./AccountPanel").then((module) => ({ default: module.AccountPanel })));
+const SharedProjects = lazy(() => import("./SharedProjects").then((module) => ({ default: module.SharedProjects })));
 const WelcomeScreen = lazy(() => import("./WelcomeScreen").then((module) => ({ default: module.WelcomeScreen })));
 const AdminPanel = lazy(() => import("./AdminPanel").then((module) => ({ default: module.AdminPanel })));
 const GeminiAssistant = lazy(() => import("./GeminiAssistant").then((module) => ({ default: module.GeminiAssistant })));
@@ -1334,6 +1335,7 @@ export function GenesisCalendar() {
     error: null,
   });
   const [accountOpen, setAccountOpen] = useState(false);
+  const [projectsArea, setProjectsArea] = useState<"personal" | "shared">("personal");
   useEffect(() => {
     const url = new URL(window.location.href);
     if (url.searchParams.get("account_link") !== "1") return;
@@ -6574,7 +6576,15 @@ export function GenesisCalendar() {
             <ViewErrorBoundary resetKey={view}>
               {view === "today" ? renderToday() : null}
               {view === "calendar" ? renderCalendar() : null}
-              {view === "projects" ? renderProjects() : null}
+              {view === "projects" ? cloudUser?.sharedProjectsEnabled ? <>
+                <nav className="shared-projects-switch" aria-label={language === "en" ? "Project sections" : "Разделы проектов"}>
+                  <button type="button" aria-current={projectsArea === "personal" ? "page" : undefined} onClick={() => setProjectsArea("personal")}>{language === "en" ? "Personal" : "Личные"}</button>
+                  <button type="button" aria-current={projectsArea === "shared" ? "page" : undefined} onClick={() => setProjectsArea("shared")}>{language === "en" ? "Shared" : "Общие"}</button>
+                </nav>
+                {projectsArea === "personal" ? renderProjects() : <Suspense fallback={<DeferredViewFallback label={language === "en" ? "Opening shared projects…" : "Открываем общие проекты…"} />}>
+                  <SharedProjects userId={cloudUser.uid} language={language} />
+                </Suspense>}
+              </> : renderProjects() : null}
               {view === "year" ? renderYear() : null}
               {view === "all-tasks" ? renderAllTasks() : null}
               {view === "habits" && habitWorkspace.habitSettings.enabled ? (

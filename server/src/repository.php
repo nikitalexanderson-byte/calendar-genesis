@@ -28,6 +28,18 @@ function genesisIsAdminUser(array $user): bool
         && mb_strtolower((string)($user['email'] ?? '')) === genesisAdminEmail();
 }
 
+function genesisSharedTester(array $user): bool
+{
+    if (genesisUserProvider($user) !== 'google') return false;
+    if (genesisIsAdminUser($user)) return true;
+    $email = mb_strtolower(trim((string)($user['email'] ?? '')));
+    return in_array($email, [
+        'jurijjlogvinov@gmail.com', 'mechrahod@gmail.com', 'eagbread@gmail.com',
+        'margohello@gmail.com', 'nactbka1982@gmail.com', '2308dara@gmail.com',
+        'giostouapi@gmail.com', 'maharita777@gmail.com',
+    ], true);
+}
+
 function genesisIsValidEmail(string $email): bool
 {
     $clean = trim($email);
@@ -222,6 +234,8 @@ function genesisUserForClient(array $user): array
         'passwordEnabled' => !empty($user['password_hash']),
         'stoicheionDivinationDisabled' => !empty($user['stoicheion_divination_disabled']),
         'isAdmin' => genesisIsAdminUser($user),
+        'sharedProjectsEligible' => genesisSharedTester($user),
+        'sharedProjectsEnabled' => genesisSharedTester($user) && !empty($user['shared_projects_enabled']),
         'calendarMode' => $calendarMode,
         'taskCalendarMode' => $taskCalendarMode,
         'timeFormat' => $timeFormat,
@@ -962,6 +976,16 @@ function genesisUpdateAccountPreferences(string $userId, array $payload): array
     $updates = [];
     $values = ['updated_at' => genesisNow(), 'id' => $userId];
     $hasThemePreference = array_key_exists('theme', $payload);
+    if (array_key_exists('sharedProjectsEnabled', $payload)) {
+        if (!is_bool($payload['sharedProjectsEnabled'])) {
+            throw new InvalidArgumentException('INVALID_SHARED_PROJECT_PREFERENCE');
+        }
+        if ($payload['sharedProjectsEnabled'] && !genesisSharedTester($user)) {
+            throw new DomainException('SHARED_PROJECTS_PAID_FEATURE');
+        }
+        $updates[] = 'shared_projects_enabled = :shared_projects_enabled';
+        $values['shared_projects_enabled'] = $payload['sharedProjectsEnabled'] ? 1 : 0;
+    }
     if (array_key_exists('stoicheionDivinationDisabled', $payload)) {
         if (!is_bool($payload['stoicheionDivinationDisabled'])) {
             throw new InvalidArgumentException('Настройка гаданий указана неверно.');
@@ -1137,6 +1161,7 @@ function genesisRevokeAccountTokens(array $user): void
 function genesisDeleteAccountRows(string $userId): array
 {
     $purged = genesisAccountDataCounts($userId);
+    if (function_exists('genesisSharedPrepareAccountDeletion')) genesisSharedPrepareAccountDeletion($userId);
     $statement = genesisDb()->prepare('DELETE FROM users WHERE id = :id');
     $statement->execute(['id' => $userId]);
     if ($statement->rowCount() !== 1) {

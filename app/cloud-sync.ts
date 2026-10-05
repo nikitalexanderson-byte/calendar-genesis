@@ -148,6 +148,8 @@ export type GenesisUser = {
   passwordEnabled: boolean;
   stoicheionDivinationDisabled: boolean;
   isAdmin: boolean;
+  sharedProjectsEligible?: boolean;
+  sharedProjectsEnabled?: boolean;
   calendarMode: CalendarMode;
   taskCalendarMode?: CalendarMode;
   timeFormat?: TimeFormat;
@@ -1321,6 +1323,7 @@ export function disconnectYandexCalendar(accountId?: string) {
 }
 
 export async function updateAccountPreferences(preferences: Partial<{
+  sharedProjectsEnabled: boolean;
   stoicheionDivinationDisabled: boolean;
   calendarMode: CalendarMode;
   taskCalendarMode: CalendarMode;
@@ -1344,6 +1347,138 @@ export async function updateAccountPreferences(preferences: Partial<{
     }
     throw error;
   }
+}
+
+export type SharedSpace = { id: string; title: string; role: "owner" | "admin" | "member" | "guest"; updatedAt: string };
+export type SharedProject = { id: string; spaceId: string; parentId: string | null; title: string;
+  description: string; layout: "list" | "board"; isInbox?: number; revision: number; role: string; spaceRole?: string; updatedAt: string };
+export type SharedStatus = { id: string; title: string; position: number; isDone: number; revision: number };
+export type SharedCategory = { id: string; title: string; color: string; position: number; revision: number };
+export type SharedTask = { id: string; projectId: string; statusId: string; title: string;
+  categoryId: string | null; description: string; dueDate: string | null;
+  assigneeId: string | null; createdBy?: string | null;
+  completedBy?: string | null; completedAt?: string | null; revision: number; updatedAt: string };
+export type SharedMember = { userId: string; role: string; spaceRole: string; displayName: string };
+export type SharedProjectSnapshot = { project: SharedProject; statuses: SharedStatus[]; categories: SharedCategory[];
+  tasks: SharedTask[]; members: SharedMember[] };
+export type SharedComment = { id: string; body: string; authorId: string; authorName: string; createdAt: string };
+
+export async function listSharedSpaces() {
+  return (await api<{ spaces: SharedSpace[] }>("/shared/spaces")).spaces;
+}
+export async function createSharedSpace(title: string) {
+  return (await api<{ space: SharedSpace }>("/shared/spaces", {
+    method: "POST", body: JSON.stringify({ title }),
+  })).space;
+}
+export async function listSharedProjects(spaceId: string) {
+  return (await api<{ projects: SharedProject[] }>(`/shared/spaces/${encodeURIComponent(spaceId)}/projects`)).projects;
+}
+export async function listArchivedSharedProjects(spaceId: string) {
+  return (await api<{ projects: (SharedProject & { archivedAt: string })[] }>(
+    `/shared/spaces/${encodeURIComponent(spaceId)}/archived-projects`)).projects;
+}
+export async function createSharedProject(spaceId: string, input: { title: string; description: string;
+  layout: "list" | "board"; parentId?: string | null }) {
+  return (await api<{ project: SharedProject }>(`/shared/spaces/${encodeURIComponent(spaceId)}/projects`, {
+    method: "POST", body: JSON.stringify(input),
+  })).project;
+}
+export async function loadSharedProject(projectId: string) {
+  return api<SharedProjectSnapshot>(`/shared/projects/${encodeURIComponent(projectId)}`);
+}
+export async function updateSharedProject(projectId: string, input: {
+  title: string; description: string; layout: "list" | "board"; parentId: string | null; expectedRevision: number;
+}) {
+  return (await api<{ project: SharedProject }>(`/shared/projects/${encodeURIComponent(projectId)}`, {
+    method: "PATCH", body: JSON.stringify(input),
+  })).project;
+}
+export async function setSharedProjectArchived(projectId: string, archived: boolean) {
+  return api<{ ok: true }>(`/shared/projects/${encodeURIComponent(projectId)}/${archived ? "archive" : "restore"}`, {
+    method: "POST", body: "{}",
+  });
+}
+export async function createSharedStatus(projectId: string, title: string, isDone: boolean) {
+  return (await api<{ status: SharedStatus }>(`/shared/projects/${encodeURIComponent(projectId)}/statuses`, {
+    method: "POST", body: JSON.stringify({ title, isDone }),
+  })).status;
+}
+export async function updateSharedStatus(projectId: string, statusId: string, title: string, expectedRevision: number) {
+  return (await api<{ status: SharedStatus }>(
+    `/shared/projects/${encodeURIComponent(projectId)}/statuses/${encodeURIComponent(statusId)}`, {
+      method: "PATCH", body: JSON.stringify({ title, expectedRevision }),
+    })).status;
+}
+export async function deleteSharedStatus(projectId: string, statusId: string,
+  destinationStatusId: string, expectedRevision: number) {
+  return api<{ ok: true }>(`/shared/projects/${encodeURIComponent(projectId)}/statuses/${encodeURIComponent(statusId)}`, {
+    method: "DELETE", body: JSON.stringify({ destinationStatusId, expectedRevision }),
+  });
+}
+export async function createSharedCategory(projectId: string, title: string, color: string) {
+  return (await api<{ category: SharedCategory }>(`/shared/projects/${encodeURIComponent(projectId)}/categories`, {
+    method: "POST", body: JSON.stringify({ title, color }),
+  })).category;
+}
+export async function updateSharedCategory(projectId: string, categoryId: string,
+  title: string, color: string, expectedRevision: number) {
+  return (await api<{ category: SharedCategory }>(
+    `/shared/projects/${encodeURIComponent(projectId)}/categories/${encodeURIComponent(categoryId)}`, {
+      method: "PATCH", body: JSON.stringify({ title, color, expectedRevision }),
+    })).category;
+}
+export async function deleteSharedCategory(projectId: string, categoryId: string, expectedRevision: number) {
+  return api<{ ok: true }>(`/shared/projects/${encodeURIComponent(projectId)}/categories/${encodeURIComponent(categoryId)}`, {
+    method: "DELETE", body: JSON.stringify({ expectedRevision }),
+  });
+}
+export async function changeSharedMemberRole(projectId: string, userId: string, role: string) {
+  return api<{ ok: true }>(`/shared/projects/${encodeURIComponent(projectId)}/members/${encodeURIComponent(userId)}`, {
+    method: "PATCH", body: JSON.stringify({ role }),
+  });
+}
+export async function changeSharedSpaceRole(spaceId: string, userId: string, role: string) {
+  return api<{ ok: true }>(`/shared/spaces/${encodeURIComponent(spaceId)}/members/${encodeURIComponent(userId)}`, {
+    method: "PATCH", body: JSON.stringify({ role }),
+  });
+}
+export async function removeSharedMember(projectId: string, userId: string) {
+  return api<{ ok: true }>(`/shared/projects/${encodeURIComponent(projectId)}/members/${encodeURIComponent(userId)}`, {
+    method: "DELETE",
+  });
+}
+export async function createSharedTask(projectId: string, input: { title: string; statusId: string;
+  categoryId?: string | null; assigneeId?: string | null; dueDate?: string | null; description?: string }) {
+  return (await api<{ task: SharedTask }>(`/shared/projects/${encodeURIComponent(projectId)}/tasks`, {
+    method: "POST", body: JSON.stringify(input),
+  })).task;
+}
+export async function updateSharedTask(projectId: string, taskId: string, input: Partial<SharedTask> & { expectedRevision: number }) {
+  return (await api<{ task: SharedTask }>(`/shared/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}`, {
+    method: "PATCH", body: JSON.stringify(input),
+  })).task;
+}
+export async function inviteSharedMember(projectId: string, email: string, role: string) {
+  return (await api<{ invitation: { id: string; token: string; expiresAt: string } }>(
+    `/shared/projects/${encodeURIComponent(projectId)}/invitations`, {
+      method: "POST", body: JSON.stringify({ email, role }),
+    })).invitation;
+}
+export async function acceptSharedInvitation(token: string) {
+  return api<{ projectId: string; spaceId: string }>("/shared/invitations/accept", {
+    method: "POST", body: JSON.stringify({ token }),
+  });
+}
+export async function listSharedComments(projectId: string, taskId: string) {
+  return (await api<{ comments: SharedComment[] }>(
+    `/shared/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}/comments`)).comments;
+}
+export async function addSharedComment(projectId: string, taskId: string, body: string) {
+  return (await api<{ comment: SharedComment }>(
+    `/shared/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}/comments`, {
+      method: "POST", body: JSON.stringify({ body }),
+    })).comment;
 }
 
 export function removeAdditionalGoogleAccount(accountId: string) {

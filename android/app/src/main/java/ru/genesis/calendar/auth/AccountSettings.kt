@@ -49,6 +49,8 @@ data class AccountSettings(
     val gregorianYearStart: String = "january",
     val authProvider: String = "google",
     val calendarConnected: Boolean = false,
+    val sharedProjectsEligible: Boolean = false,
+    val sharedProjectsEnabled: Boolean = false,
 ) {
     companion object {
         fun fromResponse(response: JSONObject): AccountSettings? {
@@ -89,7 +91,8 @@ data class AccountSettings(
                 user.optString("timeFormat", "24h"), user.optBoolean("stoicheionDivinationDisabled"),
                 user.optString("language", "ru"), user.optBoolean("isAdmin"), user.optString("weekStart", "monday"),
                 user.optString("gregorianYearStart", "january"),
-                user.optString("authProvider", "google"), user.optBoolean("calendarConnected"))
+                user.optString("authProvider", "google"), user.optBoolean("calendarConnected"),
+                user.optBoolean("sharedProjectsEligible"), user.optBoolean("sharedProjectsEnabled"))
         }
     }
 }

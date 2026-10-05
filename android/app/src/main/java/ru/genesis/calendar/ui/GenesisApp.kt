@@ -203,6 +203,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     var editId by rememberSaveable { mutableStateOf<String?>(null) }
     var creating by rememberSaveable { mutableStateOf(false) }
     var newTaskProjectId by rememberSaveable { mutableStateOf<String?>(null) }
+    var projectsArea by rememberSaveable { mutableStateOf("personal") }
     var newTaskListId by rememberSaveable { mutableStateOf<String?>(null) }
     var creatingTaskList by rememberSaveable { mutableStateOf(false) }
     var requestedTheokyklosSector by rememberSaveable { mutableStateOf<String?>(null) }
@@ -445,12 +446,23 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                     "Стойхейон" -> StoicheionScreen(app,prefs.divinationDisabled, onOpenTheokyklosSector={ sectorId ->
                         requestedTheokyklosSector=sectorId; tab="Теокиклос"
                     })
-                    "Проекты" -> ProjectsScreen(app,tasks,true,
-                        onOpenTask={ taskId -> editId=taskId;creating=false },
-                        onCreateTask={ projectId -> newTaskProjectId=projectId;newTaskListId=null;editId=null;creating=true },
-                        onDeleteTask=model::delete,
-                        menuSwipeState=visibleSwipeState,voiceRequest=voiceScreenRequest,
-                        onVoiceRequestConsumed={voiceScreenRequest=null})
+                    "Проекты" -> Column(Modifier.fillMaxSize()) {
+                        val sharedEnabled = !testWorkspace && authState.accountSettings?.sharedProjectsEnabled == true
+                        if (sharedEnabled) Row(Modifier.fillMaxWidth().padding(horizontal=12.dp),
+                            horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                            FilterChip(selected=projectsArea=="personal",onClick={projectsArea="personal"},
+                                label={Text(if(prefs.language=="en") "Personal" else "Личные")})
+                            FilterChip(selected=projectsArea=="shared",onClick={projectsArea="shared"},
+                                label={Text(if(prefs.language=="en") "Shared" else "Общие")})
+                        }
+                        if(sharedEnabled && projectsArea=="shared") SharedProjectsScreen(authController,prefs.language)
+                        else ProjectsScreen(app,tasks,true,
+                            onOpenTask={ taskId -> editId=taskId;creating=false },
+                            onCreateTask={ projectId -> newTaskProjectId=projectId;newTaskListId=null;editId=null;creating=true },
+                            onDeleteTask=model::delete,
+                            menuSwipeState=visibleSwipeState,voiceRequest=voiceScreenRequest,
+                            onVoiceRequestConsumed={voiceScreenRequest=null})
+                    }
                     "Задачи" -> TasksScreen(tasks,taskLists,structure,prefs.use24,
                         confirmed = testWorkspace || accountTaskSync?.confirmed != false,
                         onCreateTask = { list -> newTaskListId=list?.id; newTaskProjectId=list?.let {
@@ -477,6 +489,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         },
                         menuSwipeState=visibleSwipeState)
                     "Настройки" -> SettingsScreen(app, prefs, authState.busy && !testWorkspace,
+                        authState.accountSettings,
                         canOpenAdmin = !testWorkspace && authState.ready && !authState.requiresSignIn &&
                             authState.user != null && authState.accountSettings?.isAdmin == true,
                         adminLoad = authController::adminStats,
@@ -1302,6 +1315,7 @@ internal fun ProjectHierarchyPicker(projects: List<GenesisProject>, selectedId: 
 
 @Composable
 private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy:Boolean,
+    accountSettings:ru.genesis.calendar.auth.AccountSettings?,
     canOpenAdmin: Boolean, adminLoad: suspend () -> JSONObject,
     adminDelete: suspend (String, Boolean) -> JSONObject,
     onSet:(String,String)->Unit, onSetLocal:(String,String)->Unit) {
@@ -1327,6 +1341,20 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
             else "Календарь, время, приватность и напоминания", "⚙")
         AndroidUpdateBanner()
         AppearancePanel(app, workspace, prefs.use24)
+        SettingsSection("◈", "Общие проекты", "Совместная работа в GENESIS", Color(0xffe9ede5)) {
+            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Общие проекты",style=MaterialTheme.typography.titleSmall)
+                    Text(if(accountSettings?.sharedProjectsEligible==true)
+                        "Пожизненный бесплатный открытый доступ к функциям «Общие проекты»."
+                        else "Доступно в платной версии.",style=MaterialTheme.typography.bodySmall)
+                }
+                Switch(checked=accountSettings?.sharedProjectsEnabled==true,
+                    enabled=accountSettings?.sharedProjectsEligible==true && !sharedBusy,
+                    onCheckedChange={onSet("sharedProjectsEnabled",it.toString())},
+                    modifier=Modifier.testTag("shared-projects-toggle"))
+            }
+        }
         SeasonRegionSettings(prefs, onSetLocal)
         SolarPlaceSettings()
         SettingsSection("☷", "Отображение меню", "Кнопки телефона, альбомного режима и планшета",
