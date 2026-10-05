@@ -489,6 +489,9 @@ internal fun SharedProjectsScreen(controller: AuthController, language: String) 
                 Text(if (en) "Only you can enable copies in your Google account. The team task stays in GENESIS."
                     else "Только вы можете включить копии в своём Google-аккаунте. Общая задача остаётся в GENESIS.",
                     style = MaterialTheme.typography.bodySmall)
+                Text(if (en) "Copies include the project name and each task's title, due date and status. Descriptions and member details stay in GENESIS."
+                    else "В копию попадают название проекта, название, срок и статус задачи. Описание и сведения об участниках остаются в GENESIS.",
+                    style = MaterialTheme.typography.bodySmall)
                 val google = googleSettings
                 if (google == null) Text(if (en) "Loading Google options…" else "Загружаем настройки Google…")
                 else {

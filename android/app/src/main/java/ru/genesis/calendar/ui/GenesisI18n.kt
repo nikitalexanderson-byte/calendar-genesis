@@ -26,6 +26,22 @@ import java.util.concurrent.ConcurrentHashMap
 val LocalGenesisLanguage = compositionLocalOf { "ru" }
 
 private val nativeCopy = mapOf(
+    "Личный проект изменился во время переноса. Общая копия создана; личный оригинал сохранён." to "The personal project changed during transfer. The shared copy was created; the personal original was kept.",
+    "Задачи изменились во время переноса. Общая копия создана; личные записи сохранены." to "Tasks changed during transfer. The shared copy was created; personal tasks were kept.",
+    "Не удалось загрузить пространства." to "Could not load shared spaces.",
+    "Не удалось сохранить идентификатор переноса." to "Could not save the transfer ID.",
+    "Сервер не подтвердил перенос проекта." to "The server did not confirm the project transfer.",
+    "Сервер не подтвердил полный перенос проекта." to "The server did not confirm the complete project transfer.",
+    "Не удалось перенести проект." to "Could not share the project.",
+    "Переместить проект в общие" to "Share a project",
+    "Проверьте состав проекта: участники увидят перечисленные данные." to "Review the entire tree before members can see it.",
+    "Сначала создайте общее пространство" to "Create a shared space first",
+    "Участники получат названия, описания, сроки, состояние и категории. Время, напоминания, повторы и связи Google не передаются." to "Members receive titles, descriptions, dates, completion state and categories. Times, reminders, repeats and Google links are not transferred.",
+    " все задачи" to " every task",
+    "Согласен открыть эти проекты и задачи участникам согласно их ролям." to "I agree that members can see these projects and tasks by role.",
+    "Перемещение недоступно: некоторые поля или связанные списки нельзя сохранить. Можно скопировать основные поля." to "Moving is unavailable because some fields or linked lists cannot be preserved. You can copy the basic fields.",
+    "Дерево превышает допустимый размер или в нём отсутствует категория." to "This tree is too large or contains a missing category.",
+    "В копию попадают название проекта, название, срок и статус задачи. Описание и сведения об участниках остаются в GENESIS." to "Copies include the project name and each task's title, due date and status. Descriptions and member details stay in GENESIS.",
     "Для синхронизации привычки войдите в аккаунт Google." to "Sign in with Google to sync this habit.",
     "Подключите Google Tasks в настройках аккаунта." to "Connect Google Tasks in account settings.",
     "Подключите Google Calendar в настройках аккаунта." to "Connect Google Calendar in account settings.",

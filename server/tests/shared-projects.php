@@ -99,6 +99,15 @@ try {
     sharedExpect(count(genesisSharedProjects($a, $importSpace['id'])) === 3,
         'Invalid project import left a partial tree.');
     $project = genesisSharedCreateProject($a, $space['id'], ['title' => 'Общий план', 'layout' => 'board']);
+    $googleSample = ['id' => 'shared-test-task', 'title' => 'Общее дело',
+        'description' => 'Личная заметка и имена участников', 'due_date' => '2026-10-12',
+        'completed_at' => null];
+    $tasksPayload = genesisSharedGoogleTaskPayload($googleSample);
+    $calendarPayload = genesisSharedGoogleCalendarPayload($googleSample);
+    sharedExpect($tasksPayload['title'] === 'Общее дело'
+        && !str_contains(json_encode($tasksPayload, JSON_UNESCAPED_UNICODE), $googleSample['description'])
+        && !str_contains(json_encode($calendarPayload, JSON_UNESCAPED_UNICODE), $googleSample['description']),
+        'Google copies exposed a shared task description without separate consent.');
     $googleOptions = genesisSharedGoogleSettings($a, $project['id']);
     sharedExpect(!$googleOptions['tasksEnabled'] && !$googleOptions['calendarEnabled'],
         'Google projection was enabled without the member choosing it.');

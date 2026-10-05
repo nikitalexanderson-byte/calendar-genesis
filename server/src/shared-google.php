@@ -75,11 +75,9 @@ function genesisSharedGoogleTaskList(array $user, string $projectId, string $pro
     return $id;
 }
 
-function genesisSharedGoogleTaskPayload(array $task, string $projectTitle): array
+function genesisSharedGoogleTaskPayload(array $task): array
 {
-    $notes = 'GENESIS shared task ' . $task['id'] . "\n" . $projectTitle;
-    if ($task['description'] !== '') $notes .= "\n\n" . $task['description'];
-    $notes = mb_substr($notes, 0, 8000);
+    $notes = 'GENESIS shared task ' . $task['id'] . "\n";
     $done = $task['completed_at'] !== null;
     $payload = ['title' => $task['title'], 'notes' => $notes,
         'status' => $done ? 'completed' : 'needsAction'];
@@ -88,12 +86,12 @@ function genesisSharedGoogleTaskPayload(array $task, string $projectTitle): arra
     return $payload;
 }
 
-function genesisSharedGoogleCalendarPayload(array $task, string $projectTitle): array
+function genesisSharedGoogleCalendarPayload(array $task): array
 {
     $date = new DateTimeImmutable($task['due_date'] . ' 12:00:00', new DateTimeZone('UTC'));
     return [
         'summary' => ($task['completed_at'] !== null ? '✓ ' : '') . $task['title'],
-        'description' => 'GENESIS · ' . $projectTitle . ($task['description'] !== '' ? "\n\n" . $task['description'] : ''),
+        'description' => 'GENESIS shared task',
         'start' => ['date' => $date->format('Y-m-d')],
         'end' => ['date' => $date->modify('+1 day')->format('Y-m-d')],
         'extendedProperties' => ['private' => ['genesisSharedTaskId' => $task['id']]],
@@ -183,7 +181,7 @@ function genesisSharedSyncGoogle(string $userId, string $projectId, int $batchSi
         if ($taskStale) {
             $id = (string)($task['task_google_id'] ?: ($existingTasks[$task['id']] ?? ''));
             $path = '/lists/' . rawurlencode($listId) . '/tasks';
-            $payload = genesisSharedGoogleTaskPayload($task, (string)$project['title']);
+            $payload = genesisSharedGoogleTaskPayload($task);
             try {
                 $saved = $id !== ''
                     ? genesisGoogleTasksApi('PATCH', $path . '/' . rawurlencode($id), $user, $payload)
@@ -208,7 +206,7 @@ function genesisSharedSyncGoogle(string $userId, string $projectId, int $batchSi
         } elseif ($eventStale) {
             $calendarPath = '/calendars/' . rawurlencode((string)$user['google_calendar_id']) . '/events';
             $eventId = (string)($task['event_google_id'] ?? '');
-            $payload = genesisSharedGoogleCalendarPayload($task, (string)$project['title']);
+            $payload = genesisSharedGoogleCalendarPayload($task);
             if ($eventId === '') $payload['id'] = 'genesis' . substr(hash('sha256', $userId . $task['id']), 0, 32);
             try {
                 $saved = $eventId !== ''

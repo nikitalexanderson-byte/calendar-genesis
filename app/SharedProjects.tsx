@@ -527,6 +527,8 @@ export function SharedProjects({ userId, language }: Props) {
         <h3>{english ? "My Google copies" : "Мои копии в Google"}</h3>
         <p>{english ? "Only you can enable copies in your Google account. The team task stays in GENESIS."
           : "Только вы можете включить копии в своём Google-аккаунте. Общая задача остаётся в GENESIS."}</p>
+        <p>{english ? "Copies include the project name and each task's title, due date and status. Descriptions and member details stay in GENESIS."
+          : "В копию попадают название проекта, название, срок и статус задачи. Описание и сведения об участниках остаются в GENESIS."}</p>
         {googleSettings ? <div className="shared-projects-google-options">
           <label><input type="checkbox" checked={googleSettings.tasksEnabled}
             disabled={googleBusy || !googleSettings.tasksAvailable && !googleSettings.tasksEnabled}
