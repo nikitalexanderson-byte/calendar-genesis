@@ -496,3 +496,17 @@
   .shared-projects-view-switch { width: 100%; }
   .shared-projects .shared-projects-view-switch button { flex: 1 1 0; min-width: 0; }
 }
+.shared-projects-google {
+  display: grid;
+  gap: 0.7rem;
+  padding: clamp(1rem, 3vw, 1.5rem);
+  border: 1px solid var(--border, rgba(121, 150, 134, 0.36));
+  border-radius: 1.25rem;
+  background: var(--surface, rgba(24, 48, 47, 0.58));
+}
+.shared-projects-google h3,
+.shared-projects-google p { margin: 0; }
+.shared-projects-google-options { display: grid; gap: 0.7rem; }
+.shared-projects-google-options label { display: flex; align-items: center; gap: 0.65rem; }
+.shared-projects-google-options input { width: 1.2rem; height: 1.2rem; min-height: 1.2rem; flex: 0 0 auto; }
+.shared-projects-google-options button { justify-self: start; }

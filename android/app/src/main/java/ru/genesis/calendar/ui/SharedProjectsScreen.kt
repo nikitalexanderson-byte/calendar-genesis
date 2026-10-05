@@ -51,6 +51,8 @@ internal fun SharedProjectsScreen(controller: AuthController, language: String) 
     var projects by remember { mutableStateOf(emptyList<JSONObject>()) }
     var archivedProjects by remember { mutableStateOf(emptyList<JSONObject>()) }
     var snapshot by remember { mutableStateOf<JSONObject?>(null) }
+    var googleSettings by remember { mutableStateOf<JSONObject?>(null) }
+    var googleMessage by remember { mutableStateOf("") }
     var comments by remember { mutableStateOf(emptyList<JSONObject>()) }
     var spaceId by remember { mutableStateOf("") }
     var projectId by remember { mutableStateOf("") }
@@ -171,6 +173,20 @@ internal fun SharedProjectsScreen(controller: AuthController, language: String) 
         if (selectedTask != null) {
             withFrameNanos { }
             pageScroll.animateScrollTo(pageScroll.maxValue)
+        }
+    }
+    LaunchedEffect(projectId) {
+        googleSettings = null; googleMessage = ""
+        if (projectId.isBlank()) return@LaunchedEffect
+        try { googleSettings = controller.sharedGoogleSettings(projectId).getJSONObject("settings") }
+        catch (error: Exception) { googleMessage = error.message ?: "Ошибка Google" }
+        while (isActive) {
+            delay(30_000)
+            val settings = googleSettings
+            if (settings?.optBoolean("tasksEnabled") == true || settings?.optBoolean("calendarEnabled") == true) {
+                try { controller.syncSharedGoogle(projectId) }
+                catch (_: Exception) { /* The explicit update button reports failures. */ }
+            }
         }
     }
     LaunchedEffect(projectId, taskId) {
@@ -469,6 +485,56 @@ internal fun SharedProjectsScreen(controller: AuthController, language: String) 
         }
         }
         if (project != null) {
+            SharedBlock(if (en) "My Google copies" else "Мои копии в Google") {
+                Text(if (en) "Only you can enable copies in your Google account. The team task stays in GENESIS."
+                    else "Только вы можете включить копии в своём Google-аккаунте. Общая задача остаётся в GENESIS.",
+                    style = MaterialTheme.typography.bodySmall)
+                val google = googleSettings
+                if (google == null) Text(if (en) "Loading Google options…" else "Загружаем настройки Google…")
+                else {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Text(if (en) "Copy to my Google Tasks" else "Копировать в мои Google Tasks", modifier = Modifier.weight(1f))
+                        Switch(checked = google.optBoolean("tasksEnabled"),
+                            enabled = !busy && (google.optBoolean("tasksAvailable") || google.optBoolean("tasksEnabled")),
+                            onCheckedChange = { enabled -> run {
+                                val settings = controller.updateSharedGoogleSettings(projectId, enabled,
+                                    google.optBoolean("calendarEnabled")).getJSONObject("settings")
+                                googleSettings = settings
+                                if (enabled) controller.syncSharedGoogle(projectId)
+                                googleMessage = if (enabled) {
+                                    if (en) "Google Tasks copies updated" else "Копии Google Tasks обновлены"
+                                } else if (en) "Sync is off. Existing Google copies remain in your account."
+                                else "Синхронизация выключена. Созданные копии остаются в вашем Google-аккаунте."
+                            } }, modifier = Modifier.testTag("shared-google-tasks-toggle"))
+                    }
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Text(if (en) "Show in my Google Calendar" else "Показывать в моём Google Calendar", modifier = Modifier.weight(1f))
+                        Switch(checked = google.optBoolean("calendarEnabled"),
+                            enabled = !busy && (google.optBoolean("calendarAvailable") || google.optBoolean("calendarEnabled")),
+                            onCheckedChange = { enabled -> run {
+                                val settings = controller.updateSharedGoogleSettings(projectId,
+                                    google.optBoolean("tasksEnabled"), enabled).getJSONObject("settings")
+                                googleSettings = settings
+                                if (enabled) controller.syncSharedGoogle(projectId)
+                                googleMessage = if (enabled) {
+                                    if (en) "Google Calendar copies updated" else "Копии Google Calendar обновлены"
+                                } else if (en) "Sync is off. Existing Google copies remain in your account."
+                                else "Синхронизация выключена. Созданные копии остаются в вашем Google-аккаунте."
+                            } }, modifier = Modifier.testTag("shared-google-calendar-toggle"))
+                    }
+                    if (!google.optBoolean("tasksAvailable") || !google.optBoolean("calendarAvailable"))
+                        Text(if (en) "Connect the corresponding Google service in account settings to enable its copy."
+                            else "Для включения копии подключите соответствующий сервис Google в настройках аккаунта.",
+                            style = MaterialTheme.typography.bodySmall)
+                    if (google.optBoolean("tasksEnabled") || google.optBoolean("calendarEnabled"))
+                        TextButton(onClick = { run {
+                            val result = controller.syncSharedGoogle(projectId)
+                            googleMessage = if (en) "Google copies updated: ${result.optInt("synced")}."
+                                else "Копии Google обновлены: ${result.optInt("synced")}."
+                        } }, enabled = !busy) { Text(if (en) "Update copies now" else "Обновить копии сейчас") }
+                }
+                if (googleMessage.isNotBlank()) Text(googleMessage, style = MaterialTheme.typography.bodySmall)
+            }
             SharedBlock(if (en) "Project and team" else "Проект и команда") {
             if (project.optInt("isInbox") == 0) Text(project.optString("title"),
                 style = MaterialTheme.typography.titleMedium)

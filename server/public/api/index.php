@@ -30,6 +30,7 @@ require $serverRoot . '/src/local-accounts.php';
 require $serverRoot . '/src/native-auth.php';
 require $serverRoot . '/src/gemini.php';
 require $serverRoot . '/src/shared-projects.php';
+require $serverRoot . '/src/shared-google.php';
 
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
@@ -631,6 +632,14 @@ try {
         }
         if (count($segments) === 3 && $segments[1] === 'projects' && $method === 'GET') {
             genesisJson(genesisSharedProjectSnapshot($userId, $segments[2]));
+        }
+        if (count($segments) === 4 && $segments[1] === 'projects' && $segments[3] === 'google') {
+            if ($method === 'GET') genesisJson(['settings' => genesisSharedGoogleSettings($userId, $segments[2])]);
+            if ($method === 'PATCH') genesisJson(['settings' => genesisSharedSetGoogleSettings($userId, $segments[2], genesisReadJson())]);
+        }
+        if (count($segments) === 5 && $segments[1] === 'projects' && $segments[3] === 'google'
+            && $segments[4] === 'sync' && $method === 'POST') {
+            genesisJson(genesisSharedSyncGoogle($userId, $segments[2]));
         }
         if (count($segments) === 3 && $segments[1] === 'projects' && in_array($method, ['PATCH', 'POST'], true)) {
             genesisJson(['project' => genesisSharedUpdateProject($userId, $segments[2], genesisReadJson())]);

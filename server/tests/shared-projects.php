@@ -3,7 +3,9 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/src/bootstrap.php';
 require dirname(__DIR__) . '/src/repository.php';
+require dirname(__DIR__) . '/src/google.php';
 require dirname(__DIR__) . '/src/shared-projects.php';
+require dirname(__DIR__) . '/src/shared-google.php';
 
 function sharedExpect(bool $value, string $message): void
 {
@@ -97,6 +99,25 @@ try {
     sharedExpect(count(genesisSharedProjects($a, $importSpace['id'])) === 3,
         'Invalid project import left a partial tree.');
     $project = genesisSharedCreateProject($a, $space['id'], ['title' => 'Общий план', 'layout' => 'board']);
+    $googleOptions = genesisSharedGoogleSettings($a, $project['id']);
+    sharedExpect(!$googleOptions['tasksEnabled'] && !$googleOptions['calendarEnabled'],
+        'Google projection was enabled without the member choosing it.');
+    sharedReject(static fn() => genesisSharedSetGoogleSettings($a, $project['id'],
+        ['tasksEnabled' => true]), 403);
+    sharedInvalid(static fn() => genesisSharedSetGoogleSettings($a, $project['id'],
+        ['tasksEnabled' => 'true']));
+    sharedExpect(genesisSharedSetGoogleSettings($a, $project['id'],
+        ['tasksEnabled' => false, 'calendarEnabled' => false])['tasksEnabled'] === false,
+        'Member could not keep Google copies disabled.');
+    genesisDb()->prepare('UPDATE shared_google_preferences SET tasks_enabled = 1, calendar_enabled = 1
+        WHERE project_id = :project AND user_id = :user')->execute([
+        'project' => $project['id'], 'user' => $a,
+    ]);
+    $disabledGoogle = genesisSharedSetGoogleSettings($a, $project['id'],
+        ['tasksEnabled' => false, 'calendarEnabled' => false]);
+    sharedExpect(!$disabledGoogle['tasksEnabled'] && !$disabledGoogle['calendarEnabled'],
+        'A member could not revoke Google projection after losing OAuth access.');
+    sharedReject(static fn() => genesisSharedGoogleSettings($outsider, $project['id']), 403);
     $snapshot = genesisSharedProjectSnapshot($a, $project['id']);
     sharedExpect(count($snapshot['statuses']) === 3, 'Default board statuses missing.');
     $category = genesisSharedCreateCategory($a, $project['id'], [

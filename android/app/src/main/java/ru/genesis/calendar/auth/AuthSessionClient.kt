@@ -162,6 +162,12 @@ internal class AuthSessionClient(context: Context) {
         request(expected, "/shared/spaces/$spaceId/projects", body)
     fun sharedProject(expected: Long, projectId: String): JSONObject =
         request(expected, "/shared/projects/$projectId", null)
+    fun sharedGoogleSettings(expected: Long, projectId: String): JSONObject =
+        request(expected, "/shared/projects/$projectId/google", null)
+    fun updateSharedGoogleSettings(expected: Long, projectId: String, body: JSONObject): JSONObject =
+        request(expected, "/shared/projects/$projectId/google", body, method = "PATCH")
+    fun syncSharedGoogle(expected: Long, projectId: String): JSONObject =
+        request(expected, "/shared/projects/$projectId/google/sync", JSONObject())
     fun updateSharedProject(expected: Long, projectId: String, body: JSONObject): JSONObject =
         request(expected, "/shared/projects/$projectId", body)
     fun setSharedProjectArchived(expected: Long, projectId: String, archived: Boolean): JSONObject =

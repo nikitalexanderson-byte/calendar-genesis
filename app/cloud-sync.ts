@@ -1363,6 +1363,8 @@ export type SharedMember = { userId: string; role: string; spaceRole: string; di
 export type SharedProjectSnapshot = { project: SharedProject; statuses: SharedStatus[]; categories: SharedCategory[];
   tasks: SharedTask[]; members: SharedMember[] };
 export type SharedComment = { id: string; body: string; authorId: string; authorName: string; createdAt: string };
+export type SharedGoogleSettings = { tasksEnabled: boolean; calendarEnabled: boolean;
+  tasksAvailable: boolean; calendarAvailable: boolean };
 
 export async function listSharedSpaces() {
   return (await api<{ spaces: SharedSpace[] }>("/shared/spaces")).spaces;
@@ -1404,6 +1406,21 @@ export async function importSharedProject(spaceId: string, input: SharedProjectI
 }
 export async function loadSharedProject(projectId: string) {
   return api<SharedProjectSnapshot>(`/shared/projects/${encodeURIComponent(projectId)}`);
+}
+export async function loadSharedGoogleSettings(projectId: string) {
+  return (await api<{ settings: SharedGoogleSettings }>(
+    `/shared/projects/${encodeURIComponent(projectId)}/google`)).settings;
+}
+export async function updateSharedGoogleSettings(projectId: string,
+  input: Pick<SharedGoogleSettings, "tasksEnabled" | "calendarEnabled">) {
+  return (await api<{ settings: SharedGoogleSettings }>(
+    `/shared/projects/${encodeURIComponent(projectId)}/google`,
+    { method: "PATCH", body: JSON.stringify(input) })).settings;
+}
+export async function syncSharedGoogle(projectId: string) {
+  return api<{ synced: number; pending: number }>(
+    `/shared/projects/${encodeURIComponent(projectId)}/google/sync`,
+    { method: "POST", body: "{}" });
 }
 export async function updateSharedProject(projectId: string, input: {
   title: string; description: string; layout: "list" | "board"; parentId: string | null; expectedRevision: number;

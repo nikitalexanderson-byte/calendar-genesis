@@ -1,0 +1,224 @@
+<?php
+declare(strict_types=1);
+
+/** Shared tasks stay in GENESIS; this is each member's independent, opt-in Google copy. */
+function genesisSharedGoogleSettings(string $userId, string $projectId): array
+{
+    $user = genesisSharedRequireEnabled($userId);
+    genesisSharedProjectAccess($projectId, $userId);
+    $query = genesisDb()->prepare('SELECT tasks_enabled, calendar_enabled FROM shared_google_preferences
+        WHERE project_id = :project AND user_id = :user');
+    $query->execute(['project' => $projectId, 'user' => $userId]);
+    $saved = $query->fetch() ?: [];
+    $connected = !empty($user['refresh_token_enc']);
+    return [
+        'tasksEnabled' => !empty($saved['tasks_enabled']),
+        'calendarEnabled' => !empty($saved['calendar_enabled']),
+        'tasksAvailable' => $connected && genesisGoogleScopeGranted($user, GENESIS_GOOGLE_TASKS_SCOPE),
+        'calendarAvailable' => $connected && genesisGoogleScopeGranted($user, GENESIS_GOOGLE_CALENDAR_SCOPE),
+    ];
+}
+
+function genesisSharedSetGoogleSettings(string $userId, string $projectId, array $input): array
+{
+    $current = genesisSharedGoogleSettings($userId, $projectId);
+    foreach (['tasksEnabled', 'calendarEnabled'] as $field) {
+        if (array_key_exists($field, $input) && !is_bool($input[$field])) {
+            throw new InvalidArgumentException('INVALID_SHARED_GOOGLE_CONSENT');
+        }
+    }
+    $tasks = $input['tasksEnabled'] ?? $current['tasksEnabled'];
+    $calendar = $input['calendarEnabled'] ?? $current['calendarEnabled'];
+    if ($tasks && !$current['tasksEnabled'] && !$current['tasksAvailable']
+        || $calendar && !$current['calendarEnabled'] && !$current['calendarAvailable']) {
+        throw new GenesisSharedAccessException('GOOGLE_PERMISSION_REQUIRED', 403);
+    }
+    genesisDb()->prepare('INSERT INTO shared_google_preferences
+        (project_id, user_id, tasks_enabled, calendar_enabled, updated_at)
+        VALUES (:project, :user, :tasks, :calendar, :now)
+        ON CONFLICT(project_id, user_id) DO UPDATE SET
+        tasks_enabled = excluded.tasks_enabled, calendar_enabled = excluded.calendar_enabled,
+        updated_at = excluded.updated_at')->execute([
+        'project' => $projectId, 'user' => $userId, 'tasks' => $tasks ? 1 : 0,
+        'calendar' => $calendar ? 1 : 0, 'now' => genesisNow(),
+    ]);
+    return genesisSharedGoogleSettings($userId, $projectId);
+}
+
+function genesisSharedGoogleTaskList(array $user, string $projectId, string $projectTitle): string
+{
+    $db = genesisDb();
+    $query = $db->prepare('SELECT google_task_list_id FROM shared_google_preferences
+        WHERE project_id = :project AND user_id = :user');
+    $query->execute(['project' => $projectId, 'user' => $user['id']]);
+    $id = (string)$query->fetchColumn();
+    if ($id !== '') {
+        try {
+            genesisGoogleTasksApi('GET', '/users/@me/lists/' . rawurlencode($id), $user);
+            return $id;
+        } catch (GenesisGoogleHttpException $error) {
+            if ($error->status !== 404 && $error->status !== 410) throw $error;
+        }
+    }
+    $created = genesisGoogleTasksApi('POST', '/users/@me/lists', $user,
+        ['title' => mb_substr('GENESIS · ' . $projectTitle, 0, 300)]);
+    $id = (string)($created['id'] ?? '');
+    if ($id === '') throw new RuntimeException('GOOGLE_TASK_LIST_NOT_CREATED');
+    $db->prepare('UPDATE shared_google_preferences SET google_task_list_id = :list, updated_at = :now
+        WHERE project_id = :project AND user_id = :user')->execute([
+        'list' => $id, 'now' => genesisNow(), 'project' => $projectId, 'user' => $user['id'],
+    ]);
+    $db->prepare("DELETE FROM shared_google_projection_links WHERE user_id = :user AND destination = 'tasks'
+        AND task_id IN (SELECT id FROM shared_tasks WHERE project_id = :project)")->execute([
+        'user' => $user['id'], 'project' => $projectId,
+    ]);
+    return $id;
+}
+
+function genesisSharedGoogleTaskPayload(array $task, string $projectTitle): array
+{
+    $notes = 'GENESIS shared task ' . $task['id'] . "\n" . $projectTitle;
+    if ($task['description'] !== '') $notes .= "\n\n" . $task['description'];
+    $notes = mb_substr($notes, 0, 8000);
+    $done = $task['completed_at'] !== null;
+    $payload = ['title' => $task['title'], 'notes' => $notes,
+        'status' => $done ? 'completed' : 'needsAction'];
+    $payload['due'] = $task['due_date'] !== null ? $task['due_date'] . 'T00:00:00.000Z' : null;
+    if ($done) $payload['completed'] = $task['completed_at'];
+    return $payload;
+}
+
+function genesisSharedGoogleCalendarPayload(array $task, string $projectTitle): array
+{
+    $date = new DateTimeImmutable($task['due_date'] . ' 12:00:00', new DateTimeZone('UTC'));
+    return [
+        'summary' => ($task['completed_at'] !== null ? '✓ ' : '') . $task['title'],
+        'description' => 'GENESIS · ' . $projectTitle . ($task['description'] !== '' ? "\n\n" . $task['description'] : ''),
+        'start' => ['date' => $date->format('Y-m-d')],
+        'end' => ['date' => $date->modify('+1 day')->format('Y-m-d')],
+        'extendedProperties' => ['private' => ['genesisSharedTaskId' => $task['id']]],
+        'reminders' => ['useDefault' => false],
+    ];
+}
+
+function genesisSharedGoogleLink(string $taskId, string $userId, string $destination, string $googleId, int $revision): void
+{
+    genesisDb()->prepare('INSERT INTO shared_google_projection_links
+        (task_id, user_id, destination, google_id, synced_revision, synced_at)
+        VALUES (:task, :user, :destination, :google, :revision, :now)
+        ON CONFLICT(task_id, user_id, destination) DO UPDATE SET
+        google_id = excluded.google_id, synced_revision = excluded.synced_revision,
+        synced_at = excluded.synced_at')->execute([
+        'task' => $taskId, 'user' => $userId, 'destination' => $destination,
+        'google' => $googleId, 'revision' => $revision, 'now' => genesisNow(),
+    ]);
+}
+
+/** Recover a successful Google Tasks write whose local link was not committed. */
+function genesisSharedExistingGoogleTasks(array $user, string $listId): array
+{
+    $found = []; $pageToken = null;
+    do {
+        $query = ['maxResults' => 100, 'showCompleted' => 'true', 'showHidden' => 'true'];
+        if ($pageToken !== null) $query['pageToken'] = $pageToken;
+        $result = genesisGoogleTasksApi('GET', '/lists/' . rawurlencode($listId) . '/tasks?'
+            . http_build_query($query, '', '&', PHP_QUERY_RFC3986), $user);
+        foreach ($result['items'] ?? [] as $row) {
+            if (!is_array($row) || empty($row['id']) || !is_string($row['notes'] ?? null)) continue;
+            if (preg_match('/\AGENESIS shared task ([a-f0-9-]{36})\n/', $row['notes'], $match)) {
+                $found[$match[1]] = (string)$row['id'];
+            }
+        }
+        $pageToken = is_string($result['nextPageToken'] ?? null) ? $result['nextPageToken'] : null;
+    } while ($pageToken !== null && count($found) < 5000);
+    return $found;
+}
+
+/** A bounded user-initiated batch avoids sharing through another member's Google account. */
+function genesisSharedSyncGoogle(string $userId, string $projectId): array
+{
+    $settings = genesisSharedGoogleSettings($userId, $projectId);
+    if (!$settings['tasksEnabled'] && !$settings['calendarEnabled']) {
+        return ['synced' => 0, 'pending' => 0];
+    }
+    if ($settings['tasksEnabled'] && !$settings['tasksAvailable']
+        || $settings['calendarEnabled'] && !$settings['calendarAvailable']) {
+        throw new GenesisSharedAccessException('GOOGLE_PERMISSION_REQUIRED', 403);
+    }
+    $user = genesisFindUser($userId);
+    $project = genesisSharedProjectAccess($projectId, $userId);
+    $db = genesisDb();
+    $listId = $settings['tasksEnabled'] ? genesisSharedGoogleTaskList($user, $projectId, (string)$project['title']) : '';
+    if ($settings['calendarEnabled']) $user = genesisEnsureGoogleCalendar($user);
+    $query = $db->prepare('SELECT t.id, t.title, t.description, t.due_date, t.completed_at, t.revision,
+        lt.google_id AS task_google_id, lt.synced_revision AS task_revision,
+        lc.google_id AS event_google_id, lc.synced_revision AS event_revision
+        FROM shared_tasks t
+        LEFT JOIN shared_google_projection_links lt ON lt.task_id = t.id AND lt.user_id = :tasks_user AND lt.destination = \'tasks\'
+        LEFT JOIN shared_google_projection_links lc ON lc.task_id = t.id AND lc.user_id = :calendar_user AND lc.destination = \'calendar\'
+        WHERE t.project_id = :project AND
+        ((:tasks_on = 1 AND COALESCE(lt.synced_revision, 0) < t.revision)
+          OR (:calendar_on = 1 AND COALESCE(lc.synced_revision, 0) < t.revision
+              AND (t.due_date IS NOT NULL OR lc.google_id <> \'\')))
+        ORDER BY t.updated_at, t.id LIMIT 21');
+    $query->execute(['tasks_user' => $userId, 'calendar_user' => $userId, 'project' => $projectId,
+        'tasks_on' => $settings['tasksEnabled'] ? 1 : 0,
+        'calendar_on' => $settings['calendarEnabled'] ? 1 : 0]);
+    $synced = 0; $pending = 0;
+    $rows = $query->fetchAll();
+    $existingTasks = $settings['tasksEnabled'] && array_filter($rows,
+        static fn(array $row): bool => empty($row['task_google_id']))
+        ? genesisSharedExistingGoogleTasks($user, $listId) : [];
+    foreach ($rows as $task) {
+        $taskStale = $settings['tasksEnabled'] && (int)($task['task_revision'] ?? 0) < (int)$task['revision'];
+        $eventStale = $settings['calendarEnabled'] && (int)($task['event_revision'] ?? 0) < (int)$task['revision']
+            && ($task['due_date'] !== null || !empty($task['event_google_id']));
+        if (!$taskStale && !$eventStale) continue;
+        if ($synced >= 20) { $pending++; continue; }
+        if ($taskStale) {
+            $id = (string)($task['task_google_id'] ?: ($existingTasks[$task['id']] ?? ''));
+            $path = '/lists/' . rawurlencode($listId) . '/tasks';
+            $payload = genesisSharedGoogleTaskPayload($task, (string)$project['title']);
+            try {
+                $saved = $id !== ''
+                    ? genesisGoogleTasksApi('PATCH', $path . '/' . rawurlencode($id), $user, $payload)
+                    : genesisGoogleTasksApi('POST', $path, $user, $payload);
+            } catch (GenesisGoogleHttpException $error) {
+                if ($id === '' || !in_array($error->status, [404, 410], true)) throw $error;
+                $saved = genesisGoogleTasksApi('POST', $path, $user, $payload);
+            }
+            $googleId = (string)($saved['id'] ?? '');
+            if ($googleId === '') throw new RuntimeException('GOOGLE_SHARED_TASK_NOT_SAVED');
+            genesisSharedGoogleLink($task['id'], $userId, 'tasks', $googleId, (int)$task['revision']);
+        }
+        if ($eventStale && $task['due_date'] === null) {
+            $eventId = (string)$task['event_google_id'];
+            try {
+                genesisGoogleApi('DELETE', '/calendars/' . rawurlencode((string)$user['google_calendar_id'])
+                    . '/events/' . rawurlencode($eventId), $user);
+            } catch (GenesisGoogleHttpException $error) {
+                if (!in_array($error->status, [404, 410], true)) throw $error;
+            }
+            genesisSharedGoogleLink($task['id'], $userId, 'calendar', '', (int)$task['revision']);
+        } elseif ($eventStale) {
+            $calendarPath = '/calendars/' . rawurlencode((string)$user['google_calendar_id']) . '/events';
+            $eventId = (string)($task['event_google_id'] ?? '');
+            $payload = genesisSharedGoogleCalendarPayload($task, (string)$project['title']);
+            if ($eventId === '') $payload['id'] = 'genesis' . substr(hash('sha256', $userId . $task['id']), 0, 32);
+            try {
+                $saved = $eventId !== ''
+                    ? genesisGoogleApi('PUT', $calendarPath . '/' . rawurlencode($eventId), $user, $payload)
+                    : genesisGoogleApi('POST', $calendarPath, $user, $payload);
+            } catch (GenesisGoogleHttpException $error) {
+                if ($eventId !== '' || $error->status !== 409) throw $error;
+                $eventId = $payload['id'];
+                $saved = genesisGoogleApi('PUT', $calendarPath . '/' . rawurlencode($eventId), $user, $payload);
+            }
+            $googleId = (string)($saved['id'] ?? '');
+            if ($googleId === '') throw new RuntimeException('GOOGLE_SHARED_EVENT_NOT_SAVED');
+            genesisSharedGoogleLink($task['id'], $userId, 'calendar', $googleId, (int)$task['revision']);
+        }
+        $synced++;
+    }
+    return ['synced' => $synced, 'pending' => $pending];
+}

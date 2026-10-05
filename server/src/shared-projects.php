@@ -736,6 +736,10 @@ function genesisSharedSetSpaceRole(string $userId, string $spaceId, string $targ
         $inboxId = $inbox->fetchColumn();
         if ($inboxId !== false) {
             if ($role === 'guest') {
+                $db->prepare('DELETE FROM shared_google_projection_links
+                    WHERE user_id = :user AND task_id IN
+                    (SELECT id FROM shared_tasks WHERE project_id = :project)')
+                    ->execute(['project' => $inboxId, 'user' => $targetId]);
                 $db->prepare('DELETE FROM shared_project_members WHERE project_id = :project AND user_id = :user')
                     ->execute(['project' => $inboxId, 'user' => $targetId]);
                 $db->prepare('UPDATE shared_tasks SET assignee_id = NULL, revision = revision + 1,
@@ -776,6 +780,10 @@ function genesisSharedRemoveMember(string $userId, string $projectId, string $ta
             $owners->execute(['project' => $projectId]);
             if ((int)$owners->fetchColumn() <= 1) throw new GenesisSharedAccessException('LAST_OWNER', 409);
         }
+        $db->prepare('DELETE FROM shared_google_projection_links
+            WHERE user_id = :user AND task_id IN
+            (SELECT id FROM shared_tasks WHERE project_id = :project)')
+            ->execute(['project' => $projectId, 'user' => $targetId]);
         $db->prepare('DELETE FROM shared_project_members WHERE project_id = :project AND user_id = :user')
             ->execute(['project' => $projectId, 'user' => $targetId]);
         $db->prepare('UPDATE shared_tasks SET assignee_id = NULL, revision = revision + 1,

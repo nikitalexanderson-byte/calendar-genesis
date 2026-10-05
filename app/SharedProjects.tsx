@@ -7,9 +7,10 @@ import {
   deleteSharedStatus, updateSharedCategory, updateSharedStatus,
   createSharedSpace, createSharedTask, inviteSharedMember, listSharedComments, listSharedProjects,
   listArchivedSharedProjects, listSharedSpaces, loadSharedProject, removeSharedMember,
-  setSharedProjectArchived, updateSharedProject, updateSharedTask,
+  loadSharedGoogleSettings, setSharedProjectArchived, syncSharedGoogle,
+  updateSharedGoogleSettings, updateSharedProject, updateSharedTask,
   type SharedComment, type SharedProject, type SharedProjectSnapshot,
-  type SharedSpace, type SharedTask,
+  type SharedSpace, type SharedTask, type SharedGoogleSettings,
 } from "./cloud-sync";
 import "./shared-projects.css";
 import "./shared-projects-layout.css";
@@ -28,10 +29,15 @@ export function SharedProjects({ userId, language }: Props) {
   const [projects, setProjects] = useState<SharedProject[]>([]);
   const [archivedProjects, setArchivedProjects] = useState<SharedProject[]>([]);
   const [projectId, setProjectId] = useState("");
+  const projectIdRef = useRef(projectId);
+  projectIdRef.current = projectId;
   const [viewOverride, setViewOverride] = useState<"list" | "board" | "calendar" | null>(null);
   const [calendarMonth, setCalendarMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1, 12));
   const [calendarDay, setCalendarDay] = useState(() => localDateKey(new Date()));
   const [snapshot, setSnapshot] = useState<SharedProjectSnapshot | null>(null);
+  const [googleSettings, setGoogleSettings] = useState<SharedGoogleSettings | null>(null);
+  const [googleBusy, setGoogleBusy] = useState(false);
+  const [googleStatus, setGoogleStatus] = useState("");
   const [taskId, setTaskId] = useState("");
   const [comments, setComments] = useState<SharedComment[]>([]);
   const [spaceTitle, setSpaceTitle] = useState("");
@@ -128,6 +134,27 @@ export function SharedProjects({ userId, language }: Props) {
     return () => { window.clearTimeout(initial); window.clearInterval(timer); };
   }, [projectId, refreshProject]);
   useEffect(() => {
+    if (!projectId) return;
+    let live = true;
+    const initial = window.setTimeout(() => {
+      setGoogleSettings(null); setGoogleStatus("");
+      void loadSharedGoogleSettings(projectId).then((settings) => {
+        if (live) setGoogleSettings(settings);
+      }).catch((error: unknown) => {
+        if (live) setGoogleStatus(error instanceof Error ? error.message : String(error));
+      });
+    }, 0);
+    return () => { live = false; window.clearTimeout(initial); };
+  }, [projectId]);
+  useEffect(() => {
+    if (!projectId || !googleSettings?.tasksEnabled && !googleSettings?.calendarEnabled) return;
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible" && navigator.onLine)
+        void syncSharedGoogle(projectId).catch(() => undefined);
+    }, 30000);
+    return () => window.clearInterval(timer);
+  }, [projectId, googleSettings?.tasksEnabled, googleSettings?.calendarEnabled]);
+  useEffect(() => {
     if (!projectId || !taskId) return;
     void listSharedComments(projectId, taskId).then(setComments)
       .catch((error: unknown) => setMessage(error instanceof Error ? error.message : String(error)));
@@ -146,6 +173,26 @@ export function SharedProjects({ userId, language }: Props) {
     try { await action(); }
     catch (error) { setMessage(error instanceof Error ? error.message : String(error)); }
     finally { setBusy(false); }
+  };
+  const changeGoogle = (field: "tasksEnabled" | "calendarEnabled", enabled: boolean) => {
+    if (!googleSettings || !projectId || googleBusy) return;
+    const target = projectId;
+    setGoogleBusy(true); setGoogleStatus("");
+    void updateSharedGoogleSettings(target, {
+      tasksEnabled: field === "tasksEnabled" ? enabled : googleSettings.tasksEnabled,
+      calendarEnabled: field === "calendarEnabled" ? enabled : googleSettings.calendarEnabled,
+    }).then(async (settings) => {
+      if (projectIdRef.current !== target) return;
+      setGoogleSettings(settings);
+      if (enabled) {
+        const result = await syncSharedGoogle(target);
+        setGoogleStatus(english ? `Google copies updated: ${result.synced}.` : `Копии Google обновлены: ${result.synced}.`);
+      } else setGoogleStatus(english ? "Sync is off. Existing Google copies remain in your account."
+        : "Синхронизация выключена. Созданные копии остаются в вашем Google-аккаунте.");
+    }).catch((error: unknown) => {
+      if (projectIdRef.current === target) setGoogleStatus(error instanceof Error ? error.message : String(error));
+    })
+      .finally(() => setGoogleBusy(false));
   };
   const submitSpace = (event: FormEvent) => {
     event.preventDefault();
@@ -475,6 +522,31 @@ export function SharedProjects({ userId, language }: Props) {
         </div>
         <div className="shared-projects-meta"><span>{english ? "Your role" : "Ваша роль"}: {roleLabel(snapshot.project.role)}</span><span>{snapshot.members.length} {english ? "members" : "участников"}</span></div>
       </header>
+      <section className="shared-projects-google" aria-label={english ? "My Google copies" : "Мои копии в Google"}>
+        <h3>{english ? "My Google copies" : "Мои копии в Google"}</h3>
+        <p>{english ? "Only you can enable copies in your Google account. The team task stays in GENESIS."
+          : "Только вы можете включить копии в своём Google-аккаунте. Общая задача остаётся в GENESIS."}</p>
+        {googleSettings ? <div className="shared-projects-google-options">
+          <label><input type="checkbox" checked={googleSettings.tasksEnabled}
+            disabled={googleBusy || !googleSettings.tasksAvailable && !googleSettings.tasksEnabled}
+            onChange={(event) => changeGoogle("tasksEnabled", event.target.checked)} />
+            {english ? "Copy to my Google Tasks" : "Копировать в мои Google Tasks"}</label>
+          <label><input type="checkbox" checked={googleSettings.calendarEnabled}
+            disabled={googleBusy || !googleSettings.calendarAvailable && !googleSettings.calendarEnabled}
+            onChange={(event) => changeGoogle("calendarEnabled", event.target.checked)} />
+            {english ? "Show in my Google Calendar" : "Показывать в моём Google Calendar"}</label>
+          {(!googleSettings.tasksAvailable || !googleSettings.calendarAvailable) ? <small>{english
+            ? "Connect the corresponding Google service in your account settings to enable its copy."
+            : "Для включения копии подключите соответствующий сервис Google в настройках аккаунта."}</small> : null}
+          {(googleSettings.tasksEnabled || googleSettings.calendarEnabled) ? <button type="button" disabled={googleBusy}
+            onClick={() => { setGoogleBusy(true); void syncSharedGoogle(snapshot.project.id).then((result) =>
+              setGoogleStatus(english ? `Google copies updated: ${result.synced}.` : `Копии Google обновлены: ${result.synced}.`))
+              .catch((error: unknown) => setGoogleStatus(error instanceof Error ? error.message : String(error)))
+              .finally(() => setGoogleBusy(false)); }}>
+            {english ? "Update copies now" : "Обновить копии сейчас"}</button> : null}
+        </div> : <p>{english ? "Loading Google options…" : "Загружаем настройки Google…"}</p>}
+        {googleStatus ? <p role="status">{googleStatus}</p> : null}
+      </section>
       <details className="shared-projects-management">
         <summary>{english ? "Project and team settings" : "Проект и команда"}</summary>
         <div className="shared-projects-management-content">
