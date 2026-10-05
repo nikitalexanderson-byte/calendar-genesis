@@ -1351,7 +1351,8 @@ export async function updateAccountPreferences(preferences: Partial<{
 
 export type SharedSpace = { id: string; title: string; role: "owner" | "admin" | "member" | "guest"; updatedAt: string };
 export type SharedProject = { id: string; spaceId: string; parentId: string | null; title: string;
-  description: string; layout: "list" | "board"; isInbox?: number; revision: number; role: string; spaceRole?: string; updatedAt: string };
+  description: string; layout: "list" | "board"; isInbox?: number; taskCount?: number;
+  revision: number; role: string; spaceRole?: string; updatedAt: string };
 export type SharedStatus = { id: string; title: string; position: number; isDone: number; revision: number };
 export type SharedCategory = { id: string; title: string; color: string; position: number; revision: number };
 export type SharedTask = { id: string; projectId: string; statusId: string; title: string;
@@ -1362,6 +1363,8 @@ export type SharedMember = { userId: string; role: string; spaceRole: string; di
 export type SharedProjectSnapshot = { project: SharedProject; statuses: SharedStatus[]; categories: SharedCategory[];
   tasks: SharedTask[]; members: SharedMember[] };
 export type SharedComment = { id: string; body: string; authorId: string; authorName: string; createdAt: string };
+export type SharedGoogleSettings = { tasksEnabled: boolean; calendarEnabled: boolean;
+  tasksAvailable: boolean; calendarAvailable: boolean };
 
 export async function listSharedSpaces() {
   return (await api<{ spaces: SharedSpace[] }>("/shared/spaces")).spaces;
@@ -1384,8 +1387,40 @@ export async function createSharedProject(spaceId: string, input: { title: strin
     method: "POST", body: JSON.stringify(input),
   })).project;
 }
+export type SharedProjectImport = {
+  transferId: string;
+  mode: "copy" | "move";
+  projects: { sourceId: string; parentSourceId: string | null; title: string;
+    description: string; layout: "list" | "board" }[];
+  categories: { sourceId: string; projectSourceId: string; title: string; color: string }[];
+  tasks: { sourceId: string; projectSourceId: string; categorySourceId: string | null;
+    title: string; description: string; dueDate: string | null; done: boolean }[];
+};
+export type SharedProjectImportReceipt = { rootProjectId: string; projectIds: Record<string, string>;
+  taskIds: Record<string, string>; taskCount: number; mode: "copy" | "move" };
+export async function importSharedProject(spaceId: string, input: SharedProjectImport) {
+  return (await api<{ receipt: SharedProjectImportReceipt }>(
+    `/shared/spaces/${encodeURIComponent(spaceId)}/import-project`,
+    { method: "POST", body: JSON.stringify(input) },
+  )).receipt;
+}
 export async function loadSharedProject(projectId: string) {
   return api<SharedProjectSnapshot>(`/shared/projects/${encodeURIComponent(projectId)}`);
+}
+export async function loadSharedGoogleSettings(projectId: string) {
+  return (await api<{ settings: SharedGoogleSettings }>(
+    `/shared/projects/${encodeURIComponent(projectId)}/google`)).settings;
+}
+export async function updateSharedGoogleSettings(projectId: string,
+  input: Pick<SharedGoogleSettings, "tasksEnabled" | "calendarEnabled">) {
+  return (await api<{ settings: SharedGoogleSettings }>(
+    `/shared/projects/${encodeURIComponent(projectId)}/google`,
+    { method: "PATCH", body: JSON.stringify(input) })).settings;
+}
+export async function syncSharedGoogle(projectId: string) {
+  return api<{ synced: number; pending: number }>(
+    `/shared/projects/${encodeURIComponent(projectId)}/google/sync`,
+    { method: "POST", body: "{}" });
 }
 export async function updateSharedProject(projectId: string, input: {
   title: string; description: string; layout: "list" | "board"; parentId: string | null; expectedRevision: number;

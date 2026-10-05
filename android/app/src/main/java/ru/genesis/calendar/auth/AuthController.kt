@@ -102,7 +102,16 @@ class AuthController private constructor(context: Context) {
         sharedCall { api, generation -> api.createSharedProject(generation, spaceId,
             JSONObject().put("title", title).put("description", description).put("layout", layout)
                 .put("parentId", parentId ?: JSONObject.NULL)) }
+    suspend fun importSharedProject(spaceId: String, body: JSONObject): JSONObject =
+        sharedCall { api, generation -> api.importSharedProject(generation, spaceId, body) }
     suspend fun sharedProject(projectId: String): JSONObject = sharedCall { api, generation -> api.sharedProject(generation, projectId) }
+    suspend fun sharedGoogleSettings(projectId: String): JSONObject =
+        sharedCall { api, generation -> api.sharedGoogleSettings(generation, projectId) }
+    suspend fun updateSharedGoogleSettings(projectId: String, tasksEnabled: Boolean, calendarEnabled: Boolean): JSONObject =
+        sharedCall { api, generation -> api.updateSharedGoogleSettings(generation, projectId,
+            JSONObject().put("tasksEnabled", tasksEnabled).put("calendarEnabled", calendarEnabled)) }
+    suspend fun syncSharedGoogle(projectId: String): JSONObject =
+        sharedCall { api, generation -> api.syncSharedGoogle(generation, projectId) }
     suspend fun updateSharedProject(projectId: String, changes: JSONObject): JSONObject =
         sharedCall { api, generation -> api.updateSharedProject(generation, projectId, changes) }
     suspend fun setSharedProjectArchived(projectId: String, archived: Boolean): JSONObject =
@@ -136,6 +145,8 @@ class AuthController private constructor(context: Context) {
         categoryId: String? = null): JSONObject =
         sharedCall { api, generation -> api.createSharedTask(generation, projectId,
             JSONObject().put("title", title).put("statusId", statusId).put("categoryId", categoryId ?: JSONObject.NULL)) }
+    suspend fun createSharedTask(projectId: String, fields: JSONObject): JSONObject =
+        sharedCall { api, generation -> api.createSharedTask(generation, projectId, fields) }
     suspend fun publishPrivateTask(projectId: String, fields: JSONObject): JSONObject =
         sharedCall { api, generation -> api.createSharedTask(generation, projectId, fields) }
     suspend fun updateSharedTask(projectId: String, taskId: String, changes: JSONObject): JSONObject =

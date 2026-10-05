@@ -3,7 +3,9 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/src/bootstrap.php';
 require dirname(__DIR__) . '/src/repository.php';
+require dirname(__DIR__) . '/src/google.php';
 require dirname(__DIR__) . '/src/shared-projects.php';
+require dirname(__DIR__) . '/src/shared-google.php';
 
 function sharedExpect(bool $value, string $message): void
 {
@@ -53,7 +55,85 @@ try {
     }
     foreach ([$a, $b, $viewer] as $id) genesisUpdateAccountPreferences($id, ['sharedProjectsEnabled' => true]);
     $space = genesisSharedCreateSpace($a, ['title' => 'Космос']);
+    $importSpace = genesisSharedCreateSpace($a, ['title' => 'Перенос']);
+    genesisDb()->prepare("INSERT INTO shared_space_members (space_id, user_id, role, joined_at)
+        VALUES (:space, :user, 'member', :now)")->execute([
+            'space' => $importSpace['id'], 'user' => $b, 'now' => genesisNow(),
+        ]);
+    $import = [
+        'transferId' => 'shared-smoke-project-tree-1', 'mode' => 'move',
+        'projects' => [
+            ['sourceId' => 'private-root', 'parentSourceId' => null, 'title' => 'Личная цель',
+                'description' => 'План', 'layout' => 'list'],
+            ['sourceId' => 'private-child', 'parentSourceId' => 'private-root', 'title' => 'Подпроект',
+                'description' => '', 'layout' => 'board'],
+        ],
+        'categories' => [['sourceId' => 'private-category', 'projectSourceId' => 'private-child',
+            'title' => 'Важное', 'color' => '#a5543f']],
+        'tasks' => [['sourceId' => 'private-task-import', 'projectSourceId' => 'private-child',
+            'categorySourceId' => 'private-category', 'title' => 'Проверить перенос',
+            'description' => 'Описание задачи', 'dueDate' => '2026-10-12', 'done' => false]],
+    ];
+    $receipt = genesisSharedImportProjectTree($a, $importSpace['id'], $import);
+    sharedExpect(count($receipt['projectIds']) === 2 && count($receipt['taskIds']) === 1,
+        'A complete project tree was not imported.');
+    sharedExpect(genesisSharedImportProjectTree($a, $importSpace['id'], $import) === $receipt,
+        'A retry created a second project tree.');
+    $imported = genesisSharedProjectSnapshot($a, $receipt['projectIds']['private-child']);
+    sharedExpect($imported['project']['parentId'] === $receipt['rootProjectId']
+        && $imported['tasks'][0]['categoryId'] === $imported['categories'][0]['id'],
+        'Imported project relationships were not preserved.');
+    sharedExpect(genesisSharedProjectSnapshot($b, $receipt['projectIds']['private-child'])['tasks'][0]['title']
+        === 'Проверить перенос', 'A space member cannot access the imported server copy.');
+    sharedReject(static fn() => genesisSharedUpdateProject($b, $receipt['rootProjectId'], [
+        'title' => 'Недопустимая правка', 'expectedRevision' => 1,
+    ]), 403);
+    sharedReject(static fn() => genesisSharedImportProjectTree($a, $importSpace['id'],
+        [...$import, 'tasks' => []]), 409);
+    sharedReject(static fn() => genesisSharedImportProjectTree($a, $importSpace['id'],
+        [...$import, 'transferId' => 'shared-smoke-project-tree-3']), 409);
+    sharedInvalid(static fn() => genesisSharedImportProjectTree($a, $importSpace['id'],
+        [...$import, 'transferId' => 'shared-smoke-project-tree-2', 'projects' => [
+            ['sourceId' => 'bad-child', 'parentSourceId' => 'missing', 'title' => 'Ошибка'],
+        ]]));
+    sharedExpect(count(genesisSharedProjects($a, $importSpace['id'])) === 3,
+        'Invalid project import left a partial tree.');
     $project = genesisSharedCreateProject($a, $space['id'], ['title' => 'Общий план', 'layout' => 'board']);
+    $googleSample = ['id' => 'shared-test-task', 'title' => 'Общее дело',
+        'description' => 'Личная заметка и имена участников', 'due_date' => '2026-10-12',
+        'completed_at' => null];
+    $tasksPayload = genesisSharedGoogleTaskPayload($googleSample);
+    $calendarPayload = genesisSharedGoogleCalendarPayload($googleSample);
+    sharedExpect($tasksPayload['title'] === 'Общее дело'
+        && !str_contains(json_encode($tasksPayload, JSON_UNESCAPED_UNICODE), $googleSample['description'])
+        && !str_contains(json_encode($calendarPayload, JSON_UNESCAPED_UNICODE), $googleSample['description']),
+        'Google copies exposed a shared task description without separate consent.');
+    $googleOptions = genesisSharedGoogleSettings($a, $project['id']);
+    sharedExpect(!$googleOptions['tasksEnabled'] && !$googleOptions['calendarEnabled'],
+        'Google projection was enabled without the member choosing it.');
+    sharedReject(static fn() => genesisSharedSetGoogleSettings($a, $project['id'],
+        ['tasksEnabled' => true]), 403);
+    sharedInvalid(static fn() => genesisSharedSetGoogleSettings($a, $project['id'],
+        ['tasksEnabled' => 'true']));
+    sharedExpect(genesisSharedSetGoogleSettings($a, $project['id'],
+        ['tasksEnabled' => false, 'calendarEnabled' => false])['tasksEnabled'] === false,
+        'Member could not keep Google copies disabled.');
+    sharedExpect(genesisSharedSyncGoogleCron()['projectsChecked'] === 0,
+        'Background sync touched a project without member consent.');
+    genesisDb()->prepare('UPDATE shared_google_preferences SET tasks_enabled = 1, calendar_enabled = 1
+        WHERE project_id = :project AND user_id = :user')->execute([
+        'project' => $project['id'], 'user' => $a,
+    ]);
+    $failedProjection = genesisSharedSyncGoogleCron();
+    sharedExpect($failedProjection['projectsChecked'] === 1 && $failedProjection['failures'] === 1,
+        'Background sync did not isolate missing Google permission.');
+    sharedExpect(genesisSharedSyncGoogleCron()['projectsChecked'] === 0,
+        'A failed Google projection was not rate-limited.');
+    $disabledGoogle = genesisSharedSetGoogleSettings($a, $project['id'],
+        ['tasksEnabled' => false, 'calendarEnabled' => false]);
+    sharedExpect(!$disabledGoogle['tasksEnabled'] && !$disabledGoogle['calendarEnabled'],
+        'A member could not revoke Google projection after losing OAuth access.');
+    sharedReject(static fn() => genesisSharedGoogleSettings($outsider, $project['id']), 403);
     $snapshot = genesisSharedProjectSnapshot($a, $project['id']);
     sharedExpect(count($snapshot['statuses']) === 3, 'Default board statuses missing.');
     $category = genesisSharedCreateCategory($a, $project['id'], [
@@ -125,6 +205,9 @@ try {
         'title' => 'Задача 1', 'statusId' => $snapshot['statuses'][0]['id'],
         'categoryId' => $category['id'],
     ]);
+    $listedProject = array_values(array_filter(genesisSharedProjects($a, $space['id']),
+        static fn(array $item): bool => $item['id'] === $project['id']))[0];
+    sharedExpect((int)$listedProject['taskCount'] === 1, 'Project list did not expose the current task count.');
     sharedExpect(count(genesisSharedProjectSnapshot($b, $project['id'])['tasks']) === 1, 'Second user cannot see the task.');
     sharedExpect(genesisSharedProjectSnapshot($b, $project['id'])['tasks'][0]['categoryId'] === $category['id'],
         'Team category did not reach the second user.');
@@ -137,6 +220,8 @@ try {
     ], $task['id']);
     sharedExpect($done['completedBy'] === $b && $done['completedAt'] !== null,
         'Completion provenance was not saved.');
+    $memberList = genesisSharedCreateStatus($b, $project['id'], ['title' => 'Мой список', 'isDone' => false]);
+    sharedExpect($memberList['title'] === 'Мой список', 'A project member cannot create a task list.');
     $alternateDone = genesisSharedCreateStatus($a, $project['id'], ['title' => 'Принято', 'isDone' => true]);
     genesisSharedDeleteStatus($a, $project['id'], $snapshot['statuses'][2]['id'], [
         'destinationStatusId' => $alternateDone['id'], 'expectedRevision' => 1,
@@ -209,6 +294,13 @@ try {
     genesisSharedAcceptInvite($viewer, ['token' => $guestInvite['token']]);
     sharedExpect(count(genesisSharedProjects($viewer, $guestSpace['id'])) === 1,
         'Guest inherited the shared inbox before ownership transfer.');
+    genesisUpdateAccountPreferences($b, ['sharedProjectsEnabled' => false]);
+    sharedExpect(!genesisUserForClient(genesisFindUser($b))['sharedProjectsEnabled'],
+        'Disabling shared projects did not update the account flag.');
+    sharedReject(static fn() => genesisSharedSpaces($b), 403);
+    genesisUpdateAccountPreferences($b, ['sharedProjectsEnabled' => true]);
+    sharedExpect(count(genesisSharedProjects($b, $space['id'])) > 0,
+        'Re-enabling shared projects lost existing memberships.');
     genesisDeleteAccount($a);
     sharedExpect(genesisSharedProjectSnapshot($b, $project['id'])['project']['role'] === 'owner',
         'Account deletion did not transfer project ownership.');

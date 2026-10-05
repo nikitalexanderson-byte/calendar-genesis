@@ -107,6 +107,26 @@ class NativeVoiceActionsTest {
         assertTrue(looksLikeUnsupportedVoiceAction("отметь настроение серебристое"))
     }
 
+    @Test fun sleepCommandsKeepPlanAndObservationSeparate() {
+        fun parse(value: String)=parseNativeVoiceAction(value,listOf(task),listOf(project),listOf(habit))
+        assertEquals(NativeVoiceAction.SetSleep("23:30","07:00"),parse("запиши сон с 23:30 до 07:00"))
+        assertEquals(NativeVoiceAction.SetSleep("23:00","07:00"),parse("I fell asleep at 11 pm and woke up at 7 am"))
+        assertEquals(NativeVoiceAction.SetSleep(quality=8),parse("качество сна 8 из 10"))
+        assertEquals(NativeVoiceAction.SetSleepPlan("22:45","06:30"),parse("set sleep schedule from 10:45 pm to 6:30 am"))
+        assertEquals(NativeVoiceAction.SetSleepPlan(reminderEnabled=true,reminderMinutesBefore=30),
+            parse("включи напоминание о сне за 30 минут"))
+        assertEquals(NativeVoiceAction.SetSleepPlan(reminderEnabled=false),parse("disable sleep reminder"))
+        assertNull(parse("запиши сон с 25:00 до 07:00"))
+    }
+
+    @Test fun stoicheionDrawIsDistinctFromOpeningNamedCard() {
+        fun parse(value: String)=parseNativeVoiceAction(value,listOf(task),listOf(project),listOf(habit))
+        assertEquals(NativeVoiceAction.StoicheionDraw("spread"),parse("выбери 9 карт"))
+        assertEquals(NativeVoiceAction.StoicheionDraw("spread"),parse("draw nine-card spread"))
+        assertEquals(NativeVoiceAction.StoicheionDraw("daily"),parse("вытяни карту дня"))
+        assertEquals(NativeVoiceAction.StoicheionCard("alpha"),parse("открой карту альфа"))
+    }
+
     @Test fun taskRenamingRequiresOneExactSourceTitle() {
         fun parse(value: String, records: List<LocalTask> = listOf(task)) =
             parseNativeVoiceAction(value,records,listOf(project),listOf(habit))

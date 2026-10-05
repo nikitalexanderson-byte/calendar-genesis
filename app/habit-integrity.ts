@@ -1,3 +1,5 @@
+import emojiCatalog from "./emoji-catalog.json" with { type: "json" };
+
 export const HABIT_PRIORITY_MIN = 1;
 export const HABIT_PRIORITY_MAX = 10;
 export const DEFAULT_HABIT_PRIORITY = 5;
@@ -5,19 +7,7 @@ export const DEFAULT_HABIT_EMOJI = "✨";
 
 export const HABIT_EMOJI_PRESETS = ["✨", "🎯", "💪", "🧠", "📚", "🧘", "🏃", "🌿", "💧", "🌙", "☀️", "🔥"] as const;
 
-export const HABIT_EMOJI_CATEGORIES = [
-  { id: "goals", label: "Цели", labelEn: "Goals", emojis: ["✨", "🎯", "🏆", "🥇", "🏅", "⭐", "🌟", "💫", "🚀", "🧭", "🗺️", "🔑", "💎", "👑", "🛡️", "⚔️", "🏹", "🔱", "⚡", "🔥", "💡", "✅", "📈", "🪜"] },
-  { id: "health", label: "Здоровье", labelEn: "Health", emojis: ["💪", "🧠", "🫀", "🫁", "🦷", "👁️", "🧘", "🏃", "🚶", "🤸", "🏋️", "🚴", "🏊", "🧗", "⛹️", "🤾", "🤺", "🥗", "🍎", "🥑", "🥕", "💧", "🫗", "💊", "🩺", "❤️", "💚", "😴"] },
-  { id: "learning", label: "Учёба и работа", labelEn: "Learning & work", emojis: ["📚", "📖", "📝", "✍️", "🖊️", "📓", "📒", "📔", "📕", "📗", "📘", "📙", "🎓", "🧑‍💻", "💻", "⌨️", "🖥️", "🧮", "🔬", "🔭", "🧪", "🧬", "📐", "📊", "📌", "🗂️", "🧩", "♟️"] },
-  { id: "home", label: "Дом и быт", labelEn: "Home & daily life", emojis: ["🏠", "🛏️", "🛋️", "🚿", "🛁", "🧹", "🧺", "🧽", "🧼", "🪥", "🪴", "🌱", "🌿", "🪻", "🌷", "🌻", "🍳", "🥣", "☕", "🫖", "🍽️", "🛒", "🧾", "🔧", "🪛", "🧰", "♻️", "🗑️"] },
-  { id: "nature", label: "Природа и время", labelEn: "Nature & time", emojis: ["☀️", "🌤️", "⛅", "🌧️", "❄️", "🌈", "🌙", "🌕", "🌑", "🌅", "🌄", "🌊", "💨", "🌍", "🌲", "🌳", "🌵", "🍀", "🍃", "🍂", "🍁", "🌾", "🪨", "⏰", "⌛", "📅", "🗓️", "⏳"] },
-  { id: "feelings", label: "Настроение", labelEn: "Mood", emojis: ["😀", "😌", "😊", "🙂", "🥰", "😍", "🤩", "😎", "🤗", "😇", "🥳", "😐", "🫤", "🤔", "🫠", "😔", "😢", "😤", "😠", "😰", "😴", "🤒", "🙏", "👏", "🙌", "🤝", "💛", "💜"] },
-  { id: "creativity", label: "Творчество", labelEn: "Creativity", emojis: ["🎨", "🖌️", "🖍️", "✏️", "🎭", "🎬", "🎥", "📷", "🎵", "🎶", "🎧", "🎤", "🎹", "🎸", "🎻", "🥁", "🪕", "🧵", "🪡", "🧶", "🪄", "💃", "🕺", "📝", "💭", "🕯️"] },
-  { id: "social", label: "Люди и общение", labelEn: "People & connection", emojis: ["👤", "👥", "👨‍👩‍👧‍👦", "🫂", "💬", "🗣️", "📞", "📱", "✉️", "📨", "💌", "🤝", "🙏", "🤲", "🎁", "🎉", "🎂", "❤️", "🧡", "💛", "💚", "💙", "💜", "🤍", "🕊️", "🌐", "🏘️", "🫶"] },
-  { id: "food", label: "Еда и напитки", labelEn: "Food & drink", emojis: ["🍎", "🍊", "🍋", "🍌", "🍇", "🍓", "🫐", "🥝", "🍅", "🥦", "🥬", "🥕", "🥑", "🥜", "🍞", "🥚", "🥣", "🍲", "🥗", "🍚", "🍵", "☕", "🫖", "🥛", "💧", "🍽️", "🧃", "🍯"] },
-  { id: "places", label: "Движение и места", labelEn: "Travel & places", emojis: ["🚶", "🏃", "🚲", "🛴", "🚗", "🚌", "🚆", "✈️", "🚀", "⛵", "🏡", "🏢", "🏫", "🏛️", "⛪", "🏥", "🏪", "🏞️", "🏕️", "🏖️", "⛰️", "🗻", "🌆", "🌃", "🧳", "🎒", "🧭", "📍"] },
-  { id: "symbols", label: "Знаки", labelEn: "Symbols", emojis: ["➕", "➖", "✖️", "➗", "⭕", "❌", "❗", "❓", "‼️", "⁉️", "💯", "🔴", "🟠", "🟡", "🟢", "🔵", "🟣", "⚫", "⚪", "🟤", "🔔", "🔕", "🔒", "🔓", "🕉️", "☯️", "♾️", "🔆"] },
-] as const;
+export const HABIT_EMOJI_CATEGORIES = emojiCatalog;
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const EMOJI_PATTERN = /\p{Extended_Pictographic}|\p{Regional_Indicator}/u;

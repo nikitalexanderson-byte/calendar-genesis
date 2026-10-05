@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import {
   createSharedTask, listSharedProjects, listSharedSpaces, loadSharedProject,
+  removeCloudTaskForTransfer,
   type GenesisTask, type SharedProject, type SharedProjectSnapshot,
 } from "./cloud-sync";
 import { useDialogAccessibility } from "./use-dialog-accessibility";
@@ -88,7 +89,10 @@ export function PersonalTaskTransfer({ task, language, personalCalendarConnected
         || published.statusId !== status.id) {
         throw new Error(english ? "The server did not confirm the shared task." : "Сервер не подтвердил создание общей задачи.");
       }
-      if (move) onMoved(task.id);
+      if (move) {
+        await removeCloudTaskForTransfer(task);
+        onMoved(task.id);
+      }
       onClose();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));

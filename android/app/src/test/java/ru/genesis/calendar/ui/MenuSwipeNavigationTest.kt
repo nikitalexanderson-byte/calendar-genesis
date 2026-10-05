@@ -38,4 +38,16 @@ class MenuSwipeNavigationTest {
         assertEquals(SwipeDestination("Стойхейон"),
             nextMenuSwipeDestination(pages, "Календарь", "year", 1))
     }
+
+    @Test fun sharedProjectsAreAdjacentSwipeDestinationsWhenAvailable() {
+        val pages = menuSwipeSequence(true, true, true)
+        assertEquals(SwipeDestination("Проекты", "personal"),
+            nextMenuSwipeDestination(pages, "Задачи", "lists", 1))
+        assertEquals(SwipeDestination("Проекты", "shared"),
+            nextMenuSwipeDestination(pages, "Проекты", "personal", 1))
+        assertEquals(SwipeDestination("Календарь", "month"),
+            nextMenuSwipeDestination(pages, "Проекты", "shared", 1))
+        assertEquals(SwipeDestination("Проекты", "personal"),
+            nextMenuSwipeDestination(pages, "Проекты", "shared", -1))
+    }
 }

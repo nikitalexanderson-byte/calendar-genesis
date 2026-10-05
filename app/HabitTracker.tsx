@@ -1,5 +1,7 @@
 "use client";
 
+import fullEmojiCatalog from "./emoji-full-catalog.json" with { type: "json" };
+
 import {
   useEffect,
   useId,
@@ -433,25 +435,49 @@ function CollapsibleHabitBlock({ label, language, children, sectionId, position,
   );
 }
 
-function HabitEmojiField({ value, language, onChange }: { value: string; language: Language; onChange: (value: string) => void }) {
+function HabitEmojiField({ value, language, onChange, title, presets = HABIT_EMOJI_PRESETS,
+  allowManual = true, fullCatalog = true }: {
+  value: string; language: Language; onChange: (value: string) => void;
+  title?: string; presets?: readonly string[]; allowManual?: boolean; fullCatalog?: boolean;
+}) {
   const isEnglish = language === "en";
   const [catalogOpen, setCatalogOpen] = useState(false);
+  const [categoryId, setCategoryId] = useState(fullEmojiCatalog[0].id);
+  const [visibleCount, setVisibleCount] = useState(120);
   const catalogId = useId();
+  const selectedFullCategory = fullEmojiCatalog.find((category) => category.id === categoryId)
+    ?? fullEmojiCatalog[0];
   return (
     <fieldset className="habit-emoji-field">
-      <legend>{isEnglish ? "Habit emoji" : "Эмодзи привычки"}</legend>
-      <div className="habit-emoji-presets">{HABIT_EMOJI_PRESETS.map((emoji) => <button type="button" className={value === emoji ? "selected" : ""} aria-label={emoji} aria-pressed={value === emoji} onClick={() => onChange(emoji)} key={emoji}>{emoji}</button>)}</div>
+      <legend>{title ?? (isEnglish ? "Habit emoji" : "Эмодзи привычки")}</legend>
+      <div className="habit-emoji-presets">{presets.map((emoji) => <button type="button" className={value === emoji ? "selected" : ""} aria-label={emoji} aria-pressed={value === emoji} onClick={() => onChange(emoji)} key={emoji}>{emoji}</button>)}</div>
       <button type="button" className="habit-emoji-expand" aria-expanded={catalogOpen} aria-controls={catalogId} onClick={() => setCatalogOpen((current) => !current)}>
         <span>{catalogOpen ? (isEnglish ? "Hide full catalog" : "Скрыть полный набор") : (isEnglish ? "Open full emoji catalog" : "Открыть полный набор эмодзи")}</span>
         <DisclosureChevron open={catalogOpen} />
       </button>
       {catalogOpen ? <div className="habit-emoji-catalog" id={catalogId}>
-        {HABIT_EMOJI_CATEGORIES.map((category) => <section aria-labelledby={`${catalogId}-${category.id}`} key={category.id}>
+        {fullCatalog ? <>
+          <label><span>{isEnglish ? "Emoji category" : "Категория эмодзи"}</span>
+            <select value={categoryId} onChange={(event) => { setCategoryId(event.target.value); setVisibleCount(120); }}>
+              {fullEmojiCatalog.map((category) => <option key={category.id} value={category.id}>
+                {isEnglish ? category.labelEn : category.label} · {category.emojis.length}</option>)}
+            </select></label>
+          <section aria-labelledby={`${catalogId}-${selectedFullCategory.id}`}>
+            <h3 id={`${catalogId}-${selectedFullCategory.id}`}>
+              {isEnglish ? selectedFullCategory.labelEn : selectedFullCategory.label}</h3>
+            <div>{selectedFullCategory.emojis.slice(0, visibleCount).map((emoji) => <button type="button"
+              className={value === emoji ? "selected" : ""} aria-label={emoji} aria-pressed={value === emoji}
+              onClick={() => onChange(emoji)} key={emoji}>{emoji}</button>)}</div>
+            {visibleCount < selectedFullCategory.emojis.length ? <button type="button" className="habit-emoji-expand"
+              onClick={() => setVisibleCount((count) => count + 120)}>
+              {isEnglish ? "Show more emoji" : "Показать ещё эмодзи"}</button> : null}
+          </section>
+        </> : HABIT_EMOJI_CATEGORIES.map((category) => <section aria-labelledby={`${catalogId}-${category.id}`} key={category.id}>
           <h3 id={`${catalogId}-${category.id}`}>{isEnglish ? category.labelEn : category.label}</h3>
           <div>{category.emojis.map((emoji) => <button type="button" className={value === emoji ? "selected" : ""} aria-label={emoji} aria-pressed={value === emoji} onClick={() => onChange(emoji)} key={`${category.id}-${emoji}`}>{emoji}</button>)}</div>
         </section>)}
       </div> : null}
-      <label><span>{isEnglish ? "Or enter your own emoji" : "Или введите свой эмодзи"}</span><input value={value} maxLength={32} inputMode="text" onChange={(event) => onChange(event.target.value)} onBlur={() => onChange(normalizeHabitEmoji(value))} /></label>
+      {allowManual ? <label><span>{isEnglish ? "Or enter your own emoji" : "Или введите свой эмодзи"}</span><input value={value} maxLength={32} inputMode="text" onChange={(event) => onChange(event.target.value)} onBlur={() => onChange(normalizeHabitEmoji(value))} /></label> : null}
     </fieldset>
   );
 }
@@ -822,10 +848,11 @@ function MoodTracker({ workspace, date, language, onChange }: Pick<DailyPanelPro
           <input maxLength={40} value={mood?.customLabel ?? ""} placeholder={isEnglish ? "Name your mood" : "Название настроения"}
             onChange={(event) => onChange(replaceMood(workspace, date, { customLabel: event.target.value }))} />
         </label>
-        <label><span>{isEnglish ? "Emoji" : "Смайлик"}</span>
-          <input maxLength={16} value={mood?.customEmoji ?? ""} placeholder="✨"
-            onChange={(event) => onChange(replaceMood(workspace, date, { customEmoji: event.target.value }))} />
-        </label>
+        <HabitEmojiField value={mood?.customEmoji ?? ""} language={language}
+          title={isEnglish ? "Choose an emoji" : "Выберите эмодзи"}
+          presets={HABIT_EMOJI_CATEGORIES.find((category) => category.id === "feelings")?.emojis ?? HABIT_EMOJI_PRESETS}
+          allowManual={false} fullCatalog
+          onChange={(emoji) => onChange(replaceMood(workspace, date, { customEmoji: emoji }))} />
         {Array.from(new Map(workspace.moodEntries.filter((entry) => entry.customLabel && entry.customEmoji)
           .map((entry) => [`${entry.customLabel}|${entry.customEmoji}`, entry])).values()).slice(-6).map((entry) => (
             <button type="button" key={`${entry.customLabel}|${entry.customEmoji}`} onClick={() => onChange(replaceMood(workspace, date, {

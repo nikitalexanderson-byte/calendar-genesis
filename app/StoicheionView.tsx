@@ -437,16 +437,19 @@ type StoicheionViewProps = {
   onOpenTheokyklosSector?: (sectorId: StoicheionPracticeSectorId) => void;
   initialCardId?: string | null;
   onInitialCardOpened?: () => void;
+  voiceDrawKind?: "daily" | "spread" | null;
+  onVoiceDrawHandled?: () => void;
 };
 
 export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSector,
-  initialCardId = null, onInitialCardOpened }: StoicheionViewProps) {
+  initialCardId = null, onInitialCardOpened, voiceDrawKind = null, onVoiceDrawHandled }: StoicheionViewProps) {
   const locale = runtimeLocale();
   const language = getRuntimeLanguage();
   const letters = useMemo(() => getStoicheionLetters(language), [language]);
   const entropy = useRef(INITIAL_ENTROPY);
   const motionTracker = useRef<MotionTracker | null>(null);
   const motionField = useRef<HTMLButtonElement | null>(null);
+  const handledVoiceDraw = useRef<"daily" | "spread" | null>(null);
   const [pointer, setPointer] = useState({ x: 50, y: 24 });
   const [dailyDraw, setDailyDraw] = useState<ClientDrawRecord | null>(null);
   const [spreadDraw, setSpreadDraw] = useState<ClientDrawRecord | null>(null);
@@ -569,6 +572,23 @@ export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSec
       setSavingKind(null);
     }
   };
+
+  useEffect(() => {
+    if (!voiceDrawKind) { handledVoiceDraw.current = null; return; }
+    if (handledVoiceDraw.current === voiceDrawKind) return;
+    if (divinationDisabled) {
+      handledVoiceDraw.current = voiceDrawKind;
+      onVoiceDrawHandled?.();
+      return;
+    }
+    if (!drawsReady) return;
+    handledVoiceDraw.current = voiceDrawKind;
+    onVoiceDrawHandled?.();
+    const existing = voiceDrawKind === "daily" ? dailyDraw : spreadDraw;
+    if (existing || savingKind) return;
+    const seed = crypto.getRandomValues(new Uint32Array(1))[0];
+    queueMicrotask(() => { void persistDraw(voiceDrawKind, seed, false); });
+  });
 
   const beginMotion = (mode: MotionMode, replaceCurrent = false, eventTime = 0) => {
     if (divinationDisabled) return;

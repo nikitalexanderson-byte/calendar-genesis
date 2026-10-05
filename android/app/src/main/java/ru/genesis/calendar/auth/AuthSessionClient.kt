@@ -160,8 +160,16 @@ internal class AuthSessionClient(context: Context) {
         request(expected, "/shared/spaces/$spaceId/archived-projects", null)
     fun createSharedProject(expected: Long, spaceId: String, body: JSONObject): JSONObject =
         request(expected, "/shared/spaces/$spaceId/projects", body)
+    fun importSharedProject(expected: Long, spaceId: String, body: JSONObject): JSONObject =
+        request(expected, "/shared/spaces/$spaceId/import-project", body)
     fun sharedProject(expected: Long, projectId: String): JSONObject =
         request(expected, "/shared/projects/$projectId", null)
+    fun sharedGoogleSettings(expected: Long, projectId: String): JSONObject =
+        request(expected, "/shared/projects/$projectId/google", null)
+    fun updateSharedGoogleSettings(expected: Long, projectId: String, body: JSONObject): JSONObject =
+        request(expected, "/shared/projects/$projectId/google", body, method = "PATCH")
+    fun syncSharedGoogle(expected: Long, projectId: String): JSONObject =
+        request(expected, "/shared/projects/$projectId/google/sync", JSONObject())
     fun updateSharedProject(expected: Long, projectId: String, body: JSONObject): JSONObject =
         request(expected, "/shared/projects/$projectId", body)
     fun setSharedProjectArchived(expected: Long, projectId: String, archived: Boolean): JSONObject =
@@ -235,7 +243,9 @@ internal class AuthSessionClient(context: Context) {
             "/auth/yandex/native",
             "/account/yandex-calendar/connect", "/account/yandex-calendar/disconnect",
             "/auth/google/native", "/auth/google/native/services/config", "/auth/google/native/services",
-            "/auth/logout", "/account/preferences", "/admin/stats") || (path == "/task-lists" && method == "POST") ||
+            "/auth/logout", "/account/preferences", "/admin/stats") ||
+            (method == "GET" && path.matches(Regex("/ads/today\\?language=[a-z]{2}&country=[A-Z]{0,2}&platform=android"))) ||
+            (path == "/task-lists" && method == "POST") ||
             (method in setOf("PUT", "DELETE") && path.matches(Regex("/tasks/[A-Za-z0-9_-]{1,100}"))) ||
             (method == "DELETE" && path.matches(Regex("/admin/users/[A-Za-z0-9_-]{1,100}"))) ||
             (method == "DELETE" && path.matches(Regex("/account/google-accounts/[A-Za-z0-9_-]{1,100}"))) ||
@@ -307,7 +317,7 @@ internal class AuthSessionClient(context: Context) {
                         "/workspace" -> 11_000_000
                         "/bootstrap" -> 24_000_000
                         "/admin/stats" -> 4_000_000
-                        else -> 131_072
+                        else -> if (path.startsWith("/ads/today?")) 4_000_000 else 131_072
                     }
                     if (output.size() + read > maximumBytes) throw AuthFailure(AuthFailure.Kind.PROTOCOL)
                     output.write(buffer, 0, read)

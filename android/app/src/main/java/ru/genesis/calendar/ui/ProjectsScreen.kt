@@ -40,6 +40,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlin.math.roundToInt
 import ru.genesis.calendar.GenesisApplication
+import ru.genesis.calendar.auth.AccountSettings
+import ru.genesis.calendar.auth.AuthController
 import ru.genesis.calendar.data.*
 
 private const val inboxDropId = "__genesis_inbox__"
@@ -145,7 +147,8 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
     onOpenTask: (String) -> Unit, onCreateTask: (String?) -> Unit,
     onDeleteTask: (LocalTask) -> Unit = {},
     menuSwipeState: MenuSwipeState? = null, voiceRequest: NativeVoiceAction? = null,
-    onVoiceRequestConsumed: () -> Unit = {}) {
+    onVoiceRequestConsumed: () -> Unit = {},
+    sharedController: AuthController? = null, sharedAccount: AccountSettings? = null) {
     val repo = remember(app) { WorkspaceStructureRepository(app) }
     val loadedStructure by produceState<WorkspaceStructure?>(null, repo) {
         repo.workspace.collect { value = it }
@@ -169,6 +172,7 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
     var editing by remember { mutableStateOf<GenesisProject?>(null) }
     var deleteCandidate by remember { mutableStateOf<GenesisProject?>(null) }
     var deleteTaskCandidate by remember { mutableStateOf<LocalTask?>(null) }
+    var transferProject by remember { mutableStateOf<GenesisProject?>(null) }
     var creating by remember { mutableStateOf(false) }
     var voiceDraftTitle by remember { mutableStateOf("") }
     var voiceDraftCategoryTitle by remember { mutableStateOf("") }
@@ -330,7 +334,7 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                GenesisPageHeader(if (language == "en") "Projects" else "Проекты",
+                GenesisPageHeader(if (language == "en") "Projects - personal" else "Проекты - личные",
                     if (language == "en") "Categories, projects and their tasks"
                     else "Категории, проекты и задачи внутри них", "▦")
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
@@ -409,6 +413,10 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
                         }
                         TextButton(onClick = { onCreateTask(project.id) }) { Text("Создать задачу в проекте") }
                         TextButton(onClick = { editing = project; creating = true; error = null }) { Text("Изменить проект") }
+                        if (sharedController != null) TextButton(onClick = { transferProject = project },
+                            modifier = Modifier.testTag("transfer-project-${project.id}")) {
+                            Text(if (language == "en") "Move to shared" else "Переместить в общие")
+                        }
                         TextButton(onClick = { deleteCandidate = project },
                             colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
                             modifier = Modifier.testTag("delete-project-${project.id}")) {
@@ -473,6 +481,15 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
             catch (_: Exception) { error = "Не удалось сохранить проект. Повторите попытку." }
         }
     }
+    transferProject?.let { root -> sharedController?.let { controller ->
+        PersonalProjectTransferDialog(root, structure, tasks, controller, sharedAccount, language,
+            app.workspaceScope, onDismiss = { transferProject = null }, onMoved = { tree, selectedTasks ->
+                repo.removeImportedProjectTree(root.id, structure.revision, tree.map { it.id }.toSet(),
+                    selectedTasks.associate { it.id to it.revision })
+                selectedProject = null
+                controller.syncPending()
+            })
+    } }
     if (categoryEditor) CategoryEditor(editingCategory,structure.categories.size,structure.revision,error,
         initialTitle=voiceDraftCategoryTitle,
         onDismiss = { categoryEditor = false;voiceDraftCategoryTitle="" }) { draft, expectedRevision ->

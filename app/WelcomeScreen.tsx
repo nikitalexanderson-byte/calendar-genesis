@@ -177,13 +177,14 @@ export function WelcomeScreen({ nativeAndroidApkUrl, busy, error, language, onLa
           <button className="google-login-primary" type="button" onClick={onGoogle} disabled={busy} aria-label={copy.googleLabel}>
             <img src={`${APP_BASE}/google-signin-light-pill.svg`} alt="" aria-hidden="true" data-genesis-preserve="google-signin-pill" />
           </button>
-          {yandexAvailable ? <p className="auth-provider-region-hint">{translateText("Рекомендуется пользователям за пределами России", language)}</p> : null}
+          {yandexAvailable ? <p className="auth-provider-region-hint">{language === "ru" ? translateText("Рекомендуется тем, кто не является гражданином России", language) : language === "en" ? "Recommended for users who are not Russian citizens" : translateText("Рекомендуется пользователям за пределами России", language)}</p> : null}
           {yandexAvailable ? (
             <>
               <button className="yandex-login-primary" type="button" onClick={onYandex} disabled={busy}>
-                {translateText("Войти через Яндекс", language)}
+                <span className="yandex-signin-mark" aria-hidden="true">Я</span>
+                <span>{translateText("Войти через Яндекс", language)}</span>
               </button>
-              <p className="auth-provider-region-hint">{translateText("Рекомендуется пользователям в России", language)}</p>
+              <p className="auth-provider-region-hint">{language === "ru" ? translateText("Рекомендуется гражданам России", language) : language === "en" ? "Recommended for Russian citizens" : translateText("Рекомендуется пользователям в России", language)}</p>
               <p className="auth-provider-law-note">{translateText("Для пользователей, находящихся в России, закон РФ предусматривает российские способы входа (149-ФЗ, ст. 8).", language)}</p>
             </>
           ) : null}

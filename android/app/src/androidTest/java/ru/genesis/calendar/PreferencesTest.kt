@@ -9,6 +9,27 @@ import ru.genesis.calendar.data.LocalPreferences
 import ru.genesis.calendar.domain.CalendarMode
 
 class PreferencesTest {
+    @Test fun sharedProjectsSwitchQueuesAndAcknowledgesPreference() = runBlocking {
+        val app=InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
+        check(BuildConfig.DEBUG && app.packageName.endsWith(".debug"))
+        val preferences=LocalPreferences(app,"test-shared-switch")
+        try {
+            preferences.setPending("sharedProjectsEnabled","true")
+            val queued=preferences.pending.first()
+            assertEquals("true",queued["sharedProjectsEnabled"])
+            preferences.acknowledge(queued)
+            assertFalse(preferences.pending.first().containsKey("sharedProjectsEnabled"))
+            preferences.setPending("sharedProjectsEnabled","false")
+            val disabled=preferences.pending.first()
+            assertEquals("false",disabled["sharedProjectsEnabled"])
+            preferences.acknowledge(disabled)
+            assertFalse(preferences.pending.first().containsKey("sharedProjectsEnabled"))
+        } finally {
+            preferences.acknowledge(mapOf("sharedProjectsEnabled" to "true"))
+            preferences.acknowledge(mapOf("sharedProjectsEnabled" to "false"))
+        }
+    }
+
     @Test fun eighteenCalendarAndTimeCombinationsPersistWithoutTaskMutation() = runBlocking {
         val app=InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
         check(BuildConfig.DEBUG && app.packageName.endsWith(".debug"))

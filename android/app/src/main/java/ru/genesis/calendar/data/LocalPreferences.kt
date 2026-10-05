@@ -24,7 +24,7 @@ class LocalPreferences(private val context: Context, private val scope: String) 
     private fun key(name: String) = stringPreferencesKey("$scope:$name")
     private fun pendingKey(name: String) = stringPreferencesKey("$scope:pending:$name")
     private val names = setOf("display", "input", "time", "weekStart", "gregorianYearStart",
-        "language", "stoicheionDivinationDisabled")
+        "language", "stoicheionDivinationDisabled", "sharedProjectsEnabled")
     val pending = context.genesisPreferences.data.map { values -> names.mapNotNull { name ->
         values[pendingKey(name)]?.let { name to it }
     }.toMap() }

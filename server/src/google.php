@@ -744,6 +744,7 @@ function genesisTaskNotesForGoogle(string $taskId, array $task): string
 function genesisGoogleEventForClient(array $event): ?array
 {
     $private = $event['extendedProperties']['private'] ?? [];
+    if (is_array($private) && !empty($private['genesisSharedTaskId'])) return null;
     if (($event['status'] ?? '') === 'cancelled' || !empty($event['recurringEventId'])) {
         return null;
     }
@@ -935,6 +936,11 @@ function genesisListGoogleTaskLists(array $user): array
         return [];
     }
     $taskLists = [];
+    // Shared-project copies have their own lists and must not re-enter the private workspace.
+    $projectionLists = genesisDb()->prepare('SELECT google_task_list_id FROM shared_google_preferences
+        WHERE user_id = :user AND google_task_list_id IS NOT NULL');
+    $projectionLists->execute(['user' => $user['id']]);
+    $excludedListIds = array_fill_keys($projectionLists->fetchAll(PDO::FETCH_COLUMN), true);
     $defaultTaskListId = genesisDefaultGoogleTaskListId($user);
     $pageToken = null;
     do {
@@ -944,7 +950,7 @@ function genesisListGoogleTaskLists(array $user): array
         }
         $result = genesisGoogleTasksApi('GET', '/users/@me/lists?' . http_build_query($query, '', '&', PHP_QUERY_RFC3986), $user);
         foreach ($result['items'] ?? [] as $taskList) {
-            if (is_array($taskList) && !empty($taskList['id'])) {
+            if (is_array($taskList) && !empty($taskList['id']) && !isset($excludedListIds[(string)$taskList['id']])) {
                 $taskLists[] = [
                     'id' => (string)$taskList['id'],
                     'title' => mb_substr(trim((string)($taskList['title'] ?? 'Google Tasks')) ?: 'Google Tasks', 0, 300),

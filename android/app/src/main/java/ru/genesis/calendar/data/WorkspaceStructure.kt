@@ -181,6 +181,43 @@ class WorkspaceStructureRepository(private val app: GenesisApplication) {
         )
     }
 
+    /** A confirmed server import removes the private tree and its tasks as one local commit. */
+    suspend fun removeImportedProjectTree(rootId: String, expectedRevision: Long,
+        expectedProjectIds: Set<String>, expectedTasks: Map<String, Long>) = app.scheduler.withMutation {
+        val reminders = mutableListOf<ReminderRecord>()
+        app.database.withTransaction {
+            val document = dao.document(scope, kind) ?: throw IllegalArgumentException("Проект больше не существует.")
+            val current = WorkspaceStructureCodec.decode(
+                cipher.decrypt(document.encrypted, "$scope/$kind"), document.revision)
+            val removed = WorkspaceStructureCodec.projectSubtreeIds(current.projects, rootId)
+            require(current.revision == expectedRevision && removed.isNotEmpty() &&
+                removed == expectedProjectIds && current.taskListLinks.none { it.projectId in removed }) {
+                "Личный проект изменился во время переноса. Общая копия создана; личный оригинал сохранён."
+            }
+            val related = dao.accountTasks(scope).filter { row ->
+                val task = JSONObject(cipher.decrypt(row.encrypted, "$scope/${row.id}"))
+                !task.isNull("projectId") && task.optString("projectId") in removed
+            }
+            require(related.map { it.id }.toSet() == expectedTasks.keys &&
+                related.all { expectedTasks[it.id] == it.revision }) {
+                "Задачи изменились во время переноса. Общая копия создана; личные записи сохранены."
+            }
+            related.forEach { row ->
+                reminders += dao.taskReminders(scope, row.id)
+                dao.putTask(row.copy(deleted = true, revision = row.revision + 1))
+                dao.cancelReminders(scope, row.id)
+                dao.putOutbox(OutboxRecord(scope, row.id, row.revision + 1, UUID.randomUUID().toString()))
+            }
+            val next = current.copy(projects = current.projects.filterNot { it.id in removed },
+                revision = current.revision + 1)
+            dao.putDocument(DocumentRecord(scope, kind,
+                cipher.encrypt(WorkspaceStructureCodec.encode(next), "$scope/$kind"), next.revision))
+            dao.putOutbox(OutboxRecord(scope, "workspace-structure", next.revision, UUID.randomUUID().toString()))
+        }
+        reminders.forEach(app.scheduler::cancel)
+        app.scheduler.scheduleUpcomingLocked(scope)
+    }
+
     suspend fun saveCategory(category: GenesisCategory, expectedRevision: Long? = null) = mutate(expectedRevision) { current ->
         val existing = current.categories.any { it.id == category.id }
         current.copy(categories = if (existing) current.categories.map { if (it.id == category.id) category else it }

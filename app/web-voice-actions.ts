@@ -12,7 +12,10 @@ export type WebVoiceAction =
   | { kind: "scroll"; direction: "up" | "down" | "top" | "bottom" }
   | { kind: "theokyklos-sector"; sectorId: SacredPracticeSectorId }
   | { kind: "stoicheion-card"; cardId: string }
+  | { kind: "stoicheion-draw"; drawKind: "daily" | "spread" }
   | { kind: "set-mood"; value: MoodValue }
+  | { kind: "set-sleep"; bedtime?: string; wakeTime?: string; quality?: number }
+  | { kind: "set-sleep-plan"; bedtime?: string; wakeTime?: string; reminderEnabled?: boolean; reminderMinutesBefore?: number }
   | { kind: "rename-task"; id: string; title: string; newTitle: string }
   | { kind: "create-project" | "create-list" | "create-habit" | "create-task" | "create-category"; title: string }
   | { kind: "edit-task" | "delete-task" | "edit-list" | "delete-list" | "edit-project" | "delete-project" | "edit-category" | "delete-category" | "edit-habit" | "delete-habit" | "complete-task" | "uncomplete-task" | "complete-habit" | "uncomplete-habit"; id: string; title: string }
@@ -89,6 +92,44 @@ function voiceMoodValue(raw: string): MoodValue | null {
   return MOOD_NAMES.find(([, pattern]) => pattern.test(value))?.[0] ?? null;
 }
 
+function voiceClock(raw: string): string | null {
+  const match = raw.trim().match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/iu);
+  if (!match) return null;
+  let hour = Number(match[1]);
+  const minute = Number(match[2] ?? 0);
+  if (minute > 59 || match[3] && (hour < 1 || hour > 12) || !match[3] && hour > 23) return null;
+  if (match[3]) hour = hour % 12 + (match[3].toLowerCase() === "pm" ? 12 : 0);
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+function voiceSleep(command: string): Extract<WebVoiceAction, { kind: "set-sleep" | "set-sleep-plan" }> | null {
+  const clock = "(\\d{1,2}(?::\\d{2})?\\s*(?:am|pm)?)";
+  const reminder = command.match(/^(включи|отключи|enable|disable|turn on|turn off)\s+(?:напоминание о сне|напоминания о сне|sleep reminders?)(?:\s+(?:за|in)\s+(\d{1,3})\s*(?:минут[а-я]*|minutes?)(?:\s+(?:до сна|before bed))?)?$/iu);
+  if (reminder) {
+    const lead = reminder[2] ? Number(reminder[2]) : undefined;
+    if (lead !== undefined && lead > 180) return null;
+    return { kind: "set-sleep-plan", reminderEnabled: /^(?:включи|enable|turn on)$/iu.test(reminder[1]), reminderMinutesBefore: lead };
+  }
+  const plan = command.match(new RegExp(`^(?:установи|поставь|настрой|set|change)\\s+(?:план сна|расписание сна|время сна|sleep plan|sleep schedule)\\s+(?:с|from)\\s+${clock}\\s+(?:до|to)\\s+${clock}$`, "iu"));
+  if (plan) {
+    const bedtime = voiceClock(plan[1]); const wakeTime = voiceClock(plan[2]);
+    return bedtime && wakeTime ? { kind: "set-sleep-plan", bedtime, wakeTime } : null;
+  }
+  const span = command.match(new RegExp(`^(?:(?:отметь|запиши|record|log)\\s+)?(?:сон|мой сон|sleep|my sleep)\\s+(?:с|from)\\s+${clock}\\s+(?:до|to)\\s+${clock}$`, "iu"));
+  if (span) {
+    const bedtime = voiceClock(span[1]); const wakeTime = voiceClock(span[2]);
+    return bedtime && wakeTime ? { kind: "set-sleep", bedtime, wakeTime } : null;
+  }
+  const natural = command.match(new RegExp(`^(?:я\\s+)?(?:уснул[а]?|лег спать|легла спать|i fell asleep|i went to bed)\\s+(?:в|at)\\s+${clock}\\s+(?:(?:и|and)\\s+)?(?:проснулся|проснулась|woke up)\\s+(?:в|at)\\s+${clock}$`, "iu"));
+  if (natural) {
+    const bedtime = voiceClock(natural[1]); const wakeTime = voiceClock(natural[2]);
+    return bedtime && wakeTime ? { kind: "set-sleep", bedtime, wakeTime } : null;
+  }
+  const quality = command.match(/^(?:(?:отметь|запиши|поставь|set|record|log)\s+)?(?:качество сна|sleep quality)\s+(?:(?:на|как|as|to)\s+)?(\d{1,2})(?:\s+из\s+10)?$/iu);
+  if (quality && Number(quality[1]) >= 1 && Number(quality[1]) <= 10) return { kind: "set-sleep", quality: Number(quality[1]) };
+  return null;
+}
+
 function spokenName(value: string) {
   return value.replace(/^(?:(?:под|с)\s+названием|по\s+имени|назови\s+(?:её|его)|named|called|with\s+the\s+title)\s+/iu, "")
     .trim();
@@ -117,6 +158,8 @@ export function parseWebVoiceAction(raw: string, tasks: Named[], projects: Named
     const value = voiceMoodValue(mood[1]);
     if (value !== null) return { kind: "set-mood", value };
   }
+  const sleep = voiceSleep(command);
+  if (sleep) return sleep;
   const calendarMode = command.match(/^(?:(?:переключи|переключить|поменяй|выбери|установи|включи|покажи|открой|switch(?: to)?|select|use|show|open)\s+)?(?:календарь\s+)?(?:на\s+|в\s+)?(лунн[а-яё]*|сакральн[а-яё]*|григорианск[а-яё]*|профанск[а-яё]*|lunar|sacred|gregorian)(?:\s+календарь)?$/iu);
   if (calendarMode) return { kind: "calendar-mode", mode: /^(?:лун|lunar)/iu.test(calendarMode[1]) ? "lunar"
     : /^(?:сакрал|sacred)/iu.test(calendarMode[1]) ? "sacred" : "profane" };
@@ -135,6 +178,10 @@ export function parseWebVoiceAction(raw: string, tasks: Named[], projects: Named
   if (sectorId) return { kind: "theokyklos-sector", sectorId };
   const cardId = voiceStoicheionCard(command);
   if (cardId) return { kind: "stoicheion-card", cardId };
+  if (/^(?:выбери|вытяни|открой|покажи|draw|pick|select|show)\s+(?:карту дня|daily card|card of the day)$/iu.test(command))
+    return { kind: "stoicheion-draw", drawKind: "daily" };
+  if (/^(?:выбери|вытяни|открой|покажи|сделай|draw|pick|select|show|make)\s+(?:расклад(?: из)? (?:девяти|9) карт|(?:девять|9) карт(?: стойхейона)?|nine cards?|nine-card spread|9-card spread)$/iu.test(command))
+    return { kind: "stoicheion-draw", drawKind: "spread" };
   const date = command.match(/^(?:покажи|открой|выбери|перейди\s+на|show|open|select)\s+(?:(?:дату|день|date|day)\s+)?(\d{4})-(\d{1,2})-(\d{1,2})$/iu);
   if (date) return { kind: "calendar-date", year: Number(date[1]), month: Number(date[2]), day: Number(date[3]) };
   const spokenDate = command.match(/^(?:покажи|открой|выбери|перейди\s+на|show|open|select)\s+(?:(?:дату|день|date|day)\s+)?(\d{1,2})\s+([а-яёa-z]+)\s+(\d{4})(?:\s+года)?$/iu);
