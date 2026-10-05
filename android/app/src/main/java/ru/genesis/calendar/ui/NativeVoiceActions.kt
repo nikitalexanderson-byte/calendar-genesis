@@ -47,6 +47,7 @@ internal fun parseNativeVoiceAction(raw: String, tasks: List<LocalTask>, project
     if(command.isBlank() || command.contains(';') || command.contains('\n')) return null
     fun subject(pattern: String): String? = Regex(pattern,RegexOption.IGNORE_CASE).matchEntire(command)
         ?.groupValues?.get(1)?.trim(' ','«','»','"','.',',','!','?')?.takeIf(String::isNotBlank)
+    fun spokenName(value: String) = value.replaceFirst(Regex("(?iu)^(?:(?:под|с)\\s+названием|по\\s+имени|назови\\s+(?:её|его)|named|called|with\\s+the\\s+title)\\s+"),"").trim()
     fun <T> resolve(name: String, records: List<T>, title: (T)->String): T {
         val exact=records.filter { title(it).equals(name,true) }
         val found=if(exact.isNotEmpty()) exact else records.filter { title(it).contains(name,true) }
@@ -114,16 +115,16 @@ internal fun parseNativeVoiceAction(raw: String, tasks: List<LocalTask>, project
         return NativeVoiceAction.Navigate(tab)
     }
     subject("(?:создай|создать|добавь|добавить|create|add)\\s+(?:новый\\s+)?(?:проект|project)\\s+(.+)")?.let {
-        return NativeVoiceAction.CreateProject(it.take(500))
+        spokenName(it).take(500).takeIf(String::isNotBlank)?.let { title -> return NativeVoiceAction.CreateProject(title) }
     }
     subject("(?:создай|создать|добавь|добавить|create|add)\\s+(?:новую\\s+)?(?:категорию(?: жизни)?|life category|category)\\s+(.+)")?.let {
-        return NativeVoiceAction.CreateCategory(it.take(300))
+        spokenName(it).take(300).takeIf(String::isNotBlank)?.let { title -> return NativeVoiceAction.CreateCategory(title) }
     }
     subject("(?:создай|создать|добавь|добавить|create|add)\\s+(?:новую\\s+)?(?:привычку|привычка|habit)\\s+(.+)")?.let {
-        return NativeVoiceAction.CreateHabit(it.take(300))
+        spokenName(it).take(300).takeIf(String::isNotBlank)?.let { title -> return NativeVoiceAction.CreateHabit(title) }
     }
     subject("(?:создай|создать|добавь|добавить|create|add)\\s+(?:новый\\s+)?(?:список задач|task list)\\s+(.+)")?.let {
-        return NativeVoiceAction.CreateTaskList(it.take(300))
+        spokenName(it).take(300).takeIf(String::isNotBlank)?.let { title -> return NativeVoiceAction.CreateTaskList(title) }
     }
     subject("(?:отредактируй|отредактировать|редактировать|изменить|измени|edit)\\s+(?:задачу|задача|task)\\s+(.+)")?.let {
         val task=resolve(it,tasks,LocalTask::title)

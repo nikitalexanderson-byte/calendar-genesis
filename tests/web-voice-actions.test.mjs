@@ -59,3 +59,11 @@ test("project and life category commands resolve names before opening forms or c
   assert.deepEqual(parseWebVoiceAction("удали категорию жизни Здоровье", tasks, projects, habits, "ru", lists, categories),
     { kind: "delete-category", id: "category-1", title: "Здоровье" });
 });
+
+test("creation phrases use naming words as instructions and preserve the actual title", () => {
+  const parse = (phrase) => parseWebVoiceAction(phrase, tasks, projects, habits);
+  assert.deepEqual(parse("создай задачу под названием Задача номер 1"), { kind: "create-task", title: "Задача номер 1" });
+  assert.deepEqual(parse("create task named Task number 1"), { kind: "create-task", title: "Task number 1" });
+  assert.deepEqual(parse("создай проект с названием Проект номер 1"), { kind: "create-project", title: "Проект номер 1" });
+  assert.deepEqual(parse("create habit called Morning walk"), { kind: "create-habit", title: "Morning walk" });
+});

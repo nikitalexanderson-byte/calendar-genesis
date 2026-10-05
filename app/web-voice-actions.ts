@@ -13,6 +13,11 @@ export type WebVoiceAction =
 
 type Named = { id: string; title: string };
 
+function spokenName(value: string) {
+  return value.replace(/^(?:(?:под|с)\s+названием|по\s+имени|назови\s+(?:её|его)|named|called|with\s+the\s+title)\s+/iu, "")
+    .trim();
+}
+
 function resolveName(name: string, records: Named[], english: boolean): Named {
   const query = name.trim().toLocaleLowerCase();
   const exact = records.filter((item) => item.title.toLocaleLowerCase() === query);
@@ -75,7 +80,7 @@ export function parseWebVoiceAction(raw: string, tasks: Named[], projects: Named
     ["create-habit", /^(?:создай|создать|добавь|добавить|create|add)\s+(?:новую\s+)?(?:привычку|привычка|habit)\s+(.+)$/i],
     ["create-task", /^(?:создай|создать|добавь|добавить|create|add)\s+(?:новую\s+)?(?:задачу|задача|task)\s+(.+)$/i],
   ] as const) {
-    const title = named(pattern);
+    const title = spokenName(named(pattern));
     if (title) return { kind, title };
   }
   const move = command.match(/^(?:перемести|перенеси|move)\s+(?:задачу|задача|task)\s+(.+?)\s+(?:в|into|to)\s+(?:проект|project)\s+(.+)$/i);

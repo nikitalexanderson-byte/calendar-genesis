@@ -2117,6 +2117,24 @@ test("turns Russian and English voice commands into local task plans", () => {
   );
   assert.equal(noisySpeech.tasks[0].title, "позвонить врачу");
   assert.equal(noisySpeech.tasks[0].time, "18:00");
+  for (const phrase of [
+    "создай задачу под названием Задача номер 1",
+    "добавь задачу с названием «Задача номер 1»",
+    "создай задачу, назови её Задача номер 1",
+    "запланируй задачу по имени Задача номер 1",
+    "Задача номер 1",
+  ]) {
+    assert.equal(createLocalVoicePlan(phrase, context).tasks[0].title, "Задача номер 1", phrase);
+  }
+  for (const phrase of [
+    "create a task named Task number 1",
+    "add a task called Task number 1",
+    "make a task with the title Task number 1",
+    "Task number 1",
+  ]) {
+    assert.equal(createLocalVoicePlan(phrase, { ...context, language: "en" }).tasks[0].title,
+      "Task number 1", phrase);
+  }
   assert.throws(
     () => createLocalVoicePlan("создай задачу", context),
     /название задачи/,

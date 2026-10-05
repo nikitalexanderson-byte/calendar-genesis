@@ -1318,6 +1318,7 @@ export function GenesisCalendar() {
   const [habitFeedback, setHabitFeedback] = useState<HabitFeedbackEvent | null>(null);
   const [habitNotificationPermissionState, setHabitNotificationPermissionState] = useState<HabitNotificationPermission>("unsupported");
   const [hydrated, setHydrated] = useState(false);
+  const voiceLanguageEnabled = hydrated && (language === "ru" || language === "en");
   const [authResolved, setAuthResolved] = useState(!isGoogleSyncConfigured);
   const [cloudUser, setCloudUser] = useState<GenesisUser | null>(null);
   const [yandexAvailable, setYandexAvailable] = useState(false);
@@ -1599,6 +1600,17 @@ export function GenesisCalendar() {
   }, []);
 
   useEffect(() => {
+    if (voiceLanguageEnabled) return;
+    const timer = window.setTimeout(() => {
+      setVoiceLaunchAnimating(false);
+      setVoiceAssistantOpen(false);
+      setGeminiOpen(false);
+      setVoiceControlActive(false);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [voiceLanguageEnabled]);
+
+  useEffect(() => {
     if (!voiceLaunchAnimating) return;
     const timer = window.setTimeout(() => {
       setVoiceLaunchAnimating(false);
@@ -1609,6 +1621,7 @@ export function GenesisCalendar() {
   }, [assistantStatus.audioAvailable, voiceLaunchAnimating]);
 
   const openVoiceAssistant = () => {
+    if (!voiceLanguageEnabled) return;
     setVoiceControlActive(false);
     if (voiceLaunchAnimating) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -6497,7 +6510,7 @@ export function GenesisCalendar() {
                 <span className="ux-install-icon" aria-hidden="true" />
               </button>
             ) : null}
-            <button type="button" className={`voice-open-button${voiceLaunchAnimating ? " is-activating" : ""}`} onClick={openVoiceAssistant} title={language === "en" ? "Open the free GENESIS Voice assistant" : "Открыть бесплатного голосового помощника GENESIS Voice"} aria-label={language === "en" ? "Open the free GENESIS Voice assistant" : "Открыть бесплатного голосового помощника GENESIS Voice"} aria-busy={voiceLaunchAnimating}>
+            {voiceLanguageEnabled ? <button type="button" className={`voice-open-button${voiceLaunchAnimating ? " is-activating" : ""}`} onClick={openVoiceAssistant} title={language === "en" ? "Open the free GENESIS Voice assistant" : "Открыть бесплатного голосового помощника GENESIS Voice"} aria-label={language === "en" ? "Open the free GENESIS Voice assistant" : "Открыть бесплатного голосового помощника GENESIS Voice"} aria-busy={voiceLaunchAnimating}>
               <svg className="voice-microphone-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
                 <rect className="voice-microphone-capsule" x="8.7" y="2.8" width="6.6" height="11.2" rx="3.3" />
                 <path className="voice-microphone-grille" d="M10.55 6.2h2.9M10.55 8.45h2.9" />
@@ -6505,7 +6518,7 @@ export function GenesisCalendar() {
                 <path className="voice-microphone-stand" d="M12 17.4v3.35M8.9 20.75h6.2" />
                 <circle className="voice-microphone-spark" cx="18.7" cy="5.2" r="1.15" />
               </svg>
-            </button>
+            </button> : null}
             {cloudUser ? (
               <div className={`account-chip${accountIdentityExpanded ? " is-expanded" : " is-compact"}`} ref={accountMenuRef}>
                 <button
@@ -6649,6 +6662,7 @@ export function GenesisCalendar() {
                     timeFormat={activeTimeFormat}
                     calendarMode={activeCalendarMode}
                     googleTasksReady={Boolean(cloudUser?.googleTasksImportReady)}
+                    googleCalendarReady={Boolean(cloudUser?.authProvider === "google" && cloudUser.calendarConnected)}
                     experimentalThemeActive={themeState.available && themeState.theme.startsWith("experimental")}
                     voiceRequest={voiceHabitRequest}
                     onVoiceRequestConsumed={() => setVoiceHabitRequest(null)}
@@ -7328,7 +7342,7 @@ export function GenesisCalendar() {
           }}
         />
       ) : null}
-      {voiceAssistantOpen ? (
+      {voiceLanguageEnabled && voiceAssistantOpen ? (
         <Suspense fallback={<DeferredDialogFallback label={language === "en" ? "Opening voice assistant…" : "Открываем голосового помощника…"} />}><LocalVoiceAssistant
           language={language}
           neuralAvailable={assistantStatus.available}
@@ -7355,7 +7369,7 @@ export function GenesisCalendar() {
           onClose={() => setVoiceAssistantOpen(false)}
         /></Suspense>
       ) : null}
-      {geminiOpen && assistantStatus.audioAvailable ? (
+      {voiceLanguageEnabled && geminiOpen && assistantStatus.audioAvailable ? (
         <Suspense fallback={<DeferredDialogFallback label={language === "en" ? "Opening assistant…" : "Открываем помощника…"} />}><GeminiAssistant
           language={language}
           provider={assistantStatus.provider === "gemini" ? "gemini" : "gigachat"}
@@ -7381,7 +7395,7 @@ export function GenesisCalendar() {
           onClose={() => setGeminiOpen(false)}
         /></Suspense>
       ) : null}
-      {voiceControlActive ? <Suspense fallback={null}><WebVoiceControl language={language} onCommand={executeWebVoiceCommand} onStop={() => setVoiceControlActive(false)} /></Suspense> : null}
+      {voiceLanguageEnabled && voiceControlActive ? <Suspense fallback={null}><WebVoiceControl language={language} onCommand={executeWebVoiceCommand} onStop={() => setVoiceControlActive(false)} /></Suspense> : null}
     </main>
   );
 }

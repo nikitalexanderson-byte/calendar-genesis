@@ -196,6 +196,10 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     var tab by rememberSaveable { mutableStateOf("Сегодня") }
     var voiceOpen by rememberSaveable { mutableStateOf(false) }
     var voiceControlActive by remember { mutableStateOf(false) }
+    val voiceLanguageEnabled = prefs.language == "ru" || prefs.language == "en"
+    LaunchedEffect(voiceLanguageEnabled) {
+        if (!voiceLanguageEnabled) { voiceOpen = false; voiceControlActive = false }
+    }
     var voiceScreenRequest by remember { mutableStateOf<NativeVoiceAction?>(null) }
     var voiceListTitle by rememberSaveable { mutableStateOf("") }
     var requestedSacredHabits by rememberSaveable { mutableStateOf(false) }
@@ -481,10 +485,10 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         HeaderActionButton("refresh",refreshDescription,!refreshBusy,
                             compactHeader,"today-refresh",authController::refresh)
                     }
-                    HeaderActionButton("mic",genesisTranslate("Голосовой помощник"),true,
+                    if (voiceLanguageEnabled) HeaderActionButton("mic",genesisTranslate("Голосовой помощник"),true,
                         compactHeader,"voice-assistant-open") { voiceControlActive=false;voiceOpen=true }
                 }
-                if (voiceControlActive) VoiceControlBar(prefs.language=="en",
+                if (voiceLanguageEnabled && voiceControlActive) VoiceControlBar(prefs.language=="en",
                     onCommand=::executeVoiceCommand,onStop={voiceControlActive=false})
                 if (!compactHeader) Text(accountStatus,Modifier.padding(horizontal=16.dp).testTag("app-account-status"),
                     style=MaterialTheme.typography.bodySmall)
@@ -504,7 +508,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                   Column(Modifier.fillMaxSize()) {
                   error?.let { Text(it,color=MaterialTheme.colorScheme.error,modifier=Modifier.padding(12.dp)) }
                   when(visibleTab) {
-                    "Привычки" -> HabitsScreen(app,true,prefs.input,prefs.display,visibleSwipeState,
+                    "Привычки" -> HabitsScreen(app,true,prefs.input,prefs.display,authState.accountSettings,taskLists,visibleSwipeState,
                         openSacredHabits=requestedSacredHabits,
                         onSacredHabitsOpened={requestedSacredHabits=false},
                         openHeroPath=requestedHeroPath,
@@ -693,7 +697,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                     require(app.workspaceScope==activeScope) { "Аккаунт изменился. Откройте форму заново." }
                     saveListDraftTasks(app,list,projectId,date,prefs.input,rows,options);authController.syncPending()
                 })
-            if(voiceOpen) NativeVoiceAssistantDialog(app,structure,taskLists,tasks,habitWorkspace.habits,
+            if(voiceLanguageEnabled && voiceOpen) NativeVoiceAssistantDialog(app,structure,taskLists,tasks,habitWorkspace.habits,
                 prefs.input,prefs.use24,prefs.language,
                 onDismiss={voiceOpen=false},onSaved={voiceOpen=false;tab="Задачи"},
                 onAction={ action ->

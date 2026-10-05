@@ -85,4 +85,14 @@ class NativeVoiceActionsTest {
         assertEquals(NativeVoiceAction.EditCategory(category.id,category.name),parse("измени категорию Здоровье"))
         assertEquals(NativeVoiceAction.DeleteCategory(category.id,category.name),parse("удали категорию жизни Здоровье"))
     }
+
+    @Test fun namingWordsDoNotBecomePartOfCreatedNames() {
+        fun parse(value: String)=parseNativeVoiceAction(value,listOf(task),listOf(project),listOf(habit))
+        assertEquals(NativeVoiceAction.CreateProject("Проект номер 1"),
+            parse("создай проект под названием Проект номер 1"))
+        assertEquals(NativeVoiceAction.CreateHabit("Morning walk"),
+            parse("create habit called Morning walk"))
+        assertEquals(NativeVoiceAction.CreateTaskList("Покупки"),
+            parse("создай список задач с названием Покупки"))
+    }
 }
