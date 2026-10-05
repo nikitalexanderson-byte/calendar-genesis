@@ -51,6 +51,25 @@
 .shared-projects-detail h2 { margin-top: 0; padding-right: 2.5rem; overflow-wrap: anywhere; }
 .shared-projects-close { position: absolute; top: .4rem; right: .4rem; min-width: 2.75rem; }
 .shared-projects-detail form { display: grid; gap: .5rem; margin-top: .75rem; }
+.shared-projects-view-switch { display: flex; flex-wrap: wrap; gap: .4rem; }
+.shared-projects-view-switch button { border: 1px solid var(--line, #d4c9b0); border-radius: .7rem; background: var(--surface, #fffdf7); color: inherit; padding: .5rem .8rem; }
+.shared-projects-view-switch button[aria-pressed="true"] { border-color: #255b59; box-shadow: inset 0 0 0 1px #255b59; font-weight: 700; }
+.shared-projects-calendar { min-width: 0; padding: 1rem; border: 1px solid var(--line, #d4c9b0); border-radius: 1rem; background: var(--surface, #fffdf7); }
+.shared-projects-calendar-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.shared-projects-calendar-head h2 { margin: 0; text-align: center; font-size: 1.2rem; text-transform: capitalize; }
+.shared-projects-calendar-head button { min-width: 2.75rem; border: 1px solid var(--line, #d4c9b0); border-radius: .6rem; background: transparent; color: inherit; }
+.shared-projects-calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: .25rem; margin-top: .8rem; }
+.shared-projects-calendar-weekday { text-align: center; font-size: .8rem; font-weight: 700; opacity: .75; }
+.shared-projects .shared-projects-calendar-date { display: grid; align-content: start; justify-items: start; gap: .15rem; min-width: 0; min-height: 4rem; border: 1px solid var(--line, #d4c9b0); border-radius: .5rem; background: transparent; color: inherit; padding: .35rem; text-align: left; }
+.shared-projects-calendar-date[data-outside] { opacity: .55; }
+.shared-projects-calendar-date[aria-current="date"] { border-color: #255b59; box-shadow: inset 0 0 0 1px #255b59; }
+.shared-projects-calendar-date small { display: grid; place-items: center; min-width: 1.25rem; height: 1.25rem; border-radius: 1rem; background: #255b59; color: white; font-size: .7rem; }
+.shared-projects-calendar-agenda, .shared-projects-calendar-undated { display: grid; gap: .4rem; margin-top: 1rem; border-top: 1px solid var(--line, #d4c9b0); padding-top: .8rem; }
+.shared-projects-calendar-agenda h3 { margin: 0; font-size: 1rem; text-transform: capitalize; }
+.shared-projects-calendar-agenda p { margin: .25rem 0; }
+.shared-projects-calendar-agenda button, .shared-projects-calendar-undated button { display: flex; justify-content: space-between; gap: .5rem; align-items: center; border: 1px solid var(--line, #d4c9b0); border-radius: .5rem; background: transparent; color: inherit; padding: .5rem .65rem; text-align: left; overflow-wrap: anywhere; }
+.shared-projects-calendar-agenda button span { font-size: .8rem; opacity: .75; }
+.shared-projects-calendar-undated summary { cursor: pointer; font-weight: 700; }
 .shared-projects-switch { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: .8rem; }
 .shared-projects-switch button[aria-current="page"] { font-weight: 700; text-decoration: underline; text-underline-offset: .3rem; }
-@media (max-width: 600px) { .shared-projects-hero { align-items: flex-start; padding: 1rem; } .shared-projects-mark { flex-basis: 3rem; height: 3rem; } .shared-projects-hero h1 { font-size: 1.5rem; } }
+@media (max-width: 600px) { .shared-projects-hero { align-items: flex-start; padding: 1rem; } .shared-projects-mark { flex-basis: 3rem; height: 3rem; } .shared-projects-hero h1 { font-size: 1.5rem; } .shared-projects-calendar { padding: .6rem; } .shared-projects .shared-projects-calendar-date { min-height: 3rem; padding: .2rem; font-size: .82rem; } }

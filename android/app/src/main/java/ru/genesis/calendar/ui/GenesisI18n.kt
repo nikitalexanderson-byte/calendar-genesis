@@ -52,6 +52,8 @@ private val nativeCopy = mapOf(
     "Комментарий" to "Comment",
     "Отправить" to "Send",
     "Без срока" to "No due date",
+    "На этот день нет общих задач со сроком." to "No team tasks due this day.",
+    "В проекте не менее 500 задач. Календарь может не показывать задачи за пределами загруженной части." to "This project has at least 500 tasks. The calendar may omit later tasks.",
     "Выполнил(а):" to "Completed by:",
     "Бывший участник" to "Former member",
     "Владелец" to "Owner",

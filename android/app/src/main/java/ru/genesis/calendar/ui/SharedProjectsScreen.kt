@@ -9,6 +9,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -17,6 +19,9 @@ import org.json.JSONArray
 import org.json.JSONObject
 import ru.genesis.calendar.auth.AuthController
 import java.time.LocalDate
+import java.time.YearMonth
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 private fun JSONArray.rows(): List<JSONObject> = (0 until length()).map { getJSONObject(it) }
 
@@ -49,6 +54,10 @@ internal fun SharedProjectsScreen(controller: AuthController, language: String) 
     var comments by remember { mutableStateOf(emptyList<JSONObject>()) }
     var spaceId by remember { mutableStateOf("") }
     var projectId by remember { mutableStateOf("") }
+    var viewOverride by remember { mutableStateOf<String?>(null) }
+    var calendarMonth by remember { mutableStateOf(YearMonth.now()) }
+    var calendarDay by remember { mutableStateOf(LocalDate.now()) }
+    var showUndated by remember { mutableStateOf(false) }
     var taskId by remember { mutableStateOf("") }
     var spaceTitle by remember { mutableStateOf("") }
     var projectTitle by remember { mutableStateOf("") }
@@ -143,6 +152,7 @@ internal fun SharedProjectsScreen(controller: AuthController, language: String) 
     val canComment = role in setOf("owner", "manager", "member", "commenter")
     val canInvite = role in setOf("owner", "manager")
     val selectedTask = tasks.firstOrNull { it.optString("id") == taskId }
+    val activeView = viewOverride ?: project?.optString("layout") ?: "list"
     val categoryColors = listOf("#2d6c68", "#a5543f", "#b18b48", "#665c88", "#54718a")
     LaunchedEffect(projectId, taskId) {
         editTaskTitle = selectedTask?.optString("title") ?: ""
@@ -264,7 +274,7 @@ internal fun SharedProjectsScreen(controller: AuthController, language: String) 
             Text(if (en) "Projects" else "Проекты", style = MaterialTheme.typography.titleMedium)
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 projects.forEach { item -> FilterChip(selected = projectId == item.getString("id"),
-                    onClick = { projectId = item.getString("id"); snapshot = null },
+                    onClick = { projectId = item.getString("id"); snapshot = null; viewOverride = null },
                     label = { Text(item.getString("title")) }) }
             }
             OutlinedTextField(projectTitle, { projectTitle = it }, label = { Text(if (en) "New project name" else "Новый проект") },
@@ -492,7 +502,85 @@ internal fun SharedProjectsScreen(controller: AuthController, language: String) 
                     taskTitle = ""; refreshProject(projectId)
                 } }, enabled = !busy && taskTitle.isNotBlank()) { Text(if (en) "Add task" else "Добавить задачу") }
             }
-            if (project.optString("layout") == "board") {
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("list", "board", "calendar").forEach { view ->
+                    FilterChip(selected = activeView == view, onClick = { viewOverride = view },
+                        label = { Text(when (view) {
+                            "board" -> if (en) "Board" else "Доска"
+                            "calendar" -> if (en) "Calendar" else "Календарь"
+                            else -> if (en) "List" else "Список"
+                        }) })
+                }
+            }
+            if (activeView == "calendar") {
+                if (tasks.size >= 500) Text(if (en)
+                    "This project has at least 500 tasks. The calendar may omit later tasks."
+                    else "В проекте не менее 500 задач. Календарь может не показывать задачи за пределами загруженной части.",
+                    style = MaterialTheme.typography.bodySmall)
+                val locale = if (en) Locale.US else Locale.forLanguageTag("ru-RU")
+                val first = calendarMonth.atDay(1)
+                val offset = first.dayOfWeek.value - 1
+                val cells = ((offset + calendarMonth.lengthOfMonth() + 6) / 7) * 7
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    TextButton(onClick = { val target = calendarMonth.minusMonths(1); calendarMonth = target; calendarDay = target.atDay(1) }) { Text("←") }
+                    Text(first.format(DateTimeFormatter.ofPattern("LLLL yyyy", locale)),
+                        style = MaterialTheme.typography.titleMedium)
+                    TextButton(onClick = { val target = calendarMonth.plusMonths(1); calendarMonth = target; calendarDay = target.atDay(1) }) { Text("→") }
+                }
+                Row(Modifier.fillMaxWidth()) {
+                    (if (en) listOf("Mon","Tue","Wed","Thu","Fri","Sat","Sun")
+                        else listOf("Пн","Вт","Ср","Чт","Пт","Сб","Вс")).forEach { day ->
+                        Text(day, Modifier.weight(1f), style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+                repeat(cells / 7) { week ->
+                    Row(Modifier.fillMaxWidth()) {
+                        repeat(7) { weekday ->
+                            val date = first.plusDays((week * 7 + weekday - offset).toLong())
+                            val count = tasks.count { it.optString("dueDate") == date.toString() }
+                            TextButton(onClick = {
+                                calendarDay = date
+                                if (YearMonth.from(date) != calendarMonth) calendarMonth = YearMonth.from(date)
+                            }, modifier = Modifier.weight(1f).height(54.dp).semantics {
+                                contentDescription = date.format(DateTimeFormatter.ofPattern("d MMMM yyyy", locale)) +
+                                    if (count > 0) (if (en) " · $count tasks" else " · задач: $count") else ""
+                            },
+                                contentPadding = PaddingValues(0.dp),
+                                colors = ButtonDefaults.textButtonColors(contentColor = if (date == calendarDay)
+                                    MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)) {
+                                Column {
+                                    Text(date.dayOfMonth.toString(), style = MaterialTheme.typography.labelMedium)
+                                    if (count > 0) Text(count.toString(), style = MaterialTheme.typography.labelSmall)
+                                }
+                            }
+                        }
+                    }
+                }
+                Text(calendarDay.format(DateTimeFormatter.ofPattern("d MMMM yyyy", locale)),
+                    style = MaterialTheme.typography.titleMedium)
+                val due = tasks.filter { it.optString("dueDate") == calendarDay.toString() }
+                if (due.isEmpty()) Text(if (en) "No team tasks due this day." else "На этот день нет общих задач со сроком.",
+                    style = MaterialTheme.typography.bodySmall)
+                due.forEach { task -> SharedTaskCard(task, statuses, canWrite, busy, taskId == task.getString("id"), en,
+                    category = categories.firstOrNull { it.optString("id") == task.optString("categoryId") },
+                    completedBy = members.firstOrNull { it.optString("userId") == task.optString("completedBy") }?.optString("displayName"),
+                    onOpen = { taskId = task.getString("id") },
+                    onMove = { destination -> run {
+                        controller.updateSharedTask(projectId, task.getString("id"), JSONObject()
+                            .put("statusId", destination).put("expectedRevision", task.getInt("revision")))
+                        refreshProject(projectId)
+                    } }) }
+                val undated = tasks.filter { it.isNull("dueDate") || it.optString("dueDate").isBlank() }
+                if (undated.isNotEmpty()) {
+                    TextButton(onClick = { showUndated = !showUndated }) {
+                        Text((if (en) "Without a due date" else "Без срока") + " · ${undated.size}")
+                    }
+                    if (showUndated) undated.forEach { task ->
+                        TextButton(onClick = { taskId = task.getString("id") }) { Text(task.getString("title")) }
+                    }
+                }
+            } else if (activeView == "board") {
                 Text(if (en) "Swipe across the board to view all statuses."
                     else "Проведите по доске, чтобы увидеть все статусы.", style = MaterialTheme.typography.bodySmall)
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
