@@ -61,6 +61,22 @@ try {
     ]);
     $otherProject = genesisSharedCreateProject($a, $space['id'], ['title' => 'Соседний проект']);
     $otherSnapshot = genesisSharedProjectSnapshot($a, $otherProject['id']);
+    $transferred = genesisSharedTask($a, $otherProject['id'], [
+        'sourceTaskId' => 'private-task-1', 'title' => 'Опубликованная задача',
+        'statusId' => $otherSnapshot['statuses'][0]['id'],
+    ]);
+    $retried = genesisSharedTask($a, $otherProject['id'], [
+        'sourceTaskId' => 'private-task-1', 'title' => 'Повтор запроса',
+        'statusId' => $otherSnapshot['statuses'][0]['id'],
+    ]);
+    sharedExpect($retried['id'] === $transferred['id'] && $retried['title'] === 'Опубликованная задача',
+        'A retried private transfer created or overwrote a shared task.');
+    sharedExpect(count(genesisSharedProjectSnapshot($a, $otherProject['id'])['tasks']) === 1,
+        'A retried private transfer duplicated the task.');
+    sharedReject(static fn() => genesisSharedTask($a, $project['id'], [
+        'sourceTaskId' => 'private-task-1', 'title' => 'Wrong destination',
+        'statusId' => $snapshot['statuses'][0]['id'],
+    ]), 409);
     $otherCategory = genesisSharedCreateCategory($a, $otherProject['id'], ['title' => 'Чужая категория']);
     sharedInvalid(static fn() => genesisSharedTask($a, $project['id'], [
         'title' => 'Подмена статуса', 'statusId' => $otherSnapshot['statuses'][0]['id'],

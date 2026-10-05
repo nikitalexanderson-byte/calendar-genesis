@@ -201,6 +201,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     var requestedSacredHabits by rememberSaveable { mutableStateOf(false) }
     var requestedHeroPath by rememberSaveable { mutableStateOf(false) }
     var editId by rememberSaveable { mutableStateOf<String?>(null) }
+    var transferTask by remember { mutableStateOf<LocalTask?>(null) }
     var creating by rememberSaveable { mutableStateOf(false) }
     var newTaskProjectId by rememberSaveable { mutableStateOf<String?>(null) }
     var projectsArea by rememberSaveable { mutableStateOf("personal") }
@@ -604,11 +605,21 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                 authState.accountSettings,taskLists,newTaskListId,
                 onDismiss={creating=false;editId=null},
                 onSave={draft -> model.save(draft){creating=false;editId=null}},
+                onTransfer=existing?.takeIf { authState.accountSettings?.sharedProjectsEnabled==true }?.let { selectedTask ->
+                    { transferTask=selectedTask;creating=false;editId=null }
+                },
                 onDelete=existing?.let{{model.delete(it);creating=false;editId=null}},
                 onDeleteOccurrence=existing?.takeIf { it.recurrence.enabled }?.let { series ->
                     { date -> model.excludeOccurrence(series,date) { creating=false;editId=null } }
                 },
                 showSelectedOccurrence=tab=="Сегодня" || tab=="Календарь")
+            transferTask?.let { privateTask ->
+                PersonalTaskTransferDialog(privateTask,authController,authState.accountSettings,prefs.language,
+                    onDismiss={transferTask=null},onMoved={ task ->
+                        require(app.workspaceScope==activeScope) { "Аккаунт изменился. Откройте форму заново." }
+                        app.repository.delete(task.id,task.revision)
+                    })
+            }
             if(creatingTaskList) TaskListEditor(structure,authState.accountSettings,prefs,
                 canCreate=authState.ready && !authState.requiresSignIn && authState.user!=null &&
                     (authState.accountSettings?.authProvider != "yandex" || authState.accountSettings?.calendarConnected == true),
@@ -949,11 +960,13 @@ private fun DayHeader(date: LocalDate, mode: CalendarMode, detailsExpanded: Bool
 @Composable
 private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,structure:WorkspaceStructure,initialProjectId:String?,
     accountSettings:ru.genesis.calendar.auth.AccountSettings?, taskLists:List<GoogleTaskList>, initialTaskListId:String?, onDismiss:()->Unit,
-    onSave:(LocalTask)->Unit,onDelete:(()->Unit)?,onDeleteOccurrence:((String)->Unit)?,showSelectedOccurrence:Boolean) {
+    onSave:(LocalTask)->Unit,onTransfer:(()->Unit)?,onDelete:(()->Unit)?,onDeleteOccurrence:((String)->Unit)?,showSelectedOccurrence:Boolean) {
     var title by rememberSaveable(task?.id) { mutableStateOf(task?.title ?: "") }
     var description by rememberSaveable(task?.id) { mutableStateOf(task?.description ?: "") }
     var date by rememberSaveable(task?.id) { mutableStateOf(task?.date ?: selected) }
-    var formCalendarMode by rememberSaveable(task?.id) { mutableStateOf(prefs.input) }
+    var formCalendarMode by rememberSaveable(task?.id) { mutableStateOf(
+        task?.sourceFieldsJson?.let { raw -> runCatching { JSONObject(raw).optString("calendarMode") }.getOrNull() }
+            ?.takeIf { it in setOf("profane", "sacred", "lunar") }?.let(CalendarMode::fromWire) ?: prefs.input) }
     var time by rememberSaveable(task?.id) { mutableStateOf(task?.time ?: "") }
     var priority by rememberSaveable(task?.id) { mutableIntStateOf(task?.priority ?: 5) }
     var recurrence by remember(task?.id) { mutableStateOf(task?.recurrence ?: defaultTaskRecurrence(task?.date ?: selected, prefs.input)) }
@@ -1208,6 +1221,7 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                             else -> null
                         }
                         val source = JSONObject(task?.sourceFieldsJson ?: "{}")
+                        source.put("calendarMode",formCalendarMode.wireValue)
                         if (yandex) {
                             source.put("yandexEntryType", yandexEntryType)
                                 .put("yandexEndTime", yandexEndTime).put("yandexLocation", yandexLocation.trim())
@@ -1235,6 +1249,7 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                     },modifier=Modifier.testTag("save-task")){Text("Сохранить")}
                 }
                 onDelete?.let { TextButton(onClick={confirmDelete=true}){Text("Удалить задачу")} }
+                onTransfer?.let { TextButton(onClick=it){Text(if(prefs.language=="en") "Move to shared" else "Переместить в общие")} }
               }
             }
         }

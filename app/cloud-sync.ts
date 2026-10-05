@@ -1449,7 +1449,8 @@ export async function removeSharedMember(projectId: string, userId: string) {
   });
 }
 export async function createSharedTask(projectId: string, input: { title: string; statusId: string;
-  categoryId?: string | null; assigneeId?: string | null; dueDate?: string | null; description?: string }) {
+  categoryId?: string | null; assigneeId?: string | null; dueDate?: string | null; description?: string;
+  sourceTaskId?: string }) {
   return (await api<{ task: SharedTask }>(`/shared/projects/${encodeURIComponent(projectId)}/tasks`, {
     method: "POST", body: JSON.stringify(input),
   })).task;
@@ -1614,6 +1615,18 @@ export async function removeCloudTask(_uid: string, task: GenesisTask) {
   queueMutation({ key: `task:${task.id}`, path, method: "DELETE", body });
   await api<{ ok: boolean }>(path, { method: "DELETE", body });
   clearMutation(`task:${task.id}`);
+}
+
+/** A transfer must not queue an uncertain deletion for later replay. */
+export async function removeCloudTaskForTransfer(task: GenesisTask) {
+  const path = `/tasks/${encodeURIComponent(task.id)}`;
+  const body = JSON.stringify({
+    googleEventId: task.googleEventId,
+    googleTaskId: task.googleTaskId,
+    googleTaskListId: task.googleTaskListId,
+    googleLinks: task.googleLinks,
+  });
+  await api<{ ok: boolean }>(path, { method: "DELETE", body });
 }
 
 export function metricsFor(tasks: GenesisTask[], projects: GenesisProject[], habitCount = 0): GenesisMetrics {

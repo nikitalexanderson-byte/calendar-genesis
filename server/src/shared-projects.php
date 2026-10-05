@@ -760,6 +760,32 @@ function genesisSharedTask(string $userId, string $projectId, array $input, ?str
     $db->beginTransaction();
     try {
         genesisSharedProjectAccess($projectId, $userId, 'write');
+        $sourceTaskId = null;
+        if ($taskId === null && array_key_exists('sourceTaskId', $input)) {
+            if (!is_string($input['sourceTaskId']) || !preg_match('/\A[^\x00-\x1f]{1,100}\z/u', $input['sourceTaskId'])) {
+                throw new InvalidArgumentException('INVALID_SOURCE_TASK_ID');
+            }
+            $sourceTaskId = $input['sourceTaskId'];
+            $transfer = $db->prepare('SELECT target_project_id, target_task_id FROM shared_task_transfers
+                WHERE source_user_id = :user AND source_task_id = :source LIMIT 1');
+            $transfer->execute(['user' => $userId, 'source' => $sourceTaskId]);
+            $target = $transfer->fetch();
+            if ($target) {
+                if ($target['target_project_id'] !== $projectId) {
+                    throw new GenesisSharedAccessException('SHARED_TRANSFER_CONFLICT', 409);
+                }
+                $query = $db->prepare('SELECT id, project_id AS projectId, status_id AS statusId,
+                    category_id AS categoryId, title, description, due_date AS dueDate,
+                    assignee_id AS assigneeId, revision, completed_by AS completedBy,
+                    completed_at AS completedAt, updated_at AS updatedAt
+                    FROM shared_tasks WHERE id = :id AND project_id = :project LIMIT 1');
+                $query->execute(['id' => $target['target_task_id'], 'project' => $projectId]);
+                $copied = $query->fetch();
+                if (!$copied) throw new GenesisSharedAccessException('SHARED_TRANSFER_TARGET_REMOVED', 409);
+                $db->commit();
+                return $copied;
+            }
+        }
         $existing = null;
         if ($taskId !== null) {
             $query = $db->prepare('SELECT * FROM shared_tasks WHERE id = :id AND project_id = :project LIMIT 1');
@@ -828,6 +854,14 @@ function genesisSharedTask(string $userId, string $projectId, array $input, ?str
                     'assignee' => $assigneeId, 'user' => $userId,
                     'completed_by' => $completedBy, 'completed_at' => $completedAt, 'now' => $now,
                 ]);
+            if ($sourceTaskId !== null) {
+                $db->prepare('INSERT INTO shared_task_transfers
+                    (source_user_id, source_task_id, target_project_id, target_task_id, created_at)
+                    VALUES (:user, :source, :project, :task, :now)')->execute([
+                    'user' => $userId, 'source' => $sourceTaskId,
+                    'project' => $projectId, 'task' => $id, 'now' => $now,
+                ]);
+            }
         }
         genesisSharedAudit($projectId, $userId, $existing ? 'task.updated' : 'task.created', $id);
         $db->commit();

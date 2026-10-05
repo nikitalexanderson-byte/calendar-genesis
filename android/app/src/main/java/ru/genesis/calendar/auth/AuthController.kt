@@ -136,6 +136,8 @@ class AuthController private constructor(context: Context) {
         categoryId: String? = null): JSONObject =
         sharedCall { api, generation -> api.createSharedTask(generation, projectId,
             JSONObject().put("title", title).put("statusId", statusId).put("categoryId", categoryId ?: JSONObject.NULL)) }
+    suspend fun publishPrivateTask(projectId: String, fields: JSONObject): JSONObject =
+        sharedCall { api, generation -> api.createSharedTask(generation, projectId, fields) }
     suspend fun updateSharedTask(projectId: String, taskId: String, changes: JSONObject): JSONObject =
         sharedCall { api, generation -> api.updateSharedTask(generation, projectId, taskId, changes) }
     suspend fun inviteSharedMember(projectId: String, email: String, role: String): JSONObject =
