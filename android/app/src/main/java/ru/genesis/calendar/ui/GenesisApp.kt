@@ -157,6 +157,8 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     val prefs by prefsStore.values.collectAsStateWithLifecycle(UiPreferences())
     val pendingPreferences by prefsStore.pending.collectAsStateWithLifecycle(emptyMap())
     val menuSwipeState = remember(activeScope) { MenuSwipeState() }
+    val settingsScrollStates = remember(activeScope) { mutableMapOf<String, ScrollState>() }
+    var menuVisibilityExpanded by rememberSaveable(activeScope) { mutableStateOf(false) }
     val habitSettingsRepository = remember(app, activeScope) { HabitsRepository(app) }
     val trackersRepository = remember(app, activeScope) { TrackersRepository(app) }
     val habitWorkspace by habitSettingsRepository.workspace.collectAsStateWithLifecycle(LocalHabitWorkspace())
@@ -252,8 +254,17 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
         isLandscape, prefs.wideNavigationOnLeft)
     val portraitAutoScroll = !isLandscape && prefs.navigationLabels && prefs.navigationAutoScroll
     val portraitMenuSwipe = !isLandscape && prefs.menuSwipeEnabled
-    val sharedProjectsEnabled = !testWorkspace && pendingPreferences["sharedProjectsEnabled"] != "false" &&
-        authState.accountSettings?.sharedProjectsEnabled == true
+    var pendingSharedProjectsToggle by remember(authState.user?.uid) { mutableStateOf<Boolean?>(null) }
+    val sharedProjectsEnabled = !testWorkspace &&
+        authState.accountSettings?.sharedProjectsEligible == true &&
+        (pendingSharedProjectsToggle ?: (pendingPreferences["sharedProjectsEnabled"] != "false" &&
+            authState.accountSettings?.sharedProjectsEnabled == true))
+    LaunchedEffect(authState.busy, authState.accountSettings?.sharedProjectsEnabled,
+        pendingSharedProjectsToggle) {
+        if (!authState.busy && pendingSharedProjectsToggle != null &&
+            authState.accountSettings?.sharedProjectsEnabled == pendingSharedProjectsToggle)
+            pendingSharedProjectsToggle = null
+    }
     var sharedCalendarEntries by remember { mutableStateOf<List<SharedCalendarEntry>>(emptyList()) }
     val sharedCalendarYear = selected.take(4)
     LaunchedEffect(sharedProjectsEnabled, tab, sharedCalendarYear, authState.user) {
@@ -284,7 +295,8 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     }
     val uiVisibility = pendingUiVisibility ?: serverUiVisibility
     LaunchedEffect(authState.busy, serverUiVisibility, pendingUiVisibility) {
-        if (!authState.busy && pendingUiVisibility != null) pendingUiVisibility = null
+        if (!authState.busy && pendingUiVisibility != null &&
+            serverUiVisibility == pendingUiVisibility) pendingUiVisibility = null
     }
     val visiblePages = listOf("Сегодня", "Задачи", "Проекты", "Календарь", "Привычки", "Сакральное", "Настройки")
         .filter { (habitTrackingEnabled || it != "Привычки") && menuVisibilityId(it) !in uiVisibility.hiddenMenuItems &&
@@ -307,12 +319,15 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
             menuSwipeState.sacred in uiVisibility.hiddenMenuItems)
             menuSwipeState.sacred = if (menuSwipeState.sacred == "stoicheion") "theokyklos" else "stoicheion"
     }
-    val swipeSequence = remember(prefs.menuSwipeSubmenus, habitTrackingEnabled, sharedProjectsEnabled,
+    val swipeSequence = remember(prefs.menuSwipeSubmenus, prefs.settingsSubmenuEnabled,
+        habitTrackingEnabled, sharedProjectsEnabled,
         uiVisibility.hiddenMenuItems, uiVisibility.hiddenSubmenus) {
         menuSwipeSequence(prefs.menuSwipeSubmenus, habitTrackingEnabled, sharedProjectsEnabled,
-            uiVisibility.hiddenMenuItems, uiVisibility.hiddenSubmenus)
+            uiVisibility.hiddenMenuItems, uiVisibility.hiddenSubmenus,
+            prefs.settingsSubmenuEnabled)
     }
-    val swipeSection = if (prefs.menuSwipeSubmenus && (tab != "Проекты" || sharedProjectsEnabled))
+    val swipeSection = if (prefs.menuSwipeSubmenus && (tab != "Проекты" || sharedProjectsEnabled) &&
+        (tab != "Настройки" || prefs.settingsSubmenuEnabled))
         menuSwipeState.section(tab) else null
     val currentSwipeDestination = remember(tab, swipeSection) { SwipeDestination(tab, swipeSection) }
     val usageSection = menuSwipeState.section(tab)
@@ -649,6 +664,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
             NavigationConnectionScope(tab, selectedSubmenuId = menuSwipeState.section(tab),
                 showConnections = prefs.menuThreadsEnabled &&
                     tab in setOf("Задачи", "Проекты", "Календарь", "Привычки", "Сакральное", "Настройки"),
+                outlineMode = !prefs.menuThreadsEnabled,
                 iconGlow = !prefs.navigationLabels) {
             Column(Modifier.safeDrawingPadding().imePadding()) {
                 val accountStatus = if (activeScope.startsWith("account-"))
@@ -797,6 +813,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                     "Настройки" -> SettingsScreen(app, prefs, visibleSwipeState.settings,
                         onSection = { menuSwipeState.settings = it }, authState.busy && !testWorkspace,
                         authState.accountSettings, sharedProjectsEnabled,
+                        uiVisibility,
                         authController.takeIf { authState.accountSettings?.sharedProjectsEligible == true },
                         canOpenAdmin = !testWorkspace && authState.ready && !authState.requiresSignIn &&
                             authState.user != null && authState.accountSettings?.isAdmin == true,
@@ -807,9 +824,16 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                             authController.updateUiVisibility(next)
                         },
                         onSet = { name, value ->
+                            if (name == "sharedProjectsEnabled") pendingSharedProjectsToggle = value == "true"
                             if (!testWorkspace && authState.user != null) authController.updateSharedPreference(name, value)
                             else scope.launch { prefsStore.set(name, value) }
-                        }, onSetLocal = { name, value -> scope.launch { prefsStore.set(name, value) } })
+                        }, onSetLocal = { name, value -> scope.launch { prefsStore.set(name, value) } },
+                        scrollState = settingsScrollStates.getOrPut(
+                            if (prefs.settingsSubmenuEnabled) visibleSwipeState.settings else "all") {
+                            ScrollState(0)
+                        },
+                        menuVisibilityExpanded = menuVisibilityExpanded,
+                        onMenuVisibilityExpanded = { menuVisibilityExpanded = it })
                     "Календарь" -> CalendarScreen(LocalDate.parse(selected),prefs.display,
                         onSelect={selected=it.toString()},
                         onModeChange={ next ->
@@ -1692,11 +1716,14 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sectionId:
     onSection:(String)->Unit,sharedBusy:Boolean,
     accountSettings:ru.genesis.calendar.auth.AccountSettings?,
     sharedProjectsEnabled:Boolean,
+    visibility: ru.genesis.calendar.auth.UiVisibility,
     sharedController:ru.genesis.calendar.auth.AuthController?,
     canOpenAdmin: Boolean, adminLoad: suspend () -> JSONObject,
     adminDelete: suspend (String, Boolean) -> JSONObject,
     onSetVisibility:(ru.genesis.calendar.auth.UiVisibility)->Unit,
-    onSet:(String,String)->Unit, onSetLocal:(String,String)->Unit) {
+    onSet:(String,String)->Unit, onSetLocal:(String,String)->Unit,
+    scrollState: ScrollState, menuVisibilityExpanded: Boolean,
+    onMenuVisibilityExpanded: (Boolean) -> Unit) {
     var refresh by remember { mutableIntStateOf(0) }
     var calendarReference by rememberSaveable { mutableStateOf<String?>(null) }
     var adminOpen by rememberSaveable { mutableStateOf(false) }
@@ -1711,21 +1738,28 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sectionId:
     val diagnosticScheduledAt = app.scheduler.lastDiagnosticScheduledAt()
     val diagnosticDeliveredAt = app.scheduler.lastDiagnosticDeliveredAt()
     val futureTaskAlarms = rows.count { it.state == "pending" && it.at > System.currentTimeMillis() }
-    val visibility = accountSettings?.uiVisibility ?: ru.genesis.calendar.auth.UiVisibility()
     fun diagnosticTime(value: Long) = Instant.ofEpochMilli(value).atZone(ZoneId.systemDefault())
         .format(DateTimeFormatter.ofPattern("dd.MM HH:mm"))
     val section = settingsSections.firstOrNull { it.id == sectionId } ?: settingsSections.first()
     Column(Modifier.fillMaxSize()) {
-    SettingsSubmenu(section.id, prefs.language, prefs.settingsMenuLabels, onSection)
-    SettingsPageSections {
-        GenesisPageHeader("${if (prefs.language == "en") "Settings" else "Настройки"} - ${section.title(prefs.language)}",
+    if (prefs.settingsSubmenuEnabled)
+        SettingsSubmenu(section.id, prefs.language, prefs.settingsMenuLabels, onSection)
+    SettingsPageSections(sequential = !prefs.settingsSubmenuEnabled,
+        retainedScrollState = scrollState) {
+        (if (prefs.settingsSubmenuEnabled) listOf(section) else settingsSections).forEach { section ->
+        val sectionContent: @Composable () -> Unit = {
+        GenesisPageHeader(if (prefs.settingsSubmenuEnabled)
+                "${if (prefs.language == "en") "Settings" else "Настройки"} - ${section.title(prefs.language)}"
+            else section.title(prefs.language),
             section.description(prefs.language), "⚙", icon = section.icon)
         when (section.id) {
         "appearance" -> {
-        AppearancePanel(app, workspace, prefs.use24) {
+        AppearancePanel(app, workspace, prefs.use24,
+            showTitle = prefs.settingsSubmenuEnabled) {
             MenuDisplaySettings(prefs, onSetLocal)
-            MenuVisibilitySettings(prefs, accountSettings, sharedBusy, sharedProjectsEnabled,
-                visibility, onSetVisibility)
+            MenuVisibilitySettings(prefs, accountSettings, sharedProjectsEnabled,
+                visibility, onSetVisibility, menuVisibilityExpanded,
+                onMenuVisibilityExpanded)
             LanguageSettings(prefs.language) { onSet("language", it) }
             CalendarTimeSettings(prefs, visibility, sharedBusy, onSet, onSetLocal) {
                 calendarReference = it
@@ -1838,7 +1872,7 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sectionId:
                         else "Открыто всем аккаунтам GENESIS на время тестирования.",style=MaterialTheme.typography.bodySmall)
                 }
                 Switch(checked=sharedProjectsEnabled,
-                    enabled=accountSettings?.sharedProjectsEligible==true && !sharedBusy,
+                    enabled=accountSettings?.sharedProjectsEligible==true,
                     onCheckedChange={onSet("sharedProjectsEnabled",it.toString())},
                     modifier=Modifier.testTag("shared-projects-toggle"))
             }
@@ -1884,6 +1918,17 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sectionId:
             Text("${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · ${releaseNotesTitle()}",
                 style = MaterialTheme.typography.labelSmall)
         }
+        }
+        }
+        }
+        if (prefs.settingsSubmenuEnabled) sectionContent()
+        else Surface(modifier = Modifier.fillMaxWidth().testTag("settings-section-${section.id}"),
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                sectionContent()
+            }
         }
         }
     }
@@ -2054,6 +2099,19 @@ private fun MenuDisplaySettings(prefs: UiPreferences, onSetLocal: (String, Strin
             }
             Text("Подменю настроек", style = MaterialTheme.typography.titleSmall)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected = prefs.settingsSubmenuEnabled,
+                    onClick = { onSetLocal("settingsSubmenuEnabled", "true") },
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                        .testTag("settings-layout-submenu"),
+                    label = { Text("Подменю") })
+                FilterChip(selected = !prefs.settingsSubmenuEnabled,
+                    onClick = { onSetLocal("settingsSubmenuEnabled", "false") },
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                        .testTag("settings-layout-sequential"),
+                    label = { Text("Блоки подряд") })
+            }
+            if (prefs.settingsSubmenuEnabled) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(selected = !prefs.settingsMenuLabels,
                     onClick = { onSetLocal("settingsMenuLabels", "icons") },
                     modifier = Modifier.weight(1f).heightIn(min = 48.dp)
@@ -2064,6 +2122,7 @@ private fun MenuDisplaySettings(prefs: UiPreferences, onSetLocal: (String, Strin
                     modifier = Modifier.weight(1f).heightIn(min = 48.dp)
                         .testTag("settings-menu-with-text"),
                     label = { Text("С подписями") })
+            }
             }
             Text("Расположение меню первого уровня", style = MaterialTheme.typography.titleSmall)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -2099,12 +2158,18 @@ private fun MenuDisplaySettings(prefs: UiPreferences, onSetLocal: (String, Strin
                     modifier = Modifier.testTag("menu-swipe-submenus"))
                 Text("Включать подменю в общий свайп", style = MaterialTheme.typography.bodyMedium)
             }
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(checked = prefs.menuThreadsEnabled,
-                    onCheckedChange = { onSetLocal("menuThreadsEnabled", it.toString()) },
-                    modifier = Modifier.testTag("menu-threads-toggle"))
-                Text(genesisTranslate("Показывать связующие нити"),
-                    style = MaterialTheme.typography.bodyMedium)
+            Text("Связь меню и подменю", style = MaterialTheme.typography.titleSmall)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected = prefs.menuThreadsEnabled,
+                    onClick = { onSetLocal("menuThreadsEnabled", "true") },
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                        .testTag("menu-threads-mode"),
+                    label = { Text("Нити") })
+                FilterChip(selected = !prefs.menuThreadsEnabled,
+                    onClick = { onSetLocal("menuThreadsEnabled", "false") },
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                        .testTag("menu-outline-mode"),
+                    label = { Text("Общая обводка") })
             }
             Text("При общем свайпе месяцы и годы переключаются стрелками.",
                 style = MaterialTheme.typography.bodySmall)
@@ -2113,10 +2178,10 @@ private fun MenuDisplaySettings(prefs: UiPreferences, onSetLocal: (String, Strin
 
 @Composable
 private fun MenuVisibilitySettings(prefs: UiPreferences,
-    accountSettings: ru.genesis.calendar.auth.AccountSettings?, sharedBusy: Boolean,
+    accountSettings: ru.genesis.calendar.auth.AccountSettings?,
     sharedProjectsEnabled: Boolean, visibility: ru.genesis.calendar.auth.UiVisibility,
-    onSetVisibility: (ru.genesis.calendar.auth.UiVisibility) -> Unit) {
-    var expanded by rememberSaveable { mutableStateOf(false) }
+    onSetVisibility: (ru.genesis.calendar.auth.UiVisibility) -> Unit,
+    expanded: Boolean, onExpandedChange: (Boolean) -> Unit) {
     fun submenuHidden(id: String): Boolean = id in visibility.hiddenSubmenus ||
         (id.startsWith("sacred.") && id.substringAfter('.') in visibility.hiddenMenuItems)
     Surface(shape = RoundedCornerShape(14.dp),
@@ -2125,7 +2190,7 @@ private fun MenuVisibilitySettings(prefs: UiPreferences,
         Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(if (prefs.language == "en") "Menu item display" else "Отображение элементов меню",
                 style = MaterialTheme.typography.titleMedium)
-            OutlinedButton(onClick = { expanded = !expanded },
+            OutlinedButton(onClick = { onExpandedChange(!expanded) },
                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                     .testTag("appearance-menu-toggle")) {
                 Text(if (expanded) {
@@ -2148,7 +2213,7 @@ private fun MenuVisibilitySettings(prefs: UiPreferences,
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text(genesisTranslate(label), Modifier.weight(1f))
                         Switch(checked = id !in visibility.hiddenMenuItems && !sacredHidden,
-                            enabled = accountSettings != null && !sharedBusy,
+                            enabled = accountSettings != null,
                             onCheckedChange = { checked -> onSetVisibility(visibility.copy(
                                 hiddenMenuItems = if (checked) {
                                     if (id == "sacred") visibility.hiddenMenuItems - setOf("sacred", "stoicheion", "theokyklos")
@@ -2173,7 +2238,7 @@ private fun MenuVisibilitySettings(prefs: UiPreferences,
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text(genesisTranslate(label), Modifier.weight(1f))
                         Switch(checked = !submenuHidden(id),
-                            enabled = accountSettings != null && !sharedBusy && !lastVisible &&
+                            enabled = accountSettings != null && !lastVisible &&
                                 !(id == "projects.personal" && !sharedProjectsEnabled),
                             onCheckedChange = { checked -> onSetVisibility(visibility.copy(
                                 hiddenMenuItems = if (checked && id.startsWith("sacred."))
@@ -2190,7 +2255,7 @@ private fun MenuVisibilitySettings(prefs: UiPreferences,
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text(genesisTranslate(label), Modifier.weight(1f))
                         Switch(checked = id !in visibility.hiddenTodayBlocks,
-                            enabled = accountSettings != null && !sharedBusy,
+                            enabled = accountSettings != null,
                             onCheckedChange = { checked -> onSetVisibility(visibility.copy(
                                 hiddenTodayBlocks = if (checked) visibility.hiddenTodayBlocks - id
                                     else visibility.hiddenTodayBlocks + id)) },
@@ -2204,7 +2269,7 @@ private fun MenuVisibilitySettings(prefs: UiPreferences,
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(genesisTranslate(label), Modifier.weight(1f))
                     Switch(checked = mode.wireValue in visibility.enabledCalendars,
-                        enabled = accountSettings != null && !sharedBusy &&
+                        enabled = accountSettings != null &&
                             !(visibility.enabledCalendars.size == 1 && mode.wireValue in visibility.enabledCalendars),
                         onCheckedChange = { checked -> onSetVisibility(visibility.copy(
                             enabledCalendars = if (checked) visibility.enabledCalendars + mode.wireValue

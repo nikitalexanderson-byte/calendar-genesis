@@ -19,7 +19,8 @@ data class UiPreferences(val display: CalendarMode = CalendarMode.SACRED,
     val showMissedTasksToday: Boolean = true,
     val menuSwipeEnabled: Boolean = true, val menuSwipeSubmenus: Boolean = true,
     val settingsMenuLabels: Boolean = true, val updateRemindersEnabled: Boolean = true,
-    val menuThreadsEnabled: Boolean = true)
+    val menuThreadsEnabled: Boolean = true,
+    val settingsSubmenuEnabled: Boolean = true)
 class LocalPreferences(private val context: Context, private val scope: String) {
     private fun moonLeadDays(value: String?): Set<Int> = value.orEmpty().split(',')
         .mapNotNull { it.trim().toIntOrNull()?.takeIf { day -> day in 1..3 } }.toSet()
@@ -46,7 +47,8 @@ class LocalPreferences(private val context: Context, private val scope: String) 
             it[key("menuSwipeEnabled")] != "false", it[key("menuSwipeSubmenus")] != "false",
             it[key("settingsMenuLabels")] != "icons",
             it[key("updateRemindersEnabled")] != "false",
-            it[key("menuThreadsEnabled")] != "false")
+            it[key("menuThreadsEnabled")] != "false",
+            it[key("settingsSubmenuEnabled")] != "false")
     }
     suspend fun set(name: String, value: String) { context.genesisPreferences.edit { it[key(name)] = value } }
     suspend fun initializeNewAccount() {

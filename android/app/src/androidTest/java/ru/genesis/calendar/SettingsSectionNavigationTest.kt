@@ -23,6 +23,7 @@ class SettingsSectionNavigationTest {
         try {
             runBlocking {
                 preferences.set("settingsMenuLabels", "icons")
+                preferences.set("settingsSubmenuEnabled", "true")
                 preferences.set("language", "ru")
             }
             compose.onNodeWithTag("navigation-Настройки").performClick()
@@ -42,6 +43,7 @@ class SettingsSectionNavigationTest {
         } finally {
             runBlocking {
                 preferences.set("settingsMenuLabels", if (original.settingsMenuLabels) "text" else "icons")
+                preferences.set("settingsSubmenuEnabled", original.settingsSubmenuEnabled.toString())
                 preferences.set("language", original.language)
             }
         }
@@ -55,6 +57,7 @@ class SettingsSectionNavigationTest {
             runBlocking {
                 preferences.set("menuSwipeEnabled", "true")
                 preferences.set("menuSwipeSubmenus", "true")
+                preferences.set("settingsSubmenuEnabled", "true")
                 preferences.set("language", "ru")
             }
             compose.onNodeWithTag("navigation-Настройки").performClick()
@@ -79,6 +82,7 @@ class SettingsSectionNavigationTest {
             runBlocking {
                 preferences.set("menuSwipeEnabled", original.menuSwipeEnabled.toString())
                 preferences.set("menuSwipeSubmenus", original.menuSwipeSubmenus.toString())
+                preferences.set("settingsSubmenuEnabled", original.settingsSubmenuEnabled.toString())
                 preferences.set("language", original.language)
             }
         }
@@ -92,6 +96,7 @@ class SettingsSectionNavigationTest {
             runBlocking {
                 preferences.set("updateRemindersEnabled", "true")
                 preferences.set("settingsMenuLabels", "icons")
+                preferences.set("settingsSubmenuEnabled", "true")
             }
             compose.onNodeWithTag("navigation-Настройки").performClick()
             compose.onNodeWithTag("settings-submenu-account").performClick()
@@ -102,26 +107,60 @@ class SettingsSectionNavigationTest {
             runBlocking {
                 preferences.set("updateRemindersEnabled", original.updateRemindersEnabled.toString())
                 preferences.set("settingsMenuLabels", if (original.settingsMenuLabels) "text" else "icons")
+                preferences.set("settingsSubmenuEnabled", original.settingsSubmenuEnabled.toString())
             }
         }
     }
 
-    @Test fun menuConnectionsCanBeTurnedOffAndBackOn() {
+    @Test fun menuConnectionModesCanBeSwitched() {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
         val preferences = LocalPreferences(app, app.workspaceScope)
         val original = runBlocking { preferences.values.first() }
         try {
-            runBlocking { preferences.set("menuThreadsEnabled", "true") }
+            runBlocking {
+                preferences.set("menuThreadsEnabled", "true")
+                preferences.set("settingsSubmenuEnabled", "true")
+            }
             compose.onNodeWithTag("navigation-Настройки").performClick()
-            compose.onNodeWithTag("menu-threads-toggle").performScrollTo().assertIsOn().performClick()
+            compose.onNodeWithTag("menu-outline-mode").performScrollTo().performClick()
             compose.waitUntil(5_000) { !runBlocking { preferences.values.first().menuThreadsEnabled } }
-            compose.onNodeWithTag("menu-threads-toggle").assertIsOff()
+            compose.onNodeWithTag("menu-outline-mode").assertIsSelected()
             compose.onNodeWithText("Настройки - Оформление").assertExists()
-            compose.onNodeWithTag("menu-threads-toggle").performClick()
+            compose.onNodeWithTag("menu-threads-mode").performClick()
             compose.waitUntil(5_000) { runBlocking { preferences.values.first().menuThreadsEnabled } }
-            compose.onNodeWithTag("menu-threads-toggle").assertIsOn()
+            compose.onNodeWithTag("menu-threads-mode").assertIsSelected()
         } finally {
-            runBlocking { preferences.set("menuThreadsEnabled", original.menuThreadsEnabled.toString()) }
+            runBlocking {
+                preferences.set("menuThreadsEnabled", original.menuThreadsEnabled.toString())
+                preferences.set("settingsSubmenuEnabled", original.settingsSubmenuEnabled.toString())
+            }
+        }
+    }
+
+    @Test fun settingsCanShowAllSectionsInOneScrollingPage() {
+        val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
+        val preferences = LocalPreferences(app, app.workspaceScope)
+        val original = runBlocking { preferences.values.first() }
+        try {
+            runBlocking { preferences.set("settingsSubmenuEnabled", "true") }
+            compose.onNodeWithTag("navigation-Настройки").performClick()
+            compose.onNodeWithTag("settings-layout-sequential").performScrollTo().performClick()
+            compose.waitUntil(5_000) { !runBlocking { preferences.values.first().settingsSubmenuEnabled } }
+            compose.onNodeWithTag("settings-submenu").assertDoesNotExist()
+            listOf("Оформление", "Привычки", "Напоминания", "Общие проекты", "Регион",
+                "Аккаунт GENESIS", "Ссылки").forEach { section ->
+                assertTrue("Missing sequential section: $section",
+                    compose.onAllNodesWithText(section).fetchSemanticsNodes().isNotEmpty())
+            }
+            compose.onNodeWithTag("settings-section-appearance").assertExists()
+            compose.onNodeWithText("Настройки - Оформление").assertDoesNotExist()
+            assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+                .takeScreenshot(File(app.getExternalFilesDir(null), "settings-sequential-2.6.4.png")))
+            compose.onNodeWithTag("settings-layout-submenu").performScrollTo().performClick()
+            compose.waitUntil(5_000) { runBlocking { preferences.values.first().settingsSubmenuEnabled } }
+            compose.onNodeWithTag("settings-submenu").assertExists()
+        } finally {
+            runBlocking { preferences.set("settingsSubmenuEnabled", original.settingsSubmenuEnabled.toString()) }
         }
     }
 }

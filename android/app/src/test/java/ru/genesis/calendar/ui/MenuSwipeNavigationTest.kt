@@ -73,4 +73,12 @@ class MenuSwipeNavigationTest {
         assertEquals(SwipeDestination("Сакральное", "theokyklos"),
             nextMenuSwipeDestination(stoicheionHidden, "Привычки", "Сон и настроение", 1))
     }
+
+    @Test fun sequentialSettingsHaveOneSwipeDestination() {
+        val pages = menuSwipeSequence(true, true, settingsSubmenuEnabled = false)
+        assertEquals(listOf(SwipeDestination("Настройки")),
+            pages.filter { it.page == "Настройки" })
+        assertEquals(SwipeDestination("Настройки"),
+            nextMenuSwipeDestination(pages, "Сакральное", "theokyklos", 1))
+    }
 }

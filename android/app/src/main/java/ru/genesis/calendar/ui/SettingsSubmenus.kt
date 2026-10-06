@@ -1,6 +1,7 @@
 package ru.genesis.calendar.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -61,11 +62,19 @@ internal val settingsSections = listOf(
 internal fun SettingsSubmenu(selectedId: String, language: String, showLabels: Boolean,
     onSelect: (String) -> Unit) {
     val selectedIndex = settingsSections.indexOfFirst { it.id == selectedId }.coerceAtLeast(0)
+    val outlined = LocalSubmenuOutlineMode.current
+    val outlineColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha =
+        if (LocalEveningTheme.current) .62f else .76f)
     val listState = rememberLazyListState()
     LaunchedEffect(selectedIndex, showLabels) {
         if (showLabels) listState.scrollToItem(selectedIndex)
     }
-    BoxWithConstraints(Modifier.fillMaxWidth().testTag("settings-submenu")) {
+    BoxWithConstraints(Modifier.fillMaxWidth()
+        .then(if (outlined) Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
+            .then(navigationSubmenuGroupAnchor())
+            .border(1.dp, outlineColor, RoundedCornerShape(19.dp))
+            .padding(horizontal = 5.dp, vertical = 4.dp) else Modifier)
+        .testTag("settings-submenu")) {
         if (!showLabels) {
             // Seven fixed icons fit in one row from 360 dp upward. Below that width,
             // remove gutters before reducing the targets so the menu never scrolls.
