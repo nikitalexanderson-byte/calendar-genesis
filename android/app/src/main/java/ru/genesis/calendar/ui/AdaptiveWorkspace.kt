@@ -3,6 +3,7 @@ package ru.genesis.calendar.ui
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
@@ -50,19 +51,22 @@ import androidx.compose.ui.unit.dp
 }
 
 /** Settings pages scroll from immediately below their submenu on a phone. */
-@Composable internal fun SettingsPageSections(content: @Composable () -> Unit) {
+@Composable internal fun SettingsPageSections(sequential: Boolean = false,
+    retainedScrollState: ScrollState? = null, content: @Composable () -> Unit) {
+    val scrollState = retainedScrollState ?: rememberScrollState()
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        if (maxWidth >= 840.dp) AdaptiveSettingsSections(content)
-        else Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+        if (maxWidth >= 840.dp && !sequential) AdaptiveSettingsSections(scrollState, content)
+        else Column(Modifier.fillMaxSize().verticalScroll(scrollState)
             .padding(16.dp).testTag("settings-page-sections"),
             verticalArrangement = Arrangement.spacedBy(14.dp)) { content() }
     }
 }
 
 /** Settings keep their reading order while complete sections share wider windows. */
-@Composable internal fun AdaptiveSettingsSections(content: @Composable () -> Unit) {
+@Composable internal fun AdaptiveSettingsSections(scrollState: ScrollState = rememberScrollState(),
+    content: @Composable () -> Unit) {
     Layout(content = content, modifier = Modifier.fillMaxSize()
-        .verticalScroll(rememberScrollState()).padding(16.dp)) { children, constraints ->
+        .verticalScroll(scrollState).padding(16.dp)) { children, constraints ->
         val gap = 14.dp.roundToPx()
         val columns = if (constraints.maxWidth >= 840.dp.roundToPx()) 2 else 1
         val width = constraints.maxWidth

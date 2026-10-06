@@ -9,5 +9,6 @@ class UiPreferencesDefaultsTest {
         assertTrue(preferences.menuSwipeEnabled)
         assertTrue(preferences.menuSwipeSubmenus)
         assertTrue(preferences.menuThreadsEnabled)
+        assertTrue(preferences.settingsSubmenuEnabled)
     }
 }

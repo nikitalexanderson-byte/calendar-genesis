@@ -52,6 +52,17 @@ private val release260Changes = mapOf(
         "Technical Google lists are hidden when creating tasks, and achievement emblems fit inside their cards."),
 )
 
+private val release264Changes = mapOf(
+    "ru" to listOf(
+        "Связь меню и подменю теперь можно показать нитями или общей обводкой. Категории жизни остаются отдельными фильтрами проектов.",
+        "Настройки можно листать по разделам или открыть все разделы блоками подряд. Каждый блок содержит свой заголовок и параметры.",
+        "Переключатели видимости меню сохраняют открытый раздел и положение прокрутки; переключатель общих проектов откликается сразу."),
+    "en" to listOf(
+        "Menu and submenu relationships can now be shown as threads or a shared outline. Life categories remain separate project filters.",
+        "Settings can be browsed by section or displayed as consecutive sections. Each section contains its heading and controls.",
+        "Menu visibility switches keep the current section and scroll position; the shared projects switch responds immediately."),
+)
+
 internal val notes = mapOf(
     "ru" to Notes("Что нового", "Понятно", listOf(
         "Переведены карты Стойхейона, сектора Теокиклоса, описания календарей и задачи на все языки приложения.",
@@ -143,8 +154,8 @@ internal fun ReleaseNotesDialog(onDismiss: () -> Unit) {
         title = { Text("${copy.title} · ${BuildConfig.VERSION_NAME}") },
         text = { Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            (release260Changes[LocalGenesisLanguage.current]
-                ?: release260Changes[if (LocalGenesisLanguage.current == "ru") "ru" else "en"]!!).forEach {
+            (release264Changes[LocalGenesisLanguage.current]
+                ?: release264Changes[if (LocalGenesisLanguage.current == "ru") "ru" else "en"]!!).forEach {
                 Text("• $it", style = MaterialTheme.typography.bodyMedium)
             }
         } },

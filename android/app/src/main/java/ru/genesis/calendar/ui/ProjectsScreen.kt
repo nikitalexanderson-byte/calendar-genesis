@@ -289,7 +289,7 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
                             SubmenuItem(it.id, it.name, categoryAccent(it.color), "category-filter-${it.id}")
                         }, selectedCategory ?: "all",
                         { selectCategory(it.takeUnless { id -> id == "all" }) },
-                        Modifier.testTag("life-category-filters"))
+                        Modifier.testTag("life-category-filters"), connectToParent = false)
                     if (categoriesExpanded) {
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

@@ -9,6 +9,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -41,6 +42,7 @@ private class NavigationAnchors(val page: String) {
     var viewport by mutableStateOf(Rect.Zero)
     var origin by mutableStateOf(Offset.Zero)
     val children = mutableStateMapOf<Any, Pair<String, Rect>>()
+    val groups = mutableStateMapOf<Any, Rect>()
 }
 private val LocalNavigationAnchors = staticCompositionLocalOf<NavigationAnchors?> { null }
 internal data class NavigationPageContext(val page: String, val active: Boolean)
@@ -49,6 +51,7 @@ internal val LocalNavigationPageContext = staticCompositionLocalOf<NavigationPag
 // controls that read the State should recompose; the page below must not.
 internal val LocalNavigationGlowPhase = staticCompositionLocalOf<State<Float>?> { null }
 internal val LocalCompactSubmenus = staticCompositionLocalOf { false }
+internal val LocalSubmenuOutlineMode = staticCompositionLocalOf { false }
 
 internal fun navigationGlowColor(phase: Float, evening: Boolean): Color {
     val colors = if (evening) listOf(Color(0xff83bdb0), Color(0xffaa9cc9),
@@ -62,6 +65,7 @@ internal fun navigationGlowColor(phase: Float, evening: Boolean): Color {
 /** Coordinates follow layout and horizontal scrolling; the spring gently follows the parent. */
 @Composable internal fun NavigationConnectionScope(page: String, selectedSubmenuId: String? = null,
     showConnections: Boolean = true,
+    outlineMode: Boolean = false,
     iconGlow: Boolean = false,
     content: @Composable () -> Unit) {
     val motionPhase = if ((iconGlow || showConnections) && ValueAnimator.areAnimatorsEnabled()) {
@@ -84,10 +88,50 @@ internal fun navigationGlowColor(phase: Float, evening: Boolean): Color {
     val parentX by animateFloatAsState(targetX, spring(dampingRatio = 1f, stiffness = 450f), label = "menu-link-x")
     val parentY by animateFloatAsState(parent.center.y, spring(dampingRatio = 1f, stiffness = 450f), label = "menu-link-y")
     val ink = MaterialTheme.colorScheme.secondary.copy(alpha = if (LocalEveningTheme.current) .6f else .4f)
+    val frameInk = MaterialTheme.colorScheme.outlineVariant.copy(alpha =
+        if (LocalEveningTheme.current) .62f else .76f)
     Box(Modifier.fillMaxSize().onGloballyPositioned { anchors.origin = it.positionInRoot() }
         .drawWithContent {
             drawContent()
-            if (!showConnections || parent == Rect.Zero) return@drawWithContent
+            if (parent == Rect.Zero) return@drawWithContent
+            val group = anchors.groups.values.filter {
+                it.right > anchors.origin.x && it.left < anchors.origin.x + size.width &&
+                    it.bottom > anchors.origin.y && it.top < anchors.origin.y + size.height &&
+                    it.width > 40.dp.toPx() && it.height > 12.dp.toPx()
+            }.minByOrNull { it.top }
+            if (outlineMode && group != null) {
+                val connector = Path()
+                if (rail && group.left > parent.right) {
+                    val startX = parent.right - anchors.origin.x
+                    val endX = group.left - anchors.origin.x
+                    val startY = parent.center.y - anchors.origin.y
+                    val endY = group.center.y - anchors.origin.y
+                    val half = 8.dp.toPx()
+                    connector.moveTo(startX, startY - half)
+                    connector.cubicTo((startX + endX) / 2f, startY - half,
+                        (startX + endX) / 2f, endY - half, endX, endY - half)
+                    connector.moveTo(startX, startY + half)
+                    connector.cubicTo((startX + endX) / 2f, startY + half,
+                        (startX + endX) / 2f, endY + half, endX, endY + half)
+                } else if (!rail && group.top > parent.bottom) {
+                    val startY = parent.bottom - anchors.origin.y
+                    val endY = group.top - anchors.origin.y
+                    val half = minOf(9.dp.toPx(), group.width / 4f)
+                    val x = parent.center.x.coerceIn(group.left + half,
+                        group.right - half) - anchors.origin.x
+                    val startX = parent.center.x - anchors.origin.x
+                    connector.moveTo(startX - half, startY)
+                    connector.cubicTo(startX - half, (startY + endY) / 2f,
+                        x - half, (startY + endY) / 2f, x - half, endY)
+                    connector.moveTo(startX + half, startY)
+                    connector.cubicTo(startX + half, (startY + endY) / 2f,
+                        x + half, (startY + endY) / 2f, x + half, endY)
+                }
+                drawPath(connector, frameInk, style = Stroke(width = 1.dp.toPx(),
+                    cap = StrokeCap.Round))
+                return@drawWithContent
+            }
+            if (!showConnections) return@drawWithContent
             val startY = parent.bottom - anchors.origin.y + 2.dp.toPx()
             anchors.children.values.forEach { (id, child) ->
                 val endY = child.top - anchors.origin.y - 2.dp.toPx()
@@ -140,7 +184,8 @@ internal fun navigationGlowColor(phase: Float, evening: Boolean): Color {
             }
         }.testTag("navigation-connections")) {
         CompositionLocalProvider(LocalNavigationAnchors provides anchors,
-            LocalNavigationGlowPhase provides glowPhase) { content() }
+            LocalNavigationGlowPhase provides glowPhase,
+            LocalSubmenuOutlineMode provides outlineMode) { content() }
     }
 }
 
@@ -169,17 +214,33 @@ internal fun navigationGlowColor(phase: Float, evening: Boolean): Color {
     return Modifier.onGloballyPositioned { anchors.children[token] = id to it.boundsInRoot() }
 }
 
+@Composable internal fun navigationSubmenuGroupAnchor(): Modifier {
+    val anchors = LocalNavigationAnchors.current ?: return Modifier
+    val context = LocalNavigationPageContext.current
+    if (context?.active != true || context.page != anchors.page) return Modifier
+    val token = remember { Any() }
+    DisposableEffect(anchors, token) { onDispose { anchors.groups.remove(token) } }
+    return Modifier.onGloballyPositioned { anchors.groups[token] = it.boundsInRoot() }
+}
+
 internal data class SubmenuItem(val id: String, val title: String, val accent: Color? = null, val tag: String? = null)
 
 /** Equal-height, full-width controls across Calendar, Habits, Tasks and Projects. */
 @Composable internal fun ConnectedSubmenu(items: List<SubmenuItem>, selectedId: String,
-    onSelect: (String) -> Unit, modifier: Modifier = Modifier) {
+    onSelect: (String) -> Unit, modifier: Modifier = Modifier,
+    connectToParent: Boolean = true) {
     val compact = LocalCompactSubmenus.current
-    val glowPhase = LocalNavigationGlowPhase.current?.value ?: -1f
+    val framed = connectToParent && LocalSubmenuOutlineMode.current
+    val glowPhase = if (connectToParent) LocalNavigationGlowPhase.current?.value ?: -1f else -1f
     val evening = LocalEveningTheme.current
+    val frameColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha =
+        if (evening) .62f else .76f)
     Column(modifier.fillMaxWidth().padding(start = if (compact) 8.dp else 12.dp,
         end = if (compact) 8.dp else 12.dp,
-        top = if (compact) 6.dp else 8.dp, bottom = if (compact) 3.dp else 5.dp),
+        top = if (compact) 6.dp else 8.dp, bottom = if (compact) 3.dp else 5.dp)
+        .then(if (framed) Modifier.then(navigationSubmenuGroupAnchor())
+            .border(1.dp, frameColor, RoundedCornerShape(19.dp))
+            .padding(horizontal = 6.dp, vertical = 5.dp) else Modifier),
         verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 6.dp)) {
         items.chunked(if(items.size in 1..4) items.size else 3).forEachIndexed { rowIndex, row ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -202,7 +263,7 @@ internal data class SubmenuItem(val id: String, val title: String, val accent: C
                         modifier = Modifier.weight(1f).height(if (compact) 44.dp else 48.dp)
                             .testTag(item.tag ?: "submenu-${item.id}")
                             .semantics { selected = picked; role = Role.Tab }
-                            .then(navigationSubmenuAnchor(item.id))) {
+                            .then(if (connectToParent) navigationSubmenuAnchor(item.id) else Modifier)) {
                         Row(Modifier.padding(horizontal = 5.dp), verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center) {
                             item.accent?.let { accent ->

@@ -102,7 +102,7 @@ internal fun eveningSurfaceTone(color: Color): Color {
 }
 
 @Composable internal fun AppearancePanel(app: GenesisApplication, workspace: LocalHabitWorkspace,
-    use24: Boolean, extra: @Composable ColumnScope.() -> Unit = {}) {
+    use24: Boolean, showTitle: Boolean = true, extra: @Composable ColumnScope.() -> Unit = {}) {
     val appearance = AppearanceSettings.read(workspace.settings.rawJson)
     val scope = rememberCoroutineScope()
     val repository = remember(app, app.workspaceScope) { HabitsRepository(app) }
@@ -129,7 +129,7 @@ internal fun eveningSurfaceTone(color: Color): Color {
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Оформление", style = MaterialTheme.typography.titleLarge)
+            if (showTitle) Text("Оформление", style = MaterialTheme.typography.titleLarge)
             Surface(shape = RoundedCornerShape(14.dp),
                 color = MaterialTheme.colorScheme.surfaceContainerLow,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
