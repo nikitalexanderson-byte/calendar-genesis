@@ -200,6 +200,8 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
         }
     }
     var tab by rememberSaveable { mutableStateOf("Сегодня") }
+    var highlightedPage by remember { mutableStateOf(tab) }
+    LaunchedEffect(tab) { highlightedPage = tab }
     var voiceOpen by rememberSaveable { mutableStateOf(false) }
     var voiceControlActive by remember { mutableStateOf(false) }
     val voiceLanguageEnabled = prefs.language == "ru" || prefs.language == "en"
@@ -219,6 +221,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     var newTaskProjectId by rememberSaveable { mutableStateOf<String?>(null) }
     var newTaskListId by rememberSaveable { mutableStateOf<String?>(null) }
     var creatingTaskList by rememberSaveable { mutableStateOf(false) }
+    var sharedListRefreshKey by remember { mutableIntStateOf(0) }
     var requestedTheokyklosSector by rememberSaveable { mutableStateOf<String?>(null) }
     var requestedStoicheionCard by rememberSaveable { mutableStateOf<String?>(null) }
     var todayPageDate by remember { mutableStateOf(LocalDate.now().toString()) }
@@ -275,9 +278,18 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
             delay(30_000)
         }
     }
-    val uiVisibility = authState.accountSettings?.uiVisibility ?: ru.genesis.calendar.auth.UiVisibility()
-    val visiblePages = listOf("Сегодня", "Задачи", "Проекты", "Календарь", "Привычки", "Стойхейон", "Теокиклос", "Настройки")
-        .filter { (habitTrackingEnabled || it != "Привычки") && menuVisibilityId(it) !in uiVisibility.hiddenMenuItems }
+    val serverUiVisibility = authState.accountSettings?.uiVisibility ?: ru.genesis.calendar.auth.UiVisibility()
+    var pendingUiVisibility by remember(authState.user?.uid) {
+        mutableStateOf<ru.genesis.calendar.auth.UiVisibility?>(null)
+    }
+    val uiVisibility = pendingUiVisibility ?: serverUiVisibility
+    LaunchedEffect(authState.busy, serverUiVisibility, pendingUiVisibility) {
+        if (!authState.busy && pendingUiVisibility != null) pendingUiVisibility = null
+    }
+    val visiblePages = listOf("Сегодня", "Задачи", "Проекты", "Календарь", "Привычки", "Сакральное", "Настройки")
+        .filter { (habitTrackingEnabled || it != "Привычки") && menuVisibilityId(it) !in uiVisibility.hiddenMenuItems &&
+            (it != "Сакральное" || !("stoicheion" in uiVisibility.hiddenMenuItems &&
+                "theokyklos" in uiVisibility.hiddenMenuItems)) }
     LaunchedEffect(sharedProjectsEnabled) {
         if (!sharedProjectsEnabled) menuSwipeState.projectArea = "personal"
     }
@@ -291,6 +303,9 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
             menuSwipeState.projectArea = if (menuSwipeState.projectArea == "personal") "shared" else "personal"
         if ((if (menuSwipeState.habits == "Привычки") "habits.habits" else "habits.sleep") in uiVisibility.hiddenSubmenus)
             menuSwipeState.habits = if (menuSwipeState.habits == "Привычки") "Сон и настроение" else "Привычки"
+        if ("sacred.${menuSwipeState.sacred}" in uiVisibility.hiddenSubmenus ||
+            menuSwipeState.sacred in uiVisibility.hiddenMenuItems)
+            menuSwipeState.sacred = if (menuSwipeState.sacred == "stoicheion") "theokyklos" else "stoicheion"
     }
     val swipeSequence = remember(prefs.menuSwipeSubmenus, habitTrackingEnabled, sharedProjectsEnabled,
         uiVisibility.hiddenMenuItems, uiVisibility.hiddenSubmenus) {
@@ -300,6 +315,24 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     val swipeSection = if (prefs.menuSwipeSubmenus && (tab != "Проекты" || sharedProjectsEnabled))
         menuSwipeState.section(tab) else null
     val currentSwipeDestination = remember(tab, swipeSection) { SwipeDestination(tab, swipeSection) }
+    val usageSection = menuSwipeState.section(tab)
+    LaunchedEffect(activeScope, authState.ready, authState.requiresSignIn, authState.user?.uid,
+        tab, usageSection, prefs.display, testWorkspace) {
+        if (!testWorkspace && authState.ready && !authState.requiresSignIn && authState.user != null) {
+            val features = when (tab) {
+                "Сегодня" -> listOf("menu.today")
+                "Задачи" -> listOf("menu.tasks", "submenu.tasks.${menuSwipeState.tasks}")
+                "Проекты" -> listOf("menu.projects", "submenu.projects.${menuSwipeState.projectArea}")
+                "Календарь" -> listOf("menu.calendar", "submenu.calendar.${menuSwipeState.calendar}",
+                    "calendar.${prefs.display.wireValue}")
+                "Привычки" -> listOf("menu.habits", "submenu.habits.${if (menuSwipeState.habits == "Привычки") "habits" else "sleep"}")
+                "Сакральное" -> listOf("menu.sacred", "submenu.sacred.${menuSwipeState.sacred}")
+                "Настройки" -> listOf("menu.settings", "submenu.settings.${menuSwipeState.settings}")
+                else -> emptyList()
+            }
+            if (features.isNotEmpty()) runCatching { authController.recordFeatureUsage(features) }
+        }
+    }
     val eveningTheme = rememberEveningTheme(AppearanceSettings.read(habitWorkspace.settings.rawJson))
     val accountGate = !testWorkspace && (!activeScope.startsWith("account-") || authState.user == null || !authState.ready)
     val welcomeVisible = accountGate && !(authState.busy && authState.user != null)
@@ -393,12 +426,12 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
         }
         is NativeVoiceAction.TheokyklosSector -> {
             requestedTheokyklosSector = action.sectorId
-            tab = "Теокиклос"
+            menuSwipeState.sacred = "theokyklos"; tab = "Сакральное"
             "Сектор Теокиклоса открыт."
         }
         is NativeVoiceAction.StoicheionCard -> {
             requestedStoicheionCard = action.cardId
-            tab = "Стойхейон"
+            menuSwipeState.sacred = "stoicheion"; tab = "Сакральное"
             "Карта Стойхейона открыта."
         }
         is NativeVoiceAction.SetMood -> {
@@ -412,7 +445,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
             "Записываю настроение."
         }
         is NativeVoiceAction.StoicheionDraw -> {
-            tab="Стойхейон"
+            menuSwipeState.sacred="stoicheion";tab="Сакральное"
             "Открываю Стойхейон."
         }
         is NativeVoiceAction.SetSleep,is NativeVoiceAction.SetSleepPlan -> {
@@ -520,7 +553,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                     val draws=if(activeScope.startsWith("account-")) repository.refreshFromServer() else repository.today.first()
                     val existing=if(action.drawKind=="daily") draws.daily else draws.spread
                     if(existing==null) repository.save(action.drawKind)
-                    tab="Стойхейон"
+                    menuSwipeState.sacred="stoicheion";tab="Сакральное"
                     return if(prefs.language=="en")
                         if(action.drawKind=="spread") "Nine-card spread opened." else "Daily card opened."
                     else if(action.drawKind=="spread") "Расклад девяти карт открыт." else "Карта дня открыта."
@@ -613,8 +646,9 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         scope.launch { welcomePrefsStore.set("language",language) }
                     }
             } else {
-            NavigationConnectionScope(tab,
-                showConnections = prefs.navigationLabels && tab != "Проекты" && !portraitAutoScroll,
+            NavigationConnectionScope(tab, selectedSubmenuId = menuSwipeState.section(tab),
+                showConnections = prefs.menuThreadsEnabled &&
+                    tab in setOf("Задачи", "Проекты", "Календарь", "Привычки", "Сакральное", "Настройки"),
                 iconGlow = !prefs.navigationLabels) {
             Column(Modifier.safeDrawingPadding().imePadding()) {
                 val accountStatus = if (activeScope.startsWith("account-"))
@@ -684,15 +718,28 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         },
                         onVoiceRequestConsumed={voiceScreenRequest=null},
                         hiddenSubmenus=uiVisibility.hiddenSubmenus)
-                    "Теокиклос" -> TheokyklosScreen(app,prefs.input,onOpenHabits={requestedSacredHabits=true;tab="Привычки"},
-                        initialSectorId=requestedTheokyklosSector,
-                        onInitialSectorConsumed={requestedTheokyklosSector=null})
-                    "Стойхейон" -> StoicheionScreen(app,prefs.divinationDisabled,
-                        initialCardId=requestedStoicheionCard,
-                        onInitialCardOpened={requestedStoicheionCard=null},
-                        onOpenTheokyklosSector={ sectorId ->
-                        requestedTheokyklosSector=sectorId; tab="Теокиклос"
-                    })
+                    "Сакральное" -> Column(Modifier.fillMaxSize()) {
+                        val sacredSubmenus = listOf(
+                            SubmenuItem("stoicheion", if (prefs.language == "en") "Stoicheion" else "Стойхейон"),
+                            SubmenuItem("theokyklos", if (prefs.language == "en") "Theokyklos" else "Теокиклос"))
+                            .filter { "sacred.${it.id}" !in uiVisibility.hiddenSubmenus &&
+                                it.id !in uiVisibility.hiddenMenuItems }
+                        if (sacredSubmenus.size > 1) ConnectedSubmenu(sacredSubmenus,
+                            visibleSwipeState.sacred, { menuSwipeState.sacred = it },
+                            Modifier.testTag("sacred-submenu"))
+                        if (visibleSwipeState.sacred == "theokyklos")
+                            TheokyklosScreen(app, prefs.input,
+                                onOpenHabits = { requestedSacredHabits = true; tab = "Привычки" },
+                                initialSectorId = requestedTheokyklosSector,
+                                onInitialSectorConsumed = { requestedTheokyklosSector = null })
+                        else StoicheionScreen(app, prefs.divinationDisabled,
+                            initialCardId = requestedStoicheionCard,
+                            onInitialCardOpened = { requestedStoicheionCard = null },
+                            onOpenTheokyklosSector = { sectorId ->
+                                requestedTheokyklosSector = sectorId
+                                menuSwipeState.sacred = "theokyklos"; tab = "Сакральное"
+                            })
+                    }
                     "Проекты" -> Column(Modifier.fillMaxSize()) {
                         val projectSubmenus = listOf(
                             SubmenuItem("personal", if(prefs.language=="en") "Personal" else "Личные"),
@@ -717,6 +764,9 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                     }
                     "Задачи" -> TasksScreen(tasks,taskLists,structure,prefs.use24,
                         confirmed = testWorkspace || accountTaskSync?.confirmed != false,
+                        sharedController=authController.takeIf { sharedProjectsEnabled },
+                        sharedListRefreshKey=sharedListRefreshKey,
+                        onOpenSharedProjects={ menuSwipeState.projectArea="shared"; tab="Проекты" },
                         onCreateTask = { list -> newTaskListId=list?.id; newTaskProjectId=list?.let {
                             structure.taskListLinks.firstOrNull { link -> link.taskListId == it.id }?.projectId
                         }; editId=null; creating=true }, onCreateList={creatingTaskList=true},
@@ -744,14 +794,18 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                             it is NativeVoiceAction.EditTaskList || it is NativeVoiceAction.DeleteTaskList
                         },onVoiceRequestConsumed={voiceScreenRequest=null},
                         hiddenSubmenus=uiVisibility.hiddenSubmenus)
-                    "Настройки" -> SettingsScreen(app, prefs, authState.busy && !testWorkspace,
+                    "Настройки" -> SettingsScreen(app, prefs, visibleSwipeState.settings,
+                        onSection = { menuSwipeState.settings = it }, authState.busy && !testWorkspace,
                         authState.accountSettings, sharedProjectsEnabled,
-                        authController.takeIf { sharedProjectsEnabled },
+                        authController.takeIf { authState.accountSettings?.sharedProjectsEligible == true },
                         canOpenAdmin = !testWorkspace && authState.ready && !authState.requiresSignIn &&
                             authState.user != null && authState.accountSettings?.isAdmin == true,
                         adminLoad = authController::adminStats,
                         adminDelete = authController::deleteAdminUser,
-                        onSetVisibility = authController::updateUiVisibility,
+                        onSetVisibility = { next ->
+                            pendingUiVisibility = next
+                            authController.updateUiVisibility(next)
+                        },
                         onSet = { name, value ->
                             if (!testWorkspace && authState.user != null) authController.updateSharedPreference(name, value)
                             else scope.launch { prefsStore.set(name, value) }
@@ -843,37 +897,42 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         onNavigate = { destination ->
                             destination.section?.let { menuSwipeState.select(destination.page, it) }
                             tab = destination.page
-                        }, modifier = pagerModifier) { destination ->
+                        }, onPreview = { highlightedPage = it.page }, modifier = pagerModifier) { destination ->
                         val visibleSwipeState = if (destination == currentSwipeDestination) menuSwipeState
                             else remember(destination, menuSwipeState.tasks, menuSwipeState.projects,
                                 menuSwipeState.projectArea,
-                                menuSwipeState.calendar, menuSwipeState.habits) {
+                                menuSwipeState.calendar, menuSwipeState.habits,
+                                menuSwipeState.sacred, menuSwipeState.settings) {
                                 MenuSwipeState().also { preview ->
                                     preview.tasks = menuSwipeState.tasks
                                     preview.projects = menuSwipeState.projects
                                     preview.projectArea = menuSwipeState.projectArea
                                     preview.calendar = menuSwipeState.calendar
                                     preview.habits = menuSwipeState.habits
+                                    preview.sacred = menuSwipeState.sacred
+                                    preview.settings = menuSwipeState.settings
                                     destination.section?.let { preview.select(destination.page, it) }
                                 }
                             }
-                        CompositionLocalProvider(LocalCompactSubmenus provides (navigationOnLeft || isLandscape)) {
+                        CompositionLocalProvider(LocalCompactSubmenus provides (navigationOnLeft || isLandscape),
+                            LocalNavigationPageContext provides NavigationPageContext(destination.page,
+                                destination == currentSwipeDestination)) {
                             pageContent(destination.page, visibleSwipeState)
                         }
                     }
                 }
                 if (navigationOnLeft) {
                     Row(Modifier.fillMaxWidth().weight(1f).testTag("wide-navigation-layout")) {
-                        PrimaryNavigation(tab, visiblePages, vertical = true,
+                        PrimaryNavigation(highlightedPage, visiblePages, vertical = true,
                             showLabels = prefs.navigationLabels && !shortWindow, autoScroll = false,
-                            onSelect = { tab = it }, modifier = Modifier
+                            onSelect = { highlightedPage = it; tab = it }, modifier = Modifier
                                 .width(if (prefs.navigationLabels && !shortWindow) 132.dp else 64.dp).fillMaxHeight())
                         workspacePager(Modifier.weight(1f).fillMaxHeight().testTag("main-content"))
                     }
                 } else {
-                    PrimaryNavigation(tab, visiblePages, vertical = false,
+                    PrimaryNavigation(highlightedPage, visiblePages, vertical = false,
                         showLabels = prefs.navigationLabels, autoScroll = portraitAutoScroll,
-                        onSelect = { tab = it })
+                        onSelect = { highlightedPage = it; tab = it })
                     workspacePager(Modifier.fillMaxWidth().weight(1f).testTag("main-content"))
                 }
             }
@@ -906,7 +965,9 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
             if(creatingTaskList) TaskListEditor(structure,authState.accountSettings,prefs,
                 canCreate=authState.ready && !authState.requiresSignIn && authState.user!=null &&
                     (authState.accountSettings?.authProvider != "yandex" || authState.accountSettings?.calendarConnected == true),
-                initialTitle=voiceListTitle,onDismiss={creatingTaskList=false;voiceListTitle=""},onCreate=authController::createTaskList,
+                sharedCanCreate=authState.ready && !authState.requiresSignIn && authState.user!=null && sharedProjectsEnabled,
+                initialTitle=voiceListTitle,onDismiss={creatingTaskList=false;voiceListTitle="";sharedListRefreshKey++},onCreate=authController::createTaskList,
+                sharedController=authController.takeIf { sharedProjectsEnabled },
                 onSaveTasks={list,projectId,date,rows,options ->
                     require(app.workspaceScope==activeScope) { "Аккаунт изменился. Откройте форму заново." }
                     saveListDraftTasks(app,list,projectId,date,prefs.input,rows,options);authController.syncPending()
@@ -925,7 +986,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
         if (!testWorkspace && !accountGate) YandexCalendarFirstRunDialog(authState, authController)
         ReleaseNotesAutoDialog(!testWorkspace && !accountGate && !authState.offerGoogleServices)
         AndroidUpdatePrompt(app, authState.checkedAt,
-            !testWorkspace && authState.ready && authState.user != null)
+            !testWorkspace && authState.ready && authState.user != null && prefs.updateRemindersEnabled)
       }
       }
     }
@@ -1002,7 +1063,7 @@ private fun PrimaryNavigation(selectedPage: String, pages: List<String>, vertica
 private fun PrimaryNavigationItem(page: String, selectedPage: Boolean, fillWidth: Boolean,
     showLabels: Boolean, compact: Boolean, loopCopy: Boolean = false, onSelect: () -> Unit) {
     val accessiblePage = genesisTranslate(page)
-    val glowPhase = LocalNavigationGlowPhase.current
+    val glowPhase = LocalNavigationGlowPhase.current?.value ?: -1f
     val glow = if (!showLabels && selectedPage && glowPhase >= 0f)
         navigationGlowColor(glowPhase, LocalEveningTheme.current) else null
     Surface(onClick=onSelect, shape=RoundedCornerShape(16.dp),
@@ -1020,7 +1081,7 @@ private fun PrimaryNavigationItem(page: String, selectedPage: Boolean, fillWidth
             .semantics {
                 selected=selectedPage; role=Role.Tab
                 if (!showLabels) contentDescription = accessiblePage
-            }.then(if (loopCopy) Modifier else navigationParentAnchor(page))) {
+            }.then(navigationParentAnchor(page))) {
         Row(Modifier.fillMaxWidth().padding(horizontal=if(showLabels) 10.dp else 0.dp,
             vertical=if(compact) 6.dp else 8.dp),verticalAlignment=Alignment.CenterVertically,
             horizontalArrangement=Arrangement.Center) {
@@ -1627,7 +1688,8 @@ internal fun ProjectHierarchyPicker(projects: List<GenesisProject>, selectedId: 
 }
 
 @Composable
-private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy:Boolean,
+private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sectionId:String,
+    onSection:(String)->Unit,sharedBusy:Boolean,
     accountSettings:ru.genesis.calendar.auth.AccountSettings?,
     sharedProjectsEnabled:Boolean,
     sharedController:ru.genesis.calendar.auth.AuthController?,
@@ -1652,167 +1714,226 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
     val visibility = accountSettings?.uiVisibility ?: ru.genesis.calendar.auth.UiVisibility()
     fun diagnosticTime(value: Long) = Instant.ofEpochMilli(value).atZone(ZoneId.systemDefault())
         .format(DateTimeFormatter.ofPattern("dd.MM HH:mm"))
-    AdaptiveSettingsSections {
-        GenesisPageHeader(if (prefs.language == "en") "Settings" else "Настройки",
-            if (prefs.language == "en") "Calendars, time, privacy and reminders"
-            else "Календарь, время, приватность и напоминания", "⚙")
-        AndroidUpdateBanner()
-        AppearancePanel(app, workspace, prefs.use24)
-        SettingsSection("◈", "Общие проекты", "Совместная работа в GENESIS", Color(0xffe9ede5)) {
+    val section = settingsSections.firstOrNull { it.id == sectionId } ?: settingsSections.first()
+    Column(Modifier.fillMaxSize()) {
+    SettingsSubmenu(section.id, prefs.language, prefs.settingsMenuLabels, onSection)
+    SettingsPageSections {
+        GenesisPageHeader("${if (prefs.language == "en") "Settings" else "Настройки"} - ${section.title(prefs.language)}",
+            section.description(prefs.language), "⚙", icon = section.icon)
+        when (section.id) {
+        "appearance" -> {
+        AppearancePanel(app, workspace, prefs.use24) {
+            MenuDisplaySettings(prefs, onSetLocal)
+            MenuVisibilitySettings(prefs, accountSettings, sharedBusy, sharedProjectsEnabled,
+                visibility, onSetVisibility)
+            LanguageSettings(prefs.language) { onSet("language", it) }
+            CalendarTimeSettings(prefs, visibility, sharedBusy, onSet, onSetLocal) {
+                calendarReference = it
+            }
+        }
+        SettingsSection("Σ", "Стойхейон", "Управление картами без отключения алфавита",
+            Color(0xffeee9f4)) {
+            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Гадания по картам",style=MaterialTheme.typography.titleMedium)
+                    Text("Карты дня и расклад можно скрыть; буквы и значения останутся доступны.",
+                        style=MaterialTheme.typography.bodySmall,color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(checked=!prefs.divinationDisabled,
+                    onCheckedChange={onSet("stoicheionDivinationDisabled",(!it).toString())},
+                    enabled=!sharedBusy,
+                    modifier=Modifier.testTag("stoicheion-divination-setting"))
+            }
+        }
+        SettingsSection("!", "Пропущенные задачи", "Напоминание внутри раздела «Сегодня»",
+            Color(0xffffebe4)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Напоминать о пропущенных задачах", style = MaterialTheme.typography.titleSmall)
+                    Text("Показывать невыполненные задачи прошлых дней с возможностью перенести их на сегодня.",
+                        style = MaterialTheme.typography.bodySmall)
+                }
+                Switch(checked = prefs.showMissedTasksToday,
+                    onCheckedChange = { onSetLocal("showMissedTasksToday", it.toString()) },
+                    modifier = Modifier.testTag("show-missed-tasks-today"))
+            }
+        }
+        }
+        "habits" -> HabitSettingsPanel(app, prefs.use24)
+        "reminders" -> {
+        MoonReminderSettings(app, prefs, onSetLocal)
+        SettingsSection("◷", "Системные напоминания", "Проверка разрешений и точности Android",
+            Color(0xfffff1cf)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SettingsStatusTile("Уведомления", if(notificationsAllowed) "Включены" else "Выключены",
+                    notificationsAllowed, Modifier.weight(1f))
+                SettingsStatusTile("Доставка", if(app.scheduler.exactAllowed()) "Точная" else "Приблизительная",
+                    app.scheduler.exactAllowed(), Modifier.weight(1f))
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SettingsStatusTile("Резерв", "${app.scheduler.scheduledHabitAlarmCount() + futureTaskAlarms} событий",
+                    notificationsAllowed, Modifier.weight(1f))
+                SettingsStatusTile("Батарея", if(batteryUnrestricted) "Без оптимизации" else "Системный режим",
+                    batteryUnrestricted, Modifier.weight(1f))
+            }
+            Text("Каналы: задачи · ${if(app.scheduler.channelAllowed()) "включён" else "выключен"}; привычки · ${if(app.scheduler.channelAllowed(ru.genesis.calendar.reminders.ReminderScheduler.HABIT_CHANNEL)) "включены" else "выключены"}",
+                style = MaterialTheme.typography.bodyMedium)
+            Button(onClick={
+                if(Build.VERSION.SDK_INT>=33 && !app.scheduler.notificationsAllowed()) request.launch(Manifest.permission.POST_NOTIFICATIONS)
+                else app.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE,app.packageName).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)){Text("Настроить уведомления")}
+            if(Build.VERSION.SDK_INT in 31..32 && !app.scheduler.exactAllowed()) OutlinedButton(onClick={
+                app.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,Uri.parse("package:${app.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)){Text("Точное время напоминаний")}
+            if(Build.VERSION.SDK_INT>=33 && !app.scheduler.exactAllowed())
+                Text("Android может задерживать сигналы. Проверьте разрешения GENESIS в настройках устройства.",
+                    style=MaterialTheme.typography.bodySmall,color = Color(0xff7a5521))
+            Text("Точные системные сигналы дополнены резервной доставкой WorkManager. После перезагрузки, обновления и возврата из настроек расписание восстанавливается автоматически.",
+                style = MaterialTheme.typography.bodySmall)
+            app.scheduler.lastRecoveryAt().takeIf { it > 0 }?.let {
+                Text("Последнее восстановление расписания · ${diagnosticTime(it)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.testTag("notification-last-recovery"))
+            }
+            OutlinedButton(onClick={scope.launch{app.scheduler.restore(recoverOverdue = true);app.scheduler.restoreHabitNotifications();refresh++}},
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)){Text("Проверить расписание")}
+            OutlinedButton(onClick={app.scheduler.scheduleDiagnosticNotification();refresh++},
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("notification-diagnostic-schedule")) {
+                Text("Проверить уведомление через 1 минуту")
+            }
+            if (diagnosticScheduledAt > 0) {
+                Text(if (diagnosticDeliveredAt >= diagnosticScheduledAt)
+                    "Последняя проверка доставлена · ${diagnosticTime(diagnosticDeliveredAt)}"
+                else "Проверка назначена · ${diagnosticTime(diagnosticScheduledAt)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (diagnosticDeliveredAt >= diagnosticScheduledAt) Color(0xff255b59) else Color(0xff7a5521),
+                    modifier = Modifier.testTag("notification-diagnostic-status"))
+            }
+            OutlinedButton(onClick={app.startActivity(appBatterySettingsIntent(app.packageName))},
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("notification-battery-settings")) {
+                Text("Открыть системные настройки батареи")
+            }
+            samsungNeverSleepingAppsIntent()?.let { samsungIntent ->
+                OutlinedButton(onClick={
+                    if (runCatching { app.startActivity(samsungIntent); true }.getOrDefault(false).not())
+                        app.startActivity(appBatterySettingsIntent(app.packageName))
+                }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                    .testTag("notification-samsung-never-sleeping")) {
+                    Text("Samsung: никогда не спящие приложения")
+                }
+                Text("One UI может снова перенести редко используемое приложение в сон. После обновления Samsung проверьте, что GENESIS остаётся в списке «Никогда не спящие приложения».",
+                    style = MaterialTheme.typography.bodySmall)
+            }
+            Text("Принудительную остановку приложения Android не разрешает обходить. После неё откройте GENESIS один раз — расписание восстановится.",
+                style = MaterialTheme.typography.bodySmall)
+            rows.sortedBy{it.at}.takeLast(8).forEach{Text("Напоминание · ${it.state} · ${Instant.ofEpochMilli(it.at).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("dd.MM HH:mm"))}",style=MaterialTheme.typography.bodySmall)}
+        }
+        }
+        "shared" -> SettingsSection("◈", "Общие проекты", "Совместная работа в GENESIS", Color(0xffe9ede5)) {
             Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("Общие проекты",style=MaterialTheme.typography.titleSmall)
-                    Text(if(accountSettings?.sharedProjectsEligible==true)
+                    Text(if(accountSettings?.sharedProjectsLifetimeAccess==true)
                         "Пожизненный бесплатный открытый доступ к функциям «Общие проекты»."
-                        else "Доступно в платной версии.",style=MaterialTheme.typography.bodySmall)
+                        else "Открыто всем аккаунтам GENESIS на время тестирования.",style=MaterialTheme.typography.bodySmall)
                 }
                 Switch(checked=sharedProjectsEnabled,
                     enabled=accountSettings?.sharedProjectsEligible==true && !sharedBusy,
                     onCheckedChange={onSet("sharedProjectsEnabled",it.toString())},
                     modifier=Modifier.testTag("shared-projects-toggle"))
             }
+            if (sharedController != null) SharedInvitationInbox(sharedController, prefs.language, sharedProjectsEnabled)
         }
-        if (sharedController != null) SharedInvitationInbox(sharedController, prefs.language)
-        SettingsSection("☷", if (prefs.language == "en") "Menu and Today" else "Меню и экран «Сегодня»",
-            if (prefs.language == "en") "Choose the sections you use" else "Выберите нужные вам разделы",
-            Color(0xffe9ede5)) {
-            Text(if (prefs.language == "en") "Today and Settings always remain available."
-                else "«Сегодня» и «Настройки» всегда доступны.", style = MaterialTheme.typography.bodySmall)
-            Text(if (prefs.language == "en") "Main menu" else "Главное меню", style = MaterialTheme.typography.titleSmall)
-            listOf("Задачи" to "tasks", "Проекты" to "projects", "Календарь" to "calendar",
-                "Привычки" to "habits", "Стойхейон" to "stoicheion", "Теокиклос" to "theokyklos")
-                .forEach { (label, id) ->
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text(genesisTranslate(label), Modifier.weight(1f))
-                        Switch(checked = id !in visibility.hiddenMenuItems,
-                            enabled = accountSettings != null && !sharedBusy,
-                            onCheckedChange = { checked -> onSetVisibility(visibility.copy(
-                                hiddenMenuItems = if (checked) visibility.hiddenMenuItems - id
-                                    else visibility.hiddenMenuItems + id)) },
-                            modifier = Modifier.testTag("menu-visibility-$id"))
-                    }
-                }
-            Text(if (prefs.language == "en") "Submenus" else "Подменю", style = MaterialTheme.typography.titleSmall)
-            listOf("Задачи" to "tasks.tasks", "Списки задач" to "tasks.lists",
-                "Личные проекты" to "projects.personal", "Общие проекты" to "projects.shared",
-                "Месяц" to "calendar.month", "Год" to "calendar.year",
-                "Привычки" to "habits.habits", "Сон и настроение" to "habits.sleep")
-                .forEach { (label, id) ->
-                    val group = id.substringBefore('.')
-                    val visibleCount = listOf("tasks.tasks", "tasks.lists", "projects.personal", "projects.shared",
-                        "calendar.month", "calendar.year", "habits.habits", "habits.sleep")
-                        .count { it.startsWith("$group.") && it !in visibility.hiddenSubmenus }
-                    val lastVisible = id !in visibility.hiddenSubmenus && visibleCount == 1
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text(genesisTranslate(label), Modifier.weight(1f))
-                        Switch(checked = id !in visibility.hiddenSubmenus,
-                            enabled = accountSettings != null && !sharedBusy && !lastVisible &&
-                                !(id == "projects.personal" && !sharedProjectsEnabled),
-                            onCheckedChange = { checked -> onSetVisibility(visibility.copy(
-                                hiddenSubmenus = if (checked) visibility.hiddenSubmenus - id
-                                    else visibility.hiddenSubmenus + id)) },
-                            modifier = Modifier.testTag("submenu-visibility-$id"))
-                    }
-                }
-            Text(if (prefs.language == "en") "Today" else "Экран «Сегодня»", style = MaterialTheme.typography.titleSmall)
-            listOf("Ритм дня" to "rhythm", "Быстрое создание" to "quickCreate",
-                "Задачи дня" to "tasks", "Привычки дня" to "habits", "Подробности дня" to "details")
-                .forEach { (label, id) ->
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text(genesisTranslate(label), Modifier.weight(1f))
-                        Switch(checked = id !in visibility.hiddenTodayBlocks,
-                            enabled = accountSettings != null && !sharedBusy,
-                            onCheckedChange = { checked -> onSetVisibility(visibility.copy(
-                                hiddenTodayBlocks = if (checked) visibility.hiddenTodayBlocks - id
-                                    else visibility.hiddenTodayBlocks + id)) },
-                            modifier = Modifier.testTag("today-visibility-$id"))
-                    }
-                }
-            Text(if (prefs.language == "en") "Available calendars" else "Доступные календари",
-                style = MaterialTheme.typography.titleSmall)
-            listOf(CalendarMode.PROFANE to "Григорианский", CalendarMode.SACRED to "Сакральный",
-                CalendarMode.LUNAR to "Лунный").forEach { (mode, label) ->
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(genesisTranslate(label), Modifier.weight(1f))
-                    Switch(checked = mode.wireValue in visibility.enabledCalendars,
-                        enabled = accountSettings != null && !sharedBusy &&
-                            !(visibility.enabledCalendars.size == 1 && mode.wireValue in visibility.enabledCalendars),
-                        onCheckedChange = { checked -> onSetVisibility(visibility.copy(
-                            enabledCalendars = if (checked) visibility.enabledCalendars + mode.wireValue
-                                else visibility.enabledCalendars - mode.wireValue)) },
-                        modifier = Modifier.testTag("calendar-visibility-${mode.wireValue}"))
-                }
-            }
-        }
+        "region" -> {
         SeasonRegionSettings(prefs, onSetLocal)
         SolarPlaceSettings()
-        SettingsSection("☷", "Отображение меню", "Кнопки телефона, альбомного режима и планшета",
-            Color(0xffe9ede5)) {
-            Text("Кнопки меню первого уровня", style = MaterialTheme.typography.titleSmall)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = !prefs.navigationLabels,
-                    onClick = { onSetLocal("navigationLabels", "icons") },
-                    modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("navigation-icons-only"),
-                    leadingIcon = { GenesisVectorIcon(GenesisPageIcon.TODAY, Modifier.size(20.dp)) },
-                    label = { Text("Иконки") })
-                FilterChip(selected = prefs.navigationLabels,
-                    onClick = { onSetLocal("navigationLabels", "text") },
-                    modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("navigation-with-text"),
-                    label = { Text("С текстом") })
-            }
-            AnimatedVisibility(prefs.navigationLabels) {
-                Row(Modifier.fillMaxWidth().testTag("navigation-auto-scroll-setting"),
-                    verticalAlignment = Alignment.CenterVertically) {
+        }
+        "account" -> {
+        if (!BuildConfig.PLAY_DISTRIBUTION) {
+            SettingsSection("↻", "Обновления приложения", "Уведомления о новых версиях GENESIS",
+                Color(0xffe6f0eb)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Автопрокрутка в портретном режиме", style = MaterialTheme.typography.titleSmall)
-                        Text("Медленное движение справа налево; удержание пальцем ставит его на паузу.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Напоминать о новых версиях", style = MaterialTheme.typography.titleSmall)
+                        Text("Показывать предложение после синхронизации и плашку в настройках.",
+                            style = MaterialTheme.typography.bodySmall)
                     }
-                    Switch(checked = prefs.navigationAutoScroll,
-                        onCheckedChange = { onSetLocal("navigationAutoScroll", it.toString()) },
-                        modifier = Modifier.testTag("navigation-auto-scroll"))
+                    Switch(checked = prefs.updateRemindersEnabled,
+                        onCheckedChange = { onSetLocal("updateRemindersEnabled", it.toString()) },
+                        modifier = Modifier.testTag("update-reminders-toggle"))
                 }
             }
-            Text("Расположение меню первого уровня", style = MaterialTheme.typography.titleSmall)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = prefs.wideNavigationOnLeft,
-                    onClick = { onSetLocal("wideNavigation", "left") },
-                    modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("wide-navigation-left"),
-                    label = { Text("Слева") })
-                FilterChip(selected = !prefs.wideNavigationOnLeft,
-                    onClick = { onSetLocal("wideNavigation", "top") },
-                    modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("wide-navigation-top"),
-                    label = { Text("Сверху") })
-            }
-            Text("Настройка применяется автоматически при повороте экрана и на планшете.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("Переход между вкладками в портретном режиме",
-                style = MaterialTheme.typography.titleSmall)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = !prefs.menuSwipeEnabled,
-                    onClick = { onSetLocal("menuSwipeEnabled", "false") },
-                    modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("menu-swipe-off"),
-                    label = { Text("Кнопки меню") })
-                FilterChip(selected = prefs.menuSwipeEnabled,
-                    onClick = { onSetLocal("menuSwipeEnabled", "true") },
-                    modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("menu-swipe-on"),
-                    label = { Text("Общий свайп") })
-            }
-            Text("Смахивайте содержимое экрана влево или вправо для перехода между разделами.",
-                style = MaterialTheme.typography.bodySmall)
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(checked = prefs.menuSwipeSubmenus, enabled = prefs.menuSwipeEnabled,
-                    onCheckedChange = { onSetLocal("menuSwipeSubmenus", it.toString()) },
-                    modifier = Modifier.testTag("menu-swipe-submenus"))
-                Text("Включать подменю в общий свайп", style = MaterialTheme.typography.bodyMedium)
-            }
-            Text("При общем свайпе месяцы и годы переключаются стрелками.",
-                style = MaterialTheme.typography.bodySmall)
+            if (prefs.updateRemindersEnabled) AndroidUpdateBanner()
         }
-        SettingsSection("◉", "Календари и время", "Отображение не меняет календарь ввода и повторений",
-            Color(0xffe4efed), modifier = Modifier.testTag("calendar-settings-section")) {
+        SettingsSection("G", "Аккаунт GENESIS", "Вход, синхронизация и связанные Google-аккаунты",
+            Color(0xfff4e8df)) {
+            ru.genesis.calendar.auth.AuthPanel(app, prefs.language)
+            if (canOpenAdmin) OutlinedButton(onClick = { adminOpen = true },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("open-native-admin")) {
+                Text("Админ-панель")
+            }
+        }
+        }
+        "links" -> {
+        SettingsSection("↗", "Ссылки GENESIS", "Академия, поддержка и веб-версия",
+            Color(0xfffff5df)) {
+            ru.genesis.calendar.auth.GenesisLinksPanel()
+        }
+        TextButton(onClick = { releaseNotesOpen = true },
+            modifier = Modifier.fillMaxWidth().testTag("open-release-notes")) {
+            Text("${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · ${releaseNotesTitle()}",
+                style = MaterialTheme.typography.labelSmall)
+        }
+        }
+        }
+    }
+    }
+    calendarReference?.let { value ->
+        CalendarReferenceDialog(CalendarMode.fromWire(value)) { calendarReference = null }
+    }
+    if (adminOpen && canOpenAdmin) NativeAdminPanel(onClose = { adminOpen = false },
+        load = adminLoad, deleteUser = adminDelete)
+    if (releaseNotesOpen) ReleaseNotesDialog { releaseNotesOpen = false }
+}
+
+@Composable
+private fun SettingsSubsection(title: String, modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit) {
+    Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(genesisTranslate(title), style = MaterialTheme.typography.titleMedium)
+            content()
+        }
+    }
+}
+
+@Composable
+private fun LanguageSettings(language: String, onLanguage: (String) -> Unit) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    SettingsSubsection("Язык интерфейса") {
+        OutlinedButton(onClick = { expanded = !expanded },
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                .testTag("appearance-language-toggle")) {
+            Text(if (expanded) {
+                if (language == "en") "Hide languages" else "Свернуть выбор языка"
+            } else {
+                if (language == "en") "Choose language" else "Выбрать язык"
+            })
+        }
+        AnimatedVisibility(expanded) {
+            LanguageChips(language, flagsOnly = true, onLanguage = onLanguage)
+        }
+    }
+}
+
+@Composable
+private fun CalendarTimeSettings(prefs: UiPreferences,
+    visibility: ru.genesis.calendar.auth.UiVisibility, sharedBusy: Boolean,
+    onSet: (String, String) -> Unit, onSetLocal: (String, String) -> Unit,
+    onOpenReference: (String) -> Unit) {
+    SettingsSubsection("Календари и время", Modifier.testTag("calendar-settings-section")) {
             Text("Справочная информация", style = MaterialTheme.typography.titleSmall)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 listOf(CalendarMode.PROFANE to "Григорианский", CalendarMode.SACRED to "Сакральный",
@@ -1822,7 +1943,7 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
                         CalendarMode.SACRED -> if (LocalEveningTheme.current) Color(0xffe4bd64) else Color(0xff92621d)
                         CalendarMode.LUNAR -> if (LocalEveningTheme.current) Color(0xffb6a5df) else Color(0xff68539d)
                     }
-                    OutlinedButton(onClick = { calendarReference = mode.wireValue },
+                    OutlinedButton(onClick = { onOpenReference(mode.wireValue) },
                         modifier = Modifier.weight(1f).heightIn(min = 52.dp)
                             .testTag("calendar-reference-${mode.wireValue}"),
                         colors = ButtonDefaults.outlinedButtonColors(
@@ -1900,125 +2021,202 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sharedBusy
                     enabled=!sharedBusy,label={Text(it)})
             } }
         }
-        SettingsSection("Σ", "Стойхейон", "Управление картами без отключения алфавита",
-            Color(0xffeee9f4)) {
-            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Гадания по картам",style=MaterialTheme.typography.titleMedium)
-                    Text("Карты дня и расклад можно скрыть; буквы и значения останутся доступны.",
-                        style=MaterialTheme.typography.bodySmall,color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Switch(checked=!prefs.divinationDisabled,
-                    onCheckedChange={onSet("stoicheionDivinationDisabled",(!it).toString())},
-                    enabled=!sharedBusy,
-                    modifier=Modifier.testTag("stoicheion-divination-setting"))
+}
+
+@Composable
+private fun MenuDisplaySettings(prefs: UiPreferences, onSetLocal: (String, String) -> Unit) {
+    SettingsSubsection("Отображение меню") {
+            Text("Кнопки меню первого уровня", style = MaterialTheme.typography.titleSmall)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected = !prefs.navigationLabels,
+                    onClick = { onSetLocal("navigationLabels", "icons") },
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("navigation-icons-only"),
+                    leadingIcon = { GenesisVectorIcon(GenesisPageIcon.TODAY, Modifier.size(20.dp)) },
+                    label = { Text("Иконки") })
+                FilterChip(selected = prefs.navigationLabels,
+                    onClick = { onSetLocal("navigationLabels", "text") },
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("navigation-with-text"),
+                    label = { Text("С текстом") })
             }
-        }
-        HabitSettingsPanel(app, prefs.use24)
-        SettingsSection("!", "Пропущенные задачи", "Напоминание внутри раздела «Сегодня»",
-            Color(0xffffebe4)) {
+            AnimatedVisibility(prefs.navigationLabels) {
+                Row(Modifier.fillMaxWidth().testTag("navigation-auto-scroll-setting"),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Автопрокрутка в портретном режиме", style = MaterialTheme.typography.titleSmall)
+                        Text("Медленное движение справа налево; удержание пальцем ставит его на паузу.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Switch(checked = prefs.navigationAutoScroll,
+                        onCheckedChange = { onSetLocal("navigationAutoScroll", it.toString()) },
+                        modifier = Modifier.testTag("navigation-auto-scroll"))
+                }
+            }
+            Text("Подменю настроек", style = MaterialTheme.typography.titleSmall)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected = !prefs.settingsMenuLabels,
+                    onClick = { onSetLocal("settingsMenuLabels", "icons") },
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                        .testTag("settings-menu-icons-only"),
+                    label = { Text("Иконки") })
+                FilterChip(selected = prefs.settingsMenuLabels,
+                    onClick = { onSetLocal("settingsMenuLabels", "text") },
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                        .testTag("settings-menu-with-text"),
+                    label = { Text("С подписями") })
+            }
+            Text("Расположение меню первого уровня", style = MaterialTheme.typography.titleSmall)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected = prefs.wideNavigationOnLeft,
+                    onClick = { onSetLocal("wideNavigation", "left") },
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("wide-navigation-left"),
+                    label = { Text("Слева") })
+                FilterChip(selected = !prefs.wideNavigationOnLeft,
+                    onClick = { onSetLocal("wideNavigation", "top") },
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("wide-navigation-top"),
+                    label = { Text("Сверху") })
+            }
+            Text("Настройка применяется автоматически при повороте экрана и на планшете.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Переход между вкладками в портретном режиме",
+                style = MaterialTheme.typography.titleSmall)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected = !prefs.menuSwipeEnabled,
+                    onClick = { onSetLocal("menuSwipeEnabled", "false") },
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("menu-swipe-off"),
+                    label = { Text("Кнопки меню") })
+                FilterChip(selected = prefs.menuSwipeEnabled,
+                    onClick = { onSetLocal("menuSwipeEnabled", "true") },
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("menu-swipe-on"),
+                    label = { Text("Общий свайп") })
+            }
+            Text("Смахивайте содержимое экрана влево или вправо для перехода между разделами.",
+                style = MaterialTheme.typography.bodySmall)
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Напоминать о пропущенных задачах", style = MaterialTheme.typography.titleSmall)
-                    Text("Показывать невыполненные задачи прошлых дней с возможностью перенести их на сегодня.",
-                        style = MaterialTheme.typography.bodySmall)
-                }
-                Switch(checked = prefs.showMissedTasksToday,
-                    onCheckedChange = { onSetLocal("showMissedTasksToday", it.toString()) },
-                    modifier = Modifier.testTag("show-missed-tasks-today"))
+                Checkbox(checked = prefs.menuSwipeSubmenus, enabled = prefs.menuSwipeEnabled,
+                    onCheckedChange = { onSetLocal("menuSwipeSubmenus", it.toString()) },
+                    modifier = Modifier.testTag("menu-swipe-submenus"))
+                Text("Включать подменю в общий свайп", style = MaterialTheme.typography.bodyMedium)
             }
-        }
-        MoonReminderSettings(app, prefs, onSetLocal)
-        SettingsSection("◷", "Системные напоминания", "Проверка разрешений и точности Android",
-            Color(0xfffff1cf)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SettingsStatusTile("Уведомления", if(notificationsAllowed) "Включены" else "Выключены",
-                    notificationsAllowed, Modifier.weight(1f))
-                SettingsStatusTile("Доставка", if(app.scheduler.exactAllowed()) "Точная" else "Приблизительная",
-                    app.scheduler.exactAllowed(), Modifier.weight(1f))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(checked = prefs.menuThreadsEnabled,
+                    onCheckedChange = { onSetLocal("menuThreadsEnabled", it.toString()) },
+                    modifier = Modifier.testTag("menu-threads-toggle"))
+                Text(genesisTranslate("Показывать связующие нити"),
+                    style = MaterialTheme.typography.bodyMedium)
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SettingsStatusTile("Резерв", "${app.scheduler.scheduledHabitAlarmCount() + futureTaskAlarms} событий",
-                    notificationsAllowed, Modifier.weight(1f))
-                SettingsStatusTile("Батарея", if(batteryUnrestricted) "Без оптимизации" else "Системный режим",
-                    batteryUnrestricted, Modifier.weight(1f))
-            }
-            Text("Каналы: задачи · ${if(app.scheduler.channelAllowed()) "включён" else "выключен"}; привычки · ${if(app.scheduler.channelAllowed(ru.genesis.calendar.reminders.ReminderScheduler.HABIT_CHANNEL)) "включены" else "выключены"}",
-                style = MaterialTheme.typography.bodyMedium)
-            Button(onClick={
-                if(Build.VERSION.SDK_INT>=33 && !app.scheduler.notificationsAllowed()) request.launch(Manifest.permission.POST_NOTIFICATIONS)
-                else app.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE,app.packageName).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)){Text("Настроить уведомления")}
-            if(Build.VERSION.SDK_INT in 31..32 && !app.scheduler.exactAllowed()) OutlinedButton(onClick={
-                app.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,Uri.parse("package:${app.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)){Text("Точное время напоминаний")}
-            if(Build.VERSION.SDK_INT>=33 && !app.scheduler.exactAllowed())
-                Text("Android может задерживать сигналы. Проверьте разрешения GENESIS в настройках устройства.",
-                    style=MaterialTheme.typography.bodySmall,color = Color(0xff7a5521))
-            Text("Точные системные сигналы дополнены резервной доставкой WorkManager. После перезагрузки, обновления и возврата из настроек расписание восстанавливается автоматически.",
+            Text("При общем свайпе месяцы и годы переключаются стрелками.",
                 style = MaterialTheme.typography.bodySmall)
-            app.scheduler.lastRecoveryAt().takeIf { it > 0 }?.let {
-                Text("Последнее восстановление расписания · ${diagnosticTime(it)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.testTag("notification-last-recovery"))
+    }
+}
+
+@Composable
+private fun MenuVisibilitySettings(prefs: UiPreferences,
+    accountSettings: ru.genesis.calendar.auth.AccountSettings?, sharedBusy: Boolean,
+    sharedProjectsEnabled: Boolean, visibility: ru.genesis.calendar.auth.UiVisibility,
+    onSetVisibility: (ru.genesis.calendar.auth.UiVisibility) -> Unit) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    fun submenuHidden(id: String): Boolean = id in visibility.hiddenSubmenus ||
+        (id.startsWith("sacred.") && id.substringAfter('.') in visibility.hiddenMenuItems)
+    Surface(shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(if (prefs.language == "en") "Menu item display" else "Отображение элементов меню",
+                style = MaterialTheme.typography.titleMedium)
+            OutlinedButton(onClick = { expanded = !expanded },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                    .testTag("appearance-menu-toggle")) {
+                Text(if (expanded) {
+                    if (prefs.language == "en") "Hide menu item settings" else "Свернуть настройки элементов меню"
+                } else {
+                    if (prefs.language == "en") "Customize menu items" else "Настроить элементы меню"
+                })
             }
-            OutlinedButton(onClick={scope.launch{app.scheduler.restore(recoverOverdue = true);app.scheduler.restoreHabitNotifications();refresh++}},
-                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)){Text("Проверить расписание")}
-            OutlinedButton(onClick={app.scheduler.scheduleDiagnosticNotification();refresh++},
-                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("notification-diagnostic-schedule")) {
-                Text("Проверить уведомление через 1 минуту")
-            }
-            if (diagnosticScheduledAt > 0) {
-                Text(if (diagnosticDeliveredAt >= diagnosticScheduledAt)
-                    "Последняя проверка доставлена · ${diagnosticTime(diagnosticDeliveredAt)}"
-                else "Проверка назначена · ${diagnosticTime(diagnosticScheduledAt)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (diagnosticDeliveredAt >= diagnosticScheduledAt) Color(0xff255b59) else Color(0xff7a5521),
-                    modifier = Modifier.testTag("notification-diagnostic-status"))
-            }
-            OutlinedButton(onClick={app.startActivity(appBatterySettingsIntent(app.packageName))},
-                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("notification-battery-settings")) {
-                Text("Открыть системные настройки батареи")
-            }
-            samsungNeverSleepingAppsIntent()?.let { samsungIntent ->
-                OutlinedButton(onClick={
-                    if (runCatching { app.startActivity(samsungIntent); true }.getOrDefault(false).not())
-                        app.startActivity(appBatterySettingsIntent(app.packageName))
-                }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                    .testTag("notification-samsung-never-sleeping")) {
-                    Text("Samsung: никогда не спящие приложения")
+            AnimatedVisibility(expanded) {
+                Column(Modifier.fillMaxWidth().testTag("appearance-menu-content"),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(if (prefs.language == "en") "Today and Settings always remain available."
+                else "«Сегодня» и «Настройки» всегда доступны.", style = MaterialTheme.typography.bodySmall)
+            Text(if (prefs.language == "en") "Main menu" else "Главное меню", style = MaterialTheme.typography.titleSmall)
+            listOf("Задачи" to "tasks", "Проекты" to "projects", "Календарь" to "calendar",
+                "Привычки" to "habits", "Сакральное" to "sacred")
+                .forEach { (label, id) ->
+                    val sacredHidden = id == "sacred" && "stoicheion" in visibility.hiddenMenuItems &&
+                        "theokyklos" in visibility.hiddenMenuItems
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(genesisTranslate(label), Modifier.weight(1f))
+                        Switch(checked = id !in visibility.hiddenMenuItems && !sacredHidden,
+                            enabled = accountSettings != null && !sharedBusy,
+                            onCheckedChange = { checked -> onSetVisibility(visibility.copy(
+                                hiddenMenuItems = if (checked) {
+                                    if (id == "sacred") visibility.hiddenMenuItems - setOf("sacred", "stoicheion", "theokyklos")
+                                    else visibility.hiddenMenuItems - id
+                                } else visibility.hiddenMenuItems + id)) },
+                            modifier = Modifier.testTag("menu-visibility-$id"))
+                    }
                 }
-                Text("One UI может снова перенести редко используемое приложение в сон. После обновления Samsung проверьте, что GENESIS остаётся в списке «Никогда не спящие приложения».",
-                    style = MaterialTheme.typography.bodySmall)
+            Text(if (prefs.language == "en") "Submenus" else "Подменю", style = MaterialTheme.typography.titleSmall)
+            listOf("Задачи" to "tasks.tasks", "Списки задач" to "tasks.lists",
+                "Личные проекты" to "projects.personal", "Общие проекты" to "projects.shared",
+                "Месяц" to "calendar.month", "Год" to "calendar.year",
+                "Привычки" to "habits.habits", "Сон и настроение" to "habits.sleep",
+                "Стойхейон" to "sacred.stoicheion", "Теокиклос" to "sacred.theokyklos")
+                .forEach { (label, id) ->
+                    val group = id.substringBefore('.')
+                    val visibleCount = listOf("tasks.tasks", "tasks.lists", "projects.personal", "projects.shared",
+                        "calendar.month", "calendar.year", "habits.habits", "habits.sleep",
+                        "sacred.stoicheion", "sacred.theokyklos")
+                        .count { it.startsWith("$group.") && !submenuHidden(it) }
+                    val lastVisible = !submenuHidden(id) && visibleCount == 1
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(genesisTranslate(label), Modifier.weight(1f))
+                        Switch(checked = !submenuHidden(id),
+                            enabled = accountSettings != null && !sharedBusy && !lastVisible &&
+                                !(id == "projects.personal" && !sharedProjectsEnabled),
+                            onCheckedChange = { checked -> onSetVisibility(visibility.copy(
+                                hiddenMenuItems = if (checked && id.startsWith("sacred."))
+                                    visibility.hiddenMenuItems - id.substringAfter('.') else visibility.hiddenMenuItems,
+                                hiddenSubmenus = if (checked) visibility.hiddenSubmenus - id
+                                    else visibility.hiddenSubmenus + id)) },
+                            modifier = Modifier.testTag("submenu-visibility-$id"))
+                    }
+                }
+            Text(if (prefs.language == "en") "Today" else "Экран «Сегодня»", style = MaterialTheme.typography.titleSmall)
+            listOf("Ритм дня" to "rhythm", "Быстрое создание" to "quickCreate",
+                "Задачи дня" to "tasks", "Привычки дня" to "habits", "Подробности дня" to "details")
+                .forEach { (label, id) ->
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(genesisTranslate(label), Modifier.weight(1f))
+                        Switch(checked = id !in visibility.hiddenTodayBlocks,
+                            enabled = accountSettings != null && !sharedBusy,
+                            onCheckedChange = { checked -> onSetVisibility(visibility.copy(
+                                hiddenTodayBlocks = if (checked) visibility.hiddenTodayBlocks - id
+                                    else visibility.hiddenTodayBlocks + id)) },
+                            modifier = Modifier.testTag("today-visibility-$id"))
+                    }
+                }
+            Text(if (prefs.language == "en") "Available calendars" else "Доступные календари",
+                style = MaterialTheme.typography.titleSmall)
+            listOf(CalendarMode.PROFANE to "Григорианский", CalendarMode.SACRED to "Сакральный",
+                CalendarMode.LUNAR to "Лунный").forEach { (mode, label) ->
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(genesisTranslate(label), Modifier.weight(1f))
+                    Switch(checked = mode.wireValue in visibility.enabledCalendars,
+                        enabled = accountSettings != null && !sharedBusy &&
+                            !(visibility.enabledCalendars.size == 1 && mode.wireValue in visibility.enabledCalendars),
+                        onCheckedChange = { checked -> onSetVisibility(visibility.copy(
+                            enabledCalendars = if (checked) visibility.enabledCalendars + mode.wireValue
+                                else visibility.enabledCalendars - mode.wireValue)) },
+                        modifier = Modifier.testTag("calendar-visibility-${mode.wireValue}"))
+                }
             }
-            Text("Принудительную остановку приложения Android не разрешает обходить. После неё откройте GENESIS один раз — расписание восстановится.",
-                style = MaterialTheme.typography.bodySmall)
-            rows.sortedBy{it.at}.takeLast(8).forEach{Text("Напоминание · ${it.state} · ${Instant.ofEpochMilli(it.at).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("dd.MM HH:mm"))}",style=MaterialTheme.typography.bodySmall)}
-        }
-        SettingsSection("G", "Аккаунт GENESIS", "Вход, синхронизация и связанные Google-аккаунты",
-            Color(0xfff4e8df)) {
-            ru.genesis.calendar.auth.AuthPanel(app, prefs.language) { onSet("language", it) }
-            if (canOpenAdmin) OutlinedButton(onClick = { adminOpen = true },
-                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("open-native-admin")) {
-                Text("Админ-панель")
+
+                }
             }
-        }
-        SettingsSection("↗", "Ссылки GENESIS", "Академия, поддержка и веб-версия",
-            Color(0xfffff5df)) {
-            ru.genesis.calendar.auth.GenesisLinksPanel()
-        }
-        TextButton(onClick = { releaseNotesOpen = true },
-            modifier = Modifier.fillMaxWidth().testTag("open-release-notes")) {
-            Text("${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · ${releaseNotesTitle()}",
-                style = MaterialTheme.typography.labelSmall)
         }
     }
-    calendarReference?.let { value ->
-        CalendarReferenceDialog(CalendarMode.fromWire(value)) { calendarReference = null }
-    }
-    if (adminOpen && canOpenAdmin) NativeAdminPanel(onClose = { adminOpen = false },
-        load = adminLoad, deleteUser = adminDelete)
-    if (releaseNotesOpen) ReleaseNotesDialog { releaseNotesOpen = false }
 }
 
 @Composable

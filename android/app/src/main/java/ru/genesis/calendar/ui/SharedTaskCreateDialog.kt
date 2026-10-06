@@ -192,9 +192,12 @@ internal fun SharedTaskCreateDialog(controller: AuthController, language: String
                             busy = true; message = ""
                             scope.launch {
                                 try {
-                                    controller.createSharedTask(destination, fields)
+                                    val created = controller.createSharedTask(destination, fields)
                                     title = ""; description = ""; dueDate = ""
-                                    message = if (en) "Team task created." else "Общая задача создана."
+                                    message = if (created.getJSONObject("task").optBoolean("pending")) {
+                                        if (en) "Task saved on this device and waiting for the connection."
+                                        else "Задача сохранена на устройстве и ожидает подключения к сети."
+                                    } else if (en) "Team task created." else "Общая задача создана."
                                 } catch (error: CancellationException) { throw error }
                                 catch (error: Exception) {
                                     message = error.message ?: if (en) "Could not create task." else "Не удалось создать задачу."

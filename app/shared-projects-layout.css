@@ -2,6 +2,20 @@
   gap: 1rem;
 }
 
+.shared-projects-offline-status,
+.shared-projects-pending {
+  margin: 0;
+  padding: .7rem .85rem;
+  border: 1px solid var(--line, #d4c9b0);
+  border-radius: .75rem;
+  background: var(--surface, #fffdf7);
+}
+.shared-projects-pending p { margin: .35rem 0 0; overflow-wrap: anywhere; }
+.shared-projects-pending-item + .shared-projects-pending-item { border-top: 1px solid var(--line, #d4c9b0); margin-top: .5rem; padding-top: .5rem; }
+.shared-projects-pending details { margin-top: .4rem; }
+.shared-projects-pending summary { cursor: pointer; }
+.shared-projects-pending pre { max-height: 12rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+
 .shared-projects .shared-projects-open-modal {
   width: 100%;
   min-height: 2.75rem;

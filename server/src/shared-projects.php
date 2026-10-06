@@ -9,10 +9,19 @@ final class GenesisSharedAccessException extends RuntimeException
     }
 }
 
-function genesisSharedRequireEnabled(string $userId): array
+function genesisSharedRequireEligible(string $userId): array
 {
     $user = genesisFindUser($userId);
-    if (!$user || !genesisSharedTester($user) || empty($user['shared_projects_enabled'])) {
+    if (!$user || !genesisSharedEligible($user)) {
+        throw new GenesisSharedAccessException('SHARED_PROJECTS_DISABLED', 403);
+    }
+    return $user;
+}
+
+function genesisSharedRequireEnabled(string $userId): array
+{
+    $user = genesisSharedRequireEligible($userId);
+    if (empty($user['shared_projects_enabled'])) {
         throw new GenesisSharedAccessException('SHARED_PROJECTS_DISABLED', 403);
     }
     return $user;
@@ -193,6 +202,7 @@ function genesisSharedSetArchived(string $userId, string $projectId, bool $archi
 function genesisSharedCreateStatus(string $userId, string $projectId, array $input): array
 {
     genesisSharedRequireEnabled($userId);
+    $requestId = genesisSharedRequestId($input);
     $title = genesisSharedTitle($input['title'] ?? null, 80);
     $isDone = $input['isDone'] ?? false;
     if (!is_bool($isDone)) throw new InvalidArgumentException('INVALID_STATUS_KIND');
@@ -200,6 +210,11 @@ function genesisSharedCreateStatus(string $userId, string $projectId, array $inp
     $db->beginTransaction();
     try {
         genesisSharedProjectAccess($projectId, $userId, 'write');
+        $receipt = genesisSharedMutationReceipt($db, $userId, $requestId, 'status.create', $projectId);
+        if ($receipt !== null) {
+            $db->commit();
+            return $receipt;
+        }
         $query = $db->prepare('SELECT COUNT(*) AS count, COALESCE(MAX(position), -1) AS lastPosition
             FROM shared_project_statuses WHERE project_id = :project');
         $query->execute(['project' => $projectId]);
@@ -213,9 +228,11 @@ function genesisSharedCreateStatus(string $userId, string $projectId, array $inp
                 'position' => $position, 'done' => $isDone ? 1 : 0,
             ]);
         genesisSharedAudit($projectId, $userId, 'status.created', $id);
-        $db->commit();
-        return ['id' => $id, 'title' => $title, 'position' => $position,
+        $response = ['id' => $id, 'title' => $title, 'position' => $position,
             'isDone' => $isDone ? 1 : 0, 'revision' => 1];
+        genesisSharedSaveMutationReceipt($db, $userId, $requestId, 'status.create', $projectId, $response);
+        $db->commit();
+        return $response;
     } catch (Throwable $error) {
         $db->rollBack();
         throw $error;
@@ -631,6 +648,64 @@ function genesisSharedImportProjectTree(string $userId, string $spaceId, array $
     }
 }
 
+/** Board columns and list-view groups are the same server-owned team task lists. */
+function genesisSharedTaskLists(string $userId): array
+{
+    genesisSharedRequireEnabled($userId);
+    $query = genesisDb()->prepare('SELECT st.id, st.title, st.position, st.is_done AS isDone,
+        st.revision, p.id AS projectId, p.title AS projectTitle,
+        s.id AS spaceId, s.title AS spaceTitle, pm.role,
+        COUNT(t.id) AS taskCount,
+        SUM(CASE WHEN t.id IS NOT NULL AND st.is_done = 0 THEN 1 ELSE 0 END) AS openCount
+        FROM shared_project_statuses st
+        JOIN shared_projects p ON p.id = st.project_id AND p.archived_at IS NULL AND p.is_inbox = 0
+        JOIN shared_spaces s ON s.id = p.space_id
+        JOIN shared_project_members pm ON pm.project_id = p.id AND pm.user_id = :user
+        JOIN shared_space_members sm ON sm.space_id = s.id AND sm.user_id = :user
+        LEFT JOIN shared_tasks t ON t.status_id = st.id AND t.project_id = p.id
+        GROUP BY st.id ORDER BY s.title, p.title, st.position LIMIT 1000');
+    $query->execute(['user' => $userId]);
+    return $query->fetchAll();
+}
+
+function genesisSharedRequestId(array $input): ?string
+{
+    if (!array_key_exists('requestId', $input)) return null;
+    $requestId = $input['requestId'];
+    if (!is_string($requestId) || !preg_match('/\A[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}\z/i', $requestId)) {
+        throw new InvalidArgumentException('INVALID_SHARED_REQUEST_ID');
+    }
+    return strtolower($requestId);
+}
+
+function genesisSharedMutationReceipt(PDO $db, string $userId, ?string $requestId,
+    string $action, string $resourceId): ?array
+{
+    if ($requestId === null) return null;
+    $query = $db->prepare('SELECT action, resource_id, response_json FROM shared_mutation_receipts
+        WHERE user_id = :user AND request_id = :request LIMIT 1');
+    $query->execute(['user' => $userId, 'request' => $requestId]);
+    $row = $query->fetch();
+    if (!$row) return null;
+    if ($row['action'] !== $action || $row['resource_id'] !== $resourceId) {
+        throw new GenesisSharedAccessException('SHARED_REQUEST_ID_CONFLICT', 409);
+    }
+    return json_decode((string)$row['response_json'], true, 512, JSON_THROW_ON_ERROR);
+}
+
+function genesisSharedSaveMutationReceipt(PDO $db, string $userId, ?string $requestId,
+    string $action, string $resourceId, array $response): void
+{
+    if ($requestId === null) return;
+    $db->prepare('INSERT INTO shared_mutation_receipts
+        (user_id, request_id, action, resource_id, response_json, created_at)
+        VALUES (:user, :request, :action, :resource, :response, :created)')->execute([
+            'user' => $userId, 'request' => $requestId, 'action' => $action,
+            'resource' => $resourceId, 'response' => json_encode($response, JSON_THROW_ON_ERROR),
+            'created' => genesisNow(),
+        ]);
+}
+
 function genesisSharedUpdateProject(string $userId, string $projectId, array $input): array
 {
     genesisSharedRequireEnabled($userId);
@@ -900,8 +975,8 @@ function genesisSharedInvite(string $userId, string $projectId, array $input): a
     $recipientQuery->execute(['email' => $email]);
     $recipient = $recipientQuery->fetch();
     if (!$recipient) throw new GenesisSharedAccessException('INVITEE_ACCOUNT_NOT_FOUND', 404);
-    if (!genesisSharedTester($recipient) || empty($recipient['shared_projects_enabled'])) {
-        throw new GenesisSharedAccessException('INVITEE_NO_PAID_ACCESS', 403);
+    if (!genesisSharedEligible($recipient)) {
+        throw new GenesisSharedAccessException('INVITEE_ACCOUNT_UNSUPPORTED', 403);
     }
     $token = bin2hex(random_bytes(32));
     $id = genesisUuid();
@@ -933,7 +1008,7 @@ function genesisSharedInvite(string $userId, string $projectId, array $input): a
 
 function genesisSharedInvitations(string $userId): array
 {
-    $user = genesisSharedRequireEnabled($userId);
+    $user = genesisSharedRequireEligible($userId);
     $query = genesisDb()->prepare('SELECT i.id, i.role, i.expires_at AS expiresAt,
         p.title AS projectTitle, s.title AS spaceTitle,
         COALESCE(NULLIF(inviter.display_name, \'\'), inviter.email, \'Участник GENESIS\') AS inviterName
@@ -1011,7 +1086,7 @@ function genesisSharedReadNotifications(string $userId, array $input): void
 
 function genesisSharedAcceptInvite(string $userId, array $input): array
 {
-    $user = genesisSharedRequireEnabled($userId);
+    $user = genesisSharedRequireEligible($userId);
     $id = (string)($input['id'] ?? '');
     if (!preg_match('/\A[a-f0-9-]{36}\z/', $id)) throw new InvalidArgumentException('INVALID_INVITATION');
     $db = genesisDb();
@@ -1027,6 +1102,8 @@ function genesisSharedAcceptInvite(string $userId, array $input): array
         if (!$invite || !hash_equals(mb_strtolower((string)$invite['email']), mb_strtolower((string)$user['email']))) {
             throw new GenesisSharedAccessException('INVALID_INVITATION');
         }
+        $db->prepare('UPDATE users SET shared_projects_enabled = 1, updated_at = :now WHERE id = :user')
+            ->execute(['now' => $now, 'user' => $userId]);
         $db->prepare("INSERT OR IGNORE INTO shared_space_members (space_id, user_id, role, joined_at)
             VALUES (:space, :user, 'guest', :now)")->execute([
                 'space' => $invite['space_id'], 'user' => $userId, 'now' => $now,
@@ -1064,6 +1141,7 @@ function genesisSharedAcceptInvite(string $userId, array $input): array
 function genesisSharedMoveTask(string $userId, string $sourceProjectId, string $taskId, array $input): array
 {
     genesisSharedRequireEnabled($userId);
+    $requestId = genesisSharedRequestId($input);
     $destinationId = (string)($input['destinationProjectId'] ?? $sourceProjectId);
     $statusId = (string)($input['statusId'] ?? '');
     $expected = $input['expectedRevision'] ?? null;
@@ -1078,6 +1156,11 @@ function genesisSharedMoveTask(string $userId, string $sourceProjectId, string $
         $destination = genesisSharedProjectAccess($destinationId, $userId, 'organize');
         if ($source['space_id'] !== $destination['space_id']) {
             throw new GenesisSharedAccessException('SHARED_CROSS_SPACE_MOVE_FORBIDDEN', 403);
+        }
+        $receipt = genesisSharedMutationReceipt($db, $userId, $requestId, 'task.move', $taskId);
+        if ($receipt !== null) {
+            $db->commit();
+            return $receipt;
         }
         $query = $db->prepare('SELECT * FROM shared_tasks WHERE id = :id AND project_id = :project');
         $query->execute(['id' => $taskId, 'project' => $sourceProjectId]);
@@ -1161,10 +1244,12 @@ function genesisSharedMoveTask(string $userId, string $sourceProjectId, string $
         foreach ($ordered as $index => $id) $reposition->execute(['position' => $index, 'id' => $id]);
         genesisSharedAudit($sourceProjectId, $userId, 'task.moved_out', $taskId);
         if ($changedProject) genesisSharedAudit($destinationId, $userId, 'task.moved_in', $taskId);
-        $db->commit();
-        return ['id' => $taskId, 'projectId' => $destinationId, 'statusId' => $statusId,
+        $response = ['id' => $taskId, 'projectId' => $destinationId, 'statusId' => $statusId,
             'position' => min($position, count($ordered) - 1), 'revision' => $expected + 1,
             'assigneeId' => $assignee, 'categoryId' => $changedProject ? null : $task['category_id']];
+        genesisSharedSaveMutationReceipt($db, $userId, $requestId, 'task.move', $taskId, $response);
+        $db->commit();
+        return $response;
     } catch (Throwable $error) {
         $db->rollBack();
         throw $error;
@@ -1173,7 +1258,7 @@ function genesisSharedMoveTask(string $userId, string $sourceProjectId, string $
 
 function genesisSharedRejectInvite(string $userId, string $id): void
 {
-    $user = genesisSharedRequireEnabled($userId);
+    $user = genesisSharedRequireEligible($userId);
     $query = genesisDb()->prepare('SELECT i.project_id FROM shared_invitations i
         WHERE i.id = :id AND i.email = :email COLLATE NOCASE AND i.consumed_at IS NULL
         AND i.revoked_at IS NULL AND i.expires_at > :now');
@@ -1188,10 +1273,18 @@ function genesisSharedRejectInvite(string $userId, string $id): void
 function genesisSharedTask(string $userId, string $projectId, array $input, ?string $taskId = null): array
 {
     genesisSharedRequireEnabled($userId);
+    $requestId = genesisSharedRequestId($input);
+    $action = $taskId === null ? 'task.create' : 'task.update';
+    $resourceId = $taskId ?? $projectId;
     $db = genesisDb();
     $db->beginTransaction();
     try {
         genesisSharedProjectAccess($projectId, $userId, 'write');
+        $receipt = genesisSharedMutationReceipt($db, $userId, $requestId, $action, $resourceId);
+        if ($receipt !== null) {
+            $db->commit();
+            return $receipt;
+        }
         $sourceTaskId = null;
         if ($taskId === null && array_key_exists('sourceTaskId', $input)) {
             if (!is_string($input['sourceTaskId']) || !preg_match('/\A[^\x00-\x1f]{1,100}\z/u', $input['sourceTaskId'])) {
@@ -1299,13 +1392,15 @@ function genesisSharedTask(string $userId, string $projectId, array $input, ?str
             }
         }
         genesisSharedAudit($projectId, $userId, $existing ? 'task.updated' : 'task.created', $id);
-        $db->commit();
-        return ['id' => $id, 'projectId' => $projectId, 'statusId' => $statusId,
+        $response = ['id' => $id, 'projectId' => $projectId, 'statusId' => $statusId,
             'title' => $title, 'description' => $description, 'dueDate' => $dueDate,
             'assigneeId' => $assigneeId, 'categoryId' => $categoryId,
             'revision' => $existing ? (int)$existing['revision'] + 1 : 1,
             'completedBy' => $completedBy, 'completedAt' => $completedAt,
             'updatedAt' => $now];
+        genesisSharedSaveMutationReceipt($db, $userId, $requestId, $action, $resourceId, $response);
+        $db->commit();
+        return $response;
     } catch (Throwable $error) {
         $db->rollBack();
         throw $error;

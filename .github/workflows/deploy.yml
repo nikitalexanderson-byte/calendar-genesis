@@ -123,7 +123,7 @@ jobs:
         with:
           packages: platform-tools
 
-      - name: Build signed native Android APK
+      - name: Build signed native Android APK and Play bundle
         env:
           SIGNING_KEYSTORE_B64: ${{ secrets.GENESIS_ANDROID_RELEASE_KEYSTORE_B64 }}
           GENESIS_ANDROID_SIGNING_STORE_PASSWORD: ${{ secrets.GENESIS_ANDROID_RELEASE_STORE_PASSWORD }}
@@ -141,7 +141,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/genesis-signing" dist-beget/public_html/downloads
           export GENESIS_ANDROID_SIGNING_STORE="$RUNNER_TEMP/genesis-signing/release.jks"
           printf '%s' "$SIGNING_KEYSTORE_B64" | base64 -d > "$GENESIS_ANDROID_SIGNING_STORE"
-          (cd android && bash ./gradlew :app:assembleRelease --no-daemon --console=plain)
+          (cd android && bash ./gradlew :app:assembleRelease :app:bundlePlay --no-daemon --console=plain)
           APK=android/app/build/outputs/apk/release/app-release.apk
           test -s "$APK"
           "$ANDROID_HOME/build-tools/37.0.0/apksigner" verify --verbose --print-certs "$APK" \
@@ -155,6 +155,20 @@ jobs:
           printf '{"versionCode":69,"versionName":"2.6.3","sha256":"%s"}\n' "$APK_SHA" \
             > dist-beget/public_html/android-update.json
           sha256sum dist-beget/public_html/downloads/GENESIS-Android-Native-2.6.3.apk
+
+          AAB=android/app/build/outputs/bundle/play/app-play.aab
+          test -s "$AAB"
+          jarsigner -verify "$AAB" | grep -q 'jar verified'
+          ! grep -q 'android.permission.REQUEST_INSTALL_PACKAGES' \
+            android/app/build/intermediates/merged_manifest/play/processPlayMainManifest/AndroidManifest.xml
+
+      - name: Save signed Play App Bundle for Console upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: genesis-play-2.6.3
+          path: android/app/build/outputs/bundle/play/app-play.aab
+          if-no-files-found: error
+          retention-days: 14
 
       # PHP-роутер должен физически лежать в public_html/api. Добавляем его в
       # единый public artifact, чтобы rsync --delete не создавал окно с 404.

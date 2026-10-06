@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { CalendarMode } from "./calendar-data";
 import type { GenesisCategory, GenesisUser, PendingLocalAccountLink, SharedInvitation, SharedNotification, SyncRouting } from "./cloud-sync";
-import { acceptSharedInvitation, cancelPendingLocalAccountLink, connectLocalAccount, connectYandexCalendar, deleteGenesisAccount, disconnectGoogleServices, disconnectYandexCalendar, getPendingLocalAccountLink, listSharedInvitations, listSharedNotifications, mergePendingLocalAccountLink, readSharedNotifications, rejectSharedInvitation, removeAdditionalGoogleAccount, updateAccountPreferences } from "./cloud-sync";
+import { acceptSharedInvitation, cancelPendingLocalAccountLink, connectLocalAccount, connectYandexCalendar, deleteGenesisAccount, disconnectGoogleServices, disconnectYandexCalendar, getPendingLocalAccountLink, listSharedInvitations, listSharedNotifications, mergePendingLocalAccountLink, readSharedNotifications, rejectSharedInvitation, removeAdditionalGoogleAccount, updateAccountPreferences, recordFeatureUsage } from "./cloud-sync";
 import { LANGUAGES, LANGUAGE_LABELS, localizeCategoryName, runtimeLocale, translateText, type Language } from "./i18n";
 
 import type { TimeFormat } from "./time-format";
@@ -12,6 +12,7 @@ import type { HabitNotificationPermission, HabitNotificationSettings } from "./h
 import type { HabitFeedbackSettings } from "./habit-feedback";
 import { useDialogAccessibility } from "./use-dialog-accessibility";
 import { SolarPlaceSettings } from "./SolarPlaceSettings";
+import { SETTINGS_SECTIONS, SettingsSectionIcon, type SettingsSectionId } from "./SettingsSectionIcon";
 import { uiVisibility, type UiVisibility } from "./ui-visibility";
 import {
   GENESIS_THEME,
@@ -41,6 +42,11 @@ const CURRENT_THEME_LABEL: Record<Language, string> = {
   fr: "Thème actuel", es: "Tema actual", it: "Tema attuale", pt: "Tema atual",
   pl: "Bieżący motyw", sr: "Тренутна тема", uk: "Поточна тема",
   zh: "当前主题", tr: "Geçerli tema", ja: "現在のテーマ",
+};
+const APP_BASE = (process.env.NEXT_PUBLIC_GENESIS_BASE_PATH?.trim() || "").replace(/\/$/, "");
+const FLAG_COUNTRIES: Record<Language, string> = {
+  ru: "ru", en: "gb", el: "gr", de: "de", fr: "fr", es: "es", it: "it", pt: "pt",
+  pl: "pl", sr: "rs", uk: "ua", zh: "cn", tr: "tr", ja: "jp",
 };
 const MENU_SETTINGS = [
   ["tasks", "Задачи", "Tasks"], ["projects", "Проекты", "Projects"],
@@ -125,12 +131,17 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
   const [yandexAccountId, setYandexAccountId] = useState(() => user.linkedAccounts?.find((account) => account.provider === "yandex")?.id ?? user.uid);
   const [pendingLocalLink, setPendingLocalLink] = useState<PendingLocalAccountLink | null>(null);
   const [preferenceBusy, setPreferenceBusy] = useState(false);
+  const [pendingVisibility, setPendingVisibility] = useState<UiVisibility | null>(null);
   const [notificationBusy, setNotificationBusy] = useState(false);
   const [invitations, setInvitations] = useState<SharedInvitation[]>([]);
   const [teamNotifications, setTeamNotifications] = useState<SharedNotification[]>([]);
   const [teamReadBusy, setTeamReadBusy] = useState(false);
   const [invitationBusy, setInvitationBusy] = useState("");
   const [invitationMessage, setInvitationMessage] = useState("");
+  const [menuLabels, setMenuLabels] = useState<"text" | "icons">("text");
+  const [settingsMenuLabels, setSettingsMenuLabels] = useState<"text" | "icons">("text");
+  const [settingsTab, setSettingsTab] = useState<SettingsSectionId>("appearance");
+  const settingsTouch = useRef<{ x: number; y: number } | null>(null);
   const [habitResetChallenge, setHabitResetChallenge] = useState<HabitResetChallenge | null>(null);
   const [habitResetAnswer, setHabitResetAnswer] = useState("");
   const [habitResetBusy, setHabitResetBusy] = useState(false);
@@ -143,14 +154,48 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
   });
 
   useEffect(() => {
-    if (!user.sharedProjectsEnabled) { return; }
+    const saved = window.localStorage.getItem("genesis-menu-labels");
+    const settingsSaved = window.localStorage.getItem("genesis-settings-menu-labels");
+    const frame = window.requestAnimationFrame(() => setMenuLabels(saved === "icons" ? "icons" : "text"));
+    const settingsFrame = window.requestAnimationFrame(() => setSettingsMenuLabels(settingsSaved === "icons" ? "icons" : "text"));
+    return () => { window.cancelAnimationFrame(frame); window.cancelAnimationFrame(settingsFrame); };
+  }, []);
+
+  const changeMenuLabels = (value: "text" | "icons") => {
+    setMenuLabels(value);
+    window.localStorage.setItem("genesis-menu-labels", value);
+    document.documentElement.dataset.genesisMenuLabels = value;
+  };
+  const changeSettingsMenuLabels = (value: "text" | "icons") => {
+    setSettingsMenuLabels(value);
+    window.localStorage.setItem("genesis-settings-menu-labels", value);
+  };
+  const selectedSettings = SETTINGS_SECTIONS.find((item) => item.id === settingsTab) ?? SETTINGS_SECTIONS[0];
+  useEffect(() => {
+    if (user.uid) void recordFeatureUsage(["menu.settings", `submenu.settings.${settingsTab}`])
+      .catch(() => undefined);
+  }, [user.uid, settingsTab]);
+  const onSettingsTouchEnd = (event: React.TouchEvent<HTMLElement>) => {
+    const start = settingsTouch.current;
+    settingsTouch.current = null;
+    if (!start || event.changedTouches.length !== 1) return;
+    const dx = event.changedTouches[0].clientX - start.x;
+    const dy = event.changedTouches[0].clientY - start.y;
+    if (Math.abs(dx) < 75 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    const index = SETTINGS_SECTIONS.findIndex((item) => item.id === settingsTab);
+    const next = SETTINGS_SECTIONS[index + (dx < 0 ? 1 : -1)];
+    if (next) setSettingsTab(next.id);
+  };
+
+  useEffect(() => {
+    if (!user.sharedProjectsEligible) { return; }
     let live = true;
     const refresh = () => { void listSharedInvitations().then((rows) => {
       if (live) setInvitations(rows);
     }).catch((error: unknown) => {
       if (live) setInvitationMessage(error instanceof Error ? error.message : String(error));
     }); };
-    const refreshTeam = () => { void listSharedNotifications().then((rows) => {
+    const refreshTeam = () => { if (!user.sharedProjectsEnabled) return; void listSharedNotifications().then((rows) => {
       if (live) setTeamNotifications(rows);
     }).catch(() => undefined); };
     refresh();
@@ -159,12 +204,16 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
       if (document.visibilityState === "visible") { refresh(); refreshTeam(); }
     }, 30000);
     return () => { live = false; window.clearInterval(timer); };
-  }, [user.sharedProjectsEnabled]);
+  }, [user.sharedProjectsEligible, user.sharedProjectsEnabled]);
 
   const respondToInvitation = async (id: string, accept: boolean) => {
     setInvitationBusy(id); setInvitationMessage("");
     try {
-      if (accept) await acceptSharedInvitation(id);
+      if (accept) {
+        await acceptSharedInvitation(id);
+        const result = await updateAccountPreferences({ sharedProjectsEnabled: true });
+        onUserChange(result.user);
+      }
       else await rejectSharedInvitation(id);
       setInvitations((rows) => rows.filter((item) => item.id !== id));
       setInvitationMessage(user.language === "en"
@@ -182,15 +231,23 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
     } catch (error) { setMessage(error instanceof Error ? error.message : String(error)); }
     finally { setTeamReadBusy(false); }
   };
-  const visibility = uiVisibility(user.uiVisibility);
+  const visibility = uiVisibility(pendingVisibility ?? user.uiVisibility);
   const updateVisibility = async (next: UiVisibility) => {
-    setPreferenceBusy(true); setMessage("");
+    setPendingVisibility(next); setPreferenceBusy(true); setMessage("");
     try {
       const result = await updateAccountPreferences({ uiVisibility: next });
+      const saved = uiVisibility(result.user.uiVisibility);
+      const fields: (keyof UiVisibility)[] = ["hiddenMenuItems", "hiddenSubmenus", "hiddenTodayBlocks", "enabledCalendars"];
+      if (fields.some((field) => next[field].length !== saved[field].length ||
+        next[field].some((item) => !(saved[field] as string[]).includes(item)))) {
+        throw new Error(user.language === "en"
+          ? "The server has not saved this setting yet. Please update GENESIS and try again."
+          : "Сервер ещё не сохранил эту настройку. Обновите GENESIS и повторите.");
+      }
       onUserChange(result.user);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
-    } finally { setPreferenceBusy(false); }
+    } finally { setPendingVisibility(null); setPreferenceBusy(false); }
   };
   const toggleVisibilityItem = (field: "hiddenMenuItems" | "hiddenSubmenus" | "hiddenTodayBlocks",
     id: string, visible: boolean) => {
@@ -542,13 +599,32 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
 
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section ref={accountDialogRef} className="account-panel" data-exp-layout="view" data-exp-ui="dialog" role="dialog" aria-modal="true" aria-labelledby="account-title" tabIndex={-1}>
+      <section ref={accountDialogRef} className="account-panel" data-exp-layout="view" data-exp-ui="dialog"
+        data-settings-active={settingsTab} role="dialog" aria-modal="true" aria-labelledby="account-title" tabIndex={-1}
+        onTouchStart={(event) => { settingsTouch.current = { x: event.touches[0].clientX, y: event.touches[0].clientY }; }}
+        onTouchEnd={onSettingsTouchEnd}>
         <button type="button" className="modal-close" onClick={onClose} aria-label="Закрыть">×</button>
         <span className="eyebrow">Личный кабинет</span>
         <h2 id="account-title">{user.displayName || "Аккаунт GENESIS"}</h2>
         <p className="account-email">{user.email}</p>
 
-        <div className="account-security-grid">
+        <nav className="settings-section-nav" data-icon-only={settingsMenuLabels === "icons"}
+          aria-label={user.language === "en" ? "Settings sections" : "Разделы настроек"}>
+          {SETTINGS_SECTIONS.map((item) => <button key={item.id} type="button"
+            data-settings-tab={item.id} aria-current={settingsTab === item.id ? "page" : undefined}
+            className={settingsTab === item.id ? "active" : ""} onClick={() => setSettingsTab(item.id)}
+            aria-label={user.language === "en" ? item.en : item.ru}>
+            <SettingsSectionIcon section={item.id} />
+            {settingsMenuLabels === "text" ? <span>{user.language === "en" ? item.en : item.ru}</span> : null}
+          </button>)}
+        </nav>
+        <div className="settings-section-hero" data-settings-hero={settingsTab}>
+          <span className="settings-section-hero-icon"><SettingsSectionIcon section={settingsTab} /></span>
+          <div><h3>{user.language === "en" ? "Settings" : "Настройки"} - {user.language === "en" ? selectedSettings.en : selectedSettings.ru}</h3>
+            <p>{user.language === "en" ? selectedSettings.descriptionEn : selectedSettings.descriptionRu}</p></div>
+        </div>
+
+        <div className="account-security-grid" data-settings-group="account">
           {user.authProvider === "yandex"
             ? <article><span>Яндекс ID</span><strong>Подключён</strong><small>{user.calendarConnected ? "Яндекс.Календарь подключён. Задачи синхронизируются как события; списки хранятся в зашифрованном пространстве GENESIS." : "Вход через Яндекс. Подключите календарь отдельно."}</small></article>
             : <article><span>Google-сервисы</span><strong>{user.calendarConnected && user.googleTasksImportReady ? "Подключены" : "По желанию"}</strong><small>Calendar и Tasks подключаются отдельным согласием после входа.</small></article>}
@@ -557,7 +633,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
         </div>
 
         {user.authProvider !== "google" ? (
-          <section className="account-preferences multi-account-preference" aria-labelledby="local-accounts-title">
+          <section className="account-preferences multi-account-preference" aria-labelledby="local-accounts-title" data-settings-group="account">
             <div>
               <span className="eyebrow">Яндекс ID</span>
               <h3 id="local-accounts-title">Связанные способы входа</h3>
@@ -612,7 +688,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
         ) : null}
 
         {user.authProvider === "google" && !user.googleTasksImportReady ? (
-          <section className="account-sync-upgrade" aria-label="Синхронизация Google Tasks">
+          <section className="account-sync-upgrade" aria-label="Синхронизация Google Tasks" data-settings-group="account">
             <div>
               <strong>Подключите Google Calendar и Google Tasks</strong>
               <small>После вашего подтверждения GENESIS создаст отдельный календарь и сможет показывать и изменять списки Google Tasks. Доступ нужен только для функций синхронизации.</small>
@@ -621,7 +697,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
           </section>
         ) : null}
 
-        {selectedYandexAccount ? <section className="account-preferences yandex-calendar-preference" aria-labelledby="yandex-calendar-title" data-exp-ui="panel">
+        {selectedYandexAccount ? <section className="account-preferences yandex-calendar-preference" aria-labelledby="yandex-calendar-title" data-exp-ui="panel" data-settings-group="account">
           <div>
             <span className="eyebrow">Яндекс</span>
             <h3 id="yandex-calendar-title">Яндекс.Календарь</h3>
@@ -635,12 +711,15 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
             : <button type="button" className="primary-button" disabled={busy} onClick={connectCalendar}>Подключить Яндекс.Календарь</button>}
         </section> : null}
 
-        <section className="account-preferences theme-preference" aria-labelledby="theme-title" data-exp-ui="panel">
+        <section className="account-preferences theme-preference" aria-labelledby="theme-title" data-exp-ui="panel" data-settings-group="appearance">
           <div>
             <span className="eyebrow">{user.language === "en" ? "Primary theme — Standart" : "Основная тема — Standart"}</span>
-            <h3 id="theme-title" data-exp-ui="heading">{user.language === "en" ? "Interface theme" : "Тема интерфейса"}</h3>
+            <h3 id="theme-title" data-exp-ui="heading">{user.language === "en" ? "Appearance" : "Оформление"}</h3>
             <p data-exp-ui="text">{user.language === "en" ? "Experimental changes only the presentation of ordinary components. Data, artwork and authored controls stay unchanged." : "Experimental меняет только оформление обычных компонентов. Данные, изображения и авторские элементы остаются прежними."}</p>
           </div>
+          <div className="appearance-settings-subsection" role="group"
+            aria-label={user.language === "en" ? "Theme switching" : "Переключение тем"}>
+            <h4>{user.language === "en" ? "Theme switching" : "Переключение тем"}</h4>
           <label className="account-switch-row" data-exp-ui="row">
             <span data-exp-ui="row-body">
               <strong data-exp-ui="row-title">{user.language === "en" ? "Experimental theme" : "Тема Experimental"}</strong>
@@ -677,78 +756,47 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
           <p className="account-preference-status" role="status" aria-live="polite" data-exp-ui="notice" data-exp-tone={themeState.status === "error" || themeState.status === "load-error" ? "error" : undefined}>
             {translateText(themeStatusMessage, user.language)}
           </p>
-        </section>
-
-        <section className="account-preferences shared-projects-preference" aria-labelledby="shared-projects-preference-title" data-exp-ui="panel">
-          <div>
-            <span className="eyebrow">GENESIS · {user.language === "en" ? "Together" : "Вместе"}</span>
-            <h3 id="shared-projects-preference-title">{user.language === "en" ? "Shared projects" : "Общие проекты"}</h3>
-            <p>{user.language === "en" ? "Create projects with other GENESIS accounts. Personal data stays private." : "Создавайте проекты с другими аккаунтами GENESIS. Личные данные остаются приватными."}</p>
-            {user.sharedProjectsEligible ? <small>{user.language === "en" ? "Lifetime free access to Shared projects." : "Пожизненный бесплатный открытый доступ к функциям «Общие проекты»."}</small>
-              : <small>{user.language === "en" ? "Available in the paid version." : "Доступно в платной версии."}</small>}
           </div>
-          <label htmlFor="shared-projects-toggle" className="account-switch-row" data-exp-ui="row">
-            {user.language === "en" ? "Enable shared projects" : "Включить общие проекты"}
-            <input id="shared-projects-toggle" type="checkbox" role="switch" data-exp-ui="switch" checked={Boolean(user.sharedProjectsEnabled)}
-              disabled={!user.sharedProjectsEligible || preferenceBusy}
-              onChange={(event) => void changeSharedProjectsPreference(event.target.checked)} />
-          </label>
-        </section>
-
-        {user.sharedProjectsEnabled ? <section className="account-preferences shared-invitations-preference" aria-labelledby="shared-invitations-title" data-exp-ui="panel">
-          <div>
-            <span className="eyebrow">GENESIS · {user.language === "en" ? "Together" : "Вместе"}</span>
-            <h3 id="shared-invitations-title">{user.language === "en" ? "Invitations" : "Приглашения"}</h3>
-            {!invitations.length ? <p>{user.language === "en" ? "You have no pending invitations." : "Новых приглашений нет."}</p> : null}
-          </div>
-          {invitations.map((invitation) => <div key={invitation.id} className="shared-invitation-card" data-exp-ui="row">
-            <p>{user.language === "en"
-              ? `${invitation.inviterName} invites you to workspace «${invitation.spaceTitle}», project «${invitation.projectTitle}».`
-              : `Вас ${invitation.inviterName} приглашает присоединиться к пространству «${invitation.spaceTitle}», проекту «${invitation.projectTitle}».`}</p>
-            <div className="shared-invitation-actions">
-              <button type="button" disabled={Boolean(invitationBusy)} onClick={() => void respondToInvitation(invitation.id, true)}>
-                {user.language === "en" ? "Accept" : "Принять"}</button>
-              <button type="button" disabled={Boolean(invitationBusy)} onClick={() => void respondToInvitation(invitation.id, false)}>
-                {user.language === "en" ? "Decline" : "Отклонить"}</button>
+          <div className="appearance-settings-subsection" role="group"
+            aria-label={user.language === "en" ? "Menu display" : "Отображение меню"}>
+            <h4>{user.language === "en" ? "Menu display" : "Отображение меню"}</h4>
+            <div className="language-choice appearance-menu-choice" role="radiogroup"
+              aria-label={user.language === "en" ? "Menu labels" : "Подписи меню"}>
+              <button type="button" role="radio" aria-checked={menuLabels === "text"}
+                className={menuLabels === "text" ? "active" : ""} onClick={() => changeMenuLabels("text")}>
+                {user.language === "en" ? "Icons and labels" : "Иконки и подписи"}
+              </button>
+              <button type="button" role="radio" aria-checked={menuLabels === "icons"}
+                className={menuLabels === "icons" ? "active" : ""} onClick={() => changeMenuLabels("icons")}>
+                {user.language === "en" ? "Icons only" : "Только иконки"}
+              </button>
             </div>
-          </div>)}
-          {invitationMessage ? <p role="status" className="account-preference-status">{invitationMessage}</p> : null}
-        </section> : null}
-
-        {user.sharedProjectsEnabled ? <section className="account-preferences shared-invitations-preference" aria-labelledby="shared-team-activity-title" data-exp-ui="panel">
-          <div><span className="eyebrow">GENESIS · {user.language === "en" ? "Together" : "Вместе"}</span>
-            <h3 id="shared-team-activity-title">{user.language === "en" ? "Team updates" : "События команды"}</h3>
-            {!teamNotifications.length ? <p>{user.language === "en" ? "No team updates yet." : "Новых событий команды пока нет."}</p> : null}
+            <h4>{user.language === "en" ? "Settings submenu" : "Подменю настроек"}</h4>
+            <div className="language-choice appearance-menu-choice" role="radiogroup"
+              aria-label={user.language === "en" ? "Settings submenu labels" : "Подписи подменю настроек"}>
+              <button type="button" role="radio" aria-checked={settingsMenuLabels === "text"}
+                className={settingsMenuLabels === "text" ? "active" : ""} onClick={() => changeSettingsMenuLabels("text")}>
+                {user.language === "en" ? "Icons and labels" : "Иконки и подписи"}
+              </button>
+              <button type="button" role="radio" aria-checked={settingsMenuLabels === "icons"}
+                className={settingsMenuLabels === "icons" ? "active" : ""} onClick={() => changeSettingsMenuLabels("icons")}>
+                {user.language === "en" ? "Icons only" : "Только иконки"}
+              </button>
+            </div>
           </div>
-          {teamNotifications.some((item) => !item.isRead) ? <button type="button" className="text-button"
-            disabled={teamReadBusy} onClick={() => void markTeamRead(teamNotifications.filter((item) => !item.isRead).map((item) => item.id))}>
-            {user.language === "en" ? "Mark all as read" : "Отметить всё прочитанным"}
-          </button> : null}
-          {teamNotifications.slice(0, 12).map((item) => <div key={item.id}
-            className={`shared-invitation-card${item.isRead ? "" : " unread"}`} data-exp-ui="row">
-            <p><strong data-no-translate>{item.actorName}</strong> · {item.action.startsWith("task.")
-              ? (user.language === "en" ? "updated a task" : "изменил(а) задачу")
-              : item.action === "comment.created" ? (user.language === "en" ? "added a comment" : "добавил(а) комментарий")
-                : (user.language === "en" ? "updated the project" : "обновил(а) проект")}
-              {item.taskTitle ? <> · <span data-no-translate>{item.taskTitle}</span></> : null}
-              {" · "}<span data-no-translate>{item.projectTitle}</span></p>
-            {!item.isRead ? <button type="button" disabled={teamReadBusy} onClick={() => void markTeamRead([item.id])}>
-              {user.language === "en" ? "Read" : "Прочитано"}</button> : null}
-          </div>)}
-        </section> : null}
-
-        <section className="account-preferences navigation-preference" aria-labelledby="navigation-preference-title" data-exp-ui="panel">
-          <div>
-            <span className="eyebrow">GENESIS · {user.language === "en" ? "Layout" : "Вид"}</span>
-            <h3 id="navigation-preference-title">{user.language === "en" ? "Menu and Today" : "Меню и экран «Сегодня»"}</h3>
-            <p>{user.language === "en" ? "Choose the sections that appear in the app. Today and Settings always remain available." : "Выберите разделы приложения. «Сегодня» и «Настройки» всегда остаются доступными."}</p>
-          </div>
+          <details className="appearance-menu-details">
+            <summary><span>{user.language === "en" ? "Menu item display" : "Отображение элементов меню"}</span>
+              <span className="appearance-summary-action appearance-summary-closed">{user.language === "en" ? "Customize menu items" : "Настроить элементы"}</span>
+              <span className="appearance-summary-action appearance-summary-open">{user.language === "en" ? "Collapse" : "Свернуть"}</span>
+            </summary>
+            <p>{user.language === "en" ? "Menu items, submenus, Today and calendars" : "Пункты меню, подменю, экран «Сегодня» и календари"}</p>
           <div className="navigation-preference-grid">
             <fieldset><legend>{user.language === "en" ? "Main menu" : "Главное меню"}</legend>
               {MENU_SETTINGS.map(([id, ru, en]) => <label key={id} className="account-switch-row" data-exp-ui="row">
                 {user.language === "en" ? en : ru}
                 <input type="checkbox" role="switch" checked={!visibility.hiddenMenuItems.includes(id)} disabled={preferenceBusy}
                   onChange={(event) => toggleVisibilityItem("hiddenMenuItems", id, event.target.checked)} />
+                <i aria-hidden="true" />
               </label>)}
             </fieldset>
             <fieldset><legend>{user.language === "en" ? "Submenus" : "Подменю"}</legend>
@@ -762,6 +810,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
                   <input type="checkbox" role="switch" checked={!visibility.hiddenSubmenus.includes(id)}
                     disabled={preferenceBusy || lastVisible || personalRequired}
                     onChange={(event) => toggleVisibilityItem("hiddenSubmenus", id, event.target.checked)} />
+                  <i aria-hidden="true" />
                 </label>;
               })}
             </fieldset>
@@ -770,6 +819,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
                 {user.language === "en" ? en : ru}
                 <input type="checkbox" role="switch" checked={!visibility.hiddenTodayBlocks.includes(id)} disabled={preferenceBusy}
                   onChange={(event) => toggleVisibilityItem("hiddenTodayBlocks", id, event.target.checked)} />
+                <i aria-hidden="true" />
               </label>)}
             </fieldset>
             <fieldset><legend>{user.language === "en" ? "Available calendars" : "Доступные календари"}</legend>
@@ -782,12 +832,17 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
                   onChange={(event) => void updateVisibility({ ...visibility,
                     enabledCalendars: event.target.checked ? [...visibility.enabledCalendars, mode]
                       : visibility.enabledCalendars.filter((item) => item !== mode) })} />
+                <i aria-hidden="true" />
               </label>)}
             </fieldset>
           </div>
-        </section>
-
-        <section className="account-preferences language-preference" aria-labelledby="language-title" data-exp-ui="panel">
+          </details>
+          <details className="appearance-menu-details appearance-language-details">
+            <summary><span>{user.language === "en" ? "Interface language" : "Язык интерфейса"}</span>
+              <span className="appearance-summary-action appearance-summary-closed">{user.language === "en" ? "Choose language" : "Выбрать язык"}</span>
+              <span className="appearance-summary-action appearance-summary-open">{user.language === "en" ? "Collapse" : "Свернуть"}</span>
+            </summary>
+        <section className="account-preferences language-preference appearance-nested-preference" aria-labelledby="language-title" data-exp-ui="panel">
           <div>
             <span className="eyebrow">Язык</span>
             <h3 id="language-title">Интерфейс и справочные тексты</h3>
@@ -799,14 +854,20 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
                 aria-label={LANGUAGE_LABELS[code].name}
                 className={user.language === code ? "active" : ""} disabled={preferenceBusy}
                 onClick={() => void changeLanguage(code)} data-no-translate>
-                <span className="language-flag" aria-hidden="true">{LANGUAGE_LABELS[code].flag}</span>
+                <span className="language-flag" aria-hidden="true">
+                  <img src={`${APP_BASE}/language-flags/${FLAG_COUNTRIES[code]}.svg`} alt="" />
+                </span>
                 <strong>{LANGUAGE_LABELS[code].name}</strong>
               </button>
             ))}
           </div>
         </section>
 
-        <section className="account-preferences time-format-preference" aria-labelledby="time-format-title" data-exp-ui="panel">
+          </details>
+          <div className="appearance-settings-subsection appearance-calendar-settings" role="group"
+            aria-label={user.language === "en" ? "Calendars and time" : "Календари и время"}>
+            <h4>{user.language === "en" ? "Calendars and time" : "Календари и время"}</h4>
+        <section className="account-preferences appearance-nested-preference time-format-preference" aria-labelledby="time-format-title" data-exp-ui="panel">
           <div>
             <span className="eyebrow">Формат времени</span>
             <h3 id="time-format-title">Отображение часов</h3>
@@ -830,7 +891,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
           </div>
         </section>
 
-        <section className="account-preferences calendar-mode-preference" aria-labelledby="calendar-mode-title" data-exp-ui="panel">
+        <section className="account-preferences appearance-nested-preference calendar-mode-preference" aria-labelledby="calendar-mode-title" data-exp-ui="panel">
           <div>
             <span className="eyebrow">Основной календарь</span>
             <h3 id="calendar-mode-title">Полное отображение и система дат</h3>
@@ -855,7 +916,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
         </section>
 
         {(user.calendarMode ?? "sacred") === "profane" ? (
-          <section className="account-preferences gregorian-year-preference" aria-labelledby="gregorian-year-start-title" data-exp-ui="panel">
+          <section className="account-preferences appearance-nested-preference gregorian-year-preference" aria-labelledby="gregorian-year-start-title" data-exp-ui="panel">
             <div>
               <span className="eyebrow">Григорианский календарь</span>
               <h3 id="gregorian-year-start-title">Начало года</h3>
@@ -877,7 +938,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
         ) : null}
 
         {(user.calendarMode ?? "sacred") === "profane" ? (
-          <section className="account-preferences week-start-preference" aria-labelledby="week-start-title" data-exp-ui="panel">
+          <section className="account-preferences appearance-nested-preference week-start-preference" aria-labelledby="week-start-title" data-exp-ui="panel">
             <div>
               <span className="eyebrow">Григорианский календарь</span>
               <h3 id="week-start-title">Начало недели</h3>
@@ -902,9 +963,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
           </section>
         ) : null}
 
-        <SolarPlaceSettings language={user.language} />
-
-        <section className="account-preferences task-calendar-mode-preference" aria-labelledby="task-calendar-mode-title" data-exp-ui="panel">
+        <section className="account-preferences appearance-nested-preference task-calendar-mode-preference" aria-labelledby="task-calendar-mode-title" data-exp-ui="panel">
           <div>
             <span className="eyebrow">Календарь задач</span>
             <h3 id="task-calendar-mode-title">По какой системе выставлять даты</h3>
@@ -928,7 +987,255 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
           </div>
         </section>
 
-        {user.authProvider === "google" ? <section className="account-preferences multi-account-preference" aria-labelledby="multi-account-title">
+          </div>
+        </section>
+
+        <section className="account-preferences" aria-labelledby="account-preferences-title" data-settings-group="appearance">
+          <div>
+            <span className="eyebrow">Самоограничение</span>
+            <h3 id="account-preferences-title">Гадания в Стойхейоне</h3>
+          </div>
+          <label className="account-switch-row">
+            <span>
+              <strong>Запретить себе гадания</strong>
+              <small>Скрывает карту дня и расклад девяти карт на всех устройствах. Каталог 24 буквенных карт и их значения останутся доступны.</small>
+            </span>
+            <input
+              type="checkbox"
+              role="switch"
+              checked={Boolean(user.stoicheionDivinationDisabled)}
+              disabled={preferenceBusy}
+              onChange={(event) => void changeDivinationPreference(event.target.checked)}
+              aria-label="Запретить себе гадания по картам"
+            />
+            <i aria-hidden="true" />
+          </label>
+          <p className="account-preference-status" aria-live="polite">
+            {user.stoicheionDivinationDisabled ? "Гадания выключены" : "Гадания доступны"}
+          </p>
+        </section>
+
+        <section className="account-preferences" aria-labelledby="account-habits-title" data-settings-group="habits">
+          <div>
+            <span className="eyebrow">{user.language === "en" ? "Daily practice" : "Ежедневная практика"}</span>
+            <h3 id="account-habits-title">{user.language === "en" ? "Habit tracking" : "Трекинг привычек"}</h3>
+          </div>
+          <label className="account-switch-row">
+            <span>
+              <strong>{user.language === "en" ? "Enable habit tracker" : "Включить трекер привычек"}</strong>
+              <small>{user.language === "en" ? "Shows today's habits, the Habits page, mood and progress. Existing encrypted records remain saved when disabled." : "Показывает привычки дня, страницу «Привычки», настроение и прогресс. При отключении зашифрованные записи сохраняются."}</small>
+            </span>
+            <input
+              type="checkbox"
+              role="switch"
+              checked={habitTrackingEnabled}
+              onChange={(event) => onHabitTrackingChange(event.target.checked)}
+              aria-label={user.language === "en" ? "Enable habit tracking" : "Включить трекинг привычек"}
+            />
+            <i aria-hidden="true" />
+          </label>
+          <p className="account-preference-status" aria-live="polite">
+            {habitTrackingEnabled ? (user.language === "en" ? "Habit tracking is enabled" : "Трекинг привычек включён") : (user.language === "en" ? "Habit tracking is hidden" : "Трекинг привычек скрыт")}
+          </p>
+          <div className="account-template-restore">
+            <div>
+              <strong>{user.language === "en" ? "Starter habit suggestions" : "Стартовые привычки"}</strong>
+              <small>{hiddenHabitTemplateCount
+                ? (user.language === "en" ? `${hiddenHabitTemplateCount} suggestion(s) hidden` : `Скрыто предложений: ${hiddenHabitTemplateCount}`)
+                : (user.language === "en" ? "All standard suggestions are available" : "Все стандартные предложения доступны")}</small>
+            </div>
+            <button type="button" className="secondary-button" disabled={!hiddenHabitTemplateCount} onClick={onRestoreHabitTemplates}>{user.language === "en" ? "Restore standard habits" : "Восстановить стандартные привычки"}</button>
+          </div>
+          <div className="account-habit-reset">
+            <div>
+              <strong>{user.language === "en" ? "Reset habit tracking" : "Обнуление трекера"}</strong>
+              <small>{user.language === "en"
+                ? "Permanently deletes habits, sleep, mood, abstinence, statistics, XP and laurels. Account and calendar settings stay unchanged."
+                : "Безвозвратно удалит привычки, сон, настроение, воздержание, статистику, XP и лавры. Настройки аккаунта и календаря сохранятся."}</small>
+            </div>
+            <button type="button" onClick={openHabitReset}>{user.language === "en" ? "Reset all habits" : "Обнулить все привычки"}</button>
+          </div>
+        </section>
+
+        <section className="account-preferences habit-notification-preference" aria-labelledby="habit-notification-title" data-settings-group="habits">
+          <div>
+            <span className="eyebrow">{user.language === "en" ? "On-device motivation" : "Мотивация на устройстве"}</span>
+            <h3 id="habit-notification-title">{user.language === "en" ? "Habit notifications" : "Уведомления привычек"}</h3>
+            <p>{user.language === "en"
+              ? "GENESIS combines nearby reminders, respects quiet hours and reduces motivational messages after repeated ignoring."
+              : "GENESIS объединяет близкие напоминания, соблюдает тихие часы и снижает частоту мотивационных сообщений после повторных пропусков."}</p>
+          </div>
+          <label className="account-switch-row">
+            <span>
+              <strong>{user.language === "en" ? "Enable notifications on this device" : "Включить уведомления на этом устройстве"}</strong>
+              <small>{user.language === "en" ? "Permission is requested only after this switch is enabled." : "Разрешение браузера запрашивается только после включения этого переключателя."}</small>
+            </span>
+            <input
+              type="checkbox"
+              role="switch"
+              checked={habitNotificationSettings.enabled && notificationPermission === "granted"}
+              disabled={notificationBusy || notificationPermission === "unsupported"}
+              onChange={(event) => void toggleHabitNotifications(event.target.checked)}
+              aria-label={user.language === "en" ? "Enable habit notifications" : "Включить уведомления привычек"}
+            />
+            <i aria-hidden="true" />
+          </label>
+          <p className="account-preference-status" aria-live="polite">{notificationPermission === "unsupported"
+            ? (user.language === "en" ? "Notifications are not supported" : "Уведомления не поддерживаются")
+            : notificationPermission === "denied"
+              ? (user.language === "en" ? "Permission is blocked in the browser" : "Разрешение заблокировано в браузере")
+              : habitNotificationSettings.enabled && notificationPermission === "granted"
+                ? (user.language === "en" ? "Notifications are enabled" : "Уведомления включены")
+                : (user.language === "en" ? "Notifications are disabled" : "Уведомления отключены")}</p>
+          <fieldset className="habit-notification-settings" disabled={!habitNotificationSettings.enabled || notificationPermission !== "granted"}>
+            <legend>{user.language === "en" ? "Notification behavior" : "Поведение уведомлений"}</legend>
+            <div className="habit-notification-tone" role="radiogroup" aria-label={user.language === "en" ? "Notification tone" : "Тон уведомлений"}>
+              {([
+                ["calm", user.language === "en" ? "Calm" : "Спокойный"],
+                ["heroic", user.language === "en" ? "Heroic" : "Героический"],
+                ["ironic", user.language === "en" ? "With irony" : "С иронией"],
+              ] as const).map(([tone, label]) => <button type="button" role="radio" aria-checked={habitNotificationSettings.tone === tone} className={habitNotificationSettings.tone === tone ? "active" : ""} onClick={() => onHabitNotificationSettingsChange({ ...habitNotificationSettings, tone })} key={tone}>{label}</button>)}
+            </div>
+            <div className="habit-notification-times">
+              <label><span>{user.language === "en" ? "Daily goal reminder" : "Напоминание о дневной цели"}</span><input type="time" value={habitNotificationSettings.dailyGoalTime} onChange={(event) => onHabitNotificationSettingsChange({ ...habitNotificationSettings, dailyGoalTime: event.target.value })} /></label>
+              <label><span>{user.language === "en" ? "Quiet hours start" : "Начало тихих часов"}</span><input type="time" value={habitNotificationSettings.quietHoursStart} onChange={(event) => onHabitNotificationSettingsChange({ ...habitNotificationSettings, quietHoursStart: event.target.value })} /></label>
+              <label><span>{user.language === "en" ? "Quiet hours end" : "Конец тихих часов"}</span><input type="time" value={habitNotificationSettings.quietHoursEnd} onChange={(event) => onHabitNotificationSettingsChange({ ...habitNotificationSettings, quietHoursEnd: event.target.value })} /></label>
+            </div>
+            <label className="account-switch-row compact">
+              <span><strong>{user.language === "en" ? "Daily goal and streak reminders" : "Напоминания о цели и серии"}</strong><small>{user.language === "en" ? "Shown only while the goal is still achievable; they never shame or deduct progress." : "Показываются только пока цель достижима; не стыдят и не отнимают прогресс."}</small></span>
+              <input type="checkbox" role="switch" aria-label={user.language === "en" ? "Daily goal and streak reminders" : "Напоминания о цели и серии"} checked={habitNotificationSettings.motivational} onChange={(event) => onHabitNotificationSettingsChange({ ...habitNotificationSettings, motivational: event.target.checked })} />
+              <i aria-hidden="true" />
+            </label>
+          </fieldset>
+          <small className="habit-notification-privacy">{user.language === "en"
+            ? "Notification analytics contain no habit titles and remain only on this device. Notification settings are stored inside your encrypted workspace."
+            : "Аналитика уведомлений не содержит названий привычек и остаётся только на этом устройстве. Настройки уведомлений хранятся внутри зашифрованного пространства."}</small>
+        </section>
+
+        <section className="account-preferences habit-feedback-preference" aria-labelledby="habit-feedback-title" data-settings-group="habits">
+          <div>
+            <span className="eyebrow">{user.language === "en" ? "Feedback and accessibility" : "Отклик и доступность"}</span>
+            <h3 id="habit-feedback-title">{user.language === "en" ? "Completion feedback" : "Отклик на выполнение"}</h3>
+            <p>{user.language === "en"
+              ? "Choose how GENESIS confirms a completed habit. System reduced-motion preferences always take priority."
+              : "Выберите, как GENESIS подтверждает выполнение привычки. Системное ограничение движения всегда имеет приоритет."}</p>
+          </div>
+          <fieldset className="habit-feedback-settings" disabled={!habitTrackingEnabled}>
+            <legend className="sr-only">{user.language === "en" ? "Habit feedback settings" : "Настройки отклика привычек"}</legend>
+            <label className="account-switch-row compact">
+              <span><strong>{user.language === "en" ? "Short animations" : "Короткие анимации"}</strong><small>{user.language === "en" ? "Smooth checkbox, card and progress feedback; disabled automatically when reduced motion is requested." : "Плавный отклик галочки, карточки и прогресса; автоматически отключается при системном ограничении движения."}</small></span>
+              <input type="checkbox" role="switch" checked={habitFeedbackSettings.animations} onChange={(event) => onHabitFeedbackSettingsChange({ ...habitFeedbackSettings, animations: event.target.checked })} aria-label={user.language === "en" ? "Short completion animations" : "Короткие анимации выполнения"} />
+              <i aria-hidden="true" />
+            </label>
+            <label className="account-switch-row compact">
+              <span><strong>{user.language === "en" ? "Completion sound" : "Звук выполнения"}</strong><small>{user.language === "en" ? "A brief local tone. Off by default and never downloaded from a server." : "Короткий локальный сигнал. По умолчанию выключен и не загружается с сервера."}</small></span>
+              <input type="checkbox" role="switch" checked={habitFeedbackSettings.sound} onChange={(event) => onHabitFeedbackSettingsChange({ ...habitFeedbackSettings, sound: event.target.checked })} aria-label={user.language === "en" ? "Completion sound" : "Звук выполнения"} />
+              <i aria-hidden="true" />
+            </label>
+            <label className="account-switch-row compact">
+              <span><strong>{user.language === "en" ? "Haptic feedback" : "Тактильный отклик"}</strong><small>{user.language === "en" ? "A light vibration on supported mobile devices. Off by default." : "Лёгкая вибрация на поддерживаемых мобильных устройствах. По умолчанию выключена."}</small></span>
+              <input type="checkbox" role="switch" checked={habitFeedbackSettings.haptics} onChange={(event) => onHabitFeedbackSettingsChange({ ...habitFeedbackSettings, haptics: event.target.checked })} aria-label={user.language === "en" ? "Haptic feedback" : "Тактильный отклик"} />
+              <i aria-hidden="true" />
+            </label>
+            <label className="account-switch-row compact">
+              <span><strong>{user.language === "en" ? "Achievement notices" : "Уведомления о достижениях"}</strong><small>{user.language === "en" ? "Include a newly unlocked achievement in the completion notice." : "Показывать новое достижение в уведомлении о выполнении."}</small></span>
+              <input type="checkbox" role="switch" checked={habitFeedbackSettings.achievementPopups} onChange={(event) => onHabitFeedbackSettingsChange({ ...habitFeedbackSettings, achievementPopups: event.target.checked })} aria-label={user.language === "en" ? "Achievement notices" : "Уведомления о достижениях"} />
+              <i aria-hidden="true" />
+            </label>
+            <label className="account-switch-row compact">
+              <span><strong>{user.language === "en" ? "Trials" : "Испытания"}</strong><small>{user.language === "en" ? "Create and show daily, weekly and epic trials. Existing progress is preserved while disabled." : "Создавать и показывать ежедневные, недельные и эпические испытания. При отключении прежний прогресс сохраняется."}</small></span>
+              <input type="checkbox" role="switch" checked={habitFeedbackSettings.questsEnabled} onChange={(event) => onHabitFeedbackSettingsChange({ ...habitFeedbackSettings, questsEnabled: event.target.checked })} aria-label={user.language === "en" ? "Habit trials" : "Испытания привычек"} />
+              <i aria-hidden="true" />
+            </label>
+            <label className="account-switch-row compact">
+              <span><strong>{user.language === "en" ? "Gamification widgets" : "Игровые блоки"}</strong><small>{user.language === "en" ? "Show ranks, Laurels, streak rewards and achievements. Habit tracking continues normally when hidden." : "Показывать ранги, Лавры, награды серии и достижения. Без них трекинг продолжает работать как обычно."}</small></span>
+              <input type="checkbox" role="switch" checked={habitFeedbackSettings.gamificationWidgets} onChange={(event) => onHabitFeedbackSettingsChange({ ...habitFeedbackSettings, gamificationWidgets: event.target.checked })} aria-label={user.language === "en" ? "Gamification widgets" : "Игровые блоки"} />
+              <i aria-hidden="true" />
+            </label>
+          </fieldset>
+          {!habitTrackingEnabled ? <p className="account-preference-status" role="status">{user.language === "en" ? "Enable habit tracking to change these settings" : "Включите трекинг привычек, чтобы изменить эти настройки"}</p> : null}
+        </section>
+
+        <section className="account-preferences shared-projects-preference" aria-labelledby="shared-projects-preference-title" data-exp-ui="panel" data-settings-group="shared">
+          <div>
+            <span className="eyebrow">GENESIS · {user.language === "en" ? "Together" : "Вместе"}</span>
+            <h3 id="shared-projects-preference-title">{user.language === "en" ? "Shared projects" : "Общие проекты"}</h3>
+            <p>{user.language === "en" ? "Create projects with other GENESIS accounts. Personal data stays private." : "Создавайте проекты с другими аккаунтами GENESIS. Личные данные остаются приватными."}</p>
+            <small>{user.sharedProjectsLifetimeAccess
+              ? (user.language === "en" ? "Lifetime free access to Shared projects." : "Пожизненный бесплатный открытый доступ к функциям «Общие проекты».")
+              : (user.language === "en" ? "Open to all GENESIS accounts during testing." : "Открыто всем аккаунтам GENESIS на время тестирования.")}</small>
+          </div>
+          <label htmlFor="shared-projects-toggle" className="account-switch-row" data-exp-ui="row">
+            {user.language === "en" ? "Enable shared projects" : "Включить общие проекты"}
+            <input id="shared-projects-toggle" type="checkbox" role="switch" data-exp-ui="switch" checked={Boolean(user.sharedProjectsEnabled)}
+              disabled={!user.sharedProjectsEligible || preferenceBusy}
+              onChange={(event) => void changeSharedProjectsPreference(event.target.checked)} />
+          </label>
+        {user.sharedProjectsEligible ? <div className="shared-settings-subsection" role="group" aria-labelledby="shared-invitations-title">
+          <div>
+            <h4 id="shared-invitations-title">{user.language === "en" ? "Invitations" : "Приглашения"}</h4>
+            {!invitations.length ? <p>{user.language === "en" ? "You have no pending invitations." : "Новых приглашений нет."}</p> : null}
+          </div>
+          {invitations.map((invitation) => <div key={invitation.id} className="shared-invitation-card" data-exp-ui="row">
+            <p>{user.language === "en"
+              ? `${invitation.inviterName} invites you to workspace «${invitation.spaceTitle}», project «${invitation.projectTitle}».`
+              : `Вас ${invitation.inviterName} приглашает присоединиться к пространству «${invitation.spaceTitle}», проекту «${invitation.projectTitle}».`}</p>
+            <div className="shared-invitation-actions">
+              <button type="button" disabled={Boolean(invitationBusy)} onClick={() => void respondToInvitation(invitation.id, true)}>
+                {user.language === "en" ? "Accept" : "Принять"}</button>
+              <button type="button" disabled={Boolean(invitationBusy)} onClick={() => void respondToInvitation(invitation.id, false)}>
+                {user.language === "en" ? "Decline" : "Отклонить"}</button>
+            </div>
+          </div>)}
+          {invitationMessage ? <p role="status" className="account-preference-status">{invitationMessage}</p> : null}
+        </div> : null}
+
+        {user.sharedProjectsEnabled ? <div className="shared-settings-subsection" role="group" aria-labelledby="shared-team-activity-title">
+          <div>
+            <h4 id="shared-team-activity-title">{user.language === "en" ? "Team updates" : "События команды"}</h4>
+            {!teamNotifications.length ? <p>{user.language === "en" ? "No team updates yet." : "Новых событий команды пока нет."}</p> : null}
+          </div>
+          {teamNotifications.some((item) => !item.isRead) ? <button type="button" className="text-button"
+            disabled={teamReadBusy} onClick={() => void markTeamRead(teamNotifications.filter((item) => !item.isRead).map((item) => item.id))}>
+            {user.language === "en" ? "Mark all as read" : "Отметить всё прочитанным"}
+          </button> : null}
+          {teamNotifications.slice(0, 12).map((item) => <div key={item.id}
+            className={`shared-invitation-card${item.isRead ? "" : " unread"}`} data-exp-ui="row">
+            <p><strong data-no-translate>{item.actorName}</strong> · {item.action.startsWith("task.")
+              ? (user.language === "en" ? "updated a task" : "изменил(а) задачу")
+              : item.action === "comment.created" ? (user.language === "en" ? "added a comment" : "добавил(а) комментарий")
+                : (user.language === "en" ? "updated the project" : "обновил(а) проект")}
+              {item.taskTitle ? <> · <span data-no-translate>{item.taskTitle}</span></> : null}
+              {" · "}<span data-no-translate>{item.projectTitle}</span></p>
+            {!item.isRead ? <button type="button" disabled={teamReadBusy} onClick={() => void markTeamRead([item.id])}>
+              {user.language === "en" ? "Read" : "Прочитано"}</button> : null}
+          </div>)}
+        </div> : null}
+
+        </section>
+
+        <section className="account-preferences settings-reminders-panel" data-settings-group="reminders">
+          <div><span className="eyebrow">GENESIS</span><h3>{user.language === "en" ? "Lunar reminders" : "Лунные напоминания"}</h3>
+            <p>{user.language === "en" ? "Choose a lunar date and reminder time when creating or editing a task. GENESIS converts it to the matching Gregorian date for synchronization." : "Выберите лунную дату и время напоминания при создании или редактировании задачи. Для синхронизации GENESIS переводит дату в григорианскую."}</p></div>
+          <button type="button" className="secondary-button" onClick={() => { onClose(); window.location.hash = "tasks"; }}>
+            {user.language === "en" ? "Open tasks" : "Открыть задачи"}</button>
+        </section>
+        <section className="account-preferences settings-reminders-panel" data-settings-group="reminders">
+          <div><span className="eyebrow">GENESIS</span><h3>{user.language === "en" ? "System reminders" : "Системные напоминания"}</h3>
+            <p>{user.language === "en" ? "Browser notifications depend on your browser permission. Task reminders in Google Calendar and Tasks use the connected Google account." : "Уведомления браузера зависят от его разрешения. Напоминания задач в Google Calendar и Tasks работают через подключённый Google-аккаунт."}</p></div>
+          <p className="account-preference-status">{user.language === "en" ? "Browser permission" : "Разрешение браузера"}: {typeof Notification === "undefined" ? "—" : Notification.permission}</p>
+        </section>
+
+        <div data-settings-group="region"><SolarPlaceSettings language={user.language} /></div>
+
+        <section className="account-preferences settings-links-panel" data-settings-group="links">
+          <a href="https://t.me/genesisbasilea" target="_blank" rel="noreferrer">{user.language === "en" ? "GENESIS Academy" : "Академия Генезис"}</a>
+          <a href="/support">{user.language === "en" ? "Support" : "Поддержка"}</a>
+          <a href="/privacy">{user.language === "en" ? "Privacy policy" : "Политика конфиденциальности"}</a>
+          <a href="/terms">{user.language === "en" ? "Terms of service" : "Пользовательское соглашение"}</a>
+        </section>
+
+        {user.authProvider === "google" ? <section className="account-preferences multi-account-preference" aria-labelledby="multi-account-title" data-settings-group="account">
             <div className="multi-account-heading">
               <div>
                 <span className="eyebrow">Доступно всем пользователям</span>
@@ -1016,148 +1323,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
             ) : null}
           </section> : null}
 
-        <section className="account-preferences" aria-labelledby="account-habits-title">
-          <div>
-            <span className="eyebrow">{user.language === "en" ? "Daily practice" : "Ежедневная практика"}</span>
-            <h3 id="account-habits-title">{user.language === "en" ? "Habit tracking" : "Трекинг привычек"}</h3>
-          </div>
-          <label className="account-switch-row">
-            <span>
-              <strong>{user.language === "en" ? "Enable habit tracker" : "Включить трекер привычек"}</strong>
-              <small>{user.language === "en" ? "Shows today's habits, the Habits page, mood and progress. Existing encrypted records remain saved when disabled." : "Показывает привычки дня, страницу «Привычки», настроение и прогресс. При отключении зашифрованные записи сохраняются."}</small>
-            </span>
-            <input
-              type="checkbox"
-              role="switch"
-              checked={habitTrackingEnabled}
-              onChange={(event) => onHabitTrackingChange(event.target.checked)}
-              aria-label={user.language === "en" ? "Enable habit tracking" : "Включить трекинг привычек"}
-            />
-            <i aria-hidden="true" />
-          </label>
-          <p className="account-preference-status" aria-live="polite">
-            {habitTrackingEnabled ? (user.language === "en" ? "Habit tracking is enabled" : "Трекинг привычек включён") : (user.language === "en" ? "Habit tracking is hidden" : "Трекинг привычек скрыт")}
-          </p>
-          <div className="account-template-restore">
-            <div>
-              <strong>{user.language === "en" ? "Starter habit suggestions" : "Стартовые привычки"}</strong>
-              <small>{hiddenHabitTemplateCount
-                ? (user.language === "en" ? `${hiddenHabitTemplateCount} suggestion(s) hidden` : `Скрыто предложений: ${hiddenHabitTemplateCount}`)
-                : (user.language === "en" ? "All standard suggestions are available" : "Все стандартные предложения доступны")}</small>
-            </div>
-            <button type="button" className="secondary-button" disabled={!hiddenHabitTemplateCount} onClick={onRestoreHabitTemplates}>{user.language === "en" ? "Restore standard habits" : "Восстановить стандартные привычки"}</button>
-          </div>
-          <div className="account-habit-reset">
-            <div>
-              <strong>{user.language === "en" ? "Reset habit tracking" : "Обнуление трекера"}</strong>
-              <small>{user.language === "en"
-                ? "Permanently deletes habits, sleep, mood, abstinence, statistics, XP and laurels. Account and calendar settings stay unchanged."
-                : "Безвозвратно удалит привычки, сон, настроение, воздержание, статистику, XP и лавры. Настройки аккаунта и календаря сохранятся."}</small>
-            </div>
-            <button type="button" onClick={openHabitReset}>{user.language === "en" ? "Reset all habits" : "Обнулить все привычки"}</button>
-          </div>
-        </section>
-
-        <section className="account-preferences habit-notification-preference" aria-labelledby="habit-notification-title">
-          <div>
-            <span className="eyebrow">{user.language === "en" ? "On-device motivation" : "Мотивация на устройстве"}</span>
-            <h3 id="habit-notification-title">{user.language === "en" ? "Habit notifications" : "Уведомления привычек"}</h3>
-            <p>{user.language === "en"
-              ? "GENESIS combines nearby reminders, respects quiet hours and reduces motivational messages after repeated ignoring."
-              : "GENESIS объединяет близкие напоминания, соблюдает тихие часы и снижает частоту мотивационных сообщений после повторных пропусков."}</p>
-          </div>
-          <label className="account-switch-row">
-            <span>
-              <strong>{user.language === "en" ? "Enable notifications on this device" : "Включить уведомления на этом устройстве"}</strong>
-              <small>{user.language === "en" ? "Permission is requested only after this switch is enabled." : "Разрешение браузера запрашивается только после включения этого переключателя."}</small>
-            </span>
-            <input
-              type="checkbox"
-              role="switch"
-              checked={habitNotificationSettings.enabled && notificationPermission === "granted"}
-              disabled={notificationBusy || notificationPermission === "unsupported"}
-              onChange={(event) => void toggleHabitNotifications(event.target.checked)}
-              aria-label={user.language === "en" ? "Enable habit notifications" : "Включить уведомления привычек"}
-            />
-            <i aria-hidden="true" />
-          </label>
-          <p className="account-preference-status" aria-live="polite">{notificationPermission === "unsupported"
-            ? (user.language === "en" ? "Notifications are not supported" : "Уведомления не поддерживаются")
-            : notificationPermission === "denied"
-              ? (user.language === "en" ? "Permission is blocked in the browser" : "Разрешение заблокировано в браузере")
-              : habitNotificationSettings.enabled && notificationPermission === "granted"
-                ? (user.language === "en" ? "Notifications are enabled" : "Уведомления включены")
-                : (user.language === "en" ? "Notifications are disabled" : "Уведомления отключены")}</p>
-          <fieldset className="habit-notification-settings" disabled={!habitNotificationSettings.enabled || notificationPermission !== "granted"}>
-            <legend>{user.language === "en" ? "Notification behavior" : "Поведение уведомлений"}</legend>
-            <div className="habit-notification-tone" role="radiogroup" aria-label={user.language === "en" ? "Notification tone" : "Тон уведомлений"}>
-              {([
-                ["calm", user.language === "en" ? "Calm" : "Спокойный"],
-                ["heroic", user.language === "en" ? "Heroic" : "Героический"],
-                ["ironic", user.language === "en" ? "With irony" : "С иронией"],
-              ] as const).map(([tone, label]) => <button type="button" role="radio" aria-checked={habitNotificationSettings.tone === tone} className={habitNotificationSettings.tone === tone ? "active" : ""} onClick={() => onHabitNotificationSettingsChange({ ...habitNotificationSettings, tone })} key={tone}>{label}</button>)}
-            </div>
-            <div className="habit-notification-times">
-              <label><span>{user.language === "en" ? "Daily goal reminder" : "Напоминание о дневной цели"}</span><input type="time" value={habitNotificationSettings.dailyGoalTime} onChange={(event) => onHabitNotificationSettingsChange({ ...habitNotificationSettings, dailyGoalTime: event.target.value })} /></label>
-              <label><span>{user.language === "en" ? "Quiet hours start" : "Начало тихих часов"}</span><input type="time" value={habitNotificationSettings.quietHoursStart} onChange={(event) => onHabitNotificationSettingsChange({ ...habitNotificationSettings, quietHoursStart: event.target.value })} /></label>
-              <label><span>{user.language === "en" ? "Quiet hours end" : "Конец тихих часов"}</span><input type="time" value={habitNotificationSettings.quietHoursEnd} onChange={(event) => onHabitNotificationSettingsChange({ ...habitNotificationSettings, quietHoursEnd: event.target.value })} /></label>
-            </div>
-            <label className="account-switch-row compact">
-              <span><strong>{user.language === "en" ? "Daily goal and streak reminders" : "Напоминания о цели и серии"}</strong><small>{user.language === "en" ? "Shown only while the goal is still achievable; they never shame or deduct progress." : "Показываются только пока цель достижима; не стыдят и не отнимают прогресс."}</small></span>
-              <input type="checkbox" role="switch" aria-label={user.language === "en" ? "Daily goal and streak reminders" : "Напоминания о цели и серии"} checked={habitNotificationSettings.motivational} onChange={(event) => onHabitNotificationSettingsChange({ ...habitNotificationSettings, motivational: event.target.checked })} />
-              <i aria-hidden="true" />
-            </label>
-          </fieldset>
-          <small className="habit-notification-privacy">{user.language === "en"
-            ? "Notification analytics contain no habit titles and remain only on this device. Notification settings are stored inside your encrypted workspace."
-            : "Аналитика уведомлений не содержит названий привычек и остаётся только на этом устройстве. Настройки уведомлений хранятся внутри зашифрованного пространства."}</small>
-        </section>
-
-        <section className="account-preferences habit-feedback-preference" aria-labelledby="habit-feedback-title">
-          <div>
-            <span className="eyebrow">{user.language === "en" ? "Feedback and accessibility" : "Отклик и доступность"}</span>
-            <h3 id="habit-feedback-title">{user.language === "en" ? "Completion feedback" : "Отклик на выполнение"}</h3>
-            <p>{user.language === "en"
-              ? "Choose how GENESIS confirms a completed habit. System reduced-motion preferences always take priority."
-              : "Выберите, как GENESIS подтверждает выполнение привычки. Системное ограничение движения всегда имеет приоритет."}</p>
-          </div>
-          <fieldset className="habit-feedback-settings" disabled={!habitTrackingEnabled}>
-            <legend className="sr-only">{user.language === "en" ? "Habit feedback settings" : "Настройки отклика привычек"}</legend>
-            <label className="account-switch-row compact">
-              <span><strong>{user.language === "en" ? "Short animations" : "Короткие анимации"}</strong><small>{user.language === "en" ? "Smooth checkbox, card and progress feedback; disabled automatically when reduced motion is requested." : "Плавный отклик галочки, карточки и прогресса; автоматически отключается при системном ограничении движения."}</small></span>
-              <input type="checkbox" role="switch" checked={habitFeedbackSettings.animations} onChange={(event) => onHabitFeedbackSettingsChange({ ...habitFeedbackSettings, animations: event.target.checked })} aria-label={user.language === "en" ? "Short completion animations" : "Короткие анимации выполнения"} />
-              <i aria-hidden="true" />
-            </label>
-            <label className="account-switch-row compact">
-              <span><strong>{user.language === "en" ? "Completion sound" : "Звук выполнения"}</strong><small>{user.language === "en" ? "A brief local tone. Off by default and never downloaded from a server." : "Короткий локальный сигнал. По умолчанию выключен и не загружается с сервера."}</small></span>
-              <input type="checkbox" role="switch" checked={habitFeedbackSettings.sound} onChange={(event) => onHabitFeedbackSettingsChange({ ...habitFeedbackSettings, sound: event.target.checked })} aria-label={user.language === "en" ? "Completion sound" : "Звук выполнения"} />
-              <i aria-hidden="true" />
-            </label>
-            <label className="account-switch-row compact">
-              <span><strong>{user.language === "en" ? "Haptic feedback" : "Тактильный отклик"}</strong><small>{user.language === "en" ? "A light vibration on supported mobile devices. Off by default." : "Лёгкая вибрация на поддерживаемых мобильных устройствах. По умолчанию выключена."}</small></span>
-              <input type="checkbox" role="switch" checked={habitFeedbackSettings.haptics} onChange={(event) => onHabitFeedbackSettingsChange({ ...habitFeedbackSettings, haptics: event.target.checked })} aria-label={user.language === "en" ? "Haptic feedback" : "Тактильный отклик"} />
-              <i aria-hidden="true" />
-            </label>
-            <label className="account-switch-row compact">
-              <span><strong>{user.language === "en" ? "Achievement notices" : "Уведомления о достижениях"}</strong><small>{user.language === "en" ? "Include a newly unlocked achievement in the completion notice." : "Показывать новое достижение в уведомлении о выполнении."}</small></span>
-              <input type="checkbox" role="switch" checked={habitFeedbackSettings.achievementPopups} onChange={(event) => onHabitFeedbackSettingsChange({ ...habitFeedbackSettings, achievementPopups: event.target.checked })} aria-label={user.language === "en" ? "Achievement notices" : "Уведомления о достижениях"} />
-              <i aria-hidden="true" />
-            </label>
-            <label className="account-switch-row compact">
-              <span><strong>{user.language === "en" ? "Trials" : "Испытания"}</strong><small>{user.language === "en" ? "Create and show daily, weekly and epic trials. Existing progress is preserved while disabled." : "Создавать и показывать ежедневные, недельные и эпические испытания. При отключении прежний прогресс сохраняется."}</small></span>
-              <input type="checkbox" role="switch" checked={habitFeedbackSettings.questsEnabled} onChange={(event) => onHabitFeedbackSettingsChange({ ...habitFeedbackSettings, questsEnabled: event.target.checked })} aria-label={user.language === "en" ? "Habit trials" : "Испытания привычек"} />
-              <i aria-hidden="true" />
-            </label>
-            <label className="account-switch-row compact">
-              <span><strong>{user.language === "en" ? "Gamification widgets" : "Игровые блоки"}</strong><small>{user.language === "en" ? "Show ranks, Laurels, streak rewards and achievements. Habit tracking continues normally when hidden." : "Показывать ранги, Лавры, награды серии и достижения. Без них трекинг продолжает работать как обычно."}</small></span>
-              <input type="checkbox" role="switch" checked={habitFeedbackSettings.gamificationWidgets} onChange={(event) => onHabitFeedbackSettingsChange({ ...habitFeedbackSettings, gamificationWidgets: event.target.checked })} aria-label={user.language === "en" ? "Gamification widgets" : "Игровые блоки"} />
-              <i aria-hidden="true" />
-            </label>
-          </fieldset>
-          {!habitTrackingEnabled ? <p className="account-preference-status" role="status">{user.language === "en" ? "Enable habit tracking to change these settings" : "Включите трекинг привычек, чтобы изменить эти настройки"}</p> : null}
-        </section>
-
-        <section className="account-preferences account-e2ee" aria-labelledby="account-e2ee-title">
+        <section className="account-preferences account-e2ee" aria-labelledby="account-e2ee-title" data-settings-group="account">
           <div>
             <span className="eyebrow">Encrypted workspace</span>
             <h3 id="account-e2ee-title">{user.language === "en" ? "Encrypted personal data" : "Шифрование личных данных"}</h3>
@@ -1167,32 +1333,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
             : (user.language === "en" ? "Projects and tracker data are encrypted before storage. After Google sign-in, an authenticated GENESIS session unlocks them automatically on every device—no recovery code is required." : "Проекты и данные трекеров шифруются перед сохранением. После входа через Google защищённая сессия GENESIS автоматически открывает их на любом устройстве — код восстановления не нужен.")}</p>
         </section>
 
-        <section className="account-preferences" aria-labelledby="account-preferences-title">
-          <div>
-            <span className="eyebrow">Самоограничение</span>
-            <h3 id="account-preferences-title">Гадания в Стойхейоне</h3>
-          </div>
-          <label className="account-switch-row">
-            <span>
-              <strong>Запретить себе гадания</strong>
-              <small>Скрывает карту дня и расклад девяти карт на всех устройствах. Каталог 24 буквенных карт и их значения останутся доступны.</small>
-            </span>
-            <input
-              type="checkbox"
-              role="switch"
-              checked={Boolean(user.stoicheionDivinationDisabled)}
-              disabled={preferenceBusy}
-              onChange={(event) => void changeDivinationPreference(event.target.checked)}
-              aria-label="Запретить себе гадания по картам"
-            />
-            <i aria-hidden="true" />
-          </label>
-          <p className="account-preference-status" aria-live="polite">
-            {user.stoicheionDivinationDisabled ? "Гадания выключены" : "Гадания доступны"}
-          </p>
-        </section>
-
-        <section className="account-oauth-note" aria-label="Безопасность входа">
+        <section className="account-oauth-note" aria-label="Безопасность входа" data-settings-group="account">
           <h3>Безопасный вход</h3>
           {user.authProvider === "yandex" ? (
             <p>Вход выполняется через официальный Яндекс ID. Для календаря используется отдельный пароль приложения, который можно отозвать в Яндекс ID.</p>
@@ -1206,9 +1347,9 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
           </>}
         </section>
 
-        {message ? <p className="account-message" role="status">{message}</p> : null}
+        {message ? <p className="account-message" role="status" data-settings-group="account">{message}</p> : null}
 
-        <div className="account-danger">
+        <div className="account-danger" data-settings-group="account">
           <div><strong>Удаление аккаунта</strong><small>{user.authProvider === "yandex" ? "Безвозвратно удалит профиль и связанные с ним данные GENESIS. Доступ к GENESIS можно также отозвать в Яндекс ID." : "Безвозвратно удалит только ваш профиль и все связанные с ним данные с сервера GENESIS, локальные копии на этом устройстве и отзовёт разрешения Google."}</small></div>
           <button type="button" onClick={() => void removeAccount()} disabled={busy}>Удалить</button>
         </div>

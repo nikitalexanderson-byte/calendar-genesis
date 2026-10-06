@@ -607,6 +607,9 @@ try {
         if ($method === 'GET' && $path === 'shared/spaces') {
             genesisJson(['spaces' => genesisSharedSpaces($userId)]);
         }
+        if ($method === 'GET' && $path === 'shared/task-lists') {
+            genesisJson(['lists' => genesisSharedTaskLists($userId)]);
+        }
         if ($method === 'POST' && $path === 'shared/spaces') {
             genesisJson(['space' => genesisSharedCreateSpace($userId, genesisReadJson())], 201);
         }
@@ -759,6 +762,13 @@ try {
         $userId = genesisRequireUserId();
         genesisRequireCsrf();
         genesisSaveMetrics($userId, genesisReadJson());
+        genesisJson(['ok' => true]);
+    }
+
+    if ($method === 'POST' && $path === 'feature-usage') {
+        $userId = genesisRequireUserId();
+        genesisRequireCsrf();
+        genesisRecordFeatureUsage($userId, genesisReadJson());
         genesisJson(['ok' => true]);
     }
 

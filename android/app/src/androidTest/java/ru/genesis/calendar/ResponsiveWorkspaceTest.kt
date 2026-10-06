@@ -29,7 +29,7 @@ class ResponsiveWorkspaceTest {
                 device.waitForIdle()
                 compose.waitForIdle()
                 val orientation = if (landscape) "rotated" else "natural"
-                for (section in listOf("Сегодня", "Календарь", "Задачи", "Проекты", "Привычки", "Стойхейон", "Теокиклос", "Настройки")) {
+                for (section in listOf("Сегодня", "Календарь", "Задачи", "Проекты", "Привычки", "Сакральное", "Настройки")) {
                     val nav = compose.onNodeWithTag("navigation-$section")
                     if (!nav.isDisplayed()) nav.performScrollTo()
                     nav.performClick()

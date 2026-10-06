@@ -5,6 +5,7 @@ import "./experimental-theme.css";
 import "./dark-theme.css";
 import "./tablet-layout.css";
 import { AppUrlCleaner } from "./AppUrlCleaner";
+import { YandexMetrika } from "./YandexMetrika";
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();
@@ -62,7 +63,12 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="ru">
-      <body><AppUrlCleaner />{children}</body>
+      <body><AppUrlCleaner /><YandexMetrika />{children}
+        <noscript><div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="https://mc.yandex.ru/watch/113449674" style={{ position: "absolute", left: "-9999px" }} referrerPolicy="no-referrer" alt="" />
+        </div></noscript>
+      </body>
     </html>
   );
 }

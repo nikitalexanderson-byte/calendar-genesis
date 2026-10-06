@@ -12,6 +12,90 @@
     "filesChecked": 73,
     "changedSignatures": [
       {
+        "file": "app/AccountPanel.tsx",
+        "before": {
+          "references": [],
+          "img": 1,
+          "svgImage": 0,
+          "inlineSvg": 0,
+          "src": 1,
+          "srcSet": 0,
+          "backgroundImage": 0,
+          "cssMediaUrl": 0,
+          "dynamicMediaTemplates": 0,
+          "iconSymbols": 0
+        },
+        "after": {
+          "references": [],
+          "img": 3,
+          "svgImage": 0,
+          "inlineSvg": 0,
+          "src": 3,
+          "srcSet": 0,
+          "backgroundImage": 0,
+          "cssMediaUrl": 0,
+          "dynamicMediaTemplates": 1,
+          "iconSymbols": 0
+        },
+        "delta": {
+          "img": 2,
+          "svgImage": 0,
+          "inlineSvg": 0,
+          "src": 2,
+          "srcSet": 0,
+          "backgroundImage": 0,
+          "cssMediaUrl": 0,
+          "dynamicMediaTemplates": 1,
+          "iconSymbols": 0
+        },
+        "approved": true,
+        "reason": "The linked-account settings add a second verified provider avatar and the requested language selector renders existing flag artwork; the original account avatar remains in place."
+      },
+      {
+        "file": "app/GenesisCalendar.tsx",
+        "before": {
+          "references": [
+            "/calendar-art/saturn-cronus.webp"
+          ],
+          "img": 2,
+          "svgImage": 0,
+          "inlineSvg": 8,
+          "src": 2,
+          "srcSet": 0,
+          "backgroundImage": 2,
+          "cssMediaUrl": 3,
+          "dynamicMediaTemplates": 14,
+          "iconSymbols": 25
+        },
+        "after": {
+          "references": [
+            "/calendar-art/saturn-cronus.webp"
+          ],
+          "img": 2,
+          "svgImage": 0,
+          "inlineSvg": 10,
+          "src": 2,
+          "srcSet": 0,
+          "backgroundImage": 2,
+          "cssMediaUrl": 3,
+          "dynamicMediaTemplates": 14,
+          "iconSymbols": 25
+        },
+        "delta": {
+          "img": 0,
+          "svgImage": 0,
+          "inlineSvg": 2,
+          "src": 0,
+          "srcSet": 0,
+          "backgroundImage": 0,
+          "cssMediaUrl": 0,
+          "dynamicMediaTemplates": 0,
+          "iconSymbols": 0
+        },
+        "approved": true,
+        "reason": "Shared-project controls add two inline SVG icons while all earlier artwork references remain unchanged."
+      },
+      {
         "file": "app/HabitTracker.tsx",
         "before": {
           "references": [
@@ -96,6 +180,94 @@
         },
         "approved": true,
         "reason": "The requested removal of the duplicate segment-card index removes three repeated image slots; the two dialog image slots and its close SVG moved intact to the shared details component."
+      },
+      {
+        "file": "app/WelcomeScreen.tsx",
+        "before": {
+          "references": [],
+          "img": 1,
+          "svgImage": 0,
+          "inlineSvg": 0,
+          "src": 1,
+          "srcSet": 0,
+          "backgroundImage": 0,
+          "cssMediaUrl": 0,
+          "dynamicMediaTemplates": 1,
+          "iconSymbols": 0
+        },
+        "after": {
+          "references": [],
+          "img": 2,
+          "svgImage": 0,
+          "inlineSvg": 1,
+          "src": 2,
+          "srcSet": 0,
+          "backgroundImage": 0,
+          "cssMediaUrl": 0,
+          "dynamicMediaTemplates": 2,
+          "iconSymbols": 0
+        },
+        "delta": {
+          "img": 1,
+          "svgImage": 0,
+          "inlineSvg": 1,
+          "src": 1,
+          "srcSet": 0,
+          "backgroundImage": 0,
+          "cssMediaUrl": 0,
+          "dynamicMediaTemplates": 1,
+          "iconSymbols": 0
+        },
+        "approved": true,
+        "reason": "The welcome screen adds the official Google sign-in artwork and an Android download icon without removing existing artwork."
+      },
+      {
+        "file": "app/layout.tsx",
+        "before": {
+          "references": [
+            "/icons/icon-192.png",
+            "/icons/icon-192.png",
+            "/icons/icon-512.png"
+          ],
+          "img": 0,
+          "svgImage": 0,
+          "inlineSvg": 0,
+          "src": 0,
+          "srcSet": 0,
+          "backgroundImage": 0,
+          "cssMediaUrl": 0,
+          "dynamicMediaTemplates": 5,
+          "iconSymbols": 0
+        },
+        "after": {
+          "references": [
+            "/icons/icon-192.png",
+            "/icons/icon-192.png",
+            "/icons/icon-512.png"
+          ],
+          "img": 1,
+          "svgImage": 0,
+          "inlineSvg": 0,
+          "src": 1,
+          "srcSet": 0,
+          "backgroundImage": 0,
+          "cssMediaUrl": 0,
+          "dynamicMediaTemplates": 5,
+          "iconSymbols": 0
+        },
+        "delta": {
+          "img": 1,
+          "svgImage": 0,
+          "inlineSvg": 0,
+          "src": 1,
+          "srcSet": 0,
+          "backgroundImage": 0,
+          "cssMediaUrl": 0,
+          "dynamicMediaTemplates": 0,
+          "iconSymbols": 0
+        },
+        "approved": true,
+        "reason": "The requested Yandex Metrika counter adds its no-JavaScript tracking pixel; existing images and icons remain in place."
       }
     ],
     "additions": [

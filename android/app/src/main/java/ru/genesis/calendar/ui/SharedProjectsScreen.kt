@@ -5,6 +5,7 @@ import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -129,16 +130,24 @@ internal fun SharedProjectsScreen(controller: AuthController, language: String) 
     var editTaskDueDate by remember { mutableStateOf("") }
     var editTaskRevision by remember { mutableIntStateOf(0) }
     var message by remember { mutableStateOf("") }
+    var offlineSnapshot by remember { mutableStateOf(false) }
+    var pendingTasks by remember { mutableStateOf(emptyList<JSONObject>()) }
+    var failedDraft by remember { mutableStateOf<JSONObject?>(null) }
     var busy by remember { mutableStateOf(false) }
 
     suspend fun refreshSpaces() {
-        val rows = controller.sharedSpaces().getJSONArray("spaces").rows()
+        val response = controller.sharedSpaces()
+        offlineSnapshot = response.optBoolean("offlineCache")
+        val rows = response.getJSONArray("spaces").rows()
         spaces = rows
         if (rows.none { it.getString("id") == spaceId }) spaceId = rows.firstOrNull()?.getString("id") ?: ""
     }
     suspend fun refreshProjects(id: String) {
-        val rows = controller.sharedProjects(id).getJSONArray("projects").rows()
-        val archived = controller.archivedSharedProjects(id).getJSONArray("projects").rows()
+        val response = controller.sharedProjects(id)
+        val archivedResponse = controller.archivedSharedProjects(id)
+        offlineSnapshot = response.optBoolean("offlineCache") || archivedResponse.optBoolean("offlineCache")
+        val rows = response.getJSONArray("projects").rows()
+        val archived = archivedResponse.getJSONArray("projects").rows()
         if (archivedProjects.map { it.toString() } != archived.map { it.toString() }) archivedProjects = archived
         if (projects.map { it.toString() } != rows.map { it.toString() }) projects = rows
         if (rows.none { it.getString("id") == projectId }) projectId =
@@ -147,6 +156,7 @@ internal fun SharedProjectsScreen(controller: AuthController, language: String) 
     }
     suspend fun refreshProject(id: String) {
         val result = controller.sharedProject(id)
+        offlineSnapshot = result.optBoolean("offlineCache")
         if (snapshot?.toString() != result.toString()) snapshot = result
         if (result.getJSONArray("tasks").rows().none { it.getString("id") == taskId }) taskId = ""
     }
@@ -154,7 +164,7 @@ internal fun SharedProjectsScreen(controller: AuthController, language: String) 
         scope.launch {
             busy = true; message = ""
             try { action() } catch (error: Exception) { message = when (error.message) {
-                "INVITEE_NO_PAID_ACCESS" -> if (en) "This person does not have a paid subscription." else "Человек не имеет платной подписки."
+                "INVITEE_ACCOUNT_UNSUPPORTED" -> if (en) "This account cannot use shared projects." else "Этот аккаунт не может использовать общие проекты."
                 "INVITEE_ACCOUNT_NOT_FOUND" -> if (en) "No GENESIS account was found for this email." else "Аккаунт GENESIS с такой почтой не найден."
                 else -> error.message ?: "Ошибка сервера"
             } }
@@ -173,6 +183,8 @@ internal fun SharedProjectsScreen(controller: AuthController, language: String) 
         if (projectId.isBlank()) { snapshot = null; return@LaunchedEffect }
         while (isActive) {
             try {
+                controller.flushSharedOfflineTasks()
+                pendingTasks = controller.queuedSharedTasks(projectId)
                 refreshProject(projectId)
                 if (spaceId.isNotBlank()) refreshProjects(spaceId)
             } catch (error: Exception) { message = error.message ?: "Ошибка сервера" }
@@ -225,12 +237,18 @@ internal fun SharedProjectsScreen(controller: AuthController, language: String) 
                 destination?.optJSONArray("statuses")?.optJSONObject(0)?.optString("id").orEmpty()
             }
             if (statusId.isBlank()) return@run
-            controller.moveSharedTask(projectId, task.getString("id"), JSONObject()
+            val moved = controller.moveSharedTask(projectId, task.getString("id"), JSONObject()
                 .put("destinationProjectId", destinationProjectId).put("statusId", statusId)
                 .put("expectedRevision", task.getInt("revision"))
                 .put("position", if (destinationProjectId == projectId)
                     tasks.count { it.optString("statusId") == statusId }
                     else destination?.optJSONArray("tasks")?.rows()?.count { it.optString("statusId") == statusId } ?: 0))
+            pendingTasks = controller.queuedSharedTasks(projectId)
+            if (moved.getJSONObject("task").optBoolean("pending")) {
+                message = if (en) "Move saved on this device. It will sync when connected."
+                    else "Перенос сохранён на устройстве и синхронизируется после подключения."
+                return@run
+            }
             refreshProjects(spaceId)
             projectId = destinationProjectId
             refreshProject(destinationProjectId)
@@ -457,7 +475,7 @@ internal fun SharedProjectsScreen(controller: AuthController, language: String) 
                         refreshProjects(spaceId); projectId = created.getString("id")
                     }
                     "task" -> {
-                        controller.createSharedTask(projectId, JSONObject().put("title", taskTitle.trim())
+                        val created = controller.createSharedTask(projectId, JSONObject().put("title", taskTitle.trim())
                             .put("description", newTaskDescription.trim())
                             .put("dueDate", newTaskDueDate.ifBlank { null } ?: JSONObject.NULL)
                             .put("statusId", newTaskStatusId.ifBlank { statuses.first().getString("id") })
@@ -465,7 +483,11 @@ internal fun SharedProjectsScreen(controller: AuthController, language: String) 
                             .put("assigneeId", newTaskAssigneeId.ifBlank { null } ?: JSONObject.NULL))
                         taskTitle = ""; newTaskDescription = ""; newTaskDueDate = ""
                         newTaskStatusId = ""; newTaskCategoryId = ""; newTaskAssigneeId = ""
-                        refreshProject(projectId)
+                        pendingTasks = controller.queuedSharedTasks(projectId)
+                        if (created.getJSONObject("task").optBoolean("pending")) {
+                            message = if (en) "Task saved on this device and waiting for the connection."
+                                else "Задача сохранена на устройстве и ожидает подключения к сети."
+                        } else refreshProject(projectId)
                     }
                     "status" -> {
                         controller.createSharedStatus(projectId, newStatusTitle.trim(), newStatusDone)
@@ -494,6 +516,21 @@ internal fun SharedProjectsScreen(controller: AuthController, language: String) 
                 Text(if (en) "Cancel" else "Отмена")
             } })
     }
+    failedDraft?.let { draft -> AlertDialog(onDismissRequest = { failedDraft = null },
+        title = { Text(if (en) "Saved team draft" else "Сохранённый черновик команды") },
+        text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(if (en) "This change could not be sent. Your draft is kept on this device."
+                else "Изменение не удалось отправить. Черновик сохранён на устройстве.")
+            Text(draft.optString("error"), style = MaterialTheme.typography.bodySmall)
+            SelectionContainer { androidx.compose.material3.Text(draft.optJSONObject("body")?.toString(2).orEmpty(),
+                Modifier.heightIn(max = 240.dp).verticalScroll(rememberScrollState())) }
+        } },
+        confirmButton = { TextButton(onClick = { failedDraft = null }) { Text(if (en) "Close" else "Закрыть") } },
+        dismissButton = { TextButton(onClick = { run {
+            controller.discardFailedSharedMutation(draft.getString("requestId"))
+            pendingTasks = controller.queuedSharedTasks(projectId)
+            failedDraft = null
+        } }) { Text(if (en) "Remove local draft" else "Удалить локальный черновик") } }) }
     Box(Modifier.fillMaxSize().onGloballyPositioned { rootPosition = it.boundsInWindow().topLeft }) {
     Column(Modifier.fillMaxSize().verticalScroll(pageScroll).padding(16.dp)
         .testTag("shared-projects-screen"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -502,6 +539,24 @@ internal fun SharedProjectsScreen(controller: AuthController, language: String) 
             else "Проекты, задачи и участники команды в одном месте.",
             "",
             icon = GenesisPageIcon.PROJECTS_SHARED)
+        if (offlineSnapshot) Text(if (en) "Offline: showing the last protected team snapshot."
+            else "Нет связи: показана последняя защищённая копия команды.",
+            modifier = Modifier.fillMaxWidth().testTag("shared-offline-status"),
+            color = MaterialTheme.colorScheme.secondary)
+        if (pendingTasks.isNotEmpty()) Surface(Modifier.fillMaxWidth().testTag("shared-pending-tasks"),
+            shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceVariant) {
+            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(if (en) "Waiting to send · ${pendingTasks.size}" else "Ожидают отправки · ${pendingTasks.size}",
+                    style = MaterialTheme.typography.titleSmall)
+                pendingTasks.forEach { item -> Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Text(item.optString("title") + if (item.optString("error").isBlank()) "" else
+                        if (en) " · Needs attention" else " · Нужна проверка", Modifier.weight(1f))
+                    if (item.optString("error").isNotBlank()) TextButton(onClick = { failedDraft = item }) {
+                        Text(if (en) "Details" else "Подробнее")
+                    }
+                } }
+            }
+        }
         if (inboxProject != null) Surface(Modifier.fillMaxWidth().testTag("shared-project-inbox"),
             shape = MaterialTheme.shapes.medium, color = Color(0xff103632)) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1013,7 +1068,11 @@ internal fun SharedProjectsScreen(controller: AuthController, language: String) 
                                 .put("categoryId", editTaskCategoryId.ifBlank { null } ?: JSONObject.NULL)
                                 .put("expectedRevision", editTaskRevision)).getJSONObject("task")
                             editTaskRevision = changed.getInt("revision")
-                            refreshProject(projectId)
+                            pendingTasks = controller.queuedSharedTasks(projectId)
+                            if (changed.optBoolean("pending")) message = if (en)
+                                "Change saved on this device. It will sync when connected."
+                                else "Изменение сохранено на устройстве и синхронизируется после подключения."
+                            else refreshProject(projectId)
                         } }, enabled = !busy && editTaskTitle.isNotBlank() && dateValid &&
                             selectedTask.optInt("revision") == editTaskRevision) {
                             Text(if (en) "Save task" else "Сохранить задачу")
@@ -1026,10 +1085,14 @@ internal fun SharedProjectsScreen(controller: AuthController, language: String) 
                                 val id = member?.getString("userId") ?: ""
                                 FilterChip(selected = selectedTask.optString("assigneeId") == id,
                                     onClick = { run {
-                                        controller.updateSharedTask(projectId, taskId, JSONObject()
+                                        val changed = controller.updateSharedTask(projectId, taskId, JSONObject()
                                             .put("assigneeId", if (id.isBlank()) JSONObject.NULL else id)
-                                            .put("expectedRevision", selectedTask.getInt("revision")))
-                                        refreshProject(projectId)
+                                            .put("expectedRevision", selectedTask.getInt("revision"))).getJSONObject("task")
+                                        pendingTasks = controller.queuedSharedTasks(projectId)
+                                        if (changed.optBoolean("pending")) message = if (en)
+                                            "Change saved on this device. It will sync when connected."
+                                            else "Изменение сохранено на устройстве и синхронизируется после подключения."
+                                        else refreshProject(projectId)
                                     } }, label = { Text(member?.optString("displayName") ?: if (en) "None" else "Никто") })
                             }
                         }

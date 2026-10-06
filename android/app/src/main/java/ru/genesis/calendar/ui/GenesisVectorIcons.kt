@@ -17,7 +17,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import kotlin.math.*
 
-internal enum class GenesisPageIcon { TODAY, TASKS, TASK_LISTS, PROJECTS, PROJECTS_SHARED, CALENDAR, MONTH, YEAR, HABITS, STOICHEION, THEOKYKLOS, SETTINGS, TRACKERS }
+internal enum class GenesisPageIcon { TODAY, TASKS, TASK_LISTS, PROJECTS, PROJECTS_SHARED, CALENDAR, MONTH, YEAR, HABITS, SACRED, STOICHEION, THEOKYKLOS, SETTINGS, TRACKERS,
+    SETTINGS_APPEARANCE, SETTINGS_HABITS, SETTINGS_REMINDERS, SETTINGS_SHARED, SETTINGS_REGION, SETTINGS_ACCOUNT, SETTINGS_LINKS }
 
 internal fun genesisPageIcon(title: String): GenesisPageIcon = when (title.trim()) {
     "Сегодня", "Today" -> GenesisPageIcon.TODAY
@@ -30,6 +31,7 @@ internal fun genesisPageIcon(title: String): GenesisPageIcon = when (title.trim(
     "Календарь - месяц", "Calendar - month" -> GenesisPageIcon.MONTH
     "Календарь - год", "Calendar - year" -> GenesisPageIcon.YEAR
     "Привычки", "Habits" -> GenesisPageIcon.HABITS
+    "Сакральное", "Sacred" -> GenesisPageIcon.SACRED
     "Стойхейон", "Stoicheion" -> GenesisPageIcon.STOICHEION
     "Теокиклос", "Theokyklos" -> GenesisPageIcon.THEOKYKLOS
     "Сон и настроение", "Sleep & mood" -> GenesisPageIcon.TRACKERS
@@ -181,6 +183,16 @@ internal fun GenesisVectorIcon(icon: GenesisPageIcon, modifier: Modifier = Modif
                     }
                     orbit(10f, phase * 360f - 90f, .9f)
                 }
+                GenesisPageIcon.SACRED -> {
+                    // Mount Olympus: three ridges meet beneath the lit summit.
+                    val light = if (moving) .65f + .35f * sin(phase * 2 * PI).toFloat() else 1f
+                    path(Offset(2f, 20f), Offset(8f, 11f), Offset(10.2f, 14f), Offset(14f, 4f),
+                        Offset(22f, 20f), Offset(2f, 20f))
+                    path(Offset(8f, 11f), Offset(6f, 20f))
+                    path(Offset(14f, 4f), Offset(16.3f, 11f), Offset(18f, 9f))
+                    line(Offset(10.2f, 14f), Offset(12f, 12.2f))
+                    drawCircle(tint.copy(alpha = light), 1f, Offset(14f, 2f))
+                }
                 GenesisPageIcon.STOICHEION -> {
                     rotate(if (animated) sin(phase * 2 * PI).toFloat() * 3 else 0f, Offset(12f, 12f)) {
                         drawRoundRect(tint.copy(alpha = .4f), Offset(2.8f, 4f), Size(15f, 18f), androidx.compose.ui.geometry.CornerRadius(2f), style = stroke)
@@ -213,6 +225,52 @@ internal fun GenesisVectorIcon(icon: GenesisPageIcon, modifier: Modifier = Modif
                     val moon = Path().apply { moveTo(15f, 3f); cubicTo(4f, 2f, 1f, 19f, 13f, 21f); cubicTo(5f, 15f, 9f, 6f, 15f, 3f) }
                     drawPath(moon, tint, style = stroke)
                     path(Offset(12f, 14f), Offset(15f, 14f), Offset(17f, 10f), Offset(19f, 16f), Offset(21.5f, 12f))
+                }
+                GenesisPageIcon.SETTINGS_APPEARANCE -> {
+                    drawCircle(tint, 5.2f, Offset(12f, 12f), style = stroke)
+                    drawArc(tint, -90f, 180f, true, Offset(6.8f, 6.8f), Size(10.4f, 10.4f))
+                    listOf(Offset(12f, 2f) to Offset(12f, 4f), Offset(12f, 20f) to Offset(12f, 22f),
+                        Offset(2f, 12f) to Offset(4f, 12f), Offset(20f, 12f) to Offset(22f, 12f)).forEach { (a, b) -> line(a, b) }
+                }
+                GenesisPageIcon.SETTINGS_HABITS -> {
+                    path(Offset(12f, 21f), Offset(12f, 12f), Offset(9f, 8f))
+                    val left = Path().apply { moveTo(9f, 8f); quadraticTo(4f, 8f, 4f, 3f); quadraticTo(9f, 3f, 9f, 8f) }
+                    val right = Path().apply { moveTo(12f, 12f); quadraticTo(13f, 5f, 20f, 5f); quadraticTo(20f, 11f, 12f, 12f) }
+                    drawPath(left, tint, style = stroke); drawPath(right, tint, style = stroke)
+                    path(Offset(8f, 21f), Offset(16f, 21f))
+                }
+                GenesisPageIcon.SETTINGS_REMINDERS -> {
+                    val bell = Path().apply { moveTo(5f, 17f); lineTo(7f, 15f); lineTo(7f, 10f)
+                        cubicTo(7f, 4f, 17f, 4f, 17f, 10f); lineTo(17f, 15f); lineTo(19f, 17f); close() }
+                    drawPath(bell, tint, style = stroke)
+                    drawCircle(tint, 1.2f, Offset(12f, 20f))
+                    line(Offset(12f, 2f), Offset(12f, 3.5f))
+                }
+                GenesisPageIcon.SETTINGS_SHARED -> {
+                    drawCircle(tint, 2.4f, Offset(6f, 7f), style = stroke)
+                    drawCircle(tint, 2.4f, Offset(18f, 7f), style = stroke)
+                    drawCircle(tint, 2.6f, Offset(12f, 17f), style = stroke)
+                    line(Offset(8f, 9f), Offset(10.5f, 14.5f)); line(Offset(16f, 9f), Offset(13.5f, 14.5f))
+                    line(Offset(9f, 17f), Offset(5f, 21f)); line(Offset(15f, 17f), Offset(19f, 21f))
+                }
+                GenesisPageIcon.SETTINGS_REGION -> {
+                    val pin = Path().apply { moveTo(12f, 22f); cubicTo(9f, 17f, 4f, 12f, 4f, 9f)
+                        cubicTo(4f, -1f, 20f, -1f, 20f, 9f); cubicTo(20f, 12f, 15f, 17f, 12f, 22f) }
+                    drawPath(pin, tint, style = stroke)
+                    drawCircle(tint, 3f, Offset(12f, 9f), style = stroke)
+                    line(Offset(9f, 9f), Offset(15f, 9f))
+                }
+                GenesisPageIcon.SETTINGS_ACCOUNT -> {
+                    drawCircle(tint, 3.4f, Offset(12f, 8f), style = stroke)
+                    val shoulders = Path().apply { moveTo(4f, 20f); cubicTo(4f, 12f, 20f, 12f, 20f, 20f) }
+                    drawPath(shoulders, tint, style = stroke)
+                    line(Offset(8f, 20f), Offset(16f, 20f))
+                }
+                GenesisPageIcon.SETTINGS_LINKS -> {
+                    val a = Path().apply { moveTo(10f, 8f); lineTo(12f, 6f); cubicTo(17f, 1f, 23f, 7f, 18f, 12f); lineTo(16f, 14f) }
+                    val b = Path().apply { moveTo(14f, 16f); lineTo(12f, 18f); cubicTo(7f, 23f, 1f, 17f, 6f, 12f); lineTo(8f, 10f) }
+                    drawPath(a, tint, style = stroke); drawPath(b, tint, style = stroke)
+                    line(Offset(9f, 15f), Offset(15f, 9f))
                 }
             }
         }

@@ -28,7 +28,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ru.genesis.calendar.GenesisApplication
 import ru.genesis.calendar.BuildConfig
-import ru.genesis.calendar.ui.LanguageChips
 import ru.genesis.calendar.ui.Text
 import ru.genesis.calendar.ui.genesisTranslate
 import java.time.Instant
@@ -41,7 +40,7 @@ import com.yandex.authsdk.YandexAuthSdk
 
 /** Native account and sync settings, grouped by user intent instead of one long card. */
 @Composable
-fun AuthPanel(app: GenesisApplication, localLanguage: String, onLanguage: (String) -> Unit) {
+fun AuthPanel(app: GenesisApplication, localLanguage: String) {
     val controller = remember(app) { AuthController.get(app) }
     val state by controller.state.collectAsStateWithLifecycle()
     val taskSync by controller.taskSync.collectAsStateWithLifecycle()
@@ -61,6 +60,7 @@ fun AuthPanel(app: GenesisApplication, localLanguage: String, onLanguage: (Strin
     } else null
     var confirmKeepLocal by remember { mutableStateOf(false) }
     var confirmKeepRemote by remember { mutableStateOf(false) }
+    var confirmDiscardSharedDrafts by remember { mutableIntStateOf(0) }
     val yandexAccounts = state.accountSettings?.accounts.orEmpty().filter { it.provider == "yandex" }
     var selectedYandexId by remember(state.user?.uid) { mutableStateOf(yandexAccounts.firstOrNull()?.id.orEmpty()) }
     val yandexCalendarLauncher = if (yandexSdk != null) rememberLauncherForActivityResult(yandexSdk.contract) { result ->
@@ -109,7 +109,10 @@ fun AuthPanel(app: GenesisApplication, localLanguage: String, onLanguage: (Strin
                 }
             }
             if (state.user != null) {
-                OutlinedButton(onClick = controller::logout,
+                OutlinedButton(onClick = {
+                    val pending = controller.pendingSharedMutationsCount()
+                    if (pending > 0) confirmDiscardSharedDrafts = pending else controller.logout()
+                },
                     modifier = Modifier.fillMaxWidth().testTag("auth-logout")) { Text("Выйти") }
             }
             TextButton(onClick = {
@@ -121,15 +124,6 @@ fun AuthPanel(app: GenesisApplication, localLanguage: String, onLanguage: (Strin
             }, modifier = Modifier.testTag("auth-privacy-policy")) {
                 Text("Политика конфиденциальности")
             }
-        }
-
-        AccountSubsection("auth-language-block", "文", "Язык интерфейса",
-            if (state.user != null) "Выбор сохраняется в аккаунте GENESIS" else "Выбор хранится на этом устройстве") {
-            LanguageChips(localLanguage, onLanguage = onLanguage)
-            Text(if (state.user != null)
-                "Календарь, время и гадания сохраняются в аккаунте GENESIS и зеркалируются на устройстве."
-            else "До входа эти настройки сохраняются только на устройстве.",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
         AccountSubsection("auth-cloud-block", "☁", "Облако",
@@ -231,6 +225,16 @@ fun AuthPanel(app: GenesisApplication, localLanguage: String, onLanguage: (Strin
         }
     }
 
+    if (confirmDiscardSharedDrafts > 0) AlertDialog(
+        onDismissRequest = { confirmDiscardSharedDrafts = 0 },
+        title = { Text(if (localLanguage == "en") "Unsent team changes" else "Неотправленные изменения команды") },
+        text = { Text(if (localLanguage == "en")
+            "$confirmDiscardSharedDrafts team changes are saved on this device. Signing out will delete them."
+            else "$confirmDiscardSharedDrafts изменений команды хранятся на устройстве. При выходе они будут удалены.") },
+        confirmButton = { TextButton(onClick = { confirmDiscardSharedDrafts = 0; controller.logout() }) {
+            Text(if (localLanguage == "en") "Sign out and delete" else "Выйти и удалить") } },
+        dismissButton = { TextButton(onClick = { confirmDiscardSharedDrafts = 0 }) {
+            Text(if (localLanguage == "en") "Cancel" else "Отмена") } })
     if (confirmKeepLocal) AlertDialog(onDismissRequest = { confirmKeepLocal = false },
         title = { Text("Оставить версию телефона?") },
         text = { Text("Совпавшее поле на сайте будет заменено вашей локальной версией. Остальные изменения сайта сохранятся. Задачи это действие не затрагивает.") },

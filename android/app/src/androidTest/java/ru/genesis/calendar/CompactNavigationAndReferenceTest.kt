@@ -16,7 +16,7 @@ import ru.genesis.calendar.data.LocalPreferences
 class CompactNavigationAndReferenceTest {
     @get:Rule val compose = createAndroidComposeRule<TestWorkspaceActivity>()
 
-    @Test fun iconMenuFitsEightDestinationsAndSettingsExposeTextMotionAndReferences() {
+    @Test fun iconMenuFitsSevenDestinationsAndSettingsExposeTextMotionAndReferences() {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
         val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
         val preferences = LocalPreferences(app, app.workspaceScope)
@@ -25,13 +25,14 @@ class CompactNavigationAndReferenceTest {
             runBlocking {
                 preferences.set("wideNavigation", "top")
                 preferences.set("navigationLabels", "icons")
+                preferences.set("settingsMenuLabels", "icons")
                 preferences.set("navigationAutoScroll", "false")
                 preferences.set("language", "ru")
             }
             compose.waitUntil(8_000) {
                 compose.onAllNodesWithTag("main-navigation-icons").fetchSemanticsNodes().isNotEmpty()
             }
-            val pages = listOf("Сегодня", "Задачи", "Проекты", "Календарь", "Привычки", "Стойхейон", "Теокиклос", "Настройки")
+            val pages = listOf("Сегодня", "Задачи", "Проекты", "Календарь", "Привычки", "Сакральное", "Настройки")
             val bounds = pages.map { page ->
                 compose.onNodeWithTag("navigation-$page").assertIsDisplayed()
                     .assertContentDescriptionEquals(page).fetchSemanticsNode().boundsInRoot
@@ -42,6 +43,7 @@ class CompactNavigationAndReferenceTest {
                 "2.3.10-portrait-icon-menu.png")))
 
             compose.onNodeWithTag("navigation-Настройки").performClick()
+            compose.onNodeWithTag("settings-submenu-region").performClick()
             compose.onNodeWithTag("region-source-manual").performScrollTo().performClick()
             compose.onNodeWithTag("region-manual-list")
                 .performScrollToNode(hasTestTag("region-choice-Australia-Sydney"))
@@ -50,6 +52,7 @@ class CompactNavigationAndReferenceTest {
                 preferences.values.first().manualRegionZone == "Australia/Sydney"
             } }
             compose.waitUntil(5_000) { runBlocking { preferences.values.first().regionSource == "manual" } }
+            compose.onNodeWithTag("settings-submenu-appearance").performClick()
             compose.onNodeWithTag("navigation-with-text").performScrollTo().performClick()
             compose.waitUntil(5_000) {
                 compose.onAllNodesWithTag("navigation-auto-scroll-setting").fetchSemanticsNodes().isNotEmpty()
@@ -93,6 +96,7 @@ class CompactNavigationAndReferenceTest {
         } finally {
             runBlocking {
                 preferences.set("navigationLabels", if (original.navigationLabels) "text" else "icons")
+                preferences.set("settingsMenuLabels", if (original.settingsMenuLabels) "text" else "icons")
                 preferences.set("navigationAutoScroll", original.navigationAutoScroll.toString())
                 preferences.set("language", original.language)
                 preferences.set("wideNavigation", if (original.wideNavigationOnLeft) "left" else "top")

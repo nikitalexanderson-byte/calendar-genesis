@@ -73,6 +73,7 @@ data class AccountSettings(
     val authProvider: String = "google",
     val calendarConnected: Boolean = false,
     val sharedProjectsEligible: Boolean = false,
+    val sharedProjectsLifetimeAccess: Boolean = false,
     val sharedProjectsEnabled: Boolean = false,
     val uiVisibility: UiVisibility = UiVisibility(),
 ) {
@@ -116,7 +117,8 @@ data class AccountSettings(
                 user.optString("language", "ru"), user.optBoolean("isAdmin"), user.optString("weekStart", "monday"),
                 user.optString("gregorianYearStart", "january"),
                 user.optString("authProvider", "google"), user.optBoolean("calendarConnected"),
-                user.optBoolean("sharedProjectsEligible"), user.optBoolean("sharedProjectsEnabled"),
+                user.optBoolean("sharedProjectsEligible"), user.optBoolean("sharedProjectsLifetimeAccess"),
+                user.optBoolean("sharedProjectsEnabled"),
                 UiVisibility.fromJson(user.optJSONObject("uiVisibility")))
         }
     }

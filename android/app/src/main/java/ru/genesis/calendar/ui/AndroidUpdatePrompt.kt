@@ -82,6 +82,7 @@ internal fun fetchAndroidRelease(): AndroidRelease? {
 /** Checks after a completed account sync, once per offered version in this app session. */
 @Composable
 internal fun AndroidUpdatePrompt(context: Context, synchronizedAt: Long?, enabled: Boolean) {
+    if (BuildConfig.PLAY_DISTRIBUTION || !enabled) return
     var release by remember { mutableStateOf<AndroidRelease?>(null) }
     var lastOffered by remember { mutableIntStateOf(0) }
     LaunchedEffect(enabled, synchronizedAt) {

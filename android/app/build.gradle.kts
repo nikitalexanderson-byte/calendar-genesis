@@ -42,6 +42,7 @@ android {
         targetSdk = 37
         versionCode = 69
         versionName = "2.6.3"
+        buildConfigField("boolean", "PLAY_DISTRIBUTION", "false")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         manifestPlaceholders["genesisHost"] = genesisUri.host
@@ -74,6 +75,10 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+        }
+        create("play") {
+            initWith(getByName("release"))
+            buildConfigField("boolean", "PLAY_DISTRIBUTION", "true")
         }
     }
 

@@ -56,7 +56,9 @@ import {
   observeCloudWorkspace,
   observeEncryptedWorkspaceUpdates,
   observeGenesisUser,
+  pendingSharedMutationCount,
   registerWorkspaceRecoveryRequestHandler,
+  recordFeatureUsage,
   removeCloudTask,
   removeCloudTaskForTransfer,
   saveCloudTask,
@@ -197,6 +199,7 @@ import {
 
 const AccountPanel = lazy(() => import("./AccountPanel").then((module) => ({ default: module.AccountPanel })));
 const SharedProjects = lazy(() => import("./SharedProjects").then((module) => ({ default: module.SharedProjects })));
+const SharedTaskLists = lazy(() => import("./SharedTaskLists").then((module) => ({ default: module.SharedTaskLists })));
 const PersonalTaskTransfer = lazy(() => import("./PersonalTaskTransfer").then((module) => ({ default: module.PersonalTaskTransfer })));
 const PersonalProjectTransfer = lazy(() => import("./PersonalProjectTransfer").then((module) => ({ default: module.PersonalProjectTransfer })));
 const WelcomeScreen = lazy(() => import("./WelcomeScreen").then((module) => ({ default: module.WelcomeScreen })));
@@ -1350,6 +1353,10 @@ export function GenesisCalendar() {
   const [projectsArea, setProjectsArea] = useState<"personal" | "shared">("personal");
   const [tasksArea, setTasksArea] = useState<"tasks" | "lists">("tasks");
   useEffect(() => {
+    document.documentElement.dataset.genesisMenuLabels =
+      window.localStorage.getItem("genesis-menu-labels") === "icons" ? "icons" : "text";
+  }, []);
+  useEffect(() => {
     const url = new URL(window.location.href);
     if (url.searchParams.get("account_link") !== "1") return;
     const frame = window.requestAnimationFrame(() => setAccountOpen(true));
@@ -1410,6 +1417,7 @@ export function GenesisCalendar() {
   const [newProjectTags, setNewProjectTags] = useState("");
   const [newCategoryTitle, setNewCategoryTitle] = useState("");
   const [newTaskListTitle, setNewTaskListTitle] = useState("");
+  const [taskListScope, setTaskListScope] = useState<"personal" | "shared">("personal");
   const [newTaskListProject, setNewTaskListProject] = useState("");
   const [newTaskListAccountId, setNewTaskListAccountId] = useState("");
   const [newTaskListDrafts, setNewTaskListDrafts] = useState<TaskListDraft[]>([
@@ -1716,6 +1724,19 @@ export function GenesisCalendar() {
     : projectsArea === "personal" && personalProjectsVisible ? "personal"
       : personalProjectsVisible ? "personal" : "shared";
   const activeTimeFormat = normalizeTimeFormat(cloudUser?.timeFormat);
+  useEffect(() => {
+    if (!cloudUser?.uid) return;
+    const features = view === "today" ? ["menu.today"]
+      : view === "all-tasks" ? ["menu.tasks", `submenu.tasks.${activeTasksArea}`]
+        : view === "projects" ? ["menu.projects", `submenu.projects.${activeProjectsArea}`]
+          : view === "calendar" || view === "year"
+            ? ["menu.calendar", `submenu.calendar.${view === "year" ? "year" : "month"}`,
+              `calendar.${activeCalendarMode}`]
+            : view === "habits" ? ["menu.habits", "submenu.habits.habits"]
+              : view === "stoicheion" || view === "theokyklos"
+                ? ["menu.sacred", `submenu.sacred.${view}`] : [];
+    if (features.length) void recordFeatureUsage(features).catch(() => undefined);
+  }, [cloudUser?.uid, view, activeTasksArea, activeProjectsArea, activeCalendarMode]);
   const activeWeekStart = cloudUser?.weekStart === "monday" ? "monday" : "sunday";
   const gregorianYearStartsInMarch = cloudUser?.gregorianYearStart === "march";
   const googleAccounts = cloudUser?.googleAccounts ?? [];
@@ -1933,6 +1954,7 @@ export function GenesisCalendar() {
     } else {
       window.history.pushState(state, "", cleanUrl);
     }
+    window.dispatchEvent(new Event("genesis:route"));
     window.requestAnimationFrame(() => {
       window.scrollTo(0, 0);
       document.querySelector<HTMLElement>(".app-stage")?.scrollTo(0, 0);
@@ -2417,6 +2439,10 @@ export function GenesisCalendar() {
   const handleGoogleSignOut = async () => {
     setAccountMenuOpen(false);
     try {
+      const pending = await pendingSharedMutationCount();
+      if (pending > 0 && !window.confirm(language === "en"
+        ? `${pending} team changes are still on this device. Signing out will delete them. Sign out anyway?`
+        : `${pending} изменений команды ещё хранятся на этом устройстве. При выходе они будут удалены. Всё равно выйти?`)) return;
       await signOutFromGoogle();
     } catch (error) {
       setSyncError(error instanceof Error ? error.message : "Не удалось выйти");
@@ -4267,8 +4293,22 @@ export function GenesisCalendar() {
 
   const renderTaskListCreateForm = (context: "today" | "all-tasks" | "projects") => (
     <div className="task-list-create-block">
-      <p>{TASK_LIST_EXPLANATION}</p>
-      {cloudUser?.googleTasksImportReady ? (
+      <p>{cloudUser?.sharedProjectsEnabled && taskListScope === "shared"
+        ? language === "en" ? "Team lists are stored in GENESIS and belong to a shared project."
+          : "Общие списки хранятся в GENESIS и принадлежат выбранному общему проекту."
+        : TASK_LIST_EXPLANATION}</p>
+      {cloudUser?.sharedProjectsEnabled ? <div className="task-scope-switch" role="group"
+        aria-label={language === "en" ? "Task list access" : "Доступ к списку задач"}>
+        <button type="button" aria-pressed={taskListScope === "personal"} onClick={() => setTaskListScope("personal")}>
+          {language === "en" ? "Personal list" : "Личный список"}</button>
+        <button type="button" aria-pressed={taskListScope === "shared"} onClick={() => setTaskListScope("shared")}>
+          {language === "en" ? "Shared list" : "Общий список"}</button>
+      </div> : null}
+      {cloudUser?.sharedProjectsEnabled && taskListScope === "shared" ? <Suspense fallback={
+        <p role="status">{language === "en" ? "Loading team task lists…" : "Загружаем общие списки задач…"}</p>}>
+        <SharedTaskLists language={language} enabledCalendars={visibility.enabledCalendars}
+          onOpenProject={() => { setProjectsArea("shared"); navigateTo("projects"); }} />
+      </Suspense> : cloudUser?.googleTasksImportReady ? (
         <>
           {taskListsForWorkspace.length ? (
             <section className="task-list-workspace" aria-label="Существующие списки задач">
@@ -6536,6 +6576,7 @@ export function GenesisCalendar() {
               key={item.id}
               className={view === item.id ? "active" : ""}
               onClick={() => activateNavigation(item.id)}
+              aria-label={item.label}
               aria-current={view === item.id ? "page" : undefined}
               data-exp-ui="nav-button"
             >
@@ -6817,7 +6858,7 @@ export function GenesisCalendar() {
       {habitFeedback ? <HabitCompletionFeedback event={habitFeedback} language={language} showGamification={habitWorkspace.habitSettings.feedback.gamificationWidgets} /> : null}
       <nav className="mobile-nav" aria-label="Мобильная навигация" data-exp-ui="mobile-nav">
         {navigation.map((item) => (
-          <button type="button" key={item.id} data-nav-id={item.id} data-exp-ui="nav-button" className={view === item.id ? "active" : ""} onClick={() => activateNavigation(item.id)}>
+          <button type="button" key={item.id} data-nav-id={item.id} data-exp-ui="nav-button" className={view === item.id ? "active" : ""} onClick={() => activateNavigation(item.id)} aria-label={item.label}>
             <span aria-hidden="true">{item.symbol}</span><small>{item.label}</small>
           </button>
         ))}

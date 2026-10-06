@@ -8,9 +8,12 @@ import {
   type SharedProject, type SharedProjectSnapshot, type SharedSpace,
 } from "./cloud-sync";
 
-type Props = { language: string; enabledCalendars: CalendarMode[] };
+type Props = { language: string; enabledCalendars: CalendarMode[];
+  initialSpaceId?: string; initialProjectId?: string; initialStatusId?: string;
+  onCreated?: (pending: boolean) => void };
 
-export function SharedTaskCreate({ language, enabledCalendars }: Props) {
+export function SharedTaskCreate({ language, enabledCalendars,
+  initialSpaceId, initialProjectId, initialStatusId, onCreated }: Props) {
   const english = language === "en";
   const [spaces, setSpaces] = useState<SharedSpace[]>([]);
   const [loadingSpaces, setLoadingSpaces] = useState(true);
@@ -34,14 +37,15 @@ export function SharedTaskCreate({ language, enabledCalendars }: Props) {
     void listSharedSpaces().then((items) => {
       if (!live) return;
       setSpaces(items);
-      setSpaceId((current) => items.some((item) => item.id === current) ? current : items[0]?.id ?? "");
+      setSpaceId((current) => items.some((item) => item.id === current) ? current
+        : items.find((item) => item.id === initialSpaceId)?.id ?? items[0]?.id ?? "");
     }).catch((error: unknown) => { if (live) setMessage(error instanceof Error ? error.message : String(error)); })
       .finally(() => { if (live) setLoadingSpaces(false); });
     const stored = window.localStorage.getItem("genesis-shared-calendar-mode");
     const timer = (stored === "profane" || stored === "sacred" || stored === "lunar") && enabledCalendars.includes(stored)
       ? window.setTimeout(() => setCalendarMode(stored), 0) : 0;
     return () => { live = false; if (timer) window.clearTimeout(timer); };
-  }, [enabledCalendars]);
+  }, [enabledCalendars, initialSpaceId]);
   useEffect(() => {
     if (!enabledCalendars.includes(calendarMode)) {
       const timer = window.setTimeout(() => setCalendarMode(enabledCalendars[0] ?? "profane"), 0);
@@ -57,34 +61,39 @@ export function SharedTaskCreate({ language, enabledCalendars }: Props) {
       const writable = items.filter((item) => ["owner", "manager", "member"].includes(item.role));
       setProjects(writable);
       setProjectId((current) => writable.some((item) => item.id === current) ? current
-        : writable.find((item) => item.isInbox)?.id ?? writable[0]?.id ?? "");
+        : writable.find((item) => item.id === initialProjectId)?.id
+          ?? writable.find((item) => item.isInbox)?.id ?? writable[0]?.id ?? "");
     }).catch((error: unknown) => { if (live) setMessage(error instanceof Error ? error.message : String(error)); })
       .finally(() => { window.clearTimeout(timer); if (live) setLoadingProjects(false); });
     return () => { live = false; window.clearTimeout(timer); };
-  }, [spaceId]);
+  }, [spaceId, initialProjectId]);
   useEffect(() => {
     if (!projectId) return;
     let live = true;
     void loadSharedProject(projectId).then((result) => {
       if (!live) return;
       setSnapshot(result);
-      setStatusId(result.statuses[0]?.id ?? "");
+      setStatusId(result.statuses.find((item) => item.id === initialStatusId)?.id ?? result.statuses[0]?.id ?? "");
       setCategoryId(""); setAssigneeId("");
     }).catch((error: unknown) => { if (live) setMessage(error instanceof Error ? error.message : String(error)); });
     return () => { live = false; };
-  }, [projectId]);
+  }, [projectId, initialStatusId]);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!snapshot || !title.trim() || !statusId || busy) return;
     setBusy(true); setMessage("");
     try {
-      await createSharedTask(snapshot.project.id, {
+      const created = await createSharedTask(snapshot.project.id, {
         title: title.trim(), description: description.trim(), dueDate: dueDate || null,
         statusId, categoryId: categoryId || null, assigneeId: assigneeId || null,
       });
       setTitle(""); setDescription(""); setDueDate("");
-      setMessage(english ? "Team task created." : "Общая задача создана.");
+      onCreated?.(Boolean(created.pending));
+      setMessage(created.pending
+        ? (english ? "Task saved on this device and waiting for the connection."
+          : "Задача сохранена на устройстве и ожидает подключения к сети.")
+        : (english ? "Team task created." : "Общая задача создана."));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
     } finally { setBusy(false); }

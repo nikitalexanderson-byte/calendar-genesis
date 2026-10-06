@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -28,7 +29,7 @@ import org.json.JSONObject
 import ru.genesis.calendar.auth.AuthController
 
 @Composable
-internal fun SharedInvitationInbox(controller: AuthController, language: String) {
+internal fun SharedInvitationInbox(controller: AuthController, language: String, sharedEnabled: Boolean) {
     val en = language == "en"
     val scope = rememberCoroutineScope()
     var invitations by remember { mutableStateOf(emptyList<JSONObject>()) }
@@ -36,13 +37,15 @@ internal fun SharedInvitationInbox(controller: AuthController, language: String)
     var pendingId by remember { mutableStateOf("") }
     var message by remember { mutableStateOf("") }
 
-    LaunchedEffect(controller) {
+    LaunchedEffect(controller, sharedEnabled) {
         while (isActive) {
             try {
                 val array = controller.sharedInvitations().getJSONArray("invitations")
                 invitations = (0 until array.length()).map { array.getJSONObject(it) }
-                val team = controller.sharedNotifications().getJSONArray("notifications")
-                notifications = (0 until team.length()).map { team.getJSONObject(it) }
+                if (sharedEnabled) {
+                    val team = controller.sharedNotifications().getJSONArray("notifications")
+                    notifications = (0 until team.length()).map { team.getJSONObject(it) }
+                } else notifications = emptyList()
             } catch (error: Exception) {
                 message = error.message ?: if (en) "Could not load invitations." else "Не удалось загрузить приглашения."
             }
@@ -50,9 +53,11 @@ internal fun SharedInvitationInbox(controller: AuthController, language: String)
         }
     }
 
-    SettingsSection("✉", if (en) "Invitations" else "Приглашения",
-        if (en) "Shared workspaces and projects" else "Общие пространства и проекты",
-        Color(0xffe9ede5)) {
+    HorizontalDivider()
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(if (en) "Invitations" else "Приглашения", style = MaterialTheme.typography.titleSmall)
+        Text(if (en) "Shared workspaces and projects" else "Общие пространства и проекты",
+            style = MaterialTheme.typography.bodySmall)
         if (invitations.isEmpty()) Text(if (en) "You have no pending invitations." else "Новых приглашений нет.")
         invitations.forEach { invitation ->
             val id = invitation.optString("id")
@@ -70,6 +75,7 @@ internal fun SharedInvitationInbox(controller: AuthController, language: String)
                                 try {
                                     controller.acceptSharedInvitation(id)
                                     invitations = invitations.filterNot { it.optString("id") == id }
+                                    controller.refresh()
                                     message = if (en) "Invitation accepted." else "Приглашение принято."
                                 } catch (error: Exception) { message = error.message ?: "Ошибка сервера" }
                                 finally { pendingId = "" }
@@ -96,9 +102,12 @@ internal fun SharedInvitationInbox(controller: AuthController, language: String)
         }
         if (message.isNotEmpty()) Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
-    SettingsSection("◈", if (en) "Team updates" else "События команды",
-        if (en) "Changes in shared projects" else "Изменения в общих проектах",
-        Color(0xffe4f0ef)) {
+    if (sharedEnabled) {
+    HorizontalDivider()
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(if (en) "Team updates" else "События команды", style = MaterialTheme.typography.titleSmall)
+        Text(if (en) "Changes in shared projects" else "Изменения в общих проектах",
+            style = MaterialTheme.typography.bodySmall)
         if (notifications.isEmpty()) Text(if (en) "No team updates yet." else "Новых событий команды пока нет.")
         if (notifications.any { it.optInt("isRead") == 0 }) {
             OutlinedButton(onClick = { scope.launch {
@@ -128,5 +137,6 @@ internal fun SharedInvitationInbox(controller: AuthController, language: String)
                     Modifier.padding(12.dp), style = MaterialTheme.typography.bodySmall)
             }
         }
+    }
     }
 }

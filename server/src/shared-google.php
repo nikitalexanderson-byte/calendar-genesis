@@ -283,6 +283,8 @@ function genesisSharedCleanGoogleCopies(?string $userId = null, int $limit = 10)
 /** Existing Beget cron processes only consented member/project pairs, in small rotating batches. */
 function genesisSharedSyncGoogleCron(): array
 {
+    genesisDb()->prepare('DELETE FROM shared_mutation_receipts WHERE created_at < :cutoff')
+        ->execute(['cutoff' => gmdate('Y-m-d\TH:i:s\Z', time() - 90 * 86400)]);
     $cleanup = genesisSharedCleanGoogleCopies(null, 10);
     $before = gmdate('Y-m-d\TH:i:s\Z', time() - 3600);
     $query = genesisDb()->prepare('SELECT p.project_id, p.user_id FROM shared_google_preferences p

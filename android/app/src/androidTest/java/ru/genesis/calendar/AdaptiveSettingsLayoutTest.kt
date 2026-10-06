@@ -30,6 +30,7 @@ class AdaptiveSettingsLayoutTest {
         val device = UiDevice.getInstance(instrumentation)
         val directory = instrumentation.targetContext.getExternalFilesDir(null)
         assertTrue(device.takeScreenshot(File(directory, "calendar-choice-settings.png")))
+        compose.onNodeWithTag("settings-submenu-reminders").performClick()
         for (phase in listOf("full", "new")) {
             verifyRow("moon-reminder-settings", (0..3).map { "moon-$phase-lead-$it" })
         }

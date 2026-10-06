@@ -9,6 +9,7 @@ import {
   listArchivedSharedProjects, listSharedSpaces, loadSharedProject, removeSharedMember,
   loadSharedGoogleSettings, setSharedProjectArchived, syncSharedGoogle,
   updateSharedGoogleSettings, updateSharedProject, updateSharedTask, moveSharedTask,
+  queuedSharedMutations, discardSharedMutation, sharedDataCameFromOfflineCache,
   type SharedComment, type SharedProject, type SharedProjectSnapshot,
   type SharedSpace, type SharedTask, type SharedGoogleSettings,
 } from "./cloud-sync";
@@ -100,6 +101,8 @@ export function SharedProjects({ userId, language, enabledCalendars }: Props) {
   const [editTaskCategoryId, setEditTaskCategoryId] = useState("");
   const [editTaskRevision, setEditTaskRevision] = useState(0);
   const [message, setMessage] = useState("");
+  const [offline, setOffline] = useState(() => typeof navigator !== "undefined" && !navigator.onLine);
+  const [pendingCreates, setPendingCreates] = useState<Awaited<ReturnType<typeof queuedSharedMutations>>>([]);
   const [busy, setBusy] = useState(false);
   const pointerDrag = useRef<{ task: SharedTask; pointerId: number } | null>(null);
   const dropTargetRef = useRef<{ projectId: string; statusId: string; position: number } | null>(null);
@@ -111,6 +114,24 @@ export function SharedProjects({ userId, language, enabledCalendars }: Props) {
   const [createModal, setCreateModal] = useState<"space" | "project" | "task" | "status" | "category" | "invite" | null>(null);
 
   useEffect(() => { projectIdRef.current = projectId; }, [projectId]);
+  useEffect(() => {
+    const onOffline = () => setOffline(true);
+    const onOnline = () => setOffline(false);
+    window.addEventListener("offline", onOffline);
+    window.addEventListener("online", onOnline);
+    return () => { window.removeEventListener("offline", onOffline); window.removeEventListener("online", onOnline); };
+  }, []);
+  useEffect(() => {
+    let live = true;
+    const refresh = () => {
+      if (!projectId) { setPendingCreates([]); return; }
+      void queuedSharedMutations(projectId).then((items) => { if (live) setPendingCreates(items); })
+        .catch(() => { if (live) setPendingCreates([]); });
+    };
+    refresh();
+    window.addEventListener("genesis-shared-offline-change", refresh);
+    return () => { live = false; window.removeEventListener("genesis-shared-offline-change", refresh); };
+  }, [projectId]);
   useEffect(() => {
     const stored = window.localStorage.getItem("genesis-shared-calendar-mode");
     if ((stored === "profane" || stored === "sacred" || stored === "lunar") && enabledCalendars.includes(stored)) {
@@ -134,6 +155,7 @@ export function SharedProjects({ userId, language, enabledCalendars }: Props) {
 
   const refreshSpaces = useCallback(async () => {
     const items = await listSharedSpaces();
+    if (sharedDataCameFromOfflineCache()) setOffline(true);
     setSpaces(items);
     setSpaceId((current) => items.some((item) => item.id === current) ? current : items[0]?.id ?? "");
   }, []);
@@ -147,6 +169,7 @@ export function SharedProjects({ userId, language, enabledCalendars }: Props) {
   }, []);
   const refreshProject = useCallback(async (id: string) => {
     const result = await loadSharedProject(id);
+    if (sharedDataCameFromOfflineCache()) setOffline(true);
     setSnapshot((current) => JSON.stringify(current) === JSON.stringify(result) ? current : result);
     if (result.project.isInbox) setInboxPreview(result);
     setTaskId((current) => result.tasks.some((task) => task.id === current) ? current : "");
@@ -223,8 +246,8 @@ export function SharedProjects({ userId, language, enabledCalendars }: Props) {
     setBusy(true);
     setMessage("");
     try { await action(); }
-    catch (error) { setMessage(error instanceof Error && error.message === "INVITEE_NO_PAID_ACCESS"
-      ? (english ? "This person does not have a paid subscription." : "Человек не имеет платной подписки.")
+    catch (error) { setMessage(error instanceof Error && error.message === "INVITEE_ACCOUNT_UNSUPPORTED"
+      ? (english ? "This account cannot use shared projects." : "Этот аккаунт не может использовать общие проекты.")
       : error instanceof Error && error.message === "INVITEE_ACCOUNT_NOT_FOUND"
         ? (english ? "No GENESIS account was found for this email." : "Аккаунт GENESIS с такой почтой не найден.")
         : error instanceof Error ? error.message : String(error)); }
@@ -280,7 +303,7 @@ export function SharedProjects({ userId, language, enabledCalendars }: Props) {
     event.preventDefault();
     if (!snapshot) return;
     void run(async () => {
-      await createSharedTask(snapshot.project.id, {
+      const created = await createSharedTask(snapshot.project.id, {
         title: newTaskTitle.trim(), description: newTaskDescription.trim(),
         dueDate: newTaskDueDate || null,
         statusId: newTaskStatusId || snapshot.statuses[0].id,
@@ -289,9 +312,12 @@ export function SharedProjects({ userId, language, enabledCalendars }: Props) {
       });
       setNewTaskTitle(""); setNewTaskDescription(""); setNewTaskDueDate("");
       setNewTaskStatusId(""); setNewTaskCategoryId(""); setNewTaskAssigneeId("");
-      await refreshProject(snapshot.project.id);
+      if (!created.pending) await refreshProject(snapshot.project.id);
       setCreateModal(null);
-      setMessage(english ? "Task saved for the team." : "Задача сохранена для команды.");
+      setMessage(created.pending
+        ? (english ? "Task saved on this device. It will reach the team when the connection returns."
+          : "Задача сохранена на устройстве и появится у команды после подключения к сети.")
+        : (english ? "Task saved for the team." : "Задача сохранена для команды."));
     });
   };
   const moveTaskTo = (task: SharedTask, destinationProjectId: string, statusId = "", position = 0) => {
@@ -302,10 +328,15 @@ export function SharedProjects({ userId, language, enabledCalendars }: Props) {
       const resolvedStatus = statusId || destination.statuses.find((item) => !item.isDone)?.id
         || destination.statuses[0]?.id;
       if (!resolvedStatus) throw new Error(english ? "The destination has no task list." : "В месте назначения нет списка задач.");
-      await moveSharedTask(snapshot.project.id, task.id, {
+      const moved = await moveSharedTask(snapshot.project.id, task.id, {
         destinationProjectId, statusId: resolvedStatus, expectedRevision: task.revision,
         position: statusId ? position : destination.tasks.filter((item) => item.statusId === resolvedStatus).length,
       });
+      if (moved.pending) {
+        setMessage(english ? "Move saved on this device and waiting for the connection."
+          : "Перенос сохранён на устройстве и ожидает подключения к сети.");
+        return;
+      }
       if (destinationProjectId !== snapshot.project.id) {
         setTaskId(task.id); setProjectId(destinationProjectId);
         await refreshProjects(spaceId);
@@ -367,10 +398,12 @@ export function SharedProjects({ userId, language, enabledCalendars }: Props) {
   const assignTask = (task: SharedTask, assigneeId: string) => {
     if (!snapshot) return;
     void run(async () => {
-      await updateSharedTask(snapshot.project.id, task.id, {
+      const changed = await updateSharedTask(snapshot.project.id, task.id, {
         assigneeId: assigneeId || null, expectedRevision: task.revision,
       });
-      await refreshProject(snapshot.project.id);
+      if (changed.pending) setMessage(english ? "Change saved on this device."
+        : "Изменение сохранено на устройстве и ожидает подключения к сети.");
+      else await refreshProject(snapshot.project.id);
     });
   };
   const submitInvite = (event: FormEvent) => {
@@ -402,8 +435,11 @@ export function SharedProjects({ userId, language, enabledCalendars }: Props) {
         expectedRevision: editTaskRevision,
       });
       setEditTaskRevision(changed.revision);
-      await refreshProject(snapshot.project.id);
-      setMessage(english ? "Task saved." : "Задача сохранена.");
+      if (!changed.pending) await refreshProject(snapshot.project.id);
+      setMessage(changed.pending
+        ? (english ? "Change saved on this device and waiting for the connection."
+          : "Изменение сохранено на устройстве и ожидает подключения к сети.")
+        : (english ? "Task saved." : "Задача сохранена."));
     });
   };
   const submitStatus = (event: FormEvent<HTMLFormElement>) => {
@@ -585,6 +621,25 @@ export function SharedProjects({ userId, language, enabledCalendars }: Props) {
       </div>
     </header>
     {message ? <p className="shared-projects-message" role="status">{message}</p> : null}
+    {offline ? <p className="shared-projects-offline-status" role="status">{english
+      ? "Offline: showing the last protected team snapshot. Changes may be out of date."
+      : "Нет связи: показана последняя защищённая копия команды. Данные могут устареть."}</p> : null}
+    {pendingCreates.length ? <section className="shared-projects-pending" aria-label={english ? "Pending team tasks" : "Задачи в очереди отправки"}>
+      <strong>{english ? "Waiting to send" : "Ожидают отправки"} · {pendingCreates.length}</strong>
+      {pendingCreates.map((item) => <div className="shared-projects-pending-item" key={item.requestId}>
+        <p>{item.kind === "move" ? (english ? "Move" : "Перенос")
+          : item.kind === "update" ? (english ? "Edit" : "Изменение")
+            : (english ? "New task" : "Новая задача")}: {item.title}{item.error
+          ? ` · ${english ? "Needs attention" : "Нужна проверка"}: ${item.error}` : ""}</p>
+        {item.error && item.draft ? <details><summary>{english ? "View saved draft" : "Посмотреть сохранённый черновик"}</summary>
+          <pre>{item.draft}</pre><button type="button" onClick={() => {
+            if (!window.confirm(english
+              ? "Remove this local draft? This will not undo any change already on the server."
+              : "Удалить этот локальный черновик? Уже внесённые на сервере изменения останутся.")) return;
+            void discardSharedMutation(item.requestId).catch((error) => setMessage(String(error)));
+          }}>{english ? "Remove local draft" : "Удалить локальный черновик"}</button></details> : null}
+      </div>)}
+    </section> : null}
     {loading ? <p role="status">{english ? "Loading projects…" : "Загружаем проекты…"}</p> : null}
 
     <div className="shared-projects-shell">

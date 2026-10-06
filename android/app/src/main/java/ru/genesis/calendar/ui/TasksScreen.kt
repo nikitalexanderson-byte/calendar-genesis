@@ -24,6 +24,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import ru.genesis.calendar.auth.AccountSettings
+import ru.genesis.calendar.auth.AuthController
 import ru.genesis.calendar.data.*
 
 @Composable internal fun TasksScreen(tasks: List<LocalTask>, lists: List<GoogleTaskList>,
@@ -32,6 +33,8 @@ import ru.genesis.calendar.data.*
     onComplete: (LocalTask) -> Unit, onOpen: (String) -> Unit,
     onUpdateList: suspend (GoogleTaskList,String) -> Unit = { _,_ -> },
     onDeleteList: suspend (GoogleTaskList) -> Unit = {},
+    sharedController: AuthController? = null, sharedListRefreshKey: Int = 0,
+    onOpenSharedProjects: () -> Unit = {},
     menuSwipeState: MenuSwipeState? = null, voiceRequest: NativeVoiceAction? = null,
     onVoiceRequestConsumed: () -> Unit = {}, hiddenSubmenus: Set<String> = emptySet()) {
     var localSection by rememberSaveable { mutableStateOf("tasks") }
@@ -46,6 +49,24 @@ import ru.genesis.calendar.data.*
     var listTitle by remember { mutableStateOf("") }
     var listBusy by remember { mutableStateOf(false) }
     var listError by remember { mutableStateOf<String?>(null) }
+    var sharedLists by remember { mutableStateOf(emptyList<JSONObject>()) }
+    var sharedListError by remember { mutableStateOf<String?>(null) }
+    var expandedSharedListId by remember { mutableStateOf("") }
+    var sharedSnapshot by remember { mutableStateOf<JSONObject?>(null) }
+    LaunchedEffect(sharedController, section, sharedListRefreshKey) {
+        if (sharedController == null || section != "lists") return@LaunchedEffect
+        runCatching { sharedController.sharedTaskLists().getJSONArray("lists") }.onSuccess { rows ->
+            sharedLists = (0 until rows.length()).map { rows.getJSONObject(it) }
+            sharedListError = null
+        }.onFailure { sharedListError = it.message ?: "Не удалось загрузить общие списки." }
+    }
+    LaunchedEffect(sharedController, expandedSharedListId) {
+        val row = sharedLists.firstOrNull { it.optString("id") == expandedSharedListId }
+        if (sharedController == null || row == null) { sharedSnapshot = null; return@LaunchedEffect }
+        runCatching { sharedController.sharedProject(row.getString("projectId")) }
+            .onSuccess { sharedSnapshot = it }
+            .onFailure { sharedListError = it.message ?: "Не удалось открыть общий список." }
+    }
     LaunchedEffect(voiceRequest, knownLists) {
         when (val request = voiceRequest) {
             is NativeVoiceAction.EditTaskList -> {
@@ -100,7 +121,41 @@ import ru.genesis.calendar.data.*
                 if(tasks.isEmpty()) item { Text(if(!confirmed) "Ожидаем загрузки задач аккаунта." else "Задач пока нет. Создайте первую запись.") }
                 items(tasks, key = { it.id }) { task -> NativeTaskCard(task,use24,structure,onComplete,onOpen) }
             } else {
-                if(knownLists.isEmpty()) item { Text("Списков пока нет. Создайте список и добавьте в него задачи.") }
+                if (sharedController != null) item(span = { GridItemSpan(maxLineSpan) }) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(if (english) "Team task lists" else "Общие списки задач",
+                            style = MaterialTheme.typography.titleMedium)
+                        Text(if (english) "Saved in GENESIS and visible to project members."
+                            else "Хранятся в GENESIS и доступны участникам проекта.",
+                            style = MaterialTheme.typography.bodySmall)
+                        sharedListError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                    }
+                }
+                if (sharedController != null) items(sharedLists, key = { "shared:${it.getString("id")}" }) { list ->
+                    val listId = list.getString("id")
+                    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(list.optString("title"), style = MaterialTheme.typography.titleMedium)
+                            Text("${list.optString("spaceTitle")} / ${list.optString("projectTitle")} · ${list.optInt("taskCount")}",
+                                style = MaterialTheme.typography.bodySmall)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                TextButton(onClick = { expandedSharedListId = if (expandedSharedListId == listId) "" else listId }) {
+                                    Text(if (expandedSharedListId == listId) "Свернуть" else "Открыть") }
+                                TextButton(onClick = onOpenSharedProjects) { Text("Проект") }
+                            }
+                            if (expandedSharedListId == listId && sharedSnapshot?.optJSONObject("project")
+                                    ?.optString("id") == list.optString("projectId")) {
+                                val rows = sharedSnapshot!!.getJSONArray("tasks")
+                                val matching = (0 until rows.length()).map { rows.getJSONObject(it) }
+                                    .filter { it.optString("statusId") == listId }
+                                if (matching.isEmpty()) Text("Список пока пуст.")
+                                matching.forEach { task -> Text(task.optString("title")) }
+                            }
+                        }
+                    }
+                }
+                if(knownLists.isEmpty() && sharedLists.isEmpty()) item { Text("Списков пока нет. Создайте список и добавьте в него задачи.") }
                 items(knownLists, key = { "${it.accountId}/${it.id}" }) { list ->
                     val rows = tasks.filter { it.taskListId() == list.id &&
                         JSONObject(it.sourceFieldsJson).optString("googleAccountId").let { account -> list.accountId == null || account == list.accountId } }
@@ -193,8 +248,10 @@ import ru.genesis.calendar.data.*
 }
 
 @Composable internal fun TaskListEditor(structure: WorkspaceStructure, accounts: AccountSettings?, prefs: UiPreferences,
-    canCreate: Boolean, initialTitle: String = "", onDismiss: () -> Unit, onCreate: suspend (String,String) -> GoogleTaskList,
-    onSaveTasks: suspend (GoogleTaskList,String?,String,List<Pair<String,String>>,TaskListDraftOptions) -> Unit) {
+    canCreate: Boolean, sharedCanCreate: Boolean = canCreate, initialTitle: String = "", onDismiss: () -> Unit,
+    onCreate: suspend (String,String) -> GoogleTaskList,
+    onSaveTasks: suspend (GoogleTaskList,String?,String,List<Pair<String,String>>,TaskListDraftOptions) -> Unit,
+    sharedController: AuthController? = null) {
     var title by rememberSaveable(initialTitle) { mutableStateOf(initialTitle) }
     var projectId by rememberSaveable { mutableStateOf<String?>(null) }
     val connected = accounts?.accounts.orEmpty().filter { it.tasksConnected }
@@ -212,20 +269,60 @@ import ru.genesis.calendar.data.*
     val created = createdJson?.let { GoogleTaskList.from(JSONObject(it)) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var sharedScope by rememberSaveable { mutableStateOf(false) }
+    var sharedSpaces by remember { mutableStateOf(emptyList<JSONObject>()) }
+    var sharedProjects by remember { mutableStateOf(emptyList<JSONObject>()) }
+    var sharedSpaceId by rememberSaveable { mutableStateOf("") }
+    var sharedProjectId by rememberSaveable { mutableStateOf("") }
+    var sharedRequestId by rememberSaveable { mutableStateOf(UUID.randomUUID().toString()) }
+    var createdSharedStatusJson by rememberSaveable { mutableStateOf<String?>(null) }
+    var savedSharedRows by rememberSaveable { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
+    LaunchedEffect(sharedController, sharedScope) {
+        if (!sharedScope || sharedController == null) return@LaunchedEffect
+        runCatching { sharedController.sharedSpaces().getJSONArray("spaces") }.onSuccess { rows ->
+            sharedSpaces = (0 until rows.length()).map { rows.getJSONObject(it) }
+            if (sharedSpaces.none { it.optString("id") == sharedSpaceId })
+                sharedSpaceId = sharedSpaces.firstOrNull()?.optString("id").orEmpty()
+        }.onFailure { error = it.message ?: "Не удалось загрузить пространства." }
+    }
+    LaunchedEffect(sharedController, sharedScope, sharedSpaceId) {
+        if (!sharedScope || sharedController == null || sharedSpaceId.isBlank()) return@LaunchedEffect
+        runCatching { sharedController.sharedProjects(sharedSpaceId).getJSONArray("projects") }.onSuccess { rows ->
+            sharedProjects = (0 until rows.length()).map { rows.getJSONObject(it) }
+                .filter { it.optInt("isInbox") == 0 && it.optString("role") in setOf("owner", "manager", "member") }
+            if (sharedProjects.none { it.optString("id") == sharedProjectId })
+                sharedProjectId = sharedProjects.firstOrNull()?.optString("id").orEmpty()
+        }.onFailure { error = it.message ?: "Не удалось загрузить проекты." }
+    }
     Dialog({ if(!busy) onDismiss() }, properties=DialogProperties(usePlatformDefaultWidth=false)) {
         Surface(Modifier.widthIn(max = 840.dp).fillMaxWidth().padding(12.dp),shape=RoundedCornerShape(20.dp)) {
             Column(Modifier.padding(16.dp).imePadding()) {
                 EditorDialogHeader("Новый список задач", "close-task-list-editor", { if(!busy) onDismiss() })
                 Column(Modifier.weight(1f,fill=false).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(10.dp)) {
-                    Text(if (yandex) "Список хранится в зашифрованном пространстве GENESIS; задачи отображаются в Яндекс.Календаре."
+                    if (sharedController != null) EditorSection("Доступ к списку задач") {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(selected = !sharedScope, onClick = { sharedScope = false },
+                                enabled = !busy && created == null && createdSharedStatusJson == null,
+                                label = { Text("Личный список") }, modifier = Modifier.testTag("personal-list-scope"))
+                            FilterChip(selected = sharedScope, onClick = { sharedScope = true },
+                                enabled = !busy && created == null && createdSharedStatusJson == null,
+                                label = { Text("Общий список") }, modifier = Modifier.testTag("shared-list-scope"))
+                        }
+                    }
+                    Text(if (sharedScope) "Общий список хранится на сервере GENESIS и виден участникам выбранного проекта."
+                        else if (yandex) "Список хранится в зашифрованном пространстве GENESIS; задачи отображаются в Яндекс.Календаре."
                         else "Список хранится в Google Tasks и доступен на сайте и смартфоне.",style=MaterialTheme.typography.bodySmall)
                     EditorSection("Список задач") {
-                        OutlinedTextField(title,{title=it},label={Text("Название списка")},enabled=!busy && created==null,
+                        OutlinedTextField(title,{title=it; sharedRequestId=UUID.randomUUID().toString()},label={Text("Название списка")},
+                            enabled=!busy && created==null && createdSharedStatusJson==null,
                             singleLine=true,modifier=Modifier.fillMaxWidth().testTag("task-list-title"))
                     }
-                    if(!canCreate || !localList && connected.isEmpty()) Text("Войдите в аккаунт и подключите календарь в настройках.", color=MaterialTheme.colorScheme.error)
-                    else if (!localList) EditorSection("Аккаунт для размещения",Modifier.testTag("task-list-account-section")) {
+                    if((if (sharedScope) !sharedCanCreate else !canCreate) || !sharedScope && !localList && connected.isEmpty()) Text(
+                        if (sharedScope) "Для создания общего списка требуется подключение к GENESIS."
+                        else "Войдите в аккаунт и подключите календарь в настройках.",
+                        color=MaterialTheme.colorScheme.error)
+                    else if (!sharedScope && !localList) EditorSection("Аккаунт для размещения",Modifier.testTag("task-list-account-section")) {
                         connected.forEach { account ->
                         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
                             RadioButton(accountId==account.id,{accountId=account.id},enabled=!busy && created==null)
@@ -233,12 +330,32 @@ import ru.genesis.calendar.data.*
                         }
                         }
                     }
-                    ProjectHierarchyPicker(structure.projects,projectId) { if(!busy && created==null) projectId=it }
+                    if (sharedScope) {
+                        EditorSection("Общее пространство") {
+                            if (sharedSpaces.isEmpty()) Text("Нет доступного общего пространства.")
+                            sharedSpaces.forEach { space -> FilterChip(selected = sharedSpaceId == space.optString("id"),
+                                onClick = { sharedRequestId=UUID.randomUUID().toString();
+                                    sharedSpaceId = space.getString("id"); sharedProjectId = "" },
+                                enabled = !busy && createdSharedStatusJson == null,
+                                label = { Text(space.optString("title")) }) }
+                        }
+                        EditorSection("Общий проект") {
+                            if (sharedProjects.isEmpty()) Text("Нет проекта, в котором вы можете создать список.")
+                            sharedProjects.forEach { project -> FilterChip(selected = sharedProjectId == project.optString("id"),
+                                onClick = { if (createdSharedStatusJson == null) {
+                                    sharedRequestId=UUID.randomUUID().toString(); sharedProjectId = project.getString("id")
+                                } },
+                                enabled = !busy && createdSharedStatusJson == null,
+                                label = { Text(project.optString("title")) }) }
+                        }
+                    } else ProjectHierarchyPicker(structure.projects,projectId) { if(!busy && created==null) projectId=it }
                     EditorSection("Задачи списка") {
                     Text("Задачи списка · по одной в строке",style=MaterialTheme.typography.titleSmall)
-                    OutlinedTextField(rowsText,{rowsText=it},enabled=!busy && created==null,label={Text("Задачи списка")},minLines=3,
+                    OutlinedTextField(rowsText,{rowsText=it},enabled=!busy && created==null && createdSharedStatusJson==null,
+                        label={Text("Задачи списка")},minLines=3,
                         modifier=Modifier.fillMaxWidth().testTag("task-list-drafts"))
-                    Text("В Google Tasks список хранит название; заметки и дата сохраняются в задачах. Время и напоминание применяются GENESIS и подключённым календарём.",
+                    Text(if (sharedScope) "Задачи будут храниться вместе со списком на сервере GENESIS."
+                        else "В Google Tasks список хранит название; заметки и дата сохраняются в задачах. Время и напоминание применяются GENESIS и подключённым календарём.",
                         style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     EditorSection("Дата задач") {
@@ -247,7 +364,7 @@ import ru.genesis.calendar.data.*
                     Text("Дата задач · ${calendarModeLabel(formCalendarMode)}")
                     AuthorDatePicker(date,formCalendarMode) { if(!busy && created==null) date=it }
                     }
-                    EditorSection("Дополнительные настройки задач") {
+                    if (!sharedScope) EditorSection("Дополнительные настройки задач") {
                     Text("Дополнительные поля для новых задач",style=MaterialTheme.typography.titleSmall)
                     OutlinedTextField(notes,{notes=it.take(8192)},enabled=!busy&&created==null,
                         label={Text("Заметка к задачам · Google Tasks")},minLines=2,
@@ -265,25 +382,49 @@ import ru.genesis.calendar.data.*
                     }
                     }
                     error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
-                    Button(enabled=canCreate && (localList || connected.any { it.id==accountId }) && title.trim().length in 1..300 && !busy,
+                    Button(enabled=(if (sharedScope) sharedCanCreate else canCreate) &&
+                        (if (sharedScope) sharedProjectId.isNotBlank() else localList || connected.any { it.id==accountId })
+                        && title.trim().length in 1..(if (sharedScope) 80 else 300) && !busy,
                         modifier=Modifier.fillMaxWidth().testTag("save-task-list"),onClick={
                             val rows=rowsText.lines().map(String::trim).filter(String::isNotBlank)
                             if(rows.size>100 || rows.any { it.length>500 }) { error="Добавьте до 100 задач, до 500 символов каждая."; return@Button }
-                            if(rowIds.size<rows.size) rowIds=rowIds + List(rows.size-rowIds.size) { UUID.randomUUID().toString() }
+                    if(rows.any { it.length > if (sharedScope) 160 else 500 }) {
+                        error = if (sharedScope) "Название общей задачи должно быть не длиннее 160 символов."
+                            else "Название задачи слишком длинное."
+                        return@Button
+                    }
+                    if(rowIds.size<rows.size) rowIds=rowIds + List(rows.size-rowIds.size) { UUID.randomUUID().toString() }
                             busy=true; error=null
                             scope.launch {
                                 try {
-                                    val list=created ?: onCreate(title.trim(),accountId).also { createdJson=it.json().toString() }
-                                    onSaveTasks(list,projectId,date,rows.mapIndexed { index,text -> rowIds[index] to text },
-                                        TaskListDraftOptions(notes,taskTime,if(taskTime.isBlank())0 else reminderMinutes))
+                                    if (sharedScope) {
+                                        val controller = requireNotNull(sharedController)
+                                        val statusId = createdSharedStatusJson?.let { JSONObject(it).getString("id") }
+                                            ?: controller.createSharedStatus(sharedProjectId, title.trim(), false,
+                                                sharedRequestId).getJSONObject("status").also {
+                                                    createdSharedStatusJson = it.toString()
+                                                }.getString("id")
+                                        rows.drop(savedSharedRows).forEach { taskTitle ->
+                                            controller.createSharedTask(sharedProjectId, JSONObject()
+                                                .put("title", taskTitle).put("statusId", statusId)
+                                                .put("dueDate", date))
+                                            savedSharedRows++
+                                        }
+                                    } else {
+                                        val list=created ?: onCreate(title.trim(),accountId).also { createdJson=it.json().toString() }
+                                        onSaveTasks(list,projectId,date,rows.mapIndexed { index,text -> rowIds[index] to text },
+                                            TaskListDraftOptions(notes,taskTime,if(taskTime.isBlank())0 else reminderMinutes))
+                                    }
                                     onDismiss()
                                 } catch(e:CancellationException) { throw e }
                                 catch(e:IllegalArgumentException) { error=e.message ?: "Проверьте данные списка." }
-                                catch(_:Exception) { error=if(createdJson==null) "Не удалось создать список. Проверьте подключение и повторите попытку."
+                                catch(_:Exception) { error=if(createdJson==null && createdSharedStatusJson==null)
+                                    "Не удалось создать список. Проверьте подключение и повторите попытку."
                                     else "Список создан. Не удалось сохранить все задачи; повторите сохранение." }
                                 finally { busy=false }
                             }
-                        }) { Text(if(busy) "Сохраняем…" else if(created==null) "Создать список" else "Сохранить задачи") }
+                        }) { Text(if(busy) "Сохраняем…" else if(created==null && createdSharedStatusJson==null)
+                            "Создать список" else "Сохранить задачи") }
                 }
             }
         }

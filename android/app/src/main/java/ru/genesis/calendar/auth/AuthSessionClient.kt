@@ -178,6 +178,7 @@ internal class AuthSessionClient(context: Context) {
     fun updatePreferences(expected: Long, changes: JSONObject): JSONObject =
         request(expected, "/account/preferences", changes, method = "PUT")
     fun sharedSpaces(expected: Long): JSONObject = request(expected, "/shared/spaces", null)
+    fun sharedTaskLists(expected: Long): JSONObject = request(expected, "/shared/task-lists", null)
     fun sharedCalendarTasks(expected: Long, from: String, to: String): JSONObject =
         request(expected, "/shared/calendar/tasks?from=$from&to=$to", null)
     fun createSharedSpace(expected: Long, body: JSONObject): JSONObject =
@@ -244,6 +245,9 @@ internal class AuthSessionClient(context: Context) {
     fun addSharedComment(expected: Long, projectId: String, taskId: String, body: JSONObject): JSONObject =
         request(expected, "/shared/projects/$projectId/tasks/$taskId/comments", body)
     fun adminStats(expected: Long): JSONObject = request(expected, "/admin/stats", null)
+    fun recordFeatureUsage(expected: Long, features: List<String>): JSONObject =
+        request(expected, "/feature-usage", JSONObject().put("platform", "android")
+            .put("features", JSONArray(features)))
     fun todayAds(expected: Long, language: String, country: String): JSONObject {
         require(language.matches(Regex("[a-z]{2}")) && country.matches(Regex("[A-Z]{0,2}")))
         return request(expected, "/ads/today?language=$language&country=$country&platform=android", null)
@@ -282,7 +286,7 @@ internal class AuthSessionClient(context: Context) {
             "/auth/yandex/native",
             "/account/yandex-calendar/connect", "/account/yandex-calendar/disconnect",
             "/auth/google/native", "/auth/google/native/services/config", "/auth/google/native/services",
-            "/auth/logout", "/account/preferences", "/admin/stats") ||
+            "/auth/logout", "/account/preferences", "/admin/stats", "/feature-usage") ||
             (method == "GET" && path.matches(Regex("/ads/today\\?language=[a-z]{2}&country=[A-Z]{0,2}&platform=android"))) ||
             (path == "/task-lists" && method == "POST") ||
             (method in setOf("PUT", "DELETE") && path.matches(Regex("/tasks/[A-Za-z0-9_-]{1,100}"))) ||
@@ -324,7 +328,7 @@ internal class AuthSessionClient(context: Context) {
                 if (path.contains("/invitations")) {
                     val code = runCatching { JSONObject(connection.errorStream?.bufferedReader()?.use { it.readText() }
                         ?: "{}").optString("error") }.getOrDefault("")
-                    if (code in setOf("INVITEE_NO_PAID_ACCESS", "INVITEE_ACCOUNT_NOT_FOUND",
+                    if (code in setOf("INVITEE_ACCOUNT_UNSUPPORTED", "INVITEE_ACCOUNT_NOT_FOUND",
                             "ALREADY_PROJECT_MEMBER", "INVALID_INVITATION")) throw AuthApiError(code)
                 }
                 throw AuthFailure(when (status) {

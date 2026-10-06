@@ -41,6 +41,7 @@ class TalkBackAccessibilityTest {
 
         waitForNode("navigation-Настройки")
         compose.onNodeWithTag("navigation-Настройки").performClick()
+        compose.onNodeWithTag("settings-submenu-reminders").performClick()
         compose.onNodeWithText("Системные напоминания").performScrollTo().assertIsDisplayed()
         compose.onRoot().tryPerformAccessibilityChecks()
     }
