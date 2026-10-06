@@ -44,7 +44,7 @@ jobs:
           printf '%s' "$SIGNING_KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/release.jks"
           keytool -list -v -keystore "$RUNNER_TEMP/release.jks" \
             -alias "$SIGNING_KEY_ALIAS" -storepass "$SIGNING_STORE_PASSWORD" \
-            | grep -Fqi 'SHA256: 1E:16:1D:36:F5:74:B0:56:0D:80:8C:7E:E9:5E:1A:BE:98:16:5B:33:85:33:6D:02:76:FB:38:1D:FD:90:1C:B8'
+            | grep -Fi 'SHA256: 1E:16:1D:36:F5:74:B0:56:0D:80:8C:7E:E9:5E:1A:BE:98:16:5B:33:85:33:6D:02:76:FB:38:1D:FD:90:1C:B8' >/dev/null
           java -jar "$RUNNER_TEMP/pepk.jar" \
             --keystore="$RUNNER_TEMP/release.jks" \
             --alias="$SIGNING_KEY_ALIAS" \
