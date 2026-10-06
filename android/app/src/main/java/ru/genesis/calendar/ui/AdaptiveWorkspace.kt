@@ -1,10 +1,12 @@
 package ru.genesis.calendar.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.Layout
@@ -44,6 +46,16 @@ import androidx.compose.ui.unit.dp
                 }
             }
         }
+    }
+}
+
+/** Settings pages scroll from immediately below their submenu on a phone. */
+@Composable internal fun SettingsPageSections(content: @Composable () -> Unit) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        if (maxWidth >= 840.dp) AdaptiveSettingsSections(content)
+        else Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(16.dp).testTag("settings-page-sections"),
+            verticalArrangement = Arrangement.spacedBy(14.dp)) { content() }
     }
 }
 

@@ -32,6 +32,7 @@ internal fun NativeAdminPanel(onClose: () -> Unit, load: suspend () -> JSONObjec
     var busy by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<JSONObject?>(null) }
     var blacklist by remember { mutableStateOf(false) }
+    var featureTable by remember { mutableStateOf(false) }
     fun refresh() {
         scope.launch {
             busy = true
@@ -68,12 +69,43 @@ internal fun NativeAdminPanel(onClose: () -> Unit, load: suspend () -> JSONObjec
                     Text("Загрузок Android: ${totals.optInt("androidDownloadRequests")} · Устройств с отчётом: ${totals.optInt("androidReportingUsers")}",
                         style = MaterialTheme.typography.bodySmall)
                 }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(selected = !featureTable, onClick = { featureTable = false },
+                        label = { Text("Пользователи") }, modifier = Modifier.weight(1f))
+                    FilterChip(selected = featureTable, onClick = { featureTable = true },
+                        label = { Text("Использование функций") }, modifier = Modifier.weight(1f)
+                            .testTag("admin-feature-tab"))
+                }
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
                 val rows = payload?.optJSONArray("users")?.let { array ->
                     (0 until array.length()).mapNotNull { array.optJSONObject(it) }
                 }.orEmpty()
-                LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("admin-users"),
+                val features = payload?.optJSONObject("featureUsage")?.optJSONArray("features")?.let { array ->
+                    (0 until array.length()).mapNotNull { array.optJSONObject(it) }
+                }.orEmpty()
+                val accountsMeasured = payload?.optJSONObject("featureUsage")?.optInt("accountCount") ?: 0
+                if (featureTable) LazyColumn(Modifier.weight(1f).fillMaxWidth()
+                    .testTag("admin-feature-usage"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    item {
+                        Text("Счётчики начинаются с первого зафиксированного открытия. «Без открытия» включает старые аккаунты, действия которых прежде не измерялись.",
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                    items(features, key = { it.optString("id") }) { feature ->
+                        ElevatedCard(Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(adminFeatureName(feature.optString("id")),
+                                    style = MaterialTheme.typography.titleSmall)
+                                Text("Пользователей: ${feature.optInt("usedUsers")} · Открытий: ${feature.optInt("opens")}",
+                                    style = MaterialTheme.typography.bodyMedium)
+                                Text("Сайт: ${feature.optInt("webOpens")} · Android: ${feature.optInt("androidOpens")} · Выключено: ${feature.optInt("disabledUsers")}",
+                                    style = MaterialTheme.typography.bodySmall)
+                                Text("Без зафиксированного открытия: ${(accountsMeasured - feature.optInt("usedUsers")).coerceAtLeast(0)}",
+                                    style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
+                } else LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("admin-users"),
                     verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(rows, key = { it.optString("id") }) { row ->
                         ElevatedCard(Modifier.fillMaxWidth()) {
@@ -129,4 +161,18 @@ internal fun NativeAdminPanel(onClose: () -> Unit, load: suspend () -> JSONObjec
                 TextButton(onClick = { pendingDelete = null }) { Text("Отмена") }
             })
     }
+}
+
+private fun adminFeatureName(id: String): String = when (id) {
+    "menu.today" -> "Сегодня"
+    "menu.tasks" -> "Задачи"
+    "menu.projects" -> "Проекты"
+    "menu.calendar" -> "Календарь"
+    "menu.habits" -> "Привычки"
+    "menu.sacred" -> "Сакральное"
+    "menu.settings" -> "Настройки"
+    "calendar.profane" -> "Григорианский календарь"
+    "calendar.sacred" -> "Сакральный календарь"
+    "calendar.lunar" -> "Лунный календарь"
+    else -> id.removePrefix("submenu.").replace(".", " · ")
 }

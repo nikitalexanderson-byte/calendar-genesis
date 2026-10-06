@@ -45,7 +45,9 @@ fun TrackersScreen(app: GenesisApplication, experimental: Boolean = false) {
     var sleepEditor by remember { mutableStateOf<Pair<SleepPlan,SleepEntry?>?>(null) }
     var moodEditor by remember { mutableStateOf(false) }
     val date=LocalDate.parse(dateValue)
-    val viewMode = selectedViewMode ?: prefs.display
+    val enabledCalendars = LocalEnabledCalendars.current
+    val viewMode = (selectedViewMode ?: prefs.display).takeIf { it in enabledCalendars }
+        ?: enabledCalendars.firstOrNull() ?: prefs.display
     val current=workspace
     val mood=current?.moodEntries?.firstOrNull { it.date==date }
     val averageMinutes=current?.sleepEntries?.filter { it.date==date }
@@ -90,7 +92,7 @@ fun TrackersScreen(app: GenesisApplication, experimental: Boolean = false) {
                     }
                     Row(verticalAlignment=Alignment.CenterVertically,
                         horizontalArrangement=Arrangement.spacedBy(10.dp)) {
-                        CalendarModeSwitcher(viewMode, { selectedViewMode=nextCalendarMode(viewMode) },
+                        CalendarModeSwitcher(viewMode, { selectedViewMode=nextAvailableCalendarMode(viewMode, enabledCalendars) },
                             size=42.dp)
                         Column {
                             Text("Календарь просмотра", color=Color(0xffc8d9d4),

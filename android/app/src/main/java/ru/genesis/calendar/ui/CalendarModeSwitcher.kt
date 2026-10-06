@@ -20,6 +20,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -44,6 +45,16 @@ internal fun nextCalendarMode(mode: CalendarMode): CalendarMode = when (mode) {
     CalendarMode.PROFANE -> CalendarMode.SACRED
     CalendarMode.SACRED -> CalendarMode.LUNAR
     CalendarMode.LUNAR -> CalendarMode.PROFANE
+}
+internal val LocalEnabledCalendars = staticCompositionLocalOf { CalendarMode.entries.toSet() }
+
+internal fun nextAvailableCalendarMode(mode: CalendarMode, enabled: Set<CalendarMode>): CalendarMode {
+    var candidate = mode
+    repeat(3) {
+        candidate = nextCalendarMode(candidate)
+        if (candidate in enabled) return candidate
+    }
+    return mode
 }
 
 /** The same accessible, animated calendar selector is used on Today, Month and Year. */

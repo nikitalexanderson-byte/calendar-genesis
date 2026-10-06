@@ -607,11 +607,33 @@ try {
         if ($method === 'GET' && $path === 'shared/spaces') {
             genesisJson(['spaces' => genesisSharedSpaces($userId)]);
         }
+        if ($method === 'GET' && $path === 'shared/task-lists') {
+            genesisJson(['lists' => genesisSharedTaskLists($userId)]);
+        }
         if ($method === 'POST' && $path === 'shared/spaces') {
             genesisJson(['space' => genesisSharedCreateSpace($userId, genesisReadJson())], 201);
         }
+        if ($method === 'GET' && $path === 'shared/invitations') {
+            genesisJson(['invitations' => genesisSharedInvitations($userId)]);
+        }
+        if ($method === 'GET' && $path === 'shared/notifications') {
+            genesisJson(['notifications' => genesisSharedNotifications($userId)]);
+        }
+        if ($method === 'POST' && $path === 'shared/notifications/read') {
+            genesisSharedReadNotifications($userId, genesisReadJson());
+            genesisJson(['ok' => true]);
+        }
+        if ($method === 'GET' && $path === 'shared/calendar/tasks') {
+            genesisJson(['tasks' => genesisSharedCalendarTasks($userId,
+                (string)($_GET['from'] ?? ''), (string)($_GET['to'] ?? ''))]);
+        }
         if ($method === 'POST' && $path === 'shared/invitations/accept') {
             genesisJson(genesisSharedAcceptInvite($userId, genesisReadJson()));
+        }
+        if ($method === 'POST' && count($segments) === 3 && $segments[1] === 'invitations'
+            && $segments[2] !== 'accept') {
+            genesisSharedRejectInvite($userId, $segments[2]);
+            genesisJson(['ok' => true]);
         }
         if (count($segments) === 4 && $segments[1] === 'spaces' && $segments[3] === 'projects') {
             if ($method === 'GET') genesisJson(['projects' => genesisSharedProjects($userId, $segments[2])]);
@@ -635,7 +657,7 @@ try {
         }
         if (count($segments) === 4 && $segments[1] === 'projects' && $segments[3] === 'google') {
             if ($method === 'GET') genesisJson(['settings' => genesisSharedGoogleSettings($userId, $segments[2])]);
-            if ($method === 'PATCH') genesisJson(['settings' => genesisSharedSetGoogleSettings($userId, $segments[2], genesisReadJson())]);
+            if (in_array($method, ['PATCH', 'POST'], true)) genesisJson(['settings' => genesisSharedSetGoogleSettings($userId, $segments[2], genesisReadJson())]);
         }
         if (count($segments) === 5 && $segments[1] === 'projects' && $segments[3] === 'google'
             && $segments[4] === 'sync' && $method === 'POST') {
@@ -698,6 +720,10 @@ try {
             genesisJson(['task' => genesisSharedTask($userId, $segments[2], genesisReadJson(), $segments[4])]);
         }
         if (count($segments) === 6 && $segments[1] === 'projects' && $segments[3] === 'tasks'
+            && $segments[5] === 'move' && $method === 'POST') {
+            genesisJson(['task' => genesisSharedMoveTask($userId, $segments[2], $segments[4], genesisReadJson())]);
+        }
+        if (count($segments) === 6 && $segments[1] === 'projects' && $segments[3] === 'tasks'
             && $segments[5] === 'comments') {
             if ($method === 'GET') genesisJson(['comments' => genesisSharedComments($userId, $segments[2], $segments[4])]);
             if ($method === 'POST') genesisJson(['comment' => genesisSharedAddComment($userId, $segments[2], $segments[4], genesisReadJson())], 201);
@@ -736,6 +762,13 @@ try {
         $userId = genesisRequireUserId();
         genesisRequireCsrf();
         genesisSaveMetrics($userId, genesisReadJson());
+        genesisJson(['ok' => true]);
+    }
+
+    if ($method === 'POST' && $path === 'feature-usage') {
+        $userId = genesisRequireUserId();
+        genesisRequireCsrf();
+        genesisRecordFeatureUsage($userId, genesisReadJson());
         genesisJson(['ok' => true]);
     }
 

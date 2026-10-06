@@ -133,6 +133,9 @@ class NativeUiTest {
 
     @Test fun accountSettingsAlwaysShowThreeExternalLinks() {
         compose.onNodeWithTag("navigation-Настройки").performClick()
+        compose.onNodeWithTag("settings-submenu")
+            .performScrollToNode(hasTestTag("settings-submenu-links"))
+        compose.onNodeWithTag("settings-submenu-links").performClick()
         compose.onNodeWithTag("account-link-telegram").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("account-link-donate").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("account-link-web").performScrollTo().assertIsDisplayed()
@@ -140,6 +143,7 @@ class NativeUiTest {
 
     @Test fun settingsExposeWebsiteHabitControlsAsSeparateCards() {
         compose.onNodeWithTag("navigation-Настройки").performClick()
+        compose.onNodeWithTag("settings-submenu-habits").performClick()
         compose.onNodeWithTag("habit-tracking-settings").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("habit-notification-settings").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("habit-feedback-settings").performScrollTo().assertIsDisplayed()
@@ -204,12 +208,13 @@ class NativeUiTest {
             runBlocking { preferences.set("language", "ru") }
             compose.waitUntil(5_000) { compose.onAllNodesWithTag("navigation-Настройки").fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithTag("navigation-Настройки").performClick()
+            compose.onNodeWithTag("appearance-language-toggle").performScrollTo().performClick()
             compose.onNodeWithTag("language-en").performScrollTo().performClick()
-            compose.waitUntil(5_000) { compose.onAllNodesWithText("Settings").fetchSemanticsNodes().isNotEmpty() }
-            compose.onAllNodesWithText("Settings").onFirst().assertExists()
+            compose.waitUntil(5_000) { compose.onAllNodesWithText("Settings - Appearance").fetchSemanticsNodes().isNotEmpty() }
+            compose.onAllNodesWithText("Settings - Appearance").onFirst().assertExists()
             compose.onNodeWithTag("language-ru").performScrollTo().performClick()
-            compose.waitUntil(5_000) { compose.onAllNodesWithText("Настройки").fetchSemanticsNodes().isNotEmpty() }
-            compose.onAllNodesWithText("Настройки").onFirst().assertExists()
+            compose.waitUntil(5_000) { compose.onAllNodesWithText("Настройки - Оформление").fetchSemanticsNodes().isNotEmpty() }
+            compose.onAllNodesWithText("Настройки - Оформление").onFirst().assertExists()
         } finally {
             runBlocking { preferences.set("language", initial) }
         }

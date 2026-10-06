@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.json.JSONObject
+import org.json.JSONArray
 import ru.genesis.calendar.GenesisApplication
 import ru.genesis.calendar.data.CloudAccountImporter
 import ru.genesis.calendar.data.StoicheionDrawRepository
@@ -34,6 +35,7 @@ import ru.genesis.calendar.data.LocalPreferences
 import kotlinx.coroutines.flow.first
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import java.util.UUID
 
 data class AuthPanelState(
     val busy: Boolean = false,
@@ -48,10 +50,13 @@ data class AuthPanelState(
     val message: String = "Серверная сессия ещё не проверена.",
 )
 
+private class PreferenceNotPersistedException : Exception()
+
 /** Account entry and explicit read-only cloud inspection; local draft scope never changes here. */
 class AuthController private constructor(context: Context) {
     private val app = context.applicationContext as GenesisApplication
     private val client = AuthSessionClient(context.applicationContext)
+    private val sharedOffline = SharedOfflineStore(context.applicationContext)
     private val credentials = CredentialManager.create(context.applicationContext)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var operation: Job? = null
@@ -90,13 +95,67 @@ class AuthController private constructor(context: Context) {
         return withContext(Dispatchers.IO) { action(client, generation) }
     }
 
-    suspend fun sharedSpaces(): JSONObject = sharedCall { api, generation -> api.sharedSpaces(generation) }
+    suspend fun recordFeatureUsage(features: List<String>) {
+        val snapshot = mutableState.value
+        if (!snapshot.ready || snapshot.requiresSignIn || snapshot.user == null || features.isEmpty()) return
+        val generation = client.currentGeneration()
+        withContext(Dispatchers.IO) { client.recordFeatureUsage(generation, features) }
+    }
+
+    private suspend fun sharedInvitationCall(action: (AuthSessionClient, Long) -> JSONObject): JSONObject {
+        val snapshot = mutableState.value
+        check(snapshot.ready && !snapshot.requiresSignIn && snapshot.user != null &&
+            snapshot.accountSettings?.sharedProjectsEligible == true)
+        val generation = client.currentGeneration()
+        return withContext(Dispatchers.IO) { action(client, generation) }
+    }
+
+    private suspend fun sharedCachedCall(path: String,
+        action: (AuthSessionClient, Long) -> JSONObject): JSONObject {
+        val local = mutableState.value
+        if (local.ready && local.requiresSignIn && local.user != null &&
+            local.accountSettings?.sharedProjectsEnabled == true) {
+            return withContext(Dispatchers.IO) {
+                sharedOffline.snapshot(local.user.uid, path) ?: throw AuthFailure(AuthFailure.Kind.NETWORK)
+            }
+        }
+        return sharedCall { api, generation ->
+            val userId = mutableState.value.user?.uid ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
+            try {
+                action(api, generation).also { result ->
+                    runCatching { sharedOffline.saveSnapshot(userId, path, result) }
+                }
+            } catch (error: AuthFailure) {
+                if (error.kind == AuthFailure.Kind.NETWORK) sharedOffline.snapshot(userId, path) ?: throw error
+                else {
+                    if (error.kind == AuthFailure.Kind.UNAUTHORIZED || error.kind == AuthFailure.Kind.NOT_DEPLOYED)
+                        sharedOffline.clearSnapshots(userId)
+                    throw error
+                }
+            }
+        }
+    }
+
+    private suspend fun sharedTaskCall(action: (AuthSessionClient?, Long) -> JSONObject): JSONObject {
+        val local = mutableState.value
+        check(local.ready && local.user != null && local.accountSettings?.sharedProjectsEnabled == true)
+        val generation = client.currentGeneration()
+        return withContext(Dispatchers.IO) {
+            action(client.takeUnless { local.requiresSignIn }, generation)
+        }
+    }
+
+    suspend fun sharedSpaces(): JSONObject = sharedCachedCall("spaces") { api, generation -> api.sharedSpaces(generation) }
+    suspend fun sharedTaskLists(): JSONObject = sharedCachedCall("task-lists") { api, generation -> api.sharedTaskLists(generation) }
+    suspend fun sharedCalendarTasks(from: String, to: String): JSONObject =
+        sharedCachedCall("calendar:$from:$to") { api, generation -> api.sharedCalendarTasks(generation, from, to) }
     suspend fun createSharedSpace(title: String): JSONObject = sharedCall { api, generation ->
         api.createSharedSpace(generation, JSONObject().put("title", title))
     }
-    suspend fun sharedProjects(spaceId: String): JSONObject = sharedCall { api, generation -> api.sharedProjects(generation, spaceId) }
+    suspend fun sharedProjects(spaceId: String): JSONObject =
+        sharedCachedCall("projects:$spaceId") { api, generation -> api.sharedProjects(generation, spaceId) }
     suspend fun archivedSharedProjects(spaceId: String): JSONObject =
-        sharedCall { api, generation -> api.archivedSharedProjects(generation, spaceId) }
+        sharedCachedCall("archived:$spaceId") { api, generation -> api.archivedSharedProjects(generation, spaceId) }
     suspend fun createSharedProject(spaceId: String, title: String, description: String, layout: String,
         parentId: String? = null): JSONObject =
         sharedCall { api, generation -> api.createSharedProject(generation, spaceId,
@@ -104,7 +163,8 @@ class AuthController private constructor(context: Context) {
                 .put("parentId", parentId ?: JSONObject.NULL)) }
     suspend fun importSharedProject(spaceId: String, body: JSONObject): JSONObject =
         sharedCall { api, generation -> api.importSharedProject(generation, spaceId, body) }
-    suspend fun sharedProject(projectId: String): JSONObject = sharedCall { api, generation -> api.sharedProject(generation, projectId) }
+    suspend fun sharedProject(projectId: String): JSONObject =
+        sharedCachedCall("project:$projectId") { api, generation -> api.sharedProject(generation, projectId) }
     suspend fun sharedGoogleSettings(projectId: String): JSONObject =
         sharedCall { api, generation -> api.sharedGoogleSettings(generation, projectId) }
     suspend fun updateSharedGoogleSettings(projectId: String, tasksEnabled: Boolean, calendarEnabled: Boolean): JSONObject =
@@ -116,9 +176,10 @@ class AuthController private constructor(context: Context) {
         sharedCall { api, generation -> api.updateSharedProject(generation, projectId, changes) }
     suspend fun setSharedProjectArchived(projectId: String, archived: Boolean): JSONObject =
         sharedCall { api, generation -> api.setSharedProjectArchived(generation, projectId, archived) }
-    suspend fun createSharedStatus(projectId: String, title: String, isDone: Boolean): JSONObject =
+    suspend fun createSharedStatus(projectId: String, title: String, isDone: Boolean,
+        requestId: String = UUID.randomUUID().toString()): JSONObject =
         sharedCall { api, generation -> api.createSharedStatus(generation, projectId,
-            JSONObject().put("title", title).put("isDone", isDone)) }
+            JSONObject().put("title", title).put("isDone", isDone).put("requestId", requestId)) }
     suspend fun updateSharedStatus(projectId: String, statusId: String, title: String, revision: Int): JSONObject =
         sharedCall { api, generation -> api.updateSharedStatus(generation, projectId, statusId,
             JSONObject().put("title", title).put("expectedRevision", revision)) }
@@ -137,27 +198,124 @@ class AuthController private constructor(context: Context) {
             JSONObject().put("expectedRevision", revision)) }
     suspend fun changeSharedMemberRole(projectId: String, userId: String, role: String): JSONObject =
         sharedCall { api, generation -> api.changeSharedMemberRole(generation, projectId, userId, role) }
-    suspend fun changeSharedSpaceRole(spaceId: String, userId: String, role: String): JSONObject =
-        sharedCall { api, generation -> api.changeSharedSpaceRole(generation, spaceId, userId, role) }
+    suspend fun changeSharedSpaceRole(spaceId: String, userId: String, role: String,
+        canOrganizeTasks: Boolean? = null): JSONObject =
+        sharedCall { api, generation -> api.changeSharedSpaceRole(generation, spaceId, userId, role, canOrganizeTasks) }
     suspend fun removeSharedMember(projectId: String, userId: String): JSONObject =
         sharedCall { api, generation -> api.removeSharedMember(generation, projectId, userId) }
     suspend fun createSharedTask(projectId: String, title: String, statusId: String,
         categoryId: String? = null): JSONObject =
-        sharedCall { api, generation -> api.createSharedTask(generation, projectId,
-            JSONObject().put("title", title).put("statusId", statusId).put("categoryId", categoryId ?: JSONObject.NULL)) }
-    suspend fun createSharedTask(projectId: String, fields: JSONObject): JSONObject =
-        sharedCall { api, generation -> api.createSharedTask(generation, projectId, fields) }
+        createSharedTask(projectId, JSONObject().put("title", title).put("statusId", statusId)
+            .put("categoryId", categoryId ?: JSONObject.NULL))
+    suspend fun createSharedTask(projectId: String, fields: JSONObject): JSONObject = sharedTaskCall { api, generation ->
+        if (fields.has("sourceTaskId")) return@sharedTaskCall api?.createSharedTask(generation, projectId, fields)
+            ?: throw AuthFailure(AuthFailure.Kind.NETWORK)
+        val userId = mutableState.value.user?.uid ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
+        val requestId = UUID.randomUUID().toString()
+        val body = JSONObject(fields.toString()).put("requestId", requestId)
+        sharedOffline.enqueue(userId, JSONObject().put("requestId", requestId).put("projectId", projectId)
+            .put("kind", "create")
+            .put("title", fields.optString("title")).put("body", body).put("queuedAt", System.currentTimeMillis()))
+        try {
+            (api?.createSharedTask(generation, projectId, body)
+                ?: throw AuthFailure(AuthFailure.Kind.NETWORK)).also { sharedOffline.remove(userId, requestId) }
+        } catch (error: AuthFailure) {
+            if (error.kind != AuthFailure.Kind.NETWORK) {
+                sharedOffline.remove(userId, requestId)
+                throw error
+            }
+            JSONObject().put("task", JSONObject(fields.toString()).put("id", "pending:$requestId")
+                .put("projectId", projectId).put("revision", 0).put("pending", true))
+        }
+    }
+    suspend fun queuedSharedTasks(projectId: String): List<JSONObject> = withContext(Dispatchers.IO) {
+        val userId = mutableState.value.user?.uid ?: return@withContext emptyList()
+        sharedOffline.queued(userId).filter { it.optString("projectId") == projectId }
+    }
+    fun pendingSharedMutationsCount(): Int = mutableState.value.user?.uid?.let { sharedOffline.queued(it).size } ?: 0
+    suspend fun discardFailedSharedMutation(requestId: String) = withContext(Dispatchers.IO) {
+        val userId = mutableState.value.user?.uid ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
+        check(sharedOffline.queued(userId).any {
+            it.optString("requestId") == requestId && it.optString("error").isNotBlank()
+        }) { "SHARED_DRAFT_NOT_FOUND" }
+        sharedOffline.remove(userId, requestId)
+    }
+    suspend fun flushSharedOfflineTasks(): Int = sharedCall { api, generation ->
+        val userId = mutableState.value.user?.uid ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
+        var synced = 0
+        for (item in sharedOffline.queued(userId)) {
+            if (item.optString("error").isNotBlank()) continue
+            if (System.currentTimeMillis() - item.optLong("queuedAt", 0) > 89L * 24 * 60 * 60 * 1000) {
+                sharedOffline.markError(userId, item.getString("requestId"), "EXPIRED_SHARED_DRAFT")
+                continue
+            }
+            try {
+                when (item.optString("kind", "create")) {
+                    "create" -> api.createSharedTask(generation, item.getString("projectId"), item.getJSONObject("body"))
+                    "update" -> api.updateSharedTask(generation, item.getString("projectId"),
+                        item.getString("taskId"), item.getJSONObject("body"))
+                    "move" -> api.moveSharedTask(generation, item.getString("projectId"),
+                        item.getString("taskId"), item.getJSONObject("body"))
+                    else -> throw IllegalStateException("Unknown shared mutation")
+                }
+                sharedOffline.remove(userId, item.getString("requestId"))
+                synced++
+            } catch (error: AuthFailure) {
+                if (error.kind == AuthFailure.Kind.NETWORK) break
+                sharedOffline.markError(userId, item.getString("requestId"), error.kind.name)
+            }
+        }
+        JSONObject().put("synced", synced)
+    }.optInt("synced")
     suspend fun publishPrivateTask(projectId: String, fields: JSONObject): JSONObject =
         sharedCall { api, generation -> api.createSharedTask(generation, projectId, fields) }
+    private suspend fun sendSharedTaskChange(projectId: String, taskId: String, changes: JSONObject,
+        kind: String): JSONObject = sharedTaskCall { api, generation ->
+        val userId = mutableState.value.user?.uid ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
+        check(sharedOffline.queued(userId).none {
+            it.optString("taskId") == taskId && it.optString("error").isBlank()
+        }) { "SHARED_TASK_PENDING" }
+        val requestId = UUID.randomUUID().toString()
+        val body = JSONObject(changes.toString()).put("requestId", requestId)
+        sharedOffline.enqueue(userId, JSONObject().put("requestId", requestId).put("projectId", projectId)
+            .put("taskId", taskId).put("kind", kind).put("body", body)
+            .put("title", changes.optString("title", taskId)).put("queuedAt", System.currentTimeMillis()))
+        try {
+            val response = if (kind == "move") api?.moveSharedTask(generation, projectId, taskId, body)
+                else api?.updateSharedTask(generation, projectId, taskId, body)
+            if (response == null) throw AuthFailure(AuthFailure.Kind.NETWORK)
+            sharedOffline.remove(userId, requestId)
+            response
+        } catch (error: AuthFailure) {
+            if (error.kind != AuthFailure.Kind.NETWORK) {
+                sharedOffline.remove(userId, requestId)
+                throw error
+            }
+            JSONObject().put("task", JSONObject().put("id", taskId).put("projectId",
+                if (kind == "move") changes.optString("destinationProjectId", projectId) else projectId)
+                .put("revision", changes.optInt("expectedRevision")).put("pending", true))
+        }
+    }
     suspend fun updateSharedTask(projectId: String, taskId: String, changes: JSONObject): JSONObject =
-        sharedCall { api, generation -> api.updateSharedTask(generation, projectId, taskId, changes) }
+        sendSharedTaskChange(projectId, taskId, changes, "update")
+    suspend fun moveSharedTask(projectId: String, taskId: String, changes: JSONObject): JSONObject =
+        sendSharedTaskChange(projectId, taskId, changes, "move")
     suspend fun inviteSharedMember(projectId: String, email: String, role: String): JSONObject =
         sharedCall { api, generation -> api.inviteSharedMember(generation, projectId,
             JSONObject().put("email", email).put("role", role)) }
-    suspend fun acceptSharedInvitation(token: String): JSONObject =
-        sharedCall { api, generation -> api.acceptSharedInvitation(generation, JSONObject().put("token", token)) }
+    suspend fun sharedInvitations(): JSONObject =
+        sharedInvitationCall { api, generation -> api.sharedInvitations(generation) }
+    suspend fun sharedNotifications(): JSONObject = sharedCall { api, generation -> api.sharedNotifications(generation) }
+    suspend fun readSharedNotifications(ids: List<String>): JSONObject = sharedCall { api, generation ->
+        api.readSharedNotifications(generation, JSONArray(ids))
+    }
+    suspend fun acceptSharedInvitation(id: String): JSONObject =
+        sharedInvitationCall { api, generation -> api.acceptSharedInvitation(generation, JSONObject().put("id", id)) }
+    suspend fun rejectSharedInvitation(id: String): JSONObject =
+        sharedInvitationCall { api, generation -> api.rejectSharedInvitation(generation, id) }
     suspend fun sharedComments(projectId: String, taskId: String): JSONObject =
-        sharedCall { api, generation -> api.sharedComments(generation, projectId, taskId) }
+        sharedCachedCall("comments:$projectId:$taskId") { api, generation ->
+            api.sharedComments(generation, projectId, taskId) }
     suspend fun addSharedComment(projectId: String, taskId: String, body: String): JSONObject =
         sharedCall { api, generation -> api.addSharedComment(generation, projectId, taskId,
             JSONObject().put("body", body)) }
@@ -447,6 +605,21 @@ class AuthController private constructor(context: Context) {
             checkedAt = System.currentTimeMillis(), message = "Настройка сохранена в аккаунте; локальная копия обновляется."))
     }
 
+    fun updateUiVisibility(visibility: UiVisibility) = start("Сохраняем вид приложения…") { generation ->
+        val previous = mutableState.value
+        previous.accountSettings ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
+        require(visibility.enabledCalendars.isNotEmpty())
+        val payload = withContext(Dispatchers.IO) { client.updatePreferences(generation,
+            JSONObject().put("uiVisibility", visibility.toJson())) }
+        val settings = AccountSettings.fromResponse(payload) ?: throw AuthFailure(AuthFailure.Kind.PROTOCOL)
+        val identity = AuthProtocol.identity(payload) ?: throw AuthFailure(AuthFailure.Kind.PROTOCOL)
+        if (settings.uiVisibility != visibility) {
+            throw PreferenceNotPersistedException()
+        }
+        publish(generation, previous.copy(busy = false, user = identity, accountSettings = settings,
+            message = "Вид приложения сохранён в аккаунте."))
+    }
+
     fun connectYandexCalendar(accessToken: String, expiresIn: Long, accountId: String? = null) = start("Подключаем Яндекс.Календарь…") { generation ->
         val previous = mutableState.value
         require(previous.user != null && previous.accountSettings?.authProvider != "google")
@@ -509,7 +682,11 @@ class AuthController private constructor(context: Context) {
         }
         val message = if (remoteClosed) "Вход закрыт. Локальные черновики сохранены."
             else "Вход удалён с устройства. Отзыв серверной сессии не подтверждён; локальные черновики сохранены."
-        withContext(Dispatchers.IO) { CachedAccountEntry(app).clear(previousScope); app.scheduler.deactivate(previousScope) }
+        withContext(Dispatchers.IO) {
+            mutableState.value.user?.uid?.let(sharedOffline::clear)
+            CachedAccountEntry(app).clear(previousScope)
+            app.scheduler.deactivate(previousScope)
+        }
         app.activateAccount(null)
         publish(generation, AuthPanelState(message = message + if (providerCleared) "" else " Поставщик Google недоступен для очистки состояния."))
     }
@@ -526,6 +703,7 @@ class AuthController private constructor(context: Context) {
         if (operation?.isActive == true || !mutableState.value.ready || mutableState.value.requiresSignIn) return
         syncPending()
         refreshAccountData()
+        scope.launch { runCatching { flushSharedOfflineTasks() } }
     }
 
     private fun refreshAccountData() {
@@ -856,6 +1034,8 @@ class AuthController private constructor(context: Context) {
                     AuthFailure.Kind.SERVER -> "Сервер временно не может подтвердить вход. Повторите позже."
                     AuthFailure.Kind.PROTOCOL -> "Ответ сервера не прошёл проверку. Вход не подтверждён."
                 })
+            } catch (_: PreferenceNotPersistedException) {
+                failed("Сервер ещё не поддерживает эту настройку. Повторите после обновления сервиса GENESIS.")
             } catch (error: Exception) {
                 resetCredentialProvider()
                 val code = error.javaClass.simpleName.filter { it.isLetterOrDigit() }.take(32).ifBlank { "Unknown" }

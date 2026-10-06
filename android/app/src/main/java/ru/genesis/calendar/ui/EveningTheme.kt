@@ -101,7 +101,8 @@ internal fun eveningSurfaceTone(color: Color): Color {
         tint.blue * .8f + color.blue * .2f, color.alpha)
 }
 
-@Composable internal fun AppearancePanel(app: GenesisApplication, workspace: LocalHabitWorkspace, use24: Boolean) {
+@Composable internal fun AppearancePanel(app: GenesisApplication, workspace: LocalHabitWorkspace,
+    use24: Boolean, extra: @Composable ColumnScope.() -> Unit = {}) {
     val appearance = AppearanceSettings.read(workspace.settings.rawJson)
     val scope = rememberCoroutineScope()
     val repository = remember(app, app.workspaceScope) { HabitsRepository(app) }
@@ -129,6 +130,11 @@ internal fun eveningSurfaceTone(color: Color): Color {
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("Оформление", style = MaterialTheme.typography.titleLarge)
+            Surface(shape = RoundedCornerShape(14.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+            Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Переключение тем", style = MaterialTheme.typography.titleMedium)
             Text("Вечерняя тема использует мягкие оттенки и приглушённые акценты.", style = MaterialTheme.typography.bodySmall)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("light" to "Светлая", "evening" to "Вечерняя", "system" to "Как на устройстве").forEach { (mode, label) ->
@@ -149,6 +155,9 @@ internal fun eveningSurfaceTone(color: Color): Color {
                 Text("Используются часы и часовой пояс смартфона.", style = MaterialTheme.typography.bodySmall)
             }
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            }
+            }
+            extra()
         }
     }
 }

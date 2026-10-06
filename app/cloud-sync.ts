@@ -149,7 +149,9 @@ export type GenesisUser = {
   stoicheionDivinationDisabled: boolean;
   isAdmin: boolean;
   sharedProjectsEligible?: boolean;
+  sharedProjectsLifetimeAccess?: boolean;
   sharedProjectsEnabled?: boolean;
+  uiVisibility?: import("./ui-visibility").UiVisibility;
   calendarMode: CalendarMode;
   taskCalendarMode?: CalendarMode;
   timeFormat?: TimeFormat;
@@ -320,6 +322,10 @@ export type AdminAdInput = Omit<AdminAd, "id"> & { imageData?: string };
 export type AdminStats = {
   users: AdminUserStats[];
   totals: { users: number; projects: number; tasks: number; completedTasks: number; habits: number; blockedIdentities: number; androidDownloadRequests: number; androidReportingUsers: number };
+  featureUsage: { startedAt: string | null; accountCount: number; features: Array<{
+    id: string; opens: number; usedUsers: number; disabledUsers: number;
+    webOpens: number; androidOpens: number;
+  }> };
 };
 
 export type StoicheionDrawKind = "daily" | "spread";
@@ -495,6 +501,8 @@ function clearMutation(key: string) {
   writePending(readPending().filter((item) => item.key !== key));
 }
 
+class GenesisNetworkTimeoutError extends Error {}
+
 class GenesisApiError extends Error {
   readonly status: number;
   readonly payload: Record<string, unknown> | null;
@@ -533,7 +541,7 @@ async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
       },
     });
   } catch (error) {
-    if (timedOut) throw new Error("Сервер GENESIS не ответил за 20 секунд. Изменения сохранены на устройстве и будут синхронизированы позже.");
+    if (timedOut) throw new GenesisNetworkTimeoutError("Сервер GENESIS не ответил за 20 секунд. Изменения сохранены на устройстве и будут синхронизированы позже.");
     throw error;
   } finally {
     globalThis.clearTimeout(timeout);
@@ -1263,6 +1271,7 @@ export function consumeGoogleAuthError() {
 
 export async function signOutFromGoogle() {
   await api<{ ok: boolean }>("/auth/logout", { method: "POST", body: "{}" });
+  if (workspaceUserId) localStorage.removeItem(sharedOfflineKey());
   workspaceKey = "";
   activeAuthProvider = "google";
   workspaceUserId = "";
@@ -1284,6 +1293,7 @@ export async function deleteGenesisAccount(userId?: string) {
     localStorage.removeItem(`${WORKSPACE_DEVICE_ID_PREFIX}${deletedUserId}`);
     localStorage.removeItem(`${WORKSPACE_SYNC_STATE_PREFIX}${deletedUserId}`);
     localStorage.removeItem(pendingStorageKey(deletedUserId));
+    localStorage.removeItem(sharedOfflineKey(deletedUserId));
     localStorage.removeItem(`${GENESIS_USER_WORKSPACE_STORAGE_PREFIX}${deletedUserId}`);
     await clearTrackerAnalyticsCache(deletedUserId);
   }
@@ -1324,6 +1334,7 @@ export function disconnectYandexCalendar(accountId?: string) {
 
 export async function updateAccountPreferences(preferences: Partial<{
   sharedProjectsEnabled: boolean;
+  uiVisibility: import("./ui-visibility").UiVisibility;
   stoicheionDivinationDisabled: boolean;
   calendarMode: CalendarMode;
   taskCalendarMode: CalendarMode;
@@ -1352,22 +1363,178 @@ export async function updateAccountPreferences(preferences: Partial<{
 export type SharedSpace = { id: string; title: string; role: "owner" | "admin" | "member" | "guest"; updatedAt: string };
 export type SharedProject = { id: string; spaceId: string; parentId: string | null; title: string;
   description: string; layout: "list" | "board"; isInbox?: number; taskCount?: number;
-  revision: number; role: string; spaceRole?: string; updatedAt: string };
+  revision: number; role: string; spaceRole?: string; canOrganizeTasks?: boolean; updatedAt: string };
 export type SharedStatus = { id: string; title: string; position: number; isDone: number; revision: number };
+export type SharedTaskList = SharedStatus & { projectId: string; projectTitle: string;
+  spaceId: string; spaceTitle: string; role: string; taskCount: number; openCount: number };
 export type SharedCategory = { id: string; title: string; color: string; position: number; revision: number };
 export type SharedTask = { id: string; projectId: string; statusId: string; title: string;
   categoryId: string | null; description: string; dueDate: string | null;
   assigneeId: string | null; createdBy?: string | null;
-  completedBy?: string | null; completedAt?: string | null; revision: number; updatedAt: string };
-export type SharedMember = { userId: string; role: string; spaceRole: string; displayName: string };
+  completedBy?: string | null; completedAt?: string | null; position: number;
+  revision: number; updatedAt: string; pending?: boolean };
+export type SharedMember = { userId: string; role: string; spaceRole: string;
+  canOrganizeTasks: number; displayName: string };
 export type SharedProjectSnapshot = { project: SharedProject; statuses: SharedStatus[]; categories: SharedCategory[];
   tasks: SharedTask[]; members: SharedMember[] };
 export type SharedComment = { id: string; body: string; authorId: string; authorName: string; createdAt: string };
 export type SharedGoogleSettings = { tasksEnabled: boolean; calendarEnabled: boolean;
   tasksAvailable: boolean; calendarAvailable: boolean };
 
+type SharedQueuedMutation = { requestId: string; projectId: string; path: string;
+  method: "POST" | "PATCH"; kind: "create" | "update" | "move"; taskId?: string;
+  body: string; title: string; dueDate: string | null; queuedAt: string; error?: string };
+type SharedOfflineStore = { cache: Record<string, { savedAt: number; payload: unknown }>;
+  queue: SharedQueuedMutation[] };
+const SHARED_OFFLINE_PREFIX = "genesis-shared-offline-v1:";
+let sharedOfflineLock: Promise<void> = Promise.resolve();
+let sharedLastReadFromCache = false;
+
+function sharedOfflineKey(userId = workspaceUserId) {
+  if (!userId) throw new Error("AUTH_REQUIRED");
+  return `${SHARED_OFFLINE_PREFIX}${userId}`;
+}
+
+async function readSharedOfflineStore(): Promise<SharedOfflineStore> {
+  const saved = localStorage.getItem(sharedOfflineKey());
+  if (!saved) return { cache: {}, queue: [] };
+  const envelope = JSON.parse(saved) as { iv: string; ciphertext: string };
+  const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: base64ToBytes(envelope.iv),
+    additionalData: new TextEncoder().encode(sharedOfflineKey()) },
+  await importWorkspaceKey(), base64ToBytes(envelope.ciphertext));
+  const decoded = JSON.parse(new TextDecoder().decode(plain)) as SharedOfflineStore;
+  if (!decoded || typeof decoded.cache !== "object" || !Array.isArray(decoded.queue)) {
+    throw new Error("SHARED_OFFLINE_CACHE_INVALID");
+  }
+  return decoded;
+}
+
+async function changeSharedOfflineStore(change: (store: SharedOfflineStore) => void) {
+  const previous = sharedOfflineLock;
+  let release: () => void = () => undefined;
+  sharedOfflineLock = new Promise<void>((resolve) => { release = resolve; });
+  await previous;
+  try {
+    const store = await readSharedOfflineStore();
+    change(store);
+    const entries = Object.entries(store.cache).sort((a, b) => b[1].savedAt - a[1].savedAt).slice(0, 12);
+    store.cache = Object.fromEntries(entries);
+    if (store.queue.length > 100) throw new Error("SHARED_OFFLINE_QUEUE_FULL");
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv,
+      additionalData: new TextEncoder().encode(sharedOfflineKey()) },
+    await importWorkspaceKey(), new TextEncoder().encode(JSON.stringify(store)));
+    localStorage.setItem(sharedOfflineKey(), JSON.stringify({
+      iv: bytesToBase64(iv), ciphertext: bytesToBase64(new Uint8Array(ciphertext)),
+    }));
+    window.dispatchEvent(new Event("genesis-shared-offline-change"));
+  } finally { release(); }
+}
+
+function sharedNetworkFailure(error: unknown) {
+  return !(error instanceof GenesisApiError) && (typeof navigator !== "undefined" && !navigator.onLine
+    || error instanceof TypeError
+    || error instanceof GenesisNetworkTimeoutError);
+}
+
+async function sharedCachedRequest<T>(path: string): Promise<T> {
+  try {
+    const payload = await api<T>(path);
+    sharedLastReadFromCache = false;
+    await changeSharedOfflineStore((store) => { store.cache[path] = { savedAt: Date.now(), payload }; })
+      .catch(() => undefined);
+    return payload;
+  } catch (error) {
+    if (error instanceof GenesisApiError && [401, 403, 404].includes(error.status)) {
+      if (workspaceUserId) await changeSharedOfflineStore((store) => {
+        if (error.status === 401) store.cache = {};
+        else delete store.cache[path];
+      }).catch(() => undefined);
+    }
+    if (!sharedNetworkFailure(error)) throw error;
+    const saved = (await readSharedOfflineStore()).cache[path];
+    if (!saved || Date.now() - saved.savedAt > 30 * 24 * 60 * 60 * 1000) throw error;
+    sharedLastReadFromCache = true;
+    return saved.payload as T;
+  }
+}
+
+export function sharedDataCameFromOfflineCache() { return sharedLastReadFromCache; }
+
+export async function queuedSharedMutations(projectId: string) {
+  return (await readSharedOfflineStore()).queue.filter((item) => item.projectId === projectId)
+    .map(({ requestId, kind, title, dueDate, queuedAt, error, body }) => ({
+      requestId, kind, title, dueDate, queuedAt, error, draft: error ? body : null,
+    }));
+}
+
+export async function pendingSharedMutationCount() {
+  if (!workspaceUserId || !workspaceKey) return 0;
+  return (await readSharedOfflineStore()).queue.length;
+}
+
+export async function discardSharedMutation(requestId: string) {
+  await changeSharedOfflineStore((store) => {
+    const item = store.queue.find((queued) => queued.requestId === requestId);
+    if (!item || !item.error) throw new Error("SHARED_DRAFT_NOT_FOUND");
+    store.queue = store.queue.filter((queued) => queued.requestId !== requestId);
+  });
+}
+
+export async function flushSharedMutations() {
+  if (!workspaceUserId || !workspaceKey || !navigator.onLine) return;
+  const queued = (await readSharedOfflineStore()).queue;
+  for (const item of queued) {
+    if (item.error) continue;
+    if (Date.now() - Date.parse(item.queuedAt) > 89 * 24 * 60 * 60 * 1000) {
+      await changeSharedOfflineStore((store) => {
+        const entry = store.queue.find((current) => current.requestId === item.requestId);
+        if (entry) entry.error = "EXPIRED_SHARED_DRAFT";
+      });
+      continue;
+    }
+    try {
+      await api(item.path, { method: item.method, body: item.body });
+      await changeSharedOfflineStore((store) => {
+        store.queue = store.queue.filter((entry) => entry.requestId !== item.requestId);
+      });
+    } catch (error) {
+      if (sharedNetworkFailure(error)) return;
+      await changeSharedOfflineStore((store) => {
+        const entry = store.queue.find((current) => current.requestId === item.requestId);
+        if (entry) entry.error = error instanceof Error ? error.message : "SHARED_SYNC_FAILED";
+      });
+    }
+  }
+}
+
+async function sendSharedMutation<T extends { pending?: boolean }>(item: SharedQueuedMutation, pending: T): Promise<T> {
+  if (!workspaceUserId || !workspaceKey) {
+    return (await api<{ task: T }>(item.path, { method: item.method, body: item.body })).task;
+  }
+  await changeSharedOfflineStore((store) => {
+    if (item.taskId && store.queue.some((queued) => queued.taskId === item.taskId && !queued.error)) {
+      throw new Error("SHARED_TASK_PENDING");
+    }
+    store.queue.push(item);
+  });
+  try {
+    const result = (await api<{ task: T }>(item.path, { method: item.method, body: item.body })).task;
+    await changeSharedOfflineStore((store) => {
+      store.queue = store.queue.filter((queued) => queued.requestId !== item.requestId);
+    });
+    return result;
+  } catch (error) {
+    if (sharedNetworkFailure(error)) return pending;
+    await changeSharedOfflineStore((store) => {
+      store.queue = store.queue.filter((queued) => queued.requestId !== item.requestId);
+    });
+    throw error;
+  }
+}
+
 export async function listSharedSpaces() {
-  return (await api<{ spaces: SharedSpace[] }>("/shared/spaces")).spaces;
+  return (await sharedCachedRequest<{ spaces: SharedSpace[] }>("/shared/spaces")).spaces;
 }
 export async function createSharedSpace(title: string) {
   return (await api<{ space: SharedSpace }>("/shared/spaces", {
@@ -1375,10 +1542,10 @@ export async function createSharedSpace(title: string) {
   })).space;
 }
 export async function listSharedProjects(spaceId: string) {
-  return (await api<{ projects: SharedProject[] }>(`/shared/spaces/${encodeURIComponent(spaceId)}/projects`)).projects;
+  return (await sharedCachedRequest<{ projects: SharedProject[] }>(`/shared/spaces/${encodeURIComponent(spaceId)}/projects`)).projects;
 }
 export async function listArchivedSharedProjects(spaceId: string) {
-  return (await api<{ projects: (SharedProject & { archivedAt: string })[] }>(
+  return (await sharedCachedRequest<{ projects: (SharedProject & { archivedAt: string })[] }>(
     `/shared/spaces/${encodeURIComponent(spaceId)}/archived-projects`)).projects;
 }
 export async function createSharedProject(spaceId: string, input: { title: string; description: string;
@@ -1405,7 +1572,7 @@ export async function importSharedProject(spaceId: string, input: SharedProjectI
   )).receipt;
 }
 export async function loadSharedProject(projectId: string) {
-  return api<SharedProjectSnapshot>(`/shared/projects/${encodeURIComponent(projectId)}`);
+  return sharedCachedRequest<SharedProjectSnapshot>(`/shared/projects/${encodeURIComponent(projectId)}`);
 }
 export async function loadSharedGoogleSettings(projectId: string) {
   return (await api<{ settings: SharedGoogleSettings }>(
@@ -1434,9 +1601,13 @@ export async function setSharedProjectArchived(projectId: string, archived: bool
     method: "POST", body: "{}",
   });
 }
-export async function createSharedStatus(projectId: string, title: string, isDone: boolean) {
+export async function listSharedTaskLists() {
+  return (await sharedCachedRequest<{ lists: SharedTaskList[] }>("/shared/task-lists")).lists;
+}
+export async function createSharedStatus(projectId: string, title: string, isDone: boolean,
+  requestId = crypto.randomUUID()) {
   return (await api<{ status: SharedStatus }>(`/shared/projects/${encodeURIComponent(projectId)}/statuses`, {
-    method: "POST", body: JSON.stringify({ title, isDone }),
+    method: "POST", body: JSON.stringify({ title, isDone, requestId }),
   })).status;
 }
 export async function updateSharedStatus(projectId: string, statusId: string, title: string, expectedRevision: number) {
@@ -1473,9 +1644,10 @@ export async function changeSharedMemberRole(projectId: string, userId: string, 
     method: "PATCH", body: JSON.stringify({ role }),
   });
 }
-export async function changeSharedSpaceRole(spaceId: string, userId: string, role: string) {
+export async function changeSharedSpaceRole(spaceId: string, userId: string, role: string,
+  canOrganizeTasks?: boolean) {
   return api<{ ok: true }>(`/shared/spaces/${encodeURIComponent(spaceId)}/members/${encodeURIComponent(userId)}`, {
-    method: "PATCH", body: JSON.stringify({ role }),
+    method: "PATCH", body: JSON.stringify({ role, ...(canOrganizeTasks === undefined ? {} : { canOrganizeTasks }) }),
   });
 }
 export async function removeSharedMember(projectId: string, userId: string) {
@@ -1486,25 +1658,87 @@ export async function removeSharedMember(projectId: string, userId: string) {
 export async function createSharedTask(projectId: string, input: { title: string; statusId: string;
   categoryId?: string | null; assigneeId?: string | null; dueDate?: string | null; description?: string;
   sourceTaskId?: string }) {
-  return (await api<{ task: SharedTask }>(`/shared/projects/${encodeURIComponent(projectId)}/tasks`, {
-    method: "POST", body: JSON.stringify(input),
-  })).task;
+  const path = `/shared/projects/${encodeURIComponent(projectId)}/tasks`;
+  if (input.sourceTaskId) {
+    return (await api<{ task: SharedTask }>(path, { method: "POST", body: JSON.stringify(input) })).task;
+  }
+  const requestId = crypto.randomUUID();
+  const body = JSON.stringify({ ...input, requestId });
+  return sendSharedMutation<SharedTask>({
+    requestId, projectId, path, method: "POST", kind: "create", body,
+    title: input.title, dueDate: input.dueDate ?? null,
+    queuedAt: new Date().toISOString(),
+  }, { id: `pending:${requestId}`, projectId, statusId: input.statusId,
+    title: input.title, description: input.description ?? "", dueDate: input.dueDate ?? null,
+    categoryId: input.categoryId ?? null, assigneeId: input.assigneeId ?? null,
+    position: 0, revision: 0, updatedAt: new Date().toISOString(), pending: true });
 }
 export async function updateSharedTask(projectId: string, taskId: string, input: Partial<SharedTask> & { expectedRevision: number }) {
-  return (await api<{ task: SharedTask }>(`/shared/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}`, {
-    method: "PATCH", body: JSON.stringify(input),
-  })).task;
+  const requestId = crypto.randomUUID();
+  const path = `/shared/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}`;
+  return sendSharedMutation<SharedTask>({ requestId, projectId, taskId, path, method: "PATCH", kind: "update",
+    body: JSON.stringify({ ...input, requestId }), title: input.title ?? taskId,
+    dueDate: input.dueDate ?? null, queuedAt: new Date().toISOString() },
+  { id: taskId, projectId, statusId: input.statusId ?? "", title: input.title ?? "",
+    description: input.description ?? "", categoryId: input.categoryId ?? null,
+    assigneeId: input.assigneeId ?? null, dueDate: input.dueDate ?? null,
+    position: 0, revision: input.expectedRevision, updatedAt: new Date().toISOString(), pending: true });
+}
+export async function moveSharedTask(projectId: string, taskId: string, input: {
+  destinationProjectId: string; statusId: string; expectedRevision: number; position: number;
+}) {
+  const requestId = crypto.randomUUID();
+  const path = `/shared/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}/move`;
+  return sendSharedMutation<Pick<SharedTask, "id" | "projectId" | "statusId" | "revision" | "pending">>({
+    requestId, projectId, taskId, path, method: "POST", kind: "move",
+    body: JSON.stringify({ ...input, requestId }), title: taskId, dueDate: null,
+    queuedAt: new Date().toISOString(),
+  }, { id: taskId, projectId: input.destinationProjectId, statusId: input.statusId,
+    revision: input.expectedRevision, pending: true });
 }
 export async function inviteSharedMember(projectId: string, email: string, role: string) {
-  return (await api<{ invitation: { id: string; token: string; expiresAt: string } }>(
+  return (await api<{ invitation: { id: string; expiresAt: string } }>(
     `/shared/projects/${encodeURIComponent(projectId)}/invitations`, {
       method: "POST", body: JSON.stringify({ email, role }),
     })).invitation;
 }
-export async function acceptSharedInvitation(token: string) {
-  return api<{ projectId: string; spaceId: string }>("/shared/invitations/accept", {
-    method: "POST", body: JSON.stringify({ token }),
+export type SharedInvitation = {
+  id: string; inviterName: string; spaceTitle: string; projectTitle: string;
+  role: string; expiresAt: string;
+};
+export async function listSharedInvitations() {
+  return (await api<{ invitations: SharedInvitation[] }>("/shared/invitations")).invitations;
+}
+export type SharedNotification = {
+  id: string; action: string; objectId: string; createdAt: string;
+  projectId: string; projectTitle: string; spaceId: string;
+  actorName: string; taskTitle: string | null; isRead: number;
+};
+export async function listSharedNotifications() {
+  return (await api<{ notifications: SharedNotification[] }>("/shared/notifications")).notifications;
+}
+export async function readSharedNotifications(eventIds: string[]) {
+  return api<{ ok: boolean }>("/shared/notifications/read", {
+    method: "POST", body: JSON.stringify({ eventIds }),
   });
+}
+export async function acceptSharedInvitation(id: string) {
+  return api<{ projectId: string; spaceId: string }>("/shared/invitations/accept", {
+    method: "POST", body: JSON.stringify({ id }),
+  });
+}
+export async function rejectSharedInvitation(id: string) {
+  return api<{ ok: boolean }>(`/shared/invitations/${encodeURIComponent(id)}`, {
+    method: "POST", body: "{}",
+  });
+}
+export type SharedCalendarTask = {
+  id: string; title: string; dueDate: string; completedAt: string | null;
+  projectId: string; projectTitle: string; spaceId: string; isInbox: number;
+};
+export async function listSharedCalendarTasks(from: string, to: string) {
+  return (await api<{ tasks: SharedCalendarTask[] }>(
+    `/shared/calendar/tasks?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`)).tasks;
 }
 export async function listSharedComments(projectId: string, taskId: string) {
   return (await api<{ comments: SharedComment[] }>(
@@ -1536,6 +1770,7 @@ export function observeCloudTasks(
     polling = true;
     try {
       await flushPendingMutations();
+      await flushSharedMutations();
       await refreshWorkspaceFromCloud();
       const result = await api<{ tasks: GenesisTask[]; taskLists?: GoogleTaskList[]; syncWarning?: string | null }>("/sync/tasks");
       if (active) listener(
@@ -1731,6 +1966,12 @@ export async function saveMetrics(metrics: GenesisMetrics) {
 
 export async function loadAdminStats() {
   return api<AdminStats>("/admin/stats");
+}
+
+export async function recordFeatureUsage(features: string[], platform: "web" | "android" = "web") {
+  return api<{ ok: boolean }>("/feature-usage", {
+    method: "POST", body: JSON.stringify({ features, platform }),
+  });
 }
 
 export async function loadTodayAds(language: string, country: string, platform: "web" | "android") {

@@ -103,6 +103,23 @@ try {
     expect((genesisUserForClient($user)['timeFormat'] ?? '') === '12h', 'Time format preference was not exposed to the client.');
     expect(($user['language'] ?? '') === 'en', 'Language preference was not stored.');
     expect((genesisUserForClient($user)['language'] ?? '') === 'en', 'Language preference was not exposed to the client.');
+    $visibility = [
+        'hiddenMenuItems' => ['tasks', 'stoicheion'], 'hiddenSubmenus' => ['calendar.year'],
+        'hiddenTodayBlocks' => ['rhythm', 'tasks'], 'enabledCalendars' => ['profane'],
+    ];
+    $user = genesisUpdateAccountPreferences($userId, ['uiVisibility' => $visibility]);
+    expect(genesisUserForClient($user)['uiVisibility'] === $visibility, 'Navigation visibility did not round-trip.');
+    expect($user['calendar_mode'] === 'profane' && $user['task_calendar_mode'] === 'profane',
+        'Disabled calendars remained selected.');
+    foreach ([['enabledCalendars' => []], ['hiddenSubmenus' => ['calendar.month', 'calendar.year']],
+        ['hiddenSubmenus' => ['sacred.stoicheion', 'sacred.theokyklos']]] as $invalid) {
+        try {
+            genesisUpdateAccountPreferences($userId, ['uiVisibility' => [...$visibility, ...$invalid]]);
+            throw new RuntimeException('Invalid navigation visibility was accepted.');
+        } catch (InvalidArgumentException $expected) { /* Rejected before write. */ }
+    }
+    $user = genesisUpdateAccountPreferences($userId, ['uiVisibility' => genesisUiVisibility([]),
+        'calendarMode' => 'sacred', 'taskCalendarMode' => 'lunar']);
     expect((genesisUserForClient($user)['theme'] ?? '') === 'standart', 'Theme must default safely to Standart.');
     $user = genesisUpdateAccountPreferences($userId, ['theme' => 'experimental', 'expectedThemeRevision' => 0]);
     expect(($user['theme'] ?? '') === 'experimental', 'Theme preference was not stored.');
@@ -552,7 +569,20 @@ try {
     $_SERVER['HTTP_X_GENESIS_INSTALLATION_ID'] = '123e4567-e89b-42d3-a456-426614174000';
     genesisReportAndroidClient($userId, 'ok', 'warning');
     unset($_SERVER['HTTP_X_GENESIS_APP_VERSION'], $_SERVER['HTTP_X_GENESIS_INSTALLATION_ID']);
+    genesisRecordFeatureUsage($userId, ['platform' => 'web',
+        'features' => ['menu.tasks', 'submenu.tasks.lists']]);
+    genesisRecordFeatureUsage($userId, ['platform' => 'android',
+        'features' => ['menu.tasks', 'submenu.tasks.lists']]);
+    try {
+        genesisRecordFeatureUsage($userId, ['platform' => 'web', 'features' => ['task.title.secret']]);
+        throw new RuntimeException('Arbitrary feature content was accepted.');
+    } catch (InvalidArgumentException $expected) { /* Only fixed identifiers are accepted. */ }
     $adminStats = genesisAdminStats();
+    $taskUsage = array_values(array_filter($adminStats['featureUsage']['features'],
+        static fn (array $row): bool => $row['id'] === 'menu.tasks'))[0] ?? null;
+    expect($taskUsage !== null && $taskUsage['opens'] === 2 && $taskUsage['usedUsers'] === 1
+        && $taskUsage['webOpens'] === 1 && $taskUsage['androidOpens'] === 1,
+        'Feature usage did not aggregate by account and platform.');
     $androidRow = array_values(array_filter($adminStats['users'], static fn (array $row): bool => $row['id'] === $userId))[0] ?? null;
     expect($androidRow !== null && $androidRow['androidDownloadCount'] === 2, 'Android download requests were not counted per user.');
     expect($androidRow['androidReportedVersion'] === '2.3.11' && $androidRow['androidDeviceCount'] === 1, 'Android installation version was not reported.');

@@ -204,7 +204,7 @@ class EveningAndMonthFlowTest {
         try {
             val tag=if(dark) "app-theme-Evening" else "app-theme-Standart"
             compose.waitUntil(10_000) { compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
-            for(page in listOf("Сегодня","Задачи","Проекты","Календарь","Привычки","Стойхейон","Теокиклос","Настройки")) {
+            for(page in listOf("Сегодня","Задачи","Проекты","Календарь","Привычки","Сакральное","Настройки")) {
                 compose.onNodeWithTag("navigation-$page").performClick()
                 capture("page-$page")
                 if(page=="Сегодня") {

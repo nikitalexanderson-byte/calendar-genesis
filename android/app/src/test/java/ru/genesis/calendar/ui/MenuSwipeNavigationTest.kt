@@ -8,7 +8,7 @@ class MenuSwipeNavigationTest {
     @Test fun mainPagesIgnoreSubmenusWhenOptionIsOff() {
         val pages = menuSwipeSequence(false, true)
         assertEquals(listOf("Сегодня", "Задачи", "Проекты", "Календарь", "Привычки",
-            "Стойхейон", "Теокиклос", "Настройки"), pages.map { it.page })
+            "Сакральное", "Настройки"), pages.map { it.page })
         assertEquals(SwipeDestination("Календарь"),
             nextMenuSwipeDestination(pages, "Проекты", null, 1))
         assertNull(nextMenuSwipeDestination(pages, "Настройки", null, 1))
@@ -35,7 +35,7 @@ class MenuSwipeNavigationTest {
 
     @Test fun disabledHabitsAreExcluded() {
         val pages = menuSwipeSequence(true, false)
-        assertEquals(SwipeDestination("Стойхейон"),
+        assertEquals(SwipeDestination("Сакральное", "stoicheion"),
             nextMenuSwipeDestination(pages, "Календарь", "year", 1))
     }
 
@@ -49,5 +49,28 @@ class MenuSwipeNavigationTest {
             nextMenuSwipeDestination(pages, "Проекты", "shared", 1))
         assertEquals(SwipeDestination("Проекты", "personal"),
             nextMenuSwipeDestination(pages, "Проекты", "shared", -1))
+    }
+
+    @Test fun hiddenSectionsAreSkippedWithoutBlankSwipePages() {
+        val pages = menuSwipeSequence(true, true, true,
+            hiddenMenuItems = setOf("stoicheion", "theokyklos"),
+            hiddenSubmenus = setOf("tasks.lists", "projects.personal", "calendar.month", "habits.sleep"))
+        assertEquals(listOf(SwipeDestination("Сегодня"), SwipeDestination("Задачи", "tasks"),
+            SwipeDestination("Проекты", "shared"), SwipeDestination("Календарь", "year"),
+            SwipeDestination("Привычки", "Привычки")) + settingsSections.map { SwipeDestination("Настройки", it.id) }, pages)
+        assertEquals(SwipeDestination("Настройки", "appearance"),
+            nextMenuSwipeDestination(pages, "Привычки", "Привычки", 1))
+    }
+
+    @Test fun sacredSubsectionsSwipeInOrderAndRespectVisibility() {
+        val pages = menuSwipeSequence(true, true)
+        assertEquals(SwipeDestination("Сакральное", "theokyklos"),
+            nextMenuSwipeDestination(pages, "Сакральное", "stoicheion", 1))
+        assertEquals(SwipeDestination("Настройки", "appearance"),
+            nextMenuSwipeDestination(pages, "Сакральное", "theokyklos", 1))
+        val stoicheionHidden = menuSwipeSequence(true, true,
+            hiddenSubmenus = setOf("sacred.stoicheion"))
+        assertEquals(SwipeDestination("Сакральное", "theokyklos"),
+            nextMenuSwipeDestination(stoicheionHidden, "Привычки", "Сон и настроение", 1))
     }
 }

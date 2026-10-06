@@ -54,11 +54,15 @@ internal fun HabitsScreen(app: GenesisApplication, experimental: Boolean, inputC
     menuSwipeState: MenuSwipeState? = null, openSacredHabits: Boolean = false,
     onSacredHabitsOpened: () -> Unit = {}, voiceRequest: NativeVoiceAction? = null,
     onVoiceRequestConsumed: () -> Unit = {}, openHeroPath: Boolean = false,
-    onHeroPathOpened: () -> Unit = {}) {
+    onHeroPathOpened: () -> Unit = {}, hiddenSubmenus: Set<String> = emptySet()) {
     var localSection by rememberSaveable { mutableStateOf("Привычки") }
-    val section = menuSwipeState?.habits ?: localSection
+    val section = (menuSwipeState?.habits ?: localSection).takeIf {
+        (if (it == "Привычки") "habits.habits" else "habits.sleep") !in hiddenSubmenus
+    } ?: if ("habits.habits" !in hiddenSubmenus) "Привычки" else "Сон и настроение"
     Column(Modifier.fillMaxSize()) {
-        ConnectedSubmenu(listOf(SubmenuItem("Привычки", "Привычки"), SubmenuItem("Сон и настроение", "Сон и настроение")),
+        val submenuItems = listOf(SubmenuItem("Привычки", "Привычки"), SubmenuItem("Сон и настроение", "Сон и настроение"))
+            .filter { (if (it.id == "Привычки") "habits.habits" else "habits.sleep") !in hiddenSubmenus }
+        if (submenuItems.size > 1) ConnectedSubmenu(submenuItems,
             section, { localSection = it; menuSwipeState?.habits = it })
         Box(Modifier.weight(1f)) {
             if (section == "Привычки") HabitWorkspaceContent(app, experimental, inputCalendarMode, displayCalendarMode,

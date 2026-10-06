@@ -16,6 +16,32 @@ import javax.net.ssl.HttpsURLConnection
 internal class AuthFailure(val kind: Kind) : Exception("Authentication request failed") {
     enum class Kind { NOT_DEPLOYED, UNAUTHORIZED, RATE_LIMIT, NETWORK, PROTOCOL, STORAGE, CONFLICT, SERVER }
 }
+internal class AuthApiError(val code: String) : Exception(code)
+
+internal fun allowedSharedRoute(method: String, path: String): Boolean {
+    if (path in setOf("/shared/spaces", "/shared/invitations", "/shared/invitations/accept",
+            "/shared/notifications", "/shared/notifications/read")) return method in setOf("GET", "POST")
+    if (method == "GET" && path.matches(Regex("/shared/calendar/tasks\\?from=\\d{4}-\\d{2}-\\d{2}&to=\\d{4}-\\d{2}-\\d{2}"))) return true
+    if (path.matches(Regex("/shared/invitations/[a-f0-9-]{36}"))) return method == "POST"
+    if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/projects"))) return method in setOf("GET", "POST")
+    if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/import-project"))) return method == "POST"
+    if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/archived-projects"))) return method == "GET"
+    if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/members/[A-Za-z0-9_-]{1,100}"))) return method == "POST"
+    if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}"))) return method in setOf("GET", "POST")
+    if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/google"))) return method in setOf("GET", "POST")
+    if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/google/sync"))) return method == "POST"
+    if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/(archive|restore)"))) return method == "POST"
+    if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/statuses"))) return method == "POST"
+    if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/statuses/[a-f0-9-]{36}"))) return method in setOf("POST", "DELETE")
+    if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/categories"))) return method == "POST"
+    if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/categories/[a-f0-9-]{36}"))) return method in setOf("POST", "DELETE")
+    if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/members/[A-Za-z0-9_-]{1,100}"))) return method in setOf("POST", "DELETE")
+    if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/(tasks|invitations)"))) return method == "POST"
+    if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/tasks/[a-f0-9-]{36}"))) return method == "POST"
+    if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/tasks/[a-f0-9-]{36}/move"))) return method == "POST"
+    if (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/tasks/[a-f0-9-]{36}/comments"))) return method in setOf("GET", "POST")
+    return false
+}
 
 /** A dedicated, encrypted native cookie jar; never shared with Custom Tabs or the local drafts DB. */
 internal class AuthSessionClient(context: Context) {
@@ -152,6 +178,9 @@ internal class AuthSessionClient(context: Context) {
     fun updatePreferences(expected: Long, changes: JSONObject): JSONObject =
         request(expected, "/account/preferences", changes, method = "PUT")
     fun sharedSpaces(expected: Long): JSONObject = request(expected, "/shared/spaces", null)
+    fun sharedTaskLists(expected: Long): JSONObject = request(expected, "/shared/task-lists", null)
+    fun sharedCalendarTasks(expected: Long, from: String, to: String): JSONObject =
+        request(expected, "/shared/calendar/tasks?from=$from&to=$to", null)
     fun createSharedSpace(expected: Long, body: JSONObject): JSONObject =
         request(expected, "/shared/spaces", body)
     fun sharedProjects(expected: Long, spaceId: String): JSONObject =
@@ -167,7 +196,7 @@ internal class AuthSessionClient(context: Context) {
     fun sharedGoogleSettings(expected: Long, projectId: String): JSONObject =
         request(expected, "/shared/projects/$projectId/google", null)
     fun updateSharedGoogleSettings(expected: Long, projectId: String, body: JSONObject): JSONObject =
-        request(expected, "/shared/projects/$projectId/google", body, method = "PATCH")
+        request(expected, "/shared/projects/$projectId/google", body)
     fun syncSharedGoogle(expected: Long, projectId: String): JSONObject =
         request(expected, "/shared/projects/$projectId/google/sync", JSONObject())
     fun updateSharedProject(expected: Long, projectId: String, body: JSONObject): JSONObject =
@@ -188,23 +217,37 @@ internal class AuthSessionClient(context: Context) {
         request(expected, "/shared/projects/$projectId/categories/$categoryId", body, method = "DELETE")
     fun changeSharedMemberRole(expected: Long, projectId: String, userId: String, role: String): JSONObject =
         request(expected, "/shared/projects/$projectId/members/$userId", JSONObject().put("role", role))
-    fun changeSharedSpaceRole(expected: Long, spaceId: String, userId: String, role: String): JSONObject =
-        request(expected, "/shared/spaces/$spaceId/members/$userId", JSONObject().put("role", role))
+    fun changeSharedSpaceRole(expected: Long, spaceId: String, userId: String, role: String,
+        canOrganizeTasks: Boolean? = null): JSONObject =
+        request(expected, "/shared/spaces/$spaceId/members/$userId", JSONObject().put("role", role).apply {
+            if (canOrganizeTasks != null) put("canOrganizeTasks", canOrganizeTasks)
+        })
     fun removeSharedMember(expected: Long, projectId: String, userId: String): JSONObject =
         request(expected, "/shared/projects/$projectId/members/$userId", JSONObject(), method = "DELETE")
     fun createSharedTask(expected: Long, projectId: String, body: JSONObject): JSONObject =
         request(expected, "/shared/projects/$projectId/tasks", body)
     fun updateSharedTask(expected: Long, projectId: String, taskId: String, body: JSONObject): JSONObject =
         request(expected, "/shared/projects/$projectId/tasks/$taskId", body)
+    fun moveSharedTask(expected: Long, projectId: String, taskId: String, body: JSONObject): JSONObject =
+        request(expected, "/shared/projects/$projectId/tasks/$taskId/move", body)
     fun inviteSharedMember(expected: Long, projectId: String, body: JSONObject): JSONObject =
         request(expected, "/shared/projects/$projectId/invitations", body)
     fun acceptSharedInvitation(expected: Long, body: JSONObject): JSONObject =
         request(expected, "/shared/invitations/accept", body)
+    fun sharedInvitations(expected: Long): JSONObject = request(expected, "/shared/invitations", null)
+    fun sharedNotifications(expected: Long): JSONObject = request(expected, "/shared/notifications", null)
+    fun readSharedNotifications(expected: Long, eventIds: JSONArray): JSONObject =
+        request(expected, "/shared/notifications/read", JSONObject().put("eventIds", eventIds))
+    fun rejectSharedInvitation(expected: Long, id: String): JSONObject =
+        request(expected, "/shared/invitations/$id", JSONObject())
     fun sharedComments(expected: Long, projectId: String, taskId: String): JSONObject =
         request(expected, "/shared/projects/$projectId/tasks/$taskId/comments", null)
     fun addSharedComment(expected: Long, projectId: String, taskId: String, body: JSONObject): JSONObject =
         request(expected, "/shared/projects/$projectId/tasks/$taskId/comments", body)
     fun adminStats(expected: Long): JSONObject = request(expected, "/admin/stats", null)
+    fun recordFeatureUsage(expected: Long, features: List<String>): JSONObject =
+        request(expected, "/feature-usage", JSONObject().put("platform", "android")
+            .put("features", JSONArray(features)))
     fun todayAds(expected: Long, language: String, country: String): JSONObject {
         require(language.matches(Regex("[a-z]{2}")) && country.matches(Regex("[A-Z]{0,2}")))
         return request(expected, "/ads/today?language=$language&country=$country&platform=android", null)
@@ -243,26 +286,13 @@ internal class AuthSessionClient(context: Context) {
             "/auth/yandex/native",
             "/account/yandex-calendar/connect", "/account/yandex-calendar/disconnect",
             "/auth/google/native", "/auth/google/native/services/config", "/auth/google/native/services",
-            "/auth/logout", "/account/preferences", "/admin/stats") ||
+            "/auth/logout", "/account/preferences", "/admin/stats", "/feature-usage") ||
             (method == "GET" && path.matches(Regex("/ads/today\\?language=[a-z]{2}&country=[A-Z]{0,2}&platform=android"))) ||
             (path == "/task-lists" && method == "POST") ||
             (method in setOf("PUT", "DELETE") && path.matches(Regex("/tasks/[A-Za-z0-9_-]{1,100}"))) ||
             (method == "DELETE" && path.matches(Regex("/admin/users/[A-Za-z0-9_-]{1,100}"))) ||
             (method == "DELETE" && path.matches(Regex("/account/google-accounts/[A-Za-z0-9_-]{1,100}"))) ||
-            (path in setOf("/shared/spaces", "/shared/invitations/accept") && method in setOf("GET", "POST")) ||
-            (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/projects")) && method in setOf("GET", "POST")) ||
-            (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/archived-projects")) && method == "GET") ||
-            (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/members/[A-Za-z0-9_-]{1,100}")) && method == "POST") ||
-            (path.matches(Regex("/shared/projects/[a-f0-9-]{36}")) && method in setOf("GET", "POST")) ||
-            (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/(archive|restore)")) && method == "POST") ||
-            (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/statuses")) && method == "POST") ||
-            (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/statuses/[a-f0-9-]{36}")) && method in setOf("POST", "DELETE")) ||
-            (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/categories")) && method == "POST") ||
-            (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/categories/[a-f0-9-]{36}")) && method in setOf("POST", "DELETE")) ||
-            (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/members/[A-Za-z0-9_-]{1,100}")) && method in setOf("POST", "DELETE")) ||
-            (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/(tasks|invitations)")) && method == "POST") ||
-            (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/tasks/[a-f0-9-]{36}")) && method == "POST") ||
-            (path.matches(Regex("/shared/projects/[a-f0-9-]{36}/tasks/[a-f0-9-]{36}/comments")) && method in setOf("GET", "POST")))
+            allowedSharedRoute(method, path))
         require(method in setOf("GET", "POST", "PUT", "DELETE") && (method == "GET") == (body == null))
         val current = secret ?: load(expected)
         if (body != null && (current.cookie.isBlank() || current.csrf.isBlank())) throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
@@ -295,6 +325,12 @@ internal class AuthSessionClient(context: Context) {
             phase = "status"
             val status = connection.responseCode
             if (status !in 200..299) {
+                if (path.contains("/invitations")) {
+                    val code = runCatching { JSONObject(connection.errorStream?.bufferedReader()?.use { it.readText() }
+                        ?: "{}").optString("error") }.getOrDefault("")
+                    if (code in setOf("INVITEE_ACCOUNT_UNSUPPORTED", "INVITEE_ACCOUNT_NOT_FOUND",
+                            "ALREADY_PROJECT_MEMBER", "INVALID_INVITATION")) throw AuthApiError(code)
+                }
                 throw AuthFailure(when (status) {
                     404, 405 -> AuthFailure.Kind.NOT_DEPLOYED
                     401, 403 -> AuthFailure.Kind.UNAUTHORIZED
@@ -342,6 +378,8 @@ internal class AuthSessionClient(context: Context) {
         } catch (error: CancellationException) {
             throw error
         } catch (error: AuthFailure) {
+            throw error
+        } catch (error: AuthApiError) {
             throw error
         } catch (error: java.io.IOException) {
             if (BuildConfig.DEBUG) Log.w("GenesisAuth", "HTTPS transport failed at $path/$phase: ${error.javaClass.simpleName}")

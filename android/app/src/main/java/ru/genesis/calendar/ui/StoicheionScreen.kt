@@ -111,14 +111,15 @@ fun StoicheionScreen(app: GenesisApplication, divinationDisabled: Boolean,
         contentPadding = PaddingValues(12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item(span = { GridItemSpan(maxLineSpan) }) {
-            GenesisPageHeader(if (english) "Stoicheion" else "Стойхейон",
+            GenesisPageHeader(if (english) "Sacred - Stoicheion" else "Сакральное - Стойхейон",
                 if (divinationDisabled) {
                     if (english) "Twenty-four Greek letters and their meanings"
                     else "Двадцать четыре буквенных образа и их значения"
                 } else if (english) "Twenty-four Greek letters, the daily card and the nine-face spread"
                 else "Двадцать четыре буквенных образа, карта дня и расклад девяти ликов", "Σ",
                 modifier = Modifier.padding(4.dp),
-                subtitle = if (english) "Gno · Meter · Basileia" else "Гно · Метэр · Базилея")
+                subtitle = if (english) "Gno · Meter · Basileia" else "Гно · Метэр · Базилея",
+                icon = GenesisPageIcon.STOICHEION)
         }
         val loaded = letters
         when {

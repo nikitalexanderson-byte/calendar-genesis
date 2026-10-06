@@ -88,10 +88,10 @@ fun TheokyklosScreen(app: GenesisApplication, calendarMode: CalendarMode, onOpen
     val selected = selectedId?.let(data.byId::get)
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val diagram: @Composable () -> Unit = {
-        GenesisPageHeader(if (english) "Theokyklos" else "Теокиклос",
+        GenesisPageHeader(if (english) "Sacred - Theokyklos" else "Сакральное - Теокиклос",
             if (english) "Fourteen powers: directions, axis, center and gates"
             else "Четырнадцать сил: направления, ось, центр и врата", "Θ",
-            animatedMandala = true)
+            animatedMandala = true, icon = GenesisPageIcon.THEOKYKLOS)
         Text("Круг божественных сил", style = MaterialTheme.typography.titleLarge)
         Text("Коснитесь любого направления, полюса, очага, центра или врат.",
             style = MaterialTheme.typography.bodySmall)

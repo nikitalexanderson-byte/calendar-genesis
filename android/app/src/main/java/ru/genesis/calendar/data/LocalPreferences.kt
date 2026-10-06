@@ -17,7 +17,9 @@ data class UiPreferences(val display: CalendarMode = CalendarMode.SACRED,
     val ipRegionZone: String = "", val ipRegionLabel: String = "",
     val fullMoonLeadDays: Set<Int> = emptySet(), val newMoonLeadDays: Set<Int> = emptySet(),
     val showMissedTasksToday: Boolean = true,
-    val menuSwipeEnabled: Boolean = true, val menuSwipeSubmenus: Boolean = true)
+    val menuSwipeEnabled: Boolean = true, val menuSwipeSubmenus: Boolean = true,
+    val settingsMenuLabels: Boolean = true, val updateRemindersEnabled: Boolean = true,
+    val menuThreadsEnabled: Boolean = true)
 class LocalPreferences(private val context: Context, private val scope: String) {
     private fun moonLeadDays(value: String?): Set<Int> = value.orEmpty().split(',')
         .mapNotNull { it.trim().toIntOrNull()?.takeIf { day -> day in 1..3 } }.toSet()
@@ -41,7 +43,10 @@ class LocalPreferences(private val context: Context, private val scope: String) 
             it[key("ipRegionLabel")] ?: "",
             moonLeadDays(it[key("fullMoonLeadDays")]), moonLeadDays(it[key("newMoonLeadDays")]),
             it[key("showMissedTasksToday")] != "false",
-            it[key("menuSwipeEnabled")] != "false", it[key("menuSwipeSubmenus")] != "false")
+            it[key("menuSwipeEnabled")] != "false", it[key("menuSwipeSubmenus")] != "false",
+            it[key("settingsMenuLabels")] != "icons",
+            it[key("updateRemindersEnabled")] != "false",
+            it[key("menuThreadsEnabled")] != "false")
     }
     suspend fun set(name: String, value: String) { context.genesisPreferences.edit { it[key(name)] = value } }
     suspend fun initializeNewAccount() {

@@ -8,5 +8,6 @@ class UiPreferencesDefaultsTest {
         val preferences = UiPreferences()
         assertTrue(preferences.menuSwipeEnabled)
         assertTrue(preferences.menuSwipeSubmenus)
+        assertTrue(preferences.menuThreadsEnabled)
     }
 }

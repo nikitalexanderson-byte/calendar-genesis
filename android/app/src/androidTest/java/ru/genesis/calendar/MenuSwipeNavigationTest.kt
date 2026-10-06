@@ -31,6 +31,7 @@ class MenuSwipeNavigationTest {
                 preferences.set("language", "ru")
             }
             compose.onNodeWithTag("navigation-Настройки").performClick()
+            compose.onNodeWithTag("appearance-menu-toggle").performScrollTo().performClick()
             compose.onNodeWithTag("menu-swipe-on").performScrollTo().performClick()
             compose.onNodeWithTag("menu-swipe-submenus").performScrollTo().performClick()
             compose.waitUntil(5_000) { runBlocking {

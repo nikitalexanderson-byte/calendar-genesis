@@ -168,6 +168,43 @@ function genesisCategorySyncMap(mixed $value): array
     return $result;
 }
 
+function genesisSharedEligible(array $user): bool
+{
+    return in_array(genesisUserProvider($user), ['google', 'yandex'], true);
+}
+
+function genesisUiVisibility(mixed $value): array
+{
+    $decoded = is_string($value) ? json_decode($value, true) : $value;
+    if (!is_array($decoded)) $decoded = [];
+    $allowed = [
+        'hiddenMenuItems' => ['tasks', 'projects', 'calendar', 'habits', 'sacred', 'stoicheion', 'theokyklos'],
+        'hiddenSubmenus' => ['tasks.tasks', 'tasks.lists', 'projects.personal', 'projects.shared',
+            'calendar.month', 'calendar.year', 'habits.habits', 'habits.sleep',
+            'sacred.stoicheion', 'sacred.theokyklos'],
+        'hiddenTodayBlocks' => ['rhythm', 'quickCreate', 'tasks', 'habits', 'details'],
+        'enabledCalendars' => ['profane', 'sacred', 'lunar'],
+    ];
+    $result = [];
+    foreach ($allowed as $name => $options) {
+        $items = $decoded[$name] ?? ($name === 'enabledCalendars' ? $options : []);
+        if (!is_array($items) || !array_is_list($items) ||
+            array_filter($items, static fn(mixed $item): bool => !is_string($item) || !in_array($item, $options, true))) {
+            throw new InvalidArgumentException('INVALID_UI_VISIBILITY');
+        }
+        $result[$name] = array_values(array_unique($items));
+    }
+    if ($result['enabledCalendars'] === []) throw new InvalidArgumentException('AT_LEAST_ONE_CALENDAR_REQUIRED');
+    foreach ([['tasks.tasks', 'tasks.lists'], ['calendar.month', 'calendar.year'],
+        ['projects.personal', 'projects.shared'], ['habits.habits', 'habits.sleep'],
+        ['sacred.stoicheion', 'sacred.theokyklos']] as $pair) {
+        if (count(array_intersect($pair, $result['hiddenSubmenus'])) === 2) {
+            throw new InvalidArgumentException('AT_LEAST_ONE_SUBMENU_REQUIRED');
+        }
+    }
+    return $result;
+}
+
 function genesisUserForClient(array $user): array
 {
     $multiAccountEnabled = genesisMultiAccountEnabled($user);
@@ -234,8 +271,10 @@ function genesisUserForClient(array $user): array
         'passwordEnabled' => !empty($user['password_hash']),
         'stoicheionDivinationDisabled' => !empty($user['stoicheion_divination_disabled']),
         'isAdmin' => genesisIsAdminUser($user),
-        'sharedProjectsEligible' => genesisSharedTester($user),
-        'sharedProjectsEnabled' => genesisSharedTester($user) && !empty($user['shared_projects_enabled']),
+        'sharedProjectsEligible' => genesisSharedEligible($user),
+        'sharedProjectsLifetimeAccess' => genesisSharedTester($user),
+        'sharedProjectsEnabled' => genesisSharedEligible($user) && !empty($user['shared_projects_enabled']),
+        'uiVisibility' => genesisUiVisibility($user['ui_visibility_json'] ?? '{}'),
         'calendarMode' => $calendarMode,
         'taskCalendarMode' => $taskCalendarMode,
         'timeFormat' => $timeFormat,
@@ -788,6 +827,92 @@ function genesisReportAndroidClient(string $userId, ?string $serverSyncStatus = 
     ]);
 }
 
+function genesisFeatureCatalog(): array
+{
+    return [
+        'menu.today', 'menu.tasks', 'menu.projects', 'menu.calendar', 'menu.habits',
+        'menu.sacred', 'menu.settings',
+        'submenu.tasks.tasks', 'submenu.tasks.lists',
+        'submenu.projects.personal', 'submenu.projects.shared',
+        'submenu.calendar.month', 'submenu.calendar.year',
+        'submenu.habits.habits', 'submenu.habits.sleep',
+        'submenu.sacred.stoicheion', 'submenu.sacred.theokyklos',
+        'submenu.settings.appearance', 'submenu.settings.habits',
+        'submenu.settings.reminders', 'submenu.settings.shared',
+        'submenu.settings.region', 'submenu.settings.account', 'submenu.settings.links',
+        'calendar.profane', 'calendar.sacred', 'calendar.lunar',
+    ];
+}
+
+function genesisRecordFeatureUsage(string $userId, array $payload): void
+{
+    $platform = $payload['platform'] ?? null;
+    $features = $payload['features'] ?? null;
+    if (!in_array($platform, ['web', 'android'], true) || !is_array($features) ||
+        !array_is_list($features) || count($features) < 1 || count($features) > 4 ||
+        array_filter($features, static fn(mixed $feature): bool => !is_string($feature) ||
+            !in_array($feature, genesisFeatureCatalog(), true)) ||
+        count(array_unique($features)) !== count($features)) {
+        throw new InvalidArgumentException('INVALID_FEATURE_USAGE');
+    }
+    $now = genesisNow();
+    $statement = genesisDb()->prepare('INSERT INTO feature_usage
+        (user_id, feature_id, platform, open_count, first_seen_at, last_seen_at)
+        VALUES (:user_id, :feature_id, :platform, 1, :first_seen_at, :last_seen_at)
+        ON CONFLICT(user_id, feature_id, platform) DO UPDATE SET
+            open_count = feature_usage.open_count + 1, last_seen_at = excluded.last_seen_at');
+    foreach ($features as $feature) {
+        $statement->execute(['user_id' => $userId, 'feature_id' => $feature,
+            'platform' => $platform, 'first_seen_at' => $now, 'last_seen_at' => $now]);
+    }
+}
+
+function genesisAdminFeatureUsage(int $userCount): array
+{
+    $recorded = [];
+    $firstSeen = null;
+    foreach (genesisDb()->query('SELECT feature_id, SUM(open_count) AS opens,
+        COUNT(DISTINCT user_id) AS used_users,
+        SUM(CASE WHEN platform = \'web\' THEN open_count ELSE 0 END) AS web_opens,
+        SUM(CASE WHEN platform = \'android\' THEN open_count ELSE 0 END) AS android_opens,
+        MIN(first_seen_at) AS first_seen_at
+        FROM feature_usage GROUP BY feature_id') as $row) {
+        $recorded[(string)$row['feature_id']] = $row;
+        if ($firstSeen === null || (string)$row['first_seen_at'] < $firstSeen)
+            $firstSeen = (string)$row['first_seen_at'];
+    }
+    $disabled = array_fill_keys(genesisFeatureCatalog(), 0);
+    foreach (genesisDb()->query('SELECT ui_visibility_json, shared_projects_enabled FROM users') as $user) {
+        $visibility = genesisUiVisibility($user['ui_visibility_json'] ?? '{}');
+        foreach (genesisFeatureCatalog() as $feature) {
+            $id = str_starts_with($feature, 'menu.') ? substr($feature, 5) :
+                (str_starts_with($feature, 'submenu.') ? substr($feature, 8) : $feature);
+            $hidden = str_starts_with($feature, 'menu.') && in_array($id, $visibility['hiddenMenuItems'], true);
+            if ($feature === 'menu.sacred' && in_array('stoicheion', $visibility['hiddenMenuItems'], true) &&
+                in_array('theokyklos', $visibility['hiddenMenuItems'], true)) $hidden = true;
+            if (str_starts_with($feature, 'submenu.')) {
+                $hidden = in_array($id, $visibility['hiddenSubmenus'], true) ||
+                    (str_starts_with($id, 'sacred.') &&
+                        in_array(substr($id, 7), $visibility['hiddenMenuItems'], true));
+            }
+            if ($feature === 'submenu.projects.shared' && !(bool)$user['shared_projects_enabled']) $hidden = true;
+            if (str_starts_with($feature, 'calendar.'))
+                $hidden = !in_array(substr($feature, 9), $visibility['enabledCalendars'], true);
+            if ($hidden) $disabled[$feature]++;
+        }
+    }
+    $features = [];
+    foreach (genesisFeatureCatalog() as $feature) {
+        $row = $recorded[$feature] ?? null;
+        $features[] = ['id' => $feature, 'opens' => (int)($row['opens'] ?? 0),
+            'usedUsers' => (int)($row['used_users'] ?? 0), 'disabledUsers' => $disabled[$feature],
+            'webOpens' => (int)($row['web_opens'] ?? 0),
+            'androidOpens' => (int)($row['android_opens'] ?? 0)];
+    }
+    usort($features, static fn(array $a, array $b): int => $b['opens'] <=> $a['opens']);
+    return ['startedAt' => $firstSeen, 'accountCount' => $userCount, 'features' => $features];
+}
+
 function genesisAdminStats(): array
 {
     $rows = genesisDb()->query('SELECT u.id, u.auth_provider, u.email, u.display_name, u.created_at, u.last_login_at, u.last_seen_at, u.login_count, u.password_hash IS NOT NULL AS password_enabled, u.refresh_token_enc IS NOT NULL AS google_auth_connected, u.refresh_token_enc IS NOT NULL AND u.google_calendar_id IS NOT NULL AS calendar_connected, u.last_calendar_sync_at, COALESCE(m.project_count, 0) AS project_count, COALESCE(m.task_count, 0) AS task_count, COALESCE(m.open_task_count, 0) AS open_task_count, COALESCE(m.completed_task_count, 0) AS completed_task_count, COALESCE(m.google_synced_count, 0) AS google_synced_count, COALESCE(m.habit_count, 0) AS habit_count, m.updated_at AS metrics_updated_at, COALESCE(d.request_count, 0) AS android_download_count, d.first_requested_at AS android_first_download_at, d.last_requested_at AS android_last_download_at, d.last_requested_version AS android_last_download_version, (SELECT COUNT(*) FROM android_client_reports r WHERE r.user_id = u.id) AS android_device_count, (SELECT r.app_version FROM android_client_reports r WHERE r.user_id = u.id ORDER BY r.last_seen_at DESC LIMIT 1) AS android_reported_version, (SELECT r.last_seen_at FROM android_client_reports r WHERE r.user_id = u.id ORDER BY r.last_seen_at DESC LIMIT 1) AS android_last_seen_at, (SELECT r.last_server_sync_at FROM android_client_reports r WHERE r.user_id = u.id AND r.last_server_sync_at IS NOT NULL ORDER BY r.last_server_sync_at DESC LIMIT 1) AS android_last_server_sync_at, (SELECT r.server_sync_status FROM android_client_reports r WHERE r.user_id = u.id AND r.last_server_sync_at IS NOT NULL ORDER BY r.last_server_sync_at DESC LIMIT 1) AS android_server_sync_status, (SELECT r.google_sync_status FROM android_client_reports r WHERE r.user_id = u.id AND r.last_server_sync_at IS NOT NULL ORDER BY r.last_server_sync_at DESC LIMIT 1) AS android_google_sync_status FROM users u LEFT JOIN user_metrics m ON m.user_id = u.id LEFT JOIN android_download_activity d ON d.user_id = u.id ORDER BY COALESCE(u.last_seen_at, u.created_at) DESC')->fetchAll();
@@ -846,6 +971,7 @@ function genesisAdminStats(): array
             'androidDownloadRequests' => array_sum(array_map(static fn(array $row): int => (int)$row['android_download_count'], $rows)),
             'androidReportingUsers' => count(array_filter($rows, static fn(array $row): bool => (int)$row['android_device_count'] > 0)),
         ],
+        'featureUsage' => genesisAdminFeatureUsage(count($rows)),
     ];
 }
 
@@ -980,11 +1106,28 @@ function genesisUpdateAccountPreferences(string $userId, array $payload): array
         if (!is_bool($payload['sharedProjectsEnabled'])) {
             throw new InvalidArgumentException('INVALID_SHARED_PROJECT_PREFERENCE');
         }
-        if ($payload['sharedProjectsEnabled'] && !genesisSharedTester($user)) {
-            throw new DomainException('SHARED_PROJECTS_PAID_FEATURE');
+        if ($payload['sharedProjectsEnabled'] && !genesisSharedEligible($user)) {
+            throw new DomainException('SHARED_PROJECTS_UNAVAILABLE');
         }
         $updates[] = 'shared_projects_enabled = :shared_projects_enabled';
         $values['shared_projects_enabled'] = $payload['sharedProjectsEnabled'] ? 1 : 0;
+    }
+    $visibility = genesisUiVisibility($payload['uiVisibility'] ?? ($user['ui_visibility_json'] ?? '{}'));
+    if (array_key_exists('uiVisibility', $payload)) {
+        if (in_array('projects.personal', $visibility['hiddenSubmenus'], true)
+            && !(genesisSharedEligible($user) && !empty($user['shared_projects_enabled']))) {
+            throw new InvalidArgumentException('PERSONAL_PROJECTS_REQUIRED');
+        }
+        $updates[] = 'ui_visibility_json = :ui_visibility_json';
+        $values['ui_visibility_json'] = json_encode($visibility, JSON_THROW_ON_ERROR);
+        $enabled = $visibility['enabledCalendars'];
+        foreach (['calendar_mode' => 'calendarMode', 'task_calendar_mode' => 'taskCalendarMode'] as $column => $field) {
+            $selected = (string)($payload[$field] ?? $user[$column] ?? 'profane');
+            if (!in_array($selected, $enabled, true)) {
+                $updates[] = "$column = :$column";
+                $values[$column] = $enabled[0];
+            }
+        }
     }
     if (array_key_exists('stoicheionDivinationDisabled', $payload)) {
         if (!is_bool($payload['stoicheionDivinationDisabled'])) {
@@ -995,7 +1138,7 @@ function genesisUpdateAccountPreferences(string $userId, array $payload): array
     }
     if (array_key_exists('calendarMode', $payload)) {
         $calendarMode = trim((string)$payload['calendarMode']);
-        if (!in_array($calendarMode, ['profane', 'sacred', 'lunar'], true)) {
+        if (!in_array($calendarMode, $visibility['enabledCalendars'], true)) {
             throw new InvalidArgumentException('Неизвестный режим календаря.');
         }
         $updates[] = 'calendar_mode = :calendar_mode';
@@ -1003,7 +1146,7 @@ function genesisUpdateAccountPreferences(string $userId, array $payload): array
     }
     if (array_key_exists('taskCalendarMode', $payload)) {
         $taskCalendarMode = trim((string)$payload['taskCalendarMode']);
-        if (!in_array($taskCalendarMode, ['profane', 'sacred', 'lunar'], true)) {
+        if (!in_array($taskCalendarMode, $visibility['enabledCalendars'], true)) {
             throw new InvalidArgumentException('Неизвестный календарь постановки задач.');
         }
         $updates[] = 'task_calendar_mode = :task_calendar_mode';
@@ -1121,6 +1264,7 @@ function genesisAccountDataLocations(): array
         'task_links' => 'user_id',
         'workspace_blobs' => 'user_id',
         'user_metrics' => 'user_id',
+        'feature_usage' => 'user_id',
         'android_download_activity' => 'user_id',
         'android_client_reports' => 'user_id',
         'stoicheion_draws' => 'user_id',

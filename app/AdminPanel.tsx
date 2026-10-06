@@ -20,6 +20,36 @@ function syncStatusLabel(status: string | null, labels: {
     : status === "disconnected" ? labels.disconnected : labels.syncUnknown;
 }
 
+const featureNames: Record<string, [string, string]> = {
+  "menu.today": ["Сегодня", "Today"],
+  "menu.tasks": ["Задачи", "Tasks"],
+  "menu.projects": ["Проекты", "Projects"],
+  "menu.calendar": ["Календарь", "Calendar"],
+  "menu.habits": ["Привычки", "Habits"],
+  "menu.sacred": ["Сакральное", "Sacred"],
+  "menu.settings": ["Настройки", "Settings"],
+  "submenu.tasks.tasks": ["Задачи · задачи", "Tasks · tasks"],
+  "submenu.tasks.lists": ["Задачи · списки", "Tasks · lists"],
+  "submenu.projects.personal": ["Проекты · личные", "Projects · personal"],
+  "submenu.projects.shared": ["Проекты · общие", "Projects · shared"],
+  "submenu.calendar.month": ["Календарь · месяц", "Calendar · month"],
+  "submenu.calendar.year": ["Календарь · год", "Calendar · year"],
+  "submenu.habits.habits": ["Привычки · трекер", "Habits · tracker"],
+  "submenu.habits.sleep": ["Привычки · сон и настроение", "Habits · sleep and mood"],
+  "submenu.sacred.stoicheion": ["Сакральное · Стойхейон", "Sacred · Stoicheion"],
+  "submenu.sacred.theokyklos": ["Сакральное · Теокиклос", "Sacred · Theokyklos"],
+  "submenu.settings.appearance": ["Настройки · оформление", "Settings · appearance"],
+  "submenu.settings.habits": ["Настройки · привычки", "Settings · habits"],
+  "submenu.settings.reminders": ["Настройки · напоминания", "Settings · reminders"],
+  "submenu.settings.shared": ["Настройки · общие проекты", "Settings · shared projects"],
+  "submenu.settings.region": ["Настройки · регион", "Settings · region"],
+  "submenu.settings.account": ["Настройки · аккаунт", "Settings · account"],
+  "submenu.settings.links": ["Настройки · ссылки", "Settings · links"],
+  "calendar.profane": ["Григорианский календарь", "Gregorian calendar"],
+  "calendar.sacred": ["Сакральный календарь", "Sacred calendar"],
+  "calendar.lunar": ["Лунный календарь", "Lunar calendar"],
+};
+
 export function AdminPanel() {
   const isEnglish = runtimeLocale().startsWith("en");
   const copy = isEnglish ? {
@@ -132,6 +162,33 @@ export function AdminPanel() {
             ))}</tbody>
           </table>
         </div>
+        <section className="admin-android" aria-labelledby="admin-feature-title">
+          <h2 id="admin-feature-title">{isEnglish ? "Feature usage" : "Использование функций"}</h2>
+          <p className="admin-android-note">{isEnglish
+            ? "Counts start with the first recorded visit. ‘No recorded visit’ includes older accounts whose earlier activity was not measured. Disabled counts reflect current menu and calendar settings. Only feature identifiers and counts are stored."
+            : "Подсчёт начинается с первого зафиксированного открытия. В колонку «Без открытия» входят и старые аккаунты, действия которых раньше не измерялись. «Выключено» показывает текущие настройки меню и календарей. Сохраняются только идентификаторы функций и счётчики."}</p>
+          <p className="admin-android-note">{isEnglish ? "First record" : "Первое событие"}: {formatActivity(stats.featureUsage?.startedAt ?? null)}</p>
+          <div className="admin-table-wrap">
+            <table className="admin-table" data-testid="admin-feature-usage">
+              <thead><tr><th>{isEnglish ? "Feature" : "Функция"}</th><th>{isEnglish ? "Users" : "Пользователи"}</th>
+                <th>{isEnglish ? "Opens" : "Открытия"}</th><th>Web</th><th>Android</th>
+                <th>{isEnglish ? "Disabled" : "Выключено"}</th>
+                <th>{isEnglish ? "No recorded visit" : "Без открытия"}</th></tr></thead>
+              <tbody>{(stats.featureUsage?.features ?? []).map((feature) => (
+                <tr key={feature.id}>
+                  <td data-label={isEnglish ? "Feature" : "Функция"}><strong>{featureNames[feature.id]?.[isEnglish ? 1 : 0] ?? feature.id}</strong></td>
+                  <td data-label={isEnglish ? "Users" : "Пользователи"}>{feature.usedUsers}</td>
+                  <td data-label={isEnglish ? "Opens" : "Открытия"}>{feature.opens}</td>
+                  <td data-label="Web">{feature.webOpens}</td>
+                  <td data-label="Android">{feature.androidOpens}</td>
+                  <td data-label={isEnglish ? "Disabled" : "Выключено"}>{feature.disabledUsers}</td>
+                  <td data-label={isEnglish ? "No recorded visit" : "Без открытия"}>
+                    {Math.max(0, (stats.featureUsage?.accountCount ?? 0) - feature.usedUsers)}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        </section>
         <section className="admin-android" aria-labelledby="admin-android-title">
           <h2 id="admin-android-title">{copy.androidTitle}</h2>
           <p className="admin-android-note">{copy.androidIntro}</p>

@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import ru.genesis.calendar.BuildConfig
 
 private data class UpdateBannerCopy(val title: String, val action: String)
 private val updateBannerCopy = mapOf(
@@ -50,6 +51,7 @@ private val updateBannerCopy = mapOf(
 /** Remains in Settings until the installed version catches up with the release manifest. */
 @Composable
 internal fun AndroidUpdateBanner() {
+    if (BuildConfig.PLAY_DISTRIBUTION) return
     val context = LocalContext.current
     val language = LocalGenesisLanguage.current
     val copy = updateBannerCopy[language] ?: updateBannerCopy.getValue("ru")
