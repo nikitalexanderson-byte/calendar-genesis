@@ -1,0 +1,64 @@
+name: Export existing Android signing key for Google Play
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export-encrypted-key:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Verify key and export encrypted archive
+        env:
+          SIGNING_KEYSTORE_B64: ${{ secrets.GENESIS_ANDROID_RELEASE_KEYSTORE_B64 }}
+          SIGNING_STORE_PASSWORD: ${{ secrets.GENESIS_ANDROID_RELEASE_STORE_PASSWORD }}
+          SIGNING_KEY_ALIAS: ${{ secrets.GENESIS_ANDROID_RELEASE_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.GENESIS_ANDROID_RELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          umask 077
+          test -n "$SIGNING_KEYSTORE_B64"
+          test -n "$SIGNING_STORE_PASSWORD"
+          test -n "$SIGNING_KEY_ALIAS"
+          test -n "$SIGNING_KEY_PASSWORD"
+          curl --fail --silent --show-error --location \
+            'https://www.gstatic.com/play-apps-publisher-rapid/signing-tool/prod/pepk.jar' \
+            --output "$RUNNER_TEMP/pepk.jar"
+          printf '%s  %s\n' \
+            'aaccc0774b240aa5304bdad2a49865e92f229ca73209ecb6eaafe75dc858e24e' \
+            "$RUNNER_TEMP/pepk.jar" | sha256sum --check --status
+          printf '%s' "$SIGNING_KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+          keytool -list -v -keystore "$RUNNER_TEMP/release.jks" \
+            -alias "$SIGNING_KEY_ALIAS" -storepass "$SIGNING_STORE_PASSWORD" \
+            | grep -Fqi 'SHA256: 1E:16:1D:36:F5:74:B0:56:0D:80:8C:7E:E9:5E:1A:BE:98:16:5B:33:85:33:6D:02:76:FB:38:1D:FD:90:1C:B8'
+          java -jar "$RUNNER_TEMP/pepk.jar" \
+            --keystore="$RUNNER_TEMP/release.jks" \
+            --alias="$SIGNING_KEY_ALIAS" \
+            --output="$RUNNER_TEMP/genesis-play-encrypted-key.zip" \
+            --encryption-key-path=android/play-encryption-public-key.pem \
+            --keystore-pass="$SIGNING_STORE_PASSWORD" \
+            --key-pass="$SIGNING_KEY_PASSWORD" \
+            --include-cert --rsa-aes-encryption
+          test -s "$RUNNER_TEMP/genesis-play-encrypted-key.zip"
+
+      - name: Save encrypted archive for Play Console
+        uses: actions/upload-artifact@v4
+        with:
+          name: genesis-play-encrypted-signing-key
+          path: ${{ runner.temp }}/genesis-play-encrypted-key.zip
+          if-no-files-found: error
+          retention-days: 1
