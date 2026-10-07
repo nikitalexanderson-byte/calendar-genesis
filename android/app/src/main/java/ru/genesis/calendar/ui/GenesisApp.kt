@@ -740,7 +740,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                             SubmenuItem("theokyklos", if (prefs.language == "en") "Theokyklos" else "Теокиклос"))
                             .filter { "sacred.${it.id}" !in uiVisibility.hiddenSubmenus &&
                                 it.id !in uiVisibility.hiddenMenuItems }
-                        if (sacredSubmenus.size > 1) ConnectedSubmenu(sacredSubmenus,
+                        if (!LocalFixedSubmenu.current && sacredSubmenus.size > 1) ConnectedSubmenu(sacredSubmenus,
                             visibleSwipeState.sacred, { menuSwipeState.sacred = it },
                             Modifier.testTag("sacred-submenu"))
                         if (visibleSwipeState.sacred == "theokyklos")
@@ -761,7 +761,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                             SubmenuItem("personal", if(prefs.language=="en") "Personal" else "Личные"),
                             SubmenuItem("shared", if(prefs.language=="en") "Shared" else "Общие"))
                             .filter { "projects.${it.id}" !in uiVisibility.hiddenSubmenus }
-                        if (sharedProjectsEnabled && projectSubmenus.size > 1) ConnectedSubmenu(projectSubmenus,
+                        if (!LocalFixedSubmenu.current && sharedProjectsEnabled && projectSubmenus.size > 1) ConnectedSubmenu(projectSubmenus,
                             visibleSwipeState.projectArea, { menuSwipeState.projectArea = it },
                             Modifier.testTag("projects-area-switch"))
                         if(sharedProjectsEnabled && visibleSwipeState.projectArea=="shared") SharedProjectsScreen(authController,prefs.language)
@@ -938,25 +938,47 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                                     destination.section?.let { preview.select(destination.page, it) }
                                 }
                             }
-                        CompositionLocalProvider(LocalCompactSubmenus provides (navigationOnLeft || isLandscape),
+                        CompositionLocalProvider(LocalFixedSubmenu provides true,
+                            LocalCompactSubmenus provides (navigationOnLeft || isLandscape),
                             LocalNavigationPageContext provides NavigationPageContext(destination.page,
                                 destination == currentSwipeDestination)) {
                             pageContent(destination.page, visibleSwipeState)
                         }
                     }
                 }
+                val selectPrimaryPage: (String) -> Unit = { page ->
+                    firstVisibleSubmenu(page, habitTrackingEnabled, sharedProjectsEnabled,
+                        uiVisibility.hiddenMenuItems, uiVisibility.hiddenSubmenus,
+                        prefs.settingsSubmenuEnabled)?.let { menuSwipeState.select(page, it) }
+                    highlightedPage = page
+                    tab = page
+                }
                 if (navigationOnLeft) {
                     Row(Modifier.fillMaxWidth().weight(1f).testTag("wide-navigation-layout")) {
                         PrimaryNavigation(highlightedPage, visiblePages, vertical = true,
                             showLabels = prefs.navigationLabels && !shortWindow, autoScroll = false,
-                            onSelect = { highlightedPage = it; tab = it }, modifier = Modifier
+                            onSelect = selectPrimaryPage, modifier = Modifier
                                 .width(if (prefs.navigationLabels && !shortWindow) 132.dp else 64.dp).fillMaxHeight())
-                        workspacePager(Modifier.weight(1f).fillMaxHeight().testTag("main-content"))
+                        Column(Modifier.weight(1f).fillMaxHeight()) {
+                            CompositionLocalProvider(LocalCompactSubmenus provides true,
+                                LocalNavigationPageContext provides NavigationPageContext(tab, true)) {
+                                FixedPageSubmenu(tab, menuSwipeState, prefs.language,
+                                    uiVisibility, sharedProjectsEnabled, prefs.settingsSubmenuEnabled,
+                                    prefs.settingsMenuLabels)
+                            }
+                            workspacePager(Modifier.weight(1f).testTag("main-content"))
+                        }
                     }
                 } else {
                     PrimaryNavigation(highlightedPage, visiblePages, vertical = false,
                         showLabels = prefs.navigationLabels, autoScroll = portraitAutoScroll,
-                        onSelect = { highlightedPage = it; tab = it })
+                        onSelect = selectPrimaryPage)
+                    CompositionLocalProvider(LocalCompactSubmenus provides isLandscape,
+                        LocalNavigationPageContext provides NavigationPageContext(tab, true)) {
+                        FixedPageSubmenu(tab, menuSwipeState, prefs.language,
+                            uiVisibility, sharedProjectsEnabled, prefs.settingsSubmenuEnabled,
+                            prefs.settingsMenuLabels)
+                    }
                     workspacePager(Modifier.fillMaxWidth().weight(1f).testTag("main-content"))
                 }
             }
@@ -1019,6 +1041,39 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
 
 internal fun shouldUseNavigationRail(screenWidthDp: Int, landscape: Boolean,
     wideNavigationOnLeft: Boolean): Boolean = wideNavigationOnLeft && (landscape || screenWidthDp >= 600)
+
+@Composable
+private fun FixedPageSubmenu(page: String, state: MenuSwipeState, language: String,
+    visibility: ru.genesis.calendar.auth.UiVisibility, sharedProjectsEnabled: Boolean,
+    settingsSubmenuEnabled: Boolean, settingsMenuLabels: Boolean) {
+    if (page == "Настройки") {
+        if (settingsSubmenuEnabled) SettingsSubmenu(state.settings, language,
+            settingsMenuLabels, { state.settings = it })
+        return
+    }
+    val items = when (page) {
+        "Задачи" -> listOf(SubmenuItem("tasks", "Задачи"),
+            SubmenuItem("lists", "Списки задач"))
+            .filter { "tasks.${it.id}" !in visibility.hiddenSubmenus }
+        "Проекты" -> if (sharedProjectsEnabled) listOf(
+            SubmenuItem("personal", if (language == "en") "Personal" else "Личные"),
+            SubmenuItem("shared", if (language == "en") "Shared" else "Общие"))
+            .filter { "projects.${it.id}" !in visibility.hiddenSubmenus } else emptyList()
+        "Календарь" -> listOf(SubmenuItem("month", "Месяц"), SubmenuItem("year", "Год"))
+            .filter { "calendar.${it.id}" !in visibility.hiddenSubmenus }
+        "Привычки" -> listOf(SubmenuItem("Привычки", "Привычки"),
+            SubmenuItem("Сон и настроение", "Сон и настроение"))
+            .filter { (if (it.id == "Привычки") "habits.habits" else "habits.sleep") !in visibility.hiddenSubmenus }
+        "Сакральное" -> listOf(
+            SubmenuItem("stoicheion", if (language == "en") "Stoicheion" else "Стойхейон"),
+            SubmenuItem("theokyklos", if (language == "en") "Theokyklos" else "Теокиклос"))
+            .filter { "sacred.${it.id}" !in visibility.hiddenSubmenus &&
+                it.id !in visibility.hiddenMenuItems }
+        else -> emptyList()
+    }
+    if (items.size > 1) ConnectedSubmenu(items, state.section(page).orEmpty(),
+        { state.select(page, it) }, Modifier.testTag("fixed-page-submenu"))
+}
 
 @Composable
 private fun PrimaryNavigation(selectedPage: String, pages: List<String>, vertical: Boolean,
@@ -1742,7 +1797,7 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sectionId:
         .format(DateTimeFormatter.ofPattern("dd.MM HH:mm"))
     val section = settingsSections.firstOrNull { it.id == sectionId } ?: settingsSections.first()
     Column(Modifier.fillMaxSize()) {
-    if (prefs.settingsSubmenuEnabled)
+    if (prefs.settingsSubmenuEnabled && !LocalFixedSubmenu.current)
         SettingsSubmenu(section.id, prefs.language, prefs.settingsMenuLabels, onSection)
     SettingsPageSections(sequential = !prefs.settingsSubmenuEnabled,
         retainedScrollState = scrollState) {
@@ -1754,12 +1809,12 @@ private fun SettingsScreen(app:GenesisApplication,prefs:UiPreferences,sectionId:
             section.description(prefs.language), "⚙", icon = section.icon)
         when (section.id) {
         "appearance" -> {
-        AppearancePanel(app, workspace, prefs.use24,
-            showTitle = prefs.settingsSubmenuEnabled) {
-            MenuDisplaySettings(prefs, onSetLocal)
-            MenuVisibilitySettings(prefs, accountSettings, sharedProjectsEnabled,
+        AppearancePanel(app, workspace, prefs.use24) {
+            MenuDisplaySettings(prefs, onSetLocal) {
+                MenuVisibilitySettings(prefs, accountSettings, sharedProjectsEnabled,
                 visibility, onSetVisibility, menuVisibilityExpanded,
                 onMenuVisibilityExpanded)
+            }
             LanguageSettings(prefs.language) { onSet("language", it) }
             CalendarTimeSettings(prefs, visibility, sharedBusy, onSet, onSetLocal) {
                 calendarReference = it
@@ -2069,7 +2124,8 @@ private fun CalendarTimeSettings(prefs: UiPreferences,
 }
 
 @Composable
-private fun MenuDisplaySettings(prefs: UiPreferences, onSetLocal: (String, String) -> Unit) {
+private fun MenuDisplaySettings(prefs: UiPreferences, onSetLocal: (String, String) -> Unit,
+    visibilityContent: @Composable ColumnScope.() -> Unit) {
     SettingsSubsection("Отображение меню") {
             Text("Кнопки меню первого уровня", style = MaterialTheme.typography.titleSmall)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -2173,6 +2229,7 @@ private fun MenuDisplaySettings(prefs: UiPreferences, onSetLocal: (String, Strin
             }
             Text("При общем свайпе месяцы и годы переключаются стрелками.",
                 style = MaterialTheme.typography.bodySmall)
+            visibilityContent()
     }
 }
 

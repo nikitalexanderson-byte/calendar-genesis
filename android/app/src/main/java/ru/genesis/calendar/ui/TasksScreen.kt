@@ -93,7 +93,7 @@ import ru.genesis.calendar.data.*
     Column(Modifier.fillMaxSize()) {
         val submenuItems = listOf(SubmenuItem("tasks", "Задачи"), SubmenuItem("lists", "Списки задач"))
             .filter { "tasks.${it.id}" !in hiddenSubmenus }
-        if (submenuItems.size > 1) ConnectedSubmenu(submenuItems,
+        if (!LocalFixedSubmenu.current && submenuItems.size > 1) ConnectedSubmenu(submenuItems,
             section, { localSection = it; menuSwipeState?.tasks = it })
         LazyVerticalGrid(columns = GridCells.Adaptive(360.dp), modifier = Modifier.weight(1f).testTag("tasks-screen"), contentPadding = PaddingValues(16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),

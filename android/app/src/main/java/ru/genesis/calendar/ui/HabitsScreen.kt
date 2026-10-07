@@ -62,7 +62,7 @@ internal fun HabitsScreen(app: GenesisApplication, experimental: Boolean, inputC
     Column(Modifier.fillMaxSize()) {
         val submenuItems = listOf(SubmenuItem("Привычки", "Привычки"), SubmenuItem("Сон и настроение", "Сон и настроение"))
             .filter { (if (it.id == "Привычки") "habits.habits" else "habits.sleep") !in hiddenSubmenus }
-        if (submenuItems.size > 1) ConnectedSubmenu(submenuItems,
+        if (!LocalFixedSubmenu.current && submenuItems.size > 1) ConnectedSubmenu(submenuItems,
             section, { localSection = it; menuSwipeState?.habits = it })
         Box(Modifier.weight(1f)) {
             if (section == "Привычки") HabitWorkspaceContent(app, experimental, inputCalendarMode, displayCalendarMode,

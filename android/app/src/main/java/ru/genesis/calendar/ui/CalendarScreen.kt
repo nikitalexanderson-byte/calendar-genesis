@@ -202,7 +202,7 @@ fun CalendarScreen(date: LocalDate, mode: CalendarMode, onSelect: (LocalDate) ->
     Column(Modifier.fillMaxSize()) {
         val submenuItems = listOf(SubmenuItem("month", "Месяц"), SubmenuItem("year", "Год"))
             .filter { "calendar.${it.id}" !in hiddenSubmenus }
-        if (submenuItems.size > 1) ConnectedSubmenu(submenuItems,
+        if (!LocalFixedSubmenu.current && submenuItems.size > 1) ConnectedSubmenu(submenuItems,
             if (yearView) "year" else "month", {
                 localYearView = it == "year"; menuSwipeState?.calendar = it
             }, Modifier.testTag("calendar-view-switch"))

@@ -102,7 +102,7 @@ internal fun eveningSurfaceTone(color: Color): Color {
 }
 
 @Composable internal fun AppearancePanel(app: GenesisApplication, workspace: LocalHabitWorkspace,
-    use24: Boolean, showTitle: Boolean = true, extra: @Composable ColumnScope.() -> Unit = {}) {
+    use24: Boolean, extra: @Composable ColumnScope.() -> Unit = {}) {
     val appearance = AppearanceSettings.read(workspace.settings.rawJson)
     val scope = rememberCoroutineScope()
     val repository = remember(app, app.workspaceScope) { HabitsRepository(app) }
@@ -125,13 +125,10 @@ internal fun eveningSurfaceTone(color: Color): Color {
             else save(next)
         }, current.hour, current.minute, use24).show()
     }
-    Card(Modifier.fillMaxWidth().testTag("appearance-settings"), shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            if (showTitle) Text("Оформление", style = MaterialTheme.typography.titleLarge)
-            Surface(shape = RoundedCornerShape(14.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerLow,
+    Column(Modifier.fillMaxWidth().testTag("appearance-settings"),
+        verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Surface(shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.surface,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
             Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("Переключение тем", style = MaterialTheme.typography.titleMedium)
@@ -158,6 +155,5 @@ internal fun eveningSurfaceTone(color: Color): Color {
             }
             }
             extra()
-        }
     }
 }

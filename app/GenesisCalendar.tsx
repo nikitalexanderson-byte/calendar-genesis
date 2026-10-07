@@ -2485,6 +2485,8 @@ export function GenesisCalendar() {
       selectToday();
       return;
     }
+    if (nextView === "all-tasks") setTasksArea(personalTasksVisible ? "tasks" : "lists");
+    if (nextView === "projects") setProjectsArea(personalProjectsVisible ? "personal" : "shared");
     navigateTo(nextView);
   };
 

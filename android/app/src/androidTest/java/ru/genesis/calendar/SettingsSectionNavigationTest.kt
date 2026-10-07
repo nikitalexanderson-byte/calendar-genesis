@@ -16,6 +16,40 @@ import ru.genesis.calendar.data.LocalPreferences
 class SettingsSectionNavigationTest {
     @get:Rule val compose = createAndroidComposeRule<TestWorkspaceActivity>()
 
+    @Test fun taskSubmenuStaysFixedAndPrimaryTapReturnsToFirstPage() {
+        val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
+        val preferences = LocalPreferences(app, app.workspaceScope)
+        val original = runBlocking { preferences.values.first() }
+        try {
+            runBlocking {
+                preferences.set("menuSwipeEnabled", "true")
+                preferences.set("menuSwipeSubmenus", "true")
+                preferences.set("language", "ru")
+            }
+            compose.onNodeWithTag("navigation-Задачи").performClick()
+            compose.onNodeWithTag("submenu-tasks").assertIsSelected()
+            val submenuTop = compose.onNodeWithTag("fixed-page-submenu")
+                .fetchSemanticsNode().boundsInRoot.top
+            compose.onNodeWithTag("main-content").performTouchInput { swipeLeft() }
+            compose.waitUntil(5_000) {
+                compose.onAllNodesWithTag("submenu-lists").fetchSemanticsNodes()
+                    .any { it.config[androidx.compose.ui.semantics.SemanticsProperties.Selected] }
+            }
+            val afterSwipeTop = compose.onNodeWithTag("fixed-page-submenu")
+                .fetchSemanticsNode().boundsInRoot.top
+            assertTrue("Task submenu moved with page content",
+                kotlin.math.abs(afterSwipeTop - submenuTop) < app.resources.displayMetrics.density)
+            compose.onNodeWithTag("navigation-Задачи").performClick()
+            compose.onNodeWithTag("submenu-tasks").assertIsSelected()
+        } finally {
+            runBlocking {
+                preferences.set("menuSwipeEnabled", original.menuSwipeEnabled.toString())
+                preferences.set("menuSwipeSubmenus", original.menuSwipeSubmenus.toString())
+                preferences.set("language", original.language)
+            }
+        }
+    }
+
     @Test fun iconOnlySubmenuKeepsComfortableTargetsAndCanReachEverySection() {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
         val preferences = LocalPreferences(app, app.workspaceScope)
@@ -61,6 +95,8 @@ class SettingsSectionNavigationTest {
                 preferences.set("language", "ru")
             }
             compose.onNodeWithTag("navigation-Настройки").performClick()
+            val fixedSubmenu = compose.onNodeWithTag("settings-submenu")
+                .fetchSemanticsNode().boundsInRoot
             val titles = listOf("Оформление", "Привычки", "Напоминания", "Общие проекты",
                 "Регион", "Аккаунт GENESIS", "Ссылки")
             titles.forEachIndexed { index, title ->
@@ -69,6 +105,10 @@ class SettingsSectionNavigationTest {
                     compose.onAllNodesWithText("Настройки - $title").fetchSemanticsNodes().isNotEmpty()
                 }
                 compose.onNodeWithText("Настройки - $title").assertExists()
+                val currentSubmenu = compose.onNodeWithTag("settings-submenu")
+                    .fetchSemanticsNode().boundsInRoot
+                assertTrue("Submenu must stay fixed while the page swipes",
+                    kotlin.math.abs(currentSubmenu.top - fixedSubmenu.top) < app.resources.displayMetrics.density)
                 if (index == 3) {
                     val nav = compose.onNodeWithTag("settings-submenu").fetchSemanticsNode().boundsInRoot
                     val header = compose.onNodeWithTag("genesis-page-header").fetchSemanticsNode().boundsInRoot
@@ -78,6 +118,8 @@ class SettingsSectionNavigationTest {
                         .takeScreenshot(File(app.getExternalFilesDir(null), "settings-shared-2.6.3.png")))
                 }
             }
+            compose.onNodeWithTag("navigation-Настройки").performClick()
+            compose.onNodeWithText("Настройки - Оформление").assertExists()
         } finally {
             runBlocking {
                 preferences.set("menuSwipeEnabled", original.menuSwipeEnabled.toString())
