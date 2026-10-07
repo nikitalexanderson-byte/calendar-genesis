@@ -10,6 +10,16 @@ function genesisRelocationUrl(string $uri): string
     return 'https://genesiscalendar.com' . $uri;
 }
 
+/** Keep browser cookies and the OAuth callback on the origin where login began. */
+function genesisRelocationWebOrigin(array $config, array $headers): string
+{
+    $origin = rtrim((string)$config['app_url'], '/');
+    return $origin === 'https://genesiscalendar.com'
+        && ($headers['HTTP_X_GENESIS_LEGACY_ORIGIN'] ?? '') === 'https://genesiscalendar.ru'
+        ? 'https://genesiscalendar.ru'
+        : $origin;
+}
+
 function genesisHandleRelocation(string $serverRoot): void
 {
     $marker = $serverRoot . '/var/relocation.json';
@@ -38,7 +48,7 @@ function genesisHandleRelocation(string $serverRoot): void
         http_response_code(400);
         exit;
     }
-    $headers = ['Accept: application/json'];
+    $headers = ['Accept: application/json', 'X-Genesis-Legacy-Origin: https://genesiscalendar.ru'];
     foreach ([
         'CONTENT_TYPE' => 'Content-Type',
         'HTTP_X_CSRF_TOKEN' => 'X-CSRF-Token',

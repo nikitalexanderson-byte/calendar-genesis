@@ -86,7 +86,7 @@ function genesisOAuthRedirect(string $returnTo, ?string $error = null): never
         $safeReturnTo = $base . $separator . 'auth_error=' . rawurlencode($error) . $fragment;
     }
     header('Cache-Control: no-store');
-    header('Location: ' . rtrim((string)genesisConfig()['app_url'], '/') . $safeReturnTo, true, 302);
+    header('Location: ' . genesisRelocationWebOrigin(genesisConfig(), $_SERVER) . $safeReturnTo, true, 302);
     exit;
 }
 

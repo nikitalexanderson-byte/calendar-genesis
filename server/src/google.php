@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/relocation.php';
+
 const GENESIS_GOOGLE_IDENTITY_SCOPES = [
     'openid',
     'email',
@@ -42,7 +44,7 @@ function genesisBase64Url(string $value): string
 
 function genesisGoogleRedirectUri(): string
 {
-    return rtrim((string)genesisConfig()['app_url'], '/') . '/api/auth/google/callback';
+    return genesisRelocationWebOrigin(genesisConfig(), $_SERVER) . '/api/auth/google/callback';
 }
 
 function genesisGoogleAuthUrl(string $state, string $challenge, string $purpose = 'login', ?string $loginHint = null): string

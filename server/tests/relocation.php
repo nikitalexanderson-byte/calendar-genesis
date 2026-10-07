@@ -6,6 +6,10 @@ function expect(bool $condition): void {
 }
 expect(genesisRelocationUrl('/api/session') === 'https://genesiscalendar.com/api/session');
 expect(genesisRelocationUrl('/api/tasks?revision=2') === 'https://genesiscalendar.com/api/tasks?revision=2');
+expect(genesisRelocationWebOrigin(['app_url' => 'https://genesiscalendar.com'], []) === 'https://genesiscalendar.com');
+expect(genesisRelocationWebOrigin(['app_url' => 'https://genesiscalendar.com'], ['HTTP_X_GENESIS_LEGACY_ORIGIN' => 'https://genesiscalendar.ru']) === 'https://genesiscalendar.ru');
+expect(genesisRelocationWebOrigin(['app_url' => 'https://genesiscalendar.com'], ['HTTP_X_GENESIS_LEGACY_ORIGIN' => 'https://attacker.invalid']) === 'https://genesiscalendar.com');
+expect(genesisRelocationWebOrigin(['app_url' => 'https://test.invalid'], ['HTTP_X_GENESIS_LEGACY_ORIGIN' => 'https://genesiscalendar.ru']) === 'https://test.invalid');
 foreach (['https://attacker.invalid/api/session', '//attacker.invalid/api/session', '/private/config.php', "/api/session\r\nInjected: yes"] as $invalid) {
     try { genesisRelocationUrl($invalid); throw new RuntimeException('Unsafe path accepted.'); }
     catch (InvalidArgumentException) { /* Expected. */ }
