@@ -16,6 +16,7 @@ import {
 import "./shared-projects.css";
 import "./shared-projects-layout.css";
 import { ProjectsHeroMark } from "./ProjectsHeroMark";
+import { WorkspaceHeader } from "./WorkspaceHeader";
 import { CalendarDatePicker } from "./CalendarDatePicker";
 import { type CalendarMode, MONTHS, formatCalendarDate, getGregorianDate, getLunarDate, getLunarMonthDates, getSacredDate, lunarMonthIndex } from "./calendar-data";
 import { translateText } from "./i18n";
@@ -610,16 +611,10 @@ export function SharedProjects({ userId, language, enabledCalendars }: Props) {
   const canInvite = snapshot && ["owner", "manager"].includes(snapshot.project.role);
 
   return <div className="shared-projects" data-exp-layout="view">
-    <header className="shared-projects-hero" data-exp-ui="panel">
-      <ProjectsHeroMark shared />
-      <div>
-        <span className="eyebrow">GENESIS · {english ? "Together" : "Вместе"}</span>
-        <h1>{english ? "Projects - shared" : "Проекты - общие"}</h1>
-        <p>{english
-          ? "Plan together while keeping personal tasks, habits and calendars private."
-          : "Планируйте вместе. Личные задачи, привычки и календарь остаются вашими."}</p>
-      </div>
-    </header>
+    <WorkspaceHeader title={english ? "Projects - shared" : "Проекты - общие"}
+      mark={<ProjectsHeroMark shared />} description={english
+        ? "Plan together while keeping personal tasks, habits and calendars private."
+        : "Планируйте вместе. Личные задачи, привычки и календарь остаются вашими."} />
     {message ? <p className="shared-projects-message" role="status">{message}</p> : null}
     {offline ? <p className="shared-projects-offline-status" role="status">{english
       ? "Offline: showing the last protected team snapshot. Changes may be out of date."

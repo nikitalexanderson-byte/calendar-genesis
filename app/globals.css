@@ -6020,8 +6020,6 @@ html[data-genesis-theme^="standart"] .appearance-menu-controls { min-width: 0; m
 .appearance-menu-details[open] .appearance-summary-action { color: var(--surface); background: var(--teal); }
 .appearance-menu-details summary:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
 .appearance-menu-details > p { margin: 8px 0 14px; color: var(--ink-soft); }
-html[data-genesis-menu-labels="icons"] .main-nav button > small,
-html[data-genesis-menu-labels="icons"] .mobile-nav button > small { display: none; }
 .navigation-preference-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 14px; }
 .navigation-preference-grid fieldset { min-width: 0; margin: 0; padding: 10px; border: 1px solid var(--line); border-radius: 10px; }
 .navigation-preference-grid legend { padding: 0 5px; font-weight: 700; }
@@ -13715,9 +13713,6 @@ html[data-genesis-theme^="standart"] .admin-table td small { font-size: 11px; li
 }
 .settings-section-nav button:focus-visible { outline: 3px solid #d99b3a; outline-offset: 2px; }
 .settings-section-nav svg { width: 24px; height: 24px; flex: none; }
-.settings-section-nav[data-icon-only="true"] { justify-content: space-between; }
-.settings-section-nav[data-icon-only="true"] button { min-width: 48px; min-height: 48px; padding: 8px; }
-@media (max-width: 420px) { .settings-section-nav[data-icon-only="true"] { gap: 6px; } }
 
 .settings-section-hero {
   display: flex;

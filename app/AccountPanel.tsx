@@ -138,8 +138,6 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
   const [teamReadBusy, setTeamReadBusy] = useState(false);
   const [invitationBusy, setInvitationBusy] = useState("");
   const [invitationMessage, setInvitationMessage] = useState("");
-  const [menuLabels, setMenuLabels] = useState<"text" | "icons">("text");
-  const [settingsMenuLabels, setSettingsMenuLabels] = useState<"text" | "icons">("text");
   const [settingsTab, setSettingsTab] = useState<SettingsSectionId>("appearance");
   const settingsTouch = useRef<{ x: number; y: number } | null>(null);
   const [habitResetChallenge, setHabitResetChallenge] = useState<HabitResetChallenge | null>(null);
@@ -154,22 +152,12 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
   });
 
   useEffect(() => {
-    const saved = window.localStorage.getItem("genesis-menu-labels");
-    const settingsSaved = window.localStorage.getItem("genesis-settings-menu-labels");
-    const frame = window.requestAnimationFrame(() => setMenuLabels(saved === "icons" ? "icons" : "text"));
-    const settingsFrame = window.requestAnimationFrame(() => setSettingsMenuLabels(settingsSaved === "icons" ? "icons" : "text"));
-    return () => { window.cancelAnimationFrame(frame); window.cancelAnimationFrame(settingsFrame); };
+    document.documentElement.dataset.genesisMenuLabels = "text";
+    try {
+      window.localStorage.setItem("genesis-menu-labels", "text");
+      window.localStorage.setItem("genesis-settings-menu-labels", "text");
+    } catch { /* Labels stay visible when browser storage is unavailable. */ }
   }, []);
-
-  const changeMenuLabels = (value: "text" | "icons") => {
-    setMenuLabels(value);
-    window.localStorage.setItem("genesis-menu-labels", value);
-    document.documentElement.dataset.genesisMenuLabels = value;
-  };
-  const changeSettingsMenuLabels = (value: "text" | "icons") => {
-    setSettingsMenuLabels(value);
-    window.localStorage.setItem("genesis-settings-menu-labels", value);
-  };
   const selectedSettings = SETTINGS_SECTIONS.find((item) => item.id === settingsTab) ?? SETTINGS_SECTIONS[0];
   useEffect(() => {
     if (user.uid) void recordFeatureUsage(["menu.settings", `submenu.settings.${settingsTab}`])
@@ -608,14 +596,14 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
         <h2 id="account-title">{user.displayName || "Аккаунт GENESIS"}</h2>
         <p className="account-email">{user.email}</p>
 
-        <nav className="settings-section-nav" data-icon-only={settingsMenuLabels === "icons"}
+        <nav className="settings-section-nav"
           aria-label={user.language === "en" ? "Settings sections" : "Разделы настроек"}>
           {SETTINGS_SECTIONS.map((item) => <button key={item.id} type="button"
             data-settings-tab={item.id} aria-current={settingsTab === item.id ? "page" : undefined}
             className={settingsTab === item.id ? "active" : ""} onClick={() => setSettingsTab(item.id)}
             aria-label={user.language === "en" ? item.en : item.ru}>
             <SettingsSectionIcon section={item.id} />
-            {settingsMenuLabels === "text" ? <span>{user.language === "en" ? item.en : item.ru}</span> : null}
+            <span>{user.language === "en" ? item.en : item.ru}</span>
           </button>)}
         </nav>
         <div className="settings-section-hero" data-settings-hero={settingsTab}>
@@ -761,29 +749,6 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
             aria-label={user.language === "en" ? "Menu display" : "Отображение меню"}>
             <div className="appearance-menu-controls">
             <h4>{user.language === "en" ? "Menu display" : "Отображение меню"}</h4>
-            <div className="language-choice appearance-menu-choice" role="radiogroup"
-              aria-label={user.language === "en" ? "Menu labels" : "Подписи меню"}>
-              <button type="button" role="radio" aria-checked={menuLabels === "text"}
-                className={menuLabels === "text" ? "active" : ""} onClick={() => changeMenuLabels("text")}>
-                {user.language === "en" ? "Icons and labels" : "Иконки и подписи"}
-              </button>
-              <button type="button" role="radio" aria-checked={menuLabels === "icons"}
-                className={menuLabels === "icons" ? "active" : ""} onClick={() => changeMenuLabels("icons")}>
-                {user.language === "en" ? "Icons only" : "Только иконки"}
-              </button>
-            </div>
-            <h4>{user.language === "en" ? "Settings submenu" : "Подменю настроек"}</h4>
-            <div className="language-choice appearance-menu-choice" role="radiogroup"
-              aria-label={user.language === "en" ? "Settings submenu labels" : "Подписи подменю настроек"}>
-              <button type="button" role="radio" aria-checked={settingsMenuLabels === "text"}
-                className={settingsMenuLabels === "text" ? "active" : ""} onClick={() => changeSettingsMenuLabels("text")}>
-                {user.language === "en" ? "Icons and labels" : "Иконки и подписи"}
-              </button>
-              <button type="button" role="radio" aria-checked={settingsMenuLabels === "icons"}
-                className={settingsMenuLabels === "icons" ? "active" : ""} onClick={() => changeSettingsMenuLabels("icons")}>
-                {user.language === "en" ? "Icons only" : "Только иконки"}
-              </button>
-            </div>
             </div>
           <details className="appearance-menu-details">
             <summary><span>{user.language === "en" ? "Menu item display" : "Отображение элементов меню"}</span>
