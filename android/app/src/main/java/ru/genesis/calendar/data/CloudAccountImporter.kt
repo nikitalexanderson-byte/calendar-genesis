@@ -89,8 +89,9 @@ internal class CloudAccountImporter(private val db: GenesisDatabase, private val
                 tasks.forEach { (record, reminders) ->
                     // A partial response can add confirmed rows, but cannot erase or
                     // replace a cached task. Local edits and deletion tombstones win.
-                    if (record.id !in pending &&
-                        (!snapshot.googleSyncWarning || dao.task(scope, record.id) == null)) {
+                    val cachedTask = dao.task(scope, record.id)
+                    if (record.id !in pending && cachedTask?.deleted != true &&
+                        (!snapshot.googleSyncWarning || cachedTask == null)) {
                         dao.putTask(record)
                         dao.deleteTaskReminders(scope, record.id)
                         changedTaskIds += record.id

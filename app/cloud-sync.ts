@@ -7,6 +7,7 @@ import { ThemeConflictError, type GenesisTheme } from "./theme-controller";
 import { cleanTaskDescription } from "./task-description";
 import { cleanGenesisAppUrl } from "./app-url";
 import { shouldSeedRemoteWorkspace } from "./workspace-import-policy";
+import { shouldUploadCachedTask } from "./task-sync-policy";
 import {
   EMPTY_HABIT_WORKSPACE,
   normalizeHabitWorkspace,
@@ -188,6 +189,7 @@ export type GenesisWorkspace = HabitWorkspace & {
   user: GenesisUser;
   csrf: string;
   tasks: GenesisTask[];
+  deletedTaskIds: string[];
   projects: GenesisProject[];
   categories: GenesisCategory[];
   taskLists: GoogleTaskList[];
@@ -370,6 +372,7 @@ type BootstrapPayload = {
   user: GenesisUser;
   csrf: string;
   tasks: GenesisTask[];
+  deletedTaskIds?: string[];
   taskLists: GoogleTaskList[];
   workspace: {
     key: string | null;
@@ -497,8 +500,40 @@ function queueMutation(mutation: PendingMutation) {
   writePending(current);
 }
 
-function clearMutation(key: string) {
-  writePending(readPending().filter((item) => item.key !== key));
+function clearMutation(key: string, sent?: PendingMutation) {
+  writePending(readPending().filter((item) => item.key !== key
+    || Boolean(sent && (item.method !== sent.method || item.body !== sent.body))));
+}
+
+function rememberDeletedTasks(ids: string[]) {
+  const key = `${PENDING_KEY}-deleted:${workspaceUserId || "anonymous"}`;
+  let previous: unknown = [];
+  try { previous = JSON.parse(localStorage.getItem(key) || "[]"); } catch { /* Recover a malformed local cache from the server ledger. */ }
+  const deleted = new Set(Array.isArray(previous) ? previous.filter((id): id is string => typeof id === "string") : []);
+  ids.forEach((id) => deleted.add(id));
+  localStorage.setItem(key, JSON.stringify([...deleted]));
+}
+
+export function isCloudTaskDeleted(id: string): boolean {
+  if (typeof window === "undefined") return false;
+  const key = `${PENDING_KEY}-deleted:${workspaceUserId || "anonymous"}`;
+  try {
+    const deleted: unknown = JSON.parse(localStorage.getItem(key) || "[]");
+    return Array.isArray(deleted) && deleted.includes(id);
+  } catch { return false; }
+}
+
+const taskMutationLocks = new Map<string, Promise<unknown>>();
+async function withTaskMutationLock<T>(key: string, operation: () => Promise<T>): Promise<T> {
+  const previous = taskMutationLocks.get(key) ?? Promise.resolve();
+  const current = previous.catch(() => {}).then(operation);
+  taskMutationLocks.set(key, current);
+  try { return await current; }
+  finally { if (taskMutationLocks.get(key) === current) taskMutationLocks.delete(key); }
+}
+
+function isDeletedTaskResponse(error: unknown): boolean {
+  return error instanceof GenesisApiError && error.status === 409 && error.payload?.error === "TASK_DELETED";
 }
 
 class GenesisNetworkTimeoutError extends Error {}
@@ -576,11 +611,21 @@ async function flushPendingMutations() {
       });
       continue;
     }
-    await api(mutation.path, {
-      method: mutation.method,
-      ...(mutation.body ? { body: mutation.body } : {}),
+    await withTaskMutationLock(mutation.key, async () => {
+      const latest = readPending().find((item) => item.key === mutation.key);
+      if (!latest || latest.method !== mutation.method || latest.body !== mutation.body) return;
+      if (mutation.method === "PUT" && mutation.key.startsWith("task:") && isCloudTaskDeleted(mutation.key.slice(5))) {
+        clearMutation(mutation.key, mutation);
+        return;
+      }
+      try {
+        await api(mutation.path, { method: mutation.method, ...(mutation.body ? { body: mutation.body } : {}) });
+      } catch (error) {
+        if (!mutation.key.startsWith("task:") || !isDeletedTaskResponse(error)) throw error;
+        rememberDeletedTasks([mutation.key.slice(5)]);
+      }
+      clearMutation(mutation.key, mutation);
     });
-    clearMutation(mutation.key);
   }
 }
 
@@ -1070,6 +1115,7 @@ export async function loadGenesisWorkspace(): Promise<GenesisWorkspace> {
   activeAuthProvider = payload.user.authProvider === "yandex" ? "yandex" : "google";
   csrfToken = payload.csrf;
   await resolveWorkspaceKey(payload);
+  rememberDeletedTasks(payload.deletedTaskIds ?? []);
   let structure: Awaited<ReturnType<typeof decryptWorkspace>>;
   try {
     structure = await decryptWorkspace(payload.workspace.envelope);
@@ -1086,7 +1132,8 @@ export async function loadGenesisWorkspace(): Promise<GenesisWorkspace> {
   return {
     user: payload.user,
     csrf: payload.csrf,
-    tasks: payload.tasks.map((task) => normalizeTask(task)),
+    tasks: payload.tasks.filter((task) => !isCloudTaskDeleted(task.id)).map((task) => normalizeTask(task)),
+    deletedTaskIds: payload.deletedTaskIds ?? [],
     projects: structure.projects,
     categories: structure.categories,
     taskLists: payload.user.authProvider !== "google" ? structure.taskLists
@@ -1362,14 +1409,14 @@ export async function updateAccountPreferences(preferences: Partial<{
 
 export type SharedSpace = { id: string; title: string; role: "owner" | "admin" | "member" | "guest"; updatedAt: string };
 export type SharedProject = { id: string; spaceId: string; parentId: string | null; title: string;
-  description: string; layout: "list" | "board"; isInbox?: number; taskCount?: number;
+  description: string; tags?: string[]; layout: "list" | "board"; isInbox?: number; taskCount?: number;
   revision: number; role: string; spaceRole?: string; canOrganizeTasks?: boolean; updatedAt: string };
 export type SharedStatus = { id: string; title: string; position: number; isDone: number; revision: number };
 export type SharedTaskList = SharedStatus & { projectId: string; projectTitle: string;
   spaceId: string; spaceTitle: string; role: string; taskCount: number; openCount: number };
 export type SharedCategory = { id: string; title: string; color: string; position: number; revision: number };
 export type SharedTask = { id: string; projectId: string; statusId: string; title: string;
-  categoryId: string | null; description: string; dueDate: string | null;
+  categoryId: string | null; description: string; tags?: string[]; dueDate: string | null;
   assigneeId: string | null; createdBy?: string | null;
   completedBy?: string | null; completedAt?: string | null; position: number;
   revision: number; updatedAt: string; pending?: boolean };
@@ -1548,8 +1595,12 @@ export async function listArchivedSharedProjects(spaceId: string) {
   return (await sharedCachedRequest<{ projects: (SharedProject & { archivedAt: string })[] }>(
     `/shared/spaces/${encodeURIComponent(spaceId)}/archived-projects`)).projects;
 }
+export type SharedAffairSearch = { projects: SharedProject[]; tasks: { id: string; title: string; projectId: string; projectTitle: string; tags: string[]; completedAt: string | null }[] };
+export function searchSharedAffairs(spaceId: string, query: string, signal?: AbortSignal) {
+  return api<SharedAffairSearch>(`/shared/spaces/${encodeURIComponent(spaceId)}/search?q=${encodeURIComponent(query)}`, { signal });
+}
 export async function createSharedProject(spaceId: string, input: { title: string; description: string;
-  layout: "list" | "board"; parentId?: string | null }) {
+  layout: "list" | "board"; tags?: string[]; parentId?: string | null }) {
   return (await api<{ project: SharedProject }>(`/shared/spaces/${encodeURIComponent(spaceId)}/projects`, {
     method: "POST", body: JSON.stringify(input),
   })).project;
@@ -1558,10 +1609,10 @@ export type SharedProjectImport = {
   transferId: string;
   mode: "copy" | "move";
   projects: { sourceId: string; parentSourceId: string | null; title: string;
-    description: string; layout: "list" | "board" }[];
+    description: string; tags?: string[]; layout: "list" | "board" }[];
   categories: { sourceId: string; projectSourceId: string; title: string; color: string }[];
   tasks: { sourceId: string; projectSourceId: string; categorySourceId: string | null;
-    title: string; description: string; dueDate: string | null; done: boolean }[];
+    title: string; description: string; tags?: string[]; dueDate: string | null; done: boolean }[];
 };
 export type SharedProjectImportReceipt = { rootProjectId: string; projectIds: Record<string, string>;
   taskIds: Record<string, string>; taskCount: number; mode: "copy" | "move" };
@@ -1590,7 +1641,7 @@ export async function syncSharedGoogle(projectId: string) {
     { method: "POST", body: "{}" });
 }
 export async function updateSharedProject(projectId: string, input: {
-  title: string; description: string; layout: "list" | "board"; parentId: string | null; expectedRevision: number;
+  title: string; description: string; tags?: string[]; layout: "list" | "board"; parentId: string | null; expectedRevision: number;
 }) {
   return (await api<{ project: SharedProject }>(`/shared/projects/${encodeURIComponent(projectId)}`, {
     method: "PATCH", body: JSON.stringify(input),
@@ -1605,7 +1656,7 @@ export async function listSharedTaskLists() {
   return (await sharedCachedRequest<{ lists: SharedTaskList[] }>("/shared/task-lists")).lists;
 }
 export async function createSharedStatus(projectId: string, title: string, isDone: boolean,
-  requestId = crypto.randomUUID()) {
+  requestId: string = crypto.randomUUID()) {
   return (await api<{ status: SharedStatus }>(`/shared/projects/${encodeURIComponent(projectId)}/statuses`, {
     method: "POST", body: JSON.stringify({ title, isDone, requestId }),
   })).status;
@@ -1657,7 +1708,7 @@ export async function removeSharedMember(projectId: string, userId: string) {
 }
 export async function createSharedTask(projectId: string, input: { title: string; statusId: string;
   categoryId?: string | null; assigneeId?: string | null; dueDate?: string | null; description?: string;
-  sourceTaskId?: string }) {
+  sourceTaskId?: string; tags?: string[] }) {
   const path = `/shared/projects/${encodeURIComponent(projectId)}/tasks`;
   if (input.sourceTaskId) {
     return (await api<{ task: SharedTask }>(path, { method: "POST", body: JSON.stringify(input) })).task;
@@ -1701,6 +1752,11 @@ export async function inviteSharedMember(projectId: string, email: string, role:
     `/shared/projects/${encodeURIComponent(projectId)}/invitations`, {
       method: "POST", body: JSON.stringify({ email, role }),
     })).invitation;
+}
+export function deleteSharedTask(projectId: string, taskId: string, expectedRevision: number) {
+  return api<{ ok: boolean; id: string }>(`/shared/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}`, {
+    method: "DELETE", body: JSON.stringify({ expectedRevision, requestId: crypto.randomUUID() }),
+  });
 }
 export type SharedInvitation = {
   id: string; inviterName: string; spaceTitle: string; projectTitle: string;
@@ -1772,9 +1828,10 @@ export function observeCloudTasks(
       await flushPendingMutations();
       await flushSharedMutations();
       await refreshWorkspaceFromCloud();
-      const result = await api<{ tasks: GenesisTask[]; taskLists?: GoogleTaskList[]; syncWarning?: string | null }>("/sync/tasks");
+      const result = await api<{ tasks: GenesisTask[]; deletedTaskIds?: string[]; taskLists?: GoogleTaskList[]; syncWarning?: string | null }>("/sync/tasks");
+      rememberDeletedTasks(result.deletedTaskIds ?? []);
       if (active) listener(
-        result.tasks.map((task) => normalizeTask(task)),
+        result.tasks.filter((task) => !isCloudTaskDeleted(task.id)).map((task) => normalizeTask(task)),
         Array.isArray(result.taskLists) ? result.taskLists : [],
         !navigator.onLine,
         result.syncWarning ?? null,
@@ -1851,9 +1908,8 @@ export async function mergeLocalWorkspace(
   if (!remote.user.calendarConnected) return;
   const remoteById = new Map(remote.tasks.map((task) => [task.id, task]));
   const tasksToUpload = local.tasks.filter((task) => {
-    if (task.googleTaskId) return false;
     const remoteTask = remoteById.get(task.id);
-    return !remoteTask || task.updatedAt > remoteTask.updatedAt;
+    return shouldUploadCachedTask(task, remoteTask, isCloudTaskDeleted(task.id));
   });
   const batchSize = 8;
   for (let index = 0; index < tasksToUpload.length; index += batchSize) {
@@ -1862,29 +1918,48 @@ export async function mergeLocalWorkspace(
 }
 
 export async function saveCloudTask(_uid: string, task: GenesisTask) {
+  if (isCloudTaskDeleted(task.id)) throw new Error("TASK_DELETED");
   const path = `/tasks/${encodeURIComponent(task.id)}`;
   const body = JSON.stringify({
     ...task,
     recurrenceDates: recurrenceDatesForTask(task),
     syncToGoogle: activeAuthProvider === "google",
   });
-  queueMutation({ key: `task:${task.id}`, path, method: "PUT", body });
-  const result = await api<{ task: GenesisTask }>(path, { method: "PUT", body });
-  clearMutation(`task:${task.id}`);
-  return normalizeTask(result.task);
+  const mutation: PendingMutation = { key: `task:${task.id}`, path, method: "PUT", body };
+  queueMutation(mutation);
+  return withTaskMutationLock(mutation.key, async () => {
+    if (isCloudTaskDeleted(task.id)) throw new Error("TASK_DELETED");
+    try {
+      const result = await api<{ task: GenesisTask }>(path, { method: "PUT", body });
+      clearMutation(mutation.key, mutation);
+      return normalizeTask(result.task);
+    } catch (error) {
+      if (isDeletedTaskResponse(error)) {
+        rememberDeletedTasks([task.id]);
+        clearMutation(mutation.key, mutation);
+      }
+      throw error;
+    }
+  });
 }
 
 export async function removeCloudTask(_uid: string, task: GenesisTask) {
+  rememberDeletedTasks([task.id]);
   const path = `/tasks/${encodeURIComponent(task.id)}`;
   const body = JSON.stringify({
     googleEventId: task.googleEventId,
     googleTaskId: task.googleTaskId,
     googleTaskListId: task.googleTaskListId,
     googleLinks: task.googleLinks,
+    googleAccountId: task.googleAccountId,
+    createdIn: task.createdIn,
   });
-  queueMutation({ key: `task:${task.id}`, path, method: "DELETE", body });
-  await api<{ ok: boolean }>(path, { method: "DELETE", body });
-  clearMutation(`task:${task.id}`);
+  const mutation: PendingMutation = { key: `task:${task.id}`, path, method: "DELETE", body };
+  queueMutation(mutation);
+  await withTaskMutationLock(mutation.key, async () => {
+    await api<{ ok: boolean }>(path, { method: "DELETE", body });
+    clearMutation(mutation.key, mutation);
+  });
 }
 
 /** A transfer must not queue an uncertain deletion for later replay. */
@@ -1895,6 +1970,8 @@ export async function removeCloudTaskForTransfer(task: GenesisTask) {
     googleTaskId: task.googleTaskId,
     googleTaskListId: task.googleTaskListId,
     googleLinks: task.googleLinks,
+    googleAccountId: task.googleAccountId,
+    createdIn: task.createdIn,
   });
   await api<{ ok: boolean }>(path, { method: "DELETE", body });
 }

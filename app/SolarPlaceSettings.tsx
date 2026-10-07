@@ -2,10 +2,12 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { translateText, type Language } from "./i18n";
-import { localizedSolarPlace, readSolarPlace, saveSolarPlace, searchSolarPlaces, solarPlaceLabel, type SolarPlace } from "./solar-place";
+import { localizedSolarPlace, readSolarPlace, saveSolarPlace, searchSolarPlaces, solarPlaceLabel, readSolarTimesVisible, saveSolarTimesVisible, type SolarPlace } from "./solar-place";
+import { getSunriseSunset, getTimezoneFallbackLocation, formatDeviceSolarTime } from "./solar-times";
 
 export function SolarPlaceSettings({ language }: { language: Language }) {
   const [selected, setSelected] = useState<SolarPlace | null>(() => readSolarPlace());
+  const [showTimes, setShowTimes] = useState(readSolarTimesVisible);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SolarPlace[]>([]);
   const [busy, setBusy] = useState(false);
@@ -81,12 +83,27 @@ export function SolarPlaceSettings({ language }: { language: Language }) {
     setError("");
     setOpen(false);
   };
+  const timeZone = selected?.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const times = getSunriseSunset(new Date(), selected ?? getTimezoneFallbackLocation(timeZone));
+  const formatTime = (date: Date) => `${selected ? "" : "≈"}${formatDeviceSolarTime(date, timeZone)}`;
 
   return <section className="account-preferences solar-place-preference" aria-labelledby="solar-place-title" data-exp-ui="panel">
     <div className="solar-place-intro">
       <span className="eyebrow">{copy("Восход и закат", "Sunrise and sunset")}</span>
-      <h3 id="solar-place-title">{copy("Местоположение", "Location")}</h3>
+      <h3 id="solar-place-title">{copy("Восход и закат", "Sunrise and sunset")}</h3>
       <p>{copy("Выберите город для точного времени восхода и заката по его часовому поясу.", "Choose a city for sunrise and sunset times in its local time zone.")}</p>
+    </div>
+    <label htmlFor="show-solar-times" aria-label={copy("Показывать время восхода и заката", "Show sunrise and sunset times")} className="account-switch-row solar-display-switch">
+      <span><strong>{copy("Показывать время восхода и заката", "Show sunrise and sunset times")}</strong></span>
+      <input id="show-solar-times" type="checkbox" role="switch" checked={showTimes} onChange={(event) => {
+        setShowTimes(event.target.checked); saveSolarTimesVisible(event.target.checked);
+      }} />
+      <i aria-hidden="true" />
+    </label>
+    <div className="solar-settings-preview" aria-label={copy("Сегодня", "Today")}>
+      <div><span>{copy("Восход", "Sunrise")}</span><strong>{times ? formatTime(times.sunrise) : "—"}</strong></div>
+      <div><span>{copy("Закат", "Sunset")}</span><strong>{times ? formatTime(times.sunset) : "—"}</strong></div>
+      <small>{timeZone}{!selected ? ` · ${copy("приблизительно", "approximate")}` : ""}</small>
     </div>
     {selected ? <div className="solar-place-selected" aria-live="polite">
       <span>{copy("Выбранный город", "Selected city")}</span>

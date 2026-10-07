@@ -26,7 +26,7 @@ function moveRestriction(task: GenesisTask): boolean {
       || task.googleTaskListId || task.googleAccountId || task.googleReadOnly
       || task.syncAccountIds.length || Object.keys(task.googleLinks ?? {}).length)
     || Boolean(task.time || task.endDate && task.endDate !== task.dueDate
-      || task.reminders.length || task.tags.length || task.dependsOnIds.length
+      || task.reminders.length || task.dependsOnIds.length
       || task.priority !== 5 || task.calendarNote || task.calendarMode !== "profane"
       || task.recurrence !== "none" || task.recurrenceMode !== "none"
       || task.recurrencePattern !== "none" || task.recurrenceSeriesId
@@ -61,8 +61,7 @@ export function PersonalProjectTransfer({ root, projects, tasks, categories, lin
   const categoryById = useMemo(() => new Map(categories.map((category) => [category.id, category])), [categories]);
   const unsupported = projectTasks.filter(moveRestriction).length;
   const missingCategories = projectTasks.filter((task) => task.categoryId && !categoryById.has(task.categoryId)).length;
-  const canMove = linkedListCount === 0 && unsupported === 0 && missingCategories === 0
-    && tree.every((project) => project.status === "active" && project.tags.length === 0);
+  const canMove = linkedListCount === 0 && unsupported === 0 && missingCategories === 0;
 
   useEffect(() => {
     let active = true;
@@ -97,12 +96,12 @@ export function PersonalProjectTransfer({ root, projects, tasks, categories, lin
         transferId, mode,
         projects: tree.map((project) => ({
           sourceId: project.id, parentSourceId: project.id === root.id ? null : project.parentId,
-          title: project.title, description: project.description, layout: "list",
+          title: project.title, description: project.description, tags: project.tags, layout: "list",
         })),
         categories: categoryEntries,
         tasks: projectTasks.map((task) => ({
           sourceId: task.id, projectSourceId: task.projectId!, categorySourceId: task.categoryId,
-          title: task.title.trim().replace(/\s+/gu, " "), description: task.description.trim(),
+          title: task.title.trim().replace(/\s+/gu, " "), description: task.description.trim(), tags: task.tags,
           dueDate: task.dueDate || null, done: task.done,
         })),
       };
@@ -126,7 +125,7 @@ export function PersonalProjectTransfer({ root, projects, tasks, categories, lin
   return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => {
     if (event.target === event.currentTarget && !busy) onClose();
   }}>
-    <section ref={dialogRef} className="editor-modal personal-task-transfer" role="dialog" aria-modal="true"
+    <section ref={dialogRef} className="editor-modal personal-task-transfer personal-project-transfer" role="dialog" aria-modal="true"
       aria-labelledby="personal-project-transfer-title" tabIndex={-1}>
       <button type="button" className="modal-close" onClick={onClose} disabled={busy}
         aria-label={english ? "Close" : "Закрыть"}>×</button>
@@ -139,7 +138,7 @@ export function PersonalProjectTransfer({ root, projects, tasks, categories, lin
           {spaces.map((space) => <option key={space.id} value={space.id}>{space.title}</option>)}
         </select></label>
       {!spaces.length ? <p>{english ? "Create a shared space first." : "Сначала создайте общее пространство."}</p> : null}
-      <div className="personal-task-transfer-preview">
+      <div className="personal-task-transfer-preview project-transfer-preview">
         <strong data-no-translate>{root.title}</strong>
         <p>{english ? `${tree.length} projects, ${categoryEntriesCount(tree, projectTasks)} categories, ${projectTasks.length} tasks`
           : `${tree.length} проектов, ${categoryEntriesCount(tree, projectTasks)} категорий, ${projectTasks.length} задач`}</p>
@@ -151,13 +150,21 @@ export function PersonalProjectTransfer({ root, projects, tasks, categories, lin
           </p>)}
         </details>
       </div>
-      <label><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)}
+      <label className="project-transfer-consent"><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)}
         disabled={busy} /> {english
           ? "I agree that members of this shared space can access the listed projects and tasks by role."
           : "Согласен открыть перечисленные проекты и задачи участникам общего пространства согласно их ролям."}</label>
-      {!canMove ? <p role="status">{english
-        ? `Moving is unavailable: ${unsupported} tasks have fields absent from shared projects; linked lists: ${linkedListCount}. You can copy the visible basic fields.`
-        : `Перемещение недоступно: у ${unsupported} задач есть поля, которых пока нет в общих проектах; связанных списков: ${linkedListCount}. Можно скопировать основные поля.`}</p> : null}
+      {!canMove ? <div className="project-transfer-restrictions" role="status">
+        <strong>{english ? "You can copy the project" : "Можно скопировать проект"}</strong>
+        <p>{english ? "A full move needs these personal fields to be preserved:" : "Для полного переноса нужно сохранить эти личные данные:"}</p>
+        <ul>
+
+          {unsupported ? <li>{english ? `Tasks with additional fields: ${unsupported}` : `Задачи с дополнительными полями: ${unsupported}`}</li> : null}
+          {linkedListCount ? <li>{english ? `Linked task lists: ${linkedListCount}` : `Связанные списки задач: ${linkedListCount}`}</li> : null}
+          {missingCategories ? <li>{english ? `Tasks with missing categories: ${missingCategories}` : `Задачи с отсутствующими категориями: ${missingCategories}`}</li> : null}
+        </ul>
+        <p>{english ? "Copy the basic fields to the shared space. The personal original stays in place." : "Скопируйте основные поля в общее пространство. Личный оригинал останется на месте."}</p>
+      </div> : null}
       {error ? <p role="alert">{error}</p> : null}
       <div className="editor-actions">
         <button type="button" className="text-button" onClick={onClose} disabled={busy}>{english ? "Cancel" : "Отмена"}</button>

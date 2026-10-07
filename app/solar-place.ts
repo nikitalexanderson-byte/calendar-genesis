@@ -2,6 +2,16 @@ import type { DeviceLocation } from "./solar-times";
 
 export const SOLAR_PLACE_KEY = "genesis-solar-place-v1";
 export const SOLAR_PLACE_CHANGED = "genesis-solar-place-changed";
+const SOLAR_DISPLAY_KEY = "genesis-solar-times-visible-v1";
+
+export function readSolarTimesVisible(): boolean {
+  return typeof window === "undefined" || localStorage.getItem(SOLAR_DISPLAY_KEY) !== "false";
+}
+
+export function saveSolarTimesVisible(visible: boolean) {
+  localStorage.setItem(SOLAR_DISPLAY_KEY, String(visible));
+  window.dispatchEvent(new Event(SOLAR_PLACE_CHANGED));
+}
 
 export type SolarPlace = DeviceLocation & {
   id?: number;

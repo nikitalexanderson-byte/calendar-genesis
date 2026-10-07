@@ -11,6 +11,7 @@ import type { TimeFormat } from "./time-format";
 import type { HabitNotificationPermission, HabitNotificationSettings } from "./habit-notifications";
 import type { HabitFeedbackSettings } from "./habit-feedback";
 import { useDialogAccessibility } from "./use-dialog-accessibility";
+import { MoonReminderSettings } from "./MoonReminderSettings";
 import { SolarPlaceSettings } from "./SolarPlaceSettings";
 import { SETTINGS_SECTIONS, SettingsSectionIcon, type SettingsSectionId } from "./SettingsSectionIcon";
 import { uiVisibility, type UiVisibility } from "./ui-visibility";
@@ -49,14 +50,13 @@ const FLAG_COUNTRIES: Record<Language, string> = {
   pl: "pl", sr: "rs", uk: "ua", zh: "cn", tr: "tr", ja: "jp",
 };
 const MENU_SETTINGS = [
-  ["tasks", "Задачи", "Tasks"], ["projects", "Проекты", "Projects"],
+  ["projects", "Дела", "Affairs"],
   ["calendar", "Календарь", "Calendar"], ["habits", "Привычки", "Habits"],
-  ["stoicheion", "Стойхейон", "Stoicheion"], ["theokyklos", "Теокиклос", "Theokyklos"],
+  ["sacred", "Сакральное", "Sacred"],
 ] as const;
 const SUBMENU_SETTINGS = [
-  ["tasks.tasks", "Задачи", "Tasks"], ["tasks.lists", "Списки задач", "Task lists"],
   ["projects.personal", "Личные проекты", "Personal projects"], ["projects.shared", "Общие проекты", "Shared projects"],
-  ["calendar.month", "Месяц", "Month"], ["calendar.year", "Год", "Year"],
+  ["calendar.month", "Месяц", "Month"], ["calendar.year", "Круг года", "Year Wheel"],
   ["habits.habits", "Привычки", "Habits"], ["habits.sleep", "Сон и настроение", "Sleep and mood"],
 ] as const;
 const TODAY_SETTINGS = [
@@ -1132,11 +1132,12 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
               ? (user.language === "en" ? "Lifetime free access to Shared projects." : "Пожизненный бесплатный открытый доступ к функциям «Общие проекты».")
               : (user.language === "en" ? "Open to all GENESIS accounts during testing." : "Открыто всем аккаунтам GENESIS на время тестирования.")}</small>
           </div>
-          <label htmlFor="shared-projects-toggle" className="account-switch-row" data-exp-ui="row">
-            {user.language === "en" ? "Enable shared projects" : "Включить общие проекты"}
+          <label htmlFor="shared-projects-toggle" aria-label={user.language === "en" ? "Enable shared projects" : "Включить общие проекты"} className="account-switch-row" data-exp-ui="row">
+            <span><strong>{user.language === "en" ? "Enable shared projects" : "Включить общие проекты"}</strong></span>
             <input id="shared-projects-toggle" type="checkbox" role="switch" data-exp-ui="switch" checked={Boolean(user.sharedProjectsEnabled)}
               disabled={!user.sharedProjectsEligible || preferenceBusy}
               onChange={(event) => void changeSharedProjectsPreference(event.target.checked)} />
+            <i aria-hidden="true" />
           </label>
         {user.sharedProjectsEligible ? <div className="shared-settings-subsection" role="group" aria-labelledby="shared-invitations-title">
           <div>
@@ -1181,12 +1182,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
 
         </section>
 
-        <section className="account-preferences settings-reminders-panel" data-settings-group="reminders">
-          <div><span className="eyebrow">GENESIS</span><h3>{user.language === "en" ? "Lunar reminders" : "Лунные напоминания"}</h3>
-            <p>{user.language === "en" ? "Choose a lunar date and reminder time when creating or editing a task. GENESIS converts it to the matching Gregorian date for synchronization." : "Выберите лунную дату и время напоминания при создании или редактировании задачи. Для синхронизации GENESIS переводит дату в григорианскую."}</p></div>
-          <button type="button" className="secondary-button" onClick={() => { onClose(); window.location.hash = "tasks"; }}>
-            {user.language === "en" ? "Open tasks" : "Открыть задачи"}</button>
-        </section>
+        <MoonReminderSettings key={user.uid} accountId={user.uid} english={user.language === "en"} permission={notificationPermission} requestPermission={onRequestHabitNotifications} />
         <section className="account-preferences settings-reminders-panel" data-settings-group="reminders">
           <div><span className="eyebrow">GENESIS</span><h3>{user.language === "en" ? "System reminders" : "Системные напоминания"}</h3>
             <p>{user.language === "en" ? "Browser notifications depend on your browser permission. Task reminders in Google Calendar and Tasks use the connected Google account." : "Уведомления браузера зависят от его разрешения. Напоминания задач в Google Calendar и Tasks работают через подключённый Google-аккаунт."}</p></div>
@@ -1198,6 +1194,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
         <section className="account-preferences settings-links-panel" data-settings-group="links">
           <a href="https://t.me/genesisbasilea" target="_blank" rel="noreferrer">{user.language === "en" ? "GENESIS Academy" : "Академия Генезис"}</a>
           <a href="/support">{user.language === "en" ? "Support" : "Поддержка"}</a>
+          <a href="https://donate.stream/genesiscalendar" target="_blank" rel="noreferrer">{user.language === "en" ? "Support GENESIS · Donate.Stream" : "Поддержать GENESIS · Donate.Stream"}</a>
           <a href="/privacy">{user.language === "en" ? "Privacy policy" : "Политика конфиденциальности"}</a>
           <a href="/terms">{user.language === "en" ? "Terms of service" : "Пользовательское соглашение"}</a>
         </section>

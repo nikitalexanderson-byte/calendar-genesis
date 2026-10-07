@@ -79,7 +79,7 @@
           "backgroundImage": 2,
           "cssMediaUrl": 3,
           "dynamicMediaTemplates": 14,
-          "iconSymbols": 25
+          "iconSymbols": 22
         },
         "delta": {
           "img": 0,
@@ -90,10 +90,10 @@
           "backgroundImage": 0,
           "cssMediaUrl": 0,
           "dynamicMediaTemplates": 0,
-          "iconSymbols": 0
+          "iconSymbols": -3
         },
         "approved": true,
-        "reason": "Shared-project controls add two inline SVG icons while all earlier artwork references remain unchanged."
+        "reason": "Shared-project controls retain their two added SVG icons. The user explicitly requests removing the Tasks navigation item combining Stoicheion/Theokyklos into Sacred and Month/Year into Calendar (-3 symbol declarations), with new shared SVG navigation icons. All original artwork files and semantic artwork slots are preserved."
       },
       {
         "file": "app/HabitTracker.tsx",

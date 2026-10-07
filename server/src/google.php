@@ -1077,6 +1077,7 @@ function genesisListAllGoogleTasks(array $owner): array
     $allTasks = [];
     $allTaskLists = [];
     $warnings = [];
+    $deleted = array_fill_keys(genesisDeletedTaskIds((string)$owner['id']), true);
     foreach (genesisGoogleAccountsForUser($owner) as $account) {
         if (empty($account['refresh_token_enc'])) {
             $warnings[] = 'Для обновления задач подключите Google Calendar и Tasks.';
@@ -1087,6 +1088,16 @@ function genesisListAllGoogleTasks(array $owner): array
             foreach ($accountTasks as $task) {
                 $decorated = genesisDecorateTaskForGoogleAccount($task, $account);
                 $id = (string)$decorated['id'];
+                if (isset($deleted[$id])) {
+                    // Retry any copy left behind by an interrupted multi-account delete.
+                    try {
+                        genesisDeleteGoogleTaskFromAccount($account, (string)$owner['id'], (string)$task['id'], $task);
+                    } catch (Throwable $error) {
+                        $warnings[] = 'Удаление копии задачи в Google будет повторено при синхронизации.';
+                        genesisLogError('[GoogleTaskDeletion] ' . $error->getMessage(), $error);
+                    }
+                    continue;
+                }
                 if (!isset($allTasks[$id])) {
                     $allTasks[$id] = $decorated;
                     continue;
@@ -1113,7 +1124,9 @@ function genesisListAllGoogleTasks(array $owner): array
             genesisLogError('[GoogleAccountSync] ' . $error->getMessage(), $error);
         }
     }
-    $tasks = array_values($allTasks);
+    // A deletion can finish while a different device is enumerating Google.
+    $deleted = array_fill_keys(genesisDeletedTaskIds((string)$owner['id']), true);
+    $tasks = array_values(array_filter($allTasks, static fn(array $task): bool => !isset($deleted[(string)$task['id']])));
     usort($tasks, static fn(array $left, array $right): int => [
         (string)($left['dueDate'] ?? ''),
         (string)($left['time'] ?? ''),
@@ -1131,19 +1144,59 @@ function genesisListAllGoogleTasks(array $owner): array
 
 function genesisFindGoogleEvent(array $user, string $taskId): ?array
 {
+    return genesisFindGoogleEvents($user, $taskId)[0] ?? null;
+}
+
+function genesisFindGoogleEvents(array $user, string $taskId): array
+{
     $user = genesisEnsureGoogleCalendar($user);
-    $query = http_build_query([
+    $parameters = [
         'privateExtendedProperty' => 'genesisTaskId=' . $taskId,
         'showDeleted' => 'false',
-        'maxResults' => 2,
-    ], '', '&', PHP_QUERY_RFC3986);
-    $result = genesisGoogleApi('GET', '/calendars/' . rawurlencode((string)$user['google_calendar_id']) . '/events?' . $query, $user);
-    foreach ($result['items'] ?? [] as $event) {
-        if (is_array($event) && ($event['extendedProperties']['private']['genesisTaskId'] ?? null) === $taskId) {
-            return $event;
+        'maxResults' => 2500,
+    ];
+    $events = [];
+    do {
+        $result = genesisGoogleApi('GET', '/calendars/' . rawurlencode((string)$user['google_calendar_id']) . '/events?'
+            . http_build_query($parameters, '', '&', PHP_QUERY_RFC3986), $user);
+        foreach ($result['items'] ?? [] as $event) {
+            if (is_array($event) && ($event['extendedProperties']['private']['genesisTaskId'] ?? null) === $taskId) {
+                $events[] = $event;
+            }
         }
+        $parameters['pageToken'] = $result['nextPageToken'] ?? '';
+    } while ($parameters['pageToken'] !== '');
+    return $events;
+}
+
+function genesisTaskDeletionId(string $taskId, array $task): string
+{
+    $accountId = trim((string)($task['googleAccountId'] ?? ''));
+    if (($task['createdIn'] ?? 'genesis') !== 'genesis' && $accountId !== '') {
+        $prefix = 'account-' . substr(hash('sha256', $accountId), 0, 10) . '-';
+        return str_starts_with($taskId, $prefix) ? $taskId : $prefix . $taskId;
     }
-    return null;
+    return $taskId;
+}
+
+function genesisDeletedTaskIds(string $userId): array
+{
+    $statement = genesisDb()->prepare('SELECT task_id FROM task_deletions WHERE user_id = :user_id');
+    $statement->execute(['user_id' => $userId]);
+    return $statement->fetchAll(PDO::FETCH_COLUMN);
+}
+
+function genesisTaskWasDeleted(string $userId, string $taskId, array $task): bool
+{
+    $statement = genesisDb()->prepare('SELECT 1 FROM task_deletions WHERE user_id = :user_id AND task_id = :task_id');
+    $statement->execute(['user_id' => $userId, 'task_id' => genesisTaskDeletionId($taskId, $task)]);
+    return $statement->fetchColumn() !== false;
+}
+
+function genesisRecordTaskDeletion(string $userId, string $taskId, array $task): void
+{
+    genesisDb()->prepare('INSERT OR IGNORE INTO task_deletions (user_id, task_id, deleted_at) VALUES (:user_id, :task_id, :deleted_at)')
+        ->execute(['user_id' => $userId, 'task_id' => genesisTaskDeletionId($taskId, $task), 'deleted_at' => genesisNow()]);
 }
 
 function genesisGoogleNativeTaskPayload(string $taskId, array $task): array
@@ -1398,6 +1451,7 @@ function genesisSyncTaskToGoogleAccount(array $user, string $ownerUserId, string
 
 function genesisSyncTaskToGoogle(string $userId, string $taskId, array $task): array
 {
+    if (genesisTaskWasDeleted($userId, $taskId, $task)) throw new DomainException('TASK_DELETED');
     $owner = genesisFindUser($userId);
     if ($owner === null) throw new RuntimeException('Пользователь не найден.');
     $targets = genesisResolveTaskTargetAccounts($owner, $task);
@@ -1449,6 +1503,11 @@ function genesisSyncTaskToGoogle(string $userId, string $taskId, array $task): a
     $savedTask['googleTaskId'] = $compatibilityLink['taskId'] ?? null;
     $savedTask['googleTaskListId'] = $compatibilityLink['taskListId'] ?? null;
     $savedTask['googleTaskListTitle'] = $compatibilityLink['taskListTitle'] ?? '';
+    if (genesisTaskWasDeleted($userId, $taskId, $task)) {
+        // A concurrent stale PUT must not recreate a copy after DELETE completed.
+        genesisDeleteGoogleTaskEvent($userId, $taskId, $savedTask);
+        throw new DomainException('TASK_DELETED');
+    }
     return $savedTask;
 }
 
@@ -1474,18 +1533,15 @@ function genesisDeleteGoogleTaskFromAccount(array $user, string $ownerUserId, st
         return;
     }
     $eventId = trim((string)($task['googleEventId'] ?? ''));
-    if ($eventId === '') {
-        $event = genesisFindGoogleEvent($user, $taskId);
-        $eventId = is_array($event) ? trim((string)($event['id'] ?? '')) : '';
+    $eventIds = $eventId !== '' ? [$eventId] : [];
+    if (genesisGoogleScopeGranted($user, GENESIS_GOOGLE_CALENDAR_SCOPE)) {
+        foreach (genesisFindGoogleEvents($user, $taskId) as $event) $eventIds[] = (string)$event['id'];
     }
-    if ($eventId === '') {
-        return;
-    }
-    try {
-        genesisGoogleApi('DELETE', '/calendars/' . rawurlencode((string)$user['google_calendar_id']) . '/events/' . rawurlencode($eventId), $user);
-    } catch (RuntimeException $error) {
-        if (!str_contains($error->getMessage(), '(404)') && !str_contains($error->getMessage(), '(410)')) {
-            throw $error;
+    foreach (array_unique($eventIds) as $id) {
+        try {
+            genesisGoogleApi('DELETE', '/calendars/' . rawurlencode((string)$user['google_calendar_id']) . '/events/' . rawurlencode($id), $user);
+        } catch (GenesisGoogleHttpException $error) {
+            if (!in_array($error->status, [404, 410], true)) throw $error;
         }
     }
     genesisTouchUser($ownerUserId);
@@ -1495,21 +1551,30 @@ function genesisDeleteGoogleTaskEvent(string $userId, string $taskId, array $tas
 {
     $owner = genesisFindUser($userId);
     if ($owner === null) return;
+    genesisRecordTaskDeletion($userId, $taskId, $task);
+    genesisDeleteGoogleTaskCopies(genesisGoogleAccountsForUser($owner), $userId, $taskId, $task);
+}
+
+function genesisDeleteGoogleTaskCopies(array $accounts, string $userId, string $taskId, array $task, ?callable $delete = null): void
+{
+    $delete ??= 'genesisDeleteGoogleTaskFromAccount';
     $links = is_array($task['googleLinks'] ?? null) ? $task['googleLinks'] : [];
-    if ($links === []) {
-        genesisDeleteGoogleTaskFromAccount($owner, $userId, $taskId, $task);
-        return;
-    }
-    foreach ($links as $accountId => $link) {
-        if (!is_array($link)) continue;
-        $account = genesisGoogleAccountForUser($userId, (string)$accountId);
-        if ($account === null) continue;
-        genesisDeleteGoogleTaskFromAccount($account, $userId, $taskId, [
-            'googleEventId' => $link['eventId'] ?? null,
-            'googleTaskId' => $link['taskId'] ?? null,
+    $errors = [];
+    foreach ($accounts as $account) {
+        $accountId = (string)$account['id'];
+        $link = is_array($links[$accountId] ?? null) ? $links[$accountId] : [];
+        $compatibilityAccountId = (string)($task['googleAccountId'] ?? $userId);
+        $accountTask = $link !== [] ? [
+            'googleEventId' => $link['eventId'] ?? null, 'googleTaskId' => $link['taskId'] ?? null,
             'googleTaskListId' => $link['taskListId'] ?? null,
-        ]);
+        ] : ($accountId === $compatibilityAccountId ? $task : []);
+        try {
+            $delete($account, $userId, $taskId, $accountTask);
+        } catch (Throwable $error) {
+            $errors[] = $error;
+        }
     }
+    if ($errors !== []) throw $errors[0];
 }
 
 function genesisListGoogleTasks(array $user): array

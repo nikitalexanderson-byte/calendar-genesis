@@ -41,13 +41,14 @@ export function useDialogAccessibility<T extends HTMLElement>(onClose: () => voi
       (initial ?? dialog).focus({ preventScroll: true });
     });
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (activeDialogStack.at(-1) !== dialog || !dialog.contains(document.activeElement)) return;
+      if (activeDialogStack.at(-1) !== dialog) return;
       if (event.key === "Escape") {
         event.preventDefault();
         event.stopImmediatePropagation();
         closeRef.current();
         return;
       }
+      if (!dialog.contains(document.activeElement)) return;
       if (event.key !== "Tab") return;
       const focusable = focusableElements(dialog);
       if (!focusable.length) {

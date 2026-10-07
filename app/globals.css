@@ -7252,9 +7252,9 @@ html[data-genesis-theme^="standart"] .appearance-menu-controls { min-width: 0; m
 .tag-search-results header strong { font: 500 17px/1.2 Georgia, "Times New Roman", serif; }
 .tag-search-results header span { color: var(--ink-soft); font-size: 8px; }
 .tag-search-results > div { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 7px; }
-.tag-search-results button { display: grid; gap: 3px; padding: 10px 11px; color: var(--ink); text-align: left; background: rgba(255, 253, 248, .78); border: 1px solid var(--line); border-radius: 10px; cursor: pointer; }
-.tag-search-results button > span { color: var(--teal); font-size: 7px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-.tag-search-results button > small { color: var(--ink-soft); font-size: 8px; }
+.tag-search-results > div > button { display: grid; gap: 3px; padding: 10px 11px; color: var(--ink); text-align: left; background: rgba(255, 253, 248, .78); border: 1px solid var(--line); border-radius: 10px; cursor: pointer; }
+.tag-search-results > div > button > span { color: var(--teal); font-size: 7px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.tag-search-results > div > button > small { color: var(--ink-soft); font-size: 8px; }
 .tag-search-results p { margin: 0; color: var(--ink-soft); font-size: 10px; }
 
 .project-row {
@@ -13744,3 +13744,89 @@ html[data-genesis-theme^="standart"] .admin-table td small { font-size: 11px; li
 @keyframes settings-icon-breathe { 0%, 100% { transform: rotate(-4deg) scale(0.96); opacity: .82; } 50% { transform: rotate(4deg) scale(1.05); opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .settings-section-hero-icon svg { animation: none; } }
 @media (max-width: 540px) { .settings-section-hero { padding: 14px; gap: 12px; } .settings-section-hero-icon { width: 50px; height: 50px; flex-basis: 50px; } }
+
+.task-create-chevron { display: none; }
+@media (min-width: 1200px) { .calendar-return-to-today { display: none; } }
+html[data-genesis-solar-times="hidden"] :is(.calendar-sun-times, .day-details-sun) { display: none; }
+/* Functional components shared by both visual themes. */
+.affairs-actions { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; }
+.project-completion-tabs, .task-composer-tabs { display:flex; gap:6px; padding:5px; border:1px solid var(--line); border-radius:12px; }
+.project-completion-tabs button, .task-composer-tabs button { min-height:44px; padding:10px 16px; border:0; border-radius:8px; color:var(--ink); background:transparent; font:600 14px/1.3 Arial,sans-serif; cursor:pointer; }
+:is(.project-completion-tabs,.task-composer-tabs) button:is([aria-pressed="true"],[aria-selected="true"]) { color:var(--ui-on-accent,#fff); background:var(--ui-accent,var(--teal)); }
+.task-composer-modal { width:min(960px,calc(100vw - 24px)); max-height:calc(100dvh - 32px); overflow:auto; padding:28px; }
+.task-composer-modal > h2 { padding-right:40px; }
+.task-composer-modal .task-composer-tabs { margin:16px 0 20px; }
+.task-composer-modal .task-composer-tabs button { flex:1; }
+.task-composer-modal .shared-task-lists > form { display:grid; gap:14px; }
+.task-composer-modal .shared-task-lists form label { display:grid; gap:6px; }
+.project-complete-action { display:grid; place-items:center; width:44px; height:44px; min-width:44px; border:0; background:transparent; color:var(--teal); cursor:pointer; }
+.project-complete-action > span { display:grid; place-items:center; width:20px; height:20px; border:1.5px solid currentColor; border-radius:50%; font:700 13px/1 Arial,sans-serif; }
+.project-complete-action[aria-pressed="true"] > span { background:var(--teal); color:var(--ui-on-accent,#fff); }
+.project-completed-label { display:inline-block; margin:6px 0; color:var(--ink-soft); font:600 12px/1.4 Arial,sans-serif; }
+html[data-genesis-theme] .genesis-app article.project-task-card { grid-template-columns:20px 44px minmax(0,1fr) auto; gap:10px; min-width:0; margin:0; }
+html[data-genesis-theme] .genesis-app .project-task-card .project-drag-handle { align-self:center; }
+html[data-genesis-theme] .genesis-app .project-task-card strong { font-size:15px; }
+.task-project-move { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:10px; font:12px/1.5 Arial,sans-serif; color:var(--ink-soft); }
+.task-project-move select { flex:1; min-width:120px; max-width:320px; min-height:44px; border:1px solid var(--line); border-radius:8px; padding:7px 10px; background:var(--surface); color:var(--ink); font:13px/1.4 Arial,sans-serif; }
+html[data-genesis-theme] .genesis-app .project-assigned-items .all-tasks-list { grid-column:1/-1; min-width:0; }
+html[data-genesis-theme] .genesis-app .inbox-card-items .all-tasks-list { width:100%; min-width:0; }
+.moon-reminder-choices { border:0; padding:0; margin:16px 0; min-width:0; }
+.moon-reminder-choices legend { margin-bottom:9px; font:600 15px/1.4 Arial,sans-serif; }
+.moon-reminder-choices > div { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; }
+.moon-reminder-choices button { min-height:48px; min-width:0; padding:8px 4px; border:1px solid var(--line); border-radius:10px; background:var(--surface); color:var(--ink); font:600 13px/1.3 Arial,sans-serif; cursor:pointer; }
+.moon-reminder-choices button[aria-pressed="true"] { background:var(--ui-accent,var(--teal)); color:var(--ui-on-accent,#fff); border-color:var(--ui-accent,var(--teal)); }
+.solar-settings-preview { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; padding:16px; margin:16px 0; border:1px solid var(--line); border-radius:12px; background:var(--surface); }
+.solar-settings-preview > div { display:grid; gap:6px; }
+.solar-settings-preview span { color:var(--ink-soft); font-size:14px; }
+.solar-settings-preview strong { font:500 26px/1.2 Georgia,serif; }
+.solar-settings-preview small { grid-column:1/-1; color:var(--ink-soft); font-size:12px; }
+.genesis-nav-icon { flex:none; width:22px; height:22px; transition:transform 160ms ease,color 160ms ease; }
+:is(.main-nav,.mobile-nav) button:active .genesis-nav-icon { transform:scale(.82) rotate(var(--nav-icon-turn,0deg)); }
+.stoicheion-orbit-frame { position:absolute; z-index:0; inset:0; overflow:hidden; pointer-events:none; }
+.stoicheion-inner > :not(.stoicheion-orbit-frame) { position:relative; z-index:1; }
+@media(max-width:1199px) {
+  html[data-genesis-theme] .genesis-app .mobile-nav[data-exp-ui="mobile-nav"] { gap:1px; padding:4px; left:max(4px,env(safe-area-inset-left)); right:max(4px,env(safe-area-inset-right)); }
+  html[data-genesis-theme] .genesis-app .mobile-nav[data-exp-ui="mobile-nav"] button { gap:6px; min-height:56px; padding:5px 1px; }
+  html[data-genesis-theme] .genesis-app .mobile-nav[data-exp-ui="mobile-nav"] button > .genesis-nav-icon { width:21px; height:21px; fill:none; }
+  html[data-genesis-theme] .genesis-app .mobile-nav[data-exp-ui="mobile-nav"] button > small { font-size:clamp(9px,2.5vw,11px); white-space:nowrap; }
+}
+@media(max-width:600px) {
+  .task-composer-modal { padding:20px 14px; max-height:calc(100dvh - 16px); }
+  .affairs-actions > .primary-button { width:100%; }
+  html[data-genesis-theme] .genesis-app article.project-task-card { grid-template-columns:16px 36px minmax(0,1fr); padding:12px 4px; gap:6px; }
+  html[data-genesis-theme] .genesis-app .project-task-card .task-check { width:32px; height:32px; min-width:32px; min-height:44px; }
+  html[data-genesis-theme] .genesis-app .project-task-card .all-task-actions { grid-column:3; justify-self:end; }
+  .task-project-move { display:grid; gap:4px; }
+  .task-project-move select { width:100%; max-width:none; min-width:0; }
+}
+@media(prefers-reduced-motion:reduce) { .genesis-nav-icon { transition:none; } }
+
+.main-nav .genesis-nav-icon { width:20px; height:20px; }
+.projects-layout[hidden] { display:none !important; }
+
+.tag-search-results > .all-tasks-list { grid-template-columns:minmax(0,1fr); margin-top:12px; }
+html[data-genesis-theme] .genesis-app .project-task-card .project-drag-handle { width:20px; min-width:0; padding:0; }
+html[data-genesis-theme] .genesis-app .project-task-card .task-check { width:36px; height:36px; min-width:36px; min-height:36px; padding:0; border-radius:50%; }
+.shared-projects-context > div:first-child:has(.project-complete-action) { display:grid; grid-template-columns:minmax(0,1fr) 44px; align-items:center; gap:8px; }
+.shared-projects-context > div:first-child > p { grid-column:1/-1; }
+/* Search results share the same readable hierarchy in both color schemes. */
+.tag-search-results > div > button { gap:6px; padding:14px 16px; min-height:80px; }
+.tag-search-results > div > button > strong { font:600 16px/1.4 Arial,sans-serif; }
+.tag-search-results > div > button > span { font-size:10px; }
+.tag-search-results > div > button > small, .tag-search-results header span { font-size:12px; line-height:1.5; }
+@media(max-width:600px) {
+  html[data-genesis-theme] .settings-section-nav button { min-width:0; padding:8px; gap:6px; white-space:normal; font-size:12px; line-height:1.3; }
+  html[data-genesis-theme] .settings-section-nav button span { min-width:0; overflow-wrap:anywhere; }
+  html[data-genesis-theme] .settings-section-nav svg { width:18px; height:18px; }
+}
+@media(max-width:600px) {
+  html[data-genesis-theme] .genesis-app .task-list-draft-row { grid-template-columns:minmax(0,1fr) 44px; }
+  html[data-genesis-theme] .genesis-app .task-list-draft-row > :nth-child(2) { grid-column:1; grid-row:2; min-width:0; width:100%; }
+  html[data-genesis-theme] .genesis-app .task-list-draft-row > button { grid-column:2; grid-row:1/3; align-self:center; }
+}
+@media(max-width:1199px) {
+  html[data-genesis-theme] .genesis-app nav.mobile-nav[data-exp-ui="mobile-nav"] button > small { font-size:clamp(8px,2.35vw,11px); white-space:nowrap; }
+}
+.modal-backdrop.experimental-theme-warning-backdrop { z-index:900; }
+.tag-search-results .task-tags i { font:500 12px/1.4 Arial,sans-serif; padding:4px 8px; }
+.stoicheion-view > .stoicheion-hero { position:relative; top:auto; left:auto; max-width:1220px; width:100%; margin:0 auto clamp(24px,4vw,46px); z-index:2; }

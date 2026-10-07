@@ -23,6 +23,7 @@ export function SharedTaskCreate({ language, enabledCalendars,
   const [projectId, setProjectId] = useState("");
   const [snapshot, setSnapshot] = useState<SharedProjectSnapshot | null>(null);
   const [title, setTitle] = useState("");
+  const [tags, setTags] = useState("");
   const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [statusId, setStatusId] = useState("");
@@ -85,10 +86,10 @@ export function SharedTaskCreate({ language, enabledCalendars,
     setBusy(true); setMessage("");
     try {
       const created = await createSharedTask(snapshot.project.id, {
-        title: title.trim(), description: description.trim(), dueDate: dueDate || null,
+        title: title.trim(), description: description.trim(), tags: [...new Set(tags.split(/[,;\s]+/).map((tag) => tag.replace(/^#/, "")).filter(Boolean))], dueDate: dueDate || null,
         statusId, categoryId: categoryId || null, assigneeId: assigneeId || null,
       });
-      setTitle(""); setDescription(""); setDueDate("");
+      setTitle(""); setDescription(""); setTags(""); setDueDate("");
       onCreated?.(Boolean(created.pending));
       setMessage(created.pending
         ? (english ? "Task saved on this device and waiting for the connection."
@@ -117,7 +118,8 @@ export function SharedTaskCreate({ language, enabledCalendars,
         : <p role="status">{english ? "No project in this workspace allows you to add tasks." : "В этом пространстве нет проекта, в который вы можете добавить задачу."}</p>}
       <label>{english ? "Task name" : "Название задачи"}<input value={title} maxLength={160} required
         onChange={(event) => setTitle(event.target.value)} /></label>
-      <label>{english ? "Description" : "Описание"}<textarea value={description} maxLength={20000}
+      <label>{english ? "Tags" : "Теги"}<input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="работа, запуск" /></label>
+    <label>{english ? "Description" : "Описание"}<textarea value={description} maxLength={20000}
         onChange={(event) => setDescription(event.target.value)} /></label>
       <div className="shared-projects-date-field"><span>{english ? "Due date" : "Срок"}</span>
         {dueDate ? <><CalendarDatePicker mode={calendarMode} value={dueDate} onChange={setDueDate}

@@ -301,6 +301,49 @@ try {
     $explicit = genesisResolveTaskTargetAccounts($user, ['syncAccountIds' => [$routeIds[2], $routeIds[4]]]);
     expect(array_map(static fn(array $account): string => (string)$account['id'], $explicit) === [$routeIds[2], $routeIds[4]],
         'Explicit task routing must override category defaults.');
+    $deletedCopies = [];
+    $captureDelete = static function(array $account, string $ownerId, string $id, array $task) use (&$deletedCopies): void {
+        $deletedCopies[(string)$account['id']] = $task;
+    };
+    genesisDeleteGoogleTaskCopies(genesisGoogleAccountsForUser($user), $userId, 'delete-test',
+        ['googleEventId' => 'primary-event'], $captureDelete);
+    expect(count($deletedCopies) === 5, 'Legacy deletion without links missed additional Google accounts.');
+    expect(($deletedCopies[$userId]['googleEventId'] ?? '') === 'primary-event', 'Primary compatibility event was lost.');
+    expect($deletedCopies[$routeIds[1]] === [], 'Primary event ID leaked into another account.');
+    $deletedCopies = [];
+    genesisDeleteGoogleTaskCopies(genesisGoogleAccountsForUser($user), $userId, 'delete-test',
+        ['googleLinks' => [$routeIds[1] => ['eventId' => 'linked-event']]], $captureDelete);
+    expect(count($deletedCopies) === 5 && ($deletedCopies[$routeIds[1]]['googleEventId'] ?? '') === 'linked-event',
+        'Partial deletion links prevented discovery in other accounts.');
+    $attempted = [];
+    try {
+        genesisDeleteGoogleTaskCopies(genesisGoogleAccountsForUser($user), $userId, 'delete-test', [],
+            static function(array $account) use (&$attempted, $userId): void {
+                $attempted[] = $account['id'];
+                if ($account['id'] === $userId) throw new RuntimeException('synthetic network failure');
+            });
+        throw new RuntimeException('Failed deletion was acknowledged.');
+    } catch (RuntimeException $error) {
+        expect($error->getMessage() === 'synthetic network failure' && count($attempted) === 5,
+            'An unavailable first account prevented deletion in the remaining accounts.');
+    }
+    genesisRecordTaskDeletion($userId, 'deleted-cache-task', []);
+    genesisRecordTaskDeletion($userId, 'deleted-cache-task', []);
+    expect(count(array_filter(genesisDeletedTaskIds($userId), static fn(string $id): bool => $id === 'deleted-cache-task')) === 1,
+        'Repeated deletion created duplicate tombstones.');
+    expect(!genesisTaskWasDeleted('another-user', 'deleted-cache-task', []), 'Deletion crossed account scopes.');
+    try {
+        genesisSyncTaskToGoogle($userId, 'deleted-cache-task', ['title' => 'Stale cached task']);
+        throw new RuntimeException('A stale client recreated a deleted task.');
+    } catch (DomainException $error) {
+        expect($error->getMessage() === 'TASK_DELETED', 'Deleted-task rejection changed.');
+    }
+    $externalTask = ['createdIn' => 'google-calendar', 'googleAccountId' => $routeIds[1]];
+    genesisRecordTaskDeletion($userId, 'google-event-synthetic', $externalTask);
+    expect(genesisTaskWasDeleted($userId, genesisTaskDeletionId('google-event-synthetic', $externalTask), $externalTask),
+        'Website and Android deletion identities differ.');
+    expect(!genesisTaskWasDeleted($userId, 'google-event-synthetic', array_merge($externalTask, ['googleAccountId' => $routeIds[2]])),
+        'External deletion affected another Google account.');
     $user = genesisUpdateAccountPreferences($userId, ['syncRouting' => [
         'mode' => 'choose', 'defaultAccountIds' => [$userId], 'categoryAccountIds' => [],
     ]]);

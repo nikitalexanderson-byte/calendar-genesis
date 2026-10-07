@@ -1,0 +1,29 @@
+{
+  "date": "2026-10-08",
+  "scope": "Durable task deletion, Affairs task/project flows, requested web navigation and settings, Experimental UX refinements",
+  "themes": "Standart stays default. Design refinements are Experimental-only; explicitly requested functionality, navigation and dark contrast fixes apply to both.",
+  "checks": {
+    "frozenInstall": "passed",
+    "lint": "passed",
+    "test": "109 passed",
+    "buildBeget": "passed; 44 mandatory offline entries, 90 visual assets",
+    "php": "isolated SQLite smoke and shared-projects suites passed; changed PHP files syntax passed",
+    "assetPreservation": "558 assets unchanged; approved navigation declaration change",
+    "browser": "Playwright Chromium with isolated API fixtures, Russian UI; both themes/light/dark at 360, 390, 768, 1440 px for changed primary flows",
+    "personalTaskFlow": "create in inbox, edit/move, complete/reopen, delete/reload, partial title/tag search, completed project tree/restore, Today task modal and keyboard tabs/Escape passed"
+  },
+  "migrations": {
+    "032": "Additive task_deletions table. Deletion is recorded before external Google deletion. Old clients can receive task-deleted conflicts instead of resurrecting an item.",
+    "033": "Additive tags_json columns, default empty arrays. Existing shared project/task records and clients remain compatible; omitted tags on update retain stored values.",
+    "backup": "Existing deploy.yml backs up only server/config.php and a consistent SQLite snapshot before replacing tracked code. No direct production database edits or automatic database rollback.",
+    "rollback": "Revert release commit through Git and existing workflow; retain additive schema. Reverting deletion enforcement can reintroduce resurrection until a forward fix, so do not drop the deletion ledger. Database restoration requires a separate agreed plan."
+  },
+  "limitations": [
+    "Authenticated production UI is not covered by the local fixture browser tests.",
+    "No physical Android device/emulator was connected; new Android instrumentation test was added but not executed locally. Production CI builds the signed native release.",
+    "Web lunar reminder preferences are per-account on the device and browser delivery requires the website to be open; OS background delivery belongs to the native application.",
+    "Remote city lookup network errors, notification delivery at a real lunar event, all interface languages, assistive technology and slow/offline real Google-account flows were not visually tested.",
+    "UX comparisons are an expert evaluation of identical fixture screens, not measured user research. No Experimental-to-Standart consolidation has been applied."
+  ],
+  "screenshots": "Local output/playwright/genesis-fixes contains before/after and paired screenshots, plus UX report HTML. Screenshot binaries are excluded from tracked production code."
+}

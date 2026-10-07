@@ -146,8 +146,8 @@ html[data-genesis-theme] .genesis-app .all-task-meta { font-size: 12px; line-hei
 html[data-genesis-theme] .genesis-app .all-task-meta :is(.all-task-category, .all-task-source) { font-size: 11px; }
 html[data-genesis-theme] .genesis-app .all-task-meta .all-task-category { color: var(--ink); background: color-mix(in srgb, var(--ui-accent) 12%, var(--surface)); border-inline-start: 3px solid var(--project-color); }
 html[data-genesis-theme] .genesis-app .all-task-priority { font-size: 12px; }
-html[data-genesis-theme] .genesis-app .project-row { grid-template-columns: 44px minmax(0, 1fr) repeat(2, 44px); align-items: start; gap: 8px; }
-html[data-genesis-theme] .genesis-app .project-row:has(.project-transfer) { grid-template-columns: 44px minmax(0, 1fr) repeat(3, 44px); }
+html[data-genesis-theme] .genesis-app .project-row { grid-template-columns: minmax(0, 1fr) repeat(3, 44px); align-items: start; gap: 8px; }
+html[data-genesis-theme] .genesis-app .project-row:has(.project-transfer) { grid-template-columns: minmax(0, 1fr) repeat(4, 44px); }
 html[data-genesis-theme] .genesis-app .project-row > :is(.project-status, .project-edit, .project-transfer, .project-delete) { width: 44px; height: 44px; min-width: 44px; min-height: 44px; border-radius: 8px; }
 html[data-genesis-theme] .genesis-app .project-open { min-height: 44px; }
 html[data-genesis-theme] .genesis-app .project-open strong { font-size: 16px; line-height: 1.4; white-space: normal; overflow-wrap: anywhere; }
@@ -230,10 +230,10 @@ html[data-genesis-theme] .mobile-more-navigation::backdrop { background: transpa
   html[data-genesis-theme] .genesis-app .project-tree-workspace { grid-template-areas: "inbox" "tree"; grid-template-columns: minmax(0, 1fr); }
   html[data-genesis-theme] .genesis-app .project-tree-workspace > .inbox-card { position: static; max-height: none; }
   html[data-genesis-theme] .genesis-app .project-row,
-  html[data-genesis-theme] .genesis-app .project-row:has(.project-transfer) { grid-template-columns: 44px minmax(0, 1fr) 44px 44px; }
-  html[data-genesis-theme] .genesis-app .project-row > .project-status { grid-column: 1; grid-row: 1; }
-  html[data-genesis-theme] .genesis-app .project-row > .project-open { grid-column: 2 / -1; grid-row: 1; }
-  html[data-genesis-theme] .genesis-app .project-row > .project-edit { grid-column: 2; grid-row: 2; justify-self: end; }
+  html[data-genesis-theme] .genesis-app .project-row:has(.project-transfer) { grid-template-columns: minmax(0, 1fr) repeat(3, 44px); }
+  html[data-genesis-theme] .genesis-app .project-row > .project-open { grid-column: 1 / -1; grid-row: 1; }
+  html[data-genesis-theme] .genesis-app .project-row > .project-complete-action { grid-column: 1; grid-row: 2; justify-self: end; }
+  html[data-genesis-theme] .genesis-app .project-row > .project-edit { grid-column: 2; grid-row: 2; }
   html[data-genesis-theme] .genesis-app .project-row > .project-transfer { grid-column: 3; grid-row: 2; }
   html[data-genesis-theme] .genesis-app .project-row > .project-delete { grid-column: 4; grid-row: 2; }
 }
