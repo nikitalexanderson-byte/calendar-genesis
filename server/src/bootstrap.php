@@ -247,4 +247,6 @@ function genesisClampInt(mixed $value, int $min, int $max, int $fallback): int
     return max($min, min($max, (int)$value));
 }
 
-genesisStartSession();
+if (!defined('GENESIS_STATELESS_REQUEST') || !GENESIS_STATELESS_REQUEST) {
+    genesisStartSession();
+}

@@ -22,6 +22,12 @@ if ($serverRoot === '') {
 }
 require $serverRoot . '/src/relocation.php';
 genesisHandleRelocation($serverRoot);
+$method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
+$path = trim((string)($_GET['path'] ?? $_SERVER['PATH_INFO'] ?? ''), '/');
+$segments = $path === '' ? [] : explode('/', $path);
+// Parallel public discovery must not replace the cookie of a new login session.
+define('GENESIS_STATELESS_REQUEST', $method === 'OPTIONS'
+    || ($method === 'GET' && in_array($path, ['health', 'auth/providers'], true)));
 require $serverRoot . '/src/bootstrap.php';
 require $serverRoot . '/src/repository.php';
 require $serverRoot . '/src/ads.php';
@@ -39,10 +45,6 @@ header('X-Frame-Options: DENY');
 header('Referrer-Policy: no-referrer');
 header('Permissions-Policy: camera=(), microphone=(self), geolocation=()');
 header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
-
-$method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
-$path = trim((string)($_GET['path'] ?? $_SERVER['PATH_INFO'] ?? ''), '/');
-$segments = $path === '' ? [] : explode('/', $path);
 
 if ($method === 'OPTIONS') {
     http_response_code(204);
