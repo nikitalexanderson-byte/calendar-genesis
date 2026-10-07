@@ -67,6 +67,7 @@ const TODAY_SETTINGS = [
 
 type AccountPanelProps = {
   user: GenesisUser;
+  yandexAvailable: boolean;
   onClose: () => void;
   onReconnectGoogle: () => void;
   onConnectAdditionalGoogle: () => void;
@@ -125,7 +126,7 @@ function createHabitResetChallenge(): HabitResetChallenge {
   };
 }
 
-export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditionalGoogle, onLanguageChange, onUserChange, themeState, onThemeChange, habitTrackingEnabled, onHabitTrackingChange, habitNotificationSettings, notificationPermission, onHabitNotificationSettingsChange, habitFeedbackSettings, onHabitFeedbackSettingsChange, onRequestHabitNotifications, hiddenHabitTemplateCount, onRestoreHabitTemplates, onResetHabitTracking, categories }: AccountPanelProps) {
+export function AccountPanel({ user, yandexAvailable, onClose, onReconnectGoogle, onConnectAdditionalGoogle, onLanguageChange, onUserChange, themeState, onThemeChange, habitTrackingEnabled, onHabitTrackingChange, habitNotificationSettings, notificationPermission, onHabitNotificationSettingsChange, habitFeedbackSettings, onHabitFeedbackSettingsChange, onRequestHabitNotifications, hiddenHabitTemplateCount, onRestoreHabitTemplates, onResetHabitTracking, categories }: AccountPanelProps) {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [yandexAccountId, setYandexAccountId] = useState(() => user.linkedAccounts?.find((account) => account.provider === "yandex")?.id ?? user.uid);
@@ -620,7 +621,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
           <article><span>Офлайн-копия</span><strong>На устройстве</strong><small>Доступна без сети после входа на этом устройстве.</small></article>
         </div>
 
-        {user.authProvider !== "google" ? (
+        {yandexAvailable && user.authProvider !== "google" ? (
           <section className="account-preferences multi-account-preference" aria-labelledby="local-accounts-title" data-settings-group="account">
             <div>
               <span className="eyebrow">Яндекс ID</span>
@@ -685,7 +686,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
           </section>
         ) : null}
 
-        {selectedYandexAccount ? <section className="account-preferences yandex-calendar-preference" aria-labelledby="yandex-calendar-title" data-exp-ui="panel" data-settings-group="account">
+        {yandexAvailable && selectedYandexAccount ? <section className="account-preferences yandex-calendar-preference" aria-labelledby="yandex-calendar-title" data-exp-ui="panel" data-settings-group="account">
           <div>
             <span className="eyebrow">Яндекс</span>
             <h3 id="yandex-calendar-title">Яндекс.Календарь</h3>

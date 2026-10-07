@@ -1,6 +1,16 @@
 export const REGION_LANGUAGES = ["ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja"] as const;
 export type RegionLanguage = (typeof REGION_LANGUAGES)[number];
 
+export function regionFromLocales(locales: readonly string[]): string | undefined {
+  for (const locale of locales) {
+    try {
+      const region = new Intl.Locale(locale).region;
+      if (region) return region;
+    } catch { /* Ignore malformed device locale tags. */ }
+  }
+  return undefined;
+}
+
 const COUNTRY_LANGUAGE: Record<string, RegionLanguage> = {
   RU: "ru", BY: "ru", KZ: "ru", UA: "uk", PL: "pl", RS: "sr", ME: "sr",
   GR: "el", CY: "el", DE: "de", AT: "de", FR: "fr", BE: "fr",

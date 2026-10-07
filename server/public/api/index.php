@@ -20,6 +20,8 @@ if ($serverRoot === '') {
     http_response_code(503);
     exit('GENESIS server files are unavailable.');
 }
+require $serverRoot . '/src/relocation.php';
+genesisHandleRelocation($serverRoot);
 require $serverRoot . '/src/bootstrap.php';
 require $serverRoot . '/src/repository.php';
 require $serverRoot . '/src/ads.php';
@@ -116,10 +118,15 @@ function genesisRequireYandexUser(string $userId): array
 }
 
 try {
+    $googleOnly = (bool)(genesisConfig()['google_only'] ?? false);
+    if ($googleOnly && str_contains($path, 'yandex')) {
+        genesisJson(['error' => 'NOT_FOUND'], 404);
+    }
     $sessionUserId = genesisCurrentUserId();
     if ($sessionUserId !== null) {
         $sessionUser = genesisFindUser($sessionUserId);
-        if ($sessionUser !== null && genesisUserProvider($sessionUser) === 'unsupported') {
+        if ($sessionUser !== null && (genesisUserProvider($sessionUser) === 'unsupported'
+            || ($googleOnly && genesisUserProvider($sessionUser) !== 'google'))) {
             unset($_SESSION['user_id'], $_SESSION['csrf'], $_SESSION['pending_local_link']);
         }
     }

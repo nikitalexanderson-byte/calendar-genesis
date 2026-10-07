@@ -31,7 +31,7 @@ import ukrainianYear from "./year-translations/uk.json";
 import chineseYear from "./year-translations/zh.json";
 import turkishYear from "./year-translations/tr.json";
 import japaneseYear from "./year-translations/ja.json";
-import { languageForRegion, REGION_LANGUAGES, type RegionLanguage } from "./region-language";
+import { languageForRegion, regionFromLocales, REGION_LANGUAGES, type RegionLanguage } from "./region-language";
 
 export const LANGUAGES = REGION_LANGUAGES;
 export type Language = RegionLanguage;
@@ -598,9 +598,8 @@ export function browserLanguage(): Language {
   const stored = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
   if (stored && (LANGUAGES as readonly string[]).includes(stored)) return stored as Language;
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const country = window.navigator.languages
-    .map((locale) => locale.split("-").at(-1))
-    .find((region) => region?.length === 2);
+  const country = regionFromLocales(window.navigator.languages?.length
+    ? window.navigator.languages : [window.navigator.language]);
   return languageForRegion(timeZone, country);
 }
 

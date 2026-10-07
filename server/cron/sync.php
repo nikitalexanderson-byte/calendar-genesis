@@ -1,6 +1,11 @@
 <?php
 declare(strict_types=1);
 
+if (is_file(dirname(__DIR__) . '/var/relocation.json')) {
+    echo '{"ok":true,"skipped":"retired-origin"}' . PHP_EOL;
+    exit;
+}
+
 require dirname(__DIR__) . '/src/bootstrap.php';
 require dirname(__DIR__) . '/src/repository.php';
 require dirname(__DIR__) . '/src/google.php';

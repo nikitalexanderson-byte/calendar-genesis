@@ -81,6 +81,8 @@ export type LegalPageName = keyof typeof pages;
 
 export function LegalPage({ page }: { page: LegalPageName }) {
   const content = pages[page];
+  const googleOnly = typeof window !== "undefined" && window.location.hostname === "genesiscalendar.com";
+  const sections = googleOnly ? content.sections.filter(([title]) => !/Яндекс|Метрика/.test(title)) : content.sections;
   return (
     <main className="legal-shell">
       <header className="legal-header">
@@ -92,7 +94,7 @@ export function LegalPage({ page }: { page: LegalPageName }) {
         <h1>{content.title}</h1>
         <p className="legal-intro">{content.intro}</p>
         <p className="legal-date">Редакция от {UPDATED}</p>
-        {content.sections.map(([title, body]) => <section key={title}><h2>{title}</h2><p>{body}</p></section>)}
+        {sections.map(([title, body]) => <section key={title}><h2>{title}</h2><p>{body}</p></section>)}
         {page === "privacy" ? (
           <p className="legal-policy-link">
             <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noreferrer">Google API Services User Data Policy</a>

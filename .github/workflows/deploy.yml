@@ -1,4 +1,4 @@
-name: Deploy to Beget
+name: Deploy GENESIS
 
 on:
   push:
@@ -15,6 +15,8 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      PRODUCTION_ORIGIN: ${{ vars.GENESIS_DEPLOY_TARGET == 'hostinger' && 'https://genesiscalendar.com' || 'https://genesiscalendar.ru' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -41,7 +43,9 @@ jobs:
         run: find server -type f -name '*.php' -print0 | xargs -0 -n1 php -l
 
       - name: Test native Google token verification
-        run: php server/tests/native-auth.php
+        run: |
+          php server/tests/native-auth.php
+          php server/tests/relocation.php
 
       - name: Test PHP backend with isolated SQLite
         env:
@@ -141,7 +145,8 @@ jobs:
           mkdir -p "$RUNNER_TEMP/genesis-signing" dist-beget/public_html/downloads
           export GENESIS_ANDROID_SIGNING_STORE="$RUNNER_TEMP/genesis-signing/release.jks"
           printf '%s' "$SIGNING_KEYSTORE_B64" | base64 -d > "$GENESIS_ANDROID_SIGNING_STORE"
-          (cd android && bash ./gradlew :app:assembleRelease :app:bundlePlay --no-daemon --console=plain)
+          export GENESIS_YANDEX_CLIENT_ID=""
+          (cd android && bash ./gradlew :app:testDebugUnitTest :app:assembleRelease :app:bundlePlay --no-daemon --console=plain)
           APK=android/app/build/outputs/apk/release/app-release.apk
           test -s "$APK"
           "$ANDROID_HOME/build-tools/37.0.0/apksigner" verify --verbose --print-certs "$APK" \
@@ -149,12 +154,12 @@ jobs:
           "$ANDROID_HOME/build-tools/37.0.0/apksigner" verify --verbose --print-certs "$APK" \
             | grep -qi 'certificate SHA-1 digest: 9a28ae70b1933d86ff3a4ef931e924f81a4426bc'
           "$ANDROID_HOME/build-tools/37.0.0/aapt" dump badging "$APK" \
-            | grep -q "package: name='ru.genesis.calendar' versionCode='72' versionName='2.6.6'"
-          cp "$APK" dist-beget/public_html/downloads/GENESIS-Android-Native-2.6.6.apk
-          APK_SHA="$(sha256sum dist-beget/public_html/downloads/GENESIS-Android-Native-2.6.6.apk | cut -d' ' -f1)"
-          printf '{"versionCode":72,"versionName":"2.6.6","sha256":"%s"}\n' "$APK_SHA" \
+            | grep -q "package: name='ru.genesis.calendar' versionCode='73' versionName='2.6.7'"
+          cp "$APK" dist-beget/public_html/downloads/GENESIS-Android-Native-2.6.7.apk
+          APK_SHA="$(sha256sum dist-beget/public_html/downloads/GENESIS-Android-Native-2.6.7.apk | cut -d' ' -f1)"
+          printf '{"versionCode":73,"versionName":"2.6.7","sha256":"%s"}\n' "$APK_SHA" \
             > dist-beget/public_html/android-update.json
-          sha256sum dist-beget/public_html/downloads/GENESIS-Android-Native-2.6.6.apk
+          sha256sum dist-beget/public_html/downloads/GENESIS-Android-Native-2.6.7.apk
 
           AAB=android/app/build/outputs/bundle/play/app-play.aab
           test -s "$AAB"
@@ -165,7 +170,7 @@ jobs:
       - name: Save signed Play App Bundle for Console upload
         uses: actions/upload-artifact@v4
         with:
-          name: genesis-play-2.6.6
+          name: genesis-play-2.6.7
           path: android/app/build/outputs/bundle/play/app-play.aab
           if-no-files-found: error
           retention-days: 14
@@ -185,6 +190,7 @@ jobs:
             > dist-beget/public_html/deploy-meta.json
 
       - name: Install backup helper and back up runtime state
+        if: vars.GENESIS_DEPLOY_TARGET != 'hostinger'
         uses: easingthemes/ssh-deploy@v6
         with:
           SSH_PRIVATE_KEY: ${{ secrets.BEGET_SSH_KEY }}
@@ -208,6 +214,7 @@ jobs:
           SCRIPT_AFTER_REQUIRED: true
 
       - name: Deploy server code (excluding secrets and runtime data)
+        if: vars.GENESIS_DEPLOY_TARGET != 'hostinger'
         uses: easingthemes/ssh-deploy@v6
         with:
           SSH_PRIVATE_KEY: ${{ secrets.BEGET_SSH_KEY }}
@@ -220,6 +227,7 @@ jobs:
           EXCLUDE: "config.php, config.example.php, var/, .git/"
 
       - name: Deploy public artifact (client and API router)
+        if: vars.GENESIS_DEPLOY_TARGET != 'hostinger'
         uses: easingthemes/ssh-deploy@v6
         with:
           SSH_PRIVATE_KEY: ${{ secrets.BEGET_SSH_KEY }}
@@ -230,13 +238,56 @@ jobs:
           TARGET: "/home/h/haiirodw/genesis-calendar/public_html/"
           ARGS: "-rlztvO --delete"
 
+      - name: Back up Hostinger runtime state
+        if: vars.GENESIS_DEPLOY_TARGET == 'hostinger'
+        uses: easingthemes/ssh-deploy@v6
+        with:
+          SSH_PRIVATE_KEY: ${{ secrets.HOSTINGER_SSH_KEY }}
+          REMOTE_HOST: 82.198.232.224
+          REMOTE_USER: u531952483
+          REMOTE_PORT: 65002
+          SOURCE: "ops/"
+          TARGET: "/home/u531952483/domains/genesiscalendar.com/ops/"
+          ARGS: "-rlztvO --delete"
+          SCRIPT_AFTER: |
+            set -eu
+            ROOT=/home/u531952483/domains/genesiscalendar.com
+            test -f "$ROOT/server/config.php"
+            php "$ROOT/ops/backup-runtime.php" --server-root="$ROOT/server" --backup-root="$ROOT/backups" --retain=20
+          SCRIPT_AFTER_REQUIRED: true
+
+      - name: Deploy private Hostinger server code
+        if: vars.GENESIS_DEPLOY_TARGET == 'hostinger'
+        uses: easingthemes/ssh-deploy@v6
+        with:
+          SSH_PRIVATE_KEY: ${{ secrets.HOSTINGER_SSH_KEY }}
+          REMOTE_HOST: 82.198.232.224
+          REMOTE_USER: u531952483
+          REMOTE_PORT: 65002
+          SOURCE: "server/"
+          TARGET: "/home/u531952483/domains/genesiscalendar.com/server/"
+          ARGS: "-rlztvO --delete"
+          EXCLUDE: "config.php, config.example.php, var/, .git/"
+
+      - name: Deploy Hostinger public client and API
+        if: vars.GENESIS_DEPLOY_TARGET == 'hostinger'
+        uses: easingthemes/ssh-deploy@v6
+        with:
+          SSH_PRIVATE_KEY: ${{ secrets.HOSTINGER_SSH_KEY }}
+          REMOTE_HOST: 82.198.232.224
+          REMOTE_USER: u531952483
+          REMOTE_PORT: 65002
+          SOURCE: "dist-beget/public_html/"
+          TARGET: "/home/u531952483/domains/genesiscalendar.com/public_html/"
+          ARGS: "-rlztvO --delete"
+
       - name: Verify production health and deployed commit
         env:
           EXPECTED_COMMIT: ${{ github.sha }}
         run: |
           for attempt in 1 2 3 4 5 6; do
-            if HEALTH="$(curl -fsS "https://genesiscalendar.ru/api/health?run=${GITHUB_RUN_ID}")" && \
-               META="$(curl -fsS "https://genesiscalendar.ru/deploy-meta.json?run=${GITHUB_RUN_ID}")"; then
+            if HEALTH="$(curl -fsS "$PRODUCTION_ORIGIN/api/health?run=${GITHUB_RUN_ID}")" && \
+               META="$(curl -fsS "$PRODUCTION_ORIGIN/deploy-meta.json?run=${GITHUB_RUN_ID}")"; then
               break
             fi
             if [ "$attempt" -eq 6 ]; then
@@ -249,16 +300,44 @@ jobs:
           test "$ACTUAL_COMMIT" = "$EXPECTED_COMMIT"
           printf 'Production commit: %s\n' "$ACTUAL_COMMIT"
 
+      - name: Assemble compatibility files for the previous origin
+        if: vars.GENESIS_DEPLOY_TARGET == 'hostinger'
+        run: |
+          mkdir -p dist-legacy/server/src dist-legacy/server/cron dist-legacy/public_html/api dist-legacy/public_html/downloads
+          cp server/src/relocation.php dist-legacy/server/src/
+          cp server/cron/sync.php dist-legacy/server/cron/
+          cp server/public/api/index.php dist-legacy/public_html/api/
+          cp dist-beget/public_html/.htaccess dist-legacy/public_html/
+          cp dist-beget/public_html/relocated.* dist-legacy/public_html/
+          cp dist-beget/public_html/relocated-sw.js dist-legacy/public_html/
+          cp dist-beget/public_html/android-update.json dist-legacy/public_html/
+          cp dist-beget/public_html/downloads/*.apk dist-legacy/public_html/downloads/
+
+      - name: Keep installed applications compatible with the previous origin
+        if: vars.GENESIS_DEPLOY_TARGET == 'hostinger'
+        uses: easingthemes/ssh-deploy@v6
+        with:
+          SSH_PRIVATE_KEY: ${{ secrets.BEGET_SSH_KEY }}
+          REMOTE_HOST: haiirodw.beget.tech
+          REMOTE_USER: haiirodw
+          REMOTE_PORT: 22
+          SOURCE: "dist-legacy/"
+          TARGET: "/home/h/haiirodw/genesis-calendar/"
+          ARGS: "-rlztvO"
+          SCRIPT_BEFORE: |
+            test -f /home/h/haiirodw/genesis-calendar/server/var/relocation.json
+          SCRIPT_BEFORE_REQUIRED: true
+
       - name: Verify public native APK
         run: |
           set -euo pipefail
-          EXPECTED="$(sha256sum dist-beget/public_html/downloads/GENESIS-Android-Native-2.6.6.apk | cut -d' ' -f1)"
-          curl -fsSL --retry 3 "https://genesiscalendar.ru/android-update.json" \
-            | jq -e --arg sha "$EXPECTED" '.versionCode == 72 and .versionName == "2.6.6" and .sha256 == $sha' >/dev/null
+          EXPECTED="$(sha256sum dist-beget/public_html/downloads/GENESIS-Android-Native-2.6.7.apk | cut -d' ' -f1)"
+          curl -fsSL --retry 3 "$PRODUCTION_ORIGIN/android-update.json" \
+            | jq -e --arg sha "$EXPECTED" '.versionCode == 73 and .versionName == "2.6.7" and .sha256 == $sha' >/dev/null
           DOWNLOAD_REDIRECT="$(curl -sS -o /dev/null -w '%{http_code} %{redirect_url}' \
-            "https://genesiscalendar.ru/api/android/download")"
-          test "$DOWNLOAD_REDIRECT" = "302 https://genesiscalendar.ru/downloads/GENESIS-Android-Native-2.6.6.apk"
-          curl -fsSL --retry 3 "https://genesiscalendar.ru/downloads/GENESIS-Android-Native-2.6.6.apk" \
+            "$PRODUCTION_ORIGIN/api/android/download")"
+          test "$DOWNLOAD_REDIRECT" = "302 $PRODUCTION_ORIGIN/downloads/GENESIS-Android-Native-2.6.7.apk"
+          curl -fsSL --retry 3 "$PRODUCTION_ORIGIN/downloads/GENESIS-Android-Native-2.6.7.apk" \
             | sha256sum \
             | awk -v expected="$EXPECTED" '$1 == expected { found = 1 } END { exit !found }'
 
