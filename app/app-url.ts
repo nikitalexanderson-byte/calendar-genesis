@@ -1,4 +1,4 @@
-const GENESIS_URL_BASE = typeof window === "undefined" ? "https://genesiscalendar.ru" : window.location.origin;
+const GENESIS_URL_BASE = typeof window === "undefined" ? "https://genesiscalendar.com" : window.location.origin;
 
 export function cleanGenesisAppUrl(value: string | URL) {
   const url = value instanceof URL

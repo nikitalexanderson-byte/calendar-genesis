@@ -11,7 +11,10 @@ $serverRoot = rtrim((string)($options['server-root'] ?? ''), '/');
 $backupRoot = rtrim((string)($options['backup-root'] ?? ''), '/');
 $retain = max(1, min(100, (int)($options['retain'] ?? 20)));
 
-if (!preg_match('#^/home/h/[A-Za-z0-9_-]+/genesis-calendar/server$#', $serverRoot)) {
+if (!in_array($serverRoot, [
+    '/home/h/haiirodw/genesis-calendar/server',
+    '/home/u531952483/domains/genesiscalendar.com/server',
+], true)) {
     fwrite(STDERR, "Unsafe server root.\n");
     exit(1);
 }

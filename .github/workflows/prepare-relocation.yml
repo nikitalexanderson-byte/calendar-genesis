@@ -63,7 +63,8 @@ jobs:
           mkdir -p "$RUNNER_TEMP/genesis-signing" relocation/public_html/downloads relocation/server
           export GENESIS_ANDROID_SIGNING_STORE="$RUNNER_TEMP/genesis-signing/release.jks"
           printf '%s' "$SIGNING_KEYSTORE_B64" | base64 -d > "$GENESIS_ANDROID_SIGNING_STORE"
-          (cd android && bash ./gradlew :app:assembleRelease -PgenesisUrl="$TARGET_ORIGIN/" --no-daemon --console=plain)
+          if [ "$TARGET_ORIGIN" = "https://genesiscalendar.com" ]; then export GENESIS_YANDEX_CLIENT_ID=""; fi
+          (cd android && bash ./gradlew :app:testDebugUnitTest :app:assembleRelease -PgenesisUrl="$TARGET_ORIGIN/" --no-daemon --console=plain)
           APK=android/app/build/outputs/apk/release/app-release.apk
           test -s "$APK"
           "$ANDROID_HOME/build-tools/37.0.0/apksigner" verify --verbose --print-certs "$APK" \

@@ -7361,6 +7361,7 @@ export function GenesisCalendar() {
         <Suspense fallback={<DeferredDialogFallback label={language === "en" ? "Opening account…" : "Открываем личный кабинет…"} />}>
           <AccountPanel
             user={cloudUser}
+            yandexAvailable={yandexAvailable}
             onClose={() => setAccountOpen(false)}
             onReconnectGoogle={() => {
               setAccountOpen(false);

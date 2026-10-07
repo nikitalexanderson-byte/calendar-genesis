@@ -7,7 +7,7 @@ plugins {
 }
 
 val genesisUrl = providers.gradleProperty("genesisUrl")
-    .orElse("https://genesiscalendar.ru/")
+    .orElse("https://genesiscalendar.com/")
     .get()
 val genesisUri = URI(genesisUrl)
 require(genesisUri.scheme == "https" && !genesisUri.host.isNullOrBlank()) {
@@ -40,8 +40,8 @@ android {
         applicationId = "ru.genesis.calendar"
         minSdk = 26
         targetSdk = 37
-        versionCode = 72
-        versionName = "2.6.6"
+        versionCode = 73
+        versionName = "2.6.7"
         buildConfigField("boolean", "PLAY_DISTRIBUTION", "false")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 function genesisYandexConfigured(): bool
 {
     $config = genesisConfig();
+    if ((bool)($config['google_only'] ?? false)) return false;
     return trim((string)($config['yandex_client_id'] ?? '')) !== ''
         && trim((string)($config['yandex_client_secret'] ?? '')) !== '';
 }

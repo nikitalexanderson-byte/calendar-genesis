@@ -20,6 +20,14 @@ if ($serverRoot === '') {
     http_response_code(503);
     exit('GENESIS server files are unavailable.');
 }
+require $serverRoot . '/src/relocation.php';
+genesisHandleRelocation($serverRoot);
+$method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
+$path = trim((string)($_GET['path'] ?? $_SERVER['PATH_INFO'] ?? ''), '/');
+$segments = $path === '' ? [] : explode('/', $path);
+// Parallel public discovery must not replace the cookie of a new login session.
+define('GENESIS_STATELESS_REQUEST', $method === 'OPTIONS'
+    || ($method === 'GET' && in_array($path, ['health', 'auth/providers'], true)));
 require $serverRoot . '/src/bootstrap.php';
 require $serverRoot . '/src/repository.php';
 require $serverRoot . '/src/ads.php';
@@ -37,10 +45,6 @@ header('X-Frame-Options: DENY');
 header('Referrer-Policy: no-referrer');
 header('Permissions-Policy: camera=(), microphone=(self), geolocation=()');
 header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
-
-$method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
-$path = trim((string)($_GET['path'] ?? $_SERVER['PATH_INFO'] ?? ''), '/');
-$segments = $path === '' ? [] : explode('/', $path);
 
 if ($method === 'OPTIONS') {
     http_response_code(204);
@@ -84,7 +88,7 @@ function genesisOAuthRedirect(string $returnTo, ?string $error = null): never
         $safeReturnTo = $base . $separator . 'auth_error=' . rawurlencode($error) . $fragment;
     }
     header('Cache-Control: no-store');
-    header('Location: ' . rtrim((string)genesisConfig()['app_url'], '/') . $safeReturnTo, true, 302);
+    header('Location: ' . genesisRelocationWebOrigin(genesisConfig(), $_SERVER) . $safeReturnTo, true, 302);
     exit;
 }
 
@@ -116,10 +120,15 @@ function genesisRequireYandexUser(string $userId): array
 }
 
 try {
+    $googleOnly = (bool)(genesisConfig()['google_only'] ?? false);
+    if ($googleOnly && str_contains($path, 'yandex')) {
+        genesisJson(['error' => 'NOT_FOUND'], 404);
+    }
     $sessionUserId = genesisCurrentUserId();
     if ($sessionUserId !== null) {
         $sessionUser = genesisFindUser($sessionUserId);
-        if ($sessionUser !== null && genesisUserProvider($sessionUser) === 'unsupported') {
+        if ($sessionUser !== null && (genesisUserProvider($sessionUser) === 'unsupported'
+            || ($googleOnly && genesisUserProvider($sessionUser) !== 'google'))) {
             unset($_SESSION['user_id'], $_SESSION['csrf'], $_SESSION['pending_local_link']);
         }
     }

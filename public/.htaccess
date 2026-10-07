@@ -3,6 +3,13 @@ AddDefaultCharset UTF-8
 AddType application/vnd.android.package-archive .apk
 
 RewriteEngine On
+RewriteCond %{HTTP_HOST} ^(?:www\.)?genesiscalendar\.ru$ [NC]
+RewriteCond %{DOCUMENT_ROOT}/../server/var/legacy-announcement.json -f
+RewriteRule ^sw\.js$ relocated-sw.js [L]
+RewriteCond %{HTTP_HOST} ^(?:www\.)?genesiscalendar\.ru$ [NC]
+RewriteCond %{DOCUMENT_ROOT}/../server/var/legacy-announcement.json -f
+RewriteCond %{REQUEST_URI} !^/(?:api(?:/|$)|downloads/|android-update\.json$|deploy-meta\.json$|\.well-known/|relocated(?:-sw)?\.(?:html|js)$)
+RewriteRule ^ relocated.html [L]
 RewriteRule ^api(?:/|$) - [L]
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d

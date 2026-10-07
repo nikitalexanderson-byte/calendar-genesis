@@ -2,7 +2,8 @@
 declare(strict_types=1);
 
 return [
-    'app_url' => 'https://genesiscalendar.ru',
+    'app_url' => 'https://genesiscalendar.com',
+    'google_only' => true,
     'google_client_id' => '',
     'google_client_secret' => '',
     // Yandex ID sign-in remains unavailable until both values are configured.
