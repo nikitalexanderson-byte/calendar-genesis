@@ -4,6 +4,7 @@ import "./globals.css";
 import "./experimental-theme.css";
 import "./dark-theme.css";
 import "./tablet-layout.css";
+import "./universal-ui.css";
 import { AppUrlCleaner } from "./AppUrlCleaner";
 import { YandexMetrika } from "./YandexMetrika";
 

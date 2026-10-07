@@ -24,6 +24,7 @@ import { CalendarDayTaskCounts, CalendarYearTaskCounts } from "./CalendarTaskCou
 import { TodayAdBlock } from "./TodayAdBlock";
 import { uiVisibility, viewIsVisible } from "./ui-visibility";
 import { ProjectsHeroMark } from "./ProjectsHeroMark";
+import { WorkspaceHeader, TasksHeroMark } from "./WorkspaceHeader";
 import { formatTaskCount, formatTaskListCount, TASK_SUMMARY_LABELS } from "./task-count-i18n";
 import {
   type GeminiPlan,
@@ -1352,9 +1353,13 @@ export function GenesisCalendar() {
   const [accountOpen, setAccountOpen] = useState(false);
   const [projectsArea, setProjectsArea] = useState<"personal" | "shared">("personal");
   const [tasksArea, setTasksArea] = useState<"tasks" | "lists">("tasks");
+  const mobileMoreRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    document.documentElement.dataset.genesisMenuLabels =
-      window.localStorage.getItem("genesis-menu-labels") === "icons" ? "icons" : "text";
+    document.documentElement.dataset.genesisMenuLabels = "text";
+    try {
+      window.localStorage.setItem("genesis-menu-labels", "text");
+      window.localStorage.setItem("genesis-settings-menu-labels", "text");
+    } catch { /* Labels stay visible when browser storage is unavailable. */ }
   }, []);
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -5649,25 +5654,19 @@ export function GenesisCalendar() {
 
     return (
       <div className="projects-view" data-exp-layout="view">
-        <header className="projects-header" data-exp-ui="panel">
-          <div className="projects-hero-content">
-            <ProjectsHeroMark />
-            <div>
-              <span className="eyebrow">Система порядка</span>
-              <h1>{language === "en" ? "Projects - personal" : "Проекты - личные"}</h1>
-              <p>Разделяйте большие замыслы на подпроекты и конкретные действия. Связи, повторения и сроки остаются видимыми в плане дня.</p>
-            </div>
-          </div>
+        <WorkspaceHeader title={language === "en" ? "Projects - personal" : "Проекты - личные"}
+          description="Разделяйте большие замыслы на подпроекты и конкретные действия. Связи, повторения и сроки остаются видимыми в плане дня."
+          mark={<ProjectsHeroMark />}>
           <div className="projects-summary" aria-label="Сводка проектов">
             <span><strong>{activeProjects}</strong> активных</span>
             <span><strong>{rootProjects}</strong> основных</span>
             <span><strong>{completedProjects}</strong> завершено</span>
           </div>
-        </header>
+        </WorkspaceHeader>
 
         <label className="tag-search">
           <span aria-hidden="true">⌕</span>
-          <input value={tagSearch} onChange={(event) => setTagSearch(event.target.value)} placeholder="Поиск проектов по тегам — например, #работа" />
+          <input aria-label="Поиск проектов по тегам — например, #работа" value={tagSearch} onChange={(event) => setTagSearch(event.target.value)} placeholder="Поиск проектов по тегам — например, #работа" />
           {tagSearch ? <button type="button" onClick={() => setTagSearch("")} aria-label="Очистить поиск">×</button> : null}
         </label>
 
@@ -5941,38 +5940,34 @@ export function GenesisCalendar() {
 
     return (
       <div className="all-tasks-view" data-exp-layout="view">
-        <header className="all-tasks-header" data-exp-ui="panel">
-          <div>
-            <span className="eyebrow">Полный обзор</span>
-            <h1>Задачи</h1>
-            <p>{cloudUser?.authProvider === "yandex"
-              ? translateText("Задачи и встречи GENESIS в одном списке.", language)
-              : "Каждая задача из GENESIS, Google Calendar и Google Tasks в одном списке — со сроками, проектами, тегами, приоритетом и связями."}</p>
-          </div>
+        {personalTasksVisible && taskListsVisible ? <nav className="tasks-area-switch" aria-label={isEnglish ? "Task sections" : "Разделы задач"}>
+          <button type="button" aria-current={activeTasksArea === "tasks" ? "page" : undefined} onClick={() => setTasksArea("tasks")}>{isEnglish ? "Tasks" : "Задачи"}</button>
+          <button type="button" aria-current={activeTasksArea === "lists" ? "page" : undefined} onClick={() => setTasksArea("lists")}>{isEnglish ? "Task lists" : "Списки задач"}</button>
+        </nav> : null}
+        <WorkspaceHeader title={activeTasksArea === "lists" ? (isEnglish ? "Task lists" : "Списки задач") : (isEnglish ? "Tasks" : "Задачи")}
+          description={cloudUser?.authProvider === "yandex"
+            ? translateText("Задачи и встречи GENESIS в одном списке.", language)
+            : "Каждая задача из GENESIS, Google Calendar и Google Tasks в одном списке — со сроками, проектами, тегами, приоритетом и связями."}
+          mark={<TasksHeroMark />}>
           <div className="all-tasks-summary" aria-label="Сводка задач">
             <span data-no-translate><strong>{tasks.length}</strong> {TASK_SUMMARY_LABELS[language].total}</span>
             <span data-no-translate><strong>{activeCount}</strong> {TASK_SUMMARY_LABELS[language].active}</span>
             <span data-no-translate><strong>{doneCount}</strong> {TASK_SUMMARY_LABELS[language].completed}</span>
           </div>
-        </header>
-
-        {personalTasksVisible && taskListsVisible ? <nav className="tasks-area-switch" aria-label={isEnglish ? "Task sections" : "Разделы задач"}>
-          <button type="button" aria-current={activeTasksArea === "tasks" ? "page" : undefined} onClick={() => setTasksArea("tasks")}>{isEnglish ? "Tasks" : "Задачи"}</button>
-          <button type="button" aria-current={activeTasksArea === "lists" ? "page" : undefined} onClick={() => setTasksArea("lists")}>{isEnglish ? "Task lists" : "Списки задач"}</button>
-        </nav> : null}
+        </WorkspaceHeader>
 
         {activeTasksArea === "tasks" ? <>
 
         <div className="all-tasks-toolbar">
           <label className="tag-search">
             <span aria-hidden="true">⌕</span>
-            <input value={allTasksSearch} onChange={(event) => setAllTasksSearch(event.target.value)} placeholder="Поиск по названию, описанию, проекту или тегу" />
+            <input aria-label="Поиск по названию, описанию, проекту или тегу" value={allTasksSearch} onChange={(event) => setAllTasksSearch(event.target.value)} placeholder="Поиск по названию, описанию, проекту или тегу" />
             {allTasksSearch ? <button type="button" onClick={() => setAllTasksSearch("")} aria-label="Очистить поиск">×</button> : null}
           </label>
           <div className="all-tasks-status-filter" role="group" aria-label="Фильтр по статусу">
-            <button type="button" className={allTasksStatusFilter === "all" ? "active" : ""} onClick={() => setAllTasksStatusFilter("all")}>Все</button>
-            <button type="button" className={allTasksStatusFilter === "active" ? "active" : ""} onClick={() => setAllTasksStatusFilter("active")}>Активные</button>
-            <button type="button" className={allTasksStatusFilter === "done" ? "active" : ""} onClick={() => setAllTasksStatusFilter("done")}>Завершённые</button>
+            <button type="button" aria-pressed={allTasksStatusFilter === "all"} className={allTasksStatusFilter === "all" ? "active" : ""} onClick={() => setAllTasksStatusFilter("all")}>Все</button>
+            <button type="button" aria-pressed={allTasksStatusFilter === "active"} className={allTasksStatusFilter === "active" ? "active" : ""} onClick={() => setAllTasksStatusFilter("active")}>Активные</button>
+            <button type="button" aria-pressed={allTasksStatusFilter === "done"} className={allTasksStatusFilter === "done" ? "active" : ""} onClick={() => setAllTasksStatusFilter("done")}>Завершённые</button>
           </div>
           <span className="all-tasks-sync" title={syncError || undefined}><i className={`sync-dot sync-${syncStatus}`} /> {syncLabel}</span>
         </div>
@@ -6467,6 +6462,9 @@ export function GenesisCalendar() {
   const navigation = cloudUser?.isAdmin
     ? [...visibleNavigation, { id: "admin" as const, label: "Админ", symbol: "Σ" }]
     : visibleNavigation;
+  const mobilePrimaryIds: ViewName[] = ["today", "all-tasks", "projects", "calendar"];
+  const mobilePrimaryNavigation = navigation.filter((item) => mobilePrimaryIds.includes(item.id));
+  const mobileMoreNavigation = navigation.filter((item) => !mobilePrimaryIds.includes(item.id));
   const calendarRailItems = activeCalendarMode === "sacred"
     ? MONTHS.map((month) => ({
         id: `sacred-${month.index}`,
@@ -6859,12 +6857,26 @@ export function GenesisCalendar() {
 
       {habitFeedback ? <HabitCompletionFeedback event={habitFeedback} language={language} showGamification={habitWorkspace.habitSettings.feedback.gamificationWidgets} /> : null}
       <nav className="mobile-nav" aria-label="Мобильная навигация" data-exp-ui="mobile-nav">
-        {navigation.map((item) => (
+        {mobilePrimaryNavigation.map((item) => (
           <button type="button" key={item.id} data-nav-id={item.id} data-exp-ui="nav-button" className={view === item.id ? "active" : ""} onClick={() => activateNavigation(item.id)} aria-label={item.label}>
             <span aria-hidden="true">{item.symbol}</span><small>{item.label}</small>
           </button>
         ))}
+        {mobileMoreNavigation.length ? <button type="button" popoverTarget="mobile-more-navigation"
+          className={mobileMoreNavigation.some((item) => item.id === view) ? "active" : ""}>
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="5" cy="12" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="19" cy="12" r="1.5" /></svg>
+          <small>{translateText("Ещё", language)}</small>
+        </button> : null}
       </nav>
+      <div id="mobile-more-navigation" ref={mobileMoreRef} popover="auto" className="mobile-more-navigation">
+        <nav aria-label="Основная навигация">
+          {mobileMoreNavigation.map((item) => <button type="button" key={item.id}
+            aria-current={view === item.id ? "page" : undefined}
+            onClick={() => { mobileMoreRef.current?.hidePopover(); activateNavigation(item.id); }}>
+            <span aria-hidden="true">{item.symbol}</span><span>{item.label}</span>
+          </button>)}
+        </nav>
+      </div>
       {sacredYearDetailsOpen ? (
         <div className="modal-backdrop sacred-year-details-backdrop" role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) setSacredYearDetailsOpen(false); }}>
           <section ref={sacredYearDialogRef} className="sacred-year-details-modal" role="dialog" aria-modal="true" aria-labelledby="sacred-year-details-title" aria-describedby="sacred-year-details-intro" tabIndex={-1}>
