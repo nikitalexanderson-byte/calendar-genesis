@@ -81,4 +81,19 @@ class MenuSwipeNavigationTest {
         assertEquals(SwipeDestination("Настройки"),
             nextMenuSwipeDestination(pages, "Сакральное", "theokyklos", 1))
     }
+
+    @Test fun primaryMenuTapReturnsToFirstVisibleSubmenu() {
+        fun first(page: String, hidden: Set<String> = emptySet()) =
+            firstVisibleSubmenu(page, true, true, emptySet(), hidden, true)
+        assertEquals("tasks", first("Задачи"))
+        assertEquals("lists", first("Задачи", setOf("tasks.tasks")))
+        assertEquals("personal", first("Проекты"))
+        assertEquals("shared", first("Проекты", setOf("projects.personal")))
+        assertEquals("month", first("Календарь"))
+        assertEquals("year", first("Календарь", setOf("calendar.month")))
+        assertEquals("Привычки", first("Привычки"))
+        assertEquals("stoicheion", first("Сакральное"))
+        assertEquals("appearance", first("Настройки"))
+        assertNull(first("Сегодня"))
+    }
 }

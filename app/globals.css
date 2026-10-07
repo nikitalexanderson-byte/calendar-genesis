@@ -5999,7 +5999,13 @@ html[data-language="en"] .inbox-card.drop-target::after {
 .account-preferences { margin-top: 18px; padding: 18px; background: rgba(178, 138, 74, .07); border: 1px solid rgba(178, 138, 74, .23); border-radius: 10px; }
 .account-preferences h3 { margin: 5px 0 14px; font: 400 23px/1.2 Georgia, serif; }
 .appearance-settings-subsection { min-width: 0; margin-top: 14px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.appearance-settings-stack { min-width: 0; }
+html[data-genesis-theme^="standart"] .appearance-settings-stack { margin-top: 18px; padding: 18px; background: rgba(178, 138, 74, .07); border: 1px solid rgba(178, 138, 74, .23); border-radius: 10px; }
+html[data-genesis-theme^="standart"] .appearance-settings-stack > div:first-child > h3 { margin: 5px 0 14px; font: 400 23px/1.2 Georgia, serif; }
+html[data-genesis-theme^="standart"] .appearance-menu-subsection { display: contents; }
+html[data-genesis-theme^="standart"] .appearance-menu-controls { min-width: 0; margin-top: 14px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
 .appearance-settings-subsection h4 { margin: 0 0 12px; font-size: 16px; }
+.appearance-menu-controls h4 { margin: 0 0 12px; font-size: 16px; }
 .appearance-settings-subsection .account-preferences { margin-top: 12px; }
 .appearance-calendar-settings .appearance-nested-preference { margin-top: 8px; padding: 12px 0 0; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: transparent; }
 .appearance-language-details .language-flag img { display: block; width: 28px; height: 21px; object-fit: cover; border-radius: 2px; box-shadow: 0 0 0 1px rgba(25, 40, 42, .15); }

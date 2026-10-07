@@ -52,6 +52,8 @@ internal val LocalNavigationPageContext = staticCompositionLocalOf<NavigationPag
 internal val LocalNavigationGlowPhase = staticCompositionLocalOf<State<Float>?> { null }
 internal val LocalCompactSubmenus = staticCompositionLocalOf { false }
 internal val LocalSubmenuOutlineMode = staticCompositionLocalOf { false }
+/** The navigation shell owns the submenu while only page content is paged. */
+internal val LocalFixedSubmenu = staticCompositionLocalOf { false }
 
 internal fun navigationGlowColor(phase: Float, evening: Boolean): Color {
     val colors = if (evening) listOf(Color(0xff83bdb0), Color(0xffaa9cc9),

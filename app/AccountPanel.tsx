@@ -711,12 +711,12 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
             : <button type="button" className="primary-button" disabled={busy} onClick={connectCalendar}>Подключить Яндекс.Календарь</button>}
         </section> : null}
 
-        <section className="account-preferences theme-preference" aria-labelledby="theme-title" data-exp-ui="panel" data-settings-group="appearance">
-          <div>
+        <div className="appearance-settings-stack" data-settings-group="appearance">
+          {!themeState.theme.startsWith("experimental") ? <div>
             <span className="eyebrow">{user.language === "en" ? "Primary theme — Standart" : "Основная тема — Standart"}</span>
-            <h3 id="theme-title" data-exp-ui="heading">{user.language === "en" ? "Appearance" : "Оформление"}</h3>
-            <p data-exp-ui="text">{user.language === "en" ? "Experimental changes only the presentation of ordinary components. Data, artwork and authored controls stay unchanged." : "Experimental меняет только оформление обычных компонентов. Данные, изображения и авторские элементы остаются прежними."}</p>
-          </div>
+            <h3>{user.language === "en" ? "Appearance" : "Оформление"}</h3>
+            <p>{user.language === "en" ? "Experimental changes only the presentation of ordinary components. Data, artwork and authored controls stay unchanged." : "Experimental меняет только оформление обычных компонентов. Данные, изображения и авторские элементы остаются прежними."}</p>
+          </div> : null}
           <div className="appearance-settings-subsection" role="group"
             aria-label={user.language === "en" ? "Theme switching" : "Переключение тем"}>
             <h4>{user.language === "en" ? "Theme switching" : "Переключение тем"}</h4>
@@ -757,8 +757,9 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
             {translateText(themeStatusMessage, user.language)}
           </p>
           </div>
-          <div className="appearance-settings-subsection" role="group"
+          <div className="appearance-settings-subsection appearance-menu-subsection" role="group"
             aria-label={user.language === "en" ? "Menu display" : "Отображение меню"}>
+            <div className="appearance-menu-controls">
             <h4>{user.language === "en" ? "Menu display" : "Отображение меню"}</h4>
             <div className="language-choice appearance-menu-choice" role="radiogroup"
               aria-label={user.language === "en" ? "Menu labels" : "Подписи меню"}>
@@ -783,7 +784,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
                 {user.language === "en" ? "Icons only" : "Только иконки"}
               </button>
             </div>
-          </div>
+            </div>
           <details className="appearance-menu-details">
             <summary><span>{user.language === "en" ? "Menu item display" : "Отображение элементов меню"}</span>
               <span className="appearance-summary-action appearance-summary-closed">{user.language === "en" ? "Customize menu items" : "Настроить элементы"}</span>
@@ -837,6 +838,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
             </fieldset>
           </div>
           </details>
+          </div>
           <details className="appearance-menu-details appearance-language-details">
             <summary><span>{user.language === "en" ? "Interface language" : "Язык интерфейса"}</span>
               <span className="appearance-summary-action appearance-summary-closed">{user.language === "en" ? "Choose language" : "Выбрать язык"}</span>
@@ -988,7 +990,7 @@ export function AccountPanel({ user, onClose, onReconnectGoogle, onConnectAdditi
         </section>
 
           </div>
-        </section>
+        </div>
 
         <section className="account-preferences" aria-labelledby="account-preferences-title" data-settings-group="appearance">
           <div>

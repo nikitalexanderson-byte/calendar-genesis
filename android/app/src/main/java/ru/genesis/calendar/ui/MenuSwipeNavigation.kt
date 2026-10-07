@@ -87,6 +87,12 @@ internal fun menuVisibilityId(page: String): String = when (page) {
     else -> ""
 }
 
+internal fun firstVisibleSubmenu(page: String, habitsEnabled: Boolean,
+    sharedProjectsEnabled: Boolean, hiddenMenuItems: Set<String>,
+    hiddenSubmenus: Set<String>, settingsSubmenuEnabled: Boolean): String? =
+    menuSwipeSequence(true, habitsEnabled, sharedProjectsEnabled, hiddenMenuItems,
+        hiddenSubmenus, settingsSubmenuEnabled).firstOrNull { it.page == page }?.section
+
 internal fun nextMenuSwipeDestination(sequence: List<SwipeDestination>, page: String,
     section: String?, step: Int): SwipeDestination? {
     require(step == -1 || step == 1)

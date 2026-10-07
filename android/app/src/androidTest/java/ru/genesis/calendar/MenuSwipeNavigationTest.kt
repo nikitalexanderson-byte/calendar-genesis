@@ -46,6 +46,7 @@ class MenuSwipeNavigationTest {
                 File(app.getExternalFilesDir(null), "menu-swipe-settings.png")))
 
             compose.onNodeWithTag("navigation-Сегодня").performClick()
+            device.executeShellCommand("dumpsys gfxinfo ru.genesis.calendar.debug reset")
             compose.onNodeWithTag("main-content").performTouchInput { swipeRight() }
             compose.waitForIdle()
             compose.onNodeWithTag("today-list").assertExists()
@@ -64,6 +65,11 @@ class MenuSwipeNavigationTest {
             compose.onNodeWithTag("main-content").performTouchInput { swipeRight() }
             compose.waitForIdle()
             compose.onNodeWithTag("projects-screen").assertExists()
+
+            android.util.Log.i("GENESIS_MENU_PERF", device.executeShellCommand(
+                "dumpsys gfxinfo ru.genesis.calendar.debug").lineSequence()
+                .filter { it.startsWith("Total frames rendered:") || it.startsWith("Janky frames:") ||
+                    it.startsWith("90th percentile:") }.joinToString(" | "))
 
             compose.onNodeWithTag("navigation-Календарь").performClick()
             compose.onNodeWithTag("calendar-month").assertExists()
