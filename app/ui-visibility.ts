@@ -23,6 +23,7 @@ export function uiVisibility(value?: Partial<UiVisibility> | null): UiVisibility
 
 export function viewIsVisible(view: string, settings: UiVisibility): boolean {
   if (view === "today" || view === "admin") return true;
+  if ((view === "stoicheion" || view === "theokyklos") && settings.hiddenMenuItems.includes("sacred")) return false;
   const parent = view === "all-tasks" ? "tasks" : view === "year" ? "calendar" : view;
   if (settings.hiddenMenuItems.includes(parent)) return false;
   if (view === "calendar" && settings.hiddenSubmenus.includes("calendar.month")) return false;

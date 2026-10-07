@@ -328,4 +328,20 @@ class CloudAccountImporterTest {
                 .import(CloudAccountSnapshot.fromBootstrap(payload.put("workspace", workspace()))))
         } finally { db.close() }
     }
+    @Test fun acknowledgedDeletionSurvivesAnOlderCloudResponse() = runBlocking {
+        val db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), GenesisDatabase::class.java).build()
+        try {
+            val initial = CloudAccountSnapshot.fromBootstrap(response("Cached task", "Project"))
+            val importer = CloudAccountImporter(db)
+            importer.import(initial)
+            val cached = requireNotNull(db.dao().task(initial.scope, "google-1"))
+            db.dao().putTask(cached.copy(deleted = true))
+            db.dao().deleteTaskReminders(initial.scope, "google-1")
+            // DELETE has already been acknowledged, so there is no outbox entry.
+            importer.import(initial)
+            assertTrue(requireNotNull(db.dao().task(initial.scope, "google-1")).deleted)
+            assertTrue(db.dao().reminders(initial.scope).none { it.taskId == "google-1" })
+        } finally { db.close() }
+    }
+
 }

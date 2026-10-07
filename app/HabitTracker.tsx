@@ -142,6 +142,7 @@ type DailyPanelProps = {
   onOpenHabits?: () => void;
   compact?: boolean;
   showGoalSettings?: boolean;
+  experimentalThemeActive?: boolean;
 };
 
 type HabitTrackerPageProps = DailyPanelProps & {
@@ -808,42 +809,12 @@ function DailyGoalSettings({ workspace, today, language, calendarMode, onChange 
   );
 }
 
-function MoodTracker({ workspace, date, language, onChange }: Pick<DailyPanelProps, "workspace" | "date" | "language" | "onChange">) {
+function MoodTracker({ workspace, date, language, onChange, experimentalThemeActive }: Pick<DailyPanelProps, "workspace" | "date" | "language" | "onChange" | "experimentalThemeActive">) {
   const isEnglish = language === "en";
   const [isOpen, setIsOpen] = useState(false);
   const mood = workspace.moodEntries.find((entry) => entry.date === date);
   const selected = mood ? moodOption(mood.moodValue) : null;
-  return (
-    <section className={`mood-tracker${isOpen ? " is-open" : ""}`}>
-      <button type="button" className="mood-summary" aria-expanded={isOpen} onClick={() => setIsOpen((current) => !current)}>
-        <span>{isEnglish ? "Mood of the day" : "Настроение дня"}</span>
-        <strong style={{ color: mood ? moodColor(mood.moodValue) : undefined }}>
-          {mood?.customLabel ? `${mood.customEmoji || "✨"} ${mood.customLabel}` : selected ? (isEnglish ? selected.labelEn : selected.label) : (isEnglish ? "Not selected" : "Не выбрано")}
-        </strong>
-        <span className="mood-summary-action">
-          {isEnglish ? "Choose" : "Выбрать"}
-          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4" /></svg>
-        </span>
-      </button>
-      {isOpen ? <>
-      <div className="mood-options" role="listbox" aria-label={isEnglish ? "Choose mood" : "Выберите настроение"}>
-        {MOOD_SCALE.map((option) => (
-          <button
-            type="button"
-            role="option"
-            aria-selected={mood?.moodValue === option.value && !mood.customLabel}
-            className={mood?.moodValue === option.value && !mood.customLabel ? "selected" : ""}
-            style={{ "--mood-color": moodColor(option.value) } as CSSProperties}
-            onClick={() => onChange(replaceMood(workspace, date, { moodValue: option.value as MoodValue, customLabel: "", customEmoji: "" }))}
-            title={isEnglish ? option.labelEn : option.label}
-            key={option.value}
-          >
-            <span aria-hidden="true">{option.symbol}</span>
-            <small>{isEnglish ? option.labelEn : option.label}</small>
-            <em>{option.value > 0 ? `+${option.value}` : option.value}</em>
-          </button>
-        ))}
-      </div>
+  const customFields = (
       <div className="mood-custom">
         <label><span>{isEnglish ? "Your mood" : "Своё настроение"}</span>
           <input maxLength={40} value={mood?.customLabel ?? ""} placeholder={isEnglish ? "Name your mood" : "Название настроения"}
@@ -861,6 +832,41 @@ function MoodTracker({ workspace, date, language, onChange }: Pick<DailyPanelPro
             }))}>{entry.customEmoji} {entry.customLabel}</button>
           ))}
       </div>
+  );
+  return (
+    <section className={`mood-tracker${isOpen ? " is-open" : ""}`}>
+      <button type="button" className="mood-summary" aria-expanded={isOpen} onClick={() => setIsOpen((current) => !current)}>
+        <span>{isEnglish ? "Mood of the day" : "Настроение дня"}</span>
+        <strong style={{ color: mood ? moodColor(mood.moodValue) : undefined }}>
+          {mood?.customLabel ? `${mood.customEmoji || "✨"} ${mood.customLabel}` : selected ? (isEnglish ? selected.labelEn : selected.label) : (isEnglish ? "Not selected" : "Не выбрано")}
+        </strong>
+        <span className="mood-summary-action">
+          {isEnglish ? "Choose" : "Выбрать"}
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4" /></svg>
+        </span>
+      </button>
+      {isOpen ? <>
+      <div className="mood-options" role="group" aria-label={isEnglish ? "Choose mood" : "Выберите настроение"}>
+        {MOOD_SCALE.map((option) => (
+          <button
+            type="button"
+            aria-pressed={mood?.moodValue === option.value && !mood.customLabel}
+            className={mood?.moodValue === option.value && !mood.customLabel ? "selected" : ""}
+            style={{ "--mood-color": moodColor(option.value) } as CSSProperties}
+            onClick={() => onChange(replaceMood(workspace, date, { moodValue: option.value as MoodValue, customLabel: "", customEmoji: "" }))}
+            title={isEnglish ? option.labelEn : option.label}
+            key={option.value}
+          >
+            <span aria-hidden="true">{option.symbol}</span>
+            <small>{isEnglish ? option.labelEn : option.label}</small>
+            <em>{option.value > 0 ? `+${option.value}` : option.value}</em>
+          </button>
+        ))}
+      </div>
+      {experimentalThemeActive ? <details className="mood-custom-disclosure">
+        <summary>{isEnglish ? "Your own mood and emoji" : "Своё настроение и эмодзи"}<DisclosureChevron open={false} /></summary>
+        {customFields}
+      </details> : customFields}
       <label className="mood-custom">
         <span>{isEnglish ? "Note and context" : "Заметка и контекст"}</span>
         <input
@@ -876,7 +882,7 @@ function MoodTracker({ workspace, date, language, onChange }: Pick<DailyPanelPro
   );
 }
 
-export function HabitDailyPanel({ workspace, date, language, timeFormat, calendarMode, onChange, onOpenHabits, compact = false, showGoalSettings = false }: DailyPanelProps) {
+export function HabitDailyPanel({ workspace, date, language, timeFormat, calendarMode, onChange, onOpenHabits, compact = false, showGoalSettings = false, experimentalThemeActive = false }: DailyPanelProps) {
   const isEnglish = language === "en";
   const today = habitDateKey(new Date());
   const dueHabits = workspace.habits
@@ -1033,7 +1039,7 @@ export function HabitDailyPanel({ workspace, date, language, timeFormat, calenda
       })}
 
       {hasTrackers && !totalDue ? <p className="habit-rest-day">{isEnglish ? "Nothing is scheduled for this day." : "На этот день ничего не запланировано."}</p> : null}
-      <MoodTracker workspace={workspace} date={date} language={language} onChange={onChange} />
+      <MoodTracker workspace={workspace} date={date} language={language} onChange={onChange} experimentalThemeActive={experimentalThemeActive} />
     </section>
   );
 }
@@ -1474,7 +1480,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
   const hasHabits = workspace.habits.length > 0;
   const activeTemplateIds = new Set(workspace.habits.flatMap((habit) => habit.sourceTemplateId ? [habit.sourceTemplateId] : []));
   const visibleStarterTemplates = STARTER_HABIT_TEMPLATES.filter((template) => !workspace.hiddenDefaultTemplates.includes(template.id) && !activeTemplateIds.has(template.id));
-  const dailyPanel = <HabitDailyPanel workspace={workspace} date={date} language={language} timeFormat={timeFormat} calendarMode={calendarMode} onChange={onChange} showGoalSettings />;
+  const dailyPanel = <HabitDailyPanel workspace={workspace} date={date} language={language} timeFormat={timeFormat} calendarMode={calendarMode} onChange={onChange} experimentalThemeActive={experimentalThemeActive} showGoalSettings />;
 
   const saveHabit = (candidate: Habit) => {
     const previous = workspace.habits.find((item) => item.id === candidate.id);

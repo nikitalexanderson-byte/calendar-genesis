@@ -61,7 +61,7 @@ try {
         'transferId' => 'shared-smoke-project-tree-1', 'mode' => 'move',
         'projects' => [
             ['sourceId' => 'private-root', 'parentSourceId' => null, 'title' => 'Личная цель',
-                'description' => 'План', 'layout' => 'list'],
+                'description' => 'План', 'tags' => ['Перенос'], 'layout' => 'list'],
             ['sourceId' => 'private-child', 'parentSourceId' => 'private-root', 'title' => 'Подпроект',
                 'description' => '', 'layout' => 'board'],
         ],
@@ -69,7 +69,7 @@ try {
             'title' => 'Важное', 'color' => '#a5543f']],
         'tasks' => [['sourceId' => 'private-task-import', 'projectSourceId' => 'private-child',
             'categorySourceId' => 'private-category', 'title' => 'Проверить перенос',
-            'description' => 'Описание задачи', 'dueDate' => '2026-10-12', 'done' => false]],
+            'description' => 'Описание задачи', 'tags' => ['Перенос'], 'dueDate' => '2026-10-12', 'done' => false]],
     ];
     $receipt = genesisSharedImportProjectTree($a, $importSpace['id'], $import);
     sharedExpect(count($receipt['projectIds']) === 2 && count($receipt['taskIds']) === 1,
@@ -98,7 +98,7 @@ try {
     $memberOwned = genesisSharedCreateProject($b, $importSpace['id'], ['title' => 'Проект участника']);
     sharedExpect(genesisSharedProjectSnapshot($a, $memberOwned['id'])['project']['canOrganizeTasks'],
         'Workspace owner cannot organize a project created by a member.');
-    $project = genesisSharedCreateProject($a, $space['id'], ['title' => 'Общий план', 'layout' => 'board']);
+    $project = genesisSharedCreateProject($a, $space['id'], ['title' => 'Общий план', 'tags' => ['Генезис'], 'layout' => 'board']);
     $googleSample = ['id' => 'shared-test-task', 'title' => 'Общее дело',
         'description' => 'Личная заметка и имена участников', 'due_date' => '2026-10-12',
         'completed_at' => null];
@@ -217,11 +217,26 @@ try {
     sharedReject(static fn() => genesisSharedCreateProject($b, $space['id'], ['title' => 'Forbidden']), 403);
     $createRequest = '11111111-1111-4111-8111-111111111111';
     $createInput = [
-        'title' => 'Задача 1', 'statusId' => $snapshot['statuses'][0]['id'],
+        'title' => 'Задача 1', 'tags' => ['Запуск'], 'statusId' => $snapshot['statuses'][0]['id'],
         'categoryId' => $category['id'], 'dueDate' => '2026-10-12',
         'requestId' => $createRequest,
     ];
     $task = genesisSharedTask($a, $project['id'], $createInput);
+    sharedExpect($task['tags'] === ['Запуск'], 'Task tags were lost during creation.');
+    sharedExpect(genesisSharedProjectSnapshot($a, $project['id'])['project']['tags'] === ['Генезис'],
+        'A legacy project edit dropped tags.');
+    $search = genesisSharedSearch($a, $space['id'], '#зап');
+    sharedExpect(count($search['tasks']) === 1 && $search['tasks'][0]['id'] === $task['id'],
+        'Live tag search failed for a Cyrillic task.');
+    sharedExpect(in_array($task['id'], array_column(genesisSharedSearch($a, $space['id'], 'ЗАдА')['tasks'], 'id'), true),
+        'Partial title search was not case-insensitive.');
+    sharedExpect(count(genesisSharedSearch($a, $space['id'], '#ГЕН')['projects']) === 1,
+        'Shared project tags were not searchable.');
+    sharedReject(static fn() => genesisSharedSearch($outsider, $space['id'], '#зап'), 403);
+    sharedInvalid(static fn() => genesisSharedTask($a, $project['id'], [
+        'title' => 'Invalid tag', 'tags' => [42], 'statusId' => $snapshot['statuses'][0]['id'],
+    ]));
+
     sharedExpect(genesisSharedTask($a, $project['id'], $createInput)['id'] === $task['id'],
         'A retried team task created a duplicate.');
     sharedReject(static fn() => genesisSharedTask($a, $otherProject['id'], [
@@ -256,6 +271,22 @@ try {
         'destinationProjectId' => $project['id'], 'statusId' => $snapshot['statuses'][1]['id'],
         'expectedRevision' => 1, 'position' => 0,
     ]), 403);
+    $deleteTask = genesisSharedTask($a, $project['id'], [
+        'title' => 'Deletion fixture', 'statusId' => $snapshot['statuses'][0]['id'], 'tags' => ['deletefixture'],
+    ]);
+    $deleteInput = ['expectedRevision' => 1, 'requestId' => '77777777-7777-4777-8777-777777777777'];
+    sharedReject(static fn() => genesisSharedDeleteTask($b, $project['id'], $deleteTask['id'], $deleteInput), 403);
+    sharedReject(static fn() => genesisSharedDeleteTask($a, $project['id'], $deleteTask['id'],
+        [...$deleteInput, 'expectedRevision' => 2]), 409);
+    genesisDb()->prepare('INSERT INTO shared_google_projection_links
+        (task_id, user_id, destination, google_id, synced_at) VALUES (:task, :user, :destination, :google, :now)')
+        ->execute(['task' => $deleteTask['id'], 'user' => $a, 'destination' => 'calendar',
+            'google' => 'qa-delete-copy', 'now' => genesisNow()]);
+    sharedExpect(genesisSharedDeleteTask($a, $project['id'], $deleteTask['id'], $deleteInput)['ok'], 'Task deletion failed.');
+    sharedExpect(genesisSharedDeleteTask($a, $project['id'], $deleteTask['id'], $deleteInput)['ok'], 'Deletion retry was not idempotent.');
+    sharedExpect(count(genesisSharedSearch($a, $space['id'], '#deletefixture')['tasks']) === 0, 'Deleted task remained searchable.');
+    sharedExpect((int)genesisDb()->query("SELECT COUNT(*) FROM shared_google_projection_cleanup WHERE google_id = 'qa-delete-copy'")->fetchColumn() === 1,
+        'Task deletion lost or duplicated Google cleanup work.');
     genesisSharedSetSpaceRole($a, $space['id'], $b, [
         'role' => 'guest', 'canOrganizeTasks' => true,
     ]);
@@ -267,6 +298,7 @@ try {
     sharedExpect(genesisSharedTask($b, $project['id'], $updateInput, $task['id'])['revision'] === 2,
         'A retried team task edit advanced the revision twice.');
     sharedExpect($updated['revision'] === 2, 'Task revision did not advance.');
+    sharedExpect($updated['tags'] === ['Запуск'], 'An older client edit dropped task tags.');
     $done = genesisSharedTask($b, $project['id'], [
         'statusId' => $snapshot['statuses'][2]['id'], 'expectedRevision' => 2,
     ], $task['id']);

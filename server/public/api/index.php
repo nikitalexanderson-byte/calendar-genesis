@@ -203,6 +203,7 @@ try {
             'user' => $clientUser,
             'csrf' => (string)$_SESSION['csrf'],
             'tasks' => $tasks,
+            'deletedTaskIds' => genesisDeletedTaskIds($userId),
             'tasksDeferred' => genesisUserProvider($user) === 'yandex'
                 && !array_reduce(genesisLocalAccountMembers($user),
                     static fn(bool $found, array $account): bool => $found || !empty($account['tasksConnected']), false),
@@ -248,6 +249,7 @@ try {
         $tasks = $local ? genesisLocalTasksForClient($user) : genesisListAllGoogleTasks($user);
         genesisJson([
             'tasks' => $tasks,
+            'deletedTaskIds' => genesisDeletedTaskIds($userId),
             'taskLists' => $local ? [] : genesisGoogleTaskListsForClient(),
             'syncedAt' => genesisNow(),
             'syncWarning' => $local ? null : genesisGoogleTasksSyncWarning(),
@@ -635,6 +637,9 @@ try {
             genesisSharedRejectInvite($userId, $segments[2]);
             genesisJson(['ok' => true]);
         }
+        if ($method === 'GET' && count($segments) === 4 && $segments[1] === 'spaces' && $segments[3] === 'search') {
+            genesisJson(genesisSharedSearch($userId, $segments[2], (string)($_GET['q'] ?? '')));
+        }
         if (count($segments) === 4 && $segments[1] === 'spaces' && $segments[3] === 'projects') {
             if ($method === 'GET') genesisJson(['projects' => genesisSharedProjects($userId, $segments[2])]);
             if ($method === 'POST') genesisJson(['project' => genesisSharedCreateProject($userId, $segments[2], genesisReadJson())], 201);
@@ -718,6 +723,11 @@ try {
         if (count($segments) === 5 && $segments[1] === 'projects' && $segments[3] === 'tasks'
             && in_array($method, ['PATCH', 'POST'], true)) {
             genesisJson(['task' => genesisSharedTask($userId, $segments[2], genesisReadJson(), $segments[4])]);
+        }
+        if (count($segments) === 5 && $segments[1] === 'projects' && $segments[3] === 'tasks' && $method === 'DELETE') {
+            $result = genesisSharedDeleteTask($userId, $segments[2], $segments[4], genesisReadJson());
+            genesisSharedCleanGoogleCopies($userId, 10);
+            genesisJson($result);
         }
         if (count($segments) === 6 && $segments[1] === 'projects' && $segments[3] === 'tasks'
             && $segments[5] === 'move' && $method === 'POST') {

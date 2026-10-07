@@ -24,8 +24,10 @@ import { CalendarDayTaskCounts, CalendarYearTaskCounts } from "./CalendarTaskCou
 import { TodayAdBlock } from "./TodayAdBlock";
 import { uiVisibility, viewIsVisible } from "./ui-visibility";
 import { ProjectsHeroMark } from "./ProjectsHeroMark";
-import { WorkspaceHeader, TasksHeroMark } from "./WorkspaceHeader";
-import { formatTaskCount, formatTaskListCount, TASK_SUMMARY_LABELS } from "./task-count-i18n";
+import { matchesAffair } from "./affairs-search";
+import { NavigationIcon } from "./NavigationIcon";
+import { WorkspaceHeader } from "./WorkspaceHeader";
+import { formatTaskCount, formatTaskListCount } from "./task-count-i18n";
 import {
   type GeminiPlan,
   type GoogleTaskList,
@@ -61,6 +63,7 @@ import {
   registerWorkspaceRecoveryRequestHandler,
   recordFeatureUsage,
   removeCloudTask,
+  isCloudTaskDeleted,
   removeCloudTaskForTransfer,
   saveCloudTask,
   saveMetrics,
@@ -84,6 +87,7 @@ import { RecurrenceBuilder } from "./RecurrenceBuilder";
 import { YandexCalendarConnectDialog } from "./YandexCalendarConnectDialog";
 import { HabitCompletionFeedback } from "./HabitCompletionFeedback";
 import { WorkspaceRecoveryDialog } from "./WorkspaceRecoveryDialog";
+import { useMoonReminders } from "./MoonReminderSettings";
 import { useDialogAccessibility } from "./use-dialog-accessibility";
 import {
   ACHIEVEMENTS,
@@ -150,7 +154,7 @@ import {
   getAutomaticSolarLocation,
   getSunriseSunset,
 } from "./solar-times";
-import { readSolarPlace, SOLAR_PLACE_CHANGED } from "./solar-place";
+import { readSolarPlace, readSolarTimesVisible, SOLAR_PLACE_CHANGED } from "./solar-place";
 import { usePwaInstall } from "./use-pwa-install";
 import {
   LANGUAGE_LOGIN_PENDING_KEY,
@@ -369,13 +373,10 @@ const LAST_USER_KEY = "genesis-last-user-v2";
 
 const NAVIGATION: Array<{ id: ViewName; label: string; symbol: string }> = [
   { id: "today", label: "Сегодня", symbol: "☉" },
-  { id: "all-tasks", label: "Задачи", symbol: "☰" },
-  { id: "projects", label: "Проекты", symbol: "◇" },
+  { id: "projects", label: "Дела", symbol: "◇" },
   { id: "habits", label: "Привычки", symbol: "✦" },
-  { id: "calendar", label: "Месяц", symbol: "◫" },
-  { id: "year", label: "Круг года", symbol: "◎" },
-  { id: "stoicheion", label: "Стойхейон", symbol: "ϟ" },
-  { id: "theokyklos", label: "Теокиклос", symbol: "Θ" },
+  { id: "calendar", label: "Календарь", symbol: "◫" },
+  { id: "stoicheion", label: "Сакральное", symbol: "ϟ" },
 ];
 
 const CALENDAR_MODE_META: Record<CalendarMode, { label: string }> = {
@@ -563,6 +564,7 @@ function nextHabitReminderDate(habit: Habit, fromDate: string, calendarMode: Cal
 function viewFromHash(): ViewName {
   if (typeof window === "undefined") return "today";
   const candidate = window.location.hash.replace(/^#\/?/, "").split(/[?&]/, 1)[0] as ViewName;
+  if (candidate === "all-tasks" || (candidate as string) === "tasks") return "projects";
   return VIEW_NAMES.has(candidate) ? candidate : "today";
 }
 
@@ -1352,8 +1354,6 @@ export function GenesisCalendar() {
   });
   const [accountOpen, setAccountOpen] = useState(false);
   const [projectsArea, setProjectsArea] = useState<"personal" | "shared">("personal");
-  const [tasksArea, setTasksArea] = useState<"tasks" | "lists">("tasks");
-  const mobileMoreRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     document.documentElement.dataset.genesisMenuLabels = "text";
     try {
@@ -1374,8 +1374,9 @@ export function GenesisCalendar() {
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [experimentalThemeWarningOpen, setExperimentalThemeWarningOpen] = useState(false);
   const pendingExperimentalThemeRef = useRef<GenesisTheme>(GENESIS_THEME.EXPERIMENTAL);
-  const [experimentalTodayTab, setExperimentalTodayTab] = useState<"tasks" | "create">("tasks");
-  const experimentalTodayTabsRef = useRef<HTMLDivElement>(null);
+  const [taskComposer, setTaskComposer] = useState<"today" | "projects" | null>(null);
+  const [composerTab, setComposerTab] = useState<"task" | "lists">("task");
+  const [completedProjectsOpen, setCompletedProjectsOpen] = useState(false);
   const [voiceAssistantOpen, setVoiceAssistantOpen] = useState(false);
   const [voiceControlActive, setVoiceControlActive] = useState(false);
   const [voiceHabitRequest, setVoiceHabitRequest] = useState<{ token: number; kind: "edit" | "delete" | "section"; id?: string; section?: string } | null>(null);
@@ -1435,8 +1436,6 @@ export function GenesisCalendar() {
   const [editingCategoryTitle, setEditingCategoryTitle] = useState("");
   const [editingCategoryColor, setEditingCategoryColor] = useState("#2d6c68");
   const [tagSearch, setTagSearch] = useState("");
-  const [allTasksSearch, setAllTasksSearch] = useState("");
-  const [allTasksStatusFilter, setAllTasksStatusFilter] = useState<"all" | "active" | "done">("all");
   const [editingProject, setEditingProject] = useState<GenesisProject | null>(null);
   const [editingProjectTags, setEditingProjectTags] = useState("");
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -1479,6 +1478,7 @@ export function GenesisCalendar() {
   const { nativeAndroidApkUrl, canInstall, install, isStandalone } = usePwaInstall();
   const sacredYearDialogRef = useDialogAccessibility<HTMLElement>(() => setSacredYearDetailsOpen(false), sacredYearDetailsOpen);
   const dayDetailsDialogRef = useDialogAccessibility<HTMLElement>(() => setDayDetailsOpen(false), dayDetailsOpen);
+  const taskComposerDialogRef = useDialogAccessibility<HTMLElement>(() => setTaskComposer(null), Boolean(taskComposer));
   const dayTaskCreatorDialogRef = useDialogAccessibility<HTMLElement>(() => { setDayTaskCreatorOpen(false); setDayDetailsOpen(true); }, dayTaskCreatorOpen);
   const taskEditorDialogRef = useDialogAccessibility<HTMLFormElement>(() => setEditingTask(null), Boolean(editingTask));
   const taskDeleteDialogRef = useDialogAccessibility<HTMLElement>(() => setPendingTaskDeletion(null), Boolean(pendingTaskDeletion));
@@ -1486,6 +1486,7 @@ export function GenesisCalendar() {
   const projectEditorDialogRef = useDialogAccessibility<HTMLFormElement>(() => setEditingProject(null), Boolean(editingProject));
   const experimentalThemeWarningDialogRef = useDialogAccessibility<HTMLElement>(() => setExperimentalThemeWarningOpen(false), experimentalThemeWarningOpen);
   const themeAccountId = cloudUser?.uid ?? null;
+  useMoonReminders(themeAccountId, language === "en");
   useDocumentLanguage(language);
 
   useEffect(() => {
@@ -1672,6 +1673,7 @@ export function GenesisCalendar() {
     const controller = new AbortController();
 
     const synchronizeSolarLocation = async () => {
+      document.documentElement.dataset.genesisSolarTimes = readSolarTimesVisible() ? "visible" : "hidden";
       const saved = readSolarPlace();
       if (saved) {
         setDeviceLocation(saved);
@@ -1721,10 +1723,6 @@ export function GenesisCalendar() {
   const visibility = uiVisibility(cloudUser?.uiVisibility);
   const personalProjectsVisible = !visibility.hiddenSubmenus.includes("projects.personal");
   const sharedProjectsVisible = Boolean(cloudUser?.sharedProjectsEnabled) && !visibility.hiddenSubmenus.includes("projects.shared");
-  const personalTasksVisible = !visibility.hiddenSubmenus.includes("tasks.tasks");
-  const taskListsVisible = !visibility.hiddenSubmenus.includes("tasks.lists");
-  const activeTasksArea = tasksArea === "tasks" && personalTasksVisible ? "tasks"
-    : tasksArea === "lists" && taskListsVisible ? "lists" : personalTasksVisible ? "tasks" : "lists";
   const activeProjectsArea = projectsArea === "shared" && sharedProjectsVisible ? "shared"
     : projectsArea === "personal" && personalProjectsVisible ? "personal"
       : personalProjectsVisible ? "personal" : "shared";
@@ -1732,8 +1730,7 @@ export function GenesisCalendar() {
   useEffect(() => {
     if (!cloudUser?.uid) return;
     const features = view === "today" ? ["menu.today"]
-      : view === "all-tasks" ? ["menu.tasks", `submenu.tasks.${activeTasksArea}`]
-        : view === "projects" ? ["menu.projects", `submenu.projects.${activeProjectsArea}`]
+      : view === "projects" ? ["menu.projects", `submenu.projects.${activeProjectsArea}`]
           : view === "calendar" || view === "year"
             ? ["menu.calendar", `submenu.calendar.${view === "year" ? "year" : "month"}`,
               `calendar.${activeCalendarMode}`]
@@ -1741,7 +1738,7 @@ export function GenesisCalendar() {
               : view === "stoicheion" || view === "theokyklos"
                 ? ["menu.sacred", `submenu.sacred.${view}`] : [];
     if (features.length) void recordFeatureUsage(features).catch(() => undefined);
-  }, [cloudUser?.uid, view, activeTasksArea, activeProjectsArea, activeCalendarMode]);
+  }, [cloudUser?.uid, view, activeProjectsArea, activeCalendarMode]);
   const activeWeekStart = cloudUser?.weekStart === "monday" ? "monday" : "sunday";
   const gregorianYearStartsInMarch = cloudUser?.gregorianYearStart === "march";
   const googleAccounts = cloudUser?.googleAccounts ?? [];
@@ -1945,6 +1942,7 @@ export function GenesisCalendar() {
   };
 
   const navigateTo = (nextView: ViewName, replace = false) => {
+    if (nextView === "all-tasks") nextView = "projects";
     if (!viewIsVisible(nextView, visibility)) nextView = "today";
     setOpenDayTaskPopover("");
     setAccountMenuOpen(false);
@@ -2047,7 +2045,7 @@ export function GenesisCalendar() {
 
   useEffect(() => {
     if (!openDayTaskPopover) return;
-    const closeOutside = (event: PointerEvent) => {
+    const closeOutside = (event: globalThis.PointerEvent) => {
       if (!(event.target instanceof Element) || !event.target.closest(".calendar-day-task-control")) {
         setOpenDayTaskPopover("");
       }
@@ -2144,7 +2142,7 @@ export function GenesisCalendar() {
           if (!active) return;
           const reconciledTasks = reconcileGoogleTaskMetadata(cloudTasks, tasksRef.current);
           const visibleTasks = warning
-            ? Array.from(new Map([...tasksRef.current, ...reconciledTasks].map((task) => [task.id, task])).values())
+            ? Array.from(new Map([...tasksRef.current, ...reconciledTasks].map((task) => [task.id, task])).values()).filter((task) => !isCloudTaskDeleted(task.id))
             : reconciledTasks;
           tasksRef.current = visibleTasks;
           setTasks(visibleTasks);
@@ -2260,7 +2258,9 @@ export function GenesisCalendar() {
           const reconciledWorkspaceTasks = reconcileGoogleTaskMetadata(workspace.tasks, local.tasks);
           const nextTasksById = new Map(reconciledWorkspaceTasks.map((task) => [task.id, task]));
           local.tasks.forEach((task) => {
+            if (isCloudTaskDeleted(task.id)) return;
             const remoteTask = nextTasksById.get(task.id);
+            if (!remoteTask && workspace.user.calendarConnected && (task.googleEventId || task.googleTaskId || Object.keys(task.googleLinks ?? {}).length)) return;
             if (!remoteTask || (!task.googleTaskId && task.updatedAt > remoteTask.updatedAt)) {
               nextTasksById.set(task.id, task);
             }
@@ -2490,8 +2490,9 @@ export function GenesisCalendar() {
       selectToday();
       return;
     }
-    if (nextView === "all-tasks") setTasksArea(personalTasksVisible ? "tasks" : "lists");
     if (nextView === "projects") setProjectsArea(personalProjectsVisible ? "personal" : "shared");
+    if (nextView === "calendar" && (!viewIsVisible("calendar", visibility) || view === "year" && viewIsVisible("year", visibility))) nextView = "year";
+    if (nextView === "stoicheion" && !viewIsVisible("stoicheion", visibility)) nextView = "theokyklos";
     navigateTo(nextView);
   };
 
@@ -2856,6 +2857,7 @@ export function GenesisCalendar() {
     if (taskSeries.length === 1) saveTask(taskSeries[0]);
     else saveTaskSeries(taskSeries);
 
+    setTaskComposer(null);
     setTaskTitle("");
     setTaskDescription("");
     setTaskDueDate("");
@@ -3229,6 +3231,7 @@ export function GenesisCalendar() {
 
   const removeTasks = (tasksToDelete: Task[]) => {
     const ids = new Set(tasksToDelete.map((task) => task.id));
+    tasksRef.current = tasksRef.current.filter((task) => !ids.has(task.id));
     setTasks((current) => current.filter((task) => !ids.has(task.id)));
     if (cloudUser && cloudUser.calendarConnected && tasksToDelete.length) {
       setSyncStatus("syncing");
@@ -3470,6 +3473,7 @@ export function GenesisCalendar() {
         setTasks((current) => [...current, ...draftedTasks]);
         draftedTasks.forEach(saveTask);
       }
+      setTaskComposer(null);
       setNewTaskListTitle("");
       setNewTaskListAccountId("");
       setNewTaskListDrafts([{ id: uid(), title: "", dueDate: "" }]);
@@ -4169,18 +4173,6 @@ export function GenesisCalendar() {
     return true;
   };
 
-  const toggleProject = (id: string) => {
-    const current = projects.find((project) => project.id === id);
-    if (!current) return;
-    const next: GenesisProject = {
-      ...current,
-      status: current.status === "completed" ? "active" : "completed",
-    };
-    const nextProjects = projects.map((project) => (project.id === id ? next : project));
-    setProjects(nextProjects);
-    persistStructure(nextProjects, categories);
-  };
-
   const deleteProject = async (id: string): Promise<boolean> => {
     const project = projects.find((item) => item.id === id);
     if (!project || !window.confirm(translateText(`Удалить проект «${project.title}» и все его подпроекты? Задачи останутся, но перейдут в раздел без проекта.`, undefined, true))) return false;
@@ -4298,13 +4290,36 @@ export function GenesisCalendar() {
     navigateTo("calendar");
   };
 
-  const renderTaskListCreateForm = (context: "today" | "all-tasks" | "projects") => (
+  const openTaskComposer = (context: "today" | "projects") => {
+    setTaskScope("personal"); setTaskListScope("personal"); setComposerTab("task");
+    setTaskDueDate(todayDateValue); setTaskEndDate(todayDateValue);
+    setTaskProject(""); setNewTaskListProject("");
+    setTaskComposer(context);
+  };
+
+  const toggleProject = (id: string) => {
+    const project = projects.find((item) => item.id === id);
+    if (!project) return;
+    const ids = new Set([id]);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      projects.forEach((item) => {
+        if (item.parentId && ids.has(item.parentId) && !ids.has(item.id)) { ids.add(item.id); changed = true; }
+      });
+    }
+    const nextProjects = projects.map((item) => ids.has(item.id)
+      ? { ...item, status: project.status === "active" ? "completed" as const : "active" as const, updatedAt: timestamp() } : item);
+    setProjects(nextProjects); persistStructure(nextProjects, categories, taskListLinks);
+  };
+
+  const renderTaskListCreateForm = (context: "today" | "all-tasks" | "projects" | "composer") => (
     <div className="task-list-create-block">
       <p>{cloudUser?.sharedProjectsEnabled && taskListScope === "shared"
         ? language === "en" ? "Team lists are stored in GENESIS and belong to a shared project."
           : "Общие списки хранятся в GENESIS и принадлежат выбранному общему проекту."
         : TASK_LIST_EXPLANATION}</p>
-      {cloudUser?.sharedProjectsEnabled ? <div className="task-scope-switch" role="group"
+      {cloudUser?.sharedProjectsEnabled && context !== "composer" && context !== "projects" ? <div className="task-scope-switch" role="group"
         aria-label={language === "en" ? "Task list access" : "Доступ к списку задач"}>
         <button type="button" aria-pressed={taskListScope === "personal"} onClick={() => setTaskListScope("personal")}>
           {language === "en" ? "Personal list" : "Личный список"}</button>
@@ -4313,11 +4328,12 @@ export function GenesisCalendar() {
       </div> : null}
       {cloudUser?.sharedProjectsEnabled && taskListScope === "shared" ? <Suspense fallback={
         <p role="status">{language === "en" ? "Loading team task lists…" : "Загружаем общие списки задач…"}</p>}>
-        <SharedTaskLists language={language} enabledCalendars={visibility.enabledCalendars}
+        <SharedTaskLists language={language} enabledCalendars={visibility.enabledCalendars} embeddedCreate={context === "composer"}
+          onCreated={() => setTaskComposer(null)}
           onOpenProject={() => { setProjectsArea("shared"); navigateTo("projects"); }} />
       </Suspense> : cloudUser?.googleTasksImportReady ? (
         <>
-          {taskListsForWorkspace.length ? (
+          {context !== "composer" && taskListsForWorkspace.length ? (
             <section className="task-list-workspace" aria-label="Существующие списки задач">
               <header>
                 <div>
@@ -4475,8 +4491,8 @@ export function GenesisCalendar() {
     </div>
   );
 
-  const renderTaskCreateForm = (context: "today" | "all-tasks" | "day-details") => {
-    const scopeSwitcher = cloudUser?.sharedProjectsEnabled ? <div className="task-scope-switch" role="group"
+  const renderTaskCreateForm = (context: "today" | "all-tasks" | "day-details" | "composer") => {
+    const scopeSwitcher = cloudUser?.sharedProjectsEnabled && context !== "composer" ? <div className="task-scope-switch" role="group"
       aria-label={language === "en" ? "Task access" : "Доступ к задаче"}>
       <button type="button" aria-pressed={taskScope === "personal"} onClick={() => setTaskScope("personal")}>
         {language === "en" ? "Personal task" : "Личная задача"}</button>
@@ -4484,7 +4500,7 @@ export function GenesisCalendar() {
         {language === "en" ? "Shared task" : "Общая задача"}</button>
     </div> : null;
     if (cloudUser?.sharedProjectsEnabled && taskScope === "shared") return <>
-      {scopeSwitcher}<SharedTaskCreate language={language} enabledCalendars={visibility.enabledCalendars} />
+      {scopeSwitcher}<SharedTaskCreate language={language} enabledCalendars={visibility.enabledCalendars} onCreated={() => setTaskComposer(null)} />
     </>;
     const selectedTaskList = taskLists.find((taskList) => taskList.id === taskTaskListId);
     const createsTaskList = taskTaskListId === CREATE_NEW_TASK_LIST_ID;
@@ -4566,7 +4582,7 @@ export function GenesisCalendar() {
             <span>Проект или подпроект</span>
             <select value={taskProject} onChange={(event) => setTaskProject(event.target.value)}>
               <option value="">Без проекта</option>
-              {flattenProjects(projects).filter(({ project }) => project.status === "active").map(({ project, depth }) => (
+              {flattenProjects(projects).map(({ project, depth }) => (
                 <option value={project.id} key={project.id}>{"— ".repeat(depth)}{project.title}</option>
               ))}
             </select>
@@ -4689,9 +4705,7 @@ export function GenesisCalendar() {
   };
 
   const renderToday = () => {
-    const experimentalThemeActive = themeState.available && themeState.theme.startsWith("experimental");
     const showToday = (block: string) => !visibility.hiddenTodayBlocks.includes(block);
-    const todayTab = !showToday("tasks") ? "create" : !showToday("quickCreate") ? "tasks" : experimentalTodayTab;
     const isEnglish = language === "en";
     const info = todayInfo;
     const month = MONTHS[info.monthIndex];
@@ -4796,52 +4810,7 @@ export function GenesisCalendar() {
 
         {showToday("rhythm") ? <DayRhythmPanel timeFormat={activeTimeFormat} /> : null}
 
-        {experimentalThemeActive && showToday("tasks") && showToday("quickCreate") ? (
-          <div
-            ref={experimentalTodayTabsRef}
-            className="experimental-workspace-tabs"
-            role="tablist"
-            tabIndex={-1}
-            aria-label={isEnglish ? "Daily workspace" : "Рабочая зона дня"}
-            onKeyDown={(event) => {
-              if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
-              event.preventDefault();
-              const nextTab = event.key === "ArrowLeft" || event.key === "Home" ? "tasks" : "create";
-              setExperimentalTodayTab(nextTab);
-              window.requestAnimationFrame(() => experimentalTodayTabsRef.current
-                ?.querySelector<HTMLButtonElement>(`[data-experimental-today-tab="${nextTab}"]`)
-                ?.focus());
-            }}
-          >
-            <button id="experimental-today-tab-tasks" data-experimental-today-tab="tasks" type="button" role="tab" tabIndex={experimentalTodayTab === "tasks" ? 0 : -1} aria-selected={experimentalTodayTab === "tasks"} aria-controls="experimental-today-tasks" onClick={() => setExperimentalTodayTab("tasks")}>
-              <span>{isEnglish ? "Tasks" : "Задачи"}</span>
-              <strong>{todayTasks.length}</strong>
-            </button>
-            <button id="experimental-today-tab-create" data-experimental-today-tab="create" type="button" role="tab" tabIndex={experimentalTodayTab === "create" ? 0 : -1} aria-selected={experimentalTodayTab === "create"} aria-controls="experimental-today-create" onClick={() => setExperimentalTodayTab("create")}>
-              <span>{isEnglish ? "Create" : "Создать"}</span>
-              <strong aria-hidden="true">＋</strong>
-            </button>
-          </div>
-        ) : null}
-
-        {showToday("quickCreate") ? <section id="experimental-today-create" className="today-create-panel" role={experimentalThemeActive && showToday("tasks") ? "tabpanel" : undefined} aria-labelledby={experimentalThemeActive && showToday("tasks") ? "experimental-today-tab-create" : "today-create-title"} tabIndex={experimentalThemeActive ? 0 : undefined} data-exp-ui="panel" hidden={experimentalThemeActive && showToday("tasks") && todayTab !== "create"}>
-          <div>
-            <span className="eyebrow">Быстрое создание задач</span>
-            <h2 id="today-create-title">Создать для сегодняшнего дня</h2>
-          </div>
-          <div className="today-create-options">
-            <details className="all-tasks-create">
-              <summary><span aria-hidden="true">＋</span> Новая задача</summary>
-              {renderTaskCreateForm("today")}
-            </details>
-            <details className="task-list-create">
-              <summary><span aria-hidden="true">☷</span> Новый список задач</summary>
-              {renderTaskListCreateForm("today")}
-            </details>
-          </div>
-        </section> : null}
-
-        {showToday("tasks") ? <section id="experimental-today-tasks" className="today-tasks-panel" role={experimentalThemeActive && showToday("quickCreate") ? "tabpanel" : undefined} aria-labelledby={experimentalThemeActive && showToday("quickCreate") ? "experimental-today-tab-tasks" : "today-tasks-title"} tabIndex={experimentalThemeActive ? 0 : undefined} data-exp-ui="panel" hidden={experimentalThemeActive && showToday("quickCreate") && todayTab !== "tasks"}>
+        {showToday("tasks") || showToday("quickCreate") ? <section className="today-tasks-panel" aria-labelledby="today-tasks-title" data-exp-ui="panel">
           <header>
             <div>
               <span className="eyebrow">{isEnglish ? "The shape of today" : "План сегодняшнего дня"}</span>
@@ -4849,7 +4818,8 @@ export function GenesisCalendar() {
             </div>
             <div>
               <strong>{todayTasks.filter((task) => task.done).length} / {todayTasks.length}</strong>
-              <button type="button" className="text-button" onClick={() => navigateTo("all-tasks")}>{isEnglish ? "All tasks" : "Все задачи"} →</button>
+              {showToday("quickCreate") ? <button type="button" className="primary-button" onClick={() => openTaskComposer("today")}>{isEnglish ? "Create task" : "Создать задачу"}</button> : null}
+              <button type="button" className="text-button" onClick={() => navigateTo("projects")}>{isEnglish ? "Affairs" : "Дела"} →</button>
             </div>
           </header>
           {todayTasks.length ? (
@@ -4890,6 +4860,7 @@ export function GenesisCalendar() {
               language={language}
               timeFormat={activeTimeFormat}
               calendarMode={activeTaskCalendarMode}
+              experimentalThemeActive={themeState.available && themeState.theme.startsWith("experimental")}
               onChange={updateHabitWorkspace}
               onOpenHabits={() => navigateTo("habits")}
             />
@@ -5617,7 +5588,7 @@ export function GenesisCalendar() {
 
   const renderCalendar = () => <>
     {activeCalendarMode === "sacred" ? renderSacredCalendar() : renderAlternativeCalendar(activeCalendarMode)}
-    <button type="button" className="ghost-button" onClick={() => selectCalendarDate(new Date())}>
+    <button type="button" className="ghost-button calendar-return-to-today" onClick={() => selectCalendarDate(new Date())}>
       {language === "en" ? "Back to today in Month" : "К сегодняшнему дню в месяце"}
     </button>
   </>;
@@ -5628,10 +5599,17 @@ export function GenesisCalendar() {
       .split(/[\s,;#]+/)
       .map((term) => term.trim())
       .filter(Boolean);
-    const tagsMatch = (tags: string[]) => !searchTerms.length || searchTerms.every((term) => (
-      tags.some((tag) => tag.toLocaleLowerCase(runtimeLocale()).includes(term))
-    ));
-    const matchingTaggedProjects = projects.filter((project) => searchTerms.length > 0 && tagsMatch(project.tags));
+    const isCompletedProject = (project: GenesisProject) => {
+      const visited = new Set<string>(); let current: GenesisProject | undefined = project;
+      while (current && !visited.has(current.id)) {
+        if (current.status !== "active") return true;
+        visited.add(current.id); current = projects.find((item) => item.id === current?.parentId);
+      }
+      return false;
+    };
+    const visibleProjects = projects.filter((project) => isCompletedProject(project) === completedProjectsOpen);
+    const completedCount = projects.filter(isCompletedProject).length;
+    const matchingTaggedProjects = visibleProjects.filter((project) => searchTerms.length > 0 && matchesAffair(project, tagSearch));
     const matchingProjectIds = new Set(matchingTaggedProjects.map((project) => project.id));
     if (searchTerms.length) {
       let changed = true;
@@ -5645,36 +5623,42 @@ export function GenesisCalendar() {
         });
       }
     }
-    const projectRows = flattenProjects(projects).filter(({ project }) => !searchTerms.length || matchingProjectIds.has(project.id));
-    const inboxTasks = tasks.filter((task) => !resolvedTaskProjectId(task) && !task.project);
+    const projectRows = flattenProjects(projects).filter(({ project }) => visibleProjects.includes(project) && (!searchTerms.length || matchingProjectIds.has(project.id)));
+    const inboxTasks = tasks.filter((task) => !resolvedTaskProject(task));
+    const matchingTasks = tasks.filter((task) => { const project = resolvedTaskProject(task); return (!project || isCompletedProject(project) === completedProjectsOpen) && matchesAffair(task, tagSearch); });
     const inboxTaskLists = taskListsForWorkspace.filter((taskList) => !linkedProjectId(taskList.id));
-    const activeProjects = projects.filter((project) => project.status === "active").length;
     const rootProjects = projects.filter((project) => !project.parentId).length;
-    const completedProjects = projects.filter((project) => project.status === "completed").length;
 
     return (
       <div className="projects-view" data-exp-layout="view">
-        <WorkspaceHeader title={language === "en" ? "Projects - personal" : "Проекты - личные"}
+        <WorkspaceHeader title={language === "en" ? "Affairs · personal" : "Дела · личные"}
           description="Разделяйте большие замыслы на подпроекты и конкретные действия. Связи, повторения и сроки остаются видимыми в плане дня."
           mark={<ProjectsHeroMark />}>
           <div className="projects-summary" aria-label="Сводка проектов">
-            <span><strong>{activeProjects}</strong> активных</span>
+            <span><strong>{projects.length}</strong> {language === "en" ? "projects" : "проектов"}</span>
             <span><strong>{rootProjects}</strong> основных</span>
-            <span><strong>{completedProjects}</strong> завершено</span>
+            <span><strong>{projects.length - rootProjects}</strong> {language === "en" ? "subprojects" : "подпроектов"}</span>
           </div>
         </WorkspaceHeader>
+        <div className="affairs-actions">
+          <div className="project-completion-tabs" role="group" aria-label={language === "en" ? "Project status" : "Статус проектов"}>
+            <button type="button" aria-pressed={!completedProjectsOpen} onClick={() => setCompletedProjectsOpen(false)}>{language === "en" ? "Current" : "Текущие"} · {projects.length - completedCount}</button>
+            <button type="button" aria-pressed={completedProjectsOpen} onClick={() => setCompletedProjectsOpen(true)}>{language === "en" ? "Completed" : "Завершённые"} · {completedCount}</button>
+          </div>
+          <button type="button" className="primary-button" onClick={() => openTaskComposer("projects")}>{language === "en" ? "Create task" : "Создать задачу"}</button>
+        </div>
 
         <label className="tag-search">
           <span aria-hidden="true">⌕</span>
-          <input aria-label="Поиск проектов по тегам — например, #работа" value={tagSearch} onChange={(event) => setTagSearch(event.target.value)} placeholder="Поиск проектов по тегам — например, #работа" />
+          <input aria-label="Поиск задач и проектов по названию или #тегу" value={tagSearch} onChange={(event) => setTagSearch(event.target.value)} placeholder="Поиск задач и проектов по названию или #тегу" />
           {tagSearch ? <button type="button" onClick={() => setTagSearch("")} aria-label="Очистить поиск">×</button> : null}
         </label>
 
         {searchTerms.length ? (
-          <section className="tag-search-results" aria-live="polite" aria-label="Результаты поиска проектов по тегам">
+          <section className="tag-search-results" aria-live="polite" aria-label="Результаты поиска дел">
             <header>
-              <strong>Проекты по тегам</strong>
-              <span>{matchingTaggedProjects.length} проектов</span>
+              <strong>Результаты поиска</strong>
+              <span>{matchingTaggedProjects.length} проектов · {matchingTasks.length} задач</span>
             </header>
             <div>
               {matchingTaggedProjects.map((project) => (
@@ -5682,12 +5666,13 @@ export function GenesisCalendar() {
                   <span>Проект</span><strong data-no-translate>{project.title}</strong><small data-no-translate>{project.tags.map((tag) => `#${tag}`).join(" ")}</small>
                 </button>
               ))}
-              {!matchingTaggedProjects.length ? <p>Проектов с такими тегами нет.</p> : null}
+              {!matchingTaggedProjects.length && !matchingTasks.length ? <p>Совпадений нет. Попробуйте другое название или тег.</p> : null}
             </div>
+            {renderTaskRows(matchingTasks)}
           </section>
         ) : null}
 
-        <div className="projects-layout">
+        <div className="projects-layout" hidden={searchTerms.length > 0}>
           <section className="project-tree-panel" aria-labelledby="project-tree-title" data-exp-ui="panel">
             <div className="section-heading compact-heading">
               <div>
@@ -5698,7 +5683,7 @@ export function GenesisCalendar() {
             </div>
 
             <div className="project-tree-workspace">
-              <section
+              {!completedProjectsOpen ? <section
                 className={`inbox-card${projectDropTargetId === TASK_INBOX_PROJECT_ID ? " drop-target" : ""}`}
                 data-project-drop-id={TASK_INBOX_PROJECT_ID}
                 aria-labelledby="project-inbox-title"
@@ -5715,38 +5700,16 @@ export function GenesisCalendar() {
                       <article className="inbox-list-item project-draggable-item" key={taskList.id} aria-label={`Перетащить список «${taskList.title}»`} {...projectDragProps(item)}>
                         <span className="project-drag-handle" aria-hidden="true">⋮⋮</span>
                         <span><strong data-no-translate>{taskList.title}</strong><small data-no-translate>{formatTaskListCount(taskCount, language)}</small></span>
+                        <span className="task-list-column-actions">
+                          <button type="button" onClick={() => setEditingTaskList(taskList)} aria-label={`Редактировать список «${taskList.title}»`}>✎</button>
+                          {!taskList.isDefault ? <button type="button" onClick={() => void deleteTaskList(taskList)} aria-label={`Удалить список «${taskList.title}»`}>×</button> : null}
+                        </span>
                       </article>
                     );
                   })}
-                  {inboxTasks.map((task) => {
-                    const item: ProjectDragItem = { kind: "task", id: task.id, title: task.title };
-                    return (
-                      <article className={`inbox-task-item project-draggable-item${task.done ? " done" : ""}`} key={task.id} aria-label={`Перетащить задачу «${task.title}»`} {...projectDragProps(item)}>
-                        <span className="project-drag-handle" aria-hidden="true">⋮⋮</span>
-                        <button type="button" onClick={() => {
-                          if (!suppressProjectItemClickRef.current) openTaskEditor(task);
-                        }}>
-                          <strong data-no-translate>{task.title}</strong>
-                          {renderOverdueBadge(task)}
-                          <small>{taskRangeLabel(task, activeTaskCalendarMode, activeTimeFormat)}</small>
-                        </button>
-                        <button
-                          type="button"
-                          className="inbox-task-delete"
-                          onPointerDown={(event) => event.stopPropagation()}
-                          onTouchStart={(event) => event.stopPropagation()}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            deleteTask(task.id);
-                          }}
-                          aria-label={`Удалить задачу «${task.title}»`}
-                        >×</button>
-                      </article>
-                    );
-                  })}
-                  {!inboxTaskLists.length && !inboxTasks.length ? <p>Все задачи и списки уже распределены по проектам.</p> : null}
+                  {renderTaskRows(inboxTasks)}
                 </div>
-              </section>
+              </section> : null}
 
               <div className="project-tree-main">
                 <div className="project-tree">
@@ -5759,18 +5722,16 @@ export function GenesisCalendar() {
                 const finished = projectTasks.filter((task) => task.done).length;
                 return (
                   <article
-                    className={`project-row${project.status === "completed" ? " completed" : ""}${projectDropTargetId === project.id ? " drop-target" : ""}`}
+                    className={`project-row${projectDropTargetId === project.id ? " drop-target" : ""}`}
                     key={project.id}
                     data-project-drop-id={project.id}
                     style={{ "--project-depth": depth, "--project-color": category?.color ?? "#8d7750" } as CSSProperties}
                   >
-                    <button type="button" className="project-status" onClick={() => toggleProject(project.id)} aria-label={project.status === "completed" ? `Вернуть проект «${project.title}»` : `Завершить проект «${project.title}»`}>
-                      {project.status === "completed" ? "✓" : ""}
-                    </button>
                     <button type="button" className="project-open" onClick={() => setTaskProject(project.id)}>
                       <span>{depth ? "↳" : "◇"}</span>
                       <div>
                         <strong data-no-translate>{project.title}</strong>
+                        {isCompletedProject(project) ? <span className="project-completed-label">Завершено</span> : null}
                         <small>{category?.name ?? "Без категории"} · {finished}/{projectTasks.length} действий{projectTaskLists.length
                           ? cloudUser?.authProvider === "yandex" ? ` · GENESIS: ${projectTaskLists.length}`
                             : ` · ${projectTaskLists.length} списков Google Tasks` : ""}</small>
@@ -5778,6 +5739,9 @@ export function GenesisCalendar() {
                         {project.tags.length ? <em>{project.tags.map((tag) => `#${tag}`).join("  ")}</em> : null}
                       </div>
                     </button>
+                    <button type="button" className="project-complete-action" aria-pressed={project.status !== "active"}
+                      aria-label={project.status !== "active" ? `Вернуть проект «${project.title}» в текущие` : `Завершить проект «${project.title}»`}
+                      title={project.status !== "active" ? "Вернуть в текущие" : "Завершить проект"} onClick={() => toggleProject(project.id)}><span aria-hidden="true">{project.status !== "active" ? "✓" : ""}</span></button>
                     <button type="button" className="project-edit" onClick={() => openProjectEditor(project)} aria-label={`Редактировать проект «${project.title}»`}>✎</button>
                     {cloudUser?.sharedProjectsEnabled ? <button type="button" className="project-transfer"
                       onClick={() => setTransferProject(project)}
@@ -5797,25 +5761,14 @@ export function GenesisCalendar() {
                             <div className="project-assigned-list project-draggable-item" key={taskList.id} aria-label={`Перетащить список «${taskList.title}»`} {...projectDragProps(item)}>
                               <span className="project-drag-handle" aria-hidden="true">⋮⋮</span>
                               <span><strong data-no-translate>{taskList.title}</strong><small data-no-translate>{formatTaskListCount(taskCount, language)}</small></span>
+                              <span className="task-list-column-actions">
+                                <button type="button" onClick={() => setEditingTaskList(taskList)} aria-label={`Редактировать список «${taskList.title}»`}>✎</button>
+                                {!taskList.isDefault ? <button type="button" onClick={() => void deleteTaskList(taskList)} aria-label={`Удалить список «${taskList.title}»`}>×</button> : null}
+                              </span>
                             </div>
                           );
                         })}
-                        {projectTasks.map((task) => {
-                          const item: ProjectDragItem = { kind: "task", id: task.id, title: task.title };
-                          return (
-                            <article
-                              className={`project-assigned-task project-draggable-item${task.done ? " done" : ""}`}
-                              key={task.id}
-                              aria-label={`Перетащить задачу «${task.title}»`}
-                              {...projectDragProps(item)}
-                            >
-                              <span className="project-drag-handle" aria-hidden="true">⋮⋮</span>
-                              <button type="button" className="project-assigned-task-open" onClick={() => {
-                                if (!suppressProjectItemClickRef.current) openTaskEditor(task);
-                              }}><strong data-no-translate>{task.title}</strong>{renderOverdueBadge(task)}<small>{taskRangeLabel(task, activeTaskCalendarMode, activeTimeFormat)}</small></button>
-                            </article>
-                          );
-                        })}
+                        {renderTaskRows(projectTasks)}
                         {!projectTaskLists.length && !projectTasks.length ? (
                           <p>Пока пусто — перенесите сюда элемент из «Несортированного» или «Списков задач».</p>
                         ) : null}
@@ -5827,13 +5780,13 @@ export function GenesisCalendar() {
               }) : (
                 <div className="task-empty compact-empty">
                   <span aria-hidden="true">{searchTerms.length ? "⌕" : "◇"}</span>
-                  <strong>{searchTerms.length ? "По этим тегам ничего не найдено" : "Создайте первый проект"}</strong>
+                  <strong>{searchTerms.length ? "По этим тегам ничего не найдено" : completedProjectsOpen ? "Завершённых проектов пока нет" : "Создайте первый проект"}</strong>
                   <p>{searchTerms.length ? "Попробуйте другой тег или очистите строку поиска." : "Большая цель становится управляемой, когда у неё есть структура."}</p>
                 </div>
               )}
                 </div>
 
-                <form className="project-form" onSubmit={addProject}>
+                {!completedProjectsOpen ? <form className="project-form" onSubmit={addProject}>
               <label>
                 <span>Новый проект или подпроект</span>
                 <input value={newProjectTitle} onChange={(event) => setNewProjectTitle(event.target.value)} placeholder="Название результата" />
@@ -5863,7 +5816,7 @@ export function GenesisCalendar() {
                 <input value={newProjectTags} onChange={(event) => setNewProjectTags(event.target.value)} placeholder="стратегия, дом, развитие" />
               </label>
               <button type="submit" className="add-task-button" disabled={!newProjectTitle.trim()}><span aria-hidden="true">＋</span> Создать проект</button>
-                </form>
+                </form> : null}
               </div>
             </div>
           </section>
@@ -5913,78 +5866,20 @@ export function GenesisCalendar() {
     );
   };
 
-  const renderAllTasks = () => {
-    const isEnglish = language === "en";
-    const safeTaskTags = (task: Task) => Array.isArray(task.tags) ? task.tags : [];
-    const safeDependencyIds = (task: Task) => Array.isArray(task.dependsOnIds) ? task.dependsOnIds : [];
-    const safeSyncAccountIds = (task: Task) => Array.isArray(task.syncAccountIds) ? task.syncAccountIds : [];
-    const searchTerms = allTasksSearch
-      .toLocaleLowerCase(runtimeLocale())
-      .split(/[\s,;#]+/)
-      .map((term) => term.trim())
-      .filter(Boolean);
-    const taskMatches = (task: Task) => {
-      if (allTasksStatusFilter === "active" && task.done) return false;
-      if (allTasksStatusFilter === "done" && !task.done) return false;
-      if (!searchTerms.length) return true;
-      const haystack = [task.title, task.description, task.calendarNote, resolvedTaskProjectTitle(task), task.googleTaskListTitle, ...safeTaskTags(task)]
-        .join(" ")
-        .toLocaleLowerCase(runtimeLocale());
-      return searchTerms.every((term) => haystack.includes(term));
-    };
-    const sortedTasks = [...tasks]
-      .sort((a, b) => `${a.dueDate}T${a.time || "00:00"}`.localeCompare(`${b.dueDate}T${b.time || "00:00"}`))
-      .filter(taskMatches);
-    const activeCount = tasks.filter((task) => !task.done).length;
-    const doneCount = tasks.filter((task) => task.done).length;
-
-    return (
-      <div className="all-tasks-view" data-exp-layout="view">
-        {personalTasksVisible && taskListsVisible ? <nav className="tasks-area-switch" aria-label={isEnglish ? "Task sections" : "Разделы задач"}>
-          <button type="button" aria-current={activeTasksArea === "tasks" ? "page" : undefined} onClick={() => setTasksArea("tasks")}>{isEnglish ? "Tasks" : "Задачи"}</button>
-          <button type="button" aria-current={activeTasksArea === "lists" ? "page" : undefined} onClick={() => setTasksArea("lists")}>{isEnglish ? "Task lists" : "Списки задач"}</button>
-        </nav> : null}
-        <WorkspaceHeader title={activeTasksArea === "lists" ? (isEnglish ? "Task lists" : "Списки задач") : (isEnglish ? "Tasks" : "Задачи")}
-          description={cloudUser?.authProvider === "yandex"
-            ? translateText("Задачи и встречи GENESIS в одном списке.", language)
-            : "Каждая задача из GENESIS, Google Calendar и Google Tasks в одном списке — со сроками, проектами, тегами, приоритетом и связями."}
-          mark={<TasksHeroMark />}>
-          <div className="all-tasks-summary" aria-label="Сводка задач">
-            <span data-no-translate><strong>{tasks.length}</strong> {TASK_SUMMARY_LABELS[language].total}</span>
-            <span data-no-translate><strong>{activeCount}</strong> {TASK_SUMMARY_LABELS[language].active}</span>
-            <span data-no-translate><strong>{doneCount}</strong> {TASK_SUMMARY_LABELS[language].completed}</span>
-          </div>
-        </WorkspaceHeader>
-
-        {activeTasksArea === "tasks" ? <>
-
-        <div className="all-tasks-toolbar">
-          <label className="tag-search">
-            <span aria-hidden="true">⌕</span>
-            <input aria-label="Поиск по названию, описанию, проекту или тегу" value={allTasksSearch} onChange={(event) => setAllTasksSearch(event.target.value)} placeholder="Поиск по названию, описанию, проекту или тегу" />
-            {allTasksSearch ? <button type="button" onClick={() => setAllTasksSearch("")} aria-label="Очистить поиск">×</button> : null}
-          </label>
-          <div className="all-tasks-status-filter" role="group" aria-label="Фильтр по статусу">
-            <button type="button" aria-pressed={allTasksStatusFilter === "all"} className={allTasksStatusFilter === "all" ? "active" : ""} onClick={() => setAllTasksStatusFilter("all")}>Все</button>
-            <button type="button" aria-pressed={allTasksStatusFilter === "active"} className={allTasksStatusFilter === "active" ? "active" : ""} onClick={() => setAllTasksStatusFilter("active")}>Активные</button>
-            <button type="button" aria-pressed={allTasksStatusFilter === "done"} className={allTasksStatusFilter === "done" ? "active" : ""} onClick={() => setAllTasksStatusFilter("done")}>Завершённые</button>
-          </div>
-          <span className="all-tasks-sync" title={syncError || undefined}><i className={`sync-dot sync-${syncStatus}`} /> {syncLabel}</span>
-        </div>
-
-        <div className="all-tasks-list" aria-live="polite">
-          {sortedTasks.length ? sortedTasks.map((task) => {
+  const renderTaskRows = (items: Task[]) => <div className="all-tasks-list" aria-live="polite">
+    {items.map((task) => {
             const project = resolvedTaskProject(task);
             const category = categories.find((item) => item.id === (task.categoryId ?? project?.categoryId));
             const overdue = isTaskOverdue(task, today, overdueDeadline(task));
             const source = taskOriginMeta(task.createdIn);
-            const tags = safeTaskTags(task);
-            const syncAccountIds = safeSyncAccountIds(task);
-            const dependencyNames = safeDependencyIds(task)
+            const tags = (Array.isArray(task.tags) ? task.tags : []);
+            const syncAccountIds = (Array.isArray(task.syncAccountIds) ? task.syncAccountIds : []);
+            const dependencyNames = (Array.isArray(task.dependsOnIds) ? task.dependsOnIds : [])
               .map((dependencyId) => tasks.find((item) => item.id === dependencyId)?.title)
               .filter((title): title is string => Boolean(title));
             return (
-              <article className={`all-task-row${task.done ? " done" : ""}${overdue ? " past" : ""}`} key={task.id}>
+              <article className={`all-task-row project-task-card project-draggable-item${task.done ? " done" : ""}${overdue ? " past" : ""}`} key={task.id} {...projectDragProps({ kind: "task", id: task.id, title: task.title })}>
+                <span className="project-drag-handle" aria-hidden="true">⋮⋮</span>
                 <button type="button" className="task-check" onClick={() => toggleTask(task.id)} aria-label={task.done ? `Вернуть задачу «${task.title}»` : `Завершить задачу «${task.title}»`}>
                   {task.done ? "✓" : ""}
                 </button>
@@ -6002,6 +5897,12 @@ export function GenesisCalendar() {
                     {category ? <span className="all-task-category" data-no-translate style={{ "--project-color": category.color } as CSSProperties}>{localizeCategoryName(category, language)}</span> : null}
                     <span className={`all-task-source source-${source.className}`}>{source.label}</span>
                   </div>
+                  <label className="task-project-move"><span>{language === "en" ? "Move to" : "Переместить в"}</span>
+                    <select aria-label={`Переместить задачу «${task.title}»`} value={resolvedTaskProjectId(task) ?? ""} onChange={(event) => moveProjectItemToProject({ kind: "task", id: task.id, title: task.title }, event.target.value || TASK_INBOX_PROJECT_ID)}>
+                      <option value="">Хаос-бокс</option>
+                      {flattenProjects(projects).filter(({ project: item }) => item.status === "active").map(({ project: item, depth }) => <option key={item.id} value={item.id}>{"— ".repeat(depth)}{item.title}</option>)}
+                      {project && project.status !== "active" ? <option value={project.id}>{project.title} · Завершено</option> : null}
+                    </select></label>
                   {tags.length ? <div className="task-tags">{tags.map((tag) => <i key={tag}>#{tag}</i>)}</div> : null}
                   {dependencyNames.length ? <div className="task-dependency">↳ после: {dependencyNames.join(", ")}</div> : null}
                   {task.description || task.calendarNote ? (
@@ -6024,31 +5925,8 @@ export function GenesisCalendar() {
                 </div>
               </article>
             );
-          }) : (
-            <div className="task-empty">
-              <span aria-hidden="true">☰</span>
-              <strong>{searchTerms.length || allTasksStatusFilter !== "all" ? "Ничего не найдено" : "Задач пока нет"}</strong>
-              <p>{searchTerms.length || allTasksStatusFilter !== "all" ? "Попробуйте другой запрос или фильтр." : "Добавьте задачу в плане дня, и она появится здесь."}</p>
-            </div>
-          )}
-        </div>
-
-        <div className="all-tasks-create-grid">
-          <details className="all-tasks-create" open>
-            <summary><span aria-hidden="true">＋</span> Добавить задачу</summary>
-            {renderTaskCreateForm("all-tasks")}
-          </details>
-        </div>
-        </> : <section className="task-lists-page" aria-label={isEnglish ? "Task lists" : "Списки задач"}>
-          <details className="task-list-create" open>
-            <summary><span aria-hidden="true">☷</span> {isEnglish ? "Create task list" : "Создать список задач"}</summary>
-            {renderTaskListCreateForm("all-tasks")}
-          </details>
-        </section>}
-
-      </div>
-    );
-  };
+    })}
+  </div>;
 
   const renderSacredYear = () => (
     <div className="year-view" data-genesis-preserve="sacred-year-calendar-and-month-art">
@@ -6458,13 +6336,10 @@ export function GenesisCalendar() {
                 : "Сохранено на устройстве";
 
   const visibleNavigation = NAVIGATION.filter((item) =>
-    (habitWorkspace.habitSettings.enabled || item.id !== "habits") && viewIsVisible(item.id, visibility));
+    (habitWorkspace.habitSettings.enabled || item.id !== "habits") && (item.id === "stoicheion" ? viewIsVisible("stoicheion", visibility) || viewIsVisible("theokyklos", visibility) : item.id === "calendar" ? viewIsVisible("calendar", visibility) || viewIsVisible("year", visibility) : viewIsVisible(item.id, visibility)));
   const navigation = cloudUser?.isAdmin
     ? [...visibleNavigation, { id: "admin" as const, label: "Админ", symbol: "Σ" }]
     : visibleNavigation;
-  const mobilePrimaryIds: ViewName[] = ["today", "all-tasks", "projects", "calendar"];
-  const mobilePrimaryNavigation = navigation.filter((item) => mobilePrimaryIds.includes(item.id));
-  const mobileMoreNavigation = navigation.filter((item) => !mobilePrimaryIds.includes(item.id));
   const calendarRailItems = activeCalendarMode === "sacred"
     ? MONTHS.map((month) => ({
         id: `sacred-${month.index}`,
@@ -6574,13 +6449,13 @@ export function GenesisCalendar() {
             <button
               type="button"
               key={item.id}
-              className={view === item.id ? "active" : ""}
+              className={(view === item.id || item.id === "calendar" && view === "year" || item.id === "stoicheion" && view === "theokyklos") ? "active" : ""}
               onClick={() => activateNavigation(item.id)}
               aria-label={item.label}
-              aria-current={view === item.id ? "page" : undefined}
+              aria-current={(view === item.id || item.id === "calendar" && view === "year" || item.id === "stoicheion" && view === "theokyklos") ? "page" : undefined}
               data-exp-ui="nav-button"
             >
-              <span aria-hidden="true">{item.symbol}</span>
+              <NavigationIcon name={item.id} />
               <small>{item.label}</small>
             </button>
           ))}
@@ -6773,9 +6648,25 @@ export function GenesisCalendar() {
             ) : null}
             <ViewErrorBoundary resetKey={view}>
               {view === "today" ? renderToday() : null}
-              {view === "calendar" ? renderCalendar() : null}
+              {view === "calendar" || view === "year" ? <>
+                <div className="shared-projects-switch calendar-area-switch" role="tablist" tabIndex={-1} aria-label={language === "en" ? "Calendar views" : "Виды календаря"}
+                  onKeyDown={(event) => {
+                    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+                    const tabs = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
+                    if (!tabs.length) return;
+                    const index = tabs.indexOf(document.activeElement as HTMLButtonElement);
+                    const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (index + (event.key === "ArrowLeft" ? tabs.length - 1 : 1)) % tabs.length;
+                    event.preventDefault(); tabs[next].click(); tabs[next].focus();
+                  }}>
+                  {viewIsVisible("calendar", visibility) ? <button id="calendar-month-tab" type="button" role="tab" aria-selected={view === "calendar"} aria-controls="calendar-period-panel" tabIndex={view === "calendar" ? 0 : -1} aria-current={view === "calendar" ? "page" : undefined} onClick={() => navigateTo("calendar")}>{language === "en" ? "Month" : "Месяц"}</button> : null}
+                  {viewIsVisible("year", visibility) ? <button id="calendar-year-tab" type="button" role="tab" aria-selected={view === "year"} aria-controls="calendar-period-panel" tabIndex={view === "year" ? 0 : -1} aria-current={view === "year" ? "page" : undefined} onClick={() => navigateTo("year")}>{language === "en" ? "Year Wheel" : "Круг года"}</button> : null}
+                </div>
+                <section id="calendar-period-panel" role="tabpanel" aria-labelledby={view === "year" ? "calendar-year-tab" : "calendar-month-tab"}>
+                  {view === "calendar" ? renderCalendar() : renderYear()}
+                </section>
+              </> : null}
               {view === "projects" ? sharedProjectsVisible ? <>
-                {personalProjectsVisible ? <nav className="shared-projects-switch" aria-label={language === "en" ? "Project sections" : "Разделы проектов"}>
+                {personalProjectsVisible ? <nav className="shared-projects-switch" aria-label={language === "en" ? "Project sections" : "Разделы дел"}>
                   <button type="button" aria-current={activeProjectsArea === "personal" ? "page" : undefined} onClick={() => setProjectsArea("personal")}>{language === "en" ? "Personal" : "Личные"}</button>
                   <button type="button" aria-current={activeProjectsArea === "shared" ? "page" : undefined} onClick={() => setProjectsArea("shared")}>{language === "en" ? "Shared" : "Общие"}</button>
                 </nav> : null}
@@ -6784,8 +6675,6 @@ export function GenesisCalendar() {
                     enabledCalendars={visibility.enabledCalendars} />
                 </Suspense>}
               </> : personalProjectsVisible ? renderProjects() : null : null}
-              {view === "year" ? renderYear() : null}
-              {view === "all-tasks" ? renderAllTasks() : null}
               {view === "habits" && habitWorkspace.habitSettings.enabled ? (
                 <Suspense fallback={<DeferredViewFallback label={language === "en" ? "Opening habit tracker…" : "Открываем трекер привычек…"} />}>
                   <HabitTrackerPage
@@ -6812,6 +6701,10 @@ export function GenesisCalendar() {
                   />
                 </Suspense>
               ) : null}
+              {view === "stoicheion" || view === "theokyklos" ? <nav className="shared-projects-switch sacred-area-switch" aria-label={language === "en" ? "Sacred sections" : "Разделы сакрального"}>
+                {viewIsVisible("stoicheion", visibility) ? <button type="button" aria-current={view === "stoicheion" ? "page" : undefined} onClick={() => navigateTo("stoicheion")}>Стойхейон</button> : null}
+                {viewIsVisible("theokyklos", visibility) ? <button type="button" aria-current={view === "theokyklos" ? "page" : undefined} onClick={() => navigateTo("theokyklos")}>Теокиклос</button> : null}
+              </nav> : null}
               {view === "stoicheion" ? (
                 <Suspense fallback={<DeferredViewFallback label={language === "en" ? "Opening Stoicheion…" : "Открываем Стойхейон…"} />}>
                   <StoicheionView
@@ -6857,26 +6750,12 @@ export function GenesisCalendar() {
 
       {habitFeedback ? <HabitCompletionFeedback event={habitFeedback} language={language} showGamification={habitWorkspace.habitSettings.feedback.gamificationWidgets} /> : null}
       <nav className="mobile-nav" aria-label="Мобильная навигация" data-exp-ui="mobile-nav">
-        {mobilePrimaryNavigation.map((item) => (
-          <button type="button" key={item.id} data-nav-id={item.id} data-exp-ui="nav-button" className={view === item.id ? "active" : ""} onClick={() => activateNavigation(item.id)} aria-label={item.label}>
-            <span aria-hidden="true">{item.symbol}</span><small>{item.label}</small>
+        {navigation.map((item) => (
+          <button type="button" key={item.id} data-nav-id={item.id} data-exp-ui="nav-button" className={(view === item.id || item.id === "calendar" && view === "year" || item.id === "stoicheion" && view === "theokyklos") ? "active" : ""} onClick={() => activateNavigation(item.id)} aria-label={item.label}>
+            <NavigationIcon name={item.id} /><small>{item.label}</small>
           </button>
         ))}
-        {mobileMoreNavigation.length ? <button type="button" popoverTarget="mobile-more-navigation"
-          className={mobileMoreNavigation.some((item) => item.id === view) ? "active" : ""}>
-          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="5" cy="12" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="19" cy="12" r="1.5" /></svg>
-          <small>{translateText("Ещё", language)}</small>
-        </button> : null}
       </nav>
-      <div id="mobile-more-navigation" ref={mobileMoreRef} popover="auto" className="mobile-more-navigation">
-        <nav aria-label="Основная навигация">
-          {mobileMoreNavigation.map((item) => <button type="button" key={item.id}
-            aria-current={view === item.id ? "page" : undefined}
-            onClick={() => { mobileMoreRef.current?.hidePopover(); activateNavigation(item.id); }}>
-            <span aria-hidden="true">{item.symbol}</span><span>{item.label}</span>
-          </button>)}
-        </nav>
-      </div>
       {sacredYearDetailsOpen ? (
         <div className="modal-backdrop sacred-year-details-backdrop" role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) setSacredYearDetailsOpen(false); }}>
           <section ref={sacredYearDialogRef} className="sacred-year-details-modal" role="dialog" aria-modal="true" aria-labelledby="sacred-year-details-title" aria-describedby="sacred-year-details-intro" tabIndex={-1}>
@@ -7026,6 +6905,7 @@ export function GenesisCalendar() {
                   language={language}
                   timeFormat={activeTimeFormat}
                   calendarMode={activeTaskCalendarMode}
+                  experimentalThemeActive={themeState.available && themeState.theme.startsWith("experimental")}
                   onChange={updateHabitWorkspace}
                   onOpenHabits={() => {
                     setDayDetailsOpen(false);
@@ -7109,7 +6989,7 @@ export function GenesisCalendar() {
                       <div><dt>Закат</dt><dd>{selectedSunset}</dd></div>
                     </dl>
                     <small>{selectedSunriseSunset
-                      ? `${deviceTimeZone} · автоматический расчёт для региона устройства`
+                      ? `${solarTimeZone} · ${solarLocationSource === "selected-city" ? "координаты выбранного города" : "автоматический расчёт для региона устройства"}`
                       : solarLocationStatus === "ready"
                       ? "В этот день солнце не пересекает линию горизонта"
                       : "Синхронизируем данные о Солнце…"}</small>
@@ -7131,6 +7011,26 @@ export function GenesisCalendar() {
           </section>
         </div>
       ) : null}
+        {taskComposer ? <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setTaskComposer(null); }}>
+          <section ref={taskComposerDialogRef} className="editor-modal task-composer-modal" data-exp-ui="dialog" role="dialog" aria-modal="true" aria-labelledby="task-composer-title" tabIndex={-1}>
+            <button type="button" className="modal-close" onClick={() => setTaskComposer(null)} aria-label="Закрыть">×</button>
+            <h2 id="task-composer-title">{language === "en" ? "Create" : "Создать"} · {taskScope === "shared" ? "Общее дело" : "Личное дело"}</h2>
+            {taskComposer === "today" && cloudUser?.sharedProjectsEnabled ? <div className="task-scope-switch" role="group" aria-label="Доступ к делу">
+              {(["personal", "shared"] as const).map((scope) => <button type="button" key={scope} aria-pressed={taskScope === scope} onClick={() => { setTaskScope(scope); setTaskListScope(scope); }}>{scope === "personal" ? "Личное" : "Общее"}</button>)}
+            </div> : null}
+            <div className="task-composer-tabs" role="tablist" tabIndex={-1} aria-label="Тип дела" onKeyDown={(event) => {
+              if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+              event.preventDefault(); const tab = event.key === "ArrowLeft" || event.key === "Home" ? "task" : "lists";
+              setComposerTab(tab); event.currentTarget.querySelector<HTMLButtonElement>(`#composer-tab-${tab}`)?.focus();
+            }}>
+              {(["task", "lists"] as const).map((tab) => <button id={`composer-tab-${tab}`} type="button" role="tab" key={tab} aria-selected={composerTab === tab} aria-controls={`composer-panel-${tab}`} tabIndex={composerTab === tab ? 0 : -1} onClick={() => setComposerTab(tab)}>{tab === "task" ? "Задача" : "Списки задач"}</button>)}
+            </div>
+            <div id={`composer-panel-${composerTab}`} role="tabpanel" aria-labelledby={`composer-tab-${composerTab}`}>
+              {composerTab === "task" ? renderTaskCreateForm("composer") : renderTaskListCreateForm("composer")}
+            </div>
+          </section>
+        </div> : null}
+
       {dayTaskCreatorOpen ? (
         <div className="modal-backdrop day-task-create-backdrop" role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) closeSelectedDayTaskCreator(); }}>
           <section ref={dayTaskCreatorDialogRef} className="editor-modal day-task-create-modal" data-exp-ui="dialog" role="dialog" aria-modal="true" aria-labelledby="day-task-create-title" aria-describedby="day-task-create-description" tabIndex={-1}>

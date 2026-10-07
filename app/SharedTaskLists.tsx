@@ -10,10 +10,10 @@ import { type CalendarMode } from "./calendar-data";
 import { SharedTaskCreate } from "./SharedTaskCreate";
 import "./shared-task-lists.css";
 
-type Props = { language: string; enabledCalendars: CalendarMode[]; onOpenProject: () => void };
+type Props = { language: string; enabledCalendars: CalendarMode[]; onOpenProject: () => void; embeddedCreate?: boolean; onCreated?: () => void };
 type Modal = "create" | "edit" | "delete" | "task" | null;
 
-export function SharedTaskLists({ language, enabledCalendars, onOpenProject }: Props) {
+export function SharedTaskLists({ language, enabledCalendars, onOpenProject, embeddedCreate = false, onCreated }: Props) {
   const en = language === "en";
   const [lists, setLists] = useState<SharedTaskList[]>([]);
   const [spaces, setSpaces] = useState<SharedSpace[]>([]);
@@ -26,7 +26,7 @@ export function SharedTaskLists({ language, enabledCalendars, onOpenProject }: P
   const [deleteStatuses, setDeleteStatuses] = useState<SharedStatus[]>([]);
   const [snapshot, setSnapshot] = useState<SharedProjectSnapshot | null>(null);
   const [openedId, setOpenedId] = useState("");
-  const [modal, setModal] = useState<Modal>(null);
+  const [modal, setModal] = useState<Modal>(embeddedCreate ? "create" : null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const dialog = useRef<HTMLDialogElement>(null);
@@ -62,10 +62,10 @@ export function SharedTaskLists({ language, enabledCalendars, onOpenProject }: P
     return () => { live = false; };
   }, [openedId, lists]);
   useEffect(() => {
-    if (modal && dialog.current && !dialog.current.open) dialog.current.showModal();
-  }, [modal]);
+    if (!embeddedCreate && modal && dialog.current && !dialog.current.open) dialog.current.showModal();
+  }, [modal, embeddedCreate]);
 
-  const close = () => { dialog.current?.close(); setModal(null); setTarget(null); };
+  const close = () => { dialog.current?.close(); setModal(null); setTarget(null); if (embeddedCreate) onCreated?.(); };
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (busy) return;
@@ -102,36 +102,8 @@ export function SharedTaskLists({ language, enabledCalendars, onOpenProject }: P
     } catch (error) { setMessage(error instanceof Error ? error.message : String(error)); }
   };
 
-  return <section className="shared-task-lists" aria-label={en ? "Team task lists" : "Общие списки задач"}>
-    <header><div><h3>{en ? "Team task lists" : "Общие списки задач"}</h3>
-      <p>{en ? "Saved in GENESIS and visible to project members. Each list is also a board column."
-        : "Хранятся в GENESIS и доступны участникам проекта. Каждый список также является колонкой доски."}</p></div>
-      <button type="button" className="primary-button" onClick={() => { setTitle(""); setModal("create"); }}>
-        {en ? "Create team list" : "Создать общий список"}</button></header>
-    {message ? <p role="status" className="shared-task-lists-message">{message}</p> : null}
-    {!spaces.length ? <p>{en ? "Create a shared workspace first." : "Сначала создайте общее пространство."}</p> : null}
-    <div className="shared-task-lists-grid">{lists.map((row) => <article key={row.id}>
-      <button type="button" className="shared-task-lists-title" aria-expanded={openedId === row.id}
-        onClick={() => { setSnapshot(null); setOpenedId((current) => current === row.id ? "" : row.id); }}>{row.title}</button>
-      <small>{row.spaceTitle} / {row.projectTitle} · {row.taskCount} {en ? "tasks" : "задач"}</small>
-      {openedId === row.id ? <div className="shared-task-lists-body">
-        {(snapshot?.project.id === row.projectId ? snapshot.tasks.filter((task) => task.statusId === row.id) : [])
-          .map((task) => <p key={task.id}>{task.title}{task.dueDate ? ` · ${task.dueDate}` : ""}</p>)}
-        {snapshot?.project.id === row.projectId && !snapshot.tasks.some((task) => task.statusId === row.id)
-          ? <p>{en ? "This list is empty." : "Список пока пуст."}</p> : null}
-        <div className="shared-task-lists-actions">
-          {["owner", "manager", "member"].includes(row.role) ? <button type="button" onClick={() => { setTarget(row); setModal("task"); }}>
-            {en ? "Add task" : "Добавить задачу"}</button> : null}
-          <button type="button" onClick={onOpenProject}>{en ? "Open project" : "Открыть проект"}</button>
-          {["owner", "manager"].includes(row.role) ? <>
-            <button type="button" onClick={() => openEdit(row)}>{en ? "Rename" : "Переименовать"}</button>
-            <button type="button" onClick={() => void openDelete(row)}>{en ? "Remove" : "Удалить"}</button>
-          </> : null}
-        </div>
-      </div> : null}
-    </article>)}</div>
-    <dialog ref={dialog} className="shared-task-lists-dialog" onClose={() => { setModal(null); setTarget(null); }}>
-      {modal === "task" && target ? <><header><h3>{en ? "Add team task" : "Добавить общую задачу"}</h3>
+  const modalContent = <>
+{modal === "task" && target ? <><header><h3>{en ? "Add team task" : "Добавить общую задачу"}</h3>
         <button type="button" onClick={close} aria-label={en ? "Close" : "Закрыть"}>×</button></header>
         <SharedTaskCreate language={language} enabledCalendars={enabledCalendars}
           initialSpaceId={target.spaceId} initialProjectId={target.projectId} initialStatusId={target.id}
@@ -163,6 +135,39 @@ export function SharedTaskLists({ language, enabledCalendars, onOpenProject }: P
             {busy ? en ? "Saving…" : "Сохраняем…" : modal === "delete"
               ? en ? "Remove list" : "Удалить список" : en ? "Save list" : "Сохранить список"}</button>
         </form>}
+  </>;
+  if (embeddedCreate) return <section className="shared-task-lists">{message ? <p role="status">{message}</p> : null}{modalContent}</section>;
+
+  return <section className="shared-task-lists" aria-label={en ? "Team task lists" : "Общие списки задач"}>
+    <header><div><h3>{en ? "Team task lists" : "Общие списки задач"}</h3>
+      <p>{en ? "Saved in GENESIS and visible to project members. Each list is also a board column."
+        : "Хранятся в GENESIS и доступны участникам проекта. Каждый список также является колонкой доски."}</p></div>
+      <button type="button" className="primary-button" onClick={() => { setTitle(""); setModal("create"); }}>
+        {en ? "Create team list" : "Создать общий список"}</button></header>
+    {message ? <p role="status" className="shared-task-lists-message">{message}</p> : null}
+    {!spaces.length ? <p>{en ? "Create a shared workspace first." : "Сначала создайте общее пространство."}</p> : null}
+    <div className="shared-task-lists-grid">{lists.map((row) => <article key={row.id}>
+      <button type="button" className="shared-task-lists-title" aria-expanded={openedId === row.id}
+        onClick={() => { setSnapshot(null); setOpenedId((current) => current === row.id ? "" : row.id); }}>{row.title}</button>
+      <small>{row.spaceTitle} / {row.projectTitle} · {row.taskCount} {en ? "tasks" : "задач"}</small>
+      {openedId === row.id ? <div className="shared-task-lists-body">
+        {(snapshot?.project.id === row.projectId ? snapshot.tasks.filter((task) => task.statusId === row.id) : [])
+          .map((task) => <p key={task.id}>{task.title}{task.dueDate ? ` · ${task.dueDate}` : ""}</p>)}
+        {snapshot?.project.id === row.projectId && !snapshot.tasks.some((task) => task.statusId === row.id)
+          ? <p>{en ? "This list is empty." : "Список пока пуст."}</p> : null}
+        <div className="shared-task-lists-actions">
+          {["owner", "manager", "member"].includes(row.role) ? <button type="button" onClick={() => { setTarget(row); setModal("task"); }}>
+            {en ? "Add task" : "Добавить задачу"}</button> : null}
+          <button type="button" onClick={onOpenProject}>{en ? "Open project" : "Открыть проект"}</button>
+          {["owner", "manager"].includes(row.role) ? <>
+            <button type="button" onClick={() => openEdit(row)}>{en ? "Rename" : "Переименовать"}</button>
+            <button type="button" onClick={() => void openDelete(row)}>{en ? "Remove" : "Удалить"}</button>
+          </> : null}
+        </div>
+      </div> : null}
+    </article>)}</div>
+    <dialog ref={dialog} className="shared-task-lists-dialog" onClose={() => { setModal(null); setTarget(null); }}>
+      {modalContent}
     </dialog>
   </section>;
 }

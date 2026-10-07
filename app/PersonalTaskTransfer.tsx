@@ -26,7 +26,7 @@ function moveRestriction(task: GenesisTask, calendarConnected: boolean): string 
   if (task.recurrence !== "none" || task.recurrenceMode !== "none" || task.recurrenceSeriesId
     || task.recurrencePattern !== "none") return "recurrence";
   if (task.time || (task.endDate && task.endDate !== task.dueDate) || task.reminders.length
-    || task.tags.length || task.dependsOnIds.length || task.priority !== 5 || task.categoryId
+    || task.dependsOnIds.length || task.priority !== 5 || task.categoryId
     || task.yandexEntryType === "meeting" || task.calendarMode !== "profane" || task.calendarNote
     || task.yandexLocation || task.yandexTelemostUrl || task.yandexAttendees?.length
     || task.yandexOptionalAttendees?.length || task.yandexReminders?.length) return "fields";
@@ -79,6 +79,7 @@ export function PersonalTaskTransfer({ task, language, personalCalendarConnected
       const published = await createSharedTask(snapshot.project.id, {
         ...(move ? { sourceTaskId: task.id } : {}),
         title: publishedTitle,
+        tags: task.tags,
         description: publishedDescription,
         dueDate: includeDueDate ? task.dueDate || null : null,
         statusId: status.id,
@@ -121,6 +122,7 @@ export function PersonalTaskTransfer({ task, language, personalCalendarConnected
       <div className="personal-task-transfer-preview">
         <strong>{english ? "Members will see" : "Участники увидят"}</strong>
         <p data-no-translate>{publishedTitle}</p>
+        {task.tags.length ? <p>{task.tags.map((tag) => `#${tag}`).join(" ")}</p> : null}
         {task.description ? <label><input type="checkbox" checked={includeDescription} onChange={(event) => setIncludeDescription(event.target.checked)} />
           {english ? "Description" : "Описание"}: <span data-no-translate>{task.description.trim()}</span></label> : null}
         {task.dueDate ? <label><input type="checkbox" checked={includeDueDate} onChange={(event) => setIncludeDueDate(event.target.checked)} />
@@ -128,8 +130,8 @@ export function PersonalTaskTransfer({ task, language, personalCalendarConnected
         <small>{english ? "Open status; completion history stays private" : "Статус: открыто; история завершения останется личной"}</small>
       </div>
       <p className="personal-task-transfer-limit">{english
-        ? "Time, reminders, repetition, tags, dependencies, priority, calendar settings and Google links do not transfer."
-        : "Время, напоминания, повторения, теги, зависимости, приоритет, параметры календаря и связи Google не передаются."}</p>
+        ? "Time, reminders, repetition, dependencies, priority, calendar settings and Google links do not transfer."
+        : "Время, напоминания, повторения, зависимости, приоритет, параметры календаря и связи Google не передаются."}</p>
       {restriction ? <p role="status">{english
         ? "This task has linked or unsupported private fields. You can publish a copy; the personal original stays in place."
         : "У задачи есть связанные или неподдерживаемые личные поля. Можно опубликовать копию; личный оригинал останется на месте."}</p> : null}

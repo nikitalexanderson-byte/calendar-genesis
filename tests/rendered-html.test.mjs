@@ -346,7 +346,7 @@ test("server-renders the GENESIS application shell", async () => {
   const html = await response.text();
   assert.match(html, /GENESIS/);
   assert.match(html, /К основному содержанию/);
-  assert.match(html, /Круг года/);
+  assert.match(html, /Календарь/);
   assert.match(html, /--month-accent:/);
   assert.doesNotMatch(html, /Your site is taking shape|Building your site/);
   assert.doesNotMatch(html, /href=["']\/admin-access/);
@@ -471,10 +471,10 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(calendar, /id: "habits", label: "Привычки", symbol: "✦"/);
   assert.match(calendar, /<HabitDailyPanel[\s\S]*date=\{todayDateValue\}/);
   assert.match(calendar, /<HabitDailyPanel[\s\S]*date=\{selectedDateValue\}/);
-  assert.ok(calendar.indexOf("<DayRhythmPanel") < calendar.indexOf('className="today-create-panel"'));
-  assert.ok(calendar.indexOf('className="today-create-panel"') < calendar.indexOf('className="today-tasks-panel"'));
+  assert.ok(calendar.indexOf("<DayRhythmPanel") < calendar.indexOf('className="today-tasks-panel"'));
+  assert.doesNotMatch(calendar, /className="today-create-panel"/);
   assert.ok(calendar.indexOf('className="today-tasks-panel"') < calendar.indexOf("<HabitDailyPanel"));
-  assert.match(calendar, /Быстрое создание задач/);
+  assert.match(calendar, /openTaskComposer\("today"\)/);
   assert.match(calendar, /Задачи на сегодня/);
   assert.match(calendar, /На сегодня задач нет/);
   assert.match(calendar, /calendarMode=\{activeTaskCalendarMode\}/);
@@ -1836,7 +1836,7 @@ test("ships the complete interactive bilingual Theokyklos", async () => {
     ...segment.words.flatMap((word) => [word.pronunciation.en, word.meaning.en]),
   ]).join("\n");
   assert.doesNotMatch(englishCopy, /[А-Яа-яЁё]/u);
-  assert.match(calendar, /id: "theokyklos", label: "Теокиклос", symbol: "Θ"/);
+  assert.match(calendar, /id: "stoicheion", label: "Сакральное", symbol: "ϟ"/);
   assert.match(calendar, /<TheokyklosView/);
   assert.match(component, /theokyklos-mandala/);
   assert.match(component, /Круг божественных сил/);
@@ -2028,9 +2028,9 @@ test("retains the legacy TWA artifact but promotes only the signed native Androi
   // The legacy 1.2.2 asset remains available while the current native release advances.
   const nativeVersionCode = Number(androidBuild.match(/versionCode = (\d+)/)?.[1]);
   assert.ok(nativeVersionCode >= 57);
-  assert.match(androidBuild, /versionName = "2\.6\.5"/);
-  assert.match(deployWorkflow, /versionCode='71' versionName='2\.6\.5'/);
-  assert.match(deployWorkflow, /GENESIS-Android-Native-2\.6\.5\.apk/);
+  assert.match(androidBuild, /versionName = "2\.6\.6"/);
+  assert.match(deployWorkflow, /versionCode='72' versionName='2\.6\.6'/);
+  assert.match(deployWorkflow, /GENESIS-Android-Native-2\.6\.6\.apk/);
   assert.match(androidBuild, /releaseSigningReady/);
   assert.match(androidBuild, /applicationIdSuffix = "\.debug"/);
   assert.match(androidBuild, /androidx\.browser:browser:1\.10\.0/);
@@ -2382,17 +2382,14 @@ test("Experimental applies one design system across ordinary views and adds safe
 
   assert.match(calendar, /className="today-view" data-exp-layout="view"/);
   assert.match(calendar, /className="projects-view" data-exp-layout="view"/);
-  assert.match(calendar, /className="all-tasks-view" data-exp-layout="view"/);
-  assert.match(calendar, /className="experimental-workspace-tabs"\s+role="tablist"/);
-  assert.match(calendar, /ref=\{experimentalTodayTabsRef\}/);
-  assert.match(calendar, /data-experimental-today-tab="tasks"[^>]+tabIndex=\{experimentalTodayTab === "tasks" \? 0 : -1\}/);
+  assert.match(calendar, /task-composer-modal/);
+  assert.match(calendar, /task-composer-tabs.*role="tablist"/);
+  assert.match(calendar, /taskComposerDialogRef/);
+  assert.match(calendar, /tabIndex=\{composerTab === tab \? 0 : -1\}/);
   assert.match(calendar, /\["ArrowLeft", "ArrowRight", "Home", "End"\]/);
-  assert.match(calendar, /role=\{experimentalThemeActive && showToday\("tasks"\) \? "tabpanel" : undefined\}/);
-  assert.match(calendar, /hidden=\{experimentalThemeActive && showToday\("tasks"\) && todayTab !== "create"\}/);
-  assert.match(calendar, /className="tasks-area-switch"/);
-  assert.match(calendar, /activeTasksArea === "tasks"/);
-  assert.match(calendar, /const renderAllTasks = \(\) => \{\s+const isEnglish = language === "en";/);
-  assert.match(calendar, /const safeTaskTags = \(task: Task\) => Array\.isArray\(task\.tags\)/);
+  assert.match(calendar, /role="tabpanel"/);
+  assert.match(calendar, /renderTaskCreateForm\("composer"\)/);
+  assert.match(calendar, /Array\.isArray\(task\.tags\)/);
   assert.match(calendar, /<ViewErrorBoundary resetKey=\{view\}>/);
   assert.match(habits, /data-exp-layout="view"/);
   assert.match(habits, /className="experimental-habit-tabs" role="tablist"/);
@@ -3021,13 +3018,13 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /Фаза Луны, рассвет и закат/);
   assert.match(calendar, /Редактирование задачи/);
   assert.match(calendar, /Редактирование проекта/);
-  assert.match(calendar, /Поиск проектов по тегам/);
+  assert.match(calendar, /Поиск задач и проектов по названию или #тегу/);
   assert.match(calendar, /newTaskDueDate/);
-  assert.match(calendar, /renderTaskCreateForm\("all-tasks"\)/);
-  assert.match(calendar, /renderTaskCreateForm\("today"\)/);
+  assert.match(calendar, /renderTaskCreateForm\("composer"\)/);
+  assert.match(calendar, /openTaskComposer\("today"\)/);
   assert.doesNotMatch(calendar, /renderTaskCreateForm\("planner"\)/);
   assert.doesNotMatch(calendar, /<aside className="planner-panel"/);
-  assert.match(calendar, /id: "all-tasks", label: "Задачи"[\s\S]*id: "projects", label: "Проекты"/);
+  assert.match(calendar, /id: "projects", label: "Дела"/);
   assert.match(calendar, /Несортированное/);
   assert.match(calendar, /data-project-drop-id=\{project\.id\}/);
   assert.match(calendar, /data-project-drop-id=\{TASK_INBOX_PROJECT_ID\}/);
@@ -3040,9 +3037,9 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /Math\.hypot\([\s\S]*> 8\)[\s\S]*projectTouchDragRef\.current = null;[\s\S]*return;/);
   assert.match(calendar, /Прокручивайте карточки свободно\. Для переноса удерживайте ручку ⋮⋮/);
   assert.match(calendar, /className="inbox-list-item project-draggable-item"[\s\S]*projectDragProps\(item\)/);
-  assert.match(calendar, /className="inbox-task-delete"/);
-  assert.match(calendar, /className="inbox-task-delete"[\s\S]*deleteTask\(task\.id\)[\s\S]*Удалить задачу/);
-  assert.match(calendar, /className=\{`project-assigned-task project-draggable-item/);
+  assert.match(calendar, /renderTaskRows\(inboxTasks/);
+  assert.match(calendar, /deleteTask\(task\.id\)[\s\S]*Удалить задачу/);
+  assert.match(calendar, /renderTaskRows\(projectTasks/);
   assert.match(calendar, /project-assigned-items/);
   assert.doesNotMatch(calendar, /matchingTaggedTasks/);
   assert.match(calendar, /Дополнительная информация/);
@@ -3070,8 +3067,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /Редактирование списка задач/);
   assert.match(calendar, /Удалить список «\$\{taskList\.title\}»/);
   assert.match(calendar, /Список задач — это группа смежных задач/);
-  assert.match(calendar, /renderTaskListCreateForm\("all-tasks"\)/);
-  assert.match(calendar, /renderTaskListCreateForm\("today"\)/);
+  assert.match(calendar, /renderTaskListCreateForm\("composer"\)/);
+  assert.match(calendar, /composerTab === "task" \? renderTaskCreateForm\("composer"\) : renderTaskListCreateForm\("composer"\)/);
   assert.doesNotMatch(calendar, /renderTaskListCreateForm\("projects"\)/);
   assert.match(calendar, /DeviceClock/);
   assert.match(calendar, /<div className="hero-number" aria-hidden="true">[\s\S]*?<\/div>\s*<DeviceClock timeFormat=\{activeTimeFormat\} \/>/);
@@ -3108,7 +3105,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /Солнечно-лунный календарь/);
   assert.doesNotMatch(calendar, /Солнечный круг, услышанный через Луну/);
   assert.match(calendar, /<em>\{weekday\}<\/em>/);
-  assert.match(calendar, /label: "Месяц"/);
+  assert.match(calendar, /label: "Календарь"/);
   assert.doesNotMatch(calendar, /Ближайшие дни/);
   assert.match(calendar, /dayDetailsOpen/);
   assert.match(calendar, /setDayDetailsOrigin\("year"\);\s*setDayDetailsOpen\(true\);\s*};/);

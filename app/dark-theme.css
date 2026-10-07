@@ -458,3 +458,12 @@ html[data-genesis-theme="standart-dark"] .primary-button:disabled {
   border: 1px solid #58766c;
   opacity: 1;
 }
+/* Explicit correction: account controls follow the selected dark palette. */
+html[data-genesis-theme$="-dark"] .settings-section-nav button { color:var(--ink-soft); background:var(--dark-control); border-color:var(--line); }
+html[data-genesis-theme$="-dark"] .settings-section-nav button.active { color:var(--dark-on-accent); background:var(--teal); border-color:var(--teal); box-shadow:none; }
+html[data-genesis-theme$="-dark"] .settings-links-panel a { color:var(--ink); background:var(--dark-control); border-color:var(--line); }
+html[data-genesis-theme$="-dark"] .account-panel :is(.solar-settings-preview,.moon-reminder-choices button) { background:var(--dark-control); color:var(--ink); border-color:var(--line); }
+html[data-genesis-theme$="-dark"] .account-panel .moon-reminder-choices button[aria-pressed="true"] { background:var(--teal); color:var(--dark-on-accent); }
+html[data-genesis-theme$="-dark"] .tag-search-results > div > button { background:var(--dark-control); color:var(--ink); border-color:var(--line); }
+html[data-genesis-theme$="-dark"] .tag-search-results > div > button :is(strong,small,span) { color:inherit; }
+html[data-genesis-theme$="-dark"] .tag-search-results > div > button small { color:var(--ink-soft); }

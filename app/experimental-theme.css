@@ -2762,3 +2762,93 @@ html[data-genesis-theme^="experimental"] .navigation-preference-grid legend { pa
     grid-template-columns: repeat(auto-fit, minmax(56px, 1fr));
   }
 }
+
+/* Focused refinements: project transfer, daily mood and task creation. */
+html[data-genesis-theme^="experimental"] .personal-project-transfer { width: min(720px, calc(100vw - 32px)); max-width: 720px; padding: 28px; border-radius: 16px; background: var(--gx-color-surface); color: var(--gx-color-ink); }
+html[data-genesis-theme^="experimental"] .personal-project-transfer > .eyebrow { display: none; }
+html[data-genesis-theme^="experimental"] .personal-project-transfer > h2 { max-width: 90%; margin: 0 0 14px; font: 400 clamp(26px, 3vw, 36px)/1.15 Georgia, serif; letter-spacing: -.02em; text-wrap: balance; }
+html[data-genesis-theme^="experimental"] .personal-project-transfer > p { margin: 0 0 24px; color: var(--gx-color-muted); font-size: 15px; line-height: 1.6; }
+html[data-genesis-theme^="experimental"] .personal-project-transfer > label:not(.project-transfer-consent) { display: grid; gap: 8px; margin-bottom: 24px; font-size: 12px; }
+html[data-genesis-theme^="experimental"] .personal-project-transfer select { width: 100%; min-height: 48px; padding: 12px; font-size: 16px; color: inherit; background: var(--gx-color-bg); border: 1px solid var(--gx-color-border); border-radius: 10px; }
+html[data-genesis-theme^="experimental"] .project-transfer-preview { gap: 12px; margin-bottom: 20px; padding: 20px; border: 0; border-radius: 12px; background: var(--gx-color-subtle); font-size: 14px; line-height: 1.5; }
+html[data-genesis-theme^="experimental"] .project-transfer-preview > strong { font: 400 23px/1.3 Georgia, serif; }
+html[data-genesis-theme^="experimental"] .project-transfer-preview > p:first-of-type { padding-bottom: 12px; border-bottom: 1px solid var(--gx-color-border); color: var(--gx-color-muted); font-size: 13px; font-weight: 400; }
+html[data-genesis-theme^="experimental"] .project-transfer-preview summary { min-height: 44px; padding-block: 10px; cursor: pointer; color: var(--gx-color-accent); font-size: 14px; }
+html[data-genesis-theme^="experimental"] .personal-project-transfer .project-transfer-consent { display: flex; align-items: flex-start; gap: 12px; padding-block: 12px; color: var(--gx-color-ink); font-size: 14px; line-height: 1.5; font-weight: 400; letter-spacing: normal; text-transform: none; cursor: pointer; }
+html[data-genesis-theme^="experimental"] .personal-project-transfer .project-transfer-consent input { flex: 0 0 20px; width: 20px; min-width: 20px; height: 20px; min-height: 20px; margin: 1px 0 0; accent-color: var(--gx-color-accent); }
+html[data-genesis-theme^="experimental"] .project-transfer-restrictions { margin-top: 12px; padding: 16px 0; border-block: 1px solid var(--gx-color-border); font-size: 13px; line-height: 1.5; }
+html[data-genesis-theme^="experimental"] .project-transfer-restrictions p { margin: 8px 0; color: var(--gx-color-muted); }
+html[data-genesis-theme^="experimental"] .project-transfer-restrictions ul { margin: 8px 0; padding-left: 20px; }
+html[data-genesis-theme^="experimental"] .personal-project-transfer .editor-actions { display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-top: 24px; padding-top: 0; }
+html[data-genesis-theme^="experimental"] .personal-project-transfer .editor-actions button { min-height: 44px; padding: 10px 14px; font-size: 14px; border-radius: 10px; }
+html[data-genesis-theme^="experimental"] .mood-tracker { margin-top: 20px; padding: 24px; background: var(--gx-color-subtle); border: 1px solid var(--gx-color-border); border-radius: 14px; }
+html[data-genesis-theme^="experimental"] .mood-summary { min-height: 48px; grid-template-columns: minmax(0, 1fr) auto auto; gap: 12px; font-size: 16px; font-weight: 700; }
+html[data-genesis-theme^="experimental"] .mood-summary strong { font: 400 20px/1.3 Georgia, serif; color: var(--gx-color-ink); }
+html[data-genesis-theme^="experimental"] .mood-summary-action { min-height: 44px; padding: 10px 14px; font-size: 12px; letter-spacing: normal; text-transform: none; border-radius: 10px; color: var(--gx-color-accent); background: var(--gx-color-surface); }
+html[data-genesis-theme^="experimental"] :is(.mood-options, .habit-daily-panel.compact .mood-options) { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; margin-top: 20px; }
+html[data-genesis-theme^="experimental"] .mood-options button { min-height: 88px; padding: 12px 8px; gap: 6px; color: var(--gx-color-ink); background: var(--gx-color-surface); border-color: var(--gx-color-border); }
+html[data-genesis-theme^="experimental"] .mood-options button span { font-size: 24px; }
+html[data-genesis-theme^="experimental"] .mood-options button small { font-size: 13px; line-height: 1.35; }
+html[data-genesis-theme^="experimental"] .mood-options button em { font-size: 11px; color: var(--gx-color-muted); }
+html[data-genesis-theme^="experimental"] .mood-options button:hover { border-color: var(--gx-color-accent); }
+html[data-genesis-theme^="experimental"] .mood-options button.selected { border-color: var(--gx-color-accent); background: var(--gx-color-accent-soft); box-shadow: inset 0 0 0 1px var(--gx-color-accent); }
+html[data-genesis-theme^="experimental"] .mood-custom-disclosure { margin-top: 20px; border-top: 1px solid var(--gx-color-border); }
+html[data-genesis-theme^="experimental"] .mood-custom-disclosure > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; padding-block: 12px; color: var(--gx-color-accent); font-size: 14px; font-weight: 700; cursor: pointer; list-style: none; }
+html[data-genesis-theme^="experimental"] .mood-custom-disclosure > summary::-webkit-details-marker { display: none; }
+html[data-genesis-theme^="experimental"] .mood-custom-disclosure[open] > summary svg { transform: rotate(180deg); }
+html[data-genesis-theme^="experimental"] .mood-custom { grid-template-columns: minmax(0, 1fr); gap: 12px; margin-top: 16px; font-size: 13px; }
+html[data-genesis-theme^="experimental"] .mood-custom label { display: grid; gap: 8px; }
+html[data-genesis-theme^="experimental"] .mood-custom input { width: 100%; min-height: 44px; font-size: 16px; color: var(--gx-color-ink); background: var(--gx-color-surface); }
+html[data-genesis-theme^="experimental"] .mood-custom .habit-emoji-field { min-width: 0; margin: 0; padding: 12px 0; border: 0; background: transparent; }
+html[data-genesis-theme^="experimental"] .mood-custom .habit-emoji-presets { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 8px; }
+html[data-genesis-theme^="experimental"] .mood-custom .habit-emoji-presets button { width: 100%; min-height: 44px; }
+html[data-genesis-theme^="experimental"] .mood-no-score { margin-top: 12px; font-size: 12px; line-height: 1.5; }
+html[data-genesis-theme^="experimental"] :is(.mood-summary, .mood-options button, .mood-custom-disclosure summary, .personal-project-transfer button, .personal-project-transfer select):focus-visible { outline: 2px solid var(--gx-color-accent); outline-offset: 3px; }
+html[data-genesis-theme^="experimental"] .all-tasks-create > summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; list-style: none; }
+html[data-genesis-theme^="experimental"] .all-tasks-create > summary::-webkit-details-marker { display: none; }
+html[data-genesis-theme^="experimental"] .task-create-disclosure-label { display: inline-flex; gap: 10px; align-items: center; }
+html[data-genesis-theme^="experimental"] .task-create-chevron { display: block; flex: 0 0 24px; width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; transition: transform .18s ease; }
+html[data-genesis-theme^="experimental"] .all-tasks-create[open] .task-create-chevron { transform: rotate(180deg); }
+html[data-genesis-theme^="experimental"] .all-tasks-create > summary:focus-visible { outline: 2px solid var(--gx-color-accent); outline-offset: 3px; border-radius: 8px; }
+@media (max-width: 767px) {
+  html[data-genesis-theme^="experimental"] .mood-tracker { padding: 16px; }
+  html[data-genesis-theme^="experimental"] :is(.mood-options, .habit-daily-panel.compact .mood-options) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  html[data-genesis-theme^="experimental"] .mood-options button small { font-size: 12px; }
+  html[data-genesis-theme^="experimental"] .mood-summary { grid-template-columns: minmax(0, 1fr) auto; font-size: 14px; }
+  html[data-genesis-theme^="experimental"] .mood-summary strong { grid-column: 1; grid-row: 2; font-size: 18px; }
+  html[data-genesis-theme^="experimental"] .mood-summary-action { grid-column: 2; grid-row: 1 / span 2; }
+  html[data-genesis-theme^="experimental"] .personal-project-transfer { width: calc(100vw - 24px); padding: 24px 18px; }
+  html[data-genesis-theme^="experimental"] .personal-project-transfer .editor-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  html[data-genesis-theme^="experimental"] .personal-project-transfer .editor-actions .primary-button { grid-column: 1 / -1; grid-row: 1; }
+}
+@media (prefers-reduced-motion: reduce) { html[data-genesis-theme^="experimental"] .task-create-chevron { transition: none; } }
+/* One hierarchy for ordinary settings and the two sacred introductions. */
+html[data-genesis-theme^="experimental"] .account-panel .account-preferences { padding:24px; }
+html[data-genesis-theme^="experimental"] .account-panel .account-preferences h3 { margin:0 0 10px; font:500 24px/1.25 Georgia,serif; color:var(--gx-color-ink); }
+html[data-genesis-theme^="experimental"] .account-panel :is(.account-preferences h4,.appearance-menu-details > summary,.appearance-language-details > summary) { margin:0; font:600 17px/1.4 Arial,sans-serif; color:var(--gx-color-ink); }
+html[data-genesis-theme^="experimental"] .account-panel .account-preferences p { font:400 15px/1.6 Arial,sans-serif; color:var(--gx-color-muted); }
+html[data-genesis-theme^="experimental"] .account-panel .appearance-settings-subsection { padding:18px; }
+html[data-genesis-theme^="experimental"] .account-panel .appearance-settings-subsection :is(h3,h4) { font:600 17px/1.4 Arial,sans-serif; margin:0 0 12px; }
+html[data-genesis-theme^="experimental"] .account-panel :is(.account-preferences > div > .eyebrow,.solar-place-intro > .eyebrow) { display:none; }
+html[data-genesis-theme^="experimental"] .account-panel .appearance-calendar-settings .eyebrow { margin:16px 0 8px; }
+html[data-genesis-theme^="experimental"] .account-panel .appearance-calendar-settings .account-preferences { padding:16px 0; }
+html[data-genesis-theme^="experimental"] :is(.stoicheion-hero,.theokyklos-hero) { display:flex; align-items:center; justify-content:space-between; gap:24px; min-height:0; padding:24px 28px; margin:0 auto 24px; width:100%; border:1px solid var(--gx-color-border); border-radius:var(--gx-radius-card); color:var(--gx-color-ink); background:var(--gx-color-surface); box-shadow:none; }
+html[data-genesis-theme^="experimental"] :is(.stoicheion-hero,.theokyklos-hero) h1 { font:500 clamp(28px,3vw,40px)/1.16 Georgia,serif; color:var(--gx-color-ink); margin:8px 0 12px; }
+html[data-genesis-theme^="experimental"] :is(.stoicheion-hero,.theokyklos-hero) p { max-width:70ch; margin:0; font:400 15px/1.6 Arial,sans-serif; color:var(--gx-color-muted); }
+html[data-genesis-theme^="experimental"] :is(.stoicheion-hero,.theokyklos-hero) .eyebrow { color:var(--gx-color-muted); font:600 11px/1.4 Arial,sans-serif; letter-spacing:.08em; }
+html[data-genesis-theme^="experimental"] .stoicheion-hero { max-width:1220px; }
+html[data-genesis-theme^="experimental"] .task-composer-modal h2 { font:500 30px/1.2 Georgia,serif; margin:0 0 20px; }
+html[data-genesis-theme^="experimental"] .project-task-card .task-description-viewer summary { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:44px; font:600 13px/1.4 Arial,sans-serif; cursor:pointer; }
+html[data-genesis-theme^="experimental"] .project-task-card .task-description-viewer summary::after { content:'⌄'; font-size:20px; transition:transform 160ms ease; }
+html[data-genesis-theme^="experimental"] .project-task-card .task-description-viewer[open] summary::after { transform:rotate(180deg); }
+html[data-genesis-theme^="experimental"] .project-task-card .task-description-viewer p { font-size:14px; line-height:1.6; margin:6px 0 12px; }
+@media(max-width:600px) {
+  html[data-genesis-theme^="experimental"] .account-panel .account-preferences { padding:18px; }
+  html[data-genesis-theme^="experimental"] :is(.stoicheion-hero,.theokyklos-hero) { padding:20px; gap:12px; }
+  html[data-genesis-theme^="experimental"] .task-composer-modal h2 { font-size:25px; }
+}
+html[data-genesis-theme^="experimental"] .account-panel .account-switch-row { flex-direction:row; align-items:center; gap:16px; }
+html[data-genesis-theme^="experimental"] .account-panel .account-switch-row [data-exp-ui="row-body"] { flex:1 1 0; display:grid; gap:6px; }
+html[data-genesis-theme^="experimental"] .account-panel .account-switch-row > i { flex:0 0 50px; align-self:center; }
+html[data-genesis-theme^="experimental"] .account-panel .account-switch-row input:checked + i { background:var(--gx-color-accent); border-color:var(--gx-color-accent); }
+html[data-genesis-theme^="experimental"] .account-panel .account-switch-row input:checked + i::after { background:var(--gx-color-on-accent,#fff); }
