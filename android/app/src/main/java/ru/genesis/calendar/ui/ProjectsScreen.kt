@@ -10,6 +10,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
@@ -145,8 +146,12 @@ private fun DraggableTaskRow(task: LocalTask, pickedUp: Boolean,
 @Composable
 internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental: Boolean,
     onOpenTask: (String) -> Unit, onCreateTask: (String?) -> Unit,
-    taskLists: List<GoogleTaskList> = emptyList(), onOpenList: (String) -> Unit = {},
-    onDeleteTask: (LocalTask) -> Unit = {},
+    taskLists: List<GoogleTaskList> = emptyList(),
+    onDeleteTask: (LocalTask) -> Unit = {}, onCompleteTask: (LocalTask) -> Unit = {},
+    onCreateList: () -> Unit = {}, onCreateListTask: (GoogleTaskList) -> Unit = {},
+    onUpdateList: suspend (GoogleTaskList, String) -> Unit = { _, _ -> },
+    onDeleteList: suspend (GoogleTaskList) -> Unit = {}, use24: Boolean = true,
+    initialListId: String? = null, onInitialListConsumed: () -> Unit = {},
     menuSwipeState: MenuSwipeState? = null, voiceRequest: NativeVoiceAction? = null,
     onVoiceRequestConsumed: () -> Unit = {},
     sharedController: AuthController? = null, sharedAccount: AccountSettings? = null) {
@@ -170,6 +175,7 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
         menuSwipeState?.projects = id ?: "all"
     }
     var selectedProject by remember { mutableStateOf<String?>(null) }
+    var openedListId by remember { mutableStateOf<String?>(null) }
     var editing by remember { mutableStateOf<GenesisProject?>(null) }
     var deleteCandidate by remember { mutableStateOf<GenesisProject?>(null) }
     var deleteTaskCandidate by remember { mutableStateOf<LocalTask?>(null) }
@@ -181,7 +187,7 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
     var deleteCategoryCandidate by remember { mutableStateOf<GenesisCategory?>(null) }
     var categoryEditor by remember { mutableStateOf(false) }
     var categoriesExpanded by remember { mutableStateOf(false) }
-    var inboxExpanded by remember { mutableStateOf(false) }
+    val listState = rememberLazyListState()
     var error by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(voiceRequest,structure.revision) {
         if(voiceRequest!=null) {
@@ -213,7 +219,8 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
                 }
                 else -> Unit
             }
-            onVoiceRequestConsumed()
+            if (voiceRequest !is NativeVoiceAction.EditTaskList && voiceRequest !is NativeVoiceAction.DeleteTaskList)
+                onVoiceRequestConsumed()
         }
     }
     var moveAnnouncement by remember { mutableStateOf<String?>(null) }
@@ -223,8 +230,34 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
     val ordered = remember(structure) { WorkspaceStructureCodec.ordered(structure) }
     val visible = ordered.filter { selectedCategory == null || it.first.categoryId == selectedCategory }
         .map { (project,depth) -> project to if (selectedCategory == null) depth else 0 }
-    val tasksByProject = remember(tasks) { tasks.groupBy { it.projectId } }
-    val inbox = remember(tasks) { tasks.filter { it.projectId == null || it.projectId == "__genesis_inbox__" } }
+    val knownLists = remember(taskLists, tasks, structure) {
+        userTaskLists(taskListsForTasks(taskLists + structure.taskLists, tasks))
+    }
+    fun listProjectId(list: GoogleTaskList): String? = structure.taskListLinks
+        .firstOrNull { it.taskListId == list.id }?.projectId
+        ?.takeIf { id -> structure.projects.any { it.id == id } }
+    val inboxLists = knownLists.filter { listProjectId(it) == null }
+    val tasksByProject = remember(tasks, structure) { tasks.groupBy { personalTaskProjectId(it, structure) } }
+    val inbox = tasksByProject[null].orEmpty().filterNot { task -> inboxLists.any { task.belongsToList(it) } }
+    LaunchedEffect(initialListId, knownLists, structure) {
+        val list = knownLists.firstOrNull { it.id == initialListId } ?: return@LaunchedEffect
+        openedListId = list.id
+        selectCategory(null)
+        selectedProject = listProjectId(list)
+        val index = selectedProject?.let { id -> ordered.indexOfFirst { it.first.id == id } }
+        listState.scrollToItem(if (index != null && index >= 0) index + 3 else 1)
+        onInitialListConsumed()
+    }
+    LaunchedEffect(voiceRequest, knownLists, structure) {
+        val id = when (voiceRequest) {
+            is NativeVoiceAction.EditTaskList -> voiceRequest.id
+            is NativeVoiceAction.DeleteTaskList -> voiceRequest.id
+            else -> null
+        } ?: return@LaunchedEffect
+        knownLists.firstOrNull { it.id == id }?.let { list ->
+            selectCategory(null); selectedProject = listProjectId(list)
+        }
+    }
     val language = LocalGenesisLanguage.current
     val projectCount = structure.projects.size
     val activeCount = tasks.count { !it.done }
@@ -237,8 +270,9 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
                         ?: throw IllegalArgumentException("Проект больше не существует.")
                 }
                 val task = app.repository.get(taskId) ?: throw IllegalArgumentException("Задача больше не существует.")
-                if (task.projectId != project?.id) {
-                    app.repository.save(task.copy(projectId = project?.id, categoryId = project?.categoryId,
+                val assignment = project?.id ?: inboxDropId
+                if (task.projectId != assignment) {
+                    app.repository.save(task.copy(projectId = assignment, categoryId = project?.categoryId,
                         project = project?.title ?: ""))
                     moveAnnouncement = if (project == null) "«${task.title}» возвращена в Хаос-бокс."
                         else "«${task.title}» перенесена в «${project.title}»."
@@ -247,6 +281,14 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
             } catch (e: IllegalArgumentException) { error = e.message ?: "Не удалось перенести задачу." }
             catch (_: Exception) { error = "Не удалось перенести задачу. Повторите попытку." }
         }
+    }
+    val listCard: @Composable (GoogleTaskList) -> Unit = { list ->
+        PersonalTaskListCard(list, tasks.filter { it.belongsToList(list) &&
+            personalTaskProjectId(it, structure) == listProjectId(list) }, structure, use24,
+            onCreateListTask, onCompleteTask, onOpenTask, onUpdateList, onDeleteList,
+            initialExpanded = openedListId == list.id,
+            deleteTaskCount = tasks.count { it.belongsToList(list) },
+            voiceRequest = voiceRequest, onVoiceRequestConsumed = onVoiceRequestConsumed)
     }
     val onPickup: (LocalTask, Offset) -> Unit = { task, point ->
         dropBounds.clear()
@@ -331,7 +373,7 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
             }
     }
     Row(Modifier.fillMaxSize()) {
-    LazyColumn(Modifier.weight(if (wide) 1.4f else 1f).fillMaxHeight().testTag("projects-screen"), contentPadding = PaddingValues(16.dp),
+    LazyColumn(state = listState, modifier = Modifier.weight(if (wide) 1.4f else 1f).fillMaxHeight().testTag("projects-screen"), contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -343,16 +385,23 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
                     androidx.compose.material3.Text(projectSummary, Modifier.weight(1f).padding(end = 8.dp),
                         style = MaterialTheme.typography.labelLarge)
                     Button(onClick = { creating = true; editing = null; error = null }, modifier = Modifier.testTag("create-project")) {
-                        Text("Создать")
+                        Text("Проект")
                     }
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { onCreateTask(null) }, modifier = Modifier.weight(1f)
+                        .heightIn(min = 48.dp).testTag("personal-create-task")) { Text("Создать задачу") }
+                    OutlinedButton(onClick = onCreateList, modifier = Modifier.weight(1f)
+                        .heightIn(min = 48.dp).testTag("personal-create-list")) { Text("Создать список") }
                 }
             }
         }
-        if (experimental && !wide) item {
-            InboxProjectCard(inbox, structure.projects, true, inboxExpanded,
-                { inboxExpanded = !inboxExpanded }, pickup?.id,
+        if (!wide) item {
+            InboxProjectCard(inbox, structure.projects, experimental, pickup?.id,
                 onPickup, onDrag, onRelease, onOpenTask, onCreateTask, moveTask,
-                onDeleteClick = { deleteTaskCandidate = it })
+                onDeleteClick = { deleteTaskCandidate = it }, listCount = inboxLists.size) {
+                inboxLists.forEach { list -> key(list.accountId, list.id) { listCard(list) } }
+            }
         }
         if (!wide) item { categoriesContent() }
         if (visible.isEmpty()) item { Text("В этом разделе пока нет проектов.") }
@@ -395,20 +444,9 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (selectedProject == project.id) {
                         if (project.description.isNotBlank()) Text(project.description, style = MaterialTheme.typography.bodyMedium)
-                        structure.taskListLinks.filter { it.projectId == project.id }.forEach { link ->
-                            val list = (taskLists + structure.taskLists).firstOrNull { it.id == link.taskListId }
-                            val listTasks = tasks.filter { it.taskListId() == link.taskListId }
-                            OutlinedButton(onClick = { onOpenList(link.taskListId) },
-                                modifier = Modifier.fillMaxWidth().testTag("project-list-${link.taskListId}")) {
-                                Column(Modifier.fillMaxWidth()) {
-                                    Text(list?.title ?: listTasks.firstOrNull()?.let {
-                                        org.json.JSONObject(it.sourceFieldsJson).optString("googleTaskListTitle")
-                                    }?.takeIf { it.isNotBlank() } ?: "Список задач")
-                                    Text("${listTasks.count { it.done }} / ${listTasks.size}", style = MaterialTheme.typography.bodySmall)
-                                }
-                            }
-                        }
-                        tasksByProject[project.id].orEmpty().forEach { task ->
+                        val projectLists = knownLists.filter { listProjectId(it) == project.id }
+                        projectLists.forEach { list -> key(list.accountId, list.id) { listCard(list) } }
+                        tasksByProject[project.id].orEmpty().filterNot { task -> projectLists.any { task.belongsToList(it) } }.forEach { task ->
                             DraggableTaskRow(task, pickup?.id == task.id, onPickup, onDrag, onRelease) {
                                 if (experimental) {
                                     TaskDragHandle(task)
@@ -440,29 +478,6 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
                 }
             }
         }
-        if (!experimental) item {
-            Surface(color = MaterialTheme.colorScheme.surface, shape = MaterialTheme.shapes.large) {
-                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Без проекта", style = MaterialTheme.typography.titleMedium)
-                    Text("${inbox.size} задач в Хаос-боксе", style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    TextButton(onClick = { onCreateTask(null) }) { Text("Создать задачу без проекта") }
-                    if (selectedProject == null) {
-                        inbox.take(if (inboxExpanded) inbox.size else 1).forEach { task ->
-                            DraggableTaskRow(task, pickup?.id == task.id, onPickup, onDrag, onRelease) {
-                                TextButton(onClick = { onOpenTask(task.id) }, modifier = Modifier.weight(1f)) {
-                                    TaskTitle(task)
-                                }
-                                ProjectTaskDeleteButton(task) { deleteTaskCandidate = task }
-                            }
-                        }
-                        if (inbox.size > 1) TextButton(onClick = { inboxExpanded = !inboxExpanded }) {
-                            Text(if (inboxExpanded) "Свернуть список" else "Показать ещё ${inbox.size - 1}")
-                        }
-                    }
-                }
-            }
-        }
         error?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.error) } }
         moveAnnouncement?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.testTag("project-move-announcement")) } }
@@ -475,10 +490,11 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
     if (wide) Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())
         .padding(top = 16.dp, end = 16.dp, bottom = 16.dp).testTag("project-tools-pane"),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        if (experimental) InboxProjectCard(inbox, structure.projects, true, inboxExpanded,
-            { inboxExpanded = !inboxExpanded }, pickup?.id,
+        InboxProjectCard(inbox, structure.projects, experimental, pickup?.id,
             onPickup, onDrag, onRelease, onOpenTask, onCreateTask, moveTask,
-            onDeleteClick = { deleteTaskCandidate = it })
+            onDeleteClick = { deleteTaskCandidate = it }, listCount = inboxLists.size) {
+            inboxLists.forEach { list -> key(list.accountId, list.id) { listCard(list) } }
+        }
         categoriesContent()
     }
     }
@@ -589,10 +605,11 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
 
 @Composable
 private fun InboxProjectCard(inbox: List<LocalTask>, projects: List<GenesisProject>, experimental: Boolean,
-    expanded: Boolean, onToggleExpand: () -> Unit, pickedUpId: String?,
+    pickedUpId: String?,
     onPickup: (LocalTask, Offset) -> Unit, onDrag: (Offset) -> Unit, onRelease: (Boolean) -> Unit,
     onOpenTask: (String) -> Unit, onCreateTask: (String?) -> Unit,
-    onMoveTask: (String, String) -> Unit, onDeleteClick: (LocalTask) -> Unit) {
+    onMoveTask: (String, String) -> Unit, onDeleteClick: (LocalTask) -> Unit,
+    listCount: Int = 0, listsContent: @Composable () -> Unit = {}) {
     val background = if (experimental) Color(0xff103632) else MaterialTheme.colorScheme.surface
     val foreground = if (experimental) Color(0xfff8f3e8) else MaterialTheme.colorScheme.onSurface
     val secondary = if (experimental) Color(0xffb8ccc5) else MaterialTheme.colorScheme.onSurfaceVariant
@@ -604,19 +621,17 @@ private fun InboxProjectCard(inbox: List<LocalTask>, projects: List<GenesisProje
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(if (experimental) "Хаос-бокс" else "Без проекта", color = foreground,
+                    Text("Хаос-бокс", color = foreground,
                         style = MaterialTheme.typography.titleMedium)
-                    Text("${inbox.size} задач", color = secondary, style = MaterialTheme.typography.bodySmall)
+                    Text("${inbox.size} задач · ${genesisTranslate("Списки задач")}: $listCount", color = secondary,
+                        style = MaterialTheme.typography.bodySmall)
                 }
-                TextButton(onClick = onToggleExpand,
-                    colors = ButtonDefaults.textButtonColors(contentColor = foreground)) {
-                    Text(if (expanded) "Свернуть" else "Открыть")
-                }
+
             }
             if (experimental) Text("Удерживайте задачу и перетащите её в проект. Здесь можно вернуть задачу обратно.",
                 color = secondary, style = MaterialTheme.typography.bodySmall)
-            if (expanded) {
-                if (inbox.isEmpty()) Text("Задач без проекта пока нет.", color = secondary,
+            run {
+                if (inbox.isEmpty() && listCount == 0) Text("Задач без проекта пока нет.", color = secondary,
                     style = MaterialTheme.typography.bodyMedium)
                 inbox.forEach { task ->
                     DraggableTaskRow(task, pickedUpId == task.id, onPickup, onDrag, onRelease) {
@@ -630,6 +645,7 @@ private fun InboxProjectCard(inbox: List<LocalTask>, projects: List<GenesisProje
                         ProjectTaskDeleteButton(task) { onDeleteClick(task) }
                     }
                 }
+                listsContent()
                 TextButton(onClick = { onCreateTask(null) },
                     colors = ButtonDefaults.textButtonColors(contentColor = foreground)) {
                     Text("Создать задачу")

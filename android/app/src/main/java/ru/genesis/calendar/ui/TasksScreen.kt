@@ -47,7 +47,6 @@ import ru.genesis.calendar.data.*
     val knownLists = remember(lists, tasks) { taskListsForTasks(lists,tasks).filterNot { list ->
         list.accountId != null && (list.isDefault || list.title == "Привычки GENESIS")
     } }
-    var editingList by remember { mutableStateOf<GoogleTaskList?>(null) }
     val gridState = rememberLazyGridState()
     LaunchedEffect(initialListId, knownLists, section) {
         if (initialListId == null || section != "lists") return@LaunchedEffect
@@ -59,10 +58,6 @@ import ru.genesis.calendar.data.*
             onInitialListConsumed()
         }
     }
-    var deletingList by remember { mutableStateOf<GoogleTaskList?>(null) }
-    var listTitle by remember { mutableStateOf("") }
-    var listBusy by remember { mutableStateOf(false) }
-    var listError by remember { mutableStateOf<String?>(null) }
     var sharedLists by remember { mutableStateOf(emptyList<JSONObject>()) }
     var sharedListError by remember { mutableStateOf<String?>(null) }
     var expandedSharedListId by remember { mutableStateOf("") }
@@ -81,26 +76,6 @@ import ru.genesis.calendar.data.*
             .onSuccess { sharedSnapshot = it }
             .onFailure { sharedListError = it.message ?: "Не удалось открыть общий список." }
     }
-    LaunchedEffect(voiceRequest, knownLists) {
-        when (val request = voiceRequest) {
-            is NativeVoiceAction.EditTaskList -> {
-                knownLists.firstOrNull { it.id == request.id }?.let { list ->
-                    localSection = "lists"; menuSwipeState?.tasks = "lists"
-                    listTitle = list.title; listError = null; editingList = list
-                }
-                onVoiceRequestConsumed()
-            }
-            is NativeVoiceAction.DeleteTaskList -> {
-                knownLists.firstOrNull { it.id == request.id }?.let { list ->
-                    localSection = "lists"; menuSwipeState?.tasks = "lists"
-                    listError = null; deletingList = list
-                }
-                onVoiceRequestConsumed()
-            }
-            else -> Unit
-        }
-    }
-    val listScope = rememberCoroutineScope()
     val english = LocalGenesisLanguage.current == "en"
     val total = tasks.size
     val active = tasks.count { !it.done }
@@ -171,78 +146,18 @@ import ru.genesis.calendar.data.*
                 }
                 if(knownLists.isEmpty() && sharedLists.isEmpty()) item { Text("Списков пока нет. Создайте список и добавьте в него задачи.") }
                 items(knownLists, key = { "${it.accountId}/${it.id}" }) { list ->
-                    val rows = tasks.filter { it.taskListId() == list.id &&
-                        JSONObject(it.sourceFieldsJson).optString("googleAccountId").let { account -> list.accountId == null || account == list.accountId } }
-                    val project = structure.taskListLinks.firstOrNull { it.taskListId == list.id }?.projectId
-                        ?.let { id -> structure.projects.firstOrNull { it.id == id } }
-                    val key = "${list.accountId}/${list.id}"
-                    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
-                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                Column(Modifier.weight(1f).clickable { expanded = if(expanded == key) null else key }.padding(4.dp)) {
-                                    Text(list.title,style = MaterialTheme.typography.titleMedium)
-                                    Text("${rows.count { it.done }} / ${rows.size} · ${project?.title ?: "Без проекта"}",
-                                        style = MaterialTheme.typography.bodySmall)
-                                    if(list.accountEmail.isNotBlank()) Text(list.accountEmail,style = MaterialTheme.typography.labelSmall)
-                                }
-                                TextButton({ expanded = if(expanded == key) null else key }) { Text(if(expanded == key) "Свернуть" else "Открыть") }
-                            }
-                            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                                OutlinedButton({ listTitle=list.title;listError=null;editingList=list },
-                                    Modifier.weight(1f).heightIn(min=48.dp).testTag("edit-task-list-${list.id}")) {
-                                    Text("Изменить")
-                                }
-                                OutlinedButton({ listError=null;deletingList=list },
-                                    Modifier.weight(1f).heightIn(min=48.dp).testTag("delete-task-list-${list.id}"),
-                                    colors=ButtonDefaults.outlinedButtonColors(contentColor=MaterialTheme.colorScheme.error)) {
-                                    Text("Удалить")
-                                }
-                            }
-                            if(expanded == key) {
-                                if(rows.isEmpty()) Text("В списке пока нет задач.")
-                                rows.forEach { NativeTaskCard(it,use24,structure,onComplete,onOpen) }
-                                OutlinedButton({ onCreateTask(list) }, Modifier.fillMaxWidth()) { Text("Добавить задачу") }
-                            }
-                        }
-                    }
+                    PersonalTaskListCard(list, tasks.filter { it.belongsToList(list) }, structure, use24,
+                        onCreateTask = { onCreateTask(it) }, onComplete = onComplete, onOpen = onOpen,
+                        onUpdateList = onUpdateList, onDeleteList = onDeleteList,
+                        initialExpanded = expanded == "${list.accountId}/${list.id}",
+                        voiceRequest = voiceRequest, onVoiceRequestConsumed = onVoiceRequestConsumed)
                 }
             }
         }
     }
-    editingList?.let { list ->
-        AlertDialog(onDismissRequest={if(!listBusy)editingList=null},title={Text("Изменить список задач")},
-            text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(listTitle,{listTitle=it.take(300)},label={Text("Название списка")},
-                    enabled=!listBusy,singleLine=true,modifier=Modifier.testTag("edit-task-list-title"))
-                listError?.let { Text(it,color=MaterialTheme.colorScheme.error) }
-            }},confirmButton={TextButton(enabled=!listBusy&&listTitle.trim().isNotBlank(),onClick={
-                listBusy=true;listError=null
-                listScope.launch { try { onUpdateList(list,listTitle.trim());editingList=null }
-                    catch(e:Exception) { listError=e.message ?: "Не удалось изменить список." }
-                    finally { listBusy=false } }
-            },modifier=Modifier.testTag("save-task-list-edit")) { Text("Сохранить") }},dismissButton={TextButton(enabled=!listBusy,onClick={editingList=null}) { Text("Отмена") }})
-    }
-    deletingList?.let { list ->
-        val count=tasks.count { task -> task.taskListId()==list.id &&
-            JSONObject(task.sourceFieldsJson).optString("googleAccountId").let { account ->
-                list.accountId==null || account==list.accountId
-            } }
-        AlertDialog(onDismissRequest={if(!listBusy)deletingList=null},title={Text("Удалить список задач?")},
-            text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
-                Text("«${list.title}» и $count задач будут удалены. Это действие нельзя отменить." +
-                    if(list.accountId!=null) " Список также удалится из Google Tasks." else "")
-                listError?.let { Text(it,color=MaterialTheme.colorScheme.error) }
-            }},confirmButton={TextButton(enabled=!listBusy,onClick={
-                listBusy=true;listError=null
-                listScope.launch { try { onDeleteList(list);deletingList=null;expanded=null }
-                    catch(e:Exception) { listError=e.message ?: "Не удалось удалить список." }
-                    finally { listBusy=false } }
-            },modifier=Modifier.testTag("confirm-delete-task-list")) { Text("Удалить") }},dismissButton={TextButton(enabled=!listBusy,onClick={deletingList=null}) { Text("Отмена") }})
-    }
 }
 
-@Composable private fun NativeTaskCard(task: LocalTask, use24: Boolean, structure: WorkspaceStructure,
+@Composable internal fun NativeTaskCard(task: LocalTask, use24: Boolean, structure: WorkspaceStructure,
     onComplete: (LocalTask) -> Unit, onOpen: (String) -> Unit) {
     Card(Modifier.fillMaxWidth().testTag("task-${task.id}"), shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = if(task.done) completedTaskSurface else MaterialTheme.colorScheme.surfaceContainerLowest,

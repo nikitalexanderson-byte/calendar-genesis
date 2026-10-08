@@ -19,12 +19,8 @@ class MenuSwipeNavigationTest {
         val pages = menuSwipeSequence(true, true)
         assertEquals(SwipeDestination("Проекты", "personal-projects"),
             nextMenuSwipeDestination(pages, "Сегодня", null, 1))
-        assertEquals(SwipeDestination("Проекты", "personal-tasks"),
-            nextMenuSwipeDestination(pages, "Проекты", "personal-projects", 1))
-        assertEquals(SwipeDestination("Проекты", "personal-lists"),
-            nextMenuSwipeDestination(pages, "Проекты", "personal-tasks", 1))
         assertEquals(SwipeDestination("Календарь", "month"),
-            nextMenuSwipeDestination(pages, "Проекты", "personal-lists", 1))
+            nextMenuSwipeDestination(pages, "Проекты", "personal-projects", 1))
         assertEquals(SwipeDestination("Сегодня"),
             nextMenuSwipeDestination(pages, "Проекты", "work", -1))
         assertEquals(SwipeDestination("Календарь", "year"),
@@ -46,10 +42,10 @@ class MenuSwipeNavigationTest {
         assertEquals(SwipeDestination("Проекты", "personal-projects"),
             nextMenuSwipeDestination(pages, "Сегодня", null, 1))
         assertEquals(SwipeDestination("Проекты", "shared"),
-            nextMenuSwipeDestination(pages, "Проекты", "personal-lists", 1))
+            nextMenuSwipeDestination(pages, "Проекты", "personal-projects", 1))
         assertEquals(SwipeDestination("Календарь", "month"),
             nextMenuSwipeDestination(pages, "Проекты", "shared", 1))
-        assertEquals(SwipeDestination("Проекты", "personal-lists"),
+        assertEquals(SwipeDestination("Проекты", "personal-projects"),
             nextMenuSwipeDestination(pages, "Проекты", "shared", -1))
     }
 

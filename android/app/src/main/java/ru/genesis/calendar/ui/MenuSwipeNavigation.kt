@@ -32,7 +32,7 @@ class MenuSwipeState {
 
     fun section(page: String): String? = when (page) {
         "Задачи" -> tasks
-        "Проекты" -> if (projectArea == "shared") "shared" else "personal-$personalView"
+        "Проекты" -> if (projectArea == "shared") "shared" else "personal-projects"
         "Календарь" -> calendar
         "Привычки" -> habits
         "Сакральное" -> sacred
@@ -46,8 +46,7 @@ class MenuSwipeState {
             "Проекты" -> {
                 projectArea = if (section == "shared") "shared" else "personal"
                 if (section.startsWith("personal-")) {
-                    personalView = section.removePrefix("personal-")
-                    if (personalView != "projects") tasks = personalView
+                    personalView = "projects"
                 }
             }
             "Календарь" -> calendar = section
@@ -71,9 +70,7 @@ internal fun menuSwipeSequence(includeSubmenus: Boolean, habitsEnabled: Boolean,
             .map { SwipeDestination(page, it) }
         "Проекты" -> buildList {
             if ("projects.personal" !in hiddenSubmenus || !sharedProjectsEnabled) {
-                listOf("projects", "tasks", "lists")
-                    .filter { it == "projects" || "tasks.$it" !in hiddenSubmenus }
-                    .forEach { add(SwipeDestination(page, "personal-$it")) }
+                add(SwipeDestination(page, "personal-projects"))
             }
             if (sharedProjectsEnabled && "projects.shared" !in hiddenSubmenus) add(SwipeDestination(page, "shared"))
         }

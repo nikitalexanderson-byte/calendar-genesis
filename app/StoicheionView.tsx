@@ -364,6 +364,37 @@ function LetterDetails({
   const sector = position ? THEOKYKLOS_SEGMENTS.find((segment) => segment.id === position.id) ?? null : null;
   const guidance = position ? sacredSectorGuidance(position.id) : null;
   const practices = position ? sacredPracticesForSector(position.id) : [];
+  const sections = contentBlocks(letter.content).map(splitContentBlock);
+  const orientationSections = sections.filter((section) => /^(Парадное положение|Перев[её]рнутое положение|Upright position|Reversed position)/i.test(section.heading));
+  const profileSections = sections.filter((section) => !orientationSections.includes(section));
+  const drawReading = reversed !== null && orientationSections.length > 0;
+  const renderSection = (section: (typeof sections)[number], index: number) => {
+    const selected = reversed !== null && (reversed
+      ? /^(Перев[её]рнутое положение|Reversed position)/i.test(section.heading)
+      : /^(Парадное положение|Upright position)/i.test(section.heading));
+    return <section className={drawReading && selected ? "stoicheion-reading-selected" : undefined} key={`${letter.id}-${index}`}>
+      {section.heading ? <h3 data-no-translate>{section.heading}</h3> : null}
+      <p data-no-translate>{section.body}</p>
+    </section>;
+  };
+  const sectorPractice = position && sector && guidance && reversed !== null ? (
+    <section className={`stoicheion-sector-practice${reversed ? " is-reversed" : ""}`}>
+      <header>
+        <span aria-hidden="true">{sector.symbol}</span>
+        <div><small>{language === "en" ? "Practice of the spread sector" : "Практика сектора расклада"}</small><h3>{position.direction} · <span data-no-translate>{catalogText(sector.patrons, language)}</span></h3></div>
+      </header>
+      <p data-no-translate>{catalogText(guidance[reversed ? "reversed" : "upright"], language)}</p>
+      <div className="stoicheion-sector-words">
+        <small>{language === "en" ? "Sacred words" : "Священные слова"}</small>
+        <div>{sector.words.map((word) => <span key={word.greek} data-no-translate><b lang={language === "ru" || language === "el" ? "grc" : language}>{sacredWordCopy(word.greek, language)}</b><em>{catalogText(word.pronunciation, language)}</em></span>)}</div>
+      </div>
+      <div className="stoicheion-sector-habits">
+        <small>{language === "en" ? "Suggested embodied practices" : "Предлагаемые воплощённые практики"}</small>
+        {practices.map((practice) => <article key={practice.id}><span aria-hidden="true">{practice.emoji}</span><div data-no-translate><strong>{catalogText(practice.title, language)}</strong><p>{catalogText(practice.description, language)}</p></div></article>)}
+      </div>
+      {onOpenTheokyklosSector ? <button type="button" onClick={() => { onClose(); onOpenTheokyklosSector(position.id); }}>{language === "en" ? "Open the Theokyklos sector" : "Открыть сектор Теокиклоса"} →</button> : null}
+    </section>
+  ) : null;
   const dialogRef = useDialogAccessibility<HTMLDivElement>(onClose);
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -398,33 +429,13 @@ function LetterDetails({
           </div>
         </header>
         <div className="stoicheion-letter-copy">
-          {contentBlocks(letter.content).map((block, index) => {
-            const section = splitContentBlock(block);
-            return (
-              <section key={`${letter.id}-${index}`}>
-                {section.heading ? <h3 data-no-translate>{section.heading}</h3> : null}
-                <p data-no-translate>{section.body}</p>
-              </section>
-            );
-          })}
-          {position && sector && guidance && reversed !== null ? (
-            <section className={`stoicheion-sector-practice${reversed ? " is-reversed" : ""}`}>
-              <header>
-                <span aria-hidden="true">{sector.symbol}</span>
-                <div><small>{language === "en" ? "Practice of the spread sector" : "Практика сектора расклада"}</small><h3>{position.direction} · <span data-no-translate>{catalogText(sector.patrons, language)}</span></h3></div>
-              </header>
-              <p data-no-translate>{catalogText(guidance[reversed ? "reversed" : "upright"], language)}</p>
-              <div className="stoicheion-sector-words">
-                <small>{language === "en" ? "Sacred words" : "Священные слова"}</small>
-                <div>{sector.words.map((word) => <span key={word.greek} data-no-translate><b lang={language === "ru" || language === "el" ? "grc" : language}>{sacredWordCopy(word.greek, language)}</b><em>{catalogText(word.pronunciation, language)}</em></span>)}</div>
-              </div>
-              <div className="stoicheion-sector-habits">
-                <small>{language === "en" ? "Suggested embodied practices" : "Предлагаемые воплощённые практики"}</small>
-                {practices.map((practice) => <article key={practice.id}><span aria-hidden="true">{practice.emoji}</span><div data-no-translate><strong>{catalogText(practice.title, language)}</strong><p>{catalogText(practice.description, language)}</p></div></article>)}
-              </div>
-              {onOpenTheokyklosSector ? <button type="button" onClick={() => { onClose(); onOpenTheokyklosSector(position.id); }}>{language === "en" ? "Open the Theokyklos sector" : "Открыть сектор Теокиклоса"} →</button> : null}
-            </section>
-          ) : null}
+          {drawReading ? <>
+            <div className="stoicheion-orientation-readings">{orientationSections.map(renderSection)}</div>
+            <details className="stoicheion-reading-more">
+              <summary>{language === "en" ? "Full card information" : "Полная информация о карте"}</summary>
+              <div>{profileSections.map(renderSection)}{sectorPractice}</div>
+            </details>
+          </> : <>{sections.map(renderSection)}{sectorPractice}</>}
         </div>
       </article>
     </div>,
@@ -470,6 +481,7 @@ export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSec
   const [drawsReady, setDrawsReady] = useState(false);
   const [savingKind, setSavingKind] = useState<MotionMode | null>(null);
   const [drawError, setDrawError] = useState("");
+  const [drawErrorKind, setDrawErrorKind] = useState<MotionMode>("daily");
   const [clock, setClock] = useState(() => Date.now());
   const today = useMemo(() => new Date(), []);
   const dayKey = useMemo(() => localDayKey(today), [today]);
@@ -504,6 +516,7 @@ export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSec
         setDrawError("");
       } catch (error) {
         if (!active) return;
+        setDrawErrorKind("daily");
         setDrawError(error instanceof Error ? error.message : "Не удалось загрузить расклады.");
       } finally {
         if (active) setDrawsReady(true);
@@ -567,6 +580,7 @@ export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSec
       setSelectedReading(null);
       setClock((current) => current + 1);
     } catch (error) {
+      setDrawErrorKind(kind);
       setDrawError(error instanceof Error ? error.message : "Не удалось сохранить расклад.");
     } finally {
       setSavingKind(null);
@@ -690,6 +704,17 @@ export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSec
   const motionDialogRef = useDialogAccessibility<HTMLDivElement>(cancelMotion, motionActive);
 
   return (
+    <div className="stoicheion-section-view">
+        <header className="theokyklos-hero stoicheion-intro">
+          <div className="theokyklos-hero-copy">
+            <span className="eyebrow">Гно · Метэр · Басилея</span>
+            <h1 id="stoicheion-title">Стойхейон</h1>
+            <p>{divinationDisabled
+              ? "Двадцать четыре буквенных образа и их метафизические значения."
+              : "Двадцать четыре буквенных образа, карта дня и «Космический круг» — расклад девяти ликов силы."}</p>
+          </div>
+          <div className="theokyklos-hero-seal" aria-hidden="true"><span>Σ</span></div>
+        </header>
     <section
       className="stoicheion-view"
       data-genesis-preserve="stoicheion"
@@ -706,15 +731,7 @@ export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSec
 
       </div>
 
-        <header className="stoicheion-hero">
-          <div>
-            <span className="eyebrow">Гно · Метэр · Басилея</span>
-            <h1 id="stoicheion-title">Стойхейон</h1>
-            <p>{divinationDisabled
-              ? "Двадцать четыре буквенных образа и их метафизические значения."
-              : "Двадцать четыре буквенных образа, карта дня и «Космический круг» — расклад девяти ликов силы."}</p>
-          </div>
-        </header>
+
 
       <div className="stoicheion-inner">
         {divinationDisabled ? (
@@ -735,7 +752,7 @@ export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSec
             <p>Выбор открывает одну из 24 авторских карт. Случайность собирается на устройстве и фиксируется на текущий день.</p>
           </div>
 
-          {drawError ? <p className="stoicheion-draw-error" role="alert">{drawError}</p> : null}
+          {drawError && drawErrorKind === "daily" ? <p className="stoicheion-draw-error" role="alert">{drawError}</p> : null}
 
           {!dailyLetter ? (
             <button
@@ -794,7 +811,29 @@ export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSec
                   Начать расклад
                 </button>
               ) : null}
+              {spreadVisible ? <aside className="stoicheion-isopsephy" aria-labelledby="isopsephy-title">
+                <span className="eyebrow">ἰσοψηφία · числовое равенство</span>
+                <h3 id="isopsephy-title">Пифмен расклада</h3>
+                <p className="stoicheion-sum">{spreadLetters.map((letter) => letter.value).join(" + ")} = <strong>{spreadTotal}</strong></p>
+                <div className="stoicheion-root-line">
+                  <span>{spreadTrace.join(" → ")}</span>
+                  <strong>{spreadPythmen}</strong>
+                </div>
+                <p>Сумма числовых значений девяти букв последовательно складывается до числового корня от 1 до 9.</p>
+                <div className="stoicheion-spread-actions">
+                  {spreadCanReroll ? (
+                    <button type="button" className="stoicheion-redraw-button" disabled={savingKind !== null} onClick={(event) => beginMotion("spread", true, event.timeStamp)}>
+                      <span aria-hidden="true">↻</span>
+                      Перебросить расклад · {formatCountdown(spreadRemaining)}
+                    </button>
+                  ) : (
+                    <span className="stoicheion-limit-note">{spreadDraw?.attempts === 2 ? "Переброс расклада на сегодня использован" : "Расклад закреплён до завтра"}</span>
+                  )}
+                </div>
+              </aside> : null}
             </header>
+
+            {drawError && drawErrorKind === "spread" ? <p className="stoicheion-draw-error" role="alert">{drawError}</p> : null}
 
             {spreadVisible ? (
               <div className="stoicheion-spread-reading" aria-live="polite">
@@ -820,26 +859,6 @@ export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSec
                   })}
                 </div>
 
-                <aside className="stoicheion-isopsephy" aria-labelledby="isopsephy-title">
-                  <span className="eyebrow">ἰσοψηφία · числовое равенство</span>
-                  <h3 id="isopsephy-title">Пифмен расклада</h3>
-                  <p className="stoicheion-sum">{spreadLetters.map((letter) => letter.value).join(" + ")} = <strong>{spreadTotal}</strong></p>
-                  <div className="stoicheion-root-line">
-                    <span>{spreadTrace.join(" → ")}</span>
-                    <strong>{spreadPythmen}</strong>
-                  </div>
-                  <p>Сумма числовых значений девяти букв последовательно складывается до числового корня от 1 до 9.</p>
-                  <div className="stoicheion-spread-actions">
-                    {spreadCanReroll ? (
-                      <button type="button" className="stoicheion-redraw-button" disabled={savingKind !== null} onClick={(event) => beginMotion("spread", true, event.timeStamp)}>
-                        <span aria-hidden="true">↻</span>
-                        Перебросить расклад · {formatCountdown(spreadRemaining)}
-                      </button>
-                    ) : (
-                      <span className="stoicheion-limit-note">{spreadDraw?.attempts === 2 ? "Переброс расклада на сегодня использован" : "Расклад закреплён до завтра"}</span>
-                    )}
-                  </div>
-                </aside>
               </div>
             ) : (
               <div className="stoicheion-nine-preview" aria-hidden="true">
@@ -941,5 +960,6 @@ export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSec
         />
       ) : null}
     </section>
+    </div>
   );
 }

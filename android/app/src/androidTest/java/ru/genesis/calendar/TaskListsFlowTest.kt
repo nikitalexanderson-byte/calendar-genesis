@@ -168,6 +168,7 @@ class TaskListsFlowTest {
         compose.onNodeWithText("Привычки GENESIS").assertDoesNotExist()
         assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(
             File(app.getExternalFilesDir(null),"task-lists-edit-delete.png")))
+        compose.onNodeWithTag("toggle-task-list-editable").performClick()
         compose.onNodeWithTag("edit-task-list-editable").assertIsDisplayed().performClick()
         compose.onNodeWithText("Изменить список задач").assertExists()
         compose.onNodeWithTag("edit-task-list-title").performTextClearance()

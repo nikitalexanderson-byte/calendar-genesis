@@ -2498,7 +2498,7 @@ test("QA-01 precaches the complete cold-install shell before activating the work
   assert.doesNotMatch(styles, /\.sacred-library-toggle/);
 });
 
-test("QA-02 keeps habit section ordering and modal dialogs a shared focus contract", async () => {
+test("QA-02 keeps habit sections fixed and modal dialogs a shared focus contract", async () => {
   const [tracker, styles, dialogHook, calendar, account, admin, heroPath, theokyklosDetails, stoicheion, recovery] = await Promise.all([
     readFile(new URL("../app/HabitTracker.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
@@ -2519,19 +2519,9 @@ test("QA-02 keeps habit section ordering and modal dialogs a shared focus contra
   assert.match(styles, /\.habits-view \{[\s\S]*display: flex;[\s\S]*flex-wrap: wrap;/);
   assert.match(styles, /\.habit-collapsible-block \{[^}]*flex:1 1 360px;/);
   assert.match(styles, /\.habit-collapsible-block\.open \{ flex-basis:100%; \}/);
-  assert.match(styles, /\.habit-collapsible-toggle \{/);
-  assert.match(styles, /\.habit-collapsible-toolbar \.disclosure-chevron/);
-  assert.match(styles, /\.habit-section-drag-handle \{[\s\S]*touch-action:none;/);
   assert.match(styles, /max-width: 760px[\s\S]*\.habit-collapsible-block \{ flex-basis:100%;/);
-  assert.match(tracker, /application\/x-genesis-habit-section/);
-  assert.match(tracker, /setDragImage\(section/);
-  assert.match(tracker, /onDragEnter=\{handleDragEnter\}/);
-  assert.match(tracker, /if \(targetId\) onMoveTo\(sectionId, targetId\)/);
-  assert.match(tracker, /className="habit-section-drag-preview"/);
-  assert.match(styles, /\.habit-section-drag-preview \{[\s\S]*position:fixed;[\s\S]*pointer-events:none;/);
-  assert.match(tracker, /onPointerDown=/);
-  assert.match(tracker, /onKeyDown=\{handleMoveKey\}/);
-  assert.match(tracker, /sectionOrder: nextOrder/);
+  assert.match(tracker, /position: Math\.max\(0, HABIT_SECTION_IDS\.indexOf\(sectionId\)\)/);
+  assert.doesNotMatch(tracker, /habit-section-drag-handle|application\/x-genesis-habit-section|onDragEnter=\{handleDragEnter\}/);
   assert.doesNotMatch(tracker, /Сворачивайте разделы и перетаскивайте свёрнутые блоки/);
 
   assert.match(dialogHook, /FOCUSABLE_SELECTOR/);
@@ -3030,11 +3020,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /Задача «\$\{item\.title\}» возвращена в хаос-бокс/);
   assert.match(calendar, /projectDragProps/);
   assert.match(calendar, /beginProjectTouchDrag/);
-  assert.match(calendar, /event\.target instanceof Element \? event\.target\.closest\("\.project-drag-handle"\)/);
-  assert.match(calendar, /if \(!dragHandle \|\| !event\.currentTarget\.contains\(dragHandle\)\) return/);
-  assert.match(calendar, /\}, 320\)/);
   assert.match(calendar, /Math\.hypot\([\s\S]*> 8\)[\s\S]*projectTouchDragRef\.current = null;[\s\S]*return;/);
-  assert.match(calendar, /Прокручивайте карточки свободно\. Для переноса удерживайте ручку ⋮⋮/);
   assert.match(calendar, /className="inbox-list-item project-draggable-item"[\s\S]*projectDragProps\(item\)/);
   assert.match(calendar, /renderTaskRows\(inboxTasks/);
   assert.match(calendar, /deleteTask\(task\.id\)[\s\S]*Удалить задачу/);
@@ -3243,7 +3229,6 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(styles, /\.inbox-card\.drop-target/);
   assert.match(styles, /\.project-drag-preview/);
   assert.match(styles, /@media \(max-width: 760px\)[\s\S]*?\.project-draggable-item\s*\{\s*cursor: auto;\s*touch-action: pan-y;/);
-  assert.match(styles, /@media \(max-width: 760px\)[\s\S]*?\.project-drag-handle\s*\{[^}]*touch-action: none/);
   assert.match(styles, /\.inbox-card-items > article\.inbox-task-item/);
   assert.match(styles, /\.inbox-card-items \.inbox-task-delete/);
   assert.match(styles, /\.day-details-modal/);

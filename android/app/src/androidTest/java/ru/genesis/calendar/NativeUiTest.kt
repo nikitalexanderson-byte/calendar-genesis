@@ -182,8 +182,9 @@ class NativeUiTest {
             compose.onNodeWithTag("navigation-Сегодня").performClick()
             compose.scrollToTodayNode(hasTestTag("today-day-details-toggle"))
             compose.onNodeWithTag("today-day-details-toggle").performClick()
-            compose.scrollToTodayNode(hasTestTag("sacred-calendar-card"))
-            compose.onAllNodesWithTag("sacred-calendar-card").assertCountEquals(1)
+            compose.scrollToTodayNode(hasTestTag("three-rhythms-content"))
+            compose.onAllNodesWithTag("three-rhythms-content").assertCountEquals(1)
+            compose.onAllNodesWithTag("sacred-calendar-card").assertCountEquals(0)
             compose.onAllNodesWithTag("gregorian-calendar-card").assertCountEquals(0)
             compose.onAllNodesWithTag("lunar-calendar-card").assertCountEquals(0)
         } finally { runBlocking { preferences.set("display", initial.wireValue) } }

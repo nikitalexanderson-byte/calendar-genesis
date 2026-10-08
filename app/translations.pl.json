@@ -422,7 +422,7 @@
   "Несколько Google-аккаунтов": "Wiele kont Google",
   "Несортированное · зона возврата": "Niesortowana strefa zwrotu",
   "нет": "nie",
-  "Нет": "Nie.",
+  "Нет": "Nie",
   "Нет — верхний уровень": "Brak - najwyższy poziom",
   "Нет доступных задач": "Brak dostępnych zadań",
   "Нет настроек для сохранения.": "Nie ma ustawień do zapisania.",
@@ -2731,5 +2731,11 @@
   "Даты сакрального и лунного календарей преобразуются в григорианские по часовому поясу устройства перед отправкой в Яндекс.": "Daty sakralne i księżycowe są przeliczane na gregoriańskie w strefie czasowej urządzenia przed wysłaniem do Yandex.",
   "Выбранные даты преобразуются в григорианские по часовому поясу устройства.": "Wybrane daty są przeliczane na gregoriańskie w strefie czasowej urządzenia.",
   "В Яндекс ID откройте «Пароли приложений» → «Календарь». Название можно придумать, а сам пароль выдаёт Яндекс. Скопируйте его сюда.": "W Yandex ID otwórz „Hasła aplikacji” → „Kalendarz”. Nazwę możesz wybrać samodzielnie, ale hasło generuje Yandex. Skopiuj je tutaj.",
-  "Открыть создание пароля Календаря в Яндекс ID": "Utwórz hasło Kalendarza w Yandex ID"
+  "Открыть создание пароля Календаря в Яндекс ID": "Utwórz hasło Kalendarza w Yandex ID",
+  "Да": "Tak",
+  "Завершить этот проект?": "Zakończyć ten projekt?",
+  "Перетащите плашку для переноса": "Przeciągnij kartę, aby ją przenieść",
+  "Удерживайте плашку для переноса": "Przytrzymaj kartę, aby ją przenieść",
+  "Перетащите плашку задачи или списка в проект либо в хаос-бокс.": "Przeciągnij zadanie lub listę do projektu albo skrzynki chaosu.",
+  "Для переноса удерживайте задачу или список, затем перетащите. Для прокрутки проведите пальцем без удержания.": "Aby przenieść zadanie lub listę, przytrzymaj je i przeciągnij. Aby przewijać, przesuń palcem bez przytrzymywania."
 }

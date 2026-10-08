@@ -29,4 +29,13 @@ class AndroidUpdatePromptTest {
             file.delete()
         }
     }
+
+    @Test fun minimumSupportRequiresUpdateOnlyBelowThePublishedFloor() {
+        val hash = "a".repeat(64)
+        val body = """{"versionCode":76,"versionName":"2.7.0","sha256":"$hash","minimumSupportedVersionCode":76}"""
+        assertTrue(requireNotNull(newerAndroidRelease(body, 75)).required)
+        assertNull(newerAndroidRelease(body, 76))
+        assertFalse(requireNotNull(newerAndroidRelease(body.replace(":76}", ":74}"), 75)).required)
+        assertNull(newerAndroidRelease(body.replace(":76}", ":77}"), 75))
+    }
 }

@@ -9,6 +9,7 @@ import {
   type ErrorInfo,
   type FormEvent,
   type PointerEvent,
+  type MouseEvent,
   type ReactNode,
   type TouchEvent,
   lazy,
@@ -24,6 +25,7 @@ import { CalendarDayTaskCounts, CalendarYearTaskCounts } from "./CalendarTaskCou
 import { normalizeWebTheme } from "./web-theme";
 import { TodayAdBlock } from "./TodayAdBlock";
 import { ActionNotice, useActionNotice } from "./ActionNotice";
+import { ProjectCompletionDialog } from "./ProjectCompletionDialog";
 import { uiVisibility, viewIsVisible } from "./ui-visibility";
 import { ProjectsHeroMark } from "./ProjectsHeroMark";
 import { matchesAffair } from "./affairs-search";
@@ -1374,6 +1376,7 @@ export function GenesisCalendar() {
   const [composerTab, setComposerTab] = useState<"task" | "lists">("task");
   const [completedProjectsOpen, setCompletedProjectsOpen] = useState(false);
   const [completingProjectIds, setCompletingProjectIds] = useState<string[]>([]);
+  const [projectToComplete, setProjectToComplete] = useState<GenesisProject | null>(null);
   const { notice, announce } = useActionNotice();
   useEffect(() => {
     if (!completingProjectIds.length) return;
@@ -1464,6 +1467,7 @@ export function GenesisCalendar() {
   const themeControllerRef = useRef<GenesisThemeController | null>(null);
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
   const projectTouchDragRef = useRef<ProjectTouchDrag | null>(null);
+  const projectDragSourceRef = useRef<HTMLElement | null>(null);
   const projectDragPointRef = useRef<{ x: number; y: number } | null>(null);
   const projectAutoScrollFrameRef = useRef<number | null>(null);
   const projectAutoScrollLastFrameRef = useRef<number | null>(null);
@@ -1678,13 +1682,20 @@ export function GenesisCalendar() {
     };
   }, [deviceTimeZone]);
 
-  useEffect(() => () => {
-    const drag = projectTouchDragRef.current;
-    if (drag) window.clearTimeout(drag.timer);
-    if (projectAutoScrollFrameRef.current !== null) window.cancelAnimationFrame(projectAutoScrollFrameRef.current);
-    projectDragPointRef.current = null;
-    projectAutoScrollLastFrameRef.current = null;
-    document.documentElement.classList.remove("project-drag-active");
+  useEffect(() => {
+    const preventDragScroll = (event: Event) => {
+      if (projectTouchDragRef.current?.active && event.cancelable) event.preventDefault();
+    };
+    document.addEventListener("touchmove", preventDragScroll, { passive: false, capture: true });
+    return () => {
+      document.removeEventListener("touchmove", preventDragScroll, true);
+      const drag = projectTouchDragRef.current;
+      if (drag) window.clearTimeout(drag.timer);
+      if (projectAutoScrollFrameRef.current !== null) window.cancelAnimationFrame(projectAutoScrollFrameRef.current);
+      projectDragPointRef.current = null;
+      projectAutoScrollLastFrameRef.current = null;
+      document.documentElement.classList.remove("project-drag-active");
+    };
   }, []);
 
   useEffect(() => {
@@ -3563,27 +3574,44 @@ export function GenesisCalendar() {
       return;
     }
 
-    const edge = Math.min(PROJECT_DRAG_SCROLL_EDGE, window.innerHeight / 3);
-    const direction = point.y < edge ? -1 : point.y > window.innerHeight - edge ? 1 : 0;
-    if (!direction) {
-      projectAutoScrollLastFrameRef.current = null;
-      return;
-    }
-
-    const edgeDepth = direction < 0 ? edge - point.y : point.y - (window.innerHeight - edge);
-    const edgeRatio = Math.min(edge, edgeDepth) / edge;
-    const speed = PROJECT_DRAG_SCROLL_MIN_SPEED + edgeRatio * (PROJECT_DRAG_SCROLL_MAX_SPEED - PROJECT_DRAG_SCROLL_MIN_SPEED);
     const previousTimestamp = projectAutoScrollLastFrameRef.current ?? timestamp - (1000 / 60);
     const elapsedSeconds = Math.min(40, Math.max(1, timestamp - previousTimestamp)) / 1000;
-    projectAutoScrollLastFrameRef.current = timestamp;
-    const maxScrollTop = scrollingElement.scrollHeight - scrollingElement.clientHeight;
-    const nextScrollTop = Math.max(0, Math.min(maxScrollTop, scrollingElement.scrollTop + direction * speed * elapsedSeconds));
-    if (nextScrollTop === scrollingElement.scrollTop) {
+    const containers: Element[] = [];
+    let element = document.elementFromPoint(point.x, point.y);
+    while (element && element !== scrollingElement) {
+      if (element.scrollHeight > element.clientHeight && /auto|scroll/.test(window.getComputedStyle(element).overflowY)) containers.push(element);
+      element = element.parentElement;
+    }
+    element = projectDragSourceRef.current;
+    while (element && element !== scrollingElement) {
+      if (!containers.includes(element) && element.scrollHeight > element.clientHeight && /auto|scroll/.test(window.getComputedStyle(element).overflowY)) containers.push(element);
+      element = element.parentElement;
+    }
+    containers.push(scrollingElement);
+    const moved = containers.some((container) => {
+      const viewport = container === scrollingElement;
+      const bounds = container.getBoundingClientRect();
+      if (!viewport && (point.x < bounds.left || point.x > bounds.right)) return false;
+      const top = viewport ? 0 : Math.max(0, bounds.top);
+      const bottom = viewport ? window.innerHeight : Math.min(window.innerHeight, bounds.bottom);
+      const edge = Math.min(PROJECT_DRAG_SCROLL_EDGE, (bottom - top) / 3);
+      if (edge <= 0) return false;
+      const direction = point.y < top + edge ? -1 : point.y > bottom - edge ? 1 : 0;
+      if (!direction) return false;
+      const depth = direction < 0 ? top + edge - point.y : point.y - (bottom - edge);
+      const speed = PROJECT_DRAG_SCROLL_MIN_SPEED + Math.min(1, depth / edge) * (PROJECT_DRAG_SCROLL_MAX_SPEED - PROJECT_DRAG_SCROLL_MIN_SPEED);
+      const next = Math.max(0, Math.min(container.scrollHeight - container.clientHeight, container.scrollTop + direction * speed * elapsedSeconds));
+      if (Math.abs(next - container.scrollTop) < .5) return false;
+      if (viewport) window.scrollTo({ top: next, left: window.scrollX, behavior: "instant" });
+      else container.scrollTo({ top: next, behavior: "instant" });
+      return true;
+    });
+    if (!moved) {
       projectAutoScrollLastFrameRef.current = null;
       return;
     }
 
-    window.scrollTo({ top: nextScrollTop, left: window.scrollX, behavior: "auto" });
+    projectAutoScrollLastFrameRef.current = timestamp;
     setProjectDropTargetId(projectDropTargetAt(point.x, point.y));
     projectAutoScrollFrameRef.current = window.requestAnimationFrame(projectAutoScrollStep);
   };
@@ -3638,7 +3666,8 @@ export function GenesisCalendar() {
   };
 
   const beginProjectPointerDrag = (event: PointerEvent<HTMLElement>, item: ProjectDragItem) => {
-    if (event.pointerType !== "mouse" || event.button !== 0 || !(event.target as Element).closest(".project-drag-handle")) return;
+    if (event.pointerType !== "mouse" || event.button !== 0 || projectDragControl(event.target)) return;
+    projectDragSourceRef.current = event.currentTarget;
     event.currentTarget.setPointerCapture(event.pointerId);
     projectPointerDragRef.current = {
       item,
@@ -3679,9 +3708,15 @@ export function GenesisCalendar() {
   };
 
   const beginProjectTouchDrag = (event: TouchEvent<HTMLElement>, item: ProjectDragItem) => {
-    if (event.touches.length !== 1) return;
-    const dragHandle = event.target instanceof Element ? event.target.closest(".project-drag-handle") : null;
-    if (!dragHandle || !event.currentTarget.contains(dragHandle)) return;
+    if (event.touches.length !== 1) {
+      const previous = projectTouchDragRef.current;
+      if (previous) window.clearTimeout(previous.timer);
+      projectTouchDragRef.current = null;
+      resetProjectDrag();
+      return;
+    }
+    if (projectDragControl(event.target)) return;
+    projectDragSourceRef.current = event.currentTarget;
     const touch = event.touches[0];
     const previous = projectTouchDragRef.current;
     if (previous) window.clearTimeout(previous.timer);
@@ -3698,7 +3733,7 @@ export function GenesisCalendar() {
       document.documentElement.classList.add("project-drag-active");
       setProjectDragItem(drag.item);
       updateProjectDragPoint(drag.startX, drag.startY);
-    }, 320);
+    }, 450);
     projectTouchDragRef.current = drag;
   };
 
@@ -3712,7 +3747,6 @@ export function GenesisCalendar() {
       return;
     }
     if (!drag.active) return;
-    event.preventDefault();
     updateProjectDragPoint(touch.clientX, touch.clientY);
   };
 
@@ -3722,7 +3756,6 @@ export function GenesisCalendar() {
     window.clearTimeout(drag.timer);
     projectTouchDragRef.current = null;
     if (!drag.active) return;
-    event.preventDefault();
     const touch = event.changedTouches[0];
     const projectId = cancelled || !touch ? "" : projectDropTargetAt(touch.clientX, touch.clientY);
     if (projectId) moveProjectItemToProject(drag.item, projectId);
@@ -3733,11 +3766,22 @@ export function GenesisCalendar() {
     resetProjectDrag();
   };
 
+  const projectDragControl = (target: EventTarget) => target instanceof Element && Boolean(target.closest("button, input, select, textarea, a, summary, label, [role=button], [contenteditable=true]"));
+
   const projectDragProps = (item: ProjectDragItem) => ({
+    "data-project-item-id": item.id,
+    "data-project-dragging": projectDragItem?.id === item.id && projectDragItem.kind === item.kind,
     onPointerDown: (event: PointerEvent<HTMLElement>) => beginProjectPointerDrag(event, item),
     onPointerMove: moveProjectPointerDrag,
     onPointerUp: (event: PointerEvent<HTMLElement>) => finishProjectPointerDrag(event),
     onPointerCancel: (event: PointerEvent<HTMLElement>) => finishProjectPointerDrag(event, true),
+    onLostPointerCapture: (event: PointerEvent<HTMLElement>) => finishProjectPointerDrag(event, true),
+    onClickCapture: (event: MouseEvent<HTMLElement>) => {
+      if (suppressProjectItemClickRef.current) { event.preventDefault(); event.stopPropagation(); }
+    },
+    onContextMenu: (event: MouseEvent<HTMLElement>) => {
+      if (projectTouchDragRef.current) event.preventDefault();
+    },
     onTouchStart: (event: TouchEvent<HTMLElement>) => beginProjectTouchDrag(event, item),
     onTouchMove: moveProjectTouchDrag,
     onTouchEnd: (event: TouchEvent<HTMLElement>) => finishProjectTouchDrag(event),
@@ -5688,7 +5732,7 @@ export function GenesisCalendar() {
               >
                 <span className="eyebrow">Несортированное · зона возврата</span>
                 <h2 id="project-inbox-title">Хаос-бокс</h2>
-                <p>{projectDragItem ? "Отпустите здесь, чтобы убрать элемент из проекта." : "Прокручивайте карточки свободно. Для переноса удерживайте ручку ⋮⋮ и переместите задачу или список в нужный проект. Обратно в хаос-бокс элемент переносится так же."}</p>
+                <p>{projectDragItem ? "Отпустите здесь, чтобы убрать элемент из проекта." : <><span className="project-drag-hint-desktop">Перетащите плашку задачи или списка в проект либо в хаос-бокс.</span><span className="project-drag-hint-touch">Для переноса удерживайте задачу или список, затем перетащите. Для прокрутки проведите пальцем без удержания.</span></>}</p>
                 <strong>{inboxTasks.length + inboxTaskLists.length}</strong>
                 <div className="inbox-card-items">
                   {inboxTaskLists.map((taskList) => {
@@ -5696,7 +5740,6 @@ export function GenesisCalendar() {
                     const taskCount = tasks.filter((task) => task.googleTaskListId === taskList.id).length;
                     return (
                       <article className="inbox-list-item project-draggable-item" key={taskList.id} aria-label={`Перетащить список «${taskList.title}»`} {...projectDragProps(item)}>
-                        <span className="project-drag-handle" aria-hidden="true">⋮⋮</span>
                         <span><strong data-no-translate>{taskList.title}</strong><small data-no-translate>{formatTaskListCount(taskCount, language)}</small></span>
                         <span className="task-list-column-actions">
                           <button type="button" onClick={() => setEditingTaskList(taskList)} aria-label={`Редактировать список «${taskList.title}»`}>✎</button>
@@ -5739,7 +5782,7 @@ export function GenesisCalendar() {
                     </button>
                     <button type="button" className={`project-complete-action${completingProjectIds.includes(project.id) ? " is-completing" : ""}`} aria-pressed={project.status !== "active"} disabled={completingProjectIds.includes(project.id)}
                       aria-label={project.status !== "active" ? `Вернуть проект «${project.title}» в текущие` : `Завершить проект «${project.title}»`}
-                      title={project.status !== "active" ? (language === "en" ? "Restore" : "Вернуть") : "Завершить проект"} onClick={() => toggleProject(project.id)}>
+                      title={project.status !== "active" ? (language === "en" ? "Restore" : "Вернуть") : "Завершить проект"} onClick={() => project.status === "active" ? setProjectToComplete(project) : toggleProject(project.id)}>
                       {project.status !== "active" && !completingProjectIds.includes(project.id)
                         ? <svg className="project-restore-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1.7 7.3M4 4v6h6"/></svg>
                         : <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="m7 12 3 3 7-7"/></svg>}
@@ -5753,7 +5796,7 @@ export function GenesisCalendar() {
                     <div className="project-drop-field">
                       <div className="project-drop-heading">
                         <span>Пространство проекта</span>
-                        <small>{projectDragItem ? "Отпустите здесь" : "Удерживайте ручку ⋮⋮ для переноса"}</small>
+                        <small>{projectDragItem ? "Отпустите здесь" : <><span className="project-drag-hint-desktop">Перетащите плашку для переноса</span><span className="project-drag-hint-touch">Удерживайте плашку для переноса</span></>}</small>
                       </div>
                       <div className="project-assigned-items">
                         {projectTaskLists.map((taskList) => {
@@ -5761,7 +5804,6 @@ export function GenesisCalendar() {
                           const taskCount = tasks.filter((task) => task.googleTaskListId === taskList.id).length;
                           return (
                             <div className="project-assigned-list project-draggable-item" key={taskList.id} aria-label={`Перетащить список «${taskList.title}»`} {...projectDragProps(item)}>
-                              <span className="project-drag-handle" aria-hidden="true">⋮⋮</span>
                               <span><strong data-no-translate>{taskList.title}</strong><small data-no-translate>{formatTaskListCount(taskCount, language)}</small></span>
                               <span className="task-list-column-actions">
                                 <button type="button" onClick={() => setEditingTaskList(taskList)} aria-label={`Редактировать список «${taskList.title}»`}>✎</button>
@@ -5881,7 +5923,6 @@ export function GenesisCalendar() {
               .filter((title): title is string => Boolean(title));
             return (
               <article className={`all-task-row project-task-card project-draggable-item${task.done ? " done" : ""}${overdue ? " past" : ""}`} key={task.id} {...projectDragProps({ kind: "task", id: task.id, title: task.title })}>
-                <span className="project-drag-handle" aria-hidden="true">⋮⋮</span>
                 <button type="button" className="task-check" onClick={() => toggleTask(task.id)} aria-label={task.done ? `Вернуть задачу «${task.title}»` : `Завершить задачу «${task.title}»`}>
                   {task.done ? "✓" : ""}
                 </button>
@@ -6433,6 +6474,12 @@ export function GenesisCalendar() {
       } as CSSProperties}
     >
       <ActionNotice message={view === "projects" && activeProjectsArea === "shared" ? "" : notice}/>
+      {projectToComplete ? <ProjectCompletionDialog title={projectToComplete.title}
+        onCancel={() => setProjectToComplete(null)} onConfirm={() => {
+          const project = projects.find((item) => item.id === projectToComplete.id);
+          setProjectToComplete(null);
+          if (project?.status === "active") toggleProject(project.id);
+        }} /> : null}
       <a className="skip-link" href="#main-content">К основному содержанию</a>
       <aside className="app-sidebar" aria-label="Основная навигация" data-exp-ui="navigation">
         <button className="brand-mark" type="button" onClick={selectToday} aria-label="GENESIS — на главную">

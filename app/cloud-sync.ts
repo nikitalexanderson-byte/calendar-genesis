@@ -1407,10 +1407,14 @@ export async function updateAccountPreferences(preferences: Partial<{
   }
 }
 
-export type SharedSpace = { id: string; title: string; role: "owner" | "admin" | "member" | "guest"; updatedAt: string };
+export type SharedPermissions = Record<"createProjects" | "editTasks" | "organizeTasks" | "comment" | "manageProjects" | "inviteMembers", boolean>;
+export type SharedSpace = { id: string; title: string; description?: string; revision?: number; permissions?: SharedPermissions; role: "owner" | "admin" | "member" | "guest"; updatedAt: string };
+export type SharedSpaceInvitationInput = { email: string; role: "admin" | "member" | "guest"; permissions: SharedPermissions };
+export type SharedSpaceSettings = { space: SharedSpace; members: { userId: string; displayName: string; email: string; role: SharedSpace["role"]; permissions: SharedPermissions }[];
+  invitations: (SharedSpaceInvitationInput & { id: string; expiresAt: string })[] };
 export type SharedProject = { id: string; spaceId: string; parentId: string | null; title: string;
   description: string; tags?: string[]; kind?: "project" | "task-list"; boardStatusId?: string | null; layout: "list" | "board"; isInbox?: number; taskCount?: number;
-  revision: number; role: string; spaceRole?: string; canOrganizeTasks?: boolean; updatedAt: string };
+  revision: number; role: string; spaceRole?: string; canOrganizeTasks?: boolean; canCreateBoards?: boolean; permissions?: SharedPermissions; updatedAt: string };
 export type SharedStatus = { color?: string; imageUrl?: string; id: string; title: string; position: number; isDone: number; revision: number };
 export type SharedTaskList = SharedStatus & { projectId: string; projectTitle: string;
   spaceId: string; spaceTitle: string; role: string; taskCount: number; openCount: number };
@@ -1583,10 +1587,31 @@ async function sendSharedMutation<T extends { pending?: boolean }>(item: SharedQ
 export async function listSharedSpaces() {
   return (await sharedCachedRequest<{ spaces: SharedSpace[] }>("/shared/spaces")).spaces;
 }
-export async function createSharedSpace(title: string) {
+export async function createSharedSpace(title: string, description = "", invitations: SharedSpaceInvitationInput[] = []) {
   return (await api<{ space: SharedSpace }>("/shared/spaces", {
-    method: "POST", body: JSON.stringify({ title }),
+    method: "POST", body: JSON.stringify({ title, description, invitations }),
   })).space;
+}
+export function loadSharedSpaceSettings(spaceId: string) {
+  return api<SharedSpaceSettings>(`/shared/spaces/${encodeURIComponent(spaceId)}`);
+}
+export async function updateSharedSpace(space: SharedSpace, title: string, description: string) {
+  return (await api<{ space: SharedSpace }>(`/shared/spaces/${encodeURIComponent(space.id)}`, {
+    method: "PATCH", body: JSON.stringify({ title, description, expectedRevision: space.revision }),
+  })).space;
+}
+export function deleteSharedSpace(space: SharedSpace) {
+  return api<{ ok: true }>(`/shared/spaces/${encodeURIComponent(space.id)}`, {
+    method: "DELETE", body: JSON.stringify({ expectedRevision: space.revision }),
+  });
+}
+export function setSharedSpaceMemberPermissions(spaceId: string, userId: string, role: SharedSpace["role"], permissions: SharedPermissions) {
+  return api<{ ok: true }>(`/shared/spaces/${encodeURIComponent(spaceId)}/members/${encodeURIComponent(userId)}`, {
+    method: "PATCH", body: JSON.stringify({ role, permissions, canOrganizeTasks: permissions.organizeTasks }),
+  });
+}
+export function revokeSharedSpaceInvitation(spaceId: string, invitationId: string) {
+  return api<{ ok: true }>(`/shared/spaces/${encodeURIComponent(spaceId)}/invitations/${encodeURIComponent(invitationId)}`, { method: "DELETE" });
 }
 export async function listSharedProjects(spaceId: string) {
   return (await sharedCachedRequest<{ projects: SharedProject[] }>(`/shared/spaces/${encodeURIComponent(spaceId)}/projects`)).projects;
@@ -2111,7 +2136,7 @@ export function saveSharedUiState(spaceId: string, expandedIds: string[]) {
   return api<{ expandedIds: string[] }>(`/shared/spaces/${encodeURIComponent(spaceId)}/ui`,
     { method: "PATCH", body: JSON.stringify({ expandedIds }) });
 }
-export function inviteSharedSpaceMember(spaceId: string, email: string, role: "member" | "guest") {
+export function inviteSharedSpaceMember(spaceId: string, email: string, role: "admin" | "member" | "guest", permissions?: SharedPermissions) {
   return api<{ invitation: { id: string; expiresAt: string } }>(`/shared/spaces/${encodeURIComponent(spaceId)}/invitations`,
-    { method: "POST", body: JSON.stringify({ email, role }) });
+    { method: "POST", body: JSON.stringify({ email, role, ...(permissions ? { permissions } : {}) }) });
 }

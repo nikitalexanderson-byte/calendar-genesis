@@ -6533,13 +6533,9 @@ html[data-genesis-theme^="standart"] .appearance-menu-controls { min-width: 0; m
 .stoicheion-spread-button:disabled { cursor: wait; opacity: .62; transform: none; }
 .stoicheion-limit-note { color: #718b86; font-size: 7px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
 .stoicheion-draw-error {
-  position: absolute;
-  top: 16px;
-  left: 50%;
-  z-index: 5;
-  width: max-content;
-  max-width: min(92%, 420px);
-  margin: 0;
+  width: fit-content;
+  max-width: 100%;
+  margin: 16px 0;
   padding: 11px 13px;
   color: #efc2b3;
   font-size: 9px;
@@ -6549,13 +6545,14 @@ html[data-genesis-theme^="standart"] .appearance-menu-controls { min-width: 0; m
   border: 1px solid rgba(218, 140, 120, .32);
   border-radius: 9px;
   box-shadow: 0 14px 34px rgba(0, 0, 0, 0.32);
-  transform: translateX(-50%);
 }
 
 .stoicheion-nine-section { padding: clamp(28px, 5vw, 58px); }
 .stoicheion-nine-section > header,
 .stoicheion-alphabet-section > header { display: flex; align-items: flex-end; justify-content: space-between; gap: 34px; }
-.stoicheion-nine-section > header > div { max-width: 780px; }
+.stoicheion-nine-section > header { align-items: flex-start; }
+.stoicheion-nine-section > header > div { flex: 1 1 auto; min-width: 0; max-width: 780px; }
+.stoicheion-nine-section > header > .stoicheion-isopsephy { flex: 0 0 320px; width: 320px; }
 
 .stoicheion-spread-button {
   display: flex;
@@ -6644,7 +6641,7 @@ html[data-genesis-theme^="standart"] .appearance-menu-controls { min-width: 0; m
 
 .stoicheion-spread-reading {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
   gap: 22px;
   margin-top: 38px;
@@ -6701,8 +6698,7 @@ html[data-genesis-theme^="standart"] .appearance-menu-controls { min-width: 0; m
 .stoicheion-sector > p { margin: 12px 0 0; color: #78918d; font-size: 8px; line-height: 1.5; }
 
 .stoicheion-isopsephy {
-  position: sticky;
-  top: 92px;
+  position: static;
   padding: 26px;
   background: linear-gradient(160deg, rgba(217, 190, 129, .1), rgba(5, 22, 24, .85));
   border: 1px solid rgba(216, 189, 128, .23);
@@ -7118,6 +7114,8 @@ html[data-genesis-theme^="standart"] .appearance-menu-controls { min-width: 0; m
 }
 
 @media (max-width: 1040px) {
+  .stoicheion-nine-section > header { flex-direction: column; }
+  .stoicheion-nine-section > header > .stoicheion-isopsephy { flex-basis: auto; width: 100%; }
   .stoicheion-hero { grid-template-columns: 1fr; align-items: start; }
   .stoicheion-counts { width: min(520px, 100%); }
   .stoicheion-day-section { grid-template-columns: minmax(220px, .66fr) minmax(0, 1.34fr); }

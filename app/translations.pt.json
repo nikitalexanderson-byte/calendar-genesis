@@ -2731,5 +2731,11 @@
   "Даты сакрального и лунного календарей преобразуются в григорианские по часовому поясу устройства перед отправкой в Яндекс.": "As datas sagradas e lunares são convertidas para datas gregorianas no fuso horário do dispositivo antes de serem enviadas ao Yandex.",
   "Выбранные даты преобразуются в григорианские по часовому поясу устройства.": "As datas escolhidas são convertidas para o calendário gregoriano no fuso horário do dispositivo.",
   "В Яндекс ID откройте «Пароли приложений» → «Календарь». Название можно придумать, а сам пароль выдаёт Яндекс. Скопируйте его сюда.": "No Yandex ID, abra «Palavras-passe de aplicações» → «Calendário». Pode escolher o nome, mas a Yandex gera a palavra-passe. Copie-a para aqui.",
-  "Открыть создание пароля Календаря в Яндекс ID": "Criar palavra-passe do Calendário no Yandex ID"
+  "Открыть создание пароля Календаря в Яндекс ID": "Criar palavra-passe do Calendário no Yandex ID",
+  "Да": "Sim",
+  "Завершить этот проект?": "Concluir este projeto?",
+  "Перетащите плашку для переноса": "Arraste o cartão para movê-lo",
+  "Удерживайте плашку для переноса": "Mantenha o cartão pressionado para movê-lo",
+  "Перетащите плашку задачи или списка в проект либо в хаос-бокс.": "Arraste uma tarefa ou lista para um projeto ou a caixa do caos.",
+  "Для переноса удерживайте задачу или список, затем перетащите. Для прокрутки проведите пальцем без удержания.": "Para mover uma tarefa ou lista, mantenha-a pressionada e arraste. Para rolar, deslize sem manter pressionado."
 }

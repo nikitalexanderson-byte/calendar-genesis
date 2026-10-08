@@ -62,7 +62,7 @@ function genesisSharedRowTags(array $row): array
 
 function genesisSharedSpaceAccess(string $spaceId, string $userId): array
 {
-    $query = genesisDb()->prepare('SELECT s.*, m.role AS member_role FROM shared_spaces s
+    $query = genesisDb()->prepare('SELECT s.*, m.role AS member_role, m.permissions_json, m.can_organize_tasks FROM shared_spaces s
         JOIN shared_space_members m ON m.space_id = s.id AND m.user_id = :user
         WHERE s.id = :id LIMIT 1');
     $query->execute(['id' => $spaceId, 'user' => $userId]);
@@ -74,27 +74,22 @@ function genesisSharedSpaceAccess(string $spaceId, string $userId): array
 function genesisSharedProjectAccess(string $projectId, string $userId, string $permission = 'read', bool $includeArchived = false): array
 {
     $query = genesisDb()->prepare('SELECT p.*, m.role AS member_role,
-        sm.role AS space_member_role, sm.can_organize_tasks AS can_organize_tasks FROM shared_projects p
+        sm.role AS space_member_role, sm.permissions_json AS space_permissions_json, sm.can_organize_tasks AS can_organize_tasks FROM shared_projects p
         JOIN shared_project_members m ON m.project_id = p.id AND m.user_id = :user
         JOIN shared_space_members sm ON sm.space_id = p.space_id AND sm.user_id = :user
         WHERE p.id = :id' . ($includeArchived ? '' : ' AND p.archived_at IS NULL') . ' LIMIT 1');
     $query->execute(['id' => $projectId, 'user' => $userId]);
     $project = $query->fetch();
     if (!$project) throw new GenesisSharedAccessException();
-    $allowed = [
-        'read' => ['owner', 'manager', 'member', 'commenter', 'viewer'],
-        'comment' => ['owner', 'manager', 'member', 'commenter'],
-        'write' => ['owner', 'manager', 'member'],
-        'manage' => ['owner', 'manager'],
-        'owner' => ['owner'],
-    ];
-    $canOrganize = in_array((string)$project['space_member_role'], ['owner', 'admin'], true)
-        || in_array((string)$project['member_role'], ['owner', 'manager'], true)
-        || ((int)$project['can_organize_tasks'] === 1 && $project['member_role'] === 'member');
-    if ($permission === 'organize' ? !$canOrganize
-        : !in_array((string)$project['member_role'], $allowed[$permission] ?? [], true)) {
+    $permissions = genesisSharedPermissions($project['space_member_role'], $project['space_permissions_json'],
+        (int)$project['can_organize_tasks'] === 1, $project['member_role']);
+    $key = ['write' => 'editTasks', 'comment' => 'comment', 'manage' => 'manageProjects',
+        'organize' => 'organizeTasks', 'invite' => 'inviteMembers', 'owner' => 'manageProjects'][$permission] ?? null;
+    if ($permission !== 'read' && (!$key || !$permissions[$key]
+        || ($permission === 'owner' && $project['member_role'] !== 'owner'))) {
         throw new GenesisSharedAccessException('SHARED_PROJECT_FORBIDDEN', 403);
     }
+    $project['permissions'] = $permissions;
     return $project;
 }
 
@@ -110,24 +105,31 @@ function genesisSharedAudit(string $projectId, string $actorId, string $action, 
 function genesisSharedSpaces(string $userId): array
 {
     genesisSharedRequireEnabled($userId);
-    $query = genesisDb()->prepare('SELECT s.id, s.title, s.updated_at AS updatedAt, m.role
+    $query = genesisDb()->prepare('SELECT s.id, s.title, s.description, s.revision, s.updated_at AS updatedAt, m.role, m.permissions_json, m.can_organize_tasks
         FROM shared_spaces s JOIN shared_space_members m ON m.space_id = s.id
         WHERE m.user_id = :user ORDER BY s.updated_at DESC LIMIT 100');
     $query->execute(['user' => $userId]);
-    return $query->fetchAll();
+    return array_map(static function (array $space): array {
+        $space['permissions'] = genesisSharedPermissions($space['role'], $space['permissions_json'], (int)$space['can_organize_tasks'] === 1);
+        $space['revision'] = (int)$space['revision'];
+        unset($space['permissions_json'], $space['can_organize_tasks']); return $space;
+    }, $query->fetchAll());
 }
 
 function genesisSharedCreateSpace(string $userId, array $input): array
 {
     genesisSharedRequireEnabled($userId);
     $title = genesisSharedTitle($input['title'] ?? null);
+    $description = genesisSharedText($input['description'] ?? '', 5000);
+    $invitations = $input['invitations'] ?? [];
+    if (!is_array($invitations) || !array_is_list($invitations) || count($invitations) > 20) throw new InvalidArgumentException('INVALID_SPACE_INVITATIONS');
     $id = genesisUuid();
     $now = genesisNow();
     $db = genesisDb();
     $db->beginTransaction();
     try {
-        $db->prepare('INSERT INTO shared_spaces (id, title, created_by, created_at, updated_at)
-            VALUES (:id, :title, :user, :now, :now)')->execute(compact('id', 'title') + ['user' => $userId, 'now' => $now]);
+        $db->prepare('INSERT INTO shared_spaces (id, title, description, created_by, created_at, updated_at)
+            VALUES (:id, :title, :description, :user, :now, :now)')->execute(compact('id', 'title', 'description') + ['user' => $userId, 'now' => $now]);
         $db->prepare("INSERT INTO shared_space_members (space_id, user_id, role, joined_at)
             VALUES (:space, :user, 'owner', :now)")->execute(['space' => $id, 'user' => $userId, 'now' => $now]);
         $inboxId = genesisUuid();
@@ -147,12 +149,20 @@ function genesisSharedCreateSpace(string $userId, array $input): array
                     'position' => $position, 'done' => $done,
                 ]);
         }
+        $emails = [];
+        foreach ($invitations as $invitation) {
+            if (!is_array($invitation)) throw new InvalidArgumentException('INVALID_SPACE_INVITATIONS');
+            $email = mb_strtolower(trim((string)($invitation['email'] ?? '')));
+            if (in_array($email, $emails, true)) throw new InvalidArgumentException('DUPLICATE_SPACE_INVITATION');
+            $emails[] = $email;
+            genesisSharedSpaceInvite($userId, $id, $invitation);
+        }
         $db->commit();
     } catch (Throwable $error) {
         $db->rollBack();
         throw $error;
     }
-    return ['id' => $id, 'title' => $title, 'role' => 'owner', 'updatedAt' => $now];
+    return ['id' => $id, 'title' => $title, 'role' => 'owner', 'description' => $description, 'revision' => 1, 'updatedAt' => $now];
 }
 
 function genesisSharedProjects(string $userId, string $spaceId): array
@@ -161,14 +171,19 @@ function genesisSharedProjects(string $userId, string $spaceId): array
     genesisSharedSpaceAccess($spaceId, $userId);
     $query = genesisDb()->prepare('SELECT p.id, p.space_id AS spaceId, p.parent_id AS parentId,
         p.title, p.description, p.tags_json AS tagsJson, p.layout, p.kind, p.board_status_id AS boardStatusId, p.is_inbox AS isInbox, p.revision, p.updated_at AS updatedAt,
-        m.role, sm.role AS spaceRole, sm.can_organize_tasks AS canOrganizeTasks,
+        m.role, sm.role AS spaceRole, sm.can_organize_tasks AS canOrganizeTasks, sm.permissions_json AS permissionsJson,
         (SELECT COUNT(*) FROM shared_tasks t WHERE t.project_id = p.id) AS taskCount
         FROM shared_projects p JOIN shared_project_members m ON m.project_id = p.id
         JOIN shared_space_members sm ON sm.space_id = p.space_id AND sm.user_id = m.user_id
         WHERE p.space_id = :space AND m.user_id = :user AND p.archived_at IS NULL
         ORDER BY p.updated_at DESC LIMIT 100');
     $query->execute(['space' => $spaceId, 'user' => $userId]);
-    return array_map('genesisSharedRowTags', $query->fetchAll());
+    return array_map(static function (array $project): array {
+        $project['permissions'] = genesisSharedPermissions($project['spaceRole'], $project['permissionsJson'], (int)$project['canOrganizeTasks'] === 1, $project['role']);
+        $project['canOrganizeTasks'] = $project['permissions']['organizeTasks'];
+        $project['canCreateBoards'] = $project['permissions'][$project['permissionsJson'] === null ? 'editTasks' : 'manageProjects'];
+        unset($project['permissionsJson']); return genesisSharedRowTags($project);
+    }, $query->fetchAll());
 }
 
 function genesisSharedArchivedProjects(string $userId, string $spaceId): array
@@ -228,7 +243,8 @@ function genesisSharedCreateStatus(string $userId, string $projectId, array $inp
     $db = genesisDb();
     $db->beginTransaction();
     try {
-        genesisSharedProjectAccess($projectId, $userId, 'write');
+        $project = genesisSharedProjectAccess($projectId, $userId);
+        genesisSharedProjectAccess($projectId, $userId, $project['space_permissions_json'] === null ? 'write' : 'manage');
         $receipt = genesisSharedMutationReceipt($db, $userId, $requestId, 'status.create', $projectId);
         if ($receipt !== null) {
             $db->commit();
@@ -446,7 +462,7 @@ function genesisSharedCreateProject(string $userId, string $spaceId, array $inpu
 {
     genesisSharedRequireEnabled($userId);
     $space = genesisSharedSpaceAccess($spaceId, $userId);
-    if (!in_array($space['member_role'], ['owner', 'admin', 'member'], true)) {
+    if (!genesisSharedSpacePermission($space, 'createProjects')) {
         throw new GenesisSharedAccessException('SHARED_SPACE_FORBIDDEN', 403);
     }
     $title = genesisSharedTitle($input['title'] ?? null);
@@ -468,7 +484,7 @@ function genesisSharedCreateProject(string $userId, string $spaceId, array $inpu
     $db->beginTransaction();
     try {
         $space = genesisSharedSpaceAccess($spaceId, $userId);
-        if (!in_array($space['member_role'], ['owner', 'admin', 'member'], true)) {
+        if (!genesisSharedSpacePermission($space, 'createProjects')) {
             throw new GenesisSharedAccessException('SHARED_SPACE_FORBIDDEN', 403);
         }
         if ($parentId !== null) genesisSharedProjectAccess((string)$parentId, $userId, 'write');
@@ -584,7 +600,7 @@ function genesisSharedImportProjectTree(string $userId, string $spaceId, array $
     $db->beginTransaction();
     try {
         $space = genesisSharedSpaceAccess($spaceId, $userId);
-        if (!in_array($space['member_role'], ['owner', 'admin', 'member'], true)) {
+        if (!genesisSharedSpacePermission($space, 'createProjects')) {
             throw new GenesisSharedAccessException('SHARED_SPACE_FORBIDDEN', 403);
         }
         $existing = $db->prepare('SELECT payload_hash, receipt_json FROM shared_project_imports
@@ -861,12 +877,16 @@ function genesisSharedSetSpaceRole(string $userId, string $spaceId, string $targ
     try {
         $space = genesisSharedSpaceAccess($spaceId, $userId);
         if ($space['member_role'] !== 'owner') throw new GenesisSharedAccessException('SHARED_SPACE_FORBIDDEN', 403);
-        $member = $db->prepare('SELECT role, can_organize_tasks FROM shared_space_members
+        $member = $db->prepare('SELECT role, can_organize_tasks, permissions_json FROM shared_space_members
             WHERE space_id = :space AND user_id = :user');
         $member->execute(['space' => $spaceId, 'user' => $targetId]);
         $existing = $member->fetch();
         if (!$existing) throw new GenesisSharedAccessException();
         $oldRole = $existing['role'];
+        $permissions = array_key_exists('permissions', $input) ? genesisSharedPermissionInput($input['permissions'])
+            : ($role !== $oldRole ? genesisSharedPermissions($role) : null);
+        $permissionsJson = array_key_exists('permissions', $input) || $role !== $oldRole
+            ? ($permissions === null ? null : json_encode($permissions, JSON_THROW_ON_ERROR)) : $existing['permissions_json'];
         $canOrganize = $input['canOrganizeTasks'] ?? ((int)$existing['can_organize_tasks'] === 1);
         if (!is_bool($canOrganize)) throw new InvalidArgumentException('INVALID_ORGANIZER_PERMISSION');
         if ($oldRole === 'owner' && $role !== 'owner') {
@@ -874,9 +894,9 @@ function genesisSharedSetSpaceRole(string $userId, string $spaceId, string $targ
             $owners->execute(['space' => $spaceId]);
             if ((int)$owners->fetchColumn() <= 1) throw new GenesisSharedAccessException('LAST_OWNER', 409);
         }
-        $db->prepare('UPDATE shared_space_members SET role = :role, can_organize_tasks = :organize
+        $db->prepare('UPDATE shared_space_members SET role = :role, can_organize_tasks = :organize, permissions_json = :permissions
             WHERE space_id = :space AND user_id = :user')->execute([
-                'role' => $role, 'organize' => $canOrganize ? 1 : 0,
+                'role' => $role, 'organize' => $canOrganize ? 1 : 0, 'permissions' => $permissionsJson,
                 'space' => $spaceId, 'user' => $targetId]);
         if (in_array($role, ['owner', 'admin'], true)) {
             $db->prepare("INSERT OR IGNORE INTO shared_project_members (project_id, user_id, role, joined_at)
@@ -989,7 +1009,7 @@ function genesisSharedProjectSnapshot(string $userId, string $projectId): array
         WHERE t.project_id = :project ORDER BY t.status_id, t.position LIMIT 500');
     $tasks->execute(['project' => $projectId]);
     $members = $db->prepare('SELECT m.user_id AS userId, m.role, sm.role AS spaceRole,
-        sm.can_organize_tasks AS canOrganizeTasks,
+        sm.can_organize_tasks AS canOrganizeTasks, sm.permissions_json AS permissionsJson,
         u.display_name AS displayName FROM shared_project_members m
         JOIN users u ON u.id = m.user_id
         JOIN shared_space_members sm ON sm.space_id = :space AND sm.user_id = m.user_id
@@ -1002,20 +1022,23 @@ function genesisSharedProjectSnapshot(string $userId, string $projectId): array
             'layout' => $project['layout'], 'kind' => $project['kind'], 'boardStatusId' => $project['board_status_id'], 'isInbox' => (int)$project['is_inbox'],
             'revision' => (int)$project['revision'],
             'role' => $project['member_role'], 'spaceRole' => $project['space_member_role'],
-            'canOrganizeTasks' => in_array((string)$project['space_member_role'], ['owner', 'admin'], true)
-                || in_array((string)$project['member_role'], ['owner', 'manager'], true)
-                || ((int)$project['can_organize_tasks'] === 1 && $project['member_role'] === 'member'),
+            'canOrganizeTasks' => $project['permissions']['organizeTasks'],
+            'canCreateBoards' => $project['permissions'][$project['space_permissions_json'] === null ? 'editTasks' : 'manageProjects'],
+            'permissions' => $project['permissions'],
             'updatedAt' => $project['updated_at'],
         ],
         'statuses' => $statuses->fetchAll(), 'categories' => $categories->fetchAll(),
-        'tasks' => array_map('genesisSharedRowTags', $tasks->fetchAll()), 'members' => $members->fetchAll(),
+        'tasks' => array_map('genesisSharedRowTags', $tasks->fetchAll()), 'members' => array_map(static function (array $member): array {
+            $member['permissions'] = genesisSharedPermissions($member['spaceRole'], $member['permissionsJson'], (int)$member['canOrganizeTasks'] === 1, $member['role']);
+            unset($member['permissionsJson']); return $member;
+        }, $members->fetchAll()),
     ];
 }
 
 function genesisSharedInvite(string $userId, string $projectId, array $input): array
 {
     genesisSharedRequireEnabled($userId);
-    genesisSharedProjectAccess($projectId, $userId, 'manage');
+    genesisSharedProjectAccess($projectId, $userId, 'invite');
     $email = mb_strtolower(trim((string)($input['email'] ?? '')));
     if (!genesisIsValidEmail($email)) throw new InvalidArgumentException('INVALID_EMAIL');
     $role = (string)($input['role'] ?? 'member');
@@ -1040,7 +1063,7 @@ function genesisSharedInvite(string $userId, string $projectId, array $input): a
     $db = genesisDb();
     $db->beginTransaction();
     try {
-        genesisSharedProjectAccess($projectId, $userId, 'manage');
+        genesisSharedProjectAccess($projectId, $userId, 'invite');
         $db->prepare('UPDATE shared_invitations SET revoked_at = :now
             WHERE project_id = :project AND email = :email COLLATE NOCASE
             AND consumed_at IS NULL AND revoked_at IS NULL')->execute([
@@ -1627,4 +1650,5 @@ function genesisSharedSearch(string $userId, string $spaceId, string $query): ar
     return ['projects' => array_slice($projects, 0, 100), 'tasks' => array_slice($found, 0, 100)];
 }
 
+require_once __DIR__ . '/shared-space-settings.php';
 require_once __DIR__ . '/shared-ui.php';

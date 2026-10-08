@@ -112,7 +112,7 @@ fun DayKnowledgePanel(date: LocalDate, primaryMode: CalendarMode,
     if (primaryMode != CalendarMode.SACRED) return
     Column(Modifier.fillMaxWidth().testTag("day-knowledge"),
         verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        SacredCalendarCard(date, calendar)
+        ThreeRhythmsCard(date, calendar)
     }
 }
 

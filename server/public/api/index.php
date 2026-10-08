@@ -145,7 +145,17 @@ try {
         $language = substr((string)($_GET['language'] ?? 'ru'), 0, 2);
         $country = strtoupper(substr((string)($_GET['country'] ?? ''), 0, 2));
         $platform = (string)($_GET['platform'] ?? 'web');
-        genesisJson(['ads' => genesisTodayAds($language, $country, $platform)]);
+        $ads = genesisTodayAds($language, $country, $platform);
+        if ($platform === 'android') {
+            $publicRoot = dirname(__DIR__);
+            $rawRelease = @file_get_contents($publicRoot . '/android-update.json');
+            $release = $rawRelease === false ? null : json_decode($rawRelease, true);
+            $notice = genesisAndroidSupportNotice($language,
+                (string)($_SERVER['HTTP_X_GENESIS_APP_VERSION'] ?? ''), is_array($release) ? $release : null);
+            if ($notice !== null && is_file($publicRoot . '/downloads/GENESIS-Android-Native-' . $release['versionName'] . '.apk'))
+                array_unshift($ads, $notice);
+        }
+        genesisJson(['ads' => $ads]);
     }
 
     if ($method === 'GET' && $path === 'android/download') {
@@ -620,6 +630,16 @@ try {
         }
         if ($method === 'GET' && $path === 'shared/task-lists') {
             genesisJson(['lists' => genesisSharedTaskLists($userId)]);
+        }
+        if (count($segments) === 3 && $segments[0] === 'shared' && $segments[1] === 'spaces') {
+            if ($method === 'GET') genesisJson(genesisSharedSpaceSettings($userId, $segments[2]));
+            if ($method === 'PATCH') genesisJson(['space' => genesisSharedUpdateSpace($userId, $segments[2], genesisReadJson())]);
+            if ($method === 'DELETE') {
+                genesisSharedDeleteSpace($userId, $segments[2], genesisReadJson()); genesisJson(['ok' => true]);
+            }
+        }
+        if ($method === 'DELETE' && count($segments) === 5 && $segments[1] === 'spaces' && $segments[3] === 'invitations') {
+            genesisSharedRevokeSpaceInvitation($userId, $segments[2], $segments[4]); genesisJson(['ok' => true]);
         }
         if ($method === 'POST' && $path === 'shared/spaces') {
             genesisJson(['space' => genesisSharedCreateSpace($userId, genesisReadJson())], 201);
