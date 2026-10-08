@@ -27,7 +27,9 @@ import { type CalendarMode, MONTHS, LUNAR_DECADES, ELEMENTS, formatCalendarDate,
 import { translateText } from "./i18n";
 import { restoredSharedProject } from "./shared-expansion";
 
-type Props = { userId: string; language: string; enabledCalendars: CalendarMode[] };
+type Props = { userId: string; language: string; enabledCalendars: CalendarMode[];
+  calendarMode: CalendarMode; taskCalendarMode: CalendarMode;
+  onCalendarModeChange: (mode: CalendarMode) => Promise<void> };
 
 const splitTags = (value: string) => [...new Set(value.split(/[,;\s]+/).map((tag) => tag.replace(/^#/, "").trim()).filter(Boolean))];
 
@@ -65,7 +67,7 @@ function sharedCalendarPeriod(anchor: Date, mode: CalendarMode, english: boolean
     title: new Intl.DateTimeFormat(english ? "en-US" : "ru-RU", { month: "long", year: "numeric" }).format(start) };
 }
 
-export function SharedProjects({ userId, language, enabledCalendars }: Props) {
+export function SharedProjects({ userId, language, enabledCalendars, calendarMode, taskCalendarMode, onCalendarModeChange }: Props) {
   const english = language === "en";
   const [spaces, setSpaces] = useState<SharedSpace[]>([]);
   const [spaceId, setSpaceId] = useState("");
@@ -77,7 +79,6 @@ export function SharedProjects({ userId, language, enabledCalendars }: Props) {
   const [viewOverride, setViewOverride] = useState<"list" | "board" | "calendar" | null>(null);
   const [calendarMonth, setCalendarMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1, 12));
   const [calendarDay, setCalendarDay] = useState(() => localDateKey(new Date()));
-  const [calendarMode, setCalendarMode] = useState<CalendarMode>("profane");
   const [snapshot, setSnapshot] = useState<SharedProjectSnapshot | null>(null);
   const [teamSnapshot, setTeamSnapshot] = useState<SharedProjectSnapshot | null>(null);
   const [expandedIds, setExpandedIds] = useState<string[]>([]);
@@ -201,19 +202,6 @@ export function SharedProjects({ userId, language, enabledCalendars }: Props) {
     window.addEventListener("genesis-shared-offline-change", refresh);
     return () => { live = false; window.removeEventListener("genesis-shared-offline-change", refresh); };
   }, [projectId]);
-  useEffect(() => {
-    const stored = window.localStorage.getItem("genesis-shared-calendar-mode");
-    if ((stored === "profane" || stored === "sacred" || stored === "lunar") && enabledCalendars.includes(stored)) {
-      const timer = window.setTimeout(() => setCalendarMode(stored), 0);
-      return () => window.clearTimeout(timer);
-    }
-  }, [enabledCalendars]);
-  useEffect(() => {
-    if (!enabledCalendars.includes(calendarMode)) {
-      const timer = window.setTimeout(() => setCalendarMode(enabledCalendars[0] ?? "profane"), 0);
-      return () => window.clearTimeout(timer);
-    }
-  }, [calendarMode, enabledCalendars]);
 
   useEffect(() => {
     const dialog = createDialogRef.current;
@@ -861,12 +849,11 @@ export function SharedProjects({ userId, language, enabledCalendars }: Props) {
               : (english ? "Calendar" : "Календарь")}</button>)}
       </div>
       <p className="shared-projects-calendar-mode-label">{english ? "Calendar for project view and task dates" : "Календарь проекта и дат задач"}</p>
-      <div className="shared-projects-calendar-mode" role="group" aria-label={english ? "Calendar for project view and task dates" : "Календарь проекта и дат задач"}>
+      <div className="shared-projects-calendar-mode display-calendar-choice" role="group" aria-label={english ? "Calendar for project view and task dates" : "Календарь проекта и дат задач"}>
         {(["profane", "sacred", "lunar"] as const).filter((mode) => enabledCalendars.includes(mode)).map((mode) => <button key={mode} type="button"
           aria-pressed={calendarMode === mode} onClick={() => {
-            setCalendarMode(mode);
+            void onCalendarModeChange(mode);
             setCalendarMonth(new Date(`${calendarDay}T12:00:00`));
-            window.localStorage.setItem("genesis-shared-calendar-mode", mode);
           }}>{mode === "profane" ? (english ? "Gregorian" : "Григорианский")
             : mode === "sacred" ? (english ? "Sacred" : "Сакральный") : (english ? "Lunar" : "Лунный")}</button>)}
       </div>
@@ -1012,7 +999,7 @@ export function SharedProjects({ userId, language, enabledCalendars }: Props) {
           <label>{english ? "Tags" : "Теги"}<input value={editTaskTags} onChange={(event) => setEditTaskTags(event.target.value)} placeholder="работа, запуск" /></label>
           <label>{english ? "Description" : "Описание"}<textarea value={editTaskDescription} onChange={(event) => setEditTaskDescription(event.target.value)} maxLength={20000} /></label>
           <div className="shared-projects-date-field"><span>{english ? "Due date" : "Срок"}</span>
-            {editTaskDueDate ? <><CalendarDatePicker mode={calendarMode} value={editTaskDueDate} onChange={setEditTaskDueDate} ariaLabel={english ? "Task due date" : "Срок задачи"} />
+            {editTaskDueDate ? <><CalendarDatePicker mode={taskCalendarMode} value={editTaskDueDate} onChange={setEditTaskDueDate} ariaLabel={english ? "Task due date" : "Срок задачи"} />
               <button type="button" onClick={() => setEditTaskDueDate("")}>{english ? "Clear" : "Убрать срок"}</button></>
               : <button type="button" onClick={() => setEditTaskDueDate(localDateKey(new Date()))}>{english ? "Set due date" : "Установить срок"}</button>}</div>
           <label>{english ? "Category" : "Категория"}<select value={editTaskCategoryId} onChange={(event) => setEditTaskCategoryId(event.target.value)}>
@@ -1217,7 +1204,7 @@ export function SharedProjects({ userId, language, enabledCalendars }: Props) {
           <label>{english ? "Name" : "Название"}<input maxLength={160} required value={newTaskTitle} onChange={(event) => setNewTaskTitle(event.target.value)} /></label>
           <p>{english ? "Project" : "Проект"}: <strong>{snapshot.project.title}</strong></p>
           <div className="shared-projects-date-field"><span>{english ? "Due date" : "Срок"}</span>
-            {newTaskDueDate ? <><CalendarDatePicker mode={calendarMode} value={newTaskDueDate} onChange={setNewTaskDueDate} ariaLabel={english ? "Task due date" : "Срок задачи"} />
+            {newTaskDueDate ? <><CalendarDatePicker mode={taskCalendarMode} value={newTaskDueDate} onChange={setNewTaskDueDate} ariaLabel={english ? "Task due date" : "Срок задачи"} />
               <button type="button" onClick={() => setNewTaskDueDate("")}>{english ? "Clear" : "Убрать срок"}</button></>
               : <button type="button" onClick={() => setNewTaskDueDate(localDateKey(new Date()))}>{english ? "Set due date" : "Установить срок"}</button>}</div>
           <details className="task-advanced-fields"><summary>{english ? "Details and settings" : "Подробности и настройки"}</summary>

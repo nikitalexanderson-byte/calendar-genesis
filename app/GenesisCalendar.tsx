@@ -4380,7 +4380,7 @@ export function GenesisCalendar() {
                             <button type="button" className="task-list-item-open" onClick={() => openTaskEditor(task)}>
                               <strong data-no-translate>{task.title}</strong>
                               {renderOverdueBadge(task)}
-                              <small>{taskRangeLabel(task, activeTaskCalendarMode, activeTimeFormat)}</small>
+                              <small>{taskRangeLabel(task, activeCalendarMode, activeTimeFormat)}</small>
                             </button>
                             <label className="task-list-move-select">
                               <span className="sr-only">Переместить задачу «{task.title}»</span>
@@ -4689,6 +4689,15 @@ export function GenesisCalendar() {
     } catch (error) { setSyncError(error instanceof Error ? error.message : "Не удалось переключить календарь."); }
   };
 
+  const renderDisplayCalendarChoice = (label: string, className = "") => (
+    <div className={`display-calendar-choice ${className}`} role="group" aria-label={label}>
+      {(["profane", "sacred", "lunar"] as CalendarMode[]).filter((mode) => visibility.enabledCalendars.includes(mode)).map((mode) => (
+        <button type="button" className="secondary-button" key={mode} aria-pressed={activeCalendarMode === mode}
+          onClick={() => void changeDisplayCalendar(mode)}>{mode === "profane" ? (language === "en" ? "Gregorian" : "Григорианский") : mode === "sacred" ? (language === "en" ? "Sacred" : "Сакральный") : (language === "en" ? "Lunar" : "Лунный")}</button>
+      ))}
+    </div>
+  );
+
   const renderToday = () => {
     const showToday = (block: string) => !visibility.hiddenTodayBlocks.includes(block);
     const isEnglish = language === "en";
@@ -4751,12 +4760,7 @@ export function GenesisCalendar() {
 
     return (
       <div className="today-view" data-exp-layout="view">
-        <div className="today-calendar-choice" role="group" aria-label={isEnglish ? "Today's calendar" : "Календарь сегодня"}>
-          {(["profane", "sacred", "lunar"] as CalendarMode[]).filter((mode) => visibility.enabledCalendars.includes(mode)).map((mode) => (
-            <button type="button" className="secondary-button" key={mode} aria-pressed={activeCalendarMode === mode}
-              onClick={() => void changeDisplayCalendar(mode)}>{mode === "profane" ? (isEnglish ? "Gregorian" : "Григорианский") : mode === "sacred" ? (isEnglish ? "Sacred" : "Сакральный") : (isEnglish ? "Lunar" : "Лунный")}</button>
-          ))}
-        </div>
+        {renderDisplayCalendarChoice(isEnglish ? "Today's calendar" : "Календарь сегодня", "today-calendar-choice")}
         <section className={`hero-card mode-${activeCalendarMode}${activeCalendarMode === "profane" ? ` weekday-${gregorian.getDay()}` : ""}`} aria-labelledby="today-title" data-genesis-preserve="today-hero-art">
           <div className="hero-copy">
             <div className="eyebrow-row">
@@ -5888,7 +5892,7 @@ export function GenesisCalendar() {
                     {renderOverdueBadge(task)}
                   </div>
                   <div className="all-task-meta">
-                    <span>{taskRangeLabel(task, activeTaskCalendarMode, activeTimeFormat)}</span>
+                    <span>{taskRangeLabel(task, activeCalendarMode, activeTimeFormat)}</span>
                     <span>{resolvedTaskProjectTitle(task) || "Без проекта"}</span>
                     {task.googleTaskListTitle ? <span>Список: {task.googleTaskListTitle}</span> : null}
                     {syncAccountIds.length > 1 ? <span>{cloudUser?.authProvider === "google" ? "Google-аккаунты" : "Связанные аккаунты"}: {syncAccountIds.length}</span> : task.googleAccountEmail ? <span>{task.googleAccountEmail}</span> : null}
@@ -6607,6 +6611,7 @@ export function GenesisCalendar() {
             <ViewErrorBoundary resetKey={view}>
               {view === "today" ? renderToday() : null}
               {view === "calendar" || view === "year" ? <>
+                <div className="view-calendar-toolbar">
                 <div className="shared-projects-switch calendar-area-switch" role="tablist" tabIndex={-1} aria-label={language === "en" ? "Calendar views" : "Виды календаря"}
                   onKeyDown={(event) => {
                     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
@@ -6619,20 +6624,26 @@ export function GenesisCalendar() {
                   {viewIsVisible("calendar", visibility) ? <button id="calendar-month-tab" type="button" role="tab" aria-selected={view === "calendar"} aria-controls="calendar-period-panel" tabIndex={view === "calendar" ? 0 : -1} aria-current={view === "calendar" ? "page" : undefined} onClick={() => navigateTo("calendar")}>{language === "en" ? "Month" : "Месяц"}</button> : null}
                   {viewIsVisible("year", visibility) ? <button id="calendar-year-tab" type="button" role="tab" aria-selected={view === "year"} aria-controls="calendar-period-panel" tabIndex={view === "year" ? 0 : -1} aria-current={view === "year" ? "page" : undefined} onClick={() => navigateTo("year")}>{language === "en" ? "Year Wheel" : "Круг года"}</button> : null}
                 </div>
+                {renderDisplayCalendarChoice(language === "en" ? "Display calendar" : "Календарь отображения")}
+                </div>
                 <section id="calendar-period-panel" role="tabpanel" aria-labelledby={view === "year" ? "calendar-year-tab" : "calendar-month-tab"}>
                   {view === "calendar" ? renderCalendar() : renderYear()}
                 </section>
               </> : null}
-              {view === "projects" ? sharedProjectsVisible ? <>
-                {personalProjectsVisible ? <nav className="shared-projects-switch" aria-label={language === "en" ? "Project sections" : "Разделы дел"}>
+              {view === "projects" && (sharedProjectsVisible || personalProjectsVisible) ? <>
+                <div className="view-calendar-toolbar">
+                {sharedProjectsVisible && personalProjectsVisible ? <nav className="shared-projects-switch" aria-label={language === "en" ? "Project sections" : "Разделы дел"}>
                   <button type="button" aria-current={activeProjectsArea === "personal" ? "page" : undefined} onClick={() => setProjectsArea("personal")}>{language === "en" ? "Personal" : "Личные"}</button>
                   <button type="button" aria-current={activeProjectsArea === "shared" ? "page" : undefined} onClick={() => setProjectsArea("shared")}>{language === "en" ? "Shared" : "Общие"}</button>
                 </nav> : null}
-                {activeProjectsArea === "personal" ? renderProjects() : <Suspense fallback={<DeferredViewFallback label={language === "en" ? "Opening shared projects…" : "Открываем общие проекты…"} />}>
+                {renderDisplayCalendarChoice(language === "en" ? "Project date display" : "Отображение дат в проектах")}
+                </div>
+                {!sharedProjectsVisible || activeProjectsArea === "personal" ? renderProjects() : <Suspense fallback={<DeferredViewFallback label={language === "en" ? "Opening shared projects…" : "Открываем общие проекты…"} />}>
                   <SharedProjects userId={cloudUser?.uid ?? ""} language={language}
-                    enabledCalendars={visibility.enabledCalendars} />
+                    enabledCalendars={visibility.enabledCalendars} calendarMode={activeCalendarMode}
+                    taskCalendarMode={activeTaskCalendarMode} onCalendarModeChange={changeDisplayCalendar} />
                 </Suspense>}
-              </> : personalProjectsVisible ? renderProjects() : null : null}
+              </> : null}
               {view === "habits" && habitWorkspace.habitSettings.enabled ? (
                 <Suspense fallback={<DeferredViewFallback label={language === "en" ? "Opening habit tracker…" : "Открываем трекер привычек…"} />}>
                   <HabitTrackerPage

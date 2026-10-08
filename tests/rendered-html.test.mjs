@@ -638,7 +638,6 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(habitGuidance, /buildAdaptiveHabitSuggestions/);
   assert.match(streakRewards, /STREAK_REWARD_MILESTONES/);
   assert.match(cosmeticsBacklog, /До отдельного одобрения эту механику не реализовывать/);
-  assert.match(tracker, /Скрыть предложение/);
   assert.match(tracker, /Точно настроить повторение и дни/);
   assert.match(account, /onHabitTrackingChange/);
   assert.match(account, /Восстановить стандартные привычки/);
@@ -678,7 +677,7 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   const trackerPage = tracker.slice(tracker.indexOf("export function HabitTrackerPage"));
   assert.match(trackerPage, /const hasHabits = workspace\.habits\.length > 0;/);
   assert.match(trackerPage, /const dailyPanel = <HabitDailyPanel/);
-  assert.ok(trackerPage.indexOf('{hasHabits ? <CollapsibleHabitBlock label={isEnglish ? "Daily trackers"') < trackerPage.indexOf('className="habit-range-toolbar"'));
+  assert.ok(trackerPage.indexOf('{hasHabits ? <HabitSectionBlock') < trackerPage.indexOf('className="habit-range-toolbar"'));
   assert.ok(trackerPage.indexOf("<SacredHabitLibrary") > trackerPage.indexOf("<HabitStatistics"));
   assert.ok(trackerPage.indexOf('className="tracker-module-grid"') < trackerPage.indexOf('className="habit-range-toolbar"'));
   assert.ok(trackerPage.indexOf('className="habit-range-toolbar"') < trackerPage.indexOf("<HabitStatistics"));
@@ -2499,7 +2498,7 @@ test("QA-01 precaches the complete cold-install shell before activating the work
   assert.doesNotMatch(styles, /\.sacred-library-toggle/);
 });
 
-test("QA-02 gives large habit sections consistent disclosure controls and modal dialogs a shared focus contract", async () => {
+test("QA-02 keeps habit section ordering and modal dialogs a shared focus contract", async () => {
   const [tracker, styles, dialogHook, calendar, account, admin, heroPath, theokyklosDetails, stoicheion, recovery] = await Promise.all([
     readFile(new URL("../app/HabitTracker.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
@@ -2513,9 +2512,7 @@ test("QA-02 gives large habit sections consistent disclosure controls and modal 
     readFile(new URL("../app/WorkspaceRecoveryDialog.tsx", import.meta.url), "utf8"),
   ]);
 
-  assert.match(tracker, /function CollapsibleHabitBlock/);
-  assert.match(tracker, /aria-expanded=\{open\} aria-controls=\{contentId\}/);
-  assert.match(tracker, /<DisclosureChevron open=\{open\}/);
+  assert.match(tracker, /function HabitSectionBlock/);
   for (const label of ["Трекеры дня", "Защита серии и возвращение", "Испытания", "Награды за серию", "Стартовые привычки", "Обычные привычки", "Сон и воздержание", "Достижения", "Статистика моих привычек", "Сакральные привычки"]) {
     assert.match(tracker, new RegExp(label));
   }

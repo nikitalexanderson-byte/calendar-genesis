@@ -14,7 +14,6 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
-import { createPortal } from "react-dom";
 import {
   calendarMonthRange,
   calendarQuarterRange,
@@ -303,28 +302,22 @@ function DisclosureChevron({ open }: { open: boolean }) {
   );
 }
 
-type HabitSectionDisclosureProps = {
+type HabitSectionProps = {
   sectionId: HabitSectionId;
   position: number;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
   onMoveTo: (sourceId: HabitSectionId, targetId: HabitSectionId) => void;
   onMoveBy: (sectionId: HabitSectionId, offset: -1 | 1) => void;
-  controlsContainer?: HTMLElement | null;
 };
 
 const HABIT_SECTION_DRAG_TYPE = "application/x-genesis-habit-section";
 
-function CollapsibleHabitBlock({ label, language, children, sectionId, position, open, onOpenChange, onMoveTo, onMoveBy, controlsContainer, className = "" }: {
+function HabitSectionBlock({ label, language, children, sectionId, position, onMoveTo, onMoveBy, className = "" }: {
   label: string;
   language: Language;
   children: ReactNode;
   className?: string;
-} & HabitSectionDisclosureProps) {
-  const contentId = useId();
+} & HabitSectionProps) {
   const isEnglish = language === "en";
-  const canCollapse = sectionId === "starter-habits" || sectionId === "sacred-habits";
-  const expanded = !canCollapse || open;
   const pointerTargetRef = useRef<HabitSectionId | null>(null);
   const pointerDraggingRef = useRef(false);
   const nativeDragOverSourceRef = useRef<HabitSectionId | null>(null);
@@ -384,7 +377,7 @@ function CollapsibleHabitBlock({ label, language, children, sectionId, position,
 
   return (
     <section
-      className={`habit-collapsible-block${expanded ? " open" : " collapsed"}${pointerDragging || nativeDragging ? " dragging" : ""}${className ? ` ${className}` : ""}`}
+      className={`habit-collapsible-block open${pointerDragging || nativeDragging ? " dragging" : ""}${className ? ` ${className}` : ""}`}
       data-habit-section-id={sectionId}
       style={{ order: 100 + position }}
       onDragEnter={handleDragEnter}
@@ -392,12 +385,8 @@ function CollapsibleHabitBlock({ label, language, children, sectionId, position,
       onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) nativeDragOverSourceRef.current = null; }}
       onDrop={handleDrop}
     >
-      {canCollapse && controlsContainer ? createPortal(<header className="habit-collapsible-toolbar" data-habit-section-id={sectionId} style={{ order: position }}>
-        <button type="button" className="habit-collapsible-toggle" aria-expanded={open} aria-controls={contentId} onClick={() => onOpenChange(!open)}>
-          <span>{open ? (isEnglish ? "Hide" : "Скрыть") : (isEnglish ? "Show" : "Показать")}: {label}</span>
-          <DisclosureChevron open={open} />
-        </button>
-        {!open ? <button
+      <header className="habit-collapsible-toolbar">
+        <button
           type="button"
           className="habit-section-drag-handle"
           aria-label={moveLabel}
@@ -433,9 +422,9 @@ function CollapsibleHabitBlock({ label, language, children, sectionId, position,
             setPointerPoint(null);
           }}
           onKeyDown={handleMoveKey}
-        ><span aria-hidden="true">⠿</span></button> : null}
-      </header>, controlsContainer) : null}
-      <div className="habit-collapsible-content" id={contentId} hidden={!expanded}>{expanded ? children : null}</div>
+        ><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">{[7, 12, 17].flatMap((cy) => [8, 16].map((cx) => <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="1.5" />))}</svg></button>
+      </header>
+      <div className="habit-collapsible-content">{children}</div>
       {pointerDragging && pointerPoint ? <div className="habit-section-drag-preview" style={{ left: pointerPoint.x, top: pointerPoint.y, width: pointerPoint.width }} aria-hidden="true"><span>{isEnglish ? "Section" : "Раздел привычек"}</span><strong>{label}</strong><small>{isEnglish ? "Move between the highlighted sections" : "Перемещайте между соседними блоками"}</small></div> : null}
     </section>
   );
@@ -734,7 +723,7 @@ function StreakRewardLadder({ workspace, language }: Pick<DailyPanelProps, "work
   );
 }
 
-function AdaptiveDifficultyPanel({ workspace, date, language, calendarMode, sectionId, position, open, onOpenChange, onMoveTo, onMoveBy, onEdit, onPause }: Pick<DailyPanelProps, "workspace" | "date" | "language" | "calendarMode"> & HabitSectionDisclosureProps & { onEdit: (habit: Habit) => void; onPause: (habit: Habit) => void }) {
+function AdaptiveDifficultyPanel({ workspace, date, language, calendarMode, sectionId, position, onMoveTo, onMoveBy, onEdit, onPause }: Pick<DailyPanelProps, "workspace" | "date" | "language" | "calendarMode"> & HabitSectionProps & { onEdit: (habit: Habit) => void; onPause: (habit: Habit) => void }) {
   const isEnglish = language === "en";
   const suggestions = buildAdaptiveHabitSuggestions({
     habits: workspace.habits,
@@ -745,7 +734,7 @@ function AdaptiveDifficultyPanel({ workspace, date, language, calendarMode, sect
   });
   if (!suggestions.length) return null;
   return (
-    <CollapsibleHabitBlock className="experimental-habit-section experimental-habit-section-today" label={isEnglish ? "Adaptive suggestions" : "Бережная настройка ритма"} language={language} sectionId={sectionId} position={position} open={open} onOpenChange={onOpenChange} onMoveTo={onMoveTo} onMoveBy={onMoveBy}><section className="adaptive-habit-panel" aria-labelledby="adaptive-habit-title">
+    <HabitSectionBlock className="experimental-habit-section experimental-habit-section-today" label={isEnglish ? "Adaptive suggestions" : "Бережная настройка ритма"} language={language} sectionId={sectionId} position={position} onMoveTo={onMoveTo} onMoveBy={onMoveBy}><section className="adaptive-habit-panel" aria-labelledby="adaptive-habit-title">
       <header><div><span className="eyebrow">{isEnglish ? "Gentle adjustment" : "Бережная настройка"}</span><h2 id="adaptive-habit-title">{isEnglish ? "Make the rhythm achievable" : "Сделать ритм посильнее"}</h2><p>{isEnglish ? "GENESIS only suggests changes and never edits your schedule automatically." : "GENESIS только предлагает изменения и никогда не меняет расписание автоматически."}</p></div></header>
       <div>
         {suggestions.map((suggestion) => <article style={{ "--habit-color": suggestion.habit.color } as CSSProperties} key={suggestion.habit.id}>
@@ -755,7 +744,7 @@ function AdaptiveDifficultyPanel({ workspace, date, language, calendarMode, sect
           <footer><button type="button" onClick={() => onEdit(suggestion.habit)}>{isEnglish ? "Adjust schedule" : "Настроить расписание"}</button><button type="button" className="secondary-button" onClick={() => onPause(suggestion.habit)}>{isEnglish ? "Pause" : "Пауза"}</button></footer>
         </article>)}
       </div>
-    </section></CollapsibleHabitBlock>
+    </section></HabitSectionBlock>
   );
 }
 
@@ -1497,7 +1486,6 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
     tab === "modules" ? !hiddenSubmenus.includes("habits.sleep") : !hiddenSubmenus.includes("habits.habits"));
   const activeHabitTab = habitTabs.includes(experimentalHabitTab) ? experimentalHabitTab : habitTabs[0] ?? "today";
   const experimentalHabitTabsRef = useRef<HTMLDivElement>(null);
-  const [habitVisibilityControls, setHabitVisibilityControls] = useState<HTMLDivElement | null>(null);
   const range = reportDateRange(workspace.habitSettings, date, reportCalendarStarts(date, calendarMode));
   const total = calculateHabitTotal(workspace);
   const rank = heroicRankForProgress(workspace.userProgress);
@@ -1509,7 +1497,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
   const openNewHabit = () => setEditingHabit(defaultHabit(habitDateKey(new Date()), calendarMode));
   const hasHabits = workspace.habits.length > 0;
   const activeTemplateIds = new Set(workspace.habits.flatMap((habit) => habit.sourceTemplateId ? [habit.sourceTemplateId] : []));
-  const visibleStarterTemplates = STARTER_HABIT_TEMPLATES.filter((template) => !workspace.hiddenDefaultTemplates.includes(template.id) && !activeTemplateIds.has(template.id));
+  const visibleStarterTemplates = STARTER_HABIT_TEMPLATES.filter((template) => !activeTemplateIds.has(template.id));
   const dailyPanel = <HabitDailyPanel workspace={workspace} date={date} language={language} timeFormat={timeFormat} calendarMode={calendarMode} onChange={onChange} experimentalThemeActive={experimentalThemeActive} showGoalSettings />;
 
   const saveHabit = (candidate: Habit) => {
@@ -1580,11 +1568,6 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [voiceRequest?.token]);
 
-  const hideStarterTemplate = (template: HabitTemplate) => {
-    onChange({ ...workspace, hiddenDefaultTemplates: Array.from(new Set([...workspace.hiddenDefaultTemplates, template.id])) });
-    setMessage(isEnglish ? `“${template.titleEn}” was removed from suggestions.` : `«${template.title}» скрыта из предложений.`);
-  };
-
   const purchaseSpark = () => {
     if (sparkCount >= HESTIA_SPARK_MAX) {
       setMessage(isEnglish ? "The Hestia Spark reserve is full." : "Запас Искр Гестии уже заполнен.");
@@ -1618,25 +1601,11 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
     const targetId = sectionOrder[position + offset];
     if (targetId) moveSectionTo(sectionId, targetId);
   };
-  const disclosureProps = (sectionId: HabitSectionId): HabitSectionDisclosureProps => ({
+  const sectionProps = (sectionId: HabitSectionId): HabitSectionProps => ({
     sectionId,
     position: Math.max(0, sectionOrder.indexOf(sectionId)),
-    open: !workspace.habitSettings.collapsedSections.includes(sectionId),
     onMoveTo: moveSectionTo,
     onMoveBy: moveSectionBy,
-    controlsContainer: habitVisibilityControls,
-    onOpenChange: (open: boolean) => {
-      const collapsedSections = new Set(workspace.habitSettings.collapsedSections);
-      if (open) collapsedSections.delete(sectionId);
-      else collapsedSections.add(sectionId);
-      onChange({
-        ...workspace,
-        habitSettings: {
-          ...workspace.habitSettings,
-          collapsedSections: Array.from(collapsedSections),
-        },
-      });
-    },
   });
   return (
     <div className={`habits-view${workspace.habitSettings.feedback.gamificationWidgets ? "" : " gamification-hidden"}${` experimental-habit-tab-${activeHabitTab}`}`} data-exp-layout="view">
@@ -1667,8 +1636,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
         {habitTabs.includes("modules") ? <button data-experimental-habit-tab="modules" type="button" role="tab" tabIndex={activeHabitTab === "modules" ? 0 : -1} aria-selected={activeHabitTab === "modules"} onClick={() => setExperimentalHabitTab("modules")}><HabitTabIcon variant="modules" active={activeHabitTab === "modules"}/><strong>{isEnglish ? "Modules" : "Модули"}</strong><small>{isEnglish ? "Sleep and abstinence" : "Сон и воздержание"}</small></button> : null}
         {habitTabs.includes("progress") ? <button data-experimental-habit-tab="progress" type="button" role="tab" tabIndex={activeHabitTab === "progress" ? 0 : -1} aria-selected={activeHabitTab === "progress"} onClick={() => setExperimentalHabitTab("progress")}><HabitTabIcon variant="progress" active={activeHabitTab === "progress"}/><strong>{isEnglish ? "Progress" : "Прогресс"}</strong><small>{isEnglish ? "Stats and awards" : "Статистика и награды"}</small></button> : null}
       </div>}
-      <div className="habit-library-visibility" ref={setHabitVisibilityControls} hidden={activeHabitTab !== "library"} aria-label={isEnglish ? "Habit library visibility" : "Отображение библиотеки привычек"} />
-      {hasHabits && workspace.habitSettings.feedback.gamificationWidgets ? <CollapsibleHabitBlock className="experimental-habit-section experimental-habit-section-today" label={isEnglish ? "Streak protection and comeback" : "Защита серии и возвращение"} language={language} {...disclosureProps("streak-resilience")}><section className="streak-resilience" aria-label={isEnglish ? "Streak protection and comeback" : "Защита серии и возвращение"}>
+      {hasHabits && workspace.habitSettings.feedback.gamificationWidgets ? <HabitSectionBlock className="experimental-habit-section experimental-habit-section-today" label={isEnglish ? "Streak protection and comeback" : "Защита серии и возвращение"} language={language} {...sectionProps("streak-resilience")}><section className="streak-resilience" aria-label={isEnglish ? "Streak protection and comeback" : "Защита серии и возвращение"}>
         <article className="hestia-spark-card">
           <span className="hestia-spark-icon" aria-hidden="true">
             {/* eslint-disable-next-line @next/next/no-img-element -- Generated PNG is optimized and shared by both deployment targets. */}
@@ -1689,31 +1657,31 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
           <div><small>{isEnglish ? "After a broken streak" : "После разрыва серии"}</small><h2>{isEnglish ? "Comeback" : "Возвращение"}</h2><p>{comeback.active ? (isEnglish ? "Reach the daily goal three times in a row. The old streak is not restored." : "Выполните дневную цель три раза подряд. Прежняя серия не восстанавливается.") : (isEnglish ? "If a streak breaks, a humane three-day return path will appear here." : "Если серия прервётся, здесь появится бережный трёхдневный путь возвращения.")}</p>{comeback.lastCompletedDate && !comeback.active ? <em>{isEnglish ? "Last comeback" : "Последнее возвращение"}: {formatCalendarDateValue(comeback.lastCompletedDate, calendarMode, true)} · +{COMEBACK_REWARD_LAURELS} {isEnglish ? "Laurels" : "Лавров"}</em> : null}</div>
           <div className="comeback-progress" aria-label={isEnglish ? `${comeback.progress} of ${comeback.target} days` : `${comeback.progress} из ${comeback.target} дней`}><div>{Array.from({ length: comeback.target }, (_, index) => <i className={index < comeback.progress ? "done" : ""} key={index}>{index < comeback.progress ? "✓" : index + 1}</i>)}</div><strong>{comeback.active ? `${comeback.progress} / ${comeback.target}` : (isEnglish ? "Ready" : "Готово")}</strong></div>
         </article>
-      </section></CollapsibleHabitBlock> : null}
-      {hasHabits ? <CollapsibleHabitBlock className="experimental-habit-section experimental-habit-section-today" label={isEnglish ? "Daily trackers" : "Трекеры дня"} language={language} {...disclosureProps("daily-trackers")}>{dailyPanel}</CollapsibleHabitBlock> : null}
-      {hasHabits && workspace.habitSettings.feedback.gamificationWidgets && workspace.habitSettings.feedback.questsEnabled ? <CollapsibleHabitBlock className="experimental-habit-section experimental-habit-section-today" label={isEnglish ? "Trials" : "Испытания"} language={language} {...disclosureProps("quests")}><HabitQuestPanel workspace={workspace} date={date} language={language} /></CollapsibleHabitBlock> : null}
-      {hasHabits && workspace.habitSettings.feedback.gamificationWidgets ? <CollapsibleHabitBlock className="experimental-habit-section experimental-habit-section-today" label={isEnglish ? "Streak rewards" : "Награды за серию"} language={language} {...disclosureProps("streak-rewards")}><StreakRewardLadder workspace={workspace} language={language} /></CollapsibleHabitBlock> : null}
-      {hasHabits ? <AdaptiveDifficultyPanel workspace={workspace} date={creationDate} language={language} calendarMode={calendarMode} {...disclosureProps("adaptive-suggestions")} onEdit={setEditingHabit} onPause={(habit) => { onChange({ ...workspace, habits: workspace.habits.map((item) => item.id === habit.id ? markTrackerEntityChanged({ ...item, active: false }) : item) }); setMessage(isEnglish ? "Habit paused. Its history and settings were preserved." : "Привычка поставлена на паузу. История и настройки сохранены."); }} /> : null}
+      </section></HabitSectionBlock> : null}
+      {hasHabits ? <HabitSectionBlock className="experimental-habit-section experimental-habit-section-today" label={isEnglish ? "Daily trackers" : "Трекеры дня"} language={language} {...sectionProps("daily-trackers")}>{dailyPanel}</HabitSectionBlock> : null}
+      {hasHabits && workspace.habitSettings.feedback.gamificationWidgets && workspace.habitSettings.feedback.questsEnabled ? <HabitSectionBlock className="experimental-habit-section experimental-habit-section-today" label={isEnglish ? "Trials" : "Испытания"} language={language} {...sectionProps("quests")}><HabitQuestPanel workspace={workspace} date={date} language={language} /></HabitSectionBlock> : null}
+      {hasHabits && workspace.habitSettings.feedback.gamificationWidgets ? <HabitSectionBlock className="experimental-habit-section experimental-habit-section-today" label={isEnglish ? "Streak rewards" : "Награды за серию"} language={language} {...sectionProps("streak-rewards")}><StreakRewardLadder workspace={workspace} language={language} /></HabitSectionBlock> : null}
+      {hasHabits ? <AdaptiveDifficultyPanel workspace={workspace} date={creationDate} language={language} calendarMode={calendarMode} {...sectionProps("adaptive-suggestions")} onEdit={setEditingHabit} onPause={(habit) => { onChange({ ...workspace, habits: workspace.habits.map((item) => item.id === habit.id ? markTrackerEntityChanged({ ...item, active: false }) : item) }); setMessage(isEnglish ? "Habit paused. Its history and settings were preserved." : "Привычка поставлена на паузу. История и настройки сохранены."); }} /> : null}
       {message ? <p className="habit-status-message" role="status">{message}</p> : null}
 
-      {visibleStarterTemplates.length || workspace.hiddenDefaultTemplates.length ? (
-        <CollapsibleHabitBlock className="experimental-habit-section experimental-habit-section-library" label={isEnglish ? "Starter habits" : "Стартовые привычки"} language={language} {...disclosureProps("starter-habits")}><section className="habit-template-library" aria-labelledby="habit-template-library-title">
-          <header><div><span className="eyebrow">{isEnglish ? "A considered beginning" : "Продуманное начало"}</span><h2 id="habit-template-library-title">{isEnglish ? "Starter habits" : "Стартовые привычки"}</h2><p>{isEnglish ? "Choose only what supports your rhythm. Suggestions do nothing until you add them." : "Выберите только то, что поддерживает ваш ритм. До добавления предложения ничего не создают и не начисляют."}</p></div>{workspace.hiddenDefaultTemplates.length ? <button type="button" className="secondary-button" onClick={() => onChange({ ...workspace, hiddenDefaultTemplates: [] })}>{isEnglish ? "Restore hidden" : "Восстановить скрытые"}</button> : null}</header>
-          {visibleStarterTemplates.length ? <div className="habit-template-grid">{visibleStarterTemplates.map((template) => <article style={{ "--habit-color": template.color } as CSSProperties} key={template.id}><span className="habit-template-icon" aria-hidden="true">{template.icon}</span><div><h3>{isEnglish ? template.titleEn : template.title}</h3><p>{isEnglish ? template.descriptionEn : template.description}</p><small>{isEnglish ? template.frequencyEn : template.frequency}</small></div><footer><button type="button" className="primary-button" onClick={() => setActivatingTemplate(template)}>{isEnglish ? "Add" : "Добавить"}</button><button type="button" className="habit-template-hide" onClick={() => hideStarterTemplate(template)}>{isEnglish ? "Hide suggestion" : "Скрыть предложение"}</button></footer></article>)}</div> : <p className="habit-template-empty">{isEnglish ? "All remaining suggestions are hidden. You can restore them here or in account settings." : "Все оставшиеся предложения скрыты. Их можно вернуть здесь или в настройках личного кабинета."}</p>}
-        </section></CollapsibleHabitBlock>
-      ) : null}
+      {(
+        <HabitSectionBlock className="experimental-habit-section experimental-habit-section-library" label={isEnglish ? "Starter habits" : "Стартовые привычки"} language={language} {...sectionProps("starter-habits")}><section className="habit-template-library" aria-labelledby="habit-template-library-title">
+          <header><div><span className="eyebrow">{isEnglish ? "A considered beginning" : "Продуманное начало"}</span><h2 id="habit-template-library-title">{isEnglish ? "Starter habits" : "Стартовые привычки"}</h2><p>{isEnglish ? "Choose only what supports your rhythm. Suggestions do nothing until you add them." : "Выберите только то, что поддерживает ваш ритм. До добавления предложения ничего не создают и не начисляют."}</p></div></header>
+          {visibleStarterTemplates.length ? <div className="habit-template-grid">{visibleStarterTemplates.map((template) => <article style={{ "--habit-color": template.color } as CSSProperties} key={template.id}><span className="habit-template-icon" aria-hidden="true">{template.icon}</span><div><h3>{isEnglish ? template.titleEn : template.title}</h3><p>{isEnglish ? template.descriptionEn : template.description}</p><small>{isEnglish ? template.frequencyEn : template.frequency}</small></div><footer><button type="button" className="primary-button" onClick={() => setActivatingTemplate(template)}>{isEnglish ? "Add" : "Добавить"}</button></footer></article>)}</div> : <p className="habit-template-empty">{isEnglish ? "All starter habits have been added. You can manage them below." : "Все стартовые привычки уже добавлены. Управлять ими можно ниже."}</p>}
+        </section></HabitSectionBlock>
+      )}
 
-      {!hasHabits ? <CollapsibleHabitBlock className="experimental-habit-section experimental-habit-section-today" label={isEnglish ? "Daily trackers" : "Трекеры дня"} language={language} {...disclosureProps("daily-trackers")}>{dailyPanel}</CollapsibleHabitBlock> : null}
+      {!hasHabits ? <HabitSectionBlock className="experimental-habit-section experimental-habit-section-today" label={isEnglish ? "Daily trackers" : "Трекеры дня"} language={language} {...sectionProps("daily-trackers")}>{dailyPanel}</HabitSectionBlock> : null}
 
-      <CollapsibleHabitBlock className="experimental-habit-section experimental-habit-section-library" label={isEnglish ? "Regular habits" : "Обычные привычки"} language={language} {...disclosureProps("regular-habits")}><section className="habit-library"><header><div><span className="eyebrow">{isEnglish ? "Habit core" : "Ядро привычек"}</span><h2>{isEnglish ? "Habits" : "Обычные привычки"}</h2></div><button type="button" onClick={openNewHabit}>＋ {isEnglish ? "Add" : "Добавить"}</button></header><p className="habit-library-rule">🔒 {isEnglish ? `All settings can be edited except points and the quality scale. Deleting before ${HABIT_LAUREL_RETENTION_COMPLETIONS} completions resets all Laurels.` : `Можно изменять все настройки, кроме баллов и шкалы качества. Удаление до ${HABIT_LAUREL_RETENTION_COMPLETIONS} выполнений обнуляет все Лавры.`}</p>{workspace.habits.length ? <div>{[...workspace.habits].sort((left, right) => Number(right.isKeyHabit) - Number(left.isKeyHabit) || right.priority - left.priority || left.title.localeCompare(right.title)).map((habit) => <article className={`${!habit.active ? "paused" : ""}${habit.isKeyHabit ? " key-habit" : ""}`} style={{ "--habit-color": habit.color } as CSSProperties} key={habit.id}><i /><div><span><b className="habit-emoji" aria-hidden="true">{habit.emoji}</b><strong data-no-translate>{habit.title}</strong>{habit.isKeyHabit ? <mark>{isEnglish ? "Key habit" : "Главная"}</mark> : null}<em>{isEnglish ? `Priority ${habit.priority}` : `Приоритет ${habit.priority}`}</em></span><small>{habitRitualLabel(habit, isEnglish)} · {scoringFormula(habit.scoringMode, isEnglish)} · {isEnglish ? "created" : "создана"} {formatCalendarDateValue(habit.createdDate, calendarMode, true)} · {isEnglish ? "Laurels milestone" : "Рубеж Лавров"} {Math.min(habitCompletionCount(workspace.habitCompletions, habit.id), HABIT_LAUREL_RETENTION_COMPLETIONS)}/{HABIT_LAUREL_RETENTION_COMPLETIONS}</small></div><output>{habit.scoringMode === "none" ? "—" : `≤${MAX_HABIT_XP_PER_COMPLETION}`}</output><div className="habit-library-actions"><button type="button" onClick={() => onChange(setKeyHabit(workspace, habit.isKeyHabit ? null : habit.id))}>{habit.isKeyHabit ? (isEnglish ? "Remove focus" : "Убрать фокус") : (isEnglish ? "Make key" : "Сделать главной")}</button><button type="button" onClick={() => setEditingHabit(habit)}>{isEnglish ? "Edit" : "Изменить"}</button><button type="button" onClick={() => onChange({ ...workspace, habits: workspace.habits.map((item) => item.id === habit.id ? markTrackerEntityChanged({ ...item, active: !item.active }) : item) })}>{habit.active ? (isEnglish ? "Pause" : "Пауза") : (isEnglish ? "Resume" : "Включить")}</button><button type="button" className="danger" onClick={() => removeHabit(habit)}>{isEnglish ? "Delete" : "Удалить"}</button></div></article>)}</div> : <div className="habit-library-empty"><p>{isEnglish ? "No regular habits yet." : "Обычных привычек пока нет."}</p><button type="button" className="primary-button" onClick={openNewHabit}>{isEnglish ? "Create first habit" : "Создать первую привычку"}</button></div>}</section></CollapsibleHabitBlock>
+      <HabitSectionBlock className="experimental-habit-section experimental-habit-section-library" label={isEnglish ? "Regular habits" : "Обычные привычки"} language={language} {...sectionProps("regular-habits")}><section className="habit-library"><header><div><span className="eyebrow">{isEnglish ? "Habit core" : "Ядро привычек"}</span><h2>{isEnglish ? "Habits" : "Обычные привычки"}</h2></div><button type="button" onClick={openNewHabit}>＋ {isEnglish ? "Add" : "Добавить"}</button></header><p className="habit-library-rule">🔒 {isEnglish ? `All settings can be edited except points and the quality scale. Deleting before ${HABIT_LAUREL_RETENTION_COMPLETIONS} completions resets all Laurels.` : `Можно изменять все настройки, кроме баллов и шкалы качества. Удаление до ${HABIT_LAUREL_RETENTION_COMPLETIONS} выполнений обнуляет все Лавры.`}</p>{workspace.habits.length ? <div>{[...workspace.habits].sort((left, right) => Number(right.isKeyHabit) - Number(left.isKeyHabit) || right.priority - left.priority || left.title.localeCompare(right.title)).map((habit) => <article className={`${!habit.active ? "paused" : ""}${habit.isKeyHabit ? " key-habit" : ""}`} style={{ "--habit-color": habit.color } as CSSProperties} key={habit.id}><i /><div><span><b className="habit-emoji" aria-hidden="true">{habit.emoji}</b><strong data-no-translate>{habit.title}</strong>{habit.isKeyHabit ? <mark>{isEnglish ? "Key habit" : "Главная"}</mark> : null}<em>{isEnglish ? `Priority ${habit.priority}` : `Приоритет ${habit.priority}`}</em></span><small>{habitRitualLabel(habit, isEnglish)} · {scoringFormula(habit.scoringMode, isEnglish)} · {isEnglish ? "created" : "создана"} {formatCalendarDateValue(habit.createdDate, calendarMode, true)} · {isEnglish ? "Laurels milestone" : "Рубеж Лавров"} {Math.min(habitCompletionCount(workspace.habitCompletions, habit.id), HABIT_LAUREL_RETENTION_COMPLETIONS)}/{HABIT_LAUREL_RETENTION_COMPLETIONS}</small></div><output>{habit.scoringMode === "none" ? "—" : `≤${MAX_HABIT_XP_PER_COMPLETION}`}</output><div className="habit-library-actions"><button type="button" onClick={() => onChange(setKeyHabit(workspace, habit.isKeyHabit ? null : habit.id))}>{habit.isKeyHabit ? (isEnglish ? "Remove focus" : "Убрать фокус") : (isEnglish ? "Make key" : "Сделать главной")}</button><button type="button" onClick={() => setEditingHabit(habit)}>{isEnglish ? "Edit" : "Изменить"}</button><button type="button" onClick={() => onChange({ ...workspace, habits: workspace.habits.map((item) => item.id === habit.id ? markTrackerEntityChanged({ ...item, active: !item.active }) : item) })}>{habit.active ? (isEnglish ? "Pause" : "Пауза") : (isEnglish ? "Resume" : "Включить")}</button><button type="button" className="danger" onClick={() => removeHabit(habit)}>{isEnglish ? "Delete" : "Удалить"}</button></div></article>)}</div> : <div className="habit-library-empty"><p>{isEnglish ? "No regular habits yet." : "Обычных привычек пока нет."}</p><button type="button" className="primary-button" onClick={openNewHabit}>{isEnglish ? "Create first habit" : "Создать первую привычку"}</button></div>}</section></HabitSectionBlock>
 
-      <CollapsibleHabitBlock className="experimental-habit-section experimental-habit-section-modules" label={isEnglish ? "Sleep and abstinence" : "Сон и воздержание"} language={language} {...disclosureProps("sleep-abstinence")}><div className="tracker-module-grid">
+      <HabitSectionBlock className="experimental-habit-section experimental-habit-section-modules" label={isEnglish ? "Sleep and abstinence" : "Сон и воздержание"} language={language} {...sectionProps("sleep-abstinence")}><div className="tracker-module-grid">
         <section className="tracker-module-card sleep-module"><header><div><span className="eyebrow">{isEnglish ? "Independent module" : "Независимый модуль"}</span><h2>{isEnglish ? "Sleep" : "Сон"}</h2></div><button type="button" onClick={() => setEditingSleep(defaultSleepPlan(date, calendarMode))}>＋ {isEnglish ? "Plan" : "План"}</button></header>{workspace.sleepPlans.length ? workspace.sleepPlans.map((plan) => <article key={plan.id}><div><strong data-no-translate>{plan.title}</strong><small>{plan.targetBedtime} → {plan.targetWakeTime} · {plan.schedule.timezone}</small></div><button type="button" onClick={() => setEditingSleep(plan)}>{isEnglish ? "Edit" : "Изменить"}</button><button type="button" className="danger" onClick={() => onChange({ ...workspace, sleepPlans: workspace.sleepPlans.filter((item) => item.id !== plan.id), sleepEntries: workspace.sleepEntries.filter((entry) => entry.planId !== plan.id) })}>{isEnglish ? "Delete" : "Удалить"}</button></article>) : <p>{isEnglish ? "Track bedtime, wake time, duration and quality across midnight and DST." : "Отслеживайте сон, пробуждение, длительность и качество с учётом полуночи и DST."}</p>}</section>
         <section className="tracker-module-card addiction-module"><header><div><span className="eyebrow">{isEnglish ? "Independent module" : "Независимый модуль"}</span><h2>{isEnglish ? "Abstinence" : "Воздержание"}</h2></div><button type="button" onClick={() => setEditingAddiction(defaultAddictionTracker(date, calendarMode))}>＋ {isEnglish ? "Tracker" : "Трекер"}</button></header>{workspace.addictionTrackers.length ? workspace.addictionTrackers.map((tracker) => <article key={tracker.id}><div><strong data-no-translate>{tracker.trackedBehavior}</strong><small>{isEnglish ? `Clean day +${tracker.cleanDayPoints} · relapse -${tracker.relapsePenalty}` : `Чистый день +${tracker.cleanDayPoints} · срыв -${tracker.relapsePenalty}`}</small></div><button type="button" onClick={() => setEditingAddiction(tracker)}>{isEnglish ? "Edit" : "Изменить"}</button><button type="button" className="danger" onClick={() => onChange({ ...workspace, addictionTrackers: workspace.addictionTrackers.filter((item) => item.id !== tracker.id), addictionEntries: workspace.addictionEntries.filter((entry) => entry.trackerId !== tracker.id) })}>{isEnglish ? "Delete" : "Удалить"}</button></article>) : <p>{isEnglish ? "Clean days, relapses, craving and triggers stay separate from habit completions." : "Чистые дни, срывы, тяга и триггеры хранятся отдельно от выполнений привычек."}</p>}</section>
-      </div></CollapsibleHabitBlock>
+      </div></HabitSectionBlock>
 
-      {workspace.habitSettings.feedback.gamificationWidgets ? <CollapsibleHabitBlock className="experimental-habit-section experimental-habit-section-progress" label={isEnglish ? "Achievements" : "Достижения"} language={language} {...disclosureProps("achievements")}><AchievementPanel workspace={workspace} language={language} calendarMode={calendarMode} /></CollapsibleHabitBlock> : null}
-      <CollapsibleHabitBlock className="experimental-habit-section experimental-habit-section-progress" label={isEnglish ? "My habit statistics" : "Статистика моих привычек"} language={language} {...disclosureProps("statistics")}><section className="habit-range-toolbar">
+      {workspace.habitSettings.feedback.gamificationWidgets ? <HabitSectionBlock className="experimental-habit-section experimental-habit-section-progress" label={isEnglish ? "Achievements" : "Достижения"} language={language} {...sectionProps("achievements")}><AchievementPanel workspace={workspace} language={language} calendarMode={calendarMode} /></HabitSectionBlock> : null}
+      <HabitSectionBlock className="experimental-habit-section experimental-habit-section-progress" label={isEnglish ? "My habit statistics" : "Статистика моих привычек"} language={language} {...sectionProps("statistics")}><section className="habit-range-toolbar">
         <span>{isEnglish ? "Analytics period" : "Период аналитики"}</span>
         <div>{(["week", "days-30", "month", "quarter", "year", "custom"] as const).map((period) => <button type="button" className={workspace.habitSettings.reportRange === period ? "active" : ""} onClick={() => onChange({ ...workspace, habitSettings: { ...workspace.habitSettings, reportRange: period } })} key={period}>{period === "week" ? (isEnglish ? "7 days" : "7 дней") : period === "days-30" ? (isEnglish ? "30 days" : "30 дней") : period === "month" ? (isEnglish ? "Month" : "Месяц") : period === "quarter" ? (isEnglish ? "Quarter" : "Квартал") : period === "year" ? (isEnglish ? "Year" : "Год") : (isEnglish ? "Custom" : "Свой")}</button>)}</div>
         {workspace.habitSettings.reportRange === "custom" ? <div className="habit-range-custom" role="group" aria-label={isEnglish ? "Custom analytics period" : "Пользовательский период аналитики"}>
@@ -1723,8 +1691,8 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
         </div> : <small>{formatCalendarDateValue(range.start, calendarMode)} — {formatCalendarDateValue(range.end, calendarMode)}</small>}
       </section>
       <HabitStatistics workspace={workspace} date={date} language={language} calendarMode={calendarMode} experimental={experimentalThemeActive} />
-      </CollapsibleHabitBlock>
-      <CollapsibleHabitBlock className="experimental-habit-section experimental-habit-section-library" label={isEnglish ? "Sacred habits" : "Сакральные привычки"} language={language} {...disclosureProps("sacred-habits")}><SacredHabitLibrary
+      </HabitSectionBlock>
+      <HabitSectionBlock className="experimental-habit-section experimental-habit-section-library" label={isEnglish ? "Sacred habits" : "Сакральные привычки"} language={language} {...sectionProps("sacred-habits")}><SacredHabitLibrary
           workspace={workspace}
           date={date}
           language={language}
@@ -1732,7 +1700,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
           onChange={onChange}
           onStart={(practice) => saveHabit(createHabitFromSacredPractice(practice, creationDate, calendarMode, language))}
           onEdit={setEditingHabit}
-        /></CollapsibleHabitBlock>
+        /></HabitSectionBlock>
       {heroPathOpen ? <HeroPathPanel workspace={workspace} language={language} onClaimCheckpoint={(rankId) => { const next = claimHeroPathAmphora(workspace, rankId); onChange(next); if (next !== workspace) setMessage(isEnglish ? "The amphora is open. Laurels were added to your ledger." : "Амфора открыта. Лавры добавлены в журнал наград."); }} onRevealHiddenPath={() => { const next = revealHiddenHeroicPath(workspace); onChange(next); if (next !== workspace) setMessage(isEnglish ? "The second path has been revealed." : "Второй путь открыт."); }} onClose={() => setHeroPathOpen(false)} /> : null}
       {activatingTemplate ? <HabitTemplateSetup template={activatingTemplate} date={creationDate} language={language} calendarMode={calendarMode} googleTasksReady={googleTasksReady} googleCalendarReady={googleCalendarReady} allowCalendarModeChange onSave={(habit) => { setActivatingTemplate(null); saveHabit(habit); }} onClose={() => setActivatingTemplate(null)} /> : null}
       {editingHabit ? <HabitEditor habit={editingHabit} isExisting={workspace.habits.some((habit) => habit.id === editingHabit.id)} language={language} calendarMode={calendarMode} googleTasksReady={googleTasksReady} googleCalendarReady={googleCalendarReady} allowCalendarModeChange onSave={saveHabit} onClose={() => setEditingHabit(null)} /> : null}
