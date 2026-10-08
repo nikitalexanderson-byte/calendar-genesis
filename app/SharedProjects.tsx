@@ -653,8 +653,8 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
     if (!snapshot || busy) return;
     const target = snapshot.project.id;
     void run(async () => {
-      await updateSharedStatus(target, status.id, { title: values.title ?? status.title,
-        expectedRevision: status.revision, ...(values.color ? { color: values.color } : {}) });
+      await updateSharedStatus(target, status.id, values.title ?? status.title, status.revision,
+        values.color ? { color: values.color } : undefined);
       await refreshProject(target);
     });
   };
