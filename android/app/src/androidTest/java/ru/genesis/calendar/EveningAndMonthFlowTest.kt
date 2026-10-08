@@ -204,7 +204,7 @@ class EveningAndMonthFlowTest {
         try {
             val tag=if(dark) "app-theme-Evening" else "app-theme-Standart"
             compose.waitUntil(10_000) { compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
-            for(page in listOf("Сегодня","Задачи","Проекты","Календарь","Привычки","Сакральное","Настройки")) {
+            for(page in listOf("Сегодня","Проекты","Календарь","Привычки","Сакральное","Настройки")) {
                 compose.onNodeWithTag("navigation-$page").performClick()
                 capture("page-$page")
                 if(page=="Сегодня") {
@@ -219,7 +219,8 @@ class EveningAndMonthFlowTest {
                     },useUnmergedTree=true)[1].performScrollTo()
                     capture("today-rhythm-facts")
                 }
-                if(page=="Задачи") {
+                if(page=="Проекты") {
+                    compose.onNodeWithTag("submenu-tasks").performClick()
                     compose.onNodeWithTag("tasks-screen").performScrollToNode(hasTestTag("task-$fixture"))
                     compose.onNodeWithText("Просрочено").assertExists()
                     assertFalse(runBlocking {app.repository.get(fixture)!!.done})

@@ -7,8 +7,8 @@ import kotlinx.coroutines.flow.map
 import ru.genesis.calendar.domain.CalendarMode
 
 private val Context.genesisPreferences by preferencesDataStore("genesis_preferences")
-data class UiPreferences(val display: CalendarMode = CalendarMode.SACRED,
-    val input: CalendarMode = CalendarMode.SACRED, val use24: Boolean = true,
+data class UiPreferences(val display: CalendarMode = CalendarMode.PROFANE,
+    val input: CalendarMode = CalendarMode.PROFANE, val use24: Boolean = true,
     val divinationDisabled: Boolean = false, val language: String = "ru",
     val weekStartsOnSunday: Boolean = true, val wideNavigationOnLeft: Boolean = true,
     val navigationLabels: Boolean = false, val navigationAutoScroll: Boolean = false,
@@ -18,8 +18,8 @@ data class UiPreferences(val display: CalendarMode = CalendarMode.SACRED,
     val fullMoonLeadDays: Set<Int> = emptySet(), val newMoonLeadDays: Set<Int> = emptySet(),
     val showMissedTasksToday: Boolean = true,
     val menuSwipeEnabled: Boolean = true, val menuSwipeSubmenus: Boolean = true,
-    val settingsMenuLabels: Boolean = true, val updateRemindersEnabled: Boolean = true,
-    val menuThreadsEnabled: Boolean = true,
+    val settingsMenuLabels: Boolean = false, val updateRemindersEnabled: Boolean = true,
+    val menuThreadsEnabled: Boolean = false,
     val settingsSubmenuEnabled: Boolean = true)
 class LocalPreferences(private val context: Context, private val scope: String) {
     private fun moonLeadDays(value: String?): Set<Int> = value.orEmpty().split(',')
@@ -32,7 +32,7 @@ class LocalPreferences(private val context: Context, private val scope: String) 
         values[pendingKey(name)]?.let { name to it }
     }.toMap() }
     val values = context.genesisPreferences.data.map {
-        UiPreferences(CalendarMode.fromWire(it[key("display")] ?: "sacred"), CalendarMode.fromWire(it[key("input")] ?: "sacred"),
+        UiPreferences(CalendarMode.fromWire(it[key("display")] ?: "profane"), CalendarMode.fromWire(it[key("input")] ?: "profane"),
             it[key("time")] != "12h", it[key("stoicheionDivinationDisabled")] == "true",
             it[key("language")].takeIf { value -> value in setOf("ru", "en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja") }
                 ?: if (scope == "welcome") regionalLanguageForDevice() else "ru",
@@ -45,9 +45,9 @@ class LocalPreferences(private val context: Context, private val scope: String) 
             moonLeadDays(it[key("fullMoonLeadDays")]), moonLeadDays(it[key("newMoonLeadDays")]),
             it[key("showMissedTasksToday")] != "false",
             it[key("menuSwipeEnabled")] != "false", it[key("menuSwipeSubmenus")] != "false",
-            it[key("settingsMenuLabels")] != "icons",
+            it[key("settingsMenuLabels")] == "text",
             it[key("updateRemindersEnabled")] != "false",
-            it[key("menuThreadsEnabled")] != "false",
+            it[key("menuThreadsEnabled")] == "true",
             it[key("settingsSubmenuEnabled")] != "false")
     }
     suspend fun set(name: String, value: String) { context.genesisPreferences.edit { it[key(name)] = value } }
@@ -55,7 +55,9 @@ class LocalPreferences(private val context: Context, private val scope: String) 
         context.genesisPreferences.edit { prefs ->
             mapOf("display" to "profane", "input" to "profane", "weekStart" to "monday",
                 "navigationLabels" to "icons", "menuSwipeEnabled" to "true",
-                "menuSwipeSubmenus" to "true", "regionSource" to "device").forEach { (name, value) ->
+                "menuSwipeSubmenus" to "true", "settingsMenuLabels" to "icons",
+                "settingsSubmenuEnabled" to "true", "menuThreadsEnabled" to "false",
+                "regionSource" to "device").forEach { (name, value) ->
                 if (prefs[key(name)] == null) prefs[key(name)] = value
             }
         }

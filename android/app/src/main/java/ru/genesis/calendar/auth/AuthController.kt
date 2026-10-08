@@ -53,7 +53,7 @@ data class AuthPanelState(
 private class PreferenceNotPersistedException : Exception()
 
 /** Account entry and explicit read-only cloud inspection; local draft scope never changes here. */
-class AuthController private constructor(context: Context) {
+class AuthController private constructor(context: Context) : SharedWorkspaceGateway {
     private val app = context.applicationContext as GenesisApplication
     private val client = AuthSessionClient(context.applicationContext)
     private val sharedOffline = SharedOfflineStore(context.applicationContext)
@@ -145,69 +145,78 @@ class AuthController private constructor(context: Context) {
         }
     }
 
-    suspend fun sharedSpaces(): JSONObject = sharedCachedCall("spaces") { api, generation -> api.sharedSpaces(generation) }
+    override suspend fun sharedSpaceUi(spaceId: String): JSONObject =
+        sharedCachedCall("ui:$spaceId") { api, generation -> api.sharedSpaceUi(generation, spaceId) }
+    override suspend fun saveSharedSpaceUi(spaceId: String, ids: List<String>): JSONObject =
+        sharedCall { api, generation -> api.saveSharedSpaceUi(generation, spaceId, ids) }
+    override suspend fun inviteSharedSpaceMember(spaceId: String, email: String, role: String): JSONObject =
+        sharedCall { api, generation -> api.inviteSharedSpaceMember(generation, spaceId, email, role) }
+    override suspend fun updateSharedBoard(projectId: String, statusId: String, changes: JSONObject): JSONObject =
+        sharedCall { api, generation -> api.updateSharedStatus(generation, projectId, statusId, changes) }
+    override suspend fun sharedSpaces(): JSONObject = sharedCachedCall("spaces") { api, generation -> api.sharedSpaces(generation) }
     suspend fun sharedTaskLists(): JSONObject = sharedCachedCall("task-lists") { api, generation -> api.sharedTaskLists(generation) }
     suspend fun sharedCalendarTasks(from: String, to: String): JSONObject =
         sharedCachedCall("calendar:$from:$to") { api, generation -> api.sharedCalendarTasks(generation, from, to) }
-    suspend fun createSharedSpace(title: String): JSONObject = sharedCall { api, generation ->
+    override suspend fun createSharedSpace(title: String): JSONObject = sharedCall { api, generation ->
         api.createSharedSpace(generation, JSONObject().put("title", title))
     }
-    suspend fun sharedProjects(spaceId: String): JSONObject =
+    override suspend fun sharedProjects(spaceId: String): JSONObject =
         sharedCachedCall("projects:$spaceId") { api, generation -> api.sharedProjects(generation, spaceId) }
-    suspend fun archivedSharedProjects(spaceId: String): JSONObject =
+    override suspend fun archivedSharedProjects(spaceId: String): JSONObject =
         sharedCachedCall("archived:$spaceId") { api, generation -> api.archivedSharedProjects(generation, spaceId) }
-    suspend fun createSharedProject(spaceId: String, title: String, description: String, layout: String,
-        parentId: String? = null): JSONObject =
+    override suspend fun createSharedProject(spaceId: String, title: String, description: String, layout: String,
+        parentId: String?, kind: String, boardStatusId: String?): JSONObject =
         sharedCall { api, generation -> api.createSharedProject(generation, spaceId,
             JSONObject().put("title", title).put("description", description).put("layout", layout)
-                .put("parentId", parentId ?: JSONObject.NULL)) }
+                .put("parentId", parentId ?: JSONObject.NULL).put("kind", kind)
+                .put("boardStatusId", boardStatusId ?: JSONObject.NULL)) }
     suspend fun importSharedProject(spaceId: String, body: JSONObject): JSONObject =
         sharedCall { api, generation -> api.importSharedProject(generation, spaceId, body) }
-    suspend fun sharedProject(projectId: String): JSONObject =
+    override suspend fun sharedProject(projectId: String): JSONObject =
         sharedCachedCall("project:$projectId") { api, generation -> api.sharedProject(generation, projectId) }
-    suspend fun sharedGoogleSettings(projectId: String): JSONObject =
+    override suspend fun sharedGoogleSettings(projectId: String): JSONObject =
         sharedCall { api, generation -> api.sharedGoogleSettings(generation, projectId) }
-    suspend fun updateSharedGoogleSettings(projectId: String, tasksEnabled: Boolean, calendarEnabled: Boolean): JSONObject =
+    override suspend fun updateSharedGoogleSettings(projectId: String, tasksEnabled: Boolean, calendarEnabled: Boolean): JSONObject =
         sharedCall { api, generation -> api.updateSharedGoogleSettings(generation, projectId,
             JSONObject().put("tasksEnabled", tasksEnabled).put("calendarEnabled", calendarEnabled)) }
-    suspend fun syncSharedGoogle(projectId: String): JSONObject =
+    override suspend fun syncSharedGoogle(projectId: String): JSONObject =
         sharedCall { api, generation -> api.syncSharedGoogle(generation, projectId) }
-    suspend fun updateSharedProject(projectId: String, changes: JSONObject): JSONObject =
+    override suspend fun updateSharedProject(projectId: String, changes: JSONObject): JSONObject =
         sharedCall { api, generation -> api.updateSharedProject(generation, projectId, changes) }
-    suspend fun setSharedProjectArchived(projectId: String, archived: Boolean): JSONObject =
+    override suspend fun setSharedProjectArchived(projectId: String, archived: Boolean): JSONObject =
         sharedCall { api, generation -> api.setSharedProjectArchived(generation, projectId, archived) }
-    suspend fun createSharedStatus(projectId: String, title: String, isDone: Boolean,
-        requestId: String = UUID.randomUUID().toString()): JSONObject =
+    override suspend fun createSharedStatus(projectId: String, title: String, isDone: Boolean,
+        requestId: String): JSONObject =
         sharedCall { api, generation -> api.createSharedStatus(generation, projectId,
             JSONObject().put("title", title).put("isDone", isDone).put("requestId", requestId)) }
     suspend fun updateSharedStatus(projectId: String, statusId: String, title: String, revision: Int): JSONObject =
         sharedCall { api, generation -> api.updateSharedStatus(generation, projectId, statusId,
             JSONObject().put("title", title).put("expectedRevision", revision)) }
-    suspend fun deleteSharedStatus(projectId: String, statusId: String, destinationId: String, revision: Int): JSONObject =
+    override suspend fun deleteSharedStatus(projectId: String, statusId: String, destinationId: String, revision: Int): JSONObject =
         sharedCall { api, generation -> api.deleteSharedStatus(generation, projectId, statusId,
             JSONObject().put("destinationStatusId", destinationId).put("expectedRevision", revision)) }
-    suspend fun createSharedCategory(projectId: String, title: String, color: String): JSONObject =
+    override suspend fun createSharedCategory(projectId: String, title: String, color: String): JSONObject =
         sharedCall { api, generation -> api.createSharedCategory(generation, projectId,
             JSONObject().put("title", title).put("color", color)) }
-    suspend fun updateSharedCategory(projectId: String, categoryId: String,
+    override suspend fun updateSharedCategory(projectId: String, categoryId: String,
         title: String, color: String, revision: Int): JSONObject =
         sharedCall { api, generation -> api.updateSharedCategory(generation, projectId, categoryId,
             JSONObject().put("title", title).put("color", color).put("expectedRevision", revision)) }
-    suspend fun deleteSharedCategory(projectId: String, categoryId: String, revision: Int): JSONObject =
+    override suspend fun deleteSharedCategory(projectId: String, categoryId: String, revision: Int): JSONObject =
         sharedCall { api, generation -> api.deleteSharedCategory(generation, projectId, categoryId,
             JSONObject().put("expectedRevision", revision)) }
-    suspend fun changeSharedMemberRole(projectId: String, userId: String, role: String): JSONObject =
+    override suspend fun changeSharedMemberRole(projectId: String, userId: String, role: String): JSONObject =
         sharedCall { api, generation -> api.changeSharedMemberRole(generation, projectId, userId, role) }
-    suspend fun changeSharedSpaceRole(spaceId: String, userId: String, role: String,
-        canOrganizeTasks: Boolean? = null): JSONObject =
+    override suspend fun changeSharedSpaceRole(spaceId: String, userId: String, role: String,
+        canOrganizeTasks: Boolean?): JSONObject =
         sharedCall { api, generation -> api.changeSharedSpaceRole(generation, spaceId, userId, role, canOrganizeTasks) }
-    suspend fun removeSharedMember(projectId: String, userId: String): JSONObject =
+    override suspend fun removeSharedMember(projectId: String, userId: String): JSONObject =
         sharedCall { api, generation -> api.removeSharedMember(generation, projectId, userId) }
-    suspend fun createSharedTask(projectId: String, title: String, statusId: String,
-        categoryId: String? = null): JSONObject =
+    override suspend fun createSharedTask(projectId: String, title: String, statusId: String,
+        categoryId: String?): JSONObject =
         createSharedTask(projectId, JSONObject().put("title", title).put("statusId", statusId)
             .put("categoryId", categoryId ?: JSONObject.NULL))
-    suspend fun createSharedTask(projectId: String, fields: JSONObject): JSONObject = sharedTaskCall { api, generation ->
+    override suspend fun createSharedTask(projectId: String, fields: JSONObject): JSONObject = sharedTaskCall { api, generation ->
         if (fields.has("sourceTaskId")) return@sharedTaskCall api?.createSharedTask(generation, projectId, fields)
             ?: throw AuthFailure(AuthFailure.Kind.NETWORK)
         val userId = mutableState.value.user?.uid ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
@@ -228,19 +237,19 @@ class AuthController private constructor(context: Context) {
                 .put("projectId", projectId).put("revision", 0).put("pending", true))
         }
     }
-    suspend fun queuedSharedTasks(projectId: String): List<JSONObject> = withContext(Dispatchers.IO) {
+    override suspend fun queuedSharedTasks(projectId: String): List<JSONObject> = withContext(Dispatchers.IO) {
         val userId = mutableState.value.user?.uid ?: return@withContext emptyList()
         sharedOffline.queued(userId).filter { it.optString("projectId") == projectId }
     }
     fun pendingSharedMutationsCount(): Int = mutableState.value.user?.uid?.let { sharedOffline.queued(it).size } ?: 0
-    suspend fun discardFailedSharedMutation(requestId: String) = withContext(Dispatchers.IO) {
+    override suspend fun discardFailedSharedMutation(requestId: String): Unit = withContext(Dispatchers.IO) {
         val userId = mutableState.value.user?.uid ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
         check(sharedOffline.queued(userId).any {
             it.optString("requestId") == requestId && it.optString("error").isNotBlank()
         }) { "SHARED_DRAFT_NOT_FOUND" }
         sharedOffline.remove(userId, requestId)
     }
-    suspend fun flushSharedOfflineTasks(): Int = sharedCall { api, generation ->
+    override suspend fun flushSharedOfflineTasks(): Int = sharedCall { api, generation ->
         val userId = mutableState.value.user?.uid ?: throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
         var synced = 0
         for (item in sharedOffline.queued(userId)) {
@@ -296,27 +305,27 @@ class AuthController private constructor(context: Context) {
                 .put("revision", changes.optInt("expectedRevision")).put("pending", true))
         }
     }
-    suspend fun updateSharedTask(projectId: String, taskId: String, changes: JSONObject): JSONObject =
+    override suspend fun updateSharedTask(projectId: String, taskId: String, changes: JSONObject): JSONObject =
         sendSharedTaskChange(projectId, taskId, changes, "update")
-    suspend fun moveSharedTask(projectId: String, taskId: String, changes: JSONObject): JSONObject =
+    override suspend fun moveSharedTask(projectId: String, taskId: String, changes: JSONObject): JSONObject =
         sendSharedTaskChange(projectId, taskId, changes, "move")
     suspend fun inviteSharedMember(projectId: String, email: String, role: String): JSONObject =
         sharedCall { api, generation -> api.inviteSharedMember(generation, projectId,
             JSONObject().put("email", email).put("role", role)) }
-    suspend fun sharedInvitations(): JSONObject =
+    override suspend fun sharedInvitations(): JSONObject =
         sharedInvitationCall { api, generation -> api.sharedInvitations(generation) }
     suspend fun sharedNotifications(): JSONObject = sharedCall { api, generation -> api.sharedNotifications(generation) }
     suspend fun readSharedNotifications(ids: List<String>): JSONObject = sharedCall { api, generation ->
         api.readSharedNotifications(generation, JSONArray(ids))
     }
-    suspend fun acceptSharedInvitation(id: String): JSONObject =
+    override suspend fun acceptSharedInvitation(id: String): JSONObject =
         sharedInvitationCall { api, generation -> api.acceptSharedInvitation(generation, JSONObject().put("id", id)) }
-    suspend fun rejectSharedInvitation(id: String): JSONObject =
+    override suspend fun rejectSharedInvitation(id: String): JSONObject =
         sharedInvitationCall { api, generation -> api.rejectSharedInvitation(generation, id) }
-    suspend fun sharedComments(projectId: String, taskId: String): JSONObject =
+    override suspend fun sharedComments(projectId: String, taskId: String): JSONObject =
         sharedCachedCall("comments:$projectId:$taskId") { api, generation ->
             api.sharedComments(generation, projectId, taskId) }
-    suspend fun addSharedComment(projectId: String, taskId: String, body: String): JSONObject =
+    override suspend fun addSharedComment(projectId: String, taskId: String, body: String): JSONObject =
         sharedCall { api, generation -> api.addSharedComment(generation, projectId, taskId,
             JSONObject().put("body", body)) }
 

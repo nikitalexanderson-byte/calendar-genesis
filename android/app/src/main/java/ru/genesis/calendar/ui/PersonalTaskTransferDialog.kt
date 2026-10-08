@@ -17,7 +17,7 @@ import ru.genesis.calendar.data.LocalTask
 
 private fun JSONArray.projectRows(): List<JSONObject> = (0 until length()).map(::getJSONObject)
 
-internal fun privateMoveRestriction(task: LocalTask, account: AccountSettings?, allowCategory: Boolean = false): Boolean {
+internal fun privateMoveRestriction(task: LocalTask, account: AccountSettings?, allowCategory: Boolean = false, allowTags: Boolean = false): Boolean {
     val source = runCatching { JSONObject(task.sourceFieldsJson) }.getOrDefault(JSONObject())
     fun hasText(key: String) = !source.isNull(key) && source.optString(key).let { it.isNotBlank() && it != "null" }
     fun hasItems(key: String) = (source.optJSONArray(key)?.length() ?: 0) > 0
@@ -28,7 +28,7 @@ internal fun privateMoveRestriction(task: LocalTask, account: AccountSettings?, 
         source.optString("endDate").let { it.isNotBlank() && it != "null" && it != task.date }) return true
     if (hasText("googleEventId") || hasText("googleTaskId") || hasText("googleTaskListId") ||
         hasText("googleAccountId") || (source.optJSONObject("googleLinks")?.length() ?: 0) > 0 ||
-        hasItems("syncAccountIds") || hasItems("tags") || hasItems("dependsOnIds") ||
+        hasItems("syncAccountIds") || (!allowTags && hasItems("tags")) || hasItems("dependsOnIds") ||
         hasItems("yandexAttendees") || hasItems("yandexOptionalAttendees") || hasItems("yandexReminders") ||
         hasText("yandexLocation") || hasText("yandexTelemostUrl") ||
         source.optString("yandexEntryType") == "meeting" ||

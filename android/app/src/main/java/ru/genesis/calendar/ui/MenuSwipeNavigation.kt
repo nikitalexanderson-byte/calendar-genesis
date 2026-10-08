@@ -17,12 +17,12 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
-import kotlinx.coroutines.launch
 
 internal data class SwipeDestination(val page: String, val section: String? = null)
 
 class MenuSwipeState {
     var tasks by mutableStateOf("tasks")
+    var personalView by mutableStateOf("projects")
     var projects by mutableStateOf("all")
     var projectArea by mutableStateOf("personal")
     var calendar by mutableStateOf("month")
@@ -32,7 +32,7 @@ class MenuSwipeState {
 
     fun section(page: String): String? = when (page) {
         "Задачи" -> tasks
-        "Проекты" -> projectArea
+        "Проекты" -> if (projectArea == "shared") "shared" else "personal-$personalView"
         "Календарь" -> calendar
         "Привычки" -> habits
         "Сакральное" -> sacred
@@ -43,7 +43,13 @@ class MenuSwipeState {
     fun select(page: String, section: String) {
         when (page) {
             "Задачи" -> tasks = section
-            "Проекты" -> projectArea = section
+            "Проекты" -> {
+                projectArea = if (section == "shared") "shared" else "personal"
+                if (section.startsWith("personal-")) {
+                    personalView = section.removePrefix("personal-")
+                    if (personalView != "projects") tasks = personalView
+                }
+            }
             "Календарь" -> calendar = section
             "Привычки" -> habits = section
             "Сакральное" -> sacred = section
@@ -56,16 +62,21 @@ internal fun menuSwipeSequence(includeSubmenus: Boolean, habitsEnabled: Boolean,
     sharedProjectsEnabled: Boolean = false, hiddenMenuItems: Set<String> = emptySet(),
     hiddenSubmenus: Set<String> = emptySet(),
     settingsSubmenuEnabled: Boolean = true): List<SwipeDestination> {
-    val pages = listOf("Сегодня", "Задачи", "Проекты", "Календарь", "Привычки", "Сакральное", "Настройки")
+    val pages = listOf("Сегодня", "Проекты", "Календарь", "Привычки", "Сакральное", "Настройки")
         .filter { (habitsEnabled || it != "Привычки") && menuVisibilityId(it) !in hiddenMenuItems &&
             (it != "Сакральное" || !("stoicheion" in hiddenMenuItems && "theokyklos" in hiddenMenuItems)) }
     if (!includeSubmenus) return pages.map { SwipeDestination(it) }
     return pages.flatMap { page -> when (page) {
         "Задачи" -> listOf("tasks", "lists").filter { "tasks.$it" !in hiddenSubmenus }
             .map { SwipeDestination(page, it) }
-        "Проекты" -> if (sharedProjectsEnabled) listOf("personal", "shared")
-            .filter { "projects.$it" !in hiddenSubmenus }.map { SwipeDestination(page, it) }
-            else listOf(SwipeDestination(page))
+        "Проекты" -> buildList {
+            if ("projects.personal" !in hiddenSubmenus || !sharedProjectsEnabled) {
+                listOf("projects", "tasks", "lists")
+                    .filter { it == "projects" || "tasks.$it" !in hiddenSubmenus }
+                    .forEach { add(SwipeDestination(page, "personal-$it")) }
+            }
+            if (sharedProjectsEnabled && "projects.shared" !in hiddenSubmenus) add(SwipeDestination(page, "shared"))
+        }
         "Календарь" -> listOf("month", "year").filter { "calendar.$it" !in hiddenSubmenus }
             .map { SwipeDestination(page, it) }
         "Привычки" -> listOf("Привычки", "Сон и настроение")
@@ -115,21 +126,30 @@ internal fun MenuSwipePager(current: SwipeDestination, sequence: List<SwipeDesti
     val latestCurrent = rememberUpdatedState(current)
     val latestNavigate = rememberUpdatedState(onNavigate)
     val latestPreview = rememberUpdatedState(onPreview)
-    LaunchedEffect(pagerState, currentIndex, sequence) {
+    LaunchedEffect(pagerState, currentIndex) {
         // A visibility change can assign a different destination to the same page index.
         // Align by destination before either observer starts, so that index is never
         // interpreted using the new sequence while the pager still holds the old one.
         if (pagerState.settledPage != currentIndex) pagerState.scrollToPage(currentIndex)
-        launch {
+    }
+    LaunchedEffect(pagerState, sequence) {
             snapshotFlow { pagerState.settledPage }.distinctUntilChanged().drop(1).collect { index ->
                 sequence.getOrNull(index)?.takeIf { it != latestCurrent.value }?.let(latestNavigate.value)
             }
-        }
-        launch {
-            // Preview changes as the finger crosses a page, before the fling settles.
-            snapshotFlow { pagerState.currentPage }.distinctUntilChanged().drop(1).collect { index ->
-                sequence.getOrNull(index)?.let(latestPreview.value)
-            }
+    }
+    LaunchedEffect(pagerState, sequence) {
+        // Preview after touch slop, before half of the next page has crossed the screen.
+        // Keep the already crossed page selected while its offset returns toward zero.
+        snapshotFlow {
+            when {
+                !pagerState.isScrollInProgress -> pagerState.settledPage
+                pagerState.currentPage != pagerState.settledPage -> pagerState.currentPage
+                kotlin.math.abs(pagerState.currentPageOffsetFraction) > .02f ->
+                    pagerState.currentPage + if (pagerState.currentPageOffsetFraction > 0) 1 else -1
+                else -> pagerState.currentPage
+            }.coerceIn(0, sequence.lastIndex)
+        }.distinctUntilChanged().collect { index ->
+            sequence.getOrNull(index)?.let(latestPreview.value)
         }
     }
     HorizontalPager(state = pagerState, modifier = modifier.fillMaxSize(),

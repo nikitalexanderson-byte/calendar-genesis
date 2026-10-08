@@ -90,7 +90,7 @@ private val manageAdCopy = mapOf(
 @Composable
 internal fun manageAdsLabel(): String = manageAdCopy[LocalGenesisLanguage.current] ?: manageAdCopy.getValue("ru")
 
-private fun adBitmap(url: String): Bitmap? {
+internal fun genesisImageBitmap(url: String, maximumDimension: Int = 1200): Bitmap? {
     val bytes = if (url.startsWith("data:image/")) {
         val encoded = url.substringAfter(";base64,", "")
         if (encoded.isEmpty() || encoded.length > 700_000) return null
@@ -120,7 +120,7 @@ private fun adBitmap(url: String): Bitmap? {
     BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
     if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
     var sample = 1
-    while (bounds.outWidth / sample > 1200 || bounds.outHeight / sample > 1200) sample *= 2
+    while (bounds.outWidth / sample > maximumDimension || bounds.outHeight / sample > maximumDimension) sample *= 2
     return BitmapFactory.decodeByteArray(bytes, 0, bytes.size,
         BitmapFactory.Options().apply { inSampleSize = sample })
 }
@@ -149,7 +149,7 @@ internal fun TodayAdPanel(controller: AuthController, userId: String?, language:
     }
     if (ad == null) return
     val bitmap by produceState<Bitmap?>(null, ad.imageUrl) {
-        value = withContext(Dispatchers.IO) { runCatching { adBitmap(ad.imageUrl) }.getOrNull() }
+        value = withContext(Dispatchers.IO) { runCatching { genesisImageBitmap(ad.imageUrl) }.getOrNull() }
     }
     var visible by remember(ad.id) { mutableStateOf(false) }
     val lifecycleOwner = LocalLifecycleOwner.current

@@ -1,6 +1,7 @@
 package ru.genesis.calendar.data
 
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertFalse
 import org.junit.Test
 
 class UiPreferencesDefaultsTest {
@@ -8,7 +9,7 @@ class UiPreferencesDefaultsTest {
         val preferences = UiPreferences()
         assertTrue(preferences.menuSwipeEnabled)
         assertTrue(preferences.menuSwipeSubmenus)
-        assertTrue(preferences.menuThreadsEnabled)
+        assertFalse(preferences.menuThreadsEnabled)
         assertTrue(preferences.settingsSubmenuEnabled)
     }
 }

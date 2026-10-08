@@ -145,6 +145,7 @@ private fun DraggableTaskRow(task: LocalTask, pickedUp: Boolean,
 @Composable
 internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, experimental: Boolean,
     onOpenTask: (String) -> Unit, onCreateTask: (String?) -> Unit,
+    taskLists: List<GoogleTaskList> = emptyList(), onOpenList: (String) -> Unit = {},
     onDeleteTask: (LocalTask) -> Unit = {},
     menuSwipeState: MenuSwipeState? = null, voiceRequest: NativeVoiceAction? = null,
     onVoiceRequestConsumed: () -> Unit = {},
@@ -334,9 +335,9 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                GenesisPageHeader(if (language == "en") "Projects - personal" else "Проекты - личные",
+                GenesisPageHeader(if (language == "en") "Affairs - personal" else "Дела - личные",
                     if (language == "en") "Categories, projects and their tasks"
-                    else "Категории, проекты и задачи внутри них", "▦")
+                    else "Категории, проекты и задачи внутри них", "▦", icon = GenesisPageIcon.PROJECTS)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically) {
                     androidx.compose.material3.Text(projectSummary, Modifier.weight(1f).padding(end = 8.dp),
@@ -394,6 +395,19 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (selectedProject == project.id) {
                         if (project.description.isNotBlank()) Text(project.description, style = MaterialTheme.typography.bodyMedium)
+                        structure.taskListLinks.filter { it.projectId == project.id }.forEach { link ->
+                            val list = (taskLists + structure.taskLists).firstOrNull { it.id == link.taskListId }
+                            val listTasks = tasks.filter { it.taskListId() == link.taskListId }
+                            OutlinedButton(onClick = { onOpenList(link.taskListId) },
+                                modifier = Modifier.fillMaxWidth().testTag("project-list-${link.taskListId}")) {
+                                Column(Modifier.fillMaxWidth()) {
+                                    Text(list?.title ?: listTasks.firstOrNull()?.let {
+                                        org.json.JSONObject(it.sourceFieldsJson).optString("googleTaskListTitle")
+                                    }?.takeIf { it.isNotBlank() } ?: "Список задач")
+                                    Text("${listTasks.count { it.done }} / ${listTasks.size}", style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                        }
                         tasksByProject[project.id].orEmpty().forEach { task ->
                             DraggableTaskRow(task, pickup?.id == task.id, onPickup, onDrag, onRelease) {
                                 if (experimental) {
@@ -453,7 +467,7 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
         moveAnnouncement?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.testTag("project-move-announcement")) } }
         item {
-            Text("Списки задач доступны в разделе «Задачи».",
+            Text("Проекты, задачи и списки объединены в личных делах.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }

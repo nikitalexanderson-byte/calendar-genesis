@@ -105,23 +105,14 @@ internal fun secondaryCalendarModes(primary: CalendarMode): List<CalendarMode> =
         CalendarMode.LUNAR -> listOf(CalendarMode.SACRED, CalendarMode.PROFANE)
     }
 
-/** The hero is the selected calendar; this panel adds only the other two, without duplication. */
+/** Today expands only the selected sacred day's meaning and its three rhythms. */
 @Composable
 fun DayKnowledgePanel(date: LocalDate, primaryMode: CalendarMode,
     calendar: GenesisCalendar = GenesisCalendar()) {
-    val solarLocation by rememberAutomaticSolarLocation(calendar.zoneId)
+    if (primaryMode != CalendarMode.SACRED) return
     Column(Modifier.fillMaxWidth().testTag("day-knowledge"),
         verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        if (primaryMode == CalendarMode.SACRED) ThreeRhythmsCard(date, calendar)
-        secondaryCalendarModes(primaryMode).forEach { mode ->
-            when (mode) {
-                CalendarMode.SACRED -> SacredCalendarCard(date, calendar)
-                CalendarMode.PROFANE -> GregorianCalendarCard(date, calendar, solarLocation)
-                CalendarMode.LUNAR -> LunarCalendarCard(date, calendar)
-            }
-        }
-        val moon = calendar.moonInfo(date)
-        if (isMoonFastingDay(moon)) MoonFastingCard(moon)
+        SacredCalendarCard(date, calendar)
     }
 }
 

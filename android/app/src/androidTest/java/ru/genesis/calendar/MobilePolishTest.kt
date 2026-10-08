@@ -67,7 +67,8 @@ class MobilePolishTest {
                 date = LocalDate.now().toString(), revision = old?.revision ?: 0))
         }
         try {
-            compose.onNodeWithTag("navigation-Задачи").performClick()
+            compose.onNodeWithTag("navigation-Проекты").performClick()
+            compose.onNodeWithTag("submenu-tasks").performClick()
             compose.onNodeWithTag("tasks-screen").performScrollToNode(hasTestTag("task-$taskId"))
             val checkbox = compose.onNode(isToggleable() and hasAnyAncestor(hasTestTag("task-$taskId")), useUnmergedTree = true)
             checkbox.assertIsOff().performClick()
@@ -96,7 +97,8 @@ class MobilePolishTest {
 
     @Test fun taskCloseRemainsAtTopRightAfterScrollingAndDoesNotSaveDraft() {
         val draft = "Несохранённая задача полировки"
-        compose.onNodeWithTag("navigation-Задачи").performClick()
+        compose.onNodeWithTag("navigation-Проекты").performClick()
+            compose.onNodeWithTag("submenu-tasks").performClick()
         compose.onNodeWithTag("create-task").performClick()
         compose.onNodeWithTag("task-title").performTextInput(draft)
         UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()

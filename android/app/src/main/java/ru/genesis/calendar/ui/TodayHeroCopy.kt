@@ -65,9 +65,10 @@ internal fun todayHeroCopy(date: LocalDate, mode: CalendarMode, calendar: Genesi
             val lunar = calendar.lunarDate(date)
             val moon = calendar.moonInfo(date)
             TodayHeroCopy("ЛУННЫЙ КАЛЕНДАРЬ · ${lunar.month.roman} МЕСЯЦ", lunar.month.name,
-                "${lunar.day} лунный день", if (lunar.isThreshold) "Рубеж лунного месяца" else lunar.decade,
-                "${moon.direction}. ${moon.phase}, освещённость ${moon.illumination}%. ${lunar.month.description}",
-                emptyList(), gregorianDate, sacredArt, moon.event.ifBlank { moon.epithet })
+                "${lunar.day} лунный день", if (lunar.isThreshold) "Рубеж лунного месяца" else null,
+                lunar.month.description,
+                listOf(lunar.month.title, "${lunar.decade} · ${lunar.day} из ${lunar.monthLength} дней"),
+                gregorianDate, sacredArt, moon.event.takeIf { it.isNotBlank() })
         }
         CalendarMode.PROFANE -> {
             val index = date.dayOfWeek.value % 7

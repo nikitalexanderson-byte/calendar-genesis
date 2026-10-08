@@ -21,7 +21,8 @@ class CalendarTaskActionsTest {
     @get:Rule val compose = createAndroidComposeRule<TestWorkspaceActivity>()
 
     @Test fun creatingTaskFromTasksAndMonthNeverOpensDeleteConfirmation() {
-        compose.onNodeWithTag("navigation-Задачи").performClick()
+        compose.onNodeWithTag("navigation-Проекты").performClick()
+            compose.onNodeWithTag("submenu-tasks").performClick()
         compose.onNodeWithTag("create-task").performClick()
         compose.onNodeWithTag("task-title").assertExists()
         compose.onNodeWithTag("delete-series").assertDoesNotExist()

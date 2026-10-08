@@ -1,0 +1,83 @@
+package ru.genesis.calendar
+
+import androidx.compose.ui.test.*
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.test.platform.app.InstrumentationRegistry
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
+import org.junit.Assert.*
+import org.junit.Rule
+import org.junit.Test
+import ru.genesis.calendar.data.LocalPreferences
+import ru.genesis.calendar.domain.CalendarMode
+import java.io.File
+import java.util.UUID
+
+class AndroidAffairsUiTest {
+    @get:Rule val compose = createAndroidComposeRule<TestWorkspaceActivity>()
+
+    @Test fun personalProjectsTasksAndListsShareOneMenuDestination() {
+        val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
+        check(BuildConfig.DEBUG && app.packageName.endsWith(".debug"))
+        val before = runBlocking { app.repository.tasks.first().map { it.id }.toSet() }
+        compose.onNodeWithTag("navigation-Задачи").assertDoesNotExist()
+        compose.onNodeWithTag("navigation-Проекты").performClick()
+        compose.onNodeWithTag("projects-screen").assertExists()
+        compose.onNodeWithTag("submenu-tasks").performClick()
+        compose.onNodeWithTag("tasks-screen").assertExists()
+        compose.onNodeWithTag("submenu-lists").performClick()
+        compose.onNodeWithTag("tasks-screen").assertExists()
+        compose.onNodeWithTag("submenu-projects").performClick()
+        compose.onNodeWithTag("projects-screen").assertExists()
+        assertEquals(before, runBlocking { app.repository.tasks.first().map { it.id }.toSet() })
+        androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+            .takeScreenshot(File(app.getExternalFilesDir(null), "android-affairs-personal.png"))
+    }
+
+    @Test fun freshDefaultsPreserveExplicitSelections() = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val prefs = LocalPreferences(context, "test-defaults-${UUID.randomUUID()}")
+        val fresh = prefs.values.first()
+        assertEquals(CalendarMode.PROFANE, fresh.display)
+        assertEquals(CalendarMode.PROFANE, fresh.input)
+        assertFalse(fresh.navigationLabels)
+        assertFalse(fresh.settingsMenuLabels)
+        assertTrue(fresh.settingsSubmenuEnabled && fresh.menuSwipeEnabled && fresh.menuSwipeSubmenus)
+        assertFalse(fresh.menuThreadsEnabled)
+        prefs.set("display", "sacred"); prefs.set("input", "lunar")
+        prefs.set("settingsMenuLabels", "text"); prefs.set("menuSwipeEnabled", "false")
+        prefs.initializeNewAccount()
+        val kept = prefs.values.first()
+        assertEquals(CalendarMode.SACRED, kept.display)
+        assertEquals(CalendarMode.LUNAR, kept.input)
+        assertTrue(kept.settingsMenuLabels)
+        assertFalse(kept.menuSwipeEnabled)
+    }
+
+    @Test fun todayDetailsAreSacredOnlyAndLunarHeroContainsItsPhase() {
+        val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
+        val prefs = LocalPreferences(app, app.workspaceScope)
+        val original = runBlocking { prefs.values.first() }
+        try {
+            compose.onNodeWithTag("navigation-Сегодня").performClick()
+            runBlocking { prefs.set("display", "profane") }
+            compose.waitForIdle()
+            compose.onNodeWithTag("today-day-details-toggle").assertDoesNotExist()
+            runBlocking { prefs.set("display", "lunar") }
+            compose.waitUntil(10_000) { compose.onAllNodesWithTag("today-lunar-phase").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithTag("today-day-details-toggle").assertDoesNotExist()
+            compose.scrollToTodayNode(hasTestTag("today-lunar-phase"))
+            compose.onNodeWithTag("today-lunar-phase").assertIsDisplayed()
+            compose.onNodeWithTag("lunar-calendar-card").assertDoesNotExist()
+            androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+                .takeScreenshot(File(app.getExternalFilesDir(null), "android-today-lunar.png"))
+            runBlocking { prefs.set("display", "sacred") }
+            compose.scrollToTodayNode(hasTestTag("today-day-details-toggle"))
+            compose.onNodeWithTag("today-day-details-toggle").performClick()
+            compose.scrollToTodayNode(hasTestTag("sacred-calendar-card"))
+            compose.onNodeWithTag("sacred-calendar-card").assertExists()
+            compose.onNodeWithTag("lunar-calendar-card").assertDoesNotExist()
+            compose.onNodeWithTag("gregorian-calendar-card").assertDoesNotExist()
+        } finally { runBlocking { prefs.set("display", original.display.wireValue) } }
+    }
+}

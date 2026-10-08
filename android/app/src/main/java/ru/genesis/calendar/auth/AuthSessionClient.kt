@@ -23,6 +23,9 @@ internal fun allowedSharedRoute(method: String, path: String): Boolean {
             "/shared/notifications", "/shared/notifications/read")) return method in setOf("GET", "POST")
     if (method == "GET" && path.matches(Regex("/shared/calendar/tasks\\?from=\\d{4}-\\d{2}-\\d{2}&to=\\d{4}-\\d{2}-\\d{2}"))) return true
     if (path.matches(Regex("/shared/invitations/[a-f0-9-]{36}"))) return method == "POST"
+    if (path == "/shared/task-lists") return method == "GET"
+    if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/ui"))) return method in setOf("GET", "PATCH")
+    if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/invitations"))) return method == "POST"
     if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/projects"))) return method in setOf("GET", "POST")
     if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/import-project"))) return method == "POST"
     if (path.matches(Regex("/shared/spaces/[a-f0-9-]{36}/archived-projects"))) return method == "GET"
@@ -177,6 +180,12 @@ internal class AuthSessionClient(context: Context) {
         request(expected, "/account/preferences", JSONObject().put("syncRouting", routing.toJson()), method = "PUT")
     fun updatePreferences(expected: Long, changes: JSONObject): JSONObject =
         request(expected, "/account/preferences", changes, method = "PUT")
+    fun sharedSpaceUi(expected: Long, spaceId: String): JSONObject =
+        request(expected, "/shared/spaces/$spaceId/ui", null)
+    fun saveSharedSpaceUi(expected: Long, spaceId: String, ids: List<String>): JSONObject =
+        request(expected, "/shared/spaces/$spaceId/ui", JSONObject().put("expandedIds", JSONArray(ids)), method = "PATCH")
+    fun inviteSharedSpaceMember(expected: Long, spaceId: String, email: String, role: String): JSONObject =
+        request(expected, "/shared/spaces/$spaceId/invitations", JSONObject().put("email", email).put("role", role))
     fun sharedSpaces(expected: Long): JSONObject = request(expected, "/shared/spaces", null)
     fun sharedTaskLists(expected: Long): JSONObject = request(expected, "/shared/task-lists", null)
     fun sharedCalendarTasks(expected: Long, from: String, to: String): JSONObject =
@@ -289,11 +298,12 @@ internal class AuthSessionClient(context: Context) {
             "/auth/logout", "/account/preferences", "/admin/stats", "/feature-usage") ||
             (method == "GET" && path.matches(Regex("/ads/today\\?language=[a-z]{2}&country=[A-Z]{0,2}&platform=android"))) ||
             (path == "/task-lists" && method == "POST") ||
+            (method in setOf("PATCH", "DELETE") && path.matches(Regex("/task-lists/[A-Za-z0-9_%.-]{1,1500}"))) ||
             (method in setOf("PUT", "DELETE") && path.matches(Regex("/tasks/[A-Za-z0-9_-]{1,100}"))) ||
             (method == "DELETE" && path.matches(Regex("/admin/users/[A-Za-z0-9_-]{1,100}"))) ||
             (method == "DELETE" && path.matches(Regex("/account/google-accounts/[A-Za-z0-9_-]{1,100}"))) ||
             allowedSharedRoute(method, path))
-        require(method in setOf("GET", "POST", "PUT", "DELETE") && (method == "GET") == (body == null))
+        require(method in setOf("GET", "POST", "PUT", "PATCH", "DELETE") && (method == "GET") == (body == null))
         val current = secret ?: load(expected)
         if (body != null && (current.cookie.isBlank() || current.csrf.isBlank())) throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)
         val connection = URL("$AUTH_ORIGIN/api$path").openConnection() as HttpsURLConnection
@@ -353,7 +363,7 @@ internal class AuthSessionClient(context: Context) {
                         "/workspace" -> 11_000_000
                         "/bootstrap" -> 24_000_000
                         "/admin/stats" -> 4_000_000
-                        else -> if (path.startsWith("/ads/today?")) 4_000_000 else 131_072
+                        else -> if (path.startsWith("/shared/")) 32_000_000 else if (path.startsWith("/ads/today?")) 4_000_000 else 131_072
                     }
                     if (output.size() + read > maximumBytes) throw AuthFailure(AuthFailure.Kind.PROTOCOL)
                     output.write(buffer, 0, read)
