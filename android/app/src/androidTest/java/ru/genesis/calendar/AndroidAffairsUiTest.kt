@@ -16,6 +16,14 @@ import java.util.UUID
 class AndroidAffairsUiTest {
     @get:Rule val compose = createAndroidComposeRule<TestWorkspaceActivity>()
 
+    @Test fun regionalAffairsCopyIsAvailableOfflineInTheApk() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        for ((language, expected) in mapOf("fr" to "Paramètres du tableau", "de" to "Board-Einstellungen",
+            "ja" to "ボード設定", "el" to "Ρυθμίσεις πίνακα", "uk" to "Налаштування дошки")) {
+            assertEquals(expected, ru.genesis.calendar.ui.translateGenesisText(context, "Настройки доски", language))
+        }
+    }
+
     @Test fun personalProjectsTasksAndListsShareOneMenuDestination() {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
         check(BuildConfig.DEBUG && app.packageName.endsWith(".debug"))
