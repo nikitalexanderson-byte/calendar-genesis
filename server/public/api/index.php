@@ -624,8 +624,16 @@ try {
         if ($method === 'POST' && $path === 'shared/spaces') {
             genesisJson(['space' => genesisSharedCreateSpace($userId, genesisReadJson())], 201);
         }
+        if (count($segments) === 4 && $segments[0] === 'shared' && $segments[1] === 'spaces' && $segments[3] === 'ui') {
+            if ($method === 'GET') genesisJson(genesisSharedUiState($userId, $segments[2]));
+            if ($method === 'PATCH') genesisJson(genesisSharedUiState($userId, $segments[2], genesisReadJson()));
+        }
+        if ($method === 'POST' && count($segments) === 4 && $segments[0] === 'shared'
+            && $segments[1] === 'spaces' && $segments[3] === 'invitations') {
+            genesisJson(['invitation' => genesisSharedSpaceInvite($userId, $segments[2], genesisReadJson())], 201);
+        }
         if ($method === 'GET' && $path === 'shared/invitations') {
-            genesisJson(['invitations' => genesisSharedInvitations($userId)]);
+            genesisJson(['invitations' => array_merge(genesisSharedInvitations($userId), genesisSharedSpaceInvitations($userId))]);
         }
         if ($method === 'GET' && $path === 'shared/notifications') {
             genesisJson(['notifications' => genesisSharedNotifications($userId)]);
@@ -639,11 +647,13 @@ try {
                 (string)($_GET['from'] ?? ''), (string)($_GET['to'] ?? ''))]);
         }
         if ($method === 'POST' && $path === 'shared/invitations/accept') {
-            genesisJson(genesisSharedAcceptInvite($userId, genesisReadJson()));
+            $invitationInput = genesisReadJson();
+            genesisJson(genesisSharedRespondSpaceInvitation($userId, (string)($invitationInput['id'] ?? ''), true)
+                ?? genesisSharedAcceptInvite($userId, $invitationInput));
         }
         if ($method === 'POST' && count($segments) === 3 && $segments[1] === 'invitations'
             && $segments[2] !== 'accept') {
-            genesisSharedRejectInvite($userId, $segments[2]);
+            if (genesisSharedRespondSpaceInvitation($userId, $segments[2], false) === null) genesisSharedRejectInvite($userId, $segments[2]);
             genesisJson(['ok' => true]);
         }
         if ($method === 'GET' && count($segments) === 4 && $segments[1] === 'spaces' && $segments[3] === 'search') {

@@ -56,7 +56,7 @@ export function AdminPanel() {
     loadError: "Could not load statistics.", deleteError: "Could not delete the user.", loading: "Loading anonymized statistics…",
     adminOnly: "Administrators only", title: "GENESIS activity", intro: "Habit titles, notes and history remain encrypted. The panel receives aggregate counts only.",
     users: "users", habits: "habits", tasks: "tasks", projects: "projects", blocked: "blacklisted",
-    user: "User", activity: "Last activity", logins: "Logins", google: "Google", yandexCalendar: "Yandex Calendar", moderation: "Moderation", admin: "administrator", aggregate: "encrypted aggregate", open: "open", completed: "completed", events: "events", connected: "Connected", no: "No", lastCheck: "Last check", protected: "Protected", remove: "Delete",
+    user: "User", activity: "Last activity", logins: "Logins", google: "Google", moderation: "Moderation", admin: "administrator", aggregate: "encrypted aggregate", open: "open", completed: "completed", events: "events", connected: "Connected", no: "No", lastCheck: "Last check", protected: "Protected", remove: "Delete",
     androidTitle: "Android downloads and sync", androidIntro: "Download requests are attributed only when a user is signed in on this site. Direct and anonymous APK downloads cannot be tied to an account. An app version appears only after that installation contacts the server; it does not prove the app is still installed.",
     trackedDownloads: "account download requests", reportingUsers: "users with an app report", download: "Download", version: "App version", googleServices: "Google services", server: "Server", noDownload: "No attributed request", first: "First", last: "Last", requested: "requested", devices: "installations", lastContact: "Last contact", noReport: "No report yet", authorized: "Authorized", disconnected: "Disconnected", syncOk: "OK", syncWarning: "Needs attention", syncUnknown: "Not checked", staleSync: "Not checked recently", lastSync: "Last sync", calendarSync: "Calendar",
     irreversible: "Irreversible action", deleteTitle: "Delete user?", deleteLead: "The account, encrypted workspace, habits, statistics, tasks and all related server data will be permanently deleted for",
@@ -66,7 +66,7 @@ export function AdminPanel() {
     loadError: "Не удалось загрузить статистику.", deleteError: "Не удалось удалить пользователя.", loading: "Загружаем обезличенную статистику…",
     adminOnly: "Только для администратора", title: "Активность GENESIS", intro: "Названия, заметки и история привычек остаются зашифрованными. Панель получает только агрегированные количества.",
     users: "пользователей", habits: "привычек", tasks: "задач", projects: "проектов", blocked: "в чёрном списке",
-    user: "Пользователь", activity: "Последняя активность", logins: "Входы", google: "Google", yandexCalendar: "Яндекс.Календарь", moderation: "Модерация", admin: "администратор", aggregate: "зашифрованный агрегат", open: "открыто", completed: "завершено", events: "событий", connected: "Подключён", no: "Нет", lastCheck: "Последняя проверка", protected: "Защищён", remove: "Удалить",
+    user: "Пользователь", activity: "Последняя активность", logins: "Входы", google: "Google", moderation: "Модерация", admin: "администратор", aggregate: "зашифрованный агрегат", open: "открыто", completed: "завершено", events: "событий", connected: "Подключён", no: "Нет", lastCheck: "Последняя проверка", protected: "Защищён", remove: "Удалить",
     androidTitle: "Android: загрузки и синхронизация", androidIntro: "Считаются запросы на загрузку из авторизованного аккаунта на сайте. Анонимную или прямую загрузку APK нельзя связать с пользователем. Версия появляется после обращения приложения к серверу и не подтверждает, что оно установлено сейчас.",
     trackedDownloads: "запросов из аккаунтов", reportingUsers: "пользователей с откликом приложения", download: "Загрузка", version: "Версия приложения", googleServices: "Сервисы Google", server: "Сервер", noDownload: "Нет учтённых запросов", first: "Первый", last: "Последний", requested: "запрошена", devices: "установок", lastContact: "Последняя связь", noReport: "Пока нет данных", authorized: "Авторизован", disconnected: "Не подключён", syncOk: "В порядке", syncWarning: "Нужна проверка", syncUnknown: "Не проверено", staleSync: "Давно не проверялось", lastSync: "Последняя синхронизация", calendarSync: "Календарь",
     irreversible: "Необратимое действие", deleteTitle: "Удалить пользователя?", deleteLead: "Будут окончательно удалены аккаунт, зашифрованное пространство, привычки, статистика, задачи и все связанные серверные данные пользователя",
@@ -80,6 +80,7 @@ export function AdminPanel() {
   const [confirmation, setConfirmation] = useState("");
   const [blacklist, setBlacklist] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [section, setSection] = useState<"analytics" | "ads">("analytics");
 
   const refresh = useCallback(async () => {
     setError("");
@@ -135,8 +136,12 @@ export function AdminPanel() {
       </header>
       {error ? <p className="auth-error" role="alert">{error}</p> : null}
       {message ? <p className="admin-success" role="status">{message}</p> : null}
-      <AdminAdsPanel />
-      {stats ? <>
+      <nav className="admin-section-tabs" aria-label={isEnglish ? "Administration sections" : "Разделы администрирования"}>
+        <button type="button" className="secondary-button" aria-current={section === "analytics" ? "page" : undefined} onClick={() => setSection("analytics")}>{isEnglish ? "Analytics" : "Аналитика"}</button>
+        <button type="button" className="secondary-button" aria-current={section === "ads" ? "page" : undefined} onClick={() => setSection("ads")}>{isEnglish ? "Advertising" : "Реклама"}</button>
+      </nav>
+      {section === "ads" ? <AdminAdsPanel /> : null}
+      {stats && section === "analytics" ? <>
         <div className="admin-totals">
           <article><strong>{stats.totals.users}</strong><span>{copy.users}</span></article>
           <article><strong>{stats.totals.habits}</strong><span>{copy.habits}</span></article>
@@ -144,26 +149,36 @@ export function AdminPanel() {
           <article><strong>{stats.totals.projects}</strong><span>{copy.projects}</span></article>
           <article><strong>{stats.totals.blockedIdentities}</strong><span>{copy.blocked}</span></article>
         </div>
+        <p className="admin-android-note">{copy.androidIntro}</p>
+        <div className="admin-android-summary"><span><strong>{stats.totals.androidDownloadRequests}</strong> {copy.trackedDownloads}</span><span><strong>{stats.totals.androidReportingUsers}</strong> {copy.reportingUsers}</span></div>
         <div className="admin-table-wrap">
-          <table className="admin-table">
-            <thead><tr><th>{copy.user}</th><th>{copy.activity}</th><th>{copy.logins}</th><th>{copy.habits}</th><th>{copy.projects}</th><th>{copy.tasks}</th><th>{copy.google}</th><th>{copy.yandexCalendar}</th><th>{copy.moderation}</th></tr></thead>
+          <table className="admin-table admin-users-table">
+            <thead><tr><th>{copy.user}</th><th>{copy.activity}</th><th>{copy.logins}</th><th>{copy.habits}</th><th>{copy.projects}</th><th>{copy.tasks}</th><th>{copy.google}</th><th>{copy.download}</th><th>{copy.version}</th><th>{copy.googleServices}</th><th>{copy.server}</th><th>{copy.moderation}</th></tr></thead>
             <tbody>{stats.users.map((user) => (
               <tr key={user.id}>
                 <td data-label={copy.user}><strong>{user.email}</strong><small>{user.displayName}{user.isAdmin ? ` · ${copy.admin}` : ""}</small></td>
-                <td data-label={copy.activity}>{formatActivity(user.lastSeenAt)}</td>
+                <td data-label={copy.activity}>{formatActivity(user.lastSeenAt)}<small>{isEnglish ? "Registered" : "Регистрация"}: {formatActivity(user.createdAt)}<br />{isEnglish ? "Last sign-in" : "Последний вход"}: {formatActivity(user.lastLoginAt)}</small></td>
                 <td data-label={copy.logins}>{user.loginCount}</td>
                 <td data-label={copy.habits}><strong>{user.habitCount}</strong><small>{copy.aggregate}</small></td>
                 <td data-label={copy.projects}>{user.projectCount}</td>
                 <td data-label={copy.tasks}>{user.taskCount}<small>{user.openTaskCount} {copy.open} · {user.completedTaskCount} {copy.completed}</small></td>
                 <td data-label={copy.google}>{user.calendarConnected ? copy.connected : copy.no}<small>{user.googleSyncedCount} {copy.events}</small></td>
-                <td data-label={isEnglish ? "Yandex" : "Яндекс"}>{user.yandexCalendarConnected ? copy.connected : copy.no}<small>{user.yandexSyncedCount} {copy.events}{user.lastYandexCalendarCheckAt ? <><br />{copy.lastCheck}: {formatActivity(user.lastYandexCalendarCheckAt)}</> : null}</small></td>
+                  <td data-label={copy.download}><strong>{user.androidDownloadCount > 0 ? user.androidDownloadCount : copy.noDownload}</strong>
+                    {user.androidDownloadCount > 0 ? <small>{copy.first}: {formatActivity(user.androidFirstDownloadAt)}<br />{copy.last}: {formatActivity(user.androidLastDownloadAt)} · {user.androidLastDownloadVersion} {copy.requested}</small> : null}</td>
+                  <td data-label={copy.version}><strong>{user.androidReportedVersion ?? copy.noReport}</strong>
+                    <small>{user.androidDeviceCount} {copy.devices} · {copy.lastContact}: {formatActivity(user.androidLastSeenAt)}</small></td>
+                  <td data-label={copy.googleServices}><strong>{user.googleAuthConnected ? copy.authorized : copy.disconnected}</strong>
+                    <small>{syncStatusLabel(user.androidGoogleSyncStatus, copy, user.androidLastServerSyncAt)} · {copy.lastSync}: {formatActivity(user.androidLastServerSyncAt)}
+                      {user.lastGoogleCalendarSyncAt ? <><br />{copy.calendarSync}: {formatActivity(user.lastGoogleCalendarSyncAt)}</> : null}</small></td>
+                  <td data-label={copy.server}><strong>{syncStatusLabel(user.androidServerSyncStatus, copy, user.androidLastServerSyncAt)}</strong>
+                    <small>{copy.lastSync}: {formatActivity(user.androidLastServerSyncAt)}</small></td>
                 <td data-label={copy.moderation}>{user.isAdmin ? <span className="admin-protected">{copy.protected}</span> : <button type="button" className="admin-delete-user" onClick={() => { setDeleteTarget(user); setMessage(""); }}>{copy.remove}</button>}</td>
               </tr>
             ))}</tbody>
           </table>
         </div>
-        <section className="admin-android" aria-labelledby="admin-feature-title">
-          <h2 id="admin-feature-title">{isEnglish ? "Feature usage" : "Использование функций"}</h2>
+        <details className="admin-android admin-feature-disclosure">
+          <summary id="admin-feature-title">{isEnglish ? "Actions and counts" : "Действия и их количество"}</summary>
           <p className="admin-android-note">{isEnglish
             ? "Counts start with the first recorded visit. ‘No recorded visit’ includes older accounts whose earlier activity was not measured. Disabled counts reflect current menu and calendar settings. Only feature identifiers and counts are stored."
             : "Подсчёт начинается с первого зафиксированного открытия. В колонку «Без открытия» входят и старые аккаунты, действия которых раньше не измерялись. «Выключено» показывает текущие настройки меню и календарей. Сохраняются только идентификаторы функций и счётчики."}</p>
@@ -188,34 +203,8 @@ export function AdminPanel() {
               ))}</tbody>
             </table>
           </div>
-        </section>
-        <section className="admin-android" aria-labelledby="admin-android-title">
-          <h2 id="admin-android-title">{copy.androidTitle}</h2>
-          <p className="admin-android-note">{copy.androidIntro}</p>
-          <div className="admin-android-summary">
-            <span><strong>{stats.totals.androidDownloadRequests}</strong> {copy.trackedDownloads}</span>
-            <span><strong>{stats.totals.androidReportingUsers}</strong> {copy.reportingUsers}</span>
-          </div>
-          <div className="admin-table-wrap">
-            <table className="admin-table admin-android-table">
-              <thead><tr><th>{copy.user}</th><th>{copy.download}</th><th>{copy.version}</th><th>{copy.googleServices}</th><th>{copy.server}</th></tr></thead>
-              <tbody>{stats.users.map((user) => (
-                <tr key={user.id}>
-                  <td data-label={copy.user}><strong>{user.email}</strong><small>{user.displayName}</small></td>
-                  <td data-label={copy.download}><strong>{user.androidDownloadCount > 0 ? user.androidDownloadCount : copy.noDownload}</strong>
-                    {user.androidDownloadCount > 0 ? <small>{copy.first}: {formatActivity(user.androidFirstDownloadAt)}<br />{copy.last}: {formatActivity(user.androidLastDownloadAt)} · {user.androidLastDownloadVersion} {copy.requested}</small> : null}</td>
-                  <td data-label={copy.version}><strong>{user.androidReportedVersion ?? copy.noReport}</strong>
-                    <small>{user.androidDeviceCount} {copy.devices} · {copy.lastContact}: {formatActivity(user.androidLastSeenAt)}</small></td>
-                  <td data-label={copy.googleServices}><strong>{user.googleAuthConnected ? copy.authorized : copy.disconnected}</strong>
-                    <small>{syncStatusLabel(user.androidGoogleSyncStatus, copy, user.androidLastServerSyncAt)} · {copy.lastSync}: {formatActivity(user.androidLastServerSyncAt)}
-                      {user.lastGoogleCalendarSyncAt ? <><br />{copy.calendarSync}: {formatActivity(user.lastGoogleCalendarSyncAt)}</> : null}</small></td>
-                  <td data-label={copy.server}><strong>{syncStatusLabel(user.androidServerSyncStatus, copy, user.androidLastServerSyncAt)}</strong>
-                    <small>{copy.lastSync}: {formatActivity(user.androidLastServerSyncAt)}</small></td>
-                </tr>
-              ))}</tbody>
-            </table>
-          </div>
-        </section>
+        </details>
+
       </> : null}
       {deleteTarget ? <div className="modal-backdrop admin-delete-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeDeleteDialog(); }}>
         <section ref={deleteDialogRef} className="admin-delete-dialog" role="dialog" aria-modal="true" aria-labelledby="admin-delete-title" tabIndex={-1}>

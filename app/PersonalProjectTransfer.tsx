@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   importSharedProject, listSharedSpaces, type GenesisCategory, type GenesisProject,
-  type GenesisTask, type SharedProjectImport, type SharedSpace,
+  type GenesisTask, type SharedProjectImport, type SharedSpace, type SharedProject, listSharedProjects, loadSharedProject, type SharedStatus,
 } from "./cloud-sync";
 import { useDialogAccessibility } from "./use-dialog-accessibility";
 import "./personal-task-transfer.css";
@@ -50,6 +50,12 @@ export function PersonalProjectTransfer({ root, projects, tasks, categories, lin
   const english = language === "en";
   const [spaces, setSpaces] = useState<SharedSpace[]>([]);
   const [spaceId, setSpaceId] = useState("");
+  const [destinations, setDestinations] = useState<SharedProject[]>([]);
+  const [parentId, setParentId] = useState("");
+  const [boards, setBoards] = useState<SharedStatus[]>([]);
+  const [boardId, setBoardId] = useState("");
+  const [loadingDestination, setLoadingDestination] = useState(false);
+  const [mode, setMode] = useState<"copy" | "move">("move");
   const [busy, setBusy] = useState(false);
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState("");
@@ -74,6 +80,24 @@ export function PersonalProjectTransfer({ root, projects, tasks, categories, lin
     return () => { active = false; };
   }, []);
 
+  useEffect(() => {
+    if (!spaceId) return;
+    let active = true;
+    const timer = window.setTimeout(() => setLoadingDestination(true), 0);
+    void listSharedProjects(spaceId).then((items) => {
+      if (active) { setDestinations(items.filter((item) => !item.isInbox && ["owner", "manager", "member"].includes(item.role))); }
+    }).catch((cause: unknown) => { if (active) setError(cause instanceof Error ? cause.message : String(cause)); })
+      .finally(() => { window.clearTimeout(timer); if (active) setLoadingDestination(false); });
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [spaceId]);
+  useEffect(() => {
+    if (!parentId) return;
+    let active = true;
+    void loadSharedProject(parentId).then((snapshot) => { if (active) setBoards(snapshot.project.layout === "board" ? snapshot.statuses : []); })
+      .catch((cause: unknown) => { if (active) setError(cause instanceof Error ? cause.message : String(cause)); });
+    return () => { active = false; };
+  }, [parentId]);
+
   const publish = async (mode: "copy" | "move") => {
     if (!spaceId || busy || !consent || mode === "move" && !canMove) return;
     setBusy(true);
@@ -93,7 +117,7 @@ export function PersonalProjectTransfer({ root, projects, tasks, categories, lin
       const transferId = sessionStorage.getItem(transferKey) || crypto.randomUUID();
       sessionStorage.setItem(transferKey, transferId);
       const payload: SharedProjectImport = {
-        transferId, mode,
+        transferId, mode, targetParentId: parentId || null, targetStatusId: boardId || null,
         projects: tree.map((project) => ({
           sourceId: project.id, parentSourceId: project.id === root.id ? null : project.parentId,
           title: project.title, description: project.description, tags: project.tags, layout: "list",
@@ -134,15 +158,27 @@ export function PersonalProjectTransfer({ root, projects, tasks, categories, lin
       <p>{english ? "Review the entire tree before project members can see it."
         : "Проверьте состав проекта: участники увидят все перечисленные данные."}</p>
       <label><span>{english ? "Shared space" : "Общее пространство"}</span>
-        <select value={spaceId} onChange={(event) => setSpaceId(event.target.value)} disabled={busy}>
+        <select value={spaceId} onChange={(event) => { setSpaceId(event.target.value); setDestinations([]); setParentId(""); setBoards([]); setBoardId(""); }} disabled={busy}>
           {spaces.map((space) => <option key={space.id} value={space.id}>{space.title}</option>)}
         </select></label>
+      {spaces.length ? <label><span>{english ? "Place in" : "Поместить в"}</span>
+        <select value={parentId} disabled={busy || loadingDestination} onChange={(event) => { setParentId(event.target.value); setBoards([]); setBoardId(""); }}>
+          <option value="">{english ? "Workspace root" : "Корень пространства"}</option>
+          {destinations.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
+        </select></label> : null}
+      {boards.length ? <label><span>{english ? "Board" : "Доска"}</span><select value={boardId} disabled={busy} onChange={(event) => setBoardId(event.target.value)}>
+        <option value="">{english ? "Unassigned" : "Без доски"}</option>{boards.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
+      </select></label> : null}
+      <div className="project-transfer-mode" role="group" aria-label={english ? "Transfer method" : "Способ передачи"}>
+        <button type="button" className="secondary-button" aria-pressed={mode === "move" && canMove} disabled={!canMove || busy} onClick={() => setMode("move")}>{english ? "Move" : "Переместить"}</button>
+        <button type="button" className="secondary-button" aria-pressed={mode === "copy" || !canMove} disabled={busy} onClick={() => setMode("copy")}>{english ? "Keep a personal copy" : "Оставить личную копию"}</button>
+      </div>
       {!spaces.length ? <p>{english ? "Create a shared space first." : "Сначала создайте общее пространство."}</p> : null}
       <div className="personal-task-transfer-preview project-transfer-preview">
         <strong data-no-translate>{root.title}</strong>
         <p>{english ? `${tree.length} projects, ${categoryEntriesCount(tree, projectTasks)} categories, ${projectTasks.length} tasks`
           : `${tree.length} проектов, ${categoryEntriesCount(tree, projectTasks)} категорий, ${projectTasks.length} задач`}</p>
-        {tree.map((project) => <p key={project.id} data-no-translate>{project.id === root.id ? "◇" : "↳"} {project.title}</p>)}
+        <details><summary>{english ? "Project structure" : "Состав проекта"}</summary>{tree.map((project) => <p key={project.id} data-no-translate>{project.id === root.id ? "◇" : "↳"} {project.title}</p>)}</details>
         <details><summary>{english ? "Review every shared task" : "Просмотреть все передаваемые задачи"}</summary>
           {projectTasks.map((task) => <p key={task.id} data-no-translate>
             <strong>{task.title}</strong>{task.description ? ` — ${task.description}` : ""}
@@ -168,10 +204,8 @@ export function PersonalProjectTransfer({ root, projects, tasks, categories, lin
       {error ? <p role="alert">{error}</p> : null}
       <div className="editor-actions">
         <button type="button" className="text-button" onClick={onClose} disabled={busy}>{english ? "Cancel" : "Отмена"}</button>
-        <button type="button" className="text-button" onClick={() => void publish("copy")}
-          disabled={busy || !spaceId || !consent}>{english ? "Copy" : "Скопировать"}</button>
-        <button type="button" className="primary-button" onClick={() => void publish("move")}
-          disabled={busy || !spaceId || !canMove || !consent}>{english ? "Move project" : "Переместить проект"}</button>
+        <button type="button" className="primary-button" onClick={() => void publish(canMove ? mode : "copy")}
+          disabled={busy || loadingDestination || !spaceId || !consent}>{busy ? (english ? "Transferring…" : "Передаём…") : canMove && mode === "move" ? (english ? "Move project" : "Переместить проект") : (english ? "Create shared copy" : "Создать общую копию")}</button>
       </div>
     </section>
   </div>;

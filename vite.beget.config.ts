@@ -1,4 +1,5 @@
 import path from "node:path";
+import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
@@ -20,8 +21,12 @@ function offlinePrecacheManifest(basePath: string): Plugin {
         .filter((fileName) => /\.(?:js|css)$/i.test(fileName))
         .sort();
       if (!requiredFiles.length) this.error("Offline precache manifest has no JavaScript or CSS assets.");
-      const version = createHash("sha256").update(`${PRECACHE_STATIC_REVISION}\n${requiredFiles.join("\n")}`).digest("hex").slice(0, 16);
+      const fonts = ["fonts/SourceSans3.woff2", "fonts/Literata.woff2"];
+      const fingerprint = createHash("sha256").update(`${PRECACHE_STATIC_REVISION}\n${requiredFiles.join("\n")}`);
+      fonts.forEach((file) => fingerprint.update(readFileSync(path.join(projectRoot, "public", file))));
+      const version = fingerprint.digest("hex").slice(0, 16);
       const publicUrls = requiredFiles.map((fileName) => `${basePath}${fileName}`);
+      fonts.forEach((file) => publicUrls.push(`${basePath}${file}`));
       this.emitFile({
         type: "asset",
         fileName: "precache-manifest.js",

@@ -106,6 +106,8 @@ export function SharedTaskCreate({ language, enabledCalendars,
       : !spaces.length ? <p role="status">{english
       ? "There is no shared workspace whose inbox can receive a task. Create one in Shared projects first."
       : "Нет доступного общего пространства, в хаос-бокс которого можно отправить задачу. Сначала создайте пространство в общих проектах."}</p> : <>
+      <label>{english ? "Task name" : "Название задачи"}<input value={title} maxLength={160} required
+        onChange={(event) => setTitle(event.target.value)} /></label>
       <label>{english ? "Workspace" : "Пространство"}<select value={spaceId} onChange={(event) => {
         setSpaceId(event.target.value); setProjects([]); setProjectId(""); setSnapshot(null);
       }}>{spaces.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>
@@ -116,17 +118,16 @@ export function SharedTaskCreate({ language, enabledCalendars,
             <option key={item.id} value={item.id}>{item.isInbox
               ? (english ? "Shared inbox" : "Хаос-бокс пространства") : item.title}</option>)}</select></label>
         : <p role="status">{english ? "No project in this workspace allows you to add tasks." : "В этом пространстве нет проекта, в который вы можете добавить задачу."}</p>}
-      <label>{english ? "Task name" : "Название задачи"}<input value={title} maxLength={160} required
-        onChange={(event) => setTitle(event.target.value)} /></label>
-      <label>{english ? "Tags" : "Теги"}<input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="работа, запуск" /></label>
-    <label>{english ? "Description" : "Описание"}<textarea value={description} maxLength={20000}
-        onChange={(event) => setDescription(event.target.value)} /></label>
       <div className="shared-projects-date-field"><span>{english ? "Due date" : "Срок"}</span>
         {dueDate ? <><CalendarDatePicker mode={calendarMode} value={dueDate} onChange={setDueDate}
           ariaLabel={english ? "Team task due date" : "Срок общей задачи"} />
           <button type="button" onClick={() => setDueDate("")}>{english ? "Clear" : "Убрать срок"}</button></>
           : <button type="button" onClick={() => setDueDate(calendarDateValue(new Date()))}>
             {english ? "Set due date" : "Установить срок"}</button>}</div>
+      <details className="task-advanced-fields"><summary>{english ? "Details and settings" : "Подробности и настройки"}</summary>
+      <label>{english ? "Tags" : "Теги"}<input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="работа, запуск" /></label>
+      <label>{english ? "Description" : "Описание"}<textarea value={description} maxLength={20000}
+        onChange={(event) => setDescription(event.target.value)} /></label>
       {snapshot ? <>
         <label>{english ? "Task list" : "Список задач"}<select value={statusId} onChange={(event) => setStatusId(event.target.value)}>
           {snapshot.statuses.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>
@@ -139,6 +140,7 @@ export function SharedTaskCreate({ language, enabledCalendars,
       </> : null}
       <p>{english ? "The task is saved on GENESIS for members of this project. Each person enables their own Google copy separately."
         : "Задача сохраняется на сервере GENESIS для участников проекта. Каждый сам включает свою копию в Google."}</p>
+      </details>
       <button type="submit" className="add-task-button" disabled={busy || !snapshot || !statusId || !title.trim()}>
         {english ? "Create team task" : "Создать общую задачу"}</button>
     </>}

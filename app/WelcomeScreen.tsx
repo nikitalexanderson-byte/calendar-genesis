@@ -12,8 +12,6 @@ type WelcomeScreenProps = {
   language: Language;
   onLanguageChange: (language: Language) => void;
   onGoogle: () => void;
-  onYandex: () => void;
-  yandexAvailable: boolean;
 };
 
 const APP_BASE = (process.env.NEXT_PUBLIC_GENESIS_BASE_PATH?.trim() || "").replace(/\/$/, "");
@@ -30,7 +28,7 @@ const WELCOME_TITLES: Partial<Record<Language, string>> = {
   tr: "Görev ve Proje Takvimi", ja: "タスクとプロジェクトのカレンダー",
 };
 
-export function WelcomeScreen({ nativeAndroidApkUrl, busy, error, language, onLanguageChange, onGoogle, onYandex, yandexAvailable }: WelcomeScreenProps) {
+export function WelcomeScreen({ nativeAndroidApkUrl, busy, error, language, onLanguageChange, onGoogle }: WelcomeScreenProps) {
   const [nativeAndroidVersion, setNativeAndroidVersion] = useState<string | null>(null);
   useEffect(() => {
     if (!nativeAndroidApkUrl) return;
@@ -65,13 +63,13 @@ export function WelcomeScreen({ nativeAndroidApkUrl, busy, error, language, onLa
     signedInOnly: "Your private workspace opens only after sign-in",
     privateSpace: "PRIVATE WORKSPACE",
     signInTitle: "Sign in to GENESIS",
-    signInDescription: yandexAvailable ? "Choose Google or Yandex to sign in. GENESIS receives basic profile information from the selected provider. Calendar access is connected separately." : "You will be redirected to the official Google page. During sign-in, GENESIS receives only basic profile information. Calendar and Tasks access is requested separately, in context, and only when you choose to connect it.",
+    signInDescription: "You will be redirected to the official Google page. During sign-in, GENESIS receives only basic profile information. Calendar and Tasks access is requested separately, in context, and only when you choose to connect it.",
     chooseLanguage: "Choose a language",
     languageGroup: "Registration and interface language",
     russian: "Russian",
     googleLabel: "Sign in with Google",
     secureSignIn: yandexAvailable ? "Secure sign-in" : "Secure Google sign-in",
-    passwordNote: yandexAvailable ? "GENESIS never asks for your Google or Yandex password. Sign-in happens through the provider you choose." : "GENESIS never asks for your Google password. Authentication takes place only on the secure accounts.google.com page.",
+    passwordNote: "GENESIS never asks for your Google password. Authentication takes place only on the secure accounts.google.com page.",
     downloadNative: "Native Android app",
     downloadNativeNote: `GENESIS${nativeAndroidVersion ? ` ${nativeAndroidVersion}` : ""} · native APK`,
     androidMigration: "Replacing the old TWA? Its signing key is different: uninstall the TWA before installing this app. Unsynced local TWA data will be lost; your website and Google data will return after sign-in.",
@@ -96,13 +94,13 @@ export function WelcomeScreen({ nativeAndroidApkUrl, busy, error, language, onLa
     signedInOnly: "Личное пространство открывается только после входа",
     privateSpace: "ЛИЧНОЕ ПРОСТРАНСТВО",
     signInTitle: "Войти в GENESIS",
-    signInDescription: yandexAvailable ? "Выберите вход через Google или Яндекс. GENESIS получит основные данные профиля от выбранного сервиса. Подключение календаря выполняется отдельно." : "Для входа вы будете перенаправлены на официальную страницу Google. На этапе входа GENESIS получает только основные данные профиля. Доступ к Calendar и Tasks запрашивается отдельно, в понятном контексте и только по вашему действию.",
+    signInDescription: "Для входа вы будете перенаправлены на официальную страницу Google. На этапе входа GENESIS получает только основные данные профиля. Доступ к Calendar и Tasks запрашивается отдельно, в понятном контексте и только по вашему действию.",
     chooseLanguage: "Выбор языка",
     languageGroup: "Язык регистрации и интерфейса",
     russian: "Русский",
     googleLabel: "Войти через Google",
     secureSignIn: yandexAvailable ? "Безопасный вход" : "Безопасный вход через Google",
-    passwordNote: yandexAvailable ? "GENESIS не запрашивает пароль от Google или Яндекса. Вход выполняется через выбранный вами сервис." : "GENESIS никогда не запрашивает пароль от Google. Авторизация выполняется только на защищённой странице accounts.google.com.",
+    passwordNote: "GENESIS никогда не запрашивает пароль от Google. Авторизация выполняется только на защищённой странице accounts.google.com.",
     downloadNative: "Нативное Android-приложение",
     downloadNativeNote: `GENESIS${nativeAndroidVersion ? ` ${nativeAndroidVersion}` : ""} · нативный APK`,
     androidMigration: "Заменяете старую TWA? У неё другая подпись: перед установкой удалите TWA. Несинхронизированные локальные данные TWA будут потеряны; данные сайта и Google вернутся после входа.",
@@ -133,8 +131,8 @@ export function WelcomeScreen({ nativeAndroidApkUrl, busy, error, language, onLa
           <h1><span>GENESIS</span><em data-no-translate>{WELCOME_TITLES[language] ?? copy.title}</em></h1>
           <p className="welcome-purpose">{copy.purpose}</p>
           <section className="google-data-purpose" aria-labelledby="google-purpose-title">
-            <h2 id="google-purpose-title">{yandexAvailable ? translateText("Как GENESIS использует Google и Яндекс", language) : copy.googlePurposeTitle}</h2>
-            <p>{yandexAvailable ? translateText("Выберите Google или Яндекс для входа. Проекты, привычки и списки GENESIS хранятся в защищённом пространстве. После отдельного подключения календаря задачи и встречи синхронизируются с выбранным сервисом.", language) : copy.googlePurpose}</p>
+            <h2 id="google-purpose-title">{copy.googlePurposeTitle}</h2>
+            <p>{copy.googlePurpose}</p>
           </section>
           <div className="welcome-proof" aria-label={copy.dataProtection}>
             <article>
@@ -177,17 +175,6 @@ export function WelcomeScreen({ nativeAndroidApkUrl, busy, error, language, onLa
           <button className="google-login-primary" type="button" onClick={onGoogle} disabled={busy} aria-label={copy.googleLabel}>
             <img src={`${APP_BASE}/google-signin-light-pill.svg`} alt="" aria-hidden="true" data-genesis-preserve="google-signin-pill" />
           </button>
-          {yandexAvailable ? <p className="auth-provider-region-hint">{language === "ru" ? translateText("Рекомендуется тем, кто не является гражданином России", language) : language === "en" ? "Recommended for users who are not Russian citizens" : translateText("Рекомендуется пользователям за пределами России", language)}</p> : null}
-          {yandexAvailable ? (
-            <>
-              <button className="yandex-login-primary" type="button" onClick={onYandex} disabled={busy}>
-                <span className="yandex-signin-mark" aria-hidden="true">Я</span>
-                <span>{translateText("Войти через Яндекс", language)}</span>
-              </button>
-              <p className="auth-provider-region-hint">{language === "ru" ? translateText("Рекомендуется гражданам России", language) : language === "en" ? "Recommended for Russian citizens" : translateText("Рекомендуется пользователям в России", language)}</p>
-              <p className="auth-provider-law-note">{translateText("Для пользователей, находящихся в России, закон РФ предусматривает российские способы входа (149-ФЗ, ст. 8).", language)}</p>
-            </>
-          ) : null}
           {nativeAndroidApkUrl ? (
             <>
               <a className="android-download-button android-native-download-button" href={nativeAndroidApkUrl}>
