@@ -1462,6 +1462,12 @@ private object TranslationCatalog {
                             }
                         }
                     }
+                    context.assets.open("originals/i18n/native-affairs-translations.json")
+                        .bufferedReader().use { reader ->
+                            JSONObject(reader.readText()).optJSONObject(language)?.let { json ->
+                                json.keys().forEach { put(it, json.getString(it)) }
+                            }
+                        }
                     context.assets.open("originals/i18n/year-translations/$language.json")
                         .bufferedReader().use { reader ->
                             JSONObject(reader.readText()).let { json ->

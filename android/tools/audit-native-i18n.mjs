@@ -142,6 +142,18 @@ sacredRussian.forEach((match, index) => {
   sacred[decodeKotlinString(match[2])] = sacredEnglish[index].description;
 });
 const translations = { ...web, ...curated, ...sacred, ...native };
+const affairs = JSON.parse(await readFile(path.join(ROOT, "app/native-affairs-translations.json"), "utf8"));
+const affairKeys = Object.keys(affairs.en ?? {});
+if (affairKeys.length !== 36) throw new Error("Native affairs copy must contain all 36 labels.");
+for (const language of ["en", "el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja"]) {
+  for (const key of affairKeys) {
+    const value = affairs[language]?.[key];
+    if (typeof value !== "string" || !value.trim() || (!["sr", "uk"].includes(language) && CYRILLIC.test(value))) {
+      throw new Error(`Incomplete native affairs copy: ${language}: ${key}`);
+    }
+    if (language === "en" && value !== native[key]) throw new Error(`Native English copy differs: ${key}`);
+  }
+}
 const fragments = Object.entries(translations)
   .filter(([source, translated]) => source.length >= 3 && source.length <= 180 && source !== translated)
   .sort(([left], [right]) => right.length - left.length);
