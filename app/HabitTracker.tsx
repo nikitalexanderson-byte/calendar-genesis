@@ -310,7 +310,7 @@ type HabitSectionDisclosureProps = {
   onOpenChange: (open: boolean) => void;
   onMoveTo: (sourceId: HabitSectionId, targetId: HabitSectionId) => void;
   onMoveBy: (sectionId: HabitSectionId, offset: -1 | 1) => void;
-  controlsContainer: HTMLElement | null;
+  controlsContainer?: HTMLElement | null;
 };
 
 const HABIT_SECTION_DRAG_TYPE = "application/x-genesis-habit-section";
