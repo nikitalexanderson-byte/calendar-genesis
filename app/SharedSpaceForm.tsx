@@ -48,7 +48,14 @@ export function SharedSpaceForm({ language, spaceId, onSaved, onDeleted }: { lan
   const submit = () => void run(async () => {
     const space = spaceId && settings ? await updateSharedSpace(settings.space, title, description)
       : await createSharedSpace(title, description, invitations.map((invite) => ({ email: invite.email, role: invite.role, permissions: invite.permissions })));
-    if (spaceId) for (const invitation of invitations) await inviteSharedSpaceMember(space.id, invitation.email, invitation.role, invitation.permissions);
+    if (spaceId) {
+      // Keep the saved revision if a later invitation fails, so the user can retry.
+      setSettings((current) => current ? { ...current, space } : current);
+      for (const invitation of invitations) {
+        await inviteSharedSpaceMember(space.id, invitation.email, invitation.role, invitation.permissions);
+        setInvitations((current) => current.filter((pending) => pending.key !== invitation.key));
+      }
+    }
     onSaved(space);
   });
   const roleSelect = (value: string, change: (role: SharedSpace["role"]) => void, includeOwner = false) => <select aria-label={ru ? "Роль" : "Role"}
