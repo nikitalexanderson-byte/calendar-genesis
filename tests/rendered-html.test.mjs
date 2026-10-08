@@ -2963,7 +2963,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /solar-year-strip/);
   assert.match(calendar, /deleteCategory/);
   assert.match(calendar, /saveCategoryEdit/);
-  assert.match(welcome, /Ваши задачи — только в Google и на вашем устройстве/);
+  assert.doesNotMatch(welcome, /Ваши задачи — только в Google и на вашем устройстве/);
   assert.doesNotMatch(welcome, /Артемида · полнолуние|Геката · новолуние/);
   assert.doesNotMatch(welcome, /admin-access/);
   assert.match(calendar, /month-art-v4\/month-/);
