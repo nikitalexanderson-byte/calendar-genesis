@@ -14,6 +14,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   calendarMonthRange,
   calendarQuarterRange,
@@ -309,11 +310,12 @@ type HabitSectionDisclosureProps = {
   onOpenChange: (open: boolean) => void;
   onMoveTo: (sourceId: HabitSectionId, targetId: HabitSectionId) => void;
   onMoveBy: (sectionId: HabitSectionId, offset: -1 | 1) => void;
+  controlsContainer: HTMLElement | null;
 };
 
 const HABIT_SECTION_DRAG_TYPE = "application/x-genesis-habit-section";
 
-function CollapsibleHabitBlock({ label, language, children, sectionId, position, open, onOpenChange, onMoveTo, onMoveBy, className = "" }: {
+function CollapsibleHabitBlock({ label, language, children, sectionId, position, open, onOpenChange, onMoveTo, onMoveBy, controlsContainer, className = "" }: {
   label: string;
   language: Language;
   children: ReactNode;
@@ -321,6 +323,8 @@ function CollapsibleHabitBlock({ label, language, children, sectionId, position,
 } & HabitSectionDisclosureProps) {
   const contentId = useId();
   const isEnglish = language === "en";
+  const canCollapse = sectionId === "starter-habits" || sectionId === "sacred-habits";
+  const expanded = !canCollapse || open;
   const pointerTargetRef = useRef<HabitSectionId | null>(null);
   const pointerDraggingRef = useRef(false);
   const nativeDragOverSourceRef = useRef<HabitSectionId | null>(null);
@@ -380,7 +384,7 @@ function CollapsibleHabitBlock({ label, language, children, sectionId, position,
 
   return (
     <section
-      className={`habit-collapsible-block${open ? " open" : " collapsed"}${pointerDragging || nativeDragging ? " dragging" : ""}${className ? ` ${className}` : ""}`}
+      className={`habit-collapsible-block${expanded ? " open" : " collapsed"}${pointerDragging || nativeDragging ? " dragging" : ""}${className ? ` ${className}` : ""}`}
       data-habit-section-id={sectionId}
       style={{ order: 100 + position }}
       onDragEnter={handleDragEnter}
@@ -388,7 +392,7 @@ function CollapsibleHabitBlock({ label, language, children, sectionId, position,
       onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) nativeDragOverSourceRef.current = null; }}
       onDrop={handleDrop}
     >
-      <header className="habit-collapsible-toolbar">
+      {canCollapse && controlsContainer ? createPortal(<header className="habit-collapsible-toolbar" data-habit-section-id={sectionId} style={{ order: position }}>
         <button type="button" className="habit-collapsible-toggle" aria-expanded={open} aria-controls={contentId} onClick={() => onOpenChange(!open)}>
           <span>{open ? (isEnglish ? "Hide" : "Скрыть") : (isEnglish ? "Show" : "Показать")}: {label}</span>
           <DisclosureChevron open={open} />
@@ -430,11 +434,20 @@ function CollapsibleHabitBlock({ label, language, children, sectionId, position,
           }}
           onKeyDown={handleMoveKey}
         ><span aria-hidden="true">⠿</span></button> : null}
-      </header>
-      {open ? <div className="habit-collapsible-content" id={contentId}>{children}</div> : null}
+      </header>, controlsContainer) : null}
+      <div className="habit-collapsible-content" id={contentId} hidden={!expanded}>{expanded ? children : null}</div>
       {pointerDragging && pointerPoint ? <div className="habit-section-drag-preview" style={{ left: pointerPoint.x, top: pointerPoint.y, width: pointerPoint.width }} aria-hidden="true"><span>{isEnglish ? "Section" : "Раздел привычек"}</span><strong>{label}</strong><small>{isEnglish ? "Move between the highlighted sections" : "Перемещайте между соседними блоками"}</small></div> : null}
     </section>
   );
+}
+
+function HabitTabIcon({ variant, active }: { variant: "today" | "library" | "modules" | "progress"; active: boolean }) {
+  return <svg key={`${variant}-${active}`} className={`habit-tab-icon${active ? " active" : ""}`} viewBox="0 0 28 28" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+    {variant === "today" ? <><circle cx="14" cy="14" r="4.5"/><path className="habit-tab-icon-detail" pathLength="100" d="M14 3v3m0 16v3M3 14h3m16 0h3M6.2 6.2l2.1 2.1m11.4 11.4 2.1 2.1M6.2 21.8l2.1-2.1M19.7 8.3l2.1-2.1"/></> : null}
+    {variant === "library" ? <><rect x="5" y="4" width="18" height="21" rx="3"/><path d="M14 10h5m-5 6h5m-5 5h5"/><path className="habit-tab-icon-detail" pathLength="100" d="m8 9 1.2 1.2L11 8m-3 7 1.2 1.2L11 14m-3 6 1.2 1.2L11 19"/></> : null}
+    {variant === "modules" ? <><path d="M13 4a8 8 0 0 0 1 15A9 9 0 0 1 13 4Z"/><path d="m20 13 5 2v5c0 3-5 5-5 5s-5-2-5-5v-5Z"/><path className="habit-tab-icon-detail" pathLength="100" d="m18 19 1.5 1.5 3-3"/></> : null}
+    {variant === "progress" ? <><path d="M4 4v20h21"/><path className="habit-tab-icon-detail" pathLength="100" d="m7 19 5-6 4 2 7-9m-5 0h5v5"/></> : null}
+  </svg>;
 }
 
 function HabitEmojiField({ value, language, onChange, title, presets = HABIT_EMOJI_PRESETS,
@@ -1484,6 +1497,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
     tab === "modules" ? !hiddenSubmenus.includes("habits.sleep") : !hiddenSubmenus.includes("habits.habits"));
   const activeHabitTab = habitTabs.includes(experimentalHabitTab) ? experimentalHabitTab : habitTabs[0] ?? "today";
   const experimentalHabitTabsRef = useRef<HTMLDivElement>(null);
+  const [habitVisibilityControls, setHabitVisibilityControls] = useState<HTMLDivElement | null>(null);
   const range = reportDateRange(workspace.habitSettings, date, reportCalendarStarts(date, calendarMode));
   const total = calculateHabitTotal(workspace);
   const rank = heroicRankForProgress(workspace.userProgress);
@@ -1610,6 +1624,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
     open: !workspace.habitSettings.collapsedSections.includes(sectionId),
     onMoveTo: moveSectionTo,
     onMoveBy: moveSectionBy,
+    controlsContainer: habitVisibilityControls,
     onOpenChange: (open: boolean) => {
       const collapsedSections = new Set(workspace.habitSettings.collapsedSections);
       if (open) collapsedSections.delete(sectionId);
@@ -1626,9 +1641,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
   return (
     <div className={`habits-view${workspace.habitSettings.feedback.gamificationWidgets ? "" : " gamification-hidden"}${` experimental-habit-tab-${activeHabitTab}`}`} data-exp-layout="view">
       <header className="habits-hero">
-        <div><span className="eyebrow">{isEnglish ? "Encrypted personal tracker" : "Зашифрованный личный трекер"}</span><h1>{isEnglish ? "Trackers" : "Привычки"}</h1><p>{isEnglish ? "Habits, sleep, mood and abstinence are independent modules over one secure tracker core." : "Привычки, сон, настроение и воздержание — независимые модули поверх единого защищённого ядра."}</p><p className="habits-hero-layout-hint">{experimentalThemeActive
-          ? (isEnglish ? "Use the workspace tabs to keep today's rhythm, your library, modules and progress separate." : "Переходите по вкладкам: сегодняшний ритм, библиотека, модули и прогресс больше не смешиваются в одной ленте.")
-          : (isEnglish ? "Collapse sections and drag the collapsed blocks to arrange your personal workspace." : "Сворачивайте разделы и перетаскивайте свёрнутые блоки, чтобы выстроить своё личное рабочее пространство.")}</p></div>
+        <div><span className="eyebrow">{isEnglish ? "Encrypted personal tracker" : "Зашифрованный личный трекер"}</span><h1>{isEnglish ? "Trackers" : "Привычки"}</h1><p>{isEnglish ? "Habits, sleep, mood and abstinence are independent modules over one secure tracker core." : "Привычки, сон, настроение и воздержание — независимые модули поверх единого защищённого ядра."}</p></div>
         {workspace.habitSettings.feedback.gamificationWidgets ? <div className="habits-hero-status">
           <article className="habits-hero-laurels"><HabitMetricSigil variant="laurels" value={workspace.userProgress.laurelsBalance} /><div><small>{isEnglish ? "Laurels" : "Лавры"}</small><strong>{workspace.userProgress.laurelsBalance}</strong><em>{isEnglish ? "spendable" : "можно тратить"}</em></div></article>
           <article className="habits-hero-streak"><HabitMetricSigil variant="streak" value={workspace.userProgress.currentStreak} record={workspace.userProgress.longestStreak} /><div><small>{isEnglish ? "Current streak" : "Текущая серия"}</small><strong>{workspace.userProgress.currentStreak}</strong><em>{isEnglish ? `best ${workspace.userProgress.longestStreak} days` : `рекорд ${workspace.userProgress.longestStreak} дней`}</em></div></article>
@@ -1649,11 +1662,12 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
         setExperimentalHabitTab(nextTab);
         window.requestAnimationFrame(() => experimentalHabitTabsRef.current?.querySelector<HTMLButtonElement>(`[data-experimental-habit-tab="${nextTab}"]`)?.focus());
       }}>
-        {habitTabs.includes("today") ? <button data-experimental-habit-tab="today" type="button" role="tab" tabIndex={activeHabitTab === "today" ? 0 : -1} aria-selected={activeHabitTab === "today"} onClick={() => setExperimentalHabitTab("today")}><span aria-hidden="true">☉</span><strong>{isEnglish ? "Today" : "Сегодня"}</strong><small>{isEnglish ? "Rhythm and trials" : "Ритм и испытания"}</small></button> : null}
-        {habitTabs.includes("library") ? <button data-experimental-habit-tab="library" type="button" role="tab" tabIndex={activeHabitTab === "library" ? 0 : -1} aria-selected={activeHabitTab === "library"} onClick={() => setExperimentalHabitTab("library")}><span aria-hidden="true">✦</span><strong>{isEnglish ? "Habits" : "Привычки"}</strong><small>{isEnglish ? "Library and templates" : "Библиотека и шаблоны"}</small></button> : null}
-        {habitTabs.includes("modules") ? <button data-experimental-habit-tab="modules" type="button" role="tab" tabIndex={activeHabitTab === "modules" ? 0 : -1} aria-selected={activeHabitTab === "modules"} onClick={() => setExperimentalHabitTab("modules")}><span aria-hidden="true">◇</span><strong>{isEnglish ? "Modules" : "Модули"}</strong><small>{isEnglish ? "Sleep and sacred" : "Сон и сакральное"}</small></button> : null}
-        {habitTabs.includes("progress") ? <button data-experimental-habit-tab="progress" type="button" role="tab" tabIndex={activeHabitTab === "progress" ? 0 : -1} aria-selected={activeHabitTab === "progress"} onClick={() => setExperimentalHabitTab("progress")}><span aria-hidden="true">↗</span><strong>{isEnglish ? "Progress" : "Прогресс"}</strong><small>{isEnglish ? "Stats and awards" : "Статистика и награды"}</small></button> : null}
+        {habitTabs.includes("today") ? <button data-experimental-habit-tab="today" type="button" role="tab" tabIndex={activeHabitTab === "today" ? 0 : -1} aria-selected={activeHabitTab === "today"} onClick={() => setExperimentalHabitTab("today")}><HabitTabIcon variant="today" active={activeHabitTab === "today"}/><strong>{isEnglish ? "Today" : "Сегодня"}</strong><small>{isEnglish ? "Rhythm and trials" : "Ритм и испытания"}</small></button> : null}
+        {habitTabs.includes("library") ? <button data-experimental-habit-tab="library" type="button" role="tab" tabIndex={activeHabitTab === "library" ? 0 : -1} aria-selected={activeHabitTab === "library"} onClick={() => setExperimentalHabitTab("library")}><HabitTabIcon variant="library" active={activeHabitTab === "library"}/><strong>{isEnglish ? "Habits" : "Привычки"}</strong><small>{isEnglish ? "Library and templates" : "Библиотека и шаблоны"}</small></button> : null}
+        {habitTabs.includes("modules") ? <button data-experimental-habit-tab="modules" type="button" role="tab" tabIndex={activeHabitTab === "modules" ? 0 : -1} aria-selected={activeHabitTab === "modules"} onClick={() => setExperimentalHabitTab("modules")}><HabitTabIcon variant="modules" active={activeHabitTab === "modules"}/><strong>{isEnglish ? "Modules" : "Модули"}</strong><small>{isEnglish ? "Sleep and abstinence" : "Сон и воздержание"}</small></button> : null}
+        {habitTabs.includes("progress") ? <button data-experimental-habit-tab="progress" type="button" role="tab" tabIndex={activeHabitTab === "progress" ? 0 : -1} aria-selected={activeHabitTab === "progress"} onClick={() => setExperimentalHabitTab("progress")}><HabitTabIcon variant="progress" active={activeHabitTab === "progress"}/><strong>{isEnglish ? "Progress" : "Прогресс"}</strong><small>{isEnglish ? "Stats and awards" : "Статистика и награды"}</small></button> : null}
       </div>}
+      <div className="habit-library-visibility" ref={setHabitVisibilityControls} hidden={activeHabitTab !== "library"} aria-label={isEnglish ? "Habit library visibility" : "Отображение библиотеки привычек"} />
       {hasHabits && workspace.habitSettings.feedback.gamificationWidgets ? <CollapsibleHabitBlock className="experimental-habit-section experimental-habit-section-today" label={isEnglish ? "Streak protection and comeback" : "Защита серии и возвращение"} language={language} {...disclosureProps("streak-resilience")}><section className="streak-resilience" aria-label={isEnglish ? "Streak protection and comeback" : "Защита серии и возвращение"}>
         <article className="hestia-spark-card">
           <span className="hestia-spark-icon" aria-hidden="true">
@@ -1710,7 +1724,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
       </section>
       <HabitStatistics workspace={workspace} date={date} language={language} calendarMode={calendarMode} experimental={experimentalThemeActive} />
       </CollapsibleHabitBlock>
-      <CollapsibleHabitBlock className="experimental-habit-section experimental-habit-section-modules" label={isEnglish ? "Sacred habits" : "Сакральные привычки"} language={language} {...disclosureProps("sacred-habits")}><SacredHabitLibrary
+      <CollapsibleHabitBlock className="experimental-habit-section experimental-habit-section-library" label={isEnglish ? "Sacred habits" : "Сакральные привычки"} language={language} {...disclosureProps("sacred-habits")}><SacredHabitLibrary
           workspace={workspace}
           date={date}
           language={language}
