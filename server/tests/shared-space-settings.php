@@ -16,6 +16,41 @@ function settingsReject(callable $action, int $status): void {
     }
     throw new RuntimeException('Forbidden or stale action succeeded');
 }
+// Verify the pre-migration SQLite snapshot and legacy queries independently of the app DB.
+$legacy = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+$migration = dirname(__DIR__) . '/migrations/035_shared_space_settings.sql';
+foreach (glob(dirname(__DIR__) . '/migrations/*.sql') as $file) {
+    if (strcmp(basename($file), basename($migration)) < 0) $legacy->exec(file_get_contents($file));
+}
+$legacy->exec("INSERT INTO users (id, google_sub, email, created_at, updated_at)
+    VALUES ('legacy-user', 'legacy-user', 'legacy@example.test', 'now', 'now');
+    INSERT INTO shared_spaces (id, title, created_by, created_at, updated_at)
+    VALUES ('legacy-space', 'Legacy title', 'legacy-user', 'now', 'now');
+    INSERT INTO shared_space_members (space_id, user_id, role, joined_at)
+    VALUES ('legacy-space', 'legacy-user', 'member', 'now')");
+$backupPath = tempnam(sys_get_temp_dir(), 'genesis-migration-35-');
+if ($backupPath === false) throw new RuntimeException('Could not create the migration backup fixture');
+try {
+    $legacy->exec('VACUUM INTO ' . $legacy->quote($backupPath));
+    $legacy->beginTransaction();
+    $legacy->exec(file_get_contents($migration));
+    $legacy->commit();
+    $row = $legacy->query('SELECT s.title, s.description, s.revision, m.role, m.permissions_json
+        FROM shared_spaces s JOIN shared_space_members m ON m.space_id = s.id')->fetch(PDO::FETCH_ASSOC);
+    settingsExpect($row['title'] === 'Legacy title' && $row['role'] === 'member' && $row['permissions_json'] === null,
+        'Migration changed legacy membership or permissions');
+    settingsExpect($row['description'] === '' && (int)$row['revision'] === 1, 'Migration defaults are incompatible');
+    settingsExpect($legacy->query('SELECT title, updated_at FROM shared_spaces')->fetchColumn() === 'Legacy title',
+        'Old code queries cannot read the migrated schema');
+    $backup = new PDO('sqlite:' . $backupPath, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+    settingsExpect($backup->query('PRAGMA integrity_check')->fetchColumn() === 'ok', 'SQLite backup failed integrity check');
+    settingsExpect($backup->query('SELECT title FROM shared_spaces')->fetchColumn() === 'Legacy title', 'Backup lost data');
+    settingsExpect(!in_array('description', array_column($backup->query('PRAGMA table_info(shared_spaces)')->fetchAll(PDO::FETCH_ASSOC), 'name'), true),
+        'Pre-migration backup contains the migrated schema');
+} finally {
+    $backup = null;
+    unlink($backupPath);
+}
 $users = [];
 foreach (['owner', 'member', 'admin'] as $role) {
     $id = 'space-settings-test-' . $role;
