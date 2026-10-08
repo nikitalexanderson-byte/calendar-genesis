@@ -34,11 +34,12 @@ class TodayHeroCopyTest {
         assertTrue(copy.details[1].startsWith("Части тела: Печень"))
     }
 
-    @Test fun lunarHeroShowsPhaseAndMonthMeaningOverDayArt() {
+    @Test fun lunarHeroKeepsMonthMeaningAndUniqueMonthDetailsOverDayArt() {
         val copy = todayHeroCopy(date, CalendarMode.LUNAR, calendar)
         assertTrue(copy.title.endsWith("лунный день"))
-        assertTrue(copy.description.contains("освещённость"))
-        assertTrue(copy.description.contains(calendar.lunarDate(date).month.description))
+        assertEquals(calendar.lunarDate(date).month.description, copy.description)
+        assertEquals(calendar.lunarDate(date).month.title, copy.details.first())
+        assertNull(copy.subtitle)
         assertTrue(copy.imagePath.startsWith("day-art-v1/month-"))
     }
 }

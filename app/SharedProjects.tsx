@@ -25,6 +25,7 @@ import { ActionNotice, useActionNotice } from "./ActionNotice";
 import { CalendarDatePicker } from "./CalendarDatePicker";
 import { type CalendarMode, MONTHS, LUNAR_DECADES, ELEMENTS, formatCalendarDate, formatGregorian, getGregorianDate, getLunarDate, getLunarMonthDates, getSacredDate, getSacredDay, lunarMonthIndex } from "./calendar-data";
 import { translateText } from "./i18n";
+import { restoredSharedProject } from "./shared-expansion";
 
 type Props = { userId: string; language: string; enabledCalendars: CalendarMode[] };
 
@@ -143,10 +144,10 @@ export function SharedProjects({ userId, language, enabledCalendars }: Props) {
   useEffect(() => {
     if (!spaceId) return;
     let live = true;
-    void loadSharedUiState(spaceId).then((state) => {
+    void Promise.all([loadSharedUiState(spaceId), listSharedProjects(spaceId)]).then(([state, items]) => {
       if (!live) return;
       setExpandedIds(state.expandedIds); setUiReadySpace(spaceId);
-      setProjectId(state.expandedIds.at(-1) ?? "");
+      setProjectId(restoredSharedProject(items, state.expandedIds));
     }).catch((error: unknown) => {
       if (!live) return;
       setExpandedIds([]); setUiReadySpace(spaceId);

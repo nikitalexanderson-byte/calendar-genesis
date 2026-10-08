@@ -173,31 +173,20 @@ class NativeUiTest {
         }
     }
 
-    @Test fun selectedCalendarHeroIsNotDuplicatedInKnowledgeCards() {
+    @Test fun detailsOnlyContainSacredKnowledgeInSacredMode() {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
         val preferences = ru.genesis.calendar.data.LocalPreferences(app, app.workspaceScope)
         val initial = runBlocking { preferences.values.first().display }
         try {
-            runBlocking { preferences.set("display", "profane") }
+            runBlocking { preferences.set("display", "sacred") }
             compose.onNodeWithTag("navigation-Сегодня").performClick()
-            compose.scrollToTodayNode(hasTestTag("today-hero"))
-            compose.waitUntil(5_000) {
-                compose.onAllNodesWithTag("calendar-mode-icon-profane", useUnmergedTree = true)
-                    .fetchSemanticsNodes().isNotEmpty()
-            }
             compose.scrollToTodayNode(hasTestTag("today-day-details-toggle"))
             compose.onNodeWithTag("today-day-details-toggle").performClick()
-            compose.waitUntil(5_000) {
-                compose.onAllNodesWithTag("today-day-details").fetchSemanticsNodes().isNotEmpty()
-            }
-            compose.onNodeWithTag("today-day-details").performScrollTo()
-            compose.onAllNodesWithTag("gregorian-calendar-card").assertCountEquals(0)
+            compose.scrollToTodayNode(hasTestTag("sacred-calendar-card"))
             compose.onAllNodesWithTag("sacred-calendar-card").assertCountEquals(1)
-            compose.onAllNodesWithTag("lunar-calendar-card").assertCountEquals(1)
-            compose.onNodeWithText("САКРАЛЬНЫЙ КАЛЕНДАРЬ · СМЫСЛ ДНЯ").assertExists()
-        } finally {
-            runBlocking { preferences.set("display", initial.wireValue) }
-        }
+            compose.onAllNodesWithTag("gregorian-calendar-card").assertCountEquals(0)
+            compose.onAllNodesWithTag("lunar-calendar-card").assertCountEquals(0)
+        } finally { runBlocking { preferences.set("display", initial.wireValue) } }
     }
 
     @Test fun settingsLanguageSwitchesWithoutLeavingWorkspace() {

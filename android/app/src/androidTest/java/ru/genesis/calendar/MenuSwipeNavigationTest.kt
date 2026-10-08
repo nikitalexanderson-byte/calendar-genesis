@@ -52,19 +52,26 @@ class MenuSwipeNavigationTest {
             compose.onNodeWithTag("today-list").assertExists()
             compose.onNodeWithTag("main-content").performTouchInput { swipeLeft() }
             compose.waitForIdle()
+            compose.onNodeWithTag("projects-screen").assertExists()
+            compose.onNodeWithTag("submenu-tasks").performClick()
+            compose.onNodeWithTag("tasks-screen").assertExists()
+            compose.onNodeWithTag("submenu-lists").performClick()
+            compose.onNodeWithTag("tasks-screen").assertExists()
+            compose.onNodeWithTag("submenu-projects").performClick()
+            compose.onNodeWithTag("main-content").performTouchInput { swipeLeft() }
+            compose.waitForIdle()
+            compose.onNodeWithTag("submenu-tasks").assertIsSelected()
             compose.onNodeWithTag("tasks-screen").assertExists()
             compose.onNodeWithTag("main-content").performTouchInput { swipeLeft() }
             compose.waitForIdle()
             compose.onNodeWithTag("submenu-lists").assertIsSelected()
             compose.onNodeWithTag("main-content").performTouchInput { swipeLeft() }
             compose.waitForIdle()
-            compose.onNodeWithTag("projects-screen").assertExists()
-            compose.onNodeWithTag("main-content").performTouchInput { swipeLeft() }
-            compose.waitForIdle()
             compose.onNodeWithTag("calendar-month").assertExists()
             compose.onNodeWithTag("main-content").performTouchInput { swipeRight() }
             compose.waitForIdle()
-            compose.onNodeWithTag("projects-screen").assertExists()
+            compose.onNodeWithTag("tasks-screen").assertExists()
+            compose.onNodeWithTag("submenu-lists").assertIsSelected()
 
             android.util.Log.i("GENESIS_MENU_PERF", device.executeShellCommand(
                 "dumpsys gfxinfo ru.genesis.calendar.debug").lineSequence()

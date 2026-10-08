@@ -1,7 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { matchesAffair } from "../app/affairs-search.ts";
+import { restoredSharedProject } from "../app/shared-expansion.ts";
 import { normalizeMoonReminderSettings, planMoonReminders } from "../app/moon-reminders.ts";
+
+test("shared tree restores visible paths and skips hidden children, inboxes and deleted projects", () => {
+  const projects = [{ id: "root" }, { id: "child", parentId: "root" }, { id: "inbox", isInbox: true }];
+  assert.equal(restoredSharedProject(projects, []), "");
+  assert.equal(restoredSharedProject(projects, ["child"]), "");
+  assert.equal(restoredSharedProject(projects, ["root", "child", "inbox", "deleted"]), "child");
+  assert.equal(restoredSharedProject([{ id: "a", parentId: "b" }, { id: "b", parentId: "a" }], ["a", "b"]), "");
+});
 
 test("live affair search combines partial names and tags, with explicit #tag semantics", () => {
   const project = { title: "Разработка сайта", tags: ["Генезис", "работа"] };

@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
@@ -36,7 +37,9 @@ import ru.genesis.calendar.data.*
     sharedController: AuthController? = null, sharedListRefreshKey: Int = 0,
     onOpenSharedProjects: () -> Unit = {},
     menuSwipeState: MenuSwipeState? = null, voiceRequest: NativeVoiceAction? = null,
-    onVoiceRequestConsumed: () -> Unit = {}, hiddenSubmenus: Set<String> = emptySet()) {
+    onVoiceRequestConsumed: () -> Unit = {}, hiddenSubmenus: Set<String> = emptySet(),
+    showSharedLists: Boolean = true, showSubmenu: Boolean = true, initialListId: String? = null,
+    onInitialListConsumed: () -> Unit = {}) {
     var localSection by rememberSaveable { mutableStateOf("tasks") }
     val section = (menuSwipeState?.tasks ?: localSection).takeIf { "tasks.$it" !in hiddenSubmenus }
         ?: if ("tasks.tasks" !in hiddenSubmenus) "tasks" else "lists"
@@ -45,6 +48,17 @@ import ru.genesis.calendar.data.*
         list.accountId != null && (list.isDefault || list.title == "Привычки GENESIS")
     } }
     var editingList by remember { mutableStateOf<GoogleTaskList?>(null) }
+    val gridState = rememberLazyGridState()
+    LaunchedEffect(initialListId, knownLists, section) {
+        if (initialListId == null || section != "lists") return@LaunchedEffect
+        val index = knownLists.indexOfFirst { it.id == initialListId }
+        if (index >= 0) {
+            val list = knownLists[index]
+            expanded = "${list.accountId}/${list.id}"
+            gridState.scrollToItem(index + 1)
+            onInitialListConsumed()
+        }
+    }
     var deletingList by remember { mutableStateOf<GoogleTaskList?>(null) }
     var listTitle by remember { mutableStateOf("") }
     var listBusy by remember { mutableStateOf(false) }
@@ -54,7 +68,7 @@ import ru.genesis.calendar.data.*
     var expandedSharedListId by remember { mutableStateOf("") }
     var sharedSnapshot by remember { mutableStateOf<JSONObject?>(null) }
     LaunchedEffect(sharedController, section, sharedListRefreshKey) {
-        if (sharedController == null || section != "lists") return@LaunchedEffect
+        if (!showSharedLists || sharedController == null || section != "lists") return@LaunchedEffect
         runCatching { sharedController.sharedTaskLists().getJSONArray("lists") }.onSuccess { rows ->
             sharedLists = (0 until rows.length()).map { rows.getJSONObject(it) }
             sharedListError = null
@@ -93,9 +107,9 @@ import ru.genesis.calendar.data.*
     Column(Modifier.fillMaxSize()) {
         val submenuItems = listOf(SubmenuItem("tasks", "Задачи"), SubmenuItem("lists", "Списки задач"))
             .filter { "tasks.${it.id}" !in hiddenSubmenus }
-        if (!LocalFixedSubmenu.current && submenuItems.size > 1) ConnectedSubmenu(submenuItems,
+        if (showSubmenu && !LocalFixedSubmenu.current && submenuItems.size > 1) ConnectedSubmenu(submenuItems,
             section, { localSection = it; menuSwipeState?.tasks = it })
-        LazyVerticalGrid(columns = GridCells.Adaptive(360.dp), modifier = Modifier.weight(1f).testTag("tasks-screen"), contentPadding = PaddingValues(16.dp),
+        LazyVerticalGrid(columns = GridCells.Adaptive(360.dp), state = gridState, modifier = Modifier.weight(1f).testTag("tasks-screen"), contentPadding = PaddingValues(16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item(span = { GridItemSpan(maxLineSpan) }) {
@@ -121,7 +135,7 @@ import ru.genesis.calendar.data.*
                 if(tasks.isEmpty()) item { Text(if(!confirmed) "Ожидаем загрузки задач аккаунта." else "Задач пока нет. Создайте первую запись.") }
                 items(tasks, key = { it.id }) { task -> NativeTaskCard(task,use24,structure,onComplete,onOpen) }
             } else {
-                if (sharedController != null) item(span = { GridItemSpan(maxLineSpan) }) {
+                if (showSharedLists && sharedController != null) item(span = { GridItemSpan(maxLineSpan) }) {
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(if (english) "Team task lists" else "Общие списки задач",
                             style = MaterialTheme.typography.titleMedium)

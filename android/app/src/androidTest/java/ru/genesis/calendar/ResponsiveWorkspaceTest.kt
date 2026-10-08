@@ -29,7 +29,7 @@ class ResponsiveWorkspaceTest {
                 device.waitForIdle()
                 compose.waitForIdle()
                 val orientation = if (landscape) "rotated" else "natural"
-                for (section in listOf("Сегодня", "Календарь", "Задачи", "Проекты", "Привычки", "Сакральное", "Настройки")) {
+                for (section in listOf("Сегодня", "Календарь", "Проекты", "Привычки", "Сакральное", "Настройки")) {
                     val nav = compose.onNodeWithTag("navigation-$section")
                     if (!nav.isDisplayed()) nav.performScrollTo()
                     nav.performClick()
@@ -44,9 +44,10 @@ class ResponsiveWorkspaceTest {
                     }
                     assertTrue(device.takeScreenshot(File(app.getExternalFilesDir(null), "responsive-$orientation-$section.png")))
                 }
-                val tasks = compose.onNodeWithTag("navigation-Задачи")
+                val tasks = compose.onNodeWithTag("navigation-Проекты")
                 if (!tasks.isDisplayed()) tasks.performScrollTo()
                 tasks.performClick()
+                compose.onNodeWithTag("submenu-tasks").performClick()
                 compose.onNodeWithTag("create-task").performClick()
                 compose.onNodeWithTag("task-title").performTextInput("Проверка адаптивной формы")
                 compose.onNodeWithTag("close-task-editor").assertIsDisplayed()

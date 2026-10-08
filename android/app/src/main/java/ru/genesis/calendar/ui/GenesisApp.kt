@@ -203,7 +203,16 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     }
     var tab by rememberSaveable { mutableStateOf("Сегодня") }
     var highlightedPage by remember { mutableStateOf(tab) }
-    LaunchedEffect(tab) { highlightedPage = tab }
+    var highlightedSection by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(tab, menuSwipeState.section(tab)) {
+        highlightedPage = tab; highlightedSection = menuSwipeState.section(tab)
+    }
+    fun openPersonalTasks(lists: Boolean = false) {
+        menuSwipeState.projectArea = "personal"
+        menuSwipeState.tasks = if (lists) "lists" else "tasks"
+        menuSwipeState.personalView = menuSwipeState.tasks
+        tab="Проекты"
+    }
     var voiceOpen by rememberSaveable { mutableStateOf(false) }
     var voiceControlActive by remember { mutableStateOf(false) }
     val voiceLanguageEnabled = prefs.language == "ru" || prefs.language == "en"
@@ -222,6 +231,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     var creatingSharedTask by rememberSaveable { mutableStateOf(false) }
     var newTaskProjectId by rememberSaveable { mutableStateOf<String?>(null) }
     var newTaskListId by rememberSaveable { mutableStateOf<String?>(null) }
+    var requestedPersonalListId by rememberSaveable { mutableStateOf<String?>(null) }
     var creatingTaskList by rememberSaveable { mutableStateOf(false) }
     var sharedListRefreshKey by remember { mutableIntStateOf(0) }
     var requestedTheokyklosSector by rememberSaveable { mutableStateOf<String?>(null) }
@@ -238,7 +248,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     LaunchedEffect(habitTrackingEnabled, tab) {
         if (!habitTrackingEnabled && tab == "Привычки") tab = "Сегодня"
     }
-    LaunchedEffect(openedTask) { if(openedTask!=null) { editId=openedTask; creating=false; tab="Задачи" } }
+    LaunchedEffect(openedTask) { if(openedTask!=null) { editId=openedTask; creating=false; openPersonalTasks() } }
     LaunchedEffect(openedSection) {
         if (openedSection?.substringBefore('#') == "habits" && habitTrackingEnabled) tab = "Привычки"
         if (openedSection?.substringBefore('#') == "sleep" && habitTrackingEnabled) {
@@ -298,7 +308,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
         if (!authState.busy && pendingUiVisibility != null &&
             serverUiVisibility == pendingUiVisibility) pendingUiVisibility = null
     }
-    val visiblePages = listOf("Сегодня", "Задачи", "Проекты", "Календарь", "Привычки", "Сакральное", "Настройки")
+    val visiblePages = listOf("Сегодня", "Проекты", "Календарь", "Привычки", "Сакральное", "Настройки")
         .filter { (habitTrackingEnabled || it != "Привычки") && menuVisibilityId(it) !in uiVisibility.hiddenMenuItems &&
             (it != "Сакральное" || !("stoicheion" in uiVisibility.hiddenMenuItems &&
                 "theokyklos" in uiVisibility.hiddenMenuItems)) }
@@ -307,8 +317,10 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     }
     LaunchedEffect(visiblePages, uiVisibility.hiddenSubmenus, sharedProjectsEnabled) {
         if (tab !in visiblePages) tab = "Сегодня"
-        if ("tasks.${menuSwipeState.tasks}" in uiVisibility.hiddenSubmenus)
+        if ("tasks.${menuSwipeState.tasks}" in uiVisibility.hiddenSubmenus) {
             menuSwipeState.tasks = if (menuSwipeState.tasks == "tasks") "lists" else "tasks"
+            if (menuSwipeState.personalView != "projects") menuSwipeState.personalView = menuSwipeState.tasks
+        }
         if ("calendar.${menuSwipeState.calendar}" in uiVisibility.hiddenSubmenus)
             menuSwipeState.calendar = if (menuSwipeState.calendar == "month") "year" else "month"
         if ("projects.${menuSwipeState.projectArea}" in uiVisibility.hiddenSubmenus)
@@ -326,11 +338,11 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
             uiVisibility.hiddenMenuItems, uiVisibility.hiddenSubmenus,
             prefs.settingsSubmenuEnabled)
     }
-    val swipeSection = if (prefs.menuSwipeSubmenus && (tab != "Проекты" || sharedProjectsEnabled) &&
+    val swipeSection = if (prefs.menuSwipeSubmenus &&
         (tab != "Настройки" || prefs.settingsSubmenuEnabled))
         menuSwipeState.section(tab) else null
     val currentSwipeDestination = remember(tab, swipeSection) { SwipeDestination(tab, swipeSection) }
-    val usageSection = menuSwipeState.section(tab)
+    val usageSection = if (tab == "Проекты") menuSwipeState.projectArea else menuSwipeState.section(tab)
     LaunchedEffect(activeScope, authState.ready, authState.requiresSignIn, authState.user?.uid,
         tab, usageSection, prefs.display, testWorkspace) {
         if (!testWorkspace && authState.ready && !authState.requiresSignIn && authState.user != null) {
@@ -471,13 +483,15 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
             val task = tasks.firstOrNull { it.id == action.id }
             if (task == null) "Задача больше не найдена." else {
                 model.save(task.copy(title = action.newTitle)) {}
-                tab = "Задачи"
+                openPersonalTasks()
                 "Название задачи изменено."
             }
         }
         is NativeVoiceAction.Navigate -> {
             when(action.section) {
-                "Списки задач" -> { menuSwipeState.tasks="lists";tab="Задачи" }
+                "Списки задач" -> openPersonalTasks(true)
+                "Задачи" -> openPersonalTasks()
+                "Проекты", "Дела" -> { menuSwipeState.projectArea="personal"; menuSwipeState.personalView="projects"; tab="Проекты" }
                 "Сон и настроение" -> { menuSwipeState.habits="Сон и настроение";tab="Привычки" }
                 "Сакральные привычки" -> { menuSwipeState.habits="Привычки";requestedSacredHabits=true;tab="Привычки" }
                 "Путь героя" -> { menuSwipeState.habits="Привычки";requestedHeroPath=true;tab="Привычки" }
@@ -485,13 +499,13 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
             }
             "Раздел открыт."
         }
-        is NativeVoiceAction.EditTask -> { editId=action.id;creating=false;tab="Задачи";"Задача открыта." }
+        is NativeVoiceAction.EditTask -> { editId=action.id;creating=false;openPersonalTasks();"Задача открыта." }
         is NativeVoiceAction.DeleteTask -> {
-            voiceDeleteTaskId=action.id;editId=action.id;creating=false;tab="Задачи"
+            voiceDeleteTaskId=action.id;editId=action.id;creating=false;openPersonalTasks()
             "Проверьте подтверждение удаления задачи."
         }
         is NativeVoiceAction.EditTaskList,is NativeVoiceAction.DeleteTaskList -> {
-            menuSwipeState.tasks="lists";voiceScreenRequest=action;tab="Задачи"
+            voiceScreenRequest=action;openPersonalTasks(true)
             if(action is NativeVoiceAction.EditTaskList) "Открыта форма списка задач."
             else "Проверьте подтверждение удаления списка."
         }
@@ -512,14 +526,14 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
             if(task==null) "Задача больше не найдена." else {
                 model.save(task.copy(projectId=target?.id,categoryId=target?.categoryId,
                     project=target?.title.orEmpty())) {}
-                tab="Проекты"
+                tab="Проекты"; menuSwipeState.personalView="projects"; menuSwipeState.projectArea="personal"
                 "Перемещаю задачу."
             }
         }
         is NativeVoiceAction.CreateProject,is NativeVoiceAction.EditProject,
         is NativeVoiceAction.DeleteProject,is NativeVoiceAction.CreateCategory,
         is NativeVoiceAction.EditCategory,is NativeVoiceAction.DeleteCategory -> {
-            voiceScreenRequest=action;tab="Проекты"
+            voiceScreenRequest=action;tab="Проекты"; menuSwipeState.personalView="projects"; menuSwipeState.projectArea="personal"
             when(action) {
                 is NativeVoiceAction.DeleteProject,is NativeVoiceAction.DeleteCategory ->
                     "Проверьте подтверждение удаления."
@@ -529,7 +543,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
             }
         }
         is NativeVoiceAction.CreateTaskList -> {
-            voiceListTitle=action.title;creatingTaskList=true;tab="Задачи";"Открыта форма списка задач."
+            voiceListTitle=action.title;creatingTaskList=true;openPersonalTasks(true);"Открыта форма списка задач."
         }
         is NativeVoiceAction.CreateHabit,is NativeVoiceAction.EditHabit,
         is NativeVoiceAction.DeleteHabit -> {
@@ -576,13 +590,13 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                 is NativeVoiceAction.RenameTask -> {
                     val task = app.repository.get(action.id) ?: return "Задача больше не найдена."
                     app.repository.save(task.copy(title = action.newTitle))
-                    tab = "Задачи"
+                    openPersonalTasks()
                     return "Название задачи изменено."
                 }
                 is NativeVoiceAction.SetTaskDone -> {
                     val task=app.repository.get(action.id) ?: return "Задача больше не найдена."
                     if(task.done!=action.done) app.repository.save(task.copy(done=action.done))
-                    tab="Задачи"
+                    openPersonalTasks()
                     return if(action.done) "Задача отмечена выполненной." else "Отметка выполнения снята."
                 }
                 is NativeVoiceAction.SetHabitDone -> {
@@ -595,13 +609,13 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                     val target=structure.projects.firstOrNull { it.id==action.projectId }
                     app.repository.save(task.copy(projectId=target?.id,categoryId=target?.categoryId,
                         project=target?.title.orEmpty()))
-                    tab="Проекты"
+                    tab="Проекты"; menuSwipeState.personalView="projects"; menuSwipeState.projectArea="personal"
                     return "Задача перемещена."
                 }
                 is NativeVoiceAction.CreateProject -> {
                     structureRepo.saveProject(GenesisProject(UUID.randomUUID().toString(),null,null,
                         action.title,"",emptyList(),"active",structure.projects.size))
-                    tab="Проекты"
+                    tab="Проекты"; menuSwipeState.personalView="projects"; menuSwipeState.projectArea="personal"
                     return "Проект создан."
                 }
                 is NativeVoiceAction.CreateHabit -> {
@@ -616,7 +630,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                     val local=authState.accountSettings?.authProvider!="google"
                     if(!local && accounts.size!=1) return "Выберите аккаунт для списка в форме создания."
                     authController.createTaskList(action.title,if(local) "" else accounts.single().id)
-                    menuSwipeState.tasks="lists";tab="Задачи"
+                    menuSwipeState.tasks="lists";openPersonalTasks()
                     return "Список задач создан."
                 }
                 else -> return executeVoiceAction(action)
@@ -638,7 +652,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                     sourceFieldsJson=source.toString(),reminders=if(draft.time.isNotBlank() && draft.reminderMinutes>0)
                         listOf(TaskReminder.relative(draft.reminderMinutes)) else emptyList()))
             }
-            tab="Задачи"
+            openPersonalTasks()
             return "Задачи созданы."
         }
         return "Пока не умею это делать. Попробуйте открыть раздел, создать задачу, проект, список или привычку."
@@ -718,6 +732,41 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                     ru.genesis.calendar.auth.AccountTaskSyncNotice(accountTaskSync,
                         Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
                 }
+                val personalTasksContent: @Composable (MenuSwipeState) -> Unit = { visibleSwipeState ->
+                    TasksScreen(tasks,taskLists,structure,prefs.use24,
+                        confirmed = testWorkspace || accountTaskSync?.confirmed != false,
+                        sharedController=authController.takeIf { sharedProjectsEnabled },
+                        sharedListRefreshKey=sharedListRefreshKey,
+                        onOpenSharedProjects={ menuSwipeState.projectArea="shared"; tab="Проекты"; menuSwipeState.personalView="projects" },
+                        onCreateTask = { list -> newTaskListId=list?.id; newTaskProjectId=list?.let {
+                            structure.taskListLinks.firstOrNull { link -> link.taskListId == it.id }?.projectId
+                        }; editId=null; creating=true }, onCreateList={creatingTaskList=true},
+                        onComplete=model::complete,onOpen={editId=it;creating=false},
+                        onUpdateList={ list,title ->
+                            val updated=authController.updateTaskList(list,title)
+                            tasks.filter { it.taskListId()==list.id }.forEach { task ->
+                                val fields=org.json.JSONObject(task.sourceFieldsJson)
+                                if(list.accountId==null || fields.optString("googleAccountId")==list.accountId)
+                                    app.repository.save(task.copy(sourceFieldsJson=fields.put("googleTaskListTitle",updated.title).toString()))
+                            }
+                            authController.syncPending()
+                        },
+                        onDeleteList={ list ->
+                            authController.deleteTaskList(list)
+                            tasks.filter { it.taskListId()==list.id }.forEach { task ->
+                                val fields=org.json.JSONObject(task.sourceFieldsJson)
+                                if(list.accountId==null || fields.optString("googleAccountId")==list.accountId)
+                                    app.repository.delete(task.id)
+                            }
+                            authController.syncPending()
+                        },
+                        menuSwipeState=visibleSwipeState,
+                        voiceRequest=voiceScreenRequest.takeIf {
+                            it is NativeVoiceAction.EditTaskList || it is NativeVoiceAction.DeleteTaskList
+                        },onVoiceRequestConsumed={voiceScreenRequest=null},
+                        hiddenSubmenus=uiVisibility.hiddenSubmenus, showSharedLists=false, showSubmenu=false,
+                        initialListId=requestedPersonalListId, onInitialListConsumed={requestedPersonalListId=null})
+                }
                 val pageContent: @Composable (String, MenuSwipeState) -> Unit = { visibleTab, visibleSwipeState ->
                   Column(Modifier.fillMaxSize()) {
                   error?.let { Text(it,color=MaterialTheme.colorScheme.error,modifier=Modifier.padding(12.dp)) }
@@ -764,8 +813,22 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         if (!LocalFixedSubmenu.current && sharedProjectsEnabled && projectSubmenus.size > 1) ConnectedSubmenu(projectSubmenus,
                             visibleSwipeState.projectArea, { menuSwipeState.projectArea = it },
                             Modifier.testTag("projects-area-switch"))
+                        if (visibleSwipeState.projectArea != "shared" || !sharedProjectsEnabled) {
+                            val personalViews = listOf(SubmenuItem("projects", "Проекты"),
+                                SubmenuItem("tasks", "Задачи"), SubmenuItem("lists", "Списки задач"))
+                                .filter { it.id == "projects" || "tasks.${it.id}" !in uiVisibility.hiddenSubmenus }
+                            val previewPersonalView = highlightedSection?.takeIf {
+                                LocalFixedSubmenu.current && highlightedPage == "Проекты" && it.startsWith("personal-")
+                            }?.removePrefix("personal-") ?: visibleSwipeState.personalView
+                            ConnectedSubmenu(personalViews, previewPersonalView, {
+                                menuSwipeState.personalView = it
+                                if (it != "projects") menuSwipeState.tasks = it
+                            }, Modifier.testTag("personal-affairs-view"), connectToParent = false)
+                        }
                         if(sharedProjectsEnabled && visibleSwipeState.projectArea=="shared") SharedProjectsScreen(authController,prefs.language)
+                        else if (visibleSwipeState.personalView != "projects") personalTasksContent(visibleSwipeState)
                         else ProjectsScreen(app,tasks,true,
+                            taskLists=taskLists, onOpenList={ requestedPersonalListId=it; openPersonalTasks(true) },
                             onOpenTask={ taskId -> editId=taskId;creating=false },
                             onCreateTask={ projectId -> newTaskProjectId=projectId;newTaskListId=null;editId=null;creating=true },
                             onDeleteTask=model::delete,
@@ -778,38 +841,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                             sharedController=authController.takeIf { sharedProjectsEnabled },
                             sharedAccount=authState.accountSettings)
                     }
-                    "Задачи" -> TasksScreen(tasks,taskLists,structure,prefs.use24,
-                        confirmed = testWorkspace || accountTaskSync?.confirmed != false,
-                        sharedController=authController.takeIf { sharedProjectsEnabled },
-                        sharedListRefreshKey=sharedListRefreshKey,
-                        onOpenSharedProjects={ menuSwipeState.projectArea="shared"; tab="Проекты" },
-                        onCreateTask = { list -> newTaskListId=list?.id; newTaskProjectId=list?.let {
-                            structure.taskListLinks.firstOrNull { link -> link.taskListId == it.id }?.projectId
-                        }; editId=null; creating=true }, onCreateList={creatingTaskList=true},
-                        onComplete=model::complete,onOpen={editId=it;creating=false},
-                        onUpdateList={ list,title ->
-                            val updated=authController.updateTaskList(list,title)
-                            tasks.filter { it.taskListId()==list.id }.forEach { task ->
-                                val fields=org.json.JSONObject(task.sourceFieldsJson)
-                                if(list.accountId==null || fields.optString("googleAccountId")==list.accountId)
-                                    app.repository.save(task.copy(sourceFieldsJson=fields.put("googleTaskListTitle",updated.title).toString()))
-                            }
-                            authController.syncPending()
-                        },
-                        onDeleteList={ list ->
-                            authController.deleteTaskList(list)
-                            tasks.filter { it.taskListId()==list.id }.forEach { task ->
-                                val fields=org.json.JSONObject(task.sourceFieldsJson)
-                                if(list.accountId==null || fields.optString("googleAccountId")==list.accountId)
-                                    app.repository.delete(task.id)
-                            }
-                            authController.syncPending()
-                        },
-                        menuSwipeState=visibleSwipeState,
-                        voiceRequest=voiceScreenRequest.takeIf {
-                            it is NativeVoiceAction.EditTaskList || it is NativeVoiceAction.DeleteTaskList
-                        },onVoiceRequestConsumed={voiceScreenRequest=null},
-                        hiddenSubmenus=uiVisibility.hiddenSubmenus)
+                    "Задачи" -> personalTasksContent(visibleSwipeState)
                     "Настройки" -> SettingsScreen(app, prefs, visibleSwipeState.settings,
                         onSection = { menuSwipeState.settings = it }, authState.busy && !testWorkspace,
                         authState.accountSettings, sharedProjectsEnabled,
@@ -842,7 +874,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         },
                         experimental=true, tasks=tasks, use24=prefs.use24,
                         sharedTasks=sharedCalendarEntries,
-                        onOpenSharedProjects={ menuSwipeState.projectArea="shared"; tab="Проекты" },
+                        onOpenSharedProjects={ menuSwipeState.projectArea="shared"; tab="Проекты"; menuSwipeState.personalView="projects" },
                         weekStartsOnSunday=prefs.weekStartsOnSunday,
                         gregorianYearStartsInMarch=prefs.gregorianYearStartsInMarch,
                         onStartGregorianYearInMarch={
@@ -878,10 +910,10 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                                     onModeChange = { next ->
                                         if (!testWorkspace && authState.user != null) authController.updateSharedPreference("display", next.wireValue)
                                         else scope.launch { prefsStore.set("display", next.wireValue) }
-                                    }, showDetails = "details" !in uiVisibility.hiddenTodayBlocks)
+                                    }, showDetails = prefs.display == CalendarMode.SACRED && "details" !in uiVisibility.hiddenTodayBlocks)
                                 if (!testWorkspace && authState.ready)
                                     TodayAdPanel(authController, authState.user?.uid, prefs.language)
-                                AnimatedVisibility(visible = dayDetailsExpanded && "details" !in uiVisibility.hiddenTodayBlocks,
+                                AnimatedVisibility(visible = prefs.display == CalendarMode.SACRED && dayDetailsExpanded && "details" !in uiVisibility.hiddenTodayBlocks,
                                     modifier = Modifier.testTag("today-day-details"),
                                     enter = expandVertically(tween(320, easing = CubicBezierEasing(.16f, 1f, .3f, 1f)),
                                         expandFrom = Alignment.Top) + fadeIn(tween(190)),
@@ -921,13 +953,14 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         onNavigate = { destination ->
                             destination.section?.let { menuSwipeState.select(destination.page, it) }
                             tab = destination.page
-                        }, onPreview = { highlightedPage = it.page }, modifier = pagerModifier) { destination ->
+                        }, onPreview = { highlightedPage = it.page; highlightedSection = it.section ?: menuSwipeState.section(it.page) }, modifier = pagerModifier) { destination ->
                         val visibleSwipeState = if (destination == currentSwipeDestination) menuSwipeState
-                            else remember(destination, menuSwipeState.tasks, menuSwipeState.projects,
+                            else remember(destination, menuSwipeState.tasks, menuSwipeState.projects, menuSwipeState.personalView,
                                 menuSwipeState.projectArea,
                                 menuSwipeState.calendar, menuSwipeState.habits,
                                 menuSwipeState.sacred, menuSwipeState.settings) {
                                 MenuSwipeState().also { preview ->
+                                    preview.personalView = menuSwipeState.personalView
                                     preview.tasks = menuSwipeState.tasks
                                     preview.projects = menuSwipeState.projects
                                     preview.projectArea = menuSwipeState.projectArea
@@ -949,7 +982,10 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                 val selectPrimaryPage: (String) -> Unit = { page ->
                     firstVisibleSubmenu(page, habitTrackingEnabled, sharedProjectsEnabled,
                         uiVisibility.hiddenMenuItems, uiVisibility.hiddenSubmenus,
-                        prefs.settingsSubmenuEnabled)?.let { menuSwipeState.select(page, it) }
+                        prefs.settingsSubmenuEnabled)?.let {
+                            if (page == "Проекты" && it == "personal-projects") menuSwipeState.projectArea = "personal"
+                            else menuSwipeState.select(page, it)
+                        }
                     highlightedPage = page
                     tab = page
                 }
@@ -962,9 +998,9 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         Column(Modifier.weight(1f).fillMaxHeight()) {
                             CompositionLocalProvider(LocalCompactSubmenus provides true,
                                 LocalNavigationPageContext provides NavigationPageContext(tab, true)) {
-                                FixedPageSubmenu(tab, menuSwipeState, prefs.language,
+                                FixedPageSubmenu(highlightedPage, menuSwipeState, prefs.language,
                                     uiVisibility, sharedProjectsEnabled, prefs.settingsSubmenuEnabled,
-                                    prefs.settingsMenuLabels)
+                                    prefs.settingsMenuLabels, highlightedSection)
                             }
                             workspacePager(Modifier.weight(1f).testTag("main-content"))
                         }
@@ -975,9 +1011,9 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         onSelect = selectPrimaryPage)
                     CompositionLocalProvider(LocalCompactSubmenus provides isLandscape,
                         LocalNavigationPageContext provides NavigationPageContext(tab, true)) {
-                        FixedPageSubmenu(tab, menuSwipeState, prefs.language,
+                        FixedPageSubmenu(highlightedPage, menuSwipeState, prefs.language,
                             uiVisibility, sharedProjectsEnabled, prefs.settingsSubmenuEnabled,
-                            prefs.settingsMenuLabels)
+                            prefs.settingsMenuLabels, highlightedSection)
                     }
                     workspacePager(Modifier.fillMaxWidth().weight(1f).testTag("main-content"))
                 }
@@ -987,7 +1023,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                 authState.accountSettings,taskLists,newTaskListId,
                 onDismiss={creating=false;editId=null;voiceDeleteTaskId=null},
                 onSave={draft -> model.save(draft){creating=false;editId=null;voiceDeleteTaskId=null}},
-                onSwitchToShared=if(existing==null && tab=="Задачи" && sharedProjectsEnabled) ({
+                onSwitchToShared=if(existing==null && tab=="Проекты" && sharedProjectsEnabled) ({
                     creating=false; creatingSharedTask=true
                 }) else null,
                 onTransfer=existing?.takeIf { sharedProjectsEnabled }?.let { selectedTask ->
@@ -1020,7 +1056,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                 })
             if(voiceLanguageEnabled && voiceOpen) NativeVoiceAssistantDialog(app,structure,taskLists,tasks,habitWorkspace.habits,
                 prefs.input,prefs.use24,prefs.language,
-                onDismiss={voiceOpen=false},onSaved={voiceOpen=false;tab="Задачи"},
+                onDismiss={voiceOpen=false},onSaved={voiceOpen=false;openPersonalTasks()},
                 onAction={ action ->
                     voiceOpen=false
                     executeVoiceAction(action)
@@ -1045,9 +1081,9 @@ internal fun shouldUseNavigationRail(screenWidthDp: Int, landscape: Boolean,
 @Composable
 private fun FixedPageSubmenu(page: String, state: MenuSwipeState, language: String,
     visibility: ru.genesis.calendar.auth.UiVisibility, sharedProjectsEnabled: Boolean,
-    settingsSubmenuEnabled: Boolean, settingsMenuLabels: Boolean) {
+    settingsSubmenuEnabled: Boolean, settingsMenuLabels: Boolean, previewSection: String? = null) {
     if (page == "Настройки") {
-        if (settingsSubmenuEnabled) SettingsSubmenu(state.settings, language,
+        if (settingsSubmenuEnabled) SettingsSubmenu(previewSection ?: state.settings, language,
             settingsMenuLabels, { state.settings = it })
         return
     }
@@ -1071,7 +1107,10 @@ private fun FixedPageSubmenu(page: String, state: MenuSwipeState, language: Stri
                 it.id !in visibility.hiddenMenuItems }
         else -> emptyList()
     }
-    if (items.size > 1) ConnectedSubmenu(items, state.section(page).orEmpty(),
+    val selectedSection = if (page == "Проекты") {
+        if (previewSection == "shared") "shared" else if (previewSection?.startsWith("personal-") == true) "personal" else state.projectArea
+    } else previewSection ?: state.section(page).orEmpty()
+    if (items.size > 1) ConnectedSubmenu(items, selectedSection,
         { state.select(page, it) }, Modifier.testTag("fixed-page-submenu"))
 }
 
@@ -1141,7 +1180,8 @@ private fun PrimaryNavigation(selectedPage: String, pages: List<String>, vertica
 @Composable
 private fun PrimaryNavigationItem(page: String, selectedPage: Boolean, fillWidth: Boolean,
     showLabels: Boolean, compact: Boolean, loopCopy: Boolean = false, onSelect: () -> Unit) {
-    val accessiblePage = genesisTranslate(page)
+    val visibleTitle = if (page == "Проекты") "Дела" else page
+    val accessiblePage = genesisTranslate(visibleTitle)
     val glowPhase = LocalNavigationGlowPhase.current?.value ?: -1f
     val glow = if (!showLabels && selectedPage && glowPhase >= 0f)
         navigationGlowColor(glowPhase, LocalEveningTheme.current) else null
@@ -1167,7 +1207,7 @@ private fun PrimaryNavigationItem(page: String, selectedPage: Boolean, fillWidth
             GenesisVectorIcon(genesisPageIcon(page), Modifier.size(if(compact) 22.dp else 24.dp))
             if (showLabels) {
                 Spacer(Modifier.width(7.dp))
-                Text(page,style=if(compact) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelLarge,
+                Text(visibleTitle,style=if(compact) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelLarge,
                     maxLines = 1)
             }
         }
@@ -1349,6 +1389,25 @@ private fun DayHeader(date: LocalDate, mode: CalendarMode, detailsExpanded: Bool
                     Text(gregorianYearPosition(date, language), Modifier.testTag("today-gregorian-year-position"),
                         color = Color(0xfff4deb0), style = MaterialTheme.typography.bodySmall)
                 }
+                if (mode == CalendarMode.LUNAR) {
+                    val moon = remember(date) { calendar.moonInfo(date) }
+                    Row(verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Surface(shape = CircleShape, color = Color(0x22071d20),
+                            border = BorderStroke(1.dp, Color(0x88dfc17e))) {
+                            Box(Modifier.size(76.dp).testTag("today-lunar-phase"),
+                                contentAlignment = Alignment.Center) {
+                                MoonPhaseIcon(moon.phaseStep, size = 54.dp)
+                            }
+                        }
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                            Text(moon.epithet, color = Color(0xffffe9b5),
+                                style = MaterialTheme.typography.titleLarge)
+                            Text("${moon.direction} · ${moon.phase} · ${moon.illumination}%",
+                                color = Color(0xffeee6d7), style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
                 Text(copy.description, Modifier.testTag("today-hero-description"),
                     color = Color(0xffeee6d7), style = MaterialTheme.typography.bodyMedium)
                 copy.details.forEach { Text(it, color = Color(0xffeee6d7),
@@ -1364,7 +1423,7 @@ private fun DayHeader(date: LocalDate, mode: CalendarMode, detailsExpanded: Bool
                             color = Color(0xfff5dcaa), style = MaterialTheme.typography.labelSmall)
                     }
                 }
-                if (showDetails) Button(onClick = onToggleDetails,
+                if (showDetails && mode == CalendarMode.SACRED) Button(onClick = onToggleDetails,
                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                         .testTag("today-day-details-toggle"),
                     shape = RoundedCornerShape(14.dp),
@@ -2262,7 +2321,7 @@ private fun MenuVisibilitySettings(prefs: UiPreferences,
             Text(if (prefs.language == "en") "Today and Settings always remain available."
                 else "«Сегодня» и «Настройки» всегда доступны.", style = MaterialTheme.typography.bodySmall)
             Text(if (prefs.language == "en") "Main menu" else "Главное меню", style = MaterialTheme.typography.titleSmall)
-            listOf("Задачи" to "tasks", "Проекты" to "projects", "Календарь" to "calendar",
+            listOf("Дела" to "projects", "Календарь" to "calendar",
                 "Привычки" to "habits", "Сакральное" to "sacred")
                 .forEach { (label, id) ->
                     val sacredHidden = id == "sacred" && "stoicheion" in visibility.hiddenMenuItems &&
@@ -2281,7 +2340,7 @@ private fun MenuVisibilitySettings(prefs: UiPreferences,
                 }
             Text(if (prefs.language == "en") "Submenus" else "Подменю", style = MaterialTheme.typography.titleSmall)
             listOf("Задачи" to "tasks.tasks", "Списки задач" to "tasks.lists",
-                "Личные проекты" to "projects.personal", "Общие проекты" to "projects.shared",
+                "Личные дела" to "projects.personal", "Общие дела" to "projects.shared",
                 "Месяц" to "calendar.month", "Год" to "calendar.year",
                 "Привычки" to "habits.habits", "Сон и настроение" to "habits.sleep",
                 "Стойхейон" to "sacred.stoicheion", "Теокиклос" to "sacred.theokyklos")

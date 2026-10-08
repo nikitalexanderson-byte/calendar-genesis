@@ -16,38 +16,16 @@ import ru.genesis.calendar.data.LocalPreferences
 class SettingsSectionNavigationTest {
     @get:Rule val compose = createAndroidComposeRule<TestWorkspaceActivity>()
 
-    @Test fun taskSubmenuStaysFixedAndPrimaryTapReturnsToFirstPage() {
-        val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as GenesisApplication
-        val preferences = LocalPreferences(app, app.workspaceScope)
-        val original = runBlocking { preferences.values.first() }
-        try {
-            runBlocking {
-                preferences.set("menuSwipeEnabled", "true")
-                preferences.set("menuSwipeSubmenus", "true")
-                preferences.set("language", "ru")
-            }
-            compose.onNodeWithTag("navigation-Задачи").performClick()
-            compose.onNodeWithTag("submenu-tasks").assertIsSelected()
-            val submenuTop = compose.onNodeWithTag("fixed-page-submenu")
-                .fetchSemanticsNode().boundsInRoot.top
-            compose.onNodeWithTag("main-content").performTouchInput { swipeLeft() }
-            compose.waitUntil(5_000) {
-                compose.onAllNodesWithTag("submenu-lists").fetchSemanticsNodes()
-                    .any { it.config[androidx.compose.ui.semantics.SemanticsProperties.Selected] }
-            }
-            val afterSwipeTop = compose.onNodeWithTag("fixed-page-submenu")
-                .fetchSemanticsNode().boundsInRoot.top
-            assertTrue("Task submenu moved with page content",
-                kotlin.math.abs(afterSwipeTop - submenuTop) < app.resources.displayMetrics.density)
-            compose.onNodeWithTag("navigation-Задачи").performClick()
-            compose.onNodeWithTag("submenu-tasks").assertIsSelected()
-        } finally {
-            runBlocking {
-                preferences.set("menuSwipeEnabled", original.menuSwipeEnabled.toString())
-                preferences.set("menuSwipeSubmenus", original.menuSwipeSubmenus.toString())
-                preferences.set("language", original.language)
-            }
-        }
+    @Test fun affairsViewsKeepTheirSelectionWithoutAnExtraMainMenuItem() {
+        compose.onNodeWithTag("navigation-Задачи").assertDoesNotExist()
+        compose.onNodeWithTag("navigation-Проекты").performClick()
+        compose.onNodeWithTag("submenu-tasks").performClick()
+        compose.onNodeWithTag("tasks-screen").assertExists()
+        compose.onNodeWithTag("submenu-lists").performClick()
+        compose.onNodeWithTag("submenu-lists").assertIsSelected()
+        compose.onNodeWithTag("navigation-Сегодня").performClick()
+        compose.onNodeWithTag("navigation-Проекты").performClick()
+        compose.onNodeWithTag("submenu-lists").assertIsSelected()
     }
 
     @Test fun iconOnlySubmenuKeepsComfortableTargetsAndCanReachEverySection() {

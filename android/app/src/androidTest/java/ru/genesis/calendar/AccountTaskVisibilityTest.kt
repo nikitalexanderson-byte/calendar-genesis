@@ -67,7 +67,8 @@ class AccountTaskVisibilityTest {
             }
             compose.runOnUiThread { app.activateAccount(uid) }
             compose.setContent { GenesisApp(app, null, testWorkspace = true) }
-            compose.onNodeWithTag("navigation-Задачи").performClick()
+            compose.onNodeWithTag("navigation-Проекты").performClick()
+            compose.onNodeWithTag("submenu-tasks").performClick()
             compose.onNodeWithTag("task-website-task").performScrollTo().assertIsDisplayed()
             compose.onNodeWithTag("task-untitled-event").performScrollTo().assertIsDisplayed()
             compose.onNodeWithText("Без названия").assertIsDisplayed()

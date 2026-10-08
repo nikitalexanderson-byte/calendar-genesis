@@ -11,7 +11,7 @@ import ru.genesis.calendar.data.WorkspaceStructure
 
 class PersonalProjectTransferTest {
     @Test fun nestedProjectPayloadKeepsEachTaskAndCategoryInItsOwnProject() {
-        val root = GenesisProject("root", null, "work", "Главный", "Описание", emptyList(), "active", 0)
+        val root = GenesisProject("root", null, "work", "Главный", "Описание", listOf("команда"), "active", 0)
         val child = GenesisProject("child", "root", "work", "Вложенный", "", emptyList(), "active", 0)
         val unrelated = GenesisProject("other", null, null, "Другой", "", emptyList(), "active", 1)
         val structure = WorkspaceStructure(projects = listOf(root, child, unrelated),
@@ -21,9 +21,12 @@ class PersonalProjectTransferTest {
         val task = LocalTask(id = "task-1", title = "  Проверить   перенос  ", projectId = "child",
             categoryId = "work", date = "2026-10-12")
         val payload = personalProjectImportPayload(root, tree, listOf(task), structure.categories,
-            "00000000-0000-0000-0000-000000000001", "copy")
+            "00000000-0000-0000-0000-000000000001", "copy", "destination", "board")
         val projects = payload.getJSONArray("projects")
         assertTrue(projects.getJSONObject(0).isNull("parentSourceId"))
+        assertEquals("команда", projects.getJSONObject(0).getJSONArray("tags").getString(0))
+        assertEquals("destination", payload.getString("targetParentId"))
+        assertEquals("board", payload.getString("targetStatusId"))
         assertEquals("root", projects.getJSONObject(1).getString("parentSourceId"))
         val categories = payload.getJSONArray("categories")
         assertEquals(2, categories.length())
