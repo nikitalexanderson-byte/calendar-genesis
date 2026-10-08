@@ -3,13 +3,15 @@ AddDefaultCharset UTF-8
 AddType application/vnd.android.package-archive .apk
 
 RewriteEngine On
+# Merge this redirect only after Google branding and Android sign-in/sync are confirmed.
+# Keep the old API, update downloads and existing static files for installed clients.
 RewriteCond %{HTTP_HOST} ^(?:www\.)?genesiscalendar\.ru$ [NC]
-RewriteCond %{DOCUMENT_ROOT}/../server/var/legacy-announcement.json -f
 RewriteRule ^sw\.js$ relocated-sw.js [L]
 RewriteCond %{HTTP_HOST} ^(?:www\.)?genesiscalendar\.ru$ [NC]
-RewriteCond %{DOCUMENT_ROOT}/../server/var/legacy-announcement.json -f
-RewriteCond %{REQUEST_URI} !^/(?:api(?:/|$)|downloads/|android-update\.json$|deploy-meta\.json$|\.well-known/|relocated(?:-sw)?\.(?:html|js)$)
-RewriteRule ^ relocated.html [L]
+RewriteCond %{REQUEST_URI} !^/(?:api(?:/|$)|downloads/|android-update\.json$|deploy-meta\.json$|\.well-known/) [NC]
+RewriteCond %{REQUEST_FILENAME} !-f [OR]
+RewriteCond %{REQUEST_URI} \.html$ [NC]
+RewriteRule ^ https://genesiscalendar.com%{REQUEST_URI} [R=302,L,NE]
 RewriteRule ^api(?:/|$) - [L]
 RewriteCond %{REQUEST_FILENAME}.html -f
 RewriteRule ^(privacy|terms|support|delete-account)$ $1.html [L]
@@ -18,6 +20,7 @@ RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule . index.html [L]
 
 <IfModule mod_headers.c>
+  Header always set Cache-Control "no-store" "expr=%{REQUEST_STATUS} == 302"
   Header always set X-Content-Type-Options "nosniff"
   Header always set X-Frame-Options "DENY"
   Header always set Referrer-Policy "strict-origin-when-cross-origin"
