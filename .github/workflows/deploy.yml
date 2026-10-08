@@ -184,6 +184,7 @@ jobs:
           arch: x86_64
           target: google_apis
           ram-size: 2048M
+          disk-size: 2048M
           emulator-boot-timeout: 300
           script: |
             bash scripts/check-android-release-startup.sh android/app/build/outputs/apk/release/app-release.apk native-release

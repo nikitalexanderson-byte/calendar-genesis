@@ -2,7 +2,6 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { GenesisCalendar } from "../app/GenesisCalendar";
 import { AppUrlCleaner } from "../app/AppUrlCleaner";
-import { YandexMetrika } from "../app/YandexMetrika";
 import "../app/globals.css";
 import "../app/experimental-theme.css";
 import "../app/dark-theme.css";
@@ -33,7 +32,6 @@ if (!root) {
 createRoot(root).render(
   <StrictMode>
     <AppUrlCleaner />
-    <YandexMetrika />
     <GenesisCalendar />
   </StrictMode>,
 );

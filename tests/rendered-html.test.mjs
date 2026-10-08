@@ -2462,7 +2462,7 @@ test("QA-01 precaches the complete cold-install shell before activating the work
   assert.match(viteConfig, /precache-manifest\.js/);
   assert.match(viteConfig, /createHash\("sha256"\)/);
   assert.match(viteConfig, /PRECACHE_STATIC_REVISION = "saturn-calendar-art-v7"/);
-  assert.equal(packageJson.scripts["build:beget"], "vite build --config vite.beget.config.ts && node scripts/verify-offline-precache.mjs");
+  assert.match(packageJson.scripts["build:beget"], /^vite build --config vite\.beget\.config\.ts && .*node scripts\/verify-offline-precache\.mjs$/);
   assert.match(verifier, /missingAssets/);
   assert.match(verifier, /REQUIRED_VISUAL_ASSETS/);
   assert.match(verifier, /mandatory entry assets/);
@@ -2610,7 +2610,7 @@ test("QA-06 documents the trusted-device boundary without zero-knowledge claims"
   const [privacy, account, legal, admin, translationsRaw] = await Promise.all([
     readFile(new URL("../docs/PRIVACY-ARCHITECTURE.md", import.meta.url), "utf8"),
     readFile(new URL("../app/AccountPanel.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/LegalPage.tsx", import.meta.url), "utf8"),
+    Promise.all([readFile(new URL("../app/LegalPage.tsx", import.meta.url), "utf8"), readFile(new URL("../app/legal-content.ts", import.meta.url), "utf8")]).then((parts) => parts.join("\n")),
     readFile(new URL("../app/AdminPanel.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/translations.en.json", import.meta.url), "utf8"),
   ]);
@@ -3530,7 +3530,7 @@ test("keeps Google OAuth consent, account binding, and token handling hardened",
     readFile(new URL("../app/WelcomeScreen.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/AccountPanel.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/cloud-sync.ts", import.meta.url), "utf8"),
-    readFile(new URL("../app/LegalPage.tsx", import.meta.url), "utf8"),
+    Promise.all([readFile(new URL("../app/LegalPage.tsx", import.meta.url), "utf8"), readFile(new URL("../app/legal-content.ts", import.meta.url), "utf8")]).then((parts) => parts.join("\n")),
     readFile(new URL("../server/public/api/index.php", import.meta.url), "utf8"),
     readFile(new URL("../server/src/bootstrap.php", import.meta.url), "utf8"),
     readFile(new URL("../server/src/google.php", import.meta.url), "utf8"),

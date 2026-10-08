@@ -26,6 +26,7 @@ const SKIPPED_FILES = new Set([
   "web-voice-actions.ts",
   // Published legal documents are maintained in Russian independently of the app UI catalog.
   "LegalPage.tsx",
+  "legal-content.ts",
   // Fourteen explicit locale labels; checked with the ad copy coverage test.
   "TodayAdBlock.tsx",
 ]);

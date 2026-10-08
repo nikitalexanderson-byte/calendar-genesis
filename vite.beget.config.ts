@@ -4,12 +4,48 @@ import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
+import { LEGAL_UPDATED, legalPages } from "./app/legal-content";
 
 const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 const configuredBase = process.env.GENESIS_BASE_PATH?.trim() || "/";
 const base = configuredBase.endsWith("/") ? configuredBase : `${configuredBase}/`;
 const apiUrl = process.env.GENESIS_API_URL?.trim() || `${base.replace(/\/$/, "")}/api`;
 const PRECACHE_STATIC_REVISION = "saturn-calendar-art-v7";
+
+function publicLegalDocuments(): Plugin {
+  const escape = (text: string) => text.replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  })[character]!);
+  return {
+    name: "genesis-public-legal-documents",
+    apply: "build",
+    enforce: "post",
+    generateBundle(_options, bundle) {
+      const index = bundle["index.html"];
+      if (!index || index.type !== "asset" || typeof index.source !== "string") {
+        this.error("The public homepage must be built before legal documents.");
+      }
+      const template = index.source;
+      const root = /<div id="root">[\s\S]*<\/div>/;
+      if (!root.test(template)) this.error("Public homepage root is missing.");
+      for (const [slug, document] of Object.entries(legalPages)) {
+        const sections = document.sections.map(([title, body]) =>
+          `<section><h2>${escape(title)}</h2><p>${escape(body)}</p></section>`).join("\n");
+        const markup = `<div id="root"><main class="legal-shell">
+          <header class="legal-header"><a class="welcome-brand" href="/"><span class="solar-mark"><i></i></span><span><strong>GENESIS</strong><small>доверие и ясность</small></span></a><a href="/">← На главную</a></header>
+          <article class="legal-document"><span class="welcome-kicker">ОФИЦИАЛЬНЫЙ ДОКУМЕНТ</span><h1>${escape(document.title)}</h1><p class="legal-intro">${escape(document.intro)}</p><p class="legal-date">Редакция от ${escape(LEGAL_UPDATED)}</p>${sections}
+          ${slug === "privacy" ? '<p class="legal-policy-link"><a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noreferrer">Google API Services User Data Policy</a></p>' : ""}</article>
+          <footer class="legal-footer"><a href="/privacy">Конфиденциальность</a><a href="/terms">Соглашение</a><a href="/support">Поддержка</a><a href="/delete-account">Удаление аккаунта</a></footer>
+        </main></div>`;
+        const source = template.replace(root, markup)
+          .replace(/<title>[^<]*<\/title>/, `<title>${escape(document.title)} · GENESIS</title>`)
+          .replace(/(<meta name="description" content=")[^"]*("\s*\/?\s*>)/, `$1${escape(document.intro)}$2`)
+          .replace('href="https://genesiscalendar.com/"', `href="https://genesiscalendar.com/${slug}"`);
+        this.emitFile({ type: "asset", fileName: `${slug}.html`, source });
+      }
+    },
+  };
+}
 
 function offlinePrecacheManifest(basePath: string): Plugin {
   return {
@@ -40,7 +76,7 @@ export default defineConfig({
   root: path.join(projectRoot, "beget"),
   base,
   publicDir: path.join(projectRoot, "public"),
-  plugins: [react(), offlinePrecacheManifest(base)],
+  plugins: [react(), offlinePrecacheManifest(base), publicLegalDocuments()],
   define: {
     "process.env.NEXT_PUBLIC_GENESIS_API_URL": JSON.stringify(apiUrl),
     "process.env.NEXT_PUBLIC_GENESIS_BASE_PATH": JSON.stringify(base),
