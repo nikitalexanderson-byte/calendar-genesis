@@ -420,8 +420,10 @@ test("admin moderation exposes only aggregate habit counts and can optionally bl
   assert.match(cloud, /deleteAdminUser\(userId: string, blacklist: boolean\)/);
   assert.match(adminPanel, /stats\.totals\.habits/);
   assert.match(adminPanel, /user\.habitCount/);
-  assert.match(adminPanel, /user\.yandexCalendarConnected/);
-  assert.match(adminPanel, /user\.yandexSyncedCount/);
+  assert.doesNotMatch(adminPanel, /user\.yandexCalendarConnected|Яндекс|Yandex/);
+  assert.match(adminPanel, /admin-users-table/);
+  assert.match(adminPanel, /user\.androidReportedVersion/);
+  assert.match(adminPanel, /admin-feature-disclosure/);
   assert.match(adminPanel, /admin-android-note/);
   assert.match(adminPanel, /Добавить в чёрный список после удаления/);
   assert.match(adminPanel, /confirmation\.trim\(\)\.toLowerCase\(\) !== deleteTarget\.email\.toLowerCase\(\)/);
@@ -586,7 +588,8 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(tracker, /sleep-rule-editor/);
   assert.match(tracker, /mood-options/);
   assert.match(tracker, /mood-summary-action/);
-  assert.match(tracker, /className="mood-summary" aria-expanded=\{isOpen\}/);
+  assert.match(tracker, /className="mood-summary" aria-haspopup="dialog"/);
+  assert.match(tracker, /className="mood-modal" role="dialog" aria-modal="true"/);
   assert.match(tracker, /Выбрать/);
   assert.match(tracker, /destination="tracker"/);
   assert.doesNotMatch(tracker, /Система календаря/);
@@ -2298,7 +2301,7 @@ test("mobile Gregorian calendar fits all seven weekdays without horizontal scrol
   assert.match(calendar, /onClick=\{\(\) => openCalendarDate\(date, "calendar"\)\}/);
 });
 
-test("ships an isolated account-owned Experimental theme while preserving authored controls and assets", async () => {
+test("ships account-owned Standart colour schemes while preserving authored controls and assets", async () => {
   const [calendar, account, cloud, controller, datePicker, timePicker, styles, layout, begetEntry, repository, migration] = await Promise.all([
     readFile(new URL("../app/GenesisCalendar.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/AccountPanel.tsx", import.meta.url), "utf8"),
@@ -2313,21 +2316,19 @@ test("ships an isolated account-owned Experimental theme while preserving author
     readFile(new URL("../server/migrations/012_account_theme.sql", import.meta.url), "utf8"),
   ]);
 
-  assert.match(account, /Тема Experimental/);
+  assert.doesNotMatch(account, /Тема Experimental/);
   assert.match(account, /Текущая тема/);
   assert.match(account, /role="switch"/);
   assert.match(account, /GENESIS_THEME_LABEL/);
-  assert.match(calendar, /className="account-menu-theme" role="none"/);
-  assert.match(calendar, /className="account-menu-theme-switch"/);
-  assert.match(calendar, /"Личный кабинет"/);
+  assert.match(account, /COLOR_MODE_NAMES\[user.language\]\.group/);
+  assert.match(calendar, /aria-haspopup="dialog"/);
+  assert.match(calendar, /setAccountOpen\(true\)/);
   assert.doesNotMatch(calendar, />\s*Личная страница\s*</);
   assert.match(calendar, /createGenesisThemeController/);
   assert.match(calendar, /themeState=\{themeState\}/);
   assert.match(calendar, /onThemeChange=\{requestGenesisThemeChange\}/);
-  assert.match(calendar, /Experimental может работать нестабильно/);
-  assert.match(calendar, /Оставить Standart/);
-  assert.match(calendar, /confirmExperimentalTheme/);
-  assert.match(account, /Основная тема — Standart/);
+  assert.doesNotMatch(calendar, /Experimental может работать нестабильно|confirmExperimentalTheme/);
+  assert.match(calendar, /normalizeWebTheme\(currentUser.theme\)/);
   assert.doesNotMatch(calendar, /key=\{themeState|key=\{.*theme/);
   assert.match(cloud, /expectedThemeRevision/);
   assert.match(repository, /theme_revision = :theme_revision/);

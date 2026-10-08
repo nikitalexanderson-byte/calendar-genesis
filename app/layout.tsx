@@ -5,6 +5,7 @@ import "./experimental-theme.css";
 import "./dark-theme.css";
 import "./tablet-layout.css";
 import "./universal-ui.css";
+import "./web-standart.css";
 import { AppUrlCleaner } from "./AppUrlCleaner";
 import { YandexMetrika } from "./YandexMetrika";
 

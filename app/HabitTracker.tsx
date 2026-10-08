@@ -809,9 +809,16 @@ function DailyGoalSettings({ workspace, today, language, calendarMode, onChange 
   );
 }
 
-function MoodTracker({ workspace, date, language, onChange, experimentalThemeActive }: Pick<DailyPanelProps, "workspace" | "date" | "language" | "onChange" | "experimentalThemeActive">) {
+function MoodTracker({ workspace, date, language, onChange }: Pick<DailyPanelProps, "workspace" | "date" | "language" | "onChange" | "experimentalThemeActive">) {
   const isEnglish = language === "en";
   const [isOpen, setIsOpen] = useState(false);
+  const moodDialogId = useId();
+  const dialogRef = useDialogAccessibility<HTMLElement>(() => setIsOpen(false), isOpen);
+  const [customOpen, setCustomOpen] = useState(() => {
+    try { return typeof window !== "undefined" && localStorage.getItem("genesis:mood-custom-open") === "true"; } catch { return false; }
+  });
+  const lastCustom = [...workspace.moodEntries].filter((entry) => entry.customLabel && entry.customEmoji)
+    .sort((a, b) => b.date.localeCompare(a.date))[0];
   const mood = workspace.moodEntries.find((entry) => entry.date === date);
   const selected = mood ? moodOption(mood.moodValue) : null;
   const customFields = (
@@ -835,7 +842,7 @@ function MoodTracker({ workspace, date, language, onChange, experimentalThemeAct
   );
   return (
     <section className={`mood-tracker${isOpen ? " is-open" : ""}`}>
-      <button type="button" className="mood-summary" aria-expanded={isOpen} onClick={() => setIsOpen((current) => !current)}>
+      <button type="button" className="mood-summary" aria-haspopup="dialog" onClick={() => setIsOpen(true)}>
         <span>{isEnglish ? "Mood of the day" : "Настроение дня"}</span>
         <strong style={{ color: mood ? moodColor(mood.moodValue) : undefined }}>
           {mood?.customLabel ? `${mood.customEmoji || "✨"} ${mood.customLabel}` : selected ? (isEnglish ? selected.labelEn : selected.label) : (isEnglish ? "Not selected" : "Не выбрано")}
@@ -845,7 +852,9 @@ function MoodTracker({ workspace, date, language, onChange, experimentalThemeAct
           <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4" /></svg>
         </span>
       </button>
-      {isOpen ? <>
+      {isOpen ? <div className="modal-backdrop mood-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setIsOpen(false); }}>
+      <section ref={dialogRef} className="mood-modal" role="dialog" aria-modal="true" aria-labelledby={moodDialogId} tabIndex={-1}>
+      <header><h2 id={moodDialogId}>{isEnglish ? "Mood of the day" : "Настроение дня"}</h2><button type="button" className="modal-close" onClick={() => setIsOpen(false)} aria-label={isEnglish ? "Close" : "Закрыть"}>×</button></header>
       <div className="mood-options" role="group" aria-label={isEnglish ? "Choose mood" : "Выберите настроение"}>
         {MOOD_SCALE.map((option) => (
           <button
@@ -863,10 +872,16 @@ function MoodTracker({ workspace, date, language, onChange, experimentalThemeAct
           </button>
         ))}
       </div>
-      {experimentalThemeActive ? <details className="mood-custom-disclosure">
-        <summary>{isEnglish ? "Your own mood and emoji" : "Своё настроение и эмодзи"}<DisclosureChevron open={false} /></summary>
+      {lastCustom ? <button type="button" className="secondary-button mood-recent" onClick={() => onChange(replaceMood(workspace, date, {
+        moodValue: lastCustom.moodValue, customLabel: lastCustom.customLabel, customEmoji: lastCustom.customEmoji,
+      }))}>{lastCustom.customEmoji} {lastCustom.customLabel}</button> : null}
+      <details className="mood-custom-disclosure" open={customOpen} onToggle={(event) => {
+        const open = event.currentTarget.open; setCustomOpen(open);
+        try { localStorage.setItem("genesis:mood-custom-open", String(open)); } catch { /* The choice remains available without storage. */ }
+      }}>
+        <summary>{isEnglish ? "Your own mood and emoji" : "Своё настроение и эмодзи"}<DisclosureChevron open={customOpen} /></summary>
         {customFields}
-      </details> : customFields}
+      </details>
       <label className="mood-custom">
         <span>{isEnglish ? "Note and context" : "Заметка и контекст"}</span>
         <input
@@ -877,7 +892,8 @@ function MoodTracker({ workspace, date, language, onChange, experimentalThemeAct
         />
       </label>
       <small className="mood-no-score">{isEnglish ? "Mood is used for analytics and never changes your score." : "Настроение используется только для аналитики и не влияет на баллы."}</small>
-      </> : null}
+      <footer><button type="button" className="primary-button" onClick={() => setIsOpen(false)}>{isEnglish ? "Done" : "Готово"}</button></footer>
+      </section></div> : null}
     </section>
   );
 }
@@ -1608,7 +1624,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
     },
   });
   return (
-    <div className={`habits-view${workspace.habitSettings.feedback.gamificationWidgets ? "" : " gamification-hidden"}${experimentalThemeActive ? ` experimental-habit-tab-${activeHabitTab}` : ""}`} data-exp-layout="view">
+    <div className={`habits-view${workspace.habitSettings.feedback.gamificationWidgets ? "" : " gamification-hidden"}${` experimental-habit-tab-${activeHabitTab}`}`} data-exp-layout="view">
       <header className="habits-hero">
         <div><span className="eyebrow">{isEnglish ? "Encrypted personal tracker" : "Зашифрованный личный трекер"}</span><h1>{isEnglish ? "Trackers" : "Привычки"}</h1><p>{isEnglish ? "Habits, sleep, mood and abstinence are independent modules over one secure tracker core." : "Привычки, сон, настроение и воздержание — независимые модули поверх единого защищённого ядра."}</p><p className="habits-hero-layout-hint">{experimentalThemeActive
           ? (isEnglish ? "Use the workspace tabs to keep today's rhythm, your library, modules and progress separate." : "Переходите по вкладкам: сегодняшний ритм, библиотека, модули и прогресс больше не смешиваются в одной ленте.")
@@ -1623,7 +1639,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
           <button type="button" className="primary-button" onClick={openNewHabit}>＋ {isEnglish ? "New habit" : "Новая привычка"}</button>
         </div>
       </header>
-      {experimentalThemeActive ? <div ref={experimentalHabitTabsRef} className="experimental-habit-tabs" role="tablist" tabIndex={-1} aria-label={isEnglish ? "Habit workspace" : "Рабочая зона привычек"} onKeyDown={(event) => {
+      {<div ref={experimentalHabitTabsRef} className="experimental-habit-tabs" role="tablist" tabIndex={-1} aria-label={isEnglish ? "Habit workspace" : "Рабочая зона привычек"} onKeyDown={(event) => {
         const tabs = habitTabs;
         if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
         event.preventDefault();
@@ -1637,7 +1653,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
         {habitTabs.includes("library") ? <button data-experimental-habit-tab="library" type="button" role="tab" tabIndex={activeHabitTab === "library" ? 0 : -1} aria-selected={activeHabitTab === "library"} onClick={() => setExperimentalHabitTab("library")}><span aria-hidden="true">✦</span><strong>{isEnglish ? "Habits" : "Привычки"}</strong><small>{isEnglish ? "Library and templates" : "Библиотека и шаблоны"}</small></button> : null}
         {habitTabs.includes("modules") ? <button data-experimental-habit-tab="modules" type="button" role="tab" tabIndex={activeHabitTab === "modules" ? 0 : -1} aria-selected={activeHabitTab === "modules"} onClick={() => setExperimentalHabitTab("modules")}><span aria-hidden="true">◇</span><strong>{isEnglish ? "Modules" : "Модули"}</strong><small>{isEnglish ? "Sleep and sacred" : "Сон и сакральное"}</small></button> : null}
         {habitTabs.includes("progress") ? <button data-experimental-habit-tab="progress" type="button" role="tab" tabIndex={activeHabitTab === "progress" ? 0 : -1} aria-selected={activeHabitTab === "progress"} onClick={() => setExperimentalHabitTab("progress")}><span aria-hidden="true">↗</span><strong>{isEnglish ? "Progress" : "Прогресс"}</strong><small>{isEnglish ? "Stats and awards" : "Статистика и награды"}</small></button> : null}
-      </div> : null}
+      </div>}
       {hasHabits && workspace.habitSettings.feedback.gamificationWidgets ? <CollapsibleHabitBlock className="experimental-habit-section experimental-habit-section-today" label={isEnglish ? "Streak protection and comeback" : "Защита серии и возвращение"} language={language} {...disclosureProps("streak-resilience")}><section className="streak-resilience" aria-label={isEnglish ? "Streak protection and comeback" : "Защита серии и возвращение"}>
         <article className="hestia-spark-card">
           <span className="hestia-spark-icon" aria-hidden="true">

@@ -21,7 +21,9 @@ import {
   useSyncExternalStore,
 } from "react";
 import { CalendarDayTaskCounts, CalendarYearTaskCounts } from "./CalendarTaskCounts";
+import { normalizeWebTheme } from "./web-theme";
 import { TodayAdBlock } from "./TodayAdBlock";
+import { ActionNotice, useActionNotice } from "./ActionNotice";
 import { uiVisibility, viewIsVisible } from "./ui-visibility";
 import { ProjectsHeroMark } from "./ProjectsHeroMark";
 import { matchesAffair } from "./affairs-search";
@@ -47,7 +49,6 @@ import {
   createGoogleTaskList,
   removeGoogleTaskList,
   isGoogleSyncConfigured,
-  loadAuthProviders,
   loadAssistantStatus,
   loadGenesisSession,
   type AssistantProvider,
@@ -70,7 +71,6 @@ import {
   saveWorkspaceStructure,
   restoreOfflineWorkspaceSession,
   signInWithGoogle,
-  signInWithYandex,
   signOutFromGoogle,
   updateAccountPreferences,
   updateGoogleTaskList,
@@ -188,9 +188,7 @@ import { cleanTaskDescription } from "./task-description";
 import { cleanGenesisAppUrl } from "./app-url";
 import {
   GENESIS_THEME,
-  GENESIS_THEME_LABEL,
   createGenesisThemeController,
-  normalizeGenesisTheme,
   type GenesisTheme,
   type GenesisThemeController,
   type ThemeControllerState,
@@ -216,7 +214,7 @@ const LocalVoiceAssistant = lazy(() => import("./LocalVoiceAssistant").then((mod
 const StoicheionView = lazy(() => import("./StoicheionView").then((module) => ({ default: module.StoicheionView })));
 const TheokyklosView = lazy(() => import("./TheokyklosView").then((module) => ({ default: module.TheokyklosView })));
 
-const EXPERIMENTAL_THEME_AVAILABLE = process.env.NEXT_PUBLIC_GENESIS_EXPERIMENTAL_THEME_ENABLED !== "false";
+const WEB_THEME_AVAILABLE = true;
 
 function DeferredViewFallback({ label }: { label: string }) {
   return <section className="deferred-view-loading" role="status" aria-live="polite"><span aria-hidden="true"><i /></span><strong>{label}</strong></section>;
@@ -1339,7 +1337,6 @@ export function GenesisCalendar() {
   const [authResolved, setAuthResolved] = useState(!isGoogleSyncConfigured);
   const [cloudUser, setCloudUser] = useState<GenesisUser | null>(null);
   const [sharedCalendarTasks, setSharedCalendarTasks] = useState<SharedCalendarTask[]>([]);
-  const [yandexAvailable, setYandexAvailable] = useState(false);
   const [springYearSuggestionDismissed, setSpringYearSuggestionDismissed] = useState(false);
   const [springYearSuggestionBusy, setSpringYearSuggestionBusy] = useState(false);
   const [springYearSuggestionError, setSpringYearSuggestionError] = useState(false);
@@ -1349,7 +1346,7 @@ export function GenesisCalendar() {
     savedTheme: GENESIS_THEME.STANDART,
     status: "signed-out",
     pending: false,
-    available: EXPERIMENTAL_THEME_AVAILABLE,
+    available: WEB_THEME_AVAILABLE,
     error: null,
   });
   const [accountOpen, setAccountOpen] = useState(false);
@@ -1372,11 +1369,16 @@ export function GenesisCalendar() {
   const [accountIdentityExpanded, setAccountIdentityExpanded] = useState(false);
   const [yandexConnectPromptUserId, setYandexConnectPromptUserId] = useState<string | null>(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
-  const [experimentalThemeWarningOpen, setExperimentalThemeWarningOpen] = useState(false);
-  const pendingExperimentalThemeRef = useRef<GenesisTheme>(GENESIS_THEME.EXPERIMENTAL);
   const [taskComposer, setTaskComposer] = useState<"today" | "projects" | null>(null);
   const [composerTab, setComposerTab] = useState<"task" | "lists">("task");
   const [completedProjectsOpen, setCompletedProjectsOpen] = useState(false);
+  const [completingProjectIds, setCompletingProjectIds] = useState<string[]>([]);
+  const { notice, announce } = useActionNotice();
+  useEffect(() => {
+    if (!completingProjectIds.length) return;
+    const timer = window.setTimeout(() => setCompletingProjectIds([]), 650);
+    return () => window.clearTimeout(timer);
+  }, [completingProjectIds]);
   const [voiceAssistantOpen, setVoiceAssistantOpen] = useState(false);
   const [voiceControlActive, setVoiceControlActive] = useState(false);
   const [voiceHabitRequest, setVoiceHabitRequest] = useState<{ token: number; kind: "edit" | "delete" | "section"; id?: string; section?: string } | null>(null);
@@ -1484,7 +1486,6 @@ export function GenesisCalendar() {
   const taskDeleteDialogRef = useDialogAccessibility<HTMLElement>(() => setPendingTaskDeletion(null), Boolean(pendingTaskDeletion));
   const taskListEditorDialogRef = useDialogAccessibility<HTMLFormElement>(() => setEditingTaskList(null), Boolean(editingTaskList));
   const projectEditorDialogRef = useDialogAccessibility<HTMLFormElement>(() => setEditingProject(null), Boolean(editingProject));
-  const experimentalThemeWarningDialogRef = useDialogAccessibility<HTMLElement>(() => setExperimentalThemeWarningOpen(false), experimentalThemeWarningOpen);
   const themeAccountId = cloudUser?.uid ?? null;
   useMoonReminders(themeAccountId, language === "en");
   useDocumentLanguage(language);
@@ -1496,7 +1497,7 @@ export function GenesisCalendar() {
   useEffect(() => {
     const controller = createGenesisThemeController({
       root: document.documentElement,
-      enabled: EXPERIMENTAL_THEME_AVAILABLE,
+      enabled: WEB_THEME_AVAILABLE,
       adapter: {
         async read({ accountId, signal, fresh }) {
           if (signal.aborted) throw new DOMException("Theme read aborted", "AbortError");
@@ -1507,7 +1508,7 @@ export function GenesisCalendar() {
             localStorage.setItem(LAST_USER_KEY, JSON.stringify(user));
           }
           return {
-            theme: normalizeGenesisTheme(user.theme),
+            theme: normalizeWebTheme(user.theme),
             revision: Math.max(0, Number(user.themeRevision ?? 0)),
           };
         },
@@ -1522,7 +1523,7 @@ export function GenesisCalendar() {
             localStorage.setItem(LAST_USER_KEY, JSON.stringify(result.user));
           }
           return {
-            theme: normalizeGenesisTheme(result.user.theme),
+            theme: normalizeWebTheme(result.user.theme),
             revision: Math.max(0, Number(result.user.themeRevision ?? 0)),
           };
         },
@@ -1548,7 +1549,7 @@ export function GenesisCalendar() {
     void controller.bindAccount(themeAccountId, {
       verifiedInitialPreference: {
         accountId: themeAccountId,
-        theme: normalizeGenesisTheme(currentUser.theme),
+        theme: normalizeWebTheme(currentUser.theme),
       },
     });
   }, [themeAccountId]);
@@ -1558,17 +1559,7 @@ export function GenesisCalendar() {
   }, []);
 
   const requestGenesisThemeChange = useCallback((theme: GenesisTheme) => {
-    if (theme.startsWith("experimental") && !themeState.theme.startsWith("experimental")) {
-      pendingExperimentalThemeRef.current = theme;
-      setExperimentalThemeWarningOpen(true);
-      return;
-    }
-    changeGenesisTheme(theme);
-  }, [changeGenesisTheme, themeState.theme]);
-
-  const confirmExperimentalTheme = useCallback(() => {
-    setExperimentalThemeWarningOpen(false);
-    changeGenesisTheme(pendingExperimentalThemeRef.current);
+    changeGenesisTheme(normalizeWebTheme(theme));
   }, [changeGenesisTheme]);
 
   useEffect(() => {
@@ -1616,16 +1607,6 @@ export function GenesisCalendar() {
   useEffect(() => {
     const timer = window.setTimeout(() => setAuthError(consumeGoogleAuthError()), 0);
     return () => window.clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
-    let active = true;
-    void loadAuthProviders().then((providers) => {
-      if (active) {
-        setYandexAvailable(providers.yandex);
-      }
-    }).catch(() => undefined);
-    return () => { active = false; };
   }, []);
 
   useEffect(() => {
@@ -2406,20 +2387,6 @@ export function GenesisCalendar() {
       await signInWithGoogle();
     } catch (error) {
       setSyncError(error instanceof Error ? error.message : "Не удалось войти");
-      setSyncStatus("error");
-    }
-  };
-
-  const handleYandexSignIn = async () => {
-    setAuthError("");
-    setSyncError("");
-    setSyncStatus("syncing");
-    storeLanguage(language);
-    localStorage.setItem(LANGUAGE_LOGIN_PENDING_KEY, language);
-    try {
-      await signInWithYandex();
-    } catch (error) {
-      setSyncError(error instanceof Error ? error.message : "Не удалось войти через Яндекс");
       setSyncStatus("error");
     }
   };
@@ -4311,6 +4278,10 @@ export function GenesisCalendar() {
     const nextProjects = projects.map((item) => ids.has(item.id)
       ? { ...item, status: project.status === "active" ? "completed" as const : "active" as const, updatedAt: timestamp() } : item);
     setProjects(nextProjects); persistStructure(nextProjects, categories, taskListLinks);
+    if (project.status === "active") {
+      setCompletingProjectIds((current) => [...new Set([...current, ...ids])]);
+      announce(language === "en" ? "Project completed" : "Проект завершён");
+    } else announce(language === "en" ? "Project restored" : "Проект восстановлен");
   };
 
   const renderTaskListCreateForm = (context: "today" | "all-tasks" | "projects" | "composer") => (
@@ -4527,6 +4498,20 @@ export function GenesisCalendar() {
           <span>Новая задача</span>
           <input value={taskTitle} onChange={(event) => setTaskTitle(event.target.value)} placeholder="Что важно совершить?" />
         </label>
+          <label>
+            <span>Проект или подпроект</span>
+            <select value={taskProject} onChange={(event) => setTaskProject(event.target.value)}>
+              <option value="">Без проекта</option>
+              {flattenProjects(projects).map(({ project, depth }) => (
+                <option value={project.id} key={project.id}>{"— ".repeat(depth)}{project.title}</option>
+              ))}
+            </select>
+          </label>
+          <label htmlFor={`${context}-task-end-date`}>
+            <span>Срок выполнения</span>
+            <CalendarDatePicker id={`${context}-task-end-date`} mode={activeTaskCalendarMode} min={newTaskDueDate} value={newTaskEndDate} onChange={setTaskEndDate} required />
+          </label>
+        <details className="task-advanced-fields"><summary>{language === "en" ? "Details and settings" : "Подробности и настройки"}</summary>
         <label>
           <span>Дополнительная информация</span>
           <textarea rows={3} value={taskDescription} onChange={(event) => setTaskDescription(event.target.value)} placeholder="Подробности, ожидаемый результат и заметки" />
@@ -4539,10 +4524,7 @@ export function GenesisCalendar() {
               setTaskEndDate((current) => !current || current < nextDate ? nextDate : current);
             }} required />
           </label>
-          <label htmlFor={`${context}-task-end-date`}>
-            <span>Срок выполнения</span>
-            <CalendarDatePicker id={`${context}-task-end-date`} mode={activeTaskCalendarMode} min={newTaskDueDate} value={newTaskEndDate} onChange={setTaskEndDate} required />
-          </label>
+
           <label htmlFor={`${context}-new-task-time-hour`}>
             <span>Время</span>
             <TimeClockPicker id={`${context}-new-task-time-hour`} value={taskTime} timeFormat={activeTimeFormat} disabled={Boolean(taskTaskListId) && cloudUser?.authProvider === "google"} onChange={setTaskTime} />
@@ -4578,15 +4560,7 @@ export function GenesisCalendar() {
           <small>Даты сакрального и лунного календарей преобразуются в григорианские по часовому поясу устройства перед отправкой в Яндекс.</small>
         </div> : null}
         <div className="task-form-section task-form-destination" aria-label="Контекст задачи">
-          <label>
-            <span>Проект или подпроект</span>
-            <select value={taskProject} onChange={(event) => setTaskProject(event.target.value)}>
-              <option value="">Без проекта</option>
-              {flattenProjects(projects).map(({ project, depth }) => (
-                <option value={project.id} key={project.id}>{"— ".repeat(depth)}{project.title}</option>
-              ))}
-            </select>
-          </label>
+
           <label>
             <span>Куда добавить задачу</span>
             <select value={taskTaskListId} onChange={(event) => {
@@ -4696,12 +4670,22 @@ export function GenesisCalendar() {
               : `${taskRecurrenceConfig.mode === "classic" ? "Григорианская" : taskRecurrenceConfig.mode === "lunar" ? "Лунная" : "Сакральная"} серия из ${recurrenceOccurrenceCount} повторений будет сохранена одной задачей в GENESIS и одним событием в Google Calendar`
             : "Задача будет синхронизирована с Google Calendar в часовом поясе этого устройства"}</span>
         </div>
+        </details>
         <button type="submit" className="add-task-button" disabled={!taskTitle.trim() || !newTaskDueDate || !newTaskEndDate || dueDateIsPast || rangeIsInvalid || recurrenceIsInvalid || syncAccountsInvalid || (createsTaskList && !taskNewListTitle.trim())}>
           <span aria-hidden="true">＋</span> Добавить задачу
         </button>
       </form>
       </>
     );
+  };
+
+  const changeDisplayCalendar = async (mode: CalendarMode) => {
+    if (!cloudUser || !visibility.enabledCalendars.includes(mode)) return;
+    try {
+      const result = await updateAccountPreferences({ calendarMode: mode });
+      setCloudUser(result.user);
+      localStorage.setItem(LAST_USER_KEY, JSON.stringify(result.user));
+    } catch (error) { setSyncError(error instanceof Error ? error.message : "Не удалось переключить календарь."); }
   };
 
   const renderToday = () => {
@@ -4766,6 +4750,12 @@ export function GenesisCalendar() {
 
     return (
       <div className="today-view" data-exp-layout="view">
+        <div className="today-calendar-choice" role="group" aria-label={isEnglish ? "Today's calendar" : "Календарь сегодня"}>
+          {(["profane", "sacred", "lunar"] as CalendarMode[]).filter((mode) => visibility.enabledCalendars.includes(mode)).map((mode) => (
+            <button type="button" className="secondary-button" key={mode} aria-pressed={activeCalendarMode === mode}
+              onClick={() => void changeDisplayCalendar(mode)}>{mode === "profane" ? (isEnglish ? "Gregorian" : "Григорианский") : mode === "sacred" ? (isEnglish ? "Sacred" : "Сакральный") : (isEnglish ? "Lunar" : "Лунный")}</button>
+          ))}
+        </div>
         <section className={`hero-card mode-${activeCalendarMode}${activeCalendarMode === "profane" ? ` weekday-${gregorian.getDay()}` : ""}`} aria-labelledby="today-title" data-genesis-preserve="today-hero-art">
           <div className="hero-copy">
             <div className="eyebrow-row">
@@ -4819,7 +4809,7 @@ export function GenesisCalendar() {
             <div>
               <strong>{todayTasks.filter((task) => task.done).length} / {todayTasks.length}</strong>
               {showToday("quickCreate") ? <button type="button" className="primary-button" onClick={() => openTaskComposer("today")}>{isEnglish ? "Create task" : "Создать задачу"}</button> : null}
-              <button type="button" className="text-button" onClick={() => navigateTo("projects")}>{isEnglish ? "Affairs" : "Дела"} →</button>
+              <button type="button" className="secondary-button" onClick={() => navigateTo("projects")}>{isEnglish ? "Go to affairs" : "Перейти к делам"}</button>
             </div>
           </header>
           {todayTasks.length ? (
@@ -5607,7 +5597,8 @@ export function GenesisCalendar() {
       }
       return false;
     };
-    const visibleProjects = projects.filter((project) => isCompletedProject(project) === completedProjectsOpen);
+    const visibleProjects = projects.filter((project) => isCompletedProject(project) === completedProjectsOpen
+      || !completedProjectsOpen && completingProjectIds.includes(project.id));
     const completedCount = projects.filter(isCompletedProject).length;
     const matchingTaggedProjects = visibleProjects.filter((project) => searchTerms.length > 0 && matchesAffair(project, tagSearch));
     const matchingProjectIds = new Set(matchingTaggedProjects.map((project) => project.id));
@@ -5682,7 +5673,7 @@ export function GenesisCalendar() {
               <span className="ornament" aria-hidden="true">◎</span>
             </div>
 
-            <div className="project-tree-workspace">
+            <div className={`project-tree-workspace${completedProjectsOpen ? " is-completed-view" : ""}`}>
               {!completedProjectsOpen ? <section
                 className={`inbox-card${projectDropTargetId === TASK_INBOX_PROJECT_ID ? " drop-target" : ""}`}
                 data-project-drop-id={TASK_INBOX_PROJECT_ID}
@@ -5739,9 +5730,11 @@ export function GenesisCalendar() {
                         {project.tags.length ? <em>{project.tags.map((tag) => `#${tag}`).join("  ")}</em> : null}
                       </div>
                     </button>
-                    <button type="button" className="project-complete-action" aria-pressed={project.status !== "active"}
+                    <button type="button" className={`project-complete-action${completingProjectIds.includes(project.id) ? " is-completing" : ""}`} aria-pressed={project.status !== "active"} disabled={completingProjectIds.includes(project.id)}
                       aria-label={project.status !== "active" ? `Вернуть проект «${project.title}» в текущие` : `Завершить проект «${project.title}»`}
-                      title={project.status !== "active" ? "Вернуть в текущие" : "Завершить проект"} onClick={() => toggleProject(project.id)}><span aria-hidden="true">{project.status !== "active" ? "✓" : ""}</span></button>
+                      title={project.status !== "active" ? "Вернуть в текущие" : "Завершить проект"} onClick={() => toggleProject(project.id)}>
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m7 12 3 3 7-7"/></svg>
+                      <span className="completion-action-label">{project.status !== "active" ? (language === "en" ? "Restore" : "Вернуть") : (language === "en" ? "Complete" : "Завершить")}</span></button>
                     <button type="button" className="project-edit" onClick={() => openProjectEditor(project)} aria-label={`Редактировать проект «${project.title}»`}>✎</button>
                     {cloudUser?.sharedProjectsEnabled ? <button type="button" className="project-transfer"
                       onClick={() => setTransferProject(project)}
@@ -6412,8 +6405,6 @@ export function GenesisCalendar() {
         language={language}
         onLanguageChange={selectLanguage}
         onGoogle={() => void handleGoogleSignIn()}
-        onYandex={() => void handleYandexSignIn()}
-        yandexAvailable={yandexAvailable}
       />
       </Suspense>
     );
@@ -6432,6 +6423,7 @@ export function GenesisCalendar() {
         "--genesis-hero-fallback": activeCalendarMode === "sacred" ? `url("${APP_BASE}/genesis-hero.png")` : "none",
       } as CSSProperties}
     >
+      <ActionNotice message={view === "projects" && activeProjectsArea === "shared" ? "" : notice}/>
       <a className="skip-link" href="#main-content">К основному содержанию</a>
       <aside className="app-sidebar" aria-label="Основная навигация" data-exp-ui="navigation">
         <button className="brand-mark" type="button" onClick={selectToday} aria-label="GENESIS — на главную">
@@ -6523,13 +6515,9 @@ export function GenesisCalendar() {
                 <button
                   type="button"
                   className="account-open"
-                  onClick={() => {
-                    if (!accountIdentityExpanded) setAccountIdentityExpanded(true);
-                    else setAccountMenuOpen((current) => !current);
-                  }}
-                  aria-label={accountIdentityExpanded ? "Открыть меню аккаунта" : "Показать имя аккаунта"}
-                  aria-haspopup="menu"
-                  aria-expanded={accountMenuOpen}
+                  onClick={() => { setAccountMenuOpen(false); setAccountOpen(true); }}
+                  aria-label={language === "en" ? "Open account settings" : "Открыть личный кабинет и настройки"}
+                  aria-haspopup="dialog"
                 >
                   <span
                     className="account-avatar"
@@ -6546,41 +6534,6 @@ export function GenesisCalendar() {
                       : "личный кабинет"}</small>
                   </span> : null}
                 </button>
-                {accountMenuOpen ? (
-                  <div className="account-menu" role="menu">
-                    <div className="account-menu-theme" role="none">
-                      <span>
-                        <strong>{language === "en" ? "Interface theme" : "Тема интерфейса"}</strong>
-                        <small>{GENESIS_THEME_LABEL[themeState.theme]}</small>
-                      </span>
-                      <label className="account-menu-theme-switch">
-                        <input
-                          type="checkbox"
-                          role="switch"
-                          checked={themeState.theme.startsWith("experimental")}
-                          disabled={!themeState.available || ["signed-out", "loading", "load-error"].includes(themeState.status)}
-                          aria-label={language === "en" ? "Experimental theme" : "Тема Experimental"}
-                          aria-busy={themeState.pending}
-                          onChange={(event) => requestGenesisThemeChange(event.target.checked
-                            ? (themeState.theme.endsWith("-dark") ? GENESIS_THEME.EXPERIMENTAL_DARK : GENESIS_THEME.EXPERIMENTAL)
-                            : (themeState.theme.endsWith("-dark") ? GENESIS_THEME.STANDART_DARK : GENESIS_THEME.STANDART))}
-                        />
-                        <i aria-hidden="true" />
-                      </label>
-                    </div>
-                    <button type="button" role="menuitem" onClick={() => {
-                      setAccountMenuOpen(false);
-                      setAccountOpen(true);
-                    }}>
-                      <span aria-hidden="true">○</span>
-                      {language === "en" ? "Account settings" : "Личный кабинет"}
-                    </button>
-                    <button type="button" role="menuitem" className="account-menu-signout" onClick={() => void handleGoogleSignOut()}>
-                      <span aria-hidden="true">↗</span>
-                      Выйти из аккаунта
-                    </button>
-                  </div>
-                ) : null}
               </div>
             ) : (
               <button
@@ -7341,28 +7294,12 @@ export function GenesisCalendar() {
           onCancel={cancelWorkspaceRecovery}
         />
       ) : null}
-      {experimentalThemeWarningOpen ? (
-        <div className="modal-backdrop experimental-theme-warning-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setExperimentalThemeWarningOpen(false); }}>
-          <section ref={experimentalThemeWarningDialogRef} className="editor-modal experimental-theme-warning" data-exp-ui="dialog" role="dialog" aria-modal="true" aria-labelledby="experimental-theme-warning-title" aria-describedby="experimental-theme-warning-description" tabIndex={-1}>
-            <button type="button" className="modal-close" onClick={() => setExperimentalThemeWarningOpen(false)} aria-label={language === "en" ? "Close" : "Закрыть"}>×</button>
-            <span className="eyebrow">{language === "en" ? "Experimental mode" : "Экспериментальный режим"}</span>
-            <h2 id="experimental-theme-warning-title">{language === "en" ? "Experimental may be unstable" : "Experimental может работать нестабильно"}</h2>
-            <p id="experimental-theme-warning-description">{language === "en"
-              ? "Standart is the primary GENESIS theme. Experimental is still being refined, so some sections, contrast or adaptive behavior may temporarily contain defects. Your data and synchronization rules do not change."
-              : "Standart — основная тема GENESIS. Experimental ещё дорабатывается, поэтому в отдельных разделах, контрасте или адаптивном поведении временно возможны ошибки. Данные и правила синхронизации не изменяются."}</p>
-            <div className="editor-actions">
-              <button type="button" className="text-button" onClick={() => setExperimentalThemeWarningOpen(false)}>{language === "en" ? "Keep Standart" : "Оставить Standart"}</button>
-              <button type="button" className="primary-button" onClick={confirmExperimentalTheme}>{language === "en" ? "Enable Experimental" : "Включить Experimental"}</button>
-            </div>
-          </section>
-        </div>
-      ) : null}
       {accountOpen && cloudUser ? (
         <Suspense fallback={<DeferredDialogFallback label={language === "en" ? "Opening account…" : "Открываем личный кабинет…"} />}>
           <AccountPanel
             user={cloudUser}
-            yandexAvailable={yandexAvailable}
             onClose={() => setAccountOpen(false)}
+            onSignOut={handleGoogleSignOut}
             onReconnectGoogle={() => {
               setAccountOpen(false);
               void handleGoogleConnect();

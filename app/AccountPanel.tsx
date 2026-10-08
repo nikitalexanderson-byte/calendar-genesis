@@ -3,8 +3,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { CalendarMode } from "./calendar-data";
-import type { GenesisCategory, GenesisUser, PendingLocalAccountLink, SharedInvitation, SharedNotification, SyncRouting } from "./cloud-sync";
-import { acceptSharedInvitation, cancelPendingLocalAccountLink, connectLocalAccount, connectYandexCalendar, deleteGenesisAccount, disconnectGoogleServices, disconnectYandexCalendar, getPendingLocalAccountLink, listSharedInvitations, listSharedNotifications, mergePendingLocalAccountLink, readSharedNotifications, rejectSharedInvitation, removeAdditionalGoogleAccount, updateAccountPreferences, recordFeatureUsage } from "./cloud-sync";
+import type { GenesisCategory, GenesisUser, SharedInvitation, SharedNotification, SyncRouting } from "./cloud-sync";
+import { acceptSharedInvitation, deleteGenesisAccount, disconnectGoogleServices, listSharedInvitations, listSharedNotifications, readSharedNotifications, rejectSharedInvitation, removeAdditionalGoogleAccount, updateAccountPreferences, recordFeatureUsage } from "./cloud-sync";
 import { LANGUAGES, LANGUAGE_LABELS, localizeCategoryName, runtimeLocale, translateText, type Language } from "./i18n";
 
 import type { TimeFormat } from "./time-format";
@@ -67,8 +67,8 @@ const TODAY_SETTINGS = [
 
 type AccountPanelProps = {
   user: GenesisUser;
-  yandexAvailable: boolean;
   onClose: () => void;
+  onSignOut: () => Promise<void>;
   onReconnectGoogle: () => void;
   onConnectAdditionalGoogle: () => void;
   onLanguageChange: (language: Language) => void;
@@ -126,11 +126,9 @@ function createHabitResetChallenge(): HabitResetChallenge {
   };
 }
 
-export function AccountPanel({ user, yandexAvailable, onClose, onReconnectGoogle, onConnectAdditionalGoogle, onLanguageChange, onUserChange, themeState, onThemeChange, habitTrackingEnabled, onHabitTrackingChange, habitNotificationSettings, notificationPermission, onHabitNotificationSettingsChange, habitFeedbackSettings, onHabitFeedbackSettingsChange, onRequestHabitNotifications, hiddenHabitTemplateCount, onRestoreHabitTemplates, onResetHabitTracking, categories }: AccountPanelProps) {
+export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onConnectAdditionalGoogle, onLanguageChange, onUserChange, themeState, onThemeChange, habitTrackingEnabled, onHabitTrackingChange, habitNotificationSettings, notificationPermission, onHabitNotificationSettingsChange, habitFeedbackSettings, onHabitFeedbackSettingsChange, onRequestHabitNotifications, hiddenHabitTemplateCount, onRestoreHabitTemplates, onResetHabitTracking, categories }: AccountPanelProps) {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
-  const [yandexAccountId, setYandexAccountId] = useState(() => user.linkedAccounts?.find((account) => account.provider === "yandex")?.id ?? user.uid);
-  const [pendingLocalLink, setPendingLocalLink] = useState<PendingLocalAccountLink | null>(null);
   const [preferenceBusy, setPreferenceBusy] = useState(false);
   const [pendingVisibility, setPendingVisibility] = useState<UiVisibility | null>(null);
   const [notificationBusy, setNotificationBusy] = useState(false);
@@ -251,13 +249,6 @@ export function AccountPanel({ user, yandexAvailable, onClose, onReconnectGoogle
     const frame = window.requestAnimationFrame(() => habitResetInputRef.current?.focus());
     return () => window.cancelAnimationFrame(frame);
   }, [habitResetChallenge]);
-
-  useEffect(() => {
-    if (user.authProvider === "google") return;
-    void getPendingLocalAccountLink().then(setPendingLocalLink).catch((error) => {
-      setMessage(error instanceof Error ? error.message : "Не удалось проверить объединение аккаунтов.");
-    });
-  }, [user.authProvider]);
 
   const changeDivinationPreference = async (disabled: boolean) => {
     setPreferenceBusy(true);
@@ -397,7 +388,7 @@ export function AccountPanel({ user, yandexAvailable, onClose, onReconnectGoogle
         ? (user.language === "en" ? "The selected theme is active on this device. Account synchronization will retry automatically." : "Выбранная тема активна на этом устройстве. Синхронизация с аккаунтом повторится автоматически.")
         : (user.language === "en" ? "The selected theme is active on this device but is not synced yet. Saving will retry automatically." : "Выбранная тема активна на этом устройстве, но пока не синхронизирована. Сохранение повторится автоматически.")
       : themeState.status === "unavailable"
-        ? (user.language === "en" ? "Experimental is temporarily unavailable. The saved choice remains intact; Standart is active." : "Experimental временно недоступна. Сохранённый выбор не удалён; используется Standart.")
+        ? (user.language === "en" ? "The account theme could not be loaded. Standart remains active." : "Не удалось загрузить тему аккаунта. Продолжает работать Standart.")
         : themeState.status === "load-error"
           ? (user.language === "en" ? "The account theme could not be loaded. Standart remains active." : "Не удалось загрузить тему аккаунта. Продолжает работать Standart.")
         : themeState.status === "loading"
@@ -434,9 +425,7 @@ export function AccountPanel({ user, yandexAvailable, onClose, onReconnectGoogle
       const result = await updateAccountPreferences({ syncRouting: routing });
       onUserChange(result.user);
       setRouting(result.user.syncRouting);
-      setMessage(user.authProvider === "google"
-        ? "Маршрутизация задач по Google-аккаунтам сохранена."
-        : "Маршрутизация задач по аккаунтам Яндекса сохранена.");
+      setMessage("Маршрутизация задач по Google-аккаунтам сохранена.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Не удалось сохранить маршрутизацию.");
     } finally {
@@ -465,9 +454,7 @@ export function AccountPanel({ user, yandexAvailable, onClose, onReconnectGoogle
   };
 
   const removeAccount = async () => {
-    const confirmation = user.authProvider === "yandex"
-      ? "Безвозвратно удалить аккаунт GENESIS, задачи и списки с сервера? События, уже созданные в Яндекс.Календаре, останутся там; доступ к GENESIS можно отдельно отозвать в Яндекс ID."
-      : "Безвозвратно удалить аккаунт GENESIS и все относящиеся к нему данные с сервера? Будут удалены профиль, зашифрованное пространство, привычки, статистика, расклады и привязки аккаунтов. Разрешения Google будут отозваны. Уже созданные события и списки задач останутся в вашем Google-аккаунте.";
+    const confirmation = "Безвозвратно удалить аккаунт GENESIS и все относящиеся к нему данные с сервера? Будут удалены профиль, зашифрованное пространство, привычки, статистика, расклады и привязки аккаунтов. Разрешения Google будут отозваны. Уже созданные события и списки задач останутся в вашем Google-аккаунте.";
     if (!window.confirm(translateText(confirmation, undefined, true))) return;
     setBusy(true);
     try {
@@ -488,62 +475,6 @@ export function AccountPanel({ user, yandexAvailable, onClose, onReconnectGoogle
       window.location.reload();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Не удалось отключить Google Calendar и Tasks.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const connectCalendar = () => {
-    setBusy(true);
-    setMessage("");
-    try {
-      connectYandexCalendar(yandexAccountId);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Не удалось подключить Яндекс.Календарь.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const confirmLocalMerge = async () => {
-    if (!pendingLocalLink) return;
-    setBusy(true);
-    setMessage("");
-    try {
-      const result = await mergePendingLocalAccountLink(pendingLocalLink);
-      onUserChange(result.user);
-      setPendingLocalLink(null);
-      window.location.reload();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Объединение остановлено; оба пространства сохранены.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const cancelLocalMerge = async () => {
-    setBusy(true);
-    try {
-      await cancelPendingLocalAccountLink();
-      setPendingLocalLink(null);
-      setMessage("Объединение отменено. Оба аккаунта сохранены отдельно.");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Не удалось отменить объединение.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const disconnectCalendar = async () => {
-    if (!window.confirm("Отключить Яндекс.Календарь? Уже созданные события останутся в вашем календаре.")) return;
-    setBusy(true);
-    setMessage("");
-    try {
-      const result = await disconnectYandexCalendar(yandexAccountId);
-      onUserChange(result.user);
-      window.location.reload();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Не удалось отключить Яндекс.Календарь.");
     } finally {
       setBusy(false);
     }
@@ -584,7 +515,6 @@ export function AccountPanel({ user, yandexAvailable, onClose, onReconnectGoogle
 
   const accountDialogRef = useDialogAccessibility<HTMLElement>(onClose);
   const habitResetDialogRef = useDialogAccessibility<HTMLFormElement>(closeHabitReset, Boolean(habitResetChallenge));
-  const selectedYandexAccount = user.linkedAccounts?.find((account) => account.id === yandexAccountId && account.provider === "yandex");
 
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
@@ -614,67 +544,10 @@ export function AccountPanel({ user, yandexAvailable, onClose, onReconnectGoogle
         </div>
 
         <div className="account-security-grid" data-settings-group="account">
-          {user.authProvider === "yandex"
-            ? <article><span>Яндекс ID</span><strong>Подключён</strong><small>{user.calendarConnected ? "Яндекс.Календарь подключён. Задачи синхронизируются как события; списки хранятся в зашифрованном пространстве GENESIS." : "Вход через Яндекс. Подключите календарь отдельно."}</small></article>
-            : <article><span>Google-сервисы</span><strong>{user.calendarConnected && user.googleTasksImportReady ? "Подключены" : "По желанию"}</strong><small>Calendar и Tasks подключаются отдельным согласием после входа.</small></article>}
+          <article><span>Google-сервисы</span><strong>{user.calendarConnected && user.googleTasksImportReady ? "Подключены" : "По желанию"}</strong><small>Calendar и Tasks подключаются отдельным согласием после входа.</small></article>
           <article><span>Личные данные</span><strong>Зашифрованы</strong><small>AES-GCM в браузере; ключ хранится на сервере отдельно и зашифрован для автоматического входа.</small></article>
           <article><span>Офлайн-копия</span><strong>На устройстве</strong><small>Доступна без сети после входа на этом устройстве.</small></article>
         </div>
-
-        {yandexAvailable && user.authProvider !== "google" ? (
-          <section className="account-preferences multi-account-preference" aria-labelledby="local-accounts-title" data-settings-group="account">
-            <div>
-              <span className="eyebrow">Яндекс ID</span>
-              <h3 id="local-accounts-title">Связанные способы входа</h3>
-              <p>Войдите через любой подключённый аккаунт и работайте в одном пространстве GENESIS. Google остаётся отдельным.</p>
-              <div className="multi-account-actions">
-                <button type="button" className="primary-button" disabled={busy} onClick={() => connectLocalAccount("yandex")}>＋ Подключить Яндекс ID</button>
-              </div>
-            </div>
-            <div className="google-account-list">
-              {(user.linkedAccounts ?? []).map((account) => (
-                <article key={account.id}>
-                  {account.photoURL ? <img src={account.photoURL} alt="" referrerPolicy="no-referrer" /> : <span className="account-avatar-fallback" aria-hidden="true">Я</span>}
-                  <div><strong>{account.displayName || account.email}</strong><small>Яндекс ID · {account.email}</small></div>
-                  <em>{account.isPrimary ? "Основной" : "Дополнительный"}</em>
-                </article>
-              ))}
-            </div>
-            {pendingLocalLink ? <div className="account-sync-upgrade" role="alert">
-              <div>
-                <strong>Объединить два пространства GENESIS?</strong>
-                <small>Подтверждён вход в Яндекс ID: {pendingLocalLink.email}. Его проекты, привычки и списки будут добавлены в текущее пространство. Задачи останутся привязаны к своим календарям. После объединения оба аккаунта Яндекса откроют один кабинет. Google не затрагивается.</small>
-              </div>
-              <button type="button" className="primary-button" disabled={busy} onClick={() => void confirmLocalMerge()}>Да, объединить</button>
-              <button type="button" className="text-button" disabled={busy} onClick={() => void cancelLocalMerge()}>Оставить отдельно</button>
-            </div> : null}
-            {(user.linkedAccounts?.length ?? 0) > 1 ? <div className="sync-routing-editor">
-              <fieldset className="sync-routing-modes">
-                <legend>Куда направлять новые задачи и календарные напоминания</legend>
-                <label><input type="radio" aria-label="Заранее выбранные" checked={routing.mode === "fixed"} onChange={() => setRouting((current) => ({ ...current, mode: "fixed" }))} /><span><strong>Заранее выбранные</strong><small>Использовать отмеченные аккаунты.</small></span></label>
-                <label><input type="radio" aria-label="Выбирать при создании" checked={routing.mode === "choose"} onChange={() => setRouting((current) => ({ ...current, mode: "choose" }))} /><span><strong>Выбирать при создании</strong><small>Задавать направление для каждой задачи.</small></span></label>
-                <label><input type="radio" aria-label="По категории" checked={routing.mode === "category"} onChange={() => setRouting((current) => ({ ...current, mode: "category" }))} /><span><strong>По категории</strong><small>Назначать аккаунты по категории проекта.</small></span></label>
-              </fieldset>
-              <fieldset className="sync-account-checks"><legend>Аккаунты по умолчанию</legend>
-                {(user.linkedAccounts ?? []).map((account) => <label key={account.id}>
-                  <input type="checkbox" checked={routing.defaultAccountIds.includes(account.id)} onChange={(event) => setRouting((current) => ({ ...current,
-                    defaultAccountIds: event.target.checked ? Array.from(new Set([...current.defaultAccountIds, account.id])) : current.defaultAccountIds.filter((id) => id !== account.id),
-                  }))} /><span>Яндекс · {account.email}</span>
-                </label>)}
-              </fieldset>
-              {routing.mode === "category" ? <div className="category-routing-grid"><strong>Категории и аккаунты</strong>
-                {categories.map((category) => <fieldset key={category.id}><legend><i style={{ backgroundColor: category.color }} />{localizeCategoryName(category, user.language)}</legend>
-                  {(user.linkedAccounts ?? []).map((account) => <label key={account.id}><input type="checkbox" checked={(routing.categoryAccountIds[category.id] ?? []).includes(account.id)}
-                    onChange={(event) => setRouting((current) => ({ ...current, categoryAccountIds: { ...current.categoryAccountIds,
-                      [category.id]: event.target.checked ? Array.from(new Set([...(current.categoryAccountIds[category.id] ?? []), account.id])) : (current.categoryAccountIds[category.id] ?? []).filter((id) => id !== account.id),
-                    } }))} />{account.email}</label>)}
-                </fieldset>)}
-              </div> : null}
-              <button type="button" className="primary-button" disabled={preferenceBusy || routing.defaultAccountIds.length === 0} onClick={() => void saveRouting()}>Сохранить маршрутизацию</button>
-      <small>Напоминания GENESIS на устройстве остаются локальными. Календарные уведомления доставляет соответствующий подключённый Яндекс.Календарь.</small>
-            </div> : null}
-          </section>
-        ) : null}
 
         {user.authProvider === "google" && !user.googleTasksImportReady ? (
           <section className="account-sync-upgrade" aria-label="Синхронизация Google Tasks" data-settings-group="account">
@@ -686,59 +559,21 @@ export function AccountPanel({ user, yandexAvailable, onClose, onReconnectGoogle
           </section>
         ) : null}
 
-        {yandexAvailable && selectedYandexAccount ? <section className="account-preferences yandex-calendar-preference" aria-labelledby="yandex-calendar-title" data-exp-ui="panel" data-settings-group="account">
-          <div>
-            <span className="eyebrow">Яндекс</span>
-            <h3 id="yandex-calendar-title">Яндекс.Календарь</h3>
-            {(user.linkedAccounts ?? []).filter((account) => account.provider === "yandex").length > 1 ? <label>Аккаунт Яндекса<select value={yandexAccountId} onChange={(event) => setYandexAccountId(event.target.value)}>
-              {(user.linkedAccounts ?? []).filter((account) => account.provider === "yandex").map((account) => <option key={account.id} value={account.id}>{account.email}</option>)}
-            </select></label> : null}
-            {selectedYandexAccount.calendarConnected ? <p>Подключён. Задачи GENESIS появляются как события в календаре {selectedYandexAccount.email}.</p> : null}
-            {!selectedYandexAccount.calendarConnected ? <p>Подтвердите доступ к Календарю на официальной странице Яндекс ID. Отдельный пароль не требуется.</p> : null}
-          </div>
-          {selectedYandexAccount.calendarConnected ? <button type="button" className="text-button" disabled={busy} onClick={() => void disconnectCalendar()}>Отключить календарь</button>
-            : <button type="button" className="primary-button" disabled={busy} onClick={connectCalendar}>Подключить Яндекс.Календарь</button>}
-        </section> : null}
-
         <div className="appearance-settings-stack" data-settings-group="appearance">
-          {!themeState.theme.startsWith("experimental") ? <div>
-            <span className="eyebrow">{user.language === "en" ? "Primary theme — Standart" : "Основная тема — Standart"}</span>
-            <h3>{user.language === "en" ? "Appearance" : "Оформление"}</h3>
-            <p>{user.language === "en" ? "Experimental changes only the presentation of ordinary components. Data, artwork and authored controls stay unchanged." : "Experimental меняет только оформление обычных компонентов. Данные, изображения и авторские элементы остаются прежними."}</p>
-          </div> : null}
           <div className="appearance-settings-subsection" role="group"
-            aria-label={user.language === "en" ? "Theme switching" : "Переключение тем"}>
-            <h4>{user.language === "en" ? "Theme switching" : "Переключение тем"}</h4>
-          <label className="account-switch-row" data-exp-ui="row">
-            <span data-exp-ui="row-body">
-              <strong data-exp-ui="row-title">{user.language === "en" ? "Experimental theme" : "Тема Experimental"}</strong>
-              <small data-exp-ui="row-meta">{user.language === "en" ? "Off — Standart. On — Experimental." : "Выключено — Standart. Включено — Experimental."}</small>
-            </span>
-            <input
-              type="checkbox"
-              role="switch"
-              data-exp-ui="switch"
-              checked={themeState.theme.startsWith("experimental")}
-              disabled={!themeState.available || ["signed-out", "loading", "load-error"].includes(themeState.status)}
-              aria-label={user.language === "en" ? "Experimental theme" : "Тема Experimental"}
-              aria-busy={themeState.pending}
-              onChange={(event) => onThemeChange(event.target.checked
-                ? (themeState.theme.endsWith("-dark") ? GENESIS_THEME.EXPERIMENTAL_DARK : GENESIS_THEME.EXPERIMENTAL)
-                : (themeState.theme.endsWith("-dark") ? GENESIS_THEME.STANDART_DARK : GENESIS_THEME.STANDART))}
-            />
-            <i aria-hidden="true" />
-          </label>
+            aria-label={COLOR_MODE_NAMES[user.language].group}>
+            <h4>{COLOR_MODE_NAMES[user.language].group}</h4>
             <div className="language-choice experimental-color-choice" role="radiogroup" aria-label={COLOR_MODE_NAMES[user.language].group}>
               <button type="button" role="radio" aria-checked={!themeState.theme.endsWith("-dark")}
                 aria-label={COLOR_MODE_NAMES[user.language].light}
                 className={!themeState.theme.endsWith("-dark") ? "active" : ""}
-                disabled={!themeState.available || themeState.pending || ["signed-out", "loading", "load-error"].includes(themeState.status)} onClick={() => onThemeChange(themeState.theme.startsWith("experimental") ? GENESIS_THEME.EXPERIMENTAL : GENESIS_THEME.STANDART)}>
+                disabled={!themeState.available || themeState.pending || ["signed-out", "loading", "load-error"].includes(themeState.status)} onClick={() => onThemeChange(GENESIS_THEME.STANDART)}>
                 <span aria-hidden="true">☀</span><strong data-no-translate>{COLOR_MODE_NAMES[user.language].light}</strong>
               </button>
               <button type="button" role="radio" aria-checked={themeState.theme.endsWith("-dark")}
                 aria-label={COLOR_MODE_NAMES[user.language].dark}
                 className={themeState.theme.endsWith("-dark") ? "active" : ""}
-                disabled={!themeState.available || themeState.pending || ["signed-out", "loading", "load-error"].includes(themeState.status)} onClick={() => onThemeChange(themeState.theme.startsWith("experimental") ? GENESIS_THEME.EXPERIMENTAL_DARK : GENESIS_THEME.STANDART_DARK)}>
+                disabled={!themeState.available || themeState.pending || ["signed-out", "loading", "load-error"].includes(themeState.status)} onClick={() => onThemeChange(GENESIS_THEME.STANDART_DARK)}>
                 <span aria-hidden="true">☾</span><strong data-no-translate>{COLOR_MODE_NAMES[user.language].dark}</strong>
               </button>
             </div>
@@ -1293,29 +1128,26 @@ export function AccountPanel({ user, yandexAvailable, onClose, onReconnectGoogle
             <span className="eyebrow">Encrypted workspace</span>
             <h3 id="account-e2ee-title">{user.language === "en" ? "Encrypted personal data" : "Шифрование личных данных"}</h3>
           </div>
-          <p>{user.authProvider === "yandex"
-            ? (user.language === "en" ? "Projects and tracker data are encrypted before storage and available after Yandex sign-in. Task and calendar sync will be connected separately." : "Проекты и данные трекеров шифруются перед сохранением и доступны после входа через Яндекс. Синхронизация задач и календаря подключается отдельно.")
-            : (user.language === "en" ? "Projects and tracker data are encrypted before storage. After Google sign-in, an authenticated GENESIS session unlocks them automatically on every device—no recovery code is required." : "Проекты и данные трекеров шифруются перед сохранением. После входа через Google защищённая сессия GENESIS автоматически открывает их на любом устройстве — код восстановления не нужен.")}</p>
+          <p>{(user.language === "en" ? "Projects and tracker data are encrypted before storage. After Google sign-in, an authenticated GENESIS session unlocks them automatically on every device—no recovery code is required." : "Проекты и данные трекеров шифруются перед сохранением. После входа через Google защищённая сессия GENESIS автоматически открывает их на любом устройстве — код восстановления не нужен.")}</p>
         </section>
 
         <section className="account-oauth-note" aria-label="Безопасность входа" data-settings-group="account">
           <h3>Безопасный вход</h3>
-          {user.authProvider === "yandex" ? (
-            <p>Вход выполняется через официальный Яндекс ID. Для календаря используется отдельный пароль приложения, который можно отозвать в Яндекс ID.</p>
-          ) : <>
+          <>
             <p>Авторизация выполняется только через официальный OAuth Google. GENESIS не получает, не запрашивает и не хранит пароль. Токены доступа шифруются на сервере, а при удалении аккаунта разрешение отзывается у Google.</p>
             <p><a href="/privacy">Подробнее об использовании данных Google</a></p>
             <button type="button" className="text-button" onClick={onReconnectGoogle}>Обновить разрешения Calendar и Tasks</button>
             {user.calendarConnected || user.googleTasksImportReady ? (
               <button type="button" className="text-button" onClick={() => void disconnectServices()} disabled={busy}>Отключить Calendar и Tasks</button>
             ) : null}
-          </>}
+          </>
         </section>
 
         {message ? <p className="account-message" role="status" data-settings-group="account">{message}</p> : null}
 
+        <button type="button" className="secondary-button" data-settings-group="account" onClick={() => void onSignOut()}>{user.language === "en" ? "Sign out" : "Выйти из аккаунта"}</button>
         <div className="account-danger" data-settings-group="account">
-          <div><strong>Удаление аккаунта</strong><small>{user.authProvider === "yandex" ? "Безвозвратно удалит профиль и связанные с ним данные GENESIS. Доступ к GENESIS можно также отозвать в Яндекс ID." : "Безвозвратно удалит только ваш профиль и все связанные с ним данные с сервера GENESIS, локальные копии на этом устройстве и отзовёт разрешения Google."}</small></div>
+          <div><strong>Удаление аккаунта</strong><small>Безвозвратно удалит только ваш профиль и все связанные с ним данные с сервера GENESIS, локальные копии на этом устройстве и отзовёт разрешения Google.</small></div>
           <button type="button" onClick={() => void removeAccount()} disabled={busy}>Удалить</button>
         </div>
       </section>

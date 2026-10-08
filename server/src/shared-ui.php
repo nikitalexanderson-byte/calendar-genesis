@@ -50,7 +50,7 @@ function genesisSharedSpaceInvite(string $userId, string $spaceId, array $input)
 {
     genesisSharedRequireEnabled($userId);
     $space = genesisSharedSpaceAccess($spaceId, $userId);
-    if (!in_array($space['member_role'], ['owner', 'admin'], true)) throw new GenesisSharedAccessException();
+    if (!in_array($space['member_role'], ['owner', 'admin'], true)) throw new GenesisSharedAccessException('SHARED_SPACE_FORBIDDEN', 403);
     $email = mb_strtolower(trim((string)($input['email'] ?? '')));
     if (!genesisIsValidEmail($email) || !preg_match('/@(gmail|googlemail)\.com\z/', $email)) {
         throw new InvalidArgumentException('GMAIL_ADDRESS_REQUIRED');
@@ -65,7 +65,8 @@ function genesisSharedSpaceInvite(string $userId, string $spaceId, array $input)
     $id = genesisUuid(); $now = genesisNow(); $expires = gmdate('Y-m-d\TH:i:s\Z', time() + 7 * 86400);
     $db->beginTransaction();
     try {
-        genesisSharedSpaceAccess($spaceId, $userId);
+        $currentSpace = genesisSharedSpaceAccess($spaceId, $userId);
+        if (!in_array($currentSpace['member_role'], ['owner', 'admin'], true)) throw new GenesisSharedAccessException('SHARED_SPACE_FORBIDDEN', 403);
         $db->prepare('UPDATE shared_space_invitations SET revoked_at = :now WHERE space_id = :space
             AND email = :email COLLATE NOCASE AND consumed_at IS NULL AND revoked_at IS NULL')->execute([
                 'now' => $now, 'space' => $spaceId, 'email' => $email,
@@ -106,12 +107,25 @@ function genesisSharedRespondSpaceInvitation(string $userId, string $id, bool $a
         if (!$invite || strcasecmp($invite['email'], $user['email']) !== 0 || $invite['consumed_at']
             || $invite['revoked_at'] || $invite['expires_at'] <= $now) throw new GenesisSharedAccessException('INVITATION_UNAVAILABLE', 409);
         if ($accept) {
-            $db->prepare('INSERT OR IGNORE INTO shared_space_members (space_id, user_id, role, joined_at, all_projects)
-                VALUES (:space, :user, :role, :now, 1)')->execute([
+            $inviter = $db->prepare("SELECT role FROM shared_space_members WHERE space_id = :space AND user_id = :user");
+            $inviter->execute(['space' => $invite['space_id'], 'user' => $invite['created_by']]);
+            if (!in_array($inviter->fetchColumn(), ['owner', 'admin'], true)) {
+                throw new GenesisSharedAccessException('INVITATION_UNAVAILABLE', 409);
+            }
+            $db->prepare('UPDATE users SET shared_projects_enabled = 1, updated_at = :now WHERE id = :user')
+                ->execute(['now' => $now, 'user' => $userId]);
+            $db->prepare("INSERT INTO shared_space_members (space_id, user_id, role, joined_at, all_projects)
+                VALUES (:space, :user, :role, :now, 1)
+                ON CONFLICT(space_id, user_id) DO UPDATE SET all_projects = 1,
+                role = CASE WHEN shared_space_members.role IN ('owner', 'admin', 'member')
+                    THEN shared_space_members.role ELSE excluded.role END")->execute([
                     'space' => $invite['space_id'], 'user' => $userId, 'role' => $invite['role'], 'now' => $now,
                 ]);
-            $db->prepare('INSERT OR IGNORE INTO shared_project_members (project_id, user_id, role, joined_at)
-                SELECT p.id, :user, :role, :now FROM shared_projects p WHERE p.space_id = :space AND p.archived_at IS NULL')->execute([
+            $db->prepare("INSERT INTO shared_project_members (project_id, user_id, role, joined_at)
+                SELECT p.id, :user, :role, :now FROM shared_projects p WHERE p.space_id = :space AND p.archived_at IS NULL
+                ON CONFLICT(project_id, user_id) DO UPDATE SET role = CASE
+                    WHEN shared_project_members.role IN ('owner', 'manager', 'member', 'commenter')
+                    THEN shared_project_members.role ELSE excluded.role END")->execute([
                     'user' => $userId, 'role' => $invite['role'] === 'guest' ? 'viewer' : 'member',
                     'now' => $now, 'space' => $invite['space_id'],
                 ]);

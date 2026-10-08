@@ -334,14 +334,14 @@ function genesisSharedDeleteStatus(string $userId, string $projectId, string $st
             'now2' => $now, 'project' => $projectId, 'source' => $statusId];
         if ($targetDone === 1) $values += ['actor1' => $userId, 'now1' => $now];
         $updates->execute($values);
-        $changed = $db->prepare('DELETE FROM shared_project_statuses
-            WHERE id = :id AND project_id = :project AND revision = :expected');
-        $changed->execute(['id' => $statusId, 'project' => $projectId, 'expected' => $expected]);
-        if ($changed->rowCount() !== 1) throw new GenesisSharedAccessException('STATUS_CONFLICT', 409);
         $db->prepare('UPDATE shared_projects SET board_status_id = :target, revision = revision + 1,
             updated_at = :now WHERE board_status_id = :source')->execute([
                 'target' => $targetId, 'source' => $statusId, 'now' => genesisNow(),
             ]);
+        $changed = $db->prepare('DELETE FROM shared_project_statuses
+            WHERE id = :id AND project_id = :project AND revision = :expected');
+        $changed->execute(['id' => $statusId, 'project' => $projectId, 'expected' => $expected]);
+        if ($changed->rowCount() !== 1) throw new GenesisSharedAccessException('STATUS_CONFLICT', 409);
         genesisSharedAudit($projectId, $userId, 'status.deleted', $statusId);
         $db->commit();
     } catch (Throwable $error) {

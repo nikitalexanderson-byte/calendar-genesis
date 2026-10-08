@@ -109,6 +109,7 @@ jobs:
 
           php server/tests/smoke.php
           php server/tests/shared-projects.php
+          php server/tests/shared-ui.php
 
       - name: Test
         run: pnpm test
@@ -332,12 +333,19 @@ jobs:
         run: |
           set -euo pipefail
           EXPECTED="$(sha256sum dist-beget/public_html/downloads/GENESIS-Android-Native-2.6.7.apk | cut -d' ' -f1)"
-          curl -fsSL --retry 3 "$PRODUCTION_ORIGIN/android-update.json" \
-            | jq -e --arg sha "$EXPECTED" '.versionCode == 73 and .versionName == "2.6.7" and .sha256 == $sha' >/dev/null
+          # Hostinger CDN propagation can briefly retain the preceding release.
+          for attempt in $(seq 1 12); do
+            if curl -fsSL --retry 3 -H 'Cache-Control: no-cache' "$PRODUCTION_ORIGIN/android-update.json?deploy=$GITHUB_SHA" \
+              | jq -e --arg sha "$EXPECTED" '.versionCode == 73 and .versionName == "2.6.7" and .sha256 == $sha' >/dev/null; then
+              break
+            fi
+            test "$attempt" -lt 12
+            sleep 5
+          done
           DOWNLOAD_REDIRECT="$(curl -sS -o /dev/null -w '%{http_code} %{redirect_url}' \
             "$PRODUCTION_ORIGIN/api/android/download")"
           test "$DOWNLOAD_REDIRECT" = "302 $PRODUCTION_ORIGIN/downloads/GENESIS-Android-Native-2.6.7.apk"
-          curl -fsSL --retry 3 "$PRODUCTION_ORIGIN/downloads/GENESIS-Android-Native-2.6.7.apk" \
+          curl -fsSL --retry 3 -H 'Cache-Control: no-cache' "$PRODUCTION_ORIGIN/downloads/GENESIS-Android-Native-2.6.7.apk?sha=$EXPECTED" \
             | sha256sum \
             | awk -v expected="$EXPECTED" '$1 == expected { found = 1 } END { exit !found }'
 

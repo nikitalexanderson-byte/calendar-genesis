@@ -16,7 +16,7 @@ CREATE TABLE shared_space_invitations (
     space_id TEXT NOT NULL REFERENCES shared_spaces(id) ON DELETE CASCADE,
     email TEXT NOT NULL COLLATE NOCASE,
     role TEXT NOT NULL CHECK (role IN ('member', 'guest')),
-    created_by TEXT NOT NULL REFERENCES users(id),
+    created_by TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     created_at TEXT NOT NULL,
     expires_at TEXT NOT NULL,
     consumed_at TEXT,

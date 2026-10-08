@@ -698,6 +698,15 @@ export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSec
       style={{ "--stoicheion-x": `${pointer.x}%`, "--stoicheion-y": `${pointer.y}%` } as CSSProperties}
     >
         <header className="stoicheion-hero">
+      <div className="stoicheion-orbit-frame" aria-hidden="true">
+      <div className="stoicheion-orbit" aria-hidden="true">
+        {letters.map((letter, index) => (
+          <i key={letter.id} style={{ "--letter-index": index } as CSSProperties}>{letter.symbol}</i>
+        ))}
+      </div>
+
+      </div>
+
           <div>
             <span className="eyebrow">Гно · Метэр · Басилея</span>
             <h1 id="stoicheion-title">Стойхейон</h1>
@@ -708,14 +717,6 @@ export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSec
         </header>
 
       <div className="stoicheion-inner">
-      <div className="stoicheion-orbit-frame" aria-hidden="true">
-      <div className="stoicheion-orbit" aria-hidden="true">
-        {letters.map((letter, index) => (
-          <i key={letter.id} style={{ "--letter-index": index } as CSSProperties}>{letter.symbol}</i>
-        ))}
-      </div>
-
-      </div>
         {divinationDisabled ? (
           <section className="stoicheion-divination-disabled" aria-labelledby="stoicheion-divination-disabled-title">
             <span aria-hidden="true">⊘</span>
