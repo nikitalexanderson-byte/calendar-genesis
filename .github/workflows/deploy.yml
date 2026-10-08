@@ -160,6 +160,9 @@ jobs:
           APK_SHA="$(sha256sum dist-beget/public_html/downloads/GENESIS-Android-Native-2.6.8.apk | cut -d' ' -f1)"
           printf '{"versionCode":74,"versionName":"2.6.8","sha256":"%s"}\n' "$APK_SHA" \
             > dist-beget/public_html/android-update.json
+          # Signing inputs stay private; only the published download is readable by HTTP.
+          chmod 755 dist-beget/public_html/downloads
+          chmod 644 dist-beget/public_html/downloads/GENESIS-Android-Native-2.6.8.apk dist-beget/public_html/android-update.json
           sha256sum dist-beget/public_html/downloads/GENESIS-Android-Native-2.6.8.apk
 
           AAB=android/app/build/outputs/bundle/play/app-play.aab
