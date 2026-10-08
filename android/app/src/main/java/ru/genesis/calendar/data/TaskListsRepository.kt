@@ -82,6 +82,18 @@ internal fun LocalTask.taskListId(): String? = JSONObject(sourceFieldsJson).let 
     source.optString("googleTaskListId").takeUnless { source.isNull("googleTaskListId") || it.isBlank() }
 }
 
+internal fun LocalTask.belongsToList(list: GoogleTaskList): Boolean =
+    taskListId() == list.id && (list.accountId == null ||
+        JSONObject(sourceFieldsJson).optString("googleAccountId") == list.accountId)
+
+/** Explicit task placement wins; otherwise follow the list's workspace link. */
+internal fun personalTaskProjectId(task: LocalTask, structure: WorkspaceStructure): String? {
+    if (task.projectId == "__genesis_inbox__") return null
+    val id = task.projectId
+        ?: structure.taskListLinks.firstOrNull { it.taskListId == task.taskListId() }?.projectId
+    return id?.takeIf { candidate -> structure.projects.any { it.id == candidate } }
+}
+
 internal fun taskListsForTasks(lists: List<GoogleTaskList>, tasks: List<LocalTask>): List<GoogleTaskList> =
     (lists + tasks.mapNotNull { task -> runCatching {
         val raw = JSONObject(task.sourceFieldsJson)

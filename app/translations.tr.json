@@ -2731,5 +2731,11 @@
   "Даты сакрального и лунного календарей преобразуются в григорианские по часовому поясу устройства перед отправкой в Яндекс.": "Kutsal ve ay takvimi tarihleri, Yandex'e gönderilmeden önce cihazın saat dilimine göre Gregoryen tarihlere dönüştürülür.",
   "Выбранные даты преобразуются в григорианские по часовому поясу устройства.": "Seçilen tarihler, cihazın saat dilimine göre Gregoryen tarihlere dönüştürülür.",
   "В Яндекс ID откройте «Пароли приложений» → «Календарь». Название можно придумать, а сам пароль выдаёт Яндекс. Скопируйте его сюда.": "Yandex ID’de “Uygulama parolaları” → “Takvim” bölümünü açın. Adı siz seçebilirsiniz; parolayı Yandex oluşturur. Buraya kopyalayın.",
-  "Открыть создание пароля Календаря в Яндекс ID": "Yandex ID’de Takvim uygulama parolası oluştur"
+  "Открыть создание пароля Календаря в Яндекс ID": "Yandex ID’de Takvim uygulama parolası oluştur",
+  "Да": "Evet",
+  "Завершить этот проект?": "Bu proje tamamlansın mı?",
+  "Перетащите плашку для переноса": "Taşımak için kartı sürükleyin",
+  "Удерживайте плашку для переноса": "Taşımak için kartı basılı tutun",
+  "Перетащите плашку задачи или списка в проект либо в хаос-бокс.": "Bir görev veya liste kartını bir projeye ya da kaos kutusuna sürükleyin.",
+  "Для переноса удерживайте задачу или список, затем перетащите. Для прокрутки проведите пальцем без удержания.": "Taşımak için görevi veya listeyi basılı tutup sürükleyin. Kaydırmak için basılı tutmadan parmağınızı kaydırın."
 }

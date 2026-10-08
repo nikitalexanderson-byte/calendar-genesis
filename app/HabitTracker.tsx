@@ -9,9 +9,6 @@ import {
   useRef,
   useState,
   type CSSProperties,
-  type DragEvent as ReactDragEvent,
-  type KeyboardEvent as ReactKeyboardEvent,
-  type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
 import {
@@ -68,8 +65,6 @@ import {
   habitRitualLabel,
   heroicRankForProgress,
   isHabitScheduledForDate,
-  isHabitSectionId,
-  moveHabitSection,
   normalizeHabitEmoji,
   normalizeHabitColor,
   normalizeHabitPriority,
@@ -305,127 +300,21 @@ function DisclosureChevron({ open }: { open: boolean }) {
 type HabitSectionProps = {
   sectionId: HabitSectionId;
   position: number;
-  onMoveTo: (sourceId: HabitSectionId, targetId: HabitSectionId) => void;
-  onMoveBy: (sectionId: HabitSectionId, offset: -1 | 1) => void;
 };
 
-const HABIT_SECTION_DRAG_TYPE = "application/x-genesis-habit-section";
-
-function HabitSectionBlock({ label, language, children, sectionId, position, onMoveTo, onMoveBy, className = "" }: {
+function HabitSectionBlock({ children, sectionId, position, className = "" }: {
   label: string;
   language: Language;
   children: ReactNode;
   className?: string;
 } & HabitSectionProps) {
-  const isEnglish = language === "en";
-  const pointerTargetRef = useRef<HabitSectionId | null>(null);
-  const pointerDraggingRef = useRef(false);
-  const nativeDragOverSourceRef = useRef<HabitSectionId | null>(null);
-  const [pointerDragging, setPointerDragging] = useState(false);
-  const [nativeDragging, setNativeDragging] = useState(false);
-  const [pointerPoint, setPointerPoint] = useState<{ x: number; y: number; width: number } | null>(null);
-  const moveLabel = isEnglish ? `Drag ${label} to reorder` : `Перетащить раздел «${label}»`;
-
-  const updatePointerTarget = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    const section = event.currentTarget.closest<HTMLElement>("[data-habit-section-id]");
-    setPointerPoint({ x: event.clientX, y: event.clientY, width: Math.min(section?.getBoundingClientRect().width ?? 420, window.innerWidth - 24) });
-    if (event.clientY < 88) window.scrollBy({ top: -16, behavior: "auto" });
-    if (event.clientY > window.innerHeight - 88) window.scrollBy({ top: 16, behavior: "auto" });
-    const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>("[data-habit-section-id]")?.dataset.habitSectionId;
-    const targetId = isHabitSectionId(target) && target !== sectionId ? target : null;
-    if (targetId === pointerTargetRef.current) return;
-    pointerTargetRef.current = targetId;
-    if (targetId) onMoveTo(sectionId, targetId);
-  };
-
-  const finishPointerDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    if (!pointerDraggingRef.current) return;
-    updatePointerTarget(event);
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
-    pointerTargetRef.current = null;
-    pointerDraggingRef.current = false;
-    setPointerDragging(false);
-    setPointerPoint(null);
-  };
-
-  const handleDragEnter = (event: ReactDragEvent<HTMLElement>) => {
-    const sourceId = event.dataTransfer.getData(HABIT_SECTION_DRAG_TYPE);
-    if (!isHabitSectionId(sourceId) || sourceId === sectionId) return;
-    event.preventDefault();
-    if (nativeDragOverSourceRef.current === sourceId) return;
-    nativeDragOverSourceRef.current = sourceId;
-    onMoveTo(sourceId, sectionId);
-  };
-
-  const handleDrop = (event: ReactDragEvent<HTMLElement>) => {
-    const sourceId = event.dataTransfer.getData(HABIT_SECTION_DRAG_TYPE);
-    if (!isHabitSectionId(sourceId) || sourceId === sectionId) return;
-    event.preventDefault();
-    if (nativeDragOverSourceRef.current !== sourceId) onMoveTo(sourceId, sectionId);
-    nativeDragOverSourceRef.current = null;
-  };
-
-  const handleMoveKey = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
-    if (["ArrowLeft", "ArrowUp"].includes(event.key)) {
-      event.preventDefault();
-      onMoveBy(sectionId, -1);
-    } else if (["ArrowRight", "ArrowDown"].includes(event.key)) {
-      event.preventDefault();
-      onMoveBy(sectionId, 1);
-    }
-  };
-
   return (
     <section
-      className={`habit-collapsible-block open${pointerDragging || nativeDragging ? " dragging" : ""}${className ? ` ${className}` : ""}`}
+      className={`habit-collapsible-block open${className ? ` ${className}` : ""}`}
       data-habit-section-id={sectionId}
       style={{ order: 100 + position }}
-      onDragEnter={handleDragEnter}
-      onDragOver={(event) => { if (event.dataTransfer.types.includes(HABIT_SECTION_DRAG_TYPE)) event.preventDefault(); }}
-      onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) nativeDragOverSourceRef.current = null; }}
-      onDrop={handleDrop}
     >
-      <header className="habit-collapsible-toolbar">
-        <button
-          type="button"
-          className="habit-section-drag-handle"
-          aria-label={moveLabel}
-          title={moveLabel}
-          draggable
-          onDragStart={(event) => {
-            event.dataTransfer.effectAllowed = "move";
-            event.dataTransfer.setData(HABIT_SECTION_DRAG_TYPE, sectionId);
-            const section = event.currentTarget.closest<HTMLElement>("[data-habit-section-id]");
-            if (section) {
-              const bounds = section.getBoundingClientRect();
-              event.dataTransfer.setDragImage(section, Math.max(0, Math.min(event.clientX - bounds.left, bounds.width)), Math.max(0, Math.min(event.clientY - bounds.top, bounds.height)));
-            }
-            setNativeDragging(true);
-          }}
-          onDragEnd={() => { nativeDragOverSourceRef.current = null; setNativeDragging(false); }}
-          onPointerDown={(event) => {
-            if (event.pointerType === "mouse") return;
-            pointerTargetRef.current = null;
-            pointerDraggingRef.current = true;
-            event.currentTarget.setPointerCapture(event.pointerId);
-            setPointerDragging(true);
-            const section = event.currentTarget.closest<HTMLElement>("[data-habit-section-id]");
-            setPointerPoint({ x: event.clientX, y: event.clientY, width: Math.min(section?.getBoundingClientRect().width ?? 420, window.innerWidth - 24) });
-          }}
-          onPointerMove={(event) => { if (pointerDraggingRef.current) updatePointerTarget(event); }}
-          onPointerUp={finishPointerDrag}
-          onPointerCancel={(event) => {
-            if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
-            pointerTargetRef.current = null;
-            pointerDraggingRef.current = false;
-            setPointerDragging(false);
-            setPointerPoint(null);
-          }}
-          onKeyDown={handleMoveKey}
-        ><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">{[7, 12, 17].flatMap((cy) => [8, 16].map((cx) => <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="1.5" />))}</svg></button>
-      </header>
       <div className="habit-collapsible-content">{children}</div>
-      {pointerDragging && pointerPoint ? <div className="habit-section-drag-preview" style={{ left: pointerPoint.x, top: pointerPoint.y, width: pointerPoint.width }} aria-hidden="true"><span>{isEnglish ? "Section" : "Раздел привычек"}</span><strong>{label}</strong><small>{isEnglish ? "Move between the highlighted sections" : "Перемещайте между соседними блоками"}</small></div> : null}
     </section>
   );
 }
@@ -723,7 +612,7 @@ function StreakRewardLadder({ workspace, language }: Pick<DailyPanelProps, "work
   );
 }
 
-function AdaptiveDifficultyPanel({ workspace, date, language, calendarMode, sectionId, position, onMoveTo, onMoveBy, onEdit, onPause }: Pick<DailyPanelProps, "workspace" | "date" | "language" | "calendarMode"> & HabitSectionProps & { onEdit: (habit: Habit) => void; onPause: (habit: Habit) => void }) {
+function AdaptiveDifficultyPanel({ workspace, date, language, calendarMode, sectionId, position, onEdit, onPause }: Pick<DailyPanelProps, "workspace" | "date" | "language" | "calendarMode"> & HabitSectionProps & { onEdit: (habit: Habit) => void; onPause: (habit: Habit) => void }) {
   const isEnglish = language === "en";
   const suggestions = buildAdaptiveHabitSuggestions({
     habits: workspace.habits,
@@ -734,7 +623,7 @@ function AdaptiveDifficultyPanel({ workspace, date, language, calendarMode, sect
   });
   if (!suggestions.length) return null;
   return (
-    <HabitSectionBlock className="experimental-habit-section experimental-habit-section-today" label={isEnglish ? "Adaptive suggestions" : "Бережная настройка ритма"} language={language} sectionId={sectionId} position={position} onMoveTo={onMoveTo} onMoveBy={onMoveBy}><section className="adaptive-habit-panel" aria-labelledby="adaptive-habit-title">
+    <HabitSectionBlock className="experimental-habit-section experimental-habit-section-today" label={isEnglish ? "Adaptive suggestions" : "Бережная настройка ритма"} language={language} sectionId={sectionId} position={position}><section className="adaptive-habit-panel" aria-labelledby="adaptive-habit-title">
       <header><div><span className="eyebrow">{isEnglish ? "Gentle adjustment" : "Бережная настройка"}</span><h2 id="adaptive-habit-title">{isEnglish ? "Make the rhythm achievable" : "Сделать ритм посильнее"}</h2><p>{isEnglish ? "GENESIS only suggests changes and never edits your schedule automatically." : "GENESIS только предлагает изменения и никогда не меняет расписание автоматически."}</p></div></header>
       <div>
         {suggestions.map((suggestion) => <article style={{ "--habit-color": suggestion.habit.color } as CSSProperties} key={suggestion.habit.id}>
@@ -1469,7 +1358,7 @@ function SacredHabitLibrary({
   );
 }
 
-export function HabitTrackerPage({ workspace, date, language, timeFormat, calendarMode, googleTasksReady, googleCalendarReady, experimentalThemeActive = false, hiddenSubmenus = [], voiceRequest, onVoiceRequestConsumed, onChange, onReminderRequested, onReminderRemoved }: HabitTrackerPageProps) {
+export function HabitTrackerPage({ workspace, date, language, timeFormat, calendarMode, googleTasksReady, googleCalendarReady, experimentalThemeActive = false, voiceRequest, onVoiceRequestConsumed, onChange, onReminderRequested, onReminderRemoved }: HabitTrackerPageProps) {
   const isEnglish = language === "en";
   const workspaceRef = useRef(workspace);
   useEffect(() => {
@@ -1482,8 +1371,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
   const [message, setMessage] = useState("");
   const [heroPathOpen, setHeroPathOpen] = useState(false);
   const [experimentalHabitTab, setExperimentalHabitTab] = useState<"today" | "library" | "modules" | "progress">("today");
-  const habitTabs = (["today", "library", "modules", "progress"] as const).filter((tab) =>
-    tab === "modules" ? !hiddenSubmenus.includes("habits.sleep") : !hiddenSubmenus.includes("habits.habits"));
+  const habitTabs = ["today", "library", "modules", "progress"] as const;
   const activeHabitTab = habitTabs.includes(experimentalHabitTab) ? experimentalHabitTab : habitTabs[0] ?? "today";
   const experimentalHabitTabsRef = useRef<HTMLDivElement>(null);
   const range = reportDateRange(workspace.habitSettings, date, reportCalendarStarts(date, calendarMode));
@@ -1581,31 +1469,10 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
     setMessage(isEnglish ? "Hestia's Spark added. It will automatically protect one missed streak day." : "Искра Гестии добавлена. Она автоматически защитит один пропущенный день серии.");
   };
 
-  const sectionOrder = workspace.habitSettings.sectionOrder?.length
-    ? workspace.habitSettings.sectionOrder
-    : [...HABIT_SECTION_IDS];
-  const saveSectionOrder = (nextOrder: HabitSectionId[]) => {
-    onChange({
-      ...workspace,
-      habitSettings: {
-        ...workspace.habitSettings,
-        sectionOrder: nextOrder,
-      },
-    });
-  };
-  const moveSectionTo = (sourceId: HabitSectionId, targetId: HabitSectionId) => {
-    saveSectionOrder(moveHabitSection(sectionOrder, sourceId, targetId));
-  };
-  const moveSectionBy = (sectionId: HabitSectionId, offset: -1 | 1) => {
-    const position = sectionOrder.indexOf(sectionId);
-    const targetId = sectionOrder[position + offset];
-    if (targetId) moveSectionTo(sectionId, targetId);
-  };
+  // Keep the established reading order even when an older workspace has a saved custom order.
   const sectionProps = (sectionId: HabitSectionId): HabitSectionProps => ({
     sectionId,
-    position: Math.max(0, sectionOrder.indexOf(sectionId)),
-    onMoveTo: moveSectionTo,
-    onMoveBy: moveSectionBy,
+    position: Math.max(0, HABIT_SECTION_IDS.indexOf(sectionId)),
   });
   return (
     <div className={`habits-view${workspace.habitSettings.feedback.gamificationWidgets ? "" : " gamification-hidden"}${` experimental-habit-tab-${activeHabitTab}`}`} data-exp-layout="view">

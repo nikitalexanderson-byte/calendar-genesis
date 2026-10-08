@@ -157,3 +157,30 @@ function genesisTodayAds(string $language, string $country, string $platform): a
     }
     return $matching;
 }
+
+/** Existing APKs can receive a support notice through their shipped Today API.
+ * Their compiled Close/Later controls cannot be removed by this server response.
+ * Keep sync available while users move to the published release.
+ */
+function genesisAndroidSupportNotice(string $language, string $installedVersion, ?array $release): ?array
+{
+    $minimum = $release['minimumSupportedVersionName'] ?? null;
+    $published = $release['versionName'] ?? null;
+    if (!is_string($minimum) || !is_string($published)
+        || !preg_match('/\A[0-9]+(?:\.[0-9]+){1,3}\z/', $minimum)
+        || !preg_match('/\A[0-9]+(?:\.[0-9]+){1,3}\z/', $published)
+        || !preg_match('/\A[0-9]+(?:\.[0-9]+){1,3}\z/', $installedVersion)
+        || version_compare($minimum, $published, '>')
+        || !version_compare($installedVersion, $minimum, '<')) return null;
+    $russian = $language === 'ru';
+    return [
+        'id' => 'android-support-' . $minimum,
+        'title' => $russian ? 'Обновите GENESIS до ' . $published : 'Update GENESIS to ' . $published,
+        'description' => $russian
+            ? 'Поддержка версий ниже ' . $minimum . ' завершена. Синхронизируйте сохранённые данные и установите актуальную версию. Ваш аккаунт и данные сохранятся.'
+            : 'Support for versions below ' . $minimum . ' has ended. Sync your saved data and install the current release. Your account and data will be preserved.',
+        'imageUrl' => 'https://genesiscalendar.com/genesis-hero.png',
+        'linkUrl' => 'https://genesiscalendar.com/api/android/download',
+        'repeatHours' => 1,
+    ];
+}

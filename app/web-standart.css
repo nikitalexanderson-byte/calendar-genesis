@@ -151,9 +151,8 @@ html[data-genesis-theme] .genesis-app .project-row { grid-template-columns: minm
 html[data-genesis-theme] .genesis-app .project-complete-action { width: 44px; height: 44px; padding: 7px; border-radius: 8px; }
 html[data-genesis-theme] .genesis-app article.project-task-card { grid-template-columns: 36px minmax(0, 1fr); gap: 12px; padding: 14px; }
 html[data-genesis-theme] .genesis-app .project-task-card .task-check { grid-column: 1; grid-row: 1; width: 36px; height: 36px; }
-html[data-genesis-theme] .genesis-app .project-task-card .project-drag-handle { grid-column: 1; grid-row: 2; justify-self: center; }
-html[data-genesis-theme] .genesis-app .project-task-card .all-task-body { grid-column: 2; grid-row: 1 / 3; min-width: 0; }
-html[data-genesis-theme] .genesis-app .project-task-card .all-task-actions { grid-column: 2; grid-row: 3; justify-self: end; }
+html[data-genesis-theme] .genesis-app .project-task-card .all-task-body { grid-column: 2; grid-row: 1; min-width: 0; }
+html[data-genesis-theme] .genesis-app .project-task-card .all-task-actions { grid-column: 2; grid-row: 2; justify-self: end; }
 html[data-genesis-theme] .genesis-app .all-task-title-row { flex-wrap: wrap; gap: 6px; }
 html[data-genesis-theme] .genesis-app .all-task-title-row strong { min-width: min(100%, 140px); flex: 1; font: 600 18px/1.4 var(--font-ui) !important; }
 html[data-genesis-theme] .genesis-app .task-tags i { font: 500 13px/1.4 var(--font-ui); padding: 4px 8px; }
@@ -173,8 +172,8 @@ html[data-genesis-theme] .genesis-app .shared-projects-context > div:first-child
 .mood-custom-disclosure > summary { padding: 14px 0; cursor: pointer; }
 .mood-modal footer { position: sticky; bottom: -24px; padding-block: 16px; background: var(--paper); }
 .mood-modal footer button { width: 100%; }
-.experimental-habit-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-block: 20px; }
-.experimental-habit-tabs > button { display: grid; grid-template-columns: 24px 1fr; gap: 4px 10px; min-height: 60px; padding: 12px 16px; text-align: start; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+.experimental-habit-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: 100%; gap: 8px; margin-block: 20px; }
+.experimental-habit-tabs > button { display: grid; grid-template-columns: 24px minmax(0, 1fr); min-width: 0; gap: 4px 10px; min-height: 60px; padding: 12px 16px; text-align: start; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
 .experimental-habit-tabs > button > span { grid-row: 1 / 3; align-self: center; }
 .experimental-habit-tabs > button small { grid-column: 2; color: var(--ink-soft); }
 .experimental-habit-tabs > button[aria-selected="true"] { color: var(--ui-on-accent); background: var(--ui-accent); border-color: var(--ui-accent); }
@@ -184,6 +183,7 @@ html[data-genesis-theme] .genesis-app .shared-projects-context > div:first-child
 .habit-tab-icon.active .habit-tab-icon-detail { animation: habit-tab-draw .45s cubic-bezier(.16, 1, .3, 1); }
 @keyframes habit-tab-draw { from { stroke-dasharray: 100; stroke-dashoffset: 100; } to { stroke-dasharray: 100; stroke-dashoffset: 0; } }
 html[data-genesis-theme] .genesis-app .habit-section-drag-handle { min-width: 44px; min-height: 44px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); box-shadow: none; }
+html[data-genesis-theme] .genesis-app .habits-hero-actions .hero-path-open { border-radius: 12px; }
 .habits-view.experimental-habit-tab-today > .experimental-habit-section:not(.experimental-habit-section-today),
 .habits-view.experimental-habit-tab-library > .experimental-habit-section:not(.experimental-habit-section-library),
 .habits-view.experimental-habit-tab-modules > .experimental-habit-section:not(.experimental-habit-section-modules),
@@ -228,3 +228,82 @@ html[data-genesis-theme] .genesis-app .today-calendar-choice { margin-inline: 0;
   html[data-genesis-theme] .genesis-app .display-calendar-choice { width: 100%; gap: 4px; }
   html[data-genesis-theme] .genesis-app .display-calendar-choice > button { padding-inline: 4px; font-size: clamp(12px, 3.2vw, 14px); }
 }
+
+.project-completion-backdrop { z-index: 980; }
+.project-completion-dialog { width: min(420px, calc(100vw - 32px)); padding: 24px; color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 18px 70px #0004; }
+.project-completion-dialog h2 { margin: 0; font-size: 23px; }
+.project-completion-dialog p { overflow-wrap: anywhere; color: var(--ink-soft); }
+.project-completion-dialog > div { display: flex; justify-content: flex-end; gap: 12px; }
+.project-completion-dialog button { min-width: 80px; min-height: 44px; }
+.project-drag-hint-touch { display: none; }
+.project-draggable-item[data-project-dragging="true"] { outline: 3px solid var(--teal); outline-offset: 2px; opacity: .72; cursor: grabbing; }
+html[data-genesis-theme] .genesis-app :is(.inbox-list-item, .project-assigned-list).project-draggable-item { grid-template-columns: minmax(0, 1fr) auto; }
+.stoicheion-section-view { display: grid; gap: 20px; }
+.stoicheion-intro { --theokyklos-gold: #d5b66e; }
+.stoicheion-intro .theokyklos-hero-seal::before { animation: none; }
+.stoicheion-orientation-readings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.stoicheion-orientation-readings > section { min-width: 0; padding: 20px; border: 1px solid rgba(216, 189, 128, .22); border-radius: 14px; background: rgba(255, 255, 255, .025); }
+.stoicheion-orientation-readings > .stoicheion-reading-selected { border-color: #dfc47f; background: rgba(223, 196, 127, .11); box-shadow: inset 0 0 0 1px rgba(223, 196, 127, .18); }
+.stoicheion-reading-more { min-width: 0; border-top: 1px solid rgba(216, 189, 128, .22); }
+.stoicheion-reading-more > summary { display: flex; align-items: center; min-height: 48px; color: #dfc47f; cursor: pointer; font-weight: 700; }
+.stoicheion-reading-more > div { display: grid; gap: 24px; padding-top: 12px; }
+@media (max-width: 600px) { .stoicheion-orientation-readings { grid-template-columns: 1fr; } }
+html[data-genesis-theme] .genesis-app :is(.modal-close, .shared-projects-close, .stoicheion-dialog-close, .theokyklos-details-close, .shared-task-list-icon-close) {
+  display: grid; place-items: center; flex: 0 0 44px; width: 44px; height: 44px; min-width: 44px; min-height: 44px;
+  padding: 0; border-radius: 50%; font-size: 25px; line-height: 1;
+}
+@media (pointer: coarse) {
+  .project-drag-hint-desktop { display: none; }
+  .project-drag-hint-touch { display: inline; }
+}
+.shared-projects-context > .shared-context-actions { grid-column: 1 / -1; justify-content: flex-end; margin-top: 16px; }
+.shared-planning-controls { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 24px; }
+.shared-planning-controls > div { min-width: 0; }
+.shared-planning-controls .shared-projects-calendar-mode-label { margin: 0 0 8px; }
+.shared-planning-controls :is(.shared-projects-view-switch, .shared-projects-calendar-mode) { width: fit-content; margin: 0; }
+.shared-planning-dates { margin-left: auto; }
+@media(max-width: 760px) {
+  .shared-planning-controls > div { width: 100%; }
+  .shared-planning-controls :is(.shared-projects-view-switch, .shared-projects-calendar-mode) { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; }
+  .shared-planning-controls button { min-width: 0; padding-inline: 6px; font-size: 12px; white-space: nowrap; }
+}
+.shared-projects-board > .shared-projects-column { border-top: 4px solid var(--shared-board-color); background: color-mix(in srgb, var(--shared-board-color) 8%, var(--paper)); }
+.shared-board-header h2 { min-width: 0; }
+html[data-genesis-theme] .genesis-app .shared-board-title { min-width: 0; max-width: 100%; padding: 0; color: inherit; font: inherit; text-align: left; overflow-wrap: anywhere; background: transparent; border: 0; box-shadow: none; }
+.shared-board-title-input { width: 100%; min-width: 0; font: inherit; }
+.shared-board-tools { display: flex; align-items: center; gap: 8px; }
+html[data-genesis-theme] .genesis-app .shared-board-color input { width: 44px; height: 44px; padding: 4px; cursor: pointer; border-radius: 10px; }
+html[data-genesis-theme] .genesis-app .shared-board-settings { min-width: 44px; min-height: 44px; }
+.shared-affair-draggable { cursor: grab; touch-action: pan-y; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.shared-affair-draggable[data-dragging="true"] { outline: 3px solid var(--teal); outline-offset: 2px; opacity: .72; }
+html[data-genesis-theme] .genesis-app .shared-board-container { border-left: 4px solid #b2914a; background: color-mix(in srgb, #b2914a 12%, var(--paper)); }
+html[data-genesis-theme] .genesis-app .shared-board-container.shared-kind-task-list { border-left-color: #8573ab; background: color-mix(in srgb, #8573ab 12%, var(--paper)); }
+html[data-genesis-theme] .genesis-app .shared-projects-task { grid-template-columns: minmax(0, 1fr); border-left: 4px solid #2d8682; background: color-mix(in srgb, #2d8682 9%, var(--paper)); }
+html[data-genesis-theme] .genesis-app .shared-board-add-containers button:first-child { color: var(--ink); background: color-mix(in srgb, #b2914a 18%, var(--paper)); border-color: #b2914a; }
+html[data-genesis-theme] .genesis-app .shared-board-add-containers button:nth-child(2) { color: var(--ink); background: color-mix(in srgb, #8573ab 18%, var(--paper)); border-color: #8573ab; }
+html[data-genesis-theme] .genesis-app .shared-projects-column-add { color: var(--ink); background: color-mix(in srgb, #2d8682 18%, var(--paper)); border-color: #2d8682; }
+html[data-genesis-theme] .genesis-app .shared-projects-inbox-card { padding: 24px; border-radius: 22px; background: var(--paper); }
+html[data-genesis-theme] .genesis-app .shared-projects-inbox-card > h2 { font: 500 30px/1.2 var(--font-heading); }
+html[data-genesis-theme] .genesis-app .shared-projects-inbox-card > p { font-size: 16px; line-height: 1.6; }
+html[data-genesis-theme] .genesis-app .shared-projects-inbox-card > strong { color: var(--terracotta); font: 400 42px/1 var(--font-heading); }
+.shared-projects-inbox-items { max-height: 390px; overflow-y: auto; }
+.shared-inbox-task { padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+html[data-genesis-theme] .genesis-app .shared-inbox-task > button { display: grid; gap: 8px; width: 100%; color: var(--ink); text-align: left; background: transparent; border: 0; box-shadow: none; }
+html[data-genesis-theme] .genesis-app .shared-inbox-task strong { font-size: 18px; }
+html[data-genesis-theme] .genesis-app .shared-inbox-task :is(small, em) { color: var(--ink-soft); font-size: 14px; }
+.shared-space-card { position: relative; display: grid; gap: 12px; padding: 18px; border: 1px solid var(--line); border-radius: 18px; background: var(--paper); }
+html[data-genesis-theme] .genesis-app .shared-space-card > button:first-child { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 24px; gap: 12px; padding: 10px; text-align: left; color: var(--ink); background: transparent; border: 0; }
+.shared-space-card > button:first-child strong { grid-column: 1; overflow-wrap: anywhere; }
+.shared-space-card > button:first-child span { grid-column: 1; }
+.shared-space-card > button:first-child svg { grid-column: 2; grid-row: 1 / 3; width: 24px; align-self: center; }
+.shared-space-card .shared-space-edit { justify-self: end; }
+.shared-space-settings-form { display: grid; gap: 24px; }
+.shared-space-settings-form form, .space-invitation-fields, .space-members-settings { display: grid; gap: 16px; }
+.space-member-settings { display: grid; min-width: 0; gap: 12px; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.space-member-settings :is(strong, small) { overflow-wrap: anywhere; }
+.space-permission-checks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; }
+.space-permission-checks label { display: flex !important; flex-direction: row !important; align-items: flex-start; gap: 8px; }
+html[data-genesis-theme] .space-permission-checks input[type=checkbox] { flex: 0 0 auto; width: 20px; height: 20px; min-height: 0; padding: 0; accent-color: var(--teal); }
+.space-delete-settings { padding-top: 20px; border-top: 1px solid var(--line); }
+.space-delete-settings > button { margin: 8px 12px 0 0; }
+@media(max-width: 760px) { .space-permission-checks { grid-template-columns: 1fr; } }

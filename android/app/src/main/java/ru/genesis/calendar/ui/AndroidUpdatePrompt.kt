@@ -22,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -32,16 +33,19 @@ import java.net.URL
 import java.io.File
 import java.security.MessageDigest
 
-internal data class AndroidRelease(val versionCode: Int, val versionName: String, val sha256: String)
+internal data class AndroidRelease(val versionCode: Int, val versionName: String, val sha256: String,
+    val required: Boolean = false)
 
 internal fun newerAndroidRelease(body: String, installedCode: Int): AndroidRelease? {
     val json = JSONObject(body)
     val code = json.getInt("versionCode")
     val name = json.getString("versionName")
     val sha256 = json.getString("sha256")
+    val minimumCode = json.optInt("minimumSupportedVersionCode", 0)
     if (code <= installedCode || !Regex("[0-9]+(?:\\.[0-9]+){1,3}").matches(name)) return null
     if (!Regex("[a-fA-F0-9]{64}").matches(sha256)) return null
-    return AndroidRelease(code, name, sha256.lowercase())
+    if (minimumCode < 0 || minimumCode > code) return null
+    return AndroidRelease(code, name, sha256.lowercase(), minimumCode > installedCode)
 }
 
 /** Never hand the package installer a partial download or an HTML error page. */
@@ -81,14 +85,16 @@ internal fun fetchAndroidRelease(): AndroidRelease? {
 
 /** Checks after a completed account sync, once per offered version in this app session. */
 @Composable
-internal fun AndroidUpdatePrompt(context: Context, synchronizedAt: Long?, enabled: Boolean) {
-    if (BuildConfig.PLAY_DISTRIBUTION || !enabled) return
+internal fun AndroidUpdatePrompt(context: Context, synchronizedAt: Long?, enabled: Boolean,
+    offerOptional: Boolean = true) {
+    if (!enabled) return
     var release by remember { mutableStateOf<AndroidRelease?>(null) }
     var lastOffered by remember { mutableIntStateOf(0) }
-    LaunchedEffect(enabled, synchronizedAt) {
+    LaunchedEffect(enabled, synchronizedAt, offerOptional) {
         if (enabled && synchronizedAt != null) {
             val found = withContext(Dispatchers.IO) { runCatching(::fetchAndroidRelease).getOrNull() }
-            if (found != null && found.versionCode != lastOffered) {
+            if (found != null && (found.required || offerOptional && !BuildConfig.PLAY_DISTRIBUTION)
+                && (found.required || found.versionCode != lastOffered)) {
                 lastOffered = found.versionCode
                 release = found
             }
@@ -149,19 +155,29 @@ internal fun AndroidUpdateDialog(context: Context, release: AndroidRelease, onDi
             delay(1_000)
         }
     }
-    AlertDialog(onDismissRequest = onDismiss,
-        title = { Text("${genesisTranslate("Доступна новая версия GENESIS")} ${release.versionName}") },
+    AlertDialog(onDismissRequest = { if (!release.required) onDismiss() },
+        properties = DialogProperties(dismissOnBackPress = !release.required,
+            dismissOnClickOutside = !release.required),
+        title = { Text(if (release.required) "Обновите GENESIS до ${release.versionName}"
+            else "${genesisTranslate("Доступна новая версия GENESIS")} ${release.versionName}") },
         text = {
             Text(when {
                 installError -> "Не удалось открыть установщик Android. Попробуйте ещё раз."
                 error -> "Не удалось скачать обновление. Проверьте соединение и попробуйте снова."
                 downloaded != null -> "Обновление скачано. Установите его через системный установщик Android."
                 downloadId > 0 -> "Скачиваем обновление…"
+                release.required -> "Поддержка установленной версии завершена. Синхронизация сохранённых данных доступна; для дальнейшей работы установите обновление."
                 else -> "После синхронизации доступно обновление приложения. Скачайте его прямо здесь."
             })
         },
         confirmButton = {
             Button(onClick = {
+                if (BuildConfig.PLAY_DISTRIBUTION) {
+                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW,
+                        Uri.parse("https://play.google.com/store/apps/details?id=ru.genesis.calendar"))
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.onFailure { installError = true }
+                    return@Button
+                }
                 val file = downloaded
                 if (file != null) {
                     installError = false
@@ -193,9 +209,10 @@ internal fun AndroidUpdateDialog(context: Context, release: AndroidRelease, onDi
                 }
             }, enabled = !verifying && (downloadId == 0L || downloaded != null),
                 modifier = Modifier.testTag("android-update-download")) {
-                Text(if (downloaded != null) "Установить" else if (downloadId > 0 && !error) "Скачивается…" else "Скачать")
+                Text(if (BuildConfig.PLAY_DISTRIBUTION) "Обновить в Google Play" else if (downloaded != null) "Установить"
+                    else if (downloadId > 0 && !error) "Скачивается…" else "Скачать")
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Позже") } },
+        dismissButton = { if (!release.required) TextButton(onClick = onDismiss) { Text("Позже") } },
         modifier = Modifier.testTag("android-update-dialog"))
 }

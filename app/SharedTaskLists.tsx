@@ -104,7 +104,7 @@ export function SharedTaskLists({ language, enabledCalendars, onOpenProject, emb
 
   const modalContent = <>
 {modal === "task" && target ? <><header><h3>{en ? "Add team task" : "Добавить общую задачу"}</h3>
-        <button type="button" onClick={close} aria-label={en ? "Close" : "Закрыть"}>×</button></header>
+        <button type="button" className="shared-task-list-icon-close" onClick={close} aria-label={en ? "Close" : "Закрыть"}>×</button></header>
         <SharedTaskCreate language={language} enabledCalendars={enabledCalendars}
           initialSpaceId={target.spaceId} initialProjectId={target.projectId} initialStatusId={target.id}
           onCreated={(pending) => { close(); setMessage(pending
@@ -115,7 +115,7 @@ export function SharedTaskLists({ language, enabledCalendars, onOpenProject, emb
           <header><h3>{modal === "create" ? en ? "New team task list" : "Новый общий список задач"
             : modal === "edit" ? en ? "Rename task list" : "Переименовать список"
               : en ? "Remove task list" : "Удалить список задач"}</h3>
-            <button type="button" onClick={close} aria-label={en ? "Close" : "Закрыть"}>×</button></header>
+            <button type="button" className="shared-task-list-icon-close" onClick={close} aria-label={en ? "Close" : "Закрыть"}>×</button></header>
           {modal === "create" ? <><label>{en ? "Workspace" : "Пространство"}<select value={spaceId}
             onChange={(event) => { requestId.current = ""; setSpaceId(event.target.value); setProjects([]); setProjectId(""); }}>
             {spaces.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>

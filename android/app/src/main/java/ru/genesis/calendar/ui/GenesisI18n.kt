@@ -887,6 +887,9 @@ private val nativeCopy = mapOf(
     "Зенит" to "Zenith", "Надир" to "Nadir", "дн." to "days", "дней" to "days",
     "лавров" to "Laurels", " из " to " of ",
     // Remaining native-only copy. Longer fragments also cover interpolated counters and dates.
+    "Обновите GENESIS до" to "Update GENESIS to",
+    "Поддержка установленной версии завершена. Синхронизация сохранённых данных доступна; для дальнейшей работы установите обновление." to "Support for this version has ended. Saved data can still sync; install the update to continue using the app.",
+    "Обновить в Google Play" to "Update in Google Play",
     "+ Своё напоминание" to "+ Custom reminder", "＋ План" to "＋ Plan",
     "＋ Создать план сна" to "＋ Create sleep plan",
     "◷ План ·" to "◷ Plan ·", "Лавров" to "Laurels", " проектов" to " projects",

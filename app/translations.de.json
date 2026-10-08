@@ -2731,5 +2731,11 @@
   "Даты сакрального и лунного календарей преобразуются в григорианские по часовому поясу устройства перед отправкой в Яндекс.": "Sakrale und lunare Daten werden vor der Übertragung an Yandex in der Gerätezeitzone in gregorianische Daten umgerechnet.",
   "Выбранные даты преобразуются в григорианские по часовому поясу устройства.": "Ausgewählte Daten werden in der Gerätezeitzone in gregorianische Daten umgerechnet.",
   "В Яндекс ID откройте «Пароли приложений» → «Календарь». Название можно придумать, а сам пароль выдаёт Яндекс. Скопируйте его сюда.": "Öffnen Sie in Yandex ID „App-Passwörter“ → „Kalender“. Den Namen wählen Sie selbst; das Passwort erstellt Yandex. Kopieren Sie es hierher.",
-  "Открыть создание пароля Календаря в Яндекс ID": "Kalender-App-Passwort in Yandex ID erstellen"
+  "Открыть создание пароля Календаря в Яндекс ID": "Kalender-App-Passwort in Yandex ID erstellen",
+  "Да": "Ja",
+  "Завершить этот проект?": "Dieses Projekt abschließen?",
+  "Перетащите плашку для переноса": "Karte zum Verschieben ziehen",
+  "Удерживайте плашку для переноса": "Karte zum Verschieben gedrückt halten",
+  "Перетащите плашку задачи или списка в проект либо в хаос-бокс.": "Ziehe eine Aufgaben- oder Listenkarte in ein Projekt oder die Chaos-Box.",
+  "Для переноса удерживайте задачу или список, затем перетащите. Для прокрутки проведите пальцем без удержания.": "Zum Verschieben eine Aufgabe oder Liste gedrückt halten und ziehen. Zum Scrollen ohne Halten wischen."
 }
