@@ -1155,7 +1155,8 @@ function DeviceClock({ timeFormat }: { timeFormat: TimeFormat }) {
   return (
     <time className="device-clock" dateTime={clock?.now.toISOString()} aria-label={clock ? `Время устройства: ${formatClockTime(clock.now, timeFormat)}` : "Время устройства синхронизируется"}>
       <strong>{clock ? formatClockTime(clock.now, timeFormat) : "--:--:--"}</strong>
-      <small>{clock ? `время устройства · ${clock.timezone}` : "синхронизация времени"}</small>
+      <small className="device-clock-zone" data-no-translate>{clock ? clock.timezone : "—"}</small>
+      <small className="device-clock-label">{clock ? "время устройства" : "синхронизация времени"}</small>
     </time>
   );
 }
@@ -4785,6 +4786,7 @@ export function GenesisCalendar() {
               <span className="hero-date">{activeCalendarMode === "profane" ? formatCalendarDate(gregorian, "sacred") : formatGregorian(gregorian, true)}</span>
             </div>
           </div>
+          <div className="hero-day-clock">
           <div className="hero-number" aria-hidden="true">
             {activeCalendarMode === "lunar" ? (
               <MoonPhaseIcon phaseStep={moon.phaseStep} size={68} className="hero-mode-moon" />
@@ -4794,6 +4796,7 @@ export function GenesisCalendar() {
             <small>{activeCalendarMode === "lunar" ? moon.phase : activeCalendarMode === "profane" ? weekdayPatron.weekday : info.monthIndex === 12 ? "вне времени" : `${day.pyata} пята`}</small>
           </div>
           <DeviceClock timeFormat={activeTimeFormat} />
+          </div>
         </section>
 
         {cloudUser ? <TodayAdBlock key={`${cloudUser.uid}:${language}`} language={language} userId={cloudUser.uid} /> : null}
@@ -5732,9 +5735,11 @@ export function GenesisCalendar() {
                     </button>
                     <button type="button" className={`project-complete-action${completingProjectIds.includes(project.id) ? " is-completing" : ""}`} aria-pressed={project.status !== "active"} disabled={completingProjectIds.includes(project.id)}
                       aria-label={project.status !== "active" ? `Вернуть проект «${project.title}» в текущие` : `Завершить проект «${project.title}»`}
-                      title={project.status !== "active" ? "Вернуть в текущие" : "Завершить проект"} onClick={() => toggleProject(project.id)}>
-                      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m7 12 3 3 7-7"/></svg>
-                      <span className="completion-action-label">{project.status !== "active" ? (language === "en" ? "Restore" : "Вернуть") : (language === "en" ? "Complete" : "Завершить")}</span></button>
+                      title={project.status !== "active" ? (language === "en" ? "Restore" : "Вернуть") : "Завершить проект"} onClick={() => toggleProject(project.id)}>
+                      {project.status !== "active" && !completingProjectIds.includes(project.id)
+                        ? <svg className="project-restore-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1.7 7.3M4 4v6h6"/></svg>
+                        : <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="m7 12 3 3 7-7"/></svg>}
+                    </button>
                     <button type="button" className="project-edit" onClick={() => openProjectEditor(project)} aria-label={`Редактировать проект «${project.title}»`}>✎</button>
                     {cloudUser?.sharedProjectsEnabled ? <button type="button" className="project-transfer"
                       onClick={() => setTransferProject(project)}

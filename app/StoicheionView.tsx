@@ -697,7 +697,6 @@ export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSec
       onPointerMove={gatherEntropy}
       style={{ "--stoicheion-x": `${pointer.x}%`, "--stoicheion-y": `${pointer.y}%` } as CSSProperties}
     >
-        <header className="stoicheion-hero">
       <div className="stoicheion-orbit-frame" aria-hidden="true">
       <div className="stoicheion-orbit" aria-hidden="true">
         {letters.map((letter, index) => (
@@ -707,6 +706,7 @@ export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSec
 
       </div>
 
+        <header className="stoicheion-hero">
           <div>
             <span className="eyebrow">Гно · Метэр · Басилея</span>
             <h1 id="stoicheion-title">Стойхейон</h1>

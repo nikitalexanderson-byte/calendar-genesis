@@ -21,12 +21,12 @@ html[data-genesis-theme] .genesis-app h1 { font-size: clamp(28px, 3vw, 38px); }
 html[data-genesis-theme] .genesis-app h2 { font-size: clamp(23px, 2vw, 28px); }
 html[data-genesis-theme] .genesis-app h3 { font-size: 20px; }
 html[data-genesis-theme] .genesis-app :is(p, input, textarea, select) { font-size: var(--type-body); }
-html[data-genesis-theme] .genesis-app :is(label, small, summary) { font-size: var(--type-caption); line-height: 1.5; }
+html[data-genesis-theme] .genesis-app :is(label, small, summary):not(.app-sidebar *) { font-size: var(--type-caption); line-height: 1.5; }
 html[data-genesis-theme] :is(.editor-modal, .account-panel, .shared-projects-modal, .mood-modal) :is(p, input, textarea, select) { font: 400 16px/1.5 var(--font-ui); }
 html[data-genesis-theme] :is(.editor-modal, .account-panel, .shared-projects-modal, .mood-modal) :is(label, small, summary) { font: 400 14px/1.5 var(--font-ui); }
 html[data-genesis-theme] :is(.editor-modal, .account-panel, .shared-projects-modal, .mood-modal) h2 { font-size: 26px; }
 html[data-genesis-theme] :is(.editor-modal, .account-panel, .shared-projects-modal, .mood-modal) button { min-height: 44px; font: 600 15px/1.4 var(--font-ui); letter-spacing: 0; text-transform: none; }
-html[data-genesis-theme] .genesis-app button { font-size: var(--type-label); font-weight: 600; letter-spacing: 0; text-transform: none; }
+html[data-genesis-theme] .genesis-app button:not(.app-sidebar *) { font-size: var(--type-label); font-weight: 600; letter-spacing: 0; text-transform: none; }
 html[data-genesis-theme] .genesis-app :is(.primary-button, .secondary-button, .shared-projects-open-modal) {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   min-height: 44px; padding: 10px 18px; border-radius: 12px; border: 1px solid var(--line);
@@ -49,11 +49,14 @@ html[data-genesis-theme] .genesis-app .project-open :is(p, em, small) { font: 40
 html[data-genesis-theme] .genesis-app .project-drop-heading small { font-size: 13px; }
 html[data-genesis-theme] .genesis-app .project-assigned-items > p { font-size: 14px; }
 html[data-genesis-theme] .genesis-app .project-complete-action { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 44px; min-height: 44px; padding: 8px; border-radius: 10px; }
-html[data-genesis-theme] .genesis-app .project-complete-action svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; }
-html[data-genesis-theme] .genesis-app .project-complete-action .completion-action-label { display: inline; width: auto; height: auto; border: 0; border-radius: 0; background: transparent; color: inherit; font: inherit; }
+html[data-genesis-theme] .genesis-app .project-complete-action svg { width: 30px; height: 30px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+html[data-genesis-theme] .genesis-app .project-complete-action svg rect { fill: color-mix(in srgb, var(--ui-accent) 6%, var(--surface)); filter: drop-shadow(0 2px 1px #0002); }
+html[data-genesis-theme] .genesis-app .project-complete-action:is([aria-pressed="true"], .is-completing) svg rect { fill: var(--ui-accent); stroke: var(--ui-accent); }
+html[data-genesis-theme] .genesis-app .project-complete-action:is([aria-pressed="true"], .is-completing) svg path { stroke: var(--ui-on-accent); }
 html[data-genesis-theme] .genesis-app .project-complete-action svg { flex: none; }
 html[data-genesis-theme] .genesis-app .project-complete-action svg path { stroke-dasharray: 20; stroke-dashoffset: 20; transition: stroke-dashoffset .35s ease; }
 html[data-genesis-theme] .genesis-app .project-complete-action:is([aria-pressed="true"], .is-completing) svg path { stroke-dashoffset: 0; }
+html[data-genesis-theme] .genesis-app .project-complete-action svg.project-restore-icon path { stroke: var(--ui-accent); stroke-dasharray: none; stroke-dashoffset: 0; }
 html[data-genesis-theme] .genesis-app .project-complete-action.is-completing { animation: project-completed .45s ease; }
 @keyframes project-completed { 50% { transform: scale(1.13); background: color-mix(in srgb, var(--ui-accent) 18%, var(--surface)); } }
 .action-notice { position: fixed; z-index: 1000; bottom: calc(80px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; width: max-content; max-width: calc(100vw - 32px); padding: 14px 20px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--ink); box-shadow: 0 8px 30px #0003; font: 600 16px/1.4 var(--font-ui); }
@@ -70,6 +73,11 @@ html[data-genesis-theme] .genesis-app .category-strip .category-actions button {
 html[data-genesis-theme] .genesis-app .category-strip > article.editing { grid-column: 1 / -1; display: block; }
 html[data-genesis-theme] .genesis-app .category-edit-form { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px 44px; gap: 8px; align-items: center; }
 html[data-genesis-theme] .genesis-app .category-edit-form :is(input, button) { min-width: 0; width: 100%; min-height: 44px; }
+html[data-genesis-theme] .genesis-app .inbox-card { display: block; padding: 20px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+html[data-genesis-theme] .genesis-app .inbox-card h2 { margin: 7px 0 6px; }
+html[data-genesis-theme] .genesis-app .inbox-card > p { margin: 0 0 12px; color: var(--ink-soft); line-height: 1.55; }
+html[data-genesis-theme] .genesis-app .inbox-card > strong { display: block; margin-bottom: 10px; color: var(--terracotta); font: 400 42px/1.2 var(--font-heading); }
+html[data-genesis-theme] .genesis-app .inbox-card .shared-projects-inbox-create { border: 1px solid var(--line); text-align: center; }
 
 html[data-genesis-theme] .genesis-app .shared-projects-shell[hidden] { display: none; }
 html[data-genesis-theme] .genesis-app .shared-space-entry { padding: clamp(20px, 4vw, 40px); border: 1px solid var(--line); border-radius: 20px; background: var(--surface); }
@@ -119,6 +127,7 @@ html[data-genesis-theme] .genesis-app .shared-projects-modal { width: min(640px,
 }
 
 .today-calendar-choice, .admin-section-tabs, .project-transfer-mode { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+.admin-section-tabs { margin-top: 24px; }
 .genesis-app :is(.today-calendar-choice, .admin-section-tabs, .project-transfer-mode) button:is([aria-pressed="true"], [aria-current="page"]) { background: var(--ui-accent); color: var(--ui-on-accent); border-color: var(--ui-accent); }
 .genesis-app .task-form { display: flex; flex-direction: column; gap: 16px; }
 .genesis-app .task-form > label { display: flex; flex-direction: column; gap: 6px; }
@@ -139,7 +148,7 @@ html[data-genesis-theme] .task-composer-modal { scroll-padding-block: 16px 72px;
 .admin-feature-disclosure > summary { cursor: pointer; padding: 16px; font-size: 20px; font-weight: 600; }
 .admin-users-table { min-width: 1400px; }
 html[data-genesis-theme] .genesis-app .project-row { grid-template-columns: minmax(0, 1fr) auto 44px 44px 44px; }
-html[data-genesis-theme] .genesis-app .project-complete-action { width: auto; white-space: nowrap; }
+html[data-genesis-theme] .genesis-app .project-complete-action { width: 44px; height: 44px; padding: 7px; border-radius: 8px; }
 html[data-genesis-theme] .genesis-app article.project-task-card { grid-template-columns: 36px minmax(0, 1fr); gap: 12px; padding: 14px; }
 html[data-genesis-theme] .genesis-app .project-task-card .task-check { grid-column: 1; grid-row: 1; width: 36px; height: 36px; }
 html[data-genesis-theme] .genesis-app .project-task-card .project-drag-handle { grid-column: 1; grid-row: 2; justify-self: center; }
@@ -170,16 +179,39 @@ html[data-genesis-theme] .genesis-app .shared-projects-context > div:first-child
 .experimental-habit-tabs > button small { grid-column: 2; color: var(--ink-soft); }
 .experimental-habit-tabs > button[aria-selected="true"] { color: var(--ui-on-accent); background: var(--ui-accent); border-color: var(--ui-accent); }
 .experimental-habit-tabs > button[aria-selected="true"] small { color: inherit; }
+.habits-view > .experimental-habit-tabs { flex: 1 1 100%; order: 10; margin-block: 0; }
+.experimental-habit-tabs > button > .habit-tab-icon { grid-row: 1 / 3; align-self: center; width: 24px; height: 24px; overflow: visible; }
+.habit-tab-icon.active .habit-tab-icon-detail { animation: habit-tab-draw .45s cubic-bezier(.16, 1, .3, 1); }
+@keyframes habit-tab-draw { from { stroke-dasharray: 100; stroke-dashoffset: 100; } to { stroke-dasharray: 100; stroke-dashoffset: 0; } }
+.habit-library-visibility { display: grid; flex: 1 1 100%; order: 20; gap: 8px; }
+.habit-library-visibility[hidden], .habit-collapsible-content[hidden] { display: none; }
+.habits-view > .habit-collapsible-block.collapsed { display: contents; }
+.habit-library-visibility .habit-collapsible-toolbar { width: 100%; }
+html[data-genesis-theme] .genesis-app .habit-library-visibility :is(.habit-collapsible-toggle, .habit-section-drag-handle) { min-height: 44px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); box-shadow: none; }
+.habit-library-visibility .habit-collapsible-toggle { flex: 1 1 auto; text-align: start; }
+.habit-library-visibility .habit-section-drag-handle { min-width: 44px; }
 .habits-view.experimental-habit-tab-today > .experimental-habit-section:not(.experimental-habit-section-today),
 .habits-view.experimental-habit-tab-library > .experimental-habit-section:not(.experimental-habit-section-library),
 .habits-view.experimental-habit-tab-modules > .experimental-habit-section:not(.experimental-habit-section-modules),
 .habits-view.experimental-habit-tab-progress > .experimental-habit-section:not(.experimental-habit-section-progress) { display: none; }
-.stoicheion-view > .stoicheion-hero { position: relative; min-height: 340px; overflow: hidden; isolation: isolate; align-items: center; }
-.stoicheion-hero > div:not(.stoicheion-orbit-frame) { position: relative; z-index: 1; }
-.stoicheion-hero .stoicheion-orbit-frame { position: absolute; inset: 0; container-type: size; }
-.stoicheion-hero .stoicheion-orbit { inset: 50% auto auto 50%; width: min(82cqw, 82cqh); color: #d9bd78; opacity: .5; transform: translate(-50%, -50%); animation: web-alphabet-turn 70s linear infinite; }
-.stoicheion-hero .stoicheion-orbit i { inset: 50% auto auto 50%; font: 500 clamp(16px, 3cqw, 28px)/1 var(--font-heading); transform: translate(-50%, -50%) rotate(calc(var(--letter-index) * 15deg)) translateY(calc(-1 * min(41cqw, 41cqh))); }
-@keyframes web-alphabet-turn { to { transform: translate(-50%, -50%) rotate(360deg); } }
+.stoicheion-view > .stoicheion-hero { position: relative; min-height: 210px; align-items: center; }
+html[data-genesis-theme] .genesis-app .stoicheion-hero h1 { font-size: clamp(28px, 3vw, 38px); line-height: 1.25; letter-spacing: -.025em; }
+.stoicheion-view > .stoicheion-orbit-frame { container-type: size; --stoicheion-orbit-size: min(90cqw, 1000px); }
+.stoicheion-view > .stoicheion-orbit-frame .stoicheion-orbit { inset: calc(-1 * min(18cqw, 350px)) auto auto 50%; width: var(--stoicheion-orbit-size); color: #d9bd78; opacity: .2; transform: translateX(-50%); animation: web-alphabet-turn 110s linear infinite reverse; }
+.stoicheion-view > .stoicheion-orbit-frame .stoicheion-orbit i { inset: 50% auto auto 50%; font: 400 clamp(13px, 1.6cqw, 18px)/1 var(--font-heading); transform: translate(-50%, -50%) rotate(calc(var(--letter-index) * 15deg)) translateY(calc(var(--stoicheion-orbit-size) * -.48)); }
+@keyframes web-alphabet-turn { to { transform: translateX(-50%) rotate(360deg); } }
+.hero-day-clock { position: absolute; z-index: 2; top: 35px; right: 40px; display: grid; justify-items: end; gap: 18px; max-width: 210px; }
+.hero-day-clock > .hero-number { position: static; }
+.hero-day-clock > .device-clock { margin: 0; min-width: 154px; max-width: 100%; }
+html[data-genesis-theme] .genesis-app .device-clock strong { font: 600 24px/1.15 var(--font-ui); font-variant-numeric: lining-nums tabular-nums; font-feature-settings: "tnum" 1, "lnum" 1; letter-spacing: .02em; white-space: nowrap; }
+html[data-genesis-theme] .genesis-app .device-clock .device-clock-zone { font-size: 12px; font-weight: 600; line-height: 1.4; letter-spacing: 0; text-transform: none; }
+html[data-genesis-theme] .genesis-app .device-clock .device-clock-label { font-size: 10px; font-weight: 400; line-height: 1.4; letter-spacing: 0; text-transform: none; }
+@media(max-width: 760px) {
+  .hero-day-clock { display: contents; }
+  .hero-day-clock > .hero-number { position: absolute; }
+  .hero-day-clock > .device-clock { position: absolute; z-index: 2; inset: auto 25px 24px; width: auto; max-width: none; min-width: 0; }
+  .hero-card .hero-copy { padding-bottom: 120px; }
+}
 @media(max-width: 600px) {
   html[data-genesis-theme] .genesis-app .project-row { grid-template-columns: auto 44px 44px 44px; }
   html[data-genesis-theme] .genesis-app .project-row .project-open { grid-column: 1 / -1; }
@@ -191,4 +223,4 @@ html[data-genesis-theme] .genesis-app .shared-projects-context > div:first-child
   .experimental-habit-tabs > button { padding: 12px 8px; }
   .admin-users-table { min-width: 0; }
 }
-@media(prefers-reduced-motion: reduce) { .stoicheion-hero .stoicheion-orbit { animation: none; } }
+@media(prefers-reduced-motion: reduce) { .stoicheion-view > .stoicheion-orbit-frame .stoicheion-orbit, .habit-tab-icon.active .habit-tab-icon-detail { animation: none; } }

@@ -2535,7 +2535,7 @@ test("QA-02 gives large habit sections consistent disclosure controls and modal 
   assert.match(tracker, /onPointerDown=/);
   assert.match(tracker, /onKeyDown=\{handleMoveKey\}/);
   assert.match(tracker, /sectionOrder: nextOrder/);
-  assert.match(tracker, /перетаскивайте свёрнутые блоки/);
+  assert.doesNotMatch(tracker, /Сворачивайте разделы и перетаскивайте свёрнутые блоки/);
 
   assert.match(dialogHook, /FOCUSABLE_SELECTOR/);
   assert.match(dialogHook, /data-dialog-initial-focus/);

@@ -80,7 +80,6 @@ export function SharedProjects({ userId, language, enabledCalendars }: Props) {
   const [calendarMode, setCalendarMode] = useState<CalendarMode>("profane");
   const [snapshot, setSnapshot] = useState<SharedProjectSnapshot | null>(null);
   const [teamSnapshot, setTeamSnapshot] = useState<SharedProjectSnapshot | null>(null);
-  const [inboxExpanded, setInboxExpanded] = useState(false);
   const [expandedIds, setExpandedIds] = useState<string[]>([]);
   const [uiReadySpace, setUiReadySpace] = useState("");
   const [invitations, setInvitations] = useState<SharedInvitation[]>([]);
@@ -678,12 +677,7 @@ export function SharedProjects({ userId, language, enabledCalendars }: Props) {
   const inboxProject = projects.find((project) => Boolean(project.isInbox));
   const inboxProjectId = inboxProject?.id;
   useEffect(() => {
-    if (!inboxProjectId || uiReadySpace !== spaceId) return;
-    const timer = window.setTimeout(() => setInboxExpanded(expandedIds.includes(inboxProjectId)), 0);
-    return () => window.clearTimeout(timer);
-  }, [expandedIds, inboxProjectId, uiReadySpace, spaceId]);
-  useEffect(() => {
-    if (!inboxExpanded || !inboxProjectId) return;
+    if (!inboxProjectId) return;
     let live = true;
     const refresh = () => void loadSharedProject(inboxProjectId).then((result) => {
       if (live) setInboxPreview(result);
@@ -693,7 +687,8 @@ export function SharedProjects({ userId, language, enabledCalendars }: Props) {
     refresh();
     const timer = window.setInterval(refresh, 5_000);
     return () => { live = false; window.clearInterval(timer); };
-  }, [inboxExpanded, inboxProjectId]);
+  }, [inboxProjectId]);
+  const visibleInbox = inboxPreview?.project.id === inboxProjectId ? inboxPreview : null;
   const activeView = viewOverride ?? snapshot?.project.layout ?? "list";
   const calendarPeriod = sharedCalendarPeriod(calendarMonth, calendarMode, english);
   const calendarOffset = calendarPeriod.dates.length ? (calendarPeriod.dates[0].getDay() + 6) % 7 : 0;
@@ -786,34 +781,29 @@ export function SharedProjects({ userId, language, enabledCalendars }: Props) {
         {!spaces.length ? <option value="">{english ? "No workspaces" : "Нет пространств"}</option> : null}
         {spaces.map((space) => <option key={space.id} value={space.id}>{space.title}</option>)}
       </select></label>
-      {inboxProject ? <section className="shared-projects-inbox-card"
+      {inboxProject ? <section className="inbox-card shared-projects-inbox-card"
         data-shared-drop-project={inboxProject.id}
         data-drop-active={dropTarget?.projectId === inboxProject.id && !dropTarget.statusId || undefined}
         aria-label={english ? "Shared inbox" : "Хаос-бокс"}>
-        <div className="shared-projects-inbox-heading"><div>
+          <span className="eyebrow">{english ? "Unsorted · return zone" : "Несортированное · зона возврата"}</span>
           <h2>{english ? "Shared inbox" : "Хаос-бокс"}</h2>
           <p>{english ? "Unsorted tasks in this workspace" : "Задачи без проекта в этом пространстве"}</p>
-        </div><strong>{inboxProject.taskCount ?? 0}</strong></div>
-        <button type="button" className="shared-projects-inbox-toggle" aria-expanded={inboxExpanded}
-          onClick={() => { const open = !inboxExpanded; setInboxExpanded(open);
-            persistExpansion(open ? [...new Set([...expandedIds, inboxProject.id])] : expandedIds.filter((id) => id !== inboxProject.id)); }}>
-          {inboxExpanded ? (english ? "Collapse" : "Свернуть") : (english ? "Open" : "Открыть")}
-        </button>
-        {inboxExpanded ? <div className="shared-projects-inbox-items">
-          {!inboxPreview ? <p role="status">{english ? "Loading tasks…" : "Загружаем задачи…"}</p>
-            : inboxPreview.tasks.length ? inboxPreview.tasks.map((task) => <button key={task.id} type="button"
-              onClick={() => { setProjectId(inboxProject.id); setSnapshot(inboxPreview); setViewOverride(null); openTask(task); }}>
+          <strong>{visibleInbox?.tasks.length ?? inboxProject.taskCount ?? 0}</strong>
+        <div className="shared-projects-inbox-items">
+          {!visibleInbox ? <p role="status">{english ? "Loading tasks…" : "Загружаем задачи…"}</p>
+            : visibleInbox.tasks.length ? visibleInbox.tasks.map((task) => <button key={task.id} type="button"
+              onClick={() => { setProjectId(inboxProject.id); setSnapshot(visibleInbox); setViewOverride(null); openTask(task); }}>
               <strong>{task.title}</strong>{task.tags?.length ? <em>{task.tags.map((tag) => `#${tag}`).join(" ")}</em> : null}<small>{task.dueDate ? formatCalendarDate(new Date(`${task.dueDate}T12:00:00`), calendarMode)
                 : (english ? "No due date" : "Без срока")}</small>
             </button>) : <p>{english ? "No unsorted tasks yet." : "Задач без проекта пока нет."}</p>}
           {["owner", "manager", "member"].includes(inboxProject.role) ? <button type="button"
-            className="shared-projects-inbox-create" disabled={busy} onClick={() => void run(async () => {
+            className="secondary-button shared-projects-inbox-create" disabled={busy} onClick={() => void run(async () => {
               const inbox = await loadSharedProject(inboxProject.id);
               setProjectId(inboxProject.id); setSnapshot(inbox); setInboxPreview(inbox); setViewOverride(null);
               setNewTaskStatusId(inbox.statuses[0]?.id ?? "");
               setNewTaskCategoryId(""); setNewTaskAssigneeId(""); setCreateModal("task");
             })}>{english ? "Create task" : "Создать задачу"}</button> : null}
-        </div> : null}
+        </div>
       </section> : null}
       <nav className="shared-projects-project-nav" aria-label={english ? "Projects in workspace" : "Проекты пространства"}>
         <h2>{english ? "Projects" : "Проекты"}</h2>
@@ -834,7 +824,7 @@ export function SharedProjects({ userId, language, enabledCalendars }: Props) {
       <summary>{english ? "Completed projects" : "Завершённые"} · {archivedProjects.length}</summary>
       <div className="shared-projects-members">{archivedProjects.map((project) => <div key={project.id} className="shared-projects-member">
         <span>{project.title}</span>
-        {project.role === "owner" ? <button type="button" disabled={busy} onClick={() => restoreProject(project.id)}>{english ? "Restore" : "Восстановить"}</button> : null}
+        {project.role === "owner" ? <button type="button" className="project-complete-action" disabled={busy} title={english ? "Restore" : "Вернуть"} aria-label={english ? `Restore project “${project.title}”` : `Вернуть проект «${project.title}»`} onClick={() => restoreProject(project.id)}><svg className="project-restore-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1.7 7.3M4 4v6h6"/></svg></button> : null}
       </div>)}</div>
     </details> : null}
     </aside>
@@ -845,7 +835,7 @@ export function SharedProjects({ userId, language, enabledCalendars }: Props) {
       <header className="shared-projects-context">
         <div>
           <h2>{snapshot.project.isInbox ? (english ? "Team tasks" : "Задачи команды") : snapshot.project.title}</h2>
-          {!snapshot.project.isInbox && snapshot.project.role === "owner" ? <button type="button" className={`project-complete-action${completedPulse ? " is-completing" : ""}`} disabled={busy} onClick={archiveProject} aria-label={english ? `Complete project “${snapshot.project.title}”` : `Завершить проект «${snapshot.project.title}»`}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m7 12 3 3 7-7"/></svg><span className="completion-action-label">{english ? "Complete" : "Завершить"}</span></button> : null}
+          {!snapshot.project.isInbox && snapshot.project.role === "owner" ? <button type="button" className={`project-complete-action${completedPulse ? " is-completing" : ""}`} disabled={busy} onClick={archiveProject} title={english ? "Complete project" : "Завершить проект"} aria-label={english ? `Complete project “${snapshot.project.title}”` : `Завершить проект «${snapshot.project.title}»`}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="m7 12 3 3 7-7"/></svg></button> : null}
           {!snapshot.project.isInbox && snapshot.project.description ? <p>{snapshot.project.description}</p> : null}
         </div>
         <div className="shared-projects-meta"><span>{english ? "Your role" : "Ваша роль"}: {roleLabel(snapshot.project.role)}</span><span>{snapshot.members.length} {english ? "members" : "участников"}</span></div>
