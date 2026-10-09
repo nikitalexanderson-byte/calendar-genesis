@@ -84,7 +84,7 @@ import { TimeClockPicker } from "./TimeClockPicker";
 import { CalendarDatePicker } from "./CalendarDatePicker";
 import { SharedTaskCreate } from "./SharedTaskCreate";
 import { TaskReminderPicker } from "./TaskReminderPicker";
-import { CronusSickleIcon } from "./CronusSickleIcon";
+import { CalendarModeIcon } from "./CalendarModeIcon";
 import { MoonPhaseIcon } from "./MoonPhaseIcon";
 import { RecurrenceBuilder } from "./RecurrenceBuilder";
 import { YandexCalendarConnectDialog } from "./YandexCalendarConnectDialog";
@@ -1386,7 +1386,7 @@ export function GenesisCalendar() {
   }, [completingProjectIds]);
   const [voiceAssistantOpen, setVoiceAssistantOpen] = useState(false);
   const [voiceControlActive, setVoiceControlActive] = useState(false);
-  const [voiceHabitRequest, setVoiceHabitRequest] = useState<{ token: number; kind: "edit" | "delete" | "section"; id?: string; section?: string } | null>(null);
+  const [voiceHabitRequest, setVoiceHabitRequest] = useState<{ token: number; kind: "create" | "edit" | "delete" | "section"; id?: string; section?: string } | null>(null);
   const [voiceLaunchAnimating, setVoiceLaunchAnimating] = useState(false);
   const [geminiOpen, setGeminiOpen] = useState(false);
   const [assistantStatus, setAssistantStatus] = useState<{ available: boolean; provider: AssistantProvider; audioAvailable: boolean }>({
@@ -1568,10 +1568,17 @@ export function GenesisCalendar() {
   const [experimentalProjectFormOpen, setExperimentalProjectFormOpen] = useState(false);
   const [expandedExperimentalProjects, setExpandedExperimentalProjects] = useState<string[]>([]);
   const newProjectDialogRef = useDialogAccessibility<HTMLFormElement>(() => setExperimentalProjectFormOpen(false), experimentalThemeActive && experimentalProjectFormOpen);
+  const [requestedExperimentalTheme, setRequestedExperimentalTheme] = useState<GenesisTheme | null>(null);
+  const experimentalWarningRef = useDialogAccessibility<HTMLElement>(() => setRequestedExperimentalTheme(null), requestedExperimentalTheme !== null);
 
   const requestGenesisThemeChange = useCallback((theme: GenesisTheme) => {
-    changeGenesisTheme(normalizeWebTheme(theme));
-  }, [changeGenesisTheme]);
+    const nextTheme = normalizeWebTheme(theme);
+    if (nextTheme.startsWith("experimental") && !experimentalThemeActive) {
+      setRequestedExperimentalTheme(nextTheme);
+      return;
+    }
+    changeGenesisTheme(nextTheme);
+  }, [changeGenesisTheme, experimentalThemeActive]);
 
   useEffect(() => {
     const retryThemeSave = () => themeControllerRef.current?.retry();
@@ -4742,10 +4749,15 @@ export function GenesisCalendar() {
 
   const renderDisplayCalendarChoice = (label: string, className = "") => (
     <div className={`display-calendar-choice ${className}`} role="group" aria-label={label}>
-      {(["profane", "sacred", "lunar"] as CalendarMode[]).filter((mode) => visibility.enabledCalendars.includes(mode)).map((mode) => (
+      {(["profane", "sacred", "lunar"] as CalendarMode[]).filter((mode) => visibility.enabledCalendars.includes(mode)).map((mode) => {
+        const name = mode === "profane" ? (language === "en" ? "Gregorian" : "Григорианский") : mode === "sacred" ? (language === "en" ? "Sacred" : "Сакральный") : (language === "en" ? "Lunar" : "Лунный");
+        return (
         <button type="button" className="secondary-button" key={mode} aria-pressed={activeCalendarMode === mode}
-          onClick={() => void changeDisplayCalendar(mode)}>{mode === "profane" ? (language === "en" ? "Gregorian" : "Григорианский") : mode === "sacred" ? (language === "en" ? "Sacred" : "Сакральный") : (language === "en" ? "Lunar" : "Лунный")}</button>
-      ))}
+          aria-label={name} title={name} onClick={() => void changeDisplayCalendar(mode)}>
+          <CalendarModeIcon mode={mode} /><span>{name}</span>
+        </button>
+        );
+      })}
     </div>
   );
 
@@ -4811,7 +4823,7 @@ export function GenesisCalendar() {
 
     return (
       <div className="today-view" data-exp-layout="view">
-        {renderDisplayCalendarChoice(isEnglish ? "Today's calendar" : "Календарь сегодня", "today-calendar-choice")}
+        {!experimentalThemeActive ? renderDisplayCalendarChoice(isEnglish ? "Today's calendar" : "Календарь сегодня", "today-calendar-choice") : null}
         <section className={`hero-card mode-${activeCalendarMode}${activeCalendarMode === "profane" ? ` weekday-${gregorian.getDay()}` : ""}`} aria-labelledby="today-title" data-genesis-preserve="today-hero-art">
           <div className="hero-copy">
             <div className="eyebrow-row">
@@ -4911,6 +4923,7 @@ export function GenesisCalendar() {
               experimentalThemeActive={false}
               onChange={updateHabitWorkspace}
               onOpenHabits={() => navigateTo("habits")}
+              onCreateHabit={() => { setVoiceHabitRequest({ token: Date.now(), kind: "create" }); navigateTo("habits"); }}
             />
           </Suspense>
         ) : null}
@@ -4953,7 +4966,7 @@ export function GenesisCalendar() {
                      ? (isEnglish ? "Date in the civil calendar" : "Дата в гражданском календаре")
                      : "Три ритма в одной точке"}</h2>
               </div>
-              <span className="ornament" aria-hidden="true">{activeCalendarMode === "lunar" ? "☾" : activeCalendarMode === "profane" ? <CronusSickleIcon size={24} /> : <svg className="three-rhythms-icon" viewBox="0 0 44 44" fill="none"><path d="M22 22V7.04M22 22l12.96 7.48M22 22 9.04 29.48" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/><circle cx="22" cy="7.04" r="3.3" fill="currentColor"/><circle cx="34.96" cy="29.48" r="3.3" fill="currentColor"/><circle cx="9.04" cy="29.48" r="3.3" fill="currentColor"/></svg>}</span>
+              <span className="ornament" aria-hidden="true">{activeCalendarMode === "lunar" ? "☾" : activeCalendarMode === "profane" ? <CalendarModeIcon mode="profane" size={24} /> : <svg className="three-rhythms-icon" viewBox="0 0 44 44" fill="none"><path d="M22 22V7.04M22 22l12.96 7.48M22 22 9.04 29.48" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/><circle cx="22" cy="7.04" r="3.3" fill="currentColor"/><circle cx="34.96" cy="29.48" r="3.3" fill="currentColor"/><circle cx="9.04" cy="29.48" r="3.3" fill="currentColor"/></svg>}</span>
             </div>
             <div className="meaning-grid">
               {activeCalendarMode === "lunar" ? (
@@ -4980,7 +4993,7 @@ export function GenesisCalendar() {
               ) : activeCalendarMode === "profane" ? (
                 <>
                   <article className="meaning-card">
-                    <span className="meaning-symbol meaning-sickle-symbol" aria-hidden="true"><CronusSickleIcon size={34} /></span>
+                    <span className="meaning-symbol" aria-hidden="true"><CalendarModeIcon mode="profane" size={34} /></span>
                     <span className="meaning-label">{isEnglish ? "Day of the week" : "День недели"}</span>
                     <strong>{weekdayPatron.weekday}</strong>
                     <p>{weekdayPatron.patronage}</p>
@@ -5118,7 +5131,7 @@ export function GenesisCalendar() {
           </span>
         ) : null}
         <span className="calendar-cross-date profane-date">
-          <CronusSickleIcon size={12} />{mode === "profane" ? `${profaneDate} · ${date.getFullYear()}` : profaneDate}
+          <CalendarModeIcon mode="profane" size={12} />{mode === "profane" ? `${profaneDate} · ${date.getFullYear()}` : profaneDate}
         </span>
         <span className="calendar-cross-date sacred-date" title={sacredDay.name}>
           <b aria-hidden="true">✦</b>{formatCalendarDate(date, "sacred")}
@@ -5582,7 +5595,7 @@ export function GenesisCalendar() {
           </div>
           <div className="month-switcher" aria-label={mode === "profane" ? "Переключение календарных месяцев" : "Переключение лунных месяцев"}>
             <button type="button" onClick={() => moveMonth(-1)} aria-label={mode === "profane" ? "Предыдущий календарный месяц" : "Предыдущий лунный месяц"}>←</button>
-            <span aria-hidden="true">{mode === "profane" ? <CronusSickleIcon size={35} /> : "☾"}</span>
+            <span aria-hidden="true"><CalendarModeIcon mode={mode} size={35} /></span>
             <button type="button" onClick={() => moveMonth(1)} aria-label={mode === "profane" ? "Следующий календарный месяц" : "Следующий лунный месяц"}>→</button>
           </div>
         </header>
@@ -5634,12 +5647,7 @@ export function GenesisCalendar() {
     );
   };
 
-  const renderCalendar = () => <>
-    {activeCalendarMode === "sacred" ? renderSacredCalendar() : renderAlternativeCalendar(activeCalendarMode)}
-    <button type="button" className="ghost-button calendar-return-to-today" onClick={() => selectCalendarDate(new Date())}>
-      {language === "en" ? "Back to today in Month" : "К сегодняшнему дню в месяце"}
-    </button>
-  </>;
+  const renderCalendar = () => activeCalendarMode === "sacred" ? renderSacredCalendar() : renderAlternativeCalendar(activeCalendarMode);
 
   const renderProjectCreateForm = (projectRows = flattenProjects(projects).filter(({ project }) => project.status === "active")) => (
     <form id="personal-project-create" className="project-form" onSubmit={addProject}
@@ -5733,9 +5741,9 @@ export function GenesisCalendar() {
             <button type="button" aria-pressed={!completedProjectsOpen} onClick={() => setCompletedProjectsOpen(false)}>{language === "en" ? "Current" : "Текущие"} · {projects.length - completedCount}</button>
             <button type="button" aria-pressed={completedProjectsOpen} onClick={() => setCompletedProjectsOpen(true)}>{language === "en" ? "Completed" : "Завершённые"} · {completedCount}</button>
           </div>
-          {experimentalThemeActive ? <button type="button" className="primary-button experimental-new-project" aria-expanded={experimentalProjectFormOpen} aria-controls="personal-project-create"
+          <button type="button" className="primary-button project-create-task" onClick={() => openTaskComposer("projects")}>{experimentalThemeActive ? <ExperimentalIcon name="plus" /> : null}{language === "en" ? "Create task" : "Создать задачу"}</button>
+          {experimentalThemeActive ? <button type="button" className="secondary-button experimental-new-project" aria-expanded={experimentalProjectFormOpen} aria-controls="personal-project-create"
             onClick={() => { setExperimentalProjectFormOpen(!experimentalProjectFormOpen); setNewProjectParent(""); }}><ExperimentalIcon name="plus" />{language === "en" ? "New project" : "Новый проект"}</button> : null}
-          <button type="button" className="primary-button project-create-task" onClick={() => openTaskComposer("projects")}>{language === "en" ? "Create task" : "Создать задачу"}</button>
         </div>
 
         <label className="tag-search">
@@ -5910,7 +5918,7 @@ export function GenesisCalendar() {
                     <span>{projectCount} проектов</span>
                     <div className="category-actions">
                       <button type="button" onClick={() => beginCategoryEdit(category)} aria-label={`Редактировать категорию «${category.name}»`}>{experimentalThemeActive ? <ExperimentalIcon name="edit" /> : "✎"}</button>
-                      <button type="button" onClick={() => deleteCategory(category.id)} aria-label={`Удалить категорию «${category.name}»`}>{experimentalThemeActive ? <ExperimentalIcon name="close" /> : "×"}</button>
+                      <button type="button" onClick={() => deleteCategory(category.id)} aria-label={`Удалить категорию «${category.name}»`}>{experimentalThemeActive ? <ExperimentalIcon name="delete" /> : "×"}</button>
                     </div>
                   </>
                 )}
@@ -5987,7 +5995,7 @@ export function GenesisCalendar() {
                     title="Редактировать задачу"
                     aria-label={`Редактировать задачу «${task.title}»`}
                   >{experimentalThemeActive ? <ExperimentalIcon name="edit" /> : "✎"}</button>
-                  <button type="button" className="task-delete" onClick={() => deleteTask(task.id)} aria-label={`Удалить задачу «${task.title}»`}>{experimentalThemeActive ? <ExperimentalIcon name="close" /> : "×"}</button>
+                  <button type="button" className="task-delete" onClick={() => deleteTask(task.id)} aria-label={`Удалить задачу «${task.title}»`}>{experimentalThemeActive ? <ExperimentalIcon name="delete" /> : "×"}</button>
                 </div>
               </article>
             );
@@ -6309,7 +6317,7 @@ export function GenesisCalendar() {
                   "--month-accent": month.accentMonth.color,
                 } as CSSProperties}
               >
-                <span className="year-month-top"><i>{month.ordinal}</i><b>{mode === "profane" ? <CronusSickleIcon size={27} /> : month.symbol}</b></span>
+                <span className="year-month-top"><i>{month.ordinal}</i><b>{mode === "profane" ? <CalendarModeIcon mode="profane" size={27} /> : month.symbol}</b></span>
                 <strong id={`year-month-${month.id}`}>{month.title}</strong>
                 <small>{month.subtitle}</small>
                 <div className={`civil-mini-calendar mode-${mode}`}>
@@ -6497,6 +6505,22 @@ export function GenesisCalendar() {
       } as CSSProperties}
     >
       {experimentalThemeActive && experimentalProjectFormOpen ? <div className="modal-backdrop experimental-project-composer-backdrop">{renderProjectCreateForm()}</div> : null}
+      {requestedExperimentalTheme ? <div className="modal-backdrop experimental-theme-warning-backdrop" role="presentation"
+        onMouseDown={(event) => { if (event.target === event.currentTarget) setRequestedExperimentalTheme(null); }}>
+        <section ref={experimentalWarningRef} className="editor-modal experimental-theme-warning" role="dialog" aria-modal="true"
+          aria-labelledby="experimental-theme-warning-title" aria-describedby="experimental-theme-warning-copy" tabIndex={-1}>
+          <header><h2 id="experimental-theme-warning-title">{language === "en" ? "Experimental theme" : "Экспериментальная тема"}</h2>
+            <button type="button" className="modal-close" aria-label={language === "en" ? "Close" : "Закрыть"} onClick={() => setRequestedExperimentalTheme(null)}><ExperimentalIcon name="close" /></button>
+          </header>
+          <p id="experimental-theme-warning-copy">{language === "en"
+            ? "Experimental is an unstable theme under development. Layout and controls may contain errors. You can return to Standart at any time using the flask icon."
+            : "Experimental — нестабильная экспериментальная тема в разработке. В оформлении и элементах управления возможны ошибки. Вы можете в любой момент вернуться в Standart через иконку пробирки."}</p>
+          <div className="editor-actions">
+            <button type="button" className="secondary-button" onClick={() => setRequestedExperimentalTheme(null)}>{language === "en" ? "Stay in Standart" : "Остаться в Standart"}</button>
+            <button type="button" className="primary-button" onClick={() => { changeGenesisTheme(requestedExperimentalTheme); setRequestedExperimentalTheme(null); }}>{language === "en" ? "Enable Experimental" : "Включить Experimental"}</button>
+          </div>
+        </section>
+      </div> : null}
       <ActionNotice message={view === "projects" && activeProjectsArea === "shared" ? "" : notice}/>
       {projectToComplete ? <ProjectCompletionDialog title={projectToComplete.title}
         onCancel={() => setProjectToComplete(null)} onConfirm={() => {
@@ -6566,10 +6590,11 @@ export function GenesisCalendar() {
 
       <section className="app-stage" data-exp-layout="stage">
         <header className="topbar" data-exp-ui="topbar">
-          <div>
+          <div className="topbar-date">
             <span className="topbar-kicker">{view === "theokyklos" ? "Теокиклос" : view === "habits" ? (language === "en" ? "Habit tracker" : "Трекер привычек") : CALENDAR_MODE_META[activeCalendarMode].label}</span>
             <strong>{formatCalendarDate(today, activeCalendarMode, activeCalendarMode !== "sacred")}</strong>
           </div>
+          {experimentalThemeActive ? renderDisplayCalendarChoice(language === "en" ? "Display calendar" : "Календарь отображения", "topbar-calendar-choice") : null}
           <div className="topbar-actions">
             {nativeAndroidApkUrl ? (
               <a className="icon-button ux-action-button android-native-icon-button" href={nativeAndroidApkUrl} data-tooltip={language === "en" ? "Native Android app · remove the old TWA first" : "Нативное приложение · сначала удалите прежнюю TWA"} title={language === "en" ? "Native GENESIS APK; old TWA must be removed first" : "Нативный GENESIS APK; прежнюю TWA необходимо сначала удалить"} aria-label={language === "en" ? "Download native GENESIS for Android; remove the old TWA first" : "Скачать нативный GENESIS для Android; сначала удалите старую TWA"}>
@@ -6595,7 +6620,7 @@ export function GenesisCalendar() {
               title={experimentalThemeActive ? "Experimental → Standart" : "Standart → Experimental"}
               disabled={!themeState.available || themeState.pending || ["signed-out", "loading", "load-error"].includes(themeState.status)}
               onClick={() => requestGenesisThemeChange(withExperimentalTheme(themeState.theme, !experimentalThemeActive))}>
-              <ExperimentalIcon name="flask" /><span data-no-translate>Experimental</span><i aria-hidden="true" />
+              <ExperimentalIcon name="flask" />
             </button> : null}
             {cloudUser ? (
               <div className={`account-chip${accountIdentityExpanded ? " is-expanded" : " is-compact"}`} ref={accountMenuRef}>
@@ -6634,7 +6659,6 @@ export function GenesisCalendar() {
                 <img src={`${APP_BASE}/google-signin-light-square.svg`} alt="" aria-hidden="true" data-genesis-preserve="google-signin-icon" />
               </button>
             )}
-            <button type="button" className="ghost-button" onClick={selectToday}>К сегодняшнему дню</button>
             <button type="button" className="icon-button ux-action-button" data-tooltip={tasks.length ? "Экспортировать календарь .ics" : "Добавьте задачу для экспорта"} title={tasks.length ? "Экспортировать календарь .ics" : "Добавьте задачу для экспорта"} onClick={exportCalendar} disabled={!tasks.length} aria-label="Экспортировать задачи в календарь .ics">
               <span className="ux-calendar-icon" aria-hidden="true" />
             </button>
@@ -6677,7 +6701,7 @@ export function GenesisCalendar() {
                   {viewIsVisible("calendar", visibility) ? <button id="calendar-month-tab" type="button" role="tab" aria-selected={view === "calendar"} aria-controls="calendar-period-panel" tabIndex={view === "calendar" ? 0 : -1} aria-current={view === "calendar" ? "page" : undefined} onClick={() => navigateTo("calendar")}>{language === "en" ? "Month" : "Месяц"}</button> : null}
                   {viewIsVisible("year", visibility) ? <button id="calendar-year-tab" type="button" role="tab" aria-selected={view === "year"} aria-controls="calendar-period-panel" tabIndex={view === "year" ? 0 : -1} aria-current={view === "year" ? "page" : undefined} onClick={() => navigateTo("year")}>{language === "en" ? "Year Wheel" : "Круг года"}</button> : null}
                 </div>
-                {renderDisplayCalendarChoice(language === "en" ? "Display calendar" : "Календарь отображения")}
+                {!experimentalThemeActive ? renderDisplayCalendarChoice(language === "en" ? "Display calendar" : "Календарь отображения") : null}
                 </div>
                 <section id="calendar-period-panel" role="tabpanel" aria-labelledby={view === "year" ? "calendar-year-tab" : "calendar-month-tab"}>
                   {view === "calendar" ? renderCalendar() : renderYear()}
@@ -6689,7 +6713,7 @@ export function GenesisCalendar() {
                   <button type="button" aria-current={activeProjectsArea === "personal" ? "page" : undefined} onClick={() => setProjectsArea("personal")}>{language === "en" ? "Personal" : "Личные"}</button>
                   <button type="button" aria-current={activeProjectsArea === "shared" ? "page" : undefined} onClick={() => setProjectsArea("shared")}>{language === "en" ? "Shared" : "Общие"}</button>
                 </nav> : null}
-                {renderDisplayCalendarChoice(language === "en" ? "Project date display" : "Отображение дат в проектах")}
+                {!experimentalThemeActive ? renderDisplayCalendarChoice(language === "en" ? "Project date display" : "Отображение дат в проектах") : null}
                 </div>
                 {!sharedProjectsVisible || activeProjectsArea === "personal" ? renderProjects() : <Suspense fallback={<DeferredViewFallback label={language === "en" ? "Opening shared projects…" : "Открываем общие проекты…"} />}>
                   <SharedProjects userId={cloudUser?.uid ?? ""} language={language} experimentalTheme={experimentalThemeActive}
@@ -6933,6 +6957,7 @@ export function GenesisCalendar() {
                     setDayDetailsOpen(false);
                     navigateTo("habits");
                   }}
+                  onCreateHabit={() => { setDayDetailsOpen(false); setVoiceHabitRequest({ token: Date.now(), kind: "create" }); navigateTo("habits"); }}
                   compact
                 />
               </Suspense>

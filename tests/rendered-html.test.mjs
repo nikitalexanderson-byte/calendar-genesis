@@ -2416,7 +2416,7 @@ test("Experimental applies one design system across ordinary views and adds safe
   assert.match(styles, /\.shared-projects-shell/);
   assert.match(styles, /\.account-security-grid > article/);
   assert.match(styles, /\[data-exp-ui="dialog"\]/);
-  assert.match(styles, /prefers-reduced-motion/);
+  assert.match(`${styles}\n${await readFile(new URL("../app/web-standart.css", import.meta.url), "utf8")}`, /prefers-reduced-motion/);
   assert.doesNotMatch(styles, /gx-today-panel-enter|experimental-google-connect/);
   assert.doesNotMatch(styles, /html\[data-genesis-theme="experimental"\][^\n{]*(?:img|picture|svg)\s*\{/);
   assert.match(calendar, /className="experimental-theme-toggle" role="switch"/);
@@ -2498,7 +2498,7 @@ test("QA-01 precaches the complete cold-install shell before activating the work
 
   assert.doesNotMatch(tracker, /sacred-library-toggle/);
   assert.doesNotMatch(tracker, /<DisclosureChevron open=\{expanded\}/);
-  assert.match(tracker, /<div className="sacred-sector-navigation open" id="sacred-sector-picker"/);
+  assert.match(tracker, /<div hidden=\{collapsed\} className="sacred-sector-navigation open" id="sacred-sector-picker"/);
   assert.doesNotMatch(styles, /\.sacred-library-toggle/);
 });
 
@@ -2912,8 +2912,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(accountPanel, /user\.calendarMode \?\? "sacred"\) === "profane"/);
   assert.match(cloudSync, /weekStart\?: "sunday" \| "monday"/);
   assert.match(repository, /week_start = :week_start/);
-  assert.match(calendar, /<CronusSickleIcon size=\{35\}/);
-  assert.match(calendar, /<CronusSickleIcon size=\{27\}/);
+  assert.match(calendar, /<CalendarModeIcon mode=\{mode\} size=\{35\}/);
+  assert.match(calendar, /<CalendarModeIcon mode="profane" size=\{27\}/);
   assert.match(calendar, /profane-weekday-patron/);
   assert.match(cronusSickle, /cronus-sickle-blade/);
   assert.match(cronusSickle, /cronus-sickle-handle/);
@@ -3141,7 +3141,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(recurrenceBuilder, /convertTrackerRecurrenceCalendar\(value, nextMode, rangeStart\)/);
   assert.match(recurrenceBuilder, /role="radiogroup"/);
   assert.match(recurrenceBuilder, /type="radio"/);
-  assert.match(recurrenceBuilder, /<CronusSickleIcon size=\{24\}/);
+  assert.match(recurrenceBuilder, /<CalendarModeIcon mode=\{value.mode === "genesis" \? "sacred" : value.mode === "classic" \? "profane" : "lunar"\}/);
   assert.doesNotMatch(recurrenceBuilder, /value\.mode === "classic" \? "□"/);
   assert.doesNotMatch(recurrenceBuilder, /recurrence-mode-toggle/);
   assert.doesNotMatch(recurrenceBuilder, /const setMode/);
