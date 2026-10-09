@@ -6,7 +6,20 @@ import {
   ThemeConflictError,
   createGenesisThemeController,
   normalizeGenesisTheme,
+  withExperimentalTheme,
+  withThemeColorMode,
 } from "../app/theme-controller.ts";
+
+test("switching the visual family preserves color mode, and switching color preserves family", () => {
+  assert.equal(withExperimentalTheme(GENESIS_THEME.STANDART_DARK, true), GENESIS_THEME.EXPERIMENTAL_DARK);
+  assert.equal(withExperimentalTheme(GENESIS_THEME.EXPERIMENTAL_DARK, false), GENESIS_THEME.STANDART_DARK);
+  assert.equal(withExperimentalTheme(GENESIS_THEME.STANDART, true), GENESIS_THEME.EXPERIMENTAL);
+  assert.equal(withExperimentalTheme(GENESIS_THEME.EXPERIMENTAL, false), GENESIS_THEME.STANDART);
+  assert.equal(withThemeColorMode(GENESIS_THEME.EXPERIMENTAL_DARK, false), GENESIS_THEME.EXPERIMENTAL);
+  assert.equal(withThemeColorMode(GENESIS_THEME.EXPERIMENTAL, true), GENESIS_THEME.EXPERIMENTAL_DARK);
+  assert.equal(withThemeColorMode(GENESIS_THEME.STANDART_DARK, false), GENESIS_THEME.STANDART);
+  assert.equal(withThemeColorMode(GENESIS_THEME.STANDART, true), GENESIS_THEME.STANDART_DARK);
+});
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 const waitFor = async (condition) => {

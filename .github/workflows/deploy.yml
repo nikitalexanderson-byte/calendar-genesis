@@ -46,6 +46,8 @@ jobs:
         run: |
           php server/tests/native-auth.php
           php server/tests/relocation.php
+          php -l public/legacy-home.php
+          php server/tests/legacy-home.php
           php server/tests/android-support.php
 
       - name: Test PHP backend with isolated SQLite
@@ -345,6 +347,7 @@ jobs:
           cp server/cron/sync.php dist-legacy/server/cron/
           cp server/public/api/index.php dist-legacy/public_html/api/
           cp dist-beget/public_html/.htaccess dist-legacy/public_html/
+          cp dist-beget/public_html/legacy-home.php dist-beget/public_html/legacy-relocation-notice.css dist-beget/public_html/legacy-relocation-notice.js dist-legacy/public_html/
           cp dist-beget/public_html/relocated.* dist-legacy/public_html/
           cp dist-beget/public_html/relocated-sw.js dist-legacy/public_html/
           cp dist-beget/public_html/android-update.json dist-legacy/public_html/

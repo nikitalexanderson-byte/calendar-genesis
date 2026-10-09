@@ -57,7 +57,20 @@ function offlinePrecacheManifest(basePath: string): Plugin {
         .filter((fileName) => /\.(?:js|css)$/i.test(fileName))
         .sort();
       if (!requiredFiles.length) this.error("Offline precache manifest has no JavaScript or CSS assets.");
-      const fonts = ["fonts/SourceSans3.woff2", "fonts/Literata.woff2"];
+      const fonts = ["fonts/SourceSans3.woff2", "fonts/Literata.woff2",
+        "fonts/experimental/Inter-cyrillic-ext.woff2",
+        "fonts/experimental/Inter-cyrillic.woff2",
+        "fonts/experimental/Inter-greek-ext.woff2",
+        "fonts/experimental/Inter-greek.woff2",
+        "fonts/experimental/Inter-vietnamese.woff2",
+        "fonts/experimental/Inter-latin-ext.woff2",
+        "fonts/experimental/Inter-latin.woff2",
+        "fonts/experimental/SourceSerif4-cyrillic-ext.woff2",
+        "fonts/experimental/SourceSerif4-cyrillic.woff2",
+        "fonts/experimental/SourceSerif4-greek.woff2",
+        "fonts/experimental/SourceSerif4-vietnamese.woff2",
+        "fonts/experimental/SourceSerif4-latin-ext.woff2",
+        "fonts/experimental/SourceSerif4-latin.woff2"];
       const fingerprint = createHash("sha256").update(`${PRECACHE_STATIC_REVISION}\n${requiredFiles.join("\n")}`);
       fonts.forEach((file) => fingerprint.update(readFileSync(path.join(projectRoot, "public", file))));
       const version = fingerprint.digest("hex").slice(0, 16);

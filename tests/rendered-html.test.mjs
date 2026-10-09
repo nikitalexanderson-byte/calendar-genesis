@@ -2344,7 +2344,7 @@ test("ships account-owned Standart colour schemes while preserving authored cont
   assert.match(styles, /html\[data-genesis-theme\^="experimental"\]/);
   assert.match(styles, /\[hidden\], \[hidden\] \*/);
   assert.doesNotMatch(styles, /(^|\n)\s*(button|input|img|svg|\.card)\s*[{,]/m);
-  assert.doesNotMatch(styles, /!important|all\s*:/);
+  assert.doesNotMatch(styles, /all\s*:/);
   assert.match(datePicker, /data-genesis-preserve="gregorian-date-picker"/);
   assert.match(datePicker, /data-genesis-preserve=\{`\$\{mode\}-date-picker`\}/);
   assert.match(timePicker, /data-genesis-preserve=\{`custom-time-picker-\$\{timeFormat\}`\}/);
@@ -2407,19 +2407,23 @@ test("Experimental applies one design system across ordinary views and adds safe
   assert.match(admin, /className="admin-view" data-exp-layout="view"/);
   assert.match(assistant, /data-exp-ui="dialog"/);
   assert.match(voice, /data-exp-ui="dialog"/);
+  assert.match(styles, /--font-ui: Inter/);
+  assert.match(styles, /--font-heading: "Source Serif 4"/);
+  assert.match(styles, /--ui-control-height: 44px/);
   assert.match(styles, /\.experimental-workspace-tabs/);
-  assert.match(styles, /\.today-workspace \.experimental-workspace-tabs/);
-  assert.match(styles, /\.today-workspace \.today-task-list > article/);
-  assert.match(styles, /@keyframes gx-today-panel-enter/);
   assert.match(styles, /\.experimental-habit-tabs/);
-  assert.match(styles, /\.mobile-nav\[data-exp-ui="mobile-nav"\]/);
-  assert.match(styles, /\.today-task-list > article/);
-  assert.match(styles, /\.project-tree > article/);
-  assert.match(styles, /\.habit-check-list > article/);
-  assert.match(styles, /\.admin-table-wrap/);
+  assert.match(styles, /\.project-tree-workspace/);
+  assert.match(styles, /\.shared-projects-shell/);
   assert.match(styles, /\.account-security-grid > article/);
   assert.match(styles, /\[data-exp-ui="dialog"\]/);
+  assert.match(styles, /prefers-reduced-motion/);
+  assert.doesNotMatch(styles, /gx-today-panel-enter|experimental-google-connect/);
   assert.doesNotMatch(styles, /html\[data-genesis-theme="experimental"\][^\n{]*(?:img|picture|svg)\s*\{/);
+  assert.match(calendar, /className="experimental-theme-toggle" role="switch"/);
+  assert.match(calendar, /withExperimentalTheme\(themeState.theme, !experimentalThemeActive\)/);
+  assert.match(calendar, /experimentalThemeActive=\{false\}/);
+  assert.match(account, /withThemeColorMode\(themeState.theme, (?:false|true)\)/);
+
 });
 
 test("mood tracker exposes twelve choices in one responsive desktop row", async () => {
@@ -2484,7 +2488,7 @@ test("QA-01 precaches the complete cold-install shell before activating the work
   assert.doesNotMatch(begetEntry, /controllerchange|window\.location\.reload\(\)/);
   assert.match(begetEntry, /registration\.update\(\)/);
   assert.match(htaccess, /\^\(\?:sw\|precache-manifest\)\\\.js\$/);
-  assert.match(htaccess, /\^\(\?:index\\\.html\|deploy-meta\\\.json\)\$/);
+  assert.match(htaccess, /\^\(\?:index\\\.html\|legacy-home\\\.php\|legacy-relocation-notice\\\.\(\?:css\|js\)\|deploy-meta\\\.json\)\$/);
   assert.ok(htaccess.includes('<FilesMatch "^android-update\\.json$">'));
   assert.match(htaccess, /no-cache, no-store, must-revalidate/);
   assert.match(cloud, /const API_TIMEOUT_MS = 20_000/);

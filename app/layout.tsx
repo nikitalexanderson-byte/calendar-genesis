@@ -1,11 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import "./globals.css";
-import "./experimental-theme.css";
 import "./dark-theme.css";
 import "./tablet-layout.css";
 import "./universal-ui.css";
 import "./web-standart.css";
+import "./experimental-theme.css";
 import { AppUrlCleaner } from "./AppUrlCleaner";
 
 export async function generateMetadata(): Promise<Metadata> {
