@@ -3,6 +3,12 @@
 :root { --font-ui: "Source Sans 3", "Segoe UI", sans-serif; --font-heading: Literata, Georgia, serif; }
 body, .legal-shell, .welcome-shell { font-family: var(--font-ui); }
 .legal-shell :is(h1, h2, h3) { font-family: var(--font-heading); }
+html[data-genesis-theme="standart"] .voice-open-button .voice-microphone-icon,
+html[data-genesis-theme="experimental"] .voice-open-button .voice-microphone-icon { color: #000; filter: none; }
+html[data-genesis-theme="standart"] .voice-open-button :is(.voice-microphone-capsule, .voice-microphone-grille, .voice-microphone-capture, .voice-microphone-stand),
+html[data-genesis-theme="experimental"] .voice-open-button :is(.voice-microphone-capsule, .voice-microphone-grille, .voice-microphone-capture, .voice-microphone-stand) { stroke: #000; opacity: 1; }
+html[data-genesis-theme="standart"] .voice-open-button :is(.voice-microphone-capsule, .voice-microphone-spark),
+html[data-genesis-theme="experimental"] .voice-open-button :is(.voice-microphone-capsule, .voice-microphone-spark) { fill: #000; filter: none; }
 
 html[data-genesis-theme] {
   --font-ui: "Source Sans 3", "Segoe UI", sans-serif;
@@ -269,11 +275,15 @@ html[data-genesis-theme] .genesis-app :is(.modal-close, .shared-projects-close, 
   .shared-planning-controls button { min-width: 0; padding-inline: 6px; font-size: 12px; white-space: nowrap; }
 }
 .shared-projects-board > .shared-projects-column { border-top: 4px solid var(--shared-board-color); background: color-mix(in srgb, var(--shared-board-color) 8%, var(--paper)); }
-.shared-board-header h2 { min-width: 0; }
-html[data-genesis-theme] .genesis-app .shared-board-title { min-width: 0; max-width: 100%; padding: 0; color: inherit; font: inherit; text-align: left; overflow-wrap: anywhere; background: transparent; border: 0; box-shadow: none; }
+.shared-board-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+html[data-genesis-theme] .genesis-app .shared-board-header h2 { flex: 1; display: block; min-width: 0; margin: 0; font: 600 var(--type-label)/1.35 var(--font-ui); font-family: var(--font-ui) !important; }
+html[data-genesis-theme] .genesis-app .shared-board-title { display: block; min-width: 0; max-width: 100%; padding: 0; color: inherit; font: inherit; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: transparent; border: 0; box-shadow: none; }
 .shared-board-title-input { width: 100%; min-width: 0; font: inherit; }
-.shared-board-tools { display: flex; align-items: center; gap: 8px; }
-html[data-genesis-theme] .genesis-app .shared-board-color input { width: 44px; height: 44px; padding: 4px; cursor: pointer; border-radius: 10px; }
+.shared-board-tools { display: flex; flex: none; align-items: center; gap: 4px; }
+.shared-board-color { display: flex; }
+html[data-genesis-theme] .genesis-app .shared-board-color input { width: 44px; min-width: 44px; height: 44px; padding: 4px; cursor: pointer; border-radius: 10px; }
+html[data-genesis-theme] .genesis-app .shared-board-settings { display: inline-grid; place-items: center; padding: 8px; }
+.shared-board-task-count { flex: none; min-width: 1ch; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
 html[data-genesis-theme] .genesis-app .shared-board-settings { min-width: 44px; min-height: 44px; }
 .shared-affair-draggable { cursor: grab; touch-action: pan-y; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .shared-affair-draggable[data-dragging="true"] { outline: 3px solid var(--teal); outline-offset: 2px; opacity: .72; }
@@ -284,14 +294,32 @@ html[data-genesis-theme] .genesis-app .shared-board-add-containers button:first-
 html[data-genesis-theme] .genesis-app .shared-board-add-containers button:nth-child(2) { color: var(--ink); background: color-mix(in srgb, #8573ab 18%, var(--paper)); border-color: #8573ab; }
 html[data-genesis-theme] .genesis-app .shared-projects-column-add { color: var(--ink); background: color-mix(in srgb, #2d8682 18%, var(--paper)); border-color: #2d8682; }
 html[data-genesis-theme] .genesis-app .shared-projects-inbox-card { padding: 24px; border-radius: 22px; background: var(--paper); }
-html[data-genesis-theme] .genesis-app .shared-projects-inbox-card > h2 { font: 500 30px/1.2 var(--font-heading); }
-html[data-genesis-theme] .genesis-app .shared-projects-inbox-card > p { font-size: 16px; line-height: 1.6; }
-html[data-genesis-theme] .genesis-app .shared-projects-inbox-card > strong { color: var(--terracotta); font: 400 42px/1 var(--font-heading); }
+html[data-genesis-theme] .genesis-app .shared-inbox-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+html[data-genesis-theme] .genesis-app .shared-inbox-header h2 { margin: 0; font: 500 20px/1.3 var(--font-heading); }
+html[data-genesis-theme] .genesis-app .shared-projects-inbox-card > p { font: 400 13px/1.5 var(--font-ui); color: var(--ink-soft); }
+html[data-genesis-theme] .genesis-app .shared-inbox-create { display: flex; align-items: center; justify-content: center; gap: 8px; }
 .shared-projects-inbox-items { max-height: 390px; overflow-y: auto; }
 .shared-inbox-task { padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
 html[data-genesis-theme] .genesis-app .shared-inbox-task > button { display: grid; gap: 8px; width: 100%; color: var(--ink); text-align: left; background: transparent; border: 0; box-shadow: none; }
-html[data-genesis-theme] .genesis-app .shared-inbox-task strong { font-size: 18px; }
-html[data-genesis-theme] .genesis-app .shared-inbox-task :is(small, em) { color: var(--ink-soft); font-size: 14px; }
+html[data-genesis-theme] .genesis-app .shared-inbox-task strong { font: 500 14px/1.5 var(--font-ui); }
+html[data-genesis-theme] .genesis-app .shared-inbox-task :is(small, em) { color: var(--ink-soft); font: 400 12px/1.5 var(--font-ui); }
+.shared-inbox-task { padding: 8px; }
+html[data-genesis-theme] .genesis-app .shared-projects :is(.shared-projects-task-open strong, .shared-projects-project-link) { font: 500 14px/1.5 var(--font-ui); }
+html[data-genesis-theme] .genesis-app .shared-projects-task-open :is(small, em) { color: var(--ink-soft); font: 400 12px/1.5 var(--font-ui); }
+html[data-genesis-theme] .genesis-app .shared-projects-column-add { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin-top: 12px; }
+html[data-genesis-theme] .genesis-app .shared-projects-modal { color: var(--ink); font: 400 14px/1.5 var(--font-ui); }
+html[data-genesis-theme] .genesis-app .shared-projects-modal > header h2 { padding-right: 0; font: 500 22px/1.3 var(--font-heading); overflow-wrap: anywhere; }
+html[data-genesis-theme] .genesis-app .shared-projects-modal .shared-projects-close { position: static; flex: none; display: grid; place-items: center; width: 44px; height: 44px; padding: 10px; }
+html[data-genesis-theme] .genesis-app .shared-projects-modal :is(label, button, summary) { font: 500 13px/1.5 var(--font-ui); }
+html[data-genesis-theme] .genesis-app .shared-projects-modal :is(input, textarea, select) { font: 400 14px/1.5 var(--font-ui); }
+.shared-projects-modal :is(p, .shared-task-destination) { margin: 0; }
+.shared-task-destination { padding: 12px; border: 1px solid var(--line); border-radius: 10px; color: var(--ink-soft); background: var(--surface); }
+.shared-task-modal > form { margin-block: 16px; }
+.shared-task-modal > label { margin-block: 16px; }
+.shared-task-discussion { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
+.shared-task-discussion summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; }
+.shared-task-discussion form { margin-top: 12px; }
+.shared-task-feedback { margin-bottom: 12px !important; color: var(--ink-soft); }
 .shared-space-card { position: relative; display: grid; gap: 12px; padding: 18px; border: 1px solid var(--line); border-radius: 18px; background: var(--paper); }
 html[data-genesis-theme] .genesis-app .shared-space-card > button:first-child { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 24px; gap: 12px; padding: 10px; text-align: left; color: var(--ink); background: transparent; border: 0; }
 .shared-space-card > button:first-child strong { grid-column: 1; overflow-wrap: anywhere; }
@@ -314,6 +342,43 @@ html[data-genesis-theme] .genesis-app label:has(> input[type="checkbox"]:not([ro
 html[data-genesis-theme] .genesis-app .project-transfer-consent > span { min-width: 0; }
 .calendar-mode-icon { display: inline-block; flex: none; vertical-align: middle; }
 .genesis-app button.habit-empty-state { width: 100%; text-align: left; font: inherit; }
+html[data-genesis-theme] .genesis-app .habit-editor-backdrop { align-items: center; padding: 20px; }
+html[data-genesis-theme] .genesis-app .habit-editor { width: min(800px, 100%); max-height: calc(100dvh - 40px); overflow-y: auto; gap: 16px; padding: 20px; border-radius: 16px; color: var(--ink); background: var(--surface); }
+html[data-genesis-theme] .genesis-app .habit-editor > header { align-items: center; }
+html[data-genesis-theme] .genesis-app .habit-editor h2 { margin: 0; font: 500 24px/1.3 var(--font-heading); }
+html[data-genesis-theme] .genesis-app .habit-editor > header .modal-close { position: static; flex: none; width: 44px; height: 44px; min-height: 44px; padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); }
+html[data-genesis-theme] .genesis-app .habit-editor :is(label, legend, small, em) { font: 400 13px/1.5 var(--font-ui); letter-spacing: 0; text-transform: none; }
+html[data-genesis-theme] .genesis-app .habit-editor :is(p, strong) { font-family: var(--font-ui); font-size: 14px; line-height: 1.5; }
+html[data-genesis-theme] .genesis-app .habit-editor :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]), select, textarea) { min-height: 44px; font: 400 14px/1.5 var(--font-ui); }
+html[data-genesis-theme] .genesis-app .habit-editor :is(.eyebrow, .habit-editor-section > legend > span) { display: none; }
+html[data-genesis-theme] .genesis-app .habit-editor-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+html[data-genesis-theme] .genesis-app .habit-editor :is(.habit-editor-section, .habit-emoji-field, .habit-role-fields) { padding: 12px; gap: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); }
+html[data-genesis-theme] .genesis-app .habit-editor input:is([type="checkbox"], [type="radio"]) { flex: none; width: 20px; height: 20px; min-height: 20px; margin: 0; padding: 0; accent-color: var(--ui-accent); }
+html[data-genesis-theme] .genesis-app .habit-editor .habit-switch { grid-template-columns: 42px minmax(0, 1fr); padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+html[data-genesis-theme] .genesis-app .habit-editor .habit-switch > i { grid-column: 1; grid-row: 1; }
+html[data-genesis-theme] .genesis-app .habit-editor .habit-switch > span { grid-column: 2; grid-row: 1; }
+html[data-genesis-theme] .genesis-app .habit-editor :is(.habit-switch, .recurrence-switch) input { width: 1px; height: 1px; min-height: 1px; padding: 0; }
+html[data-genesis-theme] .genesis-app .habit-editor .recurrence-builder { padding: 12px; background: var(--surface); border-color: var(--line); }
+.recurrence-calendar-choice { display: grid; gap: 12px; }
+.recurrence-calendar-choice > div:first-child { display: grid; gap: 4px; }
+.recurrence-calendar-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+html[data-genesis-theme] .genesis-app .habit-editor .recurrence-calendar-options > label { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; color: var(--ink); background: var(--paper); cursor: pointer; }
+html[data-genesis-theme] .genesis-app .habit-editor .recurrence-calendar-options > label:has(input:checked) { border-color: var(--ui-accent); background: color-mix(in srgb, var(--ui-accent) 10%, var(--surface)); }
+html[data-genesis-theme] .genesis-app .habit-editor .recurrence-switch-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 12px; }
+html[data-genesis-theme] .genesis-app .habit-editor .recurrence-switch { display: grid; grid-template-columns: 42px auto; width: auto; min-height: 44px; padding: 8px; }
+html[data-genesis-theme] .genesis-app .habit-editor .habit-switch input:focus-visible + i { outline: 2px solid var(--ui-accent); outline-offset: 3px; }
+html[data-genesis-theme] .genesis-app .habit-editor .recurrence-switch-row > div > strong { font: 500 18px/1.4 var(--font-heading); }
+html[data-genesis-theme] .genesis-app .habit-editor .recurrence-switch b { font-size: 12px; letter-spacing: 0; text-transform: none; color: var(--ink); }
+html[data-genesis-theme] .genesis-app .habit-editor :is(.recurrence-range, .recurrence-locked-start) { border-color: var(--line); background: var(--paper); color: var(--ink); }
+html[data-genesis-theme] .genesis-app .habit-editor > footer { padding-top: 12px; border-top: 1px solid var(--line); gap: 12px; }
+@media (max-width: 600px) {
+  html[data-genesis-theme] .genesis-app .habit-editor-backdrop { padding: 12px; }
+  html[data-genesis-theme] .genesis-app .habit-editor { padding: 16px; max-height: calc(100dvh - 24px); }
+  html[data-genesis-theme] .genesis-app .habit-editor-grid, .recurrence-calendar-options { grid-template-columns: minmax(0, 1fr); }
+  html[data-genesis-theme] .genesis-app .habit-editor-grid .wide { grid-column: 1; }
+  html[data-genesis-theme] .genesis-app .habit-editor .recurrence-switch { grid-template-columns: 42px; }
+  .habit-editor .recurrence-switch b { display: none; }
+}
 .genesis-app .habit-empty-state > .habit-empty-copy { display: grid; gap: 6px; width: auto; height: auto; min-width: 0; border: 0; border-radius: 0; color: var(--ink); place-items: start; }
 .genesis-app .habit-empty-copy > strong { font: 400 20px/1.3 var(--font-heading); }
 .genesis-app .habit-empty-copy > span { font: 400 var(--type-body)/1.5 var(--font-ui); color: var(--ink-soft); }

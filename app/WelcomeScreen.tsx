@@ -4,6 +4,7 @@
 
 import { useEffect, useState } from "react";
 import { LANGUAGES, LANGUAGE_LABELS, translateText, type Language } from "./i18n";
+import { SERVICE_IDENTITY } from "./public-service";
 
 type WelcomeScreenProps = {
   nativeAndroidApkUrl: string | null;
@@ -133,6 +134,13 @@ export function WelcomeScreen({ nativeAndroidApkUrl, busy, error, language, onLa
           <section className="google-data-purpose" aria-labelledby="google-purpose-title">
             <h2 id="google-purpose-title">{copy.googlePurposeTitle}</h2>
             <p>{copy.googlePurpose}</p>
+          </section>
+          <section className="google-data-purpose" aria-labelledby="service-owner-title">
+            <h2 id="service-owner-title">{language === "en" ? "GENESIS service and domain" : "Сервис GENESIS и домен"}</h2>
+            <p>{language === "en" ? SERVICE_IDENTITY.en : SERVICE_IDENTITY.ru}</p>
+            <p>{language === "en"
+              ? "GENESIS uses AI assistance only to interpret commands and prepare task plans. It does not generate non-consensual intimate imagery (AI NCII) or use Google APIs for that purpose."
+              : "Нейросетевой помощник GENESIS разбирает команды и готовит план задач. GENESIS не создаёт интимные изображения без согласия (AI NCII) и не использует Google API для этой цели."}</p>
           </section>
           <div className="welcome-proof" aria-label={copy.dataProtection}>
             <article>

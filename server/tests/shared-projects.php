@@ -136,6 +136,13 @@ try {
     sharedReject(static fn() => genesisSharedGoogleSettings($outsider, $project['id']), 403);
     $snapshot = genesisSharedProjectSnapshot($a, $project['id']);
     sharedExpect(count($snapshot['statuses']) === 3, 'Default board statuses missing.');
+    $listed = array_column(genesisSharedProjects($a, $space['id']), null, 'id');
+    sharedExpect((int)$listed[$project['id']]['boardCount'] === 3 && (int)$listed[$project['id']]['taskCount'] === 0,
+        'Board count was confused with the task count.');
+    foreach ($listed as $listedProject) {
+        if ($listedProject['isInbox']) sharedExpect((int)$listedProject['boardCount'] === 0,
+            'The inbox was counted as a board.');
+    }
     $category = genesisSharedCreateCategory($a, $project['id'], [
         'title' => 'Приоритет', 'color' => '#a5543f',
     ]);
@@ -173,6 +180,8 @@ try {
         'title' => 'Устаревшая версия', 'color' => '#a5543f', 'expectedRevision' => 1,
     ]), 409);
     $customStatus = genesisSharedCreateStatus($a, $project['id'], ['title' => 'Проверка']);
+    $listed = array_column(genesisSharedProjects($a, $space['id']), null, 'id');
+    sharedExpect((int)$listed[$project['id']]['boardCount'] === 4, 'Created board missing from the board count.');
     $renamedStatus = genesisSharedUpdateStatus($a, $project['id'], $customStatus['id'], [
         'title' => 'На проверке', 'expectedRevision' => 1,
     ]);
@@ -183,6 +192,8 @@ try {
     genesisSharedDeleteStatus($a, $project['id'], $customStatus['id'], [
         'destinationStatusId' => $snapshot['statuses'][0]['id'], 'expectedRevision' => 2,
     ]);
+    $listed = array_column(genesisSharedProjects($a, $space['id']), null, 'id');
+    sharedExpect((int)$listed[$project['id']]['boardCount'] === 3, 'Deleted board remained in the board count.');
     $edited = genesisSharedUpdateProject($a, $project['id'], [
         'title' => 'Обновлённый план', 'description' => 'Командное описание', 'expectedRevision' => 1,
     ]);

@@ -94,13 +94,15 @@ export function useAffairDrag<T extends { id: string; title: string }, D>(
     "data-dragging": preview?.item.id === item.id || undefined,
     onPointerDown: (event: PointerEvent<HTMLElement>) => {
       if (!enabled || event.pointerType !== "mouse" || event.button !== 0 || control(event.target)) return;
-      event.currentTarget.setPointerCapture(event.pointerId);
       candidate.current = { item, source: event.currentTarget, x: event.clientX, y: event.clientY, pointerId: event.pointerId, active: false };
     },
     onPointerMove: (event: PointerEvent<HTMLElement>) => {
       const drag = candidate.current;
       if (!drag || drag.pointerId !== event.pointerId) return;
-      if (!drag.active && Math.hypot(event.clientX - drag.x, event.clientY - drag.y) > 4) drag.active = true;
+      if (!drag.active && Math.hypot(event.clientX - drag.x, event.clientY - drag.y) > 4) {
+        drag.active = true;
+        event.currentTarget.setPointerCapture(event.pointerId);
+      }
       if (drag.active) { event.preventDefault(); update(event.clientX, event.clientY); }
     },
     onPointerUp: (event: PointerEvent<HTMLElement>) => {
