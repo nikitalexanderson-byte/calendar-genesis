@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
 import { LEGAL_UPDATED, legalPages } from "./app/legal-content";
+import { SERVICE_IDENTITY } from "./app/public-service";
 
 const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 const configuredBase = process.env.GENESIS_BASE_PATH?.trim() || "/";
@@ -20,6 +21,9 @@ function publicLegalDocuments(): Plugin {
     name: "genesis-public-legal-documents",
     apply: "build",
     enforce: "post",
+    transformIndexHtml(html) {
+      return html.replace("%GENESIS_SERVICE_IDENTITY%", escape(SERVICE_IDENTITY.ru));
+    },
     generateBundle(_options, bundle) {
       const index = bundle["index.html"];
       if (!index || index.type !== "asset" || typeof index.source !== "string") {

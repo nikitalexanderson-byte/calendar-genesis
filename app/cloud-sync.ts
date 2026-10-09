@@ -1413,7 +1413,7 @@ export type SharedSpaceInvitationInput = { email: string; role: "admin" | "membe
 export type SharedSpaceSettings = { space: SharedSpace; members: { userId: string; displayName: string; email: string; role: SharedSpace["role"]; permissions: SharedPermissions }[];
   invitations: (SharedSpaceInvitationInput & { id: string; expiresAt: string })[] };
 export type SharedProject = { id: string; spaceId: string; parentId: string | null; title: string;
-  description: string; tags?: string[]; kind?: "project" | "task-list"; boardStatusId?: string | null; layout: "list" | "board"; isInbox?: number; taskCount?: number;
+  description: string; tags?: string[]; kind?: "project" | "task-list"; boardStatusId?: string | null; layout: "list" | "board"; isInbox?: number; taskCount?: number; boardCount?: number;
   revision: number; role: string; spaceRole?: string; canOrganizeTasks?: boolean; canCreateBoards?: boolean; permissions?: SharedPermissions; updatedAt: string };
 export type SharedStatus = { color?: string; imageUrl?: string; id: string; title: string; position: number; isDone: number; revision: number };
 export type SharedTaskList = SharedStatus & { projectId: string; projectTitle: string;

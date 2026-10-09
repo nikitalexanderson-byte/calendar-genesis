@@ -22,6 +22,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { CalendarDayTaskCounts, CalendarYearTaskCounts } from "./CalendarTaskCounts";
+import { SERVICE_IDENTITY } from "./public-service";
 import { normalizeWebTheme, withExperimentalTheme } from "./web-theme";
 import { TodayAdBlock } from "./TodayAdBlock";
 import { ActionNotice, useActionNotice } from "./ActionNotice";
@@ -1307,6 +1308,20 @@ function DayRhythmPanel({ timeFormat }: { timeFormat: TimeFormat }) {
   );
 }
 
+function DisplayCalendarChoice({ label, className, enabledCalendars, mode, language, onChange }: {
+  label: string; className: string; enabledCalendars: CalendarMode[]; mode: CalendarMode;
+  language: string; onChange: (mode: CalendarMode) => Promise<void>;
+}) {
+  return <div className={`display-calendar-choice ${className}`} role="group" aria-label={label}>
+    {(["profane", "sacred", "lunar"] as CalendarMode[]).filter((item) => enabledCalendars.includes(item)).map((item) => {
+      const name = item === "profane" ? (language === "en" ? "Gregorian" : "Григорианский")
+        : item === "sacred" ? (language === "en" ? "Sacred" : "Сакральный") : (language === "en" ? "Lunar" : "Лунный");
+      return <button type="button" className="secondary-button" key={item} aria-pressed={mode === item}
+        aria-label={name} title={name} onClick={() => void onChange(item)}><CalendarModeIcon mode={item} /><span>{name}</span></button>;
+    })}
+  </div>;
+}
+
 export function GenesisCalendar() {
   const initial = useMemo(() => getSacredDate(new Date()), []);
   const [language, setLanguage] = useState<Language>(browserLanguage);
@@ -1465,6 +1480,8 @@ export function GenesisCalendar() {
   const taskListLinksRef = useRef<TaskListProjectLink[]>([]);
   const habitWorkspaceRef = useRef<HabitWorkspace>(normalizeHabitWorkspace(EMPTY_HABIT_WORKSPACE));
   const cloudUserRef = useRef<GenesisUser | null>(null);
+  const displayCalendarSaveRef = useRef<Promise<void>>(Promise.resolve());
+  const displayCalendarRevisionRef = useRef(0);
   const themeControllerRef = useRef<GenesisThemeController | null>(null);
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
   const projectTouchDragRef = useRef<ProjectTouchDrag | null>(null);
@@ -4739,26 +4756,31 @@ export function GenesisCalendar() {
   };
 
   const changeDisplayCalendar = async (mode: CalendarMode) => {
-    if (!cloudUser || !visibility.enabledCalendars.includes(mode)) return;
-    try {
-      const result = await updateAccountPreferences({ calendarMode: mode });
-      setCloudUser(result.user);
-      localStorage.setItem(LAST_USER_KEY, JSON.stringify(result.user));
-    } catch (error) { setSyncError(error instanceof Error ? error.message : "Не удалось переключить календарь."); }
+    const user = cloudUserRef.current;
+    if (!user || !visibility.enabledCalendars.includes(mode)) return;
+    const revision = ++displayCalendarRevisionRef.current;
+    const updatedUser = { ...user, calendarMode: mode };
+    cloudUserRef.current = updatedUser;
+    setCloudUser(updatedUser);
+    try { localStorage.setItem(LAST_USER_KEY, JSON.stringify(updatedUser)); }
+    catch { /* The visible choice still works when browser storage is unavailable. */ }
+    const save = async () => {
+      if (revision !== displayCalendarRevisionRef.current || cloudUserRef.current?.uid !== user.uid) return;
+      try {
+        await updateAccountPreferences({ calendarMode: mode });
+      } catch (error) {
+        if (revision === displayCalendarRevisionRef.current && cloudUserRef.current?.uid === user.uid) {
+          setSyncError(error instanceof Error ? error.message : "Не удалось сохранить выбранный календарь. Выбор применён на этом устройстве.");
+        }
+      }
+    };
+    displayCalendarSaveRef.current = displayCalendarSaveRef.current.then(save, save);
+    await displayCalendarSaveRef.current;
   };
 
   const renderDisplayCalendarChoice = (label: string, className = "") => (
-    <div className={`display-calendar-choice ${className}`} role="group" aria-label={label}>
-      {(["profane", "sacred", "lunar"] as CalendarMode[]).filter((mode) => visibility.enabledCalendars.includes(mode)).map((mode) => {
-        const name = mode === "profane" ? (language === "en" ? "Gregorian" : "Григорианский") : mode === "sacred" ? (language === "en" ? "Sacred" : "Сакральный") : (language === "en" ? "Lunar" : "Лунный");
-        return (
-        <button type="button" className="secondary-button" key={mode} aria-pressed={activeCalendarMode === mode}
-          aria-label={name} title={name} onClick={() => void changeDisplayCalendar(mode)}>
-          <CalendarModeIcon mode={mode} /><span>{name}</span>
-        </button>
-        );
-      })}
-    </div>
+    <DisplayCalendarChoice label={label} className={className} enabledCalendars={visibility.enabledCalendars}
+      mode={activeCalendarMode} language={language} onChange={changeDisplayCalendar} />
   );
 
   const renderToday = () => {
@@ -4878,7 +4900,7 @@ export function GenesisCalendar() {
             </div>
             <div>
               <strong>{todayTasks.filter((task) => task.done).length} / {todayTasks.length}</strong>
-              {showToday("quickCreate") ? <button type="button" className="primary-button" onClick={() => openTaskComposer("today")}>{isEnglish ? "Create task" : "Создать задачу"}</button> : null}
+              {showToday("quickCreate") ? <button type="button" className="primary-button" onClick={() => openTaskComposer("today")}>{experimentalThemeActive ? <ExperimentalIcon name="plus" /> : null}{isEnglish ? "Create task" : "Создать задачу"}</button> : null}
               <button type="button" className="secondary-button" onClick={() => navigateTo("projects")}>{isEnglish ? "Go to affairs" : "Перейти к делам"}</button>
             </div>
           </header>
@@ -4900,7 +4922,7 @@ export function GenesisCalendar() {
                       <i>{isEnglish ? `Priority ${task.priority}` : `Приоритет ${task.priority}`}</i>
                     </span>
                   </button>
-                  <button type="button" className="icon-button" onClick={() => openTaskEditor(task, todayDateValue)} aria-label={isEnglish ? `Edit task “${task.title}”` : `Редактировать задачу «${task.title}»`}>↗</button>
+                  <button type="button" className="icon-button" onClick={() => openTaskEditor(task, todayDateValue)} aria-label={isEnglish ? `Edit task “${task.title}”` : `Редактировать задачу «${task.title}»`}>{experimentalThemeActive ? <ExperimentalIcon name="edit" /> : "↗"}</button>
                 </article>
               ))}
             </div>
@@ -6466,7 +6488,7 @@ export function GenesisCalendar() {
     return <LegalPage page={legalPage} />;
   }
 
-  if (isGoogleSyncConfigured && !authResolved) {
+  if (isGoogleSyncConfigured && !authResolved && cloudUser) {
     return (
       <main className="auth-loading" role="status" aria-live="polite">
         <span className="auth-sun"><i /></span>
@@ -6478,11 +6500,15 @@ export function GenesisCalendar() {
 
   if (isGoogleSyncConfigured && !cloudUser) {
     return (
-      <Suspense fallback={<main className="welcome-shell" aria-busy="true" />}>
+      <Suspense fallback={<main className="welcome-shell"><section className="welcome-card">
+        <h1>GENESIS</h1><p>{language === "en" ? "Calendars, tasks and habits in one place." : "Календари, задачи и привычки в одном месте."}</p>
+        <p>{SERVICE_IDENTITY[language === "en" ? "en" : "ru"]}</p>
+        <a href="/privacy">{language === "en" ? "Privacy policy" : "Политика конфиденциальности"}</a>
+      </section></main>}>
       <WelcomeScreen
         nativeAndroidApkUrl={nativeAndroidApkUrl}
-        busy={syncStatus === "syncing"}
-        error={authError || syncError}
+        busy={!authResolved || syncStatus === "syncing"}
+        error={authResolved ? authError || syncError : ""}
         language={language}
         onLanguageChange={selectLanguage}
         onGoogle={() => void handleGoogleSignIn()}

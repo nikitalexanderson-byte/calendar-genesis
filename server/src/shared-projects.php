@@ -172,7 +172,8 @@ function genesisSharedProjects(string $userId, string $spaceId): array
     $query = genesisDb()->prepare('SELECT p.id, p.space_id AS spaceId, p.parent_id AS parentId,
         p.title, p.description, p.tags_json AS tagsJson, p.layout, p.kind, p.board_status_id AS boardStatusId, p.is_inbox AS isInbox, p.revision, p.updated_at AS updatedAt,
         m.role, sm.role AS spaceRole, sm.can_organize_tasks AS canOrganizeTasks, sm.permissions_json AS permissionsJson,
-        (SELECT COUNT(*) FROM shared_tasks t WHERE t.project_id = p.id) AS taskCount
+        (SELECT COUNT(*) FROM shared_tasks t WHERE t.project_id = p.id) AS taskCount,
+        CASE WHEN p.is_inbox = 1 THEN 0 ELSE (SELECT COUNT(*) FROM shared_project_statuses s WHERE s.project_id = p.id) END AS boardCount
         FROM shared_projects p JOIN shared_project_members m ON m.project_id = p.id
         JOIN shared_space_members sm ON sm.space_id = p.space_id AND sm.user_id = m.user_id
         WHERE p.space_id = :space AND m.user_id = :user AND p.archived_at IS NULL

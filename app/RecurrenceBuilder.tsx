@@ -178,6 +178,7 @@ export function RecurrenceBuilder({
         <label className="recurrence-switch">
           <input
             type="checkbox"
+            aria-label={isEnglish ? "Enable recurrence" : "Включить повторение"}
             checked={value.enabled}
             onChange={(event) => onChange({
               ...value,
