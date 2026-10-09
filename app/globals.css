@@ -7115,6 +7115,13 @@ html[data-genesis-theme^="standart"] .appearance-menu-controls { min-width: 0; m
 }
 
 @media (max-width: 1040px) {
+  .stoicheion-letter-dialog > article {
+    display: block;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scrollbar-color: rgba(216, 189, 128, .3) transparent;
+  }
+  .stoicheion-letter-copy { overflow: visible; }
   .stoicheion-nine-section > header { flex-direction: column; }
   .stoicheion-nine-section > header > .stoicheion-isopsephy { flex-basis: auto; width: 100%; }
   .stoicheion-hero { grid-template-columns: 1fr; align-items: start; }
