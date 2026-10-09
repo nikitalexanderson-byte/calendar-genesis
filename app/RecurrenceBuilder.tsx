@@ -16,7 +16,7 @@ import {
   type RecurrenceConfig,
 } from "./task-recurrence";
 import { CalendarDatePicker } from "./CalendarDatePicker";
-import { CalendarModeIcon } from "./CalendarModeIcon";
+import { RecordCalendarChoice } from "./RecordCalendarChoice";
 import { getRuntimeLanguage } from "./i18n";
 
 const PYATA_DAY_LABELS = ["I", "II", "III", "IIII", "V"];
@@ -170,6 +170,7 @@ export function RecurrenceBuilder({
 
   return (
     <section className={`recurrence-builder${value.enabled ? " enabled" : ""}`} aria-label="Настройка повторения">
+      {destination === "tracker" && allowCalendarModeChange ? <RecordCalendarChoice value={displayCalendarMode} onChange={changeCalendarMode} /> : null}
       <div className="recurrence-switch-row">
         <div>
           <strong>Повторение</strong>
@@ -193,40 +194,10 @@ export function RecurrenceBuilder({
         </label>
       </div>
 
-      {value.enabled ? (
-        <div className="recurrence-builder-body">
-          {destination === "tracker" && allowCalendarModeChange ? (
-            <div className="recurrence-calendar-choice">
-              <div>
-                <strong>{isEnglish ? "This habit's calendar" : "Календарь этой привычки"}</strong>
-                <small>{isEnglish ? "Changing it rebuilds the recurrence rhythm but keeps the original start date." : "Смена календаря пересоберёт ритм повторения, но сохранит исходную дату начала."}</small>
-              </div>
-              <div className="recurrence-calendar-options" role="radiogroup" aria-label={isEnglish ? "Habit recurrence calendar" : "Календарь повторения привычки"}>
-                {([
-                  { id: "sacred" as const, label: isEnglish ? "GENESIS" : "Сакральный" },
-                  { id: "profane" as const, label: isEnglish ? "Gregorian" : "Григорианский" },
-                  { id: "lunar" as const, label: isEnglish ? "Lunar" : "Лунный" },
-                ].sort((left, right) => Number(right.id === calendarMode) - Number(left.id === calendarMode))).map((option) => (
-                  <label key={option.id}>
-                    <input type="radio" name={`tracker-calendar-${startDate}`} value={option.id} checked={displayCalendarMode === option.id} onChange={() => changeCalendarMode(option.id)} />
-                    <span>{option.label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="recurrence-inherited-mode" aria-label={`Система повторения: ${RECURRENCE_MODE_COPY[value.mode].shortTitle}`}>
-              <span aria-hidden="true"><CalendarModeIcon mode={value.mode === "genesis" ? "sacred" : value.mode === "classic" ? "profane" : "lunar"} /></span>
-              <div>
-                <small>Из личного кабинета</small>
-                <strong>{RECURRENCE_MODE_COPY[value.mode].shortTitle}</strong>
-              </div>
-            </div>
-          )}
-
+      {value.enabled || destination === "tracker" ? (
           <fieldset className="recurrence-range">
             <legend>Период повторения</legend>
-            {lockRangeStart ? <div className="recurrence-locked-start"><span>С какого</span><strong>{formatCalendarDateValue(rangeStart, displayCalendarMode, true)}</strong><small>Дата создания · изменить нельзя</small></div> : <label htmlFor="recurrence-range-start">
+            {lockRangeStart ? <div className="recurrence-locked-start"><span>С какого</span><strong>{formatCalendarDateValue(rangeStart, displayCalendarMode, true)}</strong><small>{isEnglish ? "Start date · cannot be changed" : "Дата начала · изменить нельзя"}</small></div> : <label htmlFor="recurrence-range-start">
               <span>С какого</span>
               <CalendarDatePicker id="recurrence-range-start" mode={displayCalendarMode} min={startDate} value={rangeStart} showGregorianReference={destination !== "tracker"} onChange={(nextStart) => {
                 const nextEnd = rangeEnd < nextStart ? recurrenceDefaultEndDate(nextStart) : rangeEnd;
@@ -244,6 +215,11 @@ export function RecurrenceBuilder({
             </label>
             <small>Можно запланировать серию на срок до пяти лет.</small>
           </fieldset>
+      ) : null}
+
+      {value.enabled ? (
+        <div className="recurrence-builder-body">
+
 
           {value.mode === "classic" ? (
             <>

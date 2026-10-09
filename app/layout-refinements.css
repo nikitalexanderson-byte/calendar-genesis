@@ -1,0 +1,278 @@
+/* Shared layout fixes applied after the single STANDART design layer. */
+html[data-genesis-theme] .genesis-app .record-calendar-choice { min-width: 0; margin: 0 0 12px; padding: 0; border: 0; }
+html[data-genesis-theme] .genesis-app .record-calendar-choice > legend { margin-bottom: 8px; font: 500 14px/1.4 var(--font-ui); color: var(--ink); }
+html[data-genesis-theme] .genesis-app .record-calendar-choice > div { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+html[data-genesis-theme] .genesis-app .record-calendar-choice button { display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; min-height: 44px; padding: 10px 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); color: var(--ink); font: 500 13px/1.4 var(--font-ui); }
+html[data-genesis-theme] .genesis-app .record-calendar-choice button[aria-pressed="true"] { color: var(--ui-on-accent); background: var(--ui-accent); border-color: var(--ui-accent); }
+html[data-genesis-theme] .genesis-app .record-calendar-choice svg { flex: 0 0 20px; width: 20px; height: 20px; }
+html[data-genesis-theme] .genesis-app .task-form > .record-calendar-choice { grid-column: 1 / -1; }
+@media (max-width: 600px) {
+  html[data-genesis-theme] .genesis-app .record-calendar-choice > div { grid-template-columns: minmax(0, 1fr); }
+}
+@media (min-width: 761px) and (max-width: 1040px) {
+  html[data-genesis-theme] .genesis-app .stoicheion-spread-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+html[data-genesis-theme] .genesis-app .habit-color-field { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+html[data-genesis-theme] .genesis-app .habit-color-field > legend { font-size: 14px; line-height: 1.4; }
+html[data-genesis-theme] .genesis-app .habit-color-field > .habit-color-palette { display: grid; grid-template-columns: repeat(7, 36px); justify-content: space-between; gap: 8px; padding: 4px; }
+html[data-genesis-theme] .genesis-app .habit-custom-color { grid-template-columns: 44px minmax(0, 1fr); align-content: center; margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); }
+html[data-genesis-theme] .genesis-app .habit-custom-color input[type="color"] { grid-column: 1; grid-row: 1 / 3; width: 44px !important; height: 44px; min-height: 44px !important; }
+html[data-genesis-theme] .genesis-app .habit-custom-color :is(span, output) { grid-column: 2; justify-self: start; color: var(--ink); font-size: 13px; line-height: 1.4; }
+html[data-genesis-theme] .genesis-app .habit-emoji-field { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+html[data-genesis-theme] .genesis-app .habit-emoji-suggestions { display: grid; min-width: 0; gap: 12px; }
+html[data-genesis-theme] .genesis-app .habit-emoji-presets { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+html[data-genesis-theme] .genesis-app .habit-emoji-presets button { justify-self: center; }
+html[data-genesis-theme] .genesis-app .habit-emoji-expand { width: 100%; justify-content: space-between; text-align: left; }
+html[data-genesis-theme] .genesis-app .habit-emoji-field .habit-emoji-custom { display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; gap: 8px; margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+html[data-genesis-theme] .genesis-app .habit-emoji-custom input { width: 100%; }
+html[data-genesis-theme] .genesis-app .habit-emoji-catalog { grid-column: 1 / -1; }
+html[data-genesis-theme] .genesis-app .habit-emoji-field:not(:has(.habit-emoji-custom)) { grid-template-columns: minmax(0, 1fr); }
+html[data-genesis-theme] .genesis-app .habit-editor .habit-rhythm-overview { align-items: start; }
+html[data-genesis-theme] .genesis-app .habit-rhythm-start-note { grid-column: 1 / -1; margin: 0; color: var(--ink-soft); font-size: 13px; line-height: 1.5; }
+html[data-genesis-theme] .genesis-app .habit-editor .recurrence-calendar-choice { margin-bottom: 16px; }
+html[data-genesis-theme] .genesis-app .habit-editor .recurrence-range { gap: 12px; padding: 12px; }
+html[data-genesis-theme] .genesis-app .habit-editor .recurrence-range > :is(label, .recurrence-locked-start) { min-width: 0; margin: 0; display: grid; grid-template-rows: auto 1fr auto; align-content: start; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+html[data-genesis-theme] .genesis-app .habit-editor .recurrence-range .recurrence-locked-start strong { font: 500 14px/1.5 var(--font-ui); }
+html[data-genesis-theme] .genesis-app .habit-editor .recurrence-range :is(.calendar-date-trigger, input[type="date"]) { height: auto; align-self: start; min-height: 44px; width: 100%; padding: 10px; font: 500 14px/1.5 var(--font-ui); color: var(--ink); }
+html[data-genesis-theme] .genesis-app .habit-editor .recurrence-range > :is(label, .recurrence-locked-start) > span { font-weight: 600; color: var(--ink-soft); }
+@media (max-width: 760px) {
+  html[data-genesis-theme] .genesis-app :is(.habit-color-field, .habit-emoji-field) { grid-template-columns: minmax(0, 1fr); }
+  html[data-genesis-theme] .genesis-app .habit-color-field > .habit-color-palette { grid-template-columns: repeat(auto-fit, minmax(44px, 1fr)); }
+  html[data-genesis-theme] .genesis-app .habit-color-palette button { width: 44px; height: 44px; justify-self: center; }
+  html[data-genesis-theme] .genesis-app .habit-emoji-presets { grid-template-columns: repeat(4, minmax(44px, 1fr)); }
+}
+@media (max-width: 600px) {
+  html[data-genesis-theme] .genesis-app .habit-editor .recurrence-range { grid-template-columns: minmax(0, 1fr); }
+}
+@media (min-width: 1041px) {
+  html[data-genesis-theme] .genesis-app .stoicheion-nine-section > header:has(.stoicheion-isopsephy) { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: stretch; }
+  html[data-genesis-theme] .genesis-app .stoicheion-nine-section > header > div { max-width: none; display: grid; align-content: start; gap: 12px; }
+  html[data-genesis-theme] .genesis-app .stoicheion-nine-section > header :is(h2, p) { margin: 0; }
+  html[data-genesis-theme] .genesis-app .stoicheion-nine-section > header > .stoicheion-isopsephy { width: auto; min-width: 0; padding: 18px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 16px; border-radius: 16px; }
+  html[data-genesis-theme] .genesis-app .stoicheion-isopsephy > :is(.eyebrow, h3, .stoicheion-sum) { grid-column: 1; margin: 0; }
+  html[data-genesis-theme] .genesis-app .stoicheion-isopsephy h3 { font-size: 26px; line-height: 1.2; }
+  html[data-genesis-theme] .genesis-app .stoicheion-isopsephy > p { font-size: 12px; line-height: 1.5; }
+  html[data-genesis-theme] .genesis-app .stoicheion-isopsephy .stoicheion-root-line { grid-column: 2; grid-row: 1 / 4; align-self: center; flex-direction: column; gap: 8px; margin: 0; padding: 0; border: 0; }
+  html[data-genesis-theme] .genesis-app .stoicheion-root-line strong { flex-basis: auto; width: 48px; font-size: 30px; box-shadow: none; }
+  html[data-genesis-theme] .genesis-app .stoicheion-isopsephy > p:not(.stoicheion-sum),
+  html[data-genesis-theme] .genesis-app .stoicheion-spread-actions { grid-column: 1 / -1; margin: 0; }
+}
+html[data-genesis-theme] .genesis-app .app-brand-header { padding: 18px 24px 4px; }
+html[data-genesis-theme] .genesis-app .app-brand-header > button {
+  display: flex; align-items: center; gap: 12px; width: fit-content; min-height: 44px;
+  padding: 0; border: 0; color: var(--ink); background: transparent; text-align: left;
+}
+html[data-genesis-theme] .genesis-app .app-brand-header img { flex: 0 0 44px; width: 44px; height: 44px; object-fit: contain; border-radius: 10px; }
+html[data-genesis-theme] .genesis-app .app-brand-header strong { font: 500 28px/1.2 var(--font-heading); letter-spacing: .04em; white-space: nowrap; }
+html[data-genesis-theme] .genesis-app .day-details-art { display: block; width: 100%; max-height: 480px; object-fit: contain; border-radius: 16px; background: var(--paper); }
+@media (max-width: 760px) {
+  html[data-genesis-theme] .genesis-app .app-brand-header { padding: 14px 16px 4px; }
+  html[data-genesis-theme] .genesis-app .app-brand-header img { flex-basis: 40px; width: 40px; height: 40px; }
+  html[data-genesis-theme] .genesis-app .app-brand-header strong { font-size: 26px; }
+  html[data-genesis-theme] .genesis-app .day-details-art { max-height: 340px; }
+}
+
+html[data-genesis-theme] .genesis-app .stoicheion-sector { min-height: 0; gap: 8px; }
+html[data-genesis-theme] .genesis-app .stoicheion-spread-card-label { display: grid; gap: 4px; margin: 4px 0 0; }
+html[data-genesis-theme] .genesis-app .stoicheion-spread-card-label strong { font: 600 16px/1.4 var(--font-ui); white-space: nowrap; }
+html[data-genesis-theme] .genesis-app .stoicheion-spread-card-label > span { font-size: 12px; line-height: 1.4; white-space: nowrap; }
+html[data-genesis-theme] .genesis-app .stoicheion-sector > em { margin: 0; font-size: 10px; line-height: 1.4; letter-spacing: 0; white-space: nowrap; }
+html[data-genesis-theme] .genesis-app .stoicheion-sector-details-link { color: #e2c883; font-size: 12px; line-height: 1.5; white-space: nowrap; }
+.stoicheion-spread-position { padding: 18px; border: 1px solid rgba(216, 189, 128, .3); border-radius: 12px; }
+.stoicheion-spread-position h3 { margin: 8px 0; }
+.stoicheion-spread-position > strong { color: #e2c883; }
+.stoicheion-spread-position p { overflow-wrap: anywhere; }
+@media (max-width: 760px) {
+  html[data-genesis-theme] .genesis-app .stoicheion-spread-grid { grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 0; border: 0; background: transparent; }
+  html[data-genesis-theme] .genesis-app .stoicheion-sector { grid-template-columns: 96px minmax(0, 1fr); grid-template-rows: auto auto auto auto; justify-items: start; text-align: left; gap: 8px 12px; padding: 12px; }
+  html[data-genesis-theme] .genesis-app .stoicheion-direction { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 8px; grid-column: 1 / -1; grid-row: 1; font-size: 11px; line-height: 1.4; }
+  html[data-genesis-theme] .genesis-app .stoicheion-direction i { width: 26px; height: 26px; font-size: 10px; }
+  html[data-genesis-theme] .genesis-app .stoicheion-card-visual-spread { grid-column: 1; grid-row: 2 / 5; width: 96px; max-width: 100%; margin: 0; }
+  html[data-genesis-theme] .genesis-app .stoicheion-spread-card-label { grid-column: 2; grid-row: 2; margin: 0; }
+  html[data-genesis-theme] .genesis-app .stoicheion-sector > em { grid-column: 2; grid-row: 3; }
+  html[data-genesis-theme] .genesis-app .stoicheion-sector-details-link { grid-column: 2; grid-row: 4; align-self: end; }
+}
+
+html[data-genesis-theme] .genesis-app .solar-year-strip button {
+  display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: start; gap: 12px;
+}
+html[data-genesis-theme] .genesis-app .solar-year-strip button > span:last-child { min-width: 0; gap: 4px; }
+html[data-genesis-theme] .genesis-app .solar-year-strip :is(small, em, strong, b) {
+  display: block; min-width: 0; margin: 0; overflow: visible; white-space: normal;
+  font: 400 14px/1.4 var(--font-ui); letter-spacing: 0; text-transform: none; overflow-wrap: anywhere;
+}
+html[data-genesis-theme] .genesis-app .solar-year-strip :is(small, b) { font-weight: 600; }
+
+html[data-genesis-theme] .genesis-app .month-calendar:not(.calendar-mode-calendar) .calendar-day {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+}
+html[data-genesis-theme] .genesis-app .month-calendar:not(.calendar-mode-calendar) :is(.calendar-moon, .calendar-sun-times) { position: static; }
+html[data-genesis-theme] .genesis-app .month-calendar:not(.calendar-mode-calendar) .calendar-day > strong { margin: 0; }
+html[data-genesis-theme] .genesis-app .month-calendar .calendar-solar-mark {
+  max-width: 100%; flex-wrap: wrap; gap: 4px; margin-top: auto; padding-top: 4px;
+}
+html[data-genesis-theme] .genesis-app .calendar-solar-mark time { white-space: normal; overflow-wrap: anywhere; }
+
+@media (max-width: 760px) {
+  html[data-genesis-theme] .genesis-app .month-calendar:not(.calendar-mode-calendar) .calendar-day { align-items: center; }
+  html[data-genesis-theme] .genesis-app .calendar-solar-mark time { font-size: 7px; }
+  html[data-genesis-theme] .genesis-app .calendar-mode-calendar.mode-profane .calendar-day { min-height: 104px; }
+}
+@media (max-width: 480px) {
+  html[data-genesis-theme] .genesis-app .solar-year-strip button { grid-template-columns: minmax(0, 1fr); }
+}
+html[data-genesis-theme] .genesis-app .project-tree-workspace {
+  grid-template-areas: "inbox" "tree"; grid-template-columns: minmax(0, 1fr);
+}
+html[data-genesis-theme] .genesis-app .project-tree-workspace > .inbox-card { position: static; max-height: none; grid-column: 1; grid-row: 1; }
+html[data-genesis-theme] .genesis-app .project-tree-workspace > .project-tree-main { grid-column: 1; grid-row: 2; }
+@media (min-width: 1041px) {
+  html[data-genesis-theme] .genesis-app .project-tree-workspace:not(.is-completed-view) { grid-template-areas: "tree inbox"; grid-template-columns: minmax(0, 1fr) 300px; align-items: stretch; }
+  html[data-genesis-theme] .genesis-app .project-tree-workspace > .inbox-card { grid-column: 2; grid-row: 1; align-self: stretch; height: auto; }
+  html[data-genesis-theme] .genesis-app .project-tree-workspace > .project-tree-main { grid-column: 1; grid-row: 1; }
+}
+html[data-genesis-theme] .genesis-app .personal-project-create-modal { width: min(640px, 100%); max-height: 100%; margin: 0; padding: 24px; }
+
+html[data-genesis-theme] .genesis-app :is(.editor-modal, .shared-projects-modal, .shared-task-lists-dialog) > header {
+  position: static; display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 16px; padding: 0; margin: 0 0 20px; border: 0; background: transparent;
+  background-image: none; box-shadow: none;
+}
+html[data-genesis-theme] .genesis-app :is(.editor-modal, .shared-projects-modal, .shared-task-lists-dialog) > header :is(h2, h3) {
+  flex: 1; min-width: 0; margin: 0; padding: 0; font: 500 24px/1.3 var(--font-heading); overflow-wrap: anywhere;
+}
+html[data-genesis-theme] .genesis-app :is(.editor-modal, .shared-projects-modal, .shared-task-lists-dialog) > header > button {
+  position: static; display: grid; place-items: center; flex: 0 0 44px; width: 44px; height: 44px;
+  min-height: 44px; padding: 10px; border: 1px solid var(--line); border-radius: 10px;
+  color: var(--ink); background: var(--surface); font-size: 22px; line-height: 1;
+}
+html[data-genesis-theme] .genesis-app .task-composer-modal .task-list-create-block { margin: 0; padding: 0; border: 0; background: transparent; }
+html[data-genesis-theme] .genesis-app .task-composer-modal .task-list-create-block > p { margin: 0 0 16px; }
+html[data-genesis-theme] .genesis-app .shared-task-lists > form { display: grid; min-width: 0; gap: 16px; }
+html[data-genesis-theme] .genesis-app .shared-task-lists > form > label { display: grid; min-width: 0; gap: 6px; font-size: 14px; letter-spacing: 0; text-transform: none; }
+html[data-genesis-theme] .genesis-app .shared-task-lists :is(input, select) { width: 100%; min-width: 0; min-height: 44px; }
+html[data-genesis-theme] .genesis-app .shared-task-list-form-header { display: flex; align-items: start; justify-content: space-between; gap: 12px; margin: 0; background: transparent; }
+html[data-genesis-theme] .genesis-app .shared-task-list-form-header h3 { min-width: 0; margin: 0; font-size: 20px; overflow-wrap: anywhere; }
+html[data-genesis-theme] .genesis-app .shared-task-list-icon-close { flex: 0 0 44px; width: 44px; min-height: 44px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); }
+
+html[data-genesis-theme] .genesis-app :is(.task-form, .editor-modal) .recurrence-switch {
+  position: relative; display: flex; align-items: center; justify-content: flex-start; flex: 0 0 auto;
+  width: fit-content; max-width: 100%; min-height: 44px; gap: 10px; padding: 8px 0; border: 0; background: transparent;
+}
+html[data-genesis-theme] .genesis-app :is(.task-form, .editor-modal) .recurrence-switch input {
+  position: absolute; width: 1px; height: 1px; min-height: 1px; margin: 0; padding: 0; border: 0; opacity: 0;
+}
+html[data-genesis-theme] .genesis-app :is(.task-form, .editor-modal) .recurrence-switch > span {
+  flex: 0 0 42px; width: 42px; height: 24px; min-height: 24px; padding: 0; border-radius: 999px;
+}
+html[data-genesis-theme] .genesis-app :is(.task-form, .editor-modal) .recurrence-switch b { font: 600 14px/1.4 var(--font-ui); letter-spacing: 0; text-transform: none; color: var(--ink); }
+html[data-genesis-theme] .genesis-app :is(.task-form, .editor-modal) .recurrence-switch-row > div > strong { font: 500 20px/1.3 var(--font-heading); }
+html[data-genesis-theme] .genesis-app :is(.task-form, .editor-modal) .recurrence-switch-row > div > small { font: 400 14px/1.5 var(--font-ui); }
+@media (max-width: 600px) {
+  html[data-genesis-theme] .genesis-app .personal-project-create-modal { padding: 16px; }
+  html[data-genesis-theme] .genesis-app :is(.task-form, .editor-modal) .recurrence-switch-row { flex-direction: column; align-items: stretch; gap: 8px; }
+}
+
+html[data-genesis-theme] .genesis-app .today-lower-grid { grid-template-columns: minmax(0, 1fr); }
+html[data-genesis-theme] .genesis-app .meaning-card .moon-event {
+  grid-column: 2; justify-self: start; max-width: 100%; margin: 4px 0 0;
+  color: var(--ink); background: var(--surface); border-color: var(--line);
+  white-space: normal; overflow-wrap: anywhere; font-size: 12px; line-height: 1.5; letter-spacing: 0;
+}
+@media (max-width: 760px) {
+  html[data-genesis-theme] .genesis-app .hero-card.mode-lunar { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; align-content: start; }
+  html[data-genesis-theme] .genesis-app .hero-card.mode-lunar .hero-copy { grid-column: 1; grid-row: 2; width: 100%; max-width: none; padding-top: 0; padding-bottom: 0; }
+  html[data-genesis-theme] .genesis-app .hero-card.mode-lunar .hero-day-clock { display: contents; }
+  html[data-genesis-theme] .genesis-app .hero-card.mode-lunar .hero-number { position: static; grid-column: 1; grid-row: 1; justify-self: end; max-width: 100%; margin: 24px 26px 0; }
+  html[data-genesis-theme] .genesis-app .hero-card.mode-lunar .hero-number small { max-width: 100%; margin-top: 8px; font-size: 14px; line-height: 1.4; letter-spacing: 0; text-transform: none; }
+  html[data-genesis-theme] .genesis-app .hero-card.mode-lunar .device-clock { position: static; grid-column: 1; grid-row: 3; inset: auto; justify-self: center; width: calc(100% - 50px); max-width: none; min-width: 0; margin: 0 0 24px; }
+}
+
+html[data-genesis-theme] .genesis-app .mini-pyata-label small { letter-spacing: 0; text-overflow: clip; white-space: nowrap; }
+@media (min-width: 761px) {
+  html[data-genesis-theme] .genesis-app .year-grid :is(.mini-day-task-count, .mini-day-shared-count) {
+    min-width: 20px; width: 20px; height: 20px; padding: 0; font-size: 11px; line-height: 1;
+  }
+  html[data-genesis-theme] .genesis-app .civil-mini-calendar.mode-lunar .mini-day { min-height: 62px; padding: 5px 18px 5px 2px; }
+  html[data-genesis-theme] .genesis-app .civil-mini-calendar.mode-lunar .mini-day-task-counts {
+    position: absolute; top: 6px; right: 2px; display: flex; flex-direction: column; flex-wrap: nowrap; width: auto; gap: 2px;
+  }
+  html[data-genesis-theme] .genesis-app .civil-mini-calendar.mode-lunar :is(.mini-day-task-count, .mini-day-shared-count) {
+    position: static; min-width: 14px; width: auto; height: 14px; padding: 0 2px; font-size: 9px; transform: none;
+  }
+}
+
+/* Month descriptions retain all their text on desktop. */
+html[data-genesis-theme] .genesis-app .calendar-mode-year-month { container-type: inline-size; }
+@media (min-width: 761px) {
+  html[data-genesis-theme] .genesis-app .year-month > small {
+    min-height: 0; overflow: visible; white-space: nowrap; text-overflow: clip;
+    font-size: clamp(11px, 2.6cqw, 13px); font-weight: 500; line-height: 1.5;
+    letter-spacing: 0; text-transform: none;
+  }
+}
+@media (min-width: 1000px) {
+  html[data-genesis-theme] .genesis-app .calendar-mode-year-grid.mode-lunar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Workspace navigation and project content have separate, stable reading paths. */
+html[data-genesis-theme] .genesis-app .shared-projects-shell { grid-template-columns: 264px minmax(0, 1fr); gap: 24px; }
+html[data-genesis-theme] .genesis-app .shared-projects-sidebar { gap: 24px; }
+html[data-genesis-theme] .genesis-app :is(.shared-workspace-navigation, .shared-workspace-actions) { display: grid; min-width: 0; gap: 12px; }
+html[data-genesis-theme] .genesis-app .shared-workspace-actions { padding-top: 16px; border-top: 1px solid var(--line); }
+html[data-genesis-theme] .genesis-app .shared-projects-space-picker { display: grid; gap: 8px; }
+html[data-genesis-theme] .genesis-app .shared-projects-project-nav { gap: 12px; }
+html[data-genesis-theme] .genesis-app .shared-projects-project-nav h2 { margin: 0; font-size: 14px !important; color: var(--ink); }
+html[data-genesis-theme] .genesis-app .shared-project-create { display: flex; align-items: center; justify-content: center; gap: 8px; }
+html[data-genesis-theme] .genesis-app .shared-projects-project-link {
+  display: grid; grid-template-columns: 20px minmax(0, 1fr); align-items: center; gap: 12px;
+  padding: 12px; border: 1px solid var(--line); border-radius: 12px;
+  background: var(--surface); color: var(--ink); box-shadow: none; font: 500 14px/1.5 var(--font-ui);
+}
+html[data-genesis-theme] .genesis-app .shared-projects-project-nav .shared-projects-project-link[aria-current="page"] {
+  background: var(--exp-accent-wash); border-color: var(--gold); color: var(--ink); box-shadow: none;
+}
+html[data-genesis-theme] .genesis-app .shared-projects-project-link:hover { border-color: var(--gold); }
+html[data-genesis-theme] .genesis-app .shared-projects-project-link svg { display: block; width: 20px; height: 20px; }
+html[data-genesis-theme] .genesis-app .shared-projects-project-link span { gap: 4px; }
+html[data-genesis-theme] .genesis-app .shared-projects-project-link small { color: var(--ink-soft); font: 400 12px/1.4 var(--font-ui); }
+html[data-genesis-theme] .genesis-app .shared-tree-children { display: grid; gap: 12px; margin: 12px 0 0 8px; padding-inline-start: 12px; }
+html[data-genesis-theme] .genesis-app .shared-projects-context {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 16px;
+  padding: 20px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface);
+}
+html[data-genesis-theme] .genesis-app .shared-project-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px 12px; }
+html[data-genesis-theme] .genesis-app .shared-project-heading p { grid-column: 1 / -1; margin: 0; }
+html[data-genesis-theme] .genesis-app .shared-projects-context h2 { font-size: 26px; }
+html[data-genesis-theme] .genesis-app .shared-projects-context .shared-projects-meta { grid-column: 1; margin: 0; }
+html[data-genesis-theme] .genesis-app .shared-projects-context .shared-context-actions { grid-column: 2; grid-row: 1 / 3; display: grid; gap: 8px; margin: 0; }
+html[data-genesis-theme] .genesis-app .shared-projects-planning { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px 16px; padding: 16px 0; }
+html[data-genesis-theme] .genesis-app .shared-projects-planning > h3 { font: 500 20px/1.3 var(--font-heading); }
+html[data-genesis-theme] .genesis-app .shared-projects-planning .shared-planning-controls { grid-column: 1; grid-row: 2; display: block; }
+html[data-genesis-theme] .genesis-app .shared-projects-planning .shared-projects-create-actions { grid-column: 2; grid-row: 2; }
+html[data-genesis-theme] .genesis-app .shared-projects-planning .shared-projects-calendar-mode-label { margin: 0 0 8px; font-size: 12px; }
+html[data-genesis-theme] .genesis-app .shared-projects-board-hint { grid-column: 1 / -1; font-size: 12px; }
+html[data-genesis-theme] .genesis-app .shared-projects-board { align-items: stretch; gap: 16px; }
+html[data-genesis-theme] .genesis-app .shared-board-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+html[data-genesis-theme] .genesis-app .shared-board-header h2 { grid-column: 1; grid-row: 1; }
+html[data-genesis-theme] .genesis-app .shared-board-task-count { grid-column: 2; grid-row: 1; font-size: 13px; }
+html[data-genesis-theme] .genesis-app .shared-board-tools { grid-column: 1 / -1; justify-content: flex-end; }
+html[data-genesis-theme] .genesis-app .shared-board-add-containers { display: grid; gap: 8px; margin: 12px 0; }
+html[data-genesis-theme] .genesis-app .shared-board-add-containers button { width: 100%; min-height: 44px; padding: 8px 12px; text-align: left; font: 500 13px/1.4 var(--font-ui); }
+html[data-genesis-theme] .genesis-app .shared-projects-column-add { margin-top: 16px; font-size: 13px; }
+html[data-genesis-theme] .genesis-app .shared-projects-add-column { display: flex; align-items: center; justify-content: center; flex: 0 0 180px; align-self: flex-start; gap: 8px; min-height: 44px; padding: 12px; }
+html[data-genesis-theme] .genesis-app .shared-projects-modal .shared-modal-section > h3 { font: 500 20px/1.3 var(--font-heading); }
+html[data-genesis-theme] .genesis-app .shared-projects-modal form > button[type="submit"] { border-color: var(--ui-accent); background: var(--ui-accent); color: var(--ui-on-accent); }
+html[data-genesis-theme] .genesis-app .shared-projects-modal .space-permission-checks label { display: flex; align-items: flex-start; gap: 8px; }
+html[data-genesis-theme] .genesis-app .shared-projects-modal .space-permission-checks input { flex: 0 0 20px; width: 20px; height: 20px; min-height: 20px; margin: 0; }
+@media (max-width: 1040px) {
+  html[data-genesis-theme] .genesis-app .shared-projects-shell { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 760px) {
+  html[data-genesis-theme] .genesis-app .shared-projects-context { grid-template-columns: minmax(0, 1fr); padding: 16px; }
+  html[data-genesis-theme] .genesis-app .shared-projects-context .shared-context-actions { grid-column: 1; grid-row: auto; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  html[data-genesis-theme] .genesis-app .shared-projects-planning { grid-template-columns: minmax(0, 1fr); }
+  html[data-genesis-theme] .genesis-app .shared-projects-planning .shared-projects-create-actions { grid-column: 1; grid-row: 3; }
+  html[data-genesis-theme] .genesis-app .shared-projects-planning .shared-projects-create-actions button { width: 100%; }
+  html[data-genesis-theme] .genesis-app .shared-projects-project-link { min-height: 64px; }
+}

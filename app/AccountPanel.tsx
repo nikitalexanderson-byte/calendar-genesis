@@ -16,7 +16,6 @@ import { SolarPlaceSettings } from "./SolarPlaceSettings";
 import { SETTINGS_SECTIONS, SettingsSectionIcon, type SettingsSectionId } from "./SettingsSectionIcon";
 import { uiVisibility, type UiVisibility } from "./ui-visibility";
 import {
-  GENESIS_THEME_LABEL,
   type GenesisTheme,
   type ThemeControllerState,
 } from "./theme-controller";
@@ -393,7 +392,7 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
           ? (user.language === "en" ? "The account theme could not be loaded. Standart remains active." : "Не удалось загрузить тему аккаунта. Продолжает работать Standart.")
         : themeState.status === "loading"
             ? (user.language === "en" ? "Loading the account preference…" : "Загружаем настройку аккаунта…")
-        : `${CURRENT_THEME_LABEL[user.language]}: ${GENESIS_THEME_LABEL[themeState.theme]}.`;
+        : `${CURRENT_THEME_LABEL[user.language]}: STANDART.`;
 
   const toggleHabitNotifications = async (enabled: boolean) => {
     if (!enabled) {

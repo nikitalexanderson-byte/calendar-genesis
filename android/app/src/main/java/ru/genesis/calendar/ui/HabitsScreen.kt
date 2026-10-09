@@ -561,9 +561,20 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
                     },modifier=Modifier.testTag("habit-calendar-${option.wireValue}"),label={Text(label)})
                 }
             }
-            Text("Начало"); AuthorDatePicker(start,formCalendarMode) { if(!busy) start=it }
+            Text("Начало")
+            if(existing==null) AuthorDatePicker(start,formCalendarMode,minDate=LocalDate.now()) {
+                if(!busy && LocalDate.parse(it)>=LocalDate.now()) {
+                    start=it
+                    if(end.isNotEmpty() && end<start) end=start
+                    config=config.copy(rangeStart=start)
+                }
+            } else {
+                Text(engineCalendar.formatDate(existing.schedule.startDate,formCalendarMode),
+                    modifier=Modifier.testTag("habit-start-locked"))
+                Text("🔒 Дата начала зафиксирована при создании.",style=MaterialTheme.typography.bodySmall)
+            }
             Row { Checkbox(checked=end.isNotEmpty(),enabled=!busy,onCheckedChange={end=if(it) start else ""}); Text("Ограничить срок",Modifier.padding(top=12.dp)) }
-            if(end.isNotEmpty()) AuthorDatePicker(end,formCalendarMode) { if(!busy) end=it }
+            if(end.isNotEmpty()) AuthorDatePicker(end,formCalendarMode,minDate=LocalDate.parse(start)) { if(!busy) end=it }
             }
             EditorSection("Повторение") {
             if(mode==CalendarMode.PROFANE) Row(Modifier.horizontalScroll(rememberScrollState())) {
@@ -689,6 +700,7 @@ private fun HabitEditor(existing: Habit?, busy: Boolean, error: String?, inputCa
                     (ritualId!="custom"||ritualName.isNotBlank())&&
                     (limit==0||config.days.isNotEmpty())&&(end.isEmpty()||end>=start),onClick={
                     onSave(initial.copy(title=title.trim(),description=description,priority=priority,scoringMode=scoring,
+                        createdDate=if(existing==null) LocalDate.parse(start) else initial.createdDate,
                         emoji=requireNotNull(normalizedHabitEmoji(emoji)),color=requireNotNull(normalizedHabitColor(color)),
                         isKeyHabit=isKeyHabit,ritualId=ritualId,ritualName=if(ritualId=="custom") ritualName.trim() else "",
                         preferredTime=preferredTime,reminder=reminder,

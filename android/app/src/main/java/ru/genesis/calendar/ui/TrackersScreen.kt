@@ -157,10 +157,7 @@ fun TrackersScreen(app: GenesisApplication, experimental: Boolean = false) {
                 }
             }
             val createSleepPlan = {
-                val schedule=HabitEngine(GenesisCalendar()).defaultSchedule(date,prefs.input).let { base ->
-                    base.copy(recurrence=RecurrenceConfig(enabled=true,mode="classic",pattern="daily",
-                        days=listOf(1),rangeStart=date.toString()))
-                }
+                val schedule=dailySleepSchedule(date,prefs.input)
                 planEditor=SleepPlan(TrackerEntity.create("sleep-plan"),schedule)
             }
             SleepTrackerGroup(experimental) {
@@ -358,6 +355,9 @@ private fun SleepPlanEditor(plan: SleepPlan,use24: Boolean,busy: Boolean,error: 
     var reminderEnabled by rememberSaveable(plan.id) { mutableStateOf(plan.reminderEnabled) }
     var reminderMinutesBefore by rememberSaveable(plan.id) { mutableIntStateOf(plan.reminderMinutesBefore) }
     var rules by remember(plan.id) { mutableStateOf(plan.rules) }
+    var schedule by remember(plan.id) { mutableStateOf(plan.schedule) }
+    val mode=when(schedule.recurrence.mode) { "classic" -> CalendarMode.PROFANE; "lunar" -> CalendarMode.LUNAR; else -> CalendarMode.SACRED }
+    val english=LocalGenesisLanguage.current=="en"
     Dialog(onDismissRequest=onDismiss) { Surface(shape=MaterialTheme.shapes.large) {
         Column(Modifier.padding(16.dp).imePadding().verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment=Alignment.CenterVertically) {
@@ -367,6 +367,21 @@ private fun SleepPlanEditor(plan: SleepPlan,use24: Boolean,busy: Boolean,error: 
                 }
             }
             OutlinedTextField(title,{title=it},label={Text("Название")},enabled=!busy,modifier=Modifier.fillMaxWidth())
+            Text(if(english) "Plan calendar" else "Календарь плана",style=MaterialTheme.typography.titleSmall)
+            Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                listOf(CalendarMode.SACRED,CalendarMode.PROFANE,CalendarMode.LUNAR).forEach { option ->
+                    FilterChip(selected=mode==option,enabled=!busy,onClick={
+                        val next=dailySleepSchedule(schedule.startDate,option)
+                        schedule=schedule.copy(recurrence=next.recurrence.copy(rangeEnd=schedule.endDate?.toString() ?: ""))
+                    },label={Text(when(option) {CalendarMode.SACRED->"Сакральный";CalendarMode.PROFANE->"Григорианский";CalendarMode.LUNAR->"Лунный"})})
+                }
+            }
+            Text("Начало")
+            AuthorDatePicker(schedule.startDate.toString(),mode) { value -> if(!busy) {
+                val start=LocalDate.parse(value)
+                val end=schedule.endDate?.let { maxOf(it,start) }
+                schedule=schedule.copy(startDate=start,endDate=end,recurrence=schedule.recurrence.copy(rangeStart=value,rangeEnd=end?.toString() ?: ""))
+            } }
             Text("Планируемое засыпание");AuthorTimePicker(bed,use24) { if(!busy)bed=it }
             Text("Планируемое пробуждение");AuthorTimePicker(wake,use24) { if(!busy)wake=it }
             OutlinedTextField(zone,{zone=it},label={Text("Часовой пояс · Europe/Moscow")},enabled=!busy,modifier=Modifier.fillMaxWidth())
@@ -434,13 +449,19 @@ private fun SleepPlanEditor(plan: SleepPlan,use24: Boolean,busy: Boolean,error: 
                 TextButton(onClick=onDismiss,enabled=!busy) { Text("Отмена") }
                 Button(enabled=!busy&&title.isNotBlank()&&bed.isNotBlank()&&wake.isNotBlank()&&runCatching { ZoneId.of(zone) }.isSuccess,onClick={
                     onSave(plan.copy(title=title.trim(),targetBedtime=LocalTime.parse(bed),targetWakeTime=LocalTime.parse(wake),
-                        schedule=plan.schedule.copy(timezone=zone),active=active,qualityEnabled=qualityEnabled,
+                        schedule=schedule.copy(timezone=zone),active=active,qualityEnabled=qualityEnabled,
                         scoringEnabled=scoringEnabled,rules=rules,reminderEnabled=reminderEnabled,
                         reminderMinutesBefore=reminderMinutesBefore))
                 }) { Text("Сохранить план") }
             }
         }
     } }
+}
+
+private fun dailySleepSchedule(date: LocalDate,mode: CalendarMode): TrackerSchedule {
+    val base=HabitEngine(GenesisCalendar()).defaultSchedule(date,mode)
+    val days=when(mode) { CalendarMode.PROFANE -> listOf(1); CalendarMode.SACRED -> (1..5).toList(); CalendarMode.LUNAR -> (1..30).toList() }
+    return base.copy(recurrence=base.recurrence.copy(days=days))
 }
 
 @Composable

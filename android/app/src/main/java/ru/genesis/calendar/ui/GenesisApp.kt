@@ -1604,7 +1604,7 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                 if(reminders.isEmpty()) Text("Без напоминания",style=MaterialTheme.typography.bodySmall)
                 reminders.forEach { reminder ->
                     Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-                        Text(if(reminder.kind=="relative") "За ${reminder.minutes} мин до задачи" else
+                        Text(if(reminder.kind=="relative") ru.genesis.calendar.data.formatRelativeTaskReminder(requireNotNull(reminder.minutes),LocalGenesisLanguage.current) else
                             Instant.ofEpochMilli(requireNotNull(reminder.at)).atZone(ZoneId.systemDefault())
                                 .format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")),Modifier.weight(1f))
                         TextButton(enabled=!googleTaskBacked,onClick={reminders=reminders.filterNot { it.key==reminder.key }}) { Text("Убрать") }

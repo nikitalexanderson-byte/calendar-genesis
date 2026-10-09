@@ -103,7 +103,7 @@ export function SharedTaskLists({ language, enabledCalendars, onOpenProject, emb
   };
 
   const modalContent = <>
-{modal === "task" && target ? <><header><h3>{en ? "Add team task" : "Добавить общую задачу"}</h3>
+{modal === "task" && target ? <><header className="shared-task-list-form-header"><h3>{en ? "Add team task" : "Добавить общую задачу"}</h3>
         <button type="button" className="shared-task-list-icon-close" onClick={close} aria-label={en ? "Close" : "Закрыть"}>×</button></header>
         <SharedTaskCreate language={language} enabledCalendars={enabledCalendars}
           initialSpaceId={target.spaceId} initialProjectId={target.projectId} initialStatusId={target.id}
@@ -112,10 +112,10 @@ export function SharedTaskLists({ language, enabledCalendars, onOpenProject, emb
               : "Задача сохранена на устройстве и ожидает подключения к сети."
             : en ? "Team task created." : "Общая задача создана."); void refresh().catch((error) => setMessage(String(error))); }} /></>
         : <form onSubmit={(event) => void submit(event)}>
-          <header><h3>{modal === "create" ? en ? "New team task list" : "Новый общий список задач"
+          <header className="shared-task-list-form-header"><h3>{modal === "create" ? en ? "New team task list" : "Новый общий список задач"
             : modal === "edit" ? en ? "Rename task list" : "Переименовать список"
               : en ? "Remove task list" : "Удалить список задач"}</h3>
-            <button type="button" className="shared-task-list-icon-close" onClick={close} aria-label={en ? "Close" : "Закрыть"}>×</button></header>
+            {!embeddedCreate ? <button type="button" className="shared-task-list-icon-close" onClick={close} aria-label={en ? "Close" : "Закрыть"}>×</button> : null}</header>
           {modal === "create" ? <><label>{en ? "Workspace" : "Пространство"}<select value={spaceId}
             onChange={(event) => { requestId.current = ""; setSpaceId(event.target.value); setProjects([]); setProjectId(""); }}>
             {spaces.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>
@@ -166,7 +166,7 @@ export function SharedTaskLists({ language, enabledCalendars, onOpenProject, emb
         </div>
       </div> : null}
     </article>)}</div>
-    <dialog ref={dialog} className="shared-task-lists-dialog" onClose={() => { setModal(null); setTarget(null); }}>
+    <dialog ref={dialog} className="shared-task-lists-dialog" onPointerDown={(event) => { if (window.innerWidth > 760 && event.target === event.currentTarget) { const r = event.currentTarget.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) close(); } }} onClose={() => { setModal(null); setTarget(null); }}>
       {modalContent}
     </dialog>
   </section>;

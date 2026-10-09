@@ -13,6 +13,27 @@ class HabitCoreTest {
     private fun habit(mode: String = "binary") = Habit(TrackerEntity("h1",stamp,stamp),"Test",LocalDate.of(2026,9,1),
         engine.defaultSchedule(today,CalendarMode.PROFANE),scoringMode=mode)
 
+    @Test fun futureStartIsSavedAndLockedTogetherWithScoringAfterCreation() {
+        val future = today.plusDays(3)
+        val planned = preserveHabitCreationSettings(habit().copy(
+            schedule=engine.defaultSchedule(future,CalendarMode.LUNAR)),null,today)
+        assertEquals(future,planned.createdDate)
+        assertEquals(future,planned.schedule.startDate)
+        assertFalse(engine.isScheduled(planned,today))
+        val edited = preserveHabitCreationSettings(planned.copy(scoringMode="none",qualityScale="ten",
+            schedule=engine.defaultSchedule(today,CalendarMode.PROFANE)),planned,today)
+        assertEquals(future,edited.createdDate)
+        assertEquals(future,edited.schedule.startDate)
+        assertEquals(planned.scoringMode,edited.scoringMode)
+        assertEquals(planned.qualityScale,edited.qualityScale)
+        assertEquals("classic",edited.schedule.recurrence.mode)
+    }
+
+    @Test(expected=IllegalArgumentException::class)
+    fun newHabitCannotStartInThePast() {
+        preserveHabitCreationSettings(habit().copy(schedule=engine.defaultSchedule(today.minusDays(1),CalendarMode.PROFANE)),null,today)
+    }
+
     @Test fun scoresMatch64ActualWebVectorsIncludingNegativeHalfRounding() {
         webScoreVectors.forEach { line ->
             val v=line.split('|')
