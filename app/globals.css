@@ -10883,6 +10883,29 @@ html:not([data-genesis-theme$="-dark"]) .month-calendar .calendar-day.today .cal
   font-weight: 700;
 }
 
+@media (max-width: 1040px) {
+  .calendar-mode-calendar.mode-lunar .calendar-mode-primary {
+    display: grid;
+    width: 100%;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 6px;
+  }
+
+  .calendar-mode-calendar.mode-lunar .calendar-mode-primary > small {
+    grid-column: 1 / -1;
+    min-width: 0;
+    overflow: visible;
+    font-size: 8px;
+    line-height: 1.25;
+    overflow-wrap: normal;
+    word-break: normal;
+    hyphens: none;
+    text-overflow: clip;
+    white-space: normal;
+  }
+}
+
 @media (max-width: 1100px) {
   .calendar-mode-calendar.mode-profane {
     overflow-x: auto;
@@ -11117,23 +11140,6 @@ html:not([data-genesis-theme$="-dark"]) .month-calendar .calendar-day.today .cal
   .calendar-mode-calendar.mode-lunar .calendar-mode-day {
     min-height: 184px;
     padding: 12px 10px 43px;
-  }
-
-  .calendar-mode-calendar.mode-lunar .calendar-mode-primary {
-    display: grid;
-    width: 100%;
-    grid-template-columns: auto auto minmax(0, 1fr);
-    align-items: center;
-    gap: 6px;
-  }
-
-  .calendar-mode-calendar.mode-lunar .calendar-mode-primary > small {
-    overflow: visible;
-    font-size: 8px;
-    line-height: 1.25;
-    overflow-wrap: break-word;
-    text-overflow: clip;
-    white-space: normal;
   }
 
   .calendar-mode-calendar.mode-lunar .calendar-cross-date {
