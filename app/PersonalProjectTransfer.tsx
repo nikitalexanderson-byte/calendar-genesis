@@ -187,9 +187,9 @@ export function PersonalProjectTransfer({ root, projects, tasks, categories, lin
         </details>
       </div>
       <label className="project-transfer-consent"><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)}
-        disabled={busy} /> {english
+        disabled={busy} /><span>{english
           ? "I agree that members of this shared space can access the listed projects and tasks by role."
-          : "Согласен открыть перечисленные проекты и задачи участникам общего пространства согласно их ролям."}</label>
+          : "Согласен открыть перечисленные проекты и задачи участникам общего пространства согласно их ролям."}</span></label>
       {!canMove ? <div className="project-transfer-restrictions" role="status">
         <strong>{english ? "You can copy the project" : "Можно скопировать проект"}</strong>
         <p>{english ? "A full move needs these personal fields to be preserved:" : "Для полного переноса нужно сохранить эти личные данные:"}</p>

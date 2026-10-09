@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
 import { LEGAL_UPDATED, legalPages } from "./app/legal-content";
+import { SERVICE_IDENTITY } from "./app/public-service";
 
 const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 const configuredBase = process.env.GENESIS_BASE_PATH?.trim() || "/";
@@ -20,6 +21,9 @@ function publicLegalDocuments(): Plugin {
     name: "genesis-public-legal-documents",
     apply: "build",
     enforce: "post",
+    transformIndexHtml(html) {
+      return html.replace("%GENESIS_SERVICE_IDENTITY%", escape(SERVICE_IDENTITY.ru));
+    },
     generateBundle(_options, bundle) {
       const index = bundle["index.html"];
       if (!index || index.type !== "asset" || typeof index.source !== "string") {
@@ -57,7 +61,20 @@ function offlinePrecacheManifest(basePath: string): Plugin {
         .filter((fileName) => /\.(?:js|css)$/i.test(fileName))
         .sort();
       if (!requiredFiles.length) this.error("Offline precache manifest has no JavaScript or CSS assets.");
-      const fonts = ["fonts/SourceSans3.woff2", "fonts/Literata.woff2"];
+      const fonts = ["fonts/SourceSans3.woff2", "fonts/Literata.woff2",
+        "fonts/experimental/Inter-cyrillic-ext.woff2",
+        "fonts/experimental/Inter-cyrillic.woff2",
+        "fonts/experimental/Inter-greek-ext.woff2",
+        "fonts/experimental/Inter-greek.woff2",
+        "fonts/experimental/Inter-vietnamese.woff2",
+        "fonts/experimental/Inter-latin-ext.woff2",
+        "fonts/experimental/Inter-latin.woff2",
+        "fonts/experimental/SourceSerif4-cyrillic-ext.woff2",
+        "fonts/experimental/SourceSerif4-cyrillic.woff2",
+        "fonts/experimental/SourceSerif4-greek.woff2",
+        "fonts/experimental/SourceSerif4-vietnamese.woff2",
+        "fonts/experimental/SourceSerif4-latin-ext.woff2",
+        "fonts/experimental/SourceSerif4-latin.woff2"];
       const fingerprint = createHash("sha256").update(`${PRECACHE_STATIC_REVISION}\n${requiredFiles.join("\n")}`);
       fonts.forEach((file) => fingerprint.update(readFileSync(path.join(projectRoot, "public", file))));
       const version = fingerprint.digest("hex").slice(0, 16);

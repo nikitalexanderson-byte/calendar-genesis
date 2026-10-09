@@ -13,7 +13,7 @@ for (const [slug, title] of Object.entries(pages)) {
   const body = html.split("<body>")[1]?.split("</body>")[0];
   assert.ok(body, `${slug}: HTML body is required`);
   assert.ok(body.includes(`<h1>${title}</h1>`), `${slug}: document must be readable without JavaScript`);
-  assert.ok(body.includes("8 октября 2026 года"), `${slug}: revision is required`);
+  assert.ok(body.includes("9 октября 2026 года"), `${slug}: revision is required`);
   assert.ok(body.includes("<section><h2>"), `${slug}: substantive sections are required`);
   assert.ok(body.includes('href="/privacy"') && body.includes('href="/terms"'), `${slug}: navigation is required`);
   assert.ok(html.includes(`rel="canonical" href="https://genesiscalendar.com/${slug}"`), `${slug}: canonical URL is required`);
@@ -22,9 +22,14 @@ for (const [slug, title] of Object.entries(pages)) {
   if (slug === "privacy") {
     assert.ok(body.includes("Hostinger") && body.includes("Google API Services User Data Policy"));
     assert.ok(body.length > 10000, "privacy: complete policy must be served in the initial response");
+    assert.ok(body.includes("Юрия Логвинова") && body.includes("jurijjlogvinov@gmail.com"), "privacy: domain registrant must be identified separately");
+    assert.ok(body.includes("Владелец и поддержка сервиса GENESIS: nikitalexanderson@gmail.com"), "privacy: service contact must remain separate from domain contact");
   }
 }
 const homepage = await readFile(new URL("index.html", output), "utf8");
 assert.match(homepage, /GENESIS[\s\S]*Календарь задач и проектов/);
 assert.doesNotMatch(homepage, /mc\.yandex|yandex\.ru|яндекс/i);
+assert.ok(homepage.includes("Юрия Логвинова") && homepage.includes("nikitalexanderson@gmail.com"));
+assert.ok(homepage.includes("AI NCII") && homepage.includes("Google Calendar") && homepage.includes("Google Tasks"));
+assert.doesNotMatch(homepage, /%GENESIS_SERVICE_IDENTITY%/, "public identity must resolve at build time");
 console.log("Public homepage and four legal documents are readable without JavaScript; Google-only .com references verified.");

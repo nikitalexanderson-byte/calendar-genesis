@@ -1,7 +1,7 @@
-import { GENESIS_THEME, type GenesisTheme } from "./theme-controller";
+import { normalizeGenesisTheme, type GenesisTheme } from "./theme-controller";
+export { withExperimentalTheme, withThemeColorMode } from "./theme-controller";
 
-// Keep the colour choice when upgrading an account from the retired web theme.
+/** Both visual families use the same Standart components and account preferences. */
 export function normalizeWebTheme(value: unknown): GenesisTheme {
-  return value === GENESIS_THEME.STANDART_DARK || value === GENESIS_THEME.EXPERIMENTAL_DARK
-    ? GENESIS_THEME.STANDART_DARK : GENESIS_THEME.STANDART;
+  return normalizeGenesisTheme(value);
 }

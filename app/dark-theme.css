@@ -257,25 +257,25 @@ html[data-genesis-theme$="-dark"] :is(.recurrence-range legend, .recurrence-rang
   .recurrence-interval > span, .recurrence-summary > span, .recurrence-sync-note) { color: var(--ink-soft); }
 html[data-genesis-theme$="-dark"] .habit-scoring-lock-note { color: var(--gold); }
 
-html[data-genesis-theme="standart-dark"] .habit-collapsible-toggle,
-html[data-genesis-theme="standart-dark"] .habit-collapsible-block.collapsed .habit-collapsible-toggle {
+html:is([data-genesis-theme="standart-dark"], [data-genesis-theme="experimental-dark"]) .habit-collapsible-toggle,
+html:is([data-genesis-theme="standart-dark"], [data-genesis-theme="experimental-dark"]) .habit-collapsible-block.collapsed .habit-collapsible-toggle {
   color: var(--ink);
   border-color: var(--line);
   background: #23363b;
   box-shadow: 0 8px 22px #0003;
 }
 
-html[data-genesis-theme="standart-dark"] .habit-collapsible-toggle:hover {
+html:is([data-genesis-theme="standart-dark"], [data-genesis-theme="experimental-dark"]) .habit-collapsible-toggle:hover {
   border-color: var(--teal);
   background: #2d4448;
   box-shadow: 0 11px 26px #0005;
 }
 
-html[data-genesis-theme="standart-dark"] .habit-collapsible-toggle:focus-visible {
+html:is([data-genesis-theme="standart-dark"], [data-genesis-theme="experimental-dark"]) .habit-collapsible-toggle:focus-visible {
   outline-color: var(--gold);
 }
 
-html[data-genesis-theme="standart-dark"] .habit-collapsible-toolbar .disclosure-chevron {
+html:is([data-genesis-theme="standart-dark"], [data-genesis-theme="experimental-dark"]) .habit-collapsible-toolbar .disclosure-chevron {
   color: var(--ink);
   border-color: var(--line);
   background: #30484a;
@@ -343,16 +343,16 @@ html[data-genesis-theme$="-dark"] .spring-year-dismiss {
   border-color: var(--line);
 }
 
-html[data-genesis-theme="standart-dark"] .mood-tracker {
+html:is([data-genesis-theme="standart-dark"], [data-genesis-theme="experimental-dark"]) .mood-tracker {
   background: #1c3034;
   border-color: #496663;
 }
-html[data-genesis-theme="standart-dark"] .mood-summary-action {
+html:is([data-genesis-theme="standart-dark"], [data-genesis-theme="experimental-dark"]) .mood-summary-action {
   color: #f4f2e9;
   background: #2d5954;
   border-color: #5b8d83;
 }
-html[data-genesis-theme="standart-dark"] .mood-summary:hover .mood-summary-action {
+html:is([data-genesis-theme="standart-dark"], [data-genesis-theme="experimental-dark"]) .mood-summary:hover .mood-summary-action {
   color: #fffdf8;
   background: #396c64;
 }
@@ -426,7 +426,7 @@ html[data-genesis-theme$="-dark"] .theokyklos-sacred-practices :is(article > but
   outline-offset: 2px;
 }
 
-html[data-genesis-theme="standart-dark"] {
+html:is([data-genesis-theme="standart-dark"], [data-genesis-theme="experimental-dark"]) {
   --st-create-bg: #1d3835;
   --st-create-border: #649b86;
   --st-record-bg: #1a2a2e;
@@ -434,25 +434,25 @@ html[data-genesis-theme="standart-dark"] {
   --st-info-bg: #23323a;
   --st-info-border: #59717a;
 }
-html[data-genesis-theme="standart-dark"] :is(.project-tree-panel .project-form, .today-create-panel, .all-tasks-create, .task-list-create, .quick-category-form) {
+html:is([data-genesis-theme="standart-dark"], [data-genesis-theme="experimental-dark"]) :is(.project-tree-panel .project-form, .today-create-panel, .all-tasks-create, .task-list-create, .quick-category-form) {
   color: var(--ink);
   background: var(--st-create-bg);
   border-color: var(--st-create-border);
 }
-html[data-genesis-theme="standart-dark"] :is(.project-tree-panel .project-row, .project-tree-panel .project-assigned-task,
+html:is([data-genesis-theme="standart-dark"], [data-genesis-theme="experimental-dark"]) :is(.project-tree-panel .project-row, .project-tree-panel .project-assigned-task,
   .project-tree-panel .project-assigned-list, .project-tree-panel .inbox-card-items > article,
   .all-task-row, .today-task-list > article, .task-list-column-items > article) {
   color: var(--ink);
   background: var(--st-record-bg);
   border-color: var(--st-record-border);
 }
-html[data-genesis-theme="standart-dark"] :is(.project-tree-panel .project-drop-field, .task-empty,
+html:is([data-genesis-theme="standart-dark"], [data-genesis-theme="experimental-dark"]) :is(.project-tree-panel .project-drop-field, .task-empty,
   .daily-plan-card, .meaning-card, .project-tree-workspace > .inbox-card) {
   color: var(--ink);
   background: var(--st-info-bg);
   border-color: var(--st-info-border);
 }
-html[data-genesis-theme="standart-dark"] .primary-button:disabled {
+html:is([data-genesis-theme="standart-dark"], [data-genesis-theme="experimental-dark"]) .primary-button:disabled {
   color: #d3dfd8;
   background: #38504b;
   border: 1px solid #58766c;

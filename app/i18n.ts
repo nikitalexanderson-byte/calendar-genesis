@@ -71,6 +71,9 @@ const PAGE_TITLES: Record<Language, string> = {
 const APP_BASE = (process.env.NEXT_PUBLIC_GENESIS_BASE_PATH?.trim() || "").replace(/\/$/, "");
 
 const curatedTranslations: Record<string, string> = {
+  "Не удалось сохранить выбранный календарь. Выбор применён на этом устройстве.": "Could not save the selected calendar. Your choice is applied on this device.",
+  "Владелец и поддержка сервиса GENESIS:": "GENESIS service owner and support:",
+  ". По вопросам работы сервиса, конфиденциальности и удаления данных обращайтесь по этому адресу. Домен genesiscalendar.com зарегистрирован на Юрия Логвинова; контакт по вопросам домена:": ". Contact this address about the service, privacy and deletion of your data. The genesiscalendar.com domain is registered to Yuri Logvinov; domain contact:",
   "Да": "Yes",
   "Нет": "No",
   "Завершить этот проект?": "Complete this project?",

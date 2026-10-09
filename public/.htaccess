@@ -41,7 +41,7 @@ RewriteRule . index.html [L]
   </IfModule>
 </FilesMatch>
 
-<FilesMatch "^(?:index\.html|deploy-meta\.json)$">
+<FilesMatch "^(?:index\.html|legacy-home\.php|legacy-relocation-notice\.(?:css|js)|deploy-meta\.json)$">
   <IfModule mod_headers.c>
     Header set Cache-Control "no-cache, no-store, must-revalidate"
     Header set Pragma "no-cache"

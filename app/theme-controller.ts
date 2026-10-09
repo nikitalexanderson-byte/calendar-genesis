@@ -81,6 +81,19 @@ export function normalizeGenesisTheme(value: unknown): GenesisTheme {
     : GENESIS_THEME.STANDART;
 }
 
+export function withExperimentalTheme(theme: GenesisTheme, enabled: boolean): GenesisTheme {
+  const dark = theme.endsWith("-dark");
+  return enabled
+    ? dark ? GENESIS_THEME.EXPERIMENTAL_DARK : GENESIS_THEME.EXPERIMENTAL
+    : dark ? GENESIS_THEME.STANDART_DARK : GENESIS_THEME.STANDART;
+}
+
+export function withThemeColorMode(theme: GenesisTheme, dark: boolean): GenesisTheme {
+  return theme.startsWith("experimental")
+    ? dark ? GENESIS_THEME.EXPERIMENTAL_DARK : GENESIS_THEME.EXPERIMENTAL
+    : dark ? GENESIS_THEME.STANDART_DARK : GENESIS_THEME.STANDART;
+}
+
 export class ThemeConflictError extends Error {
   constructor(message = "Theme preference revision conflict") {
     super(message);
