@@ -126,6 +126,7 @@ import { trackerSnapshot } from "./tracker-analytics";
 import { applyEditableHabitUpdate, applyHabitReminderSyncResult } from "./habit-editing";
 import { HabitInsightsPanel } from "./HabitInsightsPanel";
 import { TheokyklosDetailsDialog } from "./TheokyklosDetailsDialog";
+import { ExperimentalIcon } from "./ExperimentalIcon";
 
 type DailyPanelProps = {
   workspace: HabitWorkspace;
@@ -135,6 +136,7 @@ type DailyPanelProps = {
   calendarMode: CalendarMode;
   onChange: (workspace: HabitWorkspace) => void;
   onOpenHabits?: () => void;
+  onCreateHabit?: () => void;
   compact?: boolean;
   showGoalSettings?: boolean;
   experimentalThemeActive?: boolean;
@@ -145,7 +147,7 @@ type HabitTrackerPageProps = DailyPanelProps & {
   googleCalendarReady: boolean;
   experimentalThemeActive?: boolean;
   hiddenSubmenus?: string[];
-  voiceRequest?: { token: number; kind: "edit" | "delete" | "section"; id?: string; section?: string } | null;
+  voiceRequest?: { token: number; kind: "create" | "edit" | "delete" | "section"; id?: string; section?: string } | null;
   onVoiceRequestConsumed?: () => void;
   onReminderRequested?: (habit: Habit) => Promise<{ googleTaskId: string | null; googleEventId: string | null }>;
   onReminderRemoved?: (habit: Habit) => Promise<void>;
@@ -319,11 +321,18 @@ function HabitSectionBlock({ children, sectionId, position, className = "" }: {
   );
 }
 
+function toggleSuggestionSection(workspace: HabitWorkspace, sectionId: HabitSectionId): HabitWorkspace {
+  const collapsed = workspace.habitSettings.collapsedSections;
+  return { ...workspace, habitSettings: { ...workspace.habitSettings,
+    collapsedSections: collapsed.includes(sectionId) ? collapsed.filter((id) => id !== sectionId) : [...collapsed, sectionId],
+  } };
+}
+
 function HabitTabIcon({ variant, active }: { variant: "today" | "library" | "modules" | "progress"; active: boolean }) {
   return <svg key={`${variant}-${active}`} className={`habit-tab-icon${active ? " active" : ""}`} viewBox="0 0 28 28" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
     {variant === "today" ? <><circle cx="14" cy="14" r="4.5"/><path className="habit-tab-icon-detail" pathLength="100" d="M14 3v3m0 16v3M3 14h3m16 0h3M6.2 6.2l2.1 2.1m11.4 11.4 2.1 2.1M6.2 21.8l2.1-2.1M19.7 8.3l2.1-2.1"/></> : null}
     {variant === "library" ? <><rect x="5" y="4" width="18" height="21" rx="3"/><path d="M14 10h5m-5 6h5m-5 5h5"/><path className="habit-tab-icon-detail" pathLength="100" d="m8 9 1.2 1.2L11 8m-3 7 1.2 1.2L11 14m-3 6 1.2 1.2L11 19"/></> : null}
-    {variant === "modules" ? <><path d="M13 4a8 8 0 0 0 1 15A9 9 0 0 1 13 4Z"/><path d="m20 13 5 2v5c0 3-5 5-5 5s-5-2-5-5v-5Z"/><path className="habit-tab-icon-detail" pathLength="100" d="m18 19 1.5 1.5 3-3"/></> : null}
+    {variant === "modules" ? <><path d="M4 23V8m20 15v-8a3 3 0 0 0-3-3H4M4 20h20"/><rect x="7" y="9" width="5" height="3" rx="1"/><path className="habit-tab-icon-detail" pathLength="100" d="M4 16h20"/></> : null}
     {variant === "progress" ? <><path d="M4 4v20h21"/><path className="habit-tab-icon-detail" pathLength="100" d="m7 19 5-6 4 2 7-9m-5 0h5v5"/></> : null}
   </svg>;
 }
@@ -745,7 +754,7 @@ function MoodTracker({ workspace, date, language, onChange }: Pick<DailyPanelPro
       </button>
       {isOpen ? <div className="modal-backdrop mood-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setIsOpen(false); }}>
       <section ref={dialogRef} className="mood-modal" role="dialog" aria-modal="true" aria-labelledby={moodDialogId} tabIndex={-1}>
-      <header><h2 id={moodDialogId}>{isEnglish ? "Mood of the day" : "Настроение дня"}</h2><button type="button" className="modal-close" onClick={() => setIsOpen(false)} aria-label={isEnglish ? "Close" : "Закрыть"}>×</button></header>
+      <header><h2 id={moodDialogId}>{isEnglish ? "Mood of the day" : "Настроение дня"}</h2><button type="button" className="modal-close" onClick={() => setIsOpen(false)} aria-label={isEnglish ? "Close" : "Закрыть"}><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6" /></svg></button></header>
       <div className="mood-options" role="group" aria-label={isEnglish ? "Choose mood" : "Выберите настроение"}>
         {MOOD_SCALE.map((option) => (
           <button
@@ -789,7 +798,7 @@ function MoodTracker({ workspace, date, language, onChange }: Pick<DailyPanelPro
   );
 }
 
-export function HabitDailyPanel({ workspace, date, language, timeFormat, calendarMode, onChange, onOpenHabits, compact = false, showGoalSettings = false, experimentalThemeActive = false }: DailyPanelProps) {
+export function HabitDailyPanel({ workspace, date, language, timeFormat, calendarMode, onChange, onOpenHabits, onCreateHabit, compact = false, showGoalSettings = false, experimentalThemeActive = false }: DailyPanelProps) {
   const isEnglish = language === "en";
   const today = habitDateKey(new Date());
   const dueHabits = workspace.habits
@@ -848,14 +857,13 @@ export function HabitDailyPanel({ workspace, date, language, timeFormat, calenda
       {dueHabits.length > 0 && date !== today ? <p className="habit-history-lock" role="note">🔒 {isEnglish ? "History is read-only. Habit marks can only be changed today." : "История доступна только для просмотра. Отметки привычек можно менять лишь сегодня."}</p> : null}
 
       {!hasTrackers ? (
-        <div className="habit-empty-state">
-          <span aria-hidden="true">✦</span>
-          <div>
-            <h3>{isEnglish ? "Create your first tracker" : "Создайте первый трекер"}</h3>
-            <p>{isEnglish ? "Habits, sleep and abstinence are independent modules inside one encrypted workspace." : "Привычки, сон и воздержание работают как независимые модули внутри одного зашифрованного пространства."}</p>
-          </div>
-          {onOpenHabits ? <button type="button" className="primary-button" onClick={onOpenHabits}>{isEnglish ? "Open trackers" : "Открыть трекеры"}</button> : null}
-        </div>
+        <button type="button" className="habit-empty-state" onClick={onCreateHabit ?? onOpenHabits} aria-haspopup="dialog">
+          <span className="habit-empty-icon" aria-hidden="true"><ExperimentalIcon name="plus" /></span>
+          <span className="habit-empty-copy">
+            <strong>{isEnglish ? "Create your first tracker" : "Создайте первый трекер"}</strong>
+            <span>{isEnglish ? "Habits, sleep and abstinence are independent modules inside one encrypted workspace." : "Привычки, сон и воздержание работают как независимые модули внутри одного зашифрованного пространства."}</span>
+          </span>
+        </button>
       ) : null}
 
       {dueHabits.length ? (
@@ -963,7 +971,7 @@ function HabitTemplateSetup({ template, date, language, calendarMode, googleTask
       <form ref={dialogRef} className="habit-editor habit-template-setup" data-exp-ui="dialog" role="dialog" aria-modal="true" aria-labelledby="habit-template-setup-title" tabIndex={-1} onSubmit={(event) => { event.preventDefault(); onSave(markTrackerEntityChanged({ ...draft, color: normalizeHabitColor(draft.color, HABIT_COLORS[0]), emoji: normalizeHabitEmoji(draft.emoji), priority: normalizeHabitPriority(draft.priority) })); }}>
         <header>
           <div className="habit-template-setup-title"><span aria-hidden="true">{template.icon}</span><div><small>{isEnglish ? "Starter suggestion" : "Стартовое предложение"}</small><h2 id="habit-template-setup-title">{isEnglish ? template.titleEn : template.title}</h2><p>{isEnglish ? template.descriptionEn : template.description}</p></div></div>
-          <button type="button" className="modal-close" onClick={onClose} aria-label={isEnglish ? "Close" : "Закрыть"}>×</button>
+          <button type="button" className="modal-close" onClick={onClose} aria-label={isEnglish ? "Close" : "Закрыть"}><ExperimentalIcon name="close" /></button>
         </header>
 
         <fieldset className="habit-template-start">
@@ -1010,11 +1018,11 @@ function HabitEditor({ habit, isExisting, language, calendarMode, googleTasksRea
   return (
     <div className="modal-backdrop habit-editor-backdrop" role="presentation">
       <form ref={dialogRef} className="habit-editor" data-exp-ui="dialog" role="dialog" aria-modal="true" aria-labelledby="habit-editor-title" tabIndex={-1} onSubmit={(event) => { event.preventDefault(); const candidate = markTrackerEntityChanged({ ...draft, createdDate: habit.createdDate, color: normalizeHabitColor(draft.color, HABIT_COLORS[0]), emoji: normalizeHabitEmoji(draft.emoji), priority: normalizeHabitPriority(draft.priority), schedule: { ...draft.schedule, startDate: habit.createdDate, recurrence: { ...draft.schedule.recurrence, rangeStart: habit.createdDate } } }); onSave(isExisting ? applyEditableHabitUpdate(habit, candidate) : candidate); }}>
-        <header><div><span className="eyebrow">{isEnglish ? "Habit core" : "Ядро привычек"}</span><h2 id="habit-editor-title">{isExisting ? (isEnglish ? "Edit habit" : "Редактирование привычки") : (isEnglish ? "New habit" : "Новая привычка")}</h2></div><button type="button" className="modal-close" onClick={onClose} aria-label={isEnglish ? "Close" : "Закрыть"}>×</button></header>
+        <header><div><span className="eyebrow">{isEnglish ? "Habit core" : "Ядро привычек"}</span><h2 id="habit-editor-title">{isExisting ? (isEnglish ? "Edit habit" : "Редактирование привычки") : (isEnglish ? "New habit" : "Новая привычка")}</h2></div><button type="button" className="modal-close" onClick={onClose} aria-label={isEnglish ? "Close" : "Закрыть"}><ExperimentalIcon name="close" /></button></header>
         <div className="habit-editor-grid">
-          <label><span>{isEnglish ? "Name" : "Название"}</span><input required maxLength={100} value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} /></label>
-          <HabitStrictTimeField value={draft.preferredTime} fallbackTime={draft.reminder.time} language={language} onChange={(preferredTime) => setDraft((current) => ({ ...current, preferredTime }))} />
+          <label className="wide"><span>{isEnglish ? "Name" : "Название"}</span><input required maxLength={100} value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} /></label>
           <label className="wide"><span>{isEnglish ? "Description" : "Описание"}</span><textarea maxLength={500} value={draft.description} onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} /></label>
+          <HabitStrictTimeField value={draft.preferredTime} fallbackTime={draft.reminder.time} language={language} onChange={(preferredTime) => setDraft((current) => ({ ...current, preferredTime }))} />
           <HabitColorField value={draft.color} language={language} onChange={(color) => setDraft((current) => ({ ...current, color }))} />
         </div>
         <HabitEmojiField value={draft.emoji} language={language} onChange={(emoji) => setDraft((current) => ({ ...current, emoji }))} />
@@ -1110,7 +1118,7 @@ function SleepEditor({ plan, language, calendarMode, allowCalendarModeChange = f
   return (
     <div className="modal-backdrop habit-editor-backdrop" role="presentation">
       <form ref={dialogRef} className="habit-editor specialist-editor" data-exp-ui="dialog" role="dialog" aria-modal="true" aria-labelledby="sleep-editor-title" tabIndex={-1} onSubmit={(event) => { event.preventDefault(); onSave(markTrackerEntityChanged(draft)); }}>
-        <header><div><span className="eyebrow">{isEnglish ? "Sleep tracker" : "Трекер сна"}</span><h2 id="sleep-editor-title">{isEnglish ? "Sleep plan" : "План сна"}</h2></div><button type="button" className="modal-close" onClick={onClose} aria-label={isEnglish ? "Close" : "Закрыть"}>×</button></header>
+        <header><div><span className="eyebrow">{isEnglish ? "Sleep tracker" : "Трекер сна"}</span><h2 id="sleep-editor-title">{isEnglish ? "Sleep plan" : "План сна"}</h2></div><button type="button" className="modal-close" onClick={onClose} aria-label={isEnglish ? "Close" : "Закрыть"}><ExperimentalIcon name="close" /></button></header>
         <div className="habit-editor-grid"><label className="wide"><span>{isEnglish ? "Plan name" : "Название плана"}</span><input required value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} /></label><label><span>{isEnglish ? "Target bedtime" : "Плановое время сна"}</span><input type="time" value={draft.targetBedtime} onChange={(event) => setDraft((current) => ({ ...current, targetBedtime: event.target.value }))} /></label><label><span>{isEnglish ? "Target wake time" : "Плановое пробуждение"}</span><input type="time" value={draft.targetWakeTime} onChange={(event) => setDraft((current) => ({ ...current, targetWakeTime: event.target.value }))} /></label></div>
         <RecurrenceBuilder value={draft.schedule.recurrence} startDate={draft.schedule.startDate} calendarMode={calendarMode} destination="tracker" allowCalendarModeChange={allowCalendarModeChange} onChange={(recurrence) => setDraft((current) => ({ ...current, schedule: { ...current.schedule, recurrence } }))} />
         <label className="habit-switch"><span><strong>{isEnglish ? "Track sleep quality" : "Оценивать качество сна"}</strong><small>{isEnglish ? "Optional 1–10 scale" : "Необязательная шкала 1–10"}</small></span><input type="checkbox" role="switch" aria-label={isEnglish ? "Track sleep quality" : "Оценивать качество сна"} checked={draft.qualityEnabled} onChange={(event) => setDraft((current) => ({ ...current, qualityEnabled: event.target.checked }))} /><i /></label>
@@ -1123,7 +1131,7 @@ function SleepEditor({ plan, language, calendarMode, allowCalendarModeChange = f
               <label><span>{isEnglish ? "Condition" : "Условие"}</span><select value={rule.operator} onChange={(event) => updateRule(rule.id, { operator: event.target.value as SleepRule["operator"] })}><option value="on-or-before">{isEnglish ? "At or before" : "Не позже"}</option><option value="after">{isEnglish ? "After" : "Позже"}</option></select></label>
               <label><span>{isEnglish ? "Time" : "Время"}</span><input type="time" value={rule.threshold} onChange={(event) => updateRule(rule.id, { threshold: event.target.value })} /></label>
               <label><span>{isEnglish ? "Points" : "Баллы"}</span><input type="number" min="-100" max="100" value={rule.points} onChange={(event) => updateRule(rule.id, { points: Math.max(-100, Math.min(100, Math.round(Number(event.target.value) || 0))) })} /></label>
-              <button type="button" className="danger" aria-label={isEnglish ? "Delete condition" : "Удалить условие"} onClick={() => setDraft((current) => ({ ...current, rules: current.rules.filter((item) => item.id !== rule.id) }))}>×</button>
+              <button type="button" className="danger" aria-label={isEnglish ? "Delete condition" : "Удалить условие"} onClick={() => setDraft((current) => ({ ...current, rules: current.rules.filter((item) => item.id !== rule.id) }))}><ExperimentalIcon name="close" /></button>
             </div>
           )) : <p>{isEnglish ? "Add conditions to award or deduct points for bedtime and wake time." : "Добавьте условия, чтобы начислять или снимать баллы за время сна и пробуждения."}</p>}
         </fieldset>
@@ -1140,7 +1148,7 @@ function AddictionEditor({ tracker, language, calendarMode, allowCalendarModeCha
   return (
     <div className="modal-backdrop habit-editor-backdrop" role="presentation">
       <form ref={dialogRef} className="habit-editor specialist-editor" data-exp-ui="dialog" role="dialog" aria-modal="true" aria-labelledby="addiction-editor-title" tabIndex={-1} onSubmit={(event) => { event.preventDefault(); onSave(markTrackerEntityChanged(draft)); }}>
-        <header><div><span className="eyebrow">{isEnglish ? "Abstinence tracker" : "Трекер воздержания"}</span><h2 id="addiction-editor-title">{isEnglish ? "Tracked behavior" : "Наблюдаемое поведение"}</h2></div><button type="button" className="modal-close" onClick={onClose} aria-label={isEnglish ? "Close" : "Закрыть"}>×</button></header>
+        <header><div><span className="eyebrow">{isEnglish ? "Abstinence tracker" : "Трекер воздержания"}</span><h2 id="addiction-editor-title">{isEnglish ? "Tracked behavior" : "Наблюдаемое поведение"}</h2></div><button type="button" className="modal-close" onClick={onClose} aria-label={isEnglish ? "Close" : "Закрыть"}><ExperimentalIcon name="close" /></button></header>
         <div className="habit-editor-grid"><label><span>{isEnglish ? "Behavior" : "Поведение"}</span><input required value={draft.trackedBehavior} onChange={(event) => setDraft((current) => ({ ...current, trackedBehavior: event.target.value }))} /></label><label><span>{isEnglish ? "Clean day points" : "Баллы за чистый день"}</span><input type="number" min="0" max="100" value={draft.cleanDayPoints} onChange={(event) => setDraft((current) => ({ ...current, cleanDayPoints: Math.max(0, Number(event.target.value) || 0) }))} /></label><label><span>{isEnglish ? "Optional relapse penalty" : "Штраф за срыв (необязательно)"}</span><input type="number" min="0" max="100" value={draft.relapsePenalty} onChange={(event) => setDraft((current) => ({ ...current, relapsePenalty: Math.max(0, Number(event.target.value) || 0) }))} /></label><label className="wide"><span>{isEnglish ? "Description" : "Описание"}</span><textarea value={draft.description} onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} /></label></div>
         <RecurrenceBuilder value={draft.schedule.recurrence} startDate={draft.schedule.startDate} calendarMode={calendarMode} destination="tracker" allowCalendarModeChange={allowCalendarModeChange} onChange={(recurrence) => setDraft((current) => ({ ...current, schedule: { ...current.schedule, recurrence } }))} />
         <div className="habit-formula-card"><span>{isEnglish ? "Exact formula" : "Точная формула"}</span><strong>{isEnglish ? `Clean day = +${draft.cleanDayPoints}; relapse = -${draft.relapsePenalty}; total ≥ 0` : `Чистый день = +${draft.cleanDayPoints}; срыв = -${draft.relapsePenalty}; общий баланс ≥ 0`}</strong></div>
@@ -1243,6 +1251,7 @@ function SacredHabitLibrary({
 }) {
   const isEnglish = language === "en";
   const [selectedSectorId, setSelectedSectorId] = useState<SacredPracticeSectorId | null>(null);
+  const collapsed = workspace.habitSettings.collapsedSections.includes("sacred-habits");
   const [describedSectorId, setDescribedSectorId] = useState<SacredPracticeSectorId | null>(null);
   const closeSectorDialog = () => setSelectedSectorId(null);
   const segments = useMemo(() => new Map(THEOKYKLOS_SEGMENTS.map((segment) => [segment.id, segment])), []);
@@ -1273,16 +1282,20 @@ function SacredHabitLibrary({
   };
 
   return (
-    <section className="sacred-habit-library" aria-labelledby="sacred-habit-library-title">
+    <section className={`sacred-habit-library${collapsed ? " is-collapsed" : ""}`} aria-labelledby="sacred-habit-library-title">
       <header>
         <div>
           <span className="eyebrow">ΘΕΟΚΥΚΛΟΣ · {isEnglish ? "embodied myth" : "воплощённый миф"}</span>
           <h2 id="sacred-habit-library-title">{isEnglish ? "Sacred habits" : "Сакральные привычки"}</h2>
-          <p>{isEnglish ? "Every practice is an ordinary, trackable action illuminated by a myth and a patron deity." : "Каждая практика — обычное отслеживаемое действие, освещённое мифом и божеством-покровителем."}</p>
+          <p hidden={collapsed}>{isEnglish ? "Every practice is an ordinary, trackable action illuminated by a myth and a patron deity." : "Каждая практика — обычное отслеживаемое действие, освещённое мифом и божеством-покровителем."}</p>
         </div>
+        <button type="button" className="secondary-button habit-suggestions-toggle" aria-expanded={!collapsed} aria-controls="sacred-sector-picker"
+          onClick={() => onChange(toggleSuggestionSection(workspace, "sacred-habits"))}>
+          {collapsed ? (isEnglish ? "Expand" : "Раскрыть") : (isEnglish ? "Collapse" : "Свернуть")}<DisclosureChevron open={!collapsed} />
+        </button>
       </header>
 
-      <div className="sacred-sector-navigation open" id="sacred-sector-picker" role="group" aria-label={isEnglish ? "Theokyklos practice sectors" : "Секторы практик Теокиклоса"}>
+      <div hidden={collapsed} className="sacred-sector-navigation open" id="sacred-sector-picker" role="group" aria-label={isEnglish ? "Theokyklos practice sectors" : "Секторы практик Теокиклоса"}>
         <div className="sacred-compass">
           <div className="sacred-compass-rose" aria-hidden="true"><i /><i /><i /><i /></div>
           <div className="sacred-compass-grid">
@@ -1386,7 +1399,8 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
   const hasHabits = workspace.habits.length > 0;
   const activeTemplateIds = new Set(workspace.habits.flatMap((habit) => habit.sourceTemplateId ? [habit.sourceTemplateId] : []));
   const visibleStarterTemplates = STARTER_HABIT_TEMPLATES.filter((template) => !activeTemplateIds.has(template.id));
-  const dailyPanel = <HabitDailyPanel workspace={workspace} date={date} language={language} timeFormat={timeFormat} calendarMode={calendarMode} onChange={onChange} experimentalThemeActive={experimentalThemeActive} showGoalSettings />;
+  const starterCollapsed = workspace.habitSettings.collapsedSections.includes("starter-habits");
+  const dailyPanel = <HabitDailyPanel workspace={workspace} date={date} language={language} timeFormat={timeFormat} calendarMode={calendarMode} onChange={onChange} onCreateHabit={openNewHabit} experimentalThemeActive={experimentalThemeActive} showGoalSettings />;
 
   const saveHabit = (candidate: Habit) => {
     const previous = workspace.habits.find((item) => item.id === candidate.id);
@@ -1439,6 +1453,11 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
   useEffect(() => {
     if (!voiceRequest) return;
     queueMicrotask(() => {
+      if (voiceRequest.kind === "create") {
+        setEditingHabit(defaultHabit(habitDateKey(new Date()), calendarMode));
+        onVoiceRequestConsumed?.();
+        return;
+      }
       if (voiceRequest.kind === "section") {
         if (voiceRequest.section === "modules" || voiceRequest.section === "progress" || voiceRequest.section === "library") {
           setExperimentalHabitTab(voiceRequest.section);
@@ -1485,7 +1504,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
         </div> : null}
         <div className="habits-hero-actions">
           {workspace.habitSettings.feedback.gamificationWidgets ? <button type="button" className="hero-path-open" onClick={() => setHeroPathOpen(true)}><span className="hero-path-open-sigil" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="M12 5.5 13.8 10l4.7 2-4.7 2-1.8 4.5-1.8-4.5-4.7-2 4.7-2Z" /></svg></span><span>{isEnglish ? "Path of the Hero" : "Путь Героя"}</span></button> : null}
-          <button type="button" className="primary-button" onClick={openNewHabit}>＋ {isEnglish ? "New habit" : "Новая привычка"}</button>
+          <button type="button" className="primary-button" onClick={openNewHabit}><ExperimentalIcon name="plus" />{isEnglish ? "New habit" : "Новая привычка"}</button>
         </div>
       </header>
       {<div ref={experimentalHabitTabsRef} className="experimental-habit-tabs" role="tablist" tabIndex={-1} aria-label={isEnglish ? "Habit workspace" : "Рабочая зона привычек"} onKeyDown={(event) => {
@@ -1531,16 +1550,17 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
       {hasHabits ? <AdaptiveDifficultyPanel workspace={workspace} date={creationDate} language={language} calendarMode={calendarMode} {...sectionProps("adaptive-suggestions")} onEdit={setEditingHabit} onPause={(habit) => { onChange({ ...workspace, habits: workspace.habits.map((item) => item.id === habit.id ? markTrackerEntityChanged({ ...item, active: false }) : item) }); setMessage(isEnglish ? "Habit paused. Its history and settings were preserved." : "Привычка поставлена на паузу. История и настройки сохранены."); }} /> : null}
       {message ? <p className="habit-status-message" role="status">{message}</p> : null}
 
+      <HabitSectionBlock className="experimental-habit-section experimental-habit-section-library" label={isEnglish ? "Regular habits" : "Обычные привычки"} language={language} {...sectionProps("regular-habits")}><section className="habit-library"><header><div><span className="eyebrow">{isEnglish ? "Habit core" : "Ядро привычек"}</span><h2>{isEnglish ? "Habit core" : "Ядро привычек"}</h2></div><button type="button" className="primary-button" onClick={openNewHabit}><ExperimentalIcon name="plus" />{isEnglish ? "Add" : "Добавить"}</button></header><p className="habit-library-rule">🔒 {isEnglish ? `All settings can be edited except points and the quality scale. Deleting before ${HABIT_LAUREL_RETENTION_COMPLETIONS} completions resets all Laurels.` : `Можно изменять все настройки, кроме баллов и шкалы качества. Удаление до ${HABIT_LAUREL_RETENTION_COMPLETIONS} выполнений обнуляет все Лавры.`}</p>{workspace.habits.length ? <div>{[...workspace.habits].sort((left, right) => Number(right.isKeyHabit) - Number(left.isKeyHabit) || right.priority - left.priority || left.title.localeCompare(right.title)).map((habit) => <article className={`${!habit.active ? "paused" : ""}${habit.isKeyHabit ? " key-habit" : ""}`} style={{ "--habit-color": habit.color } as CSSProperties} key={habit.id}><i /><div><span><b className="habit-emoji" aria-hidden="true">{habit.emoji}</b><strong data-no-translate>{habit.title}</strong>{habit.isKeyHabit ? <mark>{isEnglish ? "Key habit" : "Главная"}</mark> : null}<em>{isEnglish ? `Priority ${habit.priority}` : `Приоритет ${habit.priority}`}</em></span><small>{habitRitualLabel(habit, isEnglish)} · {scoringFormula(habit.scoringMode, isEnglish)} · {isEnglish ? "created" : "создана"} {formatCalendarDateValue(habit.createdDate, calendarMode, true)} · {isEnglish ? "Laurels milestone" : "Рубеж Лавров"} {Math.min(habitCompletionCount(workspace.habitCompletions, habit.id), HABIT_LAUREL_RETENTION_COMPLETIONS)}/{HABIT_LAUREL_RETENTION_COMPLETIONS}</small></div><output>{habit.scoringMode === "none" ? "—" : `≤${MAX_HABIT_XP_PER_COMPLETION}`}</output><div className="habit-library-actions"><button type="button" onClick={() => onChange(setKeyHabit(workspace, habit.isKeyHabit ? null : habit.id))}>{habit.isKeyHabit ? (isEnglish ? "Remove focus" : "Убрать фокус") : (isEnglish ? "Make key" : "Сделать главной")}</button><button type="button" onClick={() => setEditingHabit(habit)}>{isEnglish ? "Edit" : "Изменить"}</button><button type="button" onClick={() => onChange({ ...workspace, habits: workspace.habits.map((item) => item.id === habit.id ? markTrackerEntityChanged({ ...item, active: !item.active }) : item) })}>{habit.active ? (isEnglish ? "Pause" : "Пауза") : (isEnglish ? "Resume" : "Включить")}</button><button type="button" className="danger" onClick={() => removeHabit(habit)}>{isEnglish ? "Delete" : "Удалить"}</button></div></article>)}</div> : <div className="habit-library-empty"><p>{isEnglish ? "No regular habits yet." : "Обычных привычек пока нет."}</p><button type="button" className="primary-button" onClick={openNewHabit}>{isEnglish ? "Create first habit" : "Создать первую привычку"}</button></div>}</section></HabitSectionBlock>
+
       {(
-        <HabitSectionBlock className="experimental-habit-section experimental-habit-section-library" label={isEnglish ? "Starter habits" : "Стартовые привычки"} language={language} {...sectionProps("starter-habits")}><section className="habit-template-library" aria-labelledby="habit-template-library-title">
-          <header><div><span className="eyebrow">{isEnglish ? "A considered beginning" : "Продуманное начало"}</span><h2 id="habit-template-library-title">{isEnglish ? "Starter habits" : "Стартовые привычки"}</h2><p>{isEnglish ? "Choose only what supports your rhythm. Suggestions do nothing until you add them." : "Выберите только то, что поддерживает ваш ритм. До добавления предложения ничего не создают и не начисляют."}</p></div></header>
-          {visibleStarterTemplates.length ? <div className="habit-template-grid">{visibleStarterTemplates.map((template) => <article style={{ "--habit-color": template.color } as CSSProperties} key={template.id}><span className="habit-template-icon" aria-hidden="true">{template.icon}</span><div><h3>{isEnglish ? template.titleEn : template.title}</h3><p>{isEnglish ? template.descriptionEn : template.description}</p><small>{isEnglish ? template.frequencyEn : template.frequency}</small></div><footer><button type="button" className="primary-button" onClick={() => setActivatingTemplate(template)}>{isEnglish ? "Add" : "Добавить"}</button></footer></article>)}</div> : <p className="habit-template-empty">{isEnglish ? "All starter habits have been added. You can manage them below." : "Все стартовые привычки уже добавлены. Управлять ими можно ниже."}</p>}
+        <HabitSectionBlock className="experimental-habit-section experimental-habit-section-library" label={isEnglish ? "Starter habits" : "Стартовые привычки"} language={language} {...sectionProps("starter-habits")}><section className={`habit-template-library${starterCollapsed ? " is-collapsed" : ""}`} aria-labelledby="habit-template-library-title">
+          <header><div><span className="eyebrow">{isEnglish ? "A considered beginning" : "Продуманное начало"}</span><h2 id="habit-template-library-title">{isEnglish ? "Starter habits" : "Стартовые привычки"}</h2><p hidden={starterCollapsed}>{isEnglish ? "Choose only what supports your rhythm. Suggestions do nothing until you add them." : "Выберите только то, что поддерживает ваш ритм. До добавления предложения ничего не создают и не начисляют."}</p></div><button type="button" className="secondary-button habit-suggestions-toggle" aria-expanded={!starterCollapsed} aria-controls="starter-habit-suggestions" onClick={() => onChange(toggleSuggestionSection(workspace, "starter-habits"))}>{starterCollapsed ? (isEnglish ? "Expand" : "Раскрыть") : (isEnglish ? "Collapse" : "Свернуть")}<DisclosureChevron open={!starterCollapsed} /></button></header>
+          {visibleStarterTemplates.length ? <div id="starter-habit-suggestions" hidden={starterCollapsed} className="habit-template-grid">{visibleStarterTemplates.map((template) => <article style={{ "--habit-color": template.color } as CSSProperties} key={template.id}><span className="habit-template-icon" aria-hidden="true">{template.icon}</span><div><h3>{isEnglish ? template.titleEn : template.title}</h3><p>{isEnglish ? template.descriptionEn : template.description}</p><small>{isEnglish ? template.frequencyEn : template.frequency}</small></div><footer><button type="button" className="primary-button" onClick={() => setActivatingTemplate(template)}>{isEnglish ? "Add" : "Добавить"}</button></footer></article>)}</div> : <p id="starter-habit-suggestions" hidden={starterCollapsed} className="habit-template-empty">{isEnglish ? "All starter habits have been added. You can manage them below." : "Все стартовые привычки уже добавлены. Управлять ими можно ниже."}</p>}
         </section></HabitSectionBlock>
       )}
 
       {!hasHabits ? <HabitSectionBlock className="experimental-habit-section experimental-habit-section-today" label={isEnglish ? "Daily trackers" : "Трекеры дня"} language={language} {...sectionProps("daily-trackers")}>{dailyPanel}</HabitSectionBlock> : null}
 
-      <HabitSectionBlock className="experimental-habit-section experimental-habit-section-library" label={isEnglish ? "Regular habits" : "Обычные привычки"} language={language} {...sectionProps("regular-habits")}><section className="habit-library"><header><div><span className="eyebrow">{isEnglish ? "Habit core" : "Ядро привычек"}</span><h2>{isEnglish ? "Habits" : "Обычные привычки"}</h2></div><button type="button" onClick={openNewHabit}>＋ {isEnglish ? "Add" : "Добавить"}</button></header><p className="habit-library-rule">🔒 {isEnglish ? `All settings can be edited except points and the quality scale. Deleting before ${HABIT_LAUREL_RETENTION_COMPLETIONS} completions resets all Laurels.` : `Можно изменять все настройки, кроме баллов и шкалы качества. Удаление до ${HABIT_LAUREL_RETENTION_COMPLETIONS} выполнений обнуляет все Лавры.`}</p>{workspace.habits.length ? <div>{[...workspace.habits].sort((left, right) => Number(right.isKeyHabit) - Number(left.isKeyHabit) || right.priority - left.priority || left.title.localeCompare(right.title)).map((habit) => <article className={`${!habit.active ? "paused" : ""}${habit.isKeyHabit ? " key-habit" : ""}`} style={{ "--habit-color": habit.color } as CSSProperties} key={habit.id}><i /><div><span><b className="habit-emoji" aria-hidden="true">{habit.emoji}</b><strong data-no-translate>{habit.title}</strong>{habit.isKeyHabit ? <mark>{isEnglish ? "Key habit" : "Главная"}</mark> : null}<em>{isEnglish ? `Priority ${habit.priority}` : `Приоритет ${habit.priority}`}</em></span><small>{habitRitualLabel(habit, isEnglish)} · {scoringFormula(habit.scoringMode, isEnglish)} · {isEnglish ? "created" : "создана"} {formatCalendarDateValue(habit.createdDate, calendarMode, true)} · {isEnglish ? "Laurels milestone" : "Рубеж Лавров"} {Math.min(habitCompletionCount(workspace.habitCompletions, habit.id), HABIT_LAUREL_RETENTION_COMPLETIONS)}/{HABIT_LAUREL_RETENTION_COMPLETIONS}</small></div><output>{habit.scoringMode === "none" ? "—" : `≤${MAX_HABIT_XP_PER_COMPLETION}`}</output><div className="habit-library-actions"><button type="button" onClick={() => onChange(setKeyHabit(workspace, habit.isKeyHabit ? null : habit.id))}>{habit.isKeyHabit ? (isEnglish ? "Remove focus" : "Убрать фокус") : (isEnglish ? "Make key" : "Сделать главной")}</button><button type="button" onClick={() => setEditingHabit(habit)}>{isEnglish ? "Edit" : "Изменить"}</button><button type="button" onClick={() => onChange({ ...workspace, habits: workspace.habits.map((item) => item.id === habit.id ? markTrackerEntityChanged({ ...item, active: !item.active }) : item) })}>{habit.active ? (isEnglish ? "Pause" : "Пауза") : (isEnglish ? "Resume" : "Включить")}</button><button type="button" className="danger" onClick={() => removeHabit(habit)}>{isEnglish ? "Delete" : "Удалить"}</button></div></article>)}</div> : <div className="habit-library-empty"><p>{isEnglish ? "No regular habits yet." : "Обычных привычек пока нет."}</p><button type="button" className="primary-button" onClick={openNewHabit}>{isEnglish ? "Create first habit" : "Создать первую привычку"}</button></div>}</section></HabitSectionBlock>
 
       <HabitSectionBlock className="experimental-habit-section experimental-habit-section-modules" label={isEnglish ? "Sleep and abstinence" : "Сон и воздержание"} language={language} {...sectionProps("sleep-abstinence")}><div className="tracker-module-grid">
         <section className="tracker-module-card sleep-module"><header><div><span className="eyebrow">{isEnglish ? "Independent module" : "Независимый модуль"}</span><h2>{isEnglish ? "Sleep" : "Сон"}</h2></div><button type="button" onClick={() => setEditingSleep(defaultSleepPlan(date, calendarMode))}>＋ {isEnglish ? "Plan" : "План"}</button></header>{workspace.sleepPlans.length ? workspace.sleepPlans.map((plan) => <article key={plan.id}><div><strong data-no-translate>{plan.title}</strong><small>{plan.targetBedtime} → {plan.targetWakeTime} · {plan.schedule.timezone}</small></div><button type="button" onClick={() => setEditingSleep(plan)}>{isEnglish ? "Edit" : "Изменить"}</button><button type="button" className="danger" onClick={() => onChange({ ...workspace, sleepPlans: workspace.sleepPlans.filter((item) => item.id !== plan.id), sleepEntries: workspace.sleepEntries.filter((entry) => entry.planId !== plan.id) })}>{isEnglish ? "Delete" : "Удалить"}</button></article>) : <p>{isEnglish ? "Track bedtime, wake time, duration and quality across midnight and DST." : "Отслеживайте сон, пробуждение, длительность и качество с учётом полуночи и DST."}</p>}</section>

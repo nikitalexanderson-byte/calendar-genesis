@@ -595,7 +595,7 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
           <div className="navigation-preference-grid">
             <fieldset><legend>{user.language === "en" ? "Main menu" : "Главное меню"}</legend>
               {MENU_SETTINGS.map(([id, ru, en]) => <label key={id} className="account-switch-row" data-exp-ui="row">
-                {user.language === "en" ? en : ru}
+                <span>{user.language === "en" ? en : ru}</span>
                 <input type="checkbox" role="switch" checked={!visibility.hiddenMenuItems.includes(id)} disabled={preferenceBusy}
                   onChange={(event) => toggleVisibilityItem("hiddenMenuItems", id, event.target.checked)} />
                 <i aria-hidden="true" />
@@ -608,7 +608,7 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
                 const lastVisible = !visibility.hiddenSubmenus.includes(id) && visibleSiblings.length === 1;
                 const personalRequired = id === "projects.personal" && !user.sharedProjectsEnabled;
                 return <label key={id} className="account-switch-row" data-exp-ui="row">
-                  {user.language === "en" ? en : ru}
+                  <span>{user.language === "en" ? en : ru}</span>
                   <input type="checkbox" role="switch" checked={!visibility.hiddenSubmenus.includes(id)}
                     disabled={preferenceBusy || lastVisible || personalRequired}
                     onChange={(event) => toggleVisibilityItem("hiddenSubmenus", id, event.target.checked)} />
@@ -618,7 +618,7 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
             </fieldset>
             <fieldset><legend>{user.language === "en" ? "Today" : "Экран «Сегодня»"}</legend>
               {TODAY_SETTINGS.map(([id, ru, en]) => <label key={id} className="account-switch-row" data-exp-ui="row">
-                {user.language === "en" ? en : ru}
+                <span>{user.language === "en" ? en : ru}</span>
                 <input type="checkbox" role="switch" checked={!visibility.hiddenTodayBlocks.includes(id)} disabled={preferenceBusy}
                   onChange={(event) => toggleVisibilityItem("hiddenTodayBlocks", id, event.target.checked)} />
                 <i aria-hidden="true" />
@@ -626,9 +626,9 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
             </fieldset>
             <fieldset><legend>{user.language === "en" ? "Available calendars" : "Доступные календари"}</legend>
               {(["profane", "sacred", "lunar"] as CalendarMode[]).map((mode) => <label key={mode} className="account-switch-row" data-exp-ui="row">
-                {mode === "profane" ? (user.language === "en" ? "Gregorian" : "Григорианский")
+                <span>{mode === "profane" ? (user.language === "en" ? "Gregorian" : "Григорианский")
                   : mode === "sacred" ? (user.language === "en" ? "Sacred" : "Сакральный")
-                    : (user.language === "en" ? "Lunar" : "Лунный")}
+                    : (user.language === "en" ? "Lunar" : "Лунный")}</span>
                 <input type="checkbox" role="switch" checked={visibility.enabledCalendars.includes(mode)}
                   disabled={preferenceBusy || (visibility.enabledCalendars.length === 1 && visibility.enabledCalendars.includes(mode))}
                   onChange={(event) => void updateVisibility({ ...visibility,
