@@ -22,8 +22,9 @@ import {
   useSyncExternalStore,
 } from "react";
 import { CalendarDayTaskCounts, CalendarYearTaskCounts } from "./CalendarTaskCounts";
+import { RecordCalendarChoice } from "./RecordCalendarChoice";
 import { SERVICE_IDENTITY } from "./public-service";
-import { normalizeWebTheme, withExperimentalTheme } from "./web-theme";
+import { normalizeWebTheme } from "./web-theme";
 import { TodayAdBlock } from "./TodayAdBlock";
 import { ActionNotice, useActionNotice } from "./ActionNotice";
 import { ProjectCompletionDialog } from "./ProjectCompletionDialog";
@@ -805,7 +806,7 @@ function profaneMonthName(date: Date, short = false) {
 
 function formatDateRange(start: Date, end: Date) {
   const formatter = new Intl.DateTimeFormat(runtimeLocale(), { day: "numeric", month: "short", year: "numeric" });
-  return `${formatter.format(start)} — ${formatter.format(end)}`;
+  return formatter.formatRange(start, end);
 }
 
 function datesTaskCount(tasksByDate: Map<string, Task[]>, dates: Date[]) {
@@ -1415,6 +1416,7 @@ export function GenesisCalendar() {
   const [authError, setAuthError] = useState("");
   const [taskTitle, setTaskTitle] = useState("");
   const [taskDescription, setTaskDescription] = useState("");
+  const [taskFormCalendar, setTaskFormCalendar] = useState<CalendarMode | null>(null);
   const [taskScope, setTaskScope] = useState<"personal" | "shared">("personal");
   const [taskDueDate, setTaskDueDate] = useState("");
   const [taskEndDate, setTaskEndDate] = useState("");
@@ -1578,24 +1580,21 @@ export function GenesisCalendar() {
   }, [themeAccountId]);
 
   const changeGenesisTheme = useCallback((theme: GenesisTheme) => {
-    themeControllerRef.current?.setTheme(theme);
+    themeControllerRef.current?.setTheme(normalizeWebTheme(theme));
   }, []);
 
-  const experimentalThemeActive = themeState.available && themeState.theme.startsWith("experimental");
+  // The former Experimental composition is now the only STANDART interface.
+  const experimentalThemeActive = true;
   const [experimentalProjectFormOpen, setExperimentalProjectFormOpen] = useState(false);
   const [expandedExperimentalProjects, setExpandedExperimentalProjects] = useState<string[]>([]);
-  const newProjectDialogRef = useDialogAccessibility<HTMLFormElement>(() => setExperimentalProjectFormOpen(false), experimentalThemeActive && experimentalProjectFormOpen);
-  const [requestedExperimentalTheme, setRequestedExperimentalTheme] = useState<GenesisTheme | null>(null);
-  const experimentalWarningRef = useDialogAccessibility<HTMLElement>(() => setRequestedExperimentalTheme(null), requestedExperimentalTheme !== null);
-
-  const requestGenesisThemeChange = useCallback((theme: GenesisTheme) => {
-    const nextTheme = normalizeWebTheme(theme);
-    if (nextTheme.startsWith("experimental") && !experimentalThemeActive) {
-      setRequestedExperimentalTheme(nextTheme);
-      return;
-    }
-    changeGenesisTheme(nextTheme);
-  }, [changeGenesisTheme, experimentalThemeActive]);
+  useEffect(() => {
+    if (!projectDragItem || !projectDropTargetId || projectDropTargetId === TASK_INBOX_PROJECT_ID) return;
+    const timer = window.setTimeout(() => {
+      setExpandedExperimentalProjects((ids) => ids.includes(projectDropTargetId) ? ids : [...ids, projectDropTargetId]);
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [projectDragItem, projectDropTargetId]);
+  const newProjectDialogRef = useDialogAccessibility<HTMLFormElement>(() => setExperimentalProjectFormOpen(false), experimentalProjectFormOpen);
 
   useEffect(() => {
     const retryThemeSave = () => themeControllerRef.current?.retry();
@@ -1743,6 +1742,8 @@ export function GenesisCalendar() {
   const todayInfo = useMemo(() => getSacredDate(today), [today]);
   const activeCalendarMode: CalendarMode = cloudUser?.calendarMode ?? "sacred";
   const activeTaskCalendarMode: CalendarMode = cloudUser?.taskCalendarMode ?? "sacred";
+  const taskFormCalendarMode = taskFormCalendar ?? activeTaskCalendarMode;
+  const editTaskCalendarMode = editingTask?.calendarMode ?? activeTaskCalendarMode;
   const visibility = uiVisibility(cloudUser?.uiVisibility);
   const personalProjectsVisible = !visibility.hiddenSubmenus.includes("projects.personal");
   const sharedProjectsVisible = Boolean(cloudUser?.sharedProjectsEnabled) && !visibility.hiddenSubmenus.includes("projects.shared");
@@ -1940,8 +1941,9 @@ export function GenesisCalendar() {
 
   const openCalendarDate = (date: Date, origin: DayDetailsOrigin) => {
     selectCalendarDate(date);
-    setDayDetailsOrigin(origin);
-    setDayDetailsOpen(true);
+    setDayDetailsOrigin(origin === "year" ? "calendar" : origin);
+    setDayDetailsOpen(origin !== "year");
+    if (origin === "year") navigateTo("calendar");
   };
 
   const beginSelectedDayTask = () => {
@@ -1956,6 +1958,7 @@ export function GenesisCalendar() {
     setTaskSyncAccountIds(null);
     setTaskRecurrenceConfig(alignRecurrenceConfigWithCalendar(DEFAULT_RECURRENCE_CONFIG, activeTaskCalendarMode, selectedDateValue));
     setDayDetailsOpen(false);
+    setTaskFormCalendar(activeTaskCalendarMode);
     setDayTaskCreatorOpen(true);
   };
 
@@ -2529,7 +2532,7 @@ export function GenesisCalendar() {
     }
   };
 
-  const taskForList = (title: string, dueDateValue: string, taskList: GoogleTaskList, projectId = ""): Task => {
+  const taskForList = (title: string, dueDateValue: string, taskList: GoogleTaskList, projectId = "", calendarMode = activeTaskCalendarMode): Task => {
     const dueDate = new Date(`${dueDateValue}T12:00:00`);
     const sacred = getSacredDate(dueDate);
     const selectedProject = projects.find((project) => project.id === projectId);
@@ -2564,8 +2567,8 @@ export function GenesisCalendar() {
       recurrencePyatas: [],
       recurrenceExcludedDates: [],
       recurrenceSeriesId: null,
-      calendarMode: activeTaskCalendarMode,
-      calendarNote: calendarDateNote(dueDate, activeTaskCalendarMode),
+      calendarMode,
+      calendarNote: calendarDateNote(dueDate, calendarMode),
       syncToGoogle: cloudUser?.authProvider === "google",
       syncAccountIds: taskList.accountId ? [taskList.accountId] : defaultSyncAccountIds,
       googleLinks: {},
@@ -2838,8 +2841,8 @@ export function GenesisCalendar() {
       recurrencePyatas: taskRecurrenceConfig.enabled ? [...taskRecurrenceConfig.pyatas] : [],
       recurrenceExcludedDates: [],
       recurrenceSeriesId: null,
-      calendarMode: activeTaskCalendarMode,
-      calendarNote: calendarDateNote(dueDate, activeTaskCalendarMode),
+      calendarMode: taskFormCalendarMode,
+      calendarNote: calendarDateNote(dueDate, taskFormCalendarMode),
       syncToGoogle: cloudUser?.authProvider === "google",
       syncAccountIds: syncAccountIdsForTask(selectedProject?.categoryId ?? null, selectedTaskList),
       googleLinks: {},
@@ -3032,8 +3035,8 @@ export function GenesisCalendar() {
       project: selectedProject?.title ?? "",
       projectId: keepInInbox ? TASK_INBOX_PROJECT_ID : selectedProject?.id ?? null,
       categoryId: selectedProject?.categoryId ?? null,
-      calendarMode: activeTaskCalendarMode,
-      calendarNote: calendarDateNote(dueDate, activeTaskCalendarMode),
+      calendarMode: taskDraft.calendarMode ?? activeTaskCalendarMode,
+      calendarNote: calendarDateNote(dueDate, taskDraft.calendarMode ?? activeTaskCalendarMode),
       tags: editingTaskTags.split(",").map((tag) => tag.trim().replace(/^#/, "")).filter(Boolean).slice(0, 10),
       googleTaskListId: selectedTaskList?.id ?? null,
       googleTaskListTitle: selectedTaskList?.title ?? "",
@@ -3477,7 +3480,7 @@ export function GenesisCalendar() {
         [...taskLists.filter((item) => item.id !== taskList.id), taskList]);
       const draftedTasks = newTaskListDrafts
         .filter((draft) => draft.title.trim())
-        .map((draft) => taskForList(draft.title, draft.dueDate || todayDateValue, taskList, newTaskListProject));
+        .map((draft) => taskForList(draft.title, draft.dueDate || todayDateValue, taskList, newTaskListProject, taskFormCalendarMode));
       if (draftedTasks.length) {
         setTasks((current) => [...current, ...draftedTasks]);
         draftedTasks.forEach(saveTask);
@@ -4327,13 +4330,16 @@ export function GenesisCalendar() {
     URL.revokeObjectURL(url);
   };
 
-  const openSelectedInCalendar = () => {
+  const openTodayInCalendar = () => {
+    selectCalendarDate(today);
     setDayDetailsOrigin("calendar");
     setDayDetailsOpen(true);
     navigateTo("calendar");
   };
 
   const openTaskComposer = (context: "today" | "projects") => {
+    setTaskFormCalendar(activeTaskCalendarMode);
+    setTaskRecurrenceConfig(alignRecurrenceConfigWithCalendar(taskRecurrenceConfig, activeTaskCalendarMode, todayDateValue));
     setTaskScope("personal"); setTaskListScope("personal"); setComposerTab("task");
     setTaskDueDate(todayDateValue); setTaskEndDate(todayDateValue);
     setTaskProject(""); setNewTaskListProject("");
@@ -4479,7 +4485,7 @@ export function GenesisCalendar() {
                         />
                         <div>
                           <CalendarDatePicker
-                            mode={activeTaskCalendarMode}
+                            mode={taskFormCalendarMode}
                             min={todayDateValue}
                             value={taskListBatchDates[taskList.id] || todayDateValue}
                             onChange={(nextDate) => setTaskListBatchDates((current) => ({ ...current, [taskList.id]: nextDate }))}
@@ -4495,6 +4501,7 @@ export function GenesisCalendar() {
             </section>
           ) : null}
           <form className="task-list-new-form" onSubmit={addGoogleTaskList} aria-label="Создание списка задач">
+        <RecordCalendarChoice value={taskFormCalendarMode} onChange={setTaskFormCalendar} language={language} />
             <label htmlFor={`${context}-new-task-list-title`}>Название списка</label>
             <input
               id={`${context}-new-task-list-title`}
@@ -4523,7 +4530,7 @@ export function GenesisCalendar() {
               {newTaskListDrafts.map((draft, index) => (
                 <div className="task-list-draft-row" key={draft.id}>
                   <input value={draft.title} onChange={(event) => updateNewTaskListDraft(draft.id, { title: event.target.value })} placeholder={`Задача ${index + 1}`} aria-label={`Название задачи ${index + 1}`} />
-                  <CalendarDatePicker mode={activeTaskCalendarMode} min={todayDateValue} value={draft.dueDate || todayDateValue} onChange={(nextDate) => updateNewTaskListDraft(draft.id, { dueDate: nextDate })} ariaLabel={`Срок задачи ${index + 1}`} />
+                  <CalendarDatePicker mode={taskFormCalendarMode} min={todayDateValue} value={draft.dueDate || todayDateValue} onChange={(nextDate) => updateNewTaskListDraft(draft.id, { dueDate: nextDate })} ariaLabel={`Срок задачи ${index + 1}`} />
                   <button type="button" onClick={() => setNewTaskListDrafts((current) => current.length === 1 ? [{ ...current[0], title: "", dueDate: "" }] : current.filter((item) => item.id !== draft.id))} aria-label={`Удалить задачу ${index + 1}`}>{experimentalThemeActive ? <ExperimentalIcon name="close" /> : "×"}</button>
                 </div>
               ))}
@@ -4561,6 +4568,10 @@ export function GenesisCalendar() {
     return (<>
       {scopeSwitcher}
       <form className="task-form" data-exp-ui="form" onSubmit={addTask} aria-label="Создание задачи">
+        <RecordCalendarChoice value={taskFormCalendarMode} language={language} onChange={(mode) => {
+          setTaskFormCalendar(mode);
+          setTaskRecurrenceConfig((current) => alignRecurrenceConfigWithCalendar(current, mode, newTaskDueDate));
+        }} />
         {cloudUser?.authProvider === "yandex" ? <label>
           <span>Тип записи в Яндекс.Календаре</span>
           <select value={yandexEntryType} onChange={(event) => setYandexEntryType(event.target.value as "task" | "meeting")}>
@@ -4585,7 +4596,7 @@ export function GenesisCalendar() {
           </label>
           <label htmlFor={`${context}-task-end-date`}>
             <span>Срок выполнения</span>
-            <CalendarDatePicker id={`${context}-task-end-date`} mode={activeTaskCalendarMode} min={newTaskDueDate} value={newTaskEndDate} onChange={setTaskEndDate} required />
+            <CalendarDatePicker id={`${context}-task-end-date`} mode={taskFormCalendarMode} min={newTaskDueDate} value={newTaskEndDate} onChange={setTaskEndDate} required />
           </label>
         <details className="task-advanced-fields"><summary>{language === "en" ? "Details and settings" : "Подробности и настройки"}</summary>
         <label>
@@ -4595,7 +4606,7 @@ export function GenesisCalendar() {
         <div className="task-form-section task-form-schedule" aria-label="Сроки задачи">
           <label htmlFor={`${context}-task-start-date`}>
             <span>Начало</span>
-            <CalendarDatePicker id={`${context}-task-start-date`} mode={activeTaskCalendarMode} min={todayDateValue} value={newTaskDueDate} onChange={(nextDate) => {
+            <CalendarDatePicker id={`${context}-task-start-date`} mode={taskFormCalendarMode} min={todayDateValue} value={newTaskDueDate} onChange={(nextDate) => {
               setTaskDueDate(nextDate);
               setTaskEndDate((current) => !current || current < nextDate ? nextDate : current);
             }} required />
@@ -4675,7 +4686,7 @@ export function GenesisCalendar() {
           onChange={setTaskRecurrenceConfig}
           startDate={newTaskDueDate}
           destination={taskTaskListId && cloudUser?.authProvider === "google" ? "tasks" : "calendar"}
-          calendarMode={activeTaskCalendarMode}
+          calendarMode={taskFormCalendarMode}
         />
         <div className="task-form-section task-form-settings" aria-label="Настройки задачи">
           {cloudUser?.authProvider === "yandex" ? <strong>Дополнительные напоминания GENESIS</strong> : null}
@@ -4684,7 +4695,7 @@ export function GenesisCalendar() {
             onChange={setTaskReminders}
             taskDate={newTaskDueDate}
             taskTime={taskTime}
-            calendarMode={activeTaskCalendarMode}
+            calendarMode={taskFormCalendarMode}
             timeFormat={activeTimeFormat}
             disabled={Boolean(taskTaskListId) && cloudUser?.authProvider === "google"}
           />
@@ -4869,7 +4880,7 @@ export function GenesisCalendar() {
               </div>
             ) : <p className="hero-description">{heroDescription}</p>}
             <div className="hero-actions">
-              <button className="primary-button" type="button" onClick={openSelectedInCalendar}>
+              <button className="primary-button" type="button" onClick={openTodayInCalendar}>
                 Открыть день <span aria-hidden="true">↗</span>
               </button>
               <span className="hero-date">{activeCalendarMode === "profane" ? formatCalendarDate(gregorian, "sacred") : formatGregorian(gregorian, true)}</span>
@@ -4996,8 +5007,9 @@ export function GenesisCalendar() {
                   <article className="meaning-card">
                     <span className="meaning-symbol meaning-moon-symbol" aria-hidden="true"><MoonPhaseIcon phaseStep={moon.phaseStep} size={34} /></span>
                     <span className="meaning-label">{lunar.day} {isEnglish ? "lunar day" : "лунный день"}</span>
-                    <strong>{moon.phase}</strong>
-                    <p>{moon.direction} · {isEnglish ? `${moon.illumination}% illuminated` : `освещённость ${moon.illumination}%`}</p>
+                    <strong>{moon.epithet}</strong>
+                    <p>{moon.phase} · {moon.direction} · {isEnglish ? `${moon.illumination}% illuminated` : `освещённость ${moon.illumination}%`}</p>
+                    {moon.event ? <span className="moon-event">{moon.event}</span> : null}
                   </article>
                   <article className="meaning-card">
                     <span className="meaning-symbol" aria-hidden="true">{lunar.month.roman}</span>
@@ -5058,18 +5070,6 @@ export function GenesisCalendar() {
             </div>
           </section>
 
-          <section className="moon-panel" aria-labelledby="moon-title">
-            <div className="moon-visual" aria-hidden="true">
-              <MoonPhaseIcon phaseStep={moon.phaseStep} size={50} />
-              <i style={{ "--moon-light": `${moon.illumination}%` } as CSSProperties} />
-            </div>
-            <div className="moon-copy">
-              <span className="eyebrow">{moon.direction} · {moon.day} день</span>
-              <h2 id="moon-title">{moon.epithet}</h2>
-              <p>{moon.phase} · освещённость {moon.illumination}%</p>
-              {moon.event ? <span className="moon-event">{moon.event}</span> : null}
-            </div>
-          </section>
         </div>
 
       </div>
@@ -5148,8 +5148,6 @@ export function GenesisCalendar() {
         {mode === "profane" ? (
           <span className="profane-weekday-patron">
             <strong><b aria-hidden="true">{weekdayPatron.symbol}</b><span className="profane-weekday-name">{weekdayPatron.weekday}</span></strong>
-            <small className="profane-weekday-deity">{weekdayPatron.guidancePatrons}</small>
-            <small className="profane-weekday-guidance">{weekdayPatron.guidanceTitle}</small>
           </span>
         ) : null}
         <span className="calendar-cross-date profane-date">
@@ -5166,7 +5164,6 @@ export function GenesisCalendar() {
         ) : (
           <span className="calendar-cross-date lunar-date"><b aria-hidden="true">☾</b>{moon.epithet} · {moon.illumination}%</span>
         )}
-        {solarEvent ? <span className="calendar-solar-mark" title={`${solarEvent.name} · ${formatSolarEventTime(solarEvent.date)}`}><b aria-hidden="true">{solarEvent.symbol}</b><em>{solarEvent.shortName}</em><time>{formatSolarEventTime(solarEvent.date)}</time></span> : null}
         <span
           className="calendar-sun-times"
           aria-label={`Рассвет ${sunrise}, закат ${sunset}`}
@@ -5223,6 +5220,7 @@ export function GenesisCalendar() {
             ) : null}
           </div>
         ) : null}
+        {solarEvent ? <span className="calendar-solar-mark" title={`${solarEvent.name} · ${formatSolarEventTime(solarEvent.date)}`}><b aria-hidden="true">{solarEvent.symbol}</b><em>{solarEvent.shortName}</em><time>{formatSolarEventTime(solarEvent.date)}</time></span> : null}
       </article>
     );
   };
@@ -5359,7 +5357,6 @@ export function GenesisCalendar() {
                           <span>{profaneDate}</span>
                         </span>
                         <strong>{romanDay(monthIndex, dayNumber)}</strong>
-                        {solarEvent ? <span className="calendar-solar-mark" title={`${solarEvent.name} · ${formatSolarEventTime(solarEvent.date)}`}><b aria-hidden="true">{solarEvent.symbol}</b><em>{solarEvent.shortName}</em><time>{formatSolarEventTime(solarEvent.date)}</time></span> : null}
                         <span className="calendar-moon" title={`${moon.epithet}: ${moon.phase}`}><MoonPhaseIcon phaseStep={moon.phaseStep} size={16} /> {moon.day}</span>
                         <span
                           className="calendar-sun-times"
@@ -5433,6 +5430,7 @@ export function GenesisCalendar() {
                             ) : null}
                           </div>
                         ) : null}
+                        {solarEvent ? <span className="calendar-solar-mark" title={`${solarEvent.name} · ${formatSolarEventTime(solarEvent.date)}`}><b aria-hidden="true">{solarEvent.symbol}</b><em>{solarEvent.shortName}</em><time>{formatSolarEventTime(solarEvent.date)}</time></span> : null}
                       </article>
                     );
                   })}
@@ -5672,11 +5670,11 @@ export function GenesisCalendar() {
   const renderCalendar = () => activeCalendarMode === "sacred" ? renderSacredCalendar() : renderAlternativeCalendar(activeCalendarMode);
 
   const renderProjectCreateForm = (projectRows = flattenProjects(projects).filter(({ project }) => project.status === "active")) => (
-    <form id="personal-project-create" className="project-form" onSubmit={addProject}
-      ref={experimentalThemeActive ? newProjectDialogRef : undefined}
-      role={experimentalThemeActive ? "dialog" : undefined} aria-modal={experimentalThemeActive ? true : undefined}
+    <form id="personal-project-create" className="project-form editor-modal personal-project-create-modal" onSubmit={addProject}
+      ref={newProjectDialogRef}
+      role="dialog" aria-modal="true"
       aria-label={language === "en" ? "New project" : "Новый проект"}>
-              {experimentalThemeActive ? <div className="experimental-form-heading"><h2>{language === "en" ? "New project" : "Новый проект"}</h2><button type="button" aria-label={language === "en" ? "Close" : "Закрыть"} onClick={() => setExperimentalProjectFormOpen(false)}><ExperimentalIcon name="close" /></button></div> : null}
+              <header className="dialog-heading"><h2>{language === "en" ? "New project" : "Новый проект"}</h2><button type="button" className="modal-close" aria-label={language === "en" ? "Close" : "Закрыть"} onClick={() => setExperimentalProjectFormOpen(false)}><ExperimentalIcon name="close" /></button></header>
               <label>
                 <span>Новый проект или подпроект</span>
                 <input data-dialog-initial-focus value={newProjectTitle} onChange={(event) => setNewProjectTitle(event.target.value)} placeholder="Название результата" />
@@ -5764,8 +5762,8 @@ export function GenesisCalendar() {
             <button type="button" aria-pressed={completedProjectsOpen} onClick={() => setCompletedProjectsOpen(true)}>{language === "en" ? "Completed" : "Завершённые"} · {completedCount}</button>
           </div>
           <button type="button" className="primary-button project-create-task" onClick={() => openTaskComposer("projects")}>{experimentalThemeActive ? <ExperimentalIcon name="plus" /> : null}{language === "en" ? "Create task" : "Создать задачу"}</button>
-          {experimentalThemeActive ? <button type="button" className="secondary-button experimental-new-project" aria-expanded={experimentalProjectFormOpen} aria-controls="personal-project-create"
-            onClick={() => { setExperimentalProjectFormOpen(!experimentalProjectFormOpen); setNewProjectParent(""); }}><ExperimentalIcon name="plus" />{language === "en" ? "New project" : "Новый проект"}</button> : null}
+          <button type="button" className="secondary-button project-create-project" aria-expanded={experimentalProjectFormOpen} aria-controls="personal-project-create"
+            onClick={() => { setExperimentalProjectFormOpen(!experimentalProjectFormOpen); setNewProjectParent(""); }}><ExperimentalIcon name="plus" />{language === "en" ? "Create project" : "Создать проект"}</button>
         </div>
 
         <label className="tag-search">
@@ -5796,14 +5794,6 @@ export function GenesisCalendar() {
 
         <div className="projects-layout" hidden={searchTerms.length > 0}>
           <section className="project-tree-panel" aria-labelledby={experimentalThemeActive ? "experimental-project-tree-title" : "project-tree-title"} data-exp-ui="panel">
-            <div className="section-heading compact-heading">
-              <div>
-                <span className="eyebrow">Иерархия</span>
-                <h2 id="project-tree-title">Дерево проектов</h2>
-              </div>
-              <span className="ornament" aria-hidden="true">◎</span>
-            </div>
-
             <div className={`project-tree-workspace${completedProjectsOpen ? " is-completed-view" : ""}`}>
               {!completedProjectsOpen ? <section
                 className={`inbox-card${projectDropTargetId === TASK_INBOX_PROJECT_ID ? " drop-target" : ""}`}
@@ -5833,6 +5823,10 @@ export function GenesisCalendar() {
               </section> : null}
 
               <div className="project-tree-main">
+                {!experimentalThemeActive ? <div className="section-heading compact-heading">
+                  <div><span className="eyebrow">Иерархия</span><h2 id="project-tree-title">Дерево проектов</h2></div>
+                  <span className="ornament" aria-hidden="true">◎</span>
+                </div> : null}
                 {experimentalThemeActive ? <header className="experimental-tree-heading"><div><h2 id="experimental-project-tree-title">Дерево проектов</h2><p>{language === "en" ? "Organize projects, tasks and lists" : "Организуйте проекты, задачи и списки"}</p></div><small>{rootProjects} {language === "en" ? "top level" : "верхнего уровня"}</small></header> : null}
                 <div className="project-tree">
               {projectRows.length ? projectRows.map(({ project, depth }) => {
@@ -5913,7 +5907,6 @@ export function GenesisCalendar() {
               )}
                 </div>
 
-                {!completedProjectsOpen && !experimentalThemeActive ? renderProjectCreateForm(projectRows) : null}
               </div>
             </div>
           </section>
@@ -6047,10 +6040,7 @@ export function GenesisCalendar() {
               type="button"
               key={event.id}
               onClick={() => {
-                setMonthIndex(event.monthIndex);
-                setSelectedDay(event.day);
-                setDayDetailsOrigin("year");
-                setDayDetailsOpen(true);
+                openCalendarDate(getGregorianDate(sacredYear, event.monthIndex, event.day), "year");
               }}
             >
               <span className="solar-glyph" aria-hidden="true"><i>{event.symbol}</i></span>
@@ -6079,10 +6069,7 @@ export function GenesisCalendar() {
           )).reduce((total, count) => total + count, 0);
           const isCurrent = sacredYear === todayInfo.sacredYear && month.index === todayInfo.monthIndex;
           const openDay = (day: number) => {
-            setMonthIndex(month.index);
-            setSelectedDay(day);
-            setDayDetailsOrigin("year");
-            setDayDetailsOpen(true);
+            openCalendarDate(getGregorianDate(sacredYear, month.index, day), "year");
           };
           const openMonth = () => {
             setMonthIndex(month.index);
@@ -6112,7 +6099,7 @@ export function GenesisCalendar() {
                   >
                     <span className="mini-pyata-label">
                       <b>{pyataIndex + 1}</b>
-                      <small>{(pyataIndex + 1) % 2 === 0 ? "чётная" : "нечётная"}</small>
+                      <small title={language === "en" ? ((pyataIndex + 1) % 2 === 0 ? "Even pyata" : "Odd pyata") : ((pyataIndex + 1) % 2 === 0 ? "Чётная пята" : "Нечётная пята")}>{language === "en" ? ((pyataIndex + 1) % 2 === 0 ? "EVEN" : "ODD") : ((pyataIndex + 1) % 2 === 0 ? "ЧЁТ" : "НЕЧ")}</small>
                     </span>
                     <span className="mini-pyata-days">
                       {days.map((dayNumber) => {
@@ -6313,7 +6300,7 @@ export function GenesisCalendar() {
               }}>{experimentalThemeActive ? <ExperimentalIcon name="close" /> : "×"}</button>
           </aside>
         ) : null}
-        <section className="year-grid" aria-label={mode === "profane"
+        <section className={`year-grid calendar-mode-year-grid mode-${mode}`} aria-label={mode === "profane"
           ? (language === "en" ? "Twelve calendar months" : "Двенадцать календарных месяцев")
           : (language === "en" ? "Lunar months of the year" : "Лунные месяцы года")}>
           {yearMonths.map((month) => {
@@ -6539,23 +6526,7 @@ export function GenesisCalendar() {
         "--genesis-hero-fallback": activeCalendarMode === "sacred" ? `url("${APP_BASE}/genesis-hero.png")` : "none",
       } as CSSProperties}
     >
-      {experimentalThemeActive && experimentalProjectFormOpen ? <div className="modal-backdrop experimental-project-composer-backdrop">{renderProjectCreateForm()}</div> : null}
-      {requestedExperimentalTheme ? <div className="modal-backdrop experimental-theme-warning-backdrop" role="presentation"
-        onMouseDown={(event) => { if (event.target === event.currentTarget) setRequestedExperimentalTheme(null); }}>
-        <section ref={experimentalWarningRef} className="editor-modal experimental-theme-warning" role="dialog" aria-modal="true"
-          aria-labelledby="experimental-theme-warning-title" aria-describedby="experimental-theme-warning-copy" tabIndex={-1}>
-          <header><h2 id="experimental-theme-warning-title">{language === "en" ? "Experimental theme" : "Экспериментальная тема"}</h2>
-            <button type="button" className="modal-close" aria-label={language === "en" ? "Close" : "Закрыть"} onClick={() => setRequestedExperimentalTheme(null)}><ExperimentalIcon name="close" /></button>
-          </header>
-          <p id="experimental-theme-warning-copy">{language === "en"
-            ? "Experimental is an unstable theme under development. Layout and controls may contain errors. You can return to Standart at any time using the flask icon."
-            : "Experimental — нестабильная экспериментальная тема в разработке. В оформлении и элементах управления возможны ошибки. Вы можете в любой момент вернуться в Standart через иконку пробирки."}</p>
-          <div className="editor-actions">
-            <button type="button" className="secondary-button" onClick={() => setRequestedExperimentalTheme(null)}>{language === "en" ? "Stay in Standart" : "Остаться в Standart"}</button>
-            <button type="button" className="primary-button" onClick={() => { changeGenesisTheme(requestedExperimentalTheme); setRequestedExperimentalTheme(null); }}>{language === "en" ? "Enable Experimental" : "Включить Experimental"}</button>
-          </div>
-        </section>
-      </div> : null}
+      {experimentalProjectFormOpen ? <div className="modal-backdrop experimental-project-composer-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setExperimentalProjectFormOpen(false); }}>{renderProjectCreateForm()}</div> : null}
       <ActionNotice message={view === "projects" && activeProjectsArea === "shared" ? "" : notice}/>
       {projectToComplete ? <ProjectCompletionDialog title={projectToComplete.title}
         onCancel={() => setProjectToComplete(null)} onConfirm={() => {
@@ -6624,6 +6595,12 @@ export function GenesisCalendar() {
       </aside>
 
       <section className="app-stage" data-exp-layout="stage">
+        <header className="app-brand-header">
+          <button type="button" onClick={selectToday} aria-label="GENESIS — на главную">
+            <img src={`${APP_BASE}/icons/icon-192.png`} alt="" aria-hidden="true" data-genesis-preserve="web-header-logo" />
+            <strong data-no-translate>GENESIS</strong>
+          </button>
+        </header>
         <header className="topbar" data-exp-ui="topbar">
           <div className="topbar-date">
             <span className="topbar-kicker">{view === "theokyklos" ? "Теокиклос" : view === "habits" ? (language === "en" ? "Habit tracker" : "Трекер привычек") : CALENDAR_MODE_META[activeCalendarMode].label}</span>
@@ -6649,13 +6626,6 @@ export function GenesisCalendar() {
                 <path className="voice-microphone-stand" d="M12 17.4v3.35M8.9 20.75h6.2" />
                 <circle className="voice-microphone-spark" cx="18.7" cy="5.2" r="1.15" />
               </svg>
-            </button> : null}
-            {cloudUser ? <button type="button" className="experimental-theme-toggle" role="switch"
-              aria-checked={experimentalThemeActive} aria-label={language === "en" ? "Experimental theme" : "Тема Experimental"}
-              title={experimentalThemeActive ? "Experimental → Standart" : "Standart → Experimental"}
-              disabled={!themeState.available || themeState.pending || ["signed-out", "loading", "load-error"].includes(themeState.status)}
-              onClick={() => requestGenesisThemeChange(withExperimentalTheme(themeState.theme, !experimentalThemeActive))}>
-              <ExperimentalIcon name="flask" />
             </button> : null}
             {cloudUser ? (
               <div className={`account-chip${accountIdentityExpanded ? " is-expanded" : " is-compact"}`} ref={accountMenuRef}>
@@ -6911,6 +6881,9 @@ export function GenesisCalendar() {
         <div className="modal-backdrop day-details-backdrop" role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) setDayDetailsOpen(false); }}>
           <section ref={dayDetailsDialogRef} className={`day-details-modal mode-${activeCalendarMode}${selectedSolarEvent ? " solar-selected-day" : ""}`} role="dialog" aria-modal="true" aria-labelledby="selected-day-title" aria-describedby="selected-day-description" tabIndex={-1}>
             <button type="button" className="modal-close" onClick={() => setDayDetailsOpen(false)} aria-label="Закрыть сведения о дне">{experimentalThemeActive ? <ExperimentalIcon name="close" /> : "×"}</button>
+            <img className="day-details-art" data-genesis-preserve="selected-day-art"
+              src={activeCalendarMode === "profane" ? weekdayArtUrl(selectedDate.getDay()) : dayArtUrl(monthIndex, selectedDay)}
+              alt={activeCalendarMode === "profane" ? selectedWeekdayPatron.guidancePatrons : selectedSacredDay.name} />
             <header className="day-details-hero">
               <div className="selected-day-symbol" aria-hidden="true">{selectedSolarEvent?.symbol ?? (activeCalendarMode === "lunar" ? "☾" : activeCalendarMode === "profane" ? selectedWeekdayPatron.symbol : selectedElement.symbol)}</div>
               <div className="selected-day-copy">
@@ -7095,8 +7068,10 @@ export function GenesisCalendar() {
       ) : null}
         {taskComposer ? <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setTaskComposer(null); }}>
           <section ref={taskComposerDialogRef} className="editor-modal task-composer-modal" data-exp-ui="dialog" role="dialog" aria-modal="true" aria-labelledby="task-composer-title" tabIndex={-1}>
-            <button type="button" className="modal-close" onClick={() => setTaskComposer(null)} aria-label="Закрыть">{experimentalThemeActive ? <ExperimentalIcon name="close" /> : "×"}</button>
+            <header className="dialog-heading">
             <h2 id="task-composer-title">{language === "en" ? "Create" : "Создать"} · {taskScope === "shared" ? "Общее дело" : "Личное дело"}</h2>
+            <button type="button" className="modal-close" onClick={() => setTaskComposer(null)} aria-label="Закрыть">{experimentalThemeActive ? <ExperimentalIcon name="close" /> : "×"}</button>
+            </header>
             {taskComposer === "today" && cloudUser?.sharedProjectsEnabled ? <div className="task-scope-switch" role="group" aria-label="Доступ к делу">
               {(["personal", "shared"] as const).map((scope) => <button type="button" key={scope} aria-pressed={taskScope === scope} onClick={() => { setTaskScope(scope); setTaskListScope(scope); }}>{scope === "personal" ? "Личное" : "Общее"}</button>)}
             </div> : null}
@@ -7161,7 +7136,7 @@ export function GenesisCalendar() {
             {taskHasSeries(editingTask) ? (
               <fieldset className="task-series-scope">
                 <legend>Область изменений</legend>
-                <div><input id="task-series-scope-occurrence" type="radio" name="task-series-scope" checked={editingTaskScope === "occurrence"} onChange={() => changeEditingTaskScope("occurrence")} /><label htmlFor="task-series-scope-occurrence"><strong>Только этот день</strong><small>{formatCalendarDate(new Date(`${editingOccurrenceDate || editingTask.dueDate}T12:00:00`), activeTaskCalendarMode, true)}</small></label></div>
+                <div><input id="task-series-scope-occurrence" type="radio" name="task-series-scope" checked={editingTaskScope === "occurrence"} onChange={() => changeEditingTaskScope("occurrence")} /><label htmlFor="task-series-scope-occurrence"><strong>Только этот день</strong><small>{formatCalendarDate(new Date(`${editingOccurrenceDate || editingTask.dueDate}T12:00:00`), editTaskCalendarMode, true)}</small></label></div>
                 <div><input id="task-series-scope-series" type="radio" name="task-series-scope" checked={editingTaskScope === "series"} onChange={() => changeEditingTaskScope("series")} /><label htmlFor="task-series-scope-series"><strong>Вся серия</strong><small>Изменить все повторения одной задачей</small></label></div>
               </fieldset>
             ) : null}
@@ -7173,10 +7148,17 @@ export function GenesisCalendar() {
               <span>Описание</span>
               <textarea rows={4} value={editingTask.description} onChange={(event) => setEditingTask((current) => current ? { ...current, description: event.target.value } : current)} placeholder="Подробности, результат и заметки" />
             </label>
+            <RecordCalendarChoice value={editTaskCalendarMode} language={language} onChange={(mode) => setEditingTask((current) => {
+              if (!current) return current;
+              const recurrence = alignRecurrenceConfigWithCalendar(recurrenceConfigFromTask(current), mode, current.dueDate);
+              return { ...current, calendarMode: mode, recurrenceMode: recurrence.enabled ? recurrence.mode : "none",
+                recurrencePattern: recurrence.enabled ? recurrence.pattern : "none", recurrenceDays: recurrence.days,
+                recurrenceMonths: recurrence.months, recurrencePyatas: recurrence.pyatas };
+            })} />
             <div className="editor-grid">
               <label htmlFor="edit-task-start-date">
                 <span>Начало</span>
-                <CalendarDatePicker id="edit-task-start-date" mode={activeTaskCalendarMode} min={editingTask.dueDate < todayDateValue ? editingTask.dueDate : todayDateValue} value={editingTask.dueDate} onChange={(nextDate) => setEditingTask((current) => current ? {
+                <CalendarDatePicker id="edit-task-start-date" mode={editTaskCalendarMode} min={editingTask.dueDate < todayDateValue ? editingTask.dueDate : todayDateValue} value={editingTask.dueDate} onChange={(nextDate) => setEditingTask((current) => current ? {
                   ...current,
                   dueDate: nextDate,
                   endDate: current.endDate < nextDate ? nextDate : current.endDate,
@@ -7184,7 +7166,7 @@ export function GenesisCalendar() {
               </label>
               <label htmlFor="edit-task-end-date">
                 <span>Срок выполнения</span>
-                <CalendarDatePicker id="edit-task-end-date" mode={activeTaskCalendarMode} min={editingTask.dueDate} value={editingTask.endDate || editingTask.dueDate} onChange={(nextDate) => setEditingTask((current) => current ? { ...current, endDate: nextDate } : current)} required />
+                <CalendarDatePicker id="edit-task-end-date" mode={editTaskCalendarMode} min={editingTask.dueDate} value={editingTask.endDate || editingTask.dueDate} onChange={(nextDate) => setEditingTask((current) => current ? { ...current, endDate: nextDate } : current)} required />
               </label>
               <label htmlFor="edit-task-time-hour">
                 <span>Время</span>
@@ -7284,7 +7266,7 @@ export function GenesisCalendar() {
                 } : current)}
                 taskDate={editingTask.dueDate}
                 taskTime={editingTask.time}
-                calendarMode={activeTaskCalendarMode}
+                calendarMode={editTaskCalendarMode}
                 timeFormat={activeTimeFormat}
                 disabled={Boolean(editingTask.googleTaskId)}
               />
@@ -7302,7 +7284,7 @@ export function GenesisCalendar() {
                 value={recurrenceConfigFromTask(editingTask)}
                 startDate={editingTask.dueDate}
                 destination="calendar"
-                calendarMode={activeTaskCalendarMode}
+                calendarMode={editTaskCalendarMode}
                 onChange={(recurrence) => setEditingTask((current) => current ? {
                   ...current,
                   recurrence: "none",
@@ -7439,7 +7421,7 @@ export function GenesisCalendar() {
             }}
             onLanguageChange={selectLanguage}
             themeState={themeState}
-            onThemeChange={requestGenesisThemeChange}
+            onThemeChange={changeGenesisTheme}
             categories={categories}
             habitTrackingEnabled={habitWorkspace.habitSettings.enabled}
             habitNotificationSettings={habitWorkspace.habitSettings.notifications}

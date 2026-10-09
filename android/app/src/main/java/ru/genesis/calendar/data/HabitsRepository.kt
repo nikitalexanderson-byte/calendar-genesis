@@ -117,8 +117,8 @@ class HabitsRepository(private val app: GenesisApplication) {
             "Начисление XP фиксируется при создании привычки. Для другой формулы создайте новую привычку."
         }
         val now=Instant.now().toString()
-        val saved=habit.copy(entity=habit.entity.changed(now),
-            createdDate=previous?.createdDate ?: LocalDate.now(),schedule=engine().normalizeSchedule(habit.schedule))
+        val guarded=preserveHabitCreationSettings(habit,previous,LocalDate.now())
+        val saved=guarded.copy(entity=guarded.entity.changed(now),schedule=engine().normalizeSchedule(guarded.schedule))
         val others=workspace.habits.filterNot { it.id==habit.id }.map { other ->
             if(saved.isKeyHabit && other.isKeyHabit) other.copy(isKeyHabit=false,entity=other.entity.changed(now)) else other
         }

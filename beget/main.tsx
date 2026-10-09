@@ -8,6 +8,7 @@ import "../app/tablet-layout.css";
 import "../app/universal-ui.css";
 import "../app/web-standart.css";
 import "../app/experimental-theme.css";
+import "../app/layout-refinements.css";
 
 const APP_BASE = (process.env.NEXT_PUBLIC_GENESIS_BASE_PATH?.trim() || "").replace(/\/$/, "");
 

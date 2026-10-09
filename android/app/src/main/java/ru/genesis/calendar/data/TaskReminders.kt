@@ -9,6 +9,24 @@ import org.json.JSONObject
 import ru.genesis.calendar.domain.GenesisCalendar
 import ru.genesis.calendar.domain.RecurrenceEngine
 
+fun formatRelativeTaskReminder(minutes: Int, language: String = "ru"): String {
+    if (minutes == 0) return if (language == "en") "At task start" else "В момент начала задачи"
+    val divisor = listOf(10_080, 1_440, 60, 1).first { minutes >= it && minutes % it == 0 }
+    val amount = minutes / divisor
+    val forms = when (divisor) {
+        10_080 -> listOf("неделю", "недели", "недель")
+        1_440 -> listOf("день", "дня", "дней")
+        60 -> listOf("час", "часа", "часов")
+        else -> listOf("минуту", "минуты", "минут")
+    }
+    if (language == "en") {
+        val unit = when (divisor) { 10_080 -> "week"; 1_440 -> "day"; 60 -> "hour"; else -> "minute" }
+        return "$amount $unit${if (amount == 1) "" else "s"} before the task"
+    }
+    val form = if (amount % 100 in 11..19) forms[2] else when (amount % 10) { 1 -> forms[0]; in 2..4 -> forms[1]; else -> forms[2] }
+    return "За $amount $form до задачи"
+}
+
 /** The website's reminder payload is the source of truth; reminderAt is legacy compatibility. */
 data class TaskReminder(val kind: String, val minutes: Int? = null, val at: Long? = null) {
     init {

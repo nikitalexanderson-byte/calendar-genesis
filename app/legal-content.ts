@@ -1,6 +1,6 @@
 import { SERVICE_IDENTITY } from "./public-service";
 
-export const LEGAL_UPDATED = "9 октября 2026 года";
+export const LEGAL_UPDATED = "10 октября 2026 года";
 
 export const legalPages = {
   privacy: {

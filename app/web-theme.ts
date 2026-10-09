@@ -1,7 +1,7 @@
 import { normalizeGenesisTheme, type GenesisTheme } from "./theme-controller";
-export { withExperimentalTheme, withThemeColorMode } from "./theme-controller";
+export { withThemeColorMode } from "./theme-controller";
 
-/** Both visual families use the same Standart components and account preferences. */
+/** Historical account values retain their color mode in the single web theme. */
 export function normalizeWebTheme(value: unknown): GenesisTheme {
-  return normalizeGenesisTheme(value);
+  return normalizeGenesisTheme(value).endsWith("-dark") ? "standart-dark" : "standart";
 }

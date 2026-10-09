@@ -36,6 +36,21 @@ data class Habit(
     val sacredSectorId: String? = null, val preferredTime: String = "",
     val scoringMode: String = "binary", val qualityScale: String = "none", val reminder: HabitReminder = HabitReminder(),
 ) { val id: String get() = entity.id }
+
+/** The first tracking date and XP formula become immutable after the first save. */
+fun preserveHabitCreationSettings(candidate: Habit, previous: Habit?, today: LocalDate): Habit {
+    if (previous == null) {
+        require(candidate.schedule.startDate >= today) { "Начало привычки не может быть в прошлом." }
+        return candidate.copy(createdDate = candidate.schedule.startDate)
+    }
+    return candidate.copy(
+        createdDate = previous.createdDate,
+        scoringMode = previous.scoringMode,
+        qualityScale = previous.qualityScale,
+        schedule = candidate.schedule.copy(startDate = previous.schedule.startDate,
+            recurrence = candidate.schedule.recurrence.copy(rangeStart = previous.schedule.recurrence.rangeStart)),
+    )
+}
 data class HabitCompletion(val entity: TrackerEntity, val habitId: String, val date: LocalDate,
     val completed: Boolean = false, val qualityValue: Double? = null, val score: Int = 0,
     val xpAwarded: Int = 0, val note: String = "")

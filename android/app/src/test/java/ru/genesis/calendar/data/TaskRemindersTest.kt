@@ -8,6 +8,14 @@ import org.junit.Test
 import ru.genesis.calendar.domain.RecurrenceConfig
 
 class TaskRemindersTest {
+    @Test fun relativeLabelsUseDaysHoursMinutesAndTheirCorrectPluralForms() {
+        assertEquals("За 1 день до задачи", formatRelativeTaskReminder(1440))
+        assertEquals("За 3 дня до задачи", formatRelativeTaskReminder(4320))
+        assertEquals("За 5 дней до задачи", formatRelativeTaskReminder(7200))
+        assertEquals("За 2 часа до задачи", formatRelativeTaskReminder(120))
+        assertEquals("За 30 минут до задачи", formatRelativeTaskReminder(30))
+        assertEquals("3 days before the task", formatRelativeTaskReminder(4320, "en"))
+    }
     @Test fun importsFiveWebRemindersAndKeepsThemWhenEditingTitle() {
         val specs = JSONArray().put(JSONObject().put("kind", "relative").put("minutes", 10))
             .put(JSONObject().put("kind", "relative").put("minutes", 30))

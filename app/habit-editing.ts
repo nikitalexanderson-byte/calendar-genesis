@@ -1,6 +1,27 @@
 import type { Habit, HabitWorkspace } from "./habits";
 import type { TrackerSyncState } from "./tracker-core";
 
+/** Selects the first tracking day before the habit is saved for the first time. */
+export function setNewHabitStartDate(habit: Habit, startDate: string, earliestDate: string): Habit {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || startDate < earliestDate) return habit;
+  const rangeEnd = habit.schedule.recurrence.rangeEnd;
+  const endDate = habit.schedule.endDate;
+  return {
+    ...habit,
+    createdDate: startDate,
+    schedule: {
+      ...habit.schedule,
+      startDate,
+      endDate: endDate && endDate < startDate ? startDate : endDate,
+      recurrence: {
+        ...habit.schedule.recurrence,
+        rangeStart: startDate,
+        rangeEnd: rangeEnd && rangeEnd < startDate ? startDate : rangeEnd,
+      },
+    },
+  };
+}
+
 /**
  * Applies user-editable habit settings while preserving the fields that define
  * scoring, ownership of the original template/practice and the first tracking

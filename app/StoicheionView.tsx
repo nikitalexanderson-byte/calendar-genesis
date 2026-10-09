@@ -429,6 +429,13 @@ function LetterDetails({
           </div>
         </header>
         <div className="stoicheion-letter-copy">
+          {position ? <section className="stoicheion-spread-position">
+            <span className="eyebrow">{language === "en" ? "Spread sector" : "Сектор расклада"}</span>
+            <h3>{sector ? catalogText(sector.title, language) : position.direction}</h3>
+            {sector ? <strong data-no-translate>{catalogText(sector.patrons, language)}</strong> : null}
+            <p>{position.meaning}</p>
+            {sector ? <p data-no-translate>{catalogText(sector.description, language)}</p> : null}
+          </section> : null}
           {drawReading ? <>
             <div className="stoicheion-orientation-readings">{orientationSections.map(renderSection)}</div>
             <details className="stoicheion-reading-more">
@@ -851,9 +858,9 @@ export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSec
                       >
                         <span className="stoicheion-direction"><i>{position.shortDirection}</i>{position.direction}</span>
                         <StoicheionCardFace letter={letter} reversed={card.reversed} variant="spread" />
-                        <small>{letter.name} · число {letter.value}</small>
+                        <small className="stoicheion-spread-card-label"><strong>{letter.name}</strong><span>{language === "en" ? "Value" : "Число"} {letter.value}</span></small>
                         <em>{orientationLabel(card.reversed)}</em>
-                        <p>{position.meaning}</p>
+                        <span className="stoicheion-sector-details-link">{language === "en" ? "Sector details" : "Описание сектора"} →</span>
                       </button>
                     );
                   })}

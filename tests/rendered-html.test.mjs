@@ -4,6 +4,7 @@ import test from "node:test";
 import { createLocalVoicePlan } from "../app/local-voice-plan.ts";
 import {
   MAX_TASK_REMINDERS,
+  formatTaskReminder,
   normalizeTaskReminders,
   reminderMinutesBeforeTask,
 } from "../app/task-reminders.ts";
@@ -63,7 +64,7 @@ import {
   normalizeHabitEmoji,
   normalizeHabitPriority,
 } from "../app/habit-integrity.ts";
-import { applyEditableHabitUpdate, applyHabitReminderSyncResult } from "../app/habit-editing.ts";
+import { applyEditableHabitUpdate, applyHabitReminderSyncResult, setNewHabitStartDate } from "../app/habit-editing.ts";
 import {
   buildAdaptiveHabitSuggestions,
   groupHabitsByRitual,
@@ -620,7 +621,9 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(tracker, /Режим дневной цели/);
   assert.match(tracker, /Ещё один шаг — и дневная цель выполнена/);
   assert.match(tracker, /habit-template-library/);
-  assert.match(tracker, /Неизменяемое начало/);
+  assert.match(tracker, /Начало привычки/);
+  assert.match(tracker, /Выберите сегодня или будущую дату начала/);
+  assert.match(tracker, /lockRangeStart=\{isExisting\}/);
   assert.doesNotMatch(tracker, /Начать с завтрашнего дня/);
   assert.match(tracker, /setEditingHabit\(habit\)/);
   assert.match(tracker, /isExisting=\{workspace\.habits\.some/);
@@ -949,6 +952,24 @@ test("habit settings remain editable while scoring and first tracking identity s
   assert.equal(updated.sacredSectorId, previous.sacredSectorId);
   assert.equal(updated.scoringMode, previous.scoringMode);
   assert.equal(updated.qualityScale, previous.qualityScale);
+  const planned = setNewHabitStartDate(previous, "2026-09-25", "2026-09-18");
+  assert.equal(planned.createdDate, "2026-09-25");
+  assert.equal(planned.schedule.startDate, "2026-09-25");
+  assert.equal(planned.schedule.recurrence.rangeStart, "2026-09-25");
+  assert.equal(planned.createdAt, previous.createdAt);
+  assert.equal(setNewHabitStartDate(previous, "2026-09-01", "2026-09-18"), previous);
+  const editedPlan = applyEditableHabitUpdate(planned, candidate);
+  assert.equal(editedPlan.createdDate, "2026-09-25");
+  assert.equal(editedPlan.schedule.startDate, "2026-09-25");
+  assert.equal(editedPlan.qualityScale, planned.qualityScale);
+});
+
+test("task reminder labels express whole days and hours without exposing raw minute offsets", () => {
+  assert.equal(formatTaskReminder({ kind: "relative", minutes: 1440 }, "ru"), "За 1 день");
+  assert.equal(formatTaskReminder({ kind: "relative", minutes: 4320 }, "ru"), "За 3 дня");
+  assert.equal(formatTaskReminder({ kind: "relative", minutes: 7200 }, "ru"), "За 5 дней");
+  assert.equal(formatTaskReminder({ kind: "relative", minutes: 120 }, "ru"), "За 2 часа");
+  assert.equal(formatTaskReminder({ kind: "relative", minutes: 30 }, "ru"), "За 30 минут");
 });
 
 test("habit weekday schedules keep their owning calendar and survive delayed reminder sync", () => {
@@ -2295,7 +2316,8 @@ test("mobile Gregorian calendar fits all seven weekdays without horizontal scrol
   assert.match(mobileRules, /\.calendar-mode-calendar\.mode-profane \.calendar-solar-mark \{[\s\S]*display:inline-flex;[\s\S]*width:17px;/);
   assert.match(mobileRules, /\.calendar-mode-calendar\.mode-profane \.calendar-day-task-control \{[\s\S]*display:flex;/);
   assert.match(mobileRules, /\.calendar-mode-calendar\.mode-profane \.calendar-day-task-count \{[\s\S]*min-width:14px;/);
-  assert.match(calendar, /className="profane-weekday-deity">\{weekdayPatron\.guidancePatrons\}/);
+  assert.doesNotMatch(calendar, /className="profane-weekday-deity"/);
+  assert.doesNotMatch(calendar, /className="profane-weekday-guidance"/);
   assert.match(calendar, /className="calendar-lunar-day-label"/);
   assert.match(await readFile(new URL("../app/CalendarTaskCounts.tsx", import.meta.url), "utf8"), /className="calendar-day-task-count"/);
   assert.match(calendar, /onClick=\{\(\) => openCalendarDate\(date, "calendar"\)\}/);
@@ -2319,14 +2341,14 @@ test("ships account-owned Standart colour schemes while preserving authored cont
   assert.doesNotMatch(account, /Тема Experimental/);
   assert.match(account, /Текущая тема/);
   assert.match(account, /role="switch"/);
-  assert.match(account, /GENESIS_THEME_LABEL/);
+  assert.match(account, /STANDART/);
   assert.match(account, /COLOR_MODE_NAMES\[user.language\]\.group/);
   assert.match(calendar, /aria-haspopup="dialog"/);
   assert.match(calendar, /setAccountOpen\(true\)/);
   assert.doesNotMatch(calendar, />\s*Личная страница\s*</);
   assert.match(calendar, /createGenesisThemeController/);
   assert.match(calendar, /themeState=\{themeState\}/);
-  assert.match(calendar, /onThemeChange=\{requestGenesisThemeChange\}/);
+  assert.match(calendar, /onThemeChange=\{changeGenesisTheme\}/);
   assert.doesNotMatch(calendar, /Experimental может работать нестабильно|confirmExperimentalTheme/);
   assert.match(calendar, /normalizeWebTheme\(currentUser.theme\)/);
   assert.doesNotMatch(calendar, /key=\{themeState|key=\{.*theme/);
@@ -2341,7 +2363,7 @@ test("ships account-owned Standart colour schemes while preserving authored cont
   assert.match(controller, /root\.setAttribute\(GENESIS_THEME_ATTRIBUTE/);
   assert.match(layout, /import "\.\/experimental-theme\.css"/);
   assert.match(begetEntry, /import "\.\.\/app\/experimental-theme\.css"/);
-  assert.match(styles, /html\[data-genesis-theme\^="experimental"\]/);
+  assert.match(styles, /html\[data-genesis-theme\^="standart"\]/);
   assert.match(styles, /\[hidden\], \[hidden\] \*/);
   assert.doesNotMatch(styles, /(^|\n)\s*(button|input|img|svg|\.card)\s*[{,]/m);
   assert.doesNotMatch(styles, /all\s*:/);
@@ -2399,8 +2421,8 @@ test("Experimental applies one design system across ordinary views and adds safe
   assert.match(habits, /experimental-habit-section-library/);
   assert.match(habits, /experimental-habit-section-modules/);
   assert.match(habits, /experimental-habit-section-progress/);
-  assert.match(habits, /allowCalendarModeChange=\{experimentalThemeActive\}/);
-  assert.equal((habits.match(/allowCalendarModeChange=\{experimentalThemeActive\}/g) ?? []).length, 2);
+  assert.match(habits, /<SleepEditor .* allowCalendarModeChange onSave=/);
+  assert.match(habits, /<AddictionEditor .* allowCalendarModeChange onSave=/);
   assert.match(habits, /<HabitTemplateSetup .* allowCalendarModeChange onSave=/);
   assert.match(habits, /<HabitEditor .* allowCalendarModeChange onSave=/);
   assert.match(account, /data-exp-layout="view" data-exp-ui="dialog"/);
@@ -2418,9 +2440,9 @@ test("Experimental applies one design system across ordinary views and adds safe
   assert.match(styles, /\[data-exp-ui="dialog"\]/);
   assert.match(`${styles}\n${await readFile(new URL("../app/web-standart.css", import.meta.url), "utf8")}`, /prefers-reduced-motion/);
   assert.doesNotMatch(styles, /gx-today-panel-enter|experimental-google-connect/);
-  assert.doesNotMatch(styles, /html\[data-genesis-theme="experimental"\][^\n{]*(?:img|picture|svg)\s*\{/);
-  assert.match(calendar, /className="experimental-theme-toggle" role="switch"/);
-  assert.match(calendar, /withExperimentalTheme\(themeState.theme, !experimentalThemeActive\)/);
+  assert.doesNotMatch(styles, /html\[data-genesis-theme="standart"\][^\n{]*(?:img|picture|svg)\s*\{/);
+  assert.doesNotMatch(calendar, /experimental-theme-toggle|requestedExperimentalTheme/);
+  assert.match(calendar, /setTheme\(normalizeWebTheme\(theme\)\)/);
   assert.match(calendar, /experimentalThemeActive=\{false\}/);
   assert.match(account, /withThemeColorMode\(themeState.theme, (?:false|true)\)/);
 
@@ -3097,7 +3119,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /label: "Календарь"/);
   assert.doesNotMatch(calendar, /Ближайшие дни/);
   assert.match(calendar, /dayDetailsOpen/);
-  assert.match(calendar, /setDayDetailsOrigin\("year"\);\s*setDayDetailsOpen\(true\);\s*};/);
+  assert.match(calendar, /setDayDetailsOpen\(origin !== "year"\)/);
+  assert.match(calendar, /if \(origin === "year"\) navigateTo\("calendar"\)/);
   assert.match(calendar, /Открыть месяц «\{selectedDisplayMonthName\}»/);
   assert.match(calendar, /const openMonth = \(\) => \{[\s\S]*setDayDetailsOpen\(false\);[\s\S]*navigateTo\("calendar"\);/);
   assert.match(calendar, /day-details-modal/);
@@ -3135,13 +3158,13 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(recurrenceBuilder, /Google Tasks не поддерживает серии/);
   assert.match(recurrenceBuilder, /одно повторяющееся событие/);
   assert.match(recurrenceBuilder, /aria-pressed=\{selected\}/);
-  assert.match(recurrenceBuilder, /recurrence-inherited-mode/);
+  assert.match(recurrenceBuilder, /<RecordCalendarChoice/);
   assert.match(recurrenceBuilder, /allowCalendarModeChange = false/);
-  assert.match(recurrenceBuilder, /recurrence-calendar-choice/);
+  const recordCalendarChoice = await readFile(new URL("../app/RecordCalendarChoice.tsx", import.meta.url), "utf8");
+  assert.match(recordCalendarChoice, /role="group"/);
   assert.match(recurrenceBuilder, /convertTrackerRecurrenceCalendar\(value, nextMode, rangeStart\)/);
-  assert.match(recurrenceBuilder, /role="radiogroup"/);
-  assert.match(recurrenceBuilder, /type="radio"/);
-  assert.match(recurrenceBuilder, /<CalendarModeIcon mode=\{value.mode === "genesis" \? "sacred" : value.mode === "classic" \? "profane" : "lunar"\}/);
+  assert.match(recordCalendarChoice, /aria-pressed=\{value === mode\}/);
+  assert.match(recordCalendarChoice, /<CalendarModeIcon mode=\{mode\}/);
   assert.doesNotMatch(recurrenceBuilder, /value\.mode === "classic" \? "□"/);
   assert.doesNotMatch(recurrenceBuilder, /recurrence-mode-toggle/);
   assert.doesNotMatch(recurrenceBuilder, /const setMode/);

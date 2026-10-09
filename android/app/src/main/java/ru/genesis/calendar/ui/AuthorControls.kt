@@ -164,7 +164,7 @@ fun timeLabel(value: String, use24: Boolean): String {
 }
 
 @Composable
-fun AuthorDatePicker(value: String, mode: CalendarMode, onChange: (String) -> Unit) {
+fun AuthorDatePicker(value: String, mode: CalendarMode, minDate: LocalDate? = null, onChange: (String) -> Unit) {
     var open by rememberSaveable { mutableStateOf(false) }
     val zone = ZoneId.systemDefault()
     val calendar = remember(zone) { GenesisCalendar(zone) }
@@ -214,7 +214,7 @@ fun AuthorDatePicker(value: String, mode: CalendarMode, onChange: (String) -> Un
                             }
                             Column(Modifier.weight(1f).defaultMinSize(minHeight=56.dp)
                                 .background(if(day==date) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
-                                .clickable { onChange(day.toString()); open=false }.padding(3.dp)
+                                .clickable(enabled=minDate == null || day >= minDate) { onChange(day.toString()); open=false }.padding(3.dp)
                                 .semantics { contentDescription=calendar.formatDate(day,mode) },horizontalAlignment=Alignment.CenterHorizontally) {
                                 if(mode==CalendarMode.SACRED) Text(if(s.monthIndex==12) "Ω" else "Пята ${(s.day-1)/5+1}",style=MaterialTheme.typography.labelSmall)
                                 Text(label)
