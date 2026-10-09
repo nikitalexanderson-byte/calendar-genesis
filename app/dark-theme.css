@@ -208,7 +208,6 @@ html[data-genesis-theme$="-dark"] :is(.mini-day, .mini-pyata-label b, .year-open
 html[data-genesis-theme$="-dark"] :is(.mini-day:hover, .mini-day:focus-visible, .year-open-button:hover) { background: #315d59; color: var(--ink); }
 html[data-genesis-theme$="-dark"] .mini-day.solar { background: var(--gold); color: #38290e; }
 html[data-genesis-theme$="-dark"] .mini-day.today { background: #315d59; color: var(--ink); border-color: var(--gold); }
-html[data-genesis-theme$="-dark"] .civil-mini-calendar.mode-lunar .mini-day-number { color: #fffaf0; background: #092426e6; border-color: #f0e5c9; }
 html[data-genesis-theme$="-dark"] :is(.calendar-mode-calendar, .calendar-picker) :is(.selected, .today) { border-color: var(--gold); }
 html[data-genesis-theme$="-dark"] :is(.calendar-day-task-count, .mini-day-task-count) { background: #ad3f4b; color: #fff; border-color: var(--surface); }
 html[data-genesis-theme$="-dark"] :is(.calendar-day-task-count, .mini-day-task-count)[data-task-status="completed"] { background: #287a57; color: #fff; }

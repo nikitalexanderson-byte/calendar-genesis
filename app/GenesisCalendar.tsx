@@ -6367,8 +6367,17 @@ export function GenesisCalendar() {
                       >
                         {mode === "lunar" ? <MoonPhaseIcon phaseStep={moon.phaseStep} size={30} className="mini-day-moon-phase" /> : null}
                         <span className="mini-day-number">{mode === "lunar" ? moon.day : date.getDate()}</span>
-                        <CalendarYearTaskCounts tasks={cellTasks} />
-                        {sharedTasks.length ? <span className="mini-day-shared-count" aria-label={`${sharedTasks.length} общих задач`}>{sharedTasks.length}</span> : null}
+                        {mode === "lunar" ? (dayTasks || sharedTasks.length ? (
+                          <span className="mini-day-task-counts">
+                            <CalendarYearTaskCounts tasks={cellTasks} />
+                            {sharedTasks.length ? <span className="mini-day-shared-count" aria-label={`${sharedTasks.length} общих задач`}>{sharedTasks.length}</span> : null}
+                          </span>
+                        ) : null) : (
+                          <>
+                            <CalendarYearTaskCounts tasks={cellTasks} />
+                            {sharedTasks.length ? <span className="mini-day-shared-count" aria-label={`${sharedTasks.length} общих задач`}>{sharedTasks.length}</span> : null}
+                          </>
+                        )}
                       </button>
                     );
                   })}
