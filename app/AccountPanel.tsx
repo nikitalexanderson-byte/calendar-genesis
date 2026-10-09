@@ -16,11 +16,11 @@ import { SolarPlaceSettings } from "./SolarPlaceSettings";
 import { SETTINGS_SECTIONS, SettingsSectionIcon, type SettingsSectionId } from "./SettingsSectionIcon";
 import { uiVisibility, type UiVisibility } from "./ui-visibility";
 import {
-  GENESIS_THEME,
   GENESIS_THEME_LABEL,
   type GenesisTheme,
   type ThemeControllerState,
 } from "./theme-controller";
+import { withThemeColorMode } from "./web-theme";
 
 const COLOR_MODE_NAMES: Record<Language, { light: string; dark: string; group: string }> = {
   ru: { light: "Светлая", dark: "Тёмная", group: "Цветовая схема сайта" },
@@ -567,13 +567,13 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
               <button type="button" role="radio" aria-checked={!themeState.theme.endsWith("-dark")}
                 aria-label={COLOR_MODE_NAMES[user.language].light}
                 className={!themeState.theme.endsWith("-dark") ? "active" : ""}
-                disabled={!themeState.available || themeState.pending || ["signed-out", "loading", "load-error"].includes(themeState.status)} onClick={() => onThemeChange(GENESIS_THEME.STANDART)}>
+                disabled={!themeState.available || themeState.pending || ["signed-out", "loading", "load-error"].includes(themeState.status)} onClick={() => onThemeChange(withThemeColorMode(themeState.theme, false))}>
                 <span aria-hidden="true">☀</span><strong data-no-translate>{COLOR_MODE_NAMES[user.language].light}</strong>
               </button>
               <button type="button" role="radio" aria-checked={themeState.theme.endsWith("-dark")}
                 aria-label={COLOR_MODE_NAMES[user.language].dark}
                 className={themeState.theme.endsWith("-dark") ? "active" : ""}
-                disabled={!themeState.available || themeState.pending || ["signed-out", "loading", "load-error"].includes(themeState.status)} onClick={() => onThemeChange(GENESIS_THEME.STANDART_DARK)}>
+                disabled={!themeState.available || themeState.pending || ["signed-out", "loading", "load-error"].includes(themeState.status)} onClick={() => onThemeChange(withThemeColorMode(themeState.theme, true))}>
                 <span aria-hidden="true">☾</span><strong data-no-translate>{COLOR_MODE_NAMES[user.language].dark}</strong>
               </button>
             </div>

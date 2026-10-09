@@ -21,6 +21,7 @@ import "./shared-projects.css";
 import "./shared-projects-layout.css";
 import { ProjectsHeroMark } from "./ProjectsHeroMark";
 import { WorkspaceHeader } from "./WorkspaceHeader";
+import { ExperimentalIcon } from "./ExperimentalIcon";
 import { ActionNotice, useActionNotice } from "./ActionNotice";
 import { ProjectCompletionDialog } from "./ProjectCompletionDialog";
 import { useAffairDrag } from "./use-affair-drag";
@@ -32,7 +33,7 @@ import { type CalendarMode, MONTHS, LUNAR_DECADES, ELEMENTS, formatCalendarDate,
 import { translateText } from "./i18n";
 import { restoredSharedProject } from "./shared-expansion";
 
-type Props = { userId: string; language: string; enabledCalendars: CalendarMode[];
+type Props = { userId: string; language: string; enabledCalendars: CalendarMode[]; experimentalTheme?: boolean;
   calendarMode: CalendarMode; taskCalendarMode: CalendarMode;
   onCalendarModeChange: (mode: CalendarMode) => Promise<void> };
 
@@ -72,7 +73,7 @@ function sharedCalendarPeriod(anchor: Date, mode: CalendarMode, english: boolean
     title: new Intl.DateTimeFormat(english ? "en-US" : "ru-RU", { month: "long", year: "numeric" }).format(start) };
 }
 
-export function SharedProjects({ userId, language, enabledCalendars, calendarMode, taskCalendarMode, onCalendarModeChange }: Props) {
+export function SharedProjects({ userId, language, enabledCalendars, calendarMode, taskCalendarMode, onCalendarModeChange, experimentalTheme = false }: Props) {
   const english = language === "en";
   const [spaces, setSpaces] = useState<SharedSpace[]>([]);
   const [spaceId, setSpaceId] = useState("");
@@ -747,7 +748,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
     </section> : null}
     {loading ? <p role="status">{english ? "Loading projects…" : "Загружаем проекты…"}</p> : null}
 
-    {spaceId ? <label className="tag-search"><span aria-hidden="true">⌕</span><input aria-label={english ? "Find tasks and projects by title or tag" : "Поиск задач и проектов по названию или #тегу"} value={searchQuery} onChange={(event) => { setSearchQuery(event.target.value); setSearchBusy(Boolean(event.target.value.trim())); setSearchResults({ projects: [], tasks: [] }); }} placeholder={english ? "Find tasks and projects by title or #tag" : "Поиск задач и проектов по названию или #тегу"} /></label> : null}
+    {spaceId ? <label className="tag-search"><span aria-hidden="true">{experimentalTheme ? <ExperimentalIcon name="search" /> : "⌕"}</span><input aria-label={english ? "Find tasks and projects by title or tag" : "Поиск задач и проектов по названию или #тегу"} value={searchQuery} onChange={(event) => { setSearchQuery(event.target.value); setSearchBusy(Boolean(event.target.value.trim())); setSearchResults({ projects: [], tasks: [] }); }} placeholder={english ? "Find tasks and projects by title or #tag" : "Поиск задач и проектов по названию или #тегу"} /></label> : null}
     {searchQuery.trim() ? <section className="tag-search-results" aria-label="Результаты поиска дел" aria-live="polite" aria-busy={searchBusy}>
       <header><strong>{english ? "Search results" : "Результаты поиска"}</strong><span>{searchResults.projects.length} проектов · {searchResults.tasks.length} задач</span></header>
       <div>{searchResults.projects.filter((project) => !project.isInbox).map((project) => <button type="button" key={project.id} onClick={() => { setSearchQuery(""); setProjectId(project.id); setSnapshot(null); }}><span>Проект</span><strong>{project.title}</strong><small>{project.tags?.map((tag) => `#${tag}`).join(" ")}</small></button>)}
@@ -811,10 +812,10 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       </nav>
 
     <button type="button" className="shared-projects-open-modal" onClick={() => setCreateModal("space")}>
-      {spaces.length ? (english ? "Create another workspace" : "Создать ещё пространство") : (english ? "Create a workspace" : "Создать пространство")}
+      {experimentalTheme ? <ExperimentalIcon name="plus" /> : null}{spaces.length ? (english ? "Create another workspace" : "Создать ещё пространство") : (english ? "Create a workspace" : "Создать пространство")}
     </button>
     {spaceId ? <button type="button" className="shared-projects-open-modal" onClick={() => { setCreateKind("project"); setParentId(""); setParentBoardId(""); setCreateModal("project"); }}>
-      {english ? "Create a shared project" : "Создать общий проект"}
+      {experimentalTheme ? <ExperimentalIcon name="plus" /> : null}{english ? "Create a shared project" : "Создать общий проект"}
     </button> : null}
     {spaceId && ["owner", "admin"].includes(spaces.find((space) => space.id === spaceId)?.role ?? "") ? <button type="button" className="secondary-button" onClick={() => void run(async () => {
       if (inboxProject) { setTeamSnapshot(await loadSharedProject(inboxProject.id)); }
@@ -851,7 +852,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
           setNewTaskStatusId(snapshot.statuses[0]?.id ?? "");
           setNewTaskCategoryId(""); setNewTaskAssigneeId(""); setCreateModal("task");
         }}>
-          {english ? "Create task" : "Создать задачу"}
+          {experimentalTheme ? <ExperimentalIcon name="plus" /> : null}{english ? "Create task" : "Создать задачу"}
         </button>
       </div> : null}
       <div className="shared-planning-controls">
@@ -999,7 +1000,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
           {english ? "+ Add list" : "+ Добавить список"}</button> : null}
       </div>}
       {selectedTask ? <section ref={taskDetailRef} className="shared-projects-detail" aria-label={english ? "Task details" : "Карточка задачи"}>
-        <button type="button" className="shared-projects-close" onClick={() => { setTaskId(""); setComments([]); }} aria-label={english ? "Close task" : "Закрыть задачу"}>×</button>
+        <button type="button" className="shared-projects-close" onClick={() => { setTaskId(""); setComments([]); }} aria-label={english ? "Close task" : "Закрыть задачу"}>{experimentalTheme ? <ExperimentalIcon name="close" /> : "×"}</button>
         <h2>{selectedTask.title}</h2>
         {snapshot.project.canOrganizeTasks ? <button type="button" className="shared-projects-archive" disabled={busy} onClick={() => {
           if (!window.confirm(english ? "Delete this team task?" : "Удалить эту общую задачу?")) return;
@@ -1105,7 +1106,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
           board: english ? "Board settings" : "Настройки доски",
         })[createModal]}</h2>
           <button type="button" className="shared-projects-close" onClick={() => setCreateModal(null)}
-            aria-label={english ? "Close" : "Закрыть"}>×</button>
+            aria-label={english ? "Close" : "Закрыть"}>{experimentalTheme ? <ExperimentalIcon name="close" /> : "×"}</button>
         </header>
         {createModal === "task" ? <div className="task-composer-tabs" role="group" aria-label={english ? "Create type" : "Тип дела"}>
           <button type="button" aria-pressed="true">{english ? "Task" : "Задача"}</button>

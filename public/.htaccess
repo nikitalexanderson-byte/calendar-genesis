@@ -3,12 +3,15 @@ AddDefaultCharset UTF-8
 AddType application/vnd.android.package-archive .apk
 
 RewriteEngine On
+# Wrap the existing legacy homepage; keep its app and hashed bundles intact.
+RewriteCond %{HTTP_HOST} ^(?:www\.)?genesiscalendar\.ru$ [NC]
+RewriteRule ^$ legacy-home.php [L]
 RewriteCond %{HTTP_HOST} ^(?:www\.)?genesiscalendar\.ru$ [NC]
 RewriteCond %{DOCUMENT_ROOT}/../server/var/legacy-announcement.json -f
 RewriteRule ^sw\.js$ relocated-sw.js [L]
 RewriteCond %{HTTP_HOST} ^(?:www\.)?genesiscalendar\.ru$ [NC]
 RewriteCond %{DOCUMENT_ROOT}/../server/var/legacy-announcement.json -f
-RewriteCond %{REQUEST_URI} !^/(?:api(?:/|$)|downloads/|android-update\.json$|deploy-meta\.json$|\.well-known/|relocated(?:-sw)?\.(?:html|js)$)
+RewriteCond %{REQUEST_URI} !^/(?:api(?:/|$)|downloads/|android-update\.json$|deploy-meta\.json$|\.well-known/|legacy-home\.php$|legacy-relocation-notice\.(?:css|js)$|relocated(?:-sw)?\.(?:html|js)$)
 RewriteRule ^ relocated.html [L]
 RewriteRule ^api(?:/|$) - [L]
 RewriteCond %{REQUEST_FILENAME}.html -f
@@ -38,7 +41,7 @@ RewriteRule . index.html [L]
   </IfModule>
 </FilesMatch>
 
-<FilesMatch "^(?:index\.html|deploy-meta\.json)$">
+<FilesMatch "^(?:index\.html|legacy-home\.php|legacy-relocation-notice\.(?:css|js)|deploy-meta\.json)$">
   <IfModule mod_headers.c>
     Header set Cache-Control "no-cache, no-store, must-revalidate"
     Header set Pragma "no-cache"
