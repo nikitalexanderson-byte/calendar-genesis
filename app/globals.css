@@ -10684,6 +10684,10 @@ html:not([data-genesis-theme$="-dark"]) .month-calendar .calendar-day.today .cal
   font-variant-numeric: tabular-nums;
 }
 
+.civil-mini-calendar.mode-lunar .mini-day:not(.today, .solar, :hover, :focus-visible) .mini-day-number {
+  color: var(--ink);
+}
+
 .civil-mini-calendar.mode-lunar .mini-day-task-counts {
   display: flex;
   flex-wrap: wrap;
