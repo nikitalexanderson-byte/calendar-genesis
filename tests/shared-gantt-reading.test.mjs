@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { dateSerial, ganttRange, serialDate, taskSpan, ganttSchedule, ganttResizeSchedule, ganttAxisPoint, ganttAxisPosition, GANTT_CELL_WIDTH } from "../app/shared-gantt.ts";
+import { dateSerial, ganttRange, serialDate, taskSpan, ganttSchedule, ganttCreationSchedule, ganttResizeSchedule, ganttAxisPoint, ganttAxisPosition, GANTT_CELL_WIDTH } from "../app/shared-gantt.ts";
 import { stoicheionReadingSections } from "../app/stoicheion-reading.ts";
 
 test("Gantt keeps all-day dates inclusive and timed spans exact across day boundaries",()=>{
@@ -18,6 +18,13 @@ test("Gantt drops snap to minutes or dates and preserve duration including overn
   assert.deepEqual(ganttSchedule(task,dateSerial("2026-10-25"),"weeks"),{startDate:"2026-10-25",dueDate:"2026-10-26",startTime:"23:00",endTime:"01:30"});
   assert.deepEqual(ganttSchedule({startDate:"2026-10-10",dueDate:"2026-10-12"},dateSerial("2026-10-13"),"days"),{startDate:"2026-10-13",dueDate:"2026-10-15",startTime:null,endTime:null});
   assert.deepEqual(ganttSchedule({},dateSerial("2026-10-10")+23.75/24,"day"),{startDate:"2026-10-10",dueDate:"2026-10-11",startTime:"23:45",endTime:"00:45"});
+});
+test("Gantt creation follows the clicked date or today's time, including midnight",()=>{
+  for(const scale of ["days","weeks","months"]){
+    assert.deepEqual(ganttCreationSchedule(dateSerial("2026-12-31")+.9,scale,"2026-10-11"),{startDate:"2026-12-31",dueDate:"2026-12-31",startTime:null,endTime:null});
+  }
+  assert.deepEqual(ganttCreationSchedule(dateSerial("2026-12-31")+10.16/24,"day","2026-10-11"),{startDate:"2026-10-11",dueDate:"2026-10-11",startTime:"10:15",endTime:"11:15"});
+  assert.deepEqual(ganttCreationSchedule(dateSerial("2026-12-31")+23.999/24,"day","2026-10-11"),{startDate:"2026-10-11",dueDate:"2026-10-12",startTime:"23:45",endTime:"00:45"});
 });
 test("Gantt scales and fitted ranges preserve the selected day and bound large projects",()=>{
   const day=dateSerial("2026-10-10");

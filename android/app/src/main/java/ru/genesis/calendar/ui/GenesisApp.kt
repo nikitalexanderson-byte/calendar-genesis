@@ -265,6 +265,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     val portraitAutoScroll = !isLandscape && prefs.navigationLabels && prefs.navigationAutoScroll
     val portraitMenuSwipe = !isLandscape && prefs.menuSwipeEnabled
     var pendingSharedProjectsToggle by remember(authState.user?.uid) { mutableStateOf<Boolean?>(null) }
+    var invitationDestination by remember { mutableStateOf<SharedInvitationDestination?>(null) }
     val sharedProjectsEnabled = !testWorkspace &&
         authState.accountSettings?.sharedProjectsEligible == true &&
         (pendingSharedProjectsToggle ?: (pendingPreferences["sharedProjectsEnabled"] != "false" &&
@@ -810,7 +811,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         if (!LocalFixedSubmenu.current && sharedProjectsEnabled && projectSubmenus.size > 1) ConnectedSubmenu(projectSubmenus,
                             visibleSwipeState.projectArea, { menuSwipeState.projectArea = it },
                             Modifier.testTag("projects-area-switch"))
-                        if(sharedProjectsEnabled && visibleSwipeState.projectArea=="shared") SharedProjectsScreen(authController,prefs.language)
+                        if(sharedProjectsEnabled && visibleSwipeState.projectArea=="shared") key(invitationDestination) { SharedProjectsScreen(authController,prefs.language,invitationDestination) }
                         else personalAffairsContent(visibleSwipeState)
                     }
                     "Задачи" -> personalAffairsContent(visibleSwipeState)
@@ -988,6 +989,17 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                             prefs.settingsMenuLabels, highlightedSection)
                     }
                     workspacePager(Modifier.fillMaxWidth().weight(1f).testTag("main-content"))
+                }
+            }
+            if (!testWorkspace && authState.ready && !authState.requiresSignIn &&
+                authState.user != null && authState.accountSettings?.sharedProjectsEligible == true) {
+                Box(Modifier.fillMaxSize().safeDrawingPadding().padding(start=12.dp,end=12.dp,bottom=100.dp), contentAlignment=Alignment.BottomStart) {
+                    SharedInvitationNotices(authController,authState.user!!.uid,prefs.language) { destination ->
+                        pendingSharedProjectsToggle = true
+                        invitationDestination = destination
+                        menuSwipeState.projectArea = "shared"
+                        tab = "Проекты"
+                    }
                 }
             }
             val existing=tasks.find { it.id==editId }

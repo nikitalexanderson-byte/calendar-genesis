@@ -1798,8 +1798,8 @@ export type SharedInvitation = {
   id: string; inviterName: string; spaceTitle: string; projectTitle: string;
   role: string; expiresAt: string;
 };
-export async function listSharedInvitations() {
-  return (await api<{ invitations: SharedInvitation[] }>("/shared/invitations")).invitations;
+export async function listSharedInvitations(signal?: AbortSignal) {
+  return (await api<{ invitations: SharedInvitation[] }>("/shared/invitations", {signal})).invitations;
 }
 export type SharedNotification = {
   id: string; action: string; objectId: string; createdAt: string;

@@ -71,6 +71,16 @@ const PAGE_TITLES: Record<Language, string> = {
 const APP_BASE = (process.env.NEXT_PUBLIC_GENESIS_BASE_PATH?.trim() || "").replace(/\/$/, "");
 
 const curatedTranslations: Record<string, string> = {
+  "Скрыть": "Hide",
+  "Приглашения в пространства": "Workspace invitations",
+  "Приглашение в пространство": "Workspace invitation",
+  "Скрыть приглашение": "Hide invitation",
+  "приглашает присоединиться": "invites you to join",
+  "Не удалось принять приглашение. Повторите попытку.": "Could not accept the invitation. Try again.",
+  "Принимаем…": "Accepting…",
+  "Скрыть остальные": "Hide older events",
+  "Смотреть остальные": "View older events",
+  "Нажмите на свободное место шкалы, чтобы создать задачу на эту дату. В режиме «Внутри дня» задача создаётся на сегодня с выбранным временем.": "Click an empty timeline cell to create a task on that date. Within a day, new tasks start today at the selected time.",
   "Создал(а) задачу": "Created task",
   "Изменил(а) задачу": "Updated task",
   "Удалил(а) задачу": "Deleted task",

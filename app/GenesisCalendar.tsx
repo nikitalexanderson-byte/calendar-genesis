@@ -27,6 +27,7 @@ import { SERVICE_IDENTITY } from "./public-service";
 import { normalizeWebTheme } from "./web-theme";
 import { TodayAdBlock } from "./TodayAdBlock";
 import { ActionNotice, useActionNotice } from "./ActionNotice";
+import { SharedInvitationNotices, type SharedInvitationDestination } from "./SharedInvitationNotices";
 import { ProjectCompletionDialog } from "./ProjectCompletionDialog";
 import { uiVisibility, viewIsVisible } from "./ui-visibility";
 import { ProjectsHeroMark } from "./ProjectsHeroMark";
@@ -1373,6 +1374,7 @@ export function GenesisCalendar() {
   });
   const [accountOpen, setAccountOpen] = useState(false);
   const [projectsArea, setProjectsArea] = useState<"personal" | "shared">("personal");
+  const [invitationDestination, setInvitationDestination] = useState<(SharedInvitationDestination & {userId:string; request:number}) | null>(null);
   useEffect(() => {
     document.documentElement.dataset.genesisMenuLabels = "text";
     try {
@@ -1748,7 +1750,8 @@ export function GenesisCalendar() {
   const editTaskCalendarMode = editingTask?.calendarMode ?? activeTaskCalendarMode;
   const visibility = uiVisibility(cloudUser?.uiVisibility);
   const personalProjectsVisible = !visibility.hiddenSubmenus.includes("projects.personal");
-  const sharedProjectsVisible = Boolean(cloudUser?.sharedProjectsEnabled) && !visibility.hiddenSubmenus.includes("projects.shared");
+  const invitedWorkspaceOpen = Boolean(invitationDestination && cloudUser && view==="projects" && projectsArea==="shared" && invitationDestination.userId===cloudUser.uid);
+  const sharedProjectsVisible = Boolean(cloudUser?.sharedProjectsEnabled) && (!visibility.hiddenSubmenus.includes("projects.shared") || invitedWorkspaceOpen);
   const activeProjectsArea = projectsArea === "shared" && sharedProjectsVisible ? "shared"
     : projectsArea === "personal" && personalProjectsVisible ? "personal"
       : personalProjectsVisible ? "personal" : "shared";
@@ -1969,9 +1972,9 @@ export function GenesisCalendar() {
     setDayDetailsOpen(true);
   };
 
-  const navigateTo = (nextView: ViewName, replace = false) => {
+  const navigateTo = (nextView: ViewName, replace = false, revealInvitedWorkspace = false) => {
     if (nextView === "all-tasks") nextView = "projects";
-    if (!viewIsVisible(nextView, visibility)) nextView = "today";
+    if (!viewIsVisible(nextView, visibility) && !revealInvitedWorkspace) nextView = "today";
     setOpenDayTaskPopover("");
     setAccountMenuOpen(false);
     if (nextView !== "theokyklos") setRequestedTheokyklosSector(null);
@@ -2021,7 +2024,7 @@ export function GenesisCalendar() {
     };
   }, []);
   useEffect(() => {
-    if (!cloudUser || viewIsVisible(view, uiVisibility(cloudUser.uiVisibility))) return;
+    if (!cloudUser || viewIsVisible(view, uiVisibility(cloudUser.uiVisibility)) || invitedWorkspaceOpen) return;
     const frame = window.requestAnimationFrame(() => {
       setView("today");
       const url = new URL(window.location.href);
@@ -2029,7 +2032,7 @@ export function GenesisCalendar() {
       window.history.replaceState({ ...(window.history.state ?? {}), genesisView: "today" }, "", cleanGenesisAppUrl(url));
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [cloudUser, view]);
+  }, [cloudUser, view, invitedWorkspaceOpen]);
 
   useEffect(() => {
     if (!accountMenuOpen && !accountIdentityExpanded) return;
@@ -6531,6 +6534,12 @@ export function GenesisCalendar() {
     >
       {experimentalProjectFormOpen ? <div className="modal-backdrop experimental-project-composer-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setExperimentalProjectFormOpen(false); }}>{renderProjectCreateForm()}</div> : null}
       <ActionNotice message={view === "projects" && activeProjectsArea === "shared" ? "" : notice}/>
+      {cloudUser?.sharedProjectsEligible ? <SharedInvitationNotices key={cloudUser.uid} userId={cloudUser.uid} english={language==="en"} onAccepted={destination => {
+        const uid=cloudUser.uid;
+        setCloudUser(current=>current?.uid===uid ? {...current,sharedProjectsEnabled:true} : current);
+        setInvitationDestination(current=>({...destination,userId:uid,request:(current?.request??0)+1}));
+        setProjectsArea("shared"); navigateTo("projects",false,true);
+      }}/> : null}
       {projectToComplete ? <ProjectCompletionDialog title={projectToComplete.title}
         onCancel={() => setProjectToComplete(null)} onConfirm={() => {
           const project = projects.find((item) => item.id === projectToComplete.id);
@@ -6724,7 +6733,8 @@ export function GenesisCalendar() {
                 {!experimentalThemeActive ? renderDisplayCalendarChoice(language === "en" ? "Project date display" : "Отображение дат в проектах") : null}
                 </div>
                 {!sharedProjectsVisible || activeProjectsArea === "personal" ? renderProjects() : <Suspense fallback={<DeferredViewFallback label={language === "en" ? "Opening shared projects…" : "Открываем общие проекты…"} />}>
-                  <SharedProjects userId={cloudUser?.uid ?? ""} language={language} experimentalTheme={experimentalThemeActive}
+                  <SharedProjects key={`${cloudUser?.uid}:${invitationDestination?.userId===cloudUser?.uid ? invitationDestination?.request : "default"}`} userId={cloudUser?.uid ?? ""} language={language} experimentalTheme={experimentalThemeActive}
+                    destination={invitationDestination?.userId===cloudUser?.uid ? invitationDestination ?? undefined : undefined}
                     timeFormat={activeTimeFormat}
                     enabledCalendars={visibility.enabledCalendars} calendarMode={activeCalendarMode}
                     taskCalendarMode={activeTaskCalendarMode} onCalendarModeChange={changeDisplayCalendar} />
