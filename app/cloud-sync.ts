@@ -1855,8 +1855,10 @@ export async function deleteSharedLabel(spaceId: string, label: SharedLabel) {
   return api<{ ok: true }>(`/shared/spaces/${encodeURIComponent(spaceId)}/labels/${encodeURIComponent(label.id)}`, {method:"DELETE",body:JSON.stringify({expectedRevision:label.revision})});
 }
 export async function loadSharedActivity(projectId: string, scope: {taskId?: string; boardId?: string; before?: string} = {}) {
-  const params = new URLSearchParams(scope);
-  return api<{events:SharedActivityEvent[];nextCursor:string|null}>(`/shared/projects/${encodeURIComponent(projectId)}/activity?${params}`);
+  const params = new URLSearchParams();
+  for(const key of ["taskId","boardId","before"] as const)if(scope[key])params.set(key,scope[key]);
+  const query=params.size ? `?${params}` : "";
+  return api<{events:SharedActivityEvent[];nextCursor:string|null}>(`/shared/projects/${encodeURIComponent(projectId)}/activity${query}`);
 }
 
 export function removeAdditionalGoogleAccount(accountId: string) {

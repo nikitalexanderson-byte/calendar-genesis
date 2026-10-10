@@ -33,11 +33,11 @@ import { SharedLabelBadges, SharedLabelPicker, SharedLabelsDialog } from "./Shar
 import { SharedComments } from "./SharedComments";
 import { SharedActivity } from "./SharedActivity";
 import { SharedGantt } from "./SharedGantt";
-import { ganttSchedule, type GanttScale, type GanttSchedule } from "./shared-gantt";
+import { ganttSchedule, ganttAxisPoint, type GanttScale, type GanttSchedule } from "./shared-gantt";
 import { SharedTaskSchedule, emptySharedPlan, taskSharedPlan } from "./SharedTaskSchedule";
 import type { TimeFormat } from "./time-format";
 type SharedDragItem = { id: string; title: string } & ({ kind: "task"; task: SharedTask } | { kind: "container"; project: SharedProject });
-type SharedDropTarget = { projectId: string; statusId: string; position: number; schedule?:GanttSchedule };
+type SharedDropTarget = { projectId: string; statusId: string; position: number; schedule?:GanttSchedule; ganttRow?:string };
 import { RecordCalendarChoice } from "./RecordCalendarChoice";
 import { type CalendarMode, MONTHS, LUNAR_DECADES, ELEMENTS, formatCalendarDate, formatGregorian, getGregorianDate, getLunarDate, getLunarMonthDates, getSacredDate, getSacredDay, lunarMonthIndex } from "./calendar-data";
 import { translateText } from "./i18n";
@@ -478,9 +478,10 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
     const below = document.elementFromPoint(x, y);
     const axis=below?.closest<HTMLElement>("[data-gantt-axis]");
     if(axis&&snapshot&&item.kind==="task"&&(snapshot.project.permissions?.editTasks ?? ["owner","manager","member"].includes(snapshot.project.role))&&snapshot.project.canOrganizeTasks){
-      const start=Number(axis.dataset.ganttStart),end=Number(axis.dataset.ganttEnd),px=Number(axis.dataset.ganttPx),scale=axis.dataset.ganttScale as GanttScale;
-      const schedule=ganttSchedule(item.task,Math.max(start,Math.min(end-(scale==="day" ? 1/96 : 1),start+(x-axis.getBoundingClientRect().left)/px)),scale);
-      return {projectId:snapshot.project.id,statusId:"",position:0,schedule};
+      const start=Number(axis.dataset.ganttStart),end=Number(axis.dataset.ganttEnd),scale=axis.dataset.ganttScale as GanttScale;
+      const periods=JSON.parse(axis.closest<HTMLElement>('[data-gantt-periods]')?.dataset.ganttPeriods||'[]');
+      const schedule=ganttSchedule(item.task,Math.max(start,Math.min(end-(scale==="day" ? 1/96 : 1),ganttAxisPoint(periods,x-axis.getBoundingClientRect().left))),scale);
+      return {projectId:snapshot.project.id,statusId:"",position:0,schedule,ganttRow:axis.closest<HTMLElement>('[data-gantt-task]')?.dataset.ganttTask};
     }
     const column = below?.closest<HTMLElement>("[data-shared-drop-status]");
     if (column && snapshot) {
@@ -862,9 +863,10 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
     </section> : null}
     {!spaceId ? <section className="shared-space-entry" aria-label={english ? "Shared workspaces" : "Общие пространства"}>
       {loading ? <p role="status">{english ? "Loading…" : "Загрузка…"}</p> : <>
-        {spaces.length ? <div className="shared-space-list">{spaces.map((space) => <article className="shared-space-card" key={space.id}>{space.coverUrl ? <SharedSpaceCover src={space.coverUrl} position={space.coverPosition}/> : null}<button type="button" className="shared-space-open"
+        {spaces.length ? <div className="shared-space-list">{spaces.map((space) => <article className={`shared-space-card${space.coverUrl ? " has-cover" : ""}`} key={space.id}><button type="button" className="shared-space-open"
           onClick={() => { setSpaceId(space.id); setProjectId(""); setSnapshot(null); }}>
-          <strong>{space.title}</strong><span>{roleLabel(space.role)}</span>
+          {space.coverUrl ? <SharedSpaceCover src={space.coverUrl} position={space.coverPosition}/> : null}
+          <span className="shared-space-caption"><strong>{space.title}</strong>{space.description ? <span className="shared-space-description">{space.description}</span> : null}<small>{roleLabel(space.role)}</small></span>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>
         </button>
           {["owner", "admin"].includes(space.role) ? <button type="button" className="shared-space-edit secondary-button"
@@ -943,16 +945,18 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
     {snapshot && snapshot.project.id === projectId ? <>
       <header className="shared-projects-context">
         <div className="shared-project-heading">
-          <h2>{snapshot.project.isInbox ? (english ? "Team tasks" : "Задачи команды") : snapshot.project.title}</h2>
           {!snapshot.project.isInbox && snapshot.project.role === "owner" ? <button type="button" className={`project-complete-action${completedPulse ? " is-completing" : ""}`} disabled={busy} onClick={archiveProject} title={english ? "Complete project" : "Завершить проект"} aria-label={english ? `Complete project “${snapshot.project.title}”` : `Завершить проект «${snapshot.project.title}»`}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="m7 12 3 3 7-7"/></svg></button> : null}
-          {!snapshot.project.isInbox && snapshot.project.description ? <p>{snapshot.project.description}</p> : null}
-          <SharedLabelBadges labels={labels} ids={snapshot.project.labelIds}/>
+          <h2>{snapshot.project.isInbox ? (english ? "Team tasks" : "Задачи команды") : snapshot.project.title}</h2>
         </div>
-        <div className="shared-projects-meta"><span>{english ? "Your role" : "Ваша роль"}: {roleLabel(snapshot.project.role)}</span><span>{snapshot.members.length} {english ? "members" : "участников"}</span></div>
       <div className="shared-context-actions">
         {(canManage || canInvite) && !snapshot.project.isInbox ? <button type="button" className="secondary-button" onClick={() => {setEditProjectLabelIds(snapshot.project.labelIds||[]);setCreateModal("settings");}}>{english ? "Project settings" : "Настройки проекта"}</button> : null}
         <button type="button" className="secondary-button" onClick={() => { setTeamSnapshot(snapshot); setCreateModal("team"); }}>{english ? "Team" : "Команда"}</button>
       </div>
+        <div className="shared-project-details">
+          {!snapshot.project.isInbox && snapshot.project.description ? <p>{snapshot.project.description}</p> : null}
+          <SharedLabelBadges labels={labels} ids={snapshot.project.labelIds}/>
+          <div className="shared-projects-meta"><span>{english ? "Your role" : "Ваша роль"}: {roleLabel(snapshot.project.role)}</span><span>{snapshot.members.length} {english ? "members" : "участников"}</span></div>
+        </div>
       </header>
       <section className="shared-projects-task-panel" aria-labelledby="shared-projects-tasks-title">
       <section className="shared-projects-planning" aria-label={english ? "Tasks and views" : "Задачи и виды проекта"}>
@@ -989,7 +993,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
         : "Проведите по доске, чтобы увидеть все статусы."}</p> : null}
       </section>
       <div className="shared-projects-workspace">
-      {activeView === "gantt" ? <SharedGantt snapshot={snapshot} english={english} calendarMode={calendarMode} timeFormat={timeFormat} initialDay={ganttDay} onOpen={openTask} onSchedule={scheduleTask} busy={busy} externalDrop={dropTarget?.schedule}/> : activeView === "calendar" ? <section className="shared-projects-calendar" aria-label={english ? "Project calendar" : "Календарь проекта"}>
+      {activeView === "gantt" ? <SharedGantt snapshot={snapshot} english={english} calendarMode={calendarMode} timeFormat={timeFormat} initialDay={ganttDay} onOpen={openTask} onSchedule={scheduleTask} busy={busy} externalDrop={dropTarget?.schedule} externalDropRow={dropTarget?.ganttRow}/> : activeView === "calendar" ? <section className="shared-projects-calendar" aria-label={english ? "Project calendar" : "Календарь проекта"}>
         {snapshot.tasks.length >= 500 ? <p role="status">{english ? "This project has at least 500 tasks. The calendar may omit later tasks until full loading is available." : "В проекте не менее 500 задач. Календарь может не показывать задачи за пределами загруженной части."}</p> : null}
         <div className="shared-projects-calendar-head">
           <button type="button" aria-label={english ? "Previous month" : "Предыдущий месяц"} onClick={() => { setCalendarMonth(calendarPeriod.previous); setCalendarDay(localDateKey(calendarPeriod.previous)); }}>←</button>
