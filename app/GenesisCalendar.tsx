@@ -567,7 +567,7 @@ function nextHabitReminderDate(habit: Habit, fromDate: string, calendarMode: Cal
 
 function viewFromHash(): ViewName {
   if (typeof window === "undefined") return "today";
-  const candidate = window.location.hash.replace(/^#\/?/, "").split(/[?&]/, 1)[0] as ViewName;
+  const candidate = window.location.hash.replace(/^#\/?/, "").split(/[?&]/, 1)[0] as ViewName | "admin/actions" | "admin/ads";
   if (candidate === "admin/actions" || candidate === "admin/ads") return "admin";
   if (candidate === "all-tasks" || (candidate as string) === "tasks") return "projects";
   return VIEW_NAMES.has(candidate) ? candidate : "today";
