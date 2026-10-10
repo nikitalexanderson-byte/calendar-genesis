@@ -82,7 +82,7 @@ import {
   type WorkspaceRecoveryRequest,
 } from "./cloud-sync";
 import { currentLegalPage, LegalPage } from "./LegalPage";
-import { TimeClockPicker } from "./TimeClockPicker";
+import { TimeClockPicker, TimeClockFormatContext } from "./TimeClockPicker";
 import { CalendarDatePicker } from "./CalendarDatePicker";
 import { SharedTaskCreate } from "./SharedTaskCreate";
 import { TaskReminderPicker } from "./TaskReminderPicker";
@@ -3373,7 +3373,7 @@ export function GenesisCalendar() {
     if (!cloudUser) return;
     newlyCompletedEntries.forEach((entry) => {
       const habit = normalized.habits.find((item) => item.id === entry.habitId);
-      if (!habit?.reminder.enabled || !habit.reminder.syncToGoogleTasks || !habit.reminder.googleTaskId) return;
+      if (!habit?.reminder.syncToGoogleTasks || !habit.reminder.googleTaskId) return;
       void advanceHabitGoogleReminder(habit, entry.date).catch((error: Error) => {
         setSyncError(error.message);
         setSyncStatus(navigator.onLine ? "error" : "offline");
@@ -4626,8 +4626,8 @@ export function GenesisCalendar() {
         </div>
         {cloudUser?.authProvider === "yandex" ? <div className="task-form-section yandex-task-fields" aria-label="Поля Яндекс.Календаря">
           {yandexEntryType === "meeting" ? <>
-            <label><span>Время окончания встречи · время устройства</span>
-              <input type="time" value={yandexEndTime} onChange={(event) => setYandexEndTime(event.target.value)} disabled={!taskTime} /></label>
+            <label htmlFor="new-yandex-end-time"><span>Время окончания встречи · время устройства</span>
+              <TimeClockPicker id="new-yandex-end-time" value={yandexEndTime} onChange={setYandexEndTime} disabled={!taskTime} ariaLabel="Время окончания"/></label>
             <label><span>Участники · адреса через запятую</span>
               <input type="text" value={yandexAttendees} onChange={(event) => setYandexAttendees(event.target.value)} autoComplete="off" /></label>
             <label><span>Необязательные участники</span>
@@ -5802,10 +5802,10 @@ export function GenesisCalendar() {
                 data-project-drop-id={TASK_INBOX_PROJECT_ID}
                 aria-labelledby="project-inbox-title"
               >
-                <span className="eyebrow">Несортированное · зона возврата</span>
-                <h2 id="project-inbox-title">Хаос-бокс</h2>
+                <header className="workspace-inbox-header"><h2 id="project-inbox-title">Хаос-бокс</h2><small aria-label="Количество задач и списков">{inboxTasks.length + inboxTaskLists.length}</small></header>
                 <p>{projectDragItem ? "Отпустите здесь, чтобы убрать элемент из проекта." : <><span className="project-drag-hint-desktop">Перетащите плашку задачи или списка в проект либо в хаос-бокс.</span><span className="project-drag-hint-touch">Для переноса удерживайте задачу или список, затем перетащите. Для прокрутки проведите пальцем без удержания.</span></>}</p>
-                <strong>{inboxTasks.length + inboxTaskLists.length}</strong>
+                <button type="button" className="primary-button workspace-inbox-create" onClick={() => { openTaskComposer("projects"); setTaskProject(""); }}><ExperimentalIcon name="plus" />{language === "en" ? "Create task" : "Создать задачу"}</button>
+                {!inboxTasks.length && !inboxTaskLists.length ? <p>{language === "en" ? "No unsorted tasks yet." : "Задач без проекта пока нет."}</p> : null}
                 <div className="inbox-card-items">
                   {inboxTaskLists.map((taskList) => {
                     const item: ProjectDragItem = { kind: "task-list", id: taskList.id, title: taskList.title };
@@ -6516,6 +6516,7 @@ export function GenesisCalendar() {
   }
 
   return (
+    <TimeClockFormatContext.Provider value={activeTimeFormat}>
     <main
       className={`genesis-app mode-${activeCalendarMode}${habitWorkspace.habitSettings.feedback.animations ? "" : " habit-animations-off"}`}
       data-exp-layout="app-shell"
@@ -6716,7 +6717,7 @@ export function GenesisCalendar() {
               </> : null}
               {view === "projects" && (sharedProjectsVisible || personalProjectsVisible) ? <>
                 <div className="view-calendar-toolbar">
-                {sharedProjectsVisible && personalProjectsVisible ? <nav className="shared-projects-switch" aria-label={language === "en" ? "Project sections" : "Разделы дел"}>
+                {sharedProjectsVisible && personalProjectsVisible ? <nav className="shared-projects-switch affairs-area-switch" aria-label={language === "en" ? "Project sections" : "Разделы дел"}>
                   <button type="button" aria-current={activeProjectsArea === "personal" ? "page" : undefined} onClick={() => setProjectsArea("personal")}>{language === "en" ? "Personal" : "Личные"}</button>
                   <button type="button" aria-current={activeProjectsArea === "shared" ? "page" : undefined} onClick={() => setProjectsArea("shared")}>{language === "en" ? "Shared" : "Общие"}</button>
                 </nav> : null}
@@ -6724,6 +6725,7 @@ export function GenesisCalendar() {
                 </div>
                 {!sharedProjectsVisible || activeProjectsArea === "personal" ? renderProjects() : <Suspense fallback={<DeferredViewFallback label={language === "en" ? "Opening shared projects…" : "Открываем общие проекты…"} />}>
                   <SharedProjects userId={cloudUser?.uid ?? ""} language={language} experimentalTheme={experimentalThemeActive}
+                    timeFormat={activeTimeFormat}
                     enabledCalendars={visibility.enabledCalendars} calendarMode={activeCalendarMode}
                     taskCalendarMode={activeTaskCalendarMode} onCalendarModeChange={changeDisplayCalendar} />
                 </Suspense>}
@@ -6886,8 +6888,8 @@ export function GenesisCalendar() {
             <header className="day-details-hero">
             <div className="day-details-introduction">
             <img className="day-details-art" data-genesis-preserve="selected-day-art"
-              src={activeCalendarMode === "profane" ? weekdayArtUrl(selectedDate.getDay()) : dayArtUrl(monthIndex, selectedDay)}
-              alt={activeCalendarMode === "profane" ? selectedWeekdayPatron.guidancePatrons : selectedSacredDay.name} />
+              src={activeCalendarMode === "lunar" ? weekdayArtUrl(1) : activeCalendarMode === "profane" ? weekdayArtUrl(selectedDate.getDay()) : dayArtUrl(monthIndex, selectedDay)}
+              alt={activeCalendarMode === "lunar" ? "Селена, Геката и Артемида" : activeCalendarMode === "profane" ? selectedWeekdayPatron.guidancePatrons : selectedSacredDay.name} />
             <div className="day-details-heading">
               <div className="selected-day-symbol" aria-hidden="true">{selectedSolarEvent?.symbol ?? (activeCalendarMode === "lunar" ? "☾" : activeCalendarMode === "profane" ? <WeekdaySymbol weekday={selectedDate.getDay()} /> : selectedElement.symbol)}</div>
               <div className="selected-day-copy">
@@ -7191,8 +7193,8 @@ export function GenesisCalendar() {
                 } : current)} /><span>Весь день</span></label> : null}
               {cloudUser?.authProvider === "yandex" ? <div className="task-form-section yandex-task-fields" aria-label="Поля Яндекс.Календаря">
                 {editingTask.yandexEntryType === "meeting" ? <>
-                  <label><span>Время окончания · время устройства</span><input type="time" value={editingTask.yandexEndTime ?? ""} disabled={!editingTask.time}
-                    onChange={(event) => setEditingTask((current) => current ? { ...current, yandexEndTime: event.target.value } : current)} /></label>
+                  <label htmlFor="edit-yandex-end-time"><span>Время окончания · время устройства</span><TimeClockPicker id="edit-yandex-end-time" value={editingTask.yandexEndTime ?? ""} disabled={!editingTask.time} ariaLabel="Время окончания"
+                    onChange={(value) => setEditingTask((current) => current ? { ...current, yandexEndTime: value } : current)} /></label>
                   <label><span>Участники · через запятую</span><input defaultValue={(editingTask.yandexAttendees ?? []).join(", ")}
                     onChange={(event) => setEditingTask((current) => current ? { ...current,
                       yandexAttendees: event.target.value.split(/[,;\n]/).map((item) => item.trim()).filter(Boolean) } : current)} /></label>
@@ -7531,5 +7533,6 @@ export function GenesisCalendar() {
       ) : null}
       {voiceLanguageEnabled && voiceControlActive ? <Suspense fallback={null}><WebVoiceControl language={language} onCommand={executeWebVoiceCommand} onStop={() => setVoiceControlActive(false)} /></Suspense> : null}
     </main>
+    </TimeClockFormatContext.Provider>
   );
 }

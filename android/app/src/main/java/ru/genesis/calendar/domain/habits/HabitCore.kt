@@ -53,7 +53,7 @@ fun preserveHabitCreationSettings(candidate: Habit, previous: Habit?, today: Loc
 }
 data class HabitCompletion(val entity: TrackerEntity, val habitId: String, val date: LocalDate,
     val completed: Boolean = false, val qualityValue: Double? = null, val score: Int = 0,
-    val xpAwarded: Int = 0, val note: String = "")
+    val xpAwarded: Int = 0, val note: String = "", val qualityConfirmedAt: String? = null)
 
 /** Direct port of scoreHabitFormula. XP is distinct from current score. */
 fun scoreHabitFormula(mode: String, completed: Boolean, qualityValue: Double?): Int {
@@ -106,8 +106,9 @@ class HabitEngine(private val calendar: GenesisCalendar) {
         if (date != today || date < habit.createdDate) return entries
         val current = entries.firstOrNull { it.habitId == habit.id && it.date == date }
         val base = current ?: HabitCompletion(TrackerEntity.create("habit-completion",timestamp,newId),habit.id,date)
-        val score = scoreHabitFormula(habit.scoringMode,completed,qualityValue)
-        val next = base.copy(entity=base.entity.changed(timestamp),completed=completed,qualityValue=qualityValue,
+        val preservedQuality = if (base.qualityConfirmedAt != null) base.qualityValue else qualityValue
+        val score = scoreHabitFormula(habit.scoringMode,completed,preservedQuality)
+        val next = base.copy(entity=base.entity.changed(timestamp),completed=completed,qualityValue=preservedQuality,
             note=note,score=score,xpAwarded=completionXpAward(base.xpAwarded.toDouble(),score.toDouble()))
         return entries.filterNot { it.habitId == habit.id && it.date == date } + next
     }

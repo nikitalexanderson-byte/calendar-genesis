@@ -5,6 +5,8 @@ import { createSharedSpace, updateSharedSpace, deleteSharedSpace, loadSharedSpac
   inviteSharedSpaceMember, revokeSharedSpaceInvitation, setSharedSpaceMemberPermissions,
   type SharedPermissions, type SharedSpace, type SharedSpaceSettings, type SharedSpaceInvitationInput } from "./cloud-sync";
 
+import { SharedSpaceCoverEditor, type SpaceCoverDraft } from "./SharedSpaceCover";
+
 const permissionKeys = ["createProjects", "editTasks", "organizeTasks", "comment", "manageProjects", "inviteMembers"] as const;
 export function defaultSpacePermissions(role: string): SharedPermissions {
   const manager = role === "owner" || role === "admin";
@@ -27,6 +29,8 @@ export function SharedSpaceForm({ language, spaceId, onSaved, onDeleted }: { lan
   const [title, setTitle] = useState(""); const [description, setDescription] = useState("");
   const [invitations, setInvitations] = useState<(SharedSpaceInvitationInput & { key: string })[]>([]);
   const [busy, setBusy] = useState(false); const [error, setError] = useState("");
+  const [cover,setCover]=useState<SpaceCoverDraft>({coverPosition:{x:50,y:50}});
+  const [coverLoading,setCoverLoading]=useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const owner = !spaceId || settings?.space.role === "owner";
   const roleLabel = (role: string) => ({ owner: ru ? "Владелец" : "Owner", admin: ru ? "Администратор" : "Admin",
@@ -35,7 +39,7 @@ export function SharedSpaceForm({ language, spaceId, onSaved, onDeleted }: { lan
     if (!spaceId) return;
     let live = true;
     void loadSharedSpaceSettings(spaceId).then((value) => {
-      if (live) { setSettings(value); setTitle(value.space.title); setDescription(value.space.description ?? ""); }
+      if (live) { setSettings(value); setTitle(value.space.title); setDescription(value.space.description ?? ""); setCover({coverPosition:value.space.coverPosition??{x:50,y:50}}); }
     }).catch((reason: unknown) => { if (live) setError(reason instanceof Error ? reason.message : String(reason)); });
     return () => { live = false; };
   }, [spaceId]);
@@ -45,9 +49,9 @@ export function SharedSpaceForm({ language, spaceId, onSaved, onDeleted }: { lan
     finally { setBusy(false); }
   };
   const refresh = async () => { if (spaceId) setSettings(await loadSharedSpaceSettings(spaceId)); };
-  const submit = () => void run(async () => {
-    const space = spaceId && settings ? await updateSharedSpace(settings.space, title, description)
-      : await createSharedSpace(title, description, invitations.map((invite) => ({ email: invite.email, role: invite.role, permissions: invite.permissions })));
+  const submit = () => { if(coverLoading)return;void run(async () => {
+    const space = spaceId && settings ? await updateSharedSpace(settings.space, title, description, cover)
+      : await createSharedSpace(title, description, invitations.map((invite) => ({ email: invite.email, role: invite.role, permissions: invite.permissions })),cover);
     if (spaceId) {
       // Keep the saved revision if a later invitation fails, so the user can retry.
       setSettings((current) => current ? { ...current, space } : current);
@@ -57,7 +61,7 @@ export function SharedSpaceForm({ language, spaceId, onSaved, onDeleted }: { lan
       }
     }
     onSaved(space);
-  });
+  });};
   const roleSelect = (value: string, change: (role: SharedSpace["role"]) => void, includeOwner = false) => <select aria-label={ru ? "Роль" : "Role"}
     value={value} disabled={busy || !owner} onChange={(event) => change(event.target.value as SharedSpace["role"])}>
     {(includeOwner ? ["owner", "admin", "member", "guest"] : ["admin", "member", "guest"]).map((role) => <option key={role} value={role}>{roleLabel(role)}</option>)}
@@ -68,6 +72,7 @@ export function SharedSpaceForm({ language, spaceId, onSaved, onDeleted }: { lan
     <form onSubmit={(event) => { event.preventDefault(); submit(); }}>
       <label>{ru ? "Название" : "Name"}<input required maxLength={160} value={title} disabled={busy} onChange={(event) => setTitle(event.target.value)} /></label>
       <label>{ru ? "Описание" : "Description"}<textarea maxLength={5000} value={description} disabled={busy} onChange={(event) => setDescription(event.target.value)} /></label>
+      <SharedSpaceCoverEditor src={settings?.space.coverUrl??""} value={cover} onChange={setCover} english={!ru} disabled={busy} onLoadingChange={setCoverLoading}/>
       <section className="space-invitation-fields"><h3>{ru ? "Пригласить участников" : "Invite members"}</h3>
         {invitations.map((invite) => <div className="space-member-settings" key={invite.key}>
           <label>Google email<input type="email" required maxLength={254} value={invite.email} disabled={busy} placeholder="name@gmail.com"
@@ -79,7 +84,7 @@ export function SharedSpaceForm({ language, spaceId, onSaved, onDeleted }: { lan
         <button type="button" className="secondary-button" disabled={busy || !owner || invitations.length >= 20} onClick={() => setInvitations((current) => [...current,
           { key: crypto.randomUUID(), email: "", role: "member", permissions: defaultSpacePermissions("member") }])}>{ru ? "+ Участник" : "+ Member"}</button>
       </section>
-      <button type="submit" disabled={busy}>{spaceId ? (ru ? "Сохранить" : "Save") : (ru ? "Создать пространство" : "Create workspace")}</button>
+      <button type="submit" disabled={busy||coverLoading}>{spaceId ? (ru ? "Сохранить" : "Save") : (ru ? "Создать пространство" : "Create workspace")}</button>
     </form>
     {settings ? <section className="space-members-settings"><h3>{ru ? "Участники и права" : "Members and permissions"}</h3>
       {settings.members.map((member) => <div className="space-member-settings" key={member.userId}>

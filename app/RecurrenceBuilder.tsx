@@ -1,4 +1,5 @@
 "use client";
+import type { ReactNode } from "react";
 
 import { formatCalendarDateValue, getLunarDate, getSacredDate, MONTHS, type CalendarMode } from "./calendar-data";
 import {
@@ -65,6 +66,8 @@ export function RecurrenceBuilder({
   calendarMode = "profane",
   lockRangeStart = false,
   allowCalendarModeChange = false,
+  headerControls,
+  footerControls,
 }: {
   value: RecurrenceConfig;
   onChange: (value: RecurrenceConfig) => void;
@@ -73,6 +76,8 @@ export function RecurrenceBuilder({
   calendarMode?: CalendarMode;
   lockRangeStart?: boolean;
   allowCalendarModeChange?: boolean;
+  headerControls?: ReactNode;
+  footerControls?: ReactNode;
 }) {
   const isEnglish = getRuntimeLanguage() === "en";
   // Tracker schedules keep the calendar in which they were created. Aligning a
@@ -171,10 +176,11 @@ export function RecurrenceBuilder({
   return (
     <section className={`recurrence-builder${value.enabled ? " enabled" : ""}`} aria-label="Настройка повторения">
       {destination === "tracker" && allowCalendarModeChange ? <RecordCalendarChoice value={displayCalendarMode} onChange={changeCalendarMode} /> : null}
+      {headerControls}
       <div className="recurrence-switch-row">
         <div>
           <strong>Повторение</strong>
-          <small>{value.enabled ? RECURRENCE_MODE_COPY[value.mode].description : "Одиночная задача без повторений"}</small>
+          <small>{destination === "tracker" ? (value.enabled ? (isEnglish ? "Habit tracking on selected days. Google copies are optional." : "Привычка отслеживается в выбранные дни. Копии в Google подключаются отдельно.") : (isEnglish ? "Habit without recurrence" : "Привычка без повторений")) : value.enabled ? RECURRENCE_MODE_COPY[value.mode].description : "Одиночная задача без повторений"}</small>
         </div>
         <label className="recurrence-switch">
           <input
@@ -246,7 +252,10 @@ export function RecurrenceBuilder({
                 </div>
               ) : (
                 <p className="recurrence-pattern-explainer">
-                  {value.pattern === "daily"
+                    {destination === "tracker" ? (value.pattern === "daily"
+                      ? "Привычка отслеживается через выбранное число календарных дней."
+                      : value.pattern === "monthly" ? `Привычка отслеживается ${new Date(`${startDate}T12:00:00`).getDate()} числа выбранных месяцев.`
+                      : `Привычка отслеживается ежегодно ${shortDate(startDate, displayCalendarMode)}.`) : value.pattern === "daily"
                     ? "Задача появится через выбранное число календарных дней."
                     : value.pattern === "monthly"
                       ? `Задача появится ${new Date(`${startDate}T12:00:00`).getDate()} числа выбранных месяцев.`
@@ -406,8 +415,8 @@ export function RecurrenceBuilder({
           <small className="recurrence-sync-note">
             {destination === "tracker"
               ? (isEnglish
-                  ? "GENESIS owns the recurrence. Google Tasks or Calendar are used only when you explicitly enable a reminder."
-                  : "Повтор хранится в GENESIS. Google Tasks или Календарь используются только при явно включённом напоминании.")
+                  ? "GENESIS stores the habit and its recurrence. Google copies are created only when you enable them below."
+                  : "Привычка и её повторение хранятся в GENESIS. Копии в Google создаются только по вашему выбору ниже.")
               : destination === "tasks"
               ? (isEnglish
                   ? "Google Tasks has no recurrence API, so GENESIS will safely store this as one recurring Google Calendar event."
@@ -418,6 +427,7 @@ export function RecurrenceBuilder({
           </small>
         </div>
       ) : null}
+      {footerControls}
     </section>
   );
 }

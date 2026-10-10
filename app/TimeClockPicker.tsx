@@ -1,12 +1,13 @@
 "use client";
 
-import { useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { createContext, useContext, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { formatTimeValue, hourFromTwelveHour, twelveHourParts, type TimeFormat } from "./time-format";
 import { useDialogAccessibility } from "./use-dialog-accessibility";
 
 const CENTER = 122;
 const HOUR_RADIUS = 96;
 const MINUTE_RADIUS = 54;
+export const TimeClockFormatContext = createContext<TimeFormat>("24h");
 
 function angleFromPoint(clientX: number, clientY: number, rect: DOMRect) {
   const x = clientX - (rect.left + rect.width / 2);
@@ -23,13 +24,16 @@ function pointOnCircle(radius: number, index: number, total: number) {
   };
 }
 
-export function TimeClockPicker({ id, value, onChange, disabled = false, timeFormat = "24h" }: {
+export function TimeClockPicker({ id, value, onChange, disabled = false, timeFormat: requestedFormat, ariaLabel }: {
   id?: string;
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
   timeFormat?: TimeFormat;
+  ariaLabel?: string;
 }) {
+  const inheritedFormat = useContext(TimeClockFormatContext);
+  const timeFormat = requestedFormat ?? inheritedFormat;
   const [open, setOpen] = useState(false);
   const faceRef = useRef<SVGSVGElement | null>(null);
   const draggingRef = useRef<"hour" | "minute" | null>(null);
@@ -98,6 +102,7 @@ export function TimeClockPicker({ id, value, onChange, disabled = false, timeFor
         className="time-clock-picker-trigger"
         disabled={disabled}
         aria-haspopup="dialog"
+        aria-label={ariaLabel}
         aria-expanded={open}
         onClick={() => setOpen(true)}
       >

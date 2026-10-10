@@ -1,6 +1,11 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/shared-labels.php';
+require_once __DIR__ . '/shared-activity.php';
+require_once __DIR__ . '/shared-schedule.php';
+require_once __DIR__ . '/shared-space-covers.php';
+
 final class GenesisSharedAccessException extends RuntimeException
 {
     public function __construct(string $message = 'SHARED_PROJECT_NOT_FOUND', public readonly int $status = 404)
@@ -57,6 +62,14 @@ function genesisSharedRowTags(array $row): array
 {
     $row['tags'] = json_decode((string)($row['tagsJson'] ?? '[]'), true) ?: [];
     unset($row['tagsJson']);
+    if (array_key_exists('dependsOnIdsCsv', $row)) {
+        $row['dependsOnIds'] = $row['dependsOnIdsCsv'] ? explode(',', $row['dependsOnIdsCsv']) : [];
+        unset($row['dependsOnIdsCsv']);
+    }
+    if (array_key_exists('labelIdsCsv', $row)) {
+        $row['labelIds'] = $row['labelIdsCsv'] ? explode(',', $row['labelIdsCsv']) : [];
+        unset($row['labelIdsCsv']);
+    }
     return $row;
 }
 
@@ -93,26 +106,31 @@ function genesisSharedProjectAccess(string $projectId, string $userId, string $p
     return $project;
 }
 
-function genesisSharedAudit(string $projectId, string $actorId, string $action, string $objectId): void
+function genesisSharedAudit(string $projectId, string $actorId, string $action, string $objectId, array $details = []): void
 {
-    genesisDb()->prepare('INSERT INTO shared_audit_events (id, project_id, actor_id, action, object_id, created_at)
-        VALUES (:id, :project, :actor, :action, :object, :created)')->execute([
+    $details = genesisSharedEventContext($projectId, $action, $objectId, $details);
+    $details = genesisSharedReadableChanges($details);
+    genesisDb()->prepare('INSERT INTO shared_audit_events (id, project_id, actor_id, action, object_id, created_at, task_id, board_id, details_json)
+        VALUES (:id, :project, :actor, :action, :object, :created, :task, :board, :details)')->execute([
         'id' => genesisUuid(), 'project' => $projectId, 'actor' => $actorId,
         'action' => $action, 'object' => $objectId, 'created' => genesisNow(),
+        'task' => $details['taskId'] ?? null, 'board' => $details['boardId'] ?? null,
+        'details' => json_encode($details, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
     ]);
 }
 
 function genesisSharedSpaces(string $userId): array
 {
     genesisSharedRequireEnabled($userId);
-    $query = genesisDb()->prepare('SELECT s.id, s.title, s.description, s.revision, s.updated_at AS updatedAt, m.role, m.permissions_json, m.can_organize_tasks
+    $query = genesisDb()->prepare('SELECT s.id, s.title, s.description, s.revision, s.cover_x, s.cover_y, (length(s.cover_image) > 0) AS hasCover, s.updated_at AS updatedAt, m.role, m.permissions_json, m.can_organize_tasks
         FROM shared_spaces s JOIN shared_space_members m ON m.space_id = s.id
         WHERE m.user_id = :user ORDER BY s.updated_at DESC LIMIT 100');
     $query->execute(['user' => $userId]);
     return array_map(static function (array $space): array {
         $space['permissions'] = genesisSharedPermissions($space['role'], $space['permissions_json'], (int)$space['can_organize_tasks'] === 1);
         $space['revision'] = (int)$space['revision'];
-        unset($space['permissions_json'], $space['can_organize_tasks']); return $space;
+        $space += genesisSharedCoverInfo($space);
+        unset($space['permissions_json'], $space['can_organize_tasks'], $space['cover_x'], $space['cover_y'], $space['hasCover']); return $space;
     }, $query->fetchAll());
 }
 
@@ -121,6 +139,7 @@ function genesisSharedCreateSpace(string $userId, array $input): array
     genesisSharedRequireEnabled($userId);
     $title = genesisSharedTitle($input['title'] ?? null);
     $description = genesisSharedText($input['description'] ?? '', 5000);
+    $cover = genesisSharedCoverInput($input);
     $invitations = $input['invitations'] ?? [];
     if (!is_array($invitations) || !array_is_list($invitations) || count($invitations) > 20) throw new InvalidArgumentException('INVALID_SPACE_INVITATIONS');
     $id = genesisUuid();
@@ -128,8 +147,8 @@ function genesisSharedCreateSpace(string $userId, array $input): array
     $db = genesisDb();
     $db->beginTransaction();
     try {
-        $db->prepare('INSERT INTO shared_spaces (id, title, description, created_by, created_at, updated_at)
-            VALUES (:id, :title, :description, :user, :now, :now)')->execute(compact('id', 'title', 'description') + ['user' => $userId, 'now' => $now]);
+        $db->prepare('INSERT INTO shared_spaces (id, title, description, cover_image, cover_x, cover_y, created_by, created_at, updated_at)
+            VALUES (:id, :title, :description, :image, :x, :y, :user, :now, :now)')->execute(compact('id', 'title', 'description') + $cover + ['user' => $userId, 'now' => $now]);
         $db->prepare("INSERT INTO shared_space_members (space_id, user_id, role, joined_at)
             VALUES (:space, :user, 'owner', :now)")->execute(['space' => $id, 'user' => $userId, 'now' => $now]);
         $inboxId = genesisUuid();
@@ -162,7 +181,7 @@ function genesisSharedCreateSpace(string $userId, array $input): array
         $db->rollBack();
         throw $error;
     }
-    return ['id' => $id, 'title' => $title, 'role' => 'owner', 'description' => $description, 'revision' => 1, 'updatedAt' => $now];
+    return ['id' => $id, 'title' => $title, 'role' => 'owner', 'description' => $description, 'revision' => 1, 'updatedAt' => $now] + genesisSharedCoverInfo(['id' => $id, 'revision' => 1, 'cover_image' => $cover['image'], 'cover_x' => $cover['x'], 'cover_y' => $cover['y']]);
 }
 
 function genesisSharedProjects(string $userId, string $spaceId): array
@@ -170,6 +189,7 @@ function genesisSharedProjects(string $userId, string $spaceId): array
     genesisSharedRequireEnabled($userId);
     genesisSharedSpaceAccess($spaceId, $userId);
     $query = genesisDb()->prepare('SELECT p.id, p.space_id AS spaceId, p.parent_id AS parentId,
+        (SELECT GROUP_CONCAT(label_id) FROM shared_project_labels WHERE project_id = p.id) AS labelIdsCsv,
         p.title, p.description, p.tags_json AS tagsJson, p.layout, p.kind, p.board_status_id AS boardStatusId, p.is_inbox AS isInbox, p.revision, p.updated_at AS updatedAt,
         m.role, sm.role AS spaceRole, sm.can_organize_tasks AS canOrganizeTasks, sm.permissions_json AS permissionsJson,
         (SELECT COUNT(*) FROM shared_tasks t WHERE t.project_id = p.id) AS taskCount,
@@ -192,6 +212,7 @@ function genesisSharedArchivedProjects(string $userId, string $spaceId): array
     genesisSharedRequireEnabled($userId);
     genesisSharedSpaceAccess($spaceId, $userId);
     $query = genesisDb()->prepare('SELECT p.id, p.space_id AS spaceId, p.parent_id AS parentId,
+        (SELECT GROUP_CONCAT(label_id) FROM shared_project_labels WHERE project_id = p.id) AS labelIdsCsv,
         p.title, p.description, p.tags_json AS tagsJson, p.layout, p.kind, p.board_status_id AS boardStatusId, p.revision, p.archived_at AS archivedAt, m.role
         FROM shared_projects p JOIN shared_project_members m ON m.project_id = p.id
         WHERE p.space_id = :space AND m.user_id = :user AND p.archived_at IS NOT NULL
@@ -301,12 +322,18 @@ function genesisSharedUpdateStatus(string $userId, string $projectId, string $st
             'id' => $statusId, 'project' => $projectId, 'expected' => $expected]);
         if ($changed->rowCount() !== 1) throw new GenesisSharedAccessException('STATUS_CONFLICT', 409);
         if ($done !== (int)$status['is_done']) {
+            $affected = $db->prepare('SELECT id FROM shared_tasks WHERE project_id = :project AND status_id = :status');
+            $affected->execute(['project' => $projectId, 'status' => $statusId]);
+            $affectedIds = $affected->fetchAll(PDO::FETCH_COLUMN);
             $db->prepare('UPDATE shared_tasks SET completed_by = :completed_by, completed_at = :completed_at,
                 updated_by = :user, updated_at = :now, revision = revision + 1 WHERE project_id = :project AND status_id = :status')
                 ->execute(['completed_by' => $done ? $userId : null, 'completed_at' => $done ? genesisNow() : null,
                     'user' => $userId, 'now' => genesisNow(), 'project' => $projectId, 'status' => $statusId]);
+            foreach ($affectedIds as $affectedId) genesisSharedAudit($projectId, $userId, 'task.updated', $affectedId, ['changes' => ['isDone' => ['from' => (bool)$status['is_done'], 'to' => (bool)$done]]]);
         }
-        genesisSharedAudit($projectId, $userId, 'status.updated', $statusId); $db->commit();
+        genesisSharedAudit($projectId, $userId, 'status.updated', $statusId, ['changes' => genesisSharedChanges(
+            ['title' => $status['title'], 'color' => $status['color'], 'isDone' => (int)$status['is_done']],
+            ['title' => $title, 'color' => $color, 'isDone' => $done]), 'imageChanged' => $image !== $status['image_url']]); $db->commit();
         return ['id' => $statusId, 'title' => $title, 'color' => $color, 'imageUrl' => $image,
             'isDone' => $done, 'position' => (int)$status['position'], 'revision' => $expected + 1];
     } catch (Throwable $error) { $db->rollBack(); throw $error; }
@@ -324,7 +351,7 @@ function genesisSharedDeleteStatus(string $userId, string $projectId, string $st
     $db->beginTransaction();
     try {
         genesisSharedProjectAccess($projectId, $userId, 'manage');
-        $query = $db->prepare('SELECT id, is_done, revision FROM shared_project_statuses
+        $query = $db->prepare('SELECT id, title, is_done, revision FROM shared_project_statuses
             WHERE project_id = :project AND id IN (:source, :target)');
         $query->execute(['project' => $projectId, 'source' => $statusId, 'target' => $targetId]);
         $statuses = [];
@@ -340,6 +367,9 @@ function genesisSharedDeleteStatus(string $userId, string $projectId, string $st
             if ((int)$done->fetchColumn() <= 1) throw new GenesisSharedAccessException('LAST_DONE_STATUS', 409);
         }
         $now = genesisNow();
+        $affected = $db->prepare('SELECT id FROM shared_tasks WHERE project_id = :project AND status_id = :status');
+        $affected->execute(['project' => $projectId, 'status' => $statusId]);
+        $affectedIds = $affected->fetchAll(PDO::FETCH_COLUMN);
         $targetDone = (int)$statuses[$targetId]['is_done'];
         $completion = $targetDone === 1
             ? 'completed_by = COALESCE(completed_by, :actor1), completed_at = COALESCE(completed_at, :now1),'
@@ -351,6 +381,8 @@ function genesisSharedDeleteStatus(string $userId, string $projectId, string $st
             'now2' => $now, 'project' => $projectId, 'source' => $statusId];
         if ($targetDone === 1) $values += ['actor1' => $userId, 'now1' => $now];
         $updates->execute($values);
+        foreach ($affectedIds as $affectedId) genesisSharedAudit($projectId, $userId, 'task.updated', $affectedId, ['changes' => ['statusId' => ['from' => $statusId, 'to' => $targetId], 'isDone' => ['from' => (bool)$statuses[$statusId]['is_done'], 'to' => (bool)$targetDone]]]);
+        $deleteDetails = genesisSharedReadableChanges(['changes' => ['statusId' => ['from' => $statusId, 'to' => $targetId]]]);
         $db->prepare('UPDATE shared_projects SET board_status_id = :target, revision = revision + 1,
             updated_at = :now WHERE board_status_id = :source')->execute([
                 'target' => $targetId, 'source' => $statusId, 'now' => genesisNow(),
@@ -359,7 +391,8 @@ function genesisSharedDeleteStatus(string $userId, string $projectId, string $st
             WHERE id = :id AND project_id = :project AND revision = :expected');
         $changed->execute(['id' => $statusId, 'project' => $projectId, 'expected' => $expected]);
         if ($changed->rowCount() !== 1) throw new GenesisSharedAccessException('STATUS_CONFLICT', 409);
-        genesisSharedAudit($projectId, $userId, 'status.deleted', $statusId);
+        genesisSharedAudit($projectId, $userId, 'status.deleted', $statusId, ['objectTitle' => $statuses[$statusId]['title'], 'boardId' => $statusId,
+            'changes' => ['destination' => $deleteDetails['changes']['statusId']]]);
         $db->commit();
     } catch (Throwable $error) {
         $db->rollBack();
@@ -508,14 +541,15 @@ function genesisSharedCreateProject(string $userId, string $spaceId, array $inpu
                     'position' => $position, 'done' => $done,
                 ]);
         }
-        genesisSharedAudit($id, $userId, 'project.created', $id);
+        $labelIds = genesisSharedAssignLabels($spaceId, 'project', $id, $input);
+        genesisSharedAudit($id, $userId, 'project.created', $id, ['labelIds' => $labelIds]);
         $db->commit();
     } catch (Throwable $error) {
         $db->rollBack();
         throw $error;
     }
     return ['id' => $id, 'spaceId' => $spaceId, 'parentId' => $parentId, 'title' => $title,
-        'description' => $description, 'tags' => $tags, 'layout' => $layout, 'kind' => $kind, 'boardStatusId' => $boardStatusId, 'revision' => 1, 'role' => 'owner', 'updatedAt' => $now];
+        'description' => $description, 'tags' => $tags, 'labelIds' => $labelIds, 'layout' => $layout, 'kind' => $kind, 'boardStatusId' => $boardStatusId, 'revision' => 1, 'role' => 'owner', 'updatedAt' => $now];
 }
 
 /** The shared copy commits as one unit; private cleanup is a separate client step. */
@@ -822,14 +856,18 @@ function genesisSharedUpdateProject(string $userId, string $projectId, array $in
             'expected' => (int)$project['revision'],
         ]);
         if ($changed->rowCount() !== 1) throw new GenesisSharedAccessException('SHARED_PROJECT_CONFLICT', 409);
-        genesisSharedAudit($projectId, $userId, 'project.updated', $projectId);
+        $oldLabels = genesisSharedLabelIds('project', $projectId);
+        $labelIds = genesisSharedAssignLabels($project['space_id'], 'project', $projectId, $input);
+        genesisSharedAudit($projectId, $userId, 'project.updated', $projectId, ['changes' => genesisSharedChanges(
+            ['title' => $project['title'], 'description' => $project['description'], 'tags' => json_decode($project['tags_json'], true), 'layout' => $project['layout'], 'parentId' => $project['parent_id'], 'labelIds' => $oldLabels],
+            compact('title', 'description', 'tags', 'layout', 'parentId', 'labelIds'))]);
         $db->commit();
     } catch (Throwable $error) {
         $db->rollBack();
         throw $error;
     }
     return ['id' => $projectId, 'spaceId' => $project['space_id'], 'parentId' => $parentId,
-        'title' => $title, 'description' => $description, 'tags' => $tags, 'layout' => $layout, 'kind' => $project['kind'], 'boardStatusId' => $boardStatusId,
+        'title' => $title, 'description' => $description, 'tags' => $tags, 'labelIds' => $labelIds, 'layout' => $layout, 'kind' => $project['kind'], 'boardStatusId' => $boardStatusId,
         'revision' => (int)$project['revision'] + 1, 'role' => $project['member_role'],
         'updatedAt' => $now];
 }
@@ -858,7 +896,7 @@ function genesisSharedSetMemberRole(string $userId, string $projectId, string $t
         }
         $db->prepare('UPDATE shared_project_members SET role = :role WHERE project_id = :project AND user_id = :user')
             ->execute(['role' => $role, 'project' => $projectId, 'user' => $targetId]);
-        genesisSharedAudit($projectId, $userId, 'member.role_changed', $targetId);
+        genesisSharedAudit($projectId, $userId, 'member.role_changed', $targetId, ['changes' => ['role' => ['from' => $oldRole, 'to' => $role]]]);
         $db->commit();
     } catch (Throwable $error) {
         $db->rollBack();
@@ -1003,6 +1041,9 @@ function genesisSharedProjectSnapshot(string $userId, string $projectId): array
         FROM shared_project_categories WHERE project_id = :project ORDER BY position');
     $categories->execute(['project' => $projectId]);
     $tasks = $db->prepare('SELECT t.id, t.project_id AS projectId, t.status_id AS statusId, t.title,
+        (SELECT GROUP_CONCAT(label_id) FROM shared_task_labels WHERE task_id = t.id) AS labelIdsCsv,
+        (SELECT GROUP_CONCAT(predecessor_id) FROM shared_task_dependencies WHERE task_id = t.id) AS dependsOnIdsCsv,
+        t.start_date AS startDate, t.start_time AS startTime, t.end_time AS endTime,
         t.category_id AS categoryId, t.description, t.tags_json AS tagsJson, t.due_date AS dueDate,
         t.assignee_id AS assigneeId, t.created_by AS createdBy,
         t.updated_by AS updatedBy, t.completed_by AS completedBy, t.completed_at AS completedAt,
@@ -1020,6 +1061,7 @@ function genesisSharedProjectSnapshot(string $userId, string $projectId): array
         'project' => [
             'id' => $projectId, 'spaceId' => $project['space_id'], 'parentId' => $project['parent_id'],
             'title' => $project['title'], 'description' => $project['description'], 'tags' => json_decode($project['tags_json'], true),
+            'labelIds' => genesisSharedLabelIds('project', $projectId),
             'layout' => $project['layout'], 'kind' => $project['kind'], 'boardStatusId' => $project['board_status_id'], 'isInbox' => (int)$project['is_inbox'],
             'revision' => (int)$project['revision'],
             'role' => $project['member_role'], 'spaceRole' => $project['space_member_role'],
@@ -1125,7 +1167,9 @@ function genesisSharedCalendarTasks(string $userId, string $from, string $to): a
 function genesisSharedNotifications(string $userId): array
 {
     genesisSharedRequireEnabled($userId);
-    $query = genesisDb()->prepare('SELECT e.id, e.action, e.object_id AS objectId,
+    $query = genesisDb()->prepare('SELECT e.id,
+        CASE WHEN e.action = \'comment.created\' AND EXISTS (SELECT 1 FROM shared_comment_mentions cm WHERE cm.comment_id = e.object_id AND cm.user_id = :mentioned) THEN \'comment.mentioned\' ELSE e.action END AS action,
+        COALESCE(e.task_id, e.object_id) AS objectId,
         e.created_at AS createdAt, p.id AS projectId, p.title AS projectTitle,
         p.space_id AS spaceId, COALESCE(NULLIF(u.display_name, \'\'), u.email, \'Участник GENESIS\') AS actorName,
         t.title AS taskTitle, CASE WHEN r.event_id IS NULL THEN 0 ELSE 1 END AS isRead
@@ -1134,14 +1178,14 @@ function genesisSharedNotifications(string $userId): array
         JOIN shared_project_members m ON m.project_id = p.id AND m.user_id = :member
         JOIN shared_space_members sm ON sm.space_id = p.space_id AND sm.user_id = m.user_id
         LEFT JOIN users u ON u.id = e.actor_id
-        LEFT JOIN shared_tasks t ON t.id = e.object_id
+        LEFT JOIN shared_tasks t ON t.id = COALESCE(e.task_id, e.object_id)
         LEFT JOIN shared_notification_reads r ON r.event_id = e.id AND r.user_id = :reader
         WHERE e.actor_id IS NOT :actor AND e.action IN
             (\'task.created\', \'task.updated\', \'task.moved_in\', \'task.moved_out\',
              \'comment.created\', \'project.created\', \'project.updated\',
              \'invitation.accepted\', \'member.role_changed\')
         ORDER BY e.created_at DESC, e.id DESC LIMIT 100');
-    $query->execute(['member' => $userId, 'reader' => $userId, 'actor' => $userId]);
+    $query->execute(['member' => $userId, 'reader' => $userId, 'actor' => $userId, 'mentioned' => $userId]);
     return $query->fetchAll();
 }
 
@@ -1253,6 +1297,9 @@ function genesisSharedMoveTask(string $userId, string $sourceProjectId, string $
         $query->execute(['status' => $statusId, 'project' => $destinationId]);
         $isDone = $query->fetchColumn();
         if ($isDone === false) throw new InvalidArgumentException('INVALID_STATUS');
+        $dueDate = array_key_exists('dueDate', $input) ? $input['dueDate'] : $task['due_date'];
+        if ($dueDate !== null && (!is_string($dueDate) || !preg_match('/\A\d{4}-\d{2}-\d{2}\z/', $dueDate) || !checkdate((int)substr($dueDate, 5, 2), (int)substr($dueDate, 8, 2), (int)substr($dueDate, 0, 4)))) throw new InvalidArgumentException('INVALID_DUE_DATE');
+        $schedule = genesisSharedSchedule($input, $task, $dueDate);
         $now = genesisNow();
         $changedProject = $sourceProjectId !== $destinationId;
         $assignee = $task['assignee_id'];
@@ -1267,15 +1314,16 @@ function genesisSharedMoveTask(string $userId, string $sourceProjectId, string $
         $completedAt = $done ? ($task['completed_at'] ?? $now) : null;
         $update = $db->prepare('UPDATE shared_tasks SET project_id = :project, status_id = :status,
             category_id = :category, assignee_id = :assignee, completed_by = :completed_by,
-            completed_at = :completed_at, updated_by = :actor, updated_at = :now,
+            completed_at = :completed_at, due_date = :due, start_date = :start_date, start_time = :start_time, end_time = :end_time, updated_by = :actor, updated_at = :now,
             revision = revision + 1 WHERE id = :id AND project_id = :source AND revision = :expected');
         $update->execute(['project' => $destinationId, 'status' => $statusId,
                 'category' => $changedProject ? null : $task['category_id'], 'assignee' => $assignee,
-                'completed_by' => $completedBy, 'completed_at' => $completedAt,
+                'completed_by' => $completedBy, 'completed_at' => $completedAt, 'due' => $dueDate, 'start_date' => $schedule['startDate'], 'start_time' => $schedule['startTime'], 'end_time' => $schedule['endTime'],
                 'actor' => $userId, 'now' => $now, 'id' => $taskId,
                 'source' => $sourceProjectId, 'expected' => $expected]);
         if ($update->rowCount() !== 1) throw new GenesisSharedAccessException('SHARED_TASK_CONFLICT', 409);
         if ($changedProject) {
+            genesisSharedDetachDependencies($sourceProjectId, $taskId, $userId);
             $links = $db->prepare('SELECT l.user_id, l.destination, l.google_id,
                 COALESCE(l.google_list_id, source_pref.google_task_list_id) AS source_list_id,
                 destination_member.user_id AS destination_member_id,
@@ -1321,11 +1369,15 @@ function genesisSharedMoveTask(string $userId, string $sourceProjectId, string $
         array_splice($ordered, min($position, count($ordered)), 0, [$taskId]);
         $reposition = $db->prepare('UPDATE shared_tasks SET position = :position WHERE id = :id');
         foreach ($ordered as $index => $id) $reposition->execute(['position' => $index, 'id' => $id]);
-        genesisSharedAudit($sourceProjectId, $userId, 'task.moved_out', $taskId);
-        if ($changedProject) genesisSharedAudit($destinationId, $userId, 'task.moved_in', $taskId);
+        $moveDetails = ['taskId' => $taskId, 'objectTitle' => $task['title'], 'changes' => [
+            'statusId' => ['from' => $task['status_id'], 'to' => $statusId], 'projectId' => ['from' => $sourceProjectId, 'to' => $destinationId]] + genesisSharedChanges(['dueDate' => $task['due_date'], 'startDate' => $task['start_date'], 'startTime' => $task['start_time'], 'endTime' => $task['end_time']], ['dueDate' => $dueDate] + $schedule)];
+        genesisSharedAudit($sourceProjectId, $userId, 'task.moved_out', $taskId, $moveDetails + ['boardId' => $task['status_id']]);
+        if ($changedProject || $task['status_id'] !== $statusId) genesisSharedAudit($destinationId, $userId, 'task.moved_in', $taskId, $moveDetails + ['boardId' => $statusId]);
         $response = ['id' => $taskId, 'projectId' => $destinationId, 'statusId' => $statusId,
             'position' => min($position, count($ordered) - 1), 'revision' => $expected + 1,
-            'assigneeId' => $assignee, 'categoryId' => $changedProject ? null : $task['category_id']];
+            'assigneeId' => $assignee, 'categoryId' => $changedProject ? null : $task['category_id'],
+            'dueDate' => $dueDate, 'startDate' => $schedule['startDate'], 'startTime' => $schedule['startTime'], 'endTime' => $schedule['endTime'], 'completedAt' => $completedAt, 'completedBy' => $completedBy,
+            'labelIds' => genesisSharedLabelIds('task', $taskId), 'dependsOnIds' => genesisSharedDependencyIds($taskId)];
         genesisSharedSaveMutationReceipt($db, $userId, $requestId, 'task.move', $taskId, $response);
         $db->commit();
         return $response;
@@ -1366,6 +1418,8 @@ function genesisSharedDeleteTask(string $userId, string $projectId, string $task
         $revision = $query->fetchColumn();
         if ($revision === false) throw new GenesisSharedAccessException();
         if ((int)$revision !== $expected) throw new GenesisSharedAccessException('SHARED_TASK_CONFLICT', 409);
+        $deleteContext = genesisSharedEventContext($projectId, 'task.deleted', $taskId, []);
+        genesisSharedDetachDependencies($projectId, $taskId, $userId);
         // Keep Google cleanup independent of the cascading deletion of projection links.
         $db->prepare('INSERT INTO shared_google_projection_cleanup
             (id, user_id, destination, google_id, google_list_id, created_at)
@@ -1373,7 +1427,7 @@ function genesisSharedDeleteTask(string $userId, string $projectId, string $task
             FROM shared_google_projection_links WHERE task_id = :task')->execute(['now' => genesisNow(), 'task' => $taskId]);
         $db->prepare('DELETE FROM shared_tasks WHERE id = :task AND project_id = :project')
             ->execute(['task' => $taskId, 'project' => $projectId]);
-        genesisSharedAudit($projectId, $userId, 'task.deleted', $taskId);
+        genesisSharedAudit($projectId, $userId, 'task.deleted', $taskId, $deleteContext);
         $response = ['ok' => true, 'id' => $taskId];
         genesisSharedSaveMutationReceipt($db, $userId, $requestId, 'task.delete', $taskId, $response);
         $db->commit();
@@ -1390,7 +1444,7 @@ function genesisSharedTask(string $userId, string $projectId, array $input, ?str
     $db = genesisDb();
     $db->beginTransaction();
     try {
-        genesisSharedProjectAccess($projectId, $userId, 'write');
+        $project = genesisSharedProjectAccess($projectId, $userId, 'write');
         $receipt = genesisSharedMutationReceipt($db, $userId, $requestId, $action, $resourceId);
         if ($receipt !== null) {
             $db->commit();
@@ -1467,6 +1521,8 @@ function genesisSharedTask(string $userId, string $projectId, array $input, ?str
         }
         $now = genesisNow();
         $id = $taskId ?? genesisUuid();
+        $schedule = genesisSharedSchedule($input, $existing, $dueDate);
+        $oldDependencies = genesisSharedDependencyIds($id);
         $completedBy = $isDone ? ($existing['completed_by'] ?? $userId) : null;
         $completedAt = $isDone ? ($existing['completed_at'] ?? $now) : null;
         if ($existing) {
@@ -1503,13 +1559,22 @@ function genesisSharedTask(string $userId, string $projectId, array $input, ?str
                 ]);
             }
         }
-        genesisSharedAudit($projectId, $userId, $existing ? 'task.updated' : 'task.created', $id);
+        $oldLabels = genesisSharedLabelIds('task', $id);
+        $db->prepare('UPDATE shared_tasks SET start_date = :start, start_time = :start_time, end_time = :end_time WHERE id = :id')->execute([
+            'id' => $id, 'start' => $schedule['startDate'], 'start_time' => $schedule['startTime'], 'end_time' => $schedule['endTime']]);
+        $dependsOnIds = genesisSharedAssignDependencies($projectId, $id, $input);
+        $labelIds = genesisSharedAssignLabels($project['space_id'], 'task', $id, $input);
+        genesisSharedAudit($projectId, $userId, $existing ? 'task.updated' : 'task.created', $id, ['changes' => genesisSharedChanges(
+            ['title' => $existing['title'] ?? null, 'description' => $existing['description'] ?? null, 'tags' => isset($existing['tags_json']) ? json_decode($existing['tags_json'], true) : [],
+             'dueDate' => $existing['due_date'] ?? null, 'statusId' => $existing['status_id'] ?? null, 'categoryId' => $existing['category_id'] ?? null, 'assigneeId' => $existing['assignee_id'] ?? null, 'labelIds' => $oldLabels,
+             'startDate' => $existing['start_date'] ?? null, 'startTime' => $existing['start_time'] ?? null, 'endTime' => $existing['end_time'] ?? null, 'dependsOnIds' => $oldDependencies],
+            compact('title', 'description', 'tags', 'dueDate', 'statusId', 'categoryId', 'assigneeId', 'labelIds', 'dependsOnIds') + $schedule)]);
         $response = ['id' => $id, 'projectId' => $projectId, 'statusId' => $statusId,
             'title' => $title, 'description' => $description, 'tags' => $tags, 'dueDate' => $dueDate,
-            'assigneeId' => $assigneeId, 'categoryId' => $categoryId,
+            'assigneeId' => $assigneeId, 'categoryId' => $categoryId, 'labelIds' => $labelIds,
             'revision' => $existing ? (int)$existing['revision'] + 1 : 1,
             'completedBy' => $completedBy, 'completedAt' => $completedAt,
-            'updatedAt' => $now];
+            'updatedAt' => $now, 'dependsOnIds' => $dependsOnIds] + $schedule;
         genesisSharedSaveMutationReceipt($db, $userId, $requestId, $action, $resourceId, $response);
         $db->commit();
         return $response;
@@ -1524,19 +1589,25 @@ function genesisSharedComments(string $userId, string $projectId, string $taskId
     genesisSharedRequireEnabled($userId);
     genesisSharedProjectAccess($projectId, $userId);
     $query = genesisDb()->prepare('SELECT c.id, c.body, c.created_at AS createdAt,
+        (SELECT GROUP_CONCAT(user_id) FROM shared_comment_mentions WHERE comment_id = c.id) AS mentionIdsCsv,
         c.author_id AS authorId, COALESCE(u.display_name, \'Удалённый участник\') AS authorName
         FROM shared_comments c JOIN shared_tasks t ON t.id = c.task_id
         LEFT JOIN users u ON u.id = c.author_id
         WHERE t.id = :task AND t.project_id = :project ORDER BY c.created_at LIMIT 200');
     $query->execute(['task' => $taskId, 'project' => $projectId]);
-    return $query->fetchAll();
+    return array_map(static function ($row) { $row['mentionIds'] = $row['mentionIdsCsv'] ? explode(',', $row['mentionIdsCsv']) : [];
+        unset($row['mentionIdsCsv']); return $row; }, $query->fetchAll());
 }
 
 function genesisSharedAddComment(string $userId, string $projectId, string $taskId, array $input): array
 {
     genesisSharedRequireEnabled($userId);
     genesisSharedProjectAccess($projectId, $userId, 'comment');
-    $body = genesisSharedTitle($input['body'] ?? null, 5000);
+    $body = genesisSharedText($input['body'] ?? '', 5000);
+    if ($body === '') throw new InvalidArgumentException('TITLE_REQUIRED');
+    $mentions = $input['mentionIds'] ?? [];
+    if (!is_array($mentions) || !array_is_list($mentions) || count($mentions) > 20 || array_filter($mentions, static fn($id) => !is_string($id) || strlen($id) > 100)) throw new InvalidArgumentException('INVALID_MENTIONS');
+    $mentions = array_values(array_unique($mentions));
     $db = genesisDb();
     $db->beginTransaction();
     try {
@@ -1544,15 +1615,24 @@ function genesisSharedAddComment(string $userId, string $projectId, string $task
         $query = $db->prepare('SELECT 1 FROM shared_tasks WHERE id = :task AND project_id = :project');
         $query->execute(['task' => $taskId, 'project' => $projectId]);
         if (!$query->fetchColumn()) throw new GenesisSharedAccessException();
+        $member = $db->prepare('SELECT u.display_name FROM shared_project_members pm JOIN users u ON u.id = pm.user_id
+            JOIN shared_projects p ON p.id = pm.project_id JOIN shared_space_members sm ON sm.space_id = p.space_id AND sm.user_id = pm.user_id
+            WHERE pm.project_id = :project AND pm.user_id = :user');
+        foreach ($mentions as $mentionedId) {
+            $member->execute(['project' => $projectId, 'user' => $mentionedId]); $name = $member->fetchColumn();
+            if (!is_string($name) || $name === '' || !preg_match('/@' . preg_quote($name, '/') . '(?![\p{L}\p{N}_])/u', $body)) throw new InvalidArgumentException('INVALID_MENTIONS');
+        }
         $id = genesisUuid();
         $now = genesisNow();
         $db->prepare('INSERT INTO shared_comments (id, task_id, author_id, body, created_at)
             VALUES (:id, :task, :user, :body, :now)')->execute([
                 'id' => $id, 'task' => $taskId, 'user' => $userId, 'body' => $body, 'now' => $now,
             ]);
+        $mention = $db->prepare('INSERT INTO shared_comment_mentions (comment_id, user_id) VALUES (:comment, :user)');
+        foreach ($mentions as $mentionedId) $mention->execute(['comment' => $id, 'user' => $mentionedId]);
         genesisSharedAudit($projectId, $userId, 'comment.created', $id);
         $db->commit();
-        return ['id' => $id, 'body' => $body, 'authorId' => $userId, 'createdAt' => $now];
+        return ['id' => $id, 'body' => $body, 'mentionIds' => $mentions, 'authorId' => $userId, 'createdAt' => $now];
     } catch (Throwable $error) {
         $db->rollBack();
         throw $error;

@@ -204,6 +204,7 @@ export type HabitCompletion = TrackerEntity & {
   date: string;
   completed: boolean;
   qualityValue: number | null;
+  qualityConfirmedAt?: string | null;
   score: number;
   xpAwarded: number;
   note: string;
@@ -279,6 +280,7 @@ type LegacyHabit = Partial<TrackerEntity> & {
 };
 
 type LegacyHabitEntry = Partial<TrackerEntity> & {
+  qualityConfirmedAt?: string | null;
   id?: string;
   habitId?: string;
   date?: string;
@@ -492,7 +494,8 @@ export function updateHabitCompletion(
     xpAwarded: 0,
     note: "",
   };
-  const patched = markTrackerEntityChanged({ ...base, ...patch });
+  const patched = markTrackerEntityChanged({ ...base, ...patch,
+    ...(base.qualityConfirmedAt ? { qualityValue: base.qualityValue, qualityConfirmedAt: base.qualityConfirmedAt } : {}) });
   const score = scoreHabitCompletion(habit, patched);
   const entry = { ...patched, score, xpAwarded: completionXpAward(base.xpAwarded, score, MAX_HABIT_XP_PER_COMPLETION) };
   return {
@@ -522,6 +525,7 @@ function normalizeHabitCompletion(value: LegacyHabitEntry, habits: Map<string, H
     habitId,
     date,
     ...completion,
+    qualityConfirmedAt: typeof value.qualityConfirmedAt === "string" ? value.qualityConfirmedAt : null,
     score,
     xpAwarded: typeof value.xpAwarded === "number"
       ? completionXpAward(value.xpAwarded, 0, MAX_HABIT_XP_PER_COMPLETION)

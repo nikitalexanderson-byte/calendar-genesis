@@ -22,6 +22,7 @@ import type { Language } from "./i18n";
 import { catalogText } from "./catalog-i18n";
 import { formatTimeValue, type TimeFormat } from "./time-format";
 import { CalendarDatePicker } from "./CalendarDatePicker";
+import { TimeClockPicker } from "./TimeClockPicker";
 import { RecurrenceBuilder } from "./RecurrenceBuilder";
 import { calendarModeForRecurrence } from "./task-recurrence";
 import { HeroicRankSigil } from "./HeroicRankSigil";
@@ -394,7 +395,7 @@ function HabitStrictTimeField({ value, fallbackTime, language, onChange }: { val
     <div className="habit-strict-time-field">
       <label>
         <span>{isEnglish ? "Strict completion time" : "Строгое время выполнения"}</span>
-        <input type="time" value={value} disabled={disabled} required={!disabled} onChange={(event) => onChange(event.target.value)} />
+        <TimeClockPicker value={value} disabled={disabled} onChange={onChange} ariaLabel={isEnglish ? "Strict completion time" : "Строгое время выполнения"}/>
       </label>
       <label className="habit-no-strict-time">
         <input type="checkbox" checked={disabled} onChange={(event) => onChange(event.target.checked ? "" : fallbackTime || "09:00")} />
@@ -747,11 +748,12 @@ function MoodTracker({ workspace, date, language, onChange }: Pick<DailyPanelPro
     <section className={`mood-tracker${isOpen ? " is-open" : ""}`}>
       <button type="button" className="mood-summary" aria-haspopup="dialog" onClick={() => setIsOpen(true)}>
         <span>{isEnglish ? "Mood of the day" : "Настроение дня"}</span>
-        <strong style={{ color: mood ? moodColor(mood.moodValue) : undefined }}>
-          {mood?.customLabel ? `${mood.customEmoji || "✨"} ${mood.customLabel}` : selected ? (isEnglish ? selected.labelEn : selected.label) : (isEnglish ? "Not selected" : "Не выбрано")}
+        <strong>
+          {mood ? <span className="mood-summary-symbol" style={{color:moodColor(mood.moodValue)}} aria-hidden="true">{mood.customEmoji || selected?.symbol || "✨"}</span> : null}
+          {mood?.customLabel || (selected ? (isEnglish ? selected.labelEn : selected.label) : (isEnglish ? "Not selected" : "Не выбрано"))}
         </strong>
         <span className="mood-summary-action">
-          {isEnglish ? "Choose" : "Выбрать"}
+          {mood ? (isEnglish ? "Change" : "Поменять") : (isEnglish ? "Choose" : "Выбрать")}
           <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4" /></svg>
         </span>
       </button>
@@ -801,8 +803,19 @@ function MoodTracker({ workspace, date, language, onChange }: Pick<DailyPanelPro
   );
 }
 
+function HabitQualityControl({habit,value,confirmed,canRecord,isEnglish,onApply}:{habit:Habit;value:number|null;confirmed:boolean;canRecord:boolean;isEnglish:boolean;onApply:(value:number)=>void}) {
+  const [draft,setDraft]=useState(value??(habit.qualityScale==="ten" ? 5 : 0));
+  if(confirmed||!canRecord) return <div className="habit-quality-confirmed"><span>{isEnglish ? "Quality" : "Качество"}</span><strong>{qualityLabel(habit.qualityScale,value,isEnglish)}</strong><small>{isEnglish ? "Confirmed" : "Зафиксировано"}</small></div>;
+  return <div className={`habit-quality-control scale-${habit.qualityScale}`}><label className={`habit-quality-slider scale-${habit.qualityScale}`}>
+    <span>{isEnglish ? "Quality" : "Качество"}<strong>{qualityLabel(habit.qualityScale,draft,isEnglish)}</strong></span>
+    <input type="range" min={habit.qualityScale==="ten" ? 1 : -5} max={habit.qualityScale==="ten" ? 10 : 5} step="1" value={draft} onChange={event=>setDraft(Number(event.target.value))} aria-label={isEnglish ? `Quality of ${habit.title}` : `Качество выполнения «${habit.title}»`}/>
+    <div><span>{habit.qualityScale==="ten" ? "1" : "−5"}</span>{habit.qualityScale==="bipolar" ? <i>0</i> : null}<span>{habit.qualityScale==="ten" ? "10" : "+5"}</span></div>
+  </label><button type="button" className="primary-button" onClick={()=>onApply(draft)}>{isEnglish ? "Apply" : "Применить"}</button></div>;
+}
+
 export function HabitDailyPanel({ workspace, date, language, timeFormat, calendarMode, onChange, onOpenHabits, onCreateHabit, compact = false, showGoalSettings = false, experimentalThemeActive = false }: DailyPanelProps) {
   const isEnglish = language === "en";
+  const [qualityDrafts,setQualityDrafts]=useState<Record<string,boolean>>({});
   const today = habitDateKey(new Date());
   const dueHabits = workspace.habits
     .filter((habit) => isHabitScheduledForDate(habit, date, calendarMode))
@@ -880,6 +893,8 @@ export function HabitDailyPanel({ workspace, date, language, timeFormat, calenda
             const entry = completionFor(workspace, habit.id, date);
             const score = entry ? scoreHabitCompletion(habit, entry) : 0;
             const canRecord = canRecordHabitOnDate(habit.createdDate, date, today);
+            const draftKey=`${date}:${habit.id}`;
+            const choosingQuality=Boolean(qualityDrafts[draftKey]);
             return (
               <article className={`${entry?.completed ? "done" : ""}${canRecord ? "" : " read-only"}${habit.isKeyHabit ? " key-habit" : ""}`} style={{ "--habit-color": habit.color } as CSSProperties} key={habit.id}>
                 <button
@@ -887,37 +902,20 @@ export function HabitDailyPanel({ workspace, date, language, timeFormat, calenda
                   className="habit-check"
                   disabled={!canRecord}
                   title={!canRecord ? (isEnglish ? "Only today's mark can be changed" : "Можно изменить только сегодняшнюю отметку") : undefined}
-                  onClick={() => onChange(updateHabitCompletion(workspace, habit, date, {
-                    completed: !entry?.completed,
-                    qualityValue: !entry?.completed && habit.qualityScale !== "none" ? entry?.qualityValue ?? (habit.qualityScale === "ten" ? 5 : 0) : entry?.qualityValue ?? null,
-                  }))}
-                  aria-pressed={Boolean(entry?.completed)}
+                  onClick={() => { if(habit.qualityScale!=="none" && !entry?.completed && !entry?.qualityConfirmedAt){setQualityDrafts(value=>({...value,[draftKey]:!choosingQuality}));return;}
+                    onChange(updateHabitCompletion(workspace, habit, date, {completed:!entry?.completed,qualityValue:entry?.qualityValue??null})); }}
+                  aria-pressed={Boolean(entry?.completed||choosingQuality)}
                   aria-describedby={`habit-copy-${habit.id}-${date}`}
-                  aria-label={entry?.completed ? (isEnglish ? `Unmark ${habit.title}` : `Снять отметку «${habit.title}»`) : (isEnglish ? `Mark ${habit.title}` : `Отметить «${habit.title}»`)}
+                  aria-label={choosingQuality ? (isEnglish ? `Cancel quality selection for ${habit.title}` : `Отменить выбор качества «${habit.title}»`) : entry?.completed ? (isEnglish ? `Unmark ${habit.title}` : `Снять отметку «${habit.title}»`) : (isEnglish ? `Mark ${habit.title}` : `Отметить «${habit.title}»`)}
                 >
-                  {entry?.completed ? "✓" : ""}
+                  {entry?.completed||choosingQuality ? "✓" : ""}
                 </button>
                 <div className="habit-check-copy" id={`habit-copy-${habit.id}-${date}`}>
                   <span><b className="habit-emoji" aria-hidden="true">{habit.emoji}</b><strong data-no-translate>{habit.title}</strong>{habit.isKeyHabit ? <mark>{isEnglish ? "Key habit" : "Главная"}</mark> : null}<em>{isEnglish ? `Priority ${habit.priority}` : `Приоритет ${habit.priority}`}</em></span>
                   {habit.description ? <small data-no-translate>{habit.description}</small> : null}
                   {habit.preferredTime ? <small className="habit-preferred-time">{isEnglish ? "Strict time" : "Строгое время"}: {formatTimeValue(habit.preferredTime, timeFormat)}</small> : null}
                 </div>
-                {entry?.completed && habit.qualityScale !== "none" ? (
-                  <label className={`habit-quality-slider scale-${habit.qualityScale}`}>
-                    <span>{isEnglish ? "Quality" : "Качество"} <strong>{qualityLabel(habit.qualityScale, entry.qualityValue, isEnglish)}</strong></span>
-                    <input
-                      type="range"
-                      min={habit.qualityScale === "ten" ? 1 : -5}
-                      max={habit.qualityScale === "ten" ? 10 : 5}
-                      step="1"
-                      value={entry.qualityValue ?? (habit.qualityScale === "ten" ? 5 : 0)}
-                      disabled={!canRecord}
-                      aria-label={isEnglish ? `Quality of ${habit.title}` : `Качество выполнения «${habit.title}»`}
-                      onChange={(event) => onChange(updateHabitCompletion(workspace, habit, date, { completed: true, qualityValue: Number(event.target.value) }))}
-                    />
-                    <div><span>{habit.qualityScale === "ten" ? "1" : "−5"}</span>{habit.qualityScale === "bipolar" ? <i>0</i> : null}<span>{habit.qualityScale === "ten" ? "10" : "+5"}</span></div>
-                  </label>
-                ) : null}
+                {(entry?.completed||choosingQuality) && habit.qualityScale!=="none" ? <HabitQualityControl key={draftKey} habit={habit} value={entry?.qualityValue??null} confirmed={Boolean(entry?.qualityConfirmedAt)} canRecord={canRecord} isEnglish={isEnglish} onApply={quality=>{onChange(updateHabitCompletion(workspace,habit,date,{completed:true,qualityValue:quality,qualityConfirmedAt:trackerTimestamp()}));setQualityDrafts(value=>({...value,[draftKey]:false}));}}/> : null}
                 {habit.scoringMode !== "none" ? <output aria-label={isEnglish ? `${score} XP for this completion` : `${score} XP за это выполнение`}>{score > 0 ? "+" : ""}{score}</output> : <output className="monitor" aria-label={isEnglish ? "Monitoring only, without points" : "Только наблюдение, без баллов"}>{isEnglish ? "log" : "учёт"}</output>}
               </article>
             );
@@ -934,8 +932,8 @@ export function HabitDailyPanel({ workspace, date, language, timeFormat, calenda
           <article className="sleep-daily-card" key={plan.id}>
             <header><div><span className="eyebrow">{isEnglish ? "Sleep" : "Сон"}</span><strong data-no-translate>{plan.title}</strong></div><output>{formatDuration(entry?.durationMinutes ?? 0, isEnglish)}{entry?.score ? ` · ${entry.score > 0 ? "+" : ""}${entry.score}` : ""}</output></header>
             <div className="sleep-time-grid">
-              <label><span>{isEnglish ? "Fell asleep" : "Заснул(а)"}</span><input type="time" value={entry?.fellAsleepAt ?? ""} onChange={(event) => onChange(replaceSleepEntry(workspace, plan, date, { fellAsleepAt: event.target.value }))} />{entry?.fellAsleepAt ? <small>{formatTimeValue(entry.fellAsleepAt, timeFormat)}</small> : null}</label>
-              <label><span>{isEnglish ? "Woke up" : "Проснулся(ась)"}</span><input type="time" value={entry?.wokeAt ?? ""} onChange={(event) => onChange(replaceSleepEntry(workspace, plan, date, { wokeAt: event.target.value }))} />{entry?.wokeAt ? <small>{formatTimeValue(entry.wokeAt, timeFormat)}</small> : null}</label>
+              <label><span>{isEnglish ? "Fell asleep" : "Заснул(а)"}</span><TimeClockPicker value={entry?.fellAsleepAt ?? ""} onChange={(value) => onChange(replaceSleepEntry(workspace, plan, date, { fellAsleepAt: value }))} />{entry?.fellAsleepAt ? <small>{formatTimeValue(entry.fellAsleepAt, timeFormat)}</small> : null}</label>
+              <label><span>{isEnglish ? "Woke up" : "Проснулся(ась)"}</span><TimeClockPicker value={entry?.wokeAt ?? ""} onChange={(value) => onChange(replaceSleepEntry(workspace, plan, date, { wokeAt: value }))} />{entry?.wokeAt ? <small>{formatTimeValue(entry.wokeAt, timeFormat)}</small> : null}</label>
               {plan.qualityEnabled ? <label className="habit-quality-slider"><span>{isEnglish ? "Sleep quality" : "Качество сна"} <strong>{entry?.quality ?? 5}</strong></span><input type="range" min="1" max="10" value={entry?.quality ?? 5} onChange={(event) => onChange(replaceSleepEntry(workspace, plan, date, { quality: Number(event.target.value) }))} /></label> : null}
             </div>
           </article>
@@ -962,6 +960,16 @@ export function HabitDailyPanel({ workspace, date, language, timeFormat, calenda
   );
 }
 
+function HabitGoogleChoices({reminder,onChange,isEnglish,googleTasksReady,googleCalendarReady}:{reminder:Habit["reminder"];onChange:(reminder:Habit["reminder"])=>void;isEnglish:boolean;googleTasksReady:boolean;googleCalendarReady:boolean}) {
+  return <fieldset className="habit-google-choices"><legend>{isEnglish ? "Google copies of this habit" : "Копии этой привычки в Google"}</legend>
+    <p>{isEnglish ? "Choose where to show the habit. Notifications are configured separately." : "Выберите, где показывать привычку. Уведомления настраиваются отдельно."}</p>
+    <div className="habit-google-choice-grid">
+      <label className="habit-google-check"><input type="checkbox" aria-label={isEnglish ? "Sync habit to Google Tasks" : "Синхронизировать привычку с Google Tasks"} checked={reminder.syncToGoogleTasks} disabled={!googleTasksReady&&!reminder.syncToGoogleTasks} onChange={event=>onChange({...reminder,syncToGoogleTasks:event.target.checked})}/><span><strong>Google Tasks</strong><small>{googleTasksReady ? (isEnglish ? "Habit reminder moves to its next date" : "Копия привычки переносится на следующую дату") : (isEnglish ? "Connect Google Tasks in your account" : "Подключите Google Tasks в личном кабинете")}</small></span></label>
+      <label className="habit-google-check"><input type="checkbox" aria-label={isEnglish ? "Show habit in Google Calendar" : "Показывать привычку в Google Calendar"} checked={reminder.showInGoogleCalendar} disabled={!googleCalendarReady&&!reminder.showInGoogleCalendar} onChange={event=>onChange({...reminder,showInGoogleCalendar:event.target.checked})}/><span><strong>Google Calendar</strong><small>{googleCalendarReady ? (isEnglish ? "Show the habit on its scheduled dates" : "Показывать привычку в дни её повторений") : (isEnglish ? "Connect Google Calendar in your account" : "Подключите Google Calendar в личном кабинете")}</small></span></label>
+    </div>
+  </fieldset>;
+}
+
 function HabitTemplateSetup({ template, date, language, calendarMode, googleTasksReady, googleCalendarReady, allowCalendarModeChange = false, onSave, onClose }: { template: HabitTemplate; date: string; language: Language; calendarMode: CalendarMode; googleTasksReady: boolean; googleCalendarReady: boolean; allowCalendarModeChange?: boolean; onSave: (habit: Habit) => void; onClose: () => void }) {
   const isEnglish = language === "en";
   const [draft, setDraft] = useState(() => createHabitFromTemplate(template, date, calendarMode, language));
@@ -979,11 +987,6 @@ function HabitTemplateSetup({ template, date, language, calendarMode, googleTask
           <button type="button" className="modal-close" onClick={onClose} aria-label={isEnglish ? "Close" : "Закрыть"}><ExperimentalIcon name="close" /></button>
         </header>
 
-        <fieldset className="habit-template-start">
-          <legend>{isEnglish ? "Tracking starts" : "Начало привычки"}</legend>
-          <div className="habit-creation-lock"><span aria-hidden="true">◷</span><div><small>{isEnglish ? "Tracking starts" : "Начало привычки"}</small><strong>{formatCalendarDateValue(draft.createdDate, draftCalendarMode, true)}</strong><p>{isEnglish ? "Choose today or a future start date. After saving, the start date and scoring formula are fixed." : "Выберите сегодня или будущую дату начала. После сохранения дата начала и система баллов будут зафиксированы."}</p></div></div>
-        </fieldset>
-
         <div className="habit-template-quick-settings">
           <article><span>{isEnglish ? "Recommended rhythm" : "Рекомендуемый ритм"}</span><strong>{isEnglish ? template.frequencyEn : template.frequency}</strong><small>{calendarLabel}</small></article>
           <HabitStrictTimeField value={draft.preferredTime} fallbackTime={draft.reminder.time} language={language} onChange={(preferredTime) => setDraft((current) => ({ ...current, preferredTime }))} />
@@ -995,14 +998,13 @@ function HabitTemplateSetup({ template, date, language, calendarMode, googleTask
         <label className="habit-switch"><span><strong>{isEnglish ? "Enable reminder" : "Добавить напоминание"}</strong><small>{isEnglish ? "The habit works without a notification" : "Привычка работает и без уведомления"}</small></span><input type="checkbox" role="switch" aria-label={isEnglish ? "Enable reminder" : "Добавить напоминание"} checked={draft.reminder.enabled} onChange={(event) => setDraft((current) => ({ ...current, reminder: { ...current.reminder, enabled: event.target.checked } }))} /><i /></label>
         <fieldset className="habit-reminder-fields habit-template-reminder" disabled={!draft.reminder.enabled}>
           <HabitReminderTimingFields habit={draft} language={language} onChange={(reminder) => setDraft((current) => ({ ...current, reminder }))} />
-          <label className="habit-google-check"><input type="checkbox" aria-label="Google Tasks" checked={draft.reminder.syncToGoogleTasks} disabled={!googleTasksReady && !draft.reminder.syncToGoogleTasks} onChange={(event) => setDraft((current) => ({ ...current, reminder: { ...current.reminder, syncToGoogleTasks: event.target.checked } }))} /><span><strong>Google Tasks</strong><small>{googleTasksReady ? (isEnglish ? "Create a rolling task reminder" : "Создать переносимое напоминание-задачу") : (isEnglish ? "Connect Google Tasks first" : "Сначала подключите Google Tasks")}</small></span></label>
-          <label className="habit-google-check"><input type="checkbox" aria-label={isEnglish ? "Show in Google Calendar" : "Показывать эту привычку в Google Calendar"} checked={draft.reminder.showInGoogleCalendar} disabled={!googleCalendarReady && !draft.reminder.showInGoogleCalendar} onChange={(event) => setDraft((current) => ({ ...current, reminder: { ...current.reminder, showInGoogleCalendar: event.target.checked } }))} /><span><strong>{isEnglish ? "Show in Google Calendar" : "Показывать эту привычку в Google Calendar"}</strong><small>{googleCalendarReady ? (isEnglish ? "Only when explicitly enabled" : "Только по вашему явному выбору") : (isEnglish ? "Connect Google Calendar first" : "Сначала подключите Google Calendar")}</small></span></label>
         </fieldset>
 
         <details className="habit-template-advanced">
           <summary>{isEnglish ? "Fine-tune recurrence and days" : "Точно настроить повторение и дни"}</summary>
           <RecurrenceBuilder value={draft.schedule.recurrence} startDate={earliestStart} calendarMode={calendarMode} destination="tracker" allowCalendarModeChange={allowCalendarModeChange} onChange={(recurrence) => setDraft((current) => { const next = setNewHabitStartDate(current, recurrence.rangeStart, earliestStart); return { ...next, schedule: { ...next.schedule, recurrence: { ...recurrence, rangeStart: next.createdDate } } }; })} />
         </details>
+        <HabitGoogleChoices reminder={draft.reminder} isEnglish={isEnglish} googleTasksReady={googleTasksReady} googleCalendarReady={googleCalendarReady} onChange={reminder=>setDraft(current=>({...current,reminder}))}/>
 
         <footer><button type="button" className="secondary-button" onClick={onClose}>{isEnglish ? "Cancel" : "Отмена"}</button><button type="submit" className="primary-button">{isEnglish ? "Add habit" : "Добавить привычку"}</button></footer>
       </form>
@@ -1015,7 +1017,6 @@ function HabitEditor({ habit, isExisting, language, calendarMode, googleTasksRea
   const [draft, setDraft] = useState(habit);
   const [forever, setForever] = useState(habit.schedule.endDate === null);
   const dialogRef = useDialogAccessibility<HTMLFormElement>(onClose);
-  const draftCalendarMode = calendarModeForRecurrence(draft.schedule.recurrence.mode);
   const earliestStart = habitDateKey(new Date());
   const scoringDisabled = draft.scoringMode === "none";
   const setQualityScale = (qualityScale: HabitQualityScale) => {
@@ -1037,13 +1038,11 @@ function HabitEditor({ habit, isExisting, language, calendarMode, googleTasksRea
         <HabitRoleFields habit={draft} language={language} onChange={(patch) => setDraft((current) => ({ ...current, ...patch }))} />
         <fieldset className="habit-editor-section">
           <legend><span>01</span>{isEnglish ? "Rhythm and calendar" : "Ритм и календарь"}</legend>
-          <div className="habit-editor-grid habit-rhythm-overview">
-            <div className="habit-creation-lock"><span aria-hidden="true">{isExisting ? "🔒" : "◷"}</span><div><small>{isEnglish ? "Tracking starts" : "Начало привычки"}</small><strong>{formatCalendarDateValue(draft.createdDate, draftCalendarMode, true)}</strong></div></div>
-            <label className="habit-switch"><span><strong>{isEnglish ? "Track indefinitely" : "Отслеживать всегда"}</strong><small>{isEnglish ? "No final date" : "Без даты окончания"}</small></span><input type="checkbox" role="switch" aria-label={isEnglish ? "Track indefinitely" : "Отслеживать всегда"} checked={forever} onChange={(event) => { setForever(event.target.checked); setDraft((current) => ({ ...current, schedule: { ...current.schedule, endDate: event.target.checked ? null : current.schedule.recurrence.rangeEnd || current.schedule.startDate } })); }} /><i /></label>
             <p className="habit-rhythm-start-note">{isExisting ? (isEnglish ? "The start date and scoring are fixed; the other settings can be changed." : "Дата начала и система баллов зафиксированы; остальные настройки можно менять.") : (isEnglish ? "Choose today or a future start date. After saving, the start date and scoring formula are fixed." : "Выберите сегодня или будущую дату начала. После сохранения дата начала и система баллов будут зафиксированы.")}</p>
-          </div>
           <RecurrenceBuilder
+            headerControls={<label className="habit-switch"><span><strong>{isEnglish ? "Track indefinitely" : "Отслеживать всегда"}</strong><small>{isEnglish ? "No final date" : "Без даты окончания"}</small></span><input type="checkbox" role="switch" aria-label={isEnglish ? "Track indefinitely" : "Отслеживать всегда"} checked={forever} onChange={(event) => { setForever(event.target.checked); setDraft((current) => ({ ...current, schedule: { ...current.schedule, endDate: event.target.checked ? null : current.schedule.recurrence.rangeEnd || current.schedule.startDate } })); }} /><i /></label>}
             value={draft.schedule.recurrence}
+            footerControls={<HabitGoogleChoices reminder={draft.reminder} isEnglish={isEnglish} googleTasksReady={googleTasksReady} googleCalendarReady={googleCalendarReady} onChange={reminder=>setDraft(current=>({...current,reminder}))}/>}
             startDate={isExisting ? habit.createdDate : earliestStart}
             calendarMode={calendarMode}
             destination="tracker"
@@ -1074,8 +1073,6 @@ function HabitEditor({ habit, isExisting, language, calendarMode, googleTasksRea
           <fieldset className="habit-reminder-fields" disabled={!draft.reminder.enabled}>
             <div className="habit-editor-grid">
               <HabitReminderTimingFields habit={draft} language={language} onChange={(reminder) => setDraft((current) => ({ ...current, reminder }))} />
-              <label className="habit-google-check"><input type="checkbox" aria-label="Google Tasks" checked={draft.reminder.syncToGoogleTasks} disabled={!googleTasksReady && !draft.reminder.syncToGoogleTasks} onChange={(event) => setDraft((current) => ({ ...current, reminder: { ...current.reminder, syncToGoogleTasks: event.target.checked } }))} /><span><strong>Google Tasks</strong><small>{googleTasksReady ? (isEnglish ? "One task rolls to the next occurrence" : "Одна задача переносится на следующее повторение") : (isEnglish ? "Connect Google Tasks first" : "Сначала подключите Google Tasks")}</small></span></label>
-              <label className="habit-google-check"><input type="checkbox" aria-label={isEnglish ? "Show in Google Calendar" : "Показывать эту привычку в Google Calendar"} checked={draft.reminder.showInGoogleCalendar} disabled={!googleCalendarReady && !draft.reminder.showInGoogleCalendar} onChange={(event) => setDraft((current) => ({ ...current, reminder: { ...current.reminder, showInGoogleCalendar: event.target.checked } }))} /><span><strong>{isEnglish ? "Show in Google Calendar" : "Показывать эту привычку в Google Calendar"}</strong><small>{googleCalendarReady ? (isEnglish ? "Only when explicitly enabled" : "Только по вашему явному выбору") : (isEnglish ? "Connect Google Calendar first" : "Сначала подключите Google Calendar")}</small></span></label>
             </div>
           </fieldset>
         </fieldset>
@@ -1099,7 +1096,7 @@ function HabitReminderTimingFields({ habit, language, onChange }: {
       </select>
     </label>
     {timing === "custom" ? <label><span>{english ? "Reminder time" : "Время напоминания"}</span>
-      <input type="time" value={habit.reminder.time} onChange={(event) => onChange({ ...habit.reminder, time: event.target.value })} />
+      <TimeClockPicker value={habit.reminder.time} onChange={value=>onChange({...habit.reminder,time:value})} ariaLabel={english ? "Reminder time" : "Время напоминания"}/>
     </label> : <p>{english ? "Habit time" : "Время привычки"}: {habit.preferredTime}</p>}
     <label><span>{english ? "Minutes before" : "За сколько минут"}</span>
       <input type="number" min="0" max="1440" step="1" value={habit.reminder.minutesBefore ?? 0}
@@ -1130,7 +1127,7 @@ function SleepEditor({ plan, language, calendarMode, allowCalendarModeChange = f
     <div className="modal-backdrop habit-editor-backdrop" role="presentation">
       <form ref={dialogRef} className="habit-editor specialist-editor" data-exp-ui="dialog" role="dialog" aria-modal="true" aria-labelledby="sleep-editor-title" tabIndex={-1} onSubmit={(event) => { event.preventDefault(); onSave(markTrackerEntityChanged(draft)); }}>
         <header><div><span className="eyebrow">{isEnglish ? "Sleep tracker" : "Трекер сна"}</span><h2 id="sleep-editor-title">{isEnglish ? "Sleep plan" : "План сна"}</h2></div><button type="button" className="modal-close" onClick={onClose} aria-label={isEnglish ? "Close" : "Закрыть"}><ExperimentalIcon name="close" /></button></header>
-        <div className="habit-editor-grid"><label className="wide"><span>{isEnglish ? "Plan name" : "Название плана"}</span><input required value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} /></label><label><span>{isEnglish ? "Target bedtime" : "Плановое время сна"}</span><input type="time" value={draft.targetBedtime} onChange={(event) => setDraft((current) => ({ ...current, targetBedtime: event.target.value }))} /></label><label><span>{isEnglish ? "Target wake time" : "Плановое пробуждение"}</span><input type="time" value={draft.targetWakeTime} onChange={(event) => setDraft((current) => ({ ...current, targetWakeTime: event.target.value }))} /></label></div>
+        <div className="habit-editor-grid"><label className="wide"><span>{isEnglish ? "Plan name" : "Название плана"}</span><input required value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} /></label><label><span>{isEnglish ? "Target bedtime" : "Плановое время сна"}</span><TimeClockPicker value={draft.targetBedtime} onChange={(value) => setDraft((current) => ({ ...current, targetBedtime: value }))} /></label><label><span>{isEnglish ? "Target wake time" : "Плановое пробуждение"}</span><TimeClockPicker value={draft.targetWakeTime} onChange={(value) => setDraft((current) => ({ ...current, targetWakeTime: value }))} /></label></div>
         <RecurrenceBuilder value={draft.schedule.recurrence} startDate={draft.schedule.startDate} calendarMode={calendarMode} destination="tracker" allowCalendarModeChange={allowCalendarModeChange} onChange={(recurrence) => setDraft((current) => ({ ...current, schedule: { ...current.schedule, startDate: recurrence.rangeStart || current.schedule.startDate, endDate: current.schedule.endDate ? recurrence.rangeEnd || current.schedule.endDate : null, recurrence } }))} />
         <label className="habit-switch"><span><strong>{isEnglish ? "Track sleep quality" : "Оценивать качество сна"}</strong><small>{isEnglish ? "Optional 1–10 scale" : "Необязательная шкала 1–10"}</small></span><input type="checkbox" role="switch" aria-label={isEnglish ? "Track sleep quality" : "Оценивать качество сна"} checked={draft.qualityEnabled} onChange={(event) => setDraft((current) => ({ ...current, qualityEnabled: event.target.checked }))} /><i /></label>
         <label className="habit-switch habit-disable-switch"><span><strong>{isEnglish ? "Disable scoring" : "Отключить начисление баллов"}</strong><small>{isEnglish ? "Sleep analytics will remain available" : "Аналитика сна продолжит работать"}</small></span><input type="checkbox" role="switch" aria-label={isEnglish ? "Disable sleep scoring" : "Отключить начисление баллов за сон"} checked={!draft.scoringEnabled} onChange={(event) => setDraft((current) => ({ ...current, scoringEnabled: !event.target.checked }))} /><i /></label>
@@ -1140,7 +1137,7 @@ function SleepEditor({ plan, language, calendarMode, allowCalendarModeChange = f
             <div className="sleep-rule-row" key={rule.id}>
               <label><span>{isEnglish ? "Value" : "Показатель"}</span><select value={rule.field} onChange={(event) => updateRule(rule.id, { field: event.target.value as SleepRule["field"] })}><option value="bedtime">{isEnglish ? "Bedtime" : "Время засыпания"}</option><option value="wake">{isEnglish ? "Wake time" : "Время пробуждения"}</option></select></label>
               <label><span>{isEnglish ? "Condition" : "Условие"}</span><select value={rule.operator} onChange={(event) => updateRule(rule.id, { operator: event.target.value as SleepRule["operator"] })}><option value="on-or-before">{isEnglish ? "At or before" : "Не позже"}</option><option value="after">{isEnglish ? "After" : "Позже"}</option></select></label>
-              <label><span>{isEnglish ? "Time" : "Время"}</span><input type="time" value={rule.threshold} onChange={(event) => updateRule(rule.id, { threshold: event.target.value })} /></label>
+              <label><span>{isEnglish ? "Time" : "Время"}</span><TimeClockPicker value={rule.threshold} onChange={(value) => updateRule(rule.id, { threshold: value })} /></label>
               <label><span>{isEnglish ? "Points" : "Баллы"}</span><input type="number" min="-100" max="100" value={rule.points} onChange={(event) => updateRule(rule.id, { points: Math.max(-100, Math.min(100, Math.round(Number(event.target.value) || 0))) })} /></label>
               <button type="button" className="danger" aria-label={isEnglish ? "Delete condition" : "Удалить условие"} onClick={() => setDraft((current) => ({ ...current, rules: current.rules.filter((item) => item.id !== rule.id) }))}><ExperimentalIcon name="close" /></button>
             </div>
@@ -1429,7 +1426,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
     setMessage(previous
       ? (isEnglish ? "Habit settings updated. Its scoring formula and history were preserved." : "Настройки привычки обновлены. Формула баллов и история сохранены.")
       : (isEnglish ? "Habit saved in the encrypted core." : "Привычка сохранена в зашифрованном ядре."));
-    const wantsExternal = habit.reminder.enabled && (habit.reminder.syncToGoogleTasks || habit.reminder.showInGoogleCalendar);
+    const wantsExternal = habit.reminder.syncToGoogleTasks || habit.reminder.showInGoogleCalendar;
     if (!previous?.reminder.googleTaskId && !previous?.reminder.googleEventId && !wantsExternal) return;
     void (async () => {
       if ((previous?.reminder.googleTaskId || previous?.reminder.googleEventId) && onReminderRemoved) await onReminderRemoved(previous);
@@ -1518,6 +1515,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
           <button type="button" className="primary-button" onClick={openNewHabit}><ExperimentalIcon name="plus" />{isEnglish ? "New habit" : "Новая привычка"}</button>
         </div>
       </header>
+      <div className="habit-workspace-frame">
       {<div ref={experimentalHabitTabsRef} className="experimental-habit-tabs" role="tablist" tabIndex={-1} aria-label={isEnglish ? "Habit workspace" : "Рабочая зона привычек"} onKeyDown={(event) => {
         const tabs = habitTabs;
         if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
@@ -1533,6 +1531,7 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
         {habitTabs.includes("modules") ? <button data-experimental-habit-tab="modules" type="button" role="tab" tabIndex={activeHabitTab === "modules" ? 0 : -1} aria-selected={activeHabitTab === "modules"} onClick={() => setExperimentalHabitTab("modules")}><HabitTabIcon variant="modules" active={activeHabitTab === "modules"}/><strong>{isEnglish ? "Modules" : "Модули"}</strong><small>{isEnglish ? "Sleep and abstinence" : "Сон и воздержание"}</small></button> : null}
         {habitTabs.includes("progress") ? <button data-experimental-habit-tab="progress" type="button" role="tab" tabIndex={activeHabitTab === "progress" ? 0 : -1} aria-selected={activeHabitTab === "progress"} onClick={() => setExperimentalHabitTab("progress")}><HabitTabIcon variant="progress" active={activeHabitTab === "progress"}/><strong>{isEnglish ? "Progress" : "Прогресс"}</strong><small>{isEnglish ? "Stats and awards" : "Статистика и награды"}</small></button> : null}
       </div>}
+      <div className="habit-workspace-panel" role="tabpanel" aria-label={isEnglish ? "Selected habit section" : "Выбранный раздел привычек"}>
       {hasHabits && workspace.habitSettings.feedback.gamificationWidgets ? <HabitSectionBlock className="experimental-habit-section experimental-habit-section-today" label={isEnglish ? "Streak protection and comeback" : "Защита серии и возвращение"} language={language} {...sectionProps("streak-resilience")}><section className="streak-resilience" aria-label={isEnglish ? "Streak protection and comeback" : "Защита серии и возвращение"}>
         <article className="hestia-spark-card">
           <span className="hestia-spark-icon" aria-hidden="true">
@@ -1599,6 +1598,8 @@ export function HabitTrackerPage({ workspace, date, language, timeFormat, calend
           onStart={(practice) => saveHabit(createHabitFromSacredPractice(practice, creationDate, calendarMode, language))}
           onEdit={setEditingHabit}
         /></HabitSectionBlock>
+      </div>
+      </div>
       {heroPathOpen ? <HeroPathPanel workspace={workspace} language={language} onClaimCheckpoint={(rankId) => { const next = claimHeroPathAmphora(workspace, rankId); onChange(next); if (next !== workspace) setMessage(isEnglish ? "The amphora is open. Laurels were added to your ledger." : "Амфора открыта. Лавры добавлены в журнал наград."); }} onRevealHiddenPath={() => { const next = revealHiddenHeroicPath(workspace); onChange(next); if (next !== workspace) setMessage(isEnglish ? "The second path has been revealed." : "Второй путь открыт."); }} onClose={() => setHeroPathOpen(false)} /> : null}
       {activatingTemplate ? <HabitTemplateSetup template={activatingTemplate} date={creationDate} language={language} calendarMode={calendarMode} googleTasksReady={googleTasksReady} googleCalendarReady={googleCalendarReady} allowCalendarModeChange onSave={(habit) => { setActivatingTemplate(null); saveHabit(habit); }} onClose={() => setActivatingTemplate(null)} /> : null}
       {editingHabit ? <HabitEditor habit={editingHabit} isExisting={workspace.habits.some((habit) => habit.id === editingHabit.id)} language={language} calendarMode={calendarMode} googleTasksReady={googleTasksReady} googleCalendarReady={googleCalendarReady} allowCalendarModeChange onSave={saveHabit} onClose={() => setEditingHabit(null)} /> : null}

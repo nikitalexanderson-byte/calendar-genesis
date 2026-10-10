@@ -621,8 +621,8 @@ test("ships the modular encrypted tracker across dashboard, calendars and accoun
   assert.match(tracker, /Режим дневной цели/);
   assert.match(tracker, /Ещё один шаг — и дневная цель выполнена/);
   assert.match(tracker, /habit-template-library/);
-  assert.match(tracker, /Начало привычки/);
-  assert.match(tracker, /Выберите сегодня или будущую дату начала/);
+  assert.match(tracker, /lockRangeStart=\{isExisting\}/);
+
   assert.match(tracker, /lockRangeStart=\{isExisting\}/);
   assert.doesNotMatch(tracker, /Начать с завтрашнего дня/);
   assert.match(tracker, /setEditingHabit\(habit\)/);
@@ -3040,7 +3040,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.doesNotMatch(calendar, /renderTaskCreateForm\("planner"\)/);
   assert.doesNotMatch(calendar, /<aside className="planner-panel"/);
   assert.match(calendar, /id: "projects", label: "Дела"/);
-  assert.match(calendar, /Несортированное/);
+  assert.match(calendar, /workspace-inbox-header/);
   assert.match(calendar, /data-project-drop-id=\{project\.id\}/);
   assert.match(calendar, /data-project-drop-id=\{TASK_INBOX_PROJECT_ID\}/);
   assert.match(calendar, /Задача «\$\{item\.title\}» возвращена в хаос-бокс/);

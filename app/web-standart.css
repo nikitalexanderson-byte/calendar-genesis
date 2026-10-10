@@ -134,7 +134,8 @@ html[data-genesis-theme] .genesis-app .shared-projects-modal { width: min(640px,
 }
 
 .today-calendar-choice, .admin-section-tabs, .project-transfer-mode { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
-.admin-section-tabs { margin-top: 24px; }
+.admin-section-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; margin-top: 24px; }
+.genesis-app .admin-section-tabs > button { width: 100%; min-width: 0; padding-inline: 8px; }
 .genesis-app :is(.today-calendar-choice, .admin-section-tabs, .project-transfer-mode) button:is([aria-pressed="true"], [aria-current="page"]) { background: var(--ui-accent); color: var(--ui-on-accent); border-color: var(--ui-accent); }
 .genesis-app .task-form { display: flex; flex-direction: column; gap: 16px; }
 .genesis-app .task-form > label { display: flex; flex-direction: column; gap: 6px; }
@@ -193,10 +194,10 @@ html[data-genesis-theme] .genesis-app .shared-projects-context > div:first-child
 @keyframes habit-tab-draw { from { stroke-dasharray: 100; stroke-dashoffset: 100; } to { stroke-dasharray: 100; stroke-dashoffset: 0; } }
 html[data-genesis-theme] .genesis-app .habit-section-drag-handle { min-width: 44px; min-height: 44px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); box-shadow: none; }
 html[data-genesis-theme] .genesis-app .habits-hero-actions .hero-path-open { border-radius: 12px; }
-.habits-view.experimental-habit-tab-today > .experimental-habit-section:not(.experimental-habit-section-today),
-.habits-view.experimental-habit-tab-library > .experimental-habit-section:not(.experimental-habit-section-library),
-.habits-view.experimental-habit-tab-modules > .experimental-habit-section:not(.experimental-habit-section-modules),
-.habits-view.experimental-habit-tab-progress > .experimental-habit-section:not(.experimental-habit-section-progress) { display: none; }
+.habits-view.experimental-habit-tab-today .habit-workspace-panel > .experimental-habit-section:not(.experimental-habit-section-today),
+.habits-view.experimental-habit-tab-library .habit-workspace-panel > .experimental-habit-section:not(.experimental-habit-section-library),
+.habits-view.experimental-habit-tab-modules .habit-workspace-panel > .experimental-habit-section:not(.experimental-habit-section-modules),
+.habits-view.experimental-habit-tab-progress .habit-workspace-panel > .experimental-habit-section:not(.experimental-habit-section-progress) { display: none; }
 .stoicheion-view > .stoicheion-hero { position: relative; min-height: 210px; align-items: center; }
 html[data-genesis-theme] .genesis-app .stoicheion-hero h1 { font-size: clamp(28px, 3vw, 38px); line-height: 1.25; letter-spacing: -.025em; }
 .stoicheion-view > .stoicheion-orbit-frame { container-type: size; --stoicheion-orbit-size: min(90cqw, 1000px); }
@@ -323,10 +324,10 @@ html[data-genesis-theme] .genesis-app .shared-projects-modal :is(input, textarea
 .shared-task-discussion form { margin-top: 12px; }
 .shared-task-feedback { margin-bottom: 12px !important; color: var(--ink-soft); }
 .shared-space-card { position: relative; display: grid; gap: 12px; padding: 18px; border: 1px solid var(--line); border-radius: 18px; background: var(--paper); }
-html[data-genesis-theme] .genesis-app .shared-space-card > button:first-child { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 24px; gap: 12px; padding: 10px; text-align: left; color: var(--ink); background: transparent; border: 0; }
-.shared-space-card > button:first-child strong { grid-column: 1; overflow-wrap: anywhere; }
-.shared-space-card > button:first-child span { grid-column: 1; }
-.shared-space-card > button:first-child svg { grid-column: 2; grid-row: 1 / 3; width: 24px; align-self: center; }
+html[data-genesis-theme] .genesis-app .shared-space-card > .shared-space-open { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 24px; gap: 12px; padding: 10px; text-align: left; color: var(--ink); background: transparent; border: 0; }
+.shared-space-card > .shared-space-open strong { grid-column: 1; overflow-wrap: anywhere; }
+.shared-space-card > .shared-space-open span { grid-column: 1; }
+.shared-space-card > .shared-space-open svg { grid-column: 2; grid-row: 1 / 3; width: 24px; align-self: center; }
 .shared-space-card .shared-space-edit { justify-self: end; }
 
 /* Actionable controls use the same link cursor in either visual family. */

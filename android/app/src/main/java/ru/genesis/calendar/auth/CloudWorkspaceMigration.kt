@@ -213,6 +213,7 @@ internal object CloudWorkspaceMigration {
         }
         entity(source, "habit-completion").put("habitId", habitId).put("date", date)
             .put("completed", completed)
+            .put("qualityConfirmedAt", source.optString("qualityConfirmedAt").takeUnless { it.isBlank() || it == "null" } ?: JSONObject.NULL)
             .put("qualityValue", quality.takeIf(Double::isFinite) ?: JSONObject.NULL)
             .put("score", score).put("xpAwarded", safeCount(source.opt("xpAwarded")).coerceAtLeast(score).coerceAtMost(20))
             .put("note", source.optString("note").takeUnless { it == "null" } ?: "")
