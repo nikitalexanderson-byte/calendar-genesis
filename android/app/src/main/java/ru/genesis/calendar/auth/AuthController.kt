@@ -318,8 +318,18 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
     suspend fun readSharedNotifications(ids: List<String>): JSONObject = sharedCall { api, generation ->
         api.readSharedNotifications(generation, JSONArray(ids))
     }
-    override suspend fun acceptSharedInvitation(id: String): JSONObject =
-        sharedInvitationCall { api, generation -> api.acceptSharedInvitation(generation, JSONObject().put("id", id)) }
+    override suspend fun acceptSharedInvitation(id: String): JSONObject {
+        val userId = mutableState.value.user?.uid
+        val result = sharedInvitationCall { api, generation ->
+            api.acceptSharedInvitation(generation, JSONObject().put("id", id)) }
+        // The server enables shared projects on acceptance. Enable the same local gate
+        // before the destination screen makes its first workspace request.
+        val current = mutableState.value
+        if (current.user?.uid == userId && !current.requiresSignIn) {
+            mutableState.value = current.copy(accountSettings = current.accountSettings?.copy(sharedProjectsEnabled = true))
+        }
+        return result
+    }
     override suspend fun rejectSharedInvitation(id: String): JSONObject =
         sharedInvitationCall { api, generation -> api.rejectSharedInvitation(generation, id) }
     override suspend fun sharedComments(projectId: String, taskId: String): JSONObject =

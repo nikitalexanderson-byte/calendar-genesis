@@ -66,7 +66,8 @@ private fun sharedStatusLabel(title: String, en: Boolean): String = if (!en) tit
 }
 
 @Composable
-internal fun SharedProjectsScreen(controller: SharedWorkspaceGateway, language: String) {
+internal fun SharedProjectsScreen(controller: SharedWorkspaceGateway, language: String,
+    destination: SharedInvitationDestination? = null) {
     val en = language == "en"
     val scope = rememberCoroutineScope()
     var spaces by remember { mutableStateOf(emptyList<JSONObject>()) }
@@ -78,7 +79,7 @@ internal fun SharedProjectsScreen(controller: SharedWorkspaceGateway, language: 
     var googleSettings by remember { mutableStateOf<JSONObject?>(null) }
     var googleMessage by remember { mutableStateOf("") }
     var comments by remember { mutableStateOf(emptyList<JSONObject>()) }
-    var spaceId by remember { mutableStateOf("") }
+    var spaceId by remember { mutableStateOf(destination?.spaceId.orEmpty()) }
     var expandedIds by remember { mutableStateOf(emptySet<String>()) }
     var uiReadySpace by remember { mutableStateOf("") }
     val expansionWrites = remember { Mutex() }
@@ -248,7 +249,7 @@ internal fun SharedProjectsScreen(controller: SharedWorkspaceGateway, language: 
                 expandedIds = (0 until ids.length()).map(ids::getString).toSet()
                 uiReadySpace = targetSpace
                 inboxExpanded = projects.any { it.optInt("isInbox") == 1 && it.optString("id") in expandedIds }
-                projectId = expandedIds.lastOrNull { id ->
+                projectId = destination?.takeIf { it.spaceId == targetSpace && projects.any { project -> project.optString("id") == it.projectId } }?.projectId ?: expandedIds.lastOrNull { id ->
                     val item = projects.firstOrNull { it.optString("id") == id && it.optInt("isInbox") == 0 }
                     var parent = item?.optString("parentId").orEmpty()
                     val visited = mutableSetOf(id)

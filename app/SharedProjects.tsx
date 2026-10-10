@@ -42,8 +42,10 @@ import { RecordCalendarChoice } from "./RecordCalendarChoice";
 import { type CalendarMode, MONTHS, LUNAR_DECADES, ELEMENTS, formatCalendarDate, formatGregorian, getGregorianDate, getLunarDate, getLunarMonthDates, getSacredDate, getSacredDay, lunarMonthIndex } from "./calendar-data";
 import { translateText } from "./i18n";
 import { restoredSharedProject } from "./shared-expansion";
+import type { SharedInvitationDestination } from "./SharedInvitationNotices";
 
 type Props = { userId: string; language: string; enabledCalendars: CalendarMode[]; experimentalTheme?: boolean; timeFormat?: TimeFormat;
+  destination?: SharedInvitationDestination;
   calendarMode: CalendarMode; taskCalendarMode: CalendarMode;
   onCalendarModeChange: (mode: CalendarMode) => Promise<void> };
 
@@ -83,10 +85,10 @@ function sharedCalendarPeriod(anchor: Date, mode: CalendarMode, english: boolean
     title: new Intl.DateTimeFormat(english ? "en-US" : "ru-RU", { month: "long", year: "numeric" }).format(start) };
 }
 
-export function SharedProjects({ userId, language, enabledCalendars, calendarMode, taskCalendarMode, onCalendarModeChange, experimentalTheme = false, timeFormat = "24h" }: Props) {
+export function SharedProjects({ userId, language, enabledCalendars, calendarMode, taskCalendarMode, onCalendarModeChange, experimentalTheme = false, timeFormat = "24h", destination }: Props) {
   const english = language === "en";
   const [spaces, setSpaces] = useState<SharedSpace[]>([]);
-  const [spaceId, setSpaceId] = useState("");
+  const [spaceId, setSpaceId] = useState(destination?.spaceId ?? "");
   const [projects, setProjects] = useState<SharedProject[]>([]);
   const [archivedProjects, setArchivedProjects] = useState<SharedProject[]>([]);
   const [projectId, setProjectId] = useState("");
@@ -178,7 +180,8 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
     void Promise.all([loadSharedUiState(spaceId), listSharedProjects(spaceId)]).then(([state, items]) => {
       if (!live) return;
       setExpandedIds(state.expandedIds); setUiReadySpace(spaceId);
-      setProjectId(restoredSharedProject(items, state.expandedIds));
+      const invitedProject=destination?.spaceId===spaceId && items.find(item=>item.id===destination.projectId);
+      setProjectId(invitedProject ? invitedProject.id : restoredSharedProject(items, state.expandedIds));
     }).catch((error: unknown) => {
       if (!live) return;
       setExpandedIds([]); setUiReadySpace(spaceId);
@@ -187,7 +190,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       console.error(error instanceof Error ? error.message : "Shared layout load failed");
     });
     return () => { live = false; };
-  }, [spaceId, english]);
+  }, [spaceId, english, destination]);
 
   const persistExpansion = (next: string[]) => {
     setExpandedIds(next);
@@ -955,8 +958,8 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
         <div className="shared-project-details">
           {!snapshot.project.isInbox && snapshot.project.description ? <p>{snapshot.project.description}</p> : null}
           <SharedLabelBadges labels={labels} ids={snapshot.project.labelIds}/>
-          <div className="shared-projects-meta"><span>{english ? "Your role" : "Ваша роль"}: {roleLabel(snapshot.project.role)}</span><span>{snapshot.members.length} {english ? "members" : "участников"}</span></div>
         </div>
+        <div className="shared-projects-meta"><span>{english ? "Your role" : "Ваша роль"}: {roleLabel(snapshot.project.role)}</span><span>{snapshot.members.length} {english ? "members" : "участников"}</span></div>
       </header>
       <section className="shared-projects-task-panel" aria-labelledby="shared-projects-tasks-title">
       <section className="shared-projects-planning" aria-label={english ? "Tasks and views" : "Задачи и виды проекта"}>
@@ -993,7 +996,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
         : "Проведите по доске, чтобы увидеть все статусы."}</p> : null}
       </section>
       <div className="shared-projects-workspace">
-      {activeView === "gantt" ? <SharedGantt snapshot={snapshot} english={english} calendarMode={calendarMode} timeFormat={timeFormat} initialDay={ganttDay} onOpen={openTask} onSchedule={scheduleTask} busy={busy} externalDrop={dropTarget?.schedule} externalDropRow={dropTarget?.ganttRow}/> : activeView === "calendar" ? <section className="shared-projects-calendar" aria-label={english ? "Project calendar" : "Календарь проекта"}>
+      {activeView === "gantt" ? <SharedGantt snapshot={snapshot} english={english} calendarMode={calendarMode} timeFormat={timeFormat} initialDay={ganttDay} onOpen={openTask} onCreate={schedule=>{openCreateTask(snapshot.project);setNewPlan({startDate:schedule.startDate,startTime:schedule.startTime||"",endTime:schedule.endTime||"",dependsOnIds:[]});setNewTaskDueDate(schedule.dueDate);}} onSchedule={scheduleTask} busy={busy} externalDrop={dropTarget?.schedule} externalDropRow={dropTarget?.ganttRow}/> : activeView === "calendar" ? <section className="shared-projects-calendar" aria-label={english ? "Project calendar" : "Календарь проекта"}>
         {snapshot.tasks.length >= 500 ? <p role="status">{english ? "This project has at least 500 tasks. The calendar may omit later tasks until full loading is available." : "В проекте не менее 500 задач. Календарь может не показывать задачи за пределами загруженной части."}</p> : null}
         <div className="shared-projects-calendar-head">
           <button type="button" aria-label={english ? "Previous month" : "Предыдущий месяц"} onClick={() => { setCalendarMonth(calendarPeriod.previous); setCalendarDay(localDateKey(calendarPeriod.previous)); }}>←</button>

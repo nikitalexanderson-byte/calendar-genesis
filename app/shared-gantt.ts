@@ -44,6 +44,15 @@ export function ganttRange(anchor: string, scale: GanttScale, tasks: SharedTask[
 export type GanttSchedule = {startDate: string; dueDate: string; startTime: string | null; endTime: string | null};
 export type GanttEdge = "start" | "end";
 const minuteTime=(value:number)=>`${String(Math.floor(value/60)%24).padStart(2,"0")}:${String(value%60).padStart(2,"0")}`;
+/** A time-axis click starts today; date-axis clicks keep their actual calendar date. */
+export function ganttCreationSchedule(point:number,scale:GanttScale,todayKey:string):GanttSchedule {
+  if(scale!=="day") {
+    const date=serialDate(Math.floor(point+1e-7));
+    return {startDate:date,dueDate:date,startTime:null,endTime:null};
+  }
+  const minutes=Math.max(0,Math.min(1425,Math.round((point-Math.floor(point))*96)*15));
+  return {startDate:todayKey,dueDate:serialDate(dateSerial(todayKey)+Math.floor((minutes+60)/1440)),startTime:minuteTime(minutes),endTime:minuteTime(minutes+60)};
+}
 /** Resize one endpoint; inclusive all-day dates and exact timed endpoints stay independent. */
 export function ganttResizeSchedule(task: SharedTask, point: number, scale: GanttScale, edge: GanttEdge): GanttSchedule | null {
   const span=taskSpan(task);
