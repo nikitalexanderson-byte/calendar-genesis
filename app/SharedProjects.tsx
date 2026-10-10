@@ -1089,7 +1089,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       <h2>{!spaces.length ? (english ? "Your team starts here" : "Начните общую работу") :
         (english ? "Choose or create a project" : "Выберите или создайте проект")}</h2>
       <p>{!spaces.length ? (english ? "Create a workspace, then invite people and add a project." : "Создайте пространство, затем добавьте проект и пригласите участников.") :
-        (english ? "Projects in this workspace appear on the left." : "Проекты этого пространства появятся слева.")}</p>
+        (english ? "Select a project or create a new one in the workspace navigation." : "Выберите проект или создайте новый в панели пространства.")}</p>
     </section> : null}
     </main>
     </div>
