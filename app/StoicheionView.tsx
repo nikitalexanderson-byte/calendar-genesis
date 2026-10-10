@@ -146,7 +146,9 @@ function toClientDraw(record: StoicheionDrawRecord): ClientDrawRecord {
   return {
     ...record,
     seed: record.seed >>> 0,
-    localDeadline: Date.now() + Math.max(0, record.remainingSeconds) * 1000,
+    localDeadline: record.canReroll && record.remainingSeconds > 0
+      ? Date.now() + record.remainingSeconds * 1000
+      : 0,
   };
 }
 

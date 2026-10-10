@@ -188,7 +188,7 @@ html[data-genesis-theme] .genesis-app .stoicheion-sector-details-link { color: #
   html[data-genesis-theme] .genesis-app .stoicheion-direction i { width: 26px; height: 26px; font-size: 10px; }
   html[data-genesis-theme] .genesis-app .stoicheion-card-visual-spread { grid-column: 1; grid-row: 2 / 5; width: 96px; max-width: 100%; margin: 0; }
   html[data-genesis-theme] .genesis-app .stoicheion-spread-card-label { grid-column: 2; grid-row: 2; margin: 0; }
-  html[data-genesis-theme] .genesis-app .stoicheion-sector > em { grid-column: 2; grid-row: 3; }
+  html[data-genesis-theme] .genesis-app .stoicheion-sector > em { grid-column: 2; grid-row: 3; font-weight: 500; text-transform: none; }
   html[data-genesis-theme] .genesis-app .stoicheion-sector-details-link { grid-column: 2; grid-row: 4; align-self: end; }
 }
 
@@ -386,6 +386,8 @@ html[data-genesis-theme] .genesis-app .shared-projects-modal .space-permission-c
   html[data-genesis-theme] .genesis-app .shared-projects-context { grid-template-columns: minmax(0, 1fr); padding: 16px; }
   html[data-genesis-theme] .genesis-app .shared-projects-context .shared-context-actions { grid-column: 1; grid-row: auto; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   html[data-genesis-theme] .genesis-app .shared-projects-planning { grid-template-columns: minmax(0, 1fr); }
+  html[data-genesis-theme] .genesis-app .shared-projects-planning .shared-projects-view-switch { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; gap: 6px; }
+  html[data-genesis-theme] .genesis-app .shared-projects-planning .shared-projects-view-switch > button { width: 100%; min-width: 0; min-height: 44px; }
   html[data-genesis-theme] .genesis-app .shared-projects-planning .shared-projects-create-actions { grid-column: 1; grid-row: 3; }
   html[data-genesis-theme] .genesis-app .shared-projects-planning .shared-projects-create-actions button { width: 100%; }
   html[data-genesis-theme] .genesis-app .shared-projects-project-link { min-height: 64px; }
@@ -443,6 +445,22 @@ html[data-genesis-theme] .genesis-app .habit-workspace-panel > .habit-status-mes
 @media (min-width: 761px) {
   html[data-genesis-theme] .genesis-app .habit-workspace-frame .experimental-habit-tabs > button[aria-selected=true] { position: relative; overflow: visible; }
   html[data-genesis-theme] .genesis-app .habit-workspace-frame .experimental-habit-tabs > button[aria-selected=true]::after { content: ""; position: absolute; top: 100%; left: 20%; right: 20%; height: 25px; border-inline: 1px solid color-mix(in srgb, var(--ink) 10%, transparent); background: color-mix(in srgb, var(--ink) 2%, var(--paper)); pointer-events: none; }
+}
+
+/* Keep mobile settings at one card depth and leave room for complete labels. */
+html[data-genesis-theme] .genesis-app .account-panel #solar-place-query { padding-inline-start: 42px; }
+@media (max-width: 600px) {
+  html[data-genesis-theme] .genesis-app .account-panel .moon-reminder-choices > div { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  html[data-genesis-theme] .genesis-app .account-panel .moon-reminder-choices button { padding: 10px 8px; font-family: var(--font-ui); }
+  html[data-genesis-theme] .genesis-app .account-panel .appearance-settings-stack { margin-top: 16px; padding: 0; border: 0; background: transparent; }
+  html[data-genesis-theme] .genesis-app .account-panel .appearance-menu-controls { margin: 0; padding: 0; border: 0; background: transparent; }
+  html[data-genesis-theme] .genesis-app .account-panel .appearance-menu-subsection .appearance-menu-details { margin-top: 12px; padding: 0; border: 0; background: transparent; }
+  html[data-genesis-theme] .genesis-app .account-panel .appearance-menu-details > summary { gap: 12px; }
+  html[data-genesis-theme] .genesis-app .account-panel .appearance-summary-action { min-height: 44px; }
+  html[data-genesis-theme] .genesis-app .habit-workspace-panel .streak-resilience { padding: 0; border: 0; background: transparent; }
+  html[data-genesis-theme] .genesis-app .habit-editor .recurrence-switch-row { grid-template-columns: minmax(0, 1fr); }
+  html[data-genesis-theme] .genesis-app .habit-editor .recurrence-switch { justify-self: start; }
+  html[data-genesis-theme] .genesis-app nav.mobile-nav[data-exp-ui="mobile-nav"]:has(> button:nth-child(6)) button > small { font-size: clamp(8px, 2.2vw, 11px); }
 }
 @media (max-width: 760px) {
   html[data-genesis-theme] .genesis-app .habit-workspace-frame { padding: 8px; }
