@@ -50,6 +50,14 @@ const featureNames: Record<string, [string, string]> = {
   "calendar.lunar": ["Лунный календарь", "Lunar calendar"],
 };
 
+type AdminSection = "analytics" | "ads" | "actions";
+
+function adminSectionFromHash(): AdminSection {
+  if (typeof window === "undefined") return "analytics";
+  const section = window.location.hash.replace(/^#\/?/, "").split(/[?&]/, 1)[0].split("/")[1];
+  return section === "ads" || section === "actions" ? section : "analytics";
+}
+
 export function AdminPanel() {
   const isEnglish = runtimeLocale().startsWith("en");
   const copy = isEnglish ? {
@@ -80,7 +88,18 @@ export function AdminPanel() {
   const [confirmation, setConfirmation] = useState("");
   const [blacklist, setBlacklist] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [section, setSection] = useState<"analytics" | "ads">("analytics");
+  const [section, setSection] = useState<AdminSection>(adminSectionFromHash);
+
+  useEffect(() => {
+    const followSection = () => setSection(adminSectionFromHash());
+    window.addEventListener("hashchange", followSection);
+    return () => window.removeEventListener("hashchange", followSection);
+  }, []);
+
+  const openSection = (nextSection: AdminSection) => {
+    setSection(nextSection);
+    window.location.hash = nextSection === "analytics" ? "admin" : `admin/${nextSection}`;
+  };
 
   const refresh = useCallback(async () => {
     setError("");
@@ -137,8 +156,9 @@ export function AdminPanel() {
       {error ? <p className="auth-error" role="alert">{error}</p> : null}
       {message ? <p className="admin-success" role="status">{message}</p> : null}
       <nav className="admin-section-tabs" aria-label={isEnglish ? "Administration sections" : "Разделы администрирования"}>
-        <button type="button" className="secondary-button" aria-current={section === "analytics" ? "page" : undefined} onClick={() => setSection("analytics")}>{isEnglish ? "Analytics" : "Аналитика"}</button>
-        <button type="button" className="secondary-button" aria-current={section === "ads" ? "page" : undefined} onClick={() => setSection("ads")}>{isEnglish ? "Advertising" : "Реклама"}</button>
+        <button type="button" className="secondary-button" aria-current={section === "analytics" ? "page" : undefined} onClick={() => openSection("analytics")}>{isEnglish ? "Analytics" : "Аналитика"}</button>
+        <button type="button" className="secondary-button" aria-current={section === "ads" ? "page" : undefined} onClick={() => openSection("ads")}>{isEnglish ? "Advertising" : "Реклама"}</button>
+        <button type="button" className="secondary-button" aria-current={section === "actions" ? "page" : undefined} onClick={() => openSection("actions")}>{isEnglish ? "Actions" : "Действия"}</button>
       </nav>
       {section === "ads" ? <AdminAdsPanel /> : null}
       {stats && section === "analytics" ? <>
@@ -149,8 +169,13 @@ export function AdminPanel() {
           <article><strong>{stats.totals.projects}</strong><span>{copy.projects}</span></article>
           <article><strong>{stats.totals.blockedIdentities}</strong><span>{copy.blocked}</span></article>
         </div>
-        <p className="admin-android-note">{copy.androidIntro}</p>
-        <div className="admin-android-summary"><span><strong>{stats.totals.androidDownloadRequests}</strong> {copy.trackedDownloads}</span><span><strong>{stats.totals.androidReportingUsers}</strong> {copy.reportingUsers}</span></div>
+        <div className="admin-information-row admin-download-information">
+          <p className="admin-android-note">{copy.androidIntro}</p>
+          <div className="admin-android-summary">
+            <span><strong>{stats.totals.androidDownloadRequests}</strong><span>{copy.trackedDownloads}</span></span>
+            <span><strong>{stats.totals.androidReportingUsers}</strong><span>{copy.reportingUsers}</span></span>
+          </div>
+        </div>
         <div className="admin-table-wrap">
           <table className="admin-table admin-users-table">
             <thead><tr><th>{copy.user}</th><th>{copy.activity}</th><th>{copy.logins}</th><th>{copy.habits}</th><th>{copy.projects}</th><th>{copy.tasks}</th><th>{copy.google}</th><th>{copy.download}</th><th>{copy.version}</th><th>{copy.googleServices}</th><th>{copy.server}</th><th>{copy.moderation}</th></tr></thead>
@@ -177,12 +202,16 @@ export function AdminPanel() {
             ))}</tbody>
           </table>
         </div>
-        <details className="admin-android admin-feature-disclosure">
-          <summary id="admin-feature-title">{isEnglish ? "Actions and counts" : "Действия и их количество"}</summary>
-          <p className="admin-android-note">{isEnglish
-            ? "Counts start with the first recorded visit. ‘No recorded visit’ includes older accounts whose earlier activity was not measured. Disabled counts reflect current menu and calendar settings. Only feature identifiers and counts are stored."
-            : "Подсчёт начинается с первого зафиксированного открытия. В колонку «Без открытия» входят и старые аккаунты, действия которых раньше не измерялись. «Выключено» показывает текущие настройки меню и календарей. Сохраняются только идентификаторы функций и счётчики."}</p>
-          <p className="admin-android-note">{isEnglish ? "First record" : "Первое событие"}: {formatActivity(stats.featureUsage?.startedAt ?? null)}</p>
+      </> : null}
+      {stats && section === "actions" ? (
+        <section className="admin-feature-usage" aria-labelledby="admin-feature-title">
+          <h2 id="admin-feature-title">{isEnglish ? "Actions and counts" : "Действия и их количество"}</h2>
+          <div className="admin-information-row admin-feature-information">
+            <p className="admin-android-note">{isEnglish
+              ? "Counts start with the first recorded visit. ‘No recorded visit’ includes older accounts whose earlier activity was not measured. Disabled counts reflect current menu and calendar settings. Only feature identifiers and counts are stored."
+              : "Подсчёт начинается с первого зафиксированного открытия. В колонку «Без открытия» входят и старые аккаунты, действия которых раньше не измерялись. «Выключено» показывает текущие настройки меню и календарей. Сохраняются только идентификаторы функций и счётчики."}</p>
+            <p className="admin-android-note admin-first-event"><span>{isEnglish ? "First record" : "Первое событие"}</span><strong>{formatActivity(stats.featureUsage?.startedAt ?? null)}</strong></p>
+          </div>
           <div className="admin-table-wrap">
             <table className="admin-table" data-testid="admin-feature-usage">
               <thead><tr><th>{isEnglish ? "Feature" : "Функция"}</th><th>{isEnglish ? "Users" : "Пользователи"}</th>
@@ -203,9 +232,8 @@ export function AdminPanel() {
               ))}</tbody>
             </table>
           </div>
-        </details>
-
-      </> : null}
+        </section>
+      ) : null}
       {deleteTarget ? <div className="modal-backdrop admin-delete-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeDeleteDialog(); }}>
         <section ref={deleteDialogRef} className="admin-delete-dialog" role="dialog" aria-modal="true" aria-labelledby="admin-delete-title" tabIndex={-1}>
           <header><div><span className="eyebrow">{copy.irreversible}</span><h2 id="admin-delete-title">{copy.deleteTitle}</h2></div><button type="button" className="modal-close" onClick={closeDeleteDialog} aria-label={isEnglish ? "Close" : "Закрыть"}>×</button></header>
