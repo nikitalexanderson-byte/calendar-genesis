@@ -8,6 +8,7 @@ import { acceptSharedInvitation, deleteGenesisAccount, disconnectGoogleServices,
 import { LANGUAGES, LANGUAGE_LABELS, localizeCategoryName, runtimeLocale, translateText, type Language } from "./i18n";
 
 import type { TimeFormat } from "./time-format";
+import { TimeClockPicker } from "./TimeClockPicker";
 import type { HabitNotificationPermission, HabitNotificationSettings } from "./habit-notifications";
 import type { HabitFeedbackSettings } from "./habit-feedback";
 import { useDialogAccessibility } from "./use-dialog-accessibility";
@@ -899,9 +900,9 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
               ] as const).map(([tone, label]) => <button type="button" role="radio" aria-checked={habitNotificationSettings.tone === tone} className={habitNotificationSettings.tone === tone ? "active" : ""} onClick={() => onHabitNotificationSettingsChange({ ...habitNotificationSettings, tone })} key={tone}>{label}</button>)}
             </div>
             <div className="habit-notification-times">
-              <label><span>{user.language === "en" ? "Daily goal reminder" : "Напоминание о дневной цели"}</span><input type="time" value={habitNotificationSettings.dailyGoalTime} onChange={(event) => onHabitNotificationSettingsChange({ ...habitNotificationSettings, dailyGoalTime: event.target.value })} /></label>
-              <label><span>{user.language === "en" ? "Quiet hours start" : "Начало тихих часов"}</span><input type="time" value={habitNotificationSettings.quietHoursStart} onChange={(event) => onHabitNotificationSettingsChange({ ...habitNotificationSettings, quietHoursStart: event.target.value })} /></label>
-              <label><span>{user.language === "en" ? "Quiet hours end" : "Конец тихих часов"}</span><input type="time" value={habitNotificationSettings.quietHoursEnd} onChange={(event) => onHabitNotificationSettingsChange({ ...habitNotificationSettings, quietHoursEnd: event.target.value })} /></label>
+              <label><span>{user.language === "en" ? "Daily goal reminder" : "Напоминание о дневной цели"}</span><TimeClockPicker value={habitNotificationSettings.dailyGoalTime} onChange={(value) => onHabitNotificationSettingsChange({ ...habitNotificationSettings, dailyGoalTime: value })} /></label>
+              <label><span>{user.language === "en" ? "Quiet hours start" : "Начало тихих часов"}</span><TimeClockPicker value={habitNotificationSettings.quietHoursStart} onChange={(value) => onHabitNotificationSettingsChange({ ...habitNotificationSettings, quietHoursStart: value })} /></label>
+              <label><span>{user.language === "en" ? "Quiet hours end" : "Конец тихих часов"}</span><TimeClockPicker value={habitNotificationSettings.quietHoursEnd} onChange={(value) => onHabitNotificationSettingsChange({ ...habitNotificationSettings, quietHoursEnd: value })} /></label>
             </div>
             <label className="account-switch-row compact">
               <span><strong>{user.language === "en" ? "Daily goal and streak reminders" : "Напоминания о цели и серии"}</strong><small>{user.language === "en" ? "Shown only while the goal is still achievable; they never shame or deduct progress." : "Показываются только пока цель достижима; не стыдят и не отнимают прогресс."}</small></span>
@@ -1006,6 +1007,7 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
             className={`shared-invitation-card${item.isRead ? "" : " unread"}`} data-exp-ui="row">
             <p><strong data-no-translate>{item.actorName}</strong> · {item.action.startsWith("task.")
               ? (user.language === "en" ? "updated a task" : "изменил(а) задачу")
+              : item.action === "comment.mentioned" ? (user.language === "en" ? "mentioned you in a comment" : "упомянул(а) вас в комментарии")
               : item.action === "comment.created" ? (user.language === "en" ? "added a comment" : "добавил(а) комментарий")
                 : (user.language === "en" ? "updated the project" : "обновил(а) проект")}
               {item.taskTitle ? <> · <span data-no-translate>{item.taskTitle}</span></> : null}

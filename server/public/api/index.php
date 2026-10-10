@@ -625,8 +625,25 @@ try {
     if (($segments[0] ?? null) === 'shared') {
         $userId = genesisRequireUserId();
         if ($method !== 'GET') genesisRequireCsrf();
+        if ($method === 'GET' && count($segments) === 4 && $segments[1] === 'spaces' && $segments[3] === 'cover') {
+            $cover = genesisSharedReadCover($userId, $segments[2]);
+            header('Content-Type: ' . $cover['type']); header('Cache-Control: private, no-store');
+            header('Content-Length: ' . strlen($cover['bytes'])); echo $cover['bytes']; exit;
+        }
         if ($method === 'GET' && $path === 'shared/spaces') {
             genesisJson(['spaces' => genesisSharedSpaces($userId)]);
+        }
+        if (count($segments) === 4 && $segments[1] === 'spaces' && $segments[3] === 'labels') {
+            if ($method === 'GET') genesisJson(['labels' => genesisSharedLabels($userId, $segments[2])]);
+            if ($method === 'POST') genesisJson(['label' => genesisSharedSaveLabel($userId, $segments[2], null, genesisReadJson())], 201);
+        }
+        if (count($segments) === 5 && $segments[1] === 'spaces' && $segments[3] === 'labels') {
+            if ($method === 'PATCH') genesisJson(['label' => genesisSharedSaveLabel($userId, $segments[2], $segments[4], genesisReadJson())]);
+            if ($method === 'DELETE') { genesisSharedDeleteLabel($userId, $segments[2], $segments[4], genesisReadJson()); genesisJson(['ok' => true]); }
+        }
+        if ($method === 'GET' && count($segments) === 4 && $segments[1] === 'projects' && $segments[3] === 'activity') {
+            genesisJson(genesisSharedActivity($userId, $segments[2], isset($_GET['taskId']) ? (string)$_GET['taskId'] : null,
+                isset($_GET['boardId']) ? (string)$_GET['boardId'] : null, (string)($_GET['before'] ?? '')));
         }
         if ($method === 'GET' && $path === 'shared/task-lists') {
             genesisJson(['lists' => genesisSharedTaskLists($userId)]);
