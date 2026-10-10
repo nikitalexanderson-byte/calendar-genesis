@@ -625,6 +625,20 @@ try {
     if (($segments[0] ?? null) === 'shared') {
         $userId = genesisRequireUserId();
         if ($method !== 'GET') genesisRequireCsrf();
+        if ($method === 'GET' && $path === 'shared/overview') genesisJson(['overview' => genesisSharedOverview($userId)]);
+        if ($method === 'GET' && $path === 'shared/inbox') {
+            genesisJson(genesisSharedInbox($userId, (string)($_GET['before'] ?? ''), ($_GET['unread'] ?? '') === '1'));
+        }
+        if ($method === 'POST' && $path === 'shared/inbox/read') {
+            genesisSharedReadInbox($userId, genesisReadJson()); genesisJson(['ok' => true]);
+        }
+        if ($method === 'GET' && count($segments) === 4 && $segments[1] === 'tasks' && $segments[3] === 'image') {
+            $image = genesisSharedReadTaskImage($userId, $segments[2]);
+            genesisFinishSession();
+            header('Content-Type: ' . $image['type']); header('Cache-Control: private, no-store');
+            header('X-Content-Type-Options: nosniff'); header('Referrer-Policy: no-referrer');
+            header('Content-Length: ' . strlen($image['bytes'])); echo $image['bytes']; exit;
+        }
         if ($method === 'GET' && count($segments) === 4 && $segments[1] === 'spaces' && $segments[3] === 'cover') {
             $cover = genesisSharedReadCover($userId, $segments[2]);
             header('Content-Type: ' . $cover['type']); header('Cache-Control: private, no-store');

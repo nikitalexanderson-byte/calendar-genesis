@@ -446,6 +446,49 @@ html[data-genesis-theme] .genesis-app .habits-view { gap: 8px; }
   html[data-genesis-theme] .genesis-app .shared-projects-context .shared-projects-meta { grid-column: 1; grid-row: auto; }
   html[data-genesis-theme] .genesis-app .shared-project-details .shared-projects-meta { margin-left: 0; }
 }
+/* Segmented controls share the STANDART accent and an unmistakable selected state. */
+html[data-genesis-theme] .genesis-app :is(.shared-projects-switch, .display-calendar-choice, .project-completion-tabs, .task-scope-switch, .task-composer-tabs, .shared-projects-view-switch, .shared-gantt-scale, .experimental-habit-tabs, .shared-updates-filter) {
+  padding: 4px; gap: 4px; border: 1px solid var(--exp-border, var(--line)); border-radius: var(--ui-radius); background: var(--paper);
+}
+html[data-genesis-theme] .genesis-app :is(.shared-projects-switch, .display-calendar-choice, .project-completion-tabs, .task-scope-switch, .task-composer-tabs, .shared-projects-view-switch, .shared-gantt-scale, .experimental-habit-tabs, .shared-updates-filter) > button {
+  min-height: 44px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--ink-soft); font: 500 13px/1.4 var(--font-ui);
+}
+html[data-genesis-theme] .genesis-app :is(.shared-projects-switch, .display-calendar-choice, .project-completion-tabs, .task-scope-switch, .task-composer-tabs, .shared-projects-view-switch, .shared-gantt-scale, .experimental-habit-tabs, .shared-updates-filter) > button:is([aria-current="page"], [aria-pressed="true"], [aria-selected="true"]) {
+  background: var(--ui-accent); border-color: var(--ui-accent); color: var(--ui-on-accent); font-weight: 600; box-shadow: none;
+}
+html[data-genesis-theme] .genesis-app .affairs-area-switch > button { display: flex; align-items: center; justify-content: center; gap: 8px; }
+html[data-genesis-theme] .genesis-app .shared-mobile-context-picker,
+html[data-genesis-theme] .genesis-app .shared-context-icon,
+html[data-genesis-theme] .genesis-app .shared-create-short { display: none; }
+@media (max-width: 760px) {
+  html[data-genesis-theme] .genesis-app .shared-mobile-context-picker { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding: 8px 0; border: 0; border-radius: 0; background: transparent; color: var(--ink-soft); font: 400 13px/1.5 var(--font-ui); text-align: left; }
+  html[data-genesis-theme] .genesis-app .shared-mobile-context-picker > span { min-width: 0; overflow-wrap: anywhere; }
+  html[data-genesis-theme] .genesis-app .shared-mobile-context-picker strong { color: var(--ink); font-weight: 500; }
+  html[data-genesis-theme] .genesis-app .shared-mobile-context-picker > svg { transform: rotate(90deg); }
+  html[data-genesis-theme] .genesis-app .shared-mobile-context-picker[aria-expanded="true"] > svg { transform: rotate(-90deg); }
+  html[data-genesis-theme] .genesis-app .shared-projects-shell:not([data-mobile-navigation]) > .shared-projects-sidebar { display: none; }
+  html[data-genesis-theme] .genesis-app .shared-projects-shell[data-mobile-navigation] > .shared-projects-sidebar { display: flex; flex-direction: column; gap: 16px; }
+  html[data-genesis-theme] .genesis-app .shared-projects-sidebar > .shared-projects-project-nav { order: -2; }
+  html[data-genesis-theme] .genesis-app .shared-projects-sidebar > .shared-workspace-controls { order: -1; }
+  html[data-genesis-theme] .genesis-app .shared-projects-context { grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 12px; }
+  html[data-genesis-theme] .genesis-app .shared-projects-context h2 { font-size: 22px; }
+  html[data-genesis-theme] .genesis-app .shared-project-heading { align-items: flex-start; gap: 4px; }
+  html[data-genesis-theme] .genesis-app .shared-project-heading .project-complete-action { margin-top: -6px; }
+  html[data-genesis-theme] .genesis-app .shared-projects-context .shared-context-actions { grid-column: 2; grid-row: 1; display: flex; gap: 6px; }
+  html[data-genesis-theme] .genesis-app .shared-context-actions > button { display: grid; place-items: center; width: 44px; min-width: 44px; height: 44px; padding: 10px; }
+  html[data-genesis-theme] .genesis-app .shared-context-icon { display: block; width: 22px; height: 22px; }
+  html[data-genesis-theme] .genesis-app .shared-context-label,
+  html[data-genesis-theme] .genesis-app .shared-create-full { display: none; }
+  html[data-genesis-theme] .genesis-app .shared-create-short { display: inline; }
+  html[data-genesis-theme] .genesis-app .shared-project-details { grid-column: 1 / -1; grid-row: 2; display: flex; flex-direction: column; align-items: flex-start; }
+  html[data-genesis-theme] .genesis-app .shared-project-details > p { flex: none; font-size: 14px; }
+  html[data-genesis-theme] .genesis-app .shared-projects-context .shared-projects-meta { grid-column: 1 / -1; grid-row: auto; justify-content: flex-start; justify-self: start; margin: 0; }
+  html[data-genesis-theme] .genesis-app .shared-projects-planning { grid-template-columns: minmax(0, 1fr) auto; gap: 12px; }
+  html[data-genesis-theme] .genesis-app .shared-projects-planning .shared-projects-create-actions { grid-column: 2; grid-row: 1; }
+  html[data-genesis-theme] .genesis-app .shared-projects-planning .shared-planning-controls { grid-column: 1 / -1; grid-row: 2; }
+  html[data-genesis-theme] .genesis-app .shared-projects-planning .shared-projects-view-switch { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: 100%; gap: 2px; padding: 3px; border: 1px solid var(--exp-border); background: var(--paper); }
+  html[data-genesis-theme] .genesis-app .shared-projects-planning .shared-projects-view-switch > button { padding: 8px 3px; font-size: 12px; }
+}
 /* An opaque outline keeps tabs, connectors and the selected panel equally bright. */
 html[data-genesis-theme] .genesis-app .habit-workspace-frame { --habit-workspace-outline: color-mix(in srgb, var(--ui-accent) 45%, var(--paper)); flex: 1 1 100%; min-width: 0; }
 html[data-genesis-theme] .genesis-app .habit-workspace-frame > .experimental-habit-tabs { margin: 0; }

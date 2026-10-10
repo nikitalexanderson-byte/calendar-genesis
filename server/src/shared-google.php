@@ -74,6 +74,10 @@ function genesisSharedGoogleTaskList(array $user, string $projectId, string $pro
 function genesisSharedGoogleTaskPayload(array $task): array
 {
     $notes = 'GENESIS shared task ' . $task['id'] . "\n";
+    if (!empty($task['space_id']) && !empty($task['project_id'])) {
+        $notes .= 'https://genesiscalendar.com/?affairs=shared&space=' . rawurlencode($task['space_id'])
+            . '&project=' . rawurlencode($task['project_id']) . '&task=' . rawurlencode($task['id']) . "#projects\n";
+    }
     $done = $task['completed_at'] !== null;
     $payload = ['title' => $task['title'], 'notes' => $notes,
         'status' => $done ? 'completed' : 'needsAction'];
@@ -152,9 +156,10 @@ function genesisSharedSyncGoogle(string $userId, string $projectId, int $batchSi
     $listId = $settings['tasksEnabled'] ? genesisSharedGoogleTaskList($user, $projectId, (string)$project['title']) : '';
     if ($settings['calendarEnabled']) $user = genesisEnsureGoogleCalendar($user);
     $query = $db->prepare('SELECT t.id, t.title, t.description, t.due_date, t.completed_at, t.revision,
+        t.project_id, p.space_id,
         lt.google_id AS task_google_id, lt.google_list_id AS task_list_id, lt.synced_revision AS task_revision,
         lc.google_id AS event_google_id, lc.synced_revision AS event_revision
-        FROM shared_tasks t
+        FROM shared_tasks t JOIN shared_projects p ON p.id = t.project_id
         LEFT JOIN shared_google_projection_links lt ON lt.task_id = t.id AND lt.user_id = :tasks_user AND lt.destination = \'tasks\'
         LEFT JOIN shared_google_projection_links lc ON lc.task_id = t.id AND lc.user_id = :calendar_user AND lc.destination = \'calendar\'
         WHERE t.project_id = :project AND

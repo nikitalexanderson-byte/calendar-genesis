@@ -1422,6 +1422,7 @@ export type SharedTaskList = SharedStatus & { projectId: string; projectTitle: s
 export type SharedCategory = { id: string; title: string; color: string; position: number; revision: number };
 export type SharedLabel = SharedCategory;
 export type SharedTask = { id: string; projectId: string; statusId: string; title: string;
+  imageUrl?: string | null;
   labelIds?: string[]; startDate?: string | null; startTime?: string | null; endTime?: string | null; dependsOnIds?: string[];
   categoryId: string | null; description: string; tags?: string[]; dueDate: string | null;
   assigneeId: string | null; createdBy?: string | null;
@@ -1739,6 +1740,7 @@ export async function removeSharedMember(projectId: string, userId: string) {
   });
 }
 export async function createSharedTask(projectId: string, input: { title: string; statusId: string;
+  imageData?: string;
   labelIds?: string[]; startDate?: string | null; startTime?: string | null; endTime?: string | null; dependsOnIds?: string[];
   categoryId?: string | null; assigneeId?: string | null; dueDate?: string | null; description?: string;
   sourceTaskId?: string; tags?: string[] }) {
@@ -1804,8 +1806,20 @@ export async function listSharedInvitations(signal?: AbortSignal) {
 export type SharedNotification = {
   id: string; action: string; objectId: string; createdAt: string;
   projectId: string; projectTitle: string; spaceId: string;
-  actorName: string; taskTitle: string | null; isRead: number;
+  actorName: string; taskTitle: string | null; commentBody?: string | null; isRead: number;
 };
+export type SharedOverview = { projects: number; rootProjects: number; subprojects: number;
+  tasks: number; openTasks: number; completedTasks: number; newTasks: number; newProjects: number; newComments: number };
+export async function loadSharedOverview(signal?: AbortSignal) {
+  return (await api<{ overview: SharedOverview }>("/shared/overview", { signal })).overview;
+}
+export function loadSharedInbox({ unread = false, before = "", signal }: { unread?: boolean; before?: string; signal?: AbortSignal } = {}) {
+  const params = new URLSearchParams(); if (unread) params.set("unread", "1"); if (before) params.set("before", before);
+  return api<{ notifications: SharedNotification[]; nextCursor: string | null }>(`/shared/inbox?${params}`, { signal });
+}
+export function readSharedInbox(eventIds: string[], all = false) {
+  return api<{ ok: boolean }>("/shared/inbox/read", { method: "POST", body: JSON.stringify({ eventIds, all }) });
+}
 export async function listSharedNotifications() {
   return (await api<{ notifications: SharedNotification[] }>("/shared/notifications")).notifications;
 }

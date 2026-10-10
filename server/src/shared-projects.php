@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/shared-labels.php';
 require_once __DIR__ . '/shared-activity.php';
+require_once __DIR__ . '/shared-task-images.php';
+require_once __DIR__ . '/shared-overview.php';
 require_once __DIR__ . '/shared-schedule.php';
 require_once __DIR__ . '/shared-space-covers.php';
 
@@ -1045,6 +1047,7 @@ function genesisSharedProjectSnapshot(string $userId, string $projectId): array
         (SELECT GROUP_CONCAT(predecessor_id) FROM shared_task_dependencies WHERE task_id = t.id) AS dependsOnIdsCsv,
         t.start_date AS startDate, t.start_time AS startTime, t.end_time AS endTime,
         t.category_id AS categoryId, t.description, t.tags_json AS tagsJson, t.due_date AS dueDate,
+        EXISTS (SELECT 1 FROM shared_task_images image WHERE image.task_id = t.id) AS hasImage,
         t.assignee_id AS assigneeId, t.created_by AS createdBy,
         t.updated_by AS updatedBy, t.completed_by AS completedBy, t.completed_at AS completedAt,
         t.position, t.revision, t.updated_at AS updatedAt FROM shared_tasks t
@@ -1071,7 +1074,10 @@ function genesisSharedProjectSnapshot(string $userId, string $projectId): array
             'updatedAt' => $project['updated_at'],
         ],
         'statuses' => $statuses->fetchAll(), 'categories' => $categories->fetchAll(),
-        'tasks' => array_map('genesisSharedRowTags', $tasks->fetchAll()), 'members' => array_map(static function (array $member): array {
+        'tasks' => array_map(static function (array $task): array {
+            $task['imageUrl'] = genesisSharedTaskImageUrl($task['id'], (bool)$task['hasImage']);
+            unset($task['hasImage']); return genesisSharedRowTags($task);
+        }, $tasks->fetchAll()), 'members' => array_map(static function (array $member): array {
             $member['permissions'] = genesisSharedPermissions($member['spaceRole'], $member['permissionsJson'], (int)$member['canOrganizeTasks'] === 1, $member['role']);
             unset($member['permissionsJson']); return $member;
         }, $members->fetchAll()),
@@ -1559,6 +1565,7 @@ function genesisSharedTask(string $userId, string $projectId, array $input, ?str
                 ]);
             }
         }
+        if (array_key_exists('imageData', $input)) genesisSharedSaveTaskImage($id, $input['imageData']);
         $oldLabels = genesisSharedLabelIds('task', $id);
         $db->prepare('UPDATE shared_tasks SET start_date = :start, start_time = :start_time, end_time = :end_time WHERE id = :id')->execute([
             'id' => $id, 'start' => $schedule['startDate'], 'start_time' => $schedule['startTime'], 'end_time' => $schedule['endTime']]);
@@ -1575,6 +1582,9 @@ function genesisSharedTask(string $userId, string $projectId, array $input, ?str
             'revision' => $existing ? (int)$existing['revision'] + 1 : 1,
             'completedBy' => $completedBy, 'completedAt' => $completedAt,
             'updatedAt' => $now, 'dependsOnIds' => $dependsOnIds] + $schedule;
+        $image = $db->prepare('SELECT 1 FROM shared_task_images WHERE task_id = :id');
+        $image->execute(['id' => $id]);
+        $response['imageUrl'] = genesisSharedTaskImageUrl($id, (bool)$image->fetchColumn());
         genesisSharedSaveMutationReceipt($db, $userId, $requestId, $action, $resourceId, $response);
         $db->commit();
         return $response;
