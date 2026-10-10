@@ -424,7 +424,7 @@ test("admin moderation exposes only aggregate habit counts and can optionally bl
   assert.doesNotMatch(adminPanel, /user\.yandexCalendarConnected|Яндекс|Yandex/);
   assert.match(adminPanel, /admin-users-table/);
   assert.match(adminPanel, /user\.androidReportedVersion/);
-  assert.match(adminPanel, /admin-feature-disclosure/);
+  assert.match(adminPanel, /data-testid="admin-feature-usage"/);
   assert.match(adminPanel, /admin-android-note/);
   assert.match(adminPanel, /Добавить в чёрный список после удаления/);
   assert.match(adminPanel, /confirmation\.trim\(\)\.toLowerCase\(\) !== deleteTarget\.email\.toLowerCase\(\)/);

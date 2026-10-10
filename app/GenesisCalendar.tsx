@@ -88,6 +88,7 @@ import { SharedTaskCreate } from "./SharedTaskCreate";
 import { TaskReminderPicker } from "./TaskReminderPicker";
 import { CalendarModeIcon } from "./CalendarModeIcon";
 import { MoonPhaseIcon } from "./MoonPhaseIcon";
+import { WeekdaySymbol } from "./WeekdaySymbol";
 import { RecurrenceBuilder } from "./RecurrenceBuilder";
 import { YandexCalendarConnectDialog } from "./YandexCalendarConnectDialog";
 import { HabitCompletionFeedback } from "./HabitCompletionFeedback";
@@ -567,6 +568,7 @@ function nextHabitReminderDate(habit: Habit, fromDate: string, calendarMode: Cal
 function viewFromHash(): ViewName {
   if (typeof window === "undefined") return "today";
   const candidate = window.location.hash.replace(/^#\/?/, "").split(/[?&]/, 1)[0] as ViewName;
+  if (candidate === "admin/actions" || candidate === "admin/ads") return "admin";
   if (candidate === "all-tasks" || (candidate as string) === "tasks") return "projects";
   return VIEW_NAMES.has(candidate) ? candidate : "today";
 }
@@ -2000,7 +2002,7 @@ export function GenesisCalendar() {
     const initialView = viewFromHash();
     const initialFrame = window.requestAnimationFrame(() => setView(initialView));
     const initialUrl = new URL(window.location.href);
-    initialUrl.hash = initialView;
+    if (initialView !== "admin") initialUrl.hash = initialView;
     window.history.replaceState(
       { ...(window.history.state ?? {}), genesisView: initialView },
       "",
@@ -5147,7 +5149,7 @@ export function GenesisCalendar() {
         </span>
         {mode === "profane" ? (
           <span className="profane-weekday-patron">
-            <strong><b aria-hidden="true">{weekdayPatron.symbol}</b><span className="profane-weekday-name">{weekdayPatron.weekday}</span></strong>
+            <strong><WeekdaySymbol weekday={date.getDay()} /><span className="profane-weekday-name">{weekdayPatron.weekday}</span></strong>
           </span>
         ) : null}
         <span className="calendar-cross-date profane-date">
@@ -6881,11 +6883,13 @@ export function GenesisCalendar() {
         <div className="modal-backdrop day-details-backdrop" role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) setDayDetailsOpen(false); }}>
           <section ref={dayDetailsDialogRef} className={`day-details-modal mode-${activeCalendarMode}${selectedSolarEvent ? " solar-selected-day" : ""}`} role="dialog" aria-modal="true" aria-labelledby="selected-day-title" aria-describedby="selected-day-description" tabIndex={-1}>
             <button type="button" className="modal-close" onClick={() => setDayDetailsOpen(false)} aria-label="Закрыть сведения о дне">{experimentalThemeActive ? <ExperimentalIcon name="close" /> : "×"}</button>
+            <header className="day-details-hero">
+            <div className="day-details-introduction">
             <img className="day-details-art" data-genesis-preserve="selected-day-art"
               src={activeCalendarMode === "profane" ? weekdayArtUrl(selectedDate.getDay()) : dayArtUrl(monthIndex, selectedDay)}
               alt={activeCalendarMode === "profane" ? selectedWeekdayPatron.guidancePatrons : selectedSacredDay.name} />
-            <header className="day-details-hero">
-              <div className="selected-day-symbol" aria-hidden="true">{selectedSolarEvent?.symbol ?? (activeCalendarMode === "lunar" ? "☾" : activeCalendarMode === "profane" ? selectedWeekdayPatron.symbol : selectedElement.symbol)}</div>
+            <div className="day-details-heading">
+              <div className="selected-day-symbol" aria-hidden="true">{selectedSolarEvent?.symbol ?? (activeCalendarMode === "lunar" ? "☾" : activeCalendarMode === "profane" ? <WeekdaySymbol weekday={selectedDate.getDay()} /> : selectedElement.symbol)}</div>
               <div className="selected-day-copy">
                 <span className="eyebrow">{activeCalendarMode === "profane"
                   ? `${formatCalendarDate(selectedDate, "sacred")} · ${selectedMoon.day} ${language === "en" ? "lunar day" : "лунный день"}`
@@ -6906,6 +6910,8 @@ export function GenesisCalendar() {
                     : selectedSacredDay.description}</p>
                 {selectedSolarEvent ? <strong className="selected-solar-event">{selectedSolarEvent.name} · {formatSolarEventTime(selectedSolarEvent.date)} · День Солнца</strong> : null}
               </div>
+            </div>
+            </div>
               <dl className="selected-day-facts">
                 {selectedSolarEvent ? <div className="solar-fact"><dt>Солнечная точка</dt><dd>{selectedSolarEvent.name} · {formatSolarEventTime(selectedSolarEvent.date)}</dd></div> : null}
                 {activeCalendarMode === "profane" ? <div><dt>{language === "en" ? "Sacralization of the day" : "Сакрализация дня"}</dt><dd>{selectedWeekdayPatron.weekday} · {selectedWeekdayPatron.guidanceTitle}</dd></div> : null}
@@ -6922,7 +6928,7 @@ export function GenesisCalendar() {
             {activeCalendarMode === "profane" ? (
               <article className={`profane-day-guidance weekday-${selectedDate.getDay()}`} aria-labelledby="profane-day-guidance-title">
                 <header>
-                  <span className="profane-day-guidance-symbol" aria-hidden="true">{selectedWeekdayPatron.symbol}</span>
+                  <span className="profane-day-guidance-symbol" aria-hidden="true"><WeekdaySymbol weekday={selectedDate.getDay()} /></span>
                   <div>
                     <span className="eyebrow">{language === "en" ? "Rhythm of the Gregorian day" : "Ритм григорианского дня"}</span>
                     <h3 id="profane-day-guidance-title">{selectedWeekdayPatron.guidanceTitle}</h3>
