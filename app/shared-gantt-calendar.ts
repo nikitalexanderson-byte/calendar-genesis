@@ -52,7 +52,10 @@ export function calendarGanttPeriods(range: { start: number; end: number }, scal
   if (scale === "day" || scale === "days" || mode === "profane") {
     const unit = scale === "day" ? 1 / 24 : scale === "weeks" ? 7 : 1;
     const first = scale === "weeks" ? range.start - (new Date(range.start * 86400000).getUTCDay() + 6) % 7 : range.start;
-    for (let start = first; start < range.end; start += unit) periods.push({ start, end: start + unit, label: "" });
+    for (let index=0; first+index*unit < range.end-1e-7; index++) {
+      const start=first+index*unit;
+      periods.push({ start, end: start + unit, label: "" });
+    }
   } else {
     const unit = mode === "sacred" ? 5 : 10;
     for (const month of months) {
