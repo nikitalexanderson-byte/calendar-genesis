@@ -445,13 +445,16 @@ html[data-genesis-theme] .genesis-app .habits-view { gap: 8px; }
   html[data-genesis-theme] .genesis-app .shared-project-details { grid-row: 2; }
   html[data-genesis-theme] .genesis-app .shared-project-details .shared-projects-meta { margin-left: 0; }
 }
-html[data-genesis-theme] .genesis-app .habit-workspace-frame { flex: 1 1 100%; min-width: 0; padding: 12px; border: 1px solid color-mix(in srgb, var(--ink) 10%, transparent); border-radius: 16px; background: color-mix(in srgb, var(--ink) 2%, transparent); }
+/* An opaque outline keeps tabs, connectors and the selected panel equally bright. */
+html[data-genesis-theme] .genesis-app .habit-workspace-frame { --habit-workspace-outline: color-mix(in srgb, var(--ui-accent) 45%, var(--paper)); flex: 1 1 100%; min-width: 0; }
 html[data-genesis-theme] .genesis-app .habit-workspace-frame > .experimental-habit-tabs { margin: 0; }
-html[data-genesis-theme] .genesis-app .habit-workspace-panel { position: relative; display: flex; flex-wrap: wrap; gap: 16px; margin-top: 24px; min-width: 0; padding: 16px; border: 1px solid color-mix(in srgb, var(--ink) 10%, transparent); border-radius: 12px; background: color-mix(in srgb, var(--ink) 2%, var(--paper)); }
+html[data-genesis-theme] .genesis-app .habit-workspace-frame .experimental-habit-tabs > button,
+html[data-genesis-theme] .genesis-app .habit-workspace-frame .experimental-habit-tabs > button[aria-selected=true] { border-color: var(--habit-workspace-outline); }
+html[data-genesis-theme] .genesis-app .habit-workspace-panel { position: relative; display: flex; flex-wrap: wrap; gap: 16px; margin-top: 24px; min-width: 0; padding: 16px; border: 1px solid var(--habit-workspace-outline); border-radius: 12px; background: color-mix(in srgb, var(--ink) 2%, var(--paper)); }
 html[data-genesis-theme] .genesis-app .habit-workspace-panel > .habit-status-message { flex: 1 1 100%; order: 0; }
 @media (min-width: 761px) {
   html[data-genesis-theme] .genesis-app .habit-workspace-frame .experimental-habit-tabs > button[aria-selected=true] { position: relative; overflow: visible; }
-  html[data-genesis-theme] .genesis-app .habit-workspace-frame .experimental-habit-tabs > button[aria-selected=true]::after { content: ""; position: absolute; top: 100%; left: 20%; right: 20%; height: 25px; border-inline: 1px solid color-mix(in srgb, var(--ink) 10%, transparent); background: color-mix(in srgb, var(--ink) 2%, var(--paper)); pointer-events: none; }
+  html[data-genesis-theme] .genesis-app .habit-workspace-frame .experimental-habit-tabs > button[aria-selected=true]::after { content: ""; position: absolute; top: 100%; left: 20%; right: 20%; height: 25px; border-inline: 1px solid var(--habit-workspace-outline); background: color-mix(in srgb, var(--ink) 2%, var(--paper)); pointer-events: none; }
 }
 
 /* Keep mobile settings at one card depth and leave room for complete labels. */
@@ -471,7 +474,6 @@ html[data-genesis-theme] .genesis-app .account-panel #solar-place-query { paddin
   html[data-genesis-theme] .genesis-app nav.mobile-nav[data-exp-ui="mobile-nav"]:has(> button:nth-child(6)) button > small { font-size: clamp(8px, 2.2vw, 11px); }
 }
 @media (max-width: 760px) {
-  html[data-genesis-theme] .genesis-app .habit-workspace-frame { padding: 8px; }
   html[data-genesis-theme] .genesis-app .habit-workspace-panel { padding: 8px; margin-top: 20px; gap: 12px; }
 }
 @media (min-width: 1041px) {
