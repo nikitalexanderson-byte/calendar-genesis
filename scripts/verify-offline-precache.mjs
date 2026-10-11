@@ -93,6 +93,10 @@ if (!entryAssets.length) throw new Error("Built index.html contains no JavaScrip
 const missingAssets = entryAssets.filter((asset) => !manifest.includes(JSON.stringify(asset)));
 if (missingAssets.length) throw new Error(`Offline precache manifest is missing: ${missingAssets.join(", ")}`);
 if (!/__GENESIS_PRECACHE_VERSION="[a-f0-9]{16}"/.test(manifest)) throw new Error("Offline precache manifest has no build fingerprint.");
+const precacheVersion = manifest.match(/__GENESIS_PRECACHE_VERSION="([a-f0-9]{16})"/)?.[1];
+if (!serviceWorker.startsWith(`// GENESIS precache build: ${precacheVersion}\n`)) {
+  throw new Error("Service worker is not stamped with the current precache build.");
+}
 const configuredBase = process.env.GENESIS_BASE_PATH?.trim() || "/";
 const basePath = configuredBase.endsWith("/") ? configuredBase : `${configuredBase}/`;
 const precacheUrls = JSON.parse(manifest.match(/self\.__GENESIS_PRECACHE=(\[.*?\]);/s)?.[1] || "[]");
