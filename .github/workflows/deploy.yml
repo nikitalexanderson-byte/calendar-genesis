@@ -19,6 +19,9 @@ jobs:
     env:
       PRODUCTION_ORIGIN: ${{ vars.GENESIS_DEPLOY_TARGET == 'hostinger' && 'https://genesiscalendar.com' || 'https://genesiscalendar.ru' }}
       PLAY_BUNDLE_ARTIFACT: genesis-play-2.7.2
+      # Set the repository variable to false for website-only deployments.
+      # Unset it or set it to true to resume the existing Android release flow.
+      DEPLOY_ANDROID: ${{ vars.GENESIS_DEPLOY_ANDROID != 'false' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -124,17 +127,20 @@ jobs:
         run: pnpm build:beget
 
       - name: Set up Java for native Android release
+        if: env.DEPLOY_ANDROID == 'true'
         uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '25'
 
       - name: Set up Android SDK
+        if: env.DEPLOY_ANDROID == 'true'
         uses: android-actions/setup-android@v3
         with:
           packages: platform-tools
 
       - name: Build signed native Android APK and Play bundle
+        if: env.DEPLOY_ANDROID == 'true'
         env:
           SIGNING_KEYSTORE_B64: ${{ secrets.GENESIS_ANDROID_RELEASE_KEYSTORE_B64 }}
           GENESIS_ANDROID_SIGNING_STORE_PASSWORD: ${{ secrets.GENESIS_ANDROID_RELEASE_STORE_PASSWORD }}
@@ -178,6 +184,7 @@ jobs:
             android/app/build/intermediates/merged_manifest/play/processPlayMainManifest/AndroidManifest.xml
 
       - name: Reclaim unused build tools for the release emulator
+        if: env.DEPLOY_ANDROID == 'true'
         run: |
           # Signing, native symbol stripping and unit tests have completed.
           # The emulator needs the full system-image userdata partition even
@@ -190,12 +197,14 @@ jobs:
           test "$(df --output=avail . | tail -1 | tr -d ' ')" -ge 10485760
 
       - name: Enable KVM for release startup validation
+        if: env.DEPLOY_ANDROID == 'true'
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
       - name: Validate signed release APK startup before publishing
+        if: env.DEPLOY_ANDROID == 'true'
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -210,6 +219,7 @@ jobs:
 
       - name: Check whether the signed Play App Bundle is already saved
         id: play-bundle
+        if: env.DEPLOY_ANDROID == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -236,7 +246,7 @@ jobs:
           echo 'upload=true' >> "$GITHUB_OUTPUT"
 
       - name: Save signed Play App Bundle for Console upload
-        if: steps.play-bundle.outputs.upload == 'true'
+        if: env.DEPLOY_ANDROID == 'true' && steps.play-bundle.outputs.upload == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.PLAY_BUNDLE_ARTIFACT }}
@@ -315,6 +325,7 @@ jobs:
           SOURCE: "dist-beget/public_html/"
           TARGET: "/home/h/haiirodw/genesis-calendar/public_html/"
           ARGS: "-rlztvO --delete"
+          EXCLUDE: ${{ env.DEPLOY_ANDROID != 'true' && 'downloads/, android-update.json' || '' }}
 
       - name: Back up Hostinger runtime state
         if: vars.GENESIS_DEPLOY_TARGET == 'hostinger'
@@ -361,6 +372,7 @@ jobs:
           SOURCE: "dist-beget/public_html/"
           TARGET: "/home/u531952483/domains/genesiscalendar.com/public_html/"
           ARGS: "-rlztvO --delete"
+          EXCLUDE: ${{ env.DEPLOY_ANDROID != 'true' && 'downloads/, android-update.json' || '' }}
 
       - name: Verify production health and deployed commit
         env:
@@ -384,7 +396,7 @@ jobs:
       - name: Assemble compatibility files for the previous origin
         if: vars.GENESIS_DEPLOY_TARGET == 'hostinger'
         run: |
-          mkdir -p dist-legacy/server/src dist-legacy/server/cron dist-legacy/public_html/api dist-legacy/public_html/downloads
+          mkdir -p dist-legacy/server/src dist-legacy/server/cron dist-legacy/public_html/api
           cp server/src/relocation.php dist-legacy/server/src/
           cp server/cron/sync.php dist-legacy/server/cron/
           cp server/public/api/index.php dist-legacy/public_html/api/
@@ -394,8 +406,11 @@ jobs:
           cp dist-beget/public_html/relocated-sw.js dist-legacy/public_html/
           # Beget serves existing JS files through nginx before Apache rewrites.
           cp dist-beget/public_html/relocated-sw.js dist-legacy/public_html/sw.js
-          cp dist-beget/public_html/android-update.json dist-legacy/public_html/
-          cp dist-beget/public_html/downloads/*.apk dist-legacy/public_html/downloads/
+          if [ "$DEPLOY_ANDROID" = 'true' ]; then
+            mkdir -p dist-legacy/public_html/downloads
+            cp dist-beget/public_html/android-update.json dist-legacy/public_html/
+            cp dist-beget/public_html/downloads/*.apk dist-legacy/public_html/downloads/
+          fi
 
       - name: Keep installed applications compatible with the previous origin
         if: vars.GENESIS_DEPLOY_TARGET == 'hostinger'
@@ -427,6 +442,7 @@ jobs:
           curl -fsS --retry 3 'https://genesiscalendar.ru/api/health' | jq -e '.ok == true' >/dev/null
 
       - name: Verify public native APK
+        if: env.DEPLOY_ANDROID == 'true'
         run: |
           set -euo pipefail
           EXPECTED="$(sha256sum dist-beget/public_html/downloads/GENESIS-Android-Native-2.7.2.apk | cut -d' ' -f1)"
