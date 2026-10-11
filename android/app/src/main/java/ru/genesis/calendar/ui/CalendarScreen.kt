@@ -660,8 +660,9 @@ private fun LunarCalendarDay(calendar: GenesisCalendar, date: LocalDate, selecte
         color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
         border = if (!adjacent && date == LocalDate.now()) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null) {
         Box(Modifier.fillMaxWidth()) {
-            Column(Modifier.fillMaxWidth().padding(start = 4.dp, top = 6.dp, end = 4.dp,
-                bottom = if (completedTaskCount in 1 until taskCount) 26.dp else 6.dp),
+            Column(Modifier.fillMaxWidth().padding(start = 4.dp,
+                top = if (taskCount > 0 && !adjacent) 28.dp else 6.dp, end = 4.dp,
+                bottom = if (!LocalSharedCalendarTasks.current[date.toString()].isNullOrEmpty() && !adjacent) 28.dp else 6.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(lunar.day.toString(), style = MaterialTheme.typography.titleSmall)
@@ -680,10 +681,10 @@ private fun LunarCalendarDay(calendar: GenesisCalendar, date: LocalDate, selecte
             }
             if (taskCount > 0 && !adjacent) {
                 CalendarTaskBadge(date, taskCount, completedTaskCount, 24.dp,
-                    Modifier.align(Alignment.BottomEnd).padding(end = 3.dp, bottom = 3.dp),
-                    Alignment.BottomEnd, onTaskBadgeClick)
+                    Modifier.align(Alignment.TopEnd).padding(end = 3.dp, top = 3.dp),
+                    Alignment.TopEnd, onTaskBadgeClick)
             }
-            if (!adjacent) CalendarSharedBadge(date, Modifier.align(Alignment.BottomStart))
+            if (!adjacent) CalendarSharedBadge(date, Modifier.align(Alignment.BottomEnd))
         }
     }
 }
@@ -724,7 +725,8 @@ private fun CalendarDay(calendar: GenesisCalendar, date: LocalDate, number: Int,
         border = if (today) BorderStroke(2.dp, patron?.accent ?: MaterialTheme.colorScheme.primary) else null) {
         Box(Modifier.fillMaxWidth()) {
         Column(Modifier.fillMaxWidth().padding(start = 4.dp,
-            top = if (completedTaskCount in 1 until taskCount) 26.dp else 4.dp, end = 4.dp, bottom = 4.dp),
+            top = if (completedTaskCount in 1 until taskCount) 26.dp else 4.dp, end = 4.dp,
+            bottom = if (!LocalSharedCalendarTasks.current[date.toString()].isNullOrEmpty() && !adjacent) 28.dp else 4.dp),
             verticalArrangement = Arrangement.Center) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
@@ -760,7 +762,7 @@ private fun CalendarDay(calendar: GenesisCalendar, date: LocalDate, number: Int,
             CalendarTaskBadge(date, taskCount, completedTaskCount, if (patron != null) 28.dp else 23.dp,
                 Modifier.align(Alignment.TopEnd), Alignment.TopEnd, onTaskBadgeClick)
         }
-        if (!adjacent) CalendarSharedBadge(date, Modifier.align(Alignment.BottomStart))
+        if (!adjacent) CalendarSharedBadge(date, Modifier.align(Alignment.BottomEnd))
         }
     }
     }
@@ -771,14 +773,20 @@ private fun CalendarSharedBadge(date: LocalDate, modifier: Modifier = Modifier) 
     val count = LocalSharedCalendarTasks.current[date.toString()]?.size ?: 0
     if (count == 0) return
     val label = if (LocalGenesisLanguage.current == "en") "shared tasks" else "общих задач"
-    Surface(modifier.padding(3.dp).size(23.dp)
-        .testTag("calendar-shared-count-$date")
-        .semantics { contentDescription = "$count $label" },
-        shape = CircleShape, color = Color(0xff167c91),
-        border = BorderStroke(2.dp, Color(0xffe1b45e)), shadowElevation = 3.dp) {
+    SharedTaskCountDisc(count, "$count $label", modifier.padding(3.dp).testTag("calendar-shared-count-$date"))
+}
+
+@Composable
+private fun SharedTaskCountDisc(count: Int, description: String, modifier: Modifier = Modifier) {
+    val evening = LocalEveningTheme.current
+    CompositionLocalProvider(LocalPreserveCalendarColors provides true) {
+    Surface(modifier.size(23.dp).semantics { contentDescription = description },
+        shape = CircleShape, color = if (evening) Color(0xffc4a4ef) else Color(0xff7350a2)) {
         Box(contentAlignment = Alignment.Center) {
-            Text(if (count > 99) "99+" else count.toString(), color = Color.White, fontSize = 9.sp)
+            Text(if (count > 99) "99+" else count.toString(),
+                color = if (evening) Color(0xff241335) else Color.White, fontSize = 9.sp)
         }
+    }
     }
 }
 
@@ -1365,7 +1373,8 @@ private fun CalendarYearMonthCard(calendar: GenesisCalendar, start: LocalDate, m
         colors = CardDefaults.cardColors(containerColor = if (mode == CalendarMode.PROFANE)
             seasonSurface(season).copy(alpha = if (LocalEveningTheme.current) .62f else 1f) else Color(0xfff5f0e6)),
         border = if (mode == CalendarMode.PROFANE) null else BorderStroke(1.dp, Color(0x668b6727))) {
-        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically,
+        Box(Modifier.fillMaxWidth()) {
+        Row(Modifier.padding(14.dp).padding(bottom = if (sharedCount > 0) 20.dp else 0.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             when (mode) {
             CalendarMode.SACRED -> OriginalImage(sacredMonthArtPath(sacredIndex), "Иллюстрация месяца $name",
@@ -1412,9 +1421,6 @@ private fun CalendarYearMonthCard(calendar: GenesisCalendar, start: LocalDate, m
                 if (mode == CalendarMode.PROFANE) Text(if (english) "$count tasks" else "$count задач",
                     color = detailInk, style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier.testTag("calendar-year-task-count-$ordinal"))
-                if (sharedCount > 0) Text(if (english) "$sharedCount shared tasks" else "$sharedCount общих задач",
-                    color = Color(0xff167c91), style = MaterialTheme.typography.labelMedium,
-                    modifier = Modifier.testTag("calendar-year-shared-count-$ordinal"))
                     if (count > 0) {
                         val completed = taskCount.completed
                         Column {
@@ -1426,6 +1432,10 @@ private fun CalendarYearMonthCard(calendar: GenesisCalendar, start: LocalDate, m
                     }
             }
             Text("›", color = Color(0xff8b6727), style = MaterialTheme.typography.titleLarge)
+        }
+        if (sharedCount > 0) SharedTaskCountDisc(sharedCount,
+            if (english) "$sharedCount shared tasks" else "$sharedCount общих задач",
+            Modifier.align(Alignment.BottomEnd).padding(8.dp).testTag("calendar-year-shared-count-$ordinal"))
         }
     }
 }

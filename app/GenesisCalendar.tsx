@@ -5213,7 +5213,11 @@ export function GenesisCalendar() {
           <span><i aria-hidden="true">↗</i>{sunrise}</span>
           <span><i aria-hidden="true">↘</i>{sunset}</span>
         </span>
-        {taskCount || sharedTasks.length ? (
+        {sharedTasks.length ? <button type="button" className="calendar-shared-task-count"
+          onClick={() => openCalendarDate(date, "calendar")}
+          aria-label={`${sharedTasks.length} ${language === "en" ? "shared tasks" : "общих задач"} · ${formatGregorian(date, true)}`}
+          title={`${language === "en" ? "Shared tasks" : "Общие задачи"}: ${sharedTasks.map((task) => task.title).join(", ")}`}>{sharedTasks.length}</button> : null}
+        {taskCount ? (
           <div
             className="calendar-day-task-control"
             onPointerEnter={(event) => { if (event.pointerType === "mouse") setOpenDayTaskPopover(dateValue); }}
@@ -5226,10 +5230,6 @@ export function GenesisCalendar() {
               }
             }}
           >
-            {sharedTasks.length ? <button type="button" className="calendar-shared-task-count"
-              onClick={() => openCalendarDate(date, "calendar")}
-              aria-label={`${sharedTasks.length} ${language === "en" ? "shared tasks" : "общих задач"} · ${formatGregorian(date, true)}`}
-              title={`${language === "en" ? "Shared tasks" : "Общие задачи"}: ${sharedTasks.map((task) => task.title).join(", ")}`}>{sharedTasks.length}</button> : null}
             <CalendarDayTaskCounts tasks={cellTasks} dateLabel={formatGregorian(date, true)} language={language}
               onOpen={() => {
                 selectCalendarDate(date);
@@ -5412,7 +5412,11 @@ export function GenesisCalendar() {
                           <span><i aria-hidden="true">↘</i>{sunset}</span>
                         </span>
                         <small>{sacredDay.name.split("(")[0].trim()}</small>
-                        {taskCount || sharedTasks.length ? (
+                        {sharedTasks.length ? <button type="button" className="calendar-shared-task-count"
+                          onClick={() => openCalendarDate(gregorian, "calendar")}
+                          aria-label={`${sharedTasks.length} ${language === "en" ? "shared tasks" : "общих задач"} · ${formatGregorian(gregorian, true)}`}
+                          title={`${language === "en" ? "Shared tasks" : "Общие задачи"}: ${sharedTasks.map((task) => task.title).join(", ")}`}>{sharedTasks.length}</button> : null}
+                        {taskCount ? (
                           <div
                             className="calendar-day-task-control"
                             onPointerEnter={(event) => {
@@ -5431,10 +5435,6 @@ export function GenesisCalendar() {
                               }
                             }}
                           >
-                            {sharedTasks.length ? <button type="button" className="calendar-shared-task-count"
-                              onClick={() => openCalendarDate(gregorian, "calendar")}
-                              aria-label={`${sharedTasks.length} ${language === "en" ? "shared tasks" : "общих задач"} · ${formatGregorian(gregorian, true)}`}
-                              title={`${language === "en" ? "Shared tasks" : "Общие задачи"}: ${sharedTasks.map((task) => task.title).join(", ")}`}>{sharedTasks.length}</button> : null}
                             <CalendarDayTaskCounts tasks={cellTasks} dateLabel={formatGregorian(gregorian, true)} language={language}
                               onOpen={() => {
                                 setSelectedDay(dayNumber);
@@ -5838,7 +5838,7 @@ export function GenesisCalendar() {
                 data-project-drop-id={TASK_INBOX_PROJECT_ID}
                 aria-labelledby="project-inbox-title"
               >
-                <header className="workspace-inbox-header"><h2 id="project-inbox-title">Хаос-бокс</h2><small aria-label="Количество задач и списков">{inboxTasks.length + inboxTaskLists.length}</small></header>
+                <header className="workspace-inbox-header"><h2 id="project-inbox-title">{language === "en" ? "Inbox (personal)" : "Хаос-бокс (личный)"}</h2><small aria-label="Количество задач и списков">{inboxTasks.length + inboxTaskLists.length}</small></header>
                 <p>{projectDragItem ? "Отпустите здесь, чтобы убрать элемент из проекта." : <><span className="project-drag-hint-desktop">Перетащите плашку задачи или списка в проект либо в хаос-бокс.</span><span className="project-drag-hint-touch">Для переноса удерживайте задачу или список, затем перетащите. Для прокрутки проведите пальцем без удержания.</span></>}</p>
                 {!inboxTasks.length && !inboxTaskLists.length ? <p>{language === "en" ? "No unsorted tasks yet." : "Задач без проекта пока нет."}</p> : null}
                 <div className="inbox-card-items">
@@ -6399,17 +6399,14 @@ export function GenesisCalendar() {
                       >
                         {mode === "lunar" ? <MoonPhaseIcon phaseStep={moon.phaseStep} size={30} className="mini-day-moon-phase" /> : null}
                         <span className="mini-day-number">{mode === "lunar" ? moon.day : date.getDate()}</span>
-                        {mode === "lunar" ? (dayTasks || sharedTasks.length ? (
+                        {mode === "lunar" ? (dayTasks ? (
                           <span className="mini-day-task-counts">
                             <CalendarYearTaskCounts tasks={cellTasks} />
-                            {sharedTasks.length ? <span className="mini-day-shared-count" aria-label={`${sharedTasks.length} общих задач`}>{sharedTasks.length}</span> : null}
                           </span>
                         ) : null) : (
-                          <>
-                            <CalendarYearTaskCounts tasks={cellTasks} />
-                            {sharedTasks.length ? <span className="mini-day-shared-count" aria-label={`${sharedTasks.length} общих задач`}>{sharedTasks.length}</span> : null}
-                          </>
+                          <CalendarYearTaskCounts tasks={cellTasks} />
                         )}
+                        {sharedTasks.length ? <span className="mini-day-shared-count" aria-label={`${sharedTasks.length} ${language === "en" ? "shared tasks" : "общих задач"}`}>{sharedTasks.length}</span> : null}
                       </button>
                     );
                   })}

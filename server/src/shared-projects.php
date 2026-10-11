@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/shared-labels.php';
 require_once __DIR__ . '/shared-activity.php';
 require_once __DIR__ . '/shared-task-images.php';
+require_once __DIR__ . '/shared-task-attachments.php';
 require_once __DIR__ . '/shared-overview.php';
 require_once __DIR__ . '/shared-schedule.php';
 require_once __DIR__ . '/shared-space-covers.php';
@@ -1060,6 +1061,7 @@ function genesisSharedProjectSnapshot(string $userId, string $projectId): array
         JOIN shared_space_members sm ON sm.space_id = :space AND sm.user_id = m.user_id
         WHERE m.project_id = :project');
     $members->execute(['project' => $projectId, 'space' => $project['space_id']]);
+    $attachments = genesisSharedAttachmentIndex($projectId);
     return [
         'project' => [
             'id' => $projectId, 'spaceId' => $project['space_id'], 'parentId' => $project['parent_id'],
@@ -1074,8 +1076,9 @@ function genesisSharedProjectSnapshot(string $userId, string $projectId): array
             'updatedAt' => $project['updated_at'],
         ],
         'statuses' => $statuses->fetchAll(), 'categories' => $categories->fetchAll(),
-        'tasks' => array_map(static function (array $task): array {
+        'tasks' => array_map(static function (array $task) use ($attachments): array {
             $task['imageUrl'] = genesisSharedTaskImageUrl($task['id'], (bool)$task['hasImage']);
+            $task['attachments'] = $attachments[$task['id']] ?? [];
             unset($task['hasImage']); return genesisSharedRowTags($task);
         }, $tasks->fetchAll()), 'members' => array_map(static function (array $member): array {
             $member['permissions'] = genesisSharedPermissions($member['spaceRole'], $member['permissionsJson'], (int)$member['canOrganizeTasks'] === 1, $member['role']);
@@ -1566,6 +1569,9 @@ function genesisSharedTask(string $userId, string $projectId, array $input, ?str
             }
         }
         if (array_key_exists('imageData', $input)) genesisSharedSaveTaskImage($id, $input['imageData']);
+        if (array_key_exists('attachments', $input) || array_key_exists('removeAttachmentIds', $input)) {
+            genesisSharedSaveTaskAttachments($id, $input);
+        }
         $oldLabels = genesisSharedLabelIds('task', $id);
         $db->prepare('UPDATE shared_tasks SET start_date = :start, start_time = :start_time, end_time = :end_time WHERE id = :id')->execute([
             'id' => $id, 'start' => $schedule['startDate'], 'start_time' => $schedule['startTime'], 'end_time' => $schedule['endTime']]);
@@ -1585,6 +1591,7 @@ function genesisSharedTask(string $userId, string $projectId, array $input, ?str
         $image = $db->prepare('SELECT 1 FROM shared_task_images WHERE task_id = :id');
         $image->execute(['id' => $id]);
         $response['imageUrl'] = genesisSharedTaskImageUrl($id, (bool)$image->fetchColumn());
+        $response['attachments'] = genesisSharedTaskAttachments($id);
         genesisSharedSaveMutationReceipt($db, $userId, $requestId, $action, $resourceId, $response);
         $db->commit();
         return $response;

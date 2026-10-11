@@ -1,7 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { matchesAffair } from "../app/affairs-search.ts";
-import { restoredSharedProject } from "../app/shared-expansion.ts";
+import { restoredSharedProject, sharedProjectTree } from "../app/shared-expansion.ts";
+
+test("project picker keeps descendants with parents and includes orphaned or cyclic projects once", () => {
+  const projects = [{ id: "grandchild", parentId: "child", taskCount: 2 }, { id: "root", taskCount: 3 },
+    { id: "other" }, { id: "child", parentId: "root", taskCount: 1 }, { id: "inbox", isInbox: 1 },
+    { id: "orphan", parentId: "missing" }, { id: "a", parentId: "b" }, { id: "b", parentId: "a" }];
+  const tree = sharedProjectTree(projects);
+  assert.deepEqual(tree.map(({project, depth}) => [project.id, depth]),
+    [["root", 0], ["child", 1], ["grandchild", 2], ["other", 0], ["orphan", 0], ["a", 0], ["b", 1]]);
+  assert.equal(tree[2].project.taskCount, 2);
+  assert.equal(projects.length, 8);
+});
 import { normalizeMoonReminderSettings, planMoonReminders } from "../app/moon-reminders.ts";
 import "./shared-gantt-reading.test.mjs";
 import "./habit-quality.test.mjs";

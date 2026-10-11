@@ -38,8 +38,8 @@ export function SharedWorkspaceSummary({ english, onOpen }: { english: boolean; 
   };
   const read = async (ids: string[], all = false, destination?: SharedTaskDestination) => {
     if (busy) return; setBusy(true); setFailed(false);
+    if (destination) { setOpen(false); onOpen(destination); }
     try { await markRead(ids, all); setReload(value => value + 1);
-      if (destination) { setOpen(false); onOpen(destination); }
     } catch { setFailed(true); } finally { setBusy(false); }
   };
   const metrics = [
@@ -71,7 +71,7 @@ export function SharedWorkspaceSummary({ english, onOpen }: { english: boolean; 
           <ExperimentalIcon name={item.action === "project.created" ? "projects" : item.action === "comment.created" ? "comment" : "plus"} />
           <span><small>{item.action === "project.created" ? (english ? "New project" : "Новый проект") : item.action === "comment.created" ? (english ? "New comment" : "Новый комментарий") : (english ? "New task" : "Новая задача")} · <span data-no-translate>{item.actorName}</span></small>
             <strong data-no-translate>{item.taskTitle || item.projectTitle}</strong>{item.commentBody ? <span data-no-translate>{item.commentBody}</span> : null}
-            <small data-no-translate>{item.projectTitle}</small><time dateTime={item.createdAt}>{new Intl.DateTimeFormat(english ? "en" : "ru", { dateStyle: "short", timeStyle: "short" }).format(new Date(item.createdAt))}</time></span>
+            <small data-no-translate>{item.projectTitle}</small><time dateTime={item.createdAt}>{new Intl.DateTimeFormat(english ? "en" : "ru", { dateStyle: "short", timeStyle: "short" }).format(new Date(item.createdAt))}</time><span className="shared-update-destination"><ExperimentalIcon name="open" />{item.action === "project.created" ? (english ? "Open project" : "Открыть проект") : (english ? "Open task" : "Открыть задачу")}</span></span>
         </button>
         {!item.isRead ? <button type="button" className="shared-update-read" disabled={busy} title={english ? "Mark as read" : "Отметить прочитанным"} aria-label={english ? `Mark as read: ${item.taskTitle || item.projectTitle}` : `Прочитать: ${item.taskTitle || item.projectTitle}`} onClick={() => void read([item.id])}><ExperimentalIcon name="check" /></button> : null}
       </li>)}</ul>
@@ -92,7 +92,7 @@ export function SharedCommentNotices({ userId, english, onOpen }: { userId: stri
       <p><strong data-no-translate>{item.actorName}</strong> · <span data-no-translate>{item.taskTitle}</span></p>
       {item.commentBody ? <p className="shared-comment-preview" data-no-translate>{item.commentBody}</p> : null}
       {failed === item.id ? <p role="alert">{english ? "Could not open the update. Try again." : "Не удалось открыть обновление. Повторите попытку."}</p> : null}
-      <button type="button" className="secondary-button" disabled={busy === item.id} onClick={() => { setBusy(item.id); setFailed(""); void markRead([item.id]).then(() => onOpen(notificationDestination(item))).catch(() => setFailed(item.id)).finally(() => setBusy("")); }}>{english ? "Open task" : "Открыть задачу"}</button>
+      <button type="button" className="secondary-button" disabled={busy === item.id} onClick={() => { setBusy(item.id); setFailed(""); onOpen(notificationDestination(item)); void markRead([item.id]).catch(() => setFailed(item.id)).finally(() => setBusy("")); }}><ExperimentalIcon name="open" />{english ? "Open task" : "Открыть задачу"}</button>
     </article>)}
   </aside>;
 }

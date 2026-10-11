@@ -634,10 +634,18 @@ try {
         }
         if ($method === 'GET' && count($segments) === 4 && $segments[1] === 'tasks' && $segments[3] === 'image') {
             $image = genesisSharedReadTaskImage($userId, $segments[2]);
-            genesisFinishSession();
+            session_write_close();
             header('Content-Type: ' . $image['type']); header('Cache-Control: private, no-store');
             header('X-Content-Type-Options: nosniff'); header('Referrer-Policy: no-referrer');
             header('Content-Length: ' . strlen($image['bytes'])); echo $image['bytes']; exit;
+        }
+        if ($method === 'GET' && count($segments) === 5 && $segments[1] === 'tasks' && $segments[3] === 'attachments') {
+            $file = genesisSharedReadTaskAttachment($userId, $segments[2], $segments[4]);
+            session_write_close();
+            header('Content-Type: ' . $file['type']); header('Cache-Control: private, no-store');
+            header('X-Content-Type-Options: nosniff'); header('Referrer-Policy: no-referrer');
+            header("Content-Disposition: attachment; filename=\"download\"; filename*=UTF-8''" . rawurlencode($file['name']));
+            header('Content-Length: ' . strlen($file['bytes'])); echo $file['bytes']; exit;
         }
         if ($method === 'GET' && count($segments) === 4 && $segments[1] === 'spaces' && $segments[3] === 'cover') {
             $cover = genesisSharedReadCover($userId, $segments[2]);

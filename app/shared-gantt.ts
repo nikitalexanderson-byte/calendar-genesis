@@ -1,4 +1,10 @@
-import type { SharedTask } from "./cloud-sync";
+import type { SharedStatus, SharedTask } from "./cloud-sync";
+
+export function ganttTaskGroups(tasks: SharedTask[], statuses: Pick<SharedStatus, "id" | "isDone">[]) {
+  const completedStatuses = new Set(statuses.filter(status => Boolean(status.isDone)).map(status => status.id));
+  return { active: tasks.filter(task => !completedStatuses.has(task.statusId)),
+    completed: tasks.filter(task => completedStatuses.has(task.statusId)) };
+}
 
 export type GanttScale = "day" | "days" | "weeks" | "months";
 export type GanttAxisPeriod = {start:number;end:number};
