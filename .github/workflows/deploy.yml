@@ -350,6 +350,8 @@ jobs:
           cp dist-beget/public_html/legacy-home.php dist-beget/public_html/legacy-relocation-notice.css dist-beget/public_html/legacy-relocation-notice.js dist-legacy/public_html/
           cp dist-beget/public_html/relocated.* dist-legacy/public_html/
           cp dist-beget/public_html/relocated-sw.js dist-legacy/public_html/
+          # Beget serves existing JS files through nginx before Apache rewrites.
+          cp dist-beget/public_html/relocated-sw.js dist-legacy/public_html/sw.js
           cp dist-beget/public_html/android-update.json dist-legacy/public_html/
           cp dist-beget/public_html/downloads/*.apk dist-legacy/public_html/downloads/
 
@@ -367,6 +369,19 @@ jobs:
           SCRIPT_BEFORE: |
             test -f /home/h/haiirodw/genesis-calendar/server/var/relocation.json
           SCRIPT_BEFORE_REQUIRED: true
+
+      - name: Verify previous-origin relocation worker
+        if: vars.GENESIS_DEPLOY_TARGET == 'hostinger'
+        run: |
+          set -euo pipefail
+          EXPECTED_WORKER="$(sha256sum dist-legacy/public_html/sw.js | cut -d' ' -f1)"
+          ACTUAL_WORKER="$(curl -fsS --retry 3 -H 'Cache-Control: no-cache' \
+            "https://genesiscalendar.ru/sw.js?deploy=$GITHUB_SHA" | sha256sum | cut -d' ' -f1)"
+          test "$ACTUAL_WORKER" = "$EXPECTED_WORKER"
+          REDIRECT="$(curl -sS -o /dev/null -w '%{http_code} %{redirect_url}' \
+            'https://genesiscalendar.ru/calendar?migration_check=1&lang=ru')"
+          test "$REDIRECT" = '302 https://genesiscalendar.com/calendar?migration_check=1&lang=ru'
+          curl -fsS --retry 3 'https://genesiscalendar.ru/api/health' | jq -e '.ok == true' >/dev/null
 
       - name: Verify public native APK
         run: |
