@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: genesis-production
@@ -17,6 +18,7 @@ jobs:
     timeout-minutes: 60
     env:
       PRODUCTION_ORIGIN: ${{ vars.GENESIS_DEPLOY_TARGET == 'hostinger' && 'https://genesiscalendar.com' || 'https://genesiscalendar.ru' }}
+      PLAY_BUNDLE_ARTIFACT: genesis-play-2.7.2
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -206,10 +208,38 @@ jobs:
             bash scripts/check-android-release-startup.sh android/app/build/outputs/apk/release/app-release.apk native-release
             bash scripts/check-android-release-startup.sh android/app/build/outputs/apk/play/app-play.apk play-release
 
+      - name: Check whether the signed Play App Bundle is already saved
+        id: play-bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          AAB=android/app/build/outputs/bundle/play/app-play.aab
+          test -s "$AAB"
+          ARTIFACT_ID="$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?per_page=100" \
+            | jq -r --arg name "$PLAY_BUNDLE_ARTIFACT" \
+              '[.artifacts[] | select(.name == $name and .expired == false)][0].id // empty')"
+          if [ -n "$ARTIFACT_ID" ]; then
+            gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID/zip" \
+              > "$RUNNER_TEMP/genesis-latest-play.zip"
+            unzip -p "$RUNNER_TEMP/genesis-latest-play.zip" app-play.aab \
+              > "$RUNNER_TEMP/genesis-latest-play.aab"
+            SAVED_SHA="$(sha256sum "$RUNNER_TEMP/genesis-latest-play.aab" | cut -d' ' -f1)"
+            BUILT_SHA="$(sha256sum "$AAB" | cut -d' ' -f1)"
+            if [ "$SAVED_SHA" = "$BUILT_SHA" ]; then
+              echo 'upload=false' >> "$GITHUB_OUTPUT"
+              printf 'Play App Bundle is unchanged; existing artifact %s contains the verified bundle.\n' \
+                "$ARTIFACT_ID" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+          fi
+          echo 'upload=true' >> "$GITHUB_OUTPUT"
+
       - name: Save signed Play App Bundle for Console upload
+        if: steps.play-bundle.outputs.upload == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: genesis-play-2.7.2
+          name: ${{ env.PLAY_BUNDLE_ARTIFACT }}
           path: android/app/build/outputs/bundle/play/app-play.aab
           if-no-files-found: error
           retention-days: 14
