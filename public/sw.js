@@ -116,6 +116,15 @@ self.addEventListener("install", (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE);
     await cache.addAll(REQUIRED_SHELL.map((url) => new Request(url, { cache: "reload" })));
+    // SPA fallback can return HTTP 200 HTML while hashed assets are being deployed.
+    // Such a response must never become an installed offline JavaScript module.
+    for (const url of REQUIRED_SHELL.filter((url) => new URL(url).pathname.startsWith(ASSETS_PATH))) {
+      const response = await cache.match(url);
+      if (!response || response.headers.get("Content-Type")?.includes("text/html")) {
+        await cache.delete(url);
+        throw new Error("GENESIS asset precache received an HTML fallback");
+      }
+    }
   })());
 });
 
@@ -142,7 +151,7 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       caches.open(CACHE).then(async (cache) => {
         const cached = await cache.match(request);
-        if (cached) return cached;
+        if (cached && !cached.headers.get("Content-Type")?.includes("text/html")) return cached;
         const response = await fetch(request);
         if (response.ok && !response.headers.get("Content-Type")?.includes("text/html")) {
           void cache.put(request, response.clone());
