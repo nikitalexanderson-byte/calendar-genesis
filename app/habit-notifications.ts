@@ -1,6 +1,7 @@
 import { habitNotificationMessage, notificationCopyIndex } from "./habit-notification-message.ts";
 import { habitReminderDateTime } from "./habit-reminder-time.ts";
 import type { Language } from "./i18n";
+import { privateDeviceAccessBlocked } from "./local-sign-out.ts";
 export type HabitNotificationTone = "calm" | "heroic" | "ironic";
 
 export type HabitNotificationSettings = {
@@ -159,7 +160,7 @@ function readTelemetry(): HabitNotificationTelemetryEvent[] {
 }
 
 function recordTelemetry(candidate: Pick<HabitNotificationCandidate, "id" | "kind" | "variant">, event: HabitNotificationTelemetryEvent["event"]) {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined" || privateDeviceAccessBlocked()) return;
   const metrics = [...readTelemetry(), { notificationId: candidate.id, kind: candidate.kind, variant: candidate.variant, event, occurredAt: new Date().toISOString() }].slice(-120);
   window.localStorage.setItem(TELEMETRY_KEY, JSON.stringify(metrics));
 }
@@ -182,6 +183,7 @@ function hasNotificationFatigue() {
 }
 
 async function showCandidate(candidate: HabitNotificationCandidate, appBase: string) {
+  if (privateDeviceAccessBlocked()) return;
   const options: NotificationOptions = {
     body: candidate.body,
     tag: `genesis-${candidate.id}`,
@@ -190,8 +192,14 @@ async function showCandidate(candidate: HabitNotificationCandidate, appBase: str
     data: { genesisNotificationId: candidate.id, kind: candidate.kind, variant: candidate.variant, url: `${appBase || "/"}#today` },
   };
   const registration = "serviceWorker" in navigator ? await navigator.serviceWorker.getRegistration() : undefined;
+  if (privateDeviceAccessBlocked()) return;
   if (registration) await registration.showNotification(candidate.title, options);
   else new Notification(candidate.title, options);
+  if (privateDeviceAccessBlocked()) {
+    const shown = await registration?.getNotifications({ tag: options.tag });
+    shown?.forEach((notification) => notification.close());
+    return;
+  }
   const delivered = deliveredIds();
   delivered.add(candidate.id);
   window.localStorage.setItem(DELIVERED_KEY, JSON.stringify(Array.from(delivered).slice(-60)));
@@ -209,7 +217,7 @@ export async function requestHabitNotificationPermission(): Promise<HabitNotific
 }
 
 export function scheduleHabitNotifications(candidates: readonly HabitNotificationCandidate[], appBase = "") {
-  if (typeof window === "undefined" || habitNotificationPermission() !== "granted") return () => undefined;
+  if (typeof window === "undefined" || privateDeviceAccessBlocked() || habitNotificationPermission() !== "granted") return () => undefined;
   const delivered = deliveredIds();
   const fatigue = hasNotificationFatigue();
   const timers = candidates.flatMap((candidate) => {

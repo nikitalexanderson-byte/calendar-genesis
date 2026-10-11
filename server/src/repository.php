@@ -270,7 +270,7 @@ function genesisUserForClient(array $user): array
         'googleTasksImportReady' => $anyTasksConnected,
         'passwordEnabled' => !empty($user['password_hash']),
         'stoicheionDivinationDisabled' => !empty($user['stoicheion_divination_disabled']),
-        'isAdmin' => genesisIsAdminUser($user),
+        'isAdmin' => genesisIsAdminUser($user) && genesisSessionIsPrimaryGoogleUser($user),
         'sharedProjectsEligible' => genesisSharedEligible($user),
         'sharedProjectsLifetimeAccess' => genesisSharedTester($user),
         'sharedProjectsEnabled' => genesisSharedEligible($user) && !empty($user['shared_projects_enabled']),
@@ -778,7 +778,7 @@ function genesisSaveMetrics(string $userId, array $payload): void
 
 function genesisRequireAdmin(array $user): void
 {
-    if (!genesisIsAdminUser($user)) {
+    if (!genesisIsAdminUser($user) || !genesisSessionIsPrimaryGoogleUser($user)) {
         genesisJson(['error' => 'FORBIDDEN'], 403);
     }
 }

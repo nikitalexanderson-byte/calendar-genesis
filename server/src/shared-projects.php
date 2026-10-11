@@ -906,6 +906,7 @@ function genesisSharedSetMemberRole(string $userId, string $projectId, string $t
         }
         $db->prepare('UPDATE shared_project_members SET role = :role WHERE project_id = :project AND user_id = :user')
             ->execute(['role' => $role, 'project' => $projectId, 'user' => $targetId]);
+        if ($oldRole !== $role) genesisSharedRevokeInvitationsByMember($targetId, $projectId);
         genesisSharedAudit($projectId, $userId, 'member.role_changed', $targetId, ['changes' => ['role' => ['from' => $oldRole, 'to' => $role]]]);
         $db->commit();
     } catch (Throwable $error) {
@@ -947,6 +948,10 @@ function genesisSharedSetSpaceRole(string $userId, string $spaceId, string $targ
             WHERE space_id = :space AND user_id = :user')->execute([
                 'role' => $role, 'organize' => $canOrganize ? 1 : 0, 'permissions' => $permissionsJson,
                 'space' => $spaceId, 'user' => $targetId]);
+        if ($role !== $oldRole || $permissionsJson !== $existing['permissions_json']
+            || $canOrganize !== ((int)$existing['can_organize_tasks'] === 1)) {
+            genesisSharedRevokeInvitationsByMember($targetId, null, $spaceId);
+        }
         if (in_array($role, ['owner', 'admin'], true)) {
             $db->prepare("INSERT OR IGNORE INTO shared_project_members (project_id, user_id, role, joined_at)
                 SELECT p.id, :user, 'manager', :now FROM shared_projects p WHERE p.space_id = :space")
@@ -1007,6 +1012,7 @@ function genesisSharedRemoveMember(string $userId, string $projectId, string $ta
             ->execute(['project' => $projectId, 'user' => $targetId]);
         $db->prepare('DELETE FROM shared_project_members WHERE project_id = :project AND user_id = :user')
             ->execute(['project' => $projectId, 'user' => $targetId]);
+        genesisSharedRevokeInvitationsByMember($targetId, $projectId);
         $db->prepare('UPDATE shared_tasks SET assignee_id = NULL, revision = revision + 1,
             updated_by = :actor, updated_at = :now
             WHERE project_id = :project AND assignee_id = :user')->execute([
@@ -1029,6 +1035,7 @@ function genesisSharedRemoveMember(string $userId, string $projectId, string $ta
                     ->execute(['space' => $spaceId, 'user' => $targetId]);
                 $db->prepare('DELETE FROM shared_space_members WHERE space_id = :space AND user_id = :user')
                     ->execute(['space' => $spaceId, 'user' => $targetId]);
+                genesisSharedRevokeInvitationsByMember($targetId, null, (string)$spaceId);
             }
         }
         genesisSharedAudit($projectId, $userId, 'member.removed', $targetId);
@@ -1094,6 +1101,38 @@ function genesisSharedProjectSnapshot(string $userId, string $projectId): array
     ];
 }
 
+/** Pending grants cannot survive a change in the authority that issued them. */
+function genesisSharedRevokeInvitationsByMember(string $userId, ?string $projectId = null, ?string $spaceId = null): void
+{
+    $values = ['user' => $userId, 'now' => genesisNow()];
+    $filter = '';
+    if ($projectId !== null) {
+        $filter = ' AND project_id = :project';
+        $values['project'] = $projectId;
+    } elseif ($spaceId !== null) {
+        $filter = ' AND project_id IN (SELECT id FROM shared_projects WHERE space_id = :space)';
+        $values['space'] = $spaceId;
+    }
+    genesisDb()->prepare('UPDATE shared_invitations SET revoked_at = :now WHERE created_by = :user
+        AND consumed_at IS NULL AND revoked_at IS NULL' . $filter)->execute($values);
+    if ($spaceId !== null) {
+        genesisDb()->prepare('UPDATE shared_space_invitations SET revoked_at = :now
+            WHERE created_by = :user AND space_id = :space AND consumed_at IS NULL AND revoked_at IS NULL')
+            ->execute(['now' => $values['now'], 'user' => $userId, 'space' => $spaceId]);
+    }
+}
+
+function genesisSharedRequireInvitationGrant(string $userId, string $projectId, string $role): void
+{
+    $project = genesisSharedProjectAccess($projectId, $userId, 'invite');
+    $granted = genesisSharedPermissions('guest', null, false, $role);
+    foreach ($granted as $permission => $enabled) {
+        if ($enabled && !$project['permissions'][$permission]) {
+            throw new GenesisSharedAccessException('INVITATION_UNAVAILABLE', 409);
+        }
+    }
+}
+
 function genesisSharedInvite(string $userId, string $projectId, array $input): array
 {
     genesisSharedRequireEnabled($userId);
@@ -1104,6 +1143,7 @@ function genesisSharedInvite(string $userId, string $projectId, array $input): a
     if (!in_array($role, ['manager', 'member', 'commenter', 'viewer'], true)) {
         throw new InvalidArgumentException('INVALID_ROLE');
     }
+    genesisSharedRequireInvitationGrant($userId, $projectId, $role);
     $existingMember = genesisDb()->prepare('SELECT 1 FROM shared_project_members m
         JOIN users u ON u.id = m.user_id WHERE m.project_id = :project AND u.email = :email COLLATE NOCASE');
     $existingMember->execute(['project' => $projectId, 'email' => $email]);
@@ -1122,7 +1162,7 @@ function genesisSharedInvite(string $userId, string $projectId, array $input): a
     $db = genesisDb();
     $db->beginTransaction();
     try {
-        genesisSharedProjectAccess($projectId, $userId, 'invite');
+        genesisSharedRequireInvitationGrant($userId, $projectId, $role);
         $db->prepare('UPDATE shared_invitations SET revoked_at = :now
             WHERE project_id = :project AND email = :email COLLATE NOCASE
             AND consumed_at IS NULL AND revoked_at IS NULL')->execute([
@@ -1188,13 +1228,14 @@ function genesisSharedNotifications(string $userId): array
         COALESCE(e.task_id, e.object_id) AS objectId,
         e.created_at AS createdAt, p.id AS projectId, p.title AS projectTitle,
         p.space_id AS spaceId, COALESCE(NULLIF(u.display_name, \'\'), u.email, \'Участник GENESIS\') AS actorName,
-        t.title AS taskTitle, CASE WHEN r.event_id IS NULL THEN 0 ELSE 1 END AS isRead
+        COALESCE(t.title, json_extract(e.details_json, \'$.objectTitle\')) AS taskTitle,
+        CASE WHEN r.event_id IS NULL THEN 0 ELSE 1 END AS isRead
         FROM shared_audit_events e
         JOIN shared_projects p ON p.id = e.project_id AND p.archived_at IS NULL
         JOIN shared_project_members m ON m.project_id = p.id AND m.user_id = :member
         JOIN shared_space_members sm ON sm.space_id = p.space_id AND sm.user_id = m.user_id
         LEFT JOIN users u ON u.id = e.actor_id
-        LEFT JOIN shared_tasks t ON t.id = COALESCE(e.task_id, e.object_id)
+        LEFT JOIN shared_tasks t ON t.id = COALESCE(e.task_id, e.object_id) AND t.project_id = p.id
         LEFT JOIN shared_notification_reads r ON r.event_id = e.id AND r.user_id = :reader
         WHERE e.actor_id IS NOT :actor AND e.action IN
             (\'task.created\', \'task.updated\', \'task.moved_in\', \'task.moved_out\',
@@ -1241,6 +1282,7 @@ function genesisSharedAcceptInvite(string $userId, array $input): array
         if (!$invite || !hash_equals(mb_strtolower((string)$invite['email']), mb_strtolower((string)$user['email']))) {
             throw new GenesisSharedAccessException('INVALID_INVITATION');
         }
+        genesisSharedRequireInvitationGrant((string)$invite['created_by'], (string)$invite['project_id'], (string)$invite['role']);
         $db->prepare('UPDATE users SET shared_projects_enabled = 1, updated_at = :now WHERE id = :user')
             ->execute(['now' => $now, 'user' => $userId]);
         $db->prepare("INSERT OR IGNORE INTO shared_space_members (space_id, user_id, role, joined_at)

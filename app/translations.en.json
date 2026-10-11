@@ -1584,5 +1584,11 @@
   "Перетащите плашку для переноса": "Drag the card to move it",
   "Удерживайте плашку для переноса": "Hold the card to move it",
   "Перетащите плашку задачи или списка в проект либо в хаос-бокс.": "Drag a task or list card into a project or the chaos box.",
-  "Для переноса удерживайте задачу или список, затем перетащите. Для прокрутки проведите пальцем без удержания.": "To move a task or list, hold it, then drag. To scroll, swipe without holding."
+  "Для переноса удерживайте задачу или список, затем перетащите. Для прокрутки проведите пальцем без удержания.": "To move a task or list, hold it, then drag. To scroll, swipe without holding.",
+  "Запрос превышает допустимый размер. Уменьшите объём данных или вложений.": "The request is too large. Reduce the data or attachment size.",
+  "Слишком много запросов. Повторите позже.": "Too many requests. Try again later.",
+  "Достигнут лимит данных. Экспортируйте и удалите ненужные данные или обратитесь в поддержку.": "The data limit has been reached. Export and remove unneeded data or contact support.",
+  "Локальный выход выполнен. Серверный выход не подтверждён. Повторите вход и выход при доступной сети.": "You have signed out locally. Server sign-out is unconfirmed. Sign in and out again when the network is available.",
+  "Очистка браузера не подтверждена. Закройте вкладки GENESIS и удалите данные сайта в настройках браузера перед передачей устройства.": "Browser cleanup is unconfirmed. Close GENESIS tabs and clear site data in your browser settings before handing over the device.",
+  "Выход удалит данные аккаунтов и ключи из браузера, включая несинхронизированные изменения. Данные в облаке сохранятся. Сохраните черновики и код восстановления перед выходом. Выйти?": "Signing out removes account data and keys from this browser, including unsynced changes. Cloud data will remain. Save drafts and your recovery code first. Sign out?"
 }

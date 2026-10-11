@@ -13,7 +13,8 @@ import {
   normalizeHabitWorkspace,
   type HabitWorkspace,
 } from "./habits";
-import { clearTrackerAnalyticsCache } from "./tracker-cache";
+import { clearAllTrackerAnalyticsCaches, clearTrackerAnalyticsCache } from "./tracker-cache";
+import { acceptAuthenticatedLogin, clearPrivateDeviceStorage, hasLocalSignOut, LOCAL_SIGN_OUT_KEY, markLocalSignOut, prepareLocalSignIn, privateDeviceAccessBlocked } from "./local-sign-out";
 import {
   mergeWorkspaceDocuments,
   mergeIndependentWorkspaceDocuments,
@@ -388,6 +389,42 @@ const configuredBase = process.env.NEXT_PUBLIC_GENESIS_API_URL?.trim() ?? "";
 const API_BASE = configuredBase.replace(/\/$/, "");
 const PENDING_KEY = "genesis-pending-mutations-v2";
 const LAST_USER_CACHE = "genesis-last-user-v2";
+let sessionGeneration = 0;
+let localSessionEnded = privateDeviceAccessBlocked();
+const accountRequests = new Set<AbortController>();
+export const LOCAL_SESSION_ENDED_EVENT = "genesis-local-session-ended";
+
+function endLocalSession() {
+  localSessionEnded = true;
+  sessionGeneration += 1;
+  accountRequests.forEach((controller) => controller.abort());
+  accountRequests.clear();
+  csrfToken = "";
+  workspaceKey = "";
+  workspaceUserId = "";
+  workspaceDeviceId = "";
+  workspaceVersion = 0;
+  workspaceBase = null;
+  workspaceBaseMetadata = null;
+  workspaceSyncMetadata = null;
+  encryptedHabitWorkspace = normalizeHabitWorkspace(EMPTY_HABIT_WORKSPACE);
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(LOCAL_SESSION_ENDED_EVENT));
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (event) => {
+    if (event.key !== LOCAL_SIGN_OUT_KEY || !event.newValue) return;
+    endLocalSession();
+    // Discard closures, decrypted data and pending effects in the old tab.
+    window.location.reload();
+  });
+  window.addEventListener("pageshow", (event) => {
+    if (event.persisted && privateDeviceAccessBlocked()) {
+      endLocalSession();
+      window.location.reload();
+    }
+  });
+}
 const WORKSPACE_DEVICE_KEY_PREFIX = "genesis-workspace-device-key-v2:";
 const WORKSPACE_DEVICE_ID_PREFIX = "genesis-workspace-device-id-v1:";
 const WORKSPACE_SYNC_STATE_PREFIX = "genesis-workspace-sync-state-v1:";
@@ -469,7 +506,7 @@ function pendingStorageKey(userId = workspaceUserId) {
 }
 
 function readPending(): PendingMutation[] {
-  if (typeof window === "undefined") return [];
+  if (typeof window === "undefined" || localSessionEnded || privateDeviceAccessBlocked()) return [];
   try {
     const storageKey = pendingStorageKey();
     if (workspaceUserId && !localStorage.getItem(storageKey) && localStorage.getItem(PENDING_KEY)) {
@@ -489,6 +526,7 @@ function readPending(): PendingMutation[] {
 }
 
 function writePending(items: PendingMutation[]) {
+  if (localSessionEnded || privateDeviceAccessBlocked()) return;
   if (typeof window !== "undefined") {
     localStorage.setItem(pendingStorageKey(), JSON.stringify(items.slice(-2000)));
   }
@@ -506,6 +544,7 @@ function clearMutation(key: string, sent?: PendingMutation) {
 }
 
 function rememberDeletedTasks(ids: string[]) {
+  if (localSessionEnded || privateDeviceAccessBlocked()) return;
   const key = `${PENDING_KEY}-deleted:${workspaceUserId || "anonymous"}`;
   let previous: unknown = [];
   try { previous = JSON.parse(localStorage.getItem(key) || "[]"); } catch { /* Recover a malformed local cache from the server ledger. */ }
@@ -551,9 +590,12 @@ class GenesisApiError extends Error {
 }
 
 async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+  if ((localSessionEnded || privateDeviceAccessBlocked()) && !["/session", "/auth/providers"].includes(path)) throw new GenesisApiError(401, null, "AUTH_REQUIRED");
+  const generation = sessionGeneration;
   if (!API_BASE) throw new Error("Сервер GENESIS ещё не подключён");
   const { signal: callerSignal, ...requestInit } = init;
   const requestController = new AbortController();
+  accountRequests.add(requestController);
   let timedOut = false;
   const abortFromCaller = () => requestController.abort(callerSignal?.reason);
   if (callerSignal?.aborted) abortFromCaller();
@@ -580,14 +622,18 @@ async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     throw error;
   } finally {
     globalThis.clearTimeout(timeout);
+    accountRequests.delete(requestController);
     callerSignal?.removeEventListener("abort", abortFromCaller);
   }
+  if (generation !== sessionGeneration) throw new GenesisApiError(401, null, "AUTH_REQUIRED");
   const payload = (await response.json().catch(() => null)) as ({ error?: string } & Record<string, unknown>) | null;
+  if (generation !== sessionGeneration) throw new GenesisApiError(401, null, "AUTH_REQUIRED");
   if (!response.ok) {
-    throw new GenesisApiError(response.status, payload, payload?.error || `GENESIS API ${response.status}`);
-  }
-  if (!response.ok) {
-    throw new Error(payload?.error || (response.status === 401 ? "AUTH_REQUIRED" : `Ошибка сервера ${response.status}`));
+    const message = response.status === 413 ? "Запрос превышает допустимый размер. Уменьшите объём данных или вложений."
+      : response.status === 429 ? "Слишком много запросов. Повторите позже."
+      : payload?.error === "STORAGE_QUOTA_EXCEEDED" ? "Достигнут лимит данных. Экспортируйте и удалите ненужные данные или обратитесь в поддержку."
+      : payload?.error || `GENESIS API ${response.status}`;
+    throw new GenesisApiError(response.status, payload, message);
   }
   if (payload === null) {
     throw new Error("Сервис GENESIS временно недоступен.");
@@ -748,11 +794,13 @@ function deviceWorkspaceKey(userId: string) {
 }
 
 function storeDeviceWorkspaceKey(userId: string, value: DeviceWorkspaceKey) {
+  if (localSessionEnded || privateDeviceAccessBlocked()) return;
   localStorage.setItem(`${WORKSPACE_DEVICE_KEY_PREFIX}${userId}`, JSON.stringify(value));
 }
 
 function deviceWorkspaceId(userId: string) {
   if (typeof window === "undefined") return "server";
+  if (localSessionEnded || privateDeviceAccessBlocked()) return "";
   const storageKey = `${WORKSPACE_DEVICE_ID_PREFIX}${userId}`;
   const stored = localStorage.getItem(storageKey)?.trim();
   if (stored) return stored;
@@ -822,7 +870,7 @@ function readWorkspaceSyncCache(userId = workspaceUserId): WorkspaceSyncCache | 
 }
 
 function persistWorkspaceSyncCache() {
-  if (typeof window === "undefined" || !workspaceUserId) return;
+  if (typeof window === "undefined" || !workspaceUserId || localSessionEnded || privateDeviceAccessBlocked()) return;
   const cache: WorkspaceSyncCache = {
     version: workspaceVersion,
     base: workspaceBase,
@@ -843,6 +891,7 @@ function restoreWorkspaceSyncCache() {
 }
 
 export function restoreOfflineWorkspaceSession(userId: string, provider: "google" | "yandex" = "google") {
+  if (localSessionEnded || privateDeviceAccessBlocked()) return false;
   activeAuthProvider = provider;
   workspaceUserId = userId;
   workspaceDeviceId = deviceWorkspaceId(userId);
@@ -1193,14 +1242,24 @@ export function observeGenesisUser(
 }
 
 export async function loadGenesisSession(signal?: AbortSignal) {
-  const result = await api<{ user: GenesisUser | null; csrf: string }>("/session", { signal });
+  const result = await api<{ user: GenesisUser | null; csrf: string; loginId?: string }>("/session", { signal });
+  if (result.user && !acceptAuthenticatedLogin(localStorage, result.loginId || "")) {
+    localSessionEnded = true;
+    csrfToken = "";
+    return null;
+  }
+  localSessionEnded = result.user === null || hasLocalSignOut(localStorage);
   csrfToken = result.csrf;
   activeAuthProvider = result.user?.authProvider === "yandex" ? "yandex" : "google";
   return result.user;
 }
 
-export function signInWithGoogle() {
+export async function signInWithGoogle() {
   if (!API_BASE) throw new Error("Сервер GENESIS ещё не подключён");
+  if (privateDeviceAccessBlocked()) {
+    const oldSession = await api<{ loginId?: string }>("/session");
+    prepareLocalSignIn(localStorage, oldSession.loginId || "");
+  }
   const returnTo = cleanGenesisAppUrl(window.location.href);
   window.location.assign(`${API_BASE}/auth/google/start?purpose=login&return_to=${encodeURIComponent(returnTo)}`);
   return Promise.resolve();
@@ -1211,8 +1270,12 @@ export async function loadAuthProviders(): Promise<{ google: boolean; yandex: bo
   return api<{ google: boolean; yandex: boolean }>("/auth/providers");
 }
 
-export function signInWithYandex() {
+export async function signInWithYandex() {
   if (!API_BASE) throw new Error("Сервер GENESIS ещё не подключён");
+  if (privateDeviceAccessBlocked()) {
+    const oldSession = await api<{ loginId?: string }>("/session");
+    prepareLocalSignIn(localStorage, oldSession.loginId || "");
+  }
   const returnTo = cleanGenesisAppUrl(window.location.href);
   window.location.assign(`${API_BASE}/auth/yandex/start?return_to=${encodeURIComponent(returnTo)}`);
   return Promise.resolve();
@@ -1312,23 +1375,37 @@ export function consumeGoogleAuthError() {
     yandex_oauth_failed: "Яндекс не завершил авторизацию. Попробуйте ещё раз.",
     yandex_calendar_failed: "Не удалось подключить Яндекс.Календарь. Проверьте разрешения приложения в Яндекс ID.",
     oauth_failed: "Google не завершил авторизацию. Попробуйте ещё раз или обратитесь в поддержку.",
+    logout_remote_unconfirmed: "Локальный выход выполнен. Серверный выход не подтверждён. Повторите вход и выход при доступной сети.",
   };
   return messages[code] ?? messages.oauth_failed;
 }
 
 export async function signOutFromGoogle() {
-  await api<{ ok: boolean }>("/auth/logout", { method: "POST", body: "{}" });
-  if (workspaceUserId) localStorage.removeItem(sharedOfflineKey());
-  workspaceKey = "";
+  // Block the device immediately, including other tabs and restoration from an old cookie.
+  const logoutCsrf = csrfToken;
+  let localCleared = true;
+  try { markLocalSignOut(localStorage); } catch { localCleared = false; }
+  endLocalSession();
+  const logoutController = new AbortController();
+  const logoutTimeout = globalThis.setTimeout(() => logoutController.abort(), 3000);
+  const remoteLogout = fetch(`${API_BASE}/auth/logout`, {
+    method: "POST", body: "{}", credentials: "include", keepalive: true,
+    headers: { "Content-Type": "application/json", "X-CSRF-Token": logoutCsrf },
+    signal: logoutController.signal,
+  }).then((response) => response.ok).catch(() => false).finally(() => globalThis.clearTimeout(logoutTimeout));
+  try { clearPrivateDeviceStorage(localStorage); } catch { localCleared = false; }
   activeAuthProvider = "google";
-  workspaceUserId = "";
-  workspaceVersion = 0;
-  workspaceDeviceId = "";
-  workspaceBase = null;
-  workspaceBaseMetadata = null;
-  workspaceSyncMetadata = null;
-  localStorage.removeItem(LAST_USER_CACHE);
-  window.location.reload();
+  try { await clearAllTrackerAnalyticsCaches(); } catch { localCleared = false; }
+  if ("serviceWorker" in navigator) {
+    const registration = await navigator.serviceWorker.getRegistration().catch(() => undefined);
+    const notifications = await registration?.getNotifications().catch(() => []);
+    notifications?.forEach((notification) => notification.close());
+  }
+  const remoteRevoked = await remoteLogout;
+  if (!localCleared) throw new Error("Очистка браузера не подтверждена. Закройте вкладки GENESIS и удалите данные сайта в настройках браузера перед передачей устройства.");
+  const destination = new URL(cleanGenesisAppUrl(window.location.href));
+  if (!remoteRevoked) destination.searchParams.set("auth_error", "logout_remote_unconfirmed");
+  window.location.assign(destination.href);
 }
 
 export async function deleteGenesisAccount(userId?: string) {
@@ -1471,6 +1548,7 @@ async function readSharedOfflineStore(): Promise<SharedOfflineStore> {
 }
 
 async function changeSharedOfflineStore(change: (store: SharedOfflineStore) => void) {
+  const generation = sessionGeneration;
   const previous = sharedOfflineLock;
   let release: () => void = () => undefined;
   sharedOfflineLock = new Promise<void>((resolve) => { release = resolve; });
@@ -1485,6 +1563,7 @@ async function changeSharedOfflineStore(change: (store: SharedOfflineStore) => v
     const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv,
       additionalData: new TextEncoder().encode(sharedOfflineKey()) },
     await importWorkspaceKey(), new TextEncoder().encode(JSON.stringify(store)));
+    if (localSessionEnded || privateDeviceAccessBlocked() || generation !== sessionGeneration) return;
     localStorage.setItem(sharedOfflineKey(), JSON.stringify({
       iv: bytesToBase64(iv), ciphertext: bytesToBase64(new Uint8Array(ciphertext)),
     }));
@@ -1496,6 +1575,10 @@ function sharedNetworkFailure(error: unknown) {
   return !(error instanceof GenesisApiError) && (typeof navigator !== "undefined" && !navigator.onLine
     || error instanceof TypeError
     || error instanceof GenesisNetworkTimeoutError);
+}
+
+export function canRestoreOfflineSession(error: unknown) {
+  return !localSessionEnded && !privateDeviceAccessBlocked() && sharedNetworkFailure(error);
 }
 
 async function sharedCachedRequest<T>(path: string): Promise<T> {

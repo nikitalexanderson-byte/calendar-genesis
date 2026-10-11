@@ -132,6 +132,7 @@ try {
             unset($_SESSION['user_id'], $_SESSION['csrf'], $_SESSION['pending_local_link']);
         }
     }
+    genesisEnforceApiBudget($method, $path, genesisCurrentUserId());
     if ($method === 'GET' && $path === 'health') {
         genesisJson(['ok' => true, 'service' => 'GENESIS', 'privacyModel' => 2, 'time' => genesisNow()]);
     }
@@ -189,6 +190,7 @@ try {
         genesisJson([
             'user' => $user ? genesisUserForClient($user) : null,
             'csrf' => (string)$_SESSION['csrf'],
+            'loginId' => $user ? (string)($_SESSION['auth_login_id'] ?? '') : '',
         ]);
     }
 
@@ -321,8 +323,7 @@ try {
         if (!session_regenerate_id(true)) {
             throw new GenesisNativeAuthException(503, 'NATIVE_AUTH_TEMPORARILY_UNAVAILABLE');
         }
-        $_SESSION['user_id'] = (string)$user['id'];
-        $_SESSION['csrf'] = bin2hex(random_bytes(24));
+        genesisEstablishGoogleSession($user, (string)$profile['sub']);
         unset($_SESSION['oauth_request']);
         genesisObserveAndroid(static fn() => genesisReportAndroidClient((string)$user['id']));
         genesisLogError('[AuthFlow] ' . ($linkAction === 'created' ? 'GOOGLE_LINK_CREATED' : 'GOOGLE_LINK_FOUND'));
@@ -441,6 +442,8 @@ try {
         if (!session_regenerate_id(true)) genesisJson(['error' => 'SESSION_UNAVAILABLE'], 503);
         $_SESSION['user_id'] = (string)$user['id'];
         $_SESSION['csrf'] = bin2hex(random_bytes(24));
+        unset($_SESSION['auth_identity'], $_SESSION['authenticated_at']);
+        $_SESSION['auth_login_id'] = bin2hex(random_bytes(16));
         genesisObserveAndroid(static fn() => genesisReportAndroidClient((string)$user['id']));
         genesisJson(['user' => genesisUserForClient($user), 'csrf' => (string)$_SESSION['csrf'],
             'newAccount' => $newAccount]);
@@ -485,6 +488,8 @@ try {
             if (!session_regenerate_id(true)) throw new RuntimeException('Session could not be renewed.');
             $_SESSION['user_id'] = (string)$user['id'];
             $_SESSION['csrf'] = bin2hex(random_bytes(24));
+            unset($_SESSION['auth_identity'], $_SESSION['authenticated_at']);
+            $_SESSION['auth_login_id'] = bin2hex(random_bytes(16));
         } catch (DomainException $error) {
             genesisLogError('Yandex account conflict.', $error);
             genesisOAuthRedirect($returnTo, ($request['purpose'] ?? '') === 'calendar'
@@ -589,7 +594,7 @@ try {
                     session_regenerate_id(true);
                 } else {
                     $user = genesisUpsertGoogleUser($profile, $tokens, true);
-                    $_SESSION['user_id'] = (string)$user['id'];
+                    genesisEstablishGoogleSession($user, (string)$profile['sub']);
                     session_regenerate_id(true);
                     try {
                         genesisEnsureGoogleCalendar($user);
@@ -599,7 +604,7 @@ try {
                 }
             } else {
                 $user = genesisUpsertGoogleUser($profile, $tokens, false);
-                $_SESSION['user_id'] = (string)$user['id'];
+                genesisEstablishGoogleSession($user, (string)$profile['sub']);
                 session_regenerate_id(true);
             }
         } catch (Throwable $oauthError) {
@@ -1064,6 +1069,15 @@ try {
     genesisJson(['error' => 'NOT_FOUND'], 404);
 } catch (GenesisSharedAccessException $error) {
     genesisJson(['error' => $error->getMessage()], $error->status);
+} catch (GenesisResourceLimitException $error) {
+    if ($error->status === 429) header('Retry-After: ' . (600 - time() % 600));
+    genesisJson(['error' => $error->getMessage()], $error->status);
+} catch (PDOException $error) {
+    if (str_contains($error->getMessage(), 'GENESIS_QUOTA_EXCEEDED')) {
+        genesisJson(['error' => 'STORAGE_QUOTA_EXCEEDED'], 409);
+    }
+    genesisLogError('Database request failed.', $error);
+    genesisJson(['error' => 'Server error. Please try again.'], 500);
 } catch (GenesisNativeAuthException $error) {
     header('Cache-Control: no-store');
     if ($error->status === 429) {

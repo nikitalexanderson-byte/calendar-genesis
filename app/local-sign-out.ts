@@ -1,0 +1,56 @@
+// These identifiers describe local state; they are never authentication credentials.
+export const LOCAL_SIGN_OUT_KEY = "genesis-local-sign-out-v1";
+const LOGIN_ID_KEY = "genesis-local-login-id-v1";
+const PRIVATE_PREFIXES = [
+  "genesis-calendar-v2:", "genesis-workspace-device-key-v2:",
+  "genesis-workspace-device-id-v1:", "genesis-workspace-sync-state-v1:",
+  "genesis-pending-mutations-v2", "genesis-shared-offline-v1:",
+  "genesis-moon-reminders-v1:", "genesis-moon-reminders-sent-v1:",
+];
+const PRIVATE_KEYS = ["genesis-last-user-v2", "genesis-calendar-v1", "genesis-habit-notification-metrics-v1", "genesis-habit-notifications-delivered-v1"];
+
+export function markLocalSignOut(storage: Storage) {
+  const loginId = storage.getItem(LOGIN_ID_KEY) || "";
+  storage.setItem(LOCAL_SIGN_OUT_KEY, JSON.stringify({ loginId, confirmed: Boolean(loginId) }));
+}
+
+// Before explicit re-login, learn the old cookie ID without accepting its user.
+export function prepareLocalSignIn(storage: Storage, currentLoginId: string) {
+  if (hasLocalSignOut(storage)) storage.setItem(LOCAL_SIGN_OUT_KEY, JSON.stringify({ loginId: currentLoginId, confirmed: true }));
+}
+
+export function hasLocalSignOut(storage: Storage) {
+  return storage.getItem(LOCAL_SIGN_OUT_KEY) !== null;
+}
+
+export function privateDeviceAccessBlocked() {
+  if (typeof window === "undefined") return false;
+  try { return hasLocalSignOut(window.localStorage); } catch { return true; }
+}
+
+export function acceptAuthenticatedLogin(storage: Storage, loginId: string) {
+  const marker = storage.getItem(LOCAL_SIGN_OUT_KEY);
+  if (marker !== null) {
+    let oldId: unknown;
+    try {
+      const blocked = JSON.parse(marker) as { loginId?: unknown; confirmed?: boolean };
+      if (!blocked.confirmed) return false;
+      oldId = blocked.loginId;
+    } catch { return false; }
+    if (!loginId || loginId === oldId) return false;
+    // Only a different server-issued login can reopen a locally signed-out device.
+    storage.removeItem(LOCAL_SIGN_OUT_KEY);
+  }
+  if (loginId) storage.setItem(LOGIN_ID_KEY, loginId);
+  return true;
+}
+
+export function clearPrivateDeviceStorage(storage: Storage) {
+  const keys = Array.from({ length: storage.length }, (_, index) => storage.key(index));
+  for (const key of keys) {
+    if (key && (PRIVATE_KEYS.includes(key) || PRIVATE_PREFIXES.some((prefix) => key.startsWith(prefix)))) {
+      storage.removeItem(key);
+    }
+  }
+  storage.removeItem(LOGIN_ID_KEY);
+}

@@ -2737,5 +2737,11 @@
   "Перетащите плашку для переноса": "Arraste o cartão para movê-lo",
   "Удерживайте плашку для переноса": "Mantenha o cartão pressionado para movê-lo",
   "Перетащите плашку задачи или списка в проект либо в хаос-бокс.": "Arraste uma tarefa ou lista para um projeto ou a caixa do caos.",
-  "Для переноса удерживайте задачу или список, затем перетащите. Для прокрутки проведите пальцем без удержания.": "Para mover uma tarefa ou lista, mantenha-a pressionada e arraste. Para rolar, deslize sem manter pressionado."
+  "Для переноса удерживайте задачу или список, затем перетащите. Для прокрутки проведите пальцем без удержания.": "Para mover uma tarefa ou lista, mantenha-a pressionada e arraste. Para rolar, deslize sem manter pressionado.",
+  "Запрос превышает допустимый размер. Уменьшите объём данных или вложений.": "O pedido é demasiado grande. Reduza os dados ou os anexos.",
+  "Слишком много запросов. Повторите позже.": "Demasiados pedidos. Tente novamente mais tarde.",
+  "Достигнут лимит данных. Экспортируйте и удалите ненужные данные или обратитесь в поддержку.": "O limite de dados foi atingido. Exporte e elimine dados desnecessários ou contacte o suporte.",
+  "Локальный выход выполнен. Серверный выход не подтверждён. Повторите вход и выход при доступной сети.": "A sessão foi encerrada localmente. O encerramento no servidor não está confirmado. Inicie e encerre a sessão novamente quando a rede estiver disponível.",
+  "Очистка браузера не подтверждена. Закройте вкладки GENESIS и удалите данные сайта в настройках браузера перед передачей устройства.": "A limpeza do navegador não está confirmada. Feche os separadores GENESIS e apague os dados do site nas definições do navegador antes de entregar o dispositivo.",
+  "Выход удалит данные аккаунтов и ключи из браузера, включая несинхронизированные изменения. Данные в облаке сохранятся. Сохраните черновики и код восстановления перед выходом. Выйти?": "Encerrar a sessão remove os dados das contas e as chaves deste navegador, incluindo alterações não sincronizadas. Os dados na nuvem permanecem. Guarde primeiro os rascunhos e o código de recuperação. Encerrar a sessão?"
 }
