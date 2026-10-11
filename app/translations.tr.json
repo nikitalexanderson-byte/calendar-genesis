@@ -2737,5 +2737,11 @@
   "Перетащите плашку для переноса": "Taşımak için kartı sürükleyin",
   "Удерживайте плашку для переноса": "Taşımak için kartı basılı tutun",
   "Перетащите плашку задачи или списка в проект либо в хаос-бокс.": "Bir görev veya liste kartını bir projeye ya da kaos kutusuna sürükleyin.",
-  "Для переноса удерживайте задачу или список, затем перетащите. Для прокрутки проведите пальцем без удержания.": "Taşımak için görevi veya listeyi basılı tutup sürükleyin. Kaydırmak için basılı tutmadan parmağınızı kaydırın."
+  "Для переноса удерживайте задачу или список, затем перетащите. Для прокрутки проведите пальцем без удержания.": "Taşımak için görevi veya listeyi basılı tutup sürükleyin. Kaydırmak için basılı tutmadan parmağınızı kaydırın.",
+  "Запрос превышает допустимый размер. Уменьшите объём данных или вложений.": "İstek çok büyük. Veri veya ek boyutunu azaltın.",
+  "Слишком много запросов. Повторите позже.": "Çok fazla istek. Daha sonra tekrar deneyin.",
+  "Достигнут лимит данных. Экспортируйте и удалите ненужные данные или обратитесь в поддержку.": "Veri sınırına ulaşıldı. Gereksiz verileri dışa aktarın ve silin veya destekle iletişime geçin.",
+  "Локальный выход выполнен. Серверный выход не подтверждён. Повторите вход и выход при доступной сети.": "Yerel çıkış tamamlandı. Sunucudan çıkış doğrulanmadı. Ağ kullanılabilir olduğunda tekrar giriş ve çıkış yapın.",
+  "Очистка браузера не подтверждена. Закройте вкладки GENESIS и удалите данные сайта в настройках браузера перед передачей устройства.": "Tarayıcı temizliği doğrulanmadı. Cihazı başkasına vermeden önce GENESIS sekmelerini kapatın ve tarayıcı ayarlarından site verilerini silin.",
+  "Выход удалит данные аккаунтов и ключи из браузера, включая несинхронизированные изменения. Данные в облаке сохранятся. Сохраните черновики и код восстановления перед выходом. Выйти?": "Çıkış, eşitlenmemiş değişiklikler dahil hesap verilerini ve anahtarları bu tarayıcıdan siler. Bulut verileri korunur. Önce taslakları ve kurtarma kodunu kaydedin. Çıkış yapılsın mı?"
 }

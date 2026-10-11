@@ -1,4 +1,5 @@
 import type { DeviceLocation } from "./solar-times";
+import { privateDeviceAccessBlocked } from "./local-sign-out.ts";
 
 export const SOLAR_PLACE_KEY = "genesis-solar-place-v1";
 export const SOLAR_PLACE_CHANGED = "genesis-solar-place-changed";
@@ -40,6 +41,7 @@ export function readSolarPlace(): SolarPlace | null {
 }
 
 export function saveSolarPlace(place: SolarPlace | null) {
+  if (privateDeviceAccessBlocked()) return;
   if (place) window.localStorage.setItem(SOLAR_PLACE_KEY, JSON.stringify(place));
   else window.localStorage.removeItem(SOLAR_PLACE_KEY);
   window.dispatchEvent(new Event(SOLAR_PLACE_CHANGED));

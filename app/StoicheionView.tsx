@@ -32,6 +32,7 @@ import {
   type StoicheionPracticeSectorId,
 } from "./sacred-practices";
 import { useDialogAccessibility } from "./use-dialog-accessibility";
+import { privateDeviceAccessBlocked } from "./local-sign-out";
 
 const LOCAL_DRAW_STORAGE_PREFIX = "genesis-stoicheion-draws-v2:";
 const STOICHEION_CARD_ART_VERSION = "20260906-anatomy-glow";
@@ -176,6 +177,7 @@ function readLocalDraws(dayKey: string): Partial<Record<StoicheionDrawKind, Stoi
 }
 
 function saveLocalDraw(kind: StoicheionDrawKind, seed: number, dayKey: string): StoicheionDrawRecord {
+  if (privateDeviceAccessBlocked()) throw new Error("AUTH_REQUIRED");
   const current = readLocalDraws(dayKey);
   const existing = current[kind];
   if (existing && (!existing.canReroll || existing.attempts >= 2)) {

@@ -268,14 +268,21 @@ jobs:
             "$DEPLOY_COMMIT" "$DEPLOY_RUN_ID" "$DEPLOYED_AT" \
             > dist-beget/public_html/deploy-meta.json
 
+      - name: Load pinned GENESIS SSH host keys
+        run: |
+          install -m 600 ops/deploy-known-hosts "${{ runner.temp }}/genesis-deploy-known-hosts"
+          ssh-keygen -F '[82.198.232.224]:65002' -f "${{ runner.temp }}/genesis-deploy-known-hosts" >/dev/null
+          ssh-keygen -F haiirodw.beget.tech -f "${{ runner.temp }}/genesis-deploy-known-hosts" >/dev/null
+
       - name: Install backup helper and back up runtime state
         if: vars.GENESIS_DEPLOY_TARGET != 'hostinger'
-        uses: easingthemes/ssh-deploy@v6
+        uses: easingthemes/ssh-deploy@2cc5b27bf3029d0455dd5e09fe02633904031447 # v6
         with:
           SSH_PRIVATE_KEY: ${{ secrets.BEGET_SSH_KEY }}
           REMOTE_HOST: haiirodw.beget.tech
           REMOTE_USER: haiirodw
           REMOTE_PORT: 22
+          SSH_CMD_ARGS: "-o StrictHostKeyChecking=yes, -o UserKnownHostsFile=${{ runner.temp }}/genesis-deploy-known-hosts, -o GlobalKnownHostsFile=/dev/null, -o UpdateHostKeys=no"
           SOURCE: "ops/"
           TARGET: "/home/h/haiirodw/genesis-calendar/ops/"
           ARGS: "-rlztvO --delete"
@@ -294,12 +301,13 @@ jobs:
 
       - name: Deploy server code (excluding secrets and runtime data)
         if: vars.GENESIS_DEPLOY_TARGET != 'hostinger'
-        uses: easingthemes/ssh-deploy@v6
+        uses: easingthemes/ssh-deploy@2cc5b27bf3029d0455dd5e09fe02633904031447 # v6
         with:
           SSH_PRIVATE_KEY: ${{ secrets.BEGET_SSH_KEY }}
           REMOTE_HOST: haiirodw.beget.tech
           REMOTE_USER: haiirodw
           REMOTE_PORT: 22
+          SSH_CMD_ARGS: "-o StrictHostKeyChecking=yes, -o UserKnownHostsFile=${{ runner.temp }}/genesis-deploy-known-hosts, -o GlobalKnownHostsFile=/dev/null, -o UpdateHostKeys=no"
           SOURCE: "server/"
           TARGET: "/home/h/haiirodw/genesis-calendar/server/"
           ARGS: "-rlztvO --delete"
@@ -307,12 +315,13 @@ jobs:
 
       - name: Deploy public artifact (client and API router)
         if: vars.GENESIS_DEPLOY_TARGET != 'hostinger'
-        uses: easingthemes/ssh-deploy@v6
+        uses: easingthemes/ssh-deploy@2cc5b27bf3029d0455dd5e09fe02633904031447 # v6
         with:
           SSH_PRIVATE_KEY: ${{ secrets.BEGET_SSH_KEY }}
           REMOTE_HOST: haiirodw.beget.tech
           REMOTE_USER: haiirodw
           REMOTE_PORT: 22
+          SSH_CMD_ARGS: "-o StrictHostKeyChecking=yes, -o UserKnownHostsFile=${{ runner.temp }}/genesis-deploy-known-hosts, -o GlobalKnownHostsFile=/dev/null, -o UpdateHostKeys=no"
           SOURCE: "dist-beget/public_html/"
           TARGET: "/home/h/haiirodw/genesis-calendar/public_html/"
           ARGS: "-rlztvO --delete"
@@ -320,12 +329,13 @@ jobs:
 
       - name: Back up Hostinger runtime state
         if: vars.GENESIS_DEPLOY_TARGET == 'hostinger'
-        uses: easingthemes/ssh-deploy@v6
+        uses: easingthemes/ssh-deploy@2cc5b27bf3029d0455dd5e09fe02633904031447 # v6
         with:
           SSH_PRIVATE_KEY: ${{ secrets.HOSTINGER_SSH_KEY }}
           REMOTE_HOST: 82.198.232.224
           REMOTE_USER: u531952483
           REMOTE_PORT: 65002
+          SSH_CMD_ARGS: "-o StrictHostKeyChecking=yes, -o UserKnownHostsFile=${{ runner.temp }}/genesis-deploy-known-hosts, -o GlobalKnownHostsFile=/dev/null, -o UpdateHostKeys=no"
           SOURCE: "ops/"
           TARGET: "/home/u531952483/domains/genesiscalendar.com/ops/"
           ARGS: "-rlztvO --delete"
@@ -338,12 +348,13 @@ jobs:
 
       - name: Deploy private Hostinger server code
         if: vars.GENESIS_DEPLOY_TARGET == 'hostinger'
-        uses: easingthemes/ssh-deploy@v6
+        uses: easingthemes/ssh-deploy@2cc5b27bf3029d0455dd5e09fe02633904031447 # v6
         with:
           SSH_PRIVATE_KEY: ${{ secrets.HOSTINGER_SSH_KEY }}
           REMOTE_HOST: 82.198.232.224
           REMOTE_USER: u531952483
           REMOTE_PORT: 65002
+          SSH_CMD_ARGS: "-o StrictHostKeyChecking=yes, -o UserKnownHostsFile=${{ runner.temp }}/genesis-deploy-known-hosts, -o GlobalKnownHostsFile=/dev/null, -o UpdateHostKeys=no"
           SOURCE: "server/"
           TARGET: "/home/u531952483/domains/genesiscalendar.com/server/"
           ARGS: "-rlztvO --delete"
@@ -351,12 +362,13 @@ jobs:
 
       - name: Deploy Hostinger public client and API
         if: vars.GENESIS_DEPLOY_TARGET == 'hostinger'
-        uses: easingthemes/ssh-deploy@v6
+        uses: easingthemes/ssh-deploy@2cc5b27bf3029d0455dd5e09fe02633904031447 # v6
         with:
           SSH_PRIVATE_KEY: ${{ secrets.HOSTINGER_SSH_KEY }}
           REMOTE_HOST: 82.198.232.224
           REMOTE_USER: u531952483
           REMOTE_PORT: 65002
+          SSH_CMD_ARGS: "-o StrictHostKeyChecking=yes, -o UserKnownHostsFile=${{ runner.temp }}/genesis-deploy-known-hosts, -o GlobalKnownHostsFile=/dev/null, -o UpdateHostKeys=no"
           SOURCE: "dist-beget/public_html/"
           TARGET: "/home/u531952483/domains/genesiscalendar.com/public_html/"
           ARGS: "-rlztvO --delete"
@@ -402,12 +414,13 @@ jobs:
 
       - name: Keep installed applications compatible with the previous origin
         if: vars.GENESIS_DEPLOY_TARGET == 'hostinger'
-        uses: easingthemes/ssh-deploy@v6
+        uses: easingthemes/ssh-deploy@2cc5b27bf3029d0455dd5e09fe02633904031447 # v6
         with:
           SSH_PRIVATE_KEY: ${{ secrets.BEGET_SSH_KEY }}
           REMOTE_HOST: haiirodw.beget.tech
           REMOTE_USER: haiirodw
           REMOTE_PORT: 22
+          SSH_CMD_ARGS: "-o StrictHostKeyChecking=yes, -o UserKnownHostsFile=${{ runner.temp }}/genesis-deploy-known-hosts, -o GlobalKnownHostsFile=/dev/null, -o UpdateHostKeys=no"
           SOURCE: "dist-legacy/"
           TARGET: "/home/h/haiirodw/genesis-calendar/"
           ARGS: "-rlztvO"

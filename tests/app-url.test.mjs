@@ -16,7 +16,7 @@ test("shared navigation restores links, browser history and separate users' last
   const previous = { window: globalThis.window, localStorage: globalThis.localStorage };
   const data = new Map(); const entries = [];
   const storage = { getItem: key => data.get(key) ?? null, setItem: (key, value) => data.set(key, value) };
-  const browser = { location: { href: "https://genesiscalendar.com/#projects" }, history: { state: null,
+  const browser = { localStorage: storage, location: { href: "https://genesiscalendar.com/#projects" }, history: { state: null,
     pushState(state, unused, url) { this.state = state; entries.push(url); browser.location.href = new URL(url, browser.location.href).href; },
     replaceState(state, unused, url) { this.state = state; browser.location.href = new URL(url, browser.location.href).href; } } };
   globalThis.window = browser; globalThis.localStorage = storage;
@@ -34,6 +34,11 @@ test("shared navigation restores links, browser history and separate users' last
     assert.deepEqual(savedSharedPlace("user-b"), { spaceId: "", projectId: "", taskId: "", view: null });
     data.set("genesis-shared-place-v1:user-b", "invalid-json");
     assert.equal(savedSharedPlace("user-b").spaceId, "");
+    data.set("genesis-local-sign-out-v1", "{}");
+    recordSharedPlace("user-a", first);
+    saveAffairsArea("user-a", "personal");
+    assert.equal(entries.length, 1, "a stale tab must not write history after logout");
+    assert.equal(storedAffairsArea("user-a"), "shared", "a stale effect must not rewrite account preferences");
   } finally {
     if (previous.window === undefined) delete globalThis.window; else globalThis.window = previous.window;
     if (previous.localStorage === undefined) delete globalThis.localStorage; else globalThis.localStorage = previous.localStorage;

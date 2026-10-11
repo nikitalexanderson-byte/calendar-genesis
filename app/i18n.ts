@@ -5,7 +5,9 @@ import englishTranslations from "./translations.en.json";
 import greekTranslationsA from "./translations.el.a.json";
 import greekTranslationsB from "./translations.el.b.json";
 import germanTranslations from "./translations.de.json";
+import germanSecurityTranslations from "./translations.de.b.json";
 import frenchTranslations from "./translations.fr.json";
+import frenchSecurityTranslations from "./translations.fr.b.json";
 import spanishTranslations from "./translations.es.json";
 import italianTranslations from "./translations.it.json";
 import portugueseTranslations from "./translations.pt.json";
@@ -635,8 +637,8 @@ const englishCatalog: Record<string, string> = {
 };
 
 const catalogs: Record<Exclude<Language, "ru">, Record<string, string>> = {
-  en: englishCatalog, el: { ...greekTranslationsA, ...greekTranslationsB, ...greekYear }, de: { ...germanTranslations, ...germanYear },
-  fr: { ...frenchTranslations, ...frenchYear }, es: { ...spanishTranslations, ...spanishYear }, it: { ...italianTranslations, ...italianYear }, pt: { ...portugueseTranslations, ...portugueseYear },
+  en: englishCatalog, el: { ...greekTranslationsA, ...greekTranslationsB, ...greekYear }, de: { ...germanTranslations, ...germanSecurityTranslations, ...germanYear },
+  fr: { ...frenchTranslations, ...frenchSecurityTranslations, ...frenchYear }, es: { ...spanishTranslations, ...spanishYear }, it: { ...italianTranslations, ...italianYear }, pt: { ...portugueseTranslations, ...portugueseYear },
   pl: { ...polishTranslations, ...polishYear }, sr: { ...serbianTranslationsA, ...serbianTranslationsB, ...serbianYear },
   uk: { ...ukrainianTranslationsA, ...ukrainianTranslationsB, ...ukrainianYear },
   zh: { ...chineseTranslations, ...chineseYear }, tr: { ...turkishTranslations, ...turkishYear }, ja: { ...japaneseTranslations, ...japaneseYandexTranslations, ...japaneseYear },

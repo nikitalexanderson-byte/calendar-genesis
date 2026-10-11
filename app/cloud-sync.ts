@@ -13,7 +13,8 @@ import {
   normalizeHabitWorkspace,
   type HabitWorkspace,
 } from "./habits";
-import { clearTrackerAnalyticsCache } from "./tracker-cache";
+import { clearAllTrackerAnalyticsCaches, clearTrackerAnalyticsCache } from "./tracker-cache";
+import { acceptAuthenticatedLogin, clearPrivateDeviceStorage, hasLocalSignOut, LOCAL_SIGN_OUT_KEY, markLocalSignOut, prepareLocalSignIn, privateDeviceAccessBlocked } from "./local-sign-out";
 import {
   mergeWorkspaceDocuments,
   mergeIndependentWorkspaceDocuments,
@@ -388,6 +389,49 @@ const configuredBase = process.env.NEXT_PUBLIC_GENESIS_API_URL?.trim() ?? "";
 const API_BASE = configuredBase.replace(/\/$/, "");
 const PENDING_KEY = "genesis-pending-mutations-v2";
 const LAST_USER_CACHE = "genesis-last-user-v2";
+let sessionGeneration = 0;
+let localSessionEnded = privateDeviceAccessBlocked();
+const accountRequests = new Set<AbortController>();
+export const LOCAL_SESSION_ENDED_EVENT = "genesis-local-session-ended";
+
+function requireActiveLocalSession(generation = sessionGeneration) {
+  if (localSessionEnded || privateDeviceAccessBlocked() || generation !== sessionGeneration) {
+    throw new GenesisApiError(401, null, "AUTH_REQUIRED");
+  }
+}
+
+function endLocalSession() {
+  localSessionEnded = true;
+  sessionGeneration += 1;
+  accountRequests.forEach((controller) => controller.abort());
+  accountRequests.clear();
+  csrfToken = "";
+  workspaceKey = "";
+  workspaceUserId = "";
+  workspaceDeviceId = "";
+  workspaceVersion = 0;
+  workspaceBase = null;
+  workspaceBaseMetadata = null;
+  workspaceSyncMetadata = null;
+  encryptedHabitWorkspace = normalizeHabitWorkspace(EMPTY_HABIT_WORKSPACE);
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(LOCAL_SESSION_ENDED_EVENT));
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (event) => {
+    if (event.key !== LOCAL_SIGN_OUT_KEY || !event.newValue) return;
+    endLocalSession();
+    try { clearPrivateDeviceStorage(sessionStorage); } catch { /* Private access stays blocked. */ }
+    // Discard closures, decrypted data and pending effects in the old tab.
+    window.location.reload();
+  });
+  window.addEventListener("pageshow", (event) => {
+    if (event.persisted && privateDeviceAccessBlocked()) {
+      endLocalSession();
+      window.location.reload();
+    }
+  });
+}
 const WORKSPACE_DEVICE_KEY_PREFIX = "genesis-workspace-device-key-v2:";
 const WORKSPACE_DEVICE_ID_PREFIX = "genesis-workspace-device-id-v1:";
 const WORKSPACE_SYNC_STATE_PREFIX = "genesis-workspace-sync-state-v1:";
@@ -446,11 +490,13 @@ function publishWorkspaceUpdate(workspace: EncryptedWorkspaceStructure) {
 }
 
 async function withWorkspaceMutationLock<T>(operation: () => Promise<T>): Promise<T> {
+  const generation = sessionGeneration;
   const previous = workspaceMutationLock;
   let release: () => void = () => undefined;
   workspaceMutationLock = new Promise<void>((resolve) => { release = resolve; });
   await previous;
   try {
+    requireActiveLocalSession(generation);
     return await operation();
   } finally {
     release();
@@ -469,7 +515,7 @@ function pendingStorageKey(userId = workspaceUserId) {
 }
 
 function readPending(): PendingMutation[] {
-  if (typeof window === "undefined") return [];
+  if (typeof window === "undefined" || localSessionEnded || privateDeviceAccessBlocked()) return [];
   try {
     const storageKey = pendingStorageKey();
     if (workspaceUserId && !localStorage.getItem(storageKey) && localStorage.getItem(PENDING_KEY)) {
@@ -489,6 +535,7 @@ function readPending(): PendingMutation[] {
 }
 
 function writePending(items: PendingMutation[]) {
+  if (localSessionEnded || privateDeviceAccessBlocked()) return;
   if (typeof window !== "undefined") {
     localStorage.setItem(pendingStorageKey(), JSON.stringify(items.slice(-2000)));
   }
@@ -506,6 +553,7 @@ function clearMutation(key: string, sent?: PendingMutation) {
 }
 
 function rememberDeletedTasks(ids: string[]) {
+  if (localSessionEnded || privateDeviceAccessBlocked()) return;
   const key = `${PENDING_KEY}-deleted:${workspaceUserId || "anonymous"}`;
   let previous: unknown = [];
   try { previous = JSON.parse(localStorage.getItem(key) || "[]"); } catch { /* Recover a malformed local cache from the server ledger. */ }
@@ -525,8 +573,12 @@ export function isCloudTaskDeleted(id: string): boolean {
 
 const taskMutationLocks = new Map<string, Promise<unknown>>();
 async function withTaskMutationLock<T>(key: string, operation: () => Promise<T>): Promise<T> {
+  const generation = sessionGeneration;
   const previous = taskMutationLocks.get(key) ?? Promise.resolve();
-  const current = previous.catch(() => {}).then(operation);
+  const current = previous.catch(() => {}).then(() => {
+    requireActiveLocalSession(generation);
+    return operation();
+  });
   taskMutationLocks.set(key, current);
   try { return await current; }
   finally { if (taskMutationLocks.get(key) === current) taskMutationLocks.delete(key); }
@@ -551,9 +603,12 @@ class GenesisApiError extends Error {
 }
 
 async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+  if ((localSessionEnded || privateDeviceAccessBlocked()) && !["/session", "/auth/providers"].includes(path)) throw new GenesisApiError(401, null, "AUTH_REQUIRED");
+  const generation = sessionGeneration;
   if (!API_BASE) throw new Error("Сервер GENESIS ещё не подключён");
   const { signal: callerSignal, ...requestInit } = init;
   const requestController = new AbortController();
+  accountRequests.add(requestController);
   let timedOut = false;
   const abortFromCaller = () => requestController.abort(callerSignal?.reason);
   if (callerSignal?.aborted) abortFromCaller();
@@ -580,14 +635,18 @@ async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     throw error;
   } finally {
     globalThis.clearTimeout(timeout);
+    accountRequests.delete(requestController);
     callerSignal?.removeEventListener("abort", abortFromCaller);
   }
+  if (generation !== sessionGeneration) throw new GenesisApiError(401, null, "AUTH_REQUIRED");
   const payload = (await response.json().catch(() => null)) as ({ error?: string } & Record<string, unknown>) | null;
+  if (generation !== sessionGeneration) throw new GenesisApiError(401, null, "AUTH_REQUIRED");
   if (!response.ok) {
-    throw new GenesisApiError(response.status, payload, payload?.error || `GENESIS API ${response.status}`);
-  }
-  if (!response.ok) {
-    throw new Error(payload?.error || (response.status === 401 ? "AUTH_REQUIRED" : `Ошибка сервера ${response.status}`));
+    const message = response.status === 413 ? "Запрос превышает допустимый размер. Уменьшите объём данных или вложений."
+      : response.status === 429 ? "Слишком много запросов. Повторите позже."
+      : payload?.error === "STORAGE_QUOTA_EXCEEDED" ? "Достигнут лимит данных. Экспортируйте и удалите ненужные данные или обратитесь в поддержку."
+      : payload?.error || `GENESIS API ${response.status}`;
+    throw new GenesisApiError(response.status, payload, message);
   }
   if (payload === null) {
     throw new Error("Сервис GENESIS временно недоступен.");
@@ -748,11 +807,13 @@ function deviceWorkspaceKey(userId: string) {
 }
 
 function storeDeviceWorkspaceKey(userId: string, value: DeviceWorkspaceKey) {
+  if (localSessionEnded || privateDeviceAccessBlocked()) return;
   localStorage.setItem(`${WORKSPACE_DEVICE_KEY_PREFIX}${userId}`, JSON.stringify(value));
 }
 
 function deviceWorkspaceId(userId: string) {
   if (typeof window === "undefined") return "server";
+  if (localSessionEnded || privateDeviceAccessBlocked()) return "";
   const storageKey = `${WORKSPACE_DEVICE_ID_PREFIX}${userId}`;
   const stored = localStorage.getItem(storageKey)?.trim();
   if (stored) return stored;
@@ -822,7 +883,7 @@ function readWorkspaceSyncCache(userId = workspaceUserId): WorkspaceSyncCache | 
 }
 
 function persistWorkspaceSyncCache() {
-  if (typeof window === "undefined" || !workspaceUserId) return;
+  if (typeof window === "undefined" || !workspaceUserId || localSessionEnded || privateDeviceAccessBlocked()) return;
   const cache: WorkspaceSyncCache = {
     version: workspaceVersion,
     base: workspaceBase,
@@ -843,6 +904,7 @@ function restoreWorkspaceSyncCache() {
 }
 
 export function restoreOfflineWorkspaceSession(userId: string, provider: "google" | "yandex" = "google") {
+  if (localSessionEnded || privateDeviceAccessBlocked()) return false;
   activeAuthProvider = provider;
   workspaceUserId = userId;
   workspaceDeviceId = deviceWorkspaceId(userId);
@@ -853,12 +915,15 @@ export function restoreOfflineWorkspaceSession(userId: string, provider: "google
 }
 
 async function wrapWorkspaceKey(userId: string, rawKey: string, recoveryCode?: string) {
+  const generation = sessionGeneration;
+  requireActiveLocalSession(generation);
   const recoveryBytes = recoveryCode ? base64ToBytes(recoveryCode) : crypto.getRandomValues(new Uint8Array(32));
   if (recoveryBytes.length !== 32) throw new Error("Код восстановления должен содержать 32 байта.");
   const recovery = bytesToBase64(recoveryBytes);
   const wrappingKey = await crypto.subtle.importKey("raw", recoveryBytes, "AES-GCM", false, ["encrypt"]);
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const wrappedKey = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, wrappingKey, base64ToBytes(rawKey));
+  requireActiveLocalSession(generation);
   storeDeviceWorkspaceKey(userId, { key: rawKey, recoveryCode: recovery });
   await api<{ ok: boolean }>("/workspace/key", {
     method: "PUT",
@@ -868,6 +933,8 @@ async function wrapWorkspaceKey(userId: string, rawKey: string, recoveryCode?: s
 }
 
 async function unwrapWorkspaceKey(userId: string, wrappedKey: string, wrappedKeyIv: string, recoveryCode: string) {
+  const generation = sessionGeneration;
+  requireActiveLocalSession(generation);
   const recoveryBytes = base64ToBytes(recoveryCode.trim());
   if (recoveryBytes.length !== 32) throw new Error("Неверный формат кода восстановления.");
   try {
@@ -877,6 +944,7 @@ async function unwrapWorkspaceKey(userId: string, wrappedKey: string, wrappedKey
       wrappingKey,
       base64ToBytes(wrappedKey),
     );
+    requireActiveLocalSession(generation);
     const key = bytesToBase64(new Uint8Array(rawKey));
     storeDeviceWorkspaceKey(userId, { key, recoveryCode: recoveryCode.trim() });
     return key;
@@ -891,6 +959,8 @@ async function recoverWorkspaceKey(
   wrappedKeyIv: string,
   cancelledMessage: string,
 ) {
+  const generation = sessionGeneration;
+  requireActiveLocalSession(generation);
   const handler = workspaceRecoveryRequestHandler;
   if (!handler) throw new Error(cancelledMessage);
   let recoveredKey = "";
@@ -900,11 +970,14 @@ async function recoverWorkspaceKey(
       recoveredKey = await unwrapWorkspaceKey(workspaceUserId, wrappedKey, wrappedKeyIv, recoveryCode);
     },
   });
+  requireActiveLocalSession(generation);
   if (!accepted || !recoveredKey) throw new Error(cancelledMessage);
   workspaceKey = recoveredKey;
 }
 
 async function resolveWorkspaceKey(payload: BootstrapPayload) {
+  const generation = sessionGeneration;
+  requireActiveLocalSession(generation);
   workspaceUserId = payload.user.uid;
   workspaceDeviceId = deviceWorkspaceId(workspaceUserId);
   restoreWorkspaceSyncCache();
@@ -939,10 +1012,12 @@ async function resolveWorkspaceKey(payload: BootstrapPayload) {
     payload.workspace.wrappedKeyIv,
     "Для доступа к зашифрованным данным нужен код восстановления из личного кабинета.",
   );
+  requireActiveLocalSession(generation);
   await wrapWorkspaceKey(workspaceUserId, workspaceKey, deviceWorkspaceKey(workspaceUserId)?.recoveryCode);
 }
 
 async function importWorkspaceKey() {
+  requireActiveLocalSession();
   if (!workspaceKey) throw new Error("Ключ пространства не получен");
   return crypto.subtle.importKey("raw", base64ToBytes(workspaceKey), "AES-GCM", false, ["encrypt", "decrypt"]);
 }
@@ -951,12 +1026,15 @@ async function decryptWorkspaceEnvelope(envelope: WorkspaceEnvelope): Promise<{
   structure: EncryptedWorkspaceStructure;
   metadata: WorkspaceSyncMetadata;
 }> {
+  const generation = sessionGeneration;
+  requireActiveLocalSession(generation);
   const key = await importWorkspaceKey();
   const plain = await crypto.subtle.decrypt(
     { name: "AES-GCM", iv: base64ToBytes(envelope.iv) },
     key,
     base64ToBytes(envelope.ciphertext),
   );
+  requireActiveLocalSession(generation);
   const decoded = JSON.parse(new TextDecoder().decode(plain)) as SyncableWorkspaceDocument & { habitEntries?: unknown[] };
   const metadata = normalizeWorkspaceSyncMetadata(
     decoded.syncMetadata,
@@ -966,6 +1044,8 @@ async function decryptWorkspaceEnvelope(envelope: WorkspaceEnvelope): Promise<{
 }
 
 async function decryptWorkspace(envelope: WorkspaceEnvelope | null): Promise<EncryptedWorkspaceStructure> {
+  const generation = sessionGeneration;
+  requireActiveLocalSession(generation);
   if (!envelope) {
     workspaceVersion = 0;
     workspaceSyncMetadata = normalizeWorkspaceSyncMetadata(null, syncFallback(1));
@@ -976,6 +1056,7 @@ async function decryptWorkspace(envelope: WorkspaceEnvelope | null): Promise<Enc
     return workspaceBase;
   }
   const decrypted = await decryptWorkspaceEnvelope(envelope);
+  requireActiveLocalSession(generation);
   workspaceVersion = envelope.version;
   workspaceBase = decrypted.structure;
   workspaceBaseMetadata = decrypted.metadata;
@@ -992,6 +1073,8 @@ async function encryptWorkspace(
   habitWorkspace?: HabitWorkspace,
   taskLists?: GoogleTaskList[],
 ) {
+  const generation = sessionGeneration;
+  requireActiveLocalSession(generation);
   if (habitWorkspace) encryptedHabitWorkspace = normalizeHabitWorkspace(habitWorkspace);
   const current: EncryptedWorkspaceStructure = { projects, categories, taskListLinks,
     taskLists: taskLists ?? workspaceBase?.taskLists ?? [], ...encryptedHabitWorkspace };
@@ -1009,6 +1092,7 @@ async function encryptWorkspace(
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const plaintext = new TextEncoder().encode(JSON.stringify(workspaceDocument(structure, prepared.metadata)));
   const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, plaintext);
+  requireActiveLocalSession(generation);
   return {
     envelope: {
       ciphertext: bytesToBase64(new Uint8Array(ciphertext)),
@@ -1026,10 +1110,13 @@ async function encryptWorkspaceDocument(
   metadata: WorkspaceSyncMetadata,
   expectedVersion: number,
 ) {
+  const generation = sessionGeneration;
+  requireActiveLocalSession(generation);
   const key = await importWorkspaceKey();
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const plaintext = new TextEncoder().encode(JSON.stringify(workspaceDocument(structure, metadata)));
   const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, plaintext);
+  requireActiveLocalSession(generation);
   return {
     ciphertext: bytesToBase64(new Uint8Array(ciphertext)),
     iv: bytesToBase64(iv),
@@ -1111,15 +1198,19 @@ async function refreshWorkspaceFromCloud() {
 }
 
 export async function loadGenesisWorkspace(): Promise<GenesisWorkspace> {
+  const generation = sessionGeneration;
+  requireActiveLocalSession(generation);
   const payload = await api<BootstrapPayload>("/bootstrap");
   activeAuthProvider = payload.user.authProvider === "yandex" ? "yandex" : "google";
   csrfToken = payload.csrf;
   await resolveWorkspaceKey(payload);
+  requireActiveLocalSession(generation);
   rememberDeletedTasks(payload.deletedTaskIds ?? []);
   let structure: Awaited<ReturnType<typeof decryptWorkspace>>;
   try {
     structure = await decryptWorkspace(payload.workspace.envelope);
   } catch (error) {
+    requireActiveLocalSession(generation);
     if (payload.workspace.keyMode !== "client" || !payload.workspace.wrappedKey || !payload.workspace.wrappedKeyIv) throw error;
     await recoverWorkspaceKey(
       "key-mismatch",
@@ -1129,6 +1220,7 @@ export async function loadGenesisWorkspace(): Promise<GenesisWorkspace> {
     );
     structure = await decryptWorkspace(payload.workspace.envelope);
   }
+  requireActiveLocalSession(generation);
   return {
     user: payload.user,
     csrf: payload.csrf,
@@ -1193,14 +1285,24 @@ export function observeGenesisUser(
 }
 
 export async function loadGenesisSession(signal?: AbortSignal) {
-  const result = await api<{ user: GenesisUser | null; csrf: string }>("/session", { signal });
+  const result = await api<{ user: GenesisUser | null; csrf: string; loginId?: string }>("/session", { signal });
+  if (result.user && !acceptAuthenticatedLogin(localStorage, result.loginId || "")) {
+    localSessionEnded = true;
+    csrfToken = "";
+    return null;
+  }
+  localSessionEnded = result.user === null || hasLocalSignOut(localStorage);
   csrfToken = result.csrf;
   activeAuthProvider = result.user?.authProvider === "yandex" ? "yandex" : "google";
   return result.user;
 }
 
-export function signInWithGoogle() {
+export async function signInWithGoogle() {
   if (!API_BASE) throw new Error("Сервер GENESIS ещё не подключён");
+  if (privateDeviceAccessBlocked()) {
+    const oldSession = await api<{ loginId?: string }>("/session");
+    prepareLocalSignIn(localStorage, oldSession.loginId || "");
+  }
   const returnTo = cleanGenesisAppUrl(window.location.href);
   window.location.assign(`${API_BASE}/auth/google/start?purpose=login&return_to=${encodeURIComponent(returnTo)}`);
   return Promise.resolve();
@@ -1211,8 +1313,12 @@ export async function loadAuthProviders(): Promise<{ google: boolean; yandex: bo
   return api<{ google: boolean; yandex: boolean }>("/auth/providers");
 }
 
-export function signInWithYandex() {
+export async function signInWithYandex() {
   if (!API_BASE) throw new Error("Сервер GENESIS ещё не подключён");
+  if (privateDeviceAccessBlocked()) {
+    const oldSession = await api<{ loginId?: string }>("/session");
+    prepareLocalSignIn(localStorage, oldSession.loginId || "");
+  }
   const returnTo = cleanGenesisAppUrl(window.location.href);
   window.location.assign(`${API_BASE}/auth/yandex/start?return_to=${encodeURIComponent(returnTo)}`);
   return Promise.resolve();
@@ -1247,6 +1353,8 @@ export async function cancelPendingLocalAccountLink() {
 }
 
 export async function mergePendingLocalAccountLink(pending: PendingLocalAccountLink) {
+  const generation = sessionGeneration;
+  requireActiveLocalSession(generation);
   if (!workspaceKey || !workspaceUserId) throw new Error("Сначала откройте защищённое пространство GENESIS.");
   const source = pending.sourceWorkspace.envelope;
   const target = await fetchWorkspaceEnvelope();
@@ -1257,6 +1365,7 @@ export async function mergePendingLocalAccountLink(pending: PendingLocalAccountL
       "AES-GCM", false, ["decrypt"]);
     const plaintext = await crypto.subtle.decrypt({ name: "AES-GCM", iv: base64ToBytes(source.iv) },
       sourceKey, base64ToBytes(source.ciphertext));
+    requireActiveLocalSession(generation);
     const sourceDocument = JSON.parse(new TextDecoder().decode(plaintext)) as SyncableWorkspaceDocument;
     const decodedTarget = target ? await decryptWorkspaceEnvelope(target) : null;
     const targetDocument = decodedTarget
@@ -1273,6 +1382,7 @@ export async function mergePendingLocalAccountLink(pending: PendingLocalAccountL
     const structure = structureFromDocument(merged.document);
     mergedWorkspace = await encryptWorkspaceDocument(structure, merged.metadata, target?.version ?? 0);
   }
+  requireActiveLocalSession(generation);
   return api<{ user: GenesisUser }>("/account/local-link/commit", {
     method: "POST",
     body: JSON.stringify({ sourceVersion: source?.version ?? 0, mergedWorkspace }),
@@ -1312,23 +1422,38 @@ export function consumeGoogleAuthError() {
     yandex_oauth_failed: "Яндекс не завершил авторизацию. Попробуйте ещё раз.",
     yandex_calendar_failed: "Не удалось подключить Яндекс.Календарь. Проверьте разрешения приложения в Яндекс ID.",
     oauth_failed: "Google не завершил авторизацию. Попробуйте ещё раз или обратитесь в поддержку.",
+    logout_remote_unconfirmed: "Локальный выход выполнен. Серверный выход не подтверждён. Повторите вход и выход при доступной сети.",
   };
   return messages[code] ?? messages.oauth_failed;
 }
 
 export async function signOutFromGoogle() {
-  await api<{ ok: boolean }>("/auth/logout", { method: "POST", body: "{}" });
-  if (workspaceUserId) localStorage.removeItem(sharedOfflineKey());
-  workspaceKey = "";
+  // Block the device immediately, including other tabs and restoration from an old cookie.
+  const logoutCsrf = csrfToken;
+  let localCleared = true;
+  try { markLocalSignOut(localStorage); } catch { localCleared = false; }
+  endLocalSession();
+  const logoutController = new AbortController();
+  const logoutTimeout = globalThis.setTimeout(() => logoutController.abort(), 3000);
+  const remoteLogout = fetch(`${API_BASE}/auth/logout`, {
+    method: "POST", body: "{}", credentials: "include", keepalive: true,
+    headers: { "Content-Type": "application/json", "X-CSRF-Token": logoutCsrf },
+    signal: logoutController.signal,
+  }).then((response) => response.ok).catch(() => false).finally(() => globalThis.clearTimeout(logoutTimeout));
+  try { clearPrivateDeviceStorage(localStorage); } catch { localCleared = false; }
+  try { clearPrivateDeviceStorage(sessionStorage); } catch { localCleared = false; }
   activeAuthProvider = "google";
-  workspaceUserId = "";
-  workspaceVersion = 0;
-  workspaceDeviceId = "";
-  workspaceBase = null;
-  workspaceBaseMetadata = null;
-  workspaceSyncMetadata = null;
-  localStorage.removeItem(LAST_USER_CACHE);
-  window.location.reload();
+  try { await clearAllTrackerAnalyticsCaches(); } catch { localCleared = false; }
+  if ("serviceWorker" in navigator) {
+    const registration = await navigator.serviceWorker.getRegistration().catch(() => undefined);
+    const notifications = await registration?.getNotifications().catch(() => []);
+    notifications?.forEach((notification) => notification.close());
+  }
+  const remoteRevoked = await remoteLogout;
+  if (!localCleared) throw new Error("Очистка браузера не подтверждена. Закройте вкладки GENESIS и удалите данные сайта в настройках браузера перед передачей устройства.");
+  const destination = new URL(cleanGenesisAppUrl(window.location.href));
+  if (!remoteRevoked) destination.searchParams.set("auth_error", "logout_remote_unconfirmed");
+  window.location.assign(destination.href);
 }
 
 export async function deleteGenesisAccount(userId?: string) {
@@ -1457,12 +1582,15 @@ function sharedOfflineKey(userId = workspaceUserId) {
 }
 
 async function readSharedOfflineStore(): Promise<SharedOfflineStore> {
+  const generation = sessionGeneration;
+  requireActiveLocalSession(generation);
   const saved = localStorage.getItem(sharedOfflineKey());
   if (!saved) return { cache: {}, queue: [] };
   const envelope = JSON.parse(saved) as { iv: string; ciphertext: string };
   const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: base64ToBytes(envelope.iv),
     additionalData: new TextEncoder().encode(sharedOfflineKey()) },
   await importWorkspaceKey(), base64ToBytes(envelope.ciphertext));
+  requireActiveLocalSession(generation);
   const decoded = JSON.parse(new TextDecoder().decode(plain)) as SharedOfflineStore;
   if (!decoded || typeof decoded.cache !== "object" || !Array.isArray(decoded.queue)) {
     throw new Error("SHARED_OFFLINE_CACHE_INVALID");
@@ -1471,12 +1599,14 @@ async function readSharedOfflineStore(): Promise<SharedOfflineStore> {
 }
 
 async function changeSharedOfflineStore(change: (store: SharedOfflineStore) => void) {
+  const generation = sessionGeneration;
   const previous = sharedOfflineLock;
   let release: () => void = () => undefined;
   sharedOfflineLock = new Promise<void>((resolve) => { release = resolve; });
   await previous;
   try {
     const store = await readSharedOfflineStore();
+    requireActiveLocalSession(generation);
     change(store);
     const entries = Object.entries(store.cache).sort((a, b) => b[1].savedAt - a[1].savedAt).slice(0, 12);
     store.cache = Object.fromEntries(entries);
@@ -1485,6 +1615,7 @@ async function changeSharedOfflineStore(change: (store: SharedOfflineStore) => v
     const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv,
       additionalData: new TextEncoder().encode(sharedOfflineKey()) },
     await importWorkspaceKey(), new TextEncoder().encode(JSON.stringify(store)));
+    requireActiveLocalSession(generation);
     localStorage.setItem(sharedOfflineKey(), JSON.stringify({
       iv: bytesToBase64(iv), ciphertext: bytesToBase64(new Uint8Array(ciphertext)),
     }));
@@ -1496,6 +1627,10 @@ function sharedNetworkFailure(error: unknown) {
   return !(error instanceof GenesisApiError) && (typeof navigator !== "undefined" && !navigator.onLine
     || error instanceof TypeError
     || error instanceof GenesisNetworkTimeoutError);
+}
+
+export function canRestoreOfflineSession(error: unknown) {
+  return !localSessionEnded && !privateDeviceAccessBlocked() && sharedNetworkFailure(error);
 }
 
 async function sharedCachedRequest<T>(path: string): Promise<T> {

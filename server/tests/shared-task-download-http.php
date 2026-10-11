@@ -30,7 +30,8 @@ function attachmentHttpDownloads(string $userId, string $taskId, array $file, st
     attachmentExpect(is_resource($process), 'Cannot start HTTP test server.');
     fclose($pipes[0]);
     $sessionId = session_id();
-    $_SESSION['user_id'] = $userId;
+    $sessionUser = genesisFindUser($userId);
+    genesisEstablishGoogleSession($sessionUser, (string)$sessionUser['google_sub']);
     $cookie = session_name() . '=' . $sessionId;
     session_write_close(); // Release the lock so HTTP requests can read the session.
     $request = static function (string $path, bool $authenticated = true) use ($address, $cookie): array {

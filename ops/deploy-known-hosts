@@ -1,0 +1,4 @@
+# GENESIS public host keys from the existing trusted local known_hosts.
+# Verify rotations independently before changing these pins. Never replace with live keyscan output.
+haiirodw.beget.tech ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIID0uvljB/dYpWI45ErU7jhcxPnOQna/C8ItXQBiFuse
+[82.198.232.224]:65002 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJdHCkRRqkV0rwxfKe8JtNBojLzAPG+ps2k7tYDJx0+R

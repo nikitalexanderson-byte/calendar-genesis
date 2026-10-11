@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { MOON_SETTINGS_CHANGED, planMoonReminders, readMoonReminderSettings, saveMoonReminderSettings } from "./moon-reminders";
+import { privateDeviceAccessBlocked } from "./local-sign-out";
 
 export function MoonReminderSettings({ accountId, english, permission, requestPermission }: {
   accountId: string; english: boolean; permission: string; requestPermission: () => Promise<unknown>;
@@ -35,7 +36,7 @@ export function useMoonReminders(accountId: string | null, english: boolean) {
     let checking = false;
     const sentKey = `genesis-moon-reminders-sent-v1:${accountId}`;
     const check = async () => {
-      if (!alive || checking || Notification.permission !== "granted") return;
+      if (!alive || checking || privateDeviceAccessBlocked() || Notification.permission !== "granted") return;
       checking = true;
       try {
         const now = new Date();
@@ -49,11 +50,11 @@ export function useMoonReminders(accountId: string | null, english: boolean) {
           const body = `${plan.eventDate} · ${english ? `in ${plan.leadDays} day${plan.leadDays > 1 ? "s" : ""}` : `через ${plan.leadDays} ${plan.leadDays === 1 ? "сутки" : "суток"}`}`;
           const options = { body, tag: `moon-${accountId}-${plan.key}`, icon: "/icons/icon-192.png" };
           const registration = "serviceWorker" in navigator ? await navigator.serviceWorker.getRegistration() : null;
-          if (!alive) break;
+          if (!alive || privateDeviceAccessBlocked()) break;
           if (registration) await registration.showNotification(title, options);
           else new Notification(title, options);
           sent.add(plan.key);
-          localStorage.setItem(sentKey, JSON.stringify([...sent].slice(-200)));
+          if (!privateDeviceAccessBlocked()) localStorage.setItem(sentKey, JSON.stringify([...sent].slice(-200)));
         }
       } catch { /* Retry on the next wake-up, without interrupting the workspace. */ }
       finally { checking = false; }

@@ -2737,5 +2737,11 @@
   "Перетащите плашку для переноса": "Trascina la scheda per spostarla",
   "Удерживайте плашку для переноса": "Tieni premuta la scheda per spostarla",
   "Перетащите плашку задачи или списка в проект либо в хаос-бокс.": "Trascina una scheda attività o elenco in un progetto o nella casella del caos.",
-  "Для переноса удерживайте задачу или список, затем перетащите. Для прокрутки проведите пальцем без удержания.": "Per spostare un’attività o un elenco, tienilo premuto e trascinalo. Per scorrere, fai scorrere il dito senza tenere premuto."
+  "Для переноса удерживайте задачу или список, затем перетащите. Для прокрутки проведите пальцем без удержания.": "Per spostare un’attività o un elenco, tienilo premuto e trascinalo. Per scorrere, fai scorrere il dito senza tenere premuto.",
+  "Запрос превышает допустимый размер. Уменьшите объём данных или вложений.": "La richiesta è troppo grande. Riduci i dati o gli allegati.",
+  "Слишком много запросов. Повторите позже.": "Troppe richieste. Riprova più tardi.",
+  "Достигнут лимит данных. Экспортируйте и удалите ненужные данные или обратитесь в поддержку.": "Il limite dei dati è stato raggiunto. Esporta ed elimina i dati inutili o contatta il supporto.",
+  "Локальный выход выполнен. Серверный выход не подтверждён. Повторите вход и выход при доступной сети.": "La disconnessione locale è completata. La disconnessione dal server non è confermata. Accedi ed esci nuovamente quando la rete è disponibile.",
+  "Очистка браузера не подтверждена. Закройте вкладки GENESIS и удалите данные сайта в настройках браузера перед передачей устройства.": "La pulizia del browser non è confermata. Chiudi le schede GENESIS ed elimina i dati del sito nelle impostazioni del browser prima di cedere il dispositivo.",
+  "Выход удалит данные аккаунтов и ключи из браузера, включая несинхронизированные изменения. Данные в облаке сохранятся. Сохраните черновики и код восстановления перед выходом. Выйти?": "La disconnessione rimuove dati degli account e chiavi da questo browser, incluse le modifiche non sincronizzate. I dati nel cloud restano. Salva prima le bozze e il codice di recupero. Uscire?"
 }

@@ -115,11 +115,39 @@ export default defineConfig({
       output: {
         codeSplitting: {
           groups: [
-            ...["el.a", "el.b", "de", "fr", "es", "it", "pt", "pl", "sr.a", "sr.b", "uk.a", "uk.b", "zh", "tr", "ja", "ja.b"].map((locale) => ({
+            ...["el.a", "el.b", "de", "de.b", "fr", "fr.b", "es", "it", "pt", "pl", "sr.a", "sr.b", "uk.a", "uk.b", "zh", "tr", "ja", "ja.b"].map((locale) => ({
               name: `locale-${locale}`,
               test: new RegExp(`translations\\.${locale}\\.json$`),
-              priority: 40,
+              priority: 45,
             })),
+            {
+              name: "locale-english",
+              test: /app[\\/](?:translations\.en|curated-translations\.en)\.json$/,
+              maxSize: 280_000,
+              priority: 45,
+            },
+            {
+              name: "locale-years",
+              test: /app[\\/]year-translations[\\/][^\\/]+\.json$/,
+              maxSize: 280_000,
+              priority: 45,
+            },
+            {
+              name: "static-data",
+              test: /(?:\.json$|[\\/]references[\\/]days\.txt\?raw$)/,
+              maxSize: 280_000,
+              priority: 44,
+            },
+            {
+              name: "locale-core",
+              test: /app[\\/](?:i18n|region-language)\.ts$/,
+              priority: 45,
+            },
+            {
+              name: "device-access",
+              test: /app[\\/]local-sign-out\.ts$/,
+              priority: 45,
+            },
             {
               name: "react-vendor",
               test: /node_modules[\\/](?:react|react-dom|scheduler)[\\/]/,

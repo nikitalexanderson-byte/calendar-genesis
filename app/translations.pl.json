@@ -2737,5 +2737,11 @@
   "Перетащите плашку для переноса": "Przeciągnij kartę, aby ją przenieść",
   "Удерживайте плашку для переноса": "Przytrzymaj kartę, aby ją przenieść",
   "Перетащите плашку задачи или списка в проект либо в хаос-бокс.": "Przeciągnij zadanie lub listę do projektu albo skrzynki chaosu.",
-  "Для переноса удерживайте задачу или список, затем перетащите. Для прокрутки проведите пальцем без удержания.": "Aby przenieść zadanie lub listę, przytrzymaj je i przeciągnij. Aby przewijać, przesuń palcem bez przytrzymywania."
+  "Для переноса удерживайте задачу или список, затем перетащите. Для прокрутки проведите пальцем без удержания.": "Aby przenieść zadanie lub listę, przytrzymaj je i przeciągnij. Aby przewijać, przesuń palcem bez przytrzymywania.",
+  "Запрос превышает допустимый размер. Уменьшите объём данных или вложений.": "Żądanie jest zbyt duże. Zmniejsz ilość danych lub rozmiar załączników.",
+  "Слишком много запросов. Повторите позже.": "Zbyt wiele żądań. Spróbuj później.",
+  "Достигнут лимит данных. Экспортируйте и удалите ненужные данные или обратитесь в поддержку.": "Osiągnięto limit danych. Wyeksportuj i usuń niepotrzebne dane lub skontaktuj się z pomocą techniczną.",
+  "Локальный выход выполнен. Серверный выход не подтверждён. Повторите вход и выход при доступной сети.": "Wylogowano lokalnie. Wylogowanie na serwerze nie zostało potwierdzone. Zaloguj się i wyloguj ponownie, gdy sieć będzie dostępna.",
+  "Очистка браузера не подтверждена. Закройте вкладки GENESIS и удалите данные сайта в настройках браузера перед передачей устройства.": "Czyszczenie przeglądarki nie zostało potwierdzone. Zamknij karty GENESIS i usuń dane witryny w ustawieniach przeglądarki przed przekazaniem urządzenia.",
+  "Выход удалит данные аккаунтов и ключи из браузера, включая несинхронизированные изменения. Данные в облаке сохранятся. Сохраните черновики и код восстановления перед выходом. Выйти?": "Wylogowanie usuwa dane kont i klucze z tej przeglądarki, w tym niezsynchronizowane zmiany. Dane w chmurze pozostaną. Najpierw zapisz szkice i kod odzyskiwania. Wylogować?"
 }

@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 ini_set('display_errors', '0');
 ini_set('display_startup_errors', '0');
+require_once __DIR__ . '/resource-limits.php';
 
 function genesisRoot(): string
 {
@@ -122,11 +123,20 @@ function genesisJson(array $payload, int $status = 200): never
 
 function genesisReadJson(): array
 {
-    $raw = file_get_contents('php://input');
-    if ($raw === false || trim($raw) === '') {
+    $path = trim((string)($_GET['path'] ?? $_SERVER['PATH_INFO'] ?? ''), '/');
+    $stream = fopen('php://input', 'rb');
+    if ($stream === false) throw new InvalidArgumentException('REQUEST_UNREADABLE');
+    try {
+        $length = filter_var($_SERVER['CONTENT_LENGTH'] ?? null, FILTER_VALIDATE_INT);
+        $raw = genesisBoundedBody($stream, genesisJsonBodyLimit($path), $length === false ? null : $length);
+    } finally { fclose($stream); }
+    $userId = genesisCurrentUserId();
+    genesisConsumeApiBudget($userId === null ? 'ip:' . ($_SERVER['REMOTE_ADDR'] ?? 'unknown') : 'user:' . $userId,
+        'body', 3000, $userId === null ? 16 * 1024 * 1024 : 256 * 1024 * 1024, strlen($raw));
+    if (trim($raw) === '') {
         return [];
     }
-    $value = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
+    $value = json_decode($raw, true, 64, JSON_THROW_ON_ERROR);
     if (!is_array($value)) {
         throw new InvalidArgumentException('JSON object expected.');
     }
@@ -179,7 +189,59 @@ function genesisClientDayKey(): string
 
 function genesisCurrentUserId(): ?string
 {
-    return isset($_SESSION['user_id']) ? (string)$_SESSION['user_id'] : null;
+    $id = $_SESSION['user_id'] ?? null;
+    if (!is_string($id) || $id === '') return null;
+    $user = genesisFindUser($id);
+    $valid = $user !== null;
+    if ($valid && genesisUserProvider($user) === 'google') {
+        $identity = $_SESSION['auth_identity'] ?? null;
+        // Old cookies cannot prove whether primary or linked Google identity signed in.
+        // Require a new verified login rather than assigning primary privileges to them.
+        $valid = is_array($identity) && is_string($identity['sub'] ?? null);
+        if ($valid && ($identity['kind'] ?? '') === 'primary') {
+            $valid = hash_equals((string)$user['google_sub'], $identity['sub']);
+        } elseif ($valid && ($identity['kind'] ?? '') === 'linked') {
+            $query = genesisDb()->prepare('SELECT 1 FROM linked_google_accounts
+                WHERE id = :account AND owner_user_id = :owner AND google_sub = :sub');
+            $query->execute(['account' => $identity['account_id'] ?? '', 'owner' => $id, 'sub' => $identity['sub']]);
+            $valid = $query->fetchColumn() !== false;
+        } else {
+            $valid = false;
+        }
+    }
+    if (!$valid) {
+        unset($_SESSION['user_id'], $_SESSION['auth_identity'], $_SESSION['authenticated_at'], $_SESSION['pending_local_link']);
+        $_SESSION['csrf'] = bin2hex(random_bytes(24));
+        return null;
+    }
+    return $id;
+}
+
+/** Called only with a profile verified by the Google code/token exchange. */
+function genesisEstablishGoogleSession(array $user, string $verifiedSub): void
+{
+    if ($verifiedSub === '' || genesisUserProvider($user) !== 'google') throw new RuntimeException('Invalid authentication identity.');
+    $identity = ['kind' => 'primary', 'sub' => $verifiedSub];
+    if (!hash_equals((string)$user['google_sub'], $verifiedSub)) {
+        $query = genesisDb()->prepare('SELECT id FROM linked_google_accounts
+            WHERE owner_user_id = :owner AND google_sub = :sub');
+        $query->execute(['owner' => $user['id'], 'sub' => $verifiedSub]);
+        $accountId = $query->fetchColumn();
+        if (!is_string($accountId)) throw new RuntimeException('Authentication identity is no longer linked.');
+        $identity = ['kind' => 'linked', 'sub' => $verifiedSub, 'account_id' => $accountId];
+    }
+    $_SESSION['user_id'] = (string)$user['id'];
+    $_SESSION['auth_identity'] = $identity;
+    $_SESSION['authenticated_at'] = time();
+    $_SESSION['auth_login_id'] = bin2hex(random_bytes(16));
+    $_SESSION['csrf'] = bin2hex(random_bytes(24));
+}
+
+function genesisSessionIsPrimaryGoogleUser(array $user): bool
+{
+    return genesisCurrentUserId() === (string)$user['id']
+        && ($_SESSION['auth_identity']['kind'] ?? '') === 'primary'
+        && hash_equals((string)$user['google_sub'], (string)($_SESSION['auth_identity']['sub'] ?? ''));
 }
 
 function genesisRequireUserId(): string
