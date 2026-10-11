@@ -22,6 +22,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { CalendarDayTaskCounts, CalendarYearTaskCounts } from "./CalendarTaskCounts";
+import { CalendarSharedTaskControl } from "./CalendarSharedTaskControl";
 import { RecordCalendarChoice } from "./RecordCalendarChoice";
 import { SERVICE_IDENTITY } from "./public-service";
 import { normalizeWebTheme } from "./web-theme";
@@ -2032,6 +2033,12 @@ export function GenesisCalendar() {
   const openTheokyklosSector = (sectorId: SacredPracticeSectorId) => {
     setRequestedTheokyklosSector(sectorId);
     navigateTo("theokyklos");
+  };
+
+  const openSharedCalendarTask = (task: SharedCalendarTask) => {
+    setDayDetailsOpen(false);
+    setProjectsArea("shared");
+    navigateTo("projects", false, { spaceId: task.spaceId, projectId: task.projectId, taskId: task.id });
   };
 
   useEffect(() => {
@@ -5144,6 +5151,8 @@ export function GenesisCalendar() {
     const sunrise = sunriseSunset ? displaySolarTime(sunriseSunset.sunrise) : solarTimePlaceholder;
     const sunset = sunriseSunset ? displaySolarTime(sunriseSunset.sunset) : solarTimePlaceholder;
     const popoverOpen = !isAdjacentMonth && openDayTaskPopover === dateValue;
+    const sharedPopoverKey = `shared-${dateValue}`;
+    const sharedPopoverOpen = !isAdjacentMonth && openDayTaskPopover === sharedPopoverKey;
     const columnCount = mode === "profane" ? 7 : 6;
     const column = layoutIndex % columnCount;
     const popoverAlignment = column < 2 ? "align-left" : column >= columnCount - 2 ? "align-right" : "align-center";
@@ -5157,7 +5166,7 @@ export function GenesisCalendar() {
 
     return (
       <article
-        className={`calendar-day calendar-mode-day mode-${mode}${mode === "profane" ? ` weekday-${weekdayIndex}` : ""}${isSelected ? " selected" : ""}${isToday ? " today" : ""}${isSaturday ? " saturday" : ""}${solarEvent ? " solar-day" : ""}${taskCount ? " has-tasks" : ""}${popoverOpen ? " popover-open" : ""}${isAdjacentMonth ? ` adjacent-month ${adjacentMonth}-month` : ""}`}
+        className={`calendar-day calendar-mode-day mode-${mode}${mode === "profane" ? ` weekday-${weekdayIndex}` : ""}${isSelected ? " selected" : ""}${isToday ? " today" : ""}${isSaturday ? " saturday" : ""}${solarEvent ? " solar-day" : ""}${taskCount ? " has-tasks" : ""}${popoverOpen || sharedPopoverOpen ? " popover-open" : ""}${isAdjacentMonth ? ` adjacent-month ${adjacentMonth}-month` : ""}`}
         style={isAdjacentMonth ? { "--adjacent-month-opacity": adjacentOpacity } as CSSProperties : undefined}
         aria-label={isAdjacentMonth
           ? (language === "en"
@@ -5213,10 +5222,9 @@ export function GenesisCalendar() {
           <span><i aria-hidden="true">↗</i>{sunrise}</span>
           <span><i aria-hidden="true">↘</i>{sunset}</span>
         </span>
-        {sharedTasks.length ? <button type="button" className="calendar-shared-task-count"
-          onClick={() => openCalendarDate(date, "calendar")}
-          aria-label={`${sharedTasks.length} ${language === "en" ? "shared tasks" : "общих задач"} · ${formatGregorian(date, true)}`}
-          title={`${language === "en" ? "Shared tasks" : "Общие задачи"}: ${sharedTasks.map((task) => task.title).join(", ")}`}>{sharedTasks.length}</button> : null}
+        <CalendarSharedTaskControl tasks={sharedTasks} dateLabel={formatGregorian(date, true)} language={language}
+          popoverKey={sharedPopoverKey} alignment={popoverAlignment} openKey={openDayTaskPopover}
+          onOpenKey={setOpenDayTaskPopover} onOpenTask={openSharedCalendarTask} />
         {taskCount ? (
           <div
             className="calendar-day-task-control"
@@ -5372,11 +5380,13 @@ export function GenesisCalendar() {
                     const sunrise = sunriseSunset ? displaySolarTime(sunriseSunset.sunrise) : solarTimePlaceholder;
                     const sunset = sunriseSunset ? displaySolarTime(sunriseSunset.sunset) : solarTimePlaceholder;
                     const popoverOpen = openDayTaskPopover === key;
+                    const sharedPopoverKey = `shared-${key}`;
+                    const sharedPopoverOpen = openDayTaskPopover === sharedPopoverKey;
                     const popoverAlignment = dayColumn < 2 ? "align-left" : dayColumn > 2 ? "align-right" : "align-center";
                     return (
                       <article
                         key={dayNumber}
-                        className={`calendar-day${isSelected ? " selected" : ""}${isToday ? " today" : ""}${isSaturday ? " saturday" : ""}${solarEvent ? " solar-day" : ""}${taskCount ? " has-tasks" : ""}${popoverOpen ? " popover-open" : ""}`}
+                        className={`calendar-day${isSelected ? " selected" : ""}${isToday ? " today" : ""}${isSaturday ? " saturday" : ""}${solarEvent ? " solar-day" : ""}${taskCount ? " has-tasks" : ""}${popoverOpen || sharedPopoverOpen ? " popover-open" : ""}`}
                       >
                         <button
                           type="button"
@@ -5412,10 +5422,9 @@ export function GenesisCalendar() {
                           <span><i aria-hidden="true">↘</i>{sunset}</span>
                         </span>
                         <small>{sacredDay.name.split("(")[0].trim()}</small>
-                        {sharedTasks.length ? <button type="button" className="calendar-shared-task-count"
-                          onClick={() => openCalendarDate(gregorian, "calendar")}
-                          aria-label={`${sharedTasks.length} ${language === "en" ? "shared tasks" : "общих задач"} · ${formatGregorian(gregorian, true)}`}
-                          title={`${language === "en" ? "Shared tasks" : "Общие задачи"}: ${sharedTasks.map((task) => task.title).join(", ")}`}>{sharedTasks.length}</button> : null}
+                        <CalendarSharedTaskControl tasks={sharedTasks} dateLabel={formatGregorian(gregorian, true)} language={language}
+                          popoverKey={sharedPopoverKey} alignment={popoverAlignment} openKey={openDayTaskPopover}
+                          onOpenKey={setOpenDayTaskPopover} onOpenTask={openSharedCalendarTask} />
                         {taskCount ? (
                           <div
                             className="calendar-day-task-control"
@@ -7069,7 +7078,7 @@ export function GenesisCalendar() {
                   <h3 id="day-details-shared-tasks-title">{language === "en" ? "Shared tasks" : "Общие задачи"} · {(sharedCalendarByDate.get(selectedDateValue) ?? []).length}</h3></header>
                 <div className="day-details-task-list">
                   {(sharedCalendarByDate.get(selectedDateValue) ?? []).map((task) => <article className={task.completedAt ? "done" : ""} key={task.id}>
-                    <button type="button" className="day-details-task-open" onClick={() => { setDayDetailsOpen(false); setProjectsArea("shared"); navigateTo("projects"); }}>
+                    <button type="button" className="day-details-task-open" onClick={() => openSharedCalendarTask(task)}>
                       <span><time>{task.projectTitle || (language === "en" ? "Space inbox" : "Хаос-бокс пространства")}</time></span>
                       <strong data-no-translate>{task.title}</strong>
                     </button>

@@ -1203,11 +1203,14 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
             <button type="button" className="shared-projects-task-open" data-affair-drag-surface onClick={() => openTask(task)} aria-pressed={taskId === task.id}>
               <strong>{task.title}</strong>{task.tags?.length ? <em>{task.tags.map((tag) => `#${tag}`).join(" ")}</em> : null}<small>{task.dueDate ? formatCalendarDate(new Date(`${task.dueDate}T12:00:00`), calendarMode) : (english ? "No due date" : "Без срока")}</small>
             </button>
-            {renderTaskActions(task, snapshot)}</div><SharedLabelBadges labels={labels} ids={task.labelIds}/>
+            </div><SharedLabelBadges labels={labels} ids={task.labelIds}/>
             {task.completedBy ? <small>{english ? "Completed by" : "Выполнил(а)"}: {snapshot.members.find((member) => member.userId === task.completedBy)?.displayName ?? (english ? "Former member" : "Бывший участник")}</small> : null}
-            {activeView !== "board" && snapshot.project.canOrganizeTasks ? <label>{english ? "Move to" : "Статус"}<select value={task.statusId} disabled={busy} onChange={(event) => moveTask(task, event.target.value)}>
+            <div className="shared-task-card-controls">
+            {activeView !== "board" && snapshot.project.canOrganizeTasks ? <select aria-label={english ? "Status" : "Статус"} value={task.statusId} disabled={busy} onChange={(event) => moveTask(task, event.target.value)}>
               {snapshot.statuses.map((item) => <option key={item.id} value={item.id}>{statusLabel(item.title)}</option>)}
-            </select></label> : null}
+            </select> : null}
+            {renderTaskActions(task, snapshot)}
+            </div>
           </article>)}
           {!snapshot.tasks.some((task) => task.statusId === status.id) ? <p className="shared-projects-column-empty">
             {english ? "No tasks here yet" : "Здесь пока нет задач"}</p> : null}
