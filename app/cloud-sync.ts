@@ -1353,6 +1353,8 @@ export async function cancelPendingLocalAccountLink() {
 }
 
 export async function mergePendingLocalAccountLink(pending: PendingLocalAccountLink) {
+  const generation = sessionGeneration;
+  requireActiveLocalSession(generation);
   if (!workspaceKey || !workspaceUserId) throw new Error("Сначала откройте защищённое пространство GENESIS.");
   const source = pending.sourceWorkspace.envelope;
   const target = await fetchWorkspaceEnvelope();
@@ -1363,6 +1365,7 @@ export async function mergePendingLocalAccountLink(pending: PendingLocalAccountL
       "AES-GCM", false, ["decrypt"]);
     const plaintext = await crypto.subtle.decrypt({ name: "AES-GCM", iv: base64ToBytes(source.iv) },
       sourceKey, base64ToBytes(source.ciphertext));
+    requireActiveLocalSession(generation);
     const sourceDocument = JSON.parse(new TextDecoder().decode(plaintext)) as SyncableWorkspaceDocument;
     const decodedTarget = target ? await decryptWorkspaceEnvelope(target) : null;
     const targetDocument = decodedTarget
@@ -1379,6 +1382,7 @@ export async function mergePendingLocalAccountLink(pending: PendingLocalAccountL
     const structure = structureFromDocument(merged.document);
     mergedWorkspace = await encryptWorkspaceDocument(structure, merged.metadata, target?.version ?? 0);
   }
+  requireActiveLocalSession(generation);
   return api<{ user: GenesisUser }>("/account/local-link/commit", {
     method: "POST",
     body: JSON.stringify({ sourceVersion: source?.version ?? 0, mergedWorkspace }),
@@ -1578,12 +1582,15 @@ function sharedOfflineKey(userId = workspaceUserId) {
 }
 
 async function readSharedOfflineStore(): Promise<SharedOfflineStore> {
+  const generation = sessionGeneration;
+  requireActiveLocalSession(generation);
   const saved = localStorage.getItem(sharedOfflineKey());
   if (!saved) return { cache: {}, queue: [] };
   const envelope = JSON.parse(saved) as { iv: string; ciphertext: string };
   const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: base64ToBytes(envelope.iv),
     additionalData: new TextEncoder().encode(sharedOfflineKey()) },
   await importWorkspaceKey(), base64ToBytes(envelope.ciphertext));
+  requireActiveLocalSession(generation);
   const decoded = JSON.parse(new TextDecoder().decode(plain)) as SharedOfflineStore;
   if (!decoded || typeof decoded.cache !== "object" || !Array.isArray(decoded.queue)) {
     throw new Error("SHARED_OFFLINE_CACHE_INVALID");
