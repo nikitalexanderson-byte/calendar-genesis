@@ -7,6 +7,12 @@ export function ganttTaskGroups(tasks: SharedTask[], statuses: Pick<SharedStatus
 }
 
 export type GanttScale = "day" | "days" | "weeks" | "months";
+export function ganttUnscheduledTasks(tasks: SharedTask[], scale: GanttScale) {
+  return tasks.filter(task => {
+    const span = taskSpan(task);
+    return !span || scale === "day" && !span.timed;
+  });
+}
 export type GanttAxisPeriod = {start:number;end:number};
 export const GANTT_CELL_WIDTH=96;
 /** Every calendar period has the same visual width, even when its number of days differs. */

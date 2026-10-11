@@ -30,7 +30,6 @@
   html[data-genesis-theme] .app-sidebar .main-nav button span { width: auto; font-size: 20px; line-height: 1; }
   html[data-genesis-theme] .app-sidebar .main-nav button small { font-size: 10px; line-height: 1.2; white-space: normal; }
   /* The same month controls are available in the calendar header. */
-  html[data-genesis-theme] .app-sidebar .month-rail,
   html[data-genesis-theme] .app-sidebar .sidebar-foot,
   html[data-genesis-theme] .mobile-nav { display: none; }
   html[data-genesis-theme] .app-stage { min-width: 0; }

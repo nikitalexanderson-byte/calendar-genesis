@@ -79,6 +79,7 @@ function genesisSharedGoogleTaskPayload(array $task): array
             . '&project=' . rawurlencode($task['project_id']) . '&task=' . rawurlencode($task['id']) . "#projects\n";
     }
     $done = $task['completed_at'] !== null;
+    $notes .= genesisEntryDescription($task, '');
     $payload = ['title' => $task['title'], 'notes' => $notes,
         'status' => $done ? 'completed' : 'needsAction'];
     $payload['due'] = $task['due_date'] !== null ? $task['due_date'] . 'T00:00:00.000Z' : null;
@@ -89,14 +90,24 @@ function genesisSharedGoogleTaskPayload(array $task): array
 function genesisSharedGoogleCalendarPayload(array $task): array
 {
     $date = new DateTimeImmutable($task['due_date'] . ' 12:00:00', new DateTimeZone('UTC'));
-    return [
+    $payload = [
         'summary' => ($task['completed_at'] !== null ? '✓ ' : '') . $task['title'],
-        'description' => 'GENESIS shared task',
+        'description' => genesisEntryDescription($task, 'GENESIS shared task'),
         'start' => ['date' => $date->format('Y-m-d')],
         'end' => ['date' => $date->modify('+1 day')->format('Y-m-d')],
         'extendedProperties' => ['private' => ['genesisSharedTaskId' => $task['id']]],
         'reminders' => ['useDefault' => false],
     ];
+    if (in_array($task['entry_type'] ?? '', ['meeting', 'event'], true) && !empty($task['start_time']) && !empty($task['end_time'])) {
+        $zone = genesisClientTimeZone();
+        $start = new DateTimeImmutable(($task['start_date'] ?? $task['due_date']) . ' ' . $task['start_time'], $zone);
+        $end = new DateTimeImmutable($task['due_date'] . ' ' . $task['end_time'], $zone);
+        if ($end > $start) {
+            $payload['start'] = ['dateTime' => $start->format(DATE_RFC3339), 'timeZone' => $zone->getName()];
+            $payload['end'] = ['dateTime' => $end->format(DATE_RFC3339), 'timeZone' => $zone->getName()];
+        }
+    }
+    return $payload;
 }
 
 function genesisSharedGoogleLink(string $taskId, string $userId, string $destination, string $googleId,
@@ -155,7 +166,7 @@ function genesisSharedSyncGoogle(string $userId, string $projectId, int $batchSi
     ]);
     $listId = $settings['tasksEnabled'] ? genesisSharedGoogleTaskList($user, $projectId, (string)$project['title']) : '';
     if ($settings['calendarEnabled']) $user = genesisEnsureGoogleCalendar($user);
-    $query = $db->prepare('SELECT t.id, t.title, t.description, t.due_date, t.completed_at, t.revision,
+    $query = $db->prepare('SELECT t.id, t.title, t.entry_type, t.start_date, t.start_time, t.end_time, t.description, t.due_date, t.completed_at, t.revision,
         t.project_id, p.space_id,
         lt.google_id AS task_google_id, lt.google_list_id AS task_list_id, lt.synced_revision AS task_revision,
         lc.google_id AS event_google_id, lc.synced_revision AS event_revision

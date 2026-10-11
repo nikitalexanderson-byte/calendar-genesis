@@ -213,8 +213,7 @@ html[data-genesis-theme$="-dark"] :is(.calendar-day-task-count, .mini-day-task-c
 html[data-genesis-theme$="-dark"] :is(.calendar-day-task-count, .mini-day-task-count)[data-task-status="completed"] { background: #287a57; color: #fff; }
 
 /* The navigation remains a dark landmark, with legible secondary copy in both variants. */
-html[data-genesis-theme$="-dark"] :is(.month-rail-title, .month-rail button, .sidebar-foot, .brand-mark small) { color: #b5c5c3; }
-html[data-genesis-theme$="-dark"] .month-rail button.active { color: #092725; background: var(--gold); }
+html[data-genesis-theme$="-dark"] :is(.sidebar-foot, .brand-mark small) { color: #b5c5c3; }
 html[data-genesis-theme$="-dark"] .account-chip > .account-menu > button:hover { background-color: var(--dark-control); }
 
 html[data-genesis-theme$="-dark"] :is(.key-habit-switch) { background: #403724 !important; color: var(--ink); }

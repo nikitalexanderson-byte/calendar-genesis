@@ -103,6 +103,7 @@ export function PersonalProjectTransfer({ root, projects, tasks, categories, lin
     setBusy(true);
     setError("");
     try {
+      if(projectTasks.some(task => task.entryType === "birthday")) throw new Error(english ? "Move birthdays out of this project before transferring it to shared affairs." : "Перед переносом проекта в общие дела переместите дни рождения в личный хаос-бокс.");
       const categoryEntries = tree.flatMap((project) => {
         const ids = new Set([project.categoryId,
           ...projectTasks.filter((task) => task.projectId === project.id).map((task) => task.categoryId)]
@@ -126,6 +127,7 @@ export function PersonalProjectTransfer({ root, projects, tasks, categories, lin
         tasks: projectTasks.map((task) => ({
           sourceId: task.id, projectSourceId: task.projectId!, categorySourceId: task.categoryId,
           title: task.title.trim().replace(/\s+/gu, " "), description: task.description.trim(), tags: task.tags,
+          entryType: task.entryType,
           dueDate: task.dueDate || null, done: task.done,
         })),
       };

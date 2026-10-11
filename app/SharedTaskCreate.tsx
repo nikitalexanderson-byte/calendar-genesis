@@ -7,6 +7,10 @@ import "./shared-updates.css";
 import { type CalendarMode, calendarDateValue } from "./calendar-data";
 import { sharedProjectTree } from "./shared-expansion";
 import { formatTaskCount } from "./task-count-i18n";
+import { SharedTaskApprovalChoice } from "./SharedTaskApprovalChoice";
+import { EntryTypeChoice, type EntryType } from "./EntryTypeChoice";
+import { SharedTaskSchedule, emptySharedPlan } from "./SharedTaskSchedule";
+import type { TimeFormat } from "./time-format";
 import {
   createSharedTask, listSharedProjects, listSharedSpaces, loadSharedProject,
   type SharedProject, type SharedProjectSnapshot, type SharedSpace,
@@ -14,10 +18,12 @@ import {
 
 type Props = { language: string; enabledCalendars: CalendarMode[];
   initialSpaceId?: string; initialProjectId?: string; initialStatusId?: string;
+  initialEntryType?: EntryType; onEntryTypeChange?: (value:EntryType)=>void;
+  timeFormat?:TimeFormat;
   onCreated?: (pending: boolean) => void };
 
 export function SharedTaskCreate({ language, enabledCalendars,
-  initialSpaceId, initialProjectId, initialStatusId, onCreated }: Props) {
+  initialSpaceId, initialProjectId, initialStatusId, initialEntryType="task", onEntryTypeChange, timeFormat="24h", onCreated }: Props) {
   const english = language === "en";
   const [spaces, setSpaces] = useState<SharedSpace[]>([]);
   const [loadingSpaces, setLoadingSpaces] = useState(true);
@@ -35,6 +41,11 @@ export function SharedTaskCreate({ language, enabledCalendars,
   const [statusId, setStatusId] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [assigneeId, setAssigneeId] = useState("");
+  const [approvalRequired, setApprovalRequired] = useState(false);
+  const [approverIds, setApproverIds] = useState<string[]>([]);
+  const [entryType,setEntryType] = useState<EntryType>(initialEntryType);
+  const [plan,setPlan] = useState(emptySharedPlan);
+  useEffect(()=>{const timer=window.setTimeout(()=>setEntryType(initialEntryType),0);return()=>window.clearTimeout(timer);},[initialEntryType]);
   const [calendarMode, setCalendarMode] = useState<CalendarMode>("profane");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -82,18 +93,22 @@ export function SharedTaskCreate({ language, enabledCalendars,
       setSnapshot(result);
       setStatusId(result.statuses.find((item) => item.id === initialStatusId)?.id ?? result.statuses[0]?.id ?? "");
       setCategoryId(""); setAssigneeId("");
+      setApproverIds([]); setApprovalRequired(false);
     }).catch((error: unknown) => { if (live) setMessage(error instanceof Error ? error.message : String(error)); });
     return () => { live = false; };
   }, [projectId, initialStatusId]);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!snapshot || !title.trim() || !statusId || busy || imageReading) return;
+    if (!snapshot || snapshot.project.id !== projectId || !title.trim() || !statusId || busy || imageReading || approvalRequired && !approverIds.length) return;
     setBusy(true); setMessage("");
     try {
       const created = await createSharedTask(snapshot.project.id, {
         title: title.trim(), description: description.trim(), tags: [...new Set(tags.split(/[,;\s]+/).map((tag) => tag.replace(/^#/, "")).filter(Boolean))], dueDate: dueDate || null,
-        statusId, categoryId: categoryId || null, assigneeId: assigneeId || null,
+        approvalRequired, approverIds,
+        entryType,
+        startDate:plan.startDate||null,startTime:plan.startTime||null,endTime:plan.endTime||null,dependsOnIds:plan.dependsOnIds,
+        statusId: approvalRequired ? snapshot.statuses.find(status => !status.isDone)?.id ?? statusId : statusId, categoryId: categoryId || null, assigneeId: assigneeId || null,
         ...(files.length ? { attachments: files.map(({ name, data }) => ({ name, data })) } : {}),
       });
       setTitle(""); setDescription(""); setTags(""); setDueDate(""); setFiles([]);
@@ -113,7 +128,8 @@ export function SharedTaskCreate({ language, enabledCalendars,
       : !spaces.length ? <p role="status">{english
       ? "There is no shared workspace whose inbox can receive a task. Create one in Shared projects first."
       : "Нет доступного общего пространства, в хаос-бокс которого можно отправить задачу. Сначала создайте пространство в общих проектах."}</p> : <>
-      <label>{english ? "Task name" : "Название задачи"}<input value={title} maxLength={160} required
+      <EntryTypeChoice value={entryType} types={["task","meeting","event"]} english={english} disabled={busy} onChange={value=>{setEntryType(value);onEntryTypeChange?.(value);}} />
+      <label>{english ? "Name" : "Название"}<input value={title} maxLength={160} required
         onChange={(event) => setTitle(event.target.value)} /></label>
       <SharedTaskAttachmentsInput value={files} onChange={setFiles} onReadingChange={setImageReading} english={english} disabled={busy} />
       <label>{english ? "Workspace" : "Пространство"}<select value={spaceId} onChange={(event) => {
@@ -133,6 +149,7 @@ export function SharedTaskCreate({ language, enabledCalendars,
           <button type="button" onClick={() => setDueDate("")}>{english ? "Clear" : "Убрать срок"}</button></>
           : <button type="button" onClick={() => setDueDate(calendarDateValue(new Date()))}>
             {english ? "Set due date" : "Установить срок"}</button>}</div>
+      {entryType !== "task" ? <SharedTaskSchedule plan={plan} onChange={setPlan} dueDate={dueDate} onDueDate={setDueDate} mode={calendarMode} timeFormat={timeFormat} english={english} tasks={snapshot?.tasks ?? []}/> : null}
       <details className="task-advanced-fields"><summary>{english ? "Details and settings" : "Подробности и настройки"}</summary>
       <label>{english ? "Tags" : "Теги"}<input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="работа, запуск" /></label>
       <label>{english ? "Description" : "Описание"}<textarea value={description} maxLength={20000}
@@ -150,7 +167,8 @@ export function SharedTaskCreate({ language, enabledCalendars,
       <p>{english ? "The task is saved on GENESIS for members of this project. Each person enables their own Google copy separately."
         : "Задача сохраняется на сервере GENESIS для участников проекта. Каждый сам включает свою копию в Google."}</p>
       </details>
-      <button type="submit" className="add-task-button" disabled={busy || imageReading || !snapshot || !statusId || !title.trim()}>
+      <SharedTaskApprovalChoice enabled={approvalRequired} ids={approverIds} members={snapshot?.members ?? []} english={english} disabled={busy || !snapshot} onEnabled={setApprovalRequired} onIds={setApproverIds} />
+      <button type="submit" className="add-task-button" disabled={busy || imageReading || !snapshot || !statusId || !title.trim() || approvalRequired && !approverIds.length}>
         {english ? "Create team task" : "Создать общую задачу"}</button>
     </>}
     {message ? <p role="status">{message}</p> : null}

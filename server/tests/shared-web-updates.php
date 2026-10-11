@@ -61,7 +61,7 @@ try {
     for ($i = 0; $i < 55; $i++) genesisSharedAddComment($owner, $project['id'], $task['id'], ['body' => 'Comment ' . $i]);
     $first = genesisSharedInbox($member, '', true); $second = genesisSharedInbox($member, $first['nextCursor'], true);
     webExpect(count($first['notifications']) === 50 && count($second['notifications']) === 8, 'Inbox pagination loses older updates.');
-    $older = $second['notifications'][0]['id'];
+    $older = array_values(array_filter($second['notifications'], static fn($event) => $event['action'] === 'comment.created'))[0]['id'];
     webDenied(fn() => genesisSharedReadInbox($outsider, ['eventIds' => [$older]]));
     genesisSharedReadInbox($member, ['eventIds' => [$older]]);
     webExpect(genesisSharedOverview($member)['newComments'] === 54, 'Reading an old comment did not persist.');

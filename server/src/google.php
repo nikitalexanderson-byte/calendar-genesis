@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/entry-types.php';
 
 require_once __DIR__ . '/relocation.php';
 
@@ -547,7 +548,7 @@ function genesisTaskPayloadForGoogle(string $taskId, array $task): array
         static fn(string $date): bool => preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) === 1,
     ));
     $project = mb_substr(trim((string)($task['project'] ?? '')), 0, 300);
-    $description = genesisCleanTaskDescription($task['description'] ?? '');
+    $description = genesisEntryDescription($task, genesisCleanTaskDescription($task['description'] ?? ''));
     $calendarMode = in_array($task['calendarMode'] ?? '', ['profane', 'sacred', 'lunar'], true) ? (string)$task['calendarMode'] : 'profane';
     $calendarNote = mb_substr(trim((string)($task['calendarNote'] ?? '')), 0, 1200);
     if ($calendarMode === 'profane') {
@@ -556,6 +557,8 @@ function genesisTaskPayloadForGoogle(string $taskId, array $task): array
     $createdIn = genesisTaskOrigin($task['createdIn'] ?? null);
     $private = [
         'genesisTaskId' => $taskId,
+        'genesisEntryType' => $task['entryType'] ?? $task['yandexEntryType'] ?? 'task',
+        'genesisEndTime' => $task['endTime'] ?? '',
         'genesisDone' => $done ? '1' : '0',
         'genesisCompletedAt' => mb_substr((string)($task['completedAt'] ?? ''), 0, 40),
         'genesisProjectId' => mb_substr((string)($task['projectId'] ?? ''), 0, 100),
@@ -592,7 +595,8 @@ function genesisTaskPayloadForGoogle(string $taskId, array $task): array
     ];
     if ($timeValue !== '') {
         $start = $eventStart;
-        $end = new DateTimeImmutable($endDate . ' ' . $timeValue, $timezone);
+        $endTime = preg_match('/\A\d{2}:\d{2}\z/', (string)($task['endTime'] ?? '')) ? $task['endTime'] : $timeValue;
+        $end = new DateTimeImmutable($endDate . ' ' . $endTime, $timezone);
         if ($end <= $start) {
             $end = $start->modify('+1 hour');
         }
@@ -740,7 +744,7 @@ function genesisCleanTaskDescription(mixed $value): string
 
 function genesisTaskNotesForGoogle(string $taskId, array $task): string
 {
-    return genesisCleanTaskDescription($task['description'] ?? '');
+    return genesisEntryDescription($task, genesisCleanTaskDescription($task['description'] ?? ''));
 }
 
 function genesisGoogleEventForClient(array $event): ?array
@@ -814,6 +818,8 @@ function genesisGoogleEventForClient(array $event): ?array
         'title' => mb_substr($title, 0, 500),
         'description' => $description,
         'time' => $time,
+        'entryType' => $private['genesisEntryType'] ?? genesisEntryTypeFromDescription($description),
+        'endTime' => $private['genesisEndTime'] ?? '',
         'project' => (string)($private['genesisProject'] ?? ''),
         'projectId' => ($private['genesisProjectId'] ?? '') !== '' ? (string)$private['genesisProjectId'] : null,
         'categoryId' => ($private['genesisCategoryId'] ?? '') !== '' ? (string)$private['genesisCategoryId'] : null,
@@ -888,6 +894,7 @@ function genesisGoogleNativeTaskForClient(array $task, string $taskListId, strin
         'title' => mb_substr(trim((string)($task['title'] ?? '')) ?: 'Без названия', 0, 500),
         'description' => $notes['description'],
         'time' => $time,
+        'entryType' => $metadata['entryType'] ?? genesisEntryTypeFromDescription($notes['description']),
         'project' => mb_substr(trim((string)($metadata['project'] ?? '')), 0, 300),
         'projectId' => ($metadata['projectId'] ?? '') !== '' ? mb_substr((string)$metadata['projectId'], 0, 100) : null,
         'categoryId' => ($metadata['categoryId'] ?? '') !== '' ? mb_substr((string)$metadata['categoryId'], 0, 100) : null,

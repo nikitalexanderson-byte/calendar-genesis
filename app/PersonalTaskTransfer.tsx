@@ -70,6 +70,7 @@ export function PersonalTaskTransfer({ task, language, personalCalendarConnected
   }, [projectId]);
 
   const publish = async (move: boolean) => {
+    if(task.entryType === "birthday"){setError(english ? "Birthdays stay in personal affairs." : "Дни рождения сохраняются только в личных делах.");return;}
     if (!snapshot || busy || (move && !canMove)) return;
     const status = snapshot.statuses.find((item) => !item.isDone);
     if (!status) { setError(english ? "The destination has no matching status." : "В проекте нет подходящего статуса."); return; }
@@ -79,6 +80,7 @@ export function PersonalTaskTransfer({ task, language, personalCalendarConnected
       const published = await createSharedTask(snapshot.project.id, {
         ...(move ? { sourceTaskId: task.id } : {}),
         title: publishedTitle,
+        entryType: task.entryType,
         tags: task.tags,
         description: publishedDescription,
         dueDate: includeDueDate ? task.dueDate || null : null,

@@ -3,7 +3,23 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { dateSerial, ganttRange, serialDate, taskSpan, ganttSchedule, ganttCreationSchedule, ganttResizeSchedule, ganttAxisPoint, ganttAxisPosition, GANTT_CELL_WIDTH } from "../app/shared-gantt.ts";
 import { stoicheionReadingSections } from "../app/stoicheion-reading.ts";
-import { ganttTaskGroups } from "../app/shared-gantt.ts";
+import { ganttTaskGroups, ganttUnscheduledTasks } from "../app/shared-gantt.ts";
+
+test("dated tasks remain available for time planning until both times are assigned, even outside the selected day", () => {
+  const tasks = [
+    {id:"no-date",statusId:"open"},
+    {id:"future-date",statusId:"open",startDate:"2026-10-13",dueDate:"2026-10-13"},
+    {id:"partial-time",statusId:"open",startDate:"2026-10-14",dueDate:"2026-10-14",startTime:"09:00"},
+    {id:"timed",statusId:"open",startDate:"2026-10-15",dueDate:"2026-10-15",startTime:"09:00",endTime:"10:00"},
+    {id:"completed",statusId:"done",dueDate:"2026-10-13"},
+  ];
+  const {active} = ganttTaskGroups(tasks,[{id:"open",isDone:0},{id:"done",isDone:1}]);
+  assert.deepEqual(ganttUnscheduledTasks(active,"day").map(task=>task.id),["no-date","future-date","partial-time"]);
+  for (const scale of ["days","weeks","months"]) assert.deepEqual(ganttUnscheduledTasks(active,scale).map(task=>task.id),["no-date"]);
+  const scheduled = active.map(task=>task.id==="future-date" ? {...task,startTime:"11:00",endTime:"12:00"} : task);
+  assert.deepEqual(ganttUnscheduledTasks(scheduled,"day").map(task=>task.id),["no-date","partial-time"]);
+  assert.equal(tasks[1].startTime,undefined);
+});
 
 test("Gantt separates completed tasks from every active schedule and restores reopened tasks",()=>{
   const statuses=[{id:"open",isDone:0},{id:"done",isDone:1},{id:"approved",isDone:1}];

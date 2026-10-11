@@ -727,6 +727,17 @@ try {
             if ($method === 'GET') genesisJson(['projects' => genesisSharedProjects($userId, $segments[2])]);
             if ($method === 'POST') genesisJson(['project' => genesisSharedCreateProject($userId, $segments[2], genesisReadJson())], 201);
         }
+        if (count($segments) === 4 && $segments[1] === 'spaces' && $segments[3] === 'member-categories') {
+            if ($method === 'GET') genesisJson(['categories' => genesisSharedMemberCategories($userId, $segments[2])]);
+            if ($method === 'POST') genesisJson(['category' => genesisSharedMemberCategory($userId, $segments[2], genesisReadJson())], 201);
+        }
+        if (count($segments) === 5 && $segments[1] === 'spaces' && $segments[3] === 'member-categories' && $method === 'PATCH') {
+            genesisJson(['category' => genesisSharedMemberCategory($userId, $segments[2], genesisReadJson(), $segments[4])]);
+        }
+        if (count($segments) === 6 && $segments[1] === 'spaces' && $segments[3] === 'members' && $segments[5] === 'permissions' && $method === 'PATCH') {
+            genesisSharedAssignMemberPermissions($userId, $segments[2], $segments[4], genesisReadJson());
+            genesisJson(['ok' => true]);
+        }
         if (count($segments) === 4 && $segments[1] === 'spaces' && $segments[3] === 'project-categories') {
             if ($method === 'GET') genesisJson(['categories' => genesisSharedProjectCategories($userId, $segments[2])]);
             if ($method === 'POST') genesisJson(['category' => genesisSharedSaveProjectCategory($userId, $segments[2], genesisReadJson())], 201);
@@ -822,6 +833,9 @@ try {
             $result = genesisSharedDeleteTask($userId, $segments[2], $segments[4], genesisReadJson());
             genesisSharedCleanGoogleCopies($userId, 10);
             genesisJson($result);
+        }
+        if (count($segments) === 6 && $segments[1] === 'projects' && $segments[3] === 'tasks' && $segments[5] === 'approve' && $method === 'POST') {
+            genesisJson(['task' => genesisSharedApproveTask($userId, $segments[2], $segments[4])]);
         }
         if (count($segments) === 6 && $segments[1] === 'projects' && $segments[3] === 'tasks'
             && $segments[5] === 'move' && $method === 'POST') {

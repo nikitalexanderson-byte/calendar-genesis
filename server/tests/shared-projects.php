@@ -470,4 +470,5 @@ try {
 
 echo "Shared projects smoke passed.\n";
 require __DIR__ . '/shared-collaboration.php';
+require __DIR__ . '/shared-approvals-permissions.php';
 require __DIR__ . '/security-lifecycle.php';

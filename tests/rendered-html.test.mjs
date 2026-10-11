@@ -348,7 +348,7 @@ test("server-renders the GENESIS application shell", async () => {
   assert.match(html, /GENESIS/);
   assert.match(html, /К основному содержанию/);
   assert.match(html, /Календарь/);
-  assert.match(html, /--month-accent:/);
+  assert.doesNotMatch(html, /class="month-rail"/);
   assert.doesNotMatch(html, /Your site is taking shape|Building your site/);
   assert.doesNotMatch(html, /href=["']\/admin-access/);
 });
@@ -2952,7 +2952,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(styles, /\.calendar-mode-year-month::before\s*\{[\s\S]*background-image: none;[\s\S]*opacity: 0/);
   const alternativeCalendar = calendar.slice(calendar.indexOf("const renderAlternativeCalendar"), calendar.indexOf("const renderCalendar"));
   assert.doesNotMatch(alternativeCalendar, /calendar-month-art|--month-art/);
-  assert.match(calendar, /calendarRailItems/);
+  assert.doesNotMatch(calendar, /calendarRailItems/);
   assert.match(calendar, /const isSaturday = gregorian\.getDay\(\) === 6/);
   assert.match(calendar, /weekday: "long"/);
   assert.match(calendar, /weekday: "short"/);
@@ -3011,12 +3011,14 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /onPointerMove/);
   assert.match(calendar, /StoicheionView/);
   assert.match(calendar, /Стойхейон/);
-  assert.match(calendar, /CalendarDayTaskCounts/);
+  assert.match(calendar, /CalendarPersonalTaskControl/);
+  const calendarControls = await readFile(new URL("../app/CalendarSharedTaskControl.tsx", import.meta.url), "utf8");
+  assert.match(calendarControls, /CalendarDayTaskCounts/);
   assert.doesNotMatch(calendar, /calendar-day-task-preview/);
-  assert.match(calendar, /calendar-day-task-control/);
-  assert.match(calendar, /calendar-task-popover/);
-  assert.match(calendar, /event\.pointerType === "mouse"/);
-  assert.match(calendar, /expanded=\{popoverOpen\}/);
+  assert.match(calendarControls, /calendar-day-task-control/);
+  assert.match(calendarControls, /calendar-task-popover/);
+  assert.match(calendarControls, /event\.pointerType === "mouse"/);
+  assert.match(calendarControls, /expanded=\{expanded\}/);
   assert.match(await readFile(new URL("../app/CalendarTaskCounts.tsx", import.meta.url), "utf8"), /aria-expanded=\{expanded\}/);
   assert.match(calendar, /selectedDayTasks/);
   assert.match(calendar, /day-details-tasks/);
@@ -3079,7 +3081,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /Удалить список «\$\{taskList\.title\}»/);
   assert.match(calendar, /Список задач — это группа смежных задач/);
   assert.match(calendar, /renderTaskListCreateForm\("composer"\)/);
-  assert.match(calendar, /composerTab === "task" \? renderTaskCreateForm\("composer"\) : renderTaskListCreateForm\("composer"\)/);
+  assert.match(calendar, /composerTab === "lists" \? renderTaskListCreateForm\("composer"\) : renderTaskCreateForm\("composer"\)/);
   assert.doesNotMatch(calendar, /renderTaskListCreateForm\("projects"\)/);
   assert.match(calendar, /DeviceClock/);
   assert.match(calendar, /<div className="hero-number" aria-hidden="true">[\s\S]*?<\/div>\s*<DeviceClock timeFormat=\{activeTimeFormat\} \/>/);
@@ -3323,7 +3325,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(styles, /--paper: #e1d9c8/);
   assert.match(styles, /\.calendar-solar-control > div/);
   assert.match(styles, /\.stoicheion-view/);
-  assert.match(styles, /\.month-rail\.mode-sacred button:last-child/);
+  assert.doesNotMatch(calendar, /month-rail|calendarRailItems|calendarRailTitle/);
   assert.match(styles, /\.calendar-mode-calendar\.mode-lunar \.calendar-mode-days/);
   assert.match(styles, /@media \(max-width: 760px\)[\s\S]*\.calendar-mode-calendar\.mode-lunar \.calendar-mode-days\s*\{[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
   assert.match(styles, /\.calendar-mode-calendar\.mode-lunar \.calendar-mode-primary > small\s*\{[\s\S]*overflow-wrap: break-word;[\s\S]*white-space: normal/);
@@ -3363,7 +3365,7 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(google, /GoogleCalendarMetadataCleanup/);
   assert.match(google, /GoogleTasksMetadataCleanup/);
   assert.match(google, /'description' => \$description/);
-  assert.match(google, /return genesisCleanTaskDescription\(\$task\['description'\] \?\? ''\);/);
+  assert.match(google, /return genesisEntryDescription\(\$task, genesisCleanTaskDescription\(\$task\['description'\] \?\? ''\)\);/);
   assert.match(google, /genesisGoogleTasksApi\(\s*'PATCH'/);
   assert.match(google, /genesisClientTimeZone/);
   assert.match(google, /genesisEndDate/);
