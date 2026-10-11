@@ -394,6 +394,12 @@ let localSessionEnded = privateDeviceAccessBlocked();
 const accountRequests = new Set<AbortController>();
 export const LOCAL_SESSION_ENDED_EVENT = "genesis-local-session-ended";
 
+function requireActiveLocalSession(generation = sessionGeneration) {
+  if (localSessionEnded || privateDeviceAccessBlocked() || generation !== sessionGeneration) {
+    throw new GenesisApiError(401, null, "AUTH_REQUIRED");
+  }
+}
+
 function endLocalSession() {
   localSessionEnded = true;
   sessionGeneration += 1;
@@ -484,11 +490,13 @@ function publishWorkspaceUpdate(workspace: EncryptedWorkspaceStructure) {
 }
 
 async function withWorkspaceMutationLock<T>(operation: () => Promise<T>): Promise<T> {
+  const generation = sessionGeneration;
   const previous = workspaceMutationLock;
   let release: () => void = () => undefined;
   workspaceMutationLock = new Promise<void>((resolve) => { release = resolve; });
   await previous;
   try {
+    requireActiveLocalSession(generation);
     return await operation();
   } finally {
     release();
@@ -565,8 +573,12 @@ export function isCloudTaskDeleted(id: string): boolean {
 
 const taskMutationLocks = new Map<string, Promise<unknown>>();
 async function withTaskMutationLock<T>(key: string, operation: () => Promise<T>): Promise<T> {
+  const generation = sessionGeneration;
   const previous = taskMutationLocks.get(key) ?? Promise.resolve();
-  const current = previous.catch(() => {}).then(operation);
+  const current = previous.catch(() => {}).then(() => {
+    requireActiveLocalSession(generation);
+    return operation();
+  });
   taskMutationLocks.set(key, current);
   try { return await current; }
   finally { if (taskMutationLocks.get(key) === current) taskMutationLocks.delete(key); }
@@ -903,12 +915,15 @@ export function restoreOfflineWorkspaceSession(userId: string, provider: "google
 }
 
 async function wrapWorkspaceKey(userId: string, rawKey: string, recoveryCode?: string) {
+  const generation = sessionGeneration;
+  requireActiveLocalSession(generation);
   const recoveryBytes = recoveryCode ? base64ToBytes(recoveryCode) : crypto.getRandomValues(new Uint8Array(32));
   if (recoveryBytes.length !== 32) throw new Error("Код восстановления должен содержать 32 байта.");
   const recovery = bytesToBase64(recoveryBytes);
   const wrappingKey = await crypto.subtle.importKey("raw", recoveryBytes, "AES-GCM", false, ["encrypt"]);
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const wrappedKey = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, wrappingKey, base64ToBytes(rawKey));
+  requireActiveLocalSession(generation);
   storeDeviceWorkspaceKey(userId, { key: rawKey, recoveryCode: recovery });
   await api<{ ok: boolean }>("/workspace/key", {
     method: "PUT",
@@ -918,6 +933,8 @@ async function wrapWorkspaceKey(userId: string, rawKey: string, recoveryCode?: s
 }
 
 async function unwrapWorkspaceKey(userId: string, wrappedKey: string, wrappedKeyIv: string, recoveryCode: string) {
+  const generation = sessionGeneration;
+  requireActiveLocalSession(generation);
   const recoveryBytes = base64ToBytes(recoveryCode.trim());
   if (recoveryBytes.length !== 32) throw new Error("Неверный формат кода восстановления.");
   try {
@@ -927,6 +944,7 @@ async function unwrapWorkspaceKey(userId: string, wrappedKey: string, wrappedKey
       wrappingKey,
       base64ToBytes(wrappedKey),
     );
+    requireActiveLocalSession(generation);
     const key = bytesToBase64(new Uint8Array(rawKey));
     storeDeviceWorkspaceKey(userId, { key, recoveryCode: recoveryCode.trim() });
     return key;
@@ -941,6 +959,8 @@ async function recoverWorkspaceKey(
   wrappedKeyIv: string,
   cancelledMessage: string,
 ) {
+  const generation = sessionGeneration;
+  requireActiveLocalSession(generation);
   const handler = workspaceRecoveryRequestHandler;
   if (!handler) throw new Error(cancelledMessage);
   let recoveredKey = "";
@@ -950,11 +970,14 @@ async function recoverWorkspaceKey(
       recoveredKey = await unwrapWorkspaceKey(workspaceUserId, wrappedKey, wrappedKeyIv, recoveryCode);
     },
   });
+  requireActiveLocalSession(generation);
   if (!accepted || !recoveredKey) throw new Error(cancelledMessage);
   workspaceKey = recoveredKey;
 }
 
 async function resolveWorkspaceKey(payload: BootstrapPayload) {
+  const generation = sessionGeneration;
+  requireActiveLocalSession(generation);
   workspaceUserId = payload.user.uid;
   workspaceDeviceId = deviceWorkspaceId(workspaceUserId);
   restoreWorkspaceSyncCache();
@@ -989,10 +1012,12 @@ async function resolveWorkspaceKey(payload: BootstrapPayload) {
     payload.workspace.wrappedKeyIv,
     "Для доступа к зашифрованным данным нужен код восстановления из личного кабинета.",
   );
+  requireActiveLocalSession(generation);
   await wrapWorkspaceKey(workspaceUserId, workspaceKey, deviceWorkspaceKey(workspaceUserId)?.recoveryCode);
 }
 
 async function importWorkspaceKey() {
+  requireActiveLocalSession();
   if (!workspaceKey) throw new Error("Ключ пространства не получен");
   return crypto.subtle.importKey("raw", base64ToBytes(workspaceKey), "AES-GCM", false, ["encrypt", "decrypt"]);
 }
@@ -1001,12 +1026,15 @@ async function decryptWorkspaceEnvelope(envelope: WorkspaceEnvelope): Promise<{
   structure: EncryptedWorkspaceStructure;
   metadata: WorkspaceSyncMetadata;
 }> {
+  const generation = sessionGeneration;
+  requireActiveLocalSession(generation);
   const key = await importWorkspaceKey();
   const plain = await crypto.subtle.decrypt(
     { name: "AES-GCM", iv: base64ToBytes(envelope.iv) },
     key,
     base64ToBytes(envelope.ciphertext),
   );
+  requireActiveLocalSession(generation);
   const decoded = JSON.parse(new TextDecoder().decode(plain)) as SyncableWorkspaceDocument & { habitEntries?: unknown[] };
   const metadata = normalizeWorkspaceSyncMetadata(
     decoded.syncMetadata,
@@ -1016,6 +1044,8 @@ async function decryptWorkspaceEnvelope(envelope: WorkspaceEnvelope): Promise<{
 }
 
 async function decryptWorkspace(envelope: WorkspaceEnvelope | null): Promise<EncryptedWorkspaceStructure> {
+  const generation = sessionGeneration;
+  requireActiveLocalSession(generation);
   if (!envelope) {
     workspaceVersion = 0;
     workspaceSyncMetadata = normalizeWorkspaceSyncMetadata(null, syncFallback(1));
@@ -1026,6 +1056,7 @@ async function decryptWorkspace(envelope: WorkspaceEnvelope | null): Promise<Enc
     return workspaceBase;
   }
   const decrypted = await decryptWorkspaceEnvelope(envelope);
+  requireActiveLocalSession(generation);
   workspaceVersion = envelope.version;
   workspaceBase = decrypted.structure;
   workspaceBaseMetadata = decrypted.metadata;
@@ -1042,6 +1073,8 @@ async function encryptWorkspace(
   habitWorkspace?: HabitWorkspace,
   taskLists?: GoogleTaskList[],
 ) {
+  const generation = sessionGeneration;
+  requireActiveLocalSession(generation);
   if (habitWorkspace) encryptedHabitWorkspace = normalizeHabitWorkspace(habitWorkspace);
   const current: EncryptedWorkspaceStructure = { projects, categories, taskListLinks,
     taskLists: taskLists ?? workspaceBase?.taskLists ?? [], ...encryptedHabitWorkspace };
@@ -1059,6 +1092,7 @@ async function encryptWorkspace(
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const plaintext = new TextEncoder().encode(JSON.stringify(workspaceDocument(structure, prepared.metadata)));
   const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, plaintext);
+  requireActiveLocalSession(generation);
   return {
     envelope: {
       ciphertext: bytesToBase64(new Uint8Array(ciphertext)),
@@ -1076,10 +1110,13 @@ async function encryptWorkspaceDocument(
   metadata: WorkspaceSyncMetadata,
   expectedVersion: number,
 ) {
+  const generation = sessionGeneration;
+  requireActiveLocalSession(generation);
   const key = await importWorkspaceKey();
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const plaintext = new TextEncoder().encode(JSON.stringify(workspaceDocument(structure, metadata)));
   const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, plaintext);
+  requireActiveLocalSession(generation);
   return {
     ciphertext: bytesToBase64(new Uint8Array(ciphertext)),
     iv: bytesToBase64(iv),
@@ -1161,15 +1198,19 @@ async function refreshWorkspaceFromCloud() {
 }
 
 export async function loadGenesisWorkspace(): Promise<GenesisWorkspace> {
+  const generation = sessionGeneration;
+  requireActiveLocalSession(generation);
   const payload = await api<BootstrapPayload>("/bootstrap");
   activeAuthProvider = payload.user.authProvider === "yandex" ? "yandex" : "google";
   csrfToken = payload.csrf;
   await resolveWorkspaceKey(payload);
+  requireActiveLocalSession(generation);
   rememberDeletedTasks(payload.deletedTaskIds ?? []);
   let structure: Awaited<ReturnType<typeof decryptWorkspace>>;
   try {
     structure = await decryptWorkspace(payload.workspace.envelope);
   } catch (error) {
+    requireActiveLocalSession(generation);
     if (payload.workspace.keyMode !== "client" || !payload.workspace.wrappedKey || !payload.workspace.wrappedKeyIv) throw error;
     await recoverWorkspaceKey(
       "key-mismatch",
@@ -1179,6 +1220,7 @@ export async function loadGenesisWorkspace(): Promise<GenesisWorkspace> {
     );
     structure = await decryptWorkspace(payload.workspace.envelope);
   }
+  requireActiveLocalSession(generation);
   return {
     user: payload.user,
     csrf: payload.csrf,
@@ -1557,6 +1599,7 @@ async function changeSharedOfflineStore(change: (store: SharedOfflineStore) => v
   await previous;
   try {
     const store = await readSharedOfflineStore();
+    requireActiveLocalSession(generation);
     change(store);
     const entries = Object.entries(store.cache).sort((a, b) => b[1].savedAt - a[1].savedAt).slice(0, 12);
     store.cache = Object.fromEntries(entries);
@@ -1565,7 +1608,7 @@ async function changeSharedOfflineStore(change: (store: SharedOfflineStore) => v
     const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv,
       additionalData: new TextEncoder().encode(sharedOfflineKey()) },
     await importWorkspaceKey(), new TextEncoder().encode(JSON.stringify(store)));
-    if (localSessionEnded || privateDeviceAccessBlocked() || generation !== sessionGeneration) return;
+    requireActiveLocalSession(generation);
     localStorage.setItem(sharedOfflineKey(), JSON.stringify({
       iv: bytesToBase64(iv), ciphertext: bytesToBase64(new Uint8Array(ciphertext)),
     }));
