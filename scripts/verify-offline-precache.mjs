@@ -93,6 +93,22 @@ if (!entryAssets.length) throw new Error("Built index.html contains no JavaScrip
 const missingAssets = entryAssets.filter((asset) => !manifest.includes(JSON.stringify(asset)));
 if (missingAssets.length) throw new Error(`Offline precache manifest is missing: ${missingAssets.join(", ")}`);
 if (!/__GENESIS_PRECACHE_VERSION="[a-f0-9]{16}"/.test(manifest)) throw new Error("Offline precache manifest has no build fingerprint.");
+const configuredBase = process.env.GENESIS_BASE_PATH?.trim() || "/";
+const basePath = configuredBase.endsWith("/") ? configuredBase : `${configuredBase}/`;
+const precacheUrls = JSON.parse(manifest.match(/self\.__GENESIS_PRECACHE=(\[.*?\]);/s)?.[1] || "[]");
+if (!precacheUrls.length) throw new Error("Offline precache manifest has no resource URLs.");
+const nonexistentPrecacheAssets = [];
+for (const url of precacheUrls) {
+  if (!url.startsWith(basePath)) throw new Error(`Unexpected precache URL: ${url}`);
+  const relativePath = url.slice(basePath.length);
+  if (relativePath.includes("..")) throw new Error(`Unsafe precache path: ${url}`);
+  try {
+    await stat(new URL(relativePath, outputRoot));
+  } catch {
+    nonexistentPrecacheAssets.push(url);
+  }
+}
+if (nonexistentPrecacheAssets.length) throw new Error(`Offline precache references nonexistent build files: ${nonexistentPrecacheAssets.join(", ")}`);
 if (!serviceWorker.includes('importScripts(new URL("./precache-manifest.js", SCOPE).href)')) throw new Error("Service worker does not import the generated precache manifest.");
 
 const missingVisualAssets = [];

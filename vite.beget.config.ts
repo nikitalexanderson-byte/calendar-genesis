@@ -55,6 +55,7 @@ function offlinePrecacheManifest(basePath: string): Plugin {
   return {
     name: "genesis-offline-precache-manifest",
     apply: "build",
+    enforce: "post",
     generateBundle(_options, bundle) {
       const requiredFiles = Object.values(bundle)
         .map((output) => output.fileName)
