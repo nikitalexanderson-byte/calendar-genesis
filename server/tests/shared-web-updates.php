@@ -88,3 +88,4 @@ try {
     $query->execute(['task' => $task['id']]); webExpect($query->fetchColumn() === false, 'Deleting a task left photo ciphertext.');
 } finally { foreach ($users as $id) if (genesisFindUser($id)) genesisDeleteAccount($id); }
 echo "Shared web summary, persistent inbox, encrypted images, ACL and Google task links passed.\n";
+require __DIR__ . '/shared-task-attachments.php';

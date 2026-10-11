@@ -3,6 +3,18 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { dateSerial, ganttRange, serialDate, taskSpan, ganttSchedule, ganttCreationSchedule, ganttResizeSchedule, ganttAxisPoint, ganttAxisPosition, GANTT_CELL_WIDTH } from "../app/shared-gantt.ts";
 import { stoicheionReadingSections } from "../app/stoicheion-reading.ts";
+import { ganttTaskGroups } from "../app/shared-gantt.ts";
+
+test("Gantt separates completed tasks from every active schedule and restores reopened tasks",()=>{
+  const statuses=[{id:"open",isDone:0},{id:"done",isDone:1},{id:"approved",isDone:1}];
+  const tasks=[{id:"active",statusId:"open",dueDate:"2026-10-11"},{id:"done",statusId:"done",dueDate:"2030-01-01"},{id:"done-no-date",statusId:"approved"},{id:"unknown-status",statusId:"missing"}];
+  const groups=ganttTaskGroups(tasks,statuses);
+  assert.deepEqual(groups.active.map(task=>task.id),["active","unknown-status"]);
+  assert.deepEqual(groups.completed.map(task=>task.id),["done","done-no-date"]);
+  assert.equal(serialDate(ganttRange("2026-10-11","days",groups.active,true).end),"2026-10-13");
+  assert.equal(ganttTaskGroups(tasks.map(task=>task.id==="done"?{...task,statusId:"open"}:task),statuses).active.length,3);
+  assert.equal(tasks.length,4);
+});
 
 test("Gantt keeps all-day dates inclusive and timed spans exact across day boundaries",()=>{
   assert.deepEqual(taskSpan({startDate:"2026-10-10",dueDate:"2026-10-12"}),{start:dateSerial("2026-10-10"),end:dateSerial("2026-10-13"),timed:false});

@@ -2,9 +2,11 @@
 
 import { type FormEvent, useEffect, useState } from "react";
 import { CalendarDatePicker } from "./CalendarDatePicker";
-import { SharedTaskImageInput } from "./SharedTaskImage";
+import { SharedTaskAttachmentsInput, taskFileError, type TaskFileDraft } from "./SharedTaskAttachments";
 import "./shared-updates.css";
 import { type CalendarMode, calendarDateValue } from "./calendar-data";
+import { sharedProjectTree } from "./shared-expansion";
+import { formatTaskCount } from "./task-count-i18n";
 import {
   createSharedTask, listSharedProjects, listSharedSpaces, loadSharedProject,
   type SharedProject, type SharedProjectSnapshot, type SharedSpace,
@@ -27,7 +29,7 @@ export function SharedTaskCreate({ language, enabledCalendars,
   const [title, setTitle] = useState("");
   const [tags, setTags] = useState("");
   const [description, setDescription] = useState("");
-  const [imageData, setImageData] = useState("");
+  const [files, setFiles] = useState<TaskFileDraft[]>([]);
   const [imageReading, setImageReading] = useState(false);
   const [dueDate, setDueDate] = useState("");
   const [statusId, setStatusId] = useState("");
@@ -91,16 +93,17 @@ export function SharedTaskCreate({ language, enabledCalendars,
     try {
       const created = await createSharedTask(snapshot.project.id, {
         title: title.trim(), description: description.trim(), tags: [...new Set(tags.split(/[,;\s]+/).map((tag) => tag.replace(/^#/, "")).filter(Boolean))], dueDate: dueDate || null,
-        statusId, categoryId: categoryId || null, assigneeId: assigneeId || null, ...(imageData ? { imageData } : {}),
+        statusId, categoryId: categoryId || null, assigneeId: assigneeId || null,
+        ...(files.length ? { attachments: files.map(({ name, data }) => ({ name, data })) } : {}),
       });
-      setTitle(""); setDescription(""); setTags(""); setDueDate(""); setImageData("");
+      setTitle(""); setDescription(""); setTags(""); setDueDate(""); setFiles([]);
       onCreated?.(Boolean(created.pending));
       setMessage(created.pending
         ? (english ? "Task saved on this device and waiting for the connection."
           : "Задача сохранена на устройстве и ожидает подключения к сети.")
         : (english ? "Team task created." : "Общая задача создана."));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : String(error));
+      setMessage(taskFileError(error, english));
     } finally { setBusy(false); }
   };
 
@@ -112,16 +115,17 @@ export function SharedTaskCreate({ language, enabledCalendars,
       : "Нет доступного общего пространства, в хаос-бокс которого можно отправить задачу. Сначала создайте пространство в общих проектах."}</p> : <>
       <label>{english ? "Task name" : "Название задачи"}<input value={title} maxLength={160} required
         onChange={(event) => setTitle(event.target.value)} /></label>
-      <SharedTaskImageInput value={imageData} onChange={setImageData} onReadingChange={setImageReading} english={english} disabled={busy} />
+      <SharedTaskAttachmentsInput value={files} onChange={setFiles} onReadingChange={setImageReading} english={english} disabled={busy} />
       <label>{english ? "Workspace" : "Пространство"}<select value={spaceId} onChange={(event) => {
         setSpaceId(event.target.value); setProjects([]); setProjectId(""); setSnapshot(null);
       }}>{spaces.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>
       {loadingProjects ? <p role="status">{english ? "Loading projects…" : "Загружаем проекты…"}</p>
         : projects.length ? <label>{english ? "Project or shared inbox" : "Проект или общий хаос-бокс"}
         <select value={projectId} onChange={(event) => { setProjectId(event.target.value); setSnapshot(null); }}>
-          {projects.slice().sort((a, b) => Number(Boolean(b.isInbox)) - Number(Boolean(a.isInbox))).map((item) =>
-            <option key={item.id} value={item.id}>{item.isInbox
-              ? (english ? "Shared inbox" : "Хаос-бокс пространства") : item.title}</option>)}</select></label>
+          {projects.filter(item => item.isInbox).map(item => <option key={item.id} value={item.id}>
+            {english ? "Shared inbox" : "Хаос-бокс пространства"} · {formatTaskCount(item.taskCount ?? 0, english ? "en" : "ru")}</option>)}
+          {sharedProjectTree(projects).map(({ project, depth }) => <option key={project.id} value={project.id}>
+            {depth ? `${"\u00a0\u00a0".repeat(depth)}↳ ` : ""}{project.title} · {formatTaskCount(project.taskCount ?? 0, english ? "en" : "ru")}</option>)}</select></label>
         : <p role="status">{english ? "No project in this workspace allows you to add tasks." : "В этом пространстве нет проекта, в который вы можете добавить задачу."}</p>}
       <div className="shared-projects-date-field"><span>{english ? "Due date" : "Срок"}</span>
         {dueDate ? <><CalendarDatePicker mode={calendarMode} value={dueDate} onChange={setDueDate}

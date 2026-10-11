@@ -1,12 +1,12 @@
 import type { ReactNode } from "react";
 
 /** Shared presentation contract for personal and team workspaces. */
-export function WorkspaceHeader({ title, description, mark, children }: {
-  title: string; description: string; mark: ReactNode; children?: ReactNode;
+export function WorkspaceHeader({ title, description, mark, context, children }: {
+  title: string; description: string; mark: ReactNode; context?: ReactNode; children?: ReactNode;
 }) {
   return <header className="workspace-header" data-exp-ui="panel">
     <div className="workspace-header-main">{mark}
-      <div className="workspace-header-copy"><h1>{title.includes(" · ") ? <>{title.split(" · ")[0]}<span className="workspace-title-secondary"> · <em>{title.split(" · ").slice(1).join(" · ")}</em></span></> : title}</h1><p>{description}</p></div>
+      <div className="workspace-header-copy"><h1>{title.includes(" · ") ? <>{title.split(" · ")[0]}<span className="workspace-title-secondary"> · <em>{title.split(" · ").slice(1).join(" · ")}</em></span></> : title}</h1>{context}{description ? <p>{description}</p> : null}</div>
     </div>
     {children ? <div className="workspace-header-summary">{children}</div> : null}
   </header>;

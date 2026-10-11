@@ -1421,8 +1421,11 @@ export type SharedTaskList = SharedStatus & { projectId: string; projectTitle: s
   spaceId: string; spaceTitle: string; role: string; taskCount: number; openCount: number };
 export type SharedCategory = { id: string; title: string; color: string; position: number; revision: number };
 export type SharedLabel = SharedCategory;
+export type SharedTaskAttachment = { id: string; name: string; type: string; size: number; url: string };
+export type SharedTaskFileInput = { name: string; data: string };
 export type SharedTask = { id: string; projectId: string; statusId: string; title: string;
   imageUrl?: string | null;
+  attachments?: SharedTaskAttachment[];
   labelIds?: string[]; startDate?: string | null; startTime?: string | null; endTime?: string | null; dependsOnIds?: string[];
   categoryId: string | null; description: string; tags?: string[]; dueDate: string | null;
   assigneeId: string | null; createdBy?: string | null;
@@ -1741,6 +1744,7 @@ export async function removeSharedMember(projectId: string, userId: string) {
 }
 export async function createSharedTask(projectId: string, input: { title: string; statusId: string;
   imageData?: string;
+  attachments?: SharedTaskFileInput[];
   labelIds?: string[]; startDate?: string | null; startTime?: string | null; endTime?: string | null; dependsOnIds?: string[];
   categoryId?: string | null; assigneeId?: string | null; dueDate?: string | null; description?: string;
   sourceTaskId?: string; tags?: string[] }) {
@@ -1760,7 +1764,9 @@ export async function createSharedTask(projectId: string, input: { title: string
     startTime: input.startTime ?? null, endTime: input.endTime ?? null,
     position: 0, revision: 0, updatedAt: new Date().toISOString(), pending: true });
 }
-export async function updateSharedTask(projectId: string, taskId: string, input: Partial<SharedTask> & { expectedRevision: number }) {
+export async function updateSharedTask(projectId: string, taskId: string, input: Partial<Omit<SharedTask, "attachments">> & {
+  expectedRevision: number; attachments?: SharedTaskFileInput[]; removeAttachmentIds?: string[];
+}) {
   const requestId = crypto.randomUUID();
   const path = `/shared/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}`;
   return sendSharedMutation<SharedTask>({ requestId, projectId, taskId, path, method: "PATCH", kind: "update",
