@@ -11,6 +11,8 @@ const SKIPPED_FILES = new Set([
   "local-voice-plan.ts",
   "task-reminders.ts",
   "stoicheion-data.ts",
+  // Authored card parser and content repairs; translations are supplied by stoicheion-data.en.ts.
+  "stoicheion-reading.ts",
   "stoicheion-data.en.ts",
   "theokyklos-data.ts",
   "sacred-practices.ts",

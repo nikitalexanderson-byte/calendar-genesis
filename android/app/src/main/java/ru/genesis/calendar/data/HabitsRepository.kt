@@ -117,8 +117,8 @@ class HabitsRepository(private val app: GenesisApplication) {
             "Начисление XP фиксируется при создании привычки. Для другой формулы создайте новую привычку."
         }
         val now=Instant.now().toString()
-        val saved=habit.copy(entity=habit.entity.changed(now),
-            createdDate=previous?.createdDate ?: LocalDate.now(),schedule=engine().normalizeSchedule(habit.schedule))
+        val guarded=preserveHabitCreationSettings(habit,previous,LocalDate.now())
+        val saved=guarded.copy(entity=guarded.entity.changed(now),schedule=engine().normalizeSchedule(guarded.schedule))
         val others=workspace.habits.filterNot { it.id==habit.id }.map { other ->
             if(saved.isKeyHabit && other.isKeyHabit) other.copy(isKeyHabit=false,entity=other.entity.changed(now)) else other
         }
@@ -247,7 +247,7 @@ internal object HabitDocument {
         val p=w.progress
         return JSONObject().put("localSchema",1).put("habits",JSONArray(w.habits.map(::habit)))
             .put("completions",JSONArray(w.completions.map { c -> entity(c.entity).put("habitId",c.habitId).put("date",c.date.toString()).put("completed",c.completed)
-                .put("qualityValue",c.qualityValue ?: JSONObject.NULL).put("score",c.score).put("xpAwarded",c.xpAwarded).put("note",c.note) }))
+                .put("qualityConfirmedAt",c.qualityConfirmedAt ?: JSONObject.NULL).put("qualityValue",c.qualityValue ?: JSONObject.NULL).put("score",c.score).put("xpAwarded",c.xpAwarded).put("note",c.note) }))
             .put("goals",JSONArray(w.goals.map { g -> JSONObject().put("date",g.date.toString()).put("mode",g.mode).put("timezone",g.timezone).put("scheduledCount",g.scheduledCount)
                 .put("completedCount",g.completedCount).put("targetCount",g.targetCount).put("status",g.status).put("updatedAt",g.updatedAt) }))
             .put("rewards",JSONArray(w.rewards.map { t -> JSONObject().put("id",t.id).put("amount",t.amount).put("reason",t.reason).put("sourceId",t.sourceId)
@@ -273,7 +273,7 @@ internal object HabitDocument {
         val v=JSONObject(json); require(v.getInt("localSchema")==1) { "Неподдерживаемая версия локальных привычек" }
         val p=v.getJSONObject("progress")
         return LocalHabitWorkspace(v.getJSONArray("habits").objects().map(::habit),v.getJSONArray("completions").objects().map { c ->
-            HabitCompletion(entity(c),c.getString("habitId"),LocalDate.parse(c.getString("date")),c.getBoolean("completed"),if(c.isNull("qualityValue")) null else c.getDouble("qualityValue"),c.getInt("score"),c.getInt("xpAwarded"),c.getString("note")) },
+            HabitCompletion(entity(c),c.getString("habitId"),LocalDate.parse(c.getString("date")),c.getBoolean("completed"),if(c.isNull("qualityValue")) null else c.getDouble("qualityValue"),c.getInt("score"),c.getInt("xpAwarded"),c.getString("note"),c.optString("qualityConfirmedAt").takeUnless { it.isBlank() || it == "null" }) },
             v.getJSONArray("goals").objects().map { g -> DailyGoalRecord(LocalDate.parse(g.getString("date")),g.getString("mode"),g.getString("timezone"),g.getInt("scheduledCount"),g.getInt("completedCount"),g.getInt("targetCount"),g.getString("status"),g.getString("updatedAt")) },
             v.getJSONArray("rewards").objects().map { t -> RewardTransaction(t.getString("id"),t.getInt("amount"),t.getString("reason"),t.getString("sourceId"),t.getString("idempotencyKey"),t.getString("createdAt"),t.getString("userId"),t.getString("currency")) },
             UserProgress(p.getInt("lifetimeXp"),p.getInt("laurelsBalance"),p.nullable("currentRankId"),p.nullable("hiddenHeroicPathRevealedAt"),p.getInt("currentStreak"),p.getInt("longestStreak"),p.nullable("lastQualifiedDate")?.let(LocalDate::parse),p.getString("streakGoalMode"),p.getInt("streakFreezeCount"),p.getInt("rhythmScore"),p.getString("updatedAt")),revision,

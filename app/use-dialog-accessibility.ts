@@ -66,10 +66,23 @@ export function useDialogAccessibility<T extends HTMLElement>(onClose: () => voi
         first.focus();
       }
     };
+    const handleOutsidePointerDown = (event: PointerEvent) => {
+      if (window.innerWidth <= 760 || activeDialogStack.at(-1) !== dialog || event.button !== 0) return;
+      const nativeDialog = event.target instanceof Element ? event.target.closest("dialog[open]") : null;
+      if (nativeDialog && nativeDialog !== dialog && !dialog.contains(nativeDialog) && !nativeDialog.contains(dialog)) return;
+      const content = dialog.matches(".modal-backdrop, .stoicheion-letter-dialog")
+        ? dialog.firstElementChild : dialog;
+      if (!(event.target instanceof Node) || content?.contains(event.target)) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      closeRef.current();
+    };
     document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("pointerdown", handleOutsidePointerDown, true);
     return () => {
       window.cancelAnimationFrame(frame);
       document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("pointerdown", handleOutsidePointerDown, true);
       const stackIndex = activeDialogStack.lastIndexOf(dialog);
       if (stackIndex >= 0) activeDialogStack.splice(stackIndex, 1);
       const trigger = returnFocusRef.current;

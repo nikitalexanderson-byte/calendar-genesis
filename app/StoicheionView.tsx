@@ -10,6 +10,7 @@ import {
   type PointerEvent,
 } from "react";
 import { createPortal } from "react-dom";
+import { stoicheionReadingSections } from "./stoicheion-reading";
 import {
   getStoicheionLetters,
   type StoicheionLetter,
@@ -145,7 +146,9 @@ function toClientDraw(record: StoicheionDrawRecord): ClientDrawRecord {
   return {
     ...record,
     seed: record.seed >>> 0,
-    localDeadline: Date.now() + Math.max(0, record.remainingSeconds) * 1000,
+    localDeadline: record.canReroll && record.remainingSeconds > 0
+      ? Date.now() + record.remainingSeconds * 1000
+      : 0,
   };
 }
 
@@ -261,32 +264,6 @@ function pythmenTrace(total: number) {
   return steps;
 }
 
-function contentBlocks(content: string) {
-  return content.split(/\n{2,}/).filter(Boolean);
-}
-
-function splitContentBlock(block: string) {
-  const headingPattern = /^(Космогонический профиль|Космологический профиль|Магическая настройка[^\n:]*|Числовая суть[^\n:]*|Парадное положение|Перевернутое положение|Практика[^\n:]*|Примечание к источнику|Буквенный и числовой профиль|Временная трактовка|Cosmogonic profile|Cosmological profile|Magical (?:tuning|attunement)[^\n:]*|Numerical (?:essence|profile)[^\n:]*|Upright position|Reversed position|Practice[^\n:]*|Body Practice[^\n:]*|Source note|Letter and numerical profile|Temporal interpretation)/i;
-  const match = block.match(headingPattern);
-  if (!match) return { heading: "", body: block };
-
-  const colonIndex = block.indexOf(":", match[0].length - 1);
-  const newlineIndex = block.indexOf("\n");
-  if (colonIndex >= 0 && (newlineIndex < 0 || colonIndex < newlineIndex)) {
-    return {
-      heading: block.slice(0, colonIndex).trim(),
-      body: block.slice(colonIndex + 1).trim(),
-    };
-  }
-  if (newlineIndex >= 0) {
-    return {
-      heading: block.slice(0, newlineIndex).trim(),
-      body: block.slice(newlineIndex + 1).trim(),
-    };
-  }
-  return { heading: "", body: block };
-}
-
 type StoicheionCardVariant = "alphabet" | "daily" | "dialog" | "spread";
 
 function StoicheionCardFace({
@@ -364,7 +341,7 @@ function LetterDetails({
   const sector = position ? THEOKYKLOS_SEGMENTS.find((segment) => segment.id === position.id) ?? null : null;
   const guidance = position ? sacredSectorGuidance(position.id) : null;
   const practices = position ? sacredPracticesForSector(position.id) : [];
-  const sections = contentBlocks(letter.content).map(splitContentBlock);
+  const sections = stoicheionReadingSections(letter.content);
   const orientationSections = sections.filter((section) => /^(Парадное положение|Перев[её]рнутое положение|Upright position|Reversed position)/i.test(section.heading));
   const profileSections = sections.filter((section) => !orientationSections.includes(section));
   const drawReading = reversed !== null && orientationSections.length > 0;
@@ -374,7 +351,10 @@ function LetterDetails({
       : /^(Парадное положение|Upright position)/i.test(section.heading));
     return <section className={drawReading && selected ? "stoicheion-reading-selected" : undefined} key={`${letter.id}-${index}`}>
       {section.heading ? <h3 data-no-translate>{section.heading}</h3> : null}
-      <p data-no-translate>{section.body}</p>
+      <div className="stoicheion-reading-body" data-no-translate>{section.body.split(/\n{2,}/).filter(Boolean).map((paragraph,bodyIndex)=>{
+        const lines=paragraph.split("\n");const list=lines.every(line=>/^\s*-\s|^(Корень|Заклинание|Ассоциативный цвет|Цветовая гамма|Божество|Центр в теле|Медитация|Магическая поза|Работа с телом|Root|Incantation|Color|Deity|Body center|Meditation|Magical pose|Body work):/.test(line));
+        return list ? <ul key={bodyIndex}>{lines.map((line,lineIndex)=><li key={lineIndex}>{line.replace(/^\s*-\s*/,"")}</li>)}</ul> : <p key={bodyIndex}>{paragraph}</p>;
+      })}</div>
     </section>;
   };
   const sectorPractice = position && sector && guidance && reversed !== null ? (
@@ -429,6 +409,13 @@ function LetterDetails({
           </div>
         </header>
         <div className="stoicheion-letter-copy">
+          {position ? <section className="stoicheion-spread-position">
+            <span className="eyebrow">{language === "en" ? "Spread sector" : "Сектор расклада"}</span>
+            <h3>{sector ? catalogText(sector.title, language) : position.direction}</h3>
+            {sector ? <strong data-no-translate>{catalogText(sector.patrons, language)}</strong> : null}
+            <p>{position.meaning}</p>
+            {sector ? <p data-no-translate>{catalogText(sector.description, language)}</p> : null}
+          </section> : null}
           {drawReading ? <>
             <div className="stoicheion-orientation-readings">{orientationSections.map(renderSection)}</div>
             <details className="stoicheion-reading-more">
@@ -783,14 +770,10 @@ export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSec
                 <p>Выбор сохранён. Нажмите на букву, чтобы прочитать полное описание, или продолжите к раскладу девяти ликов.</p>
                 <div className="stoicheion-result-actions">
                   <button type="button" className="stoicheion-text-button" onClick={() => setSelectedReading({ letter: dailyLetter, reversed: dailyReversed, position: null })}>Прочитать о букве</button>
-                  {dailyCanReroll ? (
-                    <button type="button" className="stoicheion-redraw-button" disabled={savingKind !== null} onClick={(event) => beginMotion("daily", true, event.timeStamp)}>
+                    <button type="button" className="stoicheion-redraw-button" disabled={!dailyCanReroll || savingKind !== null} onClick={(event) => beginMotion("daily", true, event.timeStamp)}>
                       <span aria-hidden="true">↻</span>
-                      Перебросить · {formatCountdown(dailyRemaining)}
+                      {dailyCanReroll ? `Перебросить · ${formatCountdown(dailyRemaining)}` : "Переброс на сегодня использован"}
                     </button>
-                  ) : (
-                    <span className="stoicheion-limit-note">{dailyDraw?.attempts === 2 ? "Переброс на сегодня использован" : "Карта дня закреплена до завтра"}</span>
-                  )}
                 </div>
               </div>
             </div>
@@ -821,14 +804,10 @@ export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSec
                 </div>
                 <p>Сумма числовых значений девяти букв последовательно складывается до числового корня от 1 до 9.</p>
                 <div className="stoicheion-spread-actions">
-                  {spreadCanReroll ? (
-                    <button type="button" className="stoicheion-redraw-button" disabled={savingKind !== null} onClick={(event) => beginMotion("spread", true, event.timeStamp)}>
+                    <button type="button" className="stoicheion-redraw-button" disabled={!spreadCanReroll || savingKind !== null} onClick={(event) => beginMotion("spread", true, event.timeStamp)}>
                       <span aria-hidden="true">↻</span>
-                      Перебросить расклад · {formatCountdown(spreadRemaining)}
+                      {spreadCanReroll ? `Перебросить расклад · ${formatCountdown(spreadRemaining)}` : "Переброс на сегодня использован"}
                     </button>
-                  ) : (
-                    <span className="stoicheion-limit-note">{spreadDraw?.attempts === 2 ? "Переброс расклада на сегодня использован" : "Расклад закреплён до завтра"}</span>
-                  )}
                 </div>
               </aside> : null}
             </header>
@@ -851,9 +830,9 @@ export function StoicheionView({ divinationDisabled = false, onOpenTheokyklosSec
                       >
                         <span className="stoicheion-direction"><i>{position.shortDirection}</i>{position.direction}</span>
                         <StoicheionCardFace letter={letter} reversed={card.reversed} variant="spread" />
-                        <small>{letter.name} · число {letter.value}</small>
+                        <small className="stoicheion-spread-card-label"><strong>{letter.name}</strong><span>{language === "en" ? "Value" : "Число"} {letter.value}</span></small>
                         <em>{orientationLabel(card.reversed)}</em>
-                        <p>{position.meaning}</p>
+                        <span className="stoicheion-sector-details-link">{language === "en" ? "Sector details" : "Описание сектора"} →</span>
                       </button>
                     );
                   })}

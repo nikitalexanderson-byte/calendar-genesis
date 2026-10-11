@@ -469,3 +469,4 @@ try {
 }
 
 echo "Shared projects smoke passed.\n";
+require __DIR__ . '/shared-collaboration.php';

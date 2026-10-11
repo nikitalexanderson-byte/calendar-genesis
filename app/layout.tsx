@@ -6,6 +6,7 @@ import "./tablet-layout.css";
 import "./universal-ui.css";
 import "./web-standart.css";
 import "./experimental-theme.css";
+import "./layout-refinements.css";
 import { AppUrlCleaner } from "./AppUrlCleaner";
 
 export async function generateMetadata(): Promise<Metadata> {

@@ -26,6 +26,21 @@ import java.util.concurrent.ConcurrentHashMap
 val LocalGenesisLanguage = compositionLocalOf { "ru" }
 
 private val nativeCopy = mapOf(
+    "до задачи" to "before the task",
+    "В момент начала задачи" to "At task start",
+    "неделю" to "week",
+    "недели" to "weeks",
+    "недель" to "weeks",
+    "час" to "hour",
+    "часа" to "hours",
+    "часов" to "hours",
+    "минуту" to "minute",
+    "минуты" to "minutes",
+    "минут" to "minutes",
+    "За \$amount \$form до задачи" to "\$amount \$form before the task",
+    "Начало привычки не может быть в прошлом." to "A new habit cannot start in the past.",
+    "Календарь плана" to "Plan calendar",
+    "🔒 Дата начала зафиксирована при создании." to "🔒 The start date was fixed when this habit was created.",
     "Личные дела" to "Personal affairs",
     "Общие дела" to "Shared affairs",
     "Верхний уровень пространства" to "Workspace root",

@@ -60,7 +60,7 @@ function genesisSharedSpaceSettings(string $userId, string $spaceId): array
         unset($invitation['permissions_json']); return $invitation;
     }, $query->fetchAll());
     return ['space' => ['id' => $space['id'], 'title' => $space['title'], 'description' => $space['description'],
-        'revision' => (int)$space['revision'], 'role' => $space['member_role'], 'updatedAt' => $space['updated_at']],
+        'revision' => (int)$space['revision'], 'role' => $space['member_role'], 'updatedAt' => $space['updated_at']] + genesisSharedCoverInfo($space),
         'members' => $members, 'invitations' => $invitations];
 }
 
@@ -75,9 +75,10 @@ function genesisSharedUpdateSpace(string $userId, string $spaceId, array $input)
     try {
         $space = genesisSharedSpaceAccess($spaceId, $userId);
         if (!in_array($space['member_role'], ['owner', 'admin'], true)) throw new GenesisSharedAccessException('SHARED_SPACE_FORBIDDEN', 403);
-        $query = $db->prepare('UPDATE shared_spaces SET title = :title, description = :description,
+        $cover = genesisSharedCoverInput($input, $space);
+        $query = $db->prepare('UPDATE shared_spaces SET title = :title, description = :description, cover_image = :image, cover_x = :x, cover_y = :y,
             revision = revision + 1, updated_at = :now WHERE id = :id AND revision = :expected');
-        $query->execute(['title' => $title, 'description' => $description, 'now' => genesisNow(), 'id' => $spaceId, 'expected' => $expected]);
+        $query->execute(['title' => $title, 'description' => $description, 'now' => genesisNow(), 'id' => $spaceId, 'expected' => $expected] + $cover);
         if ($query->rowCount() !== 1) throw new GenesisSharedAccessException('SPACE_CONFLICT', 409);
         $db->commit(); return genesisSharedSpaceSettings($userId, $spaceId)['space'];
     } catch (Throwable $error) { if ($db->inTransaction()) $db->rollBack(); throw $error; }

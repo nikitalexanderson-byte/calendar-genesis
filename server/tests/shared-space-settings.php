@@ -121,3 +121,4 @@ try {
     foreach ($users as $id) if (genesisFindUser($id)) genesisDeleteAccount($id);
 }
 echo "Shared space settings, permission isolation, revisions and rollback passed.\n";
+require __DIR__ . '/shared-web-updates.php';

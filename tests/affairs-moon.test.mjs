@@ -3,6 +3,8 @@ import test from "node:test";
 import { matchesAffair } from "../app/affairs-search.ts";
 import { restoredSharedProject } from "../app/shared-expansion.ts";
 import { normalizeMoonReminderSettings, planMoonReminders } from "../app/moon-reminders.ts";
+import "./shared-gantt-reading.test.mjs";
+import "./habit-quality.test.mjs";
 
 test("shared tree restores visible paths and skips hidden children, inboxes and deleted projects", () => {
   const projects = [{ id: "root" }, { id: "child", parentId: "root" }, { id: "inbox", isInbox: true }];
