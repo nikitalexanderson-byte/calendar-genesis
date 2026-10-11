@@ -6037,7 +6037,6 @@ export function GenesisCalendar() {
                   <div className="all-task-title-row">
                     <strong data-no-translate title={task.title}>{task.title}</strong>
                     <span className="all-task-priority" title="Приоритет">⚑{task.priority}</span>
-                    {renderOverdueBadge(task)}
                   </div>
                   <div className="all-task-meta">
                     {task.entryType && task.entryType !== "task" ? <span className="entry-type-badge">{entryTypeLabel(task.entryType, language === "en")}</span> : null}
@@ -6059,12 +6058,6 @@ export function GenesisCalendar() {
                   ) : null}
                 </div>
                 <div className="all-task-tools">
-                  <label className="task-project-move"><span>{language === "en" ? "Move to" : "Переместить в"}</span>
-                    <select aria-label={`Переместить задачу «${task.title}»`} value={resolvedTaskProjectId(task) ?? ""} onChange={(event) => moveProjectItemToProject({ kind: "task", id: task.id, title: task.title }, event.target.value || TASK_INBOX_PROJECT_ID)}>
-                      <option value="">Хаос-бокс</option>
-                      {flattenProjects(projects).filter(({ project: item }) => item.status === "active").map(({ project: item, depth }) => <option key={item.id} value={item.id}>{"— ".repeat(depth)}{item.title}</option>)}
-                      {project && project.status !== "active" ? <option value={project.id}>{project.title} · Завершено</option> : null}
-                    </select></label>
                 <div className="all-task-actions">
                   <button
                     type="button"
@@ -6075,7 +6068,14 @@ export function GenesisCalendar() {
                   >{experimentalThemeActive ? <ExperimentalIcon name="edit" /> : "✎"}</button>
                   <button type="button" className="task-delete" onClick={() => deleteTask(task.id)} aria-label={`Удалить задачу «${task.title}»`}>{experimentalThemeActive ? <ExperimentalIcon name="delete" /> : "×"}</button>
                 </div>
+                  <label className="task-project-move"><span>{language === "en" ? "Move to" : "Переместить в"}</span>
+                    <select aria-label={`Переместить задачу «${task.title}»`} value={resolvedTaskProjectId(task) ?? ""} onChange={(event) => moveProjectItemToProject({ kind: "task", id: task.id, title: task.title }, event.target.value || TASK_INBOX_PROJECT_ID)}>
+                      <option value="">Хаос-бокс</option>
+                      {flattenProjects(projects).filter(({ project: item }) => item.status === "active").map(({ project: item, depth }) => <option key={item.id} value={item.id}>{"— ".repeat(depth)}{item.title}</option>)}
+                      {project && project.status !== "active" ? <option value={project.id}>{project.title} · Завершено</option> : null}
+                    </select></label>
                 </div>
+                {overdue ? <div className="all-task-overdue">{renderOverdueBadge(task)}</div> : null}
               </article>
             );
     })}

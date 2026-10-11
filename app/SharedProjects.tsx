@@ -966,7 +966,8 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   };
   const renderCalendarDate = (date: Date) => {
     const key = localDateKey(date);
-    const count = activeCalendarTasks.filter(task => task.dueDate === key).length;
+    const dayTasks = activeCalendarTasks.filter(task => task.dueDate === key);
+    const count = dayTasks.length;
     const dayNumber = calendarMode === "sacred" ? getSacredDate(date).day
       : calendarMode === "lunar" ? getLunarDate(date).day : date.getDate();
     return <button key={key} type="button" className="shared-projects-calendar-date"
@@ -978,6 +979,9 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       onClick={() => { setCalendarDay(key); setCalendarAgendaProjectId(snapshot?.project.id ?? null); }}>
       <span>{dayNumber}</span>
       {calendarMode !== "profane" ? <time dateTime={key}>{formatGregorian(date)}</time> : null}
+      {count > 0 && count <= 3 ? <span className="shared-calendar-date-tasks" aria-hidden="true">
+        {dayTasks.map(task => <span className="shared-calendar-date-task" key={task.id} title={task.title} data-no-translate>{task.title}</span>)}
+      </span> : null}
       {count ? <small className="shared-calendar-task-count">{count}</small> : null}
     </button>;
   };
