@@ -24,13 +24,16 @@ export function InboxToolbar({ title, scopeLabel, titleId, count, position, comp
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 3 18 18M10.5 10.5a2.1 2.1 0 0 0 3 3M7 6.5C4.3 8.2 2 12 2 12s4 7 10 7c1.7 0 3.3-.5 4.8-1.4M10 5.2c.7-.1 1.3-.2 2-.2 6 0 10 7 10 7s-1.2 2.1-3.2 4" /></svg>
       </button>
     </header>
-    <div className="inbox-toolbar-controls"><label className="inbox-position-choice"><span>{english ? "Position" : "Расположение"}</span>
+    <div className="inbox-toolbar-controls"><label className="inbox-control-group inbox-position-choice"><span className="inbox-control-label">{english ? "Position" : "Расположение"}</span>
       <select aria-label={english ? "Inbox position" : "Расположение хаос-бокса"} value={position} onChange={event => onPosition(event.target.value as InboxPosition)}>
         {positions.map(item => <option key={item} value={item}>{label(item, english)}</option>)}
       </select>
-    </label><div className="inbox-display-switch" role="group" aria-label={english ? "Inbox display" : "Отображение хаос-бокса"}>
-      <button type="button" aria-pressed={!compact} onClick={() => onCompact(false)}>{english ? "Detailed" : "Подробно"}</button>
-      <button type="button" aria-pressed={compact} onClick={() => onCompact(true)}>{english ? "Compact" : "Кратко"}</button>
+    </label><div className="inbox-control-group" role="group" aria-label={english ? "Inbox display" : "Отображение хаос-бокса"}>
+      <span className="inbox-control-label">{english ? "Display" : "Отображение"}</span>
+      <div className="inbox-display-switch">
+        <button type="button" aria-pressed={!compact} onClick={() => onCompact(false)}>{english ? "Detailed" : "Подробно"}</button>
+        <button type="button" aria-pressed={compact} onClick={() => onCompact(true)}>{english ? "Compact" : "Кратко"}</button>
+      </div>
     </div></div>
     {target ? <div className="inbox-dock-preview" aria-live="polite">{english ? "Release to place" : "Отпустите для размещения"}: {label(target, english)}</div> : null}
   </>;
