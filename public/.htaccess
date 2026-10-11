@@ -6,6 +6,8 @@ RewriteEngine On
 # Merge this redirect only after Google branding and Android sign-in/sync are confirmed.
 # Keep the old API, update downloads and existing static files for installed clients.
 RewriteCond %{HTTP_HOST} ^(?:www\.)?genesiscalendar\.ru$ [NC]
+RewriteRule ^legacy-home\.php$ https://genesiscalendar.com/ [R=302,L,NE]
+RewriteCond %{HTTP_HOST} ^(?:www\.)?genesiscalendar\.ru$ [NC]
 RewriteRule ^sw\.js$ relocated-sw.js [L]
 RewriteCond %{HTTP_HOST} ^(?:www\.)?genesiscalendar\.ru$ [NC]
 RewriteCond %{REQUEST_URI} !^/(?:api(?:/|$)|downloads/|android-update\.json$|deploy-meta\.json$|\.well-known/) [NC]
@@ -35,7 +37,7 @@ RewriteRule . index.html [L]
   </IfModule>
 </FilesMatch>
 
-<FilesMatch "^(?:sw|precache-manifest)\.js$">
+<FilesMatch "^(?:sw|relocated-sw|precache-manifest)\.js$">
   <IfModule mod_headers.c>
     Header set Cache-Control "no-cache, no-store, must-revalidate"
   </IfModule>

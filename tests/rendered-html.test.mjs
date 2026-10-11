@@ -2509,7 +2509,7 @@ test("QA-01 precaches the complete cold-install shell before activating the work
   assert.match(installHook, /updateViaCache: "none"/);
   assert.doesNotMatch(begetEntry, /controllerchange|window\.location\.reload\(\)/);
   assert.match(begetEntry, /registration\.update\(\)/);
-  assert.match(htaccess, /\^\(\?:sw\|precache-manifest\)\\\.js\$/);
+  assert.match(htaccess, /\^\(\?:sw\|relocated-sw\|precache-manifest\)\\\.js\$/);
   assert.match(htaccess, /\^\(\?:index\\\.html\|legacy-home\\\.php\|legacy-relocation-notice\\\.\(\?:css\|js\)\|deploy-meta\\\.json\)\$/);
   assert.ok(htaccess.includes('<FilesMatch "^android-update\\.json$">'));
   assert.match(htaccess, /no-cache, no-store, must-revalidate/);
