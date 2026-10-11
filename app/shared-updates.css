@@ -35,6 +35,6 @@ html[data-genesis-theme] .genesis-app .shared-task-image figcaption { color: var
 @media (max-width: 760px) {
   html[data-genesis-theme] .genesis-app .shared-workspace-summary { width: 100%; }
   html[data-genesis-theme] .genesis-app .workspace-header:has(.shared-workspace-summary) { flex-wrap: wrap; }
-  html[data-genesis-theme] .genesis-app .workspace-header:has(.shared-workspace-summary) .workspace-header-summary { width: 100%; }
+  html[data-genesis-theme] .genesis-app .workspace-header:has(.shared-workspace-summary) .workspace-header-summary { min-width: 0; width: 100%; flex: 0 1 100%; margin-inline-start: 0; }
   html[data-genesis-theme] .genesis-app .workspace-header .shared-summary-counts { min-width: 0; }
 }

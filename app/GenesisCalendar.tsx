@@ -88,7 +88,6 @@ import {
 import { currentLegalPage, LegalPage } from "./LegalPage";
 import { TimeClockPicker, TimeClockFormatContext } from "./TimeClockPicker";
 import { CalendarDatePicker } from "./CalendarDatePicker";
-import { SharedTaskCreate } from "./SharedTaskCreate";
 import { TaskReminderPicker } from "./TaskReminderPicker";
 import { CalendarModeIcon } from "./CalendarModeIcon";
 import { MoonPhaseIcon } from "./MoonPhaseIcon";
@@ -211,6 +210,7 @@ import {
 } from "./day-rhythm";
 
 const AccountPanel = lazy(() => import("./AccountPanel").then((module) => ({ default: module.AccountPanel })));
+const SharedTaskCreate = lazy(() => import("./SharedTaskCreate").then((module) => ({ default: module.SharedTaskCreate })));
 const SharedInvitationNotices = lazy(() => import("./SharedInvitationNotices").then(module => ({ default: module.SharedInvitationNotices })));
 const SharedCommentNotices = lazy(() => import("./SharedUpdates").then(module => ({ default: module.SharedCommentNotices })));
 const SharedProjects = lazy(() => import("./SharedProjects").then((module) => ({ default: module.SharedProjects })));
@@ -2015,7 +2015,7 @@ export function GenesisCalendar() {
     nextUrl.hash = nextView;
     const cleanUrl = cleanGenesisAppUrl(nextUrl);
     const state = { ...(window.history.state ?? {}), genesisView: nextView };
-    if (replace || view === nextView) {
+    if (replace || view === nextView && !sharedDestination) {
       window.history.replaceState(state, "", cleanUrl);
     } else {
       window.history.pushState(state, "", cleanUrl);
@@ -2540,7 +2540,10 @@ export function GenesisCalendar() {
       selectToday();
       return;
     }
-    if (nextView === "projects") setProjectsArea(personalProjectsVisible ? "personal" : "shared");
+    if (nextView === "projects") {
+      const lastArea = cloudUser?.uid ? storedAffairsArea(cloudUser.uid) : projectsArea;
+      setProjectsArea(lastArea === "shared" && sharedProjectsVisible || !personalProjectsVisible ? "shared" : "personal");
+    }
     if (nextView === "calendar" && (!viewIsVisible("calendar", visibility) || view === "year" && viewIsVisible("year", visibility))) nextView = "year";
     if (nextView === "stoicheion" && !viewIsVisible("stoicheion", visibility)) nextView = "theokyklos";
     navigateTo(nextView);
@@ -4592,7 +4595,7 @@ export function GenesisCalendar() {
         {language === "en" ? "Shared task" : "Общая задача"}</button>
     </div> : null;
     if (cloudUser?.sharedProjectsEnabled && taskScope === "shared") return <>
-      {scopeSwitcher}<SharedTaskCreate language={language} enabledCalendars={visibility.enabledCalendars} onCreated={() => setTaskComposer(null)} />
+      {scopeSwitcher}<Suspense fallback={<DeferredViewFallback label={language === "en" ? "Opening shared task form…" : "Открываем форму общей задачи…"} />}><SharedTaskCreate language={language} enabledCalendars={visibility.enabledCalendars} onCreated={() => setTaskComposer(null)} /></Suspense>
     </>;
     const selectedTaskList = taskLists.find((taskList) => taskList.id === taskTaskListId);
     const createsTaskList = taskTaskListId === CREATE_NEW_TASK_LIST_ID;
@@ -5799,9 +5802,6 @@ export function GenesisCalendar() {
             <button type="button" aria-pressed={!completedProjectsOpen} onClick={() => setCompletedProjectsOpen(false)}>{language === "en" ? "Current" : "Текущие"} · {projects.length - completedCount}</button>
             <button type="button" aria-pressed={completedProjectsOpen} onClick={() => setCompletedProjectsOpen(true)}>{language === "en" ? "Completed" : "Завершённые"} · {completedCount}</button>
           </div>
-          <button type="button" className="primary-button project-create-task" onClick={() => openTaskComposer("projects")}>{experimentalThemeActive ? <ExperimentalIcon name="plus" /> : null}{language === "en" ? "Create task" : "Создать задачу"}</button>
-          <button type="button" className="secondary-button project-create-project" aria-expanded={experimentalProjectFormOpen} aria-controls="personal-project-create"
-            onClick={() => { setExperimentalProjectFormOpen(!experimentalProjectFormOpen); setNewProjectParent(""); }}><ExperimentalIcon name="plus" />{language === "en" ? "Create project" : "Создать проект"}</button>
         </div>
 
         <label className="tag-search">
@@ -5840,7 +5840,6 @@ export function GenesisCalendar() {
               >
                 <header className="workspace-inbox-header"><h2 id="project-inbox-title">Хаос-бокс</h2><small aria-label="Количество задач и списков">{inboxTasks.length + inboxTaskLists.length}</small></header>
                 <p>{projectDragItem ? "Отпустите здесь, чтобы убрать элемент из проекта." : <><span className="project-drag-hint-desktop">Перетащите плашку задачи или списка в проект либо в хаос-бокс.</span><span className="project-drag-hint-touch">Для переноса удерживайте задачу или список, затем перетащите. Для прокрутки проведите пальцем без удержания.</span></>}</p>
-                <button type="button" className="primary-button workspace-inbox-create" onClick={() => { openTaskComposer("projects"); setTaskProject(""); }}><ExperimentalIcon name="plus" />{language === "en" ? "Create task" : "Создать задачу"}</button>
                 {!inboxTasks.length && !inboxTaskLists.length ? <p>{language === "en" ? "No unsorted tasks yet." : "Задач без проекта пока нет."}</p> : null}
                 <div className="inbox-card-items">
                   {inboxTaskLists.map((taskList) => {
@@ -5865,7 +5864,15 @@ export function GenesisCalendar() {
                   <div><span className="eyebrow">Иерархия</span><h2 id="project-tree-title">Дерево проектов</h2></div>
                   <span className="ornament" aria-hidden="true">◎</span>
                 </div> : null}
-                {experimentalThemeActive ? <header className="experimental-tree-heading"><div><h2 id="experimental-project-tree-title">Дерево проектов</h2><p>{language === "en" ? "Organize projects, tasks and lists" : "Организуйте проекты, задачи и списки"}</p></div><small>{rootProjects} {language === "en" ? "top level" : "верхнего уровня"}</small></header> : null}
+                <header className="experimental-tree-heading"><div><h2 id={experimentalThemeActive ? "experimental-project-tree-title" : "project-tree-title"}>Дерево проектов</h2><p>{language === "en" ? "Organize projects, tasks and lists" : "Организуйте проекты, задачи и списки"}</p></div>
+                  <div className="project-tree-header-actions"><small>{rootProjects} {language === "en" ? "top level" : "верхнего уровня"}</small>
+                    <div className="project-tree-create-actions">
+                      <button type="button" className="primary-button project-create-task" onClick={() => openTaskComposer("projects")}><ExperimentalIcon name="plus" />{language === "en" ? "Create task" : "Создать задачу"}</button>
+                      <button type="button" className="secondary-button project-create-project" aria-expanded={experimentalProjectFormOpen} aria-controls="personal-project-create"
+                        onClick={() => { setExperimentalProjectFormOpen(!experimentalProjectFormOpen); setNewProjectParent(""); }}><ExperimentalIcon name="plus" />{language === "en" ? "Create project" : "Создать проект"}</button>
+                    </div>
+                  </div>
+                </header>
                 <div className="project-tree">
               {projectRows.length ? projectRows.map(({ project, depth }) => {
                 const category = categories.find((item) => item.id === project.categoryId);

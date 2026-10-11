@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ExperimentalIcon } from "./ExperimentalIcon";
 
-export function SharedTaskImageInput({ value, onChange, english, disabled }: { value: string; onChange: (data: string) => void; english: boolean; disabled: boolean }) {
+export function SharedTaskImageInput({ value, onChange, onReadingChange, english, disabled }: { value: string; onChange: (data: string) => void; onReadingChange: (reading: boolean) => void; english: boolean; disabled: boolean }) {
   const [error, setError] = useState(""); const [reading, setReading] = useState(false);
   return <div className="shared-task-image-input">
     <label className="shared-image-choose"><ExperimentalIcon name="image" />{english ? "Attach a photo" : "Прикрепить фото"}
@@ -12,9 +12,9 @@ export function SharedTaskImageInput({ value, onChange, english, disabled }: { v
         if (file.size > 3 * 1024 * 1024 || !["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
           setError(english ? "Choose a JPEG, PNG or WebP image up to 3 MB." : "Выберите JPEG, PNG или WebP до 3 МБ."); return;
         }
-        setReading(true); const reader = new FileReader();
-        reader.onload = () => { onChange(String(reader.result)); setReading(false); };
-        reader.onerror = () => { setError(english ? "Could not read the photo. Choose it again." : "Не удалось прочитать фото. Выберите его повторно."); setReading(false); };
+        setReading(true); onReadingChange(true); const reader = new FileReader();
+        reader.onload = () => { onChange(String(reader.result)); setReading(false); onReadingChange(false); };
+        reader.onerror = () => { setError(english ? "Could not read the photo. Choose it again." : "Не удалось прочитать фото. Выберите его повторно."); setReading(false); onReadingChange(false); };
         reader.readAsDataURL(file);
       }} />
     </label>
