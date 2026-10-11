@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/shared-labels.php';
+require_once __DIR__ . '/shared-project-categories.php';
 require_once __DIR__ . '/shared-activity.php';
 require_once __DIR__ . '/shared-task-images.php';
 require_once __DIR__ . '/shared-task-attachments.php';
@@ -126,6 +127,9 @@ function genesisSharedSpaces(string $userId): array
 {
     genesisSharedRequireEnabled($userId);
     $query = genesisDb()->prepare('SELECT s.id, s.title, s.description, s.revision, s.cover_x, s.cover_y, (length(s.cover_image) > 0) AS hasCover, s.updated_at AS updatedAt, m.role, m.permissions_json, m.can_organize_tasks
+        , (SELECT GROUP_CONCAT(u.display_name, \', \') FROM shared_space_members owners JOIN users u ON u.id = owners.user_id
+            WHERE owners.space_id = s.id AND owners.role = \'owner\') AS ownerName,
+        (SELECT COUNT(*) FROM shared_space_members members WHERE members.space_id = s.id) AS memberCount
         FROM shared_spaces s JOIN shared_space_members m ON m.space_id = s.id
         WHERE m.user_id = :user ORDER BY s.updated_at DESC LIMIT 100');
     $query->execute(['user' => $userId]);
@@ -191,7 +195,7 @@ function genesisSharedProjects(string $userId, string $spaceId): array
 {
     genesisSharedRequireEnabled($userId);
     genesisSharedSpaceAccess($spaceId, $userId);
-    $query = genesisDb()->prepare('SELECT p.id, p.space_id AS spaceId, p.parent_id AS parentId,
+    $query = genesisDb()->prepare('SELECT p.id, p.space_id AS spaceId, p.parent_id AS parentId, p.category_id AS categoryId,
         (SELECT GROUP_CONCAT(label_id) FROM shared_project_labels WHERE project_id = p.id) AS labelIdsCsv,
         p.title, p.description, p.tags_json AS tagsJson, p.layout, p.kind, p.board_status_id AS boardStatusId, p.is_inbox AS isInbox, p.revision, p.updated_at AS updatedAt,
         m.role, sm.role AS spaceRole, sm.can_organize_tasks AS canOrganizeTasks, sm.permissions_json AS permissionsJson,
@@ -514,6 +518,7 @@ function genesisSharedCreateProject(string $userId, string $spaceId, array $inpu
     }
     $kind = $input['kind'] ?? 'project';
     if (!in_array($kind, ['project', 'task-list'], true)) throw new InvalidArgumentException('INVALID_PROJECT_KIND');
+    $categoryId = genesisSharedValidateProjectCategory($spaceId, $input['categoryId'] ?? null, $kind);
     $boardStatusId = genesisSharedBoardPlacement($userId, $spaceId, $parentId, $input['boardStatusId'] ?? null);
     $id = genesisUuid();
     $now = genesisNow();
@@ -525,10 +530,10 @@ function genesisSharedCreateProject(string $userId, string $spaceId, array $inpu
             throw new GenesisSharedAccessException('SHARED_SPACE_FORBIDDEN', 403);
         }
         if ($parentId !== null) genesisSharedProjectAccess((string)$parentId, $userId, 'write');
-        $db->prepare('INSERT INTO shared_projects (id, space_id, parent_id, title, description, tags_json, layout, kind, board_status_id,
-            created_by, created_at, updated_at) VALUES (:id, :space, :parent, :title, :description, :tags, :layout, :kind, :board,
+        $db->prepare('INSERT INTO shared_projects (id, space_id, parent_id, category_id, title, description, tags_json, layout, kind, board_status_id,
+            created_by, created_at, updated_at) VALUES (:id, :space, :parent, :category, :title, :description, :tags, :layout, :kind, :board,
             :user, :now, :now)')->execute([
-                'id' => $id, 'space' => $spaceId, 'parent' => $parentId, 'title' => $title,
+                'id' => $id, 'space' => $spaceId, 'parent' => $parentId, 'category' => $categoryId, 'title' => $title,
                 'description' => $description, 'tags' => json_encode($tags, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), 'layout' => $layout, 'kind' => $kind, 'board' => $boardStatusId, 'user' => $userId, 'now' => $now,
             ]);
         $db->prepare("INSERT INTO shared_project_members (project_id, user_id, role, joined_at)
@@ -551,7 +556,7 @@ function genesisSharedCreateProject(string $userId, string $spaceId, array $inpu
         $db->rollBack();
         throw $error;
     }
-    return ['id' => $id, 'spaceId' => $spaceId, 'parentId' => $parentId, 'title' => $title,
+    return ['id' => $id, 'spaceId' => $spaceId, 'parentId' => $parentId, 'categoryId' => $categoryId, 'title' => $title,
         'description' => $description, 'tags' => $tags, 'labelIds' => $labelIds, 'layout' => $layout, 'kind' => $kind, 'boardStatusId' => $boardStatusId, 'revision' => 1, 'role' => 'owner', 'updatedAt' => $now];
 }
 
@@ -825,6 +830,8 @@ function genesisSharedUpdateProject(string $userId, string $projectId, array $in
     $tags = array_key_exists('tags', $input) ? genesisSharedTags($input['tags']) : json_decode($project['tags_json'], true);
     $layout = $input['layout'] ?? $project['layout'];
     if (!in_array($layout, ['list', 'board'], true)) throw new InvalidArgumentException('INVALID_LAYOUT');
+    $categoryId = genesisSharedValidateProjectCategory($project['space_id'],
+        array_key_exists('categoryId', $input) ? $input['categoryId'] : $project['category_id'], $project['kind']);
     $parentId = array_key_exists('parentId', $input) ? $input['parentId'] : $project['parent_id'];
     if ($parentId !== null) {
         if (!is_string($parentId)) throw new InvalidArgumentException('INVALID_PARENT');
@@ -851,25 +858,25 @@ function genesisSharedUpdateProject(string $userId, string $projectId, array $in
     try {
         genesisSharedProjectAccess($projectId, $userId, 'manage');
         $changed = $db->prepare('UPDATE shared_projects SET title = :title, description = :description, tags_json = :tags,
-            layout = :layout, parent_id = :parent, board_status_id = :board, updated_at = :now, revision = revision + 1
+            layout = :layout, parent_id = :parent, category_id = :category, board_status_id = :board, updated_at = :now, revision = revision + 1
             WHERE id = :id AND revision = :expected');
         $changed->execute([
             'title' => $title, 'description' => $description, 'tags' => json_encode($tags, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), 'layout' => $layout,
-            'parent' => $parentId, 'board' => $boardStatusId, 'now' => $now, 'id' => $projectId,
+            'parent' => $parentId, 'category' => $categoryId, 'board' => $boardStatusId, 'now' => $now, 'id' => $projectId,
             'expected' => (int)$project['revision'],
         ]);
         if ($changed->rowCount() !== 1) throw new GenesisSharedAccessException('SHARED_PROJECT_CONFLICT', 409);
         $oldLabels = genesisSharedLabelIds('project', $projectId);
         $labelIds = genesisSharedAssignLabels($project['space_id'], 'project', $projectId, $input);
         genesisSharedAudit($projectId, $userId, 'project.updated', $projectId, ['changes' => genesisSharedChanges(
-            ['title' => $project['title'], 'description' => $project['description'], 'tags' => json_decode($project['tags_json'], true), 'layout' => $project['layout'], 'parentId' => $project['parent_id'], 'labelIds' => $oldLabels],
-            compact('title', 'description', 'tags', 'layout', 'parentId', 'labelIds'))]);
+            ['title' => $project['title'], 'description' => $project['description'], 'tags' => json_decode($project['tags_json'], true), 'layout' => $project['layout'], 'parentId' => $project['parent_id'], 'labelIds' => $oldLabels, 'categoryId' => $project['category_id']],
+            compact('title', 'description', 'tags', 'layout', 'parentId', 'labelIds', 'categoryId'))]);
         $db->commit();
     } catch (Throwable $error) {
         $db->rollBack();
         throw $error;
     }
-    return ['id' => $projectId, 'spaceId' => $project['space_id'], 'parentId' => $parentId,
+    return ['id' => $projectId, 'spaceId' => $project['space_id'], 'parentId' => $parentId, 'categoryId' => $categoryId,
         'title' => $title, 'description' => $description, 'tags' => $tags, 'labelIds' => $labelIds, 'layout' => $layout, 'kind' => $project['kind'], 'boardStatusId' => $boardStatusId,
         'revision' => (int)$project['revision'] + 1, 'role' => $project['member_role'],
         'updatedAt' => $now];
@@ -1064,7 +1071,7 @@ function genesisSharedProjectSnapshot(string $userId, string $projectId): array
     $attachments = genesisSharedAttachmentIndex($projectId);
     return [
         'project' => [
-            'id' => $projectId, 'spaceId' => $project['space_id'], 'parentId' => $project['parent_id'],
+            'id' => $projectId, 'spaceId' => $project['space_id'], 'parentId' => $project['parent_id'], 'categoryId' => $project['category_id'],
             'title' => $project['title'], 'description' => $project['description'], 'tags' => json_decode($project['tags_json'], true),
             'labelIds' => genesisSharedLabelIds('project', $projectId),
             'layout' => $project['layout'], 'kind' => $project['kind'], 'boardStatusId' => $project['board_status_id'], 'isInbox' => (int)$project['is_inbox'],

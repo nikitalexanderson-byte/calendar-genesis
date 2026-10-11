@@ -1408,11 +1408,12 @@ export async function updateAccountPreferences(preferences: Partial<{
 }
 
 export type SharedPermissions = Record<"createProjects" | "editTasks" | "organizeTasks" | "comment" | "manageProjects" | "inviteMembers", boolean>;
-export type SharedSpace = { coverUrl?:string|null;coverPosition?:{x:number;y:number}; id: string; title: string; description?: string; revision?: number; permissions?: SharedPermissions; role: "owner" | "admin" | "member" | "guest"; updatedAt: string };
+export type SharedSpace = { ownerName?: string; memberCount?: number; coverUrl?:string|null;coverPosition?:{x:number;y:number}; id: string; title: string; description?: string; revision?: number; permissions?: SharedPermissions; role: "owner" | "admin" | "member" | "guest"; updatedAt: string };
 export type SharedSpaceInvitationInput = { email: string; role: "admin" | "member" | "guest"; permissions: SharedPermissions };
 export type SharedSpaceSettings = { space: SharedSpace; members: { userId: string; displayName: string; email: string; role: SharedSpace["role"]; permissions: SharedPermissions }[];
   invitations: (SharedSpaceInvitationInput & { id: string; expiresAt: string })[] };
 export type SharedProject = { id: string; spaceId: string; parentId: string | null; title: string;
+  categoryId?: string | null;
   labelIds?: string[];
   description: string; tags?: string[]; kind?: "project" | "task-list"; boardStatusId?: string | null; layout: "list" | "board"; isInbox?: number; taskCount?: number; boardCount?: number;
   revision: number; role: string; spaceRole?: string; canOrganizeTasks?: boolean; canCreateBoards?: boolean; permissions?: SharedPermissions; updatedAt: string };
@@ -1634,7 +1635,7 @@ export function searchSharedAffairs(spaceId: string, query: string, signal?: Abo
   return api<SharedAffairSearch>(`/shared/spaces/${encodeURIComponent(spaceId)}/search?q=${encodeURIComponent(query)}`, { signal });
 }
 export async function createSharedProject(spaceId: string, input: { title: string; description: string;
-  layout: "list" | "board"; tags?: string[]; labelIds?: string[]; kind?: "project" | "task-list"; boardStatusId?: string | null; parentId?: string | null }) {
+  layout: "list" | "board"; tags?: string[]; labelIds?: string[]; categoryId?: string | null; kind?: "project" | "task-list"; boardStatusId?: string | null; parentId?: string | null }) {
   return (await api<{ project: SharedProject }>(`/shared/spaces/${encodeURIComponent(spaceId)}/projects`, {
     method: "POST", body: JSON.stringify(input),
   })).project;
@@ -1677,7 +1678,7 @@ export async function syncSharedGoogle(projectId: string) {
     { method: "POST", body: "{}" });
 }
 export async function updateSharedProject(projectId: string, input: {
-  title: string; description: string; tags?: string[]; labelIds?: string[]; layout: "list" | "board"; parentId: string | null; boardStatusId?: string | null; expectedRevision: number;
+  title: string; description: string; tags?: string[]; labelIds?: string[]; categoryId?: string | null; layout: "list" | "board"; parentId: string | null; boardStatusId?: string | null; expectedRevision: number;
 }) {
   return (await api<{ project: SharedProject }>(`/shared/projects/${encodeURIComponent(projectId)}`, {
     method: "PATCH", body: JSON.stringify(input),
@@ -1713,6 +1714,19 @@ export async function createSharedCategory(projectId: string, title: string, col
   return (await api<{ category: SharedCategory }>(`/shared/projects/${encodeURIComponent(projectId)}/categories`, {
     method: "POST", body: JSON.stringify({ title, color }),
   })).category;
+}
+export async function listSharedProjectCategories(spaceId: string) {
+  return (await sharedCachedRequest<{ categories: SharedCategory[] }>(`/shared/spaces/${encodeURIComponent(spaceId)}/project-categories`)).categories;
+}
+export async function saveSharedProjectCategory(spaceId: string, input: { title: string; color: string; expectedRevision?: number }, id?: string) {
+  return (await api<{ category: SharedCategory }>(`/shared/spaces/${encodeURIComponent(spaceId)}/project-categories${id ? `/${encodeURIComponent(id)}` : ""}`, {
+    method: id ? "PATCH" : "POST", body: JSON.stringify(input),
+  })).category;
+}
+export async function deleteSharedProjectCategory(spaceId: string, id: string, expectedRevision: number) {
+  return api<{ ok: true }>(`/shared/spaces/${encodeURIComponent(spaceId)}/project-categories/${encodeURIComponent(id)}`, {
+    method: "DELETE", body: JSON.stringify({ expectedRevision }),
+  });
 }
 export async function updateSharedCategory(projectId: string, categoryId: string,
   title: string, color: string, expectedRevision: number) {

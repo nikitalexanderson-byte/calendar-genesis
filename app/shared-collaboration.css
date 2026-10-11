@@ -8,7 +8,7 @@ html[data-genesis-theme] .genesis-app :is(.shared-label-picker, .shared-dependen
 html[data-genesis-theme] .genesis-app .shared-label-manager-list { display: grid; gap: 10px; }
 html[data-genesis-theme] .genesis-app .shared-label-manager-list > div { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
 html[data-genesis-theme] .genesis-app .shared-label-manager-list .shared-label-badges { flex: 1 1 160px; }
-html[data-genesis-theme] .genesis-app .shared-task-card-title { display: grid; grid-template-columns: 28px minmax(0, 1fr); align-items: start; gap: 8px; }
+html[data-genesis-theme] .genesis-app .shared-task-card-title { display: grid; align-items: start; gap: 8px; min-width: 0; }
 html[data-genesis-theme] .genesis-app input.shared-task-complete { width: 24px; height: 24px; min-height: 24px; margin: 10px 0 0; padding: 0; accent-color: var(--ink); cursor: pointer; }
 html[data-genesis-theme] .genesis-app .shared-task-card-title:has(input:checked) strong { text-decoration: line-through; }
 html[data-genesis-theme] .genesis-app .shared-task-date-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }

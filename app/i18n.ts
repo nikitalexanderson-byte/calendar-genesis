@@ -195,6 +195,7 @@ const curatedTranslations: Record<string, string> = {
   "Списки задач": "Task lists",
   "Личные проекты": "Personal projects",
   "Общие проекты": "Shared projects",
+  "Общие дела": "Shared affairs",
   "Год": "Year",
   "Сон и настроение": "Sleep and mood",
   "Ритм дня": "Daily rhythm",
