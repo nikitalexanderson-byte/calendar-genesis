@@ -3,6 +3,9 @@ AddDefaultCharset UTF-8
 AddType application/vnd.android.package-archive .apk
 
 RewriteEngine On
+# Keep the session cookie and Google callback on the same canonical origin.
+RewriteCond %{HTTP_HOST} ^www\.genesiscalendar\.com$ [NC]
+RewriteRule ^ https://genesiscalendar.com%{REQUEST_URI} [R=302,L,NE]
 # Merge this redirect only after Google branding and Android sign-in/sync are confirmed.
 # Keep the old API, update downloads and existing static files for installed clients.
 RewriteCond %{HTTP_HOST} ^(?:www\.)?genesiscalendar\.ru$ [NC]
