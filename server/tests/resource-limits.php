@@ -53,6 +53,30 @@ try {
     $after = genesisSharedProjectSnapshot($owner['id'], $private['id'])['tasks'][0];
     sharedExpect($after['title'] === $current['title'] && $after['revision'] === $current['revision'], 'Attachment quota did not roll back the task edit.');
     sharedExpect(genesisSharedTaskAttachments($task['id']) === [], 'Rejected attachment was persisted.');
+    // Two independent writers compete for the final slot, using the real task transaction.
+    $workers = [];
+    $workerCode = 'require "server/src/bootstrap.php"; require "server/src/repository.php";
+        require "server/src/google.php"; require "server/src/shared-projects.php";
+        try { genesisSharedTask(' . var_export($owner['id'], true) . ',' . var_export($source['id'], true) . ',
+        ["title"=>"Concurrent synthetic task","statusId"=>' . var_export($sourceStatus, true) . ']); exit(0); }
+        catch (PDOException $e) { exit(str_contains($e->getMessage(), "GENESIS_QUOTA_EXCEEDED") ? 42 : 43); }';
+    $command = [PHP_BINARY];
+    if (($ini = php_ini_loaded_file()) !== false) array_push($command, '-c', $ini);
+    array_push($command, '-r', $workerCode);
+    for ($index = 0; $index < 2; $index++) {
+        $process = proc_open($command, [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, dirname(__DIR__, 2));
+        sharedExpect(is_resource($process), 'Cannot start quota race worker.');
+        fclose($pipes[0]); $workers[] = [$process, $pipes];
+    }
+    $exits = [];
+    foreach ($workers as [$process, $pipes]) {
+        stream_get_contents($pipes[1]); stream_get_contents($pipes[2]);
+        fclose($pipes[1]); fclose($pipes[2]); $exits[] = proc_close($process);
+    }
+    sort($exits);
+    sharedExpect($exits === [0, 42], 'Concurrent quota did not allow exactly one writer.');
+    sharedExpect(count(genesisSharedProjectSnapshot($owner['id'], $source['id'])['tasks']) === 1,
+        'Concurrent writers exceeded the last task slot.');
 } finally {
     foreach ($limits as $name => $amount) $setLimit($name, (int)$amount);
     $db->prepare('DELETE FROM api_rate_budgets WHERE subject = :subject')->execute(['subject' => hash('sha256', $subject)]);

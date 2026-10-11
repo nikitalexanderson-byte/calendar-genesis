@@ -1,0 +1,8 @@
+{
+  "Запрос превышает допустимый размер. Уменьшите объём данных или вложений.": "La requête est trop volumineuse. Réduisez les données ou les pièces jointes.",
+  "Слишком много запросов. Повторите позже.": "Trop de requêtes. Réessayez plus tard.",
+  "Достигнут лимит данных. Экспортируйте и удалите ненужные данные или обратитесь в поддержку.": "La limite de données est atteinte. Exportez et supprimez les données inutiles ou contactez le support.",
+  "Локальный выход выполнен. Серверный выход не подтверждён. Повторите вход и выход при доступной сети.": "La déconnexion locale est effectuée. La déconnexion du serveur reste non confirmée. Reconnectez-vous puis déconnectez-vous lorsque le réseau est disponible.",
+  "Очистка браузера не подтверждена. Закройте вкладки GENESIS и удалите данные сайта в настройках браузера перед передачей устройства.": "Le nettoyage du navigateur reste non confirmé. Fermez les onglets GENESIS et effacez les données du site dans les paramètres du navigateur avant de céder cet appareil.",
+  "Выход удалит данные аккаунтов и ключи из браузера, включая несинхронизированные изменения. Данные в облаке сохранятся. Сохраните черновики и код восстановления перед выходом. Выйти?": "La déconnexion supprime les données des comptes et les clés de ce navigateur, y compris les modifications non synchronisées. Les données cloud restent conservées. Enregistrez les brouillons et votre code de récupération avant de continuer. Se déconnecter ?"
+}

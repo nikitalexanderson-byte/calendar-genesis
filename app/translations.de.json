@@ -2737,11 +2737,5 @@
   "Перетащите плашку для переноса": "Karte zum Verschieben ziehen",
   "Удерживайте плашку для переноса": "Karte zum Verschieben gedrückt halten",
   "Перетащите плашку задачи или списка в проект либо в хаос-бокс.": "Ziehe eine Aufgaben- oder Listenkarte in ein Projekt oder die Chaos-Box.",
-  "Для переноса удерживайте задачу или список, затем перетащите. Для прокрутки проведите пальцем без удержания.": "Zum Verschieben eine Aufgabe oder Liste gedrückt halten und ziehen. Zum Scrollen ohne Halten wischen.",
-  "Запрос превышает допустимый размер. Уменьшите объём данных или вложений.": "Die Anfrage ist zu groß. Verringern Sie die Daten- oder Anhangsgröße.",
-  "Слишком много запросов. Повторите позже.": "Zu viele Anfragen. Versuchen Sie es später erneut.",
-  "Достигнут лимит данных. Экспортируйте и удалите ненужные данные или обратитесь в поддержку.": "Das Datenlimit wurde erreicht. Exportieren und löschen Sie nicht benötigte Daten oder kontaktieren Sie den Support.",
-  "Локальный выход выполнен. Серверный выход не подтверждён. Повторите вход и выход при доступной сети.": "Sie sind lokal abgemeldet. Die Abmeldung am Server ist unbestätigt. Melden Sie sich bei verfügbarer Verbindung erneut an und ab.",
-  "Очистка браузера не подтверждена. Закройте вкладки GENESIS и удалите данные сайта в настройках браузера перед передачей устройства.": "Die Browserbereinigung ist unbestätigt. Schließen Sie GENESIS-Tabs und löschen Sie die Website-Daten in den Browsereinstellungen, bevor Sie das Gerät weitergeben.",
-  "Выход удалит данные аккаунтов и ключи из браузера, включая несинхронизированные изменения. Данные в облаке сохранятся. Сохраните черновики и код восстановления перед выходом. Выйти?": "Die Abmeldung entfernt Kontodaten und Schlüssel aus diesem Browser, einschließlich nicht synchronisierter Änderungen. Cloud-Daten bleiben erhalten. Sichern Sie zuerst Entwürfe und Ihren Wiederherstellungscode. Abmelden?"
+  "Для переноса удерживайте задачу или список, затем перетащите. Для прокрутки проведите пальцем без удержания.": "Zum Verschieben eine Aufgabe oder Liste gedrückt halten und ziehen. Zum Scrollen ohne Halten wischen."
 }

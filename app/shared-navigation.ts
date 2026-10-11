@@ -1,3 +1,5 @@
+import { privateDeviceAccessBlocked } from "./local-sign-out.ts";
+
 export type SharedPlace = { spaceId: string; projectId: string; taskId: string; view: "list" | "board" | "calendar" | "gantt" | null };
 export const emptySharedPlace: SharedPlace = { spaceId: "", projectId: "", taskId: "", view: null };
 const validId = (value: unknown): string => typeof value === "string" && /^[a-zA-Z0-9_-]{1,100}$/.test(value) ? value : "";
@@ -28,9 +30,11 @@ export function initialSharedPlace(userId: string): SharedPlace {
   return typeof window === "undefined" ? { ...emptySharedPlace } : sharedPlaceFromUrl(new URL(window.location.href)) ?? savedSharedPlace(userId);
 }
 export function saveSharedPlace(userId: string, place: SharedPlace) {
+  if (privateDeviceAccessBlocked()) return;
   try { localStorage.setItem(`genesis-shared-place-v1:${userId}`, JSON.stringify(place)); } catch { /* URL history remains available. */ }
 }
 export function recordSharedPlace(userId: string, place: SharedPlace, replace = false) {
+  if (privateDeviceAccessBlocked()) return;
   saveSharedPlace(userId, place);
   const url = sharedPlaceUrl(new URL(window.location.href), place);
   if (url.href === window.location.href) return;
@@ -40,5 +44,6 @@ export function storedAffairsArea(userId: string): "personal" | "shared" {
   try { return localStorage.getItem(`genesis-affairs-area-v1:${userId}`) === "shared" ? "shared" : "personal"; } catch { return "personal"; }
 }
 export function saveAffairsArea(userId: string, area: "personal" | "shared") {
+  if (privateDeviceAccessBlocked()) return;
   try { localStorage.setItem(`genesis-affairs-area-v1:${userId}`, area); } catch { /* The route also records the selection. */ }
 }

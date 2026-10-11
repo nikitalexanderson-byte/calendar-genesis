@@ -91,6 +91,12 @@ try {
         'Source notification disclosed a private destination title.');
     sharedExpect((bool)array_filter($notifications, static fn($event) => $event['taskTitle'] === 'Previously visible title'),
         'Allowed historical title was not preserved.');
+    foreach ([genesisSharedInbox($reader['id']), genesisSharedActivity($reader['id'], $source['id'], null, null),
+        genesisSharedProjectSnapshot($reader['id'], $source['id'])] as $visible) {
+        sharedExpect(!str_contains(json_encode($visible, JSON_THROW_ON_ERROR), 'PRIVATE_NEW_SYNTHETIC_TITLE'),
+            'Related source feed or project payload disclosed a private destination title.');
+    }
+    sharedReject(static fn() => genesisSharedActivity($reader['id'], $private['id'], null, null), 404);
     require __DIR__ . '/resource-limits.php';
 } finally {
     $_SESSION = $savedSecuritySession;

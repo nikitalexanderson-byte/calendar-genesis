@@ -152,7 +152,7 @@ function genesisSharedCreateSpace(string $userId, array $input): array
     $id = genesisUuid();
     $now = genesisNow();
     $db = genesisDb();
-    $db->beginTransaction();
+    genesisBeginWriteTransaction($db);
     try {
         $db->prepare('INSERT INTO shared_spaces (id, title, description, cover_image, cover_x, cover_y, created_by, created_at, updated_at)
             VALUES (:id, :title, :description, :image, :x, :y, :user, :now, :now)')->execute(compact('id', 'title', 'description') + $cover + ['user' => $userId, 'now' => $now]);
@@ -236,7 +236,7 @@ function genesisSharedSetArchived(string $userId, string $projectId, bool $archi
     if ($archived && $project['archived_at'] !== null) return;
     if (!$archived && $project['archived_at'] === null) return;
     $db = genesisDb();
-    $db->beginTransaction();
+    genesisBeginWriteTransaction($db);
     try {
         genesisSharedProjectAccess($projectId, $userId, 'owner', true);
         if ($archived) {
@@ -270,7 +270,7 @@ function genesisSharedCreateStatus(string $userId, string $projectId, array $inp
     $isDone = $input['isDone'] ?? false;
     if (!is_bool($isDone)) throw new InvalidArgumentException('INVALID_STATUS_KIND');
     $db = genesisDb();
-    $db->beginTransaction();
+    genesisBeginWriteTransaction($db);
     try {
         $project = genesisSharedProjectAccess($projectId, $userId);
         genesisSharedProjectAccess($projectId, $userId, $project['space_permissions_json'] === null ? 'write' : 'manage');
@@ -309,7 +309,7 @@ function genesisSharedUpdateStatus(string $userId, string $projectId, string $st
     $title = genesisSharedTitle($input['title'] ?? null, 80);
     $expected = filter_var($input['expectedRevision'] ?? null, FILTER_VALIDATE_INT);
     if ($expected === false || $expected < 1) throw new InvalidArgumentException('EXPECTED_REVISION_REQUIRED');
-    $db = genesisDb(); $db->beginTransaction();
+    $db = genesisDb(); genesisBeginWriteTransaction($db);
     try {
         genesisSharedProjectAccess($projectId, $userId, 'manage');
         $query = $db->prepare('SELECT * FROM shared_project_statuses WHERE id = :id AND project_id = :project');
@@ -355,7 +355,7 @@ function genesisSharedDeleteStatus(string $userId, string $projectId, string $st
         throw new InvalidArgumentException('INVALID_STATUS_DESTINATION');
     }
     $db = genesisDb();
-    $db->beginTransaction();
+    genesisBeginWriteTransaction($db);
     try {
         genesisSharedProjectAccess($projectId, $userId, 'manage');
         $query = $db->prepare('SELECT id, title, is_done, revision FROM shared_project_statuses
@@ -421,7 +421,7 @@ function genesisSharedCreateCategory(string $userId, string $projectId, array $i
     $title = genesisSharedTitle($input['title'] ?? null, 80);
     $color = genesisSharedCategoryColor($input['color'] ?? '#2d6c68');
     $db = genesisDb();
-    $db->beginTransaction();
+    genesisBeginWriteTransaction($db);
     try {
         genesisSharedProjectAccess($projectId, $userId, 'manage');
         $query = $db->prepare('SELECT COUNT(*) AS count, COALESCE(MAX(position), -1) AS lastPosition
@@ -454,7 +454,7 @@ function genesisSharedUpdateCategory(string $userId, string $projectId, string $
     $expected = filter_var($input['expectedRevision'] ?? null, FILTER_VALIDATE_INT);
     if ($expected === false || $expected < 1) throw new InvalidArgumentException('EXPECTED_REVISION_REQUIRED');
     $db = genesisDb();
-    $db->beginTransaction();
+    genesisBeginWriteTransaction($db);
     try {
         genesisSharedProjectAccess($projectId, $userId, 'manage');
         $changed = $db->prepare('UPDATE shared_project_categories SET title = :title, color = :color,
@@ -478,7 +478,7 @@ function genesisSharedDeleteCategory(string $userId, string $projectId, string $
     $expected = filter_var($input['expectedRevision'] ?? null, FILTER_VALIDATE_INT);
     if ($expected === false || $expected < 1) throw new InvalidArgumentException('EXPECTED_REVISION_REQUIRED');
     $db = genesisDb();
-    $db->beginTransaction();
+    genesisBeginWriteTransaction($db);
     try {
         genesisSharedProjectAccess($projectId, $userId, 'manage');
         $db->prepare('UPDATE shared_tasks SET category_id = NULL, revision = revision + 1,
@@ -523,7 +523,7 @@ function genesisSharedCreateProject(string $userId, string $spaceId, array $inpu
     $id = genesisUuid();
     $now = genesisNow();
     $db = genesisDb();
-    $db->beginTransaction();
+    genesisBeginWriteTransaction($db);
     try {
         $space = genesisSharedSpaceAccess($spaceId, $userId);
         if (!genesisSharedSpacePermission($space, 'createProjects')) {
@@ -640,7 +640,7 @@ function genesisSharedImportProjectTree(string $userId, string $spaceId, array $
     $payloadHash = hash('sha256', json_encode([$spaceId, $mode, $targetParent, $targetBoard, $normalizedProjects, $normalizedCategories, $normalizedTasks],
         JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
     $db = genesisDb();
-    $db->beginTransaction();
+    genesisBeginWriteTransaction($db);
     try {
         $space = genesisSharedSpaceAccess($spaceId, $userId);
         if (!genesisSharedSpacePermission($space, 'createProjects')) {
@@ -854,7 +854,7 @@ function genesisSharedUpdateProject(string $userId, string $projectId, array $in
             : ($parentId === $project['parent_id'] ? $project['board_status_id'] : null));
     $now = genesisNow();
     $db = genesisDb();
-    $db->beginTransaction();
+    genesisBeginWriteTransaction($db);
     try {
         genesisSharedProjectAccess($projectId, $userId, 'manage');
         $changed = $db->prepare('UPDATE shared_projects SET title = :title, description = :description, tags_json = :tags,
@@ -892,7 +892,7 @@ function genesisSharedSetMemberRole(string $userId, string $projectId, string $t
         throw new InvalidArgumentException('INVALID_ROLE');
     }
     $db = genesisDb();
-    $db->beginTransaction();
+    genesisBeginWriteTransaction($db);
     try {
         genesisSharedProjectAccess($projectId, $userId, 'owner');
         $query = $db->prepare('SELECT role FROM shared_project_members WHERE project_id = :project AND user_id = :user');
@@ -923,7 +923,7 @@ function genesisSharedSetSpaceRole(string $userId, string $spaceId, string $targ
     $role = (string)($input['role'] ?? '');
     if (!in_array($role, ['owner', 'admin', 'member', 'guest'], true)) throw new InvalidArgumentException('INVALID_ROLE');
     $db = genesisDb();
-    $db->beginTransaction();
+    genesisBeginWriteTransaction($db);
     try {
         $space = genesisSharedSpaceAccess($spaceId, $userId);
         if ($space['member_role'] !== 'owner') throw new GenesisSharedAccessException('SHARED_SPACE_FORBIDDEN', 403);
@@ -994,7 +994,7 @@ function genesisSharedRemoveMember(string $userId, string $projectId, string $ta
     $project = genesisSharedProjectAccess($projectId, $userId, $userId === $targetId ? 'read' : 'owner');
     if ((int)$project['is_inbox'] === 1) throw new GenesisSharedAccessException('INBOX_MEMBERSHIP_MANAGED_BY_SPACE', 403);
     $db = genesisDb();
-    $db->beginTransaction();
+    genesisBeginWriteTransaction($db);
     try {
         genesisSharedProjectAccess($projectId, $userId, $userId === $targetId ? 'read' : 'owner');
         $query = $db->prepare('SELECT role FROM shared_project_members WHERE project_id = :project AND user_id = :user');
@@ -1160,7 +1160,7 @@ function genesisSharedInvite(string $userId, string $projectId, array $input): a
     $now = genesisNow();
     $expires = gmdate('Y-m-d\TH:i:s\Z', time() + 7 * 86400);
     $db = genesisDb();
-    $db->beginTransaction();
+    genesisBeginWriteTransaction($db);
     try {
         genesisSharedRequireInvitationGrant($userId, $projectId, $role);
         $db->prepare('UPDATE shared_invitations SET revoked_at = :now
@@ -1270,7 +1270,7 @@ function genesisSharedAcceptInvite(string $userId, array $input): array
     $id = (string)($input['id'] ?? '');
     if (!preg_match('/\A[a-f0-9-]{36}\z/', $id)) throw new InvalidArgumentException('INVALID_INVITATION');
     $db = genesisDb();
-    $db->beginTransaction();
+    genesisBeginWriteTransaction($db);
     try {
         $query = $db->prepare('SELECT i.*, p.space_id FROM shared_invitations i
             JOIN shared_projects p ON p.id = i.project_id
@@ -1331,7 +1331,7 @@ function genesisSharedMoveTask(string $userId, string $sourceProjectId, string $
         throw new InvalidArgumentException('INVALID_TASK_MOVE');
     }
     $db = genesisDb();
-    $db->beginTransaction();
+    genesisBeginWriteTransaction($db);
     try {
         $source = genesisSharedProjectAccess($sourceProjectId, $userId, 'organize');
         $destination = genesisSharedProjectAccess($destinationId, $userId, 'organize');
@@ -1466,7 +1466,7 @@ function genesisSharedDeleteTask(string $userId, string $projectId, string $task
     $expected = $input['expectedRevision'] ?? null;
     if (!is_int($expected) || $expected < 1) throw new InvalidArgumentException('INVALID_TASK_REVISION');
     $db = genesisDb();
-    $db->beginTransaction();
+    genesisBeginWriteTransaction($db);
     try {
         genesisSharedProjectAccess($projectId, $userId, 'organize');
         $receipt = genesisSharedMutationReceipt($db, $userId, $requestId, 'task.delete', $taskId);
@@ -1500,7 +1500,7 @@ function genesisSharedTask(string $userId, string $projectId, array $input, ?str
     $action = $taskId === null ? 'task.create' : 'task.update';
     $resourceId = $taskId ?? $projectId;
     $db = genesisDb();
-    $db->beginTransaction();
+    genesisBeginWriteTransaction($db);
     try {
         $project = genesisSharedProjectAccess($projectId, $userId, 'write');
         $receipt = genesisSharedMutationReceipt($db, $userId, $requestId, $action, $resourceId);
@@ -1675,7 +1675,7 @@ function genesisSharedAddComment(string $userId, string $projectId, string $task
     if (!is_array($mentions) || !array_is_list($mentions) || count($mentions) > 20 || array_filter($mentions, static fn($id) => !is_string($id) || strlen($id) > 100)) throw new InvalidArgumentException('INVALID_MENTIONS');
     $mentions = array_values(array_unique($mentions));
     $db = genesisDb();
-    $db->beginTransaction();
+    genesisBeginWriteTransaction($db);
     try {
         genesisSharedProjectAccess($projectId, $userId, 'comment');
         $query = $db->prepare('SELECT 1 FROM shared_tasks WHERE id = :task AND project_id = :project');

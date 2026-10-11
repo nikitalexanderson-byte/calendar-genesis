@@ -415,6 +415,7 @@ if (typeof window !== "undefined") {
   window.addEventListener("storage", (event) => {
     if (event.key !== LOCAL_SIGN_OUT_KEY || !event.newValue) return;
     endLocalSession();
+    try { clearPrivateDeviceStorage(sessionStorage); } catch { /* Private access stays blocked. */ }
     // Discard closures, decrypted data and pending effects in the old tab.
     window.location.reload();
   });
@@ -1394,6 +1395,7 @@ export async function signOutFromGoogle() {
     signal: logoutController.signal,
   }).then((response) => response.ok).catch(() => false).finally(() => globalThis.clearTimeout(logoutTimeout));
   try { clearPrivateDeviceStorage(localStorage); } catch { localCleared = false; }
+  try { clearPrivateDeviceStorage(sessionStorage); } catch { localCleared = false; }
   activeAuthProvider = "google";
   try { await clearAllTrackerAnalyticsCaches(); } catch { localCleared = false; }
   if ("serviceWorker" in navigator) {

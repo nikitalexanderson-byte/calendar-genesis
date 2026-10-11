@@ -9,6 +9,14 @@ final class GenesisResourceLimitException extends RuntimeException
     }
 }
 
+/** Acquire the SQLite writer before reading ACLs/counts, avoiding deferred-lock upgrade races. */
+function genesisBeginWriteTransaction(PDO $db): void
+{
+    $db->beginTransaction();
+    try { $db->exec("UPDATE resource_quota_limits SET amount=amount WHERE name='tasks_per_user'"); }
+    catch (Throwable $error) { $db->rollBack(); throw $error; }
+}
+
 function genesisJsonBodyLimit(string $path): int
 {
     // Include base64 overhead and metadata; decoded files retain their existing limits.

@@ -6,8 +6,10 @@ const PRIVATE_PREFIXES = [
   "genesis-workspace-device-id-v1:", "genesis-workspace-sync-state-v1:",
   "genesis-pending-mutations-v2", "genesis-shared-offline-v1:",
   "genesis-moon-reminders-v1:", "genesis-moon-reminders-sent-v1:",
+  "genesis-stoicheion-draws-v2:", "genesis-shared-place-v1:", "genesis-affairs-area-v1:",
+  "genesis-hidden-invitations:", "genesis-comment-notices:", "genesis-project-import:", "genesis-today-ad:",
 ];
-const PRIVATE_KEYS = ["genesis-last-user-v2", "genesis-calendar-v1", "genesis-habit-notification-metrics-v1", "genesis-habit-notifications-delivered-v1"];
+const PRIVATE_KEYS = ["genesis-last-user-v2", "genesis-calendar-v1", "genesis-habit-notification-metrics-v1", "genesis-habit-notifications-delivered-v1", "genesis-solar-place-v1"];
 
 export function markLocalSignOut(storage: Storage) {
   const loginId = storage.getItem(LOGIN_ID_KEY) || "";
