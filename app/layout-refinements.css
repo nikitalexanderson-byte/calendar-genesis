@@ -641,7 +641,7 @@ html[data-genesis-theme] .genesis-app .shared-team-member-controls > label.share
 html[data-genesis-theme] .genesis-app .shared-team-member-controls > label > select { height: 44px; min-height: 44px; margin: 0; }
 html[data-genesis-theme] .genesis-app .shared-team-member-controls > label.shared-projects-organizer-toggle > input[type="checkbox"] { flex: 0 0 22px; width: 22px; height: 22px; min-height: 22px; margin: 0; padding: 0; }
 html[data-genesis-theme] .genesis-app :is(.shared-activity, .shared-projects-google, .shared-gantt-completed) { min-width: 0; margin: 0; padding: 16px; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); background: var(--surface); font: 400 14px/1.6 var(--font-ui); }
-html[data-genesis-theme] .genesis-app :is(.shared-activity, .shared-projects-google, .shared-gantt-completed) > summary { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0; cursor: pointer; list-style: none; font: 600 15px/1.5 var(--font-ui); }
+html[data-genesis-theme] .genesis-app .shared-projects :is(.shared-activity, .shared-projects-google, .shared-gantt-completed) > summary { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0; cursor: pointer; list-style: none; font: 600 15px/1.5 var(--font-ui); font-size:15px; font-weight:600; }
 html[data-genesis-theme] .genesis-app :is(.shared-activity, .shared-projects-google, .shared-gantt-completed) > summary::marker { content: ""; }
 html[data-genesis-theme] .genesis-app :is(.shared-activity, .shared-projects-google, .shared-gantt-completed) > summary::-webkit-details-marker { display: none; }
 html[data-genesis-theme] .genesis-app :is(.shared-activity, .shared-projects-google, .shared-gantt-completed) > summary > svg { flex: 0 0 18px; transition: transform 150ms ease-out; }
@@ -655,13 +655,17 @@ html[data-genesis-theme] .genesis-app :is(.shared-workspace-toolbar button, .sha
 html[data-genesis-theme] .genesis-app .shared-board-create-task { --shared-create-color: #2d8682; }
 html[data-genesis-theme] .genesis-app .shared-board-create-task-list { --shared-create-color: #8573ab; }
 html[data-genesis-theme] .genesis-app .shared-board-create-project { --shared-create-color: #b2914a; }
-html[data-genesis-theme] .genesis-app .shared-board-create-actions { display: flex; justify-content: flex-end; gap: 6px; max-width: none; }
-html[data-genesis-theme] .genesis-app .shared-board-create-actions > button { position: relative; display: grid; place-items: center; flex: 0 0 32px; width: 32px; height: 32px; min-width: 32px; min-height: 32px; padding: 6px; border-radius: 8px; }
+html[data-genesis-theme] .genesis-app .shared-board-create-meeting { --shared-create-color:#4f85ae; }
+html[data-genesis-theme] .genesis-app .shared-board-create-event { --shared-create-color:#b16c7b; }
+html[data-genesis-theme] .genesis-app .shared-board-create-actions { display:flex; justify-content:space-between; gap:16px; max-width:none; }
+html[data-genesis-theme] .genesis-app :is(.shared-board-create-events,.shared-board-create-work) { display:flex; align-items:center; gap:6px; }
+html[data-genesis-theme] .genesis-app .shared-board-create-actions button { position:relative; display:grid; place-items:center; flex:0 0 32px; width:32px; height:32px; min-width:32px; min-height:32px; padding:6px; border-radius:8px; border:1px solid color-mix(in srgb,var(--shared-create-color) 45%,var(--line)); background:color-mix(in srgb,var(--shared-create-color) 10%,var(--surface)); color:color-mix(in srgb,var(--shared-create-color) 80%,var(--ink)); }
 html[data-genesis-theme] .genesis-app .shared-board-create-actions .experimental-icon { width: 16px; height: 16px; }
 html[data-genesis-theme] .genesis-app .shared-create-tooltip { position: absolute; bottom: calc(100% + 8px); right: 0; z-index: 10; visibility: hidden; width: max-content; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font: 500 12px/1.5 var(--font-ui); white-space: nowrap; pointer-events: none; }
-html[data-genesis-theme] .genesis-app .shared-board-create-actions > button:is(:hover, :focus-visible) > .shared-create-tooltip { visibility: visible; }
-html[data-genesis-theme] .genesis-app .shared-board-create-actions > button:hover:not(:disabled) { background: color-mix(in srgb, var(--shared-create-color) 40%, var(--surface)); border-color: color-mix(in srgb, var(--shared-create-color) 75%, var(--ink)); }
-html[data-genesis-theme] .genesis-app .shared-board-create-actions > button:focus-visible { outline-color: var(--shared-create-color); }
+html[data-genesis-theme] .genesis-app .shared-board-create-actions button:is(:hover, :focus-visible) > .shared-create-tooltip { visibility: visible; }
+html[data-genesis-theme] .genesis-app .shared-board-create-events .shared-create-tooltip { left:0; right:auto; }
+html[data-genesis-theme] .genesis-app .shared-board-create-actions button:hover:not(:disabled) { background: color-mix(in srgb, var(--shared-create-color) 25%, var(--surface)); border-color: color-mix(in srgb, var(--shared-create-color) 75%, var(--ink)); }
+html[data-genesis-theme] .genesis-app .shared-board-create-actions button:focus-visible { outline-color: var(--shared-create-color); }
 html[data-genesis-theme] .genesis-app .shared-project-categories { min-width: 0; margin-block: 20px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); overflow: hidden; }
 html[data-genesis-theme] .genesis-app .shared-categories-header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 16px; list-style: none; cursor: pointer; }
 html[data-genesis-theme] .genesis-app .shared-categories-header::marker { content: ""; }
@@ -669,9 +673,17 @@ html[data-genesis-theme] .genesis-app .shared-categories-header::-webkit-details
 html[data-genesis-theme] .genesis-app .shared-categories-header > svg { flex: 0 0 18px; transition: transform 150ms ease-out; }
 html[data-genesis-theme] .genesis-app .shared-project-categories[open] > .shared-categories-header { border-bottom: 1px solid var(--line); }
 html[data-genesis-theme] .genesis-app .shared-project-categories[open] > .shared-categories-header > svg { transform: rotate(90deg); }
-html[data-genesis-theme] .genesis-app .shared-categories-header > h3 { flex: 1; }
+html[data-genesis-theme] .genesis-app .shared-categories-header > h3 { flex: 1; margin:0; font:600 15px/1.5 var(--font-ui); }
+html[data-genesis-theme] .genesis-app .shared-categories-header { min-height:76px; gap:10px; }
+html[data-genesis-theme] .genesis-app .shared-projects-google[open] > summary { margin-bottom:16px; }
+html[data-genesis-theme] .genesis-app .shared-projects-google > p { max-width:75ch; margin:0 0 8px; color:var(--ink-soft); font:400 14px/1.6 var(--font-ui); }
+html[data-genesis-theme] .genesis-app .shared-projects-google-options { display:grid; gap:12px; margin-top:20px; }
+html[data-genesis-theme] .genesis-app .shared-projects-google-options > label { display:flex; align-items:center; gap:12px; min-height:48px; margin:0; padding:12px 16px; border:1px solid var(--line); border-radius:var(--ui-radius); font:500 14px/1.5 var(--font-ui); cursor:pointer; }
+html[data-genesis-theme] .genesis-app .shared-projects .shared-projects-google-options > label > input[type="checkbox"] { flex:0 0 22px; width:22px; height:22px; min-width:22px; max-width:22px; min-height:22px; margin:0; padding:0; accent-color:var(--ui-accent); }
+html[data-genesis-theme] .genesis-app .shared-projects-google-options > small { color:var(--ink-soft); font:400 12px/1.6 var(--font-ui); }
+html[data-genesis-theme] .genesis-app .shared-projects-google-options > button { justify-self:start; min-height:44px; padding:10px 16px; }
 html[data-genesis-theme] .genesis-app .shared-categories-header:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: -4px; }
-html[data-genesis-theme] .genesis-app .shared-categories-header > h3 { margin: 0; color: var(--ink); font: 600 16px/1.4 var(--font-ui); font-family: var(--font-ui) !important; letter-spacing: 0; }
+html[data-genesis-theme] .genesis-app .shared-categories-header > h3 { margin: 0; color: var(--ink); font: 600 15px/1.5 var(--font-ui); font-family: var(--font-ui) !important; letter-spacing: 0; }
 html[data-genesis-theme] .genesis-app .shared-category-create { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 8px 12px; }
 html[data-genesis-theme] .genesis-app .shared-category-list { display: grid; min-width: 0; }
 html[data-genesis-theme] .genesis-app .shared-category-list > article { min-width: 0; padding: 16px; }
@@ -878,6 +890,17 @@ html[data-genesis-theme] .genesis-app .shared-projects-calendar-undated > summar
 }
 
 /* The same movable inbox is used in personal and shared workspaces. */
+html[data-genesis-theme] {
+  --ui-surface-canvas:var(--paper);
+  --ui-surface-group:color-mix(in srgb,var(--ink) 7%,var(--surface));
+  --ui-surface-item:var(--surface);
+  --ui-surface-heading:color-mix(in srgb,var(--ink) 10%,var(--surface));
+  --ui-surface-row:color-mix(in srgb,var(--ink) 4%,var(--surface));
+}
+html[data-genesis-theme] .genesis-app .project-tree-main .project-tree .project-row { margin-bottom:12px; border:1px solid var(--line); border-radius:12px; background-color:var(--ui-surface-group); }
+html[data-genesis-theme] .genesis-app [data-inbox-workspace] > :is(.inbox-card,.shared-projects-sidebar) { background-color:var(--ui-surface-group); }
+html[data-genesis-theme] .genesis-app :is(.inbox-card,.project-row) .project-task-card.all-task-row,
+html[data-genesis-theme] .genesis-app .shared-projects-sidebar .shared-inbox-task { background-color:var(--ui-surface-item); }
 html[data-genesis-theme] .genesis-app [data-inbox-workspace][data-inbox-position] { position:relative; grid-template-areas:"inbox" "tree"; grid-template-columns:minmax(0,1fr); }
 html[data-genesis-theme] .genesis-app [data-inbox-workspace] > :is(.inbox-card,.shared-projects-sidebar) { grid-area:inbox; position:static; min-width:0; }
 html[data-genesis-theme] .genesis-app [data-inbox-workspace] > :is(.project-tree-main,.shared-projects-main) { grid-area:tree; min-width:0; }
@@ -887,16 +910,80 @@ html[data-genesis-theme] .genesis-app [data-inbox-workspace] > [hidden] { displa
 html[data-genesis-theme] .genesis-app .inbox-move-bar { display:flex; align-items:center; gap:8px; margin:-20px -20px 12px; padding:12px; border-bottom:1px solid var(--line); background:color-mix(in srgb,var(--surface) 80%,var(--paper)); border-radius:11px 11px 0 0; }
 html[data-genesis-theme] .genesis-app .inbox-drag-handle { display:flex; align-items:center; flex:1; min-width:0; gap:8px; padding:4px 0; border:0; background:transparent; color:var(--ink); cursor:grab; touch-action:none; text-align:left; font:600 14px/1.4 var(--font-ui); }
 html[data-genesis-theme] .genesis-app .inbox-drag-handle[aria-pressed="true"] { cursor:grabbing; }
+html[data-inbox-dragging="true"] { overflow-x:clip; }
+html[data-inbox-dragging="true"] * { cursor:grabbing !important; user-select:none; }
+html[data-genesis-theme] .genesis-app .inbox-drag-placeholder { grid-area:inbox; min-width:0; border:1px dashed var(--line); border-radius:var(--ui-radius); }
+html[data-genesis-theme] .genesis-app .is-inbox-dragging { pointer-events:none; box-shadow:0 14px 36px #0003; }
 html[data-genesis-theme] .genesis-app .inbox-heading { display:flex; align-items:baseline; gap:5px; min-width:0; white-space:nowrap; }
 html[data-genesis-theme] .genesis-app .inbox-heading-scope { font:400 11px/1.4 var(--font-ui); color:var(--ink-soft); white-space:nowrap; }
+html[data-genesis-theme] .genesis-app .shared-projects-sidebar .inbox-heading { flex-direction:column; align-items:flex-start; gap:2px; }
+html[data-genesis-theme] .genesis-app .inbox-move-bar > small { flex-shrink:0; margin-left:4px; font:600 12px/1.4 var(--font-ui); font-variant-numeric:tabular-nums; }
 html[data-genesis-theme] .genesis-app :is(.inbox-drag-handle,.inbox-hide-button,.inbox-restore) svg { width:20px; height:20px; flex-shrink:0; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
 html[data-genesis-theme] .genesis-app .inbox-drag-handle svg { stroke-width:4; color:var(--ink-soft); }
 html[data-genesis-theme] .genesis-app .inbox-hide-button { display:grid; place-items:center; width:32px; height:32px; flex-shrink:0; border:0; border-radius:var(--ui-radius); color:var(--ink-soft); background:transparent; cursor:pointer; }
 html[data-genesis-theme] .genesis-app .inbox-hide-button:hover { color:var(--ink); background:var(--surface); }
 html[data-genesis-theme] .genesis-app .inbox-position-choice { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; font:12px/1.4 var(--font-ui); color:var(--ink-soft); }
 html[data-genesis-theme] .genesis-app .inbox-position-choice select { width:auto; max-width:160px; min-height:32px; padding:4px 8px; border:1px solid var(--line); border-radius:var(--ui-radius); background:var(--surface); color:var(--ink); font:13px/1.4 var(--font-ui); }
-html[data-genesis-theme] .genesis-app .inbox-restore { display:inline-flex; align-items:center; gap:8px; margin:0 0 16px; }
-html[data-genesis-theme] .genesis-app .inbox-dock-preview { position:absolute; inset:8px 8px auto; z-index:30; pointer-events:none; padding:12px; border:1px solid var(--accent); border-radius:var(--ui-radius); background:var(--surface); color:var(--ink); font:600 14px/1.4 var(--font-ui); }
+html[data-genesis-theme] .genesis-app .inbox-toolbar-controls { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin-bottom:12px; }
+html[data-genesis-theme] .genesis-app .inbox-toolbar-controls .inbox-position-choice { flex:1 1 180px; margin:0; }
+html[data-genesis-theme] .genesis-app .inbox-display-switch { display:flex; flex-shrink:0; border:1px solid var(--line); border-radius:var(--ui-radius); overflow:hidden; }
+html[data-genesis-theme] .genesis-app .inbox-display-switch button { padding:7px 10px; min-height:36px; border:0; background:var(--surface); color:var(--ink-soft); font:500 12px/1.4 var(--font-ui); cursor:pointer; }
+html[data-genesis-theme] .genesis-app .inbox-display-switch button[aria-pressed="true"] { background:var(--ui-accent); color:var(--ui-on-accent); }
+html[data-genesis-theme] .genesis-app .project-task-card.all-task-row { display:grid; grid-template-columns:36px minmax(0,1fr) minmax(108px,144px); align-items:start; gap:12px; padding:12px; }
+html[data-genesis-theme] .genesis-app .project-task-card.all-task-row .all-task-body { grid-column:2; grid-row:1; min-width:0; padding:0; }
+html[data-genesis-theme] .genesis-app .project-task-card.all-task-row .task-check { grid-column:1; grid-row:1; width:36px; height:36px; min-width:36px; min-height:36px; margin:0; padding:0; border-radius:var(--ui-radius); aspect-ratio:1; }
+html[data-genesis-theme] .genesis-app .all-task-tools { grid-column:3; grid-row:1; display:grid; grid-template-columns:minmax(0,1fr); align-content:start; gap:8px; min-width:0; }
+html[data-genesis-theme] .genesis-app .all-task-tools .task-project-move { display:block; position:static; width:100%; max-width:144px; margin:0; }
+html[data-genesis-theme] .genesis-app .all-task-tools .task-project-move > span { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+html[data-genesis-theme] .genesis-app .project-task-card.all-task-row .all-task-tools .task-project-move select { display:block; width:100%; min-width:0; max-width:144px; min-height:32px; height:32px; margin:0; padding:4px 8px; border-radius:var(--ui-radius); font:400 12px/1.4 var(--font-ui); }
+html[data-genesis-theme] .genesis-app .all-task-tools .all-task-actions { grid-column:1; grid-row:2; display:flex; position:static; justify-content:flex-end; flex-wrap:nowrap; align-items:center; gap:6px; margin:0; padding:0; }
+html[data-genesis-theme] .genesis-app [data-inbox-compact="true"] .all-task-row { grid-template-columns:32px minmax(0,1fr) minmax(108px,128px); align-items:center; gap:8px; padding:10px; }
+html[data-genesis-theme] .genesis-app [data-inbox-compact="true"] .all-task-body { min-width:0; padding:0; }
+html[data-genesis-theme] .genesis-app [data-inbox-compact="true"] :is(.all-task-meta,.all-task-priority,.task-tags,.task-dependency,.task-description-viewer) { display:none; }
+html[data-genesis-theme] .genesis-app [data-inbox-compact="true"] .all-task-title-row { display:block; margin:0; }
+html[data-genesis-theme] .genesis-app [data-inbox-compact="true"] .all-task-title-row strong { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14px; }
+html[data-genesis-theme] .genesis-app [data-inbox-compact="true"] .all-task-tools { gap:4px; }
+html[data-genesis-theme] .genesis-app [data-inbox-compact="true"] .project-task-card .task-check { width:32px; height:32px; min-width:32px; min-height:32px; }
+html[data-genesis-theme] .genesis-app [data-inbox-compact="true"] .all-task-actions :is(.icon-button,.task-delete) { flex:0 0 32px; width:32px; height:32px; min-width:32px; min-height:32px; padding:6px; }
+html[data-genesis-theme] .genesis-app [data-inbox-compact="true"] .shared-inbox-task { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:8px; padding:10px; }
+html[data-genesis-theme] .genesis-app [data-inbox-compact="true"] .shared-inbox-task > button { min-width:0; padding:0; }
+html[data-genesis-theme] .genesis-app [data-inbox-compact="true"] .shared-inbox-task > button strong { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14px; }
+html[data-genesis-theme] .genesis-app [data-inbox-compact="true"] .shared-inbox-task > button :is(em,small) { display:none; }
+html[data-genesis-theme] .genesis-app [data-inbox-compact="true"] .shared-task-actions { gap:4px; }
+html[data-genesis-theme] .genesis-app [data-inbox-compact="true"] .shared-task-actions > button { width:32px; height:32px; min-width:32px; min-height:32px; padding:6px; }
+html[data-genesis-theme] .genesis-app .inbox-restore { display:flex; align-items:center; justify-content:center; width:100%; gap:8px; margin:0 0 16px; }
+html[data-genesis-theme] .genesis-app .inbox-card { container:personal-inbox / inline-size; }
+@container personal-inbox (max-width:420px) {
+  html[data-genesis-theme] .genesis-app .project-task-card.all-task-row { grid-template-columns:36px minmax(0,1fr); }
+  html[data-genesis-theme] .genesis-app .all-task-tools { grid-column:2; grid-row:2; width:144px; justify-self:end; }
+}
+@media (max-width:600px) {
+  html[data-genesis-theme] .genesis-app .project-task-card.all-task-row { grid-template-columns:36px minmax(0,1fr); gap:8px; }
+  html[data-genesis-theme] .genesis-app .all-task-tools { grid-column:2; grid-row:2; width:144px; justify-self:end; }
+}
+html[data-genesis-theme] .genesis-app .inbox-dock-preview { position:absolute; inset:8px 8px auto; z-index:30; pointer-events:none; padding:12px; border:1px solid var(--ui-accent); border-radius:var(--ui-radius); background:var(--surface); color:var(--ink); font:600 14px/1.4 var(--font-ui); }
+html[data-genesis-theme] .genesis-app .shared-board-task-heading { min-width:0; }
+html[data-genesis-theme] .genesis-app .shared-projects :is(.shared-projects-board,.shared-projects-list) .shared-projects-column { background-color:var(--ui-surface-group); }
+html[data-genesis-theme] .genesis-app .shared-projects :is(.shared-projects-board,.shared-projects-list) .shared-projects-column .shared-projects-task { background-color:var(--ui-surface-item); }
+html[data-genesis-theme] .genesis-app .shared-gantt .shared-gantt-scroll { background-color:var(--ui-surface-item); }
+html[data-genesis-theme] .genesis-app .shared-gantt .shared-gantt-header,
+html[data-genesis-theme] .genesis-app .shared-gantt .shared-gantt-header > strong { background-color:var(--ui-surface-heading); }
+html[data-genesis-theme] .genesis-app .shared-gantt .shared-gantt-row:nth-child(even) { background-color:var(--ui-surface-row); }
+html[data-genesis-theme] .genesis-app .shared-gantt .shared-gantt-open { background-color:var(--ui-surface-group); }
+html[data-genesis-theme] .genesis-app .shared-gantt :is(.shared-gantt-unscheduled,.shared-gantt-completed) { background-color:var(--ui-surface-group); }
+html[data-genesis-theme] .genesis-app .shared-task-title-clamped { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:var(--board-task-title-lines); overflow:hidden; }
+html[data-genesis-theme] .genesis-app .shared-task-title-toggle { display:flex; align-items:center; gap:4px; margin:4px 0 0; padding:4px 0; border:0; color:var(--ink-soft); background:transparent; font:500 11px/1.4 var(--font-ui); cursor:pointer; }
+html[data-genesis-theme] .genesis-app .shared-task-title-toggle svg { width:14px; height:14px; }
+html[data-genesis-theme] .genesis-app .shared-task-title-toggle[aria-expanded="true"] svg { transform:rotate(90deg); }
+html[data-genesis-theme] .genesis-app .shared-board-older-tasks { margin-top:12px; padding-top:12px; border-top:1px solid var(--line); }
+html[data-genesis-theme] .genesis-app .shared-board-older-tasks > summary { display:flex; align-items:center; gap:8px; padding:8px 0; list-style:none; color:var(--ink-soft); font:500 13px/1.4 var(--font-ui); cursor:pointer; }
+html[data-genesis-theme] .genesis-app .shared-board-older-tasks > summary small { margin-left:auto; font-variant-numeric:tabular-nums; }
+html[data-genesis-theme] .genesis-app .shared-board-older-tasks > summary svg { width:16px; height:16px; }
+html[data-genesis-theme] .genesis-app .shared-board-older-tasks[open] > summary svg { transform:rotate(90deg); }
+html[data-genesis-theme] .genesis-app .shared-board-older-tasks > div { display:grid; gap:8px; padding-top:8px; }
+html[data-genesis-theme] .genesis-app .shared-board-display-settings { display:grid; gap:12px; padding:16px 0; margin:8px 0; border:0; border-top:1px solid var(--line); border-bottom:1px solid var(--line); }
+html[data-genesis-theme] .genesis-app .shared-board-display-settings legend { padding:0; font:600 14px/1.4 var(--font-ui); }
+html[data-genesis-theme] .genesis-app .shared-board-display-settings p { margin:0; font:12px/1.5 var(--font-ui); color:var(--ink-soft); }
 @media (min-width:980px) {
   html[data-genesis-theme] .genesis-app [data-inbox-workspace][data-inbox-position="right"][data-inbox-hidden="false"] { grid-template-areas:"tree inbox"; grid-template-columns:minmax(0,1fr) var(--workspace-sidebar-width,300px); }
   html[data-genesis-theme] .genesis-app [data-inbox-workspace][data-inbox-position="left"][data-inbox-hidden="false"] { grid-template-areas:"inbox tree"; grid-template-columns:var(--workspace-sidebar-width,300px) minmax(0,1fr); }

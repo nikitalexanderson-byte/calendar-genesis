@@ -16,7 +16,7 @@ function advanceMonth(day: number, count: number, mode: CalendarMode) {
   return month.start;
 }
 
-export function calendarGanttRange(anchor: string, scale: GanttScale, tasks: SharedTask[], mode: CalendarMode, fit = false) {
+function initialCalendarGanttRange(anchor: string, scale: GanttScale, tasks: SharedTask[], mode: CalendarMode, fit = false) {
   if (scale === "day" || fit && tasks.some(task => taskSpan(task))) return ganttRange(anchor, scale, tasks, fit);
   const day = dateSerial(anchor);
   if (scale === "months") {
@@ -29,6 +29,24 @@ export function calendarGanttRange(anchor: string, scale: GanttScale, tasks: Sha
   const unit = mode === "sacred" ? 5 : 10;
   const start = month.start + Math.floor((day - month.start) / unit) * unit;
   return { start, end: start + 14 };
+}
+
+/** Keep the cell scale unchanged and reveal more periods when the workspace grows. */
+export function calendarGanttRange(anchor: string, scale: GanttScale, tasks: SharedTask[], mode: CalendarMode, fit = false, minimumPeriods = 0) {
+  const range = initialCalendarGanttRange(anchor, scale, tasks, mode, fit);
+  if (scale === "day") return range;
+  const count = Math.max(0, Math.min(100, Math.ceil(minimumPeriods)));
+  let periods = calendarGanttPeriods(range, scale, mode);
+  if (periods.length >= count) return range;
+  if (scale === "days" || scale === "weeks" && mode === "profane") {
+    range.end += (count - periods.length) * (scale === "weeks" ? 7 : 1);
+    return range;
+  }
+  while (periods.length < count) {
+    range.end = monthAt(range.end, mode).end;
+    periods = calendarGanttPeriods(range, scale, mode);
+  }
+  return { start: range.start, end: periods[count - 1].end };
 }
 
 export function shiftGanttAnchor(anchor: string, scale: GanttScale, mode: CalendarMode, direction: number) {
@@ -66,7 +84,7 @@ export function calendarGanttPeriods(range: { start: number; end: number }, scal
       }
     }
   }
-  return periods.filter(period => period.end > range.start);
+  return periods.filter(period => period.end > range.start && period.start < range.end);
 }
 
 export function calendarGanttMonths(range: { start: number; end: number }, mode: CalendarMode) {
