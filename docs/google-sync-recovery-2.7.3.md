@@ -24,6 +24,10 @@ After encrypted data has been initialized, rolling code back must retain `shared
 
 Android 2.7.3 uses versionCode 79 and requires code 79 in the update manifest. Older 2.7.2 installations receive the existing required update prompt; Android still requires the user's installer confirmation. Successful Calendar/Tasks consent closes its connection dialog. Sync warnings preserve the server's actual quota/service explanation, rather than suggesting that every failure is an account permission problem. Release notes explain the shared daily quota and reset, in all 14 supported languages.
 
-## Verification
+## Build artifact storage
+
+GitHub stopped the first release attempt at Bundle upload because artifact storage usage is recalculated only every 6–12 hours. The obsolete 2.6.7 relocation package was removed; it contained reproducible tracked code and a signed build, with no config or runtime database. The 2.7.2 Bundle is retained. The existing deploy workflow now also publishes the verified Play Console Bundle and SHA-256 beside the APK on GENESIS. GitHub upload remains enabled, but its failure no longer prevents deployment. A public download hash check verifies the Bundle mirror before the run succeeds. `/api/android/download` continues to deliver the native APK.
+
+## Verification results
 
 Isolated PHP coverage includes account/grant isolation, encrypted cache, poll deduplication, immediate writes, list mutations, quota backoff, pagination/deletion, Calendar 410 recovery, storage migration/backup/forward rollback and existing collaboration/security suites. Web UI checks cover light/dark at 360, 390, 768 and 1440 pixels. Production and Samsung checks are recorded after deployment; Google Tasks cannot be claimed healthy while the live project quota remains exhausted.
