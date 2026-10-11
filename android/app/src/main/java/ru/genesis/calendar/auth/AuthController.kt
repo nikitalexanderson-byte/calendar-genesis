@@ -443,7 +443,7 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
             }
         }
 
-    fun completeGoogleServicesAuthorization(activity: Activity, data: Intent?) {
+    fun completeGoogleServicesAuthorization(activity: Activity, data: Intent?, onCompleted: () -> Unit = {}) {
         val expectedUserId = pendingServicesUserId ?: return
         pendingServicesUserId = null
         start("Сохраняем разрешения Google…") { generation ->
@@ -456,6 +456,7 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
                 throw GoogleServicesAuthorizationException()
             }
             finishGoogleServicesAuthorization(generation, expectedUserId, result)
+            if (client.isCurrent(generation)) onCompleted()
         }
     }
 
@@ -547,7 +548,7 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
                         else if (snapshot.tasksDeferred) "$successMessage Загружаем задачи аккаунта…"
                         else "$successMessage Данные доступны в приложении."
                     CloudAccountImporter.Result.IMPORTED_WITH_GOOGLE_WARNING ->
-                        "Пространство открыто, но Google не подтвердил обновление задач. Ранее загруженные задачи сохранены."
+                        snapshot.googleSyncIssue ?: "Пространство открыто, но Google не подтвердил обновление задач. Ранее загруженные задачи сохранены."
                     CloudAccountImporter.Result.IMPORTED_WITH_TASK_WARNING ->
                         "Часть записей не удалось прочитать. Остальные задачи загружены; сохранённые записи не удалены."
                     CloudAccountImporter.Result.PENDING_LOCAL_CHANGES ->
@@ -752,7 +753,7 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
                         snapshot.googleSyncWarning ->
                             if (mutableState.value.accountSettings?.authProvider == "yandex")
                                 "Яндекс.Календарь не подтвердил полную загрузку. Повторите синхронизацию."
-                            else "Google не подтвердил полную загрузку задач. Проверьте подключение Calendar и Tasks в настройках."
+                            else snapshot.googleSyncIssue ?: "Google не подтвердил полную загрузку задач. Проверьте подключение Calendar и Tasks в настройках."
                         else -> null
                     }
                     mutableTaskSync.value = AccountTaskSyncState(accountScope, confirmed = issue == null,

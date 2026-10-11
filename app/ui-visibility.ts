@@ -1,6 +1,27 @@
 import type { CalendarMode } from "./calendar-data";
 
-export type UiVisibility = {
+export type InboxPosition = "top" | "right" | "left" | "bottom";
+export type AccountLayout = {
+  sidebarWidth: number;
+  personalInboxPosition: InboxPosition;
+  personalInboxHidden: boolean;
+  sharedInboxPosition: InboxPosition;
+  sharedInboxHidden: boolean;
+};
+export const DEFAULT_ACCOUNT_LAYOUT: AccountLayout = {
+  sidebarWidth: 240, personalInboxPosition: "right", personalInboxHidden: false,
+  sharedInboxPosition: "right", sharedInboxHidden: false,
+};
+export function accountLayout(value?: Partial<AccountLayout> | null): AccountLayout {
+  const position = (input?: InboxPosition): InboxPosition => input && ["top", "right", "left", "bottom"].includes(input) ? input : "right";
+  return {
+    sidebarWidth: Number.isInteger(value?.sidebarWidth) ? Math.max(56, Math.min(240, value!.sidebarWidth!)) : 240,
+    personalInboxPosition: position(value?.personalInboxPosition), personalInboxHidden: value?.personalInboxHidden === true,
+    sharedInboxPosition: position(value?.sharedInboxPosition), sharedInboxHidden: value?.sharedInboxHidden === true,
+  };
+}
+
+export type UiVisibility = AccountLayout & {
   hiddenMenuItems: string[];
   hiddenSubmenus: string[];
   hiddenTodayBlocks: string[];
@@ -9,6 +30,7 @@ export type UiVisibility = {
 };
 
 export const DEFAULT_UI_VISIBILITY: UiVisibility = {
+  ...DEFAULT_ACCOUNT_LAYOUT,
   hiddenMenuItems: [], hiddenSubmenus: [], hiddenTodayBlocks: [],
   enabledCalendars: ["profane", "sacred", "lunar"],
   sidebarAutoCollapseSeconds: 0,
@@ -16,6 +38,7 @@ export const DEFAULT_UI_VISIBILITY: UiVisibility = {
 
 export function uiVisibility(value?: Partial<UiVisibility> | null): UiVisibility {
   return {
+    ...accountLayout(value),
     hiddenMenuItems: value?.hiddenMenuItems ?? [],
     hiddenSubmenus: value?.hiddenSubmenus ?? [],
     hiddenTodayBlocks: value?.hiddenTodayBlocks ?? [],

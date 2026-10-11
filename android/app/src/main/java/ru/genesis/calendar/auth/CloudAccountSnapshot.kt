@@ -13,6 +13,7 @@ internal class CloudAccountSnapshot private constructor(
     val document: JSONObject?,
     val tasks: List<JSONObject>,
     val googleSyncWarning: Boolean,
+    val googleSyncIssue: String?,
     val tasksDeferred: Boolean,
     val unreadableTaskCount: Int,
     val authProvider: String,
@@ -30,7 +31,8 @@ internal class CloudAccountSnapshot private constructor(
             val workspace = payload.getJSONObject("workspace")
             val mode = workspace.getString("keyMode")
             require(mode in setOf("account", "client", "new"))
-            val warning = payload.optString("syncWarning").let { it.isNotBlank() && it != "null" }
+            val warningText = payload.optString("syncWarning").takeIf { it.isNotBlank() && it != "null" }?.take(1200)
+            val warning = warningText != null
             val deferred = payload.optBoolean("tasksDeferred")
             val rows = payload.getJSONArray("tasks")
             // A bad Google row must not prevent the rest of an account from loading.
@@ -40,7 +42,7 @@ internal class CloudAccountSnapshot private constructor(
                 rows.optJSONObject(index)?.let { JSONObject(it.toString()) }
             }
             val unreadable = rows.length() - tasks.size
-            if (workspace.isNull("envelope")) return CloudAccountSnapshot(scopeFor(uid), 0, null, tasks, warning, deferred, unreadable, authProvider)
+            if (workspace.isNull("envelope")) return CloudAccountSnapshot(scopeFor(uid), 0, null, tasks, warning, warningText, deferred, unreadable, authProvider)
             if (mode != "account") throw CloudWorkspacePreview.RecoveryRequired()
             val envelope = workspace.getJSONObject("envelope")
             val version = envelope.getLong("version")
@@ -58,7 +60,7 @@ internal class CloudAccountSnapshot private constructor(
                 document.getJSONArray(it)
             }
             document.getJSONObject("userProgress")
-            return CloudAccountSnapshot(scopeFor(uid), version, document, tasks, warning, deferred, unreadable, authProvider)
+            return CloudAccountSnapshot(scopeFor(uid), version, document, tasks, warning, warningText, deferred, unreadable, authProvider)
         }
 
         /** Keep unknown Google/web fields; native-only defaults are never written to the cloud snapshot. */

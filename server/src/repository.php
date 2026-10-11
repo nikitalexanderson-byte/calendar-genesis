@@ -207,6 +207,17 @@ function genesisUiVisibility(mixed $value): array
         throw new InvalidArgumentException('INVALID_SIDEBAR_AUTO_COLLAPSE');
     }
     $result['sidebarAutoCollapseSeconds'] = $delay;
+    $width = $decoded['sidebarWidth'] ?? 240;
+    if (!is_int($width) || $width < 56 || $width > 240) throw new InvalidArgumentException('INVALID_SIDEBAR_WIDTH');
+    $result['sidebarWidth'] = $width;
+    foreach (['personalInbox', 'sharedInbox'] as $prefix) {
+        $position = $decoded[$prefix . 'Position'] ?? 'right';
+        $hidden = $decoded[$prefix . 'Hidden'] ?? false;
+        if (!is_string($position) || !in_array($position, ['top', 'right', 'left', 'bottom'], true)
+            || !is_bool($hidden)) throw new InvalidArgumentException('INVALID_INBOX_LAYOUT');
+        $result[$prefix . 'Position'] = $position;
+        $result[$prefix . 'Hidden'] = $hidden;
+    }
     return $result;
 }
 
@@ -1118,12 +1129,22 @@ function genesisUpdateAccountPreferences(string $userId, array $payload): array
         $values['shared_projects_enabled'] = $payload['sharedProjectsEnabled'] ? 1 : 0;
     }
     $visibilityInput = $payload['uiVisibility'] ?? ($user['ui_visibility_json'] ?? '{}');
-    // Older clients do not know this preference; keep the account's saved delay.
-    if (is_array($visibilityInput) && !array_key_exists('sidebarAutoCollapseSeconds', $visibilityInput)) {
-        $visibilityInput['sidebarAutoCollapseSeconds'] = genesisUiVisibility($user['ui_visibility_json'] ?? '{}')['sidebarAutoCollapseSeconds'];
+    $savedVisibility = genesisUiVisibility($user['ui_visibility_json'] ?? '{}');
+    $layoutFields = ['sidebarWidth', 'personalInboxPosition', 'personalInboxHidden', 'sharedInboxPosition', 'sharedInboxHidden'];
+    // Older web/native clients must not reset account layout preferences.
+    if (is_array($visibilityInput)) {
+        foreach (['sidebarAutoCollapseSeconds', ...$layoutFields] as $field) {
+            if (!array_key_exists($field, $visibilityInput)) $visibilityInput[$field] = $savedVisibility[$field];
+        }
+    }
+    if (array_key_exists('uiLayout', $payload)) {
+        if (!is_array($payload['uiLayout']) || array_diff(array_keys($payload['uiLayout']), $layoutFields)) {
+            throw new InvalidArgumentException('INVALID_ACCOUNT_LAYOUT');
+        }
+        $visibilityInput = [...genesisUiVisibility($visibilityInput), ...$payload['uiLayout']];
     }
     $visibility = genesisUiVisibility($visibilityInput);
-    if (array_key_exists('uiVisibility', $payload)) {
+    if (array_key_exists('uiVisibility', $payload) || array_key_exists('uiLayout', $payload)) {
         if (in_array('projects.personal', $visibility['hiddenSubmenus'], true)
             && !(genesisSharedEligible($user) && !empty($user['shared_projects_enabled']))) {
             throw new InvalidArgumentException('PERSONAL_PROJECTS_REQUIRED');
@@ -1315,6 +1336,10 @@ function genesisRevokeAccountTokens(array $user): void
 function genesisDeleteAccountRows(string $userId): array
 {
     $purged = genesisAccountDataCounts($userId);
+    if (function_exists('genesisGoogleForgetSnapshot')) {
+        foreach (genesisLinkedGoogleAccounts($userId) as $account) genesisGoogleForgetSnapshot([...$account, '_linked_account' => true]);
+        genesisGoogleForgetSnapshot(['id' => $userId]);
+    }
     if (function_exists('genesisSharedPrepareAccountDeletion')) genesisSharedPrepareAccountDeletion($userId);
     $statement = genesisDb()->prepare('DELETE FROM users WHERE id = :id');
     $statement->execute(['id' => $userId]);
@@ -1431,6 +1456,7 @@ function genesisRemoveLinkedGoogleAccount(string $ownerUserId, string $accountId
         'id' => $accountId,
         'owner_user_id' => $ownerUserId,
     ]);
+    if (function_exists('genesisGoogleForgetSnapshot')) genesisGoogleForgetSnapshot($account);
 }
 
 function genesisDisconnectGoogleServices(string $userId): array
@@ -1440,6 +1466,7 @@ function genesisDisconnectGoogleServices(string $userId): array
         throw new RuntimeException('Пользователь не найден.');
     }
     genesisRevokeGoogleToken($user);
+    if (function_exists('genesisGoogleForgetSnapshot')) genesisGoogleForgetSnapshot($user);
     genesisDb()->prepare("UPDATE users SET access_token_enc = NULL, refresh_token_enc = NULL, token_expires_at = NULL, granted_scopes = '', updated_at = :updated_at WHERE id = :id")->execute([
         'updated_at' => genesisNow(),
         'id' => $userId,

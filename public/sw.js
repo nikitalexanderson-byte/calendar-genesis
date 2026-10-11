@@ -11,6 +11,21 @@ const CACHE_VERSION = typeof self.__GENESIS_PRECACHE_VERSION === "string" ? self
 const CACHE = `${CACHE_PREFIX}${CACHE_VERSION}`;
 const PRECACHE = Array.isArray(self.__GENESIS_PRECACHE) ? self.__GENESIS_PRECACHE : [];
 const MONTH_ART = Array.from({ length: 13 }, (_, index) => `./month-art-v4/month-${String(index + 1).padStart(2, "0")}.webp`);
+const LUNAR_MONTH_ART = [
+  "./lunar-month-art-v1/month-01.webp",
+  "./lunar-month-art-v1/month-02.webp",
+  "./lunar-month-art-v1/month-03.webp",
+  "./lunar-month-art-v1/month-04.webp",
+  "./lunar-month-art-v1/month-05.webp",
+  "./lunar-month-art-v1/month-06.webp",
+  "./lunar-month-art-v1/month-07.webp",
+  "./lunar-month-art-v1/month-08.webp",
+  "./lunar-month-art-v1/month-09.webp",
+  "./lunar-month-art-v1/month-10.webp",
+  "./lunar-month-art-v1/month-11.webp",
+  "./lunar-month-art-v1/month-12.webp",
+  "./lunar-month-art-v1/month-13.webp",
+];
 const WEEKDAY_ART = [
   "./weekday-art/weekday-0-sunday-apollo.webp",
   "./weekday-art/weekday-1-monday-lunar-goddesses.webp",
@@ -108,7 +123,7 @@ const THEOKYKLOS_SYMBOL_ART = [
   "./theokyklos-symbols/entrance-aether-hemera.png",
   "./theokyklos-symbols/exit-eros-psyche.png",
 ];
-const CORE = ["./", "./manifest.webmanifest", "./manifest.en.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./genesis-hero.png", ...MONTH_ART, ...WEEKDAY_ART, ...ACHIEVEMENT_ART, ...HABIT_REWARD_ART, ...HERO_RANK_BANNER_ART, ...CALENDAR_ART, ...HERO_PATH_ART, ...THEOKYKLOS_ART, ...THEOKYKLOS_SYMBOL_ART]
+const CORE = ["./", "./manifest.webmanifest", "./manifest.en.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./genesis-hero.png", ...MONTH_ART, ...LUNAR_MONTH_ART, ...WEEKDAY_ART, ...ACHIEVEMENT_ART, ...HABIT_REWARD_ART, ...HERO_RANK_BANNER_ART, ...CALENDAR_ART, ...HERO_PATH_ART, ...THEOKYKLOS_ART, ...THEOKYKLOS_SYMBOL_ART]
   .map((path) => new URL(path, SCOPE).href);
 const REQUIRED_SHELL = [...new Set([...CORE, ...PRECACHE.map((path) => new URL(path, SCOPE).href)])];
 

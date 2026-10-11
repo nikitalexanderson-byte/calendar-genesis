@@ -83,7 +83,7 @@ private fun GoogleServicesConsentDialog(state: AuthPanelState, controller: AuthC
     var attempted by remember { mutableStateOf(false) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK && activity != null) {
-            controller.completeGoogleServicesAuthorization(activity, result.data)
+            controller.completeGoogleServicesAuthorization(activity, result.data, onCompleted = onDismiss)
         } else {
             controller.cancelGoogleServicesAuthorization()
         }

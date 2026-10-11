@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 const output = new URL("../dist-beget/public_html/", import.meta.url);
+const legalSource = await readFile(new URL("../app/legal-content.ts", import.meta.url), "utf8");
+const revision = legalSource.match(/export const LEGAL_UPDATED = "([^"]+)"/)?.[1];
+assert.ok(revision, "legal source revision is required");
 const pages = {
   privacy: "Политика конфиденциальности",
   terms: "Пользовательское соглашение",
@@ -13,7 +16,7 @@ for (const [slug, title] of Object.entries(pages)) {
   const body = html.split("<body>")[1]?.split("</body>")[0];
   assert.ok(body, `${slug}: HTML body is required`);
   assert.ok(body.includes(`<h1>${title}</h1>`), `${slug}: document must be readable without JavaScript`);
-  assert.ok(body.includes("10 октября 2026 года"), `${slug}: revision is required`);
+  assert.ok(body.includes(revision), `${slug}: current revision is required`);
   assert.ok(body.includes("<section><h2>"), `${slug}: substantive sections are required`);
   assert.ok(body.includes('href="/privacy"') && body.includes('href="/terms"'), `${slug}: navigation is required`);
   assert.ok(html.includes(`rel="canonical" href="https://genesiscalendar.com/${slug}"`), `${slug}: canonical URL is required`);

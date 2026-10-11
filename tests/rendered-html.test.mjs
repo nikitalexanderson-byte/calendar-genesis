@@ -2486,7 +2486,7 @@ test("QA-01 precaches the complete cold-install shell before activating the work
   assert.match(viteConfig, /genesis-offline-precache-manifest/);
   assert.match(viteConfig, /precache-manifest\.js/);
   assert.match(viteConfig, /createHash\("sha256"\)/);
-  assert.match(viteConfig, /PRECACHE_STATIC_REVISION = "saturn-calendar-art-v7"/);
+  assert.match(viteConfig, /PRECACHE_STATIC_REVISION = "lunar-cool-calendar-art-v8"/);
   assert.match(packageJson.scripts["build:beget"], /^vite build --config vite\.beget\.config\.ts && .*node scripts\/verify-offline-precache\.mjs$/);
   assert.match(verifier, /missingAssets/);
   assert.match(verifier, /REQUIRED_VISUAL_ASSETS/);
@@ -2948,10 +2948,14 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.match(calendar, /lunar-year-has-intercalary/);
   assert.match(calendar, /lunar-year-full-width/);
   assert.match(calendar, /lunar-decades/);
-  assert.equal((calendar.match(/"--month-art"/g) ?? []).length, 2);
+  assert.match(calendar, /lunar-month-art-v1\/month-/);
   assert.match(styles, /\.calendar-mode-year-month::before\s*\{[\s\S]*background-image: none;[\s\S]*opacity: 0/);
   const alternativeCalendar = calendar.slice(calendar.indexOf("const renderAlternativeCalendar"), calendar.indexOf("const renderCalendar"));
-  assert.doesNotMatch(alternativeCalendar, /calendar-month-art|--month-art/);
+  assert.match(alternativeCalendar, /calendar-month-art/);
+  assert.match(alternativeCalendar, /lunarMonthArtUrl/);
+  assert.match(alternativeCalendar, /renderModeCalendarDay/);
+  assert.match(calendar, /popoverKey=\{`year-personal-\$\{dateValue\}`\}/);
+  assert.match(calendar, /popoverKey=\{`year-shared-\$\{dateValue\}`\}/);
   assert.doesNotMatch(calendar, /calendarRailItems/);
   assert.match(calendar, /const isSaturday = gregorian\.getDay\(\) === 6/);
   assert.match(calendar, /weekday: "long"/);
@@ -3042,7 +3046,8 @@ test("keeps the requested calendar and privacy features wired", async () => {
   assert.doesNotMatch(calendar, /renderTaskCreateForm\("planner"\)/);
   assert.doesNotMatch(calendar, /<aside className="planner-panel"/);
   assert.match(calendar, /id: "projects", label: "Дела"/);
-  assert.match(calendar, /workspace-inbox-header/);
+  assert.match(calendar, /<InboxToolbar/);
+  assert.match(await readFile(new URL("../app/InboxToolbar.tsx", import.meta.url), "utf8"), /workspace-inbox-header/);
   assert.match(calendar, /data-project-drop-id=\{project\.id\}/);
   assert.match(calendar, /data-project-drop-id=\{TASK_INBOX_PROJECT_ID\}/);
   assert.match(calendar, /Задача «\$\{item\.title\}» возвращена в хаос-бокс/);
