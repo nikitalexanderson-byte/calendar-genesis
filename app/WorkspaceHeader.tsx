@@ -6,7 +6,7 @@ export function WorkspaceHeader({ title, description, mark, context, children }:
 }) {
   return <header className="workspace-header" data-exp-ui="panel">
     <div className="workspace-header-main">{mark}
-      <div className="workspace-header-copy"><h1>{title.includes(" · ") ? <>{title.split(" · ")[0]}<span className="workspace-title-secondary"> · <em>{title.split(" · ").slice(1).join(" · ")}</em></span></> : title}</h1>{context}{description ? <p>{description}</p> : null}</div>
+      <div className="workspace-header-copy"><h1>{title.includes(" · ") ? <>{title.split(" · ")[0]}<span className="workspace-title-secondary"> · <em>{title.split(" · ").slice(1).join(" · ")}</em></span></> : title}</h1>{description ? <p>{description}</p> : null}{context}</div>
     </div>
     {children ? <div className="workspace-header-summary">{children}</div> : null}
   </header>;

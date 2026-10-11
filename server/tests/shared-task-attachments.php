@@ -18,6 +18,7 @@ function attachmentInvalid(callable $action): void {
 function attachmentInput(string $name, string $bytes): array {
     return ['name' => $name, 'data' => 'data:application/octet-stream;base64,' . base64_encode($bytes)];
 }
+require __DIR__ . '/shared-task-download-http.php';
 $db = genesisDb(); $users = ['files-owner', 'files-member', 'files-outsider'];
 foreach ($users as $id) {
     $db->prepare('INSERT INTO users (id, google_sub, email, display_name, created_at, updated_at)
@@ -34,7 +35,8 @@ try {
     $grant->execute(['project' => $project['id'], 'user' => $member, 'now' => genesisNow()]);
     $status = genesisSharedProjectSnapshot($owner, $project['id'])['statuses'][0]['id'];
     $pdf = "%PDF-1.4\n% private test document\n%%EOF";
-    $input = ['title' => 'Files', 'statusId' => $status, 'requestId' => genesisUuid(),
+    $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6lWQAAAAASUVORK5CYII=');
+    $input = ['title' => 'Files', 'statusId' => $status, 'requestId' => genesisUuid(), 'imageData' => 'data:image/png;base64,' . base64_encode($png),
         'attachments' => [attachmentInput('Отчёт.pdf', $pdf), attachmentInput('Таблица.csv', "Имя,Число\nГенезис,1\n")]];
     $task = genesisSharedTask($owner, $project['id'], $input);
     $file = $task['attachments'][0];
@@ -44,6 +46,7 @@ try {
     attachmentExpect(genesisSharedReadTaskAttachment($member, $task['id'], $file['id'])['bytes'] === $pdf, 'Member download corrupted.');
     attachmentDenied(fn() => genesisSharedReadTaskAttachment($outsider, $task['id'], $file['id']));
     attachmentDenied(fn() => genesisSharedReadTaskAttachment($owner, 'wrong-task', $file['id']));
+    attachmentHttpDownloads($owner, $task['id'], $file, $pdf, $png);
     $stored = $db->prepare('SELECT filename_ciphertext, ciphertext FROM shared_task_attachments WHERE id = :id');
     $stored->execute(['id' => $file['id']]); $encrypted = $stored->fetch();
     attachmentExpect(!str_contains($encrypted['ciphertext'], base64_encode($pdf))
