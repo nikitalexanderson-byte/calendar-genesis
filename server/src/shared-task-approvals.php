@@ -14,7 +14,7 @@ function genesisSharedApprovalIndex(string $projectId): array
 {
     $query = genesisDb()->prepare('SELECT a.task_id, a.user_id AS userId, a.approved_at AS approvedAt,
         COALESCE(NULLIF(u.display_name, \'\'), u.email, \'Бывший участник\') AS displayName
-        FROM shared_task_approvals a JOIN shared_tasks t ON t.id = a.task_id LEFT JOIN users u ON u.id = a.user_id
+        FROM shared_task_approvals a JOIN shared_tasks_read t ON t.id = a.task_id LEFT JOIN users u ON u.id = a.user_id
         WHERE t.project_id = :project ORDER BY a.id');
     $query->execute(['project' => $projectId]); $index = [];
     foreach ($query->fetchAll() as $row) { $taskId = $row['task_id']; unset($row['task_id']); $index[$taskId][] = $row; }
@@ -65,7 +65,7 @@ function genesisSharedApproveTask(string $userId, string $projectId, string $tas
     $db = genesisDb(); genesisBeginWriteTransaction($db);
     try {
         genesisSharedProjectAccess($projectId, $userId);
-        $query = $db->prepare('SELECT t.* FROM shared_tasks t JOIN shared_task_approvals a ON a.task_id = t.id
+        $query = $db->prepare('SELECT t.* FROM shared_tasks_read t JOIN shared_task_approvals a ON a.task_id = t.id
             WHERE t.id = :task AND t.project_id = :project AND a.user_id = :user');
         $query->execute(['task' => $taskId, 'project' => $projectId, 'user' => $userId]);
         $task = $query->fetch();

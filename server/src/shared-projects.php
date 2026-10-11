@@ -202,7 +202,7 @@ function genesisSharedProjects(string $userId, string $spaceId): array
         (SELECT GROUP_CONCAT(label_id) FROM shared_project_labels WHERE project_id = p.id) AS labelIdsCsv,
         p.title, p.description, p.tags_json AS tagsJson, p.layout, p.kind, p.board_status_id AS boardStatusId, p.is_inbox AS isInbox, p.revision, p.updated_at AS updatedAt,
         m.role, sm.role AS spaceRole, sm.can_organize_tasks AS canOrganizeTasks, sm.permissions_json AS permissionsJson,
-        (SELECT COUNT(*) FROM shared_tasks t WHERE t.project_id = p.id) AS taskCount,
+        (SELECT COUNT(*) FROM shared_tasks_read t WHERE t.project_id = p.id) AS taskCount,
         CASE WHEN p.is_inbox = 1 THEN 0 ELSE (SELECT COUNT(*) FROM shared_project_statuses s WHERE s.project_id = p.id) END AS boardCount
         FROM shared_projects p JOIN shared_project_members m ON m.project_id = p.id
         JOIN shared_space_members sm ON sm.space_id = p.space_id AND sm.user_id = m.user_id
@@ -332,7 +332,7 @@ function genesisSharedUpdateStatus(string $userId, string $projectId, string $st
             'id' => $statusId, 'project' => $projectId, 'expected' => $expected]);
         if ($changed->rowCount() !== 1) throw new GenesisSharedAccessException('STATUS_CONFLICT', 409);
         if ($done !== (int)$status['is_done']) {
-            $affected = $db->prepare('SELECT id FROM shared_tasks WHERE project_id = :project AND status_id = :status');
+            $affected = $db->prepare('SELECT id FROM shared_tasks_read WHERE project_id = :project AND status_id = :status');
             $affected->execute(['project' => $projectId, 'status' => $statusId]);
             $affectedIds = $affected->fetchAll(PDO::FETCH_COLUMN);
             foreach ($affectedIds as $affectedId) {
@@ -381,7 +381,7 @@ function genesisSharedDeleteStatus(string $userId, string $projectId, string $st
             if ((int)$done->fetchColumn() <= 1) throw new GenesisSharedAccessException('LAST_DONE_STATUS', 409);
         }
         $now = genesisNow();
-        $affected = $db->prepare('SELECT id FROM shared_tasks WHERE project_id = :project AND status_id = :status');
+        $affected = $db->prepare('SELECT id FROM shared_tasks_read WHERE project_id = :project AND status_id = :status');
         $affected->execute(['project' => $projectId, 'status' => $statusId]);
         $affectedIds = $affected->fetchAll(PDO::FETCH_COLUMN);
         $targetDone = (int)$statuses[$targetId]['is_done'];
@@ -786,7 +786,7 @@ function genesisSharedTaskLists(string $userId): array
         JOIN shared_spaces s ON s.id = p.space_id
         JOIN shared_project_members pm ON pm.project_id = p.id AND pm.user_id = :user
         JOIN shared_space_members sm ON sm.space_id = s.id AND sm.user_id = :user
-        LEFT JOIN shared_tasks t ON t.status_id = st.id AND t.project_id = p.id
+        LEFT JOIN shared_tasks_read t ON t.status_id = st.id AND t.project_id = p.id
         GROUP BY st.id ORDER BY s.title, p.title, st.position LIMIT 1000');
     $query->execute(['user' => $userId]);
     return $query->fetchAll();
@@ -980,7 +980,7 @@ function genesisSharedSetSpaceRole(string $userId, string $spaceId, string $targ
             if ($role === 'guest') {
                 $db->prepare('DELETE FROM shared_google_projection_links
                     WHERE user_id = :user AND task_id IN
-                    (SELECT id FROM shared_tasks WHERE project_id = :project)')
+                    (SELECT id FROM shared_tasks_read WHERE project_id = :project)')
                     ->execute(['project' => $inboxId, 'user' => $targetId]);
                 $db->prepare('DELETE FROM shared_project_members WHERE project_id = :project AND user_id = :user')
                     ->execute(['project' => $inboxId, 'user' => $targetId]);
@@ -1024,7 +1024,7 @@ function genesisSharedRemoveMember(string $userId, string $projectId, string $ta
         }
         $db->prepare('DELETE FROM shared_google_projection_links
             WHERE user_id = :user AND task_id IN
-            (SELECT id FROM shared_tasks WHERE project_id = :project)')
+            (SELECT id FROM shared_tasks_read WHERE project_id = :project)')
             ->execute(['project' => $projectId, 'user' => $targetId]);
         $db->prepare('DELETE FROM shared_project_members WHERE project_id = :project AND user_id = :user')
             ->execute(['project' => $projectId, 'user' => $targetId]);
@@ -1081,7 +1081,7 @@ function genesisSharedProjectSnapshot(string $userId, string $projectId): array
         EXISTS (SELECT 1 FROM shared_task_images image WHERE image.task_id = t.id) AS hasImage,
         t.assignee_id AS assigneeId, t.created_by AS createdBy,
         t.updated_by AS updatedBy, t.completed_by AS completedBy, t.completed_at AS completedAt,
-        t.position, t.revision, t.updated_at AS updatedAt FROM shared_tasks t
+        t.position, t.revision, t.updated_at AS updatedAt FROM shared_tasks_read t
         WHERE t.project_id = :project ORDER BY t.status_id, t.position LIMIT 500');
     $tasks->execute(['project' => $projectId]);
     $members = $db->prepare('SELECT m.user_id AS userId, m.role, sm.role AS spaceRole,
@@ -1231,7 +1231,7 @@ function genesisSharedCalendarTasks(string $userId, string $from, string $to): a
     $query = genesisDb()->prepare('SELECT t.id, t.title, t.entry_type AS entryType, t.due_date AS dueDate,
         t.completed_at AS completedAt, p.id AS projectId, p.title AS projectTitle,
         p.space_id AS spaceId, p.is_inbox AS isInbox
-        FROM shared_tasks t JOIN shared_projects p ON p.id = t.project_id AND p.archived_at IS NULL
+        FROM shared_tasks_read t JOIN shared_projects p ON p.id = t.project_id AND p.archived_at IS NULL
         JOIN shared_project_members m ON m.project_id = p.id AND m.user_id = :user
         JOIN shared_project_statuses st ON st.id = t.status_id AND st.is_done = 0
         WHERE t.completed_at IS NULL AND t.due_date BETWEEN :start AND :end ORDER BY t.due_date, t.position LIMIT 5000');
@@ -1250,12 +1250,12 @@ function genesisSharedNotifications(string $userId): array
         p.space_id AS spaceId, COALESCE(NULLIF(u.display_name, \'\'), u.email, \'Участник GENESIS\') AS actorName,
         COALESCE(t.title, json_extract(e.details_json, \'$.objectTitle\')) AS taskTitle,
         CASE WHEN r.event_id IS NULL THEN 0 ELSE 1 END AS isRead
-        FROM shared_audit_events e
+        FROM shared_audit_events_read e
         JOIN shared_projects p ON p.id = e.project_id AND p.archived_at IS NULL
         JOIN shared_project_members m ON m.project_id = p.id AND m.user_id = :member
         JOIN shared_space_members sm ON sm.space_id = p.space_id AND sm.user_id = m.user_id
         LEFT JOIN users u ON u.id = e.actor_id
-        LEFT JOIN shared_tasks t ON t.id = COALESCE(e.task_id, e.object_id) AND t.project_id = p.id
+        LEFT JOIN shared_tasks_read t ON t.id = COALESCE(e.task_id, e.object_id) AND t.project_id = p.id
         LEFT JOIN shared_notification_reads r ON r.event_id = e.id AND r.user_id = :reader
         WHERE e.actor_id IS NOT :actor AND e.action IN
             (\'task.created\', \'task.updated\', \'task.moved_in\', \'task.moved_out\',
@@ -1363,7 +1363,7 @@ function genesisSharedMoveTask(string $userId, string $sourceProjectId, string $
             $db->commit();
             return $receipt;
         }
-        $query = $db->prepare('SELECT * FROM shared_tasks WHERE id = :id AND project_id = :project');
+        $query = $db->prepare('SELECT * FROM shared_tasks_read WHERE id = :id AND project_id = :project');
         $query->execute(['id' => $taskId, 'project' => $sourceProjectId]);
         $task = $query->fetch();
         if (!$task) throw new GenesisSharedAccessException();
@@ -1450,7 +1450,7 @@ function genesisSharedMoveTask(string $userId, string $sourceProjectId, string $
                     'destination' => $link['destination']]);
             }
         }
-        $query = $db->prepare('SELECT id FROM shared_tasks WHERE project_id = :project
+        $query = $db->prepare('SELECT id FROM shared_tasks_read WHERE project_id = :project
             AND status_id = :status AND id <> :task ORDER BY position, created_at, id');
         $query->execute(['project' => $destinationId, 'status' => $statusId, 'task' => $taskId]);
         $ordered = $query->fetchAll(PDO::FETCH_COLUMN);
@@ -1504,7 +1504,7 @@ function genesisSharedDeleteTask(string $userId, string $projectId, string $task
         genesisSharedProjectAccess($projectId, $userId, 'organize');
         $receipt = genesisSharedMutationReceipt($db, $userId, $requestId, 'task.delete', $taskId);
         if ($receipt !== null) { $db->commit(); return $receipt; }
-        $query = $db->prepare('SELECT revision FROM shared_tasks WHERE id = :task AND project_id = :project');
+        $query = $db->prepare('SELECT revision FROM shared_tasks_read WHERE id = :task AND project_id = :project');
         $query->execute(['task' => $taskId, 'project' => $projectId]);
         $revision = $query->fetchColumn();
         if ($revision === false) throw new GenesisSharedAccessException();
@@ -1559,7 +1559,7 @@ function genesisSharedTask(string $userId, string $projectId, array $input, ?str
                     category_id AS categoryId, title, description, tags_json AS tagsJson, due_date AS dueDate,
                     assignee_id AS assigneeId, revision, completed_by AS completedBy,
                     completed_at AS completedAt, updated_at AS updatedAt
-                    FROM shared_tasks WHERE id = :id AND project_id = :project LIMIT 1');
+                    FROM shared_tasks_read WHERE id = :id AND project_id = :project LIMIT 1');
                 $query->execute(['id' => $target['target_task_id'], 'project' => $projectId]);
                 $copied = $query->fetch();
                 if (!$copied) throw new GenesisSharedAccessException('SHARED_TRANSFER_TARGET_REMOVED', 409);
@@ -1569,7 +1569,7 @@ function genesisSharedTask(string $userId, string $projectId, array $input, ?str
         }
         $existing = null;
         if ($taskId !== null) {
-            $query = $db->prepare('SELECT * FROM shared_tasks WHERE id = :id AND project_id = :project LIMIT 1');
+            $query = $db->prepare('SELECT * FROM shared_tasks_read WHERE id = :id AND project_id = :project LIMIT 1');
             $query->execute(['id' => $taskId, 'project' => $projectId]);
             $existing = $query->fetch();
             if (!$existing) throw new GenesisSharedAccessException();
@@ -1698,7 +1698,7 @@ function genesisSharedComments(string $userId, string $projectId, string $taskId
     $query = genesisDb()->prepare('SELECT c.id, c.body, c.created_at AS createdAt,
         (SELECT GROUP_CONCAT(user_id) FROM shared_comment_mentions WHERE comment_id = c.id) AS mentionIdsCsv,
         c.author_id AS authorId, COALESCE(u.display_name, \'Удалённый участник\') AS authorName
-        FROM shared_comments c JOIN shared_tasks t ON t.id = c.task_id
+        FROM shared_comments_read c JOIN shared_tasks_read t ON t.id = c.task_id
         LEFT JOIN users u ON u.id = c.author_id
         WHERE t.id = :task AND t.project_id = :project ORDER BY c.created_at LIMIT 200');
     $query->execute(['task' => $taskId, 'project' => $projectId]);
@@ -1719,7 +1719,7 @@ function genesisSharedAddComment(string $userId, string $projectId, string $task
     genesisBeginWriteTransaction($db);
     try {
         genesisSharedProjectAccess($projectId, $userId, 'comment');
-        $query = $db->prepare('SELECT 1 FROM shared_tasks WHERE id = :task AND project_id = :project');
+        $query = $db->prepare('SELECT 1 FROM shared_tasks_read WHERE id = :task AND project_id = :project');
         $query->execute(['task' => $taskId, 'project' => $projectId]);
         if (!$query->fetchColumn()) throw new GenesisSharedAccessException();
         $member = $db->prepare('SELECT u.display_name FROM shared_project_members pm JOIN users u ON u.id = pm.user_id
@@ -1829,7 +1829,7 @@ function genesisSharedSearch(string $userId, string $spaceId, string $query): ar
     $projects = array_values(array_filter(genesisSharedProjects($userId, $spaceId), $matches));
     $tasks = genesisDb()->prepare('SELECT t.id, t.title, t.tags_json AS tagsJson,
         t.project_id AS projectId, p.title AS projectTitle, t.due_date AS dueDate,
-        t.completed_at AS completedAt FROM shared_tasks t
+        t.completed_at AS completedAt FROM shared_tasks_read t
         JOIN shared_projects p ON p.id = t.project_id AND p.archived_at IS NULL
         JOIN shared_project_members m ON m.project_id = p.id AND m.user_id = :user
         WHERE p.space_id = :space ORDER BY t.updated_at DESC LIMIT 5000');

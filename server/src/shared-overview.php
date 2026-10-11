@@ -17,14 +17,14 @@ function genesisSharedOverview(string $userId): array
     $query = $db->prepare('SELECT COUNT(*) AS tasks,
         COALESCE(SUM(t.completed_at IS NULL), 0) AS openTasks,
         COALESCE(SUM(t.completed_at IS NOT NULL), 0) AS completedTasks' . $scope .
-        ' JOIN shared_tasks t ON t.project_id = p.id WHERE p.archived_at IS NULL');
+        ' JOIN shared_tasks_read t ON t.project_id = p.id WHERE p.archived_at IS NULL');
     $query->execute(['user' => $userId]); $totals += $query->fetch();
     $query = $db->prepare('SELECT
         COALESCE(SUM(e.action = \'task.created\'), 0) AS newTasks,
         COALESCE(SUM(e.action = \'project.created\'), 0) AS newProjects,
         COALESCE(SUM(e.action = \'comment.created\'), 0) AS newComments' . $scope . '
-        JOIN shared_audit_events e ON e.project_id = p.id
-        LEFT JOIN shared_tasks t ON t.id = COALESCE(e.task_id, e.object_id) AND t.project_id = p.id
+        JOIN shared_audit_events_read e ON e.project_id = p.id
+        LEFT JOIN shared_tasks_read t ON t.id = COALESCE(e.task_id, e.object_id) AND t.project_id = p.id
         LEFT JOIN shared_notification_reads r ON r.event_id = e.id AND r.user_id = :user
         WHERE p.archived_at IS NULL AND e.actor_id IS NOT :user AND r.event_id IS NULL
         AND (e.action = \'project.created\' OR (t.id IS NOT NULL AND e.action IN (\'task.created\', \'comment.created\')))');
@@ -39,7 +39,7 @@ function genesisSharedInbox(string $userId, string $before = '', bool $unreadOnl
     $values = ['user' => $userId]; $filter = '';
     if ($before !== '') {
         if (!preg_match('/\A[a-f0-9-]{36}\z/', $before)) throw new InvalidArgumentException('INVALID_NOTIFICATION_CURSOR');
-        $query = genesisDb()->prepare('SELECT created_at FROM shared_audit_events WHERE id = :id');
+        $query = genesisDb()->prepare('SELECT created_at FROM shared_audit_events_read WHERE id = :id');
         $query->execute(['id' => $before]); $time = $query->fetchColumn();
         if ($time === false) throw new InvalidArgumentException('INVALID_NOTIFICATION_CURSOR');
         $filter .= ' AND (e.created_at < :time OR (e.created_at = :time AND e.id < :before))';
@@ -51,12 +51,12 @@ function genesisSharedInbox(string $userId, string $before = '', bool $unreadOnl
         COALESCE(NULLIF(u.display_name, \'\'), \'Участник GENESIS\') AS actorName,
         t.title AS taskTitle, substr(c.body, 1, 180) AS commentBody,
         CASE WHEN r.event_id IS NULL THEN 0 ELSE 1 END AS isRead
-        FROM shared_audit_events e JOIN shared_projects p ON p.id = e.project_id AND p.archived_at IS NULL
+        FROM shared_audit_events_read e JOIN shared_projects p ON p.id = e.project_id AND p.archived_at IS NULL
         JOIN shared_project_members m ON m.project_id = p.id AND m.user_id = :user
         JOIN shared_space_members sm ON sm.space_id = p.space_id AND sm.user_id = m.user_id
         LEFT JOIN users u ON u.id = e.actor_id
-        LEFT JOIN shared_tasks t ON t.id = COALESCE(e.task_id, e.object_id) AND t.project_id = p.id
-        LEFT JOIN shared_comments c ON c.id = e.object_id AND e.action = \'comment.created\'
+        LEFT JOIN shared_tasks_read t ON t.id = COALESCE(e.task_id, e.object_id) AND t.project_id = p.id
+        LEFT JOIN shared_comments_read c ON c.id = e.object_id AND e.action = \'comment.created\'
         LEFT JOIN shared_notification_reads r ON r.event_id = e.id AND r.user_id = :user
         WHERE e.actor_id IS NOT :user AND (e.action = \'project.created\'
             OR (t.id IS NOT NULL AND e.action IN (\'task.created\', \'comment.created\')))' . $filter . '
@@ -85,11 +85,11 @@ function genesisSharedReadInbox(string $userId, array $input): void
             }
             $idFilter = ' AND e.id IN (' . implode(',', $placeholders) . ')';
         }
-        $query = $db->prepare('SELECT e.id FROM shared_audit_events e
+        $query = $db->prepare('SELECT e.id FROM shared_audit_events_read e
             JOIN shared_projects p ON p.id = e.project_id AND p.archived_at IS NULL
             JOIN shared_project_members m ON m.project_id = p.id AND m.user_id = :user
             JOIN shared_space_members sm ON sm.space_id = p.space_id AND sm.user_id = m.user_id
-            LEFT JOIN shared_tasks t ON t.id = COALESCE(e.task_id, e.object_id) AND t.project_id = p.id
+            LEFT JOIN shared_tasks_read t ON t.id = COALESCE(e.task_id, e.object_id) AND t.project_id = p.id
             WHERE e.actor_id IS NOT :user AND (e.action = \'project.created\'
                 OR (t.id IS NOT NULL AND e.action IN (\'task.created\', \'comment.created\')))' .
             $idFilter);

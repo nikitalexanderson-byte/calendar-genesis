@@ -81,6 +81,8 @@ function genesisDb(): PDO
     $db->exec('PRAGMA foreign_keys = ON');
     $db->exec('PRAGMA journal_mode = WAL');
     $db->exec('PRAGMA busy_timeout = 5000');
+    require_once __DIR__ . '/shared-content-storage.php';
+    genesisRegisterSharedContentFunctions($db);
 
     $db->exec('CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT PRIMARY KEY, applied_at TEXT NOT NULL)');
     $migrationFiles = glob(genesisRoot() . '/migrations/*.sql') ?: [];
@@ -109,6 +111,7 @@ function genesisDb(): PDO
             throw $error;
         }
     }
+    genesisInitializeSharedContentStorage($db);
     return $db;
 }
 
