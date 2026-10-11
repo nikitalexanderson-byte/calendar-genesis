@@ -225,7 +225,8 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
       const result = await updateAccountPreferences({ uiVisibility: next });
       const saved = uiVisibility(result.user.uiVisibility);
       const fields = ["hiddenMenuItems", "hiddenSubmenus", "hiddenTodayBlocks", "enabledCalendars"] as const;
-      if (next.sidebarAutoCollapseSeconds !== saved.sidebarAutoCollapseSeconds || fields.some((field) => next[field].length !== saved[field].length ||
+      const scalarFields = ["sidebarAutoCollapseSeconds", "sidebarWidth", "personalInboxPosition", "personalInboxHidden", "sharedInboxPosition", "sharedInboxHidden"] as const;
+      if (scalarFields.some(field => next[field] !== saved[field]) || fields.some((field) => next[field].length !== saved[field].length ||
         next[field].some((item) => !(saved[field] as string[]).includes(item)))) {
         throw new Error(user.language === "en"
           ? "The server has not saved this setting yet. Please update GENESIS and try again."
@@ -597,8 +598,8 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
               </select>
             </label>
             <p className="sidebar-auto-collapse-hint">{user.language === "en"
-              ? "The timer starts when you leave the sidebar. Use the arrow on its edge to expand or collapse it at any time."
-              : "Отсчёт начинается, когда вы уходите с панели. Стрелка на её границе позволяет раскрыть или свернуть меню в любой момент."}</p>
+              ? "The timer starts when you leave the sidebar. Drag its edge to adjust the width at any time."
+              : "Отсчёт начинается, когда вы уходите с панели. Перетаскивайте её границу, чтобы менять ширину меню в любой момент."}</p>
           <details className="appearance-menu-details">
             <summary><span>{user.language === "en" ? "Menu item display" : "Отображение элементов меню"}</span>
               <span className="appearance-summary-action appearance-summary-closed">{user.language === "en" ? "Customize menu items" : "Настроить элементы"}</span>

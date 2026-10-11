@@ -107,19 +107,29 @@ try {
         'hiddenMenuItems' => ['tasks', 'stoicheion'], 'hiddenSubmenus' => ['calendar.year'],
         'hiddenTodayBlocks' => ['rhythm', 'tasks'], 'enabledCalendars' => ['profane'],
         'sidebarAutoCollapseSeconds' => 30,
+        'sidebarWidth' => 156, 'personalInboxPosition' => 'left', 'personalInboxHidden' => true,
+        'sharedInboxPosition' => 'bottom', 'sharedInboxHidden' => false,
     ];
     $user = genesisUpdateAccountPreferences($userId, ['uiVisibility' => $visibility]);
     expect(genesisUserForClient($user)['uiVisibility'] === $visibility, 'Navigation visibility did not round-trip.');
     $legacyVisibility = $visibility;
-    unset($legacyVisibility['sidebarAutoCollapseSeconds']);
+    foreach (['sidebarAutoCollapseSeconds', 'sidebarWidth', 'personalInboxPosition', 'personalInboxHidden',
+        'sharedInboxPosition', 'sharedInboxHidden'] as $field) unset($legacyVisibility[$field]);
     $user = genesisUpdateAccountPreferences($userId, ['uiVisibility' => $legacyVisibility]);
     expect(genesisUserForClient($user)['uiVisibility']['sidebarAutoCollapseSeconds'] === 30,
         'An older client reset the sidebar delay.');
+    expect(genesisUserForClient($user)['uiVisibility'] === $visibility, 'An older client reset the saved layout.');
+    $user = genesisUpdateAccountPreferences($userId, ['uiLayout' => ['sidebarWidth' => 56]]);
+    expect(genesisUserForClient($user)['uiVisibility'] === [...$visibility, 'sidebarWidth' => 56], 'Layout patch overwrote unrelated preferences.');
+    $user = genesisUpdateAccountPreferences($userId, ['uiLayout' => ['sharedInboxHidden' => true]]);
+    expect(genesisUserForClient($user)['uiVisibility']['sidebarWidth'] === 56, 'Independent patches lost the saved width.');
     expect($user['calendar_mode'] === 'profane' && $user['task_calendar_mode'] === 'profane',
         'Disabled calendars remained selected.');
     foreach ([['enabledCalendars' => []], ['hiddenSubmenus' => ['calendar.month', 'calendar.year']],
         ['hiddenSubmenus' => ['sacred.stoicheion', 'sacred.theokyklos']],
-        ['sidebarAutoCollapseSeconds' => -1], ['sidebarAutoCollapseSeconds' => '30']] as $invalid) {
+        ['sidebarAutoCollapseSeconds' => -1], ['sidebarAutoCollapseSeconds' => '30'],
+        ['sidebarWidth' => 55], ['sidebarWidth' => 241], ['sidebarWidth' => '56'],
+        ['sharedInboxHidden' => 1], ['personalInboxPosition' => 'floating']] as $invalid) {
         try {
             genesisUpdateAccountPreferences($userId, ['uiVisibility' => [...$visibility, ...$invalid]]);
             throw new RuntimeException('Invalid navigation visibility was accepted.');

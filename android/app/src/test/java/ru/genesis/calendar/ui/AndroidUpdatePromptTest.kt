@@ -8,6 +8,12 @@ import org.junit.Test
 import java.io.File
 
 class AndroidUpdatePromptTest {
+    @Test fun requiresThe273UpdateFor272Installations() {
+        val hash = "a".repeat(64)
+        val body = """{"versionCode":79,"versionName":"2.7.3","sha256":"$hash","minimumSupportedVersionCode":79}"""
+        assertTrue(requireNotNull(newerAndroidRelease(body, 78)).required)
+        assertNull(newerAndroidRelease(body, 79))
+    }
     @Test fun offersOnlyNewerWellFormedReleases() {
         val hash = "a".repeat(64)
         val body = """{"versionCode":49,"versionName":"2.4.3","sha256":"$hash"}"""

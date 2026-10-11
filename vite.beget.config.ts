@@ -11,7 +11,7 @@ const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 const configuredBase = process.env.GENESIS_BASE_PATH?.trim() || "/";
 const base = configuredBase.endsWith("/") ? configuredBase : `${configuredBase}/`;
 const apiUrl = process.env.GENESIS_API_URL?.trim() || `${base.replace(/\/$/, "")}/api`;
-const PRECACHE_STATIC_REVISION = "saturn-calendar-art-v7";
+const PRECACHE_STATIC_REVISION = "lunar-cool-calendar-art-v8";
 
 function publicLegalDocuments(): Plugin {
   const escape = (text: string) => text.replace(/[&<>"']/g, (character) => ({
@@ -172,6 +172,11 @@ export default defineConfig({
             {
               name: "tracker-engine",
               test: /app[\\/](?:habits|habit-[^\\/]+|tracker-(?:analytics|core|math)|daily-goal|rewards|achievements|streak-(?:protection|rewards)|mood-tracker|sleep-tracker|addiction-tracker|sacred-practices)\.ts$/,
+              priority: 14,
+            },
+            {
+              name: "workspace-layout",
+              test: /app[\\/](?:InboxToolbar\.tsx|(?:ui-visibility|use-account-layout|use-sidebar-collapse)\.ts)$/,
               priority: 14,
             },
             {

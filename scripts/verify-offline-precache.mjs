@@ -26,6 +26,7 @@ const HERO_PATH_ICON_FILES = [
   "20_amphora_of_abyss",
 ];
 const REQUIRED_VISUAL_ASSETS = [
+  ...Array.from({ length: 13 }, (_, index) => `lunar-month-art-v1/month-${String(index + 1).padStart(2, "0")}.webp`),
   "habit-ranks/heroic-ranks.webp",
   "calendar-art/saturn-cronus.webp",
   "achievement-art/first-step.png",

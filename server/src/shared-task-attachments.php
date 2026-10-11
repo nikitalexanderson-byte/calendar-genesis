@@ -108,7 +108,7 @@ function genesisSharedTaskAttachments(string $taskId): array
 function genesisSharedAttachmentIndex(string $projectId): array
 {
     $query = genesisDb()->prepare('SELECT a.id, a.task_id, a.filename_ciphertext, a.mime_type, a.byte_size
-        FROM shared_task_attachments a JOIN shared_tasks t ON t.id = a.task_id
+        FROM shared_task_attachments a JOIN shared_tasks_read t ON t.id = a.task_id
         WHERE t.project_id = :project ORDER BY a.created_at, a.rowid');
     $query->execute(['project' => $projectId]);
     $index = [];
@@ -119,7 +119,7 @@ function genesisSharedAttachmentIndex(string $projectId): array
 function genesisSharedReadTaskAttachment(string $userId, string $taskId, string $attachmentId): array
 {
     genesisSharedRequireEnabled($userId);
-    $query = genesisDb()->prepare('SELECT project_id FROM shared_tasks WHERE id = :task');
+    $query = genesisDb()->prepare('SELECT project_id FROM shared_tasks_read WHERE id = :task');
     $query->execute(['task' => $taskId]);
     $projectId = $query->fetchColumn();
     if (!$projectId) throw new GenesisSharedAccessException();

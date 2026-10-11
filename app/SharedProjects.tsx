@@ -54,9 +54,12 @@ import { type CalendarMode, MONTHS, LUNAR_DECADES, ELEMENTS, formatCalendarDate,
 import { translateText } from "./i18n";
 import { restoredSharedProject, sharedProjectTree } from "./shared-expansion";
 import { formatTaskCount } from "./task-count-i18n";
+import { InboxToolbar, InboxRestore } from "./InboxToolbar";
+import type { InboxPosition } from "./ui-visibility";
 import type { SharedInvitationDestination } from "./SharedInvitationNotices";
 
 type Props = { userId: string; language: string; enabledCalendars: CalendarMode[]; experimentalTheme?: boolean; timeFormat?: TimeFormat;
+  inboxPosition: InboxPosition; inboxHidden: boolean; onInboxPosition: (position: InboxPosition) => void; onInboxHidden: (hidden: boolean) => void;
   destination?: SharedInvitationDestination;
   calendarMode: CalendarMode; taskCalendarMode: CalendarMode;
   onCalendarModeChange: (mode: CalendarMode) => Promise<void> };
@@ -97,7 +100,7 @@ function sharedCalendarPeriod(anchor: Date, mode: CalendarMode, english: boolean
     title: new Intl.DateTimeFormat(english ? "en-US" : "ru-RU", { month: "long", year: "numeric" }).format(start) };
 }
 
-export function SharedProjects({ userId, language, enabledCalendars, calendarMode, taskCalendarMode, onCalendarModeChange, experimentalTheme = false, timeFormat = "24h", destination }: Props) {
+export function SharedProjects({ userId, language, enabledCalendars, calendarMode, taskCalendarMode, onCalendarModeChange, experimentalTheme = false, timeFormat = "24h", destination, inboxPosition, inboxHidden, onInboxPosition, onInboxHidden }: Props) {
   const english = language === "en";
   const [initialPlace] = useState(() => (typeof window === "undefined" ? null : sharedPlaceFromUrl(new URL(window.location.href))) ?? (destination ? { spaceId: destination.spaceId, projectId: destination.projectId || "", taskId: "", view: null } : initialSharedPlace(userId)));
   const [requestedTaskId, setRequestedTaskId] = useState(initialPlace.taskId);
@@ -1066,13 +1069,15 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
         </div>
       </>}
     </section> : null}
-    <div className="shared-projects-shell" hidden={!spaceId}>
-    <aside className="shared-projects-sidebar" id="shared-projects-sidebar" aria-label={english ? "Workspace inbox" : "Хаос-бокс пространства"}>
+    {spaceId && inboxHidden ? <InboxRestore english={english} onRestore={() => onInboxHidden(false)} /> : null}
+    <div className="shared-projects-shell" hidden={!spaceId} data-inbox-workspace data-inbox-position={inboxPosition} data-inbox-hidden={inboxHidden}>
+    <aside className="shared-projects-sidebar" hidden={inboxHidden} id="shared-projects-sidebar" aria-label={english ? "Workspace inbox" : "Хаос-бокс пространства"}>
       {inboxProject ? <section className="inbox-card shared-projects-inbox-card"
         data-shared-drop-project={inboxProject.id}
         data-drop-active={dropTarget?.projectId === inboxProject.id && !dropTarget.statusId || undefined}
         aria-label={english ? "Shared inbox" : "Хаос-бокс"}>
-          <header className="shared-inbox-header workspace-inbox-header"><h2>{english ? "Inbox (this workspace)" : "Хаос-бокс (этого пространства)"}</h2><small aria-label={english ? "Task count" : "Количество задач"}>{visibleInbox?.tasks.length ?? inboxProject.taskCount ?? 0}</small></header>
+          <InboxToolbar title={english ? "Inbox" : "Хаос-бокс"} scopeLabel={english ? "this workspace" : "этого пространства"} count={visibleInbox?.tasks.length ?? inboxProject.taskCount ?? 0}
+            english={english} position={inboxPosition} onPosition={onInboxPosition} onHide={() => onInboxHidden(true)} />
           <p>{english ? "New tasks start here. Open a task or drag it to a board to organize it." : "Новые задачи появляются здесь. Откройте задачу или перетащите её на доску, чтобы распределить."}</p>
         <div className="shared-projects-inbox-items">
           {!visibleInbox ? <p role="status">{english ? "Loading tasks…" : "Загружаем задачи…"}</p>

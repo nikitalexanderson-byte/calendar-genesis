@@ -12,6 +12,13 @@ import ru.genesis.calendar.data.WorkspaceStructureCodec
 import ru.genesis.calendar.security.WorkspaceCipher
 
 class CloudAccountSnapshotTest {
+    @Test fun keepsSpecificGoogleQuotaIssueWithoutBlockingAccountData() {
+        val source = payload(null).put("syncWarning", "Исчерпана суточная квота проекта GENESIS для Google Tasks.")
+        val snapshot = CloudAccountSnapshot.fromBootstrap(source)
+        assertTrue(snapshot.googleSyncWarning)
+        assertTrue(requireNotNull(snapshot.googleSyncIssue).contains("суточная квота"))
+        assertEquals(1, snapshot.tasks.size)
+    }
     private val key = ByteArray(32) { (it + 7).toByte() }
 
     private fun payload(document: JSONObject?, warning: Boolean = false): JSONObject {

@@ -402,6 +402,12 @@ function requireActiveLocalSession(generation = sessionGeneration) {
   }
 }
 
+/** Capture now, so delayed UI writes cannot run under a later login. */
+export function captureAccountSessionGuard() {
+  const generation = sessionGeneration;
+  return () => requireActiveLocalSession(generation);
+}
+
 function endLocalSession() {
   localSessionEnded = true;
   sessionGeneration += 1;
@@ -1510,6 +1516,7 @@ export function disconnectYandexCalendar(accountId?: string) {
 export async function updateAccountPreferences(preferences: Partial<{
   sharedProjectsEnabled: boolean;
   uiVisibility: import("./ui-visibility").UiVisibility;
+  uiLayout: Partial<import("./ui-visibility").AccountLayout>;
   stoicheionDivinationDisabled: boolean;
   calendarMode: CalendarMode;
   taskCalendarMode: CalendarMode;

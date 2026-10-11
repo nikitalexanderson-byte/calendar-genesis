@@ -34,13 +34,13 @@ function genesisSharedAssignDependencies(string $projectId, string $id, array $i
     $ids = $input['dependsOnIds'];
     if (!is_array($ids) || !array_is_list($ids) || count($ids) > 50 || array_filter($ids, static fn($value) => !is_string($value))) throw new InvalidArgumentException('INVALID_DEPENDENCIES');
     $ids = array_values(array_unique($ids)); sort($ids);
-    $db = genesisDb(); $check = $db->prepare('SELECT 1 FROM shared_tasks WHERE id = :id AND project_id = :project');
+    $db = genesisDb(); $check = $db->prepare('SELECT 1 FROM shared_tasks_read WHERE id = :id AND project_id = :project');
     foreach ($ids as $predecessor) {
         if ($predecessor === $id) throw new InvalidArgumentException('DEPENDENCY_CYCLE');
         $check->execute(['id' => $predecessor, 'project' => $projectId]);
         if (!$check->fetchColumn()) throw new InvalidArgumentException('INVALID_DEPENDENCIES');
     }
-    $query = $db->prepare('SELECT d.task_id, d.predecessor_id FROM shared_task_dependencies d JOIN shared_tasks t ON t.id = d.task_id WHERE t.project_id = :project');
+    $query = $db->prepare('SELECT d.task_id, d.predecessor_id FROM shared_task_dependencies d JOIN shared_tasks_read t ON t.id = d.task_id WHERE t.project_id = :project');
     $query->execute(['project' => $projectId]); $graph = [];
     foreach ($query->fetchAll() as $edge) $graph[$edge['task_id']][] = $edge['predecessor_id'];
     $stack = $ids; $seen = [];
