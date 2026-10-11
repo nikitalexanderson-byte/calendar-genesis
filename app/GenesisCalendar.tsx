@@ -27,7 +27,7 @@ import { SERVICE_IDENTITY } from "./public-service";
 import { normalizeWebTheme } from "./web-theme";
 import { TodayAdBlock } from "./TodayAdBlock";
 import { ActionNotice, useActionNotice } from "./ActionNotice";
-import { SharedInvitationNotices, type SharedInvitationDestination } from "./SharedInvitationNotices";
+import type { SharedInvitationDestination } from "./SharedInvitationNotices";
 import { ProjectCompletionDialog } from "./ProjectCompletionDialog";
 import { uiVisibility, viewIsVisible } from "./ui-visibility";
 import { ProjectsHeroMark } from "./ProjectsHeroMark";
@@ -35,6 +35,9 @@ import { matchesAffair } from "./affairs-search";
 import { ExperimentalIcon } from "./ExperimentalIcon";
 import { NavigationIcon } from "./NavigationIcon";
 import { WorkspaceHeader } from "./WorkspaceHeader";
+import { SharedUpdatesProvider } from "./SharedUpdatesProvider";
+import type { SharedTaskDestination } from "./SharedUpdates";
+import { saveAffairsArea, storedAffairsArea, savedSharedPlace, sharedPlaceUrl } from "./shared-navigation";
 import { formatTaskCount, formatTaskListCount } from "./task-count-i18n";
 import {
   type GeminiPlan,
@@ -85,7 +88,6 @@ import {
 import { currentLegalPage, LegalPage } from "./LegalPage";
 import { TimeClockPicker, TimeClockFormatContext } from "./TimeClockPicker";
 import { CalendarDatePicker } from "./CalendarDatePicker";
-import { SharedTaskCreate } from "./SharedTaskCreate";
 import { TaskReminderPicker } from "./TaskReminderPicker";
 import { CalendarModeIcon } from "./CalendarModeIcon";
 import { MoonPhaseIcon } from "./MoonPhaseIcon";
@@ -208,6 +210,9 @@ import {
 } from "./day-rhythm";
 
 const AccountPanel = lazy(() => import("./AccountPanel").then((module) => ({ default: module.AccountPanel })));
+const SharedTaskCreate = lazy(() => import("./SharedTaskCreate").then((module) => ({ default: module.SharedTaskCreate })));
+const SharedInvitationNotices = lazy(() => import("./SharedInvitationNotices").then(module => ({ default: module.SharedInvitationNotices })));
+const SharedCommentNotices = lazy(() => import("./SharedUpdates").then(module => ({ default: module.SharedCommentNotices })));
 const SharedProjects = lazy(() => import("./SharedProjects").then((module) => ({ default: module.SharedProjects })));
 const SharedTaskLists = lazy(() => import("./SharedTaskLists").then((module) => ({ default: module.SharedTaskLists })));
 const PersonalTaskTransfer = lazy(() => import("./PersonalTaskTransfer").then((module) => ({ default: module.PersonalTaskTransfer })));
@@ -1373,7 +1378,26 @@ export function GenesisCalendar() {
     error: null,
   });
   const [accountOpen, setAccountOpen] = useState(false);
-  const [projectsArea, setProjectsArea] = useState<"personal" | "shared">("personal");
+  const [projectsArea, setProjectsAreaState] = useState<"personal" | "shared">("personal");
+  const setProjectsArea = (area: "personal" | "shared") => {
+    setProjectsAreaState(area);
+    if (cloudUser?.uid) saveAffairsArea(cloudUser.uid, area);
+    if (window.location.hash !== "#projects") return;
+    let url = new URL(window.location.href);
+    if (area === "shared") url = sharedPlaceUrl(url, savedSharedPlace(cloudUser?.uid || ""));
+    else { url.searchParams.set("affairs", "personal"); for (const key of ["space", "project", "task", "projectView"]) url.searchParams.delete(key); }
+    if (url.href !== window.location.href) window.history.pushState({ ...window.history.state, genesisView: "projects" }, "", url.pathname + url.search + url.hash);
+  };
+  useEffect(() => {
+    if (!cloudUser?.uid) return;
+    const restore = () => {
+      const parameter = new URL(window.location.href).searchParams.get("affairs");
+      const area = parameter === "personal" || parameter === "shared" ? parameter : storedAffairsArea(cloudUser.uid);
+      setProjectsAreaState(area); saveAffairsArea(cloudUser.uid, area);
+    };
+    const timer = window.setTimeout(restore, 0); window.addEventListener("popstate", restore);
+    return () => { window.clearTimeout(timer); window.removeEventListener("popstate", restore); };
+  }, [cloudUser?.uid]);
   const [invitationDestination, setInvitationDestination] = useState<(SharedInvitationDestination & {userId:string; request:number}) | null>(null);
   useEffect(() => {
     document.documentElement.dataset.genesisMenuLabels = "text";
@@ -1972,23 +1996,32 @@ export function GenesisCalendar() {
     setDayDetailsOpen(true);
   };
 
-  const navigateTo = (nextView: ViewName, replace = false, revealInvitedWorkspace = false) => {
+  const navigateTo = (nextView: ViewName, replace = false, sharedDestination?: SharedTaskDestination, revealInvitedWorkspace = false) => {
     if (nextView === "all-tasks") nextView = "projects";
     if (!viewIsVisible(nextView, visibility) && !revealInvitedWorkspace) nextView = "today";
     setOpenDayTaskPopover("");
     setAccountMenuOpen(false);
     if (nextView !== "theokyklos") setRequestedTheokyklosSector(null);
     setView(nextView);
-    const nextUrl = new URL(window.location.href);
+    let nextUrl = new URL(window.location.href);
+    if (nextView === "projects") {
+      if ((cloudUser?.uid ? storedAffairsArea(cloudUser.uid) : projectsArea) === "shared") {
+        const place = sharedDestination ? { ...sharedDestination, taskId: sharedDestination.taskId || "", view: null }
+          : nextUrl.hash === "#projects" && nextUrl.searchParams.get("affairs") === "shared" ? null : savedSharedPlace(cloudUser?.uid || "");
+        if (place) nextUrl = sharedPlaceUrl(nextUrl, place);
+        else nextUrl.searchParams.set("affairs", "shared");
+      } else nextUrl.searchParams.set("affairs", "personal");
+    } else for (const key of ["affairs", "space", "project", "task", "projectView"]) nextUrl.searchParams.delete(key);
     nextUrl.hash = nextView;
     const cleanUrl = cleanGenesisAppUrl(nextUrl);
     const state = { ...(window.history.state ?? {}), genesisView: nextView };
-    if (replace || view === nextView) {
+    if (replace || view === nextView && !sharedDestination) {
       window.history.replaceState(state, "", cleanUrl);
     } else {
       window.history.pushState(state, "", cleanUrl);
     }
     window.dispatchEvent(new Event("genesis:route"));
+    if (sharedDestination) window.dispatchEvent(new Event("genesis:shared-route"));
     window.requestAnimationFrame(() => {
       window.scrollTo(0, 0);
       document.querySelector<HTMLElement>(".app-stage")?.scrollTo(0, 0);
@@ -2507,7 +2540,10 @@ export function GenesisCalendar() {
       selectToday();
       return;
     }
-    if (nextView === "projects") setProjectsArea(personalProjectsVisible ? "personal" : "shared");
+    if (nextView === "projects") {
+      const lastArea = cloudUser?.uid ? storedAffairsArea(cloudUser.uid) : projectsArea;
+      setProjectsArea(lastArea === "shared" && sharedProjectsVisible || !personalProjectsVisible ? "shared" : "personal");
+    }
     if (nextView === "calendar" && (!viewIsVisible("calendar", visibility) || view === "year" && viewIsVisible("year", visibility))) nextView = "year";
     if (nextView === "stoicheion" && !viewIsVisible("stoicheion", visibility)) nextView = "theokyklos";
     navigateTo(nextView);
@@ -4559,7 +4595,7 @@ export function GenesisCalendar() {
         {language === "en" ? "Shared task" : "Общая задача"}</button>
     </div> : null;
     if (cloudUser?.sharedProjectsEnabled && taskScope === "shared") return <>
-      {scopeSwitcher}<SharedTaskCreate language={language} enabledCalendars={visibility.enabledCalendars} onCreated={() => setTaskComposer(null)} />
+      {scopeSwitcher}<Suspense fallback={<DeferredViewFallback label={language === "en" ? "Opening shared task form…" : "Открываем форму общей задачи…"} />}><SharedTaskCreate language={language} enabledCalendars={visibility.enabledCalendars} onCreated={() => setTaskComposer(null)} /></Suspense>
     </>;
     const selectedTaskList = taskLists.find((taskList) => taskList.id === taskTaskListId);
     const createsTaskList = taskTaskListId === CREATE_NEW_TASK_LIST_ID;
@@ -5766,9 +5802,6 @@ export function GenesisCalendar() {
             <button type="button" aria-pressed={!completedProjectsOpen} onClick={() => setCompletedProjectsOpen(false)}>{language === "en" ? "Current" : "Текущие"} · {projects.length - completedCount}</button>
             <button type="button" aria-pressed={completedProjectsOpen} onClick={() => setCompletedProjectsOpen(true)}>{language === "en" ? "Completed" : "Завершённые"} · {completedCount}</button>
           </div>
-          <button type="button" className="primary-button project-create-task" onClick={() => openTaskComposer("projects")}>{experimentalThemeActive ? <ExperimentalIcon name="plus" /> : null}{language === "en" ? "Create task" : "Создать задачу"}</button>
-          <button type="button" className="secondary-button project-create-project" aria-expanded={experimentalProjectFormOpen} aria-controls="personal-project-create"
-            onClick={() => { setExperimentalProjectFormOpen(!experimentalProjectFormOpen); setNewProjectParent(""); }}><ExperimentalIcon name="plus" />{language === "en" ? "Create project" : "Создать проект"}</button>
         </div>
 
         <label className="tag-search">
@@ -5807,7 +5840,6 @@ export function GenesisCalendar() {
               >
                 <header className="workspace-inbox-header"><h2 id="project-inbox-title">Хаос-бокс</h2><small aria-label="Количество задач и списков">{inboxTasks.length + inboxTaskLists.length}</small></header>
                 <p>{projectDragItem ? "Отпустите здесь, чтобы убрать элемент из проекта." : <><span className="project-drag-hint-desktop">Перетащите плашку задачи или списка в проект либо в хаос-бокс.</span><span className="project-drag-hint-touch">Для переноса удерживайте задачу или список, затем перетащите. Для прокрутки проведите пальцем без удержания.</span></>}</p>
-                <button type="button" className="primary-button workspace-inbox-create" onClick={() => { openTaskComposer("projects"); setTaskProject(""); }}><ExperimentalIcon name="plus" />{language === "en" ? "Create task" : "Создать задачу"}</button>
                 {!inboxTasks.length && !inboxTaskLists.length ? <p>{language === "en" ? "No unsorted tasks yet." : "Задач без проекта пока нет."}</p> : null}
                 <div className="inbox-card-items">
                   {inboxTaskLists.map((taskList) => {
@@ -5832,7 +5864,15 @@ export function GenesisCalendar() {
                   <div><span className="eyebrow">Иерархия</span><h2 id="project-tree-title">Дерево проектов</h2></div>
                   <span className="ornament" aria-hidden="true">◎</span>
                 </div> : null}
-                {experimentalThemeActive ? <header className="experimental-tree-heading"><div><h2 id="experimental-project-tree-title">Дерево проектов</h2><p>{language === "en" ? "Organize projects, tasks and lists" : "Организуйте проекты, задачи и списки"}</p></div><small>{rootProjects} {language === "en" ? "top level" : "верхнего уровня"}</small></header> : null}
+                <header className="experimental-tree-heading"><div><h2 id={experimentalThemeActive ? "experimental-project-tree-title" : "project-tree-title"}>Дерево проектов</h2><p>{language === "en" ? "Organize projects, tasks and lists" : "Организуйте проекты, задачи и списки"}</p></div>
+                  <div className="project-tree-header-actions"><small>{rootProjects} {language === "en" ? "top level" : "верхнего уровня"}</small>
+                    <div className="project-tree-create-actions">
+                      <button type="button" className="primary-button project-create-task" onClick={() => openTaskComposer("projects")}><ExperimentalIcon name="plus" />{language === "en" ? "Create task" : "Создать задачу"}</button>
+                      <button type="button" className="secondary-button project-create-project" aria-expanded={experimentalProjectFormOpen} aria-controls="personal-project-create"
+                        onClick={() => { setExperimentalProjectFormOpen(!experimentalProjectFormOpen); setNewProjectParent(""); }}><ExperimentalIcon name="plus" />{language === "en" ? "Create project" : "Создать проект"}</button>
+                    </div>
+                  </div>
+                </header>
                 <div className="project-tree">
               {projectRows.length ? projectRows.map(({ project, depth }) => {
                 const category = categories.find((item) => item.id === project.categoryId);
@@ -6520,6 +6560,7 @@ export function GenesisCalendar() {
 
   return (
     <TimeClockFormatContext.Provider value={activeTimeFormat}>
+    <SharedUpdatesProvider key={cloudUser?.uid || "anonymous"} userId={cloudUser?.uid || ""} enabled={Boolean(cloudUser?.sharedProjectsEnabled)}>
     <main
       className={`genesis-app mode-${activeCalendarMode}${habitWorkspace.habitSettings.feedback.animations ? "" : " habit-animations-off"}`}
       data-exp-layout="app-shell"
@@ -6534,12 +6575,13 @@ export function GenesisCalendar() {
     >
       {experimentalProjectFormOpen ? <div className="modal-backdrop experimental-project-composer-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setExperimentalProjectFormOpen(false); }}>{renderProjectCreateForm()}</div> : null}
       <ActionNotice message={view === "projects" && activeProjectsArea === "shared" ? "" : notice}/>
-      {cloudUser?.sharedProjectsEligible ? <SharedInvitationNotices key={cloudUser.uid} userId={cloudUser.uid} english={language==="en"} onAccepted={destination => {
+      {cloudUser?.sharedProjectsEligible ? <Suspense fallback={null}><SharedInvitationNotices key={cloudUser.uid} userId={cloudUser.uid} english={language==="en"} onAccepted={destination => {
         const uid=cloudUser.uid;
         setCloudUser(current=>current?.uid===uid ? {...current,sharedProjectsEnabled:true} : current);
         setInvitationDestination(current=>({...destination,userId:uid,request:(current?.request??0)+1}));
-        setProjectsArea("shared"); navigateTo("projects",false,true);
-      }}/> : null}
+        setProjectsArea("shared"); navigateTo("projects",false,destination,true);
+      }}/></Suspense> : null}
+      {cloudUser?.sharedProjectsEnabled ? <Suspense fallback={null}><SharedCommentNotices key={cloudUser.uid} userId={cloudUser.uid} english={language === "en"} onOpen={place => { setProjectsArea("shared"); navigateTo("projects", false, place); }} /></Suspense> : null}
       {projectToComplete ? <ProjectCompletionDialog title={projectToComplete.title}
         onCancel={() => setProjectToComplete(null)} onConfirm={() => {
           const project = projects.find((item) => item.id === projectToComplete.id);
@@ -6727,8 +6769,8 @@ export function GenesisCalendar() {
               {view === "projects" && (sharedProjectsVisible || personalProjectsVisible) ? <>
                 <div className="view-calendar-toolbar">
                 {sharedProjectsVisible && personalProjectsVisible ? <nav className="shared-projects-switch affairs-area-switch" aria-label={language === "en" ? "Project sections" : "Разделы дел"}>
-                  <button type="button" aria-current={activeProjectsArea === "personal" ? "page" : undefined} onClick={() => setProjectsArea("personal")}>{language === "en" ? "Personal" : "Личные"}</button>
-                  <button type="button" aria-current={activeProjectsArea === "shared" ? "page" : undefined} onClick={() => setProjectsArea("shared")}>{language === "en" ? "Shared" : "Общие"}</button>
+                  <button type="button" aria-current={activeProjectsArea === "personal" ? "page" : undefined} onClick={() => setProjectsArea("personal")}><ExperimentalIcon name="lock" />{language === "en" ? "Personal" : "Личные"}</button>
+                  <button type="button" aria-current={activeProjectsArea === "shared" ? "page" : undefined} onClick={() => setProjectsArea("shared")}><ExperimentalIcon name="team" />{language === "en" ? "Shared" : "Общие"}</button>
                 </nav> : null}
                 {!experimentalThemeActive ? renderDisplayCalendarChoice(language === "en" ? "Project date display" : "Отображение дат в проектах") : null}
                 </div>
@@ -7543,6 +7585,7 @@ export function GenesisCalendar() {
       ) : null}
       {voiceLanguageEnabled && voiceControlActive ? <Suspense fallback={null}><WebVoiceControl language={language} onCommand={executeWebVoiceCommand} onStop={() => setVoiceControlActive(false)} /></Suspense> : null}
     </main>
+    </SharedUpdatesProvider>
     </TimeClockFormatContext.Provider>
   );
 }

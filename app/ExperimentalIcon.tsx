@@ -18,5 +18,12 @@ export function ExperimentalIcon({ name, className = "" }: { name: string; class
     {name === "search" ? <><circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/></> : null}
     {name === "close" ? <path d="m6 6 12 12M6 18 18 6"/> : null}
     {name === "flask" ? <path d="M9 3h6M10 3v6l-5.5 9a2 2 0 0 0 1.7 3h11.6a2 2 0 0 0 1.7-3L14 9V3M8 15h8"/> : null}
+    {name === "lock" ? <><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></> : null}
+    {name === "team" ? <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m20 0v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/><circle cx="9" cy="7" r="4"/></> : null}
+    {name === "settings" ? <><path d="M3 6h7m4 0h7M3 18h13m4 0h1"/><circle cx="12" cy="6" r="2"/><circle cx="18" cy="18" r="2"/></> : null}
+    {name === "image" ? <><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></> : null}
+    {name === "mail" ? <><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 6 10 7L22 6"/></> : null}
+    {name === "comment" ? <path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8v.5Z"/> : null}
+    {name === "check" ? <path d="m5 12 4 4L19 6"/> : null}
   </svg>;
 }

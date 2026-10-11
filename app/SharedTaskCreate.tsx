@@ -2,6 +2,8 @@
 
 import { type FormEvent, useEffect, useState } from "react";
 import { CalendarDatePicker } from "./CalendarDatePicker";
+import { SharedTaskImageInput } from "./SharedTaskImage";
+import "./shared-updates.css";
 import { type CalendarMode, calendarDateValue } from "./calendar-data";
 import {
   createSharedTask, listSharedProjects, listSharedSpaces, loadSharedProject,
@@ -25,6 +27,8 @@ export function SharedTaskCreate({ language, enabledCalendars,
   const [title, setTitle] = useState("");
   const [tags, setTags] = useState("");
   const [description, setDescription] = useState("");
+  const [imageData, setImageData] = useState("");
+  const [imageReading, setImageReading] = useState(false);
   const [dueDate, setDueDate] = useState("");
   const [statusId, setStatusId] = useState("");
   const [categoryId, setCategoryId] = useState("");
@@ -82,14 +86,14 @@ export function SharedTaskCreate({ language, enabledCalendars,
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!snapshot || !title.trim() || !statusId || busy) return;
+    if (!snapshot || !title.trim() || !statusId || busy || imageReading) return;
     setBusy(true); setMessage("");
     try {
       const created = await createSharedTask(snapshot.project.id, {
         title: title.trim(), description: description.trim(), tags: [...new Set(tags.split(/[,;\s]+/).map((tag) => tag.replace(/^#/, "")).filter(Boolean))], dueDate: dueDate || null,
-        statusId, categoryId: categoryId || null, assigneeId: assigneeId || null,
+        statusId, categoryId: categoryId || null, assigneeId: assigneeId || null, ...(imageData ? { imageData } : {}),
       });
-      setTitle(""); setDescription(""); setTags(""); setDueDate("");
+      setTitle(""); setDescription(""); setTags(""); setDueDate(""); setImageData("");
       onCreated?.(Boolean(created.pending));
       setMessage(created.pending
         ? (english ? "Task saved on this device and waiting for the connection."
@@ -108,6 +112,7 @@ export function SharedTaskCreate({ language, enabledCalendars,
       : "Нет доступного общего пространства, в хаос-бокс которого можно отправить задачу. Сначала создайте пространство в общих проектах."}</p> : <>
       <label>{english ? "Task name" : "Название задачи"}<input value={title} maxLength={160} required
         onChange={(event) => setTitle(event.target.value)} /></label>
+      <SharedTaskImageInput value={imageData} onChange={setImageData} onReadingChange={setImageReading} english={english} disabled={busy} />
       <label>{english ? "Workspace" : "Пространство"}<select value={spaceId} onChange={(event) => {
         setSpaceId(event.target.value); setProjects([]); setProjectId(""); setSnapshot(null);
       }}>{spaces.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>
@@ -141,7 +146,7 @@ export function SharedTaskCreate({ language, enabledCalendars,
       <p>{english ? "The task is saved on GENESIS for members of this project. Each person enables their own Google copy separately."
         : "Задача сохраняется на сервере GENESIS для участников проекта. Каждый сам включает свою копию в Google."}</p>
       </details>
-      <button type="submit" className="add-task-button" disabled={busy || !snapshot || !statusId || !title.trim()}>
+      <button type="submit" className="add-task-button" disabled={busy || imageReading || !snapshot || !statusId || !title.trim()}>
         {english ? "Create team task" : "Создать общую задачу"}</button>
     </>}
     {message ? <p role="status">{message}</p> : null}
