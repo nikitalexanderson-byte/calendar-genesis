@@ -83,6 +83,8 @@ export type TaskListProjectLink = {
 };
 
 export type GenesisTask = {
+  entryType?: "task" | "meeting" | "birthday" | "event";
+  endTime?: string;
   id: string;
   sacredYear: number;
   monthIndex: number;
@@ -749,6 +751,7 @@ function normalizeTask(task: Partial<GenesisTask> & Pick<GenesisTask, "id" | "ti
     googleReadOnly: false,
     updatedAt: Date.now(),
     ...task,
+    entryType: ["meeting", "birthday", "event"].includes(task.entryType ?? "") ? task.entryType : task.yandexEntryType === "meeting" ? "meeting" : "task",
     description: cleanTaskDescription(task.description),
     createdIn,
     recurrenceMode,
@@ -1535,7 +1538,7 @@ export async function updateAccountPreferences(preferences: Partial<{
 export type SharedPermissions = Record<"createProjects" | "editTasks" | "organizeTasks" | "comment" | "manageProjects" | "inviteMembers", boolean>;
 export type SharedSpace = { ownerName?: string; memberCount?: number; coverUrl?:string|null;coverPosition?:{x:number;y:number}; id: string; title: string; description?: string; revision?: number; permissions?: SharedPermissions; role: "owner" | "admin" | "member" | "guest"; updatedAt: string };
 export type SharedSpaceInvitationInput = { email: string; role: "admin" | "member" | "guest"; permissions: SharedPermissions };
-export type SharedSpaceSettings = { space: SharedSpace; members: { userId: string; displayName: string; email: string; role: SharedSpace["role"]; permissions: SharedPermissions }[];
+export type SharedSpaceSettings = { space: SharedSpace; members: { categoryId?: string | null; userId: string; displayName: string; email: string; role: SharedSpace["role"]; permissions: SharedPermissions }[];
   invitations: (SharedSpaceInvitationInput & { id: string; expiresAt: string })[] };
 export type SharedProject = { id: string; spaceId: string; parentId: string | null; title: string;
   categoryId?: string | null;
@@ -1550,6 +1553,8 @@ export type SharedLabel = SharedCategory;
 export type SharedTaskAttachment = { id: string; name: string; type: string; size: number; url: string };
 export type SharedTaskFileInput = { name: string; data: string };
 export type SharedTask = { id: string; projectId: string; statusId: string; title: string;
+  entryType?: "task" | "meeting" | "birthday" | "event";
+  approvalRequired?: boolean; approvals?: {userId: string | null; displayName: string; approvedAt: string | null}[];
   imageUrl?: string | null;
   attachments?: SharedTaskAttachment[];
   labelIds?: string[]; startDate?: string | null; startTime?: string | null; endTime?: string | null; dependsOnIds?: string[];
@@ -1561,6 +1566,19 @@ export type SharedMember = { userId: string; role: string; spaceRole: string;
   canOrganizeTasks: number; displayName: string };
 export type SharedProjectSnapshot = { project: SharedProject; statuses: SharedStatus[]; categories: SharedCategory[];
   tasks: SharedTask[]; members: SharedMember[] };
+export type SharedMemberCategory = { id: string; title: string; permissions: SharedPermissions; revision: number };
+export async function listSharedMemberCategories(spaceId: string) {
+  return (await api<{categories: SharedMemberCategory[]}>(`/shared/spaces/${encodeURIComponent(spaceId)}/member-categories`)).categories;
+}
+export async function saveSharedMemberCategory(spaceId: string, input: {title: string; permissions: SharedPermissions; expectedRevision?: number}, id?: string) {
+  return (await api<{category: SharedMemberCategory}>(`/shared/spaces/${encodeURIComponent(spaceId)}/member-categories${id ? `/${encodeURIComponent(id)}` : ""}`, {method: id ? "PATCH" : "POST", body: JSON.stringify(input)})).category;
+}
+export function assignSharedMemberPermissions(spaceId: string, userId: string, categoryId: string | null, permissions?: SharedPermissions) {
+  return api<{ok: true}>(`/shared/spaces/${encodeURIComponent(spaceId)}/members/${encodeURIComponent(userId)}/permissions`, {method:"PATCH",body:JSON.stringify({categoryId,permissions})});
+}
+export async function approveSharedTask(projectId: string, taskId: string) {
+  return (await api<{task: SharedTask}>(`/shared/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}/approve`, {method:"POST",body:"{}"})).task;
+}
 export type SharedComment = { id: string; body: string; mentionIds?: string[]; authorId: string; authorName: string; createdAt: string };
 export type SharedActivityEvent = { id: string; action: string; objectId: string; taskId: string | null; boardId: string | null; actorName: string; createdAt: string;
   details: { objectTitle?: string; imageChanged?: boolean; changes?: Record<string, { from: unknown; to: unknown }> } };
@@ -1784,6 +1802,7 @@ export type SharedProjectImport = {
     description: string; tags?: string[]; layout: "list" | "board" }[];
   categories: { sourceId: string; projectSourceId: string; title: string; color: string }[];
   tasks: { sourceId: string; projectSourceId: string; categorySourceId: string | null;
+    entryType?: "task" | "meeting" | "birthday" | "event";
     title: string; description: string; tags?: string[]; dueDate: string | null; done: boolean }[];
 };
 export type SharedProjectImportReceipt = { rootProjectId: string; projectIds: Record<string, string>;
@@ -1892,6 +1911,8 @@ export async function removeSharedMember(projectId: string, userId: string) {
   });
 }
 export async function createSharedTask(projectId: string, input: { title: string; statusId: string;
+  entryType?: "task" | "meeting" | "birthday" | "event";
+  approvalRequired?: boolean; approverIds?: string[];
   imageData?: string;
   attachments?: SharedTaskFileInput[];
   labelIds?: string[]; startDate?: string | null; startTime?: string | null; endTime?: string | null; dependsOnIds?: string[];
@@ -1908,12 +1929,15 @@ export async function createSharedTask(projectId: string, input: { title: string
     title: input.title, dueDate: input.dueDate ?? null,
     queuedAt: new Date().toISOString(),
   }, { id: `pending:${requestId}`, projectId, statusId: input.statusId,
+    approvalRequired: input.approvalRequired, approvals: input.approverIds?.map(userId => ({userId, displayName:"", approvedAt:null})),
+    entryType: input.entryType ?? "task",
     title: input.title, description: input.description ?? "", dueDate: input.dueDate ?? null,
     categoryId: input.categoryId ?? null, assigneeId: input.assigneeId ?? null, labelIds: input.labelIds ?? [], startDate: input.startDate ?? null, dependsOnIds: input.dependsOnIds ?? [],
     startTime: input.startTime ?? null, endTime: input.endTime ?? null,
     position: 0, revision: 0, updatedAt: new Date().toISOString(), pending: true });
 }
 export async function updateSharedTask(projectId: string, taskId: string, input: Partial<Omit<SharedTask, "attachments">> & {
+  approverIds?: string[];
   expectedRevision: number; attachments?: SharedTaskFileInput[]; removeAttachmentIds?: string[];
 }) {
   const requestId = crypto.randomUUID();
@@ -1933,12 +1957,12 @@ export async function moveSharedTask(projectId: string, taskId: string, input: {
 }) {
   const requestId = crypto.randomUUID();
   const path = `/shared/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}/move`;
-  return sendSharedMutation<Pick<SharedTask, "id" | "projectId" | "statusId" | "revision" | "pending">>({
+  return sendSharedMutation<Pick<SharedTask, "id" | "projectId" | "statusId" | "revision" | "pending" | "completedAt">>({
     requestId, projectId, taskId, path, method: "POST", kind: "move",
     body: JSON.stringify({ ...input, requestId }), title: taskId, dueDate: null,
     queuedAt: new Date().toISOString(),
   }, { id: taskId, projectId: input.destinationProjectId, statusId: input.statusId,
-    revision: input.expectedRevision, pending: true });
+    revision: input.expectedRevision, completedAt: null, pending: true });
 }
 export async function inviteSharedMember(projectId: string, email: string, role: string) {
   return (await api<{ invitation: { id: string; expiresAt: string } }>(
@@ -1994,6 +2018,7 @@ export async function rejectSharedInvitation(id: string) {
   });
 }
 export type SharedCalendarTask = {
+  entryType?: "task" | "meeting" | "event";
   id: string; title: string; dueDate: string; completedAt: string | null;
   projectId: string; projectTitle: string; spaceId: string; isInbox: number;
 };

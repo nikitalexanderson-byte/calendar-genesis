@@ -13,7 +13,7 @@ export function defaultSpacePermissions(role: string): SharedPermissions {
   return { createProjects: role !== "guest", editTasks: role !== "guest", organizeTasks: manager,
     comment: role !== "guest", manageProjects: manager, inviteMembers: manager };
 }
-function PermissionChecks({ value, onChange, disabled, language }: { value: SharedPermissions;
+export function PermissionChecks({ value, onChange, disabled, language }: { value: SharedPermissions;
   onChange: (next: SharedPermissions) => void; disabled?: boolean; language: string }) {
   const labels = language === "ru" ? ["Создавать проекты и списки", "Создавать и редактировать задачи", "Перемещать и удалять задачи", "Комментировать", "Управлять проектами и досками", "Приглашать участников"]
     : ["Create projects and lists", "Create and edit tasks", "Move and delete tasks", "Comment", "Manage projects and boards", "Invite members"];

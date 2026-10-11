@@ -1,6 +1,6 @@
 import { privateDeviceAccessBlocked } from "./local-sign-out.ts";
 
-export type SharedPlace = { spaceId: string; projectId: string; taskId: string; view: "list" | "board" | "calendar" | "gantt" | null };
+export type SharedPlace = { spaceId: string; projectId: string; taskId: string; view: "list" | "board" | "calendar" | "gantt" | null; taskAction?: "locate" };
 export const emptySharedPlace: SharedPlace = { spaceId: "", projectId: "", taskId: "", view: null };
 const validId = (value: unknown): string => typeof value === "string" && /^[a-zA-Z0-9_-]{1,100}$/.test(value) ? value : "";
 export function normalizeSharedPlace(value: unknown): SharedPlace {
@@ -8,16 +8,17 @@ export function normalizeSharedPlace(value: unknown): SharedPlace {
   const place = value as Partial<SharedPlace>;
   const spaceId = validId(place.spaceId), projectId = spaceId ? validId(place.projectId) : "";
   return { spaceId, projectId, taskId: projectId ? validId(place.taskId) : "",
+    ...(place.taskAction === "locate" ? { taskAction: "locate" as const } : {}),
     view: ["list", "board", "calendar", "gantt"].includes(place.view ?? "") ? place.view! : null };
 }
 export function sharedPlaceFromUrl(url: URL): SharedPlace | null {
   if (url.searchParams.get("affairs") !== "shared") return null;
   return normalizeSharedPlace({ spaceId: url.searchParams.get("space"), projectId: url.searchParams.get("project"),
-    taskId: url.searchParams.get("task"), view: url.searchParams.get("projectView") });
+    taskId: url.searchParams.get("task"), view: url.searchParams.get("projectView"), taskAction: url.searchParams.get("taskAction") });
 }
 export function sharedPlaceUrl(url: URL, place: SharedPlace): URL {
   const result = new URL(url); result.searchParams.set("affairs", "shared"); result.hash = "projects";
-  for (const [key, value] of [["space", place.spaceId], ["project", place.projectId], ["task", place.taskId], ["projectView", place.view]]) {
+  for (const [key, value] of [["space", place.spaceId], ["project", place.projectId], ["task", place.taskId], ["projectView", place.view], ["taskAction", place.taskAction]]) {
     if (value) result.searchParams.set(key!, value); else result.searchParams.delete(key!);
   }
   return result;

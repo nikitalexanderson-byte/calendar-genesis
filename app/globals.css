@@ -215,90 +215,15 @@ button:disabled {
   border-color: rgba(255, 255, 255, 0.07);
 }
 
-.month-rail {
-  margin: 22px 1px 18px;
-  padding-top: 18px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
 
-.month-rail-title {
-  display: block;
-  margin: 0 1px 10px;
-  color: #6d827f;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
 
-.month-rail-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 5px;
-}
 
-.month-rail button {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  min-width: 0;
-  min-height: 54px;
-  padding: 6px 2px;
-  color: #778b8a;
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: 160ms ease;
-}
 
-.month-rail button i {
-  font: 400 15px/1 Georgia, "Times New Roman", serif;
-  font-style: normal;
-}
 
-.month-rail button small {
-  max-width: 100%;
-  overflow: hidden;
-  color: inherit;
-  font-family: Inter, sans-serif;
-  font-size: 6px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  opacity: .78;
-}
 
-.month-rail button:hover,
-.month-rail button.active {
-  color: #f6e8c7;
-  background: color-mix(in srgb, var(--month-accent) 34%, rgba(216, 189, 128, 0.08));
-  border-color: color-mix(in srgb, var(--month-accent) 78%, #d8bd80);
-  box-shadow: inset 3px 0 0 var(--month-accent);
-}
 
-.month-rail.mode-sacred button:last-child {
-  grid-column: 1 / -1;
-  flex-direction: row;
-  min-height: 42px;
-  gap: 9px;
-  color: #c8af7a;
-  background: linear-gradient(100deg, rgba(216, 189, 128, 0.04), rgba(216, 189, 128, 0.12), rgba(216, 189, 128, 0.04));
-  border-radius: 10px;
-}
 
-.month-rail.mode-sacred button:last-child i { font-size: 18px; }
 
-.month-rail.mode-sacred button:last-child small {
-  font-size: 7px;
-  font-weight: 900;
-  letter-spacing: 0.12em;
-  opacity: 1;
-}
 
 .sidebar-foot {
   display: flex;
@@ -13321,13 +13246,6 @@ html[data-genesis-theme^="standart"] .mood-summary:focus-visible { outline: 2px 
   .main-nav { gap:clamp(2px,.45dvh,4px); margin-top:clamp(6px,1.2dvh,12px); }
   .main-nav button { min-height:clamp(30px,4.2dvh,38px); padding:4px 7px; font-size:9px; }
   .main-nav button span { width:17px; font-size:15px; }
-  .month-rail { margin:clamp(7px,1.2dvh,12px) 1px clamp(5px,1dvh,10px); padding-top:clamp(7px,1.2dvh,12px); }
-  .month-rail-title { margin-bottom:clamp(4px,.8dvh,8px); font-size:7px; }
-  .month-rail-grid { gap:3px; }
-  .month-rail button { min-height:clamp(31px,5dvh,46px); padding:3px 1px; }
-  .month-rail button i { font-size:13px; }
-  .month-rail button small { font-size:5px; }
-  .month-rail.mode-sacred button:last-child { min-height:clamp(28px,4.3dvh,38px); }
   .sidebar-foot { gap:6px; padding:clamp(4px,.8dvh,8px) 4px 0; font-size:7px; line-height:1.2; }
 }
 
@@ -13335,9 +13253,6 @@ html[data-genesis-theme^="standart"] .mood-summary:focus-visible { outline: 2px 
   .main-nav { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .main-nav button { gap:4px; min-height:32px; padding:3px 5px; font-size:7px; border-radius:8px; }
   .main-nav button span { width:15px; font-size:13px; }
-  .month-rail-grid { grid-template-columns:repeat(4,minmax(0,1fr)); }
-  .month-rail button { min-height:34px; }
-  .month-rail.mode-sacred button:last-child { grid-column:1 / -1; }
 }
 
 @media (min-width:1061px) and (max-height:650px) {
@@ -13350,14 +13265,6 @@ html[data-genesis-theme^="standart"] .mood-summary:focus-visible { outline: 2px 
   .main-nav button { display:grid; min-height:30px; place-items:center; gap:0; padding:2px; text-align:center; }
   .main-nav button span { width:auto; font-size:12px; }
   .main-nav button > small { max-width:100%; font-size:5.5px; line-height:1; }
-  .month-rail { margin-block:5px 3px; padding-top:5px; }
-  .month-rail-title { margin-bottom:3px; font-size:5.5px; }
-  .month-rail-grid { grid-template-columns:repeat(5,minmax(0,1fr)); gap:2px; }
-  .month-rail button { min-height:27px; border-radius:6px; }
-  .month-rail button i { font-size:10px; }
-  .month-rail button small { font-size:4px; }
-  .month-rail.mode-sacred button:last-child { min-height:25px; }
-  .month-rail.mode-sacred button:last-child i { font-size:12px; }
   .sidebar-foot { padding-top:2px; font-size:5.5px; }
 }
 

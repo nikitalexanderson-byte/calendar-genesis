@@ -21,8 +21,8 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { CalendarDayTaskCounts, CalendarYearTaskCounts } from "./CalendarTaskCounts";
-import { CalendarSharedTaskControl } from "./CalendarSharedTaskControl";
+import { CalendarYearTaskCounts } from "./CalendarTaskCounts";
+import { EntryTypeChoice, entryTypeLabel, type EntryType } from "./EntryTypeChoice";
 import { RecordCalendarChoice } from "./RecordCalendarChoice";
 import { SERVICE_IDENTITY } from "./public-service";
 import { normalizeWebTheme } from "./web-theme";
@@ -31,6 +31,7 @@ import { ActionNotice, useActionNotice } from "./ActionNotice";
 import type { SharedInvitationDestination } from "./SharedInvitationNotices";
 import { ProjectCompletionDialog } from "./ProjectCompletionDialog";
 import { uiVisibility, viewIsVisible } from "./ui-visibility";
+import { useSidebarCollapse } from "./use-sidebar-collapse";
 import { ProjectsHeroMark } from "./ProjectsHeroMark";
 import { matchesAffair } from "./affairs-search";
 import { ExperimentalIcon } from "./ExperimentalIcon";
@@ -213,6 +214,8 @@ import {
 } from "./day-rhythm";
 
 const AccountPanel = lazy(() => import("./AccountPanel").then((module) => ({ default: module.AccountPanel })));
+const CalendarPersonalTaskControl = lazy(() => import("./CalendarSharedTaskControl").then(module => ({default:module.CalendarPersonalTaskControl})));
+const CalendarSharedTaskControl = lazy(() => import("./CalendarSharedTaskControl").then(module => ({default:module.CalendarSharedTaskControl})));
 const SharedTaskCreate = lazy(() => import("./SharedTaskCreate").then((module) => ({ default: module.SharedTaskCreate })));
 const SharedInvitationNotices = lazy(() => import("./SharedInvitationNotices").then(module => ({ default: module.SharedInvitationNotices })));
 const SharedCommentNotices = lazy(() => import("./SharedUpdates").then(module => ({ default: module.SharedCommentNotices })));
@@ -1368,6 +1371,8 @@ export function GenesisCalendar() {
   const [authResolved, setAuthResolved] = useState(!isGoogleSyncConfigured);
   const [cloudUser, setCloudUser] = useState<GenesisUser | null>(null);
   const [sharedCalendarTasks, setSharedCalendarTasks] = useState<SharedCalendarTask[]>([]);
+  const [calendarCompletionBusy, setCalendarCompletionBusy] = useState("");
+  const [locatedPersonalTaskId, setLocatedPersonalTaskId] = useState("");
   const [springYearSuggestionDismissed, setSpringYearSuggestionDismissed] = useState(false);
   const [springYearSuggestionBusy, setSpringYearSuggestionBusy] = useState(false);
   const [springYearSuggestionError, setSpringYearSuggestionError] = useState(false);
@@ -1421,7 +1426,8 @@ export function GenesisCalendar() {
   const [yandexConnectPromptUserId, setYandexConnectPromptUserId] = useState<string | null>(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [taskComposer, setTaskComposer] = useState<"today" | "projects" | null>(null);
-  const [composerTab, setComposerTab] = useState<"task" | "lists">("task");
+  const [composerTab, setComposerTab] = useState<EntryType | "lists">("task");
+  const [newEntryType, setNewEntryType] = useState<EntryType>("task");
   const [completedProjectsOpen, setCompletedProjectsOpen] = useState(false);
   const [completingProjectIds, setCompletingProjectIds] = useState<string[]>([]);
   const [projectToComplete, setProjectToComplete] = useState<GenesisProject | null>(null);
@@ -1799,6 +1805,7 @@ export function GenesisCalendar() {
   const taskFormCalendarMode = taskFormCalendar ?? activeTaskCalendarMode;
   const editTaskCalendarMode = editingTask?.calendarMode ?? activeTaskCalendarMode;
   const visibility = uiVisibility(cloudUser?.uiVisibility);
+  const { collapsed: sidebarCollapsed, sidebarRef, toggle: toggleSidebar } = useSidebarCollapse(visibility.sidebarAutoCollapseSeconds);
   const personalProjectsVisible = !visibility.hiddenSubmenus.includes("projects.personal");
   const invitedWorkspaceOpen = Boolean(invitationDestination && cloudUser && view==="projects" && projectsArea==="shared" && invitationDestination.userId===cloudUser.uid);
   const sharedProjectsVisible = Boolean(cloudUser?.sharedProjectsEnabled) && (!visibility.hiddenSubmenus.includes("projects.shared") || invitedWorkspaceOpen);
@@ -1863,11 +1870,12 @@ export function GenesisCalendar() {
     const from = `${year - 1}-01-01`;
     const to = `${year + 1}-12-31`;
     const refresh = () => { void listSharedCalendarTasks(from, to).then((items) => {
-      if (live) setSharedCalendarTasks(items);
+      if (live) setSharedCalendarTasks(items.filter(item => !item.completedAt));
     }).catch(() => undefined); };
     refresh();
     const timer = window.setInterval(() => { if (document.visibilityState === "visible") refresh(); }, 30000);
-    return () => { live = false; window.clearInterval(timer); };
+    window.addEventListener("genesis:shared-updates", refresh);
+    return () => { live = false; window.clearInterval(timer); window.removeEventListener("genesis:shared-updates", refresh); };
   }, [cloudUser?.uid, cloudUser?.sharedProjectsEnabled, selectedGregorianYear]);
   const sharedCalendarByDate = useMemo(() => {
     const byDate = new Map<string, SharedCalendarTask[]>();
@@ -2037,7 +2045,7 @@ export function GenesisCalendar() {
         if (place) nextUrl = sharedPlaceUrl(nextUrl, place);
         else nextUrl.searchParams.set("affairs", "shared");
       } else nextUrl.searchParams.set("affairs", "personal");
-    } else for (const key of ["affairs", "space", "project", "task", "projectView"]) nextUrl.searchParams.delete(key);
+    } else for (const key of ["affairs", "space", "project", "task", "projectView", "taskAction"]) nextUrl.searchParams.delete(key);
     nextUrl.hash = nextView;
     const cleanUrl = cleanGenesisAppUrl(nextUrl);
     const state = { ...(window.history.state ?? {}), genesisView: nextView };
@@ -2063,7 +2071,34 @@ export function GenesisCalendar() {
   const openSharedCalendarTask = (task: SharedCalendarTask) => {
     setDayDetailsOpen(false);
     setProjectsArea("shared");
-    navigateTo("projects", false, { spaceId: task.spaceId, projectId: task.projectId, taskId: task.id });
+    navigateTo("projects", false, { spaceId: task.spaceId, projectId: task.projectId, taskId: task.id, taskAction: "locate" });
+  };
+  const openPersonalCalendarTask = (task: Task) => {
+    setDayDetailsOpen(false); setProjectsArea("personal"); setTagSearch("");
+    const project = resolvedTaskProject(task);
+    const ancestors: string[] = []; let parent = project; let completed = false;
+    while(parent && !ancestors.includes(parent.id)){ancestors.push(parent.id);completed ||= parent.status !== "active"; parent = projects.find(item => item.id === parent?.parentId) ?? null;}
+    setCompletedProjectsOpen(completed);
+    if (project) { setTaskProject(project.id); setExpandedExperimentalProjects(ids => [...new Set([...ids, ...ancestors])]); }
+    setLocatedPersonalTaskId(task.id); navigateTo("projects");
+  };
+  useEffect(() => {
+    if (!locatedPersonalTaskId || view !== "projects" || activeProjectsArea !== "personal") return;
+    const frame = window.requestAnimationFrame(() => {
+      const row = Array.from(document.querySelectorAll<HTMLElement>("[data-personal-task-id]")).find(item => item.dataset.personalTaskId === locatedPersonalTaskId);
+      row?.scrollIntoView({ block: "center", behavior: "auto" }); row?.querySelector<HTMLButtonElement>(".task-check")?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [locatedPersonalTaskId, view, activeProjectsArea]);
+  const completeSharedCalendarTask = async (task: SharedCalendarTask) => {
+    if (calendarCompletionBusy) return;
+    setCalendarCompletionBusy(task.id);
+    try {
+      const {completeCalendarSharedTask} = await import("./calendar-shared-completion");
+      if (!await completeCalendarSharedTask(task, cloudUser?.uid, language === "en")) announce(language === "en" ? "Your confirmation is saved. Waiting for the other participants." : "Ваше подтверждение сохранено. Ожидаем остальных участников.");
+      window.dispatchEvent(new Event("genesis:shared-updates"));
+    } catch (error) { announce(error instanceof Error ? error.message : String(error)); }
+    finally { setCalendarCompletionBusy(""); }
   };
 
   useEffect(() => {
@@ -2142,7 +2177,7 @@ export function GenesisCalendar() {
   useEffect(() => {
     if (!openDayTaskPopover) return;
     const closeOutside = (event: globalThis.PointerEvent) => {
-      if (!(event.target instanceof Element) || !event.target.closest(".calendar-day-task-control")) {
+      if (!(event.target instanceof Element) || !event.target.closest(".calendar-day-task-control, .calendar-stable-task-popover")) {
         setOpenDayTaskPopover("");
       }
     };
@@ -2813,6 +2848,9 @@ export function GenesisCalendar() {
       setSyncStatus("error");
       return;
     }
+    if (newEntryType === "meeting" && taskTime && yandexEndTime && `${newTaskEndDate}T${yandexEndTime}` <= `${newTaskDueDate}T${taskTime}`) {
+      setSyncError("Окончание встречи должно быть позже её начала."); setSyncStatus("error"); return;
+    }
     if (cloudUser?.authProvider === "yandex" && yandexEntryType === "meeting") {
       if (taskTime && (!yandexEndTime || `${newTaskEndDate}T${yandexEndTime}` <= `${newTaskDueDate}T${taskTime}`)) {
         setSyncError("Окончание встречи должно быть позже её начала.");
@@ -2926,6 +2964,7 @@ export function GenesisCalendar() {
       googleAccountId: selectedTaskList?.accountId ?? null,
       googleAccountEmail: selectedTaskList?.accountEmail ?? "",
       createdIn: "genesis",
+      entryType: newEntryType, endTime: newEntryType === "meeting" ? yandexEndTime : "",
       googleEventId: null,
       googleTaskId: null,
       googleTaskListId: selectedTaskList?.id ?? null,
@@ -4415,12 +4454,17 @@ export function GenesisCalendar() {
   };
 
   const openTaskComposer = (context: "today" | "projects") => {
+    setNewEntryType("task"); setYandexEntryType("task"); setYandexEndTime("");
     setTaskFormCalendar(activeTaskCalendarMode);
     setTaskRecurrenceConfig(alignRecurrenceConfigWithCalendar(taskRecurrenceConfig, activeTaskCalendarMode, todayDateValue));
     setTaskScope("personal"); setTaskListScope("personal"); setComposerTab("task");
     setTaskDueDate(todayDateValue); setTaskEndDate(todayDateValue);
     setTaskProject(""); setNewTaskListProject("");
     setTaskComposer(context);
+  };
+  const chooseTaskScope = (scope: "personal" | "shared") => {
+    setTaskScope(scope); setTaskListScope(scope);
+    if (scope === "shared" && newEntryType === "birthday") { setNewEntryType("task"); setComposerTab("task"); }
   };
 
   const toggleProject = (id: string) => {
@@ -4625,13 +4669,13 @@ export function GenesisCalendar() {
   const renderTaskCreateForm = (context: "today" | "all-tasks" | "day-details" | "composer") => {
     const scopeSwitcher = cloudUser?.sharedProjectsEnabled && context !== "composer" ? <div className="task-scope-switch" role="group"
       aria-label={language === "en" ? "Task access" : "Доступ к задаче"}>
-      <button type="button" aria-pressed={taskScope === "personal"} onClick={() => setTaskScope("personal")}>
+      <button type="button" aria-pressed={taskScope === "personal"} onClick={() => chooseTaskScope("personal")}>
         {language === "en" ? "Personal task" : "Личная задача"}</button>
-      <button type="button" aria-pressed={taskScope === "shared"} onClick={() => setTaskScope("shared")}>
+      <button type="button" aria-pressed={taskScope === "shared"} onClick={() => chooseTaskScope("shared")}>
         {language === "en" ? "Shared task" : "Общая задача"}</button>
     </div> : null;
     if (cloudUser?.sharedProjectsEnabled && taskScope === "shared") return <>
-      {scopeSwitcher}<Suspense fallback={<DeferredViewFallback label={language === "en" ? "Opening shared task form…" : "Открываем форму общей задачи…"} />}><SharedTaskCreate language={language} enabledCalendars={visibility.enabledCalendars} onCreated={() => setTaskComposer(null)} /></Suspense>
+      {scopeSwitcher}<Suspense fallback={<DeferredViewFallback label={language === "en" ? "Opening shared task form…" : "Открываем форму общей задачи…"} />}><SharedTaskCreate language={language} enabledCalendars={visibility.enabledCalendars} timeFormat={activeTimeFormat} initialEntryType={newEntryType === "birthday" ? "task" : newEntryType} onEntryTypeChange={value => { setNewEntryType(value); setComposerTab(value); }} onCreated={() => setTaskComposer(null)} /></Suspense>
     </>;
     const selectedTaskList = taskLists.find((taskList) => taskList.id === taskTaskListId);
     const createsTaskList = taskTaskListId === CREATE_NEW_TASK_LIST_ID;
@@ -4649,6 +4693,7 @@ export function GenesisCalendar() {
           setTaskFormCalendar(mode);
           setTaskRecurrenceConfig((current) => alignRecurrenceConfigWithCalendar(current, mode, newTaskDueDate));
         }} />
+        <EntryTypeChoice value={newEntryType} english={language === "en"} onChange={value => { setNewEntryType(value); if(taskComposer)setComposerTab(value); setYandexEntryType(value === "meeting" ? "meeting" : "task"); }} />
         {cloudUser?.authProvider === "yandex" ? <label>
           <span>Тип записи в Яндекс.Календаре</span>
           <select value={yandexEntryType} onChange={(event) => setYandexEntryType(event.target.value as "task" | "meeting")}>
@@ -4659,7 +4704,7 @@ export function GenesisCalendar() {
           <p className="past-date-notice" role="status">Выберите сегодняшний или будущий срок для новой задачи.</p>
         ) : null}
         <label>
-          <span>Новая задача</span>
+          <span>{newEntryType === "task" ? "Новая задача" : entryTypeLabel(newEntryType, language === "en")}</span>
           <input value={taskTitle} onChange={(event) => setTaskTitle(event.target.value)} placeholder="Что важно совершить?" />
         </label>
           <label>
@@ -4693,6 +4738,7 @@ export function GenesisCalendar() {
             <span>Время</span>
             <TimeClockPicker id={`${context}-new-task-time-hour`} value={taskTime} timeFormat={activeTimeFormat} disabled={Boolean(taskTaskListId) && cloudUser?.authProvider === "google"} onChange={setTaskTime} />
           </label>
+          {newEntryType === "meeting" && cloudUser?.authProvider !== "yandex" ? <label htmlFor={`${context}-meeting-end-time`}><span>{language === "en" ? "End time" : "Время окончания"}</span><TimeClockPicker id={`${context}-meeting-end-time`} ariaLabel={language === "en" ? "End time" : "Время окончания"} value={yandexEndTime} timeFormat={activeTimeFormat} onChange={setYandexEndTime} /></label> : null}
           {cloudUser?.authProvider === "yandex" ? <label className="yandex-all-day"><input type="checkbox" checked={!taskTime}
             onChange={(event) => {
               setTaskTime(event.target.checked ? "" : "09:00");
@@ -5251,53 +5297,12 @@ export function GenesisCalendar() {
           <span><i aria-hidden="true">↗</i>{sunrise}</span>
           <span><i aria-hidden="true">↘</i>{sunset}</span>
         </span>
-        <CalendarSharedTaskControl tasks={sharedTasks} dateLabel={formatGregorian(date, true)} language={language}
+        <Suspense fallback={null}><CalendarSharedTaskControl tasks={sharedTasks} dateLabel={formatGregorian(date, true)} language={language}
           popoverKey={sharedPopoverKey} alignment={popoverAlignment} openKey={openDayTaskPopover}
-          onOpenKey={setOpenDayTaskPopover} onOpenTask={openSharedCalendarTask} />
-        {taskCount ? (
-          <div
-            className="calendar-day-task-control"
-            onPointerEnter={(event) => { if (event.pointerType === "mouse") setOpenDayTaskPopover(dateValue); }}
-            onPointerLeave={(event) => { if (event.pointerType === "mouse") setOpenDayTaskPopover((current) => current === dateValue ? "" : current); }}
-            onFocus={() => setOpenDayTaskPopover(dateValue)}
-            onBlur={(event) => {
-              const nextTarget = event.relatedTarget;
-              if (!(nextTarget instanceof Node) || !event.currentTarget.contains(nextTarget)) {
-                setOpenDayTaskPopover((current) => current === dateValue ? "" : current);
-              }
-            }}
-          >
-            <CalendarDayTaskCounts tasks={cellTasks} dateLabel={formatGregorian(date, true)} language={language}
-              onOpen={() => {
-                selectCalendarDate(date);
-                setOpenDayTaskPopover(dateValue);
-              }}
-              expanded={popoverOpen} controls={`calendar-task-popover-${dateValue}`} />
-            {popoverOpen ? (
-              <div className={`calendar-task-popover ${popoverAlignment}`} id={`calendar-task-popover-${dateValue}`} role="dialog" aria-label={language === "en" ? `Tasks for ${formatGregorian(date, true)}` : `Задачи на ${formatGregorian(date, true)}`}>
-                <header>
-                  <strong>Задачи · {taskCount}</strong>
-                  <button type="button" onClick={() => setOpenDayTaskPopover("")} aria-label={language === "en" ? "Close task list" : "Закрыть список задач"}>{experimentalThemeActive ? <ExperimentalIcon name="close" /> : "×"}</button>
-                </header>
-                <ul>
-                  {cellTasks.slice(0, 6).map((task) => (
-                    <li className={task.done ? "done" : ""} key={task.id}>
-                      <button type="button" onClick={() => {
-                        setOpenDayTaskPopover("");
-                        openTaskEditor(task, dateValue);
-                      }}>
-                        <time>{task.time ? formatTimeValue(task.time, activeTimeFormat) : "Весь день"}</time>
-                        <span data-no-translate>{task.title}</span>
-                        {renderOverdueBadge(task, dateValue)}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-                {taskCount > 6 ? <small>{language === "en" ? "More" : "Ещё"} {taskCount - 6}</small> : null}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
+          onOpenKey={setOpenDayTaskPopover} onOpenTask={openSharedCalendarTask} onCompleteTask={completeSharedCalendarTask} busyTaskId={calendarCompletionBusy} />
+        <CalendarPersonalTaskControl tasks={cellTasks.filter(task => !task.done)} dateLabel={formatGregorian(date, true)} language={language}
+          popoverKey={dateValue} alignment={popoverAlignment} openKey={openDayTaskPopover} onOpenKey={setOpenDayTaskPopover}
+          onOpenTask={openPersonalCalendarTask} onCompleteTask={task => toggleTask(task.id)} formatTime={time => formatTimeValue(time, activeTimeFormat)} /></Suspense>
         {solarEvent ? <span className="calendar-solar-mark" title={`${solarEvent.name} · ${formatSolarEventTime(solarEvent.date)}`}><b aria-hidden="true">{solarEvent.symbol}</b><em>{solarEvent.shortName}</em><time>{formatSolarEventTime(solarEvent.date)}</time></span> : null}
       </article>
     );
@@ -5451,64 +5456,12 @@ export function GenesisCalendar() {
                           <span><i aria-hidden="true">↘</i>{sunset}</span>
                         </span>
                         <small>{sacredDay.name.split("(")[0].trim()}</small>
-                        <CalendarSharedTaskControl tasks={sharedTasks} dateLabel={formatGregorian(gregorian, true)} language={language}
+                        <Suspense fallback={null}><CalendarSharedTaskControl tasks={sharedTasks} dateLabel={formatGregorian(gregorian, true)} language={language}
                           popoverKey={sharedPopoverKey} alignment={popoverAlignment} openKey={openDayTaskPopover}
-                          onOpenKey={setOpenDayTaskPopover} onOpenTask={openSharedCalendarTask} />
-                        {taskCount ? (
-                          <div
-                            className="calendar-day-task-control"
-                            onPointerEnter={(event) => {
-                              if (event.pointerType === "mouse") setOpenDayTaskPopover(key);
-                            }}
-                            onPointerLeave={(event) => {
-                              if (event.pointerType === "mouse") {
-                                setOpenDayTaskPopover((current) => current === key ? "" : current);
-                              }
-                            }}
-                            onFocus={() => setOpenDayTaskPopover(key)}
-                            onBlur={(event) => {
-                              const nextTarget = event.relatedTarget;
-                              if (!(nextTarget instanceof Node) || !event.currentTarget.contains(nextTarget)) {
-                                setOpenDayTaskPopover((current) => current === key ? "" : current);
-                              }
-                            }}
-                          >
-                            <CalendarDayTaskCounts tasks={cellTasks} dateLabel={formatGregorian(gregorian, true)} language={language}
-                              onOpen={() => {
-                                setSelectedDay(dayNumber);
-                                setOpenDayTaskPopover(key);
-                              }}
-                              expanded={popoverOpen} controls={`calendar-task-popover-${monthIndex}-${dayNumber}`} />
-                            {popoverOpen ? (
-                              <div
-                                className={`calendar-task-popover ${popoverAlignment}`}
-                                id={`calendar-task-popover-${monthIndex}-${dayNumber}`}
-                                role="dialog"
-                                aria-label={language === "en" ? `Tasks for ${formatGregorian(gregorian, true)}` : `Задачи на ${formatGregorian(gregorian, true)}`}
-                              >
-                                <header>
-                                  <strong>Задачи · {taskCount}</strong>
-                                  <button type="button" onClick={() => setOpenDayTaskPopover("")} aria-label={language === "en" ? "Close task list" : "Закрыть список задач"}>{experimentalThemeActive ? <ExperimentalIcon name="close" /> : "×"}</button>
-                                </header>
-                                <ul>
-                                  {cellTasks.slice(0, 6).map((task) => (
-                                    <li className={task.done ? "done" : ""} key={task.id}>
-                                      <button type="button" onClick={() => {
-                                        setOpenDayTaskPopover("");
-                                        openTaskEditor(task, inputDate(gregorian));
-                                      }}>
-                                        <time>{task.time ? formatTimeValue(task.time, activeTimeFormat) : "Весь день"}</time>
-                                        <span data-no-translate>{task.title}</span>
-                                        {renderOverdueBadge(task, inputDate(gregorian))}
-                                      </button>
-                                    </li>
-                                  ))}
-                                </ul>
-                                {taskCount > 6 ? <small>{language === "en" ? "More" : "Ещё"} {taskCount - 6}</small> : null}
-                              </div>
-                            ) : null}
-                          </div>
-                        ) : null}
+                          onOpenKey={setOpenDayTaskPopover} onOpenTask={openSharedCalendarTask} onCompleteTask={completeSharedCalendarTask} busyTaskId={calendarCompletionBusy} />
+                        <CalendarPersonalTaskControl tasks={cellTasks.filter(task => !task.done)} dateLabel={formatGregorian(gregorian, true)} language={language}
+                          popoverKey={key} alignment={popoverAlignment} openKey={openDayTaskPopover} onOpenKey={setOpenDayTaskPopover}
+                          onOpenTask={openPersonalCalendarTask} onCompleteTask={task => toggleTask(task.id)} formatTime={time => formatTimeValue(time, activeTimeFormat)} /></Suspense>
                         {solarEvent ? <span className="calendar-solar-mark" title={`${solarEvent.name} · ${formatSolarEventTime(solarEvent.date)}`}><b aria-hidden="true">{solarEvent.symbol}</b><em>{solarEvent.shortName}</em><time>{formatSolarEventTime(solarEvent.date)}</time></span> : null}
                       </article>
                     );
@@ -6051,7 +6004,7 @@ export function GenesisCalendar() {
               .map((dependencyId) => tasks.find((item) => item.id === dependencyId)?.title)
               .filter((title): title is string => Boolean(title));
             return (
-              <article className={`all-task-row project-task-card project-draggable-item${task.done ? " done" : ""}${overdue ? " past" : ""}`} key={task.id} {...projectDragProps({ kind: "task", id: task.id, title: task.title })}>
+              <article className={`all-task-row project-task-card project-draggable-item${task.done ? " done" : ""}${overdue ? " past" : ""}${locatedPersonalTaskId === task.id ? " task-location-highlight" : ""}`} data-personal-task-id={task.id} key={task.id} {...projectDragProps({ kind: "task", id: task.id, title: task.title })}>
                 <button type="button" className="task-check" onClick={() => toggleTask(task.id)} aria-label={task.done ? `Вернуть задачу «${task.title}»` : `Завершить задачу «${task.title}»`}>
                   {task.done ? "✓" : ""}
                 </button>
@@ -6062,6 +6015,7 @@ export function GenesisCalendar() {
                     {renderOverdueBadge(task)}
                   </div>
                   <div className="all-task-meta">
+                    {task.entryType && task.entryType !== "task" ? <span className="entry-type-badge">{entryTypeLabel(task.entryType, language === "en")}</span> : null}
                     <span>{taskRangeLabel(task, activeCalendarMode, activeTimeFormat)}</span>
                     <span>{resolvedTaskProjectTitle(task) || "Без проекта"}</span>
                     {task.googleTaskListTitle ? <span>Список: {task.googleTaskListTitle}</span> : null}
@@ -6512,51 +6466,6 @@ export function GenesisCalendar() {
   const navigation = cloudUser?.isAdmin
     ? [...visibleNavigation, { id: "admin" as const, label: "Админ", symbol: "Σ" }]
     : visibleNavigation;
-  const calendarRailItems = activeCalendarMode === "sacred"
-    ? MONTHS.map((month) => ({
-        id: `sacred-${month.index}`,
-        name: month.name,
-        label: month.name,
-        symbol: month.symbol,
-        color: month.color,
-        active: monthIndex === month.index,
-        date: getGregorianDate(sacredYear, month.index, 1),
-      }))
-    : activeCalendarMode === "profane"
-      ? Array.from({ length: 12 }, (_, month) => {
-          const date = new Date(selectedDate.getFullYear(), month, 1, 12);
-          const sacred = getSacredDate(date);
-          return {
-            id: `profane-${selectedDate.getFullYear()}-${month}`,
-            name: profaneMonthName(date),
-            label: profaneMonthName(date, true),
-            symbol: String(month + 1).padStart(2, "0"),
-            color: MONTHS[sacred.monthIndex].color,
-            active: selectedDate.getMonth() === month,
-            date,
-          };
-        })
-      : Array.from({ length: selectedLunarYear.monthCount }, (_, offset) => {
-          const absoluteIndex = selectedLunarYear.startMonthIndex + offset;
-          const dates = getLunarMonthDates(absoluteIndex);
-          const date = dates[0] ?? getLunarMonthStart(absoluteIndex);
-          const sacred = getSacredDate(date);
-          const lunarDefinition = getLunarMonthDefinition(offset + 1);
-          return {
-            id: `lunar-${selectedLunarYear.sacredYear}-${absoluteIndex}`,
-            name: lunarDefinition.name,
-            label: `${lunarDefinition.roman} · ${lunarDefinition.name}`,
-            symbol: "☾",
-            color: MONTHS[sacred.monthIndex].color,
-            active: selectedLunarMonthIndex === absoluteIndex,
-            date,
-          };
-        });
-  const calendarRailTitle = activeCalendarMode === "sacred"
-    ? `Сакральные месяцы ${sacredYear}–${sacredYear + 1}`
-    : activeCalendarMode === "profane"
-      ? (language === "en" ? `Months of ${selectedDate.getFullYear()}` : `Месяцы ${selectedDate.getFullYear()} года`)
-      : `Лунные месяцы ${selectedLunarYear.sacredYear}–${selectedLunarYear.sacredYear + 1}`;
   const pendingDeletionTask = tasks.find((task) => task.id === pendingTaskDeletion?.taskId);
   const pendingDeletionHasSeries = pendingDeletionTask ? taskHasSeries(pendingDeletionTask) : false;
 
@@ -6599,6 +6508,7 @@ export function GenesisCalendar() {
     <main
       className={`genesis-app mode-${activeCalendarMode}${habitWorkspace.habitSettings.feedback.animations ? "" : " habit-animations-off"}`}
       data-exp-layout="app-shell"
+      data-sidebar-collapsed={sidebarCollapsed}
       style={{
         "--genesis-hero-image": activeCalendarMode === "sacred"
           ? `url("${dayArtUrl(todayInfo.monthIndex, todayInfo.day)}")`
@@ -6624,7 +6534,7 @@ export function GenesisCalendar() {
           if (project?.status === "active") toggleProject(project.id);
         }} /> : null}
       <a className="skip-link" href="#main-content">К основному содержанию</a>
-      <aside className="app-sidebar" aria-label="Основная навигация" data-exp-ui="navigation">
+      <aside id="app-sidebar" ref={sidebarRef} className="app-sidebar" aria-label="Основная навигация" data-exp-ui="navigation">
         <button className="brand-mark" type="button" onClick={selectToday} aria-label="GENESIS — на главную">
           <span
             className="brand-icon"
@@ -6643,6 +6553,7 @@ export function GenesisCalendar() {
               className={(view === item.id || item.id === "calendar" && view === "year" || item.id === "stoicheion" && view === "theokyklos") ? "active" : ""}
               onClick={() => activateNavigation(item.id)}
               aria-label={item.label}
+              title={sidebarCollapsed ? item.label : undefined}
               aria-current={(view === item.id || item.id === "calendar" && view === "year" || item.id === "stoicheion" && view === "theokyklos") ? "page" : undefined}
               data-exp-ui="nav-button"
             >
@@ -6651,28 +6562,6 @@ export function GenesisCalendar() {
             </button>
           ))}
         </nav>
-        <div className={`month-rail mode-${activeCalendarMode}`} aria-label={calendarRailTitle}>
-          <span className="month-rail-title">{calendarRailTitle}</span>
-          <div className="month-rail-grid">
-            {calendarRailItems.map((month) => (
-              <button
-                type="button"
-                key={month.id}
-                className={month.active ? "active" : ""}
-                onClick={() => {
-                  selectCalendarDate(month.date);
-                  navigateTo("calendar");
-                }}
-                title={month.name}
-                aria-label={month.name}
-                style={{ "--month-accent": month.color } as CSSProperties}
-              >
-                <i aria-hidden="true">{month.symbol}</i>
-                <small>{month.name}</small>
-              </button>
-            ))}
-          </div>
-        </div>
         <div className={`sidebar-foot sync-${syncStatus}`} title={syncError || syncLabel}>
           <span className="sync-dot" aria-hidden="true" />
           <span>
@@ -6682,6 +6571,14 @@ export function GenesisCalendar() {
           </span>
         </div>
       </aside>
+      <div className="sidebar-edge-control">
+        <button type="button" className="sidebar-collapse-toggle" onClick={toggleSidebar}
+          aria-controls="app-sidebar" aria-expanded={!sidebarCollapsed}
+          aria-label={sidebarCollapsed ? (language === "en" ? "Expand sidebar" : "Раскрыть боковую панель") : (language === "en" ? "Collapse sidebar" : "Свернуть боковую панель")}
+          title={sidebarCollapsed ? (language === "en" ? "Expand sidebar" : "Раскрыть боковую панель") : (language === "en" ? "Collapse sidebar" : "Свернуть боковую панель")}>
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d={sidebarCollapsed ? "m9 6 6 6-6 6" : "m15 6-6 6 6 6"} /></svg>
+        </button>
+      </div>
 
       <section className="app-stage" data-exp-layout="stage">
         <header className="app-brand-header">
@@ -7168,17 +7065,18 @@ export function GenesisCalendar() {
             <button type="button" className="modal-close" onClick={() => setTaskComposer(null)} aria-label="Закрыть">{experimentalThemeActive ? <ExperimentalIcon name="close" /> : "×"}</button>
             </header>
             {taskComposer === "today" && cloudUser?.sharedProjectsEnabled ? <div className="task-scope-switch" role="group" aria-label="Доступ к делу">
-              {(["personal", "shared"] as const).map((scope) => <button type="button" key={scope} aria-pressed={taskScope === scope} onClick={() => { setTaskScope(scope); setTaskListScope(scope); }}>{scope === "personal" ? "Личное" : "Общее"}</button>)}
+              {(["personal", "shared"] as const).map((scope) => <button type="button" key={scope} aria-pressed={taskScope === scope} onClick={() => chooseTaskScope(scope)}>{scope === "personal" ? "Личное" : "Общее"}</button>)}
             </div> : null}
             <div className="task-composer-tabs" role="tablist" tabIndex={-1} aria-label="Тип дела" onKeyDown={(event) => {
               if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
-              event.preventDefault(); const tab = event.key === "ArrowLeft" || event.key === "Home" ? "task" : "lists";
-              setComposerTab(tab); event.currentTarget.querySelector<HTMLButtonElement>(`#composer-tab-${tab}`)?.focus();
+              event.preventDefault(); const tabs = (["task", "lists", "meeting", "birthday", "event"] as const).filter(tab => tab !== "birthday" || taskScope !== "shared");
+              const index = tabs.indexOf(composerTab); const tab = event.key === "Home" ? tabs[0] : event.key === "End" ? tabs[tabs.length-1] : tabs[(index + (event.key === "ArrowLeft" ? -1 : 1) + tabs.length) % tabs.length];
+              setComposerTab(tab); if(tab !== "lists") {setNewEntryType(tab);setYandexEntryType(tab === "meeting" ? "meeting" : "task");} event.currentTarget.querySelector<HTMLButtonElement>(`#composer-tab-${tab}`)?.focus();
             }}>
-              {(["task", "lists"] as const).map((tab) => <button id={`composer-tab-${tab}`} type="button" role="tab" key={tab} aria-selected={composerTab === tab} aria-controls={`composer-panel-${tab}`} tabIndex={composerTab === tab ? 0 : -1} onClick={() => setComposerTab(tab)}>{tab === "task" ? "Задача" : "Списки задач"}</button>)}
+              {(["task", "lists", "meeting", "birthday", "event"] as const).filter(tab => tab !== "birthday" || taskScope !== "shared").map((tab) => <button id={`composer-tab-${tab}`} type="button" role="tab" key={tab} aria-selected={composerTab === tab} aria-controls={`composer-panel-${tab}`} tabIndex={composerTab === tab ? 0 : -1} onClick={() => { setComposerTab(tab); if(tab !== "lists"){setNewEntryType(tab);setYandexEntryType(tab === "meeting" ? "meeting" : "task");} }}>{tab === "lists" ? "Списки задач" : entryTypeLabel(tab, language === "en")}</button>)}
             </div>
             <div id={`composer-panel-${composerTab}`} role="tabpanel" aria-labelledby={`composer-tab-${composerTab}`}>
-              {composerTab === "task" ? renderTaskCreateForm("composer") : renderTaskListCreateForm("composer")}
+              {composerTab === "lists" ? renderTaskListCreateForm("composer") : renderTaskCreateForm("composer")}
             </div>
           </section>
         </div> : null}
@@ -7219,6 +7117,8 @@ export function GenesisCalendar() {
             <button type="button" className="modal-close" onClick={() => setEditingTask(null)} aria-label="Закрыть">{experimentalThemeActive ? <ExperimentalIcon name="close" /> : "×"}</button>
             <span className="eyebrow">{cloudUser?.authProvider === "yandex" && editingTask.yandexEntryType === "meeting" ? "Редактирование встречи" : "Редактирование задачи"}</span>
             <h2 id="task-editor-title">{cloudUser?.authProvider === "yandex" ? "Запись Яндекс.Календаря" : "Задача и её контекст"}</h2>
+            <EntryTypeChoice value={editingTask.entryType ?? "task"} english={language === "en"} onChange={value => setEditingTask(current => current ? {...current, entryType:value, ...(cloudUser?.authProvider === "yandex" ? {yandexEntryType:value === "meeting" ? "meeting" : "task"} : {})} : current)} />
+            {editingTask.entryType === "meeting" && cloudUser?.authProvider !== "yandex" ? <label htmlFor="edit-meeting-end-time"><span>{language === "en" ? "End time" : "Время окончания"}</span><TimeClockPicker id="edit-meeting-end-time" ariaLabel={language === "en" ? "End time" : "Время окончания"} value={editingTask.endTime ?? ""} timeFormat={activeTimeFormat} onChange={value => setEditingTask(current => current ? {...current,endTime:value} : current)} /></label> : null}
             <p className="editor-source-note">
               {taskOriginMeta(editingTask.createdIn).label}.
               {cloudUser?.authProvider === "yandex" ? " Изменения синхронизируются с Яндекс.Календарём."
@@ -7415,7 +7315,7 @@ export function GenesisCalendar() {
             ) : null}
             <div className="editor-actions">
               <button type="button" className="danger-button" onClick={() => { const id = editingTask.id; const occurrence = editingOccurrenceDate || editingTask.dueDate; setEditingTask(null); deleteTask(id, occurrence); }}>Удалить</button>
-              {cloudUser?.sharedProjectsEnabled ? <button type="button" className="text-button" onClick={() => { setTransferTask(tasks.find((task) => task.id === editingTask.id) ?? editingTask); setEditingTask(null); }}>{language === "en" ? "Move to shared" : "Переместить в общие"}</button> : null}
+              {cloudUser?.sharedProjectsEnabled && editingTask.entryType !== "birthday" ? <button type="button" className="text-button" onClick={() => { setTransferTask(tasks.find((task) => task.id === editingTask.id) ?? editingTask); setEditingTask(null); }}>{language === "en" ? "Move to shared" : "Переместить в общие"}</button> : null}
               <button type="button" className="text-button" onClick={() => setEditingTask(null)}>Отмена</button>
               <button type="submit" className="primary-button" disabled={!editingTask.title.trim()}>Сохранить задачу</button>
             </div>

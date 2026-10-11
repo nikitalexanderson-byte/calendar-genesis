@@ -202,6 +202,11 @@ function genesisUiVisibility(mixed $value): array
             throw new InvalidArgumentException('AT_LEAST_ONE_SUBMENU_REQUIRED');
         }
     }
+    $delay = $decoded['sidebarAutoCollapseSeconds'] ?? 0;
+    if (!is_int($delay) || !in_array($delay, [0, 15, 30, 60, 120, 300], true)) {
+        throw new InvalidArgumentException('INVALID_SIDEBAR_AUTO_COLLAPSE');
+    }
+    $result['sidebarAutoCollapseSeconds'] = $delay;
     return $result;
 }
 
@@ -1112,7 +1117,12 @@ function genesisUpdateAccountPreferences(string $userId, array $payload): array
         $updates[] = 'shared_projects_enabled = :shared_projects_enabled';
         $values['shared_projects_enabled'] = $payload['sharedProjectsEnabled'] ? 1 : 0;
     }
-    $visibility = genesisUiVisibility($payload['uiVisibility'] ?? ($user['ui_visibility_json'] ?? '{}'));
+    $visibilityInput = $payload['uiVisibility'] ?? ($user['ui_visibility_json'] ?? '{}');
+    // Older clients do not know this preference; keep the account's saved delay.
+    if (is_array($visibilityInput) && !array_key_exists('sidebarAutoCollapseSeconds', $visibilityInput)) {
+        $visibilityInput['sidebarAutoCollapseSeconds'] = genesisUiVisibility($user['ui_visibility_json'] ?? '{}')['sidebarAutoCollapseSeconds'];
+    }
+    $visibility = genesisUiVisibility($visibilityInput);
     if (array_key_exists('uiVisibility', $payload)) {
         if (in_array('projects.personal', $visibility['hiddenSubmenus'], true)
             && !(genesisSharedEligible($user) && !empty($user['shared_projects_enabled']))) {

@@ -5,11 +5,13 @@ export type UiVisibility = {
   hiddenSubmenus: string[];
   hiddenTodayBlocks: string[];
   enabledCalendars: CalendarMode[];
+  sidebarAutoCollapseSeconds: number;
 };
 
 export const DEFAULT_UI_VISIBILITY: UiVisibility = {
   hiddenMenuItems: [], hiddenSubmenus: [], hiddenTodayBlocks: [],
   enabledCalendars: ["profane", "sacred", "lunar"],
+  sidebarAutoCollapseSeconds: 0,
 };
 
 export function uiVisibility(value?: Partial<UiVisibility> | null): UiVisibility {
@@ -18,6 +20,8 @@ export function uiVisibility(value?: Partial<UiVisibility> | null): UiVisibility
     hiddenSubmenus: value?.hiddenSubmenus ?? [],
     hiddenTodayBlocks: value?.hiddenTodayBlocks ?? [],
     enabledCalendars: value?.enabledCalendars?.length ? value.enabledCalendars : DEFAULT_UI_VISIBILITY.enabledCalendars,
+    sidebarAutoCollapseSeconds: [0, 15, 30, 60, 120, 300].includes(value?.sidebarAutoCollapseSeconds ?? 0)
+      ? value?.sidebarAutoCollapseSeconds ?? 0 : 0,
   };
 }
 

@@ -3,7 +3,7 @@ import { useRef, useState, type CSSProperties } from "react";
 import { CalendarDatePicker } from "./CalendarDatePicker";
 import { formatCalendarDate, type CalendarMode } from "./calendar-data";
 import type { SharedProjectSnapshot, SharedTask } from "./cloud-sync";
-import { dateSerial, serialDate, taskSpan, ganttTaskGroups, ganttSchedule, ganttCreationSchedule, ganttResizeSchedule, ganttAxisPosition, ganttAxisPoint, GANTT_CELL_WIDTH, type GanttEdge, type GanttSchedule, type GanttScale } from "./shared-gantt";
+import { dateSerial, serialDate, taskSpan, ganttTaskGroups, ganttUnscheduledTasks, ganttSchedule, ganttCreationSchedule, ganttResizeSchedule, ganttAxisPosition, ganttAxisPoint, GANTT_CELL_WIDTH, type GanttEdge, type GanttSchedule, type GanttScale } from "./shared-gantt";
 import { ExperimentalIcon } from "./ExperimentalIcon";
 import { calendarGanttRange, calendarGanttPeriods, calendarGanttMonths, shiftGanttAnchor, type GanttPeriod } from "./shared-gantt-calendar";
 import { useAffairDrag } from "./use-affair-drag";
@@ -33,8 +33,7 @@ export function SharedGantt({snapshot,english,calendarMode,timeFormat,initialDay
   const periodStyle = (period:GanttPeriod) => ({left:positionAt(Math.max(range.start,period.start)),width:positionAt(Math.min(period.end,range.end))-positionAt(Math.max(period.start,range.start))});
   const gridLines = ticks.map(tick=><i className="shared-gantt-grid-line" key={tick.start} style={{left:periodStyle(tick).left}} aria-hidden="true"/>);
   const rows = activeTasks.map(task=>({task,span:taskSpan(task)})).filter(({span})=>span && (scale !== "day" || span.timed) && span.start<range.end && span.end>range.start);
-  const unscheduled = activeTasks.filter(task=>{const span=taskSpan(task);return scale === "day"
-    ? !span || !span.timed && span.start<range.end && span.end>range.start : !span;});
+  const unscheduled = ganttUnscheduledTasks(activeTasks, scale);
   const axisProps={"data-gantt-axis":true,"data-gantt-start":range.start,"data-gantt-end":range.end,"data-gantt-scale":scale};
   const resize=useAffairDrag<ResizeItem,GanttSchedule>((x,_y,item)=>{
     const track=root.current?.querySelector<HTMLElement>(`[data-gantt-task="${CSS.escape(item.task.id)}"] .shared-gantt-track`);
@@ -137,10 +136,12 @@ export function SharedGantt({snapshot,english,calendarMode,timeFormat,initialDay
     {!rows.length ? <p>{english ? "No scheduled tasks in this period." : "В этом периоде нет задач с заданным временем."}</p> : null}
     {fit && activeTasks.some(task=>{const span=taskSpan(task);return span && span.end>range.end;}) ? <p role="status">{english ? "The fitted range is limited to one year. Use navigation to see later tasks." : "Общий диапазон ограничен годом. Используйте навигацию для более поздних задач."}</p> : null}
     <section className="shared-gantt-unscheduled" aria-label={english ? "Unscheduled tasks" : "Неразмеченные задачи"}>
-      <header><h3>{scale==="day" ? (english ? "Without hours / date" : "Без часов или даты") : (english ? "Without dates" : "Без даты")}</h3><span>{unscheduled.length}</span></header>
+      <header><h3>{scale==="day" ? (english ? "Without time" : "Без времени") : (english ? "Without dates" : "Без даты")}</h3><span>{unscheduled.length}</span></header>
       <p>{english ? "Drag a task onto the timeline, then adjust its start and end with the bar edges or in its card." : "Перетащите задачу на нужный период шкалы, затем настройте начало и окончание за края плашки или в карточке."}</p>
-      <div>{unscheduled.map(task=><button type="button" key={task.id} onClick={()=>onOpen(task)} data-affair-drag-surface {...dragProps(task)} data-no-translate>{task.title}</button>)}</div>
-      {!unscheduled.length ? <p>{english ? "All tasks in this period are scheduled." : "Все задачи этого периода размечены."}</p> : null}
+      <div>{unscheduled.map(task=><button type="button" key={task.id} onClick={()=>onOpen(task)} data-affair-drag-surface {...dragProps(task)}>
+        <span data-no-translate>{task.title}</span>{scale === "day" && (task.startDate || task.dueDate) ? <small>{formatDate(task.startDate || task.dueDate!)}{task.startDate && task.dueDate && task.startDate !== task.dueDate ? ` — ${formatDate(task.dueDate)}` : ""}</small> : null}
+      </button>)}</div>
+      {!unscheduled.length ? <p>{scale === "day" ? (english ? "All active tasks have a time assigned." : "Всем активным задачам назначено время.") : (english ? "All tasks in this period are scheduled." : "Все задачи этого периода размечены.")}</p> : null}
     </section>
     {completedTasks.length ? <details className="shared-gantt-completed"><summary><ExperimentalIcon name="chevron" /><span>{english ? "Completed" : "Выполненные"}</span><span>{completedTasks.length}</span></summary>
       <p>{english ? "Completed tasks are kept here and do not take up space on the timeline. Open a task to return it to an active board." : "Выполненные задачи сохранены здесь и не занимают место на шкале. Откройте задачу, чтобы вернуть её на активную доску."}</p>

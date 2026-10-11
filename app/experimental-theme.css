@@ -241,12 +241,6 @@ html[data-genesis-theme^="standart"] .genesis-app .admin-table-wrap { border-rad
 html[data-genesis-theme^="standart"] .genesis-app .mobile-nav[data-exp-ui="mobile-nav"] { background: var(--paper); color: var(--ink); border-color: var(--line); }
 html[data-genesis-theme^="standart"] .genesis-app :is([hidden], [hidden] *) { display: none !important; }
 /* Preserve the authored month legend and clock geometry with readable dark ink roles. */
-html[data-genesis-theme="standart-dark"] .genesis-app .month-rail.mode-sacred button:is(:hover, .active) {
-  color: #f6e8c7;
-  background: color-mix(in srgb, var(--month-accent) 34%, rgba(216, 189, 128, .08));
-  border-color: color-mix(in srgb, var(--month-accent) 78%, #d8bd80);
-  box-shadow: inset 3px 0 0 var(--month-accent);
-}
 html[data-genesis-theme="standart-dark"] .time-clock-dial { fill: var(--surface); stroke: var(--line); }
 html[data-genesis-theme="standart-dark"] .time-clock-dial-inner { fill: var(--paper); stroke: var(--line); }
 html[data-genesis-theme="standart-dark"] .time-clock-tick.hour { fill: #315440; }

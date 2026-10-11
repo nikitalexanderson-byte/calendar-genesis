@@ -106,13 +106,20 @@ try {
     $visibility = [
         'hiddenMenuItems' => ['tasks', 'stoicheion'], 'hiddenSubmenus' => ['calendar.year'],
         'hiddenTodayBlocks' => ['rhythm', 'tasks'], 'enabledCalendars' => ['profane'],
+        'sidebarAutoCollapseSeconds' => 30,
     ];
     $user = genesisUpdateAccountPreferences($userId, ['uiVisibility' => $visibility]);
     expect(genesisUserForClient($user)['uiVisibility'] === $visibility, 'Navigation visibility did not round-trip.');
+    $legacyVisibility = $visibility;
+    unset($legacyVisibility['sidebarAutoCollapseSeconds']);
+    $user = genesisUpdateAccountPreferences($userId, ['uiVisibility' => $legacyVisibility]);
+    expect(genesisUserForClient($user)['uiVisibility']['sidebarAutoCollapseSeconds'] === 30,
+        'An older client reset the sidebar delay.');
     expect($user['calendar_mode'] === 'profane' && $user['task_calendar_mode'] === 'profane',
         'Disabled calendars remained selected.');
     foreach ([['enabledCalendars' => []], ['hiddenSubmenus' => ['calendar.month', 'calendar.year']],
-        ['hiddenSubmenus' => ['sacred.stoicheion', 'sacred.theokyklos']]] as $invalid) {
+        ['hiddenSubmenus' => ['sacred.stoicheion', 'sacred.theokyklos']],
+        ['sidebarAutoCollapseSeconds' => -1], ['sidebarAutoCollapseSeconds' => '30']] as $invalid) {
         try {
             genesisUpdateAccountPreferences($userId, ['uiVisibility' => [...$visibility, ...$invalid]]);
             throw new RuntimeException('Invalid navigation visibility was accepted.');

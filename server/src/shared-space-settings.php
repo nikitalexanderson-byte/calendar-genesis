@@ -42,7 +42,7 @@ function genesisSharedSpaceSettings(string $userId, string $spaceId): array
     $space = genesisSharedSpaceAccess($spaceId, $userId);
     if (!in_array($space['member_role'], ['owner', 'admin'], true)) throw new GenesisSharedAccessException('SHARED_SPACE_FORBIDDEN', 403);
     $db = genesisDb();
-    $query = $db->prepare('SELECT m.user_id AS userId, m.role, m.permissions_json, m.can_organize_tasks,
+    $query = $db->prepare('SELECT m.user_id AS userId, m.role, m.permissions_json, m.can_organize_tasks, m.member_category_id AS categoryId,
         u.email, u.display_name AS displayName FROM shared_space_members m JOIN users u ON u.id = m.user_id
         WHERE m.space_id = :space ORDER BY m.joined_at LIMIT 200');
     $query->execute(['space' => $spaceId]);

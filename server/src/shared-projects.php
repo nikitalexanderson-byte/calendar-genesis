@@ -9,6 +9,9 @@ require_once __DIR__ . '/shared-task-attachments.php';
 require_once __DIR__ . '/shared-overview.php';
 require_once __DIR__ . '/shared-schedule.php';
 require_once __DIR__ . '/shared-space-covers.php';
+require_once __DIR__ . '/shared-task-approvals.php';
+require_once __DIR__ . '/shared-member-categories.php';
+require_once __DIR__ . '/entry-types.php';
 
 final class GenesisSharedAccessException extends RuntimeException
 {
@@ -332,6 +335,10 @@ function genesisSharedUpdateStatus(string $userId, string $projectId, string $st
             $affected = $db->prepare('SELECT id FROM shared_tasks WHERE project_id = :project AND status_id = :status');
             $affected->execute(['project' => $projectId, 'status' => $statusId]);
             $affectedIds = $affected->fetchAll(PDO::FETCH_COLUMN);
+            foreach ($affectedIds as $affectedId) {
+                if ($done) genesisSharedRequireTaskApproval($affectedId);
+                else genesisSharedResetTaskApprovals($affectedId);
+            }
             $db->prepare('UPDATE shared_tasks SET completed_by = :completed_by, completed_at = :completed_at,
                 updated_by = :user, updated_at = :now, revision = revision + 1 WHERE project_id = :project AND status_id = :status')
                 ->execute(['completed_by' => $done ? $userId : null, 'completed_at' => $done ? genesisNow() : null,
@@ -378,6 +385,10 @@ function genesisSharedDeleteStatus(string $userId, string $projectId, string $st
         $affected->execute(['project' => $projectId, 'status' => $statusId]);
         $affectedIds = $affected->fetchAll(PDO::FETCH_COLUMN);
         $targetDone = (int)$statuses[$targetId]['is_done'];
+        foreach ($affectedIds as $affectedId) {
+            if ($targetDone) genesisSharedRequireTaskApproval($affectedId);
+            elseif ((int)$statuses[$statusId]['is_done']) genesisSharedResetTaskApprovals($affectedId);
+        }
         $completion = $targetDone === 1
             ? 'completed_by = COALESCE(completed_by, :actor1), completed_at = COALESCE(completed_at, :now1),'
             : 'completed_by = NULL, completed_at = NULL,';
@@ -624,7 +635,10 @@ function genesisSharedImportProjectTree(string $userId, string $spaceId, array $
                 || !checkdate((int)substr($due, 5, 2), (int)substr($due, 8, 2), (int)substr($due, 0, 4)))) {
             throw new InvalidArgumentException('INVALID_IMPORT_TASK');
         }
+        $entryType = genesisEntryType($task['entryType'] ?? 'task');
+        if ($entryType === 'birthday') throw new InvalidArgumentException('День рождения доступен только в личных делах.');
         $normalizedTasks[$source] = [
+            'entryType' => $entryType,
             'projectSource' => $projectSource, 'categorySource' => $categorySource,
             'title' => genesisSharedTitle($task['title'] ?? null),
             'description' => genesisSharedText($task['description'] ?? '', 20000), 'tags' => genesisSharedTags($task['tags'] ?? []),
@@ -713,9 +727,9 @@ function genesisSharedImportProjectTree(string $userId, string $spaceId, array $
             }
         }
         $insertTask = $db->prepare('INSERT INTO shared_tasks
-            (id, project_id, status_id, category_id, title, description, tags_json, due_date,
+            (id, project_id, status_id, category_id, title, description, tags_json, due_date, entry_type,
             created_by, updated_by, completed_by, completed_at, created_at, updated_at)
-            VALUES (:id, :project, :status, :category, :title, :description, :tags, :due,
+            VALUES (:id, :project, :status, :category, :title, :description, :tags, :due, :entry,
             :user, :user, :completed_by, :completed_at, :now, :now)');
         foreach ($normalizedTasks as $source => $task) {
             $id = genesisUuid();
@@ -726,7 +740,7 @@ function genesisSharedImportProjectTree(string $userId, string $spaceId, array $
                 'category' => $task['categorySource'] === null ? null
                     : $categoryIds[$projectSource][$task['categorySource']],
                 'title' => $task['title'], 'description' => $task['description'], 'tags' => json_encode($task['tags'], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
-                'due' => $task['due'], 'user' => $userId,
+                'due' => $task['due'], 'entry' => $task['entryType'], 'user' => $userId,
                 'completed_by' => $task['done'] ? $userId : null,
                 'completed_at' => $task['done'] ? $now : null, 'now' => $now]);
             if ($mode === 'move') {
@@ -944,9 +958,11 @@ function genesisSharedSetSpaceRole(string $userId, string $spaceId, string $targ
             $owners->execute(['space' => $spaceId]);
             if ((int)$owners->fetchColumn() <= 1) throw new GenesisSharedAccessException('LAST_OWNER', 409);
         }
-        $db->prepare('UPDATE shared_space_members SET role = :role, can_organize_tasks = :organize, permissions_json = :permissions
+        $db->prepare('UPDATE shared_space_members SET role = :role, can_organize_tasks = :organize, permissions_json = :permissions,
+            member_category_id = CASE WHEN :manual = 1 THEN NULL ELSE member_category_id END
             WHERE space_id = :space AND user_id = :user')->execute([
                 'role' => $role, 'organize' => $canOrganize ? 1 : 0, 'permissions' => $permissionsJson,
+                'manual' => (int)($role !== $oldRole || array_key_exists('permissions', $input) || array_key_exists('canOrganizeTasks', $input)),
                 'space' => $spaceId, 'user' => $targetId]);
         if ($role !== $oldRole || $permissionsJson !== $existing['permissions_json']
             || $canOrganize !== ((int)$existing['can_organize_tasks'] === 1)) {
@@ -1057,7 +1073,7 @@ function genesisSharedProjectSnapshot(string $userId, string $projectId): array
     $categories = $db->prepare('SELECT id, title, color, position, revision
         FROM shared_project_categories WHERE project_id = :project ORDER BY position');
     $categories->execute(['project' => $projectId]);
-    $tasks = $db->prepare('SELECT t.id, t.project_id AS projectId, t.status_id AS statusId, t.title,
+    $tasks = $db->prepare('SELECT t.id, t.entry_type AS entryType, t.project_id AS projectId, t.status_id AS statusId, t.title,
         (SELECT GROUP_CONCAT(label_id) FROM shared_task_labels WHERE task_id = t.id) AS labelIdsCsv,
         (SELECT GROUP_CONCAT(predecessor_id) FROM shared_task_dependencies WHERE task_id = t.id) AS dependsOnIdsCsv,
         t.start_date AS startDate, t.start_time AS startTime, t.end_time AS endTime,
@@ -1076,6 +1092,7 @@ function genesisSharedProjectSnapshot(string $userId, string $projectId): array
         WHERE m.project_id = :project');
     $members->execute(['project' => $projectId, 'space' => $project['space_id']]);
     $attachments = genesisSharedAttachmentIndex($projectId);
+    $approvals = genesisSharedApprovalIndex($projectId);
     return [
         'project' => [
             'id' => $projectId, 'spaceId' => $project['space_id'], 'parentId' => $project['parent_id'], 'categoryId' => $project['category_id'],
@@ -1090,7 +1107,9 @@ function genesisSharedProjectSnapshot(string $userId, string $projectId): array
             'updatedAt' => $project['updated_at'],
         ],
         'statuses' => $statuses->fetchAll(), 'categories' => $categories->fetchAll(),
-        'tasks' => array_map(static function (array $task) use ($attachments): array {
+        'tasks' => array_map(static function (array $task) use ($attachments, $approvals): array {
+            $task['approvals'] = $approvals[$task['id']] ?? [];
+            $task['approvalRequired'] = count($task['approvals']) > 0;
             $task['imageUrl'] = genesisSharedTaskImageUrl($task['id'], (bool)$task['hasImage']);
             $task['attachments'] = $attachments[$task['id']] ?? [];
             unset($task['hasImage']); return genesisSharedRowTags($task);
@@ -1209,12 +1228,13 @@ function genesisSharedCalendarTasks(string $userId, string $from, string $to): a
         || $end < $start || $start->diff($end)->days > 1200) {
         throw new InvalidArgumentException('INVALID_SHARED_CALENDAR_RANGE');
     }
-    $query = genesisDb()->prepare('SELECT t.id, t.title, t.due_date AS dueDate,
+    $query = genesisDb()->prepare('SELECT t.id, t.title, t.entry_type AS entryType, t.due_date AS dueDate,
         t.completed_at AS completedAt, p.id AS projectId, p.title AS projectTitle,
         p.space_id AS spaceId, p.is_inbox AS isInbox
         FROM shared_tasks t JOIN shared_projects p ON p.id = t.project_id AND p.archived_at IS NULL
         JOIN shared_project_members m ON m.project_id = p.id AND m.user_id = :user
-        WHERE t.due_date BETWEEN :start AND :end ORDER BY t.due_date, t.position LIMIT 5000');
+        JOIN shared_project_statuses st ON st.id = t.status_id AND st.is_done = 0
+        WHERE t.completed_at IS NULL AND t.due_date BETWEEN :start AND :end ORDER BY t.due_date, t.position LIMIT 5000');
     $query->execute(['user' => $userId, 'start' => $from, 'end' => $to]);
     return $query->fetchAll();
 }
@@ -1368,6 +1388,16 @@ function genesisSharedMoveTask(string $userId, string $sourceProjectId, string $
             if (!$query->fetchColumn()) $assignee = null;
         }
         $done = (int)$isDone === 1;
+        if ($done) genesisSharedRequireTaskApproval($taskId);
+        elseif ($task['completed_at'] !== null) genesisSharedResetTaskApprovals($taskId);
+        if ($changedProject) {
+            $missing = $db->prepare('SELECT COUNT(*) FROM shared_task_approvals a WHERE a.task_id = :task AND a.approved_at IS NULL
+                AND NOT EXISTS (SELECT 1 FROM shared_project_members m JOIN shared_projects p ON p.id = m.project_id
+                JOIN shared_space_members sm ON sm.space_id = p.space_id AND sm.user_id = m.user_id
+                WHERE m.project_id = :project AND m.user_id = a.user_id)');
+            $missing->execute(['task' => $taskId, 'project' => $destinationId]);
+            if ((int)$missing->fetchColumn()) throw new GenesisSharedAccessException('В новом проекте должны быть все участники, подтверждающие выполнение.', 409);
+        }
         $completedBy = $done ? ($task['completed_by'] ?? $userId) : null;
         $completedAt = $done ? ($task['completed_at'] ?? $now) : null;
         $update = $db->prepare('UPDATE shared_tasks SET project_id = :project, status_id = :status,
@@ -1436,6 +1466,9 @@ function genesisSharedMoveTask(string $userId, string $sourceProjectId, string $
             'assigneeId' => $assignee, 'categoryId' => $changedProject ? null : $task['category_id'],
             'dueDate' => $dueDate, 'startDate' => $schedule['startDate'], 'startTime' => $schedule['startTime'], 'endTime' => $schedule['endTime'], 'completedAt' => $completedAt, 'completedBy' => $completedBy,
             'labelIds' => genesisSharedLabelIds('task', $taskId), 'dependsOnIds' => genesisSharedDependencyIds($taskId)];
+        $response['entryType'] = $task['entry_type'];
+        $response['approvals'] = genesisSharedTaskApprovals($taskId);
+        $response['approvalRequired'] = count($response['approvals']) > 0;
         genesisSharedSaveMutationReceipt($db, $userId, $requestId, 'task.move', $taskId, $response);
         $db->commit();
         return $response;
@@ -1548,6 +1581,8 @@ function genesisSharedTask(string $userId, string $projectId, array $input, ?str
         if ($title === null) throw new InvalidArgumentException('TITLE_REQUIRED');
         $description = array_key_exists('description', $input)
             ? genesisSharedText($input['description'], 20000) : ($existing['description'] ?? '');
+        $entryType = genesisEntryType($input['entryType'] ?? $existing['entry_type'] ?? 'task');
+        if ($entryType === 'birthday') throw new InvalidArgumentException('День рождения доступен только в личных делах.');
         $tags = array_key_exists('tags', $input) ? genesisSharedTags($input['tags']) : json_decode($existing['tags_json'] ?? '[]', true);
         $statusId = (string)($input['statusId'] ?? $existing['status_id'] ?? '');
         if ($existing && $statusId !== $existing['status_id']) {
@@ -1583,6 +1618,8 @@ function genesisSharedTask(string $userId, string $projectId, array $input, ?str
         $oldDependencies = genesisSharedDependencyIds($id);
         $completedBy = $isDone ? ($existing['completed_by'] ?? $userId) : null;
         $completedAt = $isDone ? ($existing['completed_at'] ?? $now) : null;
+        if ($isDone && $existing) genesisSharedRequireTaskApproval($id);
+        elseif ($existing && $existing['completed_at'] !== null) genesisSharedResetTaskApprovals($id);
         if ($existing) {
             $changed = $db->prepare('UPDATE shared_tasks SET title = :title, description = :description, tags_json = :tags,
                 status_id = :status, category_id = :category, assignee_id = :assignee, due_date = :due,
@@ -1622,8 +1659,8 @@ function genesisSharedTask(string $userId, string $projectId, array $input, ?str
             genesisSharedSaveTaskAttachments($id, $input);
         }
         $oldLabels = genesisSharedLabelIds('task', $id);
-        $db->prepare('UPDATE shared_tasks SET start_date = :start, start_time = :start_time, end_time = :end_time WHERE id = :id')->execute([
-            'id' => $id, 'start' => $schedule['startDate'], 'start_time' => $schedule['startTime'], 'end_time' => $schedule['endTime']]);
+        $db->prepare('UPDATE shared_tasks SET entry_type = :entry, start_date = :start, start_time = :start_time, end_time = :end_time WHERE id = :id')->execute([
+            'id' => $id, 'entry' => $entryType, 'start' => $schedule['startDate'], 'start_time' => $schedule['startTime'], 'end_time' => $schedule['endTime']]);
         $dependsOnIds = genesisSharedAssignDependencies($projectId, $id, $input);
         $labelIds = genesisSharedAssignLabels($project['space_id'], 'task', $id, $input);
         genesisSharedAudit($projectId, $userId, $existing ? 'task.updated' : 'task.created', $id, ['changes' => genesisSharedChanges(
@@ -1641,6 +1678,10 @@ function genesisSharedTask(string $userId, string $projectId, array $input, ?str
         $image->execute(['id' => $id]);
         $response['imageUrl'] = genesisSharedTaskImageUrl($id, (bool)$image->fetchColumn());
         $response['attachments'] = genesisSharedTaskAttachments($id);
+        $response['entryType'] = $entryType;
+        genesisSharedConfigureTaskApprovals($userId, $projectId, $id, $input, $existing, $isDone);
+        $response['approvals'] = genesisSharedTaskApprovals($id);
+        $response['approvalRequired'] = count($response['approvals']) > 0;
         genesisSharedSaveMutationReceipt($db, $userId, $requestId, $action, $resourceId, $response);
         $db->commit();
         return $response;

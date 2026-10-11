@@ -5,7 +5,7 @@ import { useSharedUpdates } from "./SharedUpdatesProvider";
 import { ExperimentalIcon } from "./ExperimentalIcon";
 import "./shared-updates.css";
 
-export type SharedTaskDestination = { spaceId: string; projectId: string; taskId?: string };
+export type SharedTaskDestination = { spaceId: string; projectId: string; taskId?: string; taskAction?: "locate" };
 export const notificationDestination = (item: SharedNotification): SharedTaskDestination => ({
   spaceId: item.spaceId, projectId: item.projectId, ...(item.action === "project.created" ? {} : { taskId: item.objectId }),
 });
