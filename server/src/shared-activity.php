@@ -17,7 +17,7 @@ function genesisSharedReadableChanges(array $details): array
 {
     $queries = ['statusId' => 'SELECT title FROM shared_project_statuses WHERE id = :id',
         'boardStatusId' => 'SELECT title FROM shared_project_statuses WHERE id = :id',
-        'categoryId' => 'SELECT title FROM shared_project_categories WHERE id = :id',
+        'categoryId' => 'SELECT title FROM shared_project_categories WHERE id = :id UNION ALL SELECT title FROM shared_space_project_categories WHERE id = :id LIMIT 1',
         'projectId' => 'SELECT title FROM shared_projects WHERE id = :id', 'parentId' => 'SELECT title FROM shared_projects WHERE id = :id',
         'assigneeId' => 'SELECT display_name FROM users WHERE id = :id', 'labelIds' => 'SELECT title FROM shared_space_labels WHERE id = :id',
         'dependsOnIds' => 'SELECT title FROM shared_tasks WHERE id = :id'];

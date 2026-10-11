@@ -722,6 +722,17 @@ try {
             if ($method === 'GET') genesisJson(['projects' => genesisSharedProjects($userId, $segments[2])]);
             if ($method === 'POST') genesisJson(['project' => genesisSharedCreateProject($userId, $segments[2], genesisReadJson())], 201);
         }
+        if (count($segments) === 4 && $segments[1] === 'spaces' && $segments[3] === 'project-categories') {
+            if ($method === 'GET') genesisJson(['categories' => genesisSharedProjectCategories($userId, $segments[2])]);
+            if ($method === 'POST') genesisJson(['category' => genesisSharedSaveProjectCategory($userId, $segments[2], genesisReadJson())], 201);
+        }
+        if (count($segments) === 5 && $segments[1] === 'spaces' && $segments[3] === 'project-categories') {
+            if ($method === 'PATCH') genesisJson(['category' => genesisSharedSaveProjectCategory($userId, $segments[2], genesisReadJson(), $segments[4])]);
+            if ($method === 'DELETE') {
+                genesisSharedDeleteProjectCategory($userId, $segments[2], $segments[4], genesisReadJson());
+                genesisJson(['ok' => true]);
+            }
+        }
         if (count($segments) === 4 && $segments[1] === 'spaces' && $segments[3] === 'import-project'
             && $method === 'POST') {
             genesisJson(['receipt' => genesisSharedImportProjectTree($userId, $segments[2], genesisReadJson())], 201);

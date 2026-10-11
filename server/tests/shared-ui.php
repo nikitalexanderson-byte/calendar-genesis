@@ -16,6 +16,32 @@ function uiReject(callable $action, ?int $status = null): void {
     catch (InvalidArgumentException $error) { uiExpect($status === null, 'Expected access rejection'); return; }
     throw new RuntimeException('Invalid action was accepted');
 }
+// Upgrade a populated previous schema; verify its backup and old queries remain usable.
+$legacy = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+$legacy->exec('PRAGMA foreign_keys = ON');
+foreach (glob(dirname(__DIR__) . '/migrations/*.sql') as $file) if (basename($file) < '040_') $legacy->exec(file_get_contents($file));
+$legacy->exec("INSERT INTO users (id, google_sub, email, created_at, updated_at) VALUES ('u', 'u', 'legacy@example.test', 'now', 'now');
+    INSERT INTO shared_spaces (id, title, created_by, created_at, updated_at) VALUES ('s', 'Legacy space', 'u', 'now', 'now');
+    INSERT INTO shared_projects (id, space_id, title, tags_json, created_at, updated_at) VALUES ('p', 's', 'Legacy project', '[\"one\",\"two\"]', 'now', 'now');
+    INSERT INTO shared_project_statuses (id, project_id, title, position) VALUES ('b', 'p', 'Legacy board', 0);
+    INSERT INTO shared_tasks (id, project_id, status_id, title, created_at, updated_at) VALUES ('t', 'p', 'b', 'Legacy task', 'now', 'now')");
+$backupPath = tempnam(sys_get_temp_dir(), 'genesis-project-categories-backup-');
+try {
+    $legacy->exec('VACUUM INTO ' . $legacy->quote($backupPath));
+    $legacy->beginTransaction();
+    $legacy->exec(file_get_contents(dirname(__DIR__) . '/migrations/040_shared_project_categories.sql'));
+    $legacy->commit();
+    uiExpect($legacy->query('SELECT category_id FROM shared_projects')->fetchColumn() === null, 'Migration assigned a category to old projects');
+    uiExpect($legacy->query('SELECT title FROM shared_tasks')->fetchColumn() === 'Legacy task', 'Migration changed tasks');
+    uiExpect($legacy->query('SELECT tags_json FROM shared_projects')->fetchColumn() === '["one","two"]', 'Migration changed tags');
+    $legacy->exec("UPDATE shared_projects SET title = 'Old client title' WHERE id = 'p'");
+    uiExpect(!$legacy->query('PRAGMA foreign_key_check')->fetchAll(), 'Migration broke references');
+    uiExpect($legacy->query('PRAGMA integrity_check')->fetchColumn() === 'ok', 'Migrated DB is invalid');
+    $backup = new PDO('sqlite:' . $backupPath);
+    uiExpect($backup->query('SELECT title FROM shared_projects')->fetchColumn() === 'Legacy project', 'Previous schema backup is not intact');
+    uiExpect($backup->query('PRAGMA integrity_check')->fetchColumn() === 'ok', 'Backup is invalid');
+    $backup = null;
+} finally { unlink($backupPath); }
 $ids = [];
 foreach (['owner', 'member', 'guest', 'outsider'] as $role) {
     $id = 'shared-ui-test-' . $role; $ids[$role] = $id;
@@ -58,6 +84,31 @@ try {
     uiExpect(genesisSharedProjectSnapshot($member, $future['id'])['project']['role'] === 'member', 'Future project membership missing');
     uiExpect(genesisSharedProjectSnapshot($guest, $future['id'])['project']['role'] === 'viewer', 'Guest gained edit access');
     uiReject(fn() => genesisSharedCreateProject($guest, $space['id'], ['title' => 'Forbidden']), 403);
+    $folder = genesisSharedSaveProjectCategory($owner, $space['id'], ['title' => 'Projects folder', 'color' => '#123456']);
+    uiExpect(genesisSharedProjectCategories($member, $space['id'])[0]['id'] === $folder['id'], 'Members cannot read project folders');
+    uiReject(fn() => genesisSharedSaveProjectCategory($guest, $space['id'], ['title' => 'Forbidden']), 403);
+    uiReject(fn() => genesisSharedProjectCategories($outsider, $space['id']));
+    $categorized = genesisSharedUpdateProject($owner, $project['id'], ['categoryId' => $folder['id'], 'expectedRevision' => 1, 'tags' => ['one', 'two']]);
+    uiExpect($categorized['categoryId'] === $folder['id'] && count($categorized['tags']) === 2, 'Project category replaced multiple tags');
+    $legacyUpdate = genesisSharedUpdateProject($owner, $project['id'], ['title' => 'Boards', 'expectedRevision' => 2]);
+    uiExpect($legacyUpdate['categoryId'] === $folder['id'], 'Old client update erased the folder');
+    $subproject = genesisSharedCreateProject($owner, $space['id'], ['title' => 'Categorized child', 'parentId' => $project['id'], 'categoryId' => $folder['id']]);
+    $uncategorizedChild = genesisSharedCreateProject($owner, $space['id'], ['title' => 'Uncategorized child', 'parentId' => $project['id']]);
+    uiExpect($uncategorizedChild['categoryId'] === null, 'A child cannot opt out of its parent category');
+    uiReject(fn() => genesisSharedCreateProject($owner, $space['id'], ['title' => 'Invalid list', 'kind' => 'task-list', 'categoryId' => $folder['id']]));
+    $otherSpace = genesisSharedCreateSpace($owner, ['title' => 'Other folder scope']);
+    uiReject(fn() => genesisSharedCreateProject($owner, $otherSpace['id'], ['title' => 'Wrong workspace category', 'categoryId' => $folder['id']]));
+    $task = genesisSharedTask($owner, $project['id'], ['title' => 'Tagged task', 'statusId' => $initial['statuses'][0]['id'], 'tags' => ['first', 'second']]);
+    uiReject(fn() => genesisSharedTask($owner, $project['id'], ['title' => 'Direct folder task', 'statusId' => $initial['statuses'][0]['id'], 'categoryId' => $folder['id']]));
+    $renamedFolder = genesisSharedSaveProjectCategory($owner, $space['id'], ['title' => 'Renamed folder', 'color' => '#654321', 'expectedRevision' => 1], $folder['id']);
+    uiReject(fn() => genesisSharedDeleteProjectCategory($owner, $space['id'], $folder['id'], ['expectedRevision' => 1]), 409);
+    uiExpect(genesisSharedProjectSnapshot($owner, $project['id'])['project']['categoryId'] === $folder['id'], 'Stale category delete changed projects');
+    genesisSharedDeleteProjectCategory($owner, $space['id'], $folder['id'], ['expectedRevision' => $renamedFolder['revision']]);
+    $afterDelete = genesisSharedProjectSnapshot($owner, $project['id']);
+    uiExpect($afterDelete['project']['categoryId'] === null && count($afterDelete['project']['tags']) === 2, 'Folder deletion lost project data');
+    uiExpect(genesisSharedProjectSnapshot($owner, $subproject['id'])['project']['categoryId'] === null, 'Folder deletion orphaned a subproject');
+    uiExpect($afterDelete['tasks'][0]['id'] === $task['id'] && count($afterDelete['tasks'][0]['tags']) === 2, 'Folder deletion lost task tags');
+    uiExpect(genesisSharedSpaces($member)[0]['ownerName'] === 'UI Test' && (int)genesisSharedSpaces($member)[0]['memberCount'] === 3, 'Workspace identity metadata missing');
     $board = $initial['statuses'][0]; $destination = $initial['statuses'][1];
     $child = genesisSharedCreateProject($owner, $space['id'], ['title' => 'Task list', 'kind' => 'task-list',
         'parentId' => $project['id'], 'boardStatusId' => $board['id']]);

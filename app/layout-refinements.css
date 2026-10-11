@@ -558,7 +558,13 @@ html[data-genesis-theme] .genesis-app .task-file-list button { flex: 0 0 44px; w
 html[data-genesis-theme] .genesis-app .shared-task-attachments { margin: 16px 0; }
 
 /* Shared affairs use the same controls in both STANDART color schemes. */
-html[data-genesis-theme] .genesis-app .shared-space-identity { display: grid; gap: 8px; width: fit-content; max-width: 100%; min-width: 0; margin-block: 16px 0; padding: 12px 16px; border-radius: 12px; background: #00000020; color: #f4f0e5; font: 500 13px/1.5 var(--font-ui); }
+html[data-genesis-theme] .genesis-app .shared-space-identity { position: relative; display: grid; width: fit-content; max-width: 100%; min-width: 0; margin-block: 16px 0; color: #f4f0e5; font: 500 13px/1.5 var(--font-ui); }
+html[data-genesis-theme] .genesis-app .shared-space-info-trigger { position: relative; display: grid; gap: 4px; width: 100%; padding: 12px 40px 12px 16px; border: 1px solid #ffffff20; border-radius: 12px; background: #00000020; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+html[data-genesis-theme] .genesis-app .shared-space-info-trigger > span { display: block; min-width: 0; overflow-wrap: anywhere; }
+html[data-genesis-theme] .genesis-app .shared-space-info-trigger > svg { position: absolute; right: 12px; top: 16px; transform: rotate(90deg); }
+html[data-genesis-theme] .genesis-app .shared-space-info-trigger:hover { background: #00000040; border-color: #ffffff50; }
+html[data-genesis-theme] .genesis-app .shared-space-info-popup { position: absolute; top: 100%; left: 0; z-index: 20; display: grid; gap: 8px; width: min(360px, calc(100vw - 48px)); max-height: 240px; overflow: auto; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); font: 400 14px/1.6 var(--font-ui); text-align: left; overflow-wrap: anywhere; cursor: pointer; }
+html[data-genesis-theme] .genesis-app .shared-space-info-popup strong { font: 600 14px/1.5 var(--font-ui); }
 html[data-genesis-theme] .genesis-app .workspace-header .shared-space-identity h2 { margin: 0; color: inherit; font: inherit; font-family: var(--font-ui) !important; letter-spacing: 0; overflow-wrap: anywhere; }
 html[data-genesis-theme] .genesis-app .workspace-header .shared-space-identity h2 > span { color: inherit; font: inherit; }
 html[data-genesis-theme] .genesis-app .shared-space-identity > div { display: flex; flex-wrap: wrap; gap: 4px 16px; font: inherit; }
@@ -572,8 +578,12 @@ html[data-genesis-theme] .genesis-app .shared-workspace-toolbar button,
 html[data-genesis-theme] .genesis-app .shared-context-actions > .shared-project-settings-icon { display: inline-flex; flex: 0 0 44px; align-items: center; justify-content: center; width: 44px; min-width: 44px; min-height: 44px; padding: 10px; }
 html[data-genesis-theme] .genesis-app .shared-context-actions { justify-self: end; margin-left: auto; }
 html[data-genesis-theme] .genesis-app .shared-task-card-title { grid-template-columns: 28px minmax(0, 1fr) auto; }
-html[data-genesis-theme] .genesis-app .shared-task-actions { display: flex; flex-wrap: nowrap; justify-content: flex-end; gap: 4px; }
-html[data-genesis-theme] .genesis-app .shared-task-actions > button { display: inline-flex; flex: 0 0 44px; align-items: center; justify-content: center; width: 44px; min-width: 44px; min-height: 44px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: transparent; color: var(--ink); }
+html[data-genesis-theme] .genesis-app .shared-task-card-title > .shared-projects-task-open { min-width: 0; }
+html[data-genesis-theme] .genesis-app .shared-projects-board .shared-task-card-title { grid-template-columns: 28px minmax(0, 1fr); }
+html[data-genesis-theme] .genesis-app .shared-projects-board .shared-task-card-title > .shared-task-actions { grid-column: 2; }
+html[data-genesis-theme] .genesis-app .shared-task-actions { display: flex; flex-wrap: nowrap; justify-content: flex-end; justify-self: end; align-self: start; gap: 4px; }
+html[data-genesis-theme] .genesis-app .shared-task-actions > button { display: inline-flex; flex: 0 0 32px; align-items: center; justify-content: center; width: 32px; height: 32px; min-width: 32px; min-height: 32px; padding: 6px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--ink); }
+html[data-genesis-theme] .genesis-app .shared-task-actions .experimental-icon { width: 16px; height: 16px; }
 html[data-genesis-theme] .genesis-app .shared-task-actions > .shared-task-delete-icon { color: #b42318; border-color: color-mix(in srgb, #b42318 40%, var(--surface)); background: color-mix(in srgb, #b42318 8%, var(--surface)); }
 html[data-genesis-theme$="dark"] .genesis-app .shared-task-actions > .shared-task-delete-icon { color: #ff9a90; border-color: color-mix(in srgb, #ff9a90 40%, var(--surface)); background: color-mix(in srgb, #ff9a90 8%, var(--surface)); }
 html[data-genesis-theme] .genesis-app .shared-task-delete-footer { display: flex; justify-content: flex-end; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); }
@@ -604,8 +614,9 @@ html[data-genesis-theme] .genesis-app .shared-team-member-identity h4 { margin: 
 html[data-genesis-theme] .genesis-app .shared-team-member-identity span { color: var(--ink-soft); font: 400 13px/1.5 var(--font-ui); }
 html[data-genesis-theme] .genesis-app .shared-team-member-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 12px; min-width: 0; }
 html[data-genesis-theme] .genesis-app .shared-team-member-controls > label { display: grid; gap: 8px; min-width: 0; margin: 0; }
-html[data-genesis-theme] .genesis-app .shared-team-member-controls > .shared-projects-organizer-toggle { display: flex; align-items: center; gap: 10px; min-height: 44px; padding-top: 28px; border: 0; background: transparent; }
-html[data-genesis-theme] .genesis-app .shared-team-member-controls input[type="checkbox"] { flex: 0 0 22px; width: 22px; height: 22px; min-height: 22px; padding: 0; }
+html[data-genesis-theme] .genesis-app .shared-team-member-controls > label.shared-projects-organizer-toggle:has(> input[type="checkbox"]) { display: flex; flex-direction: row; align-items: center; align-self: end; gap: 10px; min-height: 44px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+html[data-genesis-theme] .genesis-app .shared-team-member-controls > label > select { height: 44px; min-height: 44px; margin: 0; }
+html[data-genesis-theme] .genesis-app .shared-team-member-controls > label.shared-projects-organizer-toggle > input[type="checkbox"] { flex: 0 0 22px; width: 22px; height: 22px; min-height: 22px; margin: 0; padding: 0; }
 html[data-genesis-theme] .genesis-app :is(.shared-activity, .shared-projects-google, .shared-gantt-completed) { min-width: 0; margin: 0; padding: 16px; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); background: var(--surface); font: 400 14px/1.6 var(--font-ui); }
 html[data-genesis-theme] .genesis-app :is(.shared-activity, .shared-projects-google, .shared-gantt-completed) > summary { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0; cursor: pointer; list-style: none; font: 600 15px/1.5 var(--font-ui); }
 html[data-genesis-theme] .genesis-app :is(.shared-activity, .shared-projects-google, .shared-gantt-completed) > summary::marker { content: ""; }
@@ -615,7 +626,38 @@ html[data-genesis-theme] .genesis-app :is(.shared-activity, .shared-projects-goo
 html[data-genesis-theme] .genesis-app .shared-gantt-completed > div { display: grid; gap: 8px; }
 html[data-genesis-theme] .genesis-app .shared-gantt-completed button { display: flex; align-items: center; gap: 8px; min-height: 44px; text-align: left; overflow-wrap: anywhere; }
 html[data-genesis-theme] .genesis-app .shared-update-destination { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-weight: 600; color: var(--ink); }
-html[data-genesis-theme] .genesis-app :is(.shared-workspace-toolbar button, .shared-board-create-actions > button, .shared-task-actions > button):hover:not(:disabled) { background: color-mix(in srgb, var(--ui-accent) 22%, var(--surface)); border-color: var(--ui-accent); }
+html[data-genesis-theme] .genesis-app :is(.shared-workspace-toolbar button, .shared-task-actions > button):hover:not(:disabled) { background: color-mix(in srgb, var(--ui-accent) 22%, var(--surface)); border-color: var(--ui-accent); }
+html[data-genesis-theme] .genesis-app .shared-board-create-task { --shared-create-color: #2d8682; }
+html[data-genesis-theme] .genesis-app .shared-board-create-task-list { --shared-create-color: #8573ab; }
+html[data-genesis-theme] .genesis-app .shared-board-create-project { --shared-create-color: #b2914a; }
+html[data-genesis-theme] .genesis-app .shared-board-create-actions { display: flex; justify-content: flex-end; gap: 6px; max-width: none; }
+html[data-genesis-theme] .genesis-app .shared-board-create-actions > button { position: relative; display: grid; place-items: center; flex: 0 0 32px; width: 32px; height: 32px; min-width: 32px; min-height: 32px; padding: 6px; border-radius: 8px; }
+html[data-genesis-theme] .genesis-app .shared-board-create-actions .experimental-icon { width: 16px; height: 16px; }
+html[data-genesis-theme] .genesis-app .shared-create-tooltip { position: absolute; bottom: calc(100% + 8px); right: 0; z-index: 10; visibility: hidden; width: max-content; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font: 500 12px/1.5 var(--font-ui); white-space: nowrap; pointer-events: none; }
+html[data-genesis-theme] .genesis-app .shared-board-create-actions > button:is(:hover, :focus-visible) > .shared-create-tooltip { visibility: visible; }
+html[data-genesis-theme] .genesis-app .shared-board-create-actions > button:hover:not(:disabled) { background: color-mix(in srgb, var(--shared-create-color) 40%, var(--surface)); border-color: color-mix(in srgb, var(--shared-create-color) 75%, var(--ink)); }
+html[data-genesis-theme] .genesis-app .shared-board-create-actions > button:focus-visible { outline-color: var(--shared-create-color); }
+html[data-genesis-theme] .genesis-app .shared-project-categories { display: grid; gap: 16px; min-width: 0; margin-block: 20px; }
+html[data-genesis-theme] .genesis-app #shared-projects-preference-title { display: flex; align-items: center; gap: 10px; }
+html[data-genesis-theme] .genesis-app #shared-projects-preference-title > svg { flex: 0 0 22px; width: 22px; height: 22px; }
+html[data-genesis-theme] .genesis-app .shared-board-delete { display: grid; gap: 12px; padding: 0; }
+html[data-genesis-theme] .genesis-app .shared-board-delete > summary,
+html[data-genesis-theme] .genesis-app .shared-board-delete-confirm { display: flex; align-items: center; justify-content: flex-start; gap: 10px; min-height: 44px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); cursor: pointer; list-style: none; font: 500 14px/1.5 var(--font-ui); }
+html[data-genesis-theme] .genesis-app .shared-board-delete > summary::-webkit-details-marker { display: none; }
+html[data-genesis-theme] .genesis-app .shared-board-delete > summary::marker { content: ""; }
+html[data-genesis-theme] .genesis-app .shared-board-delete > summary:hover,
+html[data-genesis-theme] .genesis-app .shared-board-delete-confirm:hover:not(:disabled) { border-color: var(--terracotta); color: var(--terracotta); background: color-mix(in srgb, var(--terracotta) 8%, var(--surface)); }
+html[data-genesis-theme] .genesis-app .shared-board-delete > summary:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 3px; }
+html[data-genesis-theme] .genesis-app .shared-board-delete[open] > summary { margin-bottom: 12px; }
+html[data-genesis-theme] .genesis-app .shared-board-delete .experimental-icon { flex: 0 0 18px; width: 18px; height: 18px; }
+html[data-genesis-theme] .genesis-app .shared-project-categories > h3 { margin: 0; font: 500 20px/1.3 var(--font-heading); }
+html[data-genesis-theme] .genesis-app .shared-category-projects { grid-column: 1 / -1; display: grid; gap: 4px; min-width: 0; }
+html[data-genesis-theme] .genesis-app .shared-category-projects > button { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 8px; background: transparent; text-align: left; overflow-wrap: anywhere; }
+html[data-genesis-theme] .genesis-app .shared-category-form { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; }
+html[data-genesis-theme] .genesis-app .shared-category-form > label { display: grid; gap: 6px; min-width: 0; }
+html[data-genesis-theme] .genesis-app .shared-category-form > label:first-child { flex: 1 1 220px; }
+html[data-genesis-theme] .genesis-app .shared-category-form input { min-height: 44px; width: 100%; }
+html[data-genesis-theme] .genesis-app .shared-category-form input[type="color"] { width: 44px; padding: 4px; }
 html[data-genesis-theme] .genesis-app :is(.shared-workspace-toolbar button, .shared-board-create-actions > button, .shared-task-actions > button):focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 3px; }
 html[data-genesis-theme] .genesis-app .shared-current-subprojects { display: grid; gap: 8px; min-width: 0; }
 html[data-genesis-theme] .genesis-app .shared-projects-context[data-drop-active] { outline: 2px solid var(--ui-accent); outline-offset: 2px; }
@@ -630,7 +672,7 @@ html[data-genesis-theme] .genesis-app .shared-projects-context[data-drop-active]
   html[data-genesis-theme] .genesis-app .shared-task-card-title { grid-template-columns: 24px minmax(0, 1fr); }
   html[data-genesis-theme] .genesis-app .shared-task-card-title > .shared-task-actions { grid-column: 2; }
   html[data-genesis-theme] .genesis-app .shared-team-member-controls { grid-template-columns: minmax(0, 1fr); }
-  html[data-genesis-theme] .genesis-app .shared-team-member-controls > .shared-projects-organizer-toggle { padding-top: 0; }
+  html[data-genesis-theme] .genesis-app .shared-team-member-controls > .shared-projects-organizer-toggle { align-self: start; }
   html[data-genesis-theme] .genesis-app .shared-task-composer .shared-task-date-pair { grid-template-columns: minmax(0, 1fr); }
   html[data-genesis-theme] .genesis-app .shared-task-composer > button[type="submit"],
   html[data-genesis-theme] .genesis-app .shared-task-delete-button { width: 100%; }

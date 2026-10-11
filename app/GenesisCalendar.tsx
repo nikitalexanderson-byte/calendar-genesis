@@ -6004,7 +6004,7 @@ export function GenesisCalendar() {
   const renderTaskRows = (items: Task[]) => <div className="all-tasks-list" aria-live="polite">
     {items.map((task) => {
             const project = resolvedTaskProject(task);
-            const category = categories.find((item) => item.id === (task.categoryId ?? project?.categoryId));
+            const category = categories.find((item) => item.id === project?.categoryId);
             const overdue = isTaskOverdue(task, today, overdueDeadline(task));
             const source = taskOriginMeta(task.createdIn);
             const tags = (Array.isArray(task.tags) ? task.tags : []);
