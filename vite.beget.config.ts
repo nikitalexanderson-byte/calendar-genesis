@@ -86,6 +86,13 @@ function offlinePrecacheManifest(basePath: string): Plugin {
         fileName: "precache-manifest.js",
         source: `self.__GENESIS_PRECACHE_VERSION=${JSON.stringify(version)};self.__GENESIS_PRECACHE=${JSON.stringify(publicUrls)};\n`,
       });
+      // Also change the top-level worker when its imported resource list changes.
+      // Browsers can then detect a new build without relying on a cached import.
+      this.emitFile({
+        type: "asset",
+        fileName: "sw.js",
+        source: `// GENESIS precache build: ${version}\n${readFileSync(path.join(projectRoot, "public", "sw.js"), "utf8")}`,
+      });
     },
   };
 }
