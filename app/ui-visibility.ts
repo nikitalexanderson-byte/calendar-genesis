@@ -5,19 +5,23 @@ export type AccountLayout = {
   sidebarWidth: number;
   personalInboxPosition: InboxPosition;
   personalInboxHidden: boolean;
+  personalInboxCompact: boolean;
   sharedInboxPosition: InboxPosition;
   sharedInboxHidden: boolean;
+  sharedInboxCompact: boolean;
 };
 export const DEFAULT_ACCOUNT_LAYOUT: AccountLayout = {
-  sidebarWidth: 240, personalInboxPosition: "right", personalInboxHidden: false,
-  sharedInboxPosition: "right", sharedInboxHidden: false,
+  sidebarWidth: 240, personalInboxPosition: "right", personalInboxHidden: false, personalInboxCompact: false,
+  sharedInboxPosition: "right", sharedInboxHidden: false, sharedInboxCompact: false,
 };
 export function accountLayout(value?: Partial<AccountLayout> | null): AccountLayout {
   const position = (input?: InboxPosition): InboxPosition => input && ["top", "right", "left", "bottom"].includes(input) ? input : "right";
   return {
     sidebarWidth: Number.isInteger(value?.sidebarWidth) ? Math.max(56, Math.min(240, value!.sidebarWidth!)) : 240,
     personalInboxPosition: position(value?.personalInboxPosition), personalInboxHidden: value?.personalInboxHidden === true,
+    personalInboxCompact: value?.personalInboxCompact === true,
     sharedInboxPosition: position(value?.sharedInboxPosition), sharedInboxHidden: value?.sharedInboxHidden === true,
+    sharedInboxCompact: value?.sharedInboxCompact === true,
   };
 }
 

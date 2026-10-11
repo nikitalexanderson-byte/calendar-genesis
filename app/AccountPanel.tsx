@@ -225,7 +225,7 @@ export function AccountPanel({ user, onClose, onSignOut, onReconnectGoogle, onCo
       const result = await updateAccountPreferences({ uiVisibility: next });
       const saved = uiVisibility(result.user.uiVisibility);
       const fields = ["hiddenMenuItems", "hiddenSubmenus", "hiddenTodayBlocks", "enabledCalendars"] as const;
-      const scalarFields = ["sidebarAutoCollapseSeconds", "sidebarWidth", "personalInboxPosition", "personalInboxHidden", "sharedInboxPosition", "sharedInboxHidden"] as const;
+      const scalarFields = ["sidebarAutoCollapseSeconds", "sidebarWidth", "personalInboxPosition", "personalInboxHidden", "personalInboxCompact", "sharedInboxPosition", "sharedInboxHidden", "sharedInboxCompact"] as const;
       if (scalarFields.some(field => next[field] !== saved[field]) || fields.some((field) => next[field].length !== saved[field].length ||
         next[field].some((item) => !(saved[field] as string[]).includes(item)))) {
         throw new Error(user.language === "en"

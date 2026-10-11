@@ -5847,11 +5847,13 @@ export function GenesisCalendar() {
               {!completedProjectsOpen ? <section
                 className={`inbox-card${projectDropTargetId === TASK_INBOX_PROJECT_ID ? " drop-target" : ""}`}
                 hidden={accountLayout.personalInboxHidden}
+                data-inbox-compact={accountLayout.personalInboxCompact}
                 data-project-drop-id={TASK_INBOX_PROJECT_ID}
                 aria-labelledby="project-inbox-title"
               >
                 <InboxToolbar title={language === "en" ? "Inbox" : "Хаос-бокс"} scopeLabel={language === "en" ? "personal" : "личный"} titleId="project-inbox-title"
                   count={inboxTasks.length + inboxTaskLists.length} english={language === "en"} position={accountLayout.personalInboxPosition}
+                  compact={accountLayout.personalInboxCompact} onCompact={personalInboxCompact => saveLayout({ personalInboxCompact })}
                   onPosition={personalInboxPosition => saveLayout({ personalInboxPosition })} onHide={() => saveLayout({ personalInboxHidden: true })} />
                 <p>{projectDragItem ? "Отпустите здесь, чтобы убрать элемент из проекта." : <><span className="project-drag-hint-desktop">Перетащите плашку задачи или списка в проект либо в хаос-бокс.</span><span className="project-drag-hint-touch">Для переноса удерживайте задачу или список, затем перетащите. Для прокрутки проведите пальцем без удержания.</span></>}</p>
                 {!inboxTasks.length && !inboxTaskLists.length ? <p>{language === "en" ? "No unsorted tasks yet." : "Задач без проекта пока нет."}</p> : null}
@@ -6033,7 +6035,7 @@ export function GenesisCalendar() {
                 </button>
                 <div className="all-task-body">
                   <div className="all-task-title-row">
-                    <strong data-no-translate>{task.title}</strong>
+                    <strong data-no-translate title={task.title}>{task.title}</strong>
                     <span className="all-task-priority" title="Приоритет">⚑{task.priority}</span>
                     {renderOverdueBadge(task)}
                   </div>
@@ -6046,12 +6048,6 @@ export function GenesisCalendar() {
                     {category ? <span className="all-task-category" data-no-translate style={{ "--project-color": category.color } as CSSProperties}>{localizeCategoryName(category, language)}</span> : null}
                     <span className={`all-task-source source-${source.className}`}>{source.label}</span>
                   </div>
-                  <label className="task-project-move"><span>{language === "en" ? "Move to" : "Переместить в"}</span>
-                    <select aria-label={`Переместить задачу «${task.title}»`} value={resolvedTaskProjectId(task) ?? ""} onChange={(event) => moveProjectItemToProject({ kind: "task", id: task.id, title: task.title }, event.target.value || TASK_INBOX_PROJECT_ID)}>
-                      <option value="">Хаос-бокс</option>
-                      {flattenProjects(projects).filter(({ project: item }) => item.status === "active").map(({ project: item, depth }) => <option key={item.id} value={item.id}>{"— ".repeat(depth)}{item.title}</option>)}
-                      {project && project.status !== "active" ? <option value={project.id}>{project.title} · Завершено</option> : null}
-                    </select></label>
                   {tags.length ? <div className="task-tags">{tags.map((tag) => <i key={tag}>#{tag}</i>)}</div> : null}
                   {dependencyNames.length ? <div className="task-dependency">↳ после: {dependencyNames.join(", ")}</div> : null}
                   {task.description || task.calendarNote ? (
@@ -6062,6 +6058,13 @@ export function GenesisCalendar() {
                     </details>
                   ) : null}
                 </div>
+                <div className="all-task-tools">
+                  <label className="task-project-move"><span>{language === "en" ? "Move to" : "Переместить в"}</span>
+                    <select aria-label={`Переместить задачу «${task.title}»`} value={resolvedTaskProjectId(task) ?? ""} onChange={(event) => moveProjectItemToProject({ kind: "task", id: task.id, title: task.title }, event.target.value || TASK_INBOX_PROJECT_ID)}>
+                      <option value="">Хаос-бокс</option>
+                      {flattenProjects(projects).filter(({ project: item }) => item.status === "active").map(({ project: item, depth }) => <option key={item.id} value={item.id}>{"— ".repeat(depth)}{item.title}</option>)}
+                      {project && project.status !== "active" ? <option value={project.id}>{project.title} · Завершено</option> : null}
+                    </select></label>
                 <div className="all-task-actions">
                   <button
                     type="button"
@@ -6071,6 +6074,7 @@ export function GenesisCalendar() {
                     aria-label={`Редактировать задачу «${task.title}»`}
                   >{experimentalThemeActive ? <ExperimentalIcon name="edit" /> : "✎"}</button>
                   <button type="button" className="task-delete" onClick={() => deleteTask(task.id)} aria-label={`Удалить задачу «${task.title}»`}>{experimentalThemeActive ? <ExperimentalIcon name="delete" /> : "×"}</button>
+                </div>
                 </div>
               </article>
             );
@@ -6743,6 +6747,7 @@ export function GenesisCalendar() {
                 {!sharedProjectsVisible || activeProjectsArea === "personal" ? renderProjects() : <Suspense fallback={<DeferredViewFallback label={language === "en" ? "Opening shared projects…" : "Открываем общие проекты…"} />}>
                   <SharedProjects key={`${cloudUser?.uid}:${invitationDestination?.userId===cloudUser?.uid ? invitationDestination?.request : "default"}`} userId={cloudUser?.uid ?? ""} language={language} experimentalTheme={experimentalThemeActive}
                     inboxPosition={accountLayout.sharedInboxPosition} inboxHidden={accountLayout.sharedInboxHidden}
+                    inboxCompact={accountLayout.sharedInboxCompact} onInboxCompact={sharedInboxCompact => saveLayout({ sharedInboxCompact })}
                     onInboxPosition={sharedInboxPosition => saveLayout({ sharedInboxPosition })} onInboxHidden={sharedInboxHidden => saveLayout({ sharedInboxHidden })}
                     destination={invitationDestination?.userId===cloudUser?.uid ? invitationDestination ?? undefined : undefined}
                     timeFormat={activeTimeFormat}
@@ -7109,7 +7114,7 @@ export function GenesisCalendar() {
               const index = tabs.indexOf(composerTab); const tab = event.key === "Home" ? tabs[0] : event.key === "End" ? tabs[tabs.length-1] : tabs[(index + (event.key === "ArrowLeft" ? -1 : 1) + tabs.length) % tabs.length];
               setComposerTab(tab); if(tab !== "lists") {setNewEntryType(tab);setYandexEntryType(tab === "meeting" ? "meeting" : "task");} event.currentTarget.querySelector<HTMLButtonElement>(`#composer-tab-${tab}`)?.focus();
             }}>
-              {(["task", "lists", "meeting", "birthday", "event"] as const).filter(tab => tab !== "birthday" || taskScope !== "shared").map((tab) => <button id={`composer-tab-${tab}`} type="button" role="tab" key={tab} aria-selected={composerTab === tab} aria-controls={`composer-panel-${tab}`} tabIndex={composerTab === tab ? 0 : -1} onClick={() => { setComposerTab(tab); if(tab !== "lists"){setNewEntryType(tab);setYandexEntryType(tab === "meeting" ? "meeting" : "task");} }}>{tab === "lists" ? "Списки задач" : entryTypeLabel(tab, language === "en")}</button>)}
+              {(["task", "lists", "meeting", "birthday", "event"] as const).filter(tab => tab !== "birthday" || taskScope !== "shared").map((tab) => <button id={`composer-tab-${tab}`} type="button" role="tab" key={tab} aria-selected={composerTab === tab} aria-controls={`composer-panel-${tab}`} tabIndex={composerTab === tab ? 0 : -1} onClick={() => { setComposerTab(tab); if(tab !== "lists"){setNewEntryType(tab);setYandexEntryType(tab === "meeting" ? "meeting" : "task");} }}>{tab === "meeting" || tab === "event" ? <ExperimentalIcon name={tab}/> : null}{tab === "lists" ? "Списки задач" : entryTypeLabel(tab, language === "en")}</button>)}
             </div>
             <div id={`composer-panel-${composerTab}`} role="tabpanel" aria-labelledby={`composer-tab-${composerTab}`}>
               {composerTab === "lists" ? renderTaskListCreateForm("composer") : renderTaskCreateForm("composer")}

@@ -165,6 +165,11 @@ export default defineConfig({
               priority: 15,
             },
             {
+              name: "ui-icons",
+              test: /app[\\/]ExperimentalIcon\.tsx$/,
+              priority: 14,
+            },
+            {
               name: "task-form-controls",
               test: /app[\\/](?:TimeClockPicker|CalendarDatePicker|TaskReminderPicker|RecurrenceBuilder)\.tsx$/,
               priority: 14,

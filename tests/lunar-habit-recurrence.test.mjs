@@ -29,6 +29,32 @@ const calendar = loadTs("app/calendar-data.ts", {
 const recurrence = loadTs("app/task-recurrence.ts", { "./calendar-data": calendar });
 const ganttCore = loadTs("app/shared-gantt.ts", {});
 const gantt = loadTs("app/shared-gantt-calendar.ts", { "./calendar-data": calendar, "./shared-gantt": ganttCore });
+
+test("wide Gantt reveals more dates with consistent creation and resize coordinates in every calendar", () => {
+  for (const mode of ["profane","sacred","lunar"]) for (const scale of ["days","weeks","months"]) for (const fit of [false,true]) {
+    const tasks=fit ? [{startDate:"2026-10-10",dueDate:"2026-10-12"}] : [];
+    const narrow=gantt.calendarGanttRange("2026-10-10",scale,tasks,mode,fit,3);
+    const wide=gantt.calendarGanttRange("2026-10-10",scale,tasks,mode,fit,20);
+    const periods=gantt.calendarGanttPeriods(wide,scale,mode);
+    assert.equal(wide.start,narrow.start);
+    assert.ok(wide.end>narrow.end,`${mode}/${scale}/${fit}`);
+    assert.ok(periods.length>=20);
+    const axis=periods.map(period=>({start:Math.max(wide.start,period.start),end:Math.min(wide.end,period.end)}));
+    for(const [i,period] of axis.entries()) {
+      assert.ok(period.end>period.start);
+      if(i)assert.equal(period.start,axis[i-1].end);
+      const point=ganttCore.ganttAxisPoint(axis,(i+.5)*ganttCore.GANTT_CELL_WIDTH);
+      assert.ok(point>=period.start&&point<period.end);
+      assert.ok(Math.abs(ganttCore.ganttAxisPosition(axis,point)-(i+.5)*ganttCore.GANTT_CELL_WIDTH)<1e-5);
+    }
+    assert.equal(axis.at(-1).end,wide.end);
+  }
+  for (const mode of ["profane","sacred","lunar"]) {
+    const day=gantt.calendarGanttRange("2026-10-10","day",[],mode,false,40);
+    assert.equal(day.end-day.start,1);
+    assert.equal(gantt.calendarGanttPeriods(day,"day",mode).length,24);
+  }
+});
 const day = (value) => new Date(`${value}T12:00:00`);
 const iso = (value) => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
 const config = (pattern, days, months = [], pyatas = [], rangeEnd = "2026-08-01") => ({

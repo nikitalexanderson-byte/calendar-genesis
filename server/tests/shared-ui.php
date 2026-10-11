@@ -43,6 +43,25 @@ try {
     $backup = null;
 } finally { unlink($backupPath); }
 $ids = [];
+// Additive board settings preserve old clients and a restorable pre-migration backup.
+$boards = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+$boards->exec("CREATE TABLE shared_project_statuses (id TEXT PRIMARY KEY, title TEXT, is_done INTEGER, revision INTEGER);
+    INSERT INTO shared_project_statuses VALUES ('old', 'Legacy board', 1, 1)");
+$boardBackup = tempnam(sys_get_temp_dir(), 'genesis-board-backup-');
+try {
+    $boards->exec('VACUUM INTO ' . $boards->quote($boardBackup));
+    $boards->beginTransaction();
+    $boards->exec(file_get_contents(dirname(__DIR__) . '/migrations/044_shared_board_display.sql'));
+    $boards->commit();
+    uiExpect($boards->query('SELECT task_title_lines FROM shared_project_statuses')->fetchColumn() === null, 'Migration rewrote legacy preferences');
+    $boards->exec("UPDATE shared_project_statuses SET title = 'Old client rename', revision = revision + 1 WHERE id = 'old'");
+    uiExpect($boards->query('SELECT title FROM shared_project_statuses')->fetchColumn() === 'Old client rename', 'Legacy board updates fail');
+    uiExpect($boards->query('PRAGMA integrity_check')->fetchColumn() === 'ok', 'Board migration DB is invalid');
+    $savedBoards = new PDO('sqlite:' . $boardBackup);
+    uiExpect($savedBoards->query('SELECT title FROM shared_project_statuses')->fetchColumn() === 'Legacy board', 'Board backup changed');
+    uiExpect(count($savedBoards->query('PRAGMA table_info(shared_project_statuses)')->fetchAll()) === 4, 'Backup is not pre-migration');
+    $savedBoards = null;
+} finally { unlink($boardBackup); }
 foreach (['owner', 'member', 'guest', 'outsider'] as $role) {
     $id = 'shared-ui-test-' . $role; $ids[$role] = $id;
     genesisDb()->prepare('INSERT INTO users (id, google_sub, email, display_name, created_at, updated_at)
@@ -119,8 +138,20 @@ try {
         'color' => '#123456', 'imageUrl' => 'https://example.org/board.webp', 'expectedRevision' => 1]);
     uiExpect($updated['color'] === '#123456' && $updated['imageUrl'] === 'https://example.org/board.webp', 'Board appearance was not saved');
     uiReject(fn() => genesisSharedUpdateStatus($guest, $project['id'], $board['id'], ['title' => 'Invalid', 'expectedRevision' => 2]), 403);
+    foreach (['taskTitleLines' => [-1, 4, '2', null], 'visibleTaskCount' => [-1, 1001, '5', null]] as $field => $invalid) {
+        foreach ($invalid as $value) uiReject(fn() => genesisSharedUpdateStatus($owner, $project['id'], $board['id'],
+            ['title' => 'Review', 'expectedRevision' => 2, $field => $value]));
+    }
+    $display = genesisSharedUpdateStatus($owner, $project['id'], $board['id'],
+        ['title' => 'Review', 'expectedRevision' => 2, 'taskTitleLines' => 1, 'visibleTaskCount' => 7]);
+    uiExpect($display['taskTitleLines'] === 1 && $display['visibleTaskCount'] === 7, 'Board display was not saved');
+    uiReject(fn() => genesisSharedUpdateStatus($owner, $project['id'], $board['id'], ['title' => 'Stale', 'expectedRevision' => 2]), 409);
+    $legacyBoard = genesisSharedUpdateStatus($owner, $project['id'], $board['id'], ['title' => 'Review', 'expectedRevision' => 3]);
+    uiExpect($legacyBoard['taskTitleLines'] === 1 && $legacyBoard['visibleTaskCount'] === 7, 'Old client erased board display');
+    $savedDisplay = genesisSharedProjectSnapshot($owner, $project['id'])['statuses'][0];
+    uiExpect($savedDisplay['taskTitleLines'] === 1 && $savedDisplay['visibleTaskCount'] === 7, 'Snapshot lost board display');
     uiReject(fn() => genesisSharedBoardImage('javascript:alert(1)'));
-    genesisSharedDeleteStatus($owner, $project['id'], $board['id'], ['destinationStatusId' => $destination['id'], 'expectedRevision' => 2]);
+    genesisSharedDeleteStatus($owner, $project['id'], $board['id'], ['destinationStatusId' => $destination['id'], 'expectedRevision' => 4]);
     uiExpect(genesisSharedProjectSnapshot($owner, $child['id'])['project']['boardStatusId'] === $destination['id'], 'Deleting a board orphaned a child project');
     $count = count(genesisSharedProjectSnapshot($owner, $project['id'])['statuses']);
     for ($i = $count; $i < 30; $i++) genesisSharedCreateStatus($owner, $project['id'], ['title' => 'Board ' . $i]);

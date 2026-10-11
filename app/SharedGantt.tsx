@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { CalendarDatePicker } from "./CalendarDatePicker";
 import { formatCalendarDate, type CalendarMode } from "./calendar-data";
 import type { SharedProjectSnapshot, SharedTask } from "./cloud-sync";
@@ -12,6 +12,17 @@ import { formatTimeValue, type TimeFormat } from "./time-format";
 type ResizeItem = {id:string;title:string;task:SharedTask;edge:GanttEdge;offset:number};
 export function SharedGantt({snapshot,english,calendarMode,timeFormat,initialDay,onOpen,onCreate,onSchedule,busy,externalDrop,externalDropRow}:{snapshot:SharedProjectSnapshot;english:boolean;calendarMode:CalendarMode;timeFormat:TimeFormat;initialDay?:string;onOpen:(task:SharedTask)=>void;onCreate:(schedule:GanttSchedule)=>void;onSchedule:(task:SharedTask,schedule:GanttSchedule)=>void;busy:boolean;externalDrop?:GanttSchedule;externalDropRow?:string}) {
   const root=useRef<HTMLElement>(null);
+  const scrollRoot=useRef<HTMLDivElement>(null);
+  const [availablePeriods,setAvailablePeriods]=useState(0);
+  useEffect(()=>{
+    const element=scrollRoot.current;
+    if(!element)return;
+    const observer=new ResizeObserver(()=>{
+      const nameWidth=parseFloat(getComputedStyle(element).getPropertyValue("--gantt-name-width"))||180;
+      setAvailablePeriods(Math.ceil(Math.max(0,element.clientWidth-nameWidth)/GANTT_CELL_WIDTH));
+    });
+    observer.observe(element);return()=>observer.disconnect();
+  },[]);
   const grabOffset=useRef(0);
   const canEdit=snapshot.project.permissions?.editTasks ?? ["owner","manager","member"].includes(snapshot.project.role);
   // Creating tasks uses the same editTasks permission as the task composer/API.
@@ -23,7 +34,7 @@ export function SharedGantt({snapshot,english,calendarMode,timeFormat,initialDay
   const [scale,setScale] = useState<GanttScale>(initialDay ? "day" : "weeks");
   const [fit,setFit] = useState(false);
   const {active:activeTasks,completed:completedTasks}=ganttTaskGroups(snapshot.tasks,snapshot.statuses);
-  const range = calendarGanttRange(anchor,scale,activeTasks,calendarMode,fit);
+  const range = calendarGanttRange(anchor,scale,activeTasks,calendarMode,fit,availablePeriods);
   const ticks = calendarGanttPeriods(range,scale,calendarMode);
   const axisPeriods=ticks.map(period=>({start:Math.max(range.start,period.start),end:Math.min(range.end,period.end)}));
   const width=axisPeriods.length*GANTT_CELL_WIDTH;
@@ -108,7 +119,7 @@ export function SharedGantt({snapshot,english,calendarMode,timeFormat,initialDay
     {canCreate ? <p className="shared-gantt-help">{english ? "Click an empty timeline cell to create a task on that date. Within a day, new tasks start today at the selected time." : "Нажмите на свободное место шкалы, чтобы создать задачу на эту дату. В режиме «Внутри дня» задача создаётся на сегодня с выбранным временем."}</p> : null}
     <p className="shared-gantt-help">{english ? "Drag unscheduled tasks onto a period. Move a bar to reschedule it; drag its edges to change its duration. Steps: 15 minutes within a day, one day on other scales. Dates and times are saved in the task; dependent tasks change separately." : "Перетащите неразмеченную задачу на нужный период. Перемещайте плашку для переноса сроков, тяните за её края для изменения длительности. Шаг: 15 минут внутри дня, один день в остальных режимах. Даты и время сохраняются в карточке; зависимые задачи меняются отдельно."}</p>
     {snapshot.tasks.length>=500 ? <p role="status">{english ? "Showing the first 500 loaded tasks." : "Показаны первые 500 загруженных задач."}</p> : null}
-    <div className="shared-gantt-scroll" role="region" aria-label={english ? "Scrollable timeline" : "Прокручиваемая шкала времени"}>
+    <div ref={scrollRoot} className="shared-gantt-scroll" role="region" aria-label={english ? "Scrollable timeline" : "Прокручиваемая шкала времени"}>
       <div className="shared-gantt-sheet" style={{"--gantt-width":`${width}px`} as CSSProperties}>
         <div className={`shared-gantt-header${months.length ? " has-months" : ""}`}><strong>{english ? "Task" : "Задача"}</strong><div {...axisProps}>
           {months.map(month=><span className="shared-gantt-month" key={month.start} style={periodStyle(month)} title={month.label}>{month.label}</span>)}
