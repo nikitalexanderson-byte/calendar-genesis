@@ -185,6 +185,12 @@ jobs:
           jarsigner -verify "$AAB" | grep -q 'jar verified'
           ! grep -q 'android.permission.REQUEST_INSTALL_PACKAGES' \
             android/app/build/intermediates/merged_manifest/play/processPlayMainManifest/AndroidManifest.xml
+          # Keep the verified Console bundle with the release even when GitHub
+          # delays artifact-quota recalculation. The APK download route stays unchanged.
+          cp "$AAB" dist-beget/public_html/downloads/GENESIS-Android-Play-2.7.3.aab
+          (cd dist-beget/public_html/downloads && sha256sum GENESIS-Android-Play-2.7.3.aab \
+            > GENESIS-Android-Play-2.7.3.aab.sha256)
+          chmod 644 dist-beget/public_html/downloads/GENESIS-Android-Play-2.7.3.aab*
 
       - name: Reclaim unused build tools for the release emulator
         if: env.DEPLOY_ANDROID == 'true'
@@ -249,13 +255,21 @@ jobs:
           echo 'upload=true' >> "$GITHUB_OUTPUT"
 
       - name: Save signed Play App Bundle for Console upload
+        id: save-play-bundle
         if: env.DEPLOY_ANDROID == 'true' && steps.play-bundle.outputs.upload == 'true'
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.PLAY_BUNDLE_ARTIFACT }}
           path: android/app/build/outputs/bundle/play/app-play.aab
           if-no-files-found: error
           retention-days: 14
+
+      - name: Report Play bundle artifact fallback
+        if: env.DEPLOY_ANDROID == 'true' && steps.save-play-bundle.outcome == 'failure'
+        run: |
+          echo '::notice::GitHub artifact storage is unavailable; the verified Play bundle will be published with this release on GENESIS.'
+          printf 'Play Console bundle mirror: %s/downloads/GENESIS-Android-Play-2.7.3.aab\n' "$PRODUCTION_ORIGIN" >> "$GITHUB_STEP_SUMMARY"
 
       # PHP-роутер должен физически лежать в public_html/api. Добавляем его в
       # единый public artifact, чтобы rsync --delete не создавал окно с 404.
@@ -464,6 +478,10 @@ jobs:
           curl -fsSL --retry 3 -H 'Cache-Control: no-cache' "$PRODUCTION_ORIGIN/downloads/GENESIS-Android-Native-2.7.3.apk?sha=$EXPECTED" \
             | sha256sum \
             | awk -v expected="$EXPECTED" '$1 == expected { found = 1 } END { exit !found }'
+          BUNDLE_EXPECTED="$(sha256sum dist-beget/public_html/downloads/GENESIS-Android-Play-2.7.3.aab | cut -d' ' -f1)"
+          curl -fsSL --retry 3 -H 'Cache-Control: no-cache' "$PRODUCTION_ORIGIN/downloads/GENESIS-Android-Play-2.7.3.aab?sha=$BUNDLE_EXPECTED" \
+            | sha256sum \
+            | awk -v expected="$BUNDLE_EXPECTED" '$1 == expected { found = 1 } END { exit !found }'
 
 # Примечания:
 # - server/config.php и server/var/ (SQLite, сессии) никогда не перезаписываются —
