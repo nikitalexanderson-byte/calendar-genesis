@@ -1,0 +1,8 @@
+{
+  "passed": [
+    "late response blocked by session generation",
+    "old repository cannot retry after logout",
+    "actual B session cannot read A envelopes or history",
+    "B empty catalog"
+  ]
+}

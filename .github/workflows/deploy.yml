@@ -22,6 +22,9 @@ jobs:
       # Set the repository variable to false for website-only deployments.
       # Unset it or set it to true to resume the existing Android release flow.
       DEPLOY_ANDROID: ${{ vars.GENESIS_DEPLOY_ANDROID != 'false' }}
+      # Personal mindmaps can be disabled on the next web deployment without deleting data.
+      GENESIS_MINDMAPS: ${{ vars.GENESIS_MINDMAPS == 'true' }}
+      NEXT_PUBLIC_GENESIS_MINDMAPS: ${{ vars.GENESIS_MINDMAPS == 'true' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -125,6 +128,19 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+      - name: Test personal mindmaps with isolated SQLite
+        env:
+          GENESIS_MINDMAPS_TEST: isolated
+        run: |
+          set -euo pipefail
+          test ! -e server/config.php
+          trap 'rm -f server/config.php' EXIT
+          php scripts/mindmaps/fixture.php a > /dev/null
+          php server/tests/mindmaps.php
+          php server/tests/mindmaps-google-contract.php
+          php server/tests/mindmaps-native-contract.php
+          php server/tests/mindmaps-migration.php
 
       - name: Build client for Beget
         run: pnpm build:beget

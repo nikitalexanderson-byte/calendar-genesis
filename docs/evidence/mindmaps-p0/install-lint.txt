@@ -1,0 +1,5 @@
+pnpm install --frozen-lockfile
+Already up to date
+Done in 377ms using pnpm v11.25.0
+pnpm lint
+$ eslint . --ignore-pattern dist --ignore-pattern .next

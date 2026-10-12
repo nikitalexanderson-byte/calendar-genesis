@@ -1,0 +1,126 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {createRequire} from 'node:module';
+import {resolve} from 'node:path';
+const require = createRequire(import.meta.url);
+const ts = require('typescript');
+const modules = new Map();
+function loadTs(path) {
+ if(modules.has(path)) return modules.get(path);
+ const loaded = {exports:{}};
+ const source = ts.transpileModule(readFileSync(path,'utf8'), {compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText;
+ new Function('require','module','exports',source)(id => {
+   if(id === './i18n') return {runtimeLocale:()=> 'ru-RU',getRuntimeLanguage:()=> 'ru',translateText:v=>v};
+   if(id.endsWith('?raw')) return readFileSync(resolve(path,'..',id.slice(0,-4)),'utf8');
+   if(id.endsWith('.json')) return JSON.parse(readFileSync(resolve(path,'..',id),'utf8'));
+   return id.startsWith('.') ? loadTs(resolve(path,'..',id+'.ts')) : require(id);
+ },loaded,loaded.exports);
+ modules.set(path,loaded.exports);return loaded.exports;
+}
+const {newMindmap, validateMindmap, removeBranch, moveNode, attachTask, nodeTitle, nodeDateLabel, mapProgress, parseOutline, exportMindmap, importMindmap, mapSvg, mapMarkdown, layoutMap, resolveMapTask} = loadTs(resolve('app/mindmaps-model.ts'));
+
+const task = {id:'real-task',title:'Source title',done:false,projectId:'project-a',dependsOnIds:['other'],dueDate:'2026-10-12',recurrenceMode:'none',recurrenceExcludedDates:[]};
+const view={mode:'map',collapsed:[],focus:null,zoom:1};
+test('undated tasks stay references without a fabricated calendar occurrence or overdue state',()=>{
+ const source={...task,dueDate:'',endDate:'',time:''};const map=newMindmap('Undated');
+ const linked=attachTask(map,map.nodes[0].id,source);
+ assert.equal(linked.nodes[0].occurrenceDate,undefined);
+ assert.equal(nodeDateLabel(linked.nodes[0],[source]),'Без срока');
+ const {isTaskOverdue}=loadTs(resolve('app/task-overdue.ts'));
+ assert.equal(isTaskOverdue(source,new Date('2026-10-12T12:00:00Z')),false);
+ const {recurrenceDatesForTask}=loadTs(resolve('app/task-recurrence.ts'));
+ assert.deepEqual(recurrenceDatesForTask(source),[]);
+ const {cleanTaskDescription}=loadTs(resolve('app/task-description.ts'));
+ assert.equal(cleanTaskDescription('User note\n\nGENESIS-CREATE:'+'a'.repeat(64)),'User note');
+});
+test('T01/T03 one task resolves live in several maps, unique progress excludes ProjectRef',()=>{
+ let a=newMindmap('A',null,'idea');a=attachTask(a,a.nodes[1].id,task);a=attachTask(a,a.nodes[2].id,task);
+ let b=newMindmap('B'); b=attachTask(b,b.nodes[0].id,task);
+ a.nodes.push({id:'project-ref',kind:'project',refId:'project-a',parentId:a.nodes[0].id,note:''});
+ assert.equal(nodeTitle(a.nodes.at(-1),[task],[{id:'project-a',title:'Project source'}]),'Project source');
+ assert.deepEqual(mapProgress(a,[task]),{total:1,done:0});
+ const updated={...task,title:'Edited in personal affairs',done:true};
+ assert.equal(nodeTitle(a.nodes[1],[updated],[]),updated.title);
+ assert.equal(nodeTitle(b.nodes[0],[updated],[]),updated.title);
+ assert.deepEqual(mapProgress(a,[updated]),{total:1,done:1});
+ assert.equal('title' in a.nodes[1],false); assert.equal('text' in a.nodes[1],false);
+});
+test('T04/T05 moving, deleting and restoring map nodes never mutates tasks or dependencies',()=>{
+ let a=newMindmap('A',null,'idea');a=attachTask(a,a.nodes[1].id,task);const baseline=JSON.stringify(task);
+ const original=a; a=moveNode(a,a.nodes[1].id,a.nodes[2].id);assert.equal(a.nodes.find(n=>n.refId===task.id).parentId,a.nodes[1].id);
+ a=removeBranch(a,a.nodes.find(n=>n.refId===task.id).id);assert.equal(a.nodes.some(n=>n.refId===task.id),false);
+ assert.equal(JSON.stringify(task),baseline);assert.equal(nodeTitle(original.nodes[1],[{...task,done:true}],[]),task.title);
+ assert.throws(()=>moveNode(original,original.nodes[0].id,original.nodes[1].id));
+});
+test('conversion preserves children and semantic links, while undo only changes map',()=>{
+ let m=newMindmap('Map',null,'idea'); const n=m.nodes[1];m.nodes.push({id:'child',kind:'idea',parentId:n.id,text:'Child',note:''});
+ m.links.push({id:'link',from:n.id,to:m.nodes[2].id,label:'related'});
+ const converted=attachTask(m,n.id,task);assert.deepEqual(converted.links,m.links);assert.equal(converted.nodes.at(-1).parentId,n.id);assert.equal(m.nodes[1].kind,'idea');
+});
+test('T06 occurrence resolves its existing exception and never silently resolves the whole series',()=>{
+ const root={...task,recurrenceMode:'classic',recurrenceExcludedDates:['2026-10-12']};
+ const n={kind:'task',refId:task.id,occurrenceDate:'2026-10-12'};
+ assert.equal(resolveMapTask(n,[root]),undefined);
+ const occurrence={...task,id:'exception',recurrenceSeriesId:task.id,done:true};
+ assert.equal(resolveMapTask(n,[root,occurrence]),occurrence);
+ const moved = {...occurrence,dueDate:'2026-10-20',recurrenceOriginalDate:'2026-10-12'};
+ assert.equal(resolveMapTask(n,[root,moved]),moved);
+ assert.equal(resolveMapTask({kind:'task',refId:task.id},[root]),undefined);
+});
+test('ordinary task schedule preserves empty dates, shifted ranges and occurrence exclusions',()=>{
+ const schedule=loadTs(resolve('app/personal-task-schedule.ts'));
+ const {DEFAULT_RECURRENCE_CONFIG,recurrenceDatesForTask}=loadTs(resolve('app/task-recurrence.ts'));
+ const undated={...task,dueDate:'',endDate:'',time:''};
+ const saved=schedule.buildTaskSeries(undated,DEFAULT_RECURRENCE_CONFIG)[0];
+ assert.equal(saved.dueDate,'');assert.equal(saved.endDate,'');assert.equal(schedule.taskRangeLabel(saved),'Без даты');
+ assert.equal(schedule.shiftRangeEndDate('2026-03-07','2026-03-10','2026-03-08'),'2026-03-11');
+ const series=schedule.buildTaskSeries({...task,endDate:'2026-10-14',calendarMode:'profane'},
+  {...DEFAULT_RECURRENCE_CONFIG,enabled:true,mode:'classic',pattern:'daily',rangeStart:'2026-10-12',rangeEnd:'2026-10-15'})[0];
+ const remaining=schedule.taskSeriesAfterExcludingOccurrence(series,'2026-10-12');
+ assert.equal(remaining.dueDate,'2026-10-13');assert.equal(remaining.endDate,'2026-10-15');
+ assert.deepEqual(recurrenceDatesForTask(remaining),['2026-10-13','2026-10-14','2026-10-15']);
+ assert.deepEqual(series.recurrenceExcludedDates,[]);
+ const standalone=schedule.standaloneTaskFromOccurrence(schedule.taskForOccurrence(series,'2026-10-14'),series.id);
+ assert.equal(standalone.endDate,'2026-10-16');assert.equal(standalone.recurrenceMode,'none');assert.equal(standalone.recurrenceSeriesId,series.id);
+});
+test('map dates read both start and deadline, shifting a recurring range by the occurrence date',()=>{
+ const node={kind:'task',refId:task.id};
+ assert.equal(nodeDateLabel(node,[{...task,endDate:'2026-10-20'}]),'2026-10-12 — 2026-10-20');
+ const root={...task,recurrence:'daily',recurrenceMode:'classic',recurrencePattern:'daily',recurrenceStartDate:'2026-10-12',recurrenceEndDate:'2026-10-16',endDate:'2026-10-14'};
+ assert.equal(nodeDateLabel({...node,occurrenceDate:'2026-10-13'},[root]),'2026-10-13 — 2026-10-15');
+});
+test('T10 own JSON round-trips; links do not grant access or create tasks',()=>{
+ let m=attachTask(newMindmap('Portable'),newMindmap('different').nodes[0].id,task);
+ m=attachTask(m,m.nodes[0].id,task);const imported=importMindmap(exportMindmap(m));assert.deepEqual(imported,m);
+ assert.equal(nodeTitle(imported.nodes[0],[],[]),'Задача недоступна');
+ assert.deepEqual(mapProgress(imported,[]),{total:0,done:0});
+});
+test('T10 malformed graphs, future schema, excessive depth, size, duplicates and cycles rejected',()=>{
+ const base=newMindmap('Safe',null,'idea');
+ assert.throws(()=>validateMindmap({...base,schemaVersion:2}));
+ assert.throws(()=>validateMindmap({...base,nodes:[...base.nodes,base.nodes[0]]}));
+ assert.throws(()=>validateMindmap({...base,nodes:base.nodes.map(n=>({...n,parentId:base.nodes[1].id}))}));
+ assert.throws(()=>importMindmap('x'.repeat(2_000_001)));
+ let parent=base.nodes[0].id;const nodes=[base.nodes[0]];for(let i=0;i<33;i++){nodes.push({id:`n${i}`,parentId:parent,kind:'idea',text:'x',note:''});parent=`n${i}`;}
+ assert.throws(()=>validateMindmap({...base,nodes}));
+ assert.throws(()=>validateMindmap({...base,links:[{id:'x',from:base.nodes[0].id,to:'missing',label:''}]}));
+});
+test('T10 SVG is passive escaped geometry; import strips unrecognized executable fields',()=>{
+ const m=newMindmap('<script>alert(1)</script> & javascript:');m.nodes[0].html='<img src=x onerror=alert(1)>';
+ const clean=validateMindmap(m);assert.equal(clean.nodes[0].html,undefined);
+ const svg=mapSvg(clean,n=>n.text);assert.doesNotMatch(svg,/<script|<foreignObject|href=|onerror=/i);assert.match(svg,/&lt;script&gt;/);
+ assert.match(mapMarkdown(clean,n=>n.text),/alert/);
+});
+test('paste has deterministic indentation, preview limit and no tasks',()=>{
+ const nodes=parseOutline('First\n  Child\n\tSibling\n\nSecond','root');assert.equal(nodes.length,4);assert.equal(nodes[1].parentId,nodes[0].id);assert.equal(nodes[2].parentId,nodes[0].id);assert.ok(nodes.every(n=>n.kind==='idea'));
+ assert.throws(()=>parseOutline('  Missing root','root'));assert.throws(()=>parseOutline('A\n   Bad indent','root'));assert.throws(()=>parseOutline(Array(201).fill('x').join('\n'),'root'));
+});
+test('T13 deterministic 200/1000-node layout, collapse and focus (measured CPU, not browser latency)',()=>{
+ for(const count of [200,1000]){
+  let m=newMindmap('Performance');m={...m,nodes:[m.nodes[0],...Array.from({length:count-1},(_,i)=>({id:`node${i}`,parentId:m.nodes[0].id,kind:'idea',text:`Мысль ${i}`,note:''}))]};
+  const samples=[];for(let i=0;i<20;i++){const t=performance.now();const rows=layoutMap(validateMindmap(m),view);assert.equal(rows.length,count);samples.push(performance.now()-t);}
+  assert.equal(layoutMap(m,{...view,collapsed:[m.nodes[0].id]}).length,1);assert.equal(layoutMap(m,{...view,focus:'node1'}).length,1);
+  console.log(`layout ${count} nodes: p95 ${samples.sort((a,b)=>a-b)[18].toFixed(2)}ms`);
+ }
+});

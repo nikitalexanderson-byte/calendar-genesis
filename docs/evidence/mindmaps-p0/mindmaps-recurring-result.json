@@ -1,0 +1,11 @@
+{
+  "passed": [
+    "real ordinary recurrence editor defaults to selected day",
+    "title/date change detaches only that occurrence",
+    "map reference survives date move",
+    "complete only selected exception",
+    "read-only source has no editing/completion controls",
+    "restart retains progress and exception"
+  ],
+  "mapUrl": "http://127.0.0.1:4319/?mindmap=0dc06af3-ec3d-414e-9e41-081f80e94a1e#projects"
+}

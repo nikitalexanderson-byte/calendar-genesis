@@ -1,0 +1,21 @@
+✔ calendar voice variants keep display mode, period, date and movement distinct (1.6731ms)
+✔ task deletion and list editing resolve one named target before acting (0.5628ms)
+✔ project and life category commands resolve names before opening forms or confirmations (0.7964ms)
+✔ creation phrases use naming words as instructions and preserve the actual title (2.7116ms)
+✔ sleep commands separate observations, plan times, and bedtime reminders (0.8797ms)
+✔ Stoicheion voice commands distinguish a catalog card from a new spread (0.4464ms)
+✔ mood commands recognize Russian and English values without guessing unknown moods (2.1121ms)
+✔ task renaming requires one exact source title and removes naming instructions (1.5481ms)
+✔ Theokyklos sector commands use exact Russian and English sector names (0.7078ms)
+✔ Stoicheion card commands open a named catalog card without starting a draw (0.4021ms)
+✔ anonymous welcome renders Google-only sign-in in every supported language (700.8022ms)
+✔ a deleted last habit is not restored from stale local data on sign in (1.1731ms)
+✔ sign-in never recreates an absent previously synced task from stale cache (0.335ms)
+ℹ tests 161
+ℹ suites 0
+ℹ pass 161
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1317.1038

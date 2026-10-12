@@ -1,0 +1,7 @@
+{
+  "passed": [
+    "personal project opens same map catalog filtered by p-pilot",
+    "zoom and native scroll persist encrypted across reload",
+    "task navigates to existing month calendar"
+  ]
+}

@@ -103,6 +103,7 @@ export default defineConfig({
   publicDir: path.join(projectRoot, "public"),
   plugins: [react(), offlinePrecacheManifest(base), publicLegalDocuments()],
   define: {
+    "process.env.NEXT_PUBLIC_GENESIS_MINDMAPS": JSON.stringify(process.env.GENESIS_MINDMAPS === "true" ? "true" : "false"),
     "process.env.NEXT_PUBLIC_GENESIS_API_URL": JSON.stringify(apiUrl),
     "process.env.NEXT_PUBLIC_GENESIS_BASE_PATH": JSON.stringify(base),
   },
@@ -165,8 +166,8 @@ export default defineConfig({
               priority: 15,
             },
             {
-              name: "ui-icons",
-              test: /app[\\/]ExperimentalIcon\.tsx$/,
+              name: "interface-icons",
+              test: /app[\\/](?:ExperimentalIcon|NavigationIcon|CalendarModeIcon)\.tsx$/,
               priority: 14,
             },
             {
@@ -186,7 +187,7 @@ export default defineConfig({
             },
             {
               name: "calendar-engine",
-              test: /app[\\/](?:calendar-data|solar-times|day-rhythm|task-recurrence|task-reminders|time-format)\.ts$/,
+              test: /app[\\/](?:calendar-data|solar-times|day-rhythm|personal-task-schedule|task-recurrence|task-reminders|time-format)\.ts$/,
               priority: 13,
             },
           ],

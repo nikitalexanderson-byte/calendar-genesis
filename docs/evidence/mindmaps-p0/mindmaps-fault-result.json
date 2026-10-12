@@ -1,0 +1,11 @@
+{
+  "passed": [
+    "real server commit then lost response",
+    "encrypted offline draft",
+    "restart exact receipt retry",
+    "two-tab conflict retains both versions",
+    "fork recovery"
+  ],
+  "serverRevisionAfterRecovery": 2,
+  "ciphertextOnly": true
+}

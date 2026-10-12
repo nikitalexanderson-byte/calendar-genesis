@@ -1,0 +1,9 @@
+{
+  "passed": [
+    "two maps and two references resolve one task",
+    "unique progress",
+    "live completion across maps",
+    "move preserves task/project/dependencies",
+    "UI export and import JSON does not create a task"
+  ]
+}

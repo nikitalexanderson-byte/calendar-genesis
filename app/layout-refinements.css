@@ -1010,3 +1010,10 @@ html[data-genesis-theme] .genesis-app .account-panel .appearance-menu-details[op
   html[data-genesis-theme] .genesis-app .account-panel .sidebar-auto-collapse-setting { grid-template-columns:minmax(0,1fr); gap:8px; }
   html[data-genesis-theme] .genesis-app .account-panel .appearance-menu-details > summary { align-items:flex-start; flex-direction:column; gap:12px; }
 }
+/* Personal affairs: a separate map action and one search field with the icon inside. */
+html[data-genesis-theme] .genesis-app .project-toolbar .affairs-actions { display:flex; flex-wrap:wrap; align-items:center; gap:12px; }
+html[data-genesis-theme] .genesis-app .project-toolbar .personal-affairs-search { position:relative; padding:0; border:0; background:transparent; }
+html[data-genesis-theme] .genesis-app .project-toolbar .tag-search.personal-affairs-search input { padding:12px 76px 12px 16px !important; min-height:48px; }
+html[data-genesis-theme] .genesis-app .personal-affairs-search > span { position:absolute; right:16px; top:50%; transform:translateY(-50%); display:flex; pointer-events:none; z-index:1; }
+html[data-genesis-theme] .genesis-app .personal-affairs-search > button { position:absolute; right:40px; top:50%; transform:translateY(-50%); width:40px; height:44px; }
+@media (max-width:600px) { html[data-genesis-theme] .genesis-app .personal-mindmaps-entry { width:100%; } }

@@ -1,0 +1,142 @@
+[
+  {
+    "theme": "standart",
+    "width": 320,
+    "surface": "structure",
+    "viewport": 320,
+    "scroll": 320
+  },
+  {
+    "theme": "standart",
+    "width": 320,
+    "surface": "canvas",
+    "viewport": 320,
+    "scroll": 320
+  },
+  {
+    "theme": "standart",
+    "width": 360,
+    "surface": "structure",
+    "viewport": 360,
+    "scroll": 360
+  },
+  {
+    "theme": "standart",
+    "width": 360,
+    "surface": "canvas",
+    "viewport": 360,
+    "scroll": 360
+  },
+  {
+    "theme": "standart",
+    "width": 390,
+    "surface": "structure",
+    "viewport": 390,
+    "scroll": 390
+  },
+  {
+    "theme": "standart",
+    "width": 390,
+    "surface": "canvas",
+    "viewport": 390,
+    "scroll": 390
+  },
+  {
+    "theme": "standart",
+    "width": 768,
+    "surface": "structure",
+    "viewport": 768,
+    "scroll": 768
+  },
+  {
+    "theme": "standart",
+    "width": 768,
+    "surface": "canvas",
+    "viewport": 768,
+    "scroll": 768
+  },
+  {
+    "theme": "standart",
+    "width": 1440,
+    "surface": "structure",
+    "viewport": 1440,
+    "scroll": 1440
+  },
+  {
+    "theme": "standart",
+    "width": 1440,
+    "surface": "canvas",
+    "viewport": 1440,
+    "scroll": 1440
+  },
+  {
+    "theme": "standart-dark",
+    "width": 320,
+    "surface": "structure",
+    "viewport": 320,
+    "scroll": 320
+  },
+  {
+    "theme": "standart-dark",
+    "width": 320,
+    "surface": "canvas",
+    "viewport": 320,
+    "scroll": 320
+  },
+  {
+    "theme": "standart-dark",
+    "width": 360,
+    "surface": "structure",
+    "viewport": 360,
+    "scroll": 360
+  },
+  {
+    "theme": "standart-dark",
+    "width": 360,
+    "surface": "canvas",
+    "viewport": 360,
+    "scroll": 360
+  },
+  {
+    "theme": "standart-dark",
+    "width": 390,
+    "surface": "structure",
+    "viewport": 390,
+    "scroll": 390
+  },
+  {
+    "theme": "standart-dark",
+    "width": 390,
+    "surface": "canvas",
+    "viewport": 390,
+    "scroll": 390
+  },
+  {
+    "theme": "standart-dark",
+    "width": 768,
+    "surface": "structure",
+    "viewport": 768,
+    "scroll": 768
+  },
+  {
+    "theme": "standart-dark",
+    "width": 768,
+    "surface": "canvas",
+    "viewport": 768,
+    "scroll": 768
+  },
+  {
+    "theme": "standart-dark",
+    "width": 1440,
+    "surface": "structure",
+    "viewport": 1440,
+    "scroll": 1440
+  },
+  {
+    "theme": "standart-dark",
+    "width": 1440,
+    "surface": "canvas",
+    "viewport": 1440,
+    "scroll": 1440
+  }
+]

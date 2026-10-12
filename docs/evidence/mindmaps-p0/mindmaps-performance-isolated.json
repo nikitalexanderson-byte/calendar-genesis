@@ -1,0 +1,44 @@
+{
+  "browser": "154.0.8037.99",
+  "method": "Isolated local Chrome dev server; DOM click to rendered selector + two animation frames; 5 warm switches, no other build/test processes. Navigation to first graph node. Search precedes focus timing.",
+  "results": [
+    {
+      "nodes": 200,
+      "loadMs": 872,
+      "structureMs": [
+        123,
+        139,
+        52,
+        57,
+        58
+      ],
+      "canvasMs": [
+        98,
+        48,
+        35,
+        31,
+        30
+      ],
+      "focusMs": 12
+    },
+    {
+      "nodes": 1000,
+      "loadMs": 903,
+      "structureMs": [
+        424,
+        440,
+        417,
+        422,
+        409
+      ],
+      "canvasMs": [
+        93,
+        32,
+        31,
+        30,
+        41
+      ],
+      "focusMs": 96
+    }
+  ]
+}

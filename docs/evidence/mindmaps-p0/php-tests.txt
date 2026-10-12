@@ -1,0 +1,12 @@
+server/tests/mindmaps.php
+PASS: envelope validation, account isolation, CAS, retry receipt, 20-version retention, quota rotation, old-workspace compatibility
+server/tests/mindmaps-google-contract.php
+PASS Calendar provider contract simulation: stable event ID, lost response, repeated submit, partial multi-account recovery, no overwrite, routing freeze, concurrent deletion cleanup. Live Google NOT tested.
+server/tests/mindmaps-native-contract.php
+PASS native provider CONTRACT simulation with real parser/SQLite: undated payload, lost-response recovery, one POST, source edit retained, stable identity after marker removal, account isolation, unknown result blocks POST, deleted source not recreated. Live Google NOT tested.
+server/tests/mindmaps-migration.php
+PASS isolated SQLite schema copy: backup, additive migration, repeat application, old workspace preserved, foreign keys, backup restored. No production database used.
+server/tests/google-incremental.php
+Google incremental pagination, list changes, task deletion, calendar deletion and expired cursor recovery passed.
+server/tests/smoke.php
+{"ok":true,"privacyModel":2,"workspaceEncrypted":true,"taskRows":0}
