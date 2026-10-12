@@ -1,0 +1,758 @@
+[
+  {
+    "width": 1440,
+    "height": 900,
+    "theme": "standart",
+    "errors": [],
+    "states": [
+      {
+        "name": "shared",
+        "overflow": false,
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "firstTask": {
+          "x": 299.59375,
+          "y": 1235.5625,
+          "width": 242.8125,
+          "height": 172.625,
+          "display": "grid"
+        },
+        "workspace": {
+          "x": 285,
+          "y": 1117.96875,
+          "width": 786,
+          "height": 537.625,
+          "display": "grid"
+        },
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": [
+          {
+            "name": "Скрыть хаос-бокс",
+            "width": 32,
+            "height": 44
+          },
+          {
+            "name": "Подробно",
+            "width": 88,
+            "height": 42
+          },
+          {
+            "name": "Кратко",
+            "width": 70,
+            "height": 42
+          },
+          {
+            "name": "Создать: Встреча",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Создать: Событие",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Создать задачу",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Создать список",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Создать проект",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Редактировать задачу «Согласовать содержание осеннего календаря»",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Удалить задачу «Согласовать содержание осеннего календаря»",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Редактировать задачу «Собрать обратную связь»",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Удалить задачу «Собрать обратную связь»",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Создать: Встреча",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Создать: Событие",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Создать задачу",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Создать список",
+            "width": 32,
+            "height": 32
+          }
+        ]
+      },
+      {
+        "name": "task",
+        "overflow": false,
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "firstTask": {
+          "x": 299.59375,
+          "y": 1428.34375,
+          "width": 242.8125,
+          "height": 172.625,
+          "display": "grid"
+        },
+        "workspace": {
+          "x": 285,
+          "y": 1310.75,
+          "width": 786,
+          "height": 537.625,
+          "display": "grid"
+        },
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": [
+          {
+            "name": "Скрыть хаос-бокс",
+            "width": 32,
+            "height": 44
+          },
+          {
+            "name": "Подробно",
+            "width": 88,
+            "height": 42
+          },
+          {
+            "name": "Кратко",
+            "width": 70,
+            "height": 42
+          },
+          {
+            "name": "Создать: Встреча",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Создать: Событие",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Создать задачу",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Создать список",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Создать проект",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Редактировать задачу «Согласовать содержание осеннего календаря»",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Удалить задачу «Согласовать содержание осеннего календаря»",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Редактировать задачу «Собрать обратную связь»",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Удалить задачу «Собрать обратную связь»",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Создать: Встреча",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Создать: Событие",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Создать задачу",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Создать список",
+            "width": 32,
+            "height": 32
+          }
+        ]
+      },
+      {
+        "name": "personal",
+        "overflow": false,
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": [
+          {
+            "name": "Переместить хаос-бокс",
+            "width": 470,
+            "height": 28
+          },
+          {
+            "name": "Скрыть хаос-бокс",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Подробно",
+            "width": 171,
+            "height": 42
+          },
+          {
+            "name": "Кратко",
+            "width": 153,
+            "height": 42
+          },
+          {
+            "name": "Новый подпроект: Запуск личного проекта",
+            "width": 36,
+            "height": 44
+          },
+          {
+            "name": "Редактировать проект «Запуск личного проекта»",
+            "width": 36,
+            "height": 44
+          },
+          {
+            "name": "Переместить в общие: Запуск личного проекта",
+            "width": 36,
+            "height": 44
+          },
+          {
+            "name": "Удалить проект «Запуск личного проекта»",
+            "width": 36,
+            "height": 44
+          }
+        ]
+      },
+      {
+        "name": "catalog",
+        "overflow": false,
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "outline",
+        "overflow": false,
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": {
+          "x": 264,
+          "y": 770.84375,
+          "width": 808,
+          "height": 497.78125,
+          "display": "block"
+        },
+        "inspector": {
+          "x": 1096,
+          "y": 770.84375,
+          "width": 320,
+          "height": 712.515625,
+          "display": "block"
+        },
+        "smallControls": []
+      },
+      {
+        "name": "canvas",
+        "overflow": false,
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": {
+          "x": 264,
+          "y": 713.84375,
+          "width": 808,
+          "height": 645,
+          "display": "block"
+        },
+        "inspector": {
+          "x": 1096,
+          "y": 713.84375,
+          "width": 320,
+          "height": 712.515625,
+          "display": "block"
+        },
+        "smallControls": [
+          {
+            "name": "Уменьшить масштаб",
+            "width": 39,
+            "height": 44
+          },
+          {
+            "name": "Увеличить масштаб",
+            "width": 39,
+            "height": 44
+          },
+          {
+            "name": "Создать связь: Подготовка встречи — план действий",
+            "width": 40,
+            "height": 44
+          },
+          {
+            "name": "Создать связь: Результат",
+            "width": 40,
+            "height": 44
+          },
+          {
+            "name": "Создать связь: Этапы",
+            "width": 40,
+            "height": 44
+          },
+          {
+            "name": "Создать связь: Ресурсы",
+            "width": 40,
+            "height": 44
+          },
+          {
+            "name": "Создать связь: Риски",
+            "width": 40,
+            "height": 44
+          },
+          {
+            "name": "Создать связь: Собрать повестку и материалы",
+            "width": 40,
+            "height": 44
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "width": 1440,
+    "height": 900,
+    "theme": "standart-dark",
+    "errors": [],
+    "states": [
+      {
+        "name": "shared",
+        "overflow": false,
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "firstTask": {
+          "x": 299.59375,
+          "y": 1235.5625,
+          "width": 242.8125,
+          "height": 172.625,
+          "display": "grid"
+        },
+        "workspace": {
+          "x": 285,
+          "y": 1117.96875,
+          "width": 786,
+          "height": 537.625,
+          "display": "grid"
+        },
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": [
+          {
+            "name": "Скрыть хаос-бокс",
+            "width": 32,
+            "height": 44
+          },
+          {
+            "name": "Подробно",
+            "width": 88,
+            "height": 42
+          },
+          {
+            "name": "Кратко",
+            "width": 70,
+            "height": 42
+          },
+          {
+            "name": "Создать: Встреча",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Создать: Событие",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Создать задачу",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Создать список",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Создать проект",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Редактировать задачу «Согласовать содержание осеннего календаря»",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Удалить задачу «Согласовать содержание осеннего календаря»",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Редактировать задачу «Собрать обратную связь»",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Удалить задачу «Собрать обратную связь»",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Создать: Встреча",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Создать: Событие",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Создать задачу",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Создать список",
+            "width": 32,
+            "height": 32
+          }
+        ]
+      },
+      {
+        "name": "task",
+        "overflow": false,
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "firstTask": {
+          "x": 299.59375,
+          "y": 1429.34375,
+          "width": 242.8125,
+          "height": 172.625,
+          "display": "grid"
+        },
+        "workspace": {
+          "x": 285,
+          "y": 1311.75,
+          "width": 786,
+          "height": 537.625,
+          "display": "grid"
+        },
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": [
+          {
+            "name": "Скрыть хаос-бокс",
+            "width": 32,
+            "height": 44
+          },
+          {
+            "name": "Подробно",
+            "width": 88,
+            "height": 42
+          },
+          {
+            "name": "Кратко",
+            "width": 70,
+            "height": 42
+          },
+          {
+            "name": "Создать: Встреча",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Создать: Событие",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Создать задачу",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Создать список",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Создать проект",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Редактировать задачу «Согласовать содержание осеннего календаря»",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Удалить задачу «Согласовать содержание осеннего календаря»",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Редактировать задачу «Собрать обратную связь»",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Удалить задачу «Собрать обратную связь»",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Создать: Встреча",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Создать: Событие",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Создать задачу",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Создать список",
+            "width": 32,
+            "height": 32
+          }
+        ]
+      },
+      {
+        "name": "personal",
+        "overflow": false,
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": [
+          {
+            "name": "Переместить хаос-бокс",
+            "width": 470,
+            "height": 28
+          },
+          {
+            "name": "Скрыть хаос-бокс",
+            "width": 32,
+            "height": 32
+          },
+          {
+            "name": "Подробно",
+            "width": 171,
+            "height": 42
+          },
+          {
+            "name": "Кратко",
+            "width": 153,
+            "height": 42
+          },
+          {
+            "name": "Новый подпроект: Запуск личного проекта",
+            "width": 36,
+            "height": 44
+          },
+          {
+            "name": "Редактировать проект «Запуск личного проекта»",
+            "width": 36,
+            "height": 44
+          },
+          {
+            "name": "Переместить в общие: Запуск личного проекта",
+            "width": 36,
+            "height": 44
+          },
+          {
+            "name": "Удалить проект «Запуск личного проекта»",
+            "width": 36,
+            "height": 44
+          }
+        ]
+      },
+      {
+        "name": "catalog",
+        "overflow": false,
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "outline",
+        "overflow": false,
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": {
+          "x": 264,
+          "y": 775.84375,
+          "width": 808,
+          "height": 497.78125,
+          "display": "block"
+        },
+        "inspector": {
+          "x": 1096,
+          "y": 775.84375,
+          "width": 320,
+          "height": 712.515625,
+          "display": "block"
+        },
+        "smallControls": []
+      },
+      {
+        "name": "canvas",
+        "overflow": false,
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": {
+          "x": 264,
+          "y": 775.84375,
+          "width": 808,
+          "height": 645,
+          "display": "block"
+        },
+        "inspector": {
+          "x": 1096,
+          "y": 775.84375,
+          "width": 320,
+          "height": 712.515625,
+          "display": "block"
+        },
+        "smallControls": [
+          {
+            "name": "Уменьшить масштаб",
+            "width": 39,
+            "height": 44
+          },
+          {
+            "name": "Увеличить масштаб",
+            "width": 39,
+            "height": 44
+          },
+          {
+            "name": "Создать связь: Подготовка встречи — план действий",
+            "width": 40,
+            "height": 44
+          },
+          {
+            "name": "Создать связь: Результат",
+            "width": 40,
+            "height": 44
+          },
+          {
+            "name": "Создать связь: Этапы",
+            "width": 40,
+            "height": 44
+          },
+          {
+            "name": "Создать связь: Ресурсы",
+            "width": 40,
+            "height": 44
+          },
+          {
+            "name": "Создать связь: Риски",
+            "width": 40,
+            "height": 44
+          },
+          {
+            "name": "Создать связь: Собрать повестку и материалы",
+            "width": 40,
+            "height": 44
+          }
+        ]
+      }
+    ]
+  }
+]

@@ -60,10 +60,10 @@ import { formatTaskCount } from "./task-count-i18n";
 import { InboxToolbar, InboxRestore, InboxResizeBoundary } from "./InboxToolbar";
 import type { InboxPosition } from "./ui-visibility";
 
-const phoneQuery = () => window.matchMedia("(max-width: 760px)");
-const subscribePhone = (listener: () => void) => { const query = phoneQuery(); query.addEventListener("change", listener); return () => query.removeEventListener("change", listener); };
-const phoneSnapshot = () => phoneQuery().matches;
-const serverPhoneSnapshot = () => false;
+const compactQuery = () => window.matchMedia("(max-width: 1099px)");
+const subscribeCompact = (listener: () => void) => { const query = compactQuery(); query.addEventListener("change", listener); return () => query.removeEventListener("change", listener); };
+const compactSnapshot = () => compactQuery().matches;
+const serverCompactSnapshot = () => false;
 import type { SharedInvitationDestination } from "./SharedInvitationNotices";
 
 type Props = { userId: string; language: string; enabledCalendars: CalendarMode[]; experimentalTheme?: boolean; timeFormat?: TimeFormat;
@@ -167,7 +167,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   const [googleBusy, setGoogleBusy] = useState(false);
   const [googleStatus, setGoogleStatus] = useState("");
   const [taskId, setTaskId] = useState("");
-  const isPhone = useSyncExternalStore(subscribePhone, phoneSnapshot, serverPhoneSnapshot);
+  const isCompact = useSyncExternalStore(subscribeCompact, compactSnapshot, serverCompactSnapshot);
   const [taskSection, setTaskSection] = useState<"task" | "comments">("task");
   const [taskSnapshot, setTaskSnapshot] = useState<SharedProjectSnapshot | null>(null);
   const [comments, setComments] = useState<SharedComment[]>([]);
@@ -814,7 +814,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
     return () => { live = false; window.clearInterval(timer); };
   }, [inboxProjectId]);
   const visibleInbox = inboxPreview?.project.id === inboxProjectId ? inboxPreview : null;
-  const activeView = viewOverride ?? (isPhone ? "list" : snapshot?.project.layout ?? "list");
+  const activeView = viewOverride ?? (isCompact ? "list" : snapshot?.project.layout ?? "list");
   const calendarPeriod = sharedCalendarPeriod(calendarMonth, calendarMode, english);
   const calendarOffset = calendarPeriod.dates.length ? (calendarPeriod.dates[0].getDay() + 6) % 7 : 0;
   const calendarDays = [
