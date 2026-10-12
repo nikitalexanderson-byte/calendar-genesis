@@ -153,7 +153,7 @@ html[data-genesis-theme] .genesis-app .mindmap-header .mindmap-hero-mark { color
 html[data-genesis-theme] .genesis-app .mindmap-header .mindmap-save-state { grid-column: 2; grid-row: 1; justify-self: end; max-width: 240px; padding: 0; color: #d0ded5; text-align: right; }
 html[data-genesis-theme] .genesis-app .mindmap-catalog-statistics { grid-column: 2; grid-row: 1; justify-self: end; display: grid; grid-template-columns: repeat(3, auto); gap: 16px; margin: 0; color: #d0ded5; text-align: right; }
 .mindmap-catalog-statistics dt { max-width: 14ch; font: 500 12px/1.4 var(--font-ui); }
-.mindmap-catalog-statistics dd { margin: 4px 0 0; color: #e4c78c; font: 600 18px/1.4 var(--font-ui); }
+.mindmap-catalog-statistics dd { margin: 4px 0 0; }
 html[data-genesis-theme] .genesis-app .mindmap-header .mindmap-back-link { grid-column: 2; grid-row: 2; justify-self: end; align-self: end; }
 @media (max-width: 1099px) { .mindmap-workspace { grid-template-columns: minmax(0,1fr); gap: 16px; } }
 @media (max-width: 760px) {
