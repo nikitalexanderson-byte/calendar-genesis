@@ -13,6 +13,21 @@ export function ExperimentalIcon({ name, className = "" }: { name: string; class
     {name === "stoicheion" || name === "theokyklos" ? <><path d="m12 3 2 7 7 2-7 2-2 7-2-7-7-2 7-2Z"/><path d="M20 2v4m2-2h-4M3 18v4m2-2H1"/></> : null}
     {name === "admin" ? <><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1Z"/><path d="m9 12 2 2 4-4"/></> : null}
     {name === "plus" ? <path d="M5 12h14M12 5v14"/> : null}
+    {name === "map-mode" ? <><rect x="8" y="8" width="8" height="8" rx="2"/><path d="M8 10 4 5m12 5 4-5M8 14l-4 5m12-5 4 5"/><circle cx="3" cy="3" r="2"/><circle cx="21" cy="3" r="2"/><circle cx="3" cy="21" r="2"/><circle cx="21" cy="21" r="2"/></> : null}
+    {name === "outline-mode" ? <><path d="M4 4v16m0-12h4m-4 6h4m-4 6h4"/><path d="M11 8h10m-10 6h10m-10 6h10M4 4h7"/></> : null}
+    {name === "thought-child" ? <><rect x="3" y="3" width="7" height="5" rx="1.5"/><rect x="13" y="15" width="8" height="6" rx="1.5"/><path d="M6.5 8v10H13m-7 0H3m14-3v-5m-2.5 2.5h5"/></> : null}
+    {name === "thought-sibling" ? <><rect x="10" y="3" width="10" height="6" rx="1.5"/><rect x="10" y="15" width="10" height="6" rx="1.5"/><path d="M3 6h7m-4 0v12h4m5-3v-4m-2 2h4"/></> : null}
+    {name === "thought-affair" ? <><rect x="2" y="4" width="8" height="15" rx="2"/><path d="m4 8 1 1 2-2M4 13h3m7-2h8m-3-3 3 3-3 3"/><rect x="14" y="17" width="8" height="4" rx="1"/></> : null}
+    {name === "thought-focus" ? <><path d="M8 2H2v6m14-6h6v6M2 16v6h6m14-6v6h-6"/><rect x="9" y="8" width="6" height="5" rx="1"/><path d="M12 13v5m-4 0h8"/></> : null}
+    {name === "thought-fold" ? <><rect x="9" y="2" width="6" height="5" rx="1"/><path d="M12 7v5M5 16v-4h14v4m-14 5 3-3-3-3m14 6-3-3 3-3"/></> : null}
+    {name === "thought-unlink" ? <><rect x="3" y="3" width="7" height="5" rx="1"/><rect x="14" y="16" width="7" height="5" rx="1"/><path d="M6 8v5h4m4 0h3v3m-7-6 4 6m0-6-4 6"/></> : null}
+    {name === "map-pin" ? <><path d="m8 3 8 0-1 6 3 4H6l3-4-1-6ZM12 13v8"/></> : null}
+    {name === "map-archive" ? <><rect x="3" y="3" width="18" height="5" rx="1"/><path d="M5 8v13h14V8M9 12h6"/></> : null}
+    {name === "map-import" ? <><path d="M14 2H6v8m8-8 6 6v13H6v-5m8-14v6h6M2 13h10m-3-3 3 3-3 3"/></> : null}
+    {name === "map-refresh" ? <><path d="M20 8a8 8 0 0 0-14-3L3 8m0-5v5h5M4 16a8 8 0 0 0 14 3l3-3m0 5v-5h-5"/></> : null}
+    {name === "map-up" ? <path d="M12 20V4m-6 6 6-6 6 6"/> : null}
+    {name === "map-down" ? <path d="M12 4v16m-6-6 6 6 6-6"/> : null}
+    {name === "map-back" ? <path d="m10 5-7 7 7 7M3 12h12a6 6 0 0 1 6 6"/> : null}
     {name === "edit" ? <path d="m16 3 5 5M4 20l4-1L21 6a2.1 2.1 0 0 0-3-3L5 16Z"/> : null}
     {name === "delete" ? <path d="M3 6h18M9 6V4h6v2M5 6l1 14h12l1-14M10 10v6m4-6v6"/> : null}
     {name === "open" ? <path d="M7 7h10v10M7 17 17 7"/> : null}

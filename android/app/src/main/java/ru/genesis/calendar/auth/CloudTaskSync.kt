@@ -35,6 +35,8 @@ internal class CloudTaskSync(private val db: GenesisDatabase, private val transp
             require(saved.getString("id") == row.id) { "Google returned another task" }
             val merged = JSONObject(local.toString())
             saved.keys().forEach { key -> merged.put(key, saved.get(key)) }
+            merged.remove("mindmapCreateOnly")
+            merged.remove("mindmapCreationPayload")
             val valid = CloudAccountSnapshot.nativeTaskJson(merged)
             db.withTransaction {
                 val latest = dao.task(scope, row.id)
@@ -42,6 +44,12 @@ internal class CloudTaskSync(private val db: GenesisDatabase, private val transp
                     dao.putTask(TaskRecord(scope, row.id, cipher.encrypt(valid.toString(), "$scope/${row.id}"),
                         latest.revision, valid.optBoolean("done")))
                     sent += dao.acknowledgeOutbox(scope, row.id, entry.revision, entry.operationId)
+                } else if(latest!=null&&!latest.deleted&&local.optBoolean("mindmapCreateOnly")) {
+                    // Keep a concurrent local edit, but end its creation phase after the provider confirms identity.
+                    val newer=JSONObject(cipher.decrypt(latest.encrypted,"$scope/${row.id}"))
+                    listOf("googleLinks","googleTaskId","googleTaskListId","googleTaskListTitle","googleEventId","googleCalendarId","googleAccountId","googleAccountEmail","syncAccountIds","createdIn").forEach {key->if(saved.has(key))newer.put(key,saved.get(key))}
+                    newer.remove("mindmapCreateOnly");newer.remove("mindmapCreationPayload")
+                    dao.putTask(latest.copy(encrypted=cipher.encrypt(newer.toString(),"$scope/${row.id}")))
                 }
             }
         }

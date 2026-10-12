@@ -219,7 +219,13 @@ function genesisUiVisibility(mixed $value): array
         $result[$prefix . 'Position'] = $position;
         $result[$prefix . 'Hidden'] = $hidden;
         $result[$prefix . 'Compact'] = $compact;
+        $inboxWidth = $decoded[$prefix . 'Width'] ?? 300;
+        if (!is_int($inboxWidth) || $inboxWidth < 300 || $inboxWidth > 5000) throw new InvalidArgumentException('INVALID_INBOX_WIDTH');
+        $result[$prefix . 'Width'] = $inboxWidth;
     }
+    $categoriesExpanded = $decoded['sharedCategoriesExpanded'] ?? false;
+    if (!is_bool($categoriesExpanded)) throw new InvalidArgumentException('INVALID_CATEGORY_LAYOUT');
+    $result['sharedCategoriesExpanded'] = $categoriesExpanded;
     return $result;
 }
 
@@ -1132,7 +1138,7 @@ function genesisUpdateAccountPreferences(string $userId, array $payload): array
     }
     $visibilityInput = $payload['uiVisibility'] ?? ($user['ui_visibility_json'] ?? '{}');
     $savedVisibility = genesisUiVisibility($user['ui_visibility_json'] ?? '{}');
-    $layoutFields = ['sidebarWidth', 'personalInboxPosition', 'personalInboxHidden', 'personalInboxCompact', 'sharedInboxPosition', 'sharedInboxHidden', 'sharedInboxCompact'];
+    $layoutFields = ['sidebarWidth', 'personalInboxPosition', 'personalInboxHidden', 'personalInboxCompact', 'sharedInboxPosition', 'sharedInboxHidden', 'sharedInboxCompact', 'sharedCategoriesExpanded', 'personalInboxWidth', 'sharedInboxWidth'];
     // Older web/native clients must not reset account layout preferences.
     if (is_array($visibilityInput)) {
         foreach (['sidebarAutoCollapseSeconds', ...$layoutFields] as $field) {

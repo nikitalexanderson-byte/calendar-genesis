@@ -1,0 +1,50 @@
+{
+  "defaultCollapsed": true,
+  "toggleReloadPersists": true,
+  "searchInToolbar": true,
+  "unifiedProjectSurface": true,
+  "textOnlyCreationTabs": true,
+  "viewports": [
+    {
+      "theme": "standart",
+      "width": 360,
+      "overflow": false
+    },
+    {
+      "theme": "standart",
+      "width": 390,
+      "overflow": false
+    },
+    {
+      "theme": "standart",
+      "width": 768,
+      "overflow": false
+    },
+    {
+      "theme": "standart",
+      "width": 1440,
+      "overflow": false
+    },
+    {
+      "theme": "standart-dark",
+      "width": 360,
+      "overflow": false
+    },
+    {
+      "theme": "standart-dark",
+      "width": 390,
+      "overflow": false
+    },
+    {
+      "theme": "standart-dark",
+      "width": 768,
+      "overflow": false
+    },
+    {
+      "theme": "standart-dark",
+      "width": 1440,
+      "overflow": false
+    }
+  ],
+  "errors": []
+}

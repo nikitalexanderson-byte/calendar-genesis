@@ -56,13 +56,14 @@ import { type CalendarMode, MONTHS, LUNAR_DECADES, ELEMENTS, formatCalendarDate,
 import { translateText } from "./i18n";
 import { restoredSharedProject, sharedProjectTree } from "./shared-expansion";
 import { formatTaskCount } from "./task-count-i18n";
-import { InboxToolbar, InboxRestore } from "./InboxToolbar";
+import { InboxToolbar, InboxRestore, InboxResizeBoundary } from "./InboxToolbar";
 import type { InboxPosition } from "./ui-visibility";
 import type { SharedInvitationDestination } from "./SharedInvitationNotices";
 
 type Props = { userId: string; language: string; enabledCalendars: CalendarMode[]; experimentalTheme?: boolean; timeFormat?: TimeFormat;
-  inboxPosition: InboxPosition; inboxHidden: boolean; inboxCompact: boolean; onInboxPosition: (position: InboxPosition) => void; onInboxHidden: (hidden: boolean) => void; onInboxCompact: (compact: boolean) => void;
+  inboxWidth: number; onInboxWidth: (width: number) => void; inboxPosition: InboxPosition; inboxHidden: boolean; inboxCompact: boolean; onInboxPosition: (position: InboxPosition) => void; onInboxHidden: (hidden: boolean) => void; onInboxCompact: (compact: boolean) => void;
   destination?: SharedInvitationDestination;
+  categoriesExpanded: boolean; onCategoriesExpanded: (expanded: boolean) => void;
   calendarMode: CalendarMode; taskCalendarMode: CalendarMode;
   onCalendarModeChange: (mode: CalendarMode) => Promise<void> };
 
@@ -102,7 +103,7 @@ function sharedCalendarPeriod(anchor: Date, mode: CalendarMode, english: boolean
     title: new Intl.DateTimeFormat(english ? "en-US" : "ru-RU", { month: "long", year: "numeric" }).format(start) };
 }
 
-export function SharedProjects({ userId, language, enabledCalendars, calendarMode, taskCalendarMode, onCalendarModeChange, experimentalTheme = false, timeFormat = "24h", destination, inboxPosition, inboxHidden, inboxCompact, onInboxPosition, onInboxHidden, onInboxCompact }: Props) {
+export function SharedProjects({ userId, language, enabledCalendars, calendarMode, taskCalendarMode, onCalendarModeChange, experimentalTheme = false, timeFormat = "24h", destination, inboxWidth, onInboxWidth, inboxPosition, inboxHidden, inboxCompact, onInboxPosition, onInboxHidden, onInboxCompact, categoriesExpanded, onCategoriesExpanded }: Props) {
   const english = language === "en";
   const [initialPlace] = useState(() => (typeof window === "undefined" ? null : sharedPlaceFromUrl(new URL(window.location.href))) ?? (destination ? { spaceId: destination.spaceId, projectId: destination.projectId || "", taskId: "", view: null } : initialSharedPlace(userId)));
   const [requestedTaskId, setRequestedTaskId] = useState(initialPlace.taskId);
@@ -942,6 +943,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   const projectCategorySection = <SharedProjectCategories key={spaceId} spaceId={spaceId}
     categories={projectCategories.spaceId === spaceId ? projectCategories.items : []} projects={projects}
     canManage={Boolean(canManageLabels)} english={english}
+    expanded={categoriesExpanded} onExpanded={onCategoriesExpanded}
     onChanged={async () => { await refreshProjects(spaceId); if (snapshot) await refreshProject(snapshot.project.id); }}
     onOpen={project => { setProjectId(project.id); setSnapshot(null); persistExpansion([...new Set([...expandedIds, project.id])]); }} />;
   const taskDestinationIds = new Set(newTaskRootProjectId ? [newTaskRootProjectId] : []);
@@ -1027,6 +1029,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
         onClick={() => { setSpaceId(""); setProjectId(""); setSnapshot(null); closeTask(); }}><ExperimentalIcon name="spaces" /></button>
       <button type="button" className="secondary-button" title={english ? "Create workspace" : "Создать пространство"} aria-label={english ? "Create workspace" : "Создать пространство"} onClick={() => setCreateModal("space")}><ExperimentalIcon name="space-plus" /></button>
       </div>
+    {spaceId ? <label className="tag-search personal-affairs-search shared-workspace-search"><span aria-hidden="true">{experimentalTheme ? <ExperimentalIcon name="search" /> : "⌕"}</span><input aria-label={english ? "Find tasks and projects by title or tag" : "Поиск задач и проектов по названию или #тегу"} value={searchQuery} onChange={(event) => { setSearchQuery(event.target.value); setSearchBusy(Boolean(event.target.value.trim())); setSearchResults({ projects: [], tasks: [] }); }} placeholder={english ? "Find tasks and projects by title or #tag" : "Поиск задач и проектов по названию или #тегу"} /></label> : null}
       {spaceId ? <div className="shared-project-toolbar-group" role="group" aria-label={english ? "Projects in workspace" : "Проекты пространства"}>
         {projects.some(project => !project.isInbox) ? <select value={projectId} aria-label={english ? "Current project" : "Текущий проект"} onChange={event => {
           setProjectId(event.target.value); setSnapshot(null); closeTask(); setViewOverride(null);
@@ -1068,7 +1071,6 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
     </section> : null}
     {loading ? <p role="status">{english ? "Loading projects…" : "Загружаем проекты…"}</p> : null}
 
-    {spaceId ? <label className="tag-search"><span aria-hidden="true">{experimentalTheme ? <ExperimentalIcon name="search" /> : "⌕"}</span><input aria-label={english ? "Find tasks and projects by title or tag" : "Поиск задач и проектов по названию или #тегу"} value={searchQuery} onChange={(event) => { setSearchQuery(event.target.value); setSearchBusy(Boolean(event.target.value.trim())); setSearchResults({ projects: [], tasks: [] }); }} placeholder={english ? "Find tasks and projects by title or #tag" : "Поиск задач и проектов по названию или #тегу"} /></label> : null}
     {searchQuery.trim() ? <section className="tag-search-results" aria-label="Результаты поиска дел" aria-live="polite" aria-busy={searchBusy}>
       <header><strong>{english ? "Search results" : "Результаты поиска"}</strong><span>{searchResults.projects.length} проектов · {searchResults.tasks.length} задач</span></header>
       <div>{searchResults.projects.filter((project) => !project.isInbox).map((project) => <button type="button" key={project.id} onClick={() => { setSearchQuery(""); setProjectId(project.id); setSnapshot(null); }}><span>Проект</span><strong>{project.title}</strong><small>{project.tags?.map((tag) => `#${tag}`).join(" ")}</small></button>)}
@@ -1123,9 +1125,11 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       </section> : null}
     </aside>
 
+    {!inboxHidden ? <InboxResizeBoundary position={inboxPosition} width={inboxWidth} onWidth={onInboxWidth} /> : null}
     <main className="shared-projects-main">
 
     {snapshot && snapshot.project.id === projectId ? <>
+      <div className="shared-project-workspace">
       <header className="shared-projects-context" data-shared-drop-project={snapshot.project.id} data-drop-active={dropTarget?.projectId === snapshot.project.id && !dropTarget.statusId || undefined}>
         <div className="shared-project-heading">
           {!snapshot.project.isInbox && snapshot.project.role === "owner" ? <button type="button" className={`project-complete-action${completedPulse ? " is-completing" : ""}`} disabled={busy} onClick={archiveProject} title={english ? "Complete project" : "Завершить проект"} aria-label={english ? `Complete project “${snapshot.project.title}”` : `Завершить проект «${snapshot.project.title}»`}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="m7 12 3 3 7-7"/></svg></button> : null}
@@ -1147,7 +1151,6 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
         <button type="button" className="shared-projects-open-modal primary-button" onClick={() => openCreateTask(snapshot.project, undefined, "task", true)}>
           <ExperimentalIcon name="plus" /><span className="shared-create-full">{english ? "Create task" : "Создать задачу"}</span><span className="shared-create-short">{english ? "Task" : "Задача"}</span>
         </button>
-        {(["meeting", "event"] as const).map(type => <button type="button" className="secondary-button" key={type} onClick={() => openCreateTask(snapshot.project,undefined,type,true)}><ExperimentalIcon name={type}/>{entryTypeLabel(type,english)}</button>)}
       </div> : null}
       <div className="shared-planning-controls">
       <div className="shared-planning-view">
@@ -1295,6 +1298,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
 
       </div>
       </section>
+      </div>
       {projectCategorySection}
       <details className="shared-projects-google" aria-label={english ? "My Google copies" : "Мои копии в Google"}>
         <summary><ExperimentalIcon name="chevron" /><span>{english ? "My Google copies" : "Мои копии в Google"}</span>
@@ -1439,7 +1443,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
           <button type="button" onClick={() => {
             setCreateKind("task-list"); setCreateModal("project");
           }} aria-pressed={createModal === "project"}>{english ? "Task list" : "Список задач"}</button>
-          {(["meeting", "event"] as const).map(type => <button type="button" key={type} aria-pressed={createModal === "task" && newEntryType === type} onClick={() => { setNewEntryType(type); setCreateModal("task"); }}><ExperimentalIcon name={type}/>{entryTypeLabel(type, english)}</button>)}
+          {(["meeting", "event"] as const).map(type => <button type="button" key={type} aria-pressed={createModal === "task" && newEntryType === type} onClick={() => { setNewEntryType(type); setCreateModal("task"); }}>{entryTypeLabel(type, english)}</button>)}
         </div> : null}
         {createModal === "join" ? <div className="shared-invitations">
           {invitationsLoading ? <p role="status">{english ? "Loading invitations…" : "Загружаем приглашения…"}</p>

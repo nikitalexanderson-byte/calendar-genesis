@@ -15,11 +15,12 @@ class GenesisViewModel(application: Application) : AndroidViewModel(application)
     val tasks = app.repository.tasks.catch { error.value = "Не удалось открыть защищённые данные: ключ недоступен." }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     fun save(task: LocalTask, onSaved: () -> Unit) = viewModelScope.launch {
-        try { app.repository.save(task); error.value = null; onSaved() }
+        try { if(org.json.JSONObject(task.sourceFieldsJson).has("mindmapOccurrenceParentRevision"))app.repository.saveOccurrence(task) else app.repository.save(task); error.value = null; onSaved() }
         catch (e: IllegalArgumentException) { error.value = e.message ?: "Проверьте данные задачи." }
         catch (_: Exception) { error.value = "Не удалось сохранить. Введённые данные остаются в форме." }
     }
     fun complete(task: LocalTask) = save(task.copy(done = !task.done)) {}
+    fun completeOccurrence(task:LocalTask,date:String)=save(ru.genesis.calendar.data.TaskOccurrences.standaloneDraft(task,date).copy(done=!task.done)) {}
     fun delete(task: LocalTask) = viewModelScope.launch {
         try { app.repository.delete(task.id, task.revision); error.value = null }
         catch(e: CancellationException) { throw e }

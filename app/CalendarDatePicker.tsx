@@ -95,8 +95,8 @@ export function CalendarDatePicker({ id, value, mode, min, max, required, ariaLa
   return (
     <>
       <button id={id} type="button" className={`calendar-date-trigger mode-${mode}${showGregorianReference ? "" : " no-reference"}`} data-genesis-preserve={`${mode}-date-picker-trigger`} onClick={openPicker} aria-label={ariaLabel} aria-haspopup="dialog">
-        <span>{formatCalendarDate(selectedDate, mode, true)}</span>
-        {showGregorianReference ? <small>{formatGregorian(selectedDate, true)}</small> : null}
+        <span>{value ? formatCalendarDate(selectedDate, mode, true) : isEnglish ? "Choose date" : "Выберите дату"}</span>
+        {value && showGregorianReference ? <small>{formatGregorian(selectedDate, true)}</small> : null}
       </button>
       {open ? (
         <div className="modal-backdrop calendar-picker-backdrop" role="presentation" data-genesis-preserve={`${mode}-date-picker`} onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>

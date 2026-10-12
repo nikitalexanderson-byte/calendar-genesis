@@ -228,9 +228,16 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
     var voiceDeleteTaskId by rememberSaveable { mutableStateOf<String?>(null) }
     var transferTask by remember { mutableStateOf<LocalTask?>(null) }
     var creating by rememberSaveable { mutableStateOf(false) }
+    var mindmapsOpen by rememberSaveable { mutableStateOf(false) }
+    var mindmapProjectId by rememberSaveable { mutableStateOf<String?>(null) }
+    var requestedMindmapProject by rememberSaveable {mutableStateOf<String?>(null)}
+    var mindmapTaskDraft by remember { mutableStateOf<LocalTask?>(null) }
     var creatingSharedTask by rememberSaveable { mutableStateOf(false) }
     var newTaskProjectId by rememberSaveable { mutableStateOf<String?>(null) }
     var newTaskListId by rememberSaveable { mutableStateOf<String?>(null) }
+    val mindmapUid=authState.user?.uid
+    val mapsRepo=remember(mindmapUid,app.workspaceScope) {mindmapUid?.let {uid->ru.genesis.calendar.data.MindmapRepository(app.database,app.workspaceScope,uid,authController.mindmapTransport(uid))}}
+    LaunchedEffect(mapsRepo) {mapsRepo?.conversionDraft()?.let {draft->if(app.repository.get(draft.id)==null){mindmapTaskDraft=draft;newTaskProjectId=draft.projectId;newTaskListId=null;editId=null;creating=true;mindmapsOpen=true}else mapsRepo?.clearConversionDraft()} }
     var requestedPersonalListId by rememberSaveable { mutableStateOf<String?>(null) }
     var creatingTaskList by rememberSaveable { mutableStateOf(false) }
     var sharedListRefreshKey by remember { mutableIntStateOf(0) }
@@ -734,7 +741,17 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
                 }
                 val personalAffairsContent: @Composable (MenuSwipeState) -> Unit = { visibleSwipeState ->
+                    if(mindmapsOpen && authState.user!=null) {
+                        val uid=authState.user!!.uid
+                        val currentMapsRepo=mapsRepo ?: error("Карта недоступна.")
+                        key(uid) {MindmapsScreen(currentMapsRepo,tasks,structure.projects,mindmapProjectId,
+                            onBack={mindmapsOpen=false},onTask={task,date->if(task.recurrence.enabled&&date!=null){val draft=ru.genesis.calendar.data.TaskOccurrences.standaloneDraft(task,date);scope.launch {currentMapsRepo.saveConversionDraft(draft);mindmapTaskDraft=draft;newTaskProjectId=draft.projectId;newTaskListId=null;editId=null;creating=true}}else {editId=task.id;creating=false}},
+                            onCreate={draft->scope.launch {currentMapsRepo.saveConversionDraft(draft);mindmapTaskDraft=draft;newTaskProjectId=draft.projectId;newTaskListId=null;editId=null;creating=true}},
+                            onComplete={task,date->if(task.recurrence.enabled&&date!=null)model.completeOccurrence(task,date)else model.complete(task)},onProject={requestedMindmapProject=it;mindmapsOpen=false})}
+                    } else {
                     ProjectsScreen(app,tasks,true, taskLists=taskLists, use24=prefs.use24,
+                        onMindmaps={mindmapProjectId=it;mindmapsOpen=true},
+                        initialProjectId=requestedMindmapProject,onInitialProjectConsumed={requestedMindmapProject=null},
                         onOpenTask={ editId=it;creating=false },
                         onCreateTask={ newTaskProjectId=it;newTaskListId=null;editId=null;creating=true },
                         onCreateList={creatingTaskList=true},
@@ -764,6 +781,7 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                         initialListId=requestedPersonalListId,onInitialListConsumed={requestedPersonalListId=null},
                         sharedController=authController.takeIf { sharedProjectsEnabled },
                         sharedAccount=authState.accountSettings)
+                    }
                 }
                 val pageContent: @Composable (String, MenuSwipeState) -> Unit = { visibleTab, visibleSwipeState ->
                   Column(Modifier.fillMaxSize()) {
@@ -1003,10 +1021,10 @@ private fun GenesisWorkspaceContent(app: GenesisApplication, openedTask: String?
                 }
             }
             val existing=tasks.find { it.id==editId }
-            if(creating || existing!=null) TaskEditor(existing,selected,prefs,structure,newTaskProjectId,
+            if(creating || existing!=null) TaskEditor(existing ?: mindmapTaskDraft,selected,prefs,structure,newTaskProjectId,
                 authState.accountSettings,taskLists,newTaskListId,
-                onDismiss={creating=false;editId=null;voiceDeleteTaskId=null},
-                onSave={draft -> model.save(draft){creating=false;editId=null;voiceDeleteTaskId=null}},
+                onDismiss={creating=false;editId=null;voiceDeleteTaskId=null;mindmapTaskDraft=null;scope.launch {mapsRepo?.clearConversionDraft()}},
+                onSave={draft -> model.save(draft){creating=false;editId=null;voiceDeleteTaskId=null;mindmapTaskDraft=null;scope.launch {mapsRepo?.clearConversionDraft()}}},
                 onSwitchToShared=if(existing==null && tab=="Проекты" && sharedProjectsEnabled) ({
                     creating=false; creatingSharedTask=true
                 }) else null,
@@ -1433,7 +1451,7 @@ private fun DayHeader(date: LocalDate, mode: CalendarMode, detailsExpanded: Bool
 }
 
 @Composable
-private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,structure:WorkspaceStructure,initialProjectId:String?,
+internal fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,structure:WorkspaceStructure,initialProjectId:String?,
     accountSettings:ru.genesis.calendar.auth.AccountSettings?, taskLists:List<GoogleTaskList>, initialTaskListId:String?, onDismiss:()->Unit,
     onSave:(LocalTask)->Unit,onSwitchToShared:(()->Unit)?=null,onTransfer:(()->Unit)?,onDelete:(()->Unit)?,onDeleteOccurrence:((String)->Unit)?,showSelectedOccurrence:Boolean,
     startDeleteConfirmation:Boolean=false) {
@@ -1554,6 +1572,8 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                     }
                 }
                 EditorSection("Дата и время") {
+                if(!yandex) Row(verticalAlignment=Alignment.CenterVertically) {Checkbox(checked=date.isBlank(),onCheckedChange={blank->date=if(blank)"" else LocalDate.now().toString();if(blank){time="";reminders=emptyList();recurrence=recurrence.copy(enabled=false)}});Text("Без даты")}
+                if(date.isNotBlank()) {
                 EditorCalendarModePicker(formCalendarMode, { formCalendarMode=it }, tag="task-form-calendar")
                 Text("Дата задачи · ${calendarModeLabel(formCalendarMode)}")
                 AuthorDatePicker(date,formCalendarMode){date=it}
@@ -1565,6 +1585,7 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                     Text("Весь день")
                 }
                 if (!yandex || time.isNotBlank()) AuthorTimePicker(time,prefs.use24){time=it}
+                }
                 }
                 if (yandex) {
                     if (yandexEntryType == "meeting") {
@@ -1604,7 +1625,7 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                     "Сохранение изменит всю серию. При удалении можно выбрать только $occurrenceDate.",
                     style=MaterialTheme.typography.bodySmall,
                     color=MaterialTheme.colorScheme.onSurfaceVariant)
-                val occurrenceCount = if(googleTaskBacked) 1 else TaskRecurrenceEditor(recurrence,date,prefs.input) { recurrence=it;validation=null }
+                val occurrenceCount = if(googleTaskBacked || date.isBlank()) 1 else TaskRecurrenceEditor(recurrence,date,prefs.input) { recurrence=it;validation=null }
                 EditorSection("Напоминания") {
                 Text((if (yandex) "Дополнительные напоминания GENESIS" else "Напомнить") + " · ${reminders.size}/5",style=MaterialTheme.typography.titleMedium)
                 Text(if (yandex) "Эти напоминания показываются самим GENESIS на устройстве; настройки выше отправляются в Яндекс.Календарь."
@@ -1625,7 +1646,7 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                 Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(4.dp)) {
                     listOf(10 to "10 мин",30 to "30 мин",60 to "1 час",1440 to "1 день").forEach { (minutes,label) ->
                         FilterChip(selected=reminders.any{it.kind=="relative" && it.minutes==minutes},
-                            enabled=!googleTaskBacked && (reminders.size<5 || reminders.any{it.kind=="relative" && it.minutes==minutes}),
+                            enabled=!googleTaskBacked && date.isNotBlank() && (reminders.size<5 || reminders.any{it.kind=="relative" && it.minutes==minutes}),
                             onClick={ val spec=TaskReminder.relative(minutes)
                                 reminders=if(reminders.any{it.key==spec.key}) reminders.filterNot{it.key==spec.key}
                                     else reminders+spec },label={Text(label)})
@@ -1636,7 +1657,7 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                     modifier=Modifier.testTag("custom-reminder-toggle")) {
                     Text(if(customReminder) "Свернуть" else "+ Своё напоминание")
                 }
-                if(customReminder && !googleTaskBacked) {
+                if(customReminder && !googleTaskBacked && date.isNotBlank()) {
                     Row { FilterChip(selected=customRelative,onClick={customRelative=true},label={Text("За время до задачи")})
                         FilterChip(selected=!customRelative,onClick={customRelative=false},label={Text("Точная дата и время")}) }
                     if(customRelative) {
@@ -1682,7 +1703,7 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                         val start = runCatching { LocalDate.parse(date) }.getOrNull()
                         val end = runCatching { LocalDate.parse(recurrence.rangeEnd) }.getOrNull()
                         validation = when {
-                            start == null -> "Выберите корректную дату задачи."
+                            date.isNotBlank() && start == null -> "Выберите корректную дату задачи."
                             yandex && yandexEntryType == "meeting" && time.isNotBlank() &&
                                 (runCatching { LocalDateTime.parse("${yandexEndDate}T${yandexEndTime}") }.getOrNull()
                                     ?.isAfter(runCatching { LocalDateTime.parse("${date}T${time}") }.getOrNull()) != true) ->
@@ -1696,7 +1717,7 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                             yandex && yandexTelemost.isNotBlank() &&
                                 !Regex("https://telemost\\.yandex\\.[a-z.]+/[A-Za-z0-9/_?=&%-]+").matches(yandexTelemost.trim()) ->
                                 "Укажите корректную ссылку Яндекс Телемоста."
-                            recurrence.enabled && (end == null || end < start || end > start.plusYears(5).minusDays(1)) ->
+                            recurrence.enabled && (start == null || end == null || end < start || end > start.plusYears(5).minusDays(1)) ->
                                 "Период повторения — от даты задачи до пяти лет."
                             recurrence.enabled && occurrenceCount !in 1..500 ->
                                 "Серия должна содержать от 1 до 500 повторений."
@@ -1714,7 +1735,7 @@ private fun TaskEditor(task:LocalTask?,selected:String,prefs:UiPreferences,struc
                                 .put("yandexOptionalAttendees", JSONArray(yandexOptionalAttendees.split(',', ';', '\n').map(String::trim).filter(String::isNotBlank)))
                                 .put("dueDate", date).put("endDate", if (yandexEntryType == "meeting") yandexEndDate else date)
                         }
-                        if(task==null && selectedList!=null) {
+                        if((task==null || task.revision==0L) && selectedList!=null) {
                             val listFields=listTaskFields(selectedList,prefs.input)
                             listFields.keys().forEach { field -> source.put(field,listFields.get(field)) }
                         } else if(routing?.mode=="choose" && accountSettings?.multiAccountEnabled==true && accountSettings.accounts.size>1)

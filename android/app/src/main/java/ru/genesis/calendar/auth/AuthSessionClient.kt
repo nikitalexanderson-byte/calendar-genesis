@@ -132,6 +132,7 @@ internal class AuthSessionClient(context: Context) {
     fun session(expected: Long): JSONObject = request(expected, "/session", null)
     fun providers(expected: Long): JSONObject = request(expected, "/auth/providers", null)
     fun workspace(expected: Long): JSONObject = request(expected, "/workspace", null)
+    fun mindmaps(expected: Long, path:String, body:JSONObject?=null):JSONObject = request(expected,path,body,method=if(body==null)"GET" else "PUT")
     fun putWorkspace(expected: Long, envelope: JSONObject): JSONObject =
         request(expected, "/workspace", envelope, method = "PUT")
     fun bootstrap(expected: Long): JSONObject = request(expected, "/bootstrap", null)
@@ -147,7 +148,9 @@ internal class AuthSessionClient(context: Context) {
         return request(expected, "/stoicheion/draws", JSONObject().put("kind", kind).put("seed", seed))
     }
     fun putTask(expected: Long, id: String, task: JSONObject): JSONObject {
-        val mutation = CloudTaskIdentity.mutation(id, task)
+        val creation=if(task.optBoolean("mindmapCreateOnly")) task.optJSONObject("mindmapCreationPayload") ?: task else task
+        val mutation = CloudTaskIdentity.mutation(id, creation)
+        if(task.optBoolean("mindmapCreateOnly")) mutation.body.put("createOnly",true)
         return mutation.confirmed(request(expected, "/tasks/${mutation.remoteId}", mutation.body, method = "PUT"))
     }
     fun deleteTask(expected: Long, id: String, task: JSONObject): JSONObject {
@@ -302,7 +305,7 @@ internal class AuthSessionClient(context: Context) {
             (method in setOf("PUT", "DELETE") && path.matches(Regex("/tasks/[A-Za-z0-9_-]{1,100}"))) ||
             (method == "DELETE" && path.matches(Regex("/admin/users/[A-Za-z0-9_-]{1,100}"))) ||
             (method == "DELETE" && path.matches(Regex("/account/google-accounts/[A-Za-z0-9_-]{1,100}"))) ||
-            allowedSharedRoute(method, path))
+            (method in setOf("GET","PUT") && path.matches(Regex("/mindmaps(?:/[A-Za-z0-9_-]{1,100}(?:/history)?)?"))) || allowedSharedRoute(method, path))
         require(method in setOf("GET", "POST", "PUT", "PATCH", "DELETE") && (method == "GET") == (body == null))
         val current = secret ?: load(expected)
         if (body != null && (current.cookie.isBlank() || current.csrf.isBlank())) throw AuthFailure(AuthFailure.Kind.UNAUTHORIZED)

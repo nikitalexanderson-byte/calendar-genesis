@@ -69,6 +69,12 @@ class AuthController private constructor(context: Context) : SharedWorkspaceGate
     private val mutableTaskSync = MutableStateFlow(AccountTaskSyncState())
     val taskSync = mutableTaskSync.asStateFlow()
 
+    internal fun mindmapTransport(uid:String):ru.genesis.calendar.data.MindmapTransport = object : ru.genesis.calendar.data.MindmapTransport {
+        override fun check() { check(mutableState.value.user?.uid==uid && app.workspaceScope==CloudAccountSnapshot.scopeFor(uid)) { "Сессия карт завершена. Повторите вход; черновик сохранён." } }
+        override suspend fun workspace():JSONObject { check();check(!mutableState.value.requiresSignIn);val generation=client.currentGeneration();return withContext(Dispatchers.IO) { client.workspace(generation) }.also { check() } }
+        override suspend fun request(path:String,body:JSONObject?):JSONObject { check();check(!mutableState.value.requiresSignIn);val generation=client.currentGeneration();return withContext(Dispatchers.IO) { client.mindmaps(generation,path,body) }.also { check() } }
+    }
+
     suspend fun yandexAvailable(): Boolean = withContext(Dispatchers.IO) {
         runCatching { client.providers(client.currentGeneration()).optBoolean("yandex") }.getOrDefault(false)
     }

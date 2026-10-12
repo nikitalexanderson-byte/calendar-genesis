@@ -18,14 +18,51 @@
 .mindmap-search input { padding-right: 44px !important; }
 .mindmap-search > svg { position: absolute; right: 14px; bottom: 13px; width: 18px; height: 18px; pointer-events: none; color: var(--ink-soft); }
 .mindmap-save-state { font-size: 13px; color: var(--ink-soft); padding: 12px 0; max-width: 240px; }
-.mindmap-catalog { border-block: 1px solid var(--exp-border); }
-.mindmap-catalog article { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 20px 0; border-bottom: 1px solid var(--exp-border); }
-.mindmap-catalog article:last-child { border-bottom: 0; }
+.mindmap-catalog { display: grid; gap: 16px; }
+.mindmap-catalog article { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 24px; min-height: 128px; padding: 20px; border: 1px solid var(--exp-border); border-radius: 12px; background: var(--surface); }
+.mindmap-catalog article:last-child { border-bottom: 1px solid var(--exp-border); }
 .mindmaps .mindmap-catalog-open { display: flex; flex-direction: column; gap: 8px; flex: 1; text-align: start; background: transparent; border: 0; min-width: 0; }
 .mindmap-catalog-open strong { font: 400 24px/1.3 var(--font-heading); }
 .mindmap-catalog-open span { font-size: 13px; color: var(--ink-soft); }
 .mindmap-empty { padding: 40px 0; }
-.mindmap-workspace { display: grid; grid-template-columns: minmax(0,1fr) 300px; gap: 24px; align-items: start; }
+.mindmap-catalog-controls { display: grid; grid-template-columns: auto minmax(180px,2fr) minmax(140px,1fr) auto auto; align-items: end; padding: 20px; border: 1px solid var(--exp-border); border-radius: 12px; background: color-mix(in srgb, var(--ui-accent, var(--gold)) 5%, var(--surface)); margin-bottom: 24px; }
+@media (min-width: 768px) and (max-width: 1200px) { .mindmap-catalog-controls { grid-template-columns: minmax(0,2fr) minmax(0,1fr) auto; } .mindmap-create-map { grid-column: 1; } .mindmap-catalog-controls .mindmap-search { grid-column: 1; } }
+.genesis-app .mindmaps .mindmap-icon-action, .genesis-app .mindmap-dialog .mindmap-icon-action { position: relative; display: inline-flex; flex: 0 0 44px; align-items: center; justify-content: center; width: 44px; height: 44px; min-width: 44px; padding: 10px; }
+.mindmap-icon-action > svg { width: 22px; height: 22px; }
+.mindmap-action-tooltip { position: absolute; z-index: 20; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); width: max-content; max-width: 240px; padding: 8px 10px; border: 1px solid var(--exp-border); border-radius: 8px; background: var(--ink); color: var(--surface); font: 500 12px/1.4 var(--font-ui); pointer-events: none; visibility: hidden; opacity: 0; }
+.mindmap-icon-action:is(:hover,:focus-visible) .mindmap-action-tooltip { visibility: visible; opacity: 1; }
+.mindmap-five-actions { flex-wrap: nowrap; margin-block: 16px; }
+.mindmap-more > summary { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 10px 14px; border: 1px solid var(--exp-border); border-radius: 10px; background: var(--surface); font: 500 14px/1.4 var(--font-ui); cursor: pointer; list-style: none; }
+.mindmap-more > summary::-webkit-details-marker { display: none; }
+.mindmap-more > summary::marker { content: ""; }
+.mindmap-more[open] > summary svg { transform: rotate(90deg); }
+.mindmap-more[open] > .mindmap-actions { margin-top: 16px; }
+.mindmap-toolbar:has(.mindmap-more) { padding: 16px; border: 1px solid var(--exp-border); border-radius: 12px; background: var(--surface); gap: 12px; }
+.mindmap-editor-back { margin-left: auto; order: 1; }
+.mindmap-toolbar:has(.mindmap-more) > label { order: 3; flex-basis: 100%; }
+.mindmap-more[open] { order: 2; }
+.mindmap-context-menu { position: fixed; z-index: 80; display: grid; min-width: 180px; padding: 6px; border: 1px solid var(--exp-border); border-radius: 12px; background: var(--surface); box-shadow: 0 8px 24px #0002; }
+.mindmap-context-menu button { text-align: start; }
+.mindmaps .mindmap-graph-node { touch-action: none; user-select: none; cursor: grab; }
+.mindmaps .mindmap-graph-node:active { cursor: grabbing; }
+.mindmaps .mindmap-graph-node { background: var(--mindmap-node-fill,var(--surface)); color: var(--mindmap-node-ink,var(--ink)); border-color: var(--mindmap-node-border,var(--exp-border)); }
+.mindmaps .mindmap-graph-node[aria-pressed="true"] { background: var(--mindmap-node-fill,var(--exp-accent-wash)); border-color: var(--mindmap-node-border,var(--gold)); outline: 2px solid var(--gold); outline-offset: 2px; }
+.mindmap-graph-node[style*="--mindmap-node-ink"] :is(span,small) { color: inherit; }
+.mindmaps .mindmap-row[style*="--mindmap-node-"] { background:var(--mindmap-node-fill,var(--surface)); color:var(--mindmap-node-ink,var(--ink)); border:1px solid var(--mindmap-node-border,var(--exp-border)); }
+.mindmaps .mindmap-row[style*="--mindmap-node-ink"] span { color:inherit; }
+.mindmap-five-actions .mindmap-icon-action:first-child .mindmap-action-tooltip { left:0; transform:none; }
+.mindmap-five-actions .mindmap-icon-action:last-child .mindmap-action-tooltip { left:auto; right:0; transform:none; }
+.mindmap-catalog-controls > label { min-width: 0; }
+.mindmap-save-state { min-height: 64px; flex: 0 0 240px; display: flex; align-items: center; }
+.mindmap-catalog-open strong { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.mindmap-catalog-open span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+@media (max-width: 767px) { .mindmap-save-state { flex-basis: auto; min-height: 44px; } }
+.mindmap-colors > div { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding-top: 12px; }
+.mindmaps .mindmap-colors input[type="color"] { width: 100%; height: 44px; min-height: 44px; padding: 4px; }
+.mindmaps .mindmap-connect-handle { position: absolute; width: 40px; height: 44px; min-height: 44px; padding: 8px; border: 0; background: transparent; touch-action: none; }
+.mindmap-connect-handle svg { width: 22px; height: 22px; stroke: var(--mindmap-branch); fill: none; stroke-width: 1.75; }
+@media (max-width: 767px) { .mindmap-catalog-controls { grid-template-columns: minmax(0,1fr); padding: 16px; } .mindmap-catalog article { padding: 16px; gap: 12px; } }
+.mindmap-workspace { display: grid; grid-template-columns: minmax(0,1fr) 320px; gap: 24px; align-items: start; }
 .mindmap-editor { min-width: 0; }
 .mindmap-inspector { padding: 20px; background: var(--surface); border: 1px solid var(--exp-border); border-radius: 12px; }
 .mindmap-inspector-content { display: grid; gap: 16px; min-width: 0; }
@@ -43,10 +80,10 @@
 .mindmap-row span { font-size: 12px; color: var(--ink-soft); }
 .mindmap-structure li > button:not(.mindmap-row) { width: 44px; flex-shrink: 0; padding: 12px; border: 0; background: transparent; }
 .mindmap-structure svg { width: 18px; height: 18px; }
-.mindmap-canvas { height: min(65dvh, 760px); min-height: 360px; overflow: auto; overscroll-behavior: contain; border: 1px solid var(--exp-border); border-radius: 12px; background: var(--paper); touch-action: pan-x pan-y; }
+.mindmap-canvas { height: min(65dvh, 760px); min-height: 360px; overflow: auto; overscroll-behavior: contain; border: 1px solid var(--exp-border); border-radius: 12px; background: color-mix(in srgb, var(--ui-accent, var(--gold)) 9%, var(--surface)); touch-action: pan-x pan-y; }
 .mindmap-plane { position: relative; transform-origin: top left; }
 .mindmap-plane > svg { position: absolute; inset: 0; pointer-events: none; }
-.mindmap-plane path { fill: none; stroke: var(--gold); stroke-width: 1.6; }
+.mindmap-plane path { fill: none; stroke: var(--mindmap-branch,var(--gold)); stroke-width: 1.6; }
 .mindmap-plane .mindmap-semantic { stroke-dasharray: 6 5; }
 .mindmap-plane text { fill: var(--ink-soft); font: 12px var(--font-ui); }
 .mindmaps .mindmap-graph-node { position: absolute; width: 240px; height: 88px; display: flex; flex-direction: column; gap: 5px; text-align: start; border-radius: 12px; padding: 10px 14px; }
@@ -69,7 +106,7 @@
 .mindmap-dialog pre { max-height: 300px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; padding: 16px; border: 1px solid var(--exp-border); font: 14px/1.6 var(--font-ui); }
 .mindmap-dialog article { border-bottom: 1px solid var(--exp-border); padding-bottom: 20px; }
 .mindmap-conversion-notice { color: var(--ink-soft); line-height: 1.6; }
-@media (max-width: 1000px) { .mindmap-workspace { grid-template-columns: minmax(0,1fr) 260px; gap: 16px; } }
+@media (max-width: 1000px) { .mindmap-workspace { grid-template-columns: minmax(0,1fr) 320px; gap: 16px; } }
 @media (max-width: 760px) {
   .mindmap-header, .mindmap-catalog article { flex-direction: column; gap: 12px; }
   .mindmap-header > div { min-width: 0; width: 100%; }

@@ -88,6 +88,7 @@ internal fun fetchAndroidRelease(): AndroidRelease? {
 internal fun AndroidUpdatePrompt(context: Context, synchronizedAt: Long?, enabled: Boolean,
     offerOptional: Boolean = true) {
     if (!enabled) return
+    if (BuildConfig.PLAY_DISTRIBUTION) { PlayUpdatePrompt(context,synchronizedAt);return }
     var release by remember { mutableStateOf<AndroidRelease?>(null) }
     var lastOffered by remember { mutableIntStateOf(0) }
     LaunchedEffect(enabled, synchronizedAt, offerOptional) {

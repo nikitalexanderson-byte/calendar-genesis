@@ -26,9 +26,6 @@ const SKIPPED_FILES = new Set([
   "CalendarTaskCounts.tsx",
   // Command grammar literals are recognition tokens, not user-facing copy.
   "web-voice-actions.ts",
-  // Published legal documents are maintained in Russian independently of the app UI catalog.
-  "LegalPage.tsx",
-  "legal-content.ts",
   // Fourteen explicit locale labels; checked with the ad copy coverage test.
   "TodayAdBlock.tsx",
 ]);
@@ -72,6 +69,7 @@ const [catalogText, curatedText, i18nText] = await Promise.all([
 const translations = {
   ...JSON.parse(catalogText),
   ...JSON.parse(curatedText),
+  ...JSON.parse(await readFile(path.join(APP_DIR, "ui-translations/en.json"), "utf8")),
   ...readCuratedTranslations(i18nText),
 };
 const partialTranslations = Object.entries(translations)
@@ -102,18 +100,6 @@ function isNonUiString(node) {
   return false;
 }
 
-function hasExplicitEnglishAlternative(node, source) {
-  let current = node.parent;
-  while (current) {
-    if (ts.isConditionalExpression(current)) {
-      const condition = current.condition.getText(source);
-      if (/^(?:isEnglish|english)$/u.test(condition.trim())
-        || /(?:\b(?:language|locale)\b|context\.language|getRuntimeLanguage\(\)|runtimeLocale\(\))[\s\S]{0,30}(?:===|startsWith\()[\s\S]{0,10}["']en/u.test(condition)) return true;
-    }
-    current = current.parent;
-  }
-  return false;
-}
 
 const missing = new Map();
 for (const file of await sourceFiles(APP_DIR)) {
@@ -121,7 +107,7 @@ for (const file of await sourceFiles(APP_DIR)) {
   const source = ts.createSourceFile(file, sourceText, ts.ScriptTarget.Latest, true, file.endsWith("x") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
   const record = (value, node) => {
     const normalized = normalize(value);
-    if (!normalized || !CYRILLIC.test(normalized) || isCovered(normalized) || hasExplicitEnglishAlternative(node, source)) return;
+    if (!normalized || !CYRILLIC.test(normalized) || isCovered(normalized)) return;
     const { line } = source.getLineAndCharacterOfPosition(node.getStart(source));
     const key = `${path.relative(ROOT, file)}:${line + 1}`;
     missing.set(`${key}\0${normalized}`, { location: key, value: normalized });
