@@ -1,0 +1,65 @@
+output/release-install.log
+Already up to date
+Done in 322ms using pnpm v11.25.0
+output/release-lint.log
+$ eslint . --ignore-pattern dist --ignore-pattern .next
+output/release-tests.log
+✔ revision conflicts refresh server state and retry the latest intent (14.9137ms)
+✔ logout, account switches and the kill switch always paint Standart safely (0.6685ms)
+✔ all 72 theme/calendar/time combinations preserve non-theme preferences (807.1676ms)
+✔ background voice commands navigate and resolve task, project, and habit targets (22.593ms)
+✔ background voice commands refuse ambiguous targets and unsupported actions (2.3746ms)
+✔ calendar voice variants keep display mode, period, date and movement distinct (1.5345ms)
+✔ task deletion and list editing resolve one named target before acting (0.5135ms)
+✔ project and life category commands resolve names before opening forms or confirmations (0.7162ms)
+✔ creation phrases use naming words as instructions and preserve the actual title (2.6591ms)
+✔ sleep commands separate observations, plan times, and bedtime reminders (0.7952ms)
+✔ Stoicheion voice commands distinguish a catalog card from a new spread (0.4329ms)
+✔ mood commands recognize Russian and English values without guessing unknown moods (1.966ms)
+✔ task renaming requires one exact source title and removes naming instructions (1.0648ms)
+✔ Theokyklos sector commands use exact Russian and English sector names (0.7204ms)
+✔ Stoicheion card commands open a named catalog card without starting a draw (0.4866ms)
+✔ anonymous welcome renders Google-only sign-in in every supported language (673.8568ms)
+✔ a deleted last habit is not restored from stale local data on sign in (0.9292ms)
+✔ sign-in never recreates an absent previously synced task from stale cache (0.2266ms)
+ℹ tests 164
+ℹ suites 0
+ℹ pass 164
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1289.9127
+output/release-build.log
+dist-beget/public_html/assets/locale-english-BV4jUbi9.js              197.14 kB │ gzip:  61.86 kB
+dist-beget/public_html/assets/locale-sr.a-Boh61OuI.js                 197.19 kB │ gzip:  52.86 kB
+dist-beget/public_html/assets/locale-uk.a-BQMdio_U.js                 203.16 kB │ gzip:  53.36 kB
+dist-beget/public_html/assets/locale-sr.b-BAdVg1Ot.js                 206.21 kB │ gzip:  51.26 kB
+dist-beget/public_html/assets/locale-el.a-B-tUWw_i.js                 211.55 kB │ gzip:  57.66 kB
+dist-beget/public_html/assets/locale-uk.b-B88MTOD7.js                 212.56 kB │ gzip:  52.28 kB
+dist-beget/public_html/assets/static-data-Cg7BA7D4.js                 212.92 kB │ gzip:  52.82 kB
+dist-beget/public_html/assets/locale-el.b-DHLbXjNi.js                 242.36 kB │ gzip:  61.74 kB
+dist-beget/public_html/assets/locale-years-B3D3ILcC.js                253.97 kB │ gzip:  49.80 kB
+dist-beget/public_html/assets/static-data-D44OFvR5.js                 256.30 kB │ gzip:  88.22 kB
+dist-beget/public_html/assets/static-data-Ckgn_uVc.js                 269.30 kB │ gzip:  88.02 kB
+dist-beget/public_html/assets/static-data-BArKBAgZ.js                 271.52 kB │ gzip:  90.69 kB
+dist-beget/public_html/assets/locale-zh-aatoGoBH.js                   309.96 kB │ gzip: 101.84 kB
+dist-beget/public_html/assets/locale-tr-Arf_rhxC.js                   331.31 kB │ gzip: 102.32 kB
+dist-beget/public_html/assets/locale-pl-3VsUWWEa.js                   336.31 kB │ gzip: 106.08 kB
+dist-beget/public_html/assets/locale-pt-klSeJOVv.js                   339.97 kB │ gzip: 103.95 kB
+dist-beget/public_html/assets/locale-it-B_XUw-S1.js                   344.79 kB │ gzip: 104.00 kB
+dist-beget/public_html/assets/locale-es-8DculWLH.js                   345.06 kB │ gzip: 104.38 kB
+dist-beget/public_html/assets/locale-de-GuKNpR8G.js                   348.12 kB │ gzip: 106.48 kB
+dist-beget/public_html/assets/locale-ja-DqtmdDQt.js                   348.50 kB │ gzip: 103.03 kB
+dist-beget/public_html/assets/index-_3ndHYiv.js                       349.39 kB │ gzip:  97.91 kB
+dist-beget/public_html/assets/locale-fr-DY0RZIDe.js                   349.74 kB │ gzip: 105.58 kB
+
+✓ built in 2.12s
+Public homepage and four legal documents are readable without JavaScript; Google-only .com references verified.
+Offline precache verified: 47 mandatory entry assets and 103 visual assets. Largest JS chunk: locale-fr-DY0RZIDe.js (349746 bytes).
+output/release-browser.log
+PASS real local API + app: create → convert → ordinary edit → map → complete → remove/undo → close/reopen; source ID maptask-99427ffd0e867d8c59ab983cb3d310a19be11a329761f6bd92bec5b44ba975e6
+page errors []
+PASS undated task: ordinary creation/edit/completion/restart, Today exclusion, 10 responsive states
+PASS compiled web output on isolated preview, undated task editor and lazy canvas, no page errors
+Captured 10 theme/width pairs × personal/structure/canvas + mobile form; overflow: []

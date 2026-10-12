@@ -1,8 +1,10 @@
 # Личные майндмепы P0 — результат для проверки
 
-12 октября 2026 · ветка `codex/personal-mindmaps-p0` · база `b40e796`.
+12 октября 2026 · ветка `codex/personal-mindmaps-p0` · интегрировано с `origin/master` `8d4c722`.
 
-Рабочая реализация находится в отдельном worktree. Основной сценарий с настоящей локальной задачей GENESIS и серверным шифрованным документом карты прошёл, включая задачу без даты. Реализовано создание в существующем списке Google Tasks с восстановлением после потерянного ответа. **Результат готов к локальной пользовательской проверке; полная готовность P0 к публикации не подтверждена:** живой Google, физическое устройство и screen reader не проверены. Production, SSH, merge, push и Android-сборка не выполнялись. CI/CD и ссылка на стабильный APK не изменялись.
+Рабочая реализация находится в отдельном worktree. Основной сценарий с настоящей локальной задачей GENESIS и серверным шифрованным документом карты прошёл, включая задачу без даты. Реализовано создание в существующем списке Google Tasks с восстановлением после потерянного ответа. Пользователь разрешил проверку и отдельный веб-деплой. **Живой Google, физическое устройство и screen reader остаются непроверенными.** Этот отчёт фиксирует результаты до выпуска; факт публикации подтверждается отдельным успешным запуском Deploy GENESIS и совпадением SHA в `/deploy-meta.json`.
+
+Перед выпуском повторно прошли frozen install, lint, **164/164 теста**, сборка с включёнными майндмепами, PHP syntax и изолированные SQLite/provider-contract проверки. После объединения с актуальным master повторены browser core, undated и compiled preview: создание → преобразование → обычное редактирование → карта → выполнение → удаление ссылки/undo → закрытие/открытие; JavaScript-ошибок нет. [Результаты повторной проверки](evidence/mindmaps-p0/release-checks.txt). Сохранены новые снимки обеих схем на 320/360/390/768/1440 px.
 
 ## Основание и границы
 
@@ -142,13 +144,13 @@ Impeccable finish reviewer просмотрел 32 новых и 10 исходн
 
 ## Миграция, флаг и выпуск
 
-Добавлены [047_personal_mindmaps.sql](../server/migrations/047_personal_mindmaps.sql): personal_mindmaps, personal_mindmap_versions, personal_mindmap_receipts, personal_task_creations; и [048_personal_task_creation_targets.sql](../server/migrations/048_personal_task_creation_targets.sql): personal_task_creation_targets, квитанции/идентичность native Google Tasks. Обе применяются обычным механизмом при обращении к БД. Здесь применены только к изолированной локальной SQLite. Проверка миграций включает backup до обеих, повторное применение, FK и восстановление в отдельном in-memory соединении; это не rehearsal production-данных.
+Добавлены [047_personal_mindmaps.sql](../server/migrations/047_personal_mindmaps.sql): personal_mindmaps, personal_mindmap_versions, personal_mindmap_receipts, personal_task_creations; и [048_personal_task_creation_targets.sql](../server/migrations/048_personal_task_creation_targets.sql): personal_task_creation_targets, квитанции/идентичность native Google Tasks. Обе применяются обычным механизмом при обращении к БД. До выпуска проверены на изолированной локальной SQLite. Проверка миграций включает backup до обеих, повторное применение, FK и восстановление в отдельном in-memory соединении; это не rehearsal production-данных.
 
 API: GET /mindmaps, GET /mindmaps/:id/history, PUT /mindmaps/:id, createOnly для существующего PUT /tasks/:id. Действующие сессии/CSRF/owner checks сохраняются. Дополнены resource body limit и метаданные повторяющегося экземпляра.
 
-Флаг веб-сборки: `GENESIS_MINDMAPS=true`; по умолчанию false. Для vinext используется `NEXT_PUBLIC_GENESIS_MINDMAPS=true`. Выключение скрывает вход и не удаляет данные. Код откатывается revert; additive-таблицы остаются. Автоматический database rollback не предусмотрен.
+Флаг локальной веб-сборки: `GENESIS_MINDMAPS=true`; по умолчанию false. Для vinext используется `NEXT_PUBLIC_GENESIS_MINDMAPS=true`. В deploy.yml оба берутся из repository variable `GENESIS_MINDMAPS`, установленной в `true` для этого выпуска. Значение `false` скроет вход при следующем веб-деплое, сохранив данные. Код откатывается revert; additive-таблицы остаются. Автоматический database rollback не предусмотрен.
 
-Перед будущим выпуском требуется отдельное разрешение, текущий workflow deploy.yml, его штатный server-only backup и проверка аддитивной миграции на разрешённом снимке. После выпуска — SHA master в deploy-meta.json и /api/health. Эти операции здесь не выполнялись; SSH не использовался.
+Выпуск разрешён пользователем 12 октября 2026. Используется прежний workflow deploy.yml с обязательным server-only backup до публикации PHP. Добавлен отдельный шаг изолированных тестов карт. Repository variables: `GENESIS_DEPLOY_TARGET=hostinger`, `GENESIS_DEPLOY_ANDROID=false`; сборка и публикация APK пропускаются. До выпуска `/android-update.json`: версия 2.7.3, code 79, SHA256 `01854474d45d0554ef6d807f03a8b67b4e5d402d16327f0c16728f1026e7ca89`; APK HTTP 200, 157563151 bytes. После выпуска проверяются SHA master, `/api/health`, активный веб-флаг и сохранность стабильного APK. Прямой SSH до выпуска не использовался; штатный workflow использует SSH для backup/deploy.
 
 ## Оставшиеся ограничения и следующая проверка
 
@@ -159,7 +161,7 @@ API: GET /mindmaps, GET /mindmaps/:id/history, PUT /mindmaps/:id, createOnly д�
 5. Ошибки исходного typecheck остаются; полный typecheck не является зелёным release gate.
 6. Локальная квота браузера может быть исчерпана; UI сообщает ошибку и не обещает сохранённый черновик. Нужны эксплуатационные правила очистки журналов/квитанций и квоты истории перед широким использованием.
 
-**Следующая проверяемая операция:** открыть подготовленную локальную карту по инструкции ниже и пройти пользовательскую приёмку, затем провести живую Google-проверку в отдельно разрешённом тестовом аккаунте. Фонового продолжения или запланированного деплоя нет.
+**Следующая пользовательская проверка после выпуска:** Дела → Личные → Майндмепы; пройти основной сценарий с реальной Google-синхронизацией в тестовом аккаунте. Контрактные симуляции выше не подменяют эту приёмку.
 
 ## Как открыть здесь
 
