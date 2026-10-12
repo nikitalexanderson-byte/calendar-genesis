@@ -168,6 +168,12 @@ jobs:
           GENESIS_YANDEX_CLIENT_ID: ${{ secrets.GENESIS_YANDEX_CLIENT_ID }}
         run: |
           set -euo pipefail
+          # Hosted Ubuntu also ships .NET and Swift; this Java/Node/PHP release
+          # never uses them. Reclaim them before the build so the later AVD
+          # has space for both its downloaded image and userdata partition.
+          du -sh /usr/share/dotnet /usr/share/swift || true
+          sudo rm -rf -- /usr/share/dotnet /usr/share/swift
+          df -h .
           test -n "$SIGNING_KEYSTORE_B64"
           test -n "$GENESIS_ANDROID_SIGNING_STORE_PASSWORD"
           test -n "$GENESIS_ANDROID_SIGNING_KEY_ALIAS"
