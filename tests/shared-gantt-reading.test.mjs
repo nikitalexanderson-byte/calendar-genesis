@@ -4,6 +4,24 @@ import test from "node:test";
 import { dateSerial, ganttRange, serialDate, taskSpan, ganttSchedule, ganttCreationSchedule, ganttResizeSchedule, ganttAxisPoint, ganttAxisPosition, GANTT_CELL_WIDTH } from "../app/shared-gantt.ts";
 import { stoicheionReadingSections } from "../app/stoicheion-reading.ts";
 import { ganttTaskGroups, ganttUnscheduledTasks } from "../app/shared-gantt.ts";
+import { boardDisplay, boardTaskGroups } from "../app/shared-board-display.ts";
+
+test("boards show the latest completions without losing old tasks or manual order when unlimited", () => {
+  const done = {id:"done",isDone:1};
+  assert.deepEqual(boardDisplay(done), {titleLines:2,visibleCount:5});
+  assert.deepEqual(boardDisplay({id:"open",isDone:0}), {titleLines:0,visibleCount:0});
+  const tasks = Array.from({length:8}, (_,i)=>({id:`task-${i}`,statusId:"done",position:i,
+    completedAt:`2026-10-${String(i+1).padStart(2,"0")}T10:00:00Z`,updatedAt:"2026-11-01T10:00:00Z"}));
+  const original = structuredClone(tasks);
+  const groups = boardTaskGroups([...tasks,{id:"foreign",statusId:"open"}],done);
+  assert.deepEqual(groups.recent.map(task=>task.id),["task-7","task-6","task-5","task-4","task-3"]);
+  assert.deepEqual(groups.older.map(task=>task.id),["task-2","task-1","task-0"]);
+  assert.deepEqual(tasks,original);
+  assert.deepEqual(boardTaskGroups(tasks,{...done,visibleTaskCount:0}).recent,tasks);
+  assert.deepEqual(boardTaskGroups(tasks,{...done,visibleTaskCount:100}).older,[]);
+  const active=tasks.map(task=>({...task,statusId:"open",completedAt:null,updatedAt:task.completedAt}));
+  assert.deepEqual(boardTaskGroups(active,{id:"open",isDone:0,visibleTaskCount:2}).recent.map(task=>task.id),["task-7","task-6"]);
+});
 
 test("dated tasks remain available for time planning until both times are assigned, even outside the selected day", () => {
   const tasks = [

@@ -107,14 +107,14 @@ try {
         'hiddenMenuItems' => ['tasks', 'stoicheion'], 'hiddenSubmenus' => ['calendar.year'],
         'hiddenTodayBlocks' => ['rhythm', 'tasks'], 'enabledCalendars' => ['profane'],
         'sidebarAutoCollapseSeconds' => 30,
-        'sidebarWidth' => 156, 'personalInboxPosition' => 'left', 'personalInboxHidden' => true,
-        'sharedInboxPosition' => 'bottom', 'sharedInboxHidden' => false,
+        'sidebarWidth' => 156, 'personalInboxPosition' => 'left', 'personalInboxHidden' => true, 'personalInboxCompact' => true,
+        'sharedInboxPosition' => 'bottom', 'sharedInboxHidden' => false, 'sharedInboxCompact' => false,
     ];
     $user = genesisUpdateAccountPreferences($userId, ['uiVisibility' => $visibility]);
     expect(genesisUserForClient($user)['uiVisibility'] === $visibility, 'Navigation visibility did not round-trip.');
     $legacyVisibility = $visibility;
     foreach (['sidebarAutoCollapseSeconds', 'sidebarWidth', 'personalInboxPosition', 'personalInboxHidden',
-        'sharedInboxPosition', 'sharedInboxHidden'] as $field) unset($legacyVisibility[$field]);
+        'personalInboxCompact', 'sharedInboxPosition', 'sharedInboxHidden', 'sharedInboxCompact'] as $field) unset($legacyVisibility[$field]);
     $user = genesisUpdateAccountPreferences($userId, ['uiVisibility' => $legacyVisibility]);
     expect(genesisUserForClient($user)['uiVisibility']['sidebarAutoCollapseSeconds'] === 30,
         'An older client reset the sidebar delay.');
@@ -129,7 +129,7 @@ try {
         ['hiddenSubmenus' => ['sacred.stoicheion', 'sacred.theokyklos']],
         ['sidebarAutoCollapseSeconds' => -1], ['sidebarAutoCollapseSeconds' => '30'],
         ['sidebarWidth' => 55], ['sidebarWidth' => 241], ['sidebarWidth' => '56'],
-        ['sharedInboxHidden' => 1], ['personalInboxPosition' => 'floating']] as $invalid) {
+        ['sharedInboxHidden' => 1], ['personalInboxPosition' => 'floating'], ['sharedInboxCompact' => 'true']] as $invalid) {
         try {
             genesisUpdateAccountPreferences($userId, ['uiVisibility' => [...$visibility, ...$invalid]]);
             throw new RuntimeException('Invalid navigation visibility was accepted.');

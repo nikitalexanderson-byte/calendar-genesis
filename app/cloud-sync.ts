@@ -1585,7 +1585,7 @@ export type SharedProject = { id: string; spaceId: string; parentId: string | nu
   labelIds?: string[];
   description: string; tags?: string[]; kind?: "project" | "task-list"; boardStatusId?: string | null; layout: "list" | "board"; isInbox?: number; taskCount?: number; boardCount?: number;
   revision: number; role: string; spaceRole?: string; canOrganizeTasks?: boolean; canCreateBoards?: boolean; permissions?: SharedPermissions; updatedAt: string };
-export type SharedStatus = { color?: string; imageUrl?: string; id: string; title: string; position: number; isDone: number; revision: number };
+export type SharedStatus = { color?: string; imageUrl?: string; taskTitleLines?: number; visibleTaskCount?: number; id: string; title: string; position: number; isDone: number; revision: number };
 export type SharedTaskList = SharedStatus & { projectId: string; projectTitle: string;
   spaceId: string; spaceTitle: string; role: string; taskCount: number; openCount: number };
 export type SharedCategory = { id: string; title: string; color: string; position: number; revision: number };
@@ -1892,7 +1892,7 @@ export async function createSharedStatus(projectId: string, title: string, isDon
     method: "POST", body: JSON.stringify({ title, isDone, requestId }),
   })).status;
 }
-export async function updateSharedStatus(projectId: string, statusId: string, title: string, expectedRevision: number, settings?: { color?: string; imageUrl?: string; isDone?: boolean }) {
+export async function updateSharedStatus(projectId: string, statusId: string, title: string, expectedRevision: number, settings?: { color?: string; imageUrl?: string; isDone?: boolean; taskTitleLines?: number; visibleTaskCount?: number }) {
   return (await api<{ status: SharedStatus }>(
     `/shared/projects/${encodeURIComponent(projectId)}/statuses/${encodeURIComponent(statusId)}`, {
       method: "PATCH", body: JSON.stringify({ title, expectedRevision, ...settings }),

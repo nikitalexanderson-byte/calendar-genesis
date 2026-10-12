@@ -296,7 +296,7 @@ function genesisSharedCreateStatus(string $userId, string $projectId, array $inp
             ]);
         genesisSharedAudit($projectId, $userId, 'status.created', $id);
         $response = ['id' => $id, 'title' => $title, 'position' => $position,
-            'isDone' => $isDone ? 1 : 0, 'revision' => 1];
+            'isDone' => $isDone ? 1 : 0, 'revision' => 1, 'taskTitleLines' => $isDone ? 2 : 0, 'visibleTaskCount' => $isDone ? 5 : 0];
         genesisSharedSaveMutationReceipt($db, $userId, $requestId, 'status.create', $projectId, $response);
         $db->commit();
         return $response;
@@ -321,14 +321,20 @@ function genesisSharedUpdateStatus(string $userId, string $projectId, string $st
         $color = array_key_exists('color', $input) ? genesisSharedCategoryColor($input['color']) : $status['color'];
         $image = array_key_exists('imageUrl', $input) ? genesisSharedBoardImage($input['imageUrl']) : $status['image_url'];
         $done = array_key_exists('isDone', $input) ? (int)(bool)$input['isDone'] : (int)$status['is_done'];
+        $titleLines = array_key_exists('taskTitleLines', $input) ? $input['taskTitleLines'] : ($status['task_title_lines'] ?? ($status['is_done'] ? 2 : 0));
+        $visibleCount = array_key_exists('visibleTaskCount', $input) ? $input['visibleTaskCount'] : ($status['visible_task_count'] ?? ($status['is_done'] ? 5 : 0));
+        if (!is_int($titleLines) || $titleLines < 0 || $titleLines > 3
+            || !is_int($visibleCount) || $visibleCount < 0 || $visibleCount > 1000) throw new InvalidArgumentException('INVALID_BOARD_DISPLAY');
         if (!$done && (int)$status['is_done']) {
             $count = $db->prepare('SELECT COUNT(*) FROM shared_project_statuses WHERE project_id = :project AND is_done = 1');
             $count->execute(['project' => $projectId]);
             if ((int)$count->fetchColumn() <= 1) throw new GenesisSharedAccessException('LAST_DONE_STATUS', 409);
         }
         $changed = $db->prepare('UPDATE shared_project_statuses SET title = :title, color = :color, image_url = :image,
-            is_done = :done, revision = revision + 1 WHERE id = :id AND project_id = :project AND revision = :expected');
+            is_done = :done, task_title_lines = :title_lines, visible_task_count = :visible_count,
+            revision = revision + 1 WHERE id = :id AND project_id = :project AND revision = :expected');
         $changed->execute(['title' => $title, 'color' => $color, 'image' => $image, 'done' => $done,
+            'title_lines' => $titleLines, 'visible_count' => $visibleCount,
             'id' => $statusId, 'project' => $projectId, 'expected' => $expected]);
         if ($changed->rowCount() !== 1) throw new GenesisSharedAccessException('STATUS_CONFLICT', 409);
         if ($done !== (int)$status['is_done']) {
@@ -346,10 +352,11 @@ function genesisSharedUpdateStatus(string $userId, string $projectId, string $st
             foreach ($affectedIds as $affectedId) genesisSharedAudit($projectId, $userId, 'task.updated', $affectedId, ['changes' => ['isDone' => ['from' => (bool)$status['is_done'], 'to' => (bool)$done]]]);
         }
         genesisSharedAudit($projectId, $userId, 'status.updated', $statusId, ['changes' => genesisSharedChanges(
-            ['title' => $status['title'], 'color' => $status['color'], 'isDone' => (int)$status['is_done']],
-            ['title' => $title, 'color' => $color, 'isDone' => $done]), 'imageChanged' => $image !== $status['image_url']]); $db->commit();
+            ['title' => $status['title'], 'color' => $status['color'], 'isDone' => (int)$status['is_done'],
+                'taskTitleLines' => $status['task_title_lines'] ?? ($status['is_done'] ? 2 : 0), 'visibleTaskCount' => $status['visible_task_count'] ?? ($status['is_done'] ? 5 : 0)],
+            ['title' => $title, 'color' => $color, 'isDone' => $done, 'taskTitleLines' => $titleLines, 'visibleTaskCount' => $visibleCount]), 'imageChanged' => $image !== $status['image_url']]); $db->commit();
         return ['id' => $statusId, 'title' => $title, 'color' => $color, 'imageUrl' => $image,
-            'isDone' => $done, 'position' => (int)$status['position'], 'revision' => $expected + 1];
+            'isDone' => $done, 'position' => (int)$status['position'], 'revision' => $expected + 1, 'taskTitleLines' => $titleLines, 'visibleTaskCount' => $visibleCount];
     } catch (Throwable $error) { $db->rollBack(); throw $error; }
 }
 
@@ -1067,7 +1074,9 @@ function genesisSharedProjectSnapshot(string $userId, string $projectId): array
     genesisSharedRequireEnabled($userId);
     $project = genesisSharedProjectAccess($projectId, $userId);
     $db = genesisDb();
-    $statuses = $db->prepare('SELECT id, title, position, is_done AS isDone, revision, color, image_url AS imageUrl FROM shared_project_statuses
+    $statuses = $db->prepare('SELECT id, title, position, is_done AS isDone, revision, color, image_url AS imageUrl,
+        COALESCE(task_title_lines, CASE WHEN is_done = 1 THEN 2 ELSE 0 END) AS taskTitleLines,
+        COALESCE(visible_task_count, CASE WHEN is_done = 1 THEN 5 ELSE 0 END) AS visibleTaskCount FROM shared_project_statuses
         WHERE project_id = :project ORDER BY position');
     $statuses->execute(['project' => $projectId]);
     $categories = $db->prepare('SELECT id, title, color, position, revision
