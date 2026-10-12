@@ -2070,5 +2070,18 @@
   "не подош": "eşleşmedi",
   "После нажатия «Подготовить план» запись и контекст отправляются в GigaChat; GENESIS не хранит запись и запрашивает её удаление из файлового хранилища GigaChat сразу после разбора.": "Planı hazırla seçeneğini seçtikten sonra kayıt ve içerik GigaChat'e gönderilir. GENESIS kaydı saklamaz ve ayrıştırmanın hemen ardından GigaChat dosya deposundan kaldırılmasını ister.",
   "Сверху": "Üstte",
-  "Слева": "Solda"
+  "Слева": "Solda",
+  "Майндмеп:": "Zihin haritası:",
+  "Связи узлов": "Düğüm bağlantıları",
+  "Выбрать связь:": "Bağlantı seç:",
+  "Создать связь с другим узлом": "Başka bir düğüme bağlantı oluştur",
+  "Корень карты нельзя удалить. Архивируйте карту из каталога.": "Haritanın kökü silinemez. Haritayı katalogdan arşivleyin.",
+  "Тег — не более 32 символов.": "Bir etiket en fazla 32 karakter olabilir.",
+  "У узла может быть до 8 тегов.": "Bir düğümde en fazla 8 etiket olabilir.",
+  "Теги узла": "Düğüm etiketleri",
+  "Теги узла · только в карте": "Düğüm etiketleri · yalnızca bu haritada",
+  "Например, решение": "Örneğin, karar",
+  "Добавить тег": "Etiket ekle",
+  "Убрать тег": "Etiketi kaldır",
+  "Настройка карты": "Harita ayarları"
 }

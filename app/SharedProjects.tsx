@@ -977,6 +977,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   };
   const renderCalendarDate = (date: Date) => {
     const key = localDateKey(date);
+    const isToday = key === localDateKey(new Date());
     const dayTasks = activeCalendarTasks.filter(task => task.dueDate === key);
     const count = dayTasks.length;
     const dayNumber = calendarMode === "sacred" ? getSacredDate(date).day
@@ -984,11 +985,11 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
     return <button key={key} type="button" className="shared-projects-calendar-date"
       data-shared-calendar-date={key} data-drop-active={dropTarget?.calendarDate === key || undefined}
       data-has-tasks={count > 0 || undefined} data-weekend={calendarMode === "profane" && [0, 6].includes(date.getDay()) || undefined}
-      data-selected={key === calendarDay || undefined} aria-current={key === localDateKey(new Date()) ? "date" : undefined}
+      data-selected={key === calendarDay || undefined} aria-current={isToday ? "date" : undefined}
       aria-haspopup="dialog"
-      aria-label={`${formatCalendarDate(date, calendarMode, true)}${count ? english ? ` · ${count} tasks` : ` · задач: ${count}` : ""}`}
+      aria-label={`${formatCalendarDate(date, calendarMode, true)}${isToday ? english ? " · Today" : " · Сегодня" : ""}${count ? english ? ` · ${count} tasks` : ` · задач: ${count}` : ""}`}
       onClick={() => { setCalendarDay(key); setCalendarAgendaProjectId(snapshot?.project.id ?? null); }}>
-      <span>{dayNumber}</span>
+      {isToday ? <span className="shared-calendar-today-pill"><span>{dayNumber}</span><span>{english ? "Today" : "Сегодня"}</span></span> : <span>{dayNumber}</span>}
       {calendarMode !== "profane" ? <time dateTime={key}>{formatGregorian(date)}</time> : null}
       {count > 0 && count <= 3 ? <span className="shared-calendar-date-tasks" aria-hidden="true">
         {dayTasks.map(task => <span className="shared-calendar-date-task" key={task.id} title={task.title} data-no-translate>{task.title}</span>)}

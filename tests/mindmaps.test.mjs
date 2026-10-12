@@ -58,6 +58,13 @@ test('conversion preserves children and semantic links, while undo only changes 
  m.links.push({id:'link',from:n.id,to:m.nodes[2].id,label:'related'});
  const converted=attachTask(m,n.id,task);assert.deepEqual(converted.links,m.links);assert.equal(converted.nodes.at(-1).parentId,n.id);assert.equal(m.nodes[1].kind,'idea');
 });
+test('thought tags survive validation, export and conversion without changing old maps',()=>{
+ const old=newMindmap('Plan');assert.equal(old.nodes[0].tags,undefined);
+ const tagged=validateMindmap({...old,nodes:old.nodes.map(n=>({...n,tags:['решение','осень']}))});
+ assert.deepEqual(importMindmap(exportMindmap(tagged)).nodes[0].tags,['решение','осень']);
+ assert.deepEqual(attachTask(tagged,tagged.nodes[0].id,task).nodes[0].tags,['решение','осень']);
+ assert.throws(()=>validateMindmap({...old,nodes:old.nodes.map(n=>({...n,tags:Array(9).fill('лишний')}))}));
+});
 test('T06 occurrence resolves its existing exception and never silently resolves the whole series',()=>{
  const root={...task,recurrenceMode:'classic',recurrenceExcludedDates:['2026-10-12']};
  const n={kind:'task',refId:task.id,occurrenceDate:'2026-10-12'};

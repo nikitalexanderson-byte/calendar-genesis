@@ -47,6 +47,9 @@ export default function Mindmaps(props: Props) {
   const [error, setError] = useState("");
   const [status, setStatus] = useState<SaveState>("synced");
   const [selected, setSelected] = useState("");
+  const [selectedLink, setSelectedLink] = useState<string | null>(null);
+  const [linksOpen, setLinksOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const [view, setView] = useState<MapView>({ mode: "structure", collapsed: [], focus: null, zoom: 1 });
   const latestView = useRef(view);
   useEffect(() => { latestView.current = view; }, [view]);
@@ -64,6 +67,7 @@ export default function Mindmaps(props: Props) {
   const [parent, setParent] = useState("");
   const [linkTo, setLinkTo] = useState("");
   const [linkLabel, setLinkLabel] = useState("");
+  const [tagDraft, setTagDraft] = useState("");
   const [pickerQuery, setPickerQuery] = useState("");
   const [chaosOnly, setChaosOnly] = useState(false);
   const [pickerTask, setPickerTask] = useState<GenesisTask | null>(null);
@@ -79,7 +83,7 @@ export default function Mindmaps(props: Props) {
   const refresh = async () => { setLoading(true); try { const list = await repository.list(); if (alive.current) setRecords(list); } catch (e) { fail(e); } finally { if (alive.current) setLoading(false); } };
   const open = async (r: MapRecord) => {
     repository.adopt(r); current.current = r.document; setRecord(r); setMap(r.document); setSearch(""); setUndo([]); setRedo([]); setError("");
-    setSelected(r.document.nodes.find(n => n.parentId === null)!.id); setStatus(r.pending ? "device" : "synced");
+    setSelected(r.document.nodes.find(n => n.parentId === null)!.id); setTagDraft(""); setSelectedLink(null); setLinksOpen(false); setStatus(r.pending ? "device" : "synced");
     const url = new URL(location.href); url.searchParams.set("mindmap", r.document.id);
     if (panelHistory.current) { panelHistory.current=false; history.replaceState({}, "", url); } else history.pushState({}, "", url);
     try {
@@ -92,12 +96,24 @@ export default function Mindmaps(props: Props) {
   useEffect(() => {
     alive.current = true;
     const initialMapId = new URL(location.href).searchParams.get("mindmap");
-    void repository.list().then(list => {
-      if (!alive.current) return;
-      setRecords(list); setLoading(false);
-      const item = list.find(r => r.document.id === initialMapId);
-      if (item && !current.current) void open(item);
-    }).catch(e => { fail(e); setLoading(false); });
+    // A direct map URL may mount from a cached session just before bootstrap restores the workspace key.
+    void (async () => {
+      for (const delay of [0, 200, 500, 1000, 2000]) {
+        if (delay) await new Promise(resolve => setTimeout(resolve, delay));
+        if (!alive.current) return;
+        try {
+          const list = await repository.list();
+          if (!alive.current) return;
+          setRecords(list); setLoading(false);
+          const item = list.find(r => r.document.id === initialMapId);
+          if (item && !current.current) void open(item);
+          return;
+        } catch (e) {
+          if (delay !== 2000 && e instanceof Error && e.message === "Разблокируйте зашифрованное пространство GENESIS.") continue;
+          fail(e); if (alive.current) setLoading(false); return;
+        }
+      }
+    })();
     const exit = () => { alive.current = false; repository.dispose(); current.current = null; setMap(null); setRecords([]); };
     const back = () => {
       if (panelHistory.current) { panelHistory.current=false; setDialog(null); return; }
@@ -149,16 +165,41 @@ export default function Mindmaps(props: Props) {
   const changeView = (next: MapView) => { setView(next); if (map) void repository.saveView(map.id, next).catch(fail); };
   const titleFor = (n: MapNode) => nodeTitle(n, props.tasks, props.projects);
   const node = map?.nodes.find(n => n.id === selected) ?? map?.nodes[0];
+  const selectNode = (id: string) => { setSelected(id); setTagDraft(""); setSelectedLink(null); };
+  const selectLink = (id: string, from: string) => { setSelected(from); setTagDraft(""); setSelectedLink(id); setLinksOpen(true); setDialog("node"); };
+  const addTag = () => {
+    if (!map || !node) return;
+    const tag = tagDraft.trim().replace(/^#+/, "").trim();
+    if (!tag) return;
+    if (tag.length > 32) { fail(new Error("Тег — не более 32 символов.")); return; }
+    if ((node.tags?.length ?? 0) >= 8) { fail(new Error("У узла может быть до 8 тегов.")); return; }
+    if (node.tags?.some(value => value.toLocaleLowerCase() === tag.toLocaleLowerCase())) { setTagDraft(""); return; }
+    change({ ...map, nodes: map.nodes.map(value => value.id === node.id ? { ...value, tags: [...(value.tags ?? []), tag] } : value) });
+    setTagDraft("");
+  };
+  const deleteSelection = () => {
+    if (!map || !node) return;
+    if (selectedLink) { change({ ...map, links: map.links.filter(link => link.id !== selectedLink) }); setSelectedLink(null); return; }
+    if (node.parentId === null) { fail(new Error("Корень карты нельзя удалить. Архивируйте карту из каталога.")); return; }
+    const parentId = node.parentId;
+    const removed = descendants(map, node.id);
+    change(removeBranch(map, node.id)); setSelected(parentId);
+    if (view.focus && removed.has(view.focus)) changeView({ ...view, focus: parentId });
+  };
   const task = node ? resolveMapTask(node,props.tasks) : undefined;
   const branchIds = useMemo(() => map && node ? descendants(map, node.id) : new Set<string>(), [map, node]);
   const taskDate = task?.recurrenceMode === "none" ? task.dueDate : node?.occurrenceDate;
   const rows = useMemo(() => map ? visibleNodes(map, view) : [], [map, view]);
   const progress = map ? mapProgress(map, props.tasks) : null;
-  const saveDialog = () => setDialog(null);
+  const saveDialog = () => {
+    const returnToCanvas = dialog === "node" && selectedLink && view.mode === "map";
+    setDialog(null);
+    if (returnToCanvas) requestAnimationFrame(() => document.querySelector<HTMLElement>(".mindmap-canvas")?.focus({ preventScroll: true }));
+  };
   const addIdea = (sibling = false, position?: {x:number;y:number}) => {
     if (!map || !node) return;
     const added: MapNode = { id: mapId(), parentId: sibling ? node.parentId ?? node.id : node.id, kind: "idea", text: "Новая мысль", note: "" };
-    change({ ...map, nodes: [...map.nodes, added] }); setSelected(added.id); changeView({ ...view, collapsed: view.collapsed.filter(id => id !== added.parentId), ...(position ? {positions:{...view.positions,[added.id]:position}} : {}) }); setDialog("node");
+    change({ ...map, nodes: [...map.nodes, added] }); setSelected(added.id); setTagDraft(""); changeView({ ...view, collapsed: view.collapsed.filter(id => id !== added.parentId), ...(position ? {positions:{...view.positions,[added.id]:position}} : {}) }); setDialog("node");
   };
   const goCatalog = () => { const url = new URL(location.href); url.searchParams.delete("mindmap"); history.pushState({}, "", url); current.current = null; setMap(null); setRecord(null); setSearch(""); setError(""); void refresh(); };
   const handOffTaskPanel = () => {
@@ -195,6 +236,8 @@ export default function Mindmaps(props: Props) {
     </div></details>
     {node.kind === "idea" ? <label>Название мысли<textarea rows={3} maxLength={2000} value={node.text} onChange={e => change({ ...map, title: node.parentId === null ? e.target.value || "Без названия" : map.title, nodes: map.nodes.map(n => n.id === node.id ? { ...n, text: e.target.value } : n) })} /></label>
       : <h4 data-no-translate>{titleFor(node)}</h4>}
+    <div className="mindmap-tags-editor"><label>Теги узла · только в карте<input value={tagDraft} maxLength={33} placeholder="Например, решение" onChange={e => setTagDraft(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addTag(); } }} /></label><button type="button" disabled={!tagDraft.trim() || (node.tags?.length ?? 0) >= 8} onClick={addTag}>Добавить тег</button>
+      {node.tags?.length ? <div className="mindmap-tag-list" aria-label="Теги узла">{node.tags.map(tag => <span className="mindmap-tag" key={tag}>#{tag}<button type="button" aria-label={`Убрать тег ${tag}`} onClick={() => change({ ...map, nodes: map.nodes.map(value => value.id === node.id ? { ...value, tags: value.tags?.filter(item => item !== tag) } : value) })}><ExperimentalIcon name="close" /></button></span>)}</div> : null}</div>
     <label>Пояснение · только в карте<textarea rows={3} value={node.note} maxLength={12000} onChange={e => change({ ...map, nodes: map.nodes.map(n => n.id === node.id ? { ...n, note: e.target.value } : n) })} /></label>
     {node.kind === "idea" ? <><p>Мысль не имеет срока. Создание откроет обычную форму одной задачи; пояснение останется в карте.</p><button type="button" className="primary-button" disabled={busy || !node.text?.trim()} onClick={() => void createTask()}>Создать задачу из мысли</button></> : null}
     {task ? <><p>{task.done ? "Выполнено" : "В работе"} · {nodeDateLabel(node,props.tasks)}</p><p>Проект: {props.projects.find(p => p.id === props.projectForTask(task))?.title || "Хаос"}</p>
@@ -209,19 +252,19 @@ export default function Mindmaps(props: Props) {
       <MapAction label={view.collapsed.includes(node.id) ? "Развернуть ветку" : "Свернуть ветку"} icon="thought-fold" pressed={view.collapsed.includes(node.id)} onClick={() => changeView({ ...view, collapsed: view.collapsed.includes(node.id) ? view.collapsed.filter(id => id !== node.id) : [...view.collapsed, node.id] })}/></div>
     {node.parentId ? <><label>Переместить в ветку<select value={parent} onChange={e => setParent(e.target.value)}><option value="">Выберите родителя</option>{map.nodes.filter(n => !branchIds.has(n.id)).map(n => <option key={n.id} value={n.id}>{titleFor(n)}</option>)}</select></label>
       <button type="button" disabled={!parent} onClick={() => { try { change(moveNode(map, node.id, parent)); setParent(""); } catch(e) { fail(e); } }}>Переместить узел</button>
-      <div className="mindmap-actions">{[-1,1].map(direction => <MapAction key={direction} label={direction < 0 ? "Выше" : "Ниже"} icon={direction < 0 ? "map-up" : "map-down"} onClick={() => { const siblings = map.nodes.filter(n => n.parentId === node.parentId); const i = siblings.findIndex(n => n.id === node.id); const target = direction < 0 ? siblings[i-1] : siblings[i+2]; if ((direction < 0 && i > 0) || (direction > 0 && i < siblings.length-1)) change(moveNode(map,node.id,node.parentId!,target?.id)); }}/>)}</div>
-      <MapAction label="Убрать ветку с карты" icon="thought-unlink" danger onClick={() => setDialog("delete")}/></> : null}
-    <details><summary>Смысловые связи</summary><p>«Связано с» не меняет зависимости задач.</p>
+      <div className="mindmap-actions mindmap-order-actions">{[-1,1].map(direction => <MapAction key={direction} label={direction < 0 ? "Выше" : "Ниже"} icon={direction < 0 ? "map-up" : "map-down"} onClick={() => { const siblings = map.nodes.filter(n => n.parentId === node.parentId); const i = siblings.findIndex(n => n.id === node.id); const target = direction < 0 ? siblings[i-1] : siblings[i+2]; if ((direction < 0 && i > 0) || (direction > 0 && i < siblings.length-1)) change(moveNode(map,node.id,node.parentId!,target?.id)); }}/>)}<MapAction label="Убрать ветку с карты" icon="thought-unlink" danger onClick={() => setDialog("delete")}/></div></> : null}
+    <details className="mindmap-links" open={linksOpen} onToggle={event => setLinksOpen(event.currentTarget.open)}><summary>Смысловые связи</summary><p>«Связано с» не меняет зависимости задач.</p>
       <label>Связать с<select value={linkTo} onChange={e => setLinkTo(e.target.value)}><option value="">Выберите узел</option>{map.nodes.filter(n => n.id !== node.id).map(n => <option key={n.id} value={n.id}>{titleFor(n)}</option>)}</select></label>
       <label>Подпись связи<input value={linkLabel} maxLength={240} onChange={e => setLinkLabel(e.target.value)} /></label>
       <button type="button" disabled={!linkTo} onClick={() => { change({ ...map, links: [...map.links, { id: mapId(), from: node.id, to: linkTo, label: linkLabel }] }); setLinkTo(""); setLinkLabel(""); }}>Добавить связь</button>
-      {map.links.filter(l => l.from === node.id || l.to === node.id).map(l => <div key={l.id}><span>{l.label || "Связано с"}: {titleFor(map.nodes.find(n => n.id === (l.from === node.id ? l.to : l.from))!)}</span><input type="color" aria-label="Цвет смысловой связи" value={l.color || "#8c672b"} onChange={e=>change({...map,links:map.links.map(link=>link.id===l.id ? {...link,color:e.target.value} : link)})}/><button type="button" aria-label="Убрать смысловую связь" onClick={() => change({ ...map, links: map.links.filter(x => x.id !== l.id) })}>Убрать связь</button></div>)}
+      {map.links.filter(l => l.from === node.id || l.to === node.id).map(l => <div key={l.id} className="mindmap-link-row" data-selected={selectedLink === l.id ? "true" : undefined}><span>{l.label || "Связано с"}: {titleFor(map.nodes.find(n => n.id === (l.from === node.id ? l.to : l.from))!)}</span><input type="color" aria-label="Цвет смысловой связи" value={l.color || "#8c672b"} onChange={e=>change({...map,links:map.links.map(link=>link.id===l.id ? {...link,color:e.target.value} : link)})}/><button type="button" aria-label="Убрать смысловую связь" onClick={() => { change({ ...map, links: map.links.filter(x => x.id !== l.id) }); if (selectedLink === l.id) setSelectedLink(null); }}>Убрать связь</button></div>)}
     </details>
   </div> : null;
 
   return <section className="mindmaps" aria-label="Личные майндмепы">
-    <header className="mindmap-header"><button type="button" className="mindmap-back-link" onClick={map ? goCatalog : props.onClose}><ExperimentalIcon name="map-back"/>{map ? "Все майндмепы" : "К личным делам"}</button><div><h2 data-no-translate>{map?.title || "Майндмепы"}</h2><p>{map ? progress!.total ? `Связанные задачи: ${progress!.done} из ${progress!.total}` : "Пока только идеи" : "Связывайте идеи, проекты и задачи."}</p></div>
+    <header className="workspace-header mindmap-header" data-exp-ui="panel"><div className="workspace-header-main mindmap-header-main"><span className="projects-hero-mark mindmap-hero-mark" aria-hidden="true"><ExperimentalIcon name="map-mode" /></span><div className="workspace-header-copy"><h1>{map ? <>Майндмеп: <em className="mindmap-map-title" data-no-translate>{map.title}</em></> : "Майндмепы"}</h1><p>{map ? progress!.total ? `Связанные задачи: ${progress!.done} из ${progress!.total}` : "Пока только идеи" : "Связывайте идеи, проекты и задачи."}</p></div></div>
       {map ? <span role="status" className="mindmap-save-state">{statuses[status]}</span> : null}
+      <button type="button" className="mindmap-back-link" onClick={map ? goCatalog : props.onClose}><ExperimentalIcon name="map-back"/>{map ? "Все майндмепы" : "К личным делам"}</button>
     </header>
     {error && !dialog ? <div role="alert" className="mindmap-error"><p>{error}</p>{map ? <div className="mindmap-actions"><button type="button" onClick={() => { setError(""); void (record?.pending && record.draftKey ? repository.retry(record, onStatus) : repository.save(map, onStatus)).catch(fail); }}>Повторить сохранение</button><button type="button" onClick={() => { void repository.forkDraft(map, onStatus).then(copy => { setError(""); return open({ document: copy, revision: 1, updatedAt: "" }); }).catch(fail); }}>Сохранить отдельный вариант</button><button type="button" onClick={goCatalog}>Показать серверную версию</button></div> : <button type="button" onClick={() => void refresh()}>Повторить загрузку</button>}</div> : null}
     {map && record?.pending && !error ? <div className="mindmap-recovery"><p>Открыт защищённый черновик с устройства.</p><button type="button" onClick={() => { void repository.retry(record, onStatus).then(() => setRecord(r => r ? { ...r, pending: false } : r)).catch(fail); }}>Отправить сохранённый черновик</button></div> : null}
@@ -238,25 +281,26 @@ export default function Mindmaps(props: Props) {
       {!loading && search && !records.some(r => r.document.archived === archived && (!context || r.document.projectId === context) && r.document.title.toLocaleLowerCase().includes(search.toLocaleLowerCase())) ? <p>Ничего не найдено. Измените запрос.</p> : null}
       {!loading && !records.some(r => r.document.archived === archived && (!context || r.document.projectId === context)) ? <div className="mindmap-empty"><h3>{archived ? "Архив пуст" : "Начните с одной мысли"}</h3><p>Карта помогает разобрать замысел. Задачи появятся в делах только после вашего подтверждения.</p></div> : null}
     </> : <>
-      <div className="mindmap-toolbar"><div role="group" aria-label="Представление карты"><MapAction label="Карта" icon="map-mode" pressed={view.mode === "map"} onClick={() => changeView({ ...view, mode: "map" })}/><MapAction label="Структура" icon="outline-mode" pressed={view.mode === "structure"} onClick={() => changeView({ ...view, mode: "structure" })}/></div>
+      <div className="mindmap-toolbar mindmap-primary-toolbar"><div role="group" aria-label="Представление карты"><MapAction label="Карта" icon="map-mode" pressed={view.mode === "map"} onClick={() => changeView({ ...view, mode: "map" })}/><MapAction label="Структура" icon="outline-mode" pressed={view.mode === "structure"} onClick={() => changeView({ ...view, mode: "structure" })}/></div>
         <button type="button" className="primary-button" onClick={() => addIdea()}>Добавить мысль</button><button type="button" onClick={() => { setPickerQuery(""); setPickerTask(null); setDialog("add"); }}>Добавить из дел</button>
-        <details className="mindmap-more"><summary><ExperimentalIcon name="chevron"/><span>Карта и файлы</span></summary><div className="mindmap-actions"><button type="button" disabled={!undo.length} onClick={() => { const previous = undo.at(-1)!; setUndo(u => u.slice(0,-1)); setRedo(r => [...r,map]); change(previous,false); }}>Отменить изменение карты</button>
+        <button type="button" className="mindmap-more-toggle" aria-expanded={moreOpen} aria-controls="mindmap-more-panel" onClick={() => setMoreOpen(open => !open)}><ExperimentalIcon name="gear"/><span>Настройка карты</span><ExperimentalIcon name="chevron"/></button>
+      </div>
+      {moreOpen ? <div className="mindmap-more-panel" id="mindmap-more-panel"><div className="mindmap-actions"><button type="button" disabled={!undo.length} onClick={() => { const previous = undo.at(-1)!; setUndo(u => u.slice(0,-1)); setRedo(r => [...r,map]); change(previous,false); }}>Отменить изменение карты</button>
         <button type="button" disabled={!redo.length} onClick={() => { const next = redo.at(-1)!; setRedo(r => r.slice(0,-1)); setUndo(u => [...u,map]); change(next,false); }}>Повторить изменение карты</button><button type="button" onClick={() => { setText(""); setPreview(null); setDialog("paste"); }}>Вставить текст</button><button type="button" onClick={() => setDialog("export")}>Экспорт</button><button type="button" onClick={() => { setVersions([]); setDialog("history"); void repository.history(map.id).then(setVersions).catch(fail); }}>История</button></div>
           <label>Название карты<input value={map.title} maxLength={2000} onChange={e => change({ ...map, title: e.target.value || "Без названия", nodes: map.nodes.map(n => n.parentId === null && n.kind === "idea" ? { ...n, text: e.target.value } : n) })} /></label>
           <label>Контекстный проект<select value={map.projectId || ""} onChange={e => change({ ...map, projectId: e.target.value || null })}><option value="">Без проекта</option>{props.projects.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}</select></label>
-        </details>
-      </div>
-      <div className="mindmap-toolbar"><label className="mindmap-search">Найти узел<input value={search} onChange={e => setSearch(e.target.value)} placeholder="Мысль или связанное дело" /><ExperimentalIcon name="search" /></label>{view.focus ? <button type="button" onClick={() => changeView({ ...view, focus: null })}>Вся карта</button> : null}</div>
-      {search ? <div className="mindmap-search-results" aria-label="Найденные узлы">{!map.nodes.some(n => `${titleFor(n)} ${n.note}`.toLocaleLowerCase().includes(search.toLocaleLowerCase())) ? <p>Ничего не найдено. Измените запрос.</p> : null}{map.nodes.filter(n => `${titleFor(n)} ${n.note}`.toLocaleLowerCase().includes(search.toLocaleLowerCase())).map(n => <button type="button" key={n.id} onClick={() => { setSelected(n.id); changeView({ ...view, focus: n.id, collapsed: view.collapsed.filter(id => id !== n.id) }); setSearch(""); if (isMobile) setDialog("node"); }}>{titleFor(n)} · Показать ветку</button>)}</div> : null}
+        </div> : null}
+      <div className="mindmap-toolbar mindmap-node-toolbar"><label className="mindmap-search mindmap-node-search"><input aria-label="Найти узел" value={search} onChange={e => setSearch(e.target.value)} placeholder="Найти узел" /><ExperimentalIcon name="search" /></label>{view.focus ? <button type="button" onClick={() => changeView({ ...view, focus: null })}>Вся карта</button> : null}</div>
+      {search ? <div className="mindmap-search-results" aria-label="Найденные узлы">{!map.nodes.some(n => `${titleFor(n)} ${n.note} ${(n.tags ?? []).join(" ")}`.toLocaleLowerCase().includes(search.toLocaleLowerCase())) ? <p>Ничего не найдено. Измените запрос.</p> : null}{map.nodes.filter(n => `${titleFor(n)} ${n.note} ${(n.tags ?? []).join(" ")}`.toLocaleLowerCase().includes(search.toLocaleLowerCase())).map(n => <button type="button" key={n.id} onClick={() => { setSelected(n.id); changeView({ ...view, focus: n.id, collapsed: view.collapsed.filter(id => id !== n.id) }); setSearch(""); if (isMobile) setDialog("node"); }}>{titleFor(n)} · Показать ветку</button>)}</div> : null}
       <div className="mindmap-workspace"><div className="mindmap-editor">
-        {view.mode === "map" ? <Suspense fallback={<p>Открываем полотно…</p>}><Canvas onLink={(from,to) => { if (!map.links.some(l => l.from===from && l.to===to || l.from===to && l.to===from)) change({...map,links:[...map.links,{id:mapId(),from,to,label:"Связано с"}]}); }} onPosition={(id,position) => changeView({ ...view, positions: {...view.positions,[id]:position} })} onCreateAt={position => addIdea(false,position)} map={map} view={view} selected={selected} title={titleFor} onSelect={setSelected} onZoom={zoom => changeView({ ...view, zoom })} onViewport={viewport => changeView({ ...latestView.current, viewport })} /></Suspense>
+        {view.mode === "map" ? <Suspense fallback={<p>Открываем полотно…</p>}><Canvas onLink={(from,to) => { if (!map.links.some(l => l.from===from && l.to===to || l.from===to && l.to===from)) change({...map,links:[...map.links,{id:mapId(),from,to,label:"Связано с"}]}); }} onSelectLink={selectLink} onEditNode={id => { selectNode(id); setDialog("node"); }} onDeleteSelection={deleteSelection} onPosition={(id,position) => changeView({ ...view, positions: {...view.positions,[id]:position} })} onCreateAt={position => addIdea(false,position)} map={map} view={view} selected={selected} selectedLink={selectedLink} title={titleFor} onSelect={selectNode} onZoom={zoom => changeView({ ...view, zoom })} onViewport={viewport => changeView({ ...latestView.current, viewport })} /></Suspense>
           : <ol className="mindmap-structure" aria-label="Структура карты">{rows.map(r => <li key={r.node.id} style={{ paddingInlineStart: Math.min(r.depth,3)*16 }}>
             <button type="button" className="mindmap-collapse" aria-expanded={r.children ? !view.collapsed.includes(r.node.id) : undefined} aria-label={`${view.collapsed.includes(r.node.id) ? "Развернуть" : "Свернуть"}: ${titleFor(r.node)}`} disabled={!r.children} onClick={() => changeView({ ...view, collapsed: view.collapsed.includes(r.node.id) ? view.collapsed.filter(id => id !== r.node.id) : [...view.collapsed,r.node.id] })}><ExperimentalIcon name="chevron" /></button>
-            <button type="button" className="mindmap-row" style={nodeColors(r.node)} aria-pressed={selected === r.node.id} onClick={() => { setSelected(r.node.id); if (isMobile) setDialog("node"); }}><strong data-no-translate>{titleFor(r.node)}</strong><span>{r.node.kind === "idea" ? "Мысль" : r.node.kind === "project" ? "Проект" : `${resolveMapTask(r.node, props.tasks)?.done ? "Выполнено" : "Задача"} · ${nodeDateLabel(r.node, props.tasks)}`}{r.depth > 3 ? ` · уровень ${r.depth+1}` : ""}</span></button>
+            <button type="button" className="mindmap-row" style={nodeColors(r.node)} aria-pressed={selected === r.node.id} onClick={() => selectNode(r.node.id)} onDoubleClick={() => { selectNode(r.node.id); setDialog("node"); }} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); selectNode(r.node.id); setDialog("node"); } else if (event.key === "Delete" || event.key === "Backspace") { event.preventDefault(); event.stopPropagation(); selectNode(r.node.id); if (r.node.parentId) { change(removeBranch(map, r.node.id)); setSelected(r.node.parentId); } else fail(new Error("Корень карты нельзя удалить. Архивируйте карту из каталога.")); } }}><strong data-no-translate>{titleFor(r.node)}</strong>{r.node.tags?.length ? <span className="mindmap-row-tags">{r.node.tags.map(tag => `#${tag}`).join(" · ")}</span> : null}<span>{r.node.kind === "idea" ? "Мысль" : r.node.kind === "project" ? "Проект" : `${resolveMapTask(r.node, props.tasks)?.done ? "Выполнено" : "Задача"} · ${nodeDateLabel(r.node, props.tasks)}`}{r.depth > 3 ? ` · уровень ${r.depth+1}` : ""}</span></button>
             <button type="button" aria-label={`Изменить узел: ${titleFor(r.node)}`} onClick={() => { setSelected(r.node.id); setDialog("node"); }}><ExperimentalIcon name="edit" /></button>
           </li>)}</ol>}
         {isMobile && node ? <button type="button" className="mindmap-mobile-inspector primary-button" onClick={() => setDialog("node")}>Действия с выбранным узлом</button> : null}
-      </div>{!isMobile ? <aside className="mindmap-inspector" aria-label="Выбранный узел">{inspector}</aside> : null}</div>
+      </div></div>
     </>}
     {dialog ? <Dialog title={({ create:"Новая карта", node:"Редактор узла", add:"Добавить из личных дел", paste:"Мысли из текста", import:"Импорт карты GENESIS", export:"Экспорт карты", history:"История карты", delete:"Убрать ветку" })[dialog]} onClose={saveDialog}>
       {error ? <p role="alert">{error}</p> : null}

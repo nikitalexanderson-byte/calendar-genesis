@@ -3,7 +3,7 @@ import { recurrenceDatesForTask } from "./task-recurrence";
 
 export const MAP_LIMITS = { nodes: 1000, depth: 32, text: 2000, note: 12000, links: 2000, bytes: 2_000_000, paste: 200 };
 export type MapNode = { id: string; parentId: string | null; kind: "idea" | "task" | "project";
-  text?: string; refId?: string; occurrenceDate?: string; note: string; style?: {fill?:string;border?:string} };
+  text?: string; refId?: string; occurrenceDate?: string; note: string; tags?: string[]; style?: {fill?:string;border?:string} };
 export type MapLink = { id: string; from: string; to: string; label: string; color?:string };
 export type Mindmap = { schemaVersion: 1; id: string; title: string; projectId: string | null;
   pinned: boolean; archived: boolean; nodes: MapNode[]; links: MapLink[]; appearance?: {lineColor?:string} };
@@ -36,12 +36,14 @@ export function validateMindmap(input: unknown): Mindmap {
     ids.add(n.id);
     if (n.kind === "idea" && !string(n.text, MAP_LIMITS.text)) return invalid();
     if (n.kind !== "idea" && !validId(n.refId)) return invalid();
+    if (n.tags !== undefined && (!Array.isArray(n.tags) || n.tags.length > 8
+      || n.tags.some(tag => !string(tag, 32) || !tag.trim() || tag !== tag.trim()))) return invalid();
     if (n.style && (typeof n.style !== "object" || Object.entries(n.style).some(([key,value]) => !["fill","border"].includes(key) || !validColor(value)))) return invalid();
     if (n.occurrenceDate !== undefined && (n.kind !== "task" || !/^\d{4}-\d{2}-\d{2}$/.test(n.occurrenceDate)
       || new Date(n.occurrenceDate).toISOString().slice(0, 10) !== n.occurrenceDate)) return invalid();
     return { id: n.id, parentId: n.parentId, kind: n.kind, note: n.note,
       ...(n.kind === "idea" ? { text: n.text! } : { refId: n.refId! }),
-      ...(n.occurrenceDate ? { occurrenceDate: n.occurrenceDate } : {}),...(n.style ? {style:{...n.style}} : {}) };
+      ...(n.occurrenceDate ? { occurrenceDate: n.occurrenceDate } : {}),...(n.tags?.length ? { tags: [...n.tags] } : {}),...(n.style ? {style:{...n.style}} : {}) };
   });
   if (nodes.filter(n => n.parentId === null).length !== 1) return invalid();
   const byId = new Map(nodes.map(n => [n.id, n]));
@@ -95,7 +97,7 @@ export function moveNode(map: Mindmap, id: string, parentId: string, before?: st
 }
 export function attachTask(map: Mindmap, nodeId: string, task: GenesisTask): Mindmap {
   return validateMindmap({ ...map, nodes: map.nodes.map(n => n.id === nodeId
-    ? { id: n.id, parentId: n.parentId, kind: "task", refId: task.id, note: n.note,
+    ? { id: n.id, parentId: n.parentId, kind: "task", refId: task.id, note: n.note, ...(n.tags?.length ? { tags: n.tags } : {}),
       ...(task.recurrenceMode !== "none" && task.dueDate ? { occurrenceDate: task.dueDate } : {}) } : n) });
 }
 export function nodeTitle(node: MapNode, tasks: GenesisTask[], projects: GenesisProject[]) {

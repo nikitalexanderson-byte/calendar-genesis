@@ -2070,5 +2070,18 @@
   "не подош": "stimmte nicht überein",
   "После нажатия «Подготовить план» запись и контекст отправляются в GigaChat; GENESIS не хранит запись и запрашивает её удаление из файлового хранилища GigaChat сразу после разбора.": "Nachdem Sie „Plan vorbereiten“ ausgewählt haben, werden die Aufzeichnung und der Kontext an GigaChat gesendet. GENESIS speichert die Aufzeichnung nicht und fordert ihre Entfernung aus dem GigaChat-Dateispeicher unmittelbar nach dem Parsen an.",
   "Сверху": "Oben",
-  "Слева": "Links"
+  "Слева": "Links",
+  "Майндмеп:": "Mindmap:",
+  "Связи узлов": "Knotenverbindungen",
+  "Выбрать связь:": "Verbindung auswählen:",
+  "Создать связь с другим узлом": "Verbindung zu einem anderen Knoten erstellen",
+  "Корень карты нельзя удалить. Архивируйте карту из каталога.": "Der Kartenursprung kann nicht gelöscht werden. Archivieren Sie die Karte im Katalog.",
+  "Тег — не более 32 символов.": "Ein Tag darf höchstens 32 Zeichen enthalten.",
+  "У узла может быть до 8 тегов.": "Ein Knoten kann bis zu 8 Tags haben.",
+  "Теги узла": "Knoten-Tags",
+  "Теги узла · только в карте": "Knoten-Tags · nur in dieser Karte",
+  "Например, решение": "Zum Beispiel Entscheidung",
+  "Добавить тег": "Tag hinzufügen",
+  "Убрать тег": "Tag entfernen",
+  "Настройка карты": "Karteneinstellungen"
 }
