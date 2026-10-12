@@ -436,7 +436,7 @@ html[data-genesis-theme] .genesis-app .workspace-header { padding: 24px; gap: 20
 html[data-genesis-theme="standart-dark"] .genesis-app .workspace-header { background: linear-gradient(125deg, #122b22, #18382b); }
 html[data-genesis-theme] .genesis-app .workspace-header :is(h1, .workspace-title-secondary, .workspace-title-secondary em) { color: inherit; }
 html[data-genesis-theme] .genesis-app .workspace-header :is(p, .projects-summary > span) { color: #d0ded5; }
-html[data-genesis-theme] .genesis-app .workspace-header :is(.projects-hero-mark, .projects-summary strong, .mindmap-catalog-statistics dd) { color: #e4c78c; }
+html[data-genesis-theme] .genesis-app .workspace-header :is(.projects-hero-mark, .projects-summary strong) { color: #e4c78c; }
 html[data-genesis-theme] .genesis-app .workspace-header .projects-summary > span + span { border-color: #ffffff24; }
 html[data-genesis-theme] .genesis-app .workspace-header-copy { min-width: 0; }
 html[data-genesis-theme] .genesis-app .workspace-header h1 { margin: 0 0 8px; }

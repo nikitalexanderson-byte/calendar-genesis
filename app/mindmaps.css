@@ -151,9 +151,9 @@ html[data-genesis-theme] .genesis-app .mindmap-header h1 { overflow-wrap: anywhe
 html[data-genesis-theme] .genesis-app .mindmap-header .mindmap-map-title { color: inherit; font: inherit; font-style: italic; }
 html[data-genesis-theme] .genesis-app .mindmap-header .mindmap-hero-mark { color: #e4c78c; }
 html[data-genesis-theme] .genesis-app .mindmap-header .mindmap-save-state { grid-column: 2; grid-row: 1; justify-self: end; max-width: 240px; padding: 0; color: #d0ded5; text-align: right; }
-html[data-genesis-theme] .genesis-app .mindmap-catalog-statistics { grid-column: 2; grid-row: 1; justify-self: end; display: grid; grid-template-columns: repeat(3, auto); gap: 16px; margin: 0; color: #d0ded5; text-align: right; }
-.mindmap-catalog-statistics dt { max-width: 14ch; font: 500 12px/1.4 var(--font-ui); }
-.mindmap-catalog-statistics dd { margin: 4px 0 0; }
+html[data-genesis-theme] .genesis-app .mindmap-catalog-statistics { grid-column: 2; grid-row: 1; justify-self: end; align-self: center; }
+html[data-genesis-theme] .genesis-app .mindmap-catalog-statistics > span { justify-content: flex-start; }
+html[data-genesis-theme] .genesis-app .mindmap-catalog-statistics strong { white-space: nowrap; }
 html[data-genesis-theme] .genesis-app .mindmap-header .mindmap-back-link { grid-column: 2; grid-row: 2; justify-self: end; align-self: end; }
 @media (max-width: 1099px) { .mindmap-workspace { grid-template-columns: minmax(0,1fr); gap: 16px; } }
 @media (max-width: 760px) {
@@ -162,7 +162,7 @@ html[data-genesis-theme] .genesis-app .mindmap-header .mindmap-back-link { grid-
   html[data-genesis-theme] .genesis-app .mindmap-header-main { grid-column: 1; }
   html[data-genesis-theme] .genesis-app .mindmap-header .mindmap-save-state { grid-column: 1; grid-row: 1; justify-self: end; text-align: right; }
   html[data-genesis-theme] .genesis-app .mindmap-header:has(.mindmap-save-state) .mindmap-header-main { grid-row: 2; }
-  html[data-genesis-theme] .genesis-app .mindmap-catalog-statistics { grid-column: 1; grid-row: 1; gap: 12px; }
+  html[data-genesis-theme] .genesis-app .mindmap-catalog-statistics { grid-column: 1; grid-row: 1; }
   html[data-genesis-theme] .genesis-app .mindmap-header:has(.mindmap-catalog-statistics) .mindmap-header-main { grid-row: 2; }
   html[data-genesis-theme] .genesis-app .mindmap-header .mindmap-back-link { grid-column: 1; grid-row: 2; }
   html[data-genesis-theme] .genesis-app .mindmap-header:has(.mindmap-save-state) .mindmap-back-link { grid-row: 3; }
