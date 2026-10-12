@@ -218,8 +218,15 @@ jobs:
           if [ "${#RELEASE_UNUSED_NDKS[@]}" -gt 0 ]; then
             sdkmanager --uninstall "${RELEASE_UNUSED_NDKS[@]}"
           fi
+          # No Gradle tasks run after this point. Keep signed outputs and reports,
+          # but release compilation scratch data before downloading the system
+          # image and allocating its ~10 GB userdata partition.
+          rm -rf -- android/app/build/intermediates android/app/build/tmp "$HOME/.gradle/caches"
+          test -s android/app/build/outputs/apk/release/app-release.apk
+          test -s android/app/build/outputs/apk/play/app-play.apk
+          test -s android/app/build/outputs/bundle/play/app-play.aab
           df -h .
-          test "$(df --output=avail . | tail -1 | tr -d ' ')" -ge 10485760
+          test "$(df --output=avail . | tail -1 | tr -d ' ')" -ge 18874368
 
       - name: Enable KVM for release startup validation
         if: env.DEPLOY_ANDROID == 'true'
