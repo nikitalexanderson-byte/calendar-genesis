@@ -1049,7 +1049,7 @@ html[data-genesis-theme] .genesis-app .personal-affairs-search > span { position
 html[data-genesis-theme] .genesis-app .personal-affairs-search > button { position:absolute; right:40px; top:50%; transform:translateY(-50%); width:40px; height:44px; }
 @media (max-width:600px) { html[data-genesis-theme] .genesis-app .personal-mindmaps-entry { width:100%; } }
 
-/* Phone affairs: reveal workspace administration without pushing tasks off screen. */
+/* Compact affairs: reveal workspace administration without pushing tasks off screen. */
 html[data-genesis-theme] .genesis-app .mobile-disclosure > .mobile-disclosure-toggle,
 .inbox-mobile-toggle, .workspace-overview-toggle { display: none; }
 .shared-workspace-tools { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -1121,4 +1121,66 @@ html[data-genesis-theme] .genesis-app .mobile-disclosure > .mobile-disclosure-to
   html[data-genesis-theme] .genesis-app .shared-task-modal .shared-projects-detail-move { grid-template-columns: minmax(0,1fr); }
   html[data-genesis-theme] .genesis-app .shared-task-modal .shared-task-sections > button { font-size: 15px; }
   html[data-genesis-theme] .genesis-app .shared-projects-modal .task-composer-tabs { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+
+/* Tablet affairs keep the same navigation and provide room for touch and editing. */
+@media (min-width: 600px) and (max-width: 1399px) {
+  html[data-genesis-theme] .genesis-app .shared-projects { gap: 16px; }
+  html[data-genesis-theme] .genesis-app .mobile-disclosure > .mobile-disclosure-toggle { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px 0; border: 0; background: transparent; color: inherit; text-align: start; }
+  .mobile-disclosure-toggle svg { width: 18px; height: 18px; flex-shrink: 0; }
+  .mobile-disclosure[data-expanded="true"] > .mobile-disclosure-toggle svg { transform: rotate(90deg); }
+  .mobile-disclosure[data-expanded="false"] > .mobile-disclosure-content { display: none; }
+  .google-connect-expanded > .mobile-disclosure-toggle { display: none !important; }
+  .google-connect-expanded > .mobile-disclosure-content { display: block !important; }
+  html[data-genesis-theme] .genesis-app .affairs-google-connect { margin-bottom: 8px; border-bottom: 1px solid var(--line); }
+  html[data-genesis-theme] .genesis-app .workspace-header[data-mobile-expanded] { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px 24px; padding: 16px 24px; }
+  html[data-genesis-theme] .genesis-app .workspace-header[data-mobile-expanded] h1 { font-size: 30px; margin: 0; }
+  html[data-genesis-theme] .genesis-app .workspace-overview-toggle { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px; border: 0; background: transparent; color: inherit; grid-column: 2; grid-row: 1; }
+  .workspace-overview-toggle svg { width: 18px; height: 18px; }
+  .workspace-overview-toggle[aria-expanded="true"] svg { transform: rotate(90deg); }
+  .workspace-header[data-mobile-expanded="false"] :is(.workspace-header-context,.workspace-header-summary) { display: none; }
+  .workspace-header[data-mobile-expanded="true"] .workspace-header-context { padding-top: 12px; }
+  .workspace-header[data-mobile-expanded="true"] .workspace-header-summary { grid-column: 1 / -1; }
+  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 12px 20px; padding: 16px; align-items: start; }
+  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar-group { display: grid; gap: 4px; min-width: 0; }
+  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar-group > select { width: 100%; min-width: 0; }
+  html[data-genesis-theme] .genesis-app .shared-mobile-tools > .mobile-disclosure-toggle { width: 100%; height: auto; justify-content: flex-start; }
+  html[data-genesis-theme] .genesis-app .shared-project-toolbar-group { min-width: 0; width: 100%; padding: 0; border: 0; flex-wrap: nowrap; }
+  html[data-genesis-theme] .genesis-app .shared-project-toolbar-group > select { flex: 1; min-width: 0; }
+  html[data-genesis-theme] .genesis-app .shared-workspace-search { grid-column: 1 / -1; order: 3; }
+  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar :is(button,select,input) { min-height: 44px; }
+  html[data-genesis-theme] .genesis-app .shared-projects-context { padding: 20px; }
+  html[data-genesis-theme] .genesis-app .shared-project-heading h2 { font-size: 24px; line-height: 1.35; }
+  html[data-genesis-theme] .genesis-app .shared-projects-planning { padding: 0; gap: 12px; }
+  html[data-genesis-theme] .genesis-app .shared-projects-planning > h3 { margin: 0; }
+  html[data-genesis-theme] .genesis-app .shared-projects-planning .shared-projects-create-actions { grid-column: 2; grid-row: 1; }
+  html[data-genesis-theme] .genesis-app .shared-projects-planning .shared-planning-controls { grid-column: 1 / -1; grid-row: 2; }
+  html[data-genesis-theme] .genesis-app .shared-projects-planning .shared-projects-view-switch { display: flex; width: fit-content; flex-wrap: wrap; }
+  html[data-genesis-theme] .genesis-app .shared-projects-modal { width: min(840px,calc(100vw - 48px)); max-width: none; height: auto; max-height: calc(100dvh - 48px); margin: auto; padding: 24px; overscroll-behavior: contain; }
+  html[data-genesis-theme] .genesis-app .shared-projects-modal :is(button,summary) { min-height: 44px; }
+  html[data-genesis-theme] .genesis-app .shared-projects-modal .shared-task-save { position: sticky; bottom: 0; z-index: 1; min-height: 48px; }
+}
+@media (min-width: 600px) and (max-width: 1099px) {
+  html[data-genesis-theme] .genesis-app [data-inbox-workspace][data-inbox-hidden="false"] { grid-template-columns: minmax(0,1fr); grid-template-areas: "inbox" "tree"; gap: 16px; }
+  html[data-genesis-theme] .genesis-app [data-inbox-workspace][data-inbox-position="bottom"] { grid-template-areas: "tree" "inbox"; }
+  html[data-genesis-theme] .genesis-app [data-inbox-workspace] > .inbox-resize-boundary { display: none; }
+  html[data-genesis-theme] .genesis-app [data-inbox-workspace] > .inbox-card { position: static; max-height: none; }
+  html[data-genesis-theme] .genesis-app .workspace-inbox-header > .inbox-drag-handle { display: none; }
+  html[data-genesis-theme] .genesis-app .workspace-inbox-header > .inbox-mobile-toggle { display: flex; flex: 1; align-items: center; gap: 8px; min-width: 0; min-height: 44px; padding: 8px 0; border: 0; background: transparent; color: inherit; text-align: start; }
+  .inbox-mobile-toggle svg { width: 18px; height: 18px; flex-shrink: 0; }
+  .inbox-mobile-toggle[aria-expanded="true"] svg { transform: rotate(90deg); }
+  .inbox-mobile-toggle span { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px; }
+  .inbox-mobile-toggle small { font-size: 12px; font-weight: 400; }
+  html[data-genesis-theme] .genesis-app .inbox-card:has(> .workspace-inbox-header[data-mobile-expanded="false"]) { min-height: 0; padding: 8px 16px; }
+  .inbox-card:has(> .workspace-inbox-header[data-mobile-expanded="false"]) > :not(.workspace-inbox-header),
+  .workspace-inbox-header[data-mobile-expanded="false"] > .inbox-toolbar-controls { display: none !important; }
+}
+@media (min-width: 600px) and (max-width: 1399px) {
+  html[data-genesis-theme] .genesis-app .shared-projects-task.shared-affair-draggable[data-shared-task-id] .shared-task-card-controls > select[aria-label]:not([multiple]) { min-height: 44px; height: 44px; font-size: 14px; }
+  html[data-genesis-theme] .genesis-app :is(.shared-task-actions > button,.shared-task-card-actions button,.shared-board-create-actions button,.shared-board-settings,.shared-project-settings-icon,.project-row-actions button,.inbox-hide-button,.shared-task-title-toggle) { min-width: 44px; min-height: 44px; }
+  html[data-genesis-theme] .genesis-app .shared-task-actions > button { width: 44px; height: 44px; flex-basis: 44px; }
+  html[data-genesis-theme] .genesis-app .shared-projects-view-switch > button { min-height: 44px; }
+  html[data-genesis-theme] .genesis-app :is(.inbox-display-switch button,.inbox-drag-handle) { min-height: 44px; }
+  html[data-genesis-theme] .genesis-app .project-tree-workspace :is(.experimental-add-subproject,.project-edit,.project-delete,.project-transfer) { width: 44px; min-width: 44px; height: 44px; min-height: 44px; }
+  html[data-genesis-theme] .genesis-app :is(.shared-projects-modal,.projects-view .editor-modal) :is(input,select,textarea) { font-size: 16px; }
 }

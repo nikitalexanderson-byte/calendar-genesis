@@ -1,0 +1,277 @@
+{
+  "equal": true,
+  "before": [
+    {
+      "file": "app\\day-rhythm.ts",
+      "code": 5097,
+      "message": "An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled."
+    },
+    {
+      "file": "app\\habit-laurel-retention.ts",
+      "code": 5097,
+      "message": "An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled."
+    },
+    {
+      "file": "app\\habit-notifications.ts",
+      "code": 5097,
+      "message": "An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled."
+    },
+    {
+      "file": "app\\habit-notifications.ts",
+      "code": 5097,
+      "message": "An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled."
+    },
+    {
+      "file": "app\\habit-notifications.ts",
+      "code": 5097,
+      "message": "An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled."
+    },
+    {
+      "file": "app\\habit-quests.ts",
+      "code": 5097,
+      "message": "An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled."
+    },
+    {
+      "file": "app\\habit-reset.ts",
+      "code": 2739,
+      "message": "Type '{ enabled: boolean; reportRange: HabitReportRange; customRangeStart: string; customRangeEnd: string; dailyGoalModeChanges: never[]; plannedRestDays: never[]; notifications: HabitNotificationSettings; feedback: HabitFeedbackSettings; }' is missing the following properties from type 'HabitSettings': collapsedSections, sectionOrder"
+    },
+    {
+      "file": "app\\HabitTracker.tsx",
+      "code": 2345,
+      "message": "Argument of type '\"en\" | \"el\" | \"de\" | \"fr\" | \"es\" | \"it\" | \"pt\" | \"pl\" | \"sr\" | \"uk\" | \"zh\" | \"tr\" | \"ja\" | \"ru\"' is not assignable to parameter of type '\"en\" | \"ru\" | undefined'.   Type '\"el\"' is not assignable to type '\"en\" | \"ru\" | undefined'."
+    },
+    {
+      "file": "app\\HabitTracker.tsx",
+      "code": 7053,
+      "message": "Element implicitly has an 'any' type because expression of type '\"en\" | \"el\" | \"de\" | \"fr\" | \"es\" | \"it\" | \"pt\" | \"pl\" | \"sr\" | \"uk\" | \"zh\" | \"tr\" | \"ja\" | \"ru\"' can't be used to index type 'SacredPracticeLocalizedText'.   Property 'el' does not exist on type 'SacredPracticeLocalizedText'."
+    },
+    {
+      "file": "app\\HabitTracker.tsx",
+      "code": 7053,
+      "message": "Element implicitly has an 'any' type because expression of type '\"en\" | \"el\" | \"de\" | \"fr\" | \"es\" | \"it\" | \"pt\" | \"pl\" | \"sr\" | \"uk\" | \"zh\" | \"tr\" | \"ja\" | \"ru\"' can't be used to index type 'SacredPracticeLocalizedText'.   Property 'el' does not exist on type 'SacredPracticeLocalizedText'."
+    },
+    {
+      "file": "app\\HabitTracker.tsx",
+      "code": 7053,
+      "message": "Element implicitly has an 'any' type because expression of type '\"en\" | \"el\" | \"de\" | \"fr\" | \"es\" | \"it\" | \"pt\" | \"pl\" | \"sr\" | \"uk\" | \"zh\" | \"tr\" | \"ja\" | \"ru\"' can't be used to index type 'TheokyklosLocalizedText'.   Property 'el' does not exist on type 'TheokyklosLocalizedText'."
+    },
+    {
+      "file": "app\\shared-navigation.ts",
+      "code": 5097,
+      "message": "An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled."
+    },
+    {
+      "file": "app\\solar-place.ts",
+      "code": 5097,
+      "message": "An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled."
+    },
+    {
+      "file": "app\\streak-protection.ts",
+      "code": 2339,
+      "message": "Property 'progress' does not exist on type 'never'."
+    },
+    {
+      "file": "app\\streak-protection.ts",
+      "code": 2339,
+      "message": "Property 'triggerDate' does not exist on type 'never'."
+    },
+    {
+      "file": "app\\streak-protection.ts",
+      "code": 5097,
+      "message": "An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled."
+    },
+    {
+      "file": "app\\streak-protection.ts",
+      "code": 5097,
+      "message": "An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled."
+    },
+    {
+      "file": "app\\streak-rewards.ts",
+      "code": 5097,
+      "message": "An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled."
+    },
+    {
+      "file": "app\\streak-rewards.ts",
+      "code": 5097,
+      "message": "An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled."
+    },
+    {
+      "file": "app\\task-reminders.ts",
+      "code": 5097,
+      "message": "An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled."
+    },
+    {
+      "file": "app\\TheokyklosDetailsDialog.tsx",
+      "code": 2345,
+      "message": "Argument of type '\"en\" | \"el\" | \"de\" | \"fr\" | \"es\" | \"it\" | \"pt\" | \"pl\" | \"sr\" | \"uk\" | \"zh\" | \"tr\" | \"ja\" | \"ru\"' is not assignable to parameter of type '\"en\" | \"ru\" | undefined'.   Type '\"el\"' is not assignable to type '\"en\" | \"ru\" | undefined'."
+    },
+    {
+      "file": "app\\TheokyklosView.tsx",
+      "code": 2740,
+      "message": "Type '{ north: { ru: string; en: string; }; northeast: { ru: string; en: string; }; east: { ru: string; en: string; }; southeast: { ru: string; en: string; }; south: { ru: string; en: string; }; southwest: { ru: string; en: string; }; west: { ...; }; northwest: { ...; }; }' is missing the following properties from type 'Record<TheokyklosSegmentId, TheokyklosLocalizedText>': center, zenith, nadir, hearth, and 2 more."
+    },
+    {
+      "file": "app\\YandexCalendarConnectDialog.tsx",
+      "code": 2339,
+      "message": "Property 'user' does not exist on type 'void'."
+    },
+    {
+      "file": "app\\YandexCalendarConnectDialog.tsx",
+      "code": 2554,
+      "message": "Expected 1 arguments, but got 2."
+    },
+    {
+      "file": "db\\index.ts",
+      "code": 2307,
+      "message": "Cannot find module 'cloudflare:workers' or its corresponding type declarations."
+    },
+    {
+      "file": "worker\\index.ts",
+      "code": 2304,
+      "message": "Cannot find name 'Fetcher'."
+    },
+    {
+      "file": "worker\\index.ts",
+      "code": 2552,
+      "message": "Cannot find name 'D1Database'. Did you mean 'IDBDatabase'?"
+    }
+  ],
+  "after": [
+    {
+      "file": "app\\day-rhythm.ts",
+      "code": 5097,
+      "message": "An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled."
+    },
+    {
+      "file": "app\\habit-laurel-retention.ts",
+      "code": 5097,
+      "message": "An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled."
+    },
+    {
+      "file": "app\\habit-notifications.ts",
+      "code": 5097,
+      "message": "An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled."
+    },
+    {
+      "file": "app\\habit-notifications.ts",
+      "code": 5097,
+      "message": "An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled."
+    },
+    {
+      "file": "app\\habit-notifications.ts",
+      "code": 5097,
+      "message": "An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled."
+    },
+    {
+      "file": "app\\habit-quests.ts",
+      "code": 5097,
+      "message": "An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled."
+    },
+    {
+      "file": "app\\habit-reset.ts",
+      "code": 2739,
+      "message": "Type '{ enabled: boolean; reportRange: HabitReportRange; customRangeStart: string; customRangeEnd: string; dailyGoalModeChanges: never[]; plannedRestDays: never[]; notifications: HabitNotificationSettings; feedback: HabitFeedbackSettings; }' is missing the following properties from type 'HabitSettings': collapsedSections, sectionOrder"
+    },
+    {
+      "file": "app\\HabitTracker.tsx",
+      "code": 2345,
+      "message": "Argument of type '\"en\" | \"el\" | \"de\" | \"fr\" | \"es\" | \"it\" | \"pt\" | \"pl\" | \"sr\" | \"uk\" | \"zh\" | \"tr\" | \"ja\" | \"ru\"' is not assignable to parameter of type '\"en\" | \"ru\" | undefined'.   Type '\"el\"' is not assignable to type '\"en\" | \"ru\" | undefined'."
+    },
+    {
+      "file": "app\\HabitTracker.tsx",
+      "code": 7053,
+      "message": "Element implicitly has an 'any' type because expression of type '\"en\" | \"el\" | \"de\" | \"fr\" | \"es\" | \"it\" | \"pt\" | \"pl\" | \"sr\" | \"uk\" | \"zh\" | \"tr\" | \"ja\" | \"ru\"' can't be used to index type 'SacredPracticeLocalizedText'.   Property 'el' does not exist on type 'SacredPracticeLocalizedText'."
+    },
+    {
+      "file": "app\\HabitTracker.tsx",
+      "code": 7053,
+      "message": "Element implicitly has an 'any' type because expression of type '\"en\" | \"el\" | \"de\" | \"fr\" | \"es\" | \"it\" | \"pt\" | \"pl\" | \"sr\" | \"uk\" | \"zh\" | \"tr\" | \"ja\" | \"ru\"' can't be used to index type 'SacredPracticeLocalizedText'.   Property 'el' does not exist on type 'SacredPracticeLocalizedText'."
+    },
+    {
+      "file": "app\\HabitTracker.tsx",
+      "code": 7053,
+      "message": "Element implicitly has an 'any' type because expression of type '\"en\" | \"el\" | \"de\" | \"fr\" | \"es\" | \"it\" | \"pt\" | \"pl\" | \"sr\" | \"uk\" | \"zh\" | \"tr\" | \"ja\" | \"ru\"' can't be used to index type 'TheokyklosLocalizedText'.   Property 'el' does not exist on type 'TheokyklosLocalizedText'."
+    },
+    {
+      "file": "app\\shared-navigation.ts",
+      "code": 5097,
+      "message": "An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled."
+    },
+    {
+      "file": "app\\solar-place.ts",
+      "code": 5097,
+      "message": "An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled."
+    },
+    {
+      "file": "app\\streak-protection.ts",
+      "code": 2339,
+      "message": "Property 'progress' does not exist on type 'never'."
+    },
+    {
+      "file": "app\\streak-protection.ts",
+      "code": 2339,
+      "message": "Property 'triggerDate' does not exist on type 'never'."
+    },
+    {
+      "file": "app\\streak-protection.ts",
+      "code": 5097,
+      "message": "An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled."
+    },
+    {
+      "file": "app\\streak-protection.ts",
+      "code": 5097,
+      "message": "An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled."
+    },
+    {
+      "file": "app\\streak-rewards.ts",
+      "code": 5097,
+      "message": "An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled."
+    },
+    {
+      "file": "app\\streak-rewards.ts",
+      "code": 5097,
+      "message": "An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled."
+    },
+    {
+      "file": "app\\task-reminders.ts",
+      "code": 5097,
+      "message": "An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled."
+    },
+    {
+      "file": "app\\TheokyklosDetailsDialog.tsx",
+      "code": 2345,
+      "message": "Argument of type '\"en\" | \"el\" | \"de\" | \"fr\" | \"es\" | \"it\" | \"pt\" | \"pl\" | \"sr\" | \"uk\" | \"zh\" | \"tr\" | \"ja\" | \"ru\"' is not assignable to parameter of type '\"en\" | \"ru\" | undefined'.   Type '\"el\"' is not assignable to type '\"en\" | \"ru\" | undefined'."
+    },
+    {
+      "file": "app\\TheokyklosView.tsx",
+      "code": 2740,
+      "message": "Type '{ north: { ru: string; en: string; }; northeast: { ru: string; en: string; }; east: { ru: string; en: string; }; southeast: { ru: string; en: string; }; south: { ru: string; en: string; }; southwest: { ru: string; en: string; }; west: { ...; }; northwest: { ...; }; }' is missing the following properties from type 'Record<TheokyklosSegmentId, TheokyklosLocalizedText>': center, zenith, nadir, hearth, and 2 more."
+    },
+    {
+      "file": "app\\YandexCalendarConnectDialog.tsx",
+      "code": 2339,
+      "message": "Property 'user' does not exist on type 'void'."
+    },
+    {
+      "file": "app\\YandexCalendarConnectDialog.tsx",
+      "code": 2554,
+      "message": "Expected 1 arguments, but got 2."
+    },
+    {
+      "file": "db\\index.ts",
+      "code": 2307,
+      "message": "Cannot find module 'cloudflare:workers' or its corresponding type declarations."
+    },
+    {
+      "file": "worker\\index.ts",
+      "code": 2304,
+      "message": "Cannot find name 'Fetcher'."
+    },
+    {
+      "file": "worker\\index.ts",
+      "code": 2552,
+      "message": "Cannot find name 'D1Database'. Did you mean 'IDBDatabase'?"
+    }
+  ]
+}

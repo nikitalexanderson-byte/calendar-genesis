@@ -1,0 +1,1734 @@
+[
+  {
+    "width": 600,
+    "height": 960,
+    "theme": "standart",
+    "errors": [],
+    "states": [
+      {
+        "name": "shared",
+        "overflow": false,
+        "viewport": {
+          "width": 600,
+          "height": 960
+        },
+        "firstTask": {
+          "x": 39.59375,
+          "y": 1169.140625,
+          "width": 520.8125,
+          "height": 144.4375,
+          "display": "grid"
+        },
+        "workspace": {
+          "x": 25,
+          "y": 1042.546875,
+          "width": 550,
+          "height": 1405.40625,
+          "display": "grid"
+        },
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "task",
+        "overflow": false,
+        "viewport": {
+          "width": 600,
+          "height": 960
+        },
+        "firstTask": {
+          "x": 39.59375,
+          "y": 1422.3125,
+          "width": 520.8125,
+          "height": 144.4375,
+          "display": "grid"
+        },
+        "workspace": {
+          "x": 25,
+          "y": 1295.71875,
+          "width": 550,
+          "height": 1405.40625,
+          "display": "grid"
+        },
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "personal",
+        "overflow": false,
+        "viewport": {
+          "width": 600,
+          "height": 960
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "catalog",
+        "overflow": false,
+        "viewport": {
+          "width": 600,
+          "height": 960
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "outline",
+        "overflow": false,
+        "viewport": {
+          "width": 600,
+          "height": 960
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": {
+          "x": 12,
+          "y": 732.78125,
+          "width": 576,
+          "height": 533.78125,
+          "display": "block"
+        },
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "canvas",
+        "overflow": false,
+        "viewport": {
+          "width": 600,
+          "height": 960
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": {
+          "x": 12,
+          "y": 722.78125,
+          "width": 576,
+          "height": 648,
+          "display": "block"
+        },
+        "inspector": null,
+        "smallControls": []
+      }
+    ]
+  },
+  {
+    "width": 600,
+    "height": 960,
+    "theme": "standart-dark",
+    "errors": [],
+    "states": [
+      {
+        "name": "shared",
+        "overflow": false,
+        "viewport": {
+          "width": 600,
+          "height": 960
+        },
+        "firstTask": {
+          "x": 39.59375,
+          "y": 1169.140625,
+          "width": 520.8125,
+          "height": 144.4375,
+          "display": "grid"
+        },
+        "workspace": {
+          "x": 25,
+          "y": 1042.546875,
+          "width": 550,
+          "height": 1405.40625,
+          "display": "grid"
+        },
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "task",
+        "overflow": false,
+        "viewport": {
+          "width": 600,
+          "height": 960
+        },
+        "firstTask": {
+          "x": 39.59375,
+          "y": 1422.3125,
+          "width": 520.8125,
+          "height": 144.4375,
+          "display": "grid"
+        },
+        "workspace": {
+          "x": 25,
+          "y": 1295.71875,
+          "width": 550,
+          "height": 1405.40625,
+          "display": "grid"
+        },
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "personal",
+        "overflow": false,
+        "viewport": {
+          "width": 600,
+          "height": 960
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "catalog",
+        "overflow": false,
+        "viewport": {
+          "width": 600,
+          "height": 960
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "outline",
+        "overflow": false,
+        "viewport": {
+          "width": 600,
+          "height": 960
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": {
+          "x": 12,
+          "y": 728.78125,
+          "width": 576,
+          "height": 533.78125,
+          "display": "block"
+        },
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "canvas",
+        "overflow": false,
+        "viewport": {
+          "width": 600,
+          "height": 960
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": {
+          "x": 12,
+          "y": 736.78125,
+          "width": 576,
+          "height": 648,
+          "display": "block"
+        },
+        "inspector": null,
+        "smallControls": []
+      }
+    ]
+  },
+  {
+    "width": 960,
+    "height": 600,
+    "theme": "standart",
+    "errors": [],
+    "states": [
+      {
+        "name": "shared",
+        "overflow": false,
+        "viewport": {
+          "width": 960,
+          "height": 600
+        },
+        "firstTask": {
+          "x": 59.59375,
+          "y": 1149.953125,
+          "width": 840.8125,
+          "height": 139.625,
+          "display": "grid"
+        },
+        "workspace": {
+          "x": 45,
+          "y": 1023.359375,
+          "width": 870,
+          "height": 1354.03125,
+          "display": "grid"
+        },
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "task",
+        "overflow": false,
+        "viewport": {
+          "width": 960,
+          "height": 600
+        },
+        "firstTask": {
+          "x": 59.59375,
+          "y": 993.734375,
+          "width": 840.8125,
+          "height": 139.625,
+          "display": "grid"
+        },
+        "workspace": {
+          "x": 45,
+          "y": 867.140625,
+          "width": 870,
+          "height": 1354.03125,
+          "display": "grid"
+        },
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "personal",
+        "overflow": false,
+        "viewport": {
+          "width": 960,
+          "height": 600
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "catalog",
+        "overflow": false,
+        "viewport": {
+          "width": 960,
+          "height": 600
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "outline",
+        "overflow": false,
+        "viewport": {
+          "width": 960,
+          "height": 600
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": {
+          "x": 24,
+          "y": 555.984375,
+          "width": 912,
+          "height": 541.78125,
+          "display": "block"
+        },
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "canvas",
+        "overflow": false,
+        "viewport": {
+          "width": 960,
+          "height": 600
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": {
+          "x": 24,
+          "y": 665.984375,
+          "width": 912,
+          "height": 494,
+          "display": "block"
+        },
+        "inspector": null,
+        "smallControls": []
+      }
+    ]
+  },
+  {
+    "width": 960,
+    "height": 600,
+    "theme": "standart-dark",
+    "errors": [],
+    "states": [
+      {
+        "name": "shared",
+        "overflow": false,
+        "viewport": {
+          "width": 960,
+          "height": 600
+        },
+        "firstTask": {
+          "x": 59.59375,
+          "y": 1149.953125,
+          "width": 840.8125,
+          "height": 139.625,
+          "display": "grid"
+        },
+        "workspace": {
+          "x": 45,
+          "y": 1023.359375,
+          "width": 870,
+          "height": 1354.03125,
+          "display": "grid"
+        },
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "task",
+        "overflow": false,
+        "viewport": {
+          "width": 960,
+          "height": 600
+        },
+        "firstTask": {
+          "x": 59.59375,
+          "y": 1213.734375,
+          "width": 840.8125,
+          "height": 139.625,
+          "display": "grid"
+        },
+        "workspace": {
+          "x": 45,
+          "y": 1087.140625,
+          "width": 870,
+          "height": 1354.03125,
+          "display": "grid"
+        },
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "personal",
+        "overflow": false,
+        "viewport": {
+          "width": 960,
+          "height": 600
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "catalog",
+        "overflow": false,
+        "viewport": {
+          "width": 960,
+          "height": 600
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "outline",
+        "overflow": false,
+        "viewport": {
+          "width": 960,
+          "height": 600
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": {
+          "x": 24,
+          "y": 524.984375,
+          "width": 912,
+          "height": 541.78125,
+          "display": "block"
+        },
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "canvas",
+        "overflow": false,
+        "viewport": {
+          "width": 960,
+          "height": 600
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": {
+          "x": 24,
+          "y": 409.984375,
+          "width": 912,
+          "height": 494,
+          "display": "block"
+        },
+        "inspector": null,
+        "smallControls": []
+      }
+    ]
+  },
+  {
+    "width": 800,
+    "height": 1280,
+    "theme": "standart",
+    "errors": [],
+    "states": [
+      {
+        "name": "shared",
+        "overflow": false,
+        "viewport": {
+          "width": 800,
+          "height": 1280
+        },
+        "firstTask": {
+          "x": 59.59375,
+          "y": 1149.953125,
+          "width": 680.8125,
+          "height": 139.625,
+          "display": "grid"
+        },
+        "workspace": {
+          "x": 45,
+          "y": 1023.359375,
+          "width": 710,
+          "height": 1376.53125,
+          "display": "grid"
+        },
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "task",
+        "overflow": false,
+        "viewport": {
+          "width": 800,
+          "height": 1280
+        },
+        "firstTask": {
+          "x": 59.59375,
+          "y": 1358.125,
+          "width": 680.8125,
+          "height": 139.625,
+          "display": "grid"
+        },
+        "workspace": {
+          "x": 45,
+          "y": 1231.53125,
+          "width": 710,
+          "height": 1376.53125,
+          "display": "grid"
+        },
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "personal",
+        "overflow": false,
+        "viewport": {
+          "width": 800,
+          "height": 1280
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "catalog",
+        "overflow": false,
+        "viewport": {
+          "width": 800,
+          "height": 1280
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "outline",
+        "overflow": false,
+        "viewport": {
+          "width": 800,
+          "height": 1280
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": {
+          "x": 24,
+          "y": 643.984375,
+          "width": 752,
+          "height": 541.78125,
+          "display": "block"
+        },
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "canvas",
+        "overflow": false,
+        "viewport": {
+          "width": 800,
+          "height": 1280
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": {
+          "x": 24,
+          "y": 675.984375,
+          "width": 752,
+          "height": 864,
+          "display": "block"
+        },
+        "inspector": null,
+        "smallControls": []
+      }
+    ]
+  },
+  {
+    "width": 800,
+    "height": 1280,
+    "theme": "standart-dark",
+    "errors": [],
+    "states": [
+      {
+        "name": "shared",
+        "overflow": false,
+        "viewport": {
+          "width": 800,
+          "height": 1280
+        },
+        "firstTask": {
+          "x": 59.59375,
+          "y": 1149.953125,
+          "width": 680.8125,
+          "height": 139.625,
+          "display": "grid"
+        },
+        "workspace": {
+          "x": 45,
+          "y": 1023.359375,
+          "width": 710,
+          "height": 1376.53125,
+          "display": "grid"
+        },
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "task",
+        "overflow": false,
+        "viewport": {
+          "width": 800,
+          "height": 1280
+        },
+        "firstTask": {
+          "x": 59.59375,
+          "y": 1358.125,
+          "width": 680.8125,
+          "height": 139.625,
+          "display": "grid"
+        },
+        "workspace": {
+          "x": 45,
+          "y": 1231.53125,
+          "width": 710,
+          "height": 1376.53125,
+          "display": "grid"
+        },
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "personal",
+        "overflow": false,
+        "viewport": {
+          "width": 800,
+          "height": 1280
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "catalog",
+        "overflow": false,
+        "viewport": {
+          "width": 800,
+          "height": 1280
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "outline",
+        "overflow": false,
+        "viewport": {
+          "width": 800,
+          "height": 1280
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": {
+          "x": 24,
+          "y": 643.984375,
+          "width": 752,
+          "height": 541.78125,
+          "display": "block"
+        },
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "canvas",
+        "overflow": false,
+        "viewport": {
+          "width": 800,
+          "height": 1280
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": {
+          "x": 24,
+          "y": 675.984375,
+          "width": 752,
+          "height": 864,
+          "display": "block"
+        },
+        "inspector": null,
+        "smallControls": []
+      }
+    ]
+  },
+  {
+    "width": 1280,
+    "height": 800,
+    "theme": "standart",
+    "errors": [],
+    "states": [
+      {
+        "name": "shared",
+        "overflow": false,
+        "viewport": {
+          "width": 1280,
+          "height": 800
+        },
+        "firstTask": {
+          "x": 299.59375,
+          "y": 1023.140625,
+          "width": 242.8125,
+          "height": 184.625,
+          "display": "grid"
+        },
+        "workspace": {
+          "x": 285,
+          "y": 893.546875,
+          "width": 626,
+          "height": 573.625,
+          "display": "grid"
+        },
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "task",
+        "overflow": false,
+        "viewport": {
+          "width": 1280,
+          "height": 800
+        },
+        "firstTask": {
+          "x": 299.59375,
+          "y": 1208.921875,
+          "width": 242.8125,
+          "height": 184.625,
+          "display": "grid"
+        },
+        "workspace": {
+          "x": 285,
+          "y": 1079.328125,
+          "width": 626,
+          "height": 573.625,
+          "display": "grid"
+        },
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "personal",
+        "overflow": false,
+        "viewport": {
+          "width": 1280,
+          "height": 800
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "catalog",
+        "overflow": false,
+        "viewport": {
+          "width": 1280,
+          "height": 800
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "outline",
+        "overflow": false,
+        "viewport": {
+          "width": 1280,
+          "height": 800
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": {
+          "x": 264,
+          "y": 608.984375,
+          "width": 648,
+          "height": 497.78125,
+          "display": "block"
+        },
+        "inspector": {
+          "x": 936,
+          "y": 608.984375,
+          "width": 320,
+          "height": 939.734375,
+          "display": "block"
+        },
+        "smallControls": []
+      },
+      {
+        "name": "canvas",
+        "overflow": false,
+        "viewport": {
+          "width": 1280,
+          "height": 800
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": {
+          "x": 264,
+          "y": 609.984375,
+          "width": 648,
+          "height": 580,
+          "display": "block"
+        },
+        "inspector": {
+          "x": 936,
+          "y": 609.984375,
+          "width": 320,
+          "height": 939.734375,
+          "display": "block"
+        },
+        "smallControls": []
+      }
+    ]
+  },
+  {
+    "width": 1280,
+    "height": 800,
+    "theme": "standart-dark",
+    "errors": [],
+    "states": [
+      {
+        "name": "shared",
+        "overflow": false,
+        "viewport": {
+          "width": 1280,
+          "height": 800
+        },
+        "firstTask": {
+          "x": 299.59375,
+          "y": 1023.140625,
+          "width": 242.8125,
+          "height": 184.625,
+          "display": "grid"
+        },
+        "workspace": {
+          "x": 285,
+          "y": 893.546875,
+          "width": 626,
+          "height": 573.625,
+          "display": "grid"
+        },
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "task",
+        "overflow": false,
+        "viewport": {
+          "width": 1280,
+          "height": 800
+        },
+        "firstTask": {
+          "x": 299.59375,
+          "y": 1208.921875,
+          "width": 242.8125,
+          "height": 184.625,
+          "display": "grid"
+        },
+        "workspace": {
+          "x": 285,
+          "y": 1079.328125,
+          "width": 626,
+          "height": 573.625,
+          "display": "grid"
+        },
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "personal",
+        "overflow": false,
+        "viewport": {
+          "width": 1280,
+          "height": 800
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "catalog",
+        "overflow": false,
+        "viewport": {
+          "width": 1280,
+          "height": 800
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "outline",
+        "overflow": false,
+        "viewport": {
+          "width": 1280,
+          "height": 800
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": {
+          "x": 264,
+          "y": 608.984375,
+          "width": 648,
+          "height": 497.78125,
+          "display": "block"
+        },
+        "inspector": {
+          "x": 936,
+          "y": 608.984375,
+          "width": 320,
+          "height": 939.734375,
+          "display": "block"
+        },
+        "smallControls": []
+      },
+      {
+        "name": "canvas",
+        "overflow": false,
+        "viewport": {
+          "width": 1280,
+          "height": 800
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": {
+          "x": 264,
+          "y": 609.984375,
+          "width": 648,
+          "height": 580,
+          "display": "block"
+        },
+        "inspector": {
+          "x": 936,
+          "y": 609.984375,
+          "width": 320,
+          "height": 939.734375,
+          "display": "block"
+        },
+        "smallControls": []
+      }
+    ]
+  },
+  {
+    "width": 768,
+    "height": 1024,
+    "theme": "standart",
+    "errors": [],
+    "states": [
+      {
+        "name": "shared",
+        "overflow": false,
+        "viewport": {
+          "width": 768,
+          "height": 1024
+        },
+        "firstTask": {
+          "x": 59.59375,
+          "y": 1149.953125,
+          "width": 648.8125,
+          "height": 139.625,
+          "display": "grid"
+        },
+        "workspace": {
+          "x": 45,
+          "y": 1023.359375,
+          "width": 678,
+          "height": 1376.53125,
+          "display": "grid"
+        },
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "task",
+        "overflow": false,
+        "viewport": {
+          "width": 768,
+          "height": 1024
+        },
+        "firstTask": {
+          "x": 59.59375,
+          "y": 1358.125,
+          "width": 648.8125,
+          "height": 139.625,
+          "display": "grid"
+        },
+        "workspace": {
+          "x": 45,
+          "y": 1231.53125,
+          "width": 678,
+          "height": 1376.53125,
+          "display": "grid"
+        },
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "personal",
+        "overflow": false,
+        "viewport": {
+          "width": 768,
+          "height": 1024
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "catalog",
+        "overflow": false,
+        "viewport": {
+          "width": 768,
+          "height": 1024
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "outline",
+        "overflow": false,
+        "viewport": {
+          "width": 768,
+          "height": 1024
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": {
+          "x": 24,
+          "y": 392.984375,
+          "width": 720,
+          "height": 541.78125,
+          "display": "block"
+        },
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "canvas",
+        "overflow": false,
+        "viewport": {
+          "width": 768,
+          "height": 1024
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": {
+          "x": 24,
+          "y": 675.984375,
+          "width": 720,
+          "height": 769.59375,
+          "display": "block"
+        },
+        "inspector": null,
+        "smallControls": []
+      }
+    ]
+  },
+  {
+    "width": 768,
+    "height": 1024,
+    "theme": "standart-dark",
+    "errors": [],
+    "states": [
+      {
+        "name": "shared",
+        "overflow": false,
+        "viewport": {
+          "width": 768,
+          "height": 1024
+        },
+        "firstTask": {
+          "x": 59.59375,
+          "y": 1149.953125,
+          "width": 648.8125,
+          "height": 139.625,
+          "display": "grid"
+        },
+        "workspace": {
+          "x": 45,
+          "y": 1023.359375,
+          "width": 678,
+          "height": 1376.53125,
+          "display": "grid"
+        },
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "task",
+        "overflow": false,
+        "viewport": {
+          "width": 768,
+          "height": 1024
+        },
+        "firstTask": {
+          "x": 59.59375,
+          "y": 1358.125,
+          "width": 648.8125,
+          "height": 139.625,
+          "display": "grid"
+        },
+        "workspace": {
+          "x": 45,
+          "y": 1231.53125,
+          "width": 678,
+          "height": 1376.53125,
+          "display": "grid"
+        },
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "personal",
+        "overflow": false,
+        "viewport": {
+          "width": 768,
+          "height": 1024
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "catalog",
+        "overflow": false,
+        "viewport": {
+          "width": 768,
+          "height": 1024
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "outline",
+        "overflow": false,
+        "viewport": {
+          "width": 768,
+          "height": 1024
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": {
+          "x": 24,
+          "y": 392.984375,
+          "width": 720,
+          "height": 541.78125,
+          "display": "block"
+        },
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "canvas",
+        "overflow": false,
+        "viewport": {
+          "width": 768,
+          "height": 1024
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": {
+          "x": 24,
+          "y": 675.984375,
+          "width": 720,
+          "height": 769.59375,
+          "display": "block"
+        },
+        "inspector": null,
+        "smallControls": []
+      }
+    ]
+  },
+  {
+    "width": 1024,
+    "height": 768,
+    "theme": "standart",
+    "errors": [],
+    "states": [
+      {
+        "name": "shared",
+        "overflow": false,
+        "viewport": {
+          "width": 1024,
+          "height": 768
+        },
+        "firstTask": {
+          "x": 59.59375,
+          "y": 1054.953125,
+          "width": 588.8125,
+          "height": 139.625,
+          "display": "grid"
+        },
+        "workspace": {
+          "x": 45,
+          "y": 928.359375,
+          "width": 618,
+          "height": 1376.53125,
+          "display": "grid"
+        },
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "task",
+        "overflow": false,
+        "viewport": {
+          "width": 1024,
+          "height": 768
+        },
+        "firstTask": {
+          "x": 59.59375,
+          "y": 1192.734375,
+          "width": 588.8125,
+          "height": 139.625,
+          "display": "grid"
+        },
+        "workspace": {
+          "x": 45,
+          "y": 1066.140625,
+          "width": 618,
+          "height": 1376.53125,
+          "display": "grid"
+        },
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "personal",
+        "overflow": false,
+        "viewport": {
+          "width": 1024,
+          "height": 768
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "catalog",
+        "overflow": false,
+        "viewport": {
+          "width": 1024,
+          "height": 768
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "outline",
+        "overflow": false,
+        "viewport": {
+          "width": 1024,
+          "height": 768
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": {
+          "x": 24,
+          "y": 675.984375,
+          "width": 976,
+          "height": 541.78125,
+          "display": "block"
+        },
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "canvas",
+        "overflow": false,
+        "viewport": {
+          "width": 1024,
+          "height": 768
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": {
+          "x": 24,
+          "y": 675.984375,
+          "width": 976,
+          "height": 603.1875,
+          "display": "block"
+        },
+        "inspector": null,
+        "smallControls": []
+      }
+    ]
+  },
+  {
+    "width": 1024,
+    "height": 768,
+    "theme": "standart-dark",
+    "errors": [],
+    "states": [
+      {
+        "name": "shared",
+        "overflow": false,
+        "viewport": {
+          "width": 1024,
+          "height": 768
+        },
+        "firstTask": {
+          "x": 59.59375,
+          "y": 1054.953125,
+          "width": 588.8125,
+          "height": 139.625,
+          "display": "grid"
+        },
+        "workspace": {
+          "x": 45,
+          "y": 928.359375,
+          "width": 618,
+          "height": 1376.53125,
+          "display": "grid"
+        },
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "task",
+        "overflow": false,
+        "viewport": {
+          "width": 1024,
+          "height": 768
+        },
+        "firstTask": {
+          "x": 59.59375,
+          "y": 1195.734375,
+          "width": 588.8125,
+          "height": 139.625,
+          "display": "grid"
+        },
+        "workspace": {
+          "x": 45,
+          "y": 1069.140625,
+          "width": 618,
+          "height": 1376.53125,
+          "display": "grid"
+        },
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "personal",
+        "overflow": false,
+        "viewport": {
+          "width": 1024,
+          "height": 768
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "catalog",
+        "overflow": false,
+        "viewport": {
+          "width": 1024,
+          "height": 768
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "outline",
+        "overflow": false,
+        "viewport": {
+          "width": 1024,
+          "height": 768
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": {
+          "x": 24,
+          "y": 640.984375,
+          "width": 976,
+          "height": 541.78125,
+          "display": "block"
+        },
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "canvas",
+        "overflow": false,
+        "viewport": {
+          "width": 1024,
+          "height": 768
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": {
+          "x": 24,
+          "y": 675.984375,
+          "width": 976,
+          "height": 603.1875,
+          "display": "block"
+        },
+        "inspector": null,
+        "smallControls": []
+      }
+    ]
+  },
+  {
+    "width": 640,
+    "height": 800,
+    "theme": "standart",
+    "errors": [],
+    "states": [
+      {
+        "name": "shared",
+        "overflow": false,
+        "viewport": {
+          "width": 640,
+          "height": 800
+        },
+        "firstTask": {
+          "x": 51.59375,
+          "y": 1302.34375,
+          "width": 536.8125,
+          "height": 144.4375,
+          "display": "grid"
+        },
+        "workspace": {
+          "x": 37,
+          "y": 1175.75,
+          "width": 566,
+          "height": 1405.40625,
+          "display": "grid"
+        },
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "task",
+        "overflow": false,
+        "viewport": {
+          "width": 640,
+          "height": 800
+        },
+        "firstTask": {
+          "x": 51.59375,
+          "y": 1431.515625,
+          "width": 536.8125,
+          "height": 144.4375,
+          "display": "grid"
+        },
+        "workspace": {
+          "x": 37,
+          "y": 1304.921875,
+          "width": 566,
+          "height": 1405.40625,
+          "display": "grid"
+        },
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "personal",
+        "overflow": false,
+        "viewport": {
+          "width": 640,
+          "height": 800
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "catalog",
+        "overflow": false,
+        "viewport": {
+          "width": 640,
+          "height": 800
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "outline",
+        "overflow": false,
+        "viewport": {
+          "width": 640,
+          "height": 800
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": {
+          "x": 24,
+          "y": 697.984375,
+          "width": 592,
+          "height": 533.78125,
+          "display": "block"
+        },
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "canvas",
+        "overflow": false,
+        "viewport": {
+          "width": 640,
+          "height": 800
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": {
+          "x": 24,
+          "y": 731.984375,
+          "width": 592,
+          "height": 560,
+          "display": "block"
+        },
+        "inspector": null,
+        "smallControls": []
+      }
+    ]
+  },
+  {
+    "width": 640,
+    "height": 800,
+    "theme": "standart-dark",
+    "errors": [],
+    "states": [
+      {
+        "name": "shared",
+        "overflow": false,
+        "viewport": {
+          "width": 640,
+          "height": 800
+        },
+        "firstTask": {
+          "x": 51.59375,
+          "y": 1302.34375,
+          "width": 536.8125,
+          "height": 144.4375,
+          "display": "grid"
+        },
+        "workspace": {
+          "x": 37,
+          "y": 1175.75,
+          "width": 566,
+          "height": 1405.40625,
+          "display": "grid"
+        },
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "task",
+        "overflow": false,
+        "viewport": {
+          "width": 640,
+          "height": 800
+        },
+        "firstTask": {
+          "x": 51.59375,
+          "y": 1453.515625,
+          "width": 536.8125,
+          "height": 144.4375,
+          "display": "grid"
+        },
+        "workspace": {
+          "x": 37,
+          "y": 1326.921875,
+          "width": 566,
+          "height": 1405.40625,
+          "display": "grid"
+        },
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "personal",
+        "overflow": false,
+        "viewport": {
+          "width": 640,
+          "height": 800
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "catalog",
+        "overflow": false,
+        "viewport": {
+          "width": 640,
+          "height": 800
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": null,
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "outline",
+        "overflow": false,
+        "viewport": {
+          "width": 640,
+          "height": 800
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": {
+          "x": 24,
+          "y": 697.984375,
+          "width": 592,
+          "height": 533.78125,
+          "display": "block"
+        },
+        "inspector": null,
+        "smallControls": []
+      },
+      {
+        "name": "canvas",
+        "overflow": false,
+        "viewport": {
+          "width": 640,
+          "height": 800
+        },
+        "firstTask": null,
+        "workspace": null,
+        "mindmap": {
+          "x": 24,
+          "y": 731.984375,
+          "width": 592,
+          "height": 560,
+          "display": "block"
+        },
+        "inspector": null,
+        "smallControls": []
+      }
+    ]
+  }
+]

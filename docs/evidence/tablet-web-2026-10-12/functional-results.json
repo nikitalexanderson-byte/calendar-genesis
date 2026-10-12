@@ -1,0 +1,120 @@
+{
+  "androidEmulator": false,
+  "browser": "Chromium touch emulation",
+  "results": [
+    {
+      "width": 600,
+      "height": 960,
+      "rotated": {
+        "width": 960,
+        "height": 600
+      },
+      "theme": "standart",
+      "shared": true,
+      "commentsErrorRetry": true,
+      "rotationDraft": true,
+      "narrowWindowDraft": true,
+      "reload": true,
+      "explicitViewPreserved": true,
+      "mindmap": true,
+      "conversion": true,
+      "offlineReload": true,
+      "errors": []
+    },
+    {
+      "width": 600,
+      "height": 960,
+      "rotated": {
+        "width": 960,
+        "height": 600
+      },
+      "theme": "standart-dark",
+      "shared": true,
+      "commentsErrorRetry": true,
+      "rotationDraft": true,
+      "narrowWindowDraft": true,
+      "reload": true,
+      "explicitViewPreserved": true,
+      "mindmap": true,
+      "conversion": true,
+      "offlineReload": true,
+      "errors": []
+    },
+    {
+      "width": 800,
+      "height": 1280,
+      "rotated": {
+        "width": 1280,
+        "height": 800
+      },
+      "theme": "standart",
+      "shared": true,
+      "commentsErrorRetry": true,
+      "rotationDraft": true,
+      "narrowWindowDraft": true,
+      "reload": true,
+      "explicitViewPreserved": true,
+      "mindmap": true,
+      "conversion": true,
+      "offlineReload": true,
+      "errors": []
+    },
+    {
+      "width": 800,
+      "height": 1280,
+      "rotated": {
+        "width": 1280,
+        "height": 800
+      },
+      "theme": "standart-dark",
+      "shared": true,
+      "commentsErrorRetry": true,
+      "rotationDraft": true,
+      "narrowWindowDraft": true,
+      "reload": true,
+      "explicitViewPreserved": true,
+      "mindmap": true,
+      "conversion": true,
+      "offlineReload": true,
+      "errors": []
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "rotated": {
+        "width": 800,
+        "height": 1280
+      },
+      "theme": "standart",
+      "shared": true,
+      "commentsErrorRetry": true,
+      "rotationDraft": true,
+      "narrowWindowDraft": true,
+      "reload": true,
+      "explicitViewPreserved": true,
+      "mindmap": true,
+      "conversion": true,
+      "offlineReload": true,
+      "errors": []
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "rotated": {
+        "width": 800,
+        "height": 1280
+      },
+      "theme": "standart-dark",
+      "shared": true,
+      "commentsErrorRetry": true,
+      "rotationDraft": true,
+      "narrowWindowDraft": true,
+      "reload": true,
+      "explicitViewPreserved": true,
+      "mindmap": true,
+      "conversion": true,
+      "offlineReload": true,
+      "errors": []
+    }
+  ]
+}

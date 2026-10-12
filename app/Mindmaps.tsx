@@ -12,7 +12,7 @@ import { printMindmap } from "./mindmaps-pdf";
 import { recurrenceDatesForTask } from "./task-recurrence";
 
 const Canvas = lazy(() => import("./MindmapCanvas"));
-const mobileQuery = () => window.matchMedia("(max-width: 760px)");
+const mobileQuery = () => window.matchMedia("(max-width: 1099px)");
 const subscribeMobile = (fn: () => void) => { const q = mobileQuery(); q.addEventListener("change", fn); return () => q.removeEventListener("change", fn); };
 const mobileSnapshot = () => mobileQuery().matches;
 const serverSnapshot = () => false;
