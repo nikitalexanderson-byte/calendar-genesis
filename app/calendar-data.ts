@@ -652,7 +652,9 @@ export function calendarDateNote(date: Date, mode: CalendarMode) {
 
 export function getSacredDay(monthIndex: number, day: number) {
   const sacredDay = MONTHS[monthIndex]?.days[day - 1] ?? MONTHS[12].days[0];
-  if (runtimeLocale() !== "en-US") return sacredDay;
+  // Authored translations currently exist in Russian and English. Other
+  // locales use the English day copy until their own calendar corpus exists.
+  if (runtimeLocale() === "ru-RU") return sacredDay;
   const index = monthIndex < 12 ? (monthIndex * 30) + day - 1 : 360 + day - 1;
   const englishDay = ENGLISH_DAYS[index];
   return englishDay ? { ...sacredDay, ...englishDay } : sacredDay;

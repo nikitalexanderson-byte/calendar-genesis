@@ -2083,5 +2083,12 @@
   "Например, решение": "Par exemple, décision",
   "Добавить тег": "Ajouter un tag",
   "Убрать тег": "Supprimer le tag",
-  "Настройка карты": "Paramètres de la carte"
+  "Настройка карты": "Paramètres de la carte",
+  "Для обновления задач подключите Google Calendar и Tasks.": "Connectez Google Calendar et Tasks pour mettre à jour les tâches.",
+  "Завершить задачу": "Terminer la tâche",
+  "Вернуть проект": "Restaurer le projet",
+  "Редактировать проект": "Modifier le projet",
+  "Перетащить задачу": "Déplacer la tâche",
+  "Только для просмотра": "Lecture seule",
+  "Открыть день": "Ouvrir le jour"
 }

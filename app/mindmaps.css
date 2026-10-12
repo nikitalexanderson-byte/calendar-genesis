@@ -16,10 +16,7 @@
 .mindmap-search { position: relative; }
 .mindmap-search input { padding-right: 44px !important; }
 .mindmap-search > svg { position: absolute; right: 14px; bottom: 13px; width: 18px; height: 18px; pointer-events: none; color: var(--ink-soft); }
-.mindmap-node-toolbar { flex-wrap: nowrap; }
-.mindmap-node-toolbar > .mindmap-node-search { flex: 1 1 auto; min-width: 0; gap: 0; }
 .mindmap-node-search input:focus::placeholder { color: transparent; }
-.mindmap-node-toolbar > button { flex: 0 0 auto; }
 .mindmap-save-state { font-size: 13px; color: var(--ink-soft); padding: 12px 0; max-width: 240px; }
 .mindmap-catalog { display: grid; gap: 16px; }
 .mindmap-catalog article { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 24px; min-height: 128px; padding: 20px; border: 1px solid var(--exp-border); border-radius: 12px; background: var(--surface); }
@@ -37,6 +34,8 @@
 .mindmap-five-actions { flex-wrap: nowrap; margin-block: 16px; }
 .mindmap-order-actions { flex-wrap: nowrap; }
 .mindmap-primary-toolbar > button { font: 600 14px/1.4 var(--font-ui); }
+.mindmap-primary-toolbar > .mindmap-node-search { flex: 1 1 180px; min-width: 160px; max-width: none; gap: 0; }
+.mindmap-primary-toolbar > .mindmap-all-map { flex: 0 0 auto; }
 .mindmaps .mindmap-more-toggle { display: inline-flex; align-items: center; gap: 8px; flex: 0 0 auto; margin-inline-start: auto; }
 .mindmap-more-toggle > svg { width: 18px; height: 18px; color: var(--ui-accent); }
 .mindmap-more-toggle > svg:last-child { transition: transform 150ms ease-out; }
@@ -147,8 +146,10 @@ html[data-genesis-theme] .genesis-app .mindmap-header .mindmap-back-link { grid-
   html[data-genesis-theme] .genesis-app .mindmap-header .mindmap-back-link { grid-column: 1; grid-row: 2; }
   html[data-genesis-theme] .genesis-app .mindmap-header:has(.mindmap-save-state) .mindmap-back-link { grid-row: 3; }
   .mindmap-workspace { display: block; }
+  .mindmap-primary-toolbar > [role="group"] { flex: 0 0 100%; }
+  .mindmaps .mindmap-primary-toolbar > [role="group"] > .mindmap-icon-action { flex: 1 1 0; }
   .mindmap-toolbar > label { flex-basis: 100%; }
-  .mindmap-node-toolbar > .mindmap-node-search { flex-basis: auto; }
+  .mindmap-primary-toolbar > .mindmap-node-search { flex-basis: 100%; min-width: 0; }
   .mindmap-save-state { max-width: none; padding: 0; }
   .mindmap-mobile-inspector { width: 100%; margin-top: 16px; }
   .mindmap-dialog-backdrop { padding: 0; align-items: stretch; }
