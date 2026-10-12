@@ -146,6 +146,19 @@ class HabitsRepository(private val app: GenesisApplication) {
         return HabitCompletionResult(after.achievementUnlocks.count { it.achievementId !in known })
     }
 
+    suspend fun completeInterval(id: String, time: String, completed: Boolean,
+        date: LocalDate = LocalDate.now()): HabitCompletionResult {
+        val (before, after) = mutate { workspace ->
+            val habit = workspace.habits.firstOrNull { it.id == id } ?: error("Привычка не найдена")
+            require(date == LocalDate.now()) { "Отметьте привычку в день выполнения." }
+            require(engine().isScheduled(habit,date)) { "На этот день привычка не запланирована." }
+            workspace.copy(completions = engine().updateIntervalCompletion(workspace.completions,
+                habit,date,LocalDate.now(),time,completed))
+        }
+        val known = before.achievementUnlocks.mapTo(hashSetOf()) { it.achievementId }
+        return HabitCompletionResult(after.achievementUnlocks.count { it.achievementId !in known })
+    }
+
     suspend fun claimHeroPathAmphora(rankId: String) = mutate { workspace ->
         workspace.copy(rewards = HeroPathRewards.claim(workspace.progress, workspace.rewards,
             rankId, Instant.now().toString()))
@@ -226,6 +239,8 @@ internal object HabitDocument {
         .put("emoji",h.emoji).put("priority",h.priority).put("isKeyHabit",h.isKeyHabit).put("ritualId",h.ritualId).put("ritualName",h.ritualName).put("color",h.color)
         .put("active",h.active).put("sourceTemplateId",h.sourceTemplateId ?: JSONObject.NULL).put("sacredPracticeId",h.sacredPracticeId ?: JSONObject.NULL)
         .put("sacredSectorId",h.sacredSectorId ?: JSONObject.NULL).put("preferredTime",h.preferredTime).put("scoringMode",h.scoringMode).put("qualityScale",h.qualityScale)
+        .put("intervalSchedule",h.intervalSchedule?.let { interval -> JSONObject().put("intervalMinutes",interval.intervalMinutes)
+            .put("startTime",interval.startTime).put("endTime",interval.endTime).put("completionMode",interval.completionMode) } ?: JSONObject.NULL)
         .put("schedule",JSONObject().put("startDate",h.schedule.startDate.toString()).put("endDate",h.schedule.endDate?.toString() ?: JSONObject.NULL)
             .put("timezone",h.schedule.timezone).put("recurrence",recurrence(h.schedule.recurrence)))
         .put("reminder",JSONObject().put("enabled",h.reminder.enabled).put("time",h.reminder.time).put("syncToGoogleTasks",h.reminder.syncToGoogleTasks)
@@ -242,12 +257,16 @@ internal object HabitDocument {
                 r.optString("timing").takeIf { it in setOf("habit", "custom") } ?: if (v.getString("preferredTime").isNotBlank() &&
                     r.getString("time") != v.getString("preferredTime")) "custom" else "habit",
                 r.optInt("minutesBefore",0).coerceIn(0,1440),r.optBoolean("allowDuringQuietHours",false)))
+            .copy(intervalSchedule = v.optJSONObject("intervalSchedule")?.let { interval ->
+                HabitIntervalSchedule(interval.optInt("intervalMinutes"),interval.optString("startTime"),
+                    interval.optString("endTime"),if(interval.optString("completionMode")=="day") "day" else "each").takeIf { it.valid() } })
     }
     fun encode(w: LocalHabitWorkspace): String {
         val p=w.progress
         return JSONObject().put("localSchema",1).put("habits",JSONArray(w.habits.map(::habit)))
             .put("completions",JSONArray(w.completions.map { c -> entity(c.entity).put("habitId",c.habitId).put("date",c.date.toString()).put("completed",c.completed)
-                .put("qualityConfirmedAt",c.qualityConfirmedAt ?: JSONObject.NULL).put("qualityValue",c.qualityValue ?: JSONObject.NULL).put("score",c.score).put("xpAwarded",c.xpAwarded).put("note",c.note) }))
+                .put("qualityConfirmedAt",c.qualityConfirmedAt ?: JSONObject.NULL).put("qualityValue",c.qualityValue ?: JSONObject.NULL).put("score",c.score).put("xpAwarded",c.xpAwarded).put("note",c.note)
+                .put("completedTimes",JSONArray(c.completedTimes)) }))
             .put("goals",JSONArray(w.goals.map { g -> JSONObject().put("date",g.date.toString()).put("mode",g.mode).put("timezone",g.timezone).put("scheduledCount",g.scheduledCount)
                 .put("completedCount",g.completedCount).put("targetCount",g.targetCount).put("status",g.status).put("updatedAt",g.updatedAt) }))
             .put("rewards",JSONArray(w.rewards.map { t -> JSONObject().put("id",t.id).put("amount",t.amount).put("reason",t.reason).put("sourceId",t.sourceId)
@@ -273,7 +292,8 @@ internal object HabitDocument {
         val v=JSONObject(json); require(v.getInt("localSchema")==1) { "Неподдерживаемая версия локальных привычек" }
         val p=v.getJSONObject("progress")
         return LocalHabitWorkspace(v.getJSONArray("habits").objects().map(::habit),v.getJSONArray("completions").objects().map { c ->
-            HabitCompletion(entity(c),c.getString("habitId"),LocalDate.parse(c.getString("date")),c.getBoolean("completed"),if(c.isNull("qualityValue")) null else c.getDouble("qualityValue"),c.getInt("score"),c.getInt("xpAwarded"),c.getString("note"),c.optString("qualityConfirmedAt").takeUnless { it.isBlank() || it == "null" }) },
+            HabitCompletion(entity(c),c.getString("habitId"),LocalDate.parse(c.getString("date")),c.getBoolean("completed"),if(c.isNull("qualityValue")) null else c.getDouble("qualityValue"),c.getInt("score"),c.getInt("xpAwarded"),c.getString("note"),c.optString("qualityConfirmedAt").takeUnless { it.isBlank() || it == "null" },
+                c.optJSONArray("completedTimes")?.let { times -> (0 until times.length()).map { times.optString(it) }.filter { Regex("(?:[01]\\d|2[0-3]):[0-5]\\d").matches(it) }.distinct().sorted().take(1440) }.orEmpty()) },
             v.getJSONArray("goals").objects().map { g -> DailyGoalRecord(LocalDate.parse(g.getString("date")),g.getString("mode"),g.getString("timezone"),g.getInt("scheduledCount"),g.getInt("completedCount"),g.getInt("targetCount"),g.getString("status"),g.getString("updatedAt")) },
             v.getJSONArray("rewards").objects().map { t -> RewardTransaction(t.getString("id"),t.getInt("amount"),t.getString("reason"),t.getString("sourceId"),t.getString("idempotencyKey"),t.getString("createdAt"),t.getString("userId"),t.getString("currency")) },
             UserProgress(p.getInt("lifetimeXp"),p.getInt("laurelsBalance"),p.nullable("currentRankId"),p.nullable("hiddenHeroicPathRevealedAt"),p.getInt("currentStreak"),p.getInt("longestStreak"),p.nullable("lastQualifiedDate")?.let(LocalDate::parse),p.getString("streakGoalMode"),p.getInt("streakFreezeCount"),p.getInt("rhythmScore"),p.getString("updatedAt")),revision,

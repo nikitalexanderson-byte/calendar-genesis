@@ -267,7 +267,7 @@ export default function Mindmaps(props: Props) {
   </div> : null;
 
   return <section className="mindmaps" aria-label="Личные майндмепы">
-    <header className="workspace-header mindmap-header" data-exp-ui="panel"><div className="workspace-header-main mindmap-header-main"><span className="projects-hero-mark mindmap-hero-mark" aria-hidden="true"><ExperimentalIcon name="map-mode" /></span><div className="workspace-header-copy"><h1>{map ? <>Майндмеп: <em className="mindmap-map-title" data-no-translate>{map.title}</em></> : "Майндмепы"}</h1><p>{map ? progress!.total ? `Связанные задачи: ${progress!.done} из ${progress!.total}` : "Пока только идеи" : "Связывайте идеи, проекты и задачи."}</p></div></div>
+    <header className="workspace-header mindmap-header" data-exp-ui="panel"><div className="workspace-header-main mindmap-header-main"><span className="projects-hero-mark mindmap-hero-mark" aria-hidden="true"><ExperimentalIcon name="map-mode" /></span><div className="workspace-header-copy"><h1>{map ? <>Майндмеп<span className="workspace-title-secondary"> · <em className="mindmap-map-title" data-no-translate>{map.title}</em></span></> : "Майндмепы"}</h1><p>{map ? progress!.total ? `Связанные задачи: ${progress!.done} из ${progress!.total}` : "Пока только идеи" : "Связывайте идеи, проекты и задачи."}</p></div></div>
       {map ? <span role="status" className="mindmap-save-state">{statuses[status]}</span> : null}
       {!map ? <div className="projects-summary mindmap-catalog-statistics" aria-live="polite">
         <span><strong>{loading ? "—" : catalogStats.maps}</strong>Майндмепы</span>

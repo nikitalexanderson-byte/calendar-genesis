@@ -1,6 +1,7 @@
 "use client";
 import { DeferredViewFallback, DeferredDialogFallback, DeferredHabitFallback, ViewErrorBoundary } from "./DeferredViews";
-import { habitReminderTime } from "./habit-reminder-time";
+import { habitReminderTime, habitReminderTimes } from "./habit-reminder-time";
+import { habitIntervalMarks } from "./habit-interval";
 import type { MindmapTaskRequest } from "./Mindmaps";
 import { captureAccountSessionGuard, createCloudTaskOnce } from "./cloud-sync";
 import ukrainianSynthemaNames from "./weekday-synthema.uk.json";
@@ -1768,16 +1769,17 @@ export function GenesisCalendar() {
         && habit.reminder.enabled
         && !completedHabitIds.has(habit.id)
         && isHabitScheduledForDate(habit, date, activeTaskCalendarMode))
-      .map((habit) => ({
+      .flatMap((habit) => habitReminderTimes(habit).filter(time => habit.reminder.timing === "custom" || habit.intervalSchedule?.completionMode !== "each"
+        || !habitIntervalMarks(habit.intervalSchedule, habitWorkspace.habitCompletions.find(entry => entry.habitId === habit.id && entry.date === date)).includes(time)).map(time => ({
         id: habit.id,
         title: habit.title,
         emoji: habit.emoji,
         priority: habit.priority,
-        reminderTime: habitReminderTime(habit),
+        reminderTime: time,
         minutesBefore: habit.reminder.minutesBefore,
         allowDuringQuietHours: habit.reminder.allowDuringQuietHours,
         date,
-      }));
+      })));
     });
     const dailyGoal = dailyGoalForDate(habitWorkspace, todayDateValue, activeTaskCalendarMode, todayDateValue);
     const nextRank = nextHeroicRankForProgress(habitWorkspace.userProgress);
