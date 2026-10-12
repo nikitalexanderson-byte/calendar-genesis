@@ -3,14 +3,15 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { CalendarDatePicker } from "./CalendarDatePicker";
 import { formatCalendarDate, type CalendarMode } from "./calendar-data";
 import type { SharedProjectSnapshot, SharedTask } from "./cloud-sync";
-import { dateSerial, serialDate, taskSpan, ganttTaskGroups, ganttUnscheduledTasks, ganttSchedule, ganttCreationSchedule, ganttResizeSchedule, ganttAxisPosition, ganttAxisPoint, GANTT_CELL_WIDTH, type GanttEdge, type GanttSchedule, type GanttScale } from "./shared-gantt";
+import { dateSerial, serialDate, taskSpan, ganttTaskGroups, ganttUnscheduledTasks, ganttUnscheduledSchedule, ganttSchedule, ganttCreationSchedule, ganttResizeSchedule, ganttAxisPosition, ganttAxisPoint, GANTT_CELL_WIDTH, type GanttEdge, type GanttSchedule, type GanttScale, type GanttReturnTarget } from "./shared-gantt";
+import { translateText } from "./i18n";
 import { ExperimentalIcon } from "./ExperimentalIcon";
 import { calendarGanttRange, calendarGanttPeriods, calendarGanttMonths, shiftGanttAnchor, type GanttPeriod } from "./shared-gantt-calendar";
 import { useAffairDrag } from "./use-affair-drag";
 import { formatTimeValue, type TimeFormat } from "./time-format";
 
 type ResizeItem = {id:string;title:string;task:SharedTask;edge:GanttEdge;offset:number};
-export function SharedGantt({snapshot,english,calendarMode,timeFormat,initialDay,onOpen,onCreate,onSchedule,busy,externalDrop,externalDropRow}:{snapshot:SharedProjectSnapshot;english:boolean;calendarMode:CalendarMode;timeFormat:TimeFormat;initialDay?:string;onOpen:(task:SharedTask)=>void;onCreate:(schedule:GanttSchedule)=>void;onSchedule:(task:SharedTask,schedule:GanttSchedule)=>void;busy:boolean;externalDrop?:GanttSchedule;externalDropRow?:string}) {
+export function SharedGantt({snapshot,english,calendarMode,timeFormat,initialDay,onOpen,onCreate,onSchedule,onReturn,resolveReturn,onReturnTarget,busy,externalDrop,externalDropRow}:{snapshot:SharedProjectSnapshot;english:boolean;calendarMode:CalendarMode;timeFormat:TimeFormat;initialDay?:string;onOpen:(task:SharedTask)=>void;onCreate:(schedule:GanttSchedule)=>void;onSchedule:(task:SharedTask,schedule:GanttSchedule)=>void;onReturn:(task:SharedTask,target:GanttReturnTarget)=>void;resolveReturn:(x:number,y:number,task:SharedTask)=>GanttReturnTarget|null;onReturnTarget:(target:GanttReturnTarget|null)=>void;busy:boolean;externalDrop?:GanttSchedule;externalDropRow?:string}) {
   const root=useRef<HTMLElement>(null);
   const scrollRoot=useRef<HTMLDivElement>(null);
   const [availablePeriods,setAvailablePeriods]=useState(0);
@@ -68,12 +69,18 @@ export function SharedGantt({snapshot,english,calendarMode,timeFormat,initialDay
       if(schedule)onSchedule(task,schedule);
     }};
   };
-  const drag=useAffairDrag<SharedTask,{schedule:GanttSchedule;row?:string}>((x,y,task)=>{
+  const drag=useAffairDrag<SharedTask,{schedule?:GanttSchedule;row?:string;destination?:GanttReturnTarget}>((x,y,task)=>{
     const target=document.elementFromPoint(x,y)?.closest<HTMLElement>("[data-gantt-axis]");
-    if(busy||!canEdit||!target||!root.current?.contains(target))return null;
+    if(busy||!canEdit)return null;
+    if(!target||!root.current?.contains(target)) {
+      const destination=resolveReturn(x,y,task);
+      return destination ? {destination} : null;
+    }
     const point=pointAt(x-target.getBoundingClientRect().left-grabOffset.current);
     return {schedule:ganttSchedule(task,Math.max(range.start,Math.min(range.end-(scale==="day" ? 1/96 : 1),point)),scale),row:target.closest<HTMLElement>('[data-gantt-task]')?.dataset.ganttTask};
-  },(task,target)=>onSchedule(task,target.schedule));
+  },(task,target)=>{if(target.destination)onReturn(task,target.destination);else if(target.schedule)onSchedule(task,target.schedule);});
+  useEffect(()=>{onReturnTarget(drag.target?.destination ?? null);},[drag.target?.destination,onReturnTarget]);
+  useEffect(()=>()=>onReturnTarget(null),[onReturnTarget]);
   const dragProps=(task:SharedTask,bar=false)=>{
     const bindings=drag.props(task,!busy&&canEdit&&!task.pending);
     const offset=(x:number,element:HTMLElement)=>{const span=taskSpan(task);const start=span ? scale==="day" ? span.start : Math.floor(span.start) : range.start;grabOffset.current=bar ? x-element.getBoundingClientRect().left+Math.max(0,-positionAt(start)) : 0;};
@@ -118,6 +125,7 @@ export function SharedGantt({snapshot,english,calendarMode,timeFormat,initialDay
     <p className="shared-gantt-period">{formatDate(serialDate(range.start))}{scale!=="day" ? ` — ${formatDate(serialDate(range.end-1))}` : ""}</p>
     {canCreate ? <p className="shared-gantt-help">{english ? "Click an empty timeline cell to create a task on that date. Within a day, new tasks start today at the selected time." : "Нажмите на свободное место шкалы, чтобы создать задачу на эту дату. В режиме «Внутри дня» задача создаётся на сегодня с выбранным временем."}</p> : null}
     <p className="shared-gantt-help">{english ? "Drag unscheduled tasks onto a period. Move a bar to reschedule it; drag its edges to change its duration. Steps: 15 minutes within a day, one day on other scales. Dates and times are saved in the task; dependent tasks change separately." : "Перетащите неразмеченную задачу на нужный период. Перемещайте плашку для переноса сроков, тяните за её края для изменения длительности. Шаг: 15 минут внутри дня, один день в остальных режимах. Даты и время сохраняются в карточке; зависимые задачи меняются отдельно."}</p>
+    {canEdit ? <p className="shared-gantt-help">Перетащите плашку обратно в нижний список, хаос-бокс или на кнопку «Список» / «Доски», чтобы снять её со шкалы.</p> : null}
     {snapshot.tasks.length>=500 ? <p role="status">{english ? "Showing the first 500 loaded tasks." : "Показаны первые 500 загруженных задач."}</p> : null}
     <div ref={scrollRoot} className="shared-gantt-scroll" role="region" aria-label={english ? "Scrollable timeline" : "Прокручиваемая шкала времени"}>
       <div className="shared-gantt-sheet" style={{"--gantt-width":`${width}px`} as CSSProperties}>
@@ -127,7 +135,7 @@ export function SharedGantt({snapshot,english,calendarMode,timeFormat,initialDay
         </div></div>
         <div className="shared-gantt-rows">
           {rows.map(({task,span})=>{const status=snapshot.statuses.find(item=>item.id===task.statusId);const pos=positions.get(task.id)!;
-            return <div className="shared-gantt-row" key={task.id} data-gantt-task={task.id}><button type="button" className="shared-gantt-name" onClick={()=>onOpen(task)} title={task.title} data-no-translate>{task.title}</button>
+            return <div className="shared-gantt-row" key={task.id} data-gantt-task={task.id}><div className="shared-gantt-name-cell"><button type="button" className="shared-gantt-name" onClick={()=>onOpen(task)} title={task.title} data-no-translate>{task.title}</button>{canEdit ? <button type="button" className="shared-gantt-return" disabled={busy||Boolean(task.pending)} title="Вернуть задачу в список" aria-label={`${translateText("Вернуть задачу в список")}: ${task.title}`} onClick={()=>onReturn(task,{projectId:task.projectId,statusId:"",position:0,unschedule:ganttUnscheduledSchedule(task,scale)})}><ExperimentalIcon name="map-back"/></button> : null}</div>
               <div className="shared-gantt-track" {...axisProps}>{createCells}{gridLines}<div className={`shared-gantt-bar${pos.end-pos.x<24 ? " is-short" : ""}${status?.isDone ? " is-done" : ""}${resize.preview?.item.task.id===task.id ? " is-resizing" : ""}`} style={{left:pos.x,width:Math.max(4,pos.end-pos.x),"--bar-color":status?.color||"#2d6c68"} as CSSProperties}>
                 <button type="button" className="shared-gantt-open" data-affair-drag-surface {...dragProps(task,true)} onClick={()=>onOpen(task)}
                   aria-label={`${task.title} · ${formatDate(serialDate(Math.floor(span!.start)))} ${task.startTime||""} — ${formatDate(task.dueDate||task.startDate!)} ${task.endTime||""}${status?.isDone ? english ? " · Completed" : " · Завершена" : ""}`} title={`${task.title} · ${task.startTime||""}–${task.endTime||""}`}><span data-no-translate>{task.title}</span></button>
@@ -146,7 +154,7 @@ export function SharedGantt({snapshot,english,calendarMode,timeFormat,initialDay
     {activeSchedule ? <p className="shared-gantt-drop-label" role="status">{formatDate(activeSchedule.startDate)} {activeSchedule.startTime ? formatTimeValue(activeSchedule.startTime,timeFormat) : ""} — {formatDate(activeSchedule.dueDate)} {activeSchedule.endTime ? formatTimeValue(activeSchedule.endTime,timeFormat) : ""}</p> : null}
     {!rows.length ? <p>{english ? "No scheduled tasks in this period." : "В этом периоде нет задач с заданным временем."}</p> : null}
     {fit && activeTasks.some(task=>{const span=taskSpan(task);return span && span.end>range.end;}) ? <p role="status">{english ? "The fitted range is limited to one year. Use navigation to see later tasks." : "Общий диапазон ограничен годом. Используйте навигацию для более поздних задач."}</p> : null}
-    <section className="shared-gantt-unscheduled" aria-label={english ? "Unscheduled tasks" : "Неразмеченные задачи"}>
+    <section className="shared-gantt-unscheduled" data-gantt-unscheduled={scale} data-drop-active={Boolean(drag.target?.destination?.unschedule) && !drag.target?.destination?.view || undefined} aria-label={english ? "Unscheduled tasks" : "Неразмеченные задачи"}>
       <header><h3>{scale==="day" ? (english ? "Without time" : "Без времени") : (english ? "Without dates" : "Без даты")}</h3><span>{unscheduled.length}</span></header>
       <p>{english ? "Drag a task onto the timeline, then adjust its start and end with the bar edges or in its card." : "Перетащите задачу на нужный период шкалы, затем настройте начало и окончание за края плашки или в карточке."}</p>
       <div>{unscheduled.map(task=><button type="button" key={task.id} onClick={()=>onOpen(task)} data-affair-drag-surface {...dragProps(task)}>
@@ -158,5 +166,6 @@ export function SharedGantt({snapshot,english,calendarMode,timeFormat,initialDay
       <p>{english ? "Completed tasks are kept here and do not take up space on the timeline. Open a task to return it to an active board." : "Выполненные задачи сохранены здесь и не занимают место на шкале. Откройте задачу, чтобы вернуть её на активную доску."}</p>
       <div>{completedTasks.map(task => <button type="button" key={task.id} onClick={() => onOpen(task)}><ExperimentalIcon name="check" /><span data-no-translate>{task.title}</span></button>)}</div>
     </details> : null}
+    {drag.preview && drag.target?.destination ? <div className="shared-projects-drag-preview" aria-hidden="true" style={{left:drag.preview.x+14,top:drag.preview.y+14}}>{drag.preview.item.title}</div> : null}
   </section>;
 }

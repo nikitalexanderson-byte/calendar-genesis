@@ -113,6 +113,9 @@ function genesisSaveMindmap(string $userId, string $id, array $input): array
     $db = genesisDb();
     genesisBeginWriteTransaction($db);
     try {
+        $q = $db->prepare('SELECT 1 FROM personal_mindmap_deletions WHERE user_id=? AND map_id=?');
+        $q->execute([$userId, $id]);
+        if ($q->fetchColumn()) throw new GenesisResourceLimitException(409, 'MAP_REVISION_CONFLICT');
         $q = $db->prepare('SELECT * FROM personal_mindmap_receipts WHERE user_id=? AND map_id=? AND operation_id=?');
         $q->execute([$userId, $id, $operation]);
         $receipt = $q->fetch();
@@ -145,6 +148,38 @@ function genesisSaveMindmap(string $userId, string $id, array $input): array
         $db->prepare('DELETE FROM personal_mindmap_versions WHERE user_id=? AND map_id=? AND revision <= ?')->execute([$userId, $id, $revision - 20]);
         $db->commit();
         return ['revision' => $revision, 'updatedAt' => $now];
+    } catch (Throwable $error) {
+        if ($db->inTransaction()) $db->rollBack();
+        throw $error;
+    }
+}
+
+function genesisDeleteMindmap(string $userId, string $id, array $input): array
+{
+    genesisMindmapId($id);
+    if (!is_int($input['expectedRevision'] ?? null) || $input['expectedRevision'] < 0) {
+        throw new InvalidArgumentException('Invalid map revision.');
+    }
+    $db = genesisDb();
+    genesisBeginWriteTransaction($db);
+    try {
+        $q = $db->prepare('SELECT 1 FROM personal_mindmap_deletions WHERE user_id=? AND map_id=?');
+        $q->execute([$userId, $id]);
+        if ($q->fetchColumn()) { $db->commit(); return ['deleted' => true]; }
+        $q = $db->prepare('SELECT revision, schema_version FROM personal_mindmaps WHERE user_id=? AND id=?');
+        $q->execute([$userId, $id]);
+        $current = $q->fetch();
+        if (($current && (int)$current['schema_version'] !== 1)
+            || (int)($current['revision'] ?? 0) !== $input['expectedRevision']) {
+            throw new GenesisResourceLimitException(409, 'MAP_REVISION_CONFLICT');
+        }
+        $db->prepare('INSERT INTO personal_mindmap_deletions(user_id,map_id,deleted_at) VALUES(?,?,?)')
+            ->execute([$userId, $id, genesisNow()]);
+        // Foreign-key cascades remove map history and save receipts. Source tasks
+        // and their creation receipts are independent and remain intact.
+        $db->prepare('DELETE FROM personal_mindmaps WHERE user_id=? AND id=?')->execute([$userId, $id]);
+        $db->commit();
+        return ['deleted' => true];
     } catch (Throwable $error) {
         if ($db->inTransaction()) $db->rollBack();
         throw $error;

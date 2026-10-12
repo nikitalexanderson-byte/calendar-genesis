@@ -1,11 +1,11 @@
 "use client";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import type { GenesisProject, GenesisTask } from "./cloud-sync";
-import { LOCAL_SESSION_ENDED_EVENT } from "./cloud-sync";
+import { GenesisApiError, LOCAL_SESSION_ENDED_EVENT } from "./cloud-sync";
 import { useDialogAccessibility } from "./use-dialog-accessibility";
 import { ExperimentalIcon } from "./ExperimentalIcon";
 import { translateText } from "./i18n";
-import { attachTask, descendants, exportMindmap, importMindmap, mapId, mapMarkdown, mapProgress, mapSvg,
+import { attachTask, descendants, exportMindmap, importMindmap, mapId, mapMarkdown, mapProgress, mapCatalogStats, mapSvg,
   moveNode, newMindmap, nodeColors, nodeTitle, nodeDateLabel, parseOutline, removeBranch, resolveMapTask, validateMindmap, visibleNodes, type MapNode, type Mindmap, type MapView } from "./mindmaps-model";
 import { MindmapRepository, type Conversion, type MapRecord, type SaveState } from "./mindmaps-storage";
 import "./mindmaps.css";
@@ -57,7 +57,8 @@ export default function Mindmaps(props: Props) {
   const [search, setSearch] = useState("");
   const [archived, setArchived] = useState(false);
   const [context, setContext] = useState(props.projectId ?? "");
-  const [dialog, setDialog] = useState<"create" | "node" | "add" | "paste" | "import" | "export" | "history" | "delete" | null>(null);
+  const [dialog, setDialog] = useState<"create" | "node" | "add" | "paste" | "import" | "export" | "history" | "delete" | "delete-map" | null>(null);
+  const [deleteRecord, setDeleteRecord] = useState<MapRecord | null>(null);
   const [title, setTitle] = useState("");
   const [template, setTemplate] = useState("empty");
   const [text, setText] = useState("");
@@ -192,9 +193,12 @@ export default function Mindmaps(props: Props) {
   const taskDate = task?.recurrenceMode === "none" ? task.dueDate : node?.occurrenceDate;
   const rows = useMemo(() => map ? visibleNodes(map, view) : [], [map, view]);
   const progress = map ? mapProgress(map, props.tasks) : null;
+  const catalogStats = mapCatalogStats(records.map(record => record.document), props.tasks, archived);
   const saveDialog = () => {
+    if (dialog === "delete-map" && busy) return;
     const returnToCanvas = dialog === "node" && selectedLink && view.mode === "map";
     setDialog(null);
+    setDeleteRecord(null);
     if (returnToCanvas) requestAnimationFrame(() => document.querySelector<HTMLElement>(".mindmap-canvas")?.focus({ preventScroll: true }));
   };
   const addIdea = (sibling = false, position?: {x:number;y:number}) => {
@@ -265,6 +269,11 @@ export default function Mindmaps(props: Props) {
   return <section className="mindmaps" aria-label="Личные майндмепы">
     <header className="workspace-header mindmap-header" data-exp-ui="panel"><div className="workspace-header-main mindmap-header-main"><span className="projects-hero-mark mindmap-hero-mark" aria-hidden="true"><ExperimentalIcon name="map-mode" /></span><div className="workspace-header-copy"><h1>{map ? <>Майндмеп: <em className="mindmap-map-title" data-no-translate>{map.title}</em></> : "Майндмепы"}</h1><p>{map ? progress!.total ? `Связанные задачи: ${progress!.done} из ${progress!.total}` : "Пока только идеи" : "Связывайте идеи, проекты и задачи."}</p></div></div>
       {map ? <span role="status" className="mindmap-save-state">{statuses[status]}</span> : null}
+      {!map ? <dl className="mindmap-catalog-statistics" aria-live="polite">
+        <div><dt>Майндмепы</dt><dd>{loading ? "—" : catalogStats.maps}</dd></div>
+        <div><dt>Мысли</dt><dd>{loading ? "—" : catalogStats.ideas}</dd></div>
+        <div><dt>Связанные задачи:</dt><dd>{loading ? "—" : <>{catalogStats.done} <span>из</span> {catalogStats.total}</>}</dd></div>
+      </dl> : null}
       <button type="button" className="mindmap-back-link" onClick={map ? goCatalog : props.onClose}><ExperimentalIcon name="map-back"/>{map ? "Все майндмепы" : "К личным делам"}</button>
     </header>
     {error && !dialog ? <div role="alert" className="mindmap-error"><p>{error}</p>{map ? <div className="mindmap-actions"><button type="button" onClick={() => { setError(""); void (record?.pending && record.draftKey ? repository.retry(record, onStatus) : repository.save(map, onStatus)).catch(fail); }}>Повторить сохранение</button><button type="button" onClick={() => { void repository.forkDraft(map, onStatus).then(copy => { setError(""); return open({ document: copy, revision: 1, updatedAt: "" }); }).catch(fail); }}>Сохранить отдельный вариант</button><button type="button" onClick={goCatalog}>Показать серверную версию</button></div> : <button type="button" onClick={() => void refresh()}>Повторить загрузку</button>}</div> : null}
@@ -277,7 +286,7 @@ export default function Mindmaps(props: Props) {
       {loading ? <p role="status">Открываем зашифрованные карты…</p> : null}
       <div className="mindmap-catalog">{records.filter(r => r.document.archived === archived && (!context || r.document.projectId === context) && r.document.title.toLocaleLowerCase().includes(search.toLocaleLowerCase())).sort((a,b) => Number(b.document.pinned)-Number(a.document.pinned)).map(r => <article key={r.draftKey || r.document.id}>
         <button type="button" className="mindmap-catalog-open" onClick={() => void open(r)}><strong data-no-translate>{r.document.title}</strong><span>{r.pending ? "Черновик на устройстве" : `Версия ${r.revision}`} · {r.document.nodes.length} узлов{r.document.pinned ? " · Закреплена" : ""}</span><span>{props.projects.find(p => p.id === r.document.projectId)?.title || "Без проекта"}</span></button>
-        <div className="mindmap-actions"><MapAction label={r.document.pinned ? "Открепить" : "Закрепить"} icon="map-pin" pressed={r.document.pinned} onClick={() => { repository.adopt(r); void repository.save({ ...r.document, pinned: !r.document.pinned }, onStatus).then(refresh).catch(fail); }}/><MapAction label={archived ? "Восстановить" : "Архивировать"} icon="map-archive" onClick={() => { repository.adopt(r); void repository.save({ ...r.document, archived: !r.document.archived }, onStatus).then(refresh).catch(fail); }}/></div>
+        <div className="mindmap-actions"><MapAction label={r.document.pinned ? "Открепить" : "Закрепить"} icon="map-pin" pressed={r.document.pinned} disabled={busy} onClick={() => { repository.adopt(r); void repository.save({ ...r.document, pinned: !r.document.pinned }, onStatus).then(refresh).catch(fail); }}/><MapAction label={archived ? "Восстановить" : "Архивировать"} icon="map-archive" disabled={busy} onClick={() => { repository.adopt(r); void repository.save({ ...r.document, archived: !r.document.archived }, onStatus).then(refresh).catch(fail); }}/><MapAction label="Удалить карту" icon="delete" danger disabled={busy} onClick={() => { setError(""); setDeleteRecord(r); setDialog("delete-map"); }}/></div>
       </article>)}</div>
       {!loading && search && !records.some(r => r.document.archived === archived && (!context || r.document.projectId === context) && r.document.title.toLocaleLowerCase().includes(search.toLocaleLowerCase())) ? <p>Ничего не найдено. Измените запрос.</p> : null}
       {!loading && !records.some(r => r.document.archived === archived && (!context || r.document.projectId === context)) ? <div className="mindmap-empty"><h3>{archived ? "Архив пуст" : "Начните с одной мысли"}</h3><p>Карта помогает разобрать замысел. Задачи появятся в делах только после вашего подтверждения.</p></div> : null}
@@ -295,7 +304,7 @@ export default function Mindmaps(props: Props) {
         </div> : null}
       {search ? <div className="mindmap-search-results" aria-label="Найденные узлы">{!map.nodes.some(n => `${titleFor(n)} ${n.note} ${(n.tags ?? []).join(" ")}`.toLocaleLowerCase().includes(search.toLocaleLowerCase())) ? <p>Ничего не найдено. Измените запрос.</p> : null}{map.nodes.filter(n => `${titleFor(n)} ${n.note} ${(n.tags ?? []).join(" ")}`.toLocaleLowerCase().includes(search.toLocaleLowerCase())).map(n => <button type="button" key={n.id} onClick={() => { setSelected(n.id); changeView({ ...view, focus: n.id, collapsed: view.collapsed.filter(id => id !== n.id) }); setSearch(""); if (isMobile) setDialog("node"); }}>{titleFor(n)} · Показать ветку</button>)}</div> : null}
       <div className="mindmap-workspace"><div className="mindmap-editor">
-        {view.mode === "map" ? <Suspense fallback={<p>Открываем полотно…</p>}><Canvas onLink={(from,to) => { if (!map.links.some(l => l.from===from && l.to===to || l.from===to && l.to===from)) change({...map,links:[...map.links,{id:mapId(),from,to,label:"Связано с"}]}); }} onSelectLink={selectLink} onEditNode={id => { selectNode(id); setDialog("node"); }} onDeleteSelection={deleteSelection} onPosition={(id,position) => changeView({ ...view, positions: {...view.positions,[id]:position} })} onCreateAt={position => addIdea(false,position)} map={map} view={view} selected={selected} selectedLink={selectedLink} title={titleFor} onSelect={selectNode} onZoom={zoom => changeView({ ...view, zoom })} onViewport={viewport => changeView({ ...latestView.current, viewport })} /></Suspense>
+        {view.mode === "map" ? <Suspense fallback={<p>Открываем полотно…</p>}><Canvas onLink={(from,to) => { if (!map.links.some(l => l.from===from && l.to===to || l.from===to && l.to===from)) change({...map,links:[...map.links,{id:mapId(),from,to,label:"Связано с"}]}); }} onSelectLink={selectLink} onEditNode={id => { selectNode(id); setDialog("node"); }} onDeleteSelection={deleteSelection} onPosition={(id,position) => changeView({ ...view, positions: {...view.positions,[id]:position} })} onCreateAt={position => addIdea(false,position)} map={map} view={view} selected={selected} selectedLink={selectedLink} title={titleFor} onSelect={selectNode} onHome={changeView} onZoom={zoom => changeView({ ...view, zoom })} onViewport={viewport => changeView({ ...latestView.current, viewport })} /></Suspense>
           : <ol className="mindmap-structure" aria-label="Структура карты">{rows.map(r => <li key={r.node.id} style={{ paddingInlineStart: Math.min(r.depth,3)*16 }}>
             <button type="button" className="mindmap-collapse" aria-expanded={r.children ? !view.collapsed.includes(r.node.id) : undefined} aria-label={`${translateText(view.collapsed.includes(r.node.id) ? "Развернуть" : "Свернуть")}: ${titleFor(r.node)}`} disabled={!r.children} onClick={() => changeView({ ...view, collapsed: view.collapsed.includes(r.node.id) ? view.collapsed.filter(id => id !== r.node.id) : [...view.collapsed,r.node.id] })}><ExperimentalIcon name="chevron" /></button>
             <button type="button" className="mindmap-row" style={nodeColors(r.node)} aria-pressed={selected === r.node.id} onClick={() => selectNode(r.node.id)} onDoubleClick={() => { selectNode(r.node.id); setDialog("node"); }} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); selectNode(r.node.id); setDialog("node"); } else if (event.key === "Delete" || event.key === "Backspace") { event.preventDefault(); event.stopPropagation(); selectNode(r.node.id); if (r.node.parentId) { change(removeBranch(map, r.node.id)); setSelected(r.node.parentId); } else fail(new Error("Корень карты нельзя удалить. Архивируйте карту из каталога.")); } }}><strong data-no-translate>{titleFor(r.node)}</strong>{r.node.tags?.length ? <span className="mindmap-row-tags">{r.node.tags.map(tag => `#${tag}`).join(" · ")}</span> : null}<span>{r.node.kind === "idea" ? "Мысль" : r.node.kind === "project" ? "Проект" : `${resolveMapTask(r.node, props.tasks)?.done ? "Выполнено" : "Задача"} · ${nodeDateLabel(r.node, props.tasks)}`}{r.depth > 3 ? ` · уровень ${r.depth+1}` : ""}</span></button>
@@ -304,10 +313,18 @@ export default function Mindmaps(props: Props) {
         {isMobile && node ? <button type="button" className="mindmap-mobile-inspector primary-button" onClick={() => setDialog("node")}>Действия с выбранным узлом</button> : null}
       </div></div>
     </>}
-    {dialog ? <Dialog title={({ create:"Новая карта", node:"Редактор узла", add:"Добавить из личных дел", paste:"Мысли из текста", import:"Импорт карты GENESIS", export:"Экспорт карты", history:"История карты", delete:"Убрать ветку" })[dialog]} onClose={saveDialog}>
+    {dialog ? <Dialog title={({ create:"Новая карта", node:"Редактор узла", add:"Добавить из личных дел", paste:"Мысли из текста", import:"Импорт карты GENESIS", export:"Экспорт карты", history:"История карты", delete:"Убрать ветку", "delete-map":"Удалить карту" })[dialog]} onClose={saveDialog}>
       {error ? <p role="alert">{error}</p> : null}
       {dialog === "create" ? <form onSubmit={e => { e.preventDefault(); try { const created = newMindmap(title,context || null,template); setDialog(null); void open({document:created,revision:0,updatedAt:""}); change(created,false); } catch(e) { fail(e); } }}><label>Название карты<input required value={title} maxLength={2000} onChange={e => setTitle(e.target.value)} data-dialog-initial-focus /></label><label>Начать с<select value={template} onChange={e => setTemplate(e.target.value)}><option value="empty">Одна мысль</option><option value="idea">Разобрать идею</option><option value="project">План проекта</option><option value="decision">Выбрать решение</option></select></label><p>Шаблон создаёт только мысли.</p><button type="submit" className="primary-button">Создать карту</button></form> : null}
       {dialog === "node" ? inspector : null}
+      {dialog === "delete-map" && deleteRecord ? <><h3 data-no-translate>{deleteRecord.document.title}</h3><p>Карта и история её версий будут удалены. Связанные задачи и проекты сохранятся.</p><div className="mindmap-actions"><button type="button" disabled={busy} onClick={saveDialog}>Отмена</button><button type="button" className="danger-button" disabled={busy} onClick={async () => {
+        setBusy(true); setError("");
+        try { await repository.remove(deleteRecord); setDialog(null); setDeleteRecord(null); await refresh(); }
+        catch (error) { fail(new Error(error instanceof GenesisApiError && error.status === 409
+          ? "Карта изменилась. Закройте окно, обновите каталог и повторите удаление."
+          : "Не удалось удалить карту. Проверьте подключение и повторите попытку.")); }
+        finally { setBusy(false); }
+      }}>Удалить карту</button></div></> : null}
       {dialog === "delete" && map && node ? <><p>Убрать {descendants(map,node.id).size} узлов? Настоящие задачи и проекты останутся. Изменение карты можно отменить.</p><button type="button" className="danger-button" onClick={() => { change(removeBranch(map,node.id)); setSelected(map.nodes.find(n => n.parentId === null)!.id); setDialog(null); }}>Убрать только с карты</button></> : null}
       {dialog === "add" && map && node ? <><label>Поиск личных дел<input value={pickerQuery} onChange={e => setPickerQuery(e.target.value)} /></label><label><input type="checkbox" checked={chaosOnly} onChange={e => setChaosOnly(e.target.checked)} />Только «Хаос»</label><p>Добавляется ссылка. Проект задачи и её зависимости сохраняются. Для повторяющейся задачи выберите конкретный день перед привязкой.</p>
         {pickerTask ? <div className="mindmap-occurrence-picker"><h3>{pickerTask.title}</h3><label>День повторения<select value={pickerDate} onChange={e => setPickerDate(e.target.value)}>{recurrenceDatesForTask(pickerTask).map(date => <option key={date} value={date}>{date}</option>)}</select></label><p>На карте будет только выбранный экземпляр.</p><button type="button" className="primary-button" disabled={!pickerDate} onClick={() => addTaskReference(pickerTask, pickerDate)}>Привязать этот день</button></div> : null}

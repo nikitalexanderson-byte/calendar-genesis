@@ -18,10 +18,33 @@ function loadTs(path) {
  },loaded,loaded.exports);
  modules.set(path,loaded.exports);return loaded.exports;
 }
-const {newMindmap, validateMindmap, removeBranch, moveNode, attachTask, nodeTitle, nodeDateLabel, mapProgress, parseOutline, exportMindmap, importMindmap, mapSvg, mapMarkdown, layoutMap, resolveMapTask} = loadTs(resolve('app/mindmaps-model.ts'));
+const {newMindmap, validateMindmap, removeBranch, moveNode, attachTask, nodeTitle, nodeDateLabel, mapProgress, mapCatalogStats, mapHomeView, parseOutline, exportMindmap, importMindmap, mapSvg, mapMarkdown, layoutMap, resolveMapTask} = loadTs(resolve('app/mindmaps-model.ts'));
 
 const task = {id:'real-task',title:'Source title',done:false,projectId:'project-a',dependsOnIds:['other'],dueDate:'2026-10-12',recurrenceMode:'none',recurrenceExcludedDates:[]};
 const view={mode:'map',collapsed:[],focus:null,zoom:1};
+
+test('home reveals a moved root from a focused branch without altering saved node positions',()=>{
+ const map=newMindmap('Moved root',null,'idea'),root=map.nodes[0].id;
+ const positions={[root]:{x:1700,y:1400},[map.nodes[1].id]:{x:2400,y:2200}};
+ const previous={...view,focus:map.nodes[1].id,zoom:1.8,viewport:{left:2000,top:1900},positions,collapsed:[map.nodes[2].id]};
+ const home=mapHomeView(map,previous);
+ assert.equal(home.focus,null);assert.equal(home.zoom,1);
+ assert.deepEqual(home.viewport,{left:1676,top:1376});
+ assert.deepEqual(home.positions,positions);assert.deepEqual(home.collapsed,previous.collapsed);
+ assert.equal(layoutMap(map,home)[0].node.id,root);assert.equal(previous.focus,map.nodes[1].id);
+ assert.deepEqual(mapHomeView(map,view).viewport,{left:0,top:0});
+});
+
+test('catalog counts current maps and live tasks once, giving device drafts precedence',()=>{
+ let a=newMindmap('A',null,'idea');a=attachTask(a,a.nodes[1].id,task);
+ let b=newMindmap('B');b=attachTask(b,b.nodes[0].id,task);
+ const archived={...newMindmap('Archive'),archived:true};
+ const duplicate={...a,nodes:[...a.nodes,{id:'old-only',parentId:a.nodes[0].id,kind:'idea',text:'Old version',note:''}]};
+ assert.deepEqual(mapCatalogStats([a,duplicate,b,archived],[task]),{maps:2,ideas:a.nodes.filter(n=>n.kind==='idea').length,total:1,done:0});
+ assert.equal(mapCatalogStats([a,b],[{...task,done:true}]).done,1);
+ assert.equal(mapCatalogStats([a,b],[]).total,0);
+ assert.deepEqual(mapCatalogStats([a,archived],[task],true),{maps:1,ideas:1,total:0,done:0});
+});
 test('undated tasks stay references without a fabricated calendar occurrence or overdue state',()=>{
  const source={...task,dueDate:'',endDate:'',time:''};const map=newMindmap('Undated');
  const linked=attachTask(map,map.nodes[0].id,source);

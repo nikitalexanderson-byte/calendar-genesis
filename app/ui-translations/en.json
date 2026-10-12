@@ -2528,5 +2528,15 @@
   "Перетащить задачу": "Drag task",
   "Только для просмотра": "View only",
   "Открыть день": "Open day",
-  "общих задач": "shared tasks"
+  "общих задач": "shared tasks",
+  "Мысли": "Thoughts",
+  "Удалить карту": "Delete map",
+  "Карта и история её версий будут удалены. Связанные задачи и проекты сохранятся.": "The map and its version history will be deleted. Linked tasks and projects will be kept.",
+  "Вернуть задачу в список": "Return task to list",
+  "Перетащите плашку обратно в нижний список, хаос-бокс или на кнопку «Список» / «Доски», чтобы снять её со шкалы.": "Drag the bar back to the bottom list, inbox, or onto the List / Boards button to remove it from the timeline.",
+  "Кто именинник?": "Whose birthday is it?",
+  "Какое событие?": "What event?",
+  "С кем будет встреча и где?": "Who is the meeting with and where?",
+  "Карта изменилась. Закройте окно, обновите каталог и повторите удаление.": "The map has changed. Close this window, refresh the catalog, and try deleting it again.",
+  "Не удалось удалить карту. Проверьте подключение и повторите попытку.": "Could not delete the map. Check your connection and try again."
 }

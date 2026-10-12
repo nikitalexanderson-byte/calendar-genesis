@@ -54,6 +54,12 @@ export function ganttRange(anchor: string, scale: GanttScale, tasks: SharedTask[
 }
 
 export type GanttSchedule = {startDate: string; dueDate: string; startTime: string | null; endTime: string | null};
+export type GanttTaskDates = {startDate: string | null; dueDate: string | null; startTime: string | null; endTime: string | null};
+export type GanttReturnTarget = {projectId:string;statusId:string;position:number;unschedule?:GanttTaskDates;view?:"list"|"board"};
+export function ganttUnscheduledSchedule(task: SharedTask, scale: GanttScale): GanttTaskDates {
+  return { startDate: scale === "day" ? task.startDate ?? null : null,
+    dueDate: scale === "day" ? task.dueDate : null, startTime: null, endTime: null };
+}
 export type GanttEdge = "start" | "end";
 const minuteTime=(value:number)=>`${String(Math.floor(value/60)%24).padStart(2,"0")}:${String(value%60).padStart(2,"0")}`;
 /** A time-axis click starts today; date-axis clicks keep their actual calendar date. */

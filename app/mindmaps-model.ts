@@ -115,12 +115,25 @@ export function resolveMapTask(node: MapNode, tasks: GenesisTask[]) {
   if (node.occurrenceDate && original?.recurrenceExcludedDates.includes(node.occurrenceDate)) return undefined;
   return original;
 }
-export function mapProgress(map: Mindmap, tasks: GenesisTask[]) {
-  const linked = [...new Map(map.nodes.flatMap(n => {
+function linkedMapTasks(nodes: MapNode[], tasks: GenesisTask[]) {
+  return [...new Map(nodes.flatMap(n => {
     const task = resolveMapTask(n, tasks);
     return task ? [[task.recurrenceMode !== "none" ? `${task.id}@${n.occurrenceDate}` : task.id, task] as const] : [];
   })).values()];
+}
+export function mapProgress(map: Mindmap, tasks: GenesisTask[]) {
+  const linked = linkedMapTasks(map.nodes, tasks);
   return { total: linked.length, done: linked.filter(t => t.done).length };
+}
+export function mapCatalogStats(maps: Mindmap[], tasks: GenesisTask[], archived = false) {
+  // Device drafts precede confirmed documents. Count each map and task once.
+  const unique = new Map<string, Mindmap>();
+  for (const map of maps) if (!unique.has(map.id)) unique.set(map.id, map);
+  const documents = [...unique.values()].filter(map => map.archived === archived);
+  const nodes = documents.flatMap(map => map.nodes);
+  const linked = linkedMapTasks(nodes, tasks);
+  return { maps: documents.length, ideas: nodes.filter(node => node.kind === "idea").length,
+    total: linked.length, done: linked.filter(task => task.done).length };
 }
 /** dueDate is the existing domain's start; endDate is its deadline. */
 export function nodeDateLabel(node: MapNode, tasks: GenesisTask[]) {
@@ -155,6 +168,11 @@ export function layoutMap(map: Mindmap, view: MapView) {
     const valid = point && Number.isFinite(point.x) && Number.isFinite(point.y) && point.x >= 0 && point.y >= 0 && point.x <= 100_000 && point.y <= 100_000;
     return { ...row, x: valid ? point.x : 24 + row.depth * 285, y: valid ? point.y : 24 + index * 116 };
   });
+}
+export function mapHomeView(map: Mindmap, view: MapView): MapView {
+  const root = layoutMap(map, { ...view, focus: null }).find(row => row.node.parentId === null)!;
+  return { ...view, focus: null, zoom: 1,
+    viewport: { left: Math.max(0, root.x - 24), top: Math.max(0, root.y - 24) } };
 }
 export function parseOutline(text: string, parentId: string): MapNode[] {
   if (new TextEncoder().encode(text).length > 100_000) throw new Error("Вставьте не более 100 КБ текста.");

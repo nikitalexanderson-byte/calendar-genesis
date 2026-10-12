@@ -37,5 +37,15 @@ try {
  mapExpect(count(genesisMindmapHistory($ids[0],'large'))===20,'Near-quota retention did not rotate');
  try {genesisSaveMindmap($ids[0],'over-quota',[...$payload,'ciphertext'=>str_repeat('A',200_000)]);throw new RuntimeException('Quota increase accepted');}
  catch(GenesisResourceLimitException $e){mapExpect($e->status===413 && $e->getMessage()==='MAP_STORAGE_LIMIT','Wrong quota rejection');}
- echo "PASS: envelope validation, account isolation, CAS, retry receipt, 20-version retention, quota rotation, old-workspace compatibility\n";
+ try {genesisDeleteMindmap($ids[1],'map-one',['expectedRevision'=>25]);throw new RuntimeException('Foreign deletion accepted');}catch(GenesisResourceLimitException $e){mapExpect($e->status===409,'Wrong deletion owner status');}
+ try {genesisDeleteMindmap($ids[0],'map-one',['expectedRevision'=>24]);throw new RuntimeException('Stale deletion accepted');}catch(GenesisResourceLimitException $e){mapExpect($e->status===409,'Wrong deletion revision status');}
+ $db->prepare('INSERT INTO personal_task_creations(user_id,task_id,state) VALUES(?,?,?)')->execute([$ids[0],'source-task','created']);
+ mapExpect(genesisDeleteMindmap($ids[0],'map-one',['expectedRevision'=>25])['deleted']===true,'Deletion failed');
+ mapExpect(genesisDeleteMindmap($ids[0],'map-one',['expectedRevision'=>25])['deleted']===true,'Lost deletion response was not idempotent');
+ mapExpect(genesisMindmapHistory($ids[0],'map-one')===[],'Deleted history remains');
+ mapExpect(count(genesisMindmaps($ids[0]))===1,'Deletion changed another map');
+ mapExpect($db->query("SELECT state FROM personal_task_creations WHERE task_id='source-task'")->fetchColumn()==='created','Deletion erased source task creation state');
+ try {genesisSaveMindmap($ids[0],'map-one',$payload);throw new RuntimeException('Delayed creation resurrected deleted map');}catch(GenesisResourceLimitException $e){mapExpect($e->status===409,'Wrong deleted-map save status');}
+ mapExpect($db->query("SELECT ciphertext FROM workspace_blobs WHERE user_id='mindmaps-test-owner-a'")->fetchColumn()===base64_encode('old-client-workspace'),'Deletion changed personal tasks');
+ echo "PASS: envelope validation, account isolation, CAS, retry receipt, 20-version retention, quota rotation, old-workspace compatibility, deletion isolation, source preservation, delayed-save protection\n";
 } finally { foreach($ids as $id) $db->prepare('DELETE FROM users WHERE id=?')->execute([$id]); }

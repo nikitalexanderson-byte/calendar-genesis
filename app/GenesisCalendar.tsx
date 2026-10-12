@@ -22,7 +22,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { CalendarYearTaskCounts } from "./CalendarTaskCounts";
-import { EntryTypeChoice, entryTypeLabel, type EntryType } from "./EntryTypeChoice";
+import { EntryTypeChoice, entryTypeLabel, entryTypeTitlePlaceholder, type EntryType } from "./EntryTypeChoice";
 import { RecordCalendarChoice } from "./RecordCalendarChoice";
 import { SERVICE_IDENTITY } from "./public-service";
 import { normalizeWebTheme } from "./web-theme";
@@ -4589,7 +4589,7 @@ export function GenesisCalendar() {
         ) : null}
         <label>
           <span>{newEntryType === "task" ? "Новая задача" : entryTypeLabel(newEntryType, language === "en")}</span>
-          <input value={taskTitle} onChange={(event) => setTaskTitle(event.target.value)} placeholder="Что важно совершить?" />
+          <input value={taskTitle} onChange={(event) => setTaskTitle(event.target.value)} placeholder={entryTypeTitlePlaceholder(newEntryType) || "Что важно совершить?"} />
         </label>
           <label>
             <span>Проект или подпроект</span>
@@ -7078,7 +7078,7 @@ export function GenesisCalendar() {
             ) : null}
             <label>
               <span>Название</span>
-              <input value={editingTask.title} onChange={(event) => setEditingTask((current) => current ? { ...current, title: event.target.value } : current)} required />
+              <input value={editingTask.title} onChange={(event) => setEditingTask((current) => current ? { ...current, title: event.target.value } : current)} placeholder={entryTypeTitlePlaceholder(editingTask.entryType)} required />
             </label>
             <label>
               <span>Описание</span>

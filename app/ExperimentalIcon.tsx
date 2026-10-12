@@ -28,6 +28,7 @@ export function ExperimentalIcon({ name, className = "" }: { name: string; class
     {name === "map-up" ? <path d="M12 20V4m-6 6 6-6 6 6"/> : null}
     {name === "map-down" ? <path d="M12 4v16m-6-6 6 6 6-6"/> : null}
     {name === "map-back" ? <path d="m10 5-7 7 7 7M3 12h12a6 6 0 0 1 6 6"/> : null}
+    {name === "map-home" ? <><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z"/></> : null}
     {name === "edit" ? <path d="m16 3 5 5M4 20l4-1L21 6a2.1 2.1 0 0 0-3-3L5 16Z"/> : null}
     {name === "delete" ? <path d="M3 6h18M9 6V4h6v2M5 6l1 14h12l1-14M10 10v6m4-6v6"/> : null}
     {name === "open" ? <path d="M7 7h10v10M7 17 17 7"/> : null}
