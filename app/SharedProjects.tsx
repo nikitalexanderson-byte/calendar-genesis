@@ -1,7 +1,8 @@
 /* eslint-disable @next/next/no-img-element -- User-provided board pictures remain native img elements. */
 "use client";
 
-import { type ReactNode, type CSSProperties, type FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { type ReactNode, type CSSProperties, type FormEvent, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { MobileDisclosure } from "./MobileDisclosure";
 import {
   searchSharedAffairs, type SharedAffairSearch,
   listSharedLabels, type SharedLabel,
@@ -58,6 +59,11 @@ import { restoredSharedProject, sharedProjectTree } from "./shared-expansion";
 import { formatTaskCount } from "./task-count-i18n";
 import { InboxToolbar, InboxRestore, InboxResizeBoundary } from "./InboxToolbar";
 import type { InboxPosition } from "./ui-visibility";
+
+const phoneQuery = () => window.matchMedia("(max-width: 760px)");
+const subscribePhone = (listener: () => void) => { const query = phoneQuery(); query.addEventListener("change", listener); return () => query.removeEventListener("change", listener); };
+const phoneSnapshot = () => phoneQuery().matches;
+const serverPhoneSnapshot = () => false;
 import type { SharedInvitationDestination } from "./SharedInvitationNotices";
 
 type Props = { userId: string; language: string; enabledCalendars: CalendarMode[]; experimentalTheme?: boolean; timeFormat?: TimeFormat;
@@ -161,6 +167,8 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   const [googleBusy, setGoogleBusy] = useState(false);
   const [googleStatus, setGoogleStatus] = useState("");
   const [taskId, setTaskId] = useState("");
+  const isPhone = useSyncExternalStore(subscribePhone, phoneSnapshot, serverPhoneSnapshot);
+  const [taskSection, setTaskSection] = useState<"task" | "comments">("task");
   const [taskSnapshot, setTaskSnapshot] = useState<SharedProjectSnapshot | null>(null);
   const [comments, setComments] = useState<SharedComment[]>([]);
   const [editingSpaceId, setEditingSpaceId] = useState("");
@@ -806,7 +814,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
     return () => { live = false; window.clearInterval(timer); };
   }, [inboxProjectId]);
   const visibleInbox = inboxPreview?.project.id === inboxProjectId ? inboxPreview : null;
-  const activeView = viewOverride ?? snapshot?.project.layout ?? "list";
+  const activeView = viewOverride ?? (isPhone ? "list" : snapshot?.project.layout ?? "list");
   const calendarPeriod = sharedCalendarPeriod(calendarMonth, calendarMode, english);
   const calendarOffset = calendarPeriod.dates.length ? (calendarPeriod.dates[0].getDay() + 6) % 7 : 0;
   const calendarDays = [
@@ -828,6 +836,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
     if (!context || context.project.id !== task.projectId) return;
     setMessage("");
     setTaskSnapshot(context);
+    setTaskSection("task");
     setTaskId(task.id); setComments([]);
     setEditTaskCalendarMode(taskCalendarMode);
     setEditTaskFiles([]); setRemovedTaskFileIds([]);
@@ -876,9 +885,9 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   useEffect(() => {
     if (loading || requestedTaskId || (spaceId && uiReadySpace !== spaceId)) return;
     if (!window.location.hash.startsWith("#projects")) return;
-    recordSharedPlace(userId, { spaceId, projectId, taskId, view: viewOverride }, initialRoute.current);
+    recordSharedPlace(userId, { spaceId, projectId: taskId ? taskSnapshot?.project.id ?? projectId : projectId, taskId, view: viewOverride }, initialRoute.current);
     initialRoute.current = false;
-  }, [userId, spaceId, projectId, taskId, viewOverride, loading, requestedTaskId, uiReadySpace]);
+  }, [userId, spaceId, projectId, taskId, taskSnapshot?.project.id, viewOverride, loading, requestedTaskId, uiReadySpace]);
   const canWrite = snapshot && (snapshot.project.permissions?.editTasks ?? ["owner", "manager", "member"].includes(snapshot.project.role));
   const canInvite = snapshot && (snapshot.project.permissions?.inviteMembers ?? ["owner", "manager"].includes(snapshot.project.role));
   const canManage = snapshot && (snapshot.project.permissions?.manageProjects ?? ["owner", "manager"].includes(snapshot.project.role));
@@ -957,11 +966,11 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
     setNewApprovalRequired(false); setNewApproverIds([]);
     setNewEntryType(kind === "meeting" || kind === "event" ? kind : "task");
     setNewTaskRootProjectId(chooseProject ? project.id : "");
-    setNewTaskDestination({ projectId: chooseProject ? "" : project.id, statusId: status?.id,
-      title: project.isInbox ? `${english ? "Workspace inbox" : "Хаос-бокс пространства"}: ${selectedSpace?.title ?? ""}` : status ? `${project.title} · ${statusLabel(status.title)}` : project.title, isInbox: chooseProject || Boolean(project.isInbox) });
+    setNewTaskDestination({ projectId: project.id, statusId: status?.id,
+      title: project.isInbox ? `${english ? "Workspace inbox" : "Хаос-бокс пространства"}: ${selectedSpace?.title ?? ""}` : status ? `${project.title} · ${statusLabel(status.title)}` : project.title, isInbox: Boolean(project.isInbox) });
     setNewTaskCalendarMode(taskCalendarMode);
     setNewPlan(emptySharedPlan());setNewTaskLabelIds([]);setNewTaskDueDate("");setNewTaskTitle("");setNewTaskDescription("");setNewTaskTags("");
-    setNewTaskContext(null);void loadSharedProject(chooseProject ? inboxProject?.id ?? project.id : project.id).then(setNewTaskContext).catch(()=>undefined);
+    setNewTaskContext(null);void loadSharedProject(project.id).then(setNewTaskContext).catch(()=>undefined);
     setProjectTitle(""); setProjectDescription(""); setProjectTags(""); setProjectLabelIds([]); setProjectCategoryId("");
     setCreateKind("task-list"); setParentId(project.isInbox ? "" : project.id); setParentBoardId(status?.id ?? "");
     setCreateModal(kind === "task-list" ? "project" : "task");
@@ -1001,6 +1010,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
 
   return <div className="shared-projects" data-exp-layout="view">
     <WorkspaceHeader title={english ? "Affairs · shared" : "Дела · общие"}
+      overviewLabel={english ? "Workspace overview" : "Обзор пространства"}
       context={selectedSpace ? <SharedWorkspaceIdentity key={spaceId} title={selectedSpace.title}
         owner={selectedSpace.ownerName ?? visibleInbox?.members.filter(member => member.spaceRole === "owner").map(member => member.displayName).join(", ") ?? ""}
         members={selectedSpace.memberCount ?? visibleInbox?.members.length}
@@ -1020,6 +1030,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       }}><option value="">{english ? "Choose a workspace" : "Выберите пространство"}</option>
         {spaces.map(space => <option key={space.id} value={space.id}>{space.title}</option>)}
       </select>
+      <MobileDisclosure label={english ? "Workspace controls" : "Управление пространством"} className="shared-mobile-tools"><div className="shared-workspace-tools">
       {["owner", "admin"].includes(selectedSpace?.role ?? "") ? <button type="button" className="secondary-button" title={english ? "Workspace settings" : "Настройки пространства"} aria-label={english ? "Workspace settings" : "Настройки пространства"}
         onClick={() => { setEditingSpaceId(spaceId); setCreateModal("space-settings"); }}><ExperimentalIcon name="gear" /></button> : null}
       {canManageLabels ? <button type="button" className="secondary-button" title={english ? "Labels" : "Метки"} aria-label={english ? "Labels" : "Метки"} onClick={() => setLabelsOpen(true)}><ExperimentalIcon name="tag" /></button> : null}
@@ -1028,8 +1039,8 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       <button type="button" className="secondary-button" title={english ? "All workspaces" : "Все пространства"} aria-label={english ? "All workspaces" : "Все пространства"}
         onClick={() => { setSpaceId(""); setProjectId(""); setSnapshot(null); closeTask(); }}><ExperimentalIcon name="spaces" /></button>
       <button type="button" className="secondary-button" title={english ? "Create workspace" : "Создать пространство"} aria-label={english ? "Create workspace" : "Создать пространство"} onClick={() => setCreateModal("space")}><ExperimentalIcon name="space-plus" /></button>
-      </div>
-    {spaceId ? <label className="tag-search personal-affairs-search shared-workspace-search"><span aria-hidden="true">{experimentalTheme ? <ExperimentalIcon name="search" /> : "⌕"}</span><input aria-label={english ? "Find tasks and projects by title or tag" : "Поиск задач и проектов по названию или #тегу"} value={searchQuery} onChange={(event) => { setSearchQuery(event.target.value); setSearchBusy(Boolean(event.target.value.trim())); setSearchResults({ projects: [], tasks: [] }); }} placeholder={english ? "Find tasks and projects by title or #tag" : "Поиск задач и проектов по названию или #тегу"} /></label> : null}
+      </div></MobileDisclosure></div>
+    {spaceId ? <label className="tag-search personal-affairs-search shared-workspace-search"><span aria-hidden="true">{experimentalTheme ? <ExperimentalIcon name="search" /> : "⌕"}</span><input type="search" aria-label={english ? "Find tasks and projects by title or tag" : "Поиск задач и проектов по названию или #тегу"} value={searchQuery} onChange={(event) => { setSearchQuery(event.target.value); setSearchBusy(Boolean(event.target.value.trim())); setSearchResults({ projects: [], tasks: [] }); }} placeholder={english ? "Find tasks and projects by title or #tag" : "Поиск задач и проектов по названию или #тегу"} /></label> : null}
       {spaceId ? <div className="shared-project-toolbar-group" role="group" aria-label={english ? "Projects in workspace" : "Проекты пространства"}>
         {projects.some(project => !project.isInbox) ? <select value={projectId} aria-label={english ? "Current project" : "Текущий проект"} onChange={event => {
           setProjectId(event.target.value); setSnapshot(null); closeTask(); setViewOverride(null);
@@ -1077,8 +1088,6 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
         {searchResults.tasks.map((task) => <button type="button" key={task.id} onClick={() => void run(async () => {
           const result = await loadSharedProject(task.projectId);
           const found = result.tasks.find((item) => item.id === task.id);
-          setSearchQuery("");
-          if (!result.project.isInbox) { setProjectId(task.projectId); setSnapshot(result); setViewOverride("list"); }
           if (found) openTask(found, result);
         })}><span>Задача · {task.projectTitle}</span><strong>{task.title}</strong><small>{task.tags.map((tag) => `#${tag}`).join(" ")}</small></button>)}</div>
       {!searchBusy && !searchResults.projects.length && !searchResults.tasks.length ? <p>{english ? "No matches" : "Совпадений нет"}</p> : null}
@@ -1146,7 +1155,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       {projects.some(project => project.parentId === snapshot.project.id) ? <nav className="shared-current-subprojects" aria-label={english ? "Subprojects" : "Подпроекты"}>{renderProjectTree(snapshot.project.id)}</nav> : null}
       <section className="shared-projects-task-panel" aria-labelledby="shared-projects-tasks-title">
       <section className="shared-projects-planning" aria-label={english ? "Tasks and views" : "Задачи и виды проекта"}>
-        <h3 id="shared-projects-tasks-title">{english ? "Tasks" : "Задачи проекта"}</h3>
+        <h3 id="shared-projects-tasks-title">{english ? "Tasks" : "Задачи"}</h3>
       {canWrite && !snapshot.project.isInbox ? <div className="shared-projects-create-actions">
         <button type="button" className="shared-projects-open-modal primary-button" onClick={() => openCreateTask(snapshot.project, undefined, "task", true)}>
           <ExperimentalIcon name="plus" /><span className="shared-create-full">{english ? "Create task" : "Создать задачу"}</span><span className="shared-create-short">{english ? "Task" : "Задача"}</span>
@@ -1356,31 +1365,41 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       {selectedTask && taskSnapshot ? <>
         <header><h2 id="shared-task-title">{selectedTask.title}</h2><button type="button" className="shared-projects-close" disabled={busy} onClick={closeTask} aria-label={english ? "Close task" : "Закрыть задачу"}><ExperimentalIcon name="close" /></button></header>
         {message ? <p className="shared-task-feedback" role="status">{message}</p> : null}
+        <div className="shared-task-sections" role="group" aria-label={english ? "Task details" : "Карточка задачи"}>
+          <button type="button" aria-pressed={taskSection === "task"} aria-controls="shared-task-fields" onClick={() => setTaskSection("task")}>{english ? "Task" : "Задача"}</button>
+          <button type="button" aria-pressed={taskSection === "comments"} aria-controls="shared-task-discussion" onClick={() => setTaskSection("comments")}>{english ? "Comments" : "Комментарии"} · {comments.length}</button>
+        </div>
+        <div id="shared-task-fields" hidden={taskSection !== "task"}>
         {selectedTask.approvalRequired ? <section className="shared-task-approval-status">
           <h3>{english ? "Completion confirmations" : "Подтверждения выполнения"}</h3>
           <ul>{selectedTask.approvals?.map((item, index) => <li key={item.userId ?? index}><span data-no-translate>{item.displayName || (english ? "Former participant" : "Бывший участник")}</span><span>{item.approvedAt ? (english ? "Confirmed" : "Подтверждено") : (english ? "Pending" : "Ожидается")}</span></li>)}</ul>
           {selectedTask.approvals?.some(item => item.userId === userId && !item.approvedAt) ? <button className="primary-button" type="button" disabled={busy || selectedTask.pending} onClick={() => confirmTask(selectedTask)}>{english ? "Confirm completion" : "Подтвердить выполнение"}</button> : null}
         </section> : null}
+        <div className="shared-task-quick-fields">
         {taskSnapshot.project.canOrganizeTasks ? <div className="shared-projects-detail-move">
           {!taskSnapshot.project.isInbox ? <label>{english ? "Board" : "Доска"}<select value={selectedTask.statusId} disabled={busy}
             onChange={(event) => moveTask(selectedTask, event.target.value)}>
             {taskSnapshot.statuses.map((status) => <option key={status.id} value={status.id}>{statusLabel(status.title)}</option>)}
           </select></label> : null}
-          <label>{english ? "Project or inbox" : "Проект или хаос-бокс"}<select value={taskSnapshot.project.id} disabled={busy}
-            onChange={(event) => moveTaskTo(selectedTask, event.target.value)}>
-            {projects.filter(project => project.isInbox).map(project => <option key={project.id} value={project.id}>
-              {english ? "Shared inbox" : "Хаос-бокс"} · {formatTaskCount(project.taskCount ?? 0, english ? "en" : "ru")}</option>)}
-            {sharedProjectTree(projects).map(({ project, depth }) => <option key={project.id} value={project.id}>
-              {depth ? `${"\u00a0\u00a0".repeat(depth)}↳ ` : ""}{project.title} · {formatTaskCount(project.taskCount ?? 0, english ? "en" : "ru")}</option>)}
-          </select></label>
+
         </div> : null}
+
+        {canEditTask ? <label>{english ? "Assigned to" : "Исполнитель"}<select value={selectedTask.assigneeId ?? ""} disabled={busy} onChange={(event) => assignTask(selectedTask, event.target.value)}>
+          <option value="">{english ? "Unassigned" : "Не назначен"}</option>
+          {taskSnapshot.members.map((member) => <option key={member.userId} value={member.userId}>{member.displayName}</option>)}
+        </select></label> : null}
+        </div>
         {canEditTask ? <form onSubmit={submitTaskEdit}>
-          <EntryTypeChoice value={editEntryType} types={["task","meeting","event"]} english={english} disabled={busy} onChange={setEditEntryType}/>
-          <RecordCalendarChoice value={editTaskCalendarMode} onChange={setEditTaskCalendarMode} language={language} />
-          <label>{english ? "Name" : "Название"}<input value={editTaskTitle} onChange={(event) => setEditTaskTitle(event.target.value)} maxLength={160} required /></label>
-          <label>{english ? "Tags" : "Теги"}<input value={editTaskTags} onChange={(event) => setEditTaskTags(event.target.value)} placeholder="работа, запуск" /></label>
+          <label>{english ? "Name" : "Название"}<textarea rows={2} value={editTaskTitle} onChange={(event) => setEditTaskTitle(event.target.value)} maxLength={160} required /></label>
           <label>{english ? "Description" : "Описание"}<textarea value={editTaskDescription} onChange={(event) => setEditTaskDescription(event.target.value)} maxLength={20000} /></label>
-          <SharedTaskSchedule plan={editPlan} onChange={setEditPlan} dueDate={editTaskDueDate} onDueDate={setEditTaskDueDate} mode={editTaskCalendarMode} timeFormat={timeFormat} english={english} tasks={taskSnapshot.tasks} taskId={selectedTask.id}/>
+          <details className="task-advanced-fields shared-record-calendar"><summary>{english ? "Calendar" : "Календарь"}</summary>
+          <RecordCalendarChoice value={editTaskCalendarMode} onChange={setEditTaskCalendarMode} language={language} />
+          </details>
+          <SharedTaskSchedule compact plan={editPlan} onChange={setEditPlan} dueDate={editTaskDueDate} onDueDate={setEditTaskDueDate} mode={editTaskCalendarMode} timeFormat={timeFormat} english={english} tasks={taskSnapshot.tasks} taskId={selectedTask.id}/>
+          <details className="task-advanced-fields"><summary>{english ? "Details and settings" : "Подробности и настройки"}</summary>
+
+          <EntryTypeChoice value={editEntryType} types={["task","meeting","event"]} english={english} disabled={busy} onChange={setEditEntryType}/>
+          <label>{english ? "Tags" : "Теги"}<input value={editTaskTags} onChange={(event) => setEditTaskTags(event.target.value)} placeholder="работа, запуск" /></label>
           <SharedTaskAttachmentsInput key={selectedTask.id} value={editTaskFiles} onChange={setEditTaskFiles}
             onReadingChange={setEditTaskFilesReading} english={english} disabled={busy || selectedTask.revision !== editTaskRevision}
             existing={(selectedTask.attachments ?? []).filter(file => !removedTaskFileIds.includes(file.id))}
@@ -1389,19 +1408,29 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
           {(selectedTask.createdBy === userId || taskSnapshot.project.permissions?.manageProjects) ? <SharedTaskApprovalChoice enabled={editApprovalRequired} ids={editApproverIds} members={taskSnapshot.members} english={english}
             disabled={busy || Boolean(selectedTask.completedAt) || selectedTask.revision !== editTaskRevision}
             onEnabled={value => { setEditApprovalRequired(value); setApprovalConfigChanged(true); }} onIds={ids => { setEditApproverIds(ids); setApprovalConfigChanged(true); }} /> : null}
+          </details>
           {selectedTask.revision !== editTaskRevision ? <p role="status">{english ? "This task changed elsewhere. Your draft is kept. Reload its fields before saving." : "Задача изменилась у другого участника. Черновик сохранён; обновите поля перед сохранением."}
             <button type="button" onClick={() => openTask(selectedTask, taskSnapshot)}>{english ? "Reload fields" : "Обновить поля"}</button></p> : null}
-          <button type="submit" className="primary-button" disabled={busy || editTaskFilesReading || selectedTask.revision !== editTaskRevision || editApprovalRequired && !editApproverIds.length}>{english ? "Save task" : "Сохранить задачу"}</button>
+          <button type="submit" className="primary-button shared-task-save" disabled={busy || editTaskFilesReading || selectedTask.revision !== editTaskRevision || editApprovalRequired && !editApproverIds.length}>{english ? "Save task" : "Сохранить задачу"}</button>
         </form> : selectedTask.description ? <p>{selectedTask.description}</p> : null}
-        {canEditTask ? <label>{english ? "Assigned to" : "Исполнитель"}<select value={selectedTask.assigneeId ?? ""} disabled={busy} onChange={(event) => assignTask(selectedTask, event.target.value)}>
-          <option value="">{english ? "Unassigned" : "Не назначен"}</option>
-          {taskSnapshot.members.map((member) => <option key={member.userId} value={member.userId}>{member.displayName}</option>)}
-        </select></label> : null}
+
+          {taskSnapshot.project.canOrganizeTasks ? <details className="task-advanced-fields"><summary>{english ? "Project or inbox" : "Проект или хаос-бокс"}</summary>
+          <label>{english ? "Project or inbox" : "Проект или хаос-бокс"}<select value={taskSnapshot.project.id} disabled={busy}
+            onChange={(event) => moveTaskTo(selectedTask, event.target.value)}>
+            {projects.filter(project => project.isInbox).map(project => <option key={project.id} value={project.id}>
+              {english ? "Shared inbox" : "Хаос-бокс"} · {formatTaskCount(project.taskCount ?? 0, english ? "en" : "ru")}</option>)}
+            {sharedProjectTree(projects).map(({ project, depth }) => <option key={project.id} value={project.id}>
+              {depth ? `${"\u00a0\u00a0".repeat(depth)}↳ ` : ""}{project.title} · {formatTaskCount(project.taskCount ?? 0, english ? "en" : "ru")}</option>)}
+          </select></label>
+          </details> : null}
         {selectedTask.imageUrl ? <SharedTaskImage key={selectedTask.id} src={selectedTask.imageUrl} english={english} /> : null}
         <SharedTaskAttachmentList files={selectedTask.attachments ?? []} english={english} />
+        </div>
+        <div id="shared-task-discussion" hidden={taskSection !== "comments"}>
         <SharedComments key={`comments-${selectedTask.id}`} comments={comments} members={taskSnapshot.members} english={english} canComment={Boolean(canCommentTask)} busy={busy} onSubmit={submitComment}/>
         <SharedActivity key={`activity-${selectedTask.id}`} projectId={taskSnapshot.project.id} taskId={selectedTask.id} english={english} refreshKey={activityKey}/>
-        {taskSnapshot.project.canOrganizeTasks ? <footer className="shared-task-delete-footer"><button type="button" className="danger-button shared-task-delete-button" disabled={busy || selectedTask.pending} onClick={() => removeTask(selectedTask, taskSnapshot)}><ExperimentalIcon name="close" />{english ? "Delete task" : "Удалить задачу"}</button></footer> : null}
+        </div>
+        {taskSection === "task" && taskSnapshot.project.canOrganizeTasks ? <footer className="shared-task-delete-footer"><button type="button" className="danger-button shared-task-delete-button" disabled={busy || selectedTask.pending} onClick={() => removeTask(selectedTask, taskSnapshot)}><ExperimentalIcon name="close" />{english ? "Delete task" : "Удалить задачу"}</button></footer> : null}
       </> : null}
     </dialog>
     <dialog ref={calendarAgendaRef} className="shared-projects-modal shared-calendar-day-modal" aria-labelledby="shared-calendar-day-title"
@@ -1563,8 +1592,8 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
           <button type="submit" className="primary-button" disabled={busy}>{createKind === "task-list" ? (english ? "Create task list" : "Создать список задач") : (english ? "Create project" : "Создать проект")}</button>
         </form> : null}
         {createModal === "task" && newTaskDestination ? <form className="shared-task-composer" onSubmit={submitTask}>
-          <EntryTypeChoice value={newEntryType} types={["task","meeting","event"]} english={english} disabled={busy} onChange={setNewEntryType}/>
-          <section className="shared-task-form-section"><h3>{english ? "Task" : "Задача"}</h3>
+          <section className="shared-task-form-section">
+          <label>{english ? "Name" : "Название"}<textarea rows={2} maxLength={160} required value={newTaskTitle} onChange={(event) => setNewTaskTitle(event.target.value)} /></label>
           {newTaskRootProjectId ? <label>{english ? "Project or subproject" : "Проект или подпроект"}<select value={newTaskDestination.projectId}
             onChange={event => {
               const target = projects.find(project => project.id === event.target.value);
@@ -1578,18 +1607,17 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
             {taskDestinationProjects.filter(({ project }) => project.kind !== "task-list" && (project.permissions?.editTasks ?? ["owner", "manager", "member"].includes(project.role)))
               .map(({ project, depth }) => <option value={project.id} key={project.id}>{depth ? `${"\u00a0\u00a0".repeat(depth)}↳ ` : ""}{project.title}</option>)}
           </select></label> : <p className="shared-task-destination">{english ? "Create in" : "Место создания"}: <strong>{newTaskDestination.title}</strong></p>}
-          <label>{english ? "Name" : "Название"}<input maxLength={160} required value={newTaskTitle} onChange={(event) => setNewTaskTitle(event.target.value)} /></label>
           </section>
-          <section className="shared-task-form-section"><h3>{english ? "Dates and planning" : "Даты и планирование"}</h3>
+          <details className="task-advanced-fields"><summary>{english ? "Dates and planning" : "Даты и планирование"}{newTaskDueDate ? ` · ${formatCalendarDate(new Date(`${newTaskDueDate}T12:00:00`), newTaskCalendarMode)}` : ""}</summary>
           <RecordCalendarChoice value={newTaskCalendarMode} onChange={setNewTaskCalendarMode} language={language} />
           <SharedTaskSchedule plan={newPlan} onChange={setNewPlan} dueDate={newTaskDueDate} onDueDate={setNewTaskDueDate} mode={newTaskCalendarMode} timeFormat={timeFormat} english={english} tasks={newTaskContext && newTaskContext.project.id===(newTaskDestination.projectId || inboxProject?.id) ? newTaskContext.tasks : []}/>
-          </section>
+          </details>
+          <details className="task-advanced-fields"><summary>{english ? "Details and settings" : "Подробности и настройки"}</summary>
           <SharedTaskApprovalChoice enabled={newApprovalRequired} ids={newApproverIds} members={newTaskContext && newTaskContext.project.id === (newTaskDestination.projectId || inboxProject?.id) ? newTaskContext.members : []}
             english={english} disabled={busy || !newTaskContext} onEnabled={setNewApprovalRequired} onIds={setNewApproverIds} />
           <section className="shared-task-form-section"><h3>{english ? "Attachment" : "Вложение"}</h3>
           <SharedTaskAttachmentsInput value={newTaskFiles} onChange={setNewTaskFiles} onReadingChange={setNewTaskImageReading} english={english} disabled={busy} />
           </section>
-          <details className="task-advanced-fields"><summary>{english ? "Details and settings" : "Подробности и настройки"}</summary>
           <label>{english ? "Description" : "Описание"}<textarea maxLength={20000} value={newTaskDescription} onChange={(event) => setNewTaskDescription(event.target.value)} /></label>
           <label>{english ? "Tags" : "Теги"}<input value={newTaskTags} onChange={(event) => setNewTaskTags(event.target.value)} placeholder="работа, запуск" /></label>
           <SharedLabelPicker labels={labels} value={newTaskLabelIds} onChange={setNewTaskLabelIds} english={english} onManage={canManageLabels ? ()=>setLabelsOpen(true) : undefined}/>

@@ -1,0 +1,128 @@
+[
+  {
+    "width": 360,
+    "theme": "standart",
+    "passed": [
+      "create encrypted map",
+      "mobile outline default",
+      "tap opens editor",
+      "edit long title and note",
+      "add child",
+      "explicit move without drag",
+      "node search",
+      "convert thought to real task",
+      "edit through personal task form",
+      "reload persistence",
+      "complete linked task",
+      "browser Back closes editor",
+      "canvas has no page overflow",
+      "filtered empty state"
+    ],
+    "errors": []
+  },
+  {
+    "width": 360,
+    "theme": "standart-dark",
+    "passed": [
+      "create encrypted map",
+      "mobile outline default",
+      "tap opens editor",
+      "edit long title and note",
+      "add child",
+      "explicit move without drag",
+      "node search",
+      "convert thought to real task",
+      "edit through personal task form",
+      "reload persistence",
+      "complete linked task",
+      "browser Back closes editor",
+      "canvas has no page overflow",
+      "filtered empty state"
+    ],
+    "errors": []
+  },
+  {
+    "width": 390,
+    "theme": "standart",
+    "passed": [
+      "create encrypted map",
+      "mobile outline default",
+      "tap opens editor",
+      "edit long title and note",
+      "add child",
+      "explicit move without drag",
+      "node search",
+      "convert thought to real task",
+      "edit through personal task form",
+      "reload persistence",
+      "complete linked task",
+      "browser Back closes editor",
+      "canvas has no page overflow",
+      "filtered empty state"
+    ],
+    "errors": []
+  },
+  {
+    "width": 390,
+    "theme": "standart-dark",
+    "passed": [
+      "create encrypted map",
+      "mobile outline default",
+      "tap opens editor",
+      "edit long title and note",
+      "add child",
+      "explicit move without drag",
+      "node search",
+      "convert thought to real task",
+      "edit through personal task form",
+      "reload persistence",
+      "complete linked task",
+      "browser Back closes editor",
+      "canvas has no page overflow",
+      "filtered empty state"
+    ],
+    "errors": []
+  },
+  {
+    "width": 430,
+    "theme": "standart",
+    "passed": [
+      "create encrypted map",
+      "mobile outline default",
+      "tap opens editor",
+      "edit long title and note",
+      "add child",
+      "explicit move without drag",
+      "node search",
+      "convert thought to real task",
+      "edit through personal task form",
+      "reload persistence",
+      "complete linked task",
+      "browser Back closes editor",
+      "canvas has no page overflow",
+      "filtered empty state"
+    ],
+    "errors": []
+  },
+  {
+    "width": 430,
+    "theme": "standart-dark",
+    "passed": [
+      "create encrypted map",
+      "mobile outline default",
+      "tap opens editor",
+      "edit long title and note",
+      "add child",
+      "explicit move without drag",
+      "node search",
+      "convert thought to real task",
+      "edit through personal task form",
+      "reload persistence",
+      "complete linked task",
+      "browser Back closes editor",
+      "canvas has no page overflow",
+      "filtered empty state"
+    ],
+    "errors": []
+  }
+]

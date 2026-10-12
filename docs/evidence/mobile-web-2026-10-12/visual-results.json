@@ -1,0 +1,1492 @@
+[
+  {
+    "width": 360,
+    "theme": "standart",
+    "taskTop": 1352.328125,
+    "sizes": [
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 44
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 159
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 159
+      },
+      {
+        "tag": "SELECT",
+        "height": 44,
+        "width": 157
+      },
+      {
+        "tag": "SELECT",
+        "height": 44,
+        "width": 157
+      },
+      {
+        "tag": "TEXTAREA",
+        "height": 70,
+        "width": 326
+      },
+      {
+        "tag": "TEXTAREA",
+        "height": 70,
+        "width": 326
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 326
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 326
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 326
+      },
+      {
+        "tag": "INPUT",
+        "height": 46,
+        "width": 300
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 113
+      },
+      {
+        "tag": "INPUT",
+        "height": 46,
+        "width": 300
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 112
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "SELECT",
+        "height": 44,
+        "width": 326
+      },
+      {
+        "tag": "INPUT",
+        "height": 46,
+        "width": 326
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 135
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 171
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "BUTTON",
+        "height": 48,
+        "width": 326
+      },
+      {
+        "tag": "SELECT",
+        "height": 44,
+        "width": 326
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 326
+      }
+    ],
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 360,
+    "theme": "standart-dark",
+    "taskTop": 1352.328125,
+    "sizes": [
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 44
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 159
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 159
+      },
+      {
+        "tag": "SELECT",
+        "height": 44,
+        "width": 157
+      },
+      {
+        "tag": "SELECT",
+        "height": 44,
+        "width": 157
+      },
+      {
+        "tag": "TEXTAREA",
+        "height": 70,
+        "width": 326
+      },
+      {
+        "tag": "TEXTAREA",
+        "height": 70,
+        "width": 326
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 326
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 326
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 326
+      },
+      {
+        "tag": "INPUT",
+        "height": 46,
+        "width": 300
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 113
+      },
+      {
+        "tag": "INPUT",
+        "height": 46,
+        "width": 300
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 112
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "SELECT",
+        "height": 44,
+        "width": 326
+      },
+      {
+        "tag": "INPUT",
+        "height": 46,
+        "width": 326
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 135
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 171
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "BUTTON",
+        "height": 48,
+        "width": 326
+      },
+      {
+        "tag": "SELECT",
+        "height": 44,
+        "width": 326
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 326
+      }
+    ],
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 390,
+    "theme": "standart",
+    "taskTop": 1323.734375,
+    "sizes": [
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 44
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 174
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 174
+      },
+      {
+        "tag": "SELECT",
+        "height": 44,
+        "width": 172
+      },
+      {
+        "tag": "SELECT",
+        "height": 44,
+        "width": 172
+      },
+      {
+        "tag": "TEXTAREA",
+        "height": 70,
+        "width": 356
+      },
+      {
+        "tag": "TEXTAREA",
+        "height": 70,
+        "width": 356
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 356
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 356
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 356
+      },
+      {
+        "tag": "INPUT",
+        "height": 46,
+        "width": 330
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 113
+      },
+      {
+        "tag": "INPUT",
+        "height": 46,
+        "width": 330
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 112
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "SELECT",
+        "height": 44,
+        "width": 356
+      },
+      {
+        "tag": "INPUT",
+        "height": 46,
+        "width": 356
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 135
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 171
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "BUTTON",
+        "height": 48,
+        "width": 356
+      },
+      {
+        "tag": "SELECT",
+        "height": 44,
+        "width": 356
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 356
+      }
+    ],
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 390,
+    "theme": "standart-dark",
+    "taskTop": 1323.734375,
+    "sizes": [
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 44
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 174
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 174
+      },
+      {
+        "tag": "SELECT",
+        "height": 44,
+        "width": 172
+      },
+      {
+        "tag": "SELECT",
+        "height": 44,
+        "width": 172
+      },
+      {
+        "tag": "TEXTAREA",
+        "height": 70,
+        "width": 356
+      },
+      {
+        "tag": "TEXTAREA",
+        "height": 70,
+        "width": 356
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 356
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 356
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 356
+      },
+      {
+        "tag": "INPUT",
+        "height": 46,
+        "width": 330
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 113
+      },
+      {
+        "tag": "INPUT",
+        "height": 46,
+        "width": 330
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 112
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "SELECT",
+        "height": 44,
+        "width": 356
+      },
+      {
+        "tag": "INPUT",
+        "height": 46,
+        "width": 356
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 135
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 171
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "BUTTON",
+        "height": 48,
+        "width": 356
+      },
+      {
+        "tag": "SELECT",
+        "height": 44,
+        "width": 356
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 356
+      }
+    ],
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 430,
+    "theme": "standart",
+    "taskTop": 1295.140625,
+    "sizes": [
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 44
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 194
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 194
+      },
+      {
+        "tag": "SELECT",
+        "height": 44,
+        "width": 192
+      },
+      {
+        "tag": "SELECT",
+        "height": 44,
+        "width": 192
+      },
+      {
+        "tag": "TEXTAREA",
+        "height": 70,
+        "width": 396
+      },
+      {
+        "tag": "TEXTAREA",
+        "height": 70,
+        "width": 396
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 396
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 396
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 396
+      },
+      {
+        "tag": "INPUT",
+        "height": 46,
+        "width": 370
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 113
+      },
+      {
+        "tag": "INPUT",
+        "height": 46,
+        "width": 370
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 112
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "SELECT",
+        "height": 44,
+        "width": 396
+      },
+      {
+        "tag": "INPUT",
+        "height": 46,
+        "width": 396
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 135
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 171
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "BUTTON",
+        "height": 48,
+        "width": 396
+      },
+      {
+        "tag": "SELECT",
+        "height": 44,
+        "width": 396
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 396
+      }
+    ],
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 430,
+    "theme": "standart-dark",
+    "taskTop": 1295.140625,
+    "sizes": [
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 44
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 194
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 194
+      },
+      {
+        "tag": "SELECT",
+        "height": 44,
+        "width": 192
+      },
+      {
+        "tag": "SELECT",
+        "height": 44,
+        "width": 192
+      },
+      {
+        "tag": "TEXTAREA",
+        "height": 70,
+        "width": 396
+      },
+      {
+        "tag": "TEXTAREA",
+        "height": 70,
+        "width": 396
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 396
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 396
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 396
+      },
+      {
+        "tag": "INPUT",
+        "height": 46,
+        "width": 370
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 113
+      },
+      {
+        "tag": "INPUT",
+        "height": 46,
+        "width": 370
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 112
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "SELECT",
+        "height": 44,
+        "width": 396
+      },
+      {
+        "tag": "INPUT",
+        "height": 46,
+        "width": 396
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 135
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 171
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "BUTTON",
+        "height": 48,
+        "width": 396
+      },
+      {
+        "tag": "SELECT",
+        "height": 44,
+        "width": 396
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 396
+      }
+    ],
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 768,
+    "theme": "standart",
+    "taskTop": 1982.203125,
+    "sizes": [
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 44
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 291
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 291
+      },
+      {
+        "tag": "SELECT",
+        "height": 44,
+        "width": 289
+      },
+      {
+        "tag": "SELECT",
+        "height": 44,
+        "width": 289
+      },
+      {
+        "tag": "TEXTAREA",
+        "height": 70,
+        "width": 590
+      },
+      {
+        "tag": "TEXTAREA",
+        "height": 70,
+        "width": 590
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 191
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 191
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 191
+      },
+      {
+        "tag": "INPUT",
+        "height": 46,
+        "width": 270
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 113
+      },
+      {
+        "tag": "INPUT",
+        "height": 46,
+        "width": 270
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 112
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "SELECT",
+        "height": 44,
+        "width": 590
+      },
+      {
+        "tag": "INPUT",
+        "height": 46,
+        "width": 590
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 135
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 171
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 590
+      },
+      {
+        "tag": "SELECT",
+        "height": 44,
+        "width": 590
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 161
+      }
+    ],
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 768,
+    "theme": "standart-dark",
+    "taskTop": 1982.203125,
+    "sizes": [
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 44
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 291
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 291
+      },
+      {
+        "tag": "SELECT",
+        "height": 44,
+        "width": 289
+      },
+      {
+        "tag": "SELECT",
+        "height": 44,
+        "width": 289
+      },
+      {
+        "tag": "TEXTAREA",
+        "height": 70,
+        "width": 590
+      },
+      {
+        "tag": "TEXTAREA",
+        "height": 70,
+        "width": 590
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 191
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 191
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 191
+      },
+      {
+        "tag": "INPUT",
+        "height": 46,
+        "width": 270
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 113
+      },
+      {
+        "tag": "INPUT",
+        "height": 46,
+        "width": 270
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 112
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "SELECT",
+        "height": 44,
+        "width": 590
+      },
+      {
+        "tag": "INPUT",
+        "height": 46,
+        "width": 590
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 135
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 171
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 590
+      },
+      {
+        "tag": "SELECT",
+        "height": 44,
+        "width": 590
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 161
+      }
+    ],
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 1440,
+    "theme": "standart",
+    "taskTop": 1235.5625,
+    "sizes": [
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 44
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 291
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 291
+      },
+      {
+        "tag": "SELECT",
+        "height": 44,
+        "width": 289
+      },
+      {
+        "tag": "SELECT",
+        "height": 44,
+        "width": 289
+      },
+      {
+        "tag": "TEXTAREA",
+        "height": 64,
+        "width": 590
+      },
+      {
+        "tag": "TEXTAREA",
+        "height": 64,
+        "width": 590
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 191
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 191
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 191
+      },
+      {
+        "tag": "INPUT",
+        "height": 44,
+        "width": 270
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 113
+      },
+      {
+        "tag": "INPUT",
+        "height": 44,
+        "width": 270
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 112
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "SELECT",
+        "height": 44,
+        "width": 590
+      },
+      {
+        "tag": "INPUT",
+        "height": 44,
+        "width": 590
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 135
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 171
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 590
+      },
+      {
+        "tag": "SELECT",
+        "height": 44,
+        "width": 590
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 161
+      }
+    ],
+    "overflow": false,
+    "errors": []
+  },
+  {
+    "width": 1440,
+    "theme": "standart-dark",
+    "taskTop": 1235.5625,
+    "sizes": [
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 44
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 291
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 291
+      },
+      {
+        "tag": "SELECT",
+        "height": 44,
+        "width": 289
+      },
+      {
+        "tag": "SELECT",
+        "height": 44,
+        "width": 289
+      },
+      {
+        "tag": "TEXTAREA",
+        "height": 64,
+        "width": 590
+      },
+      {
+        "tag": "TEXTAREA",
+        "height": 64,
+        "width": 590
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 191
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 191
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 191
+      },
+      {
+        "tag": "INPUT",
+        "height": 44,
+        "width": 270
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 113
+      },
+      {
+        "tag": "INPUT",
+        "height": 44,
+        "width": 270
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 112
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "SELECT",
+        "height": 44,
+        "width": 590
+      },
+      {
+        "tag": "INPUT",
+        "height": 44,
+        "width": 590
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 135
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 171
+      },
+      {
+        "tag": "INPUT",
+        "height": 22,
+        "width": 22
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 590
+      },
+      {
+        "tag": "SELECT",
+        "height": 44,
+        "width": 590
+      },
+      {
+        "tag": "BUTTON",
+        "height": 44,
+        "width": 161
+      }
+    ],
+    "overflow": false,
+    "errors": []
+  }
+]

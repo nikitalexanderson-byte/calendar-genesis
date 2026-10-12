@@ -1,14 +1,18 @@
-import type { ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
+import { ExperimentalIcon } from "./ExperimentalIcon";
 
 /** Shared presentation contract for personal and team workspaces. */
-export function WorkspaceHeader({ title, description, mark, context, children }: {
-  title: string; description: string; mark: ReactNode; context?: ReactNode; children?: ReactNode;
+export function WorkspaceHeader({ title, description, mark, context, children, overviewLabel }: {
+  title: string; description: string; mark: ReactNode; context?: ReactNode; children?: ReactNode; overviewLabel?: string;
 }) {
-  return <header className="workspace-header" data-exp-ui="panel">
+  const [expanded, setExpanded] = useState(false);
+  const id = useId();
+  return <header className="workspace-header" data-exp-ui="panel" data-mobile-expanded={overviewLabel ? expanded : undefined}>
     <div className="workspace-header-main">{mark}
-      <div className="workspace-header-copy"><h1>{title.includes(" · ") ? <>{title.split(" · ")[0]}<span className="workspace-title-secondary"> · <em>{title.split(" · ").slice(1).join(" · ")}</em></span></> : title}</h1>{description ? <p>{description}</p> : null}{context}</div>
+      <div className="workspace-header-copy"><h1>{title.includes(" · ") ? <>{title.split(" · ")[0]}<span className="workspace-title-secondary"> · <em>{title.split(" · ").slice(1).join(" · ")}</em></span></> : title}</h1><div id={`${id}-context`} className="workspace-header-context">{description ? <p>{description}</p> : null}{context}</div></div>
     </div>
-    {children ? <div className="workspace-header-summary">{children}</div> : null}
+    {children ? <div id={`${id}-summary`} className="workspace-header-summary">{children}</div> : null}
+    {overviewLabel ? <button type="button" className="workspace-overview-toggle" aria-expanded={expanded} aria-controls={`${id}-context${children ? ` ${id}-summary` : ""}`} onClick={() => setExpanded(value => !value)}><ExperimentalIcon name="chevron"/>{overviewLabel}</button> : null}
   </header>;
 }
 
