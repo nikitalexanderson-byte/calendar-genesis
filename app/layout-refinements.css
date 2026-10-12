@@ -1048,3 +1048,77 @@ html[data-genesis-theme] .genesis-app .project-toolbar .tag-search.personal-affa
 html[data-genesis-theme] .genesis-app .personal-affairs-search > span { position:absolute; right:16px; top:50%; transform:translateY(-50%); display:flex; pointer-events:none; z-index:1; }
 html[data-genesis-theme] .genesis-app .personal-affairs-search > button { position:absolute; right:40px; top:50%; transform:translateY(-50%); width:40px; height:44px; }
 @media (max-width:600px) { html[data-genesis-theme] .genesis-app .personal-mindmaps-entry { width:100%; } }
+
+/* Phone affairs: reveal workspace administration without pushing tasks off screen. */
+html[data-genesis-theme] .genesis-app .mobile-disclosure > .mobile-disclosure-toggle,
+.inbox-mobile-toggle, .workspace-overview-toggle { display: none; }
+.shared-workspace-tools { display: flex; flex-wrap: wrap; gap: 8px; }
+.shared-task-sections { display: flex; gap: 8px; margin: 12px 0 20px; }
+.shared-task-sections > button { flex: 1; min-height: 44px; border: 1px solid var(--exp-border); border-radius: 10px; background: var(--surface); color: var(--ink); }
+.shared-task-sections > button[aria-pressed="true"] { background: var(--ui-accent); color: var(--ui-on-accent); border-color: var(--ui-accent); }
+.shared-task-modal [hidden] { display: none !important; }
+.shared-task-modal #shared-task-fields { display: grid; gap: 16px; }
+.shared-task-quick-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; align-items: start; }
+.shared-task-quick-fields .shared-projects-detail-move { display: block; margin: 0; padding: 0; border: 0; }
+.shared-task-modal .task-advanced-fields > :not(summary) { margin-top: 12px; }
+.shared-task-modal .shared-task-sections { position: sticky; top: 0; z-index: 2; padding-block: 8px; background: var(--surface); }
+
+@media (max-width: 760px) {
+  html[data-genesis-theme] .genesis-app .mobile-disclosure > .mobile-disclosure-toggle,
+  html[data-genesis-theme] .genesis-app .inbox-mobile-toggle { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px; background: transparent; border: 0; color: inherit; text-align: start; font: 500 14px/1.4 var(--font-ui); }
+  .mobile-disclosure-toggle svg, .inbox-mobile-toggle svg { width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.75; }
+  .mobile-disclosure[data-expanded="true"] > .mobile-disclosure-toggle svg,
+  .inbox-mobile-toggle[aria-expanded="true"] > svg { transform: rotate(90deg); }
+  .mobile-disclosure[data-expanded="false"] > .mobile-disclosure-content { display: none; }
+  .google-connect-expanded > .mobile-disclosure-toggle { display: none !important; }
+  .google-connect-expanded > .mobile-disclosure-content { display: block !important; }
+  html[data-genesis-theme] .genesis-app .affairs-google-connect { border-bottom: 1px solid var(--exp-border); margin-bottom: 4px; }
+  .affairs-google-connect .google-connect-banner { margin-block: 8px; }
+  html[data-genesis-theme] .genesis-app .workspace-header { display: block; padding: 12px 16px 4px; }
+  html[data-genesis-theme] .genesis-app .workspace-header h1 { font-size: 28px; margin: 0; }
+  html[data-genesis-theme] .genesis-app .workspace-header-main { gap: 10px; }
+  html[data-genesis-theme] .genesis-app .workspace-overview-toggle { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px 0; color: #d0ded5; background: transparent; border: 0; font: 500 14px/1.4 var(--font-ui); }
+  .workspace-overview-toggle svg { width: 18px; height: 18px; }
+  .workspace-overview-toggle[aria-expanded="true"] svg { transform: rotate(90deg); }
+  .workspace-header[data-mobile-expanded="false"] :is(.workspace-header-context,.workspace-header-summary) { display: none; }
+  .workspace-header[data-mobile-expanded="true"] .workspace-header-context { padding-top: 12px; }
+  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar { padding: 12px; gap: 10px; }
+  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar-group { display: flex; flex-wrap: wrap; gap: 4px; }
+  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar-group > select { flex: 1 1 100%; width: 100%; min-width: 0; }
+  .shared-mobile-tools { width: 100%; }
+  html[data-genesis-theme] .genesis-app .shared-mobile-tools > .mobile-disclosure-toggle { width: 100%; justify-content: flex-start; padding-inline: 0; }
+  .shared-workspace-tools { padding-block: 8px; }
+  html[data-genesis-theme] .genesis-app .shared-workspace-search { order: 3; }
+  html[data-genesis-theme] .genesis-app .shared-project-toolbar-group { flex-wrap: nowrap; }
+  html[data-genesis-theme] .genesis-app .shared-project-toolbar-group > select { flex: 1; min-width: 0; }
+  html[data-genesis-theme] .genesis-app .shared-workspace-toolbar :is(button, select, input) { min-height: 44px; }
+  html[data-genesis-theme] .genesis-app .shared-workspace-search input { font-size: 16px; }
+  html[data-genesis-theme] .genesis-app .workspace-inbox-header > .inbox-drag-handle { display: none; }
+  html[data-genesis-theme] .genesis-app .workspace-inbox-header > .inbox-mobile-toggle { flex: 1; min-width: 0; }
+  .inbox-mobile-toggle span { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px; }
+  .inbox-mobile-toggle small { font-size: 12px; font-weight: 400; }
+  html[data-genesis-theme] .genesis-app .inbox-card:has(> .workspace-inbox-header[data-mobile-expanded="false"]) { min-height: 0; padding: 8px 12px; }
+  .inbox-card:has(> .workspace-inbox-header[data-mobile-expanded="false"]) > :not(.workspace-inbox-header),
+  .workspace-inbox-header[data-mobile-expanded="false"] > .inbox-toolbar-controls { display: none !important; }
+  html[data-genesis-theme] .genesis-app .shared-projects-context { padding: 16px; gap: 12px; }
+  html[data-genesis-theme] .genesis-app .shared-project-heading h2 { font-size: 22px; line-height: 1.3; }
+  html[data-genesis-theme] .genesis-app .shared-projects-planning { padding: 12px 16px; gap: 12px; }
+  html[data-genesis-theme] .genesis-app .shared-projects-view-switch { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); width: 100%; }
+  html[data-genesis-theme] .genesis-app .shared-projects-view-switch > button { min-width: 0; min-height: 44px; padding-inline: 4px; font-size: 13px; }
+  html[data-genesis-theme] .genesis-app .shared-create-full { display: inline; }
+  html[data-genesis-theme] .genesis-app .shared-create-short { display: none; }
+  html[data-genesis-theme] .genesis-app .shared-projects-list .shared-projects-task { padding: 12px; }
+  html[data-genesis-theme] .genesis-app .shared-projects-list .shared-task-card-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  html[data-genesis-theme] .genesis-app .shared-projects-list .shared-task-card-controls > select { flex: 1; width: auto; min-width: 0; min-height: 44px; font-size: 14px; }
+  html[data-genesis-theme] .genesis-app .shared-projects-task.shared-affair-draggable[data-shared-task-id] .shared-task-card-controls > select[aria-label]:not([multiple]) { min-height: 44px; height: 44px; font-size: 14px; }
+  html[data-genesis-theme] .genesis-app .shared-task-actions > button { flex-basis: 44px; width: 44px; min-width: 44px; height: 44px; min-height: 44px; }
+  html[data-genesis-theme] .genesis-app :is(.shared-task-card-actions button, .shared-board-create-actions button, .shared-board-settings, .shared-project-settings-icon, .project-row-actions button) { min-width: 44px; min-height: 44px; }
+  html[data-genesis-theme] .genesis-app .shared-projects-modal { width: 100%; max-width: none; height: 100dvh; max-height: 100dvh; margin: 0; border-radius: 0; padding: max(16px,env(safe-area-inset-top)) 16px max(24px,env(safe-area-inset-bottom)); overscroll-behavior: contain; }
+  html[data-genesis-theme] .genesis-app .shared-projects-modal > header h2 { font-size: 22px; line-height: 1.3; }
+  html[data-genesis-theme] .genesis-app .shared-projects-modal :is(button,summary) { min-height: 44px; }
+  html[data-genesis-theme] .genesis-app .shared-projects-modal .shared-task-save { position: sticky; bottom: 0; z-index: 1; min-height: 48px; }
+  html[data-genesis-theme] .genesis-app .shared-projects-modal .shared-task-date-pair { grid-template-columns: minmax(0,1fr); }
+  html[data-genesis-theme] .genesis-app .shared-task-modal .shared-projects-detail-move { grid-template-columns: minmax(0,1fr); }
+  html[data-genesis-theme] .genesis-app .shared-task-modal .shared-task-sections > button { font-size: 15px; }
+  html[data-genesis-theme] .genesis-app .shared-projects-modal .task-composer-tabs { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); }
+}

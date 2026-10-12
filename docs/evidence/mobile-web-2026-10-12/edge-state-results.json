@@ -1,0 +1,9 @@
+{
+  "results": [
+    "Delayed real request: loading status",
+    "Invalid schedule rejected by local API; draft retained",
+    "Empty project snapshot: empty status groups and create action",
+    "Organizer without edit/comment permissions retains move; edit/comment hidden"
+  ],
+  "roleAndEmptyStates": "simulated local responses; no server permission mutation"
+}

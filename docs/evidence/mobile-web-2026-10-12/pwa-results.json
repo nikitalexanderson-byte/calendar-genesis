@@ -1,0 +1,8 @@
+{
+  "productionBuild": true,
+  "explicitLocalWorkerRegistration": true,
+  "controlled": true,
+  "offlineReloadRestoresProtectedSharedSnapshot": true,
+  "reconnectReload": true,
+  "physicalInstall": false
+}

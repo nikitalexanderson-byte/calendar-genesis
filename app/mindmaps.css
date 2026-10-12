@@ -106,6 +106,10 @@
 .mindmap-dialog pre { max-height: 300px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; padding: 16px; border: 1px solid var(--exp-border); font: 14px/1.6 var(--font-ui); }
 .mindmap-dialog article { border-bottom: 1px solid var(--exp-border); padding-bottom: 20px; }
 .mindmap-conversion-notice { color: var(--ink-soft); line-height: 1.6; }
+.mindmap-action-label { display: none; }
+.mindmap-header { flex-wrap: wrap; }
+.mindmaps .mindmap-back-link { flex-basis: 100%; display: flex; align-items: center; gap: 8px; padding: 4px 0; border: 0; background: transparent; text-align: start; }
+.mindmap-back-link svg { width: 20px; height: 20px; }
 @media (max-width: 1000px) { .mindmap-workspace { grid-template-columns: minmax(0,1fr) 320px; gap: 16px; } }
 @media (max-width: 760px) {
   .mindmap-header, .mindmap-catalog article { flex-direction: column; gap: 12px; }
@@ -117,4 +121,25 @@
   .mindmap-dialog-backdrop { padding: 0; align-items: stretch; }
   .genesis-app .mindmap-dialog { width: 100%; max-width: none; max-height: 100dvh; height: 100dvh; border-radius: 0; padding: max(20px,env(safe-area-inset-top)) 16px max(24px,env(safe-area-inset-bottom)); }
   .mindmap-canvas { min-height: 320px; height: 55dvh; }
+  .mindmap-header { margin-bottom: 16px; gap: 4px; }
+  .mindmap-header h2 { font-size: 24px; }
+  .mindmap-header p { margin-block: 4px; }
+  .mindmap-header .mindmap-save-state { min-height: 24px; }
+  .mindmap-catalog article { grid-template-columns: minmax(0,1fr); min-height: 0; padding: 12px; gap: 4px; }
+  .mindmaps .mindmap-catalog-open { padding: 8px 4px; }
+  .mindmap-catalog-open strong { display: block; font-size: 20px; overflow: visible; overflow-wrap: anywhere; }
+  .mindmap-catalog-open span { white-space: normal; }
+  .mindmap-catalog article > .mindmap-actions { justify-content: flex-end; }
+  .genesis-app :is(.mindmaps,.mindmap-dialog) .mindmap-icon-action { flex: 0 1 auto; width: auto; height: auto; gap: 8px; padding: 10px; }
+  .mindmap-icon-action > svg { flex-shrink: 0; }
+  .mindmap-action-label { display: inline; font-size: 13px; }
+  .mindmap-action-tooltip { display: none; }
+  .mindmap-five-actions { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .mindmap-five-actions .mindmap-icon-action { justify-content: flex-start; text-align: start; }
+  .mindmap-more { width: 100%; }
+  .mindmap-more[open] { padding: 0; border: 0; }
+  .mindmap-structure li { gap: 0; padding: 6px; }
+  .mindmap-structure li > button:not(.mindmap-row) { width: 44px; }
+  .mindmap-dialog > header { position: sticky; top: -20px; z-index: 2; background: var(--surface); padding-block: 12px; margin-bottom: 12px; }
+  html[data-genesis-theme] .genesis-app :is(.mindmaps,.mindmap-dialog) :is(input,textarea,select) { font-size: 16px; }
 }

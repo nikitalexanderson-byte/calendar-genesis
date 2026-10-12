@@ -12,8 +12,12 @@ export function InboxToolbar({ title, scopeLabel, titleId, count, position, comp
   compact: boolean; onPosition: (position: InboxPosition) => void; onCompact: (compact: boolean) => void; onHide: () => void;
 }) {
   const { target, dragging, handleProps } = useInboxDrag(onPosition);
+  const [mobileExpanded, setMobileExpanded] = useState(false);
   return <>
-    <header className="workspace-inbox-header inbox-move-bar">
+    <header className="workspace-inbox-header inbox-move-bar" data-mobile-expanded={mobileExpanded}>
+      <button type="button" className="inbox-mobile-toggle" aria-expanded={mobileExpanded} onClick={() => setMobileExpanded(value => !value)}>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg><span>{title}<small>({scopeLabel})</small></span>
+      </button>
       <button type="button" className="inbox-drag-handle" title={english ? "Drag to move the inbox" : "Перетащите плашку, чтобы переместить хаос-бокс"}
         aria-label={english ? "Move inbox" : "Переместить хаос-бокс"} aria-pressed={dragging} {...handleProps}
         onKeyDown={event => { const target = ({ ArrowUp: "top", ArrowDown: "bottom", ArrowLeft: "left", ArrowRight: "right" } as Record<string, InboxPosition>)[event.key]; if (target) { event.preventDefault(); onPosition(target); } }}>

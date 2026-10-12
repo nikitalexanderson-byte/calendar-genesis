@@ -216,6 +216,7 @@ import {
 
 const AccountPanel = lazy(() => import("./AccountPanel").then((module) => ({ default: module.AccountPanel })));
 const Mindmaps = lazy(() => import("./Mindmaps"));
+const GoogleConnectNotice = lazy(() => import("./GoogleConnectNotice"));
 const personalMindmapsEnabled = process.env.NEXT_PUBLIC_GENESIS_MINDMAPS === "true";
 const CalendarPersonalTaskControl = lazy(() => import("./CalendarSharedTaskControl").then(module => ({default:module.CalendarPersonalTaskControl})));
 const CalendarSharedTaskControl = lazy(() => import("./CalendarSharedTaskControl").then(module => ({default:module.CalendarSharedTaskControl})));
@@ -5702,7 +5703,7 @@ export function GenesisCalendar() {
 
     return (
       <div className="projects-view" data-exp-layout="view">
-        <WorkspaceHeader title={language === "en" ? "Affairs · personal" : "Дела · личные"}
+        <WorkspaceHeader title={language === "en" ? "Affairs · personal" : "Дела · личные"} overviewLabel={language === "en" ? "Overview" : "Обзор"}
           description="Разделяйте большие замыслы на подпроекты и конкретные действия. Связи, повторения и сроки остаются видимыми в плане дня."
           mark={<ProjectsHeroMark />}>
           <div className="projects-summary" aria-label="Сводка проектов">
@@ -6607,20 +6608,7 @@ export function GenesisCalendar() {
             {authError ? <p className="oauth-callback-error" role="alert">{authError}</p> : null}
             {cloudUser && cloudUser.authProvider !== "yandex" && (!cloudUser.calendarConnected || !cloudUser.googleTasksImportReady) ? (
 
-                <section className="google-connect-banner" aria-labelledby="google-connect-title">
-                  <div>
-                    <span className="eyebrow">Необязательная синхронизация</span>
-                    <h2 id="google-connect-title">Подключите Google Calendar и Google Tasks</h2>
-                    <p>
-                      Вход уже выполнен. Разрешения на календарь и списки задач запрашиваются отдельно и только после вашего нажатия.
-                      GENESIS создаёт собственный календарь, а доступ к Google Tasks нужен для показа и двустороннего изменения выбранных вами списков и задач.
-                    </p>
-                    <p><a href="/privacy">Как GENESIS использует и защищает данные Google</a></p>
-                  </div>
-                  <button type="button" className="primary-button" onClick={() => void handleGoogleConnect()} disabled={syncStatus === "syncing"}>
-                    {syncStatus === "syncing" ? "Подключаем…" : "Подключить синхронизацию"}
-                  </button>
-                </section>
+                <Suspense fallback={null}><GoogleConnectNotice compact={view === "projects"} busy={syncStatus === "syncing"} onConnect={() => void handleGoogleConnect()} /></Suspense>
             ) : null}
             <ViewErrorBoundary resetKey={view}>
               {view === "today" ? renderToday() : null}

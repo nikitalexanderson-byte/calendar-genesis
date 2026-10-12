@@ -1,0 +1,128 @@
+[
+  {
+    "width": 360,
+    "theme": "standart",
+    "passed": [
+      "create in current project",
+      "empty title validation",
+      "due date",
+      "assignee",
+      "status without drag",
+      "edit title and description",
+      "draft across tabs",
+      "comment and retry",
+      "retain search",
+      "browser Back",
+      "reload persistence",
+      "no-results state",
+      "list/board/calendar/gantt",
+      "offline notice"
+    ],
+    "errors": []
+  },
+  {
+    "width": 360,
+    "theme": "standart-dark",
+    "passed": [
+      "create in current project",
+      "empty title validation",
+      "due date",
+      "assignee",
+      "status without drag",
+      "edit title and description",
+      "draft across tabs",
+      "comment and retry",
+      "retain search",
+      "browser Back",
+      "reload persistence",
+      "no-results state",
+      "list/board/calendar/gantt",
+      "offline notice"
+    ],
+    "errors": []
+  },
+  {
+    "width": 390,
+    "theme": "standart",
+    "passed": [
+      "create in current project",
+      "empty title validation",
+      "due date",
+      "assignee",
+      "status without drag",
+      "edit title and description",
+      "draft across tabs",
+      "comment and retry",
+      "retain search",
+      "browser Back",
+      "reload persistence",
+      "no-results state",
+      "list/board/calendar/gantt",
+      "offline notice"
+    ],
+    "errors": []
+  },
+  {
+    "width": 390,
+    "theme": "standart-dark",
+    "passed": [
+      "create in current project",
+      "empty title validation",
+      "due date",
+      "assignee",
+      "status without drag",
+      "edit title and description",
+      "draft across tabs",
+      "comment and retry",
+      "retain search",
+      "browser Back",
+      "reload persistence",
+      "no-results state",
+      "list/board/calendar/gantt",
+      "offline notice"
+    ],
+    "errors": []
+  },
+  {
+    "width": 430,
+    "theme": "standart",
+    "passed": [
+      "create in current project",
+      "empty title validation",
+      "due date",
+      "assignee",
+      "status without drag",
+      "edit title and description",
+      "draft across tabs",
+      "comment and retry",
+      "retain search",
+      "browser Back",
+      "reload persistence",
+      "no-results state",
+      "list/board/calendar/gantt",
+      "offline notice"
+    ],
+    "errors": []
+  },
+  {
+    "width": 430,
+    "theme": "standart-dark",
+    "passed": [
+      "create in current project",
+      "empty title validation",
+      "due date",
+      "assignee",
+      "status without drag",
+      "edit title and description",
+      "draft across tabs",
+      "comment and retry",
+      "retain search",
+      "browser Back",
+      "reload persistence",
+      "no-results state",
+      "list/board/calendar/gantt",
+      "offline notice"
+    ],
+    "errors": []
+  }
+]
