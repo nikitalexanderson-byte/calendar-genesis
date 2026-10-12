@@ -1,7 +1,8 @@
 import { readFile } from "node:fs/promises";
 
 const languages = ["el", "de", "fr", "es", "it", "pt", "pl", "sr", "uk", "zh", "tr", "ja"];
-const english = JSON.parse(await readFile(new URL("../app/translations.en.json", import.meta.url), "utf8"));
+const english = { ...JSON.parse(await readFile(new URL("../app/ui-translations/en.json", import.meta.url), "utf8")), ...JSON.parse(await readFile(new URL("../app/translations.en.json", import.meta.url), "utf8")),
+  ...JSON.parse(await readFile(new URL("../app/curated-translations.en.json", import.meta.url), "utf8")) };
 const missing = [];
 const welcomeParagraphs = [
   "GENESIS — приложение для планирования личных и рабочих задач, проектов, подпроектов, повторений и напоминаний. Календарь помогает составлять план дня, связывать действия и отмечать выполненное на компьютере или телефоне.",
@@ -96,6 +97,7 @@ for (const language of languages) {
     : ["ja", "de", "fr"].includes(language) ? [language, `${language}.b`] : [language];
   const catalog = Object.assign({}, ...await Promise.all(files.map(async (name) =>
     JSON.parse(await readFile(new URL(`../app/translations.${name}.json`, import.meta.url), "utf8")))));
+  Object.assign(catalog, JSON.parse(await readFile(new URL(`../app/ui-translations/${language}.json`, import.meta.url), "utf8")));
   for (const key of Object.keys(english)) {
     if (typeof catalog[key] !== "string" || !catalog[key].trim()) missing.push(`${language}: missing ${key}`);
   }

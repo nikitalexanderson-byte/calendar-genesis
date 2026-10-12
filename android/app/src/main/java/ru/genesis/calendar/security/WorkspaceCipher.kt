@@ -19,20 +19,21 @@ object WorkspaceCipher {
         override fun toString() = "WorkspaceCipher.Envelope([redacted])"
     }
 
-    fun encrypt(plaintext: ByteArray, workspaceKey: ByteArray): Envelope =
-        encryptWithIv(plaintext, workspaceKey, ByteArray(IV_BYTES).also(random::nextBytes))
+    fun encrypt(plaintext: ByteArray, workspaceKey: ByteArray, aad: ByteArray = byteArrayOf()): Envelope =
+        encryptWithIv(plaintext, workspaceKey, ByteArray(IV_BYTES).also(random::nextBytes), aad)
 
     /** Explicit IV is internal solely for deterministic interoperability fixtures. Never reuse it. */
-    internal fun encryptWithIv(plaintext: ByteArray, workspaceKey: ByteArray, iv: ByteArray): Envelope {
+    internal fun encryptWithIv(plaintext: ByteArray, workspaceKey: ByteArray, iv: ByteArray, aad: ByteArray = byteArrayOf()): Envelope {
         validateKey(workspaceKey)
         require(iv.size == IV_BYTES) { "Workspace IV must contain 12 bytes" }
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(workspaceKey, "AES"), GCMParameterSpec(TAG_BITS, iv))
+        if (aad.isNotEmpty()) cipher.updateAAD(aad)
         // WebCrypto appends its 16-byte authentication tag to ciphertext, as does JCA.
         return Envelope(encode(cipher.doFinal(plaintext)), encode(iv))
     }
 
-    fun decrypt(envelope: Envelope, workspaceKey: ByteArray): ByteArray {
+    fun decrypt(envelope: Envelope, workspaceKey: ByteArray, aad: ByteArray = byteArrayOf()): ByteArray {
         validateKey(workspaceKey)
         val iv = decode(envelope.iv)
         require(iv.size == IV_BYTES) { "Workspace IV must contain 12 bytes" }
@@ -41,6 +42,7 @@ object WorkspaceCipher {
         try {
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")
             cipher.init(Cipher.DECRYPT_MODE, SecretKeySpec(workspaceKey, "AES"), GCMParameterSpec(TAG_BITS, iv))
+            if (aad.isNotEmpty()) cipher.updateAAD(aad)
             return cipher.doFinal(ciphertext)
         } catch (_: GeneralSecurityException) {
             // Never replace the existing key or return empty plaintext after an authentication failure.

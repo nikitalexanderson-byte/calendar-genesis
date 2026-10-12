@@ -1,12 +1,27 @@
 package ru.genesis.calendar.data
 
 import java.time.LocalDate
+import java.security.MessageDigest
+import org.json.JSONObject
 import ru.genesis.calendar.domain.GenesisCalendar
 import ru.genesis.calendar.domain.RecurrenceEngine
 
 /** One stored task is projected into calendar days; no duplicate task records are generated. */
 object TaskOccurrences {
     private val engine = RecurrenceEngine(GenesisCalendar())
+
+    fun standaloneDraft(task:LocalTask,date:String):LocalTask {
+        require(occursOn(task,LocalDate.parse(date))) { "Этот день не входит в серию." }
+        val id="occurrence-"+MessageDigest.getInstance("SHA-256").digest("${task.id}:$date".toByteArray()).joinToString("") {"%02x".format(it)}
+        val source=JSONObject(task.sourceFieldsJson).apply {
+            put("recurrenceSeriesId",task.id);put("recurrenceOriginalDate",date)
+            put("mindmapOccurrenceParentRevision",task.revision)
+            remove("googleEventId");remove("googleTaskId");put("googleLinks",JSONObject())
+            val end=optString("endDate").takeIf {it.isNotBlank()&&it!="null"} ?: task.date
+            put("endDate",LocalDate.parse(date).plusDays(java.time.temporal.ChronoUnit.DAYS.between(LocalDate.parse(task.date),LocalDate.parse(end))).toString())
+        }
+        return task.copy(id=id,date=date,revision=0,recurrence=task.recurrence.copy(enabled=false),recurrenceExcludedDates=emptyList(),sourceFieldsJson=source.toString(),reminderAt=null,reminders=task.reminders?.filter {it.kind=="relative"})
+    }
 
     fun occursOn(task: LocalTask, date: LocalDate): Boolean {
         if (!task.recurrence.enabled) return task.date == date.toString()

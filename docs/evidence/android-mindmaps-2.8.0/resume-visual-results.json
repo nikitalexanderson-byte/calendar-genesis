@@ -1,0 +1,116 @@
+{
+  "widths": [
+    {
+      "width": 360,
+      "theme": "standart",
+      "overflow": false,
+      "actionCount": 5
+    },
+    {
+      "width": 390,
+      "theme": "standart",
+      "overflow": false,
+      "actionCount": 5
+    },
+    {
+      "width": 768,
+      "theme": "standart",
+      "overflow": false,
+      "actionCount": 5
+    },
+    {
+      "width": 1440,
+      "theme": "standart",
+      "overflow": false,
+      "actionCount": 5
+    },
+    {
+      "width": 360,
+      "theme": "standart-dark",
+      "overflow": false,
+      "actionCount": 5
+    },
+    {
+      "width": 390,
+      "theme": "standart-dark",
+      "overflow": false,
+      "actionCount": 5
+    },
+    {
+      "width": 768,
+      "theme": "standart-dark",
+      "overflow": false,
+      "actionCount": 5
+    },
+    {
+      "width": 1440,
+      "theme": "standart-dark",
+      "overflow": false,
+      "actionCount": 5
+    }
+  ],
+  "resize": {
+    "saved": "576",
+    "width": 1152,
+    "cols": "552px 576px"
+  },
+  "locales": [
+    {
+      "lang": "ru",
+      "content": "Расположение\nСверху\nСправа\nСлева\nСнизу\nОтображение\nПодробно\nКратко"
+    },
+    {
+      "lang": "en",
+      "content": "Position\nTop\nRight\nLeft\nBottom\nDisplay\nDetailed\nCompact"
+    },
+    {
+      "lang": "el",
+      "content": "Θέση\nΠάνω\nΔεξιά\nΑριστερά\nΚάτω\nΠροβολή\nΑναλυτικά\nΣυνοπτικά"
+    },
+    {
+      "lang": "de",
+      "content": "Position\nOben\nRechts\nLinks\nUnten\nDarstellung\nAusführlich\nKompakt"
+    },
+    {
+      "lang": "fr",
+      "content": "Position\nEn haut\nÀ droite\nÀ gauche\nEn bas\nAffichage\nDétaillé\nCompact"
+    },
+    {
+      "lang": "es",
+      "content": "Posición\nArriba\nA la derecha\nA la izquierda\nAbajo\nVisualización\nDetallado\nCompacto"
+    },
+    {
+      "lang": "it",
+      "content": "Posizione\nIn alto\nA destra\nA sinistra\nIn basso\nVisualizzazione\nDettagliata\nCompatta"
+    },
+    {
+      "lang": "pt",
+      "content": "Posição\nEm cima\nÀ direita\nÀ esquerda\nEm baixo\nVisualização\nDetalhada\nCompacta"
+    },
+    {
+      "lang": "pl",
+      "content": "Położenie\nU góry\nPo prawej\nPo lewej\nNa dole\nWidok\nSzczegółowo\nKompaktowo"
+    },
+    {
+      "lang": "sr",
+      "content": "Положај\nГоре\nДесно\nЛево\nДоле\nПриказ\nДетаљно\nСажето"
+    },
+    {
+      "lang": "uk",
+      "content": "Розташування\nЗверху\nПраворуч\nЛіворуч\nЗнизу\nВідображення\nДокладно\nСтисло"
+    },
+    {
+      "lang": "zh",
+      "content": "位置\n顶部\n右侧\n左侧\n底部\n显示方式\n详细\n紧凑"
+    },
+    {
+      "lang": "tr",
+      "content": "Konum\nÜstte\nSağda\nSolda\nAltta\nGörünüm\nAyrıntılı\nKompakt"
+    },
+    {
+      "lang": "ja",
+      "content": "配置\n上\n右\n左\n下\n表示\n詳細\nコンパクト"
+    }
+  ],
+  "errors": []
+}

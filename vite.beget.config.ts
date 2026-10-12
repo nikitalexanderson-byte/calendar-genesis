@@ -116,6 +116,12 @@ export default defineConfig({
       output: {
         codeSplitting: {
           groups: [
+            { name: "view-recovery", test: /app[\\/]DeferredViews\.tsx$/, priority: 14 },
+            ...["en","el","de","fr","es","it","pt","pl","sr","uk","zh","tr","ja"].map((locale) => ({
+              name: `locale-ui-${locale}`,
+              test: new RegExp(`ui-translations[\\\\/]${locale}\\.json$`),
+              priority: 46,
+            })),
             ...["el.a", "el.b", "de", "de.b", "fr", "fr.b", "es", "it", "pt", "pl", "sr.a", "sr.b", "uk.a", "uk.b", "zh", "tr", "ja", "ja.b"].map((locale) => ({
               name: `locale-${locale}`,
               test: new RegExp(`translations\\.${locale}\\.json$`),

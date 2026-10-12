@@ -2,6 +2,19 @@
 
 import { useEffect, useSyncExternalStore } from "react";
 import englishTranslations from "./translations.en.json";
+import ui_en from "./ui-translations/en.json";
+import ui_el from "./ui-translations/el.json";
+import ui_de from "./ui-translations/de.json";
+import ui_fr from "./ui-translations/fr.json";
+import ui_es from "./ui-translations/es.json";
+import ui_it from "./ui-translations/it.json";
+import ui_pt from "./ui-translations/pt.json";
+import ui_pl from "./ui-translations/pl.json";
+import ui_sr from "./ui-translations/sr.json";
+import ui_uk from "./ui-translations/uk.json";
+import ui_zh from "./ui-translations/zh.json";
+import ui_tr from "./ui-translations/tr.json";
+import ui_ja from "./ui-translations/ja.json";
 import greekTranslationsA from "./translations.el.a.json";
 import greekTranslationsB from "./translations.el.b.json";
 import germanTranslations from "./translations.de.json";
@@ -73,6 +86,15 @@ const PAGE_TITLES: Record<Language, string> = {
 const APP_BASE = (process.env.NEXT_PUBLIC_GENESIS_BASE_PATH?.trim() || "").replace(/\/$/, "");
 
 const curatedTranslations: Record<string, string> = {
+  "Карта недоступна.": "The map is unavailable.",
+  "Цвет связи": "Link color",
+  "Экспорт PDF": "Export PDF",
+  "Не удалось открыть файл PDF.": "Could not open the PDF file.",
+  "Отменить соединение": "Cancel linking",
+  "Создать связь": "Create link",
+  "Разрешите окно экспорта PDF в браузере и повторите.": "Allow the PDF export window in your browser and try again.",
+  "Для PDF выберите «Сохранить как PDF» в окне печати. Обзор сохраняет цвета и связи; структура содержит полные названия и пояснения.": "For PDF, choose Save as PDF in the print dialog. The overview preserves colors and links; the outline includes full titles and notes.",
+  "Ширина хаос-бокса": "Inbox width",
   "Создание из мысли доступно в календаре GENESIS. Задачу из Google Tasks можно привязать через «Добавить из дел».": "Thoughts become tasks in the GENESIS calendar. Link an existing Google Task using “Add from tasks”.",
   "Не удалось сохранить защищённый черновик. Не закрывайте карту; освободите место на устройстве и повторите сохранение.": "The protected draft could not be saved. Keep the map open, free up device storage and try saving again.",
   "Без даты": "No date",
@@ -101,6 +123,42 @@ const curatedTranslations: Record<string, string> = {
   "Открываем майндмепы…": "Opening mind maps…",
   "Сначала завершите зависимости задачи.": "Complete the task dependencies first.",
   "Майндмепы": "Mind maps",
+  "Создать связь:": "Create link:",
+  "Выберите вторую карточку для связи. Escape отменяет соединение.": "Choose the second card to link. Escape cancels the connection.",
+  "Действия на полотне": "Canvas actions",
+  "Цвета карточки и линий": "Card and line colors",
+  "Заливка карточки": "Card fill",
+  "Обводка карточки": "Card border",
+  "Цвет линий карты": "Map line color",
+  "Вернуть цвета темы": "Restore theme colors",
+  "Цвет смысловой связи": "Semantic link color",
+  "Сессия карт завершена. Повторите вход; черновик сохранён.": "The map session has ended. Sign in again; your draft was kept.",
+  "Корень нельзя убрать. Архивируйте карту.": "The root cannot be removed. Archive the map instead.",
+  "Нельзя переместить ветку в себя.": "A branch cannot be moved into itself.",
+  "Версия карты не поддерживается. Исходные данные сохранены.": "This map version is unsupported. The original data was kept.",
+  "Разблокируйте пространство с кодом восстановления на сайте. Карты не изменены.": "Unlock the workspace with its recovery code on the website. The maps were not changed.",
+  "· копия": "· copy",
+  "Назначьте дату перед выбором времени, повторений и напоминаний.": "Assign a date before setting a time, recurrence or reminders.",
+  "Не удалось сохранить. Черновик остаётся на устройстве.": "Saving failed. Your draft remains on this device.",
+  "Открыта защищённая копия устройства.": "The encrypted device copy is open.",
+  "Сохранить отдельную карту": "Save a separate map",
+  "Серверная версия": "Server version",
+  "Текущие": "Current",
+  "Синхронизировано": "Synced",
+  "Отменить": "Undo",
+  "Вернуть задачу": "Reopen task",
+  "Дочерняя": "Child",
+  "Соседняя": "Sibling",
+  "Сохранить мысль": "Save thought",
+  "Связанные задачи и проекты останутся в GENESIS.": "Linked tasks and projects will remain in GENESIS.",
+  "Документ GENESIS": "GENESIS document",
+  "Импортировать копию": "Import a copy",
+  "Обновление готово": "Update ready",
+  "Доступно обновление в Google Play": "An update is available in Google Play",
+  "Google Play сейчас не запустил обновление. Повторите позже; приложение доступно.": "Google Play could not start the update. Try later; you can continue using the app.",
+  "Перезапустите GENESIS, чтобы установить скачанную версию. Данные сохранятся.": "Restart GENESIS to install the downloaded version. Your data will be kept.",
+  "Google Play подтвердил доступность новой версии для вашей установки.": "Google Play confirmed that a newer version is available for this installation.",
+  "Перезапустить": "Restart",
   "Майндмепы проекта": "Project mind maps",
   "Создаётся одна настоящая задача GENESIS. На карте останется ссылка; пояснение карты не переносится.": "One real GENESIS task will be created. The map will keep a reference; its note stays in the map.",
   "Внешняя синхронизация — по выбранным ниже настройкам.": "External sync follows the settings selected below.",
@@ -840,17 +898,19 @@ const curatedTranslations: Record<string, string> = {
 
 const englishCatalog: Record<string, string> = {
   ...(englishTranslations as Record<string, string>),
+  ...ui_en,
   ...curatedTranslations,
   ...englishYear,
 };
 
-const catalogs: Record<Exclude<Language, "ru">, Record<string, string>> = {
-  en: englishCatalog, el: { ...greekTranslationsA, ...greekTranslationsB, ...greekYear }, de: { ...germanTranslations, ...germanSecurityTranslations, ...germanYear },
-  fr: { ...frenchTranslations, ...frenchSecurityTranslations, ...frenchYear }, es: { ...spanishTranslations, ...spanishYear }, it: { ...italianTranslations, ...italianYear }, pt: { ...portugueseTranslations, ...portugueseYear },
-  pl: { ...polishTranslations, ...polishYear }, sr: { ...serbianTranslationsA, ...serbianTranslationsB, ...serbianYear },
-  uk: { ...ukrainianTranslationsA, ...ukrainianTranslationsB, ...ukrainianYear },
-  zh: { ...chineseTranslations, ...chineseYear }, tr: { ...turkishTranslations, ...turkishYear }, ja: { ...japaneseTranslations, ...japaneseYandexTranslations, ...japaneseYear },
+const rawCatalogs: Record<Exclude<Language, "ru">, Record<string, string>> = {
+  en: englishCatalog, el: { ...greekTranslationsA, ...greekTranslationsB, ...ui_el, ...greekYear }, de: { ...germanTranslations, ...germanSecurityTranslations, ...ui_de, ...germanYear },
+  fr: { ...frenchTranslations, ...frenchSecurityTranslations, ...ui_fr, ...frenchYear }, es: { ...spanishTranslations, ...ui_es, ...spanishYear }, it: { ...italianTranslations, ...ui_it, ...italianYear }, pt: { ...portugueseTranslations, ...ui_pt, ...portugueseYear },
+  pl: { ...polishTranslations, ...ui_pl, ...polishYear }, sr: { ...serbianTranslationsA, ...serbianTranslationsB, ...ui_sr, ...serbianYear },
+  uk: { ...ukrainianTranslationsA, ...ukrainianTranslationsB, ...ui_uk, ...ukrainianYear },
+  zh: { ...chineseTranslations, ...ui_zh, ...chineseYear }, tr: { ...turkishTranslations, ...ui_tr, ...turkishYear }, ja: { ...japaneseTranslations, ...japaneseYandexTranslations, ...ui_ja, ...japaneseYear },
 };
+const catalogs = Object.fromEntries(Object.entries(rawCatalogs).map(([language, catalog]) => [language, Object.fromEntries(Object.entries(catalog).map(([key,value]) => [normalizedText(key),value]))])) as typeof rawCatalogs;
 const yearCatalogs: Record<Exclude<Language, "ru">, Record<string, string>> = {
   en: englishYear, el: greekYear, de: germanYear, fr: frenchYear, es: spanishYear,
   it: italianYear, pt: portugueseYear, pl: polishYear, sr: serbianYear,
@@ -863,11 +923,12 @@ export function lunarYearStartText(date: string, months: number, language: Langu
     : yearCatalogs[language].__lunarStartTemplate;
   return template.replace("{date}", date).replace("{months}", String(months));
 }
-const englishToRussian = new Map(Object.entries(englishCatalog).map(([ru, en]) => [en, ru]));
+const englishToRussian = new Map(Object.entries(englishCatalog).map(([ru, en]) => [normalizedText(en), normalizedText(ru)]));
 const partialTranslations = Object.fromEntries(Object.entries(catalogs).map(([language, catalog]) => [
   language,
   Object.entries(catalog)
-    .filter(([source, translated]) => source.length >= 4 && source.length <= 180 && source !== translated)
+    .map(([source, translated]) => [source.trim(), catalog[source.trim()] ?? translated.trim()] as [string, string])
+    .filter(([source, translated]) => source.length >= 2 && source.length <= 180 && source !== translated)
     .sort(([left], [right]) => right.length - left.length),
 ])) as Record<Exclude<Language, "ru">, [string, string][]>;
 
@@ -885,7 +946,7 @@ const textRecords = new WeakMap<Text, RenderRecord>();
 const attributeRecords = new WeakMap<Element, Map<string, RenderRecord>>();
 
 function normalizedText(value: string) {
-  return value.replace(/\r\n/g, "\n").replace(/[ \t]+/g, " ").trim();
+  return value.replace(/\s+/g, " ").trim();
 }
 
 function preserveOuterWhitespace(source: string, translated: string) {
@@ -945,17 +1006,20 @@ export function translateText(source: string, language: Language = runtimeLangua
   if (exact) return preserveOuterWhitespace(source, exact);
   if (!allowPartial || !CYRILLIC.test(normalized)) return source;
 
-  let translated = normalized;
-  let changed = false;
+  // Inspect untranslated source pieces rather than the target script: Serbian and
+  // Ukrainian translations legitimately contain Cyrillic letters.
+  let pieces: { text: string; translated: boolean }[] = [{ text: normalized, translated: false }];
   for (const [fragment, replacement] of partialTranslations[language]) {
-    if (!translated.includes(fragment)) continue;
-    translated = translated.replaceAll(fragment, replacement);
-    changed = true;
+    pieces = pieces.flatMap(piece => {
+      if (piece.translated || !piece.text.includes(fragment)) return [piece];
+      const parts = fragment.length < 4
+        ? piece.text.split(new RegExp(`(?<![\\p{L}])${fragment.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\p{L}])`, "gu"))
+        : piece.text.split(fragment);
+      return parts.flatMap((text, index) => index ? [{ text: replacement, translated: true }, { text, translated: false }] : [{ text, translated: false }]);
+    });
   }
-  // A partial match must never leave a half-translated Russian phrase behind.
-  // This is especially important for sacred-day names: until a complete entry
-  // exists in the catalogue, keep the original wording intact.
-  return changed && !CYRILLIC.test(translated) ? preserveOuterWhitespace(source, translated) : source;
+  return pieces.some(piece => !piece.translated && CYRILLIC.test(piece.text)) ? source
+    : preserveOuterWhitespace(source, pieces.map(piece => piece.text).join(""));
 }
 
 function localizeTextNode(node: Text, language: Language) {

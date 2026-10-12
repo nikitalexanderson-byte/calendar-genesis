@@ -5,6 +5,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextLayoutResult
@@ -425,7 +427,7 @@ private val nativeCopy = mapOf(
     "Повторение по сакральному календарю" to "Sacred calendar recurrence",
     "Чётная/нечётная" to "Even/odd",
     "Апейрон исключён из расписания" to "Apeiron is excluded from the schedule",
-    "Дни внутри пяты" to "Days within a pyata",
+    "Дни внутри пяты" to "Days within a Quinta",
     "🔒 Начисление XP зафиксировано при создании. Для другой формулы удалите привычку и создайте новую." to "🔒 XP scoring was fixed when this habit was created. Delete it and create a new habit for another formula.",
     "Выберите один или несколько сроков. Каждое уведомление приходит в 09:00 по времени устройства." to "Choose one or more lead times. Each notification arrives at 09:00 device time.",
     "Продиктуйте или напишите команду: создать задачу, проект или привычку, открыть редактирование, перенести задачу или перейти в раздел. Проверьте результат перед выполнением." to "Dictate or type a command to create a task, project or habit; edit an item; move a task; or open a section. Review it before applying.",
@@ -935,7 +937,7 @@ private val nativeCopy = mapOf(
         "Nine letters correspond to the directions and center. The spread begins with the card of the day and your movement.",
     "Длительность:" to "Duration:", "Для задачи из списка Google Tasks напоминания здесь недоступны; они поддерживаются для событий Google Calendar." to
         "Reminders are unavailable here for Google Tasks items; they are supported for Google Calendar events.",
-    "Дни месяца" to "Days of month", "Дни пяты" to "Days of the pyata", "Дни расписания" to "Schedule days",
+    "Дни месяца" to "Days of month", "Дни пяты" to "Days of the Quinta", "Дни расписания" to "Schedule days",
     "Дополнительные Google-аккаунты подключаются через защищённый веб-поток. В браузере войдите в тот же кабинет GENESIS, затем вернитесь в приложение." to
         "Additional Google accounts use the secure web flow. Sign in to the same GENESIS account in the browser, then return to the app.",
     "Достигнутые рубежи сохраняются. Достижения не изменяют опыт ранга." to
@@ -1423,7 +1425,7 @@ private object TranslationCatalog {
                 fun objectAsset(name: String): JSONObject = context.assets.open("originals/i18n/$name")
                     .bufferedReader().use { JSONObject(it.readText()) }
                 buildMap {
-                    listOf("translations.en.json", "curated-translations.en.json", "year-translations/en.json").forEach { name ->
+                    listOf("translations.en.json", "ui-translations/en.json", "curated-translations.en.json", "year-translations/en.json").forEach { name ->
                         runCatching { objectAsset(name) }.onSuccess { catalog ->
                             catalog.keys().forEach { put(it, catalog.getString(it)) }
                         }.onFailure { error ->
@@ -1452,7 +1454,7 @@ private object TranslationCatalog {
                     }
                 }
             }.also {
-                fragments = (it + nativeCopy).entries.filter { entry -> entry.key.length in 3..180 }
+                fragments = (it + nativeCopy).let {copy->copy.entries.associate {entry->entry.key.trim() to (copy[entry.key.trim()] ?: entry.value.trim())}}.entries.filter { entry -> entry.key.length in 2..180 }
                     .sortedByDescending { entry -> entry.key.length }
                 englishReverse = (it + nativeCopy).entries.associate { entry -> entry.value to entry.key }
                 dictionary = it
@@ -1470,7 +1472,7 @@ private object TranslationCatalog {
             runCatching {
                 val names = if (language in setOf("el", "sr", "uk"))
                     listOf("translations.$language.a.json", "translations.$language.b.json")
-                    else if (language == "ja") listOf("translations.ja.json", "translations.ja.b.json")
+                    else if (language in setOf("de", "fr", "ja")) listOf("translations.$language.json", "translations.$language.b.json")
                     else listOf("translations.$language.json")
                 buildMap {
                     names.forEach { name ->
@@ -1480,6 +1482,7 @@ private object TranslationCatalog {
                             }
                         }
                     }
+                    context.assets.open("originals/i18n/ui-translations/$language.json").bufferedReader().use {reader->JSONObject(reader.readText()).let {json->json.keys().forEach {put(it,json.getString(it))}}}
                     context.assets.open("originals/i18n/native-affairs-translations.json")
                         .bufferedReader().use { reader ->
                             JSONObject(reader.readText()).optJSONObject(language)?.let { json ->
@@ -1502,17 +1505,20 @@ private object TranslationCatalog {
         val russianKey = if (cyrillic.containsMatchIn(normalized)) normalized else englishReverse[normalized]
         russianKey?.let { translations[it] }?.let { return@getOrPut it }
         if (!cyrillic.containsMatchIn(normalized)) return@getOrPut text
-        var result = normalized
+        var pieces = listOf(normalized to false)
         val candidateFragments = if (language == "en") fragments else foreignFragments.getOrPut(language) {
-            translations.entries.filter { it.key.length in 3..180 }
-                .sortedByDescending { it.key.length }
+            translations.entries.associate {entry->entry.key.trim() to (translations[entry.key.trim()] ?: entry.value.trim())}.entries.filter { it.key.length in 2..180 }.sortedByDescending { it.key.length }
         }
         for ((russian, translated) in candidateFragments) {
-            if (!result.contains(russian)) continue
-            result = result.replace(russian, translated)
+            pieces = pieces.flatMap { piece ->
+                if (piece.second || !piece.first.contains(russian)) listOf(piece)
+                else (if(russian.length<4) piece.first.split(Regex("(?<![\\p{L}])${Regex.escape(russian)}(?![\\p{L}])")) else piece.first.split(russian)).flatMapIndexed { index, part ->
+                    if (index == 0) listOf(part to false) else listOf(translated to true, part to false)
+                }
+            }
         }
-        if (!cyrillic.containsMatchIn(result)) result else
-            (nativeCopy[normalized] ?: english[normalized] ?: text)
+        if (pieces.none { !it.second && cyrillic.containsMatchIn(it.first) }) pieces.joinToString("") { it.first }
+        else (nativeCopy[normalized] ?: english[normalized] ?: text)
     }
 }
 
@@ -1542,4 +1548,9 @@ fun Text(text: String, modifier: Modifier = Modifier, color: Color = Color.Unspe
         fontFamily = fontFamily, letterSpacing = letterSpacing, textDecoration = textDecoration,
         textAlign = textAlign, lineHeight = lineHeight, overflow = overflow, softWrap = softWrap,
         maxLines = maxLines, minLines = minLines, onTextLayout = onTextLayout, style = style)
+}
+
+@Composable internal fun Modifier.genesisDescription(source: String): Modifier {
+    val description = genesisTranslate(source)
+    return this.then(Modifier.semantics { contentDescription = description })
 }

@@ -36,7 +36,7 @@ data class LocalTask(
         val previousDone = source.optBoolean("done")
         val oldDate = runCatching { LocalDate.parse(source.optString("dueDate")) }.getOrNull()
         val oldEnd = runCatching { LocalDate.parse(source.optString("endDate")) }.getOrNull()
-        val endDate = if (oldDate != null && oldEnd != null && oldEnd >= oldDate && oldDate.toString() != date)
+        val endDate = if(date.isBlank()) "" else if (oldDate != null && oldEnd != null && oldEnd >= oldDate && oldDate.toString() != date)
             runCatching { LocalDate.parse(date).plusDays(java.time.temporal.ChronoUnit.DAYS.between(oldDate, oldEnd)).toString() }
                 .getOrDefault(date)
         else oldEnd?.toString() ?: date
@@ -111,9 +111,10 @@ class TaskRepository(private val db: GenesisDatabase, private val cipher: LocalC
         LocalTask.from(it, cipher.decrypt(it.encrypted, "$scope/${it.id}"))
     }
     suspend fun save(task: LocalTask): LocalTask = scheduler.withMutation { saveLocked(task) }
-    private suspend fun saveLocked(task: LocalTask): LocalTask {
+    private suspend fun saveLocked(task: LocalTask, updateAlarms:Boolean=true): LocalTask {
         require(task.title.isNotBlank() && task.title.length <= 500)
-        LocalDate.parse(task.date)
+        if(task.date.isNotBlank()) LocalDate.parse(task.date)
+        else require(task.time.isBlank() && !task.recurrence.enabled && task.reminders.orEmpty().isEmpty() && task.reminderAt==null) { "Назначьте дату перед выбором времени, повторений и напоминаний." }
         if (task.time.isNotEmpty()) LocalTime.parse(task.time)
         ZoneId.of(task.zoneId)
         require(task.priority in 1..10)
@@ -138,7 +139,9 @@ class TaskRepository(private val db: GenesisDatabase, private val cipher: LocalC
                 project = assigned?.title ?: "",
                 categoryId = if (assigned != null) assigned.categoryId else
                     if (task.projectId == "__genesis_inbox__") null else task.categoryId)
-            dao.putTask(TaskRecord(scope, task.id, cipher.encrypt(next.json(), "$scope/${task.id}"), next.revision, task.done))
+            val stored=JSONObject(next.json())
+            if(stored.optBoolean("mindmapCreateOnly")&&!stored.has("mindmapCreationPayload"))stored.put("mindmapCreationPayload",JSONObject(stored.toString()).apply {remove("mindmapCreateOnly")})
+            dao.putTask(TaskRecord(scope, task.id, cipher.encrypt(stored.toString(), "$scope/${task.id}"), next.revision, task.done))
             dao.putOutbox(OutboxRecord(scope, task.id, next.revision, UUID.randomUUID().toString()))
             dao.cancelReminders(scope, task.id)
             TaskReminderPlan.times(next).forEach { (occurrence, at) ->
@@ -147,13 +150,26 @@ class TaskRepository(private val db: GenesisDatabase, private val cipher: LocalC
             }
             next
         }
-        previous.forEach(scheduler::cancel)
-        scheduler.scheduleUpcomingLocked(scope)
+        if(updateAlarms) { previous.forEach(scheduler::cancel);scheduler.scheduleUpcomingLocked(scope) }
         return saved
     }
     suspend fun complete(id: String) {
         val task = get(id) ?: return
         if (!task.done) save(task.copy(done = true))
+    }
+    suspend fun saveOccurrence(draft:LocalTask):LocalTask = scheduler.withMutation {
+        val meta=JSONObject(draft.sourceFieldsJson);val id=meta.getString("recurrenceSeriesId");val date=meta.getString("recurrenceOriginalDate")
+        val parent=get(id) ?: throw IllegalArgumentException("Задача больше недоступна.")
+        require(parent.revision==meta.getLong("mindmapOccurrenceParentRevision")) { "Запись изменилась. Откройте её заново." }
+        val remaining=TaskOccurrences.withoutDate(parent,date)
+        val oldAlarms=dao.taskReminders(scope,id)+dao.taskReminders(scope,draft.id)
+        meta.remove("mindmapOccurrenceParentRevision")
+        val saved=db.withTransaction {
+            if(remaining!=null) saveLocked(remaining,false)
+            else {val row=requireNotNull(dao.task(scope,id));require(row.revision==parent.revision);dao.putTask(row.copy(deleted=true,revision=row.revision+1));dao.cancelReminders(scope,id);dao.putOutbox(OutboxRecord(scope,id,row.revision+1,UUID.randomUUID().toString()))}
+            saveLocked(draft.copy(sourceFieldsJson=meta.toString()),false)
+        }
+        oldAlarms.forEach(scheduler::cancel);scheduler.scheduleUpcomingLocked(scope);saved
     }
     suspend fun excludeOccurrence(id: String, expectedRevision: Long, date: String) {
         val current = get(id) ?: throw IllegalArgumentException("Задача больше недоступна.")

@@ -6,7 +6,7 @@ export function SharedTaskApprovalChoice({enabled, ids, members, english, disabl
   onEnabled: (value: boolean) => void; onIds: (ids: string[]) => void;
 }) {
   return <section className="shared-task-approval-choice">
-    <label className="shared-approval-switch"><input type="checkbox" role="switch" checked={enabled} disabled={disabled}
+    <label className="shared-approval-switch"><input type="checkbox" checked={enabled} disabled={disabled}
       onChange={event => onEnabled(event.target.checked)}/><span>{english ? "Require participant approval to complete" : "Закрытие по подтверждению участников"}</span></label>
     {enabled ? <>
       <p>{english ? "The task is completed when every selected participant confirms it." : "Задача завершится, когда каждый выбранный участник подтвердит выполнение."}</p>

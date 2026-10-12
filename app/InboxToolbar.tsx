@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import type { InboxPosition } from "./ui-visibility";
 import { useInboxDrag } from "./use-inbox-drag";
 
@@ -23,7 +24,6 @@ export function InboxToolbar({ title, scopeLabel, titleId, count, position, comp
       <button type="button" className="inbox-hide-button" onClick={onHide} title={english ? "Hide inbox" : "Скрыть хаос-бокс"} aria-label={english ? "Hide inbox" : "Скрыть хаос-бокс"}>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 3 18 18M10.5 10.5a2.1 2.1 0 0 0 3 3M7 6.5C4.3 8.2 2 12 2 12s4 7 10 7c1.7 0 3.3-.5 4.8-1.4M10 5.2c.7-.1 1.3-.2 2-.2 6 0 10 7 10 7s-1.2 2.1-3.2 4" /></svg>
       </button>
-    </header>
     <div className="inbox-toolbar-controls"><label className="inbox-control-group inbox-position-choice"><span className="inbox-control-label">{english ? "Position" : "Расположение"}</span>
       <select aria-label={english ? "Inbox position" : "Расположение хаос-бокса"} value={position} onChange={event => onPosition(event.target.value as InboxPosition)}>
         {positions.map(item => <option key={item} value={item}>{label(item, english)}</option>)}
@@ -35,8 +35,46 @@ export function InboxToolbar({ title, scopeLabel, titleId, count, position, comp
         <button type="button" aria-pressed={compact} onClick={() => onCompact(true)}>{english ? "Compact" : "Кратко"}</button>
       </div>
     </div></div>
+    </header>
     {target ? <div className="inbox-dock-preview" aria-live="polite">{english ? "Release to place" : "Отпустите для размещения"}: {label(target, english)}</div> : null}
   </>;
+}
+
+/** Same pointer capture and keyboard affordance as the app menu boundary. */
+export function InboxResizeBoundary({ position, width, onWidth }: { position: InboxPosition; width: number; onWidth: (width: number) => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ x: number; initial: number; width: number } | null>(null);
+  const [maximum, setMaximum] = useState(300);
+  const [current, setCurrent] = useState(width);
+  useEffect(() => {
+    const workspace = ref.current?.closest<HTMLElement>('[data-inbox-workspace]');
+    if (!workspace) return;
+    const update = () => {
+      const max = Math.max(300, Math.floor(workspace.clientWidth / 2));
+      setMaximum(max);
+      const next = Math.max(300, Math.min(max, width));
+      setCurrent(next);
+      workspace.style.setProperty('--inbox-width', `${next}px`);
+    };
+    update(); const observer = new ResizeObserver(update); observer.observe(workspace);
+    return () => observer.disconnect();
+  }, [width, position]);
+  const change = (next: number) => {
+    const value = Math.round(Math.max(300, Math.min(maximum, next)));
+    setCurrent(value);
+    ref.current?.closest<HTMLElement>('[data-inbox-workspace]')?.style.setProperty('--inbox-width', `${value}px`);
+    return value;
+  };
+  const cancel = () => { drag.current = null; change(width); };
+  // A focusable window splitter exposes range and keyboard resizing, as the menu does.
+  // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex
+  return <div ref={ref} className="inbox-resize-boundary" role="separator" tabIndex={0} aria-orientation="vertical"
+    aria-label="Ширина хаос-бокса" aria-valuemin={300} aria-valuemax={maximum} aria-valuenow={current}
+    onPointerDown={event => { if(event.button!==0)return;event.preventDefault();event.currentTarget.setPointerCapture(event.pointerId);drag.current={x:event.clientX,initial:current,width:current}; }}
+    onPointerMove={event => { const d=drag.current;if(d)d.width=change(d.initial+(event.clientX-d.x)*(position==='right'?-1:1)); }}
+    onPointerUp={() => { if(drag.current)onWidth(drag.current.width);drag.current=null; }}
+    onPointerCancel={cancel} onLostPointerCapture={() => { if(drag.current)cancel(); }}
+    onKeyDown={event => { const next=event.key==='Home'?300:event.key==='End'?maximum:event.key==='ArrowLeft'?current+(position==='right'?16:-16):event.key==='ArrowRight'?current+(position==='right'?-16:16):null;if(next!==null){event.preventDefault();onWidth(change(next));} }} />;
 }
 
 export function InboxRestore({ english, onRestore }: { english: boolean; onRestore: () => void }) {

@@ -141,7 +141,8 @@ sacredRussian.forEach((match, index) => {
   sacred[decodeKotlinString(match[1])] = sacredEnglish[index].name;
   sacred[decodeKotlinString(match[2])] = sacredEnglish[index].description;
 });
-const translations = { ...web, ...curated, ...sacred, ...native };
+const supplemental=JSON.parse(await readFile(path.join(ROOT,"app/ui-translations/en.json"),"utf8"));
+const translations = { ...web, ...curated, ...supplemental, ...sacred, ...native };
 const affairs = JSON.parse(await readFile(path.join(ROOT, "app/native-affairs-translations.json"), "utf8"));
 const affairKeys = Object.keys(affairs.en ?? {});
 if (affairKeys.length !== 36) throw new Error("Native affairs copy must contain all 36 labels.");

@@ -1,4 +1,5 @@
 "use client";
+import { DeferredViewFallback, DeferredDialogFallback, DeferredHabitFallback, ViewErrorBoundary } from "./DeferredViews";
 import { habitReminderTime } from "./habit-reminder-time";
 import type { MindmapTaskRequest } from "./Mindmaps";
 import { captureAccountSessionGuard, createCloudTaskOnce } from "./cloud-sync";
@@ -6,13 +7,10 @@ import ukrainianSynthemaNames from "./weekday-synthema.uk.json";
 /* eslint-disable @next/next/no-img-element -- Google requires the official, unmodified sign-in asset. */
 
 import {
-  Component,
   type CSSProperties,
-  type ErrorInfo,
   type FormEvent,
   type PointerEvent,
   type MouseEvent,
-  type ReactNode,
   type TouchEvent,
   lazy,
   Suspense,
@@ -35,7 +33,7 @@ import { ProjectCompletionDialog } from "./ProjectCompletionDialog";
 import { uiVisibility, viewIsVisible } from "./ui-visibility";
 import { useSidebarCollapse } from "./use-sidebar-collapse";
 import { useAccountLayout } from "./use-account-layout";
-import { InboxToolbar, InboxRestore } from "./InboxToolbar";
+import { InboxToolbar, InboxRestore, InboxResizeBoundary } from "./InboxToolbar";
 import { ProjectsHeroMark } from "./ProjectsHeroMark";
 import { matchesAffair } from "./affairs-search";
 import { ExperimentalIcon } from "./ExperimentalIcon";
@@ -239,52 +237,6 @@ const TheokyklosView = lazy(() => import("./TheokyklosView").then((module) => ({
 
 const WEB_THEME_AVAILABLE = true;
 
-function DeferredViewFallback({ label }: { label: string }) {
-  return <section className="deferred-view-loading" role="status" aria-live="polite"><span aria-hidden="true"><i /></span><strong>{label}</strong></section>;
-}
-
-function DeferredDialogFallback({ label }: { label: string }) {
-  return <div className="modal-backdrop deferred-dialog-backdrop" role="status" aria-live="polite"><div><span aria-hidden="true"><i /></span><strong>{label}</strong></div></div>;
-}
-
-function DeferredHabitFallback({ label }: { label: string }) {
-  return <section className="deferred-habit-loading" role="status" aria-live="polite"><span aria-hidden="true"><i /></span><strong>{label}</strong></section>;
-}
-
-class ViewErrorBoundary extends Component<{
-  children: ReactNode;
-  resetKey: string;
-}, { hasError: boolean }> {
-  state = { hasError: false };
-
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-
-  componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error("GENESIS view rendering failed", error, info);
-  }
-
-  componentDidUpdate(previous: Readonly<{ resetKey: string }>) {
-    if (this.state.hasError && previous.resetKey !== this.props.resetKey) {
-      this.setState({ hasError: false });
-    }
-  }
-
-  render() {
-    if (!this.state.hasError) return this.props.children;
-    return (
-      <section className="view-error-state" role="alert">
-        <span aria-hidden="true">◇</span>
-        <div>
-          <strong>Раздел не удалось отобразить</strong>
-          <p>Остальные разделы продолжают работать. Обновите данные страницы и повторите открытие.</p>
-        </div>
-        <button type="button" onClick={() => window.location.reload()}>Обновить страницу</button>
-      </section>
-    );
-  }
-}
 
 type ViewName = "today" | "calendar" | "projects" | "year" | "all-tasks" | "habits" | "stoicheion" | "theokyklos" | "admin";
 
@@ -5829,6 +5781,7 @@ export function GenesisCalendar() {
                 </div>
               </section> : null}
 
+              {!completedProjectsOpen && !accountLayout.personalInboxHidden ? <InboxResizeBoundary position={accountLayout.personalInboxPosition} width={accountLayout.personalInboxWidth} onWidth={personalInboxWidth => saveLayout({ personalInboxWidth })} /> : null}
               <div className="project-tree-main">
                 {!experimentalThemeActive ? <div className="section-heading compact-heading">
                   <div><span className="eyebrow">Иерархия</span><h2 id="project-tree-title">Дерево проектов</h2></div>
@@ -6702,7 +6655,9 @@ export function GenesisCalendar() {
                 {!sharedProjectsVisible || activeProjectsArea === "personal" ? renderProjects() : <Suspense fallback={<DeferredViewFallback label={language === "en" ? "Opening shared projects…" : "Открываем общие проекты…"} />}>
                   <SharedProjects key={`${cloudUser?.uid}:${invitationDestination?.userId===cloudUser?.uid ? invitationDestination?.request : "default"}`} userId={cloudUser?.uid ?? ""} language={language} experimentalTheme={experimentalThemeActive}
                     inboxPosition={accountLayout.sharedInboxPosition} inboxHidden={accountLayout.sharedInboxHidden}
+                    inboxWidth={accountLayout.sharedInboxWidth} onInboxWidth={sharedInboxWidth => saveLayout({ sharedInboxWidth })}
                     inboxCompact={accountLayout.sharedInboxCompact} onInboxCompact={sharedInboxCompact => saveLayout({ sharedInboxCompact })}
+                    categoriesExpanded={accountLayout.sharedCategoriesExpanded} onCategoriesExpanded={sharedCategoriesExpanded => saveLayout({ sharedCategoriesExpanded })}
                     onInboxPosition={sharedInboxPosition => saveLayout({ sharedInboxPosition })} onInboxHidden={sharedInboxHidden => saveLayout({ sharedInboxHidden })}
                     destination={invitationDestination?.userId===cloudUser?.uid ? invitationDestination ?? undefined : undefined}
                     timeFormat={activeTimeFormat}
@@ -7070,7 +7025,7 @@ export function GenesisCalendar() {
               const index = tabs.indexOf(composerTab); const tab = event.key === "Home" ? tabs[0] : event.key === "End" ? tabs[tabs.length-1] : tabs[(index + (event.key === "ArrowLeft" ? -1 : 1) + tabs.length) % tabs.length];
               setComposerTab(tab); setTaskUndated(false); if(tab !== "lists") {setNewEntryType(tab);setYandexEntryType(tab === "meeting" ? "meeting" : "task");} event.currentTarget.querySelector<HTMLButtonElement>(`#composer-tab-${tab}`)?.focus();
             }}>
-              {(["task", "lists", "meeting", "birthday", "event"] as const).filter(tab => tab !== "birthday" || taskScope !== "shared").map((tab) => <button id={`composer-tab-${tab}`} type="button" role="tab" key={tab} aria-selected={composerTab === tab} aria-controls={`composer-panel-${tab}`} tabIndex={composerTab === tab ? 0 : -1} onClick={() => { setComposerTab(tab); setTaskUndated(false); if(tab !== "lists"){setNewEntryType(tab);setYandexEntryType(tab === "meeting" ? "meeting" : "task");} }}>{tab === "meeting" || tab === "event" ? <ExperimentalIcon name={tab}/> : null}{tab === "lists" ? "Списки задач" : entryTypeLabel(tab, language === "en")}</button>)}
+              {(["task", "lists", "meeting", "birthday", "event"] as const).filter(tab => tab !== "birthday" || taskScope !== "shared").map((tab) => <button id={`composer-tab-${tab}`} type="button" role="tab" key={tab} aria-selected={composerTab === tab} aria-controls={`composer-panel-${tab}`} tabIndex={composerTab === tab ? 0 : -1} onClick={() => { setComposerTab(tab); setTaskUndated(false); if(tab !== "lists"){setNewEntryType(tab);setYandexEntryType(tab === "meeting" ? "meeting" : "task");} }}>{tab === "lists" ? "Списки задач" : entryTypeLabel(tab, language === "en")}</button>)}
             </div>
             <div id={`composer-panel-${composerTab}`} role="tabpanel" aria-labelledby={`composer-tab-${composerTab}`}>
               {composerTab === "lists" ? renderTaskListCreateForm("composer") : renderTaskCreateForm("composer")}

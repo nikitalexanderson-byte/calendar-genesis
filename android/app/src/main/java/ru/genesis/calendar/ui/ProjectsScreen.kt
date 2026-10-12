@@ -154,7 +154,8 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
     initialListId: String? = null, onInitialListConsumed: () -> Unit = {},
     menuSwipeState: MenuSwipeState? = null, voiceRequest: NativeVoiceAction? = null,
     onVoiceRequestConsumed: () -> Unit = {},
-    sharedController: AuthController? = null, sharedAccount: AccountSettings? = null) {
+    sharedController: AuthController? = null, sharedAccount: AccountSettings? = null,
+    onMindmaps: (String?)->Unit = {}, initialProjectId:String?=null,onInitialProjectConsumed:()->Unit={}) {
     val repo = remember(app) { WorkspaceStructureRepository(app) }
     val loadedStructure by produceState<WorkspaceStructure?>(null, repo) {
         repo.workspace.collect { value = it }
@@ -239,6 +240,13 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
     val inboxLists = knownLists.filter { listProjectId(it) == null }
     val tasksByProject = remember(tasks, structure) { tasks.groupBy { personalTaskProjectId(it, structure) } }
     val inbox = tasksByProject[null].orEmpty().filterNot { task -> inboxLists.any { task.belongsToList(it) } }
+    LaunchedEffect(initialProjectId,structure) {
+        val target=structure.projects.firstOrNull {it.id==initialProjectId} ?: return@LaunchedEffect
+        selectCategory(null);selectedProject=target.id
+        val index=ordered.indexOfFirst {it.first.id==target.id}
+        if(index>=0)listState.scrollToItem(index+3)
+        onInitialProjectConsumed()
+    }
     LaunchedEffect(initialListId, knownLists, structure) {
         val list = knownLists.firstOrNull { it.id == initialListId } ?: return@LaunchedEffect
         openedListId = list.id
@@ -380,6 +388,7 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
                 GenesisPageHeader(if (language == "en") "Affairs - personal" else "Дела - личные",
                     if (language == "en") "Categories, projects and their tasks"
                     else "Категории, проекты и задачи внутри них", "▦", icon = GenesisPageIcon.PROJECTS)
+                Button(onClick={onMindmaps(null)},modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("personal-mindmaps")) {Text("Майндмепы")}
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically) {
                     androidx.compose.material3.Text(projectSummary, Modifier.weight(1f).padding(end = 8.dp),
@@ -464,6 +473,7 @@ internal fun ProjectsScreen(app: GenesisApplication, tasks: List<LocalTask>, exp
                             }
                         }
                         TextButton(onClick = { onCreateTask(project.id) }) { Text("Создать задачу в проекте") }
+                        TextButton(onClick = { onMindmaps(project.id) }) { Text("Майндмепы проекта") }
                         TextButton(onClick = { editing = project; creating = true; error = null }) { Text("Изменить проект") }
                         if (sharedController != null) TextButton(onClick = { transferProject = project },
                             modifier = Modifier.testTag("transfer-project-${project.id}")) {

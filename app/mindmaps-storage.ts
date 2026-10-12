@@ -80,7 +80,7 @@ export class MindmapRepository {
     // erase its coordinates, and encryption completion order must not reorder writes.
     const write = this.viewSerial.catch(() => {}).then(async () => {
       const previous = await this.view(id);
-      const next = { ...view, viewport: view.viewport ?? previous?.viewport };
+      const next = { ...view, viewport: view.viewport ?? previous?.viewport, positions: view.positions ?? previous?.positions };
       const e = await this.access.seal(next, `view:${id}`);
       this.check(); localStorage.setItem(`${this.prefix}view:${id}`, JSON.stringify(e));
     });

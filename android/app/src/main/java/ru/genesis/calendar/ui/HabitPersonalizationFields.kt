@@ -113,7 +113,7 @@ internal fun HabitPersonalizationFields(emoji: String, color: String, isKeyHabit
             val selected = color.equals(option, ignoreCase = true)
             Surface(Modifier.size(if (selected) 38.dp else 32.dp)
                 .clickable(enabled = enabled) { onColor(option) }
-                .semantics { contentDescription = "Цвет $option"; this.selected = selected }
+                .genesisDescription("${genesisTranslate("Цвет")} $option").semantics { this.selected = selected }
                 .testTag("habit-color-$option"), shape = CircleShape,
                 color = Color(android.graphics.Color.parseColor(option)),
                 border = if (selected) androidx.compose.foundation.BorderStroke(3.dp, MaterialTheme.colorScheme.onSurface)

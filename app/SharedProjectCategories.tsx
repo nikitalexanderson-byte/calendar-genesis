@@ -3,12 +3,12 @@ import { type CSSProperties, type FormEvent, useEffect, useId, useRef, useState 
 import { deleteSharedProjectCategory, saveSharedProjectCategory, type SharedCategory, type SharedProject } from "./cloud-sync";
 import { ExperimentalIcon } from "./ExperimentalIcon";
 
-export function SharedProjectCategories({ spaceId, categories, projects, canManage, english, onChanged, onOpen }: {
+export function SharedProjectCategories({ spaceId, categories, projects, canManage, english, expanded, onExpanded, onChanged, onOpen }: {
   spaceId: string; categories: SharedCategory[]; projects: SharedProject[]; canManage: boolean; english: boolean;
   onChanged: () => Promise<void>; onOpen: (project: SharedProject) => void;
+  expanded: boolean; onExpanded: (expanded: boolean) => void;
 }) {
   const [editing, setEditing] = useState<SharedCategory | null>(null);
-  const [expanded, setExpanded] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const headingId = useId();
@@ -45,7 +45,7 @@ export function SharedProjectCategories({ spaceId, categories, projects, canMana
     });
   };
   const projectItems = projects.filter(project => !project.isInbox && project.kind !== "task-list");
-  return <><details className="shared-project-categories" aria-labelledby={headingId} open={expanded} onToggle={event => setExpanded(event.currentTarget.open)}>
+  return <><details className="shared-project-categories" aria-labelledby={headingId} open={expanded} onToggle={event => { if (event.currentTarget.open !== expanded) onExpanded(event.currentTarget.open); }}>
     <summary className="shared-categories-header">
       <ExperimentalIcon name="chevron" /><h3 id={headingId}>{english ? "Categories" : "Категории"}</h3>
       {canManage ? <button type="button" className="secondary-button shared-category-create" disabled={busy} onClick={event => { event.preventDefault(); openForm(null); }}>

@@ -40,8 +40,8 @@ android {
         applicationId = "ru.genesis.calendar"
         minSdk = 26
         targetSdk = 37
-        versionCode = 79
-        versionName = "2.7.3"
+        versionCode = 80
+        versionName = "2.8.0"
         buildConfigField("boolean", "PLAY_DISTRIBUTION", "false")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -108,7 +108,7 @@ val genesisAssets = tasks.register<GenesisAssetsTask>("genesisAssets") {
     }
     from(rootProject.file("../app/translations.en.json")) { into("i18n") }
     from(rootProject.file("../app")) {
-        include("translations.el.a.json", "translations.el.b.json", "translations.de.json", "translations.fr.json",
+        include("translations.el.a.json", "translations.el.b.json", "translations.de.json", "translations.de.b.json", "translations.fr.json", "translations.fr.b.json",
             "translations.es.json", "translations.it.json", "translations.pt.json",
             "translations.pl.json", "translations.sr.a.json", "translations.sr.b.json",
             "translations.uk.a.json", "translations.uk.b.json",
@@ -125,6 +125,7 @@ val genesisAssets = tasks.register<GenesisAssetsTask>("genesisAssets") {
         include("*.json")
         into("i18n/catalog-translations")
     }
+    from(rootProject.file("../app/ui-translations")) { include("*.json"); into("i18n/ui-translations") }
     from(rootProject.file("../app/year-translations")) {
         include("*.json")
         into("i18n/year-translations")
@@ -152,12 +153,13 @@ dependencies {
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.work.runtime)
-    implementation("androidx.datastore:datastore-preferences:1.2.0")
+    implementation("androidx.datastore:datastore-preferences:1.2.1")
     implementation("androidx.credentials:credentials:1.6.0")
     implementation("androidx.credentials:credentials-play-services-auth:1.6.0")
     // 1.2.1 carries Kotlin 2.4 metadata; 1.1.1 retains compatibility with AGP's Kotlin 2.2.
     implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
     implementation("com.google.android.gms:play-services-auth:21.6.0")
+    implementation("com.google.android.play:app-update-ktx:2.1.0")
     implementation("com.yandex.android:authsdk:3.1.3")
     // YandexAuthLoginOptions references this annotation; R8 needs it in release builds.
     implementation("org.jetbrains.kotlin:kotlin-parcelize-runtime:2.2.10")

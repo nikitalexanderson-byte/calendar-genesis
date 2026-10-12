@@ -293,7 +293,7 @@ private fun HabitWorkspaceContent(app: GenesisApplication, experimental: Boolean
                                 border = androidx.compose.foundation.BorderStroke(1.dp,
                                     Color(0xffdfc17e).copy(alpha = .45f + iconGlow * .3f))) {
                                 OriginalImage("hero-path/256/07_golden_horn_pathfinder.webp", null,
-                                    Modifier.fillMaxSize().semantics { contentDescription = "Путь героя" })
+                                    Modifier.fillMaxSize().genesisDescription("Путь героя"))
                             }
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                 Text("Путь Героя и награды",style=MaterialTheme.typography.titleLarge,
