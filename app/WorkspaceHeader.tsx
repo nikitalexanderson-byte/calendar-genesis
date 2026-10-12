@@ -1,5 +1,6 @@
 import { useId, useState, type ReactNode } from "react";
 import { ExperimentalIcon } from "./ExperimentalIcon";
+import { translateText } from "./i18n";
 
 /** Shared presentation contract for personal and team workspaces. */
 export function WorkspaceHeader({ title, description, mark, context, children, overviewLabel }: {
@@ -7,9 +8,10 @@ export function WorkspaceHeader({ title, description, mark, context, children, o
 }) {
   const [expanded, setExpanded] = useState(false);
   const id = useId();
+  const localizedTitle = translateText(title);
   return <header className="workspace-header" data-exp-ui="panel" data-mobile-expanded={overviewLabel ? expanded : undefined}>
     <div className="workspace-header-main">{mark}
-      <div className="workspace-header-copy"><h1>{title.includes(" · ") ? <>{title.split(" · ")[0]}<span className="workspace-title-secondary"> · <em>{title.split(" · ").slice(1).join(" · ")}</em></span></> : title}</h1><div id={`${id}-context`} className="workspace-header-context">{description ? <p>{description}</p> : null}{context}</div></div>
+      <div className="workspace-header-copy"><h1>{localizedTitle.includes(" · ") ? <>{localizedTitle.split(" · ")[0]}<span className="workspace-title-secondary"> · <em>{localizedTitle.split(" · ").slice(1).join(" · ")}</em></span></> : localizedTitle}</h1><div id={`${id}-context`} className="workspace-header-context">{description ? <p>{description}</p> : null}{context}</div></div>
     </div>
     {children ? <div id={`${id}-summary`} className="workspace-header-summary">{children}</div> : null}
     {overviewLabel ? <button type="button" className="workspace-overview-toggle" aria-expanded={expanded} aria-controls={`${id}-context${children ? ` ${id}-summary` : ""}`} onClick={() => setExpanded(value => !value)}><ExperimentalIcon name="chevron"/>{overviewLabel}</button> : null}

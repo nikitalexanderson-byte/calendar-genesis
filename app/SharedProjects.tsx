@@ -918,10 +918,10 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   };
   const renderTaskActions = (task: SharedTask, context: SharedProjectSnapshot) => <div className="shared-task-actions" onPointerDown={event => event.stopPropagation()}>
     {(context.project.permissions?.editTasks ?? ["owner", "manager", "member"].includes(context.project.role)) ? <button type="button" disabled={busy || task.pending}
-      title={english ? "Edit task" : "Редактировать задачу"} aria-label={english ? `Edit task ${task.title}` : `Редактировать задачу «${task.title}»`}
+      title={translateText("Редактировать задачу")} aria-label={`${translateText("Редактировать задачу")} «${task.title}»`}
       onClick={() => openTask(task, context)}><ExperimentalIcon name="edit" /></button> : null}
     {context.project.canOrganizeTasks ? <button type="button" className="shared-task-delete-icon" disabled={busy || task.pending}
-      title={english ? "Delete task" : "Удалить задачу"} aria-label={english ? `Delete task ${task.title}` : `Удалить задачу «${task.title}»`}
+      title={translateText("Удалить задачу")} aria-label={`${translateText("Удалить задачу")} «${task.title}»`}
       onClick={() => removeTask(task, context)}><ExperimentalIcon name="close" /></button> : null}
   </div>;
   const renderBoardTask = (task: SharedTask, status: SharedStatus) => {
@@ -1142,7 +1142,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       <div className="shared-project-workspace">
       <header className="shared-projects-context" data-shared-drop-project={snapshot.project.id} data-drop-active={dropTarget?.projectId === snapshot.project.id && !dropTarget.statusId || undefined}>
         <div className="shared-project-heading">
-          {!snapshot.project.isInbox && snapshot.project.role === "owner" ? <button type="button" className={`project-complete-action${completedPulse ? " is-completing" : ""}`} disabled={busy} onClick={archiveProject} title={english ? "Complete project" : "Завершить проект"} aria-label={english ? `Complete project “${snapshot.project.title}”` : `Завершить проект «${snapshot.project.title}»`}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="m7 12 3 3 7-7"/></svg></button> : null}
+          {!snapshot.project.isInbox && snapshot.project.role === "owner" ? <button type="button" className={`project-complete-action${completedPulse ? " is-completing" : ""}`} disabled={busy} onClick={archiveProject} title={translateText("Завершить проект")} aria-label={`${translateText("Завершить проект")} «${snapshot.project.title}»`}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="m7 12 3 3 7-7"/></svg></button> : null}
           <h2>{snapshot.project.isInbox ? (english ? "Team tasks" : "Задачи команды") : snapshot.project.title}</h2>
         </div>
       <div className="shared-context-actions">

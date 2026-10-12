@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef, type Dispatch, type SetStateAction, type React
 import { createPortal } from "react-dom";
 import type { SharedCalendarTask, GenesisTask } from "./cloud-sync";
 import { ExperimentalIcon } from "./ExperimentalIcon";
-import type { Language } from "./i18n";
+import { translateText, type Language } from "./i18n";
 import { CalendarDayTaskCounts } from "./CalendarTaskCounts";
 import { entryTypeLabel, type EntryType } from "./EntryTypeChoice";
 
@@ -98,7 +98,7 @@ function CalendarTaskControl<T extends PopoverTask>({ tasks, dateLabel, language
       </header>
       <ul>{tasks.map(task => <li className={task.completedAt || task.done ? "done" : ""} key={task.id}>
         <input type="checkbox" className="calendar-popover-task-check" checked={Boolean(task.completedAt || task.done)} disabled={busyTaskId === task.id}
-          aria-label={english ? `Complete task ${task.title}` : `Завершить задачу «${task.title}»`} onChange={() => onCompleteTask(task)} />
+          aria-label={`${translateText("Завершить задачу", language)} «${task.title}»`} onChange={() => onCompleteTask(task)} />
         <button type="button" className="calendar-popover-task-open" onClick={() => { onOpenKey(""); onOpenTask(task); }}>
           <span data-no-translate>{task.title}</span>
           {task.entryType && task.entryType !== "task" ? <small>{entryTypeLabel(task.entryType,english)}</small> : null}

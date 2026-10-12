@@ -2520,5 +2520,13 @@
   "Не удалось проверить код восстановления.": "Could not verify the recovery code.",
   "формат": "format",
   "не подош": "did not match",
-  "После нажатия «Подготовить план» запись и контекст отправляются в GigaChat; GENESIS не хранит запись и запрашивает её удаление из файлового хранилища GigaChat сразу после разбора.": "After you select Prepare plan, the recording and context are sent to GigaChat. GENESIS does not store the recording and requests its removal from GigaChat file storage immediately after parsing."
+  "После нажатия «Подготовить план» запись и контекст отправляются в GigaChat; GENESIS не хранит запись и запрашивает её удаление из файлового хранилища GigaChat сразу после разбора.": "After you select Prepare plan, the recording and context are sent to GigaChat. GENESIS does not store the recording and requests its removal from GigaChat file storage immediately after parsing.",
+  "Для обновления задач подключите Google Calendar и Tasks.": "Connect Google Calendar and Tasks to update tasks.",
+  "Завершить задачу": "Complete task",
+  "Вернуть проект": "Restore project",
+  "Редактировать проект": "Edit project",
+  "Перетащить задачу": "Drag task",
+  "Только для просмотра": "View only",
+  "Открыть день": "Open day",
+  "общих задач": "shared tasks"
 }

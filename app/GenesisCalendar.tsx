@@ -823,6 +823,10 @@ function weekdayArtUrl(weekday: number) {
   return `${APP_BASE}/weekday-art/${filename}`;
 }
 
+function namedAction(action: string, name: string, language: Language) {
+  return `${translateText(action, language)} «${name}»`;
+}
+
 function taskOriginMeta(origin: TaskOrigin) {
   if (origin === "google-calendar") return { label: "Создано в Google Calendar", className: "calendar" };
   if (origin === "google-tasks") return { label: "Создано в Google Tasks", className: "tasks" };
@@ -4451,14 +4455,14 @@ export function GenesisCalendar() {
                               type="button"
                               className="task-list-board-drag"
                               draggable
-                              aria-label={`Перетащить задачу «${task.title}» в другой список`}
+                              aria-label={namedAction("Перетащить задачу", task.title, language)}
                               onDragStart={(event) => {
                               event.dataTransfer.effectAllowed = "move";
                               event.dataTransfer.setData("text/genesis-task-id", task.id);
                               }}
                               onDragEnd={() => setTaskListDropTargetId("")}
                             >⋮⋮</button>
-                            <button type="button" className="task-check" onClick={() => toggleTask(task.id)} aria-label={task.done ? `Вернуть задачу «${task.title}»` : `Завершить задачу «${task.title}»`}>{task.done ? "✓" : ""}</button>
+                            <button type="button" className="task-check" onClick={() => toggleTask(task.id)} aria-label={namedAction(task.done ? "Вернуть задачу" : "Завершить задачу", task.title, language)}>{task.done ? "✓" : ""}</button>
                             <button type="button" className="task-list-item-open" onClick={() => openTaskEditor(task)}>
                               <strong data-no-translate>{task.title}</strong>
                               {renderOverdueBadge(task)}
@@ -4930,9 +4934,7 @@ export function GenesisCalendar() {
             <div className="today-task-list" aria-live="polite">
               {todayTasks.map((task) => (
                 <article className={task.done ? "done" : ""} key={task.id}>
-                  <button type="button" className="task-check" onClick={() => toggleTask(task.id)} aria-label={task.done
-                    ? (isEnglish ? `Restore task “${task.title}”` : `Вернуть задачу «${task.title}»`)
-                    : (isEnglish ? `Complete task “${task.title}”` : `Завершить задачу «${task.title}»`)}>
+                  <button type="button" className="task-check" onClick={() => toggleTask(task.id)} aria-label={namedAction(task.done ? "Вернуть задачу" : "Завершить задачу", task.title, language)}>
                     {task.done ? "✓" : ""}
                   </button>
                   <button type="button" className="today-task-open" onClick={() => openTaskEditor(task, todayDateValue)}>
@@ -4944,7 +4946,7 @@ export function GenesisCalendar() {
                       <i>{isEnglish ? `Priority ${task.priority}` : `Приоритет ${task.priority}`}</i>
                     </span>
                   </button>
-                  <button type="button" className="icon-button" onClick={() => openTaskEditor(task, todayDateValue)} aria-label={isEnglish ? `Edit task “${task.title}”` : `Редактировать задачу «${task.title}»`}>{experimentalThemeActive ? <ExperimentalIcon name="edit" /> : "↗"}</button>
+                  <button type="button" className="icon-button" onClick={() => openTaskEditor(task, todayDateValue)} aria-label={namedAction("Редактировать задачу", task.title, language)}>{experimentalThemeActive ? <ExperimentalIcon name="edit" /> : "↗"}</button>
                 </article>
               ))}
             </div>
@@ -5126,15 +5128,14 @@ export function GenesisCalendar() {
       ? new Intl.DateTimeFormat(runtimeLocale(), { month: "long" }).format(date)
       : "";
     const adjacentMonthDescriptor = adjacentMonth === "previous" ? "Предыдущий месяц" : "Следующий месяц";
+    const localizedAdjacentMonth = translateText(adjacentMonthDescriptor, language);
 
     return (
       <article
         className={`calendar-day calendar-mode-day mode-${mode}${mode === "profane" ? ` weekday-${weekdayIndex}` : ""}${isSelected ? " selected" : ""}${isToday ? " today" : ""}${isSaturday ? " saturday" : ""}${solarEvent ? " solar-day" : ""}${taskCount ? " has-tasks" : ""}${popoverOpen || sharedPopoverOpen ? " popover-open" : ""}${isAdjacentMonth ? ` adjacent-month ${adjacentMonth}-month` : ""}`}
         style={isAdjacentMonth ? { "--adjacent-month-opacity": adjacentOpacity } as CSSProperties : undefined}
         aria-label={isAdjacentMonth
-          ? (language === "en"
-              ? `${formatGregorian(date, true)} — ${adjacentMonthDescriptor.toLocaleLowerCase(runtimeLocale())}, view only`
-              : `${formatGregorian(date, true)} — ${adjacentMonthDescriptor.toLocaleLowerCase(runtimeLocale())}, только для просмотра`)
+          ? `${formatGregorian(date, true)} — ${localizedAdjacentMonth.toLocaleLowerCase(runtimeLocale())}, ${translateText("Только для просмотра", language).toLocaleLowerCase(runtimeLocale())}`
           : undefined}
         key={`${adjacentMonth ?? "current"}-${dateValue}`}
       >
@@ -5144,7 +5145,7 @@ export function GenesisCalendar() {
             className="calendar-day-open"
             onClick={() => openCalendarDate(date, "calendar")}
             aria-pressed={isSelected}
-            aria-label={`${formatCalendarDate(date, mode, true)}${mode === "profane" ? ` — ${weekdayPatron.weekday}, ${weekdayPatron.guidanceTitle}, ${weekdayPatron.patronage}` : ""} — ${sacredDay.name} — ${moon.day} ${language === "en" ? "lunar day" : "лунный день"}${solarEvent ? ` — ${solarEvent.name}, ${formatSolarEventTime(solarEvent.date)}` : ""}${taskCount ? ` — ${taskCount} задач` : ""}`}
+            aria-label={`${formatCalendarDate(date, mode, true)}${mode === "profane" ? ` — ${weekdayPatron.weekday}, ${weekdayPatron.guidanceTitle}, ${weekdayPatron.patronage}` : ""} — ${sacredDay.name} — ${moon.day} ${translateText("лунный день", language)}${solarEvent ? ` — ${solarEvent.name}, ${formatSolarEventTime(solarEvent.date)}` : ""}${taskCount ? ` — ${formatTaskCount(taskCount, language)}` : ""}`}
           />
         )}
         {isAdjacentMonth ? (
@@ -5172,14 +5173,14 @@ export function GenesisCalendar() {
         {mode === "profane" ? (
           <span className="calendar-cross-date lunar-date" title={moon.phase}>
             <MoonPhaseIcon phaseStep={moon.phaseStep} size={15} />
-            <span className="calendar-lunar-day-label">{moon.day} {language === "en" ? "lunar day" : "лунный день"}</span>
+            <span className="calendar-lunar-day-label">{moon.day} {translateText("лунный день", language)}</span>
           </span>
         ) : (
           <span className="calendar-cross-date lunar-date"><b aria-hidden="true">☾</b>{moon.epithet} · {moon.illumination}%</span>
         )}
         <span
           className="calendar-sun-times"
-          aria-label={`Рассвет ${sunrise}, закат ${sunset}`}
+          aria-label={`${translateText("Рассвет", language)} ${sunrise}, ${translateText("закат", language)} ${sunset}`}
           title={sunriseSunset ? "Рассвет и закат по времени устройства" : "Синхронизируем время рассвета и заката"}
         >
           <span><i aria-hidden="true">↗</i>{sunrise}</span>
@@ -5320,7 +5321,7 @@ export function GenesisCalendar() {
                             setDayDetailsOpen(true);
                           }}
                           aria-pressed={isSelected}
-                          aria-label={`${formatGregorian(gregorian, true)} — ${sacredDay.name}${solarEvent ? ` — ${solarEvent.name}, ${formatSolarEventTime(solarEvent.date)}` : ""}${taskCount ? ` — ${taskCount} задач` : ""}`}
+                          aria-label={`${formatGregorian(gregorian, true)} — ${sacredDay.name}${solarEvent ? ` — ${solarEvent.name}, ${formatSolarEventTime(solarEvent.date)}` : ""}${taskCount ? ` — ${formatTaskCount(taskCount, language)}` : ""}`}
                         />
                         <span className="calendar-gregorian">
                           <b className="calendar-weekday">
@@ -5825,20 +5826,20 @@ export function GenesisCalendar() {
                       </div>
                     </button>
                     <button type="button" className={`project-complete-action${completingProjectIds.includes(project.id) ? " is-completing" : ""}`} aria-pressed={project.status !== "active"} disabled={completingProjectIds.includes(project.id)}
-                      aria-label={project.status !== "active" ? `Вернуть проект «${project.title}» в текущие` : `Завершить проект «${project.title}»`}
+                      aria-label={namedAction(project.status !== "active" ? "Вернуть проект" : "Завершить проект", project.title, language)}
                       title={project.status !== "active" ? (language === "en" ? "Restore" : "Вернуть") : "Завершить проект"} onClick={() => project.status === "active" ? setProjectToComplete(project) : toggleProject(project.id)}>
                       {project.status !== "active" && !completingProjectIds.includes(project.id)
                         ? <svg className="project-restore-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1.7 7.3M4 4v6h6"/></svg>
                         : <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="m7 12 3 3 7-7"/></svg>}
                     </button>
-                    {experimentalThemeActive ? <button type="button" className="experimental-add-subproject" aria-label={`${language === "en" ? "New subproject" : "Новый подпроект"}: ${project.title}`}
+                    {experimentalThemeActive ? <button type="button" className="experimental-add-subproject" aria-label={`${translateText("Новый подпроект", language)}: ${project.title}`}
                       onClick={() => { setNewProjectParent(project.id); setExperimentalProjectFormOpen(true); }}><ExperimentalIcon name="plus" /></button> : null}
-                    <button type="button" className="project-edit" onClick={() => openProjectEditor(project)} aria-label={`Редактировать проект «${project.title}»`}>{experimentalThemeActive ? <ExperimentalIcon name="edit" /> : "✎"}</button>
+                    <button type="button" className="project-edit" onClick={() => openProjectEditor(project)} aria-label={namedAction("Редактировать проект", project.title, language)}>{experimentalThemeActive ? <ExperimentalIcon name="edit" /> : "✎"}</button>
                     {cloudUser?.sharedProjectsEnabled ? <button type="button" className="project-transfer"
                       onClick={() => setTransferProject(project)}
-                      aria-label={`${language === "en" ? "Move to shared" : "Переместить в общие"}: ${project.title}`}>
+                      aria-label={`${translateText("Переместить в общие", language)}: ${project.title}`}>
                       {experimentalThemeActive ? <ExperimentalIcon name="open" /> : "↗"}</button> : null}
-                    <button type="button" className="project-delete" onClick={() => void deleteProject(project.id)} aria-label={`Удалить проект «${project.title}»`}>{experimentalThemeActive ? <ExperimentalIcon name="delete" /> : "×"}</button>
+                    <button type="button" className="project-delete" onClick={() => void deleteProject(project.id)} aria-label={namedAction("Удалить проект", project.title, language)}>{experimentalThemeActive ? <ExperimentalIcon name="delete" /> : "×"}</button>
                     <div className="project-drop-field">
                       <div className="project-drop-heading">
                         <span>Пространство проекта</span>
@@ -5939,7 +5940,7 @@ export function GenesisCalendar() {
               .filter((title): title is string => Boolean(title));
             return (
               <article className={`all-task-row project-task-card project-draggable-item${task.done ? " done" : ""}${overdue ? " past" : ""}${locatedPersonalTaskId === task.id ? " task-location-highlight" : ""}`} data-personal-task-id={task.id} key={task.id} {...projectDragProps({ kind: "task", id: task.id, title: task.title })}>
-                <button type="button" className="task-check" onClick={() => toggleTask(task.id)} aria-label={task.done ? `Вернуть задачу «${task.title}»` : `Завершить задачу «${task.title}»`}>
+                <button type="button" className="task-check" onClick={() => toggleTask(task.id)} aria-label={namedAction(task.done ? "Вернуть задачу" : "Завершить задачу", task.title, language)}>
                   {task.done ? "✓" : ""}
                 </button>
                 <div className="all-task-body">
@@ -5973,12 +5974,12 @@ export function GenesisCalendar() {
                     className="icon-button"
                     onClick={() => openTaskEditor(task)}
                     title="Редактировать задачу"
-                    aria-label={`Редактировать задачу «${task.title}»`}
+                    aria-label={namedAction("Редактировать задачу", task.title, language)}
                   >{experimentalThemeActive ? <ExperimentalIcon name="edit" /> : "✎"}</button>
-                  <button type="button" className="task-delete" onClick={() => deleteTask(task.id)} aria-label={`Удалить задачу «${task.title}»`}>{experimentalThemeActive ? <ExperimentalIcon name="delete" /> : "×"}</button>
+                  <button type="button" className="task-delete" onClick={() => deleteTask(task.id)} aria-label={namedAction("Удалить задачу", task.title, language)}>{experimentalThemeActive ? <ExperimentalIcon name="delete" /> : "×"}</button>
                 </div>
                   <label className="task-project-move"><span>{language === "en" ? "Move to" : "Переместить в"}</span>
-                    <select aria-label={`Переместить задачу «${task.title}»`} value={resolvedTaskProjectId(task) ?? ""} onChange={(event) => moveProjectItemToProject({ kind: "task", id: task.id, title: task.title }, event.target.value || TASK_INBOX_PROJECT_ID)}>
+                    <select aria-label={namedAction("Переместить задачу", task.title, language)} value={resolvedTaskProjectId(task) ?? ""} onChange={(event) => moveProjectItemToProject({ kind: "task", id: task.id, title: task.title }, event.target.value || TASK_INBOX_PROJECT_ID)}>
                       <option value="">Хаос-бокс</option>
                       {flattenProjects(projects).filter(({ project: item }) => item.status === "active").map(({ project: item, depth }) => <option key={item.id} value={item.id}>{"— ".repeat(depth)}{item.title}</option>)}
                       {project && project.status !== "active" ? <option value={project.id}>{project.title} · Завершено</option> : null}
@@ -6091,12 +6092,12 @@ export function GenesisCalendar() {
                             className={`mini-day${hasTask ? " has-task" : ""}${todayDot ? " today" : ""}${solarDot ? " solar" : ""}${isYearSaturday ? " saturday" : ""}`}
                             key={dayNumber}
                             onClick={() => openDay(dayNumber)}
-                            aria-label={`${month.name}, день ${dayNumber}: ${sacredDay.name}${taskCount ? `, ${formatTaskCount(taskCount, language)}` : ""}`}
-                            title={`${sacredDay.name} · открыть день`}
+                            aria-label={`${translateText(month.name, language)}, ${translateText("день", language)} ${dayNumber}: ${sacredDay.name}${taskCount ? `, ${formatTaskCount(taskCount, language)}` : ""}`}
+                            title={`${sacredDay.name} · ${translateText("Открыть день", language)}`}
                           >
                             <span className="mini-day-number">{(["I", "II", "III", "IIII", "V"] as const)[(dayNumber - 1) % 5]}</span>
                             <CalendarYearTaskCounts tasks={dayTasks} />
-                            {sharedTasks.length ? <span className="mini-day-shared-count" aria-label={`${sharedTasks.length} общих задач`}>{sharedTasks.length}</span> : null}
+                            {sharedTasks.length ? <span className="mini-day-shared-count" aria-label={`${sharedTasks.length} ${translateText("общих задач", language)}`}>{sharedTasks.length}</span> : null}
                           </button>
                         );
                       })}
@@ -6342,8 +6343,8 @@ export function GenesisCalendar() {
                         className={`mini-day${dayTasks ? " has-task" : ""}${dateValue === todayDateValue ? " today" : ""}${solar ? " solar" : ""}${isSaturday ? " saturday" : ""}`}
                         key={dateValue}
                         onClick={() => openCalendarDate(date, "year")}
-                        aria-label={`${formatCalendarDate(date, mode, true)}${mode === "profane" ? `; ${weekdayPatron.weekday}, ${weekdayPatron.patronage}` : ""}; ${sacredDay.name}; ${moon.day} ${language === "en" ? "lunar day" : "лунный день"}${dayTasks ? `; ${formatTaskCount(dayTasks, language)}` : ""}`}
-                        title={`${formatGregorian(date, true)}${mode === "profane" ? ` · ${weekdayPatron.patronage}` : ""} · ${formatCalendarDate(date, "sacred")} · ${moon.day} ${language === "en" ? "lunar day" : "лунный день"}`}
+                        aria-label={`${formatCalendarDate(date, mode, true)}${mode === "profane" ? `; ${weekdayPatron.weekday}, ${weekdayPatron.patronage}` : ""}; ${sacredDay.name}; ${moon.day} ${translateText("лунный день", language)}${dayTasks ? `; ${formatTaskCount(dayTasks, language)}` : ""}`}
+                        title={`${formatGregorian(date, true)}${mode === "profane" ? ` · ${weekdayPatron.patronage}` : ""} · ${formatCalendarDate(date, "sacred")} · ${moon.day} ${translateText("лунный день", language)}`}
                       >
                         <span className="mini-day-number">{date.getDate()}</span>
                         <CalendarYearTaskCounts tasks={cellTasks} />
@@ -6916,7 +6917,7 @@ export function GenesisCalendar() {
                           type="button"
                           className="task-check"
                           onClick={() => toggleTask(task.id)}
-                          aria-label={task.done ? `Вернуть задачу «${task.title}»` : `Завершить задачу «${task.title}»`}
+                          aria-label={namedAction(task.done ? "Вернуть задачу" : "Завершить задачу", task.title, language)}
                         >
                           {task.done ? "✓" : ""}
                         </button>

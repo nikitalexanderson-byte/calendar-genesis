@@ -2083,5 +2083,12 @@
   "Например, решение": "Örneğin, karar",
   "Добавить тег": "Etiket ekle",
   "Убрать тег": "Etiketi kaldır",
-  "Настройка карты": "Harita ayarları"
+  "Настройка карты": "Harita ayarları",
+  "Для обновления задач подключите Google Calendar и Tasks.": "Görevleri güncellemek için Google Calendar ve Tasks'i bağlayın.",
+  "Завершить задачу": "Görevi tamamla",
+  "Вернуть проект": "Projeyi geri yükle",
+  "Редактировать проект": "Projeyi düzenle",
+  "Перетащить задачу": "Görevi sürükle",
+  "Только для просмотра": "Yalnızca görüntüleme",
+  "Открыть день": "Günü aç"
 }
