@@ -208,8 +208,8 @@ html[data-genesis-theme^="standart"] .genesis-app .project-form :is(label) { dis
 html[data-genesis-theme^="standart"] .genesis-app .inbox-card > h2 { color: var(--ink); font-size: 22px; }
 html[data-genesis-theme^="standart"] .genesis-app .inbox-card > strong { color: var(--terracotta); font: 400 32px/1.15 var(--font-heading); }
 html[data-genesis-theme^="standart"] .genesis-app .inbox-card > p { font-size: 12px; line-height: 1.65; }
-html[data-genesis-theme^="standart"] .genesis-app .category-strip { grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr)); gap: 12px; }
-html[data-genesis-theme^="standart"] .genesis-app .category-strip > article { grid-template-columns: 5px minmax(0, 1fr); padding: 14px; border-radius: var(--ui-radius); background: var(--surface); border: 1px solid var(--exp-border); }
+html[data-genesis-theme^="standart"] .genesis-app .category-strip { grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); gap: 12px; }
+html[data-genesis-theme^="standart"] .genesis-app .category-strip > article { grid-template-columns: 6px minmax(0, 1fr) auto; padding: 12px; border-radius: var(--ui-radius); background: var(--surface); border: 1px solid var(--exp-border); }
 html[data-genesis-theme^="standart"] .genesis-app .category-strip > article > i { width: 5px; min-height: 32px; }
 html[data-genesis-theme^="standart"] .genesis-app .category-strip > article > strong { font: 400 16px/1.4 var(--font-heading); }
 html[data-genesis-theme^="standart"] .genesis-app .category-strip > article > span { font-size: 11px; }
@@ -306,7 +306,7 @@ html[data-genesis-theme="standart"] .time-clock-tick.minute.active { fill: #e4c7
   html[data-genesis-theme^="standart"] .genesis-app .project-row .project-delete { grid-column: 5; }
   html[data-genesis-theme^="standart"] .genesis-app .project-row .project-progress { grid-column: 2 / -1; grid-row: 3; }
   html[data-genesis-theme^="standart"] .genesis-app .experimental-tree-heading { padding: 14px; gap: 10px; }
-  html[data-genesis-theme^="standart"] .genesis-app .category-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  html[data-genesis-theme^="standart"] .genesis-app .category-strip { grid-template-columns: minmax(0, 1fr); }
   html[data-genesis-theme^="standart"] .genesis-app .project-form-grid { grid-template-columns: minmax(0, 1fr); }
 }
 

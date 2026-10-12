@@ -1,11 +1,13 @@
 "use client";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { translateText } from "./i18n";
-import { layoutMap, nodeColors, type Mindmap, type MapNode, type MapView } from "./mindmaps-model";
+import { ExperimentalIcon } from "./ExperimentalIcon";
+import { layoutMap, mapHomeView, nodeColors, type Mindmap, type MapNode, type MapView } from "./mindmaps-model";
 
-export default function MindmapCanvas({ map, view, selected, selectedLink, title, onSelect, onEditNode, onSelectLink, onDeleteSelection, onZoom, onViewport, onPosition, onCreateAt, onLink }: {
+export default function MindmapCanvas({ map, view, selected, selectedLink, title, onSelect, onEditNode, onSelectLink, onDeleteSelection, onZoom, onHome, onViewport, onPosition, onCreateAt, onLink }: {
   map: Mindmap; view: MapView; selected: string; selectedLink: string | null; title: (node: MapNode) => string;
   onSelect: (id: string) => void; onZoom: (zoom: number) => void; onViewport: (viewport: {left:number;top:number}) => void;
+  onHome: (view: MapView) => void;
   onPosition: (id:string,position:{x:number;y:number})=>void; onCreateAt:(position:{x:number;y:number})=>void;
   onLink:(from:string,to:string)=>void; onSelectLink:(id:string,from:string)=>void; onEditNode:(id:string)=>void; onDeleteSelection:()=>void;
 }) {
@@ -27,6 +29,7 @@ export default function MindmapCanvas({ map, view, selected, selectedLink, title
   const pinchGesture=useRef(false);
   const zoomRef=useRef(view.zoom);
   const pendingAnchor=useRef<{zoom:number;contentX:number;contentY:number;localX:number;localY:number} | null>(null);
+  const pendingNavigation = useRef<{left:number;top:number} | null>(null);
   const [viewport, setViewport] = useState({ top: view.viewport?.top ?? 0, height: 800 });
   useEffect(() => { zoomRef.current=view.zoom; }, [view.zoom]);
   const zoomAt=useCallback((zoom:number,clientX:number,clientY:number)=>{
@@ -43,6 +46,13 @@ export default function MindmapCanvas({ map, view, selected, selectedLink, title
       pendingAnchor.current=null;
     }
   },[view.zoom]);
+  useLayoutEffect(() => {
+    const target = pendingNavigation.current, el = scroller.current;
+    if (!target || !el) return;
+    el.scrollTo({ ...target, behavior: "instant" });
+    setViewport({ top: el.scrollTop, height: el.clientHeight });
+    pendingNavigation.current = null;
+  }, [view.zoom, view.focus, rows]);
   useEffect(()=>{
     const el=scroller.current;if(!el)return;
     const wheel=(event:WheelEvent)=>{
@@ -67,19 +77,17 @@ export default function MindmapCanvas({ map, view, selected, selectedLink, title
   useEffect(()=>{ if(!menu)return;menuRef.current?.querySelector<HTMLButtonElement>('button')?.focus();const close=(e:PointerEvent)=>{if(!(e.target as Element).closest('.mindmap-context-menu'))setMenu(null);};document.addEventListener('pointerdown',close);return()=>document.removeEventListener('pointerdown',close); },[menu]);
   const contextAt=(clientX:number,clientY:number)=>{const el=scroller.current!;const rect=el.getBoundingClientRect();setMenu({left:Math.min(clientX,window.innerWidth-210),top:Math.min(clientY,window.innerHeight-70),x:Math.max(0,(clientX-rect.left+el.scrollLeft)/view.zoom),y:Math.max(0,(clientY-rect.top+el.scrollTop)/view.zoom)});};
   const finishNode=(cancel=false)=>{if(holdTimer.current)clearTimeout(holdTimer.current);const current=nodeDrag.current;if(current?.moved)suppressClick.current=true;if(!cancel&&current?.position)onPosition(current.id,current.position);nodeDrag.current=null;setMoving(null);};
-  const width = Math.max(...rows.map(r => r.x)) + 280; const height = Math.max(...rows.map(r=>r.y)) + 140;
+  const width = Math.max(...rows.map(r => r.x)) + 280; const height = Math.max(...rows.map(r=>r.y)) + 176;
   const byId = new Map(rows.map(r => [r.node.id, r]));
   // Large documents keep their geometry, but only visible buttons need DOM/layout.
   // Structure remains a complete native list for keyboard and assistive navigation.
   const paintedRows = rows.length <= 200 ? rows : rows.filter(r => r.node.id === selected
     || (r.y + 88 >= viewport.top / view.zoom - 200 && r.y <= (viewport.top + viewport.height) / view.zoom + 200));
   return <div className="mindmap-canvas-wrap">
-    <div className="mindmap-toolbar" aria-label="Масштаб карты">
-      <button type="button" onClick={() => onZoom(Math.max(.4, view.zoom - .2))} aria-label="Уменьшить масштаб">−</button>
+    <div className="mindmap-canvas-zoom" role="group" aria-label="Масштаб карты">
+      <button type="button" disabled={view.zoom <= .4} onClick={() => onZoom(Math.max(.4, view.zoom - .2))} aria-label="Уменьшить масштаб">−</button>
       <span>{Math.round(view.zoom * 100)}%</span>
-      <button type="button" onClick={() => onZoom(Math.min(2, view.zoom + .2))} aria-label="Увеличить масштаб">+</button>
-      <button type="button" onClick={() => { onZoom(1); scroller.current?.scrollTo({ left: 0, top: 0 }); }}>К началу</button>
-      <button type="button" onClick={() => { const r = byId.get(selected); if (r) scroller.current?.scrollTo({ left: Math.max(0, r.x * view.zoom - 32), top: Math.max(0, r.y * view.zoom - 32) }); }}>К выбранному узлу</button>
+      <button type="button" disabled={view.zoom >= 2} onClick={() => onZoom(Math.min(2, view.zoom + .2))} aria-label="Увеличить масштаб">+</button>
     </div>
     {/* Keyboard focus permits native arrow-key scrolling of this bounded canvas. */}
     {/* Interactive graphical editor; Structure supplies the alternative list semantics. */}
@@ -91,7 +99,7 @@ export default function MindmapCanvas({ map, view, selected, selectedLink, title
       onPointerCancelCapture={e=>{if(e.pointerType==="touch")endTouch(e.pointerId);}}
       onScroll={e => { setViewport({ top: e.currentTarget.scrollTop, height: e.currentTarget.clientHeight }); if(scrollTimer.current) clearTimeout(scrollTimer.current); scrollTimer.current=setTimeout(()=>{if(scroller.current)onViewport({left:scroller.current.scrollLeft,top:scroller.current.scrollTop});},180); }}
       onContextMenu={e=>{if((e.target as Element).closest('button'))return;e.preventDefault();contextAt(e.clientX,e.clientY);}}
-      onClick={e=>{if((e.target as Element).closest('button'))return;if(suppressClick.current){suppressClick.current=false;return;}contextAt(e.clientX,e.clientY);}}
+      onClick={e=>{if(!(e.target as Element).closest('button'))suppressClick.current=false;}}
       onKeyDown={e=>{if((e.key==='Delete'||e.key==='Backspace')&&!(e.target as Element).closest('input,textarea,select,[contenteditable="true"]')){e.preventDefault();e.stopPropagation();onDeleteSelection();return;}if(e.key==='Escape'){setMenu(null);setConnecting(null);}if(e.key==='ContextMenu'||e.shiftKey&&e.key==='F10'){e.preventDefault();const r=e.currentTarget.getBoundingClientRect();contextAt(r.left+40,r.top+40);}}}
       onPointerDown={e => { if (e.button !== 0 || pinch.current || (e.target as Element).closest('button')) return; suppressClick.current=false;const el = scroller.current!; drag.current = { x: e.clientX, y: e.clientY, left: el.scrollLeft, top: el.scrollTop }; el.setPointerCapture(e.pointerId); }}
       onPointerMove={e => { if (pinch.current || !drag.current) return;if(Math.hypot(drag.current.x-e.clientX,drag.current.y-e.clientY)>6)suppressClick.current=true; scroller.current!.scrollLeft = drag.current.left + drag.current.x - e.clientX; scroller.current!.scrollTop = drag.current.top + drag.current.y - e.clientY; }}
@@ -125,6 +133,22 @@ export default function MindmapCanvas({ map, view, selected, selectedLink, title
             onPointerUp={e=>{if(pinchGesture.current||!linkMoved.current)return;const target=document.elementFromPoint(e.clientX,e.clientY)?.closest<HTMLElement>('[data-map-node-id]')?.dataset.mapNodeId;if(target&&target!==r.node.id){onLink(r.node.id,target);onSelect(r.node.id);}setConnecting(null);}} onPointerCancel={()=>setConnecting(null)}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="12" r="4"/><path d="M12 12h9m-3-3 3 3-3 3"/></svg></button>)}
         </div>
       </div>
+    </div>
+    <div className="mindmap-canvas-navigation">
+      <button type="button" className="mindmap-canvas-action" aria-label="К началу" onClick={() => {
+        pendingAnchor.current = null;
+        if (scrollTimer.current) clearTimeout(scrollTimer.current);
+        const next = mapHomeView(map, view);
+        pendingNavigation.current = next.viewport!;
+        zoomRef.current = 1;
+        setMenu(null); setConnecting(null);
+        onSelect(map.nodes.find(node => node.parentId === null)!.id);
+        onHome(next);
+      }}><ExperimentalIcon name="map-home"/><span role="tooltip" className="mindmap-action-tooltip">К началу</span></button>
+      <button type="button" className="mindmap-canvas-action" aria-label="К выбранному узлу" onClick={() => {
+        const row = byId.get(selected);
+        if (row) scroller.current?.scrollTo({ left: Math.max(0, row.x * view.zoom - 24), top: Math.max(0, row.y * view.zoom - 24), behavior: "instant" });
+      }}><ExperimentalIcon name="thought-focus"/><span role="tooltip" className="mindmap-action-tooltip">К выбранному узлу</span></button>
     </div>
     {connecting ? <p role="status">Выберите вторую карточку для связи. Escape отменяет соединение.</p> : null}
     {menu ? <div ref={menuRef} className="mindmap-context-menu" role="menu" tabIndex={-1} aria-label="Действия на полотне" style={{left:menu.left,top:menu.top}} onKeyDown={e=>{if(e.key==='Escape'){setMenu(null);scroller.current?.focus();}}}><button type="button" role="menuitem" onClick={()=>{onCreateAt({x:menu.x,y:menu.y});setMenu(null);}}>Добавить мысль</button></div> : null}

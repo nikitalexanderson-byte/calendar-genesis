@@ -2090,5 +2090,15 @@
   "Редактировать проект": "Projeyi düzenle",
   "Перетащить задачу": "Görevi sürükle",
   "Только для просмотра": "Yalnızca görüntüleme",
-  "Открыть день": "Günü aç"
+  "Открыть день": "Günü aç",
+  "Мысли": "Düşünceler",
+  "Удалить карту": "Haritayı sil",
+  "Карта и история её версий будут удалены. Связанные задачи и проекты сохранятся.": "Harita ve sürüm geçmişi silinecek. Bağlı görevler ve projeler korunacak.",
+  "Вернуть задачу в список": "Görevi listeye döndür",
+  "Перетащите плашку обратно в нижний список, хаос-бокс или на кнопку «Список» / «Доски», чтобы снять её со шкалы.": "Çubuğu zaman çizelgesinden kaldırmak için alt listeye, gelen kutusuna veya “Liste” / “Panolar” düğmesine geri sürükleyin.",
+  "Кто именинник?": "Kimin doğum günü?",
+  "Какое событие?": "Hangi etkinlik?",
+  "С кем будет встреча и где?": "Toplantı kiminle ve nerede olacak?",
+  "Карта изменилась. Закройте окно, обновите каталог и повторите удаление.": "Harita değişti. Bu pencereyi kapatın, kataloğu yenileyin ve tekrar silmeyi deneyin.",
+  "Не удалось удалить карту. Проверьте подключение и повторите попытку.": "Harita silinemedi. Bağlantınızı kontrol edip tekrar deneyin."
 }

@@ -1004,6 +1004,9 @@ html[data-genesis-theme] .genesis-app details:not(.day-details-celestial, .daily
 html[data-genesis-theme] .genesis-app details > summary:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 3px; border-radius: 8px; }
 html[data-genesis-theme] .genesis-app details[open]:not(.day-details-celestial, .shared-board-delete) > summary,
 html[data-genesis-theme] .genesis-app :is(.mindmap-more-toggle[aria-expanded="true"], .mobile-disclosure-toggle[aria-expanded="true"]) { background: color-mix(in srgb, var(--ui-accent) 12%, var(--ui-surface-group)); border-color: var(--ui-accent); color: var(--ink); }
+html[data-genesis-theme] .genesis-app .shared-projects :is(.shared-calendar-completed, .shared-gantt-completed)[open] > summary { padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--ui-accent) 5%, var(--surface)); }
+html[data-genesis-theme] .genesis-app .shared-gantt-unscheduled[data-drop-active],
+html[data-genesis-theme] .genesis-app .shared-projects-view-switch button[data-drop-active] { outline: 2px solid var(--ui-accent); outline-offset: 2px; background: var(--exp-accent-wash); }
 html[data-genesis-theme] .genesis-app button:is(.project-create-project, .project-open, .habit-emoji-expand, .habit-suggestions-toggle, .inbox-mobile-toggle, .shared-task-title-toggle, .shared-task-lists-title, .shared-space-info-trigger, .workspace-overview-toggle, .mindmap-collapse)[aria-expanded="true"] { background: color-mix(in srgb, var(--ui-accent) 12%, var(--ui-surface-group)); border-color: var(--ui-accent); color: var(--ink); }
 html[data-genesis-theme] .genesis-app .shared-workspace-toolbar .shared-workspace-search { flex: 1 1 260px; min-width: 180px; margin: 0; }
 html[data-genesis-theme] .genesis-app .shared-workspace-toolbar .shared-workspace-search { position: relative; padding: 0; border: 0; background: transparent; }

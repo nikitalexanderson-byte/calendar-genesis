@@ -860,6 +860,10 @@ try {
             genesisRequireCsrf();
             genesisJson(genesisSaveMindmap($userId, $segments[1], genesisReadJson()));
         }
+        if ($method === 'DELETE' && count($segments) === 2) {
+            genesisRequireCsrf();
+            genesisJson(genesisDeleteMindmap($userId, $segments[1], genesisReadJson()));
+        }
     }
 
     if ($method === 'GET' && $path === 'workspace') {

@@ -21,6 +21,12 @@
 .mindmap-catalog { display: grid; gap: 16px; }
 .mindmap-catalog article { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 24px; min-height: 128px; padding: 20px; border: 1px solid var(--exp-border); border-radius: 12px; background: var(--surface); }
 .mindmap-catalog article:last-child { border-bottom: 1px solid var(--exp-border); }
+.mindmap-catalog .mindmap-icon-action[aria-pressed="true"] { color: var(--surface); border-color: var(--ui-accent); background: var(--ui-accent); }
+.mindmap-catalog .mindmap-icon-action[aria-pressed="true"]:hover { background: color-mix(in srgb, var(--ui-accent) 88%, var(--ink)); }
+.mindmap-catalog .danger-button, .mindmap-dialog .danger-button { color: var(--ui-danger, var(--terracotta)); border-color: color-mix(in srgb, currentColor 45%, var(--exp-border)); }
+.mindmap-catalog article > .mindmap-actions { flex-wrap: nowrap; justify-content: flex-end; }
+.genesis-app .mindmaps .mindmap-catalog .mindmap-icon-action { flex: 0 0 44px; width: 44px; height: 44px; padding: 10px; }
+.genesis-app .mindmaps .mindmap-catalog .mindmap-action-label { display: none; }
 .mindmaps .mindmap-catalog-open { display: flex; flex-direction: column; gap: 8px; flex: 1; text-align: start; background: transparent; border: 0; min-width: 0; }
 .mindmap-catalog-open strong { font: 400 24px/1.3 var(--font-heading); }
 .mindmap-catalog-open span { font-size: 13px; color: var(--ink-soft); }
@@ -96,7 +102,17 @@
 .mindmap-row span { font-size: 12px; color: var(--ink-soft); }
 .mindmap-structure li > button:not(.mindmap-row) { width: 44px; flex-shrink: 0; padding: 12px; border: 0; background: transparent; }
 .mindmap-structure svg { width: 18px; height: 18px; }
-.mindmap-canvas { height: min(65dvh, 760px); min-height: 360px; overflow: auto; overscroll-behavior: contain; border: 1px solid var(--exp-border); border-radius: 12px; background: color-mix(in srgb, var(--ui-accent, var(--gold)) 9%, var(--surface)); touch-action: none; }
+.mindmap-canvas-wrap { position: relative; height: min(65dvh, 760px); min-height: 360px; padding-top: 64px; border: 1px solid var(--exp-border); border-radius: 12px; background: color-mix(in srgb, var(--ui-accent, var(--gold)) 9%, var(--surface)); }
+.mindmap-canvas { height: 100%; overflow: auto; overscroll-behavior: contain; border-radius: 0 0 12px 12px; touch-action: none; }
+.mindmap-canvas-zoom, .mindmap-canvas-navigation { position: absolute; z-index: 8; right: 12px; display: flex; align-items: center; gap: 8px; }
+.mindmap-canvas-zoom { top: 12px; }
+.mindmap-canvas-zoom > span { min-width: 48px; text-align: center; font-variant-numeric: tabular-nums; }
+.mindmap-canvas-zoom > button, .mindmaps .mindmap-canvas-action { width: 44px; height: 44px; min-width: 44px; padding: 10px; }
+.mindmap-canvas-navigation { bottom: 12px; }
+.mindmap-canvas-action { position: relative; display: grid; place-items: center; }
+.mindmap-canvas-action > svg { width: 22px; height: 22px; }
+.mindmap-canvas-action .mindmap-action-tooltip { left: auto; right: 0; transform: none; max-width: min(260px, calc(100vw - 48px)); }
+.mindmap-canvas-action:is(:hover,:focus-visible) .mindmap-action-tooltip { visibility: visible; opacity: 1; }
 .mindmap-plane { position: relative; transform-origin: top left; }
 .mindmap-plane > svg { position: absolute; inset: 0; pointer-events: none; }
 .mindmap-plane path { fill: none; stroke: var(--mindmap-branch,var(--gold)); stroke-width: 1.6; }
@@ -135,6 +151,9 @@ html[data-genesis-theme] .genesis-app .mindmap-header h1 { overflow-wrap: anywhe
 html[data-genesis-theme] .genesis-app .mindmap-header .mindmap-map-title { color: inherit; font: inherit; font-style: italic; }
 html[data-genesis-theme] .genesis-app .mindmap-header .mindmap-hero-mark { color: #e4c78c; }
 html[data-genesis-theme] .genesis-app .mindmap-header .mindmap-save-state { grid-column: 2; grid-row: 1; justify-self: end; max-width: 240px; padding: 0; color: #d0ded5; text-align: right; }
+html[data-genesis-theme] .genesis-app .mindmap-catalog-statistics { grid-column: 2; grid-row: 1; justify-self: end; display: grid; grid-template-columns: repeat(3, auto); gap: 16px; margin: 0; color: #d0ded5; text-align: right; }
+.mindmap-catalog-statistics dt { max-width: 14ch; font: 500 12px/1.4 var(--font-ui); }
+.mindmap-catalog-statistics dd { margin: 4px 0 0; color: #e4c78c; font: 600 18px/1.4 var(--font-ui); }
 html[data-genesis-theme] .genesis-app .mindmap-header .mindmap-back-link { grid-column: 2; grid-row: 2; justify-self: end; align-self: end; }
 @media (max-width: 1099px) { .mindmap-workspace { grid-template-columns: minmax(0,1fr); gap: 16px; } }
 @media (max-width: 760px) {
@@ -143,8 +162,11 @@ html[data-genesis-theme] .genesis-app .mindmap-header .mindmap-back-link { grid-
   html[data-genesis-theme] .genesis-app .mindmap-header-main { grid-column: 1; }
   html[data-genesis-theme] .genesis-app .mindmap-header .mindmap-save-state { grid-column: 1; grid-row: 1; justify-self: end; text-align: right; }
   html[data-genesis-theme] .genesis-app .mindmap-header:has(.mindmap-save-state) .mindmap-header-main { grid-row: 2; }
+  html[data-genesis-theme] .genesis-app .mindmap-catalog-statistics { grid-column: 1; grid-row: 1; gap: 12px; }
+  html[data-genesis-theme] .genesis-app .mindmap-header:has(.mindmap-catalog-statistics) .mindmap-header-main { grid-row: 2; }
   html[data-genesis-theme] .genesis-app .mindmap-header .mindmap-back-link { grid-column: 1; grid-row: 2; }
   html[data-genesis-theme] .genesis-app .mindmap-header:has(.mindmap-save-state) .mindmap-back-link { grid-row: 3; }
+  html[data-genesis-theme] .genesis-app .mindmap-header:has(.mindmap-catalog-statistics) .mindmap-back-link { grid-row: 3; }
   .mindmap-workspace { display: block; }
   .mindmap-primary-toolbar > [role="group"] { flex: 0 0 100%; }
   .mindmaps .mindmap-primary-toolbar > [role="group"] > .mindmap-icon-action { flex: 1 1 0; }
@@ -154,7 +176,7 @@ html[data-genesis-theme] .genesis-app .mindmap-header .mindmap-back-link { grid-
   .mindmap-mobile-inspector { width: 100%; margin-top: 16px; }
   .mindmap-dialog-backdrop { padding: 0; align-items: stretch; }
   .genesis-app .mindmap-dialog { width: 100%; max-width: none; max-height: 100dvh; height: 100dvh; border-radius: 0; padding: max(20px,env(safe-area-inset-top)) 16px max(24px,env(safe-area-inset-bottom)); }
-  .mindmap-canvas { min-height: 320px; height: 55dvh; }
+  .mindmap-canvas-wrap { min-height: 320px; height: 55dvh; }
   .mindmap-header { margin-bottom: 16px; }
   .mindmap-catalog article { grid-template-columns: minmax(0,1fr); min-height: 0; padding: 12px; gap: 4px; }
   .mindmaps .mindmap-catalog-open { padding: 8px 4px; }
@@ -187,7 +209,7 @@ html[data-genesis-theme] .genesis-app .mindmap-header .mindmap-back-link { grid-
   .mindmap-five-actions { display: flex; flex-wrap: wrap; }
 }
 @media (any-pointer: coarse) {
-  .mindmaps .mindmap-canvas-wrap > .mindmap-toolbar button { min-width: 44px; }
+  .mindmaps .mindmap-canvas-navigation .mindmap-action-tooltip { display: block; }
   .genesis-app :is(.mindmaps,.mindmap-dialog) .mindmap-icon-action { flex: 0 1 auto; width: auto; height: auto; gap: 8px; padding: 10px; }
   .mindmap-icon-action > svg { flex-shrink: 0; }
   .mindmap-action-label { display: inline; font-size: 13px; }

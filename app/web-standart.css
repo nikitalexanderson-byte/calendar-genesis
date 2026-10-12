@@ -70,13 +70,17 @@ html[data-genesis-theme] .genesis-app .project-complete-action.is-completing { a
 .action-notice > span { color: var(--ui-accent); }
 html[data-genesis-theme] .genesis-app .project-tree-workspace.is-completed-view { display: block; }
 html[data-genesis-theme] .genesis-app .project-tree-workspace.is-completed-view > .project-tree-main { width: 100%; max-width: none; grid-column: 1 / -1; }
-html[data-genesis-theme] .genesis-app .category-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); gap: 12px; }
-html[data-genesis-theme] .genesis-app .category-strip > article { position: relative; display: grid; grid-template-columns: 8px minmax(0, 1fr); grid-template-areas: "marker title" "marker count" "actions actions"; gap: 6px 12px; min-width: 0; padding: 16px; align-content: start; }
+html[data-genesis-theme] .genesis-app .category-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); grid-auto-rows: 1fr; gap: 12px; }
+html[data-genesis-theme] .genesis-app .category-strip > article { position: relative; display: grid; grid-template-columns: 6px minmax(0, 1fr) auto; grid-template-areas: "marker title actions" "marker count count"; gap: 4px 8px; min-width: 0; min-height: 88px; padding: 12px; align-content: start; }
 html[data-genesis-theme] .genesis-app .category-strip > article > i { grid-area: marker; position: static; align-self: stretch; width: 8px; height: auto; min-height: 44px; margin: 0; border-radius: 6px; background: var(--category-color); }
 html[data-genesis-theme] .genesis-app .category-strip > article > strong { grid-area: title; position: static; padding: 0; width: auto; max-width: none; font: 500 18px/1.35 var(--font-heading); white-space: normal; overflow: visible; overflow-wrap: anywhere; color: var(--ink); }
 html[data-genesis-theme] .genesis-app .category-strip > article > span { grid-area: count; position: static; padding: 0; font: 400 14px/1.5 var(--font-ui); color: var(--ink-soft); }
-html[data-genesis-theme] .genesis-app .category-strip .category-actions { grid-area: actions; position: static; display: flex; justify-content: flex-end; gap: 8px; width: auto; margin-top: 8px; }
-html[data-genesis-theme] .genesis-app .category-strip .category-actions button { width: 44px; height: 44px; min-width: 44px; padding: 8px; color: var(--ink); background: var(--surface); }
+html[data-genesis-theme] .genesis-app .category-strip .category-actions { grid-area: actions; position: static; display: flex; align-self: start; justify-content: flex-end; gap: 4px; width: auto; margin: 0; }
+html[data-genesis-theme] .genesis-app .category-strip .category-actions button { width: 32px; height: 32px; min-width: 32px; min-height: 32px; padding: 6px; color: var(--ink); background: var(--surface); }
+html[data-genesis-theme] .genesis-app .category-strip .category-actions button > svg { width: 16px; height: 16px; }
+html[data-genesis-theme] .genesis-app .category-strip .category-actions button:last-child { color: var(--terracotta); }
+html[data-genesis-theme] .genesis-app .category-strip .quick-category-form { min-height: 88px; padding: 12px; align-content: center; align-self: stretch; }
+@media (any-pointer: coarse) { html[data-genesis-theme] .genesis-app .category-strip .category-actions button { width: 44px; height: 44px; min-width: 44px; min-height: 44px; padding: 12px; } }
 html[data-genesis-theme] .genesis-app .category-strip > article.editing { grid-column: 1 / -1; display: block; }
 html[data-genesis-theme] .genesis-app .category-edit-form { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px 44px; gap: 8px; align-items: center; }
 html[data-genesis-theme] .genesis-app .category-edit-form :is(input, button) { min-width: 0; width: 100%; min-height: 44px; }
@@ -122,7 +126,7 @@ html[data-genesis-theme] .genesis-app .shared-projects-modal { width: min(640px,
 .shared-invitations article { padding-block: 16px; border-bottom: 1px solid var(--line); }
 .shared-invitations article > div { display: flex; flex-wrap: wrap; gap: 8px; }
 @media (max-width: 600px) {
-  html[data-genesis-theme] .genesis-app .category-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  html[data-genesis-theme] .genesis-app .category-strip { grid-template-columns: minmax(0, 1fr); }
   .shared-space-entry-actions { flex-direction: column; align-items: stretch; }
   html[data-genesis-theme] .genesis-app .shared-projects-modal { padding: 16px; }
   .shared-projects-modal > header { top: -16px; }

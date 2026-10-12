@@ -36,7 +36,7 @@ import { SharedSpaceCover } from "./SharedSpaceCover";
 import { SharedSpaceForm } from "./SharedSpaceForm";
 import { SharedTeamPermissions } from "./SharedTeamPermissions";
 import { SharedTaskApprovalChoice } from "./SharedTaskApprovalChoice";
-import { EntryTypeChoice, entryTypeLabel, type EntryType } from "./EntryTypeChoice";
+import { EntryTypeChoice, entryTypeLabel, entryTypeTitlePlaceholder, type EntryType } from "./EntryTypeChoice";
 import { SharedLabelBadges, SharedLabelPicker, SharedLabelsDialog } from "./SharedLabels";
 import { SharedComments } from "./SharedComments";
 import { SharedActivity } from "./SharedActivity";
@@ -47,11 +47,11 @@ import { initialSharedPlace, recordSharedPlace, sharedPlaceFromUrl } from "./sha
 import { SharedGantt } from "./SharedGantt";
 import { boardDisplay, boardTaskGroups } from "./shared-board-display";
 import { SharedBoardTaskTitle } from "./SharedBoardTaskTitle";
-import { dateSerial, ganttSchedule, ganttAxisPoint, ganttTaskGroups, type GanttScale, type GanttSchedule } from "./shared-gantt";
+import { dateSerial, ganttSchedule, ganttAxisPoint, ganttTaskGroups, ganttUnscheduledSchedule, type GanttScale, type GanttSchedule, type GanttTaskDates, type GanttReturnTarget } from "./shared-gantt";
 import { SharedTaskSchedule, emptySharedPlan, taskSharedPlan } from "./SharedTaskSchedule";
 import { formatTimeValue, type TimeFormat } from "./time-format";
 type SharedDragItem = { id: string; title: string } & ({ kind: "task"; task: SharedTask } | { kind: "container"; project: SharedProject });
-type SharedDropTarget = { projectId: string; statusId: string; position: number; schedule?:GanttSchedule; ganttRow?:string; calendarDate?:string };
+type SharedDropTarget = GanttReturnTarget & { schedule?:GanttSchedule; ganttRow?:string; calendarDate?:string };
 import { RecordCalendarChoice } from "./RecordCalendarChoice";
 import { type CalendarMode, MONTHS, LUNAR_DECADES, ELEMENTS, formatCalendarDate, formatGregorian, getGregorianDate, getLunarDate, getLunarMonthDates, getSacredDate, getSacredDay, lunarMonthIndex } from "./calendar-data";
 import { translateText } from "./i18n";
@@ -126,6 +126,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
   const spaceIdRef = useRef(spaceId);
   const [viewOverride, setViewOverride] = useState<"list" | "board" | "calendar" | "gantt" | null>(initialPlace.view);
   const [ganttDay, setGanttDay] = useState<string>();
+  const [ganttReturnTarget, setGanttReturnTarget] = useState<GanttReturnTarget | null>(null);
   const [labels,setLabels] = useState<SharedLabel[]>([]);
   const [labelsOpen,setLabelsOpen] = useState(false);
   const [projectLabelIds,setProjectLabelIds] = useState<string[]>([]);
@@ -500,7 +501,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
           : (english ? "Task added to the project." : "Задача добавлена в проект."));
     });
   };
-  const moveTaskTo = (task: SharedTask, destinationProjectId: string, statusId = "", position = 0) => {
+  const moveTaskTo = (task: SharedTask, destinationProjectId: string, statusId = "", position = 0, schedule?:GanttTaskDates, nextView?:"list"|"board") => {
     if (busy) return;
     void run(async () => {
       const destination = destinationProjectId === snapshot?.project.id
@@ -509,10 +510,12 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
         || destination.statuses[0]?.id;
       if (!resolvedStatus) throw new Error(english ? "The destination has no task list." : "В месте назначения нет списка задач.");
       const moved = await moveSharedTask(task.projectId, task.id, {
+        ...schedule,
         destinationProjectId, statusId: resolvedStatus, expectedRevision: task.revision,
         position: statusId ? position : destination.tasks.filter((item) => item.statusId === resolvedStatus).length,
       });
       if (moved.pending) {
+        if (nextView) setViewOverride(nextView);
         setMessage(english ? "Move saved on this device and waiting for the connection."
           : "Перенос сохранён на устройстве и ожидает подключения к сети.");
         return;
@@ -526,6 +529,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       }
       const inbox = projects.find((project) => project.isInbox);
       if (inbox) setInboxPreview(await loadSharedProject(inbox.id));
+      if (nextView) setViewOverride(nextView);
       setMessage(english ? "Task moved." : "Задача перемещена.");
     });
   };
@@ -547,9 +551,32 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       else {await refreshProject(target.project.id);await refreshProjects(spaceId);}
     });
   };
-  const sharedDrag = useAffairDrag<SharedDragItem, SharedDropTarget>((x, y, item) => {
+  const returnGanttTask = (task:SharedTask, destination:GanttReturnTarget) => {
+    const schedule = destination.unschedule ?? ganttUnscheduledSchedule(task, "days");
+    if (destination.projectId !== task.projectId || destination.statusId && destination.statusId !== task.statusId) {
+      moveTaskTo(task,destination.projectId,destination.statusId,destination.position,schedule,destination.view);
+      return;
+    }
+    if (busy) return;
+    void run(async () => {
+      const changed = await updateSharedTask(task.projectId,task.id,{...schedule,expectedRevision:task.revision});
+      setSnapshot(current => current?.project.id === task.projectId ? {...current,tasks:current.tasks.map(item=>item.id===task.id ? {...item,...changed,...schedule} : item)} : current);
+      if (destination.view) setViewOverride(destination.view);
+      if (!changed.pending) { await refreshProject(task.projectId); await refreshProjects(spaceId); }
+      else setMessage(english ? "Schedule saved on this device and waiting for connection." : "Сроки сохранены на устройстве и ожидают подключения к сети.");
+    });
+  };
+  const resolveSharedDrop = (x:number, y:number, item:SharedDragItem):SharedDropTarget | null => {
     if (busy) return null;
     const below = document.elementFromPoint(x, y);
+    const unscheduled = below?.closest<HTMLElement>("[data-gantt-unscheduled]");
+    const returnView = below?.closest<HTMLElement>("[data-shared-drop-view]")?.dataset.sharedDropView;
+    if (snapshot && item.kind === "task" && (unscheduled || returnView === "list" || returnView === "board")
+      && (snapshot.project.permissions?.editTasks ?? ["owner","manager","member"].includes(snapshot.project.role))) {
+      return {projectId:snapshot.project.id,statusId:"",position:0,
+        unschedule:ganttUnscheduledSchedule(item.task,unscheduled?.dataset.ganttUnscheduled as GanttScale || "days"),
+        ...(returnView === "list" || returnView === "board" ? {view:returnView} : {})};
+    }
     const axis=below?.closest<HTMLElement>("[data-gantt-axis]");
     if(axis&&snapshot&&item.kind==="task"&&(snapshot.project.permissions?.editTasks ?? ["owner","manager","member"].includes(snapshot.project.role))&&snapshot.project.canOrganizeTasks){
       const start=Number(axis.dataset.ganttStart),end=Number(axis.dataset.ganttEnd),scale=axis.dataset.ganttScale as GanttScale;
@@ -574,9 +601,11 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
     }
     const project = below?.closest<HTMLElement>("[data-shared-drop-project]");
     return project ? { projectId: project.dataset.sharedDropProject ?? "", statusId: "", position: 0 } : null;
-  }, (item, destination) => {
+  };
+  const applySharedDrop = (item:SharedDragItem, destination:SharedDropTarget) => {
     if (!destination.projectId || busy) return;
     if (item.kind === "task") {
+      if (destination.unschedule) { returnGanttTask(item.task,destination); return; }
       if(destination.schedule){
         if (destination.calendarDate) setCalendarDay(destination.calendarDate);
         scheduleTask(item.task,destination.schedule);return;
@@ -597,9 +626,17 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
         await refreshProjects(spaceId);
       });
     }
-  });
+  };
+  const resolveGanttReturn = (x:number,y:number,task:SharedTask):GanttReturnTarget | null => {
+    const target = resolveSharedDrop(x,y,{id:task.id,title:task.title,kind:"task",task});
+    if (!target || target.schedule) return null;
+    if ((target.projectId !== task.projectId || target.statusId && target.statusId !== task.statusId)
+      && !snapshot?.project.canOrganizeTasks) return null;
+    return target;
+  };
+  const sharedDrag = useAffairDrag<SharedDragItem, SharedDropTarget>(resolveSharedDrop,applySharedDrop);
   const dragPreview = sharedDrag.preview;
-  const dropTarget = sharedDrag.target;
+  const dropTarget:SharedDropTarget | null = sharedDrag.target ?? ganttReturnTarget;
   const assignTask = (task: SharedTask, assigneeId: string) => {
     void run(async () => {
       const changed = await updateSharedTask(task.projectId, task.id, {
@@ -1167,6 +1204,8 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
       <p className="shared-projects-calendar-mode-label">{english ? "Project view" : "Вид проекта"}</p>
       <div className="shared-projects-view-switch" role="group" aria-label={english ? "Project view" : "Вид проекта"}>
         {(["list", "board", "calendar", "gantt"] as const).map((item) => <button key={item} type="button"
+          data-shared-drop-view={item === "list" || item === "board" ? item : undefined}
+          data-drop-active={dropTarget?.view === item || undefined}
           aria-pressed={activeView === item} onClick={() => {setGanttDay(undefined);setViewOverride(item);}}>{item === "list"
             ? (english ? "List" : "Список") : item === "board" ? (english ? "Boards" : "Доски")
               : item === "gantt" ? (english ? "Gantt" : "Гант") : (english ? "Calendar" : "Календарь")}</button>)}
@@ -1189,7 +1228,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
         : "Проведите по доске, чтобы увидеть все статусы."}</p> : null}
       </section>
       <div className="shared-projects-workspace">
-      {activeView === "gantt" ? <SharedGantt snapshot={snapshot} english={english} calendarMode={calendarMode} timeFormat={timeFormat} initialDay={ganttDay} onOpen={openTask} onCreate={schedule=>{openCreateTask(snapshot.project);setNewPlan({startDate:schedule.startDate,startTime:schedule.startTime||"",endTime:schedule.endTime||"",dependsOnIds:[]});setNewTaskDueDate(schedule.dueDate);}} onSchedule={scheduleTask} busy={busy} externalDrop={dropTarget?.schedule} externalDropRow={dropTarget?.ganttRow}/> : activeView === "calendar" ? <section className="shared-projects-calendar" aria-label={english ? "Project calendar" : "Календарь проекта"}>
+      {activeView === "gantt" ? <SharedGantt snapshot={snapshot} english={english} calendarMode={calendarMode} timeFormat={timeFormat} initialDay={ganttDay} onOpen={openTask} onCreate={schedule=>{openCreateTask(snapshot.project);setNewPlan({startDate:schedule.startDate,startTime:schedule.startTime||"",endTime:schedule.endTime||"",dependsOnIds:[]});setNewTaskDueDate(schedule.dueDate);}} onSchedule={scheduleTask} onReturn={returnGanttTask} resolveReturn={resolveGanttReturn} onReturnTarget={setGanttReturnTarget} busy={busy} externalDrop={sharedDrag.target?.schedule} externalDropRow={sharedDrag.target?.ganttRow}/> : activeView === "calendar" ? <section className="shared-projects-calendar" aria-label={english ? "Project calendar" : "Календарь проекта"}>
         {snapshot.tasks.length >= 500 ? <p role="status">{english ? "This project has at least 500 tasks. The calendar may omit later tasks until full loading is available." : "В проекте не менее 500 задач. Календарь может не показывать задачи за пределами загруженной части."}</p> : null}
         <div className="shared-projects-calendar-head">
           <button type="button" aria-label={english ? "Previous month" : "Предыдущий месяц"} onClick={() => { setCalendarMonth(calendarPeriod.previous); setCalendarDay(localDateKey(calendarPeriod.previous)); }}>←</button>
@@ -1391,7 +1430,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
         </select></label> : null}
         </div>
         {canEditTask ? <form onSubmit={submitTaskEdit}>
-          <label>{english ? "Name" : "Название"}<textarea rows={2} value={editTaskTitle} onChange={(event) => setEditTaskTitle(event.target.value)} maxLength={160} required /></label>
+          <label>{english ? "Name" : "Название"}<textarea rows={2} value={editTaskTitle} onChange={(event) => setEditTaskTitle(event.target.value)} maxLength={160} placeholder={entryTypeTitlePlaceholder(editEntryType)} required /></label>
           <label>{english ? "Description" : "Описание"}<textarea value={editTaskDescription} onChange={(event) => setEditTaskDescription(event.target.value)} maxLength={20000} /></label>
           <details className="task-advanced-fields shared-record-calendar"><summary>{english ? "Calendar" : "Календарь"}</summary>
           <RecordCalendarChoice value={editTaskCalendarMode} onChange={setEditTaskCalendarMode} language={language} />
@@ -1594,7 +1633,7 @@ export function SharedProjects({ userId, language, enabledCalendars, calendarMod
         </form> : null}
         {createModal === "task" && newTaskDestination ? <form className="shared-task-composer" onSubmit={submitTask}>
           <section className="shared-task-form-section">
-          <label>{english ? "Name" : "Название"}<textarea rows={2} maxLength={160} required value={newTaskTitle} onChange={(event) => setNewTaskTitle(event.target.value)} /></label>
+          <label>{english ? "Name" : "Название"}<textarea rows={2} maxLength={160} required value={newTaskTitle} onChange={(event) => setNewTaskTitle(event.target.value)} placeholder={entryTypeTitlePlaceholder(newEntryType)} /></label>
           {newTaskRootProjectId ? <label>{english ? "Project or subproject" : "Проект или подпроект"}<select value={newTaskDestination.projectId}
             onChange={event => {
               const target = projects.find(project => project.id === event.target.value);

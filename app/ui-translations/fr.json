@@ -2090,5 +2090,15 @@
   "Редактировать проект": "Modifier le projet",
   "Перетащить задачу": "Déplacer la tâche",
   "Только для просмотра": "Lecture seule",
-  "Открыть день": "Ouvrir le jour"
+  "Открыть день": "Ouvrir le jour",
+  "Мысли": "Idées",
+  "Удалить карту": "Supprimer la carte",
+  "Карта и история её версий будут удалены. Связанные задачи и проекты сохранятся.": "La carte et son historique des versions seront supprimés. Les tâches et projets liés seront conservés.",
+  "Вернуть задачу в список": "Remettre la tâche dans la liste",
+  "Перетащите плашку обратно в нижний список, хаос-бокс или на кнопку «Список» / «Доски», чтобы снять её со шкалы.": "Faites glisser la barre vers la liste du bas, la boîte de réception ou le bouton « Liste » / « Tableaux » pour la retirer de la chronologie.",
+  "Кто именинник?": "Qui fête son anniversaire ?",
+  "Какое событие?": "Quel événement ?",
+  "С кем будет встреча и где?": "Avec qui a lieu la rencontre et où ?",
+  "Карта изменилась. Закройте окно, обновите каталог и повторите удаление.": "La carte a changé. Fermez cette fenêtre, actualisez le catalogue et réessayez de la supprimer.",
+  "Не удалось удалить карту. Проверьте подключение и повторите попытку.": "Impossible de supprimer la carte. Vérifiez votre connexion et réessayez."
 }

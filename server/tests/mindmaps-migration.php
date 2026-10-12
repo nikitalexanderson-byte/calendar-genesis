@@ -7,10 +7,10 @@ $db->exec('PRAGMA foreign_keys=ON; CREATE TABLE users(id TEXT PRIMARY KEY); CREA
 $db->exec("INSERT INTO users VALUES ('fixture'); INSERT INTO workspace_blobs VALUES ('fixture','opaque-workspace');");
 $backup = new SQLite3(':memory:');
 if (!$db->backup($backup)) throw new RuntimeException('Backup failed');
-$migration = file_get_contents(__DIR__ . '/../migrations/047_personal_mindmaps.sql') . file_get_contents(__DIR__ . '/../migrations/048_personal_task_creation_targets.sql');
+$migration = file_get_contents(__DIR__ . '/../migrations/047_personal_mindmaps.sql') . file_get_contents(__DIR__ . '/../migrations/048_personal_task_creation_targets.sql') . file_get_contents(__DIR__ . '/../migrations/049_personal_mindmap_deletions.sql');
 if (!$db->exec($migration) || !$db->exec($migration)) throw new RuntimeException('Additive/repeated migration failed');
 if ($db->querySingle("SELECT ciphertext FROM workspace_blobs WHERE user_id='fixture'") !== 'opaque-workspace') throw new RuntimeException('Old workspace changed');
-if ($db->querySingle("SELECT count(*) FROM sqlite_master WHERE type='table' AND name LIKE 'personal_%'") !== 5) throw new RuntimeException('Missing map/receipt tables');
+if ($db->querySingle("SELECT count(*) FROM sqlite_master WHERE type='table' AND name LIKE 'personal_%'") !== 6) throw new RuntimeException('Missing map/receipt tables');
 if ($db->query('PRAGMA foreign_key_check')->fetchArray()) throw new RuntimeException('Foreign key violation');
 // Exercise restoring the pre-migration backup into another isolated connection.
 $restored = new SQLite3(':memory:');

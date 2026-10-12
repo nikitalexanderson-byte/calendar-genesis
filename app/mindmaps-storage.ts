@@ -90,6 +90,27 @@ export class MindmapRepository {
     const raw = localStorage.getItem(`${this.prefix}view:${id}`);
     return raw ? this.access.open<MapView>(JSON.parse(raw), `view:${id}`) : null;
   }
+  remove(record: MapRecord): Promise<void> {
+    const id = record.document.id;
+    this.staged.set(id, (this.staged.get(id) ?? 0) + 1);
+    const operation = this.serial.catch(() => {}).then(async () => {
+      this.check();
+      await this.viewSerial.catch(() => {});
+      const expectedRevision = Math.max(record.revision, this.revisions.get(id) ?? 0);
+      await this.access.request(`/mindmaps/${id}`, { method: "DELETE", body: JSON.stringify({ expectedRevision }) });
+      this.check();
+      this.pending.delete(id); this.revisions.delete(id);
+      for (const key of Object.keys(localStorage)) {
+        if (key === `${this.prefix}view:${id}` || key.startsWith(`${this.prefix}conversion:${id}:`)
+          || (key.startsWith(`${this.prefix}draft:`) || key.startsWith(`${this.prefix}request:`)) && key.endsWith(`:${id}`)) {
+          localStorage.removeItem(key);
+        }
+      }
+      const cached: Envelope[] = JSON.parse(localStorage.getItem(`${this.prefix}cache`) || "[]");
+      localStorage.setItem(`${this.prefix}cache`, JSON.stringify(cached.filter(value => value.id !== id)));
+    });
+    this.serial = operation; return operation;
+  }
   save(document: Mindmap, status: (state: SaveState, message?: string) => void): Promise<void> {
     const snapshot = validateMindmap(document);
     const sequence = (this.staged.get(snapshot.id) ?? 0) + 1;

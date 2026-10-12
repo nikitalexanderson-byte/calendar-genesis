@@ -3,7 +3,18 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { dateSerial, ganttRange, serialDate, taskSpan, ganttSchedule, ganttCreationSchedule, ganttResizeSchedule, ganttAxisPoint, ganttAxisPosition, GANTT_CELL_WIDTH } from "../app/shared-gantt.ts";
 import { stoicheionReadingSections } from "../app/stoicheion-reading.ts";
-import { ganttTaskGroups, ganttUnscheduledTasks } from "../app/shared-gantt.ts";
+import { ganttTaskGroups, ganttUnscheduledTasks, ganttUnscheduledSchedule } from "../app/shared-gantt.ts";
+
+test("return from Gantt clears dates or only daily time, keeping task identity and dependencies",()=>{
+ const task={id:"scheduled",title:"Scheduled",projectId:"project",statusId:"active",startDate:"2026-10-12",dueDate:"2026-10-14",startTime:"10:00",endTime:"11:00",dependsOnIds:["parent"]};
+ const before=JSON.stringify(task);
+ const undated={...task,...ganttUnscheduledSchedule(task,"weeks")};
+ assert.equal(taskSpan(undated),null);assert.deepEqual(ganttUnscheduledTasks([undated],"weeks"),[undated]);
+ const untimed={...task,...ganttUnscheduledSchedule(task,"day")};
+ assert.equal(untimed.startDate,task.startDate);assert.equal(untimed.dueDate,task.dueDate);assert.equal(taskSpan(untimed).timed,false);
+ assert.deepEqual(ganttUnscheduledTasks([untimed],"day"),[untimed]);
+ assert.equal(undated.statusId,task.statusId);assert.deepEqual(undated.dependsOnIds,task.dependsOnIds);assert.equal(JSON.stringify(task),before);
+});
 import { boardDisplay, boardTaskGroups } from "../app/shared-board-display.ts";
 
 test("boards show the latest completions without losing old tasks or manual order when unlimited", () => {
