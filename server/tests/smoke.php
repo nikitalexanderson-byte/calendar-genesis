@@ -103,18 +103,25 @@ try {
     expect((genesisUserForClient($user)['timeFormat'] ?? '') === '12h', 'Time format preference was not exposed to the client.');
     expect(($user['language'] ?? '') === 'en', 'Language preference was not stored.');
     expect((genesisUserForClient($user)['language'] ?? '') === 'en', 'Language preference was not exposed to the client.');
+    $defaults = genesisUserForClient($user)['uiVisibility'];
+    expect($defaults['personalInboxWidth'] === 300 && $defaults['sharedInboxWidth'] === 300,
+        'Inbox widths must default to 300.');
+    expect($defaults['sharedCategoriesExpanded'] === false, 'Shared categories must default to collapsed.');
     $visibility = [
         'hiddenMenuItems' => ['tasks', 'stoicheion'], 'hiddenSubmenus' => ['calendar.year'],
         'hiddenTodayBlocks' => ['rhythm', 'tasks'], 'enabledCalendars' => ['profane'],
         'sidebarAutoCollapseSeconds' => 30,
         'sidebarWidth' => 156, 'personalInboxPosition' => 'left', 'personalInboxHidden' => true, 'personalInboxCompact' => true,
+        'personalInboxWidth' => 480,
         'sharedInboxPosition' => 'bottom', 'sharedInboxHidden' => false, 'sharedInboxCompact' => false,
+        'sharedInboxWidth' => 420, 'sharedCategoriesExpanded' => true,
     ];
     $user = genesisUpdateAccountPreferences($userId, ['uiVisibility' => $visibility]);
     expect(genesisUserForClient($user)['uiVisibility'] === $visibility, 'Navigation visibility did not round-trip.');
     $legacyVisibility = $visibility;
     foreach (['sidebarAutoCollapseSeconds', 'sidebarWidth', 'personalInboxPosition', 'personalInboxHidden',
-        'personalInboxCompact', 'sharedInboxPosition', 'sharedInboxHidden', 'sharedInboxCompact'] as $field) unset($legacyVisibility[$field]);
+        'personalInboxCompact', 'sharedInboxPosition', 'sharedInboxHidden', 'sharedInboxCompact',
+        'personalInboxWidth', 'sharedInboxWidth', 'sharedCategoriesExpanded'] as $field) unset($legacyVisibility[$field]);
     $user = genesisUpdateAccountPreferences($userId, ['uiVisibility' => $legacyVisibility]);
     expect(genesisUserForClient($user)['uiVisibility']['sidebarAutoCollapseSeconds'] === 30,
         'An older client reset the sidebar delay.');
@@ -123,12 +130,18 @@ try {
     expect(genesisUserForClient($user)['uiVisibility'] === [...$visibility, 'sidebarWidth' => 56], 'Layout patch overwrote unrelated preferences.');
     $user = genesisUpdateAccountPreferences($userId, ['uiLayout' => ['sharedInboxHidden' => true]]);
     expect(genesisUserForClient($user)['uiVisibility']['sidebarWidth'] === 56, 'Independent patches lost the saved width.');
+    $user = genesisUpdateAccountPreferences($userId, ['uiLayout' => ['personalInboxWidth' => 512, 'sharedCategoriesExpanded' => false]]);
+    $savedLayout = genesisUserForClient($user)['uiVisibility'];
+    expect($savedLayout['personalInboxWidth'] === 512 && $savedLayout['sharedInboxWidth'] === 420
+        && $savedLayout['sharedCategoriesExpanded'] === false, 'Inbox and category patches were not independent.');
     expect($user['calendar_mode'] === 'profane' && $user['task_calendar_mode'] === 'profane',
         'Disabled calendars remained selected.');
     foreach ([['enabledCalendars' => []], ['hiddenSubmenus' => ['calendar.month', 'calendar.year']],
         ['hiddenSubmenus' => ['sacred.stoicheion', 'sacred.theokyklos']],
         ['sidebarAutoCollapseSeconds' => -1], ['sidebarAutoCollapseSeconds' => '30'],
         ['sidebarWidth' => 55], ['sidebarWidth' => 241], ['sidebarWidth' => '56'],
+        ['personalInboxWidth' => 299], ['sharedInboxWidth' => 5001], ['personalInboxWidth' => '400'],
+        ['sharedCategoriesExpanded' => 1],
         ['sharedInboxHidden' => 1], ['personalInboxPosition' => 'floating'], ['sharedInboxCompact' => 'true']] as $invalid) {
         try {
             genesisUpdateAccountPreferences($userId, ['uiVisibility' => [...$visibility, ...$invalid]]);
