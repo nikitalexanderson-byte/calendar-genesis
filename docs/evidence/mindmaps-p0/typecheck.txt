@@ -1,0 +1,32 @@
+app/day-rhythm.ts(1,50): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+app/habit-laurel-retention.ts(7,8): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+app/habit-notifications.ts(1,65): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+app/habit-notifications.ts(2,39): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+app/habit-notifications.ts(4,44): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+app/habit-quests.ts(6,8): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+app/habit-reset.ts(35,5): error TS2739: Type '{ enabled: boolean; reportRange: HabitReportRange; customRangeStart: string; customRangeEnd: string; dailyGoalModeChanges: never[]; plannedRestDays: never[]; notifications: HabitNotificationSettings; feedback: HabitFeedbackSettings; }' is missing the following properties from type 'HabitSettings': collapsedSections, sectionOrder
+app/HabitTracker.tsx(1273,24): error TS7053: Element implicitly has an 'any' type because expression of type '"ru" | "en" | "el" | "de" | "fr" | "es" | "it" | "pt" | "pl" | "sr" | "uk" | "zh" | "tr" | "ja"' can't be used to index type 'SacredPracticeLocalizedText'.
+  Property 'el' does not exist on type 'SacredPracticeLocalizedText'.
+app/HabitTracker.tsx(1328,57): error TS7053: Element implicitly has an 'any' type because expression of type '"ru" | "en" | "el" | "de" | "fr" | "es" | "it" | "pt" | "pl" | "sr" | "uk" | "zh" | "tr" | "ja"' can't be used to index type 'SacredPracticeLocalizedText'.
+  Property 'el' does not exist on type 'SacredPracticeLocalizedText'.
+app/HabitTracker.tsx(1333,17): error TS7053: Element implicitly has an 'any' type because expression of type '"ru" | "en" | "el" | "de" | "fr" | "es" | "it" | "pt" | "pl" | "sr" | "uk" | "zh" | "tr" | "ja"' can't be used to index type 'TheokyklosLocalizedText'.
+  Property 'el' does not exist on type 'TheokyklosLocalizedText'.
+app/HabitTracker.tsx(1598,112): error TS2345: Argument of type '"ru" | "en" | "el" | "de" | "fr" | "es" | "it" | "pt" | "pl" | "sr" | "uk" | "zh" | "tr" | "ja"' is not assignable to parameter of type '"ru" | "en" | undefined'.
+  Type '"el"' is not assignable to type '"ru" | "en" | undefined'.
+app/shared-navigation.ts(1,44): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+app/solar-place.ts(2,44): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+app/streak-protection.ts(5,8): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+app/streak-protection.ts(9,8): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+app/streak-protection.ts(216,32): error TS2339: Property 'triggerDate' does not exist on type 'never'.
+app/streak-protection.ts(217,29): error TS2339: Property 'progress' does not exist on type 'never'.
+app/streak-rewards.ts(1,65): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+app/streak-rewards.ts(2,94): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+app/task-reminders.ts(1,50): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+app/TheokyklosDetailsDialog.tsx(147,244): error TS2345: Argument of type '"ru" | "en" | "el" | "de" | "fr" | "es" | "it" | "pt" | "pl" | "sr" | "uk" | "zh" | "tr" | "ja"' is not assignable to parameter of type '"ru" | "en" | undefined'.
+  Type '"el"' is not assignable to type '"ru" | "en" | undefined'.
+app/TheokyklosView.tsx(52,9): error TS2740: Type '{ north: { ru: string; en: string; }; northeast: { ru: string; en: string; }; east: { ru: string; en: string; }; southeast: { ru: string; en: string; }; south: { ru: string; en: string; }; southwest: { ru: string; en: string; }; west: { ...; }; northwest: { ...; }; }' is missing the following properties from type 'Record<TheokyklosSegmentId, TheokyklosLocalizedText>': center, zenith, nadir, hearth, and 2 more.
+app/YandexCalendarConnectDialog.tsx(26,64): error TS2554: Expected 1 arguments, but got 2.
+app/YandexCalendarConnectDialog.tsx(28,26): error TS2339: Property 'user' does not exist on type 'void'.
+db/index.ts(1,21): error TS2307: Cannot find module 'cloudflare:workers' or its corresponding type declarations.
+worker/index.ts(6,11): error TS2304: Cannot find name 'Fetcher'.
+worker/index.ts(7,7): error TS2552: Cannot find name 'D1Database'. Did you mean 'IDBDatabase'?

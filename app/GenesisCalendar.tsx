@@ -1,5 +1,7 @@
 "use client";
 import { habitReminderTime } from "./habit-reminder-time";
+import type { MindmapTaskRequest } from "./Mindmaps";
+import { captureAccountSessionGuard, createCloudTaskOnce } from "./cloud-sync";
 import ukrainianSynthemaNames from "./weekday-synthema.uk.json";
 /* eslint-disable @next/next/no-img-element -- Google requires the official, unmodified sign-in asset. */
 
@@ -216,6 +218,8 @@ import {
 } from "./day-rhythm";
 
 const AccountPanel = lazy(() => import("./AccountPanel").then((module) => ({ default: module.AccountPanel })));
+const Mindmaps = lazy(() => import("./Mindmaps"));
+const personalMindmapsEnabled = process.env.NEXT_PUBLIC_GENESIS_MINDMAPS === "true";
 const CalendarPersonalTaskControl = lazy(() => import("./CalendarSharedTaskControl").then(module => ({default:module.CalendarPersonalTaskControl})));
 const CalendarSharedTaskControl = lazy(() => import("./CalendarSharedTaskControl").then(module => ({default:module.CalendarSharedTaskControl})));
 const SharedTaskCreate = lazy(() => import("./SharedTaskCreate").then((module) => ({ default: module.SharedTaskCreate })));
@@ -330,6 +334,7 @@ function reconcileGoogleTaskMetadata(remoteTasks: Task[], localTasks: Task[]) {
       recurrencePyatas: [...local.recurrencePyatas],
       recurrenceExcludedDates: [...local.recurrenceExcludedDates],
       recurrenceSeriesId: local.recurrenceSeriesId,
+      recurrenceOriginalDate: local.recurrenceOriginalDate ?? remote.recurrenceOriginalDate,
       calendarMode: local.calendarMode,
       calendarNote: local.calendarNote,
       createdIn: local.createdIn,
@@ -646,6 +651,7 @@ function readStoredState(key: string): StoredState {
           recurrencePyatas: Array.isArray(legacy.recurrencePyatas) ? legacy.recurrencePyatas.map(Number).filter((pyata) => Number.isInteger(pyata) && pyata >= 1 && pyata <= 6) : [],
           recurrenceExcludedDates: Array.isArray(legacy.recurrenceExcludedDates) ? legacy.recurrenceExcludedDates.filter((date): date is string => typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date)) : [],
           recurrenceSeriesId: typeof legacy.recurrenceSeriesId === "string" && legacy.recurrenceSeriesId ? legacy.recurrenceSeriesId : null,
+          recurrenceOriginalDate: legacy.recurrenceOriginalDate ?? null,
           calendarMode,
           calendarNote: normalizeCalendarDateNote(legacy.calendarNote ?? "", calendarMode),
           syncToGoogle: legacy.syncToGoogle ?? true,
@@ -1441,6 +1447,11 @@ export function GenesisCalendar() {
   const [composerTab, setComposerTab] = useState<EntryType | "lists">("task");
   const [newEntryType, setNewEntryType] = useState<EntryType>("task");
   const [completedProjectsOpen, setCompletedProjectsOpen] = useState(false);
+  const [mindmapsOpen, setMindmapsOpen] = useState(() => personalMindmapsEnabled && typeof window !== "undefined" && new URL(window.location.href).searchParams.has("mindmap"));
+  const [mindmapsProjectId, setMindmapsProjectId] = useState<string | null>(null);
+  const [mindmapConversion, setMindmapConversion] = useState<MindmapTaskRequest | null>(null);
+  const mindmapConversionBusy = useRef(false);
+  const mindmapsReturnScroll = useRef(0);
   const [completingProjectIds, setCompletingProjectIds] = useState<string[]>([]);
   const [projectToComplete, setProjectToComplete] = useState<GenesisProject | null>(null);
   const { notice, announce } = useActionNotice();
@@ -1554,6 +1565,27 @@ export function GenesisCalendar() {
   const { nativeAndroidApkUrl, canInstall, install, isStandalone } = usePwaInstall();
   const sacredYearDialogRef = useDialogAccessibility<HTMLElement>(() => setSacredYearDetailsOpen(false), sacredYearDetailsOpen);
   const dayDetailsDialogRef = useDialogAccessibility<HTMLElement>(() => setDayDetailsOpen(false), dayDetailsOpen);
+  const mindmapTaskPanel = useRef(false);
+  useEffect(() => {
+    const open = mindmapsOpen && Boolean(taskComposer || editingTask);
+    if (open && !mindmapTaskPanel.current) {
+      // Replace the just-closed node panel: it is the same navigation depth.
+      if (history.state?.genesisMindmapTaskPanel) { /* Adopt the map inspector's navigation entry. */ }
+      else if (history.state?.mindmapPanel) history.replaceState({ genesisMindmapTaskPanel: true }, "", location.href);
+      else history.pushState({ genesisMindmapTaskPanel: true }, "", location.href);
+      mindmapTaskPanel.current = true;
+    } else if (!open && mindmapTaskPanel.current) {
+      mindmapTaskPanel.current = false;
+      if (history.state?.genesisMindmapTaskPanel) history.back();
+    }
+    const close = () => {
+      if (mindmapTaskPanel.current && !history.state?.genesisMindmapTaskPanel) {
+        mindmapTaskPanel.current = false; setTaskComposer(null); setEditingTask(null);
+      }
+    };
+    window.addEventListener("popstate", close);
+    return () => window.removeEventListener("popstate", close);
+  }, [mindmapsOpen, taskComposer, editingTask]);
   const taskComposerDialogRef = useDialogAccessibility<HTMLElement>(() => setTaskComposer(null), Boolean(taskComposer));
   const dayTaskCreatorDialogRef = useDialogAccessibility<HTMLElement>(() => { setDayTaskCreatorOpen(false); setDayDetailsOpen(true); }, dayTaskCreatorOpen);
   const taskEditorDialogRef = useDialogAccessibility<HTMLFormElement>(() => setEditingTask(null), Boolean(editingTask));
@@ -2853,6 +2885,14 @@ export function GenesisCalendar() {
 
   const addTask = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (mindmapConversionBusy.current) return;
+    if (mindmapConversion && taskRecurrenceConfig.enabled) {
+      setSyncError("Из мысли создаётся одна задача. Отключите повторение; существующий экземпляр серии можно добавить через «Добавить из дел».");
+      return;
+    }
+    if (mindmapConversion && Boolean(taskTaskListId)) {
+      setSyncError("Создание из мысли доступно в календаре GENESIS. Задачу из Google Tasks можно привязать через «Добавить из дел»."); return;
+    }
     const title = taskTitle.trim();
     if (!title) return;
     if (newTaskDueDate < todayDateValue) {
@@ -2943,7 +2983,7 @@ export function GenesisCalendar() {
     }
 
     const task: Task = {
-      id: uid(),
+      id: mindmapConversion?.taskId ?? uid(),
       sacredYear: sacred.sacredYear,
       monthIndex: sacred.monthIndex,
       day: sacred.day,
@@ -2997,10 +3037,36 @@ export function GenesisCalendar() {
       updatedAt: timestamp(),
     };
 
+    if (mindmapConversion && cloudUser) {
+      mindmapConversionBusy.current = true;
+      const guard = captureAccountSessionGuard();
+      try {
+        // The operation is durable before the task enters the ordinary domain.
+        const operation = { mapId: mindmapConversion.mapId, nodeId: mindmapConversion.nodeId, taskId: mindmapConversion.taskId, task };
+        await mindmapConversion.repository.journal(operation);
+        guard();
+        const existing = tasksRef.current.find(item => item.id === task.id);
+        const saved = existing ?? (cloudUser.calendarConnected ? await createCloudTaskOnce(cloudUser.uid, task) : task);
+        guard();
+        const localKey = `${GENESIS_USER_WORKSPACE_STORAGE_PREFIX}${cloudUser.uid}`;
+        const local = readStoredState(localKey);
+        localStorage.setItem(localKey, JSON.stringify({ ...local, tasks: [...local.tasks.filter(item => item.id !== saved.id), saved] }));
+        tasksRef.current = [...tasksRef.current.filter(item => item.id !== saved.id), saved];
+        setTasks(current => [...current.filter(item => item.id !== saved.id), saved]);
+        setMindmapConversion(null);
+      } catch (error) {
+        try { guard(); } catch { return; }
+        setSyncError(error instanceof Error && error.message === "TASK_CREATION_UNCONFIRMED"
+          ? "Ответ от внешнего календаря не подтверждён. Задача повторно не создаётся. Обновите синхронизацию и повторите: GENESIS восстановит ссылку по ID."
+          : error instanceof Error ? error.message : "Не удалось создать задачу. Черновик операции сохранён.");
+        setSyncStatus("error"); return;
+      } finally { mindmapConversionBusy.current = false; }
+    } else {
     const taskSeries = buildTaskSeries(task, taskRecurrenceConfig);
     setTasks((current) => [...current, ...taskSeries]);
     if (taskSeries.length === 1) saveTask(taskSeries[0]);
     else saveTaskSeries(taskSeries);
+    }
 
     setTaskComposer(null);
     setTaskTitle("");
@@ -3190,6 +3256,7 @@ export function GenesisCalendar() {
       const occurrenceTask = standaloneTaskFromOccurrence({
         ...nextTask,
         id: uid(),
+        recurrenceOriginalDate: occurrenceDate,
         googleEventId: null,
         googleTaskId: null,
         googleTaskListId: null,
@@ -4471,6 +4538,7 @@ export function GenesisCalendar() {
   };
 
   const openTaskComposer = (context: "today" | "projects") => {
+    setMindmapConversion(null);
     setNewEntryType("task"); setYandexEntryType("task"); setYandexEndTime("");
     setTaskFormCalendar(activeTaskCalendarMode);
     setTaskRecurrenceConfig(alignRecurrenceConfigWithCalendar(taskRecurrenceConfig, activeTaskCalendarMode, todayDateValue));
@@ -4790,7 +4858,7 @@ export function GenesisCalendar() {
 
           <label>
             <span>Куда добавить задачу</span>
-            <select value={taskTaskListId} onChange={(event) => {
+            <select disabled={Boolean(mindmapConversion)} value={taskTaskListId} onChange={(event) => {
               const nextTaskListId = event.target.value;
               setTaskTaskListId(nextTaskListId);
               if (nextTaskListId !== CREATE_NEW_TASK_LIST_ID) setTaskNewListTitle("");
@@ -5759,6 +5827,32 @@ export function GenesisCalendar() {
   );
 
   const renderProjects = () => {
+    if (personalMindmapsEnabled && mindmapsOpen && cloudUser) return <Suspense fallback={<DeferredViewFallback label="Открываем майндмепы…" />}>
+      <Mindmaps key={cloudUser.uid} userId={cloudUser.uid} tasks={tasks} projects={projects} projectId={mindmapsProjectId} projectForTask={resolvedTaskProjectId}
+        onClose={() => { setMindmapsOpen(false); setMindmapsProjectId(null); const url = new URL(location.href); url.searchParams.delete("mindmap"); history.replaceState({}, "", url); requestAnimationFrame(() => window.scrollTo(0, mindmapsReturnScroll.current)); }}
+        onCreateTask={request => { openTaskComposer("projects"); setTaskTitle(request.task?.title ?? request.title); setTaskDescription(request.task?.description ?? ""); setTaskProject(request.projectId ?? ""); setTaskTaskListId(""); setTaskRecurrenceConfig({ ...DEFAULT_RECURRENCE_CONFIG, enabled: false }); setMindmapConversion(request); }}
+        onEditTask={openTaskEditor}
+        onToggleTask={(task, date) => {
+          if (task.googleReadOnly) return;
+          if (!date || task.recurrenceMode === "none") { toggleTask(task.id); return; }
+          const unfinished = task.dependsOnIds.some(id => tasks.some(t => t.id === id && !t.done));
+          if (unfinished && !task.done) { setSyncError("Сначала завершите зависимости задачи."); return; }
+          const remaining = taskSeriesAfterExcludingOccurrence(task, date);
+          const occurrence = standaloneTaskFromOccurrence({ ...taskForOccurrence(task,date), id: uid(), recurrenceOriginalDate: date,
+            done: !task.done, completedAt: task.done ? null : new Date().toISOString(), googleEventId:null, googleTaskId:null, googleLinks:{}, updatedAt:timestamp() },task.id);
+          setTasks(current => [...current.filter(t => t.id !== task.id && t.id !== occurrence.id), ...(remaining ? [remaining] : []), occurrence]);
+          if (remaining) saveTask(remaining); else if (cloudUser.calendarConnected) void removeCloudTask(cloudUser.uid,task);
+          saveTask(occurrence);
+        }}
+        onCalendar={(task,date) => { const value = date || task.dueDate; if (value) {
+          setMindmapsOpen(false); const url = new URL(location.href); url.searchParams.delete("mindmap"); history.replaceState({}, "", url);
+          openCalendarDate(new Date(`${value}T12:00:00`), "year");
+        } }}
+        onProject={id => {
+          setMindmapsOpen(false); const url = new URL(location.href); url.searchParams.delete("mindmap"); history.replaceState({}, "", url);
+          setExpandedExperimentalProjects(ids => ids.includes(id) ? ids : [...ids,id]);
+        }} />
+    </Suspense>;
     const searchTerms = tagSearch
       .toLocaleLowerCase(runtimeLocale())
       .split(/[\s,;#]+/)
@@ -5812,9 +5906,10 @@ export function GenesisCalendar() {
             <button type="button" aria-pressed={!completedProjectsOpen} onClick={() => setCompletedProjectsOpen(false)}>{language === "en" ? "Current" : "Текущие"} · {projects.length - completedCount}</button>
             <button type="button" aria-pressed={completedProjectsOpen} onClick={() => setCompletedProjectsOpen(true)}>{language === "en" ? "Completed" : "Завершённые"} · {completedCount}</button>
           </div>
+          {personalMindmapsEnabled ? <button type="button" className="primary-button personal-mindmaps-entry" onClick={() => { mindmapsReturnScroll.current = window.scrollY; setMindmapsProjectId(null); setMindmapsOpen(true); }}>Майндмепы</button> : null}
         </div>
 
-        <label className="tag-search">
+        <label className="tag-search personal-affairs-search">
           <span aria-hidden="true">{experimentalThemeActive ? <ExperimentalIcon name="search" /> : "⌕"}</span>
           <input aria-label="Поиск задач и проектов по названию или #тегу" value={tagSearch} onChange={(event) => setTagSearch(event.target.value)} placeholder="Поиск задач и проектов по названию или #тегу" />
           {tagSearch ? <button type="button" onClick={() => setTagSearch("")} aria-label="Очистить поиск">{experimentalThemeActive ? <ExperimentalIcon name="close" /> : "×"}</button> : null}
@@ -5932,6 +6027,7 @@ export function GenesisCalendar() {
                     <div className="project-drop-field">
                       <div className="project-drop-heading">
                         <span>Пространство проекта</span>
+                        {personalMindmapsEnabled ? <button type="button" onClick={() => { mindmapsReturnScroll.current = window.scrollY; setMindmapsProjectId(project.id); setMindmapsOpen(true); }}>Майндмепы проекта</button> : null}
                         <small>{projectDragItem ? "Отпустите здесь" : <><span className="project-drag-hint-desktop">Перетащите плашку для переноса</span><span className="project-drag-hint-touch">Удерживайте плашку для переноса</span></>}</small>
                       </div>
                       <div className="project-assigned-items">
@@ -7100,6 +7196,7 @@ export function GenesisCalendar() {
             <h2 id="task-composer-title">{language === "en" ? "Create" : "Создать"} · {taskScope === "shared" ? "Общее дело" : "Личное дело"}</h2>
             <button type="button" className="modal-close" onClick={() => setTaskComposer(null)} aria-label="Закрыть">{experimentalThemeActive ? <ExperimentalIcon name="close" /> : "×"}</button>
             </header>
+            {mindmapConversion ? <p className="mindmap-conversion-notice">Создаётся одна настоящая задача GENESIS. На карте останется ссылка; пояснение карты не переносится. {cloudUser?.calendarConnected ? "Внешняя синхронизация — по выбранным ниже настройкам." : "Google-синхронизация не подключена: задача сохранится на этом устройстве."}</p> : null}
             {taskComposer === "today" && cloudUser?.sharedProjectsEnabled ? <div className="task-scope-switch" role="group" aria-label="Доступ к делу">
               {(["personal", "shared"] as const).map((scope) => <button type="button" key={scope} aria-pressed={taskScope === scope} onClick={() => chooseTaskScope(scope)}>{scope === "personal" ? "Личное" : "Общее"}</button>)}
             </div> : null}

@@ -1,0 +1,12 @@
+✔ Stoicheion card commands open a named catalog card without starting a draw (0.492ms)
+✔ anonymous welcome renders Google-only sign-in in every supported language (963.2165ms)
+✔ a deleted last habit is not restored from stale local data on sign in (1.1548ms)
+✔ sign-in never recreates an absent previously synced task from stale cache (0.9534ms)
+ℹ tests 159
+ℹ suites 0
+ℹ pass 159
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1785.5716

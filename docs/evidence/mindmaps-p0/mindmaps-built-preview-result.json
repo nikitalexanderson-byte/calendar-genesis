@@ -1,0 +1,9 @@
+{
+  "passed": [
+    "actual build:beget output boots",
+    "personal entry",
+    "encrypted map loads through real local API",
+    "structure and lazy canvas chunks load"
+  ],
+  "pageErrors": []
+}

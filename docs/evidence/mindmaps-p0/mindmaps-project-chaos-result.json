@@ -1,0 +1,9 @@
+{
+  "passed": [
+    "explicit inbox sentinel appears in Chaos filter",
+    "task project shown using ordinary domain adapter",
+    "remove ref keeps task",
+    "ProjectRef adds no tasks to progress",
+    "ProjectRef opens ordinary personal project and clears map URL"
+  ]
+}

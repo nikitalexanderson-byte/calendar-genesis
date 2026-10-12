@@ -116,6 +116,8 @@ export type GenesisTask = {
   recurrencePyatas: number[];
   recurrenceExcludedDates: string[];
   recurrenceSeriesId: string | null;
+  /** Stable identity of a detached occurrence, even after its date is edited. */
+  recurrenceOriginalDate?: string | null;
   calendarMode: CalendarMode;
   calendarNote: string;
   syncToGoogle: boolean;
@@ -408,6 +410,36 @@ export function captureAccountSessionGuard() {
   return () => requireActiveLocalSession(generation);
 }
 
+/** Narrow adapter for independent encrypted personal documents. Reuses the session and workspace key. */
+export function personalDocumentAccess(userId: string) {
+  const active = captureAccountSessionGuard();
+  const check = () => {
+    active();
+    if (!userId || userId !== workspaceUserId || !workspaceKey) throw new Error("Разблокируйте зашифрованное пространство GENESIS.");
+  };
+  return {
+    check,
+    async request<T>(path: string, init: RequestInit = {}) {
+      check();
+      if (!/^\/mindmaps(?:\/[a-zA-Z0-9_-]+(?:\/history)?)?$/.test(path)) throw new Error("Invalid personal document path");
+      const value = await api<T>(path, init); check(); return value;
+    },
+    async seal(value: unknown, scope: string) {
+      check(); const iv = crypto.getRandomValues(new Uint8Array(12));
+      const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv,
+        additionalData: new TextEncoder().encode(`genesis-mindmap-v1:${userId}:${scope}`) },
+      await importWorkspaceKey(), new TextEncoder().encode(JSON.stringify(value)));
+      check(); return { iv: bytesToBase64(iv), ciphertext: bytesToBase64(new Uint8Array(encrypted)) };
+    },
+    async open<T>(envelope: { iv: string; ciphertext: string }, scope: string) {
+      check(); const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: base64ToBytes(envelope.iv),
+        additionalData: new TextEncoder().encode(`genesis-mindmap-v1:${userId}:${scope}`) },
+      await importWorkspaceKey(), base64ToBytes(envelope.ciphertext));
+      check(); return JSON.parse(new TextDecoder().decode(plain)) as T;
+    },
+  };
+}
+
 function endLocalSession() {
   localSessionEnded = true;
   sessionGeneration += 1;
@@ -598,7 +630,7 @@ function isDeletedTaskResponse(error: unknown): boolean {
 
 class GenesisNetworkTimeoutError extends Error {}
 
-class GenesisApiError extends Error {
+export class GenesisApiError extends Error {
   readonly status: number;
   readonly payload: Record<string, unknown> | null;
 
@@ -769,6 +801,7 @@ function normalizeTask(task: Partial<GenesisTask> & Pick<GenesisTask, "id" | "ti
     recurrencePyatas,
     recurrenceExcludedDates,
     recurrenceSeriesId: typeof task.recurrenceSeriesId === "string" && task.recurrenceSeriesId ? task.recurrenceSeriesId : null,
+    recurrenceOriginalDate: typeof task.recurrenceOriginalDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(task.recurrenceOriginalDate) ? task.recurrenceOriginalDate : null,
     reminders,
     reminderMinutes: legacyReminderMinutes(reminders),
     calendarMode,
@@ -2196,6 +2229,17 @@ export async function saveCloudTask(_uid: string, task: GenesisTask) {
       throw error;
     }
   });
+}
+
+/** The protected map journal owns retries; never enqueue plaintext task drafts here. */
+export async function createCloudTaskOnce(uid: string, task: GenesisTask) {
+  const guard = captureAccountSessionGuard();
+  guard();
+  if (uid !== workspaceUserId) throw new Error("AUTH_REQUIRED");
+  const result = await api<{ task: GenesisTask }>(`/tasks/${encodeURIComponent(task.id)}`, {
+    method: "PUT", body: JSON.stringify({ ...task, createOnly: true, recurrenceDates: recurrenceDatesForTask(task) }),
+  });
+  guard(); return normalizeTask(result.task);
 }
 
 export async function removeCloudTask(_uid: string, task: GenesisTask) {

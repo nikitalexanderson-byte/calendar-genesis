@@ -30,6 +30,7 @@ define('GENESIS_STATELESS_REQUEST', $method === 'OPTIONS'
     || ($method === 'GET' && in_array($path, ['health', 'auth/providers'], true)));
 require $serverRoot . '/src/bootstrap.php';
 require $serverRoot . '/src/repository.php';
+require $serverRoot . '/src/mindmaps.php';
 require $serverRoot . '/src/ads.php';
 require $serverRoot . '/src/google.php';
 require $serverRoot . '/src/yandex.php';
@@ -848,6 +849,19 @@ try {
         }
     }
 
+    if ($segments && $segments[0] === 'mindmaps') {
+        $userId = genesisRequireUserId();
+        header('Cache-Control: no-store');
+        if ($method === 'GET' && count($segments) === 1) genesisJson(['maps' => genesisMindmaps($userId)]);
+        if ($method === 'GET' && count($segments) === 3 && $segments[2] === 'history') {
+            genesisJson(['versions' => genesisMindmapHistory($userId, $segments[1])]);
+        }
+        if ($method === 'PUT' && count($segments) === 2) {
+            genesisRequireCsrf();
+            genesisJson(genesisSaveMindmap($userId, $segments[1], genesisReadJson()));
+        }
+    }
+
     if ($method === 'GET' && $path === 'workspace') {
         $userId = genesisRequireUserId();
         $user = genesisFindUser($userId);
@@ -1069,6 +1083,10 @@ try {
         }
         if ($method === 'PUT') {
             $task = genesisReadJson();
+            if (($task['createOnly'] ?? false) === true) {
+                unset($task['createOnly']);
+                genesisJson(['task' => genesisCreatePersonalTaskOnce($user, $id, $task)]);
+            }
             genesisJson(['task' => genesisUserProvider($user) === 'google'
                 ? genesisSyncTaskToGoogle($userId, $id, $task)
                 : genesisSyncTaskToLocalGroup($user, $id, $task)]);

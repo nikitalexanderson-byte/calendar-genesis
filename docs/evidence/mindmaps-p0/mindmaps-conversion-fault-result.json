@@ -1,0 +1,13 @@
+{
+  "passed": [
+    "mobile first opens structure",
+    "keyboard add",
+    "Tab does not create nodes",
+    "cancel creates no task",
+    "double submit creates one local task",
+    "failed map write preserves task",
+    "restart recovers same reference",
+    "Back closes node dialog",
+    "Escape closes node dialog"
+  ]
+}

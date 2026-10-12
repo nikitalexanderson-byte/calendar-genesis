@@ -1,0 +1,19 @@
+{
+  "browser": "154.0.8037.99",
+  "viewport": "1440x1000",
+  "mode": "headless Chrome, no CPU/network throttling; real local PHP API",
+  "results": [
+    {
+      "nodes": 200,
+      "loadMs": 2954,
+      "roundTripViewSwitchP95Ms": 2989,
+      "focusMs": 695
+    },
+    {
+      "nodes": 1000,
+      "loadMs": 5078,
+      "roundTripViewSwitchP95Ms": 10374,
+      "focusMs": 2724
+    }
+  ]
+}

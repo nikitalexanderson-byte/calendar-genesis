@@ -1,0 +1,34 @@
+{
+  "flagoff": "entry hidden; ordinary affairs usable; encrypted API envelopes exactly unchanged",
+  "textResizeMethod": "all computed font sizes doubled, CSS text resize simulation, not physical device OS scaling",
+  "metrics": [
+    {
+      "width": 320,
+      "theme": "standart",
+      "viewport": 320,
+      "scroll": 320,
+      "map": 296
+    },
+    {
+      "width": 320,
+      "theme": "standart-dark",
+      "viewport": 320,
+      "scroll": 320,
+      "map": 296
+    },
+    {
+      "width": 1440,
+      "theme": "standart",
+      "viewport": 1440,
+      "scroll": 1440,
+      "map": 1158
+    },
+    {
+      "width": 1440,
+      "theme": "standart-dark",
+      "viewport": 1440,
+      "scroll": 1440,
+      "map": 1158
+    }
+  ]
+}

@@ -1,0 +1,65 @@
+{
+  "passed": [
+    {
+      "timezoneId": "Europe/Moscow",
+      "timeFormat": "24h",
+      "inputCalendar": "Сакральный"
+    },
+    {
+      "timezoneId": "Europe/Moscow",
+      "timeFormat": "24h",
+      "inputCalendar": "Лунный"
+    },
+    {
+      "timezoneId": "Europe/Moscow",
+      "timeFormat": "24h",
+      "inputCalendar": "Григорианский"
+    },
+    {
+      "timezoneId": "Europe/Moscow",
+      "timeFormat": "12h",
+      "inputCalendar": "Сакральный"
+    },
+    {
+      "timezoneId": "Europe/Moscow",
+      "timeFormat": "12h",
+      "inputCalendar": "Лунный"
+    },
+    {
+      "timezoneId": "Europe/Moscow",
+      "timeFormat": "12h",
+      "inputCalendar": "Григорианский"
+    },
+    {
+      "timezoneId": "America/Los_Angeles",
+      "timeFormat": "24h",
+      "inputCalendar": "Сакральный"
+    },
+    {
+      "timezoneId": "America/Los_Angeles",
+      "timeFormat": "24h",
+      "inputCalendar": "Лунный"
+    },
+    {
+      "timezoneId": "America/Los_Angeles",
+      "timeFormat": "24h",
+      "inputCalendar": "Григорианский"
+    },
+    {
+      "timezoneId": "America/Los_Angeles",
+      "timeFormat": "12h",
+      "inputCalendar": "Сакральный"
+    },
+    {
+      "timezoneId": "America/Los_Angeles",
+      "timeFormat": "12h",
+      "inputCalendar": "Лунный"
+    },
+    {
+      "timezoneId": "America/Los_Angeles",
+      "timeFormat": "12h",
+      "inputCalendar": "Григорианский"
+    }
+  ],
+  "scope": "Real existing form and preferences on local fixture. Calendar controls open/select; time picker modes open. This is not a live Google timezone/recurrence sync test."
+}

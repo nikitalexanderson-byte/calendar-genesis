@@ -103,6 +103,7 @@ export default defineConfig({
   publicDir: path.join(projectRoot, "public"),
   plugins: [react(), offlinePrecacheManifest(base), publicLegalDocuments()],
   define: {
+    "process.env.NEXT_PUBLIC_GENESIS_MINDMAPS": JSON.stringify(process.env.GENESIS_MINDMAPS === "true" ? "true" : "false"),
     "process.env.NEXT_PUBLIC_GENESIS_API_URL": JSON.stringify(apiUrl),
     "process.env.NEXT_PUBLIC_GENESIS_BASE_PATH": JSON.stringify(base),
   },
@@ -163,6 +164,11 @@ export default defineConfig({
               test: /app[\\/](?:cloud-sync|workspace-sync-state|tracker-cache)\.ts$/,
               maxSize: 300_000,
               priority: 15,
+            },
+            {
+              name: "interface-icons",
+              test: /app[\\/](?:ExperimentalIcon|NavigationIcon|CalendarModeIcon)\.tsx$/,
+              priority: 14,
             },
             {
               name: "task-form-controls",
